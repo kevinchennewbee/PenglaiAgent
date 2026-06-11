@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
+<img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
 
 # Penglai · 蓬莱
 
@@ -8,7 +8,7 @@
 
 **八仙过海，各显神通** · _where eight immortals cross the sea, each shows their unique power_
 
-[![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](../LICENSE)
+[![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Channels](https://img.shields.io/badge/channels-Feishu%20%C2%B7%20WeChat-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Voice](https://img.shields.io/badge/voice-emotion%20aware-f59e0b?style=flat-square)](#)
@@ -82,7 +82,7 @@ experts, each crossing the sea in its own way, all serving the same you.
 - 🛡️ **Deterministic safety** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **safety by deterministic checks, not LLM goodwill**
 - 🧐 **Double insurance against hallucination** — overconfidence tripwires trigger a second review by a **different vendor's** model (one model can't catch its own hallucinations); fact-finding tasks can fan out to multi-source cross-validated search
 - 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates: quiet hours, never interrupts a live conversation, frequency caps — like a friend thinking of you, not an alarm going off
-- ⚙️ **Ops in one command** — `penglai doctor` 13-point health check / `status` / `logs` / `update` one-command kernel upgrade
+- ⚙️ **Ops in one command** — `penglai doctor` 13-point health check / `status` / `logs` / `update` one-command upgrade to the latest release
 
 > Every item above runs daily on a real server. This is not a roadmap.
 
@@ -117,7 +117,7 @@ Day-to-day:
 penglai doctor     # health check: env/deps/config/LLM/memory/services/upstream
 penglai status     # service status (Feishu / scheduler / companion / WeChat)
 penglai logs       # recent logs
-penglai update     # one-command kernel upgrade
+penglai update     # upgrade to the latest Penglai (pulls the release repo, kernel already merged in)
 ```
 
 > 🇨🇳 China-server friendly: deps via the Tsinghua PyPI mirror, models & code via gh-proxy — the
@@ -129,7 +129,7 @@ Penglai is built on the [GenericAgent](https://github.com/lsdefine/GenericAgent)
 battle-tested ~130-line agent loop: `context → LLM → tools → results flow back`. Penglai is to GA
 what Ubuntu is to the Linux kernel:
 
-- **Zero kernel modifications** — the Penglai layer is additive-only (+1295/−0 today), so kernel upgrades merge with one command and structurally cannot conflict;
+- **Zero kernel modifications** — the GA kernel files (`ga.py`, `frontends/`, `llmcore.py`, the memory tools …) stay at zero diff, so kernel upgrades merge cleanly; the distro layer only curates the tree on top — dropping upstream docs/demos irrelevant to the distribution and adding Penglai's own front page, CLI, plugins and SOPs;
 - **Gradient of forms** — new capabilities prefer SOPs (0 lines of code), then hook plugins, then heartbeat modules, then tools — restraint is a design choice, not laziness;
 - **Identity ≠ memory** — factory state ships zero user memory, just one line of identity. Your memory is your private asset and never enters the distribution.
 
@@ -147,9 +147,10 @@ what Ubuntu is to the Linux kernel:
 
 ## 📜 License & Brand
 
-- **Code**: [MIT](../LICENSE). Upstream GenericAgent's copyright notice is preserved in full; the Penglai layer is © 2026 Kevin Chen, also released under MIT — use it, change it, sell it.
+- **Code**: [MIT](LICENSE). Upstream GenericAgent's copyright notice is preserved in full; the Penglai layer is © 2026 Kevin Chen, also released under MIT — use it, change it, sell it. See [NOTICE](NOTICE) for the code/brand boundary.
 - **Brand**: the "蓬莱" / "Penglai" name, logo, and banner artwork are **all rights reserved** and not covered by the code license. Please don't use them to name or market your forks, derivatives, or commercial offerings without written permission.
   (The common open-source convention: free code, reserved brand — as practiced by Rust, Docker, and others.)
+- **Kernel from upstream**: `ga.py`, `frontends/`, `llmcore.py`, the memory tools, etc. are [GenericAgent](https://github.com/lsdefine/GenericAgent)'s own kernel files (kept at zero diff); Penglai curates and extends on top. The only install entry points are `install.sh` / `docker-install.sh` (both pointing at `kevinchennewbee/PenglaiAgent`).
 
 ## 🙏 Acknowledgments
 

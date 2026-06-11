@@ -435,7 +435,7 @@ mixin_config = {{
 }}
 fs_app_id = {app_id!r}
 fs_app_secret = {app_secret!r}
-fs_allowed_users = []   # 留空=所有人可用；建议测试后填入自己的 open_id 收紧权限
+fs_allowed_users = []   # 留空=对所有可见用户开放（不安全）；向导实测时会自动收紧为你本人
 """
     for k, v in (intel or {}).items():
         body += f"{k} = {v!r}\n"
@@ -481,8 +481,39 @@ def _watch(read_log, pattern, timeout, allow_skip=False):
         print(".", end="", flush=True)
     return False
 
+def _patch_allowlist(open_id):
+    """把 fs_allowed_users 从【空】收紧为 [open_id]（secure-by-default，F-003）。
+    仅在当前为空时改——不覆盖用户/上次已设的白名单。返回是否改动。"""
+    import re
+    path = os.path.join(ROOT, "mykey.py")
+    try:
+        src = open(path, encoding="utf-8").read()
+    except Exception:
+        return False
+    m = re.search(r"^fs_allowed_users\s*=\s*(\[.*?\])", src, re.M)
+    if not m:
+        return False
+    try:
+        cur = eval(m.group(1), {"__builtins__": {}})
+    except Exception:
+        return False
+    if cur:   # 已非空，尊重现状，不动
+        return False
+    new = src[:m.start(1)] + repr([open_id]) + src[m.end(1):]
+    new = new.replace("# 留空=对所有可见用户开放（不安全）；向导实测时会自动收紧为你本人",
+                      "# 已自动收紧为机器人主人；要加人就把对方 open_id 追加进列表")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new)
+        os.chmod(path, 0o600)
+    except Exception:
+        return False
+    return True
+
 def _verify_live(read_log, log_hint):
-    """端到端实测：日志见 connected → 用户真发消息 → 日志见「收到消息」。只报告真实状态。"""
+    """端到端实测：日志见 connected → 用户真发消息 → 日志见「收到消息」。只报告真实状态。
+    返回 (状态, 主人open_id)：状态 ∈ {True, "skip", False}；open_id 从「收到消息 [X]」捕获。"""
+    import re
     print("  等待飞书长连接建立", end="", flush=True)
     got = _watch(read_log, "connected to wss", 45)
     print()
@@ -490,20 +521,21 @@ def _verify_live(read_log, log_hint):
         print(f"{BAD} 45 秒内未建立连接，最近日志（完整: {log_hint}）：")
         for l in read_log().splitlines()[-8:]:
             print("    " + l[:160])
-        return False
+        return False, None
     print(f"{OK} 飞书长连接已建立（日志确认 connected）")
     print("  📨 实测收发：用手机飞书给机器人发一句「你好」（回车跳过，最长等 3 分钟）", end="", flush=True)
     got = _watch(read_log, "收到消息", 180, allow_skip=True)
     print()
     if got is True:
         print(f"{OK} 已收到你的消息，收发链路实测全通")
-        return True
+        m = re.search(r"收到消息 \[([^\]]+)\]", read_log())
+        return True, (m.group(1) if m else None)
     if got == "skip":
         print(f"{WARN}已跳过实测，链路尚未端到端验证")
-        return "skip"
+        return "skip", None
     print(f"{BAD} 3 分钟内未收到消息。常见原因：发错了机器人 / 应用版本未发布 / 可见范围不含你")
     print(f"    日志：{log_hint}")
-    return False
+    return False, None
 
 def step_launch(with_companion=False, with_wechat=False):
     header("步骤 5/5", "启动并验证")
@@ -527,9 +559,12 @@ def step_launch(with_companion=False, with_wechat=False):
             for name, cmd in units.items():
                 # 微信退出码 1=单例/无token、2=token过期需人扫码 → 不自动重启刷屏
                 extra = "RestartPreventExitStatus=1 2\n" if name == "penglai-wechat" else ""
+                # 启动前核验安全插件已挂载（F-011 fail-closed）；失败则 systemd 不拉起本服务
+                guard = (f"ExecStartPre=/bin/bash -lc 'source {env_sh} && "
+                         f"python {ROOT}/penglai _guardcheck'\n")
                 unit = (f"[Unit]\nDescription=Penglai {name}\nAfter=network-online.target\n\n[Service]\nType=simple\n"
                         f"User={os.environ.get('USER', 'root')}\nWorkingDirectory={ROOT}\nEnvironment=HOME={os.path.expanduser('~')}\n"
-                        f"Environment=GA_WORKSPACE_ROOT={work}\nExecStart=/bin/bash -lc 'source {env_sh} && exec {cmd}'\n"
+                        f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}ExecStart=/bin/bash -lc 'source {env_sh} && exec {cmd}'\n"
                         f"Restart=always\nRestartSec=20\n{extra}\n[Install]\nWantedBy=multi-user.target\n")
                 subprocess.run(["sudo", "tee", f"/etc/systemd/system/{name}.service"], input=unit, text=True,
                                check=True, stdout=subprocess.DEVNULL)
@@ -543,7 +578,12 @@ def step_launch(with_companion=False, with_wechat=False):
             r = subprocess.run(["sudo", "journalctl", "-u", "penglai-feishu", f"--since=@{t0}",
                                 "-o", "cat", "--no-pager"], capture_output=True, text=True)
             return r.stdout or ""
-        return _verify_live(read_log, "journalctl -u penglai-feishu -f")
+        status, owner = _verify_live(read_log, "journalctl -u penglai-feishu -f")
+        if status is True and owner and _patch_allowlist(owner):
+            print(f"{OK} 已自动把你（{owner}）设为唯一授权用户，机器人不再对所有可见用户开放")
+            print("  正在重启服务让白名单生效...")
+            subprocess.run(["sudo", "systemctl", "restart", "penglai-feishu"])
+        return status
     # 无 systemd（容器/macOS）或用户拒绝装服务 → 后台直启，照样实测验证
     if not ask("无系统服务模式：现在后台启动飞书进程并实测？(y/n)", "y").lower().startswith("y"):
         print(f"{WARN}未启动。稍后手动: ./penglai start（日志: ./penglai logs）")
@@ -554,7 +594,12 @@ def step_launch(with_companion=False, with_wechat=False):
         with open(log, encoding="utf-8", errors="replace") as f:
             f.seek(pos)
             return f.read()
-    return _verify_live(read_log, f"tail -f {log}")
+    status, owner = _verify_live(read_log, f"tail -f {log}")
+    if status is True and owner and _patch_allowlist(owner):
+        print(f"{OK} 已自动把你（{owner}）设为唯一授权用户，机器人不再对所有可见用户开放")
+        print("  正在重启飞书进程让白名单生效...")
+        _spawn_fsapp(py)
+    return status
 
 def main():
     print_banner()

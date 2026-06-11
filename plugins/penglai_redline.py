@@ -62,11 +62,24 @@ def _block(self, args, reason):
 
 _orig_code_run = GenericAgentHandler.do_code_run
 
+def _resolve_code(self, args, response):
+    """与 ga.do_code_run 同口径取【真正会被执行】的代码，堵死绕过：
+    do_code_run 是 `code = args.get("code") or args.get("script")`，二者皆空时再从
+    回复正文代码块提取（_extract_code_block）。只扫 script 会被 `code` 字段或正文
+    代码块绕过（schema 本身就鼓励无 script 时用正文代码块）。"""
+    code = args.get("code") or args.get("script")
+    if not code:
+        try:
+            code = self._extract_code_block(response, args.get("type", "python"))
+        except Exception:
+            code = None
+    return str(code or "")
+
 def _guarded_code_run(self, args, response):
-    script = str(args.get("script", ""))
+    code = _resolve_code(self, args, response)
     for pat, why in RED_CODE:
-        if re.search(pat, script, re.I | re.M):
-            audit("code_run", {"script": script[:300]}, blocked=True, reason=why)
+        if re.search(pat, code, re.I | re.M):
+            audit("code_run", {"code": code[:300]}, blocked=True, reason=why)
             yield f"⛔ 红线拦截: {why}\n"
             return _block(self, args, why)
     return (yield from _orig_code_run(self, args, response))

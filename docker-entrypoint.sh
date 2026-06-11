@@ -25,5 +25,11 @@ if [ ! -s "$D/mykey.py" ]; then
     exec python /app/penglai setup
 fi
 
+# 安全插件未挂载就拒绝启动（F-011：别让 agent 无防护裸奔；设 PENGLAI_ALLOW_UNGUARDED=1 可强制）
+if [ "${PENGLAI_ALLOW_UNGUARDED:-0}" != "1" ]; then
+    python /app/penglai _guardcheck \
+        || { echo "❌ 安全插件未挂载，拒绝启动（PENGLAI_ALLOW_UNGUARDED=1 可强制，危险）"; exit 2; }
+fi
+
 python /app/agentmain.py --reflect /app/reflect/scheduler.py &
 exec python /app/frontends/fsapp.py

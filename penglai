@@ -77,10 +77,34 @@ def installed_services():
             out.append(s)
     return out or SERVICES[:2]
 
-def ensure_upstream():
-    r = sh(["git", "remote"], cwd=ROOT)
-    if "upstream" not in (r.stdout or "").split():
-        sh(["git", "remote", "add", "upstream", "https://github.com/lsdefine/GenericAgent.git"], cwd=ROOT)
+# ---------- 安全插件预检（F-011 把静默 fail-open 变成可检测/阻断）----------
+GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins.penglai_fileguard"]
+
+def guardcheck():
+    """验证安全插件（红线/记忆卫生/文件外发）真正 import 且挂载到 GenericAgentHandler。
+    供 doctor / start / 容器入口 / systemd 单元统一复用。0=已挂载 1=未挂载。
+    机制：discover_and_load 对失败插件 except:pass（fail-open），故启动前必须主动核验，
+    否则 agent 可能在【无任何防护】下运行而无人知晓。"""
+    try:
+        sys.path.insert(0, ROOT)
+        import plugins.hooks as h
+        h.discover_and_load()
+        import ga
+        miss = [m for m in GUARD_PLUGINS if m not in sys.modules]
+        cr = ga.GenericAgentHandler.do_code_run.__module__
+        fw = ga.GenericAgentHandler.do_file_write.__module__
+    except Exception as e:
+        print(f"FAIL import-error: {e}"); return 1
+    if not miss and cr != "ga" and fw != "ga":
+        print("OK 安全插件已挂载（红线/记忆卫生/文件外发）"); return 0
+    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw}"); return 1
+
+def guard_ok():
+    """以 venv python 子进程跑 guardcheck，返回 (ok, 末行详情)。doctor/start 复用。"""
+    r = sh([venv_python(), os.path.join(ROOT, "penglai"), "_guardcheck"], cwd=ROOT)
+    lines = (r.stdout or "").strip().splitlines()
+    last = lines[-1] if lines else ((r.stderr or "").strip().splitlines() or [""])[-1]
+    return (r.returncode == 0 and last.startswith("OK")), last
 
 # ---------- doctor ----------
 def doctor():
@@ -131,9 +155,26 @@ def doctor():
     else:
         check("mykey.py", False, "复制 mykey_template.py 为 mykey.py 并填入 API Key")
 
+    # 3b. 飞书白名单（空/含* = 对所有可见用户开放本机执行能力，必须红）
+    if os.path.exists(mykey):
+        r = sh([py, "-c", "import mykey;a=getattr(mykey,'fs_allowed_users',[]);"
+                "print('OPEN' if (not a or '*' in a) else 'LOCKED:%d' % len(a))"], cwd=ROOT)
+        st = (r.stdout or "").strip()
+        if st.startswith("LOCKED"):
+            print(f"{OK} 飞书白名单：已收紧（{st.split(':')[1]} 个授权用户）")
+        else:
+            check("飞书白名单", False,
+                  "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
+                  "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），重启服务生效")
+
     # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
     r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
     check("LLM 模块加载 (llmcore)", r.returncode == 0, r.stderr.strip().splitlines()[-1] if r.stderr else "")
+
+    # 4b. 安全插件挂载（红线/记忆卫生/文件外发）—— 未挂载=agent 无防护裸奔，必须红
+    ok, detail = guard_ok()
+    check("安全插件挂载（红线/记忆卫生/文件外发）", ok,
+          f"{detail}！agent 会在无防护下运行，排查 plugins/penglai_*.py 导入错误")
 
     # 5. 记忆状态（出厂态 or 已使用）
     mem = os.path.join(ROOT, "memory", "global_mem.txt")
@@ -167,22 +208,29 @@ def doctor():
         check(f"飞书进程（非 systemd 环境，nohup 模式{'，PID ' + str(pids[0]) if pids else ''}）",
               bool(pids), "运行: ./penglai start")
 
-    # 7. 上游同步状态
-    ensure_upstream()
-    r = sh(["git", "fetch", "upstream", "--quiet"], cwd=ROOT)
-    if r.returncode == 0:
-        r = sh(["git", "rev-list", "--count", "HEAD..upstream/main"], cwd=ROOT)
-        behind = r.stdout.strip() or "?"
+    # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
+    if not is_git_repo():
+        print(f"{WARN} 更新检查：压缩包安装无 git 历史，penglai update 不可用（重装即最新）")
+    elif sh(["git", "fetch", "origin", "--quiet"], cwd=ROOT).returncode == 0:
+        behind = sh(["git", "rev-list", "--count", "HEAD..origin/main"], cwd=ROOT).stdout.strip() or "?"
         mark = OK if behind == "0" else WARN
-        print(f"{mark} 上游 GA：落后 {behind} 个提交" + ("" if behind == "0" else "（可运行 penglai update）"))
+        print(f"{mark} 蓬莱版本：" + ("已是最新" if behind == "0" else f"落后 {behind} 个提交（penglai update 可更新）"))
     else:
-        print(f"{WARN} 上游 GA：无法连接（网络/代理），跳过")
+        print(f"{WARN} 更新检查：无法连接发行仓（网络/代理），跳过")
 
     print(f"\n{'🎉 全部通过，蓬莱身体健康！' if bad == 0 else f'共 {bad} 项需要处理。'}")
     return 1 if bad else 0
 
 # ---------- services ----------
 def svc(action):
+    # 启动前 fail-closed：安全插件没挂载就拒绝启动，别让 agent 无防护裸奔（F-011）
+    if action in ("start", "restart") and os.environ.get("PENGLAI_ALLOW_UNGUARDED") != "1":
+        ok, detail = guard_ok()
+        if not ok:
+            print(f"{BAD} 安全插件未挂载（{detail}）——为防止 agent 无防护运行，拒绝启动。")
+            print("   修复 plugins/penglai_{redline,memguard,fileguard}.py 导入错误后重试，"
+                  "或 PENGLAI_ALLOW_UNGUARDED=1 强制启动（危险，不建议）。")
+            return 2
     if not has_systemd():
         # 容器/macOS：直接管理 nohup 飞书进程
         if action == "status":
@@ -213,21 +261,43 @@ def logs():
     return subprocess.run(["journalctl", "-u", SERVICES[0], "-n", "30", "--no-pager"]).returncode
 
 # ---------- update ----------
+def is_git_repo():
+    return sh(["git", "rev-parse", "--is-inside-work-tree"], cwd=ROOT).stdout.strip() == "true"
+
+REINSTALL_HINT = ("curl -fsSL https://raw.githubusercontent.com/"
+                  "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
+
 def update():
-    print("🔄 同步上游 GenericAgent ...")
-    ensure_upstream()
-    if sh(["git", "fetch", "upstream"], cwd=ROOT).returncode != 0:
-        print(f"{BAD} fetch 失败（检查网络）"); return 1
-    r = sh(["git", "rev-list", "--count", "HEAD..upstream/main"], cwd=ROOT)
-    behind = int(r.stdout.strip() or 0)
-    if behind == 0:
-        print(f"{OK} 已是最新，与上游一致。"); return 0
-    print(f"上游有 {behind} 个新提交，开始合并（蓬莱层全部是新增文件，理论上零冲突）...")
-    r = subprocess.run(["git", "merge", "upstream/main", "--no-edit"], cwd=ROOT)
-    if r.returncode != 0:
-        print(f"{BAD} 合并冲突！这是体检信号：我们越界改了 GA 的文件。请人工处理（git status 查看）。")
+    """更新到最新版蓬莱发行仓（origin=PenglaiAgent，快照链已含合并后的 GA + 蓬莱层修复）。
+    不在用户机上 merge lsdefine 上游——那会因浅克隆 unrelated-histories 失败/冲突（F-013）；
+    上游 GA 的合并是维护者在开发仓的流程，普通用户只跟随发行仓 release。"""
+    print("🔄 检查蓬莱更新 ...")
+    # 1. 压缩包安装没有 .git，无法增量更新 —— 给可操作提示，别误报"网络问题"
+    if not is_git_repo():
+        print(f"{BAD} 当前是压缩包安装（无 git 历史），无法增量更新。")
+        print(f"   重跑安装脚本即获取最新版，数据/mykey.py 不受影响：\n   {REINSTALL_HINT}")
         return 1
-    print(f"{OK} 合并完成。冒烟清单：penglai doctor → 重启服务 → 飞书问好 → 发语音 → 写记忆")
+    # 2. 浅克隆补全历史（install.sh / bootstrap 用 --depth 1，否则 fast-forward 缺 merge-base）
+    if sh(["git", "rev-parse", "--is-shallow-repository"], cwd=ROOT).stdout.strip() == "true":
+        print("  首次更新：补全 git 历史（浅克隆 → 完整）...")
+        sh(["git", "fetch", "--unshallow", "origin"], cwd=ROOT)
+    # 3. 脏工作区会挡住 fast-forward，提前提示
+    if sh(["git", "status", "--porcelain"], cwd=ROOT).stdout.strip():
+        print(f"{WARN}检测到本地未提交改动，可能挡住更新。建议先还原/备份后再更新。")
+    # 4. 拉取发行仓
+    if sh(["git", "fetch", "origin"], cwd=ROOT).returncode != 0:
+        print(f"{BAD} 拉取失败（检查网络/代理）"); return 1
+    behind = sh(["git", "rev-list", "--count", "HEAD..origin/main"], cwd=ROOT).stdout.strip() or "0"
+    if behind == "0":
+        print(f"{OK} 已是最新版蓬莱。"); return 0
+    print(f"发行仓有 {behind} 个新提交，更新中（快照为线性历史，正常 fast-forward）...")
+    # 5. 只允许 fast-forward：历史分叉/本地改动时不强合，保守留给用户处理
+    if subprocess.run(["git", "merge", "--ff-only", "origin/main"], cwd=ROOT).returncode != 0:
+        print(f"{BAD} 无法 fast-forward（本地有改动或历史分叉），保守起见不强制合并。")
+        print(f"   备份 mykey.py 后重装即最新，数据不丢：\n   {REINSTALL_HINT}")
+        return 1
+    print(f"{OK} 已更新到最新版蓬莱（含上游 GA 与蓬莱层修复）。")
+    print("   冒烟：penglai doctor → 重启服务 → 飞书问好")
     return 0
 
 def setup():
@@ -236,7 +306,7 @@ def setup():
 def main():
     cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
             "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
-            "logs": logs, "update": update, "setup": setup}
+            "logs": logs, "update": update, "setup": setup, "_guardcheck": guardcheck}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if arg not in cmds:
         print(__doc__.strip()); return 0

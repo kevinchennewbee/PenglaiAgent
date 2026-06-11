@@ -47,9 +47,17 @@ say "  ✅ 镜像就绪"
 # ── 3. 首次配置:交互向导(配置写入 $VOL 卷,容器删了也不丢) ─────────────────
 docker volume create "$VOL" >/dev/null
 if ! docker run --rm -v "$VOL:/data" --entrypoint sh "$IMG" -c 'test -s /data/mykey.py'; then
-    TTY="-i"; [ -t 0 ] && TTY="-it"
-    docker run $TTY --rm -v "$VOL:/data" "$IMG" setup \
-        || die "向导未完成。重跑本命令可从断点继续(已验证的配置不用重填)"
+    # curl|sh 下 stdin 是脚本管道,向导 input() 会读到 EOF 而中断。
+    # 改接真实终端 /dev/tty(install.sh 同款修法);无终端则给可操作提示,不让向导空跑崩溃。
+    if [ -t 0 ]; then
+        docker run -it --rm -v "$VOL:/data" "$IMG" setup \
+            || die "向导未完成。重跑本命令可从断点继续(已验证的配置不用重填)"
+    elif (: </dev/tty) 2>/dev/null; then
+        docker run -it --rm -v "$VOL:/data" "$IMG" setup </dev/tty \
+            || die "向导未完成。重跑本命令可从断点继续(已验证的配置不用重填)"
+    else
+        die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO ${MIRROR}https://raw.githubusercontent.com/$OWNER_REPO/main/docker-install.sh && sh docker-install.sh"
+    fi
 fi
 
 # ── 4. 常驻服务:开机自启,挂了自动拉起 ──────────────────────────────────────

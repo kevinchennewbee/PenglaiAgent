@@ -1,0 +1,58 @@
+蓬莱 · Penglai
+================
+
+Penglai (蓬莱) is a downstream *distribution* of GenericAgent — the GA kernel is
+kept at zero diff and all Penglai capabilities are mounted as additive files /
+runtime plugins (like Ubuntu to the Linux kernel). This NOTICE records the
+copyright and brand boundaries that the single root LICENSE (upstream MIT) does
+not, by itself, make obvious to license scanners or downstream users.
+
+
+Code license
+------------
+
+All code is MIT licensed (see ./LICENSE).
+
+  * Upstream kernel — GenericAgent
+    Copyright (c) 2025 lsdefine
+    https://github.com/lsdefine/GenericAgent
+    The upstream MIT copyright notice in ./LICENSE is retained in full.
+
+  * Penglai distribution layer
+    Copyright (c) 2026 Kevin Chen (kevinchennewbee)
+    Released under the same MIT terms.
+    The Penglai layer is the set of files that do NOT exist upstream (additive
+    files, plus the distro's own front page and docs), e.g.: README.md,
+    README_EN.md, CONTRIBUTING.md, NOTICE, .gitattributes, penglai,
+    penglai_setup.py, penglai_providers.yaml, plugins/penglai_*.py,
+    reflect/penglai_companion.py, memory/penglai_*_sop.md, install.sh,
+    docker-install.sh, docker-entrypoint.sh, Dockerfile, docker-compose.yml,
+    installer/*, .github/workflows/*, .github/assets/*, tests/*.
+
+
+Upstream kernel files are kept verbatim
+---------------------------------------
+
+The core sources (ga.py, agent_loop.py, agentmain.py, llmcore.py, simphtml.py,
+TMWebDriver.py, frontends/*, the memory/* tools, and the assets/* the kernel
+actually loads at runtime), together with the root pyproject.toml and LICENSE,
+are upstream GenericAgent files kept at deliberate zero diff so that upstream
+kernel updates merge cleanly.
+
+As a distribution, Penglai curates the tree: upstream files that only describe
+or promote the GenericAgent project itself (its own README, docs/, demo media,
+community QR codes, technical report) are not part of running the distro and are
+not carried here. The repository's front page is this repo's root README.md
+(Penglai-branded). Penglai's only install entry points are install.sh /
+docker-install.sh / the PyPI bootstrap (installer/), all pointing at
+kevinchennewbee/PenglaiAgent.
+
+
+Brand
+-----
+
+The names "蓬莱" / "Penglai", the logo, and the banner / visual assets are NOT
+covered by the MIT code license and all rights to them are reserved. Please do
+not use them to name or brand your own distribution, derivative, or commercial
+product without written permission. (Code free, brand reserved — the same
+convention used by Rust and Docker.)

@@ -14,10 +14,17 @@ memory_tool 的威胁扫描理念，见 reference/hermes/tools/memory_tool.py）
 不拦的（误杀率优先于召回率）：
 - curl/wget 带密钥变量等外传模式：L3 SOP 里 `curl -H "Bearer $API_KEY"` 是合法
   教学内容；真外传该在执行层拦，penglai_redline 已管 code_run。
-- code_run 绕写 memory/：可靠识别"shell 写记忆"误杀风险高，SOP 已禁 + redline 管致命面。
 
-挂载：包装 do_file_write / do_file_patch（类级，GA 零改动），与 penglai_redline
-同款样板；拦截事件写入 redline 同一份审计 JSONL。
+code_run 绕写 memory/（F-006）：do_code_run 跑任意 python/bash，cwd 在 workspace 根，
+可直接 open('memory/..','w') 绕过上面的威胁扫描与禁覆盖。早期版本放弃拦它（怕"识别
+shell 写记忆"误杀），改用"执行前快照 / 执行后比对还原"在执行层兜底——纯读 memory/
+不受影响（只对内容变化与新增动作），改写已存在记忆→还原，新建记忆→过同一套威胁
+扫描命中即隔离。GA 内核的记忆结算走 file_read/file_patch（do_start_long_term_update
+只产出指令文本，不直接写文件），故不误伤；内核高频重写的 file_access_stats.json 与
+会话归档 L4_raw_sessions 排除在快照外。
+
+挂载：包装 do_file_write / do_file_patch / do_code_run（类级 monkeypatch，GA 零改动），
+与 penglai_redline 同款样板；拦截事件写入 redline 同一份审计 JSONL。
 """
 import os, re
 
@@ -124,3 +131,112 @@ def _guarded_file_patch(self, args, response):
 
 
 GenericAgentHandler.do_file_patch = _guarded_file_patch
+
+
+# ── code_run 记忆绕写防护（F-006）：执行前快照 → 执行后比对还原 ──────────────
+# 项目记忆（project_mode 上游插件）也纳入保护：temp/projects/*/project_memory.md
+_PROJ_MEM_ROOT = os.path.realpath(os.path.join(script_dir, "temp", "projects"))
+_SNAPSHOT_SKIP_DIRS = {"L4_raw_sessions", "__pycache__", ".git"}   # 不注入提示词的归档/缓存
+_SNAPSHOT_EXCLUDE_NAMES = {"file_access_stats.json"}              # 内核每次读记忆都重写
+
+
+def _protected_files():
+    """枚举受保护的记忆文件实路径：注入提示词的 L1/L2 + 技能 + 项目记忆。
+    排除会话归档与访问统计（内核高频写、且不进提示词，纳入会误还原）。"""
+    if os.path.isdir(MEM_ROOT):
+        for dp, dirs, files in os.walk(MEM_ROOT):
+            dirs[:] = [d for d in dirs if d not in _SNAPSHOT_SKIP_DIRS]
+            for fn in files:
+                if fn not in _SNAPSHOT_EXCLUDE_NAMES:
+                    yield os.path.realpath(os.path.join(dp, fn))
+    if os.path.isdir(_PROJ_MEM_ROOT):
+        for dp, dirs, files in os.walk(_PROJ_MEM_ROOT):
+            dirs[:] = [d for d in dirs if d not in _SNAPSHOT_SKIP_DIRS]
+            for fn in files:
+                if fn == "project_memory.md":
+                    yield os.path.realpath(os.path.join(dp, fn))
+
+
+def _snapshot_memory():
+    snap = {}
+    for fp in _protected_files():
+        try:
+            with open(fp, "rb") as f:
+                snap[fp] = f.read()
+        except Exception:
+            pass
+    return snap
+
+
+def _enforce_memory(snap):
+    """对比快照：已存在文件被改写/删除→还原；新建文件→威胁扫描，命中→隔离删除。
+    返回 [(路径, 原因), ...]。"""
+    violations = []
+    current = set(_protected_files())
+    for fp in current:
+        try:
+            with open(fp, "rb") as f:
+                now = f.read()
+        except Exception:
+            continue
+        if fp in snap:
+            if now != snap[fp]:
+                try:
+                    with open(fp, "wb") as f:
+                        f.write(snap[fp])
+                    violations.append((fp, "code_run 改写已存在记忆→已还原"))
+                except Exception:
+                    pass
+        else:
+            why = _scan(now.decode("utf-8", "replace"))
+            if why:
+                try:
+                    os.remove(fp)
+                except Exception:
+                    pass
+                violations.append((fp, f"code_run 新建记忆命中威胁({why})→已隔离"))
+    for fp, data in snap.items():
+        if fp not in current and not os.path.exists(fp):
+            try:
+                os.makedirs(os.path.dirname(fp), exist_ok=True)
+                with open(fp, "wb") as f:
+                    f.write(data)
+                violations.append((fp, "code_run 删除记忆→已还原"))
+            except Exception:
+                pass
+    return violations
+
+
+_orig_code_run_mem = GenericAgentHandler.do_code_run
+
+
+def _guarded_code_run_mem(self, args, response):
+    snap = _snapshot_memory()
+    outcome = yield from _orig_code_run_mem(self, args, response)
+    try:
+        violations = _enforce_memory(snap)
+    except Exception:
+        violations = []
+    if violations:
+        for fp, why in violations:
+            audit("code_run", {"path": fp}, blocked=True, reason=f"记忆卫生:{why}")
+        note = ("⛔ 蓬莱记忆卫生：code_run 改动了长期记忆，已自动撤销/隔离（"
+                + "；".join(f"{os.path.basename(fp)}:{w}" for fp, w in violations)
+                + "）。长期记忆只能经 memory_update / file_patch 走威胁扫描写入，"
+                "不可用 code_run 绕写。")
+        yield note + "\n"
+        try:
+            data = getattr(outcome, "data", None)
+            if isinstance(data, str):
+                outcome.data = note + "\n" + data
+            elif isinstance(data, dict):
+                data["penglai_memguard"] = note
+        except Exception:
+            pass
+    return outcome
+
+
+# 链顺序：memguard 先 import redline（见顶部），故 redline 先包 do_code_run；此处再包一层，
+# 运行时链 = memguard(快照/还原) → redline(红线扫码) → GA 原始。红线拦截时代码不执行，
+# memguard 快照无变化，二者互不干扰。
+GenericAgentHandler.do_code_run = _guarded_code_run_mem

@@ -1,44 +1,31 @@
-# Contributing to GenericAgent
+# 为蓬莱做贡献 · Contributing to Penglai
 
-## Why This File Is Short
+蓬莱（Penglai）是 [GenericAgent](https://github.com/lsdefine/GenericAgent)（GA）的中文个人管家**发行版**——
+内核完全用 GA，蓬莱只在其上做发行层的裁剪与增补。请按问题归属选地方：
 
-GenericAgent's core is ~3K lines. Every file in this repo will be read by AI agents — potentially thousands of times. Extra words cost real tokens and push useful context out of the window, increasing hallucinations. This document practices what it preaches: **say only what matters.**
+- **内核 / Agent 循环 / 工具本身的 bug** → 提到上游 [GenericAgent](https://github.com/lsdefine/GenericAgent)。
+  蓬莱不编辑 GA 内核文件（`ga.py`、`agent_loop.py`、`llmcore.py`、`agentmain.py`、`frontends/*` 等保持零 diff）。
+- **发行层问题**（安装向导、`penglai` CLI、Docker、飞书/微信接入打磨、`plugins/penglai_*` 插件、SOP 包、文档、
+  发布脚本）→ 在本仓库提 issue / PR。
 
-## Before You Contribute
+## PR 约定
 
-1. **Read the codebase first.** It's small enough to read in one sitting. Understand the philosophy before proposing changes.
-2. **Open an Issue first** for anything non-trivial. Discuss before coding.
+1. **只动发行层或新增文件，不编辑上游 GA 文件。** 要改现有工具/前端的行为，用 `plugins/penglai_*.py`
+   在运行时 monkeypatch 包装（例：`_orig = GenericAgentHandler.do_xxx` 再覆盖），保上游升级无冲突。
+2. **安全相关改动配套回归测试**：放进 `tests/`，`python tests/test_xxx.py` 或 `pytest` 全绿。
+3. **面向用户的字符串中英兼顾**即可；代码注释跟随周围风格，别堆无谓注释。
+4. 小而可审的 diff，一个 PR 一件事。
 
-## Code Standards
+---
 
-All PRs go through a strict automated code review skill. Key expectations:
+Penglai is a Chinese personal-butler **distribution** of [GenericAgent](https://github.com/lsdefine/GenericAgent):
+the kernel is GA, untouched; Penglai only curates and extends on top.
 
-- **Self-documenting code, minimal comments.** If code needs a paragraph to explain, rewrite it.
-- **Compact and visually uniform.** Fewer lines, consistent line lengths, no fluff.
-- **Small change radius.** Changing A shouldn't ripple through B, C, D.
-- **More features → less code.** Good abstractions make the codebase shrink, not grow.
-- **Let it crash by failure radius.** Critical errors fail loud; trivial ones pass silently. No blanket try-catch.
+- Kernel / agent-loop / tool bugs → file upstream at **GenericAgent**. Penglai never edits GA kernel files.
+- Distribution-layer issues (wizard, `penglai` CLI, Docker, channel polish, `plugins/penglai_*`, docs,
+  release scripts) → open an issue / PR here.
 
-> ⚠️ This review is deliberately strict — most AI-generated code (e.g. Claude Code output) will not pass as-is. Read the full principles before submitting.
+PR rules: edit only distro-layer or new files (wrap GA behavior via runtime monkeypatch in
+`plugins/penglai_*.py`, never edit GA files); ship a `tests/` regression for security changes; keep diffs small.
 
-## Skill Contributions
-
-GenericAgent evolves through skills. Not all skills belong in the core repo:
-
-| Type | Where it goes | Example |
-|---|---|---|
-| **Fundamental / universal** | Core repo (`memory/`) | File search, clipboard, basic web ops |
-| **Domain-specific / niche** | Skill Marketplace *(coming soon)* | Stock screening, food delivery, specific API integrations |
-
-If your skill only makes sense for a specific workflow, it's a marketplace candidate, not a core PR.
-
-## PR Checklist
-
-- [ ] Issue linked or context explained in ≤3 sentences
-- [ ] Code passes the [review principles] self-check:
-  1. Can I safely modify this locally without reading the whole codebase?
-  2. Is there a clear core abstraction — new features add implementations, not modify old logic?
-  3. Are change points converging at boundaries, not scattered everywhere?
-  4. On failure, can I quickly locate the responsible module?
-- [ ] Net line count: ideally negative or zero for refactors
-- [ ] No unnecessary dependencies added
+「蓬莱 / Penglai」名称与视觉品牌保留所有权利，详见 [NOTICE](NOTICE)。

@@ -1,0 +1,11 @@
+# 发行层覆盖上游同名文件时，合并 upstream（lsdefine/GenericAgent）永远保留蓬莱的版本，
+# 避免每次同步上游都要重新解决 README 冲突。
+#
+# 维护者一次性在本仓库启用 ours 合并驱动：
+#     git config merge.ours.driver true
+#
+# 内核文件（ga.py / frontends/ / llmcore.py / agent_loop.py / memory 工具…）保持零 diff，
+# 合并它们照常自动进行，不在此列。被删除的上游文档/演示若上游又改动，合并时手动 git rm 即可。
+
+README.md      merge=ours
+README_EN.md   merge=ours

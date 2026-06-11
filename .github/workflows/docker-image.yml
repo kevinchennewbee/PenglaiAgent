@@ -28,4 +28,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/kevinchennewbee/penglai:latest
+          # 同时打 sha 版本 tag:坏的 :latest 可回滚到上一个 sha- 镜像
+          # (核心依赖 import 冒烟在 Dockerfile RUN 内,双架构构建都跑,装坏即构建失败不发布)
+          tags: |
+            ghcr.io/kevinchennewbee/penglai:latest
+            ghcr.io/kevinchennewbee/penglai:sha-${{ github.sha }}
