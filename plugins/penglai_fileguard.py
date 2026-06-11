@@ -17,6 +17,12 @@
 补丁。改为注册 `agent_before` 钩子（agent_loop.py:49，每次跑 agent 开头触发，远早于
 任务结束后才发文件的 `_send_generated_files`）里幂等延迟挂载。
 
+模块定位：生产部署（systemd/docker/penglai start）一律 `python frontends/fsapp.py`
+直接跑脚本，此时 fsapp 在 sys.modules 里的名字是 `__main__` 而不是 `frontends.fsapp`
+——只查后者会永远挂载失败、静默 fail-open（2026-06-11 真机实测踩过：仓库根的 penglai
+脚本被原样外发，journal 无任何拦截记录）。故两个名字都查，`__main__` 按 __file__
+是否为 fsapp.py 确认身份。
+
 仅覆盖飞书（默认面、真实暴露面）。微信/企微是 opt-in 且不在默认 systemd/docker 部署
 面，其 `[FILE:]`/媒体路径穿越记为上游 PR 候选，不在此层包装（未经真机验证不上）。
 """
@@ -64,6 +70,20 @@ def _is_outbound_allowed(file_path):
 
 
 _orig_send_local_file = None
+_fsapp_mod = None   # 被挂载的 fsapp 模块对象（frontends.fsapp 或脚本模式下的 __main__）
+
+
+def _find_fsapp_module():
+    """定位运行中的 fsapp 模块。绝不主动 import（避免在 scheduler/wechat 进程里
+    误触发飞书启动）。脚本模式（python frontends/fsapp.py）下名字是 __main__。"""
+    mod = sys.modules.get("frontends.fsapp")
+    if mod is not None:
+        return mod
+    main = sys.modules.get("__main__")
+    f = getattr(main, "__file__", None) or ""
+    if os.path.basename(f) == "fsapp.py":
+        return main
+    return None
 
 
 def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
@@ -71,9 +91,10 @@ def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
     if not ok:
         audit("send_file", {"path": str(file_path)}, blocked=True, reason=f"外发拦截:{why}")
         try:
-            import frontends.fsapp as _fs
-            _fs.send_message(receive_id, f"⛔ 蓬莱安全策略：拒绝外发该文件（{why}）",
-                             receive_id_type=receive_id_type)
+            # 用挂载时定位的模块对象回话——脚本模式下 import frontends.fsapp
+            # 会把 fsapp 整个重新执行一遍（双连接），绝不能 import
+            _fsapp_mod.send_message(receive_id, f"⛔ 蓬莱安全策略：拒绝外发该文件（{why}）",
+                                    receive_id_type=receive_id_type)
         except Exception:
             pass
         return False
@@ -84,12 +105,11 @@ _PATCHED = False
 
 
 def _try_patch():
-    """幂等延迟挂载。仅当 frontends.fsapp 已在 sys.modules（=在 fsapp 进程内）才打补丁，
-    绝不主动 import 它——避免在 scheduler/wechat 进程里误触发飞书启动。"""
-    global _PATCHED, _orig_send_local_file
+    """幂等延迟挂载。仅当 fsapp 模块已在 sys.modules（=在 fsapp 进程内）才打补丁。"""
+    global _PATCHED, _orig_send_local_file, _fsapp_mod
     if _PATCHED:
         return True
-    mod = sys.modules.get("frontends.fsapp")
+    mod = _find_fsapp_module()
     if mod is None:
         return False
     if getattr(mod, "_penglai_fileguard", False):
@@ -99,6 +119,7 @@ def _try_patch():
     if orig is None:
         return False   # fsapp 还没执行到定义处，下次钩子再试
     _orig_send_local_file = orig
+    _fsapp_mod = mod
     mod._send_local_file = _guarded_send_local_file
     mod._penglai_fileguard = True
     _PATCHED = True

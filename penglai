@@ -18,7 +18,9 @@
 """
 import os, sys, shutil, subprocess
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# realpath 而非 abspath：install.sh 会软链 ~/.local/bin/penglai → 仓库内本体，
+# abspath 会把 ROOT 解析到 ~/.local/bin，整个发行版找不到自己（真机踩过）
+ROOT = os.path.dirname(os.path.realpath(__file__))
 SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-companion", "penglai-wechat",
             "penglai-dingtalk", "penglai-wecom2", "penglai-qq", "penglai-telegram", "penglai-discord"]
 OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道",
@@ -62,10 +64,10 @@ def fsapp_start():
             return 1
         with open(FSLOG, encoding="utf-8", errors="replace") as f:
             if "connected to wss" in f.read():
-                print(f"{OK} 飞书进程已启动且长连接已建立（PID {p.pid}，日志: ./penglai logs）")
+                print(f"{OK} 飞书进程已启动且长连接已建立（PID {p.pid}，日志: penglai logs）")
                 return 0
         time.sleep(2)
-    print(f"{WARN}进程在跑（PID {p.pid}）但 45 秒未见连接成功，./penglai logs 查看")
+    print(f"{WARN}进程在跑（PID {p.pid}）但 45 秒未见连接成功，penglai logs 查看")
     return 1
 
 def fsapp_stop():
@@ -102,11 +104,35 @@ def guardcheck():
         miss = [m for m in GUARD_PLUGINS if m not in sys.modules]
         cr = ga.GenericAgentHandler.do_code_run.__module__
         fw = ga.GenericAgentHandler.do_file_write.__module__
+        fg_ok = _probe_fileguard_mount()
     except Exception as e:
         print(f"FAIL import-error: {e}"); return 1
-    if not miss and cr != "ga" and fw != "ga":
+    if not miss and cr != "ga" and fw != "ga" and fg_ok:
         print("OK 安全插件已挂载（红线/记忆卫生/文件外发）"); return 0
-    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw}"); return 1
+    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw} fileguard={fg_ok}"); return 1
+
+def _probe_fileguard_mount():
+    """模拟生产部署的真实路径：fsapp 以 `python frontends/fsapp.py` 跑时模块名是
+    __main__。曾因 fileguard 只查 frontends.fsapp 在生产静默 fail-open 而 guardcheck
+    假绿（2026-06-11 真机事故），此探针专门复现该形态，挂不上=FAIL。"""
+    import types
+    import plugins.penglai_fileguard as fg
+    fake = types.ModuleType("__main__")
+    fake.__file__ = os.path.join(ROOT, "frontends", "fsapp.py")
+    fake._send_local_file = lambda *a, **k: True
+    fake.send_message = lambda *a, **k: None
+    saved_main = sys.modules.get("__main__")
+    saved = (fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod)
+    try:
+        fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod = False, None, None
+        sys.modules["__main__"] = fake
+        mounted = fg._try_patch()
+        wrapped = fake._send_local_file is fg._guarded_send_local_file
+        return bool(mounted and wrapped)
+    finally:
+        if saved_main is not None:
+            sys.modules["__main__"] = saved_main
+        fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod = saved
 
 def guard_ok():
     """以 venv python 子进程跑 guardcheck，返回 (ok, 末行详情)。doctor/start 复用。"""
@@ -215,7 +241,7 @@ def doctor():
     else:
         pids = fsapp_pids()
         check(f"飞书进程（非 systemd 环境，nohup 模式{'，PID ' + str(pids[0]) if pids else ''}）",
-              bool(pids), "运行: ./penglai start")
+              bool(pids), "运行: penglai start")
 
     # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
     if not is_git_repo():
@@ -277,7 +303,7 @@ def logs():
         return 0
     if not has_systemd():
         if not os.path.exists(FSLOG):
-            print(f"{WARN}暂无日志（{FSLOG}）。先 ./penglai start"); return 1
+            print(f"{WARN}暂无日志（{FSLOG}）。先 penglai start"); return 1
         for l in open(FSLOG, encoding="utf-8", errors="replace").read().splitlines()[-30:]:
             print(l)
         return 0
@@ -326,11 +352,42 @@ def update():
 def setup():
     return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
 
+def ensure_tui_deps():
+    """rich/textual 预检。uv 建的 venv 没有 pip，上游 tuiapp_v2 的
+    `python -m pip` 自装必败（真机踩过），故在入口侧用 uv → ensurepip+pip 兜底。"""
+    py = venv_python()
+    if sh([py, "-c", "import rich, textual"]).returncode == 0:
+        return True
+    print("📦 首次运行，安装终端界面依赖 rich/textual ...")
+    uv = shutil.which("uv") or (os.path.expanduser("~/.local/bin/uv")
+                                if os.path.exists(os.path.expanduser("~/.local/bin/uv")) else None)
+    attempts = []
+    if uv:
+        attempts.append([uv, "pip", "install", "--python", py, "-q", "rich", "textual"])
+        attempts.append([uv, "pip", "install", "--python", py, "-q",
+                         "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "rich", "textual"])
+    attempts.append([py, "-m", "pip", "install", "-q", "rich", "textual"])
+    attempts.append([py, "-m", "pip", "install", "-q",
+                     "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "rich", "textual"])
+    for i, cmd in enumerate(attempts):
+        if cmd[1] == "-m" and sh([py, "-m", "pip", "--version"]).returncode != 0:
+            sh([py, "-m", "ensurepip", "--upgrade"])
+        if sh(cmd).returncode == 0 and sh([py, "-c", "import rich, textual"]).returncode == 0:
+            print(f"{OK} 依赖就绪")
+            return True
+    print(f"{BAD} 自动安装失败，请手动执行：{py} -m pip install rich textual")
+    return False
+
 def tui():
-    """终端对话界面 = 上游 GA 的 tuiapp_v2（内核零改动，rich/textual 首次运行自动安装）。
+    """终端对话界面 = 上游 GA 的 tuiapp_v2 套蓬莱品牌薄包装（内核零改动）。
     与飞书/微信共享同一份记忆——同一个管家，多个门。"""
+    if not ensure_tui_deps():
+        return 1
     os.chdir(ROOT)
-    os.execv(venv_python(), [venv_python(), os.path.join(ROOT, "frontends", "tuiapp_v2.py")])
+    entry = os.path.join(ROOT, "penglai_tui.py")
+    if not os.path.exists(entry):
+        entry = os.path.join(ROOT, "frontends", "tuiapp_v2.py")
+    os.execv(venv_python(), [venv_python(), entry])
 
 def channel_cmd(fn_name):
     sys.path.insert(0, ROOT)

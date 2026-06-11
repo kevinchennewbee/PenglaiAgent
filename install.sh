@@ -86,7 +86,21 @@ else
     say "  ✅ 检测到 $($PY --version 2>&1)(依赖由向导自动安装)"
 fi
 
-# ── 4. 进入向导 ──────────────────────────────────────────────────────────────
+# ── 4. penglai 命令上 PATH(软链;脚本内部用 realpath 解析回仓库) ──────────────
+mkdir -p "$HOME/.local/bin"
+ln -sf "$TARGET/penglai" "$HOME/.local/bin/penglai"
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *)  # 当前 PATH 没有 ~/.local/bin:写进 rc 文件,下次登录生效
+        for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+            [ -f "$rc" ] && ! grep -q '\.local/bin' "$rc" \
+                && printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+        done
+        say "  ℹ️  已把 ~/.local/bin 加入 PATH(重开终端生效;本次会话可用 $TARGET/penglai)"
+        ;;
+esac
+
+# ── 5. 进入向导 ──────────────────────────────────────────────────────────────
 say ""
 say "✅ 发行版就绪:$TARGET"
 say "   进入安装向导(模型 → 飞书 → 可选微信扫码)..."

@@ -92,7 +92,7 @@ def _get_provider_list():
         return [
             (1,  "DeepSeek",               "deepseek",   "paygo", "https://api.deepseek.com",                    "deepseek-v4-flash",           "https://platform.deepseek.com"),
             (2,  "字节火山 Ark (按量)",     "volcengine", "paygo", "https://ark.cn-beijing.volces.com/api/v3",    "doubao-seed-2.0-lite",        "https://console.volcengine.com/ark"),
-            (3,  "字节火山 Ark (Coding)",   "volcengine", "coding_plan", "https://ark.cn-beijing.volces.com/api/coding/v3", "doubao-seed-2.0-code", "https://console.volcengine.com/ark"),
+            (3,  "字节火山 Ark (Coding)",   "volcengine", "coding_plan", "https://ark.cn-beijing.volces.com/api/coding/v3", "ark-code-latest", "https://console.volcengine.com/ark"),
             (4,  "阿里云百炼 Qwen",         "bailian",    "paygo", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen3.7-plus",         "https://bailian.console.aliyun.com"),
             (5,  "智谱 GLM",               "zhipu",      "paygo", "https://open.bigmodel.cn/api/paas/v4/",       "glm-5.1",                     "https://open.bigmodel.cn"),
             (6,  "MiniMax",                "minimax",    "paygo", "https://api.minimaxi.com/v1",                 "MiniMax-M3",                  "https://platform.minimaxi.com"),
@@ -586,10 +586,10 @@ def step_launch(with_companion=False, with_wechat=False):
         return status
     # 无 systemd（容器/macOS）或用户拒绝装服务 → 后台直启，照样实测验证
     if not ask("无系统服务模式：现在后台启动飞书进程并实测？(y/n)", "y").lower().startswith("y"):
-        print(f"{WARN}未启动。稍后手动: ./penglai start（日志: ./penglai logs）")
+        print(f"{WARN}未启动。稍后手动: penglai start（日志: penglai logs）")
         return "skip"
     log, pos = _spawn_fsapp(py)
-    print(f"{OK} 飞书进程已后台启动（停止: ./penglai stop，日志: ./penglai logs）")
+    print(f"{OK} 飞书进程已后台启动（停止: penglai stop，日志: penglai logs）")
     def read_log():
         with open(log, encoding="utf-8", errors="replace") as f:
             f.seek(pos)
@@ -614,17 +614,22 @@ def main():
     wx = step_wechat()
     live = step_launch(with_companion=bool(comp), with_wechat=wx)
     if live is True:
-        print(f"\n🎉 安装完成，飞书收发链路已实测全通！「{agent}」在飞书等你。")
+        print(f"\n🎉 安装完成，飞书收发链路已实测全通！")
     elif live == "docker":
         print(f"\n{OK} 配置完成。容器服务即将由部署脚本启动并验证连接。")
         return
     elif live == "skip":
         print(f"\n{OK} 安装完成（链路未实测）。去飞书给「{agent}」发一句「你好」，"
-              f"用 ./penglai logs 看到「收到消息」即全通。")
+              f"用 penglai logs 看到「收到消息」即全通。")
     else:
-        print(f"\n{WARN}配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 ./penglai doctor 复检。")
-    print("   体检: ./penglai doctor   日志: ./penglai logs   同步上游: ./penglai update")
+        print(f"\n{WARN}配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。")
+    if live is True or live == "skip":
+        print(f"\n   现在就可以和「{agent}」聊天了：")
+        print(f"   💬 飞书（或已绑定的微信）里直接发消息")
+        print(f"   ⌨️  终端任意位置输入 penglai 进入命令行对话（同一个管家，同一份记忆）")
+    print("\n   体检: penglai doctor   日志: penglai logs   更新: penglai update")
+    print("   （若提示 command not found：重开终端，或先用 ./penglai）")
 
 if __name__ == "__main__":
     try: sys.exit(main())
-    except KeyboardInterrupt: print("\n已取消。随时重新运行 ./penglai setup"); sys.exit(1)
+    except KeyboardInterrupt: print("\n已取消。随时重新运行 penglai setup"); sys.exit(1)

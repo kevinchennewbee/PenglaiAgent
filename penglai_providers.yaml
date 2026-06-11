@@ -117,13 +117,15 @@ providers:
             price_cny: 200
             desc: "大型项目、重度多文件编码"
         models:
-          - id: doubao-seed-2.0-code
-            display: "Seed 2.0 Code（推荐）"
+          # Coding Plan 官方默认入口是 ark-code-latest(平台路由到当前推荐编码模型),
+          # 具体型号 id 在套餐端点上不一定开放直连——用户真机实测纠正(2026-06-11)
+          - id: ark-code-latest
+            display: "ark-code-latest（官方推荐，自动跟随最新）"
             default: true
+          - id: doubao-seed-2.0-code
+            display: "Seed 2.0 Code"
           - id: doubao-seed-2.0-pro
             display: "Seed 2.0 Pro"
-          - id: ark-code-latest
-            display: "ark-code-latest（跟随平台推荐）"
           - id: deepseek-v4-flash
             display: "DeepSeek V4 Flash"
           - id: deepseek-v4-pro

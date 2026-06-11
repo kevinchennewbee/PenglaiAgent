@@ -56,5 +56,51 @@ def test_blocked_missing_file():
     assert not ok, "不存在的文件不应放行"
 
 
+def _fake_fsapp_main():
+    """模拟生产形态：python frontends/fsapp.py → 模块名 __main__。"""
+    import types
+    fake = types.ModuleType("__main__")
+    fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
+    fake._send_local_file = lambda *a, **k: "SENT"
+    fake.sent = []
+    fake.send_message = lambda rid, msg, **k: fake.sent.append(msg)
+    return fake
+
+
+def test_mount_in_script_mode():
+    """生产部署（systemd/docker）跑 `python frontends/fsapp.py`，fsapp 的模块名是
+    __main__ —— 只查 frontends.fsapp 会静默 fail-open（2026-06-11 真机事故）。"""
+    fg = _fileguard()
+    fake = _fake_fsapp_main()
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式（__main__=fsapp.py）必须能挂载"
+        assert fake._send_local_file is fg._guarded_send_local_file, "包装未生效"
+        # 越界文件走包装后必须被拦，且通过模块对象回话（不重新 import fsapp）
+        os.environ["GA_WORKSPACE_ROOT"] = tempfile.mkdtemp()
+        r = fake._send_local_file("u1", os.path.join(REPO, "mykey_template.py"))
+        assert r is False, "越界外发未被拦截"
+        assert fake.sent and "蓬莱安全策略" in fake.sent[0], "未通知用户拦截原因"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
+def test_no_mount_in_foreign_main():
+    """scheduler/wechat 等其他进程的 __main__ 不是 fsapp —— 绝不能误挂。"""
+    import types
+    fg = _fileguard()
+    fake = types.ModuleType("__main__")
+    fake.__file__ = os.path.join(REPO, "agentmain.py")
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert not fg._try_patch(), "非 fsapp 进程不应挂载 fileguard"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
 if __name__ == "__main__":
     raise SystemExit(run_tests(dict(globals())))
