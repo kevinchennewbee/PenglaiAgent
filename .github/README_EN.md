@@ -54,6 +54,25 @@ the last mile: run it on any machine you own — a headless VPS, the Mac mini ga
 corner, Windows on the way — and let it live in your Feishu and WeChat: on your commute, between
 meetings, always there.
 
+## 🏝️ Why "Penglai"?
+
+Penglai (蓬莱) is the legendary immortal island of Chinese mythology. The *Records of the Grand
+Historian* tells of three sacred mountains in the eastern sea — Penglai among them — where
+immortals dwell and the elixir of life is kept. China's first emperor sent the explorer Xu Fu
+with three thousand youths to find it; they never reached its shores. For two thousand years,
+"Penglai" has been the oldest Chinese name for **a wonderful place you can see but never reach.**
+
+I chose the name because AI today is, for ordinary people, exactly what Penglai was to the
+ancients: everyone has heard of its magic, yet few ever set foot on it — APIs, terminals, and
+config files are the mist that keeps the island out of reach. **Penglai's mission is to move the
+immortal island into your chat window: you don't need to learn to sail — if you can text, you
+can come ashore.** The wonders of the AI era should not belong only to those who can code.
+
+And the project motto — *"the Eight Immortals cross the sea, each revealing their unique power"*
+(八仙过海，各显神通) — comes from the legend of eight immortals who each crossed to Penglai by
+their own magic. That is the project's technical philosophy: many models, many channels, many
+experts, each crossing the sea in its own way, all serving the same you.
+
 ## ✨ What it does
 
 - 🏮 **Ten-minute setup** — one wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **scan-to-create your Feishu bot** (no console clicking; manual credentials as fallback) → name your butler → WeChat QR login
