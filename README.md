@@ -108,13 +108,32 @@ python3 penglai setup    # 向导：依赖 → 模型 → 飞书 →（可选）
 日常运维：
 
 ```bash
+penglai            # 直接在终端和管家对话（TUI，与飞书/微信共享同一份记忆）
 penglai doctor     # 体检：环境/依赖/配置/LLM/记忆/服务/上游
 penglai status     # 服务状态（飞书/调度器/陪伴/微信）
-penglai logs       # 最近日志
+penglai logs       # 最近日志（penglai logs dingtalk 看指定渠道）
+penglai channels   # IM 渠道矩阵总览
 penglai update     # 一键升级到最新版蓬莱（从发行仓拉取，已含合并后的内核）
 ```
 
 > 🇨🇳 国内服务器友好：依赖走清华 PyPI 镜像，模型与代码走 gh-proxy，向导自动处理，无需手动配置。
+
+## 💬 渠道矩阵：一个管家，多个门
+
+GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 `penglai enable <渠道>`（依赖安装 → 凭证获取 → 服务安装 → 启动取证一条龙）。所有渠道共享同一份记忆——**同一个管家，多个门**：
+
+| 渠道 | 接入方式 | 状态 |
+|------|---------|------|
+| 飞书 | `penglai setup` 向导，**扫码自动建应用** | ✅ 已实测 |
+| 微信（个人号） | `penglai setup` 向导，扫码登录 | ✅ 已实测 |
+| 终端 TUI | 裸跑 `penglai` 即聊 | ✅ 内核自带 |
+| 钉钉 | `penglai enable dingtalk`，**扫码自动建应用** | ⚠️ 待实测 |
+| QQ | `penglai enable qq`，**扫码自动建机器人** | ⚠️ 待实测 |
+| 企业微信 | `penglai enable wecom`，后台建智能机器人贴凭证 | ⚠️ 待实测 |
+| Telegram | `penglai enable telegram`，@BotFather 贴 token | ⚠️ 待实测 |
+| Discord | `penglai enable discord`，开发者后台贴 token | ⚠️ 待实测 |
+
+> 「待实测」= 接入代码为 GA 上游自带、蓬莱封装已就绪，但我们还没在真机走完全程——实测过一个就升级成 ✅。诚实比好看重要。
 
 ## 🧬 架构：站在内核肩膀上
 

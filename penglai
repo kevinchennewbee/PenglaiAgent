@@ -3,19 +3,28 @@
 """penglai — 蓬莱助手发行版唯一入口（基于 GenericAgent，内核零改动）。
 
 用法:
+  penglai           直接对话（终端 TUI，等价上游 GA 的 tuiapp_v2）
   penglai doctor    体检：环境/依赖/配置/服务/记忆/上游状态
   penglai status    服务状态
   penglai start     启动服务（飞书 + 调度器）
   penglai stop      停止服务
-  penglai logs      查看最近日志
-  penglai update    同步上游 GA（fetch + merge + 提示冒烟清单）
+  penglai logs [渠道]  查看最近日志（默认飞书）
+  penglai channels  IM 渠道矩阵总览（飞书/微信/钉钉/企微/QQ/Telegram/Discord）
+  penglai enable <渠道>   启用渠道（钉钉/QQ 支持扫码自动建应用）
+  penglai disable <渠道>  停用渠道
+  penglai update    更新到最新版蓬莱发行仓
   penglai setup     安装向导（依赖 → 模型 → 飞书 → 可选微信扫码/情报矩阵/主动陪伴）
+  penglai help      显示本帮助
 """
 import os, sys, shutil, subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-companion", "penglai-wechat"]
-OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道"}  # 未装≠故障
+SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-companion", "penglai-wechat",
+            "penglai-dingtalk", "penglai-wecom2", "penglai-qq", "penglai-telegram", "penglai-discord"]
+OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道",
+                  "penglai-dingtalk": "钉钉渠道", "penglai-wecom2": "企业微信渠道",
+                  "penglai-qq": "QQ渠道", "penglai-telegram": "Telegram渠道",
+                  "penglai-discord": "Discord渠道"}  # 未装≠故障
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
 def sh(cmd, **kw):
@@ -252,6 +261,20 @@ def svc(action):
     return r.returncode
 
 def logs():
+    ch = sys.argv[2] if len(sys.argv) > 2 else ""
+    if ch:  # 指定渠道：penglai logs dingtalk
+        import penglai_channels as pc
+        if ch not in pc.CHANNELS:
+            print(f"可选渠道：{' '.join(pc.CHANNELS)}"); return 1
+        if has_systemd():
+            return subprocess.run(["journalctl", "-u", pc.CHANNELS[ch]["service"],
+                                   "-n", "30", "--no-pager"]).returncode
+        lf = pc.logfile(ch)
+        if not os.path.exists(lf):
+            print(f"{WARN}暂无日志（{lf}）"); return 1
+        for l in open(lf, encoding="utf-8", errors="replace").read().splitlines()[-30:]:
+            print(l)
+        return 0
     if not has_systemd():
         if not os.path.exists(FSLOG):
             print(f"{WARN}暂无日志（{FSLOG}）。先 ./penglai start"); return 1
@@ -303,11 +326,32 @@ def update():
 def setup():
     return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
 
+def tui():
+    """终端对话界面 = 上游 GA 的 tuiapp_v2（内核零改动，rich/textual 首次运行自动安装）。
+    与飞书/微信共享同一份记忆——同一个管家，多个门。"""
+    os.chdir(ROOT)
+    os.execv(venv_python(), [venv_python(), os.path.join(ROOT, "frontends", "tuiapp_v2.py")])
+
+def channel_cmd(fn_name):
+    sys.path.insert(0, ROOT)
+    import penglai_channels as pc
+    if fn_name in ("enable", "disable"):
+        ch = sys.argv[2] if len(sys.argv) > 2 else ""
+        return getattr(pc, fn_name)(ch)
+    return pc.status()
+
 def main():
     cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
             "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
-            "logs": logs, "update": update, "setup": setup, "_guardcheck": guardcheck}
+            "logs": logs, "update": update, "setup": setup, "tui": tui,
+            "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
+            "disable": lambda: channel_cmd("disable"), "_guardcheck": guardcheck}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if not arg:
+        # 裸跑：交互终端 → 直接进对话（对齐 hermes 体验）；管道/脚本 → 打印帮助
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            return tui()
+        print(__doc__.strip()); return 0
     if arg not in cmds:
         print(__doc__.strip()); return 0
     return cmds[arg]()

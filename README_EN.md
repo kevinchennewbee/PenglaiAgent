@@ -114,14 +114,33 @@ python3 penglai setup    # wizard: deps → model → Feishu → (optional) WeCh
 Day-to-day:
 
 ```bash
+penglai            # chat with your butler right in the terminal (TUI, shares memory with Feishu/WeChat)
 penglai doctor     # health check: env/deps/config/LLM/memory/services/upstream
 penglai status     # service status (Feishu / scheduler / companion / WeChat)
-penglai logs       # recent logs
+penglai logs       # recent logs (penglai logs dingtalk for a specific channel)
+penglai channels   # IM channel matrix overview
 penglai update     # upgrade to the latest Penglai (pulls the release repo, kernel already merged in)
 ```
 
 > 🇨🇳 China-server friendly: deps via the Tsinghua PyPI mirror, models & code via gh-proxy — the
 > wizard handles all of it automatically.
+
+## 💬 Channel matrix: one butler, many doors
+
+The GA kernel ships 7 IM frontends; the Penglai layer wraps them behind one command — `penglai enable <channel>` (deps → credentials → service → evidence-based startup). Every channel shares the same memory: **one butler, many doors**.
+
+| Channel | How to connect | Status |
+|---------|---------------|--------|
+| Feishu | `penglai setup` wizard, **scan-to-create app** | ✅ field-tested |
+| WeChat (personal) | `penglai setup` wizard, QR login | ✅ field-tested |
+| Terminal TUI | just run `penglai` | ✅ kernel built-in |
+| DingTalk | `penglai enable dingtalk`, **scan-to-create app** | ⚠️ untested |
+| QQ | `penglai enable qq`, **scan-to-create bot** | ⚠️ untested |
+| WeCom | `penglai enable wecom`, paste AI-bot credentials | ⚠️ untested |
+| Telegram | `penglai enable telegram`, paste @BotFather token | ⚠️ untested |
+| Discord | `penglai enable discord`, paste developer-portal token | ⚠️ untested |
+
+> "Untested" = the adapter is upstream GA code and the Penglai wrapper is ready, but we haven't walked the full path on a real machine yet — each one gets promoted to ✅ as it passes. Honesty over polish.
 
 ## 🧬 Architecture: standing on a kernel's shoulders
 
