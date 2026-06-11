@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""penglai — 蓬莱助手发行版唯一入口（基于 GenericAgent，内核零改动）。
+
+用法:
+  penglai doctor    体检：环境/依赖/配置/服务/记忆/上游状态
+  penglai status    服务状态
+  penglai start     启动服务（飞书 + 调度器）
+  penglai stop      停止服务
+  penglai logs      查看最近日志
+  penglai update    同步上游 GA（fetch + merge + 提示冒烟清单）
+  penglai setup     安装向导（依赖 → 模型 → 飞书 → 可选微信扫码/情报矩阵/主动陪伴）
+"""
+import os, sys, shutil, subprocess
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-companion", "penglai-wechat"]
+OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道"}  # 未装≠故障
+OK, BAD, WARN = "✅", "❌", "⚠️ "
+
+def sh(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+def venv_python():
+    p = os.path.join(ROOT, ".venv", "bin", "python")
+    return p if os.path.exists(p) else sys.executable
+
+def has_systemd():
+    return shutil.which("systemctl") is not None
+
+# ---------- 无 systemd 环境（容器/macOS）的进程管理 ----------
+FSLOG = os.path.join(ROOT, "temp", "fsapp.log")
+
+def fsapp_pids():
+    r = sh(["pgrep", "-f", "frontends/fsapp.py"])
+    return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
+
+def fsapp_start():
+    import time
+    if pids := fsapp_pids():
+        print(f"{OK} 飞书进程已在运行（PID {pids[0]}）"); return 0
+    os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
+    lf = open(FSLOG, "ab")
+    p = subprocess.Popen([venv_python(), os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
+                         stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                         start_new_session=True)
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        if p.poll() is not None:
+            print(f"{BAD} 进程退出（码 {p.returncode}），最近日志：")
+            for l in open(FSLOG, encoding="utf-8", errors="replace").read().splitlines()[-8:]:
+                print("  " + l[:160])
+            return 1
+        with open(FSLOG, encoding="utf-8", errors="replace") as f:
+            if "connected to wss" in f.read():
+                print(f"{OK} 飞书进程已启动且长连接已建立（PID {p.pid}，日志: ./penglai logs）")
+                return 0
+        time.sleep(2)
+    print(f"{WARN}进程在跑（PID {p.pid}）但 45 秒未见连接成功，./penglai logs 查看")
+    return 1
+
+def fsapp_stop():
+    import signal
+    pids = fsapp_pids()
+    if not pids:
+        print(f"{OK} 飞书进程未在运行"); return 0
+    for pid in pids:
+        try: os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError: pass
+    print(f"{OK} 已停止（PID {' '.join(map(str, pids))}）"); return 0
+
+def installed_services():
+    """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。"""
+    out = []
+    for s in SERVICES:
+        if sh(["systemctl", "list-unit-files", f"{s}.service"]).stdout.strip().count(s):
+            out.append(s)
+    return out or SERVICES[:2]
+
+def ensure_upstream():
+    r = sh(["git", "remote"], cwd=ROOT)
+    if "upstream" not in (r.stdout or "").split():
+        sh(["git", "remote", "add", "upstream", "https://github.com/lsdefine/GenericAgent.git"], cwd=ROOT)
+
+# ---------- doctor ----------
+def doctor():
+    print("🏮 蓬莱医生体检中...\n")
+    bad = 0
+
+    def check(name, ok, hint=""):
+        nonlocal bad
+        print(f"{OK if ok else BAD} {name}" + ("" if ok else f"   → {hint}"))
+        if not ok: bad += 1
+
+    # 1. Python
+    v = sys.version_info
+    check(f"Python {v.major}.{v.minor}", v >= (3, 10), "需要 Python 3.10+")
+
+    # 2. venv 与核心依赖
+    py = venv_python()
+    r = sh([py, "-c", "import requests, bs4, aiohttp, bottle"])
+    check("核心依赖 (requests/bs4/aiohttp/bottle)", r.returncode == 0,
+          "运行: uv pip install --python .venv/bin/python -e .")
+    r = sh([py, "-c", "import lark_oapi"])
+    check("飞书 SDK (lark-oapi)", r.returncode == 0,
+          "运行: uv pip install --python .venv/bin/python lark-oapi")
+
+    # 2b. 微信绑定（可选渠道，未绑定≠故障）
+    tok = os.path.expanduser("~/.wxbot/token.json")
+    if os.path.exists(tok):
+        try:
+            import json
+            bid = json.load(open(tok, encoding="utf-8")).get("ilink_bot_id", "")
+            print(f"{OK} 微信绑定：{bid or '已有 token'}")
+        except Exception:
+            print(f"{WARN} 微信 token 文件损坏 → 重跑 penglai setup 扫码")
+        if has_systemd() and sh(["systemctl", "show", "penglai-wechat",
+                                 "-p", "ExecMainStatus", "--value"]).stdout.strip() == "2":
+            print(f"{WARN} 微信 token 已过期 → penglai setup 重新扫码后 sudo systemctl restart penglai-wechat")
+    else:
+        print(f"{OK} 微信：未绑定（可选渠道，penglai setup 可扫码接入）")
+
+    # 3. 配置
+    mykey = os.path.join(ROOT, "mykey.py")
+    if os.path.exists(mykey):
+        r = sh([py, "-c",
+                "import mykey;cs=[k for k in dir(mykey) if 'config' in k];"
+                "assert cs, 'no config';print(len(cs))"], cwd=ROOT)
+        check(f"mykey.py（{r.stdout.strip() or 0} 个配置）", r.returncode == 0,
+              "mykey.py 里没有任何 *config*，参考 mykey_template.py")
+    else:
+        check("mykey.py", False, "复制 mykey_template.py 为 mykey.py 并填入 API Key")
+
+    # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
+    r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
+    check("LLM 模块加载 (llmcore)", r.returncode == 0, r.stderr.strip().splitlines()[-1] if r.stderr else "")
+
+    # 5. 记忆状态（出厂态 or 已使用）
+    mem = os.path.join(ROOT, "memory", "global_mem.txt")
+    if os.path.exists(mem):
+        n = sum(1 for _ in open(mem, encoding="utf-8", errors="replace"))
+        print(f"{OK} 记忆 L2：{n} 行（{'出厂态' if n <= 6 else '使用中'}）")
+    else:
+        print(f"{OK} 记忆 L2：尚未初始化（首次运行自动创建）")
+
+    # 5b. 情报矩阵（可选增强）
+    r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import enabled_sources;"
+            "print(','.join(enabled_sources()))"], cwd=ROOT)
+    srcs = (r.stdout or "").strip()
+    print(f"{OK} 情报矩阵：{'已启用 ' + srcs if srcs else '默认（GA 浏览器，未配 API key）'}")
+
+    # 6. 服务/进程（飞书没在跑 = 机器人收不到消息，必须红）
+    if has_systemd():
+        inst = installed_services()
+        for s in SERVICES:
+            if s in OPTIN_SERVICES and s not in inst:
+                print(f"{OK} 服务 {s}: 未启用（{OPTIN_SERVICES[s]} opt-in）")
+                continue
+            r = sh(["systemctl", "is-active", s])
+            state = r.stdout.strip()
+            if s == "penglai-feishu":
+                check(f"服务 {s}: {state or '未安装'}", state == "active", "sudo systemctl restart penglai-feishu")
+            else:
+                print(f"{OK if state == 'active' else WARN} 服务 {s}: {state or '未安装'}")
+    else:
+        pids = fsapp_pids()
+        check(f"飞书进程（非 systemd 环境，nohup 模式{'，PID ' + str(pids[0]) if pids else ''}）",
+              bool(pids), "运行: ./penglai start")
+
+    # 7. 上游同步状态
+    ensure_upstream()
+    r = sh(["git", "fetch", "upstream", "--quiet"], cwd=ROOT)
+    if r.returncode == 0:
+        r = sh(["git", "rev-list", "--count", "HEAD..upstream/main"], cwd=ROOT)
+        behind = r.stdout.strip() or "?"
+        mark = OK if behind == "0" else WARN
+        print(f"{mark} 上游 GA：落后 {behind} 个提交" + ("" if behind == "0" else "（可运行 penglai update）"))
+    else:
+        print(f"{WARN} 上游 GA：无法连接（网络/代理），跳过")
+
+    print(f"\n{'🎉 全部通过，蓬莱身体健康！' if bad == 0 else f'共 {bad} 项需要处理。'}")
+    return 1 if bad else 0
+
+# ---------- services ----------
+def svc(action):
+    if not has_systemd():
+        # 容器/macOS：直接管理 nohup 飞书进程
+        if action == "status":
+            pids = fsapp_pids()
+            print(f"  penglai-feishu: {'running (PID ' + str(pids[0]) + ')' if pids else 'stopped'}")
+            return 0
+        if action == "start":   return fsapp_start()
+        if action == "stop":    return fsapp_stop()
+        if action == "restart": fsapp_stop(); return fsapp_start()
+    svcs = installed_services()
+    if action == "status":
+        for s in svcs:
+            r = sh(["systemctl", "is-active", s])
+            print(f"  {s}: {r.stdout.strip()}")
+        return 0
+    r = subprocess.run(["sudo", "systemctl", action] + svcs)
+    if r.returncode == 0 and action in ("start", "restart"):
+        print(f"{OK} 已{('重' if action == 'restart' else '')}启动。penglai logs 可查看日志")
+    return r.returncode
+
+def logs():
+    if not has_systemd():
+        if not os.path.exists(FSLOG):
+            print(f"{WARN}暂无日志（{FSLOG}）。先 ./penglai start"); return 1
+        for l in open(FSLOG, encoding="utf-8", errors="replace").read().splitlines()[-30:]:
+            print(l)
+        return 0
+    return subprocess.run(["journalctl", "-u", SERVICES[0], "-n", "30", "--no-pager"]).returncode
+
+# ---------- update ----------
+def update():
+    print("🔄 同步上游 GenericAgent ...")
+    ensure_upstream()
+    if sh(["git", "fetch", "upstream"], cwd=ROOT).returncode != 0:
+        print(f"{BAD} fetch 失败（检查网络）"); return 1
+    r = sh(["git", "rev-list", "--count", "HEAD..upstream/main"], cwd=ROOT)
+    behind = int(r.stdout.strip() or 0)
+    if behind == 0:
+        print(f"{OK} 已是最新，与上游一致。"); return 0
+    print(f"上游有 {behind} 个新提交，开始合并（蓬莱层全部是新增文件，理论上零冲突）...")
+    r = subprocess.run(["git", "merge", "upstream/main", "--no-edit"], cwd=ROOT)
+    if r.returncode != 0:
+        print(f"{BAD} 合并冲突！这是体检信号：我们越界改了 GA 的文件。请人工处理（git status 查看）。")
+        return 1
+    print(f"{OK} 合并完成。冒烟清单：penglai doctor → 重启服务 → 飞书问好 → 发语音 → 写记忆")
+    return 0
+
+def setup():
+    return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
+
+def main():
+    cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
+            "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
+            "logs": logs, "update": update, "setup": setup}
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if arg not in cmds:
+        print(__doc__.strip()); return 0
+    return cmds[arg]()
+
+if __name__ == "__main__":
+    sys.exit(main())

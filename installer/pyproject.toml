@@ -1,0 +1,34 @@
+# 蓬莱 PyPI 引导器 — 独立小包，与 GA 内核的 pyproject.toml 互不相干。
+# pip install penglai → `penglai` 命令引导 clone 发行版 + 进入向导；已安装则透传。
+[project]
+name = "penglai"
+version = "0.1.0"
+description = "蓬莱 Penglai — bootstrap installer for the Penglai personal-butler distribution of GenericAgent / 中文个人管家发行版引导安装器"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Kevin Chen (kevinchennewbee)" }]
+keywords = ["agent", "assistant", "feishu", "wechat", "genericagent", "penglai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Chinese (Simplified)",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Chat",
+]
+
+[project.urls]
+Homepage = "https://github.com/kevinchennewbee/PenglaiAgent"
+Upstream = "https://github.com/lsdefine/GenericAgent"
+
+[project.scripts]
+penglai = "penglai_bootstrap:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["penglai_bootstrap"]
