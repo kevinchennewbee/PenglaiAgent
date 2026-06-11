@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家</title>
+<meta name="description" content="蓬莱 Penglai:开源个人 AI 管家,基于 GenericAgent。飞书+微信双渠道,十分钟开箱,一行命令部署。">
+<style>
+:root{
+  --ink:#0b1016; --ink2:#101823; --mist:#8fa6b8; --fog:#5a6e80;
+  --paper:#e8e3d8; --seal:#c0392b; --seal-d:#8e2418;
+  --teal:#1d9e8a; --line:rgba(143,166,184,.14);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--paper);font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;overflow-x:hidden}
+.sans{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--mist);text-decoration:none}
+a:hover{color:var(--paper)}
+
+/* 雾气背景 */
+body::before{content:"";position:fixed;inset:0;z-index:-1;
+  background:
+   radial-gradient(60% 40% at 75% 8%, rgba(192,57,43,.07), transparent 60%),
+   radial-gradient(50% 35% at 18% 30%, rgba(29,158,138,.06), transparent 60%),
+   radial-gradient(70% 50% at 50% 100%, rgba(143,166,184,.05), transparent 60%),
+   var(--ink)}
+
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+/* 顶栏 */
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;letter-spacing:.3em}
+.brand .seal-mini{background:var(--seal);color:#fff;font-size:13px;padding:3px 5px;border-radius:2px;letter-spacing:0}
+nav .links{display:flex;gap:22px;align-items:center;font-size:14px}
+#langBtn{cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--mist);
+  padding:4px 12px;border-radius:3px;font-size:13px;font-family:inherit}
+#langBtn:hover{border-color:var(--mist);color:var(--paper)}
+
+/* Hero */
+.hero{text-align:center;padding:72px 0 28px;position:relative}
+.hero h1{font-size:clamp(72px,14vw,150px);font-weight:600;letter-spacing:.12em;line-height:1.1;
+  background:linear-gradient(160deg,#f2ede2 20%,#9eb4c6 60%,#5a6e80);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .latin{letter-spacing:.55em;color:var(--fog);font-size:clamp(13px,2vw,18px);margin:14px 0 0 .55em;font-family:Georgia,serif}
+.hero .tagline{font-size:clamp(17px,2.6vw,23px);color:var(--paper);margin-top:34px}
+.hero .motto{color:var(--fog);font-size:15px;margin-top:12px;letter-spacing:.18em}
+.seal{position:absolute;top:64px;right:max(12px,8%);width:54px;background:var(--seal);color:#fff;
+  writing-mode:vertical-rl;padding:12px 10px;font-size:24px;letter-spacing:.25em;border-radius:3px;
+  box-shadow:0 0 24px rgba(192,57,43,.35);transform:rotate(2deg)}
+@media(max-width:640px){.seal{display:none}}
+
+/* 波浪分隔 */
+.waves{display:block;width:100%;height:54px;margin:36px 0 0}
+
+/* 安装区 */
+.install{padding:34px 0 10px}
+.install h2,.features h2,.story h2{font-size:26px;letter-spacing:.25em;margin-bottom:8px}
+.h2sub{color:var(--fog);font-size:14px;margin-bottom:26px;letter-spacing:.05em}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--mist);
+  padding:7px 18px;border-radius:3px;font-size:14px;font-family:inherit;letter-spacing:.08em}
+.tab.on{border-color:var(--seal);color:var(--paper);background:rgba(192,57,43,.12)}
+.code{position:relative;background:#070b10;border:1px solid var(--line);border-radius:6px;padding:20px 56px 20px 20px;
+  font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;color:#9fe0d3;overflow-x:auto;white-space:pre;line-height:1.7}
+.code .cm{color:#54687a}
+.copy{position:absolute;top:12px;right:12px;cursor:pointer;border:1px solid var(--line);background:transparent;
+  color:var(--fog);font-size:12px;padding:5px 10px;border-radius:3px;font-family:inherit}
+.copy:hover{color:var(--paper);border-color:var(--mist)}
+.install .note{color:var(--fog);font-size:13px;margin-top:12px}
+
+/* 特性 */
+.features{padding:56px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.card{border:1px solid var(--line);border-radius:6px;padding:24px 22px;background:rgba(255,255,255,.015);
+  transition:border-color .3s,transform .3s}
+.card:hover{border-color:rgba(192,57,43,.45);transform:translateY(-2px)}
+.card .num{color:var(--seal);font-size:13px;letter-spacing:.3em;margin-bottom:10px;font-family:Georgia,serif}
+.card h3{font-size:17px;margin-bottom:10px;letter-spacing:.1em}
+.card p{color:var(--mist);font-size:14px;line-height:1.85}
+
+/* 缘起 */
+.story{padding:56px 0}
+.story blockquote{border-left:2px solid var(--seal);padding:6px 0 6px 26px;font-size:clamp(17px,2.4vw,21px);
+  line-height:2.05;color:var(--paper)}
+.story .by{color:var(--fog);font-size:14px;margin-top:18px}
+
+/* 页脚 */
+footer{border-top:1px solid var(--line);margin-top:30px;padding:34px 0 44px;color:var(--fog);font-size:13.5px;line-height:2}
+footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="sans">
+  <div class="brand">蓬莱<span class="seal-mini">印</span></div>
+  <div class="links">
+    <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
+    <a href="https://pypi.org/project/penglai/" target="_blank">PyPI</a>
+    <a href="https://github.com/lsdefine/GenericAgent" target="_blank" data-t="nav_kernel">内核 GA</a>
+    <button id="langBtn" onclick="flip()">EN</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="seal">蓬萊</div>
+  <h1>蓬 莱</h1>
+  <div class="latin">P E N G L A I</div>
+  <p class="tagline" data-t="tagline">住在你飞书和微信里的中文 AI 管家</p>
+  <p class="motto" data-t="motto">八仙过海 · 各显神通</p>
+</section>
+
+<svg class="waves" viewBox="0 0 1200 54" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M0,30 C150,55 300,5 450,30 C600,55 750,5 900,30 C1050,55 1150,15 1200,30" fill="none" stroke="#1d9e8a" stroke-opacity=".55" stroke-width="1.6"/>
+  <path d="M0,38 C150,63 300,13 450,38 C600,63 750,13 900,38 C1050,63 1150,23 1200,38" fill="none" stroke="#16766c" stroke-opacity=".4" stroke-width="1.4"/>
+  <path d="M0,46 C150,71 300,21 450,46 C600,71 750,21 900,46 C1050,71 1150,31 1200,46" fill="none" stroke="#0f5550" stroke-opacity=".3" stroke-width="1.2"/>
+</svg>
+
+<section class="install">
+  <h2 data-t="install_h">一行上岛</h2>
+  <p class="h2sub sans" data-t="install_sub">一台 $5/月 的云服务器、一个 LLM API Key,十分钟向导走完,你就有了自己的管家。</p>
+  <div class="tabs sans">
+    <button class="tab on" onclick="pick(0,this)">curl</button>
+    <button class="tab" onclick="pick(1,this)">Docker</button>
+    <button class="tab" onclick="pick(2,this)">pip</button>
+  </div>
+  <div class="code" id="codeBox"></div>
+  <p class="note sans" data-t="install_note">🇨🇳 国内服务器友好:依赖走清华镜像,代码走 gh-proxy,脚本自动处理。</p>
+</section>
+
+<section class="features">
+  <h2 data-t="feat_h">各显神通</h2>
+  <p class="h2sub sans" data-t="feat_sub">以下每一条都在真实服务器上每天跑着,不是路线图。</p>
+  <div class="grid sans">
+    <div class="card"><div class="num">壹</div><h3 data-t="f1h">十分钟开箱</h3><p data-t="f1p">一个向导走完全程:自装依赖、选模型测连通、飞书扫码自动建应用、给管家起名。最后等你真发出一句「你好」、它真收到,才算安装完成。</p></div>
+    <div class="card"><div class="num">贰</div><h3 data-t="f2h">飞书 + 微信,都是扫码</h3><p data-t="f2p">飞书扫码建机器人、长连接免公网 IP;个人微信扫码登录,文字、语音、图片收发全通。</p></div>
+    <div class="card"><div class="num">叁</div><h3 data-t="f3h">听得出情绪的耳朵</h3><p data-t="f3p">本地 CPU 跑 SenseVoice:语音转写 + 情绪标签 + 声学事件,「[语音(情绪:低落): 今天好累]」这样进入对话。</p></div>
+    <div class="card"><div class="num">肆</div><h3 data-t="f4h">记得住你</h3><p data-t="f4p">四层文件式记忆,纯 markdown 可审计;写入前威胁扫描,禁止覆盖。你的记忆只属于你。</p></div>
+    <div class="card"><div class="num">伍</div><h3 data-t="f5h">确定性安全</h3><p data-t="f5p">危险命令与路径红线拦截 + 全量工具调用审计留痕——安全靠确定性检查,不靠模型自觉。</p></div>
+    <div class="card"><div class="num">陆</div><h3 data-t="f6h">真主动,不扰民</h3><p data-t="f6p">可选的主动陪伴:勿扰时段、对话中绝不插话、频率上限——像朋友想起你,而不是闹钟响了。</p></div>
+  </div>
+</section>
+
+<section class="story">
+  <h2 data-t="story_h">为什么叫蓬莱</h2>
+  <p class="h2sub sans"></p>
+  <blockquote data-t="story_q">蓬莱是中国神话里可望而不可即的海上仙山。今天的 AI 之于普通人,恰如蓬莱之于古人——API、终端、配置文件,是横在海面上的迷雾。蓬莱想做的,是把仙山搬进你的聊天窗口:你不必学会航海,会发微信,就能上岛。</blockquote>
+  <p class="by sans" data-t="story_by">—— 一个不会写代码的作者,与 AI 结对造出的项目</p>
+</section>
+
+<footer class="sans">
+  <div class="row">
+    <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
+    <a href="https://pypi.org/project/penglai/" target="_blank">PyPI · penglai</a>
+    <a href="https://github.com/kevinchennewbee/PenglaiAgent#-快速开始" target="_blank" data-t="ft_doc">文档</a>
+    <a href="https://github.com/lsdefine/GenericAgent" target="_blank">GenericAgent</a>
+  </div>
+  <div data-t="ft_lic">代码 MIT 开源;「蓬莱 / Penglai」名称与视觉资产保留所有权利。Powered by GenericAgent。</div>
+</footer>
+
+</div>
+<script>
+const CMDS=[
+ "# 裸机一行，脚本全自动\ncurl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh",
+ "# Docker 一行，数据在卷里升级不丢\ncurl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh",
+ "# PyPI 引导器\npip install penglai && penglai"];
+let cur=0;
+function render(){
+  const box=document.getElementById('codeBox');
+  box.textContent='';
+  const lines=CMDS[cur].split('\n');
+  lines.forEach((l,i)=>{
+    const s=document.createElement('span');
+    if(l.startsWith('#')){s.className='cm'}
+    s.textContent=l+(i<lines.length-1?'\n':'');
+    box.appendChild(s);
+  });
+  const b=document.createElement('button');b.className='copy';b.textContent=L==='zh'?'复制':'copy';
+  b.onclick=()=>{navigator.clipboard.writeText(CMDS[cur].split('\n').filter(x=>!x.startsWith('#')).join('\n'));b.textContent='✓';setTimeout(()=>b.textContent=L==='zh'?'复制':'copy',1200)};
+  box.appendChild(b);
+}
+function pick(i,el){cur=i;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');render()}
+
+const TXT={
+ nav_kernel:{zh:"内核 GA",en:"Kernel: GA"},
+ tagline:{zh:"住在你飞书和微信里的中文 AI 管家",en:"Your personal AI butler, living in Feishu & WeChat"},
+ motto:{zh:"八仙过海 · 各显神通",en:"where eight immortals cross the sea, each shows their unique power"},
+ install_h:{zh:"一行上岛",en:"One line ashore"},
+ install_sub:{zh:"一台 $5/月的云服务器、一个 LLM API Key，十分钟向导走完，你就有了自己的管家。",en:"One $5/month VPS, one LLM API key, a ten-minute wizard — and you have your own butler."},
+ install_note:{zh:"🇨🇳 国内服务器友好：依赖走清华镜像，代码走 gh-proxy，脚本自动处理。",en:"Friendly to servers behind the GFW: Tsinghua PyPI mirror and gh-proxy are handled automatically. International networks go direct."},
+ feat_h:{zh:"各显神通",en:"What it does"},
+ feat_sub:{zh:"以下每一条都在真实服务器上每天跑着，不是路线图。",en:"Every item below runs daily on a real server. This is not a roadmap."},
+ f1h:{zh:"十分钟开箱",en:"Ten-minute setup"},
+ f1p:{zh:"一个向导走完全程：自装依赖、选模型测连通、飞书扫码自动建应用、给管家起名。最后等你真发出一句「你好」、它真收到，才算安装完成。",en:"One wizard end to end: deps, model connectivity test, scan-to-create your Feishu bot, name your butler. It only declares success after your real “hello” actually arrives."},
+ f2h:{zh:"飞书 + 微信，都是扫码",en:"Feishu + WeChat, both via QR"},
+ f2p:{zh:"飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字、语音、图片收发全通。",en:"Scan to create the Feishu bot, long connection (no public IP needed); personal WeChat via QR login with text, voice and images both ways."},
+ f3h:{zh:"听得出情绪的耳朵",en:"Ears that hear emotion"},
+ f3p:{zh:"本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件，「[语音(情绪:低落): 今天好累]」这样进入对话。",en:"SenseVoice on local CPU: transcription + emotion tags + acoustic events, arriving as “[voice (emotion: tired): such a long day]”."},
+ f4h:{zh:"记得住你",en:"It remembers you"},
+ f4p:{zh:"四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。你的记忆只属于你。",en:"Four-tier file-based memory in plain auditable markdown; threat-scanned before every write, overwrites forbidden. Your memory belongs to you alone."},
+ f5h:{zh:"确定性安全",en:"Deterministic safety"},
+ f5p:{zh:"危险命令与路径红线拦截 + 全量工具调用审计留痕——安全靠确定性检查，不靠模型自觉。",en:"Red-line blocking of dangerous commands and paths, plus a full tool-call audit trail — safety by deterministic checks, not LLM goodwill."},
+ f6h:{zh:"真主动，不扰民",en:"Proactive, never spammy"},
+ f6p:{zh:"可选的主动陪伴：勿扰时段、对话中绝不插话、频率上限——像朋友想起你，而不是闹钟响了。",en:"Opt-in companionship inside hard gates: quiet hours, never interrupts a live chat, frequency caps — like a friend thinking of you, not an alarm going off."},
+ story_h:{zh:"为什么叫蓬莱",en:"Why “Penglai”"},
+ story_q:{zh:"蓬莱是中国神话里可望而不可即的海上仙山。今天的 AI 之于普通人，恰如蓬莱之于古人——API、终端、配置文件，是横在海面上的迷雾。蓬莱想做的，是把仙山搬进你的聊天窗口：你不必学会航海，会发微信，就能上岛。",en:"Penglai is the immortal island of Chinese myth — a wonderful place you can see but never reach. AI today is, for ordinary people, exactly that: APIs, terminals and config files are the mist over the sea. Penglai moves the island into your chat window — you don’t need to learn to sail; if you can text, you can come ashore."},
+ story_by:{zh:"—— 一个不会写代码的作者，与 AI 结对造出的项目",en:"— built by an author who cannot code, pair-programming with AI"},
+ ft_doc:{zh:"文档",en:"Docs"},
+ ft_lic:{zh:"代码 MIT 开源；「蓬莱 / Penglai」名称与视觉资产保留所有权利。Powered by GenericAgent。",en:"Code is MIT-licensed; the “Penglai / 蓬莱” name and visual assets are all rights reserved. Powered by GenericAgent."}
+};
+let L='zh';
+function apply(){
+  document.querySelectorAll('[data-t]').forEach(el=>{const k=el.getAttribute('data-t');if(TXT[k])el.textContent=TXT[k][L]});
+  document.getElementById('langBtn').textContent=L==='zh'?'EN':'中';
+  document.documentElement.lang=L==='zh'?'zh-CN':'en';
+  render();
+}
+function flip(){L=L==='zh'?'en':'zh';apply()}
+if(navigator.language&&!navigator.language.toLowerCase().startsWith('zh'))L='en';
+apply();
+</script>
+</body>
+</html>
