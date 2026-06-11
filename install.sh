@@ -45,8 +45,9 @@ cd "$TARGET"
 # ── 3. Python:系统有 3.10+ 直接用;没有就装 uv,由 uv 托管一个独立 Python ──────
 PY=""
 for c in python3 python3.12 python3.11 python3.10; do
+    # 版本 ≥3.10 且 venv 可用(裸 Ubuntu 的 python3 没装 python3-venv,ensurepip 缺失)
     if command -v "$c" >/dev/null 2>&1 \
-       && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+       && "$c" -c 'import sys, ensurepip; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
         PY="$c"; break
     fi
 done
@@ -75,9 +76,9 @@ if [ -z "$PY" ]; then
     say "  📦 正在安装依赖..."
     if [ -n "$MIRROR" ]; then
         uv pip install --python .venv/bin/python --quiet \
-            -i https://pypi.tuna.tsinghua.edu.cn/simple -e . lark-oapi
+            -i https://pypi.tuna.tsinghua.edu.cn/simple -e . lark-oapi qrcode
     else
-        uv pip install --python .venv/bin/python --quiet -e . lark-oapi
+        uv pip install --python .venv/bin/python --quiet -e . lark-oapi qrcode
     fi
     PY=".venv/bin/python"
     say "  ✅ Python 环境就绪(uv 托管,卸载=删除目录,零残留)"
@@ -90,4 +91,8 @@ say ""
 say "✅ 发行版就绪:$TARGET"
 say "   进入安装向导(模型 → 飞书 → 可选微信扫码)..."
 say ""
+# curl|sh 模式下 stdin 是脚本管道,向导的交互必须改接终端(/dev/tty)
+if [ ! -t 0 ] && (: </dev/tty) 2>/dev/null; then
+    exec "$PY" penglai setup </dev/tty
+fi
 exec "$PY" penglai setup

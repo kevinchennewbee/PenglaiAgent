@@ -141,7 +141,18 @@ def step_env():
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not os.path.exists(py):
         print("  正在创建虚拟环境并安装依赖（清华镜像）...")
-        uv = shutil.which("uv")
+        uv = shutil.which("uv") or next((p for p in [os.path.expanduser("~/.local/bin/uv")]
+                                         if os.path.exists(p)), None)
+        if not uv:
+            try:
+                import ensurepip  # noqa: F401  裸 Ubuntu 的 python3 没装 python3-venv
+            except ImportError:
+                print(f"{BAD} 系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试：")
+                print("    sudo apt install -y python3-venv")
+                print("    或用一键脚本（自动装 uv 托管 Python，不动系统）：")
+                print("    curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/"
+                      "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
+                sys.exit(1)
         idx = "https://pypi.tuna.tsinghua.edu.cn/simple"
         try:
             if uv:
