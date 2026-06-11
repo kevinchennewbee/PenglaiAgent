@@ -91,6 +91,12 @@ curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/i
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
+🐳 **Docker 党也是一行**——自动取镜像（拉不动 GHCR 就本地构建）→ 交互向导 → 常驻容器（开机自启、挂了自动拉起）→ 连接验证，数据全在 `penglai-data` 卷里，升级不丢：
+
+```bash
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh
+```
+
 喜欢自己动手的，传统三段式同样可用：
 
 ```bash

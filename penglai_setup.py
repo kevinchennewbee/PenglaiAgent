@@ -138,6 +138,8 @@ def step_env():
     if sys.version_info < (3, 10):
         print(f"{BAD} 需要 Python 3.10+，当前 {sys.version.split()[0]}"); sys.exit(1)
     print(f"{OK} Python {sys.version.split()[0]}")
+    if os.environ.get("PENGLAI_DOCKER"):
+        print(f"{OK} 容器环境（依赖已随镜像就绪）"); return
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not os.path.exists(py):
         print("  正在创建虚拟环境并安装依赖（清华镜像）...")
@@ -390,12 +392,15 @@ def step_wechat():
     if not ask("接入微信？(y/n)", "n").lower().startswith("y"):
         return False
     py = os.path.join(ROOT, ".venv", "bin", "python")
-    print("  安装微信依赖...", end="", flush=True)
-    r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
-                        "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
-    if r.returncode != 0:
-        print(f"\r{BAD} 依赖安装失败：{(r.stderr or '')[-120:]}"); return False
-    print(f"\r{OK} 微信依赖就绪（qrcode/pillow/pycryptodome/pilk）")
+    if os.environ.get("PENGLAI_DOCKER"):
+        py = sys.executable   # 容器内依赖已随镜像就绪，无 venv
+    else:
+        print("  安装微信依赖...", end="", flush=True)
+        r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
+                            "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"\r{BAD} 依赖安装失败：{(r.stderr or '')[-120:]}"); return False
+        print(f"\r{OK} 微信依赖就绪（qrcode/pillow/pycryptodome/pilk）")
     tok = os.path.expanduser("~/.wxbot/token.json")
     if os.path.exists(tok) and not ask("检测到已有微信绑定，重新扫码？(y/n)", "n").lower().startswith("y"):
         print(f"{OK} 沿用现有绑定"); return True
@@ -502,6 +507,9 @@ def _verify_live(read_log, log_hint):
 
 def step_launch(with_companion=False, with_wechat=False):
     header("步骤 5/5", "启动并验证")
+    if os.environ.get("PENGLAI_DOCKER"):
+        print(f"{OK} 容器模式：配置完成，启动与连接验证由 Docker 部署脚本接管")
+        return "docker"
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if shutil.which("systemctl") and ask("安装为系统服务（开机自启）？(y/n)", "y").lower().startswith("y"):
         env_sh = os.path.join(ROOT, "env.sh")
@@ -562,6 +570,9 @@ def main():
     live = step_launch(with_companion=bool(comp), with_wechat=wx)
     if live is True:
         print(f"\n🎉 安装完成，飞书收发链路已实测全通！「{agent}」在飞书等你。")
+    elif live == "docker":
+        print(f"\n{OK} 配置完成。容器服务即将由部署脚本启动并验证连接。")
+        return
     elif live == "skip":
         print(f"\n{OK} 安装完成（链路未实测）。去飞书给「{agent}」发一句「你好」，"
               f"用 ./penglai logs 看到「收到消息」即全通。")

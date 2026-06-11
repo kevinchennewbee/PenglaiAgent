@@ -1,0 +1,17 @@
+# 蓬莱 · Penglai — compose 用法(喜欢 compose 的用户;一键脚本 docker-install.sh 更省事):
+#   docker compose run --rm penglai setup    # 首次:交互向导
+#   docker compose up -d                     # 常驻(开机自启)
+#   docker compose logs -f                   # 看日志
+services:
+  penglai:
+    image: ghcr.io/kevinchennewbee/penglai:latest
+    build: .
+    container_name: penglai
+    restart: unless-stopped
+    volumes:
+      - penglai-data:/data
+    stdin_open: true
+    tty: true
+
+volumes:
+  penglai-data:

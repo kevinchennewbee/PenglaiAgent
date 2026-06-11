@@ -95,6 +95,14 @@ required; the script sets up everything automatically:
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
+🐳 **Docker, also one line** — pulls the image (falls back to building locally), walks you through
+the wizard, then runs as an always-on container (auto-restart, survives reboots). All data lives
+in the `penglai-data` volume, so upgrades never lose your config or memory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh
+```
+
 Prefer doing it by hand? The classic way works too:
 
 ```bash
