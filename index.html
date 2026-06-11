@@ -7,85 +7,87 @@
 <meta name="description" content="蓬莱 Penglai:开源个人 AI 管家,基于 GenericAgent。飞书+微信双渠道,十分钟开箱,一行命令部署。">
 <style>
 :root{
-  --ink:#0b1016; --ink2:#101823; --mist:#8fa6b8; --fog:#5a6e80;
-  --paper:#e8e3d8; --seal:#c0392b; --seal-d:#8e2418;
-  --teal:#1d9e8a; --line:rgba(143,166,184,.14);
+  --paper:#f6f1e4; --paper2:#efe8d5; --ink:#2b2b26; --ink2:#454239;
+  --soft:#7a7466; --faint:#a09a8a; --seal:#b03a2a; --seal-d:#8e2c1f;
+  --teal:#1f7a6d; --line:rgba(43,43,38,.14); --card:#fbf8f0;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{background:var(--ink);color:var(--paper);font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;overflow-x:hidden}
+body{background:var(--paper);color:var(--ink);font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;overflow-x:hidden}
 .sans{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
-a{color:var(--mist);text-decoration:none}
-a:hover{color:var(--paper)}
+a{color:var(--ink2);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{color:var(--seal);border-bottom-color:var(--seal)}
 
-/* 雾气背景 */
-body::before{content:"";position:fixed;inset:0;z-index:-1;
-  background:
-   radial-gradient(60% 40% at 75% 8%, rgba(192,57,43,.07), transparent 60%),
-   radial-gradient(50% 35% at 18% 30%, rgba(29,158,138,.06), transparent 60%),
-   radial-gradient(70% 50% at 50% 100%, rgba(143,166,184,.05), transparent 60%),
-   var(--ink)}
+/* 宣纸底纹:暖色晕染 + 远山淡墨 */
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:
+  radial-gradient(55% 38% at 80% 0%, rgba(176,58,42,.05), transparent 60%),
+  radial-gradient(45% 32% at 12% 22%, rgba(31,122,109,.05), transparent 60%),
+  radial-gradient(80% 55% at 50% 105%, rgba(122,116,102,.10), transparent 60%),
+  var(--paper)}
 
 .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
 
 /* 顶栏 */
 nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0}
-.brand{display:flex;align-items:center;gap:10px;font-size:18px;letter-spacing:.3em}
+.brand{display:flex;align-items:center;gap:10px;font-size:19px;letter-spacing:.3em;color:var(--ink)}
 .brand .seal-mini{background:var(--seal);color:#fff;font-size:13px;padding:3px 5px;border-radius:2px;letter-spacing:0}
 nav .links{display:flex;gap:22px;align-items:center;font-size:14px}
-#langBtn{cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--mist);
-  padding:4px 12px;border-radius:3px;font-size:13px;font-family:inherit}
-#langBtn:hover{border-color:var(--mist);color:var(--paper)}
+
+/* 语言切换:双标签胶囊,一眼可见 */
+.lang{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
+.lang button{cursor:pointer;border:none;background:transparent;color:var(--soft);
+  padding:6px 16px;font-size:13px;font-family:inherit;letter-spacing:.05em}
+.lang button.on{background:var(--seal);color:#fff}
 
 /* Hero */
-.hero{text-align:center;padding:72px 0 28px;position:relative}
+.hero{text-align:center;padding:70px 0 26px;position:relative}
 .hero h1{font-size:clamp(72px,14vw,150px);font-weight:600;letter-spacing:.12em;line-height:1.1;
-  background:linear-gradient(160deg,#f2ede2 20%,#9eb4c6 60%,#5a6e80);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero .latin{letter-spacing:.55em;color:var(--fog);font-size:clamp(13px,2vw,18px);margin:14px 0 0 .55em;font-family:Georgia,serif}
-.hero .tagline{font-size:clamp(17px,2.6vw,23px);color:var(--paper);margin-top:34px}
-.hero .motto{color:var(--fog);font-size:15px;margin-top:12px;letter-spacing:.18em}
-.seal{position:absolute;top:64px;right:max(12px,8%);width:54px;background:var(--seal);color:#fff;
+  background:linear-gradient(165deg,#1f2723 15%,#3d4a45 55%,#6e7a72);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .latin{letter-spacing:.55em;color:var(--faint);font-size:clamp(13px,2vw,18px);margin:14px 0 0 .55em;font-family:Georgia,serif}
+.hero .tagline{font-size:clamp(17px,2.6vw,23px);color:var(--ink2);margin-top:34px}
+.hero .motto{color:var(--soft);font-size:15px;margin-top:12px;letter-spacing:.18em}
+.seal{position:absolute;top:60px;right:max(12px,8%);width:54px;background:var(--seal);color:#fff;
   writing-mode:vertical-rl;padding:12px 10px;font-size:24px;letter-spacing:.25em;border-radius:3px;
-  box-shadow:0 0 24px rgba(192,57,43,.35);transform:rotate(2deg)}
+  box-shadow:2px 3px 0 rgba(142,44,31,.25);transform:rotate(2deg)}
 @media(max-width:640px){.seal{display:none}}
 
-/* 波浪分隔 */
 .waves{display:block;width:100%;height:54px;margin:36px 0 0}
 
 /* 安装区 */
 .install{padding:34px 0 10px}
-.install h2,.features h2,.story h2{font-size:26px;letter-spacing:.25em;margin-bottom:8px}
-.h2sub{color:var(--fog);font-size:14px;margin-bottom:26px;letter-spacing:.05em}
+.install h2,.features h2,.story h2{font-size:26px;letter-spacing:.25em;margin-bottom:8px;color:var(--ink)}
+.h2sub{color:var(--soft);font-size:14px;margin-bottom:26px;letter-spacing:.04em}
 .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-.tab{cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--mist);
+.tab{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--soft);
   padding:7px 18px;border-radius:3px;font-size:14px;font-family:inherit;letter-spacing:.08em}
-.tab.on{border-color:var(--seal);color:var(--paper);background:rgba(192,57,43,.12)}
-.code{position:relative;background:#070b10;border:1px solid var(--line);border-radius:6px;padding:20px 56px 20px 20px;
-  font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;color:#9fe0d3;overflow-x:auto;white-space:pre;line-height:1.7}
-.code .cm{color:#54687a}
-.copy{position:absolute;top:12px;right:12px;cursor:pointer;border:1px solid var(--line);background:transparent;
-  color:var(--fog);font-size:12px;padding:5px 10px;border-radius:3px;font-family:inherit}
-.copy:hover{color:var(--paper);border-color:var(--mist)}
-.install .note{color:var(--fog);font-size:13px;margin-top:12px}
+.tab.on{border-color:var(--seal);color:var(--seal);background:#fff;font-weight:600}
+.code{position:relative;background:#23271f;border:1px solid #1a1d16;border-radius:6px;padding:20px 56px 20px 20px;
+  font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;color:#cfe8db;overflow-x:auto;white-space:pre;line-height:1.7;
+  box-shadow:3px 4px 0 rgba(43,43,38,.08)}
+.code .cm{color:#7d8a73}
+.copy{position:absolute;top:12px;right:12px;cursor:pointer;border:1px solid rgba(255,255,255,.25);background:transparent;
+  color:#aab8a4;font-size:12px;padding:5px 10px;border-radius:3px;font-family:inherit}
+.copy:hover{color:#fff;border-color:#fff}
+.install .note{color:var(--soft);font-size:13px;margin-top:12px}
 
 /* 特性 */
 .features{padding:56px 0 8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-.card{border:1px solid var(--line);border-radius:6px;padding:24px 22px;background:rgba(255,255,255,.015);
-  transition:border-color .3s,transform .3s}
-.card:hover{border-color:rgba(192,57,43,.45);transform:translateY(-2px)}
+.card{border:1px solid var(--line);border-radius:6px;padding:24px 22px;background:var(--card);
+  transition:border-color .3s,transform .3s,box-shadow .3s}
+.card:hover{border-color:rgba(176,58,42,.5);transform:translateY(-2px);box-shadow:3px 5px 0 rgba(43,43,38,.07)}
 .card .num{color:var(--seal);font-size:13px;letter-spacing:.3em;margin-bottom:10px;font-family:Georgia,serif}
-.card h3{font-size:17px;margin-bottom:10px;letter-spacing:.1em}
-.card p{color:var(--mist);font-size:14px;line-height:1.85}
+.card h3{font-size:17px;margin-bottom:10px;letter-spacing:.1em;color:var(--ink)}
+.card p{color:var(--ink2);font-size:14px;line-height:1.85}
 
 /* 缘起 */
 .story{padding:56px 0}
-.story blockquote{border-left:2px solid var(--seal);padding:6px 0 6px 26px;font-size:clamp(17px,2.4vw,21px);
-  line-height:2.05;color:var(--paper)}
-.story .by{color:var(--fog);font-size:14px;margin-top:18px}
+.story blockquote{border-left:3px solid var(--seal);padding:6px 0 6px 26px;font-size:clamp(17px,2.4vw,21px);
+  line-height:2.05;color:var(--ink)}
+.story .by{color:var(--soft);font-size:14px;margin-top:18px}
 
 /* 页脚 */
-footer{border-top:1px solid var(--line);margin-top:30px;padding:34px 0 44px;color:var(--fog);font-size:13.5px;line-height:2}
+footer{border-top:1px solid var(--line);margin-top:30px;padding:34px 0 44px;color:var(--soft);font-size:13.5px;line-height:2}
 footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
 </style>
 </head>
@@ -96,9 +98,12 @@ footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
   <div class="brand">蓬莱<span class="seal-mini">印</span></div>
   <div class="links">
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
+    <a href="https://gitee.com/Kevinchen2023/PenglaiAgent" target="_blank">Gitee</a>
     <a href="https://pypi.org/project/penglai/" target="_blank">PyPI</a>
-    <a href="https://github.com/lsdefine/GenericAgent" target="_blank" data-t="nav_kernel">内核 GA</a>
-    <button id="langBtn" onclick="flip()">EN</button>
+    <div class="lang" role="group" aria-label="language">
+      <button id="btnZh" onclick="setLang('zh')">中文</button>
+      <button id="btnEn" onclick="setLang('en')">EN</button>
+    </div>
   </div>
 </nav>
 
@@ -111,9 +116,9 @@ footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
 </section>
 
 <svg class="waves" viewBox="0 0 1200 54" preserveAspectRatio="none" aria-hidden="true">
-  <path d="M0,30 C150,55 300,5 450,30 C600,55 750,5 900,30 C1050,55 1150,15 1200,30" fill="none" stroke="#1d9e8a" stroke-opacity=".55" stroke-width="1.6"/>
-  <path d="M0,38 C150,63 300,13 450,38 C600,63 750,13 900,38 C1050,63 1150,23 1200,38" fill="none" stroke="#16766c" stroke-opacity=".4" stroke-width="1.4"/>
-  <path d="M0,46 C150,71 300,21 450,46 C600,71 750,21 900,46 C1050,71 1150,31 1200,46" fill="none" stroke="#0f5550" stroke-opacity=".3" stroke-width="1.2"/>
+  <path d="M0,30 C150,55 300,5 450,30 C600,55 750,5 900,30 C1050,55 1150,15 1200,30" fill="none" stroke="#1f7a6d" stroke-opacity=".6" stroke-width="1.6"/>
+  <path d="M0,38 C150,63 300,13 450,38 C600,63 750,13 900,38 C1050,63 1150,23 1200,38" fill="none" stroke="#3a8a7d" stroke-opacity=".42" stroke-width="1.4"/>
+  <path d="M0,46 C150,71 300,21 450,46 C600,71 750,21 900,46 C1050,71 1150,31 1200,46" fill="none" stroke="#6aa399" stroke-opacity=".32" stroke-width="1.2"/>
 </svg>
 
 <section class="install">
@@ -143,7 +148,6 @@ footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
 
 <section class="story">
   <h2 data-t="story_h">为什么叫蓬莱</h2>
-  <p class="h2sub sans"></p>
   <blockquote data-t="story_q">蓬莱是中国神话里可望而不可即的海上仙山。今天的 AI 之于普通人,恰如蓬莱之于古人——API、终端、配置文件,是横在海面上的迷雾。蓬莱想做的,是把仙山搬进你的聊天窗口:你不必学会航海,会发微信,就能上岛。</blockquote>
   <p class="by sans" data-t="story_by">—— 一个不会写代码的作者,与 AI 结对造出的项目</p>
 </section>
@@ -151,6 +155,7 @@ footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
 <footer class="sans">
   <div class="row">
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
+    <a href="https://gitee.com/Kevinchen2023/PenglaiAgent" target="_blank">Gitee</a>
     <a href="https://pypi.org/project/penglai/" target="_blank">PyPI · penglai</a>
     <a href="https://github.com/kevinchennewbee/PenglaiAgent#-快速开始" target="_blank" data-t="ft_doc">文档</a>
     <a href="https://github.com/lsdefine/GenericAgent" target="_blank">GenericAgent</a>
@@ -182,12 +187,11 @@ function render(){
 function pick(i,el){cur=i;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');render()}
 
 const TXT={
- nav_kernel:{zh:"内核 GA",en:"Kernel: GA"},
  tagline:{zh:"住在你飞书和微信里的中文 AI 管家",en:"Your personal AI butler, living in Feishu & WeChat"},
  motto:{zh:"八仙过海 · 各显神通",en:"where eight immortals cross the sea, each shows their unique power"},
  install_h:{zh:"一行上岛",en:"One line ashore"},
  install_sub:{zh:"一台 $5/月的云服务器、一个 LLM API Key，十分钟向导走完，你就有了自己的管家。",en:"One $5/month VPS, one LLM API key, a ten-minute wizard — and you have your own butler."},
- install_note:{zh:"🇨🇳 国内服务器友好：依赖走清华镜像，代码走 gh-proxy，脚本自动处理。",en:"Friendly to servers behind the GFW: Tsinghua PyPI mirror and gh-proxy are handled automatically. International networks go direct."},
+ install_note:{zh:"🇨🇳 国内服务器友好：依赖走清华镜像，代码走 gh-proxy，脚本自动处理。",en:"Friendly to servers in China: Tsinghua PyPI mirror and gh-proxy handled automatically; international networks go direct."},
  feat_h:{zh:"各显神通",en:"What it does"},
  feat_sub:{zh:"以下每一条都在真实服务器上每天跑着，不是路线图。",en:"Every item below runs daily on a real server. This is not a roadmap."},
  f1h:{zh:"十分钟开箱",en:"Ten-minute setup"},
@@ -209,13 +213,14 @@ const TXT={
  ft_lic:{zh:"代码 MIT 开源；「蓬莱 / Penglai」名称与视觉资产保留所有权利。Powered by GenericAgent。",en:"Code is MIT-licensed; the “Penglai / 蓬莱” name and visual assets are all rights reserved. Powered by GenericAgent."}
 };
 let L='zh';
+function setLang(l){L=l;apply()}
 function apply(){
   document.querySelectorAll('[data-t]').forEach(el=>{const k=el.getAttribute('data-t');if(TXT[k])el.textContent=TXT[k][L]});
-  document.getElementById('langBtn').textContent=L==='zh'?'EN':'中';
+  document.getElementById('btnZh').classList.toggle('on',L==='zh');
+  document.getElementById('btnEn').classList.toggle('on',L==='en');
   document.documentElement.lang=L==='zh'?'zh-CN':'en';
   render();
 }
-function flip(){L=L==='zh'?'en':'zh';apply()}
 if(navigator.language&&!navigator.language.toLowerCase().startsWith('zh'))L='en';
 apply();
 </script>
