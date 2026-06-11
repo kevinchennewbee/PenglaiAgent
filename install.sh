@@ -76,9 +76,9 @@ if [ -z "$PY" ]; then
     say "  📦 正在安装依赖..."
     if [ -n "$MIRROR" ]; then
         uv pip install --python .venv/bin/python --quiet \
-            -i https://pypi.tuna.tsinghua.edu.cn/simple -e . lark-oapi qrcode
+            -i https://pypi.tuna.tsinghua.edu.cn/simple -e . lark-oapi qrcode pyyaml
     else
-        uv pip install --python .venv/bin/python --quiet -e . lark-oapi qrcode
+        uv pip install --python .venv/bin/python --quiet -e . lark-oapi qrcode pyyaml
     fi
     PY=".venv/bin/python"
     say "  ✅ Python 环境就绪(uv 托管,卸载=删除目录,零残留)"

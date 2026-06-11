@@ -157,14 +157,14 @@ def step_env():
         try:
             if uv:
                 subprocess.run([uv, "venv", ".venv"], cwd=ROOT, check=True, env={**os.environ, "UV_DEFAULT_INDEX": idx})
-                subprocess.run([uv, "pip", "install", "--python", py, "-q", "-e", ".", "lark-oapi", "qrcode"], cwd=ROOT, check=True,
+                subprocess.run([uv, "pip", "install", "--python", py, "-q", "-e", ".", "lark-oapi", "qrcode", "pyyaml"], cwd=ROOT, check=True,
                                env={**os.environ, "UV_DEFAULT_INDEX": idx})
             else:
                 subprocess.run([sys.executable, "-m", "venv", ".venv"], cwd=ROOT, check=True)
-                subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "-e", ".", "lark-oapi", "qrcode"], cwd=ROOT, check=True)
+                subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "-e", ".", "lark-oapi", "qrcode", "pyyaml"], cwd=ROOT, check=True)
             print(f"{OK} 依赖安装完成")
         except subprocess.CalledProcessError:
-            print(f"{BAD} 依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi")
+            print(f"{BAD} 依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml")
             sys.exit(1)
     else:
         print(f"{OK} 虚拟环境已存在")
