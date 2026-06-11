@@ -14,7 +14,7 @@
 [![Voice](https://img.shields.io/badge/voice-emotion%20aware-f59e0b?style=flat-square)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
 
-[中文](README.md) · **English**
+[中文](README.md) · **English** · [🌐 Website](https://kevinchennewbee.github.io/PenglaiAgent/)
 
 </div>
 
