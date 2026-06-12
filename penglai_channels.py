@@ -44,7 +44,9 @@ CHANNELS = {
                             "⚠️ 上游已知问题：媒体消息文件名路径穿越（已记上游 PR 候选），",
                             "   白名单生效前请勿把机器人开放给陌生人"]),
     "qq":       dict(label="QQ",       script="qqapp.py",        service="penglai-qq",
-                     pip={"qq-botpy": "botpy"},
+                     # pycryptodome 是扫码绑定解密 secret 的硬依赖（AES-256-GCM）——
+                     # 缺它则扫码成功也在最后一步解密崩掉（2026-06-12 用户实测踩坑）
+                     pip={"qq-botpy": "botpy", "pycryptodome": "Crypto"},
                      keys=["qq_app_id", "qq_app_secret"],
                      allow="qq_allowed_users", tested=False, qr="qq",
                      guide=["自动：手机 QQ 扫码绑定，自动创建机器人并取回凭证",
@@ -147,7 +149,24 @@ def dingtalk_qr():
     return None
 
 
+_DECRYPT_SNIPPET = """\
+import base64, json, sys
+d = json.load(sys.stdin)
+raw, key = base64.b64decode(d["ct"]), base64.b64decode(d["key"])
+iv, body = raw[:12], raw[12:]
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    out = AESGCM(key).decrypt(iv, body, None)
+except ImportError:
+    from Crypto.Cipher import AES
+    c = AES.new(key, AES.MODE_GCM, nonce=iv)
+    out = c.decrypt_and_verify(body[:-16], body[-16:])
+sys.stdout.write(out.decode("utf-8"))
+"""
+
 def _aes_gcm_decrypt(b64ct, b64key):
+    """AES-256-GCM 解密（IV12‖密文‖Tag16）。当前解释器缺库时借 venv 解
+    （向导常跑在系统 python，pycryptodome 装在 venv 里）；密文/密钥走 stdin 不上命令行。"""
     import base64
     raw, key = base64.b64decode(b64ct), base64.b64decode(b64key)
     iv, body = raw[:12], raw[12:]
@@ -155,55 +174,88 @@ def _aes_gcm_decrypt(b64ct, b64key):
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         return AESGCM(key).decrypt(iv, body, None).decode("utf-8")
     except ImportError:
-        from Crypto.Cipher import AES  # pycryptodome（微信渠道已有）
+        pass
+    try:
+        from Crypto.Cipher import AES  # pycryptodome
         c = AES.new(key, AES.MODE_GCM, nonce=iv)
         return c.decrypt_and_verify(body[:-16], body[-16:]).decode("utf-8")
+    except ImportError:
+        pass
+    import json as _json
+    r = subprocess.run([venv_python(), "-c", _DECRYPT_SNIPPET],
+                       input=_json.dumps({"ct": b64ct, "key": b64key}),
+                       capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout:
+        return r.stdout
+    raise RuntimeError("AES 解密失败：当前 Python 与 venv 都缺 pycryptodome/cryptography"
+                       f"（venv 报错: {(r.stderr or '').strip()[-80:]}）")
 
 
 def qq_qr():
-    """QQ 开放平台扫码绑定：create_bind_task 出码→手机 QQ 扫码→poll 取回凭证
+    """QQ 开放平台扫码绑定：create_bind_task 出码→手机 QQ 扫码→点「连接」→poll 取回凭证
     （client_secret 以本地生成的 AES-256-GCM 密钥加密传回，仅本机可解）。
-    返回 (app_id, app_secret) 或 None。"""
-    import base64, requests
+    返回 (app_id, app_secret) 或 None。
+    状态机（对齐 Hermes BindStatus）：0=等待扫码 1=已扫码待确认 2=绑定成功 3=二维码过期。
+    每次状态变化都打到终端 —— 上一版黑盒 poll 让「点了连接没反应」无从排查（2026-06-12）。"""
+    import base64, platform, requests
     host = os.environ.get("QQ_PORTAL_HOST", "q.qq.com")
+    # UA 对齐 Hermes 实测可用的格式；q.qq.com 缺 Accept: application/json 会回反爬 JS 页
+    pyv = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     hdr = {"Content-Type": "application/json", "Accept": "application/json",
-           "User-Agent": "penglai/0.1"}
+           "User-Agent": f"QQBotAdapter/1.1.0 (Python/{pyv}; {platform.system().lower()}; Penglai/0.1)"}
     key = base64.b64encode(os.urandom(32)).decode()
+    _ST = {0: "等待扫码", 1: "已扫码，请在手机上点「连接」", 2: "绑定成功", 3: "二维码已过期"}
     try:
         r = requests.post(f"https://{host}/lite/create_bind_task", json={"key": key},
                           headers=hdr, timeout=30)
         r.raise_for_status(); d = r.json()
         if d.get("retcode") != 0:
-            raise RuntimeError(d.get("msg", "create_bind_task 失败"))
+            raise RuntimeError(f"create_bind_task: {d.get('msg', '失败')} (retcode={d.get('retcode')})")
         task = d.get("data", {}).get("task_id", "")
         if not task:
-            raise RuntimeError("响应缺 task_id")
+            raise RuntimeError("create_bind_task 响应缺 task_id")
         from urllib.parse import quote
         url = f"https://{host}/qqbot/openclaw/connect.html?task_id={quote(task)}&_wv=2&source=penglai"
-        print("\n  用【手机 QQ】扫码并确认绑定（自动创建机器人）：")
+        print("\n  用【手机 QQ】扫码 → 选择/创建机器人 → 点「连接」：")
         _qr_print(url)
-        deadline = time.monotonic() + 600
+        last, deadline = -1, time.monotonic() + 600
         while time.monotonic() < deadline:
-            time.sleep(3)
-            r = requests.post(f"https://{host}/lite/poll_bind_result", json={"task_id": task},
-                              headers=hdr, timeout=30)
-            r.raise_for_status(); d = r.json()
+            time.sleep(2)
+            try:
+                r = requests.post(f"https://{host}/lite/poll_bind_result", json={"task_id": task},
+                                  headers=hdr, timeout=30)
+                r.raise_for_status(); d = r.json()
+            except Exception as e:
+                print(f"\n  {WARN}poll 请求异常（{e}），2 秒后重试"); continue
             if d.get("retcode") != 0:
-                raise RuntimeError(d.get("msg", "poll 失败"))
+                raise RuntimeError(f"poll_bind_result: {d.get('msg', '失败')} (retcode={d.get('retcode')})")
             data = d.get("data", {})
             s = int(data.get("status", 0))
+            if s != last:
+                print(("\n" if last >= 0 else "") + f"  ⏳ {_ST.get(s, f'未知状态 {s}')}", end="", flush=True)
+                last = s
+            else:
+                print(".", end="", flush=True)
             if s == 2:
+                print()
                 appid = str(data.get("bot_appid", ""))
-                sec = _aes_gcm_decrypt(data.get("bot_encrypt_secret", ""), key)
-                if appid and sec:
-                    print(f"{OK} 扫码成功，已自动取得凭证（App ID: {appid}）")
-                    return appid, sec
-                raise RuntimeError("绑定成功但凭证为空")
+                enc = data.get("bot_encrypt_secret", "")
+                if not (appid and enc):
+                    raise RuntimeError(f"绑定成功但凭证为空（bot_appid={appid!r}）")
+                try:
+                    sec = _aes_gcm_decrypt(enc, key)
+                except Exception as e:
+                    raise RuntimeError(f"凭证解密失败：{e}。机器人已在 QQ 侧创建成功，"
+                                       f"可到 q.qq.com 管理页拿 AppID/Secret 走手动模式")
+                print(f"{OK} 扫码成功，已自动取得凭证（App ID: {appid}）")
+                return appid, sec
             if s == 3:
-                raise RuntimeError("二维码已过期")
-        print(f"{WARN}扫码超时")
+                raise RuntimeError("二维码已过期，重新运行 penglai enable qq 再试")
+        print(f"\n{WARN}扫码超时（10 分钟）。最后状态：{_ST.get(last, '未知')}")
     except Exception as e:
-        print(f"{WARN}扫码流程失败（{e}），转手动模式")
+        print(f"{WARN}扫码流程失败：{e}")
+        print(f"  {WARN}转手动模式。提示：若手机上已创建过机器人（如 機器人19xxx），"
+              f"到 q.qq.com → 开发设置 即可拿到 AppID/AppSecret，无需重建")
     return None
 
 

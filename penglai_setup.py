@@ -120,7 +120,7 @@ def _get_provider_list():
             (6,  "MiniMax",                "minimax",    "paygo", "https://api.minimaxi.com/v1",                 "MiniMax-M3",                  "https://platform.minimaxi.com"),
             (7,  "Moonshot Kimi",          "moonshot",   "paygo", "https://api.moonshot.cn/v1",                  "kimi-k2.6",                   "https://platform.kimi.com"),
             (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-4-6", "https://openrouter.ai"),
-            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hunyuan-turbos-20250416",     "https://cloud.tencent.com/product/hunyuan"),
+            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hunyuan-2.0-thinking",        "https://cloud.tencent.com/product/hunyuan"),
             (10, "讯飞星火",               "xunfei",     "paygo", "https://spark-api-open.xf-yun.com/v1",        "max-32k",                     "https://www.xfyun.cn"),
             (11, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
         ]
@@ -218,7 +218,9 @@ def step_llm():
         name = c(_pad(label, 28), F(252))
         model_s = (c(T("默认 "), F(245)) + c(_pad(model, 30), F(37))) if model \
                   else c(_pad(T("（手动填模型名）"), 35), F(245))
-        print(f"  {num}  {name}{model_s}{c(signup, F(245))}")
+        # 列表展示 base_url（接入端点才是用户要核对的；注册链接选中后再给）
+        base_s = base.replace("https://", "") if base else T("（手动填）")
+        print(f"  {num}  {name}{model_s}{c(base_s, F(245))}")
     print()
 
     # 弃用模型警告表（来自 providers yaml）
@@ -235,6 +237,9 @@ def step_llm():
             break
         except (ValueError, IndexError):
             print("  " + T("无效序号，请重选"))
+
+    if signup:
+        print("  " + c(T("注册/充值入口："), F(245)) + c(signup, F(37)))
 
     # plan 警告
     if _PROVIDERS_DATA and pid in _PROVIDERS_DATA.get("providers", {}):
@@ -444,6 +449,13 @@ def step_identity():
 # ---------- 步骤 5：能力面板 ----------
 MODEL_BASE = os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models"))
 MODEL_DIR = os.path.join(MODEL_BASE, "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
+# 单文件直下只取 int8 推理件(229MB+tokens 0.3MB)。官方 tar 包内含 895MB 的 fp32
+# model.onnx(我们不用),整包下载会让用户多拉近 4 倍流量——实测踩坑(2026-06-12)
+_MODEL_FILES = ("model.int8.onnx", "tokens.txt")
+_MODEL_FILE_BASES = (
+    "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/",
+    "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/",
+)
 _MODEL_TAR = ("sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2")
 _MODEL_URLS = (
     "https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
@@ -502,32 +514,46 @@ def _voice_install():
             print(f"  {OK} " + T("ffmpeg 就绪"))
     else:
         print(f"  {OK} " + T("ffmpeg 就绪"))
-    # 3) SenseVoice 模型（~230MB，gh-proxy 优先，直连兜底）
+    # 3) SenseVoice 模型（int8 推理件约 230MB；hf 镜像单文件直下，gh-proxy tar 兜底）
     if os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
         print(f"  {OK} " + T("模型已存在，跳过下载"))
     else:
         print("  " + T("下载 SenseVoice 模型（约 230MB，国内自动走镜像）..."))
-        os.makedirs(MODEL_BASE, exist_ok=True)
-        tar_path = os.path.join(MODEL_BASE, _MODEL_TAR)
+        os.makedirs(MODEL_DIR, exist_ok=True)
         got = False
-        for url in _MODEL_URLS:
+        for base in _MODEL_FILE_BASES:
             try:
-                _dl_progress(url, tar_path)
+                for fn in _MODEL_FILES:
+                    part = os.path.join(MODEL_DIR, fn + ".part")
+                    _dl_progress(base + fn, part)
+                    os.replace(part, os.path.join(MODEL_DIR, fn))
                 got = True
                 break
             except Exception as e:
                 print(f"  {WARN}" + T("下载失败：{e}", e=str(e)[:80]))
-        if got:
-            print("  " + T("解压中..."), flush=True)
-            import tarfile
-            try:
-                with tarfile.open(tar_path, "r:bz2") as tf:
-                    try:
-                        tf.extractall(MODEL_BASE, filter="data")
-                    except TypeError:   # Python < 3.12 无 filter 参数
-                        tf.extractall(MODEL_BASE)
-            finally:
-                try: os.remove(tar_path)
+        if not got:
+            # tar 兜底（含 895MB fp32，解压后即删，只留 int8）
+            tar_path = os.path.join(MODEL_BASE, _MODEL_TAR)
+            for url in _MODEL_URLS:
+                try:
+                    _dl_progress(url, tar_path)
+                    got = True
+                    break
+                except Exception as e:
+                    print(f"  {WARN}" + T("下载失败：{e}", e=str(e)[:80]))
+            if got:
+                print("  " + T("解压中..."), flush=True)
+                import tarfile
+                try:
+                    with tarfile.open(tar_path, "r:bz2") as tf:
+                        try:
+                            tf.extractall(MODEL_BASE, filter="data")
+                        except TypeError:   # Python < 3.12 无 filter 参数
+                            tf.extractall(MODEL_BASE)
+                finally:
+                    try: os.remove(tar_path)
+                    except OSError: pass
+                try: os.remove(os.path.join(MODEL_DIR, "model.onnx"))   # fp32 不用，省 895MB
                 except OSError: pass
         if not os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
             ok = False
@@ -543,6 +569,8 @@ def step_abilities():
     page(5, T("蓬莱能力（按需开启，立即生效）"))
     print("  " + c(T("出厂常开（确定性防线，不可关）："), F(245))
           + c(T("红线审计 · 记忆卫生 · 出站文件白名单"), F(252)))
+    print("  🧠 " + c(T("长期记忆：GA 内核标配，已自动启用"), F(252))
+          + c(T("（L1 每轮注入 / 聊天结束自动结算沉淀，无需配置）"), F(245)))
     out = {}
     # —— 语音（默认开：发语音条是 IM 管家的基本盘）——
     print()

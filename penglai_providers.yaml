@@ -1,12 +1,14 @@
 # penglai_providers.yaml — 蓬莱 LLM 提供商目录
-# 来源：各官方文档实时抓取，2026-06-11
+# 来源：各官方文档实时抓取 2026-06-11；2026-06-12 按用户实测报告 v2 全面修正
+# （套餐与按量的 base_url/Key/默认模型三件套互不通用；Anthropic 与 OpenAI 协议端点不同不可混用）
 # 用途：setup 向导、Web 初始化、客户端 — 所有入口读此文件，此处更新即全局生效
 #
 # 价格单位：元/百万 tokens（人民币），input = 缓存未命中价
 # context_k：上下文窗口（千 tokens）
 # default: true → 向导默认高亮该模型
+# base_url = OpenAI 兼容端点（蓬莱/GA 实际调用的）；base_url_anthropic = Anthropic 协议端点（备查）
 
-updated: "2026-06-11"
+updated: "2026-06-12"
 currency: CNY
 
 # 向导显示顺序（越靠前越先展示）
@@ -138,8 +140,9 @@ providers:
             display: "MiniMax M3"
       agent_plan:
         label: "Agent Plan（智能体套餐，AFP 积分计费）"
-        base_url: "https://ark.cn-beijing.volces.com/api/v3"
-        warning: "仅限智能体工作流调用，不可直接 SDK 调用；以 AFP 积分计费而非 token"
+        # 套餐专属端点，与按量 /api/v3 不互通（2026-06-12 用户报告修正）
+        base_url: "https://ark.cn-beijing.volces.com/api/agent"
+        warning: "套餐专属端点 /api/agent（与按量不互通）；AFP 积分计费、平台自动调度；蓬莱接入待实测"
         plans:
           - id: small
             display: "Small ¥40/月"
@@ -211,6 +214,7 @@ providers:
       paygo:
         label: "按量付费"
         base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        base_url_anthropic: "https://dashscope.aliyuncs.com/apps/anthropic"
         note: "新用户每模型赠送 100 万 token（90 天有效）"
         models:
           - id: qwen3.7-plus
@@ -259,12 +263,13 @@ providers:
       coding_plan:
         label: "Coding Plan（编码套餐）"
         base_url: "https://coding.dashscope.aliyuncs.com/v1"
-        warning: "需使用专属 sk-sp- 前缀 API Key，与普通 Key 不通用"
+        base_url_anthropic: "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+        warning: "需专属 sk-sp- 前缀 Key（与普通 Key 不通用，混用按量计费扣费）；官方条款仅限编码工具交互使用、禁止自动化/常驻调用，接入常驻管家有封禁风险——建议选按量"
         plans:
           - id: pro
             display: "Pro ¥200/月"
             price_cny: 200
-            desc: "90,000 次/月，适合重度 AI 编码"
+            desc: "90,000 次/月（5小时 6,000 / 周 45,000），Lite 已停售（2026-04-13）"
         models:
           - id: qwen3.7-plus
             display: "千问3.7-Plus（推荐）"
@@ -349,6 +354,34 @@ providers:
             output_cny: 0.0
             free: true
             features: [vision]
+      coding_plan:
+        label: "Coding Plan（编码套餐）"
+        base_url: "https://open.bigmodel.cn/api/coding/paas/v4"
+        base_url_anthropic: "https://open.bigmodel.cn/api/anthropic"
+        warning: "套餐端点与按量 /api/paas/v4 不同，配错报 1113 或扣余额；高峰期(14-18点)旗舰模型 2-3 倍扣额度；官方面向编码工具，常驻管家接入待实测"
+        plans:
+          - id: lite
+            display: "Lite ¥49/月"
+            price_cny: 49
+            desc: "5小时约 80 次 / 周约 400 次"
+          - id: pro
+            display: "Pro ¥149/月"
+            price_cny: 149
+            desc: "5小时约 400 次 / 周约 2,000 次"
+          - id: max
+            display: "Max ¥469/月"
+            price_cny: 469
+            desc: "5小时约 1,600 次 / 周约 8,000 次"
+        models:
+          - id: glm-5.1
+            display: "GLM-5.1（Opus 级，默认）"
+            default: true
+          - id: glm-5-turbo
+            display: "GLM-5-Turbo"
+          - id: glm-4.7
+            display: "GLM-4.7（Sonnet 级，1 倍额度）"
+          - id: glm-4.5-air
+            display: "GLM-4.5-Air（Haiku 级，1 倍额度）"
     default_billing: paygo
     default_model: glm-5.1
 
@@ -362,7 +395,8 @@ providers:
       paygo:
         label: "按量付费（普通 API Key）"
         base_url: "https://api.minimaxi.com/v1"
-        note: "M3 永久五折优惠，≤512k 输入享折扣价"
+        base_url_anthropic: "https://api.minimaxi.com/anthropic"
+        note: "M3 永久五折优惠，≤512k 输入享折扣价；全球版端点为 api.minimax.io"
         models:
           - id: MiniMax-M3
             display: "MiniMax-M3（最新，推荐）"
@@ -386,7 +420,8 @@ providers:
       token_plan:
         label: "Token Plan（订阅 Key，积分制）"
         base_url: "https://api.minimaxi.com/v1"
-        note: "订阅后获得专属 Key，积分按月/季度/年配额"
+        base_url_anthropic: "https://api.minimaxi.com/anthropic"
+        note: "订阅后获得专属 Key（与按量 Key 不互通）；官方主推 Anthropic 端点，OpenAI /v1 待实测"
         plans:
           - id: plus
             display: "Plus ¥49/月"
@@ -419,6 +454,7 @@ providers:
       paygo:
         label: "按量付费"
         base_url: "https://api.moonshot.cn/v1"
+        base_url_anthropic: "https://api.moonshot.cn/anthropic"
         note: "API 端点是 api.moonshot.cn，platform.kimi.com 仅为开发者门户"
         models:
           - id: kimi-k2.6
@@ -436,6 +472,30 @@ providers:
             input_cached_cny: 0.70
             output_cny: 21.0
             features: [thinking, vision, tools, auto_cache]
+      coding_plan:
+        label: "Coding Plan（编码套餐）"
+        # 套餐仅开放 Anthropic 协议 + 封闭工具白名单（Kimi CLI/Claude Code/Roo Code），
+        # 蓬莱走 OpenAI 兼容调用不适用 —— 列出仅为透明，选它会提示改按量
+        base_url: ""
+        base_url_anthropic: "https://api.moonshot.cn/anthropic"
+        warning: "套餐仅限 Anthropic 协议 + 指定编码工具（Kimi CLI/Claude Code/Roo Code），且仅限个人交互使用——蓬莱管家接入不适用，请选 Kimi 按量付费"
+        plans:
+          - id: andante
+            display: "Andante ¥49/月"
+            price_cny: 49
+            desc: "7 天滚动周期，5小时配额约 300-1,200 次"
+          - id: moderato
+            display: "Moderato ¥99/月"
+            price_cny: 99
+            desc: "更大配额，多设备共享"
+          - id: allegretto
+            display: "Allegretto ¥199/月"
+            price_cny: 199
+            desc: "20 倍 Code 额度 / 4 倍 Agent 额度"
+        models:
+          - id: kimi-k2.5
+            display: "Kimi K2.5（套餐默认）"
+            default: true
     default_billing: paygo
     default_model: kimi-k2.6
 
@@ -505,27 +565,78 @@ providers:
       paygo:
         label: "按量付费（TokenHub 计费）"
         base_url: "https://api.hunyuan.cloud.tencent.com/v1"
-        note: "需腾讯云账号；开发者版 API 格式兼容 OpenAI"
+        note: "需腾讯云账号；hunyuan-t1/turbo 等旧系列 2026-06-22 下线，以控制台公告为准"
         models:
-          - id: hunyuan-turbos-20250416
-            display: "混元-Turbo-S（快速，推荐）"
-            context_k: 32
-            input_cny: 0.80
-            output_cny: 0.80
-            default: true
-          - id: hunyuan-turbo-20250416
-            display: "混元-Turbo（均衡）"
-            context_k: 32
-            input_cny: 0.80
-            output_cny: 2.00
-          - id: hunyuan-t1-20250721
-            display: "混元-T1（旗舰思考）"
+          - id: hunyuan-2.0-thinking
+            display: "混元 2.0 Thinking（旗舰思考，推荐）"
             context_k: 256
-            input_cny: 8.0
-            output_cny: 24.0
+            input_cny: 3.975
+            output_cny: 15.9
             features: [thinking]
+            default: true
+          - id: hunyuan-2.0-instruct
+            display: "混元 2.0 Instruct（通用）"
+            context_k: 256
+            input_cny: 3.18
+            output_cny: 7.95
+          - id: hunyuan-a13b
+            display: "混元 A13B（轻量低价）"
+            context_k: 32
+            input_cny: 0.5
+            output_cny: 2.0
+          - id: hunyuan-lite
+            display: "混元 Lite（免费）"
+            context_k: 32
+            input_cny: 0.0
+            output_cny: 0.0
+            free: true
+      token_plan:
+        label: "Token Plan（订阅）"
+        # 套餐专属端点（与按量端点不同域名！）—— 2026-06-12 用户报告修正
+        base_url: "https://api.lkeap.cloud.tencent.com/plan/v3"
+        base_url_anthropic: "https://api.lkeap.cloud.tencent.com/plan/anthropic"
+        warning: "每个主账号仅一个套餐 Key；到期剩余 token 不结转；官方条款禁止 API 自动化调用——常驻管家接入有风险；Hy 专享档不支持图片/视频多模态"
+        plans:
+          - id: lite
+            display: "Lite ¥39/月（Hy 专享 ¥28）"
+            price_cny: 39
+            desc: "3500 万 token/月"
+          - id: standard
+            display: "Standard ¥99/月（Hy ¥78）"
+            price_cny: 99
+            desc: "1 亿 token/月"
+          - id: pro
+            display: "Pro ¥299/月（Hy ¥238）"
+            price_cny: 299
+            desc: "3.2 亿 token/月"
+          - id: max
+            display: "Max ¥599/月（Hy ¥468）"
+            price_cny: 599
+            desc: "6.5 亿 token/月"
+        models:
+          - id: tc-code-latest
+            display: "tc-code-latest（Auto 智能路由，默认）"
+            default: true
+          - id: hy3-preview
+            display: "Hy3 Preview（混元最强，256K）"
+          - id: glm-5.1
+            display: "GLM-5.1（第三方）"
+          - id: kimi-k2.5
+            display: "Kimi K2.5（第三方，支持图片）"
+          - id: minimax-m2.7
+            display: "MiniMax M2.7（第三方）"
     default_billing: paygo
-    default_model: hunyuan-turbos-20250416
+    default_model: hunyuan-2.0-thinking
+    deprecated:
+      - id: hunyuan-turbos-20250416
+        replace: hunyuan-2.0-thinking
+        deadline: "2026-06-22"
+      - id: hunyuan-turbo-20250416
+        replace: hunyuan-2.0-thinking
+        deadline: "2026-06-22"
+      - id: hunyuan-t1-20250721
+        replace: hunyuan-2.0-thinking
+        deadline: "2026-06-22"
 
   # ============================================================
   # 10. 讯飞星火 — 有永久免费 Lite 档
