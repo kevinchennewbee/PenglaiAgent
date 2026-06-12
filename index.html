@@ -1,228 +1,389 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai:开源个人 AI 管家,基于 GenericAgent。飞书+微信双渠道,十分钟开箱,一行命令部署。">
+<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、确定性安全。内核零改动。">
 <style>
-:root{
-  --paper:#f6f1e4; --paper2:#efe8d5; --ink:#2b2b26; --ink2:#454239;
-  --soft:#7a7466; --faint:#a09a8a; --seal:#b03a2a; --seal-d:#8e2c1f;
-  --teal:#1f7a6d; --line:rgba(43,43,38,.14); --card:#fbf8f0;
-}
 *{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0d0c; --bg2:#0f1413; --panel:rgba(255,255,255,.035);
+  --ink:#eae6da; --soft:#9ba49b; --faint:#5c655d;
+  --seal:#e0533d; --seal-glow:rgba(224,83,61,.5);
+  --teal:#3fbaa6; --teal-glow:rgba(63,186,166,.4);
+  --gold:#d6ad65;
+  --line:rgba(234,230,218,.10); --line2:rgba(234,230,218,.06);
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+}
 html{scroll-behavior:smooth}
-body{background:var(--paper);color:var(--ink);font-family:"Songti SC","Noto Serif SC","STSong",Georgia,serif;overflow-x:hidden}
-.sans{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
-a{color:var(--ink2);text-decoration:none;border-bottom:1px solid transparent}
-a:hover{color:var(--seal);border-bottom-color:var(--seal)}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+  line-height:1.7;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-/* 宣纸底纹:暖色晕染 + 远山淡墨 */
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(55% 38% at 80% 0%, rgba(176,58,42,.05), transparent 60%),
-  radial-gradient(45% 32% at 12% 22%, rgba(31,122,109,.05), transparent 60%),
-  radial-gradient(80% 55% at 50% 105%, rgba(122,116,102,.10), transparent 60%),
-  var(--paper)}
+/* —— 背景光晕（缓慢浮动）—— */
+.aura{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aura span{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;
+  animation:float 22s ease-in-out infinite}
+.aura .a1{width:46vw;height:46vw;top:-12%;left:-8%;background:radial-gradient(circle,var(--seal-glow),transparent 68%)}
+.aura .a2{width:50vw;height:50vw;top:18%;right:-14%;background:radial-gradient(circle,var(--teal-glow),transparent 68%);animation-delay:-7s}
+.aura .a3{width:38vw;height:38vw;bottom:-14%;left:24%;background:radial-gradient(circle,rgba(214,173,101,.22),transparent 70%);animation-delay:-13s}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(4vw,-3vh) scale(1.08)}66%{transform:translate(-3vw,4vh) scale(.94)}}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(var(--line2) 1px,transparent 1px);background-size:46px 46px;
+  mask-image:radial-gradient(circle at 50% 30%,#000,transparent 80%)}
 
-.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+/* —— 容器 —— */
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+section{position:relative}
 
-/* 顶栏 */
-nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0}
-.brand{display:flex;align-items:center;gap:10px;font-size:19px;letter-spacing:.3em;color:var(--ink)}
-.brand .seal-mini{background:var(--seal);color:#fff;font-size:13px;padding:3px 5px;border-radius:2px;letter-spacing:0}
-nav .links{display:flex;gap:22px;align-items:center;font-size:14px}
-
-/* 语言切换:双标签胶囊,一眼可见 */
-.lang{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
+/* —— 导航 —— */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:rgba(10,13,12,.62);border-bottom:1px solid var(--line2)}
+.navin{max-width:1080px;margin:0 auto;padding:15px 28px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:11px;font-size:18px;letter-spacing:.34em;font-weight:600}
+.brand b{background:var(--seal);color:#fff;font-size:13px;font-weight:700;
+  padding:3px 6px;border-radius:3px;letter-spacing:0;box-shadow:0 0 16px var(--seal-glow)}
+.navlinks{display:flex;align-items:center;gap:8px}
+.navlinks a{color:var(--soft);font-size:13.5px;padding:7px 13px;border-radius:7px;
+  text-decoration:none;transition:.2s;letter-spacing:.03em}
+.navlinks a:hover{color:var(--ink);background:var(--panel)}
+.lang{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-left:6px}
 .lang button{cursor:pointer;border:none;background:transparent;color:var(--soft);
-  padding:6px 16px;font-size:13px;font-family:inherit;letter-spacing:.05em}
+  padding:6px 14px;font-size:12.5px;font-family:inherit;transition:.2s}
 .lang button.on{background:var(--seal);color:#fff}
 
-/* Hero */
-.hero{text-align:center;padding:70px 0 26px;position:relative}
-.hero h1{font-size:clamp(72px,14vw,150px);font-weight:600;letter-spacing:.12em;line-height:1.1;
-  background:linear-gradient(165deg,#1f2723 15%,#3d4a45 55%,#6e7a72);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero .latin{letter-spacing:.55em;color:var(--faint);font-size:clamp(13px,2vw,18px);margin:14px 0 0 .55em;font-family:Georgia,serif}
-.hero .tagline{font-size:clamp(17px,2.6vw,23px);color:var(--ink2);margin-top:34px}
-.hero .motto{color:var(--soft);font-size:15px;margin-top:12px;letter-spacing:.18em}
-.seal{position:absolute;top:60px;right:max(12px,8%);width:54px;background:var(--seal);color:#fff;
-  writing-mode:vertical-rl;padding:12px 10px;font-size:24px;letter-spacing:.25em;border-radius:3px;
-  box-shadow:2px 3px 0 rgba(142,44,31,.25);transform:rotate(2deg)}
-@media(max-width:640px){.seal{display:none}}
+/* —— Hero —— */
+.hero{padding:120px 0 96px;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--teal);
+  border:1px solid rgba(63,186,166,.3);background:rgba(63,186,166,.07);
+  padding:6px 15px;border-radius:99px;letter-spacing:.06em;margin-bottom:30px}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+.hero h1{font-family:var(--serif);font-size:clamp(58px,12vw,128px);line-height:1;
+  letter-spacing:.06em;font-weight:600;
+  background:linear-gradient(160deg,#fff 8%,#cfc8b6 42%,var(--gold) 96%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 40px rgba(214,173,101,.18))}
+.hero .latin{font-family:Georgia,serif;letter-spacing:.62em;color:var(--faint);
+  font-size:clamp(14px,2.4vw,20px);margin:20px 0 0 .62em}
+.hero .tag{font-size:clamp(17px,2.6vw,22px);color:var(--ink);margin-top:36px;font-weight:300}
+.hero .sub{color:var(--soft);font-size:15px;margin-top:14px;letter-spacing:.04em;max-width:620px;margin-left:auto;margin-right:auto}
+.hero .motto{color:var(--faint);font-size:13.5px;margin-top:18px;letter-spacing:.22em;font-family:var(--serif)}
 
-.waves{display:block;width:100%;height:54px;margin:36px 0 0}
+/* —— 一行命令 —— */
+.cmd{margin:42px auto 0;max-width:680px;display:flex;align-items:center;gap:12px;
+  background:linear-gradient(120deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border:1px solid var(--line);border-radius:13px;padding:16px 18px;
+  font-family:var(--mono);font-size:13.5px;text-align:left;
+  box-shadow:0 18px 50px -20px rgba(0,0,0,.7)}
+.cmd .ps{color:var(--teal);user-select:none}
+.cmd code{color:var(--ink);flex:1;overflow-x:auto;white-space:nowrap}
+.cmd button{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--soft);
+  font-family:var(--sans);font-size:12px;padding:7px 13px;border-radius:8px;transition:.2s;white-space:nowrap}
+.cmd button:hover{color:var(--ink);border-color:var(--seal);background:rgba(224,83,61,.1)}
+.cta{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;
+  font-size:14px;text-decoration:none;transition:.22s;letter-spacing:.03em}
+.btn.primary{background:var(--seal);color:#fff;box-shadow:0 10px 30px -10px var(--seal-glow)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 16px 40px -10px var(--seal-glow)}
+.btn.ghost{border:1px solid var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--soft);background:var(--panel)}
 
-/* 安装区 */
-.install{padding:34px 0 10px}
-.install h2,.features h2,.story h2{font-size:26px;letter-spacing:.25em;margin-bottom:8px;color:var(--ink)}
-.h2sub{color:var(--soft);font-size:14px;margin-bottom:26px;letter-spacing:.04em}
-.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-.tab{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--soft);
-  padding:7px 18px;border-radius:3px;font-size:14px;font-family:inherit;letter-spacing:.08em}
-.tab.on{border-color:var(--seal);color:var(--seal);background:#fff;font-weight:600}
-.code{position:relative;background:#23271f;border:1px solid #1a1d16;border-radius:6px;padding:20px 56px 20px 20px;
-  font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;color:#cfe8db;overflow-x:auto;white-space:pre;line-height:1.7;
-  box-shadow:3px 4px 0 rgba(43,43,38,.08)}
-.code .cm{color:#7d8a73}
-.copy{position:absolute;top:12px;right:12px;cursor:pointer;border:1px solid rgba(255,255,255,.25);background:transparent;
-  color:#aab8a4;font-size:12px;padding:5px 10px;border-radius:3px;font-family:inherit}
-.copy:hover{color:#fff;border-color:#fff}
-.install .note{color:var(--soft);font-size:13px;margin-top:12px}
+/* —— 区块标题 —— */
+.head{text-align:center;margin-bottom:54px}
+.head .kicker{color:var(--seal);font-size:12.5px;letter-spacing:.3em;font-family:var(--serif)}
+.head h2{font-family:var(--serif);font-size:clamp(28px,5vw,40px);letter-spacing:.14em;
+  margin-top:12px;font-weight:600}
+.head p{color:var(--soft);font-size:14.5px;margin-top:14px}
+section.block{padding:88px 0;border-top:1px solid var(--line2)}
 
-/* 特性 */
-.features{padding:56px 0 8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-.card{border:1px solid var(--line);border-radius:6px;padding:24px 22px;background:var(--card);
-  transition:border-color .3s,transform .3s,box-shadow .3s}
-.card:hover{border-color:rgba(176,58,42,.5);transform:translateY(-2px);box-shadow:3px 5px 0 rgba(43,43,38,.07)}
-.card .num{color:var(--seal);font-size:13px;letter-spacing:.3em;margin-bottom:10px;font-family:Georgia,serif}
-.card h3{font-size:17px;margin-bottom:10px;letter-spacing:.1em;color:var(--ink)}
-.card p{color:var(--ink2);font-size:14px;line-height:1.85}
+/* —— 能力卡片 —— */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;
+  transition:.28s;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;border-radius:16px;padding:1px;
+  background:linear-gradient(140deg,var(--seal),transparent 40%,transparent 60%,var(--teal));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:.3s}
+.card:hover{transform:translateY(-5px);background:rgba(255,255,255,.05)}
+.card:hover::before{opacity:.6}
+.card .ico{font-size:26px;margin-bottom:16px;display:block}
+.card h3{font-size:17px;letter-spacing:.04em;margin-bottom:9px}
+.card p{color:var(--soft);font-size:13.7px;line-height:1.72}
+.card .opt{display:inline-block;font-size:11px;color:var(--gold);border:1px solid rgba(214,173,101,.3);
+  padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:middle;letter-spacing:.05em}
 
-/* 缘起 */
-.story{padding:56px 0}
-.story blockquote{border-left:3px solid var(--seal);padding:6px 0 6px 26px;font-size:clamp(17px,2.4vw,21px);
-  line-height:2.05;color:var(--ink)}
-.story .by{color:var(--soft);font-size:14px;margin-top:18px}
+/* —— 渠道矩阵 —— */
+.matrix{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel)}
+.mrow{display:grid;grid-template-columns:1.4fr 2.4fr 1.3fr 1fr;gap:14px;padding:15px 22px;
+  align-items:center;border-bottom:1px solid var(--line2);font-size:13.7px}
+.mrow:last-child{border-bottom:none}
+.mrow.h{color:var(--faint);font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.02)}
+.mrow .ch{font-weight:600;letter-spacing:.04em}
+.mrow .how{color:var(--soft);font-size:13px}
+.tag{display:inline-block;font-size:11.5px;padding:3px 9px;border-radius:99px;letter-spacing:.03em}
+.tag.ok{color:var(--teal);background:rgba(63,186,166,.12)}
+.tag.wrap{color:var(--gold);background:rgba(214,173,101,.12)}
+.tag.no{color:var(--faint)}
+.tag.live{color:var(--teal);border:1px solid rgba(63,186,166,.3)}
+.tag.test{color:var(--gold);border:1px solid rgba(214,173,101,.3)}
+.matrix-note{color:var(--faint);font-size:12.5px;margin-top:16px;text-align:center;line-height:1.8}
 
-/* 页脚 */
-footer{border-top:1px solid var(--line);margin-top:30px;padding:34px 0 44px;color:var(--soft);font-size:13.5px;line-height:2}
-footer .row{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:8px}
+/* —— 安装 —— */
+.tabs{display:flex;gap:10px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
+.tabs button{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--soft);
+  padding:9px 20px;border-radius:9px;font-family:inherit;font-size:13.5px;transition:.2s;letter-spacing:.04em}
+.tabs button.on{border-color:var(--seal);color:var(--ink);background:rgba(224,83,61,.1)}
+.code{background:#070908;border:1px solid var(--line);border-radius:13px;padding:22px 24px;
+  font-family:var(--mono);font-size:13.3px;line-height:1.9;overflow-x:auto;max-width:780px;margin:0 auto;position:relative}
+.code .c{color:var(--faint)}
+.code .g{color:var(--teal)}
+.code .copy{position:absolute;top:14px;right:14px;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel);color:var(--soft);font-family:var(--sans);font-size:11.5px;padding:5px 11px;border-radius:7px;transition:.2s}
+.code .copy:hover{color:var(--ink);border-color:var(--seal)}
+.pane{display:none}.pane.on{display:block}
+
+/* —— 更新日志时间线 —— */
+.timeline{max-width:760px;margin:0 auto;position:relative;padding-left:30px}
+.timeline::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;
+  background:linear-gradient(var(--seal),var(--teal),transparent)}
+.tl{position:relative;padding:0 0 34px 26px}
+.tl::before{content:"";position:absolute;left:-30px;top:5px;width:12px;height:12px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--seal);box-shadow:0 0 12px var(--seal-glow)}
+.tl.t::before{border-color:var(--teal);box-shadow:0 0 12px var(--teal-glow)}
+.tl .ver{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tl .v{font-family:var(--mono);font-size:15px;color:var(--ink);font-weight:600}
+.tl .d{font-size:12px;color:var(--faint);font-family:var(--mono)}
+.tl .ttl{font-size:14.5px;color:var(--gold);margin-top:5px;letter-spacing:.02em}
+.tl ul{margin:8px 0 0;padding-left:16px}
+.tl li{color:var(--soft);font-size:13.3px;line-height:1.75;margin-bottom:3px}
+
+/* —— 缘起 —— */
+.story{max-width:680px;margin:0 auto;text-align:center}
+.story p{color:var(--soft);font-size:15px;line-height:2;margin-bottom:18px}
+.story .em{color:var(--ink);font-family:var(--serif);font-size:17px;letter-spacing:.04em}
+
+/* —— Footer —— */
+footer{border-top:1px solid var(--line2);padding:48px 0;text-align:center;margin-top:40px}
+footer .links{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+footer a{color:var(--soft);font-size:13.5px;text-decoration:none;transition:.2s}
+footer a:hover{color:var(--seal)}
+footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9}
+.seal-stamp{display:inline-block;background:var(--seal);color:#fff;font-family:var(--serif);
+  font-size:14px;padding:5px 8px;border-radius:3px;letter-spacing:.1em;margin-bottom:18px;
+  box-shadow:0 0 20px var(--seal-glow)}
+
+/* —— 滚动渐入 —— */
+.reveal{opacity:0;transform:translateY(26px);transition:.7s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+[data-en]{display:none}
+body.en [data-zh]{display:none}
+body.en [data-en]{display:revert}
+
+@media(max-width:680px){
+  .navlinks a.hideS{display:none}
+  .mrow{grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px}
+  .mrow .how,.mrow.h .how{display:none}
+  .hero{padding:80px 0 60px}
+  .cmd{flex-wrap:wrap}.cmd code{white-space:normal;word-break:break-all}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="aura"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
+<div class="grain"></div>
 
-<nav class="sans">
-  <div class="brand">蓬莱<span class="seal-mini">印</span></div>
-  <div class="links">
+<nav><div class="navin">
+  <div class="brand"><b>蓬</b><span>蓬莱 Penglai</span></div>
+  <div class="navlinks">
+    <a href="#features" class="hideS" data-zh="能力" data-en="Features">能力</a>
+    <a href="#channels" class="hideS" data-zh="渠道" data-en="Channels">渠道</a>
+    <a href="#install" data-zh="安装" data-en="Install">安装</a>
+    <a href="#changelog" data-zh="更新" data-en="Changelog">更新</a>
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
-    <a href="https://gitee.com/Kevinchen2023/PenglaiAgent" target="_blank">Gitee</a>
-    <a href="https://pypi.org/project/penglai/" target="_blank">PyPI</a>
-    <div class="lang" role="group" aria-label="language">
-      <button id="btnZh" onclick="setLang('zh')">中文</button>
-      <button id="btnEn" onclick="setLang('en')">EN</button>
+    <div class="lang">
+      <button class="on" onclick="setLang('zh')">中</button>
+      <button onclick="setLang('en')">EN</button>
     </div>
   </div>
-</nav>
+</div></nav>
 
-<section class="hero">
-  <div class="seal">蓬萊</div>
-  <h1>蓬 莱</h1>
-  <div class="latin">P E N G L A I</div>
-  <p class="tagline" data-t="tagline">住在你飞书和微信里的中文 AI 管家</p>
-  <p class="motto" data-t="motto">八仙过海 · 各显神通</p>
-</section>
-
-<svg class="waves" viewBox="0 0 1200 54" preserveAspectRatio="none" aria-hidden="true">
-  <path d="M0,30 C150,55 300,5 450,30 C600,55 750,5 900,30 C1050,55 1150,15 1200,30" fill="none" stroke="#1f7a6d" stroke-opacity=".6" stroke-width="1.6"/>
-  <path d="M0,38 C150,63 300,13 450,38 C600,63 750,13 900,38 C1050,63 1150,23 1200,38" fill="none" stroke="#3a8a7d" stroke-opacity=".42" stroke-width="1.4"/>
-  <path d="M0,46 C150,71 300,21 450,46 C600,71 750,21 900,46 C1050,71 1150,31 1200,46" fill="none" stroke="#6aa399" stroke-opacity=".32" stroke-width="1.2"/>
-</svg>
-
-<section class="install">
-  <h2 data-t="install_h">一行上岛</h2>
-  <p class="h2sub sans" data-t="install_sub">一台 $5/月 的云服务器、一个 LLM API Key,十分钟向导走完,你就有了自己的管家。</p>
-  <div class="tabs sans">
-    <button class="tab on" onclick="pick(0,this)">curl</button>
-    <button class="tab" onclick="pick(1,this)">Docker</button>
-    <button class="tab" onclick="pick(2,this)">pip</button>
+<!-- Hero -->
+<header class="hero wrap">
+  <div class="badge reveal"><span class="dot"></span>
+    <span data-zh="基于 GenericAgent · 内核零改动" data-en="Built on GenericAgent · zero kernel diff">基于 GenericAgent · 内核零改动</span>
   </div>
-  <div class="code" id="codeBox"></div>
-  <p class="note sans" data-t="install_note">🇨🇳 国内服务器友好:依赖走清华镜像,代码走 gh-proxy,脚本自动处理。</p>
-</section>
+  <h1 class="reveal">蓬莱</h1>
+  <div class="latin reveal">PENGLAI</div>
+  <p class="tag reveal" data-zh="住在你飞书和微信里的中文 AI 管家" data-en="A Chinese AI butler that lives in your Feishu & WeChat">住在你飞书和微信里的中文 AI 管家</p>
+  <p class="sub reveal" data-zh="听得出你语音里的情绪，记得住你说过的话，干得了查资料、写代码、跑任务的活。五块钱的服务器 + 一个大模型 Key + 十分钟向导，就能上岛。" data-en="It hears the emotion in your voice, remembers what you said, and gets real work done. A $5 server, one LLM key, a ten-minute wizard — that's the whole trip to the island.">听得出你语音里的情绪，记得住你说过的话，干得了查资料、写代码、跑任务的活。五块钱的服务器 + 一个大模型 Key + 十分钟向导，就能上岛。</p>
+  <p class="motto reveal">八仙过海 · 各显神通</p>
 
-<section class="features">
-  <h2 data-t="feat_h">各显神通</h2>
-  <p class="h2sub sans" data-t="feat_sub">以下每一条都在真实服务器上每天跑着,不是路线图。</p>
-  <div class="grid sans">
-    <div class="card"><div class="num">壹</div><h3 data-t="f1h">十分钟开箱</h3><p data-t="f1p">一个向导走完全程:自装依赖、选模型测连通、飞书扫码自动建应用、给管家起名。最后等你真发出一句「你好」、它真收到,才算安装完成。</p></div>
-    <div class="card"><div class="num">贰</div><h3 data-t="f2h">飞书 + 微信,都是扫码</h3><p data-t="f2p">飞书扫码建机器人、长连接免公网 IP;个人微信扫码登录,文字、语音、图片收发全通。</p></div>
-    <div class="card"><div class="num">叁</div><h3 data-t="f3h">听得出情绪的耳朵</h3><p data-t="f3p">本地 CPU 跑 SenseVoice:语音转写 + 情绪标签 + 声学事件,「[语音(情绪:低落): 今天好累]」这样进入对话。</p></div>
-    <div class="card"><div class="num">肆</div><h3 data-t="f4h">记得住你</h3><p data-t="f4p">四层文件式记忆,纯 markdown 可审计;写入前威胁扫描,禁止覆盖。你的记忆只属于你。</p></div>
-    <div class="card"><div class="num">伍</div><h3 data-t="f5h">确定性安全</h3><p data-t="f5p">危险命令与路径红线拦截 + 全量工具调用审计留痕——安全靠确定性检查,不靠模型自觉。</p></div>
-    <div class="card"><div class="num">陆</div><h3 data-t="f6h">真主动,不扰民</h3><p data-t="f6p">可选的主动陪伴:勿扰时段、对话中绝不插话、频率上限——像朋友想起你,而不是闹钟响了。</p></div>
+  <div class="cmd reveal">
+    <span class="ps">$</span>
+    <code id="hcmd">curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh</code>
+    <button onclick="copyText(document.getElementById('hcmd').textContent,this)" data-zh="复制" data-en="Copy">复制</button>
   </div>
-</section>
+  <div class="cta reveal">
+    <a class="btn primary" href="#install" data-zh="开始上岛 →" data-en="Get started →">开始上岛 →</a>
+    <a class="btn ghost" href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">★ GitHub</a>
+  </div>
+</header>
 
-<section class="story">
-  <h2 data-t="story_h">为什么叫蓬莱</h2>
-  <blockquote data-t="story_q">蓬莱是中国神话里可望而不可即的海上仙山。今天的 AI 之于普通人,恰如蓬莱之于古人——API、终端、配置文件,是横在海面上的迷雾。蓬莱想做的,是把仙山搬进你的聊天窗口:你不必学会航海,会发微信,就能上岛。</blockquote>
-  <p class="by sans" data-t="story_by">—— 一个不会写代码的作者,与 AI 结对造出的项目</p>
-</section>
+<!-- 能力 -->
+<section class="block" id="features"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="各显神通" data-en="What it does">各显神通</div>
+    <h2 data-zh="它能做什么" data-en="Capabilities">它能做什么</h2>
+    <p data-zh="每一条都在真实服务器上每天跑着，不是路线图" data-en="Every line runs daily on a real server — not a roadmap">每一条都在真实服务器上每天跑着，不是路线图</p>
+  </div>
+  <div class="grid">
+    <div class="card reveal"><span class="ico">🎙️</span><h3 data-zh="听得出情绪的耳朵" data-en="Ears that hear emotion">听得出情绪的耳朵</h3>
+      <p data-zh="本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。" data-en="SenseVoice on local CPU (~230MB): transcription + 7 emotions + acoustic events. Out of the box on Feishu/WeChat; DingTalk/QQ/WeCom wrapped by the distro layer.">本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。</p></div>
+    <div class="card reveal"><span class="ico">💬</span><h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
+      <p data-zh="飞书扫码自动建应用、长连接免公网 IP；个人微信扫码登录；钉钉/QQ/企微/Telegram/Discord 一条命令接入。同一个管家，多个门。" data-en="Feishu scan-to-create app, no public IP; personal WeChat QR login; DingTalk/QQ/WeCom/Telegram/Discord one command each. One butler, many doors.">飞书扫码自动建应用、长连接免公网 IP；个人微信扫码登录；钉钉/QQ/企微/Telegram/Discord 一条命令接入。同一个管家，多个门。</p></div>
+    <div class="card reveal"><span class="ico">🧠</span><h3 data-zh="四层记忆" data-en="Four-tier memory">四层记忆</h3>
+      <p data-zh="索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。" data-en="Index / facts / skills / raw sessions as auditable markdown; every write threat-scanned (injection / role hijack / secret leak), overwrites forbidden.">索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。</p></div>
+    <div class="card reveal"><span class="ico">🛡️</span><h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
+      <p data-zh="危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。" data-en="Red-line blocking of dangerous ops + full audit trail + outbound-file allowlist. Safety by deterministic checks, not LLM goodwill.">危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。</p></div>
+    <div class="card reveal"><span class="ico">🌙</span><h3 data-zh="真主动，不扰民<span class='opt'>opt-in</span>" data-en="Proactive, not spammy<span class='opt'>opt-in</span>">真主动，不扰民<span class="opt">opt-in</span></h3>
+      <p data-zh="心跳 + 硬编码门禁：勿扰时段、对话中绝不插话、频率上限。像朋友想起你，而不是闹钟响了。" data-en="Heartbeat + hard gates: quiet hours, never interrupts a live chat, frequency caps. Like a friend thinking of you, not an alarm.">心跳 + 硬编码门禁：勿扰时段、对话中绝不插话、频率上限。像朋友想起你，而不是闹钟响了。</p></div>
+    <div class="card reveal"><span class="ico">🎛️</span><h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
+      <p data-zh="第一次向导没开的，事后一条命令补上：penglai enable voice｜companion｜intel，penglai abilities 看全貌——不必重跑向导。" data-en="Didn't enable it in the wizard? One command later: penglai enable voice｜companion｜intel, penglai abilities for the full picture — no rerun needed.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>，<code>penglai abilities</code> 看全貌——不必重跑向导。</p></div>
+  </div>
+</div></section>
 
-<footer class="sans">
-  <div class="row">
+<!-- 渠道矩阵 -->
+<section class="block" id="channels"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="一个管家，多个门" data-en="One butler, many doors">一个管家，多个门</div>
+    <h2 data-zh="渠道矩阵" data-en="Channel matrix">渠道矩阵</h2>
+    <p data-zh="GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 penglai enable" data-en="The GA kernel ships 7 IM frontends; Penglai wraps them behind penglai enable">GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code></p>
+  </div>
+  <div class="matrix reveal">
+    <div class="mrow h"><span>渠道 / Channel</span><span class="how">接入 / Connect</span><span>语音 / Voice</span><span>状态 / Status</span></div>
+    <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="向导扫码自动建应用" data-en="wizard, scan-to-create">向导扫码自动建应用</span><span class="tag ok">✓ 转写+情绪</span><span class="tag live">✓ 实测</span></div>
+    <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号）" data-en="wizard, QR login">向导扫码登录（个人号）</span><span class="tag ok">✓ silk</span><span class="tag live">✓ 实测</span></div>
+    <div class="mrow"><span class="ch">终端 TUI</span><span class="how" data-zh="裸跑 penglai 即聊" data-en="just run penglai">裸跑 <code>penglai</code> 即聊</span><span class="tag no">—</span><span class="tag live">✓ 内核</span></div>
+    <div class="mrow"><span class="ch">钉钉 DingTalk</span><span class="how">penglai enable dingtalk</span><span class="tag wrap">🔧 自带ASR</span><span class="tag test">待实测</span></div>
+    <div class="mrow"><span class="ch">QQ</span><span class="how">penglai enable qq</span><span class="tag wrap">🔧 wav+情绪</span><span class="tag test">待实测</span></div>
+    <div class="mrow"><span class="ch">企业微信 WeCom</span><span class="how">penglai enable wecom</span><span class="tag wrap">🔧 自带ASR</span><span class="tag test">待实测</span></div>
+    <div class="mrow"><span class="ch">Telegram</span><span class="how">penglai enable telegram</span><span class="tag no">—</span><span class="tag test">待实测</span></div>
+    <div class="mrow"><span class="ch">Discord</span><span class="how">penglai enable discord</span><span class="tag no">—</span><span class="tag test">待实测</span></div>
+  </div>
+  <p class="matrix-note reveal" data-zh="✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 🔧 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。" data-en="✓ = field-verified ｜ pending = code ready, not yet field-run ｜ 🔧 = voice wrapped by the distro layer (upstream drops it). Honesty over polish.">✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 🔧 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。</p>
+</div></section>
+
+<!-- 安装 -->
+<section class="block" id="install"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="一行上岛" data-en="One line to the island">一行上岛</div>
+    <h2 data-zh="开始安装" data-en="Install">开始安装</h2>
+    <p data-zh="没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像" data-en="No Python or git? The script sets it all up; China networks auto-use mirrors">没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像</p>
+  </div>
+  <div class="tabs reveal">
+    <button class="on" onclick="tab('curl',this)">curl 一键</button>
+    <button onclick="tab('docker',this)">Docker</button>
+    <button onclick="tab('pip',this)">pip</button>
+    <button onclick="tab('git',this)">git clone</button>
+  </div>
+  <div class="reveal">
+    <div class="pane on" id="p-curl"><div class="code"><button class="copy" onclick="copyPane('p-curl',this)">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
+curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
+    <div class="pane" id="p-docker"><div class="code"><button class="copy" onclick="copyPane('p-docker',this)">复制</button><span class="c"># 自动取镜像→向导→常驻容器，数据在卷里升级不丢</span>
+curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh</span> | sh</div></div>
+    <div class="pane" id="p-pip"><div class="code"><button class="copy" onclick="copyPane('p-pip',this)">复制</button><span class="c"># PyPI 引导器，运行时拉取最新仓库</span>
+pip install penglai
+penglai setup</div></div>
+    <div class="pane" id="p-git"><div class="code"><button class="copy" onclick="copyPane('p-git',this)">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
+cd PenglaiAgent
+python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→渠道→能力面板</span></div></div>
+  </div>
+</div></section>
+
+<!-- 更新日志 -->
+<section class="block" id="changelog"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="一路走来" data-en="The journey">一路走来</div>
+    <h2 data-zh="更新日志" data-en="Changelog">更新日志</h2>
+    <p data-zh="从首次开源到今天，每一版都来自真实使用反馈" data-en="From first release to today — every version born from real usage">从首次开源到今天，每一版都来自真实使用反馈</p>
+  </div>
+  <div class="timeline reveal" id="tl"></div>
+</div></section>
+
+<!-- 缘起 -->
+<section class="block"><div class="wrap story">
+  <div class="head reveal">
+    <div class="kicker" data-zh="海上有仙山" data-en="An island in the mist">海上有仙山</div>
+    <h2 data-zh="为什么叫蓬莱" data-en="Why “Penglai”">为什么叫蓬莱</h2>
+  </div>
+  <p class="reveal em" data-zh="蓬莱是传说中的海上仙山，可望而不可即。" data-en="Penglai is the mythic immortal mountain at sea — visible, yet out of reach.">蓬莱是传说中的海上仙山，可望而不可即。</p>
+  <p class="reveal" data-zh="AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。" data-en="AI is to ordinary people what Penglai was to the ancients — you've heard of its powers, but a fog keeps you on the shore: APIs, terminals, configs, each a reef that turns people away.">AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。</p>
+  <p class="reveal" data-zh="蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。" data-en="Penglai wants to be the ferry: if you can send a WeChat message, you should be able to use an AI butler. Eight immortals cross the sea, each by their own art — many models, many channels, everyone finds their own way to the island.">蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。</p>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="seal-stamp">蓬萊</div>
+  <div class="links">
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
-    <a href="https://gitee.com/Kevinchen2023/PenglaiAgent" target="_blank">Gitee</a>
-    <a href="https://pypi.org/project/penglai/" target="_blank">PyPI · penglai</a>
-    <a href="https://github.com/kevinchennewbee/PenglaiAgent#-快速开始" target="_blank" data-t="ft_doc">文档</a>
+    <a href="https://pypi.org/project/penglai" target="_blank">PyPI</a>
+    <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/README.md" target="_blank" data-zh="文档" data-en="Docs">文档</a>
     <a href="https://github.com/lsdefine/GenericAgent" target="_blank">GenericAgent</a>
   </div>
-  <div data-t="ft_lic">代码 MIT 开源;「蓬莱 / Penglai」名称与视觉资产保留所有权利。Powered by GenericAgent。</div>
-</footer>
+  <p class="meta" data-zh="代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建" data-en="Code under MIT · the “Penglai” name & visual assets all rights reserved · built on the lsdefine/GenericAgent kernel">代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建</p>
+</div></footer>
 
-</div>
 <script>
-const CMDS=[
- "# 裸机一行，脚本全自动\ncurl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh",
- "# Docker 一行，数据在卷里升级不丢\ncurl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh",
- "# PyPI 引导器\npip install penglai && penglai"];
-let cur=0;
-function render(){
-  const box=document.getElementById('codeBox');
-  box.textContent='';
-  const lines=CMDS[cur].split('\n');
-  lines.forEach((l,i)=>{
-    const s=document.createElement('span');
-    if(l.startsWith('#')){s.className='cm'}
-    s.textContent=l+(i<lines.length-1?'\n':'');
-    box.appendChild(s);
-  });
-  const b=document.createElement('button');b.className='copy';b.textContent=L==='zh'?'复制':'copy';
-  b.onclick=()=>{navigator.clipboard.writeText(CMDS[cur].split('\n').filter(x=>!x.startsWith('#')).join('\n'));b.textContent='✓';setTimeout(()=>b.textContent=L==='zh'?'复制':'copy',1200)};
-  box.appendChild(b);
+const CHANGELOG=[
+ {v:"v0.1.8",d:"2026-06-12",zh:"官网重做 + 混元 HY3",en:"Site redesign + Hunyuan HY3",t:true,
+  liZh:["深色水墨科技风官网 + 更新日志","providers 补 HY3 / OpenRouter","README 双语：语音情绪全渠道"],
+  liEn:["Dark ink-tech site + changelog","HY3 added to providers / OpenRouter","Bilingual README: voice emotion everywhere"]},
+ {v:"v0.1.7",d:"2026-06-12",zh:"IM 语音封装 + 能力事后开启",en:"IM voice wrapper + abilities on demand",t:true,
+  liZh:["钉钉/QQ/企微语音接收（上游真空，内核零diff）","penglai enable voice｜companion｜intel + abilities","doctor 每个未启用项直接给开启命令"],
+  liEn:["DingTalk/QQ/WeCom voice reception (zero kernel diff)","penglai enable voice｜companion｜intel + abilities","doctor now prints the enable command for each item"]},
+ {v:"v0.1.5",d:"2026-06-12",zh:"QQ 扫码修复 + 套餐矩阵",en:"QQ fix + plan matrix",
+  liZh:["QQ 扫码解密依赖 + poll 状态可观测","语音模型 999MB→230MB 单文件直下","11 家厂商按量/Coding/Token 套餐全面修正"],
+  liEn:["QQ scan decryption dep + observable poll","Voice model 999MB→230MB single-file","11 vendors: paygo/Coding/Token plans corrected"]},
+ {v:"v0.1.4",d:"2026-06-12",zh:"向导 v2",en:"Wizard v2",
+  liZh:["语言选择打头 + 全程中英 i18n","翻页式终端（每步如新页面）","渠道一页选 + 能力面板真激活 + 语音默认装"],
+  liEn:["Language-first + full EN/中文 i18n","Paged terminal UX","One-page channel picker + ability panel + voice by default"]},
+ {v:"v0.1.2",d:"2026-06-11",zh:"渠道矩阵 + TUI 入口",en:"Channel matrix + TUI",
+  liZh:["5 个 IM 前端统一封装","钉钉/QQ 扫码自动建应用","裸跑 penglai 进终端对话"],
+  liEn:["5 IM frontends unified","DingTalk/QQ scan-to-create","Bare penglai → terminal chat"]},
+ {v:"v0.1.1",d:"2026-06-11",zh:"安全硬化 + 发行版整理",en:"Security hardening",
+  liZh:["审计 P0/P1 修复（红线/记忆/外发）","README 转正 + 裁剪上游 material"],
+  liEn:["Audit P0/P1 fixes","README promoted + upstream trimmed"]},
+ {v:"v0.1.0",d:"2026-06-11",zh:"首次开源 🎉",en:"First release 🎉",
+  liZh:["十分钟向导 + 飞书微信扫码","本地语音情绪识别","确定性红线安全 + 四层记忆"],
+  liEn:["Ten-minute wizard + Feishu/WeChat QR","Local voice-emotion recognition","Deterministic safety + four-tier memory"]},
+];
+function renderTL(){
+ const lang=document.body.classList.contains('en')?'en':'zh';
+ document.getElementById('tl').innerHTML=CHANGELOG.map(c=>{
+  const li=(lang==='en'?c.liEn:c.liZh).map(x=>`<li>${x}</li>`).join('');
+  return `<div class="tl${c.t?' t':''}"><div class="ver"><span class="v">${c.v}</span><span class="d">${c.d}</span></div>
+   <div class="ttl">${lang==='en'?c.en:c.zh}</div><ul>${li}</ul></div>`;
+ }).join('');
 }
-function pick(i,el){cur=i;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');render()}
-
-const TXT={
- tagline:{zh:"住在你飞书和微信里的中文 AI 管家",en:"Your personal AI butler, living in Feishu & WeChat"},
- motto:{zh:"八仙过海 · 各显神通",en:"where eight immortals cross the sea, each shows their unique power"},
- install_h:{zh:"一行上岛",en:"One line ashore"},
- install_sub:{zh:"一台 $5/月的云服务器、一个 LLM API Key，十分钟向导走完，你就有了自己的管家。",en:"One $5/month VPS, one LLM API key, a ten-minute wizard — and you have your own butler."},
- install_note:{zh:"🇨🇳 国内服务器友好：依赖走清华镜像，代码走 gh-proxy，脚本自动处理。",en:"Friendly to servers in China: Tsinghua PyPI mirror and gh-proxy handled automatically; international networks go direct."},
- feat_h:{zh:"各显神通",en:"What it does"},
- feat_sub:{zh:"以下每一条都在真实服务器上每天跑着，不是路线图。",en:"Every item below runs daily on a real server. This is not a roadmap."},
- f1h:{zh:"十分钟开箱",en:"Ten-minute setup"},
- f1p:{zh:"一个向导走完全程：自装依赖、选模型测连通、飞书扫码自动建应用、给管家起名。最后等你真发出一句「你好」、它真收到，才算安装完成。",en:"One wizard end to end: deps, model connectivity test, scan-to-create your Feishu bot, name your butler. It only declares success after your real “hello” actually arrives."},
- f2h:{zh:"飞书 + 微信，都是扫码",en:"Feishu + WeChat, both via QR"},
- f2p:{zh:"飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字、语音、图片收发全通。",en:"Scan to create the Feishu bot, long connection (no public IP needed); personal WeChat via QR login with text, voice and images both ways."},
- f3h:{zh:"听得出情绪的耳朵",en:"Ears that hear emotion"},
- f3p:{zh:"本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件，「[语音(情绪:低落): 今天好累]」这样进入对话。",en:"SenseVoice on local CPU: transcription + emotion tags + acoustic events, arriving as “[voice (emotion: tired): such a long day]”."},
- f4h:{zh:"记得住你",en:"It remembers you"},
- f4p:{zh:"四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。你的记忆只属于你。",en:"Four-tier file-based memory in plain auditable markdown; threat-scanned before every write, overwrites forbidden. Your memory belongs to you alone."},
- f5h:{zh:"确定性安全",en:"Deterministic safety"},
- f5p:{zh:"危险命令与路径红线拦截 + 全量工具调用审计留痕——安全靠确定性检查，不靠模型自觉。",en:"Red-line blocking of dangerous commands and paths, plus a full tool-call audit trail — safety by deterministic checks, not LLM goodwill."},
- f6h:{zh:"真主动，不扰民",en:"Proactive, never spammy"},
- f6p:{zh:"可选的主动陪伴：勿扰时段、对话中绝不插话、频率上限——像朋友想起你，而不是闹钟响了。",en:"Opt-in companionship inside hard gates: quiet hours, never interrupts a live chat, frequency caps — like a friend thinking of you, not an alarm going off."},
- story_h:{zh:"为什么叫蓬莱",en:"Why “Penglai”"},
- story_q:{zh:"蓬莱是中国神话里可望而不可即的海上仙山。今天的 AI 之于普通人，恰如蓬莱之于古人——API、终端、配置文件，是横在海面上的迷雾。蓬莱想做的，是把仙山搬进你的聊天窗口：你不必学会航海，会发微信，就能上岛。",en:"Penglai is the immortal island of Chinese myth — a wonderful place you can see but never reach. AI today is, for ordinary people, exactly that: APIs, terminals and config files are the mist over the sea. Penglai moves the island into your chat window — you don’t need to learn to sail; if you can text, you can come ashore."},
- story_by:{zh:"—— 一个不会写代码的作者，与 AI 结对造出的项目",en:"— built by an author who cannot code, pair-programming with AI"},
- ft_doc:{zh:"文档",en:"Docs"},
- ft_lic:{zh:"代码 MIT 开源；「蓬莱 / Penglai」名称与视觉资产保留所有权利。Powered by GenericAgent。",en:"Code is MIT-licensed; the “Penglai / 蓬莱” name and visual assets are all rights reserved. Powered by GenericAgent."}
-};
-let L='zh';
-function setLang(l){L=l;apply()}
-function apply(){
-  document.querySelectorAll('[data-t]').forEach(el=>{const k=el.getAttribute('data-t');if(TXT[k])el.textContent=TXT[k][L]});
-  document.getElementById('btnZh').classList.toggle('on',L==='zh');
-  document.getElementById('btnEn').classList.toggle('on',L==='en');
-  document.documentElement.lang=L==='zh'?'zh-CN':'en';
-  render();
+function setLang(l){
+ document.body.classList.toggle('en',l==='en');
+ document.documentElement.lang=l==='en'?'en':'zh';
+ document.querySelectorAll('.lang button').forEach((b,i)=>b.classList.toggle('on',(l==='en')===(i===1)));
+ renderTL();
 }
-if(navigator.language&&!navigator.language.toLowerCase().startsWith('zh'))L='en';
-apply();
+function tab(id,el){
+ document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));el.classList.add('on');
+ document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+ document.getElementById('p-'+id).classList.add('on');
+}
+function copyText(t,el){navigator.clipboard.writeText(t.trim());const o=el.textContent;el.textContent=document.body.classList.contains('en')?'Copied ✓':'已复制 ✓';setTimeout(()=>el.textContent=o,1500);}
+function copyPane(id,el){const code=document.getElementById(id).querySelector('.code').innerText.replace(/复制|Copy/,'').trim();copyText(code,el);}
+// 滚动渐入
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(e=>io.observe(e));
+renderTL();
 </script>
 </body>
 </html>
