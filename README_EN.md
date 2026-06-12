@@ -152,6 +152,21 @@ The GA kernel ships 7 IM frontends; the Penglai layer wraps them behind one comm
 
 ## 🆚 Penglai vs. bare GenericAgent
 
+Penglai never touches the kernel — it only adds the last mile from "it runs" to "it's usable":
+
+| Dimension | Bare GenericAgent | Penglai distro |
+|-----------|-------------------|----------------|
+| Onboarding | hand-edit mykey, install deps | ten-minute paged wizard (EN/中文, auto-mirror) |
+| IM channels | wire frontend code yourself | Feishu/WeChat QR + DingTalk/QQ/WeCom one command each |
+| Voice | none | local SenseVoice transcription + emotion, wrapped for every channel |
+| Safety | basic | red-line / memory hygiene / outbound-file allowlist — deterministic |
+| Ability mgmt | edit config files | `penglai enable / abilities` toggles, anytime |
+| Install | git clone | curl / Docker / pip one-liner + China mirrors |
+| Ops | manual | `penglai doctor` checks **and prints the fix command** |
+| Kernel | — | **zero diff**, upstream upgrades merge cleanly |
+
+## 🆚 Penglai vs. bare GenericAgent
+
 Penglai doesn't touch the kernel — it just adds the last mile from "it runs" to "it's usable":
 
 | Dimension | Bare GenericAgent | Penglai distro |
@@ -193,7 +208,7 @@ what Ubuntu is to the Linux kernel:
 
 Full version timeline on the [website changelog](https://kevinchennewbee.github.io/PenglaiAgent/#changelog).
 
-- **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + dark site redesign
+- **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + website redesign + new banner
 - **2026-06-12** — Wizard v2: language-first / paged terminal / one-page channel picker / ability panel / voice by default
 - **2026-06-11** — Security hardening (audit P0/P1 fixes) + one-line Docker deploy + 11-vendor model catalog
 - **2026-06-11** — 🎉 First release: ten-minute wizard, Feishu/WeChat QR, local voice-emotion recognition, deterministic safety
