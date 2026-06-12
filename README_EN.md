@@ -77,12 +77,13 @@ experts, each crossing the sea in its own way, all serving the same you.
 
 - 🏮 **Ten-minute setup** — a paged, bilingual (EN/中文) wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **one-page channel picker** (scan-to-create your Feishu bot, no console clicking) → name your butler → ability panel that actually activates things (voice on by default; companion/intel opt-in)
 - 💬 **Feishu + WeChat, both native** — personal WeChat via QR login with text/voice/image in & out; Feishu over a long connection, no public IP needed
-- 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + emotion tags + acoustic events, arriving as `[voice (emotion: tired): such a long day]`
+- 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: tired): such a long day]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
 - 🧠 **Four-tier memory** — index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
 - 🛡️ **Deterministic safety** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **safety by deterministic checks, not LLM goodwill**
 - 🧐 **Double insurance against hallucination** — overconfidence tripwires trigger a second review by a **different vendor's** model (one model can't catch its own hallucinations); fact-finding tasks can fan out to multi-source cross-validated search
 - 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates: quiet hours, never interrupts a live conversation, frequency caps — like a friend thinking of you, not an alarm going off
-- ⚙️ **Ops in one command** — `penglai doctor` 13-point health check / `status` / `logs` / `update` one-command upgrade to the latest release
+- 🎛️ **Turn abilities on anytime** — didn't enable something in the wizard? One command later: `penglai enable voice|companion|intel` for abilities, `penglai enable <channel>` for IMs, `penglai abilities` for the full picture — no need to rerun setup
+- ⚙️ **Ops in one command** — `penglai doctor` one-shot health check that **tells you the exact command to enable each inactive item** / `status` / `logs` / `update` one-command upgrade to the latest release
 
 > Every item above runs daily on a real server. This is not a roadmap.
 
@@ -119,6 +120,8 @@ penglai doctor     # health check: env/deps/config/LLM/memory/services/upstream
 penglai status     # service status (Feishu / scheduler / companion / WeChat)
 penglai logs       # recent logs (penglai logs dingtalk for a specific channel)
 penglai channels   # IM channel matrix overview
+penglai abilities  # ability overview (voice/companion/intel — inactive ones show the enable command)
+penglai enable voice|companion|intel   # turn on abilities you skipped in the wizard
 penglai update     # upgrade to the latest Penglai (pulls the release repo, kernel already merged in)
 ```
 
@@ -129,16 +132,18 @@ penglai update     # upgrade to the latest Penglai (pulls the release repo, kern
 
 The GA kernel ships 7 IM frontends; the Penglai layer wraps them behind one command — `penglai enable <channel>` (deps → credentials → service → evidence-based startup). Every channel shares the same memory: **one butler, many doors**.
 
-| Channel | How to connect | Status |
-|---------|---------------|--------|
-| Feishu | `penglai setup` wizard, **scan-to-create app** | ✅ field-tested |
-| WeChat (personal) | `penglai setup` wizard, QR login | ✅ field-tested |
-| Terminal TUI | just run `penglai` | ✅ kernel built-in |
-| DingTalk | `penglai enable dingtalk`, **scan-to-create app** | ⚠️ untested |
-| QQ | `penglai enable qq`, **scan-to-create bot** | ⚠️ untested |
-| WeCom | `penglai enable wecom`, paste AI-bot credentials | ⚠️ untested |
-| Telegram | `penglai enable telegram`, paste @BotFather token | ⚠️ untested |
-| Discord | `penglai enable discord`, paste developer-portal token | ⚠️ untested |
+| Channel | How to connect | Voice | Status |
+|---------|---------------|-------|--------|
+| Feishu | `penglai setup` wizard, **scan-to-create app** | ✅ transcribe+emotion | ✅ field-tested |
+| WeChat (personal) | `penglai setup` wizard, QR login | ✅ transcribe+emotion (silk) | ✅ field-tested |
+| Terminal TUI | just run `penglai` | — | ✅ kernel built-in |
+| DingTalk | `penglai enable dingtalk`, **scan-to-create app** | 🔧 wrapped (native ASR) | ⚠️ untested |
+| QQ | `penglai enable qq`, **scan-to-create bot** | 🔧 wrapped (wav+emotion) | ⚠️ untested |
+| WeCom | `penglai enable wecom`, paste AI-bot credentials | 🔧 wrapped (native ASR) | ⚠️ untested |
+| Telegram | `penglai enable telegram`, paste @BotFather token | — | ⚠️ untested |
+| Discord | `penglai enable discord`, paste developer-portal token | — | ⚠️ untested |
+
+> Voice column: ✅ = field-verified; 🔧 = distro-layer voice reception (upstream frontends discard voice), pending real-device test; — = no voice on this channel.
 
 > "Untested" = the adapter is upstream GA code and the Penglai wrapper is ready, but we haven't walked the full path on a real machine yet — each one gets promoted to ✅ as it passes. Honesty over polish.
 
@@ -157,6 +162,8 @@ what Ubuntu is to the Linux kernel:
 | `penglai` CLI + wizard | entry | install, health check, service management, one-command upgrade |
 | WeChat channel service | systemd | QR login; smart expired-token prompts (no blind restarts) |
 | Voice + emotion | tool | local SenseVoice transcription + emotion + acoustic events; WeChat silk auto-decode |
+| IM voice wrapper | launcher | adds voice reception that upstream DingTalk/QQ/WeCom frontends lack (monkeypatch, zero kernel diff) |
+| Ability switches | CLI | `penglai enable/disable/abilities` — turn on voice/companion/intel anytime post-install |
 | Redline + audit | hook | deterministic blocking of dangerous ops, full audit trail |
 | Memory hygiene | hook | threat scan before writes + no overwrites |
 | Critic brain | hook | cross-vendor second review, the hallucination antidote |
