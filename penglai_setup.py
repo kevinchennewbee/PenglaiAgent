@@ -435,7 +435,8 @@ def step_identity():
              f"被问及身份/名字时以此为准，勿自称底层模型名。")
     # 蓬莱 SOP 包索引（L3 文件随发行版出厂，带 penglai_ 前缀与上游永不撞名）
     sops = ("[蓬莱SOP] 长任务断点→penglai_checkpoint_sop | 压缩记忆留出处→penglai_compress_sop"
-            " | 生成海报/SVG/视频→penglai_genmedia_sop")
+            " | 生成海报/SVG/视频→penglai_genmedia_sop | 用户想加/换IM渠道→penglai_channels_sop"
+            "(有现成penglai enable命令,勿教手动建应用)")
     # 聊天渠道行为规则（vision_sop 的 OCR 优先是桌面 UI 自动化基因，不适合用户聊天发图）
     rules = ("[蓬莱规则] 聊天渠道用户发图→直接 vision 原生看图(勿先OCR,仅需逐字提取时才OCR)；"
              "语音→直接 transcribe(支持微信silk,自带情绪)")

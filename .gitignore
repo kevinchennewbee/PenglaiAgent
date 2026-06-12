@@ -121,6 +121,7 @@ memory/L4_raw_sessions/*
 !memory/penglai_checkpoint_sop.md
 !memory/penglai_compress_sop.md
 !memory/penglai_genmedia_sop.md
+!memory/penglai_channels_sop.md
 
 # Visual Studio
 .vs/
