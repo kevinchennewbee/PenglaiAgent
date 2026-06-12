@@ -68,6 +68,29 @@ CHANNELS = {
 
 EXTRA = [k for k, v in CHANNELS.items() if not v["tested"]]  # 可 enable 的渠道
 
+# 这几个渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音消息接收（钉钉/QQ/企微）
+_VOICE_CHANNELS = {"dingtalk", "qq", "wecom"}
+
+
+def _launch_argv(ch):
+    """启动 argv：有语音封装的渠道走 penglai_im_launch <ch>，其余直跑前端。"""
+    if ch in _VOICE_CHANNELS:
+        return [venv_python(), os.path.join(ROOT, "penglai_im_launch.py"), ch]
+    return [venv_python(), os.path.join(ROOT, "frontends", CHANNELS[ch]["script"])]
+
+
+def _launch_cmd(ch):
+    """systemd ExecStart 命令串。"""
+    if ch in _VOICE_CHANNELS:
+        return f"python {ROOT}/penglai_im_launch.py {ch}"
+    return f"python {ROOT}/frontends/{CHANNELS[ch]['script']}"
+
+
+def _proc_pattern(ch):
+    """pgrep 匹配模式：语音封装渠道按 launcher 命令行匹配，否则按前端脚本。"""
+    return f"penglai_im_launch.py {ch}" if ch in _VOICE_CHANNELS \
+        else f"frontends/{CHANNELS[ch]['script']}"
+
 
 def sh(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, **kw)
@@ -287,8 +310,8 @@ def mykey_get(key):
 
 # ---------- 进程/服务管理（generic 版，非 systemd 用 nohup + pgrep）----------
 
-def proc_pids(script):
-    r = sh(["pgrep", "-f", f"frontends/{script}"])
+def proc_pids(ch):
+    r = sh(["pgrep", "-f", _proc_pattern(ch)])
     return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
 
 
@@ -312,7 +335,7 @@ def unit_install(ch):
     work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
     guard = (f"ExecStartPre=/bin/bash -lc 'source {env_sh} && "
              f"python {ROOT}/penglai _guardcheck'\n")
-    cmd = f"python {ROOT}/frontends/{c['script']}"
+    cmd = _launch_cmd(ch)
     unit = (f"[Unit]\nDescription=Penglai {c['label']} channel\nAfter=network-online.target\n\n"
             f"[Service]\nType=simple\nUser={os.environ.get('USER', 'root')}\n"
             f"WorkingDirectory={ROOT}\nEnvironment=HOME={os.path.expanduser('~')}\n"
@@ -333,12 +356,12 @@ def unit_install(ch):
 
 def proc_start(ch):
     c = CHANNELS[ch]
-    if pids := proc_pids(c["script"]):
+    if pids := proc_pids(ch):
         print(f"{OK} {c['label']} 进程已在运行（PID {pids[0]}）"); return True
     os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
     # app 自己 redirect_log；这里只兜启动初期的 stdout
     lf = open(logfile(ch), "ab")
-    p = subprocess.Popen([venv_python(), os.path.join(ROOT, "frontends", c["script"])],
+    p = subprocess.Popen(_launch_argv(ch),
                          cwd=ROOT, stdout=lf, stderr=subprocess.STDOUT,
                          stdin=subprocess.DEVNULL, start_new_session=True)
     time.sleep(8)
@@ -356,7 +379,7 @@ def proc_start(ch):
 def proc_stop(ch):
     import signal
     c = CHANNELS[ch]
-    pids = proc_pids(c["script"])
+    pids = proc_pids(ch)
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)
@@ -372,6 +395,13 @@ def enable(ch):
         print(f"飞书/微信请走完整向导（含连接验证闭环）：penglai setup"); return 0
     if ch not in EXTRA:
         print(f"未知渠道 {ch}，可选：{' '.join(EXTRA)}"); return 1
+    # 扫码/贴 token 都要交互式输入；在 agent 的 code_run、管道、cron 等无终端环境里跑会卡死
+    # 等 stdin（用户实测：在 TUI 里让 agent 替跑 penglai enable qq 整个卡住）。这里直接拦下。
+    if not sys.stdin.isatty():
+        print(f"{WARN}启用 {CHANNELS[ch]['label']} 需要扫码/输入凭证，必须在你自己的终端里运行。")
+        print(f"   请在服务器终端执行：penglai enable {ch}")
+        print(f"   （如果你是 AI 助手：不要在 code_run 里跑这条，它会等扫码而卡住——把命令交给用户）")
+        return 2
     c = CHANNELS[ch]
     print(f"\n—— 启用 {c['label']} 渠道（内核 frontends/{c['script']}，蓬莱层封装）——")
     if not c["tested"]:
@@ -461,7 +491,7 @@ def status():
             st = sh(["systemctl", "is-active", c["service"]]).stdout.strip() or "—"
             run = st if st != "unknown" else "未安装"
         else:
-            run = f"PID {proc_pids(c['script'])[0]}" if proc_pids(c["script"]) else "—"
+            run = f"PID {proc_pids(ch)[0]}" if proc_pids(ch) else "—"
         tested = "✅ 已实测" if c["tested"] else "⚠️ 待实测"
         print(f"  {c['label']:<9}{creds:<7}{deps:<7}{run:<10}{tested}")
     print(f"\n  启用渠道: penglai enable <{('|'.join(EXTRA))}>")

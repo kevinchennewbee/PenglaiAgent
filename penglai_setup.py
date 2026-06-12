@@ -438,8 +438,11 @@ def step_identity():
             " | 生成海报/SVG/视频→penglai_genmedia_sop | 用户想加/换IM渠道→penglai_channels_sop"
             "(有现成penglai enable命令,勿教手动建应用)")
     # 聊天渠道行为规则（vision_sop 的 OCR 优先是桌面 UI 自动化基因，不适合用户聊天发图）
+    # 语音规则写硬：小模型(如 deepseek-flash)常嘴上说"先转写"却跑去调别的工具(真机实测)
     rules = ("[蓬莱规则] 聊天渠道用户发图→直接 vision 原生看图(勿先OCR,仅需逐字提取时才OCR)；"
-             "语音→直接 transcribe(支持微信silk,自带情绪)")
+             "消息含 [audio: 文件名]→你的第一个工具调用必须是 transcribe(path=该音频路径)，"
+             "严禁跳过、严禁先调 file_read/web_scan/ask_user 等任何其他工具、严禁凭空猜测语音内容；"
+             "拿到转写文本后再据此回应(支持微信silk,自带情绪标签)")
     out = ([lines[0], ident, sops, rules] + lines[1:] if lines and lines[0].startswith("#")
            else [ident, sops, rules] + lines)
     with open(ins, "w", encoding="utf-8") as f:
@@ -812,6 +815,8 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
             print(f"{OK} " + T("已自动把你（{o}）设为唯一授权用户，机器人不再对所有可见用户开放", o=owner))
             print("  " + T("正在重启服务让白名单生效..."))
             subprocess.run(["sudo", "systemctl", "restart", "penglai-feishu"])
+            time.sleep(2)
+            print(f"  {WARN}" + T("重启会打断刚才正在处理的消息——你在“发你好”之后抢发的语音/消息可能没回应，稍等几秒后重发即可。"))
         return status
     # 无 systemd（容器/macOS）或用户拒绝装服务 → 后台直启，照样实测验证
     if not with_feishu:
@@ -830,6 +835,8 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
         print(f"{OK} " + T("已自动把你（{o}）设为唯一授权用户，机器人不再对所有可见用户开放", o=owner))
         print("  " + T("正在重启飞书进程让白名单生效..."))
         _spawn_fsapp(py)
+        time.sleep(2)
+        print(f"  {WARN}" + T("重启会打断刚才正在处理的消息——你在“发你好”之后抢发的语音/消息可能没回应，稍等几秒后重发即可。"))
     return status
 
 # ---------- 附加渠道（启动后经渠道矩阵配置） ----------

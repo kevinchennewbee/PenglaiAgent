@@ -27,6 +27,11 @@ OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信
                   "penglai-dingtalk": "钉钉渠道", "penglai-wecom2": "企业微信渠道",
                   "penglai-qq": "QQ渠道", "penglai-telegram": "Telegram渠道",
                   "penglai-discord": "Discord渠道"}  # 未装≠故障
+# 服务未启用时，doctor 直接给出"怎么开"的命令（发现→开启闭环）
+SVC_ENABLE = {"penglai-companion": "penglai enable companion", "penglai-wechat": "penglai setup",
+              "penglai-dingtalk": "penglai enable dingtalk", "penglai-wecom2": "penglai enable wecom",
+              "penglai-qq": "penglai enable qq", "penglai-telegram": "penglai enable telegram",
+              "penglai-discord": "penglai enable discord"}
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
 def sh(cmd, **kw):
@@ -188,10 +193,10 @@ def doctor():
     if all(ok for _, ok in _voice):
         print(f"{OK} 语音：就绪（SenseVoice 本地转写+情绪，含微信 silk）")
     elif not any(ok for _, ok in _voice[:2]):
-        print(f"{OK} 语音：未启用（可选能力，penglai setup 能力页可一键启用）")
+        print(f"{OK} 语音：未启用（可选能力）   → 开启：penglai enable voice")
     else:
         print(f"{WARN} 语音：装了一半，缺 {'/'.join(n for n, ok in _voice if not ok)}"
-              f" → 重跑 penglai setup 在能力页补齐")
+              f" → 补齐：penglai enable voice")
 
     # 3. 配置
     mykey = os.path.join(ROOT, "mykey.py")
@@ -237,14 +242,16 @@ def doctor():
     r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import enabled_sources;"
             "print(','.join(enabled_sources()))"], cwd=ROOT)
     srcs = (r.stdout or "").strip()
-    print(f"{OK} 情报矩阵：{'已启用 ' + srcs if srcs else '默认（GA 浏览器，未配 API key）'}")
+    print(f"{OK} 情报矩阵：{'已启用 ' + srcs if srcs else '默认（GA 浏览器，未配 API key）   → 开启：penglai enable intel'}")
 
     # 6. 服务/进程（飞书没在跑 = 机器人收不到消息，必须红）
     if has_systemd():
         inst = installed_services()
         for s in SERVICES:
             if s in OPTIN_SERVICES and s not in inst:
-                print(f"{OK} 服务 {s}: 未启用（{OPTIN_SERVICES[s]} opt-in）")
+                tip = SVC_ENABLE.get(s, "")
+                print(f"{OK} 服务 {s}: 未启用（{OPTIN_SERVICES[s]} opt-in）"
+                      + (f" → 开启：{tip}" if tip else ""))
                 continue
             r = sh(["systemctl", "is-active", s])
             state = r.stdout.strip()
@@ -268,6 +275,7 @@ def doctor():
         print(f"{WARN} 更新检查：无法连接发行仓（网络/代理），跳过")
 
     print(f"\n{'🎉 全部通过，蓬莱身体健康！' if bad == 0 else f'共 {bad} 项需要处理。'}")
+    print("   补开能力：penglai abilities ｜ 加 IM 渠道：penglai channels ｜ 重配大模型：penglai setup")
     return 1 if bad else 0
 
 # ---------- services ----------
@@ -405,18 +413,29 @@ def tui():
 
 def channel_cmd(fn_name):
     sys.path.insert(0, ROOT)
-    import penglai_channels as pc
     if fn_name in ("enable", "disable"):
-        ch = sys.argv[2] if len(sys.argv) > 2 else ""
-        return getattr(pc, fn_name)(ch)
+        name = sys.argv[2] if len(sys.argv) > 2 else ""
+        import penglai_abilities as pa
+        if name in pa.ABILITIES:        # 能力（语音/陪伴/情报）走能力模块
+            return getattr(pa, fn_name)(name)
+        import penglai_channels as pc   # 否则按渠道处理
+        return getattr(pc, fn_name)(name)
+    import penglai_channels as pc
     return pc.status()
+
+
+def abilities():
+    sys.path.insert(0, ROOT)
+    import penglai_abilities as pa
+    return pa.status()
 
 def main():
     cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
             "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
             "logs": logs, "update": update, "setup": setup, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
-            "disable": lambda: channel_cmd("disable"), "_guardcheck": guardcheck}
+            "disable": lambda: channel_cmd("disable"), "abilities": abilities,
+            "_guardcheck": guardcheck}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if not arg:
         # 裸跑：交互终端 → 直接进对话（对齐 hermes 体验）；管道/脚本 → 打印帮助
