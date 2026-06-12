@@ -6,7 +6,7 @@ FROM python:3.11-slim
 ARG PIP_INDEX=https://pypi.org/simple
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates procps \
+    && apt-get install -y --no-install-recommends git ca-certificates procps ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,11 +16,12 @@ RUN pip install --no-cache-dir -i "$PIP_INDEX" -e . lark-oapi qrcode pyyaml
 # 构建期 import 冒烟:双架构构建都会执行,核心链路装坏则镜像构建直接失败(发布门禁)
 RUN python -c "import requests, bs4, aiohttp, bottle, lark_oapi, qrcode, yaml"
 # 微信/语音附加依赖:可选,装失败只禁用对应功能,不阻断构建(独立 RUN,失败不影响上面)
-RUN pip install --no-cache-dir -i "$PIP_INDEX" pillow pycryptodome pilk \
+RUN pip install --no-cache-dir -i "$PIP_INDEX" pillow pycryptodome pilk sherpa-onnx \
     || echo "微信语音附加依赖跳过(不影响飞书主链路)"
 
 ENV PENGLAI_DOCKER=1 \
     GA_WORKSPACE_ROOT=/data/workspace \
+    PENGLAI_MODEL_DIR=/data/penglai-models \
     PYTHONUNBUFFERED=1
 
 VOLUME /data

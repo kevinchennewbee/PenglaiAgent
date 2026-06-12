@@ -4,7 +4,7 @@
 #   有参数: 透传给 penglai CLI(setup / doctor / logs ...)
 set -e
 D=/data
-mkdir -p "$D/temp" "$D/workspace" "$D/wxbot"
+mkdir -p "$D/temp" "$D/workspace" "$D/wxbot" "$D/penglai-models"
 
 # 首次启动:把镜像自带的记忆(SOP 包)播种到卷;此后卷为准,升级镜像不覆盖你的记忆
 if [ ! -d "$D/memory" ]; then

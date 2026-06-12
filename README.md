@@ -66,7 +66,7 @@ AI 时代的仙山，不该只属于会写代码的人。
 
 ## ✨ 它能做什么
 
-- 🏮 **十分钟开箱** —— `penglai setup` 一个向导：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **飞书扫码自动建应用**（免开网页，手动凭证兜底）→ 给管家起名 → 微信扫码即用
+- 🏮 **十分钟开箱** —— `penglai setup` 翻页式向导（中/英双语）：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **渠道一页选**（飞书扫码自动建应用，免开网页）→ 给管家起名 → 能力面板真启用（语音默认装好，陪伴/情报按需开）
 - 💬 **飞书 + 微信双渠道，都是扫码** —— 飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字/语音/图片收发
 - 🎙️ **听得出情绪的耳朵** —— 本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 情绪标签 + 声学事件，`[语音(情绪:低落): 今天好累]` 这样进入对话
 - 🧠 **四层记忆** —— 索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（提示注入/角色劫持/密钥落库），禁止覆盖
@@ -102,7 +102,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 ```bash
 git clone https://github.com/kevinchennewbee/PenglaiAgent.git
 cd PenglaiAgent
-python3 penglai setup    # 向导：依赖 → 模型 → 飞书 →（可选）微信扫码
+python3 penglai setup    # 向导：语言 → 依赖 → 模型 → 渠道一页选 → 能力面板
 ```
 
 日常运维：

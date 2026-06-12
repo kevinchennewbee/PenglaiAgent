@@ -10,6 +10,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, ROOT)
+# 上游 tuiapp_v2 以 `python frontends/tuiapp_v2.py` 直跑为前提，对同目录模块
+# （keysym 等）用裸 import；包装器走 frontends.tuiapp_v2 包路径，须补 frontends/ 入 path
+sys.path.insert(1, os.path.join(ROOT, "frontends"))
 os.chdir(ROOT)
 
 import frontends.tuiapp_v2 as t   # noqa: E402（需先定 ROOT/cwd 再 import）

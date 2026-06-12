@@ -74,7 +74,11 @@ def transcribe_file(path):
     samples.frombytes(p.stdout)
     if not samples:
         return {"error": "音频为空"}
-    rec = _get_recognizer()
+    try:
+        rec = _get_recognizer()
+    except ImportError:
+        return {"error": "语音识别引擎 sherpa-onnx 未安装。安装: uv pip install sherpa-onnx "
+                         "（装进蓬莱的 .venv；或重跑 penglai setup 自动补齐语音依赖）"}
     s = rec.create_stream()
     s.accept_waveform(16000, samples.tolist())
     rec.decode_stream(s)

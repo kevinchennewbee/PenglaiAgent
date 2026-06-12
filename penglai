@@ -13,7 +13,7 @@
   penglai enable <渠道>   启用渠道（钉钉/QQ 支持扫码自动建应用）
   penglai disable <渠道>  停用渠道
   penglai update    更新到最新版蓬莱发行仓
-  penglai setup     安装向导（依赖 → 模型 → 飞书 → 可选微信扫码/情报矩阵/主动陪伴）
+  penglai setup     安装向导（语言 → 依赖 → 模型 → 渠道单页选择 → 能力面板[语音/陪伴/情报]）
   penglai help      显示本帮助
 """
 import os, sys, shutil, subprocess
@@ -178,6 +178,20 @@ def doctor():
             print(f"{WARN} 微信 token 已过期 → penglai setup 重新扫码后 sudo systemctl restart penglai-wechat")
     else:
         print(f"{OK} 微信：未绑定（可选渠道，penglai setup 可扫码接入）")
+
+    # 2c. 语音能力（可选；引擎+模型+ffmpeg 三件套齐了才报就绪，装一半要提示）
+    _mdir = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
+                         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
+    _voice = (("模型", os.path.isfile(os.path.join(_mdir, "model.int8.onnx"))),
+              ("sherpa-onnx", sh([py, "-c", "import sherpa_onnx"]).returncode == 0),
+              ("ffmpeg", shutil.which("ffmpeg") is not None))
+    if all(ok for _, ok in _voice):
+        print(f"{OK} 语音：就绪（SenseVoice 本地转写+情绪，含微信 silk）")
+    elif not any(ok for _, ok in _voice[:2]):
+        print(f"{OK} 语音：未启用（可选能力，penglai setup 能力页可一键启用）")
+    else:
+        print(f"{WARN} 语音：装了一半，缺 {'/'.join(n for n, ok in _voice if not ok)}"
+              f" → 重跑 penglai setup 在能力页补齐")
 
     # 3. 配置
     mykey = os.path.join(ROOT, "mykey.py")

@@ -75,7 +75,7 @@ experts, each crossing the sea in its own way, all serving the same you.
 
 ## ✨ What it does
 
-- 🏮 **Ten-minute setup** — one wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **scan-to-create your Feishu bot** (no console clicking; manual credentials as fallback) → name your butler → WeChat QR login
+- 🏮 **Ten-minute setup** — a paged, bilingual (EN/中文) wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **one-page channel picker** (scan-to-create your Feishu bot, no console clicking) → name your butler → ability panel that actually activates things (voice on by default; companion/intel opt-in)
 - 💬 **Feishu + WeChat, both native** — personal WeChat via QR login with text/voice/image in & out; Feishu over a long connection, no public IP needed
 - 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + emotion tags + acoustic events, arriving as `[voice (emotion: tired): such a long day]`
 - 🧠 **Four-tier memory** — index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
@@ -108,7 +108,7 @@ Prefer doing it by hand? The classic way works too:
 ```bash
 git clone https://github.com/kevinchennewbee/PenglaiAgent.git
 cd PenglaiAgent
-python3 penglai setup    # wizard: deps → model → Feishu → (optional) WeChat QR
+python3 penglai setup    # wizard: language → deps → model → channel picker → ability panel
 ```
 
 Day-to-day:

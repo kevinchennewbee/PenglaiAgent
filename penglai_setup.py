@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""蓬莱安装向导（penglai setup）— 目标：10 分钟从裸机到飞书说上话。
+"""蓬莱安装向导（penglai setup）— 目标：10 分钟从裸机到 IM 里说上话。
 
-纯标准库实现（venv 建立之前也能运行）。流程：
-  环境自检 → LLM（预设+真实连通测试）→ 飞书（图文指引+凭证验证）→ 起名 → 写 mykey.py → 部署提示
-原则：身份与记忆分离 — 只在出厂态种入身份，绝不覆盖已有用户记忆。
+纯标准库实现（venv 建立之前也能运行）。流程（v2 翻页式）：
+  语言 → 环境自检 → LLM（预设+真实连通测试）→ 渠道单页选择（飞书/微信/钉钉/QQ/TG/DC/企微）
+  → 起名 → 能力面板（语音默认开/陪伴/情报矩阵，选了就真装真启）→ 写 mykey.py → 启动并验证
+原则：
+  · 身份与记忆分离 — 只在出厂态种入身份，绝不覆盖已有用户记忆
+  · 诚实纪律 — 只报告可证实的事实，「进程在跑」≠「已连通」
+  · 翻页式 UX — tty 下每步清屏如新页面（参考 Hermes alternate-screen 思路的 stdlib 等价）；
+    非 tty/NO_COLOR 自动降级为顺序输出
 """
 import os, sys, json, time, shutil, subprocess, unicodedata, urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-OK, BAD, WARN, T = "✅", "❌", "⚠️ ", "🏮"
+sys.path.insert(0, ROOT)
+from penglai_i18n import T, set_lang, get_lang  # noqa: E402
+
+OK, BAD, WARN, T_ICON = "✅", "❌", "⚠️ ", "🏮"
 
 # ---------- 水墨终端样式（256色，macOS Terminal 也安全；非 tty/NO_COLOR 自动降级纯文本） ----------
 _COLOR = (os.environ.get("NO_COLOR") is None and os.environ.get("TERM") != "dumb"
@@ -47,13 +55,31 @@ def print_banner():
         tail = "   " + c(seal[i], G(124), F(231), BOLD) if i in seal else ""
         print("  " + c(line, F(_INK[i])) + tail)
     print("  " + c("～" * 9, F(37)) + c("～" * 9, F(30)) + c("～" * 9, F(23)))
-    print("   " + c("蓬 莱 · 个人 AI 管家", BOLD, F(252)) + c("（基于 GenericAgent）", F(245)))
-    print("   " + c("飞书 · 微信 · 记忆 · 多渠道", F(245))
-          + c("  ──  ", F(238)) + c("八仙过海，各显神通", F(245)))
+    print("   " + c(T("蓬 莱 · 个人 AI 管家"), BOLD, F(252)) + c(T("（基于 GenericAgent）"), F(245)))
+    print("   " + c(T("飞书 · 微信 · 记忆 · 多渠道"), F(245))
+          + c("  ──  ", F(238)) + c(T("八仙过海，各显神通"), F(245)))
+
+def print_minibanner():
+    """翻页模式下每页顶部的迷你banner（清屏后保持身份感，不占视野）。"""
+    print()
+    print("  " + c(" 蓬 萊 ", G(124), F(231), BOLD) + " "
+          + c("Penglai", BOLD, F(252)) + c(" · ", F(238)) + c(T("个人 AI 管家"), F(245)))
+    print("  " + c("～" * 7, F(37)) + c("～" * 7, F(30)) + c("～" * 7, F(23)))
 
 def header(tag, title):
     rule = "─" * max(4, 50 - _w(tag) - _w(title))
-    print(f"\n{T} " + c(tag, BOLD, F(167)) + " " + c(title, BOLD, F(153)) + " " + c(rule, F(238)))
+    print(f"\n{T_ICON} " + c(tag, BOLD, F(167)) + " " + c(title, BOLD, F(153)) + " " + c(rule, F(238)))
+
+_TOTAL_STEPS = 6
+
+def page(step_no, title):
+    """新页面：tty 清屏 + 迷你banner + 步骤头；非 tty 降级为顺序步骤头。
+    step_no=None 表示无编号子页（沿用当前页编号语境）。"""
+    if _COLOR:
+        print("\033[2J\033[H", end="")
+        print_minibanner()
+    tag = (T("步骤") + f" {step_no}/{_TOTAL_STEPS}") if step_no else T("可选")
+    header(tag, title)
 
 def _load_providers():
     """加载 penglai_providers.yaml，失败回退到内置最小列表。"""
@@ -61,15 +87,11 @@ def _load_providers():
     if not os.path.exists(yaml_path):
         return None
     try:
-        import re
         with open(yaml_path, encoding="utf-8") as f:
             raw = f.read()
-        # 极简 YAML 解析（只取 providers 块中需要的字段），标准库无 yaml 模块
         # 借助 venv 里的 yaml（setup 完成后可用），或降级到内置列表
         try:
-            import importlib.util
             venv_py = os.path.join(ROOT, ".venv", "lib")
-            # 尝试找 PyYAML
             for path in sys.path + ([venv_py] if os.path.isdir(venv_py) else []):
                 if os.path.isdir(path):
                     for root_, dirs, _ in os.walk(path):
@@ -122,8 +144,11 @@ def _get_provider_list():
     return rows
 
 def ask(prompt, default=""):
-    tip = c(f"（回车={default}）", F(245)) if default else ""
-    v = input("  " + c("›", BOLD, F(167)) + f" {prompt}{tip}: ").strip()
+    tip = c(T("（回车={d}）", d=default), F(245)) if default else ""
+    try:
+        v = input("  " + c("›", BOLD, F(167)) + f" {prompt}{tip}: ").strip()
+    except EOFError:
+        return default
     return v or default
 
 def post_json(url, payload, headers=None, timeout=40):
@@ -132,26 +157,39 @@ def post_json(url, payload, headers=None, timeout=40):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
-# ---------- 步骤 0：环境 ----------
+# ---------- 步骤 0：语言 ----------
+def step_lang():
+    """语言选择打头（i18n 全流程的开关）。环境变量 PENGLAI_LANG 可预设跳过询问。"""
+    if _COLOR:
+        print("\033[2J\033[H", end="")
+    print_banner()
+    if os.environ.get("PENGLAI_LANG"):
+        return get_lang()
+    header("◐", "选择语言 / Language")
+    print("  1. 中文   2. English")
+    set_lang("en" if ask("选择 / choose", "1") == "2" else "zh")
+    return get_lang()
+
+# ---------- 步骤 1：环境 ----------
 def step_env():
-    header("步骤 0/5", "环境自检")
+    page(1, T("环境自检"))
     if sys.version_info < (3, 10):
-        print(f"{BAD} 需要 Python 3.10+，当前 {sys.version.split()[0]}"); sys.exit(1)
+        print(f"{BAD} " + T("需要 Python 3.10+，当前 {v}", v=sys.version.split()[0])); sys.exit(1)
     print(f"{OK} Python {sys.version.split()[0]}")
     if os.environ.get("PENGLAI_DOCKER"):
-        print(f"{OK} 容器环境（依赖已随镜像就绪）"); return
+        print(f"{OK} " + T("容器环境（依赖已随镜像就绪）")); return
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not os.path.exists(py):
-        print("  正在创建虚拟环境并安装依赖（清华镜像）...")
+        print("  " + T("正在创建虚拟环境并安装依赖（清华镜像）..."))
         uv = shutil.which("uv") or next((p for p in [os.path.expanduser("~/.local/bin/uv")]
                                          if os.path.exists(p)), None)
         if not uv:
             try:
                 import ensurepip  # noqa: F401  裸 Ubuntu 的 python3 没装 python3-venv
             except ImportError:
-                print(f"{BAD} 系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试：")
+                print(f"{BAD} " + T("系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试："))
                 print("    sudo apt install -y python3-venv")
-                print("    或用一键脚本（自动装 uv 托管 Python，不动系统）：")
+                print("    " + T("或用一键脚本（自动装 uv 托管 Python，不动系统）："))
                 print("    curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/"
                       "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
                 sys.exit(1)
@@ -164,22 +202,22 @@ def step_env():
             else:
                 subprocess.run([sys.executable, "-m", "venv", ".venv"], cwd=ROOT, check=True)
                 subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "-e", ".", "lark-oapi", "qrcode", "pyyaml"], cwd=ROOT, check=True)
-            print(f"{OK} 依赖安装完成")
+            print(f"{OK} " + T("依赖安装完成"))
         except subprocess.CalledProcessError:
-            print(f"{BAD} 依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml")
+            print(f"{BAD} " + T("依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml"))
             sys.exit(1)
     else:
-        print(f"{OK} 虚拟环境已存在")
+        print(f"{OK} " + T("虚拟环境已存在"))
 
-# ---------- 步骤 1：LLM ----------
+# ---------- 步骤 2：LLM ----------
 def step_llm():
-    header("步骤 1/5", "选择大模型（蓬莱的大脑）")
+    page(2, T("选择大模型（蓬莱的大脑）"))
     rows = _get_provider_list()
     for idx, label, pid, bid, base, model, signup in rows:
         num = c(f"{idx:>2}", BOLD, F(167))
         name = c(_pad(label, 28), F(252))
-        model_s = (c("默认 ", F(245)) + c(_pad(model, 30), F(37))) if model \
-                  else c(_pad("（手动填模型名）", 35), F(245))
+        model_s = (c(T("默认 "), F(245)) + c(_pad(model, 30), F(37))) if model \
+                  else c(_pad(T("（手动填模型名）"), 35), F(245))
         print(f"  {num}  {name}{model_s}{c(signup, F(245))}")
     print()
 
@@ -192,11 +230,11 @@ def step_llm():
 
     while True:
         try:
-            chosen = int(ask("选择序号", "1")) - 1
+            chosen = int(ask(T("选择序号"), "1")) - 1
             _, name, pid, bid, base, default_model, signup = rows[chosen]
             break
         except (ValueError, IndexError):
-            print("  无效序号，请重选")
+            print("  " + T("无效序号，请重选"))
 
     # plan 警告
     if _PROVIDERS_DATA and pid in _PROVIDERS_DATA.get("providers", {}):
@@ -205,31 +243,73 @@ def step_llm():
             print(f"  ⚠️  {bdata['warning']}")
 
     if not base:
-        base = ask("API Base URL（如 https://api.example.com/v1）")
-    model = ask("模型名", default_model)
+        base = ask(T("API Base URL（如 https://api.example.com/v1）"))
+    model = ask(T("模型名"), default_model)
 
     # 弃用提示
     if model in deprecated_map:
         replace = deprecated_map[model]
-        print(f"  ⚠️  {model} 即将废弃，建议改用 {replace}")
-        if ask(f"改用 {replace}？(y/n)", "y").lower().startswith("y"):
+        print("  ⚠️  " + T("{m} 即将废弃，建议改用 {r}", m=model, r=replace))
+        if ask(T("改用 {r}？(y/n)", r=replace), "y").lower().startswith("y"):
             model = replace
 
-    key = ask("API Key（粘贴后回车）")
-    print("  连通性测试中...", end="", flush=True)
+    key = ask(T("API Key（粘贴后回车）"))
+    print("  " + T("连通性测试中..."), end="", flush=True)
     try:
         r = post_json(base.rstrip("/") + "/chat/completions",
                       {"model": model, "messages": [{"role": "user", "content": "回复两个字：蓬莱"}], "max_tokens": 64},
                       {"Authorization": f"Bearer {key}"})
         reply = r["choices"][0]["message"]["content"].strip()[:20]
-        print(f"\r{OK} 模型连通" + (f"，回复：{reply}" if reply else "（思考型模型，空文本正常）"))
+        print(f"\r{OK} " + T("模型连通") + (T("，回复：{r}", r=reply) if reply else T("（思考型模型，空文本正常）")))
         return {"name": name, "apikey": key, "apibase": base, "model": model}
     except Exception as e:
-        print(f"\r{BAD} 测试失败：{e}")
-        if ask("重试？(y/n)", "y").lower().startswith("y"): return step_llm()
+        print(f"\r{BAD} " + T("测试失败：{e}", e=e))
+        if ask(T("重试？(y/n)"), "y").lower().startswith("y"): return step_llm()
         sys.exit(1)
 
-# ---------- 步骤 2：飞书 ----------
+# ---------- 步骤 3：渠道单页选择 ----------
+_CHANNEL_MENU = (
+    # (id, 展示名, 备注 i18n key)
+    ("feishu",   "飞书 Feishu",       "推荐·已实测·扫码即用"),
+    ("wechat",   "微信 WeChat",       "已实测·扫码登录个人微信"),
+    ("dingtalk", "钉钉 DingTalk",     "扫码自动建应用·待实测"),
+    ("qq",       "QQ",                "扫码自动建应用·待实测"),
+    ("telegram", "Telegram",          "贴 token 接入·待实测"),
+    ("discord",  "Discord",           "贴 token 接入·待实测"),
+    ("wecom",    "企业微信 WeCom",    "贴 token 接入·待实测"),
+)
+
+def step_channels():
+    """单页渠道选择（多选）。飞书/微信在向导内闭环配置；其余渠道写入待办，
+    在启动后经渠道矩阵（penglai_channels）逐个配置。"""
+    page(3, T("接入渠道（你的管家住在哪）"))
+    for i, (cid, label, note) in enumerate(_CHANNEL_MENU, 1):
+        num = c(f"{i:>2}", BOLD, F(167))
+        print(f"  {num}  {c(_pad(label, 22), F(252))}{c(T(note), F(245))}")
+    print()
+    print("  " + c(T("多选，逗号分隔（如 1,2）。飞书是目前验证闭环最完整的主渠道。"), F(245)))
+    print("  " + c(T("终端 TUI 无需配置，装完直接敲 penglai 就能聊"), F(245)))
+    while True:
+        raw = ask(T("选择渠道"), "1")
+        picks, bad = [], False
+        for tok in raw.replace("，", ",").split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            if tok.isdigit() and 1 <= int(tok) <= len(_CHANNEL_MENU):
+                cid = _CHANNEL_MENU[int(tok) - 1][0]
+                if cid not in picks:
+                    picks.append(cid)
+            else:
+                bad = True
+        if picks and not bad:
+            break
+        print("  " + T("无效序号，请重选"))
+    if "feishu" not in picks:
+        print(f"{WARN}" + T("未选飞书：跳过飞书配置，启动验证闭环也将跳过（其余渠道为「进程在跑」级报告）"))
+    return picks
+
+# ---------- 飞书（渠道子页） ----------
 _FS_REG = "https://accounts.feishu.cn/oauth/v1/app/registration"
 
 def _post_form(url, body, timeout=10):
@@ -270,8 +350,9 @@ def _feishu_qr_create():
         return None
     qr_url = begin.get("verification_uri_complete", "")
     shown = _render_qr(qr_url)
-    print(f"  📱 打开手机飞书「扫一扫」，{'扫上方二维码' if shown else '扫码入口见下方链接（电脑浏览器打开后出码）'}，确认创建机器人应用")
-    print(f"  {qr_url}\n  等待确认", end="", flush=True)
+    print("  " + T("📱 打开手机飞书「扫一扫」，{hint}，确认创建机器人应用",
+                   hint=T("扫上方二维码") if shown else T("扫码入口见下方链接（电脑浏览器打开后出码）")))
+    print(f"  {qr_url}\n  " + T("等待确认"), end="", flush=True)
     deadline = time.monotonic() + min(int(begin.get("expires_in") or 600), 600)
     interval = max(int(begin.get("interval") or 5), 2)
     while time.monotonic() < deadline:
@@ -283,11 +364,11 @@ def _feishu_qr_create():
             print()
             return res["client_id"], res["client_secret"]
         if res.get("error") in ("access_denied", "expired_token"):
-            print(f"\n  {BAD} " + ("已在手机上取消" if res["error"] == "access_denied" else "二维码已过期"))
+            print(f"\n  {BAD} " + (T("已在手机上取消") if res["error"] == "access_denied" else T("二维码已过期")))
             return None
         print(".", end="", flush=True)
         time.sleep(interval)
-    print(f"\n  {BAD} 等待扫码超时")
+    print(f"\n  {BAD} " + T("等待扫码超时"))
     return None
 
 def _feishu_verify(app_id, app_secret):
@@ -296,22 +377,22 @@ def _feishu_verify(app_id, app_secret):
     return r.get("code") == 0, r.get("msg")
 
 def step_feishu():
-    header("步骤 2/5", "接入飞书")
-    print("  1. 手机飞书扫码，自动创建机器人应用（推荐，免开网页）")
-    print("  2. 手动填入已有的 App ID / App Secret")
-    if ask("选择方式", "1") == "1":
+    page(3, T("接入飞书"))
+    print("  " + T("1. 手机飞书扫码，自动创建机器人应用（推荐，免开网页）"))
+    print("  " + T("2. 手动填入已有的 App ID / App Secret"))
+    if ask(T("选择方式"), "1") == "1":
         try:
             cred = _feishu_qr_create()
         except Exception as e:
-            print(f"  {BAD} 扫码流程异常：{e}"); cred = None
+            print(f"  {BAD} " + T("扫码流程异常：{e}", e=e)); cred = None
         if cred:
             app_id, app_secret = cred
-            print("  凭证验证中...", end="", flush=True)
+            print("  " + T("凭证验证中..."), end="", flush=True)
             ok, msg = _feishu_verify(app_id, app_secret)
             if ok:
-                print(f"\r{OK} 应用已创建，凭证有效（App ID: {app_id}）"); return app_id, app_secret
-            print(f"\r{BAD} 自动创建的凭证验证失败：{msg}")
-        print("  ↓ 回落手动方式")
+                print(f"\r{OK} " + T("应用已创建，凭证有效（App ID: {id}）", id=app_id)); return app_id, app_secret
+            print(f"\r{BAD} " + T("自动创建的凭证验证失败：{m}", m=msg))
+        print("  " + T("↓ 回落手动方式"))
         print("""  ① 浏览器打开 https://open.feishu.cn/app → 创建企业自建应用（名字随意，如「蓬莱」）
   ② 左栏「添加应用能力」→ 添加「机器人」
   ③ 左栏「权限管理」→ 搜索并开通: im:message（获取与发送单聊/群聊消息相关权限，批量勾选）
@@ -319,23 +400,24 @@ def step_feishu():
   ⑤ 左栏「版本管理与发布」→ 创建版本并发布（自建应用秒过审）
   ⑥ 「凭证与基础信息」页拿 App ID 和 App Secret，填到下面""")
     while True:
-        app_id = ask("App ID（cli_ 开头）")
+        app_id = ask(T("App ID（cli_ 开头）"))
         app_secret = ask("App Secret")
-        print("  凭证验证中...", end="", flush=True)
+        print("  " + T("凭证验证中..."), end="", flush=True)
         try:
             ok, msg = _feishu_verify(app_id, app_secret)
             if ok:
-                print(f"\r{OK} 飞书凭证有效"); return app_id, app_secret
-            print(f"\r{BAD} 飞书返回错误：{msg}（检查是否复制完整）")
+                print(f"\r{OK} " + T("飞书凭证有效")); return app_id, app_secret
+            print(f"\r{BAD} " + T("飞书返回错误：{m}（检查是否复制完整）", m=msg))
         except Exception as e:
-            print(f"\r{BAD} 验证失败：{e}")
+            print(f"\r{BAD} " + T("验证失败：{e}", e=e))
 
-# ---------- 步骤 3：起名 ----------
+# ---------- 步骤 4：起名 ----------
 def step_identity():
-    header("步骤 3/5", "给你的管家起名")
-    agent = ask("管家名字", "蓬莱助手 Penglai")
-    user = ask("它怎么称呼你", "主人")
-    # 身份写入 L1 索引（GA 每轮注入系统提示的是 L1，不是 L2）
+    page(4, T("给你的管家起名"))
+    agent = ask(T("管家名字"), "蓬莱助手 Penglai")
+    user = ask(T("它怎么称呼你"), T("主人"))
+    # 身份写入 L1 索引（GA 每轮注入系统提示的是 L1，不是 L2）。
+    # 身份/SOP 行保持中文：发行版记忆体系是中文资产，向导语言只影响交互文案。
     ins = os.path.join(ROOT, "memory", "global_mem_insight.txt")
     if not os.path.exists(ins):
         tpl = os.path.join(ROOT, "assets", "global_mem_insight_template.txt")
@@ -356,70 +438,149 @@ def step_identity():
            else [ident, sops, rules] + lines)
     with open(ins, "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
-    print(f"{OK} 身份 + 蓬莱SOP索引已写入 L1（每轮注入）")
+    print(f"{OK} " + T("身份 + 蓬莱SOP索引已写入 L1（每轮注入）"))
     return agent
 
-# ---------- 步骤 4：写配置 ----------
-def step_intel():
-    """可选增强：情报矩阵（默认跳过=用 GA 原生浏览器）。"""
-    header("可选增强", "情报矩阵（多源交叉验证，降低幻觉）")
-    print("  默认不开 → 蓬莱用 GA 自带的真浏览器搜索（免费、开箱即用，已够用）。")
-    print("  开启后 → 多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。")
-    if not ask("现在开启情报矩阵增强？(y/n)", "n").lower().startswith("y"):
-        return {}
-    print("  推荐 TinyFish（免费、自有索引）：到 https://agent.tinyfish.ai/api-keys 申请，回车跳过")
-    keys = {}
-    if k := ask("TinyFish API Key（X-API-Key，可空）"): keys["tinyfish_key"] = k
-    if k := ask("Tavily API Key（免费额度，可空）"):    keys["tavily_key"] = k
-    if k := ask("Firecrawl API Key（可空）"):           keys["firecrawl_key"] = k
-    print(f"{OK} 情报矩阵：{len(keys)} 个源已配置" if keys else "  未填 key，保持默认（GA 浏览器）")
-    return keys
+# ---------- 步骤 5：能力面板 ----------
+MODEL_BASE = os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models"))
+MODEL_DIR = os.path.join(MODEL_BASE, "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
+_MODEL_TAR = ("sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2")
+_MODEL_URLS = (
+    "https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
+)
 
-def step_companion():
-    """可选增强：主动陪伴（默认关闭=零成本零打扰）。"""
-    header("可选增强", "主动陪伴（会主动关心你，不只是被动回复）")
-    print("  默认不开 → 蓬莱只在你发消息时回应（零成本）。")
-    print("  开启后 → 独立心跳进程，门禁守护（勿扰时段/不打断聊天/频率上限），")
-    print("           偶尔主动联系你。是蓬莱第一个有持续 token 成本的功能（一天约几分钱）。")
-    if not ask("现在开启主动陪伴？(y/n)", "n").lower().startswith("y"):
-        return {}
-    print(f"{OK} 主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）")
-    return {"companion_enabled": True}
+def _dl_progress(url, dest):
+    """下载到 dest，单行刷新进度。失败抛异常由调用方兜。"""
+    req = urllib.request.Request(url, headers={"User-Agent": "penglai-setup"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
+        total = int(r.headers.get("Content-Length") or 0)
+        got = 0
+        while True:
+            chunk = r.read(1 << 18)
+            if not chunk:
+                break
+            f.write(chunk); got += len(chunk)
+            if total:
+                print(f"\r  {got // (1 << 20)}MB / {total // (1 << 20)}MB", end="", flush=True)
+            else:
+                print(f"\r  {got // (1 << 20)}MB", end="", flush=True)
+    print()
 
-def step_wechat():
-    """可选渠道：微信（GA 原生 iLink 协议，扫码绑定）。须在 mykey 写入后调用。"""
-    header("可选渠道", "微信（扫码绑定个人微信，作为第二渠道）")
-    if not ask("接入微信？(y/n)", "n").lower().startswith("y"):
-        return False
-    py = os.path.join(ROOT, ".venv", "bin", "python")
-    if os.environ.get("PENGLAI_DOCKER"):
-        py = sys.executable   # 容器内依赖已随镜像就绪，无 venv
+def _voice_install():
+    """语音能力真实落地：sherpa-onnx + ffmpeg + SenseVoice 模型。只报告可证实状态。"""
+    docker = bool(os.environ.get("PENGLAI_DOCKER"))
+    py = sys.executable if docker else os.path.join(ROOT, ".venv", "bin", "python")
+    ok = True
+    # 1) sherpa-onnx 推理引擎
+    if subprocess.run([py, "-c", "import sherpa_onnx"], capture_output=True).returncode != 0:
+        print("  " + T("安装语音识别引擎 sherpa-onnx ..."), flush=True)
+        idx = "https://pypi.tuna.tsinghua.edu.cn/simple"
+        uv = shutil.which("uv") or next((p for p in [os.path.expanduser("~/.local/bin/uv")]
+                                         if os.path.exists(p)), None)
+        if uv and not docker:
+            r = subprocess.run([uv, "pip", "install", "-q", "--python", py, "sherpa-onnx"],
+                               capture_output=True, text=True, env={**os.environ, "UV_DEFAULT_INDEX": idx})
+        else:
+            r = subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "sherpa-onnx"],
+                               capture_output=True, text=True)
+        if r.returncode != 0 or subprocess.run([py, "-c", "import sherpa_onnx"],
+                                               capture_output=True).returncode != 0:
+            print(f"  {BAD} " + T("sherpa-onnx 安装失败：{e}", e=(r.stderr or "")[-120:])); ok = False
+        else:
+            print(f"  {OK} " + T("sherpa-onnx 就绪"))
     else:
-        print("  安装微信依赖...", end="", flush=True)
-        r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
-                            "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
-        if r.returncode != 0:
-            print(f"\r{BAD} 依赖安装失败：{(r.stderr or '')[-120:]}"); return False
-        print(f"\r{OK} 微信依赖就绪（qrcode/pillow/pycryptodome/pilk）")
-    tok = os.path.expanduser("~/.wxbot/token.json")
-    if os.path.exists(tok) and not ask("检测到已有微信绑定，重新扫码？(y/n)", "n").lower().startswith("y"):
-        print(f"{OK} 沿用现有绑定"); return True
-    print("  📱 打开手机微信「扫一扫」，扫终端二维码并确认（图片也存在 ~/.wxbot/wx_qr.png）")
-    # 绕过 GA 主入口的 isatty 检查 bug（检查发生在 stdout 重定向之后，扫码路径不可达），直接调 WxBotClient
-    code = (f"import sys; sys.path[:0] = [{ROOT!r}, {os.path.join(ROOT, 'frontends')!r}]\n"
-            "from wechatapp import WxBotClient\n"
-            "WxBotClient().login_qr()\n")
-    if subprocess.run([py, "-c", code]).returncode != 0:
-        print(f"{BAD} 扫码未完成（可稍后重跑 penglai setup，只重做本步）"); return False
-    print(f"{OK} 微信绑定成功（token 已存 ~/.wxbot/，重启不用重扫）")
-    return True
+        print(f"  {OK} " + T("sherpa-onnx 就绪"))
+    # 2) ffmpeg（音频解码）
+    if not shutil.which("ffmpeg"):
+        if shutil.which("apt-get") and ask(T("缺 ffmpeg（音频解码必需）。现在用 apt 安装？(y/n)"), "y").lower().startswith("y"):
+            subprocess.run(["sudo", "apt-get", "install", "-y", "ffmpeg"])
+        if not shutil.which("ffmpeg"):
+            print(f"  {WARN}" + T("请自行安装 ffmpeg 后语音即可用（Ubuntu: sudo apt install -y ffmpeg / macOS: brew install ffmpeg）"))
+            ok = False
+        else:
+            print(f"  {OK} " + T("ffmpeg 就绪"))
+    else:
+        print(f"  {OK} " + T("ffmpeg 就绪"))
+    # 3) SenseVoice 模型（~230MB，gh-proxy 优先，直连兜底）
+    if os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
+        print(f"  {OK} " + T("模型已存在，跳过下载"))
+    else:
+        print("  " + T("下载 SenseVoice 模型（约 230MB，国内自动走镜像）..."))
+        os.makedirs(MODEL_BASE, exist_ok=True)
+        tar_path = os.path.join(MODEL_BASE, _MODEL_TAR)
+        got = False
+        for url in _MODEL_URLS:
+            try:
+                _dl_progress(url, tar_path)
+                got = True
+                break
+            except Exception as e:
+                print(f"  {WARN}" + T("下载失败：{e}", e=str(e)[:80]))
+        if got:
+            print("  " + T("解压中..."), flush=True)
+            import tarfile
+            try:
+                with tarfile.open(tar_path, "r:bz2") as tf:
+                    try:
+                        tf.extractall(MODEL_BASE, filter="data")
+                    except TypeError:   # Python < 3.12 无 filter 参数
+                        tf.extractall(MODEL_BASE)
+            finally:
+                try: os.remove(tar_path)
+                except OSError: pass
+        if not os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
+            ok = False
+    # 4) 诚实结论
+    if ok:
+        print(f"{OK} " + T("语音就绪：转写 + 情绪 + 声学事件（飞书/微信语音条开箱即用）"))
+    else:
+        print(f"{WARN}" + T("语音未就绪（见上方原因），稍后可重跑 penglai setup 补装"))
+    return ok
 
+def step_abilities():
+    """能力面板：一页看全蓬莱层能力。选了就真装真启（语音默认开），不做摆设。"""
+    page(5, T("蓬莱能力（按需开启，立即生效）"))
+    print("  " + c(T("出厂常开（确定性防线，不可关）："), F(245))
+          + c(T("红线审计 · 记忆卫生 · 出站文件白名单"), F(252)))
+    out = {}
+    # —— 语音（默认开：发语音条是 IM 管家的基本盘）——
+    print()
+    print("  🎙️ " + c(T("语音情绪耳朵（本地 SenseVoice：转写+情绪+声学事件，含微信语音）"), BOLD, F(252)))
+    print("     " + c(T("约下载 230MB 模型，本地 CPU 推理，零 API 成本。发语音条给管家必需。"), F(245)))
+    voice_ready = False
+    if ask(T("现在启用语音？(y/n)"), "y").lower().startswith("y"):
+        voice_ready = _voice_install()
+    # —— 主动陪伴（opt-in：有持续 token 成本）——
+    print()
+    print("  💞 " + c(T("主动陪伴（会主动关心你，不只是被动回复）"), BOLD, F(252)))
+    print("     " + c(T("默认不开 → 蓬莱只在你发消息时回应（零成本）。"), F(245)))
+    print("     " + c(T("开启后 → 独立心跳进程，门禁守护（勿扰时段/不打断聊天/频率上限），"), F(245)))
+    print("     " + c(T("         偶尔主动联系你。是蓬莱第一个有持续 token 成本的功能（一天约几分钱）。"), F(245)))
+    if ask(T("现在开启主动陪伴？(y/n)"), "n").lower().startswith("y"):
+        print(f"  {OK} " + T("主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）"))
+        out["companion_enabled"] = True
+    # —— 情报矩阵（opt-in：需要第三方 key）——
+    print()
+    print("  🔭 " + c(T("情报矩阵（多源交叉验证，降低幻觉）"), BOLD, F(252)))
+    print("     " + c(T("默认不开 → 蓬莱用 GA 自带的真浏览器搜索（免费、开箱即用，已够用）。"), F(245)))
+    print("     " + c(T("开启后 → 多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。"), F(245)))
+    if ask(T("现在开启情报矩阵增强？(y/n)"), "n").lower().startswith("y"):
+        print("  " + T("推荐 TinyFish（免费、自有索引）：到 https://agent.tinyfish.ai/api-keys 申请，回车跳过"))
+        if k := ask(T("TinyFish API Key（X-API-Key，可空）")): out["tinyfish_key"] = k
+        if k := ask(T("Tavily API Key（免费额度，可空）")):    out["tavily_key"] = k
+        if k := ask(T("Firecrawl API Key（可空）")):           out["firecrawl_key"] = k
+        n = len([1 for x in ("tinyfish_key", "tavily_key", "firecrawl_key") if x in out])
+        print(f"  {OK} " + T("情报矩阵：{n} 个源已配置", n=n) if n else "  " + T("未填 key，保持默认（GA 浏览器）"))
+    return out, voice_ready
+
+# ---------- 写配置 ----------
 def step_write(llm, app_id, app_secret, intel=None):
-    header("步骤 4/5", "写入配置 mykey.py")
+    header(T("步骤") + f" 6/{_TOTAL_STEPS}", T("写入配置 mykey.py"))
     path = os.path.join(ROOT, "mykey.py")
     if os.path.exists(path):
         bak = f"{path}.bak.{time.strftime('%Y%m%d-%H%M%S')}"
-        shutil.copy2(path, bak); print(f"  已备份旧配置 → {os.path.basename(bak)}")
+        shutil.copy2(path, bak); print("  " + T("已备份旧配置 → {b}", b=os.path.basename(bak)))
     body = f"""# mykey.py — 由 penglai setup 生成 {time.strftime('%Y-%m-%d %H:%M')}
 native_oai_config = {{
     'name': {llm['name']!r},
@@ -433,17 +594,45 @@ mixin_config = {{
     'max_retries': 2,
     'base_delay': 2,
 }}
-fs_app_id = {app_id!r}
-fs_app_secret = {app_secret!r}
+penglai_lang = {get_lang()!r}
+fs_app_id = {(app_id or '')!r}
+fs_app_secret = {(app_secret or '')!r}
 fs_allowed_users = []   # 留空=对所有可见用户开放（不安全）；向导实测时会自动收紧为你本人
 """
     for k, v in (intel or {}).items():
         body += f"{k} = {v!r}\n"
     with open(path, "w", encoding="utf-8") as f: f.write(body)
     os.chmod(path, 0o600)
-    print(f"{OK} 配置完成（权限 600，已加入 .gitignore 范围）")
+    print(f"{OK} " + T("配置完成（权限 600，已加入 .gitignore 范围）"))
 
-# ---------- 步骤 5：启动并验证 ----------
+# ---------- 微信（渠道子页，须在 mykey 写入后调用） ----------
+def step_wechat():
+    """微信渠道：GA 原生 iLink 协议，扫码绑定。"""
+    page(6, T("微信（扫码绑定个人微信，作为第二渠道）"))
+    py = os.path.join(ROOT, ".venv", "bin", "python")
+    if os.environ.get("PENGLAI_DOCKER"):
+        py = sys.executable   # 容器内依赖已随镜像就绪，无 venv
+    else:
+        print("  " + T("安装微信依赖..."), end="", flush=True)
+        r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
+                            "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"\r{BAD} " + T("依赖安装失败：{e}", e=(r.stderr or '')[-120:])); return False
+        print(f"\r{OK} " + T("微信依赖就绪（qrcode/pillow/pycryptodome/pilk）"))
+    tok = os.path.expanduser("~/.wxbot/token.json")
+    if os.path.exists(tok) and not ask(T("检测到已有微信绑定，重新扫码？(y/n)"), "n").lower().startswith("y"):
+        print(f"{OK} " + T("沿用现有绑定")); return True
+    print("  " + T("📱 打开手机微信「扫一扫」，扫终端二维码并确认（图片也存在 ~/.wxbot/wx_qr.png）"))
+    # 绕过 GA 主入口的 isatty 检查 bug（检查发生在 stdout 重定向之后，扫码路径不可达），直接调 WxBotClient
+    code = (f"import sys; sys.path[:0] = [{ROOT!r}, {os.path.join(ROOT, 'frontends')!r}]\n"
+            "from wechatapp import WxBotClient\n"
+            "WxBotClient().login_qr()\n")
+    if subprocess.run([py, "-c", code]).returncode != 0:
+        print(f"{BAD} " + T("扫码未完成（可稍后重跑 penglai setup，只重做本步）")); return False
+    print(f"{OK} " + T("微信绑定成功（token 已存 ~/.wxbot/，重启不用重扫）"))
+    return True
+
+# ---------- 步骤 6：启动并验证 ----------
 def _fsapp_pids():
     r = subprocess.run(["pgrep", "-f", "frontends/fsapp.py"], capture_output=True, text=True)
     return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
@@ -514,42 +703,45 @@ def _verify_live(read_log, log_hint):
     """端到端实测：日志见 connected → 用户真发消息 → 日志见「收到消息」。只报告真实状态。
     返回 (状态, 主人open_id)：状态 ∈ {True, "skip", False}；open_id 从「收到消息 [X]」捕获。"""
     import re
-    print("  等待飞书长连接建立", end="", flush=True)
+    print("  " + T("等待飞书长连接建立"), end="", flush=True)
     got = _watch(read_log, "connected to wss", 45)
     print()
     if not got:
-        print(f"{BAD} 45 秒内未建立连接，最近日志（完整: {log_hint}）：")
+        print(f"{BAD} " + T("45 秒内未建立连接，最近日志（完整: {h}）：", h=log_hint))
         for l in read_log().splitlines()[-8:]:
             print("    " + l[:160])
         return False, None
-    print(f"{OK} 飞书长连接已建立（日志确认 connected）")
-    print("  📨 实测收发：用手机飞书给机器人发一句「你好」（回车跳过，最长等 3 分钟）", end="", flush=True)
+    print(f"{OK} " + T("飞书长连接已建立（日志确认 connected）"))
+    print("  " + T("📨 实测收发：用手机飞书给机器人发一句「你好」（回车跳过，最长等 3 分钟）"), end="", flush=True)
     got = _watch(read_log, "收到消息", 180, allow_skip=True)
     print()
     if got is True:
-        print(f"{OK} 已收到你的消息，收发链路实测全通")
+        print(f"{OK} " + T("已收到你的消息，收发链路实测全通"))
         m = re.search(r"收到消息 \[([^\]]+)\]", read_log())
         return True, (m.group(1) if m else None)
     if got == "skip":
-        print(f"{WARN}已跳过实测，链路尚未端到端验证")
+        print(f"{WARN}" + T("已跳过实测，链路尚未端到端验证"))
         return "skip", None
-    print(f"{BAD} 3 分钟内未收到消息。常见原因：发错了机器人 / 应用版本未发布 / 可见范围不含你")
-    print(f"    日志：{log_hint}")
+    print(f"{BAD} " + T("3 分钟内未收到消息。常见原因：发错了机器人 / 应用版本未发布 / 可见范围不含你"))
+    print("    " + T("日志：{h}", h=log_hint))
     return False, None
 
-def step_launch(with_companion=False, with_wechat=False):
-    header("步骤 5/5", "启动并验证")
+def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
+    header(T("步骤") + f" 6/{_TOTAL_STEPS}", T("启动并验证"))
     if os.environ.get("PENGLAI_DOCKER"):
-        print(f"{OK} 容器模式：配置完成，启动与连接验证由 Docker 部署脚本接管")
+        print(f"{OK} " + T("容器模式：配置完成，启动与连接验证由 Docker 部署脚本接管"))
         return "docker"
     py = os.path.join(ROOT, ".venv", "bin", "python")
-    if shutil.which("systemctl") and ask("安装为系统服务（开机自启）？(y/n)", "y").lower().startswith("y"):
+    if not with_feishu:
+        print(f"{WARN}" + T("未选飞书渠道：跳过飞书启动验证"))
+    if shutil.which("systemctl") and ask(T("安装为系统服务（开机自启）？(y/n)"), "y").lower().startswith("y"):
         env_sh = os.path.join(ROOT, "env.sh")
         if not os.path.exists(env_sh):
             open(env_sh, "w").write(f'export PATH="{ROOT}/.venv/bin:$PATH"\n')
         work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
-        units = {"penglai-feishu": f"python {ROOT}/frontends/fsapp.py",
-                 "penglai-scheduler": f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py"}
+        units = {"penglai-scheduler": f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py"}
+        if with_feishu:
+            units["penglai-feishu"] = f"python {ROOT}/frontends/fsapp.py"
         if with_companion:
             units["penglai-companion"] = f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"
         if with_wechat:
@@ -570,66 +762,104 @@ def step_launch(with_companion=False, with_wechat=False):
                                check=True, stdout=subprocess.DEVNULL)
             subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
             subprocess.run(["sudo", "systemctl", "enable", "--now"] + list(units), check=True)
-            print(f"{OK} 服务已安装并设为开机自启，开始验证...")
+            print(f"{OK} " + T("服务已安装并设为开机自启，开始验证..."))
         except subprocess.CalledProcessError:
-            print(f"{BAD} 服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python frontends/fsapp.py")
+            print(f"{BAD} " + T("服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python frontends/fsapp.py"))
             return False
+        # 陪伴服务真实状态（诚实纪律：装了 ≠ 在跑）
+        if with_companion:
+            st = subprocess.run(["systemctl", "is-active", "penglai-companion"],
+                                capture_output=True, text=True).stdout.strip()
+            print((f"{OK} " + T("陪伴服务已启动（systemd: penglai-companion）")) if st == "active"
+                  else (f"{BAD} " + T("陪伴服务未在运行，请检查: systemctl status penglai-companion")))
+        if not with_feishu:
+            return "nofs"
         def read_log():
             r = subprocess.run(["sudo", "journalctl", "-u", "penglai-feishu", f"--since=@{t0}",
                                 "-o", "cat", "--no-pager"], capture_output=True, text=True)
             return r.stdout or ""
         status, owner = _verify_live(read_log, "journalctl -u penglai-feishu -f")
         if status is True and owner and _patch_allowlist(owner):
-            print(f"{OK} 已自动把你（{owner}）设为唯一授权用户，机器人不再对所有可见用户开放")
-            print("  正在重启服务让白名单生效...")
+            print(f"{OK} " + T("已自动把你（{o}）设为唯一授权用户，机器人不再对所有可见用户开放", o=owner))
+            print("  " + T("正在重启服务让白名单生效..."))
             subprocess.run(["sudo", "systemctl", "restart", "penglai-feishu"])
         return status
     # 无 systemd（容器/macOS）或用户拒绝装服务 → 后台直启，照样实测验证
-    if not ask("无系统服务模式：现在后台启动飞书进程并实测？(y/n)", "y").lower().startswith("y"):
-        print(f"{WARN}未启动。稍后手动: penglai start（日志: penglai logs）")
+    if not with_feishu:
+        return "nofs"
+    if not ask(T("无系统服务模式：现在后台启动飞书进程并实测？(y/n)"), "y").lower().startswith("y"):
+        print(f"{WARN}" + T("未启动。稍后手动: penglai start（日志: penglai logs）"))
         return "skip"
     log, pos = _spawn_fsapp(py)
-    print(f"{OK} 飞书进程已后台启动（停止: penglai stop，日志: penglai logs）")
+    print(f"{OK} " + T("飞书进程已后台启动（停止: penglai stop，日志: penglai logs）"))
     def read_log():
         with open(log, encoding="utf-8", errors="replace") as f:
             f.seek(pos)
             return f.read()
     status, owner = _verify_live(read_log, f"tail -f {log}")
     if status is True and owner and _patch_allowlist(owner):
-        print(f"{OK} 已自动把你（{owner}）设为唯一授权用户，机器人不再对所有可见用户开放")
-        print("  正在重启飞书进程让白名单生效...")
+        print(f"{OK} " + T("已自动把你（{o}）设为唯一授权用户，机器人不再对所有可见用户开放", o=owner))
+        print("  " + T("正在重启飞书进程让白名单生效..."))
         _spawn_fsapp(py)
     return status
 
+# ---------- 附加渠道（启动后经渠道矩阵配置） ----------
+def step_extras(extras):
+    """钉钉/QQ/TG/Discord/企微：复用 penglai_channels 的扫码/凭证/服务流程。
+    （渠道矩阵交互文案当前为中文；其状态报告遵循诚实纪律「进程在跑」级。）"""
+    if not extras:
+        return
+    page(None, T("配置附加渠道"))
+    import penglai_channels as pc
+    for ch in extras:
+        label = pc.CHANNELS[ch]["label"]
+        print("\n  " + T("开始配置 {l}（扫码/凭证流程来自渠道矩阵）", l=label))
+        try:
+            pc.enable(ch)
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            print(f"  {BAD} {label}: {e}")
+    print(f"\n{OK} " + T("附加渠道配置完成。状态总览: penglai channels"))
+
 def main():
-    print_banner()
+    step_lang()
     step_env()
     llm = step_llm()
-    app_id, app_secret = step_feishu()
+    channels = step_channels()
+    app_id = app_secret = None
+    if "feishu" in channels:
+        app_id, app_secret = step_feishu()
     agent = step_identity()
-    intel = step_intel()
-    comp = step_companion()
-    intel.update(comp)
+    intel, _voice_ready = step_abilities()
+    comp = {"companion_enabled": True} if intel.get("companion_enabled") else {}
+    # 步骤 6 页：写配置 + 微信 + 启动验证同属收尾页
+    if _COLOR:
+        print("\033[2J\033[H", end="")
+        print_minibanner()
     step_write(llm, app_id, app_secret, intel)
-    wx = step_wechat()
-    live = step_launch(with_companion=bool(comp), with_wechat=wx)
+    wx = step_wechat() if "wechat" in channels else False
+    live = step_launch(with_feishu="feishu" in channels,
+                       with_companion=bool(comp), with_wechat=wx)
+    step_extras([ch for ch in channels if ch not in ("feishu", "wechat")])
     if live is True:
-        print(f"\n🎉 安装完成，飞书收发链路已实测全通！")
+        print("\n" + T("🎉 安装完成，飞书收发链路已实测全通！"))
     elif live == "docker":
-        print(f"\n{OK} 配置完成。容器服务即将由部署脚本启动并验证连接。")
+        print(f"\n{OK} " + T("配置完成。容器服务即将由部署脚本启动并验证连接。"))
         return
     elif live == "skip":
-        print(f"\n{OK} 安装完成（链路未实测）。去飞书给「{agent}」发一句「你好」，"
-              f"用 penglai logs 看到「收到消息」即全通。")
+        print(f"\n{OK} " + T("安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。", a=agent))
+    elif live == "nofs":
+        print(f"\n{OK} " + T("安装完成。已配置渠道见上；终端随时可聊。"))
     else:
-        print(f"\n{WARN}配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。")
-    if live is True or live == "skip":
-        print(f"\n   现在就可以和「{agent}」聊天了：")
-        print(f"   💬 飞书（或已绑定的微信）里直接发消息")
-        print(f"   ⌨️  终端任意位置输入 penglai 进入命令行对话（同一个管家，同一份记忆）")
-    print("\n   体检: penglai doctor   日志: penglai logs   更新: penglai update")
-    print("   （若提示 command not found：重开终端，或先用 ./penglai）")
+        print(f"\n{WARN}" + T("配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。"))
+    if live is True or live == "skip" or live == "nofs":
+        print("\n   " + T("现在就可以和「{a}」聊天了：", a=agent))
+        print("   " + T("💬 飞书（或已绑定的微信）里直接发消息"))
+        print("   " + T("⌨️  终端任意位置输入 penglai 进入命令行对话（同一个管家，同一份记忆）"))
+    print("\n   " + T("体检: penglai doctor   日志: penglai logs   更新: penglai update"))
+    print("   " + T("（若提示 command not found：重开终端，或先用 ./penglai）"))
 
 if __name__ == "__main__":
     try: sys.exit(main())
-    except KeyboardInterrupt: print("\n已取消。随时重新运行 penglai setup"); sys.exit(1)
+    except KeyboardInterrupt: print("\n" + T("已取消。随时重新运行 penglai setup")); sys.exit(1)
