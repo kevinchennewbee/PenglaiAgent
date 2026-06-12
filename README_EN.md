@@ -61,8 +61,8 @@ meetings, always there.
 
 Penglai (蓬莱) is the legendary immortal island of Chinese mythology. The *Records of the Grand
 Historian* tells of three sacred mountains in the eastern sea — Penglai among them — where
-immortals dwell and the elixir of life is kept. China's first emperor sent the explorer Xu Fu
-with three thousand youths to find it; they never reached its shores. For two thousand years,
+immortals dwell and the elixir of life is kept. China's first emperor sent the court sorcerer Xu Fu
+with three thousand boys and girls across the sea to find it; they never reached its shores. For two thousand years,
 "Penglai" has been the oldest Chinese name for **a wonderful place you can see but never reach.**
 
 I chose the name because AI today is, for ordinary people, exactly what Penglai was to the
@@ -79,8 +79,8 @@ experts, each crossing the sea in its own way, all serving the same you.
 ## ✨ What it does
 
 - 🏮 **Ten-minute setup** — a paged, bilingual (EN/中文) wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **one-page channel picker** (scan-to-create your Feishu bot, no console clicking) → name your butler → ability panel that actually activates things (voice on by default; companion/intel opt-in)
-- 💬 **Feishu + WeChat, both native** — personal WeChat via QR login with text/voice/image in & out; Feishu over a long connection, no public IP needed
-- 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: tired): such a long day]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
+- 💬 **Feishu + WeChat, both connected by QR code** — Feishu bot created by scanning a QR code, long connection so no public IP needed; personal WeChat via QR login with text/voice/image in & out
+- 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: down): so tired today]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
 - 🧠 **Four-tier memory** — the GA kernel's index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
 - 🛡️ **Deterministic safety rails** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **deterministic checks, not LLM goodwill**. Covers dangerous commands, sensitive paths, memory writes and outbound files (allowlist currently Feishu-only); rails ≠ absolute security — run it on a personal, controlled server
 - 🧐 **Double insurance against hallucination** — a local tripwire ships **always-on** (free), sniffing overconfident phrasing; one command (`penglai enable critic`) adds a **different vendor's** free model (e.g. GLM-4.7-Flash) for cross-review — one model can't catch its own hallucinations; fact-finding tasks can fan out to multi-source cross-validated search
@@ -97,6 +97,12 @@ required; the script sets up everything automatically:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+```
+
+From a server inside mainland China (same one-liner, via mirror):
+
+```bash
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
 🐳 **Docker, also one line** — pulls the image (falls back to building locally), walks you through
@@ -142,7 +148,7 @@ The GA kernel ships 7 IM frontends; the Penglai layer wraps them behind one comm
 | Terminal TUI | just run `penglai` | — | ✅ kernel built-in |
 | DingTalk | `penglai enable dingtalk`, **scan-to-create app** | 🔧 wrapped (native ASR) | ⚠️ untested |
 | QQ | `penglai enable qq`, **scan-to-create bot** | 🔧 wrapped (wav+emotion) | ⚠️ untested |
-| WeCom | `penglai enable wecom`, paste AI-bot credentials | 🔧 wrapped (native ASR) | ⚠️ untested |
+| WeCom | `penglai enable wecom`, create an AI bot in the console & paste credentials | 🔧 wrapped (native ASR) | ⚠️ untested |
 | Telegram | `penglai enable telegram`, paste @BotFather token | — | ⚠️ untested |
 | Discord | `penglai enable discord`, paste developer-portal token | — | ⚠️ untested |
 
@@ -159,21 +165,6 @@ Penglai never touches the kernel — it only adds the last mile from "it runs" t
 | Onboarding | hand-edit mykey, install deps | ten-minute paged wizard (EN/中文, auto-mirror) |
 | IM channels | wire frontend code yourself | Feishu/WeChat QR + DingTalk/QQ/WeCom one command each |
 | Voice | none | local SenseVoice transcription + emotion, wrapped for every channel |
-| Safety | basic | red-line / memory hygiene / outbound-file allowlist — deterministic |
-| Ability mgmt | edit config files | `penglai enable / abilities` toggles, anytime |
-| Install | git clone | curl / Docker / pip one-liner + China mirrors |
-| Ops | manual | `penglai doctor` checks **and prints the fix command** |
-| Kernel | — | **zero diff**, upstream upgrades merge cleanly |
-
-## 🆚 Penglai vs. bare GenericAgent
-
-Penglai doesn't touch the kernel — it just adds the last mile from "it runs" to "it's usable":
-
-| Dimension | Bare GenericAgent | Penglai distro |
-|-----------|-------------------|----------------|
-| Onboarding | hand-edit mykey, install deps | ten-minute paged wizard (EN/中文, auto-mirror) |
-| IM channels | wire frontend code yourself | Feishu/WeChat QR + DingTalk/QQ/WeCom one command each |
-| Voice | none | local SenseVoice transcription+emotion, wrapped for every channel |
 | Safety | basic | red-line / memory hygiene / outbound-file allowlist — deterministic |
 | Ability mgmt | edit config files | `penglai enable / abilities` toggles, anytime |
 | Install | git clone | curl / Docker / pip one-liner + China mirrors |
@@ -224,7 +215,7 @@ Full version timeline on the [website changelog](https://kevinchennewbee.github.
 
 - **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + website redesign + new banner
 - **2026-06-12** — Wizard v2: language-first / paged terminal / one-page channel picker / ability panel / voice by default
-- **2026-06-11** — Security hardening (audit P0/P1 fixes) + one-line Docker deploy + 11-vendor model catalog
+- **2026-06-11** — Security hardening (audit P0/P1 fixes) + one-line Docker deploy + catalog of 11 Chinese model vendors
 - **2026-06-11** — 🎉 First release: ten-minute wizard, Feishu/WeChat QR, local voice-emotion recognition, deterministic safety
 
 ## 📜 License & Brand
