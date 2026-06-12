@@ -526,6 +526,9 @@ providers:
           - id: google/gemini-2.5-flash
             display: "Gemini 2.5 Flash"
             features: [thinking, vision, tools]
+          - id: tencent/hy3-preview
+            display: "腾讯混元 HY3 Preview（开源旗舰，OpenRouter 上线，曾限免）"
+            features: [thinking, tools]
     default_billing: paygo
     default_model: "anthropic/claude-sonnet-4-6"
 
@@ -565,10 +568,14 @@ providers:
       paygo:
         label: "按量付费（TokenHub 计费）"
         base_url: "https://api.hunyuan.cloud.tencent.com/v1"
-        note: "需腾讯云账号；hunyuan-t1/turbo 等旧系列 2026-06-22 下线，以控制台公告为准"
+        note: "需腾讯云账号；HY3(hy3-preview,295B MoE/256K)已于 2026-04 开源，腾讯云按量端点逐步开通——若 hy3-preview 连通测试失败说明你的账号尚未开通，可改 HY2.0 或经 OpenRouter 用 tencent/hy3-preview；hunyuan-t1/turbo 旧系列 2026-06-22 下线"
         models:
+          - id: hy3-preview
+            display: "混元 HY3 Preview（最新开源旗舰，295B MoE/256K，腾讯云开通中）"
+            context_k: 256
+            features: [thinking, tools]
           - id: hunyuan-2.0-thinking
-            display: "混元 2.0 Thinking（旗舰思考，推荐）"
+            display: "混元 2.0 Thinking（旗舰思考，按量端点确认可用，推荐）"
             context_k: 256
             input_cny: 3.975
             output_cny: 15.9
