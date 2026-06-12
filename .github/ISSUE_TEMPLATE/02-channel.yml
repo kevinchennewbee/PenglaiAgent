@@ -1,0 +1,29 @@
+name: 💬 渠道接入问题 / Channel issue
+description: 飞书 / 微信 / 钉钉 / QQ / 企微 / Telegram / Discord 扫码、凭证、收发消息问题
+labels: [channel]
+body:
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 渠道
+      options: [飞书 Feishu, 微信 WeChat, 钉钉 DingTalk, QQ, 企业微信 WeCom, Telegram, Discord, 终端 TUI]
+    validations: { required: true }
+  - type: dropdown
+    id: stage
+    attributes:
+      label: 卡在哪一步
+      options: ["扫码（二维码不出/扫了没反应）", "凭证验证失败", "服务启动失败", "能启动但收不到消息", "收到消息但不回复", "语音/图片不工作", "其他"]
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: 操作步骤与现象
+      placeholder: "如：penglai enable qq → 扫码 → 手机点连接 → 终端显示…"
+    validations: { required: true }
+  - type: textarea
+    id: log
+    attributes:
+      label: 渠道日志（penglai logs <渠道> 最后 30 行）
+      description: 注意自行打码 App ID / Secret / token
+      render: shell
+    validations: { required: true }

@@ -81,8 +81,8 @@ experts, each crossing the sea in its own way, all serving the same you.
 - 🏮 **Ten-minute setup** — a paged, bilingual (EN/中文) wizard (`penglai setup`): auto-installs deps (China-mirror aware) → pick a model & test connectivity → **one-page channel picker** (scan-to-create your Feishu bot, no console clicking) → name your butler → ability panel that actually activates things (voice on by default; companion/intel opt-in)
 - 💬 **Feishu + WeChat, both native** — personal WeChat via QR login with text/voice/image in & out; Feishu over a long connection, no public IP needed
 - 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: tired): such a long day]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
-- 🧠 **Four-tier memory** — index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
-- 🛡️ **Deterministic safety** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **safety by deterministic checks, not LLM goodwill**
+- 🧠 **Four-tier memory** — the GA kernel's index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
+- 🛡️ **Deterministic safety rails** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **deterministic checks, not LLM goodwill**. Covers dangerous commands, sensitive paths, memory writes and outbound files (allowlist currently Feishu-only); rails ≠ absolute security — run it on a personal, controlled server
 - 🧐 **Double insurance against hallucination** — overconfidence tripwires trigger a second review by a **different vendor's** model (one model can't catch its own hallucinations); fact-finding tasks can fan out to multi-source cross-validated search
 - 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates: quiet hours, never interrupts a live conversation, frequency caps — like a friend thinking of you, not an alarm going off
 - 🎛️ **Turn abilities on anytime** — didn't enable something in the wizard? One command later: `penglai enable voice|companion|intel` for abilities, `penglai enable <channel>` for IMs, `penglai abilities` for the full picture — no need to rerun setup
@@ -186,6 +186,17 @@ Penglai is built on the [GenericAgent](https://github.com/lsdefine/GenericAgent)
 battle-tested ~130-line agent loop: `context → LLM → tools → results flow back`. Penglai is to GA
 what Ubuntu is to the Linux kernel:
 
+```mermaid
+flowchart LR
+    U["👤 You"] -->|"text · voice · images"| IM["💬 Feishu / WeChat / DingTalk / QQ …"]
+    IM --> P["🏮 Penglai distro layer<br/>wizard · CLI · channel wrappers · voice emotion · safety plugins"]
+    P --> K["⚙️ GenericAgent kernel (untouched)<br/>~130-line agent loop"]
+    K --> T["🔧 Tool execution"]
+    K --> M["🧠 Four-tier memory"]
+    K --> L["☁️ LLM (11 vendors)"]
+    P -. "red lines · audit · memory hygiene · outbound allowlist" .-> K
+```
+
 - **Zero kernel modifications** — the GA kernel files (`ga.py`, `frontends/`, `llmcore.py`, the memory tools …) stay at zero diff, so kernel upgrades merge cleanly; the distro layer only curates the tree on top — dropping upstream docs/demos irrelevant to the distribution and adding Penglai's own front page, CLI, plugins and SOPs;
 - **Gradient of forms** — new capabilities prefer SOPs (0 lines of code), then hook plugins, then heartbeat modules, then tools — restraint is a design choice, not laziness;
 - **Identity ≠ memory** — factory state ships zero user memory, just one line of identity. Your memory is your private asset and never enters the distribution.
@@ -203,6 +214,9 @@ what Ubuntu is to the Linux kernel:
 | Intelligence matrix <sub>opt-in</sub> | plugin | multi-source cross-validated search |
 | Proactive companion <sub>opt-in</sub> | heartbeat | true proactivity inside hard gates |
 | Penglai SOP pack | markdown | symbolic checkpoints, traceable compression, generative skills — 0 lines of code |
+
+> **Why does this repo still contain GenericAgent's `pyproject.toml` and `ga` entry point?**
+> Because Penglai is a GA distribution: kernel files (including their build config) stay untouched so upstream upgrades merge cleanly. `penglai` is the distro entry point; `ga` / `genericagent` are the upstream kernel's native entry points — they coexist without conflict. Report kernel bugs [upstream](https://github.com/lsdefine/GenericAgent); file distro issues here.
 
 ## 📅 Latest News
 

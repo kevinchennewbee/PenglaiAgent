@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 先看 README 与官网
+    url: https://kevinchennewbee.github.io/PenglaiAgent/
+    about: 安装、渠道、能力开关的说明都在这里
+  - name: ⚙️ 内核问题请报上游 GenericAgent
+    url: https://github.com/lsdefine/GenericAgent/issues
+    about: Agent Loop / 工具 / 记忆内核的 bug 属于上游（蓬莱内核零改动）

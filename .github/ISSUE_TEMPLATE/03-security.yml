@@ -1,0 +1,25 @@
+name: 🛡️ 安全护栏问题 / Safety rail issue
+description: 红线绕过、误拦截、记忆卫生、文件外发白名单、审计缺失
+labels: [security]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **可被利用的严重漏洞请勿公开提 issue**，请先邮件联系仓库主页邮箱；误拦截/审计缺失等非利用类问题欢迎直接提。
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 问题类型
+      options: ["护栏被绕过（红线/记忆卫生/文件白名单没拦住）", "误拦截（正常操作被拦）", "审计日志缺失或不完整", "其他"]
+    validations: { required: true }
+  - type: textarea
+    id: detail
+    attributes:
+      label: 现象与复现步骤
+      description: 被拦/没拦的具体操作、期望行为、实际行为
+    validations: { required: true }
+  - type: textarea
+    id: audit
+    attributes:
+      label: 相关审计记录（~/penglai-work/audit/ 下对应 JSONL 行，如有）
+      render: shell

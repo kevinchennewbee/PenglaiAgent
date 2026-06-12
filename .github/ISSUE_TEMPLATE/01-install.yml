@@ -1,0 +1,34 @@
+name: 🏗️ 安装失败 / Install failure
+description: curl / Docker / pip / git 任一安装路径出问题
+labels: [install]
+body:
+  - type: dropdown
+    id: method
+    attributes:
+      label: 安装方式
+      options: ["curl | sh 一行安装", "docker-install.sh", "pip install penglai", "git clone + penglai setup", "其他"]
+    validations: { required: true }
+  - type: input
+    id: os
+    attributes:
+      label: 系统与 Python 版本
+      placeholder: "如 Ubuntu 22.04 / Python 3.10.12（python3 --version）"
+    validations: { required: true }
+  - type: textarea
+    id: cmd
+    attributes:
+      label: 执行的完整命令
+      render: shell
+    validations: { required: true }
+  - type: textarea
+    id: log
+    attributes:
+      label: 报错输出（贴最后 30 行左右）
+      description: 终端原样输出即可；注意自行打码 API Key / App Secret
+      render: shell
+    validations: { required: true }
+  - type: textarea
+    id: doctor
+    attributes:
+      label: penglai doctor 输出（装到一半也尽量跑一下）
+      render: shell
