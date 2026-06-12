@@ -20,7 +20,23 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
-ABILITIES = ("voice", "companion", "intel")
+ABILITIES = ("voice", "companion", "intel", "critic")
+
+# 跨厂商复核的推荐免费/低价模型(批判脑要和主力模型【不同厂商】才有视差)
+_CRITIC_PICKS = (
+    # (厂商显示名, base_url, model, 价格说明, 注册地址)
+    ("智谱 GLM",  "https://open.bigmodel.cn/api/paas/v4/", "glm-4.7-flash", "完全免费", "https://open.bigmodel.cn"),
+    ("讯飞星火",  "https://spark-api-open.xf-yun.com/v1",  "lite",          "永久免费", "https://www.xfyun.cn"),
+    ("DeepSeek",  "https://api.deepseek.com",              "deepseek-v4-flash", "约 ¥1/百万tok", "https://platform.deepseek.com"),
+)
+
+# 情报矩阵免费源指引(注册即送额度,具体额度以官网为准)
+INTEL_FREE_GUIDE = (
+    "  推荐免费源（注册即送额度，具体以官网为准）：",
+    "   · TinyFish   https://agent.tinyfish.ai/api-keys   免费、自有索引，推荐首选",
+    "   · Tavily     https://app.tavily.com               注册有每月免费额度",
+    "   · Firecrawl  https://firecrawl.dev                注册送一次性免费额度",
+)
 
 
 def _pc():
@@ -136,6 +152,92 @@ def disable_companion():
     return 0
 
 
+# ---------- 批判脑（跨厂商复核，smart 档）----------
+def _main_vendor():
+    """主力模型的厂商显示名（向导写入 mykey 的 name，如 'DeepSeek' / '智谱 GLM (按量)'）。"""
+    pc = _pc()
+    r = pc.sh([pc.venv_python(), "-c",
+               "import mykey;print(getattr(mykey,'native_oai_config',{}).get('name',''))"], cwd=ROOT)
+    return (r.stdout or "").strip()
+
+
+def _chat_ping(base, model, key):
+    """真实连通测试（同向导纪律：不验证不报通）。返回 (ok, 错误信息)。"""
+    import json as _json
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            base.rstrip("/") + "/chat/completions",
+            data=_json.dumps({"model": model, "max_tokens": 16,
+                              "messages": [{"role": "user", "content": "回复两个字：蓬莱"}]}).encode(),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+        with urllib.request.urlopen(req, timeout=40) as r:
+            _json.loads(r.read().decode())["choices"]
+        return True, ""
+    except Exception as e:
+        return False, str(e)[:120]
+
+
+def _critic_on():
+    pc = _pc()
+    r = pc.sh([pc.venv_python(), "-c",
+               "import mykey;m=getattr(mykey,'critic_model',None);"
+               "print('ON' if isinstance(m,dict) and m.get('apikey') and "
+               "getattr(mykey,'critic_mode','smart')!='off' else '')"], cwd=ROOT)
+    return (r.stdout or "").strip() == "ON"
+
+
+def enable_critic():
+    pc = _pc()
+    if _critic_on():
+        print(f"{OK} 批判脑已在 smart 档运行（绊线常开 + 异厂商复核）。"); return 0
+    main = _main_vendor()
+    print("  🧐 批判脑 smart 档：本地绊线常开（免费）嗅探过度自信措辞；命中才调用")
+    print("     【另一厂商】的模型复核记忆写入——单模型查不出自己的幻觉，跨厂商才有视差。")
+    print("     成本极低：只在绊线命中时调用，每次复核上限 200 token。")
+    print(f"\n  你的主力模型：{main or '（未配置）'}。复核模型必须选【不同厂商】，推荐免费档：")
+    picks = [p for p in _CRITIC_PICKS if not (main and p[0].split()[0] in main)]
+    for i, (name, base, model, price, signup) in enumerate(picks, 1):
+        print(f"   {i}. {name:<10} {model:<18} {price:<10} 注册: {signup}")
+    print(f"   {len(picks)+1}. 自定义（任何 OpenAI 兼容端点）")
+    sel = _ask(f"选择（1-{len(picks)+1}，回车=1）:", "1")
+    try:
+        idx = int(sel) - 1
+    except ValueError:
+        idx = 0
+    if 0 <= idx < len(picks):
+        name, base, model, _, _ = picks[idx]
+        base = _ask(f"Base URL（回车={base}）:", base)
+        model = _ask(f"模型名（回车={model}）:", model)
+    else:
+        name = _ask("厂商名（备注用）:", "custom")
+        base = _ask("Base URL:")
+        model = _ask("模型名:")
+        if not (base and model):
+            print(f"{BAD} 缺 Base URL/模型名，中止。"); return 1
+    key = _ask("API Key（粘贴后回车）:")
+    if not key:
+        print(f"{BAD} 未填 Key，中止。"); return 1
+    print("  连通性测试中...", end="", flush=True)
+    ok, err = _chat_ping(base, model, key)
+    if not ok:
+        print(f"\r{BAD} 复核模型连通失败：{err}")
+        print("   检查 Key/Base URL 后重跑 penglai enable critic"); return 1
+    print(f"\r{OK} 复核模型连通（{name} / {model}）")
+    pc.mykey_set({"critic_model": {"name": name, "apibase": base, "apikey": key, "model": model},
+                  "critic_mode": "smart"})
+    print(f"{OK} 批判脑已开启 smart 档（写入 mykey.py；运行中的服务重启后生效：penglai restart）")
+    return 0
+
+
+def disable_critic():
+    pc = _pc()
+    pc.mykey_set({"critic_mode": "off"})
+    print(f"{OK} 批判脑已关闭（critic_mode=off，绊线与复核都不再运行；"
+          "复核模型配置保留，penglai enable critic 可复开）。重启服务生效：penglai restart")
+    return 0
+
+
 # ---------- 情报矩阵 ----------
 def enable_intel():
     pc = _pc()
@@ -145,7 +247,9 @@ def enable_intel():
         if not _ask("重新配置？(y/N)", "n").lower().startswith("y"):
             return 0
     print("  🔭 情报矩阵：多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。")
-    print("  推荐 TinyFish（免费、自有索引）：https://agent.tinyfish.ai/api-keys ，回车跳过")
+    for line in INTEL_FREE_GUIDE:
+        print(line)
+    print("  （都不想注册就全部回车跳过，蓬莱继续用 GA 自带的免费浏览器搜索）")
     pairs = {}
     if k := _ask("TinyFish API Key（X-API-Key，可空）"): pairs["tinyfish_key"] = k
     if k := _ask("Tavily API Key（免费额度，可空）"):    pairs["tavily_key"] = k
@@ -177,21 +281,26 @@ def status():
         ("🔭 情报矩阵", bool(_intel_sources()),
          f"已配 {len(_intel_sources())} 个源" if _intel_sources() else "默认（GA 浏览器搜索）",
          "penglai enable intel"),
+        ("🧐 批判脑", _critic_on(),
+         "smart 档（绊线常开 + 异厂商复核）" if _critic_on() else "仅本地绊线（免费常开）；异厂商复核未配",
+         "penglai enable critic"),
     ]
     for label, on, state, cmd in rows:
         mark = OK if on else "○"
         tail = "" if on else f"   → 开启：{cmd}"
         print(f"  {mark} {label:<16} {state}{tail}")
     print("\n  🧠 长期记忆 — 内核标配，已自动启用（无需开关）")
-    print("  🛡️ 红线/记忆卫生/出站文件白名单 — 出厂常开（确定性防线，不可关）")
+    print("  🛡️ 红线/记忆卫生/出站文件白名单（飞书渠道）— 出厂常开（确定性防线，不可关）")
     print("\n  加 IM 渠道：penglai enable <dingtalk|qq|telegram|discord|wecom> · 渠道总览：penglai channels")
     return 0
 
 
 # ---------- CLI 分发（由 penglai 脚本调用）----------
 def enable(name):
-    return {"voice": enable_voice, "companion": enable_companion, "intel": enable_intel}[name]()
+    return {"voice": enable_voice, "companion": enable_companion,
+            "intel": enable_intel, "critic": enable_critic}[name]()
 
 
 def disable(name):
-    return {"voice": disable_voice, "companion": disable_companion, "intel": disable_intel}[name]()
+    return {"voice": disable_voice, "companion": disable_companion,
+            "intel": disable_intel, "critic": disable_critic}[name]()

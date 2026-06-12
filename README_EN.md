@@ -83,7 +83,7 @@ experts, each crossing the sea in its own way, all serving the same you.
 - 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: tired): such a long day]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
 - 🧠 **Four-tier memory** — the GA kernel's index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
 - 🛡️ **Deterministic safety rails** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **deterministic checks, not LLM goodwill**. Covers dangerous commands, sensitive paths, memory writes and outbound files (allowlist currently Feishu-only); rails ≠ absolute security — run it on a personal, controlled server
-- 🧐 **Double insurance against hallucination** — overconfidence tripwires trigger a second review by a **different vendor's** model (one model can't catch its own hallucinations); fact-finding tasks can fan out to multi-source cross-validated search
+- 🧐 **Double insurance against hallucination** — a local tripwire ships **always-on** (free), sniffing overconfident phrasing; one command (`penglai enable critic`) adds a **different vendor's** free model (e.g. GLM-4.7-Flash) for cross-review — one model can't catch its own hallucinations; fact-finding tasks can fan out to multi-source cross-validated search
 - 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates: quiet hours, never interrupts a live conversation, frequency caps — like a friend thinking of you, not an alarm going off
 - 🎛️ **Turn abilities on anytime** — didn't enable something in the wizard? One command later: `penglai enable voice|companion|intel` for abilities, `penglai enable <channel>` for IMs, `penglai abilities` for the full picture — no need to rerun setup
 - ⚙️ **Ops in one command** — `penglai doctor` one-shot health check that **tells you the exact command to enable each inactive item** / `status` / `logs` / `update` one-command upgrade to the latest release
@@ -210,7 +210,7 @@ flowchart LR
 | Ability switches | CLI | `penglai enable/disable/abilities` — turn on voice/companion/intel anytime post-install |
 | Redline + audit | hook | deterministic blocking of dangerous ops, full audit trail |
 | Memory hygiene | hook | threat scan before writes + no overwrites |
-| Critic brain | hook | cross-vendor second review, the hallucination antidote |
+| Critic brain <sub>smart mode</sub> | hook | tripwire always-on (free); escalates to cross-vendor review on hit (`penglai enable critic`) |
 | Intelligence matrix <sub>opt-in</sub> | plugin | multi-source cross-validated search |
 | Proactive companion <sub>opt-in</sub> | heartbeat | true proactivity inside hard gates |
 | Penglai SOP pack | markdown | symbolic checkpoints, traceable compression, generative skills — 0 lines of code |

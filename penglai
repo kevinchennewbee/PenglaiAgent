@@ -244,6 +244,17 @@ def doctor():
     srcs = (r.stdout or "").strip()
     print(f"{OK} 情报矩阵：{'已启用 ' + srcs if srcs else '默认（GA 浏览器，未配 API key）   → 开启：penglai enable intel'}")
 
+    # 5c. 批判脑（绊线免费常开；异厂商复核要配 critic_model）
+    r = sh([py, "-c", "import mykey;m=getattr(mykey,'critic_model',None);md=getattr(mykey,'critic_mode','smart');"
+            "print('OFF' if md=='off' else ('FULL:'+m.get('model','') if isinstance(m,dict) and m.get('apikey') else 'TRIP'))"], cwd=ROOT)
+    st = (r.stdout or "").strip()
+    if st.startswith("FULL"):
+        print(f"{OK} 批判脑：smart 档（绊线 + 异厂商复核 {st.split(':',1)[1]}）")
+    elif st == "OFF":
+        print(f"{OK} 批判脑：已关闭（critic_mode=off）   → 开启：penglai enable critic")
+    else:
+        print(f"{OK} 批判脑：仅本地绊线（免费常开）；异厂商复核未配   → 开启：penglai enable critic")
+
     # 6. 服务/进程（飞书没在跑 = 机器人收不到消息，必须红）
     if has_systemd():
         inst = installed_services()

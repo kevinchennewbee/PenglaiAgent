@@ -568,7 +568,7 @@ def _voice_install():
         print(f"{WARN}" + T("语音未就绪（见上方原因），稍后可重跑 penglai setup 补装"))
     return ok
 
-def step_abilities():
+def step_abilities(llm_name=""):
     """能力面板：一页看全蓬莱层能力。选了就真装真启（语音默认开），不做摆设。"""
     page(5, T("蓬莱能力（按需开启，立即生效）"))
     print("  " + c(T("出厂常开（确定性防线，不可关）："), F(245))
@@ -592,15 +592,54 @@ def step_abilities():
     if ask(T("现在开启主动陪伴？(y/n)"), "n").lower().startswith("y"):
         print(f"  {OK} " + T("主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）"))
         out["companion_enabled"] = True
+    # —— 批判脑（opt-in：跨厂商复核，绊线本就出厂常开）——
+    print()
+    print("  🧐 " + c(T("批判脑 smart 档（防幻觉第二保险：异厂商复核）"), BOLD, F(252)))
+    print("     " + c(T("本地绊线出厂常开（免费）：嗅到「过度自信」措辞就拦下自检。"), F(245)))
+    print("     " + c(T("再配一个【不同厂商】的免费模型，命中时交叉复核——单模型查不出自己的幻觉。"), F(245)))
+    print("     " + c(T("成本极低：只在绊线命中时调用，单次上限 200 token。推荐智谱 GLM-4.7-Flash（完全免费）。"), F(245)))
+    if ask(T("现在配置异厂商复核？(y/n)"), "n").lower().startswith("y"):
+        main_name = (llm_name or "").split()[0] if llm_name else ""
+        picks = [("智谱 GLM", "https://open.bigmodel.cn/api/paas/v4/", "glm-4.7-flash", T("完全免费"), "https://open.bigmodel.cn"),
+                 ("讯飞星火", "https://spark-api-open.xf-yun.com/v1", "lite", T("永久免费"), "https://www.xfyun.cn"),
+                 ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash", T("约 ¥1/百万tok"), "https://platform.deepseek.com")]
+        picks = [p for p in picks if not (main_name and p[0].split()[0] in main_name)]
+        for i, (nm, bs, md, pr, su) in enumerate(picks, 1):
+            print(f"   {i}. {_pad(nm, 10)}{_pad(md, 20)}{_pad(pr, 12)}{c(su, F(245))}")
+        try:
+            pi = int(ask(T("选择序号"), "1")) - 1
+        except ValueError:
+            pi = 0
+        nm, bs, md, _, su = picks[max(0, min(pi, len(picks) - 1))]
+        print("  " + T("到 {s} 注册并创建 API Key（免费档不用充值）", s=su))
+        ckey = ask(T("API Key（粘贴后回车，留空跳过）"))
+        if ckey:
+            print("  " + T("连通性测试中..."), end="", flush=True)
+            try:
+                post_json(bs.rstrip("/") + "/chat/completions",
+                          {"model": md, "messages": [{"role": "user", "content": "回复两个字：蓬莱"}], "max_tokens": 16},
+                          {"Authorization": f"Bearer {ckey}"})
+                print(f"\r{OK} " + T("复核模型连通（{n} / {m}）", n=nm, m=md))
+                out["critic_model"] = {"name": nm, "apibase": bs, "apikey": ckey, "model": md}
+                out["critic_mode"] = "smart"
+            except Exception as e:
+                print(f"\r{BAD} " + T("复核模型连通失败：{e}（稍后可 penglai enable critic 重配）", e=str(e)[:80]))
+        else:
+            print("  " + T("已跳过。稍后一条命令可开：penglai enable critic"))
+
     # —— 情报矩阵（opt-in：需要第三方 key）——
     print()
     print("  🔭 " + c(T("情报矩阵（多源交叉验证，降低幻觉）"), BOLD, F(252)))
     print("     " + c(T("默认不开 → 蓬莱用 GA 自带的真浏览器搜索（免费、开箱即用，已够用）。"), F(245)))
     print("     " + c(T("开启后 → 多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。"), F(245)))
     if ask(T("现在开启情报矩阵增强？(y/n)"), "n").lower().startswith("y"):
-        print("  " + T("推荐 TinyFish（免费、自有索引）：到 https://agent.tinyfish.ai/api-keys 申请，回车跳过"))
+        print("  " + T("推荐免费源（注册即送额度，具体以官网为准）："))
+        print("   · TinyFish   " + c("https://agent.tinyfish.ai/api-keys", F(37)) + "  " + T("免费、自有索引，推荐首选"))
+        print("   · Tavily     " + c("https://app.tavily.com", F(37)) + "             " + T("注册有每月免费额度"))
+        print("   · Firecrawl  " + c("https://firecrawl.dev", F(37)) + "              " + T("注册送一次性免费额度"))
+        print("  " + T("（都不想注册就全部回车跳过，继续用 GA 自带的免费浏览器搜索）"))
         if k := ask(T("TinyFish API Key（X-API-Key，可空）")): out["tinyfish_key"] = k
-        if k := ask(T("Tavily API Key（免费额度，可空）")):    out["tavily_key"] = k
+        if k := ask(T("Tavily API Key（可空）")):              out["tavily_key"] = k
         if k := ask(T("Firecrawl API Key（可空）")):           out["firecrawl_key"] = k
         n = len([1 for x in ("tinyfish_key", "tavily_key", "firecrawl_key") if x in out])
         print(f"  {OK} " + T("情报矩阵：{n} 个源已配置", n=n) if n else "  " + T("未填 key，保持默认（GA 浏览器）"))
@@ -867,7 +906,7 @@ def main():
     if "feishu" in channels:
         app_id, app_secret = step_feishu()
     agent = step_identity()
-    intel, _voice_ready = step_abilities()
+    intel, _voice_ready = step_abilities(llm.get("name", ""))
     comp = {"companion_enabled": True} if intel.get("companion_enabled") else {}
     # 步骤 6 页：写配置 + 微信 + 启动验证同属收尾页
     if _COLOR:

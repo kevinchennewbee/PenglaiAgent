@@ -58,6 +58,11 @@ def cross_vendor_review(history_text):
 _orig = GenericAgentHandler.do_start_long_term_update
 
 def _guarded_memory_update(self, args, response):
+    # 档位(v1 设计的 5 档,当前实现 off/smart 两档;standard/max 在路线图):
+    #   off   = 完全关闭(绊线也不跑)
+    #   smart = 绊线常开(本地免费),命中才升级跨厂商复核(配了 critic_model 才有)——推荐默认
+    if (_mykey("critic_mode") or "smart") == "off":
+        return (yield from _orig(self, args, response))
     recent = "\n".join(getattr(self, "history_info", [])[-30:])
     hits = tripwire(recent + " " + (getattr(response, "content", "") or ""))
     outcome = None
