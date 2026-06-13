@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
-"""蓬莱可选增强：情报矩阵（M5 — 多源不为省钱，为求真）。
+"""蓬莱：网页搜索（M5 — 开箱即用，多源求真）。
 
-设计原则（默认即 GA 原版）：
-- 不配任何 key → 本工具【不挂载】，agent 用 GA 原生真浏览器 web_scan/web_execute_js（免费、开箱即用）。
-- 安装时勾选"增强情报矩阵"并填 key → 本工具挂载，多个独立 API 源并查 + 交叉验证。
-  全部是干净结构化 API（非 HTML 抓取）：返回真实 URL，按域名去重，多源收敛标 ★。
+设计原则：
+- **永远可用**：内置免 key 的 Bing 搜索兜底（HTTP 抓取，无头服务器/无浏览器也能搜）。
+  GA 原生 web_scan 依赖真浏览器(Chrome/CDP)，云服务器无头环境用不了——本工具补上这一刀。
+- **可叠加增强**：配了 TinyFish/Tavily/Firecrawl 任一 key，则与 Bing 一起多源并查 + 交叉验证，
+  按域名去重，多源收敛标 ★（求真，不是省钱）。
 
-支持的源（任配其一即启用，免费优先）：
-- TinyFish Search（免费、自有索引、X-API-Key）  mykey: tinyfish_key
-- Tavily（免费额度）                            mykey: tavily_key
-- Firecrawl（/v1/search）                       mykey: firecrawl_key
+源（Bing 始终在；其余配 key 即加入）：
+- Bing（免 key，cn.bing.com HTML，开箱即用兜底）
+- TinyFish Search（X-API-Key）  mykey: tinyfish_key
+- Tavily（免费额度）            mykey: tavily_key
+- Firecrawl（/v1/search）       mykey: firecrawl_key
 
-挂载：类注入 do_web_search + agent_before 注入 schema（仅当至少一个 key 存在）。GA 内核零改动。
+挂载：类注入 do_web_search + agent_before 注入 schema（始终挂载，因 Bing 兜底永远可用）。GA 内核零改动。
 """
 import re
-from urllib.parse import urlparse
+import html as _html
+from urllib.parse import urlparse, quote
 
 from plugins.hooks import register
 from agent_loop import StepOutcome
@@ -36,14 +39,43 @@ def _domain(u):
     except Exception: return ""
 
 def enabled_sources():
-    """返回已配置 key 的源名列表；空=未启用增强（agent 走 GA 浏览器）。"""
-    s = []
+    """返回当前可用源；Bing 免 key 始终在，配了 key 的高级源叠加。"""
+    s = ["Bing"]
     if _mykey("tinyfish_key"): s.append("TinyFish")
     if _mykey("tavily_key"): s.append("Tavily")
     if _mykey("firecrawl_key"): s.append("Firecrawl")
     return s
 
+def premium_sources():
+    """配了 key 的增强源（不含 Bing 兜底）。"""
+    return [s for s in enabled_sources() if s != "Bing"]
+
 # ---- 各源适配（统一返回 [{title,url,snippet,source}]）----
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+
+def _bing(query, n):
+    """免 key 兜底：cn.bing.com 结果页抓取。无头服务器可用（不需要浏览器）。"""
+    import requests
+    r = requests.get("https://cn.bing.com/search",
+                     params={"q": query, "setlang": "zh-CN"},
+                     headers={"User-Agent": _UA, "Accept-Language": "zh-CN,zh;q=0.9"}, timeout=15)
+    out = []
+    for b in re.findall(r'<li class="b_algo".*?</li>', r.text, re.S):
+        m = re.search(r'<h2[^>]*><a[^>]*href="(https?://[^"]+)"[^>]*>(.*?)</a>', b, re.S)
+        if not m:
+            continue
+        p = (re.search(r'<p class="[^"]*b_lineclamp[^"]*"[^>]*>(.*?)</p>', b, re.S)
+             or re.search(r'<p[^>]*>(.*?)</p>', b, re.S))
+        out.append({"title": _strip_html(m.group(2)), "url": m.group(1),
+                    "snippet": _strip_html(p.group(1)) if p else "", "source": "Bing"})
+        if len(out) >= n:
+            break
+    return out
+
+def _strip_html(t):
+    return _html.unescape(re.sub(r"<[^>]+>", "", t or "")).strip()
+
 def _tinyfish(query, n):
     import requests
     r = requests.get("https://api.search.tinyfish.ai",
@@ -69,13 +101,10 @@ def _firecrawl(query, n):
              "snippet": _clean(x.get("description")), "source": "Firecrawl"}
             for x in r.json().get("data", [])[:n]]
 
-_ADAPTERS = {"TinyFish": _tinyfish, "Tavily": _tavily, "Firecrawl": _firecrawl}
+_ADAPTERS = {"Bing": _bing, "TinyFish": _tinyfish, "Tavily": _tavily, "Firecrawl": _firecrawl}
 
 def search(query, n=8):
-    srcs = enabled_sources()
-    if not srcs:
-        return {"error": "情报矩阵未启用（未配置搜索 API key）。请用 GA 原生浏览器搜索，"
-                         "或运行 penglai setup 勾选增强情报矩阵。"}
+    srcs = enabled_sources()   # 至少含 Bing，永不为空
     results, errors = [], []
     for name in srcs:
         try:
@@ -105,23 +134,24 @@ def search(query, n=8):
 
 def _format(r):
     if "error" in r: return r["error"]
-    head = f"情报矩阵「{r['query']}」（{r['sources_used']} 源" + \
+    multi = r["sources_used"] > 1
+    head = f"网页搜索「{r['query']}」（{r['sources_used']} 源" + \
            (f"，{','.join(r['errors'])}失败" if r["errors"] else "") + "）："
     lines = [head]
     for i, x in enumerate(r["results"], 1):
         mark = "★" if x["convergent"] else " "
         lines.append(f"{mark}{i}. [{x['from']}] {x['title']}\n   {x['url']}\n   {x['snippet']}")
-    if r["sources_used"] > 1:
+    if multi:
         lines.append("\n[★=多源收敛，可信度较高]。对照各源，发现分歧要明示并说明依据，勿只取单一来源下结论。")
     return "\n".join(lines)
 
 def do_web_search(self, args, response):
-    """情报矩阵：多 API 源并查 + 交叉验证。"""
+    """网页搜索：Bing 免 key 兜底 +（配了 key 则）多源交叉验证。"""
     query = _clean(args.get("query", ""))
     if not query:
         return StepOutcome("[Error] query 不能为空",
                            next_prompt=self._get_anchor_prompt(skip=args.get("_index", 0) > 0))
-    yield f"\n[Action] 情报矩阵检索: {query}\n"
+    yield f"\n[Action] 网页搜索: {query}\n"
     out = _format(search(query, n=int(args.get("n", 8))))
     yield out[:500] + ("...\n" if len(out) > 500 else "\n")
     return StepOutcome(out, next_prompt=self._get_anchor_prompt(skip=args.get("_index", 0) > 0))
@@ -130,9 +160,10 @@ GenericAgentHandler.do_web_search = do_web_search
 
 _SCHEMA = {"type": "function", "function": {
     "name": "web_search",
-    "description": "情报矩阵：同时查多个独立搜索 API（TinyFish/Tavily 等）并交叉验证，按来源去重、"
-                   "多源收敛标 ★（可信度高）。适用于事实核查、要写入记忆/做决策的查证场景——"
-                   "比单一来源更能发现分歧、降低幻觉。需要网页正文细节时再用浏览器打开具体链接。",
+    "description": "网页搜索引擎：输入查询词，返回标题/链接/摘要。开箱即用（内置免费 Bing 兜底），"
+                   "无头服务器也能搜——需要查实时信息（天气/新闻/事实）就用它，别用浏览器 web_scan"
+                   "（无头环境没有浏览器）。配了多个搜索源时会交叉验证、多源收敛标 ★（更可信）。"
+                   "需要某个网页的正文细节时，拿到 URL 再用浏览器或 code_run+curl 打开。",
     "parameters": {"type": "object", "properties": {
         "query": {"type": "string", "description": "搜索查询词"},
         "n": {"type": "integer", "description": "每源结果数，默认 8"}},
@@ -140,9 +171,7 @@ _SCHEMA = {"type": "function", "function": {
 
 @register("agent_before")
 def _inject_search_schema(ctx):
-    # 仅当启用了情报矩阵（配了 key）才挂载；否则 agent 用 GA 原生浏览器
-    if not enabled_sources():
-        return
+    # 始终挂载：Bing 免 key 兜底永远可用（无头服务器的核心搜索能力）
     ts = ctx.get("tools_schema")
     if isinstance(ts, list) and not any(
             t.get("function", {}).get("name") == "web_search" for t in ts if isinstance(t, dict)):

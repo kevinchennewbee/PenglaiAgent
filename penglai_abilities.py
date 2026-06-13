@@ -22,13 +22,8 @@ OK, BAD, WARN = "✅", "❌", "⚠️ "
 
 ABILITIES = ("voice", "companion", "intel", "critic")
 
-# 跨厂商复核的推荐免费/低价模型(批判脑要和主力模型【不同厂商】才有视差)
-_CRITIC_PICKS = (
-    # (厂商显示名, base_url, model, 价格说明, 注册地址)
-    ("智谱 GLM",  "https://open.bigmodel.cn/api/paas/v4/", "glm-4.7-flash", "完全免费", "https://open.bigmodel.cn"),
-    ("讯飞星火",  "https://spark-api-open.xf-yun.com/v1",  "lite",          "永久免费", "https://www.xfyun.cn"),
-    ("DeepSeek",  "https://api.deepseek.com",              "deepseek-v4-flash", "约 ¥1/百万tok", "https://platform.deepseek.com"),
-)
+# 批判脑复核模型 = 用户从整张厂商目录自选（与向导主力模型同一套选择 UI，复用 penglai_setup，
+# 不限免费）。仅约束「与主力不同厂商」以获得交叉视差——见 enable_critic()。
 
 # 情报矩阵免费源指引(注册即送额度,具体额度以官网为准)
 INTEL_FREE_GUIDE = (
@@ -131,11 +126,17 @@ def enable_companion():
                             or pc.sh(["systemctl", "is-active", "penglai-companion"]).stdout.strip() == "active"):
         print(f"{OK} 主动陪伴已在运行。"); return 0
     print("  💞 开启主动陪伴：独立心跳进程，门禁守护（默认勿扰 22-8 点、最短间隔 4 小时），")
-    print("     偶尔主动联系你。是蓬莱第一个有持续 token 成本的功能（一天约几分钱）。")
+    print("     触发源：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系。投递到飞书和微信。")
+    print("     是蓬莱第一个有持续 token 成本的功能（一天约几分钱）。")
     if not _ask("现在开启？(y/n)", "y").lower().startswith("y"):
         return 0
-    pc.mykey_set({"companion_enabled": True})
-    print(f"{OK} 已写入 companion_enabled=True（可后续在 mykey.py 调勿扰时段/间隔）")
+    keys = {"companion_enabled": True}
+    city = _ask("所在城市（开启恶劣天气主动提醒，回车跳过）", "").strip()
+    if city:
+        keys["companion_city"] = city
+    pc.mykey_set(keys)
+    extra = f"、companion_city={city}（天气预警开）" if city else "（未设城市，天气预警关）"
+    print(f"{OK} 已写入 companion_enabled=True{extra}")
     return 0 if _install_reflect_service("penglai-companion", "reflect/penglai_companion.py", "主动陪伴") else 1
 
 
@@ -161,23 +162,6 @@ def _main_vendor():
     return (r.stdout or "").strip()
 
 
-def _chat_ping(base, model, key):
-    """真实连通测试（同向导纪律：不验证不报通）。返回 (ok, 错误信息)。"""
-    import json as _json
-    import urllib.request
-    try:
-        req = urllib.request.Request(
-            base.rstrip("/") + "/chat/completions",
-            data=_json.dumps({"model": model, "max_tokens": 16,
-                              "messages": [{"role": "user", "content": "回复两个字：蓬莱"}]}).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
-        with urllib.request.urlopen(req, timeout=40) as r:
-            _json.loads(r.read().decode())["choices"]
-        return True, ""
-    except Exception as e:
-        return False, str(e)[:120]
-
-
 def _critic_on():
     pc = _pc()
     r = pc.sh([pc.venv_python(), "-c",
@@ -195,38 +179,17 @@ def enable_critic():
     print("  🧐 批判脑 smart 档：本地绊线常开（免费）嗅探过度自信措辞；命中才调用")
     print("     【另一厂商】的模型复核记忆写入——单模型查不出自己的幻觉，跨厂商才有视差。")
     print("     成本极低：只在绊线命中时调用，每次复核上限 200 token。")
-    print(f"\n  你的主力模型：{main or '（未配置）'}。复核模型必须选【不同厂商】，推荐免费档：")
-    picks = [p for p in _CRITIC_PICKS if not (main and p[0].split()[0] in main)]
-    for i, (name, base, model, price, signup) in enumerate(picks, 1):
-        print(f"   {i}. {name:<10} {model:<18} {price:<10} 注册: {signup}")
-    print(f"   {len(picks)+1}. 自定义（任何 OpenAI 兼容端点）")
-    sel = _ask(f"选择（1-{len(picks)+1}，回车=1）:", "1")
-    try:
-        idx = int(sel) - 1
-    except ValueError:
-        idx = 0
-    if 0 <= idx < len(picks):
-        name, base, model, _, _ = picks[idx]
-        base = _ask(f"Base URL（回车={base}）:", base)
-        model = _ask(f"模型名（回车={model}）:", model)
-    else:
-        name = _ask("厂商名（备注用）:", "custom")
-        base = _ask("Base URL:")
-        model = _ask("模型名:")
-        if not (base and model):
-            print(f"{BAD} 缺 Base URL/模型名，中止。"); return 1
-    key = _ask("API Key（粘贴后回车）:")
-    if not key:
-        print(f"{BAD} 未填 Key，中止。"); return 1
-    print("  连通性测试中...", end="", flush=True)
-    ok, err = _chat_ping(base, model, key)
-    if not ok:
-        print(f"\r{BAD} 复核模型连通失败：{err}")
-        print("   检查 Key/Base URL 后重跑 penglai enable critic"); return 1
-    print(f"\r{OK} 复核模型连通（{name} / {model}）")
-    pc.mykey_set({"critic_model": {"name": name, "apibase": base, "apikey": key, "model": model},
+    print(f"\n  你的主力模型：{main or '（未配置）'}。从整张厂商目录任选一个【不同厂商】的复核模型")
+    print("  （免费如智谱 GLM-4.7-Flash / 讯飞 Lite / 混元 Lite，也可投入更强的付费模型，视差更大）：")
+    # 与向导主菜单同一套全目录选择 + 连通测试（复用 penglai_setup，不再各写一份）
+    import penglai_setup as ps
+    r = ps._select_provider_model(exclude_vendor=main or "")
+    if not r:
+        print(f"{BAD} 未配置（未选 / 未填 Key / 连通失败）。检查后重跑 penglai enable critic"); return 1
+    pc.mykey_set({"critic_model": {"name": r["name"], "apibase": r["apibase"],
+                                   "apikey": r["apikey"], "model": r["model"]},
                   "critic_mode": "smart"})
-    print(f"{OK} 批判脑已开启 smart 档（写入 mykey.py；运行中的服务重启后生效：penglai restart）")
+    print(f"{OK} 批判脑已开启 smart 档（{r['name']} / {r['model']}；写入 mykey.py，重启服务生效：penglai restart）")
     return 0
 
 
@@ -246,16 +209,17 @@ def enable_intel():
         print(f"{OK} 情报矩阵已配置 {len(cur)} 个源：{', '.join(cur)}")
         if not _ask("重新配置？(y/N)", "n").lower().startswith("y"):
             return 0
-    print("  🔭 情报矩阵：多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。")
+    print("  🔭 网页搜索默认已开箱可用（内置免费 Bing 兜底）。情报矩阵 = 在它之上叠加多个独立搜索 API，")
+    print("     多源并查 + 交叉验证，更适合事实核查/写记忆/做决策。")
     for line in INTEL_FREE_GUIDE:
         print(line)
-    print("  （都不想注册就全部回车跳过，蓬莱继续用 GA 自带的免费浏览器搜索）")
+    print("  （都不想注册就全部回车跳过，内置免费 Bing 搜索照常可用，只是没有多源交叉验证）")
     pairs = {}
     if k := _ask("TinyFish API Key（X-API-Key，可空）"): pairs["tinyfish_key"] = k
     if k := _ask("Tavily API Key（免费额度，可空）"):    pairs["tavily_key"] = k
     if k := _ask("Firecrawl API Key（可空）"):           pairs["firecrawl_key"] = k
     if not pairs:
-        print("  未填任何 key，保持默认（GA 自带浏览器搜索）。"); return 0
+        print("  未填任何 key，保持内置免费 Bing 搜索。"); return 0
     pc.mykey_set(pairs)
     print(f"{OK} 情报矩阵：{len(pairs)} 个源已写入 mykey.py（重启服务后生效：penglai restart）")
     return 0

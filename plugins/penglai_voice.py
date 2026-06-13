@@ -83,11 +83,32 @@ def transcribe_file(path):
     s.accept_waveform(16000, samples.tolist())
     rec.decode_stream(s)
     r = s.result
-    return {"text": (r.text or "").strip(),
-            "emotion": EMO.get(getattr(r, "emotion", "").strip("<|>"), getattr(r, "emotion", "")),
-            "event": EVT.get(getattr(r, "event", "").strip("<|>"), ""),
-            "lang": getattr(r, "lang", "").strip("<|>"),
-            "duration_sec": round(len(samples) / 16000, 1)}
+    res = {"text": (r.text or "").strip(),
+           "emotion": EMO.get(getattr(r, "emotion", "").strip("<|>"), getattr(r, "emotion", "")),
+           "event": EVT.get(getattr(r, "event", "").strip("<|>"), ""),
+           "lang": getattr(r, "lang", "").strip("<|>"),
+           "duration_sec": round(len(samples) / 16000, 1)}
+    _drop_emotion_signal(res["emotion"])
+    return res
+
+_NEG_EMOTIONS = {"悲伤", "生气", "害怕", "厌恶"}
+_SIGNALS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "temp", "companion_signals.json")
+
+def _drop_emotion_signal(emotion):
+    """负面情绪落信号文件，供主动陪伴(reflect/penglai_companion)跨进程承接。失败静默。"""
+    if emotion not in _NEG_EMOTIONS: return
+    try:
+        import json, time
+        sig = {}
+        try: sig = json.load(open(_SIGNALS, encoding="utf-8"))
+        except Exception: pass
+        emos = (sig.get("emotions") or [])[-19:]
+        emos.append({"e": emotion, "ts": time.time()})
+        os.makedirs(os.path.dirname(_SIGNALS), exist_ok=True)
+        json.dump({"emotions": emos}, open(_SIGNALS, "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception:
+        pass
 
 def do_transcribe(self, args, response):
     """语音转文字 + 情绪感知。用户消息含 [audio: ...] 时立即调用。"""

@@ -141,15 +141,20 @@ EN = {
     "现在开启主动陪伴？(y/n)": "Enable proactive companion? (y/n)",
     "主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）": "Companion enabled (quiet hours 22-8, min interval 4h; tune later in mykey.py)",
     "情报矩阵（多源交叉验证，降低幻觉）": "Intel matrix (multi-source cross-checking, fewer hallucinations)",
-    "默认不开 → 蓬莱用 GA 自带的真浏览器搜索（免费、开箱即用，已够用）。": "Off by default → Penglai uses GA's built-in real-browser search (free, works out of the box).",
-    "开启后 → 多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。": "On → several independent search APIs queried and cross-checked; better for fact-checking / memory / decisions.",
+    "默认即可搜网：内置免费 Bing 兜底，无头服务器也能查天气/新闻/事实，开箱即用。": "Search works out of the box: built-in free Bing fallback — queries weather/news/facts even on a headless server.",
+    "开启增强 → 再叠加独立搜索 API，多源并查 + 交叉验证，更适合写记忆/做决策。": "Enable enhancement → add independent search APIs on top; multi-source cross-check, better for memory / decisions.",
     "现在开启情报矩阵增强？(y/n)": "Enable the intel matrix? (y/n)",
     "推荐 TinyFish（免费、自有索引）：到 https://agent.tinyfish.ai/api-keys 申请，回车跳过": "TinyFish recommended (free, own index): get a key at https://agent.tinyfish.ai/api-keys, Enter to skip",
     "TinyFish API Key（X-API-Key，可空）": "TinyFish API Key (X-API-Key, optional)",
     "Tavily API Key（免费额度，可空）": "Tavily API Key (free tier, optional)",
     "Firecrawl API Key（可空）": "Firecrawl API Key (optional)",
-    "情报矩阵：{n} 个源已配置": "Intel matrix: {n} source(s) configured",
-    "未填 key，保持默认（GA 浏览器）": "No keys entered, keeping the default (GA browser)",
+    "情报矩阵：{n} 个增强源已配置（叠加在免费 Bing 之上）": "Intel matrix: {n} enhanced source(s) configured (on top of free Bing)",
+    "未填 key，保持内置免费 Bing 搜索": "No keys entered, keeping the built-in free Bing search",
+    "再配一个【不同厂商】的模型，命中时交叉复核——单模型查不出自己的幻觉。": "Add a model from another vendor; on a trip-wire hit it cross-checks — a model can't catch its own hallucination.",
+    "从下面整张厂商目录任选（免费如智谱 GLM-4.7-Flash，也可投入更强的付费模型，视差更大）：": "Pick any from the full provider catalog below (free ones like Zhipu GLM-4.7-Flash, or invest in a stronger paid model for wider parallax):",
+    "批判脑 smart 档已配置（{n} / {m}）": "Critic (smart) configured ({n} / {m})",
+    "已跳过/未完成。稍后一条命令可开：penglai enable critic": "Skipped / not completed. Enable later with one command: penglai enable critic",
+    "  ← 与主力同厂商，复核视差小": "  ← same vendor as main model, little review parallax",
 
     # ---- 语音安装 ----
     "安装语音识别引擎 sherpa-onnx ...": "Installing speech engine sherpa-onnx ...",
@@ -172,7 +177,7 @@ EN = {
 
     # ---- 启动验证 ----
     "启动并验证": "Launch & verify",
-    "容器模式：配置完成，启动与连接验证由 Docker 部署脚本接管": "Container mode: config done; launch & verification handled by the Docker deploy script",
+    "容器模式：配置完成。容器守护每 30 秒巡检，新配置的渠道自动拉起（无需重启容器）": "Container mode: config done. The container supervisor re-scans every 30s and auto-starts newly configured channels (no restart needed)",
     "安装为系统服务（开机自启）？(y/n)": "Install as system services (start on boot)? (y/n)",
     "服务已安装并设为开机自启，开始验证...": "Services installed and enabled, verifying...",
     "服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python frontends/fsapp.py": "Service install failed (sudo?). Run manually: .venv/bin/python frontends/fsapp.py",
@@ -201,7 +206,7 @@ EN = {
 
     # ---- 总结 ----
     "🎉 安装完成，飞书收发链路已实测全通！": "🎉 Setup complete — the Feishu loop is live-verified!",
-    "配置完成。容器服务即将由部署脚本启动并验证连接。": "Config done. The container will be started and verified by the deploy script.",
+    "配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志取证（docker logs -f penglai）。": "Config done. The container supervisor will start configured channels within 30s; verify via docker logs -f penglai.",
     "安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。": "Setup complete (loop not live-verified). Message \"{a}\" on Feishu and check `penglai logs` for an incoming message.",
     "配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。": "Config written, but Feishu verification failed — follow the hints above, then run `penglai doctor`.",
     "安装完成。已配置渠道见上；终端随时可聊。": "Setup complete. Channels as configured above; the terminal TUI is always available.",

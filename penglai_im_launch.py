@@ -235,8 +235,58 @@ def launch(channel):
     asyncio.run(app.start())
 
 
+def launch_wechat():
+    """微信：包装 on_message 持久化主人 uid 到 temp/wx_master.json（首位对话者=主人，
+    写后不覆盖），供主动陪伴(reflect/penglai_companion)跨进程投递。
+    其余完全复刻 frontends/wechatapp.py 的 __main__ 序列（含 systemd 关心的退出码：
+    1=单例冲突/无token不可交互，2=AuthExpired 需重扫码）。"""
+    import json, time, socket, threading
+    import frontends.wechatapp as wx
+
+    _master = os.path.join(ROOT, "temp", "wx_master.json")
+
+    def on_message(bot, msg):
+        try:
+            uid = msg.get("from_user_id", "")
+            if uid and not os.path.exists(_master):
+                os.makedirs(os.path.dirname(_master), exist_ok=True)
+                json.dump({"uid": uid, "ts": time.time()},
+                          open(_master, "w", encoding="utf-8"))
+                print(f"[wx_master] 已记录主人 uid（首位对话者）", file=sys.__stdout__)
+        except Exception:
+            pass
+        return wx.on_message(bot, msg)
+
+    do_relogin = "--relogin" in sys.argv
+    try:
+        lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        lock.bind(("127.0.0.1", 19531))
+    except OSError:
+        print("[WeChat] Another instance running, exiting."); return 1
+    logf = open(os.path.join(ROOT, "temp", "wechatapp.log"), "a", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = logf
+    print(f'[NEW] Process starting {time.strftime("%m-%d %H:%M")} (penglai_im_launch)')
+    bot = wx.WxBotClient()
+    if do_relogin or not bot.token:
+        if not sys.stdout.isatty():
+            print("[Bot] no token and not interactive, exit."); return 1
+        sys.stdout = sys.stderr = sys.__stdout__  # restore for QR display
+        bot.login_qr()
+        sys.stdout = sys.stderr = logf
+    threading.Thread(target=wx.agent.run, daemon=True).start()
+    print(f"WeChat Bot 已启动 (bot_id={bot.bot_id})", file=sys.__stdout__)
+    try:
+        bot.run_loop(on_message)
+    except wx.AuthExpired:
+        print("[Bot] token expired, exit.", file=sys.__stdout__)
+        return 2
+    return 0
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        sys.stderr.write("用法: python penglai_im_launch.py <dingtalk|qq|wecom>\n")
+        sys.stderr.write("用法: python penglai_im_launch.py <dingtalk|qq|wecom|wechat>\n")
         raise SystemExit(2)
+    if sys.argv[1] == "wechat":
+        raise SystemExit(launch_wechat() or 0)
     raise SystemExit(launch(sys.argv[1]) or 0)

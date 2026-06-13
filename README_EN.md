@@ -83,8 +83,9 @@ experts, each crossing the sea in its own way, all serving the same you.
 - 🎙️ **Ears that hear emotion** — SenseVoice running locally on CPU (~230MB): transcription + 7 emotion tags (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), arriving as `[voice (emotion: down): so tired today]`. **Feishu/WeChat out of the box; DingTalk/QQ/WeCom voice added by the distro layer** — upstream frontends drop voice messages, so Penglai wraps voice reception (DingTalk/QQ also layer on local SenseVoice for emotion)
 - 🧠 **Four-tier memory** — the GA kernel's index / facts / skills / raw sessions as plain auditable markdown; every write passes a threat scan (prompt injection / role hijack / secret leakage), overwrites forbidden
 - 🛡️ **Deterministic safety rails** — red-line blocking of dangerous commands & paths plus a full tool-call audit trail in JSONL — **deterministic checks, not LLM goodwill**. Covers dangerous commands, sensitive paths, memory writes and outbound files (allowlist currently Feishu-only); rails ≠ absolute security — run it on a personal, controlled server
-- 🧐 **Double insurance against hallucination** — a local tripwire ships **always-on** (free), sniffing overconfident phrasing; one command (`penglai enable critic`) adds a **different vendor's** free model (e.g. GLM-4.7-Flash) for cross-review — one model can't catch its own hallucinations; fact-finding tasks can fan out to multi-source cross-validated search
-- 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates: quiet hours, never interrupts a live conversation, frequency caps — like a friend thinking of you, not an alarm going off
+- 🔎 **Web search works out of the box** — a built-in free Bing fallback means search works **even on a headless cloud server** (weather/news/facts, no browser needed); want multi-source cross-validation? `penglai enable intel` layers on independent search sources (TinyFish/Tavily/…)
+- 🧐 **Double insurance against hallucination** — a local tripwire ships **always-on** (free), sniffing overconfident phrasing; `penglai enable critic` lets you **pick any different-vendor model from the full provider catalog** for cross-review (free like GLM-4.7-Flash, or invest in a stronger paid model for wider parallax) — one model can't catch its own hallucinations
+- 🌙 **Truly proactive, never spammy** <sub>opt-in</sub> — heartbeat + hard-coded gates, with real triggers: **severe-weather alerts**, **picking up on the emotion in your voice messages**, morning/evening check-ins, reaching out only after long silence; quiet hours, never interrupts a live conversation, frequency caps. Delivered to both Feishu and WeChat
 - 🎛️ **Turn abilities on anytime** — didn't enable something in the wizard? One command later: `penglai enable voice|companion|intel` for abilities, `penglai enable <channel>` for IMs, `penglai abilities` for the full picture — no need to rerun setup
 - ⚙️ **Ops in one command** — `penglai doctor` one-shot health check that **tells you the exact command to enable each inactive item** / `status` / `logs` / `update` one-command upgrade to the latest release
 
@@ -206,9 +207,9 @@ flowchart LR
 | Ability switches | CLI | `penglai enable/disable/abilities` — turn on voice/companion/intel anytime post-install |
 | Redline + audit | hook | deterministic blocking of dangerous ops, full audit trail |
 | Memory hygiene | hook | threat scan before writes + no overwrites |
-| Critic brain <sub>smart mode</sub> | hook | tripwire always-on (free); escalates to cross-vendor review on hit (`penglai enable critic`) |
-| Intelligence matrix <sub>opt-in</sub> | plugin | multi-source cross-validated search |
-| Proactive companion <sub>opt-in</sub> | heartbeat | true proactivity inside hard gates |
+| Web search | plugin | free Bing fallback works out of the box (headless-ok); `enable intel` layers on multi-source cross-validation |
+| Critic brain <sub>smart mode</sub> | hook | tripwire always-on (free); on hit, review model picked from the full provider catalog (`penglai enable critic`) |
+| Proactive companion <sub>opt-in</sub> | heartbeat | true proactivity inside hard gates: weather alerts / voice emotion / check-ins, delivered to Feishu & WeChat |
 | Penglai SOP pack | markdown | symbolic checkpoints, traceable compression, generative skills — 0 lines of code |
 
 > **Why does this repo still contain GenericAgent's `pyproject.toml` and `ga` entry point?**
@@ -226,6 +227,7 @@ Penglai is a downstream distribution of [GenericAgent](https://github.com/lsdefi
 
 Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
 
+- **2026-06-13** — v0.2.0: keyless web search out of the box (Bing fallback, headless-ok) + Proactive Companion v2 (weather alerts / voice emotion / check-ins, dual Feishu+WeChat delivery) + critic review model picked from the full catalog + Docker resident supervisor (auto-starts channels after scan/config)
 - **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + website redesign + new banner
 - **2026-06-12** — Wizard v2: language-first / paged terminal / one-page channel picker / ability panel / voice by default
 - **2026-06-11** — Security hardening (audit P0/P1 fixes) + one-line Docker deploy + catalog of 11 Chinese model vendors

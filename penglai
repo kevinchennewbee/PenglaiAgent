@@ -238,11 +238,11 @@ def doctor():
     else:
         print(f"{OK} 记忆 L2：尚未初始化（首次运行自动创建）")
 
-    # 5b. 情报矩阵（可选增强）
-    r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import enabled_sources;"
-            "print(','.join(enabled_sources()))"], cwd=ROOT)
-    srcs = (r.stdout or "").strip()
-    print(f"{OK} 情报矩阵：{'已启用 ' + srcs if srcs else '默认（GA 浏览器，未配 API key）   → 开启：penglai enable intel'}")
+    # 5b. 网页搜索（Bing 免 key 兜底常在；情报矩阵=叠加的增强源）
+    r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import premium_sources;"
+            "print(','.join(premium_sources()))"], cwd=ROOT)
+    prem = (r.stdout or "").strip()
+    print(f"{OK} 网页搜索：{'Bing 免费兜底 + 增强源 ' + prem + '（多源交叉验证）' if prem else 'Bing 免费兜底（开箱即用）   → 增强多源交叉验证：penglai enable intel'}")
 
     # 5c. 批判脑（绊线免费常开；异厂商复核要配 critic_model）
     r = sh([py, "-c", "import mykey;m=getattr(mykey,'critic_model',None);md=getattr(mykey,'critic_mode','smart');"

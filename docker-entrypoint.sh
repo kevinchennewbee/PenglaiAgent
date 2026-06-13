@@ -31,23 +31,39 @@ if [ "${PENGLAI_ALLOW_UNGUARDED:-0}" != "1" ]; then
         || { echo "❌ 安全插件未挂载，拒绝启动（PENGLAI_ALLOW_UNGUARDED=1 可强制，危险）"; exit 2; }
 fi
 
-# 按已配置的渠道决定启动哪个前端,不写死飞书(issue #1:只配微信时 fsapp 报错退出→无限重启)
-FS_OK=$(python -c "import sys; sys.path.insert(0,'/app'); import mykey; print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)" 2>/dev/null || echo 0)
-WX_OK=0
-[ -s "$D/wxbot/token.json" ] && WX_OK=1
+# ── 常驻监工循环（真实用户实测教训:渠道配置不是只在容器启动时出现）──
+# 旧逻辑在启动那一刻一次性决定启动什么,导致:扫码比向导慢半拍/docker exec 手动跑向导/
+# 事后 penglai enable,新出现的 token/凭证永远没人拉起。改为每 30 秒巡检:
+# 该跑没跑的拉起(含进程意外退出后的自愈),什么都没配置就提示一次并继续守着。
+set +e   # 巡检循环里单个组件失败不能放倒 PID1
 
-python /app/agentmain.py --reflect /app/reflect/scheduler.py &
+has_fs() { python -c "import sys; sys.path.insert(0,'/app'); import mykey; print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)" 2>/dev/null || echo 0; }
+has_cp() { python -c "import sys; sys.path.insert(0,'/app'); import mykey; print(1 if getattr(mykey,'companion_enabled',False) else 0)" 2>/dev/null || echo 0; }
+alive()  { pgrep -f "$1" >/dev/null 2>&1; }
 
-if [ "$FS_OK" = "1" ]; then
-    [ "$WX_OK" = "1" ] && python /app/frontends/wechatapp.py &
-    exec python /app/frontends/fsapp.py
-elif [ "$WX_OK" = "1" ]; then
-    echo "ℹ️ 未配置飞书,以微信为主渠道启动"
-    exec python /app/frontends/wechatapp.py
-else
-    echo "⚠️ 未检测到任何已配置的 IM 渠道(飞书凭证未填、微信未绑定)。"
-    echo "   补配渠道: docker exec -it penglai /app/docker-entrypoint.sh setup"
-    echo "   体检:     docker exec -it penglai /app/docker-entrypoint.sh doctor"
-    echo "   容器保持运行,不再反复重启刷错误日志。"
-    exec tail -f /dev/null
-fi
+HINTED=0
+echo "🏮 蓬莱容器守护启动(每30秒巡检渠道配置与进程,新扫码/新配置无需重启容器)"
+while :; do
+    alive "reflect/scheduler[.]py" \
+        || { echo "▶ 启动调度器"; python /app/agentmain.py --reflect /app/reflect/scheduler.py & }
+    if [ "$(has_cp)" = "1" ]; then
+        alive "reflect/penglai_companion[.]py" \
+            || { echo "▶ 启动主动陪伴"; python /app/agentmain.py --reflect /app/reflect/penglai_companion.py & }
+    fi
+    FS_OK=$(has_fs); WX_OK=0
+    [ -s "$D/wxbot/token.json" ] && WX_OK=1
+    if [ "$FS_OK" = "1" ] && ! alive "frontends/fsapp[.]py"; then
+        echo "▶ 启动飞书前端"; python /app/frontends/fsapp.py &
+    fi
+    # 微信走 penglai_im_launch 包装器:记录主人 uid 供主动陪伴投递,行为与直跑 wechatapp 一致
+    if [ "$WX_OK" = "1" ] && ! alive "penglai_im_launch[.]py wechat"; then
+        echo "▶ 启动微信前端"; python /app/penglai_im_launch.py wechat &
+    fi
+    if [ "$FS_OK" != "1" ] && [ "$WX_OK" != "1" ] && [ "$HINTED" = "0" ]; then
+        echo "⚠️ 暂无已配置的 IM 渠道(飞书凭证未填、微信未绑定)。"
+        echo "   补配: docker exec -it penglai penglai setup"
+        echo "   扫码/填好后【无需重启容器】,30 秒内自动拉起对应渠道。"
+        HINTED=1
+    fi
+    sleep 30
+done

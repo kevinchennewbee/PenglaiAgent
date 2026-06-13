@@ -63,23 +63,29 @@ fi
 # ── 4. 常驻服务:开机自启,挂了自动拉起 ──────────────────────────────────────
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" --restart unless-stopped -v "$VOL:/data" "$IMG" >/dev/null
-say "  ⏳ 服务已启动,等待飞书长连接建立..."
+say "  ⏳ 服务已启动,等待 IM 渠道连接建立..."
 
-# ── 5. 验证:日志见 connected 才算数 ─────────────────────────────────────────
+# ── 5. 验证:按实际配置的渠道取证(飞书=connected to wss / 微信=WeChat Bot 已启动) ──
 n=0
-while [ $n -lt 23 ]; do
-    if docker logs "$NAME" 2>&1 | grep -q "connected to wss"; then
-        say "  ✅ 飞书长连接已建立(日志确认)"
+while [ $n -lt 30 ]; do
+    LOGS=$(docker logs "$NAME" 2>&1)
+    OKCH=""
+    printf '%s' "$LOGS" | grep -q "connected to wss"   && OKCH="飞书"
+    printf '%s' "$LOGS" | grep -q "WeChat Bot 已启动"  && OKCH="${OKCH:+$OKCH + }微信"
+    if [ -n "$OKCH" ]; then
+        say "  ✅ ${OKCH} 连接已建立(日志确认)"
         say ""
-        say "🎉 部署完成!去飞书给机器人发一句「你好」,然后:"
+        say "🎉 部署完成!去${OKCH}给机器人发一句「你好」,然后:"
         say "   看日志: docker logs -f $NAME    (出现「收到消息」即收发全通)"
         say "   重启:   docker restart $NAME    停止: docker stop $NAME"
+        say "   补配渠道: docker exec -it penglai penglai setup  (扫码后无需重启,30秒内自动拉起)"
         say "   升级:   重跑本安装命令即可(数据在 $VOL 卷,不会丢)"
         exit 0
     fi
     sleep 2; n=$((n+1))
 done
-say "  ⚠️  45 秒内未见连接成功,最近日志:"
-docker logs --tail 8 "$NAME" 2>&1 | sed 's/^/    /'
-say "  排查后可: docker restart $NAME && docker logs -f $NAME"
+say "  ⚠️  60 秒内未见任何渠道连接成功,最近日志:"
+docker logs --tail 10 "$NAME" 2>&1 | sed 's/^/    /'
+say "  若刚才向导里跳过了扫码:补跑 docker exec -it penglai penglai setup,完成后 30 秒内自动拉起"
+say "  其他排查后可: docker restart $NAME && docker logs -f $NAME"
 exit 1

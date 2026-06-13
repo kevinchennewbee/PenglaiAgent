@@ -107,6 +107,7 @@ def _load_providers():
 
 _PROVIDERS_DATA = _load_providers()
 
+
 def _get_provider_list():
     """返回 [(序号显示名, provider_id, billing_mode_id, base_url, default_model, signup_url), ...]"""
     if not _PROVIDERS_DATA:
@@ -210,17 +211,21 @@ def step_env():
         print(f"{OK} " + T("虚拟环境已存在"))
 
 # ---------- 步骤 2：LLM ----------
-def step_llm():
-    page(2, T("选择大模型（蓬莱的大脑）"))
+def _select_provider_model(exclude_vendor=""):
+    """渲染全厂商目录 → 用户选择 → 连通测试。返回 {name,apikey,apibase,model} 或 None（留空/失败）。
+    主力模型与批判脑复核共用同一套全目录选择（用户自行决定投入哪个，包括付费模型）。
+    exclude_vendor 非空时：与之同厂商的项标注提示——批判脑要选【不同厂商】才有交叉视差。"""
     rows = _get_provider_list()
     for idx, label, pid, bid, base, model, signup in rows:
+        same = bool(exclude_vendor) and label.split()[0] in exclude_vendor
         num = c(f"{idx:>2}", BOLD, F(167))
-        name = c(_pad(label, 28), F(252))
+        name = c(_pad(label, 28), F(240) if same else F(252))
         model_s = (c(T("默认 "), F(245)) + c(_pad(model, 30), F(37))) if model \
                   else c(_pad(T("（手动填模型名）"), 35), F(245))
         # 列表展示 base_url（接入端点才是用户要核对的；注册链接选中后再给）
         base_s = base.replace("https://", "") if base else T("（手动填）")
-        print(f"  {num}  {name}{model_s}{c(base_s, F(245))}")
+        tail = c(T("  ← 与主力同厂商，复核视差小"), F(167)) if same else ""
+        print(f"  {num}  {name}{model_s}{c(base_s, F(245))}{tail}")
     print()
 
     # 弃用模型警告表（来自 providers yaml）
@@ -259,6 +264,8 @@ def step_llm():
             model = replace
 
     key = ask(T("API Key（粘贴后回车）"))
+    if not key:
+        return None
     print("  " + T("连通性测试中..."), end="", flush=True)
     try:
         r = post_json(base.rstrip("/") + "/chat/completions",
@@ -268,9 +275,17 @@ def step_llm():
         print(f"\r{OK} " + T("模型连通") + (T("，回复：{r}", r=reply) if reply else T("（思考型模型，空文本正常）")))
         return {"name": name, "apikey": key, "apibase": base, "model": model}
     except Exception as e:
-        print(f"\r{BAD} " + T("测试失败：{e}", e=e))
-        if ask(T("重试？(y/n)"), "y").lower().startswith("y"): return step_llm()
-        sys.exit(1)
+        print(f"\r{BAD} " + T("测试失败：{e}", e=str(e)[:80]))
+        return None
+
+def step_llm():
+    page(2, T("选择大模型（蓬莱的大脑）"))
+    while True:
+        r = _select_provider_model()
+        if r:
+            return r
+        if not ask(T("重试？(y/n)"), "y").lower().startswith("y"):
+            sys.exit(1)
 
 # ---------- 步骤 3：渠道单页选择 ----------
 _CHANNEL_MENU = (
@@ -596,53 +611,35 @@ def step_abilities(llm_name=""):
     print()
     print("  🧐 " + c(T("批判脑 smart 档（防幻觉第二保险：异厂商复核）"), BOLD, F(252)))
     print("     " + c(T("本地绊线出厂常开（免费）：嗅到「过度自信」措辞就拦下自检。"), F(245)))
-    print("     " + c(T("再配一个【不同厂商】的免费模型，命中时交叉复核——单模型查不出自己的幻觉。"), F(245)))
-    print("     " + c(T("成本极低：只在绊线命中时调用，单次上限 200 token。推荐智谱 GLM-4.7-Flash（完全免费）。"), F(245)))
+    print("     " + c(T("再配一个【不同厂商】的模型，命中时交叉复核——单模型查不出自己的幻觉。"), F(245)))
+    print("     " + c(T("从下面整张厂商目录任选（免费如智谱 GLM-4.7-Flash，也可投入更强的付费模型，视差更大）："), F(245)))
     if ask(T("现在配置异厂商复核？(y/n)"), "n").lower().startswith("y"):
         main_name = (llm_name or "").split()[0] if llm_name else ""
-        picks = [("智谱 GLM", "https://open.bigmodel.cn/api/paas/v4/", "glm-4.7-flash", T("完全免费"), "https://open.bigmodel.cn"),
-                 ("讯飞星火", "https://spark-api-open.xf-yun.com/v1", "lite", T("永久免费"), "https://www.xfyun.cn"),
-                 ("DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash", T("约 ¥1/百万tok"), "https://platform.deepseek.com")]
-        picks = [p for p in picks if not (main_name and p[0].split()[0] in main_name)]
-        for i, (nm, bs, md, pr, su) in enumerate(picks, 1):
-            print(f"   {i}. {_pad(nm, 10)}{_pad(md, 20)}{_pad(pr, 12)}{c(su, F(245))}")
-        try:
-            pi = int(ask(T("选择序号"), "1")) - 1
-        except ValueError:
-            pi = 0
-        nm, bs, md, _, su = picks[max(0, min(pi, len(picks) - 1))]
-        print("  " + T("到 {s} 注册并创建 API Key（免费档不用充值）", s=su))
-        ckey = ask(T("API Key（粘贴后回车，留空跳过）"))
-        if ckey:
-            print("  " + T("连通性测试中..."), end="", flush=True)
-            try:
-                post_json(bs.rstrip("/") + "/chat/completions",
-                          {"model": md, "messages": [{"role": "user", "content": "回复两个字：蓬莱"}], "max_tokens": 16},
-                          {"Authorization": f"Bearer {ckey}"})
-                print(f"\r{OK} " + T("复核模型连通（{n} / {m}）", n=nm, m=md))
-                out["critic_model"] = {"name": nm, "apibase": bs, "apikey": ckey, "model": md}
-                out["critic_mode"] = "smart"
-            except Exception as e:
-                print(f"\r{BAD} " + T("复核模型连通失败：{e}（稍后可 penglai enable critic 重配）", e=str(e)[:80]))
+        r = _select_provider_model(exclude_vendor=main_name)
+        if r:
+            out["critic_model"] = {"name": r["name"], "apibase": r["apibase"],
+                                   "apikey": r["apikey"], "model": r["model"]}
+            out["critic_mode"] = "smart"
+            print(f"  {OK} " + T("批判脑 smart 档已配置（{n} / {m}）", n=r["name"], m=r["model"]))
         else:
-            print("  " + T("已跳过。稍后一条命令可开：penglai enable critic"))
+            print("  " + T("已跳过/未完成。稍后一条命令可开：penglai enable critic"))
 
     # —— 情报矩阵（opt-in：需要第三方 key）——
     print()
     print("  🔭 " + c(T("情报矩阵（多源交叉验证，降低幻觉）"), BOLD, F(252)))
-    print("     " + c(T("默认不开 → 蓬莱用 GA 自带的真浏览器搜索（免费、开箱即用，已够用）。"), F(245)))
-    print("     " + c(T("开启后 → 多个独立搜索 API 并查 + 交叉验证，更适合事实核查/写记忆/做决策。"), F(245)))
+    print("     " + c(T("默认即可搜网：内置免费 Bing 兜底，无头服务器也能查天气/新闻/事实，开箱即用。"), F(245)))
+    print("     " + c(T("开启增强 → 再叠加独立搜索 API，多源并查 + 交叉验证，更适合写记忆/做决策。"), F(245)))
     if ask(T("现在开启情报矩阵增强？(y/n)"), "n").lower().startswith("y"):
         print("  " + T("推荐免费源（注册即送额度，具体以官网为准）："))
         print("   · TinyFish   " + c("https://agent.tinyfish.ai/api-keys", F(37)) + "  " + T("免费、自有索引，推荐首选"))
         print("   · Tavily     " + c("https://app.tavily.com", F(37)) + "             " + T("注册有每月免费额度"))
         print("   · Firecrawl  " + c("https://firecrawl.dev", F(37)) + "              " + T("注册送一次性免费额度"))
-        print("  " + T("（都不想注册就全部回车跳过，继续用 GA 自带的免费浏览器搜索）"))
+        print("  " + T("（都不想注册就全部回车跳过，内置免费 Bing 搜索照常可用）"))
         if k := ask(T("TinyFish API Key（X-API-Key，可空）")): out["tinyfish_key"] = k
         if k := ask(T("Tavily API Key（可空）")):              out["tavily_key"] = k
         if k := ask(T("Firecrawl API Key（可空）")):           out["firecrawl_key"] = k
         n = len([1 for x in ("tinyfish_key", "tavily_key", "firecrawl_key") if x in out])
-        print(f"  {OK} " + T("情报矩阵：{n} 个源已配置", n=n) if n else "  " + T("未填 key，保持默认（GA 浏览器）"))
+        print(f"  {OK} " + T("情报矩阵：{n} 个增强源已配置（叠加在免费 Bing 之上）", n=n) if n else "  " + T("未填 key，保持内置免费 Bing 搜索"))
     return out, voice_ready
 
 # ---------- 写配置 ----------
@@ -800,7 +797,7 @@ def _verify_live(read_log, log_hint):
 def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
     header(T("步骤") + f" 6/{_TOTAL_STEPS}", T("启动并验证"))
     if os.environ.get("PENGLAI_DOCKER"):
-        print(f"{OK} " + T("容器模式：配置完成，启动与连接验证由 Docker 部署脚本接管"))
+        print(f"{OK} " + T("容器模式：配置完成。容器守护每 30 秒巡检，新配置的渠道自动拉起（无需重启容器）"))
         return "docker"
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not with_feishu:
@@ -816,7 +813,8 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
         if with_companion:
             units["penglai-companion"] = f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"
         if with_wechat:
-            units["penglai-wechat"] = f"python {ROOT}/frontends/wechatapp.py"
+            # 走包装器：记录主人 uid（主动陪伴微信投递需要），行为与直跑 wechatapp 一致
+            units["penglai-wechat"] = f"python {ROOT}/penglai_im_launch.py wechat"
         t0 = int(time.time())
         try:
             for name, cmd in units.items():
@@ -920,7 +918,7 @@ def main():
     if live is True:
         print("\n" + T("🎉 安装完成，飞书收发链路已实测全通！"))
     elif live == "docker":
-        print(f"\n{OK} " + T("配置完成。容器服务即将由部署脚本启动并验证连接。"))
+        print(f"\n{OK} " + T("配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志取证（docker logs -f penglai）。"))
         return
     elif live == "skip":
         print(f"\n{OK} " + T("安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。", a=agent))

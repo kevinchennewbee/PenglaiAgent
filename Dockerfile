@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir -i "$PIP_INDEX" pilk \
     || echo "pilk 跳过(仅影响微信语音条解码)"
 RUN pip install --no-cache-dir -i "$PIP_INDEX" sherpa-onnx \
     || echo "sherpa-onnx 跳过(仅影响语音转写,可后续 penglai enable voice)"
+# penglai 入 PATH:docker exec 进来直接敲 penglai,不用 ./penglai(真实用户实测反馈)
+RUN chmod +x /app/penglai && ln -s /app/penglai /usr/local/bin/penglai
 
 ENV PENGLAI_DOCKER=1 \
     GA_WORKSPACE_ROOT=/data/workspace \
