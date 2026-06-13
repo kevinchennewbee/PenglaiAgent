@@ -260,8 +260,10 @@ footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9}
       <p data-zh="索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。" data-en="Index / facts / skills / raw sessions as auditable markdown; every write threat-scanned (injection / role hijack / secret leak), overwrites forbidden.">索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。</p></div>
     <div class="card reveal"><span class="ico">🛡️</span><h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
       <p data-zh="危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。" data-en="Red-line blocking of dangerous ops + full audit trail + outbound-file allowlist. Safety by deterministic checks, not LLM goodwill.">危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。</p></div>
+    <div class="card reveal"><span class="ico">🔎</span><h3 data-zh="网页搜索开箱即用" data-en="Web search out of the box">网页搜索开箱即用</h3>
+      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 penglai enable intel 叠加独立搜索源。" data-en="Built-in free Bing fallback — query weather/news/facts even on a headless cloud server, no browser needed. Want multi-source cross-validation? penglai enable intel layers on independent search sources.">内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 penglai enable intel 叠加独立搜索源。</p></div>
     <div class="card reveal"><span class="ico">🌙</span><h3 data-zh="真主动，不扰民<span class='opt'>opt-in</span>" data-en="Proactive, not spammy<span class='opt'>opt-in</span>">真主动，不扰民<span class="opt">opt-in</span></h3>
-      <p data-zh="心跳 + 硬编码门禁：勿扰时段、对话中绝不插话、频率上限。像朋友想起你，而不是闹钟响了。" data-en="Heartbeat + hard gates: quiet hours, never interrupts a live chat, frequency caps. Like a friend thinking of you, not an alarm.">心跳 + 硬编码门禁：勿扰时段、对话中绝不插话、频率上限。像朋友想起你，而不是闹钟响了。</p></div>
+      <p data-zh="心跳 + 硬编码门禁的真主动：恶劣天气预警、从语音里听出的情绪主动关心、早晚问候、久未联系才招呼。投递到飞书和微信。勿扰时段、绝不插话。" data-en="Heartbeat + hard gates, with real triggers: severe-weather alerts, picking up on the emotion in your voice, morning/evening check-ins, reaching out only after long silence. Delivered to Feishu & WeChat.">心跳 + 硬编码门禁的真主动：恶劣天气预警、从语音里听出的情绪主动关心、早晚问候、久未联系才招呼。投递到飞书和微信。勿扰时段、绝不插话。</p></div>
     <div class="card reveal"><span class="ico">🎛️</span><h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
       <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>，<code>penglai abilities</code> 看全貌——不必重跑向导。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice｜companion｜intel</code>, <code>penglai abilities</code> for the full picture — no rerun needed.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>，<code>penglai abilities</code> 看全貌——不必重跑向导。</p></div>
   </div>
@@ -376,6 +378,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.0",d:"2026-06-13",zh:"网页搜索开箱即用 + 主动陪伴 v2",en:"Web search out of the box + Companion v2",t:true,
+  liZh:["免 key Bing 搜索兜底——无头云服务器也能查天气/新闻/事实","主动陪伴 v2：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系，飞书微信双投递","批判脑复核模型从整张厂商目录自选（不再限免费）","Docker 常驻监工：扫码/补配渠道自动拉起，进程崩溃自愈","更新承诺：上游安全漏洞 48h、功能 72h 同步进发行仓"],
+  liEn:["Keyless Bing search fallback — works on headless cloud servers (weather/news/facts)","Companion v2: severe-weather alerts / voice-emotion follow-ups / check-ins, dual Feishu+WeChat delivery","Critic review model picked from the full provider catalog (no longer free-only)","Docker resident supervisor: auto-starts channels after scan/config, self-heals crashed processes","Update pledge: upstream security fixes in 48h, features in 72h"]},
  {v:"v0.1.10",d:"2026-06-12",zh:"全新仙山 banner + 门面增强",en:"New banner + facade polish",t:true,
   liZh:["青玉仙山鎏金 banner","官方渠道防冒用声明 + 蓬莱 vs 裸 GA 对比表","GitHub topics 上架"],
   liEn:["Jade-and-gold immortal-isle banner","Official-channel notice + Penglai vs bare GA table","GitHub topics added"]},
