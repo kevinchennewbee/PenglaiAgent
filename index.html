@@ -378,6 +378,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.1",d:"2026-06-13",zh:"安全自更新：失败自动回滚",en:"Safe self-update with auto-rollback",t:true,
+  liZh:["penglai update 确认后全自动：预检 → 后台监工重启 → 健康检查 → 失败自动回滚到上一个能跑的版本","升级结果带外发到飞书/微信，不用 SSH 上服务器","管家可在 IM 里直接「检查更新 / 升级」（不再裸 git）","Docker 升级 = 重拉镜像；README 双语补 Docker 运维说明"],
+  liEn:["penglai update is fully automatic after confirm: preflight → background supervisor restart → health check → auto-rollback to the last working version on failure","Upgrade result messaged to Feishu/WeChat — no SSH needed","The butler can check/upgrade right in IM (no more raw git)","Docker upgrade = pull a new image; bilingual Docker ops docs added"]},
  {v:"v0.2.0",d:"2026-06-13",zh:"网页搜索开箱即用 + 主动陪伴 v2",en:"Web search out of the box + Companion v2",t:true,
   liZh:["免 key Bing 搜索兜底——无头云服务器也能查天气/新闻/事实","主动陪伴 v2：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系，飞书微信双投递","批判脑复核模型从整张厂商目录自选（不再限免费）","Docker 常驻监工：扫码/补配渠道自动拉起，进程崩溃自愈","更新承诺：上游安全漏洞 48h、功能 72h 同步进发行仓"],
   liEn:["Keyless Bing search fallback — works on headless cloud servers (weather/news/facts)","Companion v2: severe-weather alerts / voice-emotion follow-ups / check-ins, dual Feishu+WeChat delivery","Critic review model picked from the full provider catalog (no longer free-only)","Docker resident supervisor: auto-starts channels after scan/config, self-heals crashed processes","Update pledge: upstream security fixes in 48h, features in 72h"]},
