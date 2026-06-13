@@ -199,6 +199,14 @@ flowchart LR
 > **为什么仓库里还有 GenericAgent 的 `pyproject.toml` 和 `ga` 入口？**
 > 因为蓬莱是 GA 的发行版：内核文件（含其构建配置）保持零改动，上游升级才能照常合并。`penglai` 是发行层入口；`ga` / `genericagent` 是上游内核的原生入口，两者共存、互不冲突。内核 bug 请报给[上游](https://github.com/lsdefine/GenericAgent)，发行层问题在本仓库提 issue。
 
+## 🔄 更新承诺：上游的演进，及时到你手里
+
+蓬莱是 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的下游发行版，上游在持续进化，我们替你盯着：
+
+- 🛡️ **安全类更新**：上游修复的安全漏洞，我们确认问题性质与影响面后，**48 小时内**同步进发行仓；
+- 🧩 **功能类更新**（新功能与功能维护）：在确认与蓬莱层不冲突、运行稳定的前提下，**72 小时内**同步；
+- 你要做的只有一句：`penglai update`（Docker 用户重跑一遍 docker-install.sh，数据在卷里不丢）。
+
 ## 📅 最新动态
 
 完整版本时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
@@ -223,3 +231,13 @@ flowchart LR
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent)（MIT）——doctor 与安装体验、渠道质量标准、记忆卫生的理念
 - [PilotDeck](https://github.com/OpenBMB/PilotDeck)（AGPL，仅借鉴设计理念）——门禁系统与可回滚纪律
 - [SenseVoice / FunASR](https://github.com/FunAudioLLM/SenseVoice) · [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)——CPU 友好的语音与情绪识别
+
+## ✍️ 关注作者
+
+微信公众号 **KevinAIStack** —— Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目 · 效率提升。
+蓬莱的开发幕后、踩坑实录与新版本预告都会在这里首发。
+
+<div align="center">
+<img src=".github/assets/wechat-qr.png" alt="微信公众号 KevinAIStack — 微信搜一搜 KevinAIStack" width="420"/>
+<br/><sub>微信「搜一搜」KevinAIStack，或扫码关注</sub>
+</div>

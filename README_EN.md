@@ -214,6 +214,14 @@ flowchart LR
 > **Why does this repo still contain GenericAgent's `pyproject.toml` and `ga` entry point?**
 > Because Penglai is a GA distribution: kernel files (including their build config) stay untouched so upstream upgrades merge cleanly. `penglai` is the distro entry point; `ga` / `genericagent` are the upstream kernel's native entry points — they coexist without conflict. Report kernel bugs [upstream](https://github.com/lsdefine/GenericAgent); file distro issues here.
 
+## 🔄 Update Pledge: upstream progress, delivered to you
+
+Penglai is a downstream distribution of [GenericAgent](https://github.com/lsdefine/GenericAgent). The upstream keeps evolving, and we watch it for you:
+
+- 🛡️ **Security updates**: once we confirm the nature and impact of an upstream security fix, we sync it into this distribution repo **within 48 hours**;
+- 🧩 **Feature updates** (new features and maintenance): synced **within 72 hours**, after confirming they don't conflict with the Penglai layer and run stably;
+- All you need is one command: `penglai update` (Docker users: re-run docker-install.sh — your data lives in the volume and survives).
+
 ## 📅 Latest News
 
 Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
@@ -238,3 +246,13 @@ Penglai stands on the shoulders of:
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) (MIT) — doctor & install experience, channel quality standards, memory hygiene ideas
 - [PilotDeck](https://github.com/OpenBMB/PilotDeck) (AGPL, design ideas only) — gate systems and reversibility discipline
 - [SenseVoice / FunASR](https://github.com/FunAudioLLM/SenseVoice) · [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) — CPU-friendly speech & emotion recognition
+
+## ✍️ Follow the Author
+
+WeChat official account **KevinAIStack** — long-form field notes on building a Personal AI Stack (in Chinese):
+deep dives, practical tools, open-source projects. Penglai's behind-the-scenes stories and release previews land there first.
+
+<div align="center">
+<img src=".github/assets/wechat-qr.png" alt="WeChat official account KevinAIStack" width="420"/>
+<br/><sub>Search "KevinAIStack" in WeChat, or scan the QR code</sub>
+</div>
