@@ -31,5 +31,23 @@ if [ "${PENGLAI_ALLOW_UNGUARDED:-0}" != "1" ]; then
         || { echo "❌ 安全插件未挂载，拒绝启动（PENGLAI_ALLOW_UNGUARDED=1 可强制，危险）"; exit 2; }
 fi
 
+# 按已配置的渠道决定启动哪个前端,不写死飞书(issue #1:只配微信时 fsapp 报错退出→无限重启)
+FS_OK=$(python -c "import sys; sys.path.insert(0,'/app'); import mykey; print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)" 2>/dev/null || echo 0)
+WX_OK=0
+[ -s "$D/wxbot/token.json" ] && WX_OK=1
+
 python /app/agentmain.py --reflect /app/reflect/scheduler.py &
-exec python /app/frontends/fsapp.py
+
+if [ "$FS_OK" = "1" ]; then
+    [ "$WX_OK" = "1" ] && python /app/frontends/wechatapp.py &
+    exec python /app/frontends/fsapp.py
+elif [ "$WX_OK" = "1" ]; then
+    echo "ℹ️ 未配置飞书,以微信为主渠道启动"
+    exec python /app/frontends/wechatapp.py
+else
+    echo "⚠️ 未检测到任何已配置的 IM 渠道(飞书凭证未填、微信未绑定)。"
+    echo "   补配渠道: docker exec -it penglai /app/docker-entrypoint.sh setup"
+    echo "   体检:     docker exec -it penglai /app/docker-entrypoint.sh doctor"
+    echo "   容器保持运行,不再反复重启刷错误日志。"
+    exec tail -f /dev/null
+fi

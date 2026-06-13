@@ -13,13 +13,13 @@
 [![Channels](https://img.shields.io/badge/%E6%B8%A0%E9%81%93-%E9%A3%9E%E4%B9%A6%20%C2%B7%20%E5%BE%AE%E4%BF%A1-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Voice](https://img.shields.io/badge/%E8%AF%AD%E9%9F%B3-%E6%83%85%E7%BB%AA%E6%84%9F%E7%9F%A5-f59e0b?style=flat-square)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
-[![Website](https://img.shields.io/badge/%F0%9F%8C%90-%E5%AE%98%E7%BD%91-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
+[![Website](https://img.shields.io/badge/%F0%9F%8C%90-%E5%AE%98%E7%BD%91-3fbaa6?style=flat-square)](https://penglai.pages.dev/)
 
-**中文** · [English](README_EN.md) · [🌐 官网](https://kevinchennewbee.github.io/PenglaiAgent/)
+**中文** · [English](README_EN.md) · [🌐 官网](https://penglai.pages.dev/)
 
 </div>
 
-> 📌 **官方渠道**：本 GitHub 仓库 · [官网 kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · PyPI [`penglai`](https://pypi.org/project/penglai) 是仅有的官方分发渠道。其他网站 / 组织 / 个人以「蓬莱 · Penglai」名义提供的内容均非官方，请勿在非官方渠道填入你的 API Key 或凭证。
+> 📌 **官方渠道**：本 GitHub 仓库 · [官网 penglai.pages.dev](https://penglai.pages.dev/)（国内可直接访问，备用镜像 [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)） · PyPI [`penglai`](https://pypi.org/project/penglai) 是仅有的官方分发渠道。其他网站 / 组织 / 个人以「蓬莱 · Penglai」名义提供的内容均非官方，请勿在非官方渠道填入你的 API Key 或凭证。
 
 ---
 
@@ -109,6 +109,11 @@ cd PenglaiAgent
 python3 penglai setup    # 向导：语言 → 依赖 → 模型 → 渠道一页选 → 能力面板
 ```
 
+<div align="center">
+<img src=".github/assets/wizard-zh.png" alt="蓬莱安装向导实景" width="85%"/>
+<br/><sub>安装向导实景：中英双语、翻页式步骤、渠道一页多选</sub>
+</div>
+
 日常运维：
 
 ```bash
@@ -196,7 +201,7 @@ flowchart LR
 
 ## 📅 最新动态
 
-完整版本时间线见 [官网更新日志](https://kevinchennewbee.github.io/PenglaiAgent/#changelog)。
+完整版本时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
 
 - **2026-06-12** — IM 语音封装（钉钉/QQ/企微，上游真空补齐）+ 能力事后开启 `penglai enable / abilities` + 官网重做 + 全新 banner
 - **2026-06-12** — 向导 v2：语言选择打头 / 翻页式终端 / 渠道一页选 / 能力面板真启用 / 语音默认装

@@ -13,13 +13,13 @@
 [![Channels](https://img.shields.io/badge/channels-Feishu%20%C2%B7%20WeChat-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Voice](https://img.shields.io/badge/voice-emotion%20aware-f59e0b?style=flat-square)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
-[![Website](https://img.shields.io/badge/%F0%9F%8C%90-Website-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
+[![Website](https://img.shields.io/badge/%F0%9F%8C%90-Website-3fbaa6?style=flat-square)](https://penglai.pages.dev/)
 
-[中文](README.md) · **English** · [🌐 Website](https://kevinchennewbee.github.io/PenglaiAgent/)
+[中文](README.md) · **English** · [🌐 Website](https://penglai.pages.dev/)
 
 </div>
 
-> 📌 **Official channels:** this GitHub repo · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · PyPI [`penglai`](https://pypi.org/project/penglai) are the only official distribution channels. Anything offered under the name "Penglai / 蓬莱" by other sites / orgs / individuals is unofficial — never enter your API keys or credentials on unofficial channels.
+> 📌 **Official channels:** this GitHub repo · [penglai.pages.dev](https://penglai.pages.dev/) (mirror: [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)) · PyPI [`penglai`](https://pypi.org/project/penglai) are the only official distribution channels. Anything offered under the name "Penglai / 蓬莱" by other sites / orgs / individuals is unofficial — never enter your API keys or credentials on unofficial channels.
 
 ---
 
@@ -121,6 +121,11 @@ cd PenglaiAgent
 python3 penglai setup    # wizard: language → deps → model → channel picker → ability panel
 ```
 
+<div align="center">
+<img src=".github/assets/wizard-zh.png" alt="Penglai setup wizard" width="85%"/>
+<br/><sub>The setup wizard in action: bilingual, paged steps, one-page channel picker</sub>
+</div>
+
 Day-to-day:
 
 ```bash
@@ -211,7 +216,7 @@ flowchart LR
 
 ## 📅 Latest News
 
-Full version timeline on the [website changelog](https://kevinchennewbee.github.io/PenglaiAgent/#changelog).
+Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
 
 - **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + website redesign + new banner
 - **2026-06-12** — Wizard v2: language-first / paged terminal / one-page channel picker / ability panel / voice by default
