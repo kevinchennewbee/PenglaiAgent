@@ -137,8 +137,20 @@ penglai logs       # recent logs (penglai logs dingtalk for a specific channel)
 penglai channels   # IM channel matrix overview
 penglai abilities  # ability overview (voice/companion/intel — inactive ones show the enable command)
 penglai enable voice|companion|intel   # turn on abilities you skipped in the wizard
-penglai update     # upgrade to the latest Penglai (pulls the release repo, kernel already merged in)
+penglai update     # safe upgrade: preflight → background restart → health check → auto-rollback on failure
 ```
+
+> 💡 **Upgrades are hands-off**: after you confirm, `penglai update` runs the whole thing — it preflights (compile + security-plugin mount) to block a broken update, then a detached supervisor restarts services and health-checks the connection. **If the new version won't come up, it auto-rolls-back to the last working one**, and the result is messaged to your Feishu/WeChat — no SSH needed. You can also just tell the butler "check for updates / upgrade" in chat.
+
+> 🐳 **Docker day-to-day** (no systemd inside the container, so commands differ):
+> ```bash
+> docker logs -f penglai                      # logs ("收到消息" means send/receive works)
+> docker exec -it penglai penglai doctor      # health check (any penglai subcommand works this way)
+> docker restart penglai                      # restart the container
+> # Upgrade = pull a new image (not git): re-run the line below; data in the penglai-data volume is kept
+> curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh
+> ```
+> The container has a resident supervisor: after scan-binding or `penglai setup` adds a new channel, **no container restart needed** — it's auto-started within 30s; crashed processes self-heal.
 
 > 🇨🇳 China-server friendly: deps via the Tsinghua PyPI mirror, models & code via gh-proxy — the
 > wizard handles all of it automatically.
@@ -227,6 +239,7 @@ Penglai is a downstream distribution of [GenericAgent](https://github.com/lsdefi
 
 Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
 
+- **2026-06-13** — v0.2.1: safe `penglai update` — preflight blocks broken updates + background supervisor restart + health check + **auto-rollback if the new version won't start** + result messaged to your IM; the butler can "check for updates / upgrade" right in chat
 - **2026-06-13** — v0.2.0: keyless web search out of the box (Bing fallback, headless-ok) + Proactive Companion v2 (weather alerts / voice emotion / check-ins, dual Feishu+WeChat delivery) + critic review model picked from the full catalog + Docker resident supervisor (auto-starts channels after scan/config)
 - **2026-06-12** — IM voice wrapper (DingTalk/QQ/WeCom — filling the upstream gap) + on-demand abilities `penglai enable / abilities` + website redesign + new banner
 - **2026-06-12** — Wizard v2: language-first / paged terminal / one-page channel picker / ability panel / voice by default
