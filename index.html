@@ -122,8 +122,8 @@ nav.scrolled .navin{padding:9px 28px}
 /* —— hero 右:仙山门户徽记 —— */
 .hero-art{position:relative;justify-self:center;width:100%;max-width:520px}
 .hero-art .emblem{display:block;width:100%;height:auto;
-  -webkit-mask-image:radial-gradient(farthest-corner at 50% 47%,#000 64%,transparent 100%);
-  mask-image:radial-gradient(farthest-corner at 50% 47%,#000 64%,transparent 100%);
+  -webkit-mask-image:radial-gradient(farthest-corner at 50% 50%,#000 86%,transparent 100%);
+  mask-image:radial-gradient(farthest-corner at 50% 50%,#000 86%,transparent 100%);
   filter:drop-shadow(0 22px 50px rgba(31,138,118,.3));
   animation:floaty 9s ease-in-out infinite}
 
@@ -575,6 +575,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.4",d:"2026-06-14",h:"0f83e45",zh:"MCP 客户端支持 + Agnes 免费上手 + 技能集市记忆重构",en:"MCP client support + Agnes free onboarding + skill-marketplace memory refactor",t:true,
+  liZh:["MCP 客户端支持：mykey 配 mcp_servers 即接入任意外部 MCP server 的工具——纯标准库、GA 内核零 diff、超时不挂死主循环、调用前过安全扫描，opt-in 默认关闭","Agnes 免费上手：向导内置 Agnes AI 免费全模态体验源（工具调用 / 图片理解 / 流式输出），一键选中即用","技能集市记忆重构：触发词全表移到 L3 按需索引，L1 只留一行常量指针——装再多技能也不撑破每轮注入的 ≤30 行极简记忆（守 GA 第一性原理）","README 双语更新；腾讯云真机验证：飞书 wss 连上、12 测试全绿、内核零 diff"],
+  liEn:["MCP client support: point mcp_servers in mykey at any external MCP server and its tools plug straight in — pure stdlib, zero kernel diff, timeout-safe, args security-scanned, opt-in off by default","Agnes free onboarding: the wizard ships Agnes AI's free all-modality tier (tool calls / image understanding / streaming) — pick it and go","Skill-marketplace memory refactor: the trigger table moved to an on-demand L3 index; L1 keeps just one constant pointer — install any number of skills without bloating the every-turn ≤30-line core memory (honoring GA's first principle)","Bilingual README updated; field-verified on Tencent Cloud: Feishu wss connected, 12 test files green, zero kernel diff"]},
  {v:"v0.2.3",d:"2026-06-14",h:"353d8df",zh:"上游同步：微信 headless 登录 + TUI 工作区",en:"Upstream sync: WeChat headless login + TUI workspace",t:true,
   liZh:["合并上游 13 提交，内核零 diff，腾讯云真机验证过","微信 headless 容器登录（二维码打到 docker logs，无需图形界面）","TUI 工作区项目模式 + @ 文件补全","macOS 无障碍 ljqCtrl 移植"],
   liEn:["Merged 13 upstream commits, zero kernel diff, field-verified","WeChat headless container login (QR to docker logs, no GUI)","TUI workspace project mode + @-file completion","macOS accessibility ljqCtrl port"]},
