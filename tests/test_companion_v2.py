@@ -19,11 +19,14 @@ cp = importlib.import_module("reflect.penglai_companion")
 
 # ---- 全局替身：默认用户不活跃、无微信、天气接口禁用（单测绝不联网）----
 cp._last_user_activity_min = lambda: 1e9
+# 状态读写重定向到测试文件，避免污染真实 companion_state.json
+os.makedirs(os.path.join(REPO, "temp"), exist_ok=True)
+cp._STATE = os.path.join(REPO, "temp", "_test_companion_state.json")
 
 
 def _cfg(**kw):
     base = {"enabled": True, "open_id": "ou_test", "app_id": "cli_x", "app_secret": "s",
-            "quiet": [22, 8], "cooldown_h": 4, "idle_min": 15,
+            "quiet": [22, 8], "cooldown_h": 4, "idle_min": 15, "anchor_idle_min": 2,
             "city": "", "channels": ["feishu", "wechat"]}
     base.update(kw)
     return base
@@ -85,8 +88,9 @@ json.dump({"emotions": [{"e": "悲伤", "ts": time.time() - 3600}]},
 st3 = {"last_reach": time.time()}          # 冷却未过，情绪也不该被挡
 d, _ = cp._decide(_cfg(), st3, _now(11))
 check("负面语音情绪→emotion触发", d and d[0] == "emotion" and d[1]["e"] == "悲伤")
+st3["emotion_followed_ts"] = d[1]["ts"]   # 模拟 on_done 成功承接后落终态（旧版在 _decide 内写，现迁出）
 d, _ = cp._decide(_cfg(), st3, _now(11, 50))
-check("同一信号承接后→不重复触发", (d is None) or d[0] != "emotion")
+check("承接成功后→同一信号不重复", (d is None) or d[0] != "emotion")
 json.dump({"emotions": [{"e": "高兴", "ts": time.time()}]},
           open(cp._SIGNALS, "w", encoding="utf-8"))
 d, _ = cp._decide(_cfg(), {"last_reach": time.time()}, _now(11))
@@ -97,8 +101,9 @@ os.remove(cp._SIGNALS)
 st4 = {"last_reach": time.time()}
 d, _ = cp._decide(_cfg(), st4, _now(9))
 check("晨间窗口→morning触发", d and d[0] == "morning")
+st4["anchor_morning"] = "2026-06-13"      # 模拟 on_done 成功投递后落终态（旧版在 _decide 内写，现迁出）
 d, _ = cp._decide(_cfg(), st4, _now(9, 50))
-check("晨间同日→不重复", (d is None) or d[0] != "morning")
+check("投递成功后→晨间同日不重复", (d is None) or d[0] != "morning")
 d, _ = cp._decide(_cfg(), st4, _now(21))
 check("晚间窗口→evening触发", d and d[0] == "evening")
 
@@ -128,6 +133,87 @@ cp._wechat_send = lambda t: _sent.append(("wx", t)) or True
 cp.on_done("[SILENT]")
 cp.on_done("")
 check("[SILENT]/空输出→零投递", _sent == [])
+
+# ---- v2 加固：原子写/句柄、A1/A2/A3/A4 租约竞态、B 锚点放宽、护栏、[SILENT] 清租约 ----
+def _write_state(d): json.dump(d, open(cp._STATE, "w", encoding="utf-8"))
+def _read_state():
+    try: return json.load(open(cp._STATE, encoding="utf-8"))
+    except Exception: return {}
+
+# 原子写 + 句柄
+cp._save_state({"k": 1})
+check("原子写:回读一致", cp._load_json(cp._STATE).get("k") == 1)
+check("原子写:无 .tmp 残留", not os.path.exists(cp._STATE + ".tmp"))
+check("句柄:不存在路径返回{}", cp._load_json("/nonexistent/xyz/none.json") == {})
+
+# A4 租约防重复 / 过期可再触发（直接 _decide）
+cp._last_user_activity_min = lambda: 1e9
+_nt = time.time()
+d, _ = cp._decide(_cfg(), {"pending_kind": "morning", "pending_ts": _nt, "last_reach": _nt}, _now(9))
+check("A4 活租约内 morning 让路(防重复)", (d is None) or d[0] != "morning")
+d, _ = cp._decide(_cfg(), {"pending_kind": "morning", "pending_ts": _nt - cp.LEASE_TTL - 1,
+                           "last_reach": _nt}, _now(9))
+check("A4 租约过期 morning 可再触发(不哑火)", d and d[0] == "morning")
+
+# B 锚点放宽 idle：5min<15 但≥2 → morning 触发；free 仍用 15min → 让路
+cp._last_user_activity_min = lambda: 5.0
+d, _ = cp._decide(_cfg(), {"last_reach": time.time()}, _now(9))
+check("B 锚点放宽:idle 5min 仍 morning 触发", d and d[0] == "morning")
+d, _ = cp._decide(_cfg(), {"last_reach": time.time() - 5 * 3600,
+                           "anchor_morning": "2026-06-13", "anchor_evening": "2026-06-13"}, _now(15))
+check("B free 不放宽:idle 5min<15→让路", d is None)
+cp._last_user_activity_min = lambda: 1e9
+
+# A1 投递失败：不落终态、清租约、不哑火
+cp._cfg = lambda: _cfg()
+cp._feishu_send = lambda c, t: False
+cp._wechat_send = lambda t: False
+_write_state({"pending_kind": "morning", "pending_ts": time.time()})
+cp.on_done("早安呀")
+s = _read_state()
+check("A1 投递失败不落终态+清租约", s.get("anchor_morning") is None and s.get("pending_kind") == "")
+d, _ = cp._decide(_cfg(), {"last_reach": 0}, _now(9))
+check("A1 失败后同日不哑火(morning 可再触发)", d and d[0] == "morning")
+
+# A2 投递成功：兑现终态、清租约、不重复
+cp._feishu_send = lambda c, t: True
+cp._wechat_send = lambda t: True
+_write_state({"pending_kind": "morning", "pending_ts": time.time()})
+cp.on_done("早安呀")
+s = _read_state()
+_today = datetime.now().strftime("%Y-%m-%d")
+check("A2 投递成功兑现终态+清租约", s.get("anchor_morning") == _today and s.get("pending_kind") == "")
+_t9 = datetime.now().replace(hour=9, minute=30, second=0, microsecond=0)
+d, _ = cp._decide(_cfg(), s, _t9)
+check("A2 成功后同日不重复", (d is None) or d[0] != "morning")
+
+# A3 emotion 投递失败不消耗信号（emotion_followed_ts 不写）
+cp._feishu_send = lambda c, t: False
+cp._wechat_send = lambda t: False
+_write_state({"pending_kind": "emotion", "pending_ts": time.time(), "pending_emotion_ts": 123.0})
+cp.on_done("还好吗")
+s = _read_state()
+check("A3 emotion 失败不写 followed_ts", s.get("emotion_followed_ts") is None and s.get("pending_kind") == "")
+
+# [SILENT] 清租约且不落终态
+cp._feishu_send = lambda c, t: True
+cp._wechat_send = lambda t: True
+_write_state({"pending_kind": "morning", "pending_ts": time.time()})
+cp.on_done("[SILENT]")
+s = _read_state()
+check("[SILENT] 清租约且不落终态", s.get("anchor_morning") is None and s.get("pending_kind") == "")
+
+# 护栏 + 记忆开口：注入 _decide 返回 morning，验 check() 产出的 prompt 文本
+cp._lock = object()
+cp._cfg = lambda: _cfg()
+cp._decide = lambda cfg, st, now: (("morning", None), "ok")
+_prompt = cp.check()
+check("prompt 含人设护栏", bool(_prompt) and "不是恋人" in _prompt and "点到为止" in _prompt)
+check("prompt 含记忆开口理由", bool(_prompt) and "具体的事" in _prompt)
+
+# 清理测试状态文件
+try: os.remove(cp._STATE)
+except Exception: pass
 
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")

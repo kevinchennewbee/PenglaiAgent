@@ -21,8 +21,9 @@ def test_allowed_inside_workspace():
     os.environ["GA_WORKSPACE_ROOT"] = td
     p = os.path.join(td, "report.pdf")
     open(p, "w").write("x")
-    ok, why = fg._is_outbound_allowed(p)
+    ok, why, rp = fg._is_outbound_allowed(p)
     assert ok, f"工作目录内文件应允许外发，却被拦：{why}"
+    assert rp == os.path.realpath(p), "应返回 realpath 解析后的路径（供发送时使用，堵 TOCTOU）"
 
 
 def test_blocked_repo_secret_path():
@@ -31,7 +32,7 @@ def test_blocked_repo_secret_path():
     # 仓库根下的文件（非 temp/）—— 模拟 [FILE:/.../mykey.py] 外发，必须拒
     secret = os.path.join(REPO, "mykey_template.py")
     assert os.path.exists(secret)
-    ok, why = fg._is_outbound_allowed(secret)
+    ok, why, rp = fg._is_outbound_allowed(secret)
     assert not ok, "仓库根下的敏感文件不应被外发"
 
 
@@ -45,14 +46,14 @@ def test_blocked_symlink_escape():
         os.symlink(os.path.join(REPO, "mykey_template.py"), link)
     except (OSError, NotImplementedError):
         return  # 平台不支持软链接则跳过
-    ok, why = fg._is_outbound_allowed(link)
+    ok, why, rp = fg._is_outbound_allowed(link)
     assert not ok, "软链接逃逸到工作目录外必须被拦（realpath 解析）"
 
 
 def test_blocked_missing_file():
     fg = _fileguard()
     os.environ["GA_WORKSPACE_ROOT"] = tempfile.mkdtemp()
-    ok, why = fg._is_outbound_allowed("/nonexistent/path/x.bin")
+    ok, why, rp = fg._is_outbound_allowed("/nonexistent/path/x.bin")
     assert not ok, "不存在的文件不应放行"
 
 
@@ -97,6 +98,39 @@ def test_no_mount_in_foreign_main():
     try:
         sys.modules["__main__"] = fake
         assert not fg._try_patch(), "非 fsapp 进程不应挂载 fileguard"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
+def test_send_forwards_realpath_not_symlink():
+    """TOCTOU 修复：放行后实际发送的必须是 realpath 解析后的路径（=校验时确认的
+    那条），而不是原始（可能被 swap 的软链）路径。"""
+    fg = _fileguard()
+    td = tempfile.mkdtemp()
+    os.environ["GA_WORKSPACE_ROOT"] = td
+    real = os.path.join(td, "real_report.pdf")
+    open(real, "w").write("x")
+    link = os.path.join(td, "alias.pdf")
+    try:
+        os.symlink(real, link)
+    except (OSError, NotImplementedError):
+        return  # 平台不支持软链接则跳过
+    fake = _fake_fsapp_main()
+    got = {}
+
+    def rec(rid, fp, *a, **k):
+        got["path"] = fp
+        return "SENT"
+
+    fake._send_local_file = rec   # 必须在 _try_patch 前设好（挂载时捕获原始函数）
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式必须能挂载"
+        fake._send_local_file("u1", link)   # 走包装后的 _guarded_send_local_file
+        assert got.get("path") == os.path.realpath(link), \
+            f"发送应用 realpath（{os.path.realpath(link)}），实际：{got.get('path')}"
     finally:
         if saved is not None:
             sys.modules["__main__"] = saved

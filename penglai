@@ -14,6 +14,8 @@
   penglai disable <渠道>  停用渠道
   penglai update    更新到最新版蓬莱发行仓
   penglai setup     安装向导（语言 → 依赖 → 模型 → 渠道单页选择 → 能力面板[语音/陪伴/情报]）
+  penglai migrate   从旧管家(Hermes/OpenClaw)搬家：记忆/渠道/人设 [--from][--dry-run][--with-secrets]
+  penglai skill     技能集市：list 看可用 / install <名> 启用 / installed / remove <名>（本地装不联网）
   penglai help      显示本帮助
 """
 import os, sys, shutil, subprocess
@@ -475,8 +477,17 @@ def _restart(svcs):
                 "reflect/scheduler[.]py", "reflect/penglai_companion[.]py"):
         sh(["pkill", "-f", pat])
 
-def _channel_health():
-    """返回 (ok, detail)：核心渠道服务 active 且日志见连接证据。"""
+def _health_baseline():
+    """重启前快照：systemd 路径记时刻、nohup 路径记 FSLOG 字节偏移。健康检查据此只认
+    【本次重启之后】的连接证据——否则固定 -3min 窗口会把重启前的旧 connected 当成功，
+    坏更新被误判健康而不回滚（round4 真机实测的假阳 bug）。"""
+    import time
+    return (time.time(), os.path.getsize(FSLOG) if os.path.exists(FSLOG) else 0)
+
+def _channel_health(baseline=None):
+    """返回 (ok, detail)：核心渠道服务 active 且【baseline 之后】日志见连接证据。
+    baseline=None 退回 -3min 窗口（doctor 等非升级场景）。"""
+    import time
     py = venv_python()
     fs = sh([py, "-c", "import sys;sys.path.insert(0,'.');import mykey;"
              "print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)"],
@@ -490,11 +501,18 @@ def _channel_health():
         checks = [("penglai-feishu", "connected to wss")]
     bad = []
     for svc_name, pat in checks:
-        active = sh(["systemctl", "is-active", svc_name]).stdout.strip() == "active" if has_systemd() else bool(fsapp_pids())
         if has_systemd():
-            logtxt = sh(["journalctl", "-u", svc_name, "--since", "-3 min", "--no-pager"]).stdout
+            active = sh(["systemctl", "is-active", svc_name]).stdout.strip() == "active"
+            since = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(baseline[0])) if baseline else "-3 min"
+            logtxt = sh(["journalctl", "-u", svc_name, "--since", since, "--no-pager"]).stdout
         else:
-            logtxt = open(FSLOG, encoding="utf-8", errors="replace").read() if os.path.exists(FSLOG) else ""
+            active = bool(fsapp_pids())
+            logtxt = ""
+            if os.path.exists(FSLOG):
+                with open(FSLOG, "rb") as f:
+                    if baseline:
+                        f.seek(baseline[1])        # 只读重启后新增部分
+                    logtxt = f.read().decode("utf-8", "replace")
         if not (active and pat in logtxt):
             bad.append(svc_name)
     return (not bad), (", ".join(bad) if bad else "")
@@ -533,12 +551,13 @@ def update_supervisor():
     time.sleep(6)  # 给 agent 那条「正在升级」回复留出送达时间
     svcs = _restart_targets()
     log(f"重启服务: {svcs}")
+    base = _health_baseline()        # 重启前基线：只认其后的新连接证据
     _restart(svcs)
     # 轮询健康（≤90s）
-    healthy = False
+    healthy = False; bad = ""
     for _ in range(45):
         time.sleep(2)
-        ok, bad = _channel_health()
+        ok, bad = _channel_health(base)
         if ok:
             healthy = True; break
     if healthy:
@@ -548,10 +567,11 @@ def update_supervisor():
     # 不健康 → 回滚
     log(f"健康检查未通过（{bad}），回滚到 {old[:7]}")
     _git("reset", "--hard", old)
+    base = _health_baseline()        # 回滚重启前基线
     _restart(svcs)
     for _ in range(45):
         time.sleep(2)
-        if _channel_health()[0]:
+        if _channel_health(base)[0]:
             _notify_owner(f"⚠️ 新版本 {new[:7]} 启动失败，已自动回滚到 {old[:7]}，服务已恢复正常。"
                           f"（详情见服务器 temp/update.log）")
             return 0
@@ -560,6 +580,16 @@ def update_supervisor():
 
 def setup():
     return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
+
+def migrate():
+    sys.path.insert(0, ROOT)
+    import penglai_migrate as pm
+    return pm.run(sys.argv[2:])
+
+def skill():
+    sys.path.insert(0, ROOT)
+    import penglai_skills as ps
+    return ps.run(sys.argv[2:])
 
 def ensure_tui_deps():
     """rich/textual 预检。uv 建的 venv 没有 pip，上游 tuiapp_v2 的
@@ -619,7 +649,8 @@ def abilities():
 def main():
     cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
             "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
-            "logs": logs, "update": update, "setup": setup, "tui": tui,
+            "logs": logs, "update": update, "setup": setup, "migrate": migrate,
+            "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor}

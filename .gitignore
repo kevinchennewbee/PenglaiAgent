@@ -28,6 +28,8 @@ model_responses.txt
 
 # Sensitive files (API keys, credentials)
 mykey.py
+mykey.py.bak*
+penglai-migrate-backup-*/
 
 tasks/
 
@@ -122,6 +124,8 @@ memory/L4_raw_sessions/*
 !memory/penglai_compress_sop.md
 !memory/penglai_genmedia_sop.md
 !memory/penglai_channels_sop.md
+!memory/penglai_weather_sop.md
+!memory/penglai_memsig_sop.md
 
 # Visual Studio
 .vs/

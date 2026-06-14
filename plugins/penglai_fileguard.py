@@ -56,17 +56,19 @@ def _allowed_roots():
 
 
 def _is_outbound_allowed(file_path):
-    """返回 (允许?, 原因)。realpath 解析软链接与 ..，越界即拒。"""
+    """返回 (允许?, 原因, realpath)。realpath 解析软链接与 ..，越界即拒。
+    一并返回解析后的 realpath 供发送时使用——确保「校验的路径 == 发送的路径」，
+    堵住校验与发送之间被软链接 swap 的 TOCTOU 窗口。"""
     try:
         rp = os.path.realpath(str(file_path))
     except Exception:
-        return False, "路径解析失败"
+        return False, "路径解析失败", None
     if not os.path.isfile(rp):
-        return False, "文件不存在"
+        return False, "文件不存在", None
     for root in _allowed_roots():
         if rp == root or rp.startswith(root + os.sep):
-            return True, ""
-    return False, "不在允许的工作目录内（仅可外发 workspace/temp 内文件）"
+            return True, "", rp
+    return False, "不在允许的工作目录内（仅可外发 workspace/temp 内文件）", None
 
 
 _orig_send_local_file = None
@@ -87,7 +89,7 @@ def _find_fsapp_module():
 
 
 def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
-    ok, why = _is_outbound_allowed(file_path)
+    ok, why, rp = _is_outbound_allowed(file_path)
     if not ok:
         audit("send_file", {"path": str(file_path)}, blocked=True, reason=f"外发拦截:{why}")
         try:
@@ -98,7 +100,10 @@ def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
         except Exception:
             pass
         return False
-    return _orig_send_local_file(receive_id, file_path, receive_id_type)
+    # 用 realpath 解析后的路径发送（=校验时确认的同一路径），堵住校验与发送之间
+    # 的软链接 swap（TOCTOU）：合法生成物不是软链、realpath 不变；攻击性软链已在
+    # 校验阶段被解析越界拒绝，此处确保发送的就是校验过的那条路径。
+    return _orig_send_local_file(receive_id, rp, receive_id_type)
 
 
 _PATCHED = False

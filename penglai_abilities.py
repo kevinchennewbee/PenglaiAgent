@@ -254,6 +254,9 @@ def status():
         tail = "" if on else f"   → 开启：{cmd}"
         print(f"  {mark} {label:<16} {state}{tail}")
     print("\n  🧠 长期记忆 — 内核标配，已自动启用（无需开关）")
+    print("  ⏰ 提醒/日程 — 内核标配，已自动启用（说「X点提醒我做Y」即可）")
+    print("  🌤️ 天气查询 — 内核标配，已自动启用（免 key）")
+    print("  🔗 网页/文章总结 — 内核标配，已自动启用（发链接说「帮我总结」即可）")
     print("  🛡️ 红线/记忆卫生/出站文件白名单（飞书渠道）— 出厂常开（确定性防线，不可关）")
     print("\n  加 IM 渠道：penglai enable <dingtalk|qq|telegram|discord|wecom> · 渠道总览：penglai channels")
     return 0
