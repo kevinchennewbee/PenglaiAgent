@@ -7,15 +7,19 @@
 <meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、确定性安全。内核零改动。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+@property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
 :root{
   --bg:#f7f4ec; --bg2:#f1ecdf; --card:#fffdf8; --card2:#fbf8f0;
-  --ink:#26302c; --ink2:#3d4a44; --soft:#6e7a72; --faint:#9aa49c;
-  --jade:#1f8a76; --jade-soft:rgba(31,138,118,.12); --jade-glow:rgba(31,138,118,.22);
-  --gold:#b98a2e; --gold-soft:rgba(185,138,46,.12);
-  --seal:#c44531; --seal-soft:rgba(196,69,49,.1);
-  --line:rgba(38,48,44,.1); --line2:rgba(38,48,44,.06);
+  --ink:#26302c; --ink2:#3d4a44; --ink3:#55615a; --soft:#6e7a72; --faint:#9aa49c;
+  --jade:#1f8a76; --jade-700:#176450; --jade-soft:rgba(31,138,118,.12); --jade-glow:rgba(31,138,118,.22);
+  --gold:#b98a2e; --gold-700:#8d6818; --gold-hi:#d9b15c; --gold-soft:rgba(185,138,46,.12);
+  --seal:#c44531; --seal-700:#9e3422; --seal-soft:rgba(196,69,49,.1);
+  --term:#1b2722;
+  --line:rgba(38,48,44,.1); --line2:rgba(38,48,44,.055); --line3:rgba(38,48,44,.16);
+  --r-sm:8px; --r:12px; --r-lg:16px; --r-xl:22px; --r-pill:999px;
   --shadow:0 2px 6px rgba(38,48,44,.04),0 18px 50px -18px rgba(38,48,44,.14);
   --shadow-lift:0 4px 12px rgba(38,48,44,.06),0 32px 70px -22px rgba(31,138,118,.28);
+  --ease:cubic-bezier(.2,.7,.3,1); --ease-spring:cubic-bezier(.16,1,.3,1);
   --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
   --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
@@ -35,171 +39,309 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);
   background-image:radial-gradient(rgba(38,48,44,.05) 1px,transparent 1px);background-size:42px 42px;
   mask-image:radial-gradient(circle at 50% 24%,#000,transparent 86%)}
 
-.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
 section{position:relative}
+
+/* —— 墨色渐隐分隔(替代硬 color-block) —— */
+.hr-ink{height:1px;border:0;max-width:1120px;margin:0 auto;
+  background:linear-gradient(90deg,transparent,var(--line3) 18%,var(--line3) 82%,transparent)}
+
+/* —— 印章母题:同源呼吸 —— */
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes angspin{to{--ang:360deg}}
+@keyframes wavej{0%,100%{transform:scaleY(.32)}50%{transform:scaleY(1)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes growY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 
 /* —— 导航 —— */
 nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(16px) saturate(1.4);
-  background:rgba(247,244,236,.7);border-bottom:1px solid var(--line2)}
-.navin{max-width:1080px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:11px;font-size:17.5px;letter-spacing:.32em;font-weight:600;color:var(--ink)}
+  background:rgba(247,244,236,.66);border-bottom:1px solid transparent;transition:padding .3s var(--ease),background .3s,border-color .3s}
+nav.scrolled{background:rgba(247,244,236,.86);border-bottom:1px solid var(--line2)}
+.navin{max-width:1120px;margin:0 auto;padding:15px 28px;display:flex;align-items:center;justify-content:space-between;transition:padding .3s var(--ease)}
+nav.scrolled .navin{padding:9px 28px}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav{background:rgba(247,244,236,.93)}nav.scrolled{background:rgba(247,244,236,.97)}}
+.brand{display:flex;align-items:center;gap:12px;font-size:17.5px;letter-spacing:.32em;font-weight:600;color:var(--ink)}
 .brand b{background:var(--seal);color:#fff;font-size:13px;font-weight:700;font-family:var(--serif);
-  padding:3px 6px;border-radius:4px;letter-spacing:0;box-shadow:0 4px 14px rgba(196,69,49,.35)}
-.navlinks{display:flex;align-items:center;gap:6px}
-.navlinks a{color:var(--soft);font-size:13.5px;padding:7px 13px;border-radius:8px;
-  text-decoration:none;transition:.2s;letter-spacing:.03em}
-.navlinks a:hover{color:var(--ink);background:rgba(38,48,44,.05)}
-.lang{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-left:8px;background:var(--card)}
+  padding:3px 7px;border-radius:5px;letter-spacing:0;box-shadow:0 4px 14px rgba(196,69,49,.35);
+  animation:breathe 8s ease-in-out infinite;transition:transform .3s var(--ease-spring)}
+.brand:hover b{transform:rotate(-4deg) scale(1.06)}
+.navlinks{display:flex;align-items:center;gap:4px}
+.navlinks a{color:var(--soft);font-size:13.5px;padding:7px 11px;border-radius:var(--r-sm);
+  text-decoration:none;letter-spacing:.03em;position:relative;transition:color .2s}
+.navlinks a:not(.glink)::after{content:"";position:absolute;left:11px;right:11px;bottom:3px;height:1.5px;
+  background:var(--gold);transform:scaleX(0);transform-origin:left;transition:transform .25s var(--ease)}
+.navlinks a:hover{color:var(--ink)}
+.navlinks a:not(.glink):hover::after{transform:scaleX(1)}
+.lang{display:flex;border:1px solid var(--line);border-radius:var(--r-pill);overflow:hidden;margin-left:10px;background:var(--card)}
 .lang button{cursor:pointer;border:none;background:transparent;color:var(--soft);
   padding:6px 14px;font-size:12.5px;font-family:inherit;transition:.2s}
 .lang button.on{background:var(--seal);color:#fff}
 
-/* —— Hero —— */
-.hero{padding:96px 0 60px;text-align:center}
-.badge{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--jade);
-  border:1px solid rgba(31,138,118,.28);background:rgba(31,138,118,.07);
-  padding:6px 16px;border-radius:99px;letter-spacing:.06em;margin-bottom:28px}
-.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--jade);box-shadow:0 0 8px var(--jade)}
-.hero h1{font-family:var(--serif);font-size:clamp(60px,12vw,124px);line-height:1;
-  letter-spacing:.06em;font-weight:600;
-  background:linear-gradient(160deg,#2c3a34 6%,var(--jade) 48%,var(--gold) 98%);
+/* —— Hero:反居中左文右印双栏 —— */
+.hero{padding:84px 0 56px;position:relative}
+.hero-grid{display:grid;grid-template-columns:1.06fr .94fr;gap:54px;align-items:center}
+.hero-banner-bg{position:absolute;inset:-40px -40px auto;height:120%;z-index:-1;pointer-events:none;
+  background:url(banner.png) center/cover no-repeat;opacity:.05;filter:blur(4px);
+  mask-image:radial-gradient(120% 80% at 70% 30%,#000,transparent 72%)}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:11.5px;color:var(--jade-700);
+  letter-spacing:.18em;text-transform:uppercase;font-weight:600;margin-bottom:22px}
+.eyebrow .sq{width:6px;height:6px;background:var(--seal);transform:rotate(45deg);border-radius:1px}
+.hero h1{font-family:var(--serif);font-size:clamp(58px,9vw,108px);line-height:.98;
+  letter-spacing:.02em;font-weight:600;
+  background:linear-gradient(155deg,#2c3a34 4%,var(--jade) 50%,var(--gold) 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 10px 34px rgba(31,138,118,.18))}
-.hero .latin{font-family:Georgia,serif;letter-spacing:.6em;color:var(--faint);
-  font-size:clamp(13px,2.3vw,19px);margin:18px 0 0 .6em}
-.hero .tag{font-size:clamp(17px,2.6vw,22px);color:var(--ink2);margin-top:34px;font-weight:400}
-.hero .sub{color:var(--soft);font-size:15px;margin-top:14px;max-width:640px;margin-left:auto;margin-right:auto}
-.hero .motto{color:var(--faint);font-size:13.5px;margin-top:16px;letter-spacing:.24em;font-family:var(--serif)}
+  filter:drop-shadow(0 4px 16px rgba(31,138,118,.13))}
+.hero .latin{font-family:Georgia,serif;letter-spacing:.42em;color:var(--faint);
+  font-size:clamp(12px,1.6vw,16px);margin:16px 0 0}
+.hero .tag{font-size:clamp(18px,2.2vw,23px);color:var(--ink2);margin-top:26px;font-weight:400;line-height:1.5;max-width:30ch}
+.hero .motto{color:var(--faint);font-size:13px;margin-top:14px;letter-spacing:.22em;font-family:var(--serif)}
+.metrics{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.metric{display:inline-flex;align-items:baseline;gap:6px;font-size:12.5px;color:var(--ink3);
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 14px}
+.metric b{font-family:var(--mono);font-size:14px;color:var(--jade-700);font-weight:700}
 
-.cmd{margin:38px auto 0;max-width:680px;display:flex;align-items:center;gap:12px;
-  background:#22302b;border:1px solid rgba(255,255,255,.06);border-radius:13px;padding:16px 18px;
-  font-family:var(--mono);font-size:13.5px;text-align:left;box-shadow:var(--shadow)}
+.cmd{margin:30px 0 0;display:flex;align-items:center;gap:12px;
+  background:var(--term);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:14px 16px;
+  font-family:var(--mono);font-size:13px;text-align:left;box-shadow:var(--shadow);max-width:560px}
 .cmd .ps{color:#56c2ad;user-select:none}
-.cmd code{color:#e8ede9;flex:1;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.cmd code{color:#e8ede9;flex:1;overflow:hidden;white-space:nowrap}
+.cmd .cur{display:inline-block;width:7px;height:15px;background:#56c2ad;vertical-align:-2px;margin-left:1px;animation:blink 1s step-end infinite}
+.cmd code.done .cur{display:none}
 .cmd button{cursor:pointer;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#cfd8d2;
-  font-family:var(--sans);font-size:12px;padding:7px 14px;border-radius:8px;transition:.2s;white-space:nowrap}
+  font-family:var(--sans);font-size:12px;padding:7px 13px;border-radius:var(--r-sm);transition:.2s;white-space:nowrap}
 .cmd button:hover{background:var(--jade);border-color:var(--jade);color:#fff}
-.cta{display:flex;gap:14px;justify-content:center;margin-top:28px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border-radius:11px;
-  font-size:14px;text-decoration:none;transition:.22s;letter-spacing:.03em}
+.cta{display:flex;gap:14px;margin-top:24px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border-radius:var(--r);
+  font-size:14px;text-decoration:none;transition:transform .22s var(--ease-spring),box-shadow .22s,border-color .22s,color .22s;letter-spacing:.03em}
 .btn.primary{background:var(--seal);color:#fff;box-shadow:0 10px 26px -8px rgba(196,69,49,.45)}
 .btn.primary:hover{transform:translateY(-2px);box-shadow:0 16px 36px -8px rgba(196,69,49,.5)}
-.btn.ghost{border:1px solid var(--line);color:var(--ink2);background:var(--card)}
+.btn.ghost{border:1px solid var(--line3);color:var(--ink2);background:var(--card)}
 .btn.ghost:hover{border-color:var(--jade);color:var(--jade);transform:translateY(-2px)}
 
-/* —— hero 仙山图 —— */
-.heroart{margin:64px auto 0;max-width:980px;border-radius:20px;overflow:hidden;
-  border:1px solid var(--line);box-shadow:0 8px 24px rgba(38,48,44,.08),0 50px 110px -30px rgba(31,138,118,.3);
-  transition:transform .5s cubic-bezier(.2,.7,.3,1)}
-.heroart:hover{transform:translateY(-6px) scale(1.005)}
-.heroart img{display:block;width:100%;height:auto}
+/* —— hero 右:仙山远景 + 活印章 —— */
+.hero-art{position:relative;justify-self:center;width:100%;max-width:440px;aspect-ratio:1/1.12}
+.hero-art .mount{position:absolute;inset:0;overflow:hidden;
+  clip-path:polygon(7% 0,100% 4%,93% 100%,0 95%);
+  box-shadow:0 10px 30px rgba(38,48,44,.1),0 50px 90px -34px rgba(31,138,118,.36);
+  animation:floaty 9s ease-in-out infinite}
+.hero-art .mount img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;display:block}
+.hero-art .mount::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 60% at 50% 110%,var(--jade-glow),transparent 60%)}
+.hero-art .seal{position:absolute;right:-14px;bottom:26px;width:84px;height:84px;border-radius:18px;
+  background:linear-gradient(145deg,var(--seal),var(--seal-700));color:#fff;font-family:var(--serif);
+  display:flex;align-items:center;justify-content:center;font-size:34px;letter-spacing:2px;
+  box-shadow:0 14px 34px -8px rgba(196,69,49,.55);animation:breathe 11s ease-in-out infinite;writing-mode:vertical-rl}
+.hero-art .ring{position:absolute;left:-22px;top:8px;width:62px;height:62px;border-radius:50%;
+  border:1.5px solid var(--gold);opacity:.5;animation:floaty 7s ease-in-out infinite reverse}
 
 /* —— 区块标题 —— */
-.head{text-align:center;margin-bottom:52px}
-.head .kicker{color:var(--seal);font-size:12.5px;letter-spacing:.32em;font-family:var(--serif)}
-.head h2{font-family:var(--serif);font-size:clamp(28px,5vw,38px);letter-spacing:.14em;margin-top:12px;font-weight:600;color:var(--ink)}
-.head p{color:var(--soft);font-size:14.5px;margin-top:13px}
-section.block{padding:84px 0}
-section.alt{background:linear-gradient(var(--bg2),var(--bg))}
+.block{padding:80px 0}
+.head{text-align:center;margin-bottom:48px}
+.head .kicker{color:var(--gold-700);font-size:12px;letter-spacing:.3em;font-family:var(--serif);text-transform:uppercase}
+.head h2{font-family:var(--serif);font-size:clamp(28px,4.4vw,38px);letter-spacing:.1em;margin-top:12px;font-weight:600;color:var(--ink)}
+.head .dia{display:block;width:5px;height:5px;background:var(--gold);transform:rotate(45deg);margin:14px auto 0;opacity:.7}
+.head p{color:var(--soft);font-size:14.5px;margin-top:15px}
+.alt{background:linear-gradient(var(--bg2),var(--bg))}
 
-/* —— 卡片:鼠标跟随光斑 + 抬升(mimo 式) —— */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px}
-.card{--mx:50%;--my:50%;
-  background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 28px;
-  position:relative;overflow:hidden;box-shadow:var(--shadow);
-  transition:transform .35s cubic-bezier(.2,.7,.3,1),box-shadow .35s,border-color .35s}
-.card::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;
-  background:radial-gradient(420px circle at var(--mx) var(--my),var(--jade-glow),transparent 62%)}
-.card::after{content:"";position:absolute;inset:0;border-radius:18px;padding:1.2px;opacity:0;transition:opacity .35s;pointer-events:none;
-  background:radial-gradient(360px circle at var(--mx) var(--my),var(--jade),rgba(185,138,46,.5) 48%,transparent 75%);
+/* —— bento 瓦山 —— */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(150px,auto);gap:16px;grid-auto-flow:row dense}
+.tile{--mx:50%;--my:50%;position:relative;overflow:hidden;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:26px 26px;
+  box-shadow:var(--shadow);transition:transform .35s var(--ease),box-shadow .35s,border-color .35s;display:flex;flex-direction:column}
+.tile.big{grid-column:span 2;grid-row:span 2}
+.tile.wide{grid-column:span 2}
+.tile::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(420px circle at var(--mx) var(--my),var(--jade-glow),transparent 60%)}
+.tile::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.2px;pointer-events:none;opacity:0;transition:opacity .35s;
+  background:conic-gradient(from var(--ang,120deg),transparent 0 60%,var(--gold-hi) 76%,var(--jade) 90%,transparent 100%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude}
-.card:hover{transform:translateY(-7px);box-shadow:var(--shadow-lift);border-color:transparent}
-.card:hover::before,.card:hover::after{opacity:1}
-.card .ico{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;justify-content:center;
-  font-size:24px;margin-bottom:18px;background:linear-gradient(140deg,var(--jade-soft),var(--gold-soft));
-  border:1px solid var(--line2);transition:transform .35s}
-.card:hover .ico{transform:scale(1.08) rotate(-4deg)}
-.card h3{font-size:17px;letter-spacing:.03em;margin-bottom:9px;color:var(--ink);position:relative}
-.card p{color:var(--soft);font-size:13.7px;line-height:1.75;position:relative}
-.card .opt{display:inline-block;font-size:11px;color:var(--gold);border:1px solid rgba(185,138,46,.35);
-  padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:middle}
+  -webkit-mask-composite:xor;mask-composite:exclude;animation:angspin 7s linear infinite}
+.tile:nth-child(2)::after{animation-delay:-1.4s}
+.tile:nth-child(3)::after{animation-delay:-2.8s}
+.tile:nth-child(4)::after{animation-delay:-4.2s}
+.tile:nth-child(5)::after{animation-delay:-5.6s}
+.tile:nth-child(6)::after{animation-delay:-3.5s}
+.tile:nth-child(7)::after{animation-delay:-2.1s}
+.tile:hover{transform:translateY(-6px);box-shadow:var(--shadow-lift);border-color:transparent}
+.tile:hover::before{opacity:1}
+.tile:hover::after{opacity:1}
+.tile .ico{width:46px;height:46px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;
+  margin-bottom:16px;color:var(--jade);background:linear-gradient(140deg,rgba(31,138,118,.1),rgba(185,138,46,.12));
+  border:1px solid var(--line2);transition:transform .35s var(--ease)}
+.tile .ico svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tile:hover .ico{transform:translateY(-2px) scale(1.06);color:var(--gold)}
+.tile h3{font-size:16.5px;letter-spacing:.02em;margin-bottom:9px;color:var(--ink);position:relative}
+.tile p{color:var(--soft);font-size:13.6px;line-height:1.74;position:relative;flex:1}
+.tile .opt{display:inline-block;font-size:11px;color:var(--gold);border:1px solid rgba(185,138,46,.4);
+  padding:2px 8px;border-radius:var(--r-pill);margin-left:8px;vertical-align:middle}
+.tile code{font-family:var(--mono);font-size:12px;background:var(--bg2);padding:1px 6px;border-radius:5px;color:var(--ink2)}
+.tile.featured::before{opacity:.5}
+.tile.featured::after{opacity:.22}
+.tile.featured{border-color:rgba(196,69,49,.16)}
+
+/* —— 情绪微演示(听情绪大瓦内) —— */
+.demo{margin-top:18px;position:relative;border:1px solid var(--line2);border-radius:var(--r);
+  background:linear-gradient(160deg,var(--card2),var(--bg2));padding:16px 16px 14px;overflow:hidden}
+.demo-tag{position:absolute;top:8px;right:10px;font-size:10px;letter-spacing:.06em;color:var(--ink3);
+  border:1px solid var(--line2);border-radius:var(--r-pill);padding:1px 8px;background:var(--card)}
+.vmsg{display:inline-flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px 14px 14px 4px;padding:9px 14px;box-shadow:0 2px 8px rgba(38,48,44,.05)}
+.wave{display:flex;align-items:center;gap:2.5px;height:20px}
+.wave i{width:2.5px;height:100%;background:var(--jade);border-radius:2px;transform-origin:center;animation:wavej 1.1s ease-in-out infinite}
+.vmsg .dur{font-family:var(--mono);font-size:11px;color:var(--soft)}
+.trans{margin-top:12px;font-size:13.5px;color:var(--ink2);font-family:var(--serif);line-height:1.5}
+.seal-emote{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:11.5px;color:#fff;
+  background:linear-gradient(145deg,var(--seal),var(--seal-700));padding:4px 12px;border-radius:6px;letter-spacing:.04em;
+  font-family:var(--serif);box-shadow:0 5px 14px -4px rgba(196,69,49,.5)}
 
 /* —— 渠道矩阵 —— */
-.matrix{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+.matrix{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--card);box-shadow:var(--shadow);max-width:920px;margin:0 auto}
 .mrow{display:grid;grid-template-columns:1.4fr 2.3fr 1.3fr 1fr;gap:14px;padding:15px 24px;
-  align-items:center;border-bottom:1px solid var(--line2);font-size:13.7px;transition:background .2s}
+  align-items:center;border-bottom:1px solid var(--line2);font-size:13.7px;transition:background .2s;position:relative}
+.mrow:not(.h)::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--jade);
+  border-radius:2px;transform:scaleY(0);transform-origin:center;transition:transform .25s var(--ease)}
 .mrow:not(.h):hover{background:var(--jade-soft)}
+.mrow:not(.h):hover::before{transform:scaleY(1)}
+.mrow.pend:not(.h):hover::before{background:var(--gold)}
 .mrow:last-child{border-bottom:none}
-.mrow.h{color:var(--faint);font-size:12px;letter-spacing:.12em;background:var(--card2)}
+.mrow.h{color:var(--faint);font-size:11.5px;letter-spacing:.14em;background:var(--card2);font-family:var(--serif)}
 .mrow .ch{font-weight:600;color:var(--ink)}
 .mrow .how{color:var(--soft);font-size:13px}
 .mrow code{font-family:var(--mono);font-size:12px;background:var(--bg2);padding:2px 7px;border-radius:5px;color:var(--ink2)}
-.tag{display:inline-block;font-size:11.5px;padding:3px 10px;border-radius:99px;letter-spacing:.02em}
-.tag.ok{color:var(--jade);background:var(--jade-soft)}
-.tag.wrap{color:var(--gold);background:var(--gold-soft)}
-.tag.no{color:var(--faint)}
-.tag.live{color:#fff;background:var(--jade)}
-.tag.test{color:var(--gold);border:1px solid rgba(185,138,46,.4)}
-.matrix-note{color:var(--faint);font-size:12.5px;margin-top:16px;text-align:center;line-height:1.8}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 10px;border-radius:var(--r-pill);letter-spacing:.02em}
+.tg.ok{color:var(--jade-700);background:var(--jade-soft)}
+.tg.wrap{color:var(--gold-700);background:var(--gold-soft)}
+.tg.no{color:var(--faint)}
+.tg.live{color:var(--jade-700);background:var(--jade-soft);font-weight:600}
+.tg.live .pt{width:6px;height:6px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 0 var(--jade-glow);animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,138,118,.4)}100%{box-shadow:0 0 0 7px rgba(31,138,118,0)}}
+.tg.test{color:var(--gold-700);border:1px solid rgba(185,138,46,.4)}
+.matrix-note{color:var(--ink3);font-size:12.5px;margin:18px auto 0;text-align:center;line-height:1.8;max-width:880px}
 
 /* —— 安装 —— */
-.tabs{display:flex;gap:10px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
-.tabs button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--soft);
-  padding:9px 22px;border-radius:10px;font-family:inherit;font-size:13.5px;transition:.2s;letter-spacing:.04em}
-.tabs button:hover{border-color:var(--jade);color:var(--jade)}
-.tabs button.on{border-color:var(--seal);color:#fff;background:var(--seal);box-shadow:0 6px 18px -6px rgba(196,69,49,.45)}
-.code{background:#22302b;border-radius:14px;padding:24px 26px;color:#e8ede9;
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;position:relative;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill);padding:5px;width:fit-content;margin-left:auto;margin-right:auto}
+.tabs button{cursor:pointer;border:none;background:transparent;color:var(--soft);
+  padding:8px 20px;border-radius:var(--r-pill);font-family:inherit;font-size:13.5px;transition:color .25s;letter-spacing:.04em;position:relative;z-index:1}
+.tabs button.on{color:#fff}
+.tabs .ind{position:absolute;top:5px;bottom:5px;border-radius:var(--r-pill);background:var(--seal);z-index:0;
+  box-shadow:0 6px 16px -6px rgba(196,69,49,.5);transition:left .3s var(--ease),width .3s var(--ease)}
+.code{background:var(--term);border-radius:var(--r-lg);padding:20px 24px 22px;color:#e8ede9;
   font-family:var(--mono);font-size:13.3px;line-height:1.95;overflow-x:auto;max-width:780px;margin:0 auto;
-  position:relative;box-shadow:var(--shadow)}
+  position:relative;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.05);
+  white-space:pre-wrap;word-break:break-word}
+.code .lights{display:flex;gap:7px;margin-bottom:14px}
+.code .lights i{width:11px;height:11px;border-radius:50%}
+.code .lights i:nth-child(1){background:var(--seal)}
+.code .lights i:nth-child(2){background:var(--gold)}
+.code .lights i:nth-child(3){background:var(--jade)}
 .code .c{color:#7d8a82}
 .code .g{color:#56c2ad}
-.code .copy{position:absolute;top:14px;right:14px;cursor:pointer;border:1px solid rgba(255,255,255,.15);
+.code .copy{position:absolute;top:16px;right:14px;cursor:pointer;border:1px solid rgba(255,255,255,.15);
   background:rgba(255,255,255,.06);color:#cfd8d2;font-family:var(--sans);font-size:11.5px;
-  padding:5px 12px;border-radius:7px;transition:.2s}
+  padding:5px 12px;border-radius:var(--r-sm);transition:.2s}
 .code .copy:hover{background:var(--jade);border-color:var(--jade);color:#fff}
 .pane{display:none}.pane.on{display:block}
+
+/* —— 装裱画心(截图) —— */
+.frame{margin:52px auto 0;max-width:840px;position:relative;border-radius:var(--r-lg);overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 8px 24px rgba(38,48,44,.08),0 50px 100px -32px rgba(31,138,118,.28);
+  transition:transform .5s var(--ease)}
+.frame::before,.frame::after{content:"";position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.6;z-index:2}
+.frame::before{top:0}.frame::after{bottom:0}
+.frame:hover{transform:translateY(-6px)}
+.frame img{display:block;width:100%;height:auto}
 
 /* —— 更新日志 —— */
 .timeline{max-width:760px;margin:0 auto;position:relative;padding-left:30px}
 .timeline::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;
-  background:linear-gradient(var(--seal),var(--jade) 50%,transparent)}
-.tl{position:relative;padding:0 0 32px 26px}
+  background:linear-gradient(var(--seal),var(--jade) 50%,transparent);transform-origin:top}
+.tl{position:relative;padding:0 0 30px 26px}
 .tl::before{content:"";position:absolute;left:-30px;top:5px;width:12px;height:12px;border-radius:50%;
   background:var(--bg);border:2.5px solid var(--seal);box-shadow:0 0 0 4px var(--seal-soft)}
-.tl.t::before{border-color:var(--jade);box-shadow:0 0 0 4px var(--jade-soft)}
-.tl .ver{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tl.t::before{border-color:var(--jade);box-shadow:0 0 0 4px var(--jade-soft);animation:pulse 2.2s ease-out infinite}
+.tl .ver{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
 .tl .v{font-family:var(--mono);font-size:15px;color:var(--ink);font-weight:700}
+.tl .hash{font-family:var(--mono);font-size:11px;color:var(--gold-700);background:var(--gold-soft);padding:1px 6px;border-radius:5px}
 .tl .d{font-size:12px;color:var(--faint);font-family:var(--mono)}
-.tl .ttl{font-size:14.5px;color:var(--jade);margin-top:5px;font-weight:600;letter-spacing:.02em}
+.tl .ttl{font-size:14.5px;color:var(--jade-700);margin-top:5px;font-weight:600;letter-spacing:.02em}
 .tl ul{margin:8px 0 0;padding-left:16px}
 .tl li{color:var(--soft);font-size:13.3px;line-height:1.78;margin-bottom:3px}
+.pledge{max-width:760px;margin:0 auto 36px;padding:16px 22px;border:1px solid var(--line2);border-radius:var(--r);
+  background:var(--bg);font-size:13.8px;line-height:1.9;color:var(--soft);text-align:left;position:relative;border-left:3px solid var(--gold)}
+.pledge .q{color:var(--gold);font-family:var(--mono);margin-right:6px}
 
-/* —— 缘起 —— */
+/* —— 缘起:石刻题字,慢 —— */
 .story{max-width:680px;margin:0 auto;text-align:center}
-.story p{color:var(--soft);font-size:15px;line-height:2.05;margin-bottom:18px}
-.story .em{color:var(--ink2);font-family:var(--serif);font-size:17.5px;letter-spacing:.05em}
+.story .carve{font-family:var(--serif);font-size:clamp(30px,5.5vw,52px);letter-spacing:.34em;
+  color:var(--gold);opacity:.92;line-height:1.3;margin-bottom:30px;font-weight:600;
+  text-indent:.34em;filter:drop-shadow(0 4px 18px rgba(185,138,46,.18))}
+.story p{color:var(--ink3);font-size:15px;line-height:2.1;margin-bottom:20px}
+.story-aura{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(40vw 30vw at 50% 40%,var(--jade-soft),transparent 70%)}
 
-/* —— Footer(浅色,不再黑) —— */
-footer{background:var(--bg2);border-top:1px solid var(--line2);padding:52px 0;text-align:center;margin-top:30px}
-footer .links{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+/* —— Follow —— */
+.qr-frame{display:inline-block;position:relative;padding:14px;border-radius:var(--r-lg);background:var(--card);
+  border:1px solid var(--line);box-shadow:0 12px 34px rgba(31,138,118,.14);animation:floaty 8s ease-in-out infinite}
+.qr-frame::after{content:"";position:absolute;inset:0;border-radius:var(--r-lg);padding:1.2px;pointer-events:none;
+  background:conic-gradient(from var(--ang,120deg),transparent 0 64%,var(--gold-hi) 80%,var(--jade) 92%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;animation:angspin 9s linear infinite;opacity:.5}
+.qr-frame img{display:block;max-width:380px;width:100%;border-radius:var(--r)}
+
+/* —— Footer —— */
+footer{background:var(--bg2);border-top:1px solid var(--line2);padding:54px 0 46px;text-align:center;margin-top:30px}
+.seal-stamp{display:inline-block;background:linear-gradient(145deg,var(--seal),var(--seal-700));color:#fff;font-family:var(--serif);
+  font-size:18px;padding:8px 11px;border-radius:6px;letter-spacing:.12em;margin-bottom:16px;writing-mode:vertical-rl;
+  box-shadow:0 8px 22px -4px rgba(196,69,49,.45);transition:transform .3s var(--ease-spring)}
+.seal-stamp:hover{transform:rotate(-4deg) scale(1.05)}
+footer .closer{font-family:var(--serif);font-size:16px;color:var(--ink2);letter-spacing:.18em;margin-bottom:24px}
+footer .links{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
 footer a{color:var(--soft);font-size:13.5px;text-decoration:none;transition:.2s}
 footer a:hover{color:var(--seal)}
-footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9}
-.seal-stamp{display:inline-block;background:var(--seal);color:#fff;font-family:var(--serif);
-  font-size:14px;padding:6px 9px;border-radius:4px;letter-spacing:.12em;margin-bottom:18px;
-  box-shadow:0 6px 18px -4px rgba(196,69,49,.4)}
+footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9;max-width:680px;margin:0 auto}
+footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);opacity:.7;margin-top:14px}
 
-/* —— 滚动渐入 —— */
-.reveal{opacity:0;transform:translateY(24px);transition:.7s cubic-bezier(.2,.7,.3,1)}
+/* —— 滚动渐入 + stagger —— */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s var(--ease),transform .7s var(--ease);
+  transition-delay:calc(min(var(--i,0)*70ms,500ms))}
 .reveal.in{opacity:1;transform:none}
 
-@media(max-width:680px){
-  .navlinks a.hideS{display:none}
-  .mrow{grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px}
+@media(max-width:880px){
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .hero{padding:60px 0 40px;text-align:center}
+  .hero .tag{max-width:none;margin-left:auto;margin-right:auto}
+  .eyebrow,.metrics,.cta{justify-content:center}
+  .cmd{margin-left:auto;margin-right:auto;flex-wrap:wrap}
+  .cmd code{white-space:normal;word-break:break-all;flex:1 1 100%}
+  .hero-art{order:-1;max-width:340px}
+  .bento{grid-template-columns:1fr 1fr}
+  .tile.big{grid-column:span 2;grid-row:auto}
+  .tile.wide{grid-column:span 2}
+}
+@media(max-width:600px){
+  .hideS{display:none}
+  .brand{font-size:15.5px;letter-spacing:.12em;gap:9px;white-space:nowrap}
+  .brand .bl{display:none}
+  .navin{padding:11px 18px}
+  .navlinks{gap:2px}
+  .navlinks a{padding:6px 9px;font-size:12.5px}
+  .bento{grid-template-columns:1fr}
+  .tile.big,.tile.wide{grid-column:auto;grid-row:auto}
+  .mrow{grid-template-columns:1.4fr auto auto;gap:8px;font-size:12.5px}
   .mrow .how,.mrow.h .how{display:none}
-  .hero{padding:64px 0 44px}
-  .cmd{flex-wrap:wrap}.cmd code{white-space:normal;word-break:break-all}
+  .hero-art{max-width:280px}
+  .hero-art .seal{right:-6px;bottom:14px;width:64px;height:64px;font-size:26px}
+  .hero-art .ring{left:-8px;width:46px;height:46px}
+  .cmd code{white-space:normal;word-break:break-all}
+  .story .carve{letter-spacing:.14em;text-indent:0}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition-duration:.001ms!important}
+  .reveal{opacity:1;transform:none;filter:none}
+  .cmd code .cur{display:none}
 }
 </style>
 </head>
@@ -207,14 +349,25 @@ footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9}
 <div class="aura"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
 <div class="grain"></div>
 
-<nav><div class="navin">
-  <div class="brand"><b>蓬</b><span>蓬莱 Penglai</span></div>
+<!-- 内联 SVG 图标精灵(零依赖,线性水墨) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ic-ear" viewBox="0 0 24 24"><path d="M3 12h0M6.2 9v6M9.4 5.5v13M12.6 8v8M15.8 4v16M19 9v6M21.8 11v2"/></symbol>
+  <symbol id="ic-chat" viewBox="0 0 24 24"><path d="M3.5 6.5A2.5 2.5 0 0 1 6 4h8.5A2.5 2.5 0 0 1 17 6.5v4A2.5 2.5 0 0 1 14.5 13H9l-3.5 3v-3H6a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M19.5 9.5A2 2 0 0 1 21 11.4v3.1a2 2 0 0 1-2 2h-.4v2.5l-2.6-2.5"/></symbol>
+  <symbol id="ic-memory" viewBox="0 0 24 24"><path d="M12 3 3 7.2l9 4.2 9-4.2zM3 12l9 4.2 9-4.2M3 16.8 12 21l9-4.2"/></symbol>
+  <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3.2l7.2 3v5.1c0 4.6-3.1 7.7-7.2 9.3-4.1-1.6-7.2-4.7-7.2-9.3V6.2z"/><path d="M8.7 12.2l2.3 2.2 4.3-4.4"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.4"/><path d="M20.5 20.5l-5.2-5.2"/></symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.4 8.4 0 1 1 10.2 3.7a6.6 6.6 0 0 0 10.3 10.5z"/></symbol>
+  <symbol id="ic-sliders" viewBox="0 0 24 24"><path d="M4 7.5h9M17.5 7.5H20M4 16.5h2.5M11 16.5h9"/><circle cx="15" cy="7.5" r="2.3"/><circle cx="8.5" cy="16.5" r="2.3"/></symbol>
+</svg>
+
+<nav id="nav"><div class="navin">
+  <div class="brand"><b>蓬</b><span>蓬莱<span class="bl"> Penglai</span></span></div>
   <div class="navlinks">
     <a href="#features" class="hideS" data-zh="能力" data-en="Features">能力</a>
     <a href="#channels" class="hideS" data-zh="渠道" data-en="Channels">渠道</a>
     <a href="#install" data-zh="安装" data-en="Install">安装</a>
     <a href="#changelog" data-zh="更新" data-en="Changelog">更新</a>
-    <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
+    <a href="https://github.com/kevinchennewbee/PenglaiAgent" class="glink" target="_blank">GitHub</a>
     <div class="lang">
       <button class="on" onclick="setLang('zh')">中</button>
       <button onclick="setLang('en')">EN</button>
@@ -222,143 +375,199 @@ footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9}
   </div>
 </div></nav>
 
-<header class="hero wrap">
-  <div class="badge reveal"><span class="dot"></span>
-    <span data-zh="基于 GenericAgent · 内核零改动 · MIT 开源" data-en="Built on GenericAgent · zero kernel diff · MIT">基于 GenericAgent · 内核零改动 · MIT 开源</span>
+<header class="hero"><div class="wrap">
+  <div class="hero-banner-bg"></div>
+  <div class="hero-grid">
+    <div class="hero-id">
+      <div class="eyebrow reveal" style="--i:0"><span class="sq"></span>
+        <span data-zh="基于 GenericAgent · 内核零改动 · MIT" data-en="Built on GenericAgent · zero kernel diff · MIT">基于 GenericAgent · 内核零改动 · MIT</span>
+      </div>
+      <h1 class="reveal" style="--i:1">蓬莱</h1>
+      <div class="latin reveal" style="--i:2">P E N G L A I</div>
+      <p class="tag reveal" style="--i:3" data-zh="住在你飞书和微信里的中文 AI 管家。" data-en="A Chinese AI butler that lives in your Feishu &amp; WeChat.">住在你飞书和微信里的中文 AI 管家。</p>
+      <p class="motto reveal" style="--i:4">八仙过海 · 各显神通</p>
+      <div class="metrics reveal" style="--i:5">
+        <span class="metric"><b>¥5</b><span data-zh="服务器/月" data-en="server/mo">服务器/月</span></span>
+        <span class="metric"><b>1</b><span data-zh="个大模型 Key" data-en="LLM key">个大模型 Key</span></span>
+        <span class="metric"><b>10</b><span data-zh="分钟向导" data-en="min wizard">分钟向导</span></span>
+      </div>
+      <div class="cmd reveal" style="--i:6">
+        <span class="ps">$</span>
+        <code id="hcmd" data-full="curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh"><span class="cur"></span></code>
+        <button onclick="copyText(document.getElementById('hcmd').getAttribute('data-full'),this)" data-zh="复制" data-en="Copy">复制</button>
+      </div>
+      <div class="cta reveal" style="--i:7">
+        <a class="btn primary" href="#install" data-zh="开始上岛 →" data-en="Get started →">开始上岛 →</a>
+        <a class="btn ghost" href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">★ GitHub</a>
+      </div>
+    </div>
+    <div class="hero-art reveal" style="--i:8">
+      <div class="mount"><img src="banner.png" alt="蓬莱智能体 PenglaiAgent — 海上仙山"></div>
+      <span class="ring"></span>
+      <span class="seal">蓬萊</span>
+    </div>
   </div>
-  <h1 class="reveal">蓬莱</h1>
-  <div class="latin reveal">P E N G L A I</div>
-  <p class="tag reveal" data-zh="住在你飞书和微信里的中文 AI 管家" data-en="A Chinese AI butler that lives in your Feishu & WeChat">住在你飞书和微信里的中文 AI 管家</p>
-  <p class="sub reveal" data-zh="听得出你语音里的情绪，记得住你说过的话，干得了查资料、写代码、跑任务的活。五块钱的服务器 + 一个大模型 Key + 十分钟向导，就能上岛。" data-en="It hears the emotion in your voice, remembers what you said, and gets real work done. A $5 server, one LLM key, a ten-minute wizard — that's the whole trip to the island.">听得出你语音里的情绪，记得住你说过的话，干得了查资料、写代码、跑任务的活。五块钱的服务器 + 一个大模型 Key + 十分钟向导，就能上岛。</p>
-  <p class="motto reveal">八仙过海 · 各显神通</p>
-
-  <div class="cmd reveal">
-    <span class="ps">$</span>
-    <code id="hcmd">curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh</code>
-    <button onclick="copyText(document.getElementById('hcmd').textContent,this)" data-zh="复制" data-en="Copy">复制</button>
-  </div>
-  <div class="cta reveal">
-    <a class="btn primary" href="#install" data-zh="开始上岛 →" data-en="Get started →">开始上岛 →</a>
-    <a class="btn ghost" href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">★ GitHub</a>
-  </div>
-
-  <div class="heroart reveal"><img src="banner.png" alt="蓬莱智能体 PenglaiAgent — 海上仙山"></div>
-</header>
+</div></header>
 
 <section class="block" id="features"><div class="wrap">
   <div class="head reveal">
     <div class="kicker" data-zh="各显神通" data-en="WHAT IT DOES">各显神通</div>
     <h2 data-zh="它能做什么" data-en="Capabilities">它能做什么</h2>
+    <span class="dia"></span>
     <p data-zh="每一条都在真实服务器上每天跑着，不是路线图" data-en="Every line runs daily on a real server — not a roadmap">每一条都在真实服务器上每天跑着，不是路线图</p>
   </div>
-  <div class="grid">
-    <div class="card reveal"><span class="ico">🎙️</span><h3 data-zh="听得出情绪的耳朵" data-en="Ears that hear emotion">听得出情绪的耳朵</h3>
-      <p data-zh="本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。" data-en="SenseVoice on local CPU (~230MB): transcription + 7 emotions + acoustic events. Out of the box on Feishu/WeChat; DingTalk/QQ/WeCom wrapped by the distro layer.">本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。</p></div>
-    <div class="card reveal"><span class="ico">💬</span><h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
-      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p></div>
-    <div class="card reveal"><span class="ico">🧠</span><h3 data-zh="四层记忆" data-en="Four-tier memory">四层记忆</h3>
-      <p data-zh="索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。" data-en="Index / facts / skills / raw sessions as auditable markdown; every write threat-scanned (injection / role hijack / secret leak), overwrites forbidden.">索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（注入/角色劫持/密钥落库），禁止覆盖。</p></div>
-    <div class="card reveal"><span class="ico">🛡️</span><h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
-      <p data-zh="危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。" data-en="Red-line blocking of dangerous ops + full audit trail + outbound-file allowlist. Safety by deterministic checks, not LLM goodwill.">危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。</p></div>
-    <div class="card reveal"><span class="ico">🔎</span><h3 data-zh="网页搜索开箱即用" data-en="Web search out of the box">网页搜索开箱即用</h3>
-      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 penglai enable intel 叠加独立搜索源。" data-en="Built-in free Bing fallback — query weather/news/facts even on a headless cloud server, no browser needed. Want multi-source cross-validation? penglai enable intel layers on independent search sources.">内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 penglai enable intel 叠加独立搜索源。</p></div>
-    <div class="card reveal"><span class="ico">🌙</span><h3 data-zh="真主动，不扰民<span class='opt'>opt-in</span>" data-en="Proactive, not spammy<span class='opt'>opt-in</span>">真主动，不扰民<span class="opt">opt-in</span></h3>
-      <p data-zh="心跳 + 硬编码门禁的真主动：恶劣天气预警、从语音里听出的情绪主动关心、早晚问候、久未联系才招呼。投递到飞书和微信。勿扰时段、绝不插话。" data-en="Heartbeat + hard gates, with real triggers: severe-weather alerts, picking up on the emotion in your voice, morning/evening check-ins, reaching out only after long silence. Delivered to Feishu & WeChat.">心跳 + 硬编码门禁的真主动：恶劣天气预警、从语音里听出的情绪主动关心、早晚问候、久未联系才招呼。投递到飞书和微信。勿扰时段、绝不插话。</p></div>
-    <div class="card reveal"><span class="ico">🎛️</span><h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
-      <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>，<code>penglai abilities</code> 看全貌——不必重跑向导。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice｜companion｜intel</code>, <code>penglai abilities</code> for the full picture — no rerun needed.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>，<code>penglai abilities</code> 看全貌——不必重跑向导。</p></div>
+  <div class="bento">
+    <div class="tile big featured reveal" style="--i:0">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-ear"/></svg></span>
+      <h3 data-zh="听得出情绪的耳朵" data-en="Ears that hear emotion">听得出情绪的耳朵</h3>
+      <p data-zh="本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。" data-en="SenseVoice on local CPU (~230MB): transcription + 7 emotions + acoustic events. Out of the box on Feishu/WeChat; DingTalk/QQ/WeCom wrapped by the distro layer.">本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。</p>
+      <div class="demo">
+        <div class="demo-tag" data-zh="演示示意" data-en="illustrative">演示示意</div>
+        <div class="vmsg"><span class="wave" id="wave"></span><span class="dur">0:07</span></div>
+        <div class="trans" data-zh="“今天被客户怼了一整天…”" data-en="“Got chewed out by a client all day…”">“今天被客户怼了一整天…”</div>
+        <div><span class="seal-emote" data-zh="听出 · 疲惫" data-en="sensed · weary">听出 · 疲惫</span></div>
+      </div>
+    </div>
+    <div class="tile wide reveal" style="--i:1">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-chat"/></svg></span>
+      <h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
+      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
+    </div>
+    <div class="tile reveal" style="--i:2">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-memory"/></svg></span>
+      <h3 data-zh="四层记忆" data-en="Four-tier memory">四层记忆</h3>
+      <p data-zh="索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。" data-en="Index / facts / skills / raw sessions as auditable markdown; every write threat-scanned, overwrites forbidden.">索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。</p>
+    </div>
+    <div class="tile reveal" style="--i:3">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-shield"/></svg></span>
+      <h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
+      <p data-zh="危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。" data-en="Red-line blocking + full audit trail + outbound-file allowlist. Safety by deterministic checks, not LLM goodwill.">危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。</p>
+    </div>
+    <div class="tile wide reveal" style="--i:4">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-search"/></svg></span>
+      <h3 data-zh="网页搜索开箱即用" data-en="Web search out of the box">网页搜索开箱即用</h3>
+      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 <code>penglai enable intel</code> 叠加独立搜索源。" data-en="Built-in free Bing fallback — query weather/news/facts even on a headless cloud server, no browser needed. Want multi-source cross-validation? <code>penglai enable intel</code> layers on independent search sources.">内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 <code>penglai enable intel</code> 叠加独立搜索源。</p>
+    </div>
+    <div class="tile reveal" style="--i:5">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-moon"/></svg></span>
+      <h3 data-zh="真主动，不扰民<span class='opt'>opt-in</span>" data-en="Proactive, not spammy<span class='opt'>opt-in</span>">真主动，不扰民<span class="opt">opt-in</span></h3>
+      <p data-zh="心跳 + 硬编码门禁：恶劣天气预警、从语音里听出的情绪关心、早晚问候、久未联系才招呼。勿扰时段、绝不插话。" data-en="Heartbeat + hard gates: severe-weather alerts, voice-emotion check-ins, morning/evening greetings, reaching out only after long silence. Quiet hours respected.">心跳 + 硬编码门禁：恶劣天气预警、从语音里听出的情绪关心、早晚问候、久未联系才招呼。勿扰时段、绝不插话。</p>
+    </div>
+    <div class="tile reveal" style="--i:6">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-sliders"/></svg></span>
+      <h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
+      <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice｜companion｜intel</code>.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。</p>
+    </div>
   </div>
 </div></section>
+
+<hr class="hr-ink">
 
 <section class="block alt" id="channels"><div class="wrap">
   <div class="head reveal">
     <div class="kicker" data-zh="一个管家，多个门" data-en="ONE BUTLER, MANY DOORS">一个管家，多个门</div>
     <h2 data-zh="渠道矩阵" data-en="Channel matrix">渠道矩阵</h2>
-    <p data-zh="GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 penglai enable" data-en="The GA kernel ships 7 IM frontends; Penglai wraps them behind penglai enable">GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code></p>
+    <span class="dia"></span>
+    <p data-zh="GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code>" data-en="The GA kernel ships 7 IM frontends; Penglai wraps them behind <code>penglai enable</code>">GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code></p>
   </div>
   <div class="matrix reveal">
     <div class="mrow h"><span data-zh="渠道" data-en="Channel">渠道</span><span class="how" data-zh="接入" data-en="Connect">接入</span><span data-zh="语音" data-en="Voice">语音</span><span data-zh="状态" data-en="Status">状态</span></div>
-    <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="向导扫码自动建应用" data-en="wizard, scan-to-create">向导扫码自动建应用</span><span class="tag ok" data-zh="✓ 转写+情绪" data-en="✓ ASR+emotion">✓ 转写+情绪</span><span class="tag live" data-zh="✓ 实测" data-en="✓ verified">✓ 实测</span></div>
-    <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号）" data-en="wizard, QR login">向导扫码登录（个人号）</span><span class="tag ok">✓ silk</span><span class="tag live" data-zh="✓ 实测" data-en="✓ verified">✓ 实测</span></div>
-    <div class="mrow"><span class="ch">终端 TUI</span><span class="how" data-zh="裸跑 penglai 即聊" data-en="just run penglai">裸跑 <code>penglai</code> 即聊</span><span class="tag no">—</span><span class="tag live" data-zh="✓ 内核" data-en="✓ kernel">✓ 内核</span></div>
-    <div class="mrow"><span class="ch">钉钉 DingTalk</span><span class="how"><code>penglai enable dingtalk</code></span><span class="tag wrap" data-zh="🔧 自带ASR" data-en="🔧 native ASR">🔧 自带ASR</span><span class="tag test" data-zh="待实测" data-en="pending">待实测</span></div>
-    <div class="mrow"><span class="ch">QQ</span><span class="how"><code>penglai enable qq</code></span><span class="tag wrap" data-zh="🔧 wav+情绪" data-en="🔧 wav+emotion">🔧 wav+情绪</span><span class="tag test" data-zh="待实测" data-en="pending">待实测</span></div>
-    <div class="mrow"><span class="ch">企业微信 WeCom</span><span class="how"><code>penglai enable wecom</code></span><span class="tag wrap" data-zh="🔧 自带ASR" data-en="🔧 native ASR">🔧 自带ASR</span><span class="tag test" data-zh="待实测" data-en="pending">待实测</span></div>
-    <div class="mrow"><span class="ch">Telegram</span><span class="how"><code>penglai enable telegram</code></span><span class="tag no">—</span><span class="tag test" data-zh="待实测" data-en="pending">待实测</span></div>
-    <div class="mrow"><span class="ch">Discord</span><span class="how"><code>penglai enable discord</code></span><span class="tag no">—</span><span class="tag test" data-zh="待实测" data-en="pending">待实测</span></div>
+    <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="向导扫码自动建应用" data-en="wizard, scan-to-create">向导扫码自动建应用</span><span class="tg ok" data-zh="✓ 转写+情绪" data-en="✓ ASR+emotion">✓ 转写+情绪</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
+    <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号）" data-en="wizard, QR login">向导扫码登录（个人号）</span><span class="tg ok">✓ silk</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
+    <div class="mrow"><span class="ch">终端 TUI</span><span class="how" data-zh="裸跑 <code>penglai</code> 即聊" data-en="just run <code>penglai</code>">裸跑 <code>penglai</code> 即聊</span><span class="tg no">—</span><span class="tg live"><span class="pt"></span><span data-zh="内核" data-en="kernel">内核</span></span></div>
+    <div class="mrow pend"><span class="ch">钉钉 DingTalk</span><span class="how"><code>penglai enable dingtalk</code></span><span class="tg wrap" data-zh="自带 ASR" data-en="native ASR">自带 ASR</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
+    <div class="mrow pend"><span class="ch">QQ</span><span class="how"><code>penglai enable qq</code></span><span class="tg wrap" data-zh="wav+情绪" data-en="wav+emotion">wav+情绪</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
+    <div class="mrow pend"><span class="ch">企业微信 WeCom</span><span class="how"><code>penglai enable wecom</code></span><span class="tg wrap" data-zh="自带 ASR" data-en="native ASR">自带 ASR</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
+    <div class="mrow pend"><span class="ch">Telegram</span><span class="how"><code>penglai enable telegram</code></span><span class="tg no">—</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
+    <div class="mrow pend"><span class="ch">Discord</span><span class="how"><code>penglai enable discord</code></span><span class="tg no">—</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
   </div>
-  <p class="matrix-note reveal" data-zh="✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 🔧 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。" data-en="✓ = field-verified ｜ pending = code ready, not yet field-run ｜ 🔧 = voice wrapped by the distro layer (upstream drops it). Honesty over polish.">✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 🔧 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。</p>
+  <p class="matrix-note reveal" data-zh="✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 金色标签 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。" data-en="✓ = field-verified ｜ pending = code ready, not yet field-run ｜ gold tag = voice wrapped by the distro layer (upstream drops it). Honesty over polish.">✓ 实测 = 真机走完全程 ｜ 待实测 = 代码就绪未跑真机 ｜ 金色标签 = 语音由发行层封装（上游前端原本丢弃语音）。诚实比好看重要。</p>
 </div></section>
+
+<hr class="hr-ink">
 
 <section class="block" id="install"><div class="wrap">
   <div class="head reveal">
     <div class="kicker" data-zh="一行上岛" data-en="ONE LINE TO THE ISLAND">一行上岛</div>
     <h2 data-zh="开始安装" data-en="Install">开始安装</h2>
+    <span class="dia"></span>
     <p data-zh="没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像" data-en="No Python or git? The script sets it all up; China networks auto-use mirrors">没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像</p>
   </div>
   <div class="tabs reveal">
+    <span class="ind" id="tabind"></span>
     <button class="on" onclick="tab('curl',this)" data-zh="curl 一键" data-en="curl one-liner">curl 一键</button>
     <button onclick="tab('docker',this)">Docker</button>
     <button onclick="tab('pip',this)">pip</button>
     <button onclick="tab('git',this)">git clone</button>
   </div>
   <div class="reveal">
-    <div class="pane on" id="p-curl"><div class="code"><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
+    <div class="pane on" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
-    <div class="pane" id="p-docker"><div class="code"><button class="copy" onclick="copyPane('p-docker',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 自动取镜像→向导→常驻容器，数据在卷里升级不丢</span>
+    <div class="pane" id="p-docker"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-docker',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 自动取镜像→向导→常驻容器，数据在卷里升级不丢</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh</span> | sh</div></div>
-    <div class="pane" id="p-pip"><div class="code"><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器，运行时拉取最新仓库</span>
+    <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器，运行时拉取最新仓库</span>
 pip install penglai
 penglai setup</div></div>
-    <div class="pane" id="p-git"><div class="code"><button class="copy" onclick="copyPane('p-git',this)" data-zh="复制" data-en="Copy">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
+    <div class="pane" id="p-git"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-git',this)" data-zh="复制" data-en="Copy">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
 cd PenglaiAgent
 python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→渠道→能力面板</span></div></div>
   </div>
-  <div class="heroart reveal" style="max-width:840px;margin-top:52px"><img src="wizard-zh.png" alt="蓬莱安装向导实景 / Penglai setup wizard" loading="lazy"></div>
-  <p class="reveal" style="text-align:center;color:var(--soft);font-size:13.5px;margin-top:14px" data-zh="安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选" data-en="The setup wizard in action: bilingual · paged steps · one-page channel picker">安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选</p>
+  <div class="frame reveal"><img src="wizard-zh.png" alt="蓬莱安装向导实景 / Penglai setup wizard" loading="lazy"></div>
+  <p class="reveal" style="text-align:center;color:var(--soft);font-size:13.5px;margin-top:16px" data-zh="↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选" data-en="↑ The setup wizard in action: bilingual · paged steps · one-page channel picker">↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选</p>
 </div></section>
+
+<hr class="hr-ink">
 
 <section class="block alt" id="changelog"><div class="wrap">
   <div class="head reveal">
     <div class="kicker" data-zh="一路走来" data-en="THE JOURNEY">一路走来</div>
     <h2 data-zh="更新日志" data-en="Changelog">更新日志</h2>
+    <span class="dia"></span>
     <p data-zh="从首次开源到今天，每一版都来自真实使用反馈" data-en="From first release to today — every version born from real usage">从首次开源到今天，每一版都来自真实使用反馈</p>
   </div>
-  <div class="reveal" style="max-width:760px;margin:0 auto 36px;padding:18px 24px;border:1px solid var(--line2);border-radius:14px;background:var(--bg);font-size:13.8px;line-height:1.9;color:var(--soft);text-align:center">
-    <strong style="color:var(--ink)" data-zh="🔄 更新承诺" data-en="🔄 Update pledge">🔄 更新承诺</strong><br/>
+  <div class="pledge reveal">
+    <span class="q">❯</span><strong style="color:var(--ink)" data-zh="更新承诺" data-en="Update pledge">更新承诺</strong>
     <span data-zh="上游 GenericAgent 的安全类修复，确认问题后 <strong>48 小时内</strong>同步；功能类更新在确认不冲突且稳定后 <strong>72 小时内</strong>同步。你只需要一句 <code>penglai update</code>。" data-en="Upstream security fixes are synced <strong>within 48 hours</strong> of confirmation; feature updates <strong>within 72 hours</strong> once verified stable and conflict-free. All you need is <code>penglai update</code>.">上游 GenericAgent 的安全类修复，确认问题后 <strong>48 小时内</strong>同步；功能类更新在确认不冲突且稳定后 <strong>72 小时内</strong>同步。你只需要一句 <code>penglai update</code>。</span>
   </div>
   <div class="timeline reveal" id="tl"></div>
 </div></section>
 
-<section class="block"><div class="wrap story">
+<hr class="hr-ink">
+
+<section class="block"><div class="story-aura"></div><div class="wrap story">
   <div class="head reveal">
     <div class="kicker" data-zh="海上有仙山" data-en="AN ISLAND IN THE MIST">海上有仙山</div>
     <h2 data-zh="为什么叫蓬莱" data-en="Why “Penglai”">为什么叫蓬莱</h2>
   </div>
-  <p class="reveal em" data-zh="蓬莱是传说中的海上仙山，可望而不可即。" data-en="Penglai is the mythic immortal mountain at sea — visible, yet out of reach.">蓬莱是传说中的海上仙山，可望而不可即。</p>
-  <p class="reveal" data-zh="AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。" data-en="AI is to ordinary people what Penglai was to the ancients — you've heard of its powers, but a fog keeps you on the shore: APIs, terminals, configs, each a reef that turns people away.">AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。</p>
-  <p class="reveal" data-zh="蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。" data-en="Penglai wants to be the ferry: if you can send a WeChat message, you should be able to use an AI butler. Eight immortals cross the sea, each by their own art — many models, many channels, everyone finds their own way to the island.">蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。</p>
+  <p class="carve reveal" style="--i:0" data-zh="可望而不可即" data-en="Visible, out of reach">可望而不可即</p>
+  <p class="reveal" style="--i:1" data-zh="蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。" data-en="Penglai is the mythic immortal mountain at sea. AI is to ordinary people what Penglai was to the ancients — you've heard of its powers, but a fog keeps you on the shore: APIs, terminals, configs, each a reef that turns people away.">蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。</p>
+  <p class="reveal" style="--i:2" data-zh="蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。" data-en="Penglai wants to be the ferry: if you can send a WeChat message, you should be able to use an AI butler. Eight immortals cross the sea, each by their own art — many models, many channels, everyone finds their own way to the island.">蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。</p>
 </div></section>
+
+<hr class="hr-ink">
 
 <section class="block" id="follow"><div class="wrap" style="text-align:center">
   <div class="head reveal">
     <div class="kicker" data-zh="作者在写" data-en="FROM THE AUTHOR">作者在写</div>
     <h2 data-zh="关注公众号 KevinAIStack" data-en="Follow KevinAIStack">关注公众号 KevinAIStack</h2>
+    <span class="dia"></span>
     <p data-zh="Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本预告首发于此" data-en="Field notes on building a Personal AI Stack (in Chinese) — Penglai's behind-the-scenes stories and release previews land there first">Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本预告首发于此</p>
   </div>
-  <div class="reveal"><img src="wechat-qr.png" alt="微信公众号 KevinAIStack — 微信搜一搜 KevinAIStack" loading="lazy" style="max-width:420px;width:92%;border-radius:14px;box-shadow:0 12px 32px rgba(31,138,118,.14)"></div>
-  <p class="reveal" style="color:var(--soft);font-size:13px;margin-top:14px" data-zh="微信「搜一搜」KevinAIStack，或扫码关注" data-en="Search “KevinAIStack” in WeChat, or scan the QR code">微信「搜一搜」KevinAIStack，或扫码关注</p>
+  <div class="reveal"><span class="qr-frame"><img src="wechat-qr.png" alt="微信公众号 KevinAIStack — 微信搜一搜 KevinAIStack" loading="lazy"></span></div>
+  <p class="reveal" style="color:var(--soft);font-size:13px;margin-top:16px" data-zh="微信「搜一搜」KevinAIStack，或扫码关注" data-en="Search “KevinAIStack” in WeChat, or scan the QR code">微信「搜一搜」KevinAIStack，或扫码关注</p>
 </div></section>
 
 <footer><div class="wrap">
   <div class="seal-stamp">蓬萊</div>
+  <div class="closer" data-zh="海上仙山 · 可望而不可即" data-en="An immortal isle at sea · visible, out of reach">海上仙山 · 可望而不可即</div>
   <div class="links">
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
     <a href="https://pypi.org/project/penglai" target="_blank">PyPI</a>
     <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/README.md" target="_blank" data-zh="文档" data-en="Docs">文档</a>
     <a href="https://github.com/lsdefine/GenericAgent" target="_blank">GenericAgent</a>
   </div>
-  <p class="meta" data-zh="代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建" data-en="Code under MIT · the “Penglai” name & visual assets all rights reserved · built on the lsdefine/GenericAgent kernel">代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建</p>
+  <p class="meta" data-zh="代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建" data-en="Code under MIT · the “Penglai” name &amp; visual assets all rights reserved · built on the lsdefine/GenericAgent kernel">代码 MIT 开源 · 「蓬莱 / Penglai」名称与视觉资产保留所有权利 · 基于 lsdefine/GenericAgent 内核构建</p>
+  <p class="termnote"># 海上仙山 · 可望可即</p>
 </div></footer>
 
 <script>
@@ -378,59 +587,64 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.2",d:"2026-06-14",zh:"一键迁移 + 技能集市 + 内置技能",en:"One-click migration + skill marketplace + built-in skills",t:true,
+ {v:"v0.2.2",d:"2026-06-14",h:"ce31d2c",zh:"一键迁移 + 技能集市 + 内置技能",en:"One-click migration + skill marketplace + built-in skills",t:true,
   liZh:["一键迁移 penglai migrate：从 Hermes/OpenClaw 搬记忆/模型/渠道/人设（先预览再落盘 + 自动备份 + 诚实标注搬不了的）","技能集市 penglai skill：本地 apt 模式，技能是 GA 原生 SOP、装时过安全扫描、不联网拉","出厂内置技能：提醒/日程、天气查询、网页文章总结（免 key、无头服务器也能用）","蓬莱独特记忆：长期事实带时间/来源/重要度签名、新值自动作废旧值，治过期偏好污染","主动陪伴加固（投递失败不哑火、办公在线也收得到锚点）+ 一轮对抗式安全自审"],
   liEn:["One-click migration: penglai migrate brings memory/model/channels/persona over from Hermes/OpenClaw (preview first, auto-backup, honest about what can't move)","Skill marketplace: penglai skill — local apt-style, skills are native GA SOPs, scanned on install, never fetched online","Built-in skills: reminders/schedule, weather, web-article summary (key-free, headless-ready)","Self-maintaining memory: long-term facts carry time/source/importance signatures and new values auto-supersede old ones","Companion hardening (no silent delivery failures) + an adversarial self-review pass"]},
- {v:"v0.2.1",d:"2026-06-13",zh:"安全自更新：失败自动回滚",en:"Safe self-update with auto-rollback",t:true,
+ {v:"v0.2.1",d:"2026-06-13",h:"1768943",zh:"安全自更新：失败自动回滚",en:"Safe self-update with auto-rollback",t:true,
   liZh:["penglai update 确认后全自动：预检 → 后台监工重启 → 健康检查 → 失败自动回滚到上一个能跑的版本","升级结果带外发到飞书/微信，不用 SSH 上服务器","管家可在 IM 里直接「检查更新 / 升级」（不再裸 git）","Docker 升级 = 重拉镜像；README 双语补 Docker 运维说明"],
   liEn:["penglai update is fully automatic after confirm: preflight → background supervisor restart → health check → auto-rollback to the last working version on failure","Upgrade result messaged to Feishu/WeChat — no SSH needed","The butler can check/upgrade right in IM (no more raw git)","Docker upgrade = pull a new image; bilingual Docker ops docs added"]},
- {v:"v0.2.0",d:"2026-06-13",zh:"网页搜索开箱即用 + 主动陪伴 v2",en:"Web search out of the box + Companion v2",t:true,
+ {v:"v0.2.0",d:"2026-06-13",h:"00afa65",zh:"网页搜索开箱即用 + 主动陪伴 v2",en:"Web search out of the box + Companion v2",t:true,
   liZh:["免 key Bing 搜索兜底——无头云服务器也能查天气/新闻/事实","主动陪伴 v2：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系，飞书微信双投递","批判脑复核模型从整张厂商目录自选（不再限免费）","Docker 常驻监工：扫码/补配渠道自动拉起，进程崩溃自愈","更新承诺：上游安全漏洞 48h、功能 72h 同步进发行仓"],
   liEn:["Keyless Bing search fallback — works on headless cloud servers (weather/news/facts)","Companion v2: severe-weather alerts / voice-emotion follow-ups / check-ins, dual Feishu+WeChat delivery","Critic review model picked from the full provider catalog (no longer free-only)","Docker resident supervisor: auto-starts channels after scan/config, self-heals crashed processes","Update pledge: upstream security fixes in 48h, features in 72h"]},
- {v:"v0.1.10",d:"2026-06-12",zh:"全新仙山 banner + 门面增强",en:"New banner + facade polish",t:true,
+ {v:"v0.1.10",d:"2026-06-12",h:"33faae0",zh:"全新仙山 banner + 门面增强",en:"New banner + facade polish",t:true,
   liZh:["青玉仙山鎏金 banner","官方渠道防冒用声明 + 蓬莱 vs 裸 GA 对比表","GitHub topics 上架"],
   liEn:["Jade-and-gold immortal-isle banner","Official-channel notice + Penglai vs bare GA table","GitHub topics added"]},
- {v:"v0.1.9",d:"2026-06-12",zh:"混元 HY3 入目录",en:"Hunyuan HY3 in catalog",t:true,
+ {v:"v0.1.9",d:"2026-06-12",h:"9578eea",zh:"混元 HY3 入目录",en:"Hunyuan HY3 in catalog",t:true,
   liZh:["按量加 hy3-preview 选项","OpenRouter 加 tencent/hy3-preview"],
   liEn:["hy3-preview added to paygo","tencent/hy3-preview via OpenRouter"]},
- {v:"v0.1.7",d:"2026-06-12",zh:"IM 语音封装 + 能力事后开启",en:"IM voice wrapper + abilities on demand",t:true,
+ {v:"v0.1.7",d:"2026-06-12",h:"93b5352",zh:"IM 语音封装 + 能力事后开启",en:"IM voice wrapper + abilities on demand",t:true,
   liZh:["钉钉/QQ/企微语音接收（上游真空，内核零diff）","penglai enable voice｜companion｜intel + abilities","doctor 每个未启用项直接给开启命令"],
   liEn:["DingTalk/QQ/WeCom voice reception (zero kernel diff)","penglai enable voice｜companion｜intel + abilities","doctor prints the enable command for each item"]},
- {v:"v0.1.5",d:"2026-06-12",zh:"QQ 扫码修复 + 套餐矩阵",en:"QQ fix + plan matrix",
+ {v:"v0.1.5",d:"2026-06-12",h:"3787331",zh:"QQ 扫码修复 + 套餐矩阵",en:"QQ fix + plan matrix",
   liZh:["QQ 扫码解密依赖 + poll 状态可观测","语音模型 999MB→230MB 单文件直下","11 家厂商按量/Coding/Token 套餐全面修正"],
   liEn:["QQ scan decryption dep + observable poll","Voice model 999MB→230MB single-file","11 vendors: paygo/Coding/Token plans corrected"]},
- {v:"v0.1.4",d:"2026-06-12",zh:"向导 v2",en:"Wizard v2",
+ {v:"v0.1.4",d:"2026-06-12",h:"c4b2115",zh:"向导 v2",en:"Wizard v2",
   liZh:["语言选择打头 + 全程中英 i18n","翻页式终端（每步如新页面）","渠道一页选 + 能力面板真激活 + 语音默认装"],
   liEn:["Language-first + full EN/中文 i18n","Paged terminal UX","One-page channel picker + ability panel + voice by default"]},
- {v:"v0.1.2",d:"2026-06-11",zh:"渠道矩阵 + TUI 入口",en:"Channel matrix + TUI",
+ {v:"v0.1.2",d:"2026-06-11",h:"727a40d",zh:"渠道矩阵 + TUI 入口",en:"Channel matrix + TUI",
   liZh:["5 个 IM 前端统一封装","钉钉/QQ 扫码自动建应用","裸跑 penglai 进终端对话"],
   liEn:["5 IM frontends unified","DingTalk/QQ scan-to-create","Bare penglai → terminal chat"]},
- {v:"v0.1.1",d:"2026-06-11",zh:"安全硬化 + 发行版整理",en:"Security hardening",
+ {v:"v0.1.1",d:"2026-06-11",h:"81e09b5",zh:"安全硬化 + 发行版整理",en:"Security hardening",
   liZh:["审计 P0/P1 修复（红线/记忆/外发）","README 转正 + 裁剪上游 material"],
   liEn:["Audit P0/P1 fixes","README promoted + upstream trimmed"]},
- {v:"v0.1.0",d:"2026-06-11",zh:"首次开源 🎉",en:"First release 🎉",
+ {v:"v0.1.0",d:"2026-06-11",h:"aeb56dc",zh:"首次开源 🎉",en:"First release 🎉",
   liZh:["十分钟向导 + 飞书微信扫码","本地语音情绪识别","确定性红线安全 + 四层记忆"],
   liEn:["Ten-minute wizard + Feishu/WeChat QR","Local voice-emotion recognition","Deterministic safety + four-tier memory"]},
 ];
 function renderTL(){
- document.getElementById('tl').innerHTML=CHANGELOG.map(c=>{
+ const el=document.getElementById('tl');if(!el)return;
+ el.innerHTML=CHANGELOG.map(c=>{
   const li=(LANG==='en'?c.liEn:c.liZh).map(x=>`<li>${x}</li>`).join('');
-  return `<div class="tl${c.t?' t':''}"><div class="ver"><span class="v">${c.v}</span><span class="d">${c.d}</span></div>
+  return `<div class="tl${c.t?' t':''}"><div class="ver"><span class="v">${c.v}</span><span class="hash">${c.h}</span><span class="d">${c.d}</span></div>
    <div class="ttl">${LANG==='en'?c.en:c.zh}</div><ul>${li}</ul></div>`;
  }).join('');
 }
 
-/* —— 安装 tabs —— */
+/* —— 安装 tabs(鎏金滑动指示) —— */
+function moveInd(el){
+ const ind=document.getElementById('tabind');if(!ind||!el)return;
+ ind.style.left=el.offsetLeft+'px';ind.style.width=el.offsetWidth+'px';ind.style.height=el.offsetHeight+'px';ind.style.top=el.offsetTop+'px';
+}
 function tab(id,el){
  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));el.classList.add('on');
  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
- document.getElementById('p-'+id).classList.add('on');
+ document.getElementById('p-'+id).classList.add('on');moveInd(el);
 }
-function copyText(t,el){navigator.clipboard.writeText(t.trim());const o=el.textContent;el.textContent=LANG==='en'?'Copied ✓':'已复制 ✓';setTimeout(()=>el.textContent=o,1500);}
-function copyPane(id,el){const node=document.getElementById(id).querySelector('.code').cloneNode(true);node.querySelector('.copy').remove();copyText(node.innerText,el);}
+function copyText(t,el){if(navigator.clipboard)navigator.clipboard.writeText(t.trim()).catch(()=>{});const o=el.textContent;el.textContent=LANG==='en'?'Copied ✓':'已复制 ✓';el.style.background='var(--jade)';el.style.color='#fff';setTimeout(()=>{el.textContent=o;el.style.background='';el.style.color='';},1500);}
+function copyPane(id,el){const node=document.getElementById(id).querySelector('.code').cloneNode(true);const lt=node.querySelector('.lights');if(lt)lt.remove();node.querySelector('.copy').remove();copyText(node.textContent,el);}
 
-/* —— mimo 式:卡片鼠标跟随光斑 —— */
-document.querySelectorAll('.card').forEach(card=>{
+/* —— 卡片鼠标跟随光斑 —— */
+document.querySelectorAll('.tile').forEach(card=>{
  card.addEventListener('mousemove',e=>{
   const r=card.getBoundingClientRect();
   card.style.setProperty('--mx',(e.clientX-r.left)+'px');
@@ -438,10 +652,34 @@ document.querySelectorAll('.card').forEach(card=>{
  });
 });
 
+/* —— 情绪演示:声波柱 —— */
+(function(){const w=document.getElementById('wave');if(!w)return;
+ const hs=[.4,.7,1,.6,.85,.45,.95,.55,.75,1,.5,.8,.65,.9,.45,.7];
+ w.innerHTML=hs.map((h,i)=>`<i style="height:${Math.round(h*20)}px;animation-delay:${(i*0.07).toFixed(2)}s"></i>`).join('');
+})();
+
+/* —— hero 命令逐字打字 —— */
+(function(){const code=document.getElementById('hcmd');if(!code)return;
+ const full=code.getAttribute('data-full');const cur='<span class="cur"></span>';
+ const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+ if(reduce){code.textContent=full;code.classList.add('done');return;}
+ let i=0;code.innerHTML=cur;
+ const step=()=>{i++;code.innerHTML=full.slice(0,i).replace(/</g,'&lt;')+cur;
+  if(i<full.length){setTimeout(step,26+Math.random()*26);}else{code.classList.add('done');code.innerHTML=full.replace(/</g,'&lt;');}};
+ setTimeout(step,500);
+})();
+
+/* —— nav 滚动收束 —— */
+const navEl=document.getElementById('nav');
+addEventListener('scroll',()=>{navEl.classList.toggle('scrolled',scrollY>40);},{passive:true});
+
 /* —— 滚动渐入 —— */
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.1});
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
 document.querySelectorAll('.reveal').forEach(e=>io.observe(e));
+
 renderTL();
+addEventListener('load',()=>moveInd(document.querySelector('.tabs button.on')));
+addEventListener('resize',()=>moveInd(document.querySelector('.tabs button.on')));
 </script>
 </body>
 </html>
