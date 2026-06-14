@@ -119,21 +119,13 @@ nav.scrolled .navin{padding:9px 28px}
 .btn.ghost{border:1px solid var(--line3);color:var(--ink2);background:var(--card)}
 .btn.ghost:hover{border-color:var(--jade);color:var(--jade);transform:translateY(-2px)}
 
-/* —— hero 右:仙山远景 + 活印章 —— */
-.hero-art{position:relative;justify-self:center;width:100%;max-width:440px;aspect-ratio:1/1.12}
-.hero-art .mount{position:absolute;inset:0;overflow:hidden;
-  clip-path:polygon(7% 0,100% 4%,93% 100%,0 95%);
-  box-shadow:0 10px 30px rgba(38,48,44,.1),0 50px 90px -34px rgba(31,138,118,.36);
+/* —— hero 右:仙山门户徽记 —— */
+.hero-art{position:relative;justify-self:center;width:100%;max-width:520px}
+.hero-art .emblem{display:block;width:100%;height:auto;
+  -webkit-mask-image:radial-gradient(farthest-corner at 50% 47%,#000 64%,transparent 100%);
+  mask-image:radial-gradient(farthest-corner at 50% 47%,#000 64%,transparent 100%);
+  filter:drop-shadow(0 22px 50px rgba(31,138,118,.3));
   animation:floaty 9s ease-in-out infinite}
-.hero-art .mount img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;display:block}
-.hero-art .mount::after{content:"";position:absolute;inset:0;
-  background:radial-gradient(120% 60% at 50% 110%,var(--jade-glow),transparent 60%)}
-.hero-art .seal{position:absolute;right:-14px;bottom:26px;width:84px;height:84px;border-radius:18px;
-  background:linear-gradient(145deg,var(--seal),var(--seal-700));color:#fff;font-family:var(--serif);
-  display:flex;align-items:center;justify-content:center;font-size:34px;letter-spacing:2px;
-  box-shadow:0 14px 34px -8px rgba(196,69,49,.55);animation:breathe 11s ease-in-out infinite;writing-mode:vertical-rl}
-.hero-art .ring{position:absolute;left:-22px;top:8px;width:62px;height:62px;border-radius:50%;
-  border:1.5px solid var(--gold);opacity:.5;animation:floaty 7s ease-in-out infinite reverse}
 
 /* —— 区块标题 —— */
 .block{padding:80px 0}
@@ -331,9 +323,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   .tile.big,.tile.wide{grid-column:auto;grid-row:auto}
   .mrow{grid-template-columns:1.4fr auto auto;gap:8px;font-size:12.5px}
   .mrow .how,.mrow.h .how{display:none}
-  .hero-art{max-width:280px}
-  .hero-art .seal{right:-6px;bottom:14px;width:64px;height:64px;font-size:26px}
-  .hero-art .ring{left:-8px;width:46px;height:46px}
+  .hero-art{max-width:320px}
   .cmd code{white-space:normal;word-break:break-all}
   .story .carve{letter-spacing:.14em;text-indent:0}
 }
@@ -402,9 +392,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
       </div>
     </div>
     <div class="hero-art reveal" style="--i:8">
-      <div class="mount"><img src="banner.png" alt="蓬莱智能体 PenglaiAgent — 海上仙山"></div>
-      <span class="ring"></span>
-      <span class="seal">蓬萊</span>
+      <img class="emblem" src="hero-logo.png" alt="蓬莱 PenglaiAgent — 海上仙山，门户中的 AI 管家">
     </div>
   </div>
 </div></header>
@@ -587,6 +575,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.3",d:"2026-06-14",h:"353d8df",zh:"上游同步：微信 headless 登录 + TUI 工作区",en:"Upstream sync: WeChat headless login + TUI workspace",t:true,
+  liZh:["合并上游 13 提交，内核零 diff，腾讯云真机验证过","微信 headless 容器登录（二维码打到 docker logs，无需图形界面）","TUI 工作区项目模式 + @ 文件补全","macOS 无障碍 ljqCtrl 移植"],
+  liEn:["Merged 13 upstream commits, zero kernel diff, field-verified","WeChat headless container login (QR to docker logs, no GUI)","TUI workspace project mode + @-file completion","macOS accessibility ljqCtrl port"]},
  {v:"v0.2.2",d:"2026-06-14",h:"ce31d2c",zh:"一键迁移 + 技能集市 + 内置技能",en:"One-click migration + skill marketplace + built-in skills",t:true,
   liZh:["一键迁移 penglai migrate：从 Hermes/OpenClaw 搬记忆/模型/渠道/人设（先预览再落盘 + 自动备份 + 诚实标注搬不了的）","技能集市 penglai skill：本地 apt 模式，技能是 GA 原生 SOP、装时过安全扫描、不联网拉","出厂内置技能：提醒/日程、天气查询、网页文章总结（免 key、无头服务器也能用）","蓬莱独特记忆：长期事实带时间/来源/重要度签名、新值自动作废旧值，治过期偏好污染","主动陪伴加固（投递失败不哑火、办公在线也收得到锚点）+ 一轮对抗式安全自审"],
   liEn:["One-click migration: penglai migrate brings memory/model/channels/persona over from Hermes/OpenClaw (preview first, auto-backup, honest about what can't move)","Skill marketplace: penglai skill — local apt-style, skills are native GA SOPs, scanned on install, never fetched online","Built-in skills: reminders/schedule, weather, web-article summary (key-free, headless-ready)","Self-maintaining memory: long-term facts carry time/source/importance signatures and new values auto-supersede old ones","Companion hardening (no silent delivery failures) + an adversarial self-review pass"]},
