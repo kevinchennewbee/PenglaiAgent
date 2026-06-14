@@ -378,6 +378,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.2",d:"2026-06-14",zh:"一键迁移 + 技能集市 + 内置技能",en:"One-click migration + skill marketplace + built-in skills",t:true,
+  liZh:["一键迁移 penglai migrate：从 Hermes/OpenClaw 搬记忆/模型/渠道/人设（先预览再落盘 + 自动备份 + 诚实标注搬不了的）","技能集市 penglai skill：本地 apt 模式，技能是 GA 原生 SOP、装时过安全扫描、不联网拉","出厂内置技能：提醒/日程、天气查询、网页文章总结（免 key、无头服务器也能用）","蓬莱独特记忆：长期事实带时间/来源/重要度签名、新值自动作废旧值，治过期偏好污染","主动陪伴加固（投递失败不哑火、办公在线也收得到锚点）+ 一轮对抗式安全自审"],
+  liEn:["One-click migration: penglai migrate brings memory/model/channels/persona over from Hermes/OpenClaw (preview first, auto-backup, honest about what can't move)","Skill marketplace: penglai skill — local apt-style, skills are native GA SOPs, scanned on install, never fetched online","Built-in skills: reminders/schedule, weather, web-article summary (key-free, headless-ready)","Self-maintaining memory: long-term facts carry time/source/importance signatures and new values auto-supersede old ones","Companion hardening (no silent delivery failures) + an adversarial self-review pass"]},
  {v:"v0.2.1",d:"2026-06-13",zh:"安全自更新：失败自动回滚",en:"Safe self-update with auto-rollback",t:true,
   liZh:["penglai update 确认后全自动：预检 → 后台监工重启 → 健康检查 → 失败自动回滚到上一个能跑的版本","升级结果带外发到飞书/微信，不用 SSH 上服务器","管家可在 IM 里直接「检查更新 / 升级」（不再裸 git）","Docker 升级 = 重拉镜像；README 双语补 Docker 运维说明"],
   liEn:["penglai update is fully automatic after confirm: preflight → background supervisor restart → health check → auto-rollback to the last working version on failure","Upgrade result messaged to Feishu/WeChat — no SSH needed","The butler can check/upgrade right in IM (no more raw git)","Docker upgrade = pull a new image; bilingual Docker ops docs added"]},
