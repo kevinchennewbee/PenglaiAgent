@@ -123,7 +123,8 @@ def _get_provider_list():
             (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-4-6", "https://openrouter.ai"),
             (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hunyuan-2.0-thinking",        "https://cloud.tencent.com/product/hunyuan"),
             (10, "讯飞星火",               "xunfei",     "paygo", "https://spark-api-open.xf-yun.com/v1",        "max-32k",                     "https://www.xfyun.cn"),
-            (11, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
+            (11, "Agnes AI（免费体验）",   "agnes",      "paygo", "https://apihub.agnes-ai.com/v1",              "agnes-2.0-flash",             "https://agnes-ai.com"),
+            (12, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
         ]
     rows = []
     idx = 1

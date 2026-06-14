@@ -1,14 +1,14 @@
 # 蓬莱技能集市（skills/）
 
 出厂精选技能放这里，每个一份 `<name>.md`（纯指导 SOP）。用户用 `penglai skill install <name>` 启用：
-装 = 拷进 `memory/penglai_skill_<name>_sop.md` + 在 L1 种触发词（每轮注入，管家遇到对应场景就用它）。
+装 = 拷进 `memory/penglai_skill_<name>_sop.md`（L3，按需读）+ 把触发词记进 `memory/penglai_skills_index.md`（L3 技能库索引）；**L1 只留一行常量指针**（每轮注入不膨胀，守 ≤30 行铁律），管家遇到对应场景先查索引再读 SOP 用它。
 
 ## 技能文件格式
 
 ```markdown
 ---
 name: <slug，小写连字符>
-trigger: <L1 触发词，简短中文，如"用户要写周报">
+trigger: <索引触发词，简短中文，如"用户要写周报">
 desc: <一句话说这技能干嘛>
 source: <来源/出处，如 ClawHub xxx（已审核改写）>
 audited: <日期 + 审核项，如 2026-06-14 无curl|bash/无base64/纯指导>

@@ -23,6 +23,7 @@ wizard_order:
   - baichuan
   - hunyuan
   - xunfei
+  - agnes
   - custom
 
 providers:
@@ -684,7 +685,31 @@ providers:
     default_model: max-32k
 
   # ============================================================
-  # 11. 自定义 OpenAI 兼容端点
+  # 11. Agnes AI — 免费全模态体验（Sapiens AI · 新加坡），非主力
+  # ============================================================
+  agnes:
+    display: "Agnes AI（免费多模态·体验）"
+    signup_url: "https://agnes-ai.com"
+    billing:
+      paygo:
+        label: "免费体验"
+        base_url: "https://apihub.agnes-ai.com/v1"
+        warning: "免费全模态体验端点（Sapiens AI）：支持流式输出/工具调用/图片理解，免费不限额；但免费层共享算力、首字延迟不稳（实测中位 ~5s、偶发 30s+）——适合体验/低频，不建议作常驻管家主力。配套还有免费文生图/文生视频模型（agnes-image-2.0-flash / agnes-video-v2.0，需另调用对应端点）。额度与可用性以官网为准。"
+        models:
+          - id: agnes-2.0-flash
+            display: "Agnes-2.0-Flash（免费·256K·工具+视觉）"
+            context_k: 256
+            max_output_k: 65
+            input_cny: 0.0
+            output_cny: 0.0
+            free: true
+            features: [tools, vision]
+            default: true
+    default_billing: paygo
+    default_model: agnes-2.0-flash
+
+  # ============================================================
+  # 12. 自定义 OpenAI 兼容端点
   # ============================================================
   custom:
     display: "自定义 OpenAI 兼容端点"
