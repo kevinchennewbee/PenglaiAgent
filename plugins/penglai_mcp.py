@@ -51,12 +51,17 @@ _EOF = object()          # reader 线程：stdout 流结束哨兵
 
 
 def _mcp_servers():
-    """从用户 mykey 读 mcp_servers 配置；未配则空（插件 no-op）。"""
+    """从用户 mykey 读 mcp_servers 配置；未配则空（插件 no-op）。
+    热重读：复用内核 llmcore.reload_mykeys()，让 mcp_servers 配置改动免重启即时生效。"""
     try:
-        import mykey
-        return getattr(mykey, "mcp_servers", {}) or {}
+        import llmcore
+        return (llmcore.reload_mykeys()[0] or {}).get("mcp_servers", {}) or {}
     except Exception:
-        return {}
+        try:
+            import mykey
+            return getattr(mykey, "mcp_servers", {}) or {}
+        except Exception:
+            return {}
 
 
 def _qualify(server, tool):

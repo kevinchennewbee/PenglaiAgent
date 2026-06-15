@@ -62,9 +62,56 @@ def _companion_on():
     return _pc().mykey_get("companion_enabled")
 
 
+def _companion_running():
+    """真实存活：开关开着且心跳进程真在跑（systemd 看 is-active，非 systemd 看进程在不在）。
+    U11：status() 不再只凭旗标误报『已开启』（macOS 心跳进程死了旗标仍 True）。"""
+    pc = _pc()
+    if not _companion_on():
+        return False
+    if pc.has_systemd():
+        return pc.sh(["systemctl", "is-active", "penglai-companion"]).stdout.strip() == "active"
+    return pc.sh(["pgrep", "-f", "reflect/penglai_companion.py"]).returncode == 0
+
+
 def _intel_sources():
     pc = _pc()
     return [k for k in ("tinyfish_key", "tavily_key", "firecrawl_key") if pc.mykey_get(k)]
+
+
+def notify_owner(text):
+    """给主人发一条 IM（飞书 + 微信），任何蓬莱进程 / agent 手写脚本都可 import 复用：
+        from penglai_abilities import notify_owner; notify_owner("...")
+    复用 reflect.penglai_companion 的发送实现（import 它会建一次端口锁，已被其内部
+    try/except 兜住，send-only 无害）。未配 IM 时静默返回 False，调用方勿当异常。
+    U8：补上 agent/脚本唯一缺的『一行发给主人』公开原语，省得再猜 import penglai。"""
+    try:
+        import llmcore
+        mk = llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        try:
+            import mykey
+            mk = {k: v for k, v in vars(mykey).items() if not k.startswith("_")}
+        except Exception:
+            return False
+    try:
+        import reflect.penglai_companion as cp
+    except Exception:
+        return False
+    sent = False
+    users = mk.get("fs_allowed_users", []) or []
+    app_id, secret = mk.get("fs_app_id", ""), mk.get("fs_app_secret", "")
+    if users and app_id:
+        try:
+            sent = cp._feishu_send({"open_id": users[0], "app_id": app_id,
+                                    "app_secret": secret}, text) or sent
+        except Exception:
+            pass
+    if os.path.exists(os.path.expanduser("~/.wxbot/token.json")):
+        try:
+            sent = cp._wechat_send(text) or sent
+        except Exception:
+            pass
+    return sent
 
 
 # ---------- 通用 systemd 服务安装（reflect 心跳类）----------
@@ -189,7 +236,7 @@ def enable_critic():
     pc.mykey_set({"critic_model": {"name": r["name"], "apibase": r["apibase"],
                                    "apikey": r["apikey"], "model": r["model"]},
                   "critic_mode": "smart"})
-    print(f"{OK} 批判脑已开启 smart 档（{r['name']} / {r['model']}；写入 mykey.py，重启服务生效：penglai restart）")
+    print(f"{OK} 批判脑已开启 smart 档（{r['name']} / {r['model']}）。下次记忆写入时自动复核，即时生效、无需重启。")
     return 0
 
 
@@ -197,7 +244,7 @@ def disable_critic():
     pc = _pc()
     pc.mykey_set({"critic_mode": "off"})
     print(f"{OK} 批判脑已关闭（critic_mode=off，绊线与复核都不再运行；"
-          "复核模型配置保留，penglai enable critic 可复开）。重启服务生效：penglai restart")
+          "复核模型配置保留，penglai enable critic 可复开）。即时生效、无需重启。")
     return 0
 
 
@@ -221,13 +268,13 @@ def enable_intel():
     if not pairs:
         print("  未填任何 key，保持内置免费 Bing 搜索。"); return 0
     pc.mykey_set(pairs)
-    print(f"{OK} 情报矩阵：{len(pairs)} 个源已写入 mykey.py（重启服务后生效：penglai restart）")
+    print(f"{OK} 情报矩阵：{len(pairs)} 个源已写入。下次搜索自动多源交叉验证，即时生效、无需重启。")
     return 0
 
 
 def disable_intel():
     print(f"{WARN} 删除情报源请手动编辑 mykey.py 移除 tinyfish_key/tavily_key/firecrawl_key 行，"
-          "然后 penglai restart。")
+          "即时生效、无需重启。")
     return 0
 
 
@@ -235,23 +282,27 @@ def disable_intel():
 def status():
     print("🏮 蓬莱能力总览（装完后可随时补开）\n")
     vr, (vm, ve, vf) = _voice_ready()
+    comp_on, comp_run = _companion_on(), _companion_running()
+    comp_mark = True if (comp_on and comp_run) else ("warn" if comp_on else False)
+    comp_state = ("已开启" if (comp_on and comp_run)
+                  else "已开启但心跳进程未运行 → penglai enable companion 重启" if comp_on
+                  else "未开启（零成本，被动回复）")
+    intel = _intel_sources()
     rows = [
         ("🎙️ 语音转写+情绪", vr,
          "就绪（SenseVoice 本地）" if vr else f"未装齐（缺 {'/'.join(n for n, ok in (('模型', vm), ('引擎', ve), ('ffmpeg', vf)) if not ok)}）",
          "penglai enable voice"),
-        ("💞 主动陪伴", _companion_on(),
-         "已开启" if _companion_on() else "未开启（零成本，被动回复）",
-         "penglai enable companion"),
-        ("🔭 情报矩阵", bool(_intel_sources()),
-         f"已配 {len(_intel_sources())} 个源" if _intel_sources() else "默认（GA 浏览器搜索）",
+        ("💞 主动陪伴", comp_mark, comp_state, "penglai enable companion"),
+        ("🔭 情报矩阵", bool(intel),
+         f"已配 {len(intel)} 个源" if intel else "默认（GA 浏览器搜索）",
          "penglai enable intel"),
         ("🧐 批判脑", _critic_on(),
          "smart 档（绊线常开 + 异厂商复核）" if _critic_on() else "仅本地绊线（免费常开）；异厂商复核未配",
          "penglai enable critic"),
     ]
     for label, on, state, cmd in rows:
-        mark = OK if on else "○"
-        tail = "" if on else f"   → 开启：{cmd}"
+        mark = {True: OK, False: "○"}.get(on, "⚠️")   # on=True/False/'warn'(开着但心跳没跑)
+        tail = f"   → 开启：{cmd}" if on is False else ""
         print(f"  {mark} {label:<16} {state}{tail}")
     print("\n  🧠 长期记忆 — 内核标配，已自动启用（无需开关）")
     print("  ⏰ 提醒/日程 — 内核标配，已自动启用（说「X点提醒我做Y」即可）")

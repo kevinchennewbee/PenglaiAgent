@@ -49,9 +49,18 @@ _ANCHOR_KINDS = {"morning", "evening"}
 
 # ---- 配置（默认保守，可被 mykey 覆盖）----
 def _cfg():
-    try: import mykey
-    except Exception: mykey = None
-    g = lambda k, d: getattr(mykey, k, d) if mykey else d
+    # 热重读：复用内核 llmcore.reload_mykeys()，让 companion_enabled/companion_city 等
+    # 配置改动在长驻陪伴进程里免重启即时生效(如 disable_companion 能被自身感知)。
+    try:
+        import llmcore
+        mk = llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        try:
+            import mykey
+            mk = {k: v for k, v in vars(mykey).items() if not k.startswith('_')}
+        except Exception:
+            mk = {}
+    g = lambda k, d: mk.get(k, d)
     users = g("fs_allowed_users", []) or []
     return {
         "enabled": bool(g("companion_enabled", False)),

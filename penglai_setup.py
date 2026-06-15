@@ -923,9 +923,34 @@ def step_extras(extras):
             print(f"  {BAD} {label}: {e}")
     print(f"\n{OK} " + T("附加渠道配置完成。状态总览: penglai channels"))
 
+# ---------- 步骤 1.5：旧管家迁移探测（I7：发现 Hermes/OpenClaw 就提议搬家，不让用户白配一遍）----------
+def step_detect_migrate():
+    """探到旧管家就给「迁移 or 全新」二选一，复用现成 penglai_migrate.detect()/run()
+    （已真机验过，不重造）。返回 True=已走迁移、向导应结束（迁移已配齐模型/渠道/记忆/人设）。"""
+    try:
+        import penglai_migrate as pm
+        hits = pm.detect()
+    except Exception:
+        return False
+    if not hits:
+        return False
+    page(None, T("检测到旧管家"))
+    labels = "、".join(h[2] for h in hits)
+    print("  " + T("发现已安装的 {l}。", l=labels))
+    print("  " + T("可把它的【记忆 / 模型 / 渠道 / 人设】直接搬到蓬莱，省去从零配置。"))
+    if ask(T("现在迁移？(Y/n)"), "y").lower().startswith("n"):
+        print("  " + T("跳过迁移。随时可手动运行：penglai migrate"))
+        return False
+    print()
+    pm.run([])      # 交互式：预览 → 确认 → 搬运（内含自动备份 mykey + memory）
+    print("\n" + T("🎉 迁移完成。可 penglai doctor 体检、penglai start 启动。"))
+    return True
+
 def main():
     step_lang()
     step_env()
+    if step_detect_migrate():   # I7：探到旧管家且用户选迁移 → migrate 已配齐，向导到此结束
+        return
     llm = step_llm()
     channels = step_channels()
     app_id = app_secret = None

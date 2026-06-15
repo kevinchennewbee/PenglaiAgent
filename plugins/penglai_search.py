@@ -25,11 +25,17 @@ from ga import GenericAgentHandler
 
 
 def _mykey(name):
+    # 热重读：复用内核 llmcore.reload_mykeys()，让 penglai enable intel 写入的
+    # tinyfish_key/tavily_key/firecrawl_key 在长驻 fsapp 进程里【免重启】即时生效。
     try:
-        import mykey
-        return (getattr(mykey, name, "") or "").strip()
+        import llmcore
+        return ((llmcore.reload_mykeys()[0] or {}).get(name) or "").strip()
     except Exception:
-        return ""
+        try:
+            import mykey
+            return (getattr(mykey, name, "") or "").strip()
+        except Exception:
+            return ""
 
 def _clean(t):
     return re.sub(r"\s+", " ", str(t or "")).strip()

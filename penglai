@@ -301,6 +301,16 @@ def svc(action):
             print("   修复 plugins/penglai_{redline,memguard,fileguard}.py 导入错误后重试，"
                   "或 PENGLAI_ALLOW_UNGUARDED=1 强制启动（危险，不建议）。")
             return 2
+    # U7：restart 由 agent/IM(非 tty)触发时，派生脱离进程组的监工去重启 + 健康检查 + 带外回报
+    # 『我回来了』，不在当前进程(可能是被重启 fsapp 的子进程)里同步杀服务。终端当面跑保留同步路径。
+    if action == "restart" and not (sys.stdin.isatty() and sys.stdout.isatty()):
+        os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
+        lf = open(os.path.join(ROOT, "temp", "restart_supervisor.log"), "ab")
+        subprocess.Popen([venv_python(), os.path.join(ROOT, "penglai"), "_restart_supervisor"],
+                         cwd=ROOT, stdout=lf, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, start_new_session=True)
+        print(f"{OK} 已派后台监工重启，约 15 秒后我会发条消息告诉你我回来了。")
+        return 0
     if not has_systemd():
         # 容器/macOS：直接管理 nohup 飞书进程
         if action == "status":
@@ -518,28 +528,15 @@ def _channel_health(baseline=None):
     return (not bad), (", ".join(bad) if bad else "")
 
 def _notify_owner(text):
-    """带外把升级结果发到主人 IM（飞书 + 微信），复用陪伴的发送实现。监工进程用，不依赖 agent 存活。"""
+    """带外把结果发到主人 IM（飞书 + 微信）。监工进程用，不依赖 agent 存活。
+    委托给可 import 的公开原语 penglai_abilities.notify_owner（U8：单一实现，
+    agent/脚本也能 `from penglai_abilities import notify_owner` 复用，不必猜 import penglai）。"""
     sys.path.insert(0, ROOT)
     try:
-        import mykey
+        from penglai_abilities import notify_owner
+        return notify_owner(text)
     except Exception:
-        return
-    sent = False
-    users = getattr(mykey, "fs_allowed_users", []) or []
-    app_id, secret = getattr(mykey, "fs_app_id", ""), getattr(mykey, "fs_app_secret", "")
-    if users and app_id:
-        try:
-            import reflect.penglai_companion as cp
-            sent = cp._feishu_send({"open_id": users[0], "app_id": app_id, "app_secret": secret}, text) or sent
-        except Exception:
-            pass
-    if os.path.exists(os.path.expanduser("~/.wxbot/token.json")):
-        try:
-            import reflect.penglai_companion as cp
-            sent = cp._wechat_send(text) or sent
-        except Exception:
-            pass
-    return sent
+        return False
 
 def update_supervisor():
     """脱离进程组的后台监工：重启 → 健康检查 → 失败 git 回滚 + 重启 → 带外回报。
@@ -577,6 +574,43 @@ def update_supervisor():
             return 0
     _notify_owner(f"🆘 升级到 {new[:7]} 失败且回滚后仍未恢复，请上服务器看 temp/update.log 与 penglai doctor。")
     return 1
+
+def restart_supervisor():
+    """脱离进程组的后台监工：重启服务 → 健康检查 → 带外回报『我回来了』。
+    被 svc('restart') 在非 tty(agent/IM)触发时以 setsid 派生，绝不是 fsapp 的子进程，
+    故重启杀掉 fsapp 不影响本进程。U7：给 restart 配上 update 同款的『重启完通知主人』，
+    省得 agent 临场手写 restart 脚本（还把 import penglai 写崩）。复用 notify_owner（U8）。"""
+    import time
+    def log(m): print(f"[restart_supervisor] {m}", flush=True)
+    # 自锁：避免两个重启监工并发重启互踩；陈旧锁(>5min，上次崩了没删)自动接管
+    lock = os.path.join(ROOT, "temp", "restart_supervisor.lock")
+    try:
+        os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        try:
+            if time.time() - os.path.getmtime(lock) < 300:
+                log("已有重启监工在跑，退出"); return 0
+        except Exception:
+            pass
+        log("发现陈旧锁，接管")
+    try:
+        time.sleep(5)  # 给 agent 那条「我去重启，约15秒回来」留送达时间
+        base = _health_baseline()        # 重启前基线：只认其后的新连接证据
+        svcs = _restart_targets() if has_systemd() else []
+        log(f"重启: {svcs or 'fsapp(nohup)'}")
+        _restart(svcs)
+        for _ in range(45):              # 最多 90s
+            time.sleep(2)
+            if _channel_health(base)[0]:
+                log("健康检查通过")
+                _notify_owner("✅ 我回来啦——重启完成，刚才配的能力已生效，继续聊就行。")
+                return 0
+        log("健康检查 90s 未通过")
+        _notify_owner("⚠️ 我重启后 90 秒没看到飞书重连，麻烦发条消息试试，或在服务器跑 penglai doctor。")
+        return 1
+    finally:
+        try: os.remove(lock)
+        except Exception: pass
 
 def setup():
     return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
@@ -653,7 +687,8 @@ def main():
             "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
-            "_guardcheck": guardcheck, "_update_supervisor": update_supervisor}
+            "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
+            "_restart_supervisor": restart_supervisor}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if not arg:
         # 裸跑：交互终端 → 直接进对话（对齐 hermes 体验）；管道/脚本 → 打印帮助

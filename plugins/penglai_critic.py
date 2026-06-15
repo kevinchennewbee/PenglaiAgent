@@ -23,11 +23,18 @@ _OVERCONFIDENT = re.compile(
 _CLAIM_DONE = re.compile(r"(已经?|成功)(验证|确认|测试|跑通|完成)|verified|confirmed|tested", re.I)
 
 def _mykey(name):
+    # 热重读：复用内核 llmcore.reload_mykeys()(带 mtime 短路 + 覆盖 mykey.py/json/remote_url)，
+    # 让 penglai enable critic 写入的 critic_model 在长驻 fsapp 进程里【免重启】即时生效。
+    # 失败兜底退回裸 import(不比原状差)。
     try:
-        import mykey
-        return getattr(mykey, name, None)
+        import llmcore
+        return (llmcore.reload_mykeys()[0] or {}).get(name)
     except Exception:
-        return None
+        try:
+            import mykey
+            return getattr(mykey, name, None)
+        except Exception:
+            return None
 
 def tripwire(text):
     """本地免费绊线。返回命中的风险信号列表（空=未命中）。"""
