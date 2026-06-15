@@ -88,7 +88,12 @@ def fsapp_stop():
     print(f"{OK} 已停止（PID {' '.join(map(str, pids))}）"); return 0
 
 def installed_services():
-    """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。"""
+    """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。
+    ★macOS/容器无 systemd：直接返回核心两个，绝不调 systemctl——否则 update_supervisor
+    在 macOS 上 _restart_targets()→installed_services() 撞 FileNotFoundError('systemctl') 崩溃，
+    升级后服务不重启、报平安发不出（Mac mini 真机踩过：磁盘升到新版但跑的还是旧进程）。"""
+    if not has_systemd():
+        return SERVICES[:2]
     out = []
     for s in SERVICES:
         if sh(["systemctl", "list-unit-files", f"{s}.service"]).stdout.strip().count(s):
