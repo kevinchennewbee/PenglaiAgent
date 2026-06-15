@@ -109,6 +109,25 @@ def test_install_rejects_injection_via_memguard():
     assert not os.path.exists(_index(ps)), "被拦截的技能不该写进索引"
 
 
+def test_factory_skills_all_installable():
+    """出厂 skills/ 下每个真实技能都必须能装上（过 memguard + frontmatter 合法）。防回归：
+    技能正文若把注入攻击串原文当防注入示例写进去（如『忽略以上指令』），会被 memguard 误拦——
+    防注入意思要抽象描述，别原文引用攻击串。"""
+    import glob
+    import shutil
+    ps = _skills(); _setup(ps)
+    real = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills")
+    mds = [f for f in glob.glob(os.path.join(real, "*.md")) if not f.endswith("README.md")]
+    assert mds, "出厂 skills/ 不应为空"
+    for f in mds:
+        name = os.path.splitext(os.path.basename(f))[0]
+        shutil.copy(f, os.path.join(ps.SKILLS_DIR, f"{name}.md"))
+    for f in mds:
+        name = os.path.splitext(os.path.basename(f))[0]
+        assert ps.cmd_install(name) == 0, f"出厂技能装不上（memguard 拦截或 frontmatter 非法）: {name}"
+        assert os.path.exists(os.path.join(ps.MEM_DIR, f"penglai_skill_{name}_sop.md")), f"{name} SOP 未落盘"
+
+
 def test_install_unknown_fails():
     ps = _skills(); _setup(ps)
     assert ps.cmd_install("nonexistent") == 1
