@@ -53,15 +53,25 @@ _EOF = object()          # reader 线程：stdout 流结束哨兵
 def _mcp_servers():
     """从用户 mykey 读 mcp_servers 配置；未配则空（插件 no-op）。
     热重读：复用内核 llmcore.reload_mykeys()，让 mcp_servers 配置改动免重启即时生效。"""
+    loaded_mykey = sys.modules.get("mykey")
+    if loaded_mykey is not None and not getattr(loaded_mykey, "__file__", None):
+        cfg = getattr(loaded_mykey, "mcp_servers", None)
+        return cfg if isinstance(cfg, dict) else {}
+    cfg = None
     try:
         import llmcore
-        return (llmcore.reload_mykeys()[0] or {}).get("mcp_servers", {}) or {}
+        mykeys = llmcore.reload_mykeys()[0] or {}
+        if "mcp_servers" in mykeys:
+            cfg = mykeys.get("mcp_servers")
     except Exception:
+        cfg = None
+    if cfg is None:
         try:
             import mykey
-            return getattr(mykey, "mcp_servers", {}) or {}
+            cfg = getattr(mykey, "mcp_servers", None)
         except Exception:
-            return {}
+            cfg = None
+    return cfg if isinstance(cfg, dict) else {}
 
 
 def _qualify(server, tool):

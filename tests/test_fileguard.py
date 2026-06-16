@@ -68,6 +68,17 @@ def _fake_fsapp_main():
     return fake
 
 
+def _fake_fsapp_module():
+    """模拟 0.2.8 包装器形态：penglai_feishu_app.py import frontends.fsapp。"""
+    import types
+    fake = types.ModuleType("frontends.fsapp")
+    fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
+    fake._send_local_file = lambda *a, **k: "SENT"
+    fake.sent = []
+    fake.send_message = lambda rid, msg, **k: fake.sent.append(msg)
+    return fake
+
+
 def test_mount_in_script_mode():
     """生产部署（systemd/docker）跑 `python frontends/fsapp.py`，fsapp 的模块名是
     __main__ —— 只查 frontends.fsapp 会静默 fail-open（2026-06-11 真机事故）。"""
@@ -86,6 +97,27 @@ def test_mount_in_script_mode():
     finally:
         if saved is not None:
             sys.modules["__main__"] = saved
+
+
+def test_mount_in_module_mode():
+    """0.2.8 起飞书由 penglai_feishu_app.py 包装导入 frontends.fsapp，fileguard
+    必须在模块形态下同样挂载。"""
+    fg = _fileguard()
+    fake = _fake_fsapp_module()
+    saved = sys.modules.get("frontends.fsapp")
+    try:
+        sys.modules["frontends.fsapp"] = fake
+        assert fg._try_patch(), "frontends.fsapp 模块形态必须能挂载"
+        assert fake._send_local_file is fg._guarded_send_local_file, "包装未生效"
+        os.environ["GA_WORKSPACE_ROOT"] = tempfile.mkdtemp()
+        r = fake._send_local_file("u1", os.path.join(REPO, "mykey_template.py"))
+        assert r is False, "模块形态下越界外发未被拦截"
+        assert fake.sent and "蓬莱安全策略" in fake.sent[0], "未通知用户拦截原因"
+    finally:
+        if saved is not None:
+            sys.modules["frontends.fsapp"] = saved
+        else:
+            sys.modules.pop("frontends.fsapp", None)
 
 
 def test_no_mount_in_foreign_main():

@@ -52,8 +52,8 @@ while :; do
     fi
     FS_OK=$(has_fs); WX_OK=0
     [ -s "$D/wxbot/token.json" ] && WX_OK=1
-    if [ "$FS_OK" = "1" ] && ! alive "frontends/fsapp[.]py"; then
-        echo "▶ 启动飞书前端"; python /app/frontends/fsapp.py &
+    if [ "$FS_OK" = "1" ] && ! alive "penglai_feishu_app[.]py" && ! alive "frontends/fsapp[.]py"; then
+        echo "▶ 启动飞书前端"; python /app/penglai_feishu_app.py &
     fi
     # 微信走 penglai_im_launch 包装器:记录主人 uid 供主动陪伴投递,行为与直跑 wechatapp 一致
     if [ "$WX_OK" = "1" ] && ! alive "penglai_im_launch[.]py wechat"; then

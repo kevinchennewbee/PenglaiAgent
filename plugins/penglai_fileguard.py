@@ -17,11 +17,11 @@
 补丁。改为注册 `agent_before` 钩子（agent_loop.py:49，每次跑 agent 开头触发，远早于
 任务结束后才发文件的 `_send_generated_files`）里幂等延迟挂载。
 
-模块定位：生产部署（systemd/docker/penglai start）一律 `python frontends/fsapp.py`
-直接跑脚本，此时 fsapp 在 sys.modules 里的名字是 `__main__` 而不是 `frontends.fsapp`
-——只查后者会永远挂载失败、静默 fail-open（2026-06-11 真机实测踩过：仓库根的 penglai
-脚本被原样外发，journal 无任何拦截记录）。故两个名字都查，`__main__` 按 __file__
-是否为 fsapp.py 确认身份。
+模块定位：旧部署可能直接 `python frontends/fsapp.py`，此时 fsapp 在 sys.modules 里的名字是
+`__main__`；0.2.8 起生产入口是 `penglai_feishu_app.py` 包装器，fsapp 以 `frontends.fsapp`
+模块形态导入。两个名字都必须兼容；`__main__` 还要按 __file__ 是否为 fsapp.py 确认身份。
+只查其中一种都会让另一种部署静默 fail-open（2026-06-11 真机实测踩过：仓库根的 penglai
+脚本被原样外发，journal 无任何拦截记录）。
 
 仅覆盖飞书（默认面、真实暴露面）。微信/企微是 opt-in 且不在默认 systemd/docker 部署
 面，其 `[FILE:]`/媒体路径穿越记为上游 PR 候选，不在此层包装（未经真机验证不上）。

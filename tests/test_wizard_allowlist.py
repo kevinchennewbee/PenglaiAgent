@@ -27,6 +27,7 @@ def test_empty_allowlist_gets_locked():
     ns = {}
     exec(open(path, encoding="utf-8").read(), ns)
     assert ns["fs_allowed_users"] == ["ou_owner123"], "空白名单应被收紧为主人 open_id"
+    assert ns["fs_owner_open_id"] == "ou_owner123", "主人通知目标也应写入"
 
 
 def test_nonempty_allowlist_is_respected():
@@ -36,6 +37,7 @@ def test_nonempty_allowlist_is_respected():
     ns = {}
     exec(open(path, encoding="utf-8").read(), ns)
     assert ns["fs_allowed_users"] == ["ou_existing"], "原白名单应原样保留"
+    assert ns["fs_owner_open_id"] == "ou_other", "不覆盖白名单也应补主人通知目标"
 
 
 if __name__ == "__main__":

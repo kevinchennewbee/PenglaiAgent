@@ -22,7 +22,7 @@ OK, BAD, WARN = "✅", "❌", "⚠️ "
 # 渠道注册表：上游脚本 / 服务名 / pip 依赖(import名) / mykey 凭证键 / 白名单键
 # tested=True 表示蓬莱在腾讯云真机实测过；False=内核自带、封装可用、等待实测
 CHANNELS = {
-    "feishu":   dict(label="飞书",     script="fsapp.py",        service="penglai-feishu",
+    "feishu":   dict(label="飞书",     script="penglai_feishu_app.py", service="penglai-feishu",
                      pip={}, keys=[], allow="fs_allowed_users", tested=True,
                      note="主渠道，penglai setup 向导扫码建应用 + 连接验证闭环"),
     "wechat":   dict(label="微信",     script="wechatapp.py",    service="penglai-wechat",
@@ -76,6 +76,8 @@ def _launch_argv(ch):
     """启动 argv：有语音封装的渠道走 penglai_im_launch <ch>，其余直跑前端。"""
     if ch in _VOICE_CHANNELS:
         return [venv_python(), os.path.join(ROOT, "penglai_im_launch.py"), ch]
+    if ch == "feishu":
+        return [venv_python(), os.path.join(ROOT, "penglai_feishu_app.py")]
     return [venv_python(), os.path.join(ROOT, "frontends", CHANNELS[ch]["script"])]
 
 
@@ -83,11 +85,15 @@ def _launch_cmd(ch):
     """systemd ExecStart 命令串。"""
     if ch in _VOICE_CHANNELS:
         return f"python {ROOT}/penglai_im_launch.py {ch}"
+    if ch == "feishu":
+        return f"python {ROOT}/penglai_feishu_app.py"
     return f"python {ROOT}/frontends/{CHANNELS[ch]['script']}"
 
 
 def _proc_pattern(ch):
     """pgrep 匹配模式：语音封装渠道按 launcher 命令行匹配，否则按前端脚本。"""
+    if ch == "feishu":
+        return r"penglai_feishu_app[.]py|frontends/fsapp[.]py"
     return f"penglai_im_launch.py {ch}" if ch in _VOICE_CHANNELS \
         else f"frontends/{CHANNELS[ch]['script']}"
 
@@ -317,6 +323,8 @@ def proc_pids(ch):
 
 def logfile(ch):
     # 渠道 app 自己 redirect_log 到 temp/<name>.log（chatapp_common 约定）
+    if ch == "feishu":
+        return os.path.join(ROOT, "temp", "fsapp.log")
     return os.path.join(ROOT, "temp", CHANNELS[ch]["script"].replace(".py", ".log"))
 
 
@@ -350,7 +358,7 @@ def unit_install(ch):
         return True
     except subprocess.CalledProcessError:
         print(f"{BAD} 服务安装失败（sudo 权限？），可手动前台运行: "
-              f".venv/bin/python frontends/{c['script']}")
+              f".venv/bin/python {'penglai_feishu_app.py' if ch == 'feishu' else 'frontends/' + c['script']}")
         return False
 
 

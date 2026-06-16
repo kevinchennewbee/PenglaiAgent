@@ -138,10 +138,13 @@ def notify_owner(text):
         return False
     sent = False
     users = mk.get("fs_allowed_users", []) or []
+    owner = (mk.get("fs_owner_open_id", "") or "").strip()
+    if not owner and users:
+        owner = str(users[0]).strip()
     app_id, secret = mk.get("fs_app_id", ""), mk.get("fs_app_secret", "")
-    if users and app_id:
+    if owner and app_id:
         try:
-            sent = cp._feishu_send({"open_id": users[0], "app_id": app_id,
+            sent = cp._feishu_send({"open_id": owner, "app_id": app_id,
                                     "app_secret": secret}, text) or sent
         except Exception:
             pass

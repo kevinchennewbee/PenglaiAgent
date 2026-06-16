@@ -50,10 +50,57 @@ def has_systemd():
 FSLOG = os.path.join(ROOT, "temp", "fsapp.log")
 FSPID = os.path.join(ROOT, "temp", "fsapp.pid")
 FSLOCK = os.path.join(ROOT, "temp", "fsapp.start.lock")
+FSAPP_ENTRY = os.path.join(ROOT, "penglai_feishu_app.py")
+FSAPP_PATTERNS = ("penglai_feishu_app[.]py", "frontends/fsapp[.]py")
 
 def fsapp_pids():
-    r = sh(["pgrep", "-f", "frontends/fsapp.py"])
-    return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
+    pids = set()
+    for pat in FSAPP_PATTERNS:
+        r = sh(["pgrep", "-f", pat])
+        if r.returncode == 0:
+            pids.update(int(x) for x in r.stdout.split() if x.strip().isdigit())
+    return sorted(pids)
+
+def _fsapp_launchd_label():
+    return "com.penglai.feishu"
+
+def _use_fsapp_launchd():
+    return sys.platform == "darwin" and not has_systemd()
+
+def _launchctl_bootout(label_id):
+    return sh(["launchctl", "bootout", f"gui/{os.getuid()}/{label_id}"])
+
+def _fsapp_launchd_start():
+    import signal
+    import time
+    import penglai_abilities as pa
+    os.makedirs(os.path.dirname(FSLOG), exist_ok=True)
+    for pid in fsapp_pids():
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    if fsapp_pids():
+        time.sleep(1.5)
+    base = os.path.getsize(FSLOG) if os.path.exists(FSLOG) else 0
+    ok = pa.install_launchd(_fsapp_launchd_label(), [venv_python(), FSAPP_ENTRY], FSLOG)
+    if not ok:
+        print(f"{WARN}飞书 launchd 注册未确认，降级为后台启动")
+        return None
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        if os.path.exists(FSLOG):
+            with open(FSLOG, "rb") as f:
+                f.seek(base)
+                if b"connected to wss" in f.read():
+                    pids = fsapp_pids()
+                    pid_text = f"PID {pids[0]}" if pids else "launchd"
+                    print(f"{OK} 飞书已由 launchd 守护并建立长连接（{pid_text}，{_fsapp_launchd_label()}）")
+                    return 0
+        time.sleep(2)
+    pids = fsapp_pids()
+    print(f"{WARN}launchd 已注册，{'进程在跑' if pids else '但未见进程'}，45 秒未见连接成功，penglai logs 查看")
+    return 1
 
 def _child_env():
     """给 fsapp 子进程固化完整 PATH（含 venv 与 /opt/homebrew/bin），避免它继承被裁剪的 PATH
@@ -68,6 +115,10 @@ def _child_env():
     return env
 
 def fsapp_start():
+    if _use_fsapp_launchd():
+        r = _fsapp_launchd_start()
+        if r is not None:
+            return r
     import time
     try: import fcntl
     except ImportError: fcntl = None
@@ -84,7 +135,7 @@ def fsapp_start():
             print(f"{OK} 飞书进程已在运行（PID {pids[0]}）"); return 0
         base = os.path.getsize(FSLOG) if os.path.exists(FSLOG) else 0  # 只认本次启动后的新连接
         lf = open(FSLOG, "ab")
-        p = subprocess.Popen([venv_python(), os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
+        p = subprocess.Popen([venv_python(), FSAPP_ENTRY], cwd=ROOT,
                              stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                              env=_child_env(), start_new_session=True)
         try: open(FSPID, "w").write(str(p.pid))   # F12：写当前代 PID，别让 pid 文件停在第一代
@@ -110,6 +161,8 @@ def fsapp_start():
 
 def fsapp_stop():
     import signal
+    if _use_fsapp_launchd():
+        _launchctl_bootout(_fsapp_launchd_label())
     pids = fsapp_pids()
     if not pids:
         print(f"{OK} 飞书进程未在运行"); return 0
@@ -206,12 +259,18 @@ def doctor():
         print(f"{OK if ok else BAD} {name}" + ("" if ok else f"   → {hint}"))
         if not ok: bad += 1
 
-    # 1. Python
-    v = sys.version_info
-    check(f"Python {v.major}.{v.minor}", v >= (3, 10), "需要 Python 3.10+")
+    # 1. Python：服务实际用 .venv/bin/python；CLI 可能由系统 python3 启动。
+    py = venv_python()
+    r = sh([py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"])
+    py_ver = (r.stdout or "").strip()
+    try:
+        py_ok = tuple(int(x) for x in py_ver.split(".")[:2]) >= (3, 10)
+    except Exception:
+        py_ok = False
+    check(f"运行 Python {py_ver or '?'}（{os.path.relpath(py, ROOT) if py.startswith(ROOT) else py}）",
+          r.returncode == 0 and py_ok, "需要 Python 3.10+；重跑安装或重建 .venv")
 
     # 2. venv 与核心依赖
-    py = venv_python()
     r = sh([py, "-c", "import requests, bs4, aiohttp, bottle"])
     check("核心依赖 (requests/bs4/aiohttp/bottle)", r.returncode == 0,
           "运行: uv pip install --python .venv/bin/python -e .")
@@ -286,11 +345,11 @@ def doctor():
             if oid:
                 check("飞书白名单", False,
                       f"fs_allowed_users 为空=任何可见用户都能驱动本机 agent！已从日志认出你的 open_id，"
-                      f"编辑 mykey.py 设 fs_allowed_users = ['{oid}']，再 penglai restart")
+                      f"编辑 mykey.py 设 fs_allowed_users = ['{oid}'] 且 fs_owner_open_id = '{oid}'，再 penglai restart")
             else:
                 check("飞书白名单", False,
                       "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
-                      "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），重启服务生效")
+                      "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），并设置 fs_owner_open_id，重启服务生效")
 
     # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
     r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
@@ -312,7 +371,9 @@ def doctor():
     # 5b. 网页搜索（Bing 免 key 兜底常在；情报矩阵=叠加的增强源）
     r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import premium_sources;"
             "print(','.join(premium_sources()))"], cwd=ROOT)
-    prem = (r.stdout or "").strip()
+    prem_lines = [l.strip() for l in (r.stdout or "").splitlines()
+                  if l.strip() and not l.startswith("[Info]")]
+    prem = prem_lines[-1] if prem_lines else ""
     print(f"{OK} 网页搜索：{'Bing 免费兜底 + 增强源 ' + prem + '（多源交叉验证）' if prem else 'Bing 免费兜底（开箱即用）   → 增强多源交叉验证：penglai enable intel'}")
 
     # 5c. 批判脑（绊线免费常开；异厂商复核要配 critic_model）
@@ -343,7 +404,10 @@ def doctor():
                 print(f"{OK if state == 'active' else WARN} 服务 {s}: {state or '未安装'}")
     else:
         pids = fsapp_pids()
-        check(f"飞书进程（非 systemd 环境，nohup 模式{'，PID ' + str(pids[0]) if pids else ''}）",
+        mode = "后台模式"
+        if sys.platform == "darwin":
+            mode = "launchd 守护" if sh(["launchctl", "list", _fsapp_launchd_label()]).returncode == 0 else "后台模式"
+        check(f"飞书进程（非 systemd 环境，{mode}{'，PID ' + str(pids[0]) if pids else ''}）",
               bool(pids), "运行: penglai start")
 
     # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
@@ -579,7 +643,7 @@ def _restart(svcs):
     if sh(["sudo", "-n", "systemctl", "restart", *svcs]).returncode == 0:
         return
     # 无免密 sudo：服务 User= 与本进程同用户，可直接杀；systemd Restart=always 会拉起新代码
-    for pat in ("frontends/fsapp[.]py", "penglai_im_launch[.]py wechat",
+    for pat in ("penglai_feishu_app[.]py", "frontends/fsapp[.]py", "penglai_im_launch[.]py wechat",
                 "reflect/scheduler[.]py", "reflect/penglai_companion[.]py"):
         sh(["pkill", "-f", pat])
 

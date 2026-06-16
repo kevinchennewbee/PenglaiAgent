@@ -697,6 +697,7 @@ penglai_lang = {get_lang()!r}
 fs_app_id = {(app_id or '')!r}
 fs_app_secret = {(app_secret or '')!r}
 fs_allowed_users = []   # 留空=对所有可见用户开放（不安全）；向导实测时会自动收紧为你本人
+fs_owner_open_id = ""   # 主人通知目标（restart/update/主动陪伴优先发这里；不等于访问白名单）
 """
     for k, v in (intel or {}).items():
         body += f"{k} = {v!r}\n"
@@ -740,18 +741,31 @@ def step_wechat():
 
 # ---------- 步骤 6：启动并验证 ----------
 def _fsapp_pids():
-    r = subprocess.run(["pgrep", "-f", "frontends/fsapp.py"], capture_output=True, text=True)
-    return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
+    pids = set()
+    for pat in ("penglai_feishu_app[.]py", "frontends/fsapp[.]py"):
+        r = subprocess.run(["pgrep", "-f", pat], capture_output=True, text=True)
+        if r.returncode == 0:
+            pids.update(int(x) for x in r.stdout.split() if x.strip().isdigit())
+    return sorted(pids)
 
 def _spawn_fsapp(py):
     """非 systemd 环境后台拉起飞书进程。重跑幂等：先停旧实例。返回 (日志路径, 起始偏移)。"""
     import signal
+    os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
+    log = os.path.join(ROOT, "temp", "fsapp.log")
     for pid in _fsapp_pids():
         try: os.kill(pid, signal.SIGTERM)
         except ProcessLookupError: pass
     if _fsapp_pids(): time.sleep(1.5)
-    os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
-    log = os.path.join(ROOT, "temp", "fsapp.log")
+    pos = os.path.getsize(log) if os.path.exists(log) else 0
+    if sys.platform == "darwin":
+        try:
+            import penglai_abilities as _pa
+            if _pa.install_launchd("com.penglai.feishu", [py, os.path.join(ROOT, "penglai_feishu_app.py")], log):
+                return log, pos
+            print(f"  {WARN}飞书 launchd 注册未确认，降级后台启动")
+        except Exception as e:
+            print(f"  {WARN}飞书 launchd 守护安装失败，降级后台启动: {e}")
     lf = open(log, "ab")
     pos = lf.tell()
     env = dict(os.environ)   # F15：固化 PATH(含 venv/homebrew/~/.local/bin)，防子进程(ffmpeg)找不到
@@ -759,7 +773,7 @@ def _spawn_fsapp(py):
               "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
     env["PATH"] = os.pathsep.join(_extra + [d for d in env.get("PATH", "").split(os.pathsep)
                                             if d and d not in _extra])
-    p = subprocess.Popen([py, os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
+    p = subprocess.Popen([py, os.path.join(ROOT, "penglai_feishu_app.py")], cwd=ROOT,
                          stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                          env=env, start_new_session=True)
     with open(os.path.join(ROOT, "temp", "fsapp.pid"), "w") as f:
@@ -783,21 +797,40 @@ def _watch(read_log, pattern, timeout, allow_skip=False):
 
 def _patch_allowlist(open_id):
     """把 fs_allowed_users 从【空】收紧为 [open_id]（secure-by-default，F-003）。
-    仅在当前为空时改——不覆盖用户/上次已设的白名单。返回是否改动。"""
+    同时记录 fs_owner_open_id 作为报平安/主动陪伴的主人通知目标。
+    仅在当前为空时改白名单——不覆盖用户/上次已设的白名单。返回白名单是否改动。"""
     import re
     path = os.path.join(ROOT, "mykey.py")
     try:
         src = open(path, encoding="utf-8").read()
     except Exception:
         return False
+    owner_re = re.search(r"^fs_owner_open_id\s*=\s*(['\"])(.*?)\1", src, re.M)
+    if owner_re:
+        if not owner_re.group(2).strip():
+            src = src[:owner_re.start(2)] + open_id + src[owner_re.end(2):]
+    else:
+        src += f"\nfs_owner_open_id = {open_id!r}   # 主人通知目标（restart/update/主动陪伴）\n"
     m = re.search(r"^fs_allowed_users\s*=\s*(\[.*?\])", src, re.M)
     if not m:
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(src)
+            os.chmod(path, 0o600)
+        except Exception:
+            pass
         return False
     try:
         cur = eval(m.group(1), {"__builtins__": {}})
     except Exception:
         return False
     if cur:   # 已非空，尊重现状，不动
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(src)
+            os.chmod(path, 0o600)
+        except Exception:
+            pass
         return False
     new = src[:m.start(1)] + repr([open_id]) + src[m.end(1):]
     new = new.replace("# 留空=对所有可见用户开放（不安全）；向导实测时会自动收紧为你本人",
@@ -855,7 +888,7 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
         work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
         units = {"penglai-scheduler": f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py"}
         if with_feishu:
-            units["penglai-feishu"] = f"python {ROOT}/frontends/fsapp.py"
+            units["penglai-feishu"] = f"python {ROOT}/penglai_feishu_app.py"
         if with_companion:
             units["penglai-companion"] = f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"
         if with_wechat:
@@ -879,7 +912,7 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
             subprocess.run(["sudo", "systemctl", "enable", "--now"] + list(units), check=True)
             print(f"{OK} " + T("服务已安装并设为开机自启，开始验证..."))
         except subprocess.CalledProcessError:
-            print(f"{BAD} " + T("服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python frontends/fsapp.py"))
+            print(f"{BAD} " + T("服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python penglai_feishu_app.py"))
             return False
         # 陪伴服务真实状态（诚实纪律：装了 ≠ 在跑）
         if with_companion:

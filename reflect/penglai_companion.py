@@ -62,9 +62,12 @@ def _cfg():
             mk = {}
     g = lambda k, d: mk.get(k, d)
     users = g("fs_allowed_users", []) or []
+    owner = (g("fs_owner_open_id", "") or "").strip()
+    if not owner and users:
+        owner = str(users[0]).strip()
     return {
         "enabled": bool(g("companion_enabled", False)),
-        "open_id": users[0] if users else "",
+        "open_id": owner,
         "app_id": g("fs_app_id", ""), "app_secret": g("fs_app_secret", ""),
         "quiet": g("companion_quiet_hours", [22, 8]),     # [起,止] 不打扰
         "cooldown_h": g("companion_cooldown_hours", 4),   # 自由陪伴两次至少间隔

@@ -240,10 +240,102 @@ def launch_wechat():
     写后不覆盖），供主动陪伴(reflect/penglai_companion)跨进程投递。
     其余完全复刻 frontends/wechatapp.py 的 __main__ 序列（含 systemd 关心的退出码：
     1=单例冲突/无token不可交互，2=AuthExpired 需重扫码）。"""
-    import json, time, socket, threading
+    import copy, json, queue, re, time, socket, threading
     import frontends.wechatapp as wx
 
     _master = os.path.join(ROOT, "temp", "wx_master.json")
+    _wechat_lock_port = 19532
+
+    def _is_cmd(text, name):
+        s = (text or "").strip()
+        return s == name or s.startswith(name + " ") or s.startswith(name + "\t")
+
+    def _help_text():
+        return "\n".join([
+            "Commands:",
+            "/new - clear current context",
+            "/restore - restore the latest conversation summary",
+            "/continue - list recoverable sessions",
+            "/continue N - restore a session",
+            "/btw <question> - side question without interrupting the main task",
+            "/review [scope] - in-session code review",
+            "/llm [N] - list or switch model",
+            "/stop - stop the current task",
+        ])
+
+    def _send(bot, uid, text, ctx):
+        try:
+            bot.send_text(uid, text, context_token=ctx)
+        except Exception as e:
+            print(f"[WX] command send err: {type(e).__name__}: {e}", file=sys.__stdout__)
+
+    def _text_msg(msg, text):
+        clone = copy.deepcopy(msg)
+        clone["item_list"] = [{"type": wx.ITEM_TEXT, "text_item": {"text": text}}]
+        return clone
+
+    def _handle_restore():
+        from frontends.chatapp_common import format_restore
+
+        restored_info, err = format_restore()
+        if err:
+            return err
+        restored, fname, count = restored_info
+        wx.agent.abort()
+        wx.agent.history.extend(restored)
+        return f"✅ 已恢复 {count} 轮对话\n来源: {fname}\n(仅恢复上下文，请输入新问题继续)"
+
+    def _handle_review(bot, msg, uid, ctx, text):
+        from frontends import review_cmd
+
+        body = text[len("/review"):].strip()
+        out = queue.Queue()
+        prompt = review_cmd.handle(wx.agent, body, out)
+        if prompt is None:
+            try:
+                item = out.get_nowait()
+                if "done" in item:
+                    _send(bot, uid, item["done"], ctx)
+            except queue.Empty:
+                pass
+            return
+        wx.on_message(bot, _text_msg(msg, prompt))
+
+    def _dispatch_command(bot, msg, text, uid, ctx):
+        if text == "/help":
+            _send(bot, uid, _help_text(), ctx)
+            return True
+        if _is_cmd(text, "/new"):
+            from frontends.continue_cmd import reset_conversation
+
+            _send(bot, uid, reset_conversation(wx.agent), ctx)
+            return True
+        if _is_cmd(text, "/restore"):
+            _send(bot, uid, _handle_restore(), ctx)
+            return True
+        if text == "/continue" or re.fullmatch(r"/continue\s+\d+\s*", text or ""):
+            from frontends.continue_cmd import handle_frontend_command
+
+            _send(bot, uid, handle_frontend_command(wx.agent, text, exclude_pid=os.getpid()), ctx)
+            return True
+        if (text or "").startswith("/continue"):
+            _send(bot, uid, "用法: /continue 或 /continue N", ctx)
+            return True
+        if _is_cmd(text, "/btw"):
+            from frontends.btw_cmd import handle_frontend_command
+
+            def worker():
+                _send(bot, uid, handle_frontend_command(wx.agent, text), ctx)
+
+            threading.Thread(target=worker, daemon=True, name="wechat-btw").start()
+            return True
+        if _is_cmd(text, "/review"):
+            _handle_review(bot, msg, uid, ctx, text)
+            return True
+        if (text or "").startswith("/llm") and not _is_cmd(text, "/llm"):
+            _send(bot, uid, "用法: /llm 或 /llm N", ctx)
+            return True
+        return False
 
     def on_message(bot, msg):
         try:
@@ -255,12 +347,17 @@ def launch_wechat():
                 print(f"[wx_master] 已记录主人 uid（首位对话者）", file=sys.__stdout__)
         except Exception:
             pass
+        text = bot.extract_text(msg).strip()
+        uid = msg.get("from_user_id", "")
+        ctx = msg.get("context_token", "")
+        if text and _dispatch_command(bot, msg, text, uid, ctx):
+            return
         return wx.on_message(bot, msg)
 
     do_relogin = "--relogin" in sys.argv
     try:
         lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        lock.bind(("127.0.0.1", 19531))
+        lock.bind(("127.0.0.1", _wechat_lock_port))
     except OSError:
         print("[WeChat] Another instance running, exiting."); return 1
     logf = open(os.path.join(ROOT, "temp", "wechatapp.log"), "a", encoding="utf-8", buffering=1)
