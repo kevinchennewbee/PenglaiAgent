@@ -556,7 +556,19 @@ DOCKER_UPDATE_HINT = ("curl -fsSL https://gh-proxy.com/https://raw.githubusercon
 UPDATE_LOG = os.path.join(ROOT, "temp", "update.log")
 
 def _git(*args):
-    return sh(["git", *args], cwd=ROOT)
+    cmd = ["git", *args]
+    kw = {}
+    if args and args[0] == "fetch":
+        # 国内直连 GitHub 有时不是立刻失败，而是低速半开卡住。给 fetch 加
+        # 明确低速阈值和总超时，失败后 _fetch_status() 才能快速切到 gh-proxy。
+        cmd = ["git", "-c", "http.lowSpeedLimit=1024", "-c", "http.lowSpeedTime=8", *args]
+        kw["timeout"] = 35
+    try:
+        return sh(cmd, cwd=ROOT, **kw)
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode("utf-8", "replace")
+        err = e.stderr if isinstance(e.stderr, str) else (e.stderr or b"").decode("utf-8", "replace")
+        return subprocess.CompletedProcess(cmd, 124, out, err or f"git fetch timeout after {e.timeout}s")
 
 def _gh_proxy(url):
     """把 github.com 直连 URL 包成 gh-proxy 镜像（国内 GFW 兜底，与 install.sh 同源）。
