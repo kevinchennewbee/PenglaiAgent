@@ -40,5 +40,12 @@ def test_nonempty_allowlist_is_respected():
     assert ns["fs_owner_open_id"] == "ou_other", "不覆盖白名单也应补主人通知目标"
 
 
+def test_manual_feishu_setup_mentions_card_action_trigger():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "penglai_setup.py"),
+               encoding="utf-8").read()
+    assert "im.message.receive_v1" in src
+    assert "card.action.trigger" in src
+
+
 if __name__ == "__main__":
     raise SystemExit(run_tests(dict(globals())))

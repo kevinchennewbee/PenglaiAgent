@@ -90,10 +90,13 @@ def build_ask_user_elements(base_text, event, menu_id=None, include_buttons=True
                 "tag": "button",
                 "text": {"tag": "plain_text", "content": label},
                 "type": "primary" if idx == 0 else "default",
-                "value": {
-                    "penglai_action": "ask_user",
-                    "menu_id": menu_id,
-                    "index": idx,
-                },
+                "behaviors": [{
+                    "type": "callback",
+                    "value": {
+                        "penglai_action": "ask_user",
+                        "menu_id": menu_id,
+                        "index": idx,
+                    },
+                }],
             })
     return elements

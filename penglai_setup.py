@@ -417,7 +417,7 @@ def step_feishu():
         print("""  ① 浏览器打开 https://open.feishu.cn/app → 创建企业自建应用（名字随意，如「蓬莱」）
   ② 左栏「添加应用能力」→ 添加「机器人」
   ③ 左栏「权限管理」→ 搜索并开通: im:message（获取与发送单聊/群聊消息相关权限，批量勾选）
-  ④ 左栏「事件订阅」→ 订阅方式选「使用长连接接收事件」→ 添加事件: 接收消息 im.message.receive_v1
+  ④ 左栏「事件订阅」→ 订阅方式选「使用长连接接收事件」→ 添加事件: 接收消息 im.message.receive_v1、卡片回传交互 card.action.trigger
   ⑤ 左栏「版本管理与发布」→ 创建版本并发布（自建应用秒过审）
   ⑥ 「凭证与基础信息」页拿 App ID 和 App Secret，填到下面""")
     while True:

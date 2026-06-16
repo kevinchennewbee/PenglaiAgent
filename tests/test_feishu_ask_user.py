@@ -4,6 +4,12 @@ from penglai_feishu_ask import (
     render_ask_user_text,
     resolve_choice,
 )
+from penglai_feishu_app import (
+    _ASK_BY_MENU,
+    _ASK_STATE,
+    _pop_menu_choice,
+    _remember_ask,
+)
 
 
 def _ctx(question="下一步？", candidates=None, result="EXITED"):
@@ -49,7 +55,27 @@ def test_build_elements_can_include_buttons():
     assert "点击按钮" in elements[0]["content"]
     buttons = [e for e in elements if e["tag"] == "button"]
     assert [b["text"]["content"] for b in buttons] == ["1. 探深", "2. 先停"]
-    assert buttons[0]["value"] == {"penglai_action": "ask_user", "menu_id": "m1", "index": 0}
+    assert buttons[0]["behaviors"] == [{
+        "type": "callback",
+        "value": {"penglai_action": "ask_user", "menu_id": "m1", "index": 0},
+    }]
+    assert "value" not in buttons[0]
+
+
+def test_card_menu_choice_consumes_pending_state():
+    _ASK_STATE.clear()
+    _ASK_BY_MENU.clear()
+    event = extract_ask_user_event(_ctx(candidates=["探深", "先停"]))
+    _remember_ask("chat1", event, menu_id="m1", receive_id="chat1", receive_id_type="chat_id")
+    picked = _pop_menu_choice("m1", 1)
+    assert picked == {
+        "chat_key": "chat1",
+        "choice": "先停",
+        "receive_id": "chat1",
+        "receive_id_type": "chat_id",
+    }
+    assert "chat1" not in _ASK_STATE
+    assert "m1" not in _ASK_BY_MENU
 
 
 def test_resolve_choice_by_number_or_exact_text():

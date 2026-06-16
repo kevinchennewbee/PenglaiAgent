@@ -34,6 +34,80 @@ _ASK_BY_MENU = {}
 _ASK_LOCK = threading.Lock()
 
 
+def _patch_lark_ws_card_dispatch():
+    """Work around lark-oapi WebSocket clients that drop CARD frames.
+
+    Some 1.x releases accept register_p2_card_action_trigger(), but return
+    before dispatching MessageType.CARD in the long-connection client.  Keep the
+    fix in Penglai's wrapper layer so GA and the third-party package stay
+    untouched.
+    """
+    try:
+        import inspect
+        import lark_oapi.ws.client as ws_client
+    except Exception as e:
+        print(f"[WARN] 飞书卡片回调兼容检查失败: {e}", flush=True)
+        return False
+    method = getattr(ws_client.Client, "_handle_data_frame", None)
+    if getattr(method, "_penglai_card_dispatch_patch", False):
+        return True
+    try:
+        src = inspect.getsource(method)
+    except Exception:
+        src = ""
+    if "MessageType.CARD" in src and "_do_without_validation(pl)" in src and "elif message_type == MessageType.CARD" not in src:
+        return True
+    if "MessageType.CARD" in src and "return" not in src:
+        return True
+
+    async def _handle_data_frame(self, frame):
+        hs = frame.headers
+        msg_id = ws_client._get_by_key(hs, ws_client.HEADER_MESSAGE_ID)
+        trace_id = ws_client._get_by_key(hs, ws_client.HEADER_TRACE_ID)
+        sum_ = ws_client._get_by_key(hs, ws_client.HEADER_SUM)
+        seq = ws_client._get_by_key(hs, ws_client.HEADER_SEQ)
+        type_ = ws_client._get_by_key(hs, ws_client.HEADER_TYPE)
+
+        pl = frame.payload
+        if int(sum_) > 1:
+            pl = self._combine(msg_id, int(sum_), int(seq), pl)
+            if pl is None:
+                return
+
+        message_type = ws_client.MessageType(type_)
+        ws_client.logger.debug(self._fmt_log(
+            "receive message, message_type: {}, message_id: {}, trace_id: {}, payload: {}",
+            message_type.value, msg_id, trace_id, pl.decode(ws_client.UTF_8)))
+
+        resp = ws_client.Response(code=ws_client.http.HTTPStatus.OK)
+        try:
+            start = int(round(ws_client.time.time() * 1000))
+            if message_type in (ws_client.MessageType.EVENT, ws_client.MessageType.CARD):
+                result = self._event_handler._do_without_validation(pl)
+            else:
+                return
+            end = int(round(ws_client.time.time() * 1000))
+            header = hs.add()
+            header.key = ws_client.HEADER_BIZ_RT
+            header.value = str(end - start)
+            if result is not None:
+                resp.data = ws_client.base64.b64encode(
+                    ws_client.JSON.marshal(result).encode(ws_client.UTF_8))
+        except Exception as e:
+            ws_client.logger.error(self._fmt_log(
+                "handle message failed, message_type: {}, message_id: {}, trace_id: {}, err: {}",
+                message_type.value, msg_id, trace_id, e))
+            resp = ws_client.Response(code=ws_client.http.HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        frame.payload = ws_client.JSON.marshal(resp).encode(ws_client.UTF_8)
+        await self._write_message(frame.SerializeToString())
+
+    _handle_data_frame._penglai_card_dispatch_patch = True
+    ws_client.Client._handle_data_frame = _handle_data_frame
+    print("[penglai feishu] 已启用 lark-oapi WebSocket CARD 回调兼容补丁", flush=True)
+    return True
+
+
 def _remember_ask(chat_key, event, *, menu_id=None, receive_id=None, receive_id_type="open_id"):
     with _ASK_LOCK:
         _ASK_STATE[chat_key] = event
@@ -326,6 +400,10 @@ def main():
     builder = fs.lark.EventDispatcherHandler.builder("", "").register_p2_im_message_receive_v1(fs.handle_message)
     if hasattr(builder, "register_p2_card_action_trigger"):
         builder = builder.register_p2_card_action_trigger(fs.handle_card_action)
+        _patch_lark_ws_card_dispatch()
+    else:
+        print("[WARN] 当前 lark-oapi 不支持 register_p2_card_action_trigger，飞书按钮将只能用文字回复兜底",
+              flush=True)
     handler = builder.build()
     retry_delay = 5
     while True:

@@ -51,15 +51,26 @@ FSLOG = os.path.join(ROOT, "temp", "fsapp.log")
 FSPID = os.path.join(ROOT, "temp", "fsapp.pid")
 FSLOCK = os.path.join(ROOT, "temp", "fsapp.start.lock")
 FSAPP_ENTRY = os.path.join(ROOT, "penglai_feishu_app.py")
-FSAPP_PATTERNS = ("penglai_feishu_app[.]py", "frontends/fsapp[.]py")
+FSAPP_WRAPPER_PATTERN = "penglai_feishu_app[.]py"
+FSAPP_LEGACY_PATTERN = "frontends/fsapp[.]py"
+FSAPP_PATTERNS = (FSAPP_WRAPPER_PATTERN, FSAPP_LEGACY_PATTERN)
 
-def fsapp_pids():
+def _pids_for_patterns(patterns):
     pids = set()
-    for pat in FSAPP_PATTERNS:
+    for pat in patterns:
         r = sh(["pgrep", "-f", pat])
         if r.returncode == 0:
             pids.update(int(x) for x in r.stdout.split() if x.strip().isdigit())
     return sorted(pids)
+
+def fsapp_pids():
+    return _pids_for_patterns(FSAPP_PATTERNS)
+
+def fsapp_wrapper_pids():
+    return _pids_for_patterns((FSAPP_WRAPPER_PATTERN,))
+
+def fsapp_legacy_pids():
+    return _pids_for_patterns((FSAPP_LEGACY_PATTERN,))
 
 def _fsapp_launchd_label():
     return "com.penglai.feishu"
@@ -119,6 +130,7 @@ def fsapp_start():
         r = _fsapp_launchd_start()
         if r is not None:
             return r
+    import signal
     import time
     try: import fcntl
     except ImportError: fcntl = None
@@ -131,8 +143,22 @@ def fsapp_start():
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
                 print(f"{WARN}已有 penglai start 正在进行，跳过（避免重复进程）"); return 0
-        if pids := fsapp_pids():
-            print(f"{OK} 飞书进程已在运行（PID {pids[0]}）"); return 0
+        legacy = fsapp_legacy_pids()
+        wrapper = fsapp_wrapper_pids()
+        if legacy:
+            print(f"{WARN}发现旧飞书入口 frontends/fsapp.py（PID {' '.join(map(str, legacy))}），迁移到 penglai_feishu_app.py")
+            for pid in legacy:
+                try: os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError: pass
+            time.sleep(1.5)
+            legacy = fsapp_legacy_pids()
+            if legacy:
+                for pid in legacy:
+                    try: os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
+                time.sleep(0.5)
+        if wrapper:
+            print(f"{OK} 飞书 wrapper 进程已在运行（PID {wrapper[0]}）"); return 0
         base = os.path.getsize(FSLOG) if os.path.exists(FSLOG) else 0  # 只认本次启动后的新连接
         lf = open(FSLOG, "ab")
         p = subprocess.Popen([venv_python(), FSAPP_ENTRY], cwd=ROOT,
@@ -400,15 +426,29 @@ def doctor():
             state = r.stdout.strip()
             if s == "penglai-feishu":
                 check(f"服务 {s}: {state or '未安装'}", state == "active", "sudo systemctl restart penglai-feishu")
+                if state == "active":
+                    unit = sh(["systemctl", "show", "-p", "ExecStart", "--value", s]).stdout.strip()
+                    if "frontends/fsapp.py" in unit:
+                        check("飞书入口：旧 frontends/fsapp.py", False,
+                              "运行: penglai restart（会重写服务为 penglai_feishu_app.py）")
+                    elif "penglai_feishu_app.py" in unit:
+                        print(f"{OK} 飞书入口：penglai_feishu_app.py wrapper")
             else:
                 print(f"{OK if state == 'active' else WARN} 服务 {s}: {state or '未安装'}")
     else:
         pids = fsapp_pids()
+        legacy = fsapp_legacy_pids()
+        wrapper = fsapp_wrapper_pids()
         mode = "后台模式"
         if sys.platform == "darwin":
             mode = "launchd 守护" if sh(["launchctl", "list", _fsapp_launchd_label()]).returncode == 0 else "后台模式"
         check(f"飞书进程（非 systemd 环境，{mode}{'，PID ' + str(pids[0]) if pids else ''}）",
               bool(pids), "运行: penglai start")
+        if legacy and not wrapper:
+            check("飞书入口：旧 frontends/fsapp.py", False,
+                  "运行: penglai restart（会迁移到 penglai_feishu_app.py）")
+        elif wrapper:
+            print(f"{OK} 飞书入口：penglai_feishu_app.py wrapper")
 
     # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
     if not is_git_repo():
