@@ -124,6 +124,7 @@ memory/L4_raw_sessions/*
 !memory/penglai_weather_sop.md
 !memory/penglai_memsig_sop.md
 !memory/penglai_self_restart_sop.md
+!memory/penglai_im_vision_sop.md
 
 # Visual Studio
 .vs/

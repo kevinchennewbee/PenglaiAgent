@@ -482,7 +482,8 @@ def step_identity():
             "严禁用裸 git pull/git reset(会踩浅克隆坑且无回滚),严禁自己手动 systemctl restart")
     # 聊天渠道行为规则（vision_sop 的 OCR 优先是桌面 UI 自动化基因，不适合用户聊天发图）
     # 语音规则写硬：小模型(如 deepseek-flash)常嘴上说"先转写"却跑去调别的工具(真机实测)
-    rules = ("[蓬莱规则] 聊天渠道用户发图→直接 vision 原生看图(勿先OCR,仅需逐字提取时才OCR)；"
+    rules = ("[蓬莱规则] 聊天渠道用户发图→读 penglai_im_vision_sop 用 ask_vision(backend='openai')原生看图，"
+             "别凭模型名断定「我没视觉」要先实测(勿先OCR,仅逐字提取才OCR)；"
              "消息含 [audio: 文件名]→你的第一个工具调用必须是 transcribe(path=该音频路径)，"
              "严禁跳过、严禁先调 file_read/web_scan/ask_user 等任何其他工具、严禁凭空猜测语音内容；"
              "拿到转写文本后再据此回应(支持微信silk,自带情绪标签)")
@@ -554,6 +555,8 @@ def _voice_install():
     if not shutil.which("ffmpeg"):
         if shutil.which("apt-get") and ask(T("缺 ffmpeg（音频解码必需）。现在用 apt 安装？(y/n)"), "y").lower().startswith("y"):
             subprocess.run(["sudo", "apt-get", "install", "-y", "ffmpeg"])
+        elif sys.platform == "darwin" and shutil.which("brew") and ask(T("缺 ffmpeg（音频解码必需）。现在用 brew 安装？(y/n)"), "y").lower().startswith("y"):
+            subprocess.run(["brew", "install", "ffmpeg"])
         if not shutil.which("ffmpeg"):
             print(f"  {WARN}" + T("请自行安装 ffmpeg 后语音即可用（Ubuntu: sudo apt install -y ffmpeg / macOS: brew install ffmpeg）"))
             ok = False
@@ -700,6 +703,13 @@ fs_allowed_users = []   # 留空=对所有可见用户开放（不安全）；�
     with open(path, "w", encoding="utf-8") as f: f.write(body)
     os.chmod(path, 0o600)
     print(f"{OK} " + T("配置完成（权限 600，已加入 .gitignore 范围）"))
+    # F7/U4：装机即构建 vision_api.py 配到主力模型，让 IM 发来的图能用主力多模态直接看
+    try:
+        import penglai_abilities as pa
+        if pa.build_vision_api() == "built":
+            print(f"{OK} " + T("已构建看图能力（vision_api.py → 主力模型），IM 发图可直接看"))
+    except Exception:
+        pass
 
 # ---------- 微信（渠道子页，须在 mykey 写入后调用） ----------
 def step_wechat():
@@ -744,9 +754,14 @@ def _spawn_fsapp(py):
     log = os.path.join(ROOT, "temp", "fsapp.log")
     lf = open(log, "ab")
     pos = lf.tell()
+    env = dict(os.environ)   # F15：固化 PATH(含 venv/homebrew/~/.local/bin)，防子进程(ffmpeg)找不到
+    _extra = [os.path.dirname(py), os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin",
+              "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    env["PATH"] = os.pathsep.join(_extra + [d for d in env.get("PATH", "").split(os.pathsep)
+                                            if d and d not in _extra])
     p = subprocess.Popen([py, os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
                          stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                         start_new_session=True)
+                         env=env, start_new_session=True)
     with open(os.path.join(ROOT, "temp", "fsapp.pid"), "w") as f:
         f.write(str(p.pid))
     return log, pos
@@ -817,9 +832,12 @@ def _verify_live(read_log, log_hint):
         return True, (m.group(1) if m else None)
     if got == "skip":
         print(f"{WARN}" + T("已跳过实测，链路尚未端到端验证"))
+        print(f"  {WARN}" + T("⚠️ 安全：fs_allowed_users 仍为空 = 机器人对所有可见用户开放。"
+                              "你给它发一句话后跑 penglai doctor，会提示用你的 open_id 收紧白名单。"))
         return "skip", None
     print(f"{BAD} " + T("3 分钟内未收到消息。常见原因：发错了机器人 / 应用版本未发布 / 可见范围不含你"))
     print("    " + T("日志：{h}", h=log_hint))
+    print(f"  {WARN}" + T("⚠️ 安全：白名单仍为空（对所有人开放）；连通后 penglai doctor 会教你收紧。"))
     return False, None
 
 def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
@@ -891,6 +909,14 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
         return "skip"
     log, pos = _spawn_fsapp(py)
     print(f"{OK} " + T("飞书进程已后台启动（停止: penglai stop，日志: penglai logs）"))
+    # A：macOS 上 scheduler(提醒/日程，内核标配)也要用 launchd 守护拉起——旧版只起飞书，提醒到点不触发
+    try:
+        import penglai_abilities as _pa
+        _pa._install_reflect_service("penglai-scheduler", "reflect/scheduler.py", "提醒/日程")
+        if with_companion:
+            _pa._install_reflect_service("penglai-companion", "reflect/penglai_companion.py", "主动陪伴")
+    except Exception as e:
+        print(f"  {WARN}reflect 守护安装跳过: {e}")
     def read_log():
         with open(log, encoding="utf-8", errors="replace") as f:
             f.seek(pos)

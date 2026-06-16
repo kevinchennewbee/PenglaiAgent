@@ -39,7 +39,9 @@ def _mykey(name):
 def tripwire(text):
     """本地免费绊线。返回命中的风险信号列表（空=未命中）。"""
     hits = []
-    if _OVERCONFIDENT.search(text or ""): hits.append("过度自信措辞")
+    t = text or ""
+    if _OVERCONFIDENT.search(t): hits.append("过度自信措辞")
+    if _CLAIM_DONE.search(t): hits.append("声称已验证/完成（核实是否真有工具执行背书）")
     return hits
 
 def cross_vendor_review(history_text):

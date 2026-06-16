@@ -62,6 +62,11 @@ def _companion_on():
     return _pc().mykey_get("companion_enabled")
 
 
+def _companion_enabled():
+    """公开探针：agent/脚本探活时常按此名调（F10：曾撞 AttributeError）。与 _companion_running 配套。"""
+    return bool(_companion_on())
+
+
 def _companion_running():
     """真实存活：开关开着且心跳进程真在跑（systemd 看 is-active，非 systemd 看进程在不在）。
     U11：status() 不再只凭旗标误报『已开启』（macOS 心跳进程死了旗标仍 True）。"""
@@ -76,6 +81,40 @@ def _companion_running():
 def _intel_sources():
     pc = _pc()
     return [k for k in ("tinyfish_key", "tavily_key", "firecrawl_key") if pc.mykey_get(k)]
+
+
+def _vision_ready():
+    return os.path.exists(os.path.join(ROOT, "memory", "vision_api.py"))
+
+
+def build_vision_api():
+    """从 GA 的 vision_api.template.py 构建 memory/vision_api.py 并配到主力模型(native_oai_config)，
+    让 ask_vision(img, backend='openai') 把图按 image_url 喂给主力多模态模型(如 M3)看图——补 U4/F7
+    『IM 发来的图看不到』。GA 模板零改动；vision_api.py 是用户配置产物(同 mykey.py)，已存在不覆盖。
+    返回 built / exists / skip（无 OAI 兼容主力模型）/ no_template。"""
+    mem = os.path.join(ROOT, "memory")
+    tmpl = os.path.join(mem, "vision_api.template.py")
+    out = os.path.join(mem, "vision_api.py")
+    if not os.path.exists(tmpl):
+        return "no_template"
+    if os.path.exists(out):
+        return "exists"
+    pc = _pc()
+    has_oai = pc.sh([pc.venv_python(), "-c",
+                     "import mykey;c=getattr(mykey,'native_oai_config',{});"
+                     "print(1 if isinstance(c,dict) and c.get('apibase') and c.get('apikey') "
+                     "and c.get('model') else 0)"], cwd=ROOT).stdout.strip() == "1"
+    if not has_oai:
+        return "skip"
+    try:
+        src = open(tmpl, encoding="utf-8").read()
+        src = src.replace("OPENAI_CONFIG_KEY = 'oai_config1'", "OPENAI_CONFIG_KEY = 'native_oai_config'")
+        src = src.replace("DEFAULT_BACKEND = 'claude'", "DEFAULT_BACKEND = 'openai'")
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(src)
+        return "built"
+    except Exception:
+        return "no_template"
 
 
 def notify_owner(text):
@@ -115,17 +154,79 @@ def notify_owner(text):
 
 
 # ---------- 通用 systemd 服务安装（reflect 心跳类）----------
+def _launchd_label(service):
+    return "com.penglai." + service.replace("penglai-", "")
+
+
+def install_launchd(label_id, program_args, logf):
+    """通用 macOS launchd 守护：KeepAlive(崩/被杀自动重启) + RunAtLoad(开机自启) + PATH 固化
+    (含 venv / ~/.local/bin / /opt/homebrew/bin)。给任何长驻进程(fsapp 飞书前端 / scheduler 提醒日程 /
+    companion 陪伴 / wechat)补 Linux systemd Restart=always 的等价物——macOS 无头服务器才有真正的
+    守护与开机自启。真机教训：旧版非 systemd 只裸 Popen fire-and-forget，被杀/崩就永久死、开机不自启、
+    更新重启后还滞留旧码。program_args=完整启动命令 list；logf=日志路径。返回是否注册成功。"""
+    from xml.sax.saxutils import escape as _x
+    pc = _pc()
+    plist_dir = os.path.expanduser("~/Library/LaunchAgents"); os.makedirs(plist_dir, exist_ok=True)
+    plist_path = os.path.join(plist_dir, label_id + ".plist")
+    os.makedirs(os.path.dirname(logf) or ".", exist_ok=True)
+    vbin = os.path.join(ROOT, ".venv", "bin")
+    path_env = ":".join([vbin if os.path.isdir(vbin) else os.path.dirname(pc.venv_python()),
+                         os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin",
+                         "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+    args_xml = "".join(f"<string>{_x(a)}</string>" for a in program_args)
+    plist = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+        '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+        '<plist version="1.0"><dict>\n'
+        f'  <key>Label</key><string>{label_id}</string>\n'
+        f'  <key>ProgramArguments</key><array>{args_xml}</array>\n'
+        f'  <key>WorkingDirectory</key><string>{_x(ROOT)}</string>\n'
+        '  <key>EnvironmentVariables</key><dict>'
+        f'<key>PATH</key><string>{path_env}</string>'
+        f'<key>HOME</key><string>{_x(os.path.expanduser("~"))}</string></dict>\n'
+        '  <key>RunAtLoad</key><true/>\n  <key>KeepAlive</key><true/>\n'
+        '  <key>ThrottleInterval</key><integer>20</integer>\n'
+        f'  <key>StandardOutPath</key><string>{_x(logf)}</string>\n'
+        f'  <key>StandardErrorPath</key><string>{_x(logf)}</string>\n'
+        '</dict></plist>\n')
+    try:
+        with open(plist_path, "w", encoding="utf-8") as f:
+            f.write(plist)
+    except Exception as e:
+        print(f"{BAD} launchd plist 写入失败（{label_id}）: {e}"); return False
+    uid = str(os.getuid())
+    pc.sh(["launchctl", "bootout", f"gui/{uid}/{label_id}"])      # 幂等卸旧
+    r = pc.sh(["launchctl", "bootstrap", f"gui/{uid}", plist_path])
+    if r.returncode != 0:                                         # 旧 macOS 回退 load
+        pc.sh(["launchctl", "unload", plist_path]); pc.sh(["launchctl", "load", plist_path])
+    return pc.sh(["launchctl", "list", label_id]).returncode == 0
+
+
+def _install_launchd(service, reflect_py, label):
+    """reflect 心跳类(companion/scheduler)的 launchd 守护——薄封装通用 install_launchd。"""
+    logf = os.path.join(ROOT, "temp", f"{service}.log")
+    ok = install_launchd(_launchd_label(service),
+                         [_pc().venv_python(), os.path.join(ROOT, "agentmain.py"),
+                          "--reflect", os.path.join(ROOT, reflect_py)], logf)
+    print(f"{OK} {label} 已用 launchd 守护 + 开机自启（{_launchd_label(service)}，崩溃/被杀自动重启）" if ok
+          else f"{WARN}{label} launchd 注册未确认（launchctl list {_launchd_label(service)} 可查）")
+    return True
+
+
 def _install_reflect_service(service, reflect_py, label):
     pc = _pc()
     if not pc.has_systemd():
-        # 非 systemd（容器/macOS）：nohup 起后台心跳进程
+        if sys.platform == "darwin":
+            return _install_launchd(service, reflect_py, label)
+        # 非 macOS 又无 systemd（容器等）：nohup 起后台心跳（尽力，无守护，崩溃不自动重启）
         os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
         log = open(os.path.join(ROOT, "temp", f"{service}.log"), "ab")
         subprocess.Popen([pc.venv_python(), os.path.join(ROOT, "agentmain.py"),
                           "--reflect", os.path.join(ROOT, reflect_py)],
                          cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                          stdin=subprocess.DEVNULL, start_new_session=True)
-        print(f"{OK} {label} 已后台启动（非 systemd 环境，日志 temp/{service}.log）")
+        print(f"{WARN}{label} 已后台启动（无 systemd/launchd，崩溃不自动重启，日志 temp/{service}.log）")
         return True
     env_sh = os.path.join(ROOT, "env.sh")
     if not os.path.exists(env_sh):
@@ -169,8 +270,7 @@ def disable_voice():
 # ---------- 主动陪伴 ----------
 def enable_companion():
     pc = _pc()
-    if _companion_on() and (not pc.has_systemd()
-                            or pc.sh(["systemctl", "is-active", "penglai-companion"]).stdout.strip() == "active"):
+    if _companion_running():   # 按进程实判（launchd/systemd/pgrep），不只看旗标——死了就重装守护
         print(f"{OK} 主动陪伴已在运行。"); return 0
     print("  💞 开启主动陪伴：独立心跳进程，门禁守护（默认勿扰 22-8 点、最短间隔 4 小时），")
     print("     触发源：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系。投递到飞书和微信。")
@@ -195,6 +295,11 @@ def disable_companion():
         pc.sh(["sudo", "rm", "-f", "/etc/systemd/system/penglai-companion.service"])
         pc.sh(["sudo", "systemctl", "daemon-reload"])
     else:
+        if sys.platform == "darwin":   # 先卸 launchd 守护，否则 KeepAlive 会把 pkill 掉的进程立刻拉回
+            label_id = _launchd_label("penglai-companion")
+            pc.sh(["launchctl", "bootout", f"gui/{os.getuid()}/{label_id}"])
+            try: os.remove(os.path.expanduser(f"~/Library/LaunchAgents/{label_id}.plist"))
+            except OSError: pass
         pc.sh(["pkill", "-f", "reflect/penglai_companion.py"])
     print(f"{OK} 主动陪伴已关闭。")
     return 0

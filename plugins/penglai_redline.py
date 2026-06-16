@@ -36,7 +36,9 @@ def _audit_path():
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, time.strftime("%Y-%m") + ".jsonl")
 
-_MASK = re.compile(r"(sk-[A-Za-z0-9_\-]{10,}|(api[_-]?key|secret|token|password)['\"]?\s*[:=]\s*['\"][^'\"]{6,})", re.I)
+_MASK = re.compile(
+    r"((?:sk|tvly|fc|cpk|gsk|glm|xai)[-_][A-Za-z0-9_\-]{8,}"      # 常见 key 值前缀(OpenAI/Tavily/Firecrawl/Agnes/智谱/xAI 等)
+    r"|\b\w*(?:api[_-]?key|secret|token|password|_key)\w*\b['\"]?\s*[:=]\s*['\"]?[^'\"\s,}]{6,})", re.I)
 
 def audit(tool, args, blocked=False, reason=""):
     try:
@@ -75,6 +77,14 @@ def _resolve_code(self, args, response):
             code = None
     return str(code or "")
 
+def _scrub(s):
+    """code_run 输出里的密钥脱敏后再返回——堵死 agent `cat mykey.py` / 打印 key 把
+    MiniMax/DeepSeek/TinyFish/飞书 secret 明文写进 model_responses 日志（Mac mini 真机踩过，
+    违 GA 宪法第4条 key 文件 reference-only）。复用审计同款 _MASK；agent 本就不该读 key 原值
+    （配置走 mykey_set），脱敏不影响正常用。"""
+    return _MASK.sub("***", s) if isinstance(s, str) else s
+
+
 def _guarded_code_run(self, args, response):
     code = _resolve_code(self, args, response)
     for pat, why in RED_CODE:
@@ -82,7 +92,18 @@ def _guarded_code_run(self, args, response):
             audit("code_run", {"code": code[:300]}, blocked=True, reason=why)
             yield f"⛔ 红线拦截: {why}\n"
             return _block(self, args, why)
-    return (yield from _orig_code_run(self, args, response))
+    # 放行；但把执行输出经 _MASK 脱敏，密钥不进上下文 / model_responses 日志
+    gen = _orig_code_run(self, args, response)
+    outcome = None
+    try:
+        while True:
+            yield _scrub(next(gen))
+    except StopIteration as e:
+        outcome = e.value
+    if outcome is not None and isinstance(getattr(outcome, "data", None), str):
+        outcome = StepOutcome(_scrub(outcome.data),
+                              next_prompt=outcome.next_prompt, should_exit=outcome.should_exit)
+    return outcome
 
 GenericAgentHandler.do_code_run = _guarded_code_run
 

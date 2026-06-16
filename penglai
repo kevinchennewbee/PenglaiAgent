@@ -48,34 +48,65 @@ def has_systemd():
 
 # ---------- 无 systemd 环境（容器/macOS）的进程管理 ----------
 FSLOG = os.path.join(ROOT, "temp", "fsapp.log")
+FSPID = os.path.join(ROOT, "temp", "fsapp.pid")
+FSLOCK = os.path.join(ROOT, "temp", "fsapp.start.lock")
 
 def fsapp_pids():
     r = sh(["pgrep", "-f", "frontends/fsapp.py"])
     return [int(x) for x in r.stdout.split()] if r.returncode == 0 else []
 
+def _child_env():
+    """给 fsapp 子进程固化完整 PATH（含 venv 与 /opt/homebrew/bin），避免它继承被裁剪的 PATH
+    导致其再起的子进程(如 ffmpeg)找不到——Mac mini 真机踩过的语音故障根因(F15)。"""
+    env = dict(os.environ)
+    vbin = os.path.join(ROOT, ".venv", "bin")
+    extra = [vbin if os.path.isdir(vbin) else os.path.dirname(venv_python()),
+             os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin",
+             "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    cur = [d for d in env.get("PATH", "").split(os.pathsep) if d]
+    env["PATH"] = os.pathsep.join([d for d in extra if d] + [d for d in cur if d not in extra])
+    return env
+
 def fsapp_start():
     import time
-    if pids := fsapp_pids():
-        print(f"{OK} 飞书进程已在运行（PID {pids[0]}）"); return 0
+    try: import fcntl
+    except ImportError: fcntl = None
     os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
-    lf = open(FSLOG, "ab")
-    p = subprocess.Popen([venv_python(), os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
-                         stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                         start_new_session=True)
-    deadline = time.monotonic() + 45
-    while time.monotonic() < deadline:
-        if p.poll() is not None:
-            print(f"{BAD} 进程退出（码 {p.returncode}），最近日志：")
-            for l in open(FSLOG, encoding="utf-8", errors="replace").read().splitlines()[-8:]:
-                print("  " + l[:160])
-            return 1
-        with open(FSLOG, encoding="utf-8", errors="replace") as f:
-            if "connected to wss" in f.read():
-                print(f"{OK} 飞书进程已启动且长连接已建立（PID {p.pid}，日志: penglai logs）")
-                return 0
-        time.sleep(2)
-    print(f"{WARN}进程在跑（PID {p.pid}）但 45 秒未见连接成功，penglai logs 查看")
-    return 1
+    # F8 启动互斥锁：防并发 start 各自起进程造成重复 fsapp（真机混乱期踩过）
+    lock_fd = os.open(FSLOCK, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        if fcntl is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                print(f"{WARN}已有 penglai start 正在进行，跳过（避免重复进程）"); return 0
+        if pids := fsapp_pids():
+            print(f"{OK} 飞书进程已在运行（PID {pids[0]}）"); return 0
+        base = os.path.getsize(FSLOG) if os.path.exists(FSLOG) else 0  # 只认本次启动后的新连接
+        lf = open(FSLOG, "ab")
+        p = subprocess.Popen([venv_python(), os.path.join(ROOT, "frontends", "fsapp.py")], cwd=ROOT,
+                             stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                             env=_child_env(), start_new_session=True)
+        try: open(FSPID, "w").write(str(p.pid))   # F12：写当前代 PID，别让 pid 文件停在第一代
+        except OSError: pass
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            if p.poll() is not None:
+                print(f"{BAD} 进程退出（码 {p.returncode}），最近日志：")
+                for l in open(FSLOG, encoding="utf-8", errors="replace").read().splitlines()[-8:]:
+                    print("  " + l[:160])
+                return 1
+            with open(FSLOG, "rb") as f:
+                f.seek(base)
+                if b"connected to wss" in f.read():
+                    print(f"{OK} 飞书进程已启动且长连接已建立（PID {p.pid}，日志: penglai logs）")
+                    return 0
+            time.sleep(2)
+        print(f"{WARN}进程在跑（PID {p.pid}）但 45 秒未见连接成功，penglai logs 查看")
+        return 1
+    finally:
+        try: os.close(lock_fd)
+        except OSError: pass
 
 def fsapp_stop():
     import signal
@@ -154,6 +185,18 @@ def guard_ok():
     return (r.returncode == 0 and last.startswith("OK")), last
 
 # ---------- doctor ----------
+def _owner_open_id_from_log():
+    """从 fsapp.log 的「收到消息 [X]」里捞最常出现的 open_id——白名单为空时建议收紧目标（F4）。"""
+    if not os.path.exists(FSLOG):
+        return ""
+    try:
+        import re, collections
+        ids = re.findall(r"收到消息 \[([^\]]+)\]",
+                         open(FSLOG, encoding="utf-8", errors="replace").read())
+        return collections.Counter(ids).most_common(1)[0][0] if ids else ""
+    except Exception:
+        return ""
+
 def doctor():
     print("🏮 蓬莱医生体检中...\n")
     bad = 0
@@ -205,6 +248,21 @@ def doctor():
         print(f"{WARN} 语音：装了一半，缺 {'/'.join(n for n, ok in _voice if not ok)}"
               f" → 补齐：penglai enable voice")
 
+    # 2d. 看图能力（F7/U4：IM 发图用主力多模态看图；缺 vision_api.py 就按主力模型构建一次）
+    if os.path.exists(os.path.join(ROOT, "mykey.py")):
+        try:
+            import penglai_abilities as _pa
+            st = _pa.build_vision_api()
+        except Exception:
+            st = "err"
+        if st in ("built", "exists"):
+            print(f"{OK} 看图：就绪（vision_api.py → 主力模型；IM 发图问「这是什么」即可）"
+                  + ("（刚构建）" if st == "built" else ""))
+        elif st == "skip":
+            print(f"{OK} 看图：待主力模型就绪（配好 native_oai_config 后 penglai doctor 自动构建）")
+        else:
+            print(f"{WARN} 看图：vision_api 未构建（{st}）；发图时管家会按 penglai_im_vision_sop 现建")
+
     # 3. 配置
     mykey = os.path.join(ROOT, "mykey.py")
     if os.path.exists(mykey):
@@ -224,9 +282,15 @@ def doctor():
         if st.startswith("LOCKED"):
             print(f"{OK} 飞书白名单：已收紧（{st.split(':')[1]} 个授权用户）")
         else:
-            check("飞书白名单", False,
-                  "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
-                  "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），重启服务生效")
+            oid = _owner_open_id_from_log()
+            if oid:
+                check("飞书白名单", False,
+                      f"fs_allowed_users 为空=任何可见用户都能驱动本机 agent！已从日志认出你的 open_id，"
+                      f"编辑 mykey.py 设 fs_allowed_users = ['{oid}']，再 penglai restart")
+            else:
+                check("飞书白名单", False,
+                      "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
+                      "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），重启服务生效")
 
     # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
     r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
@@ -297,6 +361,21 @@ def doctor():
     return 1 if bad else 0
 
 # ---------- services ----------
+def _ensure_macos_reflects(force=False):
+    """macOS：确保 reflect 心跳被 launchd 守护拉起——scheduler(提醒/日程，内核标配，必装；旧版 macOS
+    根本没起它=提醒到点不触发) + companion(仅用户已开时)。Linux 由 systemd 管，跳过。
+    force=True(升级/重启后)：即便在跑也重装让它们 re-exec 新码（否则跑升级前旧码，P2 升级一致性）。"""
+    if has_systemd():
+        return
+    try:
+        sys.path.insert(0, ROOT)
+        import penglai_abilities as pa
+        pa._install_reflect_service("penglai-scheduler", "reflect/scheduler.py", "提醒/日程")
+        if pa._companion_on() and (force or not pa._companion_running()):
+            pa._install_reflect_service("penglai-companion", "reflect/penglai_companion.py", "主动陪伴")
+    except Exception as e:
+        print(f"{WARN}reflect 守护处理跳过: {e}")
+
 def svc(action):
     # 启动前 fail-closed：安全插件没挂载就拒绝启动，别让 agent 无防护裸奔（F-011）
     if action in ("start", "restart") and os.environ.get("PENGLAI_ALLOW_UNGUARDED") != "1":
@@ -322,9 +401,9 @@ def svc(action):
             pids = fsapp_pids()
             print(f"  penglai-feishu: {'running (PID ' + str(pids[0]) + ')' if pids else 'stopped'}")
             return 0
-        if action == "start":   return fsapp_start()
+        if action == "start":   r = fsapp_start(); _ensure_macos_reflects(); return r
         if action == "stop":    return fsapp_stop()
-        if action == "restart": fsapp_stop(); return fsapp_start()
+        if action == "restart": fsapp_stop(); r = fsapp_start(); _ensure_macos_reflects(force=True); return r
     svcs = installed_services()
     if action == "status":
         for s in svcs:
@@ -375,6 +454,14 @@ UPDATE_LOG = os.path.join(ROOT, "temp", "update.log")
 def _git(*args):
     return sh(["git", *args], cwd=ROOT)
 
+def _gh_proxy(url):
+    """把 github.com 直连 URL 包成 gh-proxy 镜像（国内 GFW 兜底，与 install.sh 同源）。
+    非 github / 已是镜像 返回空串。"""
+    url = (url or "").strip()
+    if not url or "gh-proxy.com" in url or "github.com" not in url:
+        return ""
+    return "https://gh-proxy.com/" + url
+
 def _fetch_status():
     """返回 (ok, behind, oldsha, newsha, errmsg)。处理浅克隆补全 + ff 可行性。"""
     if not is_git_repo():
@@ -383,7 +470,11 @@ def _fetch_status():
         print("  首次检查：补全 git 历史（浅克隆 → 完整）...")
         _git("fetch", "--unshallow", "origin")
     if _git("fetch", "origin").returncode != 0:
-        return False, 0, "", "", "拉取失败（检查网络/代理）"
+        # F5：直连 GitHub 失败（国内 GFW）→ 走 gh-proxy 镜像，把 main 拉进 origin/main 同一 ref
+        proxied = _gh_proxy(_git("remote", "get-url", "origin").stdout.strip())
+        if not proxied or _git("fetch", proxied, "main:refs/remotes/origin/main").returncode != 0:
+            return False, 0, "", "", "拉取失败（直连与 gh-proxy 镜像均失败，检查网络/代理）"
+        print("  （直连 GitHub 失败，已走 gh-proxy 镜像拉取）")
     old = _git("rev-parse", "HEAD").stdout.strip()
     new = _git("rev-parse", "origin/main").stdout.strip()
     behind = int(_git("rev-list", "--count", "HEAD..origin/main").stdout.strip() or "0")
@@ -484,7 +575,7 @@ def _restart_targets():
 def _restart(svcs):
     """无 tty 安全重启：优先免密 sudo systemctl；否则 kill 自己用户的进程靠 Restart=always 复活。"""
     if not has_systemd():
-        fsapp_stop(); fsapp_start(); return
+        fsapp_stop(); fsapp_start(); _ensure_macos_reflects(force=True); return
     if sh(["sudo", "-n", "systemctl", "restart", *svcs]).returncode == 0:
         return
     # 无免密 sudo：服务 User= 与本进程同用户，可直接杀；systemd Restart=always 会拉起新代码

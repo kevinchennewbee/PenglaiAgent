@@ -6,7 +6,7 @@
   2. schema 注入：agent_before hook 往 tools_schema 列表幂等追加工具定义
 模型放仓库外（默认 ~/penglai-models/），缺失时工具返回下载指引，不崩溃。
 """
-import os, array, subprocess
+import os, array, subprocess, shutil
 
 from plugins.hooks import register
 from agent_loop import StepOutcome
@@ -45,11 +45,30 @@ def _is_silk(path):
     except OSError:
         return False
 
+def _ffmpeg_bin():
+    """解析 ffmpeg 绝对路径：先 PATH，再常见安装位置（macOS Homebrew / Linux / MacPorts）。
+    野生进程 PATH 被裁(不含 /opt/homebrew/bin)时裸名 'ffmpeg' 会 FileNotFoundError → 语音静默
+    失败(Mac mini 真机踩过:两条语音被无视)。这里固化解析，找不到给可读错误而非静默吞错。"""
+    p = shutil.which("ffmpeg")
+    if p:
+        return p
+    for cand in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg",
+                 "/usr/bin/ffmpeg", "/opt/local/bin/ffmpeg"):
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
 def transcribe_file(path):
     """音频文件 → {text, emotion, event, lang}。ffmpeg 解码（opus/mp3/wav/m4a/amr 等）；
     微信 .silk 先用 pilk 解成 PCM 再走同一管线（ffmpeg 不认 silk）。"""
     if not os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
         return {"error": _DOWNLOAD_HINT}
+    ff = _ffmpeg_bin()
+    if not ff:
+        return {"error": "ffmpeg 未找到（语音解码必需）。装: brew install ffmpeg(macOS) / "
+                         "apt install ffmpeg(Linux)，或重跑 penglai enable voice。若确已安装，"
+                         "多半是进程 PATH 不含其目录（如 macOS 的 /opt/homebrew/bin）。"}
     in_args, pcm_tmp = ["-i", path], None
     if _is_silk(path) or path.endswith(".silk"):
         try:
@@ -62,8 +81,14 @@ def transcribe_file(path):
         except Exception as e:
             return {"error": f"silk 解码失败: {e}"}
         in_args = ["-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcm_tmp]
-    p = subprocess.run(["ffmpeg", "-v", "error"] + in_args + ["-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
-                       capture_output=True)
+    try:
+        p = subprocess.run([ff, "-v", "error"] + in_args + ["-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
+                           capture_output=True)
+    except (FileNotFoundError, OSError) as e:
+        if pcm_tmp and os.path.exists(pcm_tmp):
+            try: os.remove(pcm_tmp)
+            except OSError: pass
+        return {"error": f"ffmpeg 解码调用失败（{ff}）: {type(e).__name__}: {e}"}
     if pcm_tmp and os.path.exists(pcm_tmp):
         try: os.remove(pcm_tmp)
         except OSError: pass
