@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、确定性安全。内核零改动。">
+<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、飞书真实工作流、确定性安全。内核零改动。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -419,7 +419,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="tile wide reveal" style="--i:1">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-chat"/></svg></span>
       <h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
-      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
+      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队、人工介入按钮、真实文件外发。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Feishu supports busy-message queueing, human-intervention buttons, and real artifact sending. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队、人工介入按钮、真实文件外发。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
     </div>
     <div class="tile reveal" style="--i:2">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-memory"/></svg></span>
@@ -429,7 +429,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="tile reveal" style="--i:3">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-shield"/></svg></span>
       <h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
-      <p data-zh="危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。" data-en="Red-line blocking + full audit trail + outbound-file allowlist. Safety by deterministic checks, not LLM goodwill.">危险命令与路径红线拦截 + 全量工具调用审计 + 出站文件白名单。安全靠确定性检查，不靠 LLM 自觉。</p>
+      <p data-zh="危险命令红线、少数敏感后缀拦截（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。" data-en="Danger-command red lines, a narrow sensitive-suffix blocklist (.py/.env/.key/.sh/.pem), log redaction, and a full tool-call audit trail. Safety by deterministic checks, not LLM goodwill.">危险命令红线、少数敏感后缀拦截（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。</p>
     </div>
     <div class="tile wide reveal" style="--i:4">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-search"/></svg></span>
@@ -460,7 +460,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   </div>
   <div class="matrix reveal">
     <div class="mrow h"><span data-zh="渠道" data-en="Channel">渠道</span><span class="how" data-zh="接入" data-en="Connect">接入</span><span data-zh="语音" data-en="Voice">语音</span><span data-zh="状态" data-en="Status">状态</span></div>
-    <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="向导扫码自动建应用" data-en="wizard, scan-to-create">向导扫码自动建应用</span><span class="tg ok" data-zh="✓ 转写+情绪" data-en="✓ ASR+emotion">✓ 转写+情绪</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
+    <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="扫码建应用 + 队列/按钮/文件" data-en="scan-to-create + queue/buttons/files">扫码建应用 + 队列/按钮/文件</span><span class="tg ok" data-zh="✓ 转写+情绪" data-en="✓ ASR+emotion">✓ 转写+情绪</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
     <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号）" data-en="wizard, QR login">向导扫码登录（个人号）</span><span class="tg ok">✓ silk</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
     <div class="mrow"><span class="ch">终端 TUI</span><span class="how" data-zh="裸跑 <code>penglai</code> 即聊" data-en="just run <code>penglai</code>">裸跑 <code>penglai</code> 即聊</span><span class="tg no">—</span><span class="tg live"><span class="pt"></span><span data-zh="内核" data-en="kernel">内核</span></span></div>
     <div class="mrow pend"><span class="ch">钉钉 DingTalk</span><span class="how"><code>penglai enable dingtalk</code></span><span class="tg wrap" data-zh="自带 ASR" data-en="native ASR">自带 ASR</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
@@ -493,7 +493,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
     <div class="pane" id="p-docker"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-docker',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 自动取镜像→向导→常驻容器，数据在卷里升级不丢</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh</span> | sh</div></div>
-    <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器，运行时拉取最新仓库</span>
+    <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器：安装 CLI，首次运行拉取发行仓库；已有安装用 penglai update</span>
 pip install penglai
 penglai setup</div></div>
     <div class="pane" id="p-git"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-git',this)" data-zh="复制" data-en="Copy">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
@@ -575,6 +575,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.10",d:"2026-06-17",h:"d8d47ce",zh:"飞书真实工作流修复",en:"Feishu real-workflow fixes",t:true,
+  liZh:["飞书消息不再因前一条任务运行中直接丢弃：后续消息会进入队列，并在当前任务结束后自动处理","飞书按钮选择的无效点击不再吞掉待选状态；模型最终空输出但已生成文件时，卡片会显示正在发送生成文件，而不是误报截断","飞书日志会脱敏 API key、token、secret、password 等常见敏感片段，避免真实运行排障时把密钥写进日志","[FILE:] 外发不再按目录限制，只拦截 .py / .env / .key / .sh / .pem 这几个敏感后缀；视频、图片、PDF、Office 文档和其它实际工作产物可从 Downloads 等真实落点外发","视频/音频在飞书里按文件消息发送，避免媒体类型不匹配；全蓬莱层修改，GA 上游内核零 diff；本机、Mac mini 隔离目录与腾讯云干净目录均已验证"],
+  liEn:["Feishu no longer drops a second message while a previous task is running: follow-up messages are queued and processed automatically after the active task finishes","Invalid Feishu button clicks no longer consume a pending human-intervention choice; when final text is empty but files were generated, the task card reports file sending instead of a misleading truncation warning","Feishu logs redact API keys, tokens, secrets, passwords, and common bearer-style credentials during real runtime troubleshooting","[FILE:] sending is no longer directory-restricted; it only blocks .py / .env / .key / .sh / .pem suffixes, so videos, images, PDFs, Office documents, and other real work artifacts can be sent from practical locations such as Downloads","Audio/video files are sent as Feishu file messages to avoid media type mismatch errors; all changes live in the Penglai layer with zero GA-kernel diff, verified locally, in a Mac mini isolated directory, and in a clean Tencent Cloud directory"]},
  {v:"v0.2.9 hotfix",d:"2026-06-17",h:"ff880ff",zh:"脱敏与第三方合规收口",en:"Redaction and third-party compliance closeout",t:true,
   liZh:["模板里的 Telegram 示例改成明显假值，避免残留真实 token/user id 片段误入公开模板","桌面宠物皮肤补齐第三方授权记录，移除授权不够标准的 Glube 皮肤；新增 THIRD_PARTY_NOTICES.md 记录素材与 CDP Bridge 边界","CDP Bridge 标注为高权限开发工具并补风险说明；新增 SECURITY.md，公开漏洞反馈要求默认脱敏","Docker 镜像改为非 root 运行，修正 /data 卷与微信 token 目录；新增 .dockerignore，防止本地私有运行态进入构建上下文","install.sh、docker-install.sh、penglai update 与 PyPI 引导器支持 PENGLAI_GH_PROXY 自定义 GitHub 镜像；Tauri 桌面配置补 CSP"],
   liEn:["Telegram examples in the template are now obvious placeholders, removing token/user-id fragments from the public template","Desktop-pet skins now carry third-party license metadata, and the Glube skin without a standard redistribution license was removed; THIRD_PARTY_NOTICES.md records asset and CDP Bridge boundaries","CDP Bridge is documented as a high-permission developer tool; SECURITY.md was added with redacted-report guidance","Docker now runs as a non-root user while preserving /data volume state and WeChat token paths; .dockerignore keeps local private runtime files out of build contexts","install.sh, docker-install.sh, penglai update, and the PyPI bootstrap support PENGLAI_GH_PROXY; the Tauri desktop config now has a CSP"]},
