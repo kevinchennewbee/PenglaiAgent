@@ -2,7 +2,7 @@
 """蓬莱引导安装器（PyPI 包 `penglai` 的唯一模块）。
 
 职责只有两个，保持极简：
-  1. 本机还没有蓬莱发行版 → 引导：选目录 → git clone（GitHub 失败自动走 gh-proxy 镜像）→ 进向导
+  1. 本机还没有蓬莱发行版 → 引导：选目录 → git clone（GitHub 失败自动走可配置镜像）→ 进向导
   2. 已有发行版 → 把所有参数原样透传给发行版仓库里的 `penglai` 入口脚本
 
 发行版位置的发现顺序：$PENGLAI_HOME → ~/.penglai/home 记录 → 当前目录 → ~/PenglaiAgent。
@@ -14,7 +14,6 @@ import subprocess
 import sys
 
 REPO = "https://github.com/kevinchennewbee/PenglaiAgent.git"
-MIRROR = "https://gh-proxy.com/" + REPO
 HOME_RECORD = os.path.expanduser("~/.penglai/home")
 DEFAULT_DIR = os.path.expanduser("~/PenglaiAgent")
 
@@ -48,13 +47,19 @@ def _record_home(path):
 
 
 def _clone(target):
-    for i, url in enumerate((REPO, MIRROR)):
-        label = "GitHub 直连" if i == 0 else "gh-proxy 镜像（国内网络）"
+    proxy = os.environ.get("PENGLAI_GH_PROXY", "https://gh-proxy.com/")
+    if proxy and not proxy.endswith("/"):
+        proxy += "/"
+    candidates = [("GitHub 直连", REPO)]
+    if proxy:
+        candidates.append(("GitHub 镜像（国内网络）", proxy + REPO))
+    for i, (label, url) in enumerate(candidates):
         print(f"  正在克隆（{label}）...")
         r = subprocess.run(["git", "clone", "--depth", "1", url, target])
         if r.returncode == 0:
             return True
-        print(f"  ❌ {label} 失败，" + ("尝试镜像..." if i == 0 else "请检查网络后重试。"))
+        more = "尝试镜像..." if i == 0 and len(candidates) > 1 else "请检查网络后重试。"
+        print(f"  ❌ {label} 失败，{more}")
     return False
 
 

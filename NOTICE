@@ -29,6 +29,9 @@ All code is MIT licensed (see ./LICENSE).
     docker-install.sh, docker-entrypoint.sh, Dockerfile, docker-compose.yml,
     installer/*, .github/workflows/*, .github/assets/*, tests/*.
 
+Third-party assets and high-permission helper components bundled with the
+distribution are recorded separately in ./THIRD_PARTY_NOTICES.md.
+
 
 Upstream kernel files are kept verbatim
 ---------------------------------------

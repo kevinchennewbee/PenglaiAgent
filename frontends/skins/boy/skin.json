@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "author": "pzuh",
   "source": "https://pzuh.itch.io/temple-run-game-sprites",
+  "license": "CC0-1.0",
+  "license_url": "https://www.gameart2d.com/license.html",
   "description": "Boy 角色皮肤",
   "style": "pixel",
   "format": "sprite",

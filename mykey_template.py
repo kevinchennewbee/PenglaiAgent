@@ -401,8 +401,8 @@ native_oai_config = {
 # ══════════════════════════════════════════════════════════════════════════════
 #  聊天平台集成（可选；未填写的平台不会启动对应 adapter）
 # ══════════════════════════════════════════════════════════════════════════════
-# tg_bot_token = '84102K2gYZ...'
-# tg_allowed_users = [6806...]
+# tg_bot_token = '<your-telegram-bot-token>'
+# tg_allowed_users = [123456789]
 # qq_app_id = '123456789'
 # qq_app_secret = 'xxxxxxxxxxxxxxxx'
 # qq_allowed_users = ['your_user_openid']           # 留空或 ['*'] 表示允许所有 QQ 用户

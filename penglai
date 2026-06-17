@@ -597,12 +597,15 @@ def _release_ref(remote=None):
     return f"{remote or _release_remote()}/main"
 
 def _gh_proxy(url):
-    """把 github.com 直连 URL 包成 gh-proxy 镜像（国内 GFW 兜底，与 install.sh 同源）。
+    """把 github.com 直连 URL 包成可配置 GitHub 镜像（国内 GFW 兜底，与 install.sh 同源）。
     非 github / 已是镜像 返回空串。"""
     url = (url or "").strip()
-    if not url or "gh-proxy.com" in url or "github.com" not in url:
+    proxy = os.environ.get("PENGLAI_GH_PROXY", "https://gh-proxy.com/").strip()
+    if proxy and not proxy.endswith("/"):
+        proxy += "/"
+    if not url or not proxy or url.startswith(proxy) or "github.com" not in url:
         return ""
-    return "https://gh-proxy.com/" + url
+    return proxy + url
 
 def _fetch_status():
     """返回 (ok, behind, oldsha, newsha, errmsg)。处理浅克隆补全 + ff 可行性。"""
@@ -614,11 +617,11 @@ def _fetch_status():
         print("  首次检查：补全 git 历史（浅克隆 → 完整）...")
         _git("fetch", "--unshallow", remote)
     if _git("fetch", remote).returncode != 0:
-        # F5：直连 GitHub 失败（国内 GFW）→ 走 gh-proxy 镜像，把 main 拉进 origin/main 同一 ref
+        # F5：直连 GitHub 失败（国内 GFW）→ 走可配置 GitHub 镜像，把 main 拉进 origin/main 同一 ref
         proxied = _gh_proxy(_git("remote", "get-url", remote).stdout.strip())
         if not proxied or _git("fetch", proxied, f"main:refs/remotes/{remote}/main").returncode != 0:
-            return False, 0, "", "", "拉取失败（直连与 gh-proxy 镜像均失败，检查网络/代理）"
-        print("  （直连 GitHub 失败，已走 gh-proxy 镜像拉取）")
+            return False, 0, "", "", "拉取失败（直连与 GitHub 镜像均失败，检查网络/代理）"
+        print("  （直连 GitHub 失败，已走 GitHub 镜像拉取）")
     old = _git("rev-parse", "HEAD").stdout.strip()
     new = _git("rev-parse", ref).stdout.strip()
     behind = int(_git("rev-list", "--count", f"HEAD..{ref}").stdout.strip() or "0")

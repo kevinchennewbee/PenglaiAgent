@@ -1,8 +1,10 @@
 {
   "name": "Dinosaur",
   "version": "1.0.0",
-  "author": "voidcord54",
-  "source": "https://voidcord54.itch.io/",
+  "author": "Voidcord",
+  "source": "https://voidcordtech.itch.io/dino-spritesheet-animation",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
   "description": "像素风小恐龙 Dinosaur",
   "style": "pixel",
   "format": "sprite",

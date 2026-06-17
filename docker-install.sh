@@ -7,7 +7,11 @@ set -e
 IMG="ghcr.io/kevinchennewbee/penglai:latest"
 IMG_CN="ghcr.nju.edu.cn/kevinchennewbee/penglai:latest"
 OWNER_REPO="${PENGLAI_REPO:-kevinchennewbee/PenglaiAgent}"
-PROXY="https://gh-proxy.com/"
+PROXY="${PENGLAI_GH_PROXY-https://gh-proxy.com/}"
+case "$PROXY" in
+    ""|*/) ;;
+    *) PROXY="$PROXY/" ;;
+esac
 NAME="penglai"
 VOL="penglai-data"
 
@@ -20,8 +24,11 @@ docker info >/dev/null 2>&1 || die "Docker 守护进程未运行(或当前用户
 
 # ── 1. 网络探测 ───────────────────────────────────────────────────────────────
 MIRROR=""
-curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null || MIRROR="$PROXY"
-[ -n "$MIRROR" ] && say "  🇨🇳 GitHub 直连受限,自动启用国内镜像路径"
+if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
+    MIRROR="$PROXY"
+    [ -n "$MIRROR" ] || die "GitHub 直连受限,且 PENGLAI_GH_PROXY 为空。请设置可用镜像后重试"
+    say "  🇨🇳 GitHub 直连受限,自动启用 GitHub 镜像: $MIRROR"
+fi
 
 # ── 2. 取镜像:GHCR → 国内镜像站 → 从源码本地构建 ────────────────────────────
 get_image() {

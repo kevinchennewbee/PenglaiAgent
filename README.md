@@ -98,6 +98,8 @@ curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/i
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
+镜像地址可改：`PENGLAI_GH_PROXY=https://你的镜像/ sh install.sh`。不信任默认镜像时，先下载脚本再设置自己的 `PENGLAI_GH_PROXY` 运行。
+
 🐳 **Docker 党也是一行**——自动取镜像（拉不动 GHCR 就本地构建）→ 交互向导 → 常驻容器（开机自启、挂了自动拉起）→ 连接验证，数据全在 `penglai-data` 卷里，升级不丢：
 
 ```bash
@@ -228,6 +230,7 @@ flowchart LR
 
 完整版本时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
 
+- **2026-06-17** — v0.2.9 hotfix：**脱敏与第三方合规收口**——模板里的 Telegram 示例改成明显假值；桌面宠物皮肤补齐第三方授权记录，移除授权不够标准的 Glube 皮肤；CDP Bridge 标注为高权限开发工具并补风险说明；Docker 镜像改为非 root 运行并修正 `/data` 卷与微信 token 目录，新增 `.dockerignore` 防止本地私有运行态混入构建上下文；安装、Docker 安装、`penglai update` 和 PyPI 引导器都支持 `PENGLAI_GH_PROXY` 自定义 GitHub 镜像；Tauri 桌面配置补上 CSP；新增 `SECURITY.md` 与 `THIRD_PARTY_NOTICES.md`。
 - **2026-06-17** — v0.2.9：**主动陪伴有存在感 + 看图/语音/文件外发收口**——主动陪伴默认 `present` 模式，天气、语音情绪、早晚锚点过门禁后必须给一句短消息，不再被 `[SILENT]` 默认抹掉；`penglai abilities` 会显示最近心跳、沉默/失败原因、批判脑最近复核、记忆 L1/L2 健康；看图修复 OpenAI 兼容 endpoint 的 `/v1/v1` 拼接，并能修补已生成的 `vision_api.py`；飞书 `[FILE:]` 外发改为批量预检，安全文件照发，坏路径只汇总一条说明；本地语音改为分块识别，长 MP3 不再整段 PCM 进内存；审计日志默认避开源码根，`audit/` / `_internal/` 进入公开仓忽略；`penglai update` 能识别本地发布仓 `release/main` 与安装仓 `origin/main`。蓬莱新增能力仍只做蓬莱层，同时同步 GA 上游 `continue`/Responses 元数据/运行 SOP 修复；不引入上游 README、docs、demo 素材。
 - **2026-06-16** — v0.2.8：**飞书人工介入与 macOS 运行态收口**——`ask_user` 不再在飞书里只露半句尾巴，结构化问题和选项会变成可点击按钮，并保留回复编号/完整文字兜底；飞书入口改为蓬莱包装层 `penglai_feishu_app.py`，补上 `/review` 命令路径并保持 GA 上游 `frontends/fsapp.py` 零改动，同时兼容修补 lark-oapi 长连接 CARD 回调；macOS 飞书前端也纳入 **launchd 守护**（旧裸进程迁移时自动清理，崩溃/被杀会拉起重连）；微信包装层补齐 `/new` / `/restore` / `/continue` / `/btw` / `/review`；`fs_owner_open_id` 与访问白名单拆开，主动通知不再依赖开放白名单；`penglai update` 对 GitHub 直连加低速/总超时，卡住会切到 gh-proxy；doctor 现在按真实 `.venv` 与 launchd 状态报告。腾讯云 + Mac mini 真机验证，**GA 内核零 diff**。
 - **2026-06-16** — v0.2.7：**macOS 真机兜底收尾**（整晚真机取证 + 多路审计驱动）——💞 主动陪伴 / ⏰ 提醒日程在 Mac 上改用 **launchd 真守护**（崩了/被杀自动重启、开机自启，补齐与 Linux 同等；旧版被杀就永久死、提醒到点不触发）＋ 👁️ **发图能真看了**（接主力多模态模型 +「IM 发图→看图」规则，不再凭模型名误判"我没视觉"）＋ 🔒 **密钥防泄**（管家查配置时不再把 API key 写进日志，覆盖所有搜索源 key）＋ 🎙️ 语音 ffmpeg 找不到给可读提示、不再静默失败 ＋ 🛡️ 飞书白名单空时主动提示＋一键收紧 ＋ `penglai update` 国内镜像兜底。全部蓬莱层、**GA 内核零 diff**、双平台真机验过
@@ -248,6 +251,7 @@ flowchart LR
 - **代码**：[MIT](LICENSE) 许可。上游 GenericAgent 的版权声明完整保留；蓬莱层代码 © 2026 Kevin Chen，同样以 MIT 发布——随便用、随便改、随便商用。代码与品牌边界详见 [NOTICE](NOTICE)。
 - **品牌**：「蓬莱」「Penglai」名称、logo 与横幅视觉资产**保留所有权利**，不在代码许可范围内。未经书面许可，请勿将其用于你的分发版本、衍生产品或商业宣传的命名与标识。
   （开源圈通行做法：代码自由，品牌保留——Rust、Docker 皆如此。）
+- **第三方素材与高权限工具**：桌面宠物皮肤、CDP Bridge 等单独列在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 - **内核来自上游**：`ga.py`、`frontends/`、`llmcore.py`、记忆工具等是 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的内核原文件（零改动保留）；蓬莱在其上做发行层的裁剪与增补。安装入口只有 `install.sh` / `docker-install.sh`（均指向 `kevinchennewbee/PenglaiAgent`）。
 
 ## 🙏 致谢

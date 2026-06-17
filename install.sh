@@ -8,7 +8,11 @@ set -e
 OWNER_REPO="${PENGLAI_REPO:-kevinchennewbee/PenglaiAgent}"
 TARGET="${PENGLAI_DIR:-$HOME/PenglaiAgent}"
 GH="https://github.com/$OWNER_REPO"
-PROXY="https://gh-proxy.com/"
+PROXY="${PENGLAI_GH_PROXY-https://gh-proxy.com/}"
+case "$PROXY" in
+    ""|*/) ;;
+    *) PROXY="$PROXY/" ;;
+esac
 UV_BIN="$HOME/.local/bin/uv"
 
 say()  { printf '%s\n' "$1"; }
@@ -21,7 +25,8 @@ command -v curl >/dev/null || die "需要 curl(macOS/多数 Linux 自带)。Ubun
 MIRROR=""
 if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
     MIRROR="$PROXY"
-    say "  🇨🇳 检测到 GitHub 直连受限,自动启用 gh-proxy 镜像"
+    [ -n "$MIRROR" ] || die "GitHub 直连受限,且 PENGLAI_GH_PROXY 为空。请设置可用镜像后重试"
+    say "  🇨🇳 检测到 GitHub 直连受限,自动启用 GitHub 镜像: $MIRROR"
 fi
 
 # ── 2. 取代码:有 git 用 git(日后 penglai update 可用),没有走 tarball ─────────

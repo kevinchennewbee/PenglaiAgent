@@ -131,9 +131,11 @@ skins/
 
 ## 已包含的皮肤
 
-1. **Glube** - 像素风小怪兽（多文件 sprite）
-2. **Vita** - 像素风小恐龙（单文件 sprite）
-3. **Doux** - 像素风小恐龙（单文件 sprite）
+1. **Vita / Doux / Mort / Tard** - CC0 像素风小恐龙
+2. **Dinosaur** - CC0 像素风小恐龙
+3. **Boy / Line** - CC0 角色皮肤
+
+第三方素材授权见仓库根目录 `THIRD_PARTY_NOTICES.md`。
 
 ## 从 ai-bubu 导入更多皮肤
 
@@ -147,6 +149,8 @@ cp -r ai-bubu-main/packages/app/public/skins/line frontends/skins/
 cp -r ai-bubu-main/packages/app/public/skins/mort frontends/skins/
 cp -r ai-bubu-main/packages/app/public/skins/tard frontends/skins/
 ```
+
+导入第三方皮肤前请先确认许可证，至少在 `skin.json` 写清楚 `source` 与 `license`。
 
 ## 与 stapp.py 集成
 

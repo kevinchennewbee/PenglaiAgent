@@ -9,6 +9,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates procps ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+RUN useradd -r -m -u 10001 -d /home/penglai penglai \
+    && mkdir -p /data /home/penglai/.wxbot \
+    && chown -R penglai:penglai /data /home/penglai
+
 WORKDIR /app
 COPY . .
 # 核心依赖:装失败必须让构建失败 —— 否则 || 兜底会吞掉核心失败,CI 仍发布跑不起来的镜像
@@ -22,12 +26,16 @@ RUN pip install --no-cache-dir -i "$PIP_INDEX" pilk \
 RUN pip install --no-cache-dir -i "$PIP_INDEX" sherpa-onnx \
     || echo "sherpa-onnx 跳过(仅影响语音转写,可后续 penglai enable voice)"
 # penglai 入 PATH:docker exec 进来直接敲 penglai,不用 ./penglai(真实用户实测反馈)
-RUN chmod +x /app/penglai && ln -s /app/penglai /usr/local/bin/penglai
+RUN chmod +x /app/penglai \
+    && ln -s /app/penglai /usr/local/bin/penglai \
+    && chown -R penglai:penglai /app
 
 ENV PENGLAI_DOCKER=1 \
     GA_WORKSPACE_ROOT=/data/workspace \
     PENGLAI_MODEL_DIR=/data/penglai-models \
+    HOME=/home/penglai \
     PYTHONUNBUFFERED=1
 
 VOLUME /data
+USER penglai
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

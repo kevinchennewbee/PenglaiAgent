@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "author": "itch.io",
   "source": "https://itch.io",
+  "license": "CC0-1.0",
+  "license_file": "License.txt",
   "description": "Line 角色皮肤",
   "style": "pixel",
   "format": "sprite",
