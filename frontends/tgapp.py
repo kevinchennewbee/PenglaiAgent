@@ -16,10 +16,11 @@ from chatapp_common import (
     FILE_HINT,
     HELP_TEXT,
     TELEGRAM_MENU_COMMANDS,
+    blocked_notice,
     clean_reply,
     ensure_single_instance,
-    extract_files,
     format_restore,
+    outbound_artifacts,
     redirect_log,
     require_runtime,
     split_text,
@@ -28,6 +29,7 @@ from continue_cmd import handle_frontend_command, reset_conversation
 from btw_cmd import handle_frontend_command as handle_btw_frontend_command
 from review_cmd import handle as handle_review_command
 from llmcore import mykeys
+from plugins.penglai_artifacts import classify_file_markers
 
 agent = GeneraticAgent()
 agent.verbose = False
@@ -176,13 +178,24 @@ def _resolve_files(paths):
 
 
 def _render_file_markers(text):
+    artifacts = classify_file_markers(text, base_dir=_TEMP_DIR)
+    labels = {a.raw: (os.path.basename(a.realpath or a.path) if a.status != "ignored" else "")
+              for a in artifacts}
+
     def repl(match):
-        return os.path.basename(match.group(1))
+        return labels.get(match.group(1).strip().strip("\"'"), "")
     return re.sub(r"\[FILE:([^\]]+)\]", repl, text or "").strip()
 
 def _files_from_text(text):
     cleaned = clean_reply(text) if (text or "").strip() else ""
-    return _resolve_files(extract_files(cleaned))
+    files, _ = outbound_artifacts(cleaned, base_dir=_TEMP_DIR)
+    return _resolve_files(files)
+
+
+def _blocked_from_text(text):
+    cleaned = clean_reply(text) if (text or "").strip() else ""
+    _, blocked = outbound_artifacts(cleaned, base_dir=_TEMP_DIR)
+    return blocked
 
 async def _send_files(root_msg, files):
     for fpath in files:
@@ -201,6 +214,9 @@ async def _send_files(root_msg, files):
 
 async def _send_files_from_text(root_msg, text):
     await _send_files(root_msg, _files_from_text(text))
+    blocked = _blocked_from_text(text)
+    if blocked:
+        await _reply_markdown(root_msg, blocked_notice(blocked))
 
 def _escape_pre(text):
     return escape_markdown(text or "", version=2, entity_type="pre")

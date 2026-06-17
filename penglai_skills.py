@@ -20,9 +20,10 @@ TAG = "[蓬莱技能]"
 # L1 只放这一行常量指针（不随技能数增长）；触发词全表在 L3 索引文件按需读。
 # ★措辞刻意不含 "penglai_skill_" 子串，确保老格式迁移检测不会把指针行误判成旧全表（保幂等）。
 L1_POINTER = (TAG + " 已装集市技能的触发词索引在 ../memory/penglai_skills_index.md"
-              "（专项需求先 file_read 它匹配触发词→再读对应 SOP 执行）")
+              "（按用户意图匹配→再读对应 SOP 执行）")
 INDEX_HEADER = ("# 蓬莱技能库索引（专项任务触发词 → SOP 文件）\n"
                 "# 用法：用户请求命中某触发词 → file_read 对应 penglai_skill_<name>_sop.md 提取要点执行。\n"
+                "# 路由原则：用户动作优先于内容来源；下载/发送/导出文件走文件流程，不因链接来源误进知识库类技能。\n"
                 "# 本文件由 `penglai skill install/remove` 自动维护，勿手改。\n\n")
 OK, BAD = "✅", "❌"
 

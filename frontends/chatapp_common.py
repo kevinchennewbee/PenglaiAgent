@@ -5,6 +5,13 @@ _parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
+from plugins.penglai_artifacts import (
+    allowed_paths,
+    classify_file_markers,
+    strip_file_markers,
+    summarize_blocked,
+)
+
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
     ("/status", "查看状态"),
@@ -39,6 +46,7 @@ HELP_TEXT = build_help_text()
 FILE_HINT = "If you need to show files to user, use [FILE:filepath] in your response."
 TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMP_DIR = os.path.join(PROJECT_ROOT, "temp")
 RESTORE_GLOBS = (
     os.path.join(PROJECT_ROOT, "temp", "model_responses", "model_responses_*.txt"),
     os.path.join(PROJECT_ROOT, "temp", "model_responses_*.txt"),
@@ -58,11 +66,26 @@ def clean_reply(text):
 
 
 def extract_files(text):
-    return re.findall(r"\[FILE:([^\]]+)\]", text or "")
+    return allowed_paths(text, base_dir=TEMP_DIR)
 
 
 def strip_files(text):
-    return re.sub(r"\[FILE:[^\]]+\]", "", text or "").strip()
+    return strip_file_markers(text)
+
+
+def outbound_artifacts(text, base_dir=None, exclude_paths=None):
+    artifacts = classify_file_markers(text, base_dir=base_dir or TEMP_DIR, exclude_paths=exclude_paths)
+    files = [a.realpath for a in artifacts if a.status == "allowed"]
+    blocked = [a for a in artifacts if a.status in ("blocked", "missing")]
+    return files, blocked
+
+
+def blocked_notice(blocked, sent_count=0):
+    if not blocked:
+        return ""
+    reasons, examples = summarize_blocked(blocked)
+    sent = f"已发送 {sent_count} 个安全文件；" if sent_count else ""
+    return f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}"
 
 
 def split_text(text, limit):
@@ -202,10 +225,13 @@ def format_restore():
 
 
 def build_done_text(raw_text):
-    files = [p for p in extract_files(raw_text) if os.path.exists(p)]
+    files, blocked = outbound_artifacts(raw_text)
     body = strip_files(clean_reply(raw_text))
     if files:
         body = (body + "\n\n" if body else "") + "\n".join(f"生成文件: {p}" for p in files)
+    if blocked:
+        notice = blocked_notice(blocked)
+        body = (body + "\n\n" if body else "") + notice
     return body or "..."
 
 

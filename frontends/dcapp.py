@@ -9,8 +9,9 @@ from collections import OrderedDict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agentmain import GeneraticAgent
 from chatapp_common import (
-    AgentChatMixin, build_done_text, ensure_single_instance, extract_files,
-    public_access, redirect_log, require_runtime, split_text, strip_files, clean_reply,
+    AgentChatMixin, blocked_notice, build_done_text, ensure_single_instance,
+    outbound_artifacts, public_access, redirect_log, require_runtime, split_text,
+    strip_files, clean_reply,
     HELP_TEXT, FILE_HINT, format_restore,
     _handle_continue_frontend, _reset_conversation,
 )
@@ -215,7 +216,7 @@ class DiscordApp(AgentChatMixin):
 
     async def send_done(self, chat_id, raw_text, **ctx):
         """Send final reply: text parts + file attachments."""
-        files = [p for p in extract_files(raw_text) if os.path.exists(p)]
+        files, blocked = outbound_artifacts(raw_text, base_dir=TEMP_DIR)
         body = _display_done_text(raw_text)
 
         # Send text (send_text handles splitting internally)
@@ -232,8 +233,10 @@ class DiscordApp(AgentChatMixin):
                     except Exception as e:
                         print(f"[Discord] failed to send file {fpath}: {e}")
                         await self.send_text(chat_id, f"⚠️ 文件发送失败: {os.path.basename(fpath)}", **ctx)
+        if blocked:
+            await self.send_text(chat_id, blocked_notice(blocked, sent_count=len(files)), **ctx)
 
-        if not body and not files:
+        if not body and not files and not blocked:
             await self.send_text(chat_id, "...", **ctx)
 
     async def handle_command(self, chat_id, cmd, **ctx):

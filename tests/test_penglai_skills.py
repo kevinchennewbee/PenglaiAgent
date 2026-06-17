@@ -50,9 +50,10 @@ def test_install_creates_sop_and_index():
     assert os.path.exists(_index(ps)), "技能索引文件未生成"
     idx = open(_index(ps), encoding="utf-8").read()
     assert "用户要写周报" in idx and "penglai_skill_weekly-report_sop" in idx
+    assert "用户动作优先于内容来源" in idx, "技能索引应提醒按意图路由，避免按来源误触发"
     # L1 只多一行常量指针：有 [蓬莱技能] 指针指向索引；触发词/具体文件名都不进每轮注入的 L1
     l1 = open(ps.INSIGHT, encoding="utf-8").read()
-    assert "[蓬莱技能]" in l1 and "penglai_skills_index" in l1
+    assert "[蓬莱技能]" in l1 and "penglai_skills_index" in l1 and "按用户意图匹配" in l1
     assert "用户要写周报" not in l1, "触发词不应种进每轮注入的 L1（应在 L3 索引）"
     assert "penglai_skill_weekly-report_sop" not in l1, "具体 SOP 文件名不应进 L1"
     assert "[身份]" in l1            # 身份行没被破坏

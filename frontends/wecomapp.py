@@ -17,9 +17,10 @@ TurnHookFn = Callable[[TurnContext], None]
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agentmain import GeneraticAgent
-from chatapp_common import (AgentChatMixin, FILE_HINT, build_done_text, clean_reply,
-                            ensure_single_instance, extract_files, public_access,
-                            redirect_log, require_runtime, split_text, strip_files)
+from chatapp_common import (AgentChatMixin, FILE_HINT, blocked_notice, build_done_text,
+                            clean_reply, ensure_single_instance, outbound_artifacts,
+                            public_access, redirect_log, require_runtime, split_text,
+                            strip_files)
 from llmcore import mykeys
 
 try:
@@ -136,18 +137,16 @@ class WeComApp(AgentChatMixin):
 
     async def send_done(self, chat_id, raw_text):
         """Send final result: text + extracted file attachments."""
-        files = extract_files(raw_text)
+        files, blocked = outbound_artifacts(raw_text, base_dir=TEMP_DIR)
         if not files:
             return await self.send_text(chat_id, build_done_text(raw_text))
         clean = clean_reply(strip_files(raw_text))
         if clean and clean != "...":
             await self.send_text(chat_id, clean)
         for fp in files:
-            if not os.path.isabs(fp) and not os.path.isfile(fp):
-                resolved = os.path.join(TEMP_DIR, fp)
-                if os.path.isfile(resolved):
-                    fp = resolved
             await self.send_media(chat_id, fp)
+        if blocked:
+            await self.send_text(chat_id, blocked_notice(blocked, sent_count=len(files)))
 
     # ── agent execution (single-channel via turn hook) ──────────────
     async def run_agent(self, chat_id, text, **_):

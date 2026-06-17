@@ -6,6 +6,7 @@ from Crypto.Cipher import AES
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp')
 from agentmain import GeneraticAgent
+from plugins.penglai_artifacts import artifact_kind, classify_file_markers, summarize_blocked
 
 # ── AuthExpired (errcode -14 from getUpdates) ──
 class AuthExpired(Exception):
@@ -412,19 +413,21 @@ def on_message(bot, msg):
         rest = _clean('\n\n'.join(done[sent:] + ['\n\n' + tag]).strip())
         if rest: _wx_send(rest[-3000:])
 
-        files = re.findall(r'\[FILE:([^\]]+)\]', result)
-        bad = {'filepath', '<filepath>', 'path', '<path>', 'file_path', '<file_path>', '...'}
-        files = [f for f in files if f.strip().lower() not in bad and (f if os.path.isabs(f) else os.path.join(_TEMP_DIR, f)) not in media_paths]
-        for fpath in set(files):
-            if not os.path.isabs(fpath): fpath = os.path.join(_TEMP_DIR, fpath)
+        artifacts = classify_file_markers(result, base_dir=_TEMP_DIR, exclude_paths=media_paths)
+        files = [a.realpath for a in artifacts if a.status == 'allowed']
+        blocked = [a for a in artifacts if a.status in ('blocked', 'missing')]
+        for fpath in files:
             try:
-                if not os.path.exists(fpath): raise FileNotFoundError(f"文件不存在: {fpath}")
-                ext = os.path.splitext(fpath)[1].lower()
-                sender = bot.send_video if ext in {'.mp4', '.mov', '.m4v', '.webm'} else \
-                         bot.send_image if ext in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'} else bot.send_file
+                kind = artifact_kind(fpath)
+                sender = bot.send_video if kind == 'video' else \
+                         bot.send_image if kind == 'image' else bot.send_file
                 sender(uid, fpath, context_token=ctx)
                 print(f'[WX] sent media: {fpath}', file=sys.__stdout__)
             except Exception as e: print(f'[WX] send media err: {e}', file=sys.__stdout__)
+        if blocked:
+            reasons, examples = summarize_blocked(blocked)
+            sent = f"已发送 {len(files)} 个安全文件；" if files else ""
+            _wx_send(f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}")
 
     threading.Thread(target=_handle, daemon=True).start()
 

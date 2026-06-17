@@ -6,8 +6,8 @@
 `[FILE:/.../mykey.py]`、`~/.ssh/id_rsa`、`.env` 等路径时，密钥/隐私会被外发——
 这是 IM Agent 的核心泄露面，且飞书是发行版默认部署面（systemd/docker 跑 fsapp）。
 
-修法（蓬莱层 monkeypatch，GA/前端文件零改动，同 penglai_redline 套路）：
-运行时包装 `frontends.fsapp._send_local_file`，默认只按少数敏感后缀拦截：
+飞书默认暴露面仍走蓬莱层 monkeypatch：运行时包装 `frontends.fsapp._send_local_file`，
+默认只按少数敏感后缀拦截：
 `.py` / `.env` / `.key` / `.sh` / `.pem`。真实工作产物不再因为落点不在
 workspace/temp 被误拦，默认完全不按目录判断。
 
@@ -22,25 +22,30 @@ workspace/temp 被误拦，默认完全不按目录判断。
 只查其中一种都会让另一种部署静默 fail-open（2026-06-11 真机实测踩过：仓库根的 penglai
 脚本被原样外发，journal 无任何拦截记录）。
 
-仅覆盖飞书（默认面、真实暴露面）。微信/企微是 opt-in 且不在默认 systemd/docker 部署
-面，其 `[FILE:]`/媒体路径穿越记为上游 PR 候选，不在此层包装（未经真机验证不上）。
+飞书是默认真实暴露面，本插件负责给 fsapp 挂载发送门禁；其它 IM 通过
+`plugins.penglai_artifacts` 复用同一套解析/后缀规则。
 """
 import os
 import sys
 
 from plugins.hooks import register
+from plugins.penglai_artifacts import (
+    AUDIO_EXTS,
+    BLOCKED_OUTBOUND_SUFFIXES,
+    VIDEO_EXTS,
+    classify_file_markers,
+    is_outbound_allowed,
+    is_sensitive_suffix,
+    summarize_blocked,
+)
 from plugins.penglai_redline import audit
 
-_BLOCKED_OUTBOUND_SUFFIXES = (".py", ".env", ".key", ".sh", ".pem")
-_MEDIA_AS_FILE_EXTS = {
-    ".mp3", ".wav", ".m4a", ".aac", ".opus", ".flac",
-    ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mpg", ".mpeg",
-}
+_BLOCKED_OUTBOUND_SUFFIXES = BLOCKED_OUTBOUND_SUFFIXES
+_MEDIA_EXTS = AUDIO_EXTS | VIDEO_EXTS
 
 
 def _is_safe_outbound_type(path):
-    base = os.path.basename(str(path)).lower()
-    if base.endswith(_BLOCKED_OUTBOUND_SUFFIXES):
+    if is_sensitive_suffix(path):
         return False, "敏感后缀文件禁止自动外发"
     return True, ""
 
@@ -49,16 +54,7 @@ def _is_outbound_allowed(file_path):
     """返回 (允许?, 原因, realpath)。realpath 解析软链接与 ..。
     一并返回解析后的 realpath 供发送时使用——确保「校验的路径 == 发送的路径」，
     堵住校验与发送之间被软链接 swap 的 TOCTOU 窗口。"""
-    try:
-        rp = os.path.realpath(str(file_path))
-    except Exception:
-        return False, "路径解析失败", None
-    if not os.path.isfile(rp):
-        return False, "文件不存在", None
-    safe, why = _is_safe_outbound_type(rp)
-    if not safe:
-        return False, why, None
-    return True, "", rp
+    return is_outbound_allowed(file_path)
 
 
 _orig_send_local_file = None
@@ -99,7 +95,7 @@ def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
 
 def _send_outbound_file(receive_id, file_path, receive_id_type="open_id"):
     ext = os.path.splitext(str(file_path))[1].lower()
-    if ext in _MEDIA_AS_FILE_EXTS:
+    if ext in _MEDIA_EXTS:
         upload = getattr(_fsapp_mod, "_upload_file_sync", None)
         send = getattr(_fsapp_mod, "send_message", None)
         if callable(upload) and callable(send):
@@ -107,39 +103,24 @@ def _send_outbound_file(receive_id, file_path, receive_id_type="open_id"):
             if file_key:
                 import json
                 send(receive_id, json.dumps({"file_key": file_key}, ensure_ascii=False),
-                     msg_type="file", receive_id_type=receive_id_type)
+                     msg_type="media", receive_id_type=receive_id_type)
                 return True
     return _orig_send_local_file(receive_id, file_path, receive_id_type)
 
 
 def _summarize_blocked(blocked):
-    by_reason = {}
-    for path, why in blocked:
-        by_reason[why] = by_reason.get(why, 0) + 1
-    reasons = "；".join(f"{why} {n} 个" for why, n in by_reason.items())
-    examples = "；".join(f"{os.path.basename(str(p)) or str(p)}（{w}）" for p, w in blocked[:3])
-    if len(blocked) > 3:
-        examples += f"；另 {len(blocked) - 3} 个"
-    return reasons, examples
+    return summarize_blocked(blocked)
 
 
 def _guarded_send_generated_files(receive_id, raw_text, receive_id_type="open_id"):
-    extract = getattr(_fsapp_mod, "_extract_files", None)
-    files = extract(raw_text) if callable(extract) else []
-    if not files:
+    base_dir = getattr(_fsapp_mod, "TEMP_DIR", None)
+    artifacts = classify_file_markers(raw_text, base_dir=base_dir)
+    allowed = [a for a in artifacts if a.status == "allowed"]
+    blocked = [a for a in artifacts if a.status in ("blocked", "missing")]
+    if not allowed and not blocked:
         return
-    allowed, blocked, seen = [], [], set()
-    for file_path in files:
-        if file_path in seen:
-            continue
-        seen.add(file_path)
-        ok, why, rp = _is_outbound_allowed(file_path)
-        if ok:
-            allowed.append(rp)
-        else:
-            blocked.append((file_path, why))
-    for rp in allowed:
-        _send_outbound_file(receive_id, rp, receive_id_type)
+    for art in allowed:
+        _send_outbound_file(receive_id, art.realpath, receive_id_type)
     if blocked:
         reasons, examples = _summarize_blocked(blocked)
         audit("send_files", {"blocked": len(blocked), "sent": len(allowed), "reasons": reasons},

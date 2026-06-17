@@ -109,6 +109,7 @@ def _fake_fsapp_main():
     import types
     fake = types.ModuleType("__main__")
     fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
+    fake.TEMP_DIR = os.path.join(REPO, "temp")
     fake._send_local_file = lambda *a, **k: "SENT"
     fake._send_generated_files = lambda *a, **k: "ORIG_BATCH"
     fake._extract_files = lambda text: __import__("re").findall(r"\[FILE:([^\]]+)\]", text or "")
@@ -124,6 +125,7 @@ def _fake_fsapp_module():
     import types
     fake = types.ModuleType("frontends.fsapp")
     fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
+    fake.TEMP_DIR = os.path.join(REPO, "temp")
     fake._send_local_file = lambda *a, **k: "SENT"
     fake._send_generated_files = lambda *a, **k: "ORIG_BATCH"
     fake._extract_files = lambda text: __import__("re").findall(r"\[FILE:([^\]]+)\]", text or "")
@@ -255,6 +257,28 @@ def test_generated_files_batch_preflight_sends_valid_and_summarizes_blocked():
             sys.modules["__main__"] = saved
 
 
+def test_generated_files_ignores_placeholder_marker_without_warning():
+    _clear_fileguard_env()
+    fg = _fileguard()
+    td = tempfile.mkdtemp()
+    os.environ["GA_WORKSPACE_ROOT"] = td
+    valid = os.path.join(td, "ok.md")
+    open(valid, "w").write("# ok")
+    fake = _fake_fsapp_main()
+    sent_paths = []
+    fake._send_local_file = lambda rid, fp, *a, **k: sent_paths.append(fp) or True
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式必须能挂载"
+        fake._send_generated_files("u1", f"旧机制是 [FILE:...]，真正文件是 [FILE:{valid}]")
+        assert sent_paths == [os.path.realpath(valid)]
+        assert not fake.sent, f"占位符不应触发安全警告：{fake.sent}"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
 def test_download_video_artifact_sends_directly_by_default():
     _clear_fileguard_env()
     fg = _fileguard()
@@ -327,7 +351,7 @@ def test_sensitive_download_filename_txt_sends_by_suffix_only_policy():
         shutil.rmtree(home, ignore_errors=True)
 
 
-def test_video_files_are_sent_as_feishu_files_not_media():
+def test_video_files_are_sent_as_feishu_media_messages():
     _clear_fileguard_env()
     fg = _fileguard()
     td = tempfile.mkdtemp()
@@ -345,7 +369,7 @@ def test_video_files_are_sent_as_feishu_files_not_media():
         rid, content, kwargs = fake.sent_messages[0]
         assert rid == "u1"
         assert '"file_key": "file_key_ok.mp4"' in content
-        assert kwargs.get("msg_type") == "file"
+        assert kwargs.get("msg_type") == "media"
     finally:
         if saved is not None:
             sys.modules["__main__"] = saved
