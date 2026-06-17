@@ -10,10 +10,33 @@ No Memory"的告诫；Critic 不重复告诫，而是补 GA 缺的两件事—�
 挂载 = 包装 do_start_long_term_update(与 redline 同款，GA 零改动)。
 上游安全 = 跨厂商不碰 GA 的 llmclients，改用 mykey.critic_model + 普通 requests，完全解耦。
 """
+import json
+import os
 import re
+import time
 
 from agent_loop import StepOutcome
 from ga import GenericAgentHandler
+
+_STATE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "temp", "critic_state.json")
+
+
+def _save_state(**kw):
+    try:
+        os.makedirs(os.path.dirname(_STATE), exist_ok=True)
+        cur = {}
+        try:
+            cur = json.load(open(_STATE, encoding="utf-8"))
+        except Exception:
+            pass
+        cur.update(kw)
+        tmp = _STATE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cur, f, ensure_ascii=False)
+        os.replace(tmp, _STATE)
+    except Exception:
+        pass
 
 # 绊线信号（i18n，用户可扩展）
 _OVERCONFIDENT = re.compile(
@@ -70,10 +93,14 @@ def _guarded_memory_update(self, args, response):
     # 档位(v1 设计的 5 档,当前实现 off/smart 两档;standard/max 在路线图):
     #   off   = 完全关闭(绊线也不跑)
     #   smart = 绊线常开(本地免费),命中才升级跨厂商复核(配了 critic_model 才有)——推荐默认
-    if (_mykey("critic_mode") or "smart") == "off":
+    mode = _mykey("critic_mode") or "smart"
+    if mode == "off":
+        _save_state(last_check_ts=time.time(), mode=mode, last_result="off")
         return (yield from _orig(self, args, response))
     recent = "\n".join(getattr(self, "history_info", [])[-30:])
     hits = tripwire(recent + " " + (getattr(response, "content", "") or ""))
+    _save_state(last_check_ts=time.time(), mode=mode, last_result="hit" if hits else "clean",
+                last_hits=hits)
     outcome = None
     gen = _orig(self, args, response)
     try:
@@ -85,6 +112,8 @@ def _guarded_memory_update(self, args, response):
                    f"每条要写入的事实，是否有【本次任务的工具执行结果】直接背书？"
                    f"没有工具验证的结论一律不得写入长期记忆（No Execution, No Memory）。")
         review = cross_vendor_review(recent)
+        _save_state(last_check_ts=time.time(), mode=mode, last_result="reviewed" if review else "hit_local",
+                    last_hits=hits, last_review=review or "")
         if review:
             caution += f"\n[异厂商复核意见] {review}\n请据此重新核对再决定是否写入。"
         if outcome and outcome.next_prompt:

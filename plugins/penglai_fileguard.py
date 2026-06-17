@@ -72,6 +72,7 @@ def _is_outbound_allowed(file_path):
 
 
 _orig_send_local_file = None
+_orig_send_generated_files = None
 _fsapp_mod = None   # 被挂载的 fsapp 模块对象（frontends.fsapp 或脚本模式下的 __main__）
 
 
@@ -106,12 +107,55 @@ def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
     return _orig_send_local_file(receive_id, rp, receive_id_type)
 
 
+def _summarize_blocked(blocked):
+    by_reason = {}
+    for path, why in blocked:
+        by_reason[why] = by_reason.get(why, 0) + 1
+    reasons = "；".join(f"{why} {n} 个" for why, n in by_reason.items())
+    examples = "；".join(f"{os.path.basename(str(p)) or str(p)}（{w}）" for p, w in blocked[:3])
+    if len(blocked) > 3:
+        examples += f"；另 {len(blocked) - 3} 个"
+    return reasons, examples
+
+
+def _guarded_send_generated_files(receive_id, raw_text, receive_id_type="open_id"):
+    extract = getattr(_fsapp_mod, "_extract_files", None)
+    files = extract(raw_text) if callable(extract) else []
+    if not files:
+        return
+    allowed, blocked, seen = [], [], set()
+    for file_path in files:
+        if file_path in seen:
+            continue
+        seen.add(file_path)
+        ok, why, rp = _is_outbound_allowed(file_path)
+        if ok:
+            allowed.append(rp)
+        else:
+            blocked.append((file_path, why))
+    for rp in allowed:
+        _orig_send_local_file(receive_id, rp, receive_id_type)
+    if blocked:
+        reasons, examples = _summarize_blocked(blocked)
+        audit("send_files", {"blocked": len(blocked), "sent": len(allowed), "reasons": reasons},
+              blocked=True, reason="批量外发预检拦截")
+        try:
+            sent = f"已发送 {len(allowed)} 个安全文件；" if allowed else ""
+            _fsapp_mod.send_message(
+                receive_id,
+                f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}",
+                receive_id_type=receive_id_type,
+            )
+        except Exception:
+            pass
+
+
 _PATCHED = False
 
 
 def _try_patch():
     """幂等延迟挂载。仅当 fsapp 模块已在 sys.modules（=在 fsapp 进程内）才打补丁。"""
-    global _PATCHED, _orig_send_local_file, _fsapp_mod
+    global _PATCHED, _orig_send_local_file, _orig_send_generated_files, _fsapp_mod
     if _PATCHED:
         return True
     mod = _find_fsapp_module()
@@ -126,6 +170,10 @@ def _try_patch():
     _orig_send_local_file = orig
     _fsapp_mod = mod
     mod._send_local_file = _guarded_send_local_file
+    gen = getattr(mod, "_send_generated_files", None)
+    if callable(gen):
+        _orig_send_generated_files = gen
+        mod._send_generated_files = _guarded_send_generated_files
     mod._penglai_fileguard = True
     _PATCHED = True
     sys.stderr.write("[penglai_fileguard] 出站文件白名单已挂载（fsapp._send_local_file）\n")

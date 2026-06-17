@@ -309,6 +309,9 @@ _I18N: dict[str, dict[str, str]] = {
 
         # continue picker
         'continue.title':       'Restore historical session',
+        'continue.occupied.title':  'Session in use (pid {p}) — copy it and continue?',
+        'continue.occupied.copy':   'Copy & continue',
+        'continue.occupied.cancel': 'Cancel',
         # /workspace (parity with v2; backed by workspace_cmd.py)
         'cmd.workspace.arg':    '[path|off]',
         'cmd.workspace.desc':   'set working dir (abs path) and enter project mode',
@@ -573,6 +576,9 @@ _I18N: dict[str, dict[str, str]] = {
 
         # continue picker
         'continue.title':       '恢复历史会话',
+        'continue.occupied.title':  '该会话正被占用（pid {p}）—— 从原会话拷贝一份继续？',
+        'continue.occupied.copy':   '拷贝一份继续',
+        'continue.occupied.cancel': '取消',
         # /workspace（与 v2 一致；后端 workspace_cmd.py）
         'cmd.workspace.arg':    '[path|off]',
         'cmd.workspace.desc':   '设定工作目录(绝对路径)并进入项目模式',
@@ -1396,6 +1402,12 @@ class AgentBridge:
         if not getattr(self.agent, 'llmclient', None):
             self._healthy = False
             self._init_error = _t('err.no_llm')
+        # 原地复原:本会话出生即持有自己日志的锁,使占用检测对它可见(别的会话据此判活)。
+        try:
+            from frontends import continue_cmd as _cc
+            _cc.acquire_birth_lock(self.agent)
+        except Exception:
+            pass
         self._runner = threading.Thread(target=self._run_safe, daemon=True, name=f'ga-tui-agent')
         self._runner.start()
 
@@ -4311,15 +4323,20 @@ class SB:
         """Wipe the conversation: drop LLM history, clear the screen and every
         rendered block.  Shared by /clear and /new."""
         from frontends import continue_cmd
-        continue_cmd.reset_conversation(ag)
+        continue_cmd.begin_fresh_session(ag)   # 切走:旧日志留作空闲会话 + 铸新 logid(不存快照)
         _w('\x1b[2J\x1b[H'); self._painted = []; self._live_rows = 0
         self._blocks = []; self._streaming_block = None; self._sent = 0
         self._tool_base = 0; self._tools = {}
 
     # ── workspace（与 v2 共用 workspace_cmd；单会话 → 进程级一个绑定）─────────
-    def _bind_workspace(self, info) -> None:
+    def _bind_workspace(self, info, persist: bool = True) -> None:
         """绑定 / 解绑 workspace。info=prepare() 的结果 dict → 绑定；None → 解绑。
-        同步 agent 的 project_mode 属性（插件据此注入项目上下文），刷新 @ 索引根。"""
+        同步 agent 的 project_mode 属性（插件据此注入项目上下文），刷新 @ 索引根。
+
+        persist=False: 仅刷新内存绑定状态，不写 session→ws 映射表。续接时的
+        reset(_bind_workspace(None)) 用它——原地续后 agent.log_path==被续文件，
+        若持久化会把本会话映射抹成 ""(= 已 off)，反而毁掉自动恢复。映射表只应由
+        显式 /workspace、/workspace off 与成功的续接恢复来写。"""
         ag = self._bridge.agent if self._bridge else None
         if info:
             self._ws_name = info.get('name') or ''
@@ -4337,7 +4354,8 @@ class SB:
             except Exception:
                 pass
             # 持久化绑定/off → /continue 即时恢复，不必先聊一轮留 PROJECT MODE 块。
-            workspace_cmd.session_ws_set(getattr(ag, "log_path", "") or "", pm_path or "")
+            if persist:
+                workspace_cmd.session_ws_set(getattr(ag, "log_path", "") or "", pm_path or "")
         at_complete.get_index(self._at_root()).warm()   # 预热新根（或 CWD）
 
     def _do_workspace_activate(self, path: str) -> str:
@@ -4478,14 +4496,15 @@ class SB:
         #     self.commit([_t('err.multi_session', name=name)])
         elif name == 'continue':
             from frontends import continue_cmd
-            sess = continue_cmd.list_sessions(exclude_pid=os.getpid())
+            sess = continue_cmd.list_sessions(exclude_log=os.path.basename(getattr(ag, "log_path", "") or ""))
             if not sess:
                 self.commit([_DIM + _t('msg.no_history') + _RST]); return
 
-            def _do_restore(path: str) -> None:
-                msg, _ = continue_cmd.restore(ag, path)
+            def _rc_finish(path: str, msg: str) -> None:
+                # restore 后:重放对话到 scrollback + 恢复 workspace。读 ag.log_path
+                # (原地=源文件本身;拷贝=内容相同的新副本),内容一致。
                 self.commit([_DIM + '┄┄ ' + _t('msg.continue_loading', name=os.path.basename(path)) + ' ┄┄' + _RST])
-                for mm in continue_cmd.extract_ui_messages(path):
+                for mm in continue_cmd.extract_ui_messages(getattr(ag, 'log_path', '') or path):
                     c = (mm.get('content') or '').strip()
                     if not c:
                         continue
@@ -4496,7 +4515,10 @@ class SB:
                 self.commit([_DIM + '┄┄ ' + _t('msg.continue_ready', msg=msg) + ' ┄┄' + _RST])
                 # 自动恢复 workspace：续接的会话若在某个已登记 workspace 里工作过，
                 # 重新绑定（必要时重建 junction），不触碰 project_mode 的进程锚。
-                self._bind_workspace(None)
+                # persist=False：reset 绑定绝不写 session→ws 映射表——原地续把
+                # agent.log_path 指回 path，若持久化会把本会话映射抹成 ""，在读回
+                # 之前就毁掉自动恢复。
+                self._bind_workspace(None, persist=False)
                 try:
                     rec = workspace_cmd.session_ws_get(path)   # 路径 / "" (off) / None(无记录)
                     if rec is not None:
@@ -4512,6 +4534,26 @@ class SB:
                                          default='已恢复工作目录: {t}').format(t=r['target']) + _RST])
                 except Exception:
                     pass
+
+            def _do_restore(path: str) -> None:
+                # 默认原地续。快照只能拷贝续;若被活进程占用 → 弹窗问是否拷贝一份。
+                if continue_cmd.is_snapshot(path):
+                    msg, _ = continue_cmd.continue_copy(ag, path)
+                    _rc_finish(path, msg); return
+                occ = continue_cmd.session_occupant(path)
+                if occ is not None:
+                    def _pick(i):
+                        if i == 0:
+                            msg, _ = continue_cmd.continue_copy(ag, path)
+                            _rc_finish(path, msg)
+                    self._show_menu(
+                        _t('continue.occupied.title', p=occ.get('pid', '?')),
+                        [_t('continue.occupied.copy'),
+                         _t('continue.occupied.cancel')],
+                        _pick)
+                    return
+                msg, _ = continue_cmd.continue_inplace(ag, path)
+                _rc_finish(path, msg)
 
             if arg:
                 # Direct numeric argument still supported for power users / scripts.

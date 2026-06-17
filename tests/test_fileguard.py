@@ -63,6 +63,8 @@ def _fake_fsapp_main():
     fake = types.ModuleType("__main__")
     fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
     fake._send_local_file = lambda *a, **k: "SENT"
+    fake._send_generated_files = lambda *a, **k: "ORIG_BATCH"
+    fake._extract_files = lambda text: __import__("re").findall(r"\[FILE:([^\]]+)\]", text or "")
     fake.sent = []
     fake.send_message = lambda rid, msg, **k: fake.sent.append(msg)
     return fake
@@ -74,6 +76,8 @@ def _fake_fsapp_module():
     fake = types.ModuleType("frontends.fsapp")
     fake.__file__ = os.path.join(REPO, "frontends", "fsapp.py")
     fake._send_local_file = lambda *a, **k: "SENT"
+    fake._send_generated_files = lambda *a, **k: "ORIG_BATCH"
+    fake._extract_files = lambda text: __import__("re").findall(r"\[FILE:([^\]]+)\]", text or "")
     fake.sent = []
     fake.send_message = lambda rid, msg, **k: fake.sent.append(msg)
     return fake
@@ -163,6 +167,33 @@ def test_send_forwards_realpath_not_symlink():
         fake._send_local_file("u1", link)   # 走包装后的 _guarded_send_local_file
         assert got.get("path") == os.path.realpath(link), \
             f"发送应用 realpath（{os.path.realpath(link)}），实际：{got.get('path')}"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
+def test_generated_files_batch_preflight_sends_valid_and_summarizes_blocked():
+    """多个 [FILE:] 先批量预检：合法文件照常发；不存在/越界只汇总一条提示，
+    不再刷屏多条「拒绝外发该文件」。"""
+    fg = _fileguard()
+    td = tempfile.mkdtemp()
+    os.environ["GA_WORKSPACE_ROOT"] = td
+    valid = os.path.join(td, "ok.png")
+    open(valid, "w").write("x")
+    missing = os.path.join(td, "missing.png")
+    secret = os.path.join(REPO, "mykey_template.py")
+    fake = _fake_fsapp_main()
+    sent_paths = []
+    fake._send_local_file = lambda rid, fp, *a, **k: sent_paths.append(fp) or True
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式必须能挂载"
+        fake._send_generated_files("u1", f"[FILE:{valid}]\n[FILE:{missing}]\n[FILE:{secret}]")
+        assert sent_paths == [os.path.realpath(valid)], sent_paths
+        assert len(fake.sent) == 1, f"应只发一条汇总拦截消息，实际：{fake.sent}"
+        assert "2 个文件未外发" in fake.sent[0]
+        assert "文件不存在" in fake.sent[0]
     finally:
         if saved is not None:
             sys.modules["__main__"] = saved

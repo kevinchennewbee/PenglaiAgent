@@ -12,9 +12,11 @@
 
 诚实纪律：只报告可证实的状态；装一半/缺依赖如实说，并给出下一步命令。
 """
+import json
 import os
 import subprocess
 import sys
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -47,14 +49,25 @@ def _ask(q, default=""):
 
 
 # ---------- 状态探测 ----------
-def _voice_ready():
+def _ffmpeg_bin():
     import shutil
+    p = shutil.which("ffmpeg")
+    if p:
+        return p
+    for cand in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg",
+                 "/usr/bin/ffmpeg", "/opt/local/bin/ffmpeg"):
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def _voice_ready():
     pc = _pc()
     mdir = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
                         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
     model = os.path.isfile(os.path.join(mdir, "model.int8.onnx"))
     engine = pc.sh([pc.venv_python(), "-c", "import sherpa_onnx"]).returncode == 0
-    ffmpeg = shutil.which("ffmpeg") is not None
+    ffmpeg = _ffmpeg_bin() is not None
     return model and engine and ffmpeg, (model, engine, ffmpeg)
 
 
@@ -78,6 +91,113 @@ def _companion_running():
     return pc.sh(["pgrep", "-f", "reflect/penglai_companion.py"]).returncode == 0
 
 
+def _fmt_age(ts):
+    try:
+        delta = max(0, int(time.time() - float(ts)))
+    except Exception:
+        return "无记录"
+    if delta < 60:
+        return f"{delta}秒前"
+    if delta < 3600:
+        return f"{delta // 60}分钟前"
+    if delta < 86400:
+        return f"{delta // 3600}小时前"
+    return f"{delta // 86400}天前"
+
+
+def _companion_state():
+    path = os.path.join(ROOT, "temp", "companion_state.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+_COMPANION_REASON = {
+    "disabled": "开关关闭",
+    "no_target": "没有可投递的飞书/微信目标",
+    "quiet_hours": "勿扰时段",
+    "emotion_wait_user_idle": "有情绪信号，但用户刚活跃，先让路",
+    "emotion_pending": "情绪承接正在处理中",
+    "morning_done": "今天晨间锚点已发送",
+    "morning_wait_user_idle": "晨间锚点在等用户停下手头输入",
+    "morning_pending": "晨间锚点正在处理中",
+    "evening_done": "今天晚间锚点已发送",
+    "evening_wait_user_idle": "晚间锚点在等用户停下手头输入",
+    "evening_pending": "晚间锚点正在处理中",
+    "free_cooldown": "自由陪伴冷却中",
+    "free_wait_user_idle": "自由陪伴在等用户空闲",
+    "free_pending": "自由陪伴正在处理中",
+    "cooldown_or_active": "冷却或用户活跃",
+    "ok": "已触发",
+}
+
+
+def _companion_detail_line():
+    st = _companion_state()
+    if not st:
+        return "最近心跳：尚无记录（服务刚启用或还没跑到第一次 10 分钟心跳）"
+    reason = _COMPANION_REASON.get(st.get("last_reason", ""), st.get("last_reason", ""))
+    parts = [f"最近心跳：{_fmt_age(st.get('last_check_ts'))}"]
+    if reason:
+        parts.append(f"原因：{reason}")
+    if st.get("last_mode"):
+        parts.append(f"模式：{st.get('last_mode')}")
+    if st.get("last_idle_min") is not None:
+        parts.append(f"用户空闲约 {st.get('last_idle_min')} 分钟")
+    result = st.get("last_result")
+    if result == "sent":
+        parts.append(f"最近发送：{_fmt_age(st.get('last_sent_ts'))}（{'+'.join(st.get('last_sent_channels') or [])}）")
+    elif result == "silent":
+        parts.append(f"最近沉默：{_fmt_age(st.get('last_silent_ts'))}（模型选择不打扰）")
+    elif result == "failed":
+        parts.append(f"最近失败：{_fmt_age(st.get('last_error_ts'))}（{st.get('last_error', '')}）")
+    return "；".join(parts)
+
+
+def _load_json_file(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _critic_detail_line():
+    st = _load_json_file(os.path.join(ROOT, "temp", "critic_state.json"))
+    if not st:
+        return "最近复核：尚无记录（只在长期记忆写入路径触发）"
+    result = st.get("last_result", "")
+    hits = st.get("last_hits") or []
+    text = f"最近复核：{_fmt_age(st.get('last_check_ts'))}；结果：{result or 'unknown'}"
+    if hits:
+        text += f"；命中：{','.join(hits)}"
+    if st.get("last_review"):
+        text += "；有异厂商意见"
+    return text
+
+
+def _memory_detail_line():
+    l2 = os.path.join(ROOT, "memory", "global_mem.txt")
+    l1 = os.path.join(ROOT, "memory", "global_mem_insight.txt")
+    l2_lines = 0
+    try:
+        l2_lines = sum(1 for _ in open(l2, encoding="utf-8", errors="replace"))
+    except Exception:
+        pass
+    try:
+        insight = open(l1, encoding="utf-8", errors="replace").read()
+    except Exception:
+        insight = ""
+    flags = []
+    if l2_lines > 6 and ("L2: 现空" in insight or "L2：现空" in insight):
+        flags.append("L1 仍写 L2 现空，需刷新索引")
+    if not insight.strip():
+        flags.append("L1 索引为空")
+    return f"L2 {l2_lines or 0} 行；" + ("；".join(flags) if flags else "L1/L2 基本一致")
+
+
 def _intel_sources():
     pc = _pc()
     return [k for k in ("tinyfish_key", "tavily_key", "firecrawl_key") if pc.mykey_get(k)]
@@ -85,6 +205,38 @@ def _intel_sources():
 
 def _vision_ready():
     return os.path.exists(os.path.join(ROOT, "memory", "vision_api.py"))
+
+
+def _repair_vision_api(path):
+    """Best-effort repair for user-generated memory/vision_api.py from older templates."""
+    try:
+        src = open(path, encoding="utf-8").read()
+    except Exception:
+        return "exists"
+    old = "apibase.rstrip('/') + '/v1/chat/completions'"
+    if old not in src:
+        return "exists"
+    if "import base64, requests" in src:
+        src = src.replace("import base64, requests", "import base64, re, requests", 1)
+    elif "import re" not in src:
+        src = "import re\n" + src
+    src = src.replace(old, "_chat_completions_url(apibase)")
+    if "def _chat_completions_url(apibase):" not in src:
+        marker = "\nif __name__ == '__main__':"
+        helper = (
+            "\n\ndef _chat_completions_url(apibase):\n"
+            "    base = (apibase or '').rstrip('/')\n"
+            "    if re.search(r'/v\\d+$', base):\n"
+            "        return base + '/chat/completions'\n"
+            "    return base + '/v1/chat/completions'\n"
+        )
+        src = src.replace(marker, helper + marker, 1) if marker in src else src + helper
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(src)
+        return "repaired"
+    except Exception:
+        return "exists"
 
 
 def build_vision_api():
@@ -98,7 +250,7 @@ def build_vision_api():
     if not os.path.exists(tmpl):
         return "no_template"
     if os.path.exists(out):
-        return "exists"
+        return _repair_vision_api(out)
     pc = _pc()
     has_oai = pc.sh([pc.venv_python(), "-c",
                      "import mykey;c=getattr(mykey,'native_oai_config',{});"
@@ -112,6 +264,7 @@ def build_vision_api():
         src = src.replace("DEFAULT_BACKEND = 'claude'", "DEFAULT_BACKEND = 'openai'")
         with open(out, "w", encoding="utf-8") as f:
             f.write(src)
+        _repair_vision_api(out)
         return "built"
     except Exception:
         return "no_template"
@@ -275,12 +428,12 @@ def enable_companion():
     pc = _pc()
     if _companion_running():   # 按进程实判（launchd/systemd/pgrep），不只看旗标——死了就重装守护
         print(f"{OK} 主动陪伴已在运行。"); return 0
-    print("  💞 开启主动陪伴：独立心跳进程，门禁守护（默认勿扰 22-8 点、最短间隔 4 小时），")
-    print("     触发源：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系。投递到飞书和微信。")
+    print("  💞 开启主动陪伴：独立心跳进程，门禁守护（默认勿扰 22-8 点、自由陪伴最短间隔 4 小时），")
+    print("     默认 present 模式：天气/语音情绪/早晚锚点过门禁后会给一句短消息；久未联系仍谨慎判断。")
     print("     是蓬莱第一个有持续 token 成本的功能（一天约几分钱）。")
     if not _ask("现在开启？(y/n)", "y").lower().startswith("y"):
         return 0
-    keys = {"companion_enabled": True}
+    keys = {"companion_enabled": True, "companion_mode": "present"}
     city = _ask("所在城市（开启恶劣天气主动提醒，回车跳过）", "").strip()
     if city:
         keys["companion_city"] = city
@@ -412,7 +565,12 @@ def status():
         mark = {True: OK, False: "○"}.get(on, "⚠️")   # on=True/False/'warn'(开着但心跳没跑)
         tail = f"   → 开启：{cmd}" if on is False else ""
         print(f"  {mark} {label:<16} {state}{tail}")
+        if label.startswith("💞") and comp_on:
+            print(f"      {_companion_detail_line()}")
+        if label.startswith("🧐"):
+            print(f"      {_critic_detail_line()}")
     print("\n  🧠 长期记忆 — 内核标配，已自动启用（无需开关）")
+    print(f"      {_memory_detail_line()}")
     print("  ⏰ 提醒/日程 — 内核标配，已自动启用（说「X点提醒我做Y」即可）")
     print("  🌤️ 天气查询 — 内核标配，已自动启用（免 key）")
     print("  🔗 网页/文章总结 — 内核标配，已自动启用（发链接说「帮我总结」即可）")

@@ -26,6 +26,7 @@ EVT = {"Laughter": "笑声", "Cry": "哭声", "Applause": "掌声", "Cough": "�
        "Sneeze": "喷嚏", "BGM": "背景音乐", "Breath": "呼吸声"}
 
 _recognizer = None
+_CHUNK_SEC = int(os.environ.get("PENGLAI_VOICE_CHUNK_SEC", "30") or "30")
 
 def _get_recognizer():
     global _recognizer
@@ -59,6 +60,30 @@ def _ffmpeg_bin():
     return None
 
 
+def _decode_samples(rec, samples):
+    s = rec.create_stream()
+    s.accept_waveform(16000, samples.tolist())
+    rec.decode_stream(s)
+    r = s.result
+    return {
+        "text": (r.text or "").strip(),
+        "emotion": EMO.get(getattr(r, "emotion", "").strip("<|>"), getattr(r, "emotion", "")),
+        "event": EVT.get(getattr(r, "event", "").strip("<|>"), ""),
+        "lang": getattr(r, "lang", "").strip("<|>"),
+    }
+
+
+def _pick_label(labels, prefer_non_neutral=False):
+    labels = [x for x in labels if x]
+    if not labels:
+        return ""
+    if prefer_non_neutral:
+        for x in reversed(labels):
+            if x != "平静":
+                return x
+    return labels[-1]
+
+
 def transcribe_file(path):
     """音频文件 → {text, emotion, event, lang}。ffmpeg 解码（opus/mp3/wav/m4a/amr 等）；
     微信 .silk 先用 pilk 解成 PCM 再走同一管线（ffmpeg 不认 silk）。"""
@@ -82,37 +107,56 @@ def transcribe_file(path):
             return {"error": f"silk 解码失败: {e}"}
         in_args = ["-f", "s16le", "-ar", "24000", "-ac", "1", "-i", pcm_tmp]
     try:
-        p = subprocess.run([ff, "-v", "error"] + in_args + ["-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
-                           capture_output=True)
-    except (FileNotFoundError, OSError) as e:
-        if pcm_tmp and os.path.exists(pcm_tmp):
-            try: os.remove(pcm_tmp)
-            except OSError: pass
-        return {"error": f"ffmpeg 解码调用失败（{ff}）: {type(e).__name__}: {e}"}
-    if pcm_tmp and os.path.exists(pcm_tmp):
-        try: os.remove(pcm_tmp)
-        except OSError: pass
-    if p.returncode != 0:
-        err = p.stderr.decode(errors="replace")[:200]
-        return {"error": f"音频解码失败: {err}"}
-    samples = array.array("f")
-    samples.frombytes(p.stdout)
-    if not samples:
-        return {"error": "音频为空"}
-    try:
         rec = _get_recognizer()
     except ImportError:
         return {"error": "语音识别引擎 sherpa-onnx 未安装。安装: uv pip install sherpa-onnx "
                          "（装进蓬莱的 .venv；或重跑 penglai setup 自动补齐语音依赖）"}
-    s = rec.create_stream()
-    s.accept_waveform(16000, samples.tolist())
-    rec.decode_stream(s)
-    r = s.result
-    res = {"text": (r.text or "").strip(),
-           "emotion": EMO.get(getattr(r, "emotion", "").strip("<|>"), getattr(r, "emotion", "")),
-           "event": EVT.get(getattr(r, "event", "").strip("<|>"), ""),
-           "lang": getattr(r, "lang", "").strip("<|>"),
-           "duration_sec": round(len(samples) / 16000, 1)}
+
+    cmd = [ff, "-v", "error"] + in_args + ["-f", "f32le", "-ac", "1", "-ar", "16000", "-"]
+    chunk_bytes = max(5, _CHUNK_SEC) * 16000 * 4
+    texts, emos, events, langs = [], [], [], []
+    total_samples, leftover = 0, b""
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        while True:
+            data = p.stdout.read(chunk_bytes) if p.stdout else b""
+            if not data:
+                break
+            data = leftover + data
+            usable = (len(data) // 4) * 4
+            leftover = data[usable:]
+            if not usable:
+                continue
+            samples = array.array("f")
+            samples.frombytes(data[:usable])
+            total_samples += len(samples)
+            if not samples:
+                continue
+            part = _decode_samples(rec, samples)
+            if part["text"]:
+                texts.append(part["text"])
+            emos.append(part["emotion"])
+            events.append(part["event"])
+            langs.append(part["lang"])
+        stderr = p.stderr.read() if p.stderr else b""
+        rc = p.wait()
+    except (FileNotFoundError, OSError) as e:
+        return {"error": f"ffmpeg 解码调用失败（{ff}）: {type(e).__name__}: {e}"}
+    finally:
+        if pcm_tmp and os.path.exists(pcm_tmp):
+            try: os.remove(pcm_tmp)
+            except OSError: pass
+
+    if rc != 0 and not total_samples:
+        err = stderr.decode(errors="replace")[:200]
+        return {"error": f"音频解码失败: {err}"}
+    if not total_samples:
+        return {"error": "音频为空"}
+    res = {"text": " ".join(texts).strip(),
+           "emotion": _pick_label(emos, prefer_non_neutral=True),
+           "event": _pick_label(events),
+           "lang": _pick_label(langs),
+           "duration_sec": round(total_samples / 16000, 1)}
     _drop_emotion_signal(res["emotion"])
     return res
 

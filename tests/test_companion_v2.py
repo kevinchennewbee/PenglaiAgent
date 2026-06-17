@@ -206,10 +206,11 @@ check("[SILENT] 清租约且不落终态", s.get("anchor_morning") is None and s
 # 护栏 + 记忆开口：注入 _decide 返回 morning，验 check() 产出的 prompt 文本
 cp._lock = object()
 cp._cfg = lambda: _cfg()
-cp._decide = lambda cfg, st, now: (("morning", None), "ok")
+cp._decide = lambda cfg, st, now, diag=None: (("morning", None), "ok")
 _prompt = cp.check()
 check("prompt 含人设护栏", bool(_prompt) and "不是恋人" in _prompt and "点到为止" in _prompt)
 check("prompt 含记忆开口理由", bool(_prompt) and "具体的事" in _prompt)
+check("present 模式晨间锚点不允许 SILENT", bool(_prompt) and "不要回复 [SILENT]" in _prompt)
 
 # 清理测试状态文件
 try: os.remove(cp._STATE)
@@ -217,4 +218,5 @@ except Exception: pass
 
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")
-sys.exit(1 if failed else 0)
+if __name__ == "__main__":
+    sys.exit(1 if failed else 0)

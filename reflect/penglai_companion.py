@@ -75,6 +75,7 @@ def _cfg():
         "anchor_idle_min": g("companion_anchor_idle_min", 2),  # 锚点只避开"正在打字的当下"
         "city": g("companion_city", ""),                  # 设了才开天气预警
         "channels": g("companion_channels", ["feishu", "wechat"]),
+        "mode": str(g("companion_mode", "present") or "present").lower(),  # quiet/present/active
     }
 
 def _load_json(path):
@@ -174,36 +175,55 @@ def _lease_active(state, kind, now_ts):
             and (now_ts - state.get("pending_ts", 0)) < LEASE_TTL)
 
 
-def _decide(cfg, state, now):
+def _decide(cfg, state, now, diag=None):
+    def note(**kw):
+        if diag is not None:
+            diag.update(kw)
+
+    if cfg.get("mode") not in ("quiet", "present", "active"):
+        cfg["mode"] = "present"
+    note(mode=cfg["mode"])
     if not cfg["enabled"]: return None, "disabled"
     has_fs = bool(cfg["open_id"] and cfg["app_id"]) and "feishu" in cfg["channels"]
     has_wx = (os.path.isfile(_WX_TOKEN) and _load_json(_WX_MASTER).get("uid")
               and "wechat" in cfg["channels"])
+    note(has_feishu=has_fs, has_wechat=bool(has_wx))
     if not (has_fs or has_wx): return None, "no_target"
     q0, q1 = cfg["quiet"]; h = now.hour
     in_quiet = (q0 <= h or h < q1) if q0 > q1 else (q0 <= h < q1)
+    note(quiet_hours=cfg["quiet"], hour=h, in_quiet=in_quiet)
     if in_quiet: return None, "quiet_hours"
 
     today = now.strftime("%Y-%m-%d"); now_ts = time.time()
     idle = _last_user_activity_min()             # 分钟数；按触发源用不同 idle 阈值
+    note(idle_min=round(idle, 1))
     def idle_ok(kind): return idle >= _idle_min_for(kind, cfg)
 
     w = _weather_alert(cfg, state, now)          # 时效信息：不占冷却、不看静默、无视 idle
     if w: return ("weather", w), "ok"
     e = _emotion_signal(state)
-    if e and idle_ok("emotion") and not _lease_active(state, "emotion", now_ts):
+    if e:
+        if not idle_ok("emotion"): return None, "emotion_wait_user_idle"
+        if _lease_active(state, "emotion", now_ts): return None, "emotion_pending"
         return ("emotion", e), "ok"
-    if (8 <= now.hour < 10 and state.get("anchor_morning") != today
-            and idle_ok("morning") and not _lease_active(state, "morning", now_ts)):
+    if 8 <= now.hour < 10:
+        if state.get("anchor_morning") == today: return None, "morning_done"
+        if not idle_ok("morning"): return None, "morning_wait_user_idle"
+        if _lease_active(state, "morning", now_ts): return None, "morning_pending"
         return ("morning", None), "ok"
-    if (20 <= now.hour < 22 and state.get("anchor_evening") != today
-            and idle_ok("evening") and not _lease_active(state, "evening", now_ts)):
+    if 20 <= now.hour < 22:
+        if state.get("anchor_evening") == today: return None, "evening_done"
+        if not idle_ok("evening"): return None, "evening_wait_user_idle"
+        if _lease_active(state, "evening", now_ts): return None, "evening_pending"
         return ("evening", None), "ok"
-    if ((now_ts - state.get("last_reach", 0)) >= cfg["cooldown_h"] * 3600
-            and idle_ok("free") and not _lease_active(state, "free", now_ts)):
-        silent_h = (now_ts - max(state.get("last_reach", 0), 1)) / 3600
-        return ("free", round(silent_h)), "ok"
-    return None, "cooldown_or_active"
+    since_reach = now_ts - state.get("last_reach", 0)
+    if since_reach < cfg["cooldown_h"] * 3600:
+        note(free_wait_sec=int(cfg["cooldown_h"] * 3600 - since_reach))
+        return None, "free_cooldown"
+    if not idle_ok("free"): return None, "free_wait_user_idle"
+    if _lease_active(state, "free", now_ts): return None, "free_pending"
+    silent_h = (now_ts - max(state.get("last_reach", 0), 1)) / 3600
+    return ("free", round(silent_h)), "ok"
 
 _GUARDRAIL = ("- 你是用户的办公生活管家，这是顺手的关心，不是恋人/亲密关系；"
               "不情感绑定、不肉麻、不模拟暧昧，点到为止。")
@@ -219,26 +239,72 @@ _BASE = """[主动陪伴心跳·{kind}] 现在是 {ts}（{wd}）。你是用户�
 _KIND_BODY = {
     "weather": "天气情报：{x}。把它变成一句对用户有用的提醒（出行/穿衣/防护建议），口吻自然。",
     "emotion": "此前用户语音里的情绪是「{x}」（{ago}前感知）。结合记忆 L1/L2 主动关心一句，"
-               "自然不刻意，绝不要复述情绪标签本身。",
+               "自然不刻意，绝不要复述情绪标签本身。必须给出一句短消息。",
     "morning": "晨间问候时刻。优先从记忆 L1/L2 里找一件【具体的事】作为开口理由"
                "（昨天提到的截止日/今天的安排/提过的人和事/临近的纪念日生日），据此给一句简短早安；"
-               "没有具体由头就只给极简早安或 [SILENT]，不要泛泛寒暄。",
+               "没有具体由头也要给一句极简早安或今日节奏提醒，不要泛泛寒暄，不要 [SILENT]。",
     "evening": "晚间时刻。优先结合今天发生过的【具体互动或事项】给一句晚间关心；"
-               "无具体内容则极简或 [SILENT]。",
+               "无具体内容也要给一句极简收尾或明日提醒，不要 [SILENT]。",
     "free":    "回顾你对用户的了解（记忆 L1/L2）和最近互动（已约 {x} 小时没联系）。只有当存在"
                "【具体、有用】的理由（该提醒的事/需关心的状态/有价值的发现）才开口，且必须用那件"
                "具体的事开口；否则 [SILENT]。宁可一周不说话，也不要凑「在忙吗」这类查岗话。",
 }
-_MUST_SPEAK = {"weather"}   # 天气预警是事实提醒，必须开口；其余允许 [SILENT]
+def _must_speak(kind, cfg):
+    if kind == "weather":
+        return True
+    if cfg.get("mode") == "quiet":
+        return False
+    if kind in {"emotion", "morning", "evening"}:
+        return True
+    return cfg.get("mode") == "active" and kind == "free"
+
+
+def _classify_error(e):
+    name = type(e).__name__
+    text = str(e)
+    low = text.lower()
+    if "timed out" in low or "timeout" in low:
+        return f"timeout:{name}"
+    if "name or service not known" in low or "nodename nor servname" in low or "temporary failure in name resolution" in low:
+        return f"dns:{name}"
+    if "connection" in low or "network" in low:
+        return f"network:{name}"
+    return f"{name}: {text[:120]}"
+
+
+def _safe_send(label, fn, *args):
+    try:
+        ok = fn(*args)
+        if ok:
+            return True, ""
+        return False, f"{label}未确认成功"
+    except Exception as e:
+        reason = _classify_error(e)
+        print(f"[companion] {label}发送异常: {reason}")
+        return False, f"{label}:{reason}"
 
 def check():
     if _lock is None: return None
     cfg = _cfg(); state = _load_json(_STATE); now = datetime.now()
-    decision, why = _decide(cfg, state, now)
+    diag = {}
+    decision, why = _decide(cfg, state, now, diag)
+    state.update({
+        "last_check_ts": time.time(),
+        "last_reason": why,
+        "last_mode": cfg.get("mode", "present"),
+        "last_idle_min": diag.get("idle_min"),
+        "last_has_feishu": diag.get("has_feishu"),
+        "last_has_wechat": diag.get("has_wechat"),
+    })
     if not decision:
+        state["last_decision"] = "none"
+        _save_state(state)
         return None
     kind, extra = decision
     # —— 写在途租约（非终态）：防 agent 卡住重复触发；终态在 on_done 投递成功后才落 ——
+    state["last_decision"] = kind
+    state["last_trigger_ts"] = time.time()
+    state["last_trigger_kind"] = kind
     state["last_wake"] = time.time()
     state["pending_kind"] = kind
     state["pending_ts"] = time.time()
@@ -250,8 +316,12 @@ def check():
         body = _KIND_BODY[kind].format(x=extra["e"], ago=f"约{ago_h}小时")
     else:
         body = _KIND_BODY[kind].format(x=extra)
-    silent_rule = ("这是天气安全提醒，请务必给出那句话。" if kind in _MUST_SPEAK else
+    silent_rule = ("本次已过门禁，必须给出一句短消息；不要回复 [SILENT]。"
+                   if _must_speak(kind, cfg) else
                    "没有真正有价值的理由，就只回复一个词：[SILENT]。宁可沉默，绝不为了说话而打扰。")
+    state["last_prompt_kind"] = kind
+    state["last_prompt_body"] = body[:240]
+    _save_state(state)
     wd = "一二三四五六日"[now.weekday()]
     print(f"[companion] 触发: {kind}")
     return _BASE.format(kind=kind, ts=now.strftime("%Y-%m-%d %H:%M"), wd=f"周{wd}",
@@ -311,14 +381,25 @@ def on_done(result):
     if not body or "[SILENT]" in body.upper() or len(body) < 2:
         # 模型主动沉默：清租约（不算哑火、不占当天名额），不写任何终态
         state["pending_kind"] = ""
+        state["last_result"] = "silent"
+        state["last_silent_ts"] = now_ts
+        state["last_silent_kind"] = kind
         _save_state(state)
         print("[companion] 沉默（无值得主动联系的理由）"); return
 
-    sent = []
+    sent, errors = [], []
     if cfg["open_id"] and cfg["app_id"] and "feishu" in cfg["channels"]:
-        if _feishu_send(cfg, body): sent.append("飞书")
+        ok, reason = _safe_send("飞书", _feishu_send, cfg, body)
+        if ok:
+            sent.append("飞书")
+        elif reason:
+            errors.append(reason)
     if os.path.isfile(_WX_TOKEN) and "wechat" in cfg["channels"]:
-        if _wechat_send(body): sent.append("微信")
+        ok, reason = _safe_send("微信", _wechat_send, body)
+        if ok:
+            sent.append("微信")
+        elif reason:
+            errors.append(reason)
 
     if sent:
         # —— 投递成功才把在途租约兑现为终态（防哑火的关键不变量）——
@@ -327,6 +408,9 @@ def on_done(result):
         elif kind == "emotion": state["emotion_followed_ts"] = state.get("pending_emotion_ts", now_ts)
         state["last_reach"] = now_ts
         state["last_sent_ts"] = now_ts        # 留作后续降频的回应基线
+        state["last_result"] = "sent"
+        state["last_sent_channels"] = sent
+        state["last_sent_body"] = body[:240]
         state["pending_kind"] = ""            # 清租约
         _save_state(state)
         print(f"[companion] 已主动发送({'+'.join(sent)}): {body[:40]}")
@@ -336,5 +420,8 @@ def on_done(result):
         if kind == "weather":
             # 天气的"当天已查"标记在 _decide 就置了；失败必须清掉它，否则当天恶劣天气预警永久丢
             state.pop("weather_checked_date", None)
+        state["last_result"] = "failed"
+        state["last_error_ts"] = now_ts
+        state["last_error"] = "; ".join(errors) if errors else "所有渠道发送失败"
         _save_state(state)
         print("[companion] 所有渠道发送失败，未记终态（下次心跳将重试）")

@@ -37,3 +37,19 @@ def test_non_fetch_git_command_uses_plain_git(monkeypatch):
     assert result.returncode == 0
     assert seen["cmd"] == ["git", "rev-parse", "HEAD"]
     assert "timeout" not in seen["kw"]
+
+
+def test_release_remote_prefers_penglaiagent_remote(monkeypatch):
+    cli = _load_cli()
+
+    def fake_git(*args):
+        if args == ("remote", "get-url", "origin"):
+            return subprocess.CompletedProcess(["git"], 0, "https://github.com/kevinchennewbee/Penglai.git\n", "")
+        if args == ("remote", "get-url", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "https://github.com/kevinchennewbee/PenglaiAgent.git\n", "")
+        return subprocess.CompletedProcess(["git"], 1, "", "")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    monkeypatch.delenv("PENGLAI_RELEASE_REMOTE", raising=False)
+    assert cli._release_remote() == "release"
+    assert cli._release_ref() == "release/main"

@@ -3,9 +3,10 @@
 不能只看 script——否则 `code` 字段或正文代码块可绕过。"""
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _harness import install_fakes, fresh_import, run_gen, Resp, run_tests
+from _harness import install_fakes, fresh_import, run_gen, Resp, run_tests, REPO
 
 
 def _drive(args, response=None):
@@ -48,6 +49,28 @@ def test_no_false_positive_on_string_mention():
     # reboot 出现在字符串里（非命令起始位）不应误杀，体现"误杀率优先"
     blocked, ran = _drive({"script": "print('remember to reboot the server tomorrow')"})
     assert ran and not blocked, "字符串里提到 reboot 不应误杀"
+
+
+def test_audit_path_avoids_source_root_workspace():
+    install_fakes()
+    rl = fresh_import("plugins.penglai_redline")
+    old_home = os.environ.get("HOME")
+    old_ws = os.environ.get("GA_WORKSPACE_ROOT")
+    old_audit = os.environ.get("PENGLAI_AUDIT_DIR")
+    tmp = tempfile.mkdtemp()
+    try:
+        os.environ["HOME"] = tmp
+        os.environ["GA_WORKSPACE_ROOT"] = REPO
+        os.environ.pop("PENGLAI_AUDIT_DIR", None)
+        p = rl._audit_path()
+        assert p.startswith(os.path.join(tmp, "penglai-work", "audit") + os.sep), p
+    finally:
+        if old_home is None: os.environ.pop("HOME", None)
+        else: os.environ["HOME"] = old_home
+        if old_ws is None: os.environ.pop("GA_WORKSPACE_ROOT", None)
+        else: os.environ["GA_WORKSPACE_ROOT"] = old_ws
+        if old_audit is None: os.environ.pop("PENGLAI_AUDIT_DIR", None)
+        else: os.environ["PENGLAI_AUDIT_DIR"] = old_audit
 
 
 if __name__ == "__main__":

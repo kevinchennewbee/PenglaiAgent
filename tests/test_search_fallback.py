@@ -73,4 +73,5 @@ check("单源不标 ★（convergent=False）", all(not x["convergent"] for x in
 ps._mykey = _orig
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")
-sys.exit(1 if failed else 0)
+if __name__ == "__main__":
+    sys.exit(1 if failed else 0)

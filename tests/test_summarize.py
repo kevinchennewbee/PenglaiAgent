@@ -211,4 +211,5 @@ check("空url — 返回 Error 不崩", isinstance(outcome, StepOutcome) and "Er
 
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")
-sys.exit(1 if failed else 0)
+if __name__ == "__main__":
+    sys.exit(1 if failed else 0)

@@ -1,5 +1,8 @@
 temp/
 tmp/
+audit/
+_internal/
+.internal/
 
 __pycache__/
 *.py[cod]
@@ -158,4 +161,3 @@ frontends/conductor_im_plugins/config.local.json
 .claude/
 # Project Mode SOP
 !memory/project_mode_sop.md
-

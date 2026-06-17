@@ -244,9 +244,9 @@ def _probe_fileguard_mount():
     fake._send_local_file = lambda *a, **k: True
     fake.send_message = lambda *a, **k: None
     saved_main = sys.modules.get("__main__")
-    saved = (fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod)
+    saved = (fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod)
     try:
-        fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod = False, None, None
+        fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod = False, None, None, None
         sys.modules["__main__"] = fake
         mounted = fg._try_patch()
         wrapped = fake._send_local_file is fg._guarded_send_local_file
@@ -254,7 +254,7 @@ def _probe_fileguard_mount():
     finally:
         if saved_main is not None:
             sys.modules["__main__"] = saved_main
-        fg._PATCHED, fg._orig_send_local_file, fg._fsapp_mod = saved
+        fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod = saved
 
 def guard_ok():
     """以 venv python 子进程跑 guardcheck，返回 (ok, 末行详情)。doctor/start 复用。"""
@@ -322,9 +322,13 @@ def doctor():
     # 2c. 语音能力（可选；引擎+模型+ffmpeg 三件套齐了才报就绪，装一半要提示）
     _mdir = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
                          "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
+    _ffmpeg = shutil.which("ffmpeg") or next(
+        (p for p in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", "/opt/local/bin/ffmpeg")
+         if os.path.isfile(p) and os.access(p, os.X_OK)),
+        None)
     _voice = (("模型", os.path.isfile(os.path.join(_mdir, "model.int8.onnx"))),
               ("sherpa-onnx", sh([py, "-c", "import sherpa_onnx"]).returncode == 0),
-              ("ffmpeg", shutil.which("ffmpeg") is not None))
+              ("ffmpeg", _ffmpeg is not None))
     if all(ok for _, ok in _voice):
         print(f"{OK} 语音：就绪（SenseVoice 本地转写+情绪，含微信 silk）")
     elif not any(ok for _, ok in _voice[:2]):
@@ -340,9 +344,9 @@ def doctor():
             st = _pa.build_vision_api()
         except Exception:
             st = "err"
-        if st in ("built", "exists"):
+        if st in ("built", "exists", "repaired"):
             print(f"{OK} 看图：就绪（vision_api.py → 主力模型；IM 发图问「这是什么」即可）"
-                  + ("（刚构建）" if st == "built" else ""))
+                  + ("（刚构建）" if st == "built" else "（已修补旧版 endpoint）" if st == "repaired" else ""))
         elif st == "skip":
             print(f"{OK} 看图：待主力模型就绪（配好 native_oai_config 后 penglai doctor 自动构建）")
         else:
@@ -453,11 +457,18 @@ def doctor():
     # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
     if not is_git_repo():
         print(f"{WARN} 更新检查：压缩包安装无 git 历史，penglai update 不可用（重装即最新）")
-    elif sh(["git", "fetch", "origin", "--quiet"], cwd=ROOT).returncode == 0:
-        behind = sh(["git", "rev-list", "--count", "HEAD..origin/main"], cwd=ROOT).stdout.strip() or "?"
+    else:
+        remote = _release_remote()
+        ref = _release_ref(remote)
+        fetch_ok = sh(["git", "fetch", remote, "--quiet"], cwd=ROOT).returncode == 0
+        if fetch_ok:
+            behind = sh(["git", "rev-list", "--count", f"HEAD..{ref}"], cwd=ROOT).stdout.strip() or "?"
+        else:
+            behind = None
+    if is_git_repo() and behind is not None:
         mark = OK if behind == "0" else WARN
         print(f"{mark} 蓬莱版本：" + ("已是最新" if behind == "0" else f"落后 {behind} 个提交（penglai update 可更新）"))
-    else:
+    elif is_git_repo():
         print(f"{WARN} 更新检查：无法连接发行仓（网络/代理），跳过")
 
     print(f"\n{'🎉 全部通过，蓬莱身体健康！' if bad == 0 else f'共 {bad} 项需要处理。'}")
@@ -570,6 +581,21 @@ def _git(*args):
         err = e.stderr if isinstance(e.stderr, str) else (e.stderr or b"").decode("utf-8", "replace")
         return subprocess.CompletedProcess(cmd, 124, out, err or f"git fetch timeout after {e.timeout}s")
 
+
+def _release_remote():
+    preferred = os.environ.get("PENGLAI_RELEASE_REMOTE", "").strip()
+    if preferred and _git("remote", "get-url", preferred).returncode == 0:
+        return preferred
+    for name in ("origin", "release"):
+        r = _git("remote", "get-url", name)
+        if r.returncode == 0 and "PenglaiAgent" in (r.stdout or ""):
+            return name
+    return "origin"
+
+
+def _release_ref(remote=None):
+    return f"{remote or _release_remote()}/main"
+
 def _gh_proxy(url):
     """把 github.com 直连 URL 包成 gh-proxy 镜像（国内 GFW 兜底，与 install.sh 同源）。
     非 github / 已是镜像 返回空串。"""
@@ -582,18 +608,20 @@ def _fetch_status():
     """返回 (ok, behind, oldsha, newsha, errmsg)。处理浅克隆补全 + ff 可行性。"""
     if not is_git_repo():
         return False, 0, "", "", f"压缩包安装（无 git 历史），无法增量更新。重装即最新：\n   {REINSTALL_HINT}"
+    remote = _release_remote()
+    ref = _release_ref(remote)
     if _git("rev-parse", "--is-shallow-repository").stdout.strip() == "true":
         print("  首次检查：补全 git 历史（浅克隆 → 完整）...")
-        _git("fetch", "--unshallow", "origin")
-    if _git("fetch", "origin").returncode != 0:
+        _git("fetch", "--unshallow", remote)
+    if _git("fetch", remote).returncode != 0:
         # F5：直连 GitHub 失败（国内 GFW）→ 走 gh-proxy 镜像，把 main 拉进 origin/main 同一 ref
-        proxied = _gh_proxy(_git("remote", "get-url", "origin").stdout.strip())
-        if not proxied or _git("fetch", proxied, "main:refs/remotes/origin/main").returncode != 0:
+        proxied = _gh_proxy(_git("remote", "get-url", remote).stdout.strip())
+        if not proxied or _git("fetch", proxied, f"main:refs/remotes/{remote}/main").returncode != 0:
             return False, 0, "", "", "拉取失败（直连与 gh-proxy 镜像均失败，检查网络/代理）"
         print("  （直连 GitHub 失败，已走 gh-proxy 镜像拉取）")
     old = _git("rev-parse", "HEAD").stdout.strip()
-    new = _git("rev-parse", "origin/main").stdout.strip()
-    behind = int(_git("rev-list", "--count", "HEAD..origin/main").stdout.strip() or "0")
+    new = _git("rev-parse", ref).stdout.strip()
+    behind = int(_git("rev-list", "--count", f"HEAD..{ref}").stdout.strip() or "0")
     return True, behind, old, new, ""
 
 def _changelog(old, new):
@@ -652,7 +680,7 @@ def _do_update(old, new):
     if _git("status", "--porcelain").stdout.strip():
         print(f"{WARN}本地有未提交改动，可能挡住升级。");
     print("  ⬇️  拉取新版本（fast-forward）...")
-    if subprocess.run(["git", "merge", "--ff-only", "origin/main"], cwd=ROOT).returncode != 0:
+    if subprocess.run(["git", "merge", "--ff-only", _release_ref()], cwd=ROOT).returncode != 0:
         print(f"{BAD} 无法 fast-forward（本地改动/历史分叉），未改动。备份 mykey 后重装即最新：\n   {REINSTALL_HINT}")
         return 1
     print("  🔍 预检新版本（编译 + 安全插件挂载）...")

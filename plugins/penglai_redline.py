@@ -12,6 +12,8 @@ from plugins.hooks import register
 from agent_loop import StepOutcome
 from ga import GenericAgentHandler
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 _CMD = r"(^|[;&|`]\s*|\bsudo\s+)"  # 命令起始位置，降低误杀（如 echo "reboot guide" 不拦）
 RED_CODE = [
     (r"rm\s+(-[a-zA-Z]+\s+)*(-[a-zA-Z]*[rf][a-zA-Z]*\s+)+(/|\$HOME|~)/?(\s*$|\*)", "递归删除根/家目录"),
@@ -31,8 +33,16 @@ PROTECTED_WRITE = [
 ]
 
 def _audit_path():
-    base = os.environ.get("GA_WORKSPACE_ROOT") or os.path.expanduser("~/penglai-work")
-    d = os.path.join(base, "audit")
+    explicit = os.environ.get("PENGLAI_AUDIT_DIR")
+    if explicit:
+        d = os.path.expanduser(explicit)
+    else:
+        base = os.environ.get("GA_USER_DATA_DIR") or os.environ.get("GA_WORKSPACE_ROOT") or os.path.expanduser("~/penglai-work")
+        base = os.path.realpath(os.path.expanduser(base))
+        repo = os.path.realpath(_REPO_ROOT)
+        if base == repo or base.startswith(repo + os.sep):
+            base = os.path.expanduser("~/penglai-work")
+        d = os.path.join(base, "audit")
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, time.strftime("%Y-%m") + ".jsonl")
 
