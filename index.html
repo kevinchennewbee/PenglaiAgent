@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、飞书真实工作流、确定性安全。内核零改动。">
+<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、全 IM 文件外发、确定性安全。内核零改动。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -419,7 +419,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="tile wide reveal" style="--i:1">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-chat"/></svg></span>
       <h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
-      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队、人工介入按钮、真实文件外发。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Feishu supports busy-message queueing, human-intervention buttons, and real artifact sending. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队、人工介入按钮、真实文件外发。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
+      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队和人工介入按钮；文件外发在飞书、微信、企微、Telegram、Discord 统一按真实 artifact 判定。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Feishu supports busy-message queueing and human-intervention buttons; outbound files now use one real-artifact rule across Feishu, WeChat, WeCom, Telegram, and Discord. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队和人工介入按钮；文件外发在飞书、微信、企微、Telegram、Discord 统一按真实 artifact 判定。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
     </div>
     <div class="tile reveal" style="--i:2">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-memory"/></svg></span>
@@ -429,7 +429,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="tile reveal" style="--i:3">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-shield"/></svg></span>
       <h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
-      <p data-zh="危险命令红线、少数敏感后缀拦截（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。" data-en="Danger-command red lines, a narrow sensitive-suffix blocklist (.py/.env/.key/.sh/.pem), log redaction, and a full tool-call audit trail. Safety by deterministic checks, not LLM goodwill.">危险命令红线、少数敏感后缀拦截（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。</p>
+      <p data-zh="危险命令红线、全 IM 文件外发只拦少数敏感后缀（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。" data-en="Danger-command red lines, cross-IM outbound-file checks that only block a narrow sensitive-suffix list (.py/.env/.key/.sh/.pem), log redaction, and a full tool-call audit trail. Safety by deterministic checks, not LLM goodwill.">危险命令红线、全 IM 文件外发只拦少数敏感后缀（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。</p>
     </div>
     <div class="tile wide reveal" style="--i:4">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-search"/></svg></span>
@@ -575,6 +575,9 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
+ {v:"v0.2.10 hotfix",d:"2026-06-17",h:"5e7cf5f",zh:"统一 IM 文件外发",en:"Unified IM artifact sending",t:true,
+  liZh:["飞书、微信、企微、Telegram、Discord 统一使用同一套 artifact 判定：只有真实本地文件会发送，占位符和示例不再误报为文件不存在","图片、视频、音频、PDF、Office、Markdown 等按类型发送；.py / .env / .key / .sh / .pem 仍确定性拦截，不再按目录误挡 Downloads 等真实落点","技能索引改为用户意图优先于链接来源：下载、发送、导出走文件流程，避免把抖音下载误路由到知识库类技能","本机与腾讯云干净目录验证通过；Mac mini 长期环境不由本轮自动操作，保留给用户手动升级后真实工作流复测"],
+  liEn:["Feishu, WeChat, WeCom, Telegram, and Discord now share one artifact classifier: only real local files are sent, while placeholders and examples no longer become false missing-file warnings","Images, videos, audio, PDFs, Office docs, Markdown, and other outputs are sent by type; .py / .env / .key / .sh / .pem remain deterministically blocked, and real outputs in practical locations such as Downloads are no longer blocked by directory","The skill index now routes by user intent before link source: download, send, and export requests stay on the file flow instead of drifting into knowledge-base skills for links such as Douyin","Verified locally and in a clean Tencent Cloud directory; the Mac mini long-term runtime was not operated in this release round and is left for manual upgrade plus real-workflow retest"]},
  {v:"v0.2.10",d:"2026-06-17",h:"d8d47ce",zh:"飞书真实工作流修复",en:"Feishu real-workflow fixes",t:true,
   liZh:["飞书消息不再因前一条任务运行中直接丢弃：后续消息会进入队列，并在当前任务结束后自动处理","飞书按钮选择的无效点击不再吞掉待选状态；模型最终空输出但已生成文件时，卡片会显示正在发送生成文件，而不是误报截断","飞书日志会脱敏 API key、token、secret、password 等常见敏感片段，避免真实运行排障时把密钥写进日志","[FILE:] 外发不再按目录限制，只拦截 .py / .env / .key / .sh / .pem 这几个敏感后缀；视频、图片、PDF、Office 文档和其它实际工作产物可从 Downloads 等真实落点外发","视频/音频在飞书里按文件消息发送，避免媒体类型不匹配；全蓬莱层修改，GA 上游内核零 diff；本机、Mac mini 隔离目录与腾讯云干净目录均已验证"],
   liEn:["Feishu no longer drops a second message while a previous task is running: follow-up messages are queued and processed automatically after the active task finishes","Invalid Feishu button clicks no longer consume a pending human-intervention choice; when final text is empty but files were generated, the task card reports file sending instead of a misleading truncation warning","Feishu logs redact API keys, tokens, secrets, passwords, and common bearer-style credentials during real runtime troubleshooting","[FILE:] sending is no longer directory-restricted; it only blocks .py / .env / .key / .sh / .pem suffixes, so videos, images, PDFs, Office documents, and other real work artifacts can be sent from practical locations such as Downloads","Audio/video files are sent as Feishu file messages to avoid media type mismatch errors; all changes live in the Penglai layer with zero GA-kernel diff, verified locally, in a Mac mini isolated directory, and in a clean Tencent Cloud directory"]},
