@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import queue as Q
+import re
 import sys
 import threading
 import time
@@ -32,6 +33,38 @@ from penglai_feishu_ask import (  # noqa: E402
 _ASK_STATE = {}
 _ASK_BY_MENU = {}
 _ASK_LOCK = threading.Lock()
+_PENDING_LOCK = threading.Lock()
+_PENDING_QUEUE = []
+
+_MASK_PATTERNS = [
+    re.compile(r"(sk-[A-Za-z0-9_-]{8,})"),
+    re.compile(r"(?i)(api\s*key\s*[:：])\s*[^\s,;]+"),
+    re.compile(r"(?i)(api[_-]?key|token|secret|password|client_secret|app_secret)\s*[:=]\s*[^\s,;\]\)]+"),
+    re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.I),
+]
+
+
+def _redact_log_text(text):
+    value = str(text or "")
+    value = _MASK_PATTERNS[0].sub("sk-***", value)
+    value = _MASK_PATTERNS[1].sub(r"\1 ***", value)
+    value = _MASK_PATTERNS[2].sub(r"\1=***", value)
+    value = _MASK_PATTERNS[3].sub("Bearer ***", value)
+    return value
+
+
+def _enqueue_pending(item):
+    with _PENDING_LOCK:
+        item["queue_no"] = len(_PENDING_QUEUE) + 1
+        _PENDING_QUEUE.append(item)
+        return item["queue_no"]
+
+
+def _pop_pending():
+    with _PENDING_LOCK:
+        if not _PENDING_QUEUE:
+            return None
+        return _PENDING_QUEUE.pop(0)
 
 
 def _patch_lark_ws_card_dispatch():
@@ -134,7 +167,7 @@ def _pop_choice(chat_key, text):
 
 def _pop_menu_choice(menu_id, index):
     with _ASK_LOCK:
-        item = _ASK_BY_MENU.pop(menu_id, None)
+        item = _ASK_BY_MENU.get(menu_id)
         if not item:
             return None
         event = item.get("event") or {}
@@ -145,6 +178,7 @@ def _pop_menu_choice(menu_id, index):
             idx = -1
         if not (0 <= idx < len(candidates)):
             return None
+        _ASK_BY_MENU.pop(menu_id, None)
         chat_key = item.get("chat_key")
         if chat_key:
             _ASK_STATE.pop(chat_key, None)
@@ -183,6 +217,52 @@ def _patch(fs):
         if not ok:
             fs.send_message(card.rid, render_ask_user_text(text, event), receive_id_type=card.rtype)
 
+    def _final_display_text(raw):
+        text = fs._display_text(raw)
+        if text.startswith("⚠️ 模型输出被截断或为空"):
+            try:
+                files = fs._extract_files(raw)
+            except Exception:
+                files = []
+            if files:
+                return "✅ 工具流程已结束，正在发送生成文件。若未收到文件，请回复“重发文件”。"
+            return "⚠️ 工具流程已结束，但最终回复为空。请补充说明要我继续检查还是重跑。"
+        return text
+
+    def _card_done(card, raw):
+        text = _final_display_text(raw)
+        if text.startswith("⚠️ 工具流程已结束"):
+            card.status = "⚠️ 已结束但回复为空"
+            card.final = text
+            if not card._push():
+                card._fallback_text(text, final=True)
+            return
+        card.done(text)
+
+    def _start_pending_if_any():
+        item = _pop_pending()
+        if not item:
+            return
+        try:
+            fs.send_message(
+                item["receive_id"],
+                f"▶️ 开始处理排队消息 #{item['queue_no']}。",
+                receive_id_type=item["receive_id_type"],
+            )
+        except Exception:
+            pass
+        threading.Thread(
+            target=fs._run_async,
+            args=(fs.get_app().run_agent(
+                item["chat_id"],
+                item["text"],
+                receive_id=item["receive_id"],
+                receive_id_type=item["receive_id_type"],
+                images=item.get("images") or None,
+            ),),
+            daemon=True,
+        ).start()
+
     def _make_penglai_task_hook(card, task_id, on_final, on_ask):
         def hook(ctx):
             try:
@@ -203,11 +283,26 @@ def _patch(fs):
                 print(f"[penglai fs hook] error: {e}")
         return hook
 
-    async def run_agent(self, chat_id, text, *, receive_id=None, receive_id_type="open_id", images=None, **_):
+    async def run_agent(self, chat_id, text, *, receive_id=None, receive_id_type="open_id",
+                        images=None, priority=False, **_):
         if self.user_tasks:
-            await self.send_text(chat_id, "当前会话已有任务在运行，请等待完成或发送 /stop 后再试。",
-                                 receive_id=receive_id, receive_id_type=receive_id_type)
-            return
+            deadline = time.time() + (5 if priority else 0)
+            while priority and self.user_tasks and time.time() < deadline:
+                await asyncio.sleep(0.1)
+            if self.user_tasks:
+                qno = _enqueue_pending({
+                    "chat_id": chat_id,
+                    "text": text,
+                    "receive_id": receive_id or chat_id,
+                    "receive_id_type": receive_id_type,
+                    "images": images or None,
+                })
+                msg = f"已收到，当前还有任务在运行；这条已排队 #{qno}，当前任务结束后自动处理。发送 /stop 可停止当前任务。"
+                if priority:
+                    msg = f"已收到你的选择，当前任务收尾后继续处理（排队 #{qno}）。"
+                await self.send_text(chat_id, msg, receive_id=receive_id, receive_id_type=receive_id_type)
+                print(f"[penglai feishu] queued message #{qno} for {chat_id}: {_redact_log_text(text)[:120]}")
+                return
         state = {"running": True}
         self.user_tasks[chat_id] = state
         rid = receive_id or chat_id
@@ -224,7 +319,7 @@ def _patch(fs):
                 result["raw"] = raw
                 result["sent"] = True
             _cancel_ask(chat_id)
-            card.done(fs._display_text(raw))
+            _card_done(card, raw)
             fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
 
         def _ask(raw, event):
@@ -272,6 +367,7 @@ def _patch(fs):
             if hasattr(self.agent, "_turn_end_hooks"):
                 self.agent._turn_end_hooks.pop(hook_key, None)
             self.user_tasks.pop(chat_id, None)
+            _start_pending_if_any()
 
     async def handle_command(self, chat_id, cmd, **ctx):
         s = (cmd or "").strip()
@@ -318,7 +414,7 @@ def _patch(fs):
             else:
                 fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{message.message_type}")
             return
-        print(f"收到消息 [{open_id}] ({message.message_type}, {len(image_paths)} images): {user_input[:200]}")
+        print(f"收到消息 [{open_id}] ({message.message_type}, {len(image_paths)} images): {_redact_log_text(user_input)[:200]}")
         if message.message_type == "text" and user_input.startswith("/") and choice is None:
             threading.Thread(
                 target=fs._run_async,
@@ -333,7 +429,8 @@ def _patch(fs):
             args=(fs.get_app().run_agent(chat_key, user_input,
                                          receive_id=receive_id,
                                          receive_id_type=receive_id_type,
-                                         images=image_paths),),
+                                         images=image_paths,
+                                         priority=choice is not None),),
             daemon=True,
         ).start()
 
@@ -365,6 +462,7 @@ def _patch(fs):
                     picked["choice"],
                     receive_id=picked["receive_id"],
                     receive_id_type=picked["receive_id_type"],
+                    priority=True,
                 ),),
                 daemon=True,
             ).start()

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""蓬莱插件：出站文件白名单（F-004 防本机任意文件外发）。
+"""蓬莱插件：出站文件门禁（F-004 防敏感文件自动外发）。
 
 模型回复里的 `[FILE:/绝对/路径]` 会被飞书前端解析并直接上传给聊天用户
 （fsapp `_send_generated_files` → `_send_local_file`）。提示注入或模型误输出
@@ -7,10 +7,9 @@
 这是 IM Agent 的核心泄露面，且飞书是发行版默认部署面（systemd/docker 跑 fsapp）。
 
 修法（蓬莱层 monkeypatch，GA/前端文件零改动，同 penglai_redline 套路）：
-运行时包装 `frontends.fsapp._send_local_file`，仅允许外发【工作目录/临时目录】内的
-文件——这正是 agent 生成产物（图表/报告/媒体）与下载媒体的落点；绝对路径、`..`、
-软链接越界、密钥目录一律拒绝并提示用户。realpath 解析后做前缀校验，自动覆盖
-穿越与软链接。
+运行时包装 `frontends.fsapp._send_local_file`，默认只按少数敏感后缀拦截：
+`.py` / `.env` / `.key` / `.sh` / `.pem`。真实工作产物不再因为落点不在
+workspace/temp 被误拦，默认完全不按目录判断。
 
 挂载时机：fsapp.py 第 81 行 `from agentmain import ...` 会触发插件加载，此时 fsapp
 模块尚在执行（`_send_local_file` 定义在第 555 行，还没到），故不能在 import 期直接打
@@ -32,31 +31,22 @@ import sys
 from plugins.hooks import register
 from plugins.penglai_redline import audit
 
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_BLOCKED_OUTBOUND_SUFFIXES = (".py", ".env", ".key", ".sh", ".pem")
+_MEDIA_AS_FILE_EXTS = {
+    ".mp3", ".wav", ".m4a", ".aac", ".opus", ".flac",
+    ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mpg", ".mpeg",
+}
 
 
-def _allowed_roots():
-    """允许外发的根目录（realpath）：workspace + 仓库 temp + 系统 temp。
-    懒计算——GA_WORKSPACE_ROOT 由 systemd/docker 在进程启动前注入。"""
-    roots = []
-    ws = os.environ.get("GA_WORKSPACE_ROOT")
-    if ws:
-        roots.append(ws)
-    roots.append(os.path.expanduser("~/penglai-work"))   # 非 systemd（penglai start）默认工作区
-    roots.append(os.path.join(_REPO_ROOT, "temp"))       # 仓库 temp/（含 feishu_media 下载落点）
-    import tempfile
-    roots.append(tempfile.gettempdir())
-    out = []
-    for r in roots:
-        try:
-            out.append(os.path.realpath(r))
-        except Exception:
-            pass
-    return out
+def _is_safe_outbound_type(path):
+    base = os.path.basename(str(path)).lower()
+    if base.endswith(_BLOCKED_OUTBOUND_SUFFIXES):
+        return False, "敏感后缀文件禁止自动外发"
+    return True, ""
 
 
 def _is_outbound_allowed(file_path):
-    """返回 (允许?, 原因, realpath)。realpath 解析软链接与 ..，越界即拒。
+    """返回 (允许?, 原因, realpath)。realpath 解析软链接与 ..。
     一并返回解析后的 realpath 供发送时使用——确保「校验的路径 == 发送的路径」，
     堵住校验与发送之间被软链接 swap 的 TOCTOU 窗口。"""
     try:
@@ -65,10 +55,10 @@ def _is_outbound_allowed(file_path):
         return False, "路径解析失败", None
     if not os.path.isfile(rp):
         return False, "文件不存在", None
-    for root in _allowed_roots():
-        if rp == root or rp.startswith(root + os.sep):
-            return True, "", rp
-    return False, "不在允许的工作目录内（仅可外发 workspace/temp 内文件）", None
+    safe, why = _is_safe_outbound_type(rp)
+    if not safe:
+        return False, why, None
+    return True, "", rp
 
 
 _orig_send_local_file = None
@@ -104,7 +94,22 @@ def _guarded_send_local_file(receive_id, file_path, receive_id_type="open_id"):
     # 用 realpath 解析后的路径发送（=校验时确认的同一路径），堵住校验与发送之间
     # 的软链接 swap（TOCTOU）：合法生成物不是软链、realpath 不变；攻击性软链已在
     # 校验阶段被解析越界拒绝，此处确保发送的就是校验过的那条路径。
-    return _orig_send_local_file(receive_id, rp, receive_id_type)
+    return _send_outbound_file(receive_id, rp, receive_id_type)
+
+
+def _send_outbound_file(receive_id, file_path, receive_id_type="open_id"):
+    ext = os.path.splitext(str(file_path))[1].lower()
+    if ext in _MEDIA_AS_FILE_EXTS:
+        upload = getattr(_fsapp_mod, "_upload_file_sync", None)
+        send = getattr(_fsapp_mod, "send_message", None)
+        if callable(upload) and callable(send):
+            file_key = upload(file_path)
+            if file_key:
+                import json
+                send(receive_id, json.dumps({"file_key": file_key}, ensure_ascii=False),
+                     msg_type="file", receive_id_type=receive_id_type)
+                return True
+    return _orig_send_local_file(receive_id, file_path, receive_id_type)
 
 
 def _summarize_blocked(blocked):
@@ -134,7 +139,7 @@ def _guarded_send_generated_files(receive_id, raw_text, receive_id_type="open_id
         else:
             blocked.append((file_path, why))
     for rp in allowed:
-        _orig_send_local_file(receive_id, rp, receive_id_type)
+        _send_outbound_file(receive_id, rp, receive_id_type)
     if blocked:
         reasons, examples = _summarize_blocked(blocked)
         audit("send_files", {"blocked": len(blocked), "sent": len(allowed), "reasons": reasons},
@@ -176,7 +181,7 @@ def _try_patch():
         mod._send_generated_files = _guarded_send_generated_files
     mod._penglai_fileguard = True
     _PATCHED = True
-    sys.stderr.write("[penglai_fileguard] 出站文件白名单已挂载（fsapp._send_local_file）\n")
+    sys.stderr.write("[penglai_fileguard] 出站文件后缀门禁已挂载（fsapp._send_local_file）\n")
     return True
 
 

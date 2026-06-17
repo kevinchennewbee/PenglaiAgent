@@ -12,8 +12,12 @@ from penglai_feishu_ask import (
 from penglai_feishu_app import (
     _ASK_BY_MENU,
     _ASK_STATE,
+    _PENDING_QUEUE,
+    _enqueue_pending,
+    _pop_pending,
     _pop_menu_choice,
     _remember_ask,
+    _redact_log_text,
 )
 
 
@@ -81,6 +85,37 @@ def test_card_menu_choice_consumes_pending_state():
     }
     assert "chat1" not in _ASK_STATE
     assert "m1" not in _ASK_BY_MENU
+
+
+def test_invalid_card_menu_choice_keeps_pending_state():
+    _ASK_STATE.clear()
+    _ASK_BY_MENU.clear()
+    event = extract_ask_user_event(_ctx(candidates=["探深", "先停"]))
+    _remember_ask("chat1", event, menu_id="m1", receive_id="chat1", receive_id_type="chat_id")
+    assert _pop_menu_choice("m1", 99) is None
+    assert "chat1" in _ASK_STATE
+    assert "m1" in _ASK_BY_MENU
+
+
+def test_pending_queue_is_fifo_and_numbered():
+    _PENDING_QUEUE.clear()
+    assert _enqueue_pending({"text": "first"}) == 1
+    assert _enqueue_pending({"text": "second"}) == 2
+    assert _pop_pending()["text"] == "first"
+    assert _pop_pending()["text"] == "second"
+    assert _pop_pending() is None
+
+
+def test_redact_log_text_masks_common_secrets():
+    text = _redact_log_text("API Key: abc123 token=secret Bearer live-token sk-testsecret")
+    assert "abc123" not in text
+    assert "token=secret" not in text
+    assert "Bearer live-token" not in text
+    assert "sk-testsecret" not in text
+    assert "API Key: ***" in text
+    assert "token=***" in text
+    assert "Bearer ***" in text
+    assert "sk-***" in text
 
 
 def test_resolve_choice_by_number_or_exact_text():
