@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""penglai — 蓬莱助手发行版唯一入口（基于 GenericAgent，内核零改动）。
+"""penglai — 蓬莱助手发行版唯一入口（基于 GenericAgent，执行核心 upstream-first）。
 
 用法:
   penglai           直接对话（终端 TUI，等价上游 GA 的 tuiapp_v2）
@@ -648,7 +648,7 @@ def update():
        penglai update           交互式：显示更新内容 → 确认 → 安全升级
        penglai update --check   只检查不升级（管家先用这个报告，用户确认后再 --apply）
        penglai update --apply   已确认，直接执行安全升级（预检→后台重启→健康检查→失败回滚）
-    内核零改动；不在用户机 merge lsdefine 上游（浅克隆 unrelated-histories 必炸，F-013），只跟随发行仓。"""
+    不在用户机 merge lsdefine 上游（浅克隆 unrelated-histories 必炸，F-013），只跟随发行仓。"""
     flag = sys.argv[2] if len(sys.argv) > 2 else ""
     # Docker：代码在镜像里不在卷里，git pull 无意义——指向镜像升级路径
     if _in_docker():
@@ -896,7 +896,7 @@ def ensure_tui_deps():
     return False
 
 def tui():
-    """终端对话界面 = 上游 GA 的 tuiapp_v2 套蓬莱品牌薄包装（内核零改动）。
+    """终端对话界面 = 上游 GA 的 tuiapp_v2 套蓬莱品牌薄包装（不改 GA 执行核心）。
     与飞书/微信共享同一份记忆——同一个管家，多个门。"""
     if not ensure_tui_deps():
         return 1

@@ -14,12 +14,12 @@ penglai        # 引导:选目录 → 自动克隆发行版 → 向导(依赖→
 ```bash
 penglai doctor     # 体检:环境/依赖/配置/LLM/记忆/服务/上游
 penglai status     # 服务状态
-penglai update     # 一键同步上游内核
+penglai update     # 一键同步蓬莱发行仓
 ```
 
 - 项目主页:https://github.com/kevinchennewbee/PenglaiAgent
-- 蓬莱基于 [GenericAgent](https://github.com/lsdefine/GenericAgent) 内核(MIT,零改动),
-  叠加微信渠道、语音情绪感知、确定性安全红线、记忆卫生、跨厂商防幻觉复核等精选外设。
+- 蓬莱基于 [GenericAgent](https://github.com/lsdefine/GenericAgent) 执行核心(MIT, upstream-first),
+  叠加渠道 adapter、语音情绪感知、确定性安全红线、记忆卫生、跨厂商防幻觉复核等发行层能力。
 - 国内网络友好:克隆自动回退 GitHub 镜像,依赖走清华 PyPI 镜像。可用 `PENGLAI_GH_PROXY` 指定自己的镜像。
 
 **代码 MIT;「蓬莱 / Penglai」名称与视觉品牌保留所有权利。**

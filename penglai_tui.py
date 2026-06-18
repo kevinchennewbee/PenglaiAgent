@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""蓬莱终端对话入口 — 上游 GA tuiapp_v2 的品牌化薄包装（内核零改动）。
+"""蓬莱终端对话入口 — 上游 GA tuiapp_v2 的品牌化薄包装。
 
-上游 TUI 左上角身份角标与欢迎语写死 "GenericAgent"，发行版不改内核文件，
-在这里 import 后运行时替换两处展示字符串，其余行为与上游完全一致。
+上游 TUI 左上角身份角标与欢迎语写死 "GenericAgent"，发行版不改 GA 执行核心，
+在这里 import 后运行时替换展示字符串，并接入 V5 本地事件/prompt 约束。
 由 `penglai` / `penglai tui` 调起；直接 `python penglai_tui.py` 也可。
 """
 import os
