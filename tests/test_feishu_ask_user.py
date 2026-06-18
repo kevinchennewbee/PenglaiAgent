@@ -20,6 +20,7 @@ from penglai_feishu_app import (
     _explicit_interaction_event,
     _install_display_cleaners,
     _pop_pending,
+    _pop_choice,
     _pop_menu_choice,
     _remember_ask,
     _redact_log_text,
@@ -113,6 +114,29 @@ def test_invalid_card_menu_choice_keeps_pending_state():
     assert "m1" in _ASK_BY_MENU
 
 
+def test_direct_card_menu_choice_preserves_question_context_for_agent():
+    _ASK_STATE.clear()
+    _ASK_BY_MENU.clear()
+    event = _explicit_interaction_event("问我一个三选一问题，主题关于今晚安排，用飞书选项卡让我选择 A、B、C。")
+    _remember_ask("chat1", event, menu_id="m-direct", receive_id="chat1", receive_id_type="chat_id")
+    picked = _pop_menu_choice("m-direct", 1)
+
+    assert picked["choice"] == "用户对「今晚安排，请选择一个选项：」的选择/回答：B"
+    assert "chat1" not in _ASK_STATE
+    assert "m-direct" not in _ASK_BY_MENU
+
+
+def test_direct_free_text_reply_preserves_question_context_for_agent():
+    _ASK_STATE.clear()
+    _ASK_BY_MENU.clear()
+    event = _explicit_interaction_event("我现在缺一个城市信息，你先问我缺哪个城市，不要给候选项。")
+    _remember_ask("chat1", event, menu_id="m-free", receive_id="chat1", receive_id_type="chat_id")
+
+    assert _pop_choice("chat1", "北京") == "用户对「缺哪个城市：」的选择/回答：北京"
+    assert "chat1" not in _ASK_STATE
+    assert "m-free" not in _ASK_BY_MENU
+
+
 def test_pending_queue_is_fifo_and_numbered():
     _PENDING_QUEUE.clear()
     assert _enqueue_pending({"text": "first"}) == 1
@@ -154,6 +178,7 @@ def test_explicit_feishu_choice_request_becomes_real_interaction_event():
     assert event == {
         "question": "今晚安排，请选择一个选项：",
         "candidates": ["A", "B", "C"],
+        "_penglai_direct": True,
     }
 
 
@@ -163,6 +188,7 @@ def test_explicit_free_text_question_becomes_interaction_event_without_buttons()
     assert event == {
         "question": "缺哪个城市：",
         "candidates": [],
+        "_penglai_direct": True,
     }
 
 

@@ -186,6 +186,16 @@ def _remember_ask(chat_key, event, *, menu_id=None, receive_id=None, receive_id_
             }
 
 
+def _choice_text_for_agent(event, choice):
+    text = str(choice or "").strip()
+    if not text:
+        return text
+    if not (event or {}).get("_penglai_direct"):
+        return text
+    question = str((event or {}).get("question") or "上一个问题").strip()
+    return f"用户对「{question}」的选择/回答：{text}"
+
+
 def _pop_choice(chat_key, text):
     with _ASK_LOCK:
         event = _ASK_STATE.get(chat_key)
@@ -195,7 +205,7 @@ def _pop_choice(chat_key, text):
             for menu_id, item in list(_ASK_BY_MENU.items()):
                 if item.get("chat_key") == chat_key:
                     _ASK_BY_MENU.pop(menu_id, None)
-        return choice
+        return _choice_text_for_agent(event, choice)
 
 
 def _pop_menu_choice(menu_id, index):
@@ -219,9 +229,10 @@ def _pop_menu_choice(menu_id, index):
         if chat_key:
             _ASK_STATE.pop(chat_key, None)
         option = options[idx]
+        choice = _choice_text_for_agent(event, option.value or option.label)
         return {
             "chat_key": chat_key,
-            "choice": option.value or option.label,
+            "choice": choice,
             "receive_id": item.get("receive_id") or chat_key,
             "receive_id_type": item.get("receive_id_type") or "open_id",
         }
@@ -320,11 +331,13 @@ def _explicit_interaction_event(text):
         return {
             "question": _extract_interaction_question(value, has_options=True),
             "candidates": options,
+            "_penglai_direct": True,
         }
     if _EXPLICIT_FREE_TEXT_RE.search(value):
         return {
             "question": _extract_interaction_question(value, has_options=False),
             "candidates": [],
+            "_penglai_direct": True,
         }
     return None
 
@@ -592,6 +605,11 @@ def _patch(fs):
             elements = build_ask_user_elements("", direct_event, menu_id=menu_id, include_buttons=True)
             payload = fs._card_raw(elements)
             ok = fs._send_raw(receive_id, payload, "interactive", receive_id_type)
+            print(
+                "[penglai feishu] direct interaction card "
+                f"menu_id={menu_id} options={len(direct_event.get('candidates') or [])} ok={bool(ok)}",
+                flush=True,
+            )
             if not ok:
                 fs.send_message(
                     receive_id,
