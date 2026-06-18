@@ -20,11 +20,13 @@ from penglai_feishu_app import (
     _explicit_interaction_event,
     _install_display_cleaners,
     _install_text_message_fallback,
+    _message_type,
     _pop_pending,
     _pop_choice,
     _pop_menu_choice,
     _remember_ask,
     _redact_log_text,
+    _text_from_message,
     _text_from_message_content,
 )
 
@@ -177,8 +179,20 @@ def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():
 def test_text_message_content_fallback_supports_sdk_shapes():
     assert _text_from_message_content({"text": "/new"}) == "/new"
     assert _text_from_message_content('{"text": "/status"}') == "/status"
+    assert _text_from_message_content("{'text': '/help'}") == "/help"
     assert _text_from_message_content("/help") == "/help"
     assert _text_from_message_content(types.SimpleNamespace(text="/review")) == "/review"
+    assert _text_from_message_content(types.SimpleNamespace(data={"text": "你好"})) == "你好"
+    assert _text_from_message_content({"event": {"message": {"content": {"text": "测试"}}}}) == "测试"
+
+
+def test_text_message_fallback_extracts_nested_message_content():
+    message = types.SimpleNamespace(
+        message_type="text",
+        content=types.SimpleNamespace(content={"text": "/new"}),
+    )
+
+    assert _text_from_message(message) == "/new"
 
 
 def test_text_message_fallback_wraps_empty_upstream_parse_for_all_commands():
@@ -194,6 +208,26 @@ def test_text_message_fallback_wraps_empty_upstream_parse_for_all_commands():
     message = types.SimpleNamespace(message_type="text", content={"text": "/new"})
     assert fs._build_user_message(message) == ("/new", [])
     assert calls == ["text"]
+
+
+def test_message_type_normalizes_sdk_value_objects():
+    message_type = types.SimpleNamespace(value="text")
+    assert _message_type(types.SimpleNamespace(message_type=message_type)) == "text"
+
+
+def test_media_message_fallback_keeps_image_from_becoming_unsupported():
+    def upstream(message):
+        return "", []
+
+    fs = types.SimpleNamespace(
+        _build_user_message=upstream,
+        _download_and_save_media=lambda *args, **kwargs: (None, None),
+        _describe_media=lambda msg_type, path, name: f"[{msg_type}: {name}]",
+    )
+    assert _install_text_message_fallback(fs) is True
+
+    message = types.SimpleNamespace(message_type="image", message_id="m1", content={})
+    assert fs._build_user_message(message) == ("[image]", [])
 
 
 def test_explicit_feishu_choice_request_becomes_real_interaction_event():

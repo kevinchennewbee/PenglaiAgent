@@ -7,6 +7,7 @@ patch Feishu ask_user rendering, then delegate to upstream main().
 """
 import asyncio
 import argparse
+import ast
 import json
 import os
 import queue as Q
@@ -55,6 +56,26 @@ _MASK_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|token|secret|password|client_secret|app_secret)\s*[:=]\s*[^\s,;\]\)]+"),
     re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.I),
 ]
+_TEXT_KEYS = ("text", "content", "plain_text", "message", "body", "title")
+_RESOURCE_KEYS = {
+    "image": ("image_key",),
+    "audio": ("file_key", "audio_key"),
+    "file": ("file_key",),
+    "media": ("file_key", "media_key"),
+}
+_MESSAGE_META_KEYS = {
+    "message_type",
+    "msg_type",
+    "message_id",
+    "root_id",
+    "parent_id",
+    "chat_id",
+    "chat_type",
+    "create_time",
+    "update_time",
+    "sender",
+    "mentions",
+}
 
 
 def _redact_log_text(text):
@@ -66,41 +87,159 @@ def _redact_log_text(text):
     return value
 
 
-def _text_from_message_content(raw):
+def _message_type(message):
+    value = getattr(message, "message_type", "") or ""
+    value = getattr(value, "value", value)
+    return str(value or "").strip()
+
+
+def _parse_structured_string(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    if text[:1] in ("{", "[") and text[-1:] in ("}", "]"):
+        try:
+            return ast.literal_eval(text)
+        except Exception:
+            pass
+    return text
+
+
+def _object_to_mapping(raw):
+    for method in ("to_dict", "dict", "model_dump"):
+        fn = getattr(raw, method, None)
+        if callable(fn):
+            try:
+                data = fn()
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+    data = getattr(raw, "__dict__", None)
+    return data if isinstance(data, dict) else None
+
+
+def _text_from_message_content(raw, *, _depth=0):
     """Extract Feishu text content from SDK variants.
 
     Upstream fsapp handles the common JSON-string shape. Some lark-oapi
     deliveries expose `message.content` as a dict/object or plain text, which
     made `/new` and every other slash command look like an empty text message.
     """
-    if raw is None:
+    if raw is None or _depth > 5 or callable(raw):
         return ""
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode("utf-8", "replace")
+        except Exception:
+            return ""
     if isinstance(raw, dict):
         data = raw
+    elif isinstance(raw, (list, tuple)):
+        texts = [
+            _text_from_message_content(item, _depth=_depth + 1)
+            for item in raw
+        ]
+        return "\n".join([text for text in texts if text]).strip()
     elif isinstance(raw, str):
-        value = raw.strip()
-        if not value:
-            return ""
-        try:
-            data = json.loads(value)
-        except Exception:
-            return value
+        parsed = _parse_structured_string(raw)
+        if isinstance(parsed, str):
+            return parsed
+        data = parsed
     else:
-        data = {}
-        for attr in ("text", "content"):
+        for attr in ("text", "content", "raw", "body", "message"):
             value = getattr(raw, attr, None)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-            if isinstance(value, dict):
-                data = value
-                break
+            text = _text_from_message_content(value, _depth=_depth + 1)
+            if text:
+                return text
+        data = _object_to_mapping(raw)
+        if data is None:
+            value = str(raw).strip()
+            if value and not re.search(r"<[^>]+ object at 0x[0-9A-Fa-f]+>", value):
+                return _text_from_message_content(value, _depth=_depth + 1)
+            return ""
     if not isinstance(data, dict):
         return ""
-    for key in ("text", "content"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    for key in _TEXT_KEYS:
+        text = _text_from_message_content(data.get(key), _depth=_depth + 1)
+        if text:
+            return text
+    for key, value in data.items():
+        key_text = str(key)
+        if key_text.startswith("_") or key_text in _MESSAGE_META_KEYS:
+            continue
+        text = _text_from_message_content(value, _depth=_depth + 1)
+        if text:
+            return text
     return ""
+
+
+def _text_from_message(message):
+    for attr in ("content", "text", "raw", "body", "message"):
+        text = _text_from_message_content(getattr(message, attr, None))
+        if text:
+            return text
+    return _text_from_message_content(message)
+
+
+def _find_message_value(raw, names, *, _depth=0):
+    if raw is None or _depth > 5 or callable(raw):
+        return ""
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode("utf-8", "replace")
+        except Exception:
+            return ""
+    if isinstance(raw, str):
+        parsed = _parse_structured_string(raw)
+        if isinstance(parsed, str):
+            return ""
+        raw = parsed
+    if isinstance(raw, dict):
+        for name in names:
+            value = raw.get(name)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        for key, value in raw.items():
+            key_text = str(key)
+            if key_text.startswith("_") or key_text in _MESSAGE_META_KEYS:
+                continue
+            found = _find_message_value(value, names, _depth=_depth + 1)
+            if found:
+                return found
+        return ""
+    if isinstance(raw, (list, tuple)):
+        for item in raw:
+            found = _find_message_value(item, names, _depth=_depth + 1)
+            if found:
+                return found
+        return ""
+    data = _object_to_mapping(raw)
+    if isinstance(data, dict):
+        return _find_message_value(data, names, _depth=_depth + 1)
+    return ""
+
+
+def _media_message_fallback(fs, message, msg_type):
+    key = _find_message_value(getattr(message, "content", None), _RESOURCE_KEYS.get(msg_type, ()))
+    message_id = str(getattr(message, "message_id", "") or "")
+    image_paths = []
+    if key and hasattr(fs, "_download_and_save_media"):
+        content = {"image_key": key} if msg_type == "image" else {"file_key": key}
+        try:
+            file_path, filename = fs._download_and_save_media(msg_type, content, message_id)
+        except Exception as e:
+            print(f"[penglai feishu] media fallback download failed type={msg_type}: {e}", flush=True)
+            file_path, filename = None, None
+        if file_path and filename:
+            if msg_type == "image":
+                image_paths.append(file_path)
+            return fs._describe_media(msg_type, file_path, filename), image_paths
+    return f"[{msg_type}]", image_paths
 
 
 def _install_text_message_fallback(fs):
@@ -110,10 +249,21 @@ def _install_text_message_fallback(fs):
 
     def _build_user_message(message):
         text, images = original(message)
-        if not text and getattr(message, "message_type", "") == "text":
-            text = _text_from_message_content(getattr(message, "content", None))
+        msg_type = _message_type(message)
+        if not text and msg_type == "text":
+            text = _text_from_message(message)
             if text:
                 print("[penglai feishu] text message content fallback used", flush=True)
+            else:
+                content = getattr(message, "content", None)
+                print(
+                    "[penglai feishu] text message empty after fallback "
+                    f"content_type={type(content).__name__}",
+                    flush=True,
+                )
+        elif not text and msg_type in _RESOURCE_KEYS:
+            text, images = _media_message_fallback(fs, message, msg_type)
+            print(f"[penglai feishu] media message fallback used type={msg_type}", flush=True)
         return text, images
 
     _build_user_message._penglai_text_fallback = True
@@ -630,6 +780,7 @@ def _patch(fs):
             print(f"未授权用户: {open_id}")
             return
         user_input, image_paths = fs._build_user_message(message)
+        msg_type = _message_type(message)
         receive_id = chat_id or open_id
         receive_id_type = "chat_id" if chat_id else "open_id"
         chat_key = receive_id
@@ -638,13 +789,13 @@ def _patch(fs):
             user_input = choice
         if not user_input:
             if chat_id:
-                fs.send_message(chat_id, f"⚠️ 暂不支持处理此类飞书消息：{message.message_type}",
+                fs.send_message(chat_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}",
                                 receive_id_type="chat_id")
             else:
-                fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{message.message_type}")
+                fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}")
             return
-        print(f"收到消息 [{open_id}] ({message.message_type}, {len(image_paths)} images): {_redact_log_text(user_input)[:200]}")
-        if message.message_type == "text" and user_input.startswith("/") and choice is None:
+        print(f"收到消息 [{open_id}] ({msg_type}, {len(image_paths)} images): {_redact_log_text(user_input)[:200]}")
+        if msg_type == "text" and user_input.startswith("/") and choice is None:
             threading.Thread(
                 target=fs._run_async,
                 args=(fs.get_app().handle_command(chat_key, user_input,
