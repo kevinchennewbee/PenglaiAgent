@@ -24,14 +24,18 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.contracts.InboundEvent`
 - `penglai_runtime.session.SessionRouter`
 - `penglai_runtime.queueing.SessionQueue`
+- `penglai_runtime.runner.AgentRunner`
+- `penglai_runtime.hub.PenglaiRuntimeHub`
 - `penglai_runtime.delivery.plan_delivery`
 - `penglai_runtime.delivery.DeliveryService`
 - `penglai_runtime.interaction.InteractionRequest`
 - `penglai_runtime.text_interaction.install_text_interaction_adapter`
 - `penglai_runtime.output_cleaner.clean_final_text`
+- `penglai_runtime.memory_governor.MemoryGovernor`
 - `penglai_runtime.in_memory_im.InMemoryIMAdapter`
 - `penglai_runtime.shadow.record_delivery_shadow`
-- internal self-check module: `python3 -m penglai_runtime.selfcheck`
+- terminal self-check: `penglai v5 --json`
+- module self-check: `python3 -m penglai_runtime.selfcheck --json`
 
 Most contracts are side-effect free by default. `DeliveryService` executes only
 through adapter-provided callbacks, so platform SDK behavior stays owned by the
@@ -101,7 +105,7 @@ The safe 0.2.20 test cut is now:
 
 1. Add Penglai-owned V5 contracts and in-memory adapter tests.
 2. Keep GA core and upstream frontend files unchanged; wrapper-layer adapters may opt into V5.
-3. Keep V5 self-check internal, not a public user command.
+3. Add `penglai v5` as a validation command for the test branch, not a new daily user workflow.
 4. Add Feishu shadow-mode delivery planning for observation only.
 5. Move generated-file delivery through `DeliveryService` so duplicate API sends,
    missing files, sensitive suffix blocks, and user notices are shared behavior.
@@ -109,7 +113,10 @@ The safe 0.2.20 test cut is now:
    confirmation/selection is a real runtime contract, not a one-off demo card.
 7. Move WeChat, DingTalk, QQ, and WeCom ask_user fallback onto the same
    `InteractionRequest` path without native-card claims.
-8. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
+8. Add `AgentRunner`, `PenglaiRuntimeHub`, and `MemoryGovernor` so session
+   routing, queueing, output cleanup, delivery, and memory-write hygiene can be
+   tested as one Penglai-owned contract surface.
+9. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
    `AgentRunner`.
 
 ## What must not be claimed yet
