@@ -13,6 +13,7 @@ from _harness import run_tests
 
 from penglai_runtime.contracts import InboundEvent
 from penglai_runtime.delivery import DeliveryService, plan_delivery
+from penglai_runtime.hub import PenglaiRuntimeHub
 from penglai_runtime.in_memory_im import InMemoryIMAdapter
 from penglai_runtime.interaction import (
     InteractionRequest,
@@ -25,10 +26,13 @@ from penglai_runtime.interaction import (
     request_from_ask_user_event,
     resolve_interaction_choice,
 )
+from penglai_runtime.memory_governor import MemoryGovernor
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 from penglai_runtime.queueing import SessionQueue
+from penglai_runtime.runner import AgentRunner
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
+from penglai_runtime.selfcheck import run_end_to_end_check, status
 from penglai_runtime.text_interaction import install_text_interaction_adapter
 
 
@@ -380,6 +384,87 @@ def test_redact_text_masks_common_secret_shapes():
     assert "secret" not in redacted
     assert "live-token" not in redacted
     assert "sk-testsecret" not in redacted
+
+
+def test_memory_governor_rejects_runtime_noise_and_keeps_real_rules():
+    governor = MemoryGovernor()
+
+    noise = governor.classify("LLM Running (Turn 1) ... <summary>调用工具 code_run</summary>")
+    rule = governor.classify("下次不要给我的 Mac mini 发送升级指令，除非我本轮明确授权。")
+    secret = governor.classify("token=abc123 should never be stored")
+
+    assert noise.should_write is False
+    assert noise.reason == "runtime_or_tool_noise"
+    assert rule.should_write is True
+    assert rule.level in {"user_pref", "global_rule"}
+    assert "Mac mini" in rule.text
+    assert secret.should_write is False
+    assert "abc123" not in secret.text
+
+
+def test_agent_runner_coordinates_queue_delivery_memory_and_duplicates():
+    td = tempfile.mkdtemp()
+    md = os.path.join(td, "note.md")
+    py = os.path.join(td, "secret.py")
+    open(md, "w", encoding="utf-8").write("ok")
+    open(py, "w", encoding="utf-8").write("print('no leak')")
+    sent_texts = []
+    sent_files = []
+
+    runner = AgentRunner(
+        owner_user_ids={"owner"},
+        delivery=DeliveryService(
+            send_text=lambda text: sent_texts.append(text) or True,
+            send_file=lambda path: sent_files.append(path) or True,
+        ),
+    )
+    hub = PenglaiRuntimeHub(runner=runner)
+    first = hub.receive(
+        InboundEvent("e1", "feishu", "owner", "first"),
+        lambda _event: f"LLM Running (Turn 1) ...\n完成\n[FILE:{md}]\n[FILE:{py}]",
+        base_dir=td,
+    )
+    second = hub.receive(
+        InboundEvent("e2", "desktop", "owner", "second"),
+        lambda _event: "must not run while queued",
+        base_dir=td,
+    )
+
+    assert first.session.session_id == "owner:default"
+    assert first.delivery.sent_paths == (os.path.realpath(md),)
+    assert first.delivery.plan.blocked[0].path == py
+    assert first.memory.reason == "runtime_or_tool_noise"
+    assert second.queued is True
+    assert hub.complete(first.session.session_id) == second.event
+    assert sent_files == [os.path.realpath(md)]
+
+    hub.complete(first.session.session_id)
+    receipt = hub.receive(
+        InboundEvent("e3", "feishu", "owner", "receipt"),
+        lambda _event: (
+            "PDF 已通过飞书 API 发送成功\n"
+            "file_key:file_v3_TEST_DUPLICATE_000000\n"
+            "message_id:om_TEST_DUPLICATE_000000(code=0)\n"
+            f"[FILE:{md}]"
+        ),
+        base_dir=td,
+    )
+    assert receipt.delivery.sent_paths == ()
+    assert receipt.delivery.skipped_paths == (os.path.realpath(md),)
+    assert sent_files == [os.path.realpath(md)]
+
+
+def test_v5_selfcheck_exercises_runtime_contracts():
+    result = run_end_to_end_check()
+    names = {item["name"]: item["ok"] for item in result["checks"]}
+
+    assert result["ok"] is True
+    assert names["owner_session_shared"] is True
+    assert names["safe_files_sent"] is True
+    assert names["sensitive_suffix_blocked"] is True
+    assert names["external_receipt_skips_duplicate"] is True
+    assert names["memory_rule_candidate"] is True
+    assert status(include_checks=False)["contracts"]
 
 
 if __name__ == "__main__":

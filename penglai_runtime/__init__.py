@@ -6,3 +6,5 @@ contracts that can be tested without changing the existing IM frontends.
 """
 
 VERSION = "0.2.20-v5-test"
+
+__all__ = ["VERSION"]
