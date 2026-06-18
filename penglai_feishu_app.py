@@ -28,6 +28,8 @@ from penglai_feishu_ask import (  # noqa: E402
     render_ask_user_text,
     resolve_choice,
 )
+from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup  # noqa: E402
+from plugins.penglai_artifacts import file_markers, strip_file_markers  # noqa: E402
 
 
 _ASK_STATE = {}
@@ -35,6 +37,11 @@ _ASK_BY_MENU = {}
 _ASK_LOCK = threading.Lock()
 _PENDING_LOCK = threading.Lock()
 _PENDING_QUEUE = []
+PENGLAI_IM_FILE_HINT = (
+    "If you need to show files to user, use [FILE:filepath] in your response. "
+    "If this prompt came from an IM channel, that channel is currently active; "
+    "do not report the current IM service as stopped unless the user explicitly asks for service diagnostics."
+)
 
 _MASK_PATTERNS = [
     re.compile(r"(sk-[A-Za-z0-9_-]{8,})"),
@@ -51,6 +58,26 @@ def _redact_log_text(text):
     value = _MASK_PATTERNS[2].sub(r"\1=***", value)
     value = _MASK_PATTERNS[3].sub("Bearer ***", value)
     return value
+
+
+def _install_display_cleaners(fs):
+    fs.FILE_HINT = PENGLAI_IM_FILE_HINT
+    fs._clean = lambda text: clean_final_text(text)
+    fs._extract_files = lambda text: file_markers(text)
+    fs._strip_files = lambda text: strip_file_markers(text)
+
+    trunc_tail = getattr(fs, "_TRUNC_TAIL", 300)
+
+    def _display_text(text):
+        cleaned = clean_final_text(text, strip_file_markers=True)
+        if cleaned:
+            return cleaned
+        if has_internal_markup(text):
+            return ""
+        tail = (text or "").strip()[-trunc_tail:]
+        return "⚠️ 模型输出被截断或为空" + (f"\n…{tail}" if tail else "")
+
+    fs._display_text = _display_text
 
 
 def _enqueue_pending(item):
@@ -202,6 +229,7 @@ def _patch(fs):
     if getattr(fs, "_PENGLAI_FEISHU_PATCHED", False):
         return
     fs._PENGLAI_FEISHU_PATCHED = True
+    _install_display_cleaners(fs)
 
     orig_handle_message = fs.handle_message
     orig_run_agent = fs.FeishuApp.run_agent

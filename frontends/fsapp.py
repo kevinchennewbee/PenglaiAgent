@@ -80,8 +80,6 @@ def _ensure_runtime_paths():
 _ensure_runtime_paths()
 from agentmain import GeneraticAgent
 from frontends.chatapp_common import AgentChatMixin, FILE_HINT, split_text
-from plugins.penglai_artifacts import file_markers, strip_file_markers
-from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 
 _TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
@@ -131,23 +129,23 @@ def _claim_message_once(message_id):
 
 
 def _clean(text):
-    return clean_final_text(text)
+    for pat in _TAG_PATS:
+        text = re.sub(pat, "", text or "", flags=re.DOTALL)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def _extract_files(text):
-    return file_markers(text)
+    return re.findall(r"\[FILE:([^\]]+)\]", text or "")
 
 
 def _strip_files(text):
-    return strip_file_markers(text)
+    return re.sub(r"\[FILE:[^\]]+\]", "", text or "").strip()
 
 
 def _display_text(text):
-    cleaned = clean_final_text(text, strip_file_markers=True)
+    cleaned = _strip_files(_clean(text))
     if cleaned:
         return cleaned
-    if has_internal_markup(text):
-        return ""
     tail = (text or "").strip()[-_TRUNC_TAIL:]
     return "⚠️ 模型输出被截断或为空" + (f"\n…{tail}" if tail else "")
 

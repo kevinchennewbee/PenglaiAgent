@@ -11,7 +11,6 @@ from plugins.penglai_artifacts import (
     strip_file_markers,
     summarize_blocked,
 )
-from penglai_runtime.output_cleaner import clean_final_text
 
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
@@ -44,11 +43,7 @@ def build_help_text(commands=HELP_COMMANDS):
 
 
 HELP_TEXT = build_help_text()
-FILE_HINT = (
-    "If you need to show files to user, use [FILE:filepath] in your response. "
-    "If this prompt came from an IM channel, that channel is currently active; "
-    "do not report the current IM service as stopped unless the user explicitly asks for service diagnostics."
-)
+FILE_HINT = "If you need to show files to user, use [FILE:filepath] in your response."
 TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMP_DIR = os.path.join(PROJECT_ROOT, "temp")
@@ -65,7 +60,9 @@ SUMMARY_RE = re.compile(r"<summary>\s*(.*?)\s*</summary>", re.DOTALL)
 
 
 def clean_reply(text):
-    return clean_final_text(text) or "..."
+    for pat in TAG_PATS:
+        text = re.sub(pat, "", text or "", flags=re.DOTALL)
+    return re.sub(r"\n{3,}", "\n\n", text).strip() or "..."
 
 
 def extract_files(text):

@@ -1,5 +1,6 @@
 import os
 import sys
+import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -14,6 +15,7 @@ from penglai_feishu_app import (
     _ASK_STATE,
     _PENDING_QUEUE,
     _enqueue_pending,
+    _install_display_cleaners,
     _pop_pending,
     _pop_menu_choice,
     _remember_ask,
@@ -116,6 +118,20 @@ def test_redact_log_text_masks_common_secrets():
     assert "token=***" in text
     assert "Bearer ***" in text
     assert "sk-***" in text
+
+
+def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():
+    fs = types.SimpleNamespace(_TRUNC_TAIL=20)
+
+    _install_display_cleaners(fs)
+
+    assert "currently active" in fs.FILE_HINT
+    assert fs._clean("LLM Running (Turn 1) ...\n<summary>hidden</summary>\n完成") == "完成"
+    assert fs._extract_files("[FILE:/tmp/report.pdf\n") == ["/tmp/report.pdf"]
+    assert fs._strip_files("完成\n[FILE:/tmp/report.pdf]") == "完成"
+    assert fs._display_text("<summary>hidden</summary>\n完成\n[FILE:/tmp/report.pdf]") == "完成"
+    assert fs._display_text("<summary>hidden") == ""
+    assert fs._display_text("") == "⚠️ 模型输出被截断或为空"
 
 
 def test_resolve_choice_by_number_or_exact_text():
