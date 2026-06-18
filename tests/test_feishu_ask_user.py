@@ -19,11 +19,13 @@ from penglai_feishu_app import (
     _enqueue_pending,
     _explicit_interaction_event,
     _install_display_cleaners,
+    _install_text_message_fallback,
     _pop_pending,
     _pop_choice,
     _pop_menu_choice,
     _remember_ask,
     _redact_log_text,
+    _text_from_message_content,
 )
 
 
@@ -170,6 +172,28 @@ def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():
     assert fs._display_text("<summary>hidden</summary>\n完成\n[FILE:/tmp/report.pdf]") == "完成"
     assert fs._display_text("<summary>hidden") == ""
     assert fs._display_text("") == "⚠️ 模型输出被截断或为空"
+
+
+def test_text_message_content_fallback_supports_sdk_shapes():
+    assert _text_from_message_content({"text": "/new"}) == "/new"
+    assert _text_from_message_content('{"text": "/status"}') == "/status"
+    assert _text_from_message_content("/help") == "/help"
+    assert _text_from_message_content(types.SimpleNamespace(text="/review")) == "/review"
+
+
+def test_text_message_fallback_wraps_empty_upstream_parse_for_all_commands():
+    calls = []
+
+    def upstream(message):
+        calls.append(message.message_type)
+        return "", []
+
+    fs = types.SimpleNamespace(_build_user_message=upstream)
+    assert _install_text_message_fallback(fs) is True
+
+    message = types.SimpleNamespace(message_type="text", content={"text": "/new"})
+    assert fs._build_user_message(message) == ("/new", [])
+    assert calls == ["text"]
 
 
 def test_explicit_feishu_choice_request_becomes_real_interaction_event():

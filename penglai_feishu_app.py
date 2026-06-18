@@ -66,6 +66,61 @@ def _redact_log_text(text):
     return value
 
 
+def _text_from_message_content(raw):
+    """Extract Feishu text content from SDK variants.
+
+    Upstream fsapp handles the common JSON-string shape. Some lark-oapi
+    deliveries expose `message.content` as a dict/object or plain text, which
+    made `/new` and every other slash command look like an empty text message.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, dict):
+        data = raw
+    elif isinstance(raw, str):
+        value = raw.strip()
+        if not value:
+            return ""
+        try:
+            data = json.loads(value)
+        except Exception:
+            return value
+    else:
+        data = {}
+        for attr in ("text", "content"):
+            value = getattr(raw, attr, None)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, dict):
+                data = value
+                break
+    if not isinstance(data, dict):
+        return ""
+    for key in ("text", "content"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _install_text_message_fallback(fs):
+    original = getattr(fs, "_build_user_message", None)
+    if not callable(original) or getattr(original, "_penglai_text_fallback", False):
+        return False
+
+    def _build_user_message(message):
+        text, images = original(message)
+        if not text and getattr(message, "message_type", "") == "text":
+            text = _text_from_message_content(getattr(message, "content", None))
+            if text:
+                print("[penglai feishu] text message content fallback used", flush=True)
+        return text, images
+
+    _build_user_message._penglai_text_fallback = True
+    fs._build_user_message = _build_user_message
+    return True
+
+
 def _install_display_cleaners(fs):
     fs.FILE_HINT = PENGLAI_IM_FILE_HINT
     fs._clean = lambda text: clean_final_text(text)
@@ -347,6 +402,7 @@ def _patch(fs):
         return
     fs._PENGLAI_FEISHU_PATCHED = True
     _install_display_cleaners(fs)
+    _install_text_message_fallback(fs)
 
     orig_handle_message = fs.handle_message
     orig_run_agent = fs.FeishuApp.run_agent
