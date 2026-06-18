@@ -43,7 +43,11 @@ def build_help_text(commands=HELP_COMMANDS):
 
 
 HELP_TEXT = build_help_text()
-FILE_HINT = "If you need to show files to user, use [FILE:filepath] in your response."
+FILE_HINT = (
+    "If you need to show files to user, use [FILE:filepath] in your response. "
+    "If this prompt came from an IM channel, that channel is currently active; "
+    "do not report the current IM service as stopped unless the user explicitly asks for service diagnostics."
+)
 TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMP_DIR = os.path.join(PROJECT_ROOT, "temp")
