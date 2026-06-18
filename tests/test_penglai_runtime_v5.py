@@ -2,7 +2,9 @@
 """V5 runtime contracts stay side-effect free until explicitly integrated."""
 
 import os
+import asyncio
 import json
+import queue as Q
 import sys
 import tempfile
 
@@ -15,15 +17,19 @@ from penglai_runtime.in_memory_im import InMemoryIMAdapter
 from penglai_runtime.interaction import (
     InteractionRequest,
     callback_value,
+    extract_interaction_event,
+    interaction_request_from_turn,
     normalize_options,
     parse_callback_value,
     render_interaction_text,
+    request_from_ask_user_event,
     resolve_interaction_choice,
 )
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 from penglai_runtime.queueing import SessionQueue
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
+from penglai_runtime.text_interaction import install_text_interaction_adapter
 
 
 def test_session_router_shares_owner_private_but_isolates_group():
@@ -73,6 +79,106 @@ def test_interaction_request_supports_any_button_count_and_text_fallback():
         "action": "interaction_choice",
     }
     assert parse_callback_value("B_cook") is None
+
+
+def test_interaction_request_supports_free_text_question():
+    event = {"question": "还缺哪个城市？", "candidates": []}
+    req = request_from_ask_user_event(event, request_id="r-free")
+    text = render_interaction_text(req)
+
+    assert req.allow_free_text is True
+    assert "请直接回复：" in text
+    assert resolve_interaction_choice("吉隆坡", req) == "吉隆坡"
+
+
+def test_extract_interaction_event_from_ga_turn():
+    ctx = {
+        "exit_reason": {
+            "result": "EXITED",
+            "data": {
+                "status": "INTERRUPT",
+                "intent": "HUMAN_INTERVENTION",
+                "data": {
+                    "question": "要继续吗？",
+                    "candidates": [{"label": "A", "value": "continue"}],
+                },
+            },
+        }
+    }
+
+    event = extract_interaction_event(ctx)
+    req = interaction_request_from_turn(ctx, request_id="r-turn")
+
+    assert event["question"] == "要继续吗？"
+    assert event["candidates"][0]["value"] == "continue"
+    assert req.request_id == "r-turn"
+    assert resolve_interaction_choice("1", req) == "continue"
+
+
+def test_text_interaction_adapter_round_trips_choice_into_agent():
+    class Resp:
+        content = "raw"
+
+    class FakeAgent:
+        def __init__(self):
+            self._turn_end_hooks = {}
+            self.is_running = False
+            self.prompts = []
+
+        def put_task(self, prompt, source="chat"):
+            self.prompts.append((prompt, source))
+            q = Q.Queue()
+            if "needs_choice" in prompt:
+                ctx = {
+                    "exit_reason": {
+                        "result": "EXITED",
+                        "data": {
+                            "status": "INTERRUPT",
+                            "intent": "HUMAN_INTERVENTION",
+                            "data": {
+                                "question": "下一步？",
+                                "candidates": [
+                                    {"label": "A", "value": "first"},
+                                    {"label": "B", "value": "second"},
+                                ],
+                            },
+                        },
+                    },
+                    "response": Resp(),
+                }
+                for hook in list(self._turn_end_hooks.values()):
+                    hook(ctx)
+            else:
+                q.put({"done": "DONE"})
+            return q
+
+    class FakeApp:
+        label = "Fake"
+        source = "fake"
+        ping_interval = 999
+
+        def __init__(self):
+            self.agent = FakeAgent()
+            self.user_tasks = {}
+            self.sent = []
+
+        async def send_text(self, chat_id, content, **ctx):
+            self.sent.append((chat_id, content, ctx))
+
+        async def send_done(self, chat_id, raw_text, **ctx):
+            self.sent.append((chat_id, f"final:{raw_text}", ctx))
+
+    async def scenario():
+        app = FakeApp()
+        assert install_text_interaction_adapter(app) is True
+        await app.run_agent("chat-1", "needs_choice", msg_id="m1")
+        assert "下一步？" in app.sent[-1][1]
+        assert "2. B" in app.sent[-1][1]
+        await app.run_agent("chat-1", "2", msg_id="m2")
+        assert app.agent.prompts[-1][0].endswith("\n\nsecond")
+        assert app.sent[-1][1] == "final:DONE"
+
+    asyncio.run(scenario())
 
 
 def test_delivery_plan_allows_work_outputs_and_blocks_sensitive_suffixes():

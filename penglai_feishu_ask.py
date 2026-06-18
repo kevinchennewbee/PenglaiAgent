@@ -7,6 +7,7 @@ adapter that makes the question and choices visible without changing GA core.
 """
 from penglai_runtime.interaction import (
     callback_value,
+    extract_interaction_event,
     normalize_options,
     render_interaction_text,
     request_from_ask_user_event,
@@ -19,30 +20,7 @@ def normalize_candidates(raw):
 
 
 def extract_ask_user_event(ctx):
-    exit_reason = (ctx or {}).get("exit_reason") or {}
-    if exit_reason.get("result") != "EXITED":
-        return None
-    payload = exit_reason.get("data")
-    if not isinstance(payload, dict):
-        return None
-    if payload.get("status") != "INTERRUPT" or payload.get("intent") != "HUMAN_INTERVENTION":
-        return None
-    data = payload.get("data")
-    if not isinstance(data, dict):
-        return None
-    options = normalize_options(data.get("candidates") or [])
-    if not options:
-        return None
-    question = str(data.get("question") or "请选择下一步操作：").strip() or "请选择下一步操作："
-    candidates = [
-        (
-            {"label": opt.label, "value": opt.value, "description": opt.description}
-            if opt.description or (opt.value and opt.value != opt.label)
-            else opt.label
-        )
-        for opt in options
-    ]
-    return {"question": question, "candidates": candidates}
+    return extract_interaction_event(ctx)
 
 
 def resolve_choice(text, event):

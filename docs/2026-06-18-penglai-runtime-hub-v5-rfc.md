@@ -27,6 +27,7 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.delivery.plan_delivery`
 - `penglai_runtime.delivery.DeliveryService`
 - `penglai_runtime.interaction.InteractionRequest`
+- `penglai_runtime.text_interaction.install_text_interaction_adapter`
 - `penglai_runtime.output_cleaner.clean_final_text`
 - `penglai_runtime.in_memory_im.InMemoryIMAdapter`
 - `penglai_runtime.shadow.record_delivery_shadow`
@@ -35,8 +36,16 @@ This branch introduces the first test surface for V5:
 Most contracts are side-effect free by default. `DeliveryService` executes only
 through adapter-provided callbacks, so platform SDK behavior stays owned by the
 IM adapter. `InteractionRequest` describes the intent to ask the user; Feishu
-can render it as a button card, while channels without stable card support can
-use the same numbered text fallback.
+can render it as a button card, while channels without stable card support use
+the same numbered/open-text fallback. The automated in-memory adapter is only a
+test double for contract verification; it is not a user-facing demo IM.
+
+The current wrapper integration is:
+
+- Feishu: native card buttons through `penglai_feishu_ask.py` and structured callback values.
+- WeChat: wrapper-owned text fallback in `penglai_im_launch.py`, preserving existing command handling.
+- DingTalk, QQ, and WeCom: wrapper-owned text fallback installed by `penglai_im_launch.py`.
+- Telegram: upstream already has its own ask_user menu path; V5 has not migrated it yet.
 
 When `PENGLAI_RUNTIME_HUB_SHADOW=1` is set, the Feishu wrapper records a
 privacy-conscious V5 delivery plan to `temp/penglai_runtime_shadow.jsonl` after
@@ -88,23 +97,25 @@ It only migrates Feishu's generated-file outlet onto the shared delivery
 service while keeping the Feishu WebSocket, upload API, card UI, and message
 loop in the existing adapter.
 
-The safe 0.2.20 test cut is:
+The safe 0.2.20 test cut is now:
 
-1. Add Penglai-owned V5 contracts and fake adapter tests.
-2. Keep real Feishu/WeChat/Telegram/Discord behavior unchanged by default.
+1. Add Penglai-owned V5 contracts and in-memory adapter tests.
+2. Keep GA core and upstream frontend files unchanged; wrapper-layer adapters may opt into V5.
 3. Keep V5 self-check internal, not a public user command.
 4. Add Feishu shadow-mode delivery planning for observation only.
 5. Move generated-file delivery through `DeliveryService` so duplicate API sends,
    missing files, sensitive suffix blocks, and user notices are shared behavior.
 6. Move Feishu `ask_user` and button choices onto `InteractionRequest` so user
    confirmation/selection is a real runtime contract, not a one-off demo card.
-7. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
+7. Move WeChat, DingTalk, QQ, and WeCom ask_user fallback onto the same
+   `InteractionRequest` path without native-card claims.
+8. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
    `AgentRunner`.
 
 ## What must not be claimed yet
 
-- Do not claim the V5 runtime has replaced Feishu or WeChat.
-- Do not claim cross-IM continuity is complete.
+- Do not claim the V5 runtime has replaced every adapter.
+- Do not claim cross-IM continuity is complete across all supported platforms.
 - Do not claim every IM has native button rendering; text fallback is the common contract until adapters opt in.
 - Do not claim memory pollution is solved for all users.
 - Do not claim 0.2.20 is ready to replace `main`.
@@ -119,6 +130,7 @@ Minimum local gates before sharing this branch:
 - `python3 tests/test_artifacts.py`
 - `python3 tests/test_fileguard.py`
 - `python3 tests/test_feishu_ask_user.py`
+- `python3 tests/test_im_voice.py`
 - `python3 -m penglai_runtime.selfcheck --json`
 - `PENGLAI_RUNTIME_HUB_SHADOW=1 python3 -m penglai_runtime.selfcheck --json`
 - `git diff --check`

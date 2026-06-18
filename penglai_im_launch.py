@@ -230,6 +230,12 @@ def launch(channel):
     m.redirect_log(m.__file__, logname, label, m.ALLOWED)
     threading.Thread(target=agent.run, daemon=True).start()
     app = getattr(m, cls_name)(agent) if channel == "wecom" else getattr(m, cls_name)()
+    try:
+        from penglai_runtime.text_interaction import install_text_interaction_adapter
+        if install_text_interaction_adapter(app):
+            print(f"[im_voice] {label} 统一交互文字降级已挂载")
+    except Exception as e:
+        sys.stderr.write(f"[im_voice] {label} 统一交互挂载失败（{e}）；以原交互模式继续\n")
     if channel == "wecom":
         threading.Thread(target=app._terminal_loop, daemon=True).start()
     asyncio.run(app.start())
@@ -240,8 +246,14 @@ def launch_wechat():
     写后不覆盖），供主动陪伴(reflect/penglai_companion)跨进程投递。
     其余完全复刻 frontends/wechatapp.py 的 __main__ 序列（含 systemd 关心的退出码：
     1=单例冲突/无token不可交互，2=AuthExpired 需重扫码）。"""
-    import copy, json, queue, re, time, socket, threading
+    import copy, json, queue, re, time, socket, threading, uuid
     import frontends.wechatapp as wx
+    from penglai_runtime.interaction import (
+        INTERACTION_PROMPT_HINT,
+        interaction_request_from_turn,
+        render_interaction_text,
+        resolve_interaction_choice,
+    )
 
     _master = os.path.join(ROOT, "temp", "wx_master.json")
     _wechat_lock_port = 19532
@@ -305,6 +317,11 @@ def launch_wechat():
         if text == "/help":
             _send(bot, uid, _help_text(), ctx)
             return True
+        if text in ("/stop", "/abort"):
+            wx.agent.abort()
+            wx._task_aborted[uid] = True
+            print(f"[WX] /stop set _task_aborted[{uid}]", file=sys.__stdout__)
+            return True
         if _is_cmd(text, "/new"):
             from frontends.continue_cmd import reset_conversation
 
@@ -332,10 +349,149 @@ def launch_wechat():
         if _is_cmd(text, "/review"):
             _handle_review(bot, msg, uid, ctx, text)
             return True
+        if _is_cmd(text, "/llm"):
+            parts = text.split()
+            if len(parts) > 1:
+                try:
+                    n = int(parts[1])
+                    wx.agent.next_llm(n)
+                    _send(bot, uid, f"切换到 [{wx.agent.llm_no}] {wx.agent.get_llm_name()}", ctx)
+                except Exception:
+                    _send(bot, uid, f"用法: /llm <0-{len(wx.agent.list_llms()) - 1}>", ctx)
+            else:
+                lines = [f"{'→' if cur else '  '} [{i}] {name}" for i, name, cur in wx.agent.list_llms()]
+                _send(bot, uid, "LLMs:\n" + "\n".join(lines), ctx)
+            return True
         if (text or "").startswith("/llm") and not _is_cmd(text, "/llm"):
             _send(bot, uid, "用法: /llm 或 /llm N", ctx)
             return True
         return False
+
+    _pending_interactions = {}
+
+    def _compose_wechat_prompt(text):
+        return (
+            "If you need to show files to user, use [FILE:filepath] in your response.\n"
+            f"{INTERACTION_PROMPT_HINT}\n\n{text}"
+        )
+
+    def _run_wechat_agent(bot, uid, ctx, text, media_paths):
+        prompt = text if text.startswith("/") else _compose_wechat_prompt(text)
+        hook_key = f"penglai_wx_{uid}_{uuid.uuid4().hex}"
+        result = {"raw": None, "sent": False, "request": None}
+
+        def _wx_send(body):
+            s = (body or "").strip()
+            if not s:
+                return False
+            t0 = time.time()
+            try:
+                bot.send_text(uid, s[:3000], context_token=ctx)
+                print(f"[WX] send ok len={len(s[:3000])} dt={time.time()-t0:.1f}s", file=sys.__stdout__)
+                return True
+            except Exception as e:
+                print(f"[WX] send err len={len(s[:3000])} dt={time.time()-t0:.1f}s {type(e).__name__}: {e}", file=sys.__stdout__)
+                return False
+
+        def _finish(raw):
+            if result["sent"]:
+                return
+            result["raw"] = raw
+            result["sent"] = True
+
+        def _hook(turn_ctx):
+            try:
+                if turn_ctx.get("exit_reason"):
+                    request = interaction_request_from_turn(turn_ctx, request_id=hook_key)
+                    if request is not None:
+                        result["request"] = request
+                        result["sent"] = True
+                        return
+                    resp = turn_ctx.get("response")
+                    _finish(resp.content if hasattr(resp, "content") else str(resp))
+            except Exception as e:
+                print(f"[penglai wx interaction] hook error: {e}", file=sys.__stdout__)
+
+        dq = None
+        _typing_stop = threading.Event()
+
+        def _keep_typing():
+            try:
+                ticket = bot.get_typing_ticket(uid, ctx)
+            except Exception:
+                ticket = ""
+            if not ticket:
+                return
+            while not _typing_stop.is_set():
+                try:
+                    bot.send_typing(uid, ticket)
+                except Exception:
+                    pass
+                _typing_stop.wait(2.0)
+
+        try:
+            if not hasattr(wx.agent, "_turn_end_hooks"):
+                wx.agent._turn_end_hooks = {}
+            wx.agent._turn_end_hooks[hook_key] = _hook
+            dq = wx.agent.put_task(prompt, source="wechat")
+            threading.Thread(target=_keep_typing, daemon=True).start()
+            done_parts, sent_count, turn = [], 0, 1
+            item = {}
+            while not result["sent"]:
+                try:
+                    item = dq.get(timeout=1)
+                except queue.Empty:
+                    continue
+                if "done" in item:
+                    _finish(item.get("done", ""))
+                    break
+                if item.get("turn", turn) > turn:
+                    outputs = item.get("outputs", [])
+                    lastdone = outputs[-2] if len(outputs) >= 2 else ""
+                    turn = item["turn"]
+                    done_parts.append(lastdone)
+                if len(done_parts) > sent_count:
+                    merged = wx._clean("\n\n".join(done_parts[sent_count:]))
+                    if _wx_send(merged):
+                        sent_count = len(done_parts)
+        except Exception as e:
+            print(f"[WX] penglai wrapper run err: {type(e).__name__}: {e}", file=sys.__stdout__)
+            result["raw"] = f"❌ 错误: {e}"
+            result["sent"] = True
+            item = {}
+        finally:
+            _typing_stop.set()
+            if hasattr(wx.agent, "_turn_end_hooks"):
+                wx.agent._turn_end_hooks.pop(hook_key, None)
+
+        if result["request"] is not None:
+            _pending_interactions[uid] = result["request"]
+            _wx_send(render_interaction_text(result["request"]))
+            return
+
+        raw = result["raw"] if result["raw"] is not None else (item.get("done", "") if isinstance(item, dict) else "")
+        outputs = item.get("outputs", []) if isinstance(item, dict) else []
+        aborted = wx._task_aborted.pop(uid, False)
+        tag = "[已停止]" if aborted else "[任务已完成]"
+        rest = wx._clean("\n\n".join(outputs[sent_count:] + ["\n\n" + tag]).strip())
+        if rest:
+            _wx_send(rest[-3000:])
+
+        artifacts = wx.classify_file_markers(raw, base_dir=wx._TEMP_DIR, exclude_paths=media_paths)
+        files = [a.realpath for a in artifacts if a.status == "allowed"]
+        blocked = [a for a in artifacts if a.status in ("blocked", "missing")]
+        for fpath in files:
+            try:
+                kind = wx.artifact_kind(fpath)
+                sender = bot.send_video if kind == "video" else bot.send_image if kind == "image" else bot.send_file
+                sender(uid, fpath, context_token=ctx)
+                print(f"[WX] sent media: {fpath}", file=sys.__stdout__)
+            except Exception as e:
+                print(f"[WX] send media err: {e}", file=sys.__stdout__)
+        if blocked:
+            reasons, examples = wx.summarize_blocked(blocked)
+            sent = f"已发送 {len(files)} 个安全文件；" if files else ""
+            _wx_send(f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}")
 
     def on_message(bot, msg):
         try:
@@ -350,9 +506,27 @@ def launch_wechat():
         text = bot.extract_text(msg).strip()
         uid = msg.get("from_user_id", "")
         ctx = msg.get("context_token", "")
+        media_paths = wx._dl_media(msg.get("item_list", []))
+        if media_paths:
+            text = (text + "\n" if text else "") + "\n".join(f"[用户发送文件: {p}]" for p in media_paths)
+        if not text and not media_paths:
+            return
         if text and _dispatch_command(bot, msg, text, uid, ctx):
             return
-        return wx.on_message(bot, msg)
+        waiting = _pending_interactions.get(uid)
+        if waiting and text:
+            chosen = resolve_interaction_choice(text, waiting)
+            if chosen is None:
+                _send(bot, uid, render_interaction_text(waiting), ctx)
+                return
+            _pending_interactions.pop(uid, None)
+            text = chosen
+        threading.Thread(
+            target=_run_wechat_agent,
+            args=(bot, uid, ctx, text, media_paths),
+            daemon=True,
+            name="wechat-penglai-agent",
+        ).start()
 
     do_relogin = "--relogin" in sys.argv
     try:

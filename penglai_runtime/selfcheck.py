@@ -19,11 +19,12 @@ def status():
             "SessionQueue",
             "DeliveryService",
             "InteractionRequest",
+            "TextInteractionAdapter",
             "OutputCleaner",
             "InMemoryIMAdapter",
             "ShadowRecorder",
         ],
-        "default_behavior": "observe-only; existing IM frontends are unchanged unless explicitly integrated",
+        "default_behavior": "wrapper-layer integration; GA core and upstream frontend files stay unchanged",
     }
 
 

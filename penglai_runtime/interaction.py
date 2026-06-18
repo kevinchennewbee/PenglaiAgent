@@ -11,6 +11,14 @@ import re
 import uuid
 
 
+INTERACTION_PROMPT_HINT = (
+    "If you need to ask the user to choose, confirm, authorize, or provide "
+    "missing information, use the ask_user tool. Penglai will render the "
+    "interaction for the current IM channel; do not hand-roll channel-specific "
+    "interactive card API calls."
+)
+
+
 @dataclass(frozen=True)
 class InteractionOption:
     label: str
@@ -34,8 +42,8 @@ class InteractionRequest:
     def __post_init__(self):
         if not self.question.strip():
             raise ValueError("InteractionRequest.question must not be empty")
-        if not self.options:
-            raise ValueError("InteractionRequest.options must not be empty")
+        if not self.options and not self.allow_free_text:
+            raise ValueError("InteractionRequest.options must not be empty when free text is disabled")
         if not self.request_id:
             object.__setattr__(self, "request_id", uuid.uuid4().hex)
 
@@ -81,8 +89,38 @@ def request_from_ask_user_event(event, *, request_id="", title=""):
         options=options,
         request_id=request_id,
         title=title,
-        allow_free_text=False,
+        allow_free_text=not bool(options),
     )
+
+
+def extract_interaction_event(ctx):
+    exit_reason = (ctx or {}).get("exit_reason") or {}
+    if not isinstance(exit_reason, dict) or exit_reason.get("result") != "EXITED":
+        return None
+    payload = exit_reason.get("data")
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("status") != "INTERRUPT" or payload.get("intent") != "HUMAN_INTERVENTION":
+        return None
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    question = str(data.get("question") or "请选择下一步操作：").strip() or "请选择下一步操作："
+    candidates = []
+    for opt in normalize_options(data.get("candidates") or []):
+        candidates.append(
+            {"label": opt.label, "value": opt.value, "description": opt.description}
+            if opt.description or (opt.value and opt.value != opt.label)
+            else opt.label
+        )
+    return {"question": question, "candidates": candidates}
+
+
+def interaction_request_from_turn(ctx, *, request_id="", title=""):
+    event = extract_interaction_event(ctx)
+    if not event:
+        return None
+    return request_from_ask_user_event(event, request_id=request_id, title=title)
 
 
 def render_interaction_text(request, *, include_click_hint=False):
@@ -92,7 +130,13 @@ def render_interaction_text(request, *, include_click_hint=False):
     lines.extend([
         f"**{request.question}**",
         "",
-        "请点击按钮，或直接回复序号/完整选项文字：" if include_click_hint else "请直接回复序号或完整选项文字：",
+        (
+            "请点击按钮，或直接回复序号/完整选项文字："
+            if include_click_hint and request.options else
+            "请直接回复序号或完整选项文字："
+            if request.options else
+            "请直接回复："
+        ),
     ])
     for idx, option in enumerate(request.options, 1):
         lines.append(f"{idx}. {option.display}")
