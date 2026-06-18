@@ -158,7 +158,10 @@ def status(*, include_checks=True):
             "InMemoryIMAdapter",
             "ShadowRecorder",
         ],
-        "default_behavior": "wrapper-layer integration; GA core and upstream frontend files stay unchanged",
+        "default_behavior": (
+            "V5-aware wrappers/adapters integrate real channels; "
+            "GA execution core stays upstream-first"
+        ),
     }
     if include_checks:
         data["selfcheck"] = run_end_to_end_check()

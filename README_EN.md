@@ -193,7 +193,7 @@ Penglai never touches the kernel — it only adds the last mile from "it runs" t
 | Ability mgmt | edit config files | `penglai enable / abilities` toggles, anytime |
 | Install | git clone | curl / Docker / pip one-liner + China mirrors |
 | Ops | manual | `penglai doctor` checks **and prints the fix command** |
-| Kernel | — | **zero diff**, upstream upgrades merge cleanly |
+| GA execution core | — | **kept upstream-first**, with V5 channel work in Penglai's layer |
 
 ## 🧬 Architecture: standing on a kernel's shoulders
 
@@ -205,14 +205,14 @@ what Ubuntu is to the Linux kernel:
 flowchart LR
     U["👤 You"] -->|"text · voice · images"| IM["💬 Feishu / WeChat / DingTalk / QQ …"]
     IM --> P["🏮 Penglai distro layer<br/>wizard · CLI · channel wrappers · voice emotion · safety plugins"]
-    P --> K["⚙️ GenericAgent kernel (untouched)<br/>~130-line agent loop"]
+    P --> K["⚙️ GenericAgent execution core (upstream-first)<br/>~130-line agent loop"]
     K --> T["🔧 Tool execution"]
     K --> M["🧠 Four-tier memory"]
     K --> L["☁️ LLM (11 vendors)"]
     P -. "red lines · audit · memory hygiene · outbound allowlist" .-> K
 ```
 
-- **Zero kernel modifications** — the GA kernel files (`ga.py`, `frontends/`, `llmcore.py`, the memory tools …) stay at zero diff, so kernel upgrades merge cleanly; the distro layer only curates the tree on top — dropping upstream docs/demos irrelevant to the distribution and adding Penglai's own front page, CLI, plugins and SOPs;
+- **Upstream-first execution core** — `ga.py`, `agent_loop.py`, `agentmain.py`, `llmcore.py`, and the GA execution path stay upstream-first; the V5 test branch moves Penglai behavior into Penglai-owned runtime modules, wrappers/launchers, and necessary IM adapters instead of changing GA's execution loop;
 - **Gradient of forms** — new capabilities prefer SOPs (0 lines of code), then hook plugins, then heartbeat modules, then tools — restraint is a design choice, not laziness;
 - **Identity ≠ memory** — factory state ships zero user memory, just one line of identity. Your memory is your private asset and never enters the distribution.
 
@@ -221,7 +221,7 @@ flowchart LR
 | `penglai` CLI + wizard | entry | install, health check, service management, one-command upgrade |
 | WeChat channel service | systemd | QR login; smart expired-token prompts (no blind restarts) |
 | Voice + emotion | tool | local SenseVoice transcription + emotion + acoustic events; WeChat silk auto-decode |
-| IM voice wrapper | launcher | adds voice reception that upstream DingTalk/QQ/WeCom frontends lack (monkeypatch, zero kernel diff) |
+| IM voice/V5 wrapper | launcher | adds voice reception that upstream DingTalk/QQ/WeCom frontends lack and gradually brings real channels onto the V5 contracts |
 | Ability switches | CLI | `penglai enable/disable/abilities` — turn on voice/companion/intel anytime post-install |
 | Redline + audit | hook | deterministic blocking of dangerous ops, full audit trail |
 | Memory hygiene | hook | threat scan before writes + no overwrites |
@@ -231,7 +231,7 @@ flowchart LR
 | Penglai SOP pack | markdown | symbolic checkpoints, traceable compression, generative skills — 0 lines of code |
 
 > **Why does this repo still contain GenericAgent's `pyproject.toml` and `ga` entry point?**
-> Because Penglai is a GA distribution: kernel files (including their build config) stay untouched so upstream upgrades merge cleanly. `penglai` is the distro entry point; `ga` / `genericagent` are the upstream kernel's native entry points — they coexist without conflict. Report kernel bugs [upstream](https://github.com/lsdefine/GenericAgent); file distro issues here.
+> Because Penglai is a GA distribution: the GA execution core and native entry points stay upstream-first, while Penglai puts distro behavior in the CLI, plugins, runtime, wrappers/adapters, and SOPs. `penglai` is the distro entry point; `ga` / `genericagent` are the upstream kernel's native entry points — they coexist without conflict. Report kernel bugs [upstream](https://github.com/lsdefine/GenericAgent); file distro issues here.
 
 ## 🔄 Update Pledge: upstream progress, delivered to you
 
@@ -245,7 +245,7 @@ Penglai is a downstream distribution of [GenericAgent](https://github.com/lsdefi
 
 Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
 
-- **2026-06-18** — v0.2.20 test branch: adds the V5 Penglai Runtime Hub test surface on top of the full v0.2.10 fix set; contracts, fake IM adapter, self-check, and RFC only. Existing Feishu/WeChat paths are not replaced by default, and any mainline replacement depends on real manual testing.
+- **2026-06-18** — v0.2.20 test branch: adds the V5 Penglai Runtime Hub test surface on top of the full v0.2.10 fix set; real channel launch paths now go through V5-aware wrappers/adapters while platform SDK ownership and old-path fallbacks stay intact. Mainline replacement still depends on real manual testing.
 - **2026-06-17** — v0.2.10 hotfix: unified IM artifact sending; placeholders no longer become false warnings, images/videos/docs/Markdown send by type, sensitive suffixes stay blocked, and skill routing now treats user intent as stronger than link source.
 - **2026-06-17** — v0.2.10: Feishu real-workflow fixes: queued follow-ups, stable button choices, clearer “sending files” finish state, redacted logs, and suffix-only outbound-file gates. Penglai layer only; GA upstream unchanged.
 - **2026-06-17** — v0.2.9 hotfix: privacy and compliance closeout: template redaction, third-party asset notices, non-root Docker with fixed volumes, GitHub proxy support, CSP, `SECURITY.md`, and `THIRD_PARTY_NOTICES.md`.
@@ -270,7 +270,7 @@ Full version timeline on the [website changelog](https://penglai.pages.dev/#chan
 - **Brand**: the "蓬莱" / "Penglai" name, logo, and banner artwork are **all rights reserved** and not covered by the code license. Please don't use them to name or market your forks, derivatives, or commercial offerings without written permission.
   (The common open-source convention: free code, reserved brand — as practiced by Rust, Docker, and others.)
 - **Third-party assets and high-permission tools**: desktop-pet skins, CDP Bridge, and similar bundled components are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-- **Kernel from upstream**: `ga.py`, `frontends/`, `llmcore.py`, the memory tools, etc. are [GenericAgent](https://github.com/lsdefine/GenericAgent)'s own kernel files (kept at zero diff); Penglai curates and extends on top. The only install entry points are `install.sh` / `docker-install.sh` (both pointing at `kevinchennewbee/PenglaiAgent`).
+- **Kernel from upstream**: `ga.py`, `agent_loop.py`, `agentmain.py`, `llmcore.py`, and the GA execution path stay upstream-first; Penglai curates and extends on top through the distro layer and channel adapters. The only install entry points are `install.sh` / `docker-install.sh` (both pointing at `kevinchennewbee/PenglaiAgent`).
 
 ## 🙏 Acknowledgments
 

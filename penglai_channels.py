@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""penglai_channels — 蓬莱渠道封装（IM 矩阵，内核零改动）。
+"""penglai_channels — 蓬莱渠道封装（IM 矩阵，V5 wrapper-aware）。
 
-GA 内核自带 7 个 IM 前端（frontends/*.py），蓬莱层在此之上提供统一的
+GA 上游自带 IM 前端（frontends/*.py），蓬莱层在此之上提供统一的
 启用/停用/状态管理：依赖安装 → 凭证获取（钉钉/QQ 支持扫码自动建应用，
 参考 Hermes Agent 的官方设备码注册流）→ 写入 mykey → 服务安装 → 启动取证。
 
@@ -19,7 +19,8 @@ import os, re, subprocess, sys, time
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
-# 渠道注册表：上游脚本 / 服务名 / pip 依赖(import名) / mykey 凭证键 / 白名单键
+# 渠道注册表：前端脚本元数据 / 服务名 / pip 依赖(import名) / mykey 凭证键 / 白名单键。
+# 真实启动命令由 _launch_argv/_launch_cmd 决定，V5/语音渠道会走蓬莱包装入口。
 # tested=True 表示蓬莱在腾讯云真机实测过；False=内核自带、封装可用、等待实测
 CHANNELS = {
     "feishu":   dict(label="飞书",     script="penglai_feishu_app.py", service="penglai-feishu",
@@ -89,6 +90,14 @@ def _launch_cmd(ch):
     if ch == "feishu":
         return f"python {ROOT}/penglai_feishu_app.py"
     return f"python {ROOT}/frontends/{CHANNELS[ch]['script']}"
+
+
+def _launch_desc(ch):
+    if ch in _WRAPPED_CHANNELS:
+        return f"penglai_im_launch.py {ch}"
+    if ch == "feishu":
+        return "penglai_feishu_app.py"
+    return f"frontends/{CHANNELS[ch]['script']}"
 
 
 def _proc_pattern(ch):
@@ -412,7 +421,7 @@ def enable(ch):
         print(f"   （如果你是 AI 助手：不要在 code_run 里跑这条，它会等扫码而卡住——把命令交给用户）")
         return 2
     c = CHANNELS[ch]
-    print(f"\n—— 启用 {c['label']} 渠道（内核 frontends/{c['script']}，蓬莱层封装）——")
+    print(f"\n—— 启用 {c['label']} 渠道（启动入口 {_launch_desc(ch)}，蓬莱层封装）——")
     if not c["tested"]:
         print(f"{WARN}此渠道蓬莱尚未真机实测（内核为 GA 上游自带），启用后请实测并反馈\n")
 

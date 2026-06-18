@@ -179,7 +179,7 @@ GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 `penglai enable <渠�
 | 能力管理 | 改配置文件 | `penglai enable / abilities` 事后开关 |
 | 安装分发 | git clone | curl / Docker / pip 一行 + 国内自动镜像 |
 | 运维 | 手动 | `penglai doctor` 体检并直接给修复命令 |
-| 内核 | — | **零改动**，上游升级照常合并 |
+| GA 执行核心 | — | **保持上游对齐**，V5 渠道适配在蓬莱层演进 |
 
 ## 🧬 架构：站在内核肩膀上
 
@@ -190,14 +190,14 @@ GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 `penglai enable <渠�
 flowchart LR
     U["👤 用户"] -->|"文字 · 语音 · 图片"| IM["💬 飞书 / 微信 / 钉钉 / QQ …"]
     IM --> P["🏮 蓬莱发行层<br/>向导 · CLI · 渠道封装 · 语音情绪 · 安全插件"]
-    P --> K["⚙️ GenericAgent 内核（零改动）<br/>~130 行 Agent Loop"]
+    P --> K["⚙️ GenericAgent 执行核心（保持上游对齐）<br/>~130 行 Agent Loop"]
     K --> T["🔧 工具执行"]
     K --> M["🧠 四层记忆"]
     K --> L["☁️ 大模型（11 家可选）"]
     P -. "红线 · 审计 · 记忆卫生 · 出站白名单" .-> K
 ```
 
-- **内核零改动**：`ga.py`、`frontends/`、`llmcore.py`、记忆工具等内核文件保持零 diff，GA 的内核升级照常合并；发行层只在内核之上做裁剪与增补——删掉与发行无关的上游文档/演示，换上蓬莱自己的门面、CLI、插件与 SOP；
+- **核心上游对齐**：`ga.py`、`agent_loop.py`、`agentmain.py`、`llmcore.py` 等 GA 执行核心保持 upstream-first；V5 测试分支的迁移面是蓬莱自有 runtime、wrapper/launcher 和必要的 IM adapter，不把蓬莱策略写进 GA 执行循环；
 - **形态梯度**：新能力优先用 SOP（0 行代码）实现，其次 hook 插件，再次心跳模块，最后才是工具——克制是设计，不是懒；
 - **身份与记忆分离**：出厂态零用户记忆，只带一行身份。你的记忆是你的隐私资产，永不进发行版。
 
@@ -206,7 +206,7 @@ flowchart LR
 | `penglai` CLI + 向导 | 入口 | 安装、体检、服务管理、一键升级 |
 | 微信渠道服务 | systemd | 扫码登录、token 过期智能提示（不盲目重启） |
 | 语音情绪 | 工具 | SenseVoice 本地转写 + 情绪 + 声学事件，微信 silk 自动解码 |
-| IM 语音封装 | 包装入口 | 为钉钉/QQ/企微补上游前端缺失的语音接收（monkeypatch，内核零 diff）|
+| IM 语音/V5 封装 | 包装入口 | 为钉钉/QQ/企微补上游前端缺失的语音接收，并把真实渠道逐步接入 V5 contract |
 | 能力开关 | CLI | `penglai enable/disable/abilities` 装机后随时补开语音/陪伴/情报 |
 | 红线 + 审计 | hook | 确定性拦截危险操作，全量审计留痕 |
 | 记忆卫生 | hook | 写记忆威胁扫描 + 禁覆盖 |
@@ -216,7 +216,7 @@ flowchart LR
 | 蓬莱 SOP 包 | markdown | 符号化断点、可追溯压缩、生成技能——0 行代码 |
 
 > **为什么仓库里还有 GenericAgent 的 `pyproject.toml` 和 `ga` 入口？**
-> 因为蓬莱是 GA 的发行版：内核文件（含其构建配置）保持零改动，上游升级才能照常合并。`penglai` 是发行层入口；`ga` / `genericagent` 是上游内核的原生入口，两者共存、互不冲突。内核 bug 请报给[上游](https://github.com/lsdefine/GenericAgent)，发行层问题在本仓库提 issue。
+> 因为蓬莱是 GA 的发行版：GA 执行核心和原生入口保持 upstream-first，蓬莱把发行层能力放在 CLI、插件、runtime、wrapper/adapter 和 SOP 里。`penglai` 是发行层入口；`ga` / `genericagent` 是上游内核的原生入口，两者共存、互不冲突。内核 bug 请报给[上游](https://github.com/lsdefine/GenericAgent)，发行层问题在本仓库提 issue。
 
 ## 🔄 更新承诺：上游的演进，及时到你手里
 
@@ -230,7 +230,7 @@ flowchart LR
 
 完整版本时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
 
-- **2026-06-18** — v0.2.20 测试分支：基于完整 v0.2.10 修复集新增 V5 蓬莱中枢测试面；先提供契约、假 IM 适配器、自检与 RFC，默认不替换现有飞书/微信路径，是否合入 main 取决于真实人工测试。
+- **2026-06-18** — v0.2.20 测试分支：基于完整 v0.2.10 修复集新增 V5 蓬莱中枢测试面；真实渠道启动路径进入 V5-aware wrapper/adapter，保留平台 SDK 归属与旧路径兜底，是否合入 main 取决于真实人工测试。
 - **2026-06-17** — v0.2.10 hotfix：统一 IM 文件外发；占位符不再误报，图片/视频/文档/Markdown 等按类型发送，敏感后缀仍拦截；技能索引改为“用户意图优先于链接来源”。
 - **2026-06-17** — v0.2.10：飞书真实工作流修复；排队不丢消息、按钮选择不吞状态、空输出但有文件时提示发送中、日志脱敏、文件外发改为后缀门禁。蓬莱层，GA 上游不改。
 - **2026-06-17** — v0.2.9 hotfix：隐私与合规收口；模板脱敏、第三方素材授权、Docker 非 root 与数据卷修正、GitHub 镜像配置、CSP、`SECURITY.md` / `THIRD_PARTY_NOTICES.md`。
@@ -255,7 +255,7 @@ flowchart LR
 - **品牌**：「蓬莱」「Penglai」名称、logo 与横幅视觉资产**保留所有权利**，不在代码许可范围内。未经书面许可，请勿将其用于你的分发版本、衍生产品或商业宣传的命名与标识。
   （开源圈通行做法：代码自由，品牌保留——Rust、Docker 皆如此。）
 - **第三方素材与高权限工具**：桌面宠物皮肤、CDP Bridge 等单独列在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-- **内核来自上游**：`ga.py`、`frontends/`、`llmcore.py`、记忆工具等是 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的内核原文件（零改动保留）；蓬莱在其上做发行层的裁剪与增补。安装入口只有 `install.sh` / `docker-install.sh`（均指向 `kevinchennewbee/PenglaiAgent`）。
+- **内核来自上游**：`ga.py`、`agent_loop.py`、`agentmain.py`、`llmcore.py` 等 GA 执行核心保持 upstream-first；蓬莱在其上做发行层和渠道 adapter 的裁剪与增补。安装入口只有 `install.sh` / `docker-install.sh`（均指向 `kevinchennewbee/PenglaiAgent`）。
 
 ## 🙏 致谢
 

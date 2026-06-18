@@ -65,10 +65,21 @@ itself; delivery remains adapter-owned.
 
 After refreshing `upstream/main`, Penglai still has some tracked differences from upstream frontends because 0.2.x added user-facing distribution behavior, especially unified IM artifact delivery. V5 treats these differences as migration debt: future work should explain each diff and, where feasible, move Penglai behavior back into Penglai-owned modules.
 
-The 0.2.20 branch also syncs two upstream-risk areas before adding the V5 test surface:
+The 0.2.20 branch also syncs three upstream-risk areas before adding the V5 test surface:
 
 - `agentmain.py` reflect loop throttling is aligned with upstream.
 - `frontends/slash_cmds.py` `/update` guidance is aligned with upstream's fuller working-tree reconciliation flow.
+- `llmcore.py` response logging is aligned with upstream's model-aware log metadata.
+
+The latest upstream-diff audit for this test branch keeps only differences with
+current Penglai value:
+
+- Keep `frontends/wechatapp.py` artifact/fileguard behavior until the upstream
+  media path has equivalent deterministic gates.
+- Keep V5 adapter changes in `frontends/tgapp.py` and `frontends/dcapp.py`
+  because they are the real Telegram/Discord Runtime Hub entry points.
+- Recover upstream for `agentmain.py`, `llmcore.py`, and
+  `frontends/slash_cmds.py`; no Penglai V5 behavior should live there.
 
 ## Boundary rules
 

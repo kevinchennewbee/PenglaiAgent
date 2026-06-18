@@ -405,7 +405,7 @@ PLATFORMS = [
         'id': 'qq',
         'name': 'QQ 机器人',
         'desc': '通过 QQ 官方机器人 API 接入',
-        'file': 'frontends/qqapp.py',
+        'file': 'penglai_im_launch.py qq',
         'deps': ['qq-botpy'],
         'env_vars': [
             {'key': 'qq_app_id', 'label': 'App ID', 'hint': 'QQ 开放平台获取'},
@@ -417,7 +417,7 @@ PLATFORMS = [
         'id': 'feishu',
         'name': '飞书机器人',
         'desc': '通过飞书应用与 Agent 对话',
-        'file': 'frontends/fsapp.py',
+        'file': 'penglai_feishu_app.py',
         'deps': ['lark-oapi'],
         'env_vars': [
             {'key': 'fs_app_id', 'label': 'App ID', 'hint': '飞书开放平台获取'},
@@ -429,7 +429,7 @@ PLATFORMS = [
         'id': 'wecom',
         'name': '企业微信机器人',
         'desc': '通过企业微信 Bot 接入',
-        'file': 'frontends/wecomapp.py',
+        'file': 'penglai_im_launch.py wecom',
         'deps': ['wecombot'],
         'env_vars': [
             {'key': 'wecom_bot_id', 'label': 'Bot ID'},
@@ -441,7 +441,7 @@ PLATFORMS = [
         'id': 'dingtalk',
         'name': '钉钉机器人',
         'desc': '通过钉钉应用接入',
-        'file': 'frontends/dingtalkapp.py',
+        'file': 'penglai_im_launch.py dingtalk',
         'deps': ['dingtalk-sdk'],
         'env_vars': [
             {'key': 'dingtalk_client_id', 'label': 'Client ID (App Key)'},
@@ -464,7 +464,7 @@ PLATFORMS = [
         'id': 'wechat',
         'name': '微信 (iLink 协议)',
         'desc': '通过微信个人号与 Agent 对话，扫码自动登录',
-        'file': 'frontends/wechatapp.py',
+        'file': 'penglai_im_launch.py wechat',
         'deps': ['requests', 'qrcode', 'pycryptodome'],
         'env_vars': [],
     },

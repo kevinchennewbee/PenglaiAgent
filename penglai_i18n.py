@@ -180,7 +180,7 @@ EN = {
     "容器模式：配置完成。容器守护每 30 秒巡检，新配置的渠道自动拉起（无需重启容器）": "Container mode: config done. The container supervisor re-scans every 30s and auto-starts newly configured channels (no restart needed)",
     "安装为系统服务（开机自启）？(y/n)": "Install as system services (start on boot)? (y/n)",
     "服务已安装并设为开机自启，开始验证...": "Services installed and enabled, verifying...",
-    "服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python frontends/fsapp.py": "Service install failed (sudo?). Run manually: .venv/bin/python frontends/fsapp.py",
+    "服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python penglai_feishu_app.py": "Service install failed (sudo?). Run manually: .venv/bin/python penglai_feishu_app.py",
     "无系统服务模式：现在后台启动飞书进程并实测？(y/n)": "No-systemd mode: start the Feishu process in the background and verify now? (y/n)",
     "未启动。稍后手动: penglai start（日志: penglai logs）": "Not started. Later: penglai start (logs: penglai logs)",
     "飞书进程已后台启动（停止: penglai stop，日志: penglai logs）": "Feishu process started in background (stop: penglai stop, logs: penglai logs)",
