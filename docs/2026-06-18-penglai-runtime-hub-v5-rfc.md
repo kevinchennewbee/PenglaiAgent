@@ -25,12 +25,15 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.session.SessionRouter`
 - `penglai_runtime.queueing.SessionQueue`
 - `penglai_runtime.delivery.plan_delivery`
+- `penglai_runtime.delivery.DeliveryService`
 - `penglai_runtime.output_cleaner.clean_final_text`
 - `penglai_runtime.fake_im.FakeIMAdapter`
 - `penglai_runtime.shadow.record_delivery_shadow`
-- `penglai v5` self-check
+- internal self-check module: `python3 -m penglai_runtime.selfcheck`
 
-These are side-effect free by default. They do not replace the current Feishu or WeChat production paths.
+Most contracts are side-effect free by default. `DeliveryService` executes only
+through adapter-provided callbacks, so platform SDK behavior stays owned by the
+IM adapter.
 
 When `PENGLAI_RUNTIME_HUB_SHADOW=1` is set, the Feishu wrapper records a
 privacy-conscious V5 delivery plan to `temp/penglai_runtime_shadow.jsonl` after
@@ -76,15 +79,20 @@ The 0.2.20 branch also syncs two upstream-risk areas before adding the V5 test s
 ## 0.2.20 minimal cut
 
 This branch deliberately does not replace `penglai_feishu_app.py` or `frontends/fsapp.py`.
+It only migrates Feishu's generated-file outlet onto the shared delivery
+service while keeping the Feishu WebSocket, upload API, card UI, and message
+loop in the existing adapter.
 
 The safe 0.2.20 test cut is:
 
 1. Add Penglai-owned V5 contracts and fake adapter tests.
 2. Keep real Feishu/WeChat/Telegram/Discord behavior unchanged by default.
-3. Add `penglai v5` so testers can confirm the V5 test surface exists.
+3. Keep V5 self-check internal, not a public user command.
 4. Add Feishu shadow-mode delivery planning for observation only.
-5. Keep delivery and output-cleaner logic reusable but not forced into production paths yet.
-6. Prepare future migration of wrapper responsibilities into `DeliveryService`, `OutputCleaner`, and `AgentRunner`.
+5. Move generated-file delivery through `DeliveryService` so duplicate API sends,
+   missing files, sensitive suffix blocks, and user notices are shared behavior.
+6. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
+   `AgentRunner`.
 
 ## What must not be claimed yet
 
@@ -103,8 +111,8 @@ Minimum local gates before sharing this branch:
 - `python3 tests/test_artifacts.py`
 - `python3 tests/test_fileguard.py`
 - `python3 tests/test_feishu_ask_user.py`
-- `python3 penglai v5 --json`
-- `PENGLAI_RUNTIME_HUB_SHADOW=1 python3 penglai v5 --json`
+- `python3 -m penglai_runtime.selfcheck --json`
+- `PENGLAI_RUNTIME_HUB_SHADOW=1 python3 -m penglai_runtime.selfcheck --json`
 - `git diff --check`
 
 Manual gates after sharing:

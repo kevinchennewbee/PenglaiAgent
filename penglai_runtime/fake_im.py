@@ -2,7 +2,7 @@
 """Fake IM adapter for contract tests and V5 shadow experiments."""
 
 from .contracts import InboundEvent
-from .delivery import plan_delivery
+from .delivery import DeliveryService
 from .queueing import SessionQueue
 from .session import SessionRouter
 
@@ -15,6 +15,10 @@ class FakeIMAdapter:
         self.queue = SessionQueue()
         self.sent_texts = []
         self.sent_files = []
+        self.delivery = DeliveryService(
+            send_file=self._send_file,
+            send_text=self._send_text,
+        )
 
     def receive(self, event):
         if not isinstance(event, InboundEvent):
@@ -27,12 +31,16 @@ class FakeIMAdapter:
         return self.queue.finish(session_id)
 
     def deliver(self, raw_text, *, base_dir=None, exclude_paths=None):
-        plan = plan_delivery(raw_text, base_dir=base_dir, exclude_paths=exclude_paths)
-        if plan.body:
-            self.sent_texts.append(plan.body)
-        for path in plan.allowed_paths:
-            self.sent_files.append(path)
-        notice = plan.blocked_notice(sent_count=len(plan.allowed_paths))
-        if notice:
-            self.sent_texts.append(notice)
-        return plan
+        return self.delivery.deliver(
+            raw_text,
+            base_dir=base_dir,
+            exclude_paths=exclude_paths,
+        )
+
+    def _send_text(self, text):
+        self.sent_texts.append(text)
+        return True
+
+    def _send_file(self, path):
+        self.sent_files.append(path)
+        return True

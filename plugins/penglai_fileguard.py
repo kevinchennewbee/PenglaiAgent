@@ -35,10 +35,9 @@ from plugins.penglai_artifacts import (
     VIDEO_EXTS,
     is_outbound_allowed,
     is_sensitive_suffix,
-    summarize_blocked,
 )
 from plugins.penglai_redline import audit
-from penglai_runtime.delivery import plan_delivery
+from penglai_runtime.delivery import DeliveryService
 
 _BLOCKED_OUTBOUND_SUFFIXES = BLOCKED_OUTBOUND_SUFFIXES
 _MEDIA_EXTS = AUDIO_EXTS | VIDEO_EXTS
@@ -108,40 +107,22 @@ def _send_outbound_file(receive_id, file_path, receive_id_type="open_id"):
     return _orig_send_local_file(receive_id, file_path, receive_id_type)
 
 
-def _summarize_blocked(blocked):
-    return summarize_blocked(blocked)
-
-
 def _guarded_send_generated_files(receive_id, raw_text, receive_id_type="open_id"):
     base_dir = getattr(_fsapp_mod, "TEMP_DIR", None)
-    plan = plan_delivery(raw_text, base_dir=base_dir)
-    allowed = list(plan.allowed)
-    blocked = list(plan.blocked + plan.missing)
-    if not allowed and not blocked:
-        return
-    if plan.external_delivery.delivered and allowed:
-        audit("send_files", {
-            "skipped": len(allowed),
-            "reason": plan.external_delivery.reason,
-        }, blocked=False, reason="外部 API 已交付，跳过蓬莱重复外发")
-        allowed = []
-        if not blocked:
-            return
-    for art in allowed:
-        _send_outbound_file(receive_id, art.realpath, receive_id_type)
-    if blocked:
-        reasons, examples = _summarize_blocked(blocked)
-        audit("send_files", {"blocked": len(blocked), "sent": len(allowed), "reasons": reasons},
-              blocked=True, reason="批量外发预检拦截")
-        try:
-            sent = f"已发送 {len(allowed)} 个安全文件；" if allowed else ""
-            _fsapp_mod.send_message(
-                receive_id,
-                f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}",
-                receive_id_type=receive_id_type,
-            )
-        except Exception:
-            pass
+
+    def send_file(path):
+        return _send_outbound_file(receive_id, path, receive_id_type)
+
+    def send_text(text):
+        _fsapp_mod.send_message(receive_id, text, receive_id_type=receive_id_type)
+        return True
+
+    service = DeliveryService(
+        send_file=send_file,
+        send_text=send_text,
+        audit=audit,
+    )
+    service.deliver(raw_text, base_dir=base_dir, send_body=False)
 
 
 _PATCHED = False

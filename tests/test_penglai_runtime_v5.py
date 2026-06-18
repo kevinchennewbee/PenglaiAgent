@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _harness import run_tests
 
 from penglai_runtime.contracts import InboundEvent
-from penglai_runtime.delivery import plan_delivery
+from penglai_runtime.delivery import DeliveryService, plan_delivery
 from penglai_runtime.fake_im import FakeIMAdapter
 from penglai_runtime.output_cleaner import clean_final_text
 from penglai_runtime.queueing import SessionQueue
@@ -77,6 +77,53 @@ def test_delivery_plan_detects_external_api_receipt():
     assert plan.external_delivery.file_keys == ("file_v3_FAKE_RECEIPT_000000000000",)
 
 
+def test_delivery_service_executes_shared_text_file_and_notice_policy():
+    td = tempfile.mkdtemp()
+    pdf = os.path.join(td, "report.pdf")
+    secret = os.path.join(td, "secret.py")
+    open(pdf, "wb").write(b"%PDF")
+    open(secret, "w", encoding="utf-8").write("print('secret')")
+    sent_texts = []
+    sent_files = []
+
+    result = DeliveryService(
+        send_text=lambda text: sent_texts.append(text) or True,
+        send_file=lambda path: sent_files.append(path) or True,
+    ).deliver(f"好了\n[FILE:{pdf}]\n[FILE:{secret}]", base_dir=td)
+
+    assert sent_texts[0] == "好了"
+    assert sent_files == [os.path.realpath(pdf)]
+    assert "1 个文件未外发" in sent_texts[1]
+    assert "敏感后缀" in sent_texts[1]
+    assert result.sent_paths == (os.path.realpath(pdf),)
+    assert result.plan.blocked[0].path == secret
+
+
+def test_delivery_service_skips_duplicate_file_when_external_receipt_exists():
+    td = tempfile.mkdtemp()
+    pdf = os.path.join(td, "report.pdf")
+    open(pdf, "wb").write(b"%PDF")
+    sent_files = []
+    audits = []
+
+    result = DeliveryService(
+        send_file=lambda path: sent_files.append(path) or True,
+        audit=lambda event, payload, **kw: audits.append((event, payload, kw)),
+    ).deliver(
+        "PDF 已通过飞书 API 发送成功\n"
+        "file_key:file_v3_FAKE_RECEIPT_000000000000\n"
+        "message_id:om_FAKE_RECEIPT_000000000000(code=0)\n"
+        f"[FILE:{pdf}]",
+        base_dir=td,
+        send_body=False,
+    )
+
+    assert sent_files == []
+    assert result.skipped_paths == (os.path.realpath(pdf),)
+    assert result.sent_count == 1
+    assert audits[0][1]["reason"] == "external_api_receipt"
+
+
 def test_session_queue_preserves_fifo_for_busy_session():
     queue = SessionQueue()
     first = InboundEvent("e1", "feishu", "u", "one")
@@ -116,13 +163,13 @@ def test_fake_im_adapter_records_delivery_without_real_network():
     event = InboundEvent("e1", "feishu", "owner", "发给我")
 
     session, decision = adapter.receive(event)
-    plan = adapter.deliver(f"好了\n[FILE:{out}]")
+    result = adapter.deliver(f"好了\n[FILE:{out}]")
 
     assert session.session_id == "owner:default"
     assert decision.started_now is True
     assert adapter.sent_texts == ["好了"]
     assert adapter.sent_files == [os.path.realpath(out)]
-    assert plan.has_work is True
+    assert result.plan.has_work is True
 
 
 def test_shadow_event_redacts_and_records_plan_without_paths():

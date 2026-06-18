@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Outbound artifact planning for the V5 runtime test surface."""
+"""Outbound artifact planning and execution for the V5 runtime test surface."""
 
 from dataclasses import dataclass, field
 import re
@@ -65,6 +65,20 @@ class DeliveryPlan:
         return "\n\n".join(parts).strip()
 
 
+@dataclass(frozen=True)
+class DeliveryResult:
+    plan: DeliveryPlan
+    sent_paths: Tuple[str, ...] = ()
+    failed_paths: Tuple[str, ...] = ()
+    skipped_paths: Tuple[str, ...] = ()
+    notice: str = ""
+    sent_body: bool = False
+
+    @property
+    def sent_count(self):
+        return len(self.sent_paths) + len(self.skipped_paths)
+
+
 _MESSAGE_ID_RE = re.compile(r"\b(?:message_id\s*[:：]?\s*)?(om_[A-Za-z0-9_-]{8,})\b")
 _FILE_KEY_RE = re.compile(r"\b(?:file_key\s*[:：]?\s*)?((?:file|img|media|audio)_v\d+_[A-Za-z0-9_-]{8,})\b")
 _DELIVERY_SUCCESS_RE = re.compile(r"(发送成功|成功发出|已通过.*?API.*?发|message_id\s*[:：]|code\s*=\s*0|回执)")
@@ -113,3 +127,98 @@ def plan_delivery(text, *, base_dir=None, exclude_paths=None):
         ignored=ignored,
         external_delivery=detect_external_delivery(cleaned),
     )
+
+
+class DeliveryService:
+    """Execute a delivery plan through channel-specific callbacks.
+
+    IM adapters should provide small callbacks for their own transport while
+    keeping Penglai's file-marker parsing, duplicate suppression, and blocked
+    notice policy in this shared layer.
+    """
+
+    def __init__(self, *, send_file=None, send_text=None, audit=None):
+        self.send_file = send_file
+        self.send_text = send_text
+        self.audit = audit
+
+    def deliver(
+        self,
+        text,
+        *,
+        base_dir=None,
+        exclude_paths=None,
+        send_body=True,
+        send_notice=True,
+    ):
+        plan = plan_delivery(text, base_dir=base_dir, exclude_paths=exclude_paths)
+        sent_body = False
+        sent_paths = []
+        failed_paths = []
+        skipped_paths = []
+
+        if send_body and plan.body:
+            sent_body = self._send_text(plan.body)
+
+        if plan.external_delivery.delivered and plan.allowed:
+            skipped_paths = [a.realpath for a in plan.allowed]
+            self._audit(
+                "send_files",
+                {"skipped": len(skipped_paths), "reason": plan.external_delivery.reason},
+                blocked=False,
+                reason="外部 API 已交付，跳过蓬莱重复外发",
+            )
+        else:
+            for art in plan.allowed:
+                if self._send_file(art.realpath):
+                    sent_paths.append(art.realpath)
+                else:
+                    failed_paths.append(art.realpath)
+
+        notice = plan.blocked_notice(sent_count=len(sent_paths) + len(skipped_paths))
+        if notice:
+            self._audit(
+                "send_files",
+                {
+                    "blocked": len(plan.withheld),
+                    "sent": len(sent_paths),
+                    "skipped": len(skipped_paths),
+                },
+                blocked=True,
+                reason="批量外发预检拦截",
+            )
+            if send_notice:
+                self._send_text(notice)
+
+        return DeliveryResult(
+            plan=plan,
+            sent_paths=tuple(sent_paths),
+            failed_paths=tuple(failed_paths),
+            skipped_paths=tuple(skipped_paths),
+            notice=notice,
+            sent_body=sent_body,
+        )
+
+    def _send_file(self, path):
+        if not callable(self.send_file):
+            return False
+        try:
+            return bool(self.send_file(path))
+        except Exception:
+            return False
+
+    def _send_text(self, text):
+        if not callable(self.send_text):
+            return False
+        try:
+            return bool(self.send_text(text))
+        except Exception:
+            return False
+
+    def _audit(self, event, payload, *, blocked=False, reason=""):
+        if not callable(self.audit):
+            return
+        try:
+            self.audit(event, payload, blocked=blocked, reason=reason)
+        except Exception:
+            pass
