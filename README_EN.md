@@ -245,6 +245,7 @@ Penglai is a downstream distribution of [GenericAgent](https://github.com/lsdefi
 
 Full version timeline on the [website changelog](https://penglai.pages.dev/#changelog).
 
+- **2026-06-18** — v0.2.20 test branch: adds the V5 Penglai Runtime Hub test surface on top of the full v0.2.10 fix set; contracts, fake IM adapter, self-check, and RFC only. Existing Feishu/WeChat paths are not replaced by default, and any mainline replacement depends on real manual testing.
 - **2026-06-17** — v0.2.10 hotfix: unified IM artifact sending; placeholders no longer become false warnings, images/videos/docs/Markdown send by type, sensitive suffixes stay blocked, and skill routing now treats user intent as stronger than link source.
 - **2026-06-17** — v0.2.10: Feishu real-workflow fixes: queued follow-ups, stable button choices, clearer “sending files” finish state, redacted logs, and suffix-only outbound-file gates. Penglai layer only; GA upstream unchanged.
 - **2026-06-17** — v0.2.9 hotfix: privacy and compliance closeout: template redaction, third-party asset notices, non-root Docker with fixed volumes, GitHub proxy support, CSP, `SECURITY.md`, and `THIRD_PARTY_NOTICES.md`.
