@@ -18,6 +18,7 @@ def status():
             "SessionRouter",
             "SessionQueue",
             "DeliveryService",
+            "InteractionRequest",
             "OutputCleaner",
             "InMemoryIMAdapter",
             "ShadowRecorder",

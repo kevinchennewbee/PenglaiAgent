@@ -5,20 +5,17 @@ GA exposes ask_user as an EXITED/HUMAN_INTERVENTION payload.  The upstream
 Feishu frontend renders only the final text, so Penglai adds a channel-side
 adapter that makes the question and choices visible without changing GA core.
 """
-import re
+from penglai_runtime.interaction import (
+    callback_value,
+    normalize_options,
+    render_interaction_text,
+    request_from_ask_user_event,
+    resolve_interaction_choice,
+)
 
 
 def normalize_candidates(raw):
-    if not isinstance(raw, (list, tuple)):
-        return []
-    out = []
-    for item in raw:
-        if item is None:
-            continue
-        text = str(item).strip()
-        if text:
-            out.append(text)
-    return out
+    return [option.display for option in normalize_options(raw)]
 
 
 def extract_ask_user_event(ctx):
@@ -33,10 +30,18 @@ def extract_ask_user_event(ctx):
     data = payload.get("data")
     if not isinstance(data, dict):
         return None
-    candidates = normalize_candidates(data.get("candidates") or [])
-    if not candidates:
+    options = normalize_options(data.get("candidates") or [])
+    if not options:
         return None
     question = str(data.get("question") or "请选择下一步操作：").strip() or "请选择下一步操作："
+    candidates = [
+        (
+            {"label": opt.label, "value": opt.value, "description": opt.description}
+            if opt.description or (opt.value and opt.value != opt.label)
+            else opt.label
+        )
+        for opt in options
+    ]
     return {"question": question, "candidates": candidates}
 
 
@@ -48,42 +53,26 @@ def resolve_choice(text, event):
     """
     if not event:
         return None
-    value = str(text or "").strip()
-    if not value:
-        return None
-    candidates = event.get("candidates") or []
-    if re.fullmatch(r"\d{1,2}", value):
-        idx = int(value) - 1
-        if 0 <= idx < len(candidates):
-            return candidates[idx]
-    for candidate in candidates:
-        if value == candidate:
-            return candidate
-    return None
+    return resolve_interaction_choice(text, request_from_ask_user_event(event, request_id="manual"))
 
 
 def render_ask_user_text(base_text, event, include_buttons=False):
-    question = str((event or {}).get("question") or "请选择下一步操作：").strip()
-    candidates = (event or {}).get("candidates") or []
+    request = request_from_ask_user_event(event, request_id="manual")
     lines = []
     if base_text:
         lines.append(str(base_text).rstrip())
         lines.append("")
-    lines.append(f"**{question}**")
-    lines.append("")
-    lines.append("请点击按钮，或直接回复序号/完整选项文字：" if include_buttons
-                 else "请直接回复序号或完整选项文字：")
-    for idx, candidate in enumerate(candidates, 1):
-        lines.append(f"{idx}. {candidate}")
+    lines.append(render_interaction_text(request, include_click_hint=include_buttons))
     return "\n".join(lines).strip()
 
 
 def build_ask_user_elements(base_text, event, menu_id=None, include_buttons=True):
+    request = request_from_ask_user_event(event, request_id=menu_id or "")
     content = render_ask_user_text(base_text, event, include_buttons=include_buttons and bool(menu_id))
     elements = [{"tag": "markdown", "content": content}]
     if include_buttons and menu_id:
-        for idx, candidate in enumerate(event.get("candidates") or []):
-            label = f"{idx + 1}. {candidate}"
+        for idx, option in enumerate(request.options):
+            label = f"{idx + 1}. {option.display}"
             if len(label) > 80:
                 label = label[:77] + "..."
             elements.append({
@@ -92,11 +81,7 @@ def build_ask_user_elements(base_text, event, menu_id=None, include_buttons=True
                 "type": "primary" if idx == 0 else "default",
                 "behaviors": [{
                     "type": "callback",
-                    "value": {
-                        "penglai_action": "ask_user",
-                        "menu_id": menu_id,
-                        "index": idx,
-                    },
+                    "value": callback_value(request.request_id, idx),
                 }],
             })
     return elements

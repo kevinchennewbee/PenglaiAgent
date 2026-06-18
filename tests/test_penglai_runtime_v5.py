@@ -12,6 +12,14 @@ from _harness import run_tests
 from penglai_runtime.contracts import InboundEvent
 from penglai_runtime.delivery import DeliveryService, plan_delivery
 from penglai_runtime.in_memory_im import InMemoryIMAdapter
+from penglai_runtime.interaction import (
+    InteractionRequest,
+    callback_value,
+    normalize_options,
+    parse_callback_value,
+    render_interaction_text,
+    resolve_interaction_choice,
+)
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 from penglai_runtime.queueing import SessionQueue
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
@@ -42,6 +50,29 @@ def test_output_cleaner_strips_malformed_internal_markup():
     assert has_internal_markup('<summary>只应进内部记忆,不要给用户看。') is True
     raw = "<think>hidden</think>\n<summary>hidden</summary>\n用户可见正文"
     assert clean_final_text(raw) == "用户可见正文"
+
+
+def test_interaction_request_supports_any_button_count_and_text_fallback():
+    options = normalize_options([
+        {"label": "A", "description": "先整理文档", "value": "doc"},
+        {"label": "B", "description": "继续测试飞书", "value": "feishu"},
+        {"label": "C", "description": "稍后再说", "value": "later"},
+    ])
+    req = InteractionRequest("下一步做什么？", options, request_id="r1", title="工作确认")
+    text = render_interaction_text(req, include_click_hint=True)
+
+    assert "**工作确认**" in text
+    assert "下一步做什么？" in text
+    assert "1. A: 先整理文档" in text
+    assert "3. C: 稍后再说" in text
+    assert resolve_interaction_choice("2", req) == "feishu"
+    assert resolve_interaction_choice("C: 稍后再说", req) == "later"
+    assert parse_callback_value(callback_value("r1", 2)) == {
+        "request_id": "r1",
+        "index": 2,
+        "action": "interaction_choice",
+    }
+    assert parse_callback_value("B_cook") is None
 
 
 def test_delivery_plan_allows_work_outputs_and_blocks_sensitive_suffixes():

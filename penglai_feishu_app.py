@@ -29,6 +29,7 @@ from penglai_feishu_ask import (  # noqa: E402
     resolve_choice,
 )
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup  # noqa: E402
+from penglai_runtime.interaction import parse_callback_value, request_from_ask_user_event  # noqa: E402
 from plugins.penglai_artifacts import file_markers, strip_file_markers  # noqa: E402
 
 
@@ -39,6 +40,9 @@ _PENDING_LOCK = threading.Lock()
 _PENDING_QUEUE = []
 PENGLAI_IM_FILE_HINT = (
     "If you need to show files to user, use [FILE:filepath] in your response. "
+    "If you need to ask the user to choose, confirm, authorize, or provide missing information, "
+    "use the ask_user tool and let Penglai render the interaction for this IM channel; "
+    "do not create Feishu interactive cards by direct API calls. "
     "If this prompt came from an IM channel, that channel is currently active; "
     "do not report the current IM service as stopped unless the user explicitly asks for service diagnostics."
 )
@@ -198,20 +202,24 @@ def _pop_menu_choice(menu_id, index):
         if not item:
             return None
         event = item.get("event") or {}
-        candidates = event.get("candidates") or []
+        try:
+            options = request_from_ask_user_event(event, request_id=menu_id).options
+        except Exception:
+            options = ()
         try:
             idx = int(index)
         except Exception:
             idx = -1
-        if not (0 <= idx < len(candidates)):
+        if not (0 <= idx < len(options)):
             return None
         _ASK_BY_MENU.pop(menu_id, None)
         chat_key = item.get("chat_key")
         if chat_key:
             _ASK_STATE.pop(chat_key, None)
+        option = options[idx]
         return {
             "chat_key": chat_key,
-            "choice": candidates[idx],
+            "choice": option.value or option.label,
             "receive_id": item.get("receive_id") or chat_key,
             "receive_id_type": item.get("receive_id_type") or "open_id",
         }
@@ -504,9 +512,10 @@ def _patch(fs):
             if not fs.PUBLIC_ACCESS and open_id not in fs.ALLOWED_USERS:
                 return resp("error", "未授权")
             value = getattr(action, "value", None) or {}
-            if value.get("penglai_action") != "ask_user":
+            parsed = parse_callback_value(value)
+            if not parsed:
                 return resp("warning", "未知操作")
-            picked = _pop_menu_choice(value.get("menu_id"), value.get("index"))
+            picked = _pop_menu_choice(parsed["request_id"], parsed["index"])
             if not picked:
                 return resp("warning", "这个选项已失效，请重新发消息。")
             threading.Thread(

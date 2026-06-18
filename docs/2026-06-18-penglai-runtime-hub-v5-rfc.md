@@ -26,6 +26,7 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.queueing.SessionQueue`
 - `penglai_runtime.delivery.plan_delivery`
 - `penglai_runtime.delivery.DeliveryService`
+- `penglai_runtime.interaction.InteractionRequest`
 - `penglai_runtime.output_cleaner.clean_final_text`
 - `penglai_runtime.in_memory_im.InMemoryIMAdapter`
 - `penglai_runtime.shadow.record_delivery_shadow`
@@ -33,7 +34,9 @@ This branch introduces the first test surface for V5:
 
 Most contracts are side-effect free by default. `DeliveryService` executes only
 through adapter-provided callbacks, so platform SDK behavior stays owned by the
-IM adapter.
+IM adapter. `InteractionRequest` describes the intent to ask the user; Feishu
+can render it as a button card, while channels without stable card support can
+use the same numbered text fallback.
 
 When `PENGLAI_RUNTIME_HUB_SHADOW=1` is set, the Feishu wrapper records a
 privacy-conscious V5 delivery plan to `temp/penglai_runtime_shadow.jsonl` after
@@ -66,6 +69,7 @@ The 0.2.20 branch also syncs two upstream-risk areas before adding the V5 test s
 - Platform identity mapping such as open_id, chat_id, receive_id_type, or group id.
 - Message parsing and media download.
 - Upload primitives, file keys, image keys, card rendering, and platform-specific button UI.
+- Native interaction widgets when the platform supports them.
 
 ### Runtime-owned
 
@@ -73,6 +77,7 @@ The 0.2.20 branch also syncs two upstream-risk areas before adding the V5 test s
 - Session ownership and group/private isolation.
 - Per-session FIFO queueing and stop/cancel state.
 - Delivery planning: text, artifacts, blocked/missing files, and user-facing notices.
+- Interaction planning: question, options, callback payload, and text fallback.
 - Output cleanup: `LLM Running`, tool leftovers, empty final states.
 - Memory governance boundaries and skill-trigger hygiene.
 
@@ -91,13 +96,16 @@ The safe 0.2.20 test cut is:
 4. Add Feishu shadow-mode delivery planning for observation only.
 5. Move generated-file delivery through `DeliveryService` so duplicate API sends,
    missing files, sensitive suffix blocks, and user notices are shared behavior.
-6. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
+6. Move Feishu `ask_user` and button choices onto `InteractionRequest` so user
+   confirmation/selection is a real runtime contract, not a one-off demo card.
+7. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
    `AgentRunner`.
 
 ## What must not be claimed yet
 
 - Do not claim the V5 runtime has replaced Feishu or WeChat.
 - Do not claim cross-IM continuity is complete.
+- Do not claim every IM has native button rendering; text fallback is the common contract until adapters opt in.
 - Do not claim memory pollution is solved for all users.
 - Do not claim 0.2.20 is ready to replace `main`.
 

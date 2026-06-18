@@ -60,15 +60,23 @@ def test_render_ask_user_text_preserves_base_text_and_options():
 
 
 def test_build_elements_can_include_buttons():
-    event = extract_ask_user_event(_ctx(candidates=["探深", "先停"]))
+    event = extract_ask_user_event(_ctx(candidates=[
+        {"label": "A", "description": "探深", "value": "deep"},
+        {"label": "B", "description": "先停", "value": "stop"},
+    ]))
     elements = build_ask_user_elements("我把发现落盘了。再问您：", event, menu_id="m1")
     assert elements[0]["tag"] == "markdown"
     assert "点击按钮" in elements[0]["content"]
     buttons = [e for e in elements if e["tag"] == "button"]
-    assert [b["text"]["content"] for b in buttons] == ["1. 探深", "2. 先停"]
+    assert [b["text"]["content"] for b in buttons] == ["1. A: 探深", "2. B: 先停"]
     assert buttons[0]["behaviors"] == [{
         "type": "callback",
-        "value": {"penglai_action": "ask_user", "menu_id": "m1", "index": 0},
+        "value": {
+            "penglai_action": "interaction_choice",
+            "request_id": "m1",
+            "menu_id": "m1",
+            "index": 0,
+        },
     }]
     assert "value" not in buttons[0]
 
@@ -76,12 +84,15 @@ def test_build_elements_can_include_buttons():
 def test_card_menu_choice_consumes_pending_state():
     _ASK_STATE.clear()
     _ASK_BY_MENU.clear()
-    event = extract_ask_user_event(_ctx(candidates=["探深", "先停"]))
+    event = extract_ask_user_event(_ctx(candidates=[
+        {"label": "A", "description": "探深", "value": "deep"},
+        {"label": "B", "description": "先停", "value": "stop"},
+    ]))
     _remember_ask("chat1", event, menu_id="m1", receive_id="chat1", receive_id_type="chat_id")
     picked = _pop_menu_choice("m1", 1)
     assert picked == {
         "chat_key": "chat1",
-        "choice": "先停",
+        "choice": "stop",
         "receive_id": "chat1",
         "receive_id_type": "chat_id",
     }
