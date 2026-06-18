@@ -27,6 +27,20 @@ def test_real_pdf_and_md_are_allowed_from_any_directory():
     assert allowed == [os.path.realpath(pdf), os.path.realpath(md)]
 
 
+def test_temp_prefixed_marker_resolves_under_temp_base_dir():
+    root = tempfile.mkdtemp()
+    temp_dir = os.path.join(root, "temp")
+    os.makedirs(temp_dir)
+    pdf = os.path.join(temp_dir, "report.pdf")
+    open(pdf, "wb").write(b"%PDF")
+
+    items = art.classify_file_markers("[FILE:temp/report.pdf]", base_dir=temp_dir)
+
+    assert len(items) == 1
+    assert items[0].status == "allowed"
+    assert items[0].realpath == os.path.realpath(pdf)
+
+
 def test_sensitive_suffix_is_blocked_but_txt_is_allowed():
     td = tempfile.mkdtemp()
     py = os.path.join(td, "script.py")

@@ -96,7 +96,16 @@ def _resolve(marker, base_dir=None):
     if os.path.isabs(expanded):
         return expanded
     if base_dir:
-        return os.path.join(base_dir, expanded)
+        base = os.path.realpath(os.path.expanduser(str(base_dir)))
+        candidates = [os.path.join(base, expanded)]
+        norm = os.path.normpath(expanded)
+        base_name = os.path.basename(base)
+        if norm == base_name or norm.startswith(base_name + os.sep):
+            candidates.append(os.path.join(os.path.dirname(base), norm))
+        for candidate in candidates:
+            if os.path.isfile(os.path.realpath(candidate)):
+                return candidate
+        return candidates[0]
     return expanded
 
 

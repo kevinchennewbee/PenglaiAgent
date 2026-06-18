@@ -279,6 +279,30 @@ def test_generated_files_ignores_placeholder_marker_without_warning():
             sys.modules["__main__"] = saved
 
 
+def test_generated_files_accepts_temp_prefixed_marker():
+    _clear_fileguard_env()
+    fg = _fileguard()
+    root = tempfile.mkdtemp()
+    temp_dir = os.path.join(root, "temp")
+    os.makedirs(temp_dir)
+    valid = os.path.join(temp_dir, "ok.pdf")
+    open(valid, "w").write("pdf")
+    fake = _fake_fsapp_main()
+    fake.TEMP_DIR = temp_dir
+    sent_paths = []
+    fake._send_local_file = lambda rid, fp, *a, **k: sent_paths.append(fp) or True
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式必须能挂载"
+        fake._send_generated_files("u1", "[FILE:temp/ok.pdf]")
+        assert sent_paths == [os.path.realpath(valid)]
+        assert not fake.sent, f"temp/ 前缀不应触发文件不存在误报：{fake.sent}"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
 def test_download_video_artifact_sends_directly_by_default():
     _clear_fileguard_env()
     fg = _fileguard()
