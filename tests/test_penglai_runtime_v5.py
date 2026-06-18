@@ -2,6 +2,7 @@
 """V5 runtime contracts stay side-effect free until explicitly integrated."""
 
 import os
+import json
 import sys
 import tempfile
 
@@ -13,6 +14,7 @@ from penglai_runtime.delivery import plan_delivery
 from penglai_runtime.fake_im import FakeIMAdapter
 from penglai_runtime.output_cleaner import clean_final_text
 from penglai_runtime.queueing import SessionQueue
+from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
 
 
@@ -101,6 +103,53 @@ def test_fake_im_adapter_records_delivery_without_real_network():
     assert adapter.sent_texts == ["好了"]
     assert adapter.sent_files == [os.path.realpath(out)]
     assert plan.has_work is True
+
+
+def test_shadow_event_redacts_and_records_plan_without_paths():
+    td = tempfile.mkdtemp()
+    out = os.path.join(td, "video.mp4")
+    secret = os.path.join(td, "mykey.py")
+    open(out, "wb").write(b"mp4")
+    open(secret, "w", encoding="utf-8").write("sk-secret")
+
+    event = build_delivery_shadow_event(
+        "feishu",
+        f"token=abc123\n好了\n[FILE:{out}]\n[FILE:{secret}]",
+        receive_id="ou_secret",
+        receive_id_type="open_id",
+        base_dir=td,
+        production_text="Bearer live-token",
+    )
+
+    assert event["receive_id_hash"] and event["receive_id_hash"] != "ou_secret"
+    assert "token=***" in event["text_preview"]
+    assert "Bearer ***" in event["production_preview"]
+    assert event["allowed_count"] == 1
+    assert event["blocked_count"] == 1
+    assert event["artifacts"][0]["name"] == "video.mp4"
+    assert event["artifacts"][0]["path_hash"]
+    assert td not in json.dumps(event, ensure_ascii=False)
+
+
+def test_record_delivery_shadow_is_noop_until_enabled():
+    td = tempfile.mkdtemp()
+    log_path = os.path.join(td, "shadow.jsonl")
+    assert record_delivery_shadow("feishu", "done", log_path=log_path, enabled=False) is None
+    assert not os.path.exists(log_path)
+
+    event = record_delivery_shadow("feishu", "done", log_path=log_path, enabled=True)
+    assert event["type"] == "delivery_plan"
+    with open(log_path, encoding="utf-8") as f:
+        line = json.loads(f.readline())
+    assert line["channel"] == "feishu"
+
+
+def test_redact_text_masks_common_secret_shapes():
+    redacted = redact_text("API Key: abc token=secret Bearer live-token sk-testsecret")
+    assert "abc" not in redacted
+    assert "secret" not in redacted
+    assert "live-token" not in redacted
+    assert "sk-testsecret" not in redacted
 
 
 if __name__ == "__main__":

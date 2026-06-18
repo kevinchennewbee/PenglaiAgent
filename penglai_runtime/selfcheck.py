@@ -20,6 +20,7 @@ def status():
             "DeliveryService",
             "OutputCleaner",
             "FakeIMAdapter",
+            "ShadowRecorder",
         ],
         "default_behavior": "observe-only; existing IM frontends are unchanged unless explicitly integrated",
     }

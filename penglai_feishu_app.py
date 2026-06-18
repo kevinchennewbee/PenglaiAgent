@@ -239,6 +239,25 @@ def _patch(fs):
             return
         card.done(text)
 
+    def _record_v5_shadow(raw, *, receive_id, receive_id_type):
+        try:
+            from penglai_runtime.flags import shadow_enabled
+
+            if not shadow_enabled():
+                return
+            from penglai_runtime.shadow import record_delivery_shadow
+
+            record_delivery_shadow(
+                "feishu",
+                raw,
+                receive_id=receive_id,
+                receive_id_type=receive_id_type,
+                base_dir=getattr(fs, "TEMP_DIR", None),
+                production_text=_final_display_text(raw),
+            )
+        except Exception as e:
+            print(f"[penglai runtime shadow] error: {e}", flush=True)
+
     def _start_pending_if_any():
         item = _pop_pending()
         if not item:
@@ -319,6 +338,7 @@ def _patch(fs):
                 result["raw"] = raw
                 result["sent"] = True
             _cancel_ask(chat_id)
+            _record_v5_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
             _card_done(card, raw)
             fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
 
