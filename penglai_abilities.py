@@ -330,6 +330,11 @@ def install_launchd(label_id, program_args, logf):
                          os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin",
                          "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
     args_xml = "".join(f"<string>{_x(a)}</string>" for a in program_args)
+    env_xml = f'<key>PATH</key><string>{path_env}</string>' \
+              f'<key>HOME</key><string>{_x(os.path.expanduser("~"))}</string>'
+    for key in ("PENGLAI_RUNTIME_HUB", "PENGLAI_RUNTIME_HUB_SHADOW"):
+        if key in os.environ:
+            env_xml += f"<key>{key}</key><string>{_x(os.environ.get(key, ''))}</string>"
     plist = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -338,9 +343,7 @@ def install_launchd(label_id, program_args, logf):
         f'  <key>Label</key><string>{label_id}</string>\n'
         f'  <key>ProgramArguments</key><array>{args_xml}</array>\n'
         f'  <key>WorkingDirectory</key><string>{_x(ROOT)}</string>\n'
-        '  <key>EnvironmentVariables</key><dict>'
-        f'<key>PATH</key><string>{path_env}</string>'
-        f'<key>HOME</key><string>{_x(os.path.expanduser("~"))}</string></dict>\n'
+        f'  <key>EnvironmentVariables</key><dict>{env_xml}</dict>\n'
         '  <key>RunAtLoad</key><true/>\n  <key>KeepAlive</key><true/>\n'
         '  <key>ThrottleInterval</key><integer>20</integer>\n'
         f'  <key>StandardOutPath</key><string>{_x(logf)}</string>\n'
