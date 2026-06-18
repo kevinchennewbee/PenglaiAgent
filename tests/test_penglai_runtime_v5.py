@@ -57,6 +57,26 @@ def test_delivery_plan_allows_work_outputs_and_blocks_sensitive_suffixes():
     assert "已发送 1 个安全文件" in plan.blocked_notice(sent_count=1)
 
 
+def test_delivery_plan_detects_external_api_receipt():
+    td = tempfile.mkdtemp()
+    pdf = os.path.join(td, "report.pdf")
+    open(pdf, "wb").write(b"%PDF")
+
+    plan = plan_delivery(
+        "PDF 已通过飞书 API 发送成功\n"
+        "file_key:file_v3_FAKE_RECEIPT_000000000000\n"
+        "message_id:om_FAKE_RECEIPT_000000000000(code=0)\n"
+        f"[FILE:{pdf}]",
+        base_dir=td,
+    )
+
+    assert plan.allowed_paths == (os.path.realpath(pdf),)
+    assert plan.external_delivery.delivered is True
+    assert plan.external_delivery.reason == "external_api_receipt"
+    assert plan.external_delivery.message_ids == ("om_FAKE_RECEIPT_000000000000",)
+    assert plan.external_delivery.file_keys == ("file_v3_FAKE_RECEIPT_000000000000",)
+
+
 def test_session_queue_preserves_fifo_for_busy_session():
     queue = SessionQueue()
     first = InboundEvent("e1", "feishu", "u", "one")

@@ -33,12 +33,12 @@ from plugins.penglai_artifacts import (
     AUDIO_EXTS,
     BLOCKED_OUTBOUND_SUFFIXES,
     VIDEO_EXTS,
-    classify_file_markers,
     is_outbound_allowed,
     is_sensitive_suffix,
     summarize_blocked,
 )
 from plugins.penglai_redline import audit
+from penglai_runtime.delivery import plan_delivery
 
 _BLOCKED_OUTBOUND_SUFFIXES = BLOCKED_OUTBOUND_SUFFIXES
 _MEDIA_EXTS = AUDIO_EXTS | VIDEO_EXTS
@@ -114,11 +114,19 @@ def _summarize_blocked(blocked):
 
 def _guarded_send_generated_files(receive_id, raw_text, receive_id_type="open_id"):
     base_dir = getattr(_fsapp_mod, "TEMP_DIR", None)
-    artifacts = classify_file_markers(raw_text, base_dir=base_dir)
-    allowed = [a for a in artifacts if a.status == "allowed"]
-    blocked = [a for a in artifacts if a.status in ("blocked", "missing")]
+    plan = plan_delivery(raw_text, base_dir=base_dir)
+    allowed = list(plan.allowed)
+    blocked = list(plan.blocked + plan.missing)
     if not allowed and not blocked:
         return
+    if plan.external_delivery.delivered and allowed:
+        audit("send_files", {
+            "skipped": len(allowed),
+            "reason": plan.external_delivery.reason,
+        }, blocked=False, reason="外部 API 已交付，跳过蓬莱重复外发")
+        allowed = []
+        if not blocked:
+            return
     for art in allowed:
         _send_outbound_file(receive_id, art.realpath, receive_id_type)
     if blocked:

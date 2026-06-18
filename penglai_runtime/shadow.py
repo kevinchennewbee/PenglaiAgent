@@ -82,6 +82,8 @@ def build_delivery_shadow_event(
         "blocked_count": len(plan.blocked),
         "missing_count": len(plan.missing),
         "ignored_count": len(plan.ignored),
+        "external_delivery": plan.external_delivery.delivered,
+        "external_delivery_reason": plan.external_delivery.reason,
         "artifacts": [_artifact_record(a) for a in (plan.allowed + plan.blocked + plan.missing)],
     }
     notice = plan.blocked_notice(sent_count=0)

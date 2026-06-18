@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Outbound artifact planning for the V5 runtime test surface."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import Tuple
 
@@ -16,6 +16,14 @@ from .output_cleaner import clean_final_text
 
 
 @dataclass(frozen=True)
+class ExternalDeliveryEvidence:
+    delivered: bool
+    reason: str = ""
+    message_ids: Tuple[str, ...] = ()
+    file_keys: Tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class DeliveryPlan:
     original_text: str
     body: str
@@ -23,6 +31,9 @@ class DeliveryPlan:
     blocked: Tuple[Artifact, ...]
     missing: Tuple[Artifact, ...]
     ignored: Tuple[Artifact, ...]
+    external_delivery: ExternalDeliveryEvidence = field(
+        default_factory=lambda: ExternalDeliveryEvidence(False)
+    )
 
     @property
     def allowed_paths(self):
@@ -54,6 +65,32 @@ class DeliveryPlan:
         return "\n\n".join(parts).strip()
 
 
+_MESSAGE_ID_RE = re.compile(r"\b(?:message_id\s*[:：]?\s*)?(om_[A-Za-z0-9_-]{8,})\b")
+_FILE_KEY_RE = re.compile(r"\b(?:file_key\s*[:：]?\s*)?((?:file|img|media|audio)_v\d+_[A-Za-z0-9_-]{8,})\b")
+_DELIVERY_SUCCESS_RE = re.compile(r"(发送成功|成功发出|已通过.*?API.*?发|message_id\s*[:：]|code\s*=\s*0|回执)")
+
+
+def detect_external_delivery(text):
+    """Detect when a model already sent via an IM/vendor API.
+
+    This is deliberately conservative: a message id alone is not enough. We need
+    a send-success signal plus a vendor receipt shape, so normal prose mentioning
+    ids does not suppress Penglai's own delivery.
+    """
+    raw = str(text or "")
+    message_ids = tuple(dict.fromkeys(_MESSAGE_ID_RE.findall(raw)))
+    file_keys = tuple(dict.fromkeys(_FILE_KEY_RE.findall(raw)))
+    has_success = bool(_DELIVERY_SUCCESS_RE.search(raw))
+    delivered = bool(has_success and message_ids and (file_keys or "code=0" in raw or "code = 0" in raw))
+    reason = "external_api_receipt" if delivered else ""
+    return ExternalDeliveryEvidence(
+        delivered=delivered,
+        reason=reason,
+        message_ids=message_ids,
+        file_keys=file_keys,
+    )
+
+
 def plan_delivery(text, *, base_dir=None, exclude_paths=None):
     """Plan text and files without sending anything."""
     cleaned = clean_final_text(text)
@@ -74,4 +111,5 @@ def plan_delivery(text, *, base_dir=None, exclude_paths=None):
         blocked=blocked,
         missing=missing,
         ignored=ignored,
+        external_delivery=detect_external_delivery(cleaned),
     )
