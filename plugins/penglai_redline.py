@@ -25,6 +25,16 @@ RED_CODE = [
     (r"(mykey\.py|\.ssh/id_)[^\n]{0,120}(curl|wget|\bnc\b|requests\.(post|put)|urlopen)"
      r"|(curl|wget)[^\n]{0,120}(mykey\.py|\.ssh/id_)", "疑似密钥外传"),
 ]
+_IM_FILE_API_RE = re.compile(
+    r"(open-apis/)?im/v1/files|open\.feishu\.cn[^\n'\"]*/open-apis/im/v1/files",
+    re.I,
+)
+_IM_FILE_MESSAGE_RE = re.compile(
+    r"(open-apis/)?im/v1/messages[^\n]{0,160}"
+    r"([\"']msg_type[\"']\s*:\s*[\"'](?:file|media|image|audio)[\"']|"
+    r"msg_type\s*=\s*[\"'](?:file|media|image|audio)[\"'])",
+    re.I | re.S,
+)
 PROTECTED_WRITE = [
     (r"mykey(\.py|\.json)$", "密钥配置文件"),
     (r"(^|/)\.ssh(/|$)", "SSH 密钥目录"),
@@ -87,6 +97,14 @@ def _resolve_code(self, args, response):
             code = None
     return str(code or "")
 
+def _direct_im_file_send_reason(code):
+    """Keep external file transport inside Penglai delivery adapters."""
+    if not code:
+        return ""
+    if _IM_FILE_API_RE.search(code) or _IM_FILE_MESSAGE_RE.search(code):
+        return "直接调用 IM 文件发送 API；请生成文件并在最终回复中输出 [FILE:路径]，由蓬莱统一交付层发送"
+    return ""
+
 def _scrub(s):
     """code_run 输出里的密钥脱敏后再返回——堵死 agent `cat mykey.py` / 打印 key 把
     MiniMax/DeepSeek/TinyFish/飞书 secret 明文写进 model_responses 日志（Mac mini 真机踩过，
@@ -97,6 +115,11 @@ def _scrub(s):
 
 def _guarded_code_run(self, args, response):
     code = _resolve_code(self, args, response)
+    why = _direct_im_file_send_reason(code)
+    if why:
+        audit("code_run", {"code": code[:300]}, blocked=True, reason=why)
+        yield f"⛔ 红线拦截: {why}\n"
+        return _block(self, args, why)
     for pat, why in RED_CODE:
         if re.search(pat, code, re.I | re.M):
             audit("code_run", {"code": code[:300]}, blocked=True, reason=why)

@@ -40,6 +40,8 @@ _PENDING_LOCK = threading.Lock()
 _PENDING_QUEUE = []
 PENGLAI_IM_FILE_HINT = (
     "If you need to show files to user, use [FILE:filepath] in your response. "
+    "Do not read channel-specific send-file SOPs or call Feishu/IM upload APIs directly; "
+    "Penglai owns outbound delivery for every IM channel. "
     "If you need to ask the user to choose, confirm, authorize, or provide missing information, "
     "use the ask_user tool and let Penglai render the interaction for this IM channel; "
     "do not create Feishu interactive cards by direct API calls. "
@@ -233,6 +235,100 @@ def _cancel_ask(chat_key):
                 _ASK_BY_MENU.pop(menu_id, None)
 
 
+_CN_OPTION_COUNTS = {
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+_EXPLICIT_CHOICE_RE = re.compile(
+    r"(飞书)?(选项卡|按钮|卡片)|让我选择|让我选|请我选择|请我选|"
+    r"([二两三四五六七八九]|[2-9])\s*选\s*一|选择\s*[A-H]",
+    re.I,
+)
+_EXPLICIT_FREE_TEXT_RE = re.compile(
+    r"(问我|询问我|向我确认|让我补充).*(不要给候选项|不带候选|不用候选|直接回复|缺哪个|缺哪|缺什么|需要.*信息)",
+    re.I | re.S,
+)
+
+
+def _extract_option_count(text):
+    m = re.search(r"([二两三四五六七八九]|[2-9])\s*选\s*一", text or "")
+    if not m:
+        return 0
+    raw = m.group(1)
+    if raw.isdigit():
+        return int(raw)
+    return _CN_OPTION_COUNTS.get(raw, 0)
+
+
+def _extract_explicit_options(text):
+    value = str(text or "")
+    labeled = []
+    for letter, desc in re.findall(r"\b([A-H])\s*[:：.]\s*([^,，;；。\n]{1,40})", value, re.I):
+        display = f"{letter.upper()}: {desc.strip()}"
+        if display not in labeled:
+            labeled.append(display)
+    if labeled:
+        return labeled[:8]
+    letters = []
+    for letter in re.findall(r"(?<![A-Za-z0-9])([A-H])(?![A-Za-z0-9])", value.upper()):
+        if letter not in letters:
+            letters.append(letter)
+    count = _extract_option_count(value)
+    if not letters and count:
+        letters = [chr(ord("A") + i) for i in range(min(count, 8))]
+    if count and len(letters) < count:
+        for i in range(count):
+            letter = chr(ord("A") + i)
+            if letter not in letters:
+                letters.append(letter)
+    return letters[:8]
+
+
+def _extract_interaction_question(text, *, has_options):
+    value = re.sub(r"\s+", " ", str(text or "")).strip()
+    topic = ""
+    m = re.search(r"主题(?:是|为|关于)?\s*([^,，。；;]+)", value)
+    if m:
+        topic = m.group(1).strip()
+    if not topic:
+        m = re.search(r"关于\s*([^,，。；;]+)", value)
+        if m:
+            topic = m.group(1).strip()
+    if topic and has_options:
+        return f"{topic}，请选择一个选项："
+    if topic:
+        return f"请补充{topic}相关信息："
+    m = re.search(r"(?:问我|询问我|向我确认)\s*([^,，。；;]+)", value)
+    if m:
+        question = m.group(1).strip()
+        if question:
+            return question if question.endswith(("?", "？", "：", ":")) else question + "："
+    return "请选择一个选项：" if has_options else "请补充需要的信息："
+
+
+def _explicit_interaction_event(text):
+    value = str(text or "")
+    options = _extract_explicit_options(value)
+    if options and _EXPLICIT_CHOICE_RE.search(value):
+        return {
+            "question": _extract_interaction_question(value, has_options=True),
+            "candidates": options,
+        }
+    if _EXPLICIT_FREE_TEXT_RE.search(value):
+        return {
+            "question": _extract_interaction_question(value, has_options=False),
+            "candidates": [],
+        }
+    return None
+
+
 def _patch(fs):
     if getattr(fs, "_PENGLAI_FEISHU_PATCHED", False):
         return
@@ -245,6 +341,8 @@ def _patch(fs):
 
     def _finish_ask_card(card, raw, event, menu_id):
         text = fs._display_text(raw)
+        if text.startswith("⚠️ 模型输出被截断或为空"):
+            text = ""
         elements = build_ask_user_elements(text, event, menu_id=menu_id, include_buttons=True)
         card.status = "🧭 等待选择"
         card.final = None
@@ -485,6 +583,21 @@ def _patch(fs):
                                                   receive_id_type=receive_id_type),),
                 daemon=True,
             ).start()
+            return
+        direct_event = _explicit_interaction_event(user_input) if choice is None else None
+        if direct_event:
+            menu_id = f"direct_{chat_key}_{uuid.uuid4().hex}"
+            _remember_ask(chat_key, direct_event, menu_id=menu_id,
+                          receive_id=receive_id, receive_id_type=receive_id_type)
+            elements = build_ask_user_elements("", direct_event, menu_id=menu_id, include_buttons=True)
+            payload = fs._card_raw(elements)
+            ok = fs._send_raw(receive_id, payload, "interactive", receive_id_type)
+            if not ok:
+                fs.send_message(
+                    receive_id,
+                    render_ask_user_text("", direct_event),
+                    receive_id_type=receive_id_type,
+                )
             return
         threading.Thread(
             target=fs._run_async,

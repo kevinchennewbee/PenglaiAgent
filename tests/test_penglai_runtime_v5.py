@@ -221,6 +221,25 @@ def test_delivery_plan_detects_external_api_receipt():
     assert plan.external_delivery.file_keys == ("file_v3_FAKE_RECEIPT_000000000000",)
 
 
+def test_delivery_plan_detects_external_receipt_without_file_key_when_success_is_strong():
+    td = tempfile.mkdtemp()
+    pdf = os.path.join(td, "report.pdf")
+    open(pdf, "wb").write(b"%PDF")
+
+    plan = plan_delivery(
+        "PDF 已发到飞书 ✅\n"
+        "飞书消息已投递，message_id: om_FAKE_RECEIPT_NO_FILE_KEY\n"
+        "三步全过：token -> upload -> send\n"
+        f"[FILE:{pdf}]",
+        base_dir=td,
+    )
+
+    assert plan.allowed_paths == (os.path.realpath(pdf),)
+    assert plan.external_delivery.delivered is True
+    assert plan.external_delivery.message_ids == ("om_FAKE_RECEIPT_NO_FILE_KEY",)
+    assert plan.external_delivery.file_keys == ()
+
+
 def test_delivery_service_executes_shared_text_file_and_notice_policy():
     td = tempfile.mkdtemp()
     pdf = os.path.join(td, "report.pdf")

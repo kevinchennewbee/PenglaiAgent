@@ -3,7 +3,9 @@ import sys
 import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from _harness import run_tests
 from penglai_feishu_ask import (
     build_ask_user_elements,
     extract_ask_user_event,
@@ -15,6 +17,7 @@ from penglai_feishu_app import (
     _ASK_STATE,
     _PENDING_QUEUE,
     _enqueue_pending,
+    _explicit_interaction_event,
     _install_display_cleaners,
     _pop_pending,
     _pop_menu_choice,
@@ -145,6 +148,28 @@ def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():
     assert fs._display_text("") == "⚠️ 模型输出被截断或为空"
 
 
+def test_explicit_feishu_choice_request_becomes_real_interaction_event():
+    event = _explicit_interaction_event("问我一个三选一问题，主题关于今晚安排，用飞书选项卡让我选择 A、B、C。")
+
+    assert event == {
+        "question": "今晚安排，请选择一个选项：",
+        "candidates": ["A", "B", "C"],
+    }
+
+
+def test_explicit_free_text_question_becomes_interaction_event_without_buttons():
+    event = _explicit_interaction_event("我现在缺一个城市信息，你先问我缺哪个城市，不要给候选项。")
+
+    assert event == {
+        "question": "缺哪个城市：",
+        "candidates": [],
+    }
+
+
+def test_normal_file_request_is_not_taken_over_by_interaction_fallback():
+    assert _explicit_interaction_event("生成一个 PDF 测试文件并发给我") is None
+
+
 def test_resolve_choice_by_number_or_exact_text():
     event = extract_ask_user_event(_ctx(candidates=["探深", "先停"]))
     assert resolve_choice("1", event) == "探深"
@@ -152,3 +177,7 @@ def test_resolve_choice_by_number_or_exact_text():
     assert resolve_choice("先停", event) == "先停"
     assert resolve_choice("3", event) is None
     assert resolve_choice("随便聊聊", event) is None
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_tests(dict(globals())))

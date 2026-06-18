@@ -81,7 +81,14 @@ class DeliveryResult:
 
 _MESSAGE_ID_RE = re.compile(r"\b(?:message_id\s*[:：]?\s*)?(om_[A-Za-z0-9_-]{8,})\b")
 _FILE_KEY_RE = re.compile(r"\b(?:file_key\s*[:：]?\s*)?((?:file|img|media|audio)_v\d+_[A-Za-z0-9_-]{8,})\b")
-_DELIVERY_SUCCESS_RE = re.compile(r"(发送成功|成功发出|已通过.*?API.*?发|message_id\s*[:：]|code\s*=\s*0|回执)")
+_DELIVERY_SUCCESS_RE = re.compile(
+    r"(发送成功|成功发出|已通过.*?API.*?发|message_id\s*[:：]|code\s*=\s*0|回执)"
+)
+_STRONG_DELIVERY_SUCCESS_RE = re.compile(
+    r"(已发送|已发到|已发给|已投递|已投递到|三步全过|"
+    r"send\s+status\s+200|send\s+200|飞书消息已投递|消息已投递)",
+    re.I,
+)
 
 
 def detect_external_delivery(text):
@@ -95,7 +102,9 @@ def detect_external_delivery(text):
     message_ids = tuple(dict.fromkeys(_MESSAGE_ID_RE.findall(raw)))
     file_keys = tuple(dict.fromkeys(_FILE_KEY_RE.findall(raw)))
     has_success = bool(_DELIVERY_SUCCESS_RE.search(raw))
-    delivered = bool(has_success and message_ids and (file_keys or "code=0" in raw or "code = 0" in raw))
+    has_code_zero = bool(re.search(r"(?:code\s*[=:]\s*0|[\"']code[\"']\s*:\s*0)", raw, re.I))
+    has_strong_success = bool(_STRONG_DELIVERY_SUCCESS_RE.search(raw))
+    delivered = bool(has_success and message_ids and (file_keys or has_code_zero or has_strong_success))
     reason = "external_api_receipt" if delivered else ""
     return ExternalDeliveryEvidence(
         delivered=delivered,

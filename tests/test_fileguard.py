@@ -6,7 +6,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _harness import install_fakes, fresh_import, run_tests, REPO
+from _harness import Resp, install_fakes, fresh_import, run_gen, run_tests, REPO
 
 
 def _fileguard():
@@ -102,6 +102,24 @@ def test_sensitive_name_txt_is_allowed_by_suffix_only_policy():
     open(p, "w").write("x")
     ok, why, rp = fg._is_outbound_allowed(p)
     assert ok, f"只按后缀拦截时 .txt 不应因文件名被拦：{why}"
+
+
+def test_redline_blocks_direct_im_file_api_from_code_run():
+    install_fakes()
+    fresh_import("plugins.penglai_redline")
+    import ga
+
+    handler = ga.GenericAgentHandler()
+    code = (
+        "import requests\n"
+        "requests.post('https://open.feishu.cn/open-apis/im/v1/files', files={'file': open('report.pdf','rb')})\n"
+    )
+    outs, outcome = run_gen(handler.do_code_run({"script": code, "type": "python"}, Resp()))
+    joined = "".join(outs)
+
+    assert "红线拦截" in joined
+    assert "IM 文件发送 API" in joined
+    assert "IM 文件发送 API" in str(outcome.data)
 
 
 def _fake_fsapp_main():
