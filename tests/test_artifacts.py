@@ -41,6 +41,20 @@ def test_temp_prefixed_marker_resolves_under_temp_base_dir():
     assert items[0].realpath == os.path.realpath(pdf)
 
 
+def test_unclosed_file_marker_at_line_end_is_allowed_and_stripped():
+    td = tempfile.mkdtemp()
+    pdf = os.path.join(td, "report.pdf")
+    open(pdf, "wb").write(b"%PDF")
+    text = f"PDF 已生成\n[FILE:{pdf}"
+
+    items = art.classify_file_markers(text, base_dir=td)
+
+    assert len(items) == 1
+    assert items[0].status == "allowed"
+    assert items[0].realpath == os.path.realpath(pdf)
+    assert "[FILE:" not in art.strip_file_markers(text)
+
+
 def test_sensitive_suffix_is_blocked_but_txt_is_allowed():
     td = tempfile.mkdtemp()
     py = os.path.join(td, "script.py")

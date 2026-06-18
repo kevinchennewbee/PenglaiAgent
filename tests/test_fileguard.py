@@ -303,6 +303,28 @@ def test_generated_files_accepts_temp_prefixed_marker():
             sys.modules["__main__"] = saved
 
 
+def test_generated_files_accepts_unclosed_file_marker():
+    _clear_fileguard_env()
+    fg = _fileguard()
+    td = tempfile.mkdtemp()
+    os.environ["GA_WORKSPACE_ROOT"] = td
+    valid = os.path.join(td, "ok.pdf")
+    open(valid, "w").write("pdf")
+    fake = _fake_fsapp_main()
+    sent_paths = []
+    fake._send_local_file = lambda rid, fp, *a, **k: sent_paths.append(fp) or True
+    saved = sys.modules.get("__main__")
+    try:
+        sys.modules["__main__"] = fake
+        assert fg._try_patch(), "脚本模式必须能挂载"
+        fake._send_generated_files("u1", f"PDF 已生成\n[FILE:{valid}")
+        assert sent_paths == [os.path.realpath(valid)]
+        assert not fake.sent, f"未闭合 [FILE:] 不应触发误报：{fake.sent}"
+    finally:
+        if saved is not None:
+            sys.modules["__main__"] = saved
+
+
 def test_download_video_artifact_sends_directly_by_default():
     _clear_fileguard_env()
     fg = _fileguard()

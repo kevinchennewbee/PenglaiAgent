@@ -80,6 +80,7 @@ def _ensure_runtime_paths():
 _ensure_runtime_paths()
 from agentmain import GeneraticAgent
 from frontends.chatapp_common import AgentChatMixin, FILE_HINT, split_text
+from plugins.penglai_artifacts import file_markers, strip_file_markers
 
 _TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
@@ -135,11 +136,11 @@ def _clean(text):
 
 
 def _extract_files(text):
-    return re.findall(r"\[FILE:([^\]]+)\]", text or "")
+    return file_markers(text)
 
 
 def _strip_files(text):
-    return re.sub(r"\[FILE:[^\]]+\]", "", text or "").strip()
+    return strip_file_markers(text)
 
 
 def _display_text(text):

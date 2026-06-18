@@ -14,7 +14,7 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff",
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg"}
 AUDIO_EXTS = {".opus", ".mp3", ".wav", ".m4a", ".aac", ".flac"}
 
-_FILE_RE = re.compile(r"\[FILE:([^\]\r\n]+)\]")
+_FILE_RE = re.compile(r"\[FILE:([^\]\r\n]+)(?:\]|(?=\r?\n)|$)")
 _PLACEHOLDERS = {
     "...", "filepath", "<filepath>", "file_path", "<file_path>",
     "path", "<path>", "/path/to/file", "/path/to/file.ext",
