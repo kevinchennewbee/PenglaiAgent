@@ -11,8 +11,8 @@ from _harness import run_tests
 
 from penglai_runtime.contracts import InboundEvent
 from penglai_runtime.delivery import DeliveryService, plan_delivery
-from penglai_runtime.fake_im import FakeIMAdapter
-from penglai_runtime.output_cleaner import clean_final_text
+from penglai_runtime.in_memory_im import InMemoryIMAdapter
+from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 from penglai_runtime.queueing import SessionQueue
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
@@ -35,6 +35,13 @@ def test_output_cleaner_strips_runtime_noise_without_removing_file_markers():
     raw = "LLM Running (Turn 1) ...\n<summary>internal</summary>\n完成\n[FILE:/tmp/a.md]"
     assert clean_final_text(raw) == "完成\n[FILE:/tmp/a.md]"
     assert clean_final_text(raw, strip_file_markers=True) == "完成"
+
+
+def test_output_cleaner_strips_malformed_internal_markup():
+    assert clean_final_text('<summary>只应进内部记忆,不要给用户看。') == ""
+    assert has_internal_markup('<summary>只应进内部记忆,不要给用户看。') is True
+    raw = "<think>hidden</think>\n<summary>hidden</summary>\n用户可见正文"
+    assert clean_final_text(raw) == "用户可见正文"
 
 
 def test_delivery_plan_allows_work_outputs_and_blocks_sensitive_suffixes():
@@ -155,11 +162,11 @@ def test_session_queue_cancel_can_promote_or_drop_pending():
     assert queue.status("s") == {"session_id": "s", "active": False, "pending": 0}
 
 
-def test_fake_im_adapter_records_delivery_without_real_network():
+def test_in_memory_im_adapter_records_delivery_without_real_network():
     td = tempfile.mkdtemp()
     out = os.path.join(td, "deck.pdf")
     open(out, "wb").write(b"%PDF")
-    adapter = FakeIMAdapter(owner_user_ids={"owner"})
+    adapter = InMemoryIMAdapter(owner_user_ids={"owner"})
     event = InboundEvent("e1", "feishu", "owner", "发给我")
 
     session, decision = adapter.receive(event)

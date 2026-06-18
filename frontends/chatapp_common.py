@@ -11,6 +11,7 @@ from plugins.penglai_artifacts import (
     strip_file_markers,
     summarize_blocked,
 )
+from penglai_runtime.output_cleaner import clean_final_text
 
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
@@ -64,9 +65,7 @@ SUMMARY_RE = re.compile(r"<summary>\s*(.*?)\s*</summary>", re.DOTALL)
 
 
 def clean_reply(text):
-    for pat in TAG_PATS:
-        text = re.sub(pat, "", text or "", flags=re.DOTALL)
-    return re.sub(r"\n{3,}", "\n\n", text).strip() or "..."
+    return clean_final_text(text) or "..."
 
 
 def extract_files(text):

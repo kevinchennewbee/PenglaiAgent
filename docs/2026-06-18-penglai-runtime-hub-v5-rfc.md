@@ -27,7 +27,7 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.delivery.plan_delivery`
 - `penglai_runtime.delivery.DeliveryService`
 - `penglai_runtime.output_cleaner.clean_final_text`
-- `penglai_runtime.fake_im.FakeIMAdapter`
+- `penglai_runtime.in_memory_im.InMemoryIMAdapter`
 - `penglai_runtime.shadow.record_delivery_shadow`
 - internal self-check module: `python3 -m penglai_runtime.selfcheck`
 

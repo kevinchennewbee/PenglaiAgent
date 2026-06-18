@@ -237,6 +237,12 @@ def _patch(fs):
             if not card._push():
                 card._fallback_text(text, final=True)
             return
+        if not text:
+            card.status = "✅ 已完成"
+            card.final = None
+            if not card._push():
+                card._fallback_text("✅ 已完成", final=True)
+            return
         card.done(text)
 
     def _record_v5_shadow(raw, *, receive_id, receive_id_type):

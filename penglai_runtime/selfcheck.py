@@ -19,7 +19,7 @@ def status():
             "SessionQueue",
             "DeliveryService",
             "OutputCleaner",
-            "FakeIMAdapter",
+            "InMemoryIMAdapter",
             "ShadowRecorder",
         ],
         "default_behavior": "observe-only; existing IM frontends are unchanged unless explicitly integrated",
