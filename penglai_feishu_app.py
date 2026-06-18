@@ -76,6 +76,21 @@ _MESSAGE_META_KEYS = {
     "sender",
     "mentions",
 }
+_KNOWN_MESSAGE_TYPES = {
+    "text",
+    "post",
+    "image",
+    "audio",
+    "file",
+    "media",
+    "sticker",
+    "share_chat",
+    "share_user",
+    "interactive",
+    "share_calendar_event",
+    "system",
+    "merge_forward",
+}
 
 
 def _redact_log_text(text):
@@ -90,7 +105,38 @@ def _redact_log_text(text):
 def _message_type(message):
     value = getattr(message, "message_type", "") or ""
     value = getattr(value, "value", value)
-    return str(value or "").strip()
+    text = str(value or "").strip()
+    low = text.lower()
+    if low in _KNOWN_MESSAGE_TYPES:
+        return low
+    suffix = low.rsplit(".", 1)[-1]
+    if suffix in _KNOWN_MESSAGE_TYPES:
+        return suffix
+    for known in _KNOWN_MESSAGE_TYPES:
+        if f"value='{known}'" in low or f'value="{known}"' in low:
+            return known
+    return text
+
+
+def _looks_like_message_type_placeholder(text, msg_type, message=None):
+    value = str(text or "").strip()
+    if not (value.startswith("[") and value.endswith("]")):
+        return False
+    inner = value[1:-1].strip()
+    if not inner:
+        return False
+    raw_type = str(getattr(message, "message_type", "") or "").strip()
+    low = inner.lower()
+    msg = str(msg_type or "").lower()
+    if msg and low in {msg, f"messagetype.{msg}"}:
+        return True
+    if raw_type and inner == raw_type:
+        return True
+    if "messagetype" in low or low.startswith("namespace("):
+        return True
+    if msg and (low.endswith(f".{msg}") or f"value='{msg}'" in low or f'value="{msg}"' in low):
+        return True
+    return False
 
 
 def _parse_structured_string(value):
@@ -248,20 +294,27 @@ def _install_text_message_fallback(fs):
         return False
 
     def _build_user_message(message):
-        text, images = original(message)
         msg_type = _message_type(message)
-        if not text and msg_type == "text":
-            text = _text_from_message(message)
-            if text:
+        try:
+            text, images = original(message)
+        except Exception as e:
+            print(f"[penglai feishu] upstream message parse failed type={msg_type}: {e}", flush=True)
+            text, images = "", []
+        if msg_type == "text":
+            fallback_text = _text_from_message(message)
+            if fallback_text and (not text or _looks_like_message_type_placeholder(text, msg_type, message)):
+                text = fallback_text
                 print("[penglai feishu] text message content fallback used", flush=True)
-            else:
+            elif not text:
                 content = getattr(message, "content", None)
                 print(
                     "[penglai feishu] text message empty after fallback "
                     f"content_type={type(content).__name__}",
                     flush=True,
                 )
-        elif not text and msg_type in _RESOURCE_KEYS:
+        elif msg_type in _RESOURCE_KEYS and (
+            not text or _looks_like_message_type_placeholder(text, msg_type, message)
+        ):
             text, images = _media_message_fallback(fs, message, msg_type)
             print(f"[penglai feishu] media message fallback used type={msg_type}", flush=True)
         return text, images
@@ -405,6 +458,8 @@ def _pop_choice(chat_key, text):
     with _ASK_LOCK:
         event = _ASK_STATE.get(chat_key)
         choice = resolve_choice(text, event)
+        if choice is None:
+            return None
         if choice is not None:
             _ASK_STATE.pop(chat_key, None)
             for menu_id, item in list(_ASK_BY_MENU.items()):
@@ -470,6 +525,14 @@ _EXPLICIT_CHOICE_RE = re.compile(
 _EXPLICIT_FREE_TEXT_RE = re.compile(
     r"(问我|询问我|向我确认|让我补充).*(不要给候选项|不带候选|不用候选|直接回复|缺哪个|缺哪|缺什么|需要.*信息)",
     re.I | re.S,
+)
+_FINAL_CHOICE_QUESTION_RE = re.compile(
+    r"(要做哪种|要做哪个|选哪|选择|请选择|哪一个|哪种|要不要|是否|您想|你想|可以.*吗|[?？])",
+    re.I,
+)
+_FINAL_CHOICE_LINE_RE = re.compile(
+    r"^\s*(?:[-*+•·]\s*)?(?:\d+[.)、]\s*)?([A-H])\s*[.)、:：]\s*(.{1,200})\s*$",
+    re.I,
 )
 
 
@@ -547,6 +610,76 @@ def _explicit_interaction_event(text):
     return None
 
 
+def _clean_choice_line(text):
+    value = str(text or "").strip()
+    value = re.sub(r"^[>｜|]\s*", "", value)
+    value = re.sub(r"^\*\*(.*)\*\*$", r"\1", value).strip()
+    return value
+
+
+def _extract_final_choice_interaction(text):
+    """Promote a final-text A/B/C follow-up into a real Feishu choice card.
+
+    This is intentionally narrow.  The preferred path is still GA ask_user;
+    this only catches final answers that end with a question plus explicit
+    A/B/C choices, so regular reports with lettered lists remain plain text.
+    """
+    lines = str(text or "").splitlines()
+    end = len(lines)
+    while end > 0 and not lines[end - 1].strip():
+        end -= 1
+    if end <= 0:
+        return None
+
+    start = end
+    options = []
+    while start > 0:
+        line = lines[start - 1]
+        if not line.strip():
+            if options:
+                break
+            start -= 1
+            continue
+        match = _FINAL_CHOICE_LINE_RE.match(line)
+        if not match:
+            break
+        options.append((match.group(1).upper(), _clean_choice_line(match.group(2))))
+        start -= 1
+    options.reverse()
+    if len(options) < 2:
+        return None
+
+    letters = [letter for letter, _ in options]
+    expected = [chr(ord("A") + i) for i in range(len(letters))]
+    if letters != expected:
+        return None
+
+    question_idx = start - 1
+    while question_idx >= 0 and not lines[question_idx].strip():
+        question_idx -= 1
+    if question_idx < 0:
+        return None
+    question = _clean_choice_line(lines[question_idx])
+    if not _FINAL_CHOICE_QUESTION_RE.search(question):
+        return None
+
+    body_lines = lines[:question_idx]
+    while body_lines and not body_lines[-1].strip():
+        body_lines.pop()
+    candidates = [
+        {"label": letter, "value": desc, "description": desc}
+        for letter, desc in options
+        if desc
+    ]
+    if len(candidates) < 2:
+        return None
+    return "\n".join(body_lines).strip(), {
+        "question": question,
+        "candidates": candidates,
+        "_penglai_direct": True,
+    }
+
+
 def _patch(fs):
     if getattr(fs, "_PENGLAI_FEISHU_PATCHED", False):
         return
@@ -558,8 +691,7 @@ def _patch(fs):
     orig_run_agent = fs.FeishuApp.run_agent
     orig_handle_command = fs.FeishuApp.handle_command
 
-    def _finish_ask_card(card, raw, event, menu_id):
-        text = fs._display_text(raw)
+    def _finish_ask_card_text(card, text, event, menu_id):
         if text.startswith("⚠️ 模型输出被截断或为空"):
             text = ""
         elements = build_ask_user_elements(text, event, menu_id=menu_id, include_buttons=True)
@@ -569,6 +701,9 @@ def _patch(fs):
         ok = fs._patch_card(card.msg_id, rendered) if card.msg_id else False
         if not ok:
             fs.send_message(card.rid, render_ask_user_text(text, event), receive_id_type=card.rtype)
+
+    def _finish_ask_card(card, raw, event, menu_id):
+        _finish_ask_card_text(card, fs._display_text(raw), event, menu_id)
 
     def _final_display_text(raw):
         text = fs._display_text(raw)
@@ -698,7 +833,13 @@ def _patch(fs):
                 result["sent"] = True
             _cancel_ask(chat_id)
             _record_v5_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
-            _card_done(card, raw)
+            final_choice = _extract_final_choice_interaction(_final_display_text(raw))
+            if final_choice:
+                body_text, event = final_choice
+                _remember_ask(chat_id, event, menu_id=task_id, receive_id=rid, receive_id_type=receive_id_type)
+                _finish_ask_card_text(card, body_text, event, task_id)
+            else:
+                _card_done(card, raw)
             fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
 
         def _ask(raw, event):
@@ -779,8 +920,8 @@ def _patch(fs):
         if not fs.PUBLIC_ACCESS and open_id not in fs.ALLOWED_USERS:
             print(f"未授权用户: {open_id}")
             return
-        user_input, image_paths = fs._build_user_message(message)
         msg_type = _message_type(message)
+        user_input, image_paths = fs._build_user_message(message)
         receive_id = chat_id or open_id
         receive_id_type = "chat_id" if chat_id else "open_id"
         chat_key = receive_id

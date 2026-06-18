@@ -18,8 +18,10 @@ from penglai_feishu_app import (
     _PENDING_QUEUE,
     _enqueue_pending,
     _explicit_interaction_event,
+    _extract_final_choice_interaction,
     _install_display_cleaners,
     _install_text_message_fallback,
+    _looks_like_message_type_placeholder,
     _message_type,
     _pop_pending,
     _pop_choice,
@@ -141,6 +143,49 @@ def test_direct_free_text_reply_preserves_question_context_for_agent():
     assert "m-free" not in _ASK_BY_MENU
 
 
+def test_final_text_choice_prompt_can_be_promoted_to_card_event():
+    text = "\n".join([
+        "✅ 已完成",
+        "",
+        "这里是前面的完整结果。",
+        "",
+        "如果您想要一张赛程表图片存下来，要做哪种？",
+        "- A. 生成一张今天的赛程海报图（PNG），存在本地发给您",
+        "- B. 下载一张现成的官方海报/壁纸",
+        "- C. 文字赛程就够了，不用图",
+    ])
+
+    body, event = _extract_final_choice_interaction(text)
+
+    assert body == "✅ 已完成\n\n这里是前面的完整结果。"
+    assert event["question"] == "如果您想要一张赛程表图片存下来，要做哪种？"
+    assert event["candidates"][0] == {
+        "label": "A",
+        "value": "生成一张今天的赛程海报图（PNG），存在本地发给您",
+        "description": "生成一张今天的赛程海报图（PNG），存在本地发给您",
+    }
+    assert event["_penglai_direct"] is True
+
+
+def test_final_text_choice_prompt_ignores_non_question_lists():
+    text = "\n".join([
+        "赛事分组：",
+        "A. 第一组",
+        "B. 第二组",
+        "C. 第三组",
+    ])
+
+    assert _extract_final_choice_interaction(text) is None
+
+
+def test_normal_text_without_pending_choice_is_not_consumed():
+    _ASK_STATE.clear()
+    _ASK_BY_MENU.clear()
+
+    assert _pop_choice("chat1", "/new") is None
+    assert _pop_choice("chat1", "你好") is None
+
+
 def test_pending_queue_is_fifo_and_numbered():
     _PENDING_QUEUE.clear()
     assert _enqueue_pending({"text": "first"}) == 1
@@ -213,6 +258,47 @@ def test_text_message_fallback_wraps_empty_upstream_parse_for_all_commands():
 def test_message_type_normalizes_sdk_value_objects():
     message_type = types.SimpleNamespace(value="text")
     assert _message_type(types.SimpleNamespace(message_type=message_type)) == "text"
+    assert _message_type(types.SimpleNamespace(message_type="MessageType.TEXT")) == "text"
+
+
+def test_message_type_placeholder_detects_sdk_enum_strings():
+    message_type = types.SimpleNamespace(value="text")
+    message = types.SimpleNamespace(message_type=message_type)
+
+    assert _looks_like_message_type_placeholder("[MessageType.TEXT]", "text", message)
+    assert _looks_like_message_type_placeholder("[namespace(value='text')]", "text", message)
+    assert not _looks_like_message_type_placeholder("/new", "text", message)
+
+
+def test_text_message_fallback_overrides_nonempty_sdk_type_placeholder():
+    def upstream(message):
+        return f"[{message.message_type}]", []
+
+    fs = types.SimpleNamespace(_build_user_message=upstream)
+    assert _install_text_message_fallback(fs) is True
+
+    class MsgType:
+        value = "text"
+
+        def __str__(self):
+            return "MessageType.TEXT"
+
+    message = types.SimpleNamespace(message_type=MsgType(), content={"text": "/new"})
+    assert fs._build_user_message(message) == ("/new", [])
+
+
+def test_text_message_fallback_survives_upstream_parse_error():
+    def upstream(message):
+        raise TypeError("bad sdk shape")
+
+    fs = types.SimpleNamespace(_build_user_message=upstream)
+    assert _install_text_message_fallback(fs) is True
+
+    message = types.SimpleNamespace(
+        message_type=types.SimpleNamespace(value="text"),
+        content=types.SimpleNamespace(content={"text": "/status"}),
+    )
+    assert fs._build_user_message(message) == ("/status", [])
 
 
 def test_media_message_fallback_keeps_image_from_becoming_unsupported():
