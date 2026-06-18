@@ -23,6 +23,7 @@ import threading
 import time
 import subprocess
 import shutil
+import uuid
 
 # Local: cross-platform shortcut-label formatter (Win/Linux "Ctrl+B" vs mac "⌃B").
 # Imported early because _TIPS at module load time uses fmt_key().
@@ -1421,6 +1422,8 @@ FRONTENDS_DIR = os.path.dirname(os.path.abspath(__file__))
 if FRONTENDS_DIR not in sys.path:
     sys.path.insert(0, FRONTENDS_DIR)
 
+from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+
 _TASK_DIR_GLOB = os.path.join(FRONTENDS_DIR, '..', 'temp', '_tui_v2_*')
 
 
@@ -1987,6 +1990,7 @@ class AgentSession:
     agent_id: int
     name: str
     agent: Any
+    runtime_bridge: Any = None
     thread: Optional[threading.Thread] = None
     status: str = "idle"
     messages: list[ChatMessage] = field(default_factory=list)
@@ -3786,7 +3790,12 @@ class GenericAgentTUI(App[None]):
             agent._ga_project_mode_workspace_path = ""
         except Exception:
             pass
-        sess = AgentSession(agent_id=agent_id, name=name or f"agent-{agent_id}", agent=agent)
+        sess = AgentSession(
+            agent_id=agent_id,
+            name=name or f"agent-{agent_id}",
+            agent=agent,
+            runtime_bridge=ChannelRuntimeBridge(channel="tui"),
+        )
         try:
             from continue_cmd import acquire_birth_lock
             acquire_birth_lock(agent, agent_id)   # 原地复原:出生持锁,使占用检测对本会话可见
@@ -6079,7 +6088,18 @@ class GenericAgentTUI(App[None]):
         except Exception:
             pass
         try:
-            dq = sess.agent.put_task(text, source="user")
+            runtime_text = text
+            if sess.runtime_bridge is not None:
+                event, _session_ref = sess.runtime_bridge.event(
+                    event_id=f"tui_v2_{sess.agent_id}_{tid}_{uuid.uuid4().hex}",
+                    user_id=sess.runtime_bridge.default_user_id(),
+                    chat_id=f"tui-v2-{sess.agent_id}",
+                    chat_type="private",
+                    text=text,
+                    images=tuple(image_paths),
+                )
+                runtime_text = sess.runtime_bridge.prompt(event.text)
+            dq = sess.agent.put_task(runtime_text, source="user")
         except Exception as e:
             sess.status = "error"
             self._update_assistant(sess.agent_id, f"[ERROR] put_task: {e}", task_id=tid, refresh_chrome=True)

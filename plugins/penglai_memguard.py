@@ -31,8 +31,10 @@ import os, re, tempfile
 from plugins.penglai_redline import audit
 from agent_loop import StepOutcome
 from ga import GenericAgentHandler, script_dir
+from penglai_runtime.memory_governor import MemoryGovernor
 
 MEM_ROOT = os.path.realpath(os.path.join(script_dir, "memory"))
+_V5_MEMORY_GOVERNOR = MemoryGovernor()
 
 # 借鉴 Hermes _MEMORY_THREAT_PATTERNS（英文原版）+ 中文等价（蓬莱记忆以中文为主）
 THREAT_PATTERNS = [
@@ -59,6 +61,12 @@ INVISIBLE_CHARS = {"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff",
 def _scan(content):
     """返回命中原因；干净返回 None。"""
     if not content: return None
+    decision = _V5_MEMORY_GOVERNOR.classify(content, context={"target": "memory_write"})
+    if not decision.should_write and decision.reason in {
+        "runtime_or_tool_noise",
+        "contains_secret_shape",
+    }:
+        return f"V5记忆治理:{decision.reason}"
     for ch in INVISIBLE_CHARS:
         if ch in content:
             return f"隐形 unicode 字符 U+{ord(ch):04X}（疑似注入伪装）"

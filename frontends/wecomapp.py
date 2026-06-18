@@ -17,11 +17,11 @@ TurnHookFn = Callable[[TurnContext], None]
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agentmain import GeneraticAgent
-from chatapp_common import (AgentChatMixin, FILE_HINT, blocked_notice, build_done_text,
-                            clean_reply, ensure_single_instance, outbound_artifacts,
-                            public_access, redirect_log, require_runtime, split_text,
-                            strip_files)
+from chatapp_common import (AgentChatMixin, FILE_HINT,
+                            ensure_single_instance,
+                            public_access, redirect_log, require_runtime, split_text)
 from llmcore import mykeys
+from penglai_runtime.delivery import plan_delivery
 
 try:
     from wecom_aibot_sdk import WSClient, generate_req_id
@@ -137,16 +137,20 @@ class WeComApp(AgentChatMixin):
 
     async def send_done(self, chat_id, raw_text):
         """Send final result: text + extracted file attachments."""
-        files, blocked = outbound_artifacts(raw_text, base_dir=TEMP_DIR)
-        if not files:
-            return await self.send_text(chat_id, build_done_text(raw_text))
-        clean = clean_reply(strip_files(raw_text))
-        if clean and clean != "...":
-            await self.send_text(chat_id, clean)
-        for fp in files:
-            await self.send_media(chat_id, fp)
-        if blocked:
-            await self.send_text(chat_id, blocked_notice(blocked, sent_count=len(files)))
+        plan = plan_delivery(raw_text, base_dir=TEMP_DIR)
+        sent_count = 0
+        skipped_count = len(plan.allowed_paths) if plan.external_delivery.delivered else 0
+        if plan.body and plan.body != "...":
+            await self.send_text(chat_id, plan.body)
+        if plan.allowed_paths and not plan.external_delivery.delivered:
+            for fp in plan.allowed_paths:
+                await self.send_media(chat_id, fp)
+                sent_count += 1
+        notice = plan.blocked_notice(sent_count=sent_count + skipped_count)
+        if notice:
+            await self.send_text(chat_id, notice)
+        if not plan.body and not plan.allowed_paths and not plan.withheld:
+            await self.send_text(chat_id, "...")
 
     # ── agent execution (single-channel via turn hook) ──────────────
     async def run_agent(self, chat_id, text, **_):
@@ -345,6 +349,12 @@ if __name__ == "__main__":
     _tprint("  终端命令:  help | status | stop | exit")
 
     app = WeComApp(agent)
+    try:
+        from penglai_runtime.text_interaction import install_text_interaction_adapter
+
+        install_text_interaction_adapter(app)
+    except Exception as e:
+        _tprint(f"[WeCom] V5 runtime adapter skipped: {e}")
     threading.Thread(target=agent.run, daemon=True).start()
     threading.Thread(target=app._terminal_loop, daemon=True).start()
     asyncio.run(app.start())

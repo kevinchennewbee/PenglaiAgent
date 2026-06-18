@@ -11,6 +11,7 @@ from plugins.penglai_artifacts import (
     strip_file_markers,
     summarize_blocked,
 )
+from penglai_runtime.delivery import plan_delivery
 
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
@@ -225,12 +226,12 @@ def format_restore():
 
 
 def build_done_text(raw_text):
-    files, blocked = outbound_artifacts(raw_text)
-    body = strip_files(clean_reply(raw_text))
-    if files:
-        body = (body + "\n\n" if body else "") + "\n".join(f"生成文件: {p}" for p in files)
-    if blocked:
-        notice = blocked_notice(blocked)
+    plan = plan_delivery(raw_text, base_dir=TEMP_DIR)
+    body = plan.body
+    if plan.allowed and not plan.external_delivery.delivered:
+        body = (body + "\n\n" if body else "") + "\n".join(f"生成文件: {p}" for p in plan.allowed_paths)
+    if plan.withheld:
+        notice = plan.blocked_notice(sent_count=len(plan.allowed_paths) if plan.external_delivery.delivered else 0)
         body = (body + "\n\n" if body else "") + notice
     return body or "..."
 

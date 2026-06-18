@@ -148,4 +148,11 @@ if __name__ == "__main__":
     require_runtime(agent, "DingTalk", dingtalk_client_id=CLIENT_ID, dingtalk_client_secret=CLIENT_SECRET)
     redirect_log(__file__, "dingtalkapp.log", "DingTalk", ALLOWED)
     threading.Thread(target=agent.run, daemon=True).start()
-    asyncio.run(DingTalkApp().start())
+    app = DingTalkApp()
+    try:
+        from penglai_runtime.text_interaction import install_text_interaction_adapter
+
+        install_text_interaction_adapter(app)
+    except Exception as e:
+        print(f"[DingTalk] V5 runtime adapter skipped: {e}")
+    asyncio.run(app.start())

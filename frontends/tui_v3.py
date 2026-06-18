@@ -6,7 +6,7 @@ Run: `python -m frontends.tui_v3` or `python frontends/tui_v3.py`.
 """
 from __future__ import annotations
 
-import asyncio, atexit, json, locale, logging, os, queue, random, re, select, shutil, signal, subprocess
+import asyncio, atexit, json, locale, logging, os, queue, random, re, select, shutil, signal, subprocess, uuid
 import sys, tempfile, threading, time
 
 _IS_WINDOWS = os.name == 'nt'
@@ -22,6 +22,7 @@ for _p in (_proj_root, _front_dir):
         sys.path.insert(0, _p)
 
 from agentmain import GeneraticAgent
+from penglai_runtime.channel_runtime import ChannelRuntimeBridge
 from dataclasses import dataclass
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -1371,6 +1372,7 @@ class AgentBridge:
             self.agent.llmclient = self.agent.llmclients[llm_no % len(self.agent.llmclients)]
         self.agent.inc_out = True
         self.agent.verbose = True
+        self.runtime_bridge = ChannelRuntimeBridge(channel='tui')
         # 默认普通模式：设 None 让 project_mode 插件不读 pid 文件锚（与 v2 一致）。
         # /workspace 绑定时改为项目名 + 真实路径。
         self.agent._ga_project_mode_name = None
@@ -1480,7 +1482,15 @@ class AgentBridge:
             return dq
 
     def submit(self, query: str, images: list | None = None) -> queue.Queue:
-        return self.agent.put_task(query, source='user', images=images)
+        event, _session = self.runtime_bridge.event(
+            event_id=f"tui_{uuid.uuid4().hex}",
+            user_id=self.runtime_bridge.default_user_id(),
+            chat_id='tui',
+            chat_type='private',
+            text=query,
+            images=tuple(images or ()),
+        )
+        return self.agent.put_task(self.runtime_bridge.prompt(event.text), source='user', images=images)
 
     def abort(self):
         self.agent.abort()

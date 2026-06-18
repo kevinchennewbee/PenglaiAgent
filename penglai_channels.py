@@ -68,13 +68,14 @@ CHANNELS = {
 
 EXTRA = [k for k, v in CHANNELS.items() if not v["tested"]]  # 可 enable 的渠道
 
-# 这几个渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音消息接收（钉钉/QQ/企微）
+# 这些渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音/V5 主路径。
 _VOICE_CHANNELS = {"dingtalk", "qq", "wecom"}
+_WRAPPED_CHANNELS = _VOICE_CHANNELS | {"wechat"}
 
 
 def _launch_argv(ch):
     """启动 argv：有语音封装的渠道走 penglai_im_launch <ch>，其余直跑前端。"""
-    if ch in _VOICE_CHANNELS:
+    if ch in _WRAPPED_CHANNELS:
         return [venv_python(), os.path.join(ROOT, "penglai_im_launch.py"), ch]
     if ch == "feishu":
         return [venv_python(), os.path.join(ROOT, "penglai_feishu_app.py")]
@@ -83,7 +84,7 @@ def _launch_argv(ch):
 
 def _launch_cmd(ch):
     """systemd ExecStart 命令串。"""
-    if ch in _VOICE_CHANNELS:
+    if ch in _WRAPPED_CHANNELS:
         return f"python {ROOT}/penglai_im_launch.py {ch}"
     if ch == "feishu":
         return f"python {ROOT}/penglai_feishu_app.py"
@@ -94,7 +95,7 @@ def _proc_pattern(ch):
     """pgrep 匹配模式：语音封装渠道按 launcher 命令行匹配，否则按前端脚本。"""
     if ch == "feishu":
         return r"penglai_feishu_app[.]py|frontends/fsapp[.]py"
-    return f"penglai_im_launch.py {ch}" if ch in _VOICE_CHANNELS \
+    return f"penglai_im_launch.py {ch}" if ch in _WRAPPED_CHANNELS \
         else f"frontends/{CHANNELS[ch]['script']}"
 
 
@@ -357,8 +358,8 @@ def unit_install(ch):
         subprocess.run(["sudo", "systemctl", "enable", "--now", c["service"]], check=True)
         return True
     except subprocess.CalledProcessError:
-        print(f"{BAD} 服务安装失败（sudo 权限？），可手动前台运行: "
-              f".venv/bin/python {'penglai_feishu_app.py' if ch == 'feishu' else 'frontends/' + c['script']}")
+        manual = " ".join(_launch_argv(ch))
+        print(f"{BAD} 服务安装失败（sudo 权限？），可手动前台运行: {manual}")
         return False
 
 

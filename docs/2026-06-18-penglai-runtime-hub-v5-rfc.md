@@ -26,6 +26,7 @@ This branch introduces the first test surface for V5:
 - `penglai_runtime.queueing.SessionQueue`
 - `penglai_runtime.runner.AgentRunner`
 - `penglai_runtime.hub.PenglaiRuntimeHub`
+- `penglai_runtime.channel_runtime.ChannelRuntimeBridge`
 - `penglai_runtime.delivery.plan_delivery`
 - `penglai_runtime.delivery.DeliveryService`
 - `penglai_runtime.interaction.InteractionRequest`
@@ -44,18 +45,21 @@ can render it as a button card, while channels without stable card support use
 the same numbered/open-text fallback. The automated in-memory adapter is only a
 test double for contract verification; it is not a user-facing demo IM.
 
-The current wrapper integration is:
+The current real-entry integration is:
 
-- Feishu: native card buttons through `penglai_feishu_ask.py` and structured callback values.
-- WeChat: wrapper-owned text fallback in `penglai_im_launch.py`, preserving existing command handling.
-- DingTalk, QQ, and WeCom: wrapper-owned text fallback installed by `penglai_im_launch.py`.
-- Telegram: upstream already has its own ask_user menu path; V5 has not migrated it yet.
+- Feishu: native card buttons through `penglai_feishu_ask.py`, structured callback values, V5 shadow delivery planning, and final-text A/B/C prompt promotion into cards.
+- WeChat: `penglai_im_launch.py wechat` is the supported launch path; it records V5 event/session state, uses `InteractionRequest` text fallback, records memory/shadow decisions, and delivers generated artifacts through `DeliveryService`.
+- DingTalk, QQ, and WeCom: `install_text_interaction_adapter()` now delegates to `ChannelRuntimeBridge`, so the real `run_agent` path uses `InboundEvent`, `SessionRouter`, FIFO queueing, `InteractionRequest`, `MemoryGovernor`, and delivery shadow. These channels still use text fallback rather than native button cards.
+- Telegram: text, callback, photo, and document entries now create V5 runtime events and use the V5 interaction extraction/prompt contract while preserving Telegram's existing inline-menu UI.
+- Discord: the real `run_agent` path is patched through `ChannelRuntimeBridge`; ask_user choices render as Discord native buttons, and final artifacts use the V5 delivery plan.
+- Desktop bridge, TUI v2/v3, and Qt: local client submissions now create V5 runtime events and use the same owner-session/default prompt contract, so they are no longer disconnected future-client paths.
+- Launchers: `penglai_channels.py` and `launch.pyw` route Feishu to `penglai_feishu_app.py` and WeChat/DingTalk/QQ/WeCom to `penglai_im_launch.py`, avoiding direct startup of older bypass paths.
 
-When `PENGLAI_RUNTIME_HUB_SHADOW=1` is set, the Feishu wrapper records a
-privacy-conscious V5 delivery plan to `temp/penglai_runtime_shadow.jsonl` after
-a task completes. The record stores redacted text previews, hashed receive ids,
-artifact basenames/statuses, and counts. It never sends messages or files and
-does not change the legacy Feishu path.
+When `PENGLAI_RUNTIME_HUB_SHADOW=1` is set, V5-aware wrappers record a
+privacy-conscious delivery plan to `temp/penglai_runtime_shadow.jsonl` after a
+task completes. The record stores redacted text previews, hashed receive ids,
+artifact basenames/statuses, and counts. It never sends messages or files by
+itself; delivery remains adapter-owned.
 
 ## Current evidence and debt
 
@@ -94,19 +98,21 @@ The 0.2.20 branch also syncs two upstream-risk areas before adding the V5 test s
 - Output cleanup: `LLM Running`, tool leftovers, empty final states.
 - Memory governance boundaries and skill-trigger hygiene.
 
-## 0.2.20 minimal cut
+## 0.2.20 V5 test cut
 
-This branch deliberately does not replace `penglai_feishu_app.py` or `frontends/fsapp.py`.
-It only migrates Feishu's generated-file outlet onto the shared delivery
-service while keeping the Feishu WebSocket, upload API, card UI, and message
-loop in the existing adapter.
+This branch deliberately does not replace GA as the execution engine. It also
+keeps platform SDK loops, credentials, uploads, and reconnect behavior inside
+the existing adapters. The change is a Penglai-layer runtime replacement: real
+entry points now normalize inbound events, route sessions, queue busy work,
+plan interactions, apply memory hygiene, and plan delivery through shared V5
+contracts before and after calling GA.
 
-The safe 0.2.20 test cut is now:
+The safe 0.2.20 test cut now includes:
 
 1. Add Penglai-owned V5 contracts and in-memory adapter tests.
-2. Keep GA core and upstream frontend files unchanged; wrapper-layer adapters may opt into V5.
+2. Keep GA core unchanged; Penglai-owned wrappers and launchers are the V5 migration surface.
 3. Add `penglai v5` as a validation command for the test branch, not a new daily user workflow.
-4. Add Feishu shadow-mode delivery planning for observation only.
+4. Add privacy-preserving shadow-mode delivery planning for V5-aware channels.
 5. Move generated-file delivery through `DeliveryService` so duplicate API sends,
    missing files, sensitive suffix blocks, and user notices are shared behavior.
 6. Move Feishu `ask_user` and button choices onto `InteractionRequest` so user
@@ -116,18 +122,19 @@ The safe 0.2.20 test cut is now:
 8. Add `AgentRunner`, `PenglaiRuntimeHub`, and `MemoryGovernor` so session
    routing, queueing, output cleanup, delivery, and memory-write hygiene can be
    tested as one Penglai-owned contract surface.
-9. Prepare future migration of wrapper responsibilities into `OutputCleaner` and
-   `AgentRunner`.
+9. Bring Telegram and Discord onto V5 interaction/session/delivery contracts
+   while preserving their native UI affordances.
+10. Bring desktop bridge, TUI, and Qt submissions onto V5 event/session/prompt
+    contracts as the foundation for future multi-platform clients.
 
 ## What must not be claimed yet
 
-- Do not claim the V5 runtime has replaced every adapter.
-- Do not claim cross-IM continuity is complete across all supported platforms.
+- Do not claim GA core has been rewritten; GA remains the execution engine.
 - Do not claim every IM has native button rendering; text fallback is the common contract until adapters opt in.
-- Do not claim memory pollution is solved for all users.
+- Do not claim MemoryGovernor solves all memory pollution for all users; it is a Penglai boundary layer over existing memory writes.
 - Do not claim 0.2.20 is ready to replace `main`.
 
-0.2.20 is a human-test branch for validating whether the V5 direction is correct before it becomes the mainline architecture.
+0.2.20 is a test branch for validating the V5 Runtime Hub architecture before it becomes the mainline architecture.
 
 ## Verification gates
 
@@ -137,7 +144,9 @@ Minimum local gates before sharing this branch:
 - `python3 tests/test_artifacts.py`
 - `python3 tests/test_fileguard.py`
 - `python3 tests/test_feishu_ask_user.py`
+- `python3 tests/test_memguard.py`
 - `python3 tests/test_im_voice.py`
+- `python3 tests/test_wizard_i18n.py`
 - `python3 -m penglai_runtime.selfcheck --json`
 - `PENGLAI_RUNTIME_HUB_SHADOW=1 python3 -m penglai_runtime.selfcheck --json`
 - `git diff --check`

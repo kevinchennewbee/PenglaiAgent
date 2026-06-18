@@ -30,6 +30,10 @@ from btw_cmd import handle_frontend_command as handle_btw_frontend_command
 from review_cmd import handle as handle_review_command
 from llmcore import mykeys
 from plugins.penglai_artifacts import classify_file_markers
+from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+from penglai_runtime.interaction import extract_interaction_event, request_from_ask_user_event
+from penglai_runtime.memory_governor import MemoryGovernor
+from penglai_runtime.shadow import record_delivery_shadow
 
 agent = GeneraticAgent()
 agent.verbose = False
@@ -57,6 +61,8 @@ _LLM_MENU_PROMPT = "请选择要切换的 LLM："
 _ask_menu_events = Q.Queue()
 _ask_menu_store = {}
 _llm_menu_store = {}
+_memory_governor = MemoryGovernor()
+_runtime = ChannelRuntimeBridge(channel="telegram", file_hint=FILE_HINT)
 _MULTI_SELECT_RE = re.compile(r"\[?(?:多选|multi(?:[-_ ]?select)?|select all)\]?", re.IGNORECASE)
 _QUOTE_OPEN_TAG = "<_quote_>"
 _QUOTE_CLOSE_TAG = "</_quote_>"
@@ -266,34 +272,17 @@ def _is_not_modified_error(exc):
     return "not modified" in str(exc).lower()
 
 def _extract_ask_user_event(ctx):
-    exit_reason = (ctx or {}).get("exit_reason") or {}
-    if exit_reason.get("result") != "EXITED":
+    event = extract_interaction_event(ctx)
+    if not event:
         return None
-    payload = exit_reason.get("data")
-    if not isinstance(payload, dict):
-        return None
-    if payload.get("status") != "INTERRUPT" or payload.get("intent") != "HUMAN_INTERVENTION":
-        return None
-    data = payload.get("data")
-    if not isinstance(data, dict):
-        return None
-    raw_candidates = data.get("candidates") or []
-    if not isinstance(raw_candidates, (list, tuple)):
-        return None
-    candidates = []
-    for candidate in raw_candidates:
-        if candidate is None:
-            continue
-        text = str(candidate).strip()
-        if text:
-            candidates.append(text)
+    request = request_from_ask_user_event(event, request_id="telegram")
+    candidates = [option.display for option in request.options]
     if not candidates:
         return None
-    question = str(data.get("question") or "请选择下一步操作：").strip() or "请选择下一步操作："
     return {
-        "question": question,
+        "question": request.question,
         "candidates": candidates,
-        "multi": bool(_MULTI_SELECT_RE.search(question)),
+        "multi": bool(_MULTI_SELECT_RE.search(request.question)),
     }
 
 def _register_ask_user_hook():
@@ -358,7 +347,7 @@ def _parse_ask_callback_data(data):
     return _parse_menu_callback_data(data, _ASK_CALLBACK_PREFIX)
 
 def _build_text_prompt(text):
-    return f"{FILE_HINT}\n\n{text}"
+    return _runtime.prompt(text)
 
 def _normalize_ask_menu_event(stored):
     if isinstance(stored, dict):
@@ -843,7 +832,17 @@ async def _stream(dq, msg):
                     done_item = item
                     break
             if done_item is not None:
-                await stream.finalize(done_item.get("done", ""))
+                raw_done = done_item.get("done", "")
+                _memory_governor.classify(raw_done, context={"channel": "telegram"})
+                record_delivery_shadow(
+                    "telegram",
+                    raw_done,
+                    receive_id=str(getattr(getattr(msg, "chat", None), "id", "") or ""),
+                    receive_id_type=str(getattr(getattr(msg, "chat", None), "type", "") or ""),
+                    base_dir=_TEMP_DIR,
+                    production_text=raw_done,
+                )
+                await stream.finalize(raw_done)
                 event = _drain_latest_ask_user_event()
                 if event:
                     await _send_ask_user_menu(msg, event)
@@ -911,6 +910,14 @@ async def handle_msg(update, ctx):
     uid = update.effective_user.id
     if ALLOWED and uid not in ALLOWED:
         return await update.message.reply_text("no")
+    chat = update.effective_chat or update.message.chat
+    _runtime.event(
+        event_id=getattr(update.message, "message_id", None),
+        user_id=str(uid),
+        chat_id=str(getattr(chat, "id", uid)),
+        chat_type="group" if getattr(chat, "type", "") != ChatType.PRIVATE else "private",
+        text=update.message.text,
+    )
     prompt = _build_text_prompt(update.message.text)
     dq = agent.put_task(prompt, source="telegram")
     task = asyncio.create_task(_stream(dq, update.message))
@@ -966,6 +973,12 @@ async def handle_ask_callback(update, ctx):
         await _edit_ask_user_result(query, event, selected=selected)
         if query.message is None:
             return
+        _runtime.event(
+            event_id=getattr(query.message, "message_id", None),
+            user_id=str(uid),
+            chat_id=str(getattr(getattr(query.message, "chat", None), "id", uid)),
+            text=selected,
+        )
         dq = agent.put_task(_build_text_prompt(selected), source="telegram")
         task = asyncio.create_task(_stream(dq, query.message))
         ctx.user_data['stream_task'] = task
@@ -986,6 +999,12 @@ async def handle_ask_callback(update, ctx):
     await _edit_ask_user_result(query, event, selected=selected)
     if query.message is None:
         return
+    _runtime.event(
+        event_id=getattr(query.message, "message_id", None),
+        user_id=str(uid),
+        chat_id=str(getattr(getattr(query.message, "chat", None), "id", uid)),
+        text=selected,
+    )
     dq = agent.put_task(_build_text_prompt(selected), source="telegram")
     task = asyncio.create_task(_stream(dq, query.message))
     ctx.user_data['stream_task'] = task
@@ -1070,8 +1089,17 @@ async def handle_photo(update, ctx):
     else: return
     await file.download_to_drive(os.path.join(_TEMP_DIR, fpath))
     caption = update.message.caption
+    _runtime.event(
+        event_id=getattr(update.message, "message_id", None),
+        user_id=str(uid),
+        chat_id=str(getattr(update.effective_chat or update.message.chat, "id", uid)),
+        chat_type="group" if getattr(update.effective_chat or update.message.chat, "type", "") != ChatType.PRIVATE else "private",
+        text=caption or "",
+        files=(os.path.join(_TEMP_DIR, fpath),),
+        images=(os.path.join(_TEMP_DIR, fpath),) if kind == "图片" else (),
+    )
     prompt = f"[TIPS] 收到{kind}temp/{fpath}\n{caption}" if caption else f"[TIPS] 收到{kind}temp/{fpath}，请等待下一步指令"
-    dq = agent.put_task(prompt, source="telegram")
+    dq = agent.put_task(_build_text_prompt(prompt), source="telegram")
     task = asyncio.create_task(_stream(dq, update.message))
     ctx.user_data['stream_task'] = task
 

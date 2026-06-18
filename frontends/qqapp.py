@@ -127,4 +127,11 @@ if __name__ == "__main__":
     require_runtime(agent, "QQ", qq_app_id=APP_ID, qq_app_secret=APP_SECRET)
     redirect_log(__file__, "qqapp.log", "QQ", ALLOWED)
     threading.Thread(target=agent.run, daemon=True).start()
-    asyncio.run(QQApp().start())
+    app = QQApp()
+    try:
+        from penglai_runtime.text_interaction import install_text_interaction_adapter
+
+        install_text_interaction_adapter(app)
+    except Exception as e:
+        print(f"[QQ] V5 runtime adapter skipped: {e}")
+    asyncio.run(app.start())

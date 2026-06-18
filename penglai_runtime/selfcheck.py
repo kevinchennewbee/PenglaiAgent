@@ -149,6 +149,7 @@ def status(*, include_checks=True):
             "SessionQueue",
             "AgentRunner",
             "PenglaiRuntimeHub",
+            "ChannelRuntimeBridge",
             "DeliveryService",
             "InteractionRequest",
             "TextInteractionAdapter",

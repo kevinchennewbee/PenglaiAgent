@@ -42,6 +42,18 @@ def test_new_poisoned_memory_is_quarantined():
     assert not os.path.exists(evil), "新建且命中威胁的记忆文件必须被隔离删除"
 
 
+def test_new_runtime_noise_memory_is_quarantined_by_v5_governor():
+    td = tempfile.mkdtemp()
+    H, h = _setup(td)
+    noisy = os.path.join(td, "memory", "noise.md")
+    _run_code(
+        H,
+        h,
+        "open('memory/noise.md','w').write('LLM Running (Turn 1) ... <summary>调用工具 code_run</summary>')",
+    )
+    assert not os.path.exists(noisy), "V5 MemoryGovernor 认定的运行噪声不能进入长期记忆"
+
+
 def test_new_clean_memory_is_allowed():
     td = tempfile.mkdtemp()
     H, h = _setup(td)

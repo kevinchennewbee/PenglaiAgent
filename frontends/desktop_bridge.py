@@ -51,6 +51,13 @@ def find_default_ga_root() -> Path:
 
 
 DEFAULT_GA_ROOT = find_default_ga_root()
+if str(DEFAULT_GA_ROOT) not in sys.path:
+    sys.path.insert(0, str(DEFAULT_GA_ROOT))
+
+try:
+    from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+except Exception:
+    ChannelRuntimeBridge = None
 
 for _s in (sys.stdout, sys.stderr):
     with contextlib.suppress(Exception):
@@ -85,6 +92,7 @@ class AgentManager:
         self.config: Dict[str, Any] = {}
         self.sessions: Dict[str, Session] = {}
         self.active_session_id: Optional[str] = None
+        self.runtime_bridge = ChannelRuntimeBridge(channel="desktop") if ChannelRuntimeBridge else None
 
     @property
     def mykey_path(self) -> str:
@@ -159,6 +167,11 @@ class AgentManager:
         emit_session_state(sess, "created")
         return sess
 
+    def runtime_user_id(self) -> str:
+        if self.runtime_bridge is not None:
+            return self.runtime_bridge.default_user_id()
+        return "desktop"
+
     def get_session(self, sid: str) -> Session:
         with self.lock:
             sess = self.sessions.get(sid)
@@ -190,12 +203,24 @@ class AgentManager:
             extra = {}
             if image_ids:
                 extra["image_ids"] = image_ids
+            runtime_prompt = prompt
+            if self.runtime_bridge is not None:
+                event, session_ref = self.runtime_bridge.event(
+                    event_id=f"desktop_{sid}_{uuid.uuid4().hex}",
+                    user_id=self.runtime_user_id(),
+                    chat_id=sid,
+                    chat_type="private",
+                    text=prompt,
+                    metadata={"cwd": sess.cwd, "image_ids": image_ids},
+                )
+                runtime_prompt = self.runtime_bridge.prompt(event.text)
+                extra["runtime_session_id"] = session_ref.session_id
             user_msg = self.add_message(sess, "user", prompt, **extra)
             sess.status = "running"
             sess.cancel_requested = False
             sess.last_error = ""
             sess.partial = {"id": sess.msg_seq + 1, "role": "assistant", "content": "", "ts": time.time(), "partial": True}
-            t = threading.Thread(target=self.run_agent_turn, args=(sess, prompt, None), daemon=True, name=f"Turn-{sid}")
+            t = threading.Thread(target=self.run_agent_turn, args=(sess, runtime_prompt, None), daemon=True, name=f"Turn-{sid}")
             sess.thread = t
             t.start()
             seq = sess.msg_seq
@@ -257,6 +282,14 @@ class AgentManager:
                 # Strip trailing [Info] Final response to user. marker
                 import re as _re
                 full = _re.sub(r'\n*`{5}\n*\[Info\] Final response to user\.\n*`{5}\s*$', '', full)
+                if self.runtime_bridge is not None:
+                    self.runtime_bridge.record_memory(full, context={"channel": "desktop", "session_id": sess.id})
+                    self.runtime_bridge.record_shadow(
+                        full,
+                        receive_id=sess.id,
+                        receive_id_type="desktop_session",
+                        production_text=full,
+                    )
                 self.add_message(sess, "assistant", full)
                 sess.status = "idle"
                 sess.last_error = ""

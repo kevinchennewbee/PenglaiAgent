@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _harness import run_tests
 
 from penglai_runtime.contracts import InboundEvent
+from penglai_runtime.channel_runtime import ChannelRuntimeBridge, install_channel_runtime_adapter
 from penglai_runtime.delivery import DeliveryService, plan_delivery
 from penglai_runtime.hub import PenglaiRuntimeHub
 from penglai_runtime.in_memory_im import InMemoryIMAdapter
@@ -181,6 +182,180 @@ def test_text_interaction_adapter_round_trips_choice_into_agent():
         await app.run_agent("chat-1", "2", msg_id="m2")
         assert app.agent.prompts[-1][0].endswith("\n\nsecond")
         assert app.sent[-1][1] == "final:DONE"
+
+    asyncio.run(scenario())
+
+
+def test_channel_runtime_adapter_records_session_memory_shadow_and_interaction():
+    class Resp:
+        content = "raw"
+
+    class FakeAgent:
+        def __init__(self):
+            self._turn_end_hooks = {}
+            self.is_running = False
+            self.prompts = []
+
+        def put_task(self, prompt, source="chat"):
+            self.prompts.append((prompt, source))
+            q = Q.Queue()
+            if prompt.endswith("\n\nask"):
+                ctx = {
+                    "exit_reason": {
+                        "result": "EXITED",
+                        "data": {
+                            "status": "INTERRUPT",
+                            "intent": "HUMAN_INTERVENTION",
+                            "data": {"question": "选一个", "candidates": ["A", "B"]},
+                        },
+                    },
+                    "response": Resp(),
+                }
+                for hook in list(self._turn_end_hooks.values()):
+                    hook(ctx)
+            else:
+                q.put({"done": "完成"})
+            return q
+
+    class FakeApp:
+        label = "Fake"
+        source = "fake"
+        ping_interval = 999
+
+        def __init__(self):
+            self.agent = FakeAgent()
+            self.user_tasks = {}
+            self.sent = []
+
+        async def send_text(self, chat_id, content, **ctx):
+            self.sent.append(("text", chat_id, content, ctx))
+
+        async def send_done(self, chat_id, raw_text, **ctx):
+            self.sent.append(("done", chat_id, raw_text, ctx))
+
+    async def scenario():
+        app = FakeApp()
+        assert install_channel_runtime_adapter(app, channel="fake", owner_user_ids={"owner"}) is True
+        await app.run_agent("owner", "ask", msg_id="m1")
+        assert "选一个" in app.sent[-1][2]
+        assert app._penglai_runtime_bridge.last_sessions["owner"].session_id == "owner:default"
+        await app.run_agent("owner", "2", msg_id="m2")
+        assert app.agent.prompts[-1] == (app._penglai_runtime_bridge.prompt("B"), "fake")
+        assert app.sent[-1] == ("done", "owner", "完成", {"msg_id": "m2"})
+        assert app._penglai_runtime_bridge.memory_decisions
+
+    asyncio.run(scenario())
+
+
+def test_channel_runtime_bridge_shares_owner_session_across_entries():
+    bridge = ChannelRuntimeBridge(channel="desktop", owner_user_ids={"owner"})
+    _event, first = bridge.event(user_id="owner", chat_id="owner", text="hi")
+    bridge.channel = "voice"
+    _event, second = bridge.event(user_id="owner", chat_id="owner", text="hi by voice", voice=("v.wav",))
+
+    assert first.session_id == "owner:default"
+    assert second.session_id == "owner:default"
+
+
+def test_local_runtime_bridge_defaults_to_owner_user_for_client_continuity():
+    bridge = ChannelRuntimeBridge(channel="desktop", owner_user_ids={"owner-b", "owner-a"})
+    event, session = bridge.event(user_id=bridge.default_user_id(), chat_id="desktop", text="hi")
+
+    assert event.user_id == "owner-a"
+    assert session.session_id == "owner:default"
+
+
+def test_channel_runtime_adapter_queues_busy_session_messages():
+    class FakeAgent:
+        is_running = True
+
+        def __init__(self):
+            self._turn_end_hooks = {}
+
+        def put_task(self, prompt, source="chat"):
+            return Q.Queue()
+
+    class FakeApp:
+        source = "fake"
+        ping_interval = 999
+
+        def __init__(self):
+            self.agent = FakeAgent()
+            self.user_tasks = {"owner:default": {"running": True}}
+            self.sent = []
+
+        async def send_text(self, chat_id, content, **ctx):
+            self.sent.append((chat_id, content))
+
+        async def send_done(self, chat_id, raw_text, **ctx):
+            self.sent.append((chat_id, raw_text))
+
+        async def run_agent(self, chat_id, text, **ctx):
+            raise AssertionError("busy session should queue, not run immediately")
+
+    async def scenario():
+        app = FakeApp()
+        assert install_channel_runtime_adapter(app, channel="fake", owner_user_ids={"owner"}) is True
+        await app.run_agent("owner", "second")
+        assert app._penglai_runtime_bridge.pending_messages["owner:default"][0][1] == "second"
+        assert "已收到" in app.sent[-1][1]
+
+    asyncio.run(scenario())
+
+
+def test_launch_paths_do_not_bypass_v5_wrappers():
+    import penglai_channels
+
+    for channel in ("wechat", "dingtalk", "qq", "wecom"):
+        argv = penglai_channels._launch_argv(channel)
+        assert os.path.basename(argv[1]) == "penglai_im_launch.py"
+        assert argv[-1] == channel
+        assert penglai_channels._proc_pattern(channel) == f"penglai_im_launch.py {channel}"
+
+    assert os.path.basename(penglai_channels._launch_argv("feishu")[1]) == "penglai_feishu_app.py"
+
+    launch_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "launch.pyw")
+    with open(launch_path, encoding="utf-8") as f:
+        launch_text = f.read()
+    assert "wechatapp.py" not in launch_text
+    assert "fsapp.py" not in launch_text
+    assert launch_text.count("penglai_im_launch.py") >= 4
+    assert "penglai_feishu_app.py" in launch_text
+
+
+def test_channel_runtime_adapter_filters_context_for_legacy_send_signatures():
+    class FakeAgent:
+        is_running = False
+
+        def __init__(self):
+            self._turn_end_hooks = {}
+
+        def put_task(self, prompt, source="chat"):
+            q = Q.Queue()
+            q.put({"done": "完成"})
+            return q
+
+    class FakeApp:
+        source = "fake"
+        ping_interval = 999
+
+        def __init__(self):
+            self.agent = FakeAgent()
+            self.user_tasks = {}
+            self.sent = []
+
+        async def send_text(self, chat_id, content):
+            self.sent.append(("text", chat_id, content))
+
+        async def send_done(self, chat_id, raw_text):
+            self.sent.append(("done", chat_id, raw_text))
+
+    async def scenario():
+        app = FakeApp()
+        assert install_channel_runtime_adapter(app, channel="fake", owner_user_ids={"owner"}) is True
+        await app.run_agent("owner", "hello", msg_id="m1", is_group=False)
+        assert app.sent[0] == ("text", "owner", "思考中...")
+        assert app.sent[-1] == ("done", "owner", "完成")
 
     asyncio.run(scenario())
 

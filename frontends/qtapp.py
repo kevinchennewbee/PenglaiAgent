@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-import math, os, sys, json, glob, re, base64, time, threading
+import math, os, sys, json, glob, re, base64, time, threading, uuid
 import queue as _queue
 from datetime import datetime
 from typing import Optional
@@ -30,6 +30,7 @@ from PySide6.QtGui import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from agentmain import GeneraticAgent
 from chatapp_common import FILE_HINT, HELP_TEXT, clean_reply, build_done_text, format_restore
+from penglai_runtime.channel_runtime import ChannelRuntimeBridge
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1042,6 +1043,7 @@ class ChatPanel(QWidget):
     def __init__(self, agent):
         super().__init__()
         self.agent = agent
+        self._runtime_bridge = ChannelRuntimeBridge(channel="qt")
 
         # session state
         self._messages: list[dict] = []
@@ -2025,7 +2027,15 @@ class ChatPanel(QWidget):
         self._set_stop_mode()
         self._streaming_badge.show()
 
-        self._display_queue = self.agent.put_task(f"{FILE_HINT}\n\n{full_prompt}", source="user")
+        event, _session_ref = self._runtime_bridge.event(
+            event_id=f"qt_{self._session['id']}_{uuid.uuid4().hex}",
+            user_id=self._runtime_bridge.default_user_id(),
+            chat_id=self._session["id"],
+            chat_type="private",
+            text=full_prompt,
+            files=tuple(item.get("raw") for item in files if item.get("raw")),
+        )
+        self._display_queue = self.agent.put_task(self._runtime_bridge.prompt(event.text), source="user")
         self._poll_timer.start(40)
 
     def _handle_command(self, cmd: str):

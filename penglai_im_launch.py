@@ -248,8 +248,9 @@ def launch_wechat():
     1=单例冲突/无token不可交互，2=AuthExpired 需重扫码）。"""
     import copy, json, queue, re, time, socket, threading, uuid
     import frontends.wechatapp as wx
+    from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+    from penglai_runtime.delivery import DeliveryService
     from penglai_runtime.interaction import (
-        INTERACTION_PROMPT_HINT,
         interaction_request_from_turn,
         render_interaction_text,
         resolve_interaction_choice,
@@ -368,15 +369,21 @@ def launch_wechat():
         return False
 
     _pending_interactions = {}
+    _runtime = ChannelRuntimeBridge(channel="wechat", file_hint="If you need to show files to user, use [FILE:filepath] in your response.")
 
     def _compose_wechat_prompt(text):
-        return (
-            "If you need to show files to user, use [FILE:filepath] in your response.\n"
-            f"{INTERACTION_PROMPT_HINT}\n\n{text}"
-        )
+        return _runtime.prompt(text)
 
     def _run_wechat_agent(bot, uid, ctx, text, media_paths):
-        prompt = text if text.startswith("/") else _compose_wechat_prompt(text)
+        runtime_event, session = _runtime.event(
+            event_id=f"wechat_{uid}_{uuid.uuid4().hex}",
+            user_id=uid,
+            chat_id=uid,
+            text=text,
+            images=tuple(media_paths or ()),
+            files=tuple(media_paths or ()),
+        )
+        prompt = text if text.startswith("/") else _compose_wechat_prompt(runtime_event.text)
         hook_key = f"penglai_wx_{uid}_{uuid.uuid4().hex}"
         result = {"raw": None, "sent": False, "request": None}
 
@@ -470,6 +477,15 @@ def launch_wechat():
             return
 
         raw = result["raw"] if result["raw"] is not None else (item.get("done", "") if isinstance(item, dict) else "")
+        _runtime.record_memory(raw, context={"channel": "wechat", "session_id": session.session_id})
+        _runtime.record_shadow(
+            raw,
+            receive_id=uid,
+            receive_id_type="wechat_user",
+            base_dir=wx._TEMP_DIR,
+            exclude_paths=media_paths,
+            production_text=raw,
+        )
         outputs = item.get("outputs", []) if isinstance(item, dict) else []
         aborted = wx._task_aborted.pop(uid, False)
         tag = "[已停止]" if aborted else "[任务已完成]"
@@ -477,21 +493,23 @@ def launch_wechat():
         if rest:
             _wx_send(rest[-3000:])
 
-        artifacts = wx.classify_file_markers(raw, base_dir=wx._TEMP_DIR, exclude_paths=media_paths)
-        files = [a.realpath for a in artifacts if a.status == "allowed"]
-        blocked = [a for a in artifacts if a.status in ("blocked", "missing")]
-        for fpath in files:
+        def _send_file(fpath):
             try:
                 kind = wx.artifact_kind(fpath)
                 sender = bot.send_video if kind == "video" else bot.send_image if kind == "image" else bot.send_file
                 sender(uid, fpath, context_token=ctx)
                 print(f"[WX] sent media: {fpath}", file=sys.__stdout__)
+                return True
             except Exception as e:
                 print(f"[WX] send media err: {e}", file=sys.__stdout__)
-        if blocked:
-            reasons, examples = wx.summarize_blocked(blocked)
-            sent = f"已发送 {len(files)} 个安全文件；" if files else ""
-            _wx_send(f"⛔ 蓬莱安全策略：{sent}{len(blocked)} 个文件未外发（{reasons}）。\n{examples}")
+                return False
+
+        DeliveryService(send_text=_wx_send, send_file=_send_file).deliver(
+            raw,
+            base_dir=wx._TEMP_DIR,
+            exclude_paths=media_paths,
+            send_body=False,
+        )
 
     def on_message(bot, msg):
         try:

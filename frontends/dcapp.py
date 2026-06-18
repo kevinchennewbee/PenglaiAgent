@@ -9,13 +9,16 @@ from collections import OrderedDict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agentmain import GeneraticAgent
 from chatapp_common import (
-    AgentChatMixin, blocked_notice, build_done_text, ensure_single_instance,
-    outbound_artifacts, public_access, redirect_log, require_runtime, split_text,
+    AgentChatMixin, ensure_single_instance,
+    public_access, redirect_log, require_runtime, split_text,
     strip_files, clean_reply,
     HELP_TEXT, FILE_HINT, format_restore,
     _handle_continue_frontend, _reset_conversation,
 )
 from llmcore import mykeys
+from penglai_runtime.channel_runtime import install_channel_runtime_adapter
+from penglai_runtime.delivery import plan_delivery
+from penglai_runtime.interaction import render_interaction_text
 
 try:
     import discord
@@ -35,6 +38,49 @@ ACTIVE_TTL_SECONDS = 30 * 24 * 3600
 EXIT_CHANNEL_TEXTS = {"退出该频道", "退出此频道", "退出频道"}
 EXIT_THREAD_TEXTS = {"退出该子区", "退出此子区", "退出子区"}
 os.makedirs(MEDIA_DIR, exist_ok=True)
+
+
+async def _render_discord_interaction(app, chat_id, request, **ctx):
+    channel = app._channel_cache.get(chat_id)
+    if channel is None:
+        try:
+            if chat_id.startswith("dm:"):
+                user = await app.client.fetch_user(int(chat_id[3:]))
+                channel = await user.create_dm()
+            else:
+                channel = await app.client.fetch_channel(int(chat_id[3:]))
+            app._channel_cache[chat_id] = channel
+        except Exception as e:
+            print(f"[Discord] cannot resolve channel for interaction {chat_id}: {e}")
+            return False
+    try:
+        view = discord.ui.View(timeout=3600)
+        for idx, option in enumerate(request.options[:8]):
+            label = option.display
+            if len(label) > 80:
+                label = label[:77] + "..."
+            button = discord.ui.Button(
+                label=label,
+                style=discord.ButtonStyle.primary if idx == 0 else discord.ButtonStyle.secondary,
+                custom_id=f"penglai_v5_choice:{request.request_id}:{idx}",
+            )
+
+            async def _callback(interaction, selected=option.value or option.label):
+                try:
+                    await interaction.response.send_message(f"已选择：{selected}", ephemeral=True)
+                except Exception:
+                    pass
+                await app.run_agent(chat_id, selected, **ctx)
+
+            button.callback = _callback
+            view.add_item(button)
+        if not request.options:
+            return False
+        await channel.send(render_interaction_text(request), view=view)
+        return True
+    except Exception as e:
+        print(f"[Discord] interaction button render failed: {e}")
+        return False
 
 
 def _extract_discord_progress(text):
@@ -92,6 +138,15 @@ class DiscordApp(AgentChatMixin):
         @self.client.event
         async def on_message(message):
             await self._handle_message(message)
+        try:
+            install_channel_runtime_adapter(
+                self,
+                channel="discord",
+                get_agent=lambda app, chat_id: app._get_agent(chat_id),
+                render_interaction=_render_discord_interaction,
+            )
+        except Exception as e:
+            print(f"[Discord] V5 runtime adapter skipped: {e}")
 
     def _chat_id(self, message):
         """Return a string chat_id: 'dm:<user_id>' or 'ch:<channel_id>'."""
@@ -192,8 +247,7 @@ class DiscordApp(AgentChatMixin):
                 print(f"[Discord] failed to save attachment {att.filename}: {e}")
         return paths
 
-    async def send_text(self, chat_id, content, **ctx):
-        """Send text (and optionally files) to a chat_id."""
+    async def _resolve_channel(self, chat_id):
         channel = self._channel_cache.get(chat_id)
         if channel is None:
             try:
@@ -207,7 +261,14 @@ class DiscordApp(AgentChatMixin):
                     self._channel_cache.popitem(last=False)
             except Exception as e:
                 print(f"[Discord] cannot resolve channel for {chat_id}: {e}")
-                return
+                return None
+        return channel
+
+    async def send_text(self, chat_id, content, **ctx):
+        """Send text (and optionally files) to a chat_id."""
+        channel = await self._resolve_channel(chat_id)
+        if channel is None:
+            return
         for part in split_text(content, self.split_limit):
             try:
                 await channel.send(part)
@@ -216,27 +277,29 @@ class DiscordApp(AgentChatMixin):
 
     async def send_done(self, chat_id, raw_text, **ctx):
         """Send final reply: text parts + file attachments."""
-        files, blocked = outbound_artifacts(raw_text, base_dir=TEMP_DIR)
-        body = _display_done_text(raw_text)
+        plan = plan_delivery(raw_text, base_dir=TEMP_DIR)
+        sent_count = 0
+        skipped_count = len(plan.allowed_paths) if plan.external_delivery.delivered else 0
 
-        # Send text (send_text handles splitting internally)
-        if body and body != "...":
-            await self.send_text(chat_id, body, **ctx)
+        if plan.body and plan.body != "...":
+            await self.send_text(chat_id, plan.body, **ctx)
 
-        # Send files as Discord attachments
-        if files:
-            channel = self._channel_cache.get(chat_id)
+        if plan.allowed_paths and not plan.external_delivery.delivered:
+            channel = await self._resolve_channel(chat_id)
             if channel:
-                for fpath in files:
+                for fpath in plan.allowed_paths:
                     try:
                         await channel.send(file=discord.File(fpath))
+                        sent_count += 1
                     except Exception as e:
                         print(f"[Discord] failed to send file {fpath}: {e}")
                         await self.send_text(chat_id, f"⚠️ 文件发送失败: {os.path.basename(fpath)}", **ctx)
-        if blocked:
-            await self.send_text(chat_id, blocked_notice(blocked, sent_count=len(files)), **ctx)
 
-        if not body and not files and not blocked:
+        notice = plan.blocked_notice(sent_count=sent_count + skipped_count)
+        if notice:
+            await self.send_text(chat_id, notice, **ctx)
+
+        if not plan.body and not plan.allowed_paths and not plan.withheld:
             await self.send_text(chat_id, "...", **ctx)
 
     async def handle_command(self, chat_id, cmd, **ctx):
