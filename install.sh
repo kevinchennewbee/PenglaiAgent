@@ -100,7 +100,9 @@ if [ -z "$PY" ]; then
     command -v uv >/dev/null || PATH="$HOME/.local/bin:$PATH"
     command -v uv >/dev/null || die "uv 安装失败,请手动安装 Python 3.10+ 后重试"
     [ -n "$MIRROR" ] && export UV_PYTHON_INSTALL_MIRROR="${PROXY}https://github.com/astral-sh/python-build-standalone/releases/download"
-    uv venv .venv --python 3.11 --quiet
+    if [ ! -x .venv/bin/python ]; then
+        uv venv .venv --python 3.11 --quiet
+    fi
     say "  📦 正在安装依赖..."
     if [ -n "$MIRROR" ]; then
         uv pip install --python .venv/bin/python --quiet \
@@ -136,5 +138,8 @@ say ""
 # curl|sh 模式下 stdin 是脚本管道,向导的交互必须改接终端(/dev/tty)
 if [ ! -t 0 ] && (: </dev/tty) 2>/dev/null; then
     exec "$PY" penglai setup </dev/tty
+fi
+if [ ! -t 0 ]; then
+    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/main/install.sh && sh install.sh"
 fi
 exec "$PY" penglai setup
