@@ -600,7 +600,10 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.22",d:"2026-06-21",h:"latest",zh:"安装幂等热修",en:"Install-idempotency hotfix",t:true,
+ {v:"v0.2.23",d:"2026-06-21",h:"latest",zh:"非交互安装边界热修",en:"Non-interactive install-boundary hotfix",t:true,
+  liZh:["当安装输出被重定向到日志、CI 或远程自动化时，不再误入配置向导","非交互环境会明确提示回到终端运行安装，避免 API Key 提示反复读取 EOF","版本身份同步到 0.2.23；0.2.22 保留为安装幂等热修"],
+  liEn:["Installer output redirected to logs, CI, or remote automation no longer falls into the setup wizard","Non-interactive environments now clearly ask the user to rerun setup in a terminal instead of repeatedly reading EOF at API-key prompts","Version identity is now 0.2.23; 0.2.22 remains the install-idempotency hotfix"]},
+ {v:"v0.2.22",d:"2026-06-21",h:"install",zh:"安装幂等热修",en:"Install-idempotency hotfix",t:true,
   liZh:["一键安装在首次下载 Python 或依赖被中断后可以直接重跑，不会因为 .venv 已存在而失败","非交互 shell 会给出“下载后运行”的明确提示，不再让配置向导读 EOF","版本身份同步到 0.2.22；0.2.21 保留为安装网络回退热修"],
   liEn:["One-line install can be rerun after the first Python or dependency download is interrupted, without failing on an existing .venv","Non-interactive shells now receive a clear download-then-run prompt instead of sending EOF into the setup wizard","Version identity is now 0.2.22; 0.2.21 remains the install-network fallback hotfix"]},
  {v:"v0.2.21",d:"2026-06-21",h:"install",zh:"安装网络热修",en:"Install-network hotfix",t:true,
