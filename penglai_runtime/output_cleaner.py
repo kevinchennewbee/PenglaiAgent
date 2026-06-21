@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""User-facing output cleanup for Penglai Runtime Hub V5."""
+"""User-facing output cleanup for the Penglai runtime layer."""
 
 import re
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Small data contracts for the Penglai Runtime Hub V5 test build."""
+"""Small data contracts for the Penglai runtime layer."""
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Tuple

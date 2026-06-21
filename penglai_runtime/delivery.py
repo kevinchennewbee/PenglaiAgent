@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Outbound artifact planning and execution for the V5 runtime test surface."""
+"""Outbound artifact planning and execution for the Penglai runtime surface."""
 
 from dataclasses import dataclass, field
 import re

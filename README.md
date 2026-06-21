@@ -4,274 +4,185 @@
 
 # 蓬莱 · Penglai
 
-### 住在你飞书和微信里的中文 AI 管家
+### 住在飞书、微信和终端里的自托管 AI 管家
 
 **八仙过海，各显神通**
 
 [![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Channels](https://img.shields.io/badge/%E6%B8%A0%E9%81%93-%E9%A3%9E%E4%B9%A6%20%C2%B7%20%E5%BE%AE%E4%BF%A1-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
-[![Voice](https://img.shields.io/badge/%E8%AF%AD%E9%9F%B3-%E6%83%85%E7%BB%AA%E6%84%9F%E7%9F%A5-f59e0b?style=flat-square)](#)
+[![Channels](https://img.shields.io/badge/%E6%B8%A0%E9%81%93-%E9%A3%9E%E4%B9%A6%20%C2%B7%20%E5%BE%AE%E4%BF%A1%20%C2%B7%20%E7%BB%88%E7%AB%AF-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
 [![Website](https://img.shields.io/badge/%F0%9F%8C%90-%E5%AE%98%E7%BD%91-3fbaa6?style=flat-square)](https://penglai.pages.dev/)
 
-**中文** · [English](README_EN.md) · [🌐 官网](https://penglai.pages.dev/)
+**中文** · [English](README_EN.md) · [官网](https://penglai.pages.dev/)
 
 </div>
 
-> 📌 **官方渠道**：本 GitHub 仓库 · [官网 penglai.pages.dev](https://penglai.pages.dev/)（国内可直接访问，备用镜像 [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)） · PyPI [`penglai`](https://pypi.org/project/penglai) 是仅有的官方分发渠道。其他网站 / 组织 / 个人以「蓬莱 · Penglai」名义提供的内容均非官方，请勿在非官方渠道填入你的 API Key 或凭证。
+> **官方渠道**：本 GitHub 仓库 · [penglai.pages.dev](https://penglai.pages.dev/)（备用镜像 [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)）· PyPI [`penglai`](https://pypi.org/project/penglai)。不要在非官方渠道输入 API Key、机器人 token 或任何账号凭证。
 
 ---
 
-**蓬莱**是一个跑在你自己服务器上的个人 AI 管家：扫码接入你的微信，三分钟接入飞书，
-听得出你语音里的情绪，记得住你说过的话，干得了查资料、写代码、跑任务的活——
-而且**记忆只属于你**，安全靠确定性红线而不是模型自觉。
+**蓬莱**是一个跑在你自己机器上的 AI 管家。它接入飞书、微信和终端，能听语音、看图片、记事情、查资料、写代码、跑任务，也能在确定性安全规则内主动提醒你。
 
-一台 $5/月 的云服务器、一个 LLM API Key，十分钟向导走完，你就有了自己的管家。
+你只需要一台云服务器或家里的 Mac mini / Linux 主机，一个 LLM API Key，十分钟向导走完，就有一个属于自己的长期 AI 管家。记忆、配置、日志和渠道凭证都留在你自己的机器上。
 
-## 🌊 缘起：一个不会写代码的人，和他的 AI 管家
+## 缘起
 
-我做了十年网络技术、网络安全与网络运维，但**不会写代码——一行都不会**。这个仓库里的每一行代码，
-都是我用 AI 编程工具一句话一句话"说"出来的。蓬莱本身就是它想证明的那件事：
-**AI 时代，普通人也能为自己造工具。**
+我做了十年网络技术、网络安全与运维，但不会写代码。这个项目里的每一行代码，都是我用 AI 编程工具一句话一句话说出来的。
 
-初心来自真实的痛。作为一个想认真拥抱这场变革的普通用户，我把市面上摸得到的工具
-几乎用了个遍，也实打实撞过它们的墙。我见证了 CLI 时代的锋利——Claude Code、
-OpenCode、Kimi CLI 个个出色；也看到了桌面时代的完善与流行——Codex 桌面版、Qoder、
-WorkBuddy、Claude Cowork 把 Agent 做进了窗口里。它们都很好，但它们都默认同一件事：
-**你得坐在电脑前。**
+我做蓬莱，是因为我相信 AI Agent 不应该只属于会写代码、会用终端、愿意折腾配置文件的人。CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。会发微信，就应该会用 Agent。
 
-我总想起电脑的来路：DOS 把计算交给会敲命令的人，Windows 的图形界面把它交给会用
-鼠标的人，而移动互联网把它装进了每个人的口袋。Agent 正在走同一条路——
-**CLI 是它的 DOS，桌面应用是它的 Windows，下一站一定在移动端、在碎片时间里。**
-各家的移动 App 会各有精彩，但对普通大众而言，最方便、最简单、每天真实会打开的，
-是聊天软件。**会发微信，就该会用 Agent**——不需要再学任何新东西。
+所以蓬莱不是另一个聊天机器人玩具。它想把一个真正能干活的 Agent 放进你已经在用的飞书和微信里，让它在通勤、午休、出门、睡前都能被叫到，也能在你允许的范围内主动关心重要的事。
 
-[GenericAgent](https://github.com/lsdefine/GenericAgent) 是我见过最干净的 Agent 内核，
-所以蓬莱不重造轮子，核心完全站在它的肩膀上。蓬莱要补的是"最后一公里"：
-让它跑在你拥有的任何一台机器上——无头云服务器、角落里 24 小时待机的 Mac mini，
-Windows 也在路上——然后住进你的飞书和微信，在通勤的地铁上、午休的间隙里，
-随叫随到，一直都在。
+名字来自中国神话里的海上仙山。对古人来说，蓬莱是可望而不可即的神奇之地；对今天很多普通人来说，AI 也常常被 API、终端、配置和英文文档隔在雾里。蓬莱想做的，就是把这座岛搬进你的聊天窗口。
 
-## 🏝️ 为什么叫「蓬莱」
+## 现在能做什么
 
-蓬莱是中国神话里的海上仙山。《史记》记载，渤海之东有三神山——蓬莱、方丈、瀛洲，
-仙人居之，藏不死之药；秦始皇曾遣徐福率三千童男童女东渡求访，终未能至。两千年来，
-"蓬莱"是中国人对**可望而不可即的美好之地**最古老的想象。
+- **飞书和微信扫码接入**：飞书长连接，不需要公网 IP；个人微信扫码登录；终端 TUI 直接可聊。
+- **统一对话体验**：飞书、微信、终端共享同一个管家、同一套记忆、同一条任务执行链。
+- **语音情绪识别**：本地 SenseVoice 转写语音，并识别高兴、低落、生气、害怕等情绪信号。
+- **图片理解入口**：IM 收到图片后按图像任务处理，不再靠文件名、EXIF 或 OCR 猜答案。
+- **四层文件式记忆**：索引、事实、技能、原始会话分层保存，Markdown 可审计。
+- **确定性安全护栏**：危险命令、敏感路径、记忆写入、文件外发、日志泄露都走规则拦截，不依赖模型自觉。
+- **网页搜索开箱即用**：无头服务器也能查天气、新闻和事实；需要多源验证时再开启增强搜索。
+- **主动陪伴**：天气预警、语音情绪承接、早晚问候、久未联系提醒，默认有勿扰和频率门禁。
+- **本地技能集市**：提醒、邮件、快递、公众号文章、文档处理、市场调研等技能按需安装。
+- **一键安装和 Docker**：新机器、国内网络、Docker 容器、长期后台运行都有完整路径。
+- **自诊断和升级**：`penglai doctor`、`penglai status`、`penglai update` 负责体检、服务状态和安全升级。
 
-我选这个名字，是因为今天的 AI 之于普通人，恰如蓬莱之于古人：人人听说它神奇，
-真正登上去的人却很少——API、终端、配置文件，就是横在海面上的那层迷雾。
-**蓬莱想做的，是把仙山搬进你的聊天窗口：你不必学会航海，会发微信，就能上岛。**
-AI 时代的仙山，不该只属于会写代码的人。
+## 这次全新架构优化了什么
 
-至于"八仙过海，各显神通"——传说八位神仙各凭自己的法器渡海赴蓬莱——这正是项目的
-技术哲学：多模型、多渠道、专家各司其职，每个模型用自己的方式渡海，服务同一个你。
+蓬莱的新架构把“多个入口接同一个 Agent”这件事系统化了。以前每个渠道更像单独包装；现在飞书、微信、终端、语音、文件、主动消息都先进入统一运行层，再交给 GenericAgent 执行核心。
 
-## ✨ 它能做什么
+用户能直接感受到的变化：
 
-- 🏮 **十分钟开箱** —— `penglai setup` 翻页式向导（中/英双语）：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **渠道一页选**（飞书扫码自动建应用，免开网页）→ 给管家起名 → 能力面板真启用（语音默认装好，陪伴/情报按需开）
-- 💬 **飞书 + 微信双渠道，都是扫码** —— 飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字/语音/图片收发
-- 🎙️ **听得出情绪的耳朵** —— 本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪标签（高兴/悲伤/生气/害怕…）+ 声学事件（笑声/哭声/掌声…），`[语音(情绪:低落): 今天好累]` 这样进入对话。**飞书/微信开箱即用；钉钉/QQ/企业微信的语音由发行层补齐**——上游前端只收文字图片，蓬莱层封装了语音接收（钉钉/QQ 还叠加本地 SenseVoice 拿情绪）
-- 🧠 **四层记忆** —— 基于 GA 内核的索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（提示注入/角色劫持/密钥落库），禁止覆盖；长期事实带**时间/来源/重要度签名、新值自动作废旧值**（治过期偏好污染）
-- 🛡️ **确定性安全护栏** —— 危险命令与路径红线拦截 + 全量工具调用审计 JSONL——**靠确定性检查，不靠 LLM 自觉**。已覆盖危险命令、敏感路径、记忆写入、全 IM 文件外发等关键风险面；护栏 ≠ 绝对安全，建议在个人受控的服务器上运行
-- 🔎 **网页搜索开箱即用** —— 内置免费 Bing 兜底，**无头云服务器也能查**天气/新闻/事实（不依赖浏览器）；想要多源交叉验证再 `penglai enable intel` 叠加 TinyFish/Tavily 等独立搜索源
-- 🧐 **防幻觉双保险** —— 本地绊线**出厂常开**（免费）：嗅到「过度自信」措辞就拦下自检；`penglai enable critic` 从**整张厂商目录任选**一个**不同厂商**的复核模型（免费如 GLM-4.7-Flash，也可投更强的付费模型换更大视差）——单模型查不出自己的幻觉
-- 🧰 **出厂内置技能 + 本地技能集市** —— 管家自带提醒/日程、天气查询、网页文章总结（免 key、无头可用）；`penglai skill` 是本地 apt 式集市（出厂精选、装时过安全扫描、不联网拉）。技能一律是 GA 原生 SOP——外部技能必须先改写成 SOP 才能收编，不是「外面拿来就用」
-- 📦 **十分钟搬家（从 Hermes/OpenClaw）** —— `penglai migrate` 把旧管家的记忆/模型/渠道/人设搬过来（预览 + 备份 + 诚实标注搬不了的）
-- 🌙 **真主动，不扰民** <sub>opt-in</sub> —— 心跳 + 硬编码门禁的真主动：**恶劣天气预警**、**从语音里听出的情绪主动关心**、早晚问候、久未联系才招呼；勿扰时段、对话中绝不插话、频率上限——像朋友想起你，而不是闹钟响了。投递到飞书和微信
-- 🎛️ **能力随时补开** —— 第一次向导没开的，事后一条命令补上：`penglai enable voice|companion|intel` 开能力、`penglai enable <渠道>` 加 IM、`penglai abilities` 看全貌——不必重跑向导
-- ⚙️ **运维一个命令** —— `penglai doctor` 一键体检，**未启用的项直接告诉你用哪条命令开** / `status` / `logs` / `update` 一键升级到最新版
+- **消息不容易丢**：同一个用户的忙时消息会排队，任务结束后继续处理。
+- **上下文更连贯**：主动陪伴、IM 回复、终端对话进入同一套上下文事件，后续对话不突兀。
+- **文件外发更可靠**：图片、视频、PDF、Markdown、Office 文档按真实文件类型发送；敏感后缀仍确定性拦截。
+- **日志更安全**：API Key、token、secret、authorization 等会统一脱敏后再进入日志或历史。
+- **服务状态更清楚**：飞书、微信、调度器、主动陪伴分别报告，不再混成一个“好像在跑”。
+- **Docker 更像正式产品**：内置语音依赖、明确时区、保留数据卷、自动补齐公共 SOP、不把本地私有记忆打进镜像。
+- **版本身份可信**：CLI、doctor、IM `/version`、Docker 镜像都能报告当前版本、来源、分支/commit 和构建信息。
 
-> 以上每一条都在真实服务器上每天跑着，不是路线图。
+这不是换一个包装名，而是把蓬莱从“能接进聊天软件”推进到“多入口、可运维、可审计的个人 Agent 运行层”。
 
-## 🚀 快速开始
+## 快速开始
 
-新机器只要联网，**一行命令**——没有 Python、没有 git 都不要紧，脚本全自动备好：
+新机器只要联网，一行安装：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
-国内网络（走镜像，同样一行）：
+国内网络：
 
 ```bash
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
-镜像地址可改：`PENGLAI_GH_PROXY=https://你的镜像/ sh install.sh`。不信任默认镜像时，先下载脚本再设置自己的 `PENGLAI_GH_PROXY` 运行。
-
-🐳 **Docker 党也是一行**——自动取镜像（拉不动 GHCR 就本地构建）→ 交互向导 → 常驻容器（开机自启、挂了自动拉起）→ 连接验证，数据全在 `penglai-data` 卷里，升级不丢：
+Docker：
 
 ```bash
 curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh
 ```
 
-喜欢自己动手的，传统三段式同样可用：
+手动安装：
 
 ```bash
 git clone https://github.com/kevinchennewbee/PenglaiAgent.git
 cd PenglaiAgent
-python3 penglai setup    # 向导：语言 → 依赖 → 模型 → 渠道一页选 → 能力面板
+python3 penglai setup
 ```
 
-<div align="center">
-<img src=".github/assets/wizard-zh.png" alt="蓬莱安装向导实景" width="85%"/>
-<br/><sub>安装向导实景：中英双语、翻页式步骤、渠道一页多选</sub>
-</div>
-
-日常运维：
+常用命令：
 
 ```bash
-penglai            # 直接在终端和管家对话（TUI，与飞书/微信共享同一份记忆）
-penglai doctor     # 体检：环境/依赖/配置/LLM/记忆/服务/上游
-penglai status     # 服务状态（飞书/调度器/陪伴/微信）
-penglai logs       # 最近日志（penglai logs dingtalk 看指定渠道）
-penglai channels   # IM 渠道矩阵总览
-penglai abilities  # 能力总览（语音/陪伴/情报，未开的直接给开启命令）
-penglai enable voice|companion|intel   # 事后补开向导没开的能力
-penglai migrate    # 从旧管家(Hermes/OpenClaw)搬家：记忆/模型/渠道/人设
-penglai skill      # 本地技能集市：list/install/installed/remove（装时安全扫描，不联网）
-penglai update     # 安全升级：预检 → 后台重启 → 健康检查 → 失败自动回滚（结果发到你 IM）
+penglai                         # 终端里直接聊天
+penglai setup                   # 重新进入配置向导
+penglai doctor                  # 环境/依赖/配置/LLM/服务体检
+penglai status                  # 飞书/微信/调度器/主动陪伴状态
+penglai logs                    # 查看最近日志
+penglai channels                # 渠道矩阵
+penglai abilities               # 语音/陪伴/搜索/批判脑能力总览
+penglai enable voice|companion|intel
+penglai skill list              # 本地技能集市
+penglai migrate                 # 从 Hermes/OpenClaw 迁移
+penglai version                 # 当前版本、安装来源、构建信息
+penglai update                  # 安全升级
 ```
 
-> 💡 **升级很省心**：`penglai update` 确认后全自动——先编译+安全插件预检拦住坏更新，再由脱离进程的后台监工重启并做连接健康检查，**新版起不来会自动回滚到上一个能跑的版本**，全程结果发到你飞书/微信，不用 SSH 上服务器。你也可以让管家在 IM 里直接说「检查更新 / 升级」。
+## 渠道和能力
 
-> 🐳 **Docker 党的日常运维**（容器里没有 systemd，命令略不同）：
-> ```bash
-> docker logs -f penglai                      # 看日志（出现「收到消息」即收发全通）
-> docker exec -it penglai penglai doctor      # 体检（任意 penglai 子命令都可这样跑）
-> docker restart penglai                      # 重启容器
-> # 升级 = 拉新镜像（不是 git）：重跑下面这行，数据在 penglai-data 卷里不丢
-> curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh
-> ```
-> 容器内置常驻监工：扫码绑定、`penglai setup` 补配新渠道后**无需重启容器**，30 秒内自动拉起；进程崩溃自愈。
-
-> 🇨🇳 国内服务器友好：依赖走清华 PyPI 镜像，模型与代码走 gh-proxy，向导自动处理，无需手动配置。
-
-## 💬 渠道矩阵：一个管家，多个门
-
-GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 `penglai enable <渠道>`（依赖安装 → 凭证获取 → 服务安装 → 启动取证一条龙）。所有渠道共享同一份记忆——**同一个管家，多个门**：
-
-| 渠道 | 接入方式 | 语音 | 状态 |
-|------|---------|------|------|
-| 飞书 | `penglai setup` 向导，**扫码自动建应用** | ✅ 转写+情绪 | ✅ 已实测 |
-| 微信（个人号） | `penglai setup` 向导，扫码登录 | ✅ 转写+情绪（silk） | ✅ 已实测 |
-| 终端 TUI | 裸跑 `penglai` 即聊 | — | ✅ 内核自带 |
-| 钉钉 | `penglai enable dingtalk`，**扫码自动建应用** | 🔧 封装(自带ASR) | ⚠️ 待实测 |
-| QQ | `penglai enable qq`，**扫码自动建机器人** | 🔧 封装(wav+情绪) | ⚠️ 待实测 |
-| 企业微信 | `penglai enable wecom`，后台建智能机器人贴凭证 | 🔧 封装(自带ASR) | ⚠️ 待实测 |
-| Telegram | `penglai enable telegram`，@BotFather 贴 token | — | ⚠️ 待实测 |
-| Discord | `penglai enable discord`，开发者后台贴 token | — | ⚠️ 待实测 |
-
-> 「待实测」= 接入代码已就绪（IM 框架为 GA 上游自带，语音接收为蓬莱层封装），但我们还没在真机走完全程——实测过一个就升级成 ✅。诚实比好看重要。
-> 语音列：✅=真机验证过；🔧=发行层已封装语音接收（上游前端原本丢弃语音），待真机实测；—=该渠道无语音。
-
-## 🆚 蓬莱 vs 裸 GenericAgent
-
-蓬莱不改内核，只在 GA 之上补齐"从能跑到好用"的最后一公里：
-
-| 维度 | 裸 GenericAgent | 蓬莱发行版 |
-|------|----------------|-----------|
-| 上手 | 手动改 mykey、装依赖 | 十分钟翻页向导（中英双语、自动镜像） |
-| IM 接入 | 自己读前端代码接 | 飞书/微信扫码 + 钉钉/QQ/企微一条命令 |
-| 语音 | 无 | 本地 SenseVoice 转写+情绪，全渠道封装 |
-| 安全 | 基础 | 红线/记忆卫生/出站文件白名单，确定性防线 |
-| 能力管理 | 改配置文件 | `penglai enable / abilities` 事后开关 |
-| 安装分发 | git clone | curl / Docker / pip 一行 + 国内自动镜像 |
-| 运维 | 手动 | `penglai doctor` 体检并直接给修复命令 |
-| GA 执行核心 | — | **保持上游对齐**，V5 渠道适配在蓬莱层演进 |
-
-## 🧬 架构：站在内核肩膀上
-
-蓬莱构建于 [GenericAgent](https://github.com/lsdefine/GenericAgent)（GA）内核之上——一个被验证过的
-~130 行 Agent 循环：`上下文 → LLM → 工具 → 结果回流`。蓬莱与 GA 的关系，如同 Ubuntu 之于 Linux 内核：
-
-```mermaid
-flowchart LR
-    U["👤 用户"] -->|"文字 · 语音 · 图片"| IM["💬 飞书 / 微信 / 钉钉 / QQ …"]
-    IM --> P["🏮 蓬莱发行层<br/>向导 · CLI · 渠道封装 · 语音情绪 · 安全插件"]
-    P --> K["⚙️ GenericAgent 执行核心（保持上游对齐）<br/>~130 行 Agent Loop"]
-    K --> T["🔧 工具执行"]
-    K --> M["🧠 四层记忆"]
-    K --> L["☁️ 大模型（11 家可选）"]
-    P -. "红线 · 审计 · 记忆卫生 · 出站白名单" .-> K
-```
-
-- **核心上游对齐**：`ga.py`、`agent_loop.py`、`agentmain.py`、`llmcore.py` 等 GA 执行核心保持 upstream-first；V5 测试分支的迁移面是蓬莱自有 runtime、wrapper/launcher 和必要的 IM adapter，不把蓬莱策略写进 GA 执行循环；
-- **形态梯度**：新能力优先用 SOP（0 行代码）实现，其次 hook 插件，再次心跳模块，最后才是工具——克制是设计，不是懒；
-- **身份与记忆分离**：出厂态零用户记忆，只带一行身份。你的记忆是你的隐私资产，永不进发行版。
-
-| 蓬莱层 | 形态 | 干什么 |
+| 入口 | 接入方式 | 当前状态 |
 |---|---|---|
-| `penglai` CLI + 向导 | 入口 | 安装、体检、服务管理、一键升级 |
-| 微信渠道服务 | systemd | 扫码登录、token 过期智能提示（不盲目重启） |
-| 语音情绪 | 工具 | SenseVoice 本地转写 + 情绪 + 声学事件，微信 silk 自动解码 |
-| IM 语音/V5 封装 | 包装入口 | 为钉钉/QQ/企微补上游前端缺失的语音接收，并把真实渠道逐步接入 V5 contract |
-| 能力开关 | CLI | `penglai enable/disable/abilities` 装机后随时补开语音/陪伴/情报 |
-| 红线 + 审计 | hook | 确定性拦截危险操作，全量审计留痕 |
-| 记忆卫生 | hook | 写记忆威胁扫描 + 禁覆盖 |
-| 网页搜索 | 插件 | 免费 Bing 兜底开箱即用（无头可用）；`enable intel` 叠加多源交叉验证 |
-| 批判脑 <sub>smart 档</sub> | hook | 绊线常开（免费）；命中才复核，复核模型从整张厂商目录自选（`penglai enable critic`） |
-| 主动陪伴 <sub>opt-in</sub> | 心跳 | 门禁内的真主动：天气预警/语音情绪/早晚问候/久未联系，飞书微信双投递 |
-| 蓬莱 SOP 包 | markdown | 符号化断点、可追溯压缩、生成技能——0 行代码 |
+| 飞书 | 向导扫码建应用，长连接接入 | 已实测 |
+| 微信个人号 | 向导扫码登录 | 已实测 |
+| 终端 TUI | 运行 `penglai` | 已实测 |
+| Docker | `docker-install.sh` 一键部署 | 已实测 |
+| 钉钉 / QQ / 企业微信 | `penglai enable <channel>` | 封装已就绪，逐步真机验证 |
+| Telegram / Discord | 贴 token 接入 | 封装已就绪，逐步真机验证 |
 
-> **为什么仓库里还有 GenericAgent 的 `pyproject.toml` 和 `ga` 入口？**
-> 因为蓬莱是 GA 的发行版：GA 执行核心和原生入口保持 upstream-first，蓬莱把发行层能力放在 CLI、插件、runtime、wrapper/adapter 和 SOP 里。`penglai` 是发行层入口；`ga` / `genericagent` 是上游内核的原生入口，两者共存、互不冲突。内核 bug 请报给[上游](https://github.com/lsdefine/GenericAgent)，发行层问题在本仓库提 issue。
+| 能力 | 说明 |
+|---|---|
+| 语音 | 本地转写、情绪识别、微信 silk 解码 |
+| 图像 | IM 图片进入视觉任务，不用文件名猜图 |
+| 记忆 | 文件式长期记忆，写入前安全扫描 |
+| 搜索 | 免费 Bing 兜底，多源搜索可选 |
+| 主动陪伴 | 天气、情绪、早晚锚点、久未联系提醒 |
+| 技能 | 本地 SOP 技能集市，安装时安全扫描 |
+| 安全 | 命令红线、路径红线、文件外发白名单、日志脱敏 |
 
-## 🔄 更新承诺：上游的演进，及时到你手里
+## 蓬莱和 GenericAgent 有什么不同
 
-蓬莱是 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的下游发行版，上游在持续进化，我们替你盯着：
+[GenericAgent](https://github.com/lsdefine/GenericAgent) 是蓬莱的执行核心。它提供简洁的 Agent 循环：上下文进来，大模型思考，工具执行，结果回流。
 
-- 🛡️ **安全类更新**：上游修复的安全漏洞，我们确认问题性质与影响面后，**48 小时内**同步进发行仓；
-- 🧩 **功能类更新**（新功能与功能维护）：在确认与蓬莱层不冲突、运行稳定的前提下，**72 小时内**同步；
-- 你要做的只有一句：`penglai update`（Docker 用户重跑一遍 docker-install.sh，数据在卷里不丢）。
+蓬莱不替代 GenericAgent，也不把上游内核改成自己的私货。蓬莱做的是普通用户真正用起来还缺的那一层：
 
-## 📅 最新动态
+| 维度 | GenericAgent | 蓬莱 |
+|---|---|---|
+| 定位 | Agent 执行核心 | 面向个人用户的完整 AI 管家发行版 |
+| 安装 | 需要理解依赖和配置 | 一键安装 + 翻页式向导 |
+| 入口 | 终端/上游前端 | 飞书、微信、终端、Docker、更多 IM 封装 |
+| 语音/图片 | 需要自行接能力 | 发行层接入语音、情绪和图片规则 |
+| 记忆 | 核心记忆机制 | 加入记忆卫生、迁移、技能索引和审计边界 |
+| 安全 | 基础能力 | 命令、路径、日志、文件外发、记忆写入的确定性护栏 |
+| 运维 | 手动为主 | doctor/status/logs/update/version |
+| Docker | 需要自己整理 | 数据卷、时区、语音依赖、镜像版本身份、回填机制 |
 
-完整版本时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
+可以把它理解成：GenericAgent 是内核，蓬莱是把内核变成一个普通人能安装、能接入、能长期运行、能升级、能审计的个人产品。
 
-- **2026-06-18** — v0.2.20 测试分支：基于完整 v0.2.10 修复集新增 V5 蓬莱中枢测试面；真实渠道启动路径进入 V5-aware wrapper/adapter，保留平台 SDK 归属与旧路径兜底，是否合入 main 取决于真实人工测试。
-- **2026-06-17** — v0.2.10 hotfix：统一 IM 文件外发；占位符不再误报，图片/视频/文档/Markdown 等按类型发送，敏感后缀仍拦截；技能索引改为“用户意图优先于链接来源”。
-- **2026-06-17** — v0.2.10：飞书真实工作流修复；排队不丢消息、按钮选择不吞状态、空输出但有文件时提示发送中、日志脱敏、文件外发改为后缀门禁。蓬莱层，GA 上游不改。
-- **2026-06-17** — v0.2.9 hotfix：隐私与合规收口；模板脱敏、第三方素材授权、Docker 非 root 与数据卷修正、GitHub 镜像配置、CSP、`SECURITY.md` / `THIRD_PARTY_NOTICES.md`。
-- **2026-06-17** — v0.2.9：主动陪伴与多模态收口；`present` 模式、abilities 状态页、视觉 endpoint 修复、文件批量预检、语音分块、审计目录与 update 识别修复。
-- **2026-06-16** — v0.2.8：**飞书人工介入与 macOS 运行态收口**——`ask_user` 不再在飞书里只露半句尾巴，结构化问题和选项会变成可点击按钮，并保留回复编号/完整文字兜底；飞书入口改为蓬莱包装层 `penglai_feishu_app.py`，补上 `/review` 命令路径并保持 GA 上游 `frontends/fsapp.py` 零改动，同时兼容修补 lark-oapi 长连接 CARD 回调；macOS 飞书前端也纳入 **launchd 守护**（旧裸进程迁移时自动清理，崩溃/被杀会拉起重连）；微信包装层补齐 `/new` / `/restore` / `/continue` / `/btw` / `/review`；`fs_owner_open_id` 与访问白名单拆开，主动通知不再依赖开放白名单；`penglai update` 对 GitHub 直连加低速/总超时，卡住会切到 gh-proxy；doctor 现在按真实 `.venv` 与 launchd 状态报告。腾讯云 + Mac mini 真机验证，**GA 内核零 diff**。
-- **2026-06-16** — v0.2.7：**macOS 真机兜底收尾**（整晚真机取证 + 多路审计驱动）——💞 主动陪伴 / ⏰ 提醒日程在 Mac 上改用 **launchd 真守护**（崩了/被杀自动重启、开机自启，补齐与 Linux 同等；旧版被杀就永久死、提醒到点不触发）＋ 👁️ **发图能真看了**（接主力多模态模型 +「IM 发图→看图」规则，不再凭模型名误判"我没视觉"）＋ 🔒 **密钥防泄**（管家查配置时不再把 API key 写进日志，覆盖所有搜索源 key）＋ 🎙️ 语音 ffmpeg 找不到给可读提示、不再静默失败 ＋ 🛡️ 飞书白名单空时主动提示＋一键收紧 ＋ `penglai update` 国内镜像兜底。全部蓬莱层、**GA 内核零 diff**、双平台真机验过
-- **2026-06-15** — v0.2.6：**开能力免重启**（`penglai enable critic/intel/companion` 配好 key/城市后**下一句就生效**——长驻进程热重读 mykey，不必再重启服务）＋ **重启自动报平安**（让管家重启自己时，重启完会主动发「我回来啦」到你的飞书/微信，不再石沉大海干等）＋ **装机向导探测旧管家**（检测到 Hermes/OpenClaw 就提议把**记忆/模型/渠道/人设**一键搬过来，不用从零配；真机对 Hermes 验过迁移预览）—— 全部蓬莱层、**GA 内核零 diff**、腾讯云真机验过
-- **2026-06-15** — v0.2.5：**首批集市技能上架（8 个，全部免费可用）**——📄 文档读写（Word/Excel/PPT/PDF，按需装开源库、离线零费用）· 📰 公众号文章取件（甩链接→正文＋配图落 Markdown，供读/存/总结）· 💰 语音记账 · 📦 快递查询 · ✉️ 邮箱收发 · 🗞️ 资讯早报 · ⏰ 生活提醒 · 📊 市场调研，全是 GA 原生 SOP、装时过安全扫描、触发词进 L3 不撑破每轮记忆 ＋ **免费铁律**（集市技能与接入的 MCP 一律普通用户免费可用，付费墙/企业资质的一概不收）
-- **2026-06-14** — v0.2.4：**MCP 客户端支持**（在 `mykey` 配 `mcp_servers` 即接入任意外部 MCP server 的工具——纯标准库、GA 内核零改动、超时不挂死、调用前过安全扫描）+ **Agnes 免费上手**（向导内置 Agnes AI 全模态免费体验源：工具调用/图片理解/流式输出，一键选中即用）+ **技能集市记忆重构**（触发词全表迁到 L3 按需索引，L1 只留一行常量指针——装再多技能也不撑破每轮注入的 ≤30 行极简记忆，守住 GA 第一性原理）
-- **2026-06-14** — v0.2.3：同步上游 GenericAgent（13 提交，内核零 diff，腾讯云真机验证过）——微信 headless 容器登录（二维码直接打到 `docker logs`，无需图形界面）+ TUI 工作区项目模式与 `@` 文件补全 + macOS 无障碍 ljqCtrl 移植
-- **2026-06-14** — v0.2.2：一键迁移（`penglai migrate`，从 Hermes/OpenClaw 搬记忆/模型/渠道/人设，**先预览再落盘 + 自动备份**）+ 本地技能集市（`penglai skill`，技能一律是 GA 原生 SOP、装时过安全扫描、不联网拉）+ 出厂内置技能（提醒/天气/网页总结，免 key 无头可用）+ 蓬莱独特记忆（长期事实带**时间/来源/重要度签名、新值自动作废旧值**，治过期偏好污染）+ 主动陪伴加固（投递失败不哑火、办公在线也收得到锚点）+ 一轮对抗式安全自审（修了技能名路径穿越等 4 项）
-- **2026-06-13** — v0.2.1：`penglai update` 安全自更新——预检拦坏更新 + 后台监工重启 + 健康检查 + **新版起不来自动回滚** + 结果发到你 IM；管家可在聊天里直接「检查更新/升级」
-- **2026-06-13** — v0.2.0：网页搜索免 key 开箱即用（Bing 兜底，无头可用）+ 主动陪伴 v2（天气预警/语音情绪/早晚问候，飞书微信双投递）+ 批判脑复核模型全目录自选 + Docker 常驻监工（扫码/补配自动拉起）
-- **2026-06-12** — IM 语音封装（钉钉/QQ/企微，上游真空补齐）+ 能力事后开启 `penglai enable / abilities` + 官网重做 + 全新 banner
-- **2026-06-12** — 向导 v2：语言选择打头 / 翻页式终端 / 渠道一页选 / 能力面板真启用 / 语音默认装
-- **2026-06-11** — 安全硬化（审计 P0/P1 修复）+ Docker 一键部署 + 11 家国内厂商模型目录
-- **2026-06-11** — 🎉 首次开源：十分钟向导、飞书微信扫码、本地语音情绪识别、确定性红线安全
+## 安全和隐私边界
 
-## 📜 许可与品牌
+- 你的 API Key、聊天记录、记忆、渠道凭证默认都在你自己的机器上。
+- 公开发行版不包含个人记忆、日志、运行历史、token 或私有配置。
+- 所有安全护栏都是降低风险，不是绝对安全保证；建议部署在你自己控制的服务器上。
+- 不要在非官方安装源、非官方网页或陌生机器人里输入凭证。
+- 漏洞反馈请先脱敏，详见 [SECURITY.md](SECURITY.md)。
 
-- **代码**：[MIT](LICENSE) 许可。上游 GenericAgent 的版权声明完整保留；蓬莱层代码 © 2026 Kevin Chen，同样以 MIT 发布——随便用、随便改、随便商用。代码与品牌边界详见 [NOTICE](NOTICE)。
-- **品牌**：「蓬莱」「Penglai」名称、logo 与横幅视觉资产**保留所有权利**，不在代码许可范围内。未经书面许可，请勿将其用于你的分发版本、衍生产品或商业宣传的命名与标识。
-  （开源圈通行做法：代码自由，品牌保留——Rust、Docker 皆如此。）
-- **第三方素材与高权限工具**：桌面宠物皮肤、CDP Bridge 等单独列在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-- **内核来自上游**：`ga.py`、`agent_loop.py`、`agentmain.py`、`llmcore.py` 等 GA 执行核心保持 upstream-first；蓬莱在其上做发行层和渠道 adapter 的裁剪与增补。安装入口只有 `install.sh` / `docker-install.sh`（均指向 `kevinchennewbee/PenglaiAgent`）。
+## 最新版本
 
-## 🙏 致谢
+**2026-06-21 · v0.2.20**
 
-蓬莱站在这些项目的肩膀上：
+全新架构版本：统一多入口运行层，优化消息排队、上下文事件、文件投递、日志脱敏、服务状态、Docker 运行时和版本身份。飞书、微信、终端、主动陪伴和 Docker 体验更一致，GenericAgent 执行核心继续保持上游优先。
 
-- [GenericAgent](https://github.com/lsdefine/GenericAgent)（MIT）——内核本身：极简 Agent 循环、L1-L4 记忆、自进化技能树
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent)（MIT）——doctor 与安装体验、渠道质量标准、记忆卫生的理念
-- [PilotDeck](https://github.com/OpenBMB/PilotDeck)（AGPL，仅借鉴设计理念）——门禁系统与可回滚纪律
-- [SenseVoice / FunASR](https://github.com/FunAudioLLM/SenseVoice) · [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)——CPU 友好的语音与情绪识别
+近期更新重点：
 
-## ✍️ 关注作者
+- v0.2.10：修复飞书真实工作流、按钮交互、忙时排队、文件外发。
+- v0.2.9：隐私合规、Docker 非 root、公开素材许可、安全文档。
+- v0.2.8：飞书人工介入按钮、macOS launchd、微信包装命令、更新网络兜底。
+- v0.2.7：macOS 真机守护、图像入口修复、密钥防泄、语音错误提示。
+- v0.2.5：首批本地技能集市。
+- v0.2.0：网页搜索、主动陪伴、Docker 常驻监工。
 
-微信公众号 **KevinAIStack** —— Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目 · 效率提升。
-蓬莱的开发幕后、踩坑实录与新版本预告都会在这里首发。
+完整时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
 
-<div align="center">
-<img src=".github/assets/wechat-qr.png" alt="微信公众号 KevinAIStack — 微信搜一搜 KevinAIStack" width="420"/>
-<br/><sub>微信「搜一搜」KevinAIStack，或扫码关注</sub>
-</div>
+## 许可与品牌
+
+- 代码使用 [MIT](LICENSE) 许可。
+- 上游 GenericAgent 的版权声明完整保留。
+- “蓬莱 / Penglai”名称、logo、横幅等品牌视觉资产保留所有权利，不在代码许可范围内。
+- 第三方素材和高权限工具边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 致谢
+
+蓬莱站在 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的肩膀上，也站在所有愿意把 AI 工具变得更普通、更可用、更安全的人肩膀上。

@@ -50,5 +50,12 @@ Thumbs.db
 
 # Local memory generated at runtime; keep source-controlled SOPs in the repo,
 # but never copy generated user memory into Docker build contexts.
+memory/global_mem.txt
+memory/global_mem_*.txt
 memory/global_mem_insight.txt
+memory/vision_api.py
+memory/history_insight/
+memory/**/history_insight/
+memory/L4_raw_sessions/*.txt
+memory/L4_raw_sessions/*.zip
 memory/L4_raw_sessions/*.jsonl

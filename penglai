@@ -5,6 +5,7 @@
 用法:
   penglai           直接对话（终端 TUI，等价上游 GA 的 tuiapp_v2）
   penglai doctor    体检：环境/依赖/配置/服务/记忆/上游状态
+  penglai version   版本身份（发行版本/Runtime/分支/commit/容器构建信息）
   penglai status    服务状态
   penglai start     启动服务（飞书 + 调度器）
   penglai stop      停止服务
@@ -16,7 +17,7 @@
   penglai setup     安装向导（语言 → 依赖 → 模型 → 渠道单页选择 → 能力面板[语音/陪伴/情报]）
   penglai migrate   从旧管家(Hermes/OpenClaw)搬家：记忆/渠道/人设 [--from][--dry-run][--with-secrets]
   penglai skill     技能集市：list 看可用 / install <名> 启用 / installed / remove <名>（本地装不联网）
-  penglai v5        Runtime Hub V5 自检（统一会话/排队/交付/交互/记忆卫生）
+  penglai selfcheck 运行时自检（统一会话/排队/交付/交互/记忆卫生）
   penglai help      显示本帮助
 """
 import os, sys, shutil, subprocess
@@ -43,6 +44,11 @@ def sh(cmd, **kw):
 def venv_python():
     p = os.path.join(ROOT, ".venv", "bin", "python")
     return p if os.path.exists(p) else sys.executable
+
+def version():
+    from penglai_runtime.version import format_version_text
+    print(format_version_text())
+    return 0
 
 def has_systemd():
     return shutil.which("systemctl") is not None
@@ -81,6 +87,26 @@ def _use_fsapp_launchd():
 
 def _launchctl_bootout(label_id):
     return sh(["launchctl", "bootout", f"gui/{os.getuid()}/{label_id}"])
+
+def _launchd_label(service):
+    if service == "penglai-feishu":
+        return _fsapp_launchd_label()
+    return "com.penglai." + service.replace("penglai-", "")
+
+def _launchd_loaded(service):
+    if sys.platform != "darwin":
+        return False
+    return sh(["launchctl", "list", _launchd_label(service)]).returncode == 0
+
+def _mykey_flag(expr):
+    code = "import sys;sys.path.insert(0,'.');import mykey;" + expr
+    return sh([venv_python(), "-c", code], cwd=ROOT).stdout.strip() == "1"
+
+def _wechat_bound():
+    return os.path.exists(os.path.expanduser("~/.wxbot/token.json"))
+
+def _companion_enabled_flag():
+    return _mykey_flag("print(1 if getattr(mykey,'companion_enabled',False) else 0)")
 
 def _fsapp_launchd_start():
     import signal
@@ -279,6 +305,11 @@ def _owner_open_id_from_log():
 
 def doctor():
     print("🏮 蓬莱医生体检中...\n")
+    try:
+        from penglai_runtime.version import compact_version_line
+        print(f"{OK} 版本身份：{compact_version_line()}\n")
+    except Exception:
+        pass
     bad = 0
 
     def check(name, ok, hint=""):
@@ -492,6 +523,34 @@ def _ensure_macos_reflects(force=False):
     except Exception as e:
         print(f"{WARN}reflect 守护处理跳过: {e}")
 
+def _non_systemd_status():
+    rows = [
+        ("penglai-feishu", FSAPP_PATTERNS, _mykey_flag(
+            "print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)"
+        ), "飞书未配置"),
+        ("penglai-scheduler", ("reflect/scheduler[.]py",), True, "核心调度器"),
+        ("penglai-companion", ("reflect/penglai_companion[.]py",),
+         _companion_enabled_flag(), "主动陪伴未启用"),
+        ("penglai-wechat", ("penglai_im_launch[.]py wechat", "frontends/wechatapp[.]py"),
+         _wechat_bound(), "微信未绑定"),
+    ]
+    for name, patterns, configured, disabled_text in rows:
+        pids = _pids_for_patterns(patterns)
+        launchd = _launchd_loaded(name)
+        if pids:
+            detail = f"running (PID {pids[0]}"
+            if len(pids) > 1:
+                detail += f", +{len(pids) - 1}"
+            detail += ")"
+        elif not configured:
+            detail = f"not enabled ({disabled_text})"
+        else:
+            detail = "stopped"
+        if sys.platform == "darwin":
+            detail += f"; launchd {'loaded' if launchd else 'not loaded'}"
+        print(f"  {name}: {detail}")
+    return 0
+
 def svc(action):
     # 启动前 fail-closed：安全插件没挂载就拒绝启动，别让 agent 无防护裸奔（F-011）
     if action in ("start", "restart") and os.environ.get("PENGLAI_ALLOW_UNGUARDED") != "1":
@@ -514,9 +573,7 @@ def svc(action):
     if not has_systemd():
         # 容器/macOS：直接管理 nohup 飞书进程
         if action == "status":
-            pids = fsapp_pids()
-            print(f"  penglai-feishu: {'running (PID ' + str(pids[0]) + ')' if pids else 'stopped'}")
-            return 0
+            return _non_systemd_status()
         if action == "start":   r = fsapp_start(); _ensure_macos_reflects(); return r
         if action == "stop":    return fsapp_stop()
         if action == "restart": fsapp_stop(); r = fsapp_start(); _ensure_macos_reflects(force=True); return r
@@ -930,16 +987,19 @@ def v5():
     return selfcheck.main(sys.argv[2:])
 
 def main():
-    cmds = {"doctor": doctor, "status": lambda: svc("status"), "start": lambda: svc("start"),
+    cmds = {"doctor": doctor, "version": version,
+            "status": lambda: svc("status"), "start": lambda: svc("start"),
             "stop": lambda: svc("stop"), "restart": lambda: svc("restart"),
             "logs": logs, "update": update, "setup": setup, "migrate": migrate,
             "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
-            "v5": v5,
+            "selfcheck": v5, "v5": v5,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
             "_restart_supervisor": restart_supervisor}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if arg in ("--version", "-V"):
+        arg = "version"
     if not arg:
         # 裸跑：交互终端 → 直接进对话（对齐 hermes 体验）；管道/脚本 → 打印帮助
         if sys.stdin.isatty() and sys.stdout.isatty():

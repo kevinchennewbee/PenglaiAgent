@@ -45,7 +45,22 @@ get_image() {
         | tar -xz -C "$BUILD_DIR" --strip-components=1
     PIP_IDX="https://pypi.org/simple"
     [ -n "$MIRROR" ] && PIP_IDX="https://pypi.tuna.tsinghua.edu.cn/simple"
-    docker build -q --build-arg PIP_INDEX="$PIP_IDX" -t "$IMG" "$BUILD_DIR"
+    BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+    APT_IDX="${PENGLAI_APT_MIRROR:-}"
+    APT_SEC="${PENGLAI_APT_SECURITY_MIRROR:-}"
+    if [ -n "$MIRROR" ] && [ -z "$APT_IDX" ]; then
+        APT_IDX="https://mirrors.tuna.tsinghua.edu.cn/debian"
+        APT_SEC="https://mirrors.tuna.tsinghua.edu.cn/debian-security"
+    fi
+    docker build -q \
+        --build-arg PIP_INDEX="$PIP_IDX" \
+        --build-arg APT_MIRROR="$APT_IDX" \
+        --build-arg APT_SECURITY_MIRROR="$APT_SEC" \
+        --build-arg PENGLAI_BUILD_COMMIT="${PENGLAI_BUILD_COMMIT:-main-tarball}" \
+        --build-arg PENGLAI_BUILD_BRANCH="${PENGLAI_BUILD_BRANCH:-main}" \
+        --build-arg PENGLAI_BUILD_TIME="$BUILD_TIME" \
+        --build-arg PENGLAI_IMAGE_TAG="${PENGLAI_IMAGE_TAG:-local-build}" \
+        -t "$IMG" "$BUILD_DIR"
     rm -rf "$BUILD_DIR"
 }
 get_image || die "镜像获取失败,请检查网络后重试"

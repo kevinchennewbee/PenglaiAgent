@@ -1,26 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Shadow-mode audit records for the V5 runtime.
+"""Shadow-mode audit records for the Penglai runtime.
 
-Shadow mode is deliberately observation-only: it plans what V5 would do, writes
+Shadow mode is deliberately observation-only: it plans what the runtime would do, writes
 a privacy-conscious JSONL record, and never sends messages or files.
 """
 
 import hashlib
 import json
 import os
-import re
 import time
 
 from .delivery import plan_delivery
 from .flags import shadow_enabled
 from .output_cleaner import clean_final_text
-
-_MASK_PATTERNS = [
-    re.compile(r"(sk-[A-Za-z0-9_-]{8,})"),
-    re.compile(r"(?i)(api\s*key\s*[:：])\s*[^\s,;]+"),
-    re.compile(r"(?i)(api[_-]?key|token|secret|password|client_secret|app_secret)\s*[:=]\s*[^\s,;\]\)]+"),
-    re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.I),
-]
+from .redaction import redact_text
 
 
 def _root():
@@ -35,15 +28,6 @@ def _hash(value):
     if not value:
         return ""
     return hashlib.sha256(str(value).encode("utf-8", "replace")).hexdigest()[:16]
-
-
-def redact_text(text):
-    value = str(text or "")
-    value = _MASK_PATTERNS[0].sub("sk-***", value)
-    value = _MASK_PATTERNS[1].sub(r"\1 ***", value)
-    value = _MASK_PATTERNS[2].sub(r"\1=***", value)
-    value = _MASK_PATTERNS[3].sub("Bearer ***", value)
-    return value
 
 
 def _artifact_record(artifact):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Text fallback adapter for GA ask_user events on IM channels.
 
-This module is now a compatibility facade over the shared V5 channel runtime.
+This module is now a compatibility facade over the shared Penglai channel runtime.
 Existing launchers can keep calling install_text_interaction_adapter(), while
 the actual main path goes through InboundEvent, SessionRouter, InteractionRequest,
 MemoryGovernor, and shadow delivery contracts.

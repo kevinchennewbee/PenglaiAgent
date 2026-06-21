@@ -3,13 +3,22 @@
 #   无参数: 未配置 → 交互向导;已配置 → 前台跑飞书 + 后台调度器(容器即服务)
 #   有参数: 透传给 penglai CLI(setup / doctor / logs ...)
 set -e
+export TZ="${TZ:-Asia/Shanghai}"
 D=/data
 mkdir -p "$D/temp" "$D/workspace" "$D/wxbot" "$D/penglai-models" \
     || { echo "❌ 无法写入 /data。请检查 Docker 卷或挂载目录权限。"; exit 13; }
 
-# 首次启动:把镜像自带的记忆(SOP 包)播种到卷;此后卷为准,升级镜像不覆盖你的记忆
+# 首次启动:把镜像自带的记忆(SOP 包)播种到卷;已有卷只补缺失公开 SOP,不覆盖用户记忆/改动
 if [ ! -d "$D/memory" ]; then
     cp -a /app/memory "$D/memory.seed" && mv "$D/memory.seed" "$D/memory"
+else
+    (cd /app/memory && find . -type f | while IFS= read -r rel; do
+        target="$D/memory/$rel"
+        if [ ! -e "$target" ]; then
+            mkdir -p "$(dirname "$target")"
+            cp "/app/memory/$rel" "$target"
+        fi
+    done)
 fi
 rm -rf /app/memory /app/temp
 ln -s "$D/memory" /app/memory
@@ -21,6 +30,8 @@ ln -snf "$D/wxbot" "$HOME/.wxbot"
 if [ "$#" -gt 0 ]; then
     exec python /app/penglai "$@"
 fi
+
+python /app/penglai version | sed -n '1p'
 
 if [ ! -s "$D/mykey.py" ]; then
     echo "🏮 首次启动,进入安装向导(需要 -it 交互终端)..."

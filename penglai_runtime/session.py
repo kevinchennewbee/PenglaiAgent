@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Session routing rules for the V5 runtime test surface."""
+"""Session routing rules for the Penglai runtime surface."""
 
 import re
 

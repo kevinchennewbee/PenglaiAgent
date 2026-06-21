@@ -31,6 +31,9 @@ from penglai_feishu_ask import (  # noqa: E402
 )
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup  # noqa: E402
 from penglai_runtime.interaction import parse_callback_value, request_from_ask_user_event  # noqa: E402
+from penglai_runtime.context_events import recent_context_prompt  # noqa: E402
+from penglai_runtime.redaction import contains_secret, redact_text  # noqa: E402
+from penglai_runtime.version import compact_version_line, format_version_text  # noqa: E402
 from plugins.penglai_artifacts import file_markers, strip_file_markers  # noqa: E402
 
 
@@ -46,16 +49,16 @@ PENGLAI_IM_FILE_HINT = (
     "If you need to ask the user to choose, confirm, authorize, or provide missing information, "
     "use the ask_user tool and let Penglai render the interaction for this IM channel; "
     "do not create Feishu interactive cards by direct API calls. "
+    "If the user sent images, use the attached local image path and memory/penglai_im_vision_sop.md; "
+    "do not answer image-content questions from filenames, EXIF, OCR-only guesses, or model-name assumptions. "
     "If this prompt came from an IM channel, that channel is currently active; "
     "do not report the current IM service as stopped unless the user explicitly asks for service diagnostics."
 )
 
-_MASK_PATTERNS = [
-    re.compile(r"(sk-[A-Za-z0-9_-]{8,})"),
-    re.compile(r"(?i)(api\s*key\s*[:：])\s*[^\s,;]+"),
-    re.compile(r"(?i)(api[_-]?key|token|secret|password|client_secret|app_secret)\s*[:=]\s*[^\s,;\]\)]+"),
-    re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.I),
-]
+_SECRET_BLOCK_REPLY = (
+    "⚠️ 检测到疑似 API Key / token / secret。为避免密钥进入聊天记录、模型上下文或日志，"
+    "这条消息已被拦截且不会交给 LLM。请在服务器终端使用 `penglai setup` 或直接修改本机配置文件完成密钥配置。"
+)
 _TEXT_KEYS = ("text", "content", "plain_text", "message", "body", "title")
 _RESOURCE_KEYS = {
     "image": ("image_key",),
@@ -94,12 +97,20 @@ _KNOWN_MESSAGE_TYPES = {
 
 
 def _redact_log_text(text):
-    value = str(text or "")
-    value = _MASK_PATTERNS[0].sub("sk-***", value)
-    value = _MASK_PATTERNS[1].sub(r"\1 ***", value)
-    value = _MASK_PATTERNS[2].sub(r"\1=***", value)
-    value = _MASK_PATTERNS[3].sub("Bearer ***", value)
-    return value
+    return redact_text(text)
+
+
+def _secret_blocked(text):
+    return contains_secret(text)
+
+
+def _compose_agent_prompt(file_hint, text):
+    context = recent_context_prompt()
+    parts = [file_hint]
+    if context:
+        parts.append(context)
+    parts.append(str(text or ""))
+    return "\n\n".join(parts)
 
 
 def _message_type(message):
@@ -858,7 +869,11 @@ def _patch(fs):
                 self.agent._turn_end_hooks = {}
             self.agent._turn_end_hooks[hook_key] = _make_penglai_task_hook(card, task_id, _finish, _ask)
             self.agent._fs_active_task_id = task_id
-            dq = self.agent.put_task(f"{fs.FILE_HINT}\n\n{text}", source=self.source, images=images or None)
+            dq = self.agent.put_task(
+                _compose_agent_prompt(fs.FILE_HINT, text),
+                source=self.source,
+                images=images or None,
+            )
             start = time.time()
             while state["running"] and not result["sent"]:
                 try:
@@ -907,6 +922,9 @@ def _patch(fs):
                 return
             await self.run_agent(chat_id, prompt, **ctx)
             return
+        if s == "/version":
+            await self.send_text(chat_id, format_version_text(), **ctx)
+            return
         return await orig_handle_command(self, chat_id, cmd, **ctx)
 
     def handle_message(data):
@@ -936,6 +954,14 @@ def _patch(fs):
                 fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}")
             return
         print(f"收到消息 [{open_id}] ({msg_type}, {len(image_paths)} images): {_redact_log_text(user_input)[:200]}")
+        if _secret_blocked(user_input):
+            print(
+                "[penglai feishu] secret-bearing message blocked from LLM context: "
+                f"{_redact_log_text(user_input)[:120]}",
+                flush=True,
+            )
+            fs.send_message(receive_id, _SECRET_BLOCK_REPLY, receive_id_type=receive_id_type)
+            return
         if msg_type == "text" and user_input.startswith("/") and choice is None:
             threading.Thread(
                 target=fs._run_async,
@@ -1052,6 +1078,7 @@ def main():
             cli = fs.lark.ws.Client(fs.APP_ID, fs.APP_SECRET, event_handler=handler,
                                     log_level=fs.lark.LogLevel.INFO)
             print("=" * 50 + "\n飞书 Agent 已启动（长连接模式）\n"
+                  + f"版本: {compact_version_line()}\n"
                   + f"App ID: {fs.APP_ID}\n配置: {fs.CONFIG_PATH}\n等待消息...\n"
                   + "=" * 50, flush=True)
             cli.start()

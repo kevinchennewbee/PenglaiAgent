@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Small V5 Runtime Hub facade used by tests and future channel adapters."""
+"""Small Penglai runtime facade used by tests and channel adapters."""
 
 from .runner import AgentRunner
 

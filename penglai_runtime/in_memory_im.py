@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""In-memory IM adapter for contract tests and V5 shadow experiments."""
+"""In-memory IM adapter for contract tests and runtime shadow experiments."""
 
 from .contracts import InboundEvent
 from .delivery import DeliveryService

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Small per-session FIFO queue primitive for V5 tests."""
+"""Small per-session FIFO queue primitive for runtime tests."""
 
 from collections import defaultdict, deque
 from threading import Lock

@@ -369,7 +369,14 @@ def launch_wechat():
         return False
 
     _pending_interactions = {}
-    _runtime = ChannelRuntimeBridge(channel="wechat", file_hint="If you need to show files to user, use [FILE:filepath] in your response.")
+    _runtime = ChannelRuntimeBridge(
+        channel="wechat",
+        file_hint=(
+            "If you need to show files to user, use [FILE:filepath] in your response. "
+            "If the user sent images, use the attached local image path and memory/penglai_im_vision_sop.md; "
+            "do not answer image-content questions from filenames, EXIF, OCR-only guesses, or model-name assumptions."
+        ),
+    )
 
     def _compose_wechat_prompt(text):
         return _runtime.prompt(text)

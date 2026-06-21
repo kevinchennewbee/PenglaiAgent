@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Self-check CLI for the V5 test runtime."""
+"""Self-check CLI for the Penglai runtime."""
 
 import argparse
 import json
@@ -21,7 +21,7 @@ def _check(name, ok, detail=""):
 
 
 def run_end_to_end_check():
-    """Run a side-effect-free V5 contract scenario.
+    """Run a side-effect-free runtime contract scenario.
 
     The check uses temporary files and an in-memory delivery adapter.  It does
     not call Feishu, WeChat, GA, or any network API.
@@ -32,9 +32,9 @@ def run_end_to_end_check():
     py = os.path.join(tmp, "should_block.py")
     os.makedirs(tmp, exist_ok=True)
     with open(md, "w", encoding="utf-8") as f:
-        f.write("# V5\n")
+        f.write("# Penglai runtime selfcheck\n")
     with open(pdf, "wb") as f:
-        f.write(b"%PDF-1.4\n% V5 selfcheck\n")
+        f.write(b"%PDF-1.4\n% Penglai runtime selfcheck\n")
     with open(py, "w", encoding="utf-8") as f:
         f.write("print('no leak')\n")
 
@@ -159,7 +159,7 @@ def status(*, include_checks=True):
             "ShadowRecorder",
         ],
         "default_behavior": (
-            "V5-aware wrappers/adapters integrate real channels; "
+            "New-architecture wrappers/adapters integrate real channels; "
             "GA execution core stays upstream-first"
         ),
     }
@@ -170,7 +170,7 @@ def status(*, include_checks=True):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Penglai Runtime Hub V5 test self-check")
+    parser = argparse.ArgumentParser(description="Penglai runtime contract self-check")
     parser.add_argument("--json", action="store_true", help="print machine-readable status")
     parser.add_argument("--no-e2e", action="store_true", help="only print static contract status")
     args = parser.parse_args(argv)
@@ -178,7 +178,7 @@ def main(argv=None):
     if args.json:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
-        print(f"Penglai Runtime Hub V5 test: {data['version']}")
+        print(f"Penglai runtime self-check: {data['version']}")
         print(f"runtime enabled: {data['runtime_enabled']}")
         print(f"shadow enabled: {data['shadow_enabled']}")
         print("contracts: " + ", ".join(data["contracts"]))

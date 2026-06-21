@@ -14,6 +14,7 @@ from _harness import run_tests
 from penglai_runtime.contracts import InboundEvent
 from penglai_runtime.channel_runtime import ChannelRuntimeBridge, install_channel_runtime_adapter
 from penglai_runtime.delivery import DeliveryService, plan_delivery
+from penglai_runtime.context_events import append_context_event, recent_context_prompt
 from penglai_runtime.hub import PenglaiRuntimeHub
 from penglai_runtime.in_memory_im import InMemoryIMAdapter
 from penglai_runtime.interaction import (
@@ -30,10 +31,12 @@ from penglai_runtime.interaction import (
 from penglai_runtime.memory_governor import MemoryGovernor
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup
 from penglai_runtime.queueing import SessionQueue
+from penglai_runtime.redaction import contains_secret, redact_json, redact_text as runtime_redact_text
 from penglai_runtime.runner import AgentRunner
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
 from penglai_runtime.selfcheck import run_end_to_end_check, status
+from penglai_runtime.version import collect_version_metadata, compact_version_line
 from penglai_runtime.text_interaction import install_text_interaction_adapter
 
 
@@ -466,6 +469,33 @@ def test_delivery_service_skips_duplicate_file_when_external_receipt_exists():
     assert audits[0][1]["reason"] == "external_api_receipt"
 
 
+def test_delivery_plan_resolves_temp_workspace_and_repo_relative_paths():
+    td = tempfile.mkdtemp()
+    temp_dir = os.path.join(td, "temp")
+    workspace = os.path.join(td, "workspace")
+    os.makedirs(temp_dir)
+    os.makedirs(workspace)
+    temp_file = os.path.join(temp_dir, "report.pdf")
+    workspace_file = os.path.join(workspace, "deck.md")
+    open(temp_file, "wb").write(b"%PDF")
+    open(workspace_file, "w", encoding="utf-8").write("# deck")
+    old_env = os.environ.get("GA_WORKSPACE_ROOT")
+    old_cwd = os.getcwd()
+    try:
+        os.environ["GA_WORKSPACE_ROOT"] = workspace
+        os.chdir(td)
+        plan = plan_delivery("A [FILE:temp/report.pdf]\nB [FILE:deck.md]", base_dir=temp_dir)
+    finally:
+        os.chdir(old_cwd)
+        if old_env is None:
+            os.environ.pop("GA_WORKSPACE_ROOT", None)
+        else:
+            os.environ["GA_WORKSPACE_ROOT"] = old_env
+
+    assert set(plan.allowed_paths) == {os.path.realpath(temp_file), os.path.realpath(workspace_file)}
+    assert plan.missing == ()
+
+
 def test_session_queue_preserves_fifo_for_busy_session():
     queue = SessionQueue()
     first = InboundEvent("e1", "feishu", "u", "one")
@@ -559,6 +589,44 @@ def test_redact_text_masks_common_secret_shapes():
     assert "secret" not in redacted
     assert "live-token" not in redacted
     assert "sk-testsecret" not in redacted
+
+
+def test_runtime_redaction_detects_and_redacts_structured_secrets():
+    raw = {"api_key": "sk-testsecret123456", "nested": ["Bearer live-token-123456"]}
+    redacted = redact_json(raw)
+    assert contains_secret("client_secret=abc12345")
+    assert "sk-testsecret" not in redacted
+    assert "live-token" not in redacted
+    assert runtime_redact_text("token=abc12345") == "token=***"
+
+
+def test_context_events_are_recent_redacted_prompt_context():
+    td = tempfile.mkdtemp()
+    log_path = os.path.join(td, "context.jsonl")
+    append_context_event(
+        "companion_sent",
+        "提醒一下 token=abc12345 今天 20:00 收尾",
+        channel="feishu",
+        actor="ou_real",
+        metadata={"secret": "sk-testsecret123456"},
+        log_path=log_path,
+    )
+
+    prompt = recent_context_prompt(log_path=log_path)
+
+    assert "companion_sent" in prompt
+    assert "token=***" in prompt
+    assert "abc12345" not in prompt
+    assert "ou_real" not in prompt
+
+
+def test_version_metadata_uses_installer_version_and_git_identity():
+    meta = collect_version_metadata()
+    line = compact_version_line(meta)
+
+    assert meta.version == "0.2.20"
+    assert "Penglai 0.2.20" in line
+    assert meta.commit
 
 
 def test_memory_governor_rejects_runtime_noise_and_keeps_real_rules():

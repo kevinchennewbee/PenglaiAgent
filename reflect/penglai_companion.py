@@ -412,6 +412,17 @@ def on_done(result):
         state["last_sent_channels"] = sent
         state["last_sent_body"] = body[:240]
         state["pending_kind"] = ""            # 清租约
+        try:
+            from penglai_runtime.context_events import append_context_event
+            append_context_event(
+                "companion_sent",
+                body,
+                channel="+".join(sent),
+                actor=cfg.get("open_id", ""),
+                metadata={"trigger": kind, "mode": cfg.get("mode", "present")},
+            )
+        except Exception as e:
+            print(f"[companion] 上下文事件记录失败: {e}")
         _save_state(state)
         print(f"[companion] 已主动发送({'+'.join(sent)}): {body[:40]}")
     else:

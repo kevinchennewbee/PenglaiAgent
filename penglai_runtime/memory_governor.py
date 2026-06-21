@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Memory-write hygiene for the Penglai Runtime Hub V5 test surface.
+"""Memory-write hygiene for the Penglai runtime layer.
 
 This module does not replace GA memory.  It classifies whether Penglai should
 even propose a memory write, so runtime noise and channel artifacts do not
@@ -29,7 +29,7 @@ _PREFERENCE_RE = re.compile(
 )
 _PROJECT_RULE_RE = re.compile(
     r"(GA上游|GenericAgent|蓬莱层|Mac mini|macmini|腾讯云|release/main|"
-    r"main分支|飞书|微信|IM|客户端|V5|0\.2\.\d+|0\.3\.\d+)",
+    r"main分支|飞书|微信|IM|客户端|全新架构|runtime|0\.2\.\d+|0\.3\.\d+)",
     re.I,
 )
 _WORKING_RE = re.compile(r"(bug|问题|失败|报错|修复|待办|验证|测试|hotfix|回归|发布)", re.I)

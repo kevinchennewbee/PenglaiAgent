@@ -28,6 +28,7 @@ from penglai_feishu_app import (
     _pop_menu_choice,
     _remember_ask,
     _redact_log_text,
+    _secret_blocked,
     _text_from_message,
     _text_from_message_content,
 )
@@ -205,6 +206,12 @@ def test_redact_log_text_masks_common_secrets():
     assert "token=***" in text
     assert "Bearer ***" in text
     assert "sk-***" in text
+
+
+def test_secret_blocked_detects_credentials_before_agent_context():
+    assert _secret_blocked("请配置 client_secret=abc12345")
+    assert _secret_blocked("sk-testsecret123456")
+    assert not _secret_blocked("普通问题：今天做什么？")
 
 
 def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():

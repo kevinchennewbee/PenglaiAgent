@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Shared V5 runtime bridge for real channel adapters.
+"""Shared Penglai runtime bridge for real channel adapters.
 
 The bridge is deliberately adapter-side: SDK loops, credentials, uploads, and
 native widgets stay in each frontend, while Penglai-owned contracts are applied
@@ -25,6 +25,7 @@ from .interaction import (
 from .memory_governor import MemoryGovernor
 from .session import SessionRouter
 from .shadow import record_delivery_shadow
+from .context_events import recent_context_prompt
 
 
 def default_file_hint():
@@ -64,7 +65,12 @@ def owner_user_ids_from_mykeys():
 
 
 def compose_prompt(text, *, file_hint=None):
-    return f"{file_hint or default_file_hint()}\n{INTERACTION_PROMPT_HINT}\n\n{text}"
+    context = recent_context_prompt()
+    parts = [file_hint or default_file_hint(), INTERACTION_PROMPT_HINT]
+    if context:
+        parts.append(context)
+    parts.append(str(text or ""))
+    return "\n\n".join(parts)
 
 
 class ChannelRuntimeBridge:
@@ -179,7 +185,7 @@ def install_channel_runtime_adapter(
     get_agent=None,
     render_interaction=None,
 ):
-    """Patch an app instance so the main turn goes through V5 contracts.
+    """Patch an app instance so the main turn goes through runtime contracts.
 
     The patch is intentionally conservative: existing channel send_text,
     send_done, upload, and command methods are reused.
@@ -312,7 +318,7 @@ def install_channel_runtime_adapter(
             else:
                 await _send_text(self, chat_id, "⚠️ Agent 异常退出，请重试", ctx)
         except Exception as e:
-            print(f"[{getattr(self, 'label', bridge.channel)}] V5 runtime run_agent error: {e}")
+            print(f"[{getattr(self, 'label', bridge.channel)}] Penglai runtime run_agent error: {e}")
             traceback.print_exc()
             await _send_text(self, chat_id, f"❌ 错误: {e}", ctx)
         finally:

@@ -95,18 +95,28 @@ def _resolve(marker, base_dir=None):
     expanded = os.path.expanduser(marker)
     if os.path.isabs(expanded):
         return expanded
+    candidates = []
+    norm = os.path.normpath(expanded)
     if base_dir:
         base = os.path.realpath(os.path.expanduser(str(base_dir)))
-        candidates = [os.path.join(base, expanded)]
-        norm = os.path.normpath(expanded)
+        candidates.append(os.path.join(base, expanded))
         base_name = os.path.basename(base)
         if norm == base_name or norm.startswith(base_name + os.sep):
             candidates.append(os.path.join(os.path.dirname(base), norm))
-        for candidate in candidates:
+        else:
+            candidates.append(os.path.join(os.path.dirname(base), norm))
+    repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    for base in (os.getcwd(), repo_root, os.environ.get("GA_WORKSPACE_ROOT", "")):
+        if base:
+            candidates.append(os.path.join(os.path.realpath(os.path.expanduser(base)), expanded))
+    candidates.append(expanded)
+    seen = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.append(candidate)
             if os.path.isfile(os.path.realpath(candidate)):
                 return candidate
-        return candidates[0]
-    return expanded
+    return seen[0] if seen else expanded
 
 
 def classify_file_markers(text, base_dir=None, exclude_paths=None):

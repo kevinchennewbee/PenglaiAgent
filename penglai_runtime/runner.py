@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Deterministic Penglai runtime coordinator for V5 contract tests.
+"""Deterministic Penglai runtime coordinator for contract tests.
 
 AgentRunner is not a new agent and does not replace GA.  It coordinates the
 Penglai-owned contracts around GA: session routing, queue decisions, output

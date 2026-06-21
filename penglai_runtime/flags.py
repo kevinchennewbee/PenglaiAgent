@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Feature flags for V5 test behavior."""
+"""Feature flags for Penglai runtime behavior."""
 
 import os
 

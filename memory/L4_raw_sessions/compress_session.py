@@ -4,6 +4,12 @@ Format A (JSON): kept as-is.  Format B (Raw): strip sys prompt & assistant echo.
 import re, os, json, ast
 from datetime import datetime
 
+try:
+    from penglai_runtime.redaction import redact_text
+except Exception:
+    def redact_text(text):
+        return str(text or "")
+
 L4_DIR = os.path.dirname(os.path.abspath(__file__))
 
 _RE_PROMPT   = re.compile(r'^=== Prompt ===(?: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?', re.M)
@@ -139,7 +145,8 @@ def extract_history(src, session_name=None):
 def format_history_block(session_name, history_lines):
     """Format history lines into all_histories.txt block format."""
     sep = '=' * 60
-    return f"{sep}\nSESSION: {session_name}\n{sep}\n" + '\n'.join(history_lines) + '\n'
+    safe_lines = [redact_text(line) for line in history_lines]
+    return f"{sep}\nSESSION: {session_name}\n{sep}\n" + '\n'.join(safe_lines) + '\n'
 
 import tempfile, shutil, zipfile, glob
 from collections import defaultdict

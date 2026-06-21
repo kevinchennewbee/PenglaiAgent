@@ -4,9 +4,23 @@
 # 数据(mykey.py/记忆/temp/微信token)全部落在 /data 卷,镜像升级不丢。
 FROM python:3.11-slim
 ARG PIP_INDEX=https://pypi.org/simple
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+ARG PENGLAI_BUILD_COMMIT=unknown
+ARG PENGLAI_BUILD_BRANCH=unknown
+ARG PENGLAI_BUILD_TIME=unknown
+ARG PENGLAI_IMAGE_TAG=unknown
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates procps ffmpeg \
+RUN if [ -n "$APT_MIRROR" ]; then \
+        APT_SEC="${APT_SECURITY_MIRROR:-${APT_MIRROR}-security}"; \
+        for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do \
+          [ -e "$f" ] || continue; \
+          sed -i "s|http://deb.debian.org/debian-security|$APT_SEC|g; s|http://deb.debian.org/debian|$APT_MIRROR|g" "$f"; \
+        done; \
+    fi \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       git ca-certificates procps ffmpeg tzdata build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -m -u 10001 -d /home/penglai penglai \
@@ -31,8 +45,14 @@ RUN chmod +x /app/penglai \
     && chown -R penglai:penglai /app
 
 ENV PENGLAI_DOCKER=1 \
+    PENGLAI_INSTALL_SOURCE=docker \
+    PENGLAI_BUILD_COMMIT=$PENGLAI_BUILD_COMMIT \
+    PENGLAI_BUILD_BRANCH=$PENGLAI_BUILD_BRANCH \
+    PENGLAI_BUILD_TIME=$PENGLAI_BUILD_TIME \
+    PENGLAI_IMAGE_TAG=$PENGLAI_IMAGE_TAG \
     GA_WORKSPACE_ROOT=/data/workspace \
     PENGLAI_MODEL_DIR=/data/penglai-models \
+    TZ=Asia/Shanghai \
     HOME=/home/penglai \
     PYTHONUNBUFFERED=1
 

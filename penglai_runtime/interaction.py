@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""User interaction contracts for Penglai Runtime Hub V5.
+"""User interaction contracts for the Penglai runtime layer.
 
 Runtime owns the intent to ask the user.  Adapters own the exact rendering:
 Feishu can show buttons, while channels without stable card support can render
