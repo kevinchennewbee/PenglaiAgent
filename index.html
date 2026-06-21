@@ -600,7 +600,10 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.20",d:"2026-06-21",h:"latest",zh:"全新架构的 Penglai Agent",en:"New-architecture Penglai Agent",t:true,
+ {v:"v0.2.21",d:"2026-06-21",h:"latest",zh:"安装网络热修",en:"Install-network hotfix",t:true,
+  liZh:["一键安装和 PyPI 引导器增加源码压缩包回退：GitHub 首页或默认镜像不可用时，仍可走 codeload 下载","Docker 本地构建兜底同样使用多源压缩包下载，减少卡在 git clone 或镜像站上的情况","版本身份同步到 0.2.21；0.2.20 仍是全新架构主版本"],
+  liEn:["One-line install and the PyPI bootstrap now fall back to source tarballs through codeload when the GitHub homepage or default mirror is unavailable","Docker local-build fallback also uses multi-source tarball download to avoid hanging on git clone or mirror failures","Version identity is now 0.2.21; 0.2.20 remains the main new-architecture release"]},
+ {v:"v0.2.20",d:"2026-06-21",h:"architecture",zh:"全新架构的 Penglai Agent",en:"New-architecture Penglai Agent",t:true,
   liZh:["统一多入口运行层：飞书、微信、终端、语音、文件和主动消息共享会话、队列、投递和上下文规则","忙时消息会排队，主动陪伴进入后续上下文，IM 图片和生成文件投递更可靠","日志与历史统一脱敏，key、token、secret、authorization 等敏感片段在写入前处理","Docker 补齐语音依赖、时区、数据卷回填、私有记忆排除和镜像版本身份","新增 penglai version，CLI、doctor、IM 和 Docker 都能报告可信版本与构建来源"],
   liEn:["Unified multi-entry runtime: Feishu, WeChat, terminal, voice, files, and proactive events share session, queueing, delivery, and context rules","Busy messages queue; proactive companion events enter later context; IM images and generated artifacts deliver more reliably","Logs and history share redaction for keys, tokens, secrets, authorization-like values, and other sensitive fragments","Docker now includes voice dependencies, timezone, data-volume backfill, private-memory exclusion, and image version identity","penglai version was added so CLI, doctor, IM, and Docker can report trusted version and build source"]},
  {v:"v0.2.10",d:"2026-06-17",h:"stable",zh:"飞书真实工作流和文件外发收口",en:"Feishu workflow and artifact delivery",t:true,
