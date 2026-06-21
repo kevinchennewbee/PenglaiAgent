@@ -600,7 +600,10 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.26",d:"2026-06-21",h:"latest",zh:"Docker 安装网络热修",en:"Docker-install network hotfix",t:true,
+ {v:"v0.2.27",d:"2026-06-21",h:"latest",zh:"Docker 安装网络兜底热修",en:"Docker-install network fallback hotfix",t:true,
+  liZh:["GHCR 拉取失败或超时时，Docker 一键部署会进入国内镜像站或本地源码构建","本地构建也会同步切到国内 PyPI/APT 镜像，避免依赖下载继续卡住","版本身份同步到 0.2.27；0.2.26 保留为 Docker 拉取超时热修"],
+  liEn:["Docker one-line deploy moves to the China mirror or local source build when GHCR fails or times out","Local builds also switch to China PyPI/APT mirrors so dependency download does not stall next","Version identity is now 0.2.27; 0.2.26 remains the Docker-pull timeout hotfix"]},
+ {v:"v0.2.26",d:"2026-06-21",h:"docker",zh:"Docker 安装网络热修",en:"Docker-install network hotfix",t:true,
   liZh:["Docker 一键部署在 GHCR 拉取长时间无响应时，会自动超时并进入国内镜像站或本地源码构建兜底","新增 PENGLAI_DOCKER_PULL_TIMEOUT，可调整 Docker 镜像拉取等待时间","版本身份同步到 0.2.26；0.2.25 保留为安装依赖网络热修"],
   liEn:["Docker one-line deploy now times out when GHCR stalls and continues to the China mirror or local source-build fallback","PENGLAI_DOCKER_PULL_TIMEOUT can tune Docker image pull wait time","Version identity is now 0.2.26; 0.2.25 remains the dependency-install network hotfix"]},
  {v:"v0.2.25",d:"2026-06-21",h:"install",zh:"安装依赖网络热修",en:"Dependency-install network hotfix",t:true,
