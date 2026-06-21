@@ -161,12 +161,13 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-21 · v0.2.26**
+**2026-06-21 · v0.2.27**
 
-Docker-install network hotfix: Docker one-line deploy now times out when GHCR stalls and continues to the China mirror or local source-build fallback; `PENGLAI_DOCKER_PULL_TIMEOUT` can tune the pull wait.
+Docker-install network fallback hotfix: Docker one-line deploy now moves to the China mirror or local source build when GHCR fails or times out; local builds also switch to China PyPI/APT mirrors. Tune with `PENGLAI_DOCKER_PULL_TIMEOUT`, `PENGLAI_PIP_INDEX`, and `PENGLAI_APT_MIRROR`.
 
 Recent highlights:
 
+- v0.2.26: Docker-pull timeout hotfix; GHCR stalls no longer block the fallback chain.
 - v0.2.25: dependency-install network hotfix; one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls.
 - v0.2.24: GA-core boundary correction; LLM log redaction moved from the GenericAgent core file into a Penglai plugin, restoring the "do not modify upstream core" release boundary.
 - v0.2.23: non-interactive install-boundary hotfix; installer output redirected to logs, CI, or remote automation no longer falls into the setup wizard.

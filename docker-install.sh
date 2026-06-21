@@ -18,6 +18,7 @@ esac
 NAME="penglai"
 VOL="penglai-data"
 PULL_TIMEOUT="${PENGLAI_DOCKER_PULL_TIMEOUT:-240}"
+USE_CN_FALLBACK=0
 
 say() { printf '%s\n' "$1"; }
 die() { printf '❌ %s\n' "$1" >&2; exit 1; }
@@ -39,6 +40,7 @@ docker info >/dev/null 2>&1 || die "Docker 守护进程未运行(或当前用户
 MIRROR=""
 if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
     MIRROR="$PROXY"
+    USE_CN_FALLBACK=1
     [ -n "$MIRROR" ] || die "GitHub 直连受限,且 PENGLAI_GH_PROXY 为空。请设置可用镜像后重试"
     say "  🇨🇳 GitHub 直连受限,自动启用 GitHub 镜像: $MIRROR"
 fi
@@ -70,6 +72,7 @@ get_image() {
         if pull_image "$IMG"; then
             return 0
         fi
+        USE_CN_FALLBACK=1
         say "  GHCR 直连失败或超时,继续尝试兜底路径..."
     fi
     say "  尝试国内镜像站..."
@@ -79,12 +82,14 @@ get_image() {
     say "  📦 镜像站不可达,改为从源码本地构建(约 2-5 分钟,只需一次)..."
     BUILD_DIR="$(mktemp -d)"
     download_source_archive "$BUILD_DIR" || return 1
-    PIP_IDX="https://pypi.org/simple"
-    [ -n "$MIRROR" ] && PIP_IDX="https://pypi.tuna.tsinghua.edu.cn/simple"
+    PIP_IDX="${PENGLAI_PIP_INDEX:-https://pypi.org/simple}"
+    if [ "$USE_CN_FALLBACK" = "1" ] && [ -z "${PENGLAI_PIP_INDEX:-}" ]; then
+        PIP_IDX="https://pypi.tuna.tsinghua.edu.cn/simple"
+    fi
     BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
     APT_IDX="${PENGLAI_APT_MIRROR:-}"
     APT_SEC="${PENGLAI_APT_SECURITY_MIRROR:-}"
-    if [ -n "$MIRROR" ] && [ -z "$APT_IDX" ]; then
+    if [ "$USE_CN_FALLBACK" = "1" ] && [ -z "$APT_IDX" ]; then
         APT_IDX="https://mirrors.tuna.tsinghua.edu.cn/debian"
         APT_SEC="https://mirrors.tuna.tsinghua.edu.cn/debian-security"
     fi
