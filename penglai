@@ -238,10 +238,11 @@ def installed_services():
     return out or SERVICES[:2]
 
 # ---------- 安全插件预检（F-011 把静默 fail-open 变成可检测/阻断）----------
-GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins.penglai_fileguard"]
+GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins.penglai_fileguard",
+                 "plugins.penglai_logguard"]
 
 def guardcheck():
-    """验证安全插件（红线/记忆卫生/文件外发）真正 import 且挂载到 GenericAgentHandler。
+    """验证安全插件（红线/记忆卫生/文件外发/日志脱敏）真正 import 且挂载。
     供 doctor / start / 容器入口 / systemd 单元统一复用。0=已挂载 1=未挂载。
     机制：discover_and_load 对失败插件 except:pass（fail-open），故启动前必须主动核验，
     否则 agent 可能在【无任何防护】下运行而无人知晓。"""
@@ -254,11 +255,12 @@ def guardcheck():
         cr = ga.GenericAgentHandler.do_code_run.__module__
         fw = ga.GenericAgentHandler.do_file_write.__module__
         fg_ok = _probe_fileguard_mount()
+        lg_ok = _probe_logguard_mount()
     except Exception as e:
         print(f"FAIL import-error: {e}"); return 1
-    if not miss and cr != "ga" and fw != "ga" and fg_ok:
-        print("OK 安全插件已挂载（红线/记忆卫生/文件外发）"); return 0
-    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw} fileguard={fg_ok}"); return 1
+    if not miss and cr != "ga" and fw != "ga" and fg_ok and lg_ok:
+        print("OK 安全插件已挂载（红线/记忆卫生/文件外发/日志脱敏）"); return 0
+    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw} fileguard={fg_ok} logguard={lg_ok}"); return 1
 
 def _probe_fileguard_mount():
     """模拟生产部署的真实路径：fsapp 以 `python frontends/fsapp.py` 跑时模块名是
@@ -282,6 +284,10 @@ def _probe_fileguard_mount():
         if saved_main is not None:
             sys.modules["__main__"] = saved_main
         fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod = saved
+
+def _probe_logguard_mount():
+    import llmcore
+    return bool(getattr(llmcore._write_llm_log, "_penglai_logguard", False))
 
 def guard_ok():
     """以 venv python 子进程跑 guardcheck，返回 (ok, 末行详情)。doctor/start 复用。"""

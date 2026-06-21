@@ -3,6 +3,7 @@
 
 import os
 import asyncio
+import importlib
 import json
 import queue as Q
 import sys
@@ -600,6 +601,30 @@ def test_runtime_redaction_detects_and_redacts_structured_secrets():
     assert runtime_redact_text("token=abc12345") == "token=***"
 
 
+def test_logguard_redacts_llm_logs_without_core_patch():
+    import llmcore
+
+    td = tempfile.mkdtemp()
+    raw_log = os.path.join(td, "raw.log")
+    guarded_log = os.path.join(td, "guarded.log")
+    original = getattr(llmcore._write_llm_log, "_penglai_orig", llmcore._write_llm_log)
+
+    llmcore._write_llm_log = original
+    llmcore._write_llm_log("Prompt", "token=abc12345", log_path=raw_log)
+    with open(raw_log, encoding="utf-8") as f:
+        assert "abc12345" in f.read()
+
+    import plugins.penglai_logguard as logguard
+    importlib.reload(logguard)
+    assert getattr(llmcore._write_llm_log, "_penglai_logguard", False)
+
+    llmcore._write_llm_log("Prompt", "token=abc12345", log_path=guarded_log)
+    with open(guarded_log, encoding="utf-8") as f:
+        guarded = f.read()
+    assert "token=***" in guarded
+    assert "abc12345" not in guarded
+
+
 def test_context_events_are_recent_redacted_prompt_context():
     td = tempfile.mkdtemp()
     log_path = os.path.join(td, "context.jsonl")
@@ -624,8 +649,8 @@ def test_version_metadata_uses_installer_version_and_git_identity():
     meta = collect_version_metadata()
     line = compact_version_line(meta)
 
-    assert meta.version == "0.2.23"
-    assert "Penglai 0.2.23" in line
+    assert meta.version == "0.2.24"
+    assert "Penglai 0.2.24" in line
     assert meta.commit
 
 

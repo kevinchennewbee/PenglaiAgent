@@ -923,11 +923,6 @@ def _write_llm_log(label, content, log_path=None, model=''):
     os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if model: model = f' model={model}'
-    try:
-        from penglai_runtime.redaction import redact_text
-        content = redact_text(content)
-    except Exception:
-        pass
     with open(log_path, 'a', encoding='utf-8', errors='replace') as f:
         f.write(f"=== {label} === {ts}{model}\n{content}\n\n")
 
