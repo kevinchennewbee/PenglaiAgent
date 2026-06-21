@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：GenericAgent 的中文个人管家发行版。十分钟向导、飞书微信扫码、本地语音情绪识别、全 IM 文件外发、确定性安全。内核零改动。">
+<title>蓬莱 · Penglai — 住在飞书、微信和终端里的自托管 AI 管家</title>
+<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。飞书、微信、终端、语音、图片、记忆、主动陪伴和 Docker 统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -24,12 +24,12 @@
   --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);
   line-height:1.72;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
 /* —— 雾色光晕背景 —— */
-.aura{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aura{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none;contain:paint}
 .aura span{position:absolute;border-radius:50%;filter:blur(110px);animation:drift 26s ease-in-out infinite}
 .aura .a1{width:52vw;height:52vw;top:-16%;left:-10%;background:radial-gradient(circle,rgba(31,138,118,.16),transparent 70%)}
 .aura .a2{width:46vw;height:46vw;top:8%;right:-12%;background:radial-gradient(circle,rgba(185,138,46,.14),transparent 70%);animation-delay:-9s}
@@ -81,7 +81,7 @@ nav.scrolled .navin{padding:9px 28px}
 /* —— Hero:反居中左文右印双栏 —— */
 .hero{padding:84px 0 56px;position:relative}
 .hero-grid{display:grid;grid-template-columns:1.06fr .94fr;gap:54px;align-items:center}
-.hero-banner-bg{position:absolute;inset:-40px -40px auto;height:120%;z-index:-1;pointer-events:none;
+.hero-banner-bg{position:absolute;inset:-40px 0 auto;height:120%;z-index:-1;pointer-events:none;
   background:url(banner.png) center/cover no-repeat;opacity:.05;filter:blur(4px);
   mask-image:radial-gradient(120% 80% at 70% 30%,#000,transparent 72%)}
 .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:11.5px;color:var(--jade-700);
@@ -354,6 +354,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="brand"><b>蓬</b><span>蓬莱<span class="bl"> Penglai</span></span></div>
   <div class="navlinks">
     <a href="#features" class="hideS" data-zh="能力" data-en="Features">能力</a>
+    <a href="#architecture" class="hideS" data-zh="架构" data-en="Architecture">架构</a>
     <a href="#channels" class="hideS" data-zh="渠道" data-en="Channels">渠道</a>
     <a href="#install" data-zh="安装" data-en="Install">安装</a>
     <a href="#changelog" data-zh="更新" data-en="Changelog">更新</a>
@@ -370,11 +371,11 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="hero-grid">
     <div class="hero-id">
       <div class="eyebrow reveal" style="--i:0"><span class="sq"></span>
-        <span data-zh="基于 GenericAgent · 内核零改动 · MIT" data-en="Built on GenericAgent · zero kernel diff · MIT">基于 GenericAgent · 内核零改动 · MIT</span>
+        <span data-zh="自托管 · 全新架构 · 基于 GenericAgent" data-en="Self-hosted · new architecture · built on GenericAgent">自托管 · 全新架构 · 基于 GenericAgent</span>
       </div>
       <h1 class="reveal" style="--i:1">蓬莱</h1>
       <div class="latin reveal" style="--i:2">P E N G L A I</div>
-      <p class="tag reveal" style="--i:3" data-zh="住在你飞书和微信里的中文 AI 管家。" data-en="A Chinese AI butler that lives in your Feishu &amp; WeChat.">住在你飞书和微信里的中文 AI 管家。</p>
+      <p class="tag reveal" style="--i:3" data-zh="住在飞书、微信和终端里的自托管 AI 管家。" data-en="A self-hosted AI butler for Feishu, WeChat, and the terminal.">住在飞书、微信和终端里的自托管 AI 管家。</p>
       <p class="motto reveal" style="--i:4">八仙过海 · 各显神通</p>
       <div class="metrics reveal" style="--i:5">
         <span class="metric"><b>¥5</b><span data-zh="服务器/月" data-en="server/mo">服务器/月</span></span>
@@ -402,13 +403,13 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="kicker" data-zh="各显神通" data-en="WHAT IT DOES">各显神通</div>
     <h2 data-zh="它能做什么" data-en="Capabilities">它能做什么</h2>
     <span class="dia"></span>
-    <p data-zh="每一条都在真实服务器上每天跑着，不是路线图" data-en="Every line runs daily on a real server — not a roadmap">每一条都在真实服务器上每天跑着，不是路线图</p>
+    <p data-zh="源起、能力、架构和安全边界都来自真实使用，不是路线图" data-en="Origin, capabilities, architecture, and safety boundaries come from real usage — not a roadmap">源起、能力、架构和安全边界都来自真实使用，不是路线图</p>
   </div>
   <div class="bento">
     <div class="tile big featured reveal" style="--i:0">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-ear"/></svg></span>
       <h3 data-zh="听得出情绪的耳朵" data-en="Ears that hear emotion">听得出情绪的耳朵</h3>
-      <p data-zh="本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。" data-en="SenseVoice on local CPU (~230MB): transcription + 7 emotions + acoustic events. Out of the box on Feishu/WeChat; DingTalk/QQ/WeCom wrapped by the distro layer.">本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪 + 声学事件。飞书/微信开箱即用，钉钉/QQ/企微由发行层封装补齐。</p>
+      <p data-zh="本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件。飞书、微信和更多 IM 入口共用同一套语音处理规则。" data-en="SenseVoice runs locally on CPU: transcription, emotion labels, and acoustic events. Feishu, WeChat, and other IM entries share the same voice path.">本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件。飞书、微信和更多 IM 入口共用同一套语音处理规则。</p>
       <div class="demo">
         <div class="demo-tag" data-zh="演示示意" data-en="illustrative">演示示意</div>
         <div class="vmsg"><span class="wave" id="wave"></span><span class="dur">0:07</span></div>
@@ -418,34 +419,57 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     </div>
     <div class="tile wide reveal" style="--i:1">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-chat"/></svg></span>
-      <h3 data-zh="多渠道，都是扫码" data-en="Many channels, all by QR">多渠道，都是扫码</h3>
-      <p data-zh="已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队和人工介入按钮；文件外发在飞书、微信、企微、Telegram、Discord 统一按真实 artifact 判定。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。" data-en="Field-tested: Feishu scan-to-create (no public IP), personal WeChat QR login, terminal TUI. Feishu supports busy-message queueing and human-intervention buttons; outbound files now use one real-artifact rule across Feishu, WeChat, WeCom, Telegram, and Discord. Wrapped, pending field test: DingTalk/QQ/WeCom/Telegram/Discord, one command each. One butler, many doors.">已实测：飞书扫码自动建应用（免公网 IP）、个人微信扫码登录、终端 TUI。飞书支持忙时消息排队和人工介入按钮；文件外发在飞书、微信、企微、Telegram、Discord 统一按真实 artifact 判定。已封装待真机验证：钉钉/QQ/企微/Telegram/Discord，各一条命令。同一个管家，多个门。</p>
+      <h3 data-zh="一个管家，多个入口" data-en="One butler, many entries">一个管家，多个入口</h3>
+      <p data-zh="飞书、微信、终端、主动消息、语音和文件先进入统一运行层，再交给 Agent 执行。忙时消息会排队，文件外发按真实产物判断，上下文也更连贯。" data-en="Feishu, WeChat, terminal, proactive events, voice, and files enter one runtime layer before the agent executes. Busy messages queue, files are sent by real artifact type, and context stays coherent.">飞书、微信、终端、主动消息、语音和文件先进入统一运行层，再交给 Agent 执行。忙时消息会排队，文件外发按真实产物判断，上下文也更连贯。</p>
     </div>
     <div class="tile reveal" style="--i:2">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-memory"/></svg></span>
       <h3 data-zh="四层记忆" data-en="Four-tier memory">四层记忆</h3>
-      <p data-zh="索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。" data-en="Index / facts / skills / raw sessions as auditable markdown; every write threat-scanned, overwrites forbidden.">索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描，禁止覆盖。</p>
+      <p data-zh="索引、事实、技能、原始会话分层保存，Markdown 可审计；写入前做安全扫描，避免把提示注入或密钥写进长期记忆。" data-en="Index, facts, skills, and raw sessions are stored as auditable Markdown; writes are scanned to avoid prompt-injection or secret leakage into long-term memory.">索引、事实、技能、原始会话分层保存，Markdown 可审计；写入前做安全扫描，避免把提示注入或密钥写进长期记忆。</p>
     </div>
     <div class="tile reveal" style="--i:3">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-shield"/></svg></span>
       <h3 data-zh="确定性安全" data-en="Deterministic safety">确定性安全</h3>
-      <p data-zh="危险命令红线、全 IM 文件外发只拦少数敏感后缀（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。" data-en="Danger-command red lines, cross-IM outbound-file checks that only block a narrow sensitive-suffix list (.py/.env/.key/.sh/.pem), log redaction, and a full tool-call audit trail. Safety by deterministic checks, not LLM goodwill.">危险命令红线、全 IM 文件外发只拦少数敏感后缀（.py/.env/.key/.sh/.pem）、日志脱敏和全量工具调用审计。安全靠确定性检查，不靠 LLM 自觉。</p>
+      <p data-zh="危险命令、敏感路径、记忆写入、文件外发和日志泄露统一走规则拦截。安全靠确定性检查，不靠模型自觉。" data-en="Dangerous commands, sensitive paths, memory writes, outbound files, and log leaks all go through deterministic checks. Safety by rules, not model goodwill.">危险命令、敏感路径、记忆写入、文件外发和日志泄露统一走规则拦截。安全靠确定性检查，不靠模型自觉。</p>
     </div>
     <div class="tile wide reveal" style="--i:4">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-search"/></svg></span>
       <h3 data-zh="网页搜索开箱即用" data-en="Web search out of the box">网页搜索开箱即用</h3>
-      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 <code>penglai enable intel</code> 叠加独立搜索源。" data-en="Built-in free Bing fallback — query weather/news/facts even on a headless cloud server, no browser needed. Want multi-source cross-validation? <code>penglai enable intel</code> layers on independent search sources.">内置免费 Bing 兜底，无头云服务器也能查天气/新闻/事实，不依赖浏览器。想要多源交叉验证再 <code>penglai enable intel</code> 叠加独立搜索源。</p>
+      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气、新闻和事实，不依赖浏览器。需要多源交叉验证时再开启增强搜索。" data-en="A free Bing fallback works on headless servers for weather, news, and facts. Enhanced multi-source search can be enabled when needed.">内置免费 Bing 兜底，无头云服务器也能查天气、新闻和事实，不依赖浏览器。需要多源交叉验证时再开启增强搜索。</p>
     </div>
     <div class="tile reveal" style="--i:5">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-moon"/></svg></span>
       <h3 data-zh="真主动，不扰民<span class='opt'>opt-in</span>" data-en="Proactive, not spammy<span class='opt'>opt-in</span>">真主动，不扰民<span class="opt">opt-in</span></h3>
-      <p data-zh="心跳 + 硬编码门禁：恶劣天气预警、从语音里听出的情绪关心、早晚问候、久未联系才招呼。勿扰时段、绝不插话。" data-en="Heartbeat + hard gates: severe-weather alerts, voice-emotion check-ins, morning/evening greetings, reaching out only after long silence. Quiet hours respected.">心跳 + 硬编码门禁：恶劣天气预警、从语音里听出的情绪关心、早晚问候、久未联系才招呼。勿扰时段、绝不插话。</p>
+      <p data-zh="恶劣天气、语音情绪、早晚锚点和久未联系提醒都会经过勿扰、频率和对话中门禁。像朋友想起你，不像闹钟轰炸你。" data-en="Weather, voice-emotion, morning/evening anchors, and long-silence check-ins pass quiet-hour, frequency, and active-conversation gates. More like a friend remembering you than an alarm spamming you.">恶劣天气、语音情绪、早晚锚点和久未联系提醒都会经过勿扰、频率和对话中门禁。像朋友想起你，不像闹钟轰炸你。</p>
     </div>
     <div class="tile reveal" style="--i:6">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-sliders"/></svg></span>
       <h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
       <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice｜companion｜intel</code>.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。</p>
     </div>
+  </div>
+</div></section>
+
+<hr class="hr-ink">
+
+<section class="block alt" id="architecture"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="新的运行层" data-en="A NEW RUNTIME LAYER">新的运行层</div>
+    <h2 data-zh="全新架构的 Penglai Agent" data-en="A New-Architecture Penglai Agent">全新架构的 Penglai Agent</h2>
+    <span class="dia"></span>
+    <p data-zh="不再是每个渠道各自包装，而是所有入口先进同一层运行时" data-en="Not separate wrappers per channel, but one runtime layer before execution">不再是每个渠道各自包装，而是所有入口先进同一层运行时</p>
+  </div>
+  <div class="matrix reveal">
+    <div class="mrow h"><span data-zh="优化" data-en="Improvement">优化</span><span class="how" data-zh="你能感受到什么" data-en="What you feel">你能感受到什么</span><span data-zh="结果" data-en="Result">结果</span><span data-zh="状态" data-en="Status">状态</span></div>
+    <div class="mrow"><span class="ch" data-zh="统一入口" data-en="Unified entries">统一入口</span><span class="how" data-zh="飞书、微信、终端、语音、文件、主动消息进入同一运行层" data-en="Feishu, WeChat, terminal, voice, files, and proactive events enter one runtime">飞书、微信、终端、语音、文件、主动消息进入同一运行层</span><span class="tg ok" data-zh="上下文一致" data-en="coherent context">上下文一致</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
+    <div class="mrow"><span class="ch" data-zh="消息排队" data-en="Message queueing">消息排队</span><span class="how" data-zh="上一条任务没结束时，后续消息不再直接丢失" data-en="Follow-up messages are not dropped while a task is running">上一条任务没结束时，后续消息不再直接丢失</span><span class="tg ok" data-zh="更稳" data-en="more reliable">更稳</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
+    <div class="mrow"><span class="ch" data-zh="文件投递" data-en="File delivery">文件投递</span><span class="how" data-zh="图片、视频、PDF、Markdown、Office 按真实产物发送" data-en="Images, videos, PDFs, Markdown, and Office docs are sent by real artifact type">图片、视频、PDF、Markdown、Office 按真实产物发送</span><span class="tg ok" data-zh="少误挡" data-en="fewer false blocks">少误挡</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
+    <div class="mrow"><span class="ch" data-zh="日志脱敏" data-en="Log redaction">日志脱敏</span><span class="how" data-zh="key、token、secret、authorization 统一脱敏后再落日志和历史" data-en="keys, tokens, secrets, and authorization-like values are redacted before logs and history">key、token、secret、authorization 统一脱敏后再落日志和历史</span><span class="tg ok" data-zh="更安全" data-en="safer">更安全</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
+    <div class="mrow"><span class="ch">Docker</span><span class="how" data-zh="时区、语音依赖、数据卷、公共 SOP 回填、版本身份都进入镜像路径" data-en="timezone, voice deps, data volume, public SOP backfill, and version identity are handled in the image path">时区、语音依赖、数据卷、公共 SOP 回填、版本身份都进入镜像路径</span><span class="tg ok" data-zh="可运维" data-en="operable">可运维</span><span class="tg live"><span class="pt"></span><span data-zh="真机验证" data-en="field-tested">真机验证</span></span></div>
+  </div>
+  <div class="pledge reveal" style="margin-top:22px">
+    <span class="q">❯</span><strong style="color:var(--ink)" data-zh="和 GenericAgent 的关系" data-en="How it relates to GenericAgent">和 GenericAgent 的关系</strong>
+    <span data-zh="GenericAgent 是执行核心；蓬莱把它变成普通人能安装、接入、长期运行、升级和审计的个人 AI 管家。内核保持上游优先，安装、渠道、语音、记忆卫生、安全和运维由蓬莱补齐。" data-en="GenericAgent is the execution core. Penglai turns it into a personal AI butler that ordinary users can install, connect, run, upgrade, and audit. The kernel stays upstream-first; setup, channels, voice, memory hygiene, safety, and operations are added by Penglai.">GenericAgent 是执行核心；蓬莱把它变成普通人能安装、接入、长期运行、升级和审计的个人 AI 管家。内核保持上游优先，安装、渠道、语音、记忆卫生、安全和运维由蓬莱补齐。</span>
   </div>
 </div></section>
 
@@ -524,12 +548,13 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
 
 <section class="block"><div class="story-aura"></div><div class="wrap story">
   <div class="head reveal">
-    <div class="kicker" data-zh="海上有仙山" data-en="AN ISLAND IN THE MIST">海上有仙山</div>
-    <h2 data-zh="为什么叫蓬莱" data-en="Why “Penglai”">为什么叫蓬莱</h2>
+    <div class="kicker" data-zh="源起与名字" data-en="ORIGIN AND NAME">源起与名字</div>
+    <h2 data-zh="普通人，也该拥有自己的 Agent" data-en="Ordinary People Should Own Agents Too">普通人，也该拥有自己的 Agent</h2>
   </div>
-  <p class="carve reveal" style="--i:0" data-zh="可望而不可即" data-en="Visible, out of reach">可望而不可即</p>
-  <p class="reveal" style="--i:1" data-zh="蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。" data-en="Penglai is the mythic immortal mountain at sea. AI is to ordinary people what Penglai was to the ancients — you've heard of its powers, but a fog keeps you on the shore: APIs, terminals, configs, each a reef that turns people away.">蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人——明明听说了它的神通，却被一层迷雾挡在岸边：API、终端、配置，每一样都是劝退的礁石。</p>
-  <p class="reveal" style="--i:2" data-zh="蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。" data-en="Penglai wants to be the ferry: if you can send a WeChat message, you should be able to use an AI butler. Eight immortals cross the sea, each by their own art — many models, many channels, everyone finds their own way to the island.">蓬莱想做那艘摆渡的船：会发微信，就该会用 AI 管家。八仙过海，各显神通——多模型、多渠道，每个人都能找到自己上岛的路。</p>
+  <p class="carve reveal" style="--i:0" data-zh="会发微信，就该会用 Agent" data-en="If you can text, you should be able to use an agent">会发微信，就该会用 Agent</p>
+  <p class="reveal" style="--i:1" data-zh="我做了十年网络技术、安全和运维，但不会写代码。蓬莱里的代码，是我用 AI 编程工具一句一句说出来的。它想证明一件事：AI 时代，普通人也能为自己造工具。" data-en="I spent ten years in networking, security, and operations, but I could not write code. Penglai was spoken into existence with AI coding tools. It tries to prove one thing: in the AI era, ordinary people can build their own tools.">我做了十年网络技术、安全和运维，但不会写代码。蓬莱里的代码，是我用 AI 编程工具一句一句说出来的。它想证明一件事：AI 时代，普通人也能为自己造工具。</p>
+  <p class="reveal" style="--i:2" data-zh="CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进飞书、微信和终端，让它在你已经生活的地方出现。" data-en="CLI agents are powerful, and desktop agents are useful. But ordinary users live in chat apps. Penglai puts a working agent into Feishu, WeChat, and the terminal, where your day already happens.">CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进飞书、微信和终端，让它在你已经生活的地方出现。</p>
+  <p class="reveal" style="--i:3" data-zh="蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人：明明听说它神奇，却被 API、终端、配置和英文文档挡在雾里。蓬莱想做那艘摆渡的船。" data-en="Penglai is the mythic immortal island at sea. For ordinary people, AI can feel just as distant: magical, but hidden behind APIs, terminals, configs, and English docs. Penglai wants to be the ferry.">蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人：明明听说它神奇，却被 API、终端、配置和英文文档挡在雾里。蓬莱想做那艘摆渡的船。</p>
 </div></section>
 
 <hr class="hr-ink">
@@ -575,69 +600,27 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.10 hotfix",d:"2026-06-17",h:"5e7cf5f",zh:"统一 IM 文件外发",en:"Unified IM artifact sending",t:true,
-  liZh:["飞书、微信、企微、Telegram、Discord 统一使用同一套 artifact 判定：只有真实本地文件会发送，占位符和示例不再误报为文件不存在","图片、视频、音频、PDF、Office、Markdown 等按类型发送；.py / .env / .key / .sh / .pem 仍确定性拦截，不再按目录误挡 Downloads 等真实落点","技能索引改为用户意图优先于链接来源：下载、发送、导出走文件流程，避免把抖音下载误路由到知识库类技能","本机与腾讯云干净目录验证通过；Mac mini 长期环境不由本轮自动操作，保留给用户手动升级后真实工作流复测"],
-  liEn:["Feishu, WeChat, WeCom, Telegram, and Discord now share one artifact classifier: only real local files are sent, while placeholders and examples no longer become false missing-file warnings","Images, videos, audio, PDFs, Office docs, Markdown, and other outputs are sent by type; .py / .env / .key / .sh / .pem remain deterministically blocked, and real outputs in practical locations such as Downloads are no longer blocked by directory","The skill index now routes by user intent before link source: download, send, and export requests stay on the file flow instead of drifting into knowledge-base skills for links such as Douyin","Verified locally and in a clean Tencent Cloud directory; the Mac mini long-term runtime was not operated in this release round and is left for manual upgrade plus real-workflow retest"]},
- {v:"v0.2.10",d:"2026-06-17",h:"d8d47ce",zh:"飞书真实工作流修复",en:"Feishu real-workflow fixes",t:true,
-  liZh:["飞书消息不再因前一条任务运行中直接丢弃：后续消息会进入队列，并在当前任务结束后自动处理","飞书按钮选择的无效点击不再吞掉待选状态；模型最终空输出但已生成文件时，卡片会显示正在发送生成文件，而不是误报截断","飞书日志会脱敏 API key、token、secret、password 等常见敏感片段，避免真实运行排障时把密钥写进日志","[FILE:] 外发不再按目录限制，只拦截 .py / .env / .key / .sh / .pem 这几个敏感后缀；视频、图片、PDF、Office 文档和其它实际工作产物可从 Downloads 等真实落点外发","视频/音频在飞书里按文件消息发送，避免媒体类型不匹配；全蓬莱层修改，GA 上游内核零 diff；本机、Mac mini 隔离目录与腾讯云干净目录均已验证"],
-  liEn:["Feishu no longer drops a second message while a previous task is running: follow-up messages are queued and processed automatically after the active task finishes","Invalid Feishu button clicks no longer consume a pending human-intervention choice; when final text is empty but files were generated, the task card reports file sending instead of a misleading truncation warning","Feishu logs redact API keys, tokens, secrets, passwords, and common bearer-style credentials during real runtime troubleshooting","[FILE:] sending is no longer directory-restricted; it only blocks .py / .env / .key / .sh / .pem suffixes, so videos, images, PDFs, Office documents, and other real work artifacts can be sent from practical locations such as Downloads","Audio/video files are sent as Feishu file messages to avoid media type mismatch errors; all changes live in the Penglai layer with zero GA-kernel diff, verified locally, in a Mac mini isolated directory, and in a clean Tencent Cloud directory"]},
- {v:"v0.2.9 hotfix",d:"2026-06-17",h:"ff880ff",zh:"脱敏与第三方合规收口",en:"Redaction and third-party compliance closeout",t:true,
-  liZh:["模板里的 Telegram 示例改成明显假值，避免残留真实 token/user id 片段误入公开模板","桌面宠物皮肤补齐第三方授权记录，移除授权不够标准的 Glube 皮肤；新增 THIRD_PARTY_NOTICES.md 记录素材与 CDP Bridge 边界","CDP Bridge 标注为高权限开发工具并补风险说明；新增 SECURITY.md，公开漏洞反馈要求默认脱敏","Docker 镜像改为非 root 运行，修正 /data 卷与微信 token 目录；新增 .dockerignore，防止本地私有运行态进入构建上下文","install.sh、docker-install.sh、penglai update 与 PyPI 引导器支持 PENGLAI_GH_PROXY 自定义 GitHub 镜像；Tauri 桌面配置补 CSP"],
-  liEn:["Telegram examples in the template are now obvious placeholders, removing token/user-id fragments from the public template","Desktop-pet skins now carry third-party license metadata, and the Glube skin without a standard redistribution license was removed; THIRD_PARTY_NOTICES.md records asset and CDP Bridge boundaries","CDP Bridge is documented as a high-permission developer tool; SECURITY.md was added with redacted-report guidance","Docker now runs as a non-root user while preserving /data volume state and WeChat token paths; .dockerignore keeps local private runtime files out of build contexts","install.sh, docker-install.sh, penglai update, and the PyPI bootstrap support PENGLAI_GH_PROXY; the Tauri desktop config now has a CSP"]},
- {v:"v0.2.9",d:"2026-06-17",h:"7e5086f",zh:"主动陪伴有存在感 + 看图/语音/文件外发收口",en:"Proactive companion that is felt + image/voice/file-send hardening",t:true,
-  liZh:["主动陪伴默认 present 模式：天气、语音情绪、早晚锚点过确定性门禁后必须给一句短消息，不再默认被 [SILENT] 抹掉；abilities 会显示最近心跳、沉默/失败原因、批判脑复核和记忆 L1/L2 健康","看图修复 OpenAI 兼容 endpoint 的 /v1/v1 拼接，并能修补已生成的 vision_api.py；飞书 [FILE:] 外发改为批量预检，安全文件照发，坏路径只汇总一条说明","本地语音改为分块识别，长 MP3 不再整段 PCM 进内存；ffmpeg readiness 与真实插件使用同一套 PATH/Homebrew/Linux/MacPorts fallback","审计日志默认避开源码根，audit/ 与 _internal/ 进入公开仓 ignore；penglai update 能识别本地发布仓 release/main 与安装仓 origin/main","同步 GA 上游 continue / Responses 元数据 / 运行 SOP 修复；不引入上游 README、docs、demo 素材；本地与腾讯云公开验证均 76 tests 通过"],
-  liEn:["Proactive companion now defaults to present mode: weather, voice-emotion follow-up, and morning/evening anchors must send one short message after deterministic gates instead of disappearing into [SILENT]; abilities now shows heartbeat, silence/failure reason, critic status, and L1/L2 memory health","Vision fixes OpenAI-compatible /v1/v1 endpoint joins and repairs generated vision_api.py; Feishu [FILE:] output now gets batch-preflighted so safe files still send while bad paths collapse into one concise notice","Local voice transcription now chunks long audio so long MP3 files no longer load the whole PCM into memory; ffmpeg readiness uses the same PATH/Homebrew/Linux/MacPorts fallback as the real plugin","Audit logs avoid the source root by default, and audit/ plus _internal/ are ignored for public-release safety; penglai update recognizes this release checkout's release/main and installed origin/main","Synced GA upstream continue / Responses metadata / runtime SOP fixes; upstream README/docs/demo assets intentionally not imported; local and Tencent Cloud public validation both passed 76 tests"]},
- {v:"v0.2.8",d:"2026-06-16",h:"295d26c",zh:"飞书人工介入按钮闭环 + update 国内网络兜底",en:"Feishu human-intervention buttons + update network fallback",t:true,
-  liZh:["飞书 ask_user 不再只露半句尾巴：结构化问题和选项会渲染成可点击按钮，并保留回复编号/完整文字兜底","按钮回调按飞书 JSON 2.0 callback behaviors 生成，并在蓬莱 wrapper 层兼容修补 lark-oapi 长连接 CARD 帧分发，不改第三方包源码","飞书入口改为 penglai_feishu_app.py 包装层，补齐 /review 路由；doctor/start 能识别并迁移旧 frontends/fsapp.py 进程，避免升级后仍跑旧入口","macOS 飞书前端纳入 launchd 守护，崩溃/被杀自动拉起重连；微信包装层补齐 /new /restore /continue /btw /review","fs_owner_open_id 与访问白名单拆开；penglai update 对 GitHub 直连加低速/总超时，卡住会切到 gh-proxy；腾讯云公开 main 干净克隆验证 + Mac mini SDK 行为取证；全蓬莱层，GA 内核零 diff"],
-  liEn:["Feishu ask_user no longer exposes only the dangling tail text: structured questions and choices render as clickable buttons, with numbered/exact-text replies kept as a fallback","Buttons use Feishu JSON 2.0 callback behaviors, and the Penglai wrapper applies a lark-oapi WebSocket CARD-frame compatibility patch without modifying the third-party package","Feishu now starts through penglai_feishu_app.py, with /review routing; doctor/start detect and migrate old frontends/fsapp.py processes so upgraded installs do not keep running the legacy entry","The macOS Feishu frontend is launchd-supervised and reconnects after crash/kill; the WeChat wrapper gains /new /restore /continue /btw /review","fs_owner_open_id is separated from the access allowlist; penglai update now gives direct GitHub fetches low-speed/overall timeouts and falls back to gh-proxy; verified by a clean Tencent Cloud clone of public main plus Mac mini SDK forensics; all in the Penglai layer, zero GA-kernel diff"]},
- {v:"v0.2.7",d:"2026-06-16",h:"c93ea2d",zh:"macOS 真机兜底收尾：陪伴/提醒 launchd 守护 + 看图 + 密钥防泄 + 语音/白名单/update 修",en:"macOS field-hardening: launchd-guarded companion/reminders + vision + key-leak prevention + voice/allowlist/update fixes",t:true,
-  liZh:["主动陪伴 / 提醒日程在 macOS 改用 launchd 真守护(崩溃/被杀自动重启 + 开机自启)，补齐与 Linux systemd 同等——旧版裸 Popen 被杀就永久死、提醒到点根本不触发","看图(U4)：构建 vision_api.py 接主力多模态模型 +「IM 发图→ask_vision 看图」L1 规则，不再凭模型名误判『我没视觉』","密钥防泄：管家 cat 配置时红线把 API key 脱敏，不再写进 model_responses 日志；覆盖 OpenAI/Tavily/Firecrawl/Agnes 等所有源 key","语音 ffmpeg 找不到给可读错误不再静默吞 + 子进程 PATH 固化(含 ~/.local/bin)；飞书白名单空时主动安全提示 + doctor 从日志认出 open_id 一键收紧；penglai update 国内 gh-proxy 镜像兜底","驱动：Mac mini 整晚真机取证 + ultracode 多路只读审计；全蓬莱层、GA 内核零 diff、本机 macOS + 腾讯云 Linux 双平台真机验过"],
-  liEn:["Proactive companion / reminders now run under launchd on macOS (auto-restart on crash/kill, start at boot) — parity with Linux systemd; the old bare-Popen left them dead-on-kill and reminders silently never fired","Vision (U4): builds vision_api.py wired to your main multimodal model + an 'IM image to ask_vision' L1 rule — no more guessing 'I have no vision' from the model name","Key-leak prevention: redline masks API keys in code_run output so cat-ing config no longer writes keys into model_responses; covers OpenAI/Tavily/Firecrawl/Agnes and every source key","Voice gives a readable error when ffmpeg is missing instead of swallowing it + pins child PATH (incl. ~/.local/bin); proactive security warning when the Feishu allowlist is empty + doctor recovers your open_id for a one-line tighten; penglai update gh-proxy China-mirror fallback","Driven by an overnight Mac mini live forensic + ultracode multi-track read-only audit; all in the Penglai layer, zero GA-kernel diff, field-verified on macOS + Tencent Linux"]},
- {v:"v0.2.6",d:"2026-06-15",h:"2804096",zh:"开能力免重启 + restart 自动报平安 + 向导探测旧管家迁移",en:"Enable abilities without restart + restart phones home + wizard detects your old assistant",t:true,
-  liZh:["开能力免重启：penglai enable critic/intel/companion 配好 key/城市后下一句就生效——长驻进程热重读 mykey（复用内核 reload_mykeys），不必再重启服务","重启自动报平安：让管家重启自己时配脱离进程组的监工，重启完主动发「我回来啦」到飞书/微信，不再石沉大海干等","装机向导探测旧管家：检测到 Hermes/OpenClaw 就提议把记忆/模型/渠道/人设一键搬过来，不用从零配","全部蓬莱层、GA 内核零 diff、腾讯云真机验过：U6 热重读 / notify_owner / status 三态 / guardcheck 回归 + 对真 Hermes migrate 预览"],
-  liEn:["Enable abilities without a restart: after penglai enable critic/intel/companion writes your key/city, the very next message uses it — the long-running process hot-reloads mykey (reusing the kernel's reload_mykeys), no service restart","Restart phones home: when the agent restarts itself, a detached supervisor pings you on Feishu/WeChat once it reconnects, instead of leaving you waiting in silence","Setup wizard detects your old assistant: spots Hermes/OpenClaw and offers to bring over your memory/model/channels/persona in one step, no from-scratch config","All in the Penglai layer, zero GA-kernel diff, field-verified on Tencent Cloud: hot-reload / notify_owner / status tri-state / guardcheck regression + migrate preview against a real Hermes"]},
- {v:"v0.2.5",d:"2026-06-15",h:"5772815",zh:"首批集市技能上架（8 个，全部免费可用）+ 免费铁律",en:"First wave of marketplace skills (8, all free) + free-to-use rule",t:true,
-  liZh:["首批 8 个集市技能：文档读写（Word/Excel/PPT/PDF，按需装开源库、离线零费用）/ 公众号文章取件（链接→正文+配图落 Markdown）/ 语音记账 / 快递查询 / 邮箱收发 / 资讯早报 / 生活提醒 / 市场调研","全是 GA 原生 SOP、装时过安全扫描、触发词进 L3 按需索引、不撑破每轮注入的极简记忆","免费铁律：集市技能与接入的 MCP 一律普通用户免费可用，付费墙 / 企业资质的一概不收","腾讯云真机 A–E 全过：office-docs 有界放宽真 pip 改 docx、wechat-article 真抓公众号（UA 坑实锤）、web_search 无头实搜、memguard + L3 + 回归测试全绿"],
-  liEn:["First 8 marketplace skills: document read/write (Word/Excel/PPT/PDF, installs open-source libs on demand, offline & free) / WeChat article fetch (link → body + images to Markdown) / voice expense log / parcel tracking / email / daily news brief / life reminders / market research","All native GA SOPs, security-scanned at install, triggers in the on-demand L3 index so the every-turn memory never bloats","Free-to-use rule: every marketplace skill and any plugged-in MCP must be free for ordinary users; nothing paywalled or enterprise-gated","Field-verified on Tencent Cloud (gates A–E): office-docs bounded-relaxation real pip + docx edit, wechat-article real fetch, headless web_search, memguard + L3 + regression all green"]},
- {v:"v0.2.4",d:"2026-06-14",h:"0f83e45",zh:"MCP 客户端支持 + Agnes 免费上手 + 技能集市记忆重构",en:"MCP client support + Agnes free onboarding + skill-marketplace memory refactor",t:true,
-  liZh:["MCP 客户端支持：mykey 配 mcp_servers 即接入任意外部 MCP server 的工具——纯标准库、GA 内核零 diff、超时不挂死主循环、调用前过安全扫描，opt-in 默认关闭","Agnes 免费上手：向导内置 Agnes AI 免费全模态体验源（工具调用 / 图片理解 / 流式输出），一键选中即用","技能集市记忆重构：触发词全表移到 L3 按需索引，L1 只留一行常量指针——装再多技能也不撑破每轮注入的 ≤30 行极简记忆（守 GA 第一性原理）","README 双语更新；腾讯云真机验证：飞书 wss 连上、12 测试全绿、内核零 diff"],
-  liEn:["MCP client support: point mcp_servers in mykey at any external MCP server and its tools plug straight in — pure stdlib, zero kernel diff, timeout-safe, args security-scanned, opt-in off by default","Agnes free onboarding: the wizard ships Agnes AI's free all-modality tier (tool calls / image understanding / streaming) — pick it and go","Skill-marketplace memory refactor: the trigger table moved to an on-demand L3 index; L1 keeps just one constant pointer — install any number of skills without bloating the every-turn ≤30-line core memory (honoring GA's first principle)","Bilingual README updated; field-verified on Tencent Cloud: Feishu wss connected, 12 test files green, zero kernel diff"]},
- {v:"v0.2.3",d:"2026-06-14",h:"353d8df",zh:"上游同步：微信 headless 登录 + TUI 工作区",en:"Upstream sync: WeChat headless login + TUI workspace",t:true,
-  liZh:["合并上游 13 提交，内核零 diff，腾讯云真机验证过","微信 headless 容器登录（二维码打到 docker logs，无需图形界面）","TUI 工作区项目模式 + @ 文件补全","macOS 无障碍 ljqCtrl 移植"],
-  liEn:["Merged 13 upstream commits, zero kernel diff, field-verified","WeChat headless container login (QR to docker logs, no GUI)","TUI workspace project mode + @-file completion","macOS accessibility ljqCtrl port"]},
- {v:"v0.2.2",d:"2026-06-14",h:"ce31d2c",zh:"一键迁移 + 技能集市 + 内置技能",en:"One-click migration + skill marketplace + built-in skills",t:true,
-  liZh:["一键迁移 penglai migrate：从 Hermes/OpenClaw 搬记忆/模型/渠道/人设（先预览再落盘 + 自动备份 + 诚实标注搬不了的）","技能集市 penglai skill：本地 apt 模式，技能是 GA 原生 SOP、装时过安全扫描、不联网拉","出厂内置技能：提醒/日程、天气查询、网页文章总结（免 key、无头服务器也能用）","蓬莱独特记忆：长期事实带时间/来源/重要度签名、新值自动作废旧值，治过期偏好污染","主动陪伴加固（投递失败不哑火、办公在线也收得到锚点）+ 一轮对抗式安全自审"],
-  liEn:["One-click migration: penglai migrate brings memory/model/channels/persona over from Hermes/OpenClaw (preview first, auto-backup, honest about what can't move)","Skill marketplace: penglai skill — local apt-style, skills are native GA SOPs, scanned on install, never fetched online","Built-in skills: reminders/schedule, weather, web-article summary (key-free, headless-ready)","Self-maintaining memory: long-term facts carry time/source/importance signatures and new values auto-supersede old ones","Companion hardening (no silent delivery failures) + an adversarial self-review pass"]},
- {v:"v0.2.1",d:"2026-06-13",h:"1768943",zh:"安全自更新：失败自动回滚",en:"Safe self-update with auto-rollback",t:true,
-  liZh:["penglai update 确认后全自动：预检 → 后台监工重启 → 健康检查 → 失败自动回滚到上一个能跑的版本","升级结果带外发到飞书/微信，不用 SSH 上服务器","管家可在 IM 里直接「检查更新 / 升级」（不再裸 git）","Docker 升级 = 重拉镜像；README 双语补 Docker 运维说明"],
-  liEn:["penglai update is fully automatic after confirm: preflight → background supervisor restart → health check → auto-rollback to the last working version on failure","Upgrade result messaged to Feishu/WeChat — no SSH needed","The butler can check/upgrade right in IM (no more raw git)","Docker upgrade = pull a new image; bilingual Docker ops docs added"]},
- {v:"v0.2.0",d:"2026-06-13",h:"00afa65",zh:"网页搜索开箱即用 + 主动陪伴 v2",en:"Web search out of the box + Companion v2",t:true,
-  liZh:["免 key Bing 搜索兜底——无头云服务器也能查天气/新闻/事实","主动陪伴 v2：恶劣天气预警 / 语音情绪承接 / 早晚问候 / 久未联系，飞书微信双投递","批判脑复核模型从整张厂商目录自选（不再限免费）","Docker 常驻监工：扫码/补配渠道自动拉起，进程崩溃自愈","更新承诺：上游安全漏洞 48h、功能 72h 同步进发行仓"],
-  liEn:["Keyless Bing search fallback — works on headless cloud servers (weather/news/facts)","Companion v2: severe-weather alerts / voice-emotion follow-ups / check-ins, dual Feishu+WeChat delivery","Critic review model picked from the full provider catalog (no longer free-only)","Docker resident supervisor: auto-starts channels after scan/config, self-heals crashed processes","Update pledge: upstream security fixes in 48h, features in 72h"]},
- {v:"v0.1.10",d:"2026-06-12",h:"33faae0",zh:"全新仙山 banner + 门面增强",en:"New banner + facade polish",t:true,
-  liZh:["青玉仙山鎏金 banner","官方渠道防冒用声明 + 蓬莱 vs 裸 GA 对比表","GitHub topics 上架"],
-  liEn:["Jade-and-gold immortal-isle banner","Official-channel notice + Penglai vs bare GA table","GitHub topics added"]},
- {v:"v0.1.9",d:"2026-06-12",h:"9578eea",zh:"混元 HY3 入目录",en:"Hunyuan HY3 in catalog",t:true,
-  liZh:["按量加 hy3-preview 选项","OpenRouter 加 tencent/hy3-preview"],
-  liEn:["hy3-preview added to paygo","tencent/hy3-preview via OpenRouter"]},
- {v:"v0.1.7",d:"2026-06-12",h:"93b5352",zh:"IM 语音封装 + 能力事后开启",en:"IM voice wrapper + abilities on demand",t:true,
-  liZh:["钉钉/QQ/企微语音接收（上游真空，内核零diff）","penglai enable voice｜companion｜intel + abilities","doctor 每个未启用项直接给开启命令"],
-  liEn:["DingTalk/QQ/WeCom voice reception (zero kernel diff)","penglai enable voice｜companion｜intel + abilities","doctor prints the enable command for each item"]},
- {v:"v0.1.5",d:"2026-06-12",h:"3787331",zh:"QQ 扫码修复 + 套餐矩阵",en:"QQ fix + plan matrix",
-  liZh:["QQ 扫码解密依赖 + poll 状态可观测","语音模型 999MB→230MB 单文件直下","11 家厂商按量/Coding/Token 套餐全面修正"],
-  liEn:["QQ scan decryption dep + observable poll","Voice model 999MB→230MB single-file","11 vendors: paygo/Coding/Token plans corrected"]},
- {v:"v0.1.4",d:"2026-06-12",h:"c4b2115",zh:"向导 v2",en:"Wizard v2",
-  liZh:["语言选择打头 + 全程中英 i18n","翻页式终端（每步如新页面）","渠道一页选 + 能力面板真激活 + 语音默认装"],
-  liEn:["Language-first + full EN/中文 i18n","Paged terminal UX","One-page channel picker + ability panel + voice by default"]},
- {v:"v0.1.2",d:"2026-06-11",h:"727a40d",zh:"渠道矩阵 + TUI 入口",en:"Channel matrix + TUI",
-  liZh:["5 个 IM 前端统一封装","钉钉/QQ 扫码自动建应用","裸跑 penglai 进终端对话"],
-  liEn:["5 IM frontends unified","DingTalk/QQ scan-to-create","Bare penglai → terminal chat"]},
- {v:"v0.1.1",d:"2026-06-11",h:"81e09b5",zh:"安全硬化 + 发行版整理",en:"Security hardening",
-  liZh:["审计 P0/P1 修复（红线/记忆/外发）","README 转正 + 裁剪上游 material"],
-  liEn:["Audit P0/P1 fixes","README promoted + upstream trimmed"]},
- {v:"v0.1.0",d:"2026-06-11",h:"aeb56dc",zh:"首次开源 🎉",en:"First release 🎉",
-  liZh:["十分钟向导 + 飞书微信扫码","本地语音情绪识别","确定性红线安全 + 四层记忆"],
-  liEn:["Ten-minute wizard + Feishu/WeChat QR","Local voice-emotion recognition","Deterministic safety + four-tier memory"]},
+ {v:"v0.2.20",d:"2026-06-21",h:"latest",zh:"全新架构的 Penglai Agent",en:"New-architecture Penglai Agent",t:true,
+  liZh:["统一多入口运行层：飞书、微信、终端、语音、文件和主动消息共享会话、队列、投递和上下文规则","忙时消息会排队，主动陪伴进入后续上下文，IM 图片和生成文件投递更可靠","日志与历史统一脱敏，key、token、secret、authorization 等敏感片段在写入前处理","Docker 补齐语音依赖、时区、数据卷回填、私有记忆排除和镜像版本身份","新增 penglai version，CLI、doctor、IM 和 Docker 都能报告可信版本与构建来源"],
+  liEn:["Unified multi-entry runtime: Feishu, WeChat, terminal, voice, files, and proactive events share session, queueing, delivery, and context rules","Busy messages queue; proactive companion events enter later context; IM images and generated artifacts deliver more reliably","Logs and history share redaction for keys, tokens, secrets, authorization-like values, and other sensitive fragments","Docker now includes voice dependencies, timezone, data-volume backfill, private-memory exclusion, and image version identity","penglai version was added so CLI, doctor, IM, and Docker can report trusted version and build source"]},
+ {v:"v0.2.10",d:"2026-06-17",h:"stable",zh:"飞书真实工作流和文件外发收口",en:"Feishu workflow and artifact delivery",t:true,
+  liZh:["飞书后续消息不再因任务运行中直接丢失，按钮选择和人工介入更稳定","图片、视频、音频、PDF、Office、Markdown 等按真实产物发送，敏感后缀仍确定性拦截","技能索引按用户意图优先路由，下载、发送、导出请求不会误走知识库流程"],
+  liEn:["Feishu follow-up messages no longer disappear while a task is running; buttons and human-intervention flows are more stable","Images, videos, audio, PDFs, Office docs, Markdown, and other artifacts are sent by real type while sensitive suffixes stay blocked","Skill routing now prioritizes user intent, so download/send/export requests do not drift into knowledge-base flows"]},
+ {v:"v0.2.9",d:"2026-06-17",h:"privacy",zh:"隐私、合规与主动陪伴增强",en:"Privacy, compliance, and companion hardening",t:true,
+  liZh:["公开模板和素材许可收口，新增安全反馈和第三方素材边界说明","Docker 改为非 root 运行，构建上下文排除本地私有运行态","主动陪伴、图片入口、语音分块、审计路径和更新识别继续加固"],
+  liEn:["Public templates and asset licenses were cleaned up, with security-reporting and third-party notices added","Docker now runs non-root and excludes private local runtime state from build contexts","Proactive companion, image entry, voice chunking, audit paths, and update detection were hardened"]},
+ {v:"v0.2.8",d:"2026-06-16",h:"workflow",zh:"飞书人工介入和 macOS 运行态",en:"Feishu human intervention and macOS runtime",t:true,
+  liZh:["飞书结构化问题渲染成可点击按钮，并保留编号/文字回复兜底","飞书和微信入口补齐常用命令，服务状态和自动重连更清楚","更新流程加入网络超时和镜像兜底，减少卡在 GitHub 直连上的情况"],
+  liEn:["Structured Feishu questions render as clickable buttons, with numbered/text replies as fallback","Feishu and WeChat entries gained common commands, clearer service state, and better reconnect behavior","Update flow gained network timeouts and mirror fallback to avoid hanging on direct GitHub access"]},
+ {v:"v0.2.5",d:"2026-06-15",h:"skills",zh:"本地技能集市",en:"Local skill marketplace",t:true,
+  liZh:["首批技能覆盖文档读写、公众号文章、语音记账、快递、邮箱、资讯早报、生活提醒和市场调研","技能以本地 SOP 形式安装，触发词进入按需索引，安装时做安全扫描"],
+  liEn:["First skills cover office documents, WeChat articles, voice expense logs, parcel tracking, email, news briefs, reminders, and market research","Skills install as local SOPs, triggers live in an on-demand index, and installs pass a safety scan"]},
+ {v:"v0.2.0",d:"2026-06-13",h:"companion",zh:"搜索、主动陪伴和 Docker 常驻",en:"Search, companion, and Docker supervisor",t:true,
+  liZh:["免 key 网页搜索兜底，无头服务器也能查天气、新闻和事实","主动陪伴支持天气、语音情绪、早晚问候和久未联系提醒","Docker 常驻监工支持扫码、补配渠道和进程自愈"],
+  liEn:["Keyless web-search fallback works on headless servers for weather, news, and facts","Proactive companion supports weather, voice-emotion follow-ups, morning/evening anchors, and long-silence check-ins","Docker resident supervisor supports scan binding, adding channels later, and process self-healing"]},
+ {v:"v0.1.0",d:"2026-06-11",h:"first",zh:"首次开源",en:"First release",t:true,
+  liZh:["十分钟向导、飞书微信扫码、本地语音情绪识别、确定性安全和四层记忆"],
+  liEn:["Ten-minute wizard, Feishu/WeChat QR setup, local voice-emotion recognition, deterministic safety, and four-tier memory"]},
 ];
 function renderTL(){
  const el=document.getElementById('tl');if(!el)return;
