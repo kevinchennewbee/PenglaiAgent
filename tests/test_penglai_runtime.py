@@ -649,8 +649,8 @@ def test_version_metadata_uses_installer_version_and_git_identity():
     meta = collect_version_metadata()
     line = compact_version_line(meta)
 
-    assert meta.version == "0.2.24"
-    assert "Penglai 0.2.24" in line
+    assert meta.version == "0.2.25"
+    assert "Penglai 0.2.25" in line
     assert meta.commit
 
 

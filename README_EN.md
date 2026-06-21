@@ -161,12 +161,13 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-21 · v0.2.24**
+**2026-06-21 · v0.2.25**
 
-GA-core boundary correction: LLM log redaction moved from the GenericAgent core file into a Penglai plugin, preserving the same log-safety behavior while restoring the "do not modify upstream core" release boundary.
+Dependency-install network hotfix: one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls; `PENGLAI_PIP_INDEX` can point it at a custom package index.
 
 Recent highlights:
 
+- v0.2.24: GA-core boundary correction; LLM log redaction moved from the GenericAgent core file into a Penglai plugin, restoring the "do not modify upstream core" release boundary.
 - v0.2.23: non-interactive install-boundary hotfix; installer output redirected to logs, CI, or remote automation no longer falls into the setup wizard.
 - v0.2.22: install-idempotency hotfix; one-line install can be rerun after the first Python/dependency download is interrupted.
 - v0.2.21: install-network hotfix; one-line install, Docker local build, and the PyPI bootstrap fall back to source tarballs when the GitHub homepage or default mirror is unavailable.

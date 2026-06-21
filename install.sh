@@ -103,12 +103,25 @@ if [ -z "$PY" ]; then
     if [ ! -x .venv/bin/python ]; then
         uv venv .venv --python 3.11 --quiet
     fi
+    run_uv_pip() {
+        if command -v timeout >/dev/null 2>&1; then
+            timeout "${PENGLAI_PIP_TIMEOUT:-180}" uv pip install --python .venv/bin/python --quiet "$@"
+        else
+            uv pip install --python .venv/bin/python --quiet "$@"
+        fi
+    }
     say "  📦 正在安装依赖..."
-    if [ -n "$MIRROR" ]; then
-        uv pip install --python .venv/bin/python --quiet \
-            -i https://pypi.tuna.tsinghua.edu.cn/simple -e . lark-oapi qrcode pyyaml
+    PIP_INDEX="${PENGLAI_PIP_INDEX:-}"
+    PIP_MIRROR="https://pypi.tuna.tsinghua.edu.cn/simple"
+    if [ -n "$PIP_INDEX" ]; then
+        run_uv_pip -i "$PIP_INDEX" -e . lark-oapi qrcode pyyaml
+    elif [ -n "$MIRROR" ]; then
+        run_uv_pip -i "$PIP_MIRROR" -e . lark-oapi qrcode pyyaml
     else
-        uv pip install --python .venv/bin/python --quiet -e . lark-oapi qrcode pyyaml
+        if ! run_uv_pip -e . lark-oapi qrcode pyyaml; then
+            say "  默认 PyPI 安装失败或超时,改用清华镜像重试..."
+            run_uv_pip -i "$PIP_MIRROR" -e . lark-oapi qrcode pyyaml
+        fi
     fi
     PY=".venv/bin/python"
     say "  ✅ Python 环境就绪(uv 托管,卸载=删除目录,零残留)"
