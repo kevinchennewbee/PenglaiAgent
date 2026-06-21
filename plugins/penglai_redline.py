@@ -107,7 +107,7 @@ def _direct_im_file_send_reason(code):
 
 def _scrub(s):
     """code_run 输出里的密钥脱敏后再返回——堵死 agent `cat mykey.py` / 打印 key 把
-    MiniMax/DeepSeek/TinyFish/飞书 secret 明文写进 model_responses 日志（Mac mini 真机踩过，
+    MiniMax/DeepSeek/TinyFish/飞书 secret 明文写进 model_responses 日志（真实运行中踩过，
     违 GA 宪法第4条 key 文件 reference-only）。复用审计同款 _MASK；agent 本就不该读 key 原值
     （配置走 mykey_set），脱敏不影响正常用。"""
     return _MASK.sub("***", s) if isinstance(s, str) else s

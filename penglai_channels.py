@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""penglai_channels — 蓬莱渠道封装（IM 矩阵，V5 wrapper-aware）。
+"""penglai_channels — 蓬莱渠道封装（IM 矩阵，runtime-aware）。
 
 GA 上游自带 IM 前端（frontends/*.py），蓬莱层在此之上提供统一的
 启用/停用/状态管理：依赖安装 → 凭证获取（钉钉/QQ 支持扫码自动建应用，
-参考 Hermes Agent 的官方设备码注册流）→ 写入 mykey → 服务安装 → 启动取证。
+参考 Hermes Agent 的官方设备码注册流）→ 写入 mykey → 服务安装 → 启动验证。
 
 诚实纪律：本模块只报告可证实的事实——"进程已启动"≠"平台已连通"，
 连通与否以用户真实发消息 + 日志为准（飞书/微信在向导里有完整验证闭环，
@@ -20,8 +20,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
 # 渠道注册表：前端脚本元数据 / 服务名 / pip 依赖(import名) / mykey 凭证键 / 白名单键。
-# 真实启动命令由 _launch_argv/_launch_cmd 决定，V5/语音渠道会走蓬莱包装入口。
-# tested=True 表示蓬莱在腾讯云真机实测过；False=内核自带、封装可用、等待实测
+# 真实启动命令由 _launch_argv/_launch_cmd 决定，runtime/语音渠道会走蓬莱包装入口。
+# tested=True 表示蓬莱已经过真实机器验证；False=内核自带、封装可用、等待实测
 CHANNELS = {
     "feishu":   dict(label="飞书",     script="penglai_feishu_app.py", service="penglai-feishu",
                      pip={}, keys=[], allow="fs_allowed_users", tested=True,
@@ -69,7 +69,7 @@ CHANNELS = {
 
 EXTRA = [k for k, v in CHANNELS.items() if not v["tested"]]  # 可 enable 的渠道
 
-# 这些渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音/V5 主路径。
+# 这些渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音/runtime 主路径。
 _VOICE_CHANNELS = {"dingtalk", "qq", "wecom"}
 _WRAPPED_CHANNELS = _VOICE_CHANNELS | {"wechat"}
 

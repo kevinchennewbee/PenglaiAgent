@@ -1030,7 +1030,7 @@ def main():
     if live is True:
         print("\n" + T("🎉 安装完成，飞书收发链路已实测全通！"))
     elif live == "docker":
-        print(f"\n{OK} " + T("配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志取证（docker logs -f penglai）。"))
+        print(f"\n{OK} " + T("配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志确认（docker logs -f penglai）。"))
         return
     elif live == "skip":
         print(f"\n{OK} " + T("安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。", a=agent))

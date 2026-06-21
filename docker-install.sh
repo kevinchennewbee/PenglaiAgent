@@ -87,7 +87,7 @@ docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" --restart unless-stopped -v "$VOL:/data" "$IMG" >/dev/null
 say "  ⏳ 服务已启动,等待 IM 渠道连接建立..."
 
-# ── 5. 验证:按实际配置的渠道取证(飞书=connected to wss / 微信=WeChat Bot 已启动) ──
+# ── 5. 验证:按实际配置的渠道确认(飞书=connected to wss / 微信=WeChat Bot 已启动) ──
 n=0
 while [ $n -lt 30 ]; do
     LOGS=$(docker logs "$NAME" 2>&1)

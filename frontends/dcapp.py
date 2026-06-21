@@ -62,7 +62,7 @@ async def _render_discord_interaction(app, chat_id, request, **ctx):
             button = discord.ui.Button(
                 label=label,
                 style=discord.ButtonStyle.primary if idx == 0 else discord.ButtonStyle.secondary,
-                custom_id=f"penglai_v5_choice:{request.request_id}:{idx}",
+                custom_id=f"penglai_rt_choice:{request.request_id}:{idx}",
             )
 
             async def _callback(interaction, selected=option.value or option.label):
@@ -146,7 +146,7 @@ class DiscordApp(AgentChatMixin):
                 render_interaction=_render_discord_interaction,
             )
         except Exception as e:
-            print(f"[Discord] V5 runtime adapter skipped: {e}")
+            print(f"[Discord] Penglai runtime adapter skipped: {e}")
 
     def _chat_id(self, message):
         """Return a string chat_id: 'dm:<user_id>' or 'ch:<channel_id>'."""

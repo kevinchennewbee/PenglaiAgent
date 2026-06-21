@@ -75,4 +75,3 @@ def recent_context_prompt(*, limit=6, max_age_hours=72, log_path=None):
         if text:
             lines.append(f"- {ts} {channel}/{kind}: {text[:220]}")
     return "\n".join(lines) if len(lines) > 1 else ""
-

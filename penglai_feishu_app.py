@@ -744,7 +744,7 @@ def _patch(fs):
             return
         card.done(text)
 
-    def _record_v5_shadow(raw, *, receive_id, receive_id_type):
+    def _record_runtime_shadow(raw, *, receive_id, receive_id_type):
         try:
             from penglai_runtime.flags import shadow_enabled
 
@@ -843,7 +843,7 @@ def _patch(fs):
                 result["raw"] = raw
                 result["sent"] = True
             _cancel_ask(chat_id)
-            _record_v5_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
+            _record_runtime_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
             final_choice = _extract_final_choice_interaction(_final_display_text(raw))
             if final_choice:
                 body_text, event = final_choice

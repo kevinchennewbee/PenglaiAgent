@@ -56,4 +56,3 @@ def redact_obj(value: Any) -> Any:
 
 def redact_json(value: Any, **json_kwargs: Any) -> str:
     return json.dumps(redact_obj(value), ensure_ascii=False, **json_kwargs)
-

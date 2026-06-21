@@ -28,7 +28,7 @@ _PREFERENCE_RE = re.compile(
     r"(以后|下次|默认|长期|记住|保存记忆|不要再|不能|必须|只能|优先|固定流程|规则)"
 )
 _PROJECT_RULE_RE = re.compile(
-    r"(GA上游|GenericAgent|蓬莱层|Mac mini|macmini|腾讯云|release/main|"
+    r"(GA上游|GenericAgent|蓬莱层|release/main|"
     r"main分支|飞书|微信|IM|客户端|全新架构|runtime|0\.2\.\d+|0\.3\.\d+)",
     re.I,
 )

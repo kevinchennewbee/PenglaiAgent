@@ -49,7 +49,7 @@ def _is_silk(path):
 def _ffmpeg_bin():
     """解析 ffmpeg 绝对路径：先 PATH，再常见安装位置（macOS Homebrew / Linux / MacPorts）。
     野生进程 PATH 被裁(不含 /opt/homebrew/bin)时裸名 'ffmpeg' 会 FileNotFoundError → 语音静默
-    失败(Mac mini 真机踩过:两条语音被无视)。这里固化解析，找不到给可读错误而非静默吞错。"""
+    失败(真实 macOS 运行中踩过:两条语音被无视)。这里固化解析，找不到给可读错误而非静默吞错。"""
     p = shutil.which("ffmpeg")
     if p:
         return p

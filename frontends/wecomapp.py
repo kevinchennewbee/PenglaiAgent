@@ -354,7 +354,7 @@ if __name__ == "__main__":
 
         install_text_interaction_adapter(app)
     except Exception as e:
-        _tprint(f"[WeCom] V5 runtime adapter skipped: {e}")
+        _tprint(f"[WeCom] Penglai runtime adapter skipped: {e}")
     threading.Thread(target=agent.run, daemon=True).start()
     threading.Thread(target=app._terminal_loop, daemon=True).start()
     asyncio.run(app.start())

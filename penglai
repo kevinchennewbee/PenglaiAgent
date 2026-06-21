@@ -142,7 +142,7 @@ def _fsapp_launchd_start():
 
 def _child_env():
     """给 fsapp 子进程固化完整 PATH（含 venv 与 /opt/homebrew/bin），避免它继承被裁剪的 PATH
-    导致其再起的子进程(如 ffmpeg)找不到——Mac mini 真机踩过的语音故障根因(F15)。"""
+    导致其再起的子进程(如 ffmpeg)找不到——真实 macOS 运行中踩过的语音故障根因(F15)。"""
     env = dict(os.environ)
     vbin = os.path.join(ROOT, ".venv", "bin")
     extra = [vbin if os.path.isdir(vbin) else os.path.dirname(venv_python()),
@@ -228,7 +228,7 @@ def installed_services():
     """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。
     ★macOS/容器无 systemd：直接返回核心两个，绝不调 systemctl——否则 update_supervisor
     在 macOS 上 _restart_targets()→installed_services() 撞 FileNotFoundError('systemctl') 崩溃，
-    升级后服务不重启、报平安发不出（Mac mini 真机踩过：磁盘升到新版但跑的还是旧进程）。"""
+    升级后服务不重启、报平安发不出（真实 macOS 运行中踩过：磁盘升到新版但跑的还是旧进程）。"""
     if not has_systemd():
         return SERVICES[:2]
     out = []
@@ -981,7 +981,7 @@ def abilities():
     import penglai_abilities as pa
     return pa.status()
 
-def v5():
+def selfcheck_cmd():
     sys.path.insert(0, ROOT)
     from penglai_runtime import selfcheck
     return selfcheck.main(sys.argv[2:])
@@ -994,7 +994,7 @@ def main():
             "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
-            "selfcheck": v5, "v5": v5,
+            "selfcheck": selfcheck_cmd,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
             "_restart_supervisor": restart_supervisor}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""

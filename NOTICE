@@ -41,7 +41,7 @@ Upstream execution core stays upstream-first
 The GA execution core (ga.py, agent_loop.py, agentmain.py, llmcore.py and the
 tool loop they define), together with the root pyproject.toml and LICENSE, is
 treated upstream-first so that GenericAgent kernel updates stay mergeable.
-Some IM frontend files are also adapter surfaces in Penglai V5 test branches;
+Some IM frontend files are also adapter surfaces in Penglai runtime work;
 those deltas are distribution-layer behavior and must remain explicit,
 reviewable, and covered by tests.
 

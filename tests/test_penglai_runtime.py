@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""V5 runtime contracts stay side-effect free until explicitly integrated."""
+"""Penglai runtime contracts stay side-effect free until explicitly integrated."""
 
 import os
 import asyncio
@@ -306,7 +306,7 @@ def test_channel_runtime_adapter_queues_busy_session_messages():
     asyncio.run(scenario())
 
 
-def test_launch_paths_do_not_bypass_v5_wrappers():
+def test_launch_paths_do_not_bypass_runtime_wrappers():
     import penglai_channels
 
     for channel in ("wechat", "dingtalk", "qq", "wecom"):
@@ -633,14 +633,14 @@ def test_memory_governor_rejects_runtime_noise_and_keeps_real_rules():
     governor = MemoryGovernor()
 
     noise = governor.classify("LLM Running (Turn 1) ... <summary>调用工具 code_run</summary>")
-    rule = governor.classify("下次不要给我的 Mac mini 发送升级指令，除非我本轮明确授权。")
+    rule = governor.classify("下次不要给我的飞书机器人发送升级指令，除非我本轮明确授权。")
     secret = governor.classify("token=abc123 should never be stored")
 
     assert noise.should_write is False
     assert noise.reason == "runtime_or_tool_noise"
     assert rule.should_write is True
     assert rule.level in {"user_pref", "global_rule"}
-    assert "Mac mini" in rule.text
+    assert "飞书机器人" in rule.text
     assert secret.should_write is False
     assert "abc123" not in secret.text
 
@@ -697,7 +697,7 @@ def test_agent_runner_coordinates_queue_delivery_memory_and_duplicates():
     assert sent_files == [os.path.realpath(md)]
 
 
-def test_v5_selfcheck_exercises_runtime_contracts():
+def test_selfcheck_exercises_runtime_contracts():
     result = run_end_to_end_check()
     names = {item["name"]: item["ok"] for item in result["checks"]}
 

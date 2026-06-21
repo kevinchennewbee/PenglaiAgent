@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""蓬莱 IM 语音/V5 接入 — 钉钉/QQ/企微/微信的包装启动入口。
+"""蓬莱 IM 语音与运行时接入 — 钉钉/QQ/企微/微信的包装启动入口。
 
 上游 frontends/{dingtalkapp,qqapp,wecomapp}.py 只解析文字/图片，**丢弃语音消息**。
 本包装在 import 前端模块（触发其类定义）后、启动前 monkeypatch 其消息处理，再重建
-启动序列。V5 测试分支把真实渠道入口收口到这个包装层；GA 执行核心保持 upstream-first。
+启动序列。新架构把真实渠道入口收口到这个包装层；GA 执行核心保持 upstream-first。
 
 各平台语音差异（2026-06-12 调研官方文档/SDK 源码）：
   · 钉钉  msgtype=audio，extensions.content.recognition 自带服务端转写文本（直接用）

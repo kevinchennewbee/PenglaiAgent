@@ -248,7 +248,7 @@ def install_channel_runtime_adapter(
         self.user_tasks[state_key] = state
         if chat_key != state_key:
             self.user_tasks[chat_key] = state
-        hook_key = f"penglai_v5_{bridge.channel}_{state_key}_{uuid.uuid4().hex}"
+        hook_key = f"penglai_rt_{bridge.channel}_{state_key}_{uuid.uuid4().hex}"
         result = {"raw": None, "sent": False, "request": None}
 
         def finish(raw):

@@ -26,7 +26,7 @@ def run_end_to_end_check():
     The check uses temporary files and an in-memory delivery adapter.  It does
     not call Feishu, WeChat, GA, or any network API.
     """
-    tmp = tempfile.mkdtemp(prefix="penglai-v5-")
+    tmp = tempfile.mkdtemp(prefix="penglai-runtime-")
     md = os.path.join(tmp, "report.md")
     pdf = os.path.join(tmp, "report.pdf")
     py = os.path.join(tmp, "should_block.py")
@@ -104,7 +104,7 @@ def run_end_to_end_check():
     rendered = render_interaction_text(request, include_click_hint=True)
     memory = MemoryGovernor()
     noisy_memory = memory.classify("LLM Running (Turn 1) ... <summary>工具流水</summary>")
-    rule_memory = memory.classify("下次不要给我的 Mac mini 发送升级指令，除非我本轮明确授权。")
+    rule_memory = memory.classify("下次不要给我的飞书机器人发送升级指令，除非我本轮明确授权。")
     shadow = build_delivery_shadow_event(
         "feishu",
         f"token=abc123\n完成\n[FILE:{pdf}]\n[FILE:{py}]",

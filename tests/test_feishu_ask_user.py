@@ -214,7 +214,7 @@ def test_secret_blocked_detects_credentials_before_agent_context():
     assert not _secret_blocked("普通问题：今天做什么？")
 
 
-def test_install_display_cleaners_keeps_feishu_v5_in_wrapper_layer():
+def test_install_display_cleaners_keeps_feishu_runtime_in_wrapper_layer():
     fs = types.SimpleNamespace(_TRUNC_TAIL=20)
 
     _install_display_cleaners(fs)

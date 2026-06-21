@@ -133,5 +133,5 @@ if __name__ == "__main__":
 
         install_text_interaction_adapter(app)
     except Exception as e:
-        print(f"[QQ] V5 runtime adapter skipped: {e}")
+        print(f"[QQ] Penglai runtime adapter skipped: {e}")
     asyncio.run(app.start())
