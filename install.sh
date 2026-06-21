@@ -8,6 +8,8 @@ set -e
 OWNER_REPO="${PENGLAI_REPO:-kevinchennewbee/PenglaiAgent}"
 TARGET="${PENGLAI_DIR:-$HOME/PenglaiAgent}"
 GH="https://github.com/$OWNER_REPO"
+ARCHIVE="$GH/archive/refs/heads/main.tar.gz"
+CODELOAD="https://codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/main"
 PROXY="${PENGLAI_GH_PROXY-https://gh-proxy.com/}"
 case "$PROXY" in
     ""|*/) ;;
@@ -18,7 +20,7 @@ UV_BIN="$HOME/.local/bin/uv"
 say()  { printf '%s\n' "$1"; }
 die()  { printf '❌ %s\n' "$1" >&2; exit 1; }
 
-say "🏮 蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家"
+say "🏮 蓬莱 · Penglai — 住在飞书、微信和终端里的中文 AI 管家"
 command -v curl >/dev/null || die "需要 curl(macOS/多数 Linux 自带)。Ubuntu: apt install -y curl"
 
 # ── 1. 网络探测:GitHub 直连不通则全程走 gh-proxy 镜像 ────────────────────────
@@ -29,6 +31,26 @@ if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
     say "  🇨🇳 检测到 GitHub 直连受限,自动启用 GitHub 镜像: $MIRROR"
 fi
 
+download_archive() {
+    tmp="${TARGET}.tar.gz.$$"
+    rm -f "$tmp"
+    urls=""
+    [ -n "$MIRROR" ] && urls="$urls ${MIRROR}${ARCHIVE}"
+    urls="$urls $CODELOAD $ARCHIVE"
+    for url in $urls; do
+        say "  尝试压缩包下载..."
+        if curl -fL --connect-timeout 15 --max-time 180 -o "$tmp" "$url"; then
+            rm -rf "$TARGET"
+            mkdir -p "$TARGET"
+            tar -xzf "$tmp" -C "$TARGET" --strip-components=1
+            rm -f "$tmp"
+            return 0
+        fi
+    done
+    rm -f "$tmp"
+    return 1
+}
+
 # ── 2. 取代码:有 git 用 git(日后 penglai update 可用),没有走 tarball ─────────
 if [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
     say "  ✅ 发行版已存在:$TARGET"
@@ -37,12 +59,13 @@ elif [ -e "$TARGET" ] && [ -n "$(ls -A "$TARGET" 2>/dev/null)" ]; then
 else
     say "  ⬇️  正在获取蓬莱发行版..."
     if command -v git >/dev/null; then
-        git clone --depth 1 "${MIRROR}${GH}.git" "$TARGET"
+        if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 clone --depth 1 "${MIRROR}${GH}.git" "$TARGET"; then
+            say "  Git 克隆失败,改用压缩包下载..."
+            download_archive || die "源码下载失败,请检查网络或设置 PENGLAI_GH_PROXY"
+        fi
     else
         say "  （未检测到 git,改用压缩包下载;日后升级请先安装 git）"
-        mkdir -p "$TARGET"
-        curl -fsSL "${MIRROR}${GH}/archive/refs/heads/main.tar.gz" \
-            | tar -xz -C "$TARGET" --strip-components=1
+        download_archive || die "源码下载失败,请检查网络或设置 PENGLAI_GH_PROXY"
     fi
 fi
 cd "$TARGET"

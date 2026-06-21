@@ -7,6 +7,9 @@ set -e
 IMG="ghcr.io/kevinchennewbee/penglai:latest"
 IMG_CN="ghcr.nju.edu.cn/kevinchennewbee/penglai:latest"
 OWNER_REPO="${PENGLAI_REPO:-kevinchennewbee/PenglaiAgent}"
+GH="https://github.com/$OWNER_REPO"
+ARCHIVE="$GH/archive/refs/heads/main.tar.gz"
+CODELOAD="https://codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/main"
 PROXY="${PENGLAI_GH_PROXY-https://gh-proxy.com/}"
 case "$PROXY" in
     ""|*/) ;;
@@ -30,6 +33,26 @@ if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
     say "  🇨🇳 GitHub 直连受限,自动启用 GitHub 镜像: $MIRROR"
 fi
 
+download_source_archive() {
+    target="$1"
+    tmp="${target}.tar.gz.$$"
+    rm -f "$tmp"
+    urls=""
+    [ -n "$MIRROR" ] && urls="$urls ${MIRROR}${ARCHIVE}"
+    urls="$urls $CODELOAD $ARCHIVE"
+    for url in $urls; do
+        say "  尝试源码压缩包下载..."
+        if curl -fL --connect-timeout 15 --max-time 180 -o "$tmp" "$url"; then
+            mkdir -p "$target"
+            tar -xzf "$tmp" -C "$target" --strip-components=1
+            rm -f "$tmp"
+            return 0
+        fi
+    done
+    rm -f "$tmp"
+    return 1
+}
+
 # ── 2. 取镜像:GHCR → 国内镜像站 → 从源码本地构建 ────────────────────────────
 get_image() {
     if [ -z "$MIRROR" ] && docker pull "$IMG" 2>/dev/null; then
@@ -41,8 +64,7 @@ get_image() {
     fi
     say "  📦 镜像站不可达,改为从源码本地构建(约 2-5 分钟,只需一次)..."
     BUILD_DIR="$(mktemp -d)"
-    curl -fsSL "${MIRROR}https://github.com/$OWNER_REPO/archive/refs/heads/main.tar.gz" \
-        | tar -xz -C "$BUILD_DIR" --strip-components=1
+    download_source_archive "$BUILD_DIR" || return 1
     PIP_IDX="https://pypi.org/simple"
     [ -n "$MIRROR" ] && PIP_IDX="https://pypi.tuna.tsinghua.edu.cn/simple"
     BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"

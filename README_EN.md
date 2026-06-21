@@ -161,12 +161,13 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-21 · v0.2.20**
+**2026-06-21 · v0.2.21**
 
-New-architecture release: unified multi-entry runtime, improved message queueing, context events, file delivery, log redaction, service status, Docker runtime behavior, and version identity. Feishu, WeChat, terminal, proactive companion, and Docker now behave more consistently while the GenericAgent execution core remains upstream-first.
+Install-network hotfix: one-line install and the PyPI bootstrap now fall back to the source tarball when the GitHub homepage or the default mirror is unavailable but codeload is reachable, instead of hanging on git clone.
 
 Recent highlights:
 
+- v0.2.20: new-architecture release with unified multi-entry runtime, message queueing, context events, file delivery, log redaction, service status, Docker runtime behavior, and version identity.
 - v0.2.10: Feishu workflow fixes, button interaction, busy-message queueing, artifact delivery.
 - v0.2.9: privacy/compliance cleanup, non-root Docker, public asset notices, security docs.
 - v0.2.8: Feishu human-intervention buttons, macOS launchd, WeChat wrapper commands, network fallback.

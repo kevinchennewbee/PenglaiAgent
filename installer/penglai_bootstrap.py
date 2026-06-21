@@ -2,7 +2,7 @@
 """蓬莱引导安装器（PyPI 包 `penglai` 的唯一模块）。
 
 职责只有两个，保持极简：
-  1. 本机还没有蓬莱发行版 → 引导：选目录 → git clone（GitHub 失败自动走可配置镜像）→ 进向导
+  1. 本机还没有蓬莱发行版 → 引导：选目录 → git clone 或压缩包下载 → 进向导
   2. 已有发行版 → 把所有参数原样透传给发行版仓库里的 `penglai` 入口脚本
 
 发行版位置的发现顺序：$PENGLAI_HOME → ~/.penglai/home 记录 → 当前目录 → ~/PenglaiAgent。
@@ -12,8 +12,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
+import urllib.request
 
 REPO = "https://github.com/kevinchennewbee/PenglaiAgent.git"
+ARCHIVE = "https://github.com/kevinchennewbee/PenglaiAgent/archive/refs/heads/main.tar.gz"
+CODELOAD = "https://codeload.github.com/kevinchennewbee/PenglaiAgent/tar.gz/refs/heads/main"
 HOME_RECORD = os.path.expanduser("~/.penglai/home")
 DEFAULT_DIR = os.path.expanduser("~/PenglaiAgent")
 
@@ -53,21 +58,67 @@ def _clone(target):
     candidates = [("GitHub 直连", REPO)]
     if proxy:
         candidates.append(("GitHub 镜像（国内网络）", proxy + REPO))
+    if not shutil.which("git"):
+        print("  未检测到 git，改用压缩包下载...")
+        return _download_archive(target, proxy)
     for i, (label, url) in enumerate(candidates):
         print(f"  正在克隆（{label}）...")
-        r = subprocess.run(["git", "clone", "--depth", "1", url, target])
+        try:
+            r = subprocess.run(["git", "clone", "--depth", "1", url, target], timeout=90)
+        except subprocess.TimeoutExpired:
+            r = subprocess.CompletedProcess(["git", "clone"], 124)
         if r.returncode == 0:
             return True
+        if os.path.exists(target) and not _is_distro(target):
+            shutil.rmtree(target, ignore_errors=True)
         more = "尝试镜像..." if i == 0 and len(candidates) > 1 else "请检查网络后重试。"
         print(f"  ❌ {label} 失败，{more}")
-    return False
+    print("  Git 克隆失败，改用压缩包下载...")
+    return _download_archive(target, proxy)
+
+
+def _download_archive(target, proxy=""):
+    urls = []
+    if proxy:
+        urls.append(("GitHub 镜像压缩包", proxy + ARCHIVE))
+    urls.extend([
+        ("GitHub codeload 压缩包", CODELOAD),
+        ("GitHub 压缩包", ARCHIVE),
+    ])
+    fd, tmp = tempfile.mkstemp(suffix=".tar.gz", prefix="penglai-")
+    os.close(fd)
+    try:
+        for label, url in urls:
+            print(f"  正在下载（{label}）...")
+            try:
+                with urllib.request.urlopen(url, timeout=90) as resp, open(tmp, "wb") as f:
+                    shutil.copyfileobj(resp, f)
+                os.makedirs(target, exist_ok=True)
+                with tarfile.open(tmp, "r:gz") as tar:
+                    root = ""
+                    for member in tar.getmembers():
+                        parts = member.name.split("/", 1)
+                        if len(parts) == 1:
+                            root = parts[0]
+                            continue
+                        member.name = parts[1]
+                        tar.extract(member, target)
+                    _ = root
+                return _is_distro(target)
+            except Exception as exc:
+                if os.path.exists(target) and not _is_distro(target):
+                    shutil.rmtree(target, ignore_errors=True)
+                print(f"  ❌ {label} 失败：{exc}")
+        return False
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def install():
-    print("🏮 蓬莱 · Penglai — 住在你飞书和微信里的中文 AI 管家\n")
-    if not shutil.which("git"):
-        print("❌ 需要 git。请先安装：apt install git / brew install git")
-        return 1
+    print("🏮 蓬莱 · Penglai — 住在飞书、微信和终端里的中文 AI 管家\n")
     target = input(f"安装目录 [{DEFAULT_DIR}]: ").strip() or DEFAULT_DIR
     target = os.path.abspath(os.path.expanduser(target))
     if _is_distro(target):
