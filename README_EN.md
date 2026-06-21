@@ -161,12 +161,13 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-21 · v0.2.22**
+**2026-06-21 · v0.2.23**
 
-Install-idempotency hotfix: one-line install can be rerun after the first Python/dependency download is interrupted, and non-interactive shells now receive a clear "download then run" prompt instead of sending EOF into the setup wizard.
+Non-interactive install-boundary hotfix: when installer output is redirected to logs, CI, or remote automation, it no longer falls into the setup wizard; it clearly asks the user to rerun setup in an interactive terminal.
 
 Recent highlights:
 
+- v0.2.22: install-idempotency hotfix; one-line install can be rerun after the first Python/dependency download is interrupted.
 - v0.2.21: install-network hotfix; one-line install, Docker local build, and the PyPI bootstrap fall back to source tarballs when the GitHub homepage or default mirror is unavailable.
 - v0.2.20: new-architecture release with unified multi-entry runtime, message queueing, context events, file delivery, log redaction, service status, Docker runtime behavior, and version identity.
 - v0.2.10: Feishu workflow fixes, button interaction, busy-message queueing, artifact delivery.

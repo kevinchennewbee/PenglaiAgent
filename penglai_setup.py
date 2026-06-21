@@ -1006,6 +1006,9 @@ def step_detect_migrate():
     return True
 
 def main():
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print(f"{BAD} " + T("安装向导需要交互终端。请在终端直接运行 penglai setup。"))
+        return 1
     step_lang()
     step_env()
     if step_detect_migrate():   # I7：探到旧管家且用户选迁移 → migrate 已配齐，向导到此结束

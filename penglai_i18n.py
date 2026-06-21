@@ -42,6 +42,7 @@ EN = {
     "（回车={d}）": " (Enter = {d})",
     "重试？(y/n)": "Retry? (y/n)",
     "已取消。随时重新运行 penglai setup": "Cancelled. Run `penglai setup` again anytime.",
+    "安装向导需要交互终端。请在终端直接运行 penglai setup。": "The setup wizard needs an interactive terminal. Run `penglai setup` directly in a terminal.",
 
     # ---- 步骤 0：语言 ----
     "选择语言 / Language": "Language / 选择语言",

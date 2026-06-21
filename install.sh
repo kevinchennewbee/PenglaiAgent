@@ -136,10 +136,13 @@ say "✅ 发行版就绪:$TARGET"
 say "   进入安装向导(模型 → 飞书 → 可选微信扫码)..."
 say ""
 # curl|sh 模式下 stdin 是脚本管道,向导的交互必须改接终端(/dev/tty)
-if [ ! -t 0 ] && (: </dev/tty) 2>/dev/null; then
-    exec "$PY" penglai setup </dev/tty
+if [ ! -t 1 ]; then
+    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/main/install.sh && sh install.sh"
 fi
 if [ ! -t 0 ]; then
+    if (: </dev/tty) 2>/dev/null; then
+        exec "$PY" penglai setup </dev/tty
+    fi
     die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/main/install.sh && sh install.sh"
 fi
 exec "$PY" penglai setup

@@ -23,6 +23,10 @@ HOME_RECORD = os.path.expanduser("~/.penglai/home")
 DEFAULT_DIR = os.path.expanduser("~/PenglaiAgent")
 
 
+def _interactive():
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def _is_distro(path):
     """发行版特征：有 penglai 入口脚本 + GA 内核文件。"""
     return (path and os.path.isfile(os.path.join(path, "penglai"))
@@ -119,6 +123,9 @@ def _download_archive(target, proxy=""):
 
 def install():
     print("🏮 蓬莱 · Penglai — 住在飞书、微信和终端里的中文 AI 管家\n")
+    if not _interactive():
+        print("❌ 安装向导需要交互终端。请在终端直接运行 `penglai`，或设置 PENGLAI_HOME 指向已安装目录。")
+        return 1
     target = input(f"安装目录 [{DEFAULT_DIR}]: ").strip() or DEFAULT_DIR
     target = os.path.abspath(os.path.expanduser(target))
     if _is_distro(target):
@@ -130,6 +137,9 @@ def install():
         return 1
     _record_home(target)
     print(f"\n✅ 发行版就绪：{target}\n   进入安装向导（依赖 → 模型 → 飞书 → 可选微信扫码）...\n")
+    if not _interactive():
+        print("❌ 安装向导需要交互终端。请进入安装目录后运行 `python3 penglai setup`。")
+        return 1
     return subprocess.run([sys.executable, os.path.join(target, "penglai"), "setup"],
                           cwd=target).returncode
 
