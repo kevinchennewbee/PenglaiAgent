@@ -600,7 +600,10 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.24",d:"2026-06-21",h:"latest",zh:"GA 核心边界修正",en:"GA-core boundary correction",t:true,
+ {v:"v0.2.25",d:"2026-06-21",h:"latest",zh:"安装依赖网络热修",en:"Dependency-install network hotfix",t:true,
+  liZh:["一键安装在默认 PyPI 长时间无响应时，会自动超时并切换到清华镜像重试","新增 PENGLAI_PIP_INDEX，可显式指定自己的 pip 源","版本身份同步到 0.2.25；0.2.24 保留为 GA 核心边界修正"],
+  liEn:["One-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls","PENGLAI_PIP_INDEX can explicitly point install at a custom package index","Version identity is now 0.2.25; 0.2.24 remains the GA-core boundary correction"]},
+ {v:"v0.2.24",d:"2026-06-21",h:"core",zh:"GA 核心边界修正",en:"GA-core boundary correction",t:true,
   liZh:["LLM 日志脱敏从 GenericAgent 核心文件移到蓬莱插件层，功能保持不变","启动前安全体检现在同时检查红线、记忆卫生、文件外发和日志脱敏插件是否真实挂载","恢复“上游核心不改”的发行边界；0.2.23 保留为非交互安装边界热修"],
   liEn:["LLM log redaction moved from the GenericAgent core file into a Penglai plugin with the same behavior preserved","Startup guardcheck now verifies redline, memory hygiene, outbound-file, and log-redaction plugins are actually mounted","The upstream-core boundary is restored; 0.2.23 remains the non-interactive install-boundary hotfix"]},
  {v:"v0.2.23",d:"2026-06-21",h:"install",zh:"非交互安装边界热修",en:"Non-interactive install-boundary hotfix",t:true,
