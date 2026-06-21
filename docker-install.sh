@@ -17,9 +17,19 @@ case "$PROXY" in
 esac
 NAME="penglai"
 VOL="penglai-data"
+PULL_TIMEOUT="${PENGLAI_DOCKER_PULL_TIMEOUT:-240}"
 
 say() { printf '%s\n' "$1"; }
 die() { printf '❌ %s\n' "$1" >&2; exit 1; }
+
+pull_image() {
+    img="$1"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$PULL_TIMEOUT" docker pull "$img"
+    else
+        docker pull "$img"
+    fi
+}
 
 say "🏮 蓬莱 · Penglai — Docker 一键部署"
 command -v docker >/dev/null || die "需要 Docker。一行安装: curl -fsSL https://get.docker.com | sh"
@@ -55,11 +65,15 @@ download_source_archive() {
 
 # ── 2. 取镜像:GHCR → 国内镜像站 → 从源码本地构建 ────────────────────────────
 get_image() {
-    if [ -z "$MIRROR" ] && docker pull "$IMG" 2>/dev/null; then
-        return 0
+    if [ -z "$MIRROR" ]; then
+        say "  尝试 GHCR 镜像..."
+        if pull_image "$IMG"; then
+            return 0
+        fi
+        say "  GHCR 直连失败或超时,继续尝试兜底路径..."
     fi
     say "  尝试国内镜像站..."
-    if docker pull "$IMG_CN" 2>/dev/null; then
+    if pull_image "$IMG_CN"; then
         docker tag "$IMG_CN" "$IMG"; return 0
     fi
     say "  📦 镜像站不可达,改为从源码本地构建(约 2-5 分钟,只需一次)..."

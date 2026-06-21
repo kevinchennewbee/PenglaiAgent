@@ -2,7 +2,7 @@
 # pip install penglai → `penglai` 命令引导 clone 发行版 + 进入向导；已安装则透传。
 [project]
 name = "penglai"
-version = "0.2.25"
+version = "0.2.26"
 description = "蓬莱 Penglai — bootstrap installer for the Penglai personal-butler distribution of GenericAgent / 中文个人管家发行版引导安装器"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -12,13 +12,13 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Channels](https://img.shields.io/badge/channels-Feishu%20%C2%B7%20WeChat%20%C2%B7%20Terminal-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
-[![Website](https://img.shields.io/badge/%F0%9F%8C%90-Website-3fbaa6?style=flat-square)](https://penglai.pages.dev/)
+[![Website](https://img.shields.io/badge/%F0%9F%8C%90-Website-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
 
-[中文](README.md) · **English** · [Website](https://penglai.pages.dev/)
+[中文](README.md) · **English** · [Website](https://kevinchennewbee.github.io/PenglaiAgent/)
 
 </div>
 
-> **Official channels:** this GitHub repository · [penglai.pages.dev](https://penglai.pages.dev/) (mirror: [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)) · PyPI [`penglai`](https://pypi.org/project/penglai). Do not enter API keys, bot tokens, or account credentials on unofficial sites or bots.
+> **Official channels:** this GitHub repository · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · PyPI [`penglai`](https://pypi.org/project/penglai). Do not enter API keys, bot tokens, or account credentials on unofficial sites or bots.
 
 ---
 
@@ -161,12 +161,13 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-21 · v0.2.25**
+**2026-06-21 · v0.2.26**
 
-Dependency-install network hotfix: one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls; `PENGLAI_PIP_INDEX` can point it at a custom package index.
+Docker-install network hotfix: Docker one-line deploy now times out when GHCR stalls and continues to the China mirror or local source-build fallback; `PENGLAI_DOCKER_PULL_TIMEOUT` can tune the pull wait.
 
 Recent highlights:
 
+- v0.2.25: dependency-install network hotfix; one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls.
 - v0.2.24: GA-core boundary correction; LLM log redaction moved from the GenericAgent core file into a Penglai plugin, restoring the "do not modify upstream core" release boundary.
 - v0.2.23: non-interactive install-boundary hotfix; installer output redirected to logs, CI, or remote automation no longer falls into the setup wizard.
 - v0.2.22: install-idempotency hotfix; one-line install can be rerun after the first Python/dependency download is interrupted.
@@ -179,7 +180,7 @@ Recent highlights:
 - v0.2.5: first local skill marketplace.
 - v0.2.0: web search, proactive companion, Docker resident supervisor.
 
-Full timeline: [website changelog](https://penglai.pages.dev/#changelog).
+Full timeline: [website changelog](https://kevinchennewbee.github.io/PenglaiAgent/#changelog).
 
 ## License and Brand
 

@@ -12,13 +12,13 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Channels](https://img.shields.io/badge/%E6%B8%A0%E9%81%93-%E9%A3%9E%E4%B9%A6%20%C2%B7%20%E5%BE%AE%E4%BF%A1%20%C2%B7%20%E7%BB%88%E7%AB%AF-07C160?style=flat-square&logo=wechat&logoColor=white)](#)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
-[![Website](https://img.shields.io/badge/%F0%9F%8C%90-%E5%AE%98%E7%BD%91-3fbaa6?style=flat-square)](https://penglai.pages.dev/)
+[![Website](https://img.shields.io/badge/%F0%9F%8C%90-%E5%AE%98%E7%BD%91-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
 
-**中文** · [English](README_EN.md) · [官网](https://penglai.pages.dev/)
+**中文** · [English](README_EN.md) · [官网](https://kevinchennewbee.github.io/PenglaiAgent/)
 
 </div>
 
-> **官方渠道**：本 GitHub 仓库 · [penglai.pages.dev](https://penglai.pages.dev/)（备用镜像 [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/)）· PyPI [`penglai`](https://pypi.org/project/penglai)。不要在非官方渠道输入 API Key、机器人 token 或任何账号凭证。
+> **官方渠道**：本 GitHub 仓库 · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · PyPI [`penglai`](https://pypi.org/project/penglai)。不要在非官方渠道输入 API Key、机器人 token 或任何账号凭证。
 
 ---
 
@@ -161,12 +161,13 @@ penglai update                  # 安全升级
 
 ## 最新版本
 
-**2026-06-21 · v0.2.25**
+**2026-06-21 · v0.2.26**
 
-安装依赖网络热修：一键安装在默认 PyPI 长时间无响应时，会自动超时并切换到清华镜像重试；可用 `PENGLAI_PIP_INDEX` 指定自己的 pip 源。
+Docker 安装网络热修：Docker 一键部署在 GHCR 拉取长时间无响应时，会自动超时并进入国内镜像站或本地源码构建兜底；可用 `PENGLAI_DOCKER_PULL_TIMEOUT` 调整拉取等待时间。
 
 近期更新重点：
 
+- v0.2.25：安装依赖网络热修，一键安装在默认 PyPI 长时间无响应时，会自动超时并切换到清华镜像重试。
 - v0.2.24：GA 核心边界修正，LLM 日志脱敏从 GenericAgent 核心文件移到蓬莱插件层，恢复“上游核心不改”的发行边界。
 - v0.2.23：非交互安装边界热修，安装输出被重定向到日志、CI 或远程自动化时，不再误入配置向导。
 - v0.2.22：安装幂等热修，一键安装在首次下载 Python/依赖被中断后可直接重跑。
@@ -179,7 +180,7 @@ penglai update                  # 安全升级
 - v0.2.5：首批本地技能集市。
 - v0.2.0：网页搜索、主动陪伴、Docker 常驻监工。
 
-完整时间线见 [官网更新日志](https://penglai.pages.dev/#changelog)。
+完整时间线见 [官网更新日志](https://kevinchennewbee.github.io/PenglaiAgent/#changelog)。
 
 ## 许可与品牌
 

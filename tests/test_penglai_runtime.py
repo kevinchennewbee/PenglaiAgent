@@ -38,6 +38,7 @@ from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_
 from penglai_runtime.session import SessionRouter
 from penglai_runtime.selfcheck import run_end_to_end_check, status
 from penglai_runtime.version import collect_version_metadata, compact_version_line
+from penglai_runtime import VERSION
 from penglai_runtime.text_interaction import install_text_interaction_adapter
 
 
@@ -649,8 +650,8 @@ def test_version_metadata_uses_installer_version_and_git_identity():
     meta = collect_version_metadata()
     line = compact_version_line(meta)
 
-    assert meta.version == "0.2.25"
-    assert "Penglai 0.2.25" in line
+    assert meta.version == VERSION
+    assert f"Penglai {VERSION}" in line
     assert meta.commit
 
 
