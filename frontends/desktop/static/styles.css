@@ -336,6 +336,36 @@ body.platform-darwin .tab-strip {
   color: var(--text);
 }
 
+.permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+.permission-choice-btn {
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.permission-choice-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+.permission-free-text {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
 .msg-system {
   color: var(--text-faint);
   font-size: 12px;
@@ -693,7 +723,7 @@ body.platform-darwin .tab-strip {
   background: var(--bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow-strong);
-  width: 460px;
+  width: 640px;
   max-width: 90vw;
   max-height: 88vh;
   display: flex;
@@ -760,6 +790,98 @@ body.platform-darwin .tab-strip {
 .input-row input { min-width: 0; }
 .input-row .btn { flex: 0 0 auto; }
 .btn-row { display: flex; gap: 8px; }
+
+.settings-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.section-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ops-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ops-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  padding: 8px 10px;
+}
+.ops-label {
+  display: block;
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.ops-value {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-value.ok { color: var(--ok); }
+.ops-value.warn { color: var(--warn); }
+.ops-value.err { color: var(--err); }
+.ops-empty {
+  grid-column: 1 / -1;
+  color: var(--text-faint);
+  font-size: 12px;
+  padding: 8px 0;
+}
+.ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ops-log-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ops-log-row select {
+  min-width: 140px;
+  padding: 7px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+}
+.ops-output {
+  margin: 10px 0 0;
+  min-height: 96px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .ops-summary { grid-template-columns: 1fr; }
+  .ops-log-row { align-items: stretch; flex-direction: column; }
+}
 
 
 /* ─── Diagnostics panel ────────────────────────────────────────────────── */

@@ -18,6 +18,17 @@
   penglai migrate   从旧管家(Hermes/OpenClaw)搬家：记忆/渠道/人设 [--from][--dry-run][--with-secrets]
   penglai skill     技能集市：list 看可用 / install <名> 启用 / installed / remove <名>（本地装不联网）
   penglai selfcheck 运行时自检（统一会话/排队/交付/交互/记忆卫生）
+  penglai runtime-run [消息]  本地中枢 0.3.0 链路（真实调用 GA）
+  penglai runtime-chat       终端多轮中枢入口（真实调用 GA）
+  penglai runtime-status     查看中枢 session 状态
+  penglai runtime-history    查看中枢运行单历史
+  penglai runtime-cancel     取消当前中枢 session
+  penglai runtime-serve      启动本机中枢控制 API（localhost + token）
+  penglai runtime-service <install|uninstall|status|print-unit>  管理本机中枢服务
+  penglai runtime-audit      审计 0.3.0 旧入口/Docker 遗留口径（低副作用）
+  penglai privacy-audit      审计隐私与发布前风险（低副作用，不输出密钥）
+  penglai install-check      源码安装预检（0.3.0，无 Docker，低副作用）
+  penglai feishu-service <install|uninstall|status|print-unit|run-gray>  管理无头服务器上的飞书渠道进程
   penglai help      显示本帮助
 """
 import os, sys, shutil, subprocess
@@ -25,14 +36,14 @@ import os, sys, shutil, subprocess
 # realpath 而非 abspath：install.sh 会软链 ~/.local/bin/penglai → 仓库内本体，
 # abspath 会把 ROOT 解析到 ~/.local/bin，整个发行版找不到自己（真机踩过）
 ROOT = os.path.dirname(os.path.realpath(__file__))
-SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-companion", "penglai-wechat",
+SERVICES = ["penglai-feishu", "penglai-scheduler", "penglai-runtime-hub", "penglai-companion", "penglai-wechat",
             "penglai-dingtalk", "penglai-wecom2", "penglai-qq", "penglai-telegram", "penglai-discord"]
-OPTIN_SERVICES = {"penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道",
+OPTIN_SERVICES = {"penglai-feishu": "飞书渠道进程", "penglai-runtime-hub": "本机中枢控制 API", "penglai-companion": "主动陪伴", "penglai-wechat": "微信渠道",
                   "penglai-dingtalk": "钉钉渠道", "penglai-wecom2": "企业微信渠道",
                   "penglai-qq": "QQ渠道", "penglai-telegram": "Telegram渠道",
                   "penglai-discord": "Discord渠道"}  # 未装≠故障
 # 服务未启用时，doctor 直接给出"怎么开"的命令（发现→开启闭环）
-SVC_ENABLE = {"penglai-companion": "penglai enable companion", "penglai-wechat": "penglai setup",
+SVC_ENABLE = {"penglai-feishu": "penglai feishu-service install", "penglai-runtime-hub": "penglai runtime-service install", "penglai-companion": "penglai enable companion", "penglai-wechat": "penglai setup",
               "penglai-dingtalk": "penglai enable dingtalk", "penglai-wecom2": "penglai enable wecom",
               "penglai-qq": "penglai enable qq", "penglai-telegram": "penglai enable telegram",
               "penglai-discord": "penglai enable discord"}
@@ -235,7 +246,7 @@ def installed_services():
     for s in SERVICES:
         if sh(["systemctl", "list-unit-files", f"{s}.service"]).stdout.strip().count(s):
             out.append(s)
-    return out or SERVICES[:2]
+    return out
 
 # ---------- 安全插件预检（F-011 把静默 fail-open 变成可检测/阻断）----------
 GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins.penglai_fileguard",
@@ -257,10 +268,10 @@ def guardcheck():
         fg_ok = _probe_fileguard_mount()
         lg_ok = _probe_logguard_mount()
     except Exception as e:
-        print(f"FAIL import-error: {e}"); return 1
+        print(f"失败：导入错误：{e}"); return 1
     if not miss and cr != "ga" and fw != "ga" and fg_ok and lg_ok:
-        print("OK 安全插件已挂载（红线/记忆卫生/文件外发/日志脱敏）"); return 0
-    print(f"FAIL 未挂载 missing={miss} code_run={cr} file_write={fw} fileguard={fg_ok} logguard={lg_ok}"); return 1
+        print("通过：安全插件已挂载（红线/记忆卫生/文件外发/日志脱敏）"); return 0
+    print(f"失败：未挂载 missing={miss} code_run={cr} file_write={fw} fileguard={fg_ok} logguard={lg_ok}"); return 1
 
 def _probe_fileguard_mount():
     """模拟生产部署的真实路径：fsapp 以 `python frontends/fsapp.py` 跑时模块名是
@@ -268,17 +279,17 @@ def _probe_fileguard_mount():
     假绿（2026-06-11 真机事故），此探针专门复现该形态，挂不上=FAIL。"""
     import types
     import plugins.penglai_fileguard as fg
-    fake = types.ModuleType("__main__")
-    fake.__file__ = os.path.join(ROOT, "frontends", "fsapp.py")
-    fake._send_local_file = lambda *a, **k: True
-    fake.send_message = lambda *a, **k: None
+    probe = types.ModuleType("__main__")
+    probe.__file__ = os.path.join(ROOT, "frontends", "fsapp.py")
+    probe._send_local_file = lambda *a, **k: True
+    probe.send_message = lambda *a, **k: None
     saved_main = sys.modules.get("__main__")
     saved = (fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod)
     try:
         fg._PATCHED, fg._orig_send_local_file, fg._orig_send_generated_files, fg._fsapp_mod = False, None, None, None
-        sys.modules["__main__"] = fake
+        sys.modules["__main__"] = probe
         mounted = fg._try_patch()
-        wrapped = fake._send_local_file is fg._guarded_send_local_file
+        wrapped = probe._send_local_file is fg._guarded_send_local_file
         return bool(mounted and wrapped)
     finally:
         if saved_main is not None:
@@ -294,7 +305,28 @@ def guard_ok():
     r = sh([venv_python(), os.path.join(ROOT, "penglai"), "_guardcheck"], cwd=ROOT)
     lines = (r.stdout or "").strip().splitlines()
     last = lines[-1] if lines else ((r.stderr or "").strip().splitlines() or [""])[-1]
-    return (r.returncode == 0 and last.startswith("OK")), last
+    return (r.returncode == 0 and (last.startswith("通过") or last.startswith("OK"))), last
+
+def _feishu_runtime_wrapper_status():
+    """Low-side-effect Feishu wrapper check: no WSS, no LLM, no message send."""
+    import json
+    r = sh([venv_python(), os.path.join(ROOT, "penglai_feishu_app.py"), "--check"], cwd=ROOT)
+    text = r.stdout or ""
+    start = text.find("{")
+    if r.returncode != 0 or start < 0:
+        return False, False, f"penglai_feishu_app.py --check 失败: {(r.stderr or text).strip()[:160]}"
+    try:
+        data = json.loads(text[start:])
+    except Exception as e:
+        return False, False, f"飞书检查输出无法解析: {e}"
+    configured = bool(data.get("app_id") or data.get("app_secret_present"))
+    runtime = data.get("runtime_hub") or {}
+    ok = bool(data.get("ready") and runtime.get("ok"))
+    detail = (
+        f"ready={data.get('ready')} runtime={runtime.get('ok')} "
+        f"card_action={runtime.get('card_action_supported')}"
+    )
+    return configured, ok, detail
 
 # ---------- doctor ----------
 def _owner_open_id_from_log():
@@ -357,36 +389,43 @@ def doctor():
     else:
         print(f"{OK} 微信：未绑定（可选渠道，penglai setup 可扫码接入）")
 
-    # 2c. 语音能力（可选；引擎+模型+ffmpeg 三件套齐了才报就绪，装一半要提示）
-    _mdir = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
-                         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
-    _ffmpeg = shutil.which("ffmpeg") or next(
-        (p for p in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", "/opt/local/bin/ffmpeg")
-         if os.path.isfile(p) and os.access(p, os.X_OK)),
-        None)
-    _voice = (("模型", os.path.isfile(os.path.join(_mdir, "model.int8.onnx"))),
-              ("sherpa-onnx", sh([py, "-c", "import sherpa_onnx"]).returncode == 0),
-              ("ffmpeg", _ffmpeg is not None))
-    if all(ok for _, ok in _voice):
-        print(f"{OK} 语音：就绪（SenseVoice 本地转写+情绪，含微信 silk）")
-    elif not any(ok for _, ok in _voice[:2]):
-        print(f"{OK} 语音：未启用（可选能力）   → 开启：penglai enable voice")
-    else:
-        print(f"{WARN} 语音：装了一半，缺 {'/'.join(n for n, ok in _voice if not ok)}"
-              f" → 补齐：penglai enable voice")
+    # 2c. 语音能力（可选；统一走 Runtime capability 检查，不让聊天任务承担安装/修复）
+    try:
+        import json
+        r = sh([py, "-c",
+                "import json;"
+                "from penglai_runtime.capabilities import voice_runtime_status;"
+                "print(json.dumps(voice_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
+        _voice = json.loads((r.stdout or "{}").strip() or "{}")
+        _detail = _voice.get("detail") or "语音：状态未知"
+        if _voice.get("ready"):
+            print(f"{OK} {_detail}")
+        elif _voice.get("status") == "disabled":
+            print(f"{OK} {_detail}   → 开启：penglai enable voice")
+        else:
+            print(f"{WARN} {_detail} → 补齐：penglai enable voice")
+    except Exception as e:
+        print(f"{WARN} 语音：状态检查不可用（{e}）")
 
     # 2d. 看图能力（F7/U4：IM 发图用主力多模态看图；缺 vision_api.py 就按主力模型构建一次）
     if os.path.exists(os.path.join(ROOT, "mykey.py")):
         try:
             import penglai_abilities as _pa
+            from penglai_runtime.capabilities import vision_runtime_status as _vision_runtime_status
             st = _pa.build_vision_api()
+            _vision = _vision_runtime_status(root=ROOT)
         except Exception:
             st = "err"
-        if st in ("built", "exists", "repaired"):
+            _vision = {}
+        if _vision.get("ready"):
             print(f"{OK} 看图：就绪（vision_api.py → 主力模型；IM 发图问「这是什么」即可）"
                   + ("（刚构建）" if st == "built" else "（已修补旧版 endpoint）" if st == "repaired" else ""))
+        elif _vision.get("status") == "partial":
+            print(f"{WARN} {_vision.get('detail')} → 补齐：penglai install-check 或重新安装依赖")
         elif st == "skip":
-            print(f"{OK} 看图：待主力模型就绪（配好 native_oai_config 后 penglai doctor 自动构建）")
+            print(f"{OK} 看图：待主力 OAI 兼容模型就绪（配好 native_oai_config 或 *_native_oai_config 后自动构建）")
         else:
             print(f"{WARN} 看图：vision_api 未构建（{st}）；发图时管家会按 penglai_im_vision_sop 现建")
 
@@ -419,6 +458,16 @@ def doctor():
                       "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
                       "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），并设置 fs_owner_open_id，重启服务生效")
 
+    # 3c. 飞书 0.3.0 wrapper runtime 链路（低副作用：不启动 WSS、不初始化 LLM、不发消息）
+    try:
+        configured, ok, detail = _feishu_runtime_wrapper_status()
+        if configured:
+            check("飞书中枢 wrapper", ok, f"{detail}；运行: penglai_feishu_app.py --check")
+        else:
+            print(f"{OK} 飞书中枢 wrapper：未配置飞书（可选渠道）")
+    except Exception as e:
+        check("飞书中枢 wrapper", False, f"运行: penglai_feishu_app.py --check；错误: {e}")
+
     # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
     r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
     check("LLM 模块加载 (llmcore)", r.returncode == 0, r.stderr.strip().splitlines()[-1] if r.stderr else "")
@@ -427,6 +476,45 @@ def doctor():
     ok, detail = guard_ok()
     check("安全插件挂载（红线/记忆卫生/文件外发）", ok,
           f"{detail}！agent 会在无防护下运行，排查 plugins/penglai_*.py 导入错误")
+
+    # 4c. Runtime Hub 最小链路（纯本地临时文件/测试夹具，不触发真实 IM/LLM/网络）
+    try:
+        from penglai_runtime.selfcheck import status as runtime_status
+        rt = runtime_status(include_checks=True)
+        failed = [
+            item["name"]
+            for item in rt.get("selfcheck", {}).get("checks", [])
+            if not item.get("ok")
+        ]
+        check("中枢最小链路", bool(rt.get("ok")),
+              "运行: penglai selfcheck" + (f"；失败项: {', '.join(failed[:3])}" if failed else ""))
+    except Exception as e:
+        check("中枢最小链路", False, f"运行: penglai selfcheck；错误: {e}")
+
+    # 4d. 0.3.0 旧入口清单：只读检查当前是否有旧 Feishu/WeChat 入口正在跑。
+    try:
+        from penglai_runtime.deprecations import audit as runtime_legacy_audit
+        legacy = runtime_legacy_audit(root=ROOT, include_runtime=True)
+        active = [
+            item for item in legacy.get("items", [])
+            if item.get("status") == "active_legacy_path"
+        ]
+        check("旧 Runtime 入口清单", not active,
+              "运行: penglai runtime-audit --json" + (f"；active: {active[0]['item_id']}" if active else ""))
+    except Exception as e:
+        check("旧 Runtime 入口清单", False, f"运行: penglai runtime-audit；错误: {e}")
+
+    # 4e. 隐私与发布前预检：隐私 blocker 红；发布 blocker 只提示，因为当前是本地 preview 研发。
+    try:
+        from penglai_runtime.privacy_audit import audit as privacy_audit
+        privacy = privacy_audit(root=ROOT, include_ignored=True, scan_ignored=False)
+        check("隐私发布前预检", bool(privacy.get("privacy_ok")),
+              "运行: penglai privacy-audit --json")
+        if not privacy.get("release_ready"):
+            print(f"{WARN} 发布前预检：还有 {privacy.get('release_blocker_count', 0)} 个发布 blocker"
+                  "（不影响本地 0.3.0 preview；发布前必须清掉）")
+    except Exception as e:
+        check("隐私发布前预检", False, f"运行: penglai privacy-audit；错误: {e}")
 
     # 5. 记忆状态（出厂态 or 已使用）
     mem = os.path.join(ROOT, "memory", "global_mem.txt")
@@ -444,18 +532,30 @@ def doctor():
     prem = prem_lines[-1] if prem_lines else ""
     print(f"{OK} 网页搜索：{'Bing 免费兜底 + 增强源 ' + prem + '（多源交叉验证）' if prem else 'Bing 免费兜底（开箱即用）   → 增强多源交叉验证：penglai enable intel'}")
 
-    # 5c. 批判脑（绊线免费常开；异厂商复核要配 critic_model）
-    r = sh([py, "-c", "import mykey;m=getattr(mykey,'critic_model',None);md=getattr(mykey,'critic_mode','smart');"
-            "print('OFF' if md=='off' else ('FULL:'+m.get('model','') if isinstance(m,dict) and m.get('apikey') else 'TRIP'))"], cwd=ROOT)
-    st = (r.stdout or "").strip()
-    if st.startswith("FULL"):
-        print(f"{OK} 批判脑：smart 档（绊线 + 异厂商复核 {st.split(':',1)[1]}）")
-    elif st == "OFF":
-        print(f"{OK} 批判脑：已关闭（critic_mode=off）   → 开启：penglai enable critic")
-    else:
-        print(f"{OK} 批判脑：仅本地绊线（免费常开）；异厂商复核未配   → 开启：penglai enable critic")
+    # 5c. 批判脑（绊线免费常开；异厂商复核必须证明与主力模型不同厂商）
+    try:
+        import json
+        r = sh([py, "-c",
+                "import json;"
+                "from penglai_runtime.capabilities import critic_runtime_status;"
+                "print(json.dumps(critic_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
+        critic = json.loads((r.stdout or "{}").strip() or "{}")
+        detail = critic.get("detail") or "批判脑：状态未知"
+        if critic.get("ready"):
+            model = critic.get("critic_model") or ""
+            print(f"{OK} {detail}" + (f"（{model}）" if model else ""))
+        elif critic.get("status") == "same_vendor":
+            print(f"{WARN} {detail}   → 重配：penglai enable critic")
+        elif critic.get("status") == "off":
+            print(f"{OK} {detail}   → 开启：penglai enable critic")
+        else:
+            print(f"{OK} {detail}   → 开启：penglai enable critic")
+    except Exception as e:
+        print(f"{WARN} 批判脑：状态检查不可用（{e}）")
 
-    # 6. 服务/进程（飞书没在跑 = 机器人收不到消息，必须红）
+    # 6. 服务/进程：Runtime Hub 是核心，飞书/微信等是渠道。渠道 unit 已安装但挂掉才算故障。
     if has_systemd():
         inst = installed_services()
         for s in SERVICES:
@@ -643,7 +743,7 @@ def _git(*args):
     except subprocess.TimeoutExpired as e:
         out = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode("utf-8", "replace")
         err = e.stderr if isinstance(e.stderr, str) else (e.stderr or b"").decode("utf-8", "replace")
-        return subprocess.CompletedProcess(cmd, 124, out, err or f"git fetch timeout after {e.timeout}s")
+        return subprocess.CompletedProcess(cmd, 124, out, err or f"git fetch 在 {e.timeout} 秒后超时")
 
 
 def _release_remote():
@@ -767,7 +867,7 @@ def _do_update(old, new):
     return 0
 
 def _restart_targets():
-    """应处于运行态的服务（systemd）。feishu 始终在；微信/陪伴按配置。"""
+    """应处于运行态的服务（systemd）。渠道按配置和已安装 unit 决定。"""
     svcs = ["penglai-scheduler"]
     py = venv_python()
     fs = sh([py, "-c", "import sys;sys.path.insert(0,'.');import mykey;"
@@ -992,6 +1092,61 @@ def selfcheck_cmd():
     from penglai_runtime import selfcheck
     return selfcheck.main(sys.argv[2:])
 
+def runtime_run_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import runtime_cli
+    return runtime_cli.main(sys.argv[2:])
+
+def runtime_chat_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import runtime_cli
+    return runtime_cli.chat_main(sys.argv[2:])
+
+def runtime_status_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import runtime_cli
+    return runtime_cli.status_main(sys.argv[2:])
+
+def runtime_history_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import runtime_cli
+    return runtime_cli.history_main(sys.argv[2:])
+
+def runtime_cancel_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import runtime_cli
+    return runtime_cli.cancel_main(sys.argv[2:])
+
+def runtime_serve_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import control_api
+    return control_api.main(sys.argv[2:])
+
+def runtime_service_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import service_unit
+    return service_unit.main(sys.argv[2:])
+
+def runtime_audit_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import deprecations
+    return deprecations.main(sys.argv[2:])
+
+def privacy_audit_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import privacy_audit
+    return privacy_audit.main(sys.argv[2:])
+
+def install_check_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import install_check
+    return install_check.main(sys.argv[2:])
+
+def feishu_service_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import feishu_service
+    return feishu_service.main(sys.argv[2:])
+
 def main():
     cmds = {"doctor": doctor, "version": version,
             "status": lambda: svc("status"), "start": lambda: svc("start"),
@@ -1000,7 +1155,15 @@ def main():
             "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
-            "selfcheck": selfcheck_cmd,
+            "selfcheck": selfcheck_cmd, "runtime-run": runtime_run_cmd,
+            "runtime-chat": runtime_chat_cmd,
+            "runtime-status": runtime_status_cmd, "runtime-history": runtime_history_cmd,
+            "runtime-cancel": runtime_cancel_cmd, "runtime-serve": runtime_serve_cmd,
+            "runtime-service": runtime_service_cmd,
+            "runtime-audit": runtime_audit_cmd,
+            "privacy-audit": privacy_audit_cmd,
+            "install-check": install_check_cmd,
+            "feishu-service": feishu_service_cmd,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
             "_restart_supervisor": restart_supervisor}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""

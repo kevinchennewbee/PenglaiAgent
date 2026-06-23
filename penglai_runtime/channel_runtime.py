@@ -9,23 +9,22 @@ consistently before and after the GA turn.
 import asyncio
 import inspect
 import os
-import queue as Q
-import time
+import threading
 import traceback
 import types
 import uuid
 
-from .contracts import InboundEvent
+from .contracts import InboundEvent, RunStatus
 from .interaction import (
     INTERACTION_PROMPT_HINT,
-    interaction_request_from_turn,
-    render_interaction_text,
-    resolve_interaction_choice,
 )
 from .memory_governor import MemoryGovernor
+from .permissions import render_permission_text, resolve_permission_choice
+from .port import GenericAgentInstancePort
+from .service import RuntimeHubService
 from .session import SessionRouter
 from .shadow import record_delivery_shadow
-from .context_events import recent_context_prompt
+from .context_events import default_context_log_path, recent_context_prompt
 
 
 def default_file_hint():
@@ -82,10 +81,11 @@ class ChannelRuntimeBridge:
         self.router = SessionRouter(owner_user_ids=owner_user_ids or owner_user_ids_from_mykeys())
         self.memory = MemoryGovernor()
         self.pending_interactions = {}
-        self.pending_messages = {}
+        self.pending_permissions = {}
         self.last_sessions = {}
         self.memory_decisions = []
         self.shadow_events = []
+        self.runtime_service = None
 
     def event(
         self,
@@ -203,20 +203,49 @@ def install_channel_runtime_adapter(
     if not hasattr(app, "user_tasks"):
         app.user_tasks = {}
 
+    def runtime_service(self):
+        service = bridge.runtime_service
+        if service is not None:
+            return service
+
+        def port_factory(_session, incoming):
+            agent_obj = _callable_result(
+                get_agent(self, incoming.chat_id) if get_agent else getattr(self, "agent", None)
+            )
+            if agent_obj is None:
+                raise RuntimeError("Agent 未就绪，请稍后重试")
+            return GenericAgentInstancePort(
+                agent=agent_obj,
+                prompt_builder=lambda evt: bridge.prompt(evt.text),
+                source=bridge.channel,
+                timeout=float(getattr(self, "runtime_timeout", 1200)),
+            )
+
+        service = RuntimeHubService(
+            owner_user_ids=getattr(bridge.router, "owner_user_ids", set()),
+            port_factory=port_factory,
+            context_log_path=default_context_log_path(),
+        )
+        bridge.runtime_service = service
+        self._penglai_runtime_hub_service = service
+        return service
+
     async def run_agent(self, chat_id, text, **ctx):
         chat_key = str(chat_id)
-        waiting = bridge.pending_interactions.get(chat_key)
+        if str(text or "").strip() in {"/stop", "/cancel", "/abort"}:
+            return await cancel_runtime_session(self, chat_id, **ctx)
+        waiting = bridge.pending_permissions.get(chat_key)
         if waiting:
-            chosen = resolve_interaction_choice(text, waiting)
+            chosen = resolve_permission_choice(text, waiting)
             if chosen is None:
                 await _send_text(
                     self,
                     chat_id,
-                    render_interaction_text(waiting, include_click_hint=include_click_hint),
+                    render_permission_text(waiting, include_click_hint=include_click_hint),
                     ctx,
                 )
                 return
-            bridge.pending_interactions.pop(chat_key, None)
+            bridge.pending_permissions.pop(chat_key, None)
             text = chosen
 
         agent_obj = _callable_result(get_agent(self, chat_id) if get_agent else getattr(self, "agent", None))
@@ -238,104 +267,143 @@ def install_channel_runtime_adapter(
             metadata=ctx,
         )
         state_key = session.session_id
-        if state_key in self.user_tasks:
-            queue = bridge.pending_messages.setdefault(state_key, [])
-            queue.append((chat_id, text, dict(ctx)))
-            await _send_text(self, chat_id, "已收到，当前会话还有任务在运行；这条消息会等当前任务结束后继续。", ctx)
+        service = runtime_service(self)
+
+        # Unified中枢 queue: submit is non-blocking.  When the session is busy
+        # the event is queued by the hub (not by this adapter) and we just tell
+        # the user.  When it starts now, we run it to completion inline (the
+        # hub's dispatcher handles any subsequently queued events on its worker
+        # thread; we only need to wait for *this* event's result here).
+        loop = asyncio.get_event_loop()
+        done_evt = threading.Event()
+        run_holder = {}
+        queued_delivery = {"enabled": False, "scheduled": False}
+
+        async def _deliver_result(run_result):
+            if run_result is None:
+                await _send_text(self, chat_id, "⏹️ 已停止", ctx)
+            elif run_result.permission is not None:
+                bridge.pending_permissions[chat_key] = run_result.permission
+                if callable(render_interaction):
+                    rendered = await render_interaction(self, chat_id, run_result.permission, **ctx)
+                    if rendered:
+                        return
+                await _send_text(
+                    self,
+                    chat_id,
+                    render_permission_text(run_result.permission, include_click_hint=include_click_hint),
+                    ctx,
+                )
+            elif run_result.status == RunStatus.SUCCEEDED:
+                raw = run_result.raw_output or run_result.cleaned_output or run_result.task_run.result_text
+                bridge.record_memory(raw, context={"channel": bridge.channel, "session_id": session.session_id})
+                bridge.record_shadow(
+                    raw,
+                    receive_id=chat_key,
+                    receive_id_type=ctx.get("receive_id_type") or ("group" if ctx.get("is_group") else "private"),
+                    base_dir=ctx.get("base_dir"),
+                    exclude_paths=ctx.get("exclude_paths"),
+                    production_text=raw,
+                )
+                await _send_done(self, chat_id, raw, ctx)
+            elif run_result.status == RunStatus.CANCELLED:
+                await _send_text(self, chat_id, "⏹️ 已停止", ctx)
+            elif run_result.status == RunStatus.FAILED:
+                await _send_text(self, chat_id, f"❌ 错误: {run_result.task_run.error}", ctx)
+            else:
+                await _send_text(self, chat_id, "⚠️ Agent 异常退出，请重试", ctx)
+
+        def _schedule_queued_delivery(result):
+            if queued_delivery["scheduled"]:
+                return
+            queued_delivery["scheduled"] = True
+            fut = asyncio.run_coroutine_threadsafe(_deliver_result(result), loop)
+
+            def _log_delivery_error(done):
+                try:
+                    done.result()
+                except Exception as exc:
+                    print(f"[{getattr(self, 'label', bridge.channel)}] 排队结果投递失败：{exc}")
+
+            fut.add_done_callback(_log_delivery_error)
+
+        def _on_complete(result):
+            run_holder["result"] = result
+            if queued_delivery["enabled"]:
+                _schedule_queued_delivery(result)
+            done_evt.set()
+
+        decision = service.submit(event, on_complete=_on_complete, base_dir=ctx.get("base_dir"),
+                                   exclude_paths=ctx.get("exclude_paths"),
+                                   send_body=False, send_notice=False)
+        if not decision.started_now:
+            queued_delivery["enabled"] = True
+            if "result" in run_holder:
+                _schedule_queued_delivery(run_holder["result"])
+            await _send_text(self, chat_id, f"已收到，当前会话还有任务在运行；这条消息已排队 #{decision.queue_no}，会等当前任务结束后继续。", ctx)
             return
 
         state = {"running": True, "session_id": session.session_id}
         self.user_tasks[state_key] = state
         if chat_key != state_key:
             self.user_tasks[chat_key] = state
-        hook_key = f"penglai_rt_{bridge.channel}_{state_key}_{uuid.uuid4().hex}"
-        result = {"raw": None, "sent": False, "request": None}
-
-        def finish(raw):
-            if result["sent"]:
-                return
-            result["raw"] = raw
-            result["sent"] = True
-
-        def hook(turn_ctx):
-            try:
-                if turn_ctx.get("exit_reason"):
-                    request = interaction_request_from_turn(turn_ctx, request_id=hook_key)
-                    if request is not None:
-                        result["request"] = request
-                        result["sent"] = True
-                        return
-                    resp = turn_ctx.get("response")
-                    finish(resp.content if hasattr(resp, "content") else str(resp))
-            except Exception as e:
-                print(f"[penglai runtime {bridge.channel}] hook error: {e}")
-
         try:
             await _send_text(self, chat_id, "思考中...", ctx)
-            if not hasattr(agent_obj, "_turn_end_hooks"):
-                agent_obj._turn_end_hooks = {}
-            agent_obj._turn_end_hooks[hook_key] = hook
-            dq = agent_obj.put_task(bridge.prompt(event.text), source=bridge.channel)
-            last_ping = time.time()
-            ping_interval = getattr(self, "ping_interval", 20)
-
-            while state["running"] and not result["sent"]:
-                try:
-                    item = await asyncio.to_thread(dq.get, True, 1)
-                except Q.Empty:
-                    if getattr(agent_obj, "is_running", False) and time.time() - last_ping > ping_interval:
-                        await _send_text(self, chat_id, "⏳ 还在处理中，请稍等...", ctx)
-                        last_ping = time.time()
-                    continue
-                if item and "done" in item:
-                    finish(item.get("done", ""))
-
-            if result["request"] is not None:
-                bridge.pending_interactions[chat_key] = result["request"]
-                if callable(render_interaction):
-                    rendered = await render_interaction(self, chat_id, result["request"], **ctx)
-                    if rendered:
-                        return
-                await _send_text(
-                    self,
-                    chat_id,
-                    render_interaction_text(result["request"], include_click_hint=include_click_hint),
-                    ctx,
-                )
-            elif result["raw"] is not None:
-                bridge.record_memory(result["raw"], context={"channel": bridge.channel, "session_id": session.session_id})
-                bridge.record_shadow(
-                    result["raw"],
-                    receive_id=chat_key,
-                    receive_id_type=ctx.get("receive_id_type") or ("group" if ctx.get("is_group") else "private"),
-                    base_dir=ctx.get("base_dir"),
-                    exclude_paths=ctx.get("exclude_paths"),
-                    production_text=result["raw"],
-                )
-                await _send_done(self, chat_id, result["raw"], ctx)
+            # Wait for the hub worker to finish this event.
+            while not done_evt.wait(timeout=0.5):
+                if not state["running"]:
+                    break
+            run_result = run_holder.get("result")
+            if not state["running"] and run_result is None:
+                await _send_text(self, chat_id, "⏹️ 已停止", ctx)
+            elif run_result is not None:
+                await _deliver_result(run_result)
             elif not state["running"]:
                 await _send_text(self, chat_id, "⏹️ 已停止", ctx)
             else:
                 await _send_text(self, chat_id, "⚠️ Agent 异常退出，请重试", ctx)
         except Exception as e:
-            print(f"[{getattr(self, 'label', bridge.channel)}] Penglai runtime run_agent error: {e}")
+            print(f"[{getattr(self, 'label', bridge.channel)}] 蓬莱中枢 run_agent 错误：{e}")
             traceback.print_exc()
             await _send_text(self, chat_id, f"❌ 错误: {e}", ctx)
         finally:
-            if hasattr(agent_obj, "_turn_end_hooks"):
-                agent_obj._turn_end_hooks.pop(hook_key, None)
             self.user_tasks.pop(state_key, None)
             if chat_key != state_key:
                 self.user_tasks.pop(chat_key, None)
-            pending = bridge.pending_messages.get(state_key) or []
-            if pending:
-                next_chat_id, next_text, next_ctx = pending.pop(0)
-                if not pending:
-                    bridge.pending_messages.pop(state_key, None)
-                asyncio.create_task(self.run_agent(next_chat_id, next_text, **next_ctx))
+
+    async def cancel_runtime_session(self, chat_id, **ctx):
+        chat_key = str(chat_id)
+        event, session = bridge.event(
+            event_id=ctx.get("msg_id") or ctx.get("message_id") or f"cancel_{uuid.uuid4().hex}",
+            user_id=_default_user_id(chat_id, ctx),
+            chat_id=chat_key,
+            chat_type="group" if ctx.get("is_group") else "private",
+            text="/stop",
+            metadata=ctx,
+        )
+        service = runtime_service(self)
+        data = service.cancel_session(session.session_id, drop_pending=True)
+        for key, state in list(getattr(self, "user_tasks", {}).items()):
+            if key in {chat_key, session.session_id} or (state or {}).get("session_id") == session.session_id:
+                try:
+                    state["running"] = False
+                except Exception:
+                    pass
+                self.user_tasks.pop(key, None)
+        bridge.pending_permissions.pop(chat_key, None)
+        agent_obj = _callable_result(get_agent(self, chat_key) if get_agent else getattr(self, "agent", None))
+        abort = getattr(agent_obj, "abort", None)
+        if callable(abort):
+            try:
+                abort()
+            except Exception:
+                pass
+        await _send_text(self, chat_id, "⏹️ 已请求停止当前任务", ctx)
+        return data
 
     app._penglai_runtime_channel_patched = True
     app._penglai_runtime_bridge = bridge
     app._penglai_original_run_agent = original_run_agent
+    app.cancel_runtime_session = types.MethodType(cancel_runtime_session, app)
     app.run_agent = types.MethodType(run_agent, app)
     return True

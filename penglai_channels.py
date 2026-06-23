@@ -14,6 +14,7 @@ GA 上游自带 IM 前端（frontends/*.py），蓬莱层在此之上提供统�
   penglai enable <渠道>       启用：dingtalk|wecom|qq|telegram|discord
   penglai disable <渠道>      停用并卸载服务
 """
+import json
 import os, re, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -83,13 +84,15 @@ def _launch_argv(ch):
     return [venv_python(), os.path.join(ROOT, "frontends", CHANNELS[ch]["script"])]
 
 
-def _launch_cmd(ch):
+def _launch_cmd(ch, python=None, root=None):
     """systemd ExecStart 命令串。"""
+    root = os.path.realpath(root or ROOT)
+    python = python or venv_python()
     if ch in _WRAPPED_CHANNELS:
-        return f"python {ROOT}/penglai_im_launch.py {ch}"
+        return f"{python} {root}/penglai_im_launch.py {ch}"
     if ch == "feishu":
-        return f"python {ROOT}/penglai_feishu_app.py"
-    return f"python {ROOT}/frontends/{CHANNELS[ch]['script']}"
+        return f"{python} {root}/penglai_feishu_app.py"
+    return f"{python} {root}/frontends/{CHANNELS[ch]['script']}"
 
 
 def _launch_desc(ch):
@@ -324,6 +327,34 @@ def mykey_get(key):
     return (r.stdout or "").strip() == "SET"
 
 
+def _wechat_bound():
+    path = os.path.expanduser("~/.wxbot/token.json")
+    if not os.path.exists(path):
+        return False
+    try:
+        data = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        return False
+    return bool(data.get("bot_token") or data.get("ilink_bot_id") or data)
+
+
+def _credentials_ok(ch):
+    if ch == "feishu":
+        return all(mykey_get(k) for k in ("fs_app_id", "fs_app_secret"))
+    if ch == "wechat":
+        return _wechat_bound()
+    c = CHANNELS[ch]
+    return (not c["keys"]) or all(mykey_get(k) for k in c["keys"])
+
+
+def _tested_label(ch, creds_ok):
+    if ch == "wechat" and not creds_ok:
+        return "— 待绑定"
+    if ch == "feishu" and not creds_ok:
+        return "— 待配置"
+    return "✅ 已实测" if CHANNELS[ch]["tested"] else "⚠️ 待实测"
+
+
 # ---------- 进程/服务管理（generic 版，非 systemd 用 nohup + pgrep）----------
 
 def proc_pids(ch):
@@ -345,21 +376,36 @@ def log_tail(ch, n=6):
     return open(lf, encoding="utf-8", errors="replace").read().splitlines()[-n:]
 
 
+def channel_systemd_unit(ch, *, root=None, python=None, user=None, home=None):
+    root = os.path.realpath(root or ROOT)
+    python = python or venv_python()
+    user = user or os.environ.get("USER", "root")
+    home = home or os.path.expanduser("~")
+    c = CHANNELS[ch]
+    env_sh = os.path.join(root, "env.sh")
+    work = os.path.join(home, "penglai-work")
+    guard = (
+        f"ExecStartPre=/bin/bash -lc 'source {env_sh} 2>/dev/null || true; "
+        f"{python} {root}/penglai _guardcheck'\n"
+    )
+    cmd = _launch_cmd(ch, python=python, root=root)
+    return (
+        f"[Unit]\nDescription=Penglai {c['label']} channel\nAfter=network-online.target\n\n"
+        f"[Service]\nType=simple\nUser={user}\n"
+        f"WorkingDirectory={root}\nEnvironment=HOME={home}\n"
+        f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}"
+        f"ExecStart=/bin/bash -lc 'source {env_sh} 2>/dev/null || true; exec {cmd}'\n"
+        f"Restart=always\nRestartSec=20\n\n[Install]\nWantedBy=multi-user.target\n"
+    )
+
+
 def unit_install(ch):
     c = CHANNELS[ch]
     env_sh = os.path.join(ROOT, "env.sh")
     if not os.path.exists(env_sh):
         open(env_sh, "w").write(f'export PATH="{ROOT}/.venv/bin:$PATH"\n')
-    work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
-    guard = (f"ExecStartPre=/bin/bash -lc 'source {env_sh} && "
-             f"python {ROOT}/penglai _guardcheck'\n")
-    cmd = _launch_cmd(ch)
-    unit = (f"[Unit]\nDescription=Penglai {c['label']} channel\nAfter=network-online.target\n\n"
-            f"[Service]\nType=simple\nUser={os.environ.get('USER', 'root')}\n"
-            f"WorkingDirectory={ROOT}\nEnvironment=HOME={os.path.expanduser('~')}\n"
-            f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}"
-            f"ExecStart=/bin/bash -lc 'source {env_sh} && exec {cmd}'\n"
-            f"Restart=always\nRestartSec=20\n\n[Install]\nWantedBy=multi-user.target\n")
+    os.makedirs(os.path.expanduser("~/penglai-work"), exist_ok=True)
+    unit = channel_systemd_unit(ch, python=venv_python())
     try:
         subprocess.run(["sudo", "tee", f"/etc/systemd/system/{c['service']}.service"],
                        input=unit, text=True, check=True, stdout=subprocess.DEVNULL)
@@ -502,7 +548,8 @@ def status():
     print("🏮 蓬莱渠道矩阵（内核 GA 自带 7 渠道，蓬莱层统一封装）\n")
     print(f"  {'渠道':<10}{'凭证':<6}{'依赖':<6}{'运行':<10}实测状态")
     for ch, c in CHANNELS.items():
-        creds = "✔" if (not c["keys"] or all(mykey_get(k) for k in c["keys"])) else "—"
+        creds_ok = _credentials_ok(ch)
+        creds = "✔" if creds_ok else "—"
         deps = "✔" if all(sh([venv_python(), "-c", f"import {m}"]).returncode == 0
                           for m in c["pip"].values()) else "—"
         if has_systemd():
@@ -510,7 +557,7 @@ def status():
             run = st if st != "unknown" else "未安装"
         else:
             run = f"PID {proc_pids(ch)[0]}" if proc_pids(ch) else "—"
-        tested = "✅ 已实测" if c["tested"] else "⚠️ 待实测"
+        tested = _tested_label(ch, creds_ok)
         print(f"  {c['label']:<9}{creds:<7}{deps:<7}{run:<10}{tested}")
     print(f"\n  启用渠道: penglai enable <{('|'.join(EXTRA))}>")
     print("  飞书/微信: penglai setup（含扫码与连接验证闭环）")

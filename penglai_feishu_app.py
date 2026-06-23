@@ -8,6 +8,7 @@ patch Feishu ask_user rendering, then delegate to upstream main().
 import asyncio
 import argparse
 import ast
+import hashlib
 import json
 import os
 import queue as Q
@@ -30,9 +31,13 @@ from penglai_feishu_ask import (  # noqa: E402
     resolve_choice,
 )
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup  # noqa: E402
+from penglai_runtime.contracts import InboundEvent, RunStatus  # noqa: E402
 from penglai_runtime.interaction import parse_callback_value, request_from_ask_user_event  # noqa: E402
-from penglai_runtime.context_events import recent_context_prompt  # noqa: E402
+from penglai_runtime.permissions import permission_payload, render_permission_text  # noqa: E402
+from penglai_runtime.port import GenericAgentInstancePort  # noqa: E402
+from penglai_runtime.context_events import default_context_log_path, recent_context_prompt  # noqa: E402
 from penglai_runtime.redaction import contains_secret, redact_text  # noqa: E402
+from penglai_runtime.service import RuntimeHubService  # noqa: E402
 from penglai_runtime.version import compact_version_line, format_version_text  # noqa: E402
 from plugins.penglai_artifacts import file_markers, strip_file_markers  # noqa: E402
 
@@ -40,8 +45,8 @@ from plugins.penglai_artifacts import file_markers, strip_file_markers  # noqa: 
 _ASK_STATE = {}
 _ASK_BY_MENU = {}
 _ASK_LOCK = threading.Lock()
-_PENDING_LOCK = threading.Lock()
-_PENDING_QUEUE = []
+_TASK_BY_ID = {}
+_TASK_LOCK = threading.Lock()
 PENGLAI_IM_FILE_HINT = (
     "If you need to show files to user, use [FILE:filepath] in your response. "
     "Do not read channel-specific send-file SOPs or call Feishu/IM upload APIs directly; "
@@ -111,6 +116,39 @@ def _compose_agent_prompt(file_hint, text):
         parts.append(context)
     parts.append(str(text or ""))
     return "\n\n".join(parts)
+
+
+def _permission_to_ask_event(permission):
+    payload = permission_payload(permission)
+    candidates = [
+        {
+            "label": str(option["label"]),
+            "value": str(option["value"]),
+            "description": "",
+        }
+        for option in payload["options"]
+    ]
+    return {
+        "question": payload["prompt"],
+        "candidates": candidates,
+        "_penglai_runtime_permission": True,
+        "_penglai_permission_payload": payload,
+    }
+
+
+def _runtime_cancel_callback_value(task_id):
+    return {
+        "penglai_action": "runtime_cancel",
+        "task_id": str(task_id or ""),
+    }
+
+
+def _parse_runtime_cancel_value(value):
+    if not isinstance(value, dict):
+        return ""
+    if value.get("penglai_action") != "runtime_cancel":
+        return ""
+    return str(value.get("task_id") or value.get("request_id") or value.get("menu_id") or "").strip()
 
 
 def _message_type(message):
@@ -355,18 +393,88 @@ def _install_display_cleaners(fs):
     fs._display_text = _display_text
 
 
-def _enqueue_pending(item):
-    with _PENDING_LOCK:
-        item["queue_no"] = len(_PENDING_QUEUE) + 1
-        _PENDING_QUEUE.append(item)
-        return item["queue_no"]
+def _is_markdown_table_row(line):
+    text = str(line or "").strip()
+    return "|" in text and text.count("|") >= 2
 
 
-def _pop_pending():
-    with _PENDING_LOCK:
-        if not _PENDING_QUEUE:
-            return None
-        return _PENDING_QUEUE.pop(0)
+def _is_markdown_table_separator(line):
+    text = str(line or "").strip().strip("|")
+    if "|" not in text:
+        return False
+    cells = [cell.strip().replace(" ", "") for cell in text.split("|")]
+    return len(cells) >= 2 and all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells)
+
+
+def _markdown_table_to_text_block(lines):
+    rows = []
+    for idx, line in enumerate(lines):
+        if idx == 1 and _is_markdown_table_separator(line):
+            continue
+        cells = [cell.strip() for cell in str(line or "").strip().strip("|").split("|")]
+        rows.append(" | ".join(cells))
+    return "```text\n" + "\n".join(rows).strip() + "\n```"
+
+
+def _card_safe_markdown(text):
+    """Render Markdown tables as text blocks for Feishu card reliability.
+
+    Feishu interactive cards reject messages when markdown content expands into
+    too many table elements. Plain text delivery still gets the model's original
+    answer; this only adapts the card payload to the platform's limits.
+    """
+    lines = str(text or "").splitlines()
+    out = []
+    i = 0
+    in_fence = False
+    while i < len(lines):
+        line = lines[i]
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            out.append(line)
+            i += 1
+            continue
+        if (
+            not in_fence
+            and i + 1 < len(lines)
+            and _is_markdown_table_row(line)
+            and _is_markdown_table_separator(lines[i + 1])
+        ):
+            block = [line, lines[i + 1]]
+            i += 2
+            while i < len(lines) and _is_markdown_table_row(lines[i]):
+                block.append(lines[i])
+                i += 1
+            out.append(_markdown_table_to_text_block(block))
+            continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
+
+
+def _sanitize_card_elements(value):
+    if isinstance(value, list):
+        return [_sanitize_card_elements(item) for item in value]
+    if isinstance(value, dict):
+        data = {key: _sanitize_card_elements(item) for key, item in value.items()}
+        if data.get("tag") == "markdown" and isinstance(data.get("content"), str):
+            data["content"] = _card_safe_markdown(data["content"])
+        return data
+    return value
+
+
+def _install_card_markdown_safety(fs):
+    original = getattr(fs, "_card_raw", None)
+    if not callable(original) or getattr(original, "_penglai_card_markdown_safety", False):
+        return False
+
+    def _card_raw(elements):
+        return original(_sanitize_card_elements(elements))
+
+    _card_raw._penglai_card_markdown_safety = True
+    fs._card_raw = _card_raw
+    return True
+
 
 
 def _patch_lark_ws_card_dispatch():
@@ -443,7 +551,16 @@ def _patch_lark_ws_card_dispatch():
     return True
 
 
-def _remember_ask(chat_key, event, *, menu_id=None, receive_id=None, receive_id_type="open_id"):
+def _remember_ask(
+    chat_key,
+    event,
+    *,
+    menu_id=None,
+    receive_id=None,
+    receive_id_type="open_id",
+    user_id=None,
+    chat_type=None,
+):
     with _ASK_LOCK:
         _ASK_STATE[chat_key] = event
         if menu_id:
@@ -452,7 +569,43 @@ def _remember_ask(chat_key, event, *, menu_id=None, receive_id=None, receive_id_
                 "event": event,
                 "receive_id": receive_id or chat_key,
                 "receive_id_type": receive_id_type,
+                "user_id": user_id,
+                "chat_type": chat_type,
             }
+
+
+def _remember_task(
+    task_id,
+    chat_key,
+    *,
+    receive_id=None,
+    receive_id_type="open_id",
+    user_id=None,
+    chat_type=None,
+    session_id="",
+    card=None,
+):
+    with _TASK_LOCK:
+        _TASK_BY_ID[str(task_id)] = {
+            "chat_key": chat_key,
+            "receive_id": receive_id or chat_key,
+            "receive_id_type": receive_id_type,
+            "user_id": user_id,
+            "chat_type": chat_type,
+            "session_id": session_id,
+            "card": card,
+        }
+
+
+def _get_task(task_id):
+    with _TASK_LOCK:
+        item = _TASK_BY_ID.get(str(task_id))
+        return dict(item) if item else None
+
+
+def _pop_task(task_id):
+    with _TASK_LOCK:
+        return _TASK_BY_ID.pop(str(task_id), None)
 
 
 def _choice_text_for_agent(event, choice):
@@ -501,12 +654,17 @@ def _pop_menu_choice(menu_id, index):
             _ASK_STATE.pop(chat_key, None)
         option = options[idx]
         choice = _choice_text_for_agent(event, option.value or option.label)
-        return {
+        picked = {
             "chat_key": chat_key,
             "choice": choice,
             "receive_id": item.get("receive_id") or chat_key,
             "receive_id_type": item.get("receive_id_type") or "open_id",
         }
+        if item.get("user_id"):
+            picked["user_id"] = item.get("user_id")
+        if item.get("chat_type"):
+            picked["chat_type"] = item.get("chat_type")
+        return picked
 
 
 def _cancel_ask(chat_key):
@@ -515,6 +673,48 @@ def _cancel_ask(chat_key):
         for menu_id, item in list(_ASK_BY_MENU.items()):
             if item.get("chat_key") == chat_key:
                 _ASK_BY_MENU.pop(menu_id, None)
+
+
+def _install_task_card_cancel_button(fs):
+    task_card = getattr(fs, "_TaskCard", None)
+    original_build = getattr(task_card, "_build", None)
+    if not callable(original_build) or getattr(task_card, "_penglai_cancel_button_patch", False):
+        return False
+
+    def _build_with_cancel(self):
+        raw = original_build(self)
+        if not getattr(self, "_penglai_cancel_enabled", False):
+            return raw
+        task_id = str(getattr(self, "_penglai_task_id", "") or "")
+        if not task_id:
+            return raw
+        button = {
+            "tag": "button",
+            "text": {"tag": "plain_text", "content": "停止任务"},
+            "type": "danger",
+            "behaviors": [{
+                "type": "callback",
+                "value": _runtime_cancel_callback_value(task_id),
+            }],
+        }
+        try:
+            if isinstance(raw, str):
+                payload = json.loads(raw)
+                elements = payload.setdefault("body", {}).setdefault("elements", [])
+                elements.extend([{"tag": "hr"}, button])
+                return json.dumps(payload, ensure_ascii=False)
+            if isinstance(raw, dict):
+                payload = json.loads(json.dumps(raw, ensure_ascii=False))
+                elements = payload.setdefault("body", {}).setdefault("elements", [])
+                elements.extend([{"tag": "hr"}, button])
+                return payload
+        except Exception as e:
+            print(f"[penglai feishu runtime] cancel button render failed: {e}", flush=True)
+        return raw
+
+    task_card._build = _build_with_cancel
+    task_card._penglai_cancel_button_patch = True
+    return True
 
 
 _CN_OPTION_COUNTS = {
@@ -691,20 +891,106 @@ def _extract_final_choice_interaction(text):
     }
 
 
+def _wait_heartbeat_float(name, default):
+    try:
+        return max(0.0, float(os.getenv(name, str(default))))
+    except Exception:
+        return float(default)
+
+
+def _wait_heartbeat_int(name, default):
+    try:
+        return max(0, int(os.getenv(name, str(default))))
+    except Exception:
+        return int(default)
+
+
+def _start_waiting_card_heartbeat(
+    card,
+    task_id,
+    active_task_id,
+    stop_event=None,
+    *,
+    first_delay=None,
+    repeat_delay=None,
+    max_updates=None,
+):
+    """Keep Feishu's active task card visibly alive while the model is silent."""
+    if card is None:
+        return None
+    if stop_event is None:
+        stop_event = threading.Event()
+    if first_delay is None:
+        first_delay = _wait_heartbeat_float("PENGLAI_FEISHU_WAIT_HEARTBEAT_FIRST_SEC", 30.0)
+    if repeat_delay is None:
+        repeat_delay = _wait_heartbeat_float("PENGLAI_FEISHU_WAIT_HEARTBEAT_REPEAT_SEC", 60.0)
+    if max_updates is None:
+        max_updates = _wait_heartbeat_int("PENGLAI_FEISHU_WAIT_HEARTBEAT_MAX_UPDATES", 3)
+    if max_updates <= 0:
+        return None
+
+    def _current_task_id():
+        try:
+            return active_task_id() if callable(active_task_id) else active_task_id
+        except Exception:
+            return None
+
+    def _worker():
+        delay = first_delay
+        for idx in range(max_updates):
+            if stop_event.wait(delay):
+                return
+            if _current_task_id() != task_id:
+                return
+            if not getattr(card, "_penglai_cancel_enabled", False):
+                return
+            try:
+                card.status = "⏳ 仍在等待模型响应"
+                push = getattr(card, "_push", None)
+                if callable(push):
+                    push()
+            except Exception as e:
+                print(f"[penglai feishu runtime] wait heartbeat failed: {e}", flush=True)
+                return
+            delay = repeat_delay
+
+    thread = threading.Thread(
+        target=_worker,
+        name=f"penglai-feishu-wait-heartbeat-{task_id}",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
 def _patch(fs):
     if getattr(fs, "_PENGLAI_FEISHU_PATCHED", False):
         return
     fs._PENGLAI_FEISHU_PATCHED = True
     _install_display_cleaners(fs)
+    _install_card_markdown_safety(fs)
     _install_text_message_fallback(fs)
+    _install_task_card_cancel_button(fs)
 
     orig_handle_message = fs.handle_message
     orig_run_agent = fs.FeishuApp.run_agent
     orig_handle_command = fs.FeishuApp.handle_command
 
+    def _cancel_task_card(card, status="⏹️ 已请求停止"):
+        if card is None:
+            return
+        try:
+            card._penglai_cancel_enabled = False
+            card.status = status
+            card.final = "已请求停止当前任务。"
+            card._push()
+        except Exception as e:
+            print(f"[penglai feishu runtime] cancel card patch failed: {e}", flush=True)
+
     def _finish_ask_card_text(card, text, event, menu_id):
         if text.startswith("⚠️ 模型输出被截断或为空"):
             text = ""
+        card._penglai_cancel_enabled = False
         elements = build_ask_user_elements(text, event, menu_id=menu_id, include_buttons=True)
         card.status = "🧭 等待选择"
         card.final = None
@@ -729,7 +1015,10 @@ def _patch(fs):
         return text
 
     def _card_done(card, raw):
+        card._penglai_cancel_enabled = False
         text = _final_display_text(raw)
+        if hasattr(card, "steps"):
+            card.steps = []
         if text.startswith("⚠️ 工具流程已结束"):
             card.status = "⚠️ 已结束但回复为空"
             card.final = text
@@ -743,6 +1032,17 @@ def _patch(fs):
                 card._fallback_text("✅ 已完成", final=True)
             return
         card.done(text)
+
+    def _card_queued(card, queue_no, msg):
+        card._penglai_cancel_enabled = False
+        if hasattr(card, "steps"):
+            card.steps = []
+        card.status = f"⏳ 已排队 #{queue_no}"
+        card.final = msg
+        push = getattr(card, "_push", None)
+        if not callable(push):
+            return False
+        return bool(push())
 
     def _record_runtime_shadow(raw, *, receive_id, receive_id_type):
         try:
@@ -763,149 +1063,348 @@ def _patch(fs):
         except Exception as e:
             print(f"[penglai runtime shadow] error: {e}", flush=True)
 
-    def _start_pending_if_any():
-        item = _pop_pending()
-        if not item:
-            return
-        try:
-            fs.send_message(
-                item["receive_id"],
-                f"▶️ 开始处理排队消息 #{item['queue_no']}。",
-                receive_id_type=item["receive_id_type"],
-            )
-        except Exception:
-            pass
-        threading.Thread(
-            target=fs._run_async,
-            args=(fs.get_app().run_agent(
-                item["chat_id"],
-                item["text"],
-                receive_id=item["receive_id"],
-                receive_id_type=item["receive_id_type"],
-                images=item.get("images") or None,
-            ),),
-            daemon=True,
-        ).start()
 
-    def _make_penglai_task_hook(card, task_id, on_final, on_ask):
+    def _make_penglai_progress_hook(card, task_id):
         def hook(ctx):
             try:
                 if getattr(ctx.get("self").parent, "_fs_active_task_id", None) != task_id:
                     return
-                if ctx.get("exit_reason"):
-                    resp = ctx.get("response")
-                    raw = resp.content if hasattr(resp, "content") else str(resp)
-                    event = extract_ask_user_event(ctx)
-                    if event:
-                        on_ask(raw, event)
-                    else:
-                        on_final(raw)
-                elif ctx.get("summary"):
+                if ctx.get("summary"):
                     detail = fs._build_step_detail(ctx.get("response"), ctx.get("tool_calls") or [])
                     card.step(ctx["summary"], detail)
             except Exception as e:
                 print(f"[penglai fs hook] error: {e}")
         return hook
 
+    def _runtime_service(app):
+        service = getattr(app, "_penglai_runtime_hub_service", None)
+        if service is None:
+            service = RuntimeHubService(
+                owner_user_ids=set(fs.ALLOWED_USERS or []),
+                context_log_path=default_context_log_path(),
+            )
+            app._penglai_runtime_hub_service = service
+            # Inject Penglai persona into every system prompt so the model
+            # never falls back to its default identity (e.g. MiniMax M3's
+            # "ROOT_SYSTEM_POLICY" self-identification).
+            try:
+                agent = getattr(app, "agent", None)
+                if agent is not None and agent.llmclients:
+                    backend = agent.llmclient.backend
+                    persona = (
+                        "\n[蓬莱身份] 你是「蓬莱助手」，基于 GenericAgent 的开源个人管家发行版蓬莱。"
+                        "用户称呼你为\"主人\"。被问及身份/名字时以此为准，严禁自称底层模型名"
+                        "(如 MiniMax/Claude/GPT 等)或 API 提供商名。"
+                    )
+                    existing = getattr(backend, "extra_sys_prompt", "") or ""
+                    if persona not in existing:
+                        backend.extra_sys_prompt = persona + "\n" + existing
+            except Exception:
+                pass
+        return service
+
+    def _cancel_runtime_task(app, task_id):
+        item = _get_task(task_id)
+        if not item:
+            return None
+        chat_key = item.get("chat_key") or ""
+        for state in list(getattr(app, "user_tasks", {}).values()):
+            try:
+                state["running"] = False
+            except Exception:
+                pass
+        try:
+            app.agent.abort()
+        except Exception:
+            pass
+        _cancel_ask(chat_key)
+        service = _runtime_service(app)
+        session_id = item.get("session_id") or ""
+        if not session_id:
+            event = InboundEvent(
+                event_id=f"feishu_card_cancel_{uuid.uuid4().hex}",
+                channel="feishu",
+                user_id=str(item.get("user_id") or item.get("receive_id") or chat_key),
+                chat_id=str(chat_key),
+                chat_type=str(item.get("chat_type") or "private"),
+                text="/stop",
+            )
+            session_id = service.router.route(event).session_id
+        pre_status = service.status(session_id)
+        dropped = int((pre_status.get("queue") or {}).get("pending", 0) or 0)
+        data = service.cancel_session(session_id, drop_pending=True)
+        _cancel_task_card(item.get("card"))
+        if chat_key:
+            getattr(app, "user_tasks", {}).pop(chat_key, None)
+        _pop_task(task_id)
+        app._penglai_last_runtime_cancel = {
+            "session_id": session_id,
+            "next_event_id": data.get("next_event_id") or "",
+            "dropped": dropped,
+            "source": "feishu_card",
+            "task_id": str(task_id),
+        }
+        print(
+            "[penglai feishu runtime] card cancel "
+            f"task={task_id} session={session_id} next={data.get('next_event_id') or '-'} dropped={dropped}",
+            flush=True,
+        )
+        return app._penglai_last_runtime_cancel
+
     async def run_agent(self, chat_id, text, *, receive_id=None, receive_id_type="open_id",
-                        images=None, priority=False, **_):
-        if self.user_tasks:
-            deadline = time.time() + (5 if priority else 0)
-            while priority and self.user_tasks and time.time() < deadline:
-                await asyncio.sleep(0.1)
-            if self.user_tasks:
-                qno = _enqueue_pending({
-                    "chat_id": chat_id,
-                    "text": text,
-                    "receive_id": receive_id or chat_id,
-                    "receive_id_type": receive_id_type,
-                    "images": images or None,
-                })
-                msg = f"已收到，当前还有任务在运行；这条已排队 #{qno}，当前任务结束后自动处理。发送 /stop 可停止当前任务。"
-                if priority:
-                    msg = f"已收到你的选择，当前任务收尾后继续处理（排队 #{qno}）。"
-                await self.send_text(chat_id, msg, receive_id=receive_id, receive_id_type=receive_id_type)
-                print(f"[penglai feishu] queued message #{qno} for {chat_id}: {_redact_log_text(text)[:120]}")
-                return
-        state = {"running": True}
-        self.user_tasks[chat_id] = state
+                        images=None, priority=False, user_id=None, chat_type="private", **_):
         rid = receive_id or chat_id
         task_id = f"{chat_id}_{uuid.uuid4().hex}"
-        hook_key = f"fs_{task_id}"
         card = fs._TaskCard(rid, receive_id_type)
-        result = {"raw": None, "sent": False, "ask": None}
-        finish_lock = threading.Lock()
+        card._penglai_task_id = task_id
+        card._penglai_cancel_enabled = True
+        done_evt = threading.Event()
 
         def _finish(raw):
-            with finish_lock:
-                if result["sent"]:
-                    return
-                result["raw"] = raw
-                result["sent"] = True
+            _pop_task(task_id)
             _cancel_ask(chat_id)
             _record_runtime_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
             final_choice = _extract_final_choice_interaction(_final_display_text(raw))
             if final_choice:
                 body_text, event = final_choice
-                _remember_ask(chat_id, event, menu_id=task_id, receive_id=rid, receive_id_type=receive_id_type)
+                _remember_ask(chat_id, event, menu_id=task_id, receive_id=rid,
+                              receive_id_type=receive_id_type, user_id=user_id or receive_id or chat_id,
+                              chat_type=chat_type)
                 _finish_ask_card_text(card, body_text, event, task_id)
             else:
-                _card_done(card, raw)
+                # Use plain send_message for all responses (card layer can be
+                # unreliable with 0.3.0's async dispatch from worker threads).
+                body = _final_display_text(raw)
+                if body:
+                    try:
+                        fs.send_message(rid, body, receive_id_type=receive_id_type)
+                    except Exception:
+                        pass
+                # Still try the card update for continuity, but don't rely on it.
+                try:
+                    _card_done(card, raw)
+                except Exception:
+                    pass
             fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
 
-        def _ask(raw, event):
-            with finish_lock:
-                if result["sent"]:
-                    return
-                result["raw"] = raw
-                result["sent"] = True
-                result["ask"] = event
-            _remember_ask(chat_id, event, menu_id=task_id, receive_id=rid, receive_id_type=receive_id_type)
-            _finish_ask_card(card, raw, event, task_id)
+        def _ask(permission):
+            _pop_task(task_id)
+            event = _permission_to_ask_event(permission)
+            _remember_ask(
+                chat_id,
+                event,
+                menu_id=task_id,
+                receive_id=rid,
+                receive_id_type=receive_id_type,
+                user_id=user_id or receive_id or chat_id,
+                chat_type=chat_type,
+            )
+            _finish_ask_card_text(card, "", event, task_id)
 
         try:
-            await asyncio.to_thread(card.start)
-            if not hasattr(self.agent, "_turn_end_hooks"):
-                self.agent._turn_end_hooks = {}
-            self.agent._turn_end_hooks[hook_key] = _make_penglai_task_hook(card, task_id, _finish, _ask)
-            self.agent._fs_active_task_id = task_id
-            dq = self.agent.put_task(
-                _compose_agent_prompt(fs.FILE_HINT, text),
-                source=self.source,
-                images=images or None,
+            event = InboundEvent(
+                event_id=f"feishu_{task_id}",
+                channel="feishu",
+                user_id=str(user_id or receive_id or chat_id),
+                chat_id=str(chat_id),
+                chat_type=str(chat_type or "private"),
+                text=str(text or ""),
+                images=tuple(images or ()),
+                metadata={
+                    "receive_id": rid,
+                    "receive_id_type": receive_id_type,
+                    "task_id": task_id,
+                },
             )
-            start = time.time()
-            while state["running"] and not result["sent"]:
+            service = _runtime_service(self)
+            session_ref = service.router.route(event)
+            card._penglai_runtime_session_id = session_ref.session_id
+            pre_status = service.status(session_ref.session_id)
+            queue_status = pre_status.get("queue") or {}
+            session_busy = bool(queue_status.get("active"))
+            card_started = False
+            _remember_task(
+                task_id, chat_id, receive_id=rid, receive_id_type=receive_id_type,
+                user_id=user_id or receive_id or chat_id, chat_type=chat_type,
+                session_id=session_ref.session_id, card=card,
+            )
+            if not session_busy:
+                self.agent._fs_active_task_id = task_id
+                await asyncio.to_thread(card.start)
+                card_started = True
+            port = GenericAgentInstancePort(
+                agent=self.agent,
+                prompt_builder=lambda incoming: _compose_agent_prompt(fs.FILE_HINT, incoming.text),
+                source=self.source,
+                timeout=fs.AGENT_TIMEOUT_SEC,
+                turn_hook=_make_penglai_progress_hook(card, task_id),
+            )
+
+            # ── on_result: hub callback, runs on worker thread ──
+            # The hub calls this for EVERY event (first or queued).  Queued
+            # events do not start a card while waiting, but when their own
+            # result arrives they still complete through their own card.
+            def _on_result(run_result):
+                done_evt.set()
+                is_queued = bool((run_result.event.metadata or {}).get("new_turn"))
+                self._penglai_last_runtime_result = run_result
+                print(
+                    "[penglai feishu runtime] "
+                    f"run_id={run_result.task_run.run_id} "
+                    f"session={run_result.session.session_id} "
+                    f"status={run_result.status} "
+                    f"worker={run_result.task_run.worker_id}",
+                    flush=True,
+                )
                 try:
-                    item = await asyncio.to_thread(dq.get, True, 1)
-                except Q.Empty:
-                    item = None
-                if item and "done" in item:
-                    await asyncio.to_thread(_finish, item.get("done", ""))
-                    break
-                if time.time() - start > fs.AGENT_TIMEOUT_SEC:
-                    self.agent.abort()
-                    await asyncio.to_thread(card.fail, "任务超时")
-                    break
-            if not state["running"] and not result["sent"]:
-                self.agent.abort()
-                await asyncio.to_thread(card.fail, "已停止")
+                    if run_result.status == RunStatus.WAITING_PERMISSION and run_result.permission is not None:
+                        _ask(run_result.permission)
+                    elif run_result.status == RunStatus.SUCCEEDED:
+                        raw = run_result.raw_output or run_result.cleaned_output or run_result.task_run.result_text
+                        _record_runtime_shadow(raw, receive_id=rid, receive_id_type=receive_id_type)
+                        body = _final_display_text(raw)
+                        if is_queued:
+                            try:
+                                _card_done(card, raw)
+                            except Exception:
+                                if body:
+                                    fs.send_message(rid, body, receive_id_type=receive_id_type)
+                        else:
+                            try:
+                                _card_done(card, raw)
+                            except Exception:
+                                if body:
+                                    fs.send_message(rid, body, receive_id_type=receive_id_type)
+                        fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
+                    elif run_result.status == RunStatus.CANCELLED:
+                        self.agent.abort()
+                        if not is_queued:
+                            card._penglai_cancel_enabled = False
+                            card.fail("已停止")
+                    elif run_result.status == RunStatus.FAILED:
+                        if not is_queued:
+                            card._penglai_cancel_enabled = False
+                            if "timed out" in (run_result.task_run.error or ""):
+                                self.agent.abort()
+                                card.fail("任务超时")
+                            else:
+                                card.fail(f"错误: {run_result.task_run.error}")
+                        else:
+                            card._penglai_cancel_enabled = False
+                            try:
+                                card.fail(f"错误: {run_result.task_run.error}")
+                            except Exception:
+                                fs.send_message(rid, f"❌ 错误: {run_result.task_run.error}", receive_id_type=receive_id_type)
+                except Exception as exc:
+                    print(f"[penglai feishu] on_result error: {exc}", flush=True)
+                finally:
+                    _pop_task(task_id)
+                    self.user_tasks.pop(chat_id, None)
+                    if getattr(self.agent, "_fs_active_task_id", None) == task_id:
+                        try:
+                            delattr(self.agent, "_fs_active_task_id")
+                        except AttributeError:
+                            pass
+
+            decision = service.submit(
+                event, port=port, on_complete=_on_result,
+                base_dir=getattr(fs, "TEMP_DIR", None),
+                send_body=False, send_notice=False,
+            )
+            if not decision.started_now:
+                done_evt.set()
+                # Queued by the hub.  Clean up the card (a different task owns
+                # the chat right now) and send a queued receipt card.  It is a
+                # queued-state card, not a thinking card, and on_result will
+                # patch the same card when this event is dispatched later.
+                _pop_task(task_id)
+                self.user_tasks.pop(chat_id, None)
+                if getattr(self.agent, "_fs_active_task_id", None) == task_id:
+                    try:
+                        delattr(self.agent, "_fs_active_task_id")
+                    except AttributeError:
+                        pass
+                msg = f"已收到，当前还有任务在运行；这条已排队 #{decision.queue_no}，当前任务结束后自动处理。发送 /stop 可停止当前任务。"
+                queued_card_sent = False
+                try:
+                    queued_card_sent = await asyncio.to_thread(_card_queued, card, decision.queue_no, msg)
+                except Exception as exc:
+                    print(f"[penglai feishu] queued card failed: {exc}", flush=True)
+                if not queued_card_sent:
+                    await self.send_text(chat_id, msg, receive_id=receive_id, receive_id_type=receive_id_type)
+                print(
+                    f"[penglai feishu] queued message #{decision.queue_no} "
+                    f"for chat={_mask_id(chat_id)} chars={len(str(text or ''))}",
+                    flush=True,
+                )
+                return
+            if card_started:
+                _start_waiting_card_heartbeat(
+                    card,
+                    task_id,
+                    lambda: getattr(self.agent, "_fs_active_task_id", None),
+                    done_evt,
+                )
+            # Started now: on_result delivers.  We return immediately — no
+            # blocking wait.  The hub worker thread calls on_result when GA
+            # finishes; the heartbeat only keeps the active card visibly alive.
         except Exception as e:
+            done_evt.set()
             traceback.print_exc()
+            card._penglai_cancel_enabled = False
             await asyncio.to_thread(card.fail, f"错误: {e}")
-        finally:
+            _pop_task(task_id)
+            self.user_tasks.pop(chat_id, None)
             if getattr(self.agent, "_fs_active_task_id", None) == task_id:
                 try:
                     delattr(self.agent, "_fs_active_task_id")
                 except AttributeError:
                     pass
-            if hasattr(self.agent, "_turn_end_hooks"):
-                self.agent._turn_end_hooks.pop(hook_key, None)
-            self.user_tasks.pop(chat_id, None)
-            _start_pending_if_any()
 
     async def handle_command(self, chat_id, cmd, **ctx):
         s = (cmd or "").strip()
+        if s in ("/stop", "/cancel", "/abort"):
+            for state in list(getattr(self, "user_tasks", {}).values()):
+                try:
+                    state["running"] = False
+                except Exception:
+                    pass
+            try:
+                self.agent.abort()
+            except Exception:
+                pass
+            _cancel_ask(chat_id)
+            service = _runtime_service(self)
+            event = InboundEvent(
+                event_id=f"feishu_cancel_{uuid.uuid4().hex}",
+                channel="feishu",
+                user_id=str(ctx.get("user_id") or ctx.get("receive_id") or chat_id),
+                chat_id=str(chat_id),
+                chat_type=str(ctx.get("chat_type") or "private"),
+                text=s,
+                metadata=dict(ctx or {}),
+            )
+            session = service.router.route(event)
+            pre_status = service.status(session.session_id)
+            dropped = pre_status.get("queue", {}).get("pending", 0)
+            data = service.cancel_session(session.session_id, drop_pending=True)
+            self._penglai_last_runtime_cancel = {
+                "session_id": session.session_id,
+                "next_event_id": data.get("next_event_id") or "",
+                "dropped": dropped,
+            }
+            self.user_tasks.pop(chat_id, None)
+            await self.send_text(
+                chat_id,
+                f"⏹️ 已请求停止当前任务（session: {session.session_id}，清理排队 {dropped} 条）",
+                **ctx,
+            )
+            print(
+                "[penglai feishu runtime] cancel "
+                f"session={session.session_id} next={data.get('next_event_id') or '-'} dropped={dropped}",
+                flush=True,
+            )
+            return
         if s == "/review" or s.startswith("/review ") or s.startswith("/review\t"):
             from frontends import review_cmd
 
@@ -942,6 +1441,8 @@ def _patch(fs):
         user_input, image_paths = fs._build_user_message(message)
         receive_id = chat_id or open_id
         receive_id_type = "chat_id" if chat_id else "open_id"
+        raw_chat_type = str(getattr(message, "chat_type", "") or "").lower()
+        runtime_chat_type = "group" if "group" in raw_chat_type else "private"
         chat_key = receive_id
         choice = _pop_choice(chat_key, user_input)
         if choice is not None:
@@ -953,7 +1454,11 @@ def _patch(fs):
             else:
                 fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}")
             return
-        print(f"收到消息 [{open_id}] ({msg_type}, {len(image_paths)} images): {_redact_log_text(user_input)[:200]}")
+        print(
+            f"收到消息 [user={_mask_id(open_id)}] "
+            f"({msg_type}, {len(image_paths)} images, chars={len(str(user_input or ''))})",
+            flush=True,
+        )
         if _secret_blocked(user_input):
             print(
                 "[penglai feishu] secret-bearing message blocked from LLM context: "
@@ -967,15 +1472,24 @@ def _patch(fs):
                 target=fs._run_async,
                 args=(fs.get_app().handle_command(chat_key, user_input,
                                                   receive_id=receive_id,
-                                                  receive_id_type=receive_id_type),),
+                                                  receive_id_type=receive_id_type,
+                                                  user_id=open_id,
+                                                  chat_type=runtime_chat_type),),
                 daemon=True,
             ).start()
             return
         direct_event = _explicit_interaction_event(user_input) if choice is None else None
         if direct_event:
             menu_id = f"direct_{chat_key}_{uuid.uuid4().hex}"
-            _remember_ask(chat_key, direct_event, menu_id=menu_id,
-                          receive_id=receive_id, receive_id_type=receive_id_type)
+            _remember_ask(
+                chat_key,
+                direct_event,
+                menu_id=menu_id,
+                receive_id=receive_id,
+                receive_id_type=receive_id_type,
+                user_id=open_id,
+                chat_type=runtime_chat_type,
+            )
             elements = build_ask_user_elements("", direct_event, menu_id=menu_id, include_buttons=True)
             payload = fs._card_raw(elements)
             ok = fs._send_raw(receive_id, payload, "interactive", receive_id_type)
@@ -997,7 +1511,9 @@ def _patch(fs):
                                          receive_id=receive_id,
                                          receive_id_type=receive_id_type,
                                          images=image_paths,
-                                         priority=choice is not None),),
+                                         priority=choice is not None,
+                                         user_id=open_id,
+                                         chat_type=runtime_chat_type),),
             daemon=True,
         ).start()
 
@@ -1017,6 +1533,12 @@ def _patch(fs):
             if not fs.PUBLIC_ACCESS and open_id not in fs.ALLOWED_USERS:
                 return resp("error", "未授权")
             value = getattr(action, "value", None) or {}
+            cancel_task_id = _parse_runtime_cancel_value(value)
+            if cancel_task_id:
+                cancelled = _cancel_runtime_task(fs.get_app(), cancel_task_id)
+                if not cancelled:
+                    return resp("warning", "这个任务已结束或已失效。")
+                return resp("success", "已请求停止当前任务。")
             parsed = parse_callback_value(value)
             if not parsed:
                 return resp("warning", "未知操作")
@@ -1030,6 +1552,8 @@ def _patch(fs):
                     picked["choice"],
                     receive_id=picked["receive_id"],
                     receive_id_type=picked["receive_id_type"],
+                    user_id=picked.get("user_id"),
+                    chat_type=picked.get("chat_type") or "private",
                     priority=True,
                 ),),
                 daemon=True,
@@ -1039,6 +1563,7 @@ def _patch(fs):
             traceback.print_exc()
             return resp("error", f"处理失败: {e}")
 
+    run_agent._penglai_runtime_hub = True
     fs.FeishuApp.run_agent = run_agent
     fs.FeishuApp.handle_command = handle_command
     fs.handle_message = handle_message
@@ -1048,17 +1573,201 @@ def _patch(fs):
     fs._orig_penglai_feishu_handle_message = orig_handle_message
 
 
+def _runtime_check(fs):
+    data = {
+        "route": "InboundEvent -> RuntimeHubService -> GenericAgentInstancePort -> TaskRun",
+        "wrapper_run_agent_patched": bool(getattr(fs.FeishuApp.run_agent, "_penglai_runtime_hub", False)),
+        "runtime_service_init": False,
+        "owner_scope_count": len(set(getattr(fs, "ALLOWED_USERS", set()) or set())),
+        "card_action_supported": False,
+    }
+    try:
+        RuntimeHubService(
+            owner_user_ids=set(getattr(fs, "ALLOWED_USERS", set()) or set()),
+            context_log_path=default_context_log_path(),
+        )
+        data["runtime_service_init"] = True
+    except Exception as e:
+        data["runtime_service_error"] = str(e)
+    try:
+        builder = fs.lark.EventDispatcherHandler.builder("", "")
+        data["card_action_supported"] = hasattr(builder, "register_p2_card_action_trigger")
+    except Exception as e:
+        data["card_action_error"] = str(e)
+    data["ok"] = bool(data["wrapper_run_agent_patched"] and data["runtime_service_init"])
+    return data
+
+
+def _mask_id(value):
+    text = str(value or "")
+    if not text:
+        return ""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _single_allowed_open_id(fs):
+    allowed = [str(x) for x in (getattr(fs, "ALLOWED_USERS", set()) or set()) if str(x) and str(x) != "*"]
+    return allowed[0] if len(allowed) == 1 else ""
+
+
+def _gray_probe(fs, *, wait_seconds=120, nonce=None, send_prompt=False, target_open_id="", stop_probe=False):
+    """Run a real Feishu WSS gray probe.
+
+    This does not synthesize a platform event.  It observes real Feishu WSS
+    inbound messages and, when requested explicitly, sends one real prompt to
+    the chosen open_id so the owner can reply with the nonce.
+    """
+    fs.APP_ID, fs.APP_SECRET, fs.ALLOWED_USERS, fs.PUBLIC_ACCESS, fs.CONFIG_PATH = fs._feishu_config()
+    nonce = str(nonce or f"penglai030-{uuid.uuid4().hex[:8]}")
+    target_open_id = str(target_open_id or _single_allowed_open_id(fs) or "")
+    state = {
+        "nonce": nonce,
+        "inbound_seen": False,
+        "taskrun_seen": False,
+        "taskrun_status": "",
+        "session_id": "",
+        "run_id": "",
+        "worker_id": "",
+        "start_error": "",
+        "send_prompt": bool(send_prompt),
+        "sent_prompt": False,
+        "target_hash": _mask_id(target_open_id),
+        "stop_probe": bool(stop_probe),
+        "cancel_seen": False,
+        "cancel_session_id": "",
+    }
+    if not fs.APP_ID or not fs.APP_SECRET:
+        state["error"] = "missing Feishu app_id/app_secret"
+        print("FEISHU_GRAY_RESULT=" + json.dumps(state, ensure_ascii=False), flush=True)
+        return 2
+
+    orig_handle_message = fs.handle_message
+
+    def observed_handle_message(data):
+        try:
+            event = getattr(data, "event", None)
+            message = getattr(event, "message", None)
+            text, _images = fs._build_user_message(message)
+            expected = "/stop" if stop_probe else nonce
+            if expected in str(text or ""):
+                state["inbound_seen"] = True
+                print("FEISHU_GRAY_INBOUND_STOP=1" if stop_probe else "FEISHU_GRAY_INBOUND_NONCE=1", flush=True)
+        except Exception as e:
+            print(f"FEISHU_GRAY_OBSERVER_ERROR={type(e).__name__}: {e}", flush=True)
+        return orig_handle_message(data)
+
+    builder = fs.lark.EventDispatcherHandler.builder("", "").register_p2_im_message_receive_v1(observed_handle_message)
+    if hasattr(builder, "register_p2_card_action_trigger"):
+        builder = builder.register_p2_card_action_trigger(fs.handle_card_action)
+        _patch_lark_ws_card_dispatch()
+    handler = builder.build()
+    fs.client = fs.create_client()
+    cli = fs.lark.ws.Client(fs.APP_ID, fs.APP_SECRET, event_handler=handler, log_level=fs.lark.LogLevel.INFO)
+
+    def _start_ws():
+        try:
+            cli.start()
+        except Exception as e:
+            state["start_error"] = f"{type(e).__name__}: {e}"
+            print(f"FEISHU_GRAY_WSS_ERROR={state['start_error']}", flush=True)
+
+    thread = threading.Thread(target=_start_ws, daemon=True, name="feishu-gray-probe-wss")
+    thread.start()
+    print(
+        "FEISHU_GRAY_WAITING="
+        + json.dumps({
+            "nonce": nonce,
+            "wait_seconds": float(wait_seconds),
+            "send_prompt": bool(send_prompt),
+            "target_hash": state["target_hash"],
+            "route": "InboundEvent -> RuntimeHubService -> GenericAgentInstancePort -> TaskRun",
+        }, ensure_ascii=False),
+        flush=True,
+    )
+    time.sleep(2.0)
+    if send_prompt:
+        if not target_open_id:
+            state["error"] = "灰度提示需要 --gray-target-open-id，或 mykey.py 中只有一个 fs_allowed_users 条目"
+        else:
+            if stop_probe:
+                prompt = (
+                    "PenglaiAgent 0.3.0 飞书停止命令灰度验证："
+                    "请直接回复 /stop，用于确认真实 WSS 入站会取消同一个 Runtime Hub session。"
+                )
+            else:
+                prompt = (
+                    "PenglaiAgent 0.3.0 飞书灰度验证：请直接回复下面这段验证码，"
+                    "用于确认真实 WSS 入站会进入 Runtime Hub。\n"
+                    f"{nonce}"
+                )
+            try:
+                msg_id = fs.send_message(target_open_id, prompt, "text", False, "open_id")
+                state["sent_prompt"] = bool(msg_id)
+                print("FEISHU_GRAY_PROMPT_SENT=" + ("1" if msg_id else "0"), flush=True)
+            except Exception as e:
+                state["error"] = f"发送灰度提示失败：{type(e).__name__}: {e}"
+                print(f"FEISHU_GRAY_PROMPT_ERROR={state['error']}", flush=True)
+
+    deadline = time.time() + max(1.0, float(wait_seconds))
+    while time.time() < deadline:
+        app = getattr(fs, "app", None)
+        cancel = getattr(app, "_penglai_last_runtime_cancel", None) if app is not None else None
+        if stop_probe and cancel is not None:
+            state["cancel_seen"] = True
+            state["cancel_session_id"] = cancel.get("session_id") or ""
+            break
+        result = getattr(app, "_penglai_last_runtime_result", None) if app is not None else None
+        if not stop_probe and result is not None and nonce in str(getattr(result.event, "text", "") or ""):
+            state["taskrun_seen"] = True
+            state["taskrun_status"] = result.status
+            state["session_id"] = result.session.session_id
+            state["run_id"] = result.task_run.run_id
+            state["worker_id"] = result.task_run.worker_id
+            break
+        if state.get("start_error"):
+            break
+        time.sleep(0.5)
+
+    state["ok"] = bool(state["inbound_seen"] and (state["cancel_seen"] if stop_probe else state["taskrun_seen"]))
+    if not state["ok"] and not state.get("error"):
+        if not state["inbound_seen"]:
+            state["error"] = "超时前没有收到匹配的真实飞书入站消息"
+        elif stop_probe and not state["cancel_seen"]:
+            state["error"] = "已收到停止命令，但超时前未观察到 Runtime Hub cancel"
+        elif not state["taskrun_seen"]:
+            state["error"] = "已收到验证码，但超时前未观察到匹配的 Runtime Hub TaskRun"
+    print("FEISHU_GRAY_RESULT=" + json.dumps(state, ensure_ascii=False, sort_keys=True), flush=True)
+    return 0 if state["ok"] else 3
+
+
 def main():
     import frontends.fsapp as fs
 
     _patch(fs)
-    parser = argparse.ArgumentParser(description="Penglai Feishu frontend")
+    parser = argparse.ArgumentParser(description="蓬莱飞书渠道入口")
     parser.add_argument("--check", action="store_true", help="只检查飞书配置，不启动长连接")
     parser.add_argument("--check-agent", action="store_true", help="检查配置并初始化 Agent/LLM")
+    parser.add_argument("--gray-probe", action="store_true", help="真实飞书 WSS 灰度探针：等待 nonce 入站并观察 Runtime Hub TaskRun")
+    parser.add_argument("--gray-wait", type=float, default=120, help="灰度探针等待秒数")
+    parser.add_argument("--gray-nonce", default="", help="灰度探针验证码；默认自动生成")
+    parser.add_argument("--gray-send-prompt", action="store_true", help="向目标 open_id 发送一条真实 Feishu 提示消息")
+    parser.add_argument("--gray-target-open-id", default="", help="灰度提示目标 open_id；不填时使用唯一 fs_allowed_users 条目")
+    parser.add_argument("--gray-stop-probe", action="store_true", help="真实飞书 WSS 停止命令探针：等待 /stop 入站并观察 Runtime Hub cancel")
     args = parser.parse_args()
     if args.check or args.check_agent:
-        print(json.dumps(fs.check_config(init_agent=args.check_agent), ensure_ascii=False, indent=2), flush=True)
+        data = fs.check_config(init_agent=args.check_agent)
+        data["runtime_hub"] = _runtime_check(fs)
+        print(json.dumps(data, ensure_ascii=False, indent=2), flush=True)
         return None
+    if args.gray_probe:
+        return _gray_probe(
+            fs,
+            wait_seconds=args.gray_wait,
+            nonce=args.gray_nonce,
+            send_prompt=args.gray_send_prompt,
+            target_open_id=args.gray_target_open_id,
+            stop_probe=args.gray_stop_probe,
+        )
     fs.APP_ID, fs.APP_SECRET, fs.ALLOWED_USERS, fs.PUBLIC_ACCESS, fs.CONFIG_PATH = fs._feishu_config()
     if not fs.APP_ID or not fs.APP_SECRET:
         print(f"错误: 请在 mykey 配置中填写 fs_app_id 和 fs_app_secret\n配置文件: {fs.CONFIG_PATH}", flush=True)
@@ -1075,11 +1784,17 @@ def main():
     while True:
         try:
             fs.client = fs.create_client()
+            lark_log_level = getattr(
+                fs.lark.LogLevel,
+                "WARNING",
+                getattr(fs.lark.LogLevel, "ERROR", fs.lark.LogLevel.INFO),
+            )
             cli = fs.lark.ws.Client(fs.APP_ID, fs.APP_SECRET, event_handler=handler,
-                                    log_level=fs.lark.LogLevel.INFO)
-            print("=" * 50 + "\n飞书 Agent 已启动（长连接模式）\n"
+                                    log_level=lark_log_level)
+            print("=" * 50 + "\n飞书入口已启动（长连接模式）\n"
                   + f"版本: {compact_version_line()}\n"
                   + f"App ID: {fs.APP_ID}\n配置: {fs.CONFIG_PATH}\n等待消息...\n"
+                  + "中枢链路: InboundEvent -> RuntimeHubService -> GenericAgentInstancePort -> TaskRun\n"
                   + "=" * 50, flush=True)
             cli.start()
             retry_delay = 5
@@ -1094,4 +1809,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main() or 0)

@@ -3,8 +3,10 @@
 直跑：python tests/test_im_voice.py    或    pytest tests/test_im_voice.py
 """
 import asyncio
+import builtins
 import os
 import sys
+import tempfile
 import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,8 +76,34 @@ def test_qq_attachment_voice_fallback():
     assert qq.get("c") == "[语音] 周末一起爬山", qq
 
 
+def test_wechat_no_token_exits_before_frontend_import():
+    old_home = os.environ.get("HOME")
+    old_argv = list(sys.argv)
+    orig_import = builtins.__import__
+    td = tempfile.mkdtemp()
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "frontends.wechatapp":
+            raise AssertionError("wechat frontend should not import before token check")
+        return orig_import(name, *args, **kwargs)
+
+    try:
+        os.environ["HOME"] = td
+        sys.argv = ["penglai_im_launch.py", "wechat"]
+        builtins.__import__ = guarded_import
+        assert L.launch_wechat() == 1
+    finally:
+        builtins.__import__ = orig_import
+        sys.argv = old_argv
+        if old_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = old_home
+
+
 if __name__ == "__main__":
     test_dingtalk_audio_recognition()
     test_wecom_voice_content()
     test_qq_attachment_voice_fallback()
+    test_wechat_no_token_exits_before_frontend_import()
     print("✅ test_im_voice: 钉钉/企微/QQ 语音 patch 全部通过")

@@ -17,6 +17,7 @@ import time
 
 from agent_loop import StepOutcome
 from ga import GenericAgentHandler
+from penglai_runtime.capabilities import _normal_vendor
 
 _STATE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                       "temp", "critic_state.json")
@@ -45,19 +46,45 @@ _OVERCONFIDENT = re.compile(
 # 声称"做了/验证了"却像是未经执行的措辞（弱信号，配合上面用）
 _CLAIM_DONE = re.compile(r"(已经?|成功)(验证|确认|测试|跑通|完成)|verified|confirmed|tested", re.I)
 
-def _mykey(name):
+def _mykeys():
     # 热重读：复用内核 llmcore.reload_mykeys()(带 mtime 短路 + 覆盖 mykey.py/json/remote_url)，
     # 让 penglai enable critic 写入的 critic_model 在长驻 fsapp 进程里【免重启】即时生效。
     # 失败兜底退回裸 import(不比原状差)。
     try:
         import llmcore
-        return (llmcore.reload_mykeys()[0] or {}).get(name)
+        return llmcore.reload_mykeys()[0] or {}
     except Exception:
         try:
             import mykey
-            return getattr(mykey, name, None)
+            return {k: v for k, v in vars(mykey).items() if not k.startswith("_")}
         except Exception:
-            return None
+            return {}
+
+
+def _mykey(name):
+    return _mykeys().get(name)
+
+
+def _select_main_oai_config(keys):
+    candidates = []
+    for key, cfg in sorted((keys or {}).items()):
+        if key.startswith("_") or not isinstance(cfg, dict):
+            continue
+        if not all(cfg.get(name) for name in ("apibase", "apikey", "model")):
+            continue
+        lower = str(key).lower()
+        if lower.startswith("critic") or "critic" in lower:
+            continue
+        if key == "native_oai_config":
+            score = 100
+        elif lower.endswith("_native_oai_config"):
+            score = 90
+        elif lower.endswith("oai_config") or "oai_config" in lower:
+            score = 80
+        else:
+            score = 10
+        candidates.append((score, str(key), cfg))
+    return max(candidates) if candidates else (0, "", {})
 
 def tripwire(text):
     """本地免费绊线。返回命中的风险信号列表（空=未命中）。"""
@@ -69,8 +96,20 @@ def tripwire(text):
 
 def cross_vendor_review(history_text):
     """跨厂商复核（默认关闭）。配了 mykey.critic_model(异厂商)才触发。失败静默。"""
-    cfg = _mykey("critic_model")
-    if not isinstance(cfg, dict) or not cfg.get("apikey"):
+    keys = _mykeys()
+    cfg = keys.get("critic_model")
+    if not isinstance(cfg, dict) or not all(cfg.get(name) for name in ("apibase", "apikey", "model")):
+        _save_state(last_review_skipped="critic_not_configured")
+        return None
+    _score, main_key, main_cfg = _select_main_oai_config(keys)
+    main_vendor = _normal_vendor((main_cfg or {}).get("name") or main_key or (main_cfg or {}).get("model"))
+    critic_vendor = _normal_vendor(cfg.get("name") or cfg.get("model"))
+    if not (main_vendor and critic_vendor and main_vendor != critic_vendor):
+        _save_state(
+            last_review_skipped="same_vendor_or_missing_main",
+            main_vendor=main_vendor,
+            critic_vendor=critic_vendor,
+        )
         return None
     try:
         import requests
@@ -83,8 +122,23 @@ def cross_vendor_review(history_text):
                                 "max_tokens": 200, "temperature": 0},
                           headers={"Authorization": f"Bearer {cfg['apikey']}"}, timeout=20)
         txt = r.json()["choices"][0]["message"]["content"].strip()
-        return None if (not txt or "无明显风险" in txt) else txt
-    except Exception:
+        result = "empty" if not txt else ("clean" if "无明显风险" in txt else "risk")
+        _save_state(
+            last_review_ts=time.time(),
+            last_review_result=result,
+            last_review_model=cfg.get("model", ""),
+            main_vendor=main_vendor,
+            critic_vendor=critic_vendor,
+        )
+        return None if result in {"empty", "clean"} else txt
+    except Exception as exc:
+        _save_state(
+            last_review_ts=time.time(),
+            last_review_result="error",
+            last_review_error=str(exc)[:160],
+            main_vendor=main_vendor,
+            critic_vendor=critic_vendor,
+        )
         return None  # 复核失败绝不阻断主流程
 
 _orig = GenericAgentHandler.do_start_long_term_update

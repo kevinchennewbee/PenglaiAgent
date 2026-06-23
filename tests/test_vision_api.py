@@ -55,7 +55,60 @@ def test_repaired_chat_completions_url_respects_versioned_base():
             pass
 
 
+def test_select_oai_config_accepts_provider_prefixed_native_config():
+    import penglai_abilities as pa
+
+    configs = {
+        "mixin_config": {"llm_nos": [1]},
+        "critic_model": {"apibase": True, "apikey": True, "model": True, "name": "Other"},
+        "minimax_native_oai_config": {
+            "apibase": True,
+            "apikey": True,
+            "model": True,
+            "name": "minimax-m3",
+        },
+    }
+
+    assert pa._select_oai_config_key(configs) == "minimax_native_oai_config"
+
+    configs["native_oai_config"] = {
+        "apibase": True,
+        "apikey": True,
+        "model": True,
+        "name": "DeepSeek",
+    }
+    assert pa._select_oai_config_key(configs) == "native_oai_config"
+
+
+def test_repair_vision_api_strips_thinking_blocks():
+    import penglai_abilities as pa
+    fd, path = tempfile.mkstemp(suffix=".py")
+    os.close(fd)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(
+                "import base64, requests\n"
+                "def parse(resp):\n"
+                "    return resp.json()['choices'][0]['message']['content']\n"
+            )
+        assert pa._repair_vision_api(path) == "repaired"
+        mod = SourceFileLoader("vision_api_cleaned_test", path).load_module()
+
+        class Resp:
+            def json(self):
+                return {"choices": [{"message": {"content": "<think>hidden</think>红色"}}]}
+
+        assert mod.parse(Resp()) == "红色"
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 if __name__ == "__main__":
     test_repair_existing_generated_vision_api()
     test_repaired_chat_completions_url_respects_versioned_base()
+    test_select_oai_config_accepts_provider_prefixed_native_config()
+    test_repair_vision_api_strips_thinking_blocks()
     print("PASS test_vision_api")

@@ -15,8 +15,8 @@
    from vision_api import ask_vision
    print(ask_vision("从 [Image: source: ...] 取到的那个绝对路径", "用户关于这张图想知道的（或'详细描述这张图'）", backend="openai"))
    ```
-   `backend="openai"` = 用蓬莱已配好的主力模型（`native_oai_config`）看图。
-2. 若 `memory/vision_api.py` 不存在：蓬莱向导 / `penglai doctor` 正常会自动构建好（配到主力模型）；没有就按 `vision_sop.md` 的"初次构建"从 `vision_api.template.py` 拷一份，`OPENAI_CONFIG_KEY` 填 `native_oai_config`、`DEFAULT_BACKEND` 填 `openai`。
+   `backend="openai"` = 用蓬莱已配好的主力 OAI 兼容模型（`native_oai_config` 或 `*_native_oai_config`）看图。
+2. 若 `memory/vision_api.py` 不存在：蓬莱向导 / `penglai doctor` 正常会自动构建好（配到主力模型）；没有就按 `vision_sop.md` 的"初次构建"从 `vision_api.template.py` 拷一份，`OPENAI_CONFIG_KEY` 填当前可用的主力 OAI 配置名、`DEFAULT_BACKEND` 填 `openai`。
 3. 只 `file_read` 图片**只能拿到 EXIF / 字节，看不到内容**——别用它代替看图；OCR 只适合“截图里有什么文字”这类纯文字问题，不能代替视觉描述。
 
 ## 失败兜底（诚实，不编造）

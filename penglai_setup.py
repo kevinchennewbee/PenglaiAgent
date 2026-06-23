@@ -196,17 +196,18 @@ def step_env():
                       "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
                 sys.exit(1)
         idx = "https://pypi.tuna.tsinghua.edu.cn/simple"
+        core_deps = ["requests", "beautifulsoup4", "bottle", "aiohttp", "lark-oapi", "qrcode", "pillow", "pyyaml"]
         try:
             if uv:
                 subprocess.run([uv, "venv", ".venv"], cwd=ROOT, check=True, env={**os.environ, "UV_DEFAULT_INDEX": idx})
-                subprocess.run([uv, "pip", "install", "--python", py, "-q", "-e", ".", "lark-oapi", "qrcode", "pyyaml"], cwd=ROOT, check=True,
+                subprocess.run([uv, "pip", "install", "--python", py, "-q", "-e", ".", *core_deps], cwd=ROOT, check=True,
                                env={**os.environ, "UV_DEFAULT_INDEX": idx})
             else:
                 subprocess.run([sys.executable, "-m", "venv", ".venv"], cwd=ROOT, check=True)
-                subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "-e", ".", "lark-oapi", "qrcode", "pyyaml"], cwd=ROOT, check=True)
+                subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "-e", ".", *core_deps], cwd=ROOT, check=True)
             print(f"{OK} " + T("依赖安装完成"))
         except subprocess.CalledProcessError:
-            print(f"{BAD} " + T("依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml"))
+            print(f"{BAD} " + T("依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml"))
             sys.exit(1)
     else:
         print(f"{OK} " + T("虚拟环境已存在"))
@@ -565,7 +566,7 @@ def _voice_install():
     else:
         print(f"  {OK} " + T("ffmpeg 就绪"))
     # 3) SenseVoice 模型（int8 推理件约 230MB；hf 镜像单文件直下，gh-proxy tar 兜底）
-    if os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
+    if all(os.path.isfile(os.path.join(MODEL_DIR, name)) for name in _MODEL_FILES):
         print(f"  {OK} " + T("模型已存在，跳过下载"))
     else:
         print("  " + T("下载 SenseVoice 模型（约 230MB，国内自动走镜像）..."))
@@ -605,7 +606,7 @@ def _voice_install():
                     except OSError: pass
                 try: os.remove(os.path.join(MODEL_DIR, "model.onnx"))   # fp32 不用，省 895MB
                 except OSError: pass
-        if not os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
+        if not all(os.path.isfile(os.path.join(MODEL_DIR, name)) for name in _MODEL_FILES):
             ok = False
     # 4) 诚实结论
     if ok:
@@ -886,14 +887,14 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
         if not os.path.exists(env_sh):
             open(env_sh, "w").write(f'export PATH="{ROOT}/.venv/bin:$PATH"\n')
         work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
-        units = {"penglai-scheduler": f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py"}
+        units = {"penglai-scheduler": f"{py} {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py"}
         if with_feishu:
-            units["penglai-feishu"] = f"python {ROOT}/penglai_feishu_app.py"
+            units["penglai-feishu"] = f"{py} {ROOT}/penglai_feishu_app.py"
         if with_companion:
-            units["penglai-companion"] = f"python {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"
+            units["penglai-companion"] = f"{py} {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"
         if with_wechat:
             # 走包装器：记录主人 uid（主动陪伴微信投递需要），行为与直跑 wechatapp 一致
-            units["penglai-wechat"] = f"python {ROOT}/penglai_im_launch.py wechat"
+            units["penglai-wechat"] = f"{py} {ROOT}/penglai_im_launch.py wechat"
         t0 = int(time.time())
         try:
             for name, cmd in units.items():
@@ -901,7 +902,7 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
                 extra = "RestartPreventExitStatus=1 2\n" if name == "penglai-wechat" else ""
                 # 启动前核验安全插件已挂载（F-011 fail-closed）；失败则 systemd 不拉起本服务
                 guard = (f"ExecStartPre=/bin/bash -lc 'source {env_sh} && "
-                         f"python {ROOT}/penglai _guardcheck'\n")
+                         f"{py} {ROOT}/penglai _guardcheck'\n")
                 unit = (f"[Unit]\nDescription=Penglai {name}\nAfter=network-online.target\n\n[Service]\nType=simple\n"
                         f"User={os.environ.get('USER', 'root')}\nWorkingDirectory={ROOT}\nEnvironment=HOME={os.path.expanduser('~')}\n"
                         f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}ExecStart=/bin/bash -lc 'source {env_sh} && exec {cmd}'\n"

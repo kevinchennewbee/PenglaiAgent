@@ -17,6 +17,9 @@ def _root():
 
 
 def default_context_log_path():
+    override = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+    if override:
+        return os.path.realpath(os.path.expanduser(override))
     return os.path.join(_root(), "temp", "penglai_context_events.jsonl")
 
 

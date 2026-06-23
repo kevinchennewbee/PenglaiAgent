@@ -19,5 +19,5 @@ result = ask_vision(image, prompt="描述图片内容", timeout=60, max_pixels=1
 ## 如果没有 `vision_api.py`，初次构建vision能力
 
 1. 复制 `memory/vision_api.template.py` → `memory/vision_api.py`
-2. 只改头部"用户配置区"：去 `mykey.py` 里扫描变量名（⚠️ 只看名字，禁止输出 apikey 值），尝试找能用配置名填入 `CLAUDE_CONFIG_KEY` / `OPENAI_CONFIG_KEY`，`DEFAULT_BACKEND` 选后端，并测试
+2. 只改头部"用户配置区"：去 `mykey.py` 里扫描变量名（⚠️ 只看名字，禁止输出 apikey 值），优先使用 `native_oai_config`，否则使用 `*_native_oai_config` 这类主力 OAI 兼容配置填入 `OPENAI_CONFIG_KEY`，`DEFAULT_BACKEND` 选 `openai`，并测试
 3. 保底：没有可用 config 时去 `https://modelscope.cn/my/myaccesstoken` 申请 token 填入 `MODELSCOPE_API_KEY`

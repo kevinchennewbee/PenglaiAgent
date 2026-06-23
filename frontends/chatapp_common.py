@@ -344,6 +344,12 @@ class AgentChatMixin:
         return await self.send_text(chat_id, HELP_TEXT, **ctx)
 
     async def run_agent(self, chat_id, text, **ctx):
+        # DEPRECATED (0.3.0): This raw put_task path bypasses the Penglai
+        # runtime hub.  Channels should install a runtime adapter via
+        # penglai_runtime.channel_runtime.install_channel_runtime_adapter,
+        # which routes through RuntimeHubService.submit (unified queue +
+        # personality continuity / task isolation).  Retained only for
+        # frontends that have not yet been migrated.
         state = {"running": True}
         self.user_tasks[chat_id] = state
         try:
@@ -373,7 +379,18 @@ class AgentChatMixin:
 
 
 from agentmain import GeneraticAgent as _GA
-from continue_cmd import handle_frontend_command as _handle_continue_frontend, install as _install_continue, reset_conversation as _reset_conversation
+try:
+    from .continue_cmd import handle_frontend_command as _handle_continue_frontend, install as _install_continue, reset_conversation as _reset_conversation
+except ImportError:  # Legacy frontends import chatapp_common as a top-level module.
+    from continue_cmd import handle_frontend_command as _handle_continue_frontend, install as _install_continue, reset_conversation as _reset_conversation
 _install_continue(_GA)
-from btw_cmd import handle_frontend_command as _handle_btw_frontend, install as _install_btw; _install_btw(_GA)
-from review_cmd import install as _install_review; _install_review(_GA)
+try:
+    from .btw_cmd import handle_frontend_command as _handle_btw_frontend, install as _install_btw
+except ImportError:  # Legacy frontends import chatapp_common as a top-level module.
+    from btw_cmd import handle_frontend_command as _handle_btw_frontend, install as _install_btw
+_install_btw(_GA)
+try:
+    from .review_cmd import install as _install_review
+except ImportError:  # Legacy frontends import chatapp_common as a top-level module.
+    from review_cmd import install as _install_review
+_install_review(_GA)

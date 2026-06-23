@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>GenericAgent — Setup</title>
+<title>蓬莱 - 配置</title>
 <style>
 :root{--bg:#fff;--text:#0a0a0a;--muted:#6b6b6b;--border:#e8e8e8;--accent:#0a0a0a;--accent-text:#fff;--radius:10px;--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--text:#ededed;--muted:#a0a0a0;--border:#2a2a2a;--accent:#ededed;--accent-text:#0a0a0a}}
@@ -24,27 +24,26 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div class="card">
-  <h1>⚙️ Setup Required</h1>
-  <p>The backend could not start. Please configure the paths below.</p>
+  <h1>需要配置</h1>
   <p>后端启动失败，请配置以下路径。</p>
 
-  <label class="field-label">Python interpreter 解释器路径</label>
+  <label class="field-label">Python 解释器路径</label>
   <div class="input-row">
-    <input id="pypath" type="text" placeholder="python / path to interpreter" spellcheck="false">
+    <input id="pypath" type="text" placeholder="python 或解释器完整路径" spellcheck="false">
   </div>
   <p style="color:var(--muted);font-size:.75rem;margin-top:.3rem">
-    e.g. <code>C:/Python312/python.exe</code> / <code>~/miniconda3/envs/myenv/bin/python</code>
+    例如：<code>C:/Python312/python.exe</code> / <code>~/miniconda3/envs/myenv/bin/python</code>
   </p>
 
-  <label class="field-label">Project directory 项目目录</label>
+  <label class="field-label">项目目录</label>
   <div class="input-row">
-    <input id="projdir" type="text" placeholder="path to GenericAgent folder" spellcheck="false">
+    <input id="projdir" type="text" placeholder="蓬莱项目目录路径" spellcheck="false">
   </div>
   <p style="color:var(--muted);font-size:.75rem;margin-top:.3rem">
-    The folder containing <code>frontends/desktop_bridge.py</code>
+    请选择包含 <code>frontends/desktop_bridge.py</code> 的目录。
   </p>
 
-  <button id="start-btn" onclick="doStart()" style="margin-top:1.2rem;width:100%">Start 启动</button>
+  <button id="start-btn" onclick="doStart()" style="margin-top:1.2rem;width:100%">启动</button>
   <div id="status"></div>
 </div>
 <script>
@@ -64,13 +63,13 @@ invoke('get_config').then(([py, dir]) => {
 async function doStart() {
   const pythonPath = pyInput.value.trim();
   const projectDir = dirInput.value.trim();
-  if (!pythonPath) { statusEl.className='err'; statusEl.textContent='Please enter Python path / 请输入 Python 路径'; return; }
-  if (!projectDir) { statusEl.className='err'; statusEl.textContent='Please enter project directory / 请输入项目目录'; return; }
+  if (!pythonPath) { statusEl.className='err'; statusEl.textContent='请输入 Python 路径'; return; }
+  if (!projectDir) { statusEl.className='err'; statusEl.textContent='请输入项目目录'; return; }
   btn.disabled = true;
-  statusEl.className=''; statusEl.textContent='Starting bridge… 正在启动…';
+  statusEl.className=''; statusEl.textContent='正在启动中枢桥接…';
   try {
     await invoke('start_bridge_with_config', {pythonPath, projectDir});
-    statusEl.className='ok'; statusEl.textContent='Connected! 已连接，正在打开主窗口…';
+    statusEl.className='ok'; statusEl.textContent='已连接，正在打开主窗口…';
     // Show main window and hide setup
     const mainWin = await Window.getByLabel('main');
     if (mainWin) {
@@ -80,7 +79,7 @@ async function doStart() {
     const setupWin = getCurrentWindow();
     await setupWin.hide();
   } catch(e) {
-    statusEl.className='err'; statusEl.textContent='Failed: '+e;
+    statusEl.className='err'; statusEl.textContent='启动失败：'+e;
     btn.disabled = false;
   }
 }

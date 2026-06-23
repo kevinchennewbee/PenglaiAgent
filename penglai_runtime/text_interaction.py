@@ -26,5 +26,5 @@ def install_text_interaction_adapter(app, *, file_hint=None, include_click_hint=
     )
     if ok:
         app._penglai_text_interaction_patched = True
-        app._penglai_text_interaction_pending = app._penglai_runtime_bridge.pending_interactions
+        app._penglai_text_interaction_pending = app._penglai_runtime_bridge.pending_permissions
     return ok

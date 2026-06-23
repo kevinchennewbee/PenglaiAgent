@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-GenericAgent Web2 Bridge.
+Penglai desktop bridge.
 
 Clear split:
-1) AgentManager: owns GenericAgent instances, sessions and histories.
+1) AgentManager: owns desktop sessions and routes prompts through Runtime Hub.
 2) Transport: HTTP is the command/data channel; WebSocket only pushes small
    session-state notifications.
 
 HTTP API:
   GET    /status
+  GET    /runtime/status?session_id=owner:default
+  GET    /runtime/runs?session_id=owner:default&limit=20
   GET    /config
   POST   /config
   GET    /model-profiles
@@ -56,8 +58,30 @@ if str(DEFAULT_GA_ROOT) not in sys.path:
 
 try:
     from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+    from penglai_runtime.context_events import default_context_log_path
+    from penglai_runtime.control_api import (
+        command_catalog,
+        ops_checks,
+        read_ops_logs,
+        run_ops_command,
+        _is_loopback_host,
+    )
+    from penglai_runtime.permissions import permission_payload, render_permission_text, resolve_permission_choice
+    from penglai_runtime.port import GenericAgentInstancePort
+    from penglai_runtime.service import RuntimeHubService
 except Exception:
     ChannelRuntimeBridge = None
+    default_context_log_path = None
+    command_catalog = None
+    ops_checks = None
+    read_ops_logs = None
+    run_ops_command = None
+    _is_loopback_host = None
+    permission_payload = None
+    render_permission_text = None
+    resolve_permission_choice = None
+    GenericAgentInstancePort = None
+    RuntimeHubService = None
 
 for _s in (sys.stdout, sys.stderr):
     with contextlib.suppress(Exception):
@@ -71,7 +95,7 @@ for _s in (sys.stdout, sys.stderr):
 @dataclass
 class Session:
     id: str
-    title: str = "New chat"
+    title: str = "新对话"
     cwd: str = ""
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -83,6 +107,8 @@ class Session:
     thread: Optional[threading.Thread] = None
     cancel_requested: bool = False
     last_error: str = ""
+    runtime_session_id: str = ""
+    pending_permission: Any = None
 
 
 class AgentManager:
@@ -92,7 +118,8 @@ class AgentManager:
         self.config: Dict[str, Any] = {}
         self.sessions: Dict[str, Session] = {}
         self.active_session_id: Optional[str] = None
-        self.runtime_bridge = ChannelRuntimeBridge(channel="desktop") if ChannelRuntimeBridge else None
+        self.runtime_bridge = ChannelRuntimeBridge(channel="desktop", owner_user_ids={"owner"}) if ChannelRuntimeBridge else None
+        self._runtime_service = None
 
     @property
     def mykey_path(self) -> str:
@@ -142,6 +169,8 @@ class AgentManager:
             "updatedAt": sess.updated_at,
             "lastError": sess.last_error,
             "msgSeq": sess.msg_seq,
+            "runtimeSessionId": sess.runtime_session_id,
+            "waitingPermission": bool(sess.pending_permission),
         }
         if include_messages:
             out["messages"] = list(sess.messages)
@@ -154,7 +183,7 @@ class AgentManager:
         msg.update(extra)
         sess.messages.append(msg)
         sess.updated_at = time.time()
-        if role == "user" and content.strip() and sess.title == "New chat":
+        if role == "user" and content.strip() and sess.title in {"New chat", "新对话"}:
             sess.title = content.strip().replace("\n", " ")[:40]
         return msg
 
@@ -167,10 +196,30 @@ class AgentManager:
         emit_session_state(sess, "created")
         return sess
 
-    def runtime_user_id(self) -> str:
-        if self.runtime_bridge is not None:
-            return self.runtime_bridge.default_user_id()
-        return "desktop"
+    def runtime_service(self):
+        if self.runtime_bridge is None or RuntimeHubService is None or GenericAgentInstancePort is None:
+            raise RuntimeError("蓬莱中枢桥接不可用")
+        if self._runtime_service is not None:
+            return self._runtime_service
+
+        def port_factory(_session_ref, incoming):
+            desktop_sid = str((incoming.metadata or {}).get("desktop_session_id") or incoming.chat_id or "")
+            sess = self.get_session(desktop_sid)
+            if sess.agent is None:
+                sess.agent = self.make_agent(sess)
+            return GenericAgentInstancePort(
+                agent=sess.agent,
+                prompt_builder=lambda evt: self.runtime_bridge.prompt(evt.text),
+                source="desktop",
+                timeout=float(self.config.get("runtimeTimeout") or 1200),
+            )
+
+        self._runtime_service = RuntimeHubService(
+            owner_user_ids={"owner"},
+            port_factory=port_factory,
+            context_log_path=default_context_log_path() if default_context_log_path else None,
+        )
+        return self._runtime_service
 
     def get_session(self, sid: str) -> Session:
         with self.lock:
@@ -198,74 +247,103 @@ class AgentManager:
             sess = self.sessions.get(sid)
             if not sess:
                 raise web.HTTPNotFound(text=json.dumps({"error": f"session not found: {sid}"}, ensure_ascii=False), content_type="application/json")
-            if sess.status == "running":
-                raise web.HTTPConflict(text=json.dumps({"error": "session is already running"}, ensure_ascii=False), content_type="application/json")
             extra = {}
             if image_ids:
                 extra["image_ids"] = image_ids
-            runtime_prompt = prompt
-            if self.runtime_bridge is not None:
-                event, session_ref = self.runtime_bridge.event(
-                    event_id=f"desktop_{sid}_{uuid.uuid4().hex}",
-                    user_id=self.runtime_user_id(),
-                    chat_id=sid,
-                    chat_type="private",
-                    text=prompt,
-                    metadata={"cwd": sess.cwd, "image_ids": image_ids},
-                )
-                runtime_prompt = self.runtime_bridge.prompt(event.text)
-                extra["runtime_session_id"] = session_ref.session_id
+            if sess.pending_permission is not None:
+                if resolve_permission_choice is None:
+                    raise web.HTTPInternalServerError(text=json.dumps({"error": "权限解析器不可用"}, ensure_ascii=False), content_type="application/json")
+                chosen = resolve_permission_choice(prompt, sess.pending_permission)
+                if chosen is None:
+                    user_msg = self.add_message(sess, "user", prompt, **extra)
+                    perm_extra = {}
+                    if permission_payload is not None:
+                        perm_extra["permission"] = permission_payload(sess.pending_permission)
+                    self.add_message(sess, "assistant", render_permission_text(sess.pending_permission), **perm_extra)
+                    emit_session_state(sess, "idle")
+                    return {"ok": True, "sessionId": sid, "accepted": True, "userMessageId": user_msg["id"], "seq": sess.msg_seq, "waitingPermission": True}
+                sess.pending_permission = None
+                prompt = chosen
+            if self.runtime_bridge is None:
+                raise web.HTTPInternalServerError(text=json.dumps({"error": "蓬莱中枢不可用"}, ensure_ascii=False), content_type="application/json")
+            event, session_ref = self.runtime_bridge.event(
+                event_id=f"desktop_{sid}_{uuid.uuid4().hex}",
+                user_id=sid,
+                chat_id=sid,
+                chat_type="private",
+                text=prompt,
+                images=image_ids,
+                metadata={"cwd": sess.cwd, "image_ids": image_ids, "desktop_session_id": sid},
+            )
+            extra["runtime_session_id"] = session_ref.session_id
+            sess.runtime_session_id = session_ref.session_id
             user_msg = self.add_message(sess, "user", prompt, **extra)
-            sess.status = "running"
-            sess.cancel_requested = False
-            sess.last_error = ""
-            sess.partial = {"id": sess.msg_seq + 1, "role": "assistant", "content": "", "ts": time.time(), "partial": True}
-            t = threading.Thread(target=self.run_agent_turn, args=(sess, runtime_prompt, None), daemon=True, name=f"Turn-{sid}")
-            sess.thread = t
-            t.start()
-            seq = sess.msg_seq
-        emit_session_state(sess, "running")
+            # Unified中枢 submit: if the session is busy, queue instead of 409.
+            svc = self.runtime_service()
+            done_evt = threading.Event()
+            holder = {}
+
+            def _on_complete(result):
+                holder["result"] = result
+                done_evt.set()
+
+            decision = svc.submit(
+                event,
+                on_complete=_on_complete,
+                base_dir=sess.cwd,
+                send_body=False,
+                send_notice=False,
+            )
+            if not decision.started_now:
+                # Queued by the中枢.  Keep a waiter thread alive so the queued
+                # result is written back into this desktop session when the hub
+                # dispatches it later.
+                sess.status = "queued"
+                sess.cancel_requested = False
+                sess.last_error = ""
+                sess.partial = None
+                t = threading.Thread(
+                    target=self.run_runtime_turn,
+                    args=(sess, event, done_evt, holder),
+                    daemon=True,
+                    name=f"QueuedTurn-{sid}",
+                )
+                sess.thread = t
+                t.start()
+                seq = sess.msg_seq
+                emit_state = "queued"
+            else:
+                sess.status = "running"
+                sess.cancel_requested = False
+                sess.last_error = ""
+                sess.partial = {"id": sess.msg_seq + 1, "role": "assistant", "content": "", "ts": time.time(), "partial": True}
+                t = threading.Thread(target=self.run_runtime_turn, args=(sess, event, done_evt, holder), daemon=True, name=f"Turn-{sid}")
+                sess.thread = t
+                t.start()
+                seq = sess.msg_seq
+                emit_state = "running"
+        emit_session_state(sess, emit_state)
+        if not decision.started_now:
+            return {"ok": True, "sessionId": sid, "accepted": True, "queued": True,
+                    "queue_no": decision.queue_no, "userMessageId": user_msg["id"], "seq": seq}
         return {"ok": True, "sessionId": sid, "accepted": True, "userMessageId": user_msg["id"], "seq": seq}
 
-    def run_agent_turn(self, sess: Session, prompt: str, images: Optional[list] = None):
+    def run_runtime_turn(self, sess: Session, event, done_evt=None, holder=None):
         try:
-            if sess.agent is None:
-                sess.agent = self.make_agent(sess)
-            agent = sess.agent
-            full = ""
-            if hasattr(agent, "put_task"):
-                display_q = agent.put_task(prompt, images=images or [])
-                pieces = []
-                import queue as _queue
-                while True:
+            if done_evt is not None:
+                # submit() already started the event; wait for completion.
+                while not done_evt.wait(timeout=0.5):
                     if sess.cancel_requested:
                         break
-                    try:
-                        item = display_q.get(timeout=1.0)
-                    except _queue.Empty:
-                        continue
-                    if isinstance(item, dict):
-                        if item.get("next"):
-                            text = str(item["next"])
-                            pieces.append(text)
-                            with self.lock:
-                                if sess.partial is not None:
-                                    sess.partial["content"] = "".join(pieces) if getattr(agent, "inc_out", False) else text
-                                    sess.partial["ts"] = time.time()
-                                    sess.updated_at = time.time()
-                        if "done" in item:
-                            full = str(item.get("done") or "")
-                            break
-                    else:
-                        pieces.append(str(item))
-                if not full and pieces:
-                    full = pieces[-1] if not getattr(agent, "inc_out", False) else "".join(pieces)
-            elif hasattr(agent, "run"):
-                ret = agent.run(prompt)
-                if isinstance(ret, str):
-                    full = ret
+                result = holder.get("result") if holder else None
             else:
-                full = "GenericAgent object has no put_task/run method"
+                result = self.runtime_service().receive_blocking(
+                    event,
+                    base_dir=sess.cwd,
+                    send_body=False,
+                    send_notice=False,
+                )
+            full = (result.raw_output or result.cleaned_output or result.task_run.result_text) if result else ""
             if not full:
                 full = "(completed)"
             if sess.cancel_requested:
@@ -279,21 +357,42 @@ class AgentManager:
                 return
             with self.lock:
                 sess.partial = None
-                # Strip trailing [Info] Final response to user. marker
-                import re as _re
-                full = _re.sub(r'\n*`{5}\n*\[Info\] Final response to user\.\n*`{5}\s*$', '', full)
-                if self.runtime_bridge is not None:
-                    self.runtime_bridge.record_memory(full, context={"channel": "desktop", "session_id": sess.id})
-                    self.runtime_bridge.record_shadow(
-                        full,
-                        receive_id=sess.id,
-                        receive_id_type="desktop_session",
-                        production_text=full,
-                    )
-                self.add_message(sess, "assistant", full)
-                sess.status = "idle"
-                sess.last_error = ""
-            emit_session_state(sess, "idle")
+                if result.permission is not None:
+                    sess.pending_permission = result.permission
+                    perm_extra = {}
+                    if permission_payload is not None:
+                        perm_extra["permission"] = permission_payload(result.permission)
+                    self.add_message(sess, "assistant", render_permission_text(result.permission), **perm_extra)
+                    sess.status = "idle"
+                    sess.last_error = ""
+                    sess.updated_at = time.time()
+                    emit_state = "idle"
+                elif result.status == "failed":
+                    sess.status = "error"
+                    sess.last_error = result.task_run.error or "中枢任务失败"
+                    self.add_message(sess, "error", sess.last_error)
+                    emit_state = "error"
+                elif result.status == "cancelled":
+                    sess.status = "cancelled"
+                    sess.updated_at = time.time()
+                    emit_state = "cancelled"
+                else:
+                    # Strip trailing [Info] Final response to user. marker
+                    import re as _re
+                    full = _re.sub(r'\n*`{5}\n*\[Info\] Final response to user\.\n*`{5}\s*$', '', full)
+                    if self.runtime_bridge is not None:
+                        self.runtime_bridge.record_memory(full, context={"channel": "desktop", "session_id": sess.runtime_session_id or sess.id})
+                        self.runtime_bridge.record_shadow(
+                            full,
+                            receive_id=sess.id,
+                            receive_id_type="desktop_session",
+                            production_text=full,
+                        )
+                    self.add_message(sess, "assistant", full)
+                    sess.status = "idle"
+                    sess.last_error = ""
+                    emit_state = "idle"
+            emit_session_state(sess, emit_state)
         except Exception as e:
             tb = traceback.format_exc()
             with self.lock:
@@ -303,6 +402,19 @@ class AgentManager:
                 self.add_message(sess, "error", str(e))
             print(tb, file=sys.stderr)
             emit_session_state(sess, "error")
+
+    def run_agent_turn(self, sess: Session, prompt: str, images: Optional[list] = None):
+        event, session_ref = self.runtime_bridge.event(
+            event_id=f"desktop_{sess.id}_{uuid.uuid4().hex}",
+            user_id=sess.id,
+            chat_id=sess.id,
+            chat_type="private",
+            text=prompt,
+            images=images or (),
+            metadata={"cwd": sess.cwd, "desktop_session_id": sess.id},
+        )
+        sess.runtime_session_id = session_ref.session_id
+        return self.run_runtime_turn(sess, event)
 
     def messages(self, sid: str, after: int = 0, limit: int = 200) -> dict:
         with self.lock:
@@ -331,6 +443,9 @@ class AgentManager:
             if sess.agent and hasattr(sess.agent, "abort"):
                 with contextlib.suppress(Exception):
                     sess.agent.abort()
+            if sess.runtime_session_id:
+                with contextlib.suppress(Exception):
+                    self.runtime_service().cancel_session(sess.runtime_session_id, drop_pending=True)
             sess.status = "cancelled"
             sess.partial = None
             sess.updated_at = time.time()
@@ -586,6 +701,112 @@ async def cancel_handler(request):
     return json_ok(manager.cancel(sid))
 
 
+def _ops_origin_allowed(request) -> bool:
+    origin = request.headers.get("Origin", "")
+    if not origin:
+        return True
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(origin)
+        if _is_loopback_host is None:
+            return (parsed.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"}
+        return _is_loopback_host(parsed.hostname or "")
+    except Exception:
+        return False
+
+
+def _require_ops_available(request):
+    if not _ops_origin_allowed(request):
+        raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "非本机来源已拒绝"}, ensure_ascii=False), content_type="application/json")
+    if command_catalog is None or ops_checks is None or read_ops_logs is None or run_ops_command is None:
+        raise web.HTTPServiceUnavailable(text=json.dumps({"ok": False, "error": "蓬莱运维控制不可用"}, ensure_ascii=False), content_type="application/json")
+
+
+async def ops_commands_handler(request):
+    _require_ops_available(request)
+    return json_ok(command_catalog())
+
+
+async def ops_checks_handler(request):
+    _require_ops_available(request)
+    data = await asyncio.to_thread(ops_checks, root=manager.ga_root)
+    return json_ok(data)
+
+
+async def ops_logs_handler(request):
+    _require_ops_available(request)
+    channel = request.query.get("channel", "feishu")
+    lines = int(request.query.get("lines") or 80)
+    data = await asyncio.to_thread(read_ops_logs, channel, root=manager.ga_root, lines=lines)
+    return json_ok(data)
+
+
+async def ops_command_get_handler(request):
+    _require_ops_available(request)
+    name = request.query.get("name", "")
+    catalog = command_catalog()
+    read_only = set(catalog.get("read_only", ()))
+    state_changing = set(catalog.get("state_changing", ()))
+    if name in state_changing:
+        return json_ok({"ok": False, "error": f"{name} 需要通过 POST 执行"}, status=400)
+    if name not in read_only:
+        return json_ok({"ok": False, "error": f"不支持的运维命令：{name}"}, status=400)
+    try:
+        data = await asyncio.to_thread(run_ops_command, name, root=manager.ga_root, allow_state=False)
+    except ValueError as exc:
+        return json_ok({"ok": False, "error": str(exc)}, status=400)
+    return json_ok(data)
+
+
+async def ops_command_post_handler(request):
+    _require_ops_available(request)
+    body = await read_json(request)
+    name = body.get("command", "")
+    timeout = body.get("timeout")
+    catalog = command_catalog()
+    allowed = set(catalog.get("read_only", ())) | set(catalog.get("state_changing", ()))
+    if name not in allowed:
+        return json_ok({"ok": False, "error": f"不支持的运维命令：{name}"}, status=400)
+    try:
+        data = await asyncio.to_thread(run_ops_command, name, root=manager.ga_root, allow_state=True, timeout=timeout)
+    except ValueError as exc:
+        return json_ok({"ok": False, "error": str(exc)}, status=400)
+    return json_ok(data)
+
+
+def _active_runtime_session_id() -> str:
+    sid = ""
+    with manager.lock:
+        active = manager.sessions.get(manager.active_session_id or "")
+        if active is not None:
+            sid = active.runtime_session_id or ""
+    return sid or "owner:default"
+
+
+def _require_runtime_read_available(request):
+    if not _ops_origin_allowed(request):
+        raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "非本机来源已拒绝"}, ensure_ascii=False), content_type="application/json")
+    if RuntimeHubService is None:
+        raise web.HTTPServiceUnavailable(text=json.dumps({"ok": False, "error": "蓬莱中枢不可用"}, ensure_ascii=False), content_type="application/json")
+
+
+async def runtime_status_handler(request):
+    _require_runtime_read_available(request)
+    session_id = request.query.get("session_id") or _active_runtime_session_id()
+    data = await asyncio.to_thread(manager.runtime_service().status, session_id)
+    return json_ok({"ok": True, "session_id": session_id, "session": data})
+
+
+async def runtime_runs_handler(request):
+    _require_runtime_read_available(request)
+    raw_session_id = request.query.get("session_id", "")
+    session_id = raw_session_id if raw_session_id not in {"", "active"} else (_active_runtime_session_id() if raw_session_id == "active" else None)
+    limit = max(1, min(int(request.query.get("limit") or 20), 100))
+    rows = await asyncio.to_thread(manager.runtime_service().recent_runs, session_id=session_id, limit=limit)
+    return json_ok({"ok": True, "session_id": session_id or "", "runs": rows})
+
+
 async def path_open_handler(request):
     data = await read_json(request)
     kind = data.get("kind", "")
@@ -595,7 +816,7 @@ async def path_open_handler(request):
         target = Path(data.get("path") or data.get("target") or manager.ga_root)
     target = target.resolve()
     if not target.exists():
-        return json_ok({"ok": False, "error": f"File not found: {target}"})
+        return json_ok({"ok": False, "error": f"未找到文件：{target}"})
     # Actually open the file with the system default editor
     import subprocess, platform
     if platform.system() == "Windows":
@@ -621,6 +842,13 @@ def create_app():
     app.router.add_post("/session/{sid}/prompt", prompt_handler)
     app.router.add_get("/session/{sid}/messages", messages_handler)
     app.router.add_post("/session/{sid}/cancel", cancel_handler)
+    app.router.add_get("/ops/commands", ops_commands_handler)
+    app.router.add_get("/ops/checks", ops_checks_handler)
+    app.router.add_get("/ops/logs", ops_logs_handler)
+    app.router.add_get("/ops/command", ops_command_get_handler)
+    app.router.add_post("/ops/command", ops_command_post_handler)
+    app.router.add_get("/runtime/status", runtime_status_handler)
+    app.router.add_get("/runtime/runs", runtime_runs_handler)
     app.router.add_post("/path/open", path_open_handler)
 
     # Serve static frontend (desktop/static/)
@@ -642,5 +870,5 @@ def create_app():
 if __name__ == "__main__":
     host = os.environ.get("BRIDGE_HOST", "127.0.0.1")
     port = int(os.environ.get("BRIDGE_PORT", "14168"))
-    print(f"GenericAgent Web2 bridge: http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
+    print(f"蓬莱桌面桥接：http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
     web.run_app(create_app(), host=host, port=port, print=None)

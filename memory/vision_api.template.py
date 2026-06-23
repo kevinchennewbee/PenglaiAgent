@@ -1,4 +1,4 @@
-import base64, requests, sys, os
+import base64, re, requests, sys, os
 from io import BytesIO
 from pathlib import Path
 
@@ -75,6 +75,9 @@ def _load_config():
     import mykey
     return mykey
 
+def _clean_vision_text(text):
+    return re.sub(r"<think>.*?</think>\s*", "", str(text or ""), flags=re.S).strip()
+
 def _call_claude(b64, prompt, timeout, max_tokens=1024):
     mk = _load_config()
     cfg = getattr(mk, CLAUDE_CONFIG_KEY)
@@ -91,7 +94,7 @@ def _call_claude(b64, prompt, timeout, max_tokens=1024):
         timeout=timeout
     )
     resp.raise_for_status()
-    return resp.json()['content'][0]['text']
+    return _clean_vision_text(resp.json()['content'][0]['text'])
 
 def _call_openai_compat(b64, prompt, timeout, *, apibase, apikey, model, proxy=None):
     proxies = {'https': proxy, 'http': proxy} if proxy else None
@@ -108,7 +111,7 @@ def _call_openai_compat(b64, prompt, timeout, *, apibase, apikey, model, proxy=N
         proxies=proxies, timeout=timeout
     )
     resp.raise_for_status()
-    return resp.json()['choices'][0]['message']['content']
+    return _clean_vision_text(resp.json()['choices'][0]['message']['content'])
 
 if __name__ == '__main__':
     pass

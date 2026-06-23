@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>GenericAgent</title>
+  <title>蓬莱</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="app">
-    <!-- Main area -->
+    <!-- 主界面 -->
     <main id="main">
       <header id="topbar">
         <div class="topbar-left">
-          <div id="session-list" class="tab-strip" role="tablist" aria-label="Chats">
-            <button id="new-session-btn" class="tab-new-btn" title="New chat" aria-label="New chat">
+          <div id="session-list" class="tab-strip" role="tablist" aria-label="对话">
+            <button id="new-session-btn" class="tab-new-btn" title="新对话" aria-label="新对话">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
@@ -20,45 +20,45 @@
           </div>
         </div>
         <div class="topbar-right">
-          <h1 id="session-title" class="sr-only">GenericAgent</h1>
+          <h1 id="session-title" class="sr-only">蓬莱</h1>
           <span id="status-badge" class="badge">
             <span class="status-dot"></span>
-            <span id="status-text">Starting…</span>
+            <span id="status-text">启动中…</span>
           </span>
         </div>
       </header>
 
       <div id="search-bar" class="search-bar hidden">
-        <input id="search-input" type="text" placeholder="Search messages…" aria-label="Search messages">
+        <input id="search-input" type="text" placeholder="搜索消息…" aria-label="搜索消息">
         <span id="search-count" class="search-count"></span>
-        <button id="search-prev" class="search-nav-btn" title="Previous (Shift+Enter)" aria-label="Previous match">▲</button>
-        <button id="search-next" class="search-nav-btn" title="Next (Enter)" aria-label="Next match">▼</button>
-        <button id="search-close" class="search-nav-btn" title="Close (Escape)" aria-label="Close search">✕</button>
+        <button id="search-prev" class="search-nav-btn" title="上一个（Shift+Enter）" aria-label="上一个匹配">▲</button>
+        <button id="search-next" class="search-nav-btn" title="下一个（Enter）" aria-label="下一个匹配">▼</button>
+        <button id="search-close" class="search-nav-btn" title="关闭（Escape）" aria-label="关闭搜索">✕</button>
       </div>
 
       <section id="messages" class="empty">
         <div class="empty-state">
-          <div class="empty-title">New task</div>
-          <div class="empty-sub">Task me anything. Type <code>/help</code> for commands.</div>
+          <div class="empty-title">新任务</div>
+          <div class="empty-sub">直接输入任务，或输入 <code>/help</code> 查看命令。</div>
         </div>
       </section>
 
       <div id="composer-wrap">
         <div id="composer">
           <div id="image-previews" class="image-previews"></div>
-          <textarea id="input" rows="1" placeholder="Type a message, or /help"></textarea>
+          <textarea id="input" rows="1" placeholder="输入消息，或 /help"></textarea>
           <div class="composer-bottom">
             <div class="composer-hints">
-              <button id="settings-btn" class="icon-btn ghost" title="Settings" aria-label="Settings">
+              <button id="settings-btn" class="icon-btn ghost" title="设置" aria-label="设置">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
-                <span class="hint-label">Settings</span>
+                <span class="hint-label">设置</span>
               </button>
 
             </div>
-            <button id="send-btn" class="send-btn" title="Send (Enter)">
+            <button id="send-btn" class="send-btn" title="发送（Enter）">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M13 6l6 6-6 6"/>
               </svg>
@@ -68,40 +68,69 @@
       </div>
     </main>
 
-    <!-- Settings modal -->
+    <!-- 设置弹窗 -->
     <div id="settings-modal" class="modal hidden">
       <div class="modal-backdrop"></div>
       <div class="modal-body">
         <div class="modal-header">
-          <h2>Settings</h2>
+          <h2>设置</h2>
           <button class="icon-btn ghost" id="close-settings">✕</button>
         </div>
         <div class="modal-content">
           <div class="form-row">
-            <label for="cfg-llm">Model</label>
+            <label for="cfg-llm">模型</label>
             <select id="cfg-llm">
-              <option value="0">Default / Auto</option>
+              <option value="0">默认 / 自动</option>
             </select>
-            <small>Select the LLM profile from mykey.py.</small>
+            <small>从 <code>mykey.py</code> 选择大模型配置。</small>
           </div>
           <div class="form-row">
-            <label>API keys</label>
+            <label>API 密钥</label>
             <div class="btn-row">
-              <button class="btn" id="open-mykey">Open mykey.py</button>
+              <button class="btn" id="open-mykey">打开 mykey.py</button>
             </div>
-            <small>Configure API keys in <code>mykey.py</code> at the GA project root.</small>
+            <small>在项目根目录的 <code>mykey.py</code> 中配置 API 密钥。</small>
+          </div>
+          <div class="settings-section" id="runtime-settings">
+            <div class="section-title">中枢</div>
+            <div id="ops-summary" class="ops-summary">
+              <div class="ops-empty">中枢状态不可用。</div>
+            </div>
+            <div class="ops-actions" aria-label="中枢操作">
+              <button class="btn" id="ops-refresh">刷新</button>
+              <button class="btn" id="ops-runtime-service-status">服务状态</button>
+              <button class="btn" id="ops-runtime-service-install">启动中枢服务</button>
+              <button class="btn" id="ops-runtime-service-uninstall">停止中枢服务</button>
+              <button class="btn" id="ops-doctor">体检</button>
+              <button class="btn" id="ops-selfcheck">自检</button>
+              <button class="btn" id="ops-runtime-audit">旧入口审计</button>
+              <button class="btn" id="ops-privacy-audit">隐私审计</button>
+              <button class="btn" id="ops-runtime-status">会话状态</button>
+              <button class="btn" id="ops-runtime-runs">运行记录</button>
+            </div>
+            <div class="ops-log-row">
+              <select id="ops-log-channel" aria-label="日志通道">
+                <option value="feishu">飞书</option>
+                <option value="runtime">中枢</option>
+                <option value="wechat">微信</option>
+                <option value="scheduler">调度器</option>
+                <option value="companion">陪伴端</option>
+              </select>
+              <button class="btn" id="ops-load-log">日志</button>
+            </div>
+            <pre id="ops-output" class="ops-output" aria-live="polite"></pre>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn ghost" id="cancel-settings">Cancel</button>
-          <button class="btn primary" id="save-settings">Save</button>
+          <button class="btn ghost" id="cancel-settings">取消</button>
+          <button class="btn primary" id="save-settings">保存</button>
         </div>
       </div>
     </div>
 
 
 
-    <!-- Error banner -->
+    <!-- 错误提示 -->
     <div id="error-banner" class="error-banner hidden">
       <span id="error-text"></span>
       <button class="icon-btn ghost" id="error-action"></button>
@@ -110,7 +139,7 @@
   </div>
 
   <script src="vendor/marked.min.js"></script>
-  <script src="ga-web.js?v=14168-2"></script>
-  <script src="app.js?v=poll-fold-7"></script>
+  <script src="ga-web.js?v=ops-runs-1"></script>
+  <script src="app.js?v=ops-runs-1"></script>
 </body>
 </html>

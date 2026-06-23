@@ -1,4 +1,4 @@
-// GenericAgent Web2 browser bridge adapter.
+// Penglai browser bridge adapter.
 // HTTP is the command/data channel. WebSocket only carries small state events.
 (() => {
   'use strict';
@@ -52,7 +52,7 @@
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     try {
       ws = new WebSocket(wsUrl);
-      ws.addEventListener('open', () => emit('bridge-log', 'WS state channel connected'));
+      ws.addEventListener('open', () => emit('bridge-log', '状态通道已连接'));
       ws.addEventListener('message', (ev) => {
         let msg;
         try { msg = JSON.parse(ev.data); } catch (_) { return; }
@@ -67,7 +67,7 @@
         }
       });
       ws.addEventListener('close', () => emit('bridge-closed', { reason: 'ws-closed' }));
-      ws.addEventListener('error', () => emit('bridge-error', { type: 'ws-error', message: 'WebSocket state channel error' }));
+      ws.addEventListener('error', () => emit('bridge-error', { type: 'ws-error', message: 'WebSocket 状态通道错误' }));
     } catch (err) {
       emit('bridge-error', { type: 'ws-error', message: err.message || String(err) });
     }
@@ -87,36 +87,66 @@
         return http('/session/new', { method: 'POST', body: params || {} });
       case 'session/prompt': {
         const sid = params.sessionId || params.id || params.bridgeSessionId;
-        if (!sid) throw new Error('session/prompt missing sessionId');
+        if (!sid) throw new Error('缺少对话 ID');
         return http(`/session/${encodeURIComponent(sid)}/prompt`, { method: 'POST', body: params || {} });
       }
       case 'session/poll': {
         const sid = params.sessionId || params.id || params.bridgeSessionId;
-        if (!sid) throw new Error('session/poll missing sessionId');
+        if (!sid) throw new Error('缺少对话 ID');
         const after = params.afterId ?? params.after ?? 0;
         const limit = params.limit ?? 200;
         return http(`/session/${encodeURIComponent(sid)}/messages?after=${encodeURIComponent(after)}&limit=${encodeURIComponent(limit)}`);
       }
       case 'session/cancel': {
         const sid = params.sessionId || params.id || params.bridgeSessionId;
-        if (!sid) throw new Error('session/cancel missing sessionId');
+        if (!sid) throw new Error('缺少对话 ID');
         return http(`/session/${encodeURIComponent(sid)}/cancel`, { method: 'POST', body: params || {} });
       }
       case 'app/path/open':
         return http('/path/open', { method: 'POST', body: params || {} });
+      case 'ops/commands':
+        return http('/ops/commands');
+      case 'ops/checks':
+        return http('/ops/checks');
+      case 'ops/logs': {
+        const channel = encodeURIComponent(params.channel || 'feishu');
+        const lines = encodeURIComponent(params.lines || 80);
+        return http(`/ops/logs?channel=${channel}&lines=${lines}`);
+      }
+      case 'ops/command': {
+        const command = params.command || params.name || '';
+        if (!command) throw new Error('缺少中枢命令');
+        if (params.method === 'POST') {
+          return http('/ops/command', { method: 'POST', body: params || {} });
+        }
+        return http(`/ops/command?name=${encodeURIComponent(command)}`);
+      }
+      case 'runtime/status': {
+        const sessionId = params.sessionId || params.session_id || '';
+        const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+        return http(`/runtime/status${query}`);
+      }
+      case 'runtime/runs': {
+        const sessionId = params.sessionId || params.session_id || '';
+        const limit = encodeURIComponent(params.limit || 20);
+        const parts = [`limit=${limit}`];
+        if (sessionId) parts.push(`session_id=${encodeURIComponent(sessionId)}`);
+        return http(`/runtime/runs?${parts.join('&')}`);
+      }
       case 'app/path/selectGaRoot':
         return http('/config');
       case 'list_continuable_sessions':
         return { sessions: [] };
       case 'restore_session':
-        throw new Error('restore_session is not implemented in web2 bridge');
+        throw new Error('当前桥接暂不支持恢复旧会话');
       default:
-        throw new Error(`Unknown RPC method: ${method}`);
+        throw new Error(`未知 RPC 方法：${method}`);
     }
   }
 
   window.ga = {
     platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32',
+    bridgeUrl: bridgeBase,
     startBridge: async () => { connectWs(); return http('/status'); },
     stopBridge: async () => ({ ok: true }),
     checkStatus: () => rpc('app/status', {}),
@@ -126,6 +156,12 @@
     selectGaRoot: () => rpc('app/path/selectGaRoot', {}),
     openMykeyTemplate: () => rpc('app/path/open', { kind: 'mykeyTemplate' }),
     openMykey: () => rpc('app/path/open', { kind: 'mykey' }),
+    getOpsCommands: () => rpc('ops/commands', {}),
+    getOpsChecks: () => rpc('ops/checks', {}),
+    getOpsLogs: (channel = 'feishu', lines = 80) => rpc('ops/logs', { channel, lines }),
+    runOpsCommand: (command, options = {}) => rpc('ops/command', Object.assign({ command }, options)),
+    getRuntimeStatus: (sessionId = '') => rpc('runtime/status', { sessionId }),
+    getRuntimeRuns: (sessionId = '', limit = 20) => rpc('runtime/runs', { sessionId, limit }),
     pollSession: (sessionId, afterId = 0) => rpc('session/poll', { sessionId, afterId }),
     rpc,
     onBridgeMessage: (cb) => on('bridge-message', cb),

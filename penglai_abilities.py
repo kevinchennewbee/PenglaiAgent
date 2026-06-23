@@ -65,7 +65,7 @@ def _voice_ready():
     pc = _pc()
     mdir = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
                         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
-    model = os.path.isfile(os.path.join(mdir, "model.int8.onnx"))
+    model = all(os.path.isfile(os.path.join(mdir, name)) for name in ("model.int8.onnx", "tokens.txt"))
     engine = pc.sh([pc.venv_python(), "-c", "import sherpa_onnx"]).returncode == 0
     ffmpeg = _ffmpeg_bin() is not None
     return model and engine and ffmpeg, (model, engine, ffmpeg)
@@ -170,11 +170,19 @@ def _critic_detail_line():
         return "最近复核：尚无记录（只在长期记忆写入路径触发）"
     result = st.get("last_result", "")
     hits = st.get("last_hits") or []
-    text = f"最近复核：{_fmt_age(st.get('last_check_ts'))}；结果：{result or 'unknown'}"
+    last_ts = st.get("last_check_ts") or st.get("last_review_ts")
+    result = result or st.get("last_review_result", "")
+    text = f"最近复核：{_fmt_age(last_ts)}；结果：{result or 'unknown'}"
     if hits:
         text += f"；命中：{','.join(hits)}"
     if st.get("last_review"):
         text += "；有异厂商意见"
+    if st.get("last_review_model"):
+        text += f"；模型：{st.get('last_review_model')}"
+    if st.get("main_vendor") and st.get("critic_vendor"):
+        text += f"；厂商：{st.get('main_vendor')}→{st.get('critic_vendor')}"
+    if st.get("last_review_skipped"):
+        text += f"；跳过：{st.get('last_review_skipped')}"
     return text
 
 
@@ -207,21 +215,90 @@ def _vision_ready():
     return os.path.exists(os.path.join(ROOT, "memory", "vision_api.py"))
 
 
+def _select_oai_config_key(configs):
+    """Pick the main OAI-compatible model config without exposing secrets."""
+    candidates = []
+    for key, cfg in sorted((configs or {}).items()):
+        if not isinstance(cfg, dict):
+            continue
+        if not all(cfg.get(name) for name in ("apibase", "apikey", "model")):
+            continue
+        lower = str(key).lower()
+        if lower.startswith("critic") or "critic" in lower:
+            continue
+        if str(key) == "native_oai_config":
+            score = 100
+        elif lower.endswith("_native_oai_config"):
+            score = 90
+        elif lower.endswith("oai_config") or "oai_config" in lower:
+            score = 80
+        else:
+            score = 10
+        candidates.append((score, str(key)))
+    return max(candidates)[1] if candidates else ""
+
+
+def _oai_config_inventory():
+    pc = _pc()
+    code = (
+        "import json, mykey\n"
+        "items={}\n"
+        "for k,v in vars(mykey).items():\n"
+        "    if k.startswith('_') or not isinstance(v, dict):\n"
+        "        continue\n"
+        "    items[k]={\n"
+        "        'apibase': bool(v.get('apibase')),\n"
+        "        'apikey': bool(v.get('apikey')),\n"
+        "        'model': bool(v.get('model')),\n"
+        "        'name': str(v.get('name') or ''),\n"
+        "    }\n"
+        "print(json.dumps(items, ensure_ascii=False))\n"
+    )
+    r = pc.sh([pc.venv_python(), "-c", code], cwd=ROOT)
+    try:
+        return json.loads((r.stdout or "{}").strip() or "{}")
+    except Exception:
+        return {}
+
+
+def _active_oai_config_key():
+    return _select_oai_config_key(_oai_config_inventory())
+
+
 def _repair_vision_api(path):
     """Best-effort repair for user-generated memory/vision_api.py from older templates."""
     try:
         src = open(path, encoding="utf-8").read()
     except Exception:
         return "exists"
+    changed = False
     old = "apibase.rstrip('/') + '/v1/chat/completions'"
-    if old not in src:
-        return "exists"
     if "import base64, requests" in src:
         src = src.replace("import base64, requests", "import base64, re, requests", 1)
+        changed = True
     elif "import re" not in src:
         src = "import re\n" + src
-    src = src.replace(old, "_chat_completions_url(apibase)")
-    if "def _chat_completions_url(apibase):" not in src:
+        changed = True
+    if old in src:
+        src = src.replace(old, "_chat_completions_url(apibase)")
+        changed = True
+    if "_clean_vision_text(" not in src:
+        for old_return in (
+            "return resp.json()['content'][0]['text']",
+            "return resp.json()['choices'][0]['message']['content']",
+        ):
+            src = src.replace(old_return, old_return.replace("return ", "return _clean_vision_text(") + ")")
+        marker = "\ndef _call_claude("
+        helper = (
+            "\n\ndef _clean_vision_text(text):\n"
+            "    return re.sub(r\"<think>.*?</think>\\s*\", \"\", str(text or \"\"), flags=re.S).strip()\n"
+        )
+        src = src.replace(marker, helper + marker, 1) if marker in src else src + helper
+        changed = True
+    if old in src and "def _chat_completions_url(apibase):" not in src:
+        # Kept for defensive clarity; normal path already replaced `old`.
+        changed = True
+    if "_chat_completions_url(apibase)" in src and "def _chat_completions_url(apibase):" not in src:
         marker = "\nif __name__ == '__main__':"
         helper = (
             "\n\ndef _chat_completions_url(apibase):\n"
@@ -231,6 +308,9 @@ def _repair_vision_api(path):
             "    return base + '/v1/chat/completions'\n"
         )
         src = src.replace(marker, helper + marker, 1) if marker in src else src + helper
+        changed = True
+    if not changed:
+        return "exists"
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write(src)
@@ -240,7 +320,7 @@ def _repair_vision_api(path):
 
 
 def build_vision_api():
-    """从 GA 的 vision_api.template.py 构建 memory/vision_api.py 并配到主力模型(native_oai_config)，
+    """从 GA 的 vision_api.template.py 构建 memory/vision_api.py 并配到主力 OAI 兼容模型，
     让 ask_vision(img, backend='openai') 把图按 image_url 喂给主力多模态模型(如 M3)看图——补 U4/F7
     『IM 发来的图看不到』。GA 模板零改动；vision_api.py 是用户配置产物(同 mykey.py)，已存在不覆盖。
     返回 built / exists / skip（无 OAI 兼容主力模型）/ no_template。"""
@@ -251,16 +331,12 @@ def build_vision_api():
         return "no_template"
     if os.path.exists(out):
         return _repair_vision_api(out)
-    pc = _pc()
-    has_oai = pc.sh([pc.venv_python(), "-c",
-                     "import mykey;c=getattr(mykey,'native_oai_config',{});"
-                     "print(1 if isinstance(c,dict) and c.get('apibase') and c.get('apikey') "
-                     "and c.get('model') else 0)"], cwd=ROOT).stdout.strip() == "1"
-    if not has_oai:
+    config_key = _active_oai_config_key()
+    if not config_key:
         return "skip"
     try:
         src = open(tmpl, encoding="utf-8").read()
-        src = src.replace("OPENAI_CONFIG_KEY = 'oai_config1'", "OPENAI_CONFIG_KEY = 'native_oai_config'")
+        src = src.replace("OPENAI_CONFIG_KEY = 'oai_config1'", f"OPENAI_CONFIG_KEY = '{config_key}'")
         src = src.replace("DEFAULT_BACKEND = 'claude'", "DEFAULT_BACKEND = 'openai'")
         with open(out, "w", encoding="utf-8") as f:
             f.write(src)
@@ -373,6 +449,29 @@ def _install_launchd(service, reflect_py, label):
     return True
 
 
+def reflect_systemd_unit(service, reflect_py, label, *, root=None, python=None, user=None, home=None):
+    root = os.path.realpath(root or ROOT)
+    pc = _pc()
+    python = python or pc.venv_python()
+    user = user or os.environ.get("USER", "root")
+    home = home or os.path.expanduser("~")
+    env_sh = os.path.join(root, "env.sh")
+    work = os.path.join(home, "penglai-work")
+    guard = (
+        f"ExecStartPre=/bin/bash -lc 'source {env_sh} 2>/dev/null || true; "
+        f"{python} {root}/penglai _guardcheck'\n"
+    )
+    cmd = f"{python} {root}/agentmain.py --reflect {root}/{reflect_py}"
+    return (
+        f"[Unit]\nDescription=Penglai {label}\nAfter=network-online.target\n\n"
+        f"[Service]\nType=simple\nUser={user}\n"
+        f"WorkingDirectory={root}\nEnvironment=HOME={home}\n"
+        f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}"
+        f"ExecStart=/bin/bash -lc 'source {env_sh} 2>/dev/null || true; exec {cmd}'\n"
+        f"Restart=always\nRestartSec=20\n\n[Install]\nWantedBy=multi-user.target\n"
+    )
+
+
 def _install_reflect_service(service, reflect_py, label):
     pc = _pc()
     if not pc.has_systemd():
@@ -391,14 +490,7 @@ def _install_reflect_service(service, reflect_py, label):
     if not os.path.exists(env_sh):
         open(env_sh, "w").write(f'export PATH="{ROOT}/.venv/bin:$PATH"\n')
     work = os.path.expanduser("~/penglai-work"); os.makedirs(work, exist_ok=True)
-    guard = (f"ExecStartPre=/bin/bash -lc 'source {env_sh} && python {ROOT}/penglai _guardcheck'\n")
-    cmd = f"python {ROOT}/agentmain.py --reflect {ROOT}/{reflect_py}"
-    unit = (f"[Unit]\nDescription=Penglai {label}\nAfter=network-online.target\n\n"
-            f"[Service]\nType=simple\nUser={os.environ.get('USER', 'root')}\n"
-            f"WorkingDirectory={ROOT}\nEnvironment=HOME={os.path.expanduser('~')}\n"
-            f"Environment=GA_WORKSPACE_ROOT={work}\n{guard}"
-            f"ExecStart=/bin/bash -lc 'source {env_sh} && exec {cmd}'\n"
-            f"Restart=always\nRestartSec=20\n\n[Install]\nWantedBy=multi-user.target\n")
+    unit = reflect_systemd_unit(service, reflect_py, label, python=pc.venv_python())
     try:
         subprocess.run(["sudo", "tee", f"/etc/systemd/system/{service}.service"],
                        input=unit, text=True, check=True, stdout=subprocess.DEVNULL)
@@ -466,20 +558,34 @@ def disable_companion():
 
 # ---------- 批判脑（跨厂商复核，smart 档）----------
 def _main_vendor():
-    """主力模型的厂商显示名（向导写入 mykey 的 name，如 'DeepSeek' / '智谱 GLM (按量)'）。"""
-    pc = _pc()
-    r = pc.sh([pc.venv_python(), "-c",
-               "import mykey;print(getattr(mykey,'native_oai_config',{}).get('name',''))"], cwd=ROOT)
-    return (r.stdout or "").strip()
+    """主力模型的厂商显示名（向导写入 mykey 的 name，如 DeepSeek / MiniMax）。"""
+    inventory = _oai_config_inventory()
+    key = _select_oai_config_key(inventory)
+    return str((inventory.get(key) or {}).get("name") or "")
 
 
 def _critic_on():
     pc = _pc()
     r = pc.sh([pc.venv_python(), "-c",
-               "import mykey;m=getattr(mykey,'critic_model',None);"
-               "print('ON' if isinstance(m,dict) and m.get('apikey') and "
-               "getattr(mykey,'critic_mode','smart')!='off' else '')"], cwd=ROOT)
-    return (r.stdout or "").strip() == "ON"
+               "import json;"
+               "from penglai_runtime.capabilities import critic_runtime_status;"
+               "print(json.dumps(critic_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+    try:
+        return bool(json.loads((r.stdout or "{}").strip() or "{}").get("ready"))
+    except Exception:
+        return False
+
+
+def _critic_status():
+    pc = _pc()
+    r = pc.sh([pc.venv_python(), "-c",
+               "import json;"
+               "from penglai_runtime.capabilities import critic_runtime_status;"
+               "print(json.dumps(critic_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+    try:
+        return json.loads((r.stdout or "{}").strip() or "{}")
+    except Exception:
+        return {"ready": False, "detail": "批判脑：状态检查不可用", "status": "unknown"}
 
 
 def enable_critic():
@@ -552,6 +658,7 @@ def status():
                   else "已开启但心跳进程未运行 → penglai enable companion 重启" if comp_on
                   else "未开启（零成本，被动回复）")
     intel = _intel_sources()
+    critic = _critic_status()
     rows = [
         ("🎙️ 语音转写+情绪", vr,
          "就绪（SenseVoice 本地）" if vr else f"未装齐（缺 {'/'.join(n for n, ok in (('模型', vm), ('引擎', ve), ('ffmpeg', vf)) if not ok)}）",
@@ -560,8 +667,8 @@ def status():
         ("🔭 情报矩阵", bool(intel),
          f"已配 {len(intel)} 个源" if intel else "默认（GA 浏览器搜索）",
          "penglai enable intel"),
-        ("🧐 批判脑", _critic_on(),
-         "smart 档（绊线常开 + 异厂商复核）" if _critic_on() else "仅本地绊线（免费常开）；异厂商复核未配",
+        ("🧐 批判脑", bool(critic.get("ready")),
+         critic.get("detail") or "批判脑：仅本地绊线（免费常开）；异厂商复核未配",
          "penglai enable critic"),
     ]
     for label, on, state, cmd in rows:

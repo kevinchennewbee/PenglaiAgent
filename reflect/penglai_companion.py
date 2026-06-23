@@ -109,6 +109,61 @@ def _last_user_activity_min():
     except Exception:
         return 1e9
 
+def _same_day(ts, now):
+    try:
+        return datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d") == now.strftime("%Y-%m-%d")
+    except Exception:
+        return False
+
+def _reconcile_state_from_context_events(state, now):
+    """Use successful delivery events as the durable ledger for anti-repeat gates."""
+    try:
+        from penglai_runtime.context_events import recent_context_events
+        events = recent_context_events(limit=200, max_age_hours=96)
+    except Exception:
+        return False
+    changed = False
+    today = now.strftime("%Y-%m-%d")
+    last_reach = float(state.get("last_reach", 0) or 0)
+    last_sent = float(state.get("last_sent_ts", 0) or 0)
+    for event in events:
+        if event.get("kind") != "companion_sent":
+            continue
+        try:
+            ts = float(event.get("ts", 0) or 0)
+        except Exception:
+            continue
+        if ts > last_reach:
+            last_reach = ts
+        if ts > last_sent:
+            last_sent = ts
+        meta = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+        trigger = str(meta.get("trigger") or "")
+        if trigger in _ANCHOR_KINDS and _same_day(ts, now):
+            key = f"anchor_{trigger}"
+            if state.get(key) != today:
+                state[key] = today
+                changed = True
+        elif trigger == "weather" and _same_day(ts, now):
+            if state.get("weather_checked_date") != today:
+                state["weather_checked_date"] = today
+                changed = True
+        elif trigger == "emotion":
+            try:
+                signal_ts = float(meta.get("pending_emotion_ts", 0) or 0)
+            except Exception:
+                signal_ts = 0
+            if signal_ts and signal_ts > float(state.get("emotion_followed_ts", 0) or 0):
+                state["emotion_followed_ts"] = signal_ts
+                changed = True
+    if last_reach > float(state.get("last_reach", 0) or 0):
+        state["last_reach"] = last_reach
+        changed = True
+    if last_sent > float(state.get("last_sent_ts", 0) or 0):
+        state["last_sent_ts"] = last_sent
+        changed = True
+    return changed
+
 # ---- 触发源 ----
 _SEVERE_CODES = {65: "大雨", 66: "冻雨", 67: "强冻雨", 75: "大雪", 82: "暴雨",
                  86: "暴雪", 95: "雷暴", 96: "雷暴伴冰雹", 99: "强雷暴冰雹"}
@@ -286,6 +341,7 @@ def _safe_send(label, fn, *args):
 def check():
     if _lock is None: return None
     cfg = _cfg(); state = _load_json(_STATE); now = datetime.now()
+    reconciled = _reconcile_state_from_context_events(state, now)
     diag = {}
     decision, why = _decide(cfg, state, now, diag)
     state.update({
@@ -295,6 +351,7 @@ def check():
         "last_idle_min": diag.get("idle_min"),
         "last_has_feishu": diag.get("has_feishu"),
         "last_has_wechat": diag.get("has_wechat"),
+        "last_context_reconciled": bool(reconciled),
     })
     if not decision:
         state["last_decision"] = "none"
@@ -419,7 +476,11 @@ def on_done(result):
                 body,
                 channel="+".join(sent),
                 actor=cfg.get("open_id", ""),
-                metadata={"trigger": kind, "mode": cfg.get("mode", "present")},
+                metadata={
+                    "trigger": kind,
+                    "mode": cfg.get("mode", "present"),
+                    "pending_emotion_ts": state.get("pending_emotion_ts", 0) if kind == "emotion" else 0,
+                },
             )
         except Exception as e:
             print(f"[companion] 上下文事件记录失败: {e}")

@@ -4,21 +4,20 @@
 挂载方式（蓬莱插件标准样板，GA 内核零改动）：
   1. 类注入：给 GenericAgentHandler 添加 do_transcribe 方法（do_ 约定自动生效）
   2. schema 注入：agent_before hook 往 tools_schema 列表幂等追加工具定义
-模型放仓库外（默认 ~/penglai-models/），缺失时工具返回下载指引，不崩溃。
+模型放仓库外（默认 ~/penglai-models/），缺失时返回终止性可读错误，不自动安装。
 """
-import os, array, subprocess, shutil
+import os, array, subprocess
 
 from plugins.hooks import register
 from agent_loop import StepOutcome
 from ga import GenericAgentHandler
+from penglai_runtime.capabilities import VOICE_MODEL_FILE, VOICE_TOKEN_FILE, ffmpeg_bin, voice_model_dir
 
-MODEL_DIR = os.path.join(os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-models")),
-                         "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
-_DOWNLOAD_HINT = ("SenseVoice 模型未就绪。下载（约230MB）:\n"
-                  "mkdir -p ~/penglai-models && cd ~/penglai-models && "
-                  "curl -L -o sv.tar.bz2 'https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/"
-                  "download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2' "
-                  "&& tar xjf sv.tar.bz2 && rm sv.tar.bz2")
+MODEL_DIR = voice_model_dir()
+_MODEL_NOT_READY = (
+    "语音识别模型未就绪。当前聊天任务不会自动下载或安装运行时模型；"
+    "请先在服务器预装 SenseVoice 模型后重试。"
+)
 
 EMO = {"HAPPY": "高兴", "SAD": "悲伤", "ANGRY": "生气", "NEUTRAL": "平静",
        "FEARFUL": "害怕", "DISGUSTED": "厌恶", "SURPRISED": "惊讶"}
@@ -33,8 +32,8 @@ def _get_recognizer():
     if _recognizer is None:
         import sherpa_onnx
         _recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
-            model=os.path.join(MODEL_DIR, "model.int8.onnx"),
-            tokens=os.path.join(MODEL_DIR, "tokens.txt"),
+            model=os.path.join(MODEL_DIR, VOICE_MODEL_FILE),
+            tokens=os.path.join(MODEL_DIR, VOICE_TOKEN_FILE),
             use_itn=True, language="auto", num_threads=2)
     return _recognizer
 
@@ -50,14 +49,7 @@ def _ffmpeg_bin():
     """解析 ffmpeg 绝对路径：先 PATH，再常见安装位置（macOS Homebrew / Linux / MacPorts）。
     野生进程 PATH 被裁(不含 /opt/homebrew/bin)时裸名 'ffmpeg' 会 FileNotFoundError → 语音静默
     失败(真实 macOS 运行中踩过:两条语音被无视)。这里固化解析，找不到给可读错误而非静默吞错。"""
-    p = shutil.which("ffmpeg")
-    if p:
-        return p
-    for cand in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg",
-                 "/usr/bin/ffmpeg", "/opt/local/bin/ffmpeg"):
-        if os.path.isfile(cand) and os.access(cand, os.X_OK):
-            return cand
-    return None
+    return ffmpeg_bin()
 
 
 def _decode_samples(rec, samples):
@@ -87,8 +79,11 @@ def _pick_label(labels, prefer_non_neutral=False):
 def transcribe_file(path):
     """音频文件 → {text, emotion, event, lang}。ffmpeg 解码（opus/mp3/wav/m4a/amr 等）；
     微信 .silk 先用 pilk 解成 PCM 再走同一管线（ffmpeg 不认 silk）。"""
-    if not os.path.isfile(os.path.join(MODEL_DIR, "model.int8.onnx")):
-        return {"error": _DOWNLOAD_HINT}
+    if not (
+        os.path.isfile(os.path.join(MODEL_DIR, VOICE_MODEL_FILE))
+        and os.path.isfile(os.path.join(MODEL_DIR, VOICE_TOKEN_FILE))
+    ):
+        return {"error": _MODEL_NOT_READY, "fatal": True}
     ff = _ffmpeg_bin()
     if not ff:
         return {"error": "ffmpeg 未找到（语音解码必需）。装: brew install ffmpeg(macOS) / "
@@ -187,12 +182,15 @@ def do_transcribe(self, args, response):
         return StepOutcome({"error": f"文件不存在: {path}"},
                            next_prompt=self._get_anchor_prompt(skip=args.get("_index", 0) > 0))
     r = transcribe_file(path)
-    if "error" not in r:
-        parts = [f"语音转写（{r['duration_sec']}秒）: {r['text']}"]
-        if r["emotion"]: parts.append(f"语气情绪: {r['emotion']}")
-        if r["event"]:   parts.append(f"声学事件: {r['event']}")
-        r = "\n".join(parts) + "\n[提示] 情绪标签来自声学模型，仅供参考；回复时自然体察，不要机械复述标签。"
-        yield r + "\n"
+    if "error" in r:
+        msg = f"⚠️ {r['error']}"
+        yield msg + "\n"
+        return StepOutcome(msg, next_prompt=None)
+    parts = [f"语音转写（{r['duration_sec']}秒）: {r['text']}"]
+    if r["emotion"]: parts.append(f"语气情绪: {r['emotion']}")
+    if r["event"]:   parts.append(f"声学事件: {r['event']}")
+    r = "\n".join(parts) + "\n[提示] 情绪标签来自声学模型，仅供参考；回复时自然体察，不要机械复述标签。"
+    yield r + "\n"
     return StepOutcome(r, next_prompt=self._get_anchor_prompt(skip=args.get("_index", 0) > 0))
 
 # ---- 挂载 ----

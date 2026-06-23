@@ -22,3 +22,9 @@ class PenglaiRuntimeHub:
 
     def cancel(self, session_id, *, drop_pending=False):
         return self.runner.cancel(session_id, drop_pending=drop_pending)
+
+    def status(self, session_id):
+        return self.runner.status(session_id)
+
+    def get_run(self, run_id):
+        return self.runner.get_run(run_id)

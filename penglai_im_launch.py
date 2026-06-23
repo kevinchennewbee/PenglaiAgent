@@ -65,6 +65,27 @@ def _fmt(text, emotion):
     return f"[语音] {text}" + (f"（语气：{emotion}）" if emotion else "")
 
 
+def _cancel_wechat_runtime_session(uid, runtime, hub_service, agent, pending_permissions=None, task_aborted=None):
+    """Cancel the WeChat user's Runtime Hub session and abort the active GA turn."""
+    import uuid
+
+    runtime_event, session = runtime.event(
+        event_id=f"wechat_cancel_{uid}_{uuid.uuid4().hex}",
+        user_id=uid,
+        chat_id=uid,
+        text="/stop",
+    )
+    data = hub_service.cancel_session(session.session_id, drop_pending=True)
+    abort = getattr(agent, "abort", None)
+    if callable(abort):
+        abort()
+    if isinstance(task_aborted, dict):
+        task_aborted[uid] = True
+    if pending_permissions is not None:
+        pending_permissions.pop(uid, None)
+    return session.session_id, data
+
+
 # ---------- 钉钉：recognition 自带文本（音频原文件需 access_token，暂用 recognition）----------
 def patch_dingtalk(m):
     H = getattr(m, "_DingTalkHandler", None)
@@ -246,15 +267,20 @@ def launch_wechat():
     写后不覆盖），供主动陪伴(reflect/penglai_companion)跨进程投递。
     其余完全复刻 frontends/wechatapp.py 的 __main__ 序列（含 systemd 关心的退出码：
     1=单例冲突/无token不可交互，2=AuthExpired 需重扫码）。"""
+    do_relogin = "--relogin" in sys.argv
+    token_path = os.path.expanduser("~/.wxbot/token.json")
+    if not do_relogin and not os.path.exists(token_path) and not sys.stdout.isatty():
+        print("[微信] 未找到 token，且当前不是交互终端。请运行 `penglai setup`，或提供 ~/.wxbot/token.json。")
+        return 1
+
     import copy, json, queue, re, time, socket, threading, uuid
     import frontends.wechatapp as wx
     from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+    from penglai_runtime.contracts import RunStatus
     from penglai_runtime.delivery import DeliveryService
-    from penglai_runtime.interaction import (
-        interaction_request_from_turn,
-        render_interaction_text,
-        resolve_interaction_choice,
-    )
+    from penglai_runtime.permissions import render_permission_text, resolve_permission_choice
+    from penglai_runtime.port import GenericAgentInstancePort
+    from penglai_runtime.service import RuntimeHubService
 
     _master = os.path.join(ROOT, "temp", "wx_master.json")
     _wechat_lock_port = 19532
@@ -319,9 +345,20 @@ def launch_wechat():
             _send(bot, uid, _help_text(), ctx)
             return True
         if text in ("/stop", "/abort"):
-            wx.agent.abort()
-            wx._task_aborted[uid] = True
-            print(f"[WX] /stop set _task_aborted[{uid}]", file=sys.__stdout__)
+            session_id, data = _cancel_wechat_runtime_session(
+                uid,
+                _runtime,
+                _hub_service,
+                wx.agent,
+                pending_permissions=_pending_permissions,
+                task_aborted=wx._task_aborted,
+            )
+            print(
+                f"[WX] /stop runtime_cancel session={session_id} "
+                f"next={data.get('next_event_id') or '-'}",
+                file=sys.__stdout__,
+            )
+            _send(bot, uid, f"[已请求停止] session={session_id}", ctx)
             return True
         if _is_cmd(text, "/new"):
             from frontends.continue_cmd import reset_conversation
@@ -368,7 +405,7 @@ def launch_wechat():
             return True
         return False
 
-    _pending_interactions = {}
+    _pending_permissions = {}
     _runtime = ChannelRuntimeBridge(
         channel="wechat",
         file_hint=(
@@ -377,6 +414,8 @@ def launch_wechat():
             "do not answer image-content questions from filenames, EXIF, OCR-only guesses, or model-name assumptions."
         ),
     )
+    _hub_service = RuntimeHubService(owner_user_ids=getattr(_runtime.router, "owner_user_ids", set()))
+    print("[蓬莱中枢] 微信消息已接入 RuntimeHubService -> GenericAgentInstancePort -> TaskRun", file=sys.__stdout__)
 
     def _compose_wechat_prompt(text):
         return _runtime.prompt(text)
@@ -390,10 +429,6 @@ def launch_wechat():
             images=tuple(media_paths or ()),
             files=tuple(media_paths or ()),
         )
-        prompt = text if text.startswith("/") else _compose_wechat_prompt(runtime_event.text)
-        hook_key = f"penglai_wx_{uid}_{uuid.uuid4().hex}"
-        result = {"raw": None, "sent": False, "request": None}
-
         def _wx_send(body):
             s = (body or "").strip()
             if not s:
@@ -407,26 +442,6 @@ def launch_wechat():
                 print(f"[WX] send err len={len(s[:3000])} dt={time.time()-t0:.1f}s {type(e).__name__}: {e}", file=sys.__stdout__)
                 return False
 
-        def _finish(raw):
-            if result["sent"]:
-                return
-            result["raw"] = raw
-            result["sent"] = True
-
-        def _hook(turn_ctx):
-            try:
-                if turn_ctx.get("exit_reason"):
-                    request = interaction_request_from_turn(turn_ctx, request_id=hook_key)
-                    if request is not None:
-                        result["request"] = request
-                        result["sent"] = True
-                        return
-                    resp = turn_ctx.get("response")
-                    _finish(resp.content if hasattr(resp, "content") else str(resp))
-            except Exception as e:
-                print(f"[penglai wx interaction] hook error: {e}", file=sys.__stdout__)
-
-        dq = None
         _typing_stop = threading.Event()
 
         def _keep_typing():
@@ -443,80 +458,111 @@ def launch_wechat():
                     pass
                 _typing_stop.wait(2.0)
 
-        try:
-            if not hasattr(wx.agent, "_turn_end_hooks"):
-                wx.agent._turn_end_hooks = {}
-            wx.agent._turn_end_hooks[hook_key] = _hook
-            dq = wx.agent.put_task(prompt, source="wechat")
-            threading.Thread(target=_keep_typing, daemon=True).start()
-            done_parts, sent_count, turn = [], 0, 1
-            item = {}
-            while not result["sent"]:
+        def _deliver_result(run_result):
+            if run_result is None:
+                _wx_send("❌ 错误: 微信运行时中枢调用失败")
+                return
+            if run_result.status == RunStatus.WAITING_PERMISSION and run_result.permission is not None:
+                _pending_permissions[uid] = run_result.permission
+                _wx_send(render_permission_text(run_result.permission))
+                return
+            if run_result.status == RunStatus.FAILED:
+                _wx_send(f"❌ 错误: {run_result.task_run.error}")
+                return
+            if run_result.status == RunStatus.CANCELLED:
+                _wx_send("[已停止]")
+                return
+
+            raw = run_result.raw_output or run_result.cleaned_output or run_result.task_run.result_text
+            _runtime.record_memory(raw, context={"channel": "wechat", "session_id": session.session_id})
+            _runtime.record_shadow(
+                raw,
+                receive_id=uid,
+                receive_id_type="wechat_user",
+                base_dir=wx._TEMP_DIR,
+                exclude_paths=media_paths,
+                production_text=raw,
+            )
+            aborted = wx._task_aborted.pop(uid, False)
+            tag = "[已停止]" if aborted else "[任务已完成]"
+            body = wx._clean(f"{raw}\n\n{tag}")
+            if body:
+                _wx_send(body[-3000:])
+
+            def _send_file(fpath):
                 try:
-                    item = dq.get(timeout=1)
-                except queue.Empty:
-                    continue
-                if "done" in item:
-                    _finish(item.get("done", ""))
+                    kind = wx.artifact_kind(fpath)
+                    sender = bot.send_video if kind == "video" else bot.send_image if kind == "image" else bot.send_file
+                    sender(uid, fpath, context_token=ctx)
+                    print(f"[WX] sent media: {fpath}", file=sys.__stdout__)
+                    return True
+                except Exception as e:
+                    print(f"[WX] send media err: {e}", file=sys.__stdout__)
+                    return False
+
+            DeliveryService(send_text=_wx_send, send_file=_send_file).deliver(
+                raw,
+                base_dir=wx._TEMP_DIR,
+                exclude_paths=media_paths,
+                send_body=False,
+            )
+
+        try:
+            threading.Thread(target=_keep_typing, daemon=True).start()
+            port = GenericAgentInstancePort(
+                agent=wx.agent,
+                prompt_builder=lambda incoming: (
+                    incoming.text if incoming.text.startswith("/") else _compose_wechat_prompt(incoming.text)
+                ),
+                source="wechat",
+                timeout=getattr(wx, "AGENT_TIMEOUT_SEC", 1200),
+            )
+            # Unified中枢 submit (non-blocking).  When the session is busy the
+            # hub queues the event; we tell the user and return.  When it starts
+            # now, we wait for THIS event's completion.
+            done_evt = threading.Event()
+            holder = {}
+            queued_delivery = {"enabled": False, "delivered": False}
+
+            def _deliver_queued(result):
+                if queued_delivery["delivered"]:
+                    return
+                queued_delivery["delivered"] = True
+                _deliver_result(result)
+
+            def _on_complete(result):
+                holder["result"] = result
+                if queued_delivery["enabled"]:
+                    _deliver_queued(result)
+                done_evt.set()
+
+            decision = _hub_service.submit(
+                runtime_event,
+                port=port,
+                on_complete=_on_complete,
+                base_dir=wx._TEMP_DIR,
+                exclude_paths=media_paths,
+                send_body=False,
+                send_notice=False,
+            )
+            if not decision.started_now:
+                queued_delivery["enabled"] = True
+                if "result" in holder:
+                    _deliver_queued(holder["result"])
+                _typing_stop.set()
+                _wx_send(f"已收到，当前还有任务在运行；这条已排队 #{decision.queue_no}，当前任务结束后自动处理。")
+                return
+            while not done_evt.wait(timeout=0.5):
+                if wx._task_aborted.get(uid):
                     break
-                if item.get("turn", turn) > turn:
-                    outputs = item.get("outputs", [])
-                    lastdone = outputs[-2] if len(outputs) >= 2 else ""
-                    turn = item["turn"]
-                    done_parts.append(lastdone)
-                if len(done_parts) > sent_count:
-                    merged = wx._clean("\n\n".join(done_parts[sent_count:]))
-                    if _wx_send(merged):
-                        sent_count = len(done_parts)
+            run_result = holder.get("result")
         except Exception as e:
             print(f"[WX] penglai wrapper run err: {type(e).__name__}: {e}", file=sys.__stdout__)
-            result["raw"] = f"❌ 错误: {e}"
-            result["sent"] = True
-            item = {}
+            run_result = None
         finally:
             _typing_stop.set()
-            if hasattr(wx.agent, "_turn_end_hooks"):
-                wx.agent._turn_end_hooks.pop(hook_key, None)
 
-        if result["request"] is not None:
-            _pending_interactions[uid] = result["request"]
-            _wx_send(render_interaction_text(result["request"]))
-            return
-
-        raw = result["raw"] if result["raw"] is not None else (item.get("done", "") if isinstance(item, dict) else "")
-        _runtime.record_memory(raw, context={"channel": "wechat", "session_id": session.session_id})
-        _runtime.record_shadow(
-            raw,
-            receive_id=uid,
-            receive_id_type="wechat_user",
-            base_dir=wx._TEMP_DIR,
-            exclude_paths=media_paths,
-            production_text=raw,
-        )
-        outputs = item.get("outputs", []) if isinstance(item, dict) else []
-        aborted = wx._task_aborted.pop(uid, False)
-        tag = "[已停止]" if aborted else "[任务已完成]"
-        rest = wx._clean("\n\n".join(outputs[sent_count:] + ["\n\n" + tag]).strip())
-        if rest:
-            _wx_send(rest[-3000:])
-
-        def _send_file(fpath):
-            try:
-                kind = wx.artifact_kind(fpath)
-                sender = bot.send_video if kind == "video" else bot.send_image if kind == "image" else bot.send_file
-                sender(uid, fpath, context_token=ctx)
-                print(f"[WX] sent media: {fpath}", file=sys.__stdout__)
-                return True
-            except Exception as e:
-                print(f"[WX] send media err: {e}", file=sys.__stdout__)
-                return False
-
-        DeliveryService(send_text=_wx_send, send_file=_send_file).deliver(
-            raw,
-            base_dir=wx._TEMP_DIR,
-            exclude_paths=media_paths,
-            send_body=False,
-        )
+        _deliver_result(run_result)
 
     def on_message(bot, msg):
         try:
@@ -538,13 +584,13 @@ def launch_wechat():
             return
         if text and _dispatch_command(bot, msg, text, uid, ctx):
             return
-        waiting = _pending_interactions.get(uid)
+        waiting = _pending_permissions.get(uid)
         if waiting and text:
-            chosen = resolve_interaction_choice(text, waiting)
+            chosen = resolve_permission_choice(text, waiting)
             if chosen is None:
-                _send(bot, uid, render_interaction_text(waiting), ctx)
+                _send(bot, uid, render_permission_text(waiting), ctx)
                 return
-            _pending_interactions.pop(uid, None)
+            _pending_permissions.pop(uid, None)
             text = chosen
         threading.Thread(
             target=_run_wechat_agent,
@@ -553,28 +599,30 @@ def launch_wechat():
             name="wechat-penglai-agent",
         ).start()
 
-    do_relogin = "--relogin" in sys.argv
     try:
         lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lock.bind(("127.0.0.1", _wechat_lock_port))
     except OSError:
-        print("[WeChat] Another instance running, exiting."); return 1
+        print("[微信] 已有一个实例在运行，退出。"); return 1
     logf = open(os.path.join(ROOT, "temp", "wechatapp.log"), "a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = logf
     print(f'[NEW] Process starting {time.strftime("%m-%d %H:%M")} (penglai_im_launch)')
     bot = wx.WxBotClient()
     if do_relogin or not bot.token:
         if not sys.stdout.isatty():
-            print("[Bot] no token and not interactive, exit."); return 1
+            msg = "[微信] 未找到 token，且当前不是交互终端。请运行 `penglai setup`，或提供 ~/.wxbot/token.json。"
+            print(msg)
+            print(msg, file=sys.__stdout__)
+            return 1
         sys.stdout = sys.stderr = sys.__stdout__  # restore for QR display
         bot.login_qr()
         sys.stdout = sys.stderr = logf
     threading.Thread(target=wx.agent.run, daemon=True).start()
-    print(f"WeChat Bot 已启动 (bot_id={bot.bot_id})", file=sys.__stdout__)
+    print(f"微信机器人已启动（bot_id={bot.bot_id}）", file=sys.__stdout__)
     try:
         bot.run_loop(on_message)
     except wx.AuthExpired:
-        print("[Bot] token expired, exit.", file=sys.__stdout__)
+        print("[微信] token 已过期，退出。", file=sys.__stdout__)
         return 2
     return 0
 

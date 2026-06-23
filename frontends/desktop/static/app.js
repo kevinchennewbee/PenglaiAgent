@@ -1,5 +1,5 @@
 window.process = window.process || { platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32' };
-// GenericAgent Desktop — Renderer Logic
+// Penglai Desktop — Renderer Logic
 // Handles UI state, sessions, streaming, slash commands.
 
 'use strict';
@@ -40,6 +40,8 @@ const settingsModal = $('settings-modal');
 const errorBanner = $('error-banner');
 const diagnosticsPanel = $('diagnostics-panel');
 const diagnosticsLogEl = $('diagnostics-log');
+const opsSummaryEl = $('ops-summary');
+const opsOutputEl = $('ops-output');
 
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ function addDiagnostic(level, message, payload) {
 
 function formatDiagnostics() {
   const diags = getActiveDiagnostics();
-  if (diags.length === 0) return 'No diagnostics yet.';
+  if (diags.length === 0) return '暂无诊断信息。';
   return diags.map((entry) => {
     const suffix = entry.detail ? `\n  ${entry.detail}` : '';
     return `[${entry.ts}] ${entry.level.toUpperCase()} ${entry.message}${suffix}`;
@@ -91,10 +93,10 @@ async function copyDiagnostics() {
   const text = formatDiagnostics();
   try {
     await navigator.clipboard.writeText(text);
-    addDiagnostic('info', 'Diagnostics copied to clipboard');
+    addDiagnostic('info', '诊断信息已复制到剪贴板');
   } catch (err) {
-    addDiagnostic('error', 'Failed to copy diagnostics', err);
-    showError('Failed to copy diagnostics: ' + (err.message || err), null, null, { skipDiagnostic: true });
+    addDiagnostic('error', '复制诊断信息失败', err);
+    showError('复制诊断信息失败：' + (err.message || err), null, null, { skipDiagnostic: true });
   }
 }
 
@@ -204,7 +206,7 @@ function summarizeStructuredBlock(kind, text) {
     return line.length > 96 ? line.slice(0, 96) + '…' : line;
   }
   // No summary tag: show kind only (no body text leakage)
-  if (kind === 'LLM_RUNNING') return 'LLM Running';
+  if (kind === 'LLM_RUNNING') return '模型运行中';
   return kind;
 }
 
@@ -422,10 +424,10 @@ function ensureAssistantTaskElapsed(wrap, startedAt, endedAt) {
 
 function turnLabelForSegment(seg, index) {
   const summary = summarizeStructuredBlock(seg.kind, seg.text);
-  if (seg.kind === 'LLM_RUNNING') return summary || `Turn ${index + 1}`;
-  if (seg.kind === 'TOOL_CALL') return 'Tool';
-  if (seg.kind === 'TOOL_RESULT') return 'Result';
-  return summary || seg.kind || `Turn ${index + 1}`;
+  if (seg.kind === 'LLM_RUNNING') return summary || `第 ${index + 1} 轮`;
+  if (seg.kind === 'TOOL_CALL') return '工具调用';
+  if (seg.kind === 'TOOL_RESULT') return '工具结果';
+  return summary || seg.kind || `第 ${index + 1} 轮`;
 }
 
 function nextTurnIndexForWrap(wrap) {
@@ -436,7 +438,7 @@ function nextTurnIndexForWrap(wrap) {
 }
 
 function turnHeaderLabel(index, label) {
-  return `Turn ${index} : ${label || 'response'}`;
+  return `第 ${index} 轮：${label || '回复'}`;
 }
 
 function groupIntoTurns(segments, options = {}) {
@@ -467,11 +469,11 @@ function parseToolDetails(kind, text) {
     const tool = invoke ? invoke[1] : '';
     const params = extractTagBody(raw, 'parameter') || extractTagBody(raw, 'arguments') || extractTagBody(raw, 'args');
     const jsonish = params || (raw.match(/<invoke\b[^>]*>[\s\S]*?<\/invoke>/i)?.[0] || '').replace(/<\/?invoke[^>]*>/gi, '').trim();
-    if (tool || jsonish) return { title: tool ? `Tool: ${tool}` : 'Tool call', tool, args: jsonish };
+    if (tool || jsonish) return { title: tool ? `工具：${tool}` : '工具调用', tool, args: jsonish };
   }
   if (kind === 'TOOL_RESULT') {
     const result = extractTagBody(raw, 'result') || raw.replace(/<\/?function_results[^>]*>/gi, '').trim();
-    if (result) return { title: 'Tool result', tool: 'result', args: result };
+    if (result) return { title: '工具结果', tool: 'result', args: result };
   }
   return null;
 }
@@ -484,11 +486,11 @@ function renderToolDetailInto(container, seg) {
   const header = document.createElement('button');
   header.type = 'button';
   header.className = 'turn-header tool-detail-header';
-  header.innerHTML = `<span class="turn-caret">▼</span><span class="turn-tag">${escapeHtml(detail.title)}</span><span class="turn-summary">args</span>`;
+  header.innerHTML = `<span class="turn-caret">▼</span><span class="turn-tag">${escapeHtml(detail.title)}</span><span class="turn-summary">参数</span>`;
   header.addEventListener('click', () => detailTurn.classList.toggle('collapsed'));
   const body = document.createElement('div');
   body.className = 'turn-body md tool-detail-body';
-  const codeText = `Tool: ${detail.tool || detail.title.replace(/^Tool:\s*/, '') || 'tool'}\nargs:\n${detail.args || ''}`;
+  const codeText = `工具：${detail.tool || detail.title.replace(/^工具：\s*/, '') || 'tool'}\n参数：\n${detail.args || ''}`;
   body.innerHTML = `<pre class="tool-args-code"><code>${escapeHtml(codeText)}</code></pre>`;
   detailTurn.appendChild(header);
   detailTurn.appendChild(body);
@@ -598,17 +600,17 @@ function injectCopyButtons(container) {
     pre.style.position = 'relative';
     const btn = document.createElement('button');
     btn.className = 'copy-btn';
-    btn.textContent = 'Copy';
-    btn.setAttribute('aria-label', 'Copy code');
+    btn.textContent = '复制';
+    btn.setAttribute('aria-label', '复制代码');
     btn.addEventListener('click', () => {
       const code = pre.querySelector('code') || pre;
       navigator.clipboard.writeText(code.textContent).then(() => {
-        btn.textContent = '✓ Copied';
+        btn.textContent = '✓ 已复制';
         btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
       }).catch(() => {
-        btn.textContent = '✗ Failed';
-        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+        btn.textContent = '✗ 失败';
+        setTimeout(() => { btn.textContent = '复制'; }, 2000);
       });
     });
     pre.appendChild(btn);
@@ -623,12 +625,12 @@ function escapeHtml(s) {
 
 // ─── Session management ──────────────────────────────────────────────────
 function isUntitledSessionTitle(title) {
-  return !title || /^new\s+chat$/i.test(String(title).trim());
+  return !title || /^new\s+chat$/i.test(String(title).trim()) || String(title).trim() === '新对话';
 }
 
 function createLocalSession(id, title, bridgeSessionId = id) {
   const sess = {
-    id, bridgeSessionId, title: title || 'New chat', messages: [], cwd: null,
+    id, bridgeSessionId, title: title || '新对话', messages: [], cwd: null,
     untitled: isUntitledSessionTitle(title),
     config: { ...state.defaultConfig },
     diagnostics: [],
@@ -654,7 +656,7 @@ function setActiveSession(id) {
   renderSessionList();
   renderDiagnostics();
   const runtime = getSessionRuntime(sess);
-  setBusy(runtime.busy, runtime.busy ? 'Agent is responding…' : null, sess);
+  setBusy(runtime.busy, runtime.busy ? '蓬莱正在回复…' : null, sess);
   // When switching to a session that is still running, ensure the live draft
   // is rendered immediately and polling is active (it may have been started
   // earlier but its render calls were no-ops because the session wasn't active).
@@ -739,7 +741,7 @@ function renderSessionList() {
     const closeBtn = document.createElement('span');
     closeBtn.className = 'tab-close';
     closeBtn.setAttribute('role', 'button');
-    closeBtn.setAttribute('aria-label', 'Close tab');
+    closeBtn.setAttribute('aria-label', '关闭标签');
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -787,14 +789,14 @@ function closeSession(id) {
 
 async function newSession() {
   if (!state.bridgeReady) {
-    showError('Bridge is not ready yet. Please wait a moment.');
+    showError('中枢桥接尚未就绪，请稍等。');
     return;
   }
   const previousSess = state.sessions.get(state.activeId) || null;
   // Don't mark previousSess as busy - it's not doing anything
   // Just show status text without changing any tab dot
   const statusEl = $('status');
-  if (statusEl) statusEl.textContent = 'Creating session…';
+  if (statusEl) statusEl.textContent = '正在创建对话…';
   let createdSess = null;
   try {
     const cwd = await getCwd();
@@ -802,11 +804,11 @@ async function newSession() {
     if (res.error) throw new Error(typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error)));
     const bridgeSessionId = res.sessionId;
     const localSessionId = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    createdSess = createLocalSession(localSessionId, 'New chat', bridgeSessionId);
+    createdSess = createLocalSession(localSessionId, '新对话', bridgeSessionId);
     createdSess.cwd = cwd;
     setActiveSession(localSessionId);
   } catch (e) {
-    showError('Failed to create session: ' + e.message);
+    showError('创建对话失败：' + e.message);
   } finally {
     setBusy(false, null, createdSess || previousSess);
   }
@@ -848,8 +850,8 @@ function renderMessages() {
     messagesEl.classList.add('empty');
     messagesEl.innerHTML = `
       <div class="empty-state">
-        <div class="empty-title">New task</div>
-        <div class="empty-sub">Task me anything. Type <code>/help</code> for commands.</div>
+        <div class="empty-title">新任务</div>
+        <div class="empty-sub">直接输入任务，或输入 <code>/help</code> 查看命令。</div>
       </div>`;
     state._prevRenderedId = state.activeId;
     return;
@@ -901,7 +903,7 @@ function renderMessage(msg, append = true) {
         if (dataUrl) {
           return `<img src="${dataUrl}" class="user-msg-thumb" />`;
         }
-        return `<span class="user-msg-thumb-placeholder" title="Image expired">🖼</span>`;
+        return `<span class="user-msg-thumb-placeholder" title="图片已过期">🖼</span>`;
       }).join('') + '</div>';
     }
     wrap.innerHTML = `<div class="bubble">${imagesHtml}${escapeHtml(msg.content)}</div>`;
@@ -940,6 +942,7 @@ function renderMessage(msg, append = true) {
       ensureAssistantTaskElapsed(wrap, msg.taskStartedAt, msg.taskEndedAt);
       const cleanContent = (msg.content || '').replace(/\n*`{5}\n*\[Info\] Final response to user\.\n*`{5}\s*$/, '');
       renderStructuredMarkdownInto(body, cleanContent);
+      if (msg.permission) renderPermissionActionsInto(body, msg.permission);
       injectCopyButtons(body);
       wrap.appendChild(body);
     }
@@ -947,6 +950,41 @@ function renderMessage(msg, append = true) {
     messagesEl.appendChild(wrap);
   }
   if (append) scrollToBottom();
+}
+
+function renderPermissionActionsInto(container, permission) {
+  if (!container || !permission) return;
+  const options = Array.isArray(permission.options) ? permission.options : [];
+  if (!options.length && !permission.allow_free_text) return;
+  const box = document.createElement('div');
+  box.className = 'permission-actions';
+  box.dataset.requestId = permission.request_id || '';
+  if (options.length) {
+    for (const option of options) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'permission-choice-btn';
+      btn.textContent = option.label || option.value || `选项 ${option.index || ''}`.trim();
+      btn.title = '发送此确认选择';
+      btn.addEventListener('click', () => {
+        const sess = state.sessions.get(state.activeId);
+        const runtime = sess ? getSessionRuntime(sess) : null;
+        if (runtime?.busy) {
+          showSystem('蓬莱仍在处理上一条消息，请稍后再选择。');
+          return;
+        }
+        sendPrompt(option.label || option.value || '');
+      });
+      box.appendChild(btn);
+    }
+  }
+  if (permission.allow_free_text) {
+    const hint = document.createElement('div');
+    hint.className = 'permission-free-text';
+    hint.textContent = '也可以直接在输入框回复。';
+    box.appendChild(hint);
+  }
+  container.appendChild(box);
 }
 
 function buildTurn(kind, text, collapsed, index) {
@@ -999,7 +1037,7 @@ function handleNotification(msg) {
     if ((msg.state === 'running' || msg.status === 'running') && !runtime.polling) {
       runtime.busy = true;
       runtime.forcePollOnce = true;
-      setBusy(true, 'Thinking…', sess);
+      setBusy(true, '思考中…', sess);
       pollSessionMessages(sess);
     } else if (msg.state === 'idle' || msg.state === 'error' || msg.status === 'idle') {
       // Session finished in background — do a final poll to pick up remaining messages
@@ -1027,7 +1065,7 @@ function handleNotification(msg) {
   } else if (kind === 'task_started') {
     hideError();
     startTaskTimer(sess);
-    setBusy(true, 'Thinking…', sess);
+    setBusy(true, '思考中…', sess);
   } else if (kind === 'task_completed' || kind === 'cancelled') {
     finalizeAssistantReply(sess);
     setBusy(false, null, sess);
@@ -1035,7 +1073,7 @@ function handleNotification(msg) {
   } else if (kind === 'error') {
     finalizeAssistantReply(sess);
     setBusy(false, null, sess);
-    const errText = update.message || update.error || 'Bridge error';
+    const errText = update.message || update.error || '中枢桥接错误';
     sess.messages.push({ role: 'error', content: errText });
     if (isActiveSession(sess)) renderMessage({ role: 'error', content: errText });
     showError(errText);
@@ -1337,7 +1375,8 @@ function normalizeBridgeMessage(msg) {
     id: Number(msg.id || 0),
     role: msg.role || 'system',
     content: msg.content || '',
-    image_ids: msg.image_ids || []
+    image_ids: msg.image_ids || [],
+    permission: msg.permission || null
   };
 }
 
@@ -1392,7 +1431,7 @@ async function pollSessionMessages(sess) {
       for (const msg of (result.messages || [])) upsertPolledMessage(sess, msg, { partial: false });
       if (result.partial) upsertPolledMessage(sess, result.partial, { partial: true });
       const busy = result.status === 'running' || !!result.partial;
-      setBusy(busy, busy ? 'Thinking…' : null, sess);
+      setBusy(busy, busy ? '思考中…' : null, sess);
       if (!busy) {
         finalizeAssistantReply(sess);
         break;
@@ -1400,8 +1439,8 @@ async function pollSessionMessages(sess) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   } catch (e) {
-    addDiagnostic('error', 'Polling failed', e);
-    showError('Polling failed: ' + (e.message || e));
+    addDiagnostic('error', '轮询失败', e);
+    showError('轮询失败：' + (e.message || e));
     setBusy(false, null, sess);
   } finally {
     runtime.polling = false;
@@ -1410,7 +1449,7 @@ async function pollSessionMessages(sess) {
 
 async function sendPrompt(text, images = []) {
   if (!state.bridgeReady) {
-    showError('Bridge is not ready.');
+    showError('中枢桥接尚未就绪。');
     return;
   }
   if (!state.activeId) {
@@ -1438,7 +1477,7 @@ async function sendPrompt(text, images = []) {
     renderSessionList();
   }
 
-  setBusy(true, 'Thinking…', sess);
+  setBusy(true, '思考中…', sess);
   try {
     const res = await window.ga.rpc('session/prompt', {
       sessionId: await ensureBridgeSession(sess),
@@ -1472,7 +1511,7 @@ async function cancelPrompt() {
     setBusy(false, null, sess);  // clear busy immediately; don't wait for server-side cancelled event
     return true;
   } catch (e) {
-    showSystem('Stop failed: ' + (e.message || e));
+    showSystem('停止失败：' + (e.message || e));
     return false;
   }
 }
@@ -1486,11 +1525,11 @@ async function handleSlash(cmd) {
   switch (name) {
     case 'help':
       showSystem([
-        'Available commands:',
-        '  /new        New session',
-        '  /clear      Clear current session display',
-        '  /stop       Cancel the current request',
-        '  /theme      Switch theme (light|dark|auto)',
+        '可用命令：',
+        '  /new        新建对话',
+        '  /clear      清空当前对话显示',
+        '  /stop       取消当前请求',
+        '  /theme      切换主题（light|dark|auto）',
       ].join('\n'));
       break;
     case 'new':
@@ -1500,7 +1539,7 @@ async function handleSlash(cmd) {
       if (sess) { sess.messages = []; renderMessages(); }
       break;
     case 'stop':
-      if (await cancelPrompt()) showSystem('Stop requested.');
+      if (await cancelPrompt()) showSystem('已请求停止。');
       break;
     case 'restart':
       await restartBridge();
@@ -1514,9 +1553,9 @@ async function handleSlash(cmd) {
         cfg.theme = arg;
         applyTheme();
         await window.ga.saveConfig(cfg);
-        showSystem(`Theme → ${arg}`);
+        showSystem(`主题 → ${arg}`);
       } else {
-        showSystem('Usage: /theme light|dark|auto');
+        showSystem('用法：/theme light|dark|auto');
       }
       break;
     case 'cwd':
@@ -1524,10 +1563,10 @@ async function handleSlash(cmd) {
         const status = await window.ga.checkStatus();
         showSystem(`cwd: ${sess?.cwd || status.gaRoot}`);
       } else {
-        showSystem(`Creating new session in ${arg}…`);
+        showSystem(`正在 ${arg} 中创建新对话…`);
         // Need a new session for different cwd
         const res = await window.ga.rpc('session/new', { cwd: arg, mcp_servers: [] });
-        if (res.error) showSystem('Failed: ' + (res.error.message || res.error));
+        if (res.error) showSystem('失败：' + (res.error.message || res.error));
         else {
           const bridgeSessionId = res.sessionId;
           const localSessionId = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1538,7 +1577,7 @@ async function handleSlash(cmd) {
       }
       break;
     default:
-      showSystem(`Unknown command: /${name}. Try /help.`);
+      showSystem(`未知命令：/${name}。可输入 /help 查看帮助。`);
   }
 }
 
@@ -1592,8 +1631,8 @@ function setBusy(busy, label, sess = state.sessions.get(state.activeId)) {
     updateTabDot(sess.id, dotKind);
   }
   if (!isActiveSession(sess)) return;
-  if (busy) setStatus('busy', label || 'Working…');
-  else setStatus(state.bridgeReady ? 'ok' : 'warn', state.bridgeReady ? 'Ready' : 'Starting…');
+  if (busy) setStatus('busy', label || '处理中…');
+  else setStatus(state.bridgeReady ? 'ok' : 'warn', state.bridgeReady ? '就绪' : '启动中…');
   renderSendButtonState();
 }
 
@@ -1601,7 +1640,7 @@ function renderSendButtonState() {
   const hasText = inputEl.value.trim().length > 0;
   const busy = !!getActiveSessionRuntime()?.busy;
   sendBtn.classList.toggle('stop', busy);
-  sendBtn.title = busy ? 'Stop (Esc)' : 'Send (Enter)';
+  sendBtn.title = busy ? '停止（Esc）' : '发送（Enter）';
   sendBtn.innerHTML = busy ? STOP_ICON : SEND_ICON;
   sendBtn.disabled = !hasText && !busy;
 }
@@ -1621,7 +1660,7 @@ function showError(text, actionLabel, actionFn, options = {}) {
       try {
         await actionFn();
       } catch (err) {
-        showError('Action failed: ' + (err.message || err));
+        showError('操作失败：' + (err.message || err));
       }
     };
   } else {
@@ -1646,7 +1685,7 @@ function renderModelOptions() {
   const select = $('cfg-llm');
   const selected = String(getActiveConfig().llmNo || 0);
   const profiles = Array.isArray(state.modelProfiles) ? state.modelProfiles : [];
-  const options = profiles.length ? profiles : [{ llmNo: 0, name: 'Default / Auto' }];
+  const options = profiles.length ? profiles : [{ llmNo: 0, name: '默认 / 自动' }];
   select.textContent = '';
   for (const profile of options) {
     const opt = document.createElement('option');
@@ -1654,14 +1693,14 @@ function renderModelOptions() {
     // Display as "name/model" when both fields available
     const displayName = profile.name && profile.model
       ? `${profile.name}/${profile.model}`
-      : profile.name || profile.model || `Model ${profile.llmNo}`;
+      : profile.name || profile.model || `模型 ${profile.llmNo}`;
     opt.textContent = displayName;
     select.appendChild(opt);
   }
   if (![...select.options].some((opt) => opt.value === selected)) {
     const opt = document.createElement('option');
     opt.value = selected;
-    opt.textContent = selected === '0' ? 'Default / Auto' : `Model ${selected}`;
+    opt.textContent = selected === '0' ? '默认 / 自动' : `模型 ${selected}`;
     select.appendChild(opt);
   }
   select.value = selected;
@@ -1673,7 +1712,7 @@ async function loadModelProfiles() {
     state.modelProfiles = Array.isArray(result && result.profiles) ? result.profiles : [];
     renderModelOptions();
   } catch (err) {
-    addDiagnostic('warn', 'Failed to load model names', err);
+    addDiagnostic('warn', '加载模型名称失败', err);
     renderModelOptions();
   }
 }
@@ -1684,17 +1723,234 @@ function openSettings() {
   $('cfg-llm').value = String(cfg.llmNo || 0);
   settingsModal.classList.remove('hidden');
   loadModelProfiles();
+  refreshOpsPanel({ silent: true });
 }
 function closeSettings() { settingsModal.classList.add('hidden'); }
+
+function opsStatusClass(value) {
+  if (value === true || value === 'active' || value === 'ok') return 'ok';
+  if (value === false || value === 'failed' || value === 'privacy_blocker') return 'err';
+  return 'warn';
+}
+
+function opsStatusText(value, okText = '正常', badText = '阻断') {
+  if (value === true) return okText;
+  if (value === false) return badText;
+  if (value == null || value === '') return '-';
+  if (value === 'active') return '运行中';
+  if (value === 'inactive') return '未运行';
+  if (value === 'pending') return '排队中';
+  if (value === 'queued') return '排队中';
+  if (value === 'running') return '运行中';
+  if (value === 'waiting_permission') return '等待确认';
+  if (value === 'succeeded') return '已完成';
+  if (value === 'cancelled') return '已停止';
+  if (value === 'failed') return '失败';
+  if (value === 'ok') return '正常';
+  if (value === 'privacy_blocker') return '隐私阻断';
+  return String(value);
+}
+
+const OPS_COMMAND_LABELS = {
+  doctor: '体检',
+  selfcheck: '自检',
+  'runtime-audit': '旧入口审计',
+  'privacy-audit': '隐私审计',
+  'runtime-service-status': '服务状态',
+  'runtime-service-install': '启动中枢服务',
+  'runtime-service-uninstall': '停止中枢服务',
+};
+
+const OPS_LOG_CHANNEL_LABELS = {
+  feishu: '飞书',
+  runtime: '中枢',
+  wechat: '微信',
+  scheduler: '调度器',
+  companion: '陪伴端',
+};
+
+function opsCommandLabel(command) {
+  return OPS_COMMAND_LABELS[command] || command;
+}
+
+function opsLogChannelLabel(channel) {
+  return OPS_LOG_CHANNEL_LABELS[channel] || channel;
+}
+
+function getActiveRuntimeSessionId() {
+  const sess = state.sessions.get(state.activeId);
+  if (!sess) return '';
+  for (let i = sess.messages.length - 1; i >= 0; i -= 1) {
+    const msg = sess.messages[i] || {};
+    const runtimeId = msg.runtime_session_id || msg.runtimeSessionId;
+    if (runtimeId) return runtimeId;
+  }
+  return '';
+}
+
+function opsCard(label, value, cls) {
+  const card = document.createElement('div');
+  card.className = 'ops-card';
+  const title = document.createElement('span');
+  title.className = 'ops-label';
+  title.textContent = label;
+  const body = document.createElement('span');
+  body.className = 'ops-value ' + (cls || '');
+  body.textContent = value;
+  card.appendChild(title);
+  card.appendChild(body);
+  return card;
+}
+
+function renderOpsSummary(data) {
+  if (!opsSummaryEl) return;
+  opsSummaryEl.textContent = '';
+  if (!data || data.error) {
+    const empty = document.createElement('div');
+    empty.className = 'ops-empty';
+    empty.textContent = data?.error || '中枢状态不可用。';
+    opsSummaryEl.appendChild(empty);
+    return;
+  }
+  const version = data.version || {};
+  const runtime = data.runtime_audit || {};
+  const privacy = data.privacy_audit || {};
+  const services = Array.isArray(data.services) ? data.services : [];
+  const feishu = services.find(s => s.name === 'penglai-feishu') || {};
+  const runtimeHub = services.find(s => s.name === 'penglai-runtime-hub') || {};
+
+  opsSummaryEl.appendChild(opsCard('中枢', opsStatusText(data.ok), opsStatusClass(data.ok)));
+  opsSummaryEl.appendChild(opsCard('版本', `${version.version || '-'} / ${version.branch || '-'}`));
+  opsSummaryEl.appendChild(opsCard('旧入口', `${runtime.active_blocker_count ?? '-'} 个活跃阻断`, runtime.active_blocker_count ? 'err' : 'ok'));
+  opsSummaryEl.appendChild(opsCard('隐私', opsStatusText(privacy.privacy_ok), opsStatusClass(privacy.privacy_ok)));
+  opsSummaryEl.appendChild(opsCard('发布', privacy.release_ready ? '可发布' : `${privacy.release_blocker_count ?? 0} 个阻断项`, privacy.release_ready ? 'ok' : 'warn'));
+  opsSummaryEl.appendChild(opsCard('飞书', feishu.active ? opsStatusText(feishu.active) : '未启用', opsStatusClass(feishu.active)));
+  opsSummaryEl.appendChild(opsCard('中枢服务', runtimeHub.active ? opsStatusText(runtimeHub.active) : '未启用', opsStatusClass(runtimeHub.active)));
+  opsSummaryEl.appendChild(opsCard('本地改动', version.dirty ? '有' : '无', version.dirty ? 'warn' : 'ok'));
+}
+
+function setOpsOutput(label, payload) {
+  if (!opsOutputEl) return;
+  if (payload == null) {
+    opsOutputEl.textContent = '';
+    return;
+  }
+  if (typeof payload === 'string') {
+    opsOutputEl.textContent = label ? `${label}\n\n${payload}` : payload;
+    return;
+  }
+  const out = [];
+  if (label) out.push(label);
+  if ('returncode' in payload) out.push(`退出码：${payload.returncode}`);
+  if (payload.stdout) out.push(String(payload.stdout).trimEnd());
+  if (payload.stderr) out.push(String(payload.stderr).trimEnd());
+  if (payload.text) out.push(String(payload.text).trimEnd());
+  if (out.length <= (label ? 1 : 0)) out.push(JSON.stringify(payload, null, 2));
+  opsOutputEl.textContent = out.filter(Boolean).join('\n\n');
+  opsOutputEl.scrollIntoView({ block: 'nearest' });
+}
+
+async function refreshOpsPanel(options = {}) {
+  if (!window.ga?.getOpsChecks || !opsSummaryEl) return;
+  try {
+    if (!options.silent) setOpsOutput('正在刷新中枢状态…', '');
+    const data = await window.ga.getOpsChecks();
+    renderOpsSummary(data);
+    if (!options.silent) setOpsOutput('中枢状态', JSON.stringify(data, null, 2));
+  } catch (err) {
+    renderOpsSummary({ error: err.message || String(err) });
+    addDiagnostic('warn', '刷新中枢状态失败', err);
+    if (!options.silent) showError('中枢状态刷新失败：' + (err.message || err));
+  }
+}
+
+async function runOpsCommandUi(command, options = {}) {
+  try {
+    const label = opsCommandLabel(command);
+    setOpsOutput(`正在运行${label}…`, '');
+    const data = await window.ga.runOpsCommand(command, options);
+    setOpsOutput(`penglai ${command}（${label}）`, data);
+    refreshOpsPanel({ silent: true });
+  } catch (err) {
+    const label = opsCommandLabel(command);
+    setOpsOutput(`penglai ${command}（${label}）`, err.data || err.message || String(err));
+    showError(`${label}失败：${err.message || err}`);
+  }
+}
+
+async function runOpsStateCommandUi(command, confirmText) {
+  if (confirmText && !window.confirm(confirmText)) return;
+  await runOpsCommandUi(command, { method: 'POST', timeout: 120 });
+}
+
+async function loadOpsLogUi() {
+  try {
+    const channel = $('ops-log-channel')?.value || 'feishu';
+    const label = opsLogChannelLabel(channel);
+    setOpsOutput(`正在加载${label}日志…`, '');
+    const data = await window.ga.getOpsLogs(channel, 120);
+    setOpsOutput(`${label}日志`, data);
+  } catch (err) {
+    setOpsOutput('日志', err.data || err.message || String(err));
+    showError('加载日志失败：' + (err.message || err));
+  }
+}
+
+function formatRuntimeStatus(data) {
+  const session = data?.session || {};
+  const queue = session.queue || {};
+  return [
+    `会话：${data?.session_id || session.session_id || '-'}`,
+    `运行中：${queue.active ? '是' : '否'}`,
+    `排队：${queue.pending ?? 0}`,
+    `当前任务：${session.active_run_id || '-'}`,
+    `当前状态：${opsStatusText(session.active_status)}`,
+  ].join('\n');
+}
+
+function formatRuntimeRun(row) {
+  const ts = Number(row.created_at || 0);
+  const timeText = ts ? new Date(ts * 1000).toLocaleString('zh-CN', { hour12: false }) : '-';
+  const result = String(row.error || row.result_text || '').replace(/\s+/g, ' ').trim();
+  const summary = result ? `\n  ${result.slice(0, 160)}` : '';
+  return `${timeText}  ${row.session_id || '-'}  ${opsStatusText(row.status)}  ${row.worker_id || '-'}\n  ${row.run_id || '-'}${summary}`;
+}
+
+async function loadRuntimeStatusUi() {
+  try {
+    const sessionId = getActiveRuntimeSessionId();
+    setOpsOutput('正在加载会话状态…', '');
+    const data = await window.ga.getRuntimeStatus(sessionId);
+    setOpsOutput('中枢会话状态', formatRuntimeStatus(data));
+  } catch (err) {
+    setOpsOutput('会话状态', err.data || err.message || String(err));
+    showError('加载会话状态失败：' + (err.message || err));
+  }
+}
+
+async function loadRuntimeRunsUi() {
+  try {
+    const sessionId = getActiveRuntimeSessionId();
+    setOpsOutput('正在加载运行记录…', '');
+    const data = await window.ga.getRuntimeRuns(sessionId, 20);
+    const rows = Array.isArray(data.runs) ? data.runs : [];
+    const body = rows.length ? rows.map(formatRuntimeRun).join('\n\n') : '没有运行记录。';
+    const scope = data.session_id ? `（${data.session_id}）` : '（全部会话）';
+    setOpsOutput(`中枢运行记录${scope}`, body);
+  } catch (err) {
+    setOpsOutput('运行记录', err.data || err.message || String(err));
+    showError('加载运行记录失败：' + (err.message || err));
+  }
+}
 
 async function openConfigFile(openFn, label) {
   try {
     const result = await openFn();
     if (result && result.ok === false) {
-      showError(`Failed to open ${label}: ${result.error || result.path || 'unknown error'}`);
+      showError(`打开 ${label} 失败：${result.error || result.path || '未知错误'}`);
     }
   } catch (err) {
-    showError(`Failed to open ${label}: ${err.message || err}`);
+    showError(`打开 ${label} 失败：${err.message || err}`);
   }
 }
 
@@ -1703,20 +1959,20 @@ async function saveSettings() {
   saveBtn.disabled = true;
   try {
     const sess = state.sessions.get(state.activeId);
-    if (!sess) throw new Error('No active session');
+    if (!sess) throw new Error('没有活动对话');
     const cfg = sess.config;
     cfg.llmNo = Math.max(0, parseInt($('cfg-llm').value, 10) || 0);
     await window.ga.saveConfig(cfg);
     closeSettings();
   } catch (err) {
-    showError('Failed to save settings: ' + (err.message || err));
+    showError('保存设置失败：' + (err.message || err));
   } finally {
     saveBtn.disabled = false;
   }
 }
 
 async function ensureBridgeSession(sess) {
-  if (!sess) throw new Error('No active session.');
+  if (!sess) throw new Error('没有活动对话。');
   if (sess.bridgeSessionId) return sess.bridgeSessionId;
   const cwd = sess.cwd || await getCwd();
   const res = await window.ga.rpc('session/new', { cwd, mcp_servers: [] });
@@ -1728,30 +1984,30 @@ async function ensureBridgeSession(sess) {
 
 async function restartBridge(options = {}) {
   const { remapSessions = false } = options;
-  setStatus('warn', 'Restarting…');
+  setStatus('warn', '重启中…');
   state.bridgeReady = false;
   state.restartingBridge = true;
   if (remapSessions) {
     for (const sess of state.sessions.values()) sess.bridgeSessionId = null;
   }
-  state.bridgeNoticeMessage = showSystem('Bridge restarting…');
+  state.bridgeNoticeMessage = showSystem('中枢桥接正在重启…');
   await window.ga.startBridge(getActiveConfig().llmNo || 0);
   window.setTimeout(() => {
     if (state.restartingBridge && !state.bridgeReady && !getActiveSessionRuntime()?.busy) {
-      markBridgeReady('Bridge ready.');
-      addDiagnostic('warn', 'Bridge ready event timeout; restored Ready status locally');
+      markBridgeReady('中枢桥接已就绪。');
+      addDiagnostic('warn', '中枢桥接就绪事件超时，已在本地恢复就绪状态');
     }
   }, 2500);
 }
 
 // ─── Bridge events ───────────────────────────────────────────────────────
 let _bootstrappingSession = false;
-async function markBridgeReady(noticeText = 'Bridge ready.') {
+async function markBridgeReady(noticeText = '中枢桥接已就绪。') {
   if (state.bridgeReady) return; // already marked ready, prevent double-fire
   state.bridgeReady = true;
   state.restartingBridge = false;
-  if (getActiveSessionRuntime()?.busy) setStatus('busy', 'Agent is responding…');
-  else setStatus('ok', 'Ready');
+  if (getActiveSessionRuntime()?.busy) setStatus('busy', '蓬莱正在回复…');
+  else setStatus('ok', '就绪');
   updateBridgeNotice(noticeText);
   hideError();
   // Restore sessions from bridge (survives page refresh) or create first session
@@ -1766,7 +2022,7 @@ async function markBridgeReady(noticeText = 'Bridge ready.') {
         // Restore each session from bridge
         for (const bSess of existingSessions) {
           const localId = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-          const sess = createLocalSession(localId, bSess.title || 'Restored', bSess.id || bSess.sessionId);
+          const sess = createLocalSession(localId, bSess.title || '已恢复', bSess.id || bSess.sessionId);
           // Fetch full messages for this session
           const sid = bSess.id || bSess.sessionId;
           const msgRes = await fetch(`${bridgeUrl}/session/${sid}/messages?after=0&limit=9999`).then(r => r.json()).catch(() => null);
@@ -1809,26 +2065,26 @@ window.ga.onBridgeNotification((msg) => {
 
 window.ga.onBridgeError((err) => {
   console.error('Bridge error:', err);
-  addDiagnostic('error', 'Bridge error', err);
-  setStatus('err', 'Error');
+  addDiagnostic('error', '中枢桥接错误', err);
+  setStatus('err', '出错');
   state.bridgeReady = false;
   state.restartingBridge = false;
 
   if (err.type === 'no-mykey') {
-    showError(err.message, 'Setup', async () => {
+    showError(err.message, '配置', async () => {
       await window.ga.openMykeyTemplate();
     }, { skipDiagnostic: true });
   } else if (err.type === 'no-python') {
-    showError(err.message, 'Settings', openSettings, { skipDiagnostic: true });
+    showError(err.message, '设置', openSettings, { skipDiagnostic: true });
   } else {
-    showError(err.message || 'Bridge error', null, null, { skipDiagnostic: true });
+    showError(err.message || '中枢桥接错误', null, null, { skipDiagnostic: true });
   }
 });
 
 window.ga.onBridgeClosed((info) => {
-  addDiagnostic('warn', 'Bridge closed', info);
+  addDiagnostic('warn', '中枢桥接已关闭', info);
   if (state.restartingBridge) {
-    setStatus('warn', 'Restarting…');
+    setStatus('warn', '重启中…');
     return;
   }
   state.bridgeReady = false;
@@ -1836,12 +2092,12 @@ window.ga.onBridgeClosed((info) => {
   for (const [sid, runtime] of state.runtimeBySessionId) {
     if (runtime.busy) setBusy(false, null, state.sessions.get(sid));
   }
-  setStatus('err', `Bridge stopped (${info.code})`);
+  setStatus('err', `中枢桥接已停止（${info.code}）`);
 });
 
 window.ga.onBridgeLog((text) => {
   console.log('[bridge]', text);
-  addDiagnostic('info', 'Bridge log', text);
+  addDiagnostic('info', '中枢桥接日志', text);
 });
 
 // ─── Input handling ──────────────────────────────────────────────────────
@@ -1902,12 +2158,12 @@ function renderImagePreviews() {
 
     const imgEl = document.createElement('img');
     imgEl.src = img.dataUrl;
-    imgEl.alt = 'Pasted image';
+    imgEl.alt = '粘贴的图片';
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'remove-img';
     closeBtn.textContent = '×';
-    closeBtn.setAttribute('aria-label', 'Remove image');
+    closeBtn.setAttribute('aria-label', '移除图片');
     closeBtn.addEventListener('click', () => {
       const idx = pendingImages.findIndex(i => i.id === img.id);
       if (idx !== -1) pendingImages.splice(idx, 1);
@@ -1930,7 +2186,7 @@ function submitInput() {
   const text = inputEl.value.trim();
   if (!text && pendingImages.length === 0) return;
   if (getActiveSessionRuntime()?.busy) {
-    showSystem('Agent is still responding. Press Esc or Stop before sending another message.');
+    showSystem('蓬莱仍在回复。请先按 Esc 或停止按钮，再发送新消息。');
     return;
   }
   const images = [...pendingImages];
@@ -1941,7 +2197,7 @@ function submitInput() {
 
   if (text.startsWith('/')) {
     handleSlash(text).catch((err) => {
-      showSystem('Command failed: ' + (err.message || err));
+      showSystem('命令执行失败：' + (err.message || err));
     });
   } else {
     sendPrompt(text, images);
@@ -1951,7 +2207,7 @@ function submitInput() {
 sendBtn.addEventListener('click', () => {
   if (getActiveSessionRuntime()?.busy) {
     cancelPrompt().then((ok) => {
-      if (ok) showSystem('Stop requested.');
+      if (ok) showSystem('已请求停止。');
     });
   } else submitInput();
 });
@@ -1963,6 +2219,23 @@ $('close-settings').addEventListener('click', closeSettings);
 $('cancel-settings').addEventListener('click', closeSettings);
 $('save-settings').addEventListener('click', saveSettings);
 $('open-mykey').addEventListener('click', () => openConfigFile(window.ga.openMykey, 'mykey.py'));
+$('ops-refresh')?.addEventListener('click', () => refreshOpsPanel());
+$('ops-runtime-service-status')?.addEventListener('click', () => runOpsCommandUi('runtime-service-status'));
+$('ops-runtime-service-install')?.addEventListener('click', () => runOpsStateCommandUi(
+  'runtime-service-install',
+  '启动本机中枢服务？这只会管理 penglai-runtime-hub，不会启动飞书或微信渠道。'
+));
+$('ops-runtime-service-uninstall')?.addEventListener('click', () => runOpsStateCommandUi(
+  'runtime-service-uninstall',
+  '停止并移除本机中枢服务？这只会管理 penglai-runtime-hub，不会停止飞书或微信渠道。'
+));
+$('ops-doctor')?.addEventListener('click', () => runOpsCommandUi('doctor'));
+$('ops-selfcheck')?.addEventListener('click', () => runOpsCommandUi('selfcheck'));
+$('ops-runtime-audit')?.addEventListener('click', () => runOpsCommandUi('runtime-audit'));
+$('ops-privacy-audit')?.addEventListener('click', () => runOpsCommandUi('privacy-audit'));
+$('ops-runtime-status')?.addEventListener('click', loadRuntimeStatusUi);
+$('ops-runtime-runs')?.addEventListener('click', loadRuntimeRunsUi);
+$('ops-load-log')?.addEventListener('click', loadOpsLogUi);
 $('error-dismiss').addEventListener('click', hideError);
 
 settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSettings);
@@ -2108,8 +2381,8 @@ settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSe
     const saved = await window.ga.getConfig();
     Object.assign(state.defaultConfig, saved);
   } catch (err) {
-    addDiagnostic('error', 'Failed to load settings', err);
-    showError('Failed to load settings; using defaults: ' + (err.message || err));
+    addDiagnostic('error', '加载设置失败', err);
+    showError('加载设置失败，已使用默认值：' + (err.message || err));
   }
   applyTheme();
   await loadModelProfiles();

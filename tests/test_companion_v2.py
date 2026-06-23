@@ -22,6 +22,11 @@ cp._last_user_activity_min = lambda: 1e9
 # 状态读写重定向到测试文件，避免污染真实 companion_state.json
 os.makedirs(os.path.join(REPO, "temp"), exist_ok=True)
 cp._STATE = os.path.join(REPO, "temp", "_test_companion_state.json")
+_ORIGINAL_CONTEXT_LOG = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+_TEST_CONTEXT_LOG = os.path.join(REPO, "temp", "_test_companion_context_events.jsonl")
+os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = _TEST_CONTEXT_LOG
+try: os.remove(_TEST_CONTEXT_LOG)
+except Exception: pass
 
 
 def _cfg(**kw):
@@ -187,6 +192,30 @@ _t9 = datetime.now().replace(hour=9, minute=30, second=0, microsecond=0)
 d, _ = cp._decide(_cfg(), s, _t9)
 check("A2 成功后同日不重复", (d is None) or d[0] != "morning")
 
+# A2b 投递账本恢复终态：状态文件丢字段时，也不能重复 morning/free
+from penglai_runtime.context_events import append_context_event
+_old_context_log = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+_context_log = os.path.join(REPO, "temp", "_test_context_events.jsonl")
+try:
+    os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = _context_log
+    try: os.remove(_context_log)
+    except Exception: pass
+    append_context_event("companion_sent", "早安呀", channel="飞书",
+                         actor="ou_test", metadata={"trigger": "morning", "mode": "present"})
+    st_ledger = {}
+    changed = cp._reconcile_state_from_context_events(st_ledger, _t9)
+    check("A2b 账本恢复晨间终态", changed and st_ledger.get("anchor_morning") == _today
+          and st_ledger.get("last_reach", 0) > 0)
+    d, why = cp._decide(_cfg(), st_ledger, _t9)
+    check("A2b 账本恢复后 morning 不重复", d is None and why == "morning_done")
+finally:
+    if _old_context_log is None:
+        os.environ.pop("PENGLAI_CONTEXT_EVENTS_LOG", None)
+    else:
+        os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = _old_context_log
+    try: os.remove(_context_log)
+    except Exception: pass
+
 # A3 emotion 投递失败不消耗信号（emotion_followed_ts 不写）
 cp._feishu_send = lambda c, t: False
 cp._wechat_send = lambda t: False
@@ -215,6 +244,12 @@ check("present 模式晨间锚点不允许 SILENT", bool(_prompt) and "不要回
 # 清理测试状态文件
 try: os.remove(cp._STATE)
 except Exception: pass
+try: os.remove(_TEST_CONTEXT_LOG)
+except Exception: pass
+if _ORIGINAL_CONTEXT_LOG is None:
+    os.environ.pop("PENGLAI_CONTEXT_EVENTS_LOG", None)
+else:
+    os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = _ORIGINAL_CONTEXT_LOG
 
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")

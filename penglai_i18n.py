@@ -57,7 +57,7 @@ EN = {
     "系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试：": "System Python lacks the venv module (common on fresh Ubuntu). Pick one fix and retry:",
     "或用一键脚本（自动装 uv 托管 Python，不动系统）：": "or use the one-line installer (uv-managed Python, system untouched):",
     "依赖安装完成": "Dependencies installed",
-    "依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml": "Dependency install failed. Run manually then retry: python3 -m venv .venv && .venv/bin/pip install -e . lark-oapi pyyaml",
+    "依赖安装失败，请手动执行后重试: python3 -m venv .venv && .venv/bin/pip install -e . requests beautifulsoup4 bottle aiohttp lark-oapi pyyaml": "Dependency install failed. Run manually then retry: python3 -m venv .venv && .venv/bin/pip install -e . requests beautifulsoup4 bottle aiohttp lark-oapi pyyaml",
     "虚拟环境已存在": "Virtualenv already present",
 
     # ---- 步骤 2：LLM ----

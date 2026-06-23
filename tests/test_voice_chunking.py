@@ -4,7 +4,7 @@ import os
 import tempfile
 import types
 
-from _harness import install_fakes, fresh_import
+from _harness import Resp, install_fakes, fresh_import, run_gen
 
 
 def test_transcribe_file_decodes_pcm_in_chunks():
@@ -14,6 +14,7 @@ def test_transcribe_file_decodes_pcm_in_chunks():
     model_dir = os.path.join(tmp, "model")
     os.makedirs(model_dir, exist_ok=True)
     open(os.path.join(model_dir, "model.int8.onnx"), "w").write("x")
+    open(os.path.join(model_dir, "tokens.txt"), "w").write("x")
     audio = os.path.join(tmp, "a.wav")
     open(audio, "wb").write(b"x")
 
@@ -76,6 +77,31 @@ def test_transcribe_file_decodes_pcm_in_chunks():
         pv._get_recognizer = old_rec
 
 
+def test_transcribe_missing_model_finishes_without_download_command():
+    ga = install_fakes()
+    pv = fresh_import("plugins.penglai_voice")
+    tmp = tempfile.mkdtemp()
+    audio = os.path.join(tmp, "a.wav")
+    open(audio, "wb").write(b"x")
+    old_model = pv.MODEL_DIR
+    try:
+        pv.MODEL_DIR = os.path.join(tmp, "missing-model")
+        res = pv.transcribe_file(audio)
+        assert "error" in res
+        assert "curl" not in res["error"]
+        assert "tar " not in res["error"]
+        assert res.get("fatal") is True
+
+        handler = ga.GenericAgentHandler(cwd=tmp)
+        outs, outcome = run_gen(handler.do_transcribe({"path": audio}, Resp()))
+        assert outcome.next_prompt is None
+        assert "不会自动下载或安装" in outcome.data
+        assert not any("curl" in out or "tar " in out for out in outs)
+    finally:
+        pv.MODEL_DIR = old_model
+
+
 if __name__ == "__main__":
     test_transcribe_file_decodes_pcm_in_chunks()
+    test_transcribe_missing_model_finishes_without_download_command()
     print("PASS test_voice_chunking")
