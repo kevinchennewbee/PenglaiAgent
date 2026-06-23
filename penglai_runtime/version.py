@@ -143,8 +143,8 @@ def collect_version_metadata(root=ROOT):
         runtime_version = ""
 
     build_info = _read_build_info(root)
-    commit = os.environ.get("PENGLAI_BUILD_COMMIT", "").strip() or _info_str(build_info, "commit")
-    branch = os.environ.get("PENGLAI_BUILD_BRANCH", "").strip() or _info_str(build_info, "branch")
+    commit = _info_str(build_info, "commit") or os.environ.get("PENGLAI_BUILD_COMMIT", "").strip()
+    branch = _info_str(build_info, "branch") or os.environ.get("PENGLAI_BUILD_BRANCH", "").strip()
     dirty = _info_bool(build_info, "dirty")
     if _run_git(["rev-parse", "--is-inside-work-tree"], root=root).stdout.strip() == "true":
         commit = _run_git(["rev-parse", "--short=12", "HEAD"], root=root).stdout.strip() or commit
@@ -154,14 +154,14 @@ def collect_version_metadata(root=ROOT):
     remote = remote or _info_str(build_info, "remote")
     remote_url = remote_url or _info_str(build_info, "remote_url")
     docker = os.environ.get("PENGLAI_DOCKER") == "1" or os.path.exists("/.dockerenv")
-    source = os.environ.get("PENGLAI_INSTALL_SOURCE", "").strip() or _info_str(build_info, "source")
+    source = _info_str(build_info, "source") or os.environ.get("PENGLAI_INSTALL_SOURCE", "").strip()
     if not source:
         source = "docker" if docker else ("git" if commit else "source")
     service_py = os.path.join(root, ".venv", "bin", "python")
     service_python = _python_version(service_py) if os.path.exists(service_py) else sys.version.split()[0]
-    build_commit = os.environ.get("PENGLAI_BUILD_COMMIT", "").strip() or _info_str(build_info, "build_commit") or _info_str(build_info, "commit")
-    build_time = os.environ.get("PENGLAI_BUILD_TIME", "").strip() or _info_str(build_info, "build_time")
-    image_tag = os.environ.get("PENGLAI_IMAGE_TAG", "").strip() or _info_str(build_info, "image_tag")
+    build_commit = _info_str(build_info, "build_commit") or _info_str(build_info, "commit") or os.environ.get("PENGLAI_BUILD_COMMIT", "").strip()
+    build_time = _info_str(build_info, "build_time") or os.environ.get("PENGLAI_BUILD_TIME", "").strip()
+    image_tag = _info_str(build_info, "image_tag") or os.environ.get("PENGLAI_IMAGE_TAG", "").strip()
     return VersionMetadata(
         version=_read_project_version(root),
         runtime_version=runtime_version,

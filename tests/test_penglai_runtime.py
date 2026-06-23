@@ -940,8 +940,12 @@ def test_version_metadata_reads_source_copy_build_info_without_git():
             f,
         )
 
-    old_env = {key: os.environ.pop(key, None) for key in VERSION_ENV_KEYS}
+    old_env = {key: os.environ.get(key) for key in VERSION_ENV_KEYS}
     try:
+        os.environ["PENGLAI_INSTALL_SOURCE"] = "stale-env"
+        os.environ["PENGLAI_BUILD_BRANCH"] = "stale-branch"
+        os.environ["PENGLAI_BUILD_COMMIT"] = "stale-commit"
+        os.environ["PENGLAI_BUILD_TIME"] = "1999-01-01T00:00:00Z"
         meta = collect_version_metadata(root=td)
         line = compact_version_line(meta)
     finally:
