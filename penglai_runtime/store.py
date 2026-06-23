@@ -8,6 +8,11 @@ import time
 
 
 def default_store_path(root=None):
+    override = os.environ.get("PENGLAI_RUNTIME_STORE_PATH", "").strip()
+    if override:
+        path = os.path.abspath(os.path.expanduser(override))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        return path
     base = root or os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     path = os.path.join(base, "temp", "runtime_hub.sqlite3")
     os.makedirs(os.path.dirname(path), exist_ok=True)

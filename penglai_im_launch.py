@@ -252,6 +252,12 @@ def launch(channel):
     threading.Thread(target=agent.run, daemon=True).start()
     app = getattr(m, cls_name)(agent) if channel == "wecom" else getattr(m, cls_name)()
     try:
+        from penglai_runtime.channel_runtime import install_channel_runtime_adapter
+        if install_channel_runtime_adapter(app, channel=channel):
+            print(f"[im_voice] {label} Runtime Hub 主链路已挂载")
+    except Exception as e:
+        sys.stderr.write(f"[im_voice] {label} Runtime Hub 挂载失败（{e}）；以原主链路继续\n")
+    try:
         from penglai_runtime.text_interaction import install_text_interaction_adapter
         if install_text_interaction_adapter(app):
             print(f"[im_voice] {label} 统一交互文字降级已挂载")

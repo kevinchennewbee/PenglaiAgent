@@ -73,6 +73,8 @@ EXTRA = [k for k, v in CHANNELS.items() if not v["tested"]]  # 可 enable 的渠
 # 这些渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音/runtime 主路径。
 _VOICE_CHANNELS = {"dingtalk", "qq", "wecom"}
 _WRAPPED_CHANNELS = _VOICE_CHANNELS | {"wechat"}
+_RUNTIME_HUB_CHANNELS = {"feishu"} | _WRAPPED_CHANNELS
+_NATIVE_SHARED_DELIVERY_CHANNELS = {"telegram", "discord"}
 
 
 def _launch_argv(ch):
@@ -101,6 +103,20 @@ def _launch_desc(ch):
     if ch == "feishu":
         return "penglai_feishu_app.py"
     return f"frontends/{CHANNELS[ch]['script']}"
+
+
+def _runtime_route_label(ch):
+    if ch in _RUNTIME_HUB_CHANNELS:
+        return "Hub"
+    return "原生"
+
+
+def _delivery_guard_label(ch):
+    if ch in _RUNTIME_HUB_CHANNELS:
+        return "统一"
+    if ch in _NATIVE_SHARED_DELIVERY_CHANNELS:
+        return "共享"
+    return "待接"
 
 
 def _proc_pattern(ch):
@@ -546,7 +562,7 @@ def disable(ch):
 
 def status():
     print("🏮 蓬莱渠道矩阵（内核 GA 自带 7 渠道，蓬莱层统一封装）\n")
-    print(f"  {'渠道':<10}{'凭证':<6}{'依赖':<6}{'运行':<10}实测状态")
+    print(f"  {'渠道':<10}{'凭证':<6}{'依赖':<6}{'运行':<10}{'中枢':<6}{'文件':<6}实测状态")
     for ch, c in CHANNELS.items():
         creds_ok = _credentials_ok(ch)
         creds = "✔" if creds_ok else "—"
@@ -558,8 +574,11 @@ def status():
         else:
             run = f"PID {proc_pids(ch)[0]}" if proc_pids(ch) else "—"
         tested = _tested_label(ch, creds_ok)
-        print(f"  {c['label']:<9}{creds:<7}{deps:<7}{run:<10}{tested}")
+        route = _runtime_route_label(ch)
+        guard = _delivery_guard_label(ch)
+        print(f"  {c['label']:<9}{creds:<7}{deps:<7}{run:<10}{route:<7}{guard:<7}{tested}")
     print(f"\n  启用渠道: penglai enable <{('|'.join(EXTRA))}>")
     print("  飞书/微信: penglai setup（含扫码与连接验证闭环）")
-    print(f"  {WARN}文件外发白名单护栏当前仅覆盖飞书渠道（其余渠道为上游原生行为，蓬莱层适配中）")
+    print("  中枢=Hub 表示消息主链路进入 Runtime Hub；文件=统一/共享 表示 [FILE:] 交付先过同一套安全规则。")
+    print(f"  {WARN}Telegram/Discord 仍是上游原生入口，需真机实测后再标为主渠道。")
     return 0

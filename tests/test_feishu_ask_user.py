@@ -17,6 +17,10 @@ os.environ.setdefault(
     "PENGLAI_CONTEXT_EVENTS_LOG",
     os.path.join(tempfile.mkdtemp(), "penglai_context_events.jsonl"),
 )
+os.environ.setdefault(
+    "PENGLAI_RUNTIME_STORE_PATH",
+    os.path.join(tempfile.mkdtemp(), "runtime_hub.sqlite3"),
+)
 
 from _harness import run_tests
 from penglai_runtime.contracts import InboundEvent, PermissionRequest, RunStatus
