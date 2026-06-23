@@ -59,6 +59,14 @@ from penglai_runtime.version import collect_version_metadata, compact_version_li
 from penglai_runtime import VERSION
 from penglai_runtime.text_interaction import install_text_interaction_adapter
 
+VERSION_ENV_KEYS = (
+    "PENGLAI_INSTALL_SOURCE",
+    "PENGLAI_BUILD_BRANCH",
+    "PENGLAI_BUILD_COMMIT",
+    "PENGLAI_BUILD_TIME",
+    "PENGLAI_IMAGE_TAG",
+)
+
 
 def test_session_router_shares_owner_private_but_isolates_group():
     router = SessionRouter(owner_user_ids={"owner"})
@@ -910,6 +918,47 @@ def test_version_metadata_uses_installer_version_and_git_identity():
     assert meta.version == VERSION
     assert f"Penglai {VERSION}" in line
     assert meta.commit
+
+
+def test_version_metadata_reads_source_copy_build_info_without_git():
+    td = tempfile.mkdtemp()
+    os.makedirs(os.path.join(td, "installer"), exist_ok=True)
+    with open(os.path.join(td, "installer", "pyproject.toml"), "w", encoding="utf-8") as f:
+        f.write('[project]\nversion = "0.3.0"\n')
+    with open(os.path.join(td, ".penglai-build.json"), "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "schema": 1,
+                "source": "source",
+                "branch": "codex/test-version",
+                "commit": "abc123def456",
+                "dirty": False,
+                "remote": "origin",
+                "remote_url": "https://example.invalid/PenglaiAgent.git",
+                "build_time": "2026-06-23T00:00:00Z",
+            },
+            f,
+        )
+
+    old_env = {key: os.environ.pop(key, None) for key in VERSION_ENV_KEYS}
+    try:
+        meta = collect_version_metadata(root=td)
+        line = compact_version_line(meta)
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    assert meta.version == VERSION
+    assert meta.source == "source"
+    assert meta.branch == "codex/test-version"
+    assert meta.commit == "abc123def456"
+    assert meta.remote == "origin"
+    assert meta.remote_url == "https://example.invalid/PenglaiAgent.git"
+    assert meta.build_time == "2026-06-23T00:00:00Z"
+    assert "codex/test-version@abc123def456" in line
 
 
 def test_memory_governor_rejects_runtime_noise_and_keeps_real_rules():
@@ -2396,6 +2445,8 @@ def test_install_script_can_install_current_branch_without_setup():
     td = tempfile.mkdtemp()
     target = os.path.join(td, "PenglaiAgent")
     env = os.environ.copy()
+    for key in VERSION_ENV_KEYS:
+        env.pop(key, None)
     env.update({
         "HOME": td,
         "PENGLAI_SOURCE_DIR": root,
@@ -2421,6 +2472,14 @@ def test_install_script_can_install_current_branch_without_setup():
     assert not os.path.exists(os.path.join(target, ".git"))
     assert not os.path.exists(os.path.join(target, "_internal"))
     assert not os.path.exists(os.path.join(target, "mykey.py"))
+    build_info_path = os.path.join(target, ".penglai-build.json")
+    assert os.path.exists(build_info_path)
+    with open(build_info_path, encoding="utf-8") as f:
+        build_info = json.load(f)
+    assert build_info["schema"] == 1
+    assert build_info["source"] == "source"
+    assert build_info["branch"] and build_info["branch"] != "unknown"
+    assert build_info["commit"] and build_info["commit"] != "unknown"
     if os.path.exists(os.path.join(target, ".venv")):
         assert os.path.exists(os.path.join(target, ".venv", "bin", "python"))
     wrapper = os.path.join(td, ".local", "bin", "penglai")
@@ -2428,6 +2487,7 @@ def test_install_script_can_install_current_branch_without_setup():
     wrapper_verify = subprocess.run(
         [wrapper, "install-check", "--json"],
         cwd=target,
+        env=env,
         capture_output=True,
         text=True,
         timeout=120,
@@ -2437,6 +2497,7 @@ def test_install_script_can_install_current_branch_without_setup():
     verify = subprocess.run(
         [sys.executable, os.path.join(target, "penglai"), "install-check", "--json"],
         cwd=target,
+        env=env,
         capture_output=True,
         text=True,
         timeout=120,
@@ -2445,6 +2506,20 @@ def test_install_script_can_install_current_branch_without_setup():
     data = json.loads(verify.stdout)
     assert data["ok"] is True
     assert data["root"] == os.path.realpath(target)
+    version = subprocess.run(
+        [sys.executable, os.path.join(target, "penglai"), "version"],
+        cwd=target,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    version_output = (version.stdout or "") + (version.stderr or "")
+    assert version.returncode == 0, version_output
+    assert "branch=unknown" not in version_output
+    assert "commit=unknown" not in version_output
+    assert f"branch={build_info['branch']}" in version_output
+    assert f"commit={build_info['commit']}" in version_output
 
 
 def test_desktop_static_ui_uses_chinese_runtime_labels():

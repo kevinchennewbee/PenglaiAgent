@@ -26,6 +26,7 @@ Thumbs.db
 
 *.log
 .env
+.penglai-build.json
 auth.json
 model_responses.txt
 

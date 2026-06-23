@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import json
 import platform
 import subprocess
 import sys
@@ -16,6 +17,7 @@ except Exception:  # pragma: no cover - Python <3.11 fallback
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+BUILD_INFO_FILENAME = ".penglai-build.json"
 
 
 def _run_git(args, *, root=ROOT, timeout=5):
@@ -71,6 +73,32 @@ def _release_remote(root=ROOT):
     return "", ""
 
 
+def _read_build_info(root=ROOT):
+    path = os.path.join(root, BUILD_INFO_FILENAME)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _info_str(data, key):
+    value = data.get(key)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _info_bool(data, key):
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
 def _python_version(path):
     try:
         r = subprocess.run(
@@ -114,20 +142,26 @@ def collect_version_metadata(root=ROOT):
     except Exception:
         runtime_version = ""
 
-    commit = os.environ.get("PENGLAI_BUILD_COMMIT", "").strip()
-    branch = os.environ.get("PENGLAI_BUILD_BRANCH", "").strip()
-    dirty = False
+    build_info = _read_build_info(root)
+    commit = os.environ.get("PENGLAI_BUILD_COMMIT", "").strip() or _info_str(build_info, "commit")
+    branch = os.environ.get("PENGLAI_BUILD_BRANCH", "").strip() or _info_str(build_info, "branch")
+    dirty = _info_bool(build_info, "dirty")
     if _run_git(["rev-parse", "--is-inside-work-tree"], root=root).stdout.strip() == "true":
         commit = _run_git(["rev-parse", "--short=12", "HEAD"], root=root).stdout.strip() or commit
         branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], root=root).stdout.strip() or branch
         dirty = bool(_run_git(["status", "--porcelain"], root=root).stdout.strip())
     remote, remote_url = _release_remote(root=root)
+    remote = remote or _info_str(build_info, "remote")
+    remote_url = remote_url or _info_str(build_info, "remote_url")
     docker = os.environ.get("PENGLAI_DOCKER") == "1" or os.path.exists("/.dockerenv")
-    source = os.environ.get("PENGLAI_INSTALL_SOURCE", "").strip()
+    source = os.environ.get("PENGLAI_INSTALL_SOURCE", "").strip() or _info_str(build_info, "source")
     if not source:
         source = "docker" if docker else ("git" if commit else "source")
     service_py = os.path.join(root, ".venv", "bin", "python")
     service_python = _python_version(service_py) if os.path.exists(service_py) else sys.version.split()[0]
+    build_commit = os.environ.get("PENGLAI_BUILD_COMMIT", "").strip() or _info_str(build_info, "build_commit") or _info_str(build_info, "commit")
+    build_time = os.environ.get("PENGLAI_BUILD_TIME", "").strip() or _info_str(build_info, "build_time")
+    image_tag = os.environ.get("PENGLAI_IMAGE_TAG", "").strip() or _info_str(build_info, "image_tag")
     return VersionMetadata(
         version=_read_project_version(root),
         runtime_version=runtime_version,
@@ -138,9 +172,9 @@ def collect_version_metadata(root=ROOT):
         remote=remote,
         remote_url=remote_url,
         docker=docker,
-        build_commit=os.environ.get("PENGLAI_BUILD_COMMIT", "").strip(),
-        build_time=os.environ.get("PENGLAI_BUILD_TIME", "").strip(),
-        image_tag=os.environ.get("PENGLAI_IMAGE_TAG", "").strip(),
+        build_commit=build_commit,
+        build_time=build_time,
+        image_tag=image_tag,
         python=sys.version.split()[0],
         service_python=service_python,
         platform=platform.platform(),

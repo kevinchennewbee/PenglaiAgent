@@ -52,6 +52,91 @@ write_build_env() {
     fi
 }
 
+write_build_info() {
+    info_file="$TARGET/.penglai-build.json"
+    "$PY" - "$TARGET" "${SOURCE_DIR:-}" "$info_file" <<'PY'
+import datetime
+import json
+import os
+import subprocess
+import sys
+
+target, source_dir, info_file = sys.argv[1:4]
+
+
+def env(name):
+    return os.environ.get(name, "").strip()
+
+
+def run_git(root, args):
+    if not root or not os.path.isdir(root):
+        return ""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, *args],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return (proc.stdout or "").strip()
+
+
+def is_git(root):
+    return run_git(root, ["rev-parse", "--is-inside-work-tree"]) == "true"
+
+
+probe = target if is_git(target) else (source_dir if is_git(source_dir) else "")
+commit = env("PENGLAI_BUILD_COMMIT") or run_git(probe, ["rev-parse", "--short=12", "HEAD"])
+branch = env("PENGLAI_BUILD_BRANCH") or run_git(probe, ["rev-parse", "--abbrev-ref", "HEAD"])
+dirty = bool(run_git(probe, ["status", "--porcelain"])) if probe else False
+
+remote = ""
+remote_url = ""
+preferred = env("PENGLAI_RELEASE_REMOTE")
+for name in [preferred, "release", "origin", "upstream"]:
+    if not name or name == remote:
+        continue
+    url = run_git(probe, ["remote", "get-url", name])
+    if url:
+        remote = name
+        remote_url = url
+        break
+
+source = env("PENGLAI_INSTALL_SOURCE")
+if not source:
+    if is_git(target):
+        source = "git"
+    elif source_dir:
+        source = "source"
+    else:
+        source = "archive"
+
+build_time = env("PENGLAI_BUILD_TIME") or datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+data = {
+    "schema": 1,
+    "source": source,
+    "branch": branch or "unknown",
+    "commit": commit or "unknown",
+    "dirty": dirty,
+    "remote": remote,
+    "remote_url": remote_url,
+    "build_commit": env("PENGLAI_BUILD_COMMIT") or commit,
+    "build_time": build_time,
+    "image_tag": env("PENGLAI_IMAGE_TAG"),
+}
+tmp = f"{info_file}.{os.getpid()}.tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
+    f.write("\n")
+os.replace(tmp, info_file)
+PY
+    chmod 600 "$info_file" 2>/dev/null || true
+}
+
 # ── 1. 网络探测:GitHub 直连不通则全程走 gh-proxy 镜像 ────────────────────────
 MIRROR=""
 if ! curl -fsSL -m 6 -o /dev/null "https://github.com" 2>/dev/null; then
@@ -100,6 +185,7 @@ copy_source_dir() {
             --exclude=_internal \
             --exclude=.internal \
             --exclude=.env \
+            --exclude=.penglai-build.json \
             --exclude=mykey.py \
             --exclude=mykey.json \
             --exclude=audit \
@@ -220,6 +306,7 @@ if { [ "$INSTALL_VERIFY" = "1" ] || [ "${PENGLAI_INSTALL_DEPS:-}" = "1" ]; } && 
     install_source_deps
 fi
 
+write_build_info
 write_build_env
 
 # ── 4. penglai 命令上 PATH(wrapper 固定使用本次安装选中的 Python) ──────────────

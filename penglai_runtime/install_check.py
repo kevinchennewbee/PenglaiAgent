@@ -88,7 +88,11 @@ def _required_files(root):
 def _version_check(root):
     meta = collect_version_metadata(root=root)
     ok = meta.version == VERSION == "0.3.0"
-    return _check("version_is_030", ok, f"installer={meta.version} runtime={VERSION} branch={meta.branch} source={meta.source}")
+    return _check(
+        "version_is_030",
+        ok,
+        f"installer={meta.version} runtime={VERSION} branch={meta.branch} commit={meta.commit} source={meta.source}",
+    )
 
 
 def _cli_version_check(root):
