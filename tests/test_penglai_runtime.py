@@ -457,13 +457,26 @@ def test_launch_paths_do_not_bypass_runtime_wrappers():
     for channel in ("wechat", "dingtalk", "qq", "wecom"):
         assert penglai_channels._runtime_route_label(channel) == "Hub"
         assert penglai_channels._delivery_guard_label(channel) == "统一"
-    assert penglai_channels._runtime_route_label("telegram") == "原生"
-    assert penglai_channels._delivery_guard_label("telegram") == "共享"
+    for channel in ("telegram", "discord"):
+        assert penglai_channels._runtime_route_label(channel) == "Hub"
+        assert penglai_channels._delivery_guard_label(channel) == "统一"
 
     launcher_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "penglai_im_launch.py")
     with open(launcher_path, encoding="utf-8") as f:
         launcher_text = f.read()
     assert "install_channel_runtime_adapter(app, channel=channel)" in launcher_text
+
+    tg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontends", "tgapp.py")
+    with open(tg_path, encoding="utf-8") as f:
+        tg_text = f.read()
+    assert "RuntimeHubService" in tg_text
+    assert "GenericAgentInstancePort" in tg_text
+    assert "agent.put_task(" not in tg_text
+
+    dc_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontends", "dcapp.py")
+    with open(dc_path, encoding="utf-8") as f:
+        dc_text = f.read()
+    assert "install_channel_runtime_adapter(" in dc_text
 
     launch_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "launch.pyw")
     with open(launch_path, encoding="utf-8") as f:

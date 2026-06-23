@@ -73,8 +73,9 @@ EXTRA = [k for k, v in CHANNELS.items() if not v["tested"]]  # 可 enable 的渠
 # 这些渠道走 penglai_im_launch 包装启动，补上游前端缺失的语音/runtime 主路径。
 _VOICE_CHANNELS = {"dingtalk", "qq", "wecom"}
 _WRAPPED_CHANNELS = _VOICE_CHANNELS | {"wechat"}
-_RUNTIME_HUB_CHANNELS = {"feishu"} | _WRAPPED_CHANNELS
-_NATIVE_SHARED_DELIVERY_CHANNELS = {"telegram", "discord"}
+_DIRECT_RUNTIME_CHANNELS = {"telegram", "discord"}
+_RUNTIME_HUB_CHANNELS = {"feishu"} | _WRAPPED_CHANNELS | _DIRECT_RUNTIME_CHANNELS
+_NATIVE_SHARED_DELIVERY_CHANNELS = set()
 
 
 def _launch_argv(ch):
@@ -580,5 +581,5 @@ def status():
     print(f"\n  启用渠道: penglai enable <{('|'.join(EXTRA))}>")
     print("  飞书/微信: penglai setup（含扫码与连接验证闭环）")
     print("  中枢=Hub 表示消息主链路进入 Runtime Hub；文件=统一/共享 表示 [FILE:] 交付先过同一套安全规则。")
-    print(f"  {WARN}Telegram/Discord 仍是上游原生入口，需真机实测后再标为主渠道。")
+    print(f"  {WARN}未实测渠道表示代码主链路已接中枢，但仍需真实平台凭证与收发验证后再标为主渠道。")
     return 0

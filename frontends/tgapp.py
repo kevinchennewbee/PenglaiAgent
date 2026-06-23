@@ -31,8 +31,13 @@ from review_cmd import handle as handle_review_command
 from llmcore import mykeys
 from plugins.penglai_artifacts import classify_file_markers
 from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+from penglai_runtime.context_events import default_context_log_path
+from penglai_runtime.contracts import RunStatus
 from penglai_runtime.interaction import extract_interaction_event, request_from_ask_user_event
 from penglai_runtime.memory_governor import MemoryGovernor
+from penglai_runtime.permissions import render_permission_text, resolve_permission_choice
+from penglai_runtime.port import GenericAgentInstancePort
+from penglai_runtime.service import RuntimeHubService
 from penglai_runtime.shadow import record_delivery_shadow
 
 agent = GeneraticAgent()
@@ -63,6 +68,7 @@ _ask_menu_store = {}
 _llm_menu_store = {}
 _memory_governor = MemoryGovernor()
 _runtime = ChannelRuntimeBridge(channel="telegram", file_hint=FILE_HINT)
+_runtime_service = None
 _MULTI_SELECT_RE = re.compile(r"\[?(?:多选|multi(?:[-_ ]?select)?|select all)\]?", re.IGNORECASE)
 _QUOTE_OPEN_TAG = "<_quote_>"
 _QUOTE_CLOSE_TAG = "</_quote_>"
@@ -862,6 +868,197 @@ async def _stream(dq, msg):
         except RetryAfter as retry_exc:
             print(f"[TG stream error notice retry_after] {type(retry_exc).__name__}: {retry_exc}", flush=True)
 
+def _telegram_chat_key(message, uid=None):
+    chat = getattr(message, "chat", None)
+    return str(getattr(chat, "id", None) or uid or "telegram")
+
+def _telegram_chat_type(chat):
+    return "group" if getattr(chat, "type", "") != ChatType.PRIVATE else "private"
+
+def _telegram_runtime_service():
+    global _runtime_service
+    if _runtime_service is None:
+        _runtime_service = RuntimeHubService(
+            owner_user_ids=getattr(_runtime.router, "owner_user_ids", set()),
+            context_log_path=default_context_log_path(),
+        )
+    return _runtime_service
+
+def _runtime_prompt_builder(incoming):
+    metadata = getattr(incoming, "metadata", None) or {}
+    if metadata.get("prebuilt_prompt"):
+        return incoming.text
+    return _build_text_prompt(incoming.text)
+
+async def _finish_runtime_notice(message, text, stream=None):
+    if stream is not None:
+        await stream.finish_with_notice(text)
+        return
+    await _reply_command_text(message, text)
+
+async def _deliver_runtime_result(message, run_result, stream=None):
+    if run_result is None:
+        return await _finish_runtime_notice(message, "⏹️ 已停止", stream=stream)
+    if run_result.permission is not None:
+        _runtime.pending_permissions[_telegram_chat_key(message)] = run_result.permission
+        return await _finish_runtime_notice(
+            message,
+            render_permission_text(run_result.permission),
+            stream=stream,
+        )
+    if run_result.status == RunStatus.SUCCEEDED:
+        raw_done = run_result.raw_output or run_result.cleaned_output or run_result.task_run.result_text
+        _memory_governor.classify(raw_done, context={"channel": "telegram", "session_id": run_result.session.session_id})
+        record_delivery_shadow(
+            "telegram",
+            raw_done,
+            receive_id=str(getattr(getattr(message, "chat", None), "id", "") or ""),
+            receive_id_type=str(getattr(getattr(message, "chat", None), "type", "") or ""),
+            base_dir=_TEMP_DIR,
+            production_text=raw_done,
+        )
+        if stream is None:
+            stream = _TelegramTurnStreamCoordinator(message)
+        await stream.finalize(raw_done)
+        return
+    if run_result.status == RunStatus.CANCELLED:
+        return await _finish_runtime_notice(message, "⏹️ 已停止", stream=stream)
+    if run_result.status == RunStatus.FAILED:
+        return await _finish_runtime_notice(message, f"❌ 错误: {run_result.task_run.error}", stream=stream)
+    await _finish_runtime_notice(message, "⚠️ Agent 异常退出，请重试", stream=stream)
+
+async def _run_runtime_message(
+    message,
+    ctx,
+    text,
+    *,
+    uid=None,
+    chat=None,
+    metadata=None,
+    images=(),
+    files=(),
+    prebuilt_prompt=False,
+):
+    chat = chat or getattr(message, "chat", None)
+    uid = uid if uid is not None else getattr(getattr(message, "from_user", None), "id", None)
+    chat_key = str(getattr(chat, "id", None) or uid or "telegram")
+    waiting = _runtime.pending_permissions.get(chat_key)
+    if waiting is not None:
+        chosen = resolve_permission_choice(text, waiting)
+        if chosen is None:
+            return await _reply_command_text(message, render_permission_text(waiting))
+        _runtime.pending_permissions.pop(chat_key, None)
+        text = chosen
+
+    event_metadata = dict(metadata or {})
+    if prebuilt_prompt:
+        event_metadata["prebuilt_prompt"] = True
+    message_id = getattr(message, "message_id", None) or uuid.uuid4().hex
+    event, session = _runtime.event(
+        event_id=event_metadata.pop("event_id", None) or f"telegram_{message_id}_{uuid.uuid4().hex[:8]}",
+        user_id=str(uid or chat_key),
+        chat_id=chat_key,
+        chat_type=_telegram_chat_type(chat),
+        text=text,
+        images=tuple(images or ()),
+        files=tuple(files or ()),
+        metadata=event_metadata,
+    )
+    service = _telegram_runtime_service()
+    port = GenericAgentInstancePort(
+        agent=agent,
+        prompt_builder=_runtime_prompt_builder,
+        source="telegram",
+        timeout=1200,
+    )
+    loop = asyncio.get_running_loop()
+    done_evt = threading.Event()
+    run_holder = {}
+    queued_delivery = {"enabled": False, "scheduled": False}
+
+    def _schedule_queued_delivery(result):
+        if queued_delivery["scheduled"]:
+            return
+        queued_delivery["scheduled"] = True
+        fut = asyncio.run_coroutine_threadsafe(_deliver_runtime_result(message, result), loop)
+
+        def _log_delivery_error(done):
+            try:
+                done.result()
+            except Exception as exc:
+                print(f"[TG runtime queued delivery] {type(exc).__name__}: {exc}", flush=True)
+
+        fut.add_done_callback(_log_delivery_error)
+
+    def _on_complete(result):
+        run_holder["result"] = result
+        if queued_delivery["enabled"]:
+            _schedule_queued_delivery(result)
+        done_evt.set()
+
+    decision = service.submit(
+        event,
+        port=port,
+        on_complete=_on_complete,
+        base_dir=_TEMP_DIR,
+        send_body=False,
+        send_notice=False,
+    )
+    if not decision.started_now:
+        queued_delivery["enabled"] = True
+        if "result" in run_holder:
+            _schedule_queued_delivery(run_holder["result"])
+        await _reply_command_text(message, f"已收到，当前会话还有任务在运行；这条消息已排队 #{decision.queue_no}，会等当前任务结束后继续。")
+        return
+
+    state = {"running": True, "session_id": session.session_id}
+    if ctx is not None:
+        ctx.user_data["runtime_state"] = state
+    stream = _TelegramTurnStreamCoordinator(message)
+    await stream.prime()
+    try:
+        while not await asyncio.to_thread(done_evt.wait, 0.5):
+            if not state["running"]:
+                break
+        run_result = run_holder.get("result")
+        if not state["running"] and run_result is None:
+            await stream.finish_with_notice("⏹️ 已停止")
+        elif run_result is not None:
+            await _deliver_runtime_result(message, run_result, stream=stream)
+        else:
+            await stream.finish_with_notice("⚠️ Agent 异常退出，请重试")
+    except asyncio.CancelledError:
+        try:
+            service.cancel_session(session.session_id, drop_pending=True)
+            agent.abort()
+        except Exception:
+            pass
+        await stream.finish_with_notice("⏹️ 已停止")
+        raise
+    finally:
+        if ctx is not None and ctx.user_data.get("runtime_state") is state:
+            ctx.user_data.pop("runtime_state", None)
+
+async def _cancel_runtime_for_message(message, ctx=None, *, uid=None, chat=None):
+    chat = chat or getattr(message, "chat", None)
+    uid = uid if uid is not None else getattr(getattr(message, "from_user", None), "id", None)
+    chat_key = str(getattr(chat, "id", None) or uid or "telegram")
+    event, session = _runtime.event(
+        event_id=f"telegram_cancel_{uuid.uuid4().hex}",
+        user_id=str(uid or chat_key),
+        chat_id=chat_key,
+        chat_type=_telegram_chat_type(chat),
+        text="/stop",
+        metadata={"command": "stop"},
+    )
+    state = (ctx.user_data.get("runtime_state") if ctx is not None else None) or {}
+    if state:
+        state["running"] = False
+    _runtime.pending_permissions.pop(chat_key, None)
+    data = _telegram_runtime_service().cancel_session(session.session_id, drop_pending=True)
+    agent.abort()
+    return data
+
 def _normalized_command(text):
     parts = (text or "").strip().split(None, 1)
     if not parts: return ''
@@ -902,8 +1099,15 @@ async def _handle_review_command(update, ctx, cmd):
         except Q.Empty:
             return await _reply_command_text(update.message, "(review 无输出)")
     _cancel_stream_task(ctx)
-    task_dq = agent.put_task(prompt, source="telegram")
-    task = asyncio.create_task(_stream(task_dq, update.message))
+    task = asyncio.create_task(_run_runtime_message(
+        update.message,
+        ctx,
+        prompt,
+        uid=getattr(update.effective_user, "id", None),
+        chat=update.effective_chat or update.message.chat,
+        metadata={"command": "review"},
+        prebuilt_prompt=True,
+    ))
     ctx.user_data['stream_task'] = task
 
 async def handle_msg(update, ctx):
@@ -911,16 +1115,13 @@ async def handle_msg(update, ctx):
     if ALLOWED and uid not in ALLOWED:
         return await update.message.reply_text("no")
     chat = update.effective_chat or update.message.chat
-    _runtime.event(
-        event_id=getattr(update.message, "message_id", None),
-        user_id=str(uid),
-        chat_id=str(getattr(chat, "id", uid)),
-        chat_type="group" if getattr(chat, "type", "") != ChatType.PRIVATE else "private",
-        text=update.message.text,
-    )
-    prompt = _build_text_prompt(update.message.text)
-    dq = agent.put_task(prompt, source="telegram")
-    task = asyncio.create_task(_stream(dq, update.message))
+    task = asyncio.create_task(_run_runtime_message(
+        update.message,
+        ctx,
+        update.message.text,
+        uid=uid,
+        chat=chat,
+    ))
     ctx.user_data['stream_task'] = task
 
 async def handle_ask_callback(update, ctx):
@@ -973,14 +1174,14 @@ async def handle_ask_callback(update, ctx):
         await _edit_ask_user_result(query, event, selected=selected)
         if query.message is None:
             return
-        _runtime.event(
-            event_id=getattr(query.message, "message_id", None),
-            user_id=str(uid),
-            chat_id=str(getattr(getattr(query.message, "chat", None), "id", uid)),
-            text=selected,
-        )
-        dq = agent.put_task(_build_text_prompt(selected), source="telegram")
-        task = asyncio.create_task(_stream(dq, query.message))
+        task = asyncio.create_task(_run_runtime_message(
+            query.message,
+            ctx,
+            selected,
+            uid=uid,
+            chat=getattr(query.message, "chat", None),
+            metadata={"callback": "ask_user"},
+        ))
         ctx.user_data['stream_task'] = task
         return
     if action == _ASK_CANCEL_ACTION:
@@ -999,14 +1200,14 @@ async def handle_ask_callback(update, ctx):
     await _edit_ask_user_result(query, event, selected=selected)
     if query.message is None:
         return
-    _runtime.event(
-        event_id=getattr(query.message, "message_id", None),
-        user_id=str(uid),
-        chat_id=str(getattr(getattr(query.message, "chat", None), "id", uid)),
-        text=selected,
-    )
-    dq = agent.put_task(_build_text_prompt(selected), source="telegram")
-    task = asyncio.create_task(_stream(dq, query.message))
+    task = asyncio.create_task(_run_runtime_message(
+        query.message,
+        ctx,
+        selected,
+        uid=uid,
+        chat=getattr(query.message, "chat", None),
+        metadata={"callback": "ask_user"},
+    ))
     ctx.user_data['stream_task'] = task
 
 async def _send_llm_menu(message):
@@ -1056,8 +1257,13 @@ async def handle_llm_callback(update, ctx):
     await query.edit_message_text(f"✅ 已切换到 [{selected_idx}] {selected_name}")
 
 async def cmd_abort(update, ctx):
+    await _cancel_runtime_for_message(
+        update.message,
+        ctx,
+        uid=getattr(update.effective_user, "id", None),
+        chat=update.effective_chat or update.message.chat,
+    )
     _cancel_stream_task(ctx)
-    agent.abort()
     await update.message.reply_text("⏹️ 正在停止...")
 
 async def cmd_llm(update, ctx):
@@ -1089,18 +1295,17 @@ async def handle_photo(update, ctx):
     else: return
     await file.download_to_drive(os.path.join(_TEMP_DIR, fpath))
     caption = update.message.caption
-    _runtime.event(
-        event_id=getattr(update.message, "message_id", None),
-        user_id=str(uid),
-        chat_id=str(getattr(update.effective_chat or update.message.chat, "id", uid)),
-        chat_type="group" if getattr(update.effective_chat or update.message.chat, "type", "") != ChatType.PRIVATE else "private",
-        text=caption or "",
+    prompt = f"[TIPS] 收到{kind}temp/{fpath}\n{caption}" if caption else f"[TIPS] 收到{kind}temp/{fpath}，请等待下一步指令"
+    task = asyncio.create_task(_run_runtime_message(
+        update.message,
+        ctx,
+        prompt,
+        uid=uid,
+        chat=update.effective_chat or update.message.chat,
         files=(os.path.join(_TEMP_DIR, fpath),),
         images=(os.path.join(_TEMP_DIR, fpath),) if kind == "图片" else (),
-    )
-    prompt = f"[TIPS] 收到{kind}temp/{fpath}\n{caption}" if caption else f"[TIPS] 收到{kind}temp/{fpath}，请等待下一步指令"
-    dq = agent.put_task(_build_text_prompt(prompt), source="telegram")
-    task = asyncio.create_task(_stream(dq, update.message))
+        metadata={"kind": kind, "caption": caption or ""},
+    ))
     ctx.user_data['stream_task'] = task
 
 async def handle_command(update, ctx):
