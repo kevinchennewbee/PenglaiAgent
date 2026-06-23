@@ -89,10 +89,41 @@ def is_git(root):
     return run_git(root, ["rev-parse", "--is-inside-work-tree"]) == "true"
 
 
+def read_build_info(root):
+    if not root:
+        return {}
+    path = os.path.join(root, ".penglai-build.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def info_str(data, key):
+    value = data.get(key)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def info_bool(data, key):
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
 probe = target if is_git(target) else (source_dir if is_git(source_dir) else "")
-commit = env("PENGLAI_BUILD_COMMIT") or run_git(probe, ["rev-parse", "--short=12", "HEAD"])
-branch = env("PENGLAI_BUILD_BRANCH") or run_git(probe, ["rev-parse", "--abbrev-ref", "HEAD"])
-dirty = bool(run_git(probe, ["status", "--porcelain"])) if probe else False
+source_info = read_build_info(source_dir)
+target_info = read_build_info(target)
+build_info = target_info or source_info
+commit = env("PENGLAI_BUILD_COMMIT") or run_git(probe, ["rev-parse", "--short=12", "HEAD"]) or info_str(build_info, "commit")
+branch = env("PENGLAI_BUILD_BRANCH") or run_git(probe, ["rev-parse", "--abbrev-ref", "HEAD"]) or info_str(build_info, "branch")
+dirty = bool(run_git(probe, ["status", "--porcelain"])) if probe else info_bool(build_info, "dirty")
 
 remote = ""
 remote_url = ""
@@ -105,8 +136,11 @@ for name in [preferred, "release", "origin", "upstream"]:
         remote = name
         remote_url = url
         break
+if not remote:
+    remote = info_str(build_info, "remote")
+    remote_url = info_str(build_info, "remote_url")
 
-source = env("PENGLAI_INSTALL_SOURCE")
+source = env("PENGLAI_INSTALL_SOURCE") or info_str(build_info, "source")
 if not source:
     if is_git(target):
         source = "git"
@@ -115,7 +149,7 @@ if not source:
     else:
         source = "archive"
 
-build_time = env("PENGLAI_BUILD_TIME") or datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+build_time = env("PENGLAI_BUILD_TIME") or info_str(build_info, "build_time") or datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 data = {
     "schema": 1,
     "source": source,
@@ -124,9 +158,9 @@ data = {
     "dirty": dirty,
     "remote": remote,
     "remote_url": remote_url,
-    "build_commit": env("PENGLAI_BUILD_COMMIT") or commit,
+    "build_commit": env("PENGLAI_BUILD_COMMIT") or info_str(build_info, "build_commit") or commit,
     "build_time": build_time,
-    "image_tag": env("PENGLAI_IMAGE_TAG"),
+    "image_tag": env("PENGLAI_IMAGE_TAG") or info_str(build_info, "image_tag"),
 }
 tmp = f"{info_file}.{os.getpid()}.tmp"
 with open(tmp, "w", encoding="utf-8") as f:

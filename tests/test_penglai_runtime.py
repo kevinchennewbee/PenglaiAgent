@@ -2526,6 +2526,61 @@ def test_install_script_can_install_current_branch_without_setup():
     assert f"commit={build_info['commit']}" in version_output
 
 
+def test_install_script_inherits_build_info_from_source_copy_without_git():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    td = tempfile.mkdtemp()
+    source = os.path.join(td, "source")
+    target = os.path.join(td, "target")
+    os.makedirs(source, exist_ok=True)
+    with open(os.path.join(source, "penglai"), "w", encoding="utf-8") as f:
+        f.write("#!/usr/bin/env python3\nprint('minimal penglai')\n")
+    with open(os.path.join(source, "agent_loop.py"), "w", encoding="utf-8") as f:
+        f.write("# minimal source marker\n")
+    with open(os.path.join(source, ".penglai-build.json"), "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "schema": 1,
+                "source": "source",
+                "branch": "codex/no-git-source",
+                "commit": "fedcba987654",
+                "dirty": False,
+                "remote": "release",
+                "remote_url": "https://example.invalid/PenglaiAgent.git",
+                "build_commit": "fedcba987654",
+                "build_time": "2026-06-23T00:00:00Z",
+                "image_tag": "",
+            },
+            f,
+        )
+    env = os.environ.copy()
+    for key in VERSION_ENV_KEYS:
+        env.pop(key, None)
+    env.update({
+        "HOME": td,
+        "PATH": os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", ""),
+        "PENGLAI_SOURCE_DIR": source,
+        "PENGLAI_DIR": target,
+        "PENGLAI_SKIP_SETUP": "1",
+    })
+
+    result = subprocess.run(
+        ["sh", os.path.join(root, "install.sh")],
+        cwd=td,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+
+    assert result.returncode == 0, output
+    with open(os.path.join(target, ".penglai-build.json"), encoding="utf-8") as f:
+        build_info = json.load(f)
+    assert build_info["branch"] == "codex/no-git-source"
+    assert build_info["commit"] == "fedcba987654"
+    assert build_info["build_time"] == "2026-06-23T00:00:00Z"
+
+
 def test_desktop_static_ui_uses_chinese_runtime_labels():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     static_dir = os.path.join(root, "frontends", "desktop", "static")
