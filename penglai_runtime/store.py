@@ -77,6 +77,49 @@ class RuntimeStateStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_task_runs_session ON task_runs(session_id, created_at)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS session_state (
+                    session_id TEXT PRIMARY KEY,
+                    active INTEGER NOT NULL DEFAULT 0,
+                    active_run_id TEXT NOT NULL DEFAULT '',
+                    active_status TEXT NOT NULL DEFAULT '',
+                    pending_count INTEGER NOT NULL DEFAULT 0,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    cancel_drop_pending INTEGER NOT NULL DEFAULT 0,
+                    cancel_reason TEXT NOT NULL DEFAULT '',
+                    cancel_requested_at REAL NOT NULL DEFAULT 0,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cancel_requests (
+                    request_id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    drop_pending INTEGER NOT NULL DEFAULT 0,
+                    reason TEXT NOT NULL DEFAULT '',
+                    source TEXT NOT NULL DEFAULT '',
+                    created_at REAL NOT NULL,
+                    consumed_at REAL NOT NULL DEFAULT 0
+                )
+                """
+            )
+            for name, definition in (
+                ("active", "INTEGER NOT NULL DEFAULT 0"),
+                ("active_run_id", "TEXT NOT NULL DEFAULT ''"),
+                ("active_status", "TEXT NOT NULL DEFAULT ''"),
+                ("pending_count", "INTEGER NOT NULL DEFAULT 0"),
+                ("cancel_requested", "INTEGER NOT NULL DEFAULT 0"),
+                ("cancel_drop_pending", "INTEGER NOT NULL DEFAULT 0"),
+                ("cancel_reason", "TEXT NOT NULL DEFAULT ''"),
+                ("cancel_requested_at", "REAL NOT NULL DEFAULT 0"),
+                ("metadata_json", "TEXT NOT NULL DEFAULT '{}'"),
+                ("updated_at", "REAL NOT NULL DEFAULT 0"),
+            ):
+                self._ensure_column(conn, "session_state", name, definition)
 
     def _ensure_column(self, conn, table, name, definition):
         rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
@@ -206,6 +249,201 @@ class RuntimeStateStore:
             "metadata": _loads(row[13], {}),
             "updated_at": row[14],
         }
+
+    def record_session_state(
+        self,
+        session_id,
+        *,
+        active=False,
+        active_run_id="",
+        active_status="",
+        pending_count=0,
+        metadata=None,
+        clear_cancel=False,
+    ):
+        sid = str(session_id or "")
+        if not sid:
+            return {}
+        current = self.get_session_state(sid) or {}
+        cancel_requested = bool(current.get("cancel_requested"))
+        cancel_drop_pending = bool(current.get("cancel_drop_pending"))
+        cancel_reason = str(current.get("cancel_reason") or "")
+        cancel_requested_at = float(current.get("cancel_requested_at") or 0)
+        if clear_cancel:
+            cancel_requested = False
+            cancel_drop_pending = False
+            cancel_reason = ""
+            cancel_requested_at = 0
+        row = {
+            "session_id": sid,
+            "active": bool(active),
+            "active_run_id": str(active_run_id or ""),
+            "active_status": str(active_status or ""),
+            "pending_count": int(pending_count or 0),
+            "cancel_requested": cancel_requested,
+            "cancel_drop_pending": cancel_drop_pending,
+            "cancel_reason": cancel_reason,
+            "cancel_requested_at": cancel_requested_at,
+            "metadata": metadata or {},
+            "updated_at": time.time(),
+        }
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO session_state
+                (session_id, active, active_run_id, active_status, pending_count,
+                 cancel_requested, cancel_drop_pending, cancel_reason,
+                 cancel_requested_at, metadata_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["session_id"],
+                    1 if row["active"] else 0,
+                    row["active_run_id"],
+                    row["active_status"],
+                    row["pending_count"],
+                    1 if row["cancel_requested"] else 0,
+                    1 if row["cancel_drop_pending"] else 0,
+                    row["cancel_reason"],
+                    row["cancel_requested_at"],
+                    json.dumps(row["metadata"], ensure_ascii=False, sort_keys=True),
+                    row["updated_at"],
+                ),
+            )
+        return row
+
+    def get_session_state(self, session_id):
+        sid = str(session_id or "")
+        if not sid:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT session_id, active, active_run_id, active_status, pending_count,
+                       cancel_requested, cancel_drop_pending, cancel_reason,
+                       cancel_requested_at, metadata_json, updated_at
+                FROM session_state WHERE session_id = ?
+                """,
+                (sid,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "session_id": row[0],
+            "active": bool(row[1]),
+            "active_run_id": row[2],
+            "active_status": row[3],
+            "pending_count": int(row[4] or 0),
+            "cancel_requested": bool(row[5]),
+            "cancel_drop_pending": bool(row[6]),
+            "cancel_reason": row[7],
+            "cancel_requested_at": float(row[8] or 0),
+            "metadata": _loads(row[9], {}),
+            "updated_at": float(row[10] or 0),
+        }
+
+    def request_cancel(self, session_id, *, drop_pending=False, reason="", source=""):
+        sid = str(session_id or "")
+        if not sid:
+            return {}
+        created = time.time()
+        request_id = f"cancel_{int(created * 1000)}_{abs(hash((sid, created))) & 0xfffffff:x}"
+        reason = str(reason or "cancelled by runtime")
+        source = str(source or "runtime")
+        current = self.get_session_state(sid) or {}
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO cancel_requests
+                (request_id, session_id, drop_pending, reason, source, created_at, consumed_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0)
+                """,
+                (request_id, sid, 1 if drop_pending else 0, reason, source, created),
+            )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO session_state
+                (session_id, active, active_run_id, active_status, pending_count,
+                 cancel_requested, cancel_drop_pending, cancel_reason,
+                 cancel_requested_at, metadata_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sid,
+                    1 if current.get("active") else 0,
+                    str(current.get("active_run_id") or ""),
+                    str(current.get("active_status") or ""),
+                    int(current.get("pending_count") or 0),
+                    1 if drop_pending else 0,
+                    reason,
+                    created,
+                    json.dumps(current.get("metadata") or {}, ensure_ascii=False, sort_keys=True),
+                    created,
+                ),
+            )
+        data = self.get_session_state(sid) or {}
+        data["request_id"] = request_id
+        return data
+
+    def get_cancel_request(self, session_id):
+        sid = str(session_id or "")
+        if not sid:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT request_id, session_id, drop_pending, reason, source, created_at
+                FROM cancel_requests
+                WHERE session_id = ? AND consumed_at = 0
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (sid,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "request_id": row[0],
+            "session_id": row[1],
+            "drop_pending": bool(row[2]),
+            "reason": row[3],
+            "source": row[4],
+            "created_at": float(row[5] or 0),
+        }
+
+    def clear_cancel_request(self, session_id, *, request_id=""):
+        sid = str(session_id or "")
+        now = time.time()
+        current = self.get_session_state(sid) or {}
+        with self._connect() as conn:
+            if request_id:
+                conn.execute(
+                    "UPDATE cancel_requests SET consumed_at = ? WHERE request_id = ?",
+                    (now, str(request_id)),
+                )
+            else:
+                conn.execute(
+                    "UPDATE cancel_requests SET consumed_at = ? WHERE session_id = ? AND consumed_at = 0",
+                    (now, sid),
+                )
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO session_state
+                (session_id, active, active_run_id, active_status, pending_count,
+                 cancel_requested, cancel_drop_pending, cancel_reason,
+                 cancel_requested_at, metadata_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, 0, 0, '', 0, ?, ?)
+                """,
+                (
+                    sid,
+                    1 if current.get("active") else 0,
+                    str(current.get("active_run_id") or ""),
+                    str(current.get("active_status") or ""),
+                    int(current.get("pending_count") or 0),
+                    json.dumps(current.get("metadata") or {}, ensure_ascii=False, sort_keys=True),
+                    now,
+                ),
+            )
 
 
 def _loads(text, fallback):

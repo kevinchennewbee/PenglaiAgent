@@ -117,6 +117,36 @@ class RuntimeHubService:
         except Exception:
             pass
 
+    def _live_status(self, session_id):
+        return self.hub.status(session_id)
+
+    def _record_session_state(self, session_id, *, clear_cancel=False):
+        live = self._live_status(session_id)
+        queue = live.get("queue") or {}
+        return self.store.record_session_state(
+            session_id,
+            active=bool(queue.get("active")),
+            active_run_id=live.get("active_run_id") or "",
+            active_status=live.get("active_status") or "",
+            pending_count=int(queue.get("pending") or 0),
+            clear_cancel=clear_cancel,
+            metadata={"authority": "runtime_service"},
+        )
+
+    def _on_task_start(self, _event, session, _decision, task_run):
+        self.store.record_run(task_run)
+        self._record_session_state(session.session_id)
+
+    def _cancel_check(self, session_id):
+        return self.store.get_cancel_request(session_id)
+
+    def _finalize_cancel_request(self, session_id, result):
+        request = (result.task_run.metadata or {}).get("cancel_request") or {}
+        if not request:
+            return {}
+        self.store.clear_cancel_request(session_id, request_id=request.get("request_id", ""))
+        return request
+
     def receive_blocking(self, event, port=None, **kwargs):
         """Run one event through the real hub, serialized by session."""
         session = self.router.route(event)
@@ -126,8 +156,15 @@ class RuntimeHubService:
         with lock:
             if port is None:
                 port = self._session_port(session, event)
-            result = self.hub.receive(event, port, **kwargs)
+            result = self.hub.receive(
+                event,
+                port,
+                on_task_start=self._on_task_start,
+                cancel_check=lambda sid=session.session_id: self._cancel_check(sid),
+                **kwargs,
+            )
             self.store.record_run(result.task_run)
+            self._finalize_cancel_request(session.session_id, result)
             self._record_context_event(
                 "assistant_result",
                 result.cleaned_output or result.task_run.result_text,
@@ -136,6 +173,7 @@ class RuntimeHubService:
                 task_run=result.task_run,
             )
             self.hub.complete(session.session_id)
+            self._record_session_state(session.session_id, clear_cancel=result.status == "cancelled")
             return result
 
     def submit(self, event, *, port=None, on_complete=None, **kwargs):
@@ -160,6 +198,8 @@ class RuntimeHubService:
         # (which executes synchronously for started_now events).
         decision = self.runner.queue.submit(session.session_id, event)
         task_run = self.runner._new_task_run(event, session, decision)
+        self.store.record_run(task_run)
+        self._record_session_state(session.session_id)
         if not decision.started_now:
             # Queued: stash this event's own dispatch context so the dispatcher
             # can later use the correct adapter port and result callback.
@@ -189,8 +229,17 @@ class RuntimeHubService:
         lock = self._session_lock(session_id)
         # First event: runner.submit already created the task_run.
         with lock:
-            result = self.runner.run_started(event, task_run, decision, port, **kwargs)
+            result = self.runner.run_started(
+                event,
+                task_run,
+                decision,
+                port,
+                on_task_start=self._on_task_start,
+                cancel_check=lambda sid=session_id: self._cancel_check(sid),
+                **kwargs,
+            )
             self.store.record_run(result.task_run)
+            cancel_request = self._finalize_cancel_request(session_id, result)
             self._record_context_event(
                 "assistant_result",
                 result.cleaned_output or result.task_run.result_text,
@@ -203,7 +252,10 @@ class RuntimeHubService:
                     on_complete(result)
                 except Exception:
                     pass
+            if cancel_request.get("drop_pending"):
+                self.runner.cancel(session_id, drop_pending=True)
             next_event = self.runner.complete(session_id)
+            self._record_session_state(session_id, clear_cancel=bool(cancel_request))
         # Subsequent queued events.
         while next_event is not None:
             # Brief gap between queued tasks to avoid hammering LLM rate limits
@@ -236,8 +288,16 @@ class RuntimeHubService:
                 reason="dispatched",
             )
             with lock:
-                result = self.runner.run_queued(next_event, queued_decision, queued_port, **queued_kwargs)
+                result = self.runner.run_queued(
+                    next_event,
+                    queued_decision,
+                    queued_port,
+                    on_task_start=self._on_task_start,
+                    cancel_check=lambda sid=session_id: self._cancel_check(sid),
+                    **queued_kwargs,
+                )
                 self.store.record_run(result.task_run)
+                cancel_request = self._finalize_cancel_request(session_id, result)
                 self._record_context_event(
                     "assistant_result",
                     result.cleaned_output or result.task_run.result_text,
@@ -250,7 +310,10 @@ class RuntimeHubService:
                         queued_cb(result)
                     except Exception:
                         pass
+                if cancel_request.get("drop_pending"):
+                    self.runner.cancel(session_id, drop_pending=True)
                 next_event = self.runner.complete(session_id)
+                self._record_session_state(session_id, clear_cancel=bool(cancel_request))
 
     def recent_runs(self, *, session_id=None, limit=20):
         return self.store.recent_runs(session_id=session_id, limit=limit)
@@ -287,18 +350,57 @@ class RuntimeHubService:
         return self.store.get_run(run_id)
 
     def status(self, session_id):
-        return self.hub.status(session_id)
+        sid = str(session_id)
+        live = self._live_status(sid)
+        durable = self.store.get_session_state(sid)
+        if durable:
+            live_queue = live.get("queue") or {}
+            if not live_queue.get("active") and not live_queue.get("pending"):
+                live = {
+                    "session_id": sid,
+                    "queue": {
+                        "session_id": sid,
+                        "active": bool(durable.get("active")),
+                        "pending": int(durable.get("pending_count") or 0),
+                    },
+                    "active_run_id": durable.get("active_run_id") or "",
+                    "active_status": durable.get("active_status") or "",
+                    "run_count": live.get("run_count", 0),
+                    "authority": "store",
+                }
+            else:
+                live["authority"] = "live"
+            live["cancel_requested"] = bool(durable.get("cancel_requested"))
+            live["cancel_drop_pending"] = bool(durable.get("cancel_drop_pending"))
+            live["cancel_reason"] = durable.get("cancel_reason") or ""
+            live["state_updated_at"] = durable.get("updated_at") or 0
+        else:
+            live["authority"] = "live"
+            live["cancel_requested"] = False
+        return live
 
     def status_for_event(self, event):
         session = self.router.route(event)
         return self.status(session.session_id)
 
     def cancel_session(self, session_id, *, drop_pending=False):
+        live_before = self._live_status(session_id)
+        live_queue = live_before.get("queue") or {}
+        local_live = bool(live_queue.get("active") or live_queue.get("pending"))
+        self.store.request_cancel(
+            session_id,
+            drop_pending=drop_pending,
+            reason="cancelled by runtime",
+            source="RuntimeHubService.cancel_session",
+        )
         next_event = self.hub.cancel(session_id, drop_pending=drop_pending)
         for run_id in self.runner._session_run_ids.get(str(session_id), ()):
             run = self.runner.get_run(run_id)
             if run is not None:
                 self.store.record_run(run)
+        if local_live:
+            self.store.clear_cancel_request(session_id)
+        self._record_session_state(session_id)
         return {
             "session_id": str(session_id),
             "next_event_id": getattr(next_event, "event_id", "") if next_event else "",

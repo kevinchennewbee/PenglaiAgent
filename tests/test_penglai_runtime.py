@@ -52,6 +52,7 @@ from penglai_runtime.queueing import SessionQueue
 from penglai_runtime.redaction import contains_secret, redact_json, redact_text as runtime_redact_text
 from penglai_runtime.runner import AgentRunner
 from penglai_runtime.service import RuntimeHubService
+from penglai_runtime.store import RuntimeStateStore
 from penglai_runtime import service_unit
 from penglai_runtime.shadow import build_delivery_shadow_event, record_delivery_shadow, redact_text
 from penglai_runtime.session import SessionRouter
@@ -1817,6 +1818,67 @@ def test_cancel_session_drops_pending_queue():
 
     # The queued "drop-me" never reached the port (cancel cleared the queue).
     assert "drop-me" not in [t for t, _ in port_calls]
+
+
+def test_runtime_store_exposes_cross_process_active_state_and_cancel_request():
+    td = tempfile.mkdtemp()
+    store_path = os.path.join(td, "runtime.sqlite3")
+    started = threading.Event()
+    release = threading.Event()
+    completed = []
+
+    def slow_run(incoming):
+        assert incoming.text == "keep-visible"
+        started.set()
+        release.wait(timeout=5)
+        return "late-success-should-cancel"
+
+    service = RuntimeHubService(
+        owner_user_ids={"owner"},
+        store_path=store_path,
+    )
+    observer = RuntimeHubService(
+        owner_user_ids={"owner"},
+        store_path=store_path,
+    )
+
+    decision = service.submit(
+        InboundEvent("cross-proc-1", "feishu", "owner", "keep-visible"),
+        port=CallableAgentPort(slow_run, worker_id="slow-worker"),
+        on_complete=completed.append,
+        send_body=False,
+        send_notice=False,
+    )
+    assert decision.started_now is True
+    assert started.wait(timeout=2)
+
+    observed = observer.status("owner:default")
+    assert observed["authority"] == "store"
+    assert observed["queue"]["active"] is True
+    assert observed["active_status"] == RunStatus.RUNNING
+    assert observed["active_run_id"]
+
+    cancel_data = observer.cancel_session("owner:default", drop_pending=True)
+    assert cancel_data["status"]["cancel_requested"] is True
+    assert cancel_data["status"]["cancel_drop_pending"] is True
+
+    release.set()
+    for _ in range(120):
+        if completed and not service.runner.queue.is_active("owner:default"):
+            break
+        threading.Event().wait(0.05)
+
+    assert completed
+    assert completed[0].status == RunStatus.CANCELLED
+    assert "cancel_request" in completed[0].task_run.metadata
+
+    persisted = RuntimeStateStore(store_path)
+    run = persisted.get_run(completed[0].task_run.run_id)
+    assert run["status"] == RunStatus.CANCELLED
+    final_state = persisted.get_session_state("owner:default")
+    assert final_state["active"] is False
+    assert final_state["pending_count"] == 0
+    assert final_state["cancel_requested"] is False
 
 
 def test_desktop_bridge_prompt_enters_runtime_hub_service_and_permission_flow():

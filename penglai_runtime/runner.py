@@ -79,6 +79,8 @@ class AgentRunner:
         send_body=True,
         send_notice=True,
         fail_on_delivery_failure=False,
+        cancel_check=None,
+        on_task_start=None,
     ):
         if not isinstance(event, InboundEvent):
             raise TypeError("event must be an InboundEvent")
@@ -97,12 +99,15 @@ class AgentRunner:
         worker_id = getattr(port, "worker_id", None) if port is not None else "single-worker"
         task_run.start(worker_id=worker_id)
         self._active_run_ids[session.session_id] = task_run.run_id
+        self._notify_task_start(on_task_start, event, session, decision, task_run)
         return self._execute(event, session, decision, task_run, port, base_dir=base_dir,
                              exclude_paths=exclude_paths, send_body=send_body, send_notice=send_notice,
-                             fail_on_delivery_failure=fail_on_delivery_failure)
+                             fail_on_delivery_failure=fail_on_delivery_failure,
+                             cancel_check=cancel_check)
 
     def run_started(self, event, task_run, decision, port, *, base_dir=None, exclude_paths=None,
-                    send_body=True, send_notice=True, fail_on_delivery_failure=False):
+                    send_body=True, send_notice=True, fail_on_delivery_failure=False,
+                    cancel_check=None, on_task_start=None):
         """Execute an event whose TaskRun was already created by submit.
 
         Used by the service dispatcher for the first (non-queued) event.
@@ -112,13 +117,16 @@ class AgentRunner:
         if task_run.status == RunStatus.PENDING:
             task_run.start(worker_id=getattr(port, "worker_id", None))
         self._active_run_ids[session.session_id] = task_run.run_id
+        self._notify_task_start(on_task_start, event, session, decision, task_run)
         return self._execute(event, session, decision, task_run, port,
                              base_dir=base_dir, exclude_paths=exclude_paths,
                              send_body=send_body, send_notice=send_notice,
-                             fail_on_delivery_failure=fail_on_delivery_failure)
+                             fail_on_delivery_failure=fail_on_delivery_failure,
+                             cancel_check=cancel_check)
 
     def run_queued(self, event, decision, port, *, base_dir=None, exclude_paths=None,
-                   send_body=True, send_notice=True, fail_on_delivery_failure=False):
+                   send_body=True, send_notice=True, fail_on_delivery_failure=False,
+                   cancel_check=None, on_task_start=None):
         """Execute a queued event (popped by the dispatcher after complete()).
 
         ``event.metadata['new_turn']`` is expected to be set by the caller so
@@ -129,14 +137,16 @@ class AgentRunner:
         task_run = self._new_task_run(event, session, decision)
         task_run.start(worker_id=getattr(port, "worker_id", None))
         self._active_run_ids[session.session_id] = task_run.run_id
+        self._notify_task_start(on_task_start, event, session, decision, task_run)
         return self._execute(event, session, decision, task_run, port,
                              base_dir=base_dir, exclude_paths=exclude_paths,
                              send_body=send_body, send_notice=send_notice,
-                             fail_on_delivery_failure=fail_on_delivery_failure)
+                             fail_on_delivery_failure=fail_on_delivery_failure,
+                             cancel_check=cancel_check)
 
     def _execute(self, event, session, decision, task_run, port, *,
                  base_dir=None, exclude_paths=None, send_body=True, send_notice=True,
-                 fail_on_delivery_failure=False):
+                 fail_on_delivery_failure=False, cancel_check=None):
         try:
             raw, interaction, permission = self._run_port(event, port)
         except Exception as exc:
@@ -149,6 +159,24 @@ class AgentRunner:
                 decision=decision,
                 task_run=task_run,
                 raw_output="",
+                cleaned_output="",
+            )
+        cancel_request = self._check_cancel(cancel_check)
+        if cancel_request:
+            reason = str(cancel_request.get("reason") or "cancelled by runtime")
+            task_run.cancel(reason)
+            task_run.metadata["cancel_request"] = {
+                "request_id": cancel_request.get("request_id", ""),
+                "source": cancel_request.get("source", ""),
+                "drop_pending": bool(cancel_request.get("drop_pending")),
+            }
+            task_run.log_excerpt = reason[:1000]
+            return AgentRunResult(
+                event=event,
+                session=session,
+                decision=decision,
+                task_run=task_run,
+                raw_output=raw,
                 cleaned_output="",
             )
         if task_run.terminal:
@@ -324,6 +352,23 @@ class AgentRunner:
         self._event_run_ids[event.event_id] = task.run_id
         self._session_run_ids.setdefault(session.session_id, []).append(task.run_id)
         return task
+
+    def _notify_task_start(self, callback, event, session, decision, task_run):
+        if not callable(callback):
+            return
+        try:
+            callback(event, session, decision, task_run)
+        except Exception:
+            pass
+
+    def _check_cancel(self, callback):
+        if not callable(callback):
+            return None
+        try:
+            data = callback()
+        except Exception:
+            return None
+        return data if isinstance(data, dict) and data else None
 
     def _run_port(self, event, port):
         if port is None:
