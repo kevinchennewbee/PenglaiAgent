@@ -1490,7 +1490,7 @@ class AgentBridge:
             text=query,
             images=tuple(images or ()),
         )
-        return self.agent.put_task(self.runtime_bridge.prompt(event.text), source='user', images=images)
+        return self.agent.put_task(self.runtime_bridge.prompt(event.text, event=event), source='user', images=images)
 
     def abort(self):
         self.agent.abort()

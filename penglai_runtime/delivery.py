@@ -73,6 +73,7 @@ class DeliveryResult:
     skipped_paths: Tuple[str, ...] = ()
     notice: str = ""
     sent_body: bool = False
+    failed_body: bool = False
 
     @property
     def sent_count(self):
@@ -169,6 +170,7 @@ class DeliveryService:
 
         if send_body and plan.body:
             sent_body = self._send_text(plan.body)
+        failed_body = bool(send_body and plan.body and not sent_body)
 
         if plan.external_delivery.delivered and plan.allowed:
             skipped_paths = [a.realpath for a in plan.allowed]
@@ -207,6 +209,7 @@ class DeliveryService:
             skipped_paths=tuple(skipped_paths),
             notice=notice,
             sent_body=sent_body,
+            failed_body=failed_body,
         )
 
     def _send_file(self, path):

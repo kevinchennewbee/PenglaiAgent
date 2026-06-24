@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import time
-from typing import Any
 
 from .redaction import redact_obj, redact_text
 
@@ -29,23 +28,106 @@ def _hash(value):
     return hashlib.sha256(str(value).encode("utf-8", "replace")).hexdigest()[:16]
 
 
-def append_context_event(kind, text, *, channel="", actor="", metadata=None, log_path=None):
+def _metadata(event):
+    data = event.get("metadata") if isinstance(event, dict) else None
+    return data if isinstance(data, dict) else {}
+
+
+def _metadata_value(event, key):
+    value = event.get(key) if isinstance(event, dict) else ""
+    if value not in (None, ""):
+        return str(value)
+    value = _metadata(event).get(key)
+    return str(value) if value not in (None, "") else ""
+
+
+def _event_session_id(event):
+    return _metadata_value(event, "session_id")
+
+
+def _event_session_scope(event):
+    return _metadata_value(event, "session_scope")
+
+
+def _normalize_scopes(scopes):
+    if scopes is None:
+        return None
+    if isinstance(scopes, str):
+        return {scopes} if scopes else set()
+    return {str(item) for item in scopes if str(item)}
+
+
+def append_context_event(
+    kind,
+    text,
+    *,
+    channel="",
+    actor="",
+    metadata=None,
+    session_id="",
+    session_scope="",
+    chat_id="",
+    log_path=None,
+):
     path = log_path or default_context_log_path()
+    safe_metadata = redact_obj(metadata or {})
+    session_id = str(session_id or safe_metadata.get("session_id") or "")
+    session_scope = str(session_scope or safe_metadata.get("session_scope") or "")
+    if session_id:
+        safe_metadata.setdefault("session_id", session_id)
+    if session_scope:
+        safe_metadata.setdefault("session_scope", session_scope)
     event = {
         "ts": time.time(),
         "kind": str(kind or "event"),
         "channel": str(channel or ""),
         "actor_hash": _hash(actor),
         "text": redact_text(text)[:800],
-        "metadata": redact_obj(metadata or {}),
+        "metadata": safe_metadata,
     }
+    if session_id:
+        event["session_id"] = session_id
+    if session_scope:
+        event["session_scope"] = session_scope
+    if chat_id:
+        event["chat_hash"] = _hash(chat_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
     return event
 
 
-def recent_context_events(*, limit=6, max_age_hours=72, log_path=None):
+def _matches_boundary(event, *, session_id="", scopes=None, channel="", include_legacy=False):
+    if channel and str(event.get("channel") or "") != str(channel):
+        return False
+    wanted_scopes = _normalize_scopes(scopes)
+    event_session_id = _event_session_id(event)
+    event_scope = _event_session_scope(event)
+    has_context_boundary = bool(event_session_id or event_scope)
+    boundary_requested = bool(session_id or wanted_scopes is not None or channel)
+    if boundary_requested and not has_context_boundary and not include_legacy:
+        return False
+    if session_id and has_context_boundary and event_session_id != str(session_id):
+        return False
+    if session_id and not has_context_boundary and not include_legacy:
+        return False
+    if wanted_scopes is not None and has_context_boundary and event_scope not in wanted_scopes:
+        return False
+    if wanted_scopes is not None and not has_context_boundary and not include_legacy:
+        return False
+    return True
+
+
+def recent_context_events(
+    *,
+    limit=6,
+    max_age_hours=72,
+    log_path=None,
+    session_id="",
+    scopes=None,
+    channel="",
+    include_legacy=False,
+):
     path = log_path or default_context_log_path()
     if not os.path.exists(path):
         return []
@@ -59,14 +141,40 @@ def recent_context_events(*, limit=6, max_age_hours=72, log_path=None):
                 except Exception:
                     continue
                 if float(event.get("ts", 0) or 0) >= cutoff:
-                    events.append(event)
+                    if _matches_boundary(
+                        event,
+                        session_id=session_id,
+                        scopes=scopes,
+                        channel=channel,
+                        include_legacy=include_legacy,
+                    ):
+                        events.append(event)
     except Exception:
         return []
     return events[-limit:]
 
 
-def recent_context_prompt(*, limit=6, max_age_hours=72, log_path=None):
-    events = recent_context_events(limit=limit, max_age_hours=max_age_hours, log_path=log_path)
+def recent_context_prompt(
+    *,
+    limit=6,
+    max_age_hours=72,
+    log_path=None,
+    session_id="",
+    scopes=None,
+    channel="",
+    include_legacy=False,
+):
+    if not (session_id or scopes is not None or channel or include_legacy):
+        return ""
+    events = recent_context_events(
+        limit=limit,
+        max_age_hours=max_age_hours,
+        log_path=log_path,
+        session_id=session_id,
+        scopes=scopes,
+        channel=channel,
+        include_legacy=include_legacy,
+    )
     if not events:
         return ""
     lines = ["[Recent Penglai proactive/context events]"]

@@ -376,6 +376,8 @@ def _record_companion_context(kind, body, cfg, state, *, task_run=None, extra=No
     metadata = {
         "trigger": state.get("pending_kind") or state.get("last_trigger_kind") or "",
         "mode": cfg.get("mode", "present"),
+        "session_id": "owner:default",
+        "session_scope": "owner",
     }
     if task_run is not None:
         metadata["run_id"] = task_run.run_id
@@ -386,6 +388,8 @@ def _record_companion_context(kind, body, cfg, state, *, task_run=None, extra=No
         metadata["pending_emotion_ts"] = state.get("pending_emotion_ts", 0)
     if extra:
         metadata.update(extra)
+    session_id = str(metadata.get("session_id") or "owner:default")
+    session_scope = str(metadata.get("session_scope") or "owner")
     try:
         append_context_event(
             kind,
@@ -393,6 +397,8 @@ def _record_companion_context(kind, body, cfg, state, *, task_run=None, extra=No
             channel="companion",
             actor=cfg.get("open_id", ""),
             metadata=metadata,
+            session_id=session_id,
+            session_scope=session_scope,
         )
     except Exception as e:
         print(f"[companion] 上下文事件记录失败: {e}")
@@ -576,7 +582,17 @@ def run_runtime_task(prompt, *, agent=None, service=None, port=None):
         event,
         port=port,
         send_notice=False,
+        fail_on_delivery_failure=True,
     )
+    if result.task_run.status == "failed" and (sent or errors):
+        status, body = _finalize_companion_result(
+            result.cleaned_output or result.task_run.result_text or result.raw_output,
+            task_run=result.task_run,
+            store=service.store,
+            sent=sent,
+            errors=errors,
+        )
+        return f"[DELIVERY_FAILED] {body}\n{result.task_run.error}"
     if result.task_run.status == "failed":
         state = _load_json(_STATE)
         state["pending_kind"] = ""

@@ -111,7 +111,19 @@ class TaskRun:
     def terminal(self):
         return self.status in RunStatus.TERMINAL
 
+    def _terminal_blocked(self, attempted):
+        self.metadata.setdefault("blocked_terminal_transitions", []).append(
+            {
+                "from": self.status,
+                "to": str(attempted),
+                "ts": time.time(),
+            }
+        )
+        return self
+
     def start(self, *, worker_id=None):
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.RUNNING)
         if worker_id:
             self.worker_id = str(worker_id)
         self.status = RunStatus.RUNNING
@@ -119,12 +131,16 @@ class TaskRun:
         return self
 
     def wait_permission(self, request):
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.WAITING_PERMISSION)
         self.status = RunStatus.WAITING_PERMISSION
         self.permission = request
         self.finished_at = time.time()
         return self
 
     def succeed(self, text="", *, artifacts=()):
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.SUCCEEDED)
         self.status = RunStatus.SUCCEEDED
         self.result_text = str(text or "")
         self.artifacts = tuple(str(path) for path in (artifacts or ()) if str(path))
@@ -132,12 +148,16 @@ class TaskRun:
         return self
 
     def fail(self, error):
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.FAILED)
         self.status = RunStatus.FAILED
         self.error = str(error or "")
         self.finished_at = time.time()
         return self
 
     def cancel(self, reason=""):
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.CANCELLED)
         self.status = RunStatus.CANCELLED
         self.error = str(reason or "cancelled")
         self.finished_at = time.time()

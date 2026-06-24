@@ -112,7 +112,7 @@ def _runtime_contract_check():
             "owner_session_shared",
             "permission_request_waits",
             "failure_status_recorded",
-            "cancel_status_and_fifo_promote",
+            "terminal_status_locked_and_fifo_promote",
             "control_ops_catalog",
             "privacy_audit_contract",
         )

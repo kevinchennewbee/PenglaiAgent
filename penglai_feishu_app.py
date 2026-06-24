@@ -35,7 +35,7 @@ from penglai_runtime.contracts import InboundEvent, RunStatus  # noqa: E402
 from penglai_runtime.interaction import parse_callback_value, request_from_ask_user_event  # noqa: E402
 from penglai_runtime.permissions import permission_payload, render_permission_text  # noqa: E402
 from penglai_runtime.port import GenericAgentInstancePort  # noqa: E402
-from penglai_runtime.context_events import default_context_log_path, recent_context_prompt  # noqa: E402
+from penglai_runtime.context_events import default_context_log_path  # noqa: E402
 from penglai_runtime.redaction import contains_secret, redact_text  # noqa: E402
 from penglai_runtime.service import RuntimeHubService  # noqa: E402
 from penglai_runtime.version import compact_version_line, format_version_text  # noqa: E402
@@ -109,8 +109,13 @@ def _secret_blocked(text):
     return contains_secret(text)
 
 
-def _compose_agent_prompt(file_hint, text):
-    context = recent_context_prompt()
+def _compose_agent_prompt(file_hint, text, *, session_id="", session_scope=""):
+    from penglai_runtime.context_events import recent_context_prompt
+
+    context = recent_context_prompt(
+        session_id=session_id,
+        scopes=(session_scope,) if session_scope else None,
+    )
     parts = [file_hint]
     if context:
         parts.append(context)
@@ -1232,9 +1237,19 @@ def _patch(fs):
                 self.agent._fs_active_task_id = task_id
                 await asyncio.to_thread(card.start)
                 card_started = True
+
+            def _prompt_for_incoming(incoming):
+                incoming_session = service.router.route(incoming)
+                return _compose_agent_prompt(
+                    fs.FILE_HINT,
+                    incoming.text,
+                    session_id=incoming_session.session_id,
+                    session_scope=incoming_session.scope,
+                )
+
             port = GenericAgentInstancePort(
                 agent=self.agent,
-                prompt_builder=lambda incoming: _compose_agent_prompt(fs.FILE_HINT, incoming.text),
+                prompt_builder=_prompt_for_incoming,
                 source=self.source,
                 timeout=fs.AGENT_TIMEOUT_SEC,
                 turn_hook=_make_penglai_progress_hook(card, task_id),

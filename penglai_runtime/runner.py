@@ -65,6 +65,7 @@ class AgentRunner:
         self.delivery = delivery or DeliveryService()
         self.memory = memory or MemoryGovernor()
         self.runs = {}
+        self._event_run_ids = {}
         self._active_run_ids = {}
         self._session_run_ids = {}
 
@@ -77,6 +78,7 @@ class AgentRunner:
         exclude_paths=None,
         send_body=True,
         send_notice=True,
+        fail_on_delivery_failure=False,
     ):
         if not isinstance(event, InboundEvent):
             raise TypeError("event must be an InboundEvent")
@@ -96,10 +98,11 @@ class AgentRunner:
         task_run.start(worker_id=worker_id)
         self._active_run_ids[session.session_id] = task_run.run_id
         return self._execute(event, session, decision, task_run, port, base_dir=base_dir,
-                             exclude_paths=exclude_paths, send_body=send_body, send_notice=send_notice)
+                             exclude_paths=exclude_paths, send_body=send_body, send_notice=send_notice,
+                             fail_on_delivery_failure=fail_on_delivery_failure)
 
     def run_started(self, event, task_run, decision, port, *, base_dir=None, exclude_paths=None,
-                    send_body=True, send_notice=True):
+                    send_body=True, send_notice=True, fail_on_delivery_failure=False):
         """Execute an event whose TaskRun was already created by submit.
 
         Used by the service dispatcher for the first (non-queued) event.
@@ -111,10 +114,11 @@ class AgentRunner:
         self._active_run_ids[session.session_id] = task_run.run_id
         return self._execute(event, session, decision, task_run, port,
                              base_dir=base_dir, exclude_paths=exclude_paths,
-                             send_body=send_body, send_notice=send_notice)
+                             send_body=send_body, send_notice=send_notice,
+                             fail_on_delivery_failure=fail_on_delivery_failure)
 
     def run_queued(self, event, decision, port, *, base_dir=None, exclude_paths=None,
-                   send_body=True, send_notice=True):
+                   send_body=True, send_notice=True, fail_on_delivery_failure=False):
         """Execute a queued event (popped by the dispatcher after complete()).
 
         ``event.metadata['new_turn']`` is expected to be set by the caller so
@@ -127,14 +131,17 @@ class AgentRunner:
         self._active_run_ids[session.session_id] = task_run.run_id
         return self._execute(event, session, decision, task_run, port,
                              base_dir=base_dir, exclude_paths=exclude_paths,
-                             send_body=send_body, send_notice=send_notice)
+                             send_body=send_body, send_notice=send_notice,
+                             fail_on_delivery_failure=fail_on_delivery_failure)
 
     def _execute(self, event, session, decision, task_run, port, *,
-                 base_dir=None, exclude_paths=None, send_body=True, send_notice=True):
+                 base_dir=None, exclude_paths=None, send_body=True, send_notice=True,
+                 fail_on_delivery_failure=False):
         try:
             raw, interaction, permission = self._run_port(event, port)
         except Exception as exc:
-            task_run.fail(exc)
+            if not task_run.terminal:
+                task_run.fail(exc)
             task_run.log_excerpt = str(exc or "")[:1000]
             return AgentRunResult(
                 event=event,
@@ -142,6 +149,15 @@ class AgentRunner:
                 decision=decision,
                 task_run=task_run,
                 raw_output="",
+                cleaned_output="",
+            )
+        if task_run.terminal:
+            return AgentRunResult(
+                event=event,
+                session=session,
+                decision=decision,
+                task_run=task_run,
+                raw_output=raw,
                 cleaned_output="",
             )
         if interaction is None and permission is None and not str(raw or "").strip():
@@ -179,12 +195,48 @@ class AgentRunner:
                 send_notice=send_notice,
             )
         memory_decision = self.memory.classify(raw or event.text)
+        if fail_on_delivery_failure and delivery_result is not None:
+            if delivery_result.failed_body or delivery_result.failed_paths:
+                reason = "投递失败"
+                failed = []
+                if delivery_result.failed_body:
+                    failed.append("body")
+                failed.extend(delivery_result.failed_paths)
+                if failed:
+                    reason += ": " + ", ".join(str(item) for item in failed[:5])
+                task_run.fail(reason)
+                task_run.log_excerpt = reason[:1000]
+                task_run.metadata["delivery_failed"] = {
+                    "body": bool(delivery_result.failed_body),
+                    "files": list(delivery_result.failed_paths),
+                }
+                return AgentRunResult(
+                    event=event,
+                    session=session,
+                    decision=decision,
+                    task_run=task_run,
+                    raw_output=raw,
+                    cleaned_output=cleaned,
+                    delivery=delivery_result,
+                    memory=memory_decision,
+                )
         if permission is not None:
             task_run.wait_permission(permission)
         elif interaction is not None:
             permission = self._permission_from_interaction(interaction)
             task_run.wait_permission(permission)
         else:
+            if task_run.terminal:
+                return AgentRunResult(
+                    event=event,
+                    session=session,
+                    decision=decision,
+                    task_run=task_run,
+                    raw_output=raw,
+                    cleaned_output=cleaned,
+                    delivery=delivery_result,
+                    memory=memory_decision,
+                )
             artifacts = ()
             if delivery_result is not None:
                 artifacts = (
@@ -246,6 +298,18 @@ class AgentRunner:
         return self.runs.get(str(run_id))
 
     def _new_task_run(self, event, session, decision):
+        existing_id = self._event_run_ids.get(event.event_id)
+        existing = self.runs.get(existing_id) if existing_id else None
+        if existing is not None and existing.status == RunStatus.PENDING:
+            existing.metadata.update(
+                {
+                    "channel": event.channel,
+                    "scope": session.scope,
+                    "queue_no": decision.queue_no,
+                    "queue_reason": decision.reason,
+                }
+            )
+            return existing
         task = TaskRun(
             event_id=event.event_id,
             session_id=session.session_id,
@@ -257,6 +321,7 @@ class AgentRunner:
             },
         )
         self.runs[task.run_id] = task
+        self._event_run_ids[event.event_id] = task.run_id
         self._session_run_ids.setdefault(session.session_id, []).append(task.run_id)
         return task
 

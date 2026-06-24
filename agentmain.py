@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from llmcore import reload_mykeys, ToolClient, MixinSession, NativeToolClient, NativeClaudeSession, NativeOAISession, resolve_client
 from agent_loop import agent_runner_loop
-from penglai_runtime.context_events import recent_context_prompt
 try:
     from plugins.hooks import discover_and_load; discover_and_load()
 except Exception: pass
@@ -41,8 +40,6 @@ def get_system_prompt():
     with open(os.path.join(script_dir, f'assets/sys_prompt{lang_suffix}.txt'), 'r', encoding='utf-8') as f: prompt = f.read()
     prompt += f"\nToday: {time.strftime('%Y-%m-%d %a')}\n"
     prompt += get_global_memory()
-    if context := recent_context_prompt():
-        prompt += "\n" + context + "\n"
     return prompt
 
 # SDK:

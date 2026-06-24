@@ -2035,7 +2035,7 @@ class ChatPanel(QWidget):
             text=full_prompt,
             files=tuple(item.get("raw") for item in files if item.get("raw")),
         )
-        self._display_queue = self.agent.put_task(self._runtime_bridge.prompt(event.text), source="user")
+        self._display_queue = self.agent.put_task(self._runtime_bridge.prompt(event.text, event=event), source="user")
         self._poll_timer.start(40)
 
     def _handle_command(self, cmd: str):

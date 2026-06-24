@@ -879,18 +879,24 @@ def test_context_events_are_recent_redacted_prompt_context():
         channel="feishu",
         actor="ou_real",
         metadata={"secret": "sk-testsecret123456"},
+        session_id="owner:default",
+        session_scope="owner",
+        chat_id="oc_real",
         log_path=log_path,
     )
 
-    prompt = recent_context_prompt(log_path=log_path)
+    assert recent_context_prompt(log_path=log_path) == ""
+
+    prompt = recent_context_prompt(session_id="owner:default", log_path=log_path)
 
     assert "companion_sent" in prompt
     assert "token=***" in prompt
     assert "abc12345" not in prompt
     assert "ou_real" not in prompt
+    assert recent_context_prompt(session_id="feishu:user:someone-else", log_path=log_path) == ""
 
 
-def test_agentmain_system_prompt_includes_recent_context_events():
+def test_agentmain_system_prompt_does_not_read_context_events_directly():
     td = tempfile.mkdtemp()
     log_path = os.path.join(td, "context.jsonl")
     old_env = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
@@ -902,6 +908,8 @@ def test_agentmain_system_prompt_includes_recent_context_events():
             channel="feishu",
             actor="ou_real",
             metadata={"trigger": "evening"},
+            session_id="owner:default",
+            session_scope="owner",
         )
         import agentmain
 
@@ -912,10 +920,9 @@ def test_agentmain_system_prompt_includes_recent_context_events():
         else:
             os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = old_env
 
-    assert "Recent Penglai proactive/context events" in prompt
-    assert "companion_sent" in prompt
-    assert "20:00" in prompt
-    assert "token=***" in prompt
+    assert "Recent Penglai proactive/context events" not in prompt
+    assert "companion_sent" not in prompt
+    assert "20:00" not in prompt
     assert "abc12345" not in prompt
     assert "ou_real" not in prompt
 
@@ -944,7 +951,9 @@ def test_runtime_service_records_owner_and_desktop_turns_as_context_events():
 
     with open(log_path, encoding="utf-8") as f:
         lines = [json.loads(line) for line in f if line.strip()]
-    prompt = recent_context_prompt(limit=10, log_path=log_path)
+    owner_prompt = recent_context_prompt(session_id="owner:default", limit=10, log_path=log_path)
+    desktop_prompt = recent_context_prompt(session_id="desktop:user:sess-1", limit=10, log_path=log_path)
+    group_prompt = recent_context_prompt(session_id="feishu:group:g1", limit=10, log_path=log_path)
 
     assert [item["kind"] for item in lines] == [
         "user_message",
@@ -952,11 +961,20 @@ def test_runtime_service_records_owner_and_desktop_turns_as_context_events():
         "user_message",
         "assistant_result",
     ]
-    assert "今天心情低落" in prompt
-    assert "桌面继续处理" in prompt
-    assert "群聊内容不要进陪伴" not in prompt
-    assert "token=***" in prompt
-    assert "abc12345" not in prompt
+    assert lines[0]["session_id"] == "owner:default"
+    assert lines[0]["session_scope"] == "owner"
+    assert lines[2]["session_id"] == "desktop:user:sess-1"
+    assert lines[2]["session_scope"] == "private"
+    assert "今天心情低落" in owner_prompt
+    assert "桌面继续处理" not in owner_prompt
+    assert "群聊内容不要进陪伴" not in owner_prompt
+    assert "桌面继续处理" in desktop_prompt
+    assert "今天心情低落" not in desktop_prompt
+    assert "群聊内容不要进陪伴" not in desktop_prompt
+    assert "群聊内容不要进陪伴" not in group_prompt
+    assert recent_context_prompt(limit=10, log_path=log_path) == ""
+    assert "token=***" in owner_prompt
+    assert "abc12345" not in owner_prompt
 
 
 def test_version_metadata_uses_installer_version_and_git_identity():
@@ -1130,10 +1148,39 @@ def test_agent_runner_records_taskrun_permission_failure_and_cancel():
     )
     promoted = runner.cancel(active.session.session_id)
 
-    assert active.task_run.status == RunStatus.CANCELLED
+    assert active.task_run.status == RunStatus.SUCCEEDED
+    assert active.task_run.metadata["blocked_terminal_transitions"][-1]["to"] == RunStatus.CANCELLED
     assert queued.status == RunStatus.PENDING
     assert promoted == queued.event
     runner.cancel(active.session.session_id, drop_pending=True)
+
+
+def test_taskrun_terminal_status_cannot_be_overwritten_by_late_cancel_or_success():
+    runner = AgentRunner(owner_user_ids={"owner"})
+
+    def cancel_during_port(_event):
+        runner.cancel("owner:default")
+        return "late success"
+
+    result = runner.submit(
+        InboundEvent("run-late-cancel", "desktop", "owner", "first"),
+        CallableAgentPort(cancel_during_port, worker_id="contract-worker"),
+        send_body=False,
+        send_notice=False,
+    )
+
+    assert result.status == RunStatus.CANCELLED
+    assert result.task_run.result_text == ""
+    assert result.cleaned_output == ""
+
+    result.task_run.succeed("should not overwrite")
+    result.task_run.fail("should not overwrite")
+    assert result.status == RunStatus.CANCELLED
+    assert result.task_run.result_text == ""
+    assert [item["to"] for item in result.task_run.metadata["blocked_terminal_transitions"][-2:]] == [
+        RunStatus.SUCCEEDED,
+        RunStatus.FAILED,
+    ]
 
 
 def test_agent_runner_treats_empty_final_output_as_failure():
@@ -1713,6 +1760,11 @@ def test_submit_dispatches_queued_event_with_its_own_port():
     )
     assert d2.started_now is False
     assert d2.queue_no == 1
+    queued_run_ids_before = list(service.runner._session_run_ids.get("owner:default", ()))
+    assert len(queued_run_ids_before) == 2
+    queued_run = next(service.runner.get_run(run_id) for run_id in queued_run_ids_before
+                      if service.runner.get_run(run_id).event_id == "own-port-2")
+    assert queued_run.status == RunStatus.PENDING
 
     release_first.set()
     for _ in range(120):
@@ -1727,6 +1779,8 @@ def test_submit_dispatches_queued_event_with_its_own_port():
     assert [r.event.event_id for r in completed] == ["own-port-1", "own-port-2"]
     assert [r.task_run.worker_id for r in completed] == ["first-worker", "second-worker"]
     assert completed[1].task_run.result_text == "done:second"
+    assert list(service.runner._session_run_ids.get("owner:default", ())) == queued_run_ids_before
+    assert completed[1].task_run.run_id == queued_run.run_id
 
 
 def test_cancel_session_drops_pending_queue():
@@ -2975,7 +3029,7 @@ def test_selfcheck_exercises_runtime_contracts():
     assert names["memory_rule_candidate"] is True
     assert names["permission_request_waits"] is True
     assert names["failure_status_recorded"] is True
-    assert names["cancel_status_and_fifo_promote"] is True
+    assert names["terminal_status_locked_and_fifo_promote"] is True
     assert names["control_ops_catalog"] is True
     assert names["control_ops_logs_redacted"] is True
     assert names["control_ops_static_checks"] is True

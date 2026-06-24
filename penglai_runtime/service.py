@@ -109,6 +109,9 @@ class RuntimeHubService:
                 channel=event.channel,
                 actor=event.user_id if kind == "user_message" else "penglai",
                 metadata=metadata,
+                session_id=session.session_id,
+                session_scope=session.scope,
+                chat_id=event.chat_id,
                 log_path=self.context_log_path,
             )
         except Exception:

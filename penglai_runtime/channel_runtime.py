@@ -63,8 +63,14 @@ def owner_user_ids_from_mykeys():
     return out
 
 
-def compose_prompt(text, *, file_hint=None):
-    context = recent_context_prompt()
+def compose_prompt(text, *, file_hint=None, session=None, session_id="", session_scope=""):
+    if session is not None:
+        session_id = getattr(session, "session_id", "") or session_id
+        session_scope = getattr(session, "scope", "") or session_scope
+    context = recent_context_prompt(
+        session_id=session_id,
+        scopes=(session_scope,) if session_scope else None,
+    )
     parts = [file_hint or default_file_hint(), INTERACTION_PROMPT_HINT]
     if context:
         parts.append(context)
@@ -116,8 +122,13 @@ class ChannelRuntimeBridge:
         self.last_sessions[event.chat_id or event.user_id] = session
         return event, session
 
-    def prompt(self, text):
-        return compose_prompt(text, file_hint=self.file_hint)
+    def prompt(self, text, *, event=None, session=None):
+        if session is None and event is not None:
+            try:
+                session = self.router.route(event)
+            except Exception:
+                session = None
+        return compose_prompt(text, file_hint=self.file_hint, session=session)
 
     def default_user_id(self, fallback="desktop"):
         owner_ids = sorted(getattr(self.router, "owner_user_ids", set()) or [])
@@ -216,7 +227,7 @@ def install_channel_runtime_adapter(
                 raise RuntimeError("Agent 未就绪，请稍后重试")
             return GenericAgentInstancePort(
                 agent=agent_obj,
-                prompt_builder=lambda evt: bridge.prompt(evt.text),
+                prompt_builder=lambda evt: bridge.prompt(evt.text, event=evt),
                 source=bridge.channel,
                 timeout=float(getattr(self, "runtime_timeout", 1200)),
             )

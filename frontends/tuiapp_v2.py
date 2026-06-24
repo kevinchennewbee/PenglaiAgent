@@ -6098,7 +6098,7 @@ class GenericAgentTUI(App[None]):
                     text=text,
                     images=tuple(image_paths),
                 )
-                runtime_text = sess.runtime_bridge.prompt(event.text)
+                runtime_text = sess.runtime_bridge.prompt(event.text, event=event)
             dq = sess.agent.put_task(runtime_text, source="user")
         except Exception as e:
             sess.status = "error"

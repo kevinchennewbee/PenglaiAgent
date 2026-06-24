@@ -140,9 +140,9 @@ def run_end_to_end_check():
     )
     hub.complete(failed.session.session_id)
 
-    cancellable = hub.receive(
+    terminal_locked = hub.receive(
         InboundEvent("e-cancel-1", "desktop", "owner", "先占用", chat_id="owner-chat-5"),
-        CallableAgentPort(lambda _event: "会被取消状态覆盖", worker_id="contract-worker"),
+        CallableAgentPort(lambda _event: "终态不应被取消覆盖", worker_id="contract-worker"),
         base_dir=tmp,
     )
     queued_for_cancel = hub.receive(
@@ -150,8 +150,8 @@ def run_end_to_end_check():
         CallableAgentPort(lambda _event: "不应立即运行", worker_id="contract-worker"),
         base_dir=tmp,
     )
-    promoted_after_cancel = hub.cancel(cancellable.session.session_id)
-    hub.cancel(cancellable.session.session_id, drop_pending=True)
+    promoted_after_cancel = hub.cancel(terminal_locked.session.session_id)
+    hub.cancel(terminal_locked.session.session_id, drop_pending=True)
 
     from . import control_api
 
@@ -219,7 +219,13 @@ def run_end_to_end_check():
         _check("agent_port_worker_recorded", permission.task_run.worker_id == "contract-worker", permission.task_run.worker_id),
         _check("permission_request_waits", permission.task_run.status == RunStatus.WAITING_PERMISSION and permission.task_run.permission.action == "send_file", permission.task_run),
         _check("failure_status_recorded", failed.task_run.status == RunStatus.FAILED and "selfcheck failure path" in failed.task_run.error, failed.task_run),
-        _check("cancel_status_and_fifo_promote", cancellable.task_run.status == RunStatus.CANCELLED and promoted_after_cancel == queued_for_cancel.event, cancellable.task_run),
+        _check(
+            "terminal_status_locked_and_fifo_promote",
+            terminal_locked.task_run.status == RunStatus.SUCCEEDED
+            and bool(terminal_locked.task_run.metadata.get("blocked_terminal_transitions"))
+            and promoted_after_cancel == queued_for_cancel.event,
+            terminal_locked.task_run,
+        ),
         _check("control_api_token_file", bool(token) and written_token_path == token_path and os.path.exists(token_path), written_token_path),
         _check("control_api_loopback_only", control_bind_ok and non_loopback_rejected, "loopback policy verified without socket bind"),
         _check(

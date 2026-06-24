@@ -227,7 +227,7 @@ class AgentManager:
                 sess.agent = self.make_agent(sess)
             return GenericAgentInstancePort(
                 agent=sess.agent,
-                prompt_builder=lambda evt: self.runtime_bridge.prompt(evt.text),
+                prompt_builder=lambda evt: self.runtime_bridge.prompt(evt.text, event=evt),
                 source="desktop",
                 timeout=float(self.config.get("runtimeTimeout") or 1200),
             )
