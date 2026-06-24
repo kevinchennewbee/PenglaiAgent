@@ -9,12 +9,14 @@ const state = {
   sessions: new Map(),      // localSessionId -> { id, bridgeSessionId, title, messages: [], cwd, config, diagnostics }
   activeId: null,
   bridgeReady: false,
-  defaultConfig: { theme: 'auto', llmNo: 0, gaRoot: '' },
+  defaultConfig: { theme: 'auto', llmNo: 0, penglaiRoot: '' },
   modelProfiles: [],
   restartingBridge: false,
   bridgeNoticeMessage: null,
   mykeyReady: true,
   runtimeBySessionId: new Map(),
+  speechAudio: null,
+  speechBusy: false,
 };
 
 // Helper: get config/diagnostics for the active session (or defaults)
@@ -42,6 +44,7 @@ const diagnosticsPanel = $('diagnostics-panel');
 const diagnosticsLogEl = $('diagnostics-log');
 const opsSummaryEl = $('ops-summary');
 const opsOutputEl = $('ops-output');
+const speakLastBtn = $('speak-last-btn');
 
 
 // ─── Diagnostics ─────────────────────────────────────────────────────────
@@ -169,7 +172,7 @@ function detectStructuredKind(line) {
   const m = trimmed.match(/^(TOOL_RECALL|TOOL_REQUEST|TOOL_RESPONSE|COWORK|TUNR|TURN|ACTION|OBSERVATION|THOUGHT|TOOL)[\s:_-]*(.*)$/i);
   if (m) return { kind: m[1].toUpperCase(), rest: (m[2] || '').trim() };
 
-  // GenericAgent's ACP bridge currently streams tool calls/results as plain
+  // The upstream ACP bridge currently streams tool calls/results as plain
   // assistant text, not as ACP `tool_call` notifications. Recognize the real
   // XML-ish markers so streamed code_run/file_read/etc. blocks are folded.
   if (/^<function_calls\b[^>]*>/i.test(trimmed) || /^<invoke\b[^>]*\bname=["'][^"']+["'][^>]*>/i.test(trimmed)) {
@@ -655,6 +658,7 @@ function setActiveSession(id) {
   renderMessages();
   renderSessionList();
   renderDiagnostics();
+  updateSpeechButton();
   const runtime = getSessionRuntime(sess);
   setBusy(runtime.busy, runtime.busy ? '蓬莱正在回复…' : null, sess);
   // When switching to a session that is still running, ensure the live draft
@@ -770,8 +774,7 @@ function closeSession(id) {
   // Notify bridge to delete this session
   const sess = state.sessions.get(id);
   if (sess && sess.bridgeSessionId) {
-    const bridgeUrl = window.ga.bridgeUrl || 'http://127.0.0.1:14168';
-    fetch(`${bridgeUrl}/session/${sess.bridgeSessionId}`, { method: 'DELETE' }).catch(() => {});
+    window.penglai.deleteSession(sess.bridgeSessionId).catch(() => {});
   }
   const keys = [...state.sessions.keys()];
   const idx = keys.indexOf(id);
@@ -800,7 +803,7 @@ async function newSession() {
   let createdSess = null;
   try {
     const cwd = await getCwd();
-    const res = await window.ga.rpc('session/new', { cwd, mcp_servers: [] });
+    const res = await window.penglai.rpc('session/new', { cwd, mcp_servers: [] });
     if (res.error) throw new Error(typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error)));
     const bridgeSessionId = res.sessionId;
     const localSessionId = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -815,9 +818,9 @@ async function newSession() {
 }
 
 async function getCwd() {
-  // Use GA root as default cwd
-  const status = await window.ga.checkStatus();
-  return status.gaRoot;
+  // Use Penglai root as default cwd
+  const status = await window.penglai.checkStatus();
+  return status.penglaiRoot || status.gaRoot;
 }
 
 // ─── Messages rendering ──────────────────────────────────────────────────
@@ -854,6 +857,7 @@ function renderMessages() {
         <div class="empty-sub">直接输入任务，或输入 <code>/help</code> 查看命令。</div>
       </div>`;
     state._prevRenderedId = state.activeId;
+    updateSpeechButton();
     return;
   }
 
@@ -882,6 +886,7 @@ function renderMessages() {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
   state._prevRenderedId = state.activeId;
+  updateSpeechButton();
 }
 
 function prepareMessagesForContent() {
@@ -950,6 +955,7 @@ function renderMessage(msg, append = true) {
     messagesEl.appendChild(wrap);
   }
   if (append) scrollToBottom();
+  updateSpeechButton();
 }
 
 function renderPermissionActionsInto(container, permission) {
@@ -1425,7 +1431,7 @@ async function pollSessionMessages(sess) {
   try {
     while (runtime.busy || runtime.forcePollOnce) {
       runtime.forcePollOnce = false;
-      const res = await window.ga.pollSession(sess.bridgeSessionId || sess.id, runtime.lastPolledMessageId || 0);
+      const res = await window.penglai.pollSession(sess.bridgeSessionId || sess.id, runtime.lastPolledMessageId || 0);
       if (res?.error) throw new Error(res.error.message || res.error);
       const result = res.result || res;
       for (const msg of (result.messages || [])) upsertPolledMessage(sess, msg, { partial: false });
@@ -1479,7 +1485,7 @@ async function sendPrompt(text, images = []) {
 
   setBusy(true, '思考中…', sess);
   try {
-    const res = await window.ga.rpc('session/prompt', {
+    const res = await window.penglai.rpc('session/prompt', {
       sessionId: await ensureBridgeSession(sess),
       prompt: text,
       images: images.map(img => ({id: img.id, dataUrl: img.dataUrl})),
@@ -1506,7 +1512,7 @@ async function cancelPrompt() {
   const runtime = sess ? getSessionRuntime(sess) : null;
   if (!runtime?.busy) return false;
   try {
-    const res = await window.ga.rpc('session/cancel', { sessionId: sess?.bridgeSessionId || state.activeId });
+    const res = await window.penglai.rpc('session/cancel', { sessionId: sess?.bridgeSessionId || state.activeId });
     if (res.error) throw new Error(res.error.message || res.error);
     setBusy(false, null, sess);  // clear busy immediately; don't wait for server-side cancelled event
     return true;
@@ -1552,7 +1558,7 @@ async function handleSlash(cmd) {
         const cfg = getActiveConfig();
         cfg.theme = arg;
         applyTheme();
-        await window.ga.saveConfig(cfg);
+        await window.penglai.saveConfig(cfg);
         showSystem(`主题 → ${arg}`);
       } else {
         showSystem('用法：/theme light|dark|auto');
@@ -1560,12 +1566,12 @@ async function handleSlash(cmd) {
       break;
     case 'cwd':
       if (!arg) {
-        const status = await window.ga.checkStatus();
-        showSystem(`cwd: ${sess?.cwd || status.gaRoot}`);
+        const status = await window.penglai.checkStatus();
+        showSystem(`cwd: ${sess?.cwd || status.penglaiRoot || status.gaRoot}`);
       } else {
         showSystem(`正在 ${arg} 中创建新对话…`);
         // Need a new session for different cwd
-        const res = await window.ga.rpc('session/new', { cwd: arg, mcp_servers: [] });
+        const res = await window.penglai.rpc('session/new', { cwd: arg, mcp_servers: [] });
         if (res.error) showSystem('失败：' + (res.error.message || res.error));
         else {
           const bridgeSessionId = res.sessionId;
@@ -1587,6 +1593,69 @@ function showSystem(text) {
   if (sess) sess.messages.push(msg);
   renderMessage(msg);
   return msg;
+}
+
+function assistantSpeechText(msg) {
+  if (!msg || msg.role !== 'assistant' || msg.permission) return '';
+  if (typeof msg.content === 'string' && msg.content.trim()) return msg.content.trim();
+  const segments = Array.isArray(msg.segments) ? msg.segments : [];
+  const primary = segments
+    .filter((seg) => !seg.kind || String(seg.kind).toLowerCase() === 'agent_message_chunk')
+    .map((seg) => String(seg.text || '').trim())
+    .filter(Boolean);
+  const parts = primary.length ? primary : segments.map((seg) => String(seg.text || '').trim()).filter(Boolean);
+  return parts.join('\n\n').trim();
+}
+
+function getLastAssistantSpeechText() {
+  const sess = state.sessions.get(state.activeId);
+  if (!sess) return '';
+  for (let i = sess.messages.length - 1; i >= 0; i -= 1) {
+    const text = assistantSpeechText(sess.messages[i]);
+    if (text) return text;
+  }
+  return '';
+}
+
+function updateSpeechButton() {
+  if (!speakLastBtn) return;
+  const hasText = !!getLastAssistantSpeechText();
+  speakLastBtn.disabled = !state.bridgeReady || state.speechBusy || !hasText;
+  speakLastBtn.classList.toggle('active', state.speechBusy);
+  speakLastBtn.title = state.speechBusy ? '正在生成语音…' : '朗读最近回复';
+}
+
+async function speakLastAssistant() {
+  if (!speakLastBtn || state.speechBusy) return;
+  const text = getLastAssistantSpeechText();
+  if (!text) {
+    showError('当前对话还没有可朗读的回复。');
+    return;
+  }
+  if (!window.penglai?.synthesizeSpeech) {
+    showError('桌面语音桥接不可用。');
+    return;
+  }
+  try {
+    if (state.speechAudio && !state.speechAudio.paused) state.speechAudio.pause();
+    state.speechBusy = true;
+    updateSpeechButton();
+    const result = await window.penglai.synthesizeSpeech(text.slice(0, 1200));
+    if (!result?.ok) throw new Error(result?.error || '语音合成失败');
+    const url = result.audioUrl || result.audio?.url;
+    if (!url) throw new Error('语音合成没有返回音频地址');
+    const audio = new Audio(url);
+    state.speechAudio = audio;
+    audio.addEventListener('error', () => showError('语音播放失败。'));
+    await audio.play();
+    addDiagnostic('info', '已播放最近回复语音', result.audio || result);
+  } catch (err) {
+    addDiagnostic('error', '朗读最近回复失败', err);
+    showError('朗读失败：' + (err.message || err), null, null, { skipDiagnostic: true });
+  } finally {
+    state.speechBusy = false;
+    updateSpeechButton();
+  }
 }
 
 function updateBridgeNotice(text) {
@@ -1634,6 +1703,7 @@ function setBusy(busy, label, sess = state.sessions.get(state.activeId)) {
   if (busy) setStatus('busy', label || '处理中…');
   else setStatus(state.bridgeReady ? 'ok' : 'warn', state.bridgeReady ? '就绪' : '启动中…');
   renderSendButtonState();
+  updateSpeechButton();
 }
 
 function renderSendButtonState() {
@@ -1708,7 +1778,7 @@ function renderModelOptions() {
 
 async function loadModelProfiles() {
   try {
-    const result = await window.ga.getModelProfiles();
+    const result = await window.penglai.getModelProfiles();
     state.modelProfiles = Array.isArray(result && result.profiles) ? result.profiles : [];
     renderModelOptions();
   } catch (err) {
@@ -1815,6 +1885,9 @@ function renderOpsSummary(data) {
   const version = data.version || {};
   const runtime = data.runtime_audit || {};
   const privacy = data.privacy_audit || {};
+  const capabilities = data.selfcheck?.capabilities || {};
+  const voice = capabilities.voice || {};
+  const tts = capabilities.tts || {};
   const services = Array.isArray(data.services) ? data.services : [];
   const feishu = services.find(s => s.name === 'penglai-feishu') || {};
   const runtimeHub = services.find(s => s.name === 'penglai-runtime-hub') || {};
@@ -1826,6 +1899,8 @@ function renderOpsSummary(data) {
   opsSummaryEl.appendChild(opsCard('发布', privacy.release_ready ? '可发布' : `${privacy.release_blocker_count ?? 0} 个阻断项`, privacy.release_ready ? 'ok' : 'warn'));
   opsSummaryEl.appendChild(opsCard('飞书', feishu.active ? opsStatusText(feishu.active) : '未启用', opsStatusClass(feishu.active)));
   opsSummaryEl.appendChild(opsCard('中枢服务', runtimeHub.active ? opsStatusText(runtimeHub.active) : '未启用', opsStatusClass(runtimeHub.active)));
+  opsSummaryEl.appendChild(opsCard('语音转写', voice.detail || opsStatusText(voice.ready), opsStatusClass(voice.ready)));
+  opsSummaryEl.appendChild(opsCard('语音输出', tts.detail || opsStatusText(tts.ready), opsStatusClass(tts.ready)));
   opsSummaryEl.appendChild(opsCard('本地改动', version.dirty ? '有' : '无', version.dirty ? 'warn' : 'ok'));
 }
 
@@ -1851,10 +1926,10 @@ function setOpsOutput(label, payload) {
 }
 
 async function refreshOpsPanel(options = {}) {
-  if (!window.ga?.getOpsChecks || !opsSummaryEl) return;
+  if (!window.penglai?.getOpsChecks || !opsSummaryEl) return;
   try {
     if (!options.silent) setOpsOutput('正在刷新中枢状态…', '');
-    const data = await window.ga.getOpsChecks();
+    const data = await window.penglai.getOpsChecks();
     renderOpsSummary(data);
     if (!options.silent) setOpsOutput('中枢状态', JSON.stringify(data, null, 2));
   } catch (err) {
@@ -1868,7 +1943,7 @@ async function runOpsCommandUi(command, options = {}) {
   try {
     const label = opsCommandLabel(command);
     setOpsOutput(`正在运行${label}…`, '');
-    const data = await window.ga.runOpsCommand(command, options);
+    const data = await window.penglai.runOpsCommand(command, options);
     setOpsOutput(`penglai ${command}（${label}）`, data);
     refreshOpsPanel({ silent: true });
   } catch (err) {
@@ -1888,7 +1963,7 @@ async function loadOpsLogUi() {
     const channel = $('ops-log-channel')?.value || 'feishu';
     const label = opsLogChannelLabel(channel);
     setOpsOutput(`正在加载${label}日志…`, '');
-    const data = await window.ga.getOpsLogs(channel, 120);
+    const data = await window.penglai.getOpsLogs(channel, 120);
     setOpsOutput(`${label}日志`, data);
   } catch (err) {
     setOpsOutput('日志', err.data || err.message || String(err));
@@ -1920,7 +1995,7 @@ async function loadRuntimeStatusUi() {
   try {
     const sessionId = getActiveRuntimeSessionId();
     setOpsOutput('正在加载会话状态…', '');
-    const data = await window.ga.getRuntimeStatus(sessionId);
+    const data = await window.penglai.getRuntimeStatus(sessionId);
     setOpsOutput('中枢会话状态', formatRuntimeStatus(data));
   } catch (err) {
     setOpsOutput('会话状态', err.data || err.message || String(err));
@@ -1932,7 +2007,7 @@ async function loadRuntimeRunsUi() {
   try {
     const sessionId = getActiveRuntimeSessionId();
     setOpsOutput('正在加载运行记录…', '');
-    const data = await window.ga.getRuntimeRuns(sessionId, 20);
+    const data = await window.penglai.getRuntimeRuns(sessionId, 20);
     const rows = Array.isArray(data.runs) ? data.runs : [];
     const body = rows.length ? rows.map(formatRuntimeRun).join('\n\n') : '没有运行记录。';
     const scope = data.session_id ? `（${data.session_id}）` : '（全部会话）';
@@ -1962,7 +2037,7 @@ async function saveSettings() {
     if (!sess) throw new Error('没有活动对话');
     const cfg = sess.config;
     cfg.llmNo = Math.max(0, parseInt($('cfg-llm').value, 10) || 0);
-    await window.ga.saveConfig(cfg);
+    await window.penglai.saveConfig(cfg);
     closeSettings();
   } catch (err) {
     showError('保存设置失败：' + (err.message || err));
@@ -1975,7 +2050,7 @@ async function ensureBridgeSession(sess) {
   if (!sess) throw new Error('没有活动对话。');
   if (sess.bridgeSessionId) return sess.bridgeSessionId;
   const cwd = sess.cwd || await getCwd();
-  const res = await window.ga.rpc('session/new', { cwd, mcp_servers: [] });
+  const res = await window.penglai.rpc('session/new', { cwd, mcp_servers: [] });
   if (res.error) throw new Error(typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error)));
   sess.bridgeSessionId = res.sessionId;
   sess.cwd = cwd;
@@ -1991,7 +2066,7 @@ async function restartBridge(options = {}) {
     for (const sess of state.sessions.values()) sess.bridgeSessionId = null;
   }
   state.bridgeNoticeMessage = showSystem('中枢桥接正在重启…');
-  await window.ga.startBridge(getActiveConfig().llmNo || 0);
+  await window.penglai.startBridge(getActiveConfig().llmNo || 0);
   window.setTimeout(() => {
     if (state.restartingBridge && !state.bridgeReady && !getActiveSessionRuntime()?.busy) {
       markBridgeReady('中枢桥接已就绪。');
@@ -2015,8 +2090,7 @@ async function markBridgeReady(noticeText = '中枢桥接已就绪。') {
     _bootstrappingSession = true;
     try {
       // Try to restore existing sessions from bridge
-      const bridgeUrl = window.ga.bridgeUrl || 'http://127.0.0.1:14168';
-      const listRes = await fetch(`${bridgeUrl}/sessions`).then(r => r.json()).catch(() => null);
+      const listRes = await window.penglai.listSessions().catch(() => null);
       const existingSessions = listRes?.sessions || [];
       if (existingSessions.length > 0) {
         // Restore each session from bridge
@@ -2025,7 +2099,7 @@ async function markBridgeReady(noticeText = '中枢桥接已就绪。') {
           const sess = createLocalSession(localId, bSess.title || '已恢复', bSess.id || bSess.sessionId);
           // Fetch full messages for this session
           const sid = bSess.id || bSess.sessionId;
-          const msgRes = await fetch(`${bridgeUrl}/session/${sid}/messages?after=0&limit=9999`).then(r => r.json()).catch(() => null);
+          const msgRes = await window.penglai.getSessionMessages(sid, 0, 9999).catch(() => null);
           if (msgRes?.messages) {
             sess.messages = msgRes.messages;
             // Initialize polling state so we don't re-fetch these messages
@@ -2047,32 +2121,34 @@ async function markBridgeReady(noticeText = '中枢桥接已就绪。') {
     } finally { _bootstrappingSession = false; }
   }
   updateSendButton();
+  updateSpeechButton();
   // Refresh model profiles from bridge (authoritative source)
   loadModelProfiles();
 }
 
-window.ga.onBridgeReady(() => {
+window.penglai.onBridgeReady(() => {
   markBridgeReady();
 });
 
-window.ga.onBridgeMessage(() => {
+window.penglai.onBridgeMessage(() => {
   // RPC responses are resolved in main; renderer readiness comes from bridge-ready.
 });
 
-window.ga.onBridgeNotification((msg) => {
+window.penglai.onBridgeNotification((msg) => {
   handleNotification(msg);
 });
 
-window.ga.onBridgeError((err) => {
+window.penglai.onBridgeError((err) => {
   console.error('Bridge error:', err);
   addDiagnostic('error', '中枢桥接错误', err);
   setStatus('err', '出错');
   state.bridgeReady = false;
   state.restartingBridge = false;
+  updateSpeechButton();
 
   if (err.type === 'no-mykey') {
     showError(err.message, '配置', async () => {
-      await window.ga.openMykeyTemplate();
+      await window.penglai.openMykeyTemplate();
     }, { skipDiagnostic: true });
   } else if (err.type === 'no-python') {
     showError(err.message, '设置', openSettings, { skipDiagnostic: true });
@@ -2081,13 +2157,14 @@ window.ga.onBridgeError((err) => {
   }
 });
 
-window.ga.onBridgeClosed((info) => {
+window.penglai.onBridgeClosed((info) => {
   addDiagnostic('warn', '中枢桥接已关闭', info);
   if (state.restartingBridge) {
     setStatus('warn', '重启中…');
     return;
   }
   state.bridgeReady = false;
+  updateSpeechButton();
   // Clear busy flag on all sessions so pending poll loops can exit cleanly
   for (const [sid, runtime] of state.runtimeBySessionId) {
     if (runtime.busy) setBusy(false, null, state.sessions.get(sid));
@@ -2095,7 +2172,7 @@ window.ga.onBridgeClosed((info) => {
   setStatus('err', `中枢桥接已停止（${info.code}）`);
 });
 
-window.ga.onBridgeLog((text) => {
+window.penglai.onBridgeLog((text) => {
   console.log('[bridge]', text);
   addDiagnostic('info', '中枢桥接日志', text);
 });
@@ -2215,10 +2292,11 @@ sendBtn.addEventListener('click', () => {
 // ─── Buttons ─────────────────────────────────────────────────────────────
 $('new-session-btn').addEventListener('click', newSession);
 $('settings-btn').addEventListener('click', openSettings);
+$('speak-last-btn')?.addEventListener('click', speakLastAssistant);
 $('close-settings').addEventListener('click', closeSettings);
 $('cancel-settings').addEventListener('click', closeSettings);
 $('save-settings').addEventListener('click', saveSettings);
-$('open-mykey').addEventListener('click', () => openConfigFile(window.ga.openMykey, 'mykey.py'));
+$('open-mykey').addEventListener('click', () => openConfigFile(window.penglai.openMykey, 'mykey.py'));
 $('ops-refresh')?.addEventListener('click', () => refreshOpsPanel());
 $('ops-runtime-service-status')?.addEventListener('click', () => runOpsCommandUi('runtime-service-status'));
 $('ops-runtime-service-install')?.addEventListener('click', () => runOpsStateCommandUi(
@@ -2366,19 +2444,19 @@ settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSe
   });
 
   // Listen for IPC from main process (menu accelerator on macOS)
-  if (window.ga && window.ga.onOpenSearch) {
-    window.ga.onOpenSearch(() => openSearch());
+  if (window.penglai && window.penglai.onOpenSearch) {
+    window.penglai.onOpenSearch(() => openSearch());
   }
 })();
 
 // ─── Init ────────────────────────────────────────────────────────────────
 (async function init() {
   // Add platform class to body for platform-specific CSS
-  const platform = (window.ga && window.ga.platform) || process.platform || 'unknown';
+  const platform = (window.penglai && window.penglai.platform) || process.platform || 'unknown';
   document.body.classList.add('platform-' + platform);
 
   try {
-    const saved = await window.ga.getConfig();
+    const saved = await window.penglai.getConfig();
     Object.assign(state.defaultConfig, saved);
   } catch (err) {
     addDiagnostic('error', '加载设置失败', err);

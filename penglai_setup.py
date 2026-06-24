@@ -4,7 +4,7 @@
 
 纯标准库实现（venv 建立之前也能运行）。流程（v2 翻页式）：
   语言 → 环境自检 → LLM（预设+真实连通测试）→ 渠道单页选择（飞书/微信/钉钉/QQ/TG/DC/企微）
-  → 起名 → 能力面板（语音默认开/陪伴/情报矩阵，选了就真装真启）→ 写 mykey.py → 启动并验证
+  → 起名 → 能力面板（语音默认开/TTS可选/陪伴/情报矩阵，选了就真装真启）→ 写 mykey.py → 启动并验证
 原则：
   · 身份与记忆分离 — 只在出厂态种入身份，绝不覆盖已有用户记忆
   · 诚实纪律 — 只报告可证实的事实，「进程在跑」≠「已连通」
@@ -615,6 +615,22 @@ def _voice_install():
         print(f"{WARN}" + T("语音未就绪（见上方原因），稍后可重跑 penglai setup 补装"))
     return ok
 
+
+def _tts_install():
+    """语音输出能力真实落地：MOSS-TTS-Nano ONNX CPU，模型在仓库外。"""
+    docker = bool(os.environ.get("PENGLAI_DOCKER"))
+    py = sys.executable if docker else os.path.join(ROOT, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        py = sys.executable
+    print("  " + T("安装 MOSS-TTS-Nano 本地语音输出（约 728MB ONNX 权重，国内优先 ModelScope）..."), flush=True)
+    r = subprocess.run([py, os.path.join(ROOT, "penglai"), "enable", "tts"], cwd=ROOT)
+    if r.returncode == 0:
+        print(f"  {OK} " + T("语音输出就绪：本地 CPU 合成，可供桌面播放/IM 语音投递使用"))
+        return True
+    print(f"  {WARN}" + T("语音输出未就绪；稍后可重跑 penglai enable tts 补装/续装"))
+    return False
+
+
 def step_abilities(llm_name=""):
     """能力面板：一页看全蓬莱层能力。选了就真装真启（语音默认开），不做摆设。"""
     page(5, T("蓬莱能力（按需开启，立即生效）"))
@@ -630,6 +646,13 @@ def step_abilities(llm_name=""):
     voice_ready = False
     if ask(T("现在启用语音？(y/n)"), "y").lower().startswith("y"):
         voice_ready = _voice_install()
+    # —— 语音输出（可选：模型更大，用户明确选择才下载）——
+    print()
+    print("  🔊 " + c(T("语音输出嘴巴（本地 MOSS-TTS-Nano：把回复合成语音）"), BOLD, F(252)))
+    print("     " + c(T("约下载 728MB ONNX 权重，本地 CPU 推理；适合桌面朗读和已验证 IM 语音条。"), F(245)))
+    print("     " + c(T("默认不开，避免首次安装多拉大模型；稍后也可运行 penglai enable tts。"), F(245)))
+    if ask(T("现在启用语音输出？(y/n)"), "n").lower().startswith("y"):
+        _tts_install()
     # —— 主动陪伴（opt-in：有持续 token 成本）——
     print()
     print("  💞 " + c(T("主动陪伴（会主动关心你，不只是被动回复）"), BOLD, F(252)))
@@ -742,12 +765,45 @@ def step_wechat():
 
 # ---------- 步骤 6：启动并验证 ----------
 def _fsapp_pids():
+    return _pids_for_patterns(("penglai_feishu_app[.]py", "frontends/fsapp[.]py"))
+
+def _wechat_pids():
+    return _pids_for_patterns(("penglai_im_launch[.]py wechat", "frontends/wechatapp[.]py"))
+
+def _reflect_pids(rel):
+    return _pids_for_patterns((rel.replace("/", "[/]"),))
+
+def _pids_for_patterns(patterns):
     pids = set()
-    for pat in ("penglai_feishu_app[.]py", "frontends/fsapp[.]py"):
-        r = subprocess.run(["pgrep", "-f", pat], capture_output=True, text=True)
+    for pat in patterns:
+        try:
+            r = subprocess.run(["pgrep", "-f", pat], capture_output=True, text=True)
+        except FileNotFoundError:
+            continue
         if r.returncode == 0:
             pids.update(int(x) for x in r.stdout.split() if x.strip().isdigit())
     return sorted(pids)
+
+def _background_env(py):
+    env = dict(os.environ)   # F15：固化 PATH(含 venv/homebrew/~/.local/bin)，防子进程(ffmpeg)找不到
+    _extra = [os.path.dirname(py), os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin",
+              "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    env["PATH"] = os.pathsep.join(_extra + [d for d in env.get("PATH", "").split(os.pathsep)
+                                            if d and d not in _extra])
+    return env
+
+def _spawn_background(argv, log_name, pid_name, py):
+    os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
+    log = os.path.join(ROOT, "temp", log_name)
+    lf = open(log, "ab")
+    pos = lf.tell()
+    p = subprocess.Popen(argv, cwd=ROOT, stdout=lf, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, env=_background_env(py),
+                         start_new_session=True)
+    if pid_name:
+        with open(os.path.join(ROOT, "temp", pid_name), "w") as f:
+            f.write(str(p.pid))
+    return log, pos, p.pid
 
 def _spawn_fsapp(py):
     """非 systemd 环境后台拉起飞书进程。重跑幂等：先停旧实例。返回 (日志路径, 起始偏移)。"""
@@ -767,19 +823,54 @@ def _spawn_fsapp(py):
             print(f"  {WARN}飞书 launchd 注册未确认，降级后台启动")
         except Exception as e:
             print(f"  {WARN}飞书 launchd 守护安装失败，降级后台启动: {e}")
-    lf = open(log, "ab")
-    pos = lf.tell()
-    env = dict(os.environ)   # F15：固化 PATH(含 venv/homebrew/~/.local/bin)，防子进程(ffmpeg)找不到
-    _extra = [os.path.dirname(py), os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin",
-              "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-    env["PATH"] = os.pathsep.join(_extra + [d for d in env.get("PATH", "").split(os.pathsep)
-                                            if d and d not in _extra])
-    p = subprocess.Popen([py, os.path.join(ROOT, "penglai_feishu_app.py")], cwd=ROOT,
-                         stdout=lf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                         env=env, start_new_session=True)
-    with open(os.path.join(ROOT, "temp", "fsapp.pid"), "w") as f:
-        f.write(str(p.pid))
+    log, pos, _pid = _spawn_background([py, os.path.join(ROOT, "penglai_feishu_app.py")],
+                                       "fsapp.log", "fsapp.pid", py)
     return log, pos
+
+def _spawn_wechat(py):
+    log = os.path.join(ROOT, "temp", "wechat.log")
+    pids = _wechat_pids()
+    if pids:
+        return log, pids[0], True
+    log, _pos, pid = _spawn_background([py, os.path.join(ROOT, "penglai_im_launch.py"), "wechat"],
+                                       "wechat.log", "wechat.pid", py)
+    return log, pid, False
+
+def _spawn_reflect(py, service, rel, label):
+    pids = _reflect_pids(rel)
+    log = os.path.join(ROOT, "temp", f"{service}.log")
+    if pids:
+        return log, pids[0], True
+    log, _pos, pid = _spawn_background([py, os.path.join(ROOT, "agentmain.py"),
+                                        "--reflect", os.path.join(ROOT, rel)],
+                                       f"{service}.log", f"{service}.pid", py)
+    return log, pid, False
+
+def _penglai_cmd_for_display():
+    installed = os.path.expanduser("~/.local/bin/penglai")
+    if shutil.which("penglai"):
+        return "penglai"
+    if os.path.exists(installed):
+        return installed
+    return os.path.join(ROOT, "penglai")
+
+def _manual_start_commands(py, with_feishu=True, with_companion=False, with_wechat=False):
+    cmds = [(T("调度/提醒"), f"cd {ROOT} && {py} {ROOT}/agentmain.py --reflect {ROOT}/reflect/scheduler.py")]
+    if with_feishu:
+        cmds.append((T("飞书"), f"cd {ROOT} && {py} {ROOT}/penglai_feishu_app.py"))
+    if with_wechat:
+        cmds.append((T("微信"), f"cd {ROOT} && {py} {ROOT}/penglai_im_launch.py wechat"))
+    if with_companion:
+        cmds.append((T("主动陪伴"), f"cd {ROOT} && {py} {ROOT}/agentmain.py --reflect {ROOT}/reflect/penglai_companion.py"))
+    return cmds
+
+def _print_manual_start_hints(py, with_feishu=True, with_companion=False, with_wechat=False):
+    cmd = _penglai_cmd_for_display()
+    print(f"{WARN}" + T("未安装系统服务：重启电脑后不会自动接收 IM 消息或触发提醒。"))
+    print("  " + T("手动启动一次：{cmd} start（临时后台启动，日志: {cmd} logs）", cmd=cmd))
+    print("  " + T("前台排障命令（按 Ctrl+C 停止）："))
+    for label, line in _manual_start_commands(py, with_feishu, with_companion, with_wechat):
+        print(f"    - {label}: {line}")
 
 def _watch(read_log, pattern, timeout, allow_skip=False):
     """轮询日志等 pattern 出现。返回 True / False(超时) / 'skip'(用户回车跳过)。"""
@@ -882,7 +973,11 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not with_feishu:
         print(f"{WARN}" + T("未选飞书渠道：跳过飞书启动验证"))
-    if shutil.which("systemctl") and ask(T("安装为系统服务（开机自启）？(y/n)"), "y").lower().startswith("y"):
+    systemd_available = bool(shutil.which("systemctl"))
+    install_system_service = (
+        systemd_available and ask(T("安装为系统服务（开机自启）？(y/n)"), "y").lower().startswith("y")
+    )
+    if install_system_service:
         env_sh = os.path.join(ROOT, "env.sh")
         if not os.path.exists(env_sh):
             open(env_sh, "w").write(f'export PATH="{ROOT}/.venv/bin:$PATH"\n')
@@ -935,22 +1030,46 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
             time.sleep(2)
             print(f"  {WARN}" + T("重启会打断刚才正在处理的消息——你在“发你好”之后抢发的语音/消息可能没回应，稍等几秒后重发即可。"))
         return status
-    # 无 systemd（容器/macOS）或用户拒绝装服务 → 后台直启，照样实测验证
-    if not with_feishu:
+    # 无 systemd（macOS/容器式环境）或用户拒绝装服务 → 临时后台启动，照样尽量验证。
+    if not (with_feishu or with_wechat or with_companion):
         return "nofs"
-    if not ask(T("无系统服务模式：现在后台启动飞书进程并实测？(y/n)"), "y").lower().startswith("y"):
-        print(f"{WARN}" + T("未启动。稍后手动: penglai start（日志: penglai logs）"))
+    if systemd_available:
+        print(f"{WARN}" + T("已选择不安装开机自启服务。IM 渠道要常驻进程才能收消息；重启后需手动启动。"))
+        prompt = T("不安装系统服务：现在临时后台启动已配置渠道并验证？(y/n)")
+    else:
+        prompt = T("无系统服务模式：现在后台启动已配置渠道并验证？(y/n)")
+    if not ask(prompt, "y").lower().startswith("y"):
+        _print_manual_start_hints(py, with_feishu, with_companion, with_wechat)
         return "skip"
-    log, pos = _spawn_fsapp(py)
-    print(f"{OK} " + T("飞书进程已后台启动（停止: penglai stop，日志: penglai logs）"))
-    # A：macOS 上 scheduler(提醒/日程，内核标配)也要用 launchd 守护拉起——旧版只起飞书，提醒到点不触发
-    try:
-        import penglai_abilities as _pa
-        _pa._install_reflect_service("penglai-scheduler", "reflect/scheduler.py", "提醒/日程")
+    log = pos = None
+    if with_feishu:
+        log, pos = _spawn_fsapp(py)
+        print(f"{OK} " + T("飞书进程已后台启动（停止: penglai stop，日志: penglai logs）"))
+    if with_wechat:
+        wx_log, wx_pid, existed = _spawn_wechat(py)
+        state = T("已在运行") if existed else T("已临时后台启动")
+        print(f"{OK} " + T("微信进程{state}（PID {pid}，日志: {log}）", state=state, pid=wx_pid, log=wx_log))
+    if systemd_available:
+        # 用户明确拒绝 systemd/autostart 时，只做临时后台进程，不再暗装服务。
+        sched_log, sched_pid, sched_existed = _spawn_reflect(py, "scheduler", "reflect/scheduler.py", "提醒/日程")
+        state = T("已在运行") if sched_existed else T("已临时后台启动")
+        print(f"{OK} " + T("调度/提醒{state}（PID {pid}，日志: {log}）", state=state, pid=sched_pid, log=sched_log))
         if with_companion:
-            _pa._install_reflect_service("penglai-companion", "reflect/penglai_companion.py", "主动陪伴")
-    except Exception as e:
-        print(f"  {WARN}reflect 守护安装跳过: {e}")
+            comp_log, comp_pid, comp_existed = _spawn_reflect(py, "companion", "reflect/penglai_companion.py", "主动陪伴")
+            state = T("已在运行") if comp_existed else T("已临时后台启动")
+            print(f"{OK} " + T("主动陪伴{state}（PID {pid}，日志: {log}）", state=state, pid=comp_pid, log=comp_log))
+    else:
+        # A：macOS 上 scheduler(提醒/日程，内核标配)用 launchd 守护拉起——旧版只起飞书，提醒到点不触发
+        try:
+            import penglai_abilities as _pa
+            _pa._install_reflect_service("penglai-scheduler", "reflect/scheduler.py", "提醒/日程")
+            if with_companion:
+                _pa._install_reflect_service("penglai-companion", "reflect/penglai_companion.py", "主动陪伴")
+        except Exception as e:
+            print(f"  {WARN}reflect 守护安装跳过: {e}")
+    if not with_feishu:
+        _print_manual_start_hints(py, with_feishu, with_companion, with_wechat)
+        return "manual"
     def read_log():
         with open(log, encoding="utf-8", errors="replace") as f:
             f.seek(pos)
@@ -1040,14 +1159,18 @@ def main():
         print(f"\n{OK} " + T("安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。", a=agent))
     elif live == "nofs":
         print(f"\n{OK} " + T("安装完成。已配置渠道见上；终端随时可聊。"))
+    elif live == "manual":
+        print(f"\n{OK} " + T("安装完成。已临时后台启动已配置渠道；重启电脑后需手动启动或重新运行 setup 选择开机自启。"))
     else:
         print(f"\n{WARN}" + T("配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。"))
-    if live is True or live == "skip" or live == "nofs":
+    if live is True or live == "skip" or live == "nofs" or live == "manual":
         print("\n   " + T("现在就可以和「{a}」聊天了：", a=agent))
         print("   " + T("💬 飞书（或已绑定的微信）里直接发消息"))
         print("   " + T("⌨️  终端任意位置输入 penglai 进入命令行对话（同一个管家，同一份记忆）"))
-    print("\n   " + T("体检: penglai doctor   日志: penglai logs   更新: penglai update"))
-    print("   " + T("（若提示 command not found：重开终端，或先用 ./penglai）"))
+    cmd = _penglai_cmd_for_display()
+    print("\n   " + T("体检: {cmd} doctor   日志: {cmd} logs   更新: {cmd} update", cmd=cmd))
+    print("   " + T("若提示 command not found：说明 PATH 没有包含 ~/.local/bin。可先执行：export PATH=\"$HOME/.local/bin:$PATH\""))
+    print("   " + T("安装目录：{root}；不要在家目录使用 ./penglai，除非当前目录就是安装目录。", root=ROOT))
 
 if __name__ == "__main__":
     try: sys.exit(main())

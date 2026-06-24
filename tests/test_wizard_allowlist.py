@@ -47,5 +47,42 @@ def test_manual_feishu_setup_mentions_card_action_trigger():
     assert "card.action.trigger" in src
 
 
+def test_setup_command_hint_explains_path_not_current_directory():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "penglai_setup.py"),
+               encoding="utf-8").read()
+    assert "说明 PATH 没有包含 ~/.local/bin" in src
+    assert "不要在家目录使用 ./penglai" in src
+    assert "重开终端，或先用 ./penglai" not in src
+
+
+def test_no_autostart_manual_mode_covers_wechat_and_scheduler():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "penglai_setup.py"),
+               encoding="utf-8").read()
+    assert "不安装系统服务：现在临时后台启动已配置渠道并验证" in src
+    assert "_spawn_wechat(py)" in src
+    assert '_spawn_reflect(py, "scheduler", "reflect/scheduler.py"' in src
+
+
+def test_setup_abilities_offer_optional_tts_without_forcing_big_download():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "penglai_setup.py"),
+               encoding="utf-8").read()
+    assert "语音输出嘴巴" in src
+    assert "MOSS-TTS-Nano" in src
+    assert "约下载 728MB ONNX 权重" in src
+    assert 'ask(T("现在启用语音输出？(y/n)"), "n")' in src
+    assert '"penglai"), "enable", "tts"' in src
+
+
+def test_manual_start_commands_use_absolute_install_dir():
+    ps, _ = _setup_mykey("")
+    ps.ROOT = "/opt/penglai"
+    cmds = ps._manual_start_commands("/opt/penglai/.venv/bin/python",
+                                     with_feishu=True, with_companion=True,
+                                     with_wechat=True)
+    text = "\n".join(line for _label, line in cmds)
+    assert "cd /opt/penglai && /opt/penglai/.venv/bin/python /opt/penglai/penglai_im_launch.py wechat" in text
+    assert "cd /opt/penglai && /opt/penglai/.venv/bin/python /opt/penglai/agentmain.py --reflect /opt/penglai/reflect/scheduler.py" in text
+
+
 if __name__ == "__main__":
     raise SystemExit(run_tests(dict(globals())))

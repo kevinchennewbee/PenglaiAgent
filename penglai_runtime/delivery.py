@@ -146,9 +146,10 @@ class DeliveryService:
     notice policy in this shared layer.
     """
 
-    def __init__(self, *, send_file=None, send_text=None, audit=None):
+    def __init__(self, *, send_file=None, send_text=None, send_audio=None, audit=None):
         self.send_file = send_file
         self.send_text = send_text
+        self.send_audio = send_audio
         self.audit = audit
 
     def deliver(
@@ -179,7 +180,7 @@ class DeliveryService:
             )
         else:
             for art in plan.allowed:
-                if self._send_file(art.realpath):
+                if self._send_artifact(art):
                     sent_paths.append(art.realpath)
                 else:
                     failed_paths.append(art.realpath)
@@ -215,6 +216,19 @@ class DeliveryService:
             return bool(self.send_file(path))
         except Exception:
             return False
+
+    def _send_audio(self, path):
+        if not callable(self.send_audio):
+            return False
+        try:
+            return bool(self.send_audio(path))
+        except Exception:
+            return False
+
+    def _send_artifact(self, artifact):
+        if artifact.kind == "audio" and self._send_audio(artifact.realpath):
+            return True
+        return self._send_file(artifact.realpath)
 
     def _send_text(self, text):
         if not callable(self.send_text):

@@ -1,7 +1,7 @@
 {
-  "productName": "GenericAgent",
-  "version": "0.1.0",
-  "identifier": "com.genericagent.app",
+  "productName": "Penglai",
+  "version": "0.3.0",
+  "identifier": "com.penglai.agent",
   "build": {
     "frontendDist": "../static"
   },
@@ -12,7 +12,7 @@
     },
     "windows": [
       {
-        "title": "GenericAgent",
+        "title": "蓬莱",
         "label": "main",
         "width": 1280,
         "height": 800,
@@ -21,7 +21,7 @@
         "url": "loading.html"
       },
       {
-        "title": "GenericAgent — Setup",
+        "title": "蓬莱 — 启动设置",
         "label": "setup",
         "width": 600,
         "height": 580,
@@ -35,6 +35,23 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "dmg"],
-    "icon": ["icons/icon.ico", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"]
+    "icon": ["icons/icon.ico", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
+    "macOS": {
+      "dmg": {
+        "background": "icons/dmg-background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 230
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 230
+        }
+      }
+    }
   }
 }

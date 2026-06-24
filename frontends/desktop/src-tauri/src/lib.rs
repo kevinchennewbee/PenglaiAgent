@@ -1,6 +1,7 @@
 use std::process::{Command, Child};
 use std::sync::Mutex;
 use std::net::TcpStream;
+use std::io::{Read, Write};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::path::PathBuf;
@@ -20,8 +21,9 @@ fn project_root() -> PathBuf {
         .to_path_buf()
 }
 
+#[allow(dead_code)]
 fn find_bridge_script() -> PathBuf {
-    // exe is at frontends/GenericAgent.exe
+    // exe is at frontends/Penglai.exe
     // bridge is at frontends/desktop_bridge.py
     std::env::current_exe()
         .expect("cannot get exe path")
@@ -29,6 +31,7 @@ fn find_bridge_script() -> PathBuf {
         .join("desktop_bridge.py")
 }
 
+#[allow(dead_code)]
 /// Find python executable:
 /// 1. .portable/uv-python/ 下找 python.exe (Windows) 或 python3 (Unix)
 /// 2. Fallback to system PATH
@@ -88,8 +91,14 @@ fn find_project_dir() -> Option<String> {
     None
 }
 
-/// Settings file path: ~/.ga_desktop_settings.json
+/// Settings file path: ~/.penglai_desktop_settings.json
 fn settings_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".penglai_desktop_settings.json")
+}
+
+fn legacy_settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".ga_desktop_settings.json")
@@ -98,10 +107,15 @@ fn settings_path() -> PathBuf {
 /// Read config from settings file, or auto-discover and save
 pub fn get_or_discover_config() -> (String, String) {
     let path = settings_path();
+    let legacy_path = legacy_settings_path();
 
-    // Try reading existing settings
-    if path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&path) {
+    // Try reading existing settings. The old desktop settings path is kept as
+    // a one-way migration source so existing testers do not lose their config.
+    for read_path in [&path, &legacy_path] {
+        if !read_path.exists() {
+            continue;
+        }
+        if let Ok(content) = std::fs::read_to_string(read_path) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
                 let python = val.get("python_path")
                     .and_then(|v| v.as_str())
@@ -112,6 +126,13 @@ pub fn get_or_discover_config() -> (String, String) {
                     .unwrap_or("")
                     .to_string();
                 if !python.is_empty() && !project.is_empty() {
+                    if read_path != &path {
+                        let json = serde_json::json!({
+                            "python_path": &python,
+                            "project_dir": &project
+                        });
+                        let _ = std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap());
+                    }
                     return (python, project);
                 }
             }
@@ -125,8 +146,8 @@ pub fn get_or_discover_config() -> (String, String) {
     // Save discovered config
     if !python.is_empty() && !project.is_empty() {
         let json = serde_json::json!({
-            "python_path": python,
-            "project_dir": project
+            "python_path": &python,
+            "project_dir": &project
         });
         let _ = std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap());
     }
@@ -134,14 +155,31 @@ pub fn get_or_discover_config() -> (String, String) {
     (python, project)
 }
 
-fn is_bridge_running() -> bool {
+fn is_bridge_port_open() -> bool {
     TcpStream::connect(("127.0.0.1", 14168)).is_ok()
 }
 
-fn wait_for_port(port: u16, timeout: Duration) -> bool {
+fn is_bridge_running() -> bool {
+    let mut stream = match TcpStream::connect(("127.0.0.1", 14168)) {
+        Ok(stream) => stream,
+        Err(_) => return false,
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(700)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(700)));
+    let request = b"GET / HTTP/1.1\r\nHost: 127.0.0.1:14168\r\nConnection: close\r\n\r\n";
+    if stream.write_all(request).is_err() {
+        return false;
+    }
+    let mut buf = Vec::new();
+    let _ = stream.read_to_end(&mut buf);
+    let body = String::from_utf8_lossy(&buf);
+    body.contains("window.__PENGLAI_BRIDGE_TOKEN__") && body.contains("penglai-web.js")
+}
+
+fn wait_for_bridge_ready(timeout: Duration) -> bool {
     let start = Instant::now();
     while start.elapsed() < timeout {
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+        if is_bridge_running() {
             return true;
         }
         thread::sleep(Duration::from_millis(100));
@@ -149,16 +187,18 @@ fn wait_for_port(port: u16, timeout: Duration) -> bool {
     false
 }
 
+#[allow(dead_code)]
 fn start_bridge() {
     let script = find_bridge_script();
     if !script.exists() {
-        eprintln!("[tauri] bridge script not found: {:?}", script);
+        eprintln!("[penglai-desktop] bridge script not found: {:?}", script);
         return;
     }
 
     let python = find_python();
-    eprintln!("[tauri] using python: {}", python);
+    eprintln!("[penglai-desktop] using python: {}", python);
 
+    #[cfg(windows)]
     let show_console = std::env::args().any(|a| a == "--console");
 
     let mut cmd = Command::new(&python);
@@ -173,23 +213,28 @@ fn start_bridge() {
 
     match cmd.spawn() {
         Ok(child) => {
-            eprintln!("[tauri] started bridge PID={}", child.id());
+            eprintln!("[penglai-desktop] started bridge PID={}", child.id());
             *BRIDGE_PROCESS.lock().unwrap() = Some(child);
         }
         Err(e) => {
-            eprintln!("[tauri] failed to start bridge: {} (python={})", e, python);
+            eprintln!("[penglai-desktop] failed to start bridge: {} (python={})", e, python);
             return;
         }
     }
 
-    if !wait_for_port(14168, Duration::from_secs(15)) {
-        eprintln!("[tauri] WARNING: bridge did not become ready within 15s");
+    if !wait_for_bridge_ready(Duration::from_secs(15)) {
+        eprintln!("[penglai-desktop] WARNING: bridge did not become ready within 15s");
     }
 }
 
+#[allow(dead_code)]
 fn ensure_bridge_running() {
     if is_bridge_running() {
-        eprintln!("[tauri] bridge already running on 127.0.0.1:14168; reusing it");
+        eprintln!("[penglai-desktop] bridge already running on 127.0.0.1:14168; reusing it");
+        return;
+    }
+    if is_bridge_port_open() {
+        eprintln!("[penglai-desktop] port 14168 is occupied by an old or untrusted bridge; not reusing it");
         return;
     }
     start_bridge();
@@ -205,6 +250,9 @@ fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, p
 
     // Start bridge only if it is not already accepting connections.
     if !is_bridge_running() {
+        if is_bridge_port_open() {
+            return Err("检测到旧版或非蓬莱桌面桥接占用 127.0.0.1:14168；请先关闭旧桥接后重试。".into());
+        }
         let py = PathBuf::from(&python_path);
         let dir = PathBuf::from(&project_dir);
         let script = dir.join("frontends").join("desktop_bridge.py");
@@ -220,8 +268,8 @@ fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, p
         *BRIDGE_PROCESS.lock().unwrap() = Some(child);
     }
 
-    // Wait for port
-    if !wait_for_port(14168, Duration::from_secs(20)) {
+    // Wait until the bridge serves the tokenized Penglai frontend.
+    if !wait_for_bridge_ready(Duration::from_secs(20)) {
         return Err("Bridge did not become ready within 20s".into());
     }
 
@@ -253,18 +301,22 @@ pub fn run() {
     let bridge_ok = is_bridge_running();
     let mut spawned_bridge = false;
     if !bridge_ok && !no_autostart {
-        // Try to start bridge with saved/discovered config
-        let (py_str, dir_str) = get_or_discover_config();
-        let dir = PathBuf::from(&dir_str);
-        let script = dir.join("frontends").join("desktop_bridge.py");
-        if script.exists() {
-            let mut cmd = Command::new(&py_str);
-            cmd.arg(&script).current_dir(&dir);
-            #[cfg(windows)]
-            cmd.creation_flags(0x08000000);
-            if let Ok(child) = cmd.spawn() {
-                *BRIDGE_PROCESS.lock().unwrap() = Some(child);
-                spawned_bridge = true;
+        if is_bridge_port_open() {
+            eprintln!("[penglai-desktop] port 14168 is occupied by an old or untrusted bridge; setup window will be shown");
+        } else {
+            // Try to start bridge with saved/discovered config.
+            let (py_str, dir_str) = get_or_discover_config();
+            let dir = PathBuf::from(&dir_str);
+            let script = dir.join("frontends").join("desktop_bridge.py");
+            if script.exists() {
+                let mut cmd = Command::new(&py_str);
+                cmd.arg(&script).current_dir(&dir);
+                #[cfg(windows)]
+                cmd.creation_flags(0x08000000);
+                if let Ok(child) = cmd.spawn() {
+                    *BRIDGE_PROCESS.lock().unwrap() = Some(child);
+                    spawned_bridge = true;
+                }
             }
         }
     }
@@ -284,7 +336,7 @@ pub fn run() {
             } else {
                 Duration::from_secs(2)
             };
-            let bridge_ready = wait_for_port(14168, bridge_wait);
+            let bridge_ready = if bridge_ok { true } else { wait_for_bridge_ready(bridge_wait) };
             if bridge_ready {
                 // Navigate to bridge HTTP only after it is ready; the window starts on loading.html
                 // so WebView never caches an early "connection refused" error page.

@@ -12,7 +12,7 @@ BLOCKED_OUTBOUND_SUFFIXES = (".py", ".env", ".key", ".sh", ".pem")
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg"}
-AUDIO_EXTS = {".opus", ".mp3", ".wav", ".m4a", ".aac", ".flac"}
+AUDIO_EXTS = {".opus", ".ogg", ".mp3", ".wav", ".m4a", ".aac", ".flac"}
 
 _FILE_RE = re.compile(r"\[FILE:([^\]\r\n]+)(?:\]|(?=\r?\n)|$)")
 _PLACEHOLDERS = {

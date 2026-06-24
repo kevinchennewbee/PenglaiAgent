@@ -8,6 +8,8 @@
 import os
 import sys
 import time
+import json
+import tempfile
 from datetime import datetime
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,7 +89,6 @@ check("晴天→天气不触发", (d is None) or d[0] != "weather")
 # 3. 情绪承接：负面信号触发一次，承接后不重复
 os.makedirs(os.path.join(REPO, "temp"), exist_ok=True)
 cp._SIGNALS = os.path.join(REPO, "temp", "_test_signals.json")
-import json
 json.dump({"emotions": [{"e": "悲伤", "ts": time.time() - 3600}]},
           open(cp._SIGNALS, "w", encoding="utf-8"))
 st3 = {"last_reach": time.time()}          # 冷却未过，情绪也不该被挡
@@ -223,6 +224,98 @@ _write_state({"pending_kind": "emotion", "pending_ts": time.time(), "pending_emo
 cp.on_done("还好吗")
 s = _read_state()
 check("A3 emotion 失败不写 followed_ts", s.get("emotion_followed_ts") is None and s.get("pending_kind") == "")
+
+# A3b 主动陪伴进入 Runtime Hub：TaskRun、投递元数据、context ledger 同步落证据
+from penglai_runtime.port import CallableAgentPort
+from penglai_runtime.store import RuntimeStateStore
+
+_script_state = cp._STATE
+_old_store_env = os.environ.get("PENGLAI_RUNTIME_STORE_PATH")
+_old_context_env = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+
+
+def _read_jsonl(path):
+    rows = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rows.append(json.loads(line))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return rows
+
+
+def _with_runtime_paths(name):
+    td = tempfile.mkdtemp(prefix=f"penglai-companion-{name}-")
+    db = os.path.join(td, "runtime.sqlite3")
+    ctx = os.path.join(td, "context.jsonl")
+    state = os.path.join(td, "state.json")
+    os.environ["PENGLAI_RUNTIME_STORE_PATH"] = db
+    os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = ctx
+    cp._STATE = state
+    return db, ctx, state
+
+
+try:
+    db, ctx, _ = _with_runtime_paths("sent")
+    sent_texts = []
+    cp._cfg = lambda: _cfg(channels=["feishu"], open_id="ou_test", app_id="cli_x", app_secret="s")
+    cp._feishu_send = lambda c, t: sent_texts.append(t) or True
+    cp._wechat_send = lambda t: False
+    _write_state({"pending_kind": "morning", "pending_ts": time.time()})
+    out = cp.run_runtime_task(
+        "runtime companion prompt",
+        port=CallableAgentPort(lambda event: "早安呀", worker_id="test-companion"),
+    )
+    store = RuntimeStateStore(db)
+    run = store.recent_runs(limit=1)[0]
+    detail = store.get_run(run["run_id"])
+    events = _read_jsonl(ctx)
+    check("Runtime陪伴→TaskRun succeeded", run["status"] == "succeeded"
+          and run["session_id"] == "owner:default"
+          and detail["metadata"]["companion"]["delivery_status"] == "sent")
+    check("Runtime陪伴→真实投递回调一次", out == "早安呀" and sent_texts == ["早安呀"])
+    check("Runtime陪伴→context ledger 含 run_id", any(
+        e.get("kind") == "companion_sent"
+        and e.get("metadata", {}).get("run_id") == run["run_id"]
+        for e in events
+    ))
+
+    db, ctx, _ = _with_runtime_paths("failed")
+    cp._cfg = lambda: _cfg(channels=["feishu"], open_id="ou_test", app_id="cli_x", app_secret="s")
+    cp._feishu_send = lambda c, t: False
+    cp._wechat_send = lambda t: False
+    _write_state({"pending_kind": "morning", "pending_ts": time.time()})
+    cp.run_runtime_task(
+        "runtime companion prompt",
+        port=CallableAgentPort(lambda event: "早安呀", worker_id="test-companion"),
+    )
+    store = RuntimeStateStore(db)
+    run = store.recent_runs(limit=1)[0]
+    detail = store.get_run(run["run_id"])
+    st_failed = _read_state()
+    events = _read_jsonl(ctx)
+    check("Runtime陪伴→投递失败标 failed", run["status"] == "failed"
+          and detail["metadata"]["companion"]["delivery_status"] == "failed"
+          and st_failed.get("pending_kind") == "")
+    check("Runtime陪伴→失败写 context ledger", any(
+        e.get("kind") == "companion_failed"
+        and e.get("metadata", {}).get("run_id") == run["run_id"]
+        for e in events
+    ))
+finally:
+    cp._STATE = _script_state
+    if _old_store_env is None:
+        os.environ.pop("PENGLAI_RUNTIME_STORE_PATH", None)
+    else:
+        os.environ["PENGLAI_RUNTIME_STORE_PATH"] = _old_store_env
+    if _old_context_env is None:
+        os.environ.pop("PENGLAI_CONTEXT_EVENTS_LOG", None)
+    else:
+        os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = _old_context_env
 
 # [SILENT] 清租约且不落终态
 cp._feishu_send = lambda c, t: True

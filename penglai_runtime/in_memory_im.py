@@ -15,7 +15,9 @@ class InMemoryIMAdapter:
         self.queue = SessionQueue()
         self.sent_texts = []
         self.sent_files = []
+        self.sent_audio = []
         self.delivery = DeliveryService(
+            send_audio=self._send_audio,
             send_file=self._send_file,
             send_text=self._send_text,
         )
@@ -43,4 +45,8 @@ class InMemoryIMAdapter:
 
     def _send_file(self, path):
         self.sent_files.append(path)
+        return True
+
+    def _send_audio(self, path):
+        self.sent_audio.append(path)
         return True

@@ -269,10 +269,16 @@ if __name__ == '__main__':
             if task and task == '/exit': break
             if task:
                 print(f'[Reflect] triggered: {task[:80]}')
-                dq = agent.put_task(task, source='reflect')
+                runtime_runner = getattr(mod, 'run_runtime_task', None)
+                handled_done = False
                 try:
-                    while 'done' not in (item := dq.get(timeout=1200)): pass
-                    result = item['done']
+                    if callable(runtime_runner):
+                        result = runtime_runner(task, agent=agent)
+                        handled_done = True
+                    else:
+                        dq = agent.put_task(task, source='reflect')
+                        while 'done' not in (item := dq.get(timeout=1200)): pass
+                        result = item['done']
                     print(result)
                 except Exception as e:
                     if getattr(mod, 'ONCE', False): raise
@@ -280,7 +286,7 @@ if __name__ == '__main__':
                 log_dir = os.path.join(script_dir, 'temp/reflect_logs'); os.makedirs(log_dir, exist_ok=True)
                 script_name = os.path.splitext(os.path.basename(args.reflect))[0]
                 open(os.path.join(log_dir, f'{script_name}_{datetime.now():%Y-%m-%d}.log'), 'a', encoding='utf-8').write(f'[{datetime.now():%m-%d %H:%M}]\n{result}\n\n')
-                if (on_done := getattr(mod, 'on_done', None)):
+                if not handled_done and (on_done := getattr(mod, 'on_done', None)):
                     try: on_done(result)
                     except Exception as e: print(f'[Reflect] on_done error: {e}')
                 if getattr(mod, 'ONCE', False): print('[Reflect] ONCE=True, exiting.'); break

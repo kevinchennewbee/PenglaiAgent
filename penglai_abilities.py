@@ -5,6 +5,7 @@
 不必重跑整个向导。与渠道共用 enable 入口（penglai CLI 按名字分发到这里或渠道矩阵）。
 
   penglai enable voice      装 sherpa-onnx + ffmpeg + SenseVoice 模型（语音转写+情绪）
+  penglai enable tts        检查 MOSS-TTS-Nano 本地语音输出（说话/语音条）
   penglai enable companion  开启主动陪伴（独立心跳进程，门禁守护）
   penglai enable intel      配置情报矩阵（多源搜索交叉验证）
   penglai disable <能力>    关闭
@@ -22,7 +23,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 OK, BAD, WARN = "✅", "❌", "⚠️ "
 
-ABILITIES = ("voice", "companion", "intel", "critic")
+ABILITIES = ("voice", "tts", "companion", "intel", "critic")
 
 # 批判脑复核模型 = 用户从整张厂商目录自选（与向导主力模型同一套选择 UI，复用 penglai_setup，
 # 不限免费）。仅约束「与主力不同厂商」以获得交叉视差——见 enable_critic()。
@@ -518,6 +519,41 @@ def disable_voice():
     return 0
 
 
+def enable_tts():
+    from penglai_runtime import tts_service
+    from penglai_runtime.capabilities import tts_runtime_status
+    st = tts_runtime_status()
+    print(st.get("detail") or "语音输出：状态未知")
+    if st.get("ready"):
+        print(f"{OK} MOSS-TTS-Nano 本地语音输出已就绪。")
+        return 0
+    print(f"{WARN} MOSS-TTS-Nano 还未就绪。缺：{','.join(st.get('missing') or []) or '未知'}")
+    print("     官方源码目录：", st.get("repo_dir"))
+    print("     ONNX 模型目录：", st.get("model_dir"))
+    print("     现在开始安装依赖、下载 ONNX 权重，并做中英本地 CPU 合成 smoke。")
+    result = tts_service.ensure_ready(stream=True, update_repo=False, run_smoke_check=True)
+    final = result.get("status") or tts_runtime_status()
+    print(final.get("detail") or "语音输出：状态未知")
+    smoke = (result.get("smoke") or {}).get("results") or []
+    for item in smoke:
+        if item.get("ok"):
+            audio = item.get("audio") or {}
+            print(f"{OK} {item.get('lang')} smoke: {audio.get('path')} ({audio.get('sample_rate')}Hz, {audio.get('channels')}ch, {audio.get('seconds')}s)")
+        else:
+            print(f"{BAD} {item.get('lang', '?')} smoke 失败：{item.get('error')}")
+    if result.get("ok") and final.get("ready"):
+        print(f"{OK} MOSS-TTS-Nano ONNX CPU 本地语音输出已就绪。")
+        return 0
+    print(f"{BAD} MOSS-TTS-Nano 安装/验证未完成，阶段：{result.get('stage')}")
+    return 1
+
+
+def disable_tts():
+    print(f"{WARN} 语音输出是工具能力（无常驻进程），无需停用；"
+          "如要省盘可手动删 ~/penglai-models/ 下的 MOSS-TTS-Nano 模型目录。")
+    return 0
+
+
 # ---------- 主动陪伴 ----------
 def enable_companion():
     pc = _pc()
@@ -659,10 +695,18 @@ def status():
                   else "未开启（零成本，被动回复）")
     intel = _intel_sources()
     critic = _critic_status()
+    try:
+        from penglai_runtime.capabilities import tts_runtime_status
+        tts = tts_runtime_status()
+    except Exception:
+        tts = {"ready": False, "detail": "语音输出：状态未知"}
     rows = [
         ("🎙️ 语音转写+情绪", vr,
          "就绪（SenseVoice 本地）" if vr else f"未装齐（缺 {'/'.join(n for n, ok in (('模型', vm), ('引擎', ve), ('ffmpeg', vf)) if not ok)}）",
          "penglai enable voice"),
+        ("🔊 语音输出", bool(tts.get("ready")),
+         tts.get("detail") or "语音输出：状态未知",
+         "penglai enable tts"),
         ("💞 主动陪伴", comp_mark, comp_state, "penglai enable companion"),
         ("🔭 情报矩阵", bool(intel),
          f"已配 {len(intel)} 个源" if intel else "默认（GA 浏览器搜索）",
@@ -673,7 +717,8 @@ def status():
     ]
     for label, on, state, cmd in rows:
         mark = {True: OK, False: "○"}.get(on, "⚠️")   # on=True/False/'warn'(开着但心跳没跑)
-        tail = f"   → 开启：{cmd}" if on is False else ""
+        action = "检查/配置" if label.startswith("🔊") else "开启"
+        tail = f"   → {action}：{cmd}" if on is False else ""
         print(f"  {mark} {label:<16} {state}{tail}")
         if label.startswith("💞") and comp_on:
             print(f"      {_companion_detail_line()}")
@@ -691,10 +736,10 @@ def status():
 
 # ---------- CLI 分发（由 penglai 脚本调用）----------
 def enable(name):
-    return {"voice": enable_voice, "companion": enable_companion,
+    return {"voice": enable_voice, "tts": enable_tts, "companion": enable_companion,
             "intel": enable_intel, "critic": enable_critic}[name]()
 
 
 def disable(name):
-    return {"voice": disable_voice, "companion": disable_companion,
+    return {"voice": disable_voice, "tts": disable_tts, "companion": disable_companion,
             "intel": disable_intel, "critic": disable_critic}[name]()

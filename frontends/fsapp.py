@@ -1,4 +1,4 @@
-import argparse, asyncio, importlib.util, json, os, queue as Q, re, sys, threading, time, uuid
+import argparse, asyncio, importlib.util, json, os, queue as Q, re, shutil, subprocess, sys, threading, time, uuid, wave
 from pathlib import Path
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -83,7 +83,7 @@ from frontends.chatapp_common import AgentChatMixin, FILE_HINT, split_text
 
 _TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
-_AUDIO_EXTS = {".opus", ".mp3", ".wav", ".m4a", ".aac"}
+_AUDIO_EXTS = {".opus", ".ogg", ".mp3", ".wav", ".m4a", ".aac", ".flac"}
 _VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 _FILE_TYPE_MAP = {
     ".opus": "opus",
@@ -100,7 +100,9 @@ _MSG_TYPE_MAP = {"image": "[image]", "audio": "[audio]", "file": "[file]", "medi
 
 TEMP_DIR = os.path.join(PROJECT_ROOT, "temp")
 MEDIA_DIR = os.path.join(TEMP_DIR, "feishu_media")
+FEISHU_AUDIO_DIR = os.path.join(TEMP_DIR, "feishu_audio")
 os.makedirs(MEDIA_DIR, exist_ok=True)
+os.makedirs(FEISHU_AUDIO_DIR, exist_ok=True)
 
 
 _TRUNC_TAIL = 300  # 截断兜底时保留原文尾部字符数
@@ -373,6 +375,17 @@ def create_client():
     return lark.Client.builder().app_id(APP_ID).app_secret(APP_SECRET).log_level(lark.LogLevel.INFO).build()
 
 
+def _ensure_client():
+    global client, APP_ID, APP_SECRET, ALLOWED_USERS, PUBLIC_ACCESS, CONFIG_PATH
+    if client is not None:
+        return client
+    APP_ID, APP_SECRET, ALLOWED_USERS, PUBLIC_ACCESS, CONFIG_PATH = _feishu_config()
+    if not APP_ID or not APP_SECRET:
+        raise RuntimeError(f"Feishu config missing: {CONFIG_PATH}")
+    client = create_client()
+    return client
+
+
 def _mask_secret(value):
     value = str(value or "")
     if len(value) <= 8:
@@ -417,10 +430,11 @@ def _card(text):
 
 def _send_raw(receive_id, payload, msg_type, rtype):
     try:
+        cli = _ensure_client()
         body = CreateMessageRequest.builder().receive_id_type(rtype).request_body(
             CreateMessageRequestBody.builder().receive_id(receive_id).msg_type(msg_type).content(payload).build()
         ).build()
-        r = client.im.v1.message.create(body)
+        r = cli.im.v1.message.create(body)
         if r.success():
             return r.data.message_id if r.data else None
         print(f"发送失败: {r.code}, {r.msg}")
@@ -432,10 +446,11 @@ def _send_raw(receive_id, payload, msg_type, rtype):
 
 def _patch_card(message_id, card_json):
     try:
+        cli = _ensure_client()
         body = PatchMessageRequest.builder().message_id(message_id).request_body(
             PatchMessageRequestBody.builder().content(card_json).build()
         ).build()
-        r = client.im.v1.message.patch(body)
+        r = cli.im.v1.message.patch(body)
         if not r.success():
             print(f"[ERROR] patch_card 失败: {r.code}, {r.msg}")
         return r.success()
@@ -459,11 +474,12 @@ def update_message(message_id, content):
 
 def _upload_image_sync(file_path):
     try:
+        cli = _ensure_client()
         with open(file_path, "rb") as f:
             request = CreateImageRequest.builder().request_body(
                 CreateImageRequestBody.builder().image_type("message").image(f).build()
             ).build()
-            response = client.im.v1.image.create(request)
+            response = cli.im.v1.image.create(request)
             if response.success():
                 return response.data.image_key
             print(f"[ERROR] upload image failed: {response.code}, {response.msg}")
@@ -477,11 +493,12 @@ def _upload_file_sync(file_path):
     file_type = _FILE_TYPE_MAP.get(ext, "stream")
     file_name = os.path.basename(file_path)
     try:
+        cli = _ensure_client()
         with open(file_path, "rb") as f:
             request = CreateFileRequest.builder().request_body(
                 CreateFileRequestBody.builder().file_type(file_type).file_name(file_name).file(f).build()
             ).build()
-            response = client.im.v1.file.create(request)
+            response = cli.im.v1.file.create(request)
             if response.success():
                 return response.data.file_key
             print(f"[ERROR] upload file failed: {response.code}, {response.msg}")
@@ -492,8 +509,9 @@ def _upload_file_sync(file_path):
 
 def _download_image_sync(message_id, image_key):
     try:
+        cli = _ensure_client()
         request = GetMessageResourceRequest.builder().message_id(message_id).file_key(image_key).type("image").build()
-        response = client.im.v1.message_resource.get(request)
+        response = cli.im.v1.message_resource.get(request)
         if response.success():
             data = response.file.read() if hasattr(response.file, "read") else response.file
             return data, response.file_name
@@ -507,8 +525,9 @@ def _download_file_sync(message_id, file_key, resource_type="file"):
     if resource_type == "audio":
         resource_type = "file"
     try:
+        cli = _ensure_client()
         request = GetMessageResourceRequest.builder().message_id(message_id).file_key(file_key).type(resource_type).build()
-        response = client.im.v1.message_resource.get(request)
+        response = cli.im.v1.message_resource.get(request)
         if response.success():
             data = response.file.read() if hasattr(response.file, "read") else response.file
             return data, response.file_name
@@ -572,9 +591,102 @@ def _send_local_file(receive_id, file_path, receive_id_type="open_id"):
     return False
 
 
+def _audio_duration_ms(file_path):
+    try:
+        with wave.open(file_path, "rb") as w:
+            rate = w.getframerate()
+            frames = w.getnframes()
+            if rate:
+                return int(round(frames * 1000.0 / rate))
+    except Exception:
+        pass
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return 0
+    try:
+        r = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file_path],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if r.returncode == 0 and (r.stdout or "").strip():
+            return int(round(float(r.stdout.strip()) * 1000))
+    except Exception:
+        return 0
+    return 0
+
+
+def _convert_to_feishu_opus(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".opus":
+        return file_path
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        print("[ERROR] send audio failed: ffmpeg not found")
+        return ""
+    base = os.path.splitext(os.path.basename(file_path))[0]
+    out = os.path.join(FEISHU_AUDIO_DIR, f"{base}-{uuid.uuid4().hex[:8]}.opus")
+    r = subprocess.run(
+        [ffmpeg, "-y", "-i", file_path, "-acodec", "libopus", "-ac", "1", "-ar", "16000", "-b:a", "32k", out],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if r.returncode != 0 or not os.path.isfile(out):
+        print(f"[ERROR] audio opus convert failed: {((r.stderr or '') + (r.stdout or ''))[-300:]}")
+        return ""
+    return out
+
+
+def _send_local_audio(receive_id, file_path, receive_id_type="open_id", *, allow_fallback=True):
+    """Send an audio artifact as a Feishu native audio message."""
+    if not os.path.isfile(file_path):
+        send_message(receive_id, f"⚠️ 音频文件不存在: {file_path}", receive_id_type=receive_id_type)
+        return False
+    opus_path = _convert_to_feishu_opus(file_path)
+    if not opus_path:
+        return _send_local_file(receive_id, file_path, receive_id_type=receive_id_type) if allow_fallback else False
+    file_key = _upload_file_sync(opus_path)
+    if not file_key:
+        return _send_local_file(receive_id, file_path, receive_id_type=receive_id_type) if allow_fallback else False
+    payload = {"file_key": file_key}
+    duration = _audio_duration_ms(opus_path) or _audio_duration_ms(file_path)
+    if duration:
+        payload["duration"] = duration
+    msg_id = send_message(receive_id, json.dumps(payload, ensure_ascii=False), msg_type="audio", receive_id_type=receive_id_type)
+    if msg_id:
+        print(f"[feishu audio] sent native audio message_id={msg_id} duration_ms={duration}")
+        return True
+    return _send_local_file(receive_id, file_path, receive_id_type=receive_id_type) if allow_fallback else False
+
+
+def send_local_audio_to_owner(file_path, *, receive_id=None, receive_id_type="open_id", allow_fallback=False):
+    """Small CLI/test hook for real owner audio delivery."""
+    target = receive_id
+    if not target:
+        try:
+            import mykey
+            owners = getattr(mykey, "fs_allowed_users", None)
+            if isinstance(owners, str):
+                target = owners.strip()
+            else:
+                target = next((str(x).strip() for x in (owners or []) if str(x).strip()), "")
+        except Exception:
+            target = None
+    if not target:
+        print("[ERROR] no Feishu owner open_id configured for audio delivery")
+        return False
+    return _send_local_audio(target, file_path, receive_id_type=receive_id_type, allow_fallback=allow_fallback)
+
+
+
 def _send_generated_files(receive_id, raw_text, receive_id_type="open_id"):
-    for file_path in _extract_files(raw_text):
-        _send_local_file(receive_id, file_path, receive_id_type)
+    from penglai_runtime.delivery import DeliveryService
+    DeliveryService(
+        send_file=lambda path: _send_local_file(receive_id, path, receive_id_type),
+        send_audio=lambda path: _send_local_audio(receive_id, path, receive_id_type),
+    ).deliver(raw_text, base_dir=TEMP_DIR, send_body=False, send_notice=False)
 
 
 def _build_user_message(message):

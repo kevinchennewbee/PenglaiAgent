@@ -7,7 +7,7 @@
   penglai doctor    体检：环境/依赖/配置/服务/记忆/上游状态
   penglai version   版本身份（发行版本/Runtime/分支/commit/容器构建信息）
   penglai status    服务状态
-  penglai start     启动服务（飞书 + 调度器）
+  penglai start     启动服务（飞书 + 微信 + 调度器）
   penglai stop      停止服务
   penglai logs [渠道]  查看最近日志（默认飞书）
   penglai channels  IM 渠道矩阵总览（飞书/微信/钉钉/企微/QQ/Telegram/Discord）
@@ -28,10 +28,13 @@
   penglai runtime-audit      审计 0.3.0 旧入口/Docker 遗留口径（低副作用）
   penglai privacy-audit      审计隐私与发布前风险（低副作用，不输出密钥）
   penglai install-check      源码安装预检（0.3.0，无 Docker，低副作用）
+  penglai tts-smoke          MOSS-TTS-Nano 本地语音输出中英真实合成验证
+  penglai tts-say <文本>     合成文本为本地 WAV，并输出可投递音频 artifact
+  penglai tts-feishu-test    合成语音并通过飞书 owner 真实投递验证
   penglai feishu-service <install|uninstall|status|print-unit|run-gray>  管理无头服务器上的飞书渠道进程
   penglai help      显示本帮助
 """
-import os, sys, shutil, subprocess
+import json, os, sys, shutil, subprocess
 
 # realpath 而非 abspath：install.sh 会软链 ~/.local/bin/penglai → 仓库内本体，
 # abspath 会把 ROOT 解析到 ~/.local/bin，整个发行版找不到自己（真机踩过）
@@ -72,6 +75,10 @@ FSAPP_ENTRY = os.path.join(ROOT, "penglai_feishu_app.py")
 FSAPP_WRAPPER_PATTERN = "penglai_feishu_app[.]py"
 FSAPP_LEGACY_PATTERN = "frontends/fsapp[.]py"
 FSAPP_PATTERNS = (FSAPP_WRAPPER_PATTERN, FSAPP_LEGACY_PATTERN)
+WECHATLOG = os.path.join(ROOT, "temp", "wechat.log")
+WECHATPID = os.path.join(ROOT, "temp", "wechat.pid")
+WECHAT_ENTRY = os.path.join(ROOT, "penglai_im_launch.py")
+WECHAT_PATTERNS = ("penglai_im_launch[.]py wechat", "frontends/wechatapp[.]py")
 
 def _pids_for_patterns(patterns):
     pids = set()
@@ -83,6 +90,12 @@ def _pids_for_patterns(patterns):
 
 def fsapp_pids():
     return _pids_for_patterns(FSAPP_PATTERNS)
+
+def wechat_pids():
+    return _pids_for_patterns(WECHAT_PATTERNS)
+
+def _reflect_pids(rel):
+    return _pids_for_patterns((rel.replace("/", "[/]"),))
 
 def fsapp_wrapper_pids():
     return _pids_for_patterns((FSAPP_WRAPPER_PATTERN,))
@@ -234,6 +247,95 @@ def fsapp_stop():
         try: os.kill(pid, signal.SIGTERM)
         except ProcessLookupError: pass
     print(f"{OK} 已停止（PID {' '.join(map(str, pids))}）"); return 0
+
+def _spawn_background(argv, log, pidfile):
+    os.makedirs(os.path.dirname(log), exist_ok=True)
+    lf = open(log, "ab")
+    p = subprocess.Popen(argv, cwd=ROOT, stdout=lf, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, env=_child_env(),
+                         start_new_session=True)
+    if pidfile:
+        try:
+            open(pidfile, "w").write(str(p.pid))
+        except OSError:
+            pass
+    return p
+
+def _kill_patterns(patterns, label):
+    import signal
+    pids = _pids_for_patterns(patterns)
+    if not pids:
+        print(f"{OK} {label}未在运行")
+        return 0
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    print(f"{OK} 已停止{label}（PID {' '.join(map(str, pids))}）")
+    return 0
+
+def wechat_start():
+    if not _wechat_bound():
+        print(f"{OK} 微信未绑定，跳过")
+        return 0
+    pids = wechat_pids()
+    if pids:
+        print(f"{OK} 微信进程已在运行（PID {pids[0]}）")
+        return 0
+    p = _spawn_background([venv_python(), WECHAT_ENTRY, "wechat"], WECHATLOG, WECHATPID)
+    import time
+    time.sleep(2)
+    if p.poll() is not None:
+        print(f"{BAD} 微信进程退出（码 {p.returncode}），最近日志：")
+        if os.path.exists(WECHATLOG):
+            for l in open(WECHATLOG, encoding="utf-8", errors="replace").read().splitlines()[-8:]:
+                print("  " + l[:160])
+        return 1
+    print(f"{OK} 微信进程已临时后台启动（PID {p.pid}，日志: {WECHATLOG}）")
+    return 0
+
+def wechat_stop():
+    return _kill_patterns(WECHAT_PATTERNS, "微信")
+
+def _reflect_start(service, rel, label):
+    pids = _reflect_pids(rel)
+    if pids:
+        print(f"{OK} {label}已在运行（PID {pids[0]}）")
+        return 0
+    log = os.path.join(ROOT, "temp", f"{service}.log")
+    pidfile = os.path.join(ROOT, "temp", f"{service}.pid")
+    p = _spawn_background([venv_python(), os.path.join(ROOT, "agentmain.py"),
+                           "--reflect", os.path.join(ROOT, rel)], log, pidfile)
+    print(f"{OK} {label}已临时后台启动（PID {p.pid}，日志: {log}）")
+    return 0
+
+def _reflect_stop(rel, label):
+    return _kill_patterns((rel.replace("/", "[/]"),), label)
+
+def _feishu_configured():
+    return _mykey_flag("print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)")
+
+def _manual_background_start():
+    print(f"{WARN}未安装 systemd 服务，改用临时后台启动；重启电脑后不会自动恢复。")
+    rc = 0
+    if _feishu_configured():
+        rc = max(rc, fsapp_start())
+    else:
+        print(f"{OK} 飞书未配置，跳过")
+    rc = max(rc, wechat_start())
+    rc = max(rc, _reflect_start("scheduler", "reflect/scheduler.py", "调度/提醒"))
+    if _companion_enabled_flag():
+        rc = max(rc, _reflect_start("companion", "reflect/penglai_companion.py", "主动陪伴"))
+    return rc
+
+def _manual_background_stop():
+    rc = fsapp_stop()
+    rc = max(rc, wechat_stop())
+    rc = max(rc, _reflect_stop("reflect/scheduler.py", "调度/提醒"))
+    if _companion_enabled_flag():
+        rc = max(rc, _reflect_stop("reflect/penglai_companion.py", "主动陪伴"))
+    return rc
 
 def installed_services():
     """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。
@@ -408,6 +510,26 @@ def doctor():
             print(f"{WARN} {_detail} → 补齐：penglai enable voice")
     except Exception as e:
         print(f"{WARN} 语音：状态检查不可用（{e}）")
+
+    # 2c.2 语音输出能力（可选；MOSS-TTS-Nano 本地部署，不让聊天任务承担安装/修复）
+    try:
+        import json
+        r = sh([py, "-c",
+                "import json;"
+                "from penglai_runtime.capabilities import tts_runtime_status;"
+                "print(json.dumps(tts_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
+        _tts = json.loads((r.stdout or "{}").strip() or "{}")
+        _detail = _tts.get("detail") or "语音输出：状态未知"
+        if _tts.get("ready"):
+            print(f"{OK} {_detail}")
+        elif _tts.get("status") == "disabled":
+            print(f"{OK} {_detail}   → 检查/配置：penglai enable tts")
+        else:
+            print(f"{WARN} {_detail} → 补齐 MOSS-TTS-Nano 本地模型/依赖")
+    except Exception as e:
+        print(f"{WARN} 语音输出：状态检查不可用（{e}）")
 
     # 2d. 看图能力（F7/U4：IM 发图用主力多模态看图；缺 vision_api.py 就按主力模型构建一次）
     if os.path.exists(os.path.join(ROOT, "mykey.py")):
@@ -680,10 +802,33 @@ def svc(action):
         # 容器/macOS：直接管理 nohup 飞书进程
         if action == "status":
             return _non_systemd_status()
-        if action == "start":   r = fsapp_start(); _ensure_macos_reflects(); return r
-        if action == "stop":    return fsapp_stop()
-        if action == "restart": fsapp_stop(); r = fsapp_start(); _ensure_macos_reflects(force=True); return r
+        if action == "start":
+            r = fsapp_start()
+            r = max(r, wechat_start())
+            _ensure_macos_reflects()
+            return r
+        if action == "stop":
+            r = fsapp_stop()
+            r = max(r, wechat_stop())
+            return r
+        if action == "restart":
+            fsapp_stop()
+            wechat_stop()
+            r = fsapp_start()
+            r = max(r, wechat_start())
+            _ensure_macos_reflects(force=True)
+            return r
     svcs = installed_services()
+    if not svcs:
+        if action == "status":
+            return _non_systemd_status()
+        if action == "start":
+            return _manual_background_start()
+        if action == "stop":
+            return _manual_background_stop()
+        if action == "restart":
+            _manual_background_stop()
+            return _manual_background_start()
     if action == "status":
         for s in svcs:
             r = sh(["systemctl", "is-active", s])
@@ -804,6 +949,20 @@ def _preflight():
     g = sh([venv_python(), os.path.join(ROOT, "penglai"), "_guardcheck"])
     if g.returncode != 0:
         return False, "安全插件挂载失败：" + (g.stdout or "")[:200]
+    legacy = sh([venv_python(), os.path.join(ROOT, "penglai"), "runtime-audit", "--json"])
+    if legacy.returncode != 0:
+        return False, "旧 Runtime 入口审计失败：" + ((legacy.stdout or legacy.stderr or "")[:300])
+    try:
+        data = json.loads(legacy.stdout or "{}")
+    except Exception:
+        return False, "旧 Runtime 入口审计输出不可解析"
+    active = [
+        item.get("item_id", "active_legacy_path")
+        for item in data.get("items", [])
+        if item.get("status") == "active_legacy_path"
+    ]
+    if active:
+        return False, "旧 Runtime 入口仍在运行，0.3.0 preview 不做原地重启升级：" + ", ".join(active[:5])
     return True, ""
 
 def update():
@@ -845,7 +1004,8 @@ def update():
 
 def _do_update(old, new):
     if _git("status", "--porcelain").stdout.strip():
-        print(f"{WARN}本地有未提交改动，可能挡住升级。");
+        print(f"{BAD} 本地有未提交改动，0.3.0 preview 不继续自动升级，避免回滚时丢失本地修改。请先提交/备份后再运行 update。")
+        return 1
     print("  ⬇️  拉取新版本（fast-forward）...")
     if subprocess.run(["git", "merge", "--ff-only", _release_ref()], cwd=ROOT).returncode != 0:
         print(f"{BAD} 无法 fast-forward（本地改动/历史分叉），未改动。备份 mykey 后重装即最新：\n   {REINSTALL_HINT}")
@@ -868,7 +1028,7 @@ def _do_update(old, new):
 
 def _restart_targets():
     """应处于运行态的服务（systemd）。渠道按配置和已安装 unit 决定。"""
-    svcs = ["penglai-scheduler"]
+    svcs = ["penglai-runtime-hub", "penglai-scheduler"]
     py = venv_python()
     fs = sh([py, "-c", "import sys;sys.path.insert(0,'.');import mykey;"
              "print(1 if getattr(mykey,'fs_app_id','') and getattr(mykey,'fs_app_secret','') else 0)"],
@@ -1142,6 +1302,21 @@ def install_check_cmd():
     from penglai_runtime import install_check
     return install_check.main(sys.argv[2:])
 
+def tts_smoke_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import tts_service
+    return tts_service.smoke_main(sys.argv[2:])
+
+def tts_say_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import tts_service
+    return tts_service.say_main(sys.argv[2:])
+
+def tts_feishu_test_cmd():
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import tts_service
+    return tts_service.feishu_test_main(sys.argv[2:])
+
 def feishu_service_cmd():
     sys.path.insert(0, ROOT)
     from penglai_runtime import feishu_service
@@ -1163,6 +1338,9 @@ def main():
             "runtime-audit": runtime_audit_cmd,
             "privacy-audit": privacy_audit_cmd,
             "install-check": install_check_cmd,
+            "tts-smoke": tts_smoke_cmd,
+            "tts-say": tts_say_cmd,
+            "tts-feishu-test": tts_feishu_test_cmd,
             "feishu-service": feishu_service_cmd,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
             "_restart_supervisor": restart_supervisor}

@@ -7,14 +7,16 @@
   let ws = null;
   let cachedBridgeReady = null;
   const bridgeBase = `${location.protocol}//${location.hostname}:14168`;
-  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:14168/ws`;
+  const bridgeToken = window.__PENGLAI_BRIDGE_TOKEN__ || new URLSearchParams(location.search).get('token') || '';
+  const wsQuery = bridgeToken ? `?token=${encodeURIComponent(bridgeToken)}` : '';
+  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:14168/ws${wsQuery}`;
 
   function on(channel, cb) {
     if (typeof cb !== 'function') return () => {};
     if (!listeners.has(channel)) listeners.set(channel, new Set());
     listeners.get(channel).add(cb);
     if (channel === 'bridge-ready' && cachedBridgeReady) {
-      try { cb(cachedBridgeReady); } catch (err) { console.error('[ga-web2 listener] replay bridge-ready', err); }
+      try { cb(cachedBridgeReady); } catch (err) { console.error('[penglai bridge listener] replay bridge-ready', err); }
     }
     return () => listeners.get(channel)?.delete(cb);
   }
@@ -24,12 +26,13 @@
     const set = listeners.get(channel);
     if (!set) return;
     for (const cb of Array.from(set)) {
-      try { cb(payload); } catch (err) { console.error('[ga-web2 listener]', channel, err); }
+      try { cb(payload); } catch (err) { console.error('[penglai bridge listener]', channel, err); }
     }
   }
 
   async function http(path, options = {}) {
     const headers = Object.assign({}, options.headers || {});
+    if (bridgeToken) headers['X-Penglai-Bridge-Token'] = bridgeToken;
     const init = Object.assign({}, options, { headers });
     if (init.body && typeof init.body !== 'string') {
       headers['Content-Type'] = headers['Content-Type'] || 'application/json';
@@ -46,6 +49,12 @@
       throw err;
     }
     return data;
+  }
+
+  function bridgeUrl(path) {
+    const url = new URL(path, bridgeBase);
+    if (bridgeToken) url.searchParams.set('token', bridgeToken);
+    return url.toString();
   }
 
   function connectWs() {
@@ -102,6 +111,13 @@
         if (!sid) throw new Error('缺少对话 ID');
         return http(`/session/${encodeURIComponent(sid)}/cancel`, { method: 'POST', body: params || {} });
       }
+      case 'session/delete': {
+        const sid = params.sessionId || params.id || params.bridgeSessionId;
+        if (!sid) throw new Error('缺少对话 ID');
+        return http(`/session/${encodeURIComponent(sid)}`, { method: 'DELETE', body: params || {} });
+      }
+      case 'sessions/list':
+        return http('/sessions');
       case 'app/path/open':
         return http('/path/open', { method: 'POST', body: params || {} });
       case 'ops/commands':
@@ -133,6 +149,13 @@
         if (sessionId) parts.push(`session_id=${encodeURIComponent(sessionId)}`);
         return http(`/runtime/runs?${parts.join('&')}`);
       }
+      case 'tts/say': {
+        const data = await http('/tts/say', { method: 'POST', body: params || {} });
+        if (data?.audio_url) data.audioUrl = bridgeUrl(data.audio_url);
+        if (data?.audio?.url) data.audio.url = bridgeUrl(data.audio.url);
+        return data;
+      }
+      case 'app/path/selectPenglaiRoot':
       case 'app/path/selectGaRoot':
         return http('/config');
       case 'list_continuable_sessions':
@@ -144,7 +167,7 @@
     }
   }
 
-  window.ga = {
+  const penglaiApi = {
     platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32',
     bridgeUrl: bridgeBase,
     startBridge: async () => { connectWs(); return http('/status'); },
@@ -153,15 +176,20 @@
     getConfig: () => rpc('app/config/get', {}),
     saveConfig: (cfg) => rpc('app/config/save', cfg || {}),
     getModelProfiles: () => rpc('get/model-profiles', {}),
-    selectGaRoot: () => rpc('app/path/selectGaRoot', {}),
+    selectPenglaiRoot: () => rpc('app/path/selectPenglaiRoot', {}),
+    selectGaRoot: () => rpc('app/path/selectPenglaiRoot', {}),
     openMykeyTemplate: () => rpc('app/path/open', { kind: 'mykeyTemplate' }),
     openMykey: () => rpc('app/path/open', { kind: 'mykey' }),
+    deleteSession: (sessionId) => rpc('session/delete', { sessionId }),
+    listSessions: () => rpc('sessions/list', {}),
+    getSessionMessages: (sessionId, afterId = 0, limit = 200) => rpc('session/poll', { sessionId, afterId, limit }),
     getOpsCommands: () => rpc('ops/commands', {}),
     getOpsChecks: () => rpc('ops/checks', {}),
     getOpsLogs: (channel = 'feishu', lines = 80) => rpc('ops/logs', { channel, lines }),
     runOpsCommand: (command, options = {}) => rpc('ops/command', Object.assign({ command }, options)),
     getRuntimeStatus: (sessionId = '') => rpc('runtime/status', { sessionId }),
     getRuntimeRuns: (sessionId = '', limit = 20) => rpc('runtime/runs', { sessionId, limit }),
+    synthesizeSpeech: (text, voice = '') => rpc('tts/say', { text, voice }),
     pollSession: (sessionId, afterId = 0) => rpc('session/poll', { sessionId, afterId }),
     rpc,
     onBridgeMessage: (cb) => on('bridge-message', cb),
@@ -172,6 +200,7 @@
     onBridgeLog: (cb) => on('bridge-log', cb),
     onOpenSearch: (cb) => on('open-search', cb)
   };
+  window.penglai = penglaiApi;
 
   connectWs();
   http('/status').then(status => emit('bridge-ready', status)).catch(err => emit('bridge-error', { type: 'http-error', message: err.message || String(err) }));

@@ -9,6 +9,8 @@ Clear split:
 
 HTTP API:
   GET    /status
+  POST   /tts/say
+  GET    /tts/audio/{name}
   GET    /runtime/status?session_id=owner:default
   GET    /runtime/runs?session_id=owner:default&limit=20
   GET    /config
@@ -28,7 +30,7 @@ WS API:
 """
 from __future__ import annotations
 
-import asyncio, contextlib, importlib, json, os, sys
+import asyncio, contextlib, hmac, importlib, json, os, secrets, sys
 import threading, time, traceback, uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,6 +38,20 @@ from typing import Any, Dict, List, Optional, Set
 from aiohttp import web, WSMsgType
 
 APP_DIR = Path(__file__).resolve().parent
+BRIDGE_TOKEN = os.environ.get("PENGLAI_DESKTOP_BRIDGE_TOKEN") or secrets.token_urlsafe(32)
+BRIDGE_TOKEN_HEADER = "X-Penglai-Bridge-Token"
+PROTECTED_PATH_PREFIXES = (
+    "/ws",
+    "/status",
+    "/config",
+    "/model-profiles",
+    "/sessions",
+    "/session/",
+    "/ops/",
+    "/runtime/",
+    "/tts/",
+    "/path/open",
+)
 
 
 def find_default_ga_root() -> Path:
@@ -57,6 +73,7 @@ if str(DEFAULT_GA_ROOT) not in sys.path:
     sys.path.insert(0, str(DEFAULT_GA_ROOT))
 
 try:
+    from penglai_runtime import tts_service
     from penglai_runtime.channel_runtime import ChannelRuntimeBridge
     from penglai_runtime.context_events import default_context_log_path
     from penglai_runtime.control_api import (
@@ -70,6 +87,7 @@ try:
     from penglai_runtime.port import GenericAgentInstancePort
     from penglai_runtime.service import RuntimeHubService
 except Exception:
+    tts_service = None
     ChannelRuntimeBridge = None
     default_context_log_path = None
     command_catalog = None
@@ -461,6 +479,10 @@ _UPLOAD_DIR = Path(tempfile.gettempdir()) / "ga_web2_uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _desktop_tts_dir() -> Path:
+    return (Path(manager.ga_root) / "temp" / "desktop_tts").resolve()
+
+
 def _save_image_data(data_url: str, img_id: str) -> str:
     """Save a data URL to disk, return absolute path."""
     # data:image/png;base64,xxxxx
@@ -576,6 +598,7 @@ async def ws_handler(request):
     hub.websockets.add(ws)
     await ws.send_str(json.dumps({
         "type": "bridge-ready",
+        "penglaiRoot": manager.ga_root,
         "gaRoot": manager.ga_root,
         "mykeyPath": manager.mykey_path,
         "http": True,
@@ -596,26 +619,85 @@ async def ws_handler(request):
 # Transport layer: HTTP command/data API
 # ---------------------------------------------------------------------------
 
-def cors_headers():
-    return {
-        "Access-Control-Allow-Origin": "*",
+def _host_name(host: str) -> str:
+    value = (host or "").strip()
+    if value.startswith("[") and "]" in value:
+        return value[1:value.index("]")]
+    return value.rsplit(":", 1)[0]
+
+
+def _same_bridge_origin(request, origin: str) -> bool:
+    if not origin:
+        return True
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(origin)
+        origin_host = parsed.hostname or ""
+        request_host = _host_name(request.host)
+        if _is_loopback_host is None:
+            loopback = request_host.lower() in {"localhost", "127.0.0.1", "::1"}
+        else:
+            loopback = _is_loopback_host(request_host)
+        return bool(loopback and parsed.scheme == request.scheme and parsed.netloc == request.host and origin_host)
+    except Exception:
+        return False
+
+
+def cors_headers(request):
+    headers = {
         "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": f"Content-Type,{BRIDGE_TOKEN_HEADER}",
     }
+    origin = request.headers.get("Origin", "")
+    if origin and _same_bridge_origin(request, origin):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Vary"] = "Origin"
+    return headers
+
+
+def _requires_bridge_auth(request) -> bool:
+    path = request.path or ""
+    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in PROTECTED_PATH_PREFIXES)
+
+
+def _request_bridge_token(request) -> str:
+    return request.headers.get(BRIDGE_TOKEN_HEADER, "") or request.query.get("token", "")
+
+
+def _bridge_auth_ok(request) -> bool:
+    token = _request_bridge_token(request)
+    return bool(token and hmac.compare_digest(token, BRIDGE_TOKEN))
 
 
 @web.middleware
-async def cors_middleware(request, handler):
+async def desktop_security_middleware(request, handler):
     if request.method == "OPTIONS":
-        return web.Response(status=204, headers=cors_headers())
+        status = 204 if _same_bridge_origin(request, request.headers.get("Origin", "")) else 403
+        return web.Response(status=status, headers=cors_headers(request))
+    if _requires_bridge_auth(request):
+        if not _same_bridge_origin(request, request.headers.get("Origin", "")):
+            return web.json_response(
+                {"ok": False, "error": "非本机同源请求已拒绝"},
+                status=401,
+                headers=cors_headers(request),
+                dumps=lambda x: json.dumps(x, ensure_ascii=False, default=str),
+            )
+        if not _bridge_auth_ok(request):
+            return web.json_response(
+                {"ok": False, "error": "桌面桥接 token 缺失或无效"},
+                status=401,
+                headers=cors_headers(request),
+                dumps=lambda x: json.dumps(x, ensure_ascii=False, default=str),
+            )
     resp = await handler(request)
-    for k, v in cors_headers().items():
+    for k, v in cors_headers(request).items():
         resp.headers[k] = v
     return resp
 
 
 def json_ok(data: dict, status: int = 200):
-    return web.json_response(data, status=status, headers=cors_headers(), dumps=lambda x: json.dumps(x, ensure_ascii=False, default=str))
+    return web.json_response(data, status=status, dumps=lambda x: json.dumps(x, ensure_ascii=False, default=str))
 
 
 async def read_json(request) -> dict:
@@ -633,6 +715,7 @@ async def status_handler(request):
         "ok": True,
         "running": True,
         "ready": True,
+        "penglaiRoot": manager.ga_root,
         "gaRoot": manager.ga_root,
         "mykeyPath": manager.mykey_path,
         "sessionCount": len(manager.sessions),
@@ -643,7 +726,7 @@ async def status_handler(request):
 
 
 async def get_config_handler(request):
-    return json_ok({"gaRoot": manager.ga_root, "mykeyPath": manager.mykey_path, "config": manager.config})
+    return json_ok({"penglaiRoot": manager.ga_root, "gaRoot": manager.ga_root, "mykeyPath": manager.mykey_path, "config": manager.config})
 
 
 async def save_config_handler(request):
@@ -651,7 +734,7 @@ async def save_config_handler(request):
     cfg = data.get("config", data)
     if isinstance(cfg, dict):
         manager.config.update(cfg)
-    return json_ok({"ok": True, "gaRoot": manager.ga_root, "mykeyPath": manager.mykey_path, "config": manager.config})
+    return json_ok({"ok": True, "penglaiRoot": manager.ga_root, "gaRoot": manager.ga_root, "mykeyPath": manager.mykey_path, "config": manager.config})
 
 
 async def model_profiles_handler(request):
@@ -702,18 +785,7 @@ async def cancel_handler(request):
 
 
 def _ops_origin_allowed(request) -> bool:
-    origin = request.headers.get("Origin", "")
-    if not origin:
-        return True
-    try:
-        from urllib.parse import urlparse
-
-        parsed = urlparse(origin)
-        if _is_loopback_host is None:
-            return (parsed.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"}
-        return _is_loopback_host(parsed.hostname or "")
-    except Exception:
-        return False
+    return _same_bridge_origin(request, request.headers.get("Origin", ""))
 
 
 def _require_ops_available(request):
@@ -791,6 +863,57 @@ def _require_runtime_read_available(request):
         raise web.HTTPServiceUnavailable(text=json.dumps({"ok": False, "error": "蓬莱中枢不可用"}, ensure_ascii=False), content_type="application/json")
 
 
+def _require_desktop_tts_available(request):
+    if not _ops_origin_allowed(request):
+        raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "非本机来源已拒绝"}, ensure_ascii=False), content_type="application/json")
+    if tts_service is None:
+        raise web.HTTPServiceUnavailable(text=json.dumps({"ok": False, "error": "本地语音输出不可用"}, ensure_ascii=False), content_type="application/json")
+
+
+async def tts_say_handler(request):
+    _require_desktop_tts_available(request)
+    body = await read_json(request)
+    text = str(body.get("text") or "").strip()
+    if not text:
+        return json_ok({"ok": False, "error": "缺少要朗读的文本"}, status=400)
+    if len(text) > 1200:
+        text = text[:1200]
+    voice = str(body.get("voice") or "").strip() or None
+    desktop_tts_dir = _desktop_tts_dir()
+    desktop_tts_dir.mkdir(parents=True, exist_ok=True)
+    output = desktop_tts_dir / f"desktop_tts_{int(time.time())}_{uuid.uuid4().hex[:8]}.wav"
+    result = await asyncio.to_thread(
+        tts_service.synthesize,
+        text,
+        output_path=str(output),
+        voice=voice,
+        allow_download=False,
+        stream=False,
+    )
+    if not result.get("ok"):
+        status = 503 if "missing" in str(result.get("error", "")).lower() else 500
+        return json_ok(result, status=status)
+    audio = dict(result.get("audio") or {})
+    audio["url"] = f"/tts/audio/{output.name}"
+    return json_ok({"ok": True, "audio": audio, "audio_url": audio["url"], "provider": "moss-tts-nano"})
+
+
+async def tts_audio_handler(request):
+    _require_desktop_tts_available(request)
+    name = Path(request.match_info.get("name", "")).name
+    if not name or name != request.match_info.get("name") or not name.endswith(".wav"):
+        return json_ok({"ok": False, "error": "不支持的音频文件名"}, status=400)
+    desktop_tts_dir = _desktop_tts_dir()
+    target = (desktop_tts_dir / name).resolve()
+    try:
+        target.relative_to(desktop_tts_dir)
+    except ValueError:
+        return json_ok({"ok": False, "error": "音频路径越界"}, status=400)
+    if not target.is_file():
+        return json_ok({"ok": False, "error": "音频文件不存在"}, status=404)
+    return web.FileResponse(target, headers={"Content-Type": "audio/wav"})
+
+
 async def runtime_status_handler(request):
     _require_runtime_read_available(request)
     session_id = request.query.get("session_id") or _active_runtime_session_id()
@@ -812,8 +935,12 @@ async def path_open_handler(request):
     kind = data.get("kind", "")
     if kind == "mykey":
         target = Path(manager.ga_root) / "mykey.py"
+    elif kind == "mykeyTemplate":
+        target = Path(manager.ga_root) / "mykey_template.py"
+    elif kind == "penglaiRoot":
+        target = Path(manager.ga_root)
     else:
-        target = Path(data.get("path") or data.get("target") or manager.ga_root)
+        return json_ok({"ok": False, "error": f"不支持的打开目标：{kind or 'empty'}"}, status=400)
     target = target.resolve()
     if not target.exists():
         return json_ok({"ok": False, "error": f"未找到文件：{target}"})
@@ -829,7 +956,7 @@ async def path_open_handler(request):
 
 
 def create_app():
-    app = web.Application(middlewares=[cors_middleware])
+    app = web.Application(middlewares=[desktop_security_middleware])
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/status", status_handler)
     app.router.add_get("/config", get_config_handler)
@@ -849,13 +976,25 @@ def create_app():
     app.router.add_post("/ops/command", ops_command_post_handler)
     app.router.add_get("/runtime/status", runtime_status_handler)
     app.router.add_get("/runtime/runs", runtime_runs_handler)
+    app.router.add_post("/tts/say", tts_say_handler)
+    app.router.add_get("/tts/audio/{name}", tts_audio_handler)
     app.router.add_post("/path/open", path_open_handler)
 
     # Serve static frontend (desktop/static/)
     static_dir = APP_DIR / "desktop" / "static"
 
     async def index_handler(request):
-        return web.FileResponse(static_dir / "index.html")
+        html = (static_dir / "index.html").read_text(encoding="utf-8")
+        token_script = (
+            "<script>"
+            f"window.__PENGLAI_BRIDGE_TOKEN__={json.dumps(BRIDGE_TOKEN)};"
+            "</script>"
+        )
+        if "</head>" in html:
+            html = html.replace("</head>", token_script + "\n</head>", 1)
+        else:
+            html = token_script + html
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
 
     app.router.add_get("/", index_handler)
     app.router.add_static("/", static_dir, show_index=False)

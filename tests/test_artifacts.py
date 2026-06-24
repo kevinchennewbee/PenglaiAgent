@@ -79,6 +79,7 @@ def test_artifact_kind_classifies_common_outputs():
     assert art.artifact_kind("x.png") == "image"
     assert art.artifact_kind("x.mp4") == "video"
     assert art.artifact_kind("x.mp3") == "audio"
+    assert art.artifact_kind("x.ogg") == "audio"
     assert art.artifact_kind("x.docx") == "file"
 
 

@@ -230,10 +230,17 @@ copy_source_dir() {
 }
 
 # ── 2. 取代码:有 git 用 git(日后 penglai update 可用),没有走 tarball ─────────
-if [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
-    say "  ✅ 发行版已存在:$TARGET"
-elif [ -n "$SOURCE_DIR" ]; then
+if [ -n "$SOURCE_DIR" ]; then
     copy_source_dir
+elif [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
+    existing_version="$("$TARGET/penglai" version 2>/dev/null || true)"
+    case "$existing_version" in
+        *"Penglai 0.3.0"*) ;;
+        *)
+            die "检测到已有蓬莱目录但不是 0.3.0 可验证安装：$TARGET。0.3.0 preview 不支持原地覆盖旧版；请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装。"
+            ;;
+    esac
+    say "  ✅ 发行版已存在:$TARGET"
 elif [ -e "$TARGET" ] && [ -n "$(ls -A "$TARGET" 2>/dev/null)" ]; then
     die "目录 $TARGET 非空且不是蓬莱发行版。设 PENGLAI_DIR=其他目录 后重试"
 else

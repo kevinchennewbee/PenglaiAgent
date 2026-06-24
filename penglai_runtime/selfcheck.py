@@ -7,7 +7,7 @@ import os
 import tempfile
 
 from . import VERSION
-from .capabilities import voice_runtime_status
+from .capabilities import tts_runtime_status, voice_runtime_status
 from .contracts import InboundEvent, PermissionRequest, RunStatus
 from .delivery import DeliveryService
 from .flags import runtime_enabled, shadow_enabled
@@ -286,6 +286,7 @@ def status(*, include_checks=True):
             "RuntimePrivacyAudit",
             "RuntimeInstallCheck",
             "RuntimeCapabilities",
+            "TextToSpeechService",
             "ChannelRuntimeBridge",
             "DeliveryService",
             "InteractionRequest",
@@ -300,6 +301,7 @@ def status(*, include_checks=True):
         ),
         "capabilities": {
             "voice": voice_runtime_status(),
+            "tts": tts_runtime_status(),
         },
     }
     if include_checks:

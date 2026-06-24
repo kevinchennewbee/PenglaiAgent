@@ -506,7 +506,7 @@ def launch_wechat():
                     print(f"[WX] send media err: {e}", file=sys.__stdout__)
                     return False
 
-            DeliveryService(send_text=_wx_send, send_file=_send_file).deliver(
+            DeliveryService(send_text=_wx_send, send_file=_send_file, send_audio=_send_file).deliver(
                 raw,
                 base_dir=wx._TEMP_DIR,
                 exclude_paths=media_paths,

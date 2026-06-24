@@ -1,8 +1,9 @@
 {
-  "name": "genericagent-web2",
-  "version": "0.1.0",
+  "name": "penglai-desktop",
+  "version": "0.3.0",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build": "tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

@@ -12,14 +12,15 @@ v2 触发源（优先级从高到低，借鉴麦麦 HeartFlow / 沐雪定时问�
   4. evening  晚间锚点（20-22 点，每天一次）
   5. free     自由陪伴（v1 行为：冷却+静默门禁后由 LLM 判断值不值得说）
 
-投递：agent 只产出"要说的话"(或 [SILENT])；on_done 经飞书官方 API 和/或微信 iLink API
-直发主人（飞书=fs_allowed_users[0]，微信=temp/wx_master.json 记录的首位对话者）。
-与 fsapp/wechatapp 进程完全解耦（自带最小发送实现，不 import 前端避免双开 agent）。
+投递：心跳过门禁后作为 Runtime Hub 服务事件生成 TaskRun；agent 只产出"要说的话"(或 [SILENT])；
+DeliveryService 再经飞书官方 API 和/或微信 iLink API 直发主人（飞书=fs_allowed_users[0]，
+微信=temp/wx_master.json 记录的首位对话者）。与 fsapp/wechatapp 进程完全解耦
+（自带最小发送实现，不 import 前端避免双开 agent）。
 
 启用：mykey.py 设 companion_enabled = True；companion_city = "北京" 开天气预警（可选）。
 不设=永不触发=零成本零打扰。
 """
-import os, sys, json, time, socket, urllib.request, urllib.parse
+import os, sys, json, time, socket, urllib.request, urllib.parse, uuid
 from datetime import datetime
 
 # 端口锁：防止重复启动（与 scheduler 的 45762 错开）
@@ -33,6 +34,7 @@ except NameError:
 
 INTERVAL = 600          # 10 分钟醒一次查门禁（醒着很便宜，过门禁才花钱）
 ONCE = False
+RUNTIME_HUB_SERVICE_EVENT = True
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.join(_dir, "..")
@@ -338,6 +340,277 @@ def _safe_send(label, fn, *args):
         print(f"[companion] {label}发送异常: {reason}")
         return False, f"{label}:{reason}"
 
+
+def _body_from_result(result):
+    text = (result or "").strip()
+    return text.split("</summary>")[-1].strip() if "</summary>" in text else text
+
+
+def _is_silent_body(body):
+    return (not body) or ("[SILENT]" in body.upper()) or len(body) < 2
+
+
+def _deliver_companion_body(cfg, body):
+    sent, errors = [], []
+    if cfg["open_id"] and cfg["app_id"] and "feishu" in cfg["channels"]:
+        ok, reason = _safe_send("飞书", _feishu_send, cfg, body)
+        if ok:
+            sent.append("飞书")
+        elif reason:
+            errors.append(reason)
+    if os.path.isfile(_WX_TOKEN) and "wechat" in cfg["channels"]:
+        ok, reason = _safe_send("微信", _wechat_send, body)
+        if ok:
+            sent.append("微信")
+        elif reason:
+            errors.append(reason)
+    return sent, errors
+
+
+def _record_companion_context(kind, body, cfg, state, *, task_run=None, extra=None):
+    try:
+        from penglai_runtime.context_events import append_context_event
+    except Exception as e:
+        print(f"[companion] 上下文事件记录失败: {e}")
+        return
+    metadata = {
+        "trigger": state.get("pending_kind") or state.get("last_trigger_kind") or "",
+        "mode": cfg.get("mode", "present"),
+    }
+    if task_run is not None:
+        metadata["run_id"] = task_run.run_id
+        metadata["status"] = task_run.status
+        metadata["event_id"] = task_run.event_id
+        metadata["session_id"] = task_run.session_id
+    if metadata["trigger"] == "emotion":
+        metadata["pending_emotion_ts"] = state.get("pending_emotion_ts", 0)
+    if extra:
+        metadata.update(extra)
+    try:
+        append_context_event(
+            kind,
+            body,
+            channel="companion",
+            actor=cfg.get("open_id", ""),
+            metadata=metadata,
+        )
+    except Exception as e:
+        print(f"[companion] 上下文事件记录失败: {e}")
+
+
+def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, errors=None):
+    body = _body_from_result(result)
+    cfg = _cfg()
+    state = _load_json(_STATE)
+    kind = state.get("pending_kind", "")
+    today = datetime.now().strftime("%Y-%m-%d")
+    now_ts = time.time()
+    delivery_attempted = sent is not None or errors is not None
+    sent = list(sent or [])
+    errors = list(errors or [])
+
+    if _is_silent_body(body):
+        # 模型主动沉默：清租约（不算哑火、不占当天名额），不写任何终态
+        state["pending_kind"] = ""
+        state["last_result"] = "silent"
+        state["last_silent_ts"] = now_ts
+        state["last_silent_kind"] = kind
+        if task_run is not None:
+            task_run.metadata["companion"] = {
+                "trigger": kind,
+                "delivery_status": "silent",
+                "channels": [],
+            }
+            if store is not None:
+                store.record_run(task_run)
+        _record_companion_context(
+            "companion_silent",
+            "主动陪伴本轮选择沉默",
+            cfg,
+            state,
+            task_run=task_run,
+        )
+        _save_state(state)
+        print("[companion] 沉默（无值得主动联系的理由）")
+        return "silent", body
+
+    if not delivery_attempted:
+        sent, errors = _deliver_companion_body(cfg, body)
+
+    if sent:
+        # —— 投递成功才把在途租约兑现为终态（防哑火的关键不变量）——
+        if kind == "morning":   state["anchor_morning"] = today
+        elif kind == "evening": state["anchor_evening"] = today
+        elif kind == "emotion": state["emotion_followed_ts"] = state.get("pending_emotion_ts", now_ts)
+        state["last_reach"] = now_ts
+        state["last_sent_ts"] = now_ts        # 留作后续降频的回应基线
+        state["last_result"] = "sent"
+        state["last_sent_channels"] = sent
+        state["last_sent_body"] = body[:240]
+        state["pending_kind"] = ""            # 清租约
+        if task_run is not None:
+            task_run.metadata["companion"] = {
+                "trigger": kind,
+                "delivery_status": "sent",
+                "channels": sent,
+                "errors": errors,
+            }
+            if store is not None:
+                store.record_run(task_run)
+        _record_companion_context(
+            "companion_sent",
+            body,
+            cfg,
+            state,
+            task_run=task_run,
+            extra={"channels": sent},
+        )
+        _save_state(state)
+        print(f"[companion] 已主动发送({'+'.join(sent)}): {body[:40]}")
+        return "sent", body
+
+    # —— 全渠道失败：清租约、不写终态 → 下个心跳重试，不哑火 ——
+    state["pending_kind"] = ""
+    if kind == "weather":
+        # 天气的"当天已查"标记在 _decide 就置了；失败必须清掉它，否则当天恶劣天气预警永久丢
+        state.pop("weather_checked_date", None)
+    state["last_result"] = "failed"
+    state["last_error_ts"] = now_ts
+    state["last_error"] = "; ".join(errors) if errors else "所有渠道发送失败"
+    if task_run is not None:
+        task_run.metadata["companion"] = {
+            "trigger": kind,
+            "delivery_status": "failed",
+            "channels": [],
+            "errors": errors,
+        }
+        task_run.fail(state["last_error"])
+        task_run.log_excerpt = state["last_error"][:1000]
+        if store is not None:
+            store.record_run(task_run)
+    _record_companion_context(
+        "companion_failed",
+        state["last_error"],
+        cfg,
+        state,
+        task_run=task_run,
+    )
+    _save_state(state)
+    print("[companion] 所有渠道发送失败，未记终态（下次心跳将重试）")
+    return "failed", body
+
+
+def run_runtime_task(prompt, *, agent=None, service=None, port=None):
+    """Run proactive companion generation as a first-class Runtime Hub event.
+
+    The reflect loop calls this instead of legacy ``agent.put_task``.  The gate
+    decision still lives in ``check()``, while generation, TaskRun state,
+    delivery outcome, and context-ledger writes are tied to the Runtime Hub run.
+    """
+    cfg = _cfg()
+    state = _load_json(_STATE)
+    kind = state.get("pending_kind") or state.get("last_trigger_kind") or "unknown"
+    event_id = f"companion_{int(time.time())}_{uuid.uuid4().hex[:10]}"
+    summary = f"[主动陪伴触发] {kind} / mode={cfg.get('mode', 'present')}"
+    try:
+        from penglai_runtime.contracts import InboundEvent
+        from penglai_runtime.delivery import DeliveryService
+        from penglai_runtime.port import GenericAgentInstancePort, GenericAgentPort
+        from penglai_runtime.runner import AgentRunner
+        from penglai_runtime.service import RuntimeHubService
+    except Exception as e:
+        raise RuntimeError(f"Runtime Hub 主动陪伴链路不可用: {e}") from e
+
+    sent, errors = [], []
+
+    def _runtime_send_text(text):
+        body = _body_from_result(text)
+        if _is_silent_body(body):
+            return False
+        s, e = _deliver_companion_body(cfg, body)
+        sent.extend(s)
+        errors.extend(e)
+        return bool(s)
+
+    if service is None:
+        runner = AgentRunner(
+            owner_user_ids={"owner"},
+            delivery=DeliveryService(send_text=_runtime_send_text),
+        )
+        service = RuntimeHubService(owner_user_ids={"owner"}, runner=runner)
+    if port is None:
+        prompt_builder = lambda _event, _prompt=prompt: _prompt
+        if agent is not None:
+            port = GenericAgentInstancePort(
+                agent=agent,
+                prompt_builder=prompt_builder,
+                source="companion",
+            )
+        else:
+            port = GenericAgentPort(
+                prompt_builder=prompt_builder,
+                source="companion",
+            )
+
+    event = InboundEvent(
+        event_id=event_id,
+        channel="companion",
+        user_id="owner",
+        chat_id="owner",
+        chat_type="private",
+        text=summary,
+        metadata={
+            "service": "proactive_companion",
+            "trigger": kind,
+            "mode": cfg.get("mode", "present"),
+        },
+    )
+    _record_companion_context(
+        "companion_trigger",
+        summary,
+        cfg,
+        state,
+        extra={"event_id": event_id, "session_id": "owner:default"},
+    )
+    result = service.receive_blocking(
+        event,
+        port=port,
+        send_notice=False,
+    )
+    if result.task_run.status == "failed":
+        state = _load_json(_STATE)
+        state["pending_kind"] = ""
+        if kind == "weather":
+            state.pop("weather_checked_date", None)
+        state["last_result"] = "failed"
+        state["last_error_ts"] = time.time()
+        state["last_error"] = result.task_run.error or "主动陪伴生成失败"
+        result.task_run.metadata["companion"] = {
+            "trigger": kind,
+            "delivery_status": "not_attempted",
+            "generation_status": "failed",
+        }
+        service.store.record_run(result.task_run)
+        _record_companion_context(
+            "companion_failed",
+            state["last_error"],
+            cfg,
+            state,
+            task_run=result.task_run,
+        )
+        _save_state(state)
+        return f"[FAILED] {state['last_error']}"
+    status, body = _finalize_companion_result(
+        result.cleaned_output or result.task_run.result_text or result.raw_output,
+        task_run=result.task_run,
+        store=service.store,
+        sent=sent,
+        errors=errors,
+    )
+    if status == "failed":
+        return f"[DELIVERY_FAILED] {body}\n{result.task_run.error}"
+    return body
+
 def check():
     if _lock is None: return None
     cfg = _cfg(); state = _load_json(_STATE); now = datetime.now()
@@ -429,71 +702,4 @@ def _wechat_send(text):
         print(f"[companion] 微信发送异常: {e}"); return False
 
 def on_done(result):
-    text = (result or "").strip()
-    body = text.split("</summary>")[-1].strip() if "</summary>" in text else text
-    cfg = _cfg(); state = _load_json(_STATE)
-    kind = state.get("pending_kind", "")
-    today = datetime.now().strftime("%Y-%m-%d"); now_ts = time.time()
-
-    if not body or "[SILENT]" in body.upper() or len(body) < 2:
-        # 模型主动沉默：清租约（不算哑火、不占当天名额），不写任何终态
-        state["pending_kind"] = ""
-        state["last_result"] = "silent"
-        state["last_silent_ts"] = now_ts
-        state["last_silent_kind"] = kind
-        _save_state(state)
-        print("[companion] 沉默（无值得主动联系的理由）"); return
-
-    sent, errors = [], []
-    if cfg["open_id"] and cfg["app_id"] and "feishu" in cfg["channels"]:
-        ok, reason = _safe_send("飞书", _feishu_send, cfg, body)
-        if ok:
-            sent.append("飞书")
-        elif reason:
-            errors.append(reason)
-    if os.path.isfile(_WX_TOKEN) and "wechat" in cfg["channels"]:
-        ok, reason = _safe_send("微信", _wechat_send, body)
-        if ok:
-            sent.append("微信")
-        elif reason:
-            errors.append(reason)
-
-    if sent:
-        # —— 投递成功才把在途租约兑现为终态（防哑火的关键不变量）——
-        if kind == "morning":   state["anchor_morning"] = today
-        elif kind == "evening": state["anchor_evening"] = today
-        elif kind == "emotion": state["emotion_followed_ts"] = state.get("pending_emotion_ts", now_ts)
-        state["last_reach"] = now_ts
-        state["last_sent_ts"] = now_ts        # 留作后续降频的回应基线
-        state["last_result"] = "sent"
-        state["last_sent_channels"] = sent
-        state["last_sent_body"] = body[:240]
-        state["pending_kind"] = ""            # 清租约
-        try:
-            from penglai_runtime.context_events import append_context_event
-            append_context_event(
-                "companion_sent",
-                body,
-                channel="+".join(sent),
-                actor=cfg.get("open_id", ""),
-                metadata={
-                    "trigger": kind,
-                    "mode": cfg.get("mode", "present"),
-                    "pending_emotion_ts": state.get("pending_emotion_ts", 0) if kind == "emotion" else 0,
-                },
-            )
-        except Exception as e:
-            print(f"[companion] 上下文事件记录失败: {e}")
-        _save_state(state)
-        print(f"[companion] 已主动发送({'+'.join(sent)}): {body[:40]}")
-    else:
-        # —— 全渠道失败：清租约、不写终态 → 下个心跳重试，不哑火 ——
-        state["pending_kind"] = ""
-        if kind == "weather":
-            # 天气的"当天已查"标记在 _decide 就置了；失败必须清掉它，否则当天恶劣天气预警永久丢
-            state.pop("weather_checked_date", None)
-        state["last_result"] = "failed"
-        state["last_error_ts"] = now_ts
-        state["last_error"] = "; ".join(errors) if errors else "所有渠道发送失败"
-        _save_state(state)
-        print("[companion] 所有渠道发送失败，未记终态（下次心跳将重试）")
+    _finalize_companion_result(result)

@@ -12,6 +12,7 @@ import tempfile
 import threading
 import urllib.error
 import urllib.request
+import wave
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _harness import run_tests
@@ -642,6 +643,40 @@ def test_delivery_service_executes_shared_text_file_and_notice_policy():
     assert result.plan.blocked[0].path == secret
 
 
+def test_delivery_service_prefers_audio_callback_for_audio_artifacts():
+    td = tempfile.mkdtemp()
+    wav = os.path.join(td, "reply.wav")
+    pdf = os.path.join(td, "report.pdf")
+    open(wav, "wb").write(b"RIFF")
+    open(pdf, "wb").write(b"%PDF")
+    sent_audio = []
+    sent_files = []
+
+    result = DeliveryService(
+        send_audio=lambda path: sent_audio.append(path) or True,
+        send_file=lambda path: sent_files.append(path) or True,
+    ).deliver(f"[FILE:{wav}]\n[FILE:{pdf}]", base_dir=td, send_body=False)
+
+    assert sent_audio == [os.path.realpath(wav)]
+    assert sent_files == [os.path.realpath(pdf)]
+    assert result.sent_paths == (os.path.realpath(wav), os.path.realpath(pdf))
+
+
+def test_delivery_service_falls_back_to_file_when_audio_callback_fails():
+    td = tempfile.mkdtemp()
+    ogg = os.path.join(td, "reply.ogg")
+    open(ogg, "wb").write(b"OggS")
+    sent_files = []
+
+    result = DeliveryService(
+        send_audio=lambda _path: False,
+        send_file=lambda path: sent_files.append(path) or True,
+    ).deliver(f"[FILE:{ogg}]", base_dir=td, send_body=False)
+
+    assert sent_files == [os.path.realpath(ogg)]
+    assert result.sent_paths == (os.path.realpath(ogg),)
+
+
 def test_delivery_service_skips_duplicate_file_when_external_receipt_exists():
     td = tempfile.mkdtemp()
     pdf = os.path.join(td, "report.pdf")
@@ -740,6 +775,19 @@ def test_in_memory_im_adapter_records_delivery_without_real_network():
     assert adapter.sent_texts == ["好了"]
     assert adapter.sent_files == [os.path.realpath(out)]
     assert result.plan.has_work is True
+
+
+def test_in_memory_im_adapter_routes_audio_artifacts_separately():
+    td = tempfile.mkdtemp()
+    wav = os.path.join(td, "reply.wav")
+    open(wav, "wb").write(b"RIFF")
+    adapter = InMemoryIMAdapter(owner_user_ids={"owner"})
+
+    result = adapter.deliver(f"[FILE:{wav}]", base_dir=td)
+
+    assert adapter.sent_audio == [os.path.realpath(wav)]
+    assert adapter.sent_files == []
+    assert result.sent_paths == (os.path.realpath(wav),)
 
 
 def test_shadow_event_redacts_and_records_plan_without_paths():
@@ -1827,21 +1875,33 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
         client = TestClient(TestServer(desktop_bridge.create_app()))
         await client.start_server()
         try:
+            origin = str(client.make_url("/")).rstrip("/")
+            auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
+            index = await client.get("/")
+            assert index.status == 200
+            assert "window.__PENGLAI_BRIDGE_TOKEN__" in await index.text()
+            assert index.headers.get("Access-Control-Allow-Origin") != "*"
+            missing_token = await client.get("/status")
+            assert missing_token.status == 401
+            status_resp = await client.get("/status", headers=auth)
+            assert status_resp.status == 200
+            assert status_resp.headers.get("Access-Control-Allow-Origin") == origin
             evil = await client.get("/ops/commands", headers={"Origin": "https://evil.example"})
             assert evil.status == 401
-            allowed = await client.get("/ops/commands", headers={"Origin": "http://127.0.0.1:14168"})
+            allowed = await client.get("/ops/commands", headers=auth)
             assert allowed.status == 200
             commands = await allowed.json()
-            check_resp = await client.get("/ops/checks")
-            log_resp = await client.get("/ops/logs?channel=feishu&lines=3")
-            doctor_resp = await client.get("/ops/command?name=doctor")
-            service_status_resp = await client.get("/ops/command?name=runtime-service-status")
-            service_install_get = await client.get("/ops/command?name=runtime-service-install")
-            service_install_post = await client.post("/ops/command", json={"command": "runtime-service-install", "timeout": 1})
-            legacy_restart_get = await client.get("/ops/command?name=restart")
-            runtime_status_resp = await client.get("/runtime/status?session_id=owner:default")
-            runtime_runs_resp = await client.get("/runtime/runs?session_id=owner:default&limit=3")
-            runtime_evil = await client.get("/runtime/runs", headers={"Origin": "https://evil.example"})
+            check_resp = await client.get("/ops/checks", headers=auth)
+            log_resp = await client.get("/ops/logs?channel=feishu&lines=3", headers=auth)
+            doctor_resp = await client.get("/ops/command?name=doctor", headers=auth)
+            service_status_resp = await client.get("/ops/command?name=runtime-service-status", headers=auth)
+            service_install_get = await client.get("/ops/command?name=runtime-service-install", headers=auth)
+            service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1})
+            legacy_restart_get = await client.get("/ops/command?name=restart", headers=auth)
+            runtime_status_resp = await client.get("/runtime/status?session_id=owner:default", headers=auth)
+            runtime_runs_resp = await client.get("/runtime/runs?session_id=owner:default&limit=3", headers=auth)
+            runtime_evil = await client.get("/runtime/runs", headers={"Origin": "https://evil.example", desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN})
+            path_anywhere = await client.post("/path/open", headers=auth, json={"path": td})
 
             assert "doctor" in commands["read_only"]
             assert "runtime-service-status" in commands["read_only"]
@@ -1856,6 +1916,7 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             assert (await service_install_post.json())["command"] == "runtime-service-install"
             assert legacy_restart_get.status == 400
             assert runtime_evil.status == 401
+            assert path_anywhere.status == 400
             runtime_status = await runtime_status_resp.json()
             runtime_runs = await runtime_runs_resp.json()
             assert runtime_status["session"]["session_id"] == "owner:default"
@@ -1873,6 +1934,79 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             desktop_bridge.ops_checks = old_checks
             desktop_bridge.read_ops_logs = old_logs
             desktop_bridge.run_ops_command = old_run
+
+    asyncio.run(scenario())
+
+
+def test_desktop_bridge_tts_route_generates_local_audio_without_path_escape():
+    desktop_bridge = importlib.import_module("frontends.desktop_bridge")
+    from aiohttp.test_utils import TestClient, TestServer
+
+    td = tempfile.mkdtemp()
+    old_manager = desktop_bridge.manager
+    old_tts_service = desktop_bridge.tts_service
+    calls = []
+
+    class TTS:
+        @staticmethod
+        def synthesize(text, **kwargs):
+            calls.append((text, kwargs))
+            path = kwargs["output_path"]
+            with wave.open(path, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(16000)
+                wav.writeframes(b"\x00\x00" * 1600)
+            return {
+                "ok": True,
+                "audio": {
+                    "path": path,
+                    "bytes": os.path.getsize(path),
+                    "sample_rate": 16000,
+                    "channels": 1,
+                    "frames": 1600,
+                    "seconds": 0.1,
+                },
+            }
+
+    async def scenario():
+        desktop_bridge.manager = desktop_bridge.AgentManager()
+        desktop_bridge.manager.ga_root = td
+        desktop_bridge.tts_service = TTS
+        client = TestClient(TestServer(desktop_bridge.create_app()))
+        await client.start_server()
+        try:
+            origin = str(client.make_url("/")).rstrip("/")
+            auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
+            evil = await client.post("/tts/say", headers={"Origin": "https://evil.example", desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN}, json={"text": "hi"})
+            assert evil.status == 401
+            missing_token = await client.post("/tts/say", json={"text": "hi"})
+            assert missing_token.status == 401
+            empty = await client.post("/tts/say", headers=auth, json={"text": ""})
+            assert empty.status == 400
+            resp = await client.post("/tts/say", headers=auth, json={"text": "蓬莱朗读测试"})
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["ok"] is True
+            assert data["provider"] == "moss-tts-nano"
+            assert data["audio_url"].startswith("/tts/audio/desktop_tts_")
+            assert calls[0][0] == "蓬莱朗读测试"
+            assert calls[0][1]["allow_download"] is False
+            assert calls[0][1]["stream"] is False
+            expected_dir = os.path.realpath(os.path.join(td, "temp", "desktop_tts"))
+            actual_path = os.path.realpath(calls[0][1]["output_path"])
+            assert os.path.commonpath([actual_path, expected_dir]) == expected_dir
+            audio_without_token = await client.get(data["audio_url"])
+            assert audio_without_token.status == 401
+            audio = await client.get(data["audio_url"] + "?token=" + desktop_bridge.BRIDGE_TOKEN)
+            assert audio.status == 200
+            assert await audio.read()
+            escape = await client.get("/tts/audio/../secret.wav?token=" + desktop_bridge.BRIDGE_TOKEN)
+            assert escape.status in {400, 404}
+        finally:
+            await client.close()
+            desktop_bridge.manager = old_manager
+            desktop_bridge.tts_service = old_tts_service
 
     asyncio.run(scenario())
 
@@ -2268,6 +2402,8 @@ def test_runtime_deprecation_audit_lists_030_legacy_surfaces():
     assert result["item_count"] >= 5
     assert items["feishu_legacy_entry"]["replacement"].startswith("penglai_feishu_app.py")
     assert items["wechat_legacy_entry"]["replacement"].startswith("penglai_im_launch.py")
+    assert items["companion_reflect_runtime_event"]["status"] == "runtime_wrapped_service_event"
+    assert items["scheduler_reflect_legacy_task"]["status"] == "pending_runtime_service_migration"
     assert items["docker_legacy_surface"]["status"] == "legacy_surface_observed"
 
 
@@ -2360,6 +2496,7 @@ def test_install_check_validates_030_source_install_contracts():
     assert names["privacy_audit_passes"] is True
     assert names["runtime_audit_inventory_ready"] is True
     assert names["optional_voice_runtime_status"] is True
+    assert names["optional_tts_runtime_status"] is True
     assert names["optional_vision_runtime_status"] is True
     assert names["optional_critic_runtime_status"] is True
     assert names["service_units_localhost_only"] is True
@@ -2442,6 +2579,109 @@ def test_optional_voice_capability_requires_tokens_with_model():
     assert result["components"]["model"] is True
     assert result["components"]["tokens"] is False
     assert "tokens" in result["missing"]
+
+
+def test_optional_tts_capability_reports_moss_tts_missing_without_installing():
+    tmp = tempfile.mkdtemp()
+    result = capabilities.tts_runtime_status(model_base=tmp)
+    blob = json.dumps(result, ensure_ascii=False)
+
+    assert result["name"] == "tts"
+    assert result["provider"] == "moss-tts-nano"
+    assert result["backend"] == "onnx-cpu"
+    assert result["optional"] is True
+    assert result["components"]["moss_tts_repo"] is False
+    assert result["components"]["moss_tts_onnx_model"] is False
+    assert result["components"]["moss_audio_tokenizer_onnx"] is False
+    assert "moss_tts_repo" in result["missing"]
+    assert result["status"] == "disabled"
+    assert "curl" not in blob
+    assert "pip install" not in blob
+
+
+def test_optional_tts_capability_detects_local_moss_model_layout():
+    tmp = tempfile.mkdtemp()
+    repo_dir = capabilities.moss_tts_repo_dir(base_dir=tmp)
+    tts_dir = capabilities.moss_tts_onnx_tts_dir(base_dir=tmp)
+    tok_dir = capabilities.moss_tts_onnx_codec_dir(base_dir=tmp)
+    os.makedirs(repo_dir, exist_ok=True)
+    os.makedirs(tts_dir, exist_ok=True)
+    os.makedirs(tok_dir, exist_ok=True)
+    for name in ("infer_onnx.py", "onnx_tts_runtime.py"):
+        open(os.path.join(repo_dir, name), "w", encoding="utf-8").write("x")
+    for name in capabilities.MOSS_TTS_ONNX_TTS_FILES:
+        open(os.path.join(tts_dir, name), "w", encoding="utf-8").write("x")
+    open(os.path.join(tts_dir, "moss_tts_prefill.onnx"), "w", encoding="utf-8").write("x")
+    open(os.path.join(tts_dir, "moss_tts_global_shared.data"), "w", encoding="utf-8").write("x")
+    for name in capabilities.MOSS_TTS_ONNX_CODEC_FILES:
+        open(os.path.join(tok_dir, name), "w", encoding="utf-8").write("x")
+    open(os.path.join(tok_dir, "moss_audio_tokenizer_decode_full.onnx"), "w", encoding="utf-8").write("x")
+    open(os.path.join(tok_dir, "moss_audio_tokenizer_decode_shared.data"), "w", encoding="utf-8").write("x")
+
+    result = capabilities.tts_runtime_status(model_base=tmp)
+
+    assert result["components"]["moss_tts_repo"] is True
+    assert result["components"]["moss_tts_onnx_model"] is True
+    assert result["components"]["moss_audio_tokenizer_onnx"] is True
+    assert result["enabled"] is True
+    assert result["status"] in {"ready", "partial"}
+
+
+def test_optional_tts_capability_rejects_onnx_model_without_data_file():
+    tmp = tempfile.mkdtemp()
+    repo_dir = capabilities.moss_tts_repo_dir(base_dir=tmp)
+    tts_dir = capabilities.moss_tts_onnx_tts_dir(base_dir=tmp)
+    tok_dir = capabilities.moss_tts_onnx_codec_dir(base_dir=tmp)
+    os.makedirs(repo_dir, exist_ok=True)
+    os.makedirs(tts_dir, exist_ok=True)
+    os.makedirs(tok_dir, exist_ok=True)
+    for name in ("infer_onnx.py", "onnx_tts_runtime.py"):
+        open(os.path.join(repo_dir, name), "w", encoding="utf-8").write("x")
+    for name in capabilities.MOSS_TTS_ONNX_TTS_FILES:
+        open(os.path.join(tts_dir, name), "w", encoding="utf-8").write("x")
+    open(os.path.join(tts_dir, "moss_tts_prefill.onnx"), "w", encoding="utf-8").write("x")
+    for name in capabilities.MOSS_TTS_ONNX_CODEC_FILES:
+        open(os.path.join(tok_dir, name), "w", encoding="utf-8").write("x")
+    open(os.path.join(tok_dir, "moss_audio_tokenizer_decode_full.onnx"), "w", encoding="utf-8").write("x")
+    open(os.path.join(tok_dir, "moss_audio_tokenizer_decode_shared.data"), "w", encoding="utf-8").write("x")
+
+    result = capabilities.tts_runtime_status(model_base=tmp)
+
+    assert result["components"]["moss_tts_repo"] is True
+    assert result["components"]["moss_tts_onnx_model"] is False
+    assert result["components"]["moss_audio_tokenizer_onnx"] is True
+
+
+def test_tts_service_defaults_voice_by_text_language_and_fails_without_repo():
+    from penglai_runtime import tts_service
+
+    tmp = tempfile.mkdtemp()
+    assert tts_service.choose_default_voice("蓬莱测试") == "Junhao"
+    assert tts_service.choose_default_voice("Penglai test") == "Ava"
+
+    result = tts_service.synthesize(
+        "hello",
+        output_path=os.path.join(tmp, "out.wav"),
+        base_dir=tmp,
+        allow_download=False,
+    )
+
+    assert result["ok"] is False
+    assert "repo missing" in result["error"]
+
+
+def test_tts_service_download_urls_prioritize_domestic_routes():
+    from penglai_runtime import tts_service
+
+    repo = tts_service.MODEL_REPOS[0]
+
+    assert tts_service.MODEL_DOWNLOAD_SOURCES[:2] == ("modelscope", "hf-mirror")
+    assert tts_service._model_file_url("modelscope", repo, "browser_poc_manifest.json").startswith(
+        "https://modelscope.cn/models/openmoss/MOSS-TTS-Nano-100M-ONNX/resolve/master/"
+    )
+    assert tts_service._model_file_url("hf-mirror", repo, "browser_poc_manifest.json").startswith(
+        "https://hf-mirror.com/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/"
+    )
 
 
 def test_install_script_can_install_current_branch_without_setup():
@@ -2581,6 +2821,80 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
     assert build_info["build_time"] == "2026-06-23T00:00:00Z"
 
 
+def test_install_script_source_copy_rejects_non_empty_target():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    td = tempfile.mkdtemp()
+    source = os.path.join(td, "source")
+    target = os.path.join(td, "target")
+    os.makedirs(source, exist_ok=True)
+    os.makedirs(target, exist_ok=True)
+    with open(os.path.join(source, "penglai"), "w", encoding="utf-8") as f:
+        f.write("#!/usr/bin/env python3\nprint('minimal penglai')\n")
+    with open(os.path.join(source, "agent_loop.py"), "w", encoding="utf-8") as f:
+        f.write("# minimal source marker\n")
+    with open(os.path.join(target, "penglai"), "w", encoding="utf-8") as f:
+        f.write("#!/usr/bin/env python3\nprint('old penglai')\n")
+    with open(os.path.join(target, "agent_loop.py"), "w", encoding="utf-8") as f:
+        f.write("# old target marker\n")
+
+    env = os.environ.copy()
+    env.update({
+        "HOME": td,
+        "PATH": os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", ""),
+        "PENGLAI_SOURCE_DIR": source,
+        "PENGLAI_DIR": target,
+        "PENGLAI_SKIP_SETUP": "1",
+    })
+
+    result = subprocess.run(
+        ["sh", os.path.join(root, "install.sh")],
+        cwd=td,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+
+    assert result.returncode != 0
+    assert "非空" in output
+    with open(os.path.join(target, "agent_loop.py"), encoding="utf-8") as f:
+        assert "old target marker" in f.read()
+
+
+def test_update_preflight_blocks_active_legacy_runtime_paths():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    loader = importlib.machinery.SourceFileLoader(
+        "penglai_cli_for_update_preflight_tests",
+        os.path.join(root, "penglai"),
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+
+    def fake_sh(cmd, **kwargs):
+        text = " ".join(str(part) for part in cmd)
+        if "runtime-audit" in text:
+            return type("Result", (), {
+                "returncode": 0,
+                "stdout": json.dumps({
+                    "ok": False,
+                    "active_blocker_count": 1,
+                    "items": [{"item_id": "feishu_active_legacy_systemd", "status": "active_legacy_path"}],
+                }),
+                "stderr": "",
+            })()
+        return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    module.sh = fake_sh
+    module.venv_python = lambda: sys.executable
+    ok, detail = module._preflight()
+
+    assert ok is False
+    assert "旧 Runtime" in detail
+    assert "feishu_active_legacy_systemd" in detail
+
+
 def test_desktop_static_ui_uses_chinese_runtime_labels():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     static_dir = os.path.join(root, "frontends", "desktop", "static")
@@ -2588,21 +2902,65 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
         index_html = fh.read()
     with open(os.path.join(static_dir, "app.js"), "r", encoding="utf-8") as fh:
         app_js = fh.read()
-    with open(os.path.join(static_dir, "ga-web.js"), "r", encoding="utf-8") as fh:
-        ga_web_js = fh.read()
+    with open(os.path.join(static_dir, "penglai-web.js"), "r", encoding="utf-8") as fh:
+        bridge_js = fh.read()
     with open(os.path.join(static_dir, "styles.css"), "r", encoding="utf-8") as fh:
         styles_css = fh.read()
 
     assert '<html lang="zh-CN">' in index_html
-    assert "ops-runs-1" in index_html
-    for text in ("蓬莱", "输入消息，或 /help", "中枢", "服务状态", "启动中枢服务", "停止中枢服务", "旧入口审计", "隐私审计", "会话状态", "运行记录", "设置"):
+    assert "desktop-tts-1" in index_html
+    assert "penglai-web.js" in index_html
+    assert "ga-web.js" not in index_html
+    for text in ("蓬莱", "输入消息，或 /help", "中枢", "服务状态", "启动中枢服务", "停止中枢服务", "旧入口审计", "隐私审计", "会话状态", "运行记录", "设置", "朗读最近回复"):
         assert text in index_html
-    for text in ("新任务", "思考中…", "中枢状态", "中枢桥接已就绪。", "发送此确认选择", "也可以直接在输入框回复。", "只会管理 penglai-runtime-hub", "中枢会话状态", "中枢运行记录", "等待确认"):
+    for text in ("新任务", "思考中…", "中枢状态", "中枢桥接已就绪。", "发送此确认选择", "也可以直接在输入框回复。", "只会管理 penglai-runtime-hub", "中枢会话状态", "中枢运行记录", "等待确认", "语音转写", "语音输出", "speakLastAssistant", "synthesizeSpeech"):
         assert text in app_js
-    for text in ("getRuntimeStatus", "getRuntimeRuns", "/runtime/status", "/runtime/runs"):
-        assert text in ga_web_js
+    for text in ("window.penglai", "window.__PENGLAI_BRIDGE_TOKEN__", "X-Penglai-Bridge-Token", "getRuntimeStatus", "getRuntimeRuns", "/runtime/status", "/runtime/runs", "/tts/say"):
+        assert text in bridge_js
+    assert "window.ga" not in bridge_js
     for text in ("permission-actions", "permission-choice-btn"):
         assert text in app_js or text in styles_css
+
+
+def test_desktop_package_identity_targets_penglai_preview():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    desktop_dir = os.path.join(root, "frontends", "desktop")
+    with open(os.path.join(desktop_dir, "package.json"), "r", encoding="utf-8") as fh:
+        package_json = json.load(fh)
+    with open(os.path.join(desktop_dir, "src-tauri", "tauri.conf.json"), "r", encoding="utf-8") as fh:
+        tauri_conf = json.load(fh)
+    with open(os.path.join(desktop_dir, "src-tauri", "Cargo.toml"), "r", encoding="utf-8") as fh:
+        cargo_toml = fh.read()
+    with open(os.path.join(desktop_dir, "src-tauri", "src", "lib.rs"), "r", encoding="utf-8") as fh:
+        lib_rs = fh.read()
+
+    assert package_json["name"] == "penglai-desktop"
+    assert package_json["version"] == "0.3.0"
+    assert tauri_conf["productName"] == "Penglai"
+    assert tauri_conf["version"] == "0.3.0"
+    assert tauri_conf["identifier"] == "com.penglai.agent"
+    assert tauri_conf["app"]["windows"][0]["title"] == "蓬莱"
+    assert tauri_conf["bundle"]["macOS"]["dmg"]["background"] == "icons/dmg-background.png"
+    assert tauri_conf["bundle"]["macOS"]["dmg"]["appPosition"] == {"x": 180, "y": 230}
+    assert tauri_conf["bundle"]["macOS"]["dmg"]["applicationFolderPosition"] == {"x": 480, "y": 230}
+    assert os.path.exists(os.path.join(desktop_dir, "src-tauri", "icons", "dmg-background.png"))
+    icon_path = os.path.join(desktop_dir, "src-tauri", "icons", "icon.png")
+    assert os.path.exists(icon_path)
+    try:
+        from PIL import Image
+        icon = Image.open(icon_path).convert("RGBA")
+        pixels = list(icon.getdata())
+        visible = [px for px in pixels if px[3] > 200]
+        red_seal = [px for px in visible if px[0] > 130 and px[1] < 90 and px[2] < 90]
+        dark_ga_base = [px for px in visible if px[0] < 45 and px[1] < 60 and px[2] < 85]
+        assert len(red_seal) / float(len(pixels)) > 0.08
+        assert len(dark_ga_base) / float(len(pixels)) < 0.01
+    except ImportError:
+        pass
+    assert 'name = "penglai-desktop"' in cargo_toml
+    assert 'version = "0.3.0"' in cargo_toml
+    assert ".penglai_desktop_settings.json" in lib_rs
+    assert "GenericAgent" not in json.dumps(tauri_conf)
 
 
 def test_selfcheck_exercises_runtime_contracts():
@@ -2626,8 +2984,12 @@ def test_selfcheck_exercises_runtime_contracts():
     static = status(include_checks=False)
     assert static["contracts"]
     assert "RuntimeCapabilities" in static["contracts"]
+    assert "TextToSpeechService" in static["contracts"]
     assert static["capabilities"]["voice"]["optional"] is True
     assert "components" in static["capabilities"]["voice"]
+    assert static["capabilities"]["tts"]["provider"] == "moss-tts-nano"
+    assert static["capabilities"]["tts"]["backend"] == "onnx-cpu"
+    assert "components" in static["capabilities"]["tts"]
 
 
 if __name__ == "__main__":

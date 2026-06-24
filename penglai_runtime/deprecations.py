@@ -75,6 +75,24 @@ STATIC_PATHS = (
         "reference_console",
         "GA 原生 TUI 可作为参考控制台保留，但不要扩展成蓬莱产品 runtime。",
     ),
+    LegacyPath(
+        "companion_reflect_runtime_event",
+        "P0",
+        "proactive-companion",
+        "agentmain.py --reflect reflect/penglai_companion.py legacy on_done generation",
+        "reflect/penglai_companion.py run_runtime_task -> RuntimeHubService -> TaskRun -> DeliveryService",
+        "runtime_wrapped_service_event",
+        "主动陪伴已保留 opt-in/门禁，但生成、终态、投递结果和上下文账本必须作为 Runtime Hub 服务事件审计。",
+    ),
+    LegacyPath(
+        "scheduler_reflect_legacy_task",
+        "P1",
+        "scheduler",
+        "agentmain.py --reflect reflect/scheduler.py -> agent.put_task(source='reflect')",
+        "scheduled service event -> RuntimeHubService -> TaskRun -> report/delivery outcome",
+        "pending_runtime_service_migration",
+        "提醒/日程仍是 reflect 旧执行链；当前不作为本轮 P0 修复，但必须在下一步收敛成可审计 TaskRun。",
+    ),
 )
 
 

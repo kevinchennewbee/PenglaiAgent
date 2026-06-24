@@ -160,6 +160,16 @@ def _optional_voice_check():
         return _check("optional_voice_runtime_status", False, str(exc))
 
 
+def _optional_tts_check():
+    try:
+        from .capabilities import tts_runtime_status
+
+        result = tts_runtime_status()
+        return _check("optional_tts_runtime_status", True, f"{result.get('status')}: {result.get('detail')}")
+    except Exception as exc:
+        return _check("optional_tts_runtime_status", False, str(exc))
+
+
 def _optional_vision_check(root):
     try:
         from .capabilities import vision_runtime_status
@@ -249,6 +259,7 @@ def audit(*, root=ROOT, require_real_agent=False):
         _privacy_check(root),
         _runtime_audit_check(root),
         _optional_voice_check(),
+        _optional_tts_check(),
         _optional_vision_check(root),
         _optional_critic_check(root),
         _service_unit_check(root),
