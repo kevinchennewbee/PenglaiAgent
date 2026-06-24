@@ -2957,11 +2957,12 @@ def test_install_script_can_install_current_branch_without_setup():
         env.pop(key, None)
     env.update({
         "HOME": td,
+        "PATH": os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", ""),
         "PENGLAI_SOURCE_DIR": root,
         "PENGLAI_DIR": target,
         "PENGLAI_SKIP_SETUP": "1",
         "PENGLAI_INSTALL_VERIFY": "1",
-        "PENGLAI_PIP_TIMEOUT": "240",
+        "PENGLAI_PIP_TIMEOUT": "20",
     })
 
     result = subprocess.run(
@@ -3002,6 +3003,7 @@ def test_install_script_can_install_current_branch_without_setup():
     )
     assert wrapper_verify.returncode == 0, (wrapper_verify.stdout or "") + (wrapper_verify.stderr or "")
     assert "安装预检" in output
+    assert "正在安装 0.3.0 源码依赖" not in output
     verify = subprocess.run(
         [sys.executable, os.path.join(target, "penglai"), "install-check", "--json"],
         cwd=target,

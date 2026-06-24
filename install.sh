@@ -343,7 +343,7 @@ install_source_deps() {
     DEPS_READY=1
 }
 
-if { [ "$INSTALL_VERIFY" = "1" ] || [ "${PENGLAI_INSTALL_DEPS:-}" = "1" ]; } && [ "$DEPS_READY" != "1" ]; then
+if [ "${PENGLAI_INSTALL_DEPS:-}" = "1" ] && [ "$DEPS_READY" != "1" ]; then
     install_source_deps
 fi
 

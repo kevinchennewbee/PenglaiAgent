@@ -219,6 +219,7 @@ def _install_script_check(root):
         "PENGLAI_SOURCE_DIR",
         "PENGLAI_SKIP_SETUP",
         "PENGLAI_INSTALL_VERIFY",
+        "PENGLAI_INSTALL_DEPS",
         "requests",
         "beautifulsoup4",
         "bottle",
