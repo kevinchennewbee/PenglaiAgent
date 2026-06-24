@@ -90,8 +90,8 @@ STATIC_PATHS = (
         "scheduler",
         "agentmain.py --reflect reflect/scheduler.py -> agent.put_task(source='reflect')",
         "scheduled service event -> RuntimeHubService -> TaskRun -> report/delivery outcome",
-        "pending_runtime_service_migration",
-        "提醒/日程仍是 reflect 旧执行链；当前不作为本轮 P0 修复，但必须在下一步收敛成可审计 TaskRun。",
+        "runtime_wrapped_service_event",
+        "提醒/日程保留 reflect 触发门禁，但执行已通过 RuntimeHubService 形成 TaskRun、上下文账本和报告路径元数据。",
     ),
 )
 

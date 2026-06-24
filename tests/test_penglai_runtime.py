@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -976,6 +977,91 @@ def test_runtime_service_records_owner_and_desktop_turns_as_context_events():
     assert recent_context_prompt(limit=10, log_path=log_path) == ""
     assert "token=***" in owner_prompt
     assert "abc12345" not in owner_prompt
+
+
+def test_scheduler_reflect_task_enters_runtime_hub_service():
+    td = tempfile.mkdtemp()
+    tasks_dir = os.path.join(td, "tasks")
+    done_dir = os.path.join(tasks_dir, "done")
+    log_path = os.path.join(td, "scheduler.log")
+    context_log = os.path.join(td, "context.jsonl")
+    store_path = os.path.join(td, "runtime.sqlite3")
+    old_env = {k: os.environ.get(k) for k in (
+        "PENGLAI_SCHEDULER_TASKS_DIR",
+        "PENGLAI_SCHEDULER_DONE_DIR",
+        "PENGLAI_SCHEDULER_LOG",
+        "PENGLAI_SCHEDULER_SKIP_LOCK",
+    )}
+    try:
+        os.environ["PENGLAI_SCHEDULER_TASKS_DIR"] = tasks_dir
+        os.environ["PENGLAI_SCHEDULER_DONE_DIR"] = done_dir
+        os.environ["PENGLAI_SCHEDULER_LOG"] = log_path
+        os.environ["PENGLAI_SCHEDULER_SKIP_LOCK"] = "1"
+        sys.modules.pop("reflect.scheduler", None)
+        scheduler = importlib.import_module("reflect.scheduler")
+        scheduler._l4_t = time.time()
+        os.makedirs(tasks_dir, exist_ok=True)
+        with open(os.path.join(tasks_dir, "daily.json"), "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "enabled": True,
+                    "repeat": "daily",
+                    "schedule": "00:00",
+                    "max_delay_hours": 24,
+                    "prompt": "生成今日提醒报告",
+                },
+                f,
+                ensure_ascii=False,
+            )
+
+        prompt = scheduler.check()
+        assert "[定时任务] daily" in prompt
+        report_path = scheduler._PENDING_TASK["report_path"]
+        service = RuntimeHubService(
+            owner_user_ids={"owner"},
+            store_path=store_path,
+            context_log_path=context_log,
+        )
+
+        def run_scheduled(incoming):
+            assert incoming.channel == "scheduler"
+            assert incoming.user_id == "owner"
+            assert incoming.metadata["service"] == "scheduler"
+            assert incoming.metadata["task_id"] == "daily"
+            os.makedirs(os.path.dirname(report_path), exist_ok=True)
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write("报告已写入\n")
+            return f"报告已写入 {report_path}"
+
+        output = scheduler.run_runtime_task(
+            prompt,
+            service=service,
+            port=CallableAgentPort(run_scheduled, worker_id="scheduler-test"),
+        )
+
+        assert "报告已写入" in output
+        recent = service.recent_runs(session_id="owner:default", limit=1)
+        assert len(recent) == 1
+        run = service.get_run(recent[0]["run_id"])
+        assert run["status"] == RunStatus.SUCCEEDED
+        assert run["metadata"]["channel"] == "scheduler"
+        assert run["metadata"]["scheduler"]["task_id"] == "daily"
+        assert run["metadata"]["scheduler"]["report_path"] == report_path
+        assert run["metadata"]["scheduler"]["report_exists"] is True
+
+        with open(context_log, encoding="utf-8") as f:
+            events = [json.loads(line) for line in f if line.strip()]
+        assert [event["kind"] for event in events] == ["user_message", "assistant_result"]
+        assert {event["channel"] for event in events} == {"scheduler"}
+        assert events[0]["session_id"] == "owner:default"
+        assert events[1]["metadata"]["run_id"] == run["run_id"]
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sys.modules.pop("reflect.scheduler", None)
 
 
 def test_version_metadata_uses_installer_version_and_git_identity():
@@ -2519,7 +2605,7 @@ def test_runtime_deprecation_audit_lists_030_legacy_surfaces():
     assert items["feishu_legacy_entry"]["replacement"].startswith("penglai_feishu_app.py")
     assert items["wechat_legacy_entry"]["replacement"].startswith("penglai_im_launch.py")
     assert items["companion_reflect_runtime_event"]["status"] == "runtime_wrapped_service_event"
-    assert items["scheduler_reflect_legacy_task"]["status"] == "pending_runtime_service_migration"
+    assert items["scheduler_reflect_legacy_task"]["status"] == "runtime_wrapped_service_event"
     assert items["docker_legacy_surface"]["status"] == "legacy_surface_observed"
 
 

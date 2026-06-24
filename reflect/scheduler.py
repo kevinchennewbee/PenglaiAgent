@@ -1,20 +1,26 @@
-import os, json, time as _time, socket as _socket, logging
+import os, json, time as _time, socket as _socket, logging, uuid
 from datetime import datetime, timedelta
 
 # 端口锁：防止重复启动，bind失败时agentmain会直接崩溃退出
 # reload时mod.__dict__保留_lock，跳过重复绑定
 try: _lock
 except NameError:
-    _lock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-    _lock.bind(('127.0.0.1', 45762)); _lock.listen(1)
+    if os.environ.get("PENGLAI_SCHEDULER_SKIP_LOCK") == "1":
+        _lock = object()
+    else:
+        try:
+            _lock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            _lock.bind(('127.0.0.1', 45762)); _lock.listen(1)
+        except OSError:
+            print("[scheduler] 已有实例在跑，本进程退出心跳"); _lock = None
 
 INTERVAL = 120
 ONCE = False
 
 _dir = os.path.dirname(os.path.abspath(__file__))
-TASKS = os.path.join(_dir, '../sche_tasks')
-DONE  = os.path.join(_dir, '../sche_tasks/done')
-_LOG  = os.path.join(_dir, '../sche_tasks/scheduler.log')
+TASKS = os.environ.get("PENGLAI_SCHEDULER_TASKS_DIR") or os.path.join(_dir, '../sche_tasks')
+DONE  = os.environ.get("PENGLAI_SCHEDULER_DONE_DIR") or os.path.join(_dir, '../sche_tasks/done')
+_LOG  = os.environ.get("PENGLAI_SCHEDULER_LOG") or os.path.join(_dir, '../sche_tasks/scheduler.log')
 
 os.makedirs(DONE, exist_ok=True)
 _logger = logging.getLogger('scheduler')
@@ -28,6 +34,7 @@ if not _logger.handlers:
 # 默认最大延迟窗口（小时），超过此时间不触发
 DEFAULT_MAX_DELAY = 6
 _l4_t = 0  # last L4 archive time
+_PENDING_TASK = {}
 
 def _parse_cooldown(repeat):
     """解析repeat为冷却时间(比实际周期略短,防漂移)"""
@@ -59,7 +66,103 @@ def _last_run(tid, done_files):
         except: continue
     return latest
 
+def _task_metadata(tid, task, rpt, repeat, sched, max_delay, last):
+    return {
+        "task_id": str(tid or ""),
+        "report_path": str(rpt or ""),
+        "repeat": str(repeat or ""),
+        "schedule": str(sched or ""),
+        "max_delay_hours": max_delay,
+        "last_run": last.isoformat() if last else "",
+        "source_file": f"{tid}.json" if tid else "",
+    }
+
+def _prompt_for_task(tid, rpt, prompt):
+    return (f'[定时任务] {tid}\n'
+            f'[报告路径] {rpt}\n\n'
+            f'先读 scheduled_task_sop 了解执行流程，然后执行以下任务：\n\n'
+            f'{prompt}\n\n'
+            f'完成后将执行报告写入 {rpt}。')
+
+def _metadata_from_prompt(prompt):
+    meta = {}
+    for line in str(prompt or "").splitlines():
+        if line.startswith("[定时任务]"):
+            meta["task_id"] = line.split("]", 1)[-1].strip()
+        elif line.startswith("[报告路径]"):
+            meta["report_path"] = line.split("]", 1)[-1].strip()
+    return meta
+
+def run_runtime_task(prompt, *, agent=None, service=None, port=None):
+    """Run a scheduled task as a first-class Runtime Hub service event.
+
+    ``check()`` still owns schedule/cooldown/report-path decisions.  This hook is
+    called by ``agentmain --reflect`` so execution, TaskRun state, context
+    ledger entries, and cancellation/status surfaces no longer bypass the hub.
+    """
+    meta = dict(_PENDING_TASK or {})
+    meta.update({k: v for k, v in _metadata_from_prompt(prompt).items() if v})
+    task_id = meta.get("task_id") or "unknown"
+    event_id = f"scheduler_{int(_time.time())}_{uuid.uuid4().hex[:10]}"
+    summary = f"[定时任务触发] {task_id}"
+    try:
+        from penglai_runtime.context_events import default_context_log_path
+        from penglai_runtime.contracts import InboundEvent
+        from penglai_runtime.port import GenericAgentInstancePort, GenericAgentPort
+        from penglai_runtime.service import RuntimeHubService
+    except Exception as e:
+        raise RuntimeError(f"Runtime Hub scheduler 链路不可用: {e}") from e
+
+    if service is None:
+        service = RuntimeHubService(
+            owner_user_ids={"owner"},
+            context_log_path=default_context_log_path(),
+        )
+    if port is None:
+        prompt_builder = lambda _event, _prompt=prompt: _prompt
+        if agent is not None:
+            port = GenericAgentInstancePort(
+                agent=agent,
+                prompt_builder=prompt_builder,
+                source="scheduler",
+            )
+        else:
+            port = GenericAgentPort(
+                prompt_builder=prompt_builder,
+                source="scheduler",
+            )
+
+    event = InboundEvent(
+        event_id=event_id,
+        channel="scheduler",
+        user_id="owner",
+        chat_id="owner",
+        chat_type="private",
+        text=summary,
+        metadata={
+            "service": "scheduler",
+            "task_id": task_id,
+            "report_path": meta.get("report_path", ""),
+            "source": "reflect/scheduler.py",
+        },
+    )
+    result = service.receive_blocking(
+        event,
+        port=port,
+        send_body=False,
+        send_notice=False,
+    )
+    report_path = meta.get("report_path", "")
+    result.task_run.metadata["scheduler"] = {
+        **meta,
+        "report_exists": bool(report_path and os.path.exists(report_path)),
+    }
+    service.store.record_run(result.task_run)
+    return result.cleaned_output or result.task_run.result_text or result.raw_output
+
 def check():
+    if _lock is None:
+        return None
     # L4 archive cron (silent, every 12h)
     global _l4_t
     if _time.time() - _l4_t > 43200:
@@ -122,10 +225,8 @@ def check():
         ts = now.strftime('%Y-%m-%d_%H%M')
         rpt = os.path.join(DONE, f'{ts}_{tid}.md')
         prompt = task.get('prompt', '')
-        return (f'[定时任务] {tid}\n'
-                f'[报告路径] {rpt}\n\n'
-                f'先读 scheduled_task_sop 了解执行流程，然后执行以下任务：\n\n'
-                f'{prompt}\n\n'
-                f'完成后将执行报告写入 {rpt}。')
+        global _PENDING_TASK
+        _PENDING_TASK = _task_metadata(tid, task, rpt, repeat, sched, max_delay, last)
+        return _prompt_for_task(tid, rpt, prompt)
 
     return None
