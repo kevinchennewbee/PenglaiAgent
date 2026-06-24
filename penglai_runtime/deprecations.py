@@ -93,6 +93,15 @@ STATIC_PATHS = (
         "runtime_wrapped_service_event",
         "提醒/日程保留 reflect 触发门禁，但执行已通过 RuntimeHubService 形成 TaskRun、上下文账本和报告路径元数据。",
     ),
+    LegacyPath(
+        "notify_owner_direct_delivery",
+        "P1",
+        "service-notify",
+        "penglai_abilities.notify_owner -> reflect.penglai_companion direct send",
+        "notify_owner service event -> RuntimeHubService -> DeliveryService -> TaskRun/context",
+        "runtime_wrapped_service_event",
+        "升级/重启等 owner 通知保留一行调用语义，但投递结果已落入 Runtime Hub TaskRun 和上下文账本。",
+    ),
 )
 
 

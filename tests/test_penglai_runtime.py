@@ -1064,6 +1064,67 @@ def test_scheduler_reflect_task_enters_runtime_hub_service():
         sys.modules.pop("reflect.scheduler", None)
 
 
+def test_notify_owner_enters_runtime_hub_service_and_delivery_ledger():
+    td = tempfile.mkdtemp()
+    store_path = os.path.join(td, "runtime.sqlite3")
+    context_log = os.path.join(td, "context.jsonl")
+    sent = []
+    import penglai_abilities
+
+    ok = penglai_abilities.notify_owner(
+        "升级完成 token=abc12345",
+        store_path=store_path,
+        context_log_path=context_log,
+        send_text=lambda body: sent.append(body) or True,
+    )
+
+    assert ok is True
+    assert sent == ["升级完成 token=abc12345"]
+    store = RuntimeStateStore(store_path)
+    recent = store.recent_runs(session_id="owner:default", limit=1)
+    assert len(recent) == 1
+    run = store.get_run(recent[0]["run_id"])
+    assert run["status"] == RunStatus.SUCCEEDED
+    assert run["metadata"]["channel"] == "notify_owner"
+    assert run["metadata"]["notify_owner"]["delivery_status"] == "sent"
+    assert run["metadata"]["notify_owner"]["channels"] == ["custom"]
+    assert run["metadata"]["delivery"]["sent"] == 0
+
+    with open(context_log, encoding="utf-8") as f:
+        events = [json.loads(line) for line in f if line.strip()]
+    assert [event["kind"] for event in events] == ["user_message", "assistant_result"]
+    assert {event["channel"] for event in events} == {"notify_owner"}
+    assert events[0]["session_id"] == "owner:default"
+    assert events[1]["metadata"]["run_id"] == run["run_id"]
+    assert "token=***" in events[1]["text"]
+    assert "abc12345" not in events[1]["text"]
+
+
+def test_notify_owner_delivery_failure_marks_taskrun_failed():
+    td = tempfile.mkdtemp()
+    store_path = os.path.join(td, "runtime.sqlite3")
+    context_log = os.path.join(td, "context.jsonl")
+    import penglai_abilities
+
+    ok = penglai_abilities.notify_owner(
+        "这条不会送达",
+        store_path=store_path,
+        context_log_path=context_log,
+        send_text=lambda _body: False,
+    )
+
+    assert ok is False
+    store = RuntimeStateStore(store_path)
+    recent = store.recent_runs(session_id="owner:default", limit=1)
+    assert len(recent) == 1
+    run = store.get_run(recent[0]["run_id"])
+    assert run["status"] == RunStatus.FAILED
+    assert run["metadata"]["notify_owner"]["delivery_status"] == "failed"
+    assert run["metadata"]["notify_owner"]["errors"] == ["custom_send_failed"]
+    assert run["metadata"]["delivery_failed"]["body"] is True
+    assert "投递失败" in run["error"]
+
+
 def test_version_metadata_uses_installer_version_and_git_identity():
     meta = collect_version_metadata()
     line = compact_version_line(meta)
@@ -2606,6 +2667,7 @@ def test_runtime_deprecation_audit_lists_030_legacy_surfaces():
     assert items["wechat_legacy_entry"]["replacement"].startswith("penglai_im_launch.py")
     assert items["companion_reflect_runtime_event"]["status"] == "runtime_wrapped_service_event"
     assert items["scheduler_reflect_legacy_task"]["status"] == "runtime_wrapped_service_event"
+    assert items["notify_owner_direct_delivery"]["status"] == "runtime_wrapped_service_event"
     assert items["docker_legacy_surface"]["status"] == "legacy_surface_observed"
 
 

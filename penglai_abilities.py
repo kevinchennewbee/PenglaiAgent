@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -347,26 +348,27 @@ def build_vision_api():
         return "no_template"
 
 
-def notify_owner(text):
-    """给主人发一条 IM（飞书 + 微信），任何蓬莱进程 / agent 手写脚本都可 import 复用：
-        from penglai_abilities import notify_owner; notify_owner("...")
-    复用 reflect.penglai_companion 的发送实现（import 它会建一次端口锁，已被其内部
-    try/except 兜住，send-only 无害）。未配 IM 时静默返回 False，调用方勿当异常。
-    U8：补上 agent/脚本唯一缺的『一行发给主人』公开原语，省得再猜 import penglai。"""
+def _load_mykey_dict():
     try:
         import llmcore
-        mk = llmcore.reload_mykeys()[0] or {}
+        return llmcore.reload_mykeys()[0] or {}
     except Exception:
         try:
             import mykey
-            mk = {k: v for k, v in vars(mykey).items() if not k.startswith("_")}
+            return {k: v for k, v in vars(mykey).items() if not k.startswith("_")}
         except Exception:
-            return False
+            return {}
+
+
+def _deliver_owner_text(text, *, mk=None):
+    mk = mk or _load_mykey_dict()
     try:
         import reflect.penglai_companion as cp
-    except Exception:
-        return False
+    except Exception as exc:
+        return [], [f"companion_send_import_failed: {exc}"]
     sent = False
+    channels = []
+    errors = []
     users = mk.get("fs_allowed_users", []) or []
     owner = (mk.get("fs_owner_open_id", "") or "").strip()
     if not owner and users:
@@ -374,16 +376,103 @@ def notify_owner(text):
     app_id, secret = mk.get("fs_app_id", ""), mk.get("fs_app_secret", "")
     if owner and app_id:
         try:
-            sent = cp._feishu_send({"open_id": owner, "app_id": app_id,
-                                    "app_secret": secret}, text) or sent
-        except Exception:
-            pass
+            ok = cp._feishu_send({"open_id": owner, "app_id": app_id,
+                                  "app_secret": secret}, text)
+            if ok:
+                channels.append("feishu")
+                sent = True
+            else:
+                errors.append("feishu_send_failed")
+        except Exception as exc:
+            errors.append(f"feishu_send_error: {exc}")
     if os.path.exists(os.path.expanduser("~/.wxbot/token.json")):
         try:
-            sent = cp._wechat_send(text) or sent
-        except Exception:
-            pass
-    return sent
+            ok = cp._wechat_send(text)
+            if ok:
+                channels.append("wechat")
+                sent = True
+            else:
+                errors.append("wechat_send_failed")
+        except Exception as exc:
+            errors.append(f"wechat_send_error: {exc}")
+    if not sent and not errors:
+        errors.append("no_owner_delivery_target")
+    return channels, errors
+
+
+def notify_owner(text, *, service=None, store_path=None, context_log_path=None, send_text=None):
+    """给主人发一条 IM（飞书 + 微信），并作为 Runtime Hub 服务事件落账。
+
+    任何蓬莱进程 / agent 手写脚本都可复用：
+        from penglai_abilities import notify_owner; notify_owner("...")
+    未配 IM 或投递失败时返回 False，调用方勿当异常。
+    """
+    body = str(text or "").strip()
+    if not body:
+        return False
+    try:
+        from penglai_runtime.context_events import default_context_log_path
+        from penglai_runtime.contracts import InboundEvent
+        from penglai_runtime.delivery import DeliveryService
+        from penglai_runtime.port import CallableAgentPort
+        from penglai_runtime.runner import AgentRunner
+        from penglai_runtime.service import RuntimeHubService
+    except Exception:
+        return False
+
+    state = {"channels": [], "errors": []}
+
+    def _send_text(payload):
+        if callable(send_text):
+            try:
+                ok = bool(send_text(payload))
+            except Exception as exc:
+                state["errors"].append(f"custom_send_error: {exc}")
+                return False
+            if ok:
+                state["channels"].append("custom")
+            else:
+                state["errors"].append("custom_send_failed")
+            return ok
+        channels, errors = _deliver_owner_text(payload)
+        state["channels"].extend(channels)
+        state["errors"].extend(errors)
+        return bool(channels)
+
+    if service is None:
+        runner = AgentRunner(
+            owner_user_ids={"owner"},
+            delivery=DeliveryService(send_text=_send_text),
+        )
+        service = RuntimeHubService(
+            owner_user_ids={"owner"},
+            runner=runner,
+            store_path=store_path,
+            context_log_path=context_log_path or default_context_log_path(),
+        )
+    event = InboundEvent(
+        event_id=f"notify_owner_{int(time.time())}_{uuid.uuid4().hex[:10]}",
+        channel="notify_owner",
+        user_id="owner",
+        chat_id="owner",
+        chat_type="private",
+        text="[通知主人]",
+        metadata={"service": "notify_owner"},
+    )
+    result = service.receive_blocking(
+        event,
+        port=CallableAgentPort(lambda _event, _body=body: _body, worker_id="notify-owner"),
+        send_body=True,
+        send_notice=False,
+        fail_on_delivery_failure=True,
+    )
+    result.task_run.metadata["notify_owner"] = {
+        "delivery_status": "sent" if state["channels"] else "failed",
+        "channels": list(dict.fromkeys(state["channels"])),
+        "errors": state["errors"][:5],
+    }
+    service.store.record_run(result.task_run)
+    return result.task_run.status == "succeeded" and bool(state["channels"])
 
 
 # ---------- 通用 systemd 服务安装（reflect 心跳类）----------
