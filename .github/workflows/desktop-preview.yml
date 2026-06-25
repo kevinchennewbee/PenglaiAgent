@@ -119,6 +119,17 @@ jobs:
           python -m pip install --disable-pip-version-check pytest aiohttp
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
 
+      - name: Runtime bootstrap smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          PENGLAI_DIR="$RUNNER_TEMP/PenglaiAgent-bootstrap" \
+          PENGLAI_BRANCH=codex/0.3.0-runtime-hub \
+          PENGLAI_INSTALL_DEPS=1 \
+          PENGLAI_INSTALL_VERIFY=1 \
+          PENGLAI_SKIP_SETUP=1 \
+          sh install.sh
+
       - name: Build signed DMG
         if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
         working-directory: frontends/desktop
@@ -292,6 +303,7 @@ jobs:
         run: |
           node --check frontends/desktop/static/app.js
           node --check frontends/desktop/static/penglai-web.js
+          $null = [scriptblock]::Create((Get-Content install.ps1 -Raw))
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
 
       - name: Desktop bridge contract tests
@@ -299,6 +311,15 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
+
+      - name: Runtime bootstrap smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PENGLAI_DIR = Join-Path $env:RUNNER_TEMP "PenglaiAgent-bootstrap"
+          $env:PENGLAI_BRANCH = "codex/0.3.0-runtime-hub"
+          $env:PENGLAI_INSTALL_VERIFY = "1"
+          .\install.ps1
 
       - name: Build NSIS installer
         working-directory: frontends/desktop
