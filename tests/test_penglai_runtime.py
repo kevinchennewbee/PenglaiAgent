@@ -3230,6 +3230,32 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
     assert build_info["build_time"] == "2026-06-23T00:00:00Z"
 
 
+def test_install_script_and_friend_docs_pin_preview_branch_installs():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, "install.sh"), encoding="utf-8") as f:
+        installer = f.read()
+    with open(os.path.join(root, "docs", "desktop-friend-test.md"), encoding="utf-8") as f:
+        friend_docs = f.read()
+
+    assert 'BRANCH="${PENGLAI_BRANCH:-main}"' in installer
+    assert "archive/refs/heads/$BRANCH.tar.gz" in installer
+    assert "codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/$BRANCH" in installer
+    assert 'clone --depth 1 --branch "$BRANCH"' in installer
+    assert 'PENGLAI_BUILD_BRANCH="$BRANCH"' in installer
+    assert "raw.githubusercontent.com/$OWNER_REPO/refs/heads/$BRANCH/install.sh" in installer
+
+    assert (
+        "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/"
+        "codex/0.3.0-runtime-hub/install.sh"
+    ) in friend_docs
+    assert "PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh" in friend_docs
+    assert (
+        "git clone --branch codex/0.3.0-runtime-hub --single-branch "
+        "https://github.com/kevinchennewbee/PenglaiAgent.git"
+    ) in friend_docs
+    assert "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/codex/0.3.0-runtime-hub" not in friend_docs
+
+
 def test_install_script_source_copy_rejects_non_empty_target():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     td = tempfile.mkdtemp()

@@ -1,18 +1,21 @@
 #!/bin/sh
 # 蓬莱 · Penglai 一键安装 —— 新机器只需联网:
 #   curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+# 测试分支:
+#   curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.sh | PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh
 # 自动完成:网络探测(国内走镜像) → 取代码(无 git 走压缩包) → 备好 Python(无则装 uv 托管版)
 #   → 装依赖 → 进入向导。用户不需要预装任何东西,也不需要懂环境配置。
 set -e
 
 OWNER_REPO="${PENGLAI_REPO:-kevinchennewbee/PenglaiAgent}"
+BRANCH="${PENGLAI_BRANCH:-main}"
 TARGET="${PENGLAI_DIR:-$HOME/PenglaiAgent}"
 SOURCE_DIR="${PENGLAI_SOURCE_DIR:-}"
 SKIP_SETUP="${PENGLAI_SKIP_SETUP:-}"
 INSTALL_VERIFY="${PENGLAI_INSTALL_VERIFY:-}"
 GH="https://github.com/$OWNER_REPO"
-ARCHIVE="$GH/archive/refs/heads/main.tar.gz"
-CODELOAD="https://codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/main"
+ARCHIVE="$GH/archive/refs/heads/$BRANCH.tar.gz"
+CODELOAD="https://codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/$BRANCH"
 PROXY="${PENGLAI_GH_PROXY-https://gh-proxy.com/}"
 case "$PROXY" in
     ""|*/) ;;
@@ -246,7 +249,7 @@ elif [ -e "$TARGET" ] && [ -n "$(ls -A "$TARGET" 2>/dev/null)" ]; then
 else
     say "  ⬇️  正在获取蓬莱发行版..."
     if command -v git >/dev/null; then
-        if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 clone --depth 1 "${MIRROR}${GH}.git" "$TARGET"; then
+        if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 clone --depth 1 --branch "$BRANCH" "${MIRROR}${GH}.git" "$TARGET"; then
             say "  Git 克隆失败,改用压缩包下载..."
             download_archive || die "源码下载失败,请检查网络或设置 PENGLAI_GH_PROXY"
         fi
@@ -256,6 +259,10 @@ else
     fi
 fi
 cd "$TARGET"
+if [ -z "${PENGLAI_BUILD_BRANCH:-}" ] && [ -z "$SOURCE_DIR" ] && [ ! -d .git ]; then
+    PENGLAI_BUILD_BRANCH="$BRANCH"
+    export PENGLAI_BUILD_BRANCH
+fi
 
 # ── 3. Python:系统有 3.10+ 直接用;没有就装 uv,由 uv 托管一个独立 Python ──────
 PY=""
@@ -390,12 +397,12 @@ say "   进入安装向导(模型 → 飞书 → 可选微信扫码)..."
 say ""
 # curl|sh 模式下 stdin 是脚本管道,向导的交互必须改接终端(/dev/tty)
 if [ ! -t 1 ]; then
-    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/main/install.sh && sh install.sh"
+    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/refs/heads/$BRANCH/install.sh && PENGLAI_BRANCH=$BRANCH sh install.sh"
 fi
 if [ ! -t 0 ]; then
     if (: </dev/tty) 2>/dev/null; then
         exec "$PY" penglai setup </dev/tty
     fi
-    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/main/install.sh && sh install.sh"
+    die "安装向导需要交互终端。请改为【下载后运行】: curl -fsSLO https://raw.githubusercontent.com/$OWNER_REPO/refs/heads/$BRANCH/install.sh && PENGLAI_BRANCH=$BRANCH sh install.sh"
 fi
 exec "$PY" penglai setup

@@ -8,6 +8,8 @@ on:
       - "v0.3.0-preview*"
     paths:
       - ".github/workflows/desktop-preview.yml"
+      - "install.sh"
+      - "docs/desktop-friend-test.md"
       - "frontends/desktop/**"
       - "frontends/*.py"
       - "penglai"
@@ -114,7 +116,7 @@ jobs:
       - name: Desktop bridge contract tests
         run: |
           python -m pip install --disable-pip-version-check pytest aiohttp
-          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts'
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
 
       - name: Build signed DMG
         if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
@@ -295,7 +297,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
-          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts'
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
 
       - name: Build NSIS installer
         working-directory: frontends/desktop
