@@ -69,14 +69,14 @@ jobs:
             fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf '::warning::Apple signing secrets not configured (%s). Building unsigned DMG — users will need to bypass Gatekeeper.\n' "${missing[*]}"
-            echo "APPLE_SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
+            printf '::warning::Apple signing secrets not configured (%s). Building unsigned DMG.\n' "${missing[*]}"
+            echo "available=false" >> "$GITHUB_OUTPUT"
           else
-            echo "APPLE_SIGNING_AVAILABLE=true" >> "$GITHUB_ENV"
+            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Import Apple Developer ID certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.APPLE_SIGNING_AVAILABLE == 'true'
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-apple-signing.outputs.available == 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -133,7 +133,7 @@ jobs:
           sh install.sh
 
       - name: Build signed DMG
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.APPLE_SIGNING_AVAILABLE == 'true'
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-apple-signing.outputs.available == 'true'
         working-directory: frontends/desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -142,12 +142,12 @@ jobs:
         run: npm run build:mac
 
       - name: Build DMG (unsigned)
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || env.APPLE_SIGNING_AVAILABLE != 'true' }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || steps.check-apple-signing.outputs.available != 'true' }}
         working-directory: frontends/desktop
         run: npm run build:mac
 
       - name: Re-sign app with adhoc signature and repack DMG
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || env.APPLE_SIGNING_AVAILABLE != 'true' }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || steps.check-apple-signing.outputs.available != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -172,7 +172,7 @@ jobs:
         shell: bash
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_SIGNING_AVAILABLE: ${{ env.APPLE_SIGNING_AVAILABLE || 'false' }}
+          APPLE_SIGNING_AVAILABLE: ${{ steps.check-apple-signing.outputs.available || 'false' }}
         run: |
           set -euo pipefail
           dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
@@ -226,7 +226,7 @@ jobs:
           rm -rf "$copied_app_dir"
 
       - name: Cleanup Apple signing keychain
-        if: always() && env.APPLE_SIGNING_AVAILABLE == 'true'
+        if: always() && steps.check-apple-signing.outputs.available == 'true'
         shell: bash
         run: |
           rm -f certificate.p12 developer-id-identities.txt
@@ -287,13 +287,13 @@ jobs:
           }
           if ($missing.Count -gt 0) {
             Write-Warning "Windows code-signing secrets not configured ($($missing -join ', ')). Building unsigned installer."
-            "WINDOWS_SIGNING_AVAILABLE=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            "available=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
-            "WINDOWS_SIGNING_AVAILABLE=true" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            "available=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
       - name: Import Windows signing certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.WINDOWS_SIGNING_AVAILABLE == 'true'
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-windows-signing.outputs.available == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -349,7 +349,7 @@ jobs:
       - name: Verify silent install and uninstall
         shell: pwsh
         env:
-          WINDOWS_SIGNING_AVAILABLE: ${{ env.WINDOWS_SIGNING_AVAILABLE || 'false' }}
+          WINDOWS_SIGNING_AVAILABLE: ${{ steps.check-windows-signing.outputs.available || 'false' }}
         run: |
           $ErrorActionPreference = "Stop"
           function Split-CommandLine([string]$CommandLine) {
