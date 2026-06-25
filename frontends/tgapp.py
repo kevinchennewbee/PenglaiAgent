@@ -15,6 +15,7 @@ except:
 from chatapp_common import (
     FILE_HINT,
     HELP_TEXT,
+    READ_ONLY_OP_COMMANDS,
     TELEGRAM_MENU_COMMANDS,
     blocked_notice,
     clean_reply,
@@ -23,6 +24,7 @@ from chatapp_common import (
     outbound_artifacts,
     redirect_log,
     require_runtime,
+    run_read_only_ops_command,
     split_text,
 )
 from continue_cmd import handle_frontend_command, reset_conversation
@@ -1318,6 +1320,11 @@ async def handle_command(update, ctx):
     if op == '/status':
         llm = agent.get_llm_name() if agent.llmclient else '未配置'
         return await update.message.reply_text(f"状态: {'🔴 运行中' if agent.is_running else '🟢 空闲'}\nLLM: [{agent.llm_no}] {llm}")
+    if op in READ_ONLY_OP_COMMANDS:
+        answer = await asyncio.to_thread(run_read_only_ops_command, op)
+        return await _reply_command_text(update.message, answer)
+    if op == '/update':
+        return await update.message.reply_text("升级需要显式确认。请先发送 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。")
     if op == '/stop': return await cmd_abort(update, ctx)
     if op == '/llm': return await cmd_llm(update, ctx)
     if op == '/btw':

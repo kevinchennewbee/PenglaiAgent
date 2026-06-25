@@ -48,6 +48,8 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+from chatapp_common import READ_ONLY_OP_COMMANDS, run_read_only_ops_command
+
 AgentFactory = Callable[[], Any]
 
 
@@ -151,7 +153,27 @@ def parse_local_command(raw: str) -> tuple[str, list[str]] | None:
     name, *rest = text.split(maxsplit=1)
     cmd = name[1:].lower()
     args = rest[0].split() if rest else []
-    if cmd in {"help", "status", "new", "switch", "sessions", "stop", "llm", "branch", "rewind", "clear", "close", "quit", "exit"}:
+    if cmd in {
+        "help",
+        "status",
+        "doctor",
+        "install-check",
+        "update-check",
+        "runtime-audit",
+        "privacy-audit",
+        "update",
+        "new",
+        "switch",
+        "sessions",
+        "stop",
+        "llm",
+        "branch",
+        "rewind",
+        "clear",
+        "close",
+        "quit",
+        "exit",
+    }:
         return cmd, args
     return None
 
@@ -321,6 +343,12 @@ class GenericAgentTUI(App[None]):
         handlers = {
             "help": self._cmd_help,
             "status": self._cmd_status,
+            "doctor": lambda _args: self._cmd_ops("doctor"),
+            "install-check": lambda _args: self._cmd_ops("install-check"),
+            "update-check": lambda _args: self._cmd_ops("update-check"),
+            "runtime-audit": lambda _args: self._cmd_ops("runtime-audit"),
+            "privacy-audit": lambda _args: self._cmd_ops("privacy-audit"),
+            "update": self._cmd_update,
             "new": self._cmd_new,
             "switch": self._cmd_switch,
             "sessions": self._cmd_sessions,
@@ -412,6 +440,12 @@ class GenericAgentTUI(App[None]):
             "Commands:\n"
             "/help - show this help\n"
             "/new [name] - create and switch to a new agent session\n"
+            "/doctor - run Penglai diagnostics\n"
+            "/install-check - run install preflight\n"
+            "/update-check - check updates without applying them\n"
+            "/runtime-audit - audit legacy runtime entrypoints\n"
+            "/privacy-audit - audit privacy/release blockers\n"
+            "/update - explain explicit upgrade confirmation; does not auto-apply\n"
             "/branch [name] - fork current session (copies LLM history + display)\n"
             "/rewind - list rewindable turns; /rewind <n> to truncate history\n"
             "/switch <id|name> - switch active session\n"
@@ -424,6 +458,20 @@ class GenericAgentTUI(App[None]):
             "/llm <n> - switch model for current session\n"
             "/quit - exit TUI\n\n"
             "Unknown slash commands (for example /session.x=... or /resume) are sent to GenericAgent."
+        )
+
+    def _cmd_ops(self, command: str) -> None:
+        op = "/" + command
+        self._system(f"Running {op} ...")
+        threading.Thread(
+            target=lambda: self.call_from_thread(self._system, run_read_only_ops_command(op)),
+            name=f"tui-ops-{command}",
+            daemon=True,
+        ).start()
+
+    def _cmd_update(self, args: list[str]) -> None:
+        self._system(
+            "升级需要显式确认。请先运行 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。"
         )
 
     def _cmd_new(self, args: list[str]) -> None:

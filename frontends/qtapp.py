@@ -29,7 +29,15 @@ from PySide6.QtGui import (
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from agentmain import GeneraticAgent
-from chatapp_common import FILE_HINT, HELP_TEXT, clean_reply, build_done_text, format_restore
+from chatapp_common import (
+    FILE_HINT,
+    HELP_TEXT,
+    READ_ONLY_OP_COMMANDS,
+    build_done_text,
+    clean_reply,
+    format_restore,
+    run_read_only_ops_command,
+)
 from penglai_runtime.channel_runtime import ChannelRuntimeBridge
 
 
@@ -1039,11 +1047,13 @@ def _action_btn(label: str, color: str, icon: QIcon | None = None) -> QPushButto
 # ── Main panel ────────────────────────────────────────────────────────────────
 class ChatPanel(QWidget):
     """Frameless always-on-top chat window."""
+    system_notice = Signal(str)
 
     def __init__(self, agent):
         super().__init__()
         self.agent = agent
         self._runtime_bridge = ChannelRuntimeBridge(channel="qt")
+        self.system_notice.connect(self._add_system_notice)
 
         # session state
         self._messages: list[dict] = []
@@ -2050,6 +2060,15 @@ class ChatPanel(QWidget):
             llm = self._model_name()
             state = "🔴 运行中" if self.agent.is_running else "🟢 空闲"
             self._add_system_notice(f"状态: {state}\nLLM: [{self.agent.llm_no}] {llm}")
+        elif op in READ_ONLY_OP_COMMANDS:
+            self._add_system_notice("正在运行诊断命令...")
+            threading.Thread(
+                target=lambda: self.system_notice.emit(run_read_only_ops_command(op)),
+                name=f"qt-ops-{op[1:]}",
+                daemon=True,
+            ).start()
+        elif op == "/update":
+            self._add_system_notice("升级需要显式确认。请先运行 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。")
         elif op == "/llm":
             if not self.agent.llmclient:
                 self._add_system_notice("❌ 当前没有可用的 LLM 配置")

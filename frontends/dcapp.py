@@ -12,7 +12,8 @@ from chatapp_common import (
     AgentChatMixin, ensure_single_instance,
     public_access, redirect_log, require_runtime, split_text,
     strip_files, clean_reply,
-    HELP_TEXT, FILE_HINT, format_restore,
+    HELP_TEXT, FILE_HINT, READ_ONLY_OP_COMMANDS, format_restore,
+    run_read_only_ops_command,
     _handle_continue_frontend, _reset_conversation,
 )
 from llmcore import mykeys
@@ -318,6 +319,15 @@ class DiscordApp(AgentChatMixin):
         if op == "/status":
             llm = ga.get_llm_name() if ga.llmclient else "未配置"
             return await self.send_text(chat_id, f"状态: {'🔴 运行中' if ga.is_running else '🟢 空闲'}\nLLM: [{ga.llm_no}] {llm}", **ctx)
+        if op in READ_ONLY_OP_COMMANDS:
+            answer = await asyncio.to_thread(run_read_only_ops_command, op)
+            return await self.send_text(chat_id, answer, **ctx)
+        if op == "/update":
+            return await self.send_text(
+                chat_id,
+                "升级需要显式确认。请先发送 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。",
+                **ctx,
+            )
         if op == "/llm":
             if not ga.llmclient:
                 return await self.send_text(chat_id, "❌ 当前没有可用的 LLM 配置", **ctx)

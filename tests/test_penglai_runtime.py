@@ -500,6 +500,52 @@ def test_launch_paths_do_not_bypass_runtime_wrappers():
     assert "penglai_feishu_app.py" in launch_text
 
 
+def test_clients_expose_read_only_update_and_diagnostics_commands():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    client_files = {
+        "telegram": os.path.join(root, "frontends", "tgapp.py"),
+        "discord": os.path.join(root, "frontends", "dcapp.py"),
+        "qt": os.path.join(root, "frontends", "qtapp.py"),
+        "tui": os.path.join(root, "frontends", "tuiapp.py"),
+    }
+    for name, path in client_files.items():
+        with open(path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+        assert "READ_ONLY_OP_COMMANDS" in text, name
+        assert "run_read_only_ops_command" in text, name
+        assert "penglai update --apply" in text, name
+
+    with open(os.path.join(root, "frontends", "chatapp_common.py"), "r", encoding="utf-8") as fh:
+        common = fh.read()
+    for command in ("/doctor", "/install-check", "/update-check", "/runtime-audit", "/privacy-audit"):
+        assert command in common
+
+    with open(os.path.join(root, "frontends", "tgapp.py"), "r", encoding="utf-8") as fh:
+        telegram = fh.read()
+    assert "BotCommand(command, description) for command, description in TELEGRAM_MENU_COMMANDS" in telegram
+    assert "if op in READ_ONLY_OP_COMMANDS" in telegram
+
+    with open(os.path.join(root, "frontends", "dcapp.py"), "r", encoding="utf-8") as fh:
+        discord = fh.read()
+    assert "if op in READ_ONLY_OP_COMMANDS" in discord
+    assert "await asyncio.to_thread(run_read_only_ops_command, op)" in discord
+
+    with open(os.path.join(root, "frontends", "qtapp.py"), "r", encoding="utf-8") as fh:
+        qt = fh.read()
+    assert "system_notice = Signal(str)" in qt
+    assert "self.system_notice.connect(self._add_system_notice)" in qt
+    assert "threading.Thread(" in qt
+    assert "self.system_notice.emit(run_read_only_ops_command(op))" in qt
+    assert "name=f\"qt-ops-{op[1:]}\"" in qt
+
+    with open(os.path.join(root, "frontends", "tuiapp.py"), "r", encoding="utf-8") as fh:
+        tui = fh.read()
+    assert '"update-check": lambda _args: self._cmd_ops("update-check")' in tui
+    assert 'name=f"tui-ops-{command}"' in tui
+    assert "self.call_from_thread(self._system, run_read_only_ops_command(op))" in tui
+    assert "def _cmd_update" in tui
+
+
 def test_channel_matrix_uses_real_binding_and_venv_python_units():
     import penglai_channels
 
@@ -3378,6 +3424,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "v0.3.0-preview*",
         "macos-14",
         "windows-latest",
+        "frontends/*.py",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",

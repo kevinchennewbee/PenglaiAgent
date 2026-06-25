@@ -9,7 +9,7 @@ on:
     paths:
       - ".github/workflows/desktop-preview.yml"
       - "frontends/desktop/**"
-      - "frontends/chatapp_common.py"
+      - "frontends/*.py"
       - "penglai"
       - "penglai_im_launch.py"
       - "penglai_runtime/**"
