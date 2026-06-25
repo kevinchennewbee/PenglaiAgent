@@ -1,11 +1,11 @@
-use std::process::{Command, Child, Output};
+use std::process::{Command, Child, Stdio};
 use std::sync::Mutex;
 use std::net::TcpStream;
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufRead, BufReader};
 use std::time::{Duration, Instant};
 use std::thread;
 use std::path::PathBuf;
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -14,11 +14,27 @@ static BRIDGE_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 const PENGLAI_OWNER_REPO: &str = "kevinchennewbee/PenglaiAgent";
 const PENGLAI_RELEASE_BRANCH: &str = "codex/0.3.0-runtime-hub";
 
+#[derive(serde::Serialize, Clone)]
+struct InstallProgress {
+    step: String,
+    line: String,
+    done: bool,
+    ok: bool,
+}
+
 #[derive(serde::Serialize)]
 struct RuntimeInstallResult {
     python_path: String,
     project_dir: String,
     log: String,
+}
+
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    has_update: bool,
+    old_version: String,
+    new_version: String,
+    detail: String,
 }
 
 /// Get project root (parent of frontends/)
@@ -32,8 +48,6 @@ fn project_root() -> PathBuf {
 
 #[allow(dead_code)]
 fn find_bridge_script() -> PathBuf {
-    // exe is at frontends/Penglai.exe
-    // bridge is at frontends/desktop_bridge.py
     std::env::current_exe()
         .expect("cannot get exe path")
         .parent().expect("cannot get exe dir")
@@ -41,9 +55,6 @@ fn find_bridge_script() -> PathBuf {
 }
 
 #[allow(dead_code)]
-/// Find python executable:
-/// 1. .portable/uv-python/ 下找 python.exe (Windows) 或 python3 (Unix)
-/// 2. Fallback to system PATH
 fn find_python() -> String {
     let root = project_root();
     if let Some(py) = find_project_python(&root) {
@@ -52,8 +63,6 @@ fn find_python() -> String {
     let portable_python_dir = root.join(".portable").join("uv-python");
 
     if portable_python_dir.exists() {
-        // uv installs python like: uv-python/cpython-3.12.x-windows-x86_64/python.exe
-        // We need to search for python.exe inside subdirectories
         if let Ok(entries) = std::fs::read_dir(&portable_python_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -77,7 +86,6 @@ fn find_python() -> String {
         }
     }
 
-    // Fallback: system PATH
     #[cfg(windows)]
     { "python".to_string() }
     #[cfg(not(windows))]
@@ -102,10 +110,12 @@ fn find_project_python(root: &PathBuf) -> Option<String> {
     None
 }
 
+/// Desktop runtime installs to ~/PenglaiAgentDesktop to avoid clashing with
+/// a developer checkout at ~/PenglaiAgent. Real users never have ~/PenglaiAgent.
 fn default_runtime_project_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("PenglaiAgent")
+        .join("PenglaiAgentDesktop")
 }
 
 fn raw_github_url(path: &str) -> String {
@@ -119,7 +129,6 @@ fn raw_github_url(path: &str) -> String {
 fn find_project_dir() -> Option<String> {
     let exe = std::env::current_exe().ok()?;
     let mut dir = exe.parent();
-    // Walk up to 8 levels from exe location
     for _ in 0..8 {
         match dir {
             Some(d) => {
@@ -134,7 +143,6 @@ fn find_project_dir() -> Option<String> {
     None
 }
 
-/// Settings file path: ~/.penglai_desktop_settings.json
 fn settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -148,59 +156,16 @@ fn write_desktop_settings(python_path: &str, project_dir: &str) -> Result<(), St
         .map_err(|e| format!("Failed to write settings: {}", e))
 }
 
-fn output_text(output: &Output) -> String {
-    let mut text = String::new();
-    text.push_str(&String::from_utf8_lossy(&output.stdout));
-    text.push_str(&String::from_utf8_lossy(&output.stderr));
-    text
-}
-
-fn run_command_capture(mut command: Command, label: &str) -> Result<String, String> {
-    let output = command
-        .output()
-        .map_err(|e| format!("{} 启动失败: {}", label, e))?;
-    let text = output_text(&output);
-    if output.status.success() {
-        Ok(text)
-    } else {
-        Err(format!("{} 失败。\n{}", label, text))
-    }
-}
-
-fn run_optional_penglai_command(python_path: &str, project_dir: &str, args: &[&str], label: &str) -> String {
-    let mut command = Command::new(python_path);
-    command.arg("penglai").args(args).current_dir(project_dir);
-    match command.output() {
-        Ok(output) => {
-            let text = output_text(&output);
-            if output.status.success() {
-                format!("\n[{}]\n{}", label, text)
-            } else {
-                format!("\n[{} 未完成]\n{}", label, text)
-            }
-        }
-        Err(e) => format!("\n[{} 启动失败]\n{}", label, e),
-    }
-}
-
-#[cfg(windows)]
-fn ps_single_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
-}
-
 fn legacy_settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".ga_desktop_settings.json")
 }
 
-/// Read config from settings file, or auto-discover and save
 pub fn get_or_discover_config() -> (String, String) {
     let path = settings_path();
     let legacy_path = legacy_settings_path();
 
-    // Try reading existing settings. The old desktop settings path is kept as
-    // a one-way migration source so existing testers do not lose their config.
     for read_path in [&path, &legacy_path] {
         if !read_path.exists() {
             continue;
@@ -229,7 +194,6 @@ pub fn get_or_discover_config() -> (String, String) {
         }
     }
 
-    // Auto-discover
     let project = find_project_dir().unwrap_or_default();
     let python = if project.is_empty() {
         find_python()
@@ -237,7 +201,6 @@ pub fn get_or_discover_config() -> (String, String) {
         find_project_python(&PathBuf::from(&project)).unwrap_or_else(find_python)
     };
 
-    // Save discovered config
     if !python.is_empty() && !project.is_empty() {
         let json = serde_json::json!({
             "python_path": &python,
@@ -321,19 +284,6 @@ fn start_bridge() {
     }
 }
 
-#[allow(dead_code)]
-fn ensure_bridge_running() {
-    if is_bridge_running() {
-        eprintln!("[penglai-desktop] bridge already running on 127.0.0.1:14168; reusing it");
-        return;
-    }
-    if is_bridge_port_open() {
-        eprintln!("[penglai-desktop] port 14168 is occupied by an old or untrusted bridge; not reusing it");
-        return;
-    }
-    start_bridge();
-}
-
 fn stop_bridge_process() {
     if let Ok(mut guard) = BRIDGE_PROCESS.lock() {
         if let Some(mut child) = guard.take() {
@@ -343,12 +293,150 @@ fn stop_bridge_process() {
     }
 }
 
+/// Spawn a command, stream its stdout/stderr line-by-line as install-progress
+/// events, and return Ok(log) or Err(log) when it finishes.  This replaces the
+/// old `command.output()` blocking call that left the UI frozen for minutes.
+fn run_streaming(
+    app_handle: &tauri::AppHandle,
+    mut command: Command,
+    step: &str,
+) -> Result<String, String> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+    let mut child = command.spawn().map_err(|e| {
+        let msg = format!("启动失败: {}", e);
+        let _ = app_handle.emit("install-progress", InstallProgress {
+            step: step.to_string(),
+            line: msg.clone(),
+            done: true,
+            ok: false,
+        });
+        msg
+    })?;
+
+    let stdout = child.stdout.take().expect("stdout pipe");
+    let stderr = child.stderr.take().expect("stderr pipe");
+
+    let step_clone = step.to_string();
+    let app_clone = app_handle.clone();
+    let stdout_thread = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(text) = line {
+                let _ = app_clone.emit("install-progress", InstallProgress {
+                    step: step_clone.clone(),
+                    line: text,
+                    done: false,
+                    ok: false,
+                });
+            }
+        }
+    });
+
+    let step_clone2 = step.to_string();
+    let app_clone2 = app_handle.clone();
+    let stderr_thread = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(text) = line {
+                let _ = app_clone2.emit("install-progress", InstallProgress {
+                    step: step_clone2.clone(),
+                    line: text,
+                    done: false,
+                    ok: false,
+                });
+            }
+        }
+    });
+
+    let status = child.wait().map_err(|e| format!("wait failed: {}", e))?;
+    let _ = stdout_thread.join();
+    let _ = stderr_thread.join();
+
+    let ok = status.success();
+    let _ = app_handle.emit("install-progress", InstallProgress {
+        step: step.to_string(),
+        line: if ok { "完成".to_string() } else { format!("退出码: {}", status.code().unwrap_or(-1)) },
+        done: true,
+        ok,
+    });
+
+    if ok {
+        Ok(String::new())
+    } else {
+        Err(format!("{} 失败，退出码: {}", step, status.code().unwrap_or(-1)))
+    }
+}
+
+/// Build the install.sh / install.ps1 command for the desktop runtime dir.
+fn build_install_command(project_dir: &PathBuf) -> Command {
+    let target = project_dir.to_string_lossy().to_string();
+
+    #[cfg(windows)]
+    {
+        let script_url = raw_github_url("install.ps1");
+        let ps = format!(
+            "$ErrorActionPreference='Stop'; \
+             $env:PENGLAI_BRANCH={branch}; \
+             $env:PENGLAI_SKIP_SETUP='1'; \
+             $env:PENGLAI_INSTALL_VERIFY='1'; \
+             $env:PENGLAI_INSTALL_DEPS='1'; \
+             $env:PENGLAI_DIR={dir}; \
+             $env:PYTHONUTF8='1'; \
+             $env:PYTHONIOENCODING='utf-8'; \
+             Invoke-WebRequest -UseBasicParsing {script_url} | Invoke-Expression",
+            branch = ps_single_quote(PENGLAI_RELEASE_BRANCH),
+            dir = ps_single_quote(&target),
+            script_url = ps_single_quote(&script_url),
+        );
+        let mut command = Command::new("powershell.exe");
+        command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps]);
+        command
+    }
+
+    #[cfg(not(windows))]
+    {
+        // Download install.sh to a temp file first, then execute it.
+        // This avoids the `curl | sh` pipe which silently succeeds (exit 0)
+        // when curl fails to download the script — the root cause of the
+        // "click button, nothing happens" bug.
+        let tmp_dir = std::env::temp_dir();
+        let script_path = tmp_dir.join("penglai-install-desktop.sh");
+        let script_path_str = script_path.to_string_lossy().to_string();
+        let url = raw_github_url("install.sh");
+
+        // Download with fallback to gh-proxy mirror
+        let download_ps = format!(
+            "curl -fsSL -m 30 -o \"{dest}\" \"{url}\" 2>/dev/null || \
+             curl -fsSL -m 30 -o \"{dest}\" \"https://gh-proxy.com/{url}\" 2>/dev/null",
+            dest = script_path_str,
+            url = url,
+        );
+        let _ = Command::new("sh").arg("-c").arg(&download_ps).output();
+
+        let mut command = Command::new("sh");
+        command.arg(&script_path_str);
+        command
+            .env("PENGLAI_BRANCH", PENGLAI_RELEASE_BRANCH)
+            .env("PENGLAI_DIR", &target)
+            .env("PENGLAI_SKIP_SETUP", "1")
+            .env("PENGLAI_INSTALL_VERIFY", "1")
+            .env("PENGLAI_INSTALL_DEPS", "1");
+        command
+    }
+}
+
+#[cfg(windows)]
+fn ps_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
 #[tauri::command]
 fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, project_dir: String) -> Result<(), String> {
-    // Save to settings
     write_desktop_settings(&python_path, &project_dir)?;
 
-    // Start bridge only if it is not already accepting connections.
     if !is_bridge_running() {
         if is_bridge_port_open() {
             return Err("检测到旧版或非蓬莱桌面桥接占用 127.0.0.1:14168；请先关闭旧桥接后重试。".into());
@@ -363,17 +451,15 @@ fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, p
         let mut cmd = Command::new(&py);
         cmd.arg(&script).current_dir(&dir);
         #[cfg(windows)]
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.creation_flags(0x08000000);
         let child = cmd.spawn().map_err(|e| format!("Failed to spawn: {}", e))?;
         *BRIDGE_PROCESS.lock().unwrap() = Some(child);
     }
 
-    // Wait until the bridge serves the tokenized Penglai frontend.
     if !wait_for_bridge_ready(Duration::from_secs(20)) {
         return Err("Bridge did not become ready within 20s".into());
     }
 
-    // Navigate main window to bridge URL after the bridge is ready, then show it.
     if let Some(main_win) = app_handle.get_webview_window("main") {
         let url = tauri::Url::parse("http://127.0.0.1:14168/").unwrap();
         let _ = main_win.navigate(url);
@@ -392,65 +478,120 @@ fn get_config() -> (String, String) {
     get_or_discover_config()
 }
 
+/// Full runtime install with streaming progress events.
+/// Emits "install-progress" events with {step, line, done, ok} to the frontend.
 #[tauri::command]
-fn install_runtime(include_voice: bool, include_tts: bool) -> Result<RuntimeInstallResult, String> {
-    let mut log = String::new();
-    #[cfg(windows)]
-    {
-        let script_url = raw_github_url("install.ps1");
-        let ps = format!(
-            "$ErrorActionPreference='Stop'; \
-             $env:PENGLAI_BRANCH={branch}; \
-             $env:PENGLAI_SKIP_SETUP='1'; \
-             $env:PENGLAI_INSTALL_VERIFY='1'; \
-             $env:PENGLAI_INSTALL_DEPS='1'; \
-             Invoke-WebRequest -UseBasicParsing {script_url} | Invoke-Expression",
-            branch = ps_single_quote(PENGLAI_RELEASE_BRANCH),
-            script_url = ps_single_quote(&script_url),
-        );
-        let mut command = Command::new("powershell.exe");
-        command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps]);
-        #[cfg(windows)]
-        command.creation_flags(0x08000000);
-        log.push_str(&run_command_capture(command, "Windows 运行时初始化")?);
-    }
-    #[cfg(not(windows))]
-    {
-        let mut command = Command::new("sh");
-        command
-            .arg("-c")
-            .arg("curl -fsSL \"$PENGLAI_INSTALL_URL\" | sh")
-            .env("PENGLAI_INSTALL_URL", raw_github_url("install.sh"))
-            .env("PENGLAI_BRANCH", PENGLAI_RELEASE_BRANCH)
-            .env("PENGLAI_SKIP_SETUP", "1")
-            .env("PENGLAI_INSTALL_VERIFY", "1")
-            .env("PENGLAI_INSTALL_DEPS", "1");
-        log.push_str(&run_command_capture(command, "macOS 运行时初始化")?);
-    }
-
+fn install_runtime(
+    app_handle: tauri::AppHandle,
+    include_voice: bool,
+    include_tts: bool,
+) -> Result<RuntimeInstallResult, String> {
     let project = default_runtime_project_dir();
     let project_dir = project.to_string_lossy().to_string();
+
+    // Step 1: bootstrap (download source + Python + deps + install-check)
+    let cmd = build_install_command(&project);
+    run_streaming(&app_handle, cmd, "bootstrap")?;
+
     let python_path = find_project_python(&project).unwrap_or_else(find_python);
 
+    // Step 2: optional voice model
     if include_voice {
-        log.push_str(&run_optional_penglai_command(
-            &python_path,
-            &project_dir,
-            &["enable", "voice"],
-            "语音转写模型初始化",
-        ));
-    }
-    if include_tts {
-        log.push_str(&run_optional_penglai_command(
-            &python_path,
-            &project_dir,
-            &["enable", "tts"],
-            "语音输出模型初始化",
-        ));
+        let mut cmd = Command::new(&python_path);
+        cmd.arg("penglai").arg("enable").arg("voice").current_dir(&project);
+        let _ = run_streaming(&app_handle, cmd, "voice");
     }
 
+    // Step 3: optional TTS model
+    if include_tts {
+        let mut cmd = Command::new(&python_path);
+        cmd.arg("penglai").arg("enable").arg("tts").current_dir(&project);
+        let _ = run_streaming(&app_handle, cmd, "tts");
+    }
+
+    // Step 4: diagnostics (install-check)
+    let mut cmd = Command::new(&python_path);
+    cmd.arg("penglai").arg("install-check").arg("--json").current_dir(&project);
+    let _ = run_streaming(&app_handle, cmd, "diagnostics");
+
     write_desktop_settings(&python_path, &project_dir)?;
-    Ok(RuntimeInstallResult { python_path, project_dir, log })
+    Ok(RuntimeInstallResult { python_path, project_dir, log: String::new() })
+}
+
+/// Run a single step independently (for re-running voice/tts/doctor/update-check
+/// without redoing the full bootstrap).  Supports the "补配置" use case.
+#[tauri::command]
+fn install_runtime_step(
+    app_handle: tauri::AppHandle,
+    step: String,
+) -> Result<String, String> {
+    let project = default_runtime_project_dir();
+    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+
+    match step.as_str() {
+        "voice" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("enable").arg("voice").current_dir(&project);
+            run_streaming(&app_handle, cmd, "voice")
+        }
+        "tts" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("enable").arg("tts").current_dir(&project);
+            run_streaming(&app_handle, cmd, "tts")
+        }
+        "doctor" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("doctor").current_dir(&project);
+            run_streaming(&app_handle, cmd, "doctor")
+        }
+        "install-check" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("install-check").arg("--json").current_dir(&project);
+            run_streaming(&app_handle, cmd, "install-check")
+        }
+        "update-check" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("update").arg("--check").current_dir(&project);
+            run_streaming(&app_handle, cmd, "update-check")
+        }
+        "update-apply" => {
+            let mut cmd = Command::new(&python_path);
+            cmd.arg("penglai").arg("update").arg("--apply").current_dir(&project);
+            run_streaming(&app_handle, cmd, "update-apply")
+        }
+        _ => Err(format!("未知步骤: {}", step)),
+    }
+}
+
+/// Check for runtime updates by parsing `penglai update --check` output.
+#[tauri::command]
+fn check_update() -> Result<UpdateInfo, String> {
+    let project = default_runtime_project_dir();
+    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+
+    let mut cmd = Command::new(&python_path);
+    cmd.arg("penglai").arg("update").arg("--check").current_dir(&project);
+    let output = cmd.output().map_err(|e| format!("启动失败: {}", e))?;
+    let text = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+
+    // Parse: "🔄 检查蓬莱更新 ..." + "✅ 已是最新版" or version lines
+    let has_update = text.contains("落后") || text.contains("新版本");
+    let old_version = extract_field(&text, "当前").or(extract_field(&text, "old")).unwrap_or_default();
+    let new_version = extract_field(&text, "最新").or(extract_field(&text, "new")).unwrap_or_default();
+
+    Ok(UpdateInfo {
+        has_update,
+        old_version,
+        new_version,
+        detail: text,
+    })
+}
+
+fn extract_field(_text: &str, _key: &str) -> Option<String> {
+    // Simple extraction; penglai update --check prints human-readable text
+    // We return the whole text as detail and let frontend parse display
+    None
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -465,7 +606,6 @@ pub fn run() {
         if is_bridge_port_open() {
             eprintln!("[penglai-desktop] port 14168 is occupied by an old or untrusted bridge; setup window will be shown");
         } else {
-            // Try to start bridge with saved/discovered config.
             let (py_str, dir_str) = get_or_discover_config();
             let dir = PathBuf::from(&dir_str);
             let script = dir.join("frontends").join("desktop_bridge.py");
@@ -490,7 +630,13 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
-        .invoke_handler(tauri::generate_handler![start_bridge_with_config, get_config, install_runtime])
+        .invoke_handler(tauri::generate_handler![
+            start_bridge_with_config,
+            get_config,
+            install_runtime,
+            install_runtime_step,
+            check_update,
+        ])
         .setup(move |app| {
             let bridge_wait = if spawned_bridge {
                 Duration::from_secs(20)
@@ -499,15 +645,12 @@ pub fn run() {
             };
             let bridge_ready = if bridge_ok { true } else { wait_for_bridge_ready(bridge_wait) };
             if bridge_ready {
-                // Navigate to bridge HTTP only after it is ready; the window starts on loading.html
-                // so WebView never caches an early "connection refused" error page.
                 if let Some(w) = app.get_webview_window("main") {
                     let url = tauri::Url::parse("http://127.0.0.1:14168/").unwrap();
                     let _ = w.navigate(url);
                     if dev_mode {
                         w.open_devtools();
                     } else {
-                        // Disable F5/F12/Ctrl+R/right-click in production
                         let _ = w.eval(r#"
                             document.addEventListener('keydown', function(e) {
                                 if (e.key === 'F12' || e.key === 'F5' ||
@@ -524,7 +667,6 @@ pub fn run() {
                     let _ = w.show();
                 }
             } else {
-                // Show setup window
                 if let Some(w) = app.get_webview_window("setup") {
                     if dev_mode {
                         w.open_devtools();
@@ -538,11 +680,9 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let label = window.label();
                 if label == "main" {
-                    // Main closed -> exit app
                     stop_bridge_process();
                     window.app_handle().exit(0);
                 } else if label == "setup" {
-                    // Setup closed -> exit if main is not visible
                     if let Some(main_win) = window.app_handle().get_webview_window("main") {
                         if !main_win.is_visible().unwrap_or(false) {
                             stop_bridge_process();

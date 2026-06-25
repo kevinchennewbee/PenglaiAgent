@@ -2,83 +2,123 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>蓬莱 - 配置</title>
+<title>蓬莱 - 初始化</title>
 <style>
-:root{--bg:#fff;--text:#0a0a0a;--muted:#6b6b6b;--border:#e8e8e8;--accent:#0a0a0a;--accent-text:#fff;--radius:10px;--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
+:root{--bg:#fff;--text:#0a0a0a;--muted:#6b6b6b;--border:#e8e8e8;--accent:#0a0a0a;--accent-text:#fff;--radius:10px;--ok:#16a34a;--err:#dc2626;--warn:#d97706;--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--text:#ededed;--muted:#a0a0a0;--border:#2a2a2a;--accent:#ededed;--accent-text:#0a0a0a}}
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;font-family:var(--font);background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center}
-.card{max-width:500px;width:90%;padding:2rem;border:1px solid var(--border);border-radius:var(--radius);text-align:center}
-h1{font-size:1.4rem;margin:0 0 .5rem}
-p{color:var(--muted);font-size:.9rem;margin:.4rem 0;line-height:1.5}
-.input-row{display:flex;gap:8px;margin-top:1.2rem}
-input[type=text]{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem;background:var(--bg);color:var(--text);outline:none}
-input[type=text]:focus{border-color:var(--accent)}
-button{padding:10px 18px;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;background:var(--accent);color:var(--accent-text);font-weight:500}
+html,body{margin:0;min-height:100%;font-family:var(--font);background:var(--bg);color:var(--text)}
+body{display:flex;align-items:center;justify-content:center;padding:1rem}
+.card{max-width:560px;width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+h1{font-size:1.4rem;margin:0 0 .3rem}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 1.2rem;line-height:1.5}
+/* Progress steps */
+.steps{display:flex;gap:0;margin-bottom:1.5rem}
+.step-item{flex:1;text-align:center;font-size:.75rem;color:var(--muted);position:relative;padding-top:.6rem}
+.step-item::before{content:"";display:block;width:28px;height:28px;border-radius:50%;background:var(--border);margin:0 auto .3rem;line-height:28px;color:var(--accent-text);font-size:.8rem;font-weight:600}
+.step-item.active::before{background:var(--accent);content:attr(data-num)}
+.step-item.done::before{background:var(--ok);content:"✓";color:#fff}
+.step-item.active{color:var(--text);font-weight:500}
+.step-item::after{content:"";position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border)}
+.step-item:last-child::after{display:none}
+.step-item.done::after{background:var(--ok)}
+/* Log area */
+.log-box{background:rgba(0,0,0,.03);border:1px solid var(--border);border-radius:6px;height:180px;overflow-y:auto;padding:.6rem .8rem;font-size:.78rem;font-family:ui-monospace,"SF Mono",Monaco,monospace;line-height:1.5;margin-bottom:1rem;white-space:pre-wrap;word-break:break-all}
+@media(prefers-color-scheme:dark){.log-box{background:rgba(255,255,255,.04)}}
+.log-line{margin:0}
+.log-ok{color:var(--ok)}
+.log-err{color:var(--err)}
+.log-warn{color:var(--warn)}
+.log-muted{color:var(--muted)}
+/* Controls */
+.options{margin-bottom:1rem}
+.option{display:flex;align-items:flex-start;gap:10px;text-align:left;margin:.6rem 0;font-size:.88rem}
+.option input{margin-top:3px}
+.option span{display:block;color:var(--muted);font-size:.76rem;margin-top:2px;line-height:1.35}
+button{padding:10px 18px;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;background:var(--accent);color:var(--accent-text);font-weight:500;width:100%}
 button:hover{opacity:.85}
 button:disabled{opacity:.4;cursor:not-allowed}
-.secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
-.option{display:flex;align-items:flex-start;gap:10px;text-align:left;margin:.85rem 0;color:var(--text);font-size:.88rem}
-.option input{margin-top:3px}
-.option span{display:block;color:var(--muted);font-size:.78rem;margin-top:2px;line-height:1.35}
-.divider{height:1px;background:var(--border);margin:1.4rem 0 1rem}
-.field-label{display:block;text-align:left;font-size:.8rem;font-weight:500;margin-top:1rem;margin-bottom:.3rem;color:var(--text)}
-#status{margin-top:1rem;font-size:.85rem;min-height:1.2em}
-.err{color:#dc2626}.ok{color:#16a34a}
+.secondary{background:transparent;color:var(--text);border:1px solid var(--border);width:auto;padding:6px 14px;font-size:.82rem}
+.divider{height:1px;background:var(--border);margin:1.2rem 0 1rem}
+details{margin-top:.8rem}
+summary{cursor:pointer;color:var(--muted);font-size:.8rem;user-select:none}
+.advanced{margin-top:.8rem}
+.field-label{display:block;font-size:.8rem;font-weight:500;margin-bottom:.3rem}
+input[type=text]{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:.5rem}
+input[type=text]:focus{border-color:var(--accent)}
+.status-msg{font-size:.85rem;min-height:1.2em;text-align:center;margin-top:.5rem}
+.ok{color:var(--ok)}.err{color:var(--err)}
+.hidden{display:none}
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>初始化蓬莱</h1>
-  <p>首次启动会安装本机运行时、Python 环境和基础依赖。</p>
+  <h1 id="title">初始化蓬莱</h1>
+  <p class="sub" id="subtitle">首次启动会自动下载运行时、Python 环境和基础依赖，国内优先镜像。</p>
 
-  <label class="option">
-    <input id="voice-opt" type="checkbox" checked>
-    <div>启用语音转写
-      <span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span>
-    </div>
-  </label>
-  <label class="option">
-    <input id="tts-opt" type="checkbox">
-    <div>启用语音输出
-      <span>MOSS-TTS-Nano 本地模型，约 728MB。</span>
-    </div>
-  </label>
-
-  <button id="install-btn" onclick="doInstall()" style="margin-top:.7rem;width:100%">自动初始化并启动</button>
-
-  <div class="divider"></div>
-  <p>已有本机运行时可直接指定路径。</p>
-
-  <label class="field-label">Python 解释器路径</label>
-  <div class="input-row">
-    <input id="pypath" type="text" placeholder="python 或解释器完整路径" spellcheck="false">
+  <div class="steps" id="steps-bar">
+    <div class="step-item active" data-num="1" id="s1">下载运行时</div>
+    <div class="step-item" data-num="2" id="s2">安装依赖</div>
+    <div class="step-item" data-num="3" id="s3">能力选择</div>
+    <div class="step-item" data-num="4" id="s4">诊断验证</div>
   </div>
-  <p style="color:var(--muted);font-size:.75rem;margin-top:.3rem">
-    例如：<code>C:/Python312/python.exe</code> / <code>~/miniconda3/envs/myenv/bin/python</code>
-  </p>
 
-  <label class="field-label">项目目录</label>
-  <div class="input-row">
-    <input id="projdir" type="text" placeholder="蓬莱项目目录路径" spellcheck="false">
+  <!-- Step 3 options (shown before starting) -->
+  <div class="options hidden" id="opts-panel">
+    <label class="option">
+      <input id="voice-opt" type="checkbox" checked>
+      <div>启用语音转写
+        <span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span>
+      </div>
+    </label>
+    <label class="option">
+      <input id="tts-opt" type="checkbox">
+      <div>启用语音输出
+        <span>MOSS-TTS-Nano 本地模型，约 728MB。</span>
+      </div>
+    </label>
   </div>
-  <p style="color:var(--muted);font-size:.75rem;margin-top:.3rem">
-    请选择包含 <code>frontends/desktop_bridge.py</code> 的目录。
-  </p>
 
-  <button class="secondary" id="start-btn" onclick="doStart()" style="margin-top:1.2rem;width:100%">使用已有运行时启动</button>
-  <div id="status"></div>
+  <!-- Log area -->
+  <div class="log-box hidden" id="log-box"></div>
+
+  <!-- Action buttons -->
+  <button id="start-btn" onclick="startInstall()">自动初始化并启动</button>
+  <button id="retry-btn" class="hidden" onclick="retryStep()">重试此步</button>
+  <div class="status-msg" id="status"></div>
+
+  <details>
+    <summary>已有运行时？手动指定路径</summary>
+    <div class="advanced">
+      <label class="field-label">Python 解释器路径</label>
+      <input id="pypath" type="text" placeholder="python 或解释器完整路径" spellcheck="false">
+      <label class="field-label">项目目录</label>
+      <input id="projdir" type="text" placeholder="蓬莱项目目录路径" spellcheck="false">
+      <button class="secondary" onclick="doStart()">使用已有运行时启动</button>
+    </div>
+  </details>
 </div>
 <script>
 const {invoke} = window.__TAURI__.core;
 const {getCurrentWindow, Window} = window.__TAURI__.window;
+const {listen} = window.__TAURI__.event;
+
+const titleEl = document.getElementById('title');
+const subtitleEl = document.getElementById('subtitle');
+const stepsBar = document.getElementById('steps-bar');
+const logBox = document.getElementById('log-box');
+const startBtn = document.getElementById('start-btn');
+const retryBtn = document.getElementById('retry-btn');
 const statusEl = document.getElementById('status');
-const btn = document.getElementById('start-btn');
-const installBtn = document.getElementById('install-btn');
-const pyInput = document.getElementById('pypath');
-const dirInput = document.getElementById('projdir');
+const optsPanel = document.getElementById('opts-panel');
 const voiceOpt = document.getElementById('voice-opt');
 const ttsOpt = document.getElementById('tts-opt');
+const pyInput = document.getElementById('pypath');
+const dirInput = document.getElementById('projdir');
+
+let currentStep = 0;
+let installStarted = false;
+let unlistenProgress = null;
 
 // Pre-fill from Rust config discovery
 invoke('get_config').then(([py, dir]) => {
@@ -86,52 +126,127 @@ invoke('get_config').then(([py, dir]) => {
   if (dir) dirInput.value = dir;
 }).catch(()=>{});
 
+function setStep(n) {
+  currentStep = n;
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('s' + i);
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+}
+
+function appendLog(text, cls) {
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' log-' + cls : '');
+  line.textContent = text;
+  logBox.appendChild(line);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function clearLog() { logBox.innerHTML = ''; }
+
 async function openMainWindow() {
   const mainWin = await Window.getByLabel('main');
-  if (mainWin) {
-    await mainWin.show();
-    await mainWin.setFocus();
-  }
+  if (mainWin) { await mainWin.show(); await mainWin.setFocus(); }
   const setupWin = getCurrentWindow();
   await setupWin.hide();
 }
 
-async function doInstall() {
-  installBtn.disabled = true;
-  btn.disabled = true;
-  statusEl.className=''; statusEl.textContent='正在初始化运行时，首次可能需要几分钟…';
+// Listen for streaming progress events from Rust
+async function setupProgressListener() {
+  if (unlistenProgress) return;
+  unlistenProgress = await listen('install-progress', (event) => {
+    const p = event.payload;
+    if (p.line) {
+      let cls = '';
+      if (p.line.includes('✅')) cls = 'ok';
+      else if (p.line.includes('❌')) cls = 'err';
+      else if (p.line.includes('⚠️')) cls = 'warn';
+      appendLog(p.line, cls);
+    }
+    if (p.done) {
+      if (p.ok) {
+        appendLog('✅ ' + p.step + ' 完成', 'ok');
+      } else {
+        appendLog('❌ ' + p.step + ' 失败', 'err');
+      }
+    }
+  });
+}
+
+async function startInstall() {
+  if (installStarted) return;
+  installStarted = true;
+  startBtn.disabled = true;
+  optsPanel.classList.add('hidden');
+  logBox.classList.remove('hidden');
+  clearLog();
+  statusEl.className = 'status-msg';
+  statusEl.textContent = '';
+
+  await setupProgressListener();
+
+  setStep(1);
+  appendLog('🚀 开始初始化蓬莱运行时…', 'ok');
+  appendLog('安装目录: ~/PenglaiAgentDesktop', 'muted');
+  appendLog('', '');
+
   try {
     const result = await invoke('install_runtime', {
       includeVoice: voiceOpt.checked,
       includeTts: ttsOpt.checked
     });
-    pyInput.value = result.python_path || result.pythonPath || '';
-    dirInput.value = result.project_dir || result.projectDir || '';
-    statusEl.className=''; statusEl.textContent='运行时已就绪，正在启动中枢桥接…';
-    await invoke('start_bridge_with_config', {pythonPath: pyInput.value, projectDir: dirInput.value});
-    statusEl.className='ok'; statusEl.textContent='已连接，正在打开主窗口…';
+
+    // install_runtime streams all steps via events; update UI for each
+    setStep(4);
+    appendLog('', '');
+    appendLog('✅ 初始化完成！', 'ok');
+    appendLog('Python: ' + (result.python_path || ''), 'muted');
+    appendLog('项目目录: ' + (result.project_dir || ''), 'muted');
+    statusEl.className = 'status-msg ok';
+    statusEl.textContent = '运行时就绪，正在启动中枢桥接…';
+
+    await invoke('start_bridge_with_config', {
+      pythonPath: result.python_path,
+      projectDir: result.project_dir
+    });
+    statusEl.textContent = '已连接，正在打开主窗口…';
     await openMainWindow();
   } catch(e) {
-    statusEl.className='err'; statusEl.textContent='初始化失败：'+e;
-    installBtn.disabled = false;
-    btn.disabled = false;
+    appendLog('❌ ' + e, 'err');
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = '初始化失败：' + e;
+    startBtn.disabled = false;
+    startBtn.textContent = '重新初始化';
+    installStarted = false;
   }
+}
+
+function retryStep() {
+  // Re-run the current step via install_runtime_step
+  // For now, simplest: re-run full install
+  installStarted = false;
+  startInstall();
 }
 
 async function doStart() {
   const pythonPath = pyInput.value.trim();
   const projectDir = dirInput.value.trim();
-  if (!pythonPath) { statusEl.className='err'; statusEl.textContent='请输入 Python 路径'; return; }
-  if (!projectDir) { statusEl.className='err'; statusEl.textContent='请输入项目目录'; return; }
-  btn.disabled = true;
-  statusEl.className=''; statusEl.textContent='正在启动中枢桥接…';
+  if (!pythonPath) { statusEl.className='status-msg err'; statusEl.textContent='请输入 Python 路径'; return; }
+  if (!projectDir) { statusEl.className='status-msg err'; statusEl.textContent='请输入项目目录'; return; }
+  startBtn.disabled = true;
+  statusEl.className = 'status-msg';
+  statusEl.textContent = '正在启动中枢桥接…';
   try {
     await invoke('start_bridge_with_config', {pythonPath, projectDir});
-    statusEl.className='ok'; statusEl.textContent='已连接，正在打开主窗口…';
+    statusEl.className = 'status-msg ok';
+    statusEl.textContent = '已连接，正在打开主窗口…';
     await openMainWindow();
   } catch(e) {
-    statusEl.className='err'; statusEl.textContent='启动失败：'+e;
-    btn.disabled = false;
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = '启动失败：' + e;
+    startBtn.disabled = false;
   }
 }
 pyInput.addEventListener('keydown', e=>{ if(e.key==='Enter') dirInput.focus(); });

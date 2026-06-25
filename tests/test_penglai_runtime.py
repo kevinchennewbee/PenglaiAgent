@@ -2151,9 +2151,9 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
     def catalog():
         return {
             "read_only": ["doctor", "selfcheck", "install-check", "update-check", "runtime-service-status"],
-            "state_changing": ["runtime-service-install", "runtime-service-uninstall"],
+            "state_changing": ["runtime-service-install", "runtime-service-uninstall", "update-apply"],
             "logs": ["feishu"],
-            "not_exposed": ["setup", "update-apply", "start", "stop", "restart"],
+            "not_exposed": ["setup", "start", "stop", "restart"],
         }
 
     def checks(root=None):
@@ -3471,8 +3471,12 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert "PENGLAI_INSTALL_DEPS" in lib_rs
     assert "PENGLAI_RELEASE_BRANCH" in lib_rs
     assert "codex/0.3.0-runtime-hub" in lib_rs
-    assert '&["enable", "voice"]' in lib_rs
-    assert '&["enable", "tts"]' in lib_rs
+    assert 'arg("enable").arg("voice")' in lib_rs
+    assert 'arg("enable").arg("tts")' in lib_rs
+    assert "fn install_runtime_step" in lib_rs
+    assert "fn check_update" in lib_rs
+    assert "install-progress" in lib_rs
+    assert "PenglaiAgentDesktop" in lib_rs
     assert "fn stop_bridge_process()" in lib_rs
     assert "child.kill()" in lib_rs
     assert 'join(".venv").join("Scripts").join("python.exe")' in lib_rs

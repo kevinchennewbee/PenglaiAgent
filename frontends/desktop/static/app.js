@@ -2470,4 +2470,45 @@ settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSe
   await loadModelProfiles();
   updateSendButton();
   inputEl.focus();
+
+  // Check for runtime updates on startup
+  checkForUpdates();
 })();
+
+// ─── Update check ──────────────────────────────────────────────────────
+async function checkForUpdates() {
+  const banner = $('update-banner');
+  if (!banner) return;
+  try {
+    const data = await window.penglai.runOpsCommand('update-check');
+    const text = (data && (data.stdout || data.text)) || '';
+    if (text.includes('落后') || text.includes('新版本')) {
+      banner.classList.remove('hidden');
+      const updateText = $('update-text');
+      if (updateText) updateText.textContent = '运行时新版本可用，点击一键升级（自动备份+回滚）';
+    }
+  } catch (err) {
+    // Silently skip — update check is best-effort, not a hard requirement
+  }
+}
+
+$('update-apply-btn')?.addEventListener('click', async () => {
+  const banner = $('update-banner');
+  const btn = $('update-apply-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '升级中…'; }
+  try {
+    setOpsOutput('正在升级运行时（预检→下载→重启→健康检查→失败自动回滚）…', '');
+    const data = await window.penglai.runOpsCommand('update-apply', { method: 'POST', timeout: 180 });
+    setOpsOutput('penglai update --apply（运行时升级）', data);
+    if (banner) banner.classList.add('hidden');
+    // Reload after update
+    setTimeout(() => location.reload(), 2000);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '一键升级'; }
+    showError('升级失败：' + (err.message || err));
+  }
+});
+
+$('update-dismiss-btn')?.addEventListener('click', () => {
+  $('update-banner')?.classList.add('hidden');
+});

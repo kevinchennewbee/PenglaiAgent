@@ -1028,3 +1028,24 @@ mark.search-highlight.active { background: #ff9800; color: #fff; }
 /* ─── Tab Drag ───────────────────────────────────────────────────────── */
 .tab-btn.drag-over-left { box-shadow: inset 3px 0 0 var(--accent, #4a9eff); }
 .tab-btn.drag-over-right { box-shadow: inset -3px 0 0 var(--accent, #4a9eff); }
+
+/* ─── Update Banner ──────────────────────────────────────────────────── */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--accent, #4a9eff);
+  color: #fff;
+  font-size: .82rem;
+}
+.update-banner .btn-sm {
+  padding: 3px 10px;
+  font-size: .78rem;
+  background: rgba(255,255,255,.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.3);
+  width: auto;
+}
+.update-banner .btn-sm:hover { background: rgba(255,255,255,.3); }
+.update-banner.hidden { display: none; }
