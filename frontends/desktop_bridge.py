@@ -934,6 +934,17 @@ ABILITY_REGISTRY = (
     ("intel",     "情报矩阵",   "多源搜索交叉验证"),
 )
 
+def _find_python():
+    """Find a working Python interpreter."""
+    import sys, os
+    # Prefer .venv python
+    venv_py = Path(manager.ga_root) / ".venv" / "bin" / "python"
+    if not venv_py.exists():
+        venv_py = Path(manager.ga_root) / ".venv" / "Scripts" / "python.exe"
+    if venv_py.exists():
+        return str(venv_py)
+    return sys.executable
+
 def _read_mykey_keys():
     """Parse mykey.py into a dict of key-value pairs (strings only)."""
     mk = Path(manager.ga_root) / "mykey.py"
