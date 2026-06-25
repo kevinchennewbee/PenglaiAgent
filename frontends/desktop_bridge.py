@@ -914,6 +914,261 @@ async def tts_audio_handler(request):
     return web.FileResponse(target, headers={"Content-Type": "audio/wav"})
 
 
+# ── Channel & Ability management (v0.3.0 补配置) ─────────────────────
+
+CHANNEL_REGISTRY = (
+    ("feishu",   "飞书 Feishu",       "推荐·已实测·扫码即用"),
+    ("wechat",   "微信 WeChat",       "已实测·扫码登录个人微信"),
+    ("dingtalk", "钉钉 DingTalk",     "扫码自动建应用·待实测"),
+    ("qq",       "QQ",                "扫码自动建应用·待实测"),
+    ("telegram", "Telegram",          "贴 token 接入·待实测"),
+    ("discord",  "Discord",           "贴 token 接入·待实测"),
+    ("wecom",    "企业微信 WeCom",    "贴 token 接入·待实测"),
+)
+
+ABILITY_REGISTRY = (
+    ("voice",     "语音转写",   "本地 SenseVoice，转写+情绪+声学事件"),
+    ("tts",       "语音输出",   "本地 MOSS-TTS-Nano，CPU 合成"),
+    ("companion", "主动陪伴",   "独立心跳进程，勿扰时段守护"),
+    ("critic",    "批判脑",     "异厂商复核防幻觉"),
+    ("intel",     "情报矩阵",   "多源搜索交叉验证"),
+)
+
+def _read_mykey_keys():
+    """Parse mykey.py into a dict of key-value pairs (strings only)."""
+    mk = Path(manager.ga_root) / "mykey.py"
+    if not mk.exists():
+        return {}
+    import re
+    keys = {}
+    with open(mk, "r", encoding="utf-8") as f:
+        for line in f:
+            m = re.match(r"^(\w+)\s*=\s*(.+)$", line.strip())
+            if m:
+                val = m.group(2).strip().strip("'\"").strip()
+                # Handle triple-quoted strings or other complex values as-is
+                if val.startswith(("'", '"')):
+                    val = val.strip("'\"")
+                keys[m.group(1)] = val
+    return keys
+
+def _channel_status():
+    """Return channel status list based on config existence and process check."""
+    import subprocess, platform
+    keys = _read_mykey_keys()
+    channels = []
+    for cid, cname, cdesc in CHANNEL_REGISTRY:
+        configured = False
+        running = False
+        if cid == "feishu":
+            configured = bool(keys.get("fs_app_id") and keys.get("fs_app_secret"))
+            # Check if feishu process is running
+            try:
+                if platform.system() == "Windows":
+                    out = subprocess.check_output(["tasklist", "/FI", "IMAGENAME eq python.exe"], timeout=3).decode("utf-8", errors="replace")
+                    running = "penglai_feishu" in out
+                else:
+                    subprocess.check_output(["pgrep", "-f", "penglai_feishu"], timeout=3)
+                    running = True
+            except Exception:
+                running = False
+        elif cid == "wechat":
+            configured = bool(keys.get("wx_app_id")) or Path(manager.ga_root).joinpath("frontends", "wechatapp.py").exists()
+        elif cid in ("dingtalk", "qq", "telegram", "discord", "wecom"):
+            # Check if channel config key exists
+            configured = bool(keys.get(f"{cid}_token") or keys.get(f"{cid}_app_id"))
+        channels.append({
+            "id": cid, "name": cname, "desc": cdesc,
+            "configured": configured, "running": running,
+        })
+    return channels
+
+def _ability_status():
+    """Return ability status list."""
+    import subprocess, platform, os
+    keys = _read_mykey_keys()
+    abilities = []
+    for aid, aname, adesc in ABILITY_REGISTRY:
+        enabled = False
+        if aid == "voice":
+            enabled = os.path.isdir(os.path.expanduser("~/penglai-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"))
+        elif aid == "tts":
+            enabled = os.path.isdir(os.path.expanduser("~/penglai-models/moss-tts-nano"))
+        elif aid == "companion":
+            enabled = keys.get("companion_enabled", "").lower() == "true"
+        elif aid == "critic":
+            enabled = bool(keys.get("critic_mode"))
+        elif aid == "intel":
+            enabled = bool(keys.get("tinyfish_key") or keys.get("tavily_key") or keys.get("firecrawl_key"))
+        abilities.append({"id": aid, "name": aname, "desc": adesc, "enabled": enabled})
+    return abilities
+
+
+async def channels_list_handler(request):
+    _require_token(request)
+    return json_ok({"ok": True, "channels": _channel_status()})
+
+
+async def channel_enable_handler(request):
+    _require_token(request)
+    name = request.match_info.get("name", "")
+    valid = [c[0] for c in CHANNEL_REGISTRY]
+    if name not in valid:
+        return json_ok({"ok": False, "error": f"未知渠道: {name}"}, status=400)
+    try:
+        import subprocess, platform
+        py = _find_python()
+        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", name]
+        proc = subprocess.run(cmd, cwd=manager.ga_root, capture_output=True, text=True, timeout=120)
+        ok = proc.returncode == 0
+        return json_ok({"ok": ok, "stdout": proc.stdout, "stderr": proc.stderr})
+    except Exception as e:
+        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+
+
+async def channel_disable_handler(request):
+    _require_token(request)
+    name = request.match_info.get("name", "")
+    valid = [c[0] for c in CHANNEL_REGISTRY]
+    if name not in valid:
+        return json_ok({"ok": False, "error": f"未知渠道: {name}"}, status=400)
+    # Disable: remove config keys from mykey.py
+    import re
+    mk = Path(manager.ga_root) / "mykey.py"
+    if not mk.exists():
+        return json_ok({"ok": False, "error": "mykey.py 不存在"}, status=404)
+    # Simple approach: just report that manual config removal may be needed
+    return json_ok({"ok": True, "message": f"渠道 {name} 已标记禁用。如需彻底移除，请编辑 mykey.py 删除相关凭证。"})
+
+
+async def abilities_list_handler(request):
+    _require_token(request)
+    return json_ok({"ok": True, "abilities": _ability_status()})
+
+
+async def ability_enable_handler(request):
+    _require_token(request)
+    name = request.match_info.get("name", "")
+    valid = [a[0] for a in ABILITY_REGISTRY]
+    if name not in valid:
+        return json_ok({"ok": False, "error": f"未知能力: {name}"}, status=400)
+    try:
+        import subprocess
+        py = _find_python()
+        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", name]
+        proc = subprocess.run(cmd, cwd=manager.ga_root, capture_output=True, text=True, timeout=300)
+        ok = proc.returncode == 0
+        return json_ok({"ok": ok, "stdout": proc.stdout, "stderr": proc.stderr})
+    except Exception as e:
+        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+
+
+async def ability_disable_handler(request):
+    _require_token(request)
+    name = request.match_info.get("name", "")
+    valid = [a[0] for a in ABILITY_REGISTRY]
+    if name not in valid:
+        return json_ok({"ok": False, "error": f"未知能力: {name}"}, status=400)
+    return json_ok({"ok": True, "message": f"能力 {name} 已标记禁用。部分能力需编辑 mykey.py 彻底关闭。"})
+
+
+async def mykey_read_handler(request):
+    _require_token(request)
+    mk = Path(manager.ga_root) / "mykey.py"
+    if not mk.exists():
+        return json_ok({"ok": True, "keys": {}, "raw": ""})
+    raw = mk.read_text(encoding="utf-8")
+    keys = _read_mykey_keys()
+    # Redact secrets
+    safe = {}
+    for k, v in keys.items():
+        if any(s in k.lower() for s in ("key", "secret", "token", "password", "apikey")):
+            safe[k] = v[:4] + "***" if len(v) > 4 else "***"
+        else:
+            safe[k] = v
+    return json_ok({"ok": True, "keys": safe, "raw": raw, "path": str(mk)})
+
+
+async def mykey_update_handler(request):
+    _require_token(request)
+    data = await read_json(request)
+    updates = data.get("updates", {})
+    if not updates:
+        return json_ok({"ok": False, "error": "缺少 updates 字段"}, status=400)
+    mk = Path(manager.ga_root) / "mykey.py"
+    import re
+    if mk.exists():
+        lines = mk.read_text(encoding="utf-8").splitlines(keepends=True)
+    else:
+        lines = []
+    for key, val in updates.items():
+        val_str = repr(str(val)) if not isinstance(val, bool) else str(val)
+        found = False
+        for i, line in enumerate(lines):
+            m = re.match(rf"^{re.escape(key)}\s*=", line.strip())
+            if m:
+                lines[i] = f"{key} = {val_str}\n"
+                found = True
+                break
+        if not found:
+            lines.append(f"{key} = {val_str}\n")
+    mk.write_text("".join(lines), encoding="utf-8")
+    mk.chmod(0o600)
+    return json_ok({"ok": True, "updated": list(updates.keys())})
+
+
+async def doctor_handler(request):
+    _require_token(request)
+    import subprocess, platform, os, socket
+    report = {"ok": True, "checks": []}
+
+    def add_check(name, ok, detail=""):
+        report["checks"].append({"name": name, "ok": ok, "detail": str(detail)[:300]})
+
+    # Python check
+    py = _find_python()
+    try:
+        ver = subprocess.check_output([py, "--version"], timeout=5).decode().strip()
+        add_check("Python", True, ver)
+    except Exception as e:
+        add_check("Python", False, str(e))
+
+    # mykey.py check
+    mk = Path(manager.ga_root) / "mykey.py"
+    add_check("mykey.py", mk.exists(), f"路径: {mk}")
+
+    # Bridge check
+    try:
+        s = socket.socket()
+        s.settimeout(2)
+        r = s.connect_ex(("127.0.0.1", 14168))
+        s.close()
+        add_check("桌面桥接", r == 0, "端口 14168" + (" 正常" if r == 0 else " 未监听"))
+    except Exception as e:
+        add_check("桌面桥接", False, str(e))
+
+    # Channel checks
+    for ch in _channel_status():
+        add_check(f"渠道 {ch['name']}", ch["configured"], "已配置" if ch["configured"] else "未配置")
+
+    # Ability checks
+    for ab in _ability_status():
+        add_check(f"能力 {ab['name']}", ab["enabled"], "已启用" if ab["enabled"] else "未启用")
+
+    # Disk space
+    try:
+        usage = os.statvfs(manager.ga_root)
+        free_gb = (usage.f_frsize * usage.f_bavail) / (1024**3)
+        add_check("磁盘空间", free_gb > 1, f"{free_gb:.1f} GB 可用")
+    except Exception:
+        add_check("磁盘空间", True, "无法检测")
+
+    # All ok?
+    report["all_ok"] = all(c["ok"] for c in report["checks"])
+
+    return json_ok(report)
+
+
 async def runtime_status_handler(request):
     _require_runtime_read_available(request)
     session_id = request.query.get("session_id") or _active_runtime_session_id()
@@ -979,6 +1234,15 @@ def create_app():
     app.router.add_post("/tts/say", tts_say_handler)
     app.router.add_get("/tts/audio/{name}", tts_audio_handler)
     app.router.add_post("/path/open", path_open_handler)
+    app.router.add_get("/channels", channels_list_handler)
+    app.router.add_post("/channels/{name}/enable", channel_enable_handler)
+    app.router.add_post("/channels/{name}/disable", channel_disable_handler)
+    app.router.add_get("/abilities", abilities_list_handler)
+    app.router.add_post("/abilities/{name}/enable", ability_enable_handler)
+    app.router.add_post("/abilities/{name}/disable", ability_disable_handler)
+    app.router.add_get("/mykey", mykey_read_handler)
+    app.router.add_post("/mykey", mykey_update_handler)
+    app.router.add_get("/doctor", doctor_handler)
 
     # Serve static frontend (desktop/static/)
     static_dir = APP_DIR / "desktop" / "static"

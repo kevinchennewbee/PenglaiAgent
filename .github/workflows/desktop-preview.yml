@@ -5,7 +5,7 @@ on:
     branches:
       - codex/0.3.0-runtime-hub
     tags:
-      - "v0.3.0-preview*"
+      - "v0.3.0*"
     paths:
       - ".github/workflows/desktop-preview.yml"
       - "install.sh"
@@ -51,7 +51,7 @@ jobs:
           python-version: "3.11"
 
       - name: Require Apple signing secrets
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0')
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -74,7 +74,7 @@ jobs:
           fi
 
       - name: Import Apple Developer ID certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0')
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -131,7 +131,7 @@ jobs:
           sh install.sh
 
       - name: Build signed DMG
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0')
         working-directory: frontends/desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -140,12 +140,12 @@ jobs:
         run: npm run build:mac
 
       - name: Build DMG compile check
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') }}
         working-directory: frontends/desktop
         run: npm run build:mac
 
       - name: Re-sign app with adhoc signature and repack DMG
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -170,7 +170,7 @@ jobs:
         shell: bash
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
+          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}
         run: |
           set -euo pipefail
           dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
@@ -231,31 +231,31 @@ jobs:
           rm -rf "$copied_app_dir"
 
       - name: Cleanup Apple signing keychain
-        if: always() && startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: always() && startsWith(github.ref, 'refs/tags/v0.3.0')
         shell: bash
         run: |
           rm -f certificate.p12 developer-id-identities.txt
           security delete-keychain build.keychain >/dev/null 2>&1 || true
 
       - name: Stage macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         shell: bash
         run: |
           mkdir -p dist
-          if [ "${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}" != "true" ]; then
+          if [ "${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}" != "true" ]; then
             cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
               dist/Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg
             echo "Unsigned QA DMG uploaded for manual install/run testing only. It is not a public release artifact." >> "$GITHUB_STEP_SUMMARY"
           else
             cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
-              dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+              dist/Penglai_0.3.0_macos_aarch64.dmg
           fi
 
       - name: Upload macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') && 'penglai-0.3.0-preview-macos-aarch64' || 'penglai-0.3.0-qa-unsigned-macos-aarch64' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') && 'penglai-0.3.0-macos-aarch64' || 'penglai-0.3.0-qa-unsigned-macos-aarch64' }}
           path: dist/*.dmg
           if-no-files-found: error
 
@@ -283,7 +283,7 @@ jobs:
           python-version: "3.11"
 
       - name: Require Windows signing secrets
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0')
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -301,7 +301,7 @@ jobs:
           }
 
       - name: Import Windows signing certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0')
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -357,7 +357,7 @@ jobs:
       - name: Verify silent install and uninstall
         shell: pwsh
         env:
-          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
+          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}
         run: |
           $ErrorActionPreference = "Stop"
           function Split-CommandLine([string]$CommandLine) {
@@ -391,7 +391,7 @@ jobs:
             }
           }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          $artifactName = if ($env:PUBLIC_RELEASE -eq "true") { "Penglai_0.3.0_preview_windows_x64_setup.exe" } else { "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe" }
+          $artifactName = if ($env:PUBLIC_RELEASE -eq "true") { "Penglai_0.3.0_windows_x64_setup.exe" } else { "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe" }
           Copy-Item $setup.FullName (Join-Path "dist" $artifactName) -Force
 
           $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
@@ -513,15 +513,15 @@ jobs:
           if ($portOpen) { throw "Desktop bridge port 14168 is still listening after uninstall smoke cleanup." }
 
       - name: Upload Windows artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') && 'penglai-0.3.0-preview-windows-x64' || 'penglai-0.3.0-qa-unsigned-windows-x64' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') && 'penglai-0.3.0-windows-x64' || 'penglai-0.3.0-qa-unsigned-windows-x64' }}
           path: dist/*.exe
           if-no-files-found: error
 
       - name: Explain QA artifact scope
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') && github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') && github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts }}
         shell: pwsh
         run: |
           "Unsigned QA Windows installer uploaded after silent install, launch, and uninstall checks. It is not a public release artifact." >> $env:GITHUB_STEP_SUMMARY
@@ -534,7 +534,7 @@ jobs:
     needs:
       - macos-dmg
       - windows-nsis
-    if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+    if: startsWith(github.ref, 'refs/tags/v0.3.0')
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -542,30 +542,55 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Write preview notes
+      - name: Write release notes
         shell: bash
         run: |
+          IS_PRERELEASE="${{ contains(github.ref, '-preview') || contains(github.ref, '-friend-test') }}"
           cat > release-notes.md <<'EOF'
-          PenglaiAgent 0.3.0 Preview test build.
+          PenglaiAgent 0.3.0 — self-hosted AI butler with Runtime Hub and desktop clients.
 
-          This is a prerelease for the Runtime Hub architecture and desktop clients.
+          ## What's new in 0.3.0
 
-          Important limits:
-          - macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.
-          - Windows installer and installed app exe are Authenticode-signed, installed, desktop-bridge checked, Runtime Hub checked, install-check verified, and silently uninstalled by CI before upload.
-          - 0.2.27 to 0.3.0 in-place upgrade is still not promised stable; preview installs use fail-closed checks.
-          - Desktop and IM channels expose update checks, but do not silently apply upgrades.
-          - Feishu is the validated primary IM path; other IM channels still require real credential and send/receive validation before stable claims.
+          - **Runtime Hub**: Unified execution layer for all channels (Feishu, WeChat, terminal, desktop). FIFO queuing, task auditing, session persistence.
+          - **Desktop clients**: Native Mac (Apple Silicon) and Windows (x64) apps with complete setup wizard, multi-session chat, system tray, update detection, channel/ability management.
+          - **Complete setup wizard**: Language → LLM selection (12 providers with live connectivity test) → IM channel setup (Feishu QR scan, WeChat, etc.) → Identity naming → Capability panel (voice/TTS/companion/critic/intel) → Config writing and launch verification.
+          - **Voice & TTS**: Local SenseVoice transcription (emotion + acoustic events) and MOSS-TTS-Nano speech synthesis, both CPU-only.
+          - **Update mechanism**: `penglai update --check` and one-click `--apply` with automatic backup and rollback.
+          - **Memory system**: 4-layer architecture (L1 index → L2 facts → L3 SOPs → L4 session logs), action-verified only.
+          - **补配置 (supplementary config)**: Channel and ability management panel in desktop settings — re-enable channels or abilities post-install without re-running the full wizard.
+          - **Doctor diagnostics**: Full system health check integrated into both CLI and desktop.
+
+          ## Install
+
+          ### Desktop (recommended for new users)
+          - **macOS**: Download the DMG, drag to Applications. On first open, go to System Settings → Privacy & Security → Open Anyway.
+          - **Windows**: Download the installer, run it. SmartScreen → More Info → Run Anyway.
+
+          ### Command line
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+          ```
+
+          ## Important notes
+          - macOS and Windows installers are **unsigned**. You will need to bypass Gatekeeper/SmartScreen. This is because we are a community project without Apple Developer Program membership.
+          - Apple Silicon only for macOS. Intel Mac not supported.
+          - Upgrade from 0.2.x is not guaranteed stable; fresh install recommended.
+          - Feishu is the most validated IM channel. Other channels are experimental.
           EOF
 
-      - name: Create prerelease
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          IS_PRERELEASE="${{ contains(github.ref, '-preview') || contains(github.ref, '-friend-test') }}"
+          RELEASE_TITLE="PenglaiAgent 0.3.0${GITHUB_REF_NAME#v0.3.0}"
+          RELEASE_ARGS=()
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            RELEASE_ARGS=(--prerelease --latest=false)
+          fi
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
-            --title "PenglaiAgent 0.3.0 Preview ${GITHUB_REF_NAME}" \
+            --title "$RELEASE_TITLE" \
             --notes-file release-notes.md \
-            --prerelease \
-            --latest=false
+            "${RELEASE_ARGS[@]}"

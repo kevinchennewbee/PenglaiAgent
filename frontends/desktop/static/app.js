@@ -2475,6 +2475,133 @@ settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSe
   checkForUpdates();
 })();
 
+// ── Settings tabs (v0.3.0 channel/ability management) ──────────────────
+(function initSettingsTabs() {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const contents = {
+    ops: document.getElementById('tab-ops'),
+    channels: document.getElementById('tab-channels'),
+    abilities: document.getElementById('tab-abilities'),
+    doctor: document.getElementById('tab-doctor'),
+  };
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      Object.values(contents).forEach(c => c?.classList.add('hidden'));
+      const target = contents[tab.dataset.tab];
+      if (target) target.classList.remove('hidden');
+      // Load content on tab switch
+      if (tab.dataset.tab === 'channels') loadChannels();
+      if (tab.dataset.tab === 'abilities') loadAbilities();
+    });
+  });
+
+  // Doctor button
+  document.getElementById('doctor-run')?.addEventListener('click', runDoctor);
+})();
+
+async function loadChannels() {
+  const el = document.getElementById('channels-list');
+  if (!el) return;
+  try {
+    const data = await window.penglai.apiGet('/channels');
+    const channels = (data && data.channels) || [];
+    el.innerHTML = channels.map(ch => `
+      <div class="item-card">
+        <div class="item-info">
+          <div class="item-name">${escHtml(ch.name)}</div>
+          <div class="item-desc">${escHtml(ch.desc)}</div>
+        </div>
+        <span class="item-status ${ch.configured ? 'status-configured' : 'status-unconfigured'}">${ch.configured ? (ch.running ? '运行中' : '已配置') : '未配置'}</span>
+        <button class="btn btn-sm" onclick="${ch.configured ? `disableChannel('${ch.id}')` : `enableChannel('${ch.id}')`}">${ch.configured ? '禁用' : '启用'}</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="ops-empty">加载渠道失败: ${escHtml(err.message || err)}</div>`;
+  }
+}
+
+async function enableChannel(id) {
+  try {
+    setOpsOutput(`正在启用渠道 ${id}…`, '');
+    const data = await window.penglai.apiPost(`/channels/${id}/enable`);
+    setOpsOutput(`启用渠道 ${id}`, data);
+    setTimeout(loadChannels, 1000);
+  } catch (err) {
+    showError('启用渠道失败: ' + (err.message || err));
+  }
+}
+
+async function disableChannel(id) {
+  try {
+    const data = await window.penglai.apiPost(`/channels/${id}/disable`);
+    setOpsOutput(`禁用渠道 ${id}`, data);
+    setTimeout(loadChannels, 1000);
+  } catch (err) {
+    showError('禁用渠道失败: ' + (err.message || err));
+  }
+}
+
+async function loadAbilities() {
+  const el = document.getElementById('abilities-list');
+  if (!el) return;
+  try {
+    const data = await window.penglai.apiGet('/abilities');
+    const abilities = (data && data.abilities) || [];
+    el.innerHTML = abilities.map(ab => `
+      <div class="item-card">
+        <div class="item-info">
+          <div class="item-name">${escHtml(ab.name)}</div>
+          <div class="item-desc">${escHtml(ab.desc)}</div>
+        </div>
+        <span class="item-status ${ab.enabled ? 'status-configured' : 'status-unconfigured'}">${ab.enabled ? '已启用' : '未启用'}</span>
+        <button class="btn btn-sm" onclick="${ab.enabled ? `disableAbility('${ab.id}')` : `enableAbility('${ab.id}')`}">${ab.enabled ? '禁用' : '启用'}</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="ops-empty">加载能力失败: ${escHtml(err.message || err)}</div>`;
+  }
+}
+
+async function enableAbility(id) {
+  try {
+    setOpsOutput(`正在启用能力 ${id}…`, '');
+    const data = await window.penglai.apiPost(`/abilities/${id}/enable`);
+    setOpsOutput(`启用能力 ${id}`, data);
+    setTimeout(loadAbilities, 1000);
+  } catch (err) {
+    showError('启用能力失败: ' + (err.message || err));
+  }
+}
+
+async function disableAbility(id) {
+  try {
+    const data = await window.penglai.apiPost(`/abilities/${id}/disable`);
+    setOpsOutput(`禁用能力 ${id}`, data);
+    setTimeout(loadAbilities, 1000);
+  } catch (err) {
+    showError('禁用能力失败: ' + (err.message || err));
+  }
+}
+
+async function runDoctor() {
+  const el = document.getElementById('doctor-output');
+  if (!el) return;
+  el.textContent = '诊断中…';
+  try {
+    const data = await window.penglai.apiGet('/doctor');
+    let text = data.all_ok ? '✅ 全部检查通过\n\n' : '⚠️ 发现问题\n\n';
+    for (const c of (data.checks || [])) {
+      text += `${c.ok ? '✅' : '❌'} ${c.name}: ${c.detail || ''}\n`;
+    }
+    el.textContent = text;
+  } catch (err) {
+    el.textContent = '诊断失败: ' + (err.message || err);
+  }
+}
+
 // ─── Update check ──────────────────────────────────────────────────────
 async function checkForUpdates() {
   const banner = $('update-banner');

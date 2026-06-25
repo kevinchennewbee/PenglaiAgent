@@ -154,15 +154,27 @@ Think of GenericAgent as the kernel. Penglai turns that kernel into something an
 
 ## Latest Version
 
-**2026-06-23 · v0.3.0 preview**
+**2026-06-25 · v0.3.0**
 
-The 0.3.0 preview routes Feishu, desktop, terminal, and IM wrapper traffic through one Runtime Hub: entries become `InboundEvent`s, each session is serialized with FIFO queueing, GA remains the minimal execution core, and results return to the original entry. Tencent Cloud validation has covered the long-running Feishu service, real LLM path, queued task cards, Runtime Hub run history, install check, privacy audit, and legacy-entry audit.
+v0.3.0 officially releases the Runtime Hub — a unified execution layer that normalizes all entry points (Feishu, WeChat, terminal, desktop) into consistent events and execution models. It ships native Mac (Apple Silicon) and Windows (x64) desktop clients with a full graphical setup wizard, multi-session chat workspace, system tray, channel & ability management panel, one-click update, and integrated diagnostics — feature-complete with the CLI install.
 
-The 0.3.0 preview does not mean every optional Penglai ability is enabled by default. Proactive companion has been validated as an opt-in long-running service, and voice models have been validated as ready on Tencent Cloud; cross-vendor critic review, real WeChat messaging, and additional IM channels are still enabled, diagnosed, and validated one by one through `penglai abilities` and `penglai channels`.
+**Desktop downloads**: [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0)
+
+| Platform | Download | Notes |
+|----------|----------|-------|
+| macOS (Apple Silicon) | `Penglai_0.3.0_macos_aarch64.dmg` | Drag to Applications, then System Settings → Privacy & Security → Open Anyway |
+| Windows (x64) | `Penglai_0.3.0_windows_x64_setup.exe` | Run installer, SmartScreen → More Info → Run Anyway |
+
+**Command-line install** (Linux / macOS / Windows):
+```bash
+curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+```
+
+v0.3.0 does not mean every optional ability is enabled by default. Voice, TTS, companion, cross-vendor critic, intel enhancement, and IM channels are all enabled, diagnosed, and validated through `penglai abilities` / `penglai channels` state.
 
 Recent highlights:
 
-- v0.3.0 preview: Runtime Hub, `TaskRun`, unified queueing, unified permission model, Runtime Control API, desktop Runtime panel, Feishu 0.3.0 wrapper, terminal `runtime-chat`, install check, privacy/legacy-entry audits, and optional voice capability diagnostics.
+- **v0.3.0**: Runtime Hub full release. Mac/Windows native desktop clients (complete setup wizard + chat workspace + system tray + channel/ability management + supplementary config + integrated diagnostics). Feishu QR auto-creation, MOSS-TTS-Nano local speech synthesis, `penglai update` with auto-backup and rollback.
 - v0.2.27: install-network fallback hotfix; constrained networks fall back more reliably to mirrors or local source builds.
 - v0.2.25: dependency-install network hotfix; one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls.
 - v0.2.24: GA-core boundary correction; LLM log redaction moved from the GenericAgent core file into a Penglai plugin, restoring the "do not modify upstream core" release boundary.

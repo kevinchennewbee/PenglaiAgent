@@ -23,9 +23,9 @@
       {
         "title": "蓬莱 — 启动设置",
         "label": "setup",
-        "width": 600,
-        "height": 700,
-        "resizable": false,
+        "width": 680,
+        "height": 800,
+        "resizable": true,
         "visible": false,
         "center": true,
         "url": "fallback.html"
@@ -38,8 +38,8 @@
     "publisher": "PenglaiAgent",
     "homepage": "https://github.com/kevinchennewbee/PenglaiAgent",
     "category": "Productivity",
-    "shortDescription": "Penglai 0.3.0 preview desktop control surface",
-    "longDescription": "Penglai desktop provides the local control surface, shared chat entry, Runtime Hub diagnostics, update check, and local speech playback for PenglaiAgent 0.3.0 preview.",
+    "shortDescription": "Penglai 0.3.0 desktop — self-hosted AI butler",
+    "longDescription": "Penglai desktop is the native control surface for PenglaiAgent 0.3.0. It provides a complete setup wizard (LLM, IM channels, abilities), multi-session chat workspace, Runtime Hub diagnostics, one-click update, system tray monitoring, and local speech playback. Mac (Apple Silicon) and Windows (x64).",
     "icon": ["icons/icon.ico", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
     "windows": {
       "allowDowngrades": false,

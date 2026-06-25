@@ -198,7 +198,9 @@
     onBridgeClosed: (cb) => on('bridge-closed', cb),
     onBridgeReady: (cb) => on('bridge-ready', cb),
     onBridgeLog: (cb) => on('bridge-log', cb),
-    onOpenSearch: (cb) => on('open-search', cb)
+    onOpenSearch: (cb) => on('open-search', cb),
+    apiGet: (path) => http(path),
+    apiPost: (path, body) => http(path, { method: 'POST', body: body || {} }),
   };
   window.penglai = penglaiApi;
 

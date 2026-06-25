@@ -107,6 +107,14 @@
           </div>
           <div class="settings-section" id="runtime-settings">
             <div class="section-title">中枢</div>
+            <div class="section-tabs">
+              <button class="tab-btn active" data-tab="ops">运维</button>
+              <button class="tab-btn" data-tab="channels">渠道管理</button>
+              <button class="tab-btn" data-tab="abilities">能力管理</button>
+              <button class="tab-btn" data-tab="doctor">诊断</button>
+            </div>
+            <div class="tab-content" id="tab-ops">
+            <div class="tab-content" id="tab-ops">
             <div id="ops-summary" class="ops-summary">
               <div class="ops-empty">中枢状态不可用。</div>
             </div>
@@ -135,6 +143,17 @@
               <button class="btn" id="ops-load-log">日志</button>
             </div>
             <pre id="ops-output" class="ops-output" aria-live="polite"></pre>
+            </div>
+            <div class="tab-content hidden" id="tab-channels">
+              <div id="channels-list"><div class="ops-empty">加载中…</div></div>
+            </div>
+            <div class="tab-content hidden" id="tab-abilities">
+              <div id="abilities-list"><div class="ops-empty">加载中…</div></div>
+            </div>
+            <div class="tab-content hidden" id="tab-doctor">
+              <button class="btn" id="doctor-run">运行完整诊断</button>
+              <pre id="doctor-output" class="ops-output" aria-live="polite"></pre>
+            </div>
           </div>
         </div>
         <div class="modal-footer">

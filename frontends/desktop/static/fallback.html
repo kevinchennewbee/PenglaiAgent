@@ -8,143 +8,213 @@
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--text:#ededed;--muted:#a0a0a0;--border:#2a2a2a;--accent:#ededed;--accent-text:#0a0a0a}}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;font-family:var(--font);background:var(--bg);color:var(--text)}
-body{display:flex;align-items:center;justify-content:center;padding:1rem}
-.card{max-width:560px;width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
-h1{font-size:1.4rem;margin:0 0 .3rem}
-.sub{color:var(--muted);font-size:.85rem;margin:0 0 1.2rem;line-height:1.5}
+body{display:flex;align-items:flex-start;justify-content:center;padding:1rem}
+.card{max-width:620px;width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:1.8rem 2rem}
+h1{font-size:1.3rem;margin:0 0 .2rem}
+.sub{color:var(--muted);font-size:.82rem;margin:0 0 1rem;line-height:1.5}
 /* Progress steps */
-.steps{display:flex;gap:0;margin-bottom:1.5rem}
-.step-item{flex:1;text-align:center;font-size:.75rem;color:var(--muted);position:relative;padding-top:.6rem}
-.step-item::before{content:"";display:block;width:28px;height:28px;border-radius:50%;background:var(--border);margin:0 auto .3rem;line-height:28px;color:var(--accent-text);font-size:.8rem;font-weight:600}
+.steps{display:flex;gap:0;margin-bottom:1.2rem}
+.step-item{flex:1;text-align:center;font-size:.7rem;color:var(--muted);position:relative;padding-top:.5rem}
+.step-item::before{content:"";display:block;width:24px;height:24px;border-radius:50%;background:var(--border);margin:0 auto .25rem;line-height:24px;color:var(--accent-text);font-size:.72rem;font-weight:600}
 .step-item.active::before{background:var(--accent);content:attr(data-num)}
 .step-item.done::before{background:var(--ok);content:"✓";color:#fff}
 .step-item.active{color:var(--text);font-weight:500}
-.step-item::after{content:"";position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border)}
+.step-item::after{content:"";position:absolute;top:12px;left:50%;width:100%;height:2px;background:var(--border)}
 .step-item:last-child::after{display:none}
 .step-item.done::after{background:var(--ok)}
+/* Panel sections */
+.panel{border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem}
+.panel h3{font-size:.9rem;margin:0 0 .5rem}
+.panel p{font-size:.8rem;color:var(--muted);margin:.3rem 0}
 /* Log area */
-.log-box{background:rgba(0,0,0,.03);border:1px solid var(--border);border-radius:6px;height:180px;overflow-y:auto;padding:.6rem .8rem;font-size:.78rem;font-family:ui-monospace,"SF Mono",Monaco,monospace;line-height:1.5;margin-bottom:1rem;white-space:pre-wrap;word-break:break-all}
+.log-box{background:rgba(0,0,0,.03);border:1px solid var(--border);border-radius:6px;height:170px;overflow-y:auto;padding:.5rem .7rem;font-size:.75rem;font-family:ui-monospace,"SF Mono",Monaco,monospace;line-height:1.45;margin-bottom:1rem;white-space:pre-wrap;word-break:break-all}
 @media(prefers-color-scheme:dark){.log-box{background:rgba(255,255,255,.04)}}
 .log-line{margin:0}
-.log-ok{color:var(--ok)}
-.log-err{color:var(--err)}
-.log-warn{color:var(--warn)}
-.log-muted{color:var(--muted)}
+.log-ok{color:var(--ok)}.log-err{color:var(--err)}.log-warn{color:var(--warn)}.log-muted{color:var(--muted)}
 /* Controls */
-.options{margin-bottom:1rem}
-.option{display:flex;align-items:flex-start;gap:10px;text-align:left;margin:.6rem 0;font-size:.88rem}
+.options{margin-bottom:.8rem}
+.option{display:flex;align-items:flex-start;gap:10px;text-align:left;margin:.5rem 0;font-size:.85rem}
 .option input{margin-top:3px}
-.option span{display:block;color:var(--muted);font-size:.76rem;margin-top:2px;line-height:1.35}
-button{padding:10px 18px;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;background:var(--accent);color:var(--accent-text);font-weight:500;width:100%}
+.option span{display:block;color:var(--muted);font-size:.73rem;margin-top:2px;line-height:1.3}
+button{padding:10px 18px;border:none;border-radius:6px;font-size:.88rem;cursor:pointer;background:var(--accent);color:var(--accent-text);font-weight:500;width:100%}
 button:hover{opacity:.85}
 button:disabled{opacity:.4;cursor:not-allowed}
-.secondary{background:transparent;color:var(--text);border:1px solid var(--border);width:auto;padding:6px 14px;font-size:.82rem}
-.divider{height:1px;background:var(--border);margin:1.2rem 0 1rem}
-details{margin-top:.8rem}
-summary{cursor:pointer;color:var(--muted);font-size:.8rem;user-select:none}
-.advanced{margin-top:.8rem}
-.field-label{display:block;font-size:.8rem;font-weight:500;margin-bottom:.3rem}
-input[type=text]{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:.5rem}
-input[type=text]:focus{border-color:var(--accent)}
-.status-msg{font-size:.85rem;min-height:1.2em;text-align:center;margin-top:.5rem}
+.secondary{background:transparent;color:var(--text);border:1px solid var(--border);width:auto;padding:6px 14px;font-size:.8rem}
+.btn-row{display:flex;gap:.5rem}
+.btn-row button{flex:1}
+.divider{height:1px;background:var(--border);margin:1rem 0}
+details{margin-top:.5rem}
+summary{cursor:pointer;color:var(--muted);font-size:.78rem;user-select:none}
+.advanced{margin-top:.6rem}
+.field-label{display:block;font-size:.78rem;font-weight:500;margin-bottom:.25rem}
+input[type=text],input[type=password],select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);outline:none;margin-bottom:.4rem}
+input:focus,select:focus{border-color:var(--accent)}
+select{cursor:pointer}
+.status-msg{font-size:.82rem;min-height:1.2em;text-align:center;margin-top:.4rem}
 .ok{color:var(--ok)}.err{color:var(--err)}
 .hidden{display:none}
+/* Provider table */
+.provider-table{width:100%;font-size:.78rem;border-collapse:collapse;margin:.5rem 0}
+.provider-table td,.provider-table th{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+.provider-table tr:hover{background:rgba(0,0,0,.02)}
+.provider-table .sel{background:var(--accent);color:var(--accent-text);border-radius:4px;padding:2px 6px;font-size:.7rem;cursor:pointer;border:none}
+/* QR display */
+.qr-box{text-align:center;padding:1rem}
+.qr-box canvas{border:1px solid var(--border);border-radius:6px}
+/* Step content */
+.step-content{margin-bottom:.8rem}
+.channel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.channel-chip{padding:8px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.82rem;text-align:center;user-select:none}
+.channel-chip.selected{border-color:var(--accent);background:var(--accent);color:var(--accent-text)}
+/* Toast */
+.toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-text);padding:8px 20px;border-radius:20px;font-size:.82rem;z-index:10}
+@media(prefers-color-scheme:dark){.provider-table tr:hover{background:rgba(255,255,255,.03)}}
 </style>
 </head>
 <body>
-<div class="card">
-  <h1 id="title">初始化蓬莱</h1>
-  <p class="sub" id="subtitle">首次启动会自动下载运行时、Python 环境和基础依赖，国内优先镜像。</p>
+<div class="card" id="app-root">
 
-  <div class="steps" id="steps-bar">
-    <div class="step-item active" data-num="1" id="s1">下载运行时</div>
-    <div class="step-item" data-num="2" id="s2">安装依赖</div>
-    <div class="step-item" data-num="3" id="s3">能力选择</div>
-    <div class="step-item" data-num="4" id="s4">诊断验证</div>
-  </div>
-
-  <!-- Step 3 options (shown before starting) -->
-  <div class="options hidden" id="opts-panel">
-    <label class="option">
-      <input id="voice-opt" type="checkbox" checked>
-      <div>启用语音转写
-        <span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span>
-      </div>
-    </label>
-    <label class="option">
-      <input id="tts-opt" type="checkbox">
-      <div>启用语音输出
-        <span>MOSS-TTS-Nano 本地模型，约 728MB。</span>
-      </div>
-    </label>
-  </div>
-
-  <!-- Log area -->
-  <div class="log-box hidden" id="log-box"></div>
-
-  <!-- Action buttons -->
-  <button id="start-btn" onclick="startInstall()">自动初始化并启动</button>
-  <button id="retry-btn" class="hidden" onclick="retryStep()">重试此步</button>
-  <div class="status-msg" id="status"></div>
-
-  <details>
-    <summary>已有运行时？手动指定路径</summary>
-    <div class="advanced">
-      <label class="field-label">Python 解释器路径</label>
-      <input id="pypath" type="text" placeholder="python 或解释器完整路径" spellcheck="false">
-      <label class="field-label">项目目录</label>
-      <input id="projdir" type="text" placeholder="蓬莱项目目录路径" spellcheck="false">
-      <button class="secondary" onclick="doStart()">使用已有运行时启动</button>
+  <!-- ====== Phase 0: Language Selection ====== -->
+  <div id="phase-lang">
+    <h1>Penglai · 蓬莱</h1>
+    <p class="sub">自托管 AI 管家 — 选择语言 / Choose language</p>
+    <div class="btn-row">
+      <button onclick="selectLang('zh')" style="font-size:1rem">中文</button>
+      <button onclick="selectLang('en')" style="font-size:1rem">English</button>
     </div>
-  </details>
+  </div>
+
+  <!-- ====== Phase 1: Runtime Install ====== -->
+  <div id="phase-runtime" class="hidden">
+    <h1 id="rw-title">初始化蓬莱运行时</h1>
+    <p class="sub" id="rw-sub">首次启动会自动下载运行时、Python 环境和基础依赖，国内优先镜像。</p>
+
+    <div class="steps" id="rw-steps">
+      <div class="step-item active" data-num="1">下载运行时</div>
+      <div class="step-item" data-num="2">安装依赖</div>
+      <div class="step-item" data-num="3">能力选择</div>
+      <div class="step-item" data-num="4">诊断验证</div>
+    </div>
+
+    <div class="options" id="rw-opts">
+      <label class="option">
+        <input id="voice-opt" type="checkbox" checked>
+        <div>启用语音转写<span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span></div>
+      </label>
+      <label class="option">
+        <input id="tts-opt" type="checkbox">
+        <div>启用语音输出<span>MOSS-TTS-Nano 本地模型，约 728MB。</span></div>
+      </label>
+    </div>
+
+    <div class="log-box hidden" id="rw-log"></div>
+    <button id="rw-start-btn" onclick="startRuntimeInstall()">自动初始化并启动</button>
+    <div class="status-msg" id="rw-status"></div>
+
+    <details>
+      <summary>已有运行时？手动指定路径</summary>
+      <div class="advanced">
+        <label class="field-label">Python 解释器路径</label>
+        <input id="pypath" type="text" placeholder="python 或解释器完整路径" spellcheck="false">
+        <label class="field-label">项目目录</label>
+        <input id="projdir" type="text" placeholder="蓬莱项目目录路径" spellcheck="false">
+        <button class="secondary" onclick="doManualStart()">使用已有运行时启动</button>
+      </div>
+    </details>
+  </div>
+
+  <!-- ====== Phase 2: Full Setup Wizard ====== -->
+  <div id="phase-setup" class="hidden">
+    <h1 id="sw-title">配置蓬莱</h1>
+    <p class="sub" id="sw-sub"></p>
+
+    <div class="steps" id="sw-steps">
+      <div class="step-item active" data-num="1">选择模型</div>
+      <div class="step-item" data-num="2">接入渠道</div>
+      <div class="step-item" data-num="3">飞书配置</div>
+      <div class="step-item" data-num="4">起名</div>
+      <div class="step-item" data-num="5">能力面板</div>
+      <div class="step-item" data-num="6">完成</div>
+    </div>
+
+    <div id="sw-body"></div>
+
+    <div class="log-box hidden" id="sw-log"></div>
+    <div class="btn-row" id="sw-btns">
+      <button class="secondary" id="sw-back-btn" onclick="setupBack()">上一步</button>
+      <button id="sw-next-btn" onclick="setupNext()">下一步</button>
+    </div>
+    <div class="status-msg" id="sw-status"></div>
+  </div>
+
 </div>
+
 <script>
 const {invoke} = window.__TAURI__.core;
 const {getCurrentWindow, Window} = window.__TAURI__.window;
 const {listen} = window.__TAURI__.event;
 
-const titleEl = document.getElementById('title');
-const subtitleEl = document.getElementById('subtitle');
-const stepsBar = document.getElementById('steps-bar');
-const logBox = document.getElementById('log-box');
-const startBtn = document.getElementById('start-btn');
-const retryBtn = document.getElementById('retry-btn');
-const statusEl = document.getElementById('status');
-const optsPanel = document.getElementById('opts-panel');
+// =========== Globals ===========
+let pythonPath = '', projectDir = '';
+let installDone = false;
+let setupStep = 0;  // 0-5 (6 steps)
+let setupData = {
+  lang: 'zh',
+  llm: {},           // {name, apikey, apibase, model}
+  channels: [],
+  feishu: {},        // {app_id, app_secret}
+  wechat: false,
+  agentName: '蓬莱助手 Penglai',
+  userName: '主人',
+  companion: false,
+  criticModel: null,
+  tinyfishKey: '', tavilyKey: '', firecrawlKey: '',
+};
+
+// =========== Language ===========
+function selectLang(lang) {
+  setupData.lang = lang;
+  document.getElementById('phase-lang').classList.add('hidden');
+  document.getElementById('phase-runtime').classList.remove('hidden');
+}
+
+// =========== Phase 1: Runtime Install ===========
+const rwTitle = document.getElementById('rw-title');
+const rwSub = document.getElementById('rw-sub');
+const rwSteps = document.getElementById('rw-steps');
+const rwLog = document.getElementById('rw-log');
+const rwStartBtn = document.getElementById('rw-start-btn');
+const rwStatus = document.getElementById('rw-status');
+const rwOpts = document.getElementById('rw-opts');
 const voiceOpt = document.getElementById('voice-opt');
 const ttsOpt = document.getElementById('tts-opt');
 const pyInput = document.getElementById('pypath');
 const dirInput = document.getElementById('projdir');
 
-let currentStep = 0;
-let installStarted = false;
+let rwStarted = false;
 let unlistenProgress = null;
 
-// Pre-fill from Rust config discovery
 invoke('get_config').then(([py, dir]) => {
   if (py) pyInput.value = py;
   if (dir) dirInput.value = dir;
 }).catch(()=>{});
 
-function setStep(n) {
-  currentStep = n;
-  for (let i = 1; i <= 4; i++) {
-    const el = document.getElementById('s' + i);
+function setRWStep(n) {
+  let items = rwSteps.querySelectorAll('.step-item');
+  items.forEach((el, i) => {
     el.classList.remove('active', 'done');
-    if (i < n) el.classList.add('done');
-    else if (i === n) el.classList.add('active');
-  }
+    if (i < n-1) el.classList.add('done');
+    else if (i === n-1) el.classList.add('active');
+  });
 }
 
-function appendLog(text, cls) {
+function appendLog(box, text, cls) {
   const line = document.createElement('div');
   line.className = 'log-line' + (cls ? ' log-' + cls : '');
   line.textContent = text;
-  logBox.appendChild(line);
-  logBox.scrollTop = logBox.scrollHeight;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
 }
-
-function clearLog() { logBox.innerHTML = ''; }
 
 async function openMainWindow() {
   const mainWin = await Window.getByLabel('main');
@@ -153,44 +223,42 @@ async function openMainWindow() {
   await setupWin.hide();
 }
 
-// Listen for streaming progress events from Rust
 async function setupProgressListener() {
   if (unlistenProgress) return;
   unlistenProgress = await listen('install-progress', (event) => {
     const p = event.payload;
+    let targetBox = rwLog;
+    if (installDone) targetBox = document.getElementById('sw-log');
     if (p.line) {
       let cls = '';
       if (p.line.includes('✅')) cls = 'ok';
       else if (p.line.includes('❌')) cls = 'err';
       else if (p.line.includes('⚠️')) cls = 'warn';
-      appendLog(p.line, cls);
+      appendLog(targetBox, p.line, cls);
     }
     if (p.done) {
-      if (p.ok) {
-        appendLog('✅ ' + p.step + ' 完成', 'ok');
-      } else {
-        appendLog('❌ ' + p.step + ' 失败', 'err');
-      }
+      if (p.ok) appendLog(targetBox, '✅ ' + p.step + ' 完成', 'ok');
+      else appendLog(targetBox, '❌ ' + p.step + ' 失败', 'err');
     }
   });
 }
 
-async function startInstall() {
-  if (installStarted) return;
-  installStarted = true;
-  startBtn.disabled = true;
-  optsPanel.classList.add('hidden');
-  logBox.classList.remove('hidden');
-  clearLog();
-  statusEl.className = 'status-msg';
-  statusEl.textContent = '';
+async function startRuntimeInstall() {
+  if (rwStarted) return;
+  rwStarted = true;
+  rwStartBtn.disabled = true;
+  rwOpts.classList.add('hidden');
+  rwLog.classList.remove('hidden');
+  rwLog.innerHTML = '';
+  rwStatus.className = 'status-msg';
+  rwStatus.textContent = '';
 
   await setupProgressListener();
 
-  setStep(1);
-  appendLog('🚀 开始初始化蓬莱运行时…', 'ok');
-  appendLog('安装目录: ~/PenglaiAgentDesktop', 'muted');
-  appendLog('', '');
+  setRWStep(1);
+  appendLog(rwLog, '🚀 开始初始化蓬莱运行时…', 'ok');
+  appendLog(rwLog, '安装目录: ~/PenglaiAgentDesktop', 'muted');
+  appendLog(rwLog, '', '');
 
   try {
     const result = await invoke('install_runtime', {
@@ -198,59 +266,517 @@ async function startInstall() {
       includeTts: ttsOpt.checked
     });
 
-    // install_runtime streams all steps via events; update UI for each
-    setStep(4);
-    appendLog('', '');
-    appendLog('✅ 初始化完成！', 'ok');
-    appendLog('Python: ' + (result.python_path || ''), 'muted');
-    appendLog('项目目录: ' + (result.project_dir || ''), 'muted');
-    statusEl.className = 'status-msg ok';
-    statusEl.textContent = '运行时就绪，正在启动中枢桥接…';
+    pythonPath = result.python_path;
+    projectDir = result.project_dir;
+    setRWStep(4);
+    appendLog(rwLog, '', '');
+    appendLog(rwLog, '✅ 运行时初始化完成！', 'ok');
+    rwStatus.className = 'status-msg ok';
+    rwStatus.textContent = '运行时就绪，进入配置向导…';
+
+    installDone = true;
+    rwLog.classList.add('hidden');
+    // Transition to setup wizard
+    document.getElementById('phase-runtime').classList.add('hidden');
+    document.getElementById('phase-setup').classList.remove('hidden');
+    document.getElementById('sw-log').classList.remove('hidden');
+    renderSetupStep();
+  } catch(e) {
+    appendLog(rwLog, '❌ ' + e, 'err');
+    rwStatus.className = 'status-msg err';
+    rwStatus.textContent = '初始化失败：' + e;
+    rwStartBtn.disabled = false;
+    rwStartBtn.textContent = '重新初始化';
+    rwStarted = false;
+  }
+}
+
+async function doManualStart() {
+  const pyp = pyInput.value.trim();
+  const prj = dirInput.value.trim();
+  if (!pyp) { rwStatus.className='status-msg err'; rwStatus.textContent='请输入 Python 路径'; return; }
+  if (!prj) { rwStatus.className='status-msg err'; rwStatus.textContent='请输入项目目录'; return; }
+  pythonPath = pyp; projectDir = prj;
+  rwStartBtn.disabled = true;
+  rwStatus.className = 'status-msg';
+  rwStatus.textContent = '正在启动中枢桥接…';
+  try {
+    await invoke('start_bridge_with_config', {pythonPath: pyp, projectDir: prj});
+    rwStatus.className = 'status-msg ok';
+    rwStatus.textContent = '已连接，正在打开主窗口…';
+    await openMainWindow();
+  } catch(e) {
+    rwStatus.className = 'status-msg err';
+    rwStatus.textContent = '启动失败：' + e;
+    rwStartBtn.disabled = false;
+  }
+}
+
+// =========== Phase 2: Setup Wizard ===========
+const swStepsEl = document.getElementById('sw-steps');
+const swBody = document.getElementById('sw-body');
+const swLog = document.getElementById('sw-log');
+const swNextBtn = document.getElementById('sw-next-btn');
+const swBackBtn = document.getElementById('sw-back-btn');
+const swStatus = document.getElementById('sw-status');
+
+function setSWStep(n) {
+  setupStep = n;
+  let items = swStepsEl.querySelectorAll('.step-item');
+  items.forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  });
+  swBackBtn.classList.toggle('hidden', n === 0);
+  if (n === 5) { swNextBtn.textContent = '完成配置'; }
+  else { swNextBtn.textContent = '下一步'; }
+  renderSetupStep();
+}
+
+function renderSetupStep() {
+  const s = setupStep;
+  swStatus.textContent = '';
+  swStatus.className = 'status-msg';
+  let html = '';
+
+  switch (s) {
+  case 0: // LLM Selection
+    html = `<div class="step-content">
+      <p>为大模型选择 API — 蓬莱的大脑。选择厂商后测试连通性。</p>
+      <div id="provider-list"><p class="log-muted">加载厂商列表…</p></div>
+      <div id="llm-test-result" class="hidden"></div>
+      <div id="llm-manual" class="hidden">
+        <label class="field-label">API Key</label>
+        <input id="llm-key" type="password" placeholder="sk-...">
+        <button class="secondary" onclick="testLLM()" style="width:auto;margin-top:4px">测试连通性</button>
+      </div>
+    </div>`;
+    break;
+  case 1: // Channel selection
+    html = `<div class="step-content">
+      <p>选择管家接入的 IM 渠道（多选）。<strong>飞书</strong>是目前验证闭环最完整的主渠道。</p>
+      <div class="channel-grid" id="channel-grid"></div>
+    </div>`;
+    break;
+  case 2: // Feishu config
+    html = `<div class="step-content" id="fs-panel">
+      <p>飞书机器人应用配置 — 扫码自动创建，或手动填入已有凭证。</p>
+      <div class="btn-row">
+        <button onclick="feishuQRInit()">📱 手机飞书扫码创建（推荐）</button>
+        <button class="secondary" onclick="showFeishuManual()">手动填入 App ID / Secret</button>
+      </div>
+      <div id="fs-qr-area" class="hidden"><div class="qr-box"><canvas id="fs-qr-canvas" width="200" height="200"></canvas></div><p class="log-muted" id="fs-qr-url"></p></div>
+      <div id="fs-manual-area" class="hidden">
+        <label class="field-label">App ID</label><input id="fs-app-id" type="text" placeholder="cli_...">
+        <label class="field-label">App Secret</label><input id="fs-app-secret" type="password" placeholder="...">
+        <button class="secondary" onclick="feishuVerify()" style="width:auto;margin-top:4px">验证凭证</button>
+      </div>
+      <div id="fs-status"></div>
+    </div>`;
+    break;
+  case 3: // Naming
+    html = `<div class="step-content">
+      <label class="field-label">管家名字</label>
+      <input id="agent-name" type="text" value="${escHtml(setupData.agentName)}" placeholder="蓬莱助手 Penglai">
+      <label class="field-label">它怎么称呼你</label>
+      <input id="user-name" type="text" value="${escHtml(setupData.userName)}" placeholder="主人">
+    </div>`;
+    break;
+  case 4: // Abilities
+    html = `<div class="step-content">
+      <p>按需开启蓬莱的增强能力。语音为默认推荐。</p>
+      <label class="option"><input id="ab-companion" type="checkbox"><div>💞 主动陪伴<span>独立心跳进程，勿扰时段守护。约几分钱/天 token 消耗。</span></div></label>
+      <label class="option"><input id="ab-critic" type="checkbox"><div>🧐 批判脑<span>异厂商复核防幻觉。需额外配置一个不同厂商的模型。</span></div></label>
+      <div id="ab-critic-cfg" class="hidden" style="margin-left:1.5rem"></div>
+      <label class="option"><input id="ab-intel" type="checkbox"><div>🔭 情报矩阵增强<span>叠加独立搜索 API（TinyFish/Tavily/Firecrawl），多源交叉验证。</span></div></label>
+      <div id="ab-intel-cfg" class="hidden" style="margin-left:1.5rem">
+        <label class="field-label">TinyFish Key <a href="https://agent.tinyfish.ai/api-keys" target="_blank" style="font-size:.7rem">注册</a></label>
+        <input id="intel-tinyfish" type="text" placeholder="tf_...">
+        <label class="field-label">Tavily Key <a href="https://app.tavily.com" target="_blank" style="font-size:.7rem">注册</a></label>
+        <input id="intel-tavily" type="text" placeholder="tvly-...">
+        <label class="field-label">Firecrawl Key <a href="https://firecrawl.dev" target="_blank" style="font-size:.7rem">注册</a></label>
+        <input id="intel-firecrawl" type="text" placeholder="fc-...">
+      </div>
+    </div>`;
+    break;
+  case 5: // Final
+    html = `<div class="step-content">
+      <p>所有配置已收集完毕。点击"完成配置"将写入 mykey.py 并启动蓬莱服务。</p>
+      <div class="panel"><h3>配置摘要</h3>
+        <p>模型: <strong>${escHtml(setupData.llm.name || '未选择')}</strong> (${escHtml(setupData.llm.model || '')})</p>
+        <p>渠道: <strong>${setupData.channels.length ? setupData.channels.join(', ') : '未选择'}</strong></p>
+        <p>管家: <strong>${escHtml(setupData.agentName)}</strong> · 呼你: <strong>${escHtml(setupData.userName)}</strong></p>
+        <p>语音转写: ${voiceOpt.checked ? '✅' : '❌'} | 语音输出: ${ttsOpt.checked ? '✅' : '❌'}</p>
+        <p>陪伴: ${setupData.companion ? '✅' : '❌'} | 批判脑: ${setupData.criticModel ? '✅' : '❌'} | 情报: ${setupData.tinyfishKey ? '✅' : '❌'}</p>
+        ${setupData.feishu.app_id ? '<p>飞书: ✅ 已配置</p>' : ''}
+        ${setupData.channels.includes('wechat') ? '<p>微信: 需终端扫码绑定（稍后补配）</p>' : ''}
+      </div>
+    </div>`;
+    break;
+  }
+
+  swBody.innerHTML = html;
+
+  // Post-render hooks
+  if (s === 0) loadProviders();
+  if (s === 1) renderChannelGrid();
+  if (s === 4) { bindAbilityToggles(); }
+}
+
+// ---- LLM Selection ----
+let providers = null;
+
+async function loadProviders() {
+  try {
+    const raw = await invoke('setup_op', {pythonPath, projectDir, op: 'list_providers', params: '{}'});
+    const data = JSON.parse(raw);
+    providers = data;
+    renderProviderTable(data);
+  } catch(e) {
+    document.getElementById('provider-list').innerHTML = `<p class="log-err">加载厂商列表失败: ${e}</p>`;
+  }
+}
+
+function renderProviderTable(data) {
+  const order = data.wizard_order || Object.keys(data.providers || {});
+  let rows = '';
+  let idx = 0;
+  for (const pid of order) {
+    const prov = (data.providers || {})[pid];
+    if (!prov) continue;
+    const display = prov.display || pid;
+    const billing = prov.billing || {};
+    for (const [bid, binfo] of Object.entries(billing)) {
+      const label = Object.keys(billing).length > 1 ? `${display} (${binfo.label || bid})` : display;
+      const models = binfo.models || [];
+      const defModel = models.find(m => m.default) || models[0];
+      const modelName = defModel ? defModel.id : '';
+      const baseUrl = (binfo.base_url || '').replace('https://', '');
+      const signup = prov.signup_url || '';
+      rows += `<tr>
+        <td>${idx+1}</td>
+        <td>${escHtml(label)}${signup ? ` <a href="${signup}" target="_blank" style="font-size:.65rem">注册</a>` : ''}</td>
+        <td>${escHtml(modelName)}</td>
+        <td style="font-size:.7rem;color:var(--muted)">${escHtml(baseUrl)}</td>
+        <td><button class="sel" onclick="selectProvider('${pid}','${bid}',${idx})">选择</button></td>
+      </tr>`;
+      idx++;
+    }
+  }
+  document.getElementById('provider-list').innerHTML = `<table class="provider-table">
+    <tr><th>#</th><th>厂商</th><th>默认模型</th><th>端点</th><th></th></tr>${rows}</table>`;
+}
+
+async function selectProvider(pid, bid, idx) {
+  const prov = (providers.providers || {})[pid];
+  const binfo = prov.billing[bid];
+  const models = binfo.models || [];
+  const defModel = models.find(m => m.default) || models[0];
+
+  setupData.llm = {
+    name: prov.display || pid,
+    apibase: binfo.base_url || '',
+    model: defModel ? defModel.id : '',
+    apikey: ''
+  };
+
+  // Show key input
+  document.getElementById('llm-manual').classList.remove('hidden');
+  document.getElementById('llm-key').focus();
+
+  // If there's a billing warning, show it
+  if (binfo.warning) {
+    document.getElementById('llm-test-result').classList.remove('hidden');
+    document.getElementById('llm-test-result').innerHTML = `<p class="log-warn">⚠️ ${escHtml(binfo.warning)}</p>`;
+  }
+}
+
+async function testLLM() {
+  const key = document.getElementById('llm-key').value.trim();
+  if (!key) { swStatus.className='status-msg err'; swStatus.textContent='请输入 API Key'; return; }
+  if (!setupData.llm.apibase) { swStatus.className='status-msg err'; swStatus.textContent='请先选择厂商'; return; }
+
+  setupData.llm.apikey = key;
+  swStatus.textContent = '连通性测试中…';
+  swStatus.className = 'status-msg';
+
+  try {
+    const raw = await invoke('setup_op', {
+      pythonPath, projectDir, op: 'test_llm',
+      params: JSON.stringify({base_url: setupData.llm.apibase, model: setupData.llm.model, api_key: key})
+    });
+    const r = JSON.parse(raw);
+    const resultEl = document.getElementById('llm-test-result');
+    resultEl.classList.remove('hidden');
+    if (r.ok) {
+      resultEl.innerHTML = `<p class="log-ok">✅ 连通成功，回复：${escHtml(r.content || '(空)')}</p>`;
+      swStatus.className = 'status-msg ok';
+      swStatus.textContent = '模型连通！点击下一步继续';
+    } else {
+      resultEl.innerHTML = `<p class="log-err">❌ 测试失败：${escHtml(r.error || '')}</p>`;
+      swStatus.className = 'status-msg err';
+      swStatus.textContent = '连通测试失败，请检查 API Key 和端点';
+    }
+  } catch(e) {
+    swStatus.className = 'status-msg err';
+    swStatus.textContent = '测试失败: ' + e;
+  }
+}
+
+// ---- Channel Selection ----
+function renderChannelGrid() {
+  const channels = [
+    {id:'feishu', name:'飞书 Feishu', desc:'推荐·已实测·扫码即用'},
+    {id:'wechat', name:'微信 WeChat', desc:'已实测·扫码登录'},
+    {id:'dingtalk', name:'钉钉 DingTalk', desc:'扫码自动建应用'},
+    {id:'qq', name:'QQ', desc:'扫码自动建应用'},
+    {id:'telegram', name:'Telegram', desc:'贴 token 接入'},
+    {id:'discord', name:'Discord', desc:'贴 token 接入'},
+    {id:'wecom', name:'企业微信 WeCom', desc:'贴 token 接入'},
+  ];
+  const grid = document.getElementById('channel-grid');
+  grid.innerHTML = channels.map(c => {
+    const sel = setupData.channels.includes(c.id);
+    return `<div class="channel-chip${sel?' selected':''}" data-ch="${c.id}" onclick="toggleChannel('${c.id}',this)">
+      ${c.name}<br><span style="font-size:.68rem;color:${sel?'inherit':'var(--muted)'}">${c.desc}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleChannel(id, el) {
+  const idx = setupData.channels.indexOf(id);
+  if (idx >= 0) {
+    setupData.channels.splice(idx, 1);
+    el.classList.remove('selected');
+  } else {
+    setupData.channels.push(id);
+    el.classList.add('selected');
+  }
+}
+
+// ---- Feishu Config ----
+let fsPollTimer = null;
+
+async function feishuQRInit() {
+  document.getElementById('fs-manual-area').classList.add('hidden');
+  document.getElementById('fs-qr-area').classList.remove('hidden');
+  document.getElementById('fs-status').innerHTML = '<p>正在生成二维码…</p>';
+
+  try {
+    const raw = await invoke('setup_op', {pythonPath, projectDir, op: 'feishu_qr_init', params: '{}'});
+    const r = JSON.parse(raw);
+    if (!r.ok) {
+      document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${escHtml(r.error)}</p>`;
+      showFeishuManual();
+      return;
+    }
+    document.getElementById('fs-qr-url').textContent = r.qr_url;
+    // Render QR code using canvas
+    renderQRCode(r.qr_url);
+    document.getElementById('fs-status').innerHTML = '<p>📱 打开手机飞书「扫一扫」，扫描上方二维码确认创建</p>';
+    // Start polling
+    startFSPoll(r.device_code);
+  } catch(e) {
+    document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${e}</p>`;
+  }
+}
+
+function renderQRCode(text) {
+  const canvas = document.getElementById('fs-qr-canvas');
+  // Simple QR code using QR code API
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => { ctx.drawImage(img, 0, 0); };
+  img.src = url;
+}
+
+function startFSPoll(deviceCode) {
+  if (fsPollTimer) clearInterval(fsPollTimer);
+  fsPollTimer = setInterval(async () => {
+    try {
+      const raw = await invoke('setup_op', {
+        pythonPath, projectDir, op: 'feishu_qr_poll',
+        params: JSON.stringify({device_code: deviceCode})
+      });
+      const r = JSON.parse(raw);
+      if (r.status === 'ok') {
+        clearInterval(fsPollTimer);
+        setupData.feishu = {app_id: r.app_id, app_secret: r.app_secret};
+        document.getElementById('fs-status').innerHTML = '<p class="log-ok">✅ 飞书应用创建成功！</p>';
+        swStatus.className = 'status-msg ok';
+        swStatus.textContent = '飞书已就绪';
+      } else if (r.status === 'denied') {
+        clearInterval(fsPollTimer);
+        document.getElementById('fs-status').innerHTML = '<p class="log-warn">⚠️ 在手机上取消了</p>';
+      } else if (r.status === 'expired') {
+        clearInterval(fsPollTimer);
+        document.getElementById('fs-status').innerHTML = '<p class="log-warn">⚠️ 二维码已过期，请重新生成</p>';
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+function showFeishuManual() {
+  document.getElementById('fs-qr-area').classList.add('hidden');
+  document.getElementById('fs-manual-area').classList.remove('hidden');
+  if (fsPollTimer) { clearInterval(fsPollTimer); fsPollTimer = null; }
+}
+
+async function feishuVerify() {
+  const appId = document.getElementById('fs-app-id').value.trim();
+  const appSecret = document.getElementById('fs-app-secret').value.trim();
+  if (!appId || !appSecret) { swStatus.className='status-msg err'; swStatus.textContent='请填入 App ID 和 Secret'; return; }
+  try {
+    const raw = await invoke('setup_op', {
+      pythonPath, projectDir, op: 'feishu_verify',
+      params: JSON.stringify({app_id: appId, app_secret: appSecret})
+    });
+    const r = JSON.parse(raw);
+    if (r.ok) {
+      setupData.feishu = {app_id: appId, app_secret: appSecret};
+      document.getElementById('fs-status').innerHTML = '<p class="log-ok">✅ 凭证验证成功</p>';
+      swStatus.className = 'status-msg ok';
+      swStatus.textContent = '飞书凭证有效';
+    } else {
+      document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${escHtml(r.error)}</p>`;
+    }
+  } catch(e) {
+    document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${e}</p>`;
+  }
+}
+
+// ---- Ability Toggles ----
+function bindAbilityToggles() {
+  document.getElementById('ab-companion').onchange = function() {
+    setupData.companion = this.checked;
+  };
+  document.getElementById('ab-companion').checked = setupData.companion;
+
+  document.getElementById('ab-critic').onchange = function() {
+    document.getElementById('ab-critic-cfg').classList.toggle('hidden', !this.checked);
+  };
+  document.getElementById('ab-critic').checked = !!setupData.criticModel;
+  if (setupData.criticModel) document.getElementById('ab-critic-cfg').classList.remove('hidden');
+
+  document.getElementById('ab-intel').onchange = function() {
+    document.getElementById('ab-intel-cfg').classList.toggle('hidden', !this.checked);
+  };
+  document.getElementById('ab-intel').checked = !!(setupData.tinyfishKey || setupData.tavilyKey || setupData.firecrawlKey);
+  if (setupData.tinyfishKey || setupData.tavilyKey || setupData.firecrawlKey) document.getElementById('ab-intel-cfg').classList.remove('hidden');
+}
+
+// ---- Navigation ----
+function setupBack() {
+  if (setupStep > 0) {
+    if (setupStep === 3 && !setupData.channels.includes('feishu')) {
+      // Skip feishu step
+      setSWStep(setupStep - 2);
+    } else {
+      setSWStep(setupStep - 1);
+    }
+  }
+}
+
+async function setupNext() {
+  const s = setupStep;
+
+  // Validate current step
+  if (s === 0) {
+    if (!setupData.llm.apikey) { swStatus.className='status-msg err'; swStatus.textContent='请选择厂商并输入 API Key 完成连通测试'; return; }
+  }
+  if (s === 1) {
+    if (setupData.channels.length === 0) { swStatus.className='status-msg err'; swStatus.textContent='请至少选择一个渠道（或跳过，仅用终端 TUI）'; return; }
+  }
+  if (s === 2) {
+    if (setupData.channels.includes('feishu') && !setupData.feishu.app_id) {
+      swStatus.className = 'status-msg err';
+      swStatus.textContent = '请完成飞书扫码或手动填入凭证';
+      return;
+    }
+  }
+  if (s === 3) {
+    setupData.agentName = document.getElementById('agent-name').value.trim() || '蓬莱助手 Penglai';
+    setupData.userName = document.getElementById('user-name').value.trim() || '主人';
+  }
+  if (s === 4) {
+    if (document.getElementById('ab-critic').checked) {
+      // TODO: critic model selection (reuse provider list)
+    }
+    setupData.companion = document.getElementById('ab-companion').checked;
+    setupData.tinyfishKey = document.getElementById('intel-tinyfish').value.trim();
+    setupData.tavilyKey = document.getElementById('intel-tavily').value.trim();
+    setupData.firecrawlKey = document.getElementById('intel-firecrawl').value.trim();
+  }
+
+  if (s < 5) {
+    let next = s + 1;
+    // Skip feishu step if feishu not selected
+    if (next === 2 && !setupData.channels.includes('feishu')) next = 3;
+    setSWStep(next);
+  } else {
+    // Final: write config and launch
+    await finalizeSetup();
+  }
+}
+
+async function finalizeSetup() {
+  swNextBtn.disabled = true;
+  swBackBtn.disabled = true;
+  swStatus.className = 'status-msg';
+  swStatus.textContent = '正在写入配置…';
+
+  try {
+    // Write identity
+    await invoke('setup_op', {
+      pythonPath, projectDir, op: 'write_identity',
+      params: JSON.stringify({agent_name: setupData.agentName, user_name: setupData.userName})
+    });
+
+    // Write mykey.py
+    await invoke('setup_op', {
+      pythonPath, projectDir, op: 'write_mykey',
+      params: JSON.stringify({
+        llm_name: setupData.llm.name || 'DeepSeek',
+        llm_key: setupData.llm.apikey || '',
+        llm_base: setupData.llm.apibase || 'https://api.deepseek.com',
+        llm_model: setupData.llm.model || 'deepseek-v4-flash',
+        lang: setupData.lang,
+        fs_app_id: setupData.feishu.app_id || '',
+        fs_app_secret: setupData.feishu.app_secret || '',
+        fs_owner_open_id: '',
+        companion: setupData.companion,
+        critic_model: setupData.criticModel || '',
+        tinyfish_key: setupData.tinyfishKey,
+        tavily_key: setupData.tavilyKey,
+        firecrawl_key: setupData.firecrawlKey,
+      })
+    });
+
+    swStatus.textContent = '配置写入完成，正在启动中枢桥接…';
 
     await invoke('start_bridge_with_config', {
-      pythonPath: result.python_path,
-      projectDir: result.project_dir
+      pythonPath, projectDir
     });
-    statusEl.textContent = '已连接，正在打开主窗口…';
+
+    swStatus.className = 'status-msg ok';
+    swStatus.textContent = '已连接，正在打开主窗口…';
     await openMainWindow();
   } catch(e) {
-    appendLog('❌ ' + e, 'err');
-    statusEl.className = 'status-msg err';
-    statusEl.textContent = '初始化失败：' + e;
-    startBtn.disabled = false;
-    startBtn.textContent = '重新初始化';
-    installStarted = false;
+    swStatus.className = 'status-msg err';
+    swStatus.textContent = '配置失败：' + e;
+    swNextBtn.disabled = false;
+    swBackBtn.disabled = false;
   }
 }
 
-function retryStep() {
-  // Re-run the current step via install_runtime_step
-  // For now, simplest: re-run full install
-  installStarted = false;
-  startInstall();
-}
+// ---- Utility ----
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-async function doStart() {
-  const pythonPath = pyInput.value.trim();
-  const projectDir = dirInput.value.trim();
-  if (!pythonPath) { statusEl.className='status-msg err'; statusEl.textContent='请输入 Python 路径'; return; }
-  if (!projectDir) { statusEl.className='status-msg err'; statusEl.textContent='请输入项目目录'; return; }
-  startBtn.disabled = true;
-  statusEl.className = 'status-msg';
-  statusEl.textContent = '正在启动中枢桥接…';
-  try {
-    await invoke('start_bridge_with_config', {pythonPath, projectDir});
-    statusEl.className = 'status-msg ok';
-    statusEl.textContent = '已连接，正在打开主窗口…';
-    await openMainWindow();
-  } catch(e) {
-    statusEl.className = 'status-msg err';
-    statusEl.textContent = '启动失败：' + e;
-    startBtn.disabled = false;
-  }
-}
+// Keyboard shortcut
 pyInput.addEventListener('keydown', e=>{ if(e.key==='Enter') dirInput.focus(); });
-dirInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doStart(); });
+dirInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doManualStart(); });
 </script>
 </body>
 </html>

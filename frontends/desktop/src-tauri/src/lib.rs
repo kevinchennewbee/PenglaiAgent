@@ -294,8 +294,7 @@ fn stop_bridge_process() {
 }
 
 /// Spawn a command, stream its stdout/stderr line-by-line as install-progress
-/// events, and return Ok(log) or Err(log) when it finishes.  This replaces the
-/// old `command.output()` blocking call that left the UI frozen for minutes.
+/// events, and return Ok(log) or Err(log) when it finishes.
 fn run_streaming(
     app_handle: &tauri::AppHandle,
     mut command: Command,
@@ -398,16 +397,11 @@ fn build_install_command(project_dir: &PathBuf) -> Command {
 
     #[cfg(not(windows))]
     {
-        // Download install.sh to a temp file first, then execute it.
-        // This avoids the `curl | sh` pipe which silently succeeds (exit 0)
-        // when curl fails to download the script — the root cause of the
-        // "click button, nothing happens" bug.
         let tmp_dir = std::env::temp_dir();
         let script_path = tmp_dir.join("penglai-install-desktop.sh");
         let script_path_str = script_path.to_string_lossy().to_string();
         let url = raw_github_url("install.sh");
 
-        // Download with fallback to gh-proxy mirror
         let download_ps = format!(
             "curl -fsSL -m 30 -o \"{dest}\" \"{url}\" 2>/dev/null || \
              curl -fsSL -m 30 -o \"{dest}\" \"https://gh-proxy.com/{url}\" 2>/dev/null",
@@ -432,6 +426,10 @@ fn build_install_command(project_dir: &PathBuf) -> Command {
 fn ps_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
+
+// ============================================================
+// Core bridge & install commands (unchanged from 0.3.0 preview)
+// ============================================================
 
 #[tauri::command]
 fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, project_dir: String) -> Result<(), String> {
@@ -478,8 +476,6 @@ fn get_config() -> (String, String) {
     get_or_discover_config()
 }
 
-/// Full runtime install with streaming progress events.
-/// Emits "install-progress" events with {step, line, done, ok} to the frontend.
 #[tauri::command]
 fn install_runtime(
     app_handle: tauri::AppHandle,
@@ -489,27 +485,23 @@ fn install_runtime(
     let project = default_runtime_project_dir();
     let project_dir = project.to_string_lossy().to_string();
 
-    // Step 1: bootstrap (download source + Python + deps + install-check)
     let cmd = build_install_command(&project);
     run_streaming(&app_handle, cmd, "bootstrap")?;
 
     let python_path = find_project_python(&project).unwrap_or_else(find_python);
 
-    // Step 2: optional voice model
     if include_voice {
         let mut cmd = Command::new(&python_path);
         cmd.arg("penglai").arg("enable").arg("voice").current_dir(&project);
         let _ = run_streaming(&app_handle, cmd, "voice");
     }
 
-    // Step 3: optional TTS model
     if include_tts {
         let mut cmd = Command::new(&python_path);
         cmd.arg("penglai").arg("enable").arg("tts").current_dir(&project);
         let _ = run_streaming(&app_handle, cmd, "tts");
     }
 
-    // Step 4: diagnostics (install-check)
     let mut cmd = Command::new(&python_path);
     cmd.arg("penglai").arg("install-check").arg("--json").current_dir(&project);
     let _ = run_streaming(&app_handle, cmd, "diagnostics");
@@ -518,8 +510,6 @@ fn install_runtime(
     Ok(RuntimeInstallResult { python_path, project_dir, log: String::new() })
 }
 
-/// Run a single step independently (for re-running voice/tts/doctor/update-check
-/// without redoing the full bootstrap).  Supports the "补配置" use case.
 #[tauri::command]
 fn install_runtime_step(
     app_handle: tauri::AppHandle,
@@ -563,7 +553,6 @@ fn install_runtime_step(
     }
 }
 
-/// Check for runtime updates by parsing `penglai update --check` output.
 #[tauri::command]
 fn check_update() -> Result<UpdateInfo, String> {
     let project = default_runtime_project_dir();
@@ -575,7 +564,6 @@ fn check_update() -> Result<UpdateInfo, String> {
     let text = String::from_utf8_lossy(&output.stdout).to_string()
         + &String::from_utf8_lossy(&output.stderr);
 
-    // Parse: "🔄 检查蓬莱更新 ..." + "✅ 已是最新版" or version lines
     let has_update = text.contains("落后") || text.contains("新版本");
     let old_version = extract_field(&text, "当前").or(extract_field(&text, "old")).unwrap_or_default();
     let new_version = extract_field(&text, "最新").or(extract_field(&text, "new")).unwrap_or_default();
@@ -589,10 +577,423 @@ fn check_update() -> Result<UpdateInfo, String> {
 }
 
 fn extract_field(_text: &str, _key: &str) -> Option<String> {
-    // Simple extraction; penglai update --check prints human-readable text
-    // We return the whole text as detail and let frontend parse display
     None
 }
+
+// ============================================================
+// New 0.3.0 complete-wizard commands
+// ============================================================
+
+/// Run a Python one-liner and return its stdout.
+fn exec_python(python_path: &str, project_dir: &str, code: &str) -> Result<String, String> {
+    let mut cmd = Command::new(python_path);
+    cmd.args(["-c", code]).current_dir(project_dir);
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+    let output = cmd.output().map_err(|e| format!("Python 执行失败: {}", e))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        return Err(if stderr.is_empty() { stdout } else { stderr });
+    }
+    Ok(stdout.trim().to_string())
+}
+
+/// Run a Python command with streaming progress events.
+fn exec_python_streaming(
+    app_handle: &tauri::AppHandle,
+    python_path: &str,
+    project_dir: &str,
+    args: &[&str],
+    step_label: &str,
+) -> Result<String, String> {
+    let mut cmd = Command::new(python_path);
+    for arg in args {
+        cmd.arg(arg);
+    }
+    cmd.current_dir(project_dir);
+    run_streaming(app_handle, cmd, step_label)
+}
+
+/// Unified setup operation dispatcher.  The frontend calls this with an op name
+/// and optional JSON params; the Rust side executes the matching Python logic.
+#[tauri::command]
+fn setup_op(
+    app_handle: tauri::AppHandle,
+    python_path: String,
+    project_dir: String,
+    op: String,
+    params: String,
+) -> Result<String, String> {
+    match op.as_str() {
+        // ---- LLM provider catalog ----
+        "list_providers" => {
+            let code = r#"
+import sys,os,json
+sys.path.insert(0,os.getcwd())
+data=None
+try:
+    import yaml
+    with open('penglai_providers.yaml','r',encoding='utf-8') as f:
+        data=yaml.safe_load(f)
+except Exception:
+    pass
+if data is None:
+    # Fallback: hardcoded minimal catalog
+    data={"wizard_order":["deepseek","volcengine","bailian","zhipu","minimax","moonshot","openrouter","hunyuan","xunfei","agnes","custom"],"providers":{}}
+print(json.dumps(data,ensure_ascii=False))
+"#;
+            exec_python(&python_path, &project_dir, code)
+        }
+
+        // ---- Test LLM endpoint connectivity ----
+        "test_llm" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            let base = p["base_url"].as_str().unwrap_or("");
+            let model = p["model"].as_str().unwrap_or("");
+            let key = p["api_key"].as_str().unwrap_or("");
+            let code = format!(
+                r#"import urllib.request,json,sys
+try:
+    req=urllib.request.Request('{base}/chat/completions',
+        data=json.dumps({{"model":"{model}","messages":[{{"role":"user","content":"回复两个字：蓬莱"}}],"max_tokens":64}}).encode(),
+        headers={{"Authorization":"Bearer {key}","Content-Type":"application/json"}})
+    resp=urllib.request.urlopen(req,timeout=40)
+    body=json.loads(resp.read())
+    content=body['choices'][0]['message']['content']
+    print(json.dumps({{"ok":True,"content":content}}))
+except Exception as e:
+    print(json.dumps({{"ok":False,"error":str(e)[:200]}}))
+"#,
+                base = base.trim_end_matches('/'),
+                model = model.replace('"', r#"\""#),
+                key = key.replace('"', r#"\""#),
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        // ---- Feishu QR code init (device code flow) ----
+        "feishu_qr_init" => {
+            let code = r#"
+import urllib.request,json
+try:
+    # Step 1: init
+    req=urllib.request.Request('https://accounts.feishu.cn/oauth/v1/app/registration',
+        data=b'action=init',headers={'Content-Type':'application/x-www-form-urlencoded'})
+    resp=urllib.request.urlopen(req,timeout=20)
+    data=json.loads(resp.read())
+    if 'client_secret' not in str(data.get('supported_auth_methods','')):
+        print(json.dumps({"ok":False,"error":"Feishu device flow not available, use manual mode"}))
+        raise SystemExit(0)
+    # Step 2: begin
+    req2=urllib.request.Request('https://accounts.feishu.cn/oauth/v1/app/registration',
+        data=b'action=begin&archetype=PersonalAgent&auth_method=client_secret&request_user_info=open_id',
+        headers={'Content-Type':'application/x-www-form-urlencoded'})
+    resp2=urllib.request.urlopen(req2,timeout=20)
+    data2=json.loads(resp2.read())
+    print(json.dumps({"ok":True,"device_code":data2.get("device_code",""),
+        "qr_url":data2.get("verification_uri_complete",""),
+        "expires_in":data2.get("expires_in",600),"interval":data2.get("interval",2)}))
+except Exception as e:
+    print(json.dumps({"ok":False,"error":str(e)[:200]}))
+"#;
+            exec_python(&python_path, &project_dir, code)
+        }
+
+        // ---- Feishu QR code poll ----
+        "feishu_qr_poll" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            let device_code = p["device_code"].as_str().unwrap_or("");
+            let code = format!(
+                r#"import urllib.request,json
+try:
+    req=urllib.request.Request('https://accounts.feishu.cn/oauth/v1/app/registration',
+        data='action=poll&device_code={dc}&tp=ob_app'.encode(),
+        headers={{'Content-Type':'application/x-www-form-urlencoded'}})
+    resp=urllib.request.urlopen(req,timeout=20)
+    data=json.loads(resp.read())
+    if 'client_id' in data and 'client_secret' in data:
+        print(json.dumps({{"status":"ok","app_id":data['client_id'],"app_secret":data['client_secret']}}))
+    elif 'access_denied' in str(data):
+        print(json.dumps({{"status":"denied"}}))
+    elif 'expired' in str(data).lower():
+        print(json.dumps({{"status":"expired"}}))
+    else:
+        print(json.dumps({{"status":"waiting"}}))
+except Exception as e:
+    print(json.dumps({{"status":"error","error":str(e)[:200]}}))
+"#,
+                dc = device_code,
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        // ---- Feishu verify credentials ----
+        "feishu_verify" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            let app_id = p["app_id"].as_str().unwrap_or("");
+            let app_secret = p["app_secret"].as_str().unwrap_or("");
+            let code = format!(
+                r#"import urllib.request,json
+try:
+    body=json.dumps({{"app_id":"{aid}","app_secret":"{asec}"}}).encode()
+    req=urllib.request.Request('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
+        data=body,headers={{'Content-Type':'application/json'}})
+    resp=urllib.request.urlopen(req,timeout=20)
+    data=json.loads(resp.read())
+    if data.get('code')==0:
+        print(json.dumps({{"ok":True,"tenant_access_token":"valid"}}))
+    else:
+        print(json.dumps({{"ok":False,"error":"code={{}} msg={{}}".format(data.get('code'),data.get('msg',''))}}))
+except Exception as e:
+    print(json.dumps({{"ok":False,"error":str(e)[:200]}}))
+"#,
+                aid = app_id,
+                asec = app_secret,
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        // ---- Write L1 identity file ----
+        "write_identity" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            let agent_name = p["agent_name"].as_str().unwrap_or("蓬莱助手 Penglai");
+            let user_name = p["user_name"].as_str().unwrap_or("主人");
+            let code = format!(
+                r#"import os
+mem_dir=os.path.join(os.getcwd(),'memory')
+os.makedirs(mem_dir,exist_ok=True)
+ins_path=os.path.join(mem_dir,'global_mem_insight.txt')
+
+base='''# [Global Memory Insight]
+L0: ../memory/memory_management_sop.md
+L2: global_mem.txt (当前空)
+L3: cleanup/scheduled/autonomous/plan/subagent/web_setup
+L4: ../memory/L4_raw_sessions/
+
+# 规则
+1. 行动验证: 无工具执行结果不写入记忆
+2. 交叉验证: 关键事实至少两个独立来源
+3. 读后即改: 修改前必须先读当前内容
+4. 闭环: 每次任务结束做记忆结算
+5. SOP 优先: 匹配到场景先读对应 SOP
+
+[身份]
+我是「{an}」，基于 GenericAgent 的开源个人管家发行版蓬莱。用户称呼：{un}。
+被问及身份/名字时以此为准，勿自称底层模型名。
+
+[蓬莱SOP]
+penglai_checkpoint_sop: 长任务打检查点
+penglai_compress_sop: 记忆压缩
+penglai_channels_sop: IM渠道管理（penglai enable <渠道>）
+penglai_memsig_sop: 长期事实写入（时间戳+取代旧条目）
+scheduled_task_sop: 提醒/定时任务（注意注入安全）
+penglai_weather_sop: 天气（Open-Meteo 免费）
+版本更新: penglai update --check / --apply，禁止裸 git 命令
+
+[蓬莱规则]
+IM 图片: 读 penglai_im_vision_sop，用 ask_vision(backend='openai')，勿先 OCR
+语音: 包含[audio:文件名]时，首个工具调用必须是 transcribe(path=该音频路径)
+'''.format(an="{an}",un="{un}")
+
+existing=''
+if os.path.exists(ins_path):
+    with open(ins_path,'r',encoding='utf-8') as f:
+        existing=f.read()
+
+if existing and '[身份]' in existing:
+    # Preserve existing identity, only update SOP/rules
+    for tag in ['[身份]','[蓬莱SOP]','[蓬莱规则]']:
+        idx=existing.find(tag)
+        if idx>=0:
+            end=existing.find('[',idx+1)
+            existing=existing[:idx]+('' if end<0 else existing[end:])
+    with open(ins_path,'w',encoding='utf-8') as f:
+        f.write(existing.strip()+'\n\n'+base)
+else:
+    with open(ins_path,'w',encoding='utf-8') as f:
+        f.write(base)
+os.chmod(ins_path,0o600)
+print('ok')
+"#,
+                an = agent_name.replace('\'', r#"'"'"'"#),
+                un = user_name.replace('\'', r#"'"'"'"#),
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        // ---- Write mykey.py ----
+        "write_mykey" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            // Build mykey.py content from params
+            let llm_name = p["llm_name"].as_str().unwrap_or("DeepSeek");
+            let llm_key = p["llm_key"].as_str().unwrap_or("");
+            let llm_base = p["llm_base"].as_str().unwrap_or("https://api.deepseek.com");
+            let llm_model = p["llm_model"].as_str().unwrap_or("deepseek-v4-flash");
+            let lang = p["lang"].as_str().unwrap_or("zh");
+            let fs_app_id = p["fs_app_id"].as_str().unwrap_or("");
+            let fs_app_secret = p["fs_app_secret"].as_str().unwrap_or("");
+            let fs_owner_open_id = p["fs_owner_open_id"].as_str().unwrap_or("");
+            let companion = p["companion"].as_bool().unwrap_or(false);
+            let critic_model = p["critic_model"].as_str().unwrap_or("");
+            let critic_mode = if critic_model.is_empty() { "" } else { "smart" };
+            let tinyfish_key = p["tinyfish_key"].as_str().unwrap_or("");
+            let tavily_key = p["tavily_key"].as_str().unwrap_or("");
+            let firecrawl_key = p["firecrawl_key"].as_str().unwrap_or("");
+
+            let code = format!(
+                r#"import os,shutil,json
+mk=os.path.join(os.getcwd(),'mykey.py')
+if os.path.exists(mk):
+    import datetime
+    bak=mk+'.bak.'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    shutil.copy2(mk,bak)
+
+body='''# mykey.py -- 由 Penglai Desktop 生成
+native_oai_config = {{
+    'name': '{llm_name}',
+    'apikey': '{llm_key}',
+    'apibase': '{llm_base}',
+    'model': '{llm_model}',
+    'max_retries': 3,
+}}
+mixin_config = {{
+    'llm_nos': ['{llm_name}'],
+    'max_retries': 2,
+    'base_delay': 2,
+}}
+penglai_lang = '{lang}'
+fs_app_id = '{fs_id}'
+fs_app_secret = '{fs_sec}'
+fs_allowed_users = []
+fs_owner_open_id = "{fs_oid}"
+'''.format(llm_name='{llm_name}',llm_key='{llm_key}',llm_base='{llm_base}',llm_model='{llm_model}',
+           lang='{lang}',fs_id='{fs_id}',fs_sec='{fs_sec}',fs_oid='{fs_oid}')
+
+if '{companion}'=='true':
+    body+='companion_enabled = True\n'
+if '{critic_model}':
+    body+="critic_model = '{{}}'\ncritic_mode = '{{}}'\n".format('{critic_model}','{critic_mode}')
+if '{tinyfish}':
+    body+="tinyfish_key = '{{}}'\n".format('{tinyfish}')
+if '{tavily}':
+    body+="tavily_key = '{{}}'\n".format('{tavily}')
+if '{firecrawl}':
+    body+="firecrawl_key = '{{}}'\n".format('{firecrawl}')
+
+with open(mk,'w',encoding='utf-8') as f:
+    f.write(body)
+os.chmod(mk,0o600)
+print('ok')
+"#,
+                llm_name = llm_name,
+                llm_key = llm_key,
+                llm_base = llm_base,
+                llm_model = llm_model,
+                lang = lang,
+                fs_id = fs_app_id,
+                fs_sec = fs_app_secret,
+                fs_oid = fs_owner_open_id,
+                companion = if_true("true", companion),
+                critic_model = critic_model,
+                critic_mode = critic_mode,
+                tinyfish = tinyfish_key,
+                tavily = tavily_key,
+                firecrawl = firecrawl_key,
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        // ---- Get runtime service status ----
+        "service_status" => {
+            let code = r#"
+import subprocess,json,os,sys
+cwd=os.getcwd()
+py=os.path.join(cwd,'.venv','bin','python')
+if not os.path.exists(py):
+    py=sys.executable
+result={"services":[],"bridge":False}
+# Check if bridge is running
+import socket
+s=socket.socket()
+s.settimeout(1)
+if s.connect_ex(('127.0.0.1',14168))==0:
+    result["bridge"]=True
+s.close()
+# Check penglai processes
+try:
+    out=subprocess.check_output(['pgrep','-f','penglai'],timeout=3).decode()
+    for line in out.strip().split('\n'):
+        if line.strip():
+            result["services"].append({"pid":line.strip(),"name":"penglai"})
+except:
+    pass
+print(json.dumps(result))
+"#;
+            exec_python(&python_path, &project_dir, code)
+        }
+
+        // ---- Run full doctor diagnostic ----
+        "doctor" => {
+            exec_python_streaming(
+                &app_handle, &python_path, &project_dir,
+                &["penglai", "doctor"],
+                "doctor",
+            )
+        }
+
+        // ---- Enable a channel (for post-install "补配置") ----
+        "enable_channel" => {
+            let p: serde_json::Value = serde_json::from_str(&params)
+                .map_err(|e| format!("invalid params JSON: {}", e))?;
+            let channel = p["channel"].as_str().unwrap_or("");
+            exec_python_streaming(
+                &app_handle, &python_path, &project_dir,
+                &["penglai", "enable", channel],
+                &format!("enable_{}", channel),
+            )
+        }
+
+        // ---- Check for runtime update against main branch ----
+        "check_main_update" => {
+            let code = format!(
+                r#"import subprocess,sys,json,os
+cwd=os.getcwd()
+# Check if git repo
+if not os.path.exists(os.path.join(cwd,'.git')):
+    print(json.dumps({{"has_update":False,"detail":"not a git install"}}))
+    raise SystemExit(0)
+# Check against main branch on release remote
+try:
+    subprocess.run(['git','fetch','release','main','--depth=1'],cwd=cwd,
+        timeout=30,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    behind=subprocess.check_output(['git','rev-list','--count','HEAD..release/main'],
+        cwd=cwd,timeout=10).decode().strip()
+    has=int(behind)>0
+    print(json.dumps({{"has_update":has,"behind":behind,"detail":"{{}} commits behind main".format(behind)}}))
+except Exception as e:
+    print(json.dumps({{"has_update":False,"detail":str(e)[:200]}}))
+"#,
+            );
+            exec_python(&python_path, &project_dir, &code)
+        }
+
+        _ => Err(format!("未知操作: {}", op)),
+    }
+}
+
+fn if_true(s: &str, cond: bool) -> &str {
+    if cond { "true" } else { s }
+}
+
+// ============================================================
+// App entry point with system tray
+// ============================================================
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -636,8 +1037,74 @@ pub fn run() {
             install_runtime,
             install_runtime_step,
             check_update,
+            setup_op,
         ])
         .setup(move |app| {
+            // ---- System tray icon (macOS menu bar / Windows notification area) ----
+            let show_hide_item = tauri::menu::MenuItemBuilder::with_id("show_hide", "显示主窗口")
+                .build(app)?;
+            let check_update_item = tauri::menu::MenuItemBuilder::with_id("check_update", "检查更新")
+                .build(app)?;
+            let quit_item = tauri::menu::MenuItemBuilder::with_id("quit", "退出蓬莱")
+                .build(app)?;
+
+            let tray_menu = tauri::menu::MenuBuilder::new(app)
+                .item(&show_hide_item)
+                .item(&check_update_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            let _tray = tauri::tray::TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&tray_menu)
+                .tooltip("蓬莱 · Penglai")
+                .on_menu_event(move |app_handle, event| {
+                    match event.id().as_ref() {
+                        "show_hide" => {
+                            if let Some(w) = app_handle.get_webview_window("main") {
+                                if w.is_visible().unwrap_or(false) {
+                                    let _ = w.hide();
+                                } else {
+                                    let _ = w.show();
+                                    let _ = w.set_focus();
+                                }
+                            }
+                        }
+                        "check_update" => {
+                            if let Some(w) = app_handle.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                                let _ = w.eval("if(typeof checkForUpdates==='function')checkForUpdates()");
+                            }
+                        }
+                        "quit" => {
+                            stop_bridge_process();
+                            app_handle.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray_icon, event| {
+                    if let tauri::tray::TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up, ..
+                    } = event
+                    {
+                        let app = tray_icon.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            if w.is_visible().unwrap_or(false) {
+                                let _ = w.hide();
+                            } else {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // ---- Bridge startup & window routing ----
             let bridge_wait = if spawned_bridge {
                 Duration::from_secs(20)
             } else {
@@ -677,11 +1144,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let label = window.label();
                 if label == "main" {
-                    stop_bridge_process();
-                    window.app_handle().exit(0);
+                    // Hide to tray instead of quitting
+                    api.prevent_close();
+                    let _ = window.hide();
                 } else if label == "setup" {
                     if let Some(main_win) = window.app_handle().get_webview_window("main") {
                         if !main_win.is_visible().unwrap_or(false) {
