@@ -32,14 +32,19 @@
 
 1. 下载 `Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg`。
 2. 打开 DMG，把 `Penglai.app` 拖到 `Applications`。
-3. 如果提示“Penglai 已损坏”或“无法打开”，在“终端”运行：
+3. 首次打开时 macOS 会提示”无法验证开发者”或”无法打开”。
+   - 打开 **系统设置 → 隐私与安全性**，找到关于 Penglai 的提示，点 **仍要打开**。
+   - 也可以在弹窗里直接点 **完成**，再去系统设置放行。
+4. 再从”应用程序”打开 Penglai。
+5. 在首次启动页点击”自动初始化并启动”。
+
+如果 macOS 仍然显示”Penglai 已损坏”（少数系统版本对 adhoc 签名的处理更严格），在”终端”运行：
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Penglai.app
 ```
 
-4. 再从“应用程序”打开 Penglai。
-5. 在首次启动页点击“自动初始化并启动”。
+然后再从”应用程序”打开。
 
 ## Windows 桌面端
 

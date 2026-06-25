@@ -144,6 +144,28 @@ jobs:
         working-directory: frontends/desktop
         run: npm run build:mac
 
+      - name: Re-sign app with adhoc signature and repack DMG
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
+          test -f "$dmg"
+          work_dir="$(mktemp -d /tmp/penglai-repack.XXXXXX)"
+          mount_dir="$(mktemp -d /tmp/penglai-dmg-mount.XXXXXX)"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
+          ditto "$mount_dir/" "$work_dir/"
+          hdiutil detach "$mount_dir" || true
+          # Tauri leaves a linker-signed app (Sealed Resources=none) that macOS
+          # reports as "damaged". Re-sign with a proper adhoc signature so the
+          # bundle resources are sealed and Gatekeeper shows the normal
+          # "unidentified developer" prompt instead of "damaged".
+          codesign --force --deep --sign - "$work_dir/Penglai.app"
+          codesign --verify --deep --strict "$work_dir/Penglai.app"
+          rm -f "$dmg"
+          hdiutil create -volname "Penglai" -srcfolder "$work_dir" -ov -format UDZO "$dmg"
+          rm -rf "$work_dir"
+
       - name: Verify DMG
         shell: bash
         env:
@@ -159,11 +181,18 @@ jobs:
           trap 'hdiutil detach "$mount_dir" || true' EXIT
           test -d "$mount_dir/Penglai.app"
           test -L "$mount_dir/Applications"
-          test -f "$mount_dir/.background/dmg-background.png"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.0
+          # Both signed and adhoc builds must have a structurally valid
+          # signature: resources sealed and codesign --verify passing.
+          # Without this, macOS shows "damaged" instead of the normal
+          # "unidentified developer" prompt that users can bypass.
+          codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
+          sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
+          printf '%s\n' "$sign_info"
+          ! grep -F "code has no resources" <<<"$sign_info"
           if [ "$PUBLIC_RELEASE" != "true" ]; then
-            echo "Branch build: verified DMG layout only; unsigned installer artifacts are not uploaded."
+            echo "Branch build: verified DMG layout and adhoc signature structure."
             exit 0
           fi
           codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"

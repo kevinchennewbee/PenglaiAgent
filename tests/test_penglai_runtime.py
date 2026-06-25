@@ -3520,10 +3520,15 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "Developer ID Application",
         "Build signed DMG",
         "Build DMG compile check",
+        "Re-sign app with adhoc signature and repack DMG",
+        "codesign --force --deep --sign -",
+        "linker-signed",
+        "Sealed Resources=none",
+        "unidentified developer",
         "npm run build:mac",
         "npm run build:windows",
         "hdiutil attach -readonly",
-        "Branch build: verified DMG layout only; unsigned installer artifacts are not uploaded.",
+        "Branch build: verified DMG layout and adhoc signature structure.",
         "codesign --verify --deep --strict --verbose=4",
         "Authority=Developer ID Application",
         "TeamIdentifier=$APPLE_TEAM_ID",
@@ -3584,6 +3589,11 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
     assert "Windows installer is not code signed" not in workflow
     assert "update --apply" not in workflow
     assert "OutputCleaner" not in workflow
+    # The old branch-build message must not regress; the DMG must now be
+    # re-signed with a proper adhoc signature so macOS shows "unidentified
+    # developer" instead of "damaged".
+    assert "verified DMG layout only" not in workflow
+    assert "code has no resources" in workflow
 
 
 def test_selfcheck_exercises_runtime_contracts():
