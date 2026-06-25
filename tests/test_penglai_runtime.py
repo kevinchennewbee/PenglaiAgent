@@ -3309,6 +3309,10 @@ def test_desktop_package_identity_targets_penglai_preview():
     desktop_dir = os.path.join(root, "frontends", "desktop")
     with open(os.path.join(desktop_dir, "package.json"), "r", encoding="utf-8") as fh:
         package_json = json.load(fh)
+    with open(os.path.join(desktop_dir, "package-lock.json"), "r", encoding="utf-8") as fh:
+        package_lock = json.load(fh)
+    with open(os.path.join(desktop_dir, ".gitignore"), "r", encoding="utf-8") as fh:
+        desktop_gitignore = fh.read()
     with open(os.path.join(desktop_dir, "src-tauri", "tauri.conf.json"), "r", encoding="utf-8") as fh:
         tauri_conf = json.load(fh)
     with open(os.path.join(desktop_dir, "src-tauri", "Cargo.toml"), "r", encoding="utf-8") as fh:
@@ -3320,6 +3324,13 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert package_json["version"] == "0.3.0"
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
+    assert package_lock["packages"][""]["name"] == "penglai-desktop"
+    assert package_lock["packages"][""]["version"] == "0.3.0"
+    assert "!package-lock.json" in desktop_gitignore
+    for package in package_lock["packages"].values():
+        resolved = package.get("resolved")
+        if resolved:
+            assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
     assert tauri_conf["version"] == "0.3.0"
     assert tauri_conf["identifier"] == "com.penglai.agent"
@@ -3354,6 +3365,49 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert 'join(".venv").join("Scripts").join("python.exe")' in lib_rs
     assert 'join(".venv").join("bin").join("python")' in lib_rs
     assert "GenericAgent" not in json.dumps(tauri_conf)
+
+
+def test_desktop_preview_workflow_builds_validates_and_prereleases():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    workflow_path = os.path.join(root, ".github", "workflows", "desktop-preview.yml")
+    with open(workflow_path, "r", encoding="utf-8") as fh:
+        workflow = fh.read()
+
+    for text in (
+        "codex/0.3.0-runtime-hub",
+        "v0.3.0-preview*",
+        "macos-14",
+        "windows-latest",
+        "frontends/desktop/package-lock.json",
+        "npm ci",
+        "node --check frontends/desktop/static/app.js",
+        "node --check frontends/desktop/static/penglai-web.js",
+        "cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml",
+        "npm run build:mac",
+        "npm run build:windows",
+        "hdiutil attach -readonly",
+        "Penglai_0.3.0_preview_macos_aarch64.dmg",
+        "Penglai_0.3.0_preview_windows_x64_setup.exe",
+        "Start-Process -FilePath $setup.FullName -ArgumentList \"/S\"",
+        "DisplayName -eq \"Penglai\"",
+        "UninstallString",
+        "$uninstallString -match",
+        "$uninstallArgs -notmatch",
+        "Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs",
+        "actions/upload-artifact@v4",
+        "actions/download-artifact@v4",
+        "gh release create",
+        "--prerelease",
+        "--latest=false",
+        "not Developer ID signed or notarized",
+        "Windows installer is not code signed",
+        "0.2.27 to 0.3.0 in-place upgrade is still not promised stable",
+        "other IM channels still require real credential and send/receive validation",
+    ):
+        assert text in workflow
+
+    assert "update --apply" not in workflow
+    assert "OutputCleaner" not in workflow
 
 
 def test_selfcheck_exercises_runtime_contracts():

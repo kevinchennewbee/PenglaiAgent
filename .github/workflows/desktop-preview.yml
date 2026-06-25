@@ -1,0 +1,212 @@
+name: desktop-preview
+
+on:
+  push:
+    branches:
+      - codex/0.3.0-runtime-hub
+    tags:
+      - "v0.3.0-preview*"
+    paths:
+      - ".github/workflows/desktop-preview.yml"
+      - "frontends/desktop/**"
+      - "frontends/chatapp_common.py"
+      - "penglai"
+      - "penglai_im_launch.py"
+      - "penglai_runtime/**"
+      - "tests/test_penglai_runtime.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos-dmg:
+    name: macOS DMG preview
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontends/desktop/package-lock.json
+
+      - name: Setup Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Install desktop dependencies
+        working-directory: frontends/desktop
+        run: npm ci
+
+      - name: Static checks
+        run: |
+          node --check frontends/desktop/static/app.js
+          node --check frontends/desktop/static/penglai-web.js
+          cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
+
+      - name: Build DMG
+        working-directory: frontends/desktop
+        run: npm run build:mac
+
+      - name: Verify DMG contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
+          test -f "$dmg"
+          hdiutil imageinfo "$dmg" | tee /tmp/penglai-dmg-imageinfo.txt
+          mount_dir="$(mktemp -d /tmp/penglai-dmg.XXXXXX)"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
+          trap 'hdiutil detach "$mount_dir" || true' EXIT
+          test -d "$mount_dir/Penglai.app"
+          test -L "$mount_dir/Applications"
+          test -f "$mount_dir/.background/dmg-background.png"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.0
+
+      - name: Stage macOS artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
+            dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: penglai-0.3.0-preview-macos-aarch64
+          path: dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+          if-no-files-found: error
+
+  windows-nsis:
+    name: Windows NSIS preview
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontends/desktop/package-lock.json
+
+      - name: Setup Rust
+        shell: pwsh
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Install desktop dependencies
+        working-directory: frontends/desktop
+        run: npm ci
+
+      - name: Static checks
+        shell: pwsh
+        run: |
+          node --check frontends/desktop/static/app.js
+          node --check frontends/desktop/static/penglai-web.js
+          cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
+
+      - name: Build NSIS installer
+        working-directory: frontends/desktop
+        run: npm run build:windows
+
+      - name: Verify silent install and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $setup = Get-ChildItem "frontends/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "NSIS setup exe not found" }
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Copy-Item $setup.FullName "dist/Penglai_0.3.0_preview_windows_x64_setup.exe" -Force
+
+          $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)" }
+          Start-Sleep -Seconds 5
+
+          $roots = @(
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+          )
+          $app = Get-ItemProperty $roots -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -eq "Penglai" } |
+            Select-Object -First 1
+          if (-not $app) { throw "Installed Penglai uninstall entry not found" }
+          if (-not $app.InstallLocation -or -not (Test-Path $app.InstallLocation)) {
+            throw "Installed Penglai location not found: $($app.InstallLocation)"
+          }
+          $installedExe = Get-ChildItem $app.InstallLocation -Filter "*.exe" |
+            Where-Object { $_.Name -notmatch "unins|uninstall" } |
+            Select-Object -First 1
+          if (-not $installedExe) { throw "Installed Penglai app exe not found" }
+          if (-not $app.UninstallString) { throw "Penglai uninstall command missing" }
+
+          $uninstallString = [string]$app.UninstallString
+          if ($uninstallString -match '^\s*"([^"]+)"\s*(.*)$') {
+            $uninstallExe = $Matches[1]
+            $uninstallArgs = $Matches[2].Trim()
+          } else {
+            $parts = $uninstallString -split '\s+', 2
+            $uninstallExe = $parts[0]
+            $uninstallArgs = if ($parts.Count -gt 1) { $parts[1].Trim() } else { "" }
+          }
+          if (-not (Test-Path $uninstallExe)) { throw "Penglai uninstall executable missing: $uninstallExe" }
+          if ($uninstallArgs -notmatch '(^|\s)/S(\s|$)') {
+            $uninstallArgs = if ($uninstallArgs) { "$uninstallArgs /S" } else { "/S" }
+          }
+          $uninstall = Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "NSIS silent uninstall failed with exit code $($uninstall.ExitCode)" }
+          Start-Sleep -Seconds 5
+          if (Test-Path $installedExe.FullName) { throw "Installed Penglai exe remains after uninstall: $($installedExe.FullName)" }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: penglai-0.3.0-preview-windows-x64
+          path: dist/Penglai_0.3.0_preview_windows_x64_setup.exe
+          if-no-files-found: error
+
+  prerelease:
+    name: GitHub prerelease
+    runs-on: ubuntu-latest
+    needs:
+      - macos-dmg
+      - windows-nsis
+    if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Write preview notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          PenglaiAgent 0.3.0 Preview test build.
+
+          This is a prerelease for the Runtime Hub architecture and desktop clients.
+
+          Important limits:
+          - macOS DMG is not Developer ID signed or notarized. Gatekeeper warnings are expected.
+          - Windows installer is not code signed. SmartScreen warnings are expected.
+          - 0.2.27 to 0.3.0 in-place upgrade is still not promised stable; preview installs use fail-closed checks.
+          - Desktop and IM channels expose update checks, but do not silently apply upgrades.
+          - Feishu is the validated primary IM path; other IM channels still require real credential and send/receive validation before stable claims.
+          EOF
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "PenglaiAgent 0.3.0 Preview ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md \
+            --prerelease \
+            --latest=false
