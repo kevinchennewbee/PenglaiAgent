@@ -437,7 +437,7 @@ jobs:
           $projectDir = (Resolve-Path ".").Path
           $settingsPath = Join-Path $HOME ".penglai_desktop_settings.json"
           @{ python_path = $pythonPath; project_dir = $projectDir } | ConvertTo-Json | Set-Content -Path $settingsPath -Encoding UTF8
-          $launched = Start-Process -FilePath $installedExe.FullName -PassThru
+          $launched = Start-Process -FilePath $installedExe.FullName -PassThru -Environment @{PENGLAI_NO_TRAY="1"}
           try {
             $origin = "http://127.0.0.1:14168"
             $token = ""
@@ -473,11 +473,15 @@ jobs:
           } finally {
             if (-not $launched.HasExited) {
               [void]$launched.CloseMainWindow()
-              Start-Sleep -Seconds 5
+              Start-Sleep -Seconds 3
             }
             if (-not $launched.HasExited) {
               Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 2
             }
+            # Kill any remaining bridge process on port 14168
+            $bridgePid = (Get-NetTCPConnection -LocalPort 14168 -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
+            if ($bridgePid) { Stop-Process -Id $bridgePid -Force -ErrorAction SilentlyContinue }
           }
 
           $uninstallString = if ($app.QuietUninstallString) { [string]$app.QuietUninstallString } else { [string]$app.UninstallString }

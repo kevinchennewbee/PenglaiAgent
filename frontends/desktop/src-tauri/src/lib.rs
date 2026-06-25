@@ -1147,9 +1147,15 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let label = window.label();
                 if label == "main" {
-                    // Hide to tray instead of quitting
-                    api.prevent_close();
-                    let _ = window.hide();
+                    // Hide to tray instead of quitting (unless PENGLAI_NO_TRAY is set, for CI)
+                    let no_tray = std::env::var("PENGLAI_NO_TRAY").is_ok();
+                    if no_tray {
+                        stop_bridge_process();
+                        window.app_handle().exit(0);
+                    } else {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
                 } else if label == "setup" {
                     if let Some(main_win) = window.app_handle().get_webview_window("main") {
                         if !main_win.is_visible().unwrap_or(false) {
