@@ -15,6 +15,8 @@ if ($Proxy -and -not $Proxy.EndsWith("/")) { $Proxy = "$Proxy/" }
 
 $CoreDeps = @("requests", "beautifulsoup4", "bottle", "aiohttp", "lark-oapi", "qrcode", "pillow", "pyyaml")
 $PipIndex = if ($env:PENGLAI_PIP_INDEX) { $env:PENGLAI_PIP_INDEX } else { "https://pypi.tuna.tsinghua.edu.cn/simple" }
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
 
 function Say([string]$Message) {
     Write-Host $Message
