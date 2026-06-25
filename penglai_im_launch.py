@@ -298,6 +298,12 @@ def launch_wechat():
     def _help_text():
         return "\n".join([
             "Commands:",
+            "/status - show runtime status",
+            "/doctor - run diagnostics",
+            "/install-check - run install preflight",
+            "/update-check - check updates without applying them",
+            "/runtime-audit - audit legacy runtime entrypoints",
+            "/privacy-audit - audit privacy/release blockers",
             "/new - clear current context",
             "/restore - restore the latest conversation summary",
             "/continue - list recoverable sessions",
@@ -346,9 +352,28 @@ def launch_wechat():
             return
         wx.on_message(bot, _text_msg(msg, prompt))
 
+    def _handle_ops_command(op):
+        from frontends.chatapp_common import run_read_only_ops_command
+
+        return run_read_only_ops_command(op)
+
     def _dispatch_command(bot, msg, text, uid, ctx):
         if text == "/help":
             _send(bot, uid, _help_text(), ctx)
+            return True
+        if _is_cmd(text, "/status"):
+            llm = wx.agent.get_llm_name() if getattr(wx.agent, "llmclient", None) else "未配置"
+            _send(bot, uid, f"状态: {'🔴 运行中' if wx.agent.is_running else '🟢 空闲'}\nLLM: [{wx.agent.llm_no}] {llm}", ctx)
+            return True
+        op = (text or "").split()[0].lower() if (text or "").strip() else ""
+        if op in {"/doctor", "/install-check", "/update-check", "/runtime-audit", "/privacy-audit"}:
+            def worker():
+                _send(bot, uid, _handle_ops_command(op), ctx)
+
+            threading.Thread(target=worker, daemon=True, name="wechat-ops-command").start()
+            return True
+        if op == "/update":
+            _send(bot, uid, "升级需要显式确认。请先发送 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。", ctx)
             return True
         if text in ("/stop", "/abort"):
             session_id, data = _cancel_wechat_runtime_session(

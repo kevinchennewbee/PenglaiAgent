@@ -902,8 +902,27 @@ def _release_remote():
     return "origin"
 
 
+def _release_branch():
+    explicit = os.environ.get("PENGLAI_RELEASE_BRANCH", "").strip()
+    if explicit:
+        return explicit
+    try:
+        from penglai_runtime.version import collect_version_metadata
+
+        branch = (collect_version_metadata(root=ROOT).branch or "").strip()
+        if branch and branch not in {"unknown", "HEAD"}:
+            return branch
+    except Exception:
+        pass
+    if is_git_repo():
+        branch = _git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        if branch and branch not in {"HEAD", "unknown"}:
+            return branch
+    return "main"
+
+
 def _release_ref(remote=None):
-    return f"{remote or _release_remote()}/main"
+    return f"{remote or _release_remote()}/{_release_branch()}"
 
 def _gh_proxy(url):
     """把 github.com 直连 URL 包成可配置 GitHub 镜像（国内 GFW 兜底，与 install.sh 同源）。
@@ -926,9 +945,10 @@ def _fetch_status():
         print("  首次检查：补全 git 历史（浅克隆 → 完整）...")
         _git("fetch", "--unshallow", remote)
     if _git("fetch", remote).returncode != 0:
-        # F5：直连 GitHub 失败（国内 GFW）→ 走可配置 GitHub 镜像，把 main 拉进 origin/main 同一 ref
+        # F5：直连 GitHub 失败（国内 GFW）→ 走可配置 GitHub 镜像，把目标分支拉进同一 remote ref
         proxied = _gh_proxy(_git("remote", "get-url", remote).stdout.strip())
-        if not proxied or _git("fetch", proxied, f"main:refs/remotes/{remote}/main").returncode != 0:
+        branch = _release_branch()
+        if not proxied or _git("fetch", proxied, f"{branch}:refs/remotes/{remote}/{branch}").returncode != 0:
             return False, 0, "", "", "拉取失败（直连与 GitHub 镜像均失败，检查网络/代理）"
         print("  （直连 GitHub 失败，已走 GitHub 镜像拉取）")
     old = _git("rev-parse", "HEAD").stdout.strip()

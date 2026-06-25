@@ -476,6 +476,8 @@ def test_launch_paths_do_not_bypass_runtime_wrappers():
     with open(launcher_path, encoding="utf-8") as f:
         launcher_text = f.read()
     assert "install_channel_runtime_adapter(app, channel=channel)" in launcher_text
+    assert "/update-check - check updates without applying them" in launcher_text
+    assert "run_read_only_ops_command" in launcher_text
 
     tg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontends", "tgapp.py")
     with open(tg_path, encoding="utf-8") as f:
@@ -2102,7 +2104,7 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
 
     def catalog():
         return {
-            "read_only": ["doctor", "selfcheck", "runtime-service-status"],
+            "read_only": ["doctor", "selfcheck", "install-check", "update-check", "runtime-service-status"],
             "state_changing": ["runtime-service-install", "runtime-service-uninstall"],
             "logs": ["feishu"],
             "not_exposed": ["setup", "update-apply", "start", "stop", "restart"],
@@ -2157,6 +2159,8 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             check_resp = await client.get("/ops/checks", headers=auth)
             log_resp = await client.get("/ops/logs?channel=feishu&lines=3", headers=auth)
             doctor_resp = await client.get("/ops/command?name=doctor", headers=auth)
+            install_check_resp = await client.get("/ops/command?name=install-check", headers=auth)
+            update_check_resp = await client.get("/ops/command?name=update-check", headers=auth)
             service_status_resp = await client.get("/ops/command?name=runtime-service-status", headers=auth)
             service_install_get = await client.get("/ops/command?name=runtime-service-install", headers=auth)
             service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1})
@@ -2167,6 +2171,8 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             path_anywhere = await client.post("/path/open", headers=auth, json={"path": td})
 
             assert "doctor" in commands["read_only"]
+            assert "install-check" in commands["read_only"]
+            assert "update-check" in commands["read_only"]
             assert "runtime-service-status" in commands["read_only"]
             assert "runtime-service-install" in commands["state_changing"]
             assert "setup" in commands["not_exposed"]
@@ -2174,6 +2180,8 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             assert (await check_resp.json())["privacy_audit"]["privacy_ok"] is True
             assert (await log_resp.json())["text"] == "token=***"
             assert (await doctor_resp.json())["command"] == "doctor"
+            assert (await install_check_resp.json())["command"] == "install-check"
+            assert (await update_check_resp.json())["command"] == "update-check"
             assert (await service_status_resp.json())["command"] == "runtime-service-status"
             assert service_install_get.status == 400
             assert (await service_install_post.json())["command"] == "runtime-service-install"
@@ -2187,6 +2195,8 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             assert runtime_runs["runs"][0]["status"] == RunStatus.SUCCEEDED
             assert calls == [
                 ("doctor", False, td, None),
+                ("install-check", False, td, None),
+                ("update-check", False, td, None),
                 ("runtime-service-status", False, td, None),
                 ("runtime-service-install", True, td, 1),
             ]
@@ -2479,6 +2489,8 @@ def test_runtime_control_api_exposes_desktop_ops_checks_logs_and_commands():
         checks = _control_request(base, "GET", "/ops/checks", token=token)
         logs = _control_request(base, "GET", "/ops/logs?channel=feishu&lines=10", token=token)
         command = _control_request(base, "GET", "/ops/command?name=doctor", token=token)
+        install_check = _control_request(base, "GET", "/ops/command?name=install-check", token=token)
+        update_check = _control_request(base, "GET", "/ops/command?name=update-check", token=token)
         state_command = _control_request(
             base,
             "POST",
@@ -2499,6 +2511,8 @@ def test_runtime_control_api_exposes_desktop_ops_checks_logs_and_commands():
             assert exc.code == 400
 
         assert "doctor" in commands["read_only"]
+        assert "install-check" in commands["read_only"]
+        assert "update-check" in commands["read_only"]
         assert "runtime-service-status" in commands["read_only"]
         assert "runtime-service-install" in commands["state_changing"]
         assert "runtime-service-uninstall" in commands["state_changing"]
@@ -2512,9 +2526,17 @@ def test_runtime_control_api_exposes_desktop_ops_checks_logs_and_commands():
         assert "Bearer ***" in logs["text"]
         assert "api_key='***'" in logs["text"]
         assert command["command"] == "doctor"
+        assert install_check["command"] == "install-check"
+        assert update_check["command"] == "update-check"
         assert service_status["command"] == "runtime-service-status"
         assert state_command["command"] == "runtime-service-install"
-        assert calls == [("doctor", False), ("runtime-service-install", True), ("runtime-service-status", False)]
+        assert calls == [
+            ("doctor", False),
+            ("install-check", False),
+            ("update-check", False),
+            ("runtime-service-install", True),
+            ("runtime-service-status", False),
+        ]
     finally:
         server.shutdown()
         server.server_close()
@@ -2553,6 +2575,33 @@ def test_runtime_service_units_keep_control_api_localhost_only():
     assert plist["Label"] == "com.penglai.runtimehub"
     assert plist["ProgramArguments"][-4:] == ["--host", "127.0.0.1", "--port", "18889"]
     assert plist["KeepAlive"] is True
+
+
+def test_runtime_service_units_include_windows_startup_contracts():
+    td = tempfile.mkdtemp()
+    os.makedirs(os.path.join(td, ".venv", "Scripts"), exist_ok=True)
+    py = os.path.join(td, ".venv", "Scripts", "python.exe")
+    with open(py, "w", encoding="utf-8") as fh:
+        fh.write("")
+    with open(os.path.join(td, "penglai"), "w", encoding="utf-8") as fh:
+        fh.write("print('penglai')")
+
+    startup_dir = os.path.join(td, "Startup")
+    data = service_unit.install_windows_startup(
+        root=td,
+        port=18890,
+        dry_run=True,
+        startup_dir=startup_dir,
+    )
+    content = data["content"]
+
+    assert data["kind"] == "windows-startup"
+    assert data["path"] == os.path.join(startup_dir, "Penglai Runtime Hub.cmd")
+    assert service_unit.venv_python(td).endswith(os.path.join(".venv", "Scripts", "python.exe"))
+    assert "runtime-serve --host 127.0.0.1 --port 18890" in content
+    assert "PYTHONUNBUFFERED=1" in content
+    assert os.path.join(td, "temp", "runtime_hub.log") in content
+    assert "Docker" not in content and "docker" not in content
 
 
 def test_feishu_service_units_use_030_wrapper_and_gray_probe():
@@ -2656,6 +2705,37 @@ def test_chatapp_common_supports_package_and_legacy_import_paths():
     )
     assert legacy.returncode == 0, (legacy.stdout or "") + (legacy.stderr or "")
     assert "legacy-ok" in legacy.stdout
+
+
+def test_chatapp_common_exposes_safe_ops_and_update_check_commands():
+    common = importlib.import_module("frontends.chatapp_common")
+    old_run = control_api.run_ops_command
+    calls = []
+
+    def fake_run(name, **kwargs):
+        calls.append((name, kwargs.get("root")))
+        return {
+            "ok": True,
+            "command": name,
+            "argv": ["penglai", name],
+            "returncode": 0,
+            "stdout": "检查完成 token=***",
+            "stderr": "",
+        }
+
+    control_api.run_ops_command = fake_run
+    try:
+        assert "/doctor" in common.HELP_TEXT
+        assert "/install-check" in common.HELP_TEXT
+        assert "/update-check" in common.HELP_TEXT
+        text = common.run_read_only_ops_command("/update-check")
+        assert "检查更新" in text
+        assert "penglai update-check" in text
+        assert "不会静默升级" in text
+        assert "token=***" in text
+        assert calls == [("update-check", common.PROJECT_ROOT)]
+    finally:
+        control_api.run_ops_command = old_run
 
 
 def test_runtime_deprecation_audit_lists_030_legacy_surfaces():
@@ -3161,6 +3241,42 @@ def test_update_preflight_blocks_active_legacy_runtime_paths():
     assert "feishu_active_legacy_systemd" in detail
 
 
+def test_update_release_ref_follows_preview_branch_metadata_before_main():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    loader = importlib.machinery.SourceFileLoader(
+        "penglai_cli_for_update_branch_tests",
+        os.path.join(root, "penglai"),
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+
+    import penglai_runtime.version as version_mod
+
+    old_collect = version_mod.collect_version_metadata
+    old_env = os.environ.get("PENGLAI_RELEASE_BRANCH")
+
+    class Meta:
+        branch = "codex/0.3.0-runtime-hub"
+
+    try:
+        os.environ.pop("PENGLAI_RELEASE_BRANCH", None)
+        module.is_git_repo = lambda: False
+        version_mod.collect_version_metadata = lambda root=None: Meta()
+        assert module._release_branch() == "codex/0.3.0-runtime-hub"
+        assert module._release_ref("release") == "release/codex/0.3.0-runtime-hub"
+
+        os.environ["PENGLAI_RELEASE_BRANCH"] = "main"
+        assert module._release_branch() == "main"
+        assert module._release_ref("release") == "release/main"
+    finally:
+        version_mod.collect_version_metadata = old_collect
+        if old_env is None:
+            os.environ.pop("PENGLAI_RELEASE_BRANCH", None)
+        else:
+            os.environ["PENGLAI_RELEASE_BRANCH"] = old_env
+
+
 def test_desktop_static_ui_uses_chinese_runtime_labels():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     static_dir = os.path.join(root, "frontends", "desktop", "static")
@@ -3177,9 +3293,9 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
     assert "desktop-tts-1" in index_html
     assert "penglai-web.js" in index_html
     assert "ga-web.js" not in index_html
-    for text in ("蓬莱", "输入消息，或 /help", "中枢", "服务状态", "启动中枢服务", "停止中枢服务", "旧入口审计", "隐私审计", "会话状态", "运行记录", "设置", "朗读最近回复"):
+    for text in ("蓬莱", "输入消息，或 /help", "中枢", "服务状态", "启动中枢服务", "停止中枢服务", "安装预检", "检查更新", "旧入口审计", "隐私审计", "会话状态", "运行记录", "设置", "朗读最近回复"):
         assert text in index_html
-    for text in ("新任务", "思考中…", "中枢状态", "中枢桥接已就绪。", "发送此确认选择", "也可以直接在输入框回复。", "只会管理 penglai-runtime-hub", "中枢会话状态", "中枢运行记录", "等待确认", "语音转写", "语音输出", "speakLastAssistant", "synthesizeSpeech"):
+    for text in ("新任务", "思考中…", "中枢状态", "中枢桥接已就绪。", "发送此确认选择", "也可以直接在输入框回复。", "只会管理 penglai-runtime-hub", "install-check", "update-check", "中枢会话状态", "中枢运行记录", "等待确认", "语音转写", "语音输出", "speakLastAssistant", "synthesizeSpeech"):
         assert text in app_js
     for text in ("window.penglai", "window.__PENGLAI_BRIDGE_TOKEN__", "X-Penglai-Bridge-Token", "getRuntimeStatus", "getRuntimeRuns", "/runtime/status", "/runtime/runs", "/tts/say"):
         assert text in bridge_js
@@ -3202,9 +3318,18 @@ def test_desktop_package_identity_targets_penglai_preview():
 
     assert package_json["name"] == "penglai-desktop"
     assert package_json["version"] == "0.3.0"
+    assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
+    assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert tauri_conf["productName"] == "Penglai"
     assert tauri_conf["version"] == "0.3.0"
     assert tauri_conf["identifier"] == "com.penglai.agent"
+    assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
+    assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
+    assert tauri_conf["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
+    assert tauri_conf["bundle"]["windows"]["nsis"]["languages"] == ["SimpChinese", "English"]
+    assert tauri_conf["bundle"]["windows"]["nsis"]["installerIcon"] == "icons/icon.ico"
+    assert tauri_conf["bundle"]["windows"]["nsis"]["uninstallerIcon"] == "icons/icon.ico"
+    assert tauri_conf["bundle"]["windows"]["nsis"]["startMenuFolder"] == "Penglai"
     assert tauri_conf["app"]["windows"][0]["title"] == "蓬莱"
     assert tauri_conf["bundle"]["macOS"]["dmg"]["background"] == "icons/dmg-background.png"
     assert tauri_conf["bundle"]["macOS"]["dmg"]["appPosition"] == {"x": 180, "y": 230}
@@ -3226,6 +3351,8 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert 'name = "penglai-desktop"' in cargo_toml
     assert 'version = "0.3.0"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
+    assert 'join(".venv").join("Scripts").join("python.exe")' in lib_rs
+    assert 'join(".venv").join("bin").join("python")' in lib_rs
     assert "GenericAgent" not in json.dumps(tauri_conf)
 
 

@@ -37,6 +37,9 @@ fn find_bridge_script() -> PathBuf {
 /// 2. Fallback to system PATH
 fn find_python() -> String {
     let root = project_root();
+    if let Some(py) = find_project_python(&root) {
+        return py;
+    }
     let portable_python_dir = root.join(".portable").join("uv-python");
 
     if portable_python_dir.exists() {
@@ -70,6 +73,24 @@ fn find_python() -> String {
     { "python".to_string() }
     #[cfg(not(windows))]
     { "python3".to_string() }
+}
+
+fn find_project_python(root: &PathBuf) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let py = root.join(".venv").join("Scripts").join("python.exe");
+        if py.exists() {
+            return Some(py.to_string_lossy().to_string());
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let py = root.join(".venv").join("bin").join("python");
+        if py.exists() {
+            return Some(py.to_string_lossy().to_string());
+        }
+    }
+    None
 }
 
 /// Find project directory by searching upward from exe for agentmain.py
@@ -140,8 +161,12 @@ pub fn get_or_discover_config() -> (String, String) {
     }
 
     // Auto-discover
-    let python = find_python();
     let project = find_project_dir().unwrap_or_default();
+    let python = if project.is_empty() {
+        find_python()
+    } else {
+        find_project_python(&PathBuf::from(&project)).unwrap_or_else(find_python)
+    };
 
     // Save discovered config
     if !python.is_empty() && !project.is_empty() {

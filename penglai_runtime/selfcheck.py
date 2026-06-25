@@ -231,6 +231,8 @@ def run_end_to_end_check():
         _check(
             "control_ops_catalog",
             "doctor" in ops_catalog["read_only"]
+            and "install-check" in ops_catalog["read_only"]
+            and "update-check" in ops_catalog["read_only"]
             and "runtime-service-status" in ops_catalog["read_only"]
             and "runtime-service-install" in ops_catalog["state_changing"]
             and "runtime-service-uninstall" in ops_catalog["state_changing"]

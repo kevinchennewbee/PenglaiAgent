@@ -24,8 +24,20 @@ def repo_root():
 
 def venv_python(root=None):
     base = root or repo_root()
-    path = os.path.join(base, ".venv", "bin", "python")
-    return path if os.path.exists(path) else sys.executable
+    if os.name == "nt":
+        candidates = [
+            os.path.join(base, ".venv", "Scripts", "python.exe"),
+            os.path.join(base, ".venv", "bin", "python"),
+        ]
+    else:
+        candidates = [
+            os.path.join(base, ".venv", "bin", "python"),
+            os.path.join(base, ".venv", "Scripts", "python.exe"),
+        ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return sys.executable
 
 
 def has_systemd():
@@ -103,6 +115,31 @@ def launchd_plist_text(**kwargs):
     return plistlib.dumps(launchd_plist(**kwargs), sort_keys=False).decode("utf-8")
 
 
+def windows_startup_dir():
+    appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.join(appdata, "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+
+
+def windows_startup_cmd_path(*, startup_dir=None):
+    base = startup_dir or windows_startup_dir()
+    return os.path.join(base, "Penglai Runtime Hub.cmd")
+
+
+def windows_startup_command(*, root=None, python=None, port=DEFAULT_PORT):
+    root = os.path.realpath(root or repo_root())
+    python = python or venv_python(root)
+    log_path = os.path.join(root, "temp", "runtime_hub.log")
+    return (
+        "@echo off\r\n"
+        "setlocal\r\n"
+        f"set \"PENGLAI_ROOT={root}\"\r\n"
+        "set \"PYTHONUNBUFFERED=1\"\r\n"
+        f"if not exist \"{os.path.join(root, 'temp')}\" mkdir \"{os.path.join(root, 'temp')}\"\r\n"
+        "cd /d \"%PENGLAI_ROOT%\"\r\n"
+        f"\"{python}\" \"{os.path.join(root, 'penglai')}\" runtime-serve --host 127.0.0.1 --port {int(port)} >> \"{log_path}\" 2>&1\r\n"
+    )
+
+
 def _token_path(root):
     return os.path.join(os.path.realpath(root or repo_root()), "temp", "runtime_hub.token")
 
@@ -172,15 +209,45 @@ def install_launchd(*, root=None, port=DEFAULT_PORT, dry_run=False, wait_seconds
     return {"ok": bool(ready.get("ready")), "kind": "launchd", "label": LAUNCHD_LABEL, "path": plist_path, **ready}
 
 
+def install_windows_startup(*, root=None, port=DEFAULT_PORT, dry_run=False, wait_seconds=20, startup_dir=None):
+    root = os.path.realpath(root or repo_root())
+    cmd_path = windows_startup_cmd_path(startup_dir=startup_dir)
+    content = windows_startup_command(root=root, port=port)
+    if dry_run:
+        return {"ok": True, "kind": "windows-startup", "path": cmd_path, "content": content}
+    os.makedirs(os.path.dirname(cmd_path), exist_ok=True)
+    os.makedirs(os.path.join(root, "temp"), exist_ok=True)
+    with open(cmd_path, "w", encoding="utf-8", newline="") as f:
+        f.write(content)
+    proc = subprocess.Popen(
+        ["cmd.exe", "/c", cmd_path],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    ready = wait_ready(root=root, port=port, timeout=wait_seconds)
+    return {
+        "ok": bool(ready.get("ready")),
+        "kind": "windows-startup",
+        "path": cmd_path,
+        "pid": proc.pid,
+        **ready,
+    }
+
+
 def install(*, root=None, port=DEFAULT_PORT, dry_run=False, wait_seconds=20):
     if has_systemd():
         return install_systemd(root=root, port=port, dry_run=dry_run, wait_seconds=wait_seconds)
     if sys.platform == "darwin":
         return install_launchd(root=root, port=port, dry_run=dry_run, wait_seconds=wait_seconds)
+    if sys.platform == "win32":
+        return install_windows_startup(root=root, port=port, dry_run=dry_run, wait_seconds=wait_seconds)
     return {
         "ok": False,
         "kind": "unsupported",
-        "error": "中枢服务安装需要 systemd 或 macOS launchd；也可以手动运行 `penglai runtime-serve`",
+        "error": "中枢服务安装需要 systemd、macOS launchd 或 Windows 当前用户启动项；也可以手动运行 `penglai runtime-serve`",
     }
 
 
@@ -199,7 +266,15 @@ def uninstall():
         except FileNotFoundError:
             pass
         return {"ok": True, "kind": "launchd", "label": LAUNCHD_LABEL}
-    return {"ok": False, "kind": "unsupported", "error": "没有可卸载的 systemd/launchd 中枢服务"}
+    if sys.platform == "win32":
+        cmd_path = windows_startup_cmd_path()
+        try:
+            os.remove(cmd_path)
+            removed = True
+        except FileNotFoundError:
+            removed = False
+        return {"ok": True, "kind": "windows-startup", "path": cmd_path, "removed": removed}
+    return {"ok": False, "kind": "unsupported", "error": "没有可卸载的 systemd/launchd/Windows 启动项中枢服务"}
 
 
 def status():
@@ -210,6 +285,13 @@ def status():
     if sys.platform == "darwin":
         loaded = subprocess.run(["launchctl", "list", LAUNCHD_LABEL], capture_output=True, text=True).returncode == 0
         return {"kind": "launchd", "label": LAUNCHD_LABEL, "loaded": loaded}
+    if sys.platform == "win32":
+        cmd_path = windows_startup_cmd_path()
+        return {
+            "kind": "windows-startup",
+            "path": cmd_path,
+            "installed": os.path.exists(cmd_path),
+        }
     return {"kind": "unsupported", "active": ""}
 
 

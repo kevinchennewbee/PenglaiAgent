@@ -1824,6 +1824,8 @@ function opsStatusText(value, okText = '正常', badText = '阻断') {
 const OPS_COMMAND_LABELS = {
   doctor: '体检',
   selfcheck: '自检',
+  'install-check': '安装预检',
+  'update-check': '检查更新',
   'runtime-audit': '旧入口审计',
   'privacy-audit': '隐私审计',
   'runtime-service-status': '服务状态',
@@ -2309,6 +2311,8 @@ $('ops-runtime-service-uninstall')?.addEventListener('click', () => runOpsStateC
 ));
 $('ops-doctor')?.addEventListener('click', () => runOpsCommandUi('doctor'));
 $('ops-selfcheck')?.addEventListener('click', () => runOpsCommandUi('selfcheck'));
+$('ops-install-check')?.addEventListener('click', () => runOpsCommandUi('install-check'));
+$('ops-update-check')?.addEventListener('click', () => runOpsCommandUi('update-check'));
 $('ops-runtime-audit')?.addEventListener('click', () => runOpsCommandUi('runtime-audit'));
 $('ops-privacy-audit')?.addEventListener('click', () => runOpsCommandUi('privacy-audit'));
 $('ops-runtime-status')?.addEventListener('click', loadRuntimeStatusUi);

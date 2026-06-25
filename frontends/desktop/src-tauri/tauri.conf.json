@@ -35,7 +35,24 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "dmg"],
+    "publisher": "PenglaiAgent",
+    "homepage": "https://github.com/kevinchennewbee/PenglaiAgent",
+    "category": "Productivity",
+    "shortDescription": "Penglai 0.3.0 preview desktop control surface",
+    "longDescription": "Penglai desktop provides the local control surface, shared chat entry, Runtime Hub diagnostics, update check, and local speech playback for PenglaiAgent 0.3.0 preview.",
     "icon": ["icons/icon.ico", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
+    "windows": {
+      "allowDowngrades": false,
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "Penglai",
+        "compression": "lzma"
+      }
+    },
     "macOS": {
       "dmg": {
         "background": "icons/dmg-background.png",

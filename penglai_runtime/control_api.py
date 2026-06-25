@@ -40,6 +40,7 @@ READ_ONLY_OP_COMMANDS = {
     "selfcheck": ("selfcheck", "--json"),
     "runtime-audit": ("runtime-audit", "--json"),
     "privacy-audit": ("privacy-audit", "--json"),
+    "install-check": ("install-check", "--json"),
     "runtime-service-status": ("runtime-service", "status", "--json"),
     "status": ("status",),
     "channels": ("channels",),
@@ -62,8 +63,18 @@ LOG_SERVICE_MAP = {
 
 
 def _venv_python(root):
-    path = os.path.join(os.path.realpath(root), ".venv", "bin", "python")
-    return path if os.path.exists(path) else sys.executable
+    root = os.path.realpath(root)
+    candidates = [
+        os.path.join(root, ".venv", "Scripts", "python.exe"),
+        os.path.join(root, ".venv", "bin", "python"),
+    ] if os.name == "nt" else [
+        os.path.join(root, ".venv", "bin", "python"),
+        os.path.join(root, ".venv", "Scripts", "python.exe"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return sys.executable
 
 
 def _truncate(text, limit=20000):
@@ -80,7 +91,8 @@ def command_catalog():
         "logs": sorted(LOG_SERVICE_MAP),
         "not_exposed": ["setup", "update-apply", "start", "stop", "restart"],
         "notes": (
-            "setup、update-apply 和旧 start/stop/restart 不暴露给 0.3.0 preview 控制 API。"
+            "setup、update-apply 和旧 start/stop/restart 不暴露给 0.3.0 preview 控制 API；"
+            "客户端和 IM 只暴露 update-check，不静默执行升级。"
             "桌面端服务控制只管理 Runtime Hub 中枢服务，不直接管理飞书/微信渠道适配器。"
         ),
     }
@@ -99,7 +111,7 @@ def run_ops_command(name, *, root=None, allow_state=False, timeout=None):
         raise ValueError(f"不支持的运维命令：{name}")
 
     if timeout is None:
-        timeout = 120 if name == "runtime-service-install" else (90 if name in {"doctor", "selfcheck", "update-check"} else 45)
+        timeout = 120 if name == "runtime-service-install" else (90 if name in {"doctor", "selfcheck", "update-check", "install-check"} else 45)
     started = time.time()
     cmd = [_venv_python(root), os.path.join(root, "penglai"), *args]
     try:

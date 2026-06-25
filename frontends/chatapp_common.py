@@ -16,6 +16,11 @@ from penglai_runtime.delivery import plan_delivery
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
     ("/status", "查看状态"),
+    ("/doctor", "运行体检"),
+    ("/install-check", "安装预检"),
+    ("/update-check", "检查更新（不自动升级）"),
+    ("/runtime-audit", "旧入口审计"),
+    ("/privacy-audit", "隐私审计"),
     ("/stop", "停止当前任务"),
     ("/new", "开启新对话并清空当前上下文"),
     ("/restore", "恢复上次对话历史"),
@@ -29,6 +34,11 @@ HELP_COMMANDS = (
 TELEGRAM_MENU_COMMANDS = (
     ("help", "显示帮助"),
     ("status", "查看状态"),
+    ("doctor", "运行体检"),
+    ("install-check", "安装预检"),
+    ("update-check", "检查更新，不自动升级"),
+    ("runtime-audit", "旧入口审计"),
+    ("privacy-audit", "隐私审计"),
     ("stop", "停止当前任务"),
     ("new", "开启新对话并清空当前上下文"),
     ("restore", "恢复上次对话历史"),
@@ -44,6 +54,14 @@ def build_help_text(commands=HELP_COMMANDS):
 
 
 HELP_TEXT = build_help_text()
+READ_ONLY_OP_COMMANDS = {
+    "/doctor": ("doctor", "体检"),
+    "/selfcheck": ("selfcheck", "自检"),
+    "/install-check": ("install-check", "安装预检"),
+    "/update-check": ("update-check", "检查更新"),
+    "/runtime-audit": ("runtime-audit", "旧入口审计"),
+    "/privacy-audit": ("privacy-audit", "隐私审计"),
+}
 FILE_HINT = "If you need to show files to user, use [FILE:filepath] in your response."
 TAG_PATS = [r"<" + t + r">.*?</" + t + r">" for t in ("thinking", "summary", "tool_use", "file_content")]
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -98,6 +116,39 @@ def split_text(text, limit):
         parts.append(text[:cut].rstrip())
         text = text[cut:].lstrip()
     return parts + ([text] if text else []) or ["..."]
+
+
+def _trim_for_chat(text, limit=3200):
+    value = str(text or "").strip()
+    if len(value) <= limit:
+        return value
+    return value[: limit - 80].rstrip() + "\n...\n（输出过长，已截断；可在本机运行同名 penglai 命令查看完整内容。）"
+
+
+def run_read_only_ops_command(op):
+    command, label = READ_ONLY_OP_COMMANDS[op]
+    from penglai_runtime.control_api import run_ops_command
+
+    try:
+        data = run_ops_command(command, root=PROJECT_ROOT)
+    except Exception as exc:
+        return f"❌ {label}失败：{exc}"
+    mark = "✅" if data.get("ok") else "⚠️"
+    body = (data.get("stdout") or "").strip()
+    err = (data.get("stderr") or "").strip()
+    argv = data.get("argv") or ["penglai", command]
+    lines = [
+        f"{mark} {label}",
+        f"命令：{' '.join(str(x) for x in argv)}",
+        f"退出码：{data.get('returncode')}",
+    ]
+    if body:
+        lines.append(_trim_for_chat(body))
+    if err:
+        lines.append("stderr:\n" + _trim_for_chat(err, limit=1200))
+    if command == "update-check":
+        lines.append("说明：IM 入口只做检查，不会静默升级；确认后请在本机或服务器运行 penglai update --apply。")
+    return "\n\n".join(lines)
 
 
 def _restore_log_files():
@@ -310,6 +361,15 @@ class AgentChatMixin:
         if op == "/status":
             llm = self.agent.get_llm_name() if self.agent.llmclient else "未配置"
             return await self.send_text(chat_id, f"状态: {'🔴 运行中' if self.agent.is_running else '🟢 空闲'}\nLLM: [{self.agent.llm_no}] {llm}", **ctx)
+        if op in READ_ONLY_OP_COMMANDS:
+            answer = await asyncio.to_thread(run_read_only_ops_command, op)
+            return await self.send_text(chat_id, answer, **ctx)
+        if op == "/update":
+            return await self.send_text(
+                chat_id,
+                "升级需要显式确认。请先发送 /update-check 查看当前版本与可更新内容；确认后在本机或服务器运行 penglai update --apply。",
+                **ctx,
+            )
         if op == "/llm":
             if not self.agent.llmclient:
                 return await self.send_text(chat_id, "❌ 当前没有可用的 LLM 配置", **ctx)
