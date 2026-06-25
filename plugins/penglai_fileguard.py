@@ -4,7 +4,7 @@
 模型回复里的 `[FILE:/绝对/路径]` 会被飞书前端解析并直接上传给聊天用户
 （fsapp `_send_generated_files` → `_send_local_file`）。提示注入或模型误输出
 `[FILE:/.../mykey.py]`、`~/.ssh/id_rsa`、`.env` 等路径时，密钥/隐私会被外发——
-这是 IM Agent 的核心泄露面，且飞书是发行版默认部署面（systemd/docker 跑 fsapp）。
+这是 IM Agent 的核心泄露面，且飞书是发行版默认部署面（systemd 跑 fsapp）。
 
 飞书默认暴露面仍走蓬莱层 monkeypatch：运行时包装 `frontends.fsapp._send_local_file`，
 默认只按少数敏感后缀拦截：

@@ -106,7 +106,6 @@ function Write-BuildInfo([string]$Root) {
         remote_url = "https://github.com/$OwnerRepo.git"
         build_commit = "unknown"
         build_time = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        image_tag = ""
     }
     $info | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $Root ".penglai-build.json") -Encoding UTF8
 }

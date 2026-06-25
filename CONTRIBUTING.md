@@ -5,7 +5,7 @@
 
 - **内核 / Agent 循环 / 工具本身的 bug** → 提到上游 [GenericAgent](https://github.com/lsdefine/GenericAgent)。
   蓬莱不把发行层策略写进 GA 执行核心（`ga.py`、`agent_loop.py`、`llmcore.py`、`agentmain.py` 保持 upstream-first）。
-- **发行层问题**（安装向导、`penglai` CLI、Docker、渠道 adapter 打磨、`plugins/penglai_*` 插件、SOP 包、文档、
+- **发行层问题**（安装向导、`penglai` CLI、渠道 adapter 打磨、`plugins/penglai_*` 插件、SOP 包、文档、
   发布脚本）→ 在本仓库提 issue / PR。
 
 ## PR 约定
@@ -22,7 +22,7 @@ Penglai is a Chinese personal-butler **distribution** of [GenericAgent](https://
 the execution core is GA and stays upstream-first; Penglai curates and extends on top.
 
 - Kernel / agent-loop / tool bugs → file upstream at **GenericAgent**. Penglai does not put distro policy into the GA execution core.
-- Distribution-layer issues (wizard, `penglai` CLI, Docker, channel adapters, `plugins/penglai_*`, docs,
+- Distribution-layer issues (wizard, `penglai` CLI, channel adapters, `plugins/penglai_*`, docs,
   release scripts) → open an issue / PR here.
 
 PR rules: prefer distro-layer or new files; IM frontend edits need a clear Penglai adapter/runtime reason and tests;

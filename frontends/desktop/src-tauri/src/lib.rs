@@ -12,7 +12,7 @@ use std::os::windows::process::CommandExt;
 
 static BRIDGE_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 const PENGLAI_OWNER_REPO: &str = "kevinchennewbee/PenglaiAgent";
-const PENGLAI_RELEASE_BRANCH: &str = "codex/0.3.0-runtime-hub";
+const PENGLAI_RELEASE_BRANCH: &str = "main";
 
 #[derive(serde::Serialize, Clone)]
 struct InstallProgress {
@@ -428,7 +428,7 @@ fn ps_single_quote(value: &str) -> String {
 }
 
 // ============================================================
-// Core bridge & install commands (unchanged from 0.3.0 preview)
+// Core bridge & install commands.
 // ============================================================
 
 #[tauri::command]

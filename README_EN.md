@@ -170,11 +170,13 @@ v0.3.0 officially releases the Runtime Hub — a unified execution layer that no
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
+**Docker has been removed from the support matrix**: starting with 0.3.0, Penglai no longer ships Dockerfile, docker-compose, docker-install, GHCR image, or container deployment support. Use the desktop installers, command-line installer, PyPI bootstrap, or source install instead.
+
 v0.3.0 does not mean every optional ability is enabled by default. Voice, TTS, companion, cross-vendor critic, intel enhancement, and IM channels are all enabled, diagnosed, and validated through `penglai abilities` / `penglai channels` state.
 
 Recent highlights:
 
-- **v0.3.0**: Runtime Hub full release. Mac/Windows native desktop clients (complete setup wizard + chat workspace + system tray + channel/ability management + supplementary config + integrated diagnostics). Feishu QR auto-creation, MOSS-TTS-Nano local speech synthesis, `penglai update` with auto-backup and rollback.
+- **v0.3.0**: Runtime Hub full release. Mac/Windows native desktop clients (complete setup wizard + chat workspace + system tray + channel/ability management + supplementary config + integrated diagnostics). Feishu QR auto-creation, MOSS-TTS-Nano local speech synthesis, `penglai update` with auto-backup and rollback; Docker is fully removed from supported distribution paths.
 - v0.2.27: install-network fallback hotfix; constrained networks fall back more reliably to mirrors or local source builds.
 - v0.2.25: dependency-install network hotfix; one-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls.
 - v0.2.24: GA-core boundary correction; LLM log redaction moved from the GenericAgent core file into a Penglai plugin, restoring the "do not modify upstream core" release boundary.

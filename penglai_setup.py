@@ -179,7 +179,8 @@ def step_env():
         print(f"{BAD} " + T("需要 Python 3.10+，当前 {v}", v=sys.version.split()[0])); sys.exit(1)
     print(f"{OK} Python {sys.version.split()[0]}")
     if os.environ.get("PENGLAI_DOCKER"):
-        print(f"{OK} " + T("容器环境（依赖已随镜像就绪）")); return
+        print(f"{BAD} " + T("Docker/容器部署已从 0.3.0 支持矩阵撤出。请使用桌面安装包、install.sh、PyPI 引导器或源码安装。"))
+        sys.exit(2)
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not os.path.exists(py):
         print("  " + T("正在创建虚拟环境并安装依赖（清华镜像）..."))
@@ -530,8 +531,7 @@ def _dl_progress(url, dest):
 
 def _voice_install():
     """语音能力真实落地：sherpa-onnx + ffmpeg + SenseVoice 模型。只报告可证实状态。"""
-    docker = bool(os.environ.get("PENGLAI_DOCKER"))
-    py = sys.executable if docker else os.path.join(ROOT, ".venv", "bin", "python")
+    py = os.path.join(ROOT, ".venv", "bin", "python")
     ok = True
     # 1) sherpa-onnx 推理引擎
     if subprocess.run([py, "-c", "import sherpa_onnx"], capture_output=True).returncode != 0:
@@ -539,7 +539,7 @@ def _voice_install():
         idx = "https://pypi.tuna.tsinghua.edu.cn/simple"
         uv = shutil.which("uv") or next((p for p in [os.path.expanduser("~/.local/bin/uv")]
                                          if os.path.exists(p)), None)
-        if uv and not docker:
+        if uv:
             r = subprocess.run([uv, "pip", "install", "-q", "--python", py, "sherpa-onnx"],
                                capture_output=True, text=True, env={**os.environ, "UV_DEFAULT_INDEX": idx})
         else:
@@ -618,8 +618,7 @@ def _voice_install():
 
 def _tts_install():
     """语音输出能力真实落地：MOSS-TTS-Nano ONNX CPU，模型在仓库外。"""
-    docker = bool(os.environ.get("PENGLAI_DOCKER"))
-    py = sys.executable if docker else os.path.join(ROOT, ".venv", "bin", "python")
+    py = os.path.join(ROOT, ".venv", "bin", "python")
     if not os.path.exists(py):
         py = sys.executable
     print("  " + T("安装 MOSS-TTS-Nano 本地语音输出（约 728MB ONNX 权重，国内优先 ModelScope）..."), flush=True)
@@ -741,15 +740,12 @@ def step_wechat():
     """微信渠道：GA 原生 iLink 协议，扫码绑定。"""
     page(6, T("微信（扫码绑定个人微信，作为第二渠道）"))
     py = os.path.join(ROOT, ".venv", "bin", "python")
-    if os.environ.get("PENGLAI_DOCKER"):
-        py = sys.executable   # 容器内依赖已随镜像就绪，无 venv
-    else:
-        print("  " + T("安装微信依赖..."), end="", flush=True)
-        r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
-                            "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
-        if r.returncode != 0:
-            print(f"\r{BAD} " + T("依赖安装失败：{e}", e=(r.stderr or '')[-120:])); return False
-        print(f"\r{OK} " + T("微信依赖就绪（qrcode/pillow/pycryptodome/pilk）"))
+    print("  " + T("安装微信依赖..."), end="", flush=True)
+    r = subprocess.run(["uv", "pip", "install", "-q", "--python", py,
+                        "qrcode", "pillow", "pycryptodome", "pilk"], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"\r{BAD} " + T("依赖安装失败：{e}", e=(r.stderr or '')[-120:])); return False
+    print(f"\r{OK} " + T("微信依赖就绪（qrcode/pillow/pycryptodome/pilk）"))
     tok = os.path.expanduser("~/.wxbot/token.json")
     if os.path.exists(tok) and not ask(T("检测到已有微信绑定，重新扫码？(y/n)"), "n").lower().startswith("y"):
         print(f"{OK} " + T("沿用现有绑定")); return True
@@ -968,8 +964,8 @@ def _verify_live(read_log, log_hint):
 def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
     header(T("步骤") + f" 6/{_TOTAL_STEPS}", T("启动并验证"))
     if os.environ.get("PENGLAI_DOCKER"):
-        print(f"{OK} " + T("容器模式：配置完成。容器守护每 30 秒巡检，新配置的渠道自动拉起（无需重启容器）"))
-        return "docker"
+        print(f"{BAD} " + T("Docker/容器部署已从 0.3.0 支持矩阵撤出。请使用桌面安装包、install.sh、PyPI 引导器或源码安装。"))
+        return False
     py = os.path.join(ROOT, ".venv", "bin", "python")
     if not with_feishu:
         print(f"{WARN}" + T("未选飞书渠道：跳过飞书启动验证"))
@@ -1030,7 +1026,7 @@ def step_launch(with_feishu=True, with_companion=False, with_wechat=False):
             time.sleep(2)
             print(f"  {WARN}" + T("重启会打断刚才正在处理的消息——你在“发你好”之后抢发的语音/消息可能没回应，稍等几秒后重发即可。"))
         return status
-    # 无 systemd（macOS/容器式环境）或用户拒绝装服务 → 临时后台启动，照样尽量验证。
+    # 无 systemd（例如 macOS）或用户拒绝装服务 → 临时后台启动，照样尽量验证。
     if not (with_feishu or with_wechat or with_companion):
         return "nofs"
     if systemd_available:
@@ -1152,9 +1148,6 @@ def main():
     step_extras([ch for ch in channels if ch not in ("feishu", "wechat")])
     if live is True:
         print("\n" + T("🎉 安装完成，飞书收发链路已实测全通！"))
-    elif live == "docker":
-        print(f"\n{OK} " + T("配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志确认（docker logs -f penglai）。"))
-        return
     elif live == "skip":
         print(f"\n{OK} " + T("安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。", a=agent))
     elif live == "nofs":

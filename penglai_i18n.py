@@ -52,7 +52,7 @@ EN = {
     # ---- 步骤 1：环境 ----
     "环境自检": "Environment check",
     "需要 Python 3.10+，当前 {v}": "Python 3.10+ required, found {v}",
-    "容器环境（依赖已随镜像就绪）": "Container detected (dependencies shipped with the image)",
+    "Docker/容器部署已从 0.3.0 支持矩阵撤出。请使用桌面安装包、install.sh、PyPI 引导器或源码安装。": "Docker/container deployment has been removed from the 0.3.0 support matrix. Use the desktop installer, install.sh, PyPI bootstrap, or source install.",
     "正在创建虚拟环境并安装依赖（清华镜像）...": "Creating virtualenv and installing dependencies...",
     "系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试：": "System Python lacks the venv module (common on fresh Ubuntu). Pick one fix and retry:",
     "或用一键脚本（自动装 uv 托管 Python，不动系统）：": "or use the one-line installer (uv-managed Python, system untouched):",
@@ -178,7 +178,6 @@ EN = {
 
     # ---- 启动验证 ----
     "启动并验证": "Launch & verify",
-    "容器模式：配置完成。容器守护每 30 秒巡检，新配置的渠道自动拉起（无需重启容器）": "Container mode: config done. The container supervisor re-scans every 30s and auto-starts newly configured channels (no restart needed)",
     "安装为系统服务（开机自启）？(y/n)": "Install as system services (start on boot)? (y/n)",
     "服务已安装并设为开机自启，开始验证...": "Services installed and enabled, verifying...",
     "服务安装失败（sudo 权限？），可手动前台运行: .venv/bin/python penglai_feishu_app.py": "Service install failed (sudo?). Run manually: .venv/bin/python penglai_feishu_app.py",
@@ -207,7 +206,6 @@ EN = {
 
     # ---- 总结 ----
     "🎉 安装完成，飞书收发链路已实测全通！": "🎉 Setup complete — the Feishu loop is live-verified!",
-    "配置完成。容器守护将在 30 秒内拉起已配置的渠道并可在日志确认（docker logs -f penglai）。": "Config done. The container supervisor will start configured channels within 30s; verify via docker logs -f penglai.",
     "安装完成（链路未实测）。去飞书给「{a}」发一句「你好」，用 penglai logs 看到「收到消息」即全通。": "Setup complete (loop not live-verified). Message \"{a}\" on Feishu and check `penglai logs` for an incoming message.",
     "配置已写入，但飞书链路验证未通过 —— 按上方提示排查后运行 penglai doctor 复检。": "Config written, but Feishu verification failed — follow the hints above, then run `penglai doctor`.",
     "安装完成。已配置渠道见上；终端随时可聊。": "Setup complete. Channels as configured above; the terminal TUI is always available.",

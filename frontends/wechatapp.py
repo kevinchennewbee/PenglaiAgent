@@ -82,7 +82,7 @@ class WxBotClient:
         qr_id, url = d['qrcode'], d.get('qrcode_img_content', '')
         print(f'[QR登录] ID: {qr_id}')
         if url:
-            # 先打 ASCII 二维码（纯文本，无需 PIL；容器/无头环境靠它扫码）
+            # 先打 ASCII 二维码（纯文本，无需 PIL；无头环境靠它扫码）
             qr = qrcode.QRCode(border=1); qr.add_data(url); qr.make(fit=True); qr.print_ascii(invert=True)
             # 再尝试存 PNG 兜底——依赖 PIL，缺失/失败不应让登录崩溃
             try:
@@ -440,10 +440,9 @@ if __name__ == '__main__':
     print(f'[NEW] Process starting {time.strftime("%m-%d %H:%M")}')
     bot = WxBotClient()
     if _do_relogin or not bot.token:
-        # QR 登录在无 TTY 的容器里也可用：把二维码打到真实 stdout（docker logs
-        # 可见），而不是日志文件——之前在重定向后才判 isatty()，文件句柄恒 false
-        # 导致容器内必然退出，无法首次登录。PNG 仍存 ~/.wxbot/wx_qr.png 作兜底。
-        sys.stdout = sys.stderr = sys.__stdout__  # restore for QR display (real stdout / container log)
+        # QR 登录在无 TTY 时也可用：把二维码打到真实 stdout，而不是日志文件。
+        # 之前在重定向后才判 isatty()，文件句柄恒 false，导致首次登录提前退出。
+        sys.stdout = sys.stderr = sys.__stdout__  # restore for QR display (real stdout)
         try:
             bot.login_qr()
         finally:

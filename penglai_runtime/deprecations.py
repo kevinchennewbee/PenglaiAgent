@@ -105,15 +105,7 @@ STATIC_PATHS = (
 )
 
 
-DOCKER_SURFACES = (
-    "Dockerfile",
-    "docker-compose.yml",
-    "docker-entrypoint.sh",
-    "docker-install.sh",
-    ".github/workflows/docker-image.yml",
-    "README.md",
-    "README_EN.md",
-)
+PUBLIC_DOCS = ("README.md", "README_EN.md", "installer/README.md")
 
 
 def _run(cmd, *, root=ROOT):
@@ -181,7 +173,16 @@ def _docker_public_claims(root=ROOT):
         "production-grade docker",
         "正式产品",
     )
-    for rel in ("README.md", "README_EN.md"):
+    negative_markers = (
+        "撤出",
+        "不再",
+        "不支持",
+        "no longer",
+        "removed",
+        "not supported",
+        "unsupported",
+    )
+    for rel in PUBLIC_DOCS:
         path = os.path.join(root, rel)
         if not os.path.exists(path):
             continue
@@ -189,9 +190,11 @@ def _docker_public_claims(root=ROOT):
             text = open(path, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        lowered = text.lower()
-        if any(pattern in lowered for pattern in positive_patterns):
-            claims.append(rel)
+        for line in text.splitlines():
+            lowered = line.lower()
+            if any(pattern in lowered for pattern in positive_patterns) and not any(marker in lowered for marker in negative_markers):
+                claims.append(rel)
+                break
     return claims
 
 
@@ -242,30 +245,19 @@ def audit(*, root=ROOT, include_runtime=True):
                 "reason": "运行中的微信旧进程会绕过 wrapper 迁移。",
             })
 
-    docker_files = [rel for rel in DOCKER_SURFACES if os.path.exists(os.path.join(root, rel))]
     docker_claims = _docker_public_claims(root)
     if docker_claims:
         items.append({
-            "item_id": "docker_legacy_surface",
+            "item_id": "docker_unsupported_claim",
             "priority": "P1",
             "surface": "install-release",
-            "legacy": ", ".join(docker_files),
-            "replacement": "0.3.0 不以 Docker 作为安装、发布或验证目标",
-            "status": "release_blocker_before_public_docs",
+            "legacy": ", ".join(docker_claims),
+            "replacement": "使用桌面安装包、install.sh、PyPI 引导器或源码安装",
+            "status": "release_blocker_unsupported_docker_claim",
             "reason": (
-                "Docker 文件视为 0.2.x 遗留面。任何 0.3.0 发布前都必须清理公开 README/发布文案。"
+                "0.3.0 起 Docker 已全面撤出支持矩阵；公开文档不能继续提供 Docker 安装、发布或验证口径。"
                 f" 当前公开 Docker 表述：{', '.join(docker_claims)}。"
             ),
-        })
-    elif docker_files:
-        items.append({
-            "item_id": "docker_legacy_surface",
-            "priority": "observe",
-            "surface": "install-release",
-            "legacy": ", ".join(docker_files),
-            "replacement": "0.3.0 不以 Docker 作为安装、发布或验证目标",
-            "status": "legacy_surface_observed",
-            "reason": "Docker 文件仍作为 0.2.x 遗留面存在，但公开 README 未把它写成 0.3.0 安装或验证路径。",
         })
 
     active_blockers = [item for item in items if item.get("status") == "active_legacy_path"]

@@ -26,8 +26,7 @@ All code is MIT licensed (see ./LICENSE).
     README_EN.md, CONTRIBUTING.md, NOTICE, .gitattributes, penglai,
     penglai_setup.py, penglai_providers.yaml, penglai_runtime/*,
     plugins/penglai_*.py, reflect/penglai_companion.py,
-    memory/penglai_*_sop.md, install.sh, docker-install.sh,
-    docker-entrypoint.sh, Dockerfile, docker-compose.yml, installer/*,
+    memory/penglai_*_sop.md, install.sh, installer/*,
     .github/workflows/*, .github/assets/*, tests/*, and Penglai-owned IM
     adapter changes that are covered by tests.
 
@@ -50,7 +49,7 @@ or promote the GenericAgent project itself (its own README, docs/, demo media,
 community QR codes, technical report) are not part of running the distro and are
 not carried here. The repository's front page is this repo's root README.md
 (Penglai-branded). Penglai's only install entry points are install.sh /
-docker-install.sh / the PyPI bootstrap (installer/), all pointing at
+the PyPI bootstrap (installer/), all pointing at
 kevinchennewbee/PenglaiAgent.
 
 
@@ -61,4 +60,4 @@ The names "蓬莱" / "Penglai", the logo, and the banner / visual assets are NOT
 covered by the MIT code license and all rights to them are reserved. Please do
 not use them to name or brand your own distribution, derivative, or commercial
 product without written permission. (Code free, brand reserved — the same
-convention used by Rust and Docker.)
+convention used by Rust.)

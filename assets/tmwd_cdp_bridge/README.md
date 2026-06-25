@@ -9,4 +9,4 @@ It is distributed under the repository MIT license, but it is intentionally high
 - `<all_urls>` and content scripts let it coordinate automation across ordinary web pages.
 - It can temporarily remove CSP headers for automation.
 
-Use it only in a browser profile you trust for development or automation. It is not required for the normal Penglai Feishu, WeChat, Docker, or CLI runtime.
+Use it only in a browser profile you trust for development or automation. It is not required for the normal Penglai Feishu, WeChat, desktop, or CLI runtime.

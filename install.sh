@@ -1,8 +1,6 @@
 #!/bin/sh
 # 蓬莱 · Penglai 一键安装 —— 新机器只需联网:
 #   curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
-# 测试分支:
-#   curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.sh | PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh
 # 自动完成:网络探测(国内走镜像) → 取代码(无 git 走压缩包) → 备好 Python(无则装 uv 托管版)
 #   → 装依赖 → 进入向导。用户不需要预装任何东西,也不需要懂环境配置。
 set -e
@@ -45,7 +43,6 @@ write_build_env() {
         [ -n "${PENGLAI_BUILD_BRANCH:-}" ] && printf 'export PENGLAI_BUILD_BRANCH=%s\n' "$(sq "$PENGLAI_BUILD_BRANCH")"
         [ -n "${PENGLAI_BUILD_COMMIT:-}" ] && printf 'export PENGLAI_BUILD_COMMIT=%s\n' "$(sq "$PENGLAI_BUILD_COMMIT")"
         [ -n "${PENGLAI_BUILD_TIME:-}" ] && printf 'export PENGLAI_BUILD_TIME=%s\n' "$(sq "$PENGLAI_BUILD_TIME")"
-        [ -n "${PENGLAI_IMAGE_TAG:-}" ] && printf 'export PENGLAI_IMAGE_TAG=%s\n' "$(sq "$PENGLAI_IMAGE_TAG")"
     } > "$tmp_env"
     if [ -s "$tmp_env" ]; then
         mv "$tmp_env" "$env_file"
@@ -163,7 +160,6 @@ data = {
     "remote_url": remote_url,
     "build_commit": env("PENGLAI_BUILD_COMMIT") or info_str(build_info, "build_commit") or commit,
     "build_time": build_time,
-    "image_tag": env("PENGLAI_IMAGE_TAG") or info_str(build_info, "image_tag"),
 }
 tmp = f"{info_file}.{os.getpid()}.tmp"
 with open(tmp, "w", encoding="utf-8") as f:
@@ -240,7 +236,7 @@ elif [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
     case "$existing_version" in
         *"Penglai 0.3.0"*) ;;
         *)
-            die "检测到已有蓬莱目录但不是 0.3.0 可验证安装：$TARGET。0.3.0 preview 不支持原地覆盖旧版；请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装。"
+            die "检测到已有蓬莱目录但不是 0.3.0 正式安装：$TARGET。0.3.0 不支持原地覆盖旧版；请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装。"
             ;;
     esac
     say "  ✅ 发行版已存在:$TARGET"

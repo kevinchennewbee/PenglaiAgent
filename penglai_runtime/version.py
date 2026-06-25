@@ -124,10 +124,8 @@ class VersionMetadata:
     source: str
     remote: str
     remote_url: str
-    docker: bool
     build_commit: str
     build_time: str
-    image_tag: str
     python: str
     service_python: str
     platform: str
@@ -153,15 +151,13 @@ def collect_version_metadata(root=ROOT):
     remote, remote_url = _release_remote(root=root)
     remote = remote or _info_str(build_info, "remote")
     remote_url = remote_url or _info_str(build_info, "remote_url")
-    docker = os.environ.get("PENGLAI_DOCKER") == "1" or os.path.exists("/.dockerenv")
     source = _info_str(build_info, "source") or os.environ.get("PENGLAI_INSTALL_SOURCE", "").strip()
     if not source:
-        source = "docker" if docker else ("git" if commit else "source")
+        source = "git" if commit else "source"
     service_py = os.path.join(root, ".venv", "bin", "python")
     service_python = _python_version(service_py) if os.path.exists(service_py) else sys.version.split()[0]
     build_commit = _info_str(build_info, "build_commit") or _info_str(build_info, "commit") or os.environ.get("PENGLAI_BUILD_COMMIT", "").strip()
     build_time = _info_str(build_info, "build_time") or os.environ.get("PENGLAI_BUILD_TIME", "").strip()
-    image_tag = _info_str(build_info, "image_tag") or os.environ.get("PENGLAI_IMAGE_TAG", "").strip()
     return VersionMetadata(
         version=_read_project_version(root),
         runtime_version=runtime_version,
@@ -171,10 +167,8 @@ def collect_version_metadata(root=ROOT):
         source=source,
         remote=remote,
         remote_url=remote_url,
-        docker=docker,
         build_commit=build_commit,
         build_time=build_time,
-        image_tag=image_tag,
         python=sys.version.split()[0],
         service_python=service_python,
         platform=platform.platform(),
@@ -189,12 +183,8 @@ def format_version_text(meta=None):
         f"source={meta.source} branch={meta.branch} commit={meta.commit}{dirty}",
         f"remote={meta.remote or 'none'} {meta.remote_url}".rstrip(),
     ]
-    if meta.docker or meta.image_tag or meta.build_commit or meta.build_time:
-        lines.append(
-            "docker="
-            + ("yes" if meta.docker else "no")
-            + f" image={meta.image_tag or 'unknown'} build_commit={meta.build_commit or 'unknown'} build_time={meta.build_time or 'unknown'}"
-        )
+    if meta.build_commit or meta.build_time:
+        lines.append(f"build_commit={meta.build_commit or 'unknown'} build_time={meta.build_time or 'unknown'}")
     lines.append(f"python={meta.python} service_python={meta.service_python} platform={meta.platform}")
     return "\n".join(lines)
 

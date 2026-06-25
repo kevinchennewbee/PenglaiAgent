@@ -155,7 +155,7 @@ def _fake_fsapp_module():
 
 
 def test_mount_in_script_mode():
-    """生产部署（systemd/docker）跑 `python frontends/fsapp.py`，fsapp 的模块名是
+    """生产部署（systemd）跑 `python frontends/fsapp.py`，fsapp 的模块名是
     __main__ —— 只查 frontends.fsapp 会静默 fail-open（2026-06-11 真机事故）。"""
     _clear_fileguard_env()
     fg = _fileguard()

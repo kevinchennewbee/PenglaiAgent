@@ -567,7 +567,7 @@ def _install_reflect_service(service, reflect_py, label):
     if not pc.has_systemd():
         if sys.platform == "darwin":
             return _install_launchd(service, reflect_py, label)
-        # 非 macOS 又无 systemd（容器等）：nohup 起后台心跳（尽力，无守护，崩溃不自动重启）
+        # 非 macOS 又无 systemd：nohup 起后台心跳（尽力，无守护，崩溃不自动重启）
         os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
         log = open(os.path.join(ROOT, "temp", f"{service}.log"), "ab")
         subprocess.Popen([pc.venv_python(), os.path.join(ROOT, "agentmain.py"),

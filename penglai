@@ -5,7 +5,7 @@
 用法:
   penglai           直接对话（终端 TUI，等价上游 GA 的 tuiapp_v2）
   penglai doctor    体检：环境/依赖/配置/服务/记忆/上游状态
-  penglai version   版本身份（发行版本/Runtime/分支/commit/容器构建信息）
+  penglai version   版本身份（发行版本/Runtime/分支/commit/构建信息）
   penglai status    服务状态
   penglai start     启动服务（飞书 + 微信 + 调度器）
   penglai stop      停止服务
@@ -25,7 +25,7 @@
   penglai runtime-cancel     取消当前中枢 session
   penglai runtime-serve      启动本机中枢控制 API（localhost + token）
   penglai runtime-service <install|uninstall|status|print-unit>  管理本机中枢服务
-  penglai runtime-audit      审计 0.3.0 旧入口/Docker 遗留口径（低副作用）
+  penglai runtime-audit      审计 0.3.0 旧入口和不支持的发布口径（低副作用）
   penglai privacy-audit      审计隐私与发布前风险（低副作用，不输出密钥）
   penglai install-check      源码安装预检（0.3.0，无 Docker，低副作用）
   penglai tts-smoke          MOSS-TTS-Nano 本地语音输出中英真实合成验证
@@ -67,7 +67,7 @@ def version():
 def has_systemd():
     return shutil.which("systemctl") is not None
 
-# ---------- 无 systemd 环境（容器/macOS）的进程管理 ----------
+# ---------- 无 systemd 环境（macOS 等）的进程管理 ----------
 FSLOG = os.path.join(ROOT, "temp", "fsapp.log")
 FSPID = os.path.join(ROOT, "temp", "fsapp.pid")
 FSLOCK = os.path.join(ROOT, "temp", "fsapp.start.lock")
@@ -339,7 +339,7 @@ def _manual_background_stop():
 
 def installed_services():
     """只返回真正装了 unit 文件的服务（companion 是 opt-in，可能没装）。
-    ★macOS/容器无 systemd：直接返回核心两个，绝不调 systemctl——否则 update_supervisor
+    ★无 systemd：直接返回核心两个，绝不调 systemctl——否则 update_supervisor
     在 macOS 上 _restart_targets()→installed_services() 撞 FileNotFoundError('systemctl') 崩溃，
     升级后服务不重启、报平安发不出（真实 macOS 运行中踩过：磁盘升到新版但跑的还是旧进程）。"""
     if not has_systemd():
@@ -356,7 +356,7 @@ GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins
 
 def guardcheck():
     """验证安全插件（红线/记忆卫生/文件外发/日志脱敏）真正 import 且挂载。
-    供 doctor / start / 容器入口 / systemd 单元统一复用。0=已挂载 1=未挂载。
+    供 doctor / start / systemd 单元统一复用。0=已挂载 1=未挂载。
     机制：discover_and_load 对失败插件 except:pass（fail-open），故启动前必须主动核验，
     否则 agent 可能在【无任何防护】下运行而无人知晓。"""
     try:
@@ -626,7 +626,7 @@ def doctor():
     except Exception as e:
         check("旧 Runtime 入口清单", False, f"运行: penglai runtime-audit；错误: {e}")
 
-    # 4e. 隐私与发布前预检：隐私 blocker 红；发布 blocker 只提示，因为当前是本地 preview 研发。
+    # 4e. 隐私与发布前预检：隐私 blocker 红；发布 blocker 只提示，避免阻断本地诊断。
     try:
         from penglai_runtime.privacy_audit import audit as privacy_audit
         privacy = privacy_audit(root=ROOT, include_ignored=True, scan_ignored=False)
@@ -634,7 +634,7 @@ def doctor():
               "运行: penglai privacy-audit --json")
         if not privacy.get("release_ready"):
             print(f"{WARN} 发布前预检：还有 {privacy.get('release_blocker_count', 0)} 个发布 blocker"
-                  "（不影响本地 0.3.0 preview；发布前必须清掉）")
+                  "（不影响本地诊断；发布前必须清掉）")
     except Exception as e:
         check("隐私发布前预检", False, f"运行: penglai privacy-audit；错误: {e}")
 
@@ -799,7 +799,7 @@ def svc(action):
         print(f"{OK} 已派后台监工重启，约 15 秒后我会发条消息告诉你我回来了。")
         return 0
     if not has_systemd():
-        # 容器/macOS：直接管理 nohup 飞书进程
+        # macOS 或其他无 systemd 环境：直接管理 nohup 飞书进程。
         if action == "status":
             return _non_systemd_status()
         if action == "start":
@@ -871,8 +871,6 @@ def _in_docker():
 
 REINSTALL_HINT = ("curl -fsSL https://raw.githubusercontent.com/"
                   "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
-DOCKER_UPDATE_HINT = ("curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/"
-                      "kevinchennewbee/PenglaiAgent/main/docker-install.sh | sh")
 UPDATE_LOG = os.path.join(ROOT, "temp", "update.log")
 
 def _git(*args):
@@ -982,7 +980,7 @@ def _preflight():
         if item.get("status") == "active_legacy_path"
     ]
     if active:
-        return False, "旧 Runtime 入口仍在运行，0.3.0 preview 不做原地重启升级：" + ", ".join(active[:5])
+        return False, "旧 Runtime 入口仍在运行，0.3.0 不做原地重启升级：" + ", ".join(active[:5])
     return True, ""
 
 def update():
@@ -992,11 +990,10 @@ def update():
        penglai update --apply   已确认，直接执行安全升级（预检→后台重启→健康检查→失败回滚）
     不在用户机 merge lsdefine 上游（浅克隆 unrelated-histories 必炸，F-013），只跟随发行仓。"""
     flag = sys.argv[2] if len(sys.argv) > 2 else ""
-    # Docker：代码在镜像里不在卷里，git pull 无意义——指向镜像升级路径
     if _in_docker():
-        print(f"{WARN}容器形态：升级 = 拉取新镜像，不是 git 更新。重跑一行（数据在卷里不丢）：")
-        print(f"   {DOCKER_UPDATE_HINT}")
-        return 0
+        print(f"{BAD} Docker/容器部署已从 Penglai 0.3.0 支持矩阵撤出。")
+        print("   请使用桌面安装包、install.sh、PyPI 引导器或源码安装。")
+        return 2
     print("🔄 检查蓬莱更新 ...")
     ok, behind, old, new, err = _fetch_status()
     if not ok:
@@ -1024,7 +1021,7 @@ def update():
 
 def _do_update(old, new):
     if _git("status", "--porcelain").stdout.strip():
-        print(f"{BAD} 本地有未提交改动，0.3.0 preview 不继续自动升级，避免回滚时丢失本地修改。请先提交/备份后再运行 update。")
+        print(f"{BAD} 本地有未提交改动，0.3.0 不继续自动升级，避免回滚时丢失本地修改。请先提交/备份后再运行 update。")
         return 1
     print("  ⬇️  拉取新版本（fast-forward）...")
     if subprocess.run(["git", "merge", "--ff-only", _release_ref()], cwd=ROOT).returncode != 0:

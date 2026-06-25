@@ -67,7 +67,6 @@ VERSION_ENV_KEYS = (
     "PENGLAI_BUILD_BRANCH",
     "PENGLAI_BUILD_COMMIT",
     "PENGLAI_BUILD_TIME",
-    "PENGLAI_IMAGE_TAG",
 )
 
 
@@ -2811,29 +2810,19 @@ def test_runtime_deprecation_audit_lists_030_legacy_surfaces():
     assert items["companion_reflect_runtime_event"]["status"] == "runtime_wrapped_service_event"
     assert items["scheduler_reflect_legacy_task"]["status"] == "runtime_wrapped_service_event"
     assert items["notify_owner_direct_delivery"]["status"] == "runtime_wrapped_service_event"
-    assert items["docker_legacy_surface"]["status"] == "legacy_surface_observed"
+    assert "docker_unsupported_claim" not in items
 
 
-def test_runtime_deprecation_blocks_public_docker_claims_only():
+def test_runtime_deprecation_blocks_public_docker_claims():
     td = tempfile.mkdtemp()
-    os.makedirs(os.path.join(td, ".github", "workflows"), exist_ok=True)
-    for rel in (
-        "Dockerfile",
-        "docker-compose.yml",
-        "docker-entrypoint.sh",
-        "docker-install.sh",
-        os.path.join(".github", "workflows", "docker-image.yml"),
-    ):
-        with open(os.path.join(td, rel), "w", encoding="utf-8") as f:
-            f.write("# legacy\n")
     with open(os.path.join(td, "README.md"), "w", encoding="utf-8") as f:
         f.write("0.3.0 Docker: curl docker-install.sh | sh\n")
 
     result = deprecations.audit(root=td, include_runtime=False)
     items = {item["item_id"]: item for item in result["items"]}
 
-    assert items["docker_legacy_surface"]["status"] == "release_blocker_before_public_docs"
-    assert "README.md" in items["docker_legacy_surface"]["reason"]
+    assert items["docker_unsupported_claim"]["status"] == "release_blocker_unsupported_docker_claim"
+    assert "README.md" in items["docker_unsupported_claim"]["reason"]
 
 
 def test_runtime_deprecation_process_match_uses_python_script_argv():
@@ -3197,7 +3186,6 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
                 "remote_url": "https://example.invalid/PenglaiAgent.git",
                 "build_commit": "fedcba987654",
                 "build_time": "2026-06-23T00:00:00Z",
-                "image_tag": "",
             },
             f,
         )
@@ -3230,14 +3218,12 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
     assert build_info["build_time"] == "2026-06-23T00:00:00Z"
 
 
-def test_install_script_and_friend_docs_pin_preview_branch_installs():
+def test_install_script_targets_main_release():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(root, "install.sh"), encoding="utf-8") as f:
         installer = f.read()
     with open(os.path.join(root, "install.ps1"), encoding="utf-8") as f:
         windows_installer = f.read()
-    with open(os.path.join(root, "docs", "desktop-friend-test.md"), encoding="utf-8") as f:
-        friend_docs = f.read()
 
     assert 'BRANCH="${PENGLAI_BRANCH:-main}"' in installer
     assert "archive/refs/heads/$BRANCH.tar.gz" in installer
@@ -3249,18 +3235,9 @@ def test_install_script_and_friend_docs_pin_preview_branch_installs():
     assert 'uv-$arch.zip' in windows_installer
     assert "https://pypi.tuna.tsinghua.edu.cn/simple" in windows_installer
     assert ".penglai_desktop_settings.json" in windows_installer
-
-    assert (
-        "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/"
-        "codex/0.3.0-runtime-hub/install.sh"
-    ) in friend_docs
-    assert (
-        "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/"
-        "codex/0.3.0-runtime-hub/install.ps1"
-    ) in friend_docs
-    assert "自动初始化并启动" in friend_docs
-    assert "PENGLAI_INSTALL_DEPS=1" in friend_docs
-    assert "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/codex/0.3.0-runtime-hub" not in friend_docs
+    assert "codex/0.3.0-runtime-hub" not in installer
+    assert "codex/0.3.0-runtime-hub" not in windows_installer
+    assert not os.path.exists(os.path.join(root, "docs", "desktop-friend-test.md"))
 
 
 def test_install_script_source_copy_rejects_non_empty_target():
@@ -3337,7 +3314,7 @@ def test_update_preflight_blocks_active_legacy_runtime_paths():
     assert "feishu_active_legacy_systemd" in detail
 
 
-def test_update_release_ref_follows_preview_branch_metadata_before_main():
+def test_update_release_ref_follows_main_release_metadata():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     loader = importlib.machinery.SourceFileLoader(
         "penglai_cli_for_update_branch_tests",
@@ -3353,14 +3330,14 @@ def test_update_release_ref_follows_preview_branch_metadata_before_main():
     old_env = os.environ.get("PENGLAI_RELEASE_BRANCH")
 
     class Meta:
-        branch = "codex/0.3.0-runtime-hub"
+        branch = "main"
 
     try:
         os.environ.pop("PENGLAI_RELEASE_BRANCH", None)
         module.is_git_repo = lambda: False
         version_mod.collect_version_metadata = lambda root=None: Meta()
-        assert module._release_branch() == "codex/0.3.0-runtime-hub"
-        assert module._release_ref("release") == "release/codex/0.3.0-runtime-hub"
+        assert module._release_branch() == "main"
+        assert module._release_ref("release") == "release/main"
 
         os.environ["PENGLAI_RELEASE_BRANCH"] = "main"
         assert module._release_branch() == "main"
@@ -3404,7 +3381,7 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
         assert text in fallback_html
 
 
-def test_desktop_package_identity_targets_penglai_preview():
+def test_desktop_package_identity_targets_penglai_release():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     desktop_dir = os.path.join(root, "frontends", "desktop")
     with open(os.path.join(desktop_dir, "package.json"), "r", encoding="utf-8") as fh:
@@ -3470,7 +3447,7 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert "install.sh" in lib_rs
     assert "PENGLAI_INSTALL_DEPS" in lib_rs
     assert "PENGLAI_RELEASE_BRANCH" in lib_rs
-    assert "codex/0.3.0-runtime-hub" in lib_rs
+    assert 'const PENGLAI_RELEASE_BRANCH: &str = "main";' in lib_rs
     assert 'arg("enable").arg("voice")' in lib_rs
     assert 'arg("enable").arg("tts")' in lib_rs
     assert "fn install_runtime_step" in lib_rs
@@ -3484,23 +3461,22 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert "GenericAgent" not in json.dumps(tauri_conf)
 
 
-def test_desktop_preview_workflow_builds_validates_and_prereleases():
+def test_desktop_release_workflow_builds_validates_and_publishes_release():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    workflow_path = os.path.join(root, ".github", "workflows", "desktop-preview.yml")
+    workflow_path = os.path.join(root, ".github", "workflows", "desktop-release.yml")
     with open(workflow_path, "r", encoding="utf-8") as fh:
         workflow = fh.read()
 
     for text in (
-        "codex/0.3.0-runtime-hub",
-        "v0.3.0-preview*",
-        "upload_qa_artifacts",
+        "name: desktop-release",
+        "- main",
+        "\"v0.3.0\"",
         "macos-14",
         "windows-latest",
-        "if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')",
+        "if: github.ref == 'refs/tags/v0.3.0'",
         "actions/setup-python@v5",
         "frontends/*.py",
         "install.ps1",
-        "docs/desktop-friend-test.md",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",
@@ -3509,11 +3485,12 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml",
         "Desktop bridge contract tests",
         "Runtime bootstrap smoke",
+        "PENGLAI_BRANCH=main",
         "PENGLAI_INSTALL_DEPS=1",
         "PENGLAI_SKIP_SETUP=1",
         "python -m pip install --disable-pip-version-check pytest aiohttp",
         "desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels",
-        "Require Apple signing secrets",
+        "Check Apple signing secrets",
         "Import Apple Developer ID certificate",
         "APPLE_CERTIFICATE",
         "APPLE_CERTIFICATE_PASSWORD",
@@ -3523,7 +3500,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "KEYCHAIN_PASSWORD",
         "Developer ID Application",
         "Build signed DMG",
-        "Build DMG compile check",
+        "Verify DMG",
         "Re-sign app with adhoc signature and repack DMG",
         "codesign --force --deep --sign -",
         "linker-signed",
@@ -3532,7 +3509,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "npm run build:mac",
         "npm run build:windows",
         "hdiutil attach -readonly",
-        "Branch build: verified DMG layout and adhoc signature structure.",
+        "Unsigned build: verified DMG layout and adhoc signature structure",
         "codesign --verify --deep --strict --verbose=4",
         "Authority=Developer ID Application",
         "TeamIdentifier=$APPLE_TEAM_ID",
@@ -3541,14 +3518,11 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "spctl -a -vvv -t exec",
         "spctl -a -vvv -t open --context context:primary-signature",
         "com.apple.quarantine",
-        "Penglai_0.3.0_preview_macos_aarch64.dmg",
-        "Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg",
-        "Penglai_0.3.0_preview_windows_x64_setup.exe",
-        "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe",
-        "penglai-0.3.0-qa-unsigned-macos-aarch64",
-        "penglai-0.3.0-qa-unsigned-windows-x64",
-        "Unsigned QA Windows installer uploaded after silent install, launch, and uninstall checks.",
-        "Require Windows signing secrets",
+        "Penglai_0.3.0_macos_aarch64.dmg",
+        "Penglai_0.3.0_windows_x64_setup.exe",
+        "penglai-0.3.0-macos-aarch64",
+        "penglai-0.3.0-windows-x64",
+        "Check Windows signing secrets",
         "Import Windows signing certificate",
         "WINDOWS_CERTIFICATE",
         "WINDOWS_CERTIFICATE_PASSWORD",
@@ -3580,14 +3554,24 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "actions/upload-artifact@v4",
         "actions/download-artifact@v4",
         "gh release create",
-        "--prerelease",
-        "--latest=false",
-        "macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.",
-        "Windows installer and installed app exe are Authenticode-signed, installed, desktop-bridge checked, Runtime Hub checked, install-check verified, and silently uninstalled by CI before upload.",
-        "0.2.27 to 0.3.0 in-place upgrade is still not promised stable",
-        "other IM channels still require real credential and send/receive validation",
+        "macOS and Windows installers are **unsigned**.",
+        "Upgrade from 0.2.x is not guaranteed stable",
+        "Other channels are experimental",
+        "Docker is no longer supported in 0.3.0.",
     ):
         assert text in workflow
+
+    for text in (
+        "codex/0.3.0-runtime-hub",
+        "v0.3.0-preview",
+        "friend-test",
+        "upload_qa_artifacts",
+        "qa-unsigned",
+        "--prerelease",
+        "--latest=false",
+        "docs/desktop-friend-test.md",
+    ):
+        assert text not in workflow
 
     assert "not Developer ID signed or notarized" not in workflow
     assert "Windows installer is not code signed" not in workflow

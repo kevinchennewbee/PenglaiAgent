@@ -1,16 +1,15 @@
-name: desktop-preview
+name: desktop-release
 
 on:
   push:
     branches:
-      - codex/0.3.0-runtime-hub
+      - main
     tags:
-      - "v0.3.0*"
+      - "v0.3.0"
     paths:
-      - ".github/workflows/desktop-preview.yml"
+      - ".github/workflows/desktop-release.yml"
       - "install.sh"
       - "install.ps1"
-      - "docs/desktop-friend-test.md"
       - "frontends/desktop/**"
       - "frontends/*.py"
       - "penglai"
@@ -18,18 +17,13 @@ on:
       - "penglai_runtime/**"
       - "tests/test_penglai_runtime.py"
   workflow_dispatch:
-    inputs:
-      upload_qa_artifacts:
-        description: "Upload unsigned QA installers after CI install/run checks. Never use these as public releases."
-        type: boolean
-        default: false
 
 permissions:
   contents: read
 
 jobs:
   macos-dmg:
-    name: macOS DMG preview
+    name: macOS DMG release
     runs-on: macos-14
     steps:
       - name: Checkout
@@ -51,7 +45,7 @@ jobs:
           python-version: "3.11"
 
       - name: Check Apple signing secrets
-        if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: github.ref == 'refs/tags/v0.3.0'
         id: check-apple-signing
         shell: bash
         env:
@@ -76,7 +70,7 @@ jobs:
           fi
 
       - name: Import Apple Developer ID certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-apple-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.0' && steps.check-apple-signing.outputs.available == 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -119,21 +113,21 @@ jobs:
       - name: Desktop bridge contract tests
         run: |
           python -m pip install --disable-pip-version-check pytest aiohttp
-          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
 
       - name: Runtime bootstrap smoke
         shell: bash
         run: |
           set -euo pipefail
           PENGLAI_DIR="$RUNNER_TEMP/PenglaiAgent-bootstrap" \
-          PENGLAI_BRANCH=codex/0.3.0-runtime-hub \
+          PENGLAI_BRANCH=main \
           PENGLAI_INSTALL_DEPS=1 \
           PENGLAI_INSTALL_VERIFY=1 \
           PENGLAI_SKIP_SETUP=1 \
           sh install.sh
 
       - name: Build signed DMG
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-apple-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.0' && steps.check-apple-signing.outputs.available == 'true'
         working-directory: frontends/desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -142,12 +136,12 @@ jobs:
         run: npm run build:mac
 
       - name: Build DMG (unsigned)
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || steps.check-apple-signing.outputs.available != 'true' }}
+        if: ${{ github.ref != 'refs/tags/v0.3.0' || steps.check-apple-signing.outputs.available != 'true' }}
         working-directory: frontends/desktop
         run: npm run build:mac
 
       - name: Re-sign app with adhoc signature and repack DMG
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || steps.check-apple-signing.outputs.available != 'true' }}
+        if: ${{ github.ref != 'refs/tags/v0.3.0' || steps.check-apple-signing.outputs.available != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -233,7 +227,7 @@ jobs:
           security delete-keychain build.keychain >/dev/null 2>&1 || true
 
       - name: Stage macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: github.ref == 'refs/tags/v0.3.0'
         shell: bash
         run: |
           mkdir -p dist
@@ -241,15 +235,15 @@ jobs:
             dist/Penglai_0.3.0_macos_aarch64.dmg
 
       - name: Upload macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: github.ref == 'refs/tags/v0.3.0'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') && 'penglai-0.3.0-macos-aarch64' || 'penglai-0.3.0-qa-unsigned-macos-aarch64' }}
+          name: penglai-0.3.0-macos-aarch64
           path: dist/*.dmg
           if-no-files-found: error
 
   windows-nsis:
-    name: Windows NSIS preview
+    name: Windows NSIS release
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -272,7 +266,7 @@ jobs:
           python-version: "3.11"
 
       - name: Check Windows signing secrets
-        if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: github.ref == 'refs/tags/v0.3.0'
         id: check-windows-signing
         shell: pwsh
         env:
@@ -293,7 +287,7 @@ jobs:
           }
 
       - name: Import Windows signing certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') && steps.check-windows-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.0' && steps.check-windows-signing.outputs.available == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -331,14 +325,14 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
-          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts or install_script_and_friend_docs_pin_preview_branch_installs'
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
 
       - name: Runtime bootstrap smoke
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $env:PENGLAI_DIR = Join-Path $env:RUNNER_TEMP "PenglaiAgent-bootstrap"
-          $env:PENGLAI_BRANCH = "codex/0.3.0-runtime-hub"
+          $env:PENGLAI_BRANCH = "main"
           $env:PENGLAI_INSTALL_VERIFY = "1"
           .\install.ps1
 
@@ -509,28 +503,22 @@ jobs:
           if ($portOpen) { throw "Desktop bridge port 14168 is still listening after uninstall smoke cleanup." }
 
       - name: Upload Windows artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
+        if: github.ref == 'refs/tags/v0.3.0'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') && 'penglai-0.3.0-windows-x64' || 'penglai-0.3.0-qa-unsigned-windows-x64' }}
+          name: penglai-0.3.0-windows-x64
           path: dist/*.exe
           if-no-files-found: error
 
-      - name: Explain QA artifact scope
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') && github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts }}
-        shell: pwsh
-        run: |
-          "Unsigned QA Windows installer uploaded after silent install, launch, and uninstall checks. It is not a public release artifact." >> $env:GITHUB_STEP_SUMMARY
-
-  prerelease:
-    name: GitHub prerelease
+  release:
+    name: GitHub release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     needs:
       - macos-dmg
       - windows-nsis
-    if: startsWith(github.ref, 'refs/tags/v0.3.0')
+    if: github.ref == 'refs/tags/v0.3.0'
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -541,7 +529,6 @@ jobs:
       - name: Write release notes
         shell: bash
         run: |
-          IS_PRERELEASE="${{ contains(github.ref, '-preview') || contains(github.ref, '-friend-test') }}"
           cat > release-notes.md <<'EOF'
           PenglaiAgent 0.3.0 — self-hosted AI butler with Runtime Hub and desktop clients.
 
@@ -572,6 +559,7 @@ jobs:
           - Apple Silicon only for macOS. Intel Mac not supported.
           - Upgrade from 0.2.x is not guaranteed stable; fresh install recommended.
           - Feishu is the most validated IM channel. Other channels are experimental.
+          - Docker is no longer supported in 0.3.0. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
           EOF
 
       - name: Create release
@@ -579,14 +567,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          IS_PRERELEASE="${{ contains(github.ref, '-preview') || contains(github.ref, '-friend-test') }}"
-          RELEASE_TITLE="PenglaiAgent 0.3.0${GITHUB_REF_NAME#v0.3.0}"
-          RELEASE_ARGS=()
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            RELEASE_ARGS=(--prerelease --latest=false)
-          fi
+          RELEASE_TITLE="PenglaiAgent 0.3.0"
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "$RELEASE_TITLE" \
-            --notes-file release-notes.md \
-            "${RELEASE_ARGS[@]}"
+            --notes-file release-notes.md

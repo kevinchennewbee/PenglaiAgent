@@ -171,11 +171,13 @@ penglai update                  # 安全升级
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
 ```
 
+**Docker 已撤出支持矩阵**：0.3.0 起不再提供 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署支持。请使用桌面安装包、命令行安装脚本、PyPI 引导器或源码安装。
+
 0.3.0 不等于所有可选能力都默认开启：语音、TTS、主动陪伴、批判脑异厂商复核、情报矩阵增强、各个 IM 渠道均按 `penglai abilities` / `penglai channels` 状态逐项启用、诊断和验证。
 
 近期更新重点：
 
-- **v0.3.0**：Runtime Hub 正式版。Mac/Windows 原生桌面客户端（完整设置向导 + 会话工作台 + 系统托盘 + 渠道/能力管理面板 + 补配置 + 融合诊断）。feishu QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、`penglai update` 自动备份回滚升级。
+- **v0.3.0**：Runtime Hub 正式版。Mac/Windows 原生桌面客户端（完整设置向导 + 会话工作台 + 系统托盘 + 渠道/能力管理面板 + 补配置 + 融合诊断）。feishu QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、`penglai update` 自动备份回滚升级；Docker 全面撤出支持矩阵。
 - v0.2.27：安装网络兜底热修，国内网络下会更稳地回退到镜像源或本地源码构建。
 - v0.2.25：安装依赖网络热修，一键安装在默认 PyPI 长时间无响应时，会自动超时并切换到清华镜像重试。
 - v0.2.24：GA 核心边界修正，LLM 日志脱敏从 GenericAgent 核心文件移到蓬莱插件层，恢复“上游核心不改”的发行边界。
