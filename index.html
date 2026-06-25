@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>蓬莱 · Penglai — 住在飞书、微信、终端和桌面里的自托管 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。Mac 和 Windows 原生桌面客户端、飞书、微信、终端、语音、图片、MOSS-TTS 语音合成、记忆、主动陪伴和 Docker 统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
+<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。Mac 和 Windows 原生桌面客户端、飞书、微信、终端、语音、图片、MOSS-TTS 语音合成、记忆和主动陪伴统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -465,7 +465,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="mrow"><span class="ch" data-zh="消息排队" data-en="Message queueing">消息排队</span><span class="how" data-zh="上一条任务没结束时，后续消息不再直接丢失" data-en="Follow-up messages are not dropped while a task is running">上一条任务没结束时，后续消息不再直接丢失</span><span class="tg ok" data-zh="更稳" data-en="more reliable">更稳</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
     <div class="mrow"><span class="ch" data-zh="文件投递" data-en="File delivery">文件投递</span><span class="how" data-zh="图片、视频、PDF、Markdown、Office 按真实产物发送" data-en="Images, videos, PDFs, Markdown, and Office docs are sent by real artifact type">图片、视频、PDF、Markdown、Office 按真实产物发送</span><span class="tg ok" data-zh="少误挡" data-en="fewer false blocks">少误挡</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
     <div class="mrow"><span class="ch" data-zh="日志脱敏" data-en="Log redaction">日志脱敏</span><span class="how" data-zh="key、token、secret、authorization 统一脱敏后再落日志和历史" data-en="keys, tokens, secrets, and authorization-like values are redacted before logs and history">key、token、secret、authorization 统一脱敏后再落日志和历史</span><span class="tg ok" data-zh="更安全" data-en="safer">更安全</span><span class="tg live"><span class="pt"></span><span data-zh="已验证" data-en="verified">已验证</span></span></div>
-    <div class="mrow"><span class="ch">Docker</span><span class="how" data-zh="时区、语音依赖、数据卷、公共 SOP 回填、版本身份都进入镜像路径" data-en="timezone, voice deps, data volume, public SOP backfill, and version identity are handled in the image path">时区、语音依赖、数据卷、公共 SOP 回填、版本身份都进入镜像路径</span><span class="tg ok" data-zh="可运维" data-en="operable">可运维</span><span class="tg live"><span class="pt"></span><span data-zh="真机验证" data-en="field-tested">真机验证</span></span></div>
+    <div class="mrow"><span class="ch" data-zh="发行路径" data-en="Distribution">发行路径</span><span class="how" data-zh="桌面安装包、install.sh、PyPI 引导器和源码安装保持一致；Docker 已撤出支持矩阵" data-en="Desktop installers, install.sh, PyPI bootstrap, and source install stay aligned; Docker is removed from support">桌面安装包、install.sh、PyPI 引导器和源码安装保持一致；Docker 已撤出支持矩阵</span><span class="tg ok" data-zh="口径统一" data-en="aligned">口径统一</span><span class="tg live"><span class="pt"></span><span data-zh="0.3.0" data-en="0.3.0">0.3.0</span></span></div>
   </div>
   <div class="pledge reveal" style="margin-top:22px">
     <span class="q">❯</span><strong style="color:var(--ink)" data-zh="和 GenericAgent 的关系" data-en="How it relates to GenericAgent">和 GenericAgent 的关系</strong>
@@ -508,7 +508,6 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="tabs reveal">
     <span class="ind" id="tabind"></span>
     <button class="on" onclick="tab('curl',this)" data-zh="curl 一键" data-en="curl one-liner">curl 一键</button>
-    <button onclick="tab('docker',this)">Docker</button>
     <button onclick="tab('pip',this)">pip</button>
     <button onclick="tab('git',this)">git clone</button>
     <button onclick="tab('desktop',this)" data-zh="桌面下载" data-en="Desktop">桌面下载</button>
@@ -516,8 +515,6 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="reveal">
     <div class="pane on" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
-    <div class="pane" id="p-docker"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-docker',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 自动取镜像→向导→常驻容器，数据在卷里升级不丢</span>
-curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/docker-install.sh</span> | sh</div></div>
     <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器：安装 CLI，首次运行拉取发行仓库；已有安装用 penglai update</span>
 pip install penglai
 penglai setup</div></div>
@@ -612,6 +609,7 @@ const CHANGELOG=[
    "桌面端完整设置向导（与 CLI 对等）：语言 → LLM 选择(12厂商+连通测试) → 渠道多选+飞书扫码 → 起名 → 能力面板 → 配置写入+启动验证",
    "penglai update 自动备份回滚升级：支持检测 main 分支新版本，一键应用并自动创建备份，失败自动回滚",
    "主界面新增渠道管理和能力管理面板：安装后无需重跑向导即可补配飞书/微信/钉钉/QQ/TG/Discord/企微或补充开启语音/TTS/陪伴/批判脑/情报矩阵",
+   "Docker 已从 0.3.0 支持矩阵撤出：不再提供 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署路径",
   ],
   liEn:[
    "Runtime Hub unified execution layer: Feishu, WeChat, terminal, and desktop entries normalized as InboundEvent, with FIFO queuing and TaskRun auditing",
@@ -620,13 +618,14 @@ const CHANGELOG=[
    "Desktop setup wizard (feature-complete with CLI): Language → LLM (12 providers + connectivity test) → Channel multi-select + Feishu QR → Naming → Abilities → Config + Launch",
    "penglai update with auto-backup rollback: detects new versions on the main branch, one-click apply with auto-backup, auto-rollback on failure",
    "Channel & ability management panel in main UI: add Feishu/WeChat/DingTalk/QQ/Telegram/Discord/WeCom or enable voice/TTS/critic/companion/intel without re-running the full wizard",
+   "Docker has been removed from the 0.3.0 support matrix: no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path",
   ]},
- {v:"v0.2.27",d:"2026-06-21",h:"stable",zh:"Docker 安装网络兜底热修",en:"Docker-install network fallback hotfix",t:true,
-  liZh:["GHCR 拉取失败或超时时，Docker 一键部署会进入国内镜像站或本地源码构建","本地构建也会同步切到国内 PyPI/APT 镜像，避免依赖下载继续卡住","版本身份同步到 0.2.27；0.2.26 保留为 Docker 拉取超时热修"],
-  liEn:["Docker one-line deploy moves to the China mirror or local source build when GHCR fails or times out","Local builds also switch to China PyPI/APT mirrors so dependency download does not stall next","Version identity is now 0.2.27; 0.2.26 remains the Docker-pull timeout hotfix"]},
- {v:"v0.2.26",d:"2026-06-21",h:"docker",zh:"Docker 安装网络热修",en:"Docker-install network hotfix",t:true,
-  liZh:["Docker 一键部署在 GHCR 拉取长时间无响应时，会自动超时并进入国内镜像站或本地源码构建兜底","新增 PENGLAI_DOCKER_PULL_TIMEOUT，可调整 Docker 镜像拉取等待时间","版本身份同步到 0.2.26；0.2.25 保留为安装依赖网络热修"],
-  liEn:["Docker one-line deploy now times out when GHCR stalls and continues to the China mirror or local source-build fallback","PENGLAI_DOCKER_PULL_TIMEOUT can tune Docker image pull wait time","Version identity is now 0.2.26; 0.2.25 remains the dependency-install network hotfix"]},
+ {v:"v0.2.27",d:"2026-06-21",h:"legacy",zh:"旧版容器安装网络兜底热修（0.3.0 已撤出）",en:"Legacy container-install network fallback hotfix (removed in 0.3.0)",t:true,
+  liZh:["这是 0.2.x 历史记录；0.3.0 起不再支持容器部署","当时用于处理 GHCR 拉取失败或超时的旧版兜底路径","当前版本请使用桌面安装包、install.sh、PyPI 引导器或源码安装"],
+  liEn:["This is 0.2.x history; container deployment is not supported starting with 0.3.0","It previously handled GHCR pull failures or timeouts in the legacy path","Use desktop installers, install.sh, PyPI bootstrap, or source install for the current release"]},
+ {v:"v0.2.26",d:"2026-06-21",h:"legacy",zh:"旧版容器安装网络热修（0.3.0 已撤出）",en:"Legacy container-install network hotfix (removed in 0.3.0)",t:true,
+  liZh:["这是 0.2.x 历史记录；0.3.0 起不再支持容器部署","当时新增超时和兜底路径，避免旧版镜像拉取卡死","当前版本请使用桌面安装包、install.sh、PyPI 引导器或源码安装"],
+  liEn:["This is 0.2.x history; container deployment is not supported starting with 0.3.0","It previously added timeout and fallback behavior for legacy image pulls","Use desktop installers, install.sh, PyPI bootstrap, or source install for the current release"]},
  {v:"v0.2.25",d:"2026-06-21",h:"install",zh:"安装依赖网络热修",en:"Dependency-install network hotfix",t:true,
   liZh:["一键安装在默认 PyPI 长时间无响应时，会自动超时并切换到清华镜像重试","新增 PENGLAI_PIP_INDEX，可显式指定自己的 pip 源","版本身份同步到 0.2.25；0.2.24 保留为 GA 核心边界修正"],
   liEn:["One-line install now times out and retries with the Tsinghua PyPI mirror when the default PyPI index stalls","PENGLAI_PIP_INDEX can explicitly point install at a custom package index","Version identity is now 0.2.25; 0.2.24 remains the GA-core boundary correction"]},
@@ -640,26 +639,26 @@ const CHANGELOG=[
   liZh:["一键安装在首次下载 Python 或依赖被中断后可以直接重跑，不会因为 .venv 已存在而失败","非交互 shell 会给出“下载后运行”的明确提示，不再让配置向导读 EOF","版本身份同步到 0.2.22；0.2.21 保留为安装网络回退热修"],
   liEn:["One-line install can be rerun after the first Python or dependency download is interrupted, without failing on an existing .venv","Non-interactive shells now receive a clear download-then-run prompt instead of sending EOF into the setup wizard","Version identity is now 0.2.22; 0.2.21 remains the install-network fallback hotfix"]},
  {v:"v0.2.21",d:"2026-06-21",h:"install",zh:"安装网络热修",en:"Install-network hotfix",t:true,
-  liZh:["一键安装和 PyPI 引导器增加源码压缩包回退：GitHub 首页或默认镜像不可用时，仍可走 codeload 下载","Docker 本地构建兜底同样使用多源压缩包下载，减少卡在 git clone 或镜像站上的情况","版本身份同步到 0.2.21；0.2.20 仍是全新架构主版本"],
-  liEn:["One-line install and the PyPI bootstrap now fall back to source tarballs through codeload when the GitHub homepage or default mirror is unavailable","Docker local-build fallback also uses multi-source tarball download to avoid hanging on git clone or mirror failures","Version identity is now 0.2.21; 0.2.20 remains the main new-architecture release"]},
+  liZh:["一键安装和 PyPI 引导器增加源码压缩包回退：GitHub 首页或默认镜像不可用时，仍可走 codeload 下载","旧版容器本地构建兜底当时也使用多源压缩包下载；0.3.0 起该路径已撤出支持","版本身份同步到 0.2.21；0.2.20 仍是全新架构主版本"],
+  liEn:["One-line install and the PyPI bootstrap now fall back to source tarballs through codeload when the GitHub homepage or default mirror is unavailable","The legacy container local-build fallback also used multi-source tarball downloads then; it is removed from support starting with 0.3.0","Version identity is now 0.2.21; 0.2.20 remains the main new-architecture release"]},
  {v:"v0.2.20",d:"2026-06-21",h:"architecture",zh:"全新架构的 Penglai Agent",en:"New-architecture Penglai Agent",t:true,
-  liZh:["统一多入口运行层：飞书、微信、终端、语音、文件和主动消息共享会话、队列、投递和上下文规则","忙时消息会排队，主动陪伴进入后续上下文，IM 图片和生成文件投递更可靠","日志与历史统一脱敏，key、token、secret、authorization 等敏感片段在写入前处理","Docker 补齐语音依赖、时区、数据卷回填、私有记忆排除和镜像版本身份","新增 penglai version，CLI、doctor、IM 和 Docker 都能报告可信版本与构建来源"],
-  liEn:["Unified multi-entry runtime: Feishu, WeChat, terminal, voice, files, and proactive events share session, queueing, delivery, and context rules","Busy messages queue; proactive companion events enter later context; IM images and generated artifacts deliver more reliably","Logs and history share redaction for keys, tokens, secrets, authorization-like values, and other sensitive fragments","Docker now includes voice dependencies, timezone, data-volume backfill, private-memory exclusion, and image version identity","penglai version was added so CLI, doctor, IM, and Docker can report trusted version and build source"]},
+  liZh:["统一多入口运行层：飞书、微信、终端、语音、文件和主动消息共享会话、队列、投递和上下文规则","忙时消息会排队，主动陪伴进入后续上下文，IM 图片和生成文件投递更可靠","日志与历史统一脱敏，key、token、secret、authorization 等敏感片段在写入前处理","旧版容器路径当时补齐语音依赖、时区、数据卷回填、私有记忆排除和版本身份；0.3.0 起已撤出支持","新增 penglai version，CLI、doctor 和 IM 都能报告可信版本与构建来源"],
+  liEn:["Unified multi-entry runtime: Feishu, WeChat, terminal, voice, files, and proactive events share session, queueing, delivery, and context rules","Busy messages queue; proactive companion events enter later context; IM images and generated artifacts deliver more reliably","Logs and history share redaction for keys, tokens, secrets, authorization-like values, and other sensitive fragments","The legacy container path then included voice dependencies, timezone, data-volume backfill, private-memory exclusion, and version identity; it is removed from support starting with 0.3.0","penglai version was added so CLI, doctor, and IM can report trusted version and build source"]},
  {v:"v0.2.10",d:"2026-06-17",h:"stable",zh:"飞书真实工作流和文件外发收口",en:"Feishu workflow and artifact delivery",t:true,
   liZh:["飞书后续消息不再因任务运行中直接丢失，按钮选择和人工介入更稳定","图片、视频、音频、PDF、Office、Markdown 等按真实产物发送，敏感后缀仍确定性拦截","技能索引按用户意图优先路由，下载、发送、导出请求不会误走知识库流程"],
   liEn:["Feishu follow-up messages no longer disappear while a task is running; buttons and human-intervention flows are more stable","Images, videos, audio, PDFs, Office docs, Markdown, and other artifacts are sent by real type while sensitive suffixes stay blocked","Skill routing now prioritizes user intent, so download/send/export requests do not drift into knowledge-base flows"]},
  {v:"v0.2.9",d:"2026-06-17",h:"privacy",zh:"隐私、合规与主动陪伴增强",en:"Privacy, compliance, and companion hardening",t:true,
-  liZh:["公开模板和素材许可收口，新增安全反馈和第三方素材边界说明","Docker 改为非 root 运行，构建上下文排除本地私有运行态","主动陪伴、图片入口、语音分块、审计路径和更新识别继续加固"],
-  liEn:["Public templates and asset licenses were cleaned up, with security-reporting and third-party notices added","Docker now runs non-root and excludes private local runtime state from build contexts","Proactive companion, image entry, voice chunking, audit paths, and update detection were hardened"]},
+  liZh:["公开模板和素材许可收口，新增安全反馈和第三方素材边界说明","旧版容器构建当时收紧为非 root 并排除本地私有运行态；0.3.0 起已撤出支持","主动陪伴、图片入口、语音分块、审计路径和更新识别继续加固"],
+  liEn:["Public templates and asset licenses were cleaned up, with security-reporting and third-party notices added","The legacy container build then moved to non-root and excluded private local runtime state; it is removed from support starting with 0.3.0","Proactive companion, image entry, voice chunking, audit paths, and update detection were hardened"]},
  {v:"v0.2.8",d:"2026-06-16",h:"workflow",zh:"飞书人工介入和 macOS 运行态",en:"Feishu human intervention and macOS runtime",t:true,
   liZh:["飞书结构化问题渲染成可点击按钮，并保留编号/文字回复兜底","飞书和微信入口补齐常用命令，服务状态和自动重连更清楚","更新流程加入网络超时和镜像兜底，减少卡在 GitHub 直连上的情况"],
   liEn:["Structured Feishu questions render as clickable buttons, with numbered/text replies as fallback","Feishu and WeChat entries gained common commands, clearer service state, and better reconnect behavior","Update flow gained network timeouts and mirror fallback to avoid hanging on direct GitHub access"]},
  {v:"v0.2.5",d:"2026-06-15",h:"skills",zh:"本地技能集市",en:"Local skill marketplace",t:true,
   liZh:["首批技能覆盖文档读写、公众号文章、语音记账、快递、邮箱、资讯早报、生活提醒和市场调研","技能以本地 SOP 形式安装，触发词进入按需索引，安装时做安全扫描"],
   liEn:["First skills cover office documents, WeChat articles, voice expense logs, parcel tracking, email, news briefs, reminders, and market research","Skills install as local SOPs, triggers live in an on-demand index, and installs pass a safety scan"]},
- {v:"v0.2.0",d:"2026-06-13",h:"companion",zh:"搜索、主动陪伴和 Docker 常驻",en:"Search, companion, and Docker supervisor",t:true,
-  liZh:["免 key 网页搜索兜底，无头服务器也能查天气、新闻和事实","主动陪伴支持天气、语音情绪、早晚问候和久未联系提醒","Docker 常驻监工支持扫码、补配渠道和进程自愈"],
-  liEn:["Keyless web-search fallback works on headless servers for weather, news, and facts","Proactive companion supports weather, voice-emotion follow-ups, morning/evening anchors, and long-silence check-ins","Docker resident supervisor supports scan binding, adding channels later, and process self-healing"]},
+ {v:"v0.2.0",d:"2026-06-13",h:"companion",zh:"搜索、主动陪伴和旧版常驻监工",en:"Search, companion, and legacy supervisor",t:true,
+  liZh:["免 key 网页搜索兜底，无头服务器也能查天气、新闻和事实","主动陪伴支持天气、语音情绪、早晚问候和久未联系提醒","旧版常驻监工曾支持扫码、补配渠道和进程自愈；0.3.0 起容器部署已撤出支持"],
+  liEn:["Keyless web-search fallback works on headless servers for weather, news, and facts","Proactive companion supports weather, voice-emotion follow-ups, morning/evening anchors, and long-silence check-ins","The legacy resident supervisor once supported scan binding, adding channels later, and process self-healing; container deployment is removed from support starting with 0.3.0"]},
  {v:"v0.1.0",d:"2026-06-11",h:"first",zh:"首次开源",en:"First release",t:true,
   liZh:["十分钟向导、飞书微信扫码、本地语音情绪识别、确定性安全和四层记忆"],
   liEn:["Ten-minute wizard, Feishu/WeChat QR setup, local voice-emotion recognition, deterministic safety, and four-tier memory"]},
