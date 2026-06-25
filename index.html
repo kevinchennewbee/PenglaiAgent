@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>蓬莱 · Penglai — 住在飞书、微信和终端里的自托管 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。飞书、微信、终端、语音、图片、记忆、主动陪伴和 Docker 统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
+<title>蓬莱 · Penglai — 住在飞书、微信、终端和桌面里的自托管 AI 管家</title>
+<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。Mac 和 Windows 原生桌面客户端、飞书、微信、终端、语音、图片、MOSS-TTS 语音合成、记忆、主动陪伴和 Docker 统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -511,6 +511,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <button onclick="tab('docker',this)">Docker</button>
     <button onclick="tab('pip',this)">pip</button>
     <button onclick="tab('git',this)">git clone</button>
+    <button onclick="tab('desktop',this)" data-zh="桌面下载" data-en="Desktop">桌面下载</button>
   </div>
   <div class="reveal">
     <div class="pane on" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
@@ -523,6 +524,9 @@ penglai setup</div></div>
     <div class="pane" id="p-git"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-git',this)" data-zh="复制" data-en="Copy">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
 cd PenglaiAgent
 python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→渠道→能力面板</span></div></div>
+    <div class="pane" id="p-desktop"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-desktop',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># macOS Apple Silicon · Windows x64 · 图形化向导安装</span>
+<span data-zh="下载 DMG/EXE，拖入 Applications 或双击安装。首次打开需到系统设置 → 隐私与安全性 → 仍要打开。" data-en="Download DMG/EXE, drag to Applications or double-click to install. First open: System Settings → Privacy &amp; Security → Open Anyway.">下载 DMG/EXE，拖入 Applications 或双击安装。首次打开需到系统设置 → 隐私与安全性 → 仍要打开。</span>
+<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0" target="_blank" style="color:var(--jade);font-weight:600">→ GitHub Releases v0.3.0 下载</a></div></div>
   </div>
   <div class="frame reveal"><img src="wizard-zh.png" alt="蓬莱安装向导实景 / Penglai setup wizard" loading="lazy"></div>
   <p class="reveal" style="text-align:center;color:var(--soft);font-size:13.5px;margin-top:16px" data-zh="↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选" data-en="↑ The setup wizard in action: bilingual · paged steps · one-page channel picker">↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选</p>
@@ -600,7 +604,24 @@ function setLang(l){
 
 /* —— 更新日志数据 —— */
 const CHANGELOG=[
- {v:"v0.2.27",d:"2026-06-21",h:"latest",zh:"Docker 安装网络兜底热修",en:"Docker-install network fallback hotfix",t:true,
+ {v:"v0.3.0",d:"2026-06-25",h:"latest",zh:"Runtime Hub 正式版 + 原生桌面客户端",en:"Runtime Hub stable + native desktop clients",t:true,
+  liZh:[
+   "Runtime Hub 统一运行层正式发布：飞书、微信、终端和桌面入口归一为 InboundEvent，FIFO 排队，TaskRun 审计",
+   "新增 Mac (Apple Silicon) 和 Windows (x64) 原生桌面客户端：完整图形化设置向导、多会话对话工作台、系统托盘驻留、渠道/能力管理面板、融合诊断和补配置",
+   "新增 MOSS-TTS-Nano 本地语音合成：把文字回复合成为语音，适合桌面朗读和 IM 语音条（约 728MB，CPU 推理）",
+   "桌面端完整设置向导（与 CLI 对等）：语言 → LLM 选择(12厂商+连通测试) → 渠道多选+飞书扫码 → 起名 → 能力面板 → 配置写入+启动验证",
+   "penglai update 自动备份回滚升级：支持检测 main 分支新版本，一键应用并自动创建备份，失败自动回滚",
+   "主界面新增渠道管理和能力管理面板：安装后无需重跑向导即可补配飞书/微信/钉钉/QQ/TG/Discord/企微或补充开启语音/TTS/陪伴/批判脑/情报矩阵",
+  ],
+  liEn:[
+   "Runtime Hub unified execution layer: Feishu, WeChat, terminal, and desktop entries normalized as InboundEvent, with FIFO queuing and TaskRun auditing",
+   "New native desktop clients for Mac (Apple Silicon) and Windows (x64): full GUI setup wizard, multi-session chat workspace, system tray, channel & ability management, integrated diagnostics",
+   "New MOSS-TTS-Nano local speech synthesis: text-to-speech for desktop playback and IM voice messages (~728MB, CPU inference)",
+   "Desktop setup wizard (feature-complete with CLI): Language → LLM (12 providers + connectivity test) → Channel multi-select + Feishu QR → Naming → Abilities → Config + Launch",
+   "penglai update with auto-backup rollback: detects new versions on the main branch, one-click apply with auto-backup, auto-rollback on failure",
+   "Channel & ability management panel in main UI: add Feishu/WeChat/DingTalk/QQ/Telegram/Discord/WeCom or enable voice/TTS/critic/companion/intel without re-running the full wizard",
+  ]},
+ {v:"v0.2.27",d:"2026-06-21",h:"stable",zh:"Docker 安装网络兜底热修",en:"Docker-install network fallback hotfix",t:true,
   liZh:["GHCR 拉取失败或超时时，Docker 一键部署会进入国内镜像站或本地源码构建","本地构建也会同步切到国内 PyPI/APT 镜像，避免依赖下载继续卡住","版本身份同步到 0.2.27；0.2.26 保留为 Docker 拉取超时热修"],
   liEn:["Docker one-line deploy moves to the China mirror or local source build when GHCR fails or times out","Local builds also switch to China PyPI/APT mirrors so dependency download does not stall next","Version identity is now 0.2.27; 0.2.26 remains the Docker-pull timeout hotfix"]},
  {v:"v0.2.26",d:"2026-06-21",h:"docker",zh:"Docker 安装网络热修",en:"Docker-install network hotfix",t:true,
