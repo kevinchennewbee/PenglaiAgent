@@ -118,6 +118,25 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+          function Split-CommandLine([string]$CommandLine) {
+            if (-not $CommandLine) { return @("", "") }
+            if ($CommandLine -match '^\s*"([^"]+)"\s*(.*)$') {
+              return @($Matches[1], $Matches[2].Trim())
+            }
+            $parts = $CommandLine -split '\s+', 2
+            $args = if ($parts.Count -gt 1) { $parts[1].Trim() } else { "" }
+            return @($parts[0], $args)
+          }
+
+          function Get-ExecutablePath([string]$Value) {
+            if (-not $Value) { return "" }
+            $parts = Split-CommandLine $Value
+            $candidate = [string]$parts[0]
+            $candidate = $candidate.Trim('"')
+            $candidate = $candidate -replace ',\d+$', ''
+            return $candidate
+          }
+
           $setup = Get-ChildItem "frontends/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
           if (-not $setup) { throw "NSIS setup exe not found" }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
@@ -125,41 +144,58 @@ jobs:
 
           $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)" }
-          Start-Sleep -Seconds 5
 
           $roots = @(
             "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
             "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
           )
-          $app = Get-ItemProperty $roots -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -eq "Penglai" } |
-            Select-Object -First 1
+          $deadline = (Get-Date).AddSeconds(30)
+          $app = $null
+          do {
+            $app = Get-ItemProperty $roots -ErrorAction SilentlyContinue |
+              Where-Object { $_.DisplayName -like "Penglai*" } |
+              Select-Object -First 1
+            if ($app) { break }
+            Start-Sleep -Seconds 2
+          } until ((Get-Date) -gt $deadline)
           if (-not $app) { throw "Installed Penglai uninstall entry not found" }
-          if (-not $app.InstallLocation -or -not (Test-Path $app.InstallLocation)) {
-            throw "Installed Penglai location not found: $($app.InstallLocation)"
+
+          $installLocation = [string]$app.InstallLocation
+          $displayIconExe = Get-ExecutablePath ([string]$app.DisplayIcon)
+          if ((-not $installLocation -or -not (Test-Path $installLocation)) -and $displayIconExe -and (Test-Path $displayIconExe)) {
+            $installLocation = Split-Path -Parent $displayIconExe
           }
-          $installedExe = Get-ChildItem $app.InstallLocation -Filter "*.exe" |
+          if (-not $installLocation -or -not (Test-Path $installLocation)) {
+            throw "Installed Penglai location not found. InstallLocation='$($app.InstallLocation)' DisplayIcon='$($app.DisplayIcon)'"
+          }
+
+          $installedExe = $null
+          if ($displayIconExe -and (Test-Path $displayIconExe) -and $displayIconExe -notmatch "unins|uninstall") {
+            $installedExe = Get-Item $displayIconExe
+          }
+          if (-not $installedExe) {
+            $installedExe = Get-ChildItem $installLocation -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notmatch "unins|uninstall" } |
             Select-Object -First 1
-          if (-not $installedExe) { throw "Installed Penglai app exe not found" }
-          if (-not $app.UninstallString) { throw "Penglai uninstall command missing" }
-
-          $uninstallString = [string]$app.UninstallString
-          if ($uninstallString -match '^\s*"([^"]+)"\s*(.*)$') {
-            $uninstallExe = $Matches[1]
-            $uninstallArgs = $Matches[2].Trim()
-          } else {
-            $parts = $uninstallString -split '\s+', 2
-            $uninstallExe = $parts[0]
-            $uninstallArgs = if ($parts.Count -gt 1) { $parts[1].Trim() } else { "" }
           }
+          if (-not $installedExe) { throw "Installed Penglai app exe not found" }
+
+          $uninstallString = if ($app.QuietUninstallString) { [string]$app.QuietUninstallString } else { [string]$app.UninstallString }
+          if (-not $uninstallString) { throw "Penglai uninstall command missing" }
+          $uninstallParts = Split-CommandLine $uninstallString
+          $uninstallExe = [string]$uninstallParts[0]
+          $uninstallArgs = [string]$uninstallParts[1]
           if (-not (Test-Path $uninstallExe)) { throw "Penglai uninstall executable missing: $uninstallExe" }
           if ($uninstallArgs -notmatch '(^|\s)/S(\s|$)') {
             $uninstallArgs = if ($uninstallArgs) { "$uninstallArgs /S" } else { "/S" }
           }
           $uninstall = Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs -Wait -PassThru
           if ($uninstall.ExitCode -ne 0) { throw "NSIS silent uninstall failed with exit code $($uninstall.ExitCode)" }
-          Start-Sleep -Seconds 5
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            if (-not (Test-Path $installedExe.FullName)) { break }
+            Start-Sleep -Seconds 2
+          } until ((Get-Date) -gt $deadline)
           if (Test-Path $installedExe.FullName) { throw "Installed Penglai exe remains after uninstall: $($installedExe.FullName)" }
 
       - name: Upload Windows artifact
