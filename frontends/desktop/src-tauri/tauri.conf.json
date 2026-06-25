@@ -24,7 +24,7 @@
         "title": "蓬莱 — 启动设置",
         "label": "setup",
         "width": 600,
-        "height": 580,
+        "height": 700,
         "resizable": false,
         "visible": false,
         "center": true,

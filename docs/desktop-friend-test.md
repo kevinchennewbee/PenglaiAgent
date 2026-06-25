@@ -6,32 +6,25 @@
 
 - macOS 没有 Apple Developer ID 签名和公证，所以首次打开需要手动放行。
 - Windows 没有 Authenticode 签名，所以可能出现“未知发布者”或 SmartScreen 提示。
-- 桌面端当前不是完整自带运行时的单文件产品包；它会启动本机 PenglaiAgent 运行时。
+- 桌面端会在首次启动时自动初始化本机 PenglaiAgent 运行时。
 
-## 先安装 PenglaiAgent 运行时
+## 正常测试流程
 
-macOS 朋友先打开“终端”，运行：
+1. 下载对应系统的安装包。
+2. 安装并启动 Penglai。
+3. 首次启动页点击“自动初始化并启动”。
+4. 保持默认勾选“启用语音转写”即可下载 SenseVoice 本地模型。
+5. “启用语音输出”会下载 MOSS-TTS-Nano 本地模型，体积更大，默认不勾选。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.sh | PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh
-```
+自动初始化会做这些事：
 
-如果 GitHub 下载慢，可以用镜像：
-
-```bash
-curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.sh | PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh
-```
-
-Windows 朋友先安装 Python 3.11 和 Git，然后在 PowerShell 运行：
-
-```powershell
-git clone --branch codex/0.3.0-runtime-hub --single-branch https://github.com/kevinchennewbee/PenglaiAgent.git "$HOME\PenglaiAgent"
-cd "$HOME\PenglaiAgent"
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e . requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
-.\.venv\Scripts\python.exe .\penglai install-check --json
-```
+- 下载 `codex/0.3.0-runtime-hub` 分支源码到 `~/PenglaiAgent`。
+- 准备 uv 托管 Python。
+- 创建 `.venv`。
+- 安装基础依赖，国内优先清华 PyPI 镜像。
+- 运行 `install-check`。
+- 自动写入桌面启动配置。
+- 按勾选项安装语音能力模型。
 
 ## macOS 桌面端
 
@@ -46,9 +39,7 @@ xattr -dr com.apple.quarantine /Applications/Penglai.app
 ```
 
 4. 再从“应用程序”打开 Penglai。
-5. 如果出现启动设置页：
-   - Python 解释器路径填：`/Users/你的用户名/PenglaiAgent/.venv/bin/python`
-   - 项目目录填：`/Users/你的用户名/PenglaiAgent`
+5. 在首次启动页点击“自动初始化并启动”。
 
 ## Windows 桌面端
 
@@ -57,13 +48,37 @@ xattr -dr com.apple.quarantine /Applications/Penglai.app
    - 点“更多信息”
    - 点“仍要运行”
 3. 启动 Penglai。
-4. 如果出现启动设置页：
-   - Python 解释器路径填：`C:\Users\你的用户名\PenglaiAgent\.venv\Scripts\python.exe`
-   - 项目目录填：`C:\Users\你的用户名\PenglaiAgent`
+4. 在首次启动页点击“自动初始化并启动”。
+
+## 备用命令
+
+如果桌面内自动初始化失败，可以先用命令行完成运行时初始化，再重新打开 Penglai。
+
+macOS：
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.sh
+PENGLAI_BRANCH=codex/0.3.0-runtime-hub PENGLAI_INSTALL_DEPS=1 PENGLAI_INSTALL_VERIFY=1 PENGLAI_SKIP_SETUP=1 sh install.sh
+```
+
+Windows PowerShell：
+
+```powershell
+$env:PENGLAI_BRANCH = "codex/0.3.0-runtime-hub"
+$env:PENGLAI_INSTALL_VERIFY = "1"
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/codex/0.3.0-runtime-hub/install.ps1 | Invoke-Expression
+```
+
+运行时初始化完成后，桌面端会自动寻找 `~/PenglaiAgent`。也可以在启动页的高级路径里手动填写：
+
+- macOS Python：`/Users/你的用户名/PenglaiAgent/.venv/bin/python`
+- macOS 项目目录：`/Users/你的用户名/PenglaiAgent`
+- Windows Python：`C:\Users\你的用户名\PenglaiAgent\.venv\Scripts\python.exe`
+- Windows 项目目录：`C:\Users\你的用户名\PenglaiAgent`
 
 ## 已验证内容
 
-GitHub Actions 的真实 Windows runner 已验证：
+GitHub Actions 的真实 Windows runner 会验证：
 
 - NSIS 安装器构建成功
 - 静默安装成功
@@ -74,7 +89,7 @@ GitHub Actions 的真实 Windows runner 已验证：
 - 静默卸载成功
 - 卸载后注册表和端口无残留
 
-GitHub Actions 的 macOS runner 已验证：
+GitHub Actions 的 macOS runner 会验证：
 
 - DMG 能构建
 - DMG 布局正确
@@ -87,6 +102,6 @@ GitHub Actions 的 macOS runner 已验证：
 - macOS 双击下载包后完全无拦截。
 - Windows 完全无 SmartScreen/未知发布者提示。
 - Intel Mac 可用。
-- 桌面端不需要本机 PenglaiAgent 运行时。
+- LLM API key、飞书、微信等账号级配置自动完成。
 
-这些限制要等正式签名、公证和自带运行时打包完成后才能解除。
+这些限制要等正式签名、公证和桌面原生配置向导完成后才能解除。

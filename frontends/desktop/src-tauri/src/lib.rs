@@ -1,4 +1,4 @@
-use std::process::{Command, Child};
+use std::process::{Command, Child, Output};
 use std::sync::Mutex;
 use std::net::TcpStream;
 use std::io::{Read, Write};
@@ -11,6 +11,15 @@ use tauri::Manager;
 use std::os::windows::process::CommandExt;
 
 static BRIDGE_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+const PENGLAI_OWNER_REPO: &str = "kevinchennewbee/PenglaiAgent";
+const PENGLAI_RELEASE_BRANCH: &str = "codex/0.3.0-runtime-hub";
+
+#[derive(serde::Serialize)]
+struct RuntimeInstallResult {
+    python_path: String,
+    project_dir: String,
+    log: String,
+}
 
 /// Get project root (parent of frontends/)
 fn project_root() -> PathBuf {
@@ -93,6 +102,19 @@ fn find_project_python(root: &PathBuf) -> Option<String> {
     None
 }
 
+fn default_runtime_project_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("PenglaiAgent")
+}
+
+fn raw_github_url(path: &str) -> String {
+    format!(
+        "https://raw.githubusercontent.com/{}/refs/heads/{}/{}",
+        PENGLAI_OWNER_REPO, PENGLAI_RELEASE_BRANCH, path
+    )
+}
+
 /// Find project directory by searching upward from exe for agentmain.py
 fn find_project_dir() -> Option<String> {
     let exe = std::env::current_exe().ok()?;
@@ -117,6 +139,53 @@ fn settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".penglai_desktop_settings.json")
+}
+
+fn write_desktop_settings(python_path: &str, project_dir: &str) -> Result<(), String> {
+    let path = settings_path();
+    let obj = serde_json::json!({"python_path": python_path, "project_dir": project_dir});
+    std::fs::write(&path, serde_json::to_string_pretty(&obj).unwrap())
+        .map_err(|e| format!("Failed to write settings: {}", e))
+}
+
+fn output_text(output: &Output) -> String {
+    let mut text = String::new();
+    text.push_str(&String::from_utf8_lossy(&output.stdout));
+    text.push_str(&String::from_utf8_lossy(&output.stderr));
+    text
+}
+
+fn run_command_capture(mut command: Command, label: &str) -> Result<String, String> {
+    let output = command
+        .output()
+        .map_err(|e| format!("{} 启动失败: {}", label, e))?;
+    let text = output_text(&output);
+    if output.status.success() {
+        Ok(text)
+    } else {
+        Err(format!("{} 失败。\n{}", label, text))
+    }
+}
+
+fn run_optional_penglai_command(python_path: &str, project_dir: &str, args: &[&str], label: &str) -> String {
+    let mut command = Command::new(python_path);
+    command.arg("penglai").args(args).current_dir(project_dir);
+    match command.output() {
+        Ok(output) => {
+            let text = output_text(&output);
+            if output.status.success() {
+                format!("\n[{}]\n{}", label, text)
+            } else {
+                format!("\n[{} 未完成]\n{}", label, text)
+            }
+        }
+        Err(e) => format!("\n[{} 启动失败]\n{}", label, e),
+    }
+}
+
+#[cfg(windows)]
+fn ps_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
 }
 
 fn legacy_settings_path() -> PathBuf {
@@ -277,10 +346,7 @@ fn stop_bridge_process() {
 #[tauri::command]
 fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, project_dir: String) -> Result<(), String> {
     // Save to settings
-    let path = settings_path();
-    let obj = serde_json::json!({"python_path": python_path, "project_dir": project_dir});
-    std::fs::write(&path, serde_json::to_string_pretty(&obj).unwrap())
-        .map_err(|e| format!("Failed to write settings: {}", e))?;
+    write_desktop_settings(&python_path, &project_dir)?;
 
     // Start bridge only if it is not already accepting connections.
     if !is_bridge_running() {
@@ -326,6 +392,67 @@ fn get_config() -> (String, String) {
     get_or_discover_config()
 }
 
+#[tauri::command]
+fn install_runtime(include_voice: bool, include_tts: bool) -> Result<RuntimeInstallResult, String> {
+    let mut log = String::new();
+    #[cfg(windows)]
+    {
+        let script_url = raw_github_url("install.ps1");
+        let ps = format!(
+            "$ErrorActionPreference='Stop'; \
+             $env:PENGLAI_BRANCH={branch}; \
+             $env:PENGLAI_SKIP_SETUP='1'; \
+             $env:PENGLAI_INSTALL_VERIFY='1'; \
+             $env:PENGLAI_INSTALL_DEPS='1'; \
+             Invoke-WebRequest -UseBasicParsing {script_url} | Invoke-Expression",
+            branch = ps_single_quote(PENGLAI_RELEASE_BRANCH),
+            script_url = ps_single_quote(&script_url),
+        );
+        let mut command = Command::new("powershell.exe");
+        command.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps]);
+        #[cfg(windows)]
+        command.creation_flags(0x08000000);
+        log.push_str(&run_command_capture(command, "Windows 运行时初始化")?);
+    }
+    #[cfg(not(windows))]
+    {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg("curl -fsSL \"$PENGLAI_INSTALL_URL\" | sh")
+            .env("PENGLAI_INSTALL_URL", raw_github_url("install.sh"))
+            .env("PENGLAI_BRANCH", PENGLAI_RELEASE_BRANCH)
+            .env("PENGLAI_SKIP_SETUP", "1")
+            .env("PENGLAI_INSTALL_VERIFY", "1")
+            .env("PENGLAI_INSTALL_DEPS", "1");
+        log.push_str(&run_command_capture(command, "macOS 运行时初始化")?);
+    }
+
+    let project = default_runtime_project_dir();
+    let project_dir = project.to_string_lossy().to_string();
+    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+
+    if include_voice {
+        log.push_str(&run_optional_penglai_command(
+            &python_path,
+            &project_dir,
+            &["enable", "voice"],
+            "语音转写模型初始化",
+        ));
+    }
+    if include_tts {
+        log.push_str(&run_optional_penglai_command(
+            &python_path,
+            &project_dir,
+            &["enable", "tts"],
+            "语音输出模型初始化",
+        ));
+    }
+
+    write_desktop_settings(&python_path, &project_dir)?;
+    Ok(RuntimeInstallResult { python_path, project_dir, log })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
@@ -363,7 +490,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
-        .invoke_handler(tauri::generate_handler![start_bridge_with_config, get_config])
+        .invoke_handler(tauri::generate_handler![start_bridge_with_config, get_config, install_runtime])
         .setup(move |app| {
             let bridge_wait = if spawned_bridge {
                 Duration::from_secs(20)

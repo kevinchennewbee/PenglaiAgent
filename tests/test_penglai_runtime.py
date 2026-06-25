@@ -3234,6 +3234,8 @@ def test_install_script_and_friend_docs_pin_preview_branch_installs():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(root, "install.sh"), encoding="utf-8") as f:
         installer = f.read()
+    with open(os.path.join(root, "install.ps1"), encoding="utf-8") as f:
+        windows_installer = f.read()
     with open(os.path.join(root, "docs", "desktop-friend-test.md"), encoding="utf-8") as f:
         friend_docs = f.read()
 
@@ -3243,16 +3245,21 @@ def test_install_script_and_friend_docs_pin_preview_branch_installs():
     assert 'clone --depth 1 --branch "$BRANCH"' in installer
     assert 'PENGLAI_BUILD_BRANCH="$BRANCH"' in installer
     assert "raw.githubusercontent.com/$OWNER_REPO/refs/heads/$BRANCH/install.sh" in installer
+    assert '$Branch = "main"' in windows_installer
+    assert 'uv-$arch.zip' in windows_installer
+    assert "https://pypi.tuna.tsinghua.edu.cn/simple" in windows_installer
+    assert ".penglai_desktop_settings.json" in windows_installer
 
     assert (
         "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/"
         "codex/0.3.0-runtime-hub/install.sh"
     ) in friend_docs
-    assert "PENGLAI_BRANCH=codex/0.3.0-runtime-hub sh" in friend_docs
     assert (
-        "git clone --branch codex/0.3.0-runtime-hub --single-branch "
-        "https://github.com/kevinchennewbee/PenglaiAgent.git"
+        "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/refs/heads/"
+        "codex/0.3.0-runtime-hub/install.ps1"
     ) in friend_docs
+    assert "自动初始化并启动" in friend_docs
+    assert "PENGLAI_INSTALL_DEPS=1" in friend_docs
     assert "raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/codex/0.3.0-runtime-hub" not in friend_docs
 
 
@@ -3373,6 +3380,8 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
         index_html = fh.read()
     with open(os.path.join(static_dir, "app.js"), "r", encoding="utf-8") as fh:
         app_js = fh.read()
+    with open(os.path.join(static_dir, "fallback.html"), "r", encoding="utf-8") as fh:
+        fallback_html = fh.read()
     with open(os.path.join(static_dir, "penglai-web.js"), "r", encoding="utf-8") as fh:
         bridge_js = fh.read()
     with open(os.path.join(static_dir, "styles.css"), "r", encoding="utf-8") as fh:
@@ -3391,6 +3400,8 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
     assert "window.ga" not in bridge_js
     for text in ("permission-actions", "permission-choice-btn"):
         assert text in app_js or text in styles_css
+    for text in ("自动初始化并启动", "启用语音转写", "SenseVoice", "启用语音输出", "MOSS-TTS-Nano", "install_runtime", "includeVoice", "includeTts"):
+        assert text in fallback_html
 
 
 def test_desktop_package_identity_targets_penglai_preview():
@@ -3454,6 +3465,14 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert 'name = "penglai-desktop"' in cargo_toml
     assert 'version = "0.3.0"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
+    assert "fn install_runtime" in lib_rs
+    assert "install.ps1" in lib_rs
+    assert "install.sh" in lib_rs
+    assert "PENGLAI_INSTALL_DEPS" in lib_rs
+    assert "PENGLAI_RELEASE_BRANCH" in lib_rs
+    assert "codex/0.3.0-runtime-hub" in lib_rs
+    assert '&["enable", "voice"]' in lib_rs
+    assert '&["enable", "tts"]' in lib_rs
     assert "fn stop_bridge_process()" in lib_rs
     assert "child.kill()" in lib_rs
     assert 'join(".venv").join("Scripts").join("python.exe")' in lib_rs
@@ -3476,6 +3495,8 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')",
         "actions/setup-python@v5",
         "frontends/*.py",
+        "install.ps1",
+        "docs/desktop-friend-test.md",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",

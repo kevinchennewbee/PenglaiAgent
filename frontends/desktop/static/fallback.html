@@ -7,8 +7,8 @@
 :root{--bg:#fff;--text:#0a0a0a;--muted:#6b6b6b;--border:#e8e8e8;--accent:#0a0a0a;--accent-text:#fff;--radius:10px;--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--text:#ededed;--muted:#a0a0a0;--border:#2a2a2a;--accent:#ededed;--accent-text:#0a0a0a}}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;font-family:var(--font);background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center}
-.card{max-width:480px;width:90%;padding:2.5rem;border:1px solid var(--border);border-radius:var(--radius);text-align:center}
+html,body{margin:0;min-height:100%;font-family:var(--font);background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center}
+.card{max-width:500px;width:90%;padding:2rem;border:1px solid var(--border);border-radius:var(--radius);text-align:center}
 h1{font-size:1.4rem;margin:0 0 .5rem}
 p{color:var(--muted);font-size:.9rem;margin:.4rem 0;line-height:1.5}
 .input-row{display:flex;gap:8px;margin-top:1.2rem}
@@ -17,6 +17,11 @@ input[type=text]:focus{border-color:var(--accent)}
 button{padding:10px 18px;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;background:var(--accent);color:var(--accent-text);font-weight:500}
 button:hover{opacity:.85}
 button:disabled{opacity:.4;cursor:not-allowed}
+.secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+.option{display:flex;align-items:flex-start;gap:10px;text-align:left;margin:.85rem 0;color:var(--text);font-size:.88rem}
+.option input{margin-top:3px}
+.option span{display:block;color:var(--muted);font-size:.78rem;margin-top:2px;line-height:1.35}
+.divider{height:1px;background:var(--border);margin:1.4rem 0 1rem}
 .field-label{display:block;text-align:left;font-size:.8rem;font-weight:500;margin-top:1rem;margin-bottom:.3rem;color:var(--text)}
 #status{margin-top:1rem;font-size:.85rem;min-height:1.2em}
 .err{color:#dc2626}.ok{color:#16a34a}
@@ -24,8 +29,26 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div class="card">
-  <h1>需要配置</h1>
-  <p>后端启动失败，请配置以下路径。</p>
+  <h1>初始化蓬莱</h1>
+  <p>首次启动会安装本机运行时、Python 环境和基础依赖。</p>
+
+  <label class="option">
+    <input id="voice-opt" type="checkbox" checked>
+    <div>启用语音转写
+      <span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span>
+    </div>
+  </label>
+  <label class="option">
+    <input id="tts-opt" type="checkbox">
+    <div>启用语音输出
+      <span>MOSS-TTS-Nano 本地模型，约 728MB。</span>
+    </div>
+  </label>
+
+  <button id="install-btn" onclick="doInstall()" style="margin-top:.7rem;width:100%">自动初始化并启动</button>
+
+  <div class="divider"></div>
+  <p>已有本机运行时可直接指定路径。</p>
 
   <label class="field-label">Python 解释器路径</label>
   <div class="input-row">
@@ -43,7 +66,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     请选择包含 <code>frontends/desktop_bridge.py</code> 的目录。
   </p>
 
-  <button id="start-btn" onclick="doStart()" style="margin-top:1.2rem;width:100%">启动</button>
+  <button class="secondary" id="start-btn" onclick="doStart()" style="margin-top:1.2rem;width:100%">使用已有运行时启动</button>
   <div id="status"></div>
 </div>
 <script>
@@ -51,14 +74,49 @@ const {invoke} = window.__TAURI__.core;
 const {getCurrentWindow, Window} = window.__TAURI__.window;
 const statusEl = document.getElementById('status');
 const btn = document.getElementById('start-btn');
+const installBtn = document.getElementById('install-btn');
 const pyInput = document.getElementById('pypath');
 const dirInput = document.getElementById('projdir');
+const voiceOpt = document.getElementById('voice-opt');
+const ttsOpt = document.getElementById('tts-opt');
 
 // Pre-fill from Rust config discovery
 invoke('get_config').then(([py, dir]) => {
   if (py) pyInput.value = py;
   if (dir) dirInput.value = dir;
 }).catch(()=>{});
+
+async function openMainWindow() {
+  const mainWin = await Window.getByLabel('main');
+  if (mainWin) {
+    await mainWin.show();
+    await mainWin.setFocus();
+  }
+  const setupWin = getCurrentWindow();
+  await setupWin.hide();
+}
+
+async function doInstall() {
+  installBtn.disabled = true;
+  btn.disabled = true;
+  statusEl.className=''; statusEl.textContent='正在初始化运行时，首次可能需要几分钟…';
+  try {
+    const result = await invoke('install_runtime', {
+      includeVoice: voiceOpt.checked,
+      includeTts: ttsOpt.checked
+    });
+    pyInput.value = result.python_path || result.pythonPath || '';
+    dirInput.value = result.project_dir || result.projectDir || '';
+    statusEl.className=''; statusEl.textContent='运行时已就绪，正在启动中枢桥接…';
+    await invoke('start_bridge_with_config', {pythonPath: pyInput.value, projectDir: dirInput.value});
+    statusEl.className='ok'; statusEl.textContent='已连接，正在打开主窗口…';
+    await openMainWindow();
+  } catch(e) {
+    statusEl.className='err'; statusEl.textContent='初始化失败：'+e;
+    installBtn.disabled = false;
+    btn.disabled = false;
+  }
+}
 
 async function doStart() {
   const pythonPath = pyInput.value.trim();
@@ -70,14 +128,7 @@ async function doStart() {
   try {
     await invoke('start_bridge_with_config', {pythonPath, projectDir});
     statusEl.className='ok'; statusEl.textContent='已连接，正在打开主窗口…';
-    // Show main window and hide setup
-    const mainWin = await Window.getByLabel('main');
-    if (mainWin) {
-      await mainWin.show();
-      await mainWin.setFocus();
-    }
-    const setupWin = getCurrentWindow();
-    await setupWin.hide();
+    await openMainWindow();
   } catch(e) {
     statusEl.className='err'; statusEl.textContent='启动失败：'+e;
     btn.disabled = false;

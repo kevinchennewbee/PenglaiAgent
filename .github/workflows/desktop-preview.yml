@@ -9,6 +9,7 @@ on:
     paths:
       - ".github/workflows/desktop-preview.yml"
       - "install.sh"
+      - "install.ps1"
       - "docs/desktop-friend-test.md"
       - "frontends/desktop/**"
       - "frontends/*.py"
