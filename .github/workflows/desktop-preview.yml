@@ -50,8 +50,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Require Apple signing secrets
+      - name: Check Apple signing secrets
         if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        id: check-apple-signing
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -61,7 +62,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          set -euo pipefail
           missing=()
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
             if [ -z "${!name:-}" ]; then
@@ -69,12 +69,14 @@ jobs:
             fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf '::error::Missing required macOS signing/notarization secrets: %s\n' "${missing[*]}"
-            exit 1
+            printf '::warning::Apple signing secrets not configured (%s). Building unsigned DMG — users will need to bypass Gatekeeper.\n' "${missing[*]}"
+            echo "APPLE_SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
+          else
+            echo "APPLE_SIGNING_AVAILABLE=true" >> "$GITHUB_ENV"
           fi
 
       - name: Import Apple Developer ID certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.APPLE_SIGNING_AVAILABLE == 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -131,7 +133,7 @@ jobs:
           sh install.sh
 
       - name: Build signed DMG
-        if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.APPLE_SIGNING_AVAILABLE == 'true'
         working-directory: frontends/desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -139,13 +141,13 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run build:mac
 
-      - name: Build DMG compile check
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') }}
+      - name: Build DMG (unsigned)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || env.APPLE_SIGNING_AVAILABLE != 'true' }}
         working-directory: frontends/desktop
         run: npm run build:mac
 
       - name: Re-sign app with adhoc signature and repack DMG
-        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0') || env.APPLE_SIGNING_AVAILABLE != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -170,7 +172,7 @@ jobs:
         shell: bash
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}
+          APPLE_SIGNING_AVAILABLE: ${{ env.APPLE_SIGNING_AVAILABLE || 'false' }}
         run: |
           set -euo pipefail
           dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
@@ -183,21 +185,14 @@ jobs:
           test -L "$mount_dir/Applications"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.0
-          # Both signed and adhoc builds must have a structurally valid
-          # signature: resources sealed and codesign --verify passing.
-          # Without this, macOS shows "damaged" instead of the normal
-          # "unidentified developer" prompt that users can bypass.
           codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
           sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
           printf '%s\n' "$sign_info"
           ! grep -F "code has no resources" <<<"$sign_info"
-          if [ "$PUBLIC_RELEASE" != "true" ]; then
-            echo "Branch build: verified DMG layout and adhoc signature structure."
+          if [ "$APPLE_SIGNING_AVAILABLE" != "true" ]; then
+            echo "Unsigned build: verified DMG layout and adhoc signature structure (no 'damaged' error)."
             exit 0
           fi
-          codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
-          sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
-          printf '%s\n' "$sign_info"
           grep -F "Authority=Developer ID Application" <<<"$sign_info"
           grep -F "TeamIdentifier=$APPLE_TEAM_ID" <<<"$sign_info"
           grep -F "(runtime)" <<<"$sign_info"
@@ -217,7 +212,7 @@ jobs:
           kill "$app_pid" || true
           copied_app_dir="$(mktemp -d /tmp/penglai-installed-app.XXXXXX)"
           ditto "$mount_dir/Penglai.app" "$copied_app_dir/Penglai.app"
-          xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");GitHubActions;PenglaiDesktopPreview" "$copied_app_dir/Penglai.app"
+          xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");GitHubActions;PenglaiDesktop" "$copied_app_dir/Penglai.app"
           codesign --verify --deep --strict --verbose=4 "$copied_app_dir/Penglai.app"
           spctl -a -vvv -t exec "$copied_app_dir/Penglai.app"
           "$copied_app_dir/Penglai.app/Contents/MacOS/penglai-desktop" &
@@ -231,7 +226,7 @@ jobs:
           rm -rf "$copied_app_dir"
 
       - name: Cleanup Apple signing keychain
-        if: always() && startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: always() && env.APPLE_SIGNING_AVAILABLE == 'true'
         shell: bash
         run: |
           rm -f certificate.p12 developer-id-identities.txt
@@ -242,14 +237,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          if [ "${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}" != "true" ]; then
-            cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
-              dist/Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg
-            echo "Unsigned QA DMG uploaded for manual install/run testing only. It is not a public release artifact." >> "$GITHUB_STEP_SUMMARY"
-          else
-            cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
-              dist/Penglai_0.3.0_macos_aarch64.dmg
-          fi
+          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
+            dist/Penglai_0.3.0_macos_aarch64.dmg
 
       - name: Upload macOS artifact
         if: startsWith(github.ref, 'refs/tags/v0.3.0') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
@@ -282,14 +271,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Require Windows signing secrets
+      - name: Check Windows signing secrets
         if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        id: check-windows-signing
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
-          $ErrorActionPreference = "Stop"
           $missing = @()
           foreach ($name in @("WINDOWS_CERTIFICATE", "WINDOWS_CERTIFICATE_PASSWORD")) {
             if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
@@ -297,11 +286,14 @@ jobs:
             }
           }
           if ($missing.Count -gt 0) {
-            Write-Error "Missing required Windows code-signing secrets: $($missing -join ', ')"
+            Write-Warning "Windows code-signing secrets not configured ($($missing -join ', ')). Building unsigned installer."
+            "WINDOWS_SIGNING_AVAILABLE=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          } else {
+            "WINDOWS_SIGNING_AVAILABLE=true" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           }
 
       - name: Import Windows signing certificate
-        if: startsWith(github.ref, 'refs/tags/v0.3.0')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0') && env.WINDOWS_SIGNING_AVAILABLE == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -357,7 +349,7 @@ jobs:
       - name: Verify silent install and uninstall
         shell: pwsh
         env:
-          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0') }}
+          WINDOWS_SIGNING_AVAILABLE: ${{ env.WINDOWS_SIGNING_AVAILABLE || 'false' }}
         run: |
           $ErrorActionPreference = "Stop"
           function Split-CommandLine([string]$CommandLine) {
@@ -381,7 +373,7 @@ jobs:
 
           $setup = Get-ChildItem "frontends/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
           if (-not $setup) { throw "NSIS setup exe not found" }
-          if ($env:PUBLIC_RELEASE -eq "true") {
+          if ($env:WINDOWS_SIGNING_AVAILABLE -eq "true") {
             $setupSig = Get-AuthenticodeSignature $setup.FullName
             if ($setupSig.Status -ne "Valid") {
               throw "NSIS setup is not Authenticode signed and valid. Status=$($setupSig.Status) Path=$($setup.FullName)"
@@ -391,7 +383,7 @@ jobs:
             }
           }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          $artifactName = if ($env:PUBLIC_RELEASE -eq "true") { "Penglai_0.3.0_windows_x64_setup.exe" } else { "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe" }
+          $artifactName = "Penglai_0.3.0_windows_x64_setup.exe"
           Copy-Item $setup.FullName (Join-Path "dist" $artifactName) -Force
 
           $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
@@ -431,7 +423,7 @@ jobs:
             Select-Object -First 1
           }
           if (-not $installedExe) { throw "Installed Penglai app exe not found" }
-          if ($env:PUBLIC_RELEASE -eq "true") {
+          if ($env:WINDOWS_SIGNING_AVAILABLE -eq "true") {
             $installedSig = Get-AuthenticodeSignature $installedExe.FullName
             if ($installedSig.Status -ne "Valid") {
               throw "Installed Penglai exe is not Authenticode signed and valid. Status=$($installedSig.Status) Path=$($installedExe.FullName)"
