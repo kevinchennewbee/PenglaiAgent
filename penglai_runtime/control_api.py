@@ -161,13 +161,43 @@ def service_snapshot(*, root=None):
                 "installed": enabled.returncode == 0 or active.returncode == 0,
             })
         return rows
+    def process_pids(pattern):
+        if os.name == "nt":
+            shell = shutil.which("pwsh") or shutil.which("powershell")
+            if not shell:
+                return []
+            script = (
+                "$pattern = $env:PENGLAI_PROCESS_PATTERN; "
+                "Get-CimInstance Win32_Process | "
+                "Where-Object { $_.CommandLine -like \"*$pattern*\" } | "
+                "Select-Object -First 5 -ExpandProperty ProcessId"
+            )
+            env = {**os.environ, "PENGLAI_PROCESS_PATTERN": pattern}
+            try:
+                proc = subprocess.run(
+                    [shell, "-NoProfile", "-NonInteractive", "-Command", script],
+                    capture_output=True,
+                    text=True,
+                    timeout=8,
+                    env=env,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                return []
+            return [x for x in (proc.stdout or "").split() if x.isdigit()]
+        if not shutil.which("pgrep"):
+            return []
+        try:
+            proc = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            return []
+        return [x for x in (proc.stdout or "").split() if x.isdigit()]
+
     for service, pattern in (
         ("penglai-feishu", "penglai_feishu_app.py"),
         ("penglai-wechat", "penglai_im_launch.py wechat"),
         ("penglai-runtime-hub", "runtime-serve"),
     ):
-        pgrep = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True, timeout=5)
-        pids = [x for x in (pgrep.stdout or "").split() if x.isdigit()]
+        pids = process_pids(pattern)
         rows.append({
             "name": service,
             "manager": "process",

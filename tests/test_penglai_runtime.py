@@ -2589,6 +2589,23 @@ def test_runtime_control_api_exposes_desktop_ops_checks_logs_and_commands():
         thread.join(timeout=5)
 
 
+def test_runtime_control_service_snapshot_tolerates_missing_process_tools(monkeypatch):
+    td = tempfile.mkdtemp()
+    monkeypatch.setattr(control_api.os, "name", "nt")
+    monkeypatch.setattr(control_api.shutil, "which", lambda _name: None)
+
+    rows = control_api.service_snapshot(root=td)
+
+    assert {row["name"] for row in rows} == {
+        "penglai-feishu",
+        "penglai-wechat",
+        "penglai-runtime-hub",
+    }
+    assert all(row["manager"] == "process" for row in rows)
+    assert all(row["active"] == "inactive" for row in rows)
+    assert all(row["installed"] is False for row in rows)
+
+
 def test_runtime_control_api_refuses_non_loopback_bind():
     td = tempfile.mkdtemp()
     try:
