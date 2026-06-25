@@ -37,6 +37,53 @@ jobs:
       - name: Setup Rust
         run: rustup toolchain install stable --profile minimal
 
+      - name: Require Apple signing secrets
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Missing required macOS signing/notarization secrets: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Import Apple Developer ID certificate
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+          cert_id="$(security find-identity -v -p codesigning build.keychain | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$cert_id" ]; then
+            echo "::error::A Developer ID Application certificate is required for public macOS DMG releases."
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$cert_id" >> "$GITHUB_ENV"
+
       - name: Install desktop dependencies
         working-directory: frontends/desktop
         run: npm ci
@@ -47,12 +94,24 @@ jobs:
           node --check frontends/desktop/static/penglai-web.js
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
 
-      - name: Build DMG
+      - name: Build signed DMG
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        working-directory: frontends/desktop
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run build:mac
+
+      - name: Build DMG compile check
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
         working-directory: frontends/desktop
         run: npm run build:mac
 
-      - name: Verify DMG contents
+      - name: Verify DMG
         shell: bash
+        env:
+          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
         run: |
           set -euo pipefail
           dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
@@ -66,8 +125,31 @@ jobs:
           test -f "$mount_dir/.background/dmg-background.png"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.0
+          if [ "$PUBLIC_RELEASE" != "true" ]; then
+            echo "Branch build: verified DMG layout only; unsigned installer artifacts are not uploaded."
+            exit 0
+          fi
+          codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
+          sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
+          printf '%s\n' "$sign_info"
+          grep -F "Authority=Developer ID Application" <<<"$sign_info"
+          ! grep -F "Signature=adhoc" <<<"$sign_info"
+          ! grep -F "TeamIdentifier=not set" <<<"$sign_info"
+          xcrun stapler validate "$mount_dir/Penglai.app"
+          spctl -a -vvv -t exec "$mount_dir/Penglai.app"
+          xcrun stapler validate "$dmg"
+          spctl -a -vvv -t open --context context:primary-signature "$dmg"
+          "$mount_dir/Penglai.app/Contents/MacOS/penglai-desktop" &
+          app_pid="$!"
+          sleep 5
+          if ! kill -0 "$app_pid" 2>/dev/null; then
+            wait "$app_pid"
+            exit 1
+          fi
+          kill "$app_pid" || true
 
       - name: Stage macOS artifact
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
         shell: bash
         run: |
           mkdir -p dist
@@ -75,6 +157,7 @@ jobs:
             dist/Penglai_0.3.0_preview_macos_aarch64.dmg
 
       - name: Upload macOS artifact
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
         uses: actions/upload-artifact@v4
         with:
           name: penglai-0.3.0-preview-macos-aarch64
@@ -99,6 +182,46 @@ jobs:
         shell: pwsh
         run: rustup toolchain install stable --profile minimal
 
+      - name: Require Windows signing secrets
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $missing = @()
+          foreach ($name in @("WINDOWS_CERTIFICATE", "WINDOWS_CERTIFICATE_PASSWORD")) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              $missing += $name
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing required Windows code-signing secrets: $($missing -join ', ')"
+          }
+
+      - name: Import Windows signing certificate
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path certificate | Out-Null
+          Set-Content -Path certificate/tempCert.txt -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx
+          Remove-Item -Path certificate/tempCert.txt -Force
+          $securePassword = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $cert = Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          if (-not $cert -or [string]::IsNullOrWhiteSpace($cert.Thumbprint)) {
+            throw "Windows code-signing certificate import did not produce a thumbprint."
+          }
+          $configPath = "frontends/desktop/src-tauri/tauri.conf.json"
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json -Depth 100
+          $config.bundle.windows | Add-Member -NotePropertyName certificateThumbprint -NotePropertyValue $cert.Thumbprint -Force
+          $config | ConvertTo-Json -Depth 100 | Set-Content -Path $configPath -Encoding UTF8
+
       - name: Install desktop dependencies
         working-directory: frontends/desktop
         run: npm ci
@@ -116,6 +239,8 @@ jobs:
 
       - name: Verify silent install and uninstall
         shell: pwsh
+        env:
+          PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
         run: |
           $ErrorActionPreference = "Stop"
           function Split-CommandLine([string]$CommandLine) {
@@ -139,6 +264,12 @@ jobs:
 
           $setup = Get-ChildItem "frontends/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
           if (-not $setup) { throw "NSIS setup exe not found" }
+          if ($env:PUBLIC_RELEASE -eq "true") {
+            $setupSig = Get-AuthenticodeSignature $setup.FullName
+            if ($setupSig.Status -ne "Valid") {
+              throw "NSIS setup is not Authenticode signed and valid. Status=$($setupSig.Status) Path=$($setup.FullName)"
+            }
+          }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
           Copy-Item $setup.FullName "dist/Penglai_0.3.0_preview_windows_x64_setup.exe" -Force
 
@@ -179,6 +310,19 @@ jobs:
             Select-Object -First 1
           }
           if (-not $installedExe) { throw "Installed Penglai app exe not found" }
+          if ($env:PUBLIC_RELEASE -eq "true") {
+            $installedSig = Get-AuthenticodeSignature $installedExe.FullName
+            if ($installedSig.Status -ne "Valid") {
+              throw "Installed Penglai exe is not Authenticode signed and valid. Status=$($installedSig.Status) Path=$($installedExe.FullName)"
+            }
+          }
+
+          $launched = Start-Process -FilePath $installedExe.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($launched.HasExited) {
+            throw "Installed Penglai app exited during launch smoke test with code $($launched.ExitCode)"
+          }
+          Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
 
           $uninstallString = if ($app.QuietUninstallString) { [string]$app.QuietUninstallString } else { [string]$app.UninstallString }
           if (-not $uninstallString) { throw "Penglai uninstall command missing" }
@@ -199,6 +343,7 @@ jobs:
           if (Test-Path $installedExe.FullName) { throw "Installed Penglai exe remains after uninstall: $($installedExe.FullName)" }
 
       - name: Upload Windows artifact
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
         uses: actions/upload-artifact@v4
         with:
           name: penglai-0.3.0-preview-windows-x64
@@ -228,8 +373,8 @@ jobs:
           This is a prerelease for the Runtime Hub architecture and desktop clients.
 
           Important limits:
-          - macOS DMG is not Developer ID signed or notarized. Gatekeeper warnings are expected.
-          - Windows installer is not code signed. SmartScreen warnings are expected.
+          - macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.
+          - Windows installer and installed app exe are Authenticode-signed and launch-checked by CI before upload.
           - 0.2.27 to 0.3.0 in-place upgrade is still not promised stable; preview installs use fail-closed checks.
           - Desktop and IM channels expose update checks, but do not silently apply upgrades.
           - Feishu is the validated primary IM path; other IM channels still require real credential and send/receive validation before stable claims.

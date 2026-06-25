@@ -3382,6 +3382,8 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
     assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
+    assert tauri_conf["bundle"]["windows"]["digestAlgorithm"] == "sha256"
+    assert tauri_conf["bundle"]["windows"]["timestampUrl"].startswith("http://timestamp.")
     assert tauri_conf["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
     assert tauri_conf["bundle"]["windows"]["nsis"]["languages"] == ["SimpChinese", "English"]
     assert tauri_conf["bundle"]["windows"]["nsis"]["installerIcon"] == "icons/icon.ico"
@@ -3424,17 +3426,41 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "v0.3.0-preview*",
         "macos-14",
         "windows-latest",
+        "if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')",
         "frontends/*.py",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",
         "node --check frontends/desktop/static/penglai-web.js",
         "cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml",
+        "Require Apple signing secrets",
+        "Import Apple Developer ID certificate",
+        "APPLE_CERTIFICATE",
+        "APPLE_CERTIFICATE_PASSWORD",
+        "APPLE_ID",
+        "APPLE_PASSWORD",
+        "APPLE_TEAM_ID",
+        "KEYCHAIN_PASSWORD",
+        "Developer ID Application",
+        "Build signed DMG",
+        "Build DMG compile check",
         "npm run build:mac",
         "npm run build:windows",
         "hdiutil attach -readonly",
+        "Branch build: verified DMG layout only; unsigned installer artifacts are not uploaded.",
+        "codesign --verify --deep --strict --verbose=4",
+        "Authority=Developer ID Application",
+        "xcrun stapler validate",
+        "spctl -a -vvv -t exec",
+        "spctl -a -vvv -t open --context context:primary-signature",
         "Penglai_0.3.0_preview_macos_aarch64.dmg",
         "Penglai_0.3.0_preview_windows_x64_setup.exe",
+        "Require Windows signing secrets",
+        "Import Windows signing certificate",
+        "WINDOWS_CERTIFICATE",
+        "WINDOWS_CERTIFICATE_PASSWORD",
+        "certificateThumbprint",
+        "Get-AuthenticodeSignature",
         "function Split-CommandLine",
         "function Get-ExecutablePath",
         "Start-Process -FilePath $setup.FullName -ArgumentList \"/S\"",
@@ -3443,6 +3469,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "DisplayIcon",
         "QuietUninstallString",
         "UninstallString",
+        "Start-Process -FilePath $installedExe.FullName -PassThru",
         "$uninstallParts = Split-CommandLine $uninstallString",
         "$uninstallArgs -notmatch",
         "Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs",
@@ -3451,13 +3478,15 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "gh release create",
         "--prerelease",
         "--latest=false",
-        "not Developer ID signed or notarized",
-        "Windows installer is not code signed",
+        "macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.",
+        "Windows installer and installed app exe are Authenticode-signed and launch-checked by CI before upload.",
         "0.2.27 to 0.3.0 in-place upgrade is still not promised stable",
         "other IM channels still require real credential and send/receive validation",
     ):
         assert text in workflow
 
+    assert "not Developer ID signed or notarized" not in workflow
+    assert "Windows installer is not code signed" not in workflow
     assert "update --apply" not in workflow
     assert "OutputCleaner" not in workflow
 
