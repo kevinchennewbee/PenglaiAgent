@@ -265,6 +265,15 @@ fn ensure_bridge_running() {
     start_bridge();
 }
 
+fn stop_bridge_process() {
+    if let Ok(mut guard) = BRIDGE_PROCESS.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
 #[tauri::command]
 fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, project_dir: String) -> Result<(), String> {
     // Save to settings
@@ -403,14 +412,17 @@ pub fn run() {
                 let label = window.label();
                 if label == "main" {
                     // Main closed -> exit app
+                    stop_bridge_process();
                     window.app_handle().exit(0);
                 } else if label == "setup" {
                     // Setup closed -> exit if main is not visible
                     if let Some(main_win) = window.app_handle().get_webview_window("main") {
                         if !main_win.is_visible().unwrap_or(false) {
+                            stop_bridge_process();
                             window.app_handle().exit(0);
                         }
                     } else {
+                        stop_bridge_process();
                         window.app_handle().exit(0);
                     }
                 }

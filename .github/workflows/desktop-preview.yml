@@ -15,9 +15,14 @@ on:
       - "penglai_runtime/**"
       - "tests/test_penglai_runtime.py"
   workflow_dispatch:
+    inputs:
+      upload_qa_artifacts:
+        description: "Upload unsigned QA installers after CI install/run checks. Never use these as public releases."
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   macos-dmg:
@@ -36,6 +41,11 @@ jobs:
 
       - name: Setup Rust
         run: rustup toolchain install stable --profile minimal
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Require Apple signing secrets
         if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
@@ -66,6 +76,7 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
@@ -75,13 +86,19 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f certificate.p12
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
-          cert_id="$(security find-identity -v -p codesigning build.keychain | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
-          if [ -z "$cert_id" ]; then
-            echo "::error::A Developer ID Application certificate is required for public macOS DMG releases."
+          security find-identity -v -p codesigning build.keychain |
+            awk -v team="$APPLE_TEAM_ID" -F'"' '/Developer ID Application/ && index($0, "(" team ")") {print $2}' > developer-id-identities.txt
+          cert_count="$(wc -l < developer-id-identities.txt | tr -d ' ')"
+          if [ "$cert_count" != "1" ]; then
+            echo "::error::Exactly one Developer ID Application certificate for team $APPLE_TEAM_ID is required; found $cert_count."
+            cat developer-id-identities.txt
             exit 1
           fi
+          cert_id="$(cat developer-id-identities.txt)"
+          rm -f developer-id-identities.txt
           echo "APPLE_SIGNING_IDENTITY=$cert_id" >> "$GITHUB_ENV"
 
       - name: Install desktop dependencies
@@ -93,6 +110,11 @@ jobs:
           node --check frontends/desktop/static/app.js
           node --check frontends/desktop/static/penglai-web.js
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
+
+      - name: Desktop bridge contract tests
+        run: |
+          python -m pip install --disable-pip-version-check pytest aiohttp
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts'
 
       - name: Build signed DMG
         if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
@@ -111,6 +133,7 @@ jobs:
       - name: Verify DMG
         shell: bash
         env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PUBLIC_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}
         run: |
           set -euo pipefail
@@ -133,6 +156,8 @@ jobs:
           sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
           printf '%s\n' "$sign_info"
           grep -F "Authority=Developer ID Application" <<<"$sign_info"
+          grep -F "TeamIdentifier=$APPLE_TEAM_ID" <<<"$sign_info"
+          grep -F "(runtime)" <<<"$sign_info"
           ! grep -F "Signature=adhoc" <<<"$sign_info"
           ! grep -F "TeamIdentifier=not set" <<<"$sign_info"
           xcrun stapler validate "$mount_dir/Penglai.app"
@@ -147,21 +172,48 @@ jobs:
             exit 1
           fi
           kill "$app_pid" || true
+          copied_app_dir="$(mktemp -d /tmp/penglai-installed-app.XXXXXX)"
+          ditto "$mount_dir/Penglai.app" "$copied_app_dir/Penglai.app"
+          xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");GitHubActions;PenglaiDesktopPreview" "$copied_app_dir/Penglai.app"
+          codesign --verify --deep --strict --verbose=4 "$copied_app_dir/Penglai.app"
+          spctl -a -vvv -t exec "$copied_app_dir/Penglai.app"
+          "$copied_app_dir/Penglai.app/Contents/MacOS/penglai-desktop" &
+          copied_app_pid="$!"
+          sleep 5
+          if ! kill -0 "$copied_app_pid" 2>/dev/null; then
+            wait "$copied_app_pid"
+            exit 1
+          fi
+          kill "$copied_app_pid" || true
+          rm -rf "$copied_app_dir"
+
+      - name: Cleanup Apple signing keychain
+        if: always() && startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        shell: bash
+        run: |
+          rm -f certificate.p12 developer-id-identities.txt
+          security delete-keychain build.keychain >/dev/null 2>&1 || true
 
       - name: Stage macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         shell: bash
         run: |
           mkdir -p dist
-          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
-            dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+          if [ "${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') }}" != "true" ]; then
+            cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
+              dist/Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg
+            echo "Unsigned QA DMG uploaded for manual install/run testing only. It is not a public release artifact." >> "$GITHUB_STEP_SUMMARY"
+          else
+            cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
+              dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+          fi
 
       - name: Upload macOS artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: penglai-0.3.0-preview-macos-aarch64
-          path: dist/Penglai_0.3.0_preview_macos_aarch64.dmg
+          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') && 'penglai-0.3.0-preview-macos-aarch64' || 'penglai-0.3.0-qa-unsigned-macos-aarch64' }}
+          path: dist/*.dmg
           if-no-files-found: error
 
   windows-nsis:
@@ -181,6 +233,11 @@ jobs:
       - name: Setup Rust
         shell: pwsh
         run: rustup toolchain install stable --profile minimal
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Require Windows signing secrets
         if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
@@ -217,6 +274,7 @@ jobs:
           if (-not $cert -or [string]::IsNullOrWhiteSpace($cert.Thumbprint)) {
             throw "Windows code-signing certificate import did not produce a thumbprint."
           }
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $configPath = "frontends/desktop/src-tauri/tauri.conf.json"
           $config = Get-Content $configPath -Raw | ConvertFrom-Json -Depth 100
           $config.bundle.windows | Add-Member -NotePropertyName certificateThumbprint -NotePropertyValue $cert.Thumbprint -Force
@@ -232,6 +290,12 @@ jobs:
           node --check frontends/desktop/static/app.js
           node --check frontends/desktop/static/penglai-web.js
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
+
+      - name: Desktop bridge contract tests
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
+          python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_preview or selfcheck_exercises_runtime_contracts'
 
       - name: Build NSIS installer
         working-directory: frontends/desktop
@@ -269,9 +333,13 @@ jobs:
             if ($setupSig.Status -ne "Valid") {
               throw "NSIS setup is not Authenticode signed and valid. Status=$($setupSig.Status) Path=$($setup.FullName)"
             }
+            if ($setupSig.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERTIFICATE_THUMBPRINT) {
+              throw "NSIS setup was signed by unexpected certificate. Actual=$($setupSig.SignerCertificate.Thumbprint) Expected=$env:WINDOWS_CERTIFICATE_THUMBPRINT"
+            }
           }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          Copy-Item $setup.FullName "dist/Penglai_0.3.0_preview_windows_x64_setup.exe" -Force
+          $artifactName = if ($env:PUBLIC_RELEASE -eq "true") { "Penglai_0.3.0_preview_windows_x64_setup.exe" } else { "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe" }
+          Copy-Item $setup.FullName (Join-Path "dist" $artifactName) -Force
 
           $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)" }
@@ -315,14 +383,57 @@ jobs:
             if ($installedSig.Status -ne "Valid") {
               throw "Installed Penglai exe is not Authenticode signed and valid. Status=$($installedSig.Status) Path=$($installedExe.FullName)"
             }
+            if ($installedSig.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERTIFICATE_THUMBPRINT) {
+              throw "Installed Penglai exe was signed by unexpected certificate. Actual=$($installedSig.SignerCertificate.Thumbprint) Expected=$env:WINDOWS_CERTIFICATE_THUMBPRINT"
+            }
           }
 
+          $pythonPath = (Get-Command python).Source
+          $projectDir = (Resolve-Path ".").Path
+          $settingsPath = Join-Path $HOME ".penglai_desktop_settings.json"
+          @{ python_path = $pythonPath; project_dir = $projectDir } | ConvertTo-Json | Set-Content -Path $settingsPath -Encoding UTF8
           $launched = Start-Process -FilePath $installedExe.FullName -PassThru
-          Start-Sleep -Seconds 8
-          if ($launched.HasExited) {
-            throw "Installed Penglai app exited during launch smoke test with code $($launched.ExitCode)"
+          try {
+            $origin = "http://127.0.0.1:14168"
+            $token = ""
+            $deadline = (Get-Date).AddSeconds(60)
+            do {
+              if ($launched.HasExited) {
+                throw "Installed Penglai app exited during bridge smoke test with code $($launched.ExitCode)"
+              }
+              try {
+                $index = Invoke-WebRequest -UseBasicParsing -Uri "$origin/" -TimeoutSec 3
+                if ($index.StatusCode -eq 200 -and $index.Content -match 'window\.__PENGLAI_BRIDGE_TOKEN__\s*=\s*"([^"]+)"') {
+                  $token = $Matches[1]
+                  break
+                }
+              } catch {
+                Start-Sleep -Seconds 2
+              }
+            } until ((Get-Date) -gt $deadline)
+            if ([string]::IsNullOrWhiteSpace($token)) {
+              throw "Installed Penglai app did not expose a ready desktop bridge token on $origin."
+            }
+            $headers = @{ "X-Penglai-Bridge-Token" = $token; "Origin" = $origin }
+            $statusDoc = Invoke-RestMethod -Uri "$origin/status" -Headers $headers -TimeoutSec 10
+            if (-not $statusDoc.ok -or -not $statusDoc.ready) { throw "Desktop bridge /status is not ready." }
+            $opsDoc = Invoke-RestMethod -Uri "$origin/ops/checks" -Headers $headers -TimeoutSec 30
+            if (-not (@($opsDoc.commands.read_only) -contains "install-check")) { throw "Desktop bridge ops catalog does not expose install-check." }
+            $runtimeDoc = Invoke-RestMethod -Uri "$origin/runtime/status" -Headers $headers -TimeoutSec 30
+            if (-not $runtimeDoc.ok -or -not $runtimeDoc.session.session_id) { throw "Desktop bridge runtime status is not available." }
+            $runsDoc = Invoke-RestMethod -Uri "$origin/runtime/runs?limit=5" -Headers $headers -TimeoutSec 30
+            if ($null -eq $runsDoc.runs) { throw "Desktop bridge runtime runs response is missing runs." }
+            $installCheckDoc = Invoke-RestMethod -Uri "$origin/ops/command?name=install-check" -Headers $headers -TimeoutSec 120
+            if (-not $installCheckDoc.ok) { throw "Desktop bridge install-check failed. Output=$($installCheckDoc.stdout) Error=$($installCheckDoc.stderr)" }
+          } finally {
+            if (-not $launched.HasExited) {
+              [void]$launched.CloseMainWindow()
+              Start-Sleep -Seconds 5
+            }
+            if (-not $launched.HasExited) {
+              Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
+            }
           }
-          Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
 
           $uninstallString = if ($app.QuietUninstallString) { [string]$app.QuietUninstallString } else { [string]$app.UninstallString }
           if (-not $uninstallString) { throw "Penglai uninstall command missing" }
@@ -341,18 +452,32 @@ jobs:
             Start-Sleep -Seconds 2
           } until ((Get-Date) -gt $deadline)
           if (Test-Path $installedExe.FullName) { throw "Installed Penglai exe remains after uninstall: $($installedExe.FullName)" }
+          $remainingApps = Get-ItemProperty $roots -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like "Penglai*" } |
+            Select-Object -First 1
+          if ($remainingApps) { throw "Penglai uninstall registry entry remains: $($remainingApps.DisplayName)" }
+          $portOpen = Get-NetTCPConnection -LocalPort 14168 -State Listen -ErrorAction SilentlyContinue
+          if ($portOpen) { throw "Desktop bridge port 14168 is still listening after uninstall smoke cleanup." }
 
       - name: Upload Windows artifact
-        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')
+        if: startsWith(github.ref, 'refs/tags/v0.3.0-preview') || (github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: penglai-0.3.0-preview-windows-x64
-          path: dist/Penglai_0.3.0_preview_windows_x64_setup.exe
+          name: ${{ startsWith(github.ref, 'refs/tags/v0.3.0-preview') && 'penglai-0.3.0-preview-windows-x64' || 'penglai-0.3.0-qa-unsigned-windows-x64' }}
+          path: dist/*.exe
           if-no-files-found: error
+
+      - name: Explain QA artifact scope
+        if: ${{ !startsWith(github.ref, 'refs/tags/v0.3.0-preview') && github.event_name == 'workflow_dispatch' && inputs.upload_qa_artifacts }}
+        shell: pwsh
+        run: |
+          "Unsigned QA Windows installer uploaded after silent install, launch, and uninstall checks. It is not a public release artifact." >> $env:GITHUB_STEP_SUMMARY
 
   prerelease:
     name: GitHub prerelease
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - macos-dmg
       - windows-nsis
@@ -374,7 +499,7 @@ jobs:
 
           Important limits:
           - macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.
-          - Windows installer and installed app exe are Authenticode-signed and launch-checked by CI before upload.
+          - Windows installer and installed app exe are Authenticode-signed, installed, desktop-bridge checked, Runtime Hub checked, install-check verified, and silently uninstalled by CI before upload.
           - 0.2.27 to 0.3.0 in-place upgrade is still not promised stable; preview installs use fail-closed checks.
           - Desktop and IM channels expose update checks, but do not silently apply upgrades.
           - Feishu is the validated primary IM path; other IM channels still require real credential and send/receive validation before stable claims.

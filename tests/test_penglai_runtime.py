@@ -3390,6 +3390,7 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert tauri_conf["bundle"]["windows"]["nsis"]["uninstallerIcon"] == "icons/icon.ico"
     assert tauri_conf["bundle"]["windows"]["nsis"]["startMenuFolder"] == "Penglai"
     assert tauri_conf["app"]["windows"][0]["title"] == "蓬莱"
+    assert tauri_conf["bundle"]["macOS"]["hardenedRuntime"] is True
     assert tauri_conf["bundle"]["macOS"]["dmg"]["background"] == "icons/dmg-background.png"
     assert tauri_conf["bundle"]["macOS"]["dmg"]["appPosition"] == {"x": 180, "y": 230}
     assert tauri_conf["bundle"]["macOS"]["dmg"]["applicationFolderPosition"] == {"x": 480, "y": 230}
@@ -3410,6 +3411,8 @@ def test_desktop_package_identity_targets_penglai_preview():
     assert 'name = "penglai-desktop"' in cargo_toml
     assert 'version = "0.3.0"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
+    assert "fn stop_bridge_process()" in lib_rs
+    assert "child.kill()" in lib_rs
     assert 'join(".venv").join("Scripts").join("python.exe")' in lib_rs
     assert 'join(".venv").join("bin").join("python")' in lib_rs
     assert "GenericAgent" not in json.dumps(tauri_conf)
@@ -3424,15 +3427,20 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
     for text in (
         "codex/0.3.0-runtime-hub",
         "v0.3.0-preview*",
+        "upload_qa_artifacts",
         "macos-14",
         "windows-latest",
         "if: startsWith(github.ref, 'refs/tags/v0.3.0-preview')",
+        "actions/setup-python@v5",
         "frontends/*.py",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",
         "node --check frontends/desktop/static/penglai-web.js",
         "cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml",
+        "Desktop bridge contract tests",
+        "python -m pip install --disable-pip-version-check pytest aiohttp",
+        "desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels",
         "Require Apple signing secrets",
         "Import Apple Developer ID certificate",
         "APPLE_CERTIFICATE",
@@ -3450,17 +3458,35 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "Branch build: verified DMG layout only; unsigned installer artifacts are not uploaded.",
         "codesign --verify --deep --strict --verbose=4",
         "Authority=Developer ID Application",
+        "TeamIdentifier=$APPLE_TEAM_ID",
+        "(runtime)",
         "xcrun stapler validate",
         "spctl -a -vvv -t exec",
         "spctl -a -vvv -t open --context context:primary-signature",
+        "com.apple.quarantine",
         "Penglai_0.3.0_preview_macos_aarch64.dmg",
+        "Penglai_0.3.0_qa_unsigned_macos_aarch64.dmg",
         "Penglai_0.3.0_preview_windows_x64_setup.exe",
+        "Penglai_0.3.0_qa_unsigned_windows_x64_setup.exe",
+        "penglai-0.3.0-qa-unsigned-macos-aarch64",
+        "penglai-0.3.0-qa-unsigned-windows-x64",
+        "Unsigned QA Windows installer uploaded after silent install, launch, and uninstall checks.",
         "Require Windows signing secrets",
         "Import Windows signing certificate",
         "WINDOWS_CERTIFICATE",
         "WINDOWS_CERTIFICATE_PASSWORD",
+        "WINDOWS_CERTIFICATE_THUMBPRINT",
         "certificateThumbprint",
         "Get-AuthenticodeSignature",
+        "Invoke-WebRequest -UseBasicParsing",
+        "window\\.__PENGLAI_BRIDGE_TOKEN__",
+        "$origin/status",
+        "$origin/ops/checks",
+        '@($opsDoc.commands.read_only) -contains "install-check"',
+        "$origin/runtime/status",
+        "$origin/runtime/runs?limit=5",
+        "$origin/ops/command?name=install-check",
+        "Get-NetTCPConnection -LocalPort 14168",
         "function Split-CommandLine",
         "function Get-ExecutablePath",
         "Start-Process -FilePath $setup.FullName -ArgumentList \"/S\"",
@@ -3470,6 +3496,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "QuietUninstallString",
         "UninstallString",
         "Start-Process -FilePath $installedExe.FullName -PassThru",
+        "CloseMainWindow",
         "$uninstallParts = Split-CommandLine $uninstallString",
         "$uninstallArgs -notmatch",
         "Start-Process -FilePath $uninstallExe -ArgumentList $uninstallArgs",
@@ -3479,7 +3506,7 @@ def test_desktop_preview_workflow_builds_validates_and_prereleases():
         "--prerelease",
         "--latest=false",
         "macOS DMG is Developer ID signed, notarized, stapled, and Gatekeeper-checked by CI before upload.",
-        "Windows installer and installed app exe are Authenticode-signed and launch-checked by CI before upload.",
+        "Windows installer and installed app exe are Authenticode-signed, installed, desktop-bridge checked, Runtime Hub checked, install-check verified, and silently uninstalled by CI before upload.",
         "0.2.27 to 0.3.0 in-place upgrade is still not promised stable",
         "other IM channels still require real credential and send/receive validation",
     ):

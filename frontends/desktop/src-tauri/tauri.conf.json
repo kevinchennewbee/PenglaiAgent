@@ -56,6 +56,7 @@
       }
     },
     "macOS": {
+      "hardenedRuntime": true,
       "dmg": {
         "background": "icons/dmg-background.png",
         "windowSize": {
