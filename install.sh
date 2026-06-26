@@ -234,12 +234,13 @@ if [ -n "$SOURCE_DIR" ]; then
 elif [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
     existing_version="$("$TARGET/penglai" version 2>/dev/null || true)"
     case "$existing_version" in
-        *"Penglai 0.3.0"*) ;;
+        *"Penglai "*)
+            say "  ✅ 发行版已存在:$TARGET ($existing_version)"
+            ;;
         *)
-            die "检测到已有蓬莱目录但不是 0.3.0 正式安装：$TARGET。0.3.0 不支持原地覆盖旧版；请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装。"
+            die "检测到已有蓬莱目录但版本不可识别：$TARGET。请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装，或运行 penglai update 升级。"
             ;;
     esac
-    say "  ✅ 发行版已存在:$TARGET"
 elif [ -e "$TARGET" ] && [ -n "$(ls -A "$TARGET" 2>/dev/null)" ]; then
     die "目录 $TARGET 非空且不是蓬莱发行版。设 PENGLAI_DIR=其他目录 后重试"
 else
@@ -331,7 +332,7 @@ install_source_deps() {
             .venv/bin/python -m pip install --quiet "$@"
         fi
     }
-    say "  📦 正在安装 0.3.0 源码依赖..."
+    say "  📦 正在安装源码依赖..."
     PIP_INDEX="${PENGLAI_PIP_INDEX:-}"
     PIP_MIRROR="https://pypi.tuna.tsinghua.edu.cn/simple"
     if [ -n "$PIP_INDEX" ]; then
@@ -381,7 +382,7 @@ esac
 say ""
 say "✅ 发行版就绪:$TARGET"
 if [ "$INSTALL_VERIFY" = "1" ]; then
-    say "   正在运行 0.3.0 安装预检..."
+    say "   正在运行安装预检..."
     "$PY" penglai install-check --json || die "安装预检失败"
 fi
 if [ "$SKIP_SETUP" = "1" ]; then

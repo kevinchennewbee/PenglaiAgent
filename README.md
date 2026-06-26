@@ -2,20 +2,20 @@
 
 <img src=".github/assets/banner.png" alt="蓬莱 Penglai" width="100%"/>
 
-# 蓬莱 Penglai 0.3.0
+# 蓬莱 Penglai 0.3.1
 
 ### 面向普通人的自托管 AI Runtime Hub
 
-把能干活的 Agent 带到你的桌面、飞书、微信、终端和声音里。
+`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。把能干活的 Agent 带到你的桌面、飞书、微信、终端和声音里。
 
 [![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Desktop](https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-0f766e?style=flat-square)](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0)
+[![Desktop](https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-0f766e?style=flat-square)](https://github.com/kevinchennewbee/PenglaiAgent/releases)
 [![Runtime](https://img.shields.io/badge/Runtime-Hub-c44531?style=flat-square)](#penglai-runtime-hub)
 [![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
 [![Website](https://img.shields.io/badge/Website-Penglai-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
 
-**中文** · [English](README_EN.md) · [官网](https://kevinchennewbee.github.io/PenglaiAgent/) · [Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0)
+**中文** · [English](README_EN.md) · [官网](https://kevinchennewbee.github.io/PenglaiAgent/) · [Release](https://github.com/kevinchennewbee/PenglaiAgent/releases)
 
 </div>
 
@@ -23,24 +23,24 @@
 
 ---
 
-**蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：用 [GenericAgent](https://github.com/lsdefine/GenericAgent) 做执行核心，用蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
+**蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行内核，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-0.3.0 是蓬莱从“能接进聊天软件”到“可安装、可运行、可升级、可审计的个人 AI 管家发行版”的一次重构。你可以下载 Mac / Windows 桌面客户端，也可以用一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
+0.3.0 把蓬莱从“能接进聊天软件”推进到“可安装、可运行、可升级、可审计的个人 AI 管家发行版”。0.3.1 的使命是把 0.3.0“方向正确但实现半成品”的核心架构真正落地闭环：让 `penglai` CLI 成为发行版的权威核心，让桌面回归“薄壳 + CLI 控制面”的本质，让 owner 从任何入口发消息走同一个 GA 会话。你可以下载 Mac / Windows 桌面客户端，也可以用一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
 
-语音能力也从“能听”补齐到“能说”：原来依靠 FunASR / SenseVoice 路线在本地把语音转成文字、识别情绪和声学事件；0.3.0 新增 MOSS-TTS-Nano，把文字回复本地合成为语音。两边都可以 CPU 本地运行，语音数据默认不出本机。
+语音能力也已从“能听”补齐到“能说”：FunASR / SenseVoice 路线在本地把语音转成文字、识别情绪和声学事件；MOSS-TTS-Nano 把文字回复本地合成为语音。两边都可以 CPU 本地运行，语音数据默认不出本机。
 
 <p align="center">
-  <img src=".github/assets/wizard-zh.png" alt="蓬莱 0.3.0 桌面安装向导" width="88%"/>
+  <img src=".github/assets/wizard-zh.png" alt="蓬莱 0.3.1 桌面安装向导" width="88%"/>
 </p>
 
 ## 30 秒开始
 
-桌面客户端：
+**推荐使用桌面客户端**：在 [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases) 下载对应版本的 Mac / Windows 安装包，双击安装即可用图形向导完成全部配置：
 
-- [macOS Apple Silicon DMG](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.0/Penglai_0.3.0_macos_aarch64.dmg)
-- [Windows x64 installer](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.0/Penglai_0.3.0_windows_x64_setup.exe)
+- macOS Apple Silicon DMG
+- Windows x64 installer
 
-命令行安装：
+命令行安装（适合无头服务器或偏好终端的用户）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
@@ -56,16 +56,34 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 
 ```bash
 penglai                         # 终端里直接聊天
-penglai setup                   # 配置向导
-penglai doctor                  # 环境/依赖/配置/LLM/服务体检
-penglai channels                # 渠道矩阵
+penglai setup                   # 配置向导（全量）
+penglai setup --only feishu     # 局部补配：只重配飞书，不触碰已配置的 LLM
+penglai setup --only llm|identity|feishu|wechat|channels|abilities|companion
+penglai config status --json    # 配置概览（--json 供桌面调用）
+penglai config backup           # 原子备份当前配置
+penglai config restore <backup> # 回滚到备份
+penglai channels [--json]       # 渠道矩阵 + 下一步命令
+penglai companion status        # 主动陪伴状态 / 模式 / 最近触发原因
+penglai companion mode quiet|present|active   # 切换陪伴模式
+penglai doctor                  # 体检：环境/依赖/配置/服务/旧版本残留进程 + 下一步命令
 penglai abilities               # 语音/TTS/陪伴/搜索/批判脑能力总览
 penglai enable voice|tts|companion|intel|critic
 penglai update                  # 检查并安全升级
 penglai privacy-audit --strict  # 发布前隐私检查
 ```
 
+无头服务器也能完成飞书 / 微信扫码配置：`penglai setup --only feishu` 在终端直接输出 ASCII 二维码，不必打开桌面。`setup` 完成后会自动跑一次最小 LLM 请求做端到端冒烟验证（`--skip-smoke-test` 可跳过）。
+
 **Docker 已撤出支持矩阵**：0.3.0 起不再提供 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署支持。请使用桌面安装包、`install.sh`、PyPI 引导器或源码安装。
+
+## 自动升级
+
+0.3.1 把自动升级跑通成一条完整链路，桌面应用和运行时两层各自独立升级：
+
+- **桌面应用**：基于 `tauri-plugin-updater`，六道关卡全部打通——签名密钥在 CI 中生成并校验，`latest.json` 由 CI 自动发布到 Release，前端 `app.js` 调用 updater API 完成检查、下载、校验、安装；`fallback.html` 配置界面也接入了升级入口，即使主窗口卡住也能从配置界面检查更新。
+- **运行时（CLI / Runtime Hub）**：执行 `penglai update` 会先备份当前版本，拉取新版本，校验后切换，失败自动回滚。
+
+桌面应用升级走 updater，运行时升级走 `penglai update`，两条路径互不依赖。
 
 ## 为什么做蓬莱
 
@@ -103,6 +121,27 @@ flowchart LR
 - **状态更可诊断**：Runtime Hub、飞书、微信、调度器、主动陪伴分开报告，不再只有“好像在跑”。
 - **发布更可审计**：`privacy-audit`、`runtime-audit`、`install-check`、`doctor` 都能独立验证。
 
+## 0.3.1 主要变化
+
+0.3.0 建立了正确的架构方向；0.3.1 把“方向正确但实现半成品”的核心架构真正落地闭环。
+
+| 领域 | 0.3.1 带来的变化 |
+|---|---|
+| CLI 核心 | `setup --only` 局部补配（重配飞书不再走 API Key 全流程）；`config backup/restore` 原子配置管理；`channels` / `companion` 子命令；CLI 二维码输出；setup 端到端 smoke test |
+| 桌面控制面 | 修复 `_require_token` 让 9 个 handler 正常工作；消除 9 个内联 Python op（bridge `--bootstrap` 模式，Rust 壳回归薄壳）；接 `tauri-plugin-updater` 自动更新；前端 9 模块重构（Chat / Runs / Channels / Abilities / Companion / Diagnostics / Logs / Update / Security）；Mac 毛玻璃 + Windows Mica 双平台适配 |
+| Runtime Hub | TaskRun 状态机闭合（`WAITING_PERMISSION → RUNNING → SUCCEEDED`）；崩溃恢复（重启时把僵尸 TaskRun 标记 failed）；SQLite TOCTOU 修复（`BEGIN IMMEDIATE`）；owner 消息走 control API，多入口共享同一个 GA 会话 |
+| 出站投递 | 飞书 / 钉钉 / QQ / 企业微信统一走 DeliveryService 安全策略，文件外发 blocked notice 全渠道一致 |
+| 主动陪伴 | off / quiet / present / active 四档模式差异化；active 不再“必须说”，连续 SILENT 自动升级冷却；companion 事件在下一轮 prompt 可见（context 闭环） |
+| 诊断 | `doctor` 输出“问题 + 下一步命令”格式；检测旧版本残留进程；setup 完成后自动冒烟验证 |
+| 上游 GA sync | extra_sys_prompts 通用 prompt slot；turn-25 写文件 checkpoint；reasoning 字段兼容 |
+| 桌面安全初始化 | 修复 `install_runtime` 后 bridge 未拉起导致“点击无反应”；修复 Windows IME 中文输入崩溃；`setup_op` 重试机制；`finalizeSetup` 校验 |
+| 自动升级 | `tauri-plugin-updater` 六道关卡全通（签名密钥 + CI 生成 `latest.json` + 前端调用）；`fallback.html` 配置界面也能检查更新；`app.js` 两层升级 UI（桌面应用 + 运行时） |
+| CLI 集成修复 | `_try_penglai_setup_only` TTY 检查回落；`os.chmod` 跨平台；`pgrep` → `wmic` 跨平台 |
+| 版本号动态化 | 全仓库从硬编码 0.3.0 改为动态引用 `VERSION` 常量 |
+| Mac 打包修复 | `icon.icns` 加入配置；adhoc 重签名后重新生成 `.tar.gz` + `.sig` |
+
+> GitHub issue #2（重配飞书被拉回 API Key 全流程）在 0.3.1 用 `penglai setup --only feishu` 和桌面双路径修复。
+
 ## 0.3.0 主要优势
 
 | 能力 | 0.3.0 带来的变化 |
@@ -124,7 +163,7 @@ flowchart LR
 |---|---|---|
 | Agent Core | [GenericAgent](https://github.com/lsdefine/GenericAgent) | 执行核心：上下文、LLM 推理、工具调用、文件产物 |
 | Runtime | Penglai Runtime Hub | 队列、TaskRun、权限、运行历史、上下文事件 |
-| Desktop | Tauri + Web UI | Mac / Windows 原生桌面客户端和设置向导 |
+| Desktop | Tauri 2.0 + Web UI | Mac / Windows 原生薄壳 + Python bridge；0.3.1 起 9 模块控制面（Chat / Runs / Channels / Abilities / Companion / Diagnostics / Logs / Update / Security），Rust 层无内联 Python，配置逻辑下沉到 CLI |
 | Speech-to-text | SenseVoice / FunASR 路线 | 本地语音转写、情绪与声学事件 |
 | Text-to-speech | MOSS-TTS-Nano | 本地语音合成，CPU 可跑 |
 | IM | Feishu / WeChat / more adapters | 把 Agent 接进真实聊天入口 |
@@ -135,7 +174,7 @@ flowchart LR
 
 | 入口 | 接入方式 | 当前状态 |
 |---|---|---|
-| 桌面 | macOS / Windows 原生客户端 | 0.3.0 正式发布 |
+| 桌面 | macOS / Windows 原生客户端 | 0.3.1 控制面（薄壳 + 9 模块） |
 | 飞书 | 向导扫码建应用，长连接接入 | 重点验证 |
 | 微信个人号 | 向导扫码登录 | wrapper 接入中枢，需本机绑定后启用 |
 | 终端 TUI | 运行 `penglai` | 可用 |
@@ -149,7 +188,7 @@ flowchart LR
 | 图片理解 | IM 图片进入视觉任务 | 取决于配置的视觉模型 |
 | 长期记忆 | 文件式记忆，写入前安全扫描 | 默认能力 |
 | 搜索 | 免费搜索兜底，多源搜索可选 | 默认可用 |
-| 主动陪伴 | 天气、情绪、提醒和 check-in | opt-in |
+| 主动陪伴 | 天气、情绪、提醒和 check-in；0.3.1 起 off / quiet / present / active 四档模式 + context 闭环 | opt-in |
 | 批判脑 | 本地绊线 + 可选异厂商复核 | 可选增强 |
 | 技能集市 | 本地 SOP 技能，安装时安全扫描 | 按需安装 |
 
@@ -177,6 +216,10 @@ flowchart LR
 | 运维 | 手动为主 | doctor / status / logs / update / audit |
 
 ## 版本
+
+**v0.3.1 · 2026-06-26**
+
+核心架构闭环。`penglai` CLI 成为发行版权威核心（`setup --only` 局部补配 / `config` 配置管理 / `channels` / `companion` 子命令）；桌面回归薄壳 + 9 模块控制面（修复 `_require_token`、消除内联 Python op、接 `tauri-plugin-updater`）；桌面安全初始化强健化（修复 `install_runtime` 后 bridge 未拉起导致“点击无反应”、Windows IME 中文输入崩溃、`setup_op` 重试 + `finalizeSetup` 校验）；自动升级完整实现（`tauri-plugin-updater` 六道关卡全通、`fallback.html` 也能升级、`app.js` 两层升级 UI）；CLI 集成修复（TTY 检查回落、`os.chmod` 与 `pgrep` → `wmic` 跨平台）；版本号动态化（硬编码 0.3.0 改为 `VERSION` 常量）；Mac 打包修复（`icon.icns` + adhoc 重签名后重生成 `.tar.gz` / `.sig`）；Runtime Hub 稳态化（TaskRun FSM 闭合、崩溃恢复、SQLite TOCTOU 修复、owner 多入口共享 GA 会话）；飞书 / 钉钉 / QQ / 企微出站统一走 DeliveryService；陪伴四档模式差异化 + context 闭环；`doctor` 给行动建议 + 旧版本残留进程检测 + setup smoke test。
 
 **v0.3.0 · 2026-06-25**
 

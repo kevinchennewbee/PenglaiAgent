@@ -153,16 +153,11 @@ def ask(q, default=""):
 # ---------- 扫码建应用（移植自 Hermes Agent 的官方设备码/绑定流，纯 requests）----------
 
 def _qr_print(url):
-    """终端打出二维码；qrcode 库缺失则降级为可点击链接。"""
-    try:
-        import qrcode
-        q = qrcode.QRCode(border=1)
-        q.add_data(url); q.make(fit=True)
-        q.print_ascii(invert=True)
-        return True
-    except Exception:
-        print(f"  （终端二维码不可用，请手机打开此链接确认）\n  {url}")
-        return False
+    """终端打出二维码（统一走 penglai_qr，无头服务器友好；qrcode 缺失时降级为可点击链接）。"""
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    from penglai_qr import print_ascii_qr
+    return print_ascii_qr(url)
 
 
 def dingtalk_qr():
@@ -561,25 +556,59 @@ def disable(ch):
     return 0
 
 
-def status():
+def _run_state(ch):
+    """运行状态：systemd 下 active/inactive/未安装；否则 PID xxx / —"""
+    if has_systemd():
+        st = sh(["systemctl", "is-active", CHANNELS[ch]["service"]]).stdout.strip() or "—"
+        return st if st != "unknown" else "未安装"
+    return f"PID {proc_pids(ch)[0]}" if proc_pids(ch) else "—"
+
+
+def _next_step(ch, creds_ok):
+    """该渠道的下一步命令（031rootv2 §5.2：channels 展示下一步命令）。"""
+    if creds_ok:
+        return "penglai restart"
+    if ch in ("feishu", "wechat"):
+        return f"penglai setup --only {ch}"
+    return f"penglai enable {ch}"
+
+
+def _channel_row(ch):
+    c = CHANNELS[ch]
+    creds_ok = _credentials_ok(ch)
+    return {
+        "id": ch, "label": c["label"],
+        "credentials_ok": creds_ok,
+        "deps_ok": all(sh([venv_python(), "-c", f"import {m}"]).returncode == 0
+                       for m in c["pip"].values()),
+        "running": _run_state(ch),
+        "tested": c["tested"],
+        "experimental": not c["tested"],
+        "route": _runtime_route_label(ch),
+        "delivery": _delivery_guard_label(ch),
+        "next_step": _next_step(ch, creds_ok),
+    }
+
+
+def status(as_json=False):
+    """渠道矩阵总览。--json 供桌面调用（031rootv2 §4.1 规则 7、§5.2）。"""
+    rows = [_channel_row(ch) for ch in CHANNELS]
+    if as_json:
+        print(json.dumps({"channels": rows}, ensure_ascii=False, indent=2))
+        return 0
     print("🏮 蓬莱渠道矩阵（内核 GA 自带 7 渠道，蓬莱层统一封装）\n")
     print(f"  {'渠道':<10}{'凭证':<6}{'依赖':<6}{'运行':<10}{'中枢':<6}{'文件':<6}实测状态")
-    for ch, c in CHANNELS.items():
-        creds_ok = _credentials_ok(ch)
-        creds = "✔" if creds_ok else "—"
-        deps = "✔" if all(sh([venv_python(), "-c", f"import {m}"]).returncode == 0
-                          for m in c["pip"].values()) else "—"
-        if has_systemd():
-            st = sh(["systemctl", "is-active", c["service"]]).stdout.strip() or "—"
-            run = st if st != "unknown" else "未安装"
-        else:
-            run = f"PID {proc_pids(ch)[0]}" if proc_pids(ch) else "—"
-        tested = _tested_label(ch, creds_ok)
-        route = _runtime_route_label(ch)
-        guard = _delivery_guard_label(ch)
-        print(f"  {c['label']:<9}{creds:<7}{deps:<7}{run:<10}{route:<7}{guard:<7}{tested}")
+    for r in rows:
+        creds = "✔" if r["credentials_ok"] else "—"
+        deps = "✔" if r["deps_ok"] else "—"
+        tested = _tested_label(r["id"], r["credentials_ok"])
+        print(f"  {r['label']:<9}{creds:<7}{deps:<7}{r['running']:<10}{r['route']:<7}{r['delivery']:<7}{tested}")
+    print("\n  —— 下一步命令 ——")
+    for r in rows:
+        flag = "✅" if r["credentials_ok"] else ("·" if r["id"] in ("feishu", "wechat") else "○")
+        print(f"  {flag} {r['label']:<8}{r['next_step']}")
     print(f"\n  启用渠道: penglai enable <{('|'.join(EXTRA))}>")
-    print("  飞书/微信: penglai setup（含扫码与连接验证闭环）")
+    print("  飞书/微信: penglai setup --only feishu|wechat（局部补配，不询问 API Key）")
     print("  中枢=Hub 表示消息主链路进入 Runtime Hub；文件=统一/共享 表示 [FILE:] 交付先过同一套安全规则。")
     print(f"  {WARN}未实测渠道表示代码主链路已接中枢，但仍需真实平台凭证与收发验证后再标为主渠道。")
     return 0

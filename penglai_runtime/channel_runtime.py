@@ -15,6 +15,7 @@ import types
 import uuid
 
 from .contracts import InboundEvent, RunStatus
+from .delivery import plan_delivery
 from .interaction import (
     INTERACTION_PROMPT_HINT,
 )
@@ -186,6 +187,43 @@ async def _send_done(app, chat_id, raw_text, ctx):
     return await app.send_done(chat_id, raw_text, **_supported_kwargs(app.send_done, ctx))
 
 
+async def _deliver_with_plan(app, chat_id, raw_text, ctx):
+    """Deliver agent output through plan_delivery safety policy.
+
+    Replaces the direct app.send_done call so file markers are parsed with
+    the correct base_dir/exclude_paths from the runtime context, allowed
+    files are sent through the channel's media callback when available, and
+    the blocked notice is delivered consistently across DingTalk/QQ/WeCom.
+    """
+    plan = plan_delivery(
+        raw_text,
+        base_dir=ctx.get("base_dir"),
+        exclude_paths=ctx.get("exclude_paths"),
+    )
+    sent_count = 0
+    skipped_count = len(plan.allowed_paths) if plan.external_delivery.delivered else 0
+
+    if plan.body and not plan.external_delivery.delivered:
+        await _send_text(app, chat_id, plan.body, ctx)
+
+    if plan.allowed_paths and not plan.external_delivery.delivered:
+        send_media = getattr(app, "send_media", None) or getattr(app, "send_file", None)
+        if callable(send_media):
+            for fpath in plan.allowed_paths:
+                try:
+                    await send_media(chat_id, fpath)
+                    sent_count += 1
+                except Exception:
+                    pass
+
+    notice = plan.blocked_notice(sent_count=sent_count + skipped_count)
+    if notice:
+        await _send_text(app, chat_id, notice, ctx)
+
+    if not plan.body and not plan.allowed_paths and not plan.withheld:
+        await _send_text(app, chat_id, "...", ctx)
+
+
 def install_channel_runtime_adapter(
     app,
     *,
@@ -316,7 +354,7 @@ def install_channel_runtime_adapter(
                     exclude_paths=ctx.get("exclude_paths"),
                     production_text=raw,
                 )
-                await _send_done(self, chat_id, raw, ctx)
+                await _deliver_with_plan(self, chat_id, raw, ctx)
             elif run_result.status == RunStatus.CANCELLED:
                 await _send_text(self, chat_id, "⏹️ 已停止", ctx)
             elif run_result.status == RunStatus.FAILED:

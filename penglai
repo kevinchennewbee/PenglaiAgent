@@ -10,11 +10,12 @@
   penglai start     启动服务（飞书 + 微信 + 调度器）
   penglai stop      停止服务
   penglai logs [渠道]  查看最近日志（默认飞书）
-  penglai channels  IM 渠道矩阵总览（飞书/微信/钉钉/企微/QQ/Telegram/Discord）
+  penglai channels [--json]  IM 渠道矩阵总览（飞书/微信/钉钉/企微/QQ/Telegram/Discord，含下一步命令）
   penglai enable <渠道>   启用渠道（钉钉/QQ 支持扫码自动建应用）
   penglai disable <渠道>  停用渠道
+  penglai config <backup|restore|status>  配置管理（backup 原子备份 / restore 回滚 / status --json 概览）
   penglai update    更新到最新版蓬莱发行仓
-  penglai setup     安装向导（语言 → 依赖 → 模型 → 渠道单页选择 → 能力面板[语音/陪伴/情报]）
+  penglai setup [--only <模块>] [--skip-smoke-test]  安装向导（--only 局部补配：llm|identity|feishu|wechat|channels|abilities|companion；--skip-smoke-test 跳过端到端 LLM 冒烟验证）
   penglai migrate   从旧管家(Hermes/OpenClaw)搬家：记忆/渠道/人设 [--from][--dry-run][--with-secrets]
   penglai skill     技能集市：list 看可用 / install <名> 启用 / installed / remove <名>（本地装不联网）
   penglai selfcheck 运行时自检（统一会话/排队/交付/交互/记忆卫生）
@@ -32,6 +33,7 @@
   penglai tts-say <文本>     合成文本为本地 WAV，并输出可投递音频 artifact
   penglai tts-feishu-test    合成语音并通过飞书 owner 真实投递验证
   penglai feishu-service <install|uninstall|status|print-unit|run-gray>  管理无头服务器上的飞书渠道进程
+  penglai companion <status|enable|mode|pause|resume|why|test>  主动陪伴管理（--json 支持）
   penglai help      显示本帮助
 """
 import json, os, sys, shutil, subprocess
@@ -443,19 +445,60 @@ def _owner_open_id_from_log():
     except Exception:
         return ""
 
+def _detect_legacy_030_processes():
+    """检测 0.3.0 残留进程（Task 22 / 031rootv2 §11.2）。
+
+    扫描进程列表找 penglai 相关进程，如果发现旧版本入口进程
+    （通过命令行特征），返回旧进程描述列表。
+    """
+    legacy_patterns = (
+        ("frontends/fsapp[.]py", "飞书旧入口 frontends/fsapp.py"),
+        ("frontends/wechatapp[.]py", "微信旧入口 frontends/wechatapp.py"),
+        ("frontends/dingtalkapp[.]py", "钉钉旧入口 frontends/dingtalkapp.py"),
+        ("frontends/wecomapp[.]py", "企微旧入口 frontends/wecomapp.py"),
+        ("frontends/qqapp[.]py", "QQ 旧入口 frontends/qqapp.py"),
+        ("frontends/tgapp[.]py", "Telegram 旧入口 frontends/tgapp.py"),
+        ("agentmain[.]py --reflect reflect/penglai_companion", "companion 旧 reflect 入口"),
+        ("agentmain[.]py --reflect reflect/scheduler", "scheduler 旧 reflect 入口"),
+    )
+    found = []
+    for pat, label in legacy_patterns:
+        pids = _pids_for_patterns((pat,))
+        if pids:
+            pid_str = ", ".join(str(p) for p in pids[:3])
+            found.append(f"{label} (PID {pid_str})")
+    return found
+
 def doctor():
-    print("🏮 蓬莱医生体检中...\n")
+    # Task 21: 输出 {problem, next_step_command} 结构，支持 --json
+    as_json = "--json" in sys.argv[2:]
+    findings = []
+
+    def add(name, ok, problem="", next_step_command="", detail=""):
+        findings.append({
+            "name": name, "ok": bool(ok),
+            "problem": problem, "next_step_command": next_step_command,
+            "detail": detail,
+        })
+        if not as_json:
+            mark = OK if ok else BAD
+            line = f"{mark} {name}"
+            if not ok:
+                if next_step_command:
+                    line += f"   → 运行: {next_step_command}"
+                elif problem:
+                    line += f"   → {problem}"
+            print(line)
+
+    # JSON 模式下：add() 不打印文本，informational prints 由 if not as_json 守卫
+    if not as_json:
+        print("🏮 蓬莱医生体检中...\n")
     try:
         from penglai_runtime.version import compact_version_line
-        print(f"{OK} 版本身份：{compact_version_line()}\n")
+        if not as_json:
+            print(f"{OK} 版本身份：{compact_version_line()}\n")
     except Exception:
         pass
-    bad = 0
-
-    def check(name, ok, hint=""):
-        nonlocal bad
-        print(f"{OK if ok else BAD} {name}" + ("" if ok else f"   → {hint}"))
-        if not ok: bad += 1
 
     # 1. Python：服务实际用 .venv/bin/python；CLI 可能由系统 python3 启动。
     py = venv_python()
@@ -465,16 +508,19 @@ def doctor():
         py_ok = tuple(int(x) for x in py_ver.split(".")[:2]) >= (3, 10)
     except Exception:
         py_ok = False
-    check(f"运行 Python {py_ver or '?'}（{os.path.relpath(py, ROOT) if py.startswith(ROOT) else py}）",
-          r.returncode == 0 and py_ok, "需要 Python 3.10+；重跑安装或重建 .venv")
+    py_rel = os.path.relpath(py, ROOT) if py.startswith(ROOT) else py
+    add(f"运行 Python {py_ver or '?'}（{py_rel}）", r.returncode == 0 and py_ok,
+        problem="需要 Python 3.10+；重跑安装或重建 .venv",
+        next_step_command="uv venv .venv && uv pip install -e .",
+        detail=f"Python {py_ver}")
 
     # 2. venv 与核心依赖
     r = sh([py, "-c", "import requests, bs4, aiohttp, bottle"])
-    check("核心依赖 (requests/bs4/aiohttp/bottle)", r.returncode == 0,
-          "运行: uv pip install --python .venv/bin/python -e .")
+    add("核心依赖 (requests/bs4/aiohttp/bottle)", r.returncode == 0,
+        problem="核心依赖缺失", next_step_command="uv pip install --python .venv/bin/python -e .")
     r = sh([py, "-c", "import lark_oapi"])
-    check("飞书 SDK (lark-oapi)", r.returncode == 0,
-          "运行: uv pip install --python .venv/bin/python lark-oapi")
+    add("飞书 SDK (lark-oapi)", r.returncode == 0,
+        problem="飞书 SDK 未安装", next_step_command="uv pip install --python .venv/bin/python lark-oapi")
 
     # 2b. 微信绑定（可选渠道，未绑定≠故障）
     tok = os.path.expanduser("~/.wxbot/token.json")
@@ -482,14 +528,14 @@ def doctor():
         try:
             import json
             bid = json.load(open(tok, encoding="utf-8")).get("ilink_bot_id", "")
-            print(f"{OK} 微信绑定：{bid or '已有 token'}")
+            if not as_json: print(f"{OK} 微信绑定：{bid or '已有 token'}")
         except Exception:
-            print(f"{WARN} 微信 token 文件损坏 → 重跑 penglai setup 扫码")
+            if not as_json: print(f"{WARN} 微信 token 文件损坏 → 重跑 penglai setup 扫码")
         if has_systemd() and sh(["systemctl", "show", "penglai-wechat",
                                  "-p", "ExecMainStatus", "--value"]).stdout.strip() == "2":
-            print(f"{WARN} 微信 token 已过期 → penglai setup 重新扫码后 sudo systemctl restart penglai-wechat")
+            if not as_json: print(f"{WARN} 微信 token 已过期 → penglai setup 重新扫码后 sudo systemctl restart penglai-wechat")
     else:
-        print(f"{OK} 微信：未绑定（可选渠道，penglai setup 可扫码接入）")
+        if not as_json: print(f"{OK} 微信：未绑定（可选渠道，penglai setup 可扫码接入）")
 
     # 2c. 语音能力（可选；统一走 Runtime capability 检查，不让聊天任务承担安装/修复）
     try:
@@ -502,14 +548,15 @@ def doctor():
             raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
         _voice = json.loads((r.stdout or "{}").strip() or "{}")
         _detail = _voice.get("detail") or "语音：状态未知"
-        if _voice.get("ready"):
-            print(f"{OK} {_detail}")
-        elif _voice.get("status") == "disabled":
-            print(f"{OK} {_detail}   → 开启：penglai enable voice")
-        else:
-            print(f"{WARN} {_detail} → 补齐：penglai enable voice")
+        if not as_json:
+            if _voice.get("ready"):
+                print(f"{OK} {_detail}")
+            elif _voice.get("status") == "disabled":
+                print(f"{OK} {_detail}   → 开启：penglai enable voice")
+            else:
+                print(f"{WARN} {_detail} → 补齐：penglai enable voice")
     except Exception as e:
-        print(f"{WARN} 语音：状态检查不可用（{e}）")
+        if not as_json: print(f"{WARN} 语音：状态检查不可用（{e}）")
 
     # 2c.2 语音输出能力（可选；MOSS-TTS-Nano 本地部署，不让聊天任务承担安装/修复）
     try:
@@ -522,14 +569,15 @@ def doctor():
             raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
         _tts = json.loads((r.stdout or "{}").strip() or "{}")
         _detail = _tts.get("detail") or "语音输出：状态未知"
-        if _tts.get("ready"):
-            print(f"{OK} {_detail}")
-        elif _tts.get("status") == "disabled":
-            print(f"{OK} {_detail}   → 检查/配置：penglai enable tts")
-        else:
-            print(f"{WARN} {_detail} → 补齐 MOSS-TTS-Nano 本地模型/依赖")
+        if not as_json:
+            if _tts.get("ready"):
+                print(f"{OK} {_detail}")
+            elif _tts.get("status") == "disabled":
+                print(f"{OK} {_detail}   → 检查/配置：penglai enable tts")
+            else:
+                print(f"{WARN} {_detail} → 补齐 MOSS-TTS-Nano 本地模型/依赖")
     except Exception as e:
-        print(f"{WARN} 语音输出：状态检查不可用（{e}）")
+        if not as_json: print(f"{WARN} 语音输出：状态检查不可用（{e}）")
 
     # 2d. 看图能力（F7/U4：IM 发图用主力多模态看图；缺 vision_api.py 就按主力模型构建一次）
     if os.path.exists(os.path.join(ROOT, "mykey.py")):
@@ -541,15 +589,16 @@ def doctor():
         except Exception:
             st = "err"
             _vision = {}
-        if _vision.get("ready"):
-            print(f"{OK} 看图：就绪（vision_api.py → 主力模型；IM 发图问「这是什么」即可）"
-                  + ("（刚构建）" if st == "built" else "（已修补旧版 endpoint）" if st == "repaired" else ""))
-        elif _vision.get("status") == "partial":
-            print(f"{WARN} {_vision.get('detail')} → 补齐：penglai install-check 或重新安装依赖")
-        elif st == "skip":
-            print(f"{OK} 看图：待主力 OAI 兼容模型就绪（配好 native_oai_config 或 *_native_oai_config 后自动构建）")
-        else:
-            print(f"{WARN} 看图：vision_api 未构建（{st}）；发图时管家会按 penglai_im_vision_sop 现建")
+        if not as_json:
+            if _vision.get("ready"):
+                print(f"{OK} 看图：就绪（vision_api.py → 主力模型；IM 发图问「这是什么」即可）"
+                      + ("（刚构建）" if st == "built" else "（已修补旧版 endpoint）" if st == "repaired" else ""))
+            elif _vision.get("status") == "partial":
+                print(f"{WARN} {_vision.get('detail')} → 补齐：penglai install-check 或重新安装依赖")
+            elif st == "skip":
+                print(f"{OK} 看图：待主力 OAI 兼容模型就绪（配好 native_oai_config 或 *_native_oai_config 后自动构建）")
+            else:
+                print(f"{WARN} 看图：vision_api 未构建（{st}）；发图时管家会按 penglai_im_vision_sop 现建")
 
     # 3. 配置
     mykey = os.path.join(ROOT, "mykey.py")
@@ -557,10 +606,13 @@ def doctor():
         r = sh([py, "-c",
                 "import mykey;cs=[k for k in dir(mykey) if 'config' in k];"
                 "assert cs, 'no config';print(len(cs))"], cwd=ROOT)
-        check(f"mykey.py（{r.stdout.strip() or 0} 个配置）", r.returncode == 0,
-              "mykey.py 里没有任何 *config*，参考 mykey_template.py")
+        add(f"mykey.py（{r.stdout.strip() or 0} 个配置）", r.returncode == 0,
+            problem="mykey.py 里没有任何 *config*，参考 mykey_template.py",
+            next_step_command="penglai setup --only llm")
     else:
-        check("mykey.py", False, "复制 mykey_template.py 为 mykey.py 并填入 API Key")
+        add("mykey.py", False,
+            problem="mykey.py 不存在",
+            next_step_command="penglai setup --only llm")
 
     # 3b. 飞书白名单（空/含* = 对所有可见用户开放本机执行能力，必须红）
     if os.path.exists(mykey):
@@ -568,36 +620,44 @@ def doctor():
                 "print('OPEN' if (not a or '*' in a) else 'LOCKED:%d' % len(a))"], cwd=ROOT)
         st = (r.stdout or "").strip()
         if st.startswith("LOCKED"):
-            print(f"{OK} 飞书白名单：已收紧（{st.split(':')[1]} 个授权用户）")
+            if not as_json: print(f"{OK} 飞书白名单：已收紧（{st.split(':')[1]} 个授权用户）")
         else:
             oid = _owner_open_id_from_log()
             if oid:
-                check("飞书白名单", False,
-                      f"fs_allowed_users 为空=任何可见用户都能驱动本机 agent！已从日志认出你的 open_id，"
-                      f"编辑 mykey.py 设 fs_allowed_users = ['{oid}'] 且 fs_owner_open_id = '{oid}'，再 penglai restart")
+                add("飞书白名单", False,
+                    problem="fs_allowed_users 为空=任何可见用户都能驱动本机 agent！已从日志认出你的 open_id",
+                    next_step_command=f"penglai setup --only feishu（设 fs_allowed_users=['{oid}'] 且 fs_owner_open_id='{oid}'）",
+                    detail=oid)
             else:
-                check("飞书白名单", False,
-                      "fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！"
-                      "填入你的 open_id（penglai logs 里「收到消息 [X]」中的 X），并设置 fs_owner_open_id，重启服务生效")
+                add("飞书白名单", False,
+                    problem="fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！",
+                    next_step_command="penglai setup --only feishu")
 
     # 3c. 飞书 0.3.0 wrapper runtime 链路（低副作用：不启动 WSS、不初始化 LLM、不发消息）
     try:
         configured, ok, detail = _feishu_runtime_wrapper_status()
         if configured:
-            check("飞书中枢 wrapper", ok, f"{detail}；运行: penglai_feishu_app.py --check")
+            add("飞书中枢 wrapper", ok,
+                problem=detail, next_step_command="penglai_feishu_app.py --check",
+                detail=detail)
         else:
-            print(f"{OK} 飞书中枢 wrapper：未配置飞书（可选渠道）")
+            if not as_json: print(f"{OK} 飞书中枢 wrapper：未配置飞书（可选渠道）")
     except Exception as e:
-        check("飞书中枢 wrapper", False, f"运行: penglai_feishu_app.py --check；错误: {e}")
+        add("飞书中枢 wrapper", False,
+            problem=f"检查异常: {e}", next_step_command="penglai_feishu_app.py --check")
 
     # 4. LLM 连通性（轻量：只验证配置可加载，不真实计费调用）
     r = sh([py, "-c", "from llmcore import *; print('ok')"], cwd=ROOT)
-    check("LLM 模块加载 (llmcore)", r.returncode == 0, r.stderr.strip().splitlines()[-1] if r.stderr else "")
+    add("LLM 模块加载 (llmcore)", r.returncode == 0,
+        problem="llmcore 模块加载失败",
+        next_step_command="penglai setup --only llm",
+        detail=(r.stderr.strip().splitlines()[-1] if r.stderr else ""))
 
     # 4b. 安全插件挂载（红线/记忆卫生/文件外发）—— 未挂载=agent 无防护裸奔，必须红
     ok, detail = guard_ok()
-    check("安全插件挂载（红线/记忆卫生/文件外发）", ok,
-          f"{detail}！agent 会在无防护下运行，排查 plugins/penglai_*.py 导入错误")
+    add("安全插件挂载（红线/记忆卫生/文件外发）", ok,
+        problem=f"{detail}！agent 会在无防护下运行",
+        next_step_command="排查 plugins/penglai_*.py 导入错误")
 
     # 4c. Runtime Hub 最小链路（纯本地临时文件/测试夹具，不触发真实 IM/LLM/网络）
     try:
@@ -608,10 +668,13 @@ def doctor():
             for item in rt.get("selfcheck", {}).get("checks", [])
             if not item.get("ok")
         ]
-        check("中枢最小链路", bool(rt.get("ok")),
-              "运行: penglai selfcheck" + (f"；失败项: {', '.join(failed[:3])}" if failed else ""))
+        add("中枢最小链路", bool(rt.get("ok")),
+            problem="中枢最小链路自检失败",
+            next_step_command="penglai selfcheck",
+            detail=(f"失败项: {', '.join(failed[:3])}" if failed else ""))
     except Exception as e:
-        check("中枢最小链路", False, f"运行: penglai selfcheck；错误: {e}")
+        add("中枢最小链路", False,
+            problem=f"检查异常: {e}", next_step_command="penglai selfcheck")
 
     # 4d. 0.3.0 旧入口清单：只读检查当前是否有旧 Feishu/WeChat 入口正在跑。
     try:
@@ -621,61 +684,70 @@ def doctor():
             item for item in legacy.get("items", [])
             if item.get("status") == "active_legacy_path"
         ]
-        check("旧 Runtime 入口清单", not active,
-              "运行: penglai runtime-audit --json" + (f"；active: {active[0]['item_id']}" if active else ""))
+        add("旧 Runtime 入口清单", not active,
+            problem="存在活跃的旧 Runtime 入口",
+            next_step_command="penglai runtime-audit --json",
+            detail=(active[0]["item_id"] if active else ""))
     except Exception as e:
-        check("旧 Runtime 入口清单", False, f"运行: penglai runtime-audit；错误: {e}")
+        add("旧 Runtime 入口清单", False,
+            problem=f"检查异常: {e}", next_step_command="penglai runtime-audit")
 
     # 4e. 隐私与发布前预检：隐私 blocker 红；发布 blocker 只提示，避免阻断本地诊断。
     try:
         from penglai_runtime.privacy_audit import audit as privacy_audit
         privacy = privacy_audit(root=ROOT, include_ignored=True, scan_ignored=False)
-        check("隐私发布前预检", bool(privacy.get("privacy_ok")),
-              "运行: penglai privacy-audit --json")
-        if not privacy.get("release_ready"):
+        add("隐私发布前预检", bool(privacy.get("privacy_ok")),
+            problem="隐私发布前预检未通过",
+            next_step_command="penglai privacy-audit --json",
+            detail=f"隐私阻断项={privacy.get('privacy_blocker_count')}")
+        if not privacy.get("release_ready") and not as_json:
             print(f"{WARN} 发布前预检：还有 {privacy.get('release_blocker_count', 0)} 个发布 blocker"
                   "（不影响本地诊断；发布前必须清掉）")
     except Exception as e:
-        check("隐私发布前预检", False, f"运行: penglai privacy-audit；错误: {e}")
+        add("隐私发布前预检", False,
+            problem=f"检查异常: {e}", next_step_command="penglai privacy-audit")
 
     # 5. 记忆状态（出厂态 or 已使用）
-    mem = os.path.join(ROOT, "memory", "global_mem.txt")
-    if os.path.exists(mem):
-        n = sum(1 for _ in open(mem, encoding="utf-8", errors="replace"))
-        print(f"{OK} 记忆 L2：{n} 行（{'出厂态' if n <= 6 else '使用中'}）")
-    else:
-        print(f"{OK} 记忆 L2：尚未初始化（首次运行自动创建）")
+    if not as_json:
+        mem = os.path.join(ROOT, "memory", "global_mem.txt")
+        if os.path.exists(mem):
+            n = sum(1 for _ in open(mem, encoding="utf-8", errors="replace"))
+            print(f"{OK} 记忆 L2：{n} 行（{'出厂态' if n <= 6 else '使用中'}）")
+        else:
+            print(f"{OK} 记忆 L2：尚未初始化（首次运行自动创建）")
 
     # 5b. 网页搜索（Bing 免 key 兜底常在；情报矩阵=叠加的增强源）
-    r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import premium_sources;"
-            "print(','.join(premium_sources()))"], cwd=ROOT)
-    prem_lines = [l.strip() for l in (r.stdout or "").splitlines()
-                  if l.strip() and not l.startswith("[Info]")]
-    prem = prem_lines[-1] if prem_lines else ""
-    print(f"{OK} 网页搜索：{'Bing 免费兜底 + 增强源 ' + prem + '（多源交叉验证）' if prem else 'Bing 免费兜底（开箱即用）   → 增强多源交叉验证：penglai enable intel'}")
+    if not as_json:
+        r = sh([py, "-c", "import sys;sys.path.insert(0,'.');from plugins.penglai_search import premium_sources;"
+                "print(','.join(premium_sources()))"], cwd=ROOT)
+        prem_lines = [l.strip() for l in (r.stdout or "").splitlines()
+                      if l.strip() and not l.startswith("[Info]")]
+        prem = prem_lines[-1] if prem_lines else ""
+        print(f"{OK} 网页搜索：{'Bing 免费兜底 + 增强源 ' + prem + '（多源交叉验证）' if prem else 'Bing 免费兜底（开箱即用）   → 增强多源交叉验证：penglai enable intel'}")
 
     # 5c. 批判脑（绊线免费常开；异厂商复核必须证明与主力模型不同厂商）
-    try:
-        import json
-        r = sh([py, "-c",
-                "import json;"
-                "from penglai_runtime.capabilities import critic_runtime_status;"
-                "print(json.dumps(critic_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
-        if r.returncode != 0:
-            raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
-        critic = json.loads((r.stdout or "{}").strip() or "{}")
-        detail = critic.get("detail") or "批判脑：状态未知"
-        if critic.get("ready"):
-            model = critic.get("critic_model") or ""
-            print(f"{OK} {detail}" + (f"（{model}）" if model else ""))
-        elif critic.get("status") == "same_vendor":
-            print(f"{WARN} {detail}   → 重配：penglai enable critic")
-        elif critic.get("status") == "off":
-            print(f"{OK} {detail}   → 开启：penglai enable critic")
-        else:
-            print(f"{OK} {detail}   → 开启：penglai enable critic")
-    except Exception as e:
-        print(f"{WARN} 批判脑：状态检查不可用（{e}）")
+    if not as_json:
+        try:
+            import json
+            r = sh([py, "-c",
+                    "import json;"
+                    "from penglai_runtime.capabilities import critic_runtime_status;"
+                    "print(json.dumps(critic_runtime_status(), ensure_ascii=False))"], cwd=ROOT)
+            if r.returncode != 0:
+                raise RuntimeError(((r.stderr or "") + (r.stdout or "")).strip() or f"rc={r.returncode}")
+            critic = json.loads((r.stdout or "{}").strip() or "{}")
+            detail = critic.get("detail") or "批判脑：状态未知"
+            if critic.get("ready"):
+                model = critic.get("critic_model") or ""
+                print(f"{OK} {detail}" + (f"（{model}）" if model else ""))
+            elif critic.get("status") == "same_vendor":
+                print(f"{WARN} {detail}   → 重配：penglai enable critic")
+            elif critic.get("status") == "off":
+                print(f"{OK} {detail}   → 开启：penglai enable critic")
+            else:
+                print(f"{OK} {detail}   → 开启：penglai enable critic")
+        except Exception as e:
+            print(f"{WARN} 批判脑：状态检查不可用（{e}）")
 
     # 6. 服务/进程：Runtime Hub 是核心，飞书/微信等是渠道。渠道 unit 已安装但挂掉才算故障。
     if has_systemd():
@@ -683,22 +755,28 @@ def doctor():
         for s in SERVICES:
             if s in OPTIN_SERVICES and s not in inst:
                 tip = SVC_ENABLE.get(s, "")
-                print(f"{OK} 服务 {s}: 未启用（{OPTIN_SERVICES[s]} opt-in）"
-                      + (f" → 开启：{tip}" if tip else ""))
+                if not as_json:
+                    print(f"{OK} 服务 {s}: 未启用（{OPTIN_SERVICES[s]} opt-in）"
+                          + (f" → 开启：{tip}" if tip else ""))
                 continue
             r = sh(["systemctl", "is-active", s])
             state = r.stdout.strip()
             if s == "penglai-feishu":
-                check(f"服务 {s}: {state or '未安装'}", state == "active", "sudo systemctl restart penglai-feishu")
+                add(f"服务 {s}: {state or '未安装'}", state == "active",
+                    problem=f"飞书服务状态: {state or '未安装'}",
+                    next_step_command="sudo systemctl restart penglai-feishu",
+                    detail=state)
                 if state == "active":
                     unit = sh(["systemctl", "show", "-p", "ExecStart", "--value", s]).stdout.strip()
                     if "frontends/fsapp.py" in unit:
-                        check("飞书入口：旧 frontends/fsapp.py", False,
-                              "运行: penglai restart（会重写服务为 penglai_feishu_app.py）")
-                    elif "penglai_feishu_app.py" in unit:
+                        add("飞书入口：旧 frontends/fsapp.py", False,
+                            problem="飞书 systemd unit 仍指向旧入口",
+                            next_step_command="penglai restart（会重写服务为 penglai_feishu_app.py）")
+                    elif "penglai_feishu_app.py" in unit and not as_json:
                         print(f"{OK} 飞书入口：penglai_feishu_app.py wrapper")
             else:
-                print(f"{OK if state == 'active' else WARN} 服务 {s}: {state or '未安装'}")
+                if not as_json:
+                    print(f"{OK if state == 'active' else WARN} 服务 {s}: {state or '未安装'}")
     else:
         pids = fsapp_pids()
         legacy = fsapp_legacy_pids()
@@ -706,30 +784,51 @@ def doctor():
         mode = "后台模式"
         if sys.platform == "darwin":
             mode = "launchd 守护" if sh(["launchctl", "list", _fsapp_launchd_label()]).returncode == 0 else "后台模式"
-        check(f"飞书进程（非 systemd 环境，{mode}{'，PID ' + str(pids[0]) if pids else ''}）",
-              bool(pids), "运行: penglai start")
+        add(f"飞书进程（非 systemd 环境，{mode}{'，PID ' + str(pids[0]) if pids else ''}）",
+            bool(pids),
+            problem="飞书进程未运行",
+            next_step_command="penglai start",
+            detail=mode)
         if legacy and not wrapper:
-            check("飞书入口：旧 frontends/fsapp.py", False,
-                  "运行: penglai restart（会迁移到 penglai_feishu_app.py）")
-        elif wrapper:
+            add("飞书入口：旧 frontends/fsapp.py", False,
+                problem="飞书入口仍为旧 frontends/fsapp.py",
+                next_step_command="penglai restart（会迁移到 penglai_feishu_app.py）")
+        elif wrapper and not as_json:
             print(f"{OK} 飞书入口：penglai_feishu_app.py wrapper")
 
+    # 6b. Task 22: 0.3.0 残留进程检测（031rootv2 §11.2）
+    legacy_procs = _detect_legacy_030_processes()
+    add("0.3.0 残留进程", not legacy_procs,
+        problem=(f"发现 {len(legacy_procs)} 个 0.3.0 旧入口进程在运行" if legacy_procs else ""),
+        next_step_command=("penglai stop && penglai restart（停止旧进程并以新入口重启）" if legacy_procs else ""),
+        detail=("; ".join(legacy_procs) if legacy_procs else "无旧版本进程残留"))
+
     # 7. 更新状态（对比发行仓 origin=PenglaiAgent；只读，不改用户的 remote 配置）
+    behind = None
     if not is_git_repo():
-        print(f"{WARN} 更新检查：压缩包安装无 git 历史，penglai update 不可用（重装即最新）")
+        if not as_json: print(f"{WARN} 更新检查：压缩包安装无 git 历史，penglai update 不可用（重装即最新）")
     else:
         remote = _release_remote()
         ref = _release_ref(remote)
         fetch_ok = sh(["git", "fetch", remote, "--quiet"], cwd=ROOT).returncode == 0
         if fetch_ok:
             behind = sh(["git", "rev-list", "--count", f"HEAD..{ref}"], cwd=ROOT).stdout.strip() or "?"
-        else:
-            behind = None
-    if is_git_repo() and behind is not None:
-        mark = OK if behind == "0" else WARN
-        print(f"{mark} 蓬莱版本：" + ("已是最新" if behind == "0" else f"落后 {behind} 个提交（penglai update 可更新）"))
-    elif is_git_repo():
-        print(f"{WARN} 更新检查：无法连接发行仓（网络/代理），跳过")
+    if not as_json:
+        if is_git_repo() and behind is not None:
+            mark = OK if behind == "0" else WARN
+            print(f"{mark} 蓬莱版本：" + ("已是最新" if behind == "0" else f"落后 {behind} 个提交（penglai update 可更新）"))
+        elif is_git_repo():
+            print(f"{WARN} 更新检查：无法连接发行仓（网络/代理），跳过")
+
+    # Task 21: JSON 模式输出结构化 {problem, next_step_command}
+    bad = sum(1 for f in findings if not f["ok"])
+    if as_json:
+        print(json.dumps({
+            "ok": not bad,
+            "findings": findings,
+            "failed_count": bad,
+        }, ensure_ascii=False, indent=2))
+        return 1 if bad else 0
 
     print(f"\n{'🎉 全部通过，蓬莱身体健康！' if bad == 0 else f'共 {bad} 项需要处理。'}")
     print("   补开能力：penglai abilities ｜ 加 IM 渠道：penglai channels ｜ 重配大模型：penglai setup")
@@ -1196,8 +1295,221 @@ def restart_supervisor():
         try: os.remove(lock)
         except Exception: pass
 
+def _run_setup_smoke_test():
+    """Task 23: setup 完成后端到端 LLM 冒烟验证（031rootv2 §11.3）。
+
+    通过 RuntimeHubService + GenericAgentPort 发送一个简单 prompt，
+    验证 LLM 配置真实可用；失败时给出明确指引（哪个环节、如何修复）。
+    返回 0=通过，1=失败。
+    """
+    print("\n🧪 端到端 LLM 冒烟测试（发送简单 prompt 验证 LLM 可用）...")
+    # 子进程隔离：避免污染主进程的 mykey/agent 状态；超时 60s 防止卡死
+    script = (
+        "import sys, os, json, uuid\n"
+        "sys.path.insert(0, os.getcwd())\n"
+        "try:\n"
+        "    from penglai_runtime.contracts import InboundEvent\n"
+        "    from penglai_runtime.context_events import default_context_log_path\n"
+        "    from penglai_runtime.port import GenericAgentPort\n"
+        "    from penglai_runtime.service import RuntimeHubService\n"
+        "except Exception as e:\n"
+        "    print(json.dumps({'ok': False, 'step': 'import', 'error': str(e)}, ensure_ascii=False))\n"
+        "    sys.exit(0)\n"
+        "try:\n"
+        "    event = InboundEvent(\n"
+        "        event_id=f'smoke_{uuid.uuid4().hex}',\n"
+        "        channel='smoke', user_id='owner',\n"
+        "        chat_id='smoke-test', chat_type='private',\n"
+        "        text='请回复两个字：蓬莱',\n"
+        "    )\n"
+        "    service = RuntimeHubService(\n"
+        "        owner_user_ids={'owner'},\n"
+        "        port_factory=lambda _s, e: GenericAgentPort(source=e.channel, timeout=60),\n"
+        "        context_log_path=default_context_log_path(),\n"
+        "    )\n"
+        "    result = service.receive_blocking(event, send_body=False, send_notice=False)\n"
+        "    out = (getattr(result, 'cleaned_output', '') or '').strip()\n"
+        "    if not out:\n"
+        "        print(json.dumps({'ok': False, 'step': 'llm_empty', 'error': 'LLM 返回空内容'}, ensure_ascii=False))\n"
+        "        sys.exit(0)\n"
+        "    print(json.dumps({'ok': True, 'output': out[:200]}, ensure_ascii=False))\n"
+        "except TimeoutError as e:\n"
+        "    print(json.dumps({'ok': False, 'step': 'timeout', 'error': str(e)}, ensure_ascii=False))\n"
+        "    sys.exit(0)\n"
+        "except Exception as e:\n"
+        "    msg = str(e) or type(e).__name__\n"
+        "    step = 'init'\n"
+        "    low = msg.lower()\n"
+        "    if '没有可用 llm' in msg or 'modulo by zero' in low or 'list index out of range' in low:\n"
+        "        step = 'no_llm_config'\n"
+        "    elif 'connection' in low or 'refused' in low or 'unreachable' in low or 'dns' in low:\n"
+        "        step = 'network'\n"
+        "    elif 'unauthorized' in low or '401' in msg or '403' in msg or 'invalid api key' in low:\n"
+        "        step = 'auth'\n"
+        "    print(json.dumps({'ok': False, 'step': step, 'error': msg}, ensure_ascii=False))\n"
+        "    sys.exit(0)\n"
+    )
+    r = sh([venv_python(), "-c", script], cwd=ROOT)
+    # 子进程最后输出一行 JSON；前面可能有 stderr 警告
+    out_lines = [l for l in (r.stdout or "").splitlines() if l.strip()]
+    try:
+        data = json.loads(out_lines[-1]) if out_lines else {}
+    except Exception:
+        print(f"{BAD} 冒烟测试：无法解析结果")
+        if r.stdout: print(f"   stdout: {r.stdout[:300]}")
+        if r.stderr: print(f"   stderr: {r.stderr[:300]}")
+        print(f"   → 排查：penglai doctor")
+        return 1
+    if data.get("ok"):
+        reply = (data.get("output") or "")[:60]
+        print(f"{OK} 冒烟测试通过：LLM 已响应（{reply}）")
+        return 0
+    step = data.get("step", "unknown")
+    err = data.get("error", "")
+    guidance = {
+        "import": "运行时模块缺失 → 排查：penglai doctor",
+        "no_llm_config": "LLM 未配置或配置无效 → 运行：penglai setup --only llm",
+        "network": "LLM 网络不可达 → 检查 API endpoint/代理后重跑：penglai setup --only llm",
+        "auth": "LLM API key 无效或无额度 → 检查 key 后重跑：penglai setup --only llm",
+        "timeout": "LLM 响应超时 → 检查模型/endpoint 可用性，或换模型：penglai setup --only llm",
+        "llm_empty": "LLM 返回空内容 → 检查模型配置/key 额度：penglai setup --only llm",
+    }
+    tip = guidance.get(step, "未知失败 → 排查：penglai doctor")
+    print(f"{BAD} 冒烟测试失败（环节: {step}）：{err}")
+    print(f"   → {tip}")
+    print(f"   跳过冒烟测试可加 --skip-smoke-test")
+    return 1
+
 def setup():
-    return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py")]).returncode
+    # P0-1：透传 argv，支持 `penglai setup --only <module>` 局部补配
+    # Task 23: --skip-smoke-test 跳过端到端 LLM 冒烟测试（031rootv2 §11.3）
+    skip_smoke = "--skip-smoke-test" in sys.argv[2:]
+    argv = [a for a in sys.argv[2:] if a != "--skip-smoke-test"]
+    # --help / -h 由 penglai_setup.py argparse 处理后返回 0，不应触发冒烟测试
+    if any(a in ("-h", "--help") for a in argv):
+        return subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py"), *argv]).returncode
+    rc = subprocess.run([sys.executable, os.path.join(ROOT, "penglai_setup.py"), *argv]).returncode
+    if rc != 0:
+        return rc
+    if skip_smoke:
+        print(f"\n{OK} 已跳过端到端 LLM 冒烟测试（--skip-smoke-test）")
+        return 0
+    # setup 成功后跑端到端 LLM 冒烟验证；失败返回 1 提示用户排查
+    _run_setup_smoke_test()
+    return 0
+
+# ---------- P0-2：config backup/restore/status（031rootv2 §5.2）----------
+BACKUP_DIR = os.path.expanduser("~/.penglai/backups")
+
+def _mykey_path():
+    return os.path.join(ROOT, "mykey.py")
+
+def _load_mykey_dict():
+    """子进程 import mykey.py，返回公开变量 dict（失败返回 {}）。"""
+    r = subprocess.run([sys.executable, "-c",
+        "import mykey,json\n"
+        "d={k:v for k,v in vars(mykey).items() if not k.startswith('_') and not callable(v)}\n"
+        "print(json.dumps(d, default=str, ensure_ascii=False))"],
+        cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        return {}
+    try:
+        return json.loads(r.stdout)
+    except ValueError:
+        return {}
+
+def config_cmd():
+    """penglai config <backup|restore|status> [--json]"""
+    sub = sys.argv[2] if len(sys.argv) > 2 else ""
+    rest = sys.argv[3:]
+    as_json = "--json" in rest
+    pos = [a for a in rest if not a.startswith("-")]
+    if sub == "backup":
+        return config_backup()
+    if sub == "restore":
+        return config_restore(pos[0] if pos else None)
+    if sub == "status" or (not sub and as_json):
+        return config_status(as_json=as_json)
+    print("用法: penglai config <backup|restore|status> [--json]")
+    print("  backup          原子备份当前 mykey.py 到 ~/.penglai/backups/")
+    print("  restore [备份]  从备份恢复（默认最近一个；恢复前自动存档当前）")
+    print("  status --json   输出当前配置概览（哪些模块已配置）")
+    return 0
+
+def config_backup():
+    src = _mykey_path()
+    if not os.path.exists(src):
+        print(f"{BAD} mykey.py 不存在，无内容可备份。先运行：penglai setup")
+        return 1
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    import time
+    dst = os.path.join(BACKUP_DIR, f"mykey.py.{time.strftime('%Y%m%d-%H%M%S')}")
+    tmp = dst + ".tmp"   # 原子写入：tmp→rename（031rootv2 §4.5）
+    shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
+    print(f"{OK} 已备份 → {dst}")
+    return 0
+
+def config_restore(name=None):
+    import glob, time
+    if name:
+        src = name if os.path.isabs(name) else os.path.join(BACKUP_DIR, name)
+    else:
+        cands = sorted(glob.glob(os.path.join(BACKUP_DIR, "mykey.py.*")))
+        if not cands:
+            print(f"{BAD} 没有备份可恢复（{BACKUP_DIR} 为空）。先 penglai config backup")
+            return 1
+        src = cands[-1]
+    if not os.path.exists(src):
+        print(f"{BAD} 备份不存在：{src}")
+        return 1
+    dst = _mykey_path()
+    # 恢复前先存档当前 mykey.py（双保险：restore 失败也能回退）
+    if os.path.exists(dst):
+        cur_bak = f"{dst}.pre-restore.{time.strftime('%Y%m%d-%H%M%S')}"
+        shutil.copy2(dst, cur_bak)
+        print(f"  当前 mykey.py 已存档 → {os.path.basename(cur_bak)}")
+    tmp = dst + ".tmp"
+    shutil.copy2(src, tmp)
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, dst)
+    print(f"{OK} 已从 {src} 恢复 mykey.py")
+    print(f"   重启服务生效：penglai restart")
+    return 0
+
+def config_status(as_json=False):
+    """输出当前配置概览：哪些模块已配置。"""
+    cfg = _load_mykey_dict()
+    nai = cfg.get("native_oai_config") or {}
+    apikey = (nai.get("apikey") or "").strip() if isinstance(nai, dict) else ""
+    _placeholders = ("sk-<", "<your", "your-", "your_", "填入", "替换为")
+    llm_ok = bool(apikey) and not any(p in apikey for p in _placeholders)
+    feishu_ok = bool(cfg.get("fs_app_id")) and bool(cfg.get("fs_app_secret"))
+    wechat_ok = os.path.exists(os.path.expanduser("~/.wxbot/token.json"))
+    summary = {
+        "mykey_exists": os.path.exists(_mykey_path()),
+        "llm": {"configured": llm_ok, "name": nai.get("name"), "model": nai.get("model")},
+        "feishu": {"configured": feishu_ok},
+        "wechat": {"configured": wechat_ok},
+        "companion": {"enabled": bool(cfg.get("companion_enabled"))},
+        "lang": cfg.get("penglai_lang"),
+    }
+    if as_json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return 0
+    print("🏮 蓬莱配置概览\n")
+    print(f"  mykey.py: {'✅ 存在' if summary['mykey_exists'] else '❌ 不存在'}")
+    llm_str = (summary['llm']['name'] or '') if llm_ok else '未配置'
+    print(f"  大模型:   {'✅ ' if llm_ok else '❌ '}{llm_str}  (补配: penglai setup --only llm)")
+    print(f"  飞书:     {'✅ 已配置' if feishu_ok else '❌ 未配置'}  (补配: penglai setup --only feishu)")
+    print(f"  微信:     {'✅ 已绑定' if wechat_ok else '❌ 未绑定'}  (补配: penglai setup --only wechat)")
+    print(f"  主动陪伴: {'✅ 开启' if summary['companion']['enabled'] else '⬜ 关闭'}  (切换: penglai setup --only companion)")
+    print(f"  语言:     {summary['lang'] or '—'}")
+    print("\n  备份: penglai config backup   恢复: penglai config restore   JSON: penglai config status --json")
+    return 0
 
 def migrate():
     sys.path.insert(0, ROOT)
@@ -1248,6 +1560,8 @@ def tui():
 
 def channel_cmd(fn_name):
     sys.path.insert(0, ROOT)
+    # P0-3：channels 支持 --json（供桌面调用，031rootv2 §4.1 规则 7）
+    as_json = "--json" in sys.argv[2:]
     if fn_name in ("enable", "disable"):
         name = sys.argv[2] if len(sys.argv) > 2 else ""
         import penglai_abilities as pa
@@ -1256,7 +1570,7 @@ def channel_cmd(fn_name):
         import penglai_channels as pc   # 否则按渠道处理
         return getattr(pc, fn_name)(name)
     import penglai_channels as pc
-    return pc.status()
+    return pc.status(as_json=as_json)
 
 
 def abilities():
@@ -1339,6 +1653,16 @@ def feishu_service_cmd():
     from penglai_runtime import feishu_service
     return feishu_service.main(sys.argv[2:])
 
+def companion_cmd():
+    """penglai companion <status|enable|mode|pause|resume|why|test> [--json]
+
+    主动陪伴管理 CLI（Task 17）。分发到 reflect/penglai_companion.cli_main。
+    所有子命令支持 --json；不直接重启心跳进程（mykey/state 改动会被热重读）。
+    """
+    sys.path.insert(0, ROOT)
+    from reflect import penglai_companion as cp
+    return cp.cli_main(sys.argv[2:])
+
 def main():
     cmds = {"doctor": doctor, "version": version,
             "status": lambda: svc("status"), "start": lambda: svc("start"),
@@ -1347,6 +1671,7 @@ def main():
             "skill": skill, "tui": tui,
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
+            "config": config_cmd,
             "selfcheck": selfcheck_cmd, "runtime-run": runtime_run_cmd,
             "runtime-chat": runtime_chat_cmd,
             "runtime-status": runtime_status_cmd, "runtime-history": runtime_history_cmd,
@@ -1359,6 +1684,7 @@ def main():
             "tts-say": tts_say_cmd,
             "tts-feishu-test": tts_feishu_test_cmd,
             "feishu-service": feishu_service_cmd,
+            "companion": companion_cmd,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,
             "_restart_supervisor": restart_supervisor}
     arg = sys.argv[1] if len(sys.argv) > 1 else ""

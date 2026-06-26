@@ -17,15 +17,27 @@ PENGLAI_IDENTITY_PROMPT = (
 
 
 def ensure_penglai_identity_prompt(agent):
-    """Attach Penglai release identity to GA's model backend for Runtime Hub turns."""
+    """Attach Penglai release identity via GA's generic extra_sys_prompts slot.
+
+    Mirrors upstream c85b59e: frontends push prompt strings into
+    ``agent.extra_sys_prompts`` (a list) instead of mutating the backend's
+    ``extra_sys_prompt`` attribute. Keeps GA core zero-pollution and lets
+    Penglai identity ride the same slot as any other frontend injection.
+    """
     try:
-        llmclient = getattr(agent, "llmclient", None)
-        backend = getattr(llmclient, "backend", None)
-        if backend is None:
+        slots = getattr(agent, "extra_sys_prompts", None)
+        if slots is None:
+            # GA core older than c85b59e — fall back to backend attribute.
+            llmclient = getattr(agent, "llmclient", None)
+            backend = getattr(llmclient, "backend", None)
+            if backend is None:
+                return
+            existing = getattr(backend, "extra_sys_prompt", "") or ""
+            if PENGLAI_IDENTITY_PROMPT not in existing:
+                backend.extra_sys_prompt = PENGLAI_IDENTITY_PROMPT + "\n" + existing
             return
-        existing = getattr(backend, "extra_sys_prompt", "") or ""
-        if PENGLAI_IDENTITY_PROMPT not in existing:
-            backend.extra_sys_prompt = PENGLAI_IDENTITY_PROMPT + "\n" + existing
+        if PENGLAI_IDENTITY_PROMPT not in slots:
+            slots.append(PENGLAI_IDENTITY_PROMPT)
     except Exception:
         return
 

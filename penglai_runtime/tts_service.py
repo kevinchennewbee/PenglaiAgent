@@ -21,6 +21,7 @@ import urllib.request
 import wave
 import zipfile
 
+from . import VERSION
 from .capabilities import (
     model_base_dir,
     moss_tts_onnx_codec_dir,
@@ -518,7 +519,7 @@ def feishu_test_main(argv=None):
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--quiet", action="store_true", help="隐藏上游合成日志")
     args = parser.parse_args(argv)
-    text = " ".join(args.text).strip() or "蓬莱 0.3.0 本地语音输出真实飞书验证。"
+    text = " ".join(args.text).strip() or f"蓬莱 {VERSION} 本地语音输出真实飞书验证。"
     synth = synthesize(text, output_path=args.output, voice=args.voice or None, stream=not args.quiet)
     sent = False
     error = ""

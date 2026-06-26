@@ -14,6 +14,7 @@ import urllib.parse
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from . import VERSION
 from .contracts import InboundEvent
 from .context_events import default_context_log_path
 from .port import GenericAgentPort
@@ -93,7 +94,7 @@ def command_catalog():
         "not_exposed": ["setup", "start", "stop", "restart"],
         "notes": (
             "桌面端通过 POST 执行 update-apply（安全升级：预检→下载→重启→健康检查→失败回滚）；"
-            "setup 和旧 start/stop/restart 不暴露给 0.3.0 preview 控制 API。"
+            f"setup 和旧 start/stop/restart 不暴露给 {VERSION} preview 控制 API。"
             "桌面端服务控制只管理 Runtime Hub 中枢服务，不直接管理飞书/微信渠道适配器。"
         ),
     }
@@ -365,7 +366,7 @@ class RuntimeControlHTTPServer(ThreadingHTTPServer):
 
 
 class RuntimeControlHandler(BaseHTTPRequestHandler):
-    server_version = "PenglaiRuntimeControl/0.3.0"
+    server_version = f"PenglaiRuntimeControl/{VERSION}"
 
     def log_message(self, fmt, *args):
         sys.stderr.write("[runtime-control] " + (fmt % args) + "\n")
@@ -467,6 +468,34 @@ class RuntimeControlHandler(BaseHTTPRequestHandler):
                     drop_pending=bool(body.get("drop_pending")),
                 )
                 return self._json(200, data)
+            if path == "/resume":
+                run_id = str(body.get("run_id") or "")
+                choice = str(body.get("choice") or body.get("text") or "")
+                if not run_id:
+                    return self._error(400, "run_id 不能为空")
+                if not choice.strip():
+                    return self._error(400, "choice 不能为空")
+                timeout = float(body.get("timeout") or 1200)
+                if callable(self.server.message_port_factory):
+                    resume_event = InboundEvent(
+                        event_id=f"control_resume_{secrets.token_hex(16)}",
+                        channel=str(body.get("channel") or "desktop"),
+                        user_id=str(body.get("user_id") or "owner"),
+                        chat_id=str(body.get("chat_id") or "local-control"),
+                        chat_type="private",
+                        text=choice,
+                    )
+                    port = self.server.message_port_factory(resume_event, body)
+                else:
+                    port = GenericAgentPort(source=str(body.get("channel") or "desktop"), timeout=timeout)
+                result = self.server.service.resume_permission(
+                    run_id,
+                    choice,
+                    port=port,
+                    send_body=False,
+                    send_notice=False,
+                )
+                return self._json(200 if result.status == "succeeded" else 202, _result_dict(result))
             if path == "/ops/command":
                 name = str(body.get("command") or "")
                 timeout = body.get("timeout")

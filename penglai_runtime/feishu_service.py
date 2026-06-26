@@ -15,6 +15,8 @@ import subprocess
 import sys
 import time
 
+from . import VERSION
+
 
 SERVICE_NAME = "penglai-feishu"
 GRAY_SERVICE_NAME = "penglai-feishu-030-gray"
@@ -84,7 +86,7 @@ def systemd_unit(
         exec_cmd += " " + arg_text
     return (
         "[Unit]\n"
-        f"Description=Penglai Feishu Channel Adapter 0.3.0 ({service_name})\n"
+        f"Description=Penglai Feishu Channel Adapter {VERSION} ({service_name})\n"
         "After=network-online.target\n\n"
         "[Service]\n"
         "Type=simple\n"

@@ -241,6 +241,16 @@ def _decide(cfg, state, now, diag=None):
         cfg["mode"] = "present"
     note(mode=cfg["mode"])
     if not cfg["enabled"]: return None, "disabled"
+
+    # —— Task 17：暂停态（`penglai companion pause --hours N` 写入的临时窗口）——
+    try:
+        paused_until = float(state.get("paused_until", 0) or 0)
+    except Exception:
+        paused_until = 0
+    if paused_until and time.time() < paused_until:
+        note(paused_until=paused_until)
+        return None, "paused"
+
     has_fs = bool(cfg["open_id"] and cfg["app_id"]) and "feishu" in cfg["channels"]
     has_wx = (os.path.isfile(_WX_TOKEN) and _load_json(_WX_MASTER).get("uid")
               and "wechat" in cfg["channels"])
@@ -258,6 +268,11 @@ def _decide(cfg, state, now, diag=None):
 
     w = _weather_alert(cfg, state, now)          # 时效信息：不占冷却、不看静默、无视 idle
     if w: return ("weather", w), "ok"
+
+    # —— Task 19：quiet 模式只 weather 过门禁，其他触发源一律 skip（高优先级 weather 已在上方处理）——
+    if cfg.get("mode") == "quiet":
+        return None, "skipped_by_mode"
+
     e = _emotion_signal(state)
     if e:
         if not idle_ok("emotion"): return None, "emotion_wait_user_idle"
@@ -274,8 +289,11 @@ def _decide(cfg, state, now, diag=None):
         if _lease_active(state, "evening", now_ts): return None, "evening_pending"
         return ("evening", None), "ok"
     since_reach = now_ts - state.get("last_reach", 0)
-    if since_reach < cfg["cooldown_h"] * 3600:
-        note(free_wait_sec=int(cfg["cooldown_h"] * 3600 - since_reach))
+    # —— Task 18：连续 SILENT 升级冷却（仅 active 模式 free 触发会写 cooldown_boost_hours）——
+    cooldown_h = cfg["cooldown_h"] + float(state.get("cooldown_boost_hours", 0) or 0)
+    if since_reach < cooldown_h * 3600:
+        note(free_wait_sec=int(cooldown_h * 3600 - since_reach),
+             cooldown_boost_hours=float(state.get("cooldown_boost_hours", 0) or 0))
         return None, "free_cooldown"
     if not idle_ok("free"): return None, "free_wait_user_idle"
     if _lease_active(state, "free", now_ts): return None, "free_pending"
@@ -307,13 +325,19 @@ _KIND_BODY = {
                "具体的事开口；否则 [SILENT]。宁可一周不说话，也不要凑「在忙吗」这类查岗话。",
 }
 def _must_speak(kind, cfg):
+    """是否要求 LLM 一定开口（不允许 [SILENT]）。
+
+    Task 18 修正：active 模式 free 触发不再"必须说"——过门禁只是给 LLM 一次"睁眼"机会，
+    没有真正有价值的理由仍可 [SILENT]，由连续 SILENT 升级冷却兜底。
+    """
     if kind == "weather":
         return True
     if cfg.get("mode") == "quiet":
         return False
     if kind in {"emotion", "morning", "evening"}:
         return True
-    return cfg.get("mode") == "active" and kind == "free"
+    # active 模式 free 也不再"必须说"
+    return False
 
 
 def _classify_error(e):
@@ -421,7 +445,20 @@ def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, 
         state["last_result"] = "silent"
         state["last_silent_ts"] = now_ts
         state["last_silent_kind"] = kind
+        # —— Task 18：active 模式 free 触发连续 SILENT 升级冷却 ——
+        # 每连续 3 次 free+SILENT 增加冷却 +4h（最多 +24h），抑制无意义高频心跳。
+        # 成功发送会清空 cooldown_boost_hours 和 consecutive_silent（见 sent 分支）。
+        if kind == "free" and cfg.get("mode") == "active":
+            consecutive = int(state.get("consecutive_silent", 0) or 0) + 1
+            state["consecutive_silent"] = consecutive
+            if consecutive >= 3:
+                boost = float(state.get("cooldown_boost_hours", 0) or 0)
+                new_boost = min(boost + 4, 24)
+                state["cooldown_boost_hours"] = new_boost
+                state["consecutive_silent"] = 0   # 升级后重置计数
+                print(f"[companion] free 连续 SILENT {consecutive} 次→升级冷却 +4h (boost={new_boost}h)")
         if task_run is not None:
+            state["last_run_id"] = task_run.run_id
             task_run.metadata["companion"] = {
                 "trigger": kind,
                 "delivery_status": "silent",
@@ -454,7 +491,11 @@ def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, 
         state["last_sent_channels"] = sent
         state["last_sent_body"] = body[:240]
         state["pending_kind"] = ""            # 清租约
+        # —— 投递成功：清空连续 SILENT 计数与冷却加成 ——
+        state["consecutive_silent"] = 0
+        state["cooldown_boost_hours"] = 0
         if task_run is not None:
+            state["last_run_id"] = task_run.run_id
             task_run.metadata["companion"] = {
                 "trigger": kind,
                 "delivery_status": "sent",
@@ -484,6 +525,7 @@ def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, 
     state["last_error_ts"] = now_ts
     state["last_error"] = "; ".join(errors) if errors else "所有渠道发送失败"
     if task_run is not None:
+        state["last_run_id"] = task_run.run_id
         task_run.metadata["companion"] = {
             "trigger": kind,
             "delivery_status": "failed",
@@ -601,6 +643,7 @@ def run_runtime_task(prompt, *, agent=None, service=None, port=None):
         state["last_result"] = "failed"
         state["last_error_ts"] = time.time()
         state["last_error"] = result.task_run.error or "主动陪伴生成失败"
+        state["last_run_id"] = result.task_run.run_id
         result.task_run.metadata["companion"] = {
             "trigger": kind,
             "delivery_status": "not_attempted",
@@ -664,7 +707,8 @@ def check():
         body = _KIND_BODY[kind].format(x=extra)
     silent_rule = ("本次已过门禁，必须给出一句短消息；不要回复 [SILENT]。"
                    if _must_speak(kind, cfg) else
-                   "没有真正有价值的理由，就只回复一个词：[SILENT]。宁可沉默，绝不为了说话而打扰。")
+                   "如果存在具体、有用的理由，请用一句话自然地说出来；"
+                   "否则只回复一个词：[SILENT]。宁可沉默，绝不为了说话而打扰。")
     state["last_prompt_kind"] = kind
     state["last_prompt_body"] = body[:240]
     _save_state(state)
@@ -719,3 +763,405 @@ def _wechat_send(text):
 
 def on_done(result):
     _finalize_companion_result(result)
+
+
+# ============================================================================
+# Task 17: penglai companion CLI 子命令
+# 入口在 penglai 根脚本 `companion_cmd()` 中调用本模块 `cli_main(argv)`。
+# 所有子命令支持 --json；与 mykey.py / temp/companion_state.json 双向交互，
+# 不直接重启心跳进程（mykey 改动会被 _cfg() 热重读）。
+# ============================================================================
+
+_VALID_MODES = ("quiet", "present", "active")
+
+_REASON_MAP = {
+    "disabled": "开关关闭",
+    "paused": "暂停中（penglai companion pause）",
+    "no_target": "没有可投递的飞书/微信目标",
+    "quiet_hours": "勿扰时段",
+    "skipped_by_mode": "quiet 模式只 weather 过门禁，其他源跳过",
+    "emotion_wait_user_idle": "情绪信号在等用户停下手头输入",
+    "emotion_pending": "情绪承接在途（租约未过期）",
+    "morning_done": "今天晨间锚点已发送",
+    "morning_wait_user_idle": "晨间锚点在等用户停下手头输入",
+    "morning_pending": "晨间锚点在途（租约未过期）",
+    "evening_done": "今天晚间锚点已发送",
+    "evening_wait_user_idle": "晚间锚点在等用户停下手头输入",
+    "evening_pending": "晚间锚点在途（租约未过期）",
+    "free_cooldown": "自由陪伴冷却中",
+    "free_wait_user_idle": "自由陪伴在等用户空闲",
+    "free_pending": "自由陪伴在途（租约未过期）",
+    "ok": "已触发",
+}
+
+
+def _cli_running():
+    """companion 心跳进程是否在跑（systemd/launchd/pgrep 三态探活）。"""
+    import subprocess as _sp
+    try:
+        if _sp.run(["systemctl", "is-active", "penglai-companion"],
+                   capture_output=True, text=True).stdout.strip() == "active":
+            return True
+    except Exception:
+        pass
+    try:
+        if sys.platform == "darwin" and _sp.run(
+                ["launchctl", "list", "com.penglai.companion"],
+                capture_output=True, text=True).returncode == 0:
+            return True
+    except Exception:
+        pass
+    try:
+        if _sp.run(["pgrep", "-f", "reflect/penglai_companion.py"],
+                   capture_output=True).returncode == 0:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _cli_load_mykey():
+    try:
+        import llmcore
+        return llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        try:
+            import mykey
+            return {k: v for k, v in vars(mykey).items() if not k.startswith('_')}
+        except Exception:
+            return {}
+
+
+def _cli_set_mykey(pairs):
+    try:
+        import penglai_channels as pc
+        pc.mykey_set(pairs)
+        return True
+    except Exception as e:
+        print(f"[companion CLI] mykey 写入失败: {e}")
+        return False
+
+
+def _cli_install_service():
+    try:
+        import penglai_abilities as pa
+        return pa._install_reflect_service(
+            "penglai-companion", "reflect/penglai_companion.py", "主动陪伴")
+    except Exception as e:
+        print(f"[companion CLI] 服务安装失败: {e}")
+        return False
+
+
+def cli_main(argv):
+    """penglai companion 子命令入口。argv 不含 'companion' 本身。"""
+    if not argv or argv[0] in ("--help", "-h"):
+        return _cli_help()
+    sub = argv[0]
+    rest = argv[1:]
+    want_json = "--json" in rest
+    rest = [a for a in rest if a != "--json"]
+    if sub == "status":
+        return _cli_status(want_json)
+    if sub == "enable":
+        return _cli_enable(rest, want_json)
+    if sub == "mode":
+        return _cli_mode(rest, want_json)
+    if sub == "pause":
+        return _cli_pause(rest, want_json)
+    if sub == "resume":
+        return _cli_resume(want_json)
+    if sub == "why":
+        return _cli_why(want_json)
+    if sub == "test":
+        return _cli_test(rest, want_json)
+    print(f"未知子命令: {sub}\n")
+    return _cli_help()
+
+
+def _cli_help():
+    print("用法: penglai companion <subcommand> [options] [--json]")
+    print("")
+    print("子命令:")
+    print("  status [--json]                当前模式/心跳/原因/最近投递/最近 run id")
+    print("  enable --mode present|active   启用陪伴并指定模式（写 mykey + 装服务）")
+    print("  mode quiet|present|active      切换模式（热重读 mykey，不重启服务）")
+    print("  pause --hours N                暂停 N 小时（写 state.paused_until）")
+    print("  resume                         恢复（清 paused_until）")
+    print("  why [--json]                   展示最近触发原因 + 本次决策")
+    print("  test --dry-run                 干跑：调 _decide，不真投递")
+    print("  test --send                    真投递一条测试消息（飞书+微信）")
+    print("")
+    print("模式行为差异:")
+    print("  quiet   只 weather 必说；其他触发源一律 skip")
+    print("  present weather/emotion/morning/evening 必说；free 谨慎（倾向 [SILENT]）")
+    print("  active  所有触发源过门禁；free 不强制说，连续 3 次 SILENT 升级冷却 +4h")
+    return 0
+
+
+def _cli_status(want_json):
+    mk = _cli_load_mykey()
+    state = _load_json(_STATE)
+    cfg = _cfg()
+    now_ts = time.time()
+    try:
+        paused_until = float(state.get("paused_until", 0) or 0)
+    except Exception:
+        paused_until = 0
+    paused = bool(paused_until and now_ts < paused_until)
+    last_check_ts = state.get("last_check_ts")
+    try:
+        last_check_age = int(now_ts - float(last_check_ts)) if last_check_ts else None
+    except Exception:
+        last_check_age = None
+    data = {
+        "enabled": bool(mk.get("companion_enabled", False)),
+        "running": _cli_running(),
+        "mode": cfg.get("mode", "present"),
+        "paused": paused,
+        "paused_until": paused_until if paused else None,
+        "last_check_ts": last_check_ts,
+        "last_check_age_sec": last_check_age,
+        "last_reason": state.get("last_reason"),
+        "last_reason_human": _REASON_MAP.get(state.get("last_reason", ""),
+                                              state.get("last_reason", "")),
+        "last_trigger_kind": state.get("last_trigger_kind"),
+        "last_decision": state.get("last_decision"),
+        "last_result": state.get("last_result"),
+        "last_sent_ts": state.get("last_sent_ts"),
+        "last_sent_channels": state.get("last_sent_channels") or [],
+        "last_sent_body": state.get("last_sent_body"),
+        "last_silent_ts": state.get("last_silent_ts"),
+        "last_silent_kind": state.get("last_silent_kind"),
+        "last_error_ts": state.get("last_error_ts"),
+        "last_error": state.get("last_error"),
+        "last_run_id": state.get("last_run_id"),
+        "last_idle_min": state.get("last_idle_min"),
+        "cooldown_boost_hours": state.get("cooldown_boost_hours", 0),
+        "consecutive_silent": state.get("consecutive_silent", 0),
+        "has_feishu": bool(state.get("last_has_feishu")),
+        "has_wechat": bool(state.get("last_has_wechat")),
+    }
+    if want_json:
+        print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+        return 0
+    print("=== 主动陪伴状态 ===")
+    print(f"开关: {'✅已启用' if data['enabled'] else '❌未启用'}  "
+          f"进程: {'✅运行中' if data['running'] else '❌未运行'}")
+    print(f"模式: {data['mode']}")
+    if paused:
+        end = datetime.fromtimestamp(paused_until).strftime("%Y-%m-%d %H:%M")
+        print(f"暂停中: 至 {end}（还剩 {int((paused_until - now_ts) / 60)} 分钟）")
+    else:
+        print("暂停: 否")
+    if data["cooldown_boost_hours"]:
+        print(f"冷却加成: +{data['cooldown_boost_hours']}h（连续 SILENT 升级）")
+    if data["consecutive_silent"]:
+        print(f"连续 SILENT 计数: {data['consecutive_silent']}")
+    if last_check_age is not None:
+        print(f"最近心跳: {last_check_age} 秒前")
+    if data["last_reason"]:
+        print(f"最近原因: {data['last_reason_human']}（{data['last_reason']}）")
+    if data["last_trigger_kind"]:
+        print(f"最近触发: {data['last_trigger_kind']}")
+    if data["last_result"] == "sent" and data["last_sent_ts"]:
+        age = int(now_ts - float(data["last_sent_ts"]))
+        print(f"最近发送: {age // 60} 分钟前（{'+'.join(data['last_sent_channels'])}）")
+        if data["last_sent_body"]:
+            print(f"  内容: {data['last_sent_body']}")
+    elif data["last_result"] == "silent" and data["last_silent_ts"]:
+        age = int(now_ts - float(data["last_silent_ts"]))
+        print(f"最近沉默: {age // 60} 分钟前（{data.get('last_silent_kind') or ''}）")
+    elif data["last_result"] == "failed" and data["last_error_ts"]:
+        age = int(now_ts - float(data["last_error_ts"]))
+        print(f"最近失败: {age // 60} 分钟前（{data['last_error']}）")
+    if data["last_run_id"]:
+        print(f"最近 Run ID: {data['last_run_id']}")
+    chs = []
+    if data["has_feishu"]: chs.append("飞书")
+    if data["has_wechat"]: chs.append("微信")
+    if chs:
+        print(f"投递渠道: {'+'.join(chs)}")
+    return 0
+
+
+def _cli_enable(rest, want_json):
+    mode = "present"
+    for i, a in enumerate(rest):
+        if a == "--mode" and i + 1 < len(rest):
+            mode = rest[i + 1]
+    if mode not in _VALID_MODES:
+        print(f"❌ --mode 取值必须是 quiet/present/active（收到 {mode!r}）")
+        return 1
+    pairs = {"companion_enabled": True, "companion_mode": mode}
+    if not _cli_set_mykey(pairs):
+        return 1
+    installed = _cli_install_service()
+    if want_json:
+        print(json.dumps({"enabled": True, "mode": mode,
+                          "service_installed": bool(installed)},
+                         ensure_ascii=False, indent=2))
+        return 0
+    print(f"✅ 已写入 companion_enabled=True, companion_mode={mode}")
+    print(f"   服务安装: {'✅' if installed else '⚠️ 失败，手动运行 penglai enable companion'}")
+    print(f"   行为差异: quiet=只天气；present=天气/情绪/早晚锚点；"
+          f"active=所有触发源过门禁（free 不强制说）")
+    return 0 if installed else 1
+
+
+def _cli_mode(rest, want_json):
+    mode = rest[0] if rest else ""
+    if mode not in _VALID_MODES:
+        print("❌ 用法: penglai companion mode quiet|present|active")
+        return 1
+    if not _cli_set_mykey({"companion_mode": mode}):
+        return 1
+    # 同时写一份到 state，便于立即反映（即使心跳还没热重读 mykey）
+    state = _load_json(_STATE)
+    state["last_mode"] = mode
+    _save_state(state)
+    if want_json:
+        print(json.dumps({"mode": mode}, ensure_ascii=False, indent=2))
+        return 0
+    print(f"✅ 已切换模式: {mode}")
+    print(f"   quiet=只天气必说；present=天气/情绪/早晚锚点必说，free 谨慎；"
+          f"active=所有源过门禁，free 不强制说")
+    return 0
+
+
+def _cli_pause(rest, want_json):
+    hours = None
+    for i, a in enumerate(rest):
+        if a == "--hours" and i + 1 < len(rest):
+            try:
+                hours = float(rest[i + 1])
+            except Exception:
+                hours = None
+    if hours is None or hours <= 0:
+        print("❌ 用法: penglai companion pause --hours N（N>0）")
+        return 1
+    state = _load_json(_STATE)
+    state["paused_until"] = time.time() + hours * 3600
+    _save_state(state)
+    end = datetime.fromtimestamp(state["paused_until"]).strftime("%Y-%m-%d %H:%M")
+    if want_json:
+        print(json.dumps({"paused_until": state["paused_until"],
+                          "resume_at": end, "hours": hours},
+                         ensure_ascii=False, indent=2))
+        return 0
+    print(f"✅ 已暂停 {hours} 小时，至 {end} 自动恢复")
+    return 0
+
+
+def _cli_resume(want_json):
+    state = _load_json(_STATE)
+    state.pop("paused_until", None)
+    _save_state(state)
+    if want_json:
+        print(json.dumps({"resumed": True}, ensure_ascii=False, indent=2))
+        return 0
+    print("✅ 已恢复（清除暂停态）")
+    return 0
+
+
+def _cli_why(want_json):
+    state = _load_json(_STATE)
+    cfg = _cfg()
+    diag = {}
+    now = datetime.now()
+    decision, why = _decide(cfg, state, now, diag)
+    info = {
+        "last_check_ts": state.get("last_check_ts"),
+        "last_reason": state.get("last_reason"),
+        "last_reason_human": _REASON_MAP.get(state.get("last_reason", ""),
+                                              state.get("last_reason", "")),
+        "current_decision": decision,
+        "current_reason": why,
+        "current_reason_human": _REASON_MAP.get(why, why),
+        "mode": cfg.get("mode", "present"),
+        "diag": diag,
+    }
+    if want_json:
+        print(json.dumps(info, ensure_ascii=False, indent=2, default=str))
+        return 0
+    print("=== 触发原因 ===")
+    print(f"模式: {info['mode']}")
+    if info["last_check_ts"]:
+        print(f"上次心跳: {int(time.time() - float(info['last_check_ts']))} 秒前")
+    if info["last_reason"]:
+        print(f"上次原因: {info['last_reason_human']}（{info['last_reason']}）")
+    print(f"本次决策: {info['current_reason_human']}（{info['current_reason']}）")
+    if decision:
+        print(f"本次触发: {decision[0]}")
+        if decision[1]:
+            print(f"上下文: {str(decision[1])[:200]}")
+    if diag:
+        print(f"诊断细节: {diag}")
+    return 0
+
+
+def _cli_test(rest, want_json):
+    send = "--send" in rest
+    dry = "--dry-run" in rest
+    if not send and not dry:
+        print("❌ 用法: penglai companion test --dry-run | --send")
+        return 1
+    cfg = _cfg()
+    state = _load_json(_STATE)
+    now = datetime.now()
+    diag = {}
+    decision, why = _decide(cfg, state, now, diag)
+    info = {
+        "send": send,
+        "mode": cfg.get("mode", "present"),
+        "would_trigger": decision is not None,
+        "trigger_kind": decision[0] if decision else None,
+        "reason": why,
+        "reason_human": _REASON_MAP.get(why, why),
+        "diag": diag,
+    }
+    if not send:
+        if want_json:
+            print(json.dumps(info, ensure_ascii=False, indent=2, default=str))
+            return 0
+        print("=== Dry Run ===")
+        print(f"模式: {info['mode']}")
+        print(f"会触发: {'是' if info['would_trigger'] else '否'}")
+        if decision:
+            print(f"触发源: {decision[0]}")
+            if decision[1]:
+                print(f"上下文: {str(decision[1])[:200]}")
+        print(f"原因: {info['reason_human']}（{why}）")
+        if diag:
+            print(f"诊断: {diag}")
+        return 0
+    # --send: 真投递一条测试消息（不走 Runtime Hub，避免起服务）
+    body = (f"[蓬莱 companion 投递测试] 模式={cfg.get('mode', 'present')}, "
+            f"触发判定={why}, 时间={now.strftime('%Y-%m-%d %H:%M:%S')}")
+    sent, errors = _deliver_companion_body(cfg, body)
+    info["sent_channels"] = sent
+    info["errors"] = errors
+    info["body"] = body
+    # 写 context ledger 作为 companion_test 事件，便于审计
+    try:
+        from penglai_runtime.context_events import append_context_event
+        append_context_event(
+            "companion_test", body,
+            channel="companion", actor=cfg.get("open_id", ""),
+            metadata={"mode": cfg.get("mode", "present"), "trigger": "test",
+                      "session_id": "owner:default", "session_scope": "owner",
+                      "channels": sent, "errors": errors},
+            session_id="owner:default", session_scope="owner",
+        )
+    except Exception as e:
+        info["context_event_error"] = str(e)
+    if want_json:
+        print(json.dumps(info, ensure_ascii=False, indent=2, default=str))
+        return 0 if sent else 1
+    print("=== 真投递测试 ===")
+    print(f"消息: {body}")
+    if sent:
+        print(f"✅ 已投递: {'+'.join(sent)}")
+        return 0
+    print(f"❌ 投递失败: {'; '.join(errors) if errors else '所有渠道失败'}")
+    print("   提示: 检查 fs_app_id/fs_app_secret 配置，或微信 token (~/.wxbot/token.json)")
+    return 1

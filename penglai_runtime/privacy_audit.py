@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Low-side-effect privacy and pre-release audit for Penglai 0.3.0."""
+"""Low-side-effect privacy and pre-release audit for Penglai."""
 
 from __future__ import annotations
 
@@ -223,7 +223,7 @@ def audit(
     """Return a structured privacy and pre-release audit.
 
     The default mode fails only for privacy blockers.  Release blockers are
-    reported separately so local 0.3.0 preview work can proceed without
+    reported separately so local preview work can proceed without
     pretending the branch is publishable.
     """
     root = os.path.realpath(root)

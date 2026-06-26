@@ -135,7 +135,24 @@ class TaskRun:
             return self._terminal_blocked(RunStatus.WAITING_PERMISSION)
         self.status = RunStatus.WAITING_PERMISSION
         self.permission = request
-        self.finished_at = time.time()
+        # WAITING_PERMISSION is non-terminal: do NOT set finished_at here.
+        # The run will be resumed via resume() -> RUNNING -> SUCCEEDED/FAILED.
+        return self
+
+    def resume(self, *, worker_id=None):
+        """Transition from WAITING_PERMISSION back to RUNNING.
+
+        Closes the FSM so the same TaskRun can be reused when the user
+        responds to a permission request, instead of spawning a new run.
+        """
+        if self.terminal:
+            return self._terminal_blocked(RunStatus.RUNNING)
+        if self.status != RunStatus.WAITING_PERMISSION:
+            return self._terminal_blocked(RunStatus.RUNNING)
+        self.status = RunStatus.RUNNING
+        self.permission = None
+        if worker_id:
+            self.worker_id = str(worker_id)
         return self
 
     def succeed(self, text="", *, artifacts=()):

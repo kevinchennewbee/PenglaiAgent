@@ -2,10 +2,12 @@
 """Runtime Hub service layer for real adapters."""
 
 import threading
+import time
+import uuid
 from threading import Lock
 
 from .hub import PenglaiRuntimeHub
-from .contracts import QueueDecision
+from .contracts import InboundEvent, QueueDecision, RunStatus, SessionRef, TaskRun
 from .context_events import append_context_event
 from .port import GenericAgentPort
 from .runner import AgentRunner
@@ -46,6 +48,56 @@ class RuntimeHubService:
         # it; reusing the active event's port leaks platform UI state such as
         # Feishu task cards.
         self._pending_dispatch = {}
+        # Clean up zombie TaskRuns left by a previous crashed process.
+        self._recover_crashed_runs()
+
+    def _recover_crashed_runs(self):
+        """Mark zombie TaskRuns (running/waiting_permission) as failed.
+
+        Called from __init__ to clean up runs left behind by a crashed
+        process.  Late success from a zombie process is blocked by
+        record_run's terminal guard (store.py).
+        """
+        try:
+            crashed = self.store.get_crashed_runs()
+        except Exception:
+            return
+        for row in crashed:
+            run_id = row.get("run_id") or ""
+            if not run_id:
+                continue
+            prev_status = row.get("status") or ""
+            error_excerpt = "crash recovery: process restarted"
+            recovered_meta = dict(row.get("metadata") or {})
+            recovered_meta["crash_recovered"] = True
+            recovered_meta["prev_status"] = prev_status
+            run = TaskRun(
+                event_id=row.get("event_id") or "",
+                session_id=row.get("session_id") or "",
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                worker_id=row.get("worker_id") or "single-worker",
+                created_at=float(row.get("created_at") or 0),
+                started_at=float(row.get("started_at") or 0),
+                finished_at=time.time(),
+                error=error_excerpt,
+                metadata=recovered_meta,
+            )
+            self.store.record_run(run, allow_terminal_overwrite=True)
+            # Clean up session_state active flags for the affected session.
+            sid = row.get("session_id") or ""
+            if sid:
+                try:
+                    self.store.record_session_state(
+                        sid,
+                        active=False,
+                        active_run_id="",
+                        active_status="failed",
+                        pending_count=0,
+                        clear_cancel=True,
+                    )
+                except Exception:
+                    pass
 
     def _default_port_factory(self, session, event):
         return GenericAgentPort(source=event.channel)
@@ -174,6 +226,81 @@ class RuntimeHubService:
             )
             self.hub.complete(session.session_id)
             self._record_session_state(session.session_id, clear_cancel=result.status == "cancelled")
+            return result
+
+    def resume_permission(self, run_id, choice, *, port=None, on_complete=None, **kwargs):
+        """Resume a WAITING_PERMISSION TaskRun with the user's choice.
+
+        Closes the FSM by reusing the same TaskRun:
+        WAITING_PERMISSION -> RUNNING -> SUCCEEDED/FAILED.
+
+        ``choice`` is the user's chosen value (text).  The original TaskRun
+        is looked up by ``run_id`` and transitioned in place; no new TaskRun
+        is created.
+        """
+        run = self.runner.get_run(run_id)
+        if run is None:
+            raise ValueError(f"未找到任务记录: {run_id}")
+        if run.status != RunStatus.WAITING_PERMISSION:
+            raise ValueError(
+                f"任务不在等待权限状态 (status={run.status}): {run_id}"
+            )
+
+        session_id = run.session_id
+        lock = self._session_lock(session_id)
+        channel = str((run.metadata or {}).get("channel") or "runtime")
+        scope = str((run.metadata or {}).get("scope") or "owner")
+        resume_event = InboundEvent(
+            event_id=f"resume_{run_id}_{uuid.uuid4().hex}",
+            channel=channel,
+            user_id="owner" if scope == "owner" else "",
+            chat_id="",
+            chat_type="private",
+            text=str(choice or ""),
+            metadata={
+                "resume_of": run_id,
+                "resume_choice": str(choice or ""),
+                "original_event_id": run.event_id,
+            },
+        )
+        session = SessionRef(
+            session_id=session_id,
+            scope=scope,
+            channel=channel,
+            user_id=resume_event.user_id,
+            chat_id="",
+        )
+
+        with lock:
+            if port is None:
+                port = self._session_port(session, resume_event)
+            result = self.runner.resume_permission(
+                run,
+                resume_event,
+                session,
+                port,
+                on_task_start=self._on_task_start,
+                cancel_check=lambda sid=session_id: self._cancel_check(sid),
+                **kwargs,
+            )
+            self.store.record_run(result.task_run)
+            self._finalize_cancel_request(session_id, result)
+            self._record_context_event(
+                "assistant_result",
+                result.cleaned_output or result.task_run.result_text,
+                resume_event,
+                session,
+                task_run=result.task_run,
+            )
+            self.hub.complete(session_id)
+            self._record_session_state(
+                session_id, clear_cancel=result.status == "cancelled"
+            )
+            if on_complete is not None:
+                try:
+                    on_complete(result)
+                except Exception:
+                    pass
             return result
 
     def submit(self, event, *, port=None, on_complete=None, **kwargs):

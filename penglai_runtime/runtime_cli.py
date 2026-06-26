@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Local Runtime Hub CLI entrypoint for the 0.3.0 branch."""
+"""Local Runtime Hub CLI entrypoint."""
 
 import argparse
 import contextlib
@@ -10,7 +10,8 @@ import urllib.error
 import urllib.request
 import uuid
 
-from .contracts import InboundEvent
+from . import VERSION
+from .contracts import InboundEvent, PermissionRequest
 from .context_events import default_context_log_path
 from .permissions import render_permission_text, resolve_permission_choice
 from .port import GenericAgentPort
@@ -92,7 +93,26 @@ def run_runtime_message(
     chat_type="private",
     timeout=1200,
 ):
-    """Run a real local message through Runtime Hub and GenericAgent."""
+    """Run a real local message through Runtime Hub and GenericAgent.
+
+    Owner messages are routed through the control API (/message) when the
+    Runtime Hub service is running, so that all owner entry points (TUI,
+    desktop, IM) share the same GA session.  If the control API is not
+    available, falls back to an in-process RuntimeHubService.
+    """
+    # Try control API first for shared owner GA session.
+    ctrl = send_message_via_control_api(
+        text,
+        channel=channel,
+        user_id=user_id,
+        chat_id=chat_id,
+        chat_type=chat_type,
+        timeout=timeout,
+    )
+    if ctrl is not None:
+        ctrl["via"] = "control_api"
+        return ctrl
+    # Fallback: in-process RuntimeHubService.
     event = _event(text, channel=channel, user_id=user_id, chat_id=chat_id, chat_type=chat_type)
     service = RuntimeHubService(
         owner_user_ids={user_id},
@@ -133,6 +153,7 @@ class RuntimeChatSession:
             context_log_path=default_context_log_path(),
         )
         self.pending_permission = None
+        self.pending_run_id = ""
         self.last_session_id = ""
         self.turn_no = 0
 
@@ -144,6 +165,20 @@ class RuntimeChatSession:
             user_id=self.user_id,
             chat_id=self.chat_id,
             chat_type=self.chat_type,
+        )
+
+    @staticmethod
+    def _permission_from_response(data):
+        """Reconstruct a PermissionRequest from a control API response dict."""
+        perm = data.get("permission") or {}
+        if not perm or not perm.get("action") or not perm.get("prompt"):
+            return None
+        return PermissionRequest(
+            action=str(perm.get("action") or ""),
+            prompt=str(perm.get("prompt") or ""),
+            options=tuple(perm.get("options") or ()),
+            request_id=str(perm.get("request_id") or ""),
+            metadata=dict(perm.get("metadata") or {}),
         )
 
     def send(self, text):
@@ -163,8 +198,51 @@ class RuntimeChatSession:
                         "options": list(self.pending_permission.options),
                     },
                 }
+            # Try control API resume first (shared owner GA session).
+            if self.pending_run_id:
+                ctrl = resume_permission_via_control_api(
+                    self.pending_run_id,
+                    chosen,
+                    channel=self.channel,
+                    user_id=self.user_id,
+                    chat_id=self.chat_id,
+                    timeout=self.timeout,
+                )
+                if ctrl is not None:
+                    self.pending_permission = None
+                    self.pending_run_id = ""
+                    self.last_session_id = ctrl.get("session_id") or self.last_session_id
+                    ctrl["via"] = "control_api"
+                    perm = self._permission_from_response(ctrl)
+                    if perm is not None:
+                        self.pending_permission = perm
+                        self.pending_run_id = ctrl.get("run_id") or ""
+                        ctrl["output"] = render_permission_text(perm)
+                    return ctrl
+            # Fallback: local service (preserves 0.3.x behavior).
             self.pending_permission = None
+            self.pending_run_id = ""
             text = chosen
+        else:
+            # Normal message: try control API first for shared owner GA session.
+            ctrl = send_message_via_control_api(
+                text,
+                channel=self.channel,
+                user_id=self.user_id,
+                chat_id=self.chat_id,
+                chat_type=self.chat_type,
+                timeout=self.timeout,
+            )
+            if ctrl is not None:
+                ctrl["via"] = "control_api"
+                self.last_session_id = ctrl.get("session_id") or self.last_session_id
+                perm = self._permission_from_response(ctrl)
+                if perm is not None:
+                    self.pending_permission = perm
+                    self.pending_run_id = ctrl.get("run_id") or ""
+                    ctrl["output"] = render_permission_text(perm)
+                return ctrl
+        # Fallback: in-process RuntimeHubService.
         result = self.service.receive_blocking(
             self.event(text),
             send_body=False,
@@ -174,6 +252,7 @@ class RuntimeChatSession:
         data = _result_dict(result)
         if result.permission is not None:
             self.pending_permission = result.permission
+            self.pending_run_id = result.task_run.run_id
             data["output"] = render_permission_text(result.permission)
         return data
 
@@ -251,8 +330,110 @@ def cancel_via_control_api(
     return data
 
 
+def send_message_via_control_api(
+    text,
+    *,
+    channel="tui",
+    user_id="owner",
+    chat_id="local-runtime",
+    chat_type="private",
+    timeout=1200,
+    host="127.0.0.1",
+    port=DEFAULT_CONTROL_PORT,
+    token_file=None,
+    images=None,
+    files=None,
+    voice=None,
+    metadata=None,
+):
+    """Send an owner message through the Runtime Hub control API /message.
+
+    Returns the response dict from the control API on success, or None if the
+    control API is not running / not configured (connection refused, missing
+    token).  Callers should fall back to the local Hub when None is returned.
+    """
+    from .control_api import default_token_path
+
+    token_path = token_file or default_token_path()
+    token = _read_token(token_path)
+    if not token:
+        return None
+    body = {
+        "text": str(text or ""),
+        "channel": str(channel or "tui"),
+        "user_id": str(user_id or "owner"),
+        "chat_id": str(chat_id or "local-control"),
+        "chat_type": str(chat_type or "private"),
+        "timeout": float(timeout),
+    }
+    if images:
+        body["images"] = list(images)
+    if files:
+        body["files"] = list(files)
+    if voice:
+        body["voice"] = list(voice)
+    if metadata:
+        body["metadata"] = dict(metadata)
+    try:
+        return control_api_post(
+            "/message",
+            body,
+            host=host,
+            port=port,
+            token_file=token_path,
+            timeout=float(timeout) + 5,
+        )
+    except (urllib.error.URLError, ConnectionError, OSError, FileNotFoundError):
+        return None
+
+
+def resume_permission_via_control_api(
+    run_id,
+    choice,
+    *,
+    channel="tui",
+    user_id="owner",
+    chat_id="local-control",
+    timeout=1200,
+    host="127.0.0.1",
+    port=DEFAULT_CONTROL_PORT,
+    token_file=None,
+):
+    """Resume a WAITING_PERMISSION run via the control API /resume endpoint.
+
+    Returns the response dict on success, or None if the control API is not
+    available.  Callers should fall back to local resume_permission when None
+    is returned.
+    """
+    from .control_api import default_token_path
+
+    token_path = token_file or default_token_path()
+    token = _read_token(token_path)
+    if not token:
+        return None
+    body = {
+        "run_id": str(run_id or ""),
+        "choice": str(choice or ""),
+        "channel": str(channel or "tui"),
+        "user_id": str(user_id or "owner"),
+        "chat_id": str(chat_id or "local-control"),
+        "timeout": float(timeout),
+    }
+    try:
+        return control_api_post(
+            "/resume",
+            body,
+            host=host,
+            port=port,
+            token_file=token_path,
+            timeout=float(timeout) + 5,
+        )
+    except (urllib.error.URLError, ConnectionError, OSError, FileNotFoundError):
+        return None
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="通过蓬莱 0.3.0 中枢发送一条本地消息")
+    parser = argparse.ArgumentParser(description=f"通过蓬莱 {VERSION} 中枢发送一条本地消息")
     parser.add_argument("text", nargs="*", help="消息内容")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     parser.add_argument("--channel", default="tui", help="中枢渠道")
@@ -289,7 +470,7 @@ def main(argv=None):
             data["logs"] = captured
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
-        print(f"蓬莱中枢 0.3.0：{'通过' if data['ok'] else '失败'}")
+        print(f"蓬莱中枢 {VERSION}：{'通过' if data['ok'] else '失败'}")
         print(f"会话：{data['session_id']}（{_scope_label(data['scope'])}）")
         print(f"任务：{data['run_id']} {_status_label(data['status'])}，执行器：{data['worker_id']}")
         if data["output"]:
@@ -300,7 +481,7 @@ def main(argv=None):
 
 
 def chat_main(argv=None):
-    parser = argparse.ArgumentParser(description="启动蓬莱 0.3.0 中枢命令行对话")
+    parser = argparse.ArgumentParser(description=f"启动蓬莱 {VERSION} 中枢命令行对话")
     parser.add_argument("--json", action="store_true", help="单次发送时输出 JSON")
     parser.add_argument("--once", nargs="*", help="只发送一条消息后退出")
     parser.add_argument("--channel", default="tui", help="中枢渠道")
@@ -325,7 +506,7 @@ def chat_main(argv=None):
             _print_runtime_result(data)
         return 0 if data.get("ok") else 1
 
-    print("蓬莱 0.3.0 中枢命令行")
+    print(f"蓬莱 {VERSION} 中枢命令行")
     print("输入消息发送；/status 查看状态；/history 查看最近运行；/cancel 停止当前 session；/quit 退出。")
     while True:
         try:

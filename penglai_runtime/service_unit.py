@@ -12,6 +12,8 @@ import time
 import urllib.error
 import urllib.request
 
+from . import VERSION
+
 
 SERVICE_NAME = "penglai-runtime-hub"
 LAUNCHD_LABEL = "com.penglai.runtimehub"
@@ -53,7 +55,7 @@ def systemd_unit(*, root=None, python=None, user=None, home=None, port=DEFAULT_P
     env_sh = os.path.join(root, "env.sh")
     return (
         "[Unit]\n"
-        "Description=Penglai Runtime Hub 0.3.0 Control API\n"
+        f"Description=Penglai Runtime Hub {VERSION} Control API\n"
         "After=network-online.target\n\n"
         "[Service]\n"
         "Type=simple\n"

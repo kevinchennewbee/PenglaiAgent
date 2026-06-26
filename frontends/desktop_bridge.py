@@ -30,7 +30,7 @@ WS API:
 """
 from __future__ import annotations
 
-import asyncio, contextlib, hmac, importlib, json, os, secrets, sys
+import asyncio, contextlib, hmac, importlib, json, os, platform, secrets, sys
 import threading, time, traceback, uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,21 +72,43 @@ DEFAULT_GA_ROOT = find_default_ga_root()
 if str(DEFAULT_GA_ROOT) not in sys.path:
     sys.path.insert(0, str(DEFAULT_GA_ROOT))
 
-try:
-    from penglai_runtime import tts_service
-    from penglai_runtime.channel_runtime import ChannelRuntimeBridge
-    from penglai_runtime.context_events import default_context_log_path
-    from penglai_runtime.control_api import (
-        command_catalog,
-        ops_checks,
-        read_ops_logs,
-        run_ops_command,
-        _is_loopback_host,
-    )
-    from penglai_runtime.permissions import permission_payload, render_permission_text, resolve_permission_choice
-    from penglai_runtime.port import GenericAgentInstancePort
-    from penglai_runtime.service import RuntimeHubService
-except Exception:
+# --bootstrap: minimal HTTP + setup endpoints, defer heavy runtime imports.
+# Used by the Tauri shell before mykey.py / runtime config exists so the setup
+# wizard can drive configuration through bridge HTTP endpoints instead of the
+# Rust layer inlining Python.
+BOOTSTRAP_MODE = "--bootstrap" in sys.argv
+
+if not BOOTSTRAP_MODE:
+    try:
+        from penglai_runtime import tts_service
+        from penglai_runtime.channel_runtime import ChannelRuntimeBridge
+        from penglai_runtime.context_events import default_context_log_path
+        from penglai_runtime.control_api import (
+            command_catalog,
+            ops_checks,
+            read_ops_logs,
+            run_ops_command,
+            _is_loopback_host,
+        )
+        from penglai_runtime.permissions import permission_payload, render_permission_text, resolve_permission_choice
+        from penglai_runtime.port import GenericAgentInstancePort
+        from penglai_runtime.service import RuntimeHubService
+    except Exception:
+        tts_service = None
+        ChannelRuntimeBridge = None
+        default_context_log_path = None
+        command_catalog = None
+        ops_checks = None
+        read_ops_logs = None
+        run_ops_command = None
+        _is_loopback_host = None
+        permission_payload = None
+        render_permission_text = None
+        resolve_permission_choice = None
+        GenericAgentInstancePort = None
+        RuntimeHubService = None
+else:
+    # Bootstrap mode: serve setup endpoints only, runtime stays None.
     tts_service = None
     ChannelRuntimeBridge = None
     default_context_log_path = None
@@ -714,7 +736,8 @@ async def status_handler(request):
     return json_ok({
         "ok": True,
         "running": True,
-        "ready": True,
+        "ready": not BOOTSTRAP_MODE,
+        "bootstrap": BOOTSTRAP_MODE,
         "penglaiRoot": manager.ga_root,
         "gaRoot": manager.ga_root,
         "mykeyPath": manager.mykey_path,
@@ -793,6 +816,19 @@ def _require_ops_available(request):
         raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "非本机来源已拒绝"}, ensure_ascii=False), content_type="application/json")
     if command_catalog is None or ops_checks is None or read_ops_logs is None or run_ops_command is None:
         raise web.HTTPServiceUnavailable(text=json.dumps({"ok": False, "error": "蓬莱运维控制不可用"}, ensure_ascii=False), content_type="application/json")
+
+
+def _require_token(request):
+    """Validate loopback origin + bridge token for channel/ability/mykey/doctor handlers.
+
+    Previously this symbol was referenced by 9 handlers but never defined, causing
+    NameError → HTTP 500 on /channels /abilities /mykey /doctor.  Mirrors the
+    checks done by ``desktop_security_middleware`` for PROTECTED paths.
+    """
+    if not _same_bridge_origin(request, request.headers.get("Origin", "")):
+        raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "非本机同源请求已拒绝"}, ensure_ascii=False), content_type="application/json")
+    if not _bridge_auth_ok(request):
+        raise web.HTTPUnauthorized(text=json.dumps({"ok": False, "error": "桌面桥接 token 缺失或无效"}, ensure_ascii=False), content_type="application/json")
 
 
 async def ops_commands_handler(request):
@@ -914,7 +950,7 @@ async def tts_audio_handler(request):
     return web.FileResponse(target, headers={"Content-Type": "audio/wav"})
 
 
-# ── Channel & Ability management (v0.3.0 补配置) ─────────────────────
+# ── Channel & Ability management (v0.3.1 补配置) ─────────────────────
 
 CHANNEL_REGISTRY = (
     ("feishu",   "飞书 Feishu",       "推荐·已实测·扫码即用"),
@@ -1180,6 +1216,401 @@ async def doctor_handler(request):
     return json_ok(report)
 
 
+# ── Setup wizard endpoints (replaces lib.rs inline Python ops) ──────────
+# These endpoints move the 9 setup operations that previously lived as
+# format!()-built Python source strings in lib.rs into the bridge.  The Rust
+# shell now calls them over HTTP (see setup_op in lib.rs).  In --bootstrap
+# mode these are the primary endpoints; runtime endpoints return 503.
+
+def _penglai_cli_path() -> str:
+    return str(Path(manager.ga_root) / "penglai")
+
+
+def _chmod_private(path) -> None:
+    """Set file permissions to owner-only (0o600).
+
+    On Windows, os.chmod(0o600) collapses to read-only (0o400) because Windows
+    only honors the writable bit.  This would prevent subsequent writes to
+    mykey.py (reconfiguration) or global_mem_insight.txt (runtime memory
+    updates).  On Windows we skip the chmod and rely on filesystem ACLs; on
+    Unix we set 0o600 as expected.
+    """
+    if platform.system() == "Windows":
+        return
+    try:
+        os.chmod(path, 0o600)
+    except Exception:
+        pass
+
+
+def _list_penglai_processes() -> list:
+    """List running penglai-related processes across platforms.
+
+    On Unix uses pgrep; on Windows uses wmic/tasklist.  Returns a list of
+    {"pid": str, "name": str} dicts.  Used by setup_service_status_handler.
+    """
+    try:
+        if platform.system() == "Windows":
+            out = subprocess.check_output(
+                ["wmic", "process", "where",
+                 "name='python.exe' or name='pythonw.exe'",
+                 "get", "processid,commandline"],
+                timeout=5,
+            ).decode("utf-8", errors="replace")
+            results = []
+            for line in out.strip().splitlines()[1:]:  # skip header
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.rsplit(None, 1)
+                if len(parts) == 2 and "penglai" in parts[0].lower():
+                    results.append({"pid": parts[1], "name": "penglai"})
+            return results
+        else:
+            out = subprocess.check_output(
+                ["pgrep", "-f", "penglai"], timeout=3
+            ).decode("utf-8", errors="replace")
+            return [{"pid": line.strip(), "name": "penglai"}
+                    for line in out.strip().splitlines() if line.strip()]
+    except Exception:
+        return []
+
+
+def _try_penglai_setup_only(modules: str, params: dict):
+    """Attempt to delegate to ``penglai setup --only <modules> --json``.
+
+    Returns ``None`` when the CLI does not yet support ``--only`` (Phase 1
+    work) so the caller can fall back to the direct-write path.  When the CLI
+    accepts the flag, returns its parsed JSON result dict.
+
+    NOTE: penglai_setup.py's main() has a TTY check that rejects non-interactive
+    invocations (subprocess with piped stdin).  We detect that case and return
+    None so the caller falls back to direct write — without this, single-module
+    calls like --only identity would return a non-None failure dict and the
+    fallback would never trigger, leaving the desktop wizard unable to write
+    identity/mykey.
+    """
+    import subprocess
+    py = _find_python()
+    cmd = [py, _penglai_cli_path(), "setup", "--only", modules, "--json"]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=manager.ga_root,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            input=json.dumps(params, ensure_ascii=False),
+        )
+    except Exception:
+        return None
+    combined = (proc.stdout or "") + (proc.stderr or "")
+    low = combined.lower()
+    # CLI rejected --only / --json (not yet implemented by Phase 1) → fall back
+    if proc.returncode != 0 and (
+        "unrecognized" in low or "invalid choice" in low or "invalid arguments" in low
+        or "no such option" in low or "usage:" in low
+    ):
+        return None
+    # CLI rejected because stdin is not a TTY (non-interactive invocation).
+    # This is expected when called from the desktop bridge subprocess.  Fall
+    # back to direct write instead of returning a failure dict.
+    if proc.returncode != 0 and "交互终端" in combined:
+        return None
+    if proc.returncode != 0:
+        return {"ok": False, "error": combined[:500], "source": "penglai setup --only"}
+    try:
+        data = json.loads(proc.stdout)
+        if isinstance(data, dict):
+            data.setdefault("ok", True)
+            return data
+    except Exception:
+        pass
+    return {"ok": True, "stdout": proc.stdout, "source": "penglai setup --only"}
+
+
+async def setup_list_providers_handler(request):
+    _require_token(request)
+    import yaml  # type: ignore
+    data = None
+    try:
+        with open(Path(manager.ga_root) / "penglai_providers.yaml", "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except Exception:
+        pass
+    if data is None:
+        data = {
+            "wizard_order": ["deepseek", "volcengine", "bailian", "zhipu", "minimax",
+                              "moonshot", "openrouter", "hunyuan", "xunfei", "agnes", "custom"],
+            "providers": {},
+        }
+    return json_ok(data)
+
+
+async def setup_test_llm_handler(request):
+    _require_token(request)
+    import urllib.request
+    body = await read_json(request)
+    base = str(body.get("base_url") or "").rstrip("/")
+    model = str(body.get("model") or "")
+    key = str(body.get("api_key") or "")
+    try:
+        req = urllib.request.Request(
+            f"{base}/chat/completions",
+            data=json.dumps({"model": model, "messages": [{"role": "user", "content": "回复两个字：蓬莱"}], "max_tokens": 64}).encode(),
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=40)
+        result = json.loads(resp.read())
+        content = result["choices"][0]["message"]["content"]
+        return json_ok({"ok": True, "content": content})
+    except Exception as e:
+        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+
+
+async def setup_feishu_qr_init_handler(request):
+    _require_token(request)
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            "https://accounts.feishu.cn/oauth/v1/app/registration",
+            data=b"action=init",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp = urllib.request.urlopen(req, timeout=20)
+        data = json.loads(resp.read())
+        if "client_secret" not in str(data.get("supported_auth_methods", "")):
+            return json_ok({"ok": False, "error": "Feishu device flow not available, use manual mode"})
+        req2 = urllib.request.Request(
+            "https://accounts.feishu.cn/oauth/v1/app/registration",
+            data=b"action=begin&archetype=PersonalAgent&auth_method=client_secret&request_user_info=open_id",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp2 = urllib.request.urlopen(req2, timeout=20)
+        data2 = json.loads(resp2.read())
+        return json_ok({
+            "ok": True,
+            "device_code": data2.get("device_code", ""),
+            "qr_url": data2.get("verification_uri_complete", ""),
+            "expires_in": data2.get("expires_in", 600),
+            "interval": data2.get("interval", 2),
+        })
+    except Exception as e:
+        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+
+
+async def setup_feishu_qr_poll_handler(request):
+    _require_token(request)
+    import urllib.request
+    body = await read_json(request)
+    device_code = str(body.get("device_code") or "")
+    try:
+        req = urllib.request.Request(
+            "https://accounts.feishu.cn/oauth/v1/app/registration",
+            data=f"action=poll&device_code={device_code}&tp=ob_app".encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp = urllib.request.urlopen(req, timeout=20)
+        data = json.loads(resp.read())
+        if "client_id" in data and "client_secret" in data:
+            return json_ok({"status": "ok", "app_id": data["client_id"], "app_secret": data["client_secret"]})
+        if "access_denied" in str(data):
+            return json_ok({"status": "denied"})
+        if "expired" in str(data).lower():
+            return json_ok({"status": "expired"})
+        return json_ok({"status": "waiting"})
+    except Exception as e:
+        return json_ok({"status": "error", "error": str(e)[:200]}, status=500)
+
+
+async def setup_feishu_verify_handler(request):
+    _require_token(request)
+    import urllib.request
+    body = await read_json(request)
+    app_id = str(body.get("app_id") or "")
+    app_secret = str(body.get("app_secret") or "")
+    try:
+        payload = json.dumps({"app_id": app_id, "app_secret": app_secret}).encode()
+        req = urllib.request.Request(
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=20)
+        data = json.loads(resp.read())
+        if data.get("code") == 0:
+            return json_ok({"ok": True, "tenant_access_token": "valid"})
+        return json_ok({"ok": False, "error": "code={} msg={}".format(data.get("code"), data.get("msg", ""))})
+    except Exception as e:
+        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+
+
+async def setup_write_identity_handler(request):
+    _require_token(request)
+    body = await read_json(request)
+    agent_name = str(body.get("agent_name") or "蓬莱助手 Penglai")
+    user_name = str(body.get("user_name") or "主人")
+    # Task 8: delegate to CLI when --only is available.
+    cli_result = _try_penglai_setup_only("identity", {"agent_name": agent_name, "user_name": user_name})
+    if cli_result is not None:
+        return json_ok(cli_result)
+    # Fallback: direct write (moved from lib.rs inline Python).
+    import os
+    mem_dir = Path(manager.ga_root) / "memory"
+    mem_dir.mkdir(parents=True, exist_ok=True)
+    ins_path = mem_dir / "global_mem_insight.txt"
+    base = f'''# [Global Memory Insight]
+L0: ../memory/memory_management_sop.md
+L2: global_mem.txt (当前空)
+L3: cleanup/scheduled/autonomous/plan/subagent/web_setup
+L4: ../memory/L4_raw_sessions/
+
+# 规则
+1. 行动验证: 无工具执行结果不写入记忆
+2. 交叉验证: 关键事实至少两个独立来源
+3. 读后即改: 修改前必须先读当前内容
+4. 闭环: 每次任务结束做记忆结算
+5. SOP 优先: 匹配到场景先读对应 SOP
+
+[身份]
+我是「{agent_name}」，基于 GenericAgent 的开源个人管家发行版蓬莱。用户称呼：{user_name}。
+被问及身份/名字时以此为准，勿自称底层模型名。
+
+[蓬莱SOP]
+penglai_checkpoint_sop: 长任务打检查点
+penglai_compress_sop: 记忆压缩
+penglai_channels_sop: IM渠道管理（penglai enable <渠道>）
+penglai_memsig_sop: 长期事实写入（时间戳+取代旧条目）
+scheduled_task_sop: 提醒/定时任务（注意注入安全）
+penglai_weather_sop: 天气（Open-Meteo 免费）
+版本更新: penglai update --check / --apply，禁止裸 git 命令
+
+[蓬莱规则]
+IM 图片: 读 penglai_im_vision_sop，用 ask_vision(backend='openai')，勿先 OCR
+语音: 包含[audio:文件名]时，首个工具调用必须是 transcribe(path=该音频路径)
+'''
+    existing = ""
+    if ins_path.exists():
+        existing = ins_path.read_text(encoding="utf-8")
+    if existing and "[身份]" in existing:
+        for tag in ["[身份]", "[蓬莱SOP]", "[蓬莱规则]"]:
+            idx = existing.find(tag)
+            if idx >= 0:
+                end = existing.find("[", idx + 1)
+                existing = existing[:idx] + ("" if end < 0 else existing[end:])
+        ins_path.write_text(existing.strip() + "\n\n" + base, encoding="utf-8")
+    else:
+        ins_path.write_text(base, encoding="utf-8")
+    _chmod_private(ins_path)
+    return json_ok({"ok": True, "path": str(ins_path), "source": "bridge-direct"})
+
+
+async def setup_write_mykey_handler(request):
+    _require_token(request)
+    body = await read_json(request)
+    # Task 8: delegate to CLI when --only is available.
+    modules = ["llm"]
+    if body.get("fs_app_id"):
+        modules.append("feishu")
+    if body.get("companion"):
+        modules.append("companion")
+    if body.get("critic_model"):
+        modules.append("critic")
+    if body.get("tinyfish_key") or body.get("tavily_key") or body.get("firecrawl_key"):
+        modules.append("intel")
+    cli_result = _try_penglai_setup_only(",".join(modules), body)
+    if cli_result is not None:
+        return json_ok(cli_result)
+    # Fallback: direct write (moved from lib.rs inline Python).
+    import os, shutil, datetime
+    mk = Path(manager.ga_root) / "mykey.py"
+    if mk.exists():
+        bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        shutil.copy2(mk, bak)
+    llm_name = str(body.get("llm_name") or "DeepSeek")
+    llm_key = str(body.get("llm_key") or "")
+    llm_base = str(body.get("llm_base") or "https://api.deepseek.com")
+    llm_model = str(body.get("llm_model") or "deepseek-v4-flash")
+    lang = str(body.get("lang") or "zh")
+    fs_app_id = str(body.get("fs_app_id") or "")
+    fs_app_secret = str(body.get("fs_app_secret") or "")
+    fs_owner_open_id = str(body.get("fs_owner_open_id") or "")
+    companion = bool(body.get("companion"))
+    critic_model = str(body.get("critic_model") or "")
+    critic_mode = "smart" if critic_model else ""
+    tinyfish_key = str(body.get("tinyfish_key") or "")
+    tavily_key = str(body.get("tavily_key") or "")
+    firecrawl_key = str(body.get("firecrawl_key") or "")
+
+    parts = [f"""# mykey.py -- 由 Penglai Desktop 生成
+native_oai_config = {{
+    'name': {llm_name!r},
+    'apikey': {llm_key!r},
+    'apibase': {llm_base!r},
+    'model': {llm_model!r},
+    'max_retries': 3,
+}}
+mixin_config = {{
+    'llm_nos': [{llm_name!r}],
+    'max_retries': 2,
+    'base_delay': 2,
+}}
+penglai_lang = {lang!r}
+fs_app_id = {fs_app_id!r}
+fs_app_secret = {fs_app_secret!r}
+fs_allowed_users = []
+fs_owner_open_id = {fs_owner_open_id!r}
+"""]
+    if companion:
+        parts.append("companion_enabled = True\n")
+    if critic_model:
+        parts.append(f"critic_model = {critic_model!r}\ncritic_mode = {critic_mode!r}\n")
+    if tinyfish_key:
+        parts.append(f"tinyfish_key = {tinyfish_key!r}\n")
+    if tavily_key:
+        parts.append(f"tavily_key = {tavily_key!r}\n")
+    if firecrawl_key:
+        parts.append(f"firecrawl_key = {firecrawl_key!r}\n")
+    mk.write_text("".join(parts), encoding="utf-8")
+    _chmod_private(mk)
+    return json_ok({"ok": True, "path": str(mk), "source": "bridge-direct"})
+
+
+async def setup_service_status_handler(request):
+    _require_token(request)
+    import socket
+    result = {"services": [], "bridge": False}
+    s = socket.socket()
+    s.settimeout(1)
+    if s.connect_ex(("127.0.0.1", 14168)) == 0:
+        result["bridge"] = True
+    s.close()
+    # Cross-platform process listing (pgrep on Unix, wmic on Windows)
+    result["services"] = _list_penglai_processes()
+    return json_ok(result)
+
+
+async def setup_check_main_update_handler(request):
+    _require_token(request)
+    import subprocess, os
+    cwd = manager.ga_root
+    if not os.path.exists(os.path.join(cwd, ".git")):
+        return json_ok({"has_update": False, "detail": "not a git install"})
+    try:
+        subprocess.run(
+            ["git", "fetch", "release", "main", "--depth=1"],
+            cwd=cwd, timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        behind = subprocess.check_output(
+            ["git", "rev-list", "--count", "HEAD..release/main"],
+            cwd=cwd, timeout=10,
+        ).decode().strip()
+        has = int(behind) > 0
+        return json_ok({"has_update": has, "behind": behind, "detail": f"{behind} commits behind main"})
+    except Exception as e:
+        return json_ok({"has_update": False, "detail": str(e)[:200]})
+
+
 async def runtime_status_handler(request):
     _require_runtime_read_available(request)
     session_id = request.query.get("session_id") or _active_runtime_session_id()
@@ -1254,6 +1685,16 @@ def create_app():
     app.router.add_get("/mykey", mykey_read_handler)
     app.router.add_post("/mykey", mykey_update_handler)
     app.router.add_get("/doctor", doctor_handler)
+    # Setup wizard endpoints (replaces lib.rs inline Python ops, Task 7)
+    app.router.add_get("/setup/list_providers", setup_list_providers_handler)
+    app.router.add_post("/setup/test_llm", setup_test_llm_handler)
+    app.router.add_post("/setup/feishu/qr_init", setup_feishu_qr_init_handler)
+    app.router.add_post("/setup/feishu/qr_poll", setup_feishu_qr_poll_handler)
+    app.router.add_post("/setup/feishu/verify", setup_feishu_verify_handler)
+    app.router.add_post("/setup/write_identity", setup_write_identity_handler)
+    app.router.add_post("/setup/write_mykey", setup_write_mykey_handler)
+    app.router.add_get("/setup/service_status", setup_service_status_handler)
+    app.router.add_get("/setup/check_main_update", setup_check_main_update_handler)
 
     # Serve static frontend (desktop/static/)
     static_dir = APP_DIR / "desktop" / "static"
@@ -1263,6 +1704,7 @@ def create_app():
         token_script = (
             "<script>"
             f"window.__PENGLAI_BRIDGE_TOKEN__={json.dumps(BRIDGE_TOKEN)};"
+            f"window.__PENGLAI_BOOTSTRAP__={json.dumps(BOOTSTRAP_MODE)};"
             "</script>"
         )
         if "</head>" in html:
@@ -1284,5 +1726,6 @@ def create_app():
 if __name__ == "__main__":
     host = os.environ.get("BRIDGE_HOST", "127.0.0.1")
     port = int(os.environ.get("BRIDGE_PORT", "14168"))
-    print(f"蓬莱桌面桥接：http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
+    mode_tag = " [bootstrap]" if BOOTSTRAP_MODE else ""
+    print(f"蓬莱桌面桥接{mode_tag}：http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
     web.run_app(create_app(), host=host, port=port, print=None)

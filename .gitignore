@@ -163,3 +163,12 @@ frontends/conductor_im_plugins/config.local.json
 .claude/
 # Project Mode SOP
 !memory/project_mode_sop.md
+
+# IDE / spec / design artifacts (internal, not for public release)
+.trae/
+penglai-desktop-design/
+--css
+*.key
+*.pem
+*.p12
+secrets/

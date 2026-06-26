@@ -19,6 +19,11 @@ def default_store_path(root=None):
     return path
 
 
+# Statuses that mark a run as finished.  Once a run reaches one of these,
+# late overwrites from zombie processes are blocked by record_run().
+_TERMINAL_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
+
+
 class RuntimeStateStore:
     """Small durable store for runtime events and task runs."""
 
@@ -29,6 +34,20 @@ class RuntimeStateStore:
 
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        return conn
+
+    def _connect_immediate(self):
+        """A connection in autocommit mode for explicit BEGIN IMMEDIATE.
+
+        Used by methods that wrap a read-modify-write cycle in a single
+        transaction to prevent TOCTOU races (record_session_state,
+        request_cancel, clear_cancel_request).  In WAL mode BEGIN IMMEDIATE
+        acquires the write lock up front, so no other writer can interleave
+        between the SELECT and the INSERT/UPDATE.
+        """
+        conn = sqlite3.connect(self.path, timeout=30, isolation_level=None)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=30000")
         return conn
@@ -148,7 +167,7 @@ class RuntimeStateStore:
                 ),
             )
 
-    def record_run(self, task_run):
+    def record_run(self, task_run, *, allow_terminal_overwrite=False):
         permission = task_run.permission
         permission_json = {}
         if permission is not None:
@@ -160,6 +179,42 @@ class RuntimeStateStore:
                 "metadata": permission.metadata or {},
             }
         with self._connect() as conn:
+            # Guard: do not let a late success (or any different status)
+            # overwrite an already-terminal run.  This prevents zombie
+            # processes from clobbering crash-recovery FAILED marks or
+            # explicit CANCELLED marks recorded by other processes.
+            existing = conn.execute(
+                "SELECT status FROM task_runs WHERE run_id = ?",
+                (task_run.run_id,),
+            ).fetchone()
+            if existing and not allow_terminal_overwrite:
+                existing_status = existing[0]
+                if (existing_status in _TERMINAL_STATUSES
+                        and task_run.status != existing_status):
+                    # Record the blocked attempt in metadata without
+                    # overwriting the terminal row.
+                    try:
+                        blocked_meta = json.loads(
+                            conn.execute(
+                                "SELECT metadata_json FROM task_runs WHERE run_id = ?",
+                                (task_run.run_id,),
+                            ).fetchone()[0] or "{}"
+                        )
+                    except Exception:
+                        blocked_meta = {}
+                    blocked_meta.setdefault("blocked_late_overwrite", []).append({
+                        "attempted_status": task_run.status,
+                        "existing_status": existing_status,
+                        "ts": time.time(),
+                    })
+                    conn.execute(
+                        "UPDATE task_runs SET metadata_json = ? WHERE run_id = ?",
+                        (
+                            json.dumps(blocked_meta, ensure_ascii=False, sort_keys=True),
+                            task_run.run_id,
+                        ),
+                    )
+                    return
             conn.execute(
                 """
                 INSERT OR REPLACE INTO task_runs
@@ -250,6 +305,39 @@ class RuntimeStateStore:
             "updated_at": row[14],
         }
 
+    def get_crashed_runs(self):
+        """Return runs left in non-terminal states (running/waiting_permission).
+
+        Called at service startup to find zombie TaskRuns left behind by a
+        crashed process.  The caller (RuntimeHubService._recover_crashed_runs)
+        marks each as failed with a crash-recovery error excerpt.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT run_id, event_id, session_id, status, worker_id,
+                       created_at, started_at, finished_at, error, metadata_json
+                FROM task_runs
+                WHERE status IN ('running', 'waiting_permission')
+                ORDER BY created_at ASC
+                """,
+            ).fetchall()
+        return [
+            {
+                "run_id": r[0],
+                "event_id": r[1],
+                "session_id": r[2],
+                "status": r[3],
+                "worker_id": r[4],
+                "created_at": r[5],
+                "started_at": r[6],
+                "finished_at": r[7],
+                "error": r[8],
+                "metadata": _loads(r[9], {}),
+            }
+            for r in rows
+        ]
+
     def record_session_state(
         self,
         session_id,
@@ -264,30 +352,50 @@ class RuntimeStateStore:
         sid = str(session_id or "")
         if not sid:
             return {}
-        current = self.get_session_state(sid) or {}
-        cancel_requested = bool(current.get("cancel_requested"))
-        cancel_drop_pending = bool(current.get("cancel_drop_pending"))
-        cancel_reason = str(current.get("cancel_reason") or "")
-        cancel_requested_at = float(current.get("cancel_requested_at") or 0)
-        if clear_cancel:
-            cancel_requested = False
-            cancel_drop_pending = False
-            cancel_reason = ""
-            cancel_requested_at = 0
-        row = {
-            "session_id": sid,
-            "active": bool(active),
-            "active_run_id": str(active_run_id or ""),
-            "active_status": str(active_status or ""),
-            "pending_count": int(pending_count or 0),
-            "cancel_requested": cancel_requested,
-            "cancel_drop_pending": cancel_drop_pending,
-            "cancel_reason": cancel_reason,
-            "cancel_requested_at": cancel_requested_at,
-            "metadata": metadata or {},
-            "updated_at": time.time(),
-        }
-        with self._connect() as conn:
+        # BEGIN IMMEDIATE wraps the read-modify-write so that a concurrent
+        # request_cancel or clear_cancel_request cannot interleave between
+        # our SELECT (cancel flags) and our INSERT OR REPLACE.  In WAL mode
+        # BEGIN IMMEDIATE is the correct choice: it acquires the write lock
+        # up front without blocking readers.
+        conn = self._connect_immediate()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row_data = conn.execute(
+                """
+                SELECT cancel_requested, cancel_drop_pending, cancel_reason,
+                       cancel_requested_at
+                FROM session_state WHERE session_id = ?
+                """,
+                (sid,),
+            ).fetchone()
+            if row_data:
+                cancel_requested = bool(row_data[0])
+                cancel_drop_pending = bool(row_data[1])
+                cancel_reason = str(row_data[2] or "")
+                cancel_requested_at = float(row_data[3] or 0)
+            else:
+                cancel_requested = False
+                cancel_drop_pending = False
+                cancel_reason = ""
+                cancel_requested_at = 0
+            if clear_cancel:
+                cancel_requested = False
+                cancel_drop_pending = False
+                cancel_reason = ""
+                cancel_requested_at = 0
+            row = {
+                "session_id": sid,
+                "active": bool(active),
+                "active_run_id": str(active_run_id or ""),
+                "active_status": str(active_status or ""),
+                "pending_count": int(pending_count or 0),
+                "cancel_requested": cancel_requested,
+                "cancel_drop_pending": cancel_drop_pending,
+                "cancel_reason": cancel_reason,
+                "cancel_requested_at": cancel_requested_at,
+                "metadata": metadata or {},
+                "updated_at": time.time(),
+            }
             conn.execute(
                 """
                 INSERT OR REPLACE INTO session_state
@@ -310,6 +418,15 @@ class RuntimeStateStore:
                     row["updated_at"],
                 ),
             )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
         return row
 
     def get_session_state(self, session_id):
@@ -350,8 +467,32 @@ class RuntimeStateStore:
         request_id = f"cancel_{int(created * 1000)}_{abs(hash((sid, created))) & 0xfffffff:x}"
         reason = str(reason or "cancelled by runtime")
         source = str(source or "runtime")
-        current = self.get_session_state(sid) or {}
-        with self._connect() as conn:
+        # BEGIN IMMEDIATE prevents a concurrent record_session_state from
+        # overwriting our cancel_requested flag with a stale read.  The read
+        # (current session_state) and both writes (cancel_requests row +
+        # session_state update) are atomic within this transaction.
+        conn = self._connect_immediate()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            current_row = conn.execute(
+                """
+                SELECT active, active_run_id, active_status, pending_count, metadata_json
+                FROM session_state WHERE session_id = ?
+                """,
+                (sid,),
+            ).fetchone()
+            if current_row:
+                s_active = bool(current_row[0])
+                s_active_run_id = str(current_row[1] or "")
+                s_active_status = str(current_row[2] or "")
+                s_pending = int(current_row[3] or 0)
+                s_metadata = current_row[4] or "{}"
+            else:
+                s_active = False
+                s_active_run_id = ""
+                s_active_status = ""
+                s_pending = 0
+                s_metadata = "{}"
             conn.execute(
                 """
                 INSERT INTO cancel_requests
@@ -370,17 +511,26 @@ class RuntimeStateStore:
                 """,
                 (
                     sid,
-                    1 if current.get("active") else 0,
-                    str(current.get("active_run_id") or ""),
-                    str(current.get("active_status") or ""),
-                    int(current.get("pending_count") or 0),
+                    1 if s_active else 0,
+                    s_active_run_id,
+                    s_active_status,
+                    s_pending,
                     1 if drop_pending else 0,
                     reason,
                     created,
-                    json.dumps(current.get("metadata") or {}, ensure_ascii=False, sort_keys=True),
+                    s_metadata,
                     created,
                 ),
             )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
         data = self.get_session_state(sid) or {}
         data["request_id"] = request_id
         return data
@@ -414,8 +564,32 @@ class RuntimeStateStore:
     def clear_cancel_request(self, session_id, *, request_id=""):
         sid = str(session_id or "")
         now = time.time()
-        current = self.get_session_state(sid) or {}
-        with self._connect() as conn:
+        # BEGIN IMMEDIATE: same TOCTOU fix as record_session_state and
+        # request_cancel.  The read (current session_state) and writes
+        # (cancel_requests UPDATE + session_state INSERT OR REPLACE) are
+        # atomic.
+        conn = self._connect_immediate()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            current_row = conn.execute(
+                """
+                SELECT active, active_run_id, active_status, pending_count, metadata_json
+                FROM session_state WHERE session_id = ?
+                """,
+                (sid,),
+            ).fetchone()
+            if current_row:
+                s_active = bool(current_row[0])
+                s_active_run_id = str(current_row[1] or "")
+                s_active_status = str(current_row[2] or "")
+                s_pending = int(current_row[3] or 0)
+                s_metadata = current_row[4] or "{}"
+            else:
+                s_active = False
+                s_active_run_id = ""
+                s_active_status = ""
+                s_pending = 0
+                s_metadata = "{}"
             if request_id:
                 conn.execute(
                     "UPDATE cancel_requests SET consumed_at = ? WHERE request_id = ?",
@@ -436,14 +610,23 @@ class RuntimeStateStore:
                 """,
                 (
                     sid,
-                    1 if current.get("active") else 0,
-                    str(current.get("active_run_id") or ""),
-                    str(current.get("active_status") or ""),
-                    int(current.get("pending_count") or 0),
-                    json.dumps(current.get("metadata") or {}, ensure_ascii=False, sort_keys=True),
+                    1 if s_active else 0,
+                    s_active_run_id,
+                    s_active_status,
+                    s_pending,
+                    s_metadata,
                     now,
                 ),
             )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
 
 
 def _loads(text, fallback):

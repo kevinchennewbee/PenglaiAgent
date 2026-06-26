@@ -2473,6 +2473,18 @@ settingsModal.querySelector('.modal-backdrop').addEventListener('click', closeSe
 
   // Check for runtime updates on startup
   checkForUpdates();
+
+  // Task 9: listen for tray menu "check_update" events emitted from Rust
+  // (replaces the previous w.eval("checkForUpdates()") anti-pattern).
+  if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen) {
+    try {
+      await window.__TAURI__.event.listen('menu-check-update', () => {
+        if (typeof checkForUpdates === 'function') checkForUpdates();
+      });
+    } catch (_err) {
+      // Best-effort: if Tauri event API is unavailable, tray click still focuses window.
+    }
+  }
 })();
 
 // ── Settings tabs (v0.3.0 channel/ability management) ──────────────────
@@ -2639,3 +2651,932 @@ $('update-apply-btn')?.addEventListener('click', async () => {
 $('update-dismiss-btn')?.addEventListener('click', () => {
   $('update-banner')?.classList.add('hidden');
 });
+
+// ============================================================
+// Penglai Desktop 0.3.1 — 9-Module Shell Router & Renderers
+// Appended IIFE. Coexists with legacy chat logic above.
+// Each module renders into its <section class="pl-view"> container
+// defined in index.html. Reuses window.penglai bridge adapter and
+// existing helpers (showError / setOpsOutput / addDiagnostic).
+// Red lines enforced:
+//   - No raw token display (maskToken masks everything)
+//   - Every GUI action annotated with a penglai CLI mapping
+//   - Channels/Feishu/WeChat config delegated to CLI, not reimplemented
+//   - Bridge port 14168, HTTP+WS via window.penglai
+// ============================================================
+(() => {
+  'use strict';
+
+  // ─── Platform detection (drives Mac frosted glass vs Windows Mica) ───
+  const platform = (window.penglai && window.penglai.platform) ||
+                   (navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32');
+  document.documentElement.classList.add(`platform-${platform}`);
+  const isMac = platform === 'darwin';
+
+  // ─── Local helpers (self-contained; legacy escapeHtml stays untouched) ───
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+  const refreshIcons = () => { try { if (window.lucide && window.lucide.createIcons) window.lucide.createIcons(); } catch (_) {} };
+  const cliHint = (cmd) => `<span class="pl-cli-hint"><code>$ ${esc(cmd)}</code></span>`;
+  const diag = (level, msg, payload) => { try { if (typeof addDiagnostic === 'function') addDiagnostic(level, msg, payload); } catch (_) {} };
+  const fail = (msg, err) => { try { if (typeof showError === 'function') showError(msg + (err ? '：' + (err.message || err) : '')); } catch (_) {} };
+
+  function formatOpsResult(data) {
+    if (!data) return '(无输出)';
+    const parts = [];
+    if ('returncode' in data) parts.push(`退出码：${data.returncode}`);
+    if (data.stdout) parts.push(String(data.stdout).trimEnd());
+    if (data.stderr) parts.push(String(data.stderr).trimEnd());
+    if (data.text) parts.push(String(data.text).trimEnd());
+    return parts.join('\n\n') || '(无输出)';
+  }
+
+  function maskToken(value) {
+    if (!value) return '';
+    const s = String(value);
+    if (s.length <= 8) return '****';
+    return s.slice(0, 4) + '****' + s.slice(-4);
+  }
+
+  const VIEW_TITLES = {
+    chat: '聊天工作台', runtime: '运行历史', channels: '渠道管理',
+    abilities: '能力管理', companion: '陪伴控制', diagnostics: '诊断面板',
+    logs: '脱敏日志', update: '检查更新', security: '安全设置', setup: '安装引导'
+  };
+
+  const renderedViews = new Set();
+
+  // ─── View router ───────────────────────────────────────────
+  function switchView(view) {
+    document.querySelectorAll('#pl-nav .pl-nav-item').forEach((n) => {
+      n.classList.toggle('active', n.dataset.view === view);
+    });
+    document.querySelectorAll('.pl-view').forEach((v) => {
+      v.classList.toggle('hidden', v.dataset.view !== view);
+    });
+    const titleEl = $('pl-topbar-title');
+    if (titleEl) titleEl.textContent = VIEW_TITLES[view] || view;
+    const target = document.querySelector(`.pl-view[data-view="${view}"]`);
+    if (target && !renderedViews.has(view) && view !== 'chat') {
+      renderedViews.add(view);
+      try {
+        (renderers[view] || (() => {}))(target);
+      } catch (err) {
+        target.innerHTML = `<div class="pl-note pl-note-error">渲染失败: ${esc(err.message || err)}</div>`;
+      }
+    }
+    refreshIcons();
+    // Refresh dynamic data on each visit (best-effort)
+    if (view !== 'chat' && refreshers[view]) {
+      Promise.resolve(refreshers[view]()).catch((err) => diag('error', `刷新 ${view} 失败`, err));
+    }
+  }
+
+  function bindNav() {
+    const nav = $('pl-nav');
+    if (!nav) return;
+    nav.addEventListener('click', (e) => {
+      const item = e.target.closest('.pl-nav-item');
+      if (!item || !item.dataset.view) return;
+      switchView(item.dataset.view);
+    });
+  }
+
+  // ─── Bridge badge ──────────────────────────────────────────
+  function updateBridgeBadge(ready) {
+    const dot = $('pl-bridge-dot');
+    const text = $('pl-bridge-text');
+    const badge = $('pl-platform-badge');
+    if (badge) badge.textContent = isMac ? 'Mac' : 'Windows';
+    if (dot && text) {
+      dot.style.background = ready ? 'var(--state-success)' : 'var(--state-warning)';
+      text.textContent = ready ? '桥接已就绪' : '启动中…';
+    }
+  }
+
+  // ─── QR modal (Channels + Setup use it) ────────────────────
+  function bindQrModal() {
+    const backdrop = $('qr-modal-backdrop');
+    const close = $('qr-modal-close');
+    close?.addEventListener('click', () => backdrop?.classList.add('hidden'));
+    backdrop?.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.classList.add('hidden'); });
+  }
+
+  function openQrModal(channel) {
+    const backdrop = $('qr-modal-backdrop');
+    const title = $('qr-modal-title');
+    const placeholder = $('qr-placeholder');
+    if (!backdrop || !title || !placeholder) return;
+    title.textContent = channel === 'feishu' ? '飞书扫码登录' : '微信扫码登录';
+    placeholder.textContent = `请使用 ${channel === 'feishu' ? '飞书' : '微信'} App 扫一扫\n（实际二维码由 penglai CLI 生成）`;
+    placeholder.style.whiteSpace = 'pre-line';
+    backdrop.classList.remove('hidden');
+  }
+
+  // ============================================================
+  //  Runtime Runs (SubTask 25.6) — state machine + run list
+  // ============================================================
+  let runtimeRunsCache = [];
+
+  function renderRuntimeRuns(container) {
+    container.innerHTML = `
+      <div class="pl-runtime-wrap">
+        <div class="pl-state-machine" aria-label="TaskRun 状态机">
+          <div class="pl-state-node" data-state="pending"><span class="pl-state-dot"></span><span>pending</span></div>
+          <span class="pl-state-arrow">→</span>
+          <div class="pl-state-node" data-state="running"><span class="pl-state-dot"></span><span>running</span></div>
+          <span class="pl-state-arrow">→</span>
+          <div class="pl-state-node" data-state="waiting_permission"><span class="pl-state-dot"></span><span>waiting_permission</span></div>
+          <span class="pl-state-arrow">→</span>
+          <div class="pl-state-node" data-state="succeeded"><span class="pl-state-dot"></span><span>succeeded</span></div>
+          <span class="pl-state-sep">/</span>
+          <div class="pl-state-node" data-state="failed"><span class="pl-state-dot"></span><span>failed</span></div>
+          <span class="pl-state-sep">/</span>
+          <div class="pl-state-node" data-state="cancelled"><span class="pl-state-dot"></span><span>cancelled</span></div>
+        </div>
+        <div class="pl-page-actions">
+          <button class="pl-btn pl-btn-primary" id="pl-runtime-refresh"><span data-lucide="refresh-cw"></span>刷新</button>
+          ${cliHint('penglai runtime runs / penglai runtime status')}
+        </div>
+        <div id="pl-runtime-list" class="pl-run-list">
+          <div class="pl-note">点击"刷新"加载运行记录</div>
+        </div>
+      </div>`;
+    container.querySelector('#pl-runtime-refresh')?.addEventListener('click', fetchRuntimeRuns);
+  }
+
+  async function fetchRuntimeRuns() {
+    const list = $('pl-runtime-list');
+    if (!list) return;
+    list.innerHTML = '<div class="pl-note">加载运行记录…</div>';
+    try {
+      const data = await window.penglai.getRuntimeRuns('', 50);
+      runtimeRunsCache = (data && (data.runs || data.items || [])) || [];
+      if (!runtimeRunsCache.length) {
+        list.innerHTML = `<div class="pl-note">暂无运行记录。${cliHint('penglai runtime runs --limit 50')}</div>`;
+        return;
+      }
+      list.innerHTML = runtimeRunsCache.map((run) => {
+        const id = run.id || run.run_id || '';
+        const status = run.status || 'unknown';
+        const cls = runStatusClass(status);
+        const time = formatRunTime(run);
+        return `
+          <div class="pl-run-item" data-run-id="${esc(id)}">
+            <div class="pl-run-grid">
+              <span class="pl-badge pl-badge-${cls}">${esc(status)}</span>
+              <code class="pl-mono">${esc(id)}</code>
+              <span class="pl-run-time">${esc(time)}</span>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      list.innerHTML = `<div class="pl-note pl-note-error">加载失败: ${esc(err.message || err)} ${cliHint('penglai runtime runs')}</div>`;
+    }
+  }
+
+  function runStatusClass(status) {
+    const s = String(status || '').toLowerCase();
+    if (s === 'succeeded' || s === 'success') return 'success';
+    if (s === 'failed' || s === 'error') return 'error';
+    if (s === 'running') return 'info';
+    if (s === 'waiting_permission' || s === 'waiting-permission') return 'warning';
+    return 'muted';
+  }
+
+  function formatRunTime(run) {
+    if (!run) return '';
+    const start = run.started_at || run.startedAt || '';
+    const end = run.finished_at || run.finishedAt || run.ended_at || '';
+    if (start && end) return `${start} → ${end}`;
+    return start || '';
+  }
+
+  // ============================================================
+  //  Channels (SubTask 25.7) — channel cards + QR modal
+  // ============================================================
+  function renderChannels(container) {
+    container.innerHTML = `
+      <div class="pl-channels-wrap">
+        <div class="pl-page-actions">
+          <button class="pl-btn pl-btn-primary" id="pl-channels-refresh"><span data-lucide="refresh-cw"></span>刷新</button>
+          ${cliHint('penglai channel list / penglai channel enable <id>')}
+        </div>
+        <div id="pl-channels-list" class="pl-channel-grid">
+          <div class="pl-note">点击"刷新"加载渠道</div>
+        </div>
+      </div>`;
+    container.querySelector('#pl-channels-refresh')?.addEventListener('click', fetchChannels);
+  }
+
+  async function fetchChannels() {
+    const list = $('pl-channels-list');
+    if (!list) return;
+    list.innerHTML = '<div class="pl-note">加载渠道…</div>';
+    try {
+      const data = await window.penglai.apiGet('/channels');
+      const channels = (data && data.channels) || [];
+      if (!channels.length) {
+        list.innerHTML = `<div class="pl-note">暂无渠道。${cliHint('penglai channel list')}</div>`;
+        return;
+      }
+      list.innerHTML = channels.map((ch) => {
+        const configured = !!ch.configured;
+        const running = !!ch.running;
+        const cls = running ? 'success' : (configured ? 'warning' : 'muted');
+        const txt = running ? '运行中' : (configured ? '已配置' : '未配置');
+        const actionBtn = configured
+          ? `<button class="pl-btn pl-btn-sm" data-channel-disable="${esc(ch.id)}">禁用</button>`
+          : `<button class="pl-btn pl-btn-sm pl-btn-primary" data-channel-enable="${esc(ch.id)}">启用</button>`;
+        const qrBtn = (ch.id === 'feishu' || ch.id === 'wechat')
+          ? `<button class="pl-btn pl-btn-sm pl-btn-ghost" data-channel-qr="${esc(ch.id)}">扫码登录</button>`
+          : '';
+        return `
+          <div class="pl-channel-card">
+            <div class="pl-channel-head">
+              <div>
+                <div class="pl-channel-name">${esc(ch.name || ch.id)}</div>
+                <div class="pl-channel-desc">${esc(ch.desc || '')}</div>
+              </div>
+              <span class="pl-badge pl-badge-${cls}">${txt}</span>
+            </div>
+            <div class="pl-channel-actions">${actionBtn}${qrBtn}</div>
+          </div>`;
+      }).join('');
+      list.querySelectorAll('[data-channel-enable]').forEach((b) => b.addEventListener('click', () => toggleChannel(b.dataset.channelEnable, true)));
+      list.querySelectorAll('[data-channel-disable]').forEach((b) => b.addEventListener('click', () => toggleChannel(b.dataset.channelDisable, false)));
+      list.querySelectorAll('[data-channel-qr]').forEach((b) => b.addEventListener('click', () => openQrModal(b.dataset.channelQr)));
+      refreshIcons();
+    } catch (err) {
+      list.innerHTML = `<div class="pl-note pl-note-error">加载渠道失败: ${esc(err.message || err)}</div>`;
+    }
+  }
+
+  async function toggleChannel(id, enable) {
+    try {
+      await window.penglai.apiPost(`/channels/${id}/${enable ? 'enable' : 'disable'}`);
+      diag('info', `渠道 ${id} 已${enable ? '启用' : '禁用'}`);
+      setTimeout(fetchChannels, 800);
+    } catch (err) {
+      fail('渠道操作失败', err);
+    }
+  }
+
+  // ============================================================
+  //  Abilities — ability cards
+  // ============================================================
+  function renderAbilities(container) {
+    container.innerHTML = `
+      <div class="pl-abilities-wrap">
+        <div class="pl-page-actions">
+          <button class="pl-btn pl-btn-primary" id="pl-abilities-refresh"><span data-lucide="refresh-cw"></span>刷新</button>
+          ${cliHint('penglai ability list / penglai ability enable <id>')}
+        </div>
+        <div id="pl-abilities-list" class="pl-card-grid">
+          <div class="pl-note">点击"刷新"加载能力</div>
+        </div>
+      </div>`;
+    container.querySelector('#pl-abilities-refresh')?.addEventListener('click', fetchAbilities);
+  }
+
+  async function fetchAbilities() {
+    const list = $('pl-abilities-list');
+    if (!list) return;
+    list.innerHTML = '<div class="pl-note">加载能力…</div>';
+    try {
+      const data = await window.penglai.apiGet('/abilities');
+      const abilities = (data && data.abilities) || [];
+      if (!abilities.length) {
+        list.innerHTML = `<div class="pl-note">暂无能力。${cliHint('penglai ability list')}</div>`;
+        return;
+      }
+      list.innerHTML = abilities.map((ab) => {
+        const enabled = !!ab.enabled;
+        const cls = enabled ? 'success' : 'muted';
+        const txt = enabled ? '已启用' : '未启用';
+        const btn = enabled
+          ? `<button class="pl-btn pl-btn-sm" data-ab-disable="${esc(ab.id)}">禁用</button>`
+          : `<button class="pl-btn pl-btn-sm pl-btn-primary" data-ab-enable="${esc(ab.id)}">启用</button>`;
+        return `
+          <div class="pl-card">
+            <div class="pl-card-head">
+              <div>
+                <div class="pl-card-title">${esc(ab.name || ab.id)}</div>
+                <div class="pl-card-desc">${esc(ab.desc || '')}</div>
+              </div>
+              <span class="pl-badge pl-badge-${cls}">${txt}</span>
+            </div>
+            <div class="pl-card-actions">${btn}</div>
+          </div>`;
+      }).join('');
+      list.querySelectorAll('[data-ab-enable]').forEach((b) => b.addEventListener('click', () => toggleAbility(b.dataset.abEnable, true)));
+      list.querySelectorAll('[data-ab-disable]').forEach((b) => b.addEventListener('click', () => toggleAbility(b.dataset.abDisable, false)));
+      refreshIcons();
+    } catch (err) {
+      list.innerHTML = `<div class="pl-note pl-note-error">加载失败: ${esc(err.message || err)}</div>`;
+    }
+  }
+
+  async function toggleAbility(id, enable) {
+    try {
+      await window.penglai.apiPost(`/abilities/${id}/${enable ? 'enable' : 'disable'}`);
+      diag('info', `能力 ${id} 已${enable ? '启用' : '禁用'}`);
+      setTimeout(fetchAbilities, 800);
+    } catch (err) {
+      fail('能力操作失败', err);
+    }
+  }
+
+  // ============================================================
+  //  Companion (SubTask 25.8) — four-mode segment + heartbeat timeline
+  // ============================================================
+  let companionCache = { mode: 'normal', heartbeats: [] };
+
+  function renderCompanion(container) {
+    container.innerHTML = '<div class="pl-note">加载陪伴配置…</div>';
+  }
+
+  async function fetchCompanion() {
+    const view = $('view-companion');
+    if (!view) return;
+    try {
+      const cfg = await window.penglai.apiGet('/companion/config').catch(() => null);
+      if (cfg) companionCache = Object.assign(companionCache, cfg);
+      const hb = await window.penglai.apiGet('/companion/heartbeats?limit=20').catch(() => null);
+      if (hb && hb.heartbeats) companionCache.heartbeats = hb.heartbeats;
+    } catch (_) { /* endpoints may not exist yet */ }
+    renderCompanionContent();
+  }
+
+  function renderCompanionContent() {
+    const view = $('view-companion');
+    if (!view) return;
+    const modes = [
+      { id: 'off', label: '关闭', desc: '完全不主动说话' },
+      { id: 'quiet', label: '安静', desc: '仅天气等必要提示' },
+      { id: 'normal', label: '常规', desc: '按需主动提醒' },
+      { id: 'active', label: '活跃', desc: '频繁主动交互' }
+    ];
+    const current = companionCache.mode || 'normal';
+    const heartbeats = companionCache.heartbeats || [];
+    const hbHtml = heartbeats.length
+      ? heartbeats.map((h) => `
+          <div class="pl-heartbeat-item">
+            <span class="pl-heartbeat-time">${esc(h.ts || h.time || '')}</span>
+            <span class="pl-heartbeat-msg">${esc(h.message || h.summary || '')}</span>
+            ${h.tag ? `<span class="pl-tag">${esc(h.tag)}</span>` : ''}
+          </div>`).join('')
+      : '<div class="pl-note">暂无心跳记录</div>';
+    view.innerHTML = `
+      <div class="pl-companion-wrap">
+        <div class="pl-section">
+          <div class="pl-section-title">陪伴模式</div>
+          <div class="pl-mode-segment" role="tablist">
+            ${modes.map((m) => `
+              <button class="pl-mode-btn ${current === m.id ? 'active' : ''}" data-mode="${m.id}" title="${esc(m.desc)}">${esc(m.label)}</button>
+            `).join('')}
+          </div>
+          <p class="pl-section-hint">${cliHint('penglai companion mode <off|quiet|normal|active>')}</p>
+        </div>
+        <div class="pl-section">
+          <div class="pl-section-title">心跳时间线</div>
+          <div class="pl-heartbeat-list">${hbHtml}</div>
+        </div>
+      </div>`;
+    view.querySelectorAll('.pl-mode-btn').forEach((b) => b.addEventListener('click', () => setCompanionMode(b.dataset.mode)));
+    refreshIcons();
+  }
+
+  async function setCompanionMode(mode) {
+    try {
+      await window.penglai.apiPost('/companion/mode', { mode });
+      companionCache.mode = mode;
+      diag('info', `陪伴模式已切换为 ${mode}`);
+      renderCompanionContent();
+    } catch (err) {
+      fail('切换陪伴模式失败', err);
+    }
+  }
+
+  // ============================================================
+  //  Diagnostics (SubTask 25.9) — doctor / selfcheck / privacy-audit tabs
+  // ============================================================
+  function renderDiagnostics(container) {
+    container.innerHTML = `
+      <div class="pl-diagnostics-wrap">
+        <div class="pl-tabs" role="tablist">
+          <button class="pl-tab active" data-diag-tab="doctor">体检</button>
+          <button class="pl-tab" data-diag-tab="selfcheck">自检</button>
+          <button class="pl-tab" data-diag-tab="privacy">隐私审计</button>
+        </div>
+        <div class="pl-tab-content" id="pl-diag-doctor">
+          <div class="pl-page-actions">
+            <button class="pl-btn pl-btn-primary" id="pl-doctor-run"><span data-lucide="stethoscope"></span>运行体检</button>
+            ${cliHint('penglai doctor')}
+          </div>
+          <pre class="pl-code-block" id="pl-doctor-output">点击"运行体检"查看结果</pre>
+        </div>
+        <div class="pl-tab-content hidden" id="pl-diag-selfcheck">
+          <div class="pl-page-actions">
+            <button class="pl-btn pl-btn-primary" id="pl-selfcheck-run"><span data-lucide="wrench"></span>运行自检</button>
+            ${cliHint('penglai selfcheck')}
+          </div>
+          <pre class="pl-code-block" id="pl-selfcheck-output">点击"运行自检"查看结果</pre>
+        </div>
+        <div class="pl-tab-content hidden" id="pl-diag-privacy">
+          <div class="pl-page-actions">
+            <button class="pl-btn pl-btn-primary" id="pl-privacy-run"><span data-lucide="shield"></span>运行隐私审计</button>
+            ${cliHint('penglai privacy-audit')}
+          </div>
+          <pre class="pl-code-block" id="pl-privacy-output">点击"运行隐私审计"查看结果</pre>
+        </div>
+      </div>`;
+    container.querySelectorAll('[data-diag-tab]').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        container.querySelectorAll('[data-diag-tab]').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        container.querySelectorAll('.pl-tab-content').forEach((c) => c.classList.add('hidden'));
+        container.querySelector(`#pl-diag-${tab.dataset.diagTab}`)?.classList.remove('hidden');
+      });
+    });
+    container.querySelector('#pl-doctor-run')?.addEventListener('click', runDiagDoctor);
+    container.querySelector('#pl-selfcheck-run')?.addEventListener('click', runDiagSelfcheck);
+    container.querySelector('#pl-privacy-run')?.addEventListener('click', runDiagPrivacy);
+  }
+
+  async function runDiagDoctor() {
+    const out = $('pl-doctor-output');
+    if (!out) return;
+    out.textContent = '诊断中…';
+    try {
+      const data = await window.penglai.apiGet('/doctor');
+      let text = data.all_ok ? '✅ 全部检查通过\n\n' : '⚠️ 发现问题\n\n';
+      for (const c of (data.checks || [])) text += `${c.ok ? '✅' : '❌'} ${c.name}: ${c.detail || ''}\n`;
+      out.textContent = text;
+    } catch (err) {
+      out.textContent = '诊断失败: ' + (err.message || err);
+    }
+  }
+
+  async function runDiagSelfcheck() {
+    const out = $('pl-selfcheck-output');
+    if (!out) return;
+    out.textContent = '自检中…';
+    try {
+      const data = await window.penglai.runOpsCommand('selfcheck');
+      out.textContent = formatOpsResult(data);
+    } catch (err) {
+      out.textContent = '自检失败: ' + (err.message || err);
+    }
+  }
+
+  async function runDiagPrivacy() {
+    const out = $('pl-privacy-output');
+    if (!out) return;
+    out.textContent = '审计中…';
+    try {
+      const data = await window.penglai.runOpsCommand('privacy-audit');
+      out.textContent = formatOpsResult(data);
+    } catch (err) {
+      out.textContent = '审计失败: ' + (err.message || err);
+    }
+  }
+
+  // ============================================================
+  //  Logs — channel selector + log viewer
+  // ============================================================
+  let currentLogChannel = 'runtime';
+  let currentLogLines = 200;
+
+  function renderLogs(container) {
+    container.innerHTML = `
+      <div class="pl-logs-wrap">
+        <div class="pl-page-actions">
+          <label class="pl-field-inline">
+            <span>通道</span>
+            <select id="pl-log-channel" class="pl-select">
+              <option value="runtime">中枢</option>
+              <option value="feishu">飞书</option>
+              <option value="wechat">微信</option>
+              <option value="scheduler">调度器</option>
+              <option value="companion">陪伴端</option>
+            </select>
+          </label>
+          <label class="pl-field-inline">
+            <span>行数</span>
+            <select id="pl-log-lines" class="pl-select">
+              <option value="80">80</option>
+              <option value="200" selected>200</option>
+              <option value="500">500</option>
+            </select>
+          </label>
+          <button class="pl-btn pl-btn-primary" id="pl-log-refresh"><span data-lucide="refresh-cw"></span>刷新</button>
+          ${cliHint('penglai logs <channel> --lines 200')}
+        </div>
+        <pre class="pl-log-viewer" id="pl-log-output">点击"刷新"加载日志</pre>
+      </div>`;
+    container.querySelector('#pl-log-channel')?.addEventListener('change', (e) => fetchLogs(e.target.value, currentLogLines));
+    container.querySelector('#pl-log-lines')?.addEventListener('change', (e) => fetchLogs(currentLogChannel, parseInt(e.target.value, 10) || 200));
+    container.querySelector('#pl-log-refresh')?.addEventListener('click', () => fetchLogs());
+  }
+
+  async function fetchLogs(channel, lines) {
+    currentLogChannel = channel || currentLogChannel;
+    currentLogLines = lines || currentLogLines;
+    const out = $('pl-log-output');
+    if (!out) return;
+    out.textContent = '加载日志…';
+    try {
+      const data = await window.penglai.getOpsLogs(currentLogChannel, currentLogLines);
+      const text = (data && (data.stdout || data.text || data.log)) || '(无日志)';
+      out.textContent = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+    } catch (err) {
+      out.textContent = '加载失败: ' + (err.message || err);
+    }
+  }
+
+  // ============================================================
+  //  Update — two layers: desktop app (tauri updater) + runtime (git pull)
+  // ============================================================
+  function renderUpdate(container) {
+    container.innerHTML = `
+      <div class="pl-update-wrap">
+        <div class="pl-page-hero">
+          <h2>检查更新</h2>
+          <p>蓬莱桌面有两层升级：桌面应用本身（.app/.exe，通过 tauri-plugin-updater 签名升级）和运行时（Python 代码，通过 git pull 升级）。建议先升级桌面应用，再升级运行时。</p>
+        </div>
+
+        <div class="pl-card">
+          <div class="pl-card-head">
+            <div>
+              <div class="pl-card-title">桌面应用（推荐先升级）</div>
+              <div class="pl-card-desc">升级蓬莱桌面 App 本身（Tauri 壳 + 前端），通过签名验证的自动升级</div>
+            </div>
+          </div>
+          <div class="pl-card-actions">
+            <button class="pl-btn pl-btn-primary" id="pl-app-update-check"><span data-lucide="download-cloud"></span>检查桌面应用更新</button>
+            <button class="pl-btn" id="pl-app-update-apply" disabled><span data-lucide="arrow-up-circle"></span>一键升级桌面应用</button>
+          </div>
+          <pre class="pl-code-block" id="pl-app-update-output">点击"检查桌面应用更新"查看是否有新版本。</pre>
+        </div>
+
+        <div class="pl-card">
+          <div class="pl-card-head">
+            <div>
+              <div class="pl-card-title">运行时（Python 代码）</div>
+              <div class="pl-card-desc">检查并升级 PenglaiAgent 运行时（自动备份 + 失败回滚，仅 git 安装可用）</div>
+            </div>
+          </div>
+          <div class="pl-card-actions">
+            <button class="pl-btn pl-btn-primary" id="pl-update-check"><span data-lucide="git-branch"></span>检查运行时更新</button>
+            <button class="pl-btn" id="pl-update-apply" disabled><span data-lucide="arrow-up-circle"></span>一键升级运行时</button>
+          </div>
+          <pre class="pl-code-block" id="pl-update-output">点击"检查运行时更新"查看当前版本与远端版本。</pre>
+          <p class="pl-section-hint">${cliHint('penglai update --check / penglai update --apply')}</p>
+        </div>
+      </div>`;
+    container.querySelector('#pl-app-update-check')?.addEventListener('click', runAppUpdateCheck);
+    container.querySelector('#pl-app-update-apply')?.addEventListener('click', runAppUpdateApply);
+    container.querySelector('#pl-update-check')?.addEventListener('click', runUpdateCheck);
+    container.querySelector('#pl-update-apply')?.addEventListener('click', runUpdateApply);
+    refreshIcons();
+  }
+
+  async function runAppUpdateCheck() {
+    const out = $('pl-app-update-output');
+    const applyBtn = $('pl-app-update-apply');
+    if (out) out.textContent = '检查中…（连接 GitHub Releases）';
+    if (applyBtn) applyBtn.disabled = true;
+    try {
+      const result = await window.__TAURI__.core.invoke('check_app_update');
+      if (result && result.available) {
+        if (out) out.textContent = `✅ 发现新版本 ${result.version || ''}\n${result.body || ''}`;
+        if (applyBtn) applyBtn.disabled = false;
+      } else {
+        if (out) out.textContent = '已是最新版本，无需升级。';
+      }
+    } catch (err) {
+      if (out) out.textContent = '检查失败: ' + (err.message || err) + '\n\n可能原因：网络问题，或 GitHub Releases 尚未发布 latest.json。';
+    }
+  }
+
+  async function runAppUpdateApply() {
+    const out = $('pl-app-update-output');
+    const applyBtn = $('pl-app-update-apply');
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = '下载安装中…'; }
+    if (out) out.textContent = '正在下载更新包并安装，完成后将自动重启…';
+    try {
+      await window.__TAURI__.core.invoke('install_app_update');
+      // install_app_update calls app_handle.restart() — code here may not run
+      if (out) out.textContent = '更新已安装，正在重启…';
+    } catch (err) {
+      if (out) out.textContent = '升级失败: ' + (err.message || err);
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = '一键升级桌面应用'; }
+    }
+  }
+
+  async function runUpdateCheck() {
+    const out = $('pl-update-output');
+    const applyBtn = $('pl-update-apply');
+    if (out) out.textContent = '检查中…';
+    if (applyBtn) applyBtn.disabled = true;
+    try {
+      const data = await window.penglai.runOpsCommand('update-check');
+      const text = formatOpsResult(data);
+      if (out) out.textContent = text;
+      const hasUpdate = /落后|新版本|new version|behind/i.test(text);
+      if (applyBtn) applyBtn.disabled = !hasUpdate;
+    } catch (err) {
+      if (out) out.textContent = '检查失败: ' + (err.message || err);
+    }
+  }
+
+  async function runUpdateApply() {
+    const out = $('pl-update-output');
+    const applyBtn = $('pl-update-apply');
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = '升级中…'; }
+    if (out) out.textContent = '升级中（预检→下载→重启→健康检查→失败自动回滚）…';
+    try {
+      const data = await window.penglai.runOpsCommand('update-apply', { method: 'POST', timeout: 180 });
+      if (out) out.textContent = formatOpsResult(data);
+      setTimeout(() => location.reload(), 2000);
+    } catch (err) {
+      if (out) out.textContent = '升级失败: ' + (err.message || err);
+      if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = '一键升级运行时'; }
+    }
+  }
+
+  // ============================================================
+  //  Security — token management (masked) + blocked notice toggle + audit
+  // ============================================================
+  let securityCache = { tokens: [], blockedNotice: true };
+
+  function renderSecurity(container) {
+    container.innerHTML = '<div class="pl-note">加载安全配置…</div>';
+  }
+
+  async function fetchSecurity() {
+    const view = $('view-security');
+    if (!view) return;
+    try {
+      const cfg = await window.penglai.getConfig().catch(() => null);
+      if (cfg) {
+        securityCache.tokens = cfg.tokens || cfg.api_keys || [];
+        securityCache.blockedNotice = cfg.blocked_notice !== false;
+      }
+    } catch (_) { /* fall through to render with defaults */ }
+    renderSecurityContent();
+  }
+
+  function renderSecurityContent() {
+    const view = $('view-security');
+    if (!view) return;
+    const tokens = securityCache.tokens || [];
+    const tokenHtml = tokens.length
+      ? tokens.map((t) => `
+          <div class="pl-sec-item">
+            <div>
+              <div class="pl-sec-name">${esc(t.name || t.label || 'Token')}</div>
+              <code class="pl-mono pl-sec-value">${esc(maskToken(t.value || t.key))}</code>
+            </div>
+            <span class="pl-badge pl-badge-${t.valid === false ? 'error' : 'success'}">${t.valid === false ? '已失效' : '可用'}</span>
+          </div>`).join('')
+      : '<div class="pl-note">未检测到已配置 token（或后端未返回）</div>';
+    view.innerHTML = `
+      <div class="pl-security-wrap">
+        <div class="pl-section">
+          <div class="pl-section-title">Token 管理（脱敏显示）</div>
+          <div class="pl-sec-list">${tokenHtml}</div>
+          <p class="pl-section-hint">${cliHint('penglai security rotate-token / penglai security audit')}</p>
+        </div>
+        <div class="pl-section">
+          <div class="pl-section-title">外发安全策略</div>
+          <div class="pl-sec-item">
+            <div>
+              <div class="pl-sec-name">blocked notice</div>
+              <div class="pl-sec-desc">文件外发时附加安全声明</div>
+            </div>
+            <label class="pl-toggle">
+              <input type="checkbox" id="pl-sec-blocked-notice" ${securityCache.blockedNotice ? 'checked' : ''}>
+              <span class="pl-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="pl-section">
+          <div class="pl-section-title">隐私审计</div>
+          <button class="pl-btn pl-btn-primary" id="pl-sec-audit"><span data-lucide="shield"></span>运行隐私审计</button>
+          <pre class="pl-code-block" id="pl-sec-audit-output">点击按钮运行审计</pre>
+        </div>
+      </div>`;
+    view.querySelector('#pl-sec-blocked-notice')?.addEventListener('change', (e) => {
+      diag('info', `blocked notice 已${e.target.checked ? '开启' : '关闭'}`);
+      window.penglai.saveConfig?.({ blocked_notice: e.target.checked }).catch(() => {});
+    });
+    view.querySelector('#pl-sec-audit')?.addEventListener('click', runSecAudit);
+    refreshIcons();
+  }
+
+  async function runSecAudit() {
+    const out = $('pl-sec-audit-output');
+    if (!out) return;
+    out.textContent = '审计中…';
+    try {
+      const data = await window.penglai.runOpsCommand('privacy-audit');
+      out.textContent = formatOpsResult(data);
+    } catch (err) {
+      out.textContent = '审计失败: ' + (err.message || err);
+    }
+  }
+
+  // ============================================================
+  //  Setup Dashboard (reconfigure from within running app)
+  //  — NOT a first-run wizard. First-run onboarding lives in
+  //    fallback.html (language select → runtime install →
+  //    full setup wizard calling setup_op → bridge /setup/*).
+  //  — This panel is for re-configuring individual parts after
+  //    the app is already running. Each action maps to a
+  //    `penglai setup --only ...` CLI command.
+  // ============================================================
+
+  function renderSetupWizard(container) {
+    container.innerHTML = `
+      <div class="pl-setup-dashboard">
+        <div class="pl-page-hero">
+          <h2>安装引导 / 重新配置</h2>
+          <p>首次启动的完整向导（语言选择 → 运行时安装 → 配置）在独立窗口进行。此面板用于运行后单独重配某一项，每项均映射到 CLI 命令。</p>
+        </div>
+
+        <div class="pl-setup-section">
+          <div class="pl-setup-section-head">
+            <h3>1. 大模型密钥 (LLM)</h3>
+            <span class="pl-setup-cli">${cliHint('penglai setup --only llm')}</span>
+          </div>
+          <div class="pl-setup-section-body">
+            <button class="pl-btn" id="pl-setup-open-mykey"><span data-lucide="file-text"></span>打开 mykey.py 编辑</button>
+            <button class="pl-btn" id="pl-setup-open-mykey-real"><span data-lucide="file"></span>打开现有 mykey.py</button>
+          </div>
+        </div>
+
+        <div class="pl-setup-section">
+          <div class="pl-setup-section-head">
+            <h3>2. 主人身份 (Identity)</h3>
+            <span class="pl-setup-cli">${cliHint('penglai setup --only identity')}</span>
+          </div>
+          <div class="pl-setup-section-body">
+            <p class="pl-note">身份信息保存在 mykey.py 中。可直接编辑 mykey.py，或在终端运行上方 CLI 命令交互式重配。</p>
+            <button class="pl-btn" id="pl-setup-open-mykey-2"><span data-lucide="file"></span>编辑 mykey.py 修改身份</button>
+          </div>
+        </div>
+
+        <div class="pl-setup-section">
+          <div class="pl-setup-section-head">
+            <h3>3. 渠道启用 (Channels)</h3>
+            <span class="pl-setup-cli">${cliHint('penglai setup --only feishu')}</span>
+          </div>
+          <div class="pl-setup-section-body">
+            <button class="pl-btn pl-btn-primary" id="pl-setup-refresh-channels"><span data-lucide="refresh-cw"></span>加载渠道列表</button>
+          </div>
+          <div id="pl-channels-list-setup" class="pl-channel-grid"></div>
+        </div>
+
+        <div class="pl-setup-section">
+          <div class="pl-setup-section-head">
+            <h3>4. 诊断验证 (Doctor)</h3>
+            <span class="pl-setup-cli">${cliHint('penglai doctor')}</span>
+          </div>
+          <div class="pl-setup-section-body">
+            <button class="pl-btn pl-btn-primary" id="pl-setup-run-doctor"><span data-lucide="stethoscope"></span>运行体检</button>
+          </div>
+          <pre class="pl-code-block" id="pl-setup-doctor-output">点击"运行体检"查看结果</pre>
+        </div>
+
+        <div class="pl-setup-section">
+          <div class="pl-setup-section-head">
+            <h3>5. 重新走完整首次向导</h3>
+          </div>
+          <div class="pl-setup-section-body">
+            <p class="pl-note">如需重新走完整首次安装向导（语言选择 → 运行时 → 配置），请退出蓬莱桌面后重新启动，若未检测到有效配置将自动进入向导。</p>
+          </div>
+        </div>
+      </div>`;
+
+    container.querySelector('#pl-setup-open-mykey')?.addEventListener('click', async () => {
+      try { await window.penglai.openMykeyTemplate?.(); diag('info', '已打开 mykey.py 模板'); }
+      catch (err) { fail('打开 mykey.py 模板失败', err); }
+    });
+    container.querySelector('#pl-setup-open-mykey-real')?.addEventListener('click', async () => {
+      try { await window.penglai.openMykey?.(); }
+      catch (err) { fail('打开 mykey.py 失败', err); }
+    });
+    container.querySelector('#pl-setup-open-mykey-2')?.addEventListener('click', async () => {
+      try { await window.penglai.openMykey?.(); }
+      catch (err) { fail('打开 mykey.py 失败', err); }
+    });
+    container.querySelector('#pl-setup-refresh-channels')?.addEventListener('click', fetchChannelsForSetup);
+    container.querySelector('#pl-setup-run-doctor')?.addEventListener('click', async () => {
+      const out = container.querySelector('#pl-setup-doctor-output');
+      if (!out) return;
+      out.textContent = '诊断中…';
+      try {
+        const data = await window.penglai.apiGet('/doctor');
+        let text = data.all_ok ? '✅ 全部通过' : '⚠️ 有问题';
+        for (const c of (data.checks || [])) text += `\n${c.ok ? '✅' : '❌'} ${c.name}: ${c.detail || ''}`;
+        out.textContent = text;
+      } catch (err) { out.textContent = '失败: ' + (err.message || err); }
+    });
+    refreshIcons();
+  }
+
+  async function fetchChannelsForSetup() {
+    const el = document.querySelector('#pl-channels-list-setup');
+    if (!el) return;
+    el.innerHTML = '<div class="pl-note">加载渠道…</div>';
+    try {
+      const data = await window.penglai.apiGet('/channels');
+      const channels = (data && data.channels) || [];
+      if (!channels.length) { el.innerHTML = '<div class="pl-note">暂无渠道</div>'; return; }
+      el.innerHTML = channels.map((ch) => `
+        <div class="pl-channel-card">
+          <div class="pl-channel-head">
+            <div>
+              <div class="pl-channel-name">${esc(ch.name || ch.id)}</div>
+              <div class="pl-channel-desc">${esc(ch.desc || '')}</div>
+            </div>
+            <span class="pl-badge pl-badge-${ch.configured ? (ch.running ? 'success' : 'warning') : 'muted'}">${ch.configured ? (ch.running ? '运行中' : '已配置') : '未配置'}</span>
+          </div>
+          <div class="pl-channel-actions">
+            <button class="pl-btn pl-btn-sm ${ch.configured ? '' : 'pl-btn-primary'}" data-setup-channel="${esc(ch.id)}" data-enable="${ch.configured ? '0' : '1'}">${ch.configured ? '禁用' : '启用'}</button>
+          </div>
+        </div>`).join('');
+      el.querySelectorAll('[data-setup-channel]').forEach((b) => b.addEventListener('click', async () => {
+        const id = b.dataset.setupChannel;
+        const enable = b.dataset.enable === '1';
+        try {
+          await window.penglai.apiPost(`/channels/${id}/${enable ? 'enable' : 'disable'}`);
+          diag('info', `渠道 ${id} 已${enable ? '启用' : '禁用'}`);
+          setTimeout(fetchChannelsForSetup, 800);
+        } catch (err) { fail('渠道操作失败', err); }
+      }));
+    } catch (err) {
+      el.innerHTML = `<div class="pl-note pl-note-error">加载失败: ${esc(err.message || err)}</div>`;
+    }
+  }
+
+  // ============================================================
+  //  Chat Workspace (SubTask 25.5)
+  //  — legacy chat UI already lives in #view-chat.
+  //  Mac frosted glass / Windows Mica is CSS-driven via
+  //  .platform-darwin / .platform-win32 on <html> (set above).
+  //  No JS rendering needed here.
+  // ============================================================
+
+  // ─── Renderer + refresher registry ─────────────────────────
+  const renderers = {
+    runtime: renderRuntimeRuns,
+    channels: renderChannels,
+    abilities: renderAbilities,
+    companion: renderCompanion,
+    diagnostics: renderDiagnostics,
+    logs: renderLogs,
+    update: renderUpdate,
+    security: renderSecurity,
+    setup: renderSetupWizard
+  };
+
+  const refreshers = {
+    runtime: fetchRuntimeRuns,
+    channels: fetchChannels,
+    abilities: fetchAbilities,
+    companion: fetchCompanion,
+    diagnostics: () => {},
+    logs: () => fetchLogs(currentLogChannel, currentLogLines),
+    update: () => {},
+    security: fetchSecurity,
+    setup: () => {}
+  };
+
+  // ─── Init ──────────────────────────────────────────────────
+  function init() {
+    bindNav();
+    bindQrModal();
+    updateBridgeBadge(false);
+    if (window.penglai) {
+      window.penglai.onBridgeReady?.(() => updateBridgeBadge(true));
+      window.penglai.onBridgeError?.(() => updateBridgeBadge(false));
+    }
+    switchView('chat');
+    refreshIcons();
+    diag('info', `桌面 9 模块 Shell 已初始化（${isMac ? 'Mac' : 'Windows'} 平台）`);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Expose for debugging
+  window.PenglaiDesktop9Modules = { switchView, refreshers, renderers };
+})();

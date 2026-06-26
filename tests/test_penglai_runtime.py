@@ -1185,7 +1185,7 @@ def test_version_metadata_reads_source_copy_build_info_without_git():
     td = tempfile.mkdtemp()
     os.makedirs(os.path.join(td, "installer"), exist_ok=True)
     with open(os.path.join(td, "installer", "pyproject.toml"), "w", encoding="utf-8") as f:
-        f.write('[project]\nversion = "0.3.0"\n')
+        f.write('[project]\nversion = "0.3.1"\n')
     with open(os.path.join(td, ".penglai-build.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -3135,7 +3135,7 @@ def test_install_script_can_install_current_branch_without_setup():
     )
     assert wrapper_verify.returncode == 0, (wrapper_verify.stdout or "") + (wrapper_verify.stderr or "")
     assert "安装预检" in output
-    assert "正在安装 0.3.0 源码依赖" not in output
+    assert "正在安装 0.3.1 源码依赖" not in output
     verify = subprocess.run(
         [sys.executable, os.path.join(target, "penglai"), "install-check", "--json"],
         cwd=target,
@@ -3398,18 +3398,18 @@ def test_desktop_package_identity_targets_penglai_release():
         lib_rs = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.0"
+    assert package_json["version"] == "0.3.1"
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.0"
+    assert package_lock["packages"][""]["version"] == "0.3.1"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.0"
+    assert tauri_conf["version"] == "0.3.1"
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
     assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
@@ -3440,7 +3440,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.0"' in cargo_toml
+    assert 'version = "0.3.1"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
     assert "install.ps1" in lib_rs
@@ -3470,10 +3470,10 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
     for text in (
         "name: desktop-release",
         "- main",
-        "\"v0.3.0\"",
+        "\"v0.3.1\"",
         "macos-14",
         "windows-latest",
-        "if: github.ref == 'refs/tags/v0.3.0'",
+        "if: github.ref == 'refs/tags/v0.3.1'",
         "actions/setup-python@v5",
         "frontends/*.py",
         "install.ps1",
@@ -3518,10 +3518,10 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "spctl -a -vvv -t exec",
         "spctl -a -vvv -t open --context context:primary-signature",
         "com.apple.quarantine",
-        "Penglai_0.3.0_macos_aarch64.dmg",
-        "Penglai_0.3.0_windows_x64_setup.exe",
-        "penglai-0.3.0-macos-aarch64",
-        "penglai-0.3.0-windows-x64",
+        "Penglai_0.3.1_macos_aarch64.dmg",
+        "Penglai_0.3.1_windows_x64_setup.exe",
+        "penglai-0.3.1-macos-aarch64",
+        "penglai-0.3.1-windows-x64",
         "Check Windows signing secrets",
         "Import Windows signing certificate",
         "WINDOWS_CERTIFICATE",

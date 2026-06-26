@@ -6,82 +6,195 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app">
-    <!-- 主界面 -->
-    <main id="main">
-      <header id="topbar">
-        <div class="topbar-left">
-          <div id="session-list" class="tab-strip" role="tablist" aria-label="对话">
-            <button id="new-session-btn" class="tab-new-btn" title="新对话" aria-label="新对话">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            </button>
+  <div id="app" class="pl-app">
+    <!-- ============ LEFT SIDEBAR (9-module navigation) ============ -->
+    <aside class="pl-sidebar" aria-label="主导航">
+      <div class="pl-sidebar-header">
+        <div class="pl-sidebar-logo"></div>
+        <span class="pl-sidebar-title">蓬莱 Agent</span>
+        <span class="pl-sidebar-version" id="pl-version">0.3.1</span>
+      </div>
+      <nav class="pl-sidebar-nav" id="pl-nav">
+        <!-- 核心区 -->
+        <div class="pl-nav-group">
+          <div class="pl-nav-group-label">核心区</div>
+          <div class="pl-nav-item active" data-view="chat" title="聊天工作台">
+            <span class="pl-nav-icon" data-lucide="message-square"></span>
+            <span>聊天工作台</span>
+          </div>
+          <div class="pl-nav-item" data-view="runtime" title="运行历史">
+            <span class="pl-nav-icon" data-lucide="play-circle"></span>
+            <span>运行历史</span>
+          </div>
+          <div class="pl-nav-item" data-view="channels" title="渠道管理">
+            <span class="pl-nav-icon" data-lucide="radio-tower"></span>
+            <span>渠道管理</span>
           </div>
         </div>
-        <div class="topbar-right">
-          <h1 id="session-title" class="sr-only">蓬莱</h1>
-          <span id="status-badge" class="badge">
-            <span class="status-dot"></span>
-            <span id="status-text">启动中…</span>
+        <!-- 扩展区 -->
+        <div class="pl-nav-group">
+          <div class="pl-nav-group-label">扩展区</div>
+          <div class="pl-nav-item" data-view="abilities" title="能力管理">
+            <span class="pl-nav-icon" data-lucide="sparkles"></span>
+            <span>能力管理</span>
+          </div>
+          <div class="pl-nav-item" data-view="companion" title="陪伴控制">
+            <span class="pl-nav-icon" data-lucide="heart-handshake"></span>
+            <span>陪伴控制</span>
+          </div>
+        </div>
+        <!-- 系统区 -->
+        <div class="pl-nav-group">
+          <div class="pl-nav-group-label">系统区</div>
+          <div class="pl-nav-item" data-view="diagnostics" title="诊断面板">
+            <span class="pl-nav-icon" data-lucide="stethoscope"></span>
+            <span>诊断面板</span>
+          </div>
+          <div class="pl-nav-item" data-view="logs" title="脱敏日志">
+            <span class="pl-nav-icon" data-lucide="scroll-text"></span>
+            <span>脱敏日志</span>
+          </div>
+          <div class="pl-nav-item" data-view="update" title="检查更新">
+            <span class="pl-nav-icon" data-lucide="download"></span>
+            <span>检查更新</span>
+          </div>
+          <div class="pl-nav-item" data-view="security" title="安全设置">
+            <span class="pl-nav-icon" data-lucide="shield-check"></span>
+            <span>安全设置</span>
+          </div>
+        </div>
+        <!-- 引导 -->
+        <div class="pl-nav-group">
+          <div class="pl-nav-group-label">引导</div>
+          <div class="pl-nav-item" data-view="setup" title="首次安装引导">
+            <span class="pl-nav-icon" data-lucide="rocket"></span>
+            <span>安装引导</span>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- ============ MAIN AREA ============ -->
+    <div class="pl-main">
+      <header class="pl-topbar">
+        <h1 class="pl-topbar-title" id="pl-topbar-title">聊天工作台</h1>
+        <div class="pl-topbar-actions">
+          <span class="pl-platform-badge" id="pl-platform-badge">Mac</span>
+          <span class="pl-platform-badge" id="pl-bridge-badge">
+            <span class="pl-dot" id="pl-bridge-dot"></span>
+            <span id="pl-bridge-text">启动中…</span>
           </span>
         </div>
       </header>
 
-      <div id="update-banner" class="update-banner hidden">
-        <span id="update-text">运行时新版本可用</span>
-        <button class="btn btn-sm" id="update-apply-btn">一键升级</button>
-        <button class="btn btn-sm" id="update-dismiss-btn">稍后</button>
-      </div>
+      <div class="pl-view-stack" id="pl-view-stack">
+        <!-- ===== View: Chat Workspace (legacy chat UI injected here) ===== -->
+        <section class="pl-view" id="view-chat" data-view="chat">
+          <!-- 现有聊天界面（topbar/messages/composer）由 app.js 注入或保留 -->
+          <main id="main">
+            <header id="topbar">
+              <div class="topbar-left">
+                <div id="session-list" class="tab-strip" role="tablist" aria-label="对话">
+                  <button id="new-session-btn" class="tab-new-btn" title="新对话" aria-label="新对话">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="topbar-right">
+                <h1 id="session-title" class="sr-only">蓬莱</h1>
+                <span id="status-badge" class="badge">
+                  <span class="status-dot"></span>
+                  <span id="status-text">启动中…</span>
+                </span>
+              </div>
+            </header>
 
-      <div id="search-bar" class="search-bar hidden">
-        <input id="search-input" type="text" placeholder="搜索消息…" aria-label="搜索消息">
-        <span id="search-count" class="search-count"></span>
-        <button id="search-prev" class="search-nav-btn" title="上一个（Shift+Enter）" aria-label="上一个匹配">▲</button>
-        <button id="search-next" class="search-nav-btn" title="下一个（Enter）" aria-label="下一个匹配">▼</button>
-        <button id="search-close" class="search-nav-btn" title="关闭（Escape）" aria-label="关闭搜索">✕</button>
-      </div>
-
-      <section id="messages" class="empty">
-        <div class="empty-state">
-          <div class="empty-title">新任务</div>
-          <div class="empty-sub">直接输入任务，或输入 <code>/help</code> 查看命令。</div>
-        </div>
-      </section>
-
-      <div id="composer-wrap">
-        <div id="composer">
-          <div id="image-previews" class="image-previews"></div>
-          <textarea id="input" rows="1" placeholder="输入消息，或 /help"></textarea>
-          <div class="composer-bottom">
-            <div class="composer-hints">
-              <button id="settings-btn" class="icon-btn ghost" title="设置" aria-label="设置">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
-                <span class="hint-label">设置</span>
-              </button>
-              <button id="speak-last-btn" class="icon-btn ghost" title="朗读最近回复" aria-label="朗读最近回复" disabled>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 5 6 9H3v6h3l5 4V5z"/>
-                  <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-                  <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
-                </svg>
-                <span class="hint-label">朗读</span>
-              </button>
-
+            <div id="update-banner" class="update-banner hidden">
+              <span id="update-text">运行时新版本可用</span>
+              <button class="btn btn-sm" id="update-apply-btn">一键升级</button>
+              <button class="btn btn-sm" id="update-dismiss-btn">稍后</button>
             </div>
-            <button id="send-btn" class="send-btn" title="发送（Enter）">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M5 12h14M13 6l6 6-6 6"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
 
+            <div id="search-bar" class="search-bar hidden">
+              <input id="search-input" type="text" placeholder="搜索消息…" aria-label="搜索消息">
+              <span id="search-count" class="search-count"></span>
+              <button id="search-prev" class="search-nav-btn" title="上一个（Shift+Enter）" aria-label="上一个匹配">▲</button>
+              <button id="search-next" class="search-nav-btn" title="下一个（Enter）" aria-label="下一个匹配">▼</button>
+              <button id="search-close" class="search-nav-btn" title="关闭（Escape）" aria-label="关闭搜索">✕</button>
+            </div>
+
+            <section id="messages" class="empty">
+              <div class="empty-state">
+                <div class="empty-title">新任务</div>
+                <div class="empty-sub">直接输入任务，或输入 <code>/help</code> 查看命令。</div>
+              </div>
+            </section>
+
+            <div id="composer-wrap">
+              <div id="composer">
+                <div id="image-previews" class="image-previews"></div>
+                <textarea id="input" rows="1" placeholder="输入消息，或 /help"></textarea>
+                <div class="composer-bottom">
+                  <div class="composer-hints">
+                    <button id="settings-btn" class="icon-btn ghost" title="设置" aria-label="设置">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
+                      <span class="hint-label">设置</span>
+                    </button>
+                    <button id="speak-last-btn" class="icon-btn ghost" title="朗读最近回复" aria-label="朗读最近回复" disabled>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 5 6 9H3v6h3l5 4V5z"/>
+                        <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+                        <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+                      </svg>
+                      <span class="hint-label">朗读</span>
+                    </button>
+                  </div>
+                  <button id="send-btn" class="send-btn" title="发送（Enter）">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M5 12h14M13 6l6 6-6 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </section>
+
+        <!-- ===== View: Runtime Runs ===== -->
+        <section class="pl-view hidden" id="view-runtime" data-view="runtime"></section>
+
+        <!-- ===== View: Channels ===== -->
+        <section class="pl-view hidden" id="view-channels" data-view="channels"></section>
+
+        <!-- ===== View: Abilities ===== -->
+        <section class="pl-view hidden" id="view-abilities" data-view="abilities"></section>
+
+        <!-- ===== View: Companion ===== -->
+        <section class="pl-view hidden" id="view-companion" data-view="companion"></section>
+
+        <!-- ===== View: Diagnostics ===== -->
+        <section class="pl-view hidden" id="view-diagnostics" data-view="diagnostics"></section>
+
+        <!-- ===== View: Logs ===== -->
+        <section class="pl-view hidden" id="view-logs" data-view="logs"></section>
+
+        <!-- ===== View: Update ===== -->
+        <section class="pl-view hidden" id="view-update" data-view="update"></section>
+
+        <!-- ===== View: Security ===== -->
+        <section class="pl-view hidden" id="view-security" data-view="security"></section>
+
+        <!-- ===== View: Setup Wizard ===== -->
+        <section class="pl-view hidden" id="view-setup" data-view="setup"></section>
+      </div>
+    </div>
+
+    <!-- ============ Floating overlays (kept from legacy) ============ -->
     <!-- 设置弹窗 -->
     <div id="settings-modal" class="modal hidden">
       <div class="modal-backdrop"></div>
@@ -114,34 +227,34 @@
               <button class="tab-btn" data-tab="doctor">诊断</button>
             </div>
             <div class="tab-content" id="tab-ops">
-            <div id="ops-summary" class="ops-summary">
-              <div class="ops-empty">中枢状态不可用。</div>
-            </div>
-            <div class="ops-actions" aria-label="中枢操作">
-              <button class="btn" id="ops-refresh">刷新</button>
-              <button class="btn" id="ops-runtime-service-status">服务状态</button>
-              <button class="btn" id="ops-runtime-service-install">启动中枢服务</button>
-              <button class="btn" id="ops-runtime-service-uninstall">停止中枢服务</button>
-              <button class="btn" id="ops-doctor">体检</button>
-              <button class="btn" id="ops-selfcheck">自检</button>
-              <button class="btn" id="ops-install-check">安装预检</button>
-              <button class="btn" id="ops-update-check">检查更新</button>
-              <button class="btn" id="ops-runtime-audit">旧入口审计</button>
-              <button class="btn" id="ops-privacy-audit">隐私审计</button>
-              <button class="btn" id="ops-runtime-status">会话状态</button>
-              <button class="btn" id="ops-runtime-runs">运行记录</button>
-            </div>
-            <div class="ops-log-row">
-              <select id="ops-log-channel" aria-label="日志通道">
-                <option value="feishu">飞书</option>
-                <option value="runtime">中枢</option>
-                <option value="wechat">微信</option>
-                <option value="scheduler">调度器</option>
-                <option value="companion">陪伴端</option>
-              </select>
-              <button class="btn" id="ops-load-log">日志</button>
-            </div>
-            <pre id="ops-output" class="ops-output" aria-live="polite"></pre>
+              <div id="ops-summary" class="ops-summary">
+                <div class="ops-empty">中枢状态不可用。</div>
+              </div>
+              <div class="ops-actions" aria-label="中枢操作">
+                <button class="btn" id="ops-refresh">刷新</button>
+                <button class="btn" id="ops-runtime-service-status">服务状态</button>
+                <button class="btn" id="ops-runtime-service-install">启动中枢服务</button>
+                <button class="btn" id="ops-runtime-service-uninstall">停止中枢服务</button>
+                <button class="btn" id="ops-doctor">体检</button>
+                <button class="btn" id="ops-selfcheck">自检</button>
+                <button class="btn" id="ops-install-check">安装预检</button>
+                <button class="btn" id="ops-update-check">检查更新</button>
+                <button class="btn" id="ops-runtime-audit">旧入口审计</button>
+                <button class="btn" id="ops-privacy-audit">隐私审计</button>
+                <button class="btn" id="ops-runtime-status">会话状态</button>
+                <button class="btn" id="ops-runtime-runs">运行记录</button>
+              </div>
+              <div class="ops-log-row">
+                <select id="ops-log-channel" aria-label="日志通道">
+                  <option value="feishu">飞书</option>
+                  <option value="runtime">中枢</option>
+                  <option value="wechat">微信</option>
+                  <option value="scheduler">调度器</option>
+                  <option value="companion">陪伴端</option>
+                </select>
+                <button class="btn" id="ops-load-log">日志</button>
+              </div>
+              <pre id="ops-output" class="ops-output" aria-live="polite"></pre>
             </div>
             <div class="tab-content hidden" id="tab-channels">
               <div id="channels-list"><div class="ops-empty">加载中…</div></div>
@@ -162,7 +275,16 @@
       </div>
     </div>
 
-
+    <!-- QR 扫码模态（Channels 模块用） -->
+    <div id="qr-modal-backdrop" class="pl-modal-backdrop hidden">
+      <div class="pl-modal">
+        <h3 class="pl-modal-title" id="qr-modal-title">扫码登录</h3>
+        <div class="pl-qr-placeholder" id="qr-placeholder">二维码加载中…</div>
+        <p style="margin:0;font-size:13px;color:var(--pl-foreground-muted);" id="qr-hint">请使用对应 App 扫一扫</p>
+        <span style="font-size:12px;color:var(--pl-foreground-subtle);" id="qr-expire">二维码将在 5:00 后过期</span>
+        <button class="pl-btn" id="qr-modal-close">取消</button>
+      </div>
+    </div>
 
     <!-- 错误提示 -->
     <div id="error-banner" class="error-banner hidden">
@@ -173,7 +295,8 @@
   </div>
 
   <script src="vendor/marked.min.js"></script>
+  <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
   <script src="penglai-web.js?v=desktop-tts-1"></script>
-  <script src="app.js?v=desktop-tts-1"></script>
+  <script src="app.js?v=desktop-031-9modules"></script>
 </body>
 </html>

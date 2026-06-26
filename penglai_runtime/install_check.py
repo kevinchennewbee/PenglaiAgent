@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Low-side-effect source install checks for Penglai 0.3.0."""
+"""Low-side-effect source install checks for Penglai."""
 
 from __future__ import annotations
 
@@ -87,9 +87,9 @@ def _required_files(root):
 
 def _version_check(root):
     meta = collect_version_metadata(root=root)
-    ok = meta.version == VERSION == "0.3.0"
+    ok = meta.version == VERSION
     return _check(
-        "version_is_030",
+        "version_consistent",
         ok,
         f"installer={meta.version} runtime={VERSION} branch={meta.branch} commit={meta.commit} source={meta.source}",
     )
@@ -99,7 +99,7 @@ def _cli_version_check(root):
     cli = os.path.join(root, "penglai")
     r = _run([_service_python(root), cli, "version"], root=root, timeout=20)
     text = ((r.stdout or "") + (r.stderr or "")).strip()
-    return _check("cli_version_runs", r.returncode == 0 and "Penglai 0.3.0" in text, text.splitlines()[0] if text else f"rc={r.returncode}")
+    return _check("cli_version_runs", r.returncode == 0 and f"Penglai {VERSION}" in text, text.splitlines()[0] if text else f"rc={r.returncode}")
 
 
 def _runtime_contract_check():
@@ -288,7 +288,7 @@ def _print_text(data):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="检查蓬莱 0.3.0 源码安装")
+    parser = argparse.ArgumentParser(description=f"检查蓬莱 {VERSION} 源码安装")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     parser.add_argument("--root", default=ROOT, help="项目目录")
     parser.add_argument("--require-real-agent", action="store_true", help="同时要求真实 GA/LLM 配置可初始化")

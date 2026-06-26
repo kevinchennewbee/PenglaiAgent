@@ -565,6 +565,8 @@ class GenericAgentHandler(BaseHandler):
             next_prompt += f"\n\n[DANGER] 已连续执行第 {turn} 轮。必须总结情况进行ask_user，不允许继续重试。"
         elif turn % 7 == 0:
             next_prompt += f"\n\n[SYSTEM] 已连续执行第 {turn} 轮。建议调用update_working_checkpoint保存关键上下文。禁止无效重试；若无有效进展，必须切换策略：1. 探测物理边界 2. **重读相关SOP**"
+        elif turn % 25 == 0:
+            next_prompt += f"\n\n[SYSTEM] Turn {turn}. Write checkpoints/key findings/tried approaches to a **file** for future reference (not only working_checkpoint!). Avoid losing critical info."
         elif turn % 10 == 0: next_prompt += get_global_memory()
 
         if _plan and turn >= 10 and turn % 5 == 0:

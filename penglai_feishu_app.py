@@ -17,6 +17,8 @@ import sys
 import threading
 import time
 import traceback
+import urllib.error
+import urllib.request
 import uuid
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
@@ -30,11 +32,21 @@ from penglai_feishu_ask import (  # noqa: E402
     render_ask_user_text,
     resolve_choice,
 )
+from penglai_runtime import VERSION  # noqa: E402
 from penglai_runtime.output_cleaner import clean_final_text, has_internal_markup  # noqa: E402
-from penglai_runtime.contracts import InboundEvent, RunStatus  # noqa: E402
+from penglai_runtime.delivery import DeliveryService  # noqa: E402
+from penglai_runtime.contracts import (  # noqa: E402
+    InboundEvent,
+    PermissionRequest,
+    QueueDecision,
+    RunStatus,
+    SessionRef,
+    TaskRun,
+)
 from penglai_runtime.interaction import parse_callback_value, request_from_ask_user_event  # noqa: E402
 from penglai_runtime.permissions import permission_payload, render_permission_text  # noqa: E402
 from penglai_runtime.port import GenericAgentInstancePort  # noqa: E402
+from penglai_runtime.runner import AgentRunResult  # noqa: E402
 from penglai_runtime.context_events import default_context_log_path  # noqa: E402
 from penglai_runtime.redaction import contains_secret, redact_text  # noqa: E402
 from penglai_runtime.service import RuntimeHubService  # noqa: E402
@@ -968,6 +980,128 @@ def _start_waiting_card_heartbeat(
     return thread
 
 
+def _feishu_delivery_service(fs_mod, rid, receive_id_type):
+    """Build a DeliveryService wired to Feishu send primitives.
+
+    Penglai owns file-marker parsing, blocked-notice policy, and duplicate
+    suppression; Feishu only provides transport callbacks.  Routing every
+    outbound message through this keeps Feishu on the same safety path as
+    WeChat (and the DingTalk/QQ/WeCom channel bridge).
+    """
+    def _send_text(text):
+        if not (text or "").strip():
+            return False
+        try:
+            return bool(fs_mod.send_message(rid, text, receive_id_type=receive_id_type))
+        except Exception:
+            return False
+
+    def _send_file(path):
+        try:
+            return bool(fs_mod._send_local_file(rid, path, receive_id_type))
+        except Exception:
+            return False
+
+    def _send_audio(path):
+        try:
+            return bool(fs_mod._send_local_audio(rid, path, receive_id_type))
+        except Exception:
+            return False
+
+    return DeliveryService(send_text=_send_text, send_file=_send_file, send_audio=_send_audio)
+
+
+def _try_owner_control_api(*, text, user_id, chat_id, chat_type, images=None, timeout=1200):
+    """Forward an owner message to the Runtime Hub control API /message.
+
+    Returns the response dict on success, or None if the control API is not
+    available (connection refused, missing token).  Callers should fall back
+    to the local Hub when None is returned.
+    """
+    from penglai_runtime.control_api import default_token_path
+
+    token_path = default_token_path()
+    if not os.path.exists(token_path):
+        return None
+    try:
+        with open(token_path, encoding="utf-8") as f:
+            token = f.read().strip()
+    except OSError:
+        return None
+    if not token:
+        return None
+    body = {
+        "text": str(text or ""),
+        "channel": "feishu",
+        "user_id": str(user_id or ""),
+        "chat_id": str(chat_id or ""),
+        "chat_type": str(chat_type or "private"),
+        "timeout": float(timeout),
+    }
+    if images:
+        body["images"] = list(images)
+    url = "http://127.0.0.1:8765/message"
+    raw = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=raw,
+        method="POST",
+        headers={"Content-Type": "application/json", "X-Penglai-Token": token},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=float(timeout) + 5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+
+def _control_api_to_run_result(resp, event):
+    """Convert a control API /message response dict to an AgentRunResult."""
+    session = SessionRef(
+        session_id=str(resp.get("session_id") or ""),
+        scope=str(resp.get("scope") or "owner"),
+        channel=str(resp.get("channel") or event.channel),
+        user_id=event.user_id,
+        chat_id=event.chat_id,
+    )
+    decision = QueueDecision(
+        session_id=session.session_id,
+        accepted=True,
+        started_now=True,
+        queue_no=0,
+        reason="control_api",
+    )
+    output = str(resp.get("output") or "")
+    task_run = TaskRun(
+        event_id=event.event_id,
+        session_id=session.session_id,
+        run_id=str(resp.get("run_id") or ""),
+        status=str(resp.get("status") or RunStatus.SUCCEEDED),
+        worker_id=str(resp.get("worker_id") or "single-worker"),
+        result_text=output,
+        error=str(resp.get("error") or ""),
+    )
+    perm_dict = resp.get("permission") or {}
+    permission = None
+    if perm_dict and perm_dict.get("action") and perm_dict.get("prompt"):
+        permission = PermissionRequest(
+            action=str(perm_dict["action"]),
+            prompt=str(perm_dict["prompt"]),
+            options=tuple(perm_dict.get("options") or ()),
+            request_id=str(perm_dict.get("request_id") or ""),
+            metadata=dict(perm_dict.get("metadata") or {}),
+        )
+    return AgentRunResult(
+        event=event,
+        session=session,
+        decision=decision,
+        task_run=task_run,
+        raw_output=output,
+        cleaned_output=output,
+        permission=permission,
+    )
+
+
 def _patch(fs):
     if getattr(fs, "_PENGLAI_FEISHU_PATCHED", False):
         return
@@ -1002,7 +1136,9 @@ def _patch(fs):
         rendered = fs._card_raw(elements)
         ok = fs._patch_card(card.msg_id, rendered) if card.msg_id else False
         if not ok:
-            fs.send_message(card.rid, render_ask_user_text(text, event), receive_id_type=card.rtype)
+            _feishu_delivery_service(fs, card.rid, card.rtype).deliver(
+                render_ask_user_text(text, event), send_body=True
+            )
 
     def _finish_ask_card(card, raw, event, menu_id):
         _finish_ask_card_text(card, fs._display_text(raw), event, menu_id)
@@ -1095,15 +1231,26 @@ def _patch(fs):
             try:
                 agent = getattr(app, "agent", None)
                 if agent is not None and agent.llmclients:
-                    backend = agent.llmclient.backend
                     persona = (
                         "\n[蓬莱身份] 你是「蓬莱助手」，基于 GenericAgent 的开源个人管家发行版蓬莱。"
                         "用户称呼你为\"主人\"。被问及身份/名字时以此为准，严禁自称底层模型名"
                         "(如 MiniMax/Claude/GPT 等)或 API 提供商名。"
                     )
-                    existing = getattr(backend, "extra_sys_prompt", "") or ""
-                    if persona not in existing:
-                        backend.extra_sys_prompt = persona + "\n" + existing
+                    # Prefer the generic extra_sys_prompts slot (upstream c85b59e)
+                    # so we do not mutate the backend's extra_sys_prompt attribute.
+                    # NOTE: Runtime Hub path (penglai_runtime/port.py) already rides
+                    # this slot; the feishu-specific persona injection stays on the
+                    # backend attribute fallback until the feishu-app phase rewrites
+                    # it, to avoid conflicting with in-flight work in this file.
+                    slots = getattr(agent, "extra_sys_prompts", None)
+                    if slots is not None:
+                        if persona not in slots:
+                            slots.append(persona)
+                    else:
+                        backend = agent.llmclient.backend
+                        existing = getattr(backend, "extra_sys_prompt", "") or ""
+                        if persona not in existing:
+                            backend.extra_sys_prompt = persona + "\n" + existing
             except Exception:
                 pass
         return service
@@ -1181,16 +1328,15 @@ def _patch(fs):
                 # unreliable with 0.3.0's async dispatch from worker threads).
                 body = _final_display_text(raw)
                 if body:
-                    try:
-                        fs.send_message(rid, body, receive_id_type=receive_id_type)
-                    except Exception:
-                        pass
+                    _feishu_delivery_service(fs, rid, receive_id_type).deliver(body, send_body=True)
                 # Still try the card update for continuity, but don't rely on it.
                 try:
                     _card_done(card, raw)
                 except Exception:
                     pass
-            fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
+            _feishu_delivery_service(fs, rid, receive_id_type).deliver(
+                raw, base_dir=getattr(fs, "TEMP_DIR", None), send_body=False, send_notice=True
+            )
 
         def _ask(permission):
             _pop_task(task_id)
@@ -1283,14 +1429,16 @@ def _patch(fs):
                                 _card_done(card, raw)
                             except Exception:
                                 if body:
-                                    fs.send_message(rid, body, receive_id_type=receive_id_type)
+                                    _feishu_delivery_service(fs, rid, receive_id_type).deliver(body, send_body=True)
                         else:
                             try:
                                 _card_done(card, raw)
                             except Exception:
                                 if body:
-                                    fs.send_message(rid, body, receive_id_type=receive_id_type)
-                        fs._send_generated_files(rid, raw, receive_id_type=receive_id_type)
+                                    _feishu_delivery_service(fs, rid, receive_id_type).deliver(body, send_body=True)
+                        _feishu_delivery_service(fs, rid, receive_id_type).deliver(
+                            raw, base_dir=getattr(fs, "TEMP_DIR", None), send_body=False, send_notice=True
+                        )
                     elif run_result.status == RunStatus.CANCELLED:
                         self.agent.abort()
                         if not is_queued:
@@ -1309,7 +1457,9 @@ def _patch(fs):
                             try:
                                 card.fail(f"错误: {run_result.task_run.error}")
                             except Exception:
-                                fs.send_message(rid, f"❌ 错误: {run_result.task_run.error}", receive_id_type=receive_id_type)
+                                _feishu_delivery_service(fs, rid, receive_id_type).deliver(
+                                    f"❌ 错误: {run_result.task_run.error}", send_body=True
+                                )
                 except Exception as exc:
                     print(f"[penglai feishu] on_result error: {exc}", flush=True)
                 finally:
@@ -1320,6 +1470,40 @@ def _patch(fs):
                             delattr(self.agent, "_fs_active_task_id")
                         except AttributeError:
                             pass
+
+            # ── owner routing: try control API first for shared GA session ──
+            _owner_id = str(user_id or receive_id or chat_id)
+            _allowed = set(
+                str(x) for x in (getattr(fs, "ALLOWED_USERS", set()) or set())
+                if str(x) and str(x) != "*"
+            )
+            _heartbeat_started = False
+            if _owner_id in _allowed:
+                if card_started:
+                    _start_waiting_card_heartbeat(
+                        card,
+                        task_id,
+                        lambda: getattr(self.agent, "_fs_active_task_id", None),
+                        done_evt,
+                    )
+                    _heartbeat_started = True
+                try:
+                    ctrl_resp = await asyncio.to_thread(
+                        _try_owner_control_api,
+                        text=str(text or ""),
+                        user_id=_owner_id,
+                        chat_id=str(chat_id),
+                        chat_type=str(chat_type or "private"),
+                        images=list(images or []),
+                        timeout=float(getattr(fs, "AGENT_TIMEOUT_SEC", 1200)),
+                    )
+                except Exception:
+                    ctrl_resp = None
+                if ctrl_resp is not None:
+                    run_result = _control_api_to_run_result(ctrl_resp, event)
+                    _on_result(run_result)
+                    return
+                # Control API unavailable — fall through to local service.submit.
 
             decision = service.submit(
                 event, port=port, on_complete=_on_result,
@@ -1353,7 +1537,7 @@ def _patch(fs):
                     flush=True,
                 )
                 return
-            if card_started:
+            if card_started and not _heartbeat_started:
                 _start_waiting_card_heartbeat(
                     card,
                     task_id,
@@ -1464,10 +1648,13 @@ def _patch(fs):
             user_input = choice
         if not user_input:
             if chat_id:
-                fs.send_message(chat_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}",
-                                receive_id_type="chat_id")
+                _feishu_delivery_service(fs, chat_id, "chat_id").deliver(
+                    f"⚠️ 暂不支持处理此类飞书消息：{msg_type}", send_body=True
+                )
             else:
-                fs.send_message(open_id, f"⚠️ 暂不支持处理此类飞书消息：{msg_type}")
+                _feishu_delivery_service(fs, open_id, "open_id").deliver(
+                    f"⚠️ 暂不支持处理此类飞书消息：{msg_type}", send_body=True
+                )
             return
         print(
             f"收到消息 [user={_mask_id(open_id)}] "
@@ -1480,7 +1667,7 @@ def _patch(fs):
                 f"{_redact_log_text(user_input)[:120]}",
                 flush=True,
             )
-            fs.send_message(receive_id, _SECRET_BLOCK_REPLY, receive_id_type=receive_id_type)
+            _feishu_delivery_service(fs, receive_id, receive_id_type).deliver(_SECRET_BLOCK_REPLY, send_body=True)
             return
         if msg_type == "text" and user_input.startswith("/") and choice is None:
             threading.Thread(
@@ -1514,10 +1701,8 @@ def _patch(fs):
                 flush=True,
             )
             if not ok:
-                fs.send_message(
-                    receive_id,
-                    render_ask_user_text("", direct_event),
-                    receive_id_type=receive_id_type,
+                _feishu_delivery_service(fs, receive_id, receive_id_type).deliver(
+                    render_ask_user_text("", direct_event), send_body=True
                 )
             return
         threading.Thread(
@@ -1706,19 +1891,21 @@ def _gray_probe(fs, *, wait_seconds=120, nonce=None, send_prompt=False, target_o
         else:
             if stop_probe:
                 prompt = (
-                    "PenglaiAgent 0.3.0 飞书停止命令灰度验证："
+                    f"PenglaiAgent {VERSION} 飞书停止命令灰度验证："
                     "请直接回复 /stop，用于确认真实 WSS 入站会取消同一个 Runtime Hub session。"
                 )
             else:
                 prompt = (
-                    "PenglaiAgent 0.3.0 飞书灰度验证：请直接回复下面这段验证码，"
+                    f"PenglaiAgent {VERSION} 飞书灰度验证：请直接回复下面这段验证码，"
                     "用于确认真实 WSS 入站会进入 Runtime Hub。\n"
                     f"{nonce}"
                 )
             try:
-                msg_id = fs.send_message(target_open_id, prompt, "text", False, "open_id")
-                state["sent_prompt"] = bool(msg_id)
-                print("FEISHU_GRAY_PROMPT_SENT=" + ("1" if msg_id else "0"), flush=True)
+                _gray_deliver = _feishu_delivery_service(fs, target_open_id, "open_id").deliver(
+                    prompt, send_body=True
+                )
+                state["sent_prompt"] = bool(_gray_deliver.sent_body)
+                print("FEISHU_GRAY_PROMPT_SENT=" + ("1" if _gray_deliver.sent_body else "0"), flush=True)
             except Exception as e:
                 state["error"] = f"发送灰度提示失败：{type(e).__name__}: {e}"
                 print(f"FEISHU_GRAY_PROMPT_ERROR={state['error']}", flush=True)

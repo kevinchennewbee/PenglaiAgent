@@ -292,6 +292,43 @@ class AgentRunner:
             memory=memory_decision,
         )
 
+    def resume_permission(self, run, event, session, port, *,
+                          base_dir=None, exclude_paths=None, send_body=True,
+                          send_notice=True, fail_on_delivery_failure=False,
+                          cancel_check=None, on_task_start=None):
+        """Resume a WAITING_PERMISSION TaskRun with the user's choice.
+
+        Closes the FSM by reusing the same TaskRun:
+        WAITING_PERMISSION -> RUNNING -> SUCCEEDED/FAILED.
+
+        ``event`` should carry the user's chosen value as ``event.text``.
+        ``run`` must be the original TaskRun created by submit/run_started.
+        """
+        if run is None:
+            raise ValueError("resume_permission requires an existing TaskRun")
+        if run.status != RunStatus.WAITING_PERMISSION:
+            raise ValueError(
+                f"TaskRun {run.run_id} is not WAITING_PERMISSION (status={run.status})"
+            )
+        worker_id = getattr(port, "worker_id", None) if port is not None else run.worker_id
+        run.resume(worker_id=worker_id)
+        self._active_run_ids[session.session_id] = run.run_id
+        decision = QueueDecision(
+            session_id=session.session_id,
+            accepted=True,
+            started_now=True,
+            queue_no=0,
+            reason="permission_resumed",
+        )
+        self._notify_task_start(on_task_start, event, session, decision, run)
+        return self._execute(
+            event, session, decision, run, port,
+            base_dir=base_dir, exclude_paths=exclude_paths,
+            send_body=send_body, send_notice=send_notice,
+            fail_on_delivery_failure=fail_on_delivery_failure,
+            cancel_check=cancel_check,
+        )
+
     def complete(self, session_id):
         sid = str(session_id)
         self._active_run_ids.pop(sid, None)

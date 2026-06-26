@@ -274,8 +274,8 @@ def _parse_openai_sse(resp_lines, api_mode="chat_completions"):
             except: continue
             ch = (evt.get("choices") or [{}])[0]
             delta = ch.get("delta") or {}
-            if delta.get("reasoning_content"):
-                reasoning_text += delta["reasoning_content"]
+            if rc := delta.get("reasoning_content") or delta.get("reasoning", ""):
+                reasoning_text += rc; yield rc
             if delta.get("content"):
                 text = delta["content"]; content_text += text; yield text
             for tc in (delta.get("tool_calls") or []):
@@ -334,7 +334,7 @@ def _parse_openai_json(data, api_mode="chat_completions"):
     else:
         _record_usage(data.get("usage") or {}, api_mode)
         msg = (data.get("choices") or [{}])[0].get("message", {})
-        reasoning = msg.get("reasoning_content", "")
+        reasoning = msg.get("reasoning_content") or msg.get("reasoning", "")
         if reasoning:
             blocks.append({"type": "thinking", "thinking": reasoning})
         content = msg.get("content", "")

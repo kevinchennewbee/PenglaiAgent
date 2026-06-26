@@ -82,6 +82,10 @@ select{cursor:pointer}
       <button onclick="selectLang('zh')" style="font-size:1rem">中文</button>
       <button onclick="selectLang('en')" style="font-size:1rem">English</button>
     </div>
+    <div style="margin-top:1.2rem;text-align:center">
+      <button class="secondary" id="lang-check-update-btn" onclick="checkAppUpdateFromSetup()" style="font-size:.75rem;width:auto">检查桌面应用更新</button>
+      <div id="lang-update-status" class="status-msg" style="font-size:.72rem"></div>
+    </div>
   </div>
 
   <!-- ====== Phase 1: Runtime Install ====== -->
@@ -178,6 +182,45 @@ function selectLang(lang) {
   document.getElementById('phase-runtime').classList.remove('hidden');
 }
 
+// =========== Setup op wrapper with retry (P0-2 fix) ===========
+// Every setup_op call goes through bridge HTTP.  If the bridge is not ready
+// yet (e.g. just spawned in --bootstrap mode after install_runtime), the
+// first call may fail.  Retry ONLY on transport-level errors (bridge not
+// ready, connection refused, token unavailable).  Do NOT retry on handler-
+// level errors (HTTP 500 from setup_test_llm etc.) — those return the same
+// result every time and retrying just wastes the user's time (e.g. 3×40s
+// for a bad API key).
+async function invokeSetupOp(op, paramsObj) {
+  const params = typeof paramsObj === 'string' ? paramsObj : JSON.stringify(paramsObj || {});
+  // Snapshot globals at entry to avoid race during retry backoff.
+  const py = pythonPath, dir = projectDir;
+  let lastErr = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const raw = await invoke('setup_op', {pythonPath: py, projectDir: dir, op, params});
+      return raw;
+    } catch(e) {
+      lastErr = String(e);
+      // Only retry on transport-level errors indicating bridge not ready.
+      // Handler-level errors (HTTP 500/4xx with "bridge POST /setup/...: HTTP/1.1 5xx")
+      // contain 'bridge' but are NOT transport errors — they mean the bridge
+      // is up and the handler ran, just returned an error.  Retry is pointless.
+      const isTransportError =
+        lastErr.includes('token unavailable') ||
+        lastErr.includes('connect bridge failed') ||
+        lastErr.includes('write failed') ||
+        lastErr.includes('read failed') ||
+        lastErr.includes('invalid HTTP response');
+      if (attempt < 3 && isTransportError) {
+        await new Promise(r => setTimeout(r, 800 * attempt));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
 // =========== Phase 1: Runtime Install ===========
 const rwTitle = document.getElementById('rw-title');
 const rwSub = document.getElementById('rw-sub');
@@ -218,9 +261,69 @@ function appendLog(box, text, cls) {
 
 async function openMainWindow() {
   const mainWin = await Window.getByLabel('main');
-  if (mainWin) { await mainWin.show(); await mainWin.setFocus(); }
-  const setupWin = getCurrentWindow();
-  await setupWin.hide();
+  if (mainWin) {
+    await mainWin.show();
+    await mainWin.setFocus();
+    // Only hide setup window after main window is confirmed visible,
+    // otherwise the app would have no visible window.
+    const setupWin = getCurrentWindow();
+    await setupWin.hide();
+  } else {
+    // P0-7 fix: main window doesn't exist (tauri.conf.json misconfigured).
+    // Do NOT hide setup window — that would leave the app with no visible
+    // window.  Keep setup visible and tell the user to restart.
+    console.error('[penglai] main window not found; user may need to restart the app');
+    alert('主窗口未找到。配置已保存，请关闭此窗口后重新启动蓬莱桌面。');
+  }
+}
+
+// =========== App self-update from setup window ===========
+// User requirement: "万一卡在配置界面也能升级".  This lets the user check
+// for and install Tauri app updates (dmg/exe replacement) directly from the
+// setup/fallback window, without needing to enter the main app.
+async function checkAppUpdateFromSetup() {
+  const btn = document.getElementById('lang-check-update-btn');
+  const status = document.getElementById('lang-update-status');
+  if (btn) { btn.disabled = true; btn.textContent = '检查中…'; }
+  status.className = 'status-msg';
+  status.textContent = '正在检查桌面应用更新…';
+  try {
+    const result = await invoke('check_app_update');
+    if (result && result.available) {
+      status.className = 'status-msg ok';
+      status.textContent = `发现新版本 ${result.version || ''}，可以升级`;
+      if (btn) {
+        btn.textContent = '一键升级';
+        btn.onclick = installAppUpdateFromSetup;
+        btn.disabled = false;
+      }
+    } else {
+      status.className = 'status-msg';
+      status.textContent = '已是最新版本';
+      if (btn) { btn.textContent = '检查桌面应用更新'; btn.disabled = false; }
+    }
+  } catch(e) {
+    status.className = 'status-msg err';
+    status.textContent = '检查更新失败：' + e;
+    if (btn) { btn.textContent = '检查桌面应用更新'; btn.disabled = false; }
+  }
+}
+
+async function installAppUpdateFromSetup() {
+  const btn = document.getElementById('lang-check-update-btn');
+  const status = document.getElementById('lang-update-status');
+  if (btn) { btn.disabled = true; btn.textContent = '下载并安装中…'; }
+  status.className = 'status-msg';
+  status.textContent = '正在下载更新包，完成后将自动重启…';
+  try {
+    await invoke('install_app_update');
+    // install_app_update calls app_handle.restart() — code here may not run
+    status.textContent = '更新已安装，正在重启…';
+  } catch(e) {
+    status.className = 'status-msg err';
+    status.textContent = '升级失败：' + e;
+    if (btn) { btn.textContent = '一键升级'; btn.disabled = false; }
+  }
 }
 
 async function setupProgressListener() {
@@ -288,6 +391,8 @@ async function startRuntimeInstall() {
     rwStartBtn.disabled = false;
     rwStartBtn.textContent = '重新初始化';
     rwStarted = false;
+    // Restore options so the user can adjust voice/tts and retry
+    rwOpts.classList.remove('hidden');
   }
 }
 
@@ -368,7 +473,7 @@ function renderSetupStep() {
       </div>
       <div id="fs-qr-area" class="hidden"><div class="qr-box"><canvas id="fs-qr-canvas" width="200" height="200"></canvas></div><p class="log-muted" id="fs-qr-url"></p></div>
       <div id="fs-manual-area" class="hidden">
-        <label class="field-label">App ID</label><input id="fs-app-id" type="text" placeholder="cli_...">
+        <label class="field-label">App ID</label><input id="fs-app-id" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="cli_...">
         <label class="field-label">App Secret</label><input id="fs-app-secret" type="password" placeholder="...">
         <button class="secondary" onclick="feishuVerify()" style="width:auto;margin-top:4px">验证凭证</button>
       </div>
@@ -376,11 +481,16 @@ function renderSetupStep() {
     </div>`;
     break;
   case 3: // Naming
+    // NOTE: Do NOT put Chinese in the value="" attribute on Windows.
+    // WebView2 IME composition can crash when the value attribute contains
+    // non-ASCII chars and the user starts typing Chinese with an IME.
+    // Use placeholder only; fall back to setupData defaults in setupNext().
     html = `<div class="step-content">
       <label class="field-label">管家名字</label>
-      <input id="agent-name" type="text" value="${escHtml(setupData.agentName)}" placeholder="蓬莱助手 Penglai">
+      <input id="agent-name" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="${escHtml(setupData.agentName)}">
       <label class="field-label">它怎么称呼你</label>
-      <input id="user-name" type="text" value="${escHtml(setupData.userName)}" placeholder="主人">
+      <input id="user-name" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="${escHtml(setupData.userName)}">
+      <p class="log-muted" style="font-size:.72rem;margin-top:.4rem">直接按"下一步"使用默认名，或输入自定义名后按下一步。</p>
     </div>`;
     break;
   case 4: // Abilities
@@ -392,11 +502,11 @@ function renderSetupStep() {
       <label class="option"><input id="ab-intel" type="checkbox"><div>🔭 情报矩阵增强<span>叠加独立搜索 API（TinyFish/Tavily/Firecrawl），多源交叉验证。</span></div></label>
       <div id="ab-intel-cfg" class="hidden" style="margin-left:1.5rem">
         <label class="field-label">TinyFish Key <a href="https://agent.tinyfish.ai/api-keys" target="_blank" style="font-size:.7rem">注册</a></label>
-        <input id="intel-tinyfish" type="text" placeholder="tf_...">
+        <input id="intel-tinyfish" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="tf_...">
         <label class="field-label">Tavily Key <a href="https://app.tavily.com" target="_blank" style="font-size:.7rem">注册</a></label>
-        <input id="intel-tavily" type="text" placeholder="tvly-...">
+        <input id="intel-tavily" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="tvly-...">
         <label class="field-label">Firecrawl Key <a href="https://firecrawl.dev" target="_blank" style="font-size:.7rem">注册</a></label>
-        <input id="intel-firecrawl" type="text" placeholder="fc-...">
+        <input id="intel-firecrawl" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="fc-...">
       </div>
     </div>`;
     break;
@@ -428,13 +538,14 @@ function renderSetupStep() {
 let providers = null;
 
 async function loadProviders() {
+  document.getElementById('provider-list').innerHTML = '<p class="log-muted">正在连接桥接服务，加载厂商列表…</p>';
   try {
-    const raw = await invoke('setup_op', {pythonPath, projectDir, op: 'list_providers', params: '{}'});
+    const raw = await invokeSetupOp('list_providers', {});
     const data = JSON.parse(raw);
     providers = data;
     renderProviderTable(data);
   } catch(e) {
-    document.getElementById('provider-list').innerHTML = `<p class="log-err">加载厂商列表失败: ${e}</p>`;
+    document.getElementById('provider-list').innerHTML = `<p class="log-err">加载厂商列表失败：${e}<br><br>可能原因：运行时桥接未启动。请返回上一步重新初始化，或点击"手动指定路径"用已有运行时启动。</p>`;
   }
 }
 
@@ -498,13 +609,14 @@ async function testLLM() {
   if (!setupData.llm.apibase) { swStatus.className='status-msg err'; swStatus.textContent='请先选择厂商'; return; }
 
   setupData.llm.apikey = key;
-  swStatus.textContent = '连通性测试中…';
+  const testBtn = document.querySelector('button[onclick="testLLM()"]');
+  if (testBtn) { testBtn.disabled = true; testBtn.textContent = '测试中…（最长 40 秒）'; }
+  swStatus.textContent = '连通性测试中…（最长 40 秒，请勿重复点击）';
   swStatus.className = 'status-msg';
 
   try {
-    const raw = await invoke('setup_op', {
-      pythonPath, projectDir, op: 'test_llm',
-      params: JSON.stringify({base_url: setupData.llm.apibase, model: setupData.llm.model, api_key: key})
+    const raw = await invokeSetupOp('test_llm', {
+      base_url: setupData.llm.apibase, model: setupData.llm.model, api_key: key
     });
     const r = JSON.parse(raw);
     const resultEl = document.getElementById('llm-test-result');
@@ -521,6 +633,8 @@ async function testLLM() {
   } catch(e) {
     swStatus.className = 'status-msg err';
     swStatus.textContent = '测试失败: ' + e;
+  } finally {
+    if (testBtn) { testBtn.disabled = false; testBtn.textContent = '测试连通性'; }
   }
 }
 
@@ -557,6 +671,8 @@ function toggleChannel(id, el) {
 
 // ---- Feishu Config ----
 let fsPollTimer = null;
+let fsPollStart = 0;
+const FS_POLL_TIMEOUT_MS = 10 * 60 * 1000;  // 10 minutes max
 
 async function feishuQRInit() {
   document.getElementById('fs-manual-area').classList.add('hidden');
@@ -564,7 +680,7 @@ async function feishuQRInit() {
   document.getElementById('fs-status').innerHTML = '<p>正在生成二维码…</p>';
 
   try {
-    const raw = await invoke('setup_op', {pythonPath, projectDir, op: 'feishu_qr_init', params: '{}'});
+    const raw = await invokeSetupOp('feishu_qr_init', {});
     const r = JSON.parse(raw);
     if (!r.ok) {
       document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${escHtml(r.error)}</p>`;
@@ -594,12 +710,16 @@ function renderQRCode(text) {
 
 function startFSPoll(deviceCode) {
   if (fsPollTimer) clearInterval(fsPollTimer);
+  fsPollStart = Date.now();
   fsPollTimer = setInterval(async () => {
+    // P0-5 fix: stop polling after 10 minutes
+    if (Date.now() - fsPollStart > FS_POLL_TIMEOUT_MS) {
+      clearInterval(fsPollTimer);
+      document.getElementById('fs-status').innerHTML = '<p class="log-warn">⚠️ 二维码已过期（超过 10 分钟），请重新生成</p>';
+      return;
+    }
     try {
-      const raw = await invoke('setup_op', {
-        pythonPath, projectDir, op: 'feishu_qr_poll',
-        params: JSON.stringify({device_code: deviceCode})
-      });
+      const raw = await invokeSetupOp('feishu_qr_poll', {device_code: deviceCode});
       const r = JSON.parse(raw);
       if (r.status === 'ok') {
         clearInterval(fsPollTimer);
@@ -628,11 +748,10 @@ async function feishuVerify() {
   const appId = document.getElementById('fs-app-id').value.trim();
   const appSecret = document.getElementById('fs-app-secret').value.trim();
   if (!appId || !appSecret) { swStatus.className='status-msg err'; swStatus.textContent='请填入 App ID 和 Secret'; return; }
+  const verifyBtn = document.querySelector('button[onclick="feishuVerify()"]');
+  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = '验证中…'; }
   try {
-    const raw = await invoke('setup_op', {
-      pythonPath, projectDir, op: 'feishu_verify',
-      params: JSON.stringify({app_id: appId, app_secret: appSecret})
-    });
+    const raw = await invokeSetupOp('feishu_verify', {app_id: appId, app_secret: appSecret});
     const r = JSON.parse(raw);
     if (r.ok) {
       setupData.feishu = {app_id: appId, app_secret: appSecret};
@@ -644,6 +763,8 @@ async function feishuVerify() {
     }
   } catch(e) {
     document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${e}</p>`;
+  } finally {
+    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = '验证凭证'; }
   }
 }
 
@@ -697,8 +818,11 @@ async function setupNext() {
     }
   }
   if (s === 3) {
-    setupData.agentName = document.getElementById('agent-name').value.trim() || '蓬莱助手 Penglai';
-    setupData.userName = document.getElementById('user-name').value.trim() || '主人';
+    // Fall back to setupData defaults (which hold the initial Chinese defaults)
+    // so the user can just click Next without typing — important on Windows
+    // where IME input may be unstable.
+    setupData.agentName = document.getElementById('agent-name').value.trim() || setupData.agentName;
+    setupData.userName = document.getElementById('user-name').value.trim() || setupData.userName;
   }
   if (s === 4) {
     if (document.getElementById('ab-critic').checked) {
@@ -725,37 +849,46 @@ async function finalizeSetup() {
   swNextBtn.disabled = true;
   swBackBtn.disabled = true;
   swStatus.className = 'status-msg';
-  swStatus.textContent = '正在写入配置…';
+  swStatus.textContent = '正在写入身份配置…';
+  let identityDone = false;
+  let mykeyDone = false;
 
   try {
-    // Write identity
-    await invoke('setup_op', {
-      pythonPath, projectDir, op: 'write_identity',
-      params: JSON.stringify({agent_name: setupData.agentName, user_name: setupData.userName})
+    // Step 1: Write identity — verify ok field, not just absence of exception
+    const idRaw = await invokeSetupOp('write_identity', {
+      agent_name: setupData.agentName, user_name: setupData.userName
     });
+    const idResult = JSON.parse(idRaw);
+    if (!idResult.ok) {
+      throw new Error('身份写入失败：' + (idResult.error || '未知错误'));
+    }
+    identityDone = true;
 
-    // Write mykey.py
-    await invoke('setup_op', {
-      pythonPath, projectDir, op: 'write_mykey',
-      params: JSON.stringify({
-        llm_name: setupData.llm.name || 'DeepSeek',
-        llm_key: setupData.llm.apikey || '',
-        llm_base: setupData.llm.apibase || 'https://api.deepseek.com',
-        llm_model: setupData.llm.model || 'deepseek-v4-flash',
-        lang: setupData.lang,
-        fs_app_id: setupData.feishu.app_id || '',
-        fs_app_secret: setupData.feishu.app_secret || '',
-        fs_owner_open_id: '',
-        companion: setupData.companion,
-        critic_model: setupData.criticModel || '',
-        tinyfish_key: setupData.tinyfishKey,
-        tavily_key: setupData.tavilyKey,
-        firecrawl_key: setupData.firecrawlKey,
-      })
+    // Step 2: Write mykey.py — verify ok field
+    swStatus.textContent = '正在写入 mykey.py…';
+    const mkRaw = await invokeSetupOp('write_mykey', {
+      llm_name: setupData.llm.name || 'DeepSeek',
+      llm_key: setupData.llm.apikey || '',
+      llm_base: setupData.llm.apibase || 'https://api.deepseek.com',
+      llm_model: setupData.llm.model || 'deepseek-v4-flash',
+      lang: setupData.lang,
+      fs_app_id: setupData.feishu.app_id || '',
+      fs_app_secret: setupData.feishu.app_secret || '',
+      fs_owner_open_id: '',
+      companion: setupData.companion,
+      critic_model: setupData.criticModel || '',
+      tinyfish_key: setupData.tinyfishKey,
+      tavily_key: setupData.tavilyKey,
+      firecrawl_key: setupData.firecrawlKey,
     });
+    const mkResult = JSON.parse(mkRaw);
+    if (!mkResult.ok) {
+      throw new Error('mykey.py 写入失败：' + (mkResult.error || '未知错误'));
+    }
+    mykeyDone = true;
 
+    // Step 3: Start bridge with the new config
     swStatus.textContent = '配置写入完成，正在启动中枢桥接…';
-
     await invoke('start_bridge_with_config', {
       pythonPath, projectDir
     });
@@ -765,7 +898,20 @@ async function finalizeSetup() {
     await openMainWindow();
   } catch(e) {
     swStatus.className = 'status-msg err';
-    swStatus.textContent = '配置失败：' + e;
+    // P0-6 fix: tell the user exactly what succeeded and what failed so they
+    // know whether to retry the whole wizard or just the failed step.
+    // NOTE: "restart enters main window" is only true if the bridge can start
+    // successfully on restart — if mykey.py has a syntax error or deps are
+    // missing, restart will still show the setup window.  Be honest.
+    let msg = '配置失败：' + e;
+    if (identityDone && mykeyDone) {
+      msg += '\n\n身份和 mykey.py 已写入成功，仅启动桥接失败。可关闭窗口后重新启动蓬莱桌面尝试进入主窗口；若仍进入设置窗口，请检查 mykey.py 是否有语法错误或依赖是否完整。';
+    } else if (identityDone && !mykeyDone) {
+      msg += '\n\n身份已写入，但 mykey.py 写入失败。请重试或手动编辑 mykey.py。';
+    } else {
+      msg += '\n\n身份写入失败，mykey.py 未写入。请检查运行时是否正常后重试。';
+    }
+    swStatus.textContent = msg;
     swNextBtn.disabled = false;
     swBackBtn.disabled = false;
   }

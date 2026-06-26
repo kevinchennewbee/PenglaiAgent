@@ -351,13 +351,9 @@ def _post_form(url, body, timeout=10):
         raise
 
 def _render_qr(url):
-    """终端渲染二维码。当前解释器没有 qrcode 就借 venv 的（step_env 已装入）。"""
-    code = ("import qrcode\nq=qrcode.QRCode(); q.add_data(%r); q.make(fit=True); "
-            "q.print_ascii(invert=True)" % url)
-    for py in (sys.executable, os.path.join(ROOT, ".venv", "bin", "python")):
-        if os.path.exists(py) and subprocess.run([py, "-c", code]).returncode == 0:
-            return True
-    return False
+    """终端渲染二维码（统一走 penglai_qr，无头服务器友好；qrcode 缺失时降级打印 URL）。"""
+    from penglai_qr import print_ascii_qr
+    return print_ascii_qr(url)
 
 def _feishu_qr_create():
     """扫码自动建应用：飞书官方设备码注册流（accounts.feishu.cn）。
@@ -697,6 +693,110 @@ def step_abilities(llm_name=""):
     return out, voice_ready
 
 # ---------- 写配置 ----------
+# ---------- mykey.py 局部补配辅助（P0-1：--only 局部补配不覆盖现有配置）----------
+def _mykey_path():
+    return os.path.join(ROOT, "mykey.py")
+
+
+def _backup_mykey(tag="bak"):
+    """时间戳备份 mykey.py。返回备份路径或 None。"""
+    path = _mykey_path()
+    if not os.path.exists(path):
+        return None
+    bak = f"{path}.{tag}.{time.strftime('%Y%m%d-%H%M%S')}"
+    shutil.copy2(path, bak)
+    return bak
+
+
+def _split_top_assignments(text):
+    """把 mykey.py 文本切成 [(name_or_None, [lines]), ...]。
+    name=None 表示非顶层赋值的行块（注释/空行/续行/头部说明）；
+    name=非None 表示一个完整顶层赋值（可能跨多行 dict/list）。"""
+    import re
+    blocks, cur_name, cur_lines = [], None, []
+    for line in text.splitlines():
+        m = re.match(r"^([A-Za-z_]\w*)\s*=", line)
+        if m:
+            if cur_lines:
+                blocks.append((cur_name, cur_lines))
+            cur_name, cur_lines = m.group(1), [line]
+        else:
+            cur_lines.append(line)
+    if cur_lines:
+        blocks.append((cur_name, cur_lines))
+    return blocks
+
+
+def mykey_update(pairs, *, quiet=False):
+    """局部更新 mykey.py：只改 pairs 里的键，其余配置原样保留。
+    多行 dict/list 赋值会被整块替换为单行 repr（语法等价）。
+    先时间戳备份，再 tmp→rename 原子写入（031rootv2 §4.5 原子性要求）。"""
+    path = _mykey_path()
+    txt = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+    bak = _backup_mykey() if txt else None
+    if bak and not quiet:
+        print("  " + T("已备份旧配置 → {b}", b=os.path.basename(bak)))
+    blocks = _split_top_assignments(txt)
+    done = set()
+    for i, (name, lines) in enumerate(blocks):
+        if name in pairs:
+            blocks[i] = (name, [f"{name} = {pairs[name]!r}"])
+            done.add(name)
+    rest = [k for k in pairs if k not in done]
+    if rest:
+        if blocks and blocks[-1][1] and blocks[-1][1][-1].strip():
+            blocks.append((None, [""]))
+        blocks.append((None, ["# —— 蓬莱局部补配写入 ——"]))
+        for k in rest:
+            blocks.append((k, [f"{k} = {pairs[k]!r}"]))
+    all_lines = []
+    for _, lines in blocks:
+        all_lines.extend(lines)
+    out = "\n".join(all_lines) + "\n"
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(out)
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, path)  # 原子 rename
+    return bak
+
+
+def mykey_load():
+    """读取 mykey.py 为 dict（子进程 import，不污染当前进程）。失败返回 {}。"""
+    code = ("import mykey,json\n"
+            "d={k:v for k,v in vars(mykey).items() if not k.startswith('_') "
+            "and not callable(v)}\n"
+            "print(json.dumps(d, default=str, ensure_ascii=False))")
+    r = subprocess.run([sys.executable, "-c", code], cwd=ROOT,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return {}
+    try:
+        return json.loads(r.stdout)
+    except ValueError:
+        return {}
+
+
+def has_mykey():
+    return os.path.exists(_mykey_path())
+
+
+def has_apikey():
+    """检测 mykey.py 里是否已有有效大模型配置（apikey 非空且非模板占位）。"""
+    cfg = mykey_load().get("native_oai_config")
+    if not isinstance(cfg, dict):
+        return False
+    key = (cfg.get("apikey") or "").strip()
+    if not key:
+        return False
+    # 模板占位特征（mykey_template.py 里的 sk-<your-...>）
+    placeholders = ("sk-<", "<your", "your-", "your_", "填入", "替换为")
+    return not any(p in key for p in placeholders)
+
+
 def step_write(llm, app_id, app_secret, intel=None):
     header(T("步骤") + f" 6/{_TOTAL_STEPS}", T("写入配置 mykey.py"))
     path = os.path.join(ROOT, "mykey.py")
@@ -1121,10 +1221,101 @@ def step_detect_migrate():
     print("\n" + T("🎉 迁移完成。可 penglai doctor 体检、penglai start 启动。"))
     return True
 
+def _ensure_lang_for_only():
+    """--only 局部补配的语言设置：优先 mykey.py 的 penglai_lang，其次环境变量，最后 zh。
+    局部补配不再询问语言（已有配置说明用户已选过）。"""
+    cfg = mykey_load() if has_mykey() else {}
+    lang = cfg.get("penglai_lang") or os.environ.get("PENGLAI_LANG") or "zh"
+    set_lang(lang)
+    return lang
+
+
+# P0-1：--only 局部补配分发。语义边界（031rootv2 §5.2）：
+#   只（重新）配置该模块，不启动服务，不覆盖其他配置。
+#   --only feishu/wechat 不询问大模型 API Key（已有则保留）。
+_ONLY_MODULES = ("llm", "identity", "feishu", "wechat", "channels", "abilities", "companion")
+
+
+def run_only(module):
+    """局部补配入口。返回退出码。"""
+    _ensure_lang_for_only()
+    if _COLOR:
+        print("\033[2J\033[H", end="")
+        print_minibanner()
+    header(T("局部补配"), T("只重配「{m}」，其余配置保留", m=module))
+    if module == "llm":
+        llm = step_llm()
+        mykey_update({
+            "native_oai_config": llm,
+            "mixin_config": {"llm_nos": [llm["name"]], "max_retries": 2, "base_delay": 2},
+        })
+        print(f"\n{OK} " + T("大模型配置已更新（{n}）。重启服务后生效。", n=llm.get("name", "")))
+        return 0
+    if module == "identity":
+        step_identity()
+        print(f"\n{OK} " + T("管家身份已更新。"))
+        return 0
+    if module == "feishu":
+        # 已有 API Key 时默认保留，不进入大模型流程（issue #2 痛点）
+        if has_apikey():
+            print("  " + T("检测到已有大模型配置，本次只重配飞书，不询问 API Key。"))
+        app_id, app_secret = step_feishu()
+        mykey_update({"fs_app_id": app_id, "fs_app_secret": app_secret})
+        print(f"\n{OK} " + T("飞书凭证已更新。重启服务后生效：penglai restart"))
+        return 0
+    if module == "wechat":
+        if has_apikey():
+            print("  " + T("检测到已有大模型配置，本次只重配微信，不询问 API Key。"))
+        step_wechat()
+        return 0
+    if module == "channels":
+        picks = step_channels()
+        if "feishu" in picks:
+            app_id, app_secret = step_feishu()
+            mykey_update({"fs_app_id": app_id, "fs_app_secret": app_secret})
+            print(f"{OK} " + T("飞书凭证已写入"))
+        if "wechat" in picks:
+            step_wechat()
+        extras = [ch for ch in picks if ch not in ("feishu", "wechat")]
+        if extras:
+            print("\n" + T("其余渠道稍后逐个配置："))
+            for ch in extras:
+                print(f"  · penglai enable {ch}")
+        print(f"\n{OK} " + T("渠道配置已更新。"))
+        return 0
+    if module == "abilities":
+        llm_name = (mykey_load().get("native_oai_config") or {}).get("name", "")
+        intel, _voice_ready = step_abilities(llm_name)
+        if intel:
+            mykey_update(intel)
+        print(f"\n{OK} " + T("能力配置已更新。"))
+        return 0
+    if module == "companion":
+        cur = mykey_load().get("companion_enabled")
+        if cur:
+            mykey_update({"companion_enabled": False})
+            print(f"\n{OK} " + T("主动陪伴已关闭。"))
+        else:
+            mykey_update({"companion_enabled": True})
+            print(f"\n{OK} " + T("主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时）。"))
+        return 0
+    print(f"{BAD} " + T("未知模块：{m}", m=module))
+    print("  " + T("可选：{opts}", opts="|".join(_ONLY_MODULES)))
+    return 1
+
+
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(prog="penglai setup",
+                                     description=T("蓬莱安装向导 / 局部补配"))
+    parser.add_argument("--only", choices=_ONLY_MODULES,
+                        help=T("只重配指定模块（不启动服务，不覆盖其他配置）：") + "llm|identity|feishu|wechat|channels|abilities|companion")
+    args, _unknown = parser.parse_known_args()
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         print(f"{BAD} " + T("安装向导需要交互终端。请在终端直接运行 penglai setup。"))
         return 1
+    if args.only:
+        return run_only(args.only)
     step_lang()
     step_env()
     if step_detect_migrate():   # I7：探到旧管家且用户选迁移 → migrate 已配齐，向导到此结束
