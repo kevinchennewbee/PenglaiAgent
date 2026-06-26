@@ -18,6 +18,7 @@ dist/
 
 .vscode/
 .idea/
+.playwright-cli/
 *.swp
 *.swo
 
