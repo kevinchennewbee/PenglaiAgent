@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v0.3.0"
+      - "v0.3.1"
     paths:
       - ".github/workflows/desktop-release.yml"
       - "install.sh"
@@ -45,7 +45,7 @@ jobs:
           python-version: "3.11"
 
       - name: Check Apple signing secrets
-        if: github.ref == 'refs/tags/v0.3.0'
+        if: github.ref == 'refs/tags/v0.3.1'
         id: check-apple-signing
         shell: bash
         env:
@@ -70,7 +70,7 @@ jobs:
           fi
 
       - name: Import Apple Developer ID certificate
-        if: github.ref == 'refs/tags/v0.3.0' && steps.check-apple-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.1' && steps.check-apple-signing.outputs.available == 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -127,25 +127,30 @@ jobs:
           sh install.sh
 
       - name: Build signed DMG
-        if: github.ref == 'refs/tags/v0.3.0' && steps.check-apple-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.1' && steps.check-apple-signing.outputs.available == 'true'
         working-directory: frontends/desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # 无密码，因为生成密钥时未设密码
         run: npm run build:mac
 
       - name: Build DMG (unsigned)
-        if: ${{ github.ref != 'refs/tags/v0.3.0' || steps.check-apple-signing.outputs.available != 'true' }}
+        if: ${{ github.ref != 'refs/tags/v0.3.1' || steps.check-apple-signing.outputs.available != 'true' }}
         working-directory: frontends/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # 无密码，因为生成密钥时未设密码
         run: npm run build:mac
 
       - name: Re-sign app with adhoc signature and repack DMG
-        if: ${{ github.ref != 'refs/tags/v0.3.0' || steps.check-apple-signing.outputs.available != 'true' }}
+        if: ${{ github.ref != 'refs/tags/v0.3.1' || steps.check-apple-signing.outputs.available != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.1_aarch64.dmg"
           test -f "$dmg"
           work_dir="$(mktemp -d /tmp/penglai-repack.XXXXXX)"
           mount_dir="$(mktemp -d /tmp/penglai-dmg-mount.XXXXXX)"
@@ -162,6 +167,54 @@ jobs:
           hdiutil create -volname "Penglai" -srcfolder "$work_dir" -ov -format UDZO "$dmg"
           rm -rf "$work_dir"
 
+      - name: Regenerate updater artifacts after adhoc re-sign
+        if: ${{ github.ref != 'refs/tags/v0.3.1' || steps.check-apple-signing.outputs.available != 'true' }}
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          bundle_dir="$GITHUB_WORKSPACE/frontends/desktop/src-tauri/target/release/bundle"
+          dmg_dir="$bundle_dir/dmg"
+          macos_dir="$bundle_dir/macos"
+          dmg="$dmg_dir/Penglai_0.3.1_aarch64.dmg"
+          test -f "$dmg"
+
+          # Remove stale updater artifacts emitted before the adhoc re-sign.
+          # The Stage step selects the tarball via `find ... | head -n1`, so
+          # any leftover pre-re-sign .tar.gz/.sig would ship a "damaged"
+          # (linker-signed) update to tauri-plugin-updater clients.
+          find "$bundle_dir" -type f -name 'Penglai*.tar.gz' -print -delete
+          find "$bundle_dir" -type f -name 'Penglai*.tar.gz.sig' -print -delete
+
+          # Extract the adhoc-signed .app from the repacked DMG.
+          work_dir="$(mktemp -d /tmp/penglai-updater.XXXXXX)"
+          mount_dir="$(mktemp -d /tmp/penglai-mount.XXXXXX)"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
+          ditto "$mount_dir/Penglai.app" "$work_dir/Penglai.app"
+          hdiutil detach "$mount_dir" || true
+
+          # Regenerate the updater tarball from the adhoc-signed .app. Tauri
+          # v2 with createUpdaterArtifacts=true ships .app.tar.gz on macOS
+          # (a tarball of the .app bundle, not of the .dmg), so we mirror
+          # that format and the Penglai_0.3.1_aarch64.* prefix so the Stage
+          # step's glob still matches and latest.json stays consistent.
+          tar -czf "$macos_dir/Penglai_0.3.1_aarch64.app.tar.gz" -C "$work_dir" Penglai.app
+
+          # Re-sign the new tarball with the tauri updater private key. The
+          # key was generated without a password, so --password "" matches
+          # the empty TAURI_SIGNING_PRIVATE_KEY_PASSWORD used at build time.
+          # stdin is redirected from /dev/null to never block on a prompt.
+          cd "$GITHUB_WORKSPACE/frontends/desktop"
+          npx --no-install tauri signer sign \
+            --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
+            --password "" \
+            "$macos_dir/Penglai_0.3.1_aarch64.app.tar.gz" < /dev/null
+
+          test -f "$macos_dir/Penglai_0.3.1_aarch64.app.tar.gz.sig"
+          rm -rf "$work_dir"
+          echo "Regenerated Penglai_0.3.1_aarch64.app.tar.gz + .sig after adhoc re-sign"
+
       - name: Verify DMG
         shell: bash
         env:
@@ -169,7 +222,7 @@ jobs:
           APPLE_SIGNING_AVAILABLE: ${{ steps.check-apple-signing.outputs.available || 'false' }}
         run: |
           set -euo pipefail
-          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg"
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.1_aarch64.dmg"
           test -f "$dmg"
           hdiutil imageinfo "$dmg" | tee /tmp/penglai-dmg-imageinfo.txt
           mount_dir="$(mktemp -d /tmp/penglai-dmg.XXXXXX)"
@@ -178,7 +231,7 @@ jobs:
           test -d "$mount_dir/Penglai.app"
           test -L "$mount_dir/Applications"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.0
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx 0.3.1
           codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
           sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
           printf '%s\n' "$sign_info"
@@ -227,19 +280,36 @@ jobs:
           security delete-keychain build.keychain >/dev/null 2>&1 || true
 
       - name: Stage macOS artifact
-        if: github.ref == 'refs/tags/v0.3.0'
+        if: github.ref == 'refs/tags/v0.3.1'
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
-          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.0_aarch64.dmg \
-            dist/Penglai_0.3.0_macos_aarch64.dmg
+          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_0.3.1_aarch64.dmg \
+            dist/Penglai_0.3.1_macos_aarch64.dmg
+          # Copy updater artifacts (.tar.gz + .sig) for tauri-plugin-updater.
+          # Tauri v2 with createUpdaterArtifacts=true may emit .dmg.tar.gz or
+          # .app.tar.gz depending on version; pick whichever exists and
+          # normalize the name to match the latest.json URL.
+          updater_tarball="$(find frontends/desktop/src-tauri/target/release/bundle \
+            -type f -name 'Penglai_0.3.1_aarch64.*.tar.gz' 2>/dev/null | head -n1 || true)"
+          if [ -n "$updater_tarball" ] && [ -f "$updater_tarball" ]; then
+            cp "$updater_tarball" dist/Penglai_0.3.1_macos_aarch64.dmg.tar.gz
+            if [ -f "${updater_tarball}.sig" ]; then
+              cp "${updater_tarball}.sig" dist/Penglai_0.3.1_macos_aarch64.dmg.tar.gz.sig
+            fi
+          fi
+          ls -la dist/
 
       - name: Upload macOS artifact
-        if: github.ref == 'refs/tags/v0.3.0'
+        if: github.ref == 'refs/tags/v0.3.1'
         uses: actions/upload-artifact@v4
         with:
-          name: penglai-0.3.0-macos-aarch64
-          path: dist/*.dmg
+          name: penglai-0.3.1-macos-aarch64
+          path: |
+            dist/*.dmg
+            dist/*.tar.gz
+            dist/*.sig
           if-no-files-found: error
 
   windows-nsis:
@@ -266,7 +336,7 @@ jobs:
           python-version: "3.11"
 
       - name: Check Windows signing secrets
-        if: github.ref == 'refs/tags/v0.3.0'
+        if: github.ref == 'refs/tags/v0.3.1'
         id: check-windows-signing
         shell: pwsh
         env:
@@ -287,7 +357,7 @@ jobs:
           }
 
       - name: Import Windows signing certificate
-        if: github.ref == 'refs/tags/v0.3.0' && steps.check-windows-signing.outputs.available == 'true'
+        if: github.ref == 'refs/tags/v0.3.1' && steps.check-windows-signing.outputs.available == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -338,6 +408,9 @@ jobs:
 
       - name: Build NSIS installer
         working-directory: frontends/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # 无密码，因为生成密钥时未设密码
         run: npm run build:windows
 
       - name: Verify silent install and uninstall
@@ -377,8 +450,15 @@ jobs:
             }
           }
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          $artifactName = "Penglai_0.3.0_windows_x64_setup.exe"
+          $artifactName = "Penglai_0.3.1_windows_x64_setup.exe"
           Copy-Item $setup.FullName (Join-Path "dist" $artifactName) -Force
+          # Copy updater signature (.sig) for tauri-plugin-updater.
+          # Tauri v2 emits <name>-setup.exe.sig next to the installer when
+          # createUpdaterArtifacts=true and TAURI_SIGNING_PRIVATE_KEY is set.
+          $setupSigPath = "$($setup.FullName).sig"
+          if (Test-Path $setupSigPath) {
+            Copy-Item $setupSigPath (Join-Path "dist" "$artifactName.sig") -Force
+          }
 
           $install = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)" }
@@ -503,11 +583,13 @@ jobs:
           if ($portOpen) { throw "Desktop bridge port 14168 is still listening after uninstall smoke cleanup." }
 
       - name: Upload Windows artifact
-        if: github.ref == 'refs/tags/v0.3.0'
+        if: github.ref == 'refs/tags/v0.3.1'
         uses: actions/upload-artifact@v4
         with:
-          name: penglai-0.3.0-windows-x64
-          path: dist/*.exe
+          name: penglai-0.3.1-windows-x64
+          path: |
+            dist/*.exe
+            dist/*.sig
           if-no-files-found: error
 
   release:
@@ -518,7 +600,7 @@ jobs:
     needs:
       - macos-dmg
       - windows-nsis
-    if: github.ref == 'refs/tags/v0.3.0'
+    if: github.ref == 'refs/tags/v0.3.1'
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -530,9 +612,9 @@ jobs:
         shell: bash
         run: |
           cat > release-notes.md <<'EOF'
-          PenglaiAgent 0.3.0 — self-hosted AI butler with Runtime Hub and desktop clients.
+          PenglaiAgent 0.3.1 — self-hosted AI butler with Runtime Hub and desktop clients.
 
-          ## What's new in 0.3.0
+          ## What's new in 0.3.1
 
           - **Runtime Hub**: Unified execution layer for all channels (Feishu, WeChat, terminal, desktop). FIFO queuing, task auditing, session persistence.
           - **Desktop clients**: Native Mac (Apple Silicon) and Windows (x64) apps with complete setup wizard, multi-session chat, system tray, update detection, channel/ability management.
@@ -555,19 +637,77 @@ jobs:
           ```
 
           ## Important notes
-          - macOS and Windows installers are **unsigned**. You will need to bypass Gatekeeper/SmartScreen. This is because we are a community project without Apple Developer Program membership.
+          - macOS and Windows installers are **not code-signed by Apple/Microsoft** (community project without Developer Program membership). Gatekeeper/SmartScreen will still block first launch — bypass as noted above. The Tauri app itself, however, is signed via `tauri-plugin-updater` (separate signing key), so in-app auto-updates are verified and install cleanly. Apple Developer ID signing/notarization and the updater signing key are two independent mechanisms; only the latter is configured today.
           - Apple Silicon only for macOS. Intel Mac not supported.
           - Upgrade from 0.2.x is not guaranteed stable; fresh install recommended.
           - Feishu is the most validated IM channel. Other channels are experimental.
-          - Docker is no longer supported in 0.3.0. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
+          - Docker is no longer supported in 0.3.1. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
           EOF
+
+      - name: Generate latest.json for tauri-plugin-updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="0.3.1"
+          NOTES="PenglaiAgent 0.3.1 release notes"
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          BASE_URL="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
+
+          # Build platforms object. Each entry requires the .sig (signature)
+          # and the bundle it signs to both be present in dist/.
+          platforms=""
+
+          add_platform() {
+            local key="$1" sig_file="$2" url="$3"
+            if [ -f "$sig_file" ]; then
+              local sig_val url_val
+              sig_val="$(jq -Rs . < "$sig_file")"
+              url_val="$(jq -Rs . <<<"$url")"
+              if [ -n "$platforms" ]; then platforms="${platforms},"; fi
+              platforms="${platforms}\"${key}\":{\"signature\":${sig_val},\"url\":${url_val}}"
+            else
+              echo "::warning::Missing updater signature: $sig_file"
+            fi
+          }
+
+          # macOS aarch64 (updater artifact is .dmg.tar.gz + .sig)
+          add_platform "darwin-aarch64" \
+            "dist/Penglai_0.3.1_macos_aarch64.dmg.tar.gz.sig" \
+            "${BASE_URL}/Penglai_0.3.1_macos_aarch64.dmg.tar.gz"
+
+          # macOS x86_64 (only if cross-built; current workflow builds arm64 only)
+          add_platform "darwin-x86_64" \
+            "dist/Penglai_0.3.1_macos_x64.dmg.tar.gz.sig" \
+            "${BASE_URL}/Penglai_0.3.1_macos_x64.dmg.tar.gz"
+
+          # Windows x86_64 (NSIS -setup.exe + .sig)
+          add_platform "windows-x86_64" \
+            "dist/Penglai_0.3.1_windows_x64_setup.exe.sig" \
+            "${BASE_URL}/Penglai_0.3.1_windows_x64_setup.exe"
+
+          if [ -z "$platforms" ]; then
+            echo "::error::No updater .sig files found in dist/. Cannot generate latest.json."
+            ls -la dist/
+            exit 1
+          fi
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            --argjson platforms "{${platforms}}" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' \
+            > dist/latest.json
+
+          echo "Generated dist/latest.json:"
+          cat dist/latest.json
 
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          RELEASE_TITLE="PenglaiAgent 0.3.0"
+          RELEASE_TITLE="PenglaiAgent 0.3.1"
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "$RELEASE_TITLE" \
