@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>蓬莱 · Penglai — 住在飞书、微信、终端和桌面里的自托管 AI 管家</title>
-<meta name="description" content="蓬莱 Penglai：基于 GenericAgent 的自托管 AI 管家。Mac 和 Windows 原生桌面客户端、飞书、微信、终端、语音、图片、MOSS-TTS 语音合成、记忆和主动陪伴统一进入全新运行架构，记忆与凭证留在你自己的机器上。">
+<link rel="icon" href="data:,">
+<title>蓬莱 Penglai 0.3.0 — 面向普通人的自托管 AI Runtime Hub</title>
+<meta name="description" content="蓬莱 Penglai 0.3.0：基于 GenericAgent 的自托管 AI Runtime Hub。Mac 和 Windows 原生桌面客户端、飞书、微信、终端、FunASR/SenseVoice 本地听懂、MOSS-TTS-Nano 本地说话、记忆、安全审计和主动陪伴统一进入新运行层，语音、记忆与凭证默认留在本机。">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
@@ -16,7 +17,7 @@
   --seal:#c44531; --seal-700:#9e3422; --seal-soft:rgba(196,69,49,.1);
   --term:#1b2722;
   --line:rgba(38,48,44,.1); --line2:rgba(38,48,44,.055); --line3:rgba(38,48,44,.16);
-  --r-sm:8px; --r:12px; --r-lg:16px; --r-xl:22px; --r-pill:999px;
+  --r-sm:8px; --r:8px; --r-lg:8px; --r-xl:8px; --r-pill:999px;
   --shadow:0 2px 6px rgba(38,48,44,.04),0 18px 50px -18px rgba(38,48,44,.14);
   --shadow-lift:0 4px 12px rgba(38,48,44,.06),0 32px 70px -22px rgba(31,138,118,.28);
   --ease:cubic-bezier(.2,.7,.3,1); --ease-spring:cubic-bezier(.16,1,.3,1);
@@ -30,10 +31,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);
 
 /* —— 雾色光晕背景 —— */
 .aura{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none;contain:paint}
-.aura span{position:absolute;border-radius:50%;filter:blur(110px);animation:drift 26s ease-in-out infinite}
-.aura .a1{width:52vw;height:52vw;top:-16%;left:-10%;background:radial-gradient(circle,rgba(31,138,118,.16),transparent 70%)}
-.aura .a2{width:46vw;height:46vw;top:8%;right:-12%;background:radial-gradient(circle,rgba(185,138,46,.14),transparent 70%);animation-delay:-9s}
-.aura .a3{width:40vw;height:40vw;bottom:-12%;left:30%;background:radial-gradient(circle,rgba(196,69,49,.07),transparent 72%);animation-delay:-17s}
+.aura span{position:absolute;filter:blur(100px);animation:drift 26s ease-in-out infinite}
+.aura .a1{width:72vw;height:24vw;top:-12%;left:-12%;background:linear-gradient(110deg,rgba(31,138,118,.15),transparent 72%)}
+.aura .a2{width:68vw;height:22vw;top:10%;right:-20%;background:linear-gradient(250deg,rgba(185,138,46,.13),transparent 72%);animation-delay:-9s}
+.aura .a3{width:62vw;height:20vw;bottom:-10%;left:24%;background:linear-gradient(120deg,rgba(196,69,49,.065),transparent 76%);animation-delay:-17s}
 @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(3vw,-2vh) scale(1.06)}66%{transform:translate(-2vw,3vh) scale(.96)}}
 .grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.55;
   background-image:radial-gradient(rgba(38,48,44,.05) 1px,transparent 1px);background-size:42px 42px;
@@ -264,6 +265,23 @@ nav.scrolled .navin{padding:9px 28px}
   background:var(--bg);font-size:13.8px;line-height:1.9;color:var(--soft);text-align:left;position:relative;border-left:3px solid var(--gold)}
 .pledge .q{color:var(--gold);font-family:var(--mono);margin-right:6px}
 
+/* —— Runtime Hub 架构图 —— */
+.arch-map{max-width:980px;margin:0 auto 26px;display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:18px;align-items:stretch}
+.arch-col{display:flex;flex-direction:column;gap:12px}
+.arch-title{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase;margin-bottom:2px}
+.arch-node{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;box-shadow:var(--shadow)}
+.arch-node b{display:block;color:var(--ink);font-size:14px;margin-bottom:4px}
+.arch-node span{display:block;color:var(--soft);font-size:12.5px;line-height:1.65}
+.arch-core{position:relative;background:linear-gradient(145deg,var(--term),#20332d);color:#eef7f2;border-color:rgba(255,255,255,.08);min-height:100%;display:flex;flex-direction:column;justify-content:center}
+.arch-core b{color:#fff;font-size:17px}
+.arch-core span{color:#cbd8d1}
+.arch-core::before,.arch-core::after{content:"";position:absolute;top:50%;width:18px;height:1px;background:var(--gold);opacity:.65}
+.arch-core::before{left:-18px}.arch-core::after{right:-18px}
+.stack-grid{max-width:980px;margin:22px auto 26px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stack-item{border:1px solid var(--line);background:var(--card);border-radius:var(--r);padding:14px 15px}
+.stack-item b{display:block;color:var(--ink);font-size:13px;margin-bottom:4px}
+.stack-item span{display:block;color:var(--soft);font-size:12.5px;line-height:1.55}
+
 /* —— 缘起:石刻题字,慢 —— */
 .story{max-width:680px;margin:0 auto;text-align:center}
 .story .carve{font-family:var(--serif);font-size:clamp(30px,5.5vw,52px);letter-spacing:.34em;
@@ -295,9 +313,8 @@ footer a:hover{color:var(--seal)}
 footer .meta{color:var(--faint);font-size:12.5px;line-height:1.9;max-width:680px;margin:0 auto}
 footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);opacity:.7;margin-top:14px}
 
-/* —— 滚动渐入 + stagger —— */
-.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s var(--ease),transform .7s var(--ease);
-  transition-delay:calc(min(var(--i,0)*70ms,500ms))}
+/* —— 内容默认可见，避免截图/慢脚本/无障碍场景出现空白 —— */
+.reveal{opacity:1;transform:none}
 .reveal.in{opacity:1;transform:none}
 
 @media(max-width:880px){
@@ -311,6 +328,9 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   .bento{grid-template-columns:1fr 1fr}
   .tile.big{grid-column:span 2;grid-row:auto}
   .tile.wide{grid-column:span 2}
+  .arch-map{grid-template-columns:1fr}
+  .arch-core::before,.arch-core::after{display:none}
+  .stack-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:600px){
   .hideS{display:none}
@@ -326,6 +346,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   .hero-art{max-width:320px}
   .cmd code{white-space:normal;word-break:break-all}
   .story .carve{letter-spacing:.14em;text-indent:0}
+  .stack-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -371,16 +392,16 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="hero-grid">
     <div class="hero-id">
       <div class="eyebrow reveal" style="--i:0"><span class="sq"></span>
-        <span data-zh="自托管 · 全新架构 · 基于 GenericAgent" data-en="Self-hosted · new architecture · built on GenericAgent">自托管 · 全新架构 · 基于 GenericAgent</span>
+        <span data-zh="0.3.0 · Runtime Hub · Desktop · Voice" data-en="0.3.0 · Runtime Hub · Desktop · Voice">0.3.0 · Runtime Hub · Desktop · Voice</span>
       </div>
       <h1 class="reveal" style="--i:1">蓬莱</h1>
       <div class="latin reveal" style="--i:2">P E N G L A I</div>
-      <p class="tag reveal" style="--i:3" data-zh="住在飞书、微信和终端里的自托管 AI 管家。" data-en="A self-hosted AI butler for Feishu, WeChat, and the terminal.">住在飞书、微信和终端里的自托管 AI 管家。</p>
-      <p class="motto reveal" style="--i:4">八仙过海 · 各显神通</p>
+      <p class="tag reveal" style="--i:3" data-zh="把能干活、能听、能说的 Agent，带到桌面、飞书、微信和声音里。" data-en="Bring a working, listening, speaking agent to your desktop, Feishu, WeChat, and voice.">把能干活、能听、能说的 Agent，带到桌面、飞书、微信和声音里。</p>
+      <p class="motto reveal" style="--i:4" data-zh="本地 CPU 语音闭环 · 数据默认不出本机" data-en="Local CPU voice loop · data stays on-device by default">本地 CPU 语音闭环 · 数据默认不出本机</p>
       <div class="metrics reveal" style="--i:5">
-        <span class="metric"><b>¥5</b><span data-zh="服务器/月" data-en="server/mo">服务器/月</span></span>
-        <span class="metric"><b>1</b><span data-zh="个大模型 Key" data-en="LLM key">个大模型 Key</span></span>
-        <span class="metric"><b>10</b><span data-zh="分钟向导" data-en="min wizard">分钟向导</span></span>
+        <span class="metric"><b>Hub</b><span data-zh="统一运行层" data-en="unified runtime">统一运行层</span></span>
+        <span class="metric"><b>App</b><span data-zh="Mac / Windows" data-en="Mac / Windows">Mac / Windows</span></span>
+        <span class="metric"><b>Voice</b><span data-zh="本地听 + 本地说" data-en="local listen + speak">本地听 + 本地说</span></span>
       </div>
       <div class="cmd reveal" style="--i:6">
         <span class="ps">$</span>
@@ -388,7 +409,8 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
         <button onclick="copyText(document.getElementById('hcmd').getAttribute('data-full'),this)" data-zh="复制" data-en="Copy">复制</button>
       </div>
       <div class="cta reveal" style="--i:7">
-        <a class="btn primary" href="#install" data-zh="开始上岛 →" data-en="Get started →">开始上岛 →</a>
+        <a class="btn primary" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0" target="_blank" data-zh="下载 0.3.0 →" data-en="Download 0.3.0 →">下载 0.3.0 →</a>
+        <a class="btn ghost" href="#install" data-zh="命令行安装" data-en="Install by CLI">命令行安装</a>
         <a class="btn ghost" href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">★ GitHub</a>
       </div>
     </div>
@@ -400,16 +422,16 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
 
 <section class="block" id="features"><div class="wrap">
   <div class="head reveal">
-    <div class="kicker" data-zh="各显神通" data-en="WHAT IT DOES">各显神通</div>
-    <h2 data-zh="它能做什么" data-en="Capabilities">它能做什么</h2>
+    <div class="kicker" data-zh="0.3.0 新架构" data-en="0.3.0 ARCHITECTURE">0.3.0 新架构</div>
+    <h2 data-zh="从聊天入口，到个人 AI 运行中枢" data-en="From Chat Entry to Personal AI Runtime">从聊天入口，到个人 AI 运行中枢</h2>
     <span class="dia"></span>
-    <p data-zh="源起、能力、架构和安全边界都来自真实使用，不是路线图" data-en="Origin, capabilities, architecture, and safety boundaries come from real usage — not a roadmap">源起、能力、架构和安全边界都来自真实使用，不是路线图</p>
+    <p data-zh="桌面、IM、语音、文件、记忆和安全审计进入同一套运行逻辑" data-en="Desktop, IM, voice, files, memory, and audits now share one runtime logic">桌面、IM、语音、文件、记忆和安全审计进入同一套运行逻辑</p>
   </div>
   <div class="bento">
     <div class="tile big featured reveal" style="--i:0">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-ear"/></svg></span>
-      <h3 data-zh="听得出情绪的耳朵" data-en="Ears that hear emotion">听得出情绪的耳朵</h3>
-      <p data-zh="本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件。飞书、微信和更多 IM 入口共用同一套语音处理规则。" data-en="SenseVoice runs locally on CPU: transcription, emotion labels, and acoustic events. Feishu, WeChat, and other IM entries share the same voice path.">本地 CPU 跑 SenseVoice：语音转写 + 情绪标签 + 声学事件。飞书、微信和更多 IM 入口共用同一套语音处理规则。</p>
+      <h3 data-zh="本地语音双栈" data-en="Local voice stack">本地语音双栈</h3>
+      <p data-zh="FunASR / SenseVoice 路线负责本地听懂语音、情绪和声学事件；MOSS-TTS-Nano 负责把回复本地合成为语音。两边都可 CPU 运行，语音数据默认不出本机。" data-en="The FunASR / SenseVoice line handles local speech, emotion, and acoustic events; MOSS-TTS-Nano turns replies into local speech. Both can run on CPU, and voice data stays on-device by default.">FunASR / SenseVoice 路线负责本地听懂语音、情绪和声学事件；MOSS-TTS-Nano 负责把回复本地合成为语音。两边都可 CPU 运行，语音数据默认不出本机。</p>
       <div class="demo">
         <div class="demo-tag" data-zh="演示示意" data-en="illustrative">演示示意</div>
         <div class="vmsg"><span class="wave" id="wave"></span><span class="dur">0:07</span></div>
@@ -419,8 +441,8 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     </div>
     <div class="tile wide reveal" style="--i:1">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-chat"/></svg></span>
-      <h3 data-zh="一个管家，多个入口" data-en="One butler, many entries">一个管家，多个入口</h3>
-      <p data-zh="飞书、微信、终端、主动消息、语音和文件先进入统一运行层，再交给 Agent 执行。忙时消息会排队，文件外发按真实产物判断，上下文也更连贯。" data-en="Feishu, WeChat, terminal, proactive events, voice, and files enter one runtime layer before the agent executes. Busy messages queue, files are sent by real artifact type, and context stays coherent.">飞书、微信、终端、主动消息、语音和文件先进入统一运行层，再交给 Agent 执行。忙时消息会排队，文件外发按真实产物判断，上下文也更连贯。</p>
+      <h3 data-zh="一个中枢，多个入口" data-en="One hub, many entries">一个中枢，多个入口</h3>
+      <p data-zh="桌面、飞书、微信、终端、主动消息、语音和文件先进入 Runtime Hub，再交给 GenericAgent 执行。忙时排队、上下文归一、运行记录可追溯。" data-en="Desktop, Feishu, WeChat, terminal, proactive events, voice, and files enter Runtime Hub before GenericAgent executes. Queueing, context, and run history stay coherent.">桌面、飞书、微信、终端、主动消息、语音和文件先进入 Runtime Hub，再交给 GenericAgent 执行。忙时排队、上下文归一、运行记录可追溯。</p>
     </div>
     <div class="tile reveal" style="--i:2">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-memory"/></svg></span>
@@ -434,8 +456,8 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     </div>
     <div class="tile wide reveal" style="--i:4">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-search"/></svg></span>
-      <h3 data-zh="网页搜索开箱即用" data-en="Web search out of the box">网页搜索开箱即用</h3>
-      <p data-zh="内置免费 Bing 兜底，无头云服务器也能查天气、新闻和事实，不依赖浏览器。需要多源交叉验证时再开启增强搜索。" data-en="A free Bing fallback works on headless servers for weather, news, and facts. Enhanced multi-source search can be enabled when needed.">内置免费 Bing 兜底，无头云服务器也能查天气、新闻和事实，不依赖浏览器。需要多源交叉验证时再开启增强搜索。</p>
+      <h3 data-zh="原生桌面发行版" data-en="Native desktop release">原生桌面发行版</h3>
+      <p data-zh="0.3.0 提供 Mac / Windows 安装包、图形化设置向导、多会话工作台、系统托盘、渠道管理、能力管理和融合诊断。" data-en="v0.3.0 ships Mac / Windows installers, a GUI setup wizard, multi-session workspace, tray, channel management, ability management, and integrated diagnostics.">0.3.0 提供 Mac / Windows 安装包、图形化设置向导、多会话工作台、系统托盘、渠道管理、能力管理和融合诊断。</p>
     </div>
     <div class="tile reveal" style="--i:5">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-moon"/></svg></span>
@@ -445,7 +467,7 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
     <div class="tile reveal" style="--i:6">
       <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-sliders"/></svg></span>
       <h3 data-zh="能力随时补开" data-en="Abilities on demand">能力随时补开</h3>
-      <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice｜companion｜intel</code>.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice｜companion｜intel</code>。</p>
+      <p data-zh="第一次向导没开的，事后一条命令补上：<code>penglai enable voice|tts|companion|intel</code>。" data-en="Didn't enable it in the wizard? One command later: <code>penglai enable voice|tts|companion|intel</code>.">第一次向导没开的，事后一条命令补上：<code>penglai enable voice|tts|companion|intel</code>。</p>
     </div>
   </div>
 </div></section>
@@ -454,10 +476,34 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
 
 <section class="block alt" id="architecture"><div class="wrap">
   <div class="head reveal">
-    <div class="kicker" data-zh="新的运行层" data-en="A NEW RUNTIME LAYER">新的运行层</div>
-    <h2 data-zh="全新架构的 Penglai Agent" data-en="A New-Architecture Penglai Agent">全新架构的 Penglai Agent</h2>
+    <div class="kicker" data-zh="技术架构" data-en="TECH ARCHITECTURE">技术架构</div>
+    <h2 data-zh="Penglai Runtime Hub" data-en="Penglai Runtime Hub">Penglai Runtime Hub</h2>
     <span class="dia"></span>
-    <p data-zh="不再是每个渠道各自包装，而是所有入口先进同一层运行时" data-en="Not separate wrappers per channel, but one runtime layer before execution">不再是每个渠道各自包装，而是所有入口先进同一层运行时</p>
+    <p data-zh="0.3.0 的核心不是多做几个入口，而是让入口、执行、记忆、语音和安全进入同一个运行中枢" data-en="v0.3.0 is not just more entries; entries, execution, memory, voice, and safety now share one runtime hub">0.3.0 的核心不是多做几个入口，而是让入口、执行、记忆、语音和安全进入同一个运行中枢</p>
+  </div>
+  <div class="arch-map reveal">
+    <div class="arch-col">
+      <div class="arch-title" data-zh="Entries" data-en="Entries">Entries</div>
+      <div class="arch-node"><b data-zh="桌面客户端" data-en="Desktop app">桌面客户端</b><span data-zh="Mac / Windows、设置向导、多会话工作台、系统托盘" data-en="Mac / Windows, setup wizard, workspace, system tray">Mac / Windows、设置向导、多会话工作台、系统托盘</span></div>
+      <div class="arch-node"><b data-zh="聊天渠道" data-en="Chat channels">聊天渠道</b><span data-zh="飞书、微信、终端，以及更多 IM 封装" data-en="Feishu, WeChat, terminal, and more IM adapters">飞书、微信、终端，以及更多 IM 封装</span></div>
+      <div class="arch-node"><b data-zh="语音 / 文件 / 主动事件" data-en="Voice / files / proactive events">语音 / 文件 / 主动事件</b><span data-zh="语音条、图片、文档、天气、提醒、情绪事件" data-en="Voice clips, images, docs, weather, reminders, emotion events">语音条、图片、文档、天气、提醒、情绪事件</span></div>
+    </div>
+    <div class="arch-node arch-core">
+      <b data-zh="Runtime Hub" data-en="Runtime Hub">Runtime Hub</b>
+      <span data-zh="InboundEvent 规范化 · FIFO 队列 · TaskRun 审计 · 权限边界 · 上下文事件 · 运行历史" data-en="InboundEvent normalization · FIFO queue · TaskRun audit · permission boundary · context events · run history">InboundEvent 规范化 · FIFO 队列 · TaskRun 审计 · 权限边界 · 上下文事件 · 运行历史</span>
+    </div>
+    <div class="arch-col">
+      <div class="arch-title" data-zh="Capabilities" data-en="Capabilities">Capabilities</div>
+      <div class="arch-node"><b data-zh="GenericAgent Core" data-en="GenericAgent Core">GenericAgent Core</b><span data-zh="LLM 推理、工具调用、文件产物、任务执行" data-en="LLM reasoning, tool calls, artifacts, task execution">LLM 推理、工具调用、文件产物、任务执行</span></div>
+      <div class="arch-node"><b data-zh="Memory & Skills" data-en="Memory & Skills">Memory & Skills</b><span data-zh="L1 索引、L2 事实、SOP 技能、原始会话" data-en="L1 index, L2 facts, SOP skills, raw sessions">L1 索引、L2 事实、SOP 技能、原始会话</span></div>
+      <div class="arch-node"><b data-zh="Voice & Safety" data-en="Voice & Safety">Voice & Safety</b><span data-zh="FunASR/SenseVoice 听 · MOSS-TTS-Nano 说 · 红线 · memguard · fileguard · 日志脱敏" data-en="FunASR/SenseVoice listens · MOSS-TTS-Nano speaks · redline · memguard · fileguard · log redaction">FunASR/SenseVoice 听 · MOSS-TTS-Nano 说 · 红线 · memguard · fileguard · 日志脱敏</span></div>
+    </div>
+  </div>
+  <div class="stack-grid reveal">
+    <div class="stack-item"><b>GenericAgent</b><span data-zh="上游优先的执行核心" data-en="Upstream-first execution core">上游优先的执行核心</span></div>
+    <div class="stack-item"><b>Tauri</b><span data-zh="原生桌面壳与系统托盘" data-en="Native desktop shell and tray">原生桌面壳与系统托盘</span></div>
+    <div class="stack-item"><b>FunASR / SenseVoice</b><span data-zh="本地 CPU 听懂语音与情绪" data-en="Local CPU speech and emotion understanding">本地 CPU 听懂语音与情绪</span></div>
+    <div class="stack-item"><b>MOSS-TTS-Nano</b><span data-zh="本地 CPU 把文字说出来" data-en="Local CPU text-to-speech">本地 CPU 把文字说出来</span></div>
   </div>
   <div class="matrix reveal">
     <div class="mrow h"><span data-zh="优化" data-en="Improvement">优化</span><span class="how" data-zh="你能感受到什么" data-en="What you feel">你能感受到什么</span><span data-zh="结果" data-en="Result">结果</span><span data-zh="状态" data-en="Status">状态</span></div>
@@ -477,15 +523,15 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
 
 <section class="block alt" id="channels"><div class="wrap">
   <div class="head reveal">
-    <div class="kicker" data-zh="一个管家，多个门" data-en="ONE BUTLER, MANY DOORS">一个管家，多个门</div>
+    <div class="kicker" data-zh="多个入口，一个中枢" data-en="MANY ENTRIES, ONE HUB">多个入口，一个中枢</div>
     <h2 data-zh="渠道矩阵" data-en="Channel matrix">渠道矩阵</h2>
     <span class="dia"></span>
-    <p data-zh="GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code>" data-en="The GA kernel ships 7 IM frontends; Penglai wraps them behind <code>penglai enable</code>">GA 内核自带 7 个 IM 前端，蓬莱层统一封装为 <code>penglai enable</code></p>
+    <p data-zh="桌面、飞书、微信和终端是 0.3.0 的主线；更多 IM 按真实验证逐步开放" data-en="Desktop, Feishu, WeChat, and terminal are the v0.3.0 mainline; more IM adapters open as field verification completes">桌面、飞书、微信和终端是 0.3.0 的主线；更多 IM 按真实验证逐步开放</p>
   </div>
   <div class="matrix reveal">
     <div class="mrow h"><span data-zh="渠道" data-en="Channel">渠道</span><span class="how" data-zh="接入" data-en="Connect">接入</span><span data-zh="语音" data-en="Voice">语音</span><span data-zh="状态" data-en="Status">状态</span></div>
     <div class="mrow"><span class="ch">飞书 Feishu</span><span class="how" data-zh="扫码建应用 + 队列/按钮/文件" data-en="scan-to-create + queue/buttons/files">扫码建应用 + 队列/按钮/文件</span><span class="tg ok" data-zh="✓ 转写+情绪" data-en="✓ ASR+emotion">✓ 转写+情绪</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
-    <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号）" data-en="wizard, QR login">向导扫码登录（个人号）</span><span class="tg ok">✓ silk</span><span class="tg live"><span class="pt"></span><span data-zh="实测" data-en="verified">实测</span></span></div>
+    <div class="mrow"><span class="ch">微信 WeChat</span><span class="how" data-zh="向导扫码登录（个人号，本机绑定后启用）" data-en="wizard QR login, enable after local binding">向导扫码登录（个人号，本机绑定后启用）</span><span class="tg ok">✓ silk</span><span class="tg live"><span class="pt"></span><span data-zh="接入中枢" data-en="hub-ready">接入中枢</span></span></div>
     <div class="mrow"><span class="ch">终端 TUI</span><span class="how" data-zh="裸跑 <code>penglai</code> 即聊" data-en="just run <code>penglai</code>">裸跑 <code>penglai</code> 即聊</span><span class="tg no">—</span><span class="tg live"><span class="pt"></span><span data-zh="内核" data-en="kernel">内核</span></span></div>
     <div class="mrow pend"><span class="ch">钉钉 DingTalk</span><span class="how"><code>penglai enable dingtalk</code></span><span class="tg wrap" data-zh="自带 ASR" data-en="native ASR">自带 ASR</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
     <div class="mrow pend"><span class="ch">QQ</span><span class="how"><code>penglai enable qq</code></span><span class="tg wrap" data-zh="wav+情绪" data-en="wav+emotion">wav+情绪</span><span class="tg test" data-zh="待实测" data-en="pending">待实测</span></div>
@@ -500,20 +546,23 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
 
 <section class="block" id="install"><div class="wrap">
   <div class="head reveal">
-    <div class="kicker" data-zh="一行上岛" data-en="ONE LINE TO THE ISLAND">一行上岛</div>
+    <div class="kicker" data-zh="桌面或命令行" data-en="DESKTOP OR CLI">桌面或命令行</div>
     <h2 data-zh="开始安装" data-en="Install">开始安装</h2>
     <span class="dia"></span>
-    <p data-zh="没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像" data-en="No Python or git? The script sets it all up; China networks auto-use mirrors">没有 Python、没有 git 都不要紧，脚本全自动备好；国内网络自动走镜像</p>
+    <p data-zh="普通用户下载桌面客户端；进阶用户用 install.sh、PyPI 引导器或源码安装。0.3.0 不再提供 Docker 路径。" data-en="Most users should download the desktop app; advanced users can use install.sh, PyPI bootstrap, or source install. v0.3.0 no longer ships Docker paths.">普通用户下载桌面客户端；进阶用户用 install.sh、PyPI 引导器或源码安装。0.3.0 不再提供 Docker 路径。</p>
   </div>
   <div class="tabs reveal">
     <span class="ind" id="tabind"></span>
-    <button class="on" onclick="tab('curl',this)" data-zh="curl 一键" data-en="curl one-liner">curl 一键</button>
+    <button class="on" onclick="tab('desktop',this)" data-zh="桌面下载" data-en="Desktop">桌面下载</button>
+    <button onclick="tab('curl',this)" data-zh="curl 一键" data-en="curl one-liner">curl 一键</button>
     <button onclick="tab('pip',this)">pip</button>
     <button onclick="tab('git',this)">git clone</button>
-    <button onclick="tab('desktop',this)" data-zh="桌面下载" data-en="Desktop">桌面下载</button>
   </div>
   <div class="reveal">
-    <div class="pane on" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
+    <div class="pane on" id="p-desktop"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-desktop',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># macOS Apple Silicon · Windows x64 · 图形化向导安装</span>
+<span data-zh="下载 DMG/EXE，按系统提示安装。首次打开 macOS 可能需要到系统设置 → 隐私与安全性 → 仍要打开。" data-en="Download DMG/EXE and install normally. On first macOS launch, you may need System Settings → Privacy &amp; Security → Open Anyway.">下载 DMG/EXE，按系统提示安装。首次打开 macOS 可能需要到系统设置 → 隐私与安全性 → 仍要打开。</span>
+<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0" target="_blank" style="color:var(--jade);font-weight:600">→ GitHub Releases v0.3.0 下载</a></div></div>
+    <div class="pane" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
     <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器：安装 CLI，首次运行拉取发行仓库；已有安装用 penglai update</span>
 pip install penglai
@@ -521,9 +570,6 @@ penglai setup</div></div>
     <div class="pane" id="p-git"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-git',this)" data-zh="复制" data-en="Copy">复制</button>git clone <span class="g">https://github.com/kevinchennewbee/PenglaiAgent.git</span>
 cd PenglaiAgent
 python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→渠道→能力面板</span></div></div>
-    <div class="pane" id="p-desktop"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-desktop',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># macOS Apple Silicon · Windows x64 · 图形化向导安装</span>
-<span data-zh="下载 DMG/EXE，拖入 Applications 或双击安装。首次打开需到系统设置 → 隐私与安全性 → 仍要打开。" data-en="Download DMG/EXE, drag to Applications or double-click to install. First open: System Settings → Privacy &amp; Security → Open Anyway.">下载 DMG/EXE，拖入 Applications 或双击安装。首次打开需到系统设置 → 隐私与安全性 → 仍要打开。</span>
-<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.0" target="_blank" style="color:var(--jade);font-weight:600">→ GitHub Releases v0.3.0 下载</a></div></div>
   </div>
   <div class="frame reveal"><img src="wizard-zh.png" alt="蓬莱安装向导实景 / Penglai setup wizard" loading="lazy"></div>
   <p class="reveal" style="text-align:center;color:var(--soft);font-size:13.5px;margin-top:16px" data-zh="↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选" data-en="↑ The setup wizard in action: bilingual · paged steps · one-page channel picker">↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选</p>
@@ -554,8 +600,26 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
   </div>
   <p class="carve reveal" style="--i:0" data-zh="会发微信，就该会用 Agent" data-en="If you can text, you should be able to use an agent">会发微信，就该会用 Agent</p>
   <p class="reveal" style="--i:1" data-zh="我做了十年网络技术、安全和运维，但不会写代码。蓬莱里的代码，是我用 AI 编程工具一句一句说出来的。它想证明一件事：AI 时代，普通人也能为自己造工具。" data-en="I spent ten years in networking, security, and operations, but I could not write code. Penglai was spoken into existence with AI coding tools. It tries to prove one thing: in the AI era, ordinary people can build their own tools.">我做了十年网络技术、安全和运维，但不会写代码。蓬莱里的代码，是我用 AI 编程工具一句一句说出来的。它想证明一件事：AI 时代，普通人也能为自己造工具。</p>
-  <p class="reveal" style="--i:2" data-zh="CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进飞书、微信和终端，让它在你已经生活的地方出现。" data-en="CLI agents are powerful, and desktop agents are useful. But ordinary users live in chat apps. Penglai puts a working agent into Feishu, WeChat, and the terminal, where your day already happens.">CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进飞书、微信和终端，让它在你已经生活的地方出现。</p>
+  <p class="reveal" style="--i:2" data-zh="CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进桌面、飞书、微信和声音里，让它在你已经生活和工作的地方出现。" data-en="CLI agents are powerful, and desktop agents are useful. But ordinary users live in chat apps. Penglai puts a working agent into desktop, Feishu, WeChat, and voice, where your day already happens.">CLI 很强，桌面应用也很好，但普通人每天真正打开最多的入口，是聊天软件。蓬莱把能干活的 Agent 放进桌面、飞书、微信和声音里，让它在你已经生活和工作的地方出现。</p>
   <p class="reveal" style="--i:3" data-zh="蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人：明明听说它神奇，却被 API、终端、配置和英文文档挡在雾里。蓬莱想做那艘摆渡的船。" data-en="Penglai is the mythic immortal island at sea. For ordinary people, AI can feel just as distant: magical, but hidden behind APIs, terminals, configs, and English docs. Penglai wants to be the ferry.">蓬莱是传说中的海上仙山。AI 之于普通人，正如蓬莱之于古人：明明听说它神奇，却被 API、终端、配置和英文文档挡在雾里。蓬莱想做那艘摆渡的船。</p>
+</div></section>
+
+<hr class="hr-ink">
+
+<section class="block alt"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="站在开源之上" data-en="BUILT ON OPEN SOURCE">站在开源之上</div>
+    <h2 data-zh="致谢" data-en="Acknowledgements">致谢</h2>
+    <span class="dia"></span>
+    <p data-zh="蓬莱不是从零发明世界，而是把优秀开源能力组装成普通人可用的发行版" data-en="Penglai does not reinvent everything; it packages strong open-source capabilities into an ordinary-user release">蓬莱不是从零发明世界，而是把优秀开源能力组装成普通人可用的发行版</p>
+  </div>
+  <div class="stack-grid reveal">
+    <div class="stack-item"><b>GenericAgent</b><span data-zh="执行核心、工具调用、文件产物和 Agent 循环" data-en="Execution core, tool calls, artifacts, and agent loop">执行核心、工具调用、文件产物和 Agent 循环</span></div>
+    <div class="stack-item"><b>MOSS-TTS-Nano</b><span data-zh="让蓬莱能用本地 CPU 把文字说出来" data-en="Local CPU model that lets Penglai speak replies">让蓬莱能用本地 CPU 把文字说出来</span></div>
+    <div class="stack-item"><b>FunASR / SenseVoice</b><span data-zh="让蓬莱能在本地听懂语音、情绪和声学事件" data-en="Local speech, emotion, and acoustic-event understanding">让蓬莱能在本地听懂语音、情绪和声学事件</span></div>
+    <div class="stack-item"><b>Tauri</b><span data-zh="更轻的原生桌面客户端基础" data-en="Lightweight native desktop foundation">更轻的原生桌面客户端基础</span></div>
+  </div>
+  <p class="matrix-note reveal" data-zh="也感谢 Feishu / Lark SDK 生态，以及所有让 AI 工具变得更普通、更可用、更安全的开源项目。" data-en="Thanks also to the Feishu / Lark SDK ecosystem and every open-source project making AI tools more ordinary, usable, and safe.">也感谢 Feishu / Lark SDK 生态，以及所有让 AI 工具变得更普通、更可用、更安全的开源项目。</p>
 </div></section>
 
 <hr class="hr-ink">
@@ -565,7 +629,7 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
     <div class="kicker" data-zh="作者在写" data-en="FROM THE AUTHOR">作者在写</div>
     <h2 data-zh="关注公众号 KevinAIStack" data-en="Follow KevinAIStack">关注公众号 KevinAIStack</h2>
     <span class="dia"></span>
-    <p data-zh="Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本预告首发于此" data-en="Field notes on building a Personal AI Stack (in Chinese) — Penglai's behind-the-scenes stories and release previews land there first">Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本预告首发于此</p>
+    <p data-zh="Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本记录首发于此" data-en="Field notes on building a Personal AI Stack (in Chinese) — Penglai's behind-the-scenes stories and release notes land there first">Personal AI Stack 的长期实践笔记：深度思考 · 实用工具 · 开源项目——蓬莱的开发幕后与新版本记录首发于此</p>
   </div>
   <div class="reveal"><span class="qr-frame"><img src="wechat-qr.png" alt="微信公众号 KevinAIStack — 微信搜一搜 KevinAIStack" loading="lazy"></span></div>
   <p class="reveal" style="color:var(--soft);font-size:13px;margin-top:16px" data-zh="微信「搜一搜」KevinAIStack，或扫码关注" data-en="Search “KevinAIStack” in WeChat, or scan the QR code">微信「搜一搜」KevinAIStack，或扫码关注</p>
@@ -573,7 +637,7 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
 
 <footer><div class="wrap">
   <div class="seal-stamp">蓬萊</div>
-  <div class="closer" data-zh="海上仙山 · 可望而不可即" data-en="An immortal isle at sea · visible, out of reach">海上仙山 · 可望而不可即</div>
+  <div class="closer" data-zh="海上仙山 · 可望可即" data-en="An immortal isle at sea · now within reach">海上仙山 · 可望可即</div>
   <div class="links">
     <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank">GitHub</a>
     <a href="https://pypi.org/project/penglai" target="_blank">PyPI</a>
@@ -605,7 +669,7 @@ const CHANGELOG=[
   liZh:[
    "Runtime Hub 统一运行层正式发布：飞书、微信、终端和桌面入口归一为 InboundEvent，FIFO 排队，TaskRun 审计",
    "新增 Mac (Apple Silicon) 和 Windows (x64) 原生桌面客户端：完整图形化设置向导、多会话对话工作台、系统托盘驻留、渠道/能力管理面板、融合诊断和补配置",
-   "新增 MOSS-TTS-Nano 本地语音合成：把文字回复合成为语音，适合桌面朗读和 IM 语音条（约 728MB，CPU 推理）",
+   "补齐本地语音闭环：原有 FunASR/SenseVoice 路线负责听懂语音，新增 MOSS-TTS-Nano 把文字回复合成为语音；两边都可 CPU 本地运行，语音数据默认不出本机",
    "桌面端完整设置向导（与 CLI 对等）：语言 → LLM 选择(12厂商+连通测试) → 渠道多选+飞书扫码 → 起名 → 能力面板 → 配置写入+启动验证",
    "penglai update 自动备份回滚升级：支持检测 main 分支新版本，一键应用并自动创建备份，失败自动回滚",
    "主界面新增渠道管理和能力管理面板：安装后无需重跑向导即可补配飞书/微信/钉钉/QQ/TG/Discord/企微或补充开启语音/TTS/陪伴/批判脑/情报矩阵",
@@ -614,7 +678,7 @@ const CHANGELOG=[
   liEn:[
    "Runtime Hub unified execution layer: Feishu, WeChat, terminal, and desktop entries normalized as InboundEvent, with FIFO queuing and TaskRun auditing",
    "New native desktop clients for Mac (Apple Silicon) and Windows (x64): full GUI setup wizard, multi-session chat workspace, system tray, channel & ability management, integrated diagnostics",
-   "New MOSS-TTS-Nano local speech synthesis: text-to-speech for desktop playback and IM voice messages (~728MB, CPU inference)",
+   "Completed the local voice loop: the existing FunASR/SenseVoice line listens, while MOSS-TTS-Nano speaks replies; both can run on local CPU, and voice data stays on-device by default",
    "Desktop setup wizard (feature-complete with CLI): Language → LLM (12 providers + connectivity test) → Channel multi-select + Feishu QR → Naming → Abilities → Config + Launch",
    "penglai update with auto-backup rollback: detects new versions on the main branch, one-click apply with auto-backup, auto-rollback on failure",
    "Channel & ability management panel in main UI: add Feishu/WeChat/DingTalk/QQ/Telegram/Discord/WeCom or enable voice/TTS/critic/companion/intel without re-running the full wizard",
