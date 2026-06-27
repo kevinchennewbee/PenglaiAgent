@@ -690,7 +690,7 @@ jobs:
             if [ -f "$sig_file" ]; then
               local sig_val url_val
               sig_val="$(jq -Rs . < "$sig_file")"
-              url_val="$(jq -Rs . <<<"$url")"
+              url_val="$(printf '%s' "$url" | jq -Rs .)"
               if [ -n "$platforms" ]; then platforms="${platforms},"; fi
               platforms="${platforms}\"${key}\":{\"signature\":${sig_val},\"url\":${url_val}}"
             else
