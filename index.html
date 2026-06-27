@@ -561,9 +561,8 @@ footer .termnote{font-family:var(--mono);font-size:11.5px;color:var(--jade-700);
   <div class="reveal">
     <div class="pane on" id="p-desktop"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-desktop',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># macOS Apple Silicon · Windows x64 · 图形化向导安装</span>
 <span data-zh="下载 DMG/EXE，按系统提示安装。首次打开 macOS 可能需要到系统设置 → 隐私与安全性 → 仍要打开。" data-en="Download DMG/EXE and install normally. On first macOS launch, you may need System Settings → Privacy &amp; Security → Open Anyway.">下载 DMG/EXE，按系统提示安装。首次打开 macOS 可能需要到系统设置 → 隐私与安全性 → 仍要打开。</span>
-<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.1/Penglai_0.3.1_aarch64.dmg" target="_blank" style="color:var(--jade);font-weight:600">→ Mac (Apple Silicon) · Penglai_0.3.1_aarch64.dmg</a>
-<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.1/Penglai_0.3.1_x64.dmg" target="_blank" style="color:var(--jade);font-weight:600">→ Mac (Intel) · Penglai_0.3.1_x64.dmg</a>
-<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.1/Penglai_0.3.1_x64-setup.exe" target="_blank" style="color:var(--jade);font-weight:600">→ Windows · Penglai_0.3.1_x64-setup.exe</a></div></div>
+<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.1/Penglai_0.3.1_macos_aarch64.dmg" target="_blank" style="color:var(--jade);font-weight:600">→ Mac (Apple Silicon) · Penglai_0.3.1_macos_aarch64.dmg</a>
+<a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.3.1/Penglai_0.3.1_windows_x64_setup.exe" target="_blank" style="color:var(--jade);font-weight:600">→ Windows · Penglai_0.3.1_windows_x64_setup.exe</a></div></div>
     <div class="pane" id="p-curl"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-curl',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># 裸机一行，国内走 gh-proxy 镜像</span>
 curl -fsSL <span class="g">https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh</span> | sh</div></div>
     <div class="pane" id="p-pip"><div class="code"><div class="lights"><i></i><i></i><i></i></div><button class="copy" onclick="copyPane('p-pip',this)" data-zh="复制" data-en="Copy">复制</button><span class="c"># PyPI 引导器：安装 CLI，首次运行拉取发行仓库；已有安装用 penglai update</span>
@@ -575,6 +574,39 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
   </div>
   <div class="frame reveal"><img src="wizard-zh.png" alt="蓬莱安装向导实景 / Penglai setup wizard" loading="lazy"></div>
   <p class="reveal" style="text-align:center;color:var(--soft);font-size:13.5px;margin-top:16px" data-zh="↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选" data-en="↑ The setup wizard in action: bilingual · paged steps · one-page channel picker">↑ 安装向导实景：中英双语 · 翻页式步骤 · 渠道一页多选</p>
+</div></section>
+
+<hr class="hr-ink">
+
+<section class="block" id="milestone-031"><div class="wrap">
+  <div class="head reveal">
+    <div class="kicker" data-zh="0.3.1 里程碑" data-en="0.3.1 MILESTONE">0.3.1 里程碑</div>
+    <h2 data-zh="不只是修 bug，而是让蓬莱可持续升级" data-en="Not just bug fixes — making Penglai sustainably upgradeable">不只是修 bug，而是让蓬莱可持续升级</h2>
+    <span class="dia"></span>
+    <p data-zh="迁移机制、自动升级、版本号动态化、局部补配——0.3.1 是里程碑级别的发布" data-en="Migration mechanism, auto-update pipeline, dynamic versioning, scoped reconfiguration — 0.3.1 is a milestone release">迁移机制、自动升级、版本号动态化、局部补配——0.3.1 是里程碑级别的发布</p>
+  </div>
+  <div class="bento">
+    <div class="tile reveal" style="--i:0">
+      <span class="ico">📦</span>
+      <h3 data-zh="可升级、可换机、可回退" data-en="Upgradeable, portable, restorable">可升级、可换机、可回退</h3>
+      <p data-zh="三层兜底确保数据不丢：penglai backup/restore 完整数据备份恢复；install.sh/ps1 安装器在 rm -rf 前自动备份用户数据；penglai uninstall-legacy 清理旧版本服务。旧版本 backup → 安装 0.3.1 → restore →（可选）uninstall-legacy。" data-en="Three layers of protection: penglai backup/restore for full data backup; install.sh/ps1 auto-backs up user data before rm -rf; penglai uninstall-legacy cleans legacy services. Old version backup → install 0.3.1 → restore → (optional) uninstall-legacy.">三层兜底确保数据不丢：penglai backup/restore 完整数据备份恢复；install.sh/ps1 安装器在 rm -rf 前自动备份用户数据；penglai uninstall-legacy 清理旧版本服务。旧版本 backup → 安装 0.3.1 → restore →（可选）uninstall-legacy。</p>
+    </div>
+    <div class="tile reveal" style="--i:1">
+      <span class="ico">🔄</span>
+      <h3 data-zh="桌面端自动升级" data-en="Desktop auto-update">桌面端自动升级</h3>
+      <p data-zh="tauri-plugin-updater 六道关卡全部打通：签名密钥在 CI 生成并校验，latest.json 自动发布到 Release，前端调用 updater API 完成检查、下载、校验、安装。未来发版只需 git push v0.3.x tag，用户自动收到升级。" data-en="tauri-plugin-updater six gates all passed: signing key generated and verified in CI, latest.json auto-published to Release, frontend calls updater API for check/download/verify/install. Future releases just need a git push v0.3.x tag; users receive updates automatically.">tauri-plugin-updater 六道关卡全部打通：签名密钥在 CI 生成并校验，latest.json 自动发布到 Release，前端调用 updater API 完成检查、下载、校验、安装。未来发版只需 git push v0.3.x tag，用户自动收到升级。</p>
+    </div>
+    <div class="tile reveal" style="--i:2">
+      <span class="ico"><svg aria-hidden="true" focusable="false"><use href="#ic-sliders"/></svg></span>
+      <h3 data-zh="版本号动态化" data-en="Dynamic versioning">版本号动态化</h3>
+      <p data-zh="全仓库从硬编码 0.3.0 改为动态引用 VERSION 常量。Python 层唯一定义点在 penglai_runtime/__init__.py，CI 从 git tag 动态提取版本号。未来发版只改一处，不再需要手动改 40+ 处文件名和条件判断。" data-en="Entire repo changed from hardcoded 0.3.0 to dynamic VERSION constant. Python layer has a single definition point in penglai_runtime/__init__.py; CI extracts version from git tag. Future releases change one place, not 40+ hardcoded filenames and conditions.">全仓库从硬编码 0.3.0 改为动态引用 VERSION 常量。Python 层唯一定义点在 penglai_runtime/__init__.py，CI 从 git tag 动态提取版本号。未来发版只改一处，不再需要手动改 40+ 处文件名和条件判断。</p>
+    </div>
+    <div class="tile reveal" style="--i:3">
+      <span class="ico">🧩</span>
+      <h3 data-zh="局部补配" data-en="Scoped reconfiguration">局部补配</h3>
+      <p data-zh="penglai setup --only feishu 只重配飞书，不触碰已配置的 LLM。同样支持 --only llm|identity|wechat|channels|abilities|companion。重配某个环节不再需要重走整个向导，已有 API Key 原样保留。" data-en="penglai setup --only feishu reconfigures only Feishu without touching the existing LLM config. Also supports --only llm|identity|wechat|channels|abilities|companion. Reconfiguring one part no longer requires re-running the full wizard; existing API keys are preserved.">penglai setup --only feishu 只重配飞书，不触碰已配置的 LLM。同样支持 --only llm|identity|wechat|channels|abilities|companion。重配某个环节不再需要重走整个向导，已有 API Key 原样保留。</p>
+    </div>
+  </div>
 </div></section>
 
 <hr class="hr-ink">
@@ -620,8 +652,11 @@ python3 penglai setup   <span class="c"># 向导：语言→依赖→模型→�
     <div class="stack-item"><b>MOSS-TTS-Nano</b><span data-zh="让蓬莱能用本地 CPU 把文字说出来" data-en="Local CPU model that lets Penglai speak replies">让蓬莱能用本地 CPU 把文字说出来</span></div>
     <div class="stack-item"><b>FunASR / SenseVoice</b><span data-zh="让蓬莱能在本地听懂语音、情绪和声学事件" data-en="Local speech, emotion, and acoustic-event understanding">让蓬莱能在本地听懂语音、情绪和声学事件</span></div>
     <div class="stack-item"><b>Tauri</b><span data-zh="更轻的原生桌面客户端基础" data-en="Lightweight native desktop foundation">更轻的原生桌面客户端基础</span></div>
+    <div class="stack-item"><b>sherpa-onnx</b><span data-zh="语音推理引擎，让 SenseVoice 在 CPU 上跑起来" data-en="Inference engine that runs SenseVoice on CPU">语音推理引擎，让 SenseVoice 在 CPU 上跑起来</span></div>
+    <div class="stack-item"><b>Feishu / Lark SDK</b><span data-zh="飞书开放平台 SDK，让蓬莱住进飞书" data-en="Feishu open platform SDK, lets Penglai live in Feishu">飞书开放平台 SDK，让蓬莱住进飞书</span></div>
   </div>
   <p class="matrix-note reveal" data-zh="也感谢 Feishu / Lark SDK 生态，以及所有让 AI 工具变得更普通、更可用、更安全的开源项目。" data-en="Thanks also to the Feishu / Lark SDK ecosystem and every open-source project making AI tools more ordinary, usable, and safe.">也感谢 Feishu / Lark SDK 生态，以及所有让 AI 工具变得更普通、更可用、更安全的开源项目。</p>
+  <p class="matrix-note reveal" style="margin-top:14px" data-zh="特别感谢 issue 反馈用户：@larrylinli（#2/#3/#4，推动 setup --only 和桌面架构改进）、@ljfhdwxsk（#1，Docker/WSL 安装反馈）" data-en="Special thanks to issue reporters: @larrylinli (#2/#3/#4, drove setup --only and desktop architecture), @ljfhdwxsk (#1, Docker/WSL install feedback)">特别感谢 issue 反馈用户：@larrylinli（#2/#3/#4，推动 setup --only 和桌面架构改进）、@ljfhdwxsk（#1，Docker/WSL 安装反馈）</p>
 </div></section>
 
 <hr class="hr-ink">
