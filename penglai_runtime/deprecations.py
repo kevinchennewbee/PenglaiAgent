@@ -105,7 +105,7 @@ STATIC_PATHS = (
 )
 
 
-PUBLIC_DOCS = ("README.md", "README_EN.md", "installer/README.md")
+PUBLIC_DOCS = ("README.md", "installer/README.md")
 
 
 def _run(cmd, *, root=ROOT):

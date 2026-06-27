@@ -8,4 +8,3 @@
 # 合并它们照常自动进行，不在此列。被删除的上游文档/演示若上游又改动，合并时手动 git rm 即可。
 
 README.md      merge=ours
-README_EN.md   merge=ours

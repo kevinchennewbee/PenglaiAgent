@@ -23,7 +23,7 @@ All code is MIT licensed (see ./LICENSE).
     Released under the same MIT terms.
     The Penglai layer includes additive files plus the distro's own front page,
     docs, wrappers, tests, and maintained adapter deltas, e.g.: README.md,
-    README_EN.md, CONTRIBUTING.md, NOTICE, .gitattributes, penglai,
+    CONTRIBUTING.md, NOTICE, .gitattributes, penglai,
     penglai_setup.py, penglai_providers.yaml, penglai_runtime/*,
     plugins/penglai_*.py, reflect/penglai_companion.py,
     memory/penglai_*_sop.md, install.sh, installer/*,
