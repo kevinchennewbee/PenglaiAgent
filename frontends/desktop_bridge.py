@@ -1160,7 +1160,7 @@ async def mykey_update_handler(request):
         if not found:
             lines.append(f"{key} = {val_str}\n")
     mk.write_text("".join(lines), encoding="utf-8")
-    mk.chmod(0o600)
+    _chmod_private(mk)
     return json_ok({"ok": True, "updated": list(updates.keys())})
 
 

@@ -1,5 +1,6 @@
 use std::process::{Command, Child, Stdio};
 use std::sync::Mutex;
+use std::collections::HashMap;
 use std::net::TcpStream;
 use std::io::{Read, Write, BufRead, BufReader};
 use std::time::{Duration, Instant};
@@ -280,7 +281,6 @@ fn fetch_bridge_token() -> Option<String> {
 
 /// Check whether the running bridge is in --bootstrap mode by looking for
 /// the `window.__PENGLAI_BOOTSTRAP__=true` marker in the index page.
-#[allow(dead_code)]
 fn is_bridge_bootstrap() -> bool {
     let mut stream = match TcpStream::connect(("127.0.0.1", 14168)) {
         Ok(s) => s,
@@ -565,6 +565,14 @@ fn ps_single_quote(value: &str) -> String {
 fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, project_dir: String) -> Result<(), String> {
     write_desktop_settings(&python_path, &project_dir)?;
 
+    // If a bootstrap-mode bridge is running (setup wizard flow), stop it first
+    // so we can spawn a full runtime bridge with the newly written config.
+    if is_bridge_running() && is_bridge_bootstrap() {
+        stop_bridge_process();
+        // Give the OS a moment to release port 14168.
+        std::thread::sleep(Duration::from_millis(500));
+    }
+
     if !is_bridge_running() {
         if is_bridge_port_open() {
             return Err("检测到旧版或非蓬莱桌面桥接占用 127.0.0.1:14168；请先关闭旧桥接后重试。".into());
@@ -604,6 +612,39 @@ fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, p
 #[tauri::command]
 fn get_config() -> (String, String) {
     get_or_discover_config()
+}
+
+#[tauri::command]
+fn detect_legacy_penglai() -> Result<Vec<HashMap<String, String>>, String> {
+    let home = dirs::home_dir().ok_or("无法获取 home 目录")?;
+    let mut results = Vec::new();
+
+    // 检测已知旧版本路径
+    let legacy_paths = vec![
+        home.join("PenglaiAgent"),
+        home.join("PenglaiAgentDesktop"),
+        home.join("PenglaiAgentOld"),
+    ];
+
+    for path in legacy_paths {
+        if path.exists() && path.join("penglai").exists() {
+            let mut info = HashMap::new();
+            info.insert("path".to_string(), path.display().to_string());
+            // 尝试读取版本号
+            let version = std::fs::read_to_string(path.join(".penglai-build.json"))
+                .ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                .and_then(|v| v.get("version").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                .unwrap_or_else(|| "unknown".to_string());
+            info.insert("version".to_string(), version);
+            // 检测是否有用户数据
+            let has_data = path.join("mykey.py").exists() || path.join("memory").exists();
+            info.insert("has_data".to_string(), has_data.to_string());
+            results.push(info);
+        }
+    }
+
+    Ok(results)
 }
 
 #[tauri::command]
@@ -908,6 +949,7 @@ pub fn run() {
             setup_op,
             check_app_update,
             install_app_update,
+            detect_legacy_penglai,
         ])
         .setup(move |app| {
             // ---- System tray icon (macOS menu bar / Windows notification area) ----
@@ -1030,7 +1072,9 @@ pub fn run() {
                     }
                 } else if label == "setup" {
                     if let Some(main_win) = window.app_handle().get_webview_window("main") {
-                        if !main_win.is_visible().unwrap_or(false) {
+                        // Only exit if main window is confirmed hidden.
+                        // On is_visible() error, be conservative: assume visible, don't exit.
+                        if !main_win.is_visible().unwrap_or(true) {
                             stop_bridge_process();
                             window.app_handle().exit(0);
                         }

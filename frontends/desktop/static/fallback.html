@@ -289,7 +289,7 @@ async function checkAppUpdateFromSetup() {
   status.textContent = '正在检查桌面应用更新…';
   try {
     const result = await invoke('check_app_update');
-    if (result && result.available) {
+    if (result && result.has_update) {
       status.className = 'status-msg ok';
       status.textContent = `发现新版本 ${result.version || ''}，可以升级`;
       if (btn) {
@@ -346,8 +346,40 @@ async function setupProgressListener() {
   });
 }
 
+async function checkLegacyPenglai() {
+  try {
+    const legacies = await window.__TAURI__.core.invoke('detect_legacy_penglai');
+    if (legacies && legacies.length > 0) {
+      const list = legacies.map(l =>
+        `• ${l.path}（版本 ${l.version}，${l.has_data === 'true' ? '有用户数据' : '无数据'}）`
+      ).join('\n');
+
+      const migrate = confirm(
+        `检测到旧版蓬莱安装：\n\n${list}\n\n` +
+        `建议在继续安装前先迁移数据：\n` +
+        `1. 在旧版本目录运行：penglai backup\n` +
+        `2. 完成新版本安装后运行：penglai restore\n\n` +
+        `点击"确定"继续安装，"取消"暂停安装。`
+      );
+      if (!migrate) {
+        return false;
+      }
+    }
+  } catch (e) {
+    console.log('Legacy detection skipped:', e);
+  }
+  return true;
+}
+
 async function startRuntimeInstall() {
   if (rwStarted) return;
+
+  // 旧版本检测：如有旧版本且用户选择取消，则暂停安装
+  const proceed = await checkLegacyPenglai();
+  if (!proceed) {
+    return;
+  }
+
   rwStarted = true;
   rwStartBtn.disabled = true;
   rwOpts.classList.add('hidden');
@@ -733,6 +765,9 @@ function startFSPoll(deviceCode) {
       } else if (r.status === 'expired') {
         clearInterval(fsPollTimer);
         document.getElementById('fs-status').innerHTML = '<p class="log-warn">⚠️ 二维码已过期，请重新生成</p>';
+      } else if (r.status === 'error') {
+        clearInterval(fsPollTimer);
+        document.getElementById('fs-status').innerHTML = `<p class="log-warn">⚠️ 飞书接口错误：${escHtml(r.error || '未知错误')}</p>`;
       }
     } catch(e) {}
   }, 2000);

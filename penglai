@@ -14,6 +14,9 @@
   penglai enable <渠道>   启用渠道（钉钉/QQ 支持扫码自动建应用）
   penglai disable <渠道>  停用渠道
   penglai config <backup|restore|status>  配置管理（backup 原子备份 / restore 回滚 / status --json 概览）
+  penglai backup   完整数据备份（mykey/memory/sqlite/wxbot/桌面配置，用于版本迁移前）
+  penglai restore [备份路径]  从完整备份恢复（默认最近一次 full-<timestamp>）
+  penglai uninstall-legacy  检测并清理旧版本服务与残留目录（launchd/systemd）
   penglai update    更新到最新版蓬莱发行仓
   penglai setup [--only <模块>] [--skip-smoke-test]  安装向导（--only 局部补配：llm|identity|feishu|wechat|channels|abilities|companion；--skip-smoke-test 跳过端到端 LLM 冒烟验证）
   penglai migrate   从旧管家(Hermes/OpenClaw)搬家：记忆/渠道/人设 [--from][--dry-run][--with-secrets]
@@ -1511,6 +1514,173 @@ def config_status(as_json=False):
     print("\n  备份: penglai config backup   恢复: penglai config restore   JSON: penglai config status --json")
     return 0
 
+# ---------- 完整数据备份/恢复（0.3.1 版本迁移用）----------
+def backup_cmd():
+    """penglai backup — 完整数据备份（用于版本迁移前）"""
+    import time
+    ts = time.strftime('%Y%m%d-%H%M%S')
+    backup_dir = os.path.join(BACKUP_DIR, f"full-{ts}")
+    tmp_dir = backup_dir + ".tmp"
+
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    items = []
+    # mykey.py
+    mykey = _mykey_path()
+    if os.path.exists(mykey):
+        shutil.copy2(mykey, os.path.join(tmp_dir, "mykey.py"))
+        items.append("mykey.py")
+    # memory/
+    mem_dir = os.path.join(ROOT, "memory")
+    if os.path.isdir(mem_dir):
+        shutil.copytree(mem_dir, os.path.join(tmp_dir, "memory"), dirs_exist_ok=True)
+        items.append("memory/")
+    # temp/runtime_hub.sqlite3
+    sqlite_path = os.path.join(ROOT, "temp", "runtime_hub.sqlite3")
+    if os.path.exists(sqlite_path):
+        os.makedirs(os.path.join(tmp_dir, "temp"), exist_ok=True)
+        shutil.copy2(sqlite_path, os.path.join(tmp_dir, "temp", "runtime_hub.sqlite3"))
+        items.append("temp/runtime_hub.sqlite3")
+    # ~/.wxbot/token.json
+    wxbot_token = os.path.expanduser("~/.wxbot/token.json")
+    if os.path.exists(wxbot_token):
+        os.makedirs(os.path.join(tmp_dir, ".wxbot"), exist_ok=True)
+        shutil.copy2(wxbot_token, os.path.join(tmp_dir, ".wxbot", "token.json"))
+        items.append("~/.wxbot/token.json")
+    # ~/.penglai_desktop_settings.json
+    desktop_settings = os.path.expanduser("~/.penglai_desktop_settings.json")
+    if os.path.exists(desktop_settings):
+        shutil.copy2(desktop_settings, os.path.join(tmp_dir, ".penglai_desktop_settings.json"))
+        items.append("~/.penglai_desktop_settings.json")
+
+    if not items:
+        print(f"{BAD} 没有可备份的数据。先运行：penglai setup")
+        return 1
+
+    # 原子写入：tmp → rename
+    os.replace(tmp_dir, backup_dir)
+    print(f"{OK} 完整数据已备份 → {backup_dir}")
+    print(f"  备份内容：{', '.join(items)}")
+    print(f"  恢复命令：penglai restore {backup_dir}")
+    return 0
+
+def restore_cmd(backup_path=None):
+    """penglai restore [备份路径] — 从完整备份恢复"""
+    import glob
+    if backup_path:
+        src = backup_path if os.path.isabs(backup_path) else os.path.join(BACKUP_DIR, backup_path)
+    else:
+        cands = sorted(glob.glob(os.path.join(BACKUP_DIR, "full-*")))
+        if not cands:
+            print(f"{BAD} 没有完整备份可恢复（{BACKUP_DIR} 中无 full-* 目录）。先运行：penglai backup")
+            return 1
+        src = cands[-1]
+
+    if not os.path.isdir(src):
+        print(f"{BAD} 备份目录不存在：{src}")
+        return 1
+
+    items = []
+    # mykey.py
+    mykey_bak = os.path.join(src, "mykey.py")
+    if os.path.exists(mykey_bak):
+        shutil.copy2(mykey_bak, _mykey_path())
+        items.append("mykey.py")
+    # memory/
+    mem_bak = os.path.join(src, "memory")
+    if os.path.isdir(mem_bak):
+        mem_dst = os.path.join(ROOT, "memory")
+        if os.path.exists(mem_dst):
+            shutil.rmtree(mem_dst)
+        shutil.copytree(mem_bak, mem_dst)
+        items.append("memory/")
+    # temp/runtime_hub.sqlite3
+    sqlite_bak = os.path.join(src, "temp", "runtime_hub.sqlite3")
+    if os.path.exists(sqlite_bak):
+        sqlite_dst = os.path.join(ROOT, "temp", "runtime_hub.sqlite3")
+        os.makedirs(os.path.dirname(sqlite_dst), exist_ok=True)
+        shutil.copy2(sqlite_bak, sqlite_dst)
+        items.append("temp/runtime_hub.sqlite3")
+    # ~/.wxbot/token.json
+    wxbot_bak = os.path.join(src, ".wxbot", "token.json")
+    if os.path.exists(wxbot_bak):
+        wxbot_dst = os.path.expanduser("~/.wxbot/token.json")
+        os.makedirs(os.path.dirname(wxbot_dst), exist_ok=True)
+        shutil.copy2(wxbot_bak, wxbot_dst)
+        items.append("~/.wxbot/token.json")
+    # ~/.penglai_desktop_settings.json
+    desktop_bak = os.path.join(src, ".penglai_desktop_settings.json")
+    if os.path.exists(desktop_bak):
+        desktop_dst = os.path.expanduser("~/.penglai_desktop_settings.json")
+        shutil.copy2(desktop_bak, desktop_dst)
+        items.append("~/.penglai_desktop_settings.json")
+
+    if not items:
+        print(f"{BAD} 备份目录为空：{src}")
+        return 1
+
+    print(f"{OK} 已从备份恢复 → {src}")
+    print(f"  恢复内容：{', '.join(items)}")
+    return 0
+
+def uninstall_legacy_cmd():
+    """penglai uninstall-legacy — 检测并清理旧版本服务"""
+    print("检测旧版本服务和数据...")
+
+    cleaned = []
+
+    # 1. 检测旧 launchd 服务（macOS）
+    if sys.platform == "darwin":
+        import glob
+        plists = glob.glob(os.path.expanduser("~/Library/LaunchAgents/com.penglai.*.plist"))
+        for plist in plists:
+            label = os.path.basename(plist).replace(".plist", "")
+            subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{label}"],
+                         capture_output=True)
+            os.remove(plist)
+            cleaned.append(f"launchd: {label}")
+
+    # 2. 检测旧 systemd 服务（Linux）
+    elif sys.platform.startswith("linux"):
+        for svc in ["penglai-feishu", "penglai-scheduler", "penglai-companion",
+                     "penglai-wechat", "penglai-runtime-hub"]:
+            r = subprocess.run(["systemctl", "is-active", svc], capture_output=True, text=True)
+            if r.stdout.strip() == "active":
+                subprocess.run(["systemctl", "stop", svc], capture_output=True)
+                cleaned.append(f"systemd: stopped {svc}")
+            r = subprocess.run(["systemctl", "is-enabled", svc], capture_output=True, text=True)
+            if r.stdout.strip() == "enabled":
+                subprocess.run(["systemctl", "disable", svc], capture_output=True)
+                cleaned.append(f"systemd: disabled {svc}")
+
+    # 3. 检测旧安装目录
+    legacy_dirs = []
+    for d in ["~/PenglaiAgent", "~/PenglaiAgentDesktop", "~/PenglaiAgentOld"]:
+        full = os.path.expanduser(d)
+        if os.path.isdir(full) and os.path.abspath(full) != os.path.abspath(ROOT):
+            legacy_dirs.append(full)
+
+    if not cleaned and not legacy_dirs:
+        print(f"{OK} 未检测到旧版本服务或数据")
+        return 0
+
+    if cleaned:
+        print(f"{OK} 已清理旧服务：")
+        for item in cleaned:
+            print(f"  - {item}")
+
+    if legacy_dirs:
+        print(f"\n⚠️  检测到旧安装目录（需手动删除）：")
+        for d in legacy_dirs:
+            print(f"  - {d}")
+        print(f"\n  建议先确认数据已迁移，再手动删除：")
+        for d in legacy_dirs:
+            print(f"  rm -rf {d}")
+
+    return 0
+
 def migrate():
     sys.path.insert(0, ROOT)
     import penglai_migrate as pm
@@ -1672,6 +1842,8 @@ def main():
             "channels": lambda: channel_cmd("status"), "enable": lambda: channel_cmd("enable"),
             "disable": lambda: channel_cmd("disable"), "abilities": abilities,
             "config": config_cmd,
+            "backup": backup_cmd, "restore": restore_cmd,
+            "uninstall-legacy": uninstall_legacy_cmd,
             "selfcheck": selfcheck_cmd, "runtime-run": runtime_run_cmd,
             "runtime-chat": runtime_chat_cmd,
             "runtime-status": runtime_status_cmd, "runtime-history": runtime_history_cmd,

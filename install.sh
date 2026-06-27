@@ -187,10 +187,32 @@ download_archive() {
     for url in $urls; do
         say "  尝试压缩包下载..."
         if curl -fL --connect-timeout 15 --max-time 180 -o "$tmp" "$url"; then
+            # 备份用户数据（防止 rm -rf 删光）
+            userdata_tmp=""
+            if [ -d "$TARGET" ]; then
+                userdata_tmp="${TARGET}.userdata.$$"
+                mkdir -p "$userdata_tmp"
+                for item in mykey.py mykey.json memory temp; do
+                    if [ -e "$TARGET/$item" ]; then
+                        cp -a "$TARGET/$item" "$userdata_tmp/" 2>/dev/null || true
+                    fi
+                done
+                say "  📦 用户数据已临时备份（mykey.py/memory/temp）"
+            fi
             rm -rf "$TARGET"
             mkdir -p "$TARGET"
             tar -xzf "$tmp" -C "$TARGET" --strip-components=1
             rm -f "$tmp"
+            # 恢复用户数据
+            if [ -n "$userdata_tmp" ] && [ -d "$userdata_tmp" ]; then
+                for item in mykey.py mykey.json memory temp; do
+                    if [ -e "$userdata_tmp/$item" ]; then
+                        cp -a "$userdata_tmp/$item" "$TARGET/" 2>/dev/null || true
+                    fi
+                done
+                rm -rf "$userdata_tmp"
+                say "  ✅ 用户数据已恢复"
+            fi
             return 0
         fi
     done
@@ -238,7 +260,12 @@ elif [ -f "$TARGET/penglai" ] && [ -f "$TARGET/agent_loop.py" ]; then
             say "  ✅ 发行版已存在:$TARGET ($existing_version)"
             ;;
         *)
-            die "检测到已有蓬莱目录但版本不可识别：$TARGET。请备份 mykey.py/memory/temp 后设置新的 PENGLAI_DIR 重新安装，或运行 penglai update 升级。"
+            die "检测到已有蓬莱目录但版本不可识别：$TARGET。
+
+建议先备份用户数据：
+  cd $TARGET && penglai backup
+
+然后设置新的 PENGLAI_DIR 重新安装，或运行 penglai update 升级。"
             ;;
     esac
 elif [ -e "$TARGET" ] && [ -n "$(ls -A "$TARGET" 2>/dev/null)" ]; then

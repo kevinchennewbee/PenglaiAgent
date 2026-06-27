@@ -58,6 +58,57 @@ function Copy-ExpandedSource([string]$ZipPath, [string]$Destination) {
     }
 }
 
+# User-generated data that must survive reinstalls / archive extraction.
+$UserDataItems = @("mykey.py", "mykey.json", "memory", "temp", "audit", ".env")
+
+function Backup-UserData([string]$Root) {
+    # Back up user-generated data to a temp dir. Returns the backup path, or $null if nothing was copied.
+    if (-not (Test-Path $Root)) { return $null }
+    $backup = Join-Path ([IO.Path]::GetTempPath()) ("penglai-backup-" + [Guid]::NewGuid().ToString("N"))
+    $copied = $false
+    foreach ($name in $UserDataItems) {
+        $src = Join-Path $Root $name
+        if (Test-Path $src) {
+            if (-not (Test-Path $backup)) { New-Item -ItemType Directory -Force -Path $backup | Out-Null }
+            Copy-Item -LiteralPath $src -Destination (Join-Path $backup $name) -Recurse -Force
+            $copied = $true
+        }
+    }
+    if ($copied) { return $backup }
+    if (Test-Path $backup) { Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction SilentlyContinue }
+    return $null
+}
+
+function Restore-UserData([string]$Backup, [string]$Root) {
+    if (-not $Backup -or -not (Test-Path $Backup)) { return }
+    foreach ($name in $UserDataItems) {
+        $src = Join-Path $Backup $name
+        if (Test-Path $src) {
+            Copy-Item -LiteralPath $src -Destination (Join-Path $Root $name) -Recurse -Force
+        }
+    }
+}
+
+function Get-ExistingPenglaiVersion([string]$Root) {
+    # Returns the version string of an existing PenglaiAgent install, or "" if not detectable.
+    $penglai = Join-Path $Root "penglai"
+    if (-not (Test-Path $penglai)) { return "" }
+    $candidates = @()
+    $venvPy = Join-Path $Root ".venv\Scripts\python.exe"
+    if (Test-Path $venvPy) { $candidates += $venvPy }
+    foreach ($cmd in @("python", "python3", "py")) {
+        $found = Get-Command $cmd -ErrorAction SilentlyContinue
+        if ($found) { $candidates += $found.Source }
+    }
+    foreach ($py in $candidates) {
+        try {
+            $output = (& $py $penglai version 2>$null) -join "`n"
+            if ($LASTEXITCODE -eq 0 -and $output) { return $output }
+        } catch { }
+    }
+    return ""
+}
+
 function Find-Uv {
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -122,7 +173,15 @@ if (-not (Test-GithubDirect)) {
 }
 
 if ((Test-Path (Join-Path $Target "penglai")) -and (Test-Path (Join-Path $Target "agent_loop.py"))) {
-    Say "  Source tree already exists: $Target"
+    $existingVersion = Get-ExistingPenglaiVersion $Target
+    if ($existingVersion -and ($existingVersion -match "Penglai ")) {
+        Say "  Source tree already exists: $Target"
+        if ($existingVersion -match "Penglai\s+(\S+)") {
+            Say "  Detected version: $($Matches[1])"
+        }
+    } else {
+        throw "Detected existing PenglaiAgent directory but version is unrecognizable: $Target. Please back up user data first (run 'penglai backup', or manually copy mykey.py / memory / temp), then set a new PENGLAI_DIR to reinstall, or run 'penglai update' to upgrade."
+    }
 } elseif ((Test-Path $Target) -and ((Get-ChildItem -LiteralPath $Target -Force -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0)) {
     throw "Target is not empty and is not a PenglaiAgent source tree: $Target"
 } else {
@@ -134,11 +193,20 @@ if ((Test-Path (Join-Path $Target "penglai")) -and (Test-Path (Join-Path $Target
     }
     $urls += "https://codeload.github.com/$OwnerRepo/zip/refs/heads/$Branch"
     $urls += "https://github.com/$OwnerRepo/archive/refs/heads/$Branch.zip"
+    $userDataBackup = $null
     try {
+        # Defensive: back up any user data before extraction (no-op if target is empty).
+        $userDataBackup = Backup-UserData $Target
+        if ($userDataBackup) { Say "  Backed up user data to: $userDataBackup" }
         Download-FileWithFallback $urls $zipPath
         Copy-ExpandedSource $zipPath $Target
+        if ($userDataBackup) {
+            Restore-UserData $userDataBackup $Target
+            Say "  Restored user data after extraction."
+        }
     } finally {
         Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+        if ($userDataBackup) { Remove-Item -LiteralPath $userDataBackup -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
 

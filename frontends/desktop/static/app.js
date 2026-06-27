@@ -3251,7 +3251,7 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
     if (applyBtn) applyBtn.disabled = true;
     try {
       const result = await window.__TAURI__.core.invoke('check_app_update');
-      if (result && result.available) {
+      if (result && result.has_update) {
         if (out) out.textContent = `✅ 发现新版本 ${result.version || ''}\n${result.body || ''}`;
         if (applyBtn) applyBtn.disabled = false;
       } else {
