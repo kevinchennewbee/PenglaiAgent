@@ -35,7 +35,13 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             echo "PENGLAI_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "PENGLAI_VERSION=0.0.0" >> "$GITHUB_ENV"
+            # 非 tag 构建时从 Cargo.toml 读版本号，避免与 Tauri 实际产物版本号不匹配
+            cargo_version=$(awk -F'"' '/^version = / {print $2; exit}' frontends/desktop/src-tauri/Cargo.toml)
+            if [ -z "$cargo_version" ]; then
+              echo "::error::无法从 Cargo.toml 读取版本号"
+              exit 1
+            fi
+            echo "PENGLAI_VERSION=${cargo_version}" >> "$GITHUB_ENV"
           fi
 
       - name: Setup Node.js
@@ -334,7 +340,13 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             echo "PENGLAI_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "PENGLAI_VERSION=0.0.0" >> "$GITHUB_ENV"
+            # 非 tag 构建时从 Cargo.toml 读版本号，避免与 Tauri 实际产物版本号不匹配
+            cargo_version=$(awk -F'"' '/^version = / {print $2; exit}' frontends/desktop/src-tauri/Cargo.toml)
+            if [ -z "$cargo_version" ]; then
+              echo "::error::无法从 Cargo.toml 读取版本号"
+              exit 1
+            fi
+            echo "PENGLAI_VERSION=${cargo_version}" >> "$GITHUB_ENV"
           fi
 
       - name: Setup Node.js
@@ -626,7 +638,13 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             echo "PENGLAI_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "PENGLAI_VERSION=0.0.0" >> "$GITHUB_ENV"
+            # 非 tag 构建时从 Cargo.toml 读版本号，避免与 Tauri 实际产物版本号不匹配
+            cargo_version=$(awk -F'"' '/^version = / {print $2; exit}' frontends/desktop/src-tauri/Cargo.toml)
+            if [ -z "$cargo_version" ]; then
+              echo "::error::无法从 Cargo.toml 读取版本号"
+              exit 1
+            fi
+            echo "PENGLAI_VERSION=${cargo_version}" >> "$GITHUB_ENV"
           fi
 
       - name: Download artifacts
