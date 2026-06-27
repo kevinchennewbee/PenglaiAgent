@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>蓬莱 Penglai — 自托管 AI Runtime Hub</title>
-  <meta name="description" content="把能干活、能听、能说的 Agent，带到你已经在用的地方。蓬莱是一个自托管的 AI Runtime Hub，支持桌面、飞书、微信、终端等多渠道接入。">
-  <link rel="stylesheet" href="styles/main.css">
-  <!-- 仙气特效：Canvas Perlin Noise 流场粒子 + 鼠标追踪 -->
+  <title>Penglai — Self-Hosted AI Runtime Hub</title>
+  <meta name="description" content="Bring agents that can work, listen, and speak to the tools you already use. Penglai is a self-hosted AI Runtime Hub with multi-channel access across Desktop, Feishu, WeChat, Terminal, and more.">
+  <link rel="stylesheet" href="../styles/main.css">
   <style>
-    /* Canvas 容器 */
+    /* Canvas container */
     #fairy-canvas {
       position: fixed;
       top: 0; left: 0;
@@ -16,18 +15,15 @@
       pointer-events: none;
       z-index: 0;
     }
-    /* 山峦 */
     .mountain-layer { position:fixed; bottom:0; left:0; width:100vw; height:40vh; pointer-events:none; z-index:0; }
-    /* 旧元素隐藏 */
     .fog, .fairy-particle, .fairy-svg, .silk-ribbon, .sword-streak { display: none !important; }
   </style>
 
-  <!-- 仙气 Canvas -->
   <canvas id="fairy-canvas"></canvas>
 </head>
 <body>
 
-  <!-- ========== 仙山雾气背景层 ========== -->
+  <!-- ========== Mountain & mist background layer ========== -->
   <svg class="mountain-layer" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M0 400 L0 320 Q80 280 160 300 Q240 260 320 240 Q380 220 420 250 Q480 200 540 180 Q600 160 640 190 Q700 150 760 170 Q820 140 880 160 Q940 130 1000 155 Q1060 140 1100 170 Q1160 150 1200 180 Q1280 200 1340 220 Q1400 240 1440 230 L1440 400 Z" fill="rgba(140,145,135,0.15)"/>
     <path d="M0 400 L0 340 Q100 310 200 320 Q300 290 400 270 Q500 250 560 280 Q620 240 700 220 Q780 200 840 230 Q900 210 960 240 Q1020 220 1080 250 Q1140 230 1200 260 Q1300 280 1380 290 L1440 280 L1440 400 Z" fill="rgba(130,135,128,0.12)"/>
@@ -39,22 +35,22 @@
     <div class="nav-inner">
       <a href="#" class="nav-logo">
         <div class="nav-logo-seal">蓬</div>
-        <div class="nav-logo-text">蓬莱 <span>Penglai</span></div>
+        <div class="nav-logo-text">Penglai <span>Penglai</span></div>
       </a>
       <ul class="nav-links" id="navLinks">
-        <li><a href="#features">能力</a></li>
-        <li><a href="#channels">渠道</a></li>
-        <li><a href="#architecture">架构</a></li>
-        <li><a href="#install">安装</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#channels">Channels</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#install">Install</a></li>
         <li><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a></li>
       </ul>
       <div class="nav-right">
-        <a href="./en/" class="nav-lang">中 / EN</a>
+        <a href="../" class="nav-lang">EN / 中</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 <span class="penglai-version">0.3.1</span>
+          Download <span class="penglai-version">0.3.1</span>
         </a>
-        <button class="nav-toggle" id="navToggle" aria-label="菜单">
+        <button class="nav-toggle" id="navToggle" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <line x1="3" y1="6" x2="21" y2="6"/>
             <line x1="3" y1="12" x2="21" y2="12"/>
@@ -69,21 +65,21 @@
   <section class="hero" id="hero">
     <div class="hero-content">
       <div class="hero-badge reveal">v<span class="penglai-version">0.3.1</span></div>
-      <h1 class="hero-title reveal reveal-delay-1">蓬莱</h1>
+      <h1 class="hero-title reveal reveal-delay-1">Penglai</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
-      <p class="hero-subtitle reveal reveal-delay-2">把能干活、能听、能说的 Agent，带到你已经在用的地方</p>
+      <p class="hero-subtitle reveal reveal-delay-2">Bring agents that can work, listen, and speak to the tools you already use</p>
       <ul class="hero-values reveal reveal-delay-3">
-        <li>住在你飞书、微信和终端里的自托管 AI Runtime Hub</li>
-        <li>本地 CPU 语音闭环 · 数据默认不出本机 · 确定性安全护栏</li>
+        <li>A self-hosted AI Runtime Hub living inside your Feishu, WeChat, and Terminal</li>
+        <li>Local CPU voice pipeline &middot; Data stays on your machine by default &middot; Deterministic safety guardrails</li>
       </ul>
       <div class="hero-ctas reveal reveal-delay-4">
         <a href="#install" class="btn-primary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          下载桌面客户端
+          Download Desktop Client
         </a>
         <a href="#install" class="btn-ghost">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          一行命令安装
+          One-Line Install
         </a>
         <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn-text">
           GitHub
@@ -95,30 +91,30 @@
     <!-- Hero Preview Mockups -->
     <div class="hero-preview reveal reveal-delay-4">
       <div class="hero-preview-grid">
-        <!-- Desktop Mockup - 修复版（真实内容） -->
+        <!-- Desktop Mockup -->
         <div class="hero-mockup">
           <div class="mockup-header">
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
-            <span class="mockup-title">蓬莱 Desktop</span>
+            <span class="mockup-title">Penglai Desktop</span>
           </div>
           <div class="mockup-body" style="padding: 12px;">
             <div style="display:flex; height:100%; gap:6px;">
-              <!-- 左侧sidebar -->
+              <!-- Left sidebar -->
               <div style="width:30%; background:#F3F2EE; border-radius:6px; padding:6px; display:flex; flex-direction:column; gap:4px;">
-                <div style="font-size:8px; font-weight:700; color:#1A1A1A; padding:2px 4px;">蓬莱 Agent</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px; background:#FAFAF7; border-radius:3px;">💬 聊天工作台</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">▶ 运行历史</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">📡 渠道管理</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">✨ 能力管理</div>
+                <div style="font-size:8px; font-weight:700; color:#1A1A1A; padding:2px 4px;">Penglai Agent</div>
+                <div style="font-size:6px; color:#5A5A55; padding:2px 4px; background:#FAFAF7; border-radius:3px;">💬 Chat Workspace</div>
+                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">▶ Run History</div>
+                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">📡 Channel Manager</div>
+                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">✨ Skill Manager</div>
               </div>
-              <!-- 右侧聊天区 -->
+              <!-- Right chat area -->
               <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
-                <div style="font-size:7px; color:#8A8A82; text-align:center;">今天 14:30</div>
-                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">帮我看看今天的服务器状态</div>
-                <div style="align-self:flex-end; background:#C44531; color:#fff; padding:4px 6px; border-radius:6px 0 6px 6px; font-size:7px; max-width:80%;">Runtime Hub 运行正常 ✅&#10;CPU 23% · 内存 45%&#10;3个告警已处理</div>
-                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">好的，谢谢</div>
+                <div style="font-size:7px; color:#8A8A82; text-align:center;">Today 14:30</div>
+                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">Check today's server status</div>
+                <div style="align-self:flex-end; background:#C44531; color:#fff; padding:4px 6px; border-radius:6px 0 6px 6px; font-size:7px; max-width:80%;">Runtime Hub running normally ✅&#10;CPU 23% · Memory 45%&#10;3 alerts resolved</div>
+                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">Thanks!</div>
               </div>
             </div>
           </div>
@@ -129,13 +125,13 @@
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
-            <span class="mockup-title">飞书渠道</span>
+            <span class="mockup-title">Feishu Channel</span>
           </div>
           <div class="mockup-body">
             <div class="mockup-chat">
-              <div class="mockup-bubble user">今天的服务器监控报告</div>
-              <div class="mockup-bubble bot">正在生成日报，请稍候...</div>
-              <div class="mockup-bubble bot">报告已生成：CPU 23%，内存 45%，3个告警已处理。</div>
+              <div class="mockup-bubble user">Today's server monitoring report</div>
+              <div class="mockup-bubble bot">Generating daily report, please wait...</div>
+              <div class="mockup-bubble bot">Report ready: CPU 23%, Memory 45%, 3 alerts resolved.</div>
             </div>
           </div>
         </div>
@@ -145,14 +141,14 @@
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
             <div class="mockup-dot"></div>
-            <span class="mockup-title">终端</span>
+            <span class="mockup-title">Terminal</span>
           </div>
           <div class="mockup-body">
             <div class="mockup-terminal">
               <div><span class="prompt">$</span> <span class="cmd">penglai</span> start</div>
-              <div style="color:#4CAF50;">Runtime Hub 已启动 :8200</div>
-              <div><span class="prompt">$</span> <span class="cmd">penglai</span> chat "今日摘要"</div>
-              <div>正在处理请求...</div>
+              <div style="color:#4CAF50;">Runtime Hub started :8200</div>
+              <div><span class="prompt">$</span> <span class="cmd">penglai</span> chat "Today's summary"</div>
+              <div>Processing request...</div>
             </div>
           </div>
         </div>
@@ -163,32 +159,32 @@
   <!-- ========== Story Section ========== -->
   <section class="story" id="story">
     <div class="story-inner">
-      <div class="story-label reveal">创始人寄语</div>
+      <div class="story-label reveal">Founder's Note</div>
       <blockquote class="story-quote reveal reveal-delay-1">
-        我做了十年网络技术、安全和运维，但不会写代码。蓬莱里的代码，是我用 AI 编程工具一句一句说出来的。
+        I spent ten years in networking, security, and ops — but I never learned to code. Every line in Penglai was written by me speaking to AI coding tools, one sentence at a time.
       </blockquote>
       <blockquote class="story-quote-2 reveal reveal-delay-2">
-        蓬莱本身是它想证明的那件事：AI 时代，普通人也能为自己造工具。
+        Penglai is the very thing it set out to prove: in the AI era, ordinary people can build their own tools.
       </blockquote>
-      <p class="story-author reveal reveal-delay-3">—— Kevin Chen，蓬莱创始人</p>
+      <p class="story-author reveal reveal-delay-3">—— Kevin Chen, Founder of Penglai</p>
 
       <div class="story-origin reveal reveal-delay-4">
-        <p><strong>为什么叫蓬莱？</strong>蓬莱是中国古代神话中的海上仙山，可望而不可即。但这个项目想说的是：那些看似遥远的 AI 能力，其实可以触手可及——装在你自己的机器上，用你熟悉的工具去驱动。</p>
-        <p>这是一个"可望可即"的蓬莱。</p>
+        <p><strong>Why "Penglai"?</strong> In Chinese mythology, Penglai is a legendary island of immortals on the sea — beautiful, yet forever out of reach. This project reclaims that name to say: those seemingly distant AI capabilities can actually be within reach — installed on your own machine, driven by the tools you already know.</p>
+        <p>This is a Penglai that is within reach.</p>
       </div>
     </div>
   </section>
 
-  <!-- ========== Architecture Section — 八仙过海（方案A动态SVG，适配亮色） ========== -->
+  <!-- ========== Architecture Section — Eight Immortals Cross the Sea ========== -->
   <section class="architecture" id="architecture">
     <div class="section-inner">
       <div class="section-header">
-        <div class="section-label reveal">技术架构</div>
-        <h2 class="section-title reveal reveal-delay-1">八仙过海，各显神通</h2>
-        <p class="section-desc reveal reveal-delay-2">多渠道、多能力、多模型各司其职，每个模块用自己的方式渡海，服务同一个你</p>
+        <div class="section-label reveal">Architecture</div>
+        <h2 class="section-title reveal reveal-delay-1">Eight Immortals Cross the Sea</h2>
+        <p class="section-desc reveal reveal-delay-2">Multiple channels, capabilities, and models working in harmony — each module crosses the sea its own way, serving the same you</p>
       </div>
 
-      <!-- 方案A动态SVG架构图（适配亮色背景） -->
+      <!-- Dynamic SVG Architecture Diagram -->
       <div class="arch-diagram reveal">
         <!-- Glow orbs -->
         <div class="glow-orb" style="top:30%; left:35%;"></div>
@@ -230,26 +226,26 @@
           <line x1="470" y1="245" x2="550" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
           <line x1="520" y1="240" x2="700" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
 
-          <!-- Channel nodes (top row) - 适配亮色：白底卡片 -->
+          <!-- Channel nodes (top row) -->
           <g filter="url(#glow)">
             <!-- Desktop -->
             <rect x="110" y="30" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
             <text x="150" y="55" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Desktop</text>
             <!-- Feishu -->
             <rect x="260" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="300" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">飞书</text>
+            <text x="300" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Feishu</text>
             <!-- WeChat -->
             <rect x="410" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="450" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">微信</text>
+            <text x="450" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">WeChat</text>
             <!-- Terminal -->
             <rect x="560" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="600" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">终端</text>
+            <text x="600" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Terminal</text>
             <!-- DingTalk -->
             <rect x="710" y="30" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#B98A2E" stroke-width="1"/>
-            <text x="750" y="55" text-anchor="middle" fill="#B98A2E" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">钉钉</text>
+            <text x="750" y="55" text-anchor="middle" fill="#B98A2E" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">DingTalk</text>
           </g>
 
-          <!-- Central Hub Node - 适配亮色 -->
+          <!-- Central Hub Node -->
           <g filter="url(#glow)">
             <circle cx="450" cy="210" r="42" fill="#FFFFFF" stroke="#1CA3D4" stroke-width="2"/>
             <circle cx="450" cy="210" r="38" fill="none" stroke="#1CA3D4" stroke-width="0.5" stroke-opacity="0.3"/>
@@ -257,7 +253,7 @@
             <text x="450" y="220" text-anchor="middle" fill="#1685A9" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="700">Hub</text>
           </g>
 
-          <!-- Core nodes (bottom row) - 适配亮色 -->
+          <!-- Core nodes (bottom row) -->
           <g filter="url(#glow)">
             <!-- GenericAgent -->
             <rect x="150" y="330" width="120" height="44" rx="10" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
@@ -274,27 +270,27 @@
           </g>
 
           <!-- Labels -->
-          <text x="450" y="130" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CHANNELS 渠道</text>
-          <text x="450" y="310" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CORE CAPABILITIES 核心能力</text>
+          <text x="450" y="130" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CHANNELS</text>
+          <text x="450" y="310" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CORE CAPABILITIES</text>
         </svg>
       </div>
 
-      <!-- 代码片段面板 -->
+      <!-- Code snippet panel -->
       <div class="arch-code reveal">
         <div class="arch-code-bar">
           <span class="arch-code-dot"></span>
           <span class="arch-code-dot"></span>
           <span class="arch-code-dot"></span>
-          <span>一行命令接入新渠道</span>
+          <span>One command to add a new channel</span>
         </div>
         <div class="arch-code-body">
-          <div><span class="hash-comment"># 启用飞书渠道（扫码自动建应用）</span></div>
+          <div><span class="hash-comment"># Enable Feishu channel (scan QR to auto-create app)</span></div>
           <div><span class="command">penglai</span> <span class="flag">enable</span> feishu</div>
           <div>&nbsp;</div>
-          <div><span class="hash-comment"># 启动 Runtime Hub 服务</span></div>
+          <div><span class="hash-comment"># Start Runtime Hub service</span></div>
           <div><span class="command">penglai</span> <span class="flag">start</span></div>
           <div>&nbsp;</div>
-          <div><span class="hash-comment"># 启用主动陪伴</span></div>
+          <div><span class="hash-comment"># Enable proactive companion mode</span></div>
           <div><span class="command">penglai</span> <span class="flag">companion</span> enable</div>
         </div>
       </div>
@@ -305,32 +301,32 @@
   <section class="features" id="features">
     <div class="section-inner">
       <div class="section-header">
-        <div class="section-label reveal">核心数据</div>
-        <h2 class="section-title reveal reveal-delay-1">用数字说话</h2>
-        <p class="section-desc reveal reveal-delay-2">不是规划中的功能，是已经在真实服务器上每天运行的能力</p>
+        <div class="section-label reveal">Key Metrics</div>
+        <h2 class="section-title reveal reveal-delay-1">Numbers That Speak</h2>
+        <p class="section-desc reveal reveal-delay-2">Not features on a roadmap — capabilities running daily on real servers</p>
       </div>
 
       <!-- Metrics Grid -->
       <div class="metrics-grid">
         <div class="metric-card reveal">
           <div class="metric-number"><span class="counter" data-target="8">0</span></div>
-          <div class="metric-label">渠道</div>
-          <div class="metric-desc">桌面、飞书、微信、终端、钉钉、QQ、企微、Telegram</div>
+          <div class="metric-label">Channels</div>
+          <div class="metric-desc">Desktop, Feishu, WeChat, Terminal, DingTalk, QQ, WeCom, Telegram</div>
         </div>
         <div class="metric-card reveal reveal-delay-1">
           <div class="metric-number"><span class="counter" data-target="4">0</span></div>
-          <div class="metric-label">层记忆</div>
-          <div class="metric-desc">索引、事实、技能、会话，纯 Markdown 可审计</div>
+          <div class="metric-label">Memory Layers</div>
+          <div class="metric-desc">Index, Fact, Skill, Session — fully Markdown-auditable</div>
         </div>
         <div class="metric-card reveal reveal-delay-2">
           <div class="metric-number"><span class="counter" data-target="0">0</span></div>
-          <div class="metric-label">数据外泄</div>
-          <div class="metric-desc">语音 CPU 本地推理，数据默认不出本机</div>
+          <div class="metric-label">Data Leaks</div>
+          <div class="metric-desc">Local CPU voice inference, data stays on your machine by default</div>
         </div>
         <div class="metric-card reveal reveal-delay-3">
           <div class="metric-number"><span class="counter" data-target="10">0</span></div>
-          <div class="metric-label">分钟开箱</div>
-          <div class="metric-desc">扫码接入，一行命令，十分钟跑起来</div>
+          <div class="metric-label">Minutes to Start</div>
+          <div class="metric-desc">Scan QR to connect, one command, up and running in ten minutes</div>
         </div>
       </div>
 
@@ -339,56 +335,56 @@
         <div class="feature-card reveal">
           <div class="feature-card-header">
             <div class="feature-icon">🎙️</div>
-            <h3 class="feature-title">本地语音双栈</h3>
+            <h3 class="feature-title">Local Voice Dual-Stack</h3>
           </div>
           <p class="feature-desc">
-            SenseVoice 语音识别 + MOSS-TTS 语音合成，全部在本地 CPU 上运行。无需 GPU，无需云服务，
-            说一句话就能交互，不碰麦克风权限以外的东西。
+            SenseVoice speech recognition + MOSS-TTS speech synthesis, all running on your local CPU. No GPU, no cloud services —
+            just say a word to interact, without touching anything beyond microphone permissions.
           </p>
           <a href="#" class="feature-link" onclick="return false;">
-            了解更多
+            Learn more
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
         <div class="feature-card reveal reveal-delay-1">
           <div class="feature-card-header">
             <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">确定性安全护栏</h3>
+            <h3 class="feature-title">Deterministic Safety Guardrails</h3>
           </div>
           <p class="feature-desc">
-            基于规则的安全层，不依赖 AI 判断力。工具调用白名单、权限分级、操作审计日志，
-            每一步都是确定性逻辑，可审查、可问责。
+            A rule-based safety layer that does not rely on AI judgment. Tool-call whitelists, tiered permissions, operation audit logs —
+            every step is deterministic logic, reviewable and accountable.
           </p>
           <a href="#" class="feature-link" onclick="return false;">
-            了解更多
+            Learn more
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
         <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
             <div class="feature-icon">🧐</div>
-            <h3 class="feature-title">防幻觉双保险</h3>
+            <h3 class="feature-title">Anti-Hallucination Double-Safety</h3>
           </div>
           <p class="feature-desc">
-            四层记忆架构确保 Agent "知道"自己知道什么、不知道什么。事实层存储经过验证的信息，
-            索引层提供上下文检索，有效减少 AI 编造内容。
+            A four-layer memory architecture ensures the agent "knows" what it knows and what it doesn't. The fact layer stores verified information,
+            the index layer provides contextual retrieval, effectively reducing AI-fabricated content.
           </p>
           <a href="#" class="feature-link" onclick="return false;">
-            了解更多
+            Learn more
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
         <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
             <div class="feature-icon">🌙</div>
-            <h3 class="feature-title">真主动不扰民</h3>
+            <h3 class="feature-title">Proactive Without Being Annoying</h3>
           </div>
           <p class="feature-desc">
-            不是"收到每条消息都回复"的被动 Bot。蓬莱 Agent 能主动巡检、定时报告、异常告警，
-            但严格遵循免打扰时段和频率控制，帮你干活而不烦你。
+            Not a passive bot that replies to every message. Penglai Agent can proactively inspect systems, send scheduled reports, and trigger anomaly alerts,
+            while strictly respecting do-not-disturb hours and frequency limits — working for you without bothering you.
           </p>
           <a href="#" class="feature-link" onclick="return false;">
-            了解更多
+            Learn more
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
@@ -400,9 +396,9 @@
   <section class="channels" id="channels">
     <div class="section-inner">
       <div class="section-header">
-        <div class="section-label reveal">渠道矩阵</div>
-        <h2 class="section-title reveal reveal-delay-1">一个管家，多个门</h2>
-        <p class="section-desc reveal reveal-delay-2">你的 AI Agent 应该住在 wherever 你已经每天打开的地方</p>
+        <div class="section-label reveal">Channel Matrix</div>
+        <h2 class="section-title reveal reveal-delay-1">One Butler, Many Doors</h2>
+        <p class="section-desc reveal reveal-delay-2">Your AI Agent should live wherever you already open every day</p>
       </div>
 
       <div class="channels-grid">
@@ -411,25 +407,25 @@
           <div class="channel-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
-          <div class="channel-name">桌面客户端</div>
+          <div class="channel-name">Desktop Client</div>
           <div class="channel-status verified">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            真机验证
+            Verified
           </div>
-          <div class="channel-voice">🎙️ 语音支持</div>
-          <div class="channel-cmd">下载桌面客户端</div>
+          <div class="channel-voice">🎙️ Voice support</div>
+          <div class="channel-cmd">Download Desktop</div>
         </div>
         <!-- Feishu -->
         <div class="channel-card reveal reveal-delay-1">
           <div class="channel-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </div>
-          <div class="channel-name">飞书</div>
+          <div class="channel-name">Feishu</div>
           <div class="channel-status verified">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            真机验证
+            Verified
           </div>
-          <div class="channel-voice">🎙️ 语音支持</div>
+          <div class="channel-voice">🎙️ Voice support</div>
           <div class="channel-cmd">penglai enable feishu</div>
         </div>
         <!-- WeChat -->
@@ -437,12 +433,12 @@
           <div class="channel-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
           </div>
-          <div class="channel-name">微信</div>
+          <div class="channel-name">WeChat</div>
           <div class="channel-status verified">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            真机验证
+            Verified
           </div>
-          <div class="channel-voice">🎙️ 语音支持</div>
+          <div class="channel-voice">🎙️ Voice support</div>
           <div class="channel-cmd">penglai enable wechat</div>
         </div>
         <!-- Terminal -->
@@ -450,12 +446,12 @@
           <div class="channel-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
           </div>
-          <div class="channel-name">终端</div>
+          <div class="channel-name">Terminal</div>
           <div class="channel-status verified">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            真机验证
+            Verified
           </div>
-          <div class="channel-voice">🎙️ 语音支持</div>
+          <div class="channel-voice">🎙️ Voice support</div>
           <div class="channel-cmd">penglai</div>
         </div>
       </div>
@@ -466,29 +462,29 @@
           <div class="channel-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </div>
-          <div class="channel-name">钉钉</div>
-          <div class="channel-status pending">⚠️ 待实测</div>
+          <div class="channel-name">DingTalk</div>
+          <div class="channel-status pending">⚠️ Pending</div>
         </div>
         <div class="channel-card-mini reveal reveal-delay-1">
           <div class="channel-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </div>
           <div class="channel-name">QQ</div>
-          <div class="channel-status pending">⚠️ 待实测</div>
+          <div class="channel-status pending">⚠️ Pending</div>
         </div>
         <div class="channel-card-mini reveal reveal-delay-2">
           <div class="channel-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div class="channel-name">企业微信</div>
-          <div class="channel-status pending">⚠️ 待实测</div>
+          <div class="channel-name">WeCom</div>
+          <div class="channel-status pending">⚠️ Pending</div>
         </div>
         <div class="channel-card-mini reveal reveal-delay-3">
           <div class="channel-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
           </div>
           <div class="channel-name">Telegram</div>
-          <div class="channel-status pending">⚠️ 待实测</div>
+          <div class="channel-status pending">⚠️ Pending</div>
         </div>
       </div>
     </div>
@@ -498,15 +494,15 @@
   <section class="install" id="install">
     <div class="section-inner">
       <div class="section-header">
-        <div class="section-label reveal">快速开始</div>
-        <h2 class="section-title reveal reveal-delay-1">开始安装</h2>
-        <p class="section-desc reveal reveal-delay-2">三种方式，选你顺手的</p>
+        <div class="section-label reveal">Quick Start</div>
+        <h2 class="section-title reveal reveal-delay-1">Get Started</h2>
+        <p class="section-desc reveal reveal-delay-2">Three methods — pick whichever suits you</p>
       </div>
 
       <div class="install-tabs reveal" id="installTabs">
         <div class="tab-indicator" id="tabIndicator"></div>
-        <button class="install-tab active" data-tab="desktop">桌面客户端</button>
-        <button class="install-tab" data-tab="cli">命令行</button>
+        <button class="install-tab active" data-tab="desktop">Desktop Client</button>
+        <button class="install-tab" data-tab="cli">Command Line</button>
         <button class="install-tab" data-tab="pip">pip</button>
       </div>
 
@@ -516,9 +512,9 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">下载对应平台的安装包（macOS Apple Silicon / Windows x64）</p>
+              <p class="step-text">Download the installer for your platform (macOS Apple Silicon / Windows x64)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">复制</button>
+                <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">Copy</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
               </div>
             </div>
@@ -526,16 +522,16 @@
           <div class="install-step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <p class="step-text">打开安装包，拖动到 Applications（Mac）或按提示安装（Windows）</p>
+              <p class="step-text">Open the installer — drag to Applications (Mac) or follow the setup wizard (Windows)</p>
             </div>
           </div>
           <div class="install-step">
             <div class="step-number">3</div>
             <div class="step-content">
-              <p class="step-text">启动蓬莱桌面客户端，跟随向导配置你的第一个 Agent</p>
+              <p class="step-text">Launch Penglai Desktop and follow the wizard to configure your first Agent</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="打开「蓬莱」应用 → 点击「开始配置」">复制</button>
-                打开「蓬莱」应用 → 点击「开始配置」
+                <button class="copy-btn" data-copy="Open Penglai → Click Get Started">Copy</button>
+                Open Penglai → Click "Get Started"
               </div>
             </div>
           </div>
@@ -548,9 +544,9 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">一行命令安装蓬莱 CLI（自动备好 Python 与依赖）</p>
+              <p class="step-text">Install Penglai CLI with one command (auto-provisions Python &amp; deps)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh">复制</button>
+                <button class="copy-btn" data-copy="curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh">Copy</button>
                 curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
               </div>
             </div>
@@ -558,9 +554,9 @@
           <div class="install-step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <p class="step-text">启动 Runtime Hub 服务（飞书 + 微信 + 调度器）</p>
+              <p class="step-text">Start Runtime Hub service (Feishu + WeChat + scheduler)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="penglai start">复制</button>
+                <button class="copy-btn" data-copy="penglai start">Copy</button>
                 penglai start
               </div>
             </div>
@@ -568,9 +564,9 @@
           <div class="install-step">
             <div class="step-number">3</div>
             <div class="step-content">
-              <p class="step-text">开始对话（直接进入 TUI，等价上游 GA tuiapp_v2）</p>
+              <p class="step-text">Start chatting (direct TUI, equivalent to upstream GA tuiapp_v2)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="penglai">复制</button>
+                <button class="copy-btn" data-copy="penglai">Copy</button>
                 penglai
               </div>
             </div>
@@ -584,9 +580,9 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">通过 pip 安装蓬莱核心（PyPI 包名 penglai）</p>
+              <p class="step-text">Install Penglai core via pip (PyPI package name: penglai)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="pip install penglai">复制</button>
+                <button class="copy-btn" data-copy="pip install penglai">Copy</button>
                 pip install penglai
               </div>
             </div>
@@ -594,9 +590,9 @@
           <div class="install-step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <p class="step-text">运行安装向导（自动配置 LLM、身份、渠道、能力）</p>
+              <p class="step-text">Run the setup wizard (auto-configures LLM, identity, channels, abilities)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="penglai setup">复制</button>
+                <button class="copy-btn" data-copy="penglai setup">Copy</button>
                 penglai setup
               </div>
             </div>
@@ -604,9 +600,9 @@
           <div class="install-step">
             <div class="step-number">3</div>
             <div class="step-content">
-              <p class="step-text">按需局部补配（如只补飞书）</p>
+              <p class="step-text">Configure individual modules as needed (e.g., Feishu only)</p>
               <div class="code-block">
-                <button class="copy-btn" data-copy="penglai setup --only feishu">复制</button>
+                <button class="copy-btn" data-copy="penglai setup --only feishu">Copy</button>
                 penglai setup --only feishu
               </div>
             </div>
@@ -619,10 +615,10 @@
   <!-- ========== Trust Section ========== -->
   <section class="trust" id="trust">
     <div class="trust-inner">
-      <div class="trust-label reveal">诚实比好看重要</div>
+      <div class="trust-label reveal">Honesty over aesthetics</div>
       <p class="trust-quote reveal reveal-delay-1">
-        以上每一条都在真实服务器上每天跑着，不是路线图。<br>
-        蓬莱的每一个功能，都是可以立刻验证的真实能力。
+        Every feature above runs on real servers daily — not a roadmap.<br>
+        Every capability in Penglai is something you can verify right now.
       </p>
       <div class="trust-credits reveal reveal-delay-2">
         <div class="trust-credit">
@@ -650,13 +646,13 @@
     <div class="footer-inner">
       <div class="footer-left">
         <div class="footer-seal">蓬</div>
-        <div class="footer-brand">蓬萊</div>
-        <div class="footer-tagline">海上仙山 · 可望可即</div>
+        <div class="footer-brand">Penglai</div>
+        <div class="footer-tagline">Immortal Island &middot; Within Reach</div>
         <div class="footer-links">
-          <a href="#features">能力</a>
-          <a href="#channels">渠道</a>
-          <a href="#architecture">架构</a>
-          <a href="#install">安装</a>
+          <a href="#features">Features</a>
+          <a href="#channels">Channels</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#install">Install</a>
           <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
@@ -669,15 +665,14 @@
       </div>
     </div>
     <div class="footer-bottom">
-      &copy; 2026 Penglai Project. 自托管，自主可控。
+      &copy; 2026 Penglai Project. Self-hosted. Self-controlled.
     </div>
   </footer>
 
   <!-- ========== JavaScript ========== -->
-  <!-- 仙气 Perlin Noise 流场粒子 -->
   <script>
   (function() {
-    // Perlin Noise 简化实现
+    // Perlin Noise simplified implementation
     var perlin = (function() {
       var p = [];
       for (var i = 0; i < 256; i++) p[i] = Math.floor(Math.random() * 256);
@@ -713,17 +708,17 @@
     var NOISE_SPEED = 0.0004;
     var time = 0;
     var mouse = { x: -9999, y: -9999, active: false };
-    var MOUSE_RADIUS = 400; // 鼠标影响范围（大幅增加）
-    var MOUSE_FORCE = 2.5;  // 吸引力强度（大幅增加）
+    var MOUSE_RADIUS = 400;
+    var MOUSE_FORCE = 2.5;
 
-    // 品牌色系
+    // Brand color palette
     var colors = [
-      { r:22, g:133, b:169 },   // 青
-      { r:150, g:210, b:230 },  // 浅蓝
-      { r:255, g:255, b:255 },  // 白
-      { r:200, g:230, b:240 },  // 极浅蓝
-      { r:185, g:138, b:46 },   // 金（少量）
-      { r:196, g:69,  b:49 },   // 朱红（极少量）
+      { r:22, g:133, b:169 },
+      { r:150, g:210, b:230 },
+      { r:255, g:255, b:255 },
+      { r:200, g:230, b:240 },
+      { r:185, g:138, b:46 },
+      { r:196, g:69,  b:49 },
     ];
 
     function resize() {
@@ -733,7 +728,7 @@
 
     function Particle() {
       this.trail = [];
-      this.maxTrail = 30 + Math.floor(Math.random() * 40); // 轨迹长度
+      this.maxTrail = 30 + Math.floor(Math.random() * 40);
       this.reset();
     }
     Particle.prototype.reset = function() {
@@ -743,7 +738,6 @@
       this.life = 0;
       this.maxLife = 200 + Math.random() * 400;
       this.trail = [];
-      // 80% 青蓝白色系，15% 金色，5% 朱红
       var r = Math.random();
       if (r < 0.05) this.color = colors[5];
       else if (r < 0.2) this.color = colors[4];
@@ -759,7 +753,6 @@
       var vx = Math.cos(angle) * this.speed;
       var vy = Math.sin(angle) * this.speed - 0.3;
 
-      // 鼠标追踪：被鼠标吸引
       if (mouse.active) {
         var dx = mouse.x - this.x;
         var dy = mouse.y - this.y;
@@ -792,7 +785,7 @@
       lifeAlpha *= 0.4;
       var c = this.color;
       for (var i = 1; i < len; i++) {
-        var t = i / len; // 0(尾) → 1(头)
+        var t = i / len;
         var alpha = t * lifeAlpha;
         ctx.strokeStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')';
         ctx.lineWidth = this.width * (0.3 + t * 0.7);
@@ -801,7 +794,6 @@
         ctx.lineTo(this.trail[i].x, this.trail[i].y);
         ctx.stroke();
       }
-      // 头部光晕
       var head = this.trail[len - 1];
       ctx.beginPath();
       ctx.arc(head.x, head.y, this.width * 1.5, 0, Math.PI * 2);
@@ -818,7 +810,6 @@
     }
 
     function animate() {
-      // 完全清除（canvas 在 fixed 层，背景透明，不遮挡页面）
       ctx.clearRect(0, 0, W, H);
       for (var i = 0; i < particles.length; i++) {
         particles[i].update();
@@ -967,15 +958,15 @@
         var text = btn.dataset.copy;
         navigator.clipboard.writeText(text).then(function() {
           var original = btn.textContent;
-          btn.textContent = '已复制';
+          btn.textContent = 'Copied';
           btn.style.color = '#4CAF50';
           setTimeout(function() {
             btn.textContent = original;
             btn.style.color = '';
           }, 1500);
         }).catch(function() {
-          btn.textContent = '复制失败';
-          setTimeout(function() { btn.textContent = '复制'; }, 1500);
+          btn.textContent = 'Copy failed';
+          setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
         });
       });
     });
