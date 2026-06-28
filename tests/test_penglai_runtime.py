@@ -3580,6 +3580,7 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "fn manifest_python_path" in lib_rs
     assert "python_scope == \"runtime\"" in lib_rs
     assert "fn packaged_runtime_dir_from_exe" in lib_rs
+    assert 'exe_dir.join("resources").join(PACKAGED_RUNTIME_RESOURCE)' in lib_rs
     assert "fn runtime_payload_selfcheck" in lib_rs
     assert "fn prepare_packaged_runtime" in lib_rs
     assert "fn runtime_install_selfcheck" in lib_rs

@@ -214,6 +214,7 @@ fn packaged_runtime_dir_from_exe() -> Option<PathBuf> {
     let exe_dir = exe.parent()?;
     let mut candidates = vec![
         exe_dir.join(PACKAGED_RUNTIME_RESOURCE),
+        exe_dir.join("resources").join(PACKAGED_RUNTIME_RESOURCE),
     ];
     if let Some(contents_dir) = exe_dir.parent() {
         candidates.push(contents_dir.join("Resources").join(PACKAGED_RUNTIME_RESOURCE));
