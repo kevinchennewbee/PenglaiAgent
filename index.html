@@ -45,6 +45,7 @@
         <li><a href="#features">能力</a></li>
         <li><a href="#channels">渠道</a></li>
         <li><a href="#architecture">架构</a></li>
+        <li><a href="#changelog">更新</a></li>
         <li><a href="#install">安装</a></li>
         <li><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a></li>
       </ul>
@@ -52,7 +53,7 @@
         <a href="./en/" class="nav-lang">中 / EN</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 <span class="penglai-version">0.3.1</span>
+          下载 <span class="penglai-version">0.3.2</span>
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -68,7 +69,7 @@
   <!-- ========== Hero Section ========== -->
   <section class="hero" id="hero">
     <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.1</span></div>
+      <div class="hero-badge reveal">v<span class="penglai-version">0.3.2</span></div>
       <h1 class="hero-title reveal reveal-delay-1">蓬莱</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
       <p class="hero-subtitle reveal reveal-delay-2">把能干活、能听、能说的 Agent，带到你已经在用的地方</p>
@@ -516,7 +517,7 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">下载对应平台的安装包（macOS Apple Silicon / Windows x64）</p>
+              <p class="step-text">下载 0.3.2 安装包（macOS Apple Silicon / Windows x64）。桌面包已内置 Penglai runtime、standalone Python 和核心依赖。</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">复制</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
@@ -526,13 +527,13 @@
           <div class="install-step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <p class="step-text">打开安装包，拖动到 Applications（Mac）或按提示安装（Windows）</p>
+              <p class="step-text">打开安装包，拖动到 Applications（Mac）或按提示安装（Windows）。首次启动不需要手动安装 Python、clone 源码或现场 pip。</p>
             </div>
           </div>
           <div class="install-step">
             <div class="step-number">3</div>
             <div class="step-content">
-              <p class="step-text">启动蓬莱桌面客户端，跟随向导配置你的第一个 Agent</p>
+              <p class="step-text">启动蓬莱桌面客户端，跟随向导配置你的第一个 Agent。应用内升级清单默认使用国内友好的 gh-proxy 镜像 URL。</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="打开「蓬莱」应用 → 点击「开始配置」">复制</button>
                 打开「蓬莱」应用 → 点击「开始配置」
@@ -616,6 +617,50 @@
     </div>
   </section>
 
+  <!-- ========== Changelog Section ========== -->
+  <section class="features" id="changelog">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-label reveal">更新日志</div>
+        <h2 class="section-title reveal reveal-delay-1">v0.3.2：桌面本地运行环境</h2>
+        <p class="section-desc reveal reveal-delay-2">这次更新重点不是多一个按钮，而是让普通用户下载桌面安装包后可以直接启动。</p>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card reveal">
+          <div class="feature-card-header">
+            <div class="feature-icon">📦</div>
+            <h3 class="feature-title">免 Python / 免源码</h3>
+          </div>
+          <p class="feature-desc">Mac 和 Windows 桌面包内置 Penglai runtime、standalone Python 与核心依赖。首次启动不需要用户自己装 Python、clone 仓库或现场下载 Python 包。</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-header">
+            <div class="feature-icon">🧪</div>
+            <h3 class="feature-title">安装包自检</h3>
+          </div>
+          <p class="feature-desc">Windows 发布流程加入静默安装、安装后 runtime 验证、应用自检和卸载验证；macOS DMG 经过运行时打包、重签后 updater 产物重建和 DMG 布局验证。</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-card-header">
+            <div class="feature-icon">🌏</div>
+            <h3 class="feature-title">国内升级路径</h3>
+          </div>
+          <p class="feature-desc">桌面 updater 的 latest.json 默认指向 gh-proxy.com 安装包地址；CI 也加入 npm、pip、Cargo、rustup、Python-build-standalone 镜像和缓存开关。</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-card-header">
+            <div class="feature-icon">🛡️</div>
+            <h3 class="feature-title">桥接安全加固</h3>
+          </div>
+          <p class="feature-desc">桌面 bridge token 不再注入网页 JavaScript；敏感 RPC 走 Tauri 原生命令，WebSocket 保持事件通道并检查 origin。</p>
+        </div>
+      </div>
+
+      <p class="section-desc reveal" style="margin-top:28px;">限制说明：当前 macOS 只发布 Apple Silicon 包；Apple Developer ID 公证和 Windows Authenticode 尚未配置，首次打开仍可能出现 Gatekeeper / SmartScreen 提示。</p>
+    </div>
+  </section>
+
   <!-- ========== Trust Section ========== -->
   <section class="trust" id="trust">
     <div class="trust-inner">
@@ -662,7 +707,7 @@
       </div>
       <div class="footer-right">
         <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.1</span></div>
+        <div class="footer-license">v<span class="penglai-version">0.3.2</span></div>
         <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
           Made with AI, for everyone.
         </div>
@@ -996,7 +1041,7 @@
   })();
   </script>
 
-  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.1 -->
+  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.2 -->
   <script>
   (function() {
     fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
