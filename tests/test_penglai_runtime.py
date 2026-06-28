@@ -3957,6 +3957,8 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "com.apple.quarantine",
             "Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg",
             "Penglai_$($env:PENGLAI_VERSION)_windows_x64_setup.exe",
+            "darwin-aarch64",
+            "windows-x86_64",
             "penglai-${{ env.PENGLAI_VERSION }}-macos-aarch64",
             "penglai-${{ env.PENGLAI_VERSION }}-windows-x64",
         "Check Windows signing secrets",
@@ -4019,6 +4021,8 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "--prerelease",
         "--latest=false",
         "docs/desktop-friend-test.md",
+        "darwin-x86_64",
+        "macos_x64.dmg.tar.gz.sig",
     ):
         assert text not in workflow
 

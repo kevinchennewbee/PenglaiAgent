@@ -904,11 +904,6 @@ jobs:
             "dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz.sig" \
             "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz"
 
-          # macOS x86_64 (only if cross-built; current workflow builds arm64 only)
-          add_platform "darwin-x86_64" \
-            "dist/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz.sig" \
-            "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz"
-
           # Windows x86_64 (NSIS -setup.exe + .sig)
           add_platform "windows-x86_64" \
             "dist/Penglai_${PENGLAI_VERSION}_windows_x64_setup.exe.sig" \
