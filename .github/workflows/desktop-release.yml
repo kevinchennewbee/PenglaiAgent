@@ -878,7 +878,7 @@ jobs:
           VERSION="${PENGLAI_VERSION}"
           NOTES="PenglaiAgent ${PENGLAI_VERSION} release notes"
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          DEFAULT_BASE_URL="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
+          DEFAULT_BASE_URL="https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
           BASE_URL="${PENGLAI_UPDATER_BASE_URL:-$DEFAULT_BASE_URL}"
           BASE_URL="${BASE_URL%/}"
 

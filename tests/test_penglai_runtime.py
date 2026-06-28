@@ -3908,6 +3908,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "PENGLAI_PBS_CACHE",
         "PENGLAI_PIP_INDEX",
         "PENGLAI_UPDATER_BASE_URL",
+        "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}",
         "Desktop installers include the Penglai runtime, standalone Python, and core dependencies",
         "--require-bundled-python",
         "--forbid-venv",
