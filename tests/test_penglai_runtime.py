@@ -1188,7 +1188,7 @@ def test_version_metadata_reads_source_copy_build_info_without_git():
     td = tempfile.mkdtemp()
     os.makedirs(os.path.join(td, "installer"), exist_ok=True)
     with open(os.path.join(td, "installer", "pyproject.toml"), "w", encoding="utf-8") as f:
-        f.write('[project]\nversion = "0.3.1"\n')
+        f.write('[project]\nversion = "0.3.2"\n')
     with open(os.path.join(td, ".penglai-build.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -3504,10 +3504,13 @@ def test_desktop_package_identity_targets_penglai_release():
         setup_py = fh.read()
     with open(os.path.join(root, "penglai_runtime", "__init__.py"), "r", encoding="utf-8") as fh:
         runtime_init = fh.read()
+    with open(os.path.join(root, "installer", "pyproject.toml"), "r", encoding="utf-8") as fh:
+        installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
     assert package_json["version"] == "0.3.2"
     assert 'VERSION = "0.3.2"' in runtime_init
+    assert 'version = "0.3.2"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
