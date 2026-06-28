@@ -840,7 +840,11 @@ jobs:
           ## What's new in ${PENGLAI_VERSION}
 
           - **Runtime Hub**: Unified execution layer for all channels (Feishu, WeChat, terminal, desktop). FIFO queuing, task auditing, session persistence.
-          - **Desktop clients**: Native Mac (Apple Silicon) and Windows (x64) apps with complete setup wizard, multi-session chat, system tray, update detection, channel/ability management.
+          - **Desktop clients**: Native Mac (Apple Silicon) and Windows (x64) apps with complete setup wizard, multi-session chat, system tray, update detection, channel/ability management, and a bundled local runtime.
+          - **No manual Python or source checkout**: Desktop installers include standalone Python and core dependencies, so first launch does not need users to install Python, clone the repo, or download Python packages live.
+          - **Mainland-friendly updater**: `latest.json` defaults to `gh-proxy.com` release asset URLs, with CI mirror/cache knobs for npm, pip, Cargo, rustup, and Python-build-standalone.
+          - **Installer selfchecks**: Windows release runs silent install, runtime verification, app selfcheck, and uninstall verification; macOS verifies the DMG after adhoc re-sign and updater artifact regeneration.
+          - **Desktop bridge security**: The bridge token is not injected into page JavaScript; sensitive RPC goes through native Tauri commands and WebSocket remains event-only.
           - **Complete setup wizard**: Language → LLM selection (12 providers with live connectivity test) → IM channel setup (Feishu QR scan, WeChat, etc.) → Identity naming → Capability panel (voice/TTS/companion/critic/intel) → Config writing and launch verification.
           - **Voice & TTS**: Local SenseVoice transcription (emotion + acoustic events) and MOSS-TTS-Nano speech synthesis, both CPU-only.
           - **Update mechanism**: `penglai update --check` and one-click `--apply` with automatic backup and rollback.
@@ -854,6 +858,7 @@ jobs:
           - **macOS**: Download the DMG, drag to Applications. On first open, go to System Settings → Privacy & Security → Open Anyway.
           - **Windows**: Download the installer, run it. SmartScreen → More Info → Run Anyway.
           - Desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
+          - In-app updater metadata points at mainland-friendly `gh-proxy.com` asset URLs by default.
 
           ### Command line
           ```bash

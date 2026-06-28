@@ -2,7 +2,7 @@
 
 <img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
 
-# 蓬莱 · Penglai 0.3.1
+# 蓬莱 · Penglai 0.3.2
 
 ### 住在你飞书、微信和终端里的自托管 AI Runtime Hub
 
@@ -29,11 +29,11 @@
 
 **Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
 
-**v0.3.1 is a milestone release** — not just bug fixes, but the infrastructure that makes Penglai **upgradeable, migratable, and maintainable** for the long term:
+**v0.3.2 is the local desktop runtime release** — it turns the native Mac / Windows clients into install-and-run packages for ordinary users:
 
-- 🔄 **Migration mechanism**: backup / restore / legacy cleanup — never lose data when upgrading or switching machines
-- 🚀 **Auto-update pipeline**: desktop app self-updates via `tauri-plugin-updater`; future releases just need a `git push v0.3.x` tag
-- 🧩 **Dynamic versioning**: the whole repo no longer hardcodes version numbers — future releases only change one place
+- 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
+- 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
+- 🌏 **Mainland-friendly updates**: updater metadata and asset URLs default to a `gh-proxy.com` mirror, with CI mirror knobs for npm / pip / Cargo / rustup / Python-build-standalone
 
 You can use the native Mac / Windows desktop clients, or deploy to your own host with one command. Your memory, logs, config, and channel credentials stay on your machine by default.
 
@@ -67,7 +67,7 @@ As for "eight immortals crossing the sea, each showing their divine power" — t
 
 - 🏮 **Ten-minute setup** — `penglai setup` paged wizard (bilingual CN/EN): auto-installs dependencies (mainland China auto-switches to Tsinghua mirror) → pick model & test connectivity → **channels on one page** (Feishu QR scan auto-creates app, no webpage needed) → name your butler → ability panel with real enablement (voice pre-installed, companion/intel on demand)
 - 💬 **Feishu + WeChat, both QR-scan** — Feishu scan builds bot with long-poll connection (no public IP needed); personal WeChat scan login for text/voice/image send-receive
-- 🖥️ **Native desktop clients** — Mac (Apple Silicon) and Windows (x64) installers with full graphical setup wizard, multi-session chat, system tray, channel/ability management, in-app auto-update
+- 🖥️ **Native desktop clients** — Mac (Apple Silicon) and Windows (x64) installers with full graphical setup wizard, multi-session chat, system tray, channel/ability management, in-app auto-update, and a bundled local runtime so first launch does not require Python or pip
 - 🎙️ **Ears that hear emotion** — local CPU SenseVoice (~230MB): speech-to-text + 7 emotion labels (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), enters conversation as `[voice(emotion:down): so tired today]`
 - 🔊 **Voice that speaks back** — MOSS-TTS-Nano local TTS synthesizes text replies into speech, CPU-only, for desktop readout and IM voice bars
 - 🧠 **Four-layer memory** — GA-core index/facts/skills/raw-sessions file-based memory, pure markdown and auditable; pre-write threat scan (prompt injection / role hijack / key leakage), overwrite forbidden; long-term facts carry **time/source/importance signatures, new values auto-invalidate old ones**
@@ -101,6 +101,8 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 **Desktop clients** (recommended for new users): download from [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases)
 - macOS Apple Silicon DMG
 - Windows x64 installer
+
+The 0.3.2 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
 
 Daily commands:
 
@@ -205,9 +207,9 @@ What users actually feel:
 
 ## 🔄 Auto-update: two independent paths
 
-0.3.1 closes the auto-update loop into a complete pipeline, with desktop and runtime upgrading independently:
+0.3.2 keeps the dual update model from 0.3.1 and makes the desktop path usable in domestic networks:
 
-- **Desktop app**: via `tauri-plugin-updater`, six gates all passed — signing key generated and verified in CI, `latest.json` auto-published to Release, frontend `app.js` calls updater API for check/download/verify/install; `fallback.html` setup UI also has update entry, so you can update even if the main window is stuck.
+- **Desktop app**: via `tauri-plugin-updater`, six gates all passed — signing key generated and verified in CI, `latest.json` auto-published to Release, frontend `app.js` calls updater API for check/download/verify/install; `fallback.html` setup UI also has update entry, so you can update even if the main window is stuck. Since 0.3.2, `latest.json` points updater downloads at `gh-proxy.com` by default.
 - **Runtime (CLI / Runtime Hub)**: `penglai update` backs up current version, pulls new version, verifies, switches, auto-rolls-back on failure.
 
 Desktop updater and `penglai update` don't depend on each other.
@@ -222,7 +224,25 @@ Three layers of protection ensure data is never lost:
 2. **Installer-defense layer**: `install.sh` / `install.ps1` auto-backs up user data before `rm -rf`, restores after unpack; refuses to continue if version is unrecognizable
 3. **Legacy-cleanup layer**: `penglai uninstall-legacy` cleans launchd/systemd services and prompts for old directory removal; desktop `detect_legacy_penglai` detects and prompts migration before wizard start
 
-**Migration flow**: old version `penglai backup` → install 0.3.1 → new version `penglai restore` → (optional) `penglai uninstall-legacy`
+**Migration flow**: old version `penglai backup` → install the latest release → new version `penglai restore` → (optional) `penglai uninstall-legacy`
+
+---
+
+## 📋 0.3.2 Key Changes
+
+0.3.2 focuses on distribution hardening: the desktop release now behaves like a real local app instead of a source checkout wrapped in a shell.
+
+| Area | What 0.3.2 brings |
+|---|---|
+| Bundled desktop runtime | Adds a reproducible `penglai-runtime` payload with standalone Python, locked dependencies, manifest hashes, entrypoint checks, and no `.venv` dependency |
+| First-launch reliability | Tauri fails closed if the packaged runtime is missing; runtime payload and install selfchecks verify the selected Python, bridge extraction, and runtime scope |
+| Windows installer | NSIS release now performs silent install, installed runtime verification, app selfcheck, runtime install selfcheck, and uninstall verification |
+| macOS DMG | Apple Silicon DMG is built with bundled runtime; unsigned builds are adhoc re-signed, updater artifacts regenerated after signing, and DMG layout verified |
+| Domestic update path | `latest.json` publishes `gh-proxy.com` asset URLs; release CI includes npm / pip / Cargo / rustup / Python-build-standalone mirror and cache knobs |
+| Desktop bridge security | The bridge token is no longer injected into page JavaScript; sensitive RPC goes through native Tauri commands, and WebSocket stays event-only with origin checks |
+| Release pipeline | Release publishing is idempotent, only advertises platforms actually built (`darwin-aarch64`, `windows-x86_64`), and can overwrite existing v0.3.2 assets safely |
+
+Important limitation: Apple Developer ID notarization and Windows Authenticode signing are not configured yet. Users may still see Gatekeeper / SmartScreen warnings on first launch, even though updater `.sig` verification is present.
 
 ---
 
@@ -284,6 +304,7 @@ Thanks to all issue reporters and testers. Special thanks to:
 
 ## 📄 Version Timeline
 
+- **v0.3.2 · 2026-06-28** — Local desktop runtime release: Mac Apple Silicon DMG and Windows x64 installer bundle standalone Python and core dependencies; first launch no longer requires Python, source checkout, or pip; Windows silent install/uninstall verification; macOS DMG verification with adhoc re-sign; updater `latest.json` defaults to `gh-proxy.com` asset URLs; desktop bridge token no longer leaks into page JavaScript; release upload is idempotent.
 - **v0.3.1 · 2026-06-27** — Milestone: migration mechanism + auto-update pipeline + dynamic versioning. `penglai backup/restore/uninstall-legacy`; `setup --only` partial reconfig; `tauri-plugin-updater` six gates; version dynamicization; Mac adhoc re-sign + updater regen; Runtime Hub stabilization; companion 4-mode + context closure.
 - **v0.3.0 · 2026-06-25** — Runtime Hub GA. Native Mac/Windows desktop clients, Feishu QR auto-create, MOSS-TTS-Nano local TTS, `penglai update` auto-rollback, Docker fully withdrawn.
 
@@ -297,11 +318,11 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 **蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-**v0.3.1 是里程碑级别的发布**——不只是修 bug，更是让蓬莱**可持续升级、可安全迁移、可长期维护**的底层基建闭环：
+**v0.3.2 是桌面本地运行环境发布**——它把 Mac / Windows 原生客户端推进到普通用户可以直接安装、直接启动的形态：
 
-- 🔄 **迁移机制**：备份 / 恢复 / 旧版清理——升级或换机不丢数据
-- 🚀 **自动升级链路**：桌面应用通过 `tauri-plugin-updater` 自升级；未来发版只需 `git push v0.3.x` tag
-- 🧩 **版本号动态化**：全仓库不再硬编码版本号，未来发版只改一处
+- 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
+- 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
+- 🌏 **国内网络更友好**：升级清单和安装包 URL 默认走 `gh-proxy.com`，CI 也提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关
 
 你可以用 Mac / Windows 原生桌面客户端，也可以一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
 
@@ -335,7 +356,7 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 - 🏮 **十分钟开箱** —— `penglai setup` 翻页式向导（中/英双语）：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **渠道一页选**（飞书扫码自动建应用，免开网页）→ 给管家起名 → 能力面板真启用（语音默认装好，陪伴/情报按需开）
 - 💬 **飞书 + 微信双渠道，都是扫码** —— 飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字/语音/图片收发
-- 🖥️ **原生桌面客户端** —— Mac（Apple Silicon）和 Windows（x64）安装包，图形化设置向导、多会话工作台、系统托盘、渠道和能力管理、应用内自动升级
+- 🖥️ **原生桌面客户端** —— Mac（Apple Silicon）和 Windows（x64）安装包，图形化设置向导、多会话工作台、系统托盘、渠道和能力管理、应用内自动升级，并内置本地运行环境，首次启动不要求用户安装 Python 或 pip 包
 - 🎙️ **听得出情绪的耳朵** —— 本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪标签（高兴/悲伤/生气/害怕…）+ 声学事件（笑声/哭声/掌声…），`[语音(情绪:低落): 今天好累]` 这样进入对话
 - 🔊 **会说话的嘴** —— MOSS-TTS-Nano 本地 TTS，把文字回复合成为语音，CPU 本地推理，适合桌面朗读和 IM 语音条
 - 🧠 **四层记忆** —— 基于 GA 内核的索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（提示注入/角色劫持/密钥落库），禁止覆盖；长期事实带**时间/来源/重要度签名、新值自动作废旧值**（治过期偏好污染）
@@ -369,6 +390,8 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 **桌面客户端**（推荐新用户）：在 [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases) 下载
 - macOS Apple Silicon DMG
 - Windows x64 安装包
+
+0.3.2 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
 
 日常运维：
 
@@ -475,9 +498,9 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 🔄 自动升级：两条独立路径
 
-0.3.1 把自动升级跑通成一条完整链路，桌面应用和运行时两层各自独立升级：
+0.3.2 继承 0.3.1 的双升级路径，并把桌面升级链路补到更适合国内网络的状态：
 
-- **桌面应用**：基于 `tauri-plugin-updater`，六道关卡全部打通——签名密钥在 CI 中生成并校验，`latest.json` 由 CI 自动发布到 Release，前端 `app.js` 调用 updater API 完成检查、下载、校验、安装；`fallback.html` 配置界面也接入了升级入口，即使主窗口卡住也能从配置界面检查更新。
+- **桌面应用**：基于 `tauri-plugin-updater`，六道关卡全部打通——签名密钥在 CI 中生成并校验，`latest.json` 由 CI 自动发布到 Release，前端 `app.js` 调用 updater API 完成检查、下载、校验、安装；`fallback.html` 配置界面也接入了升级入口，即使主窗口卡住也能从配置界面检查更新。0.3.2 起，`latest.json` 默认指向 `gh-proxy.com` 镜像下载地址。
 - **运行时（CLI / Runtime Hub）**：执行 `penglai update` 会先备份当前版本，拉取新版本，校验后切换，失败自动回滚。
 
 桌面应用升级走 updater，运行时升级走 `penglai update`，两条路径互不依赖。
@@ -492,7 +515,25 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 2. **安装器防御层**：install.sh / install.ps1 在 `rm -rf` 前自动备份用户数据，解压后恢复；版本不可识别时拒绝继续
 3. **旧版本清理层**：`penglai uninstall-legacy` 清 launchd/systemd 服务 + 桌面端 `detect_legacy_penglai` 向导启动前检测提示
 
-**迁移流程**：旧版本 `penglai backup` → 安装 0.3.1 → 新版本 `penglai restore` →（可选）`penglai uninstall-legacy`
+**迁移流程**：旧版本 `penglai backup` → 安装最新版 → 新版本 `penglai restore` →（可选）`penglai uninstall-legacy`
+
+---
+
+## 📋 0.3.2 主要变化
+
+0.3.2 聚焦发行加固：桌面版不再像“源码目录外面套一个壳”，而是更接近真正的本地应用安装包。
+
+| 领域 | 0.3.2 带来的变化 |
+|---|---|
+| 内置桌面运行时 | 新增可复现的 `penglai-runtime` payload，包含 standalone Python、锁定依赖、manifest 哈希、入口检查，不依赖 `.venv` |
+| 首次启动可靠性 | Tauri 在 packaged runtime 缺失时 fail closed；runtime payload 和安装自检会验证所选 Python、bridge 解包和运行时来源 |
+| Windows 安装器 | NSIS 发布流程加入静默安装、安装后 runtime 验证、应用自检、runtime install 自检和卸载验证 |
+| macOS DMG | Apple Silicon DMG 内置运行时；无证书构建走 adhoc 重签，签名后重新生成 updater 产物，并验证 DMG 布局 |
+| 国内升级路径 | `latest.json` 发布 `gh-proxy.com` 安装包 URL；发布 CI 加入 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关 |
+| 桌面桥接安全 | bridge token 不再注入网页 JavaScript；敏感 RPC 改走 Tauri native command，WebSocket 保持事件通道并检查 origin |
+| 发布流水线 | 发布动作幂等；只声明实际构建的平台（`darwin-aarch64`、`windows-x86_64`）；可安全覆盖已有 v0.3.2 资产 |
+
+重要限制：Apple Developer ID 公证和 Windows Authenticode 签名还没有配置。首次启动仍可能出现 Gatekeeper / SmartScreen 提示；但 updater `.sig` 校验已经生成并随 Release 发布。
 
 ---
 
@@ -554,6 +595,7 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📄 版本时间线
 
+- **v0.3.2 · 2026-06-28** — 桌面本地运行环境发布：Mac Apple Silicon DMG 和 Windows x64 安装器内置 standalone Python 与核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场 pip；Windows 静默安装/卸载验证；macOS DMG 验证与 adhoc 重签；updater `latest.json` 默认使用 `gh-proxy.com` 安装包 URL；桌面 bridge token 不再暴露到网页 JavaScript；Release 资产可幂等覆盖上传。
 - **v0.3.1 · 2026-06-27** — 里程碑：迁移机制 + 自动升级链路 + 版本号动态化。`penglai backup/restore/uninstall-legacy`；`setup --only` 局部补配；`tauri-plugin-updater` 六道关卡；版本号动态化；Mac adhoc 重签名 + updater 产物重生成；Runtime Hub 稳态化；陪伴四档模式 + context 闭环。
 - **v0.3.0 · 2026-06-25** — Runtime Hub 正式版。Mac/Windows 原生桌面客户端、飞书 QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、`penglai update` 自动备份回滚升级、Docker 全面撤出支持矩阵。
 

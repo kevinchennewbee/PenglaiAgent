@@ -3502,9 +3502,12 @@ def test_desktop_package_identity_targets_penglai_release():
         payload_builder = fh.read()
     with open(os.path.join(root, "penglai_setup.py"), "r", encoding="utf-8") as fh:
         setup_py = fh.read()
+    with open(os.path.join(root, "penglai_runtime", "__init__.py"), "r", encoding="utf-8") as fh:
+        runtime_init = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
     assert package_json["version"] == "0.3.2"
+    assert 'VERSION = "0.3.2"' in runtime_init
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
