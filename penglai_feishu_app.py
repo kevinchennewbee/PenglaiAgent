@@ -1439,6 +1439,12 @@ def _patch(fs):
                         _feishu_delivery_service(fs, rid, receive_id_type).deliver(
                             raw, base_dir=getattr(fs, "TEMP_DIR", None), send_body=False, send_notice=True
                         )
+                        send_generated = getattr(fs, "_send_generated_files", None)
+                        if callable(send_generated):
+                            try:
+                                send_generated(rid, raw, receive_id_type)
+                            except Exception as exc:
+                                print(f"[penglai feishu] generated file resend failed: {exc}", flush=True)
                     elif run_result.status == RunStatus.CANCELLED:
                         self.agent.abort()
                         if not is_queued:

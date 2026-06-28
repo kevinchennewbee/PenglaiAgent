@@ -172,3 +172,7 @@ penglai-desktop-design/
 *.pem
 *.p12
 secrets/
+
+# Generated desktop runtime payload; README documents the contract.
+frontends/desktop/src-tauri/resources/penglai-runtime/*
+!frontends/desktop/src-tauri/resources/penglai-runtime/README.md

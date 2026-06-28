@@ -1,5 +1,5 @@
 /* ============================================================
- * Penglai Desktop 0.3.1 — Design Tokens (from design spec)
+ * Penglai Desktop 0.3.2 — Design Tokens (from design spec)
  * Apple HIG-inspired: #007aff primary, DM Sans + JetBrains Mono,
  * 1.2rem radius, pill buttons, 1px border + subtle shadow cards.
  * Mac: frosted glass (backdrop-filter). Windows: Mica/acrylic.
@@ -1233,7 +1233,7 @@ mark.search-highlight.active { background: #ff9800; color: #fff; }
 .item-card .btn-sm { width: auto; padding: 5px 12px; font-size: .75rem; border-radius: 4px; }
 
 /* ============================================================
- * Penglai Desktop 0.3.1 — 9-Module Shell & Component Styles
+ * Penglai Desktop 0.3.2 — 9-Module Shell & Component Styles
  * Consumes design tokens (--pl-*, --brand-*, --background-*, --text-*).
  * Mac: .platform-darwin frosted glass; Windows: .platform-win32 Mica.
  * ============================================================ */
@@ -2019,4 +2019,3 @@ mark.search-highlight.active { background: #ff9800; color: #fff; }
 /* ─── pl-view base padding (non-chat views) ─── */
 .pl-view:not(#view-chat) { padding: 0; overflow-y: auto; }
 .pl-view:not(.hidden) { display: flex; flex-direction: column; }
-

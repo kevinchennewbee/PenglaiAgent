@@ -528,6 +528,8 @@ def _dl_progress(url, dest):
 def _voice_install():
     """语音能力真实落地：sherpa-onnx + ffmpeg + SenseVoice 模型。只报告可证实状态。"""
     py = os.path.join(ROOT, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        py = sys.executable
     ok = True
     # 1) sherpa-onnx 推理引擎
     if subprocess.run([py, "-c", "import sherpa_onnx"], capture_output=True).returncode != 0:

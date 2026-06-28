@@ -15,6 +15,7 @@ on:
       - "penglai"
       - "penglai_im_launch.py"
       - "penglai_runtime/**"
+      - "packaging/**"
       - "tests/test_penglai_runtime.py"
   workflow_dispatch:
 
@@ -52,7 +53,39 @@ jobs:
           cache-dependency-path: frontends/desktop/package-lock.json
 
       - name: Setup Rust
+        env:
+          RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER || 'https://mirrors.tuna.tsinghua.edu.cn/rustup' }}
+          RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT || 'https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup' }}
         run: rustup toolchain install stable --profile minimal
+
+      - name: Configure Cargo mirror
+        shell: bash
+        env:
+          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX || 'sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/' }}
+          PENGLAI_CARGO_REGISTRY_NAME: ${{ vars.PENGLAI_CARGO_REGISTRY_NAME || 'penglai-mirror' }}
+        run: |
+          if [ -n "$PENGLAI_CARGO_REGISTRY_INDEX" ]; then
+            mkdir -p .cargo
+            cat > .cargo/config.toml <<EOF
+          [source.crates-io]
+          replace-with = "$PENGLAI_CARGO_REGISTRY_NAME"
+
+          [source.$PENGLAI_CARGO_REGISTRY_NAME]
+          registry = "$PENGLAI_CARGO_REGISTRY_INDEX"
+          EOF
+          fi
+
+      - name: Cache desktop build downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/pbs
+            ~/.cache/pip
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-desktop-downloads-${{ hashFiles('frontends/desktop/package-lock.json', 'frontends/desktop/src-tauri/Cargo.lock', 'packaging/build_desktop_runtime.py') }}
+          restore-keys: |
+            ${{ runner.os }}-desktop-downloads-
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -117,6 +150,8 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: frontends/desktop
+        env:
+          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmmirror.com/' }}
         run: npm ci
 
       - name: Static checks
@@ -126,9 +161,30 @@ jobs:
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
 
       - name: Desktop bridge contract tests
+        env:
+          PIP_INDEX_URL: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
         run: |
           python -m pip install --disable-pip-version-check pytest aiohttp
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
+
+      - name: Build desktop runtime payload
+        shell: bash
+        env:
+          # Override in repository/environment variables for domestic mirrors
+          # or an internal archive cache. User first launch never downloads it.
+          PENGLAI_PBS_BASE_URL: ${{ vars.PENGLAI_PBS_BASE_URL || 'https://github.com/astral-sh/python-build-standalone/releases/download' }}
+          PENGLAI_PBS_URL_TEMPLATE: ${{ vars.PENGLAI_PBS_URL_TEMPLATE || '' }}
+          PENGLAI_PBS_CACHE: .cache/pbs
+          PENGLAI_PIP_INDEX: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
+        run: |
+          python packaging/build_desktop_runtime.py \
+            --source . \
+            --output frontends/desktop/src-tauri/resources/penglai-runtime \
+            --with-standalone-python mac-arm64
+          python packaging/verify_desktop_runtime.py \
+            frontends/desktop/src-tauri/resources/penglai-runtime \
+            --require-bundled-python \
+            --forbid-venv
 
       - name: Runtime bootstrap smoke
         shell: bash
@@ -247,6 +303,36 @@ jobs:
           test -L "$mount_dir/Applications"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx com.penglai.agent
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_dir/Penglai.app/Contents/Info.plist" | grep -Fx "${PENGLAI_VERSION}"
+          runtime_payload="$mount_dir/Penglai.app/Contents/Resources/penglai-runtime"
+          if [ ! -f "$runtime_payload/manifest.json" ]; then
+            runtime_payload="$mount_dir/Penglai.app/Contents/Resources/resources/penglai-runtime"
+          fi
+          test -f "$runtime_payload/manifest.json"
+          python packaging/verify_desktop_runtime.py "$runtime_payload" --require-bundled-python --forbid-venv
+          "$mount_dir/Penglai.app/Contents/MacOS/penglai-desktop" --runtime-payload-selfcheck
+          install_selfcheck_dir="$(mktemp -d /tmp/penglai-runtime-install.XXXXXX)"
+          "$mount_dir/Penglai.app/Contents/MacOS/penglai-desktop" --runtime-install-selfcheck "$install_selfcheck_dir/runtime" | tee "$install_selfcheck_dir/result.json"
+          test -f "$install_selfcheck_dir/runtime/frontends/desktop_bridge.py"
+          python - "$install_selfcheck_dir/result.json" "$install_selfcheck_dir/runtime" <<'PY'
+          import json, os, sys
+          result_path, runtime_dir = sys.argv[1:3]
+          data = json.load(open(result_path, encoding="utf-8"))
+          python_path = os.path.realpath(data["python_path"])
+          runtime_dir = os.path.realpath(runtime_dir)
+          payload_dir = os.path.realpath(data["runtime_dir"])
+          if data.get("python_kind") not in {"standalone", "embedded"}:
+              raise SystemExit(f"runtime install selfcheck used non-portable Python kind: {data.get('python_kind')}")
+          if data.get("python_scope") == "runtime":
+              expected_root = payload_dir
+          elif data.get("python_scope") == "source":
+              expected_root = runtime_dir
+          else:
+              raise SystemExit(f"runtime install selfcheck reported unknown Python scope: {data.get('python_scope')}")
+          if not python_path.startswith(expected_root + os.sep):
+              raise SystemExit(f"runtime install selfcheck used external Python: {python_path}")
+          if not data.get("bridge"):
+              raise SystemExit("runtime install selfcheck did not report desktop bridge")
+          PY
           codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
           sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
           printf '%s\n' "$sign_info"
@@ -358,7 +444,40 @@ jobs:
 
       - name: Setup Rust
         shell: pwsh
+        env:
+          RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER || 'https://mirrors.tuna.tsinghua.edu.cn/rustup' }}
+          RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT || 'https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup' }}
         run: rustup toolchain install stable --profile minimal
+
+      - name: Configure Cargo mirror
+        shell: pwsh
+        env:
+          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX || 'sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/' }}
+          PENGLAI_CARGO_REGISTRY_NAME: ${{ vars.PENGLAI_CARGO_REGISTRY_NAME || 'penglai-mirror' }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not [string]::IsNullOrWhiteSpace($env:PENGLAI_CARGO_REGISTRY_INDEX)) {
+            New-Item -ItemType Directory -Force -Path ".cargo" | Out-Null
+            @"
+          [source.crates-io]
+          replace-with = "$env:PENGLAI_CARGO_REGISTRY_NAME"
+
+          [source.$env:PENGLAI_CARGO_REGISTRY_NAME]
+          registry = "$env:PENGLAI_CARGO_REGISTRY_INDEX"
+          "@ | Set-Content -Path ".cargo/config.toml" -Encoding UTF8
+          }
+
+      - name: Cache desktop build downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache\pbs
+            ~\.cargo\registry
+            ~\.cargo\git
+            ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-desktop-downloads-${{ hashFiles('frontends/desktop/package-lock.json', 'frontends/desktop/src-tauri/Cargo.lock', 'packaging/build_desktop_runtime.py') }}
+          restore-keys: |
+            ${{ runner.os }}-desktop-downloads-
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -411,6 +530,8 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: frontends/desktop
+        env:
+          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmmirror.com/' }}
         run: npm ci
 
       - name: Static checks
@@ -423,9 +544,30 @@ jobs:
 
       - name: Desktop bridge contract tests
         shell: pwsh
+        env:
+          PIP_INDEX_URL: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
+
+      - name: Build desktop runtime payload
+        shell: pwsh
+        env:
+          # Override in repository/environment variables for domestic mirrors
+          # or an internal archive cache. User first launch never downloads it.
+          PENGLAI_PBS_BASE_URL: ${{ vars.PENGLAI_PBS_BASE_URL || 'https://github.com/astral-sh/python-build-standalone/releases/download' }}
+          PENGLAI_PBS_URL_TEMPLATE: ${{ vars.PENGLAI_PBS_URL_TEMPLATE || '' }}
+          PENGLAI_PBS_CACHE: .cache/pbs
+          PENGLAI_PIP_INDEX: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
+        run: |
+          python packaging/build_desktop_runtime.py `
+            --source . `
+            --output frontends/desktop/src-tauri/resources/penglai-runtime `
+            --with-standalone-python win-x64
+          python packaging/verify_desktop_runtime.py `
+            frontends/desktop/src-tauri/resources/penglai-runtime `
+            --require-bundled-python `
+            --forbid-venv
 
       - name: Runtime bootstrap smoke
         shell: pwsh
@@ -536,15 +678,48 @@ jobs:
               throw "Installed Penglai exe was signed by unexpected certificate. Actual=$($installedSig.SignerCertificate.Thumbprint) Expected=$env:WINDOWS_CERTIFICATE_THUMBPRINT"
             }
           }
+          $runtimeManifest = Get-ChildItem $installLocation -Recurse -Filter "manifest.json" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*penglai-runtime*" } |
+            Select-Object -First 1
+          if (-not $runtimeManifest) { throw "Installed Penglai runtime payload manifest not found under $installLocation" }
+          $runtimePayload = Split-Path -Parent $runtimeManifest.FullName
+          python packaging/verify_desktop_runtime.py $runtimePayload --require-bundled-python --forbid-venv
+          $payloadCheck = Start-Process -FilePath $installedExe.FullName -ArgumentList "--runtime-payload-selfcheck" -Wait -PassThru -NoNewWindow
+          if ($payloadCheck.ExitCode -ne 0) { throw "Installed Penglai runtime payload selfcheck failed with exit code $($payloadCheck.ExitCode)" }
+          $installSelfcheckDir = Join-Path $env:RUNNER_TEMP "penglai-runtime-install-selfcheck"
+          Remove-Item -LiteralPath $installSelfcheckDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $installSelfcheckDir | Out-Null
+          $installCheckTarget = Join-Path $installSelfcheckDir "runtime"
+          $installCheckOut = Join-Path $installSelfcheckDir "result.json"
+          $installPayloadCheck = Start-Process -FilePath $installedExe.FullName -ArgumentList @("--runtime-install-selfcheck", $installCheckTarget) -Wait -PassThru -NoNewWindow -RedirectStandardOutput $installCheckOut
+          if ($installPayloadCheck.ExitCode -ne 0) { throw "Installed Penglai runtime install selfcheck failed with exit code $($installPayloadCheck.ExitCode)" }
+          if (-not (Test-Path (Join-Path $installCheckTarget "frontends\desktop_bridge.py"))) { throw "Runtime install selfcheck did not unpack desktop_bridge.py" }
+          $installCheckJson = Get-Content $installCheckOut -Raw | ConvertFrom-Json
+          $selectedPython = [IO.Path]::GetFullPath([string]$installCheckJson.python_path)
+          if (@("standalone", "embedded") -notcontains [string]$installCheckJson.python_kind) {
+            throw "Runtime install selfcheck used non-portable Python kind: $($installCheckJson.python_kind)"
+          }
+          if ([string]$installCheckJson.python_scope -eq "runtime") {
+            $expectedRuntimeRoot = [IO.Path]::GetFullPath([string]$installCheckJson.runtime_dir)
+          } elseif ([string]$installCheckJson.python_scope -eq "source") {
+            $expectedRuntimeRoot = [IO.Path]::GetFullPath($installCheckTarget)
+          } else {
+            throw "Runtime install selfcheck reported unknown Python scope: $($installCheckJson.python_scope)"
+          }
+          if (-not $selectedPython.StartsWith($expectedRuntimeRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Runtime install selfcheck used external Python: $selectedPython"
+          }
+          if (-not $installCheckJson.bridge) { throw "Runtime install selfcheck did not report desktop bridge" }
 
           $pythonPath = (Get-Command python).Source
           $projectDir = (Resolve-Path ".").Path
           $settingsPath = Join-Path $HOME ".penglai_desktop_settings.json"
           @{ python_path = $pythonPath; project_dir = $projectDir } | ConvertTo-Json | Set-Content -Path $settingsPath -Encoding UTF8
-          $launched = Start-Process -FilePath $installedExe.FullName -PassThru -Environment @{PENGLAI_NO_TRAY="1"}
+          $smokeToken = "penglai-ci-bridge-smoke-$([Guid]::NewGuid().ToString('N'))"
+          $launched = Start-Process -FilePath $installedExe.FullName -PassThru -Environment @{PENGLAI_NO_TRAY="1"; PENGLAI_DESKTOP_BRIDGE_TOKEN=$smokeToken}
           try {
             $origin = "http://127.0.0.1:14168"
-            $token = ""
+            $bridgeReady = $false
             $deadline = (Get-Date).AddSeconds(60)
             do {
               if ($launched.HasExited) {
@@ -552,18 +727,21 @@ jobs:
               }
               try {
                 $index = Invoke-WebRequest -UseBasicParsing -Uri "$origin/" -TimeoutSec 3
-                if ($index.StatusCode -eq 200 -and $index.Content -match 'window\.__PENGLAI_BRIDGE_TOKEN__\s*=\s*"([^"]+)"') {
-                  $token = $Matches[1]
+                if ($index.Content -match 'window\.__PENGLAI_BRIDGE_TOKEN__') {
+                  throw "Installed Penglai app exposed the desktop bridge token in index HTML."
+                }
+                if ($index.StatusCode -eq 200 -and $index.Content -match 'window\.__PENGLAI_BOOTSTRAP__') {
+                  $bridgeReady = $true
                   break
                 }
               } catch {
                 Start-Sleep -Seconds 2
               }
             } until ((Get-Date) -gt $deadline)
-            if ([string]::IsNullOrWhiteSpace($token)) {
-              throw "Installed Penglai app did not expose a ready desktop bridge token on $origin."
+            if (-not $bridgeReady) {
+              throw "Installed Penglai app did not expose a ready desktop bridge index on $origin."
             }
-            $headers = @{ "X-Penglai-Bridge-Token" = $token; "Origin" = $origin }
+            $headers = @{ "X-Penglai-Bridge-Token" = $smokeToken; "Origin" = $origin }
             $statusDoc = Invoke-RestMethod -Uri "$origin/status" -Headers $headers -TimeoutSec 10
             if (-not $statusDoc.ok -or -not $statusDoc.ready) { throw "Desktop bridge /status is not ready." }
             $opsDoc = Invoke-RestMethod -Uri "$origin/ops/checks" -Headers $headers -TimeoutSec 30
@@ -675,6 +853,7 @@ jobs:
           ### Desktop (recommended for new users)
           - **macOS**: Download the DMG, drag to Applications. On first open, go to System Settings → Privacy & Security → Open Anyway.
           - **Windows**: Download the installer, run it. SmartScreen → More Info → Run Anyway.
+          - Desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
 
           ### Command line
           ```bash
@@ -692,12 +871,16 @@ jobs:
 
       - name: Generate latest.json for tauri-plugin-updater
         shell: bash
+        env:
+          PENGLAI_UPDATER_BASE_URL: ${{ vars.PENGLAI_UPDATER_BASE_URL || '' }}
         run: |
           set -euo pipefail
           VERSION="${PENGLAI_VERSION}"
           NOTES="PenglaiAgent ${PENGLAI_VERSION} release notes"
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          BASE_URL="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
+          DEFAULT_BASE_URL="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
+          BASE_URL="${PENGLAI_UPDATER_BASE_URL:-$DEFAULT_BASE_URL}"
+          BASE_URL="${BASE_URL%/}"
 
           # Build platforms object. Each entry requires the .sig (signature)
           # and the bundle it signs to both be present in dist/.

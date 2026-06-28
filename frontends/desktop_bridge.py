@@ -30,7 +30,7 @@ WS API:
 """
 from __future__ import annotations
 
-import asyncio, contextlib, hmac, importlib, json, os, platform, secrets, sys
+import asyncio, contextlib, hmac, importlib, json, os, platform, py_compile, re, secrets, sys
 import threading, time, traceback, uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,8 +40,26 @@ from aiohttp import web, WSMsgType
 APP_DIR = Path(__file__).resolve().parent
 BRIDGE_TOKEN = os.environ.get("PENGLAI_DESKTOP_BRIDGE_TOKEN") or secrets.token_urlsafe(32)
 BRIDGE_TOKEN_HEADER = "X-Penglai-Bridge-Token"
+LOOPBACK_BIND_HOSTS = {"127.0.0.1", "localhost", "::1"}
+MYKEY_UPDATE_ALLOWLIST = {
+    "native_oai_config",
+    "native_claude_config",
+    "mixin_config",
+    "penglai_lang",
+    "fs_app_id",
+    "fs_app_secret",
+    "fs_owner_open_id",
+    "fs_allowed_users",
+    "wechat_enabled",
+    "companion_enabled",
+    "critic_model",
+    "critic_mode",
+    "tinyfish_key",
+    "tavily_key",
+    "firecrawl_key",
+}
+SENSITIVE_KEY_PARTS = ("key", "secret", "token", "password", "apikey")
 PROTECTED_PATH_PREFIXES = (
-    "/ws",
     "/status",
     "/config",
     "/model-profiles",
@@ -71,6 +89,8 @@ def find_default_ga_root() -> Path:
 DEFAULT_GA_ROOT = find_default_ga_root()
 if str(DEFAULT_GA_ROOT) not in sys.path:
     sys.path.insert(0, str(DEFAULT_GA_ROOT))
+
+from penglai_runtime.redaction import redact_text as _redact_secret_text
 
 # --bootstrap: minimal HTTP + setup endpoints, defer heavy runtime imports.
 # Used by the Tauri shell before mykey.py / runtime config exists so the setup
@@ -615,6 +635,11 @@ def emit_session_state(sess: Session, state_name: str):
 
 
 async def ws_handler(request):
+    if not _same_bridge_origin(request, request.headers.get("Origin", "")):
+        raise web.HTTPUnauthorized(
+            text=json.dumps({"ok": False, "error": "非本机同源请求已拒绝"}, ensure_ascii=False),
+            content_type="application/json",
+        )
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     hub.websockets.add(ws)
@@ -680,6 +705,8 @@ def cors_headers(request):
 
 def _requires_bridge_auth(request) -> bool:
     path = request.path or ""
+    if path.startswith("/tts/audio/"):
+        return False
     return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in PROTECTED_PATH_PREFIXES)
 
 
@@ -999,6 +1026,26 @@ def _read_mykey_keys():
                 keys[m.group(1)] = val
     return keys
 
+
+def _mask_secret_value(value):
+    if isinstance(value, str):
+        return value[:4] + "***" if len(value) > 4 else "***"
+    return "***"
+
+
+def _safe_mykey_value(key, value):
+    key_l = str(key or "").lower()
+    if any(part in key_l for part in SENSITIVE_KEY_PARTS):
+        return _mask_secret_value(value)
+    if isinstance(value, dict):
+        return {str(k): _safe_mykey_value(k, v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_safe_mykey_value("", item) for item in value]
+    if isinstance(value, str):
+        return _redact_secret_text(value)
+    return value
+
+
 def _channel_status():
     """Return channel status list based on config existence and process check."""
     import subprocess, platform
@@ -1123,17 +1170,13 @@ async def mykey_read_handler(request):
     _require_token(request)
     mk = Path(manager.ga_root) / "mykey.py"
     if not mk.exists():
-        return json_ok({"ok": True, "keys": {}, "raw": ""})
-    raw = mk.read_text(encoding="utf-8")
+        return json_ok({"ok": True, "keys": {}, "path": str(mk)})
     keys = _read_mykey_keys()
     # Redact secrets
     safe = {}
     for k, v in keys.items():
-        if any(s in k.lower() for s in ("key", "secret", "token", "password", "apikey")):
-            safe[k] = v[:4] + "***" if len(v) > 4 else "***"
-        else:
-            safe[k] = v
-    return json_ok({"ok": True, "keys": safe, "raw": raw, "path": str(mk)})
+        safe[k] = _safe_mykey_value(k, v)
+    return json_ok({"ok": True, "keys": safe, "path": str(mk)})
 
 
 async def mykey_update_handler(request):
@@ -1143,12 +1186,17 @@ async def mykey_update_handler(request):
     if not updates:
         return json_ok({"ok": False, "error": "缺少 updates 字段"}, status=400)
     mk = Path(manager.ga_root) / "mykey.py"
-    import re
     if mk.exists():
         lines = mk.read_text(encoding="utf-8").splitlines(keepends=True)
     else:
         lines = []
+    existing_keys = set(_read_mykey_keys().keys())
     for key, val in updates.items():
+        key = str(key or "")
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key) or key.startswith("__"):
+            return json_ok({"ok": False, "error": f"非法配置项名称: {key}"}, status=400)
+        if key not in MYKEY_UPDATE_ALLOWLIST and key not in existing_keys:
+            return json_ok({"ok": False, "error": f"不允许通过桌面接口新增未知配置项: {key}"}, status=400)
         val_str = repr(str(val)) if not isinstance(val, bool) else str(val)
         found = False
         for i, line in enumerate(lines):
@@ -1159,7 +1207,22 @@ async def mykey_update_handler(request):
                 break
         if not found:
             lines.append(f"{key} = {val_str}\n")
-    mk.write_text("".join(lines), encoding="utf-8")
+    if mk.exists():
+        import datetime, shutil
+        bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        shutil.copy2(mk, bak)
+    tmp = mk.with_name(f".{mk.name}.tmp.{uuid.uuid4().hex}")
+    tmp.write_text("".join(lines), encoding="utf-8")
+    _chmod_private(tmp)
+    try:
+        py_compile.compile(str(tmp), doraise=True)
+    except Exception as exc:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        return json_ok({"ok": False, "error": f"mykey.py 语法校验失败: {exc}"}, status=400)
+    os.replace(tmp, mk)
     _chmod_private(mk)
     return json_ok({"ok": True, "updated": list(updates.keys())})
 
@@ -1701,16 +1764,15 @@ def create_app():
 
     async def index_handler(request):
         html = (static_dir / "index.html").read_text(encoding="utf-8")
-        token_script = (
+        bootstrap_script = (
             "<script>"
-            f"window.__PENGLAI_BRIDGE_TOKEN__={json.dumps(BRIDGE_TOKEN)};"
             f"window.__PENGLAI_BOOTSTRAP__={json.dumps(BOOTSTRAP_MODE)};"
             "</script>"
         )
         if "</head>" in html:
-            html = html.replace("</head>", token_script + "\n</head>", 1)
+            html = html.replace("</head>", bootstrap_script + "\n</head>", 1)
         else:
-            html = token_script + html
+            html = bootstrap_script + html
         return web.Response(text=html, content_type="text/html", charset="utf-8")
 
     app.router.add_get("/", index_handler)
@@ -1726,6 +1788,9 @@ def create_app():
 if __name__ == "__main__":
     host = os.environ.get("BRIDGE_HOST", "127.0.0.1")
     port = int(os.environ.get("BRIDGE_PORT", "14168"))
+    if host not in LOOPBACK_BIND_HOSTS:
+        print(f"拒绝启动桌面桥接：BRIDGE_HOST 必须是本机回环地址，当前为 {host}", file=sys.stderr)
+        sys.exit(2)
     mode_tag = " [bootstrap]" if BOOTSTRAP_MODE else ""
     print(f"蓬莱桌面桥接{mode_tag}：http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
     web.run_app(create_app(), host=host, port=port, print=None)

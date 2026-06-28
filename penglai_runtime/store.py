@@ -6,6 +6,8 @@ import os
 import sqlite3
 import time
 
+from .redaction import redact_obj, redact_text
+
 
 def default_store_path(root=None):
     override = os.environ.get("PENGLAI_RUNTIME_STORE_PATH", "").strip()
@@ -22,6 +24,10 @@ def default_store_path(root=None):
 # Statuses that mark a run as finished.  Once a run reaches one of these,
 # late overwrites from zombie processes are blocked by record_run().
 _TERMINAL_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
+
+
+def _redacted_json(value):
+    return json.dumps(redact_obj(value or {}), ensure_ascii=False, sort_keys=True)
 
 
 class RuntimeStateStore:
@@ -161,8 +167,8 @@ class RuntimeStateStore:
                     event.user_id,
                     event.chat_id,
                     event.chat_type,
-                    event.text,
-                    json.dumps(event.metadata or {}, ensure_ascii=False, sort_keys=True),
+                    redact_text(event.text),
+                    _redacted_json(event.metadata),
                     time.time(),
                 ),
             )
@@ -210,7 +216,7 @@ class RuntimeStateStore:
                     conn.execute(
                         "UPDATE task_runs SET metadata_json = ? WHERE run_id = ?",
                         (
-                            json.dumps(blocked_meta, ensure_ascii=False, sort_keys=True),
+                            _redacted_json(blocked_meta),
                             task_run.run_id,
                         ),
                     )
@@ -232,12 +238,12 @@ class RuntimeStateStore:
                     float(task_run.created_at or 0),
                     float(task_run.started_at or 0),
                     float(task_run.finished_at or 0),
-                    task_run.result_text or "",
-                    task_run.error or "",
-                    json.dumps(permission_json, ensure_ascii=False, sort_keys=True),
-                    json.dumps(list(task_run.artifacts or ()), ensure_ascii=False, sort_keys=True),
-                    task_run.log_excerpt or "",
-                    json.dumps(task_run.metadata or {}, ensure_ascii=False, sort_keys=True),
+                    redact_text(task_run.result_text or ""),
+                    redact_text(task_run.error or ""),
+                    _redacted_json(permission_json),
+                    json.dumps(redact_obj(list(task_run.artifacts or ())), ensure_ascii=False, sort_keys=True),
+                    redact_text(task_run.log_excerpt or ""),
+                    _redacted_json(task_run.metadata),
                     time.time(),
                 ),
             )

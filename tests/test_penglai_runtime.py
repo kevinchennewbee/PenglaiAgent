@@ -3,9 +3,12 @@
 
 import os
 import asyncio
+import hashlib
 import importlib
 import json
+import platform
 import queue as Q
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -1651,6 +1654,52 @@ def test_runtime_hub_service_reuses_session_port_and_persists_runs():
     assert all(r["status"] == RunStatus.SUCCEEDED for r in runs)
 
 
+def test_runtime_state_store_redacts_events_and_runs_before_persisting():
+    td = tempfile.mkdtemp()
+    db = os.path.join(td, "runtime.sqlite3")
+    input_secret = "sk-" + "inputsecret123456"
+    result_secret = "sk-" + "resultsecret123456"
+    meta_secret = "sk-" + "metasecret123456"
+    service = RuntimeHubService(
+        owner_user_ids={"owner"},
+        store_path=db,
+        port_factory=lambda _session, _event: CallableAgentPort(
+            lambda incoming: f"result Bearer run-token-123456 {result_secret}",
+            worker_id="redaction-worker",
+        ),
+    )
+
+    service.receive_blocking(
+        InboundEvent(
+            "redact-1",
+            "desktop",
+            "owner",
+            f"input token=abc12345 Bearer live-token-123456 {input_secret}",
+            metadata={"api_key": meta_secret},
+        )
+    )
+
+    with sqlite3.connect(db) as conn:
+        event_text, event_meta = conn.execute(
+            "SELECT text, metadata_json FROM inbound_events WHERE event_id = 'redact-1'"
+        ).fetchone()
+        result_text, metadata_json = conn.execute(
+            "SELECT result_text, metadata_json FROM task_runs WHERE event_id = 'redact-1'"
+        ).fetchone()
+
+    combined = "\n".join([event_text, event_meta, result_text, metadata_json])
+    for secret in (
+        "abc12345",
+        "live-token-123456",
+        input_secret,
+        result_secret,
+        meta_secret,
+    ):
+        assert secret not in combined
+    assert "token=***" in combined
+    assert "Bearer ***" in combined
+
+
 def test_runtime_chat_session_reuses_runtime_hub_and_resolves_permission():
     td = tempfile.mkdtemp()
     calls = []
@@ -2189,7 +2238,9 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
             index = await client.get("/")
             assert index.status == 200
-            assert "window.__PENGLAI_BRIDGE_TOKEN__" in await index.text()
+            index_text = await index.text()
+            assert "window.__PENGLAI_BRIDGE_TOKEN__" not in index_text
+            assert "window.__PENGLAI_BOOTSTRAP__" in index_text
             assert index.headers.get("Access-Control-Allow-Origin") != "*"
             missing_token = await client.get("/status")
             assert missing_token.status == 401
@@ -2256,6 +2307,56 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
     asyncio.run(scenario())
 
 
+def test_desktop_bridge_mykey_api_never_returns_raw_secret_and_restricts_updates():
+    from aiohttp.test_utils import TestClient, TestServer
+
+    desktop_bridge = importlib.import_module("frontends.desktop_bridge")
+    td = tempfile.mkdtemp()
+    oai_secret = "sk-" + "proof-secret-1234567890"
+    fs_secret = "fs-proof-secret"
+    with open(os.path.join(td, "mykey.py"), "w", encoding="utf-8") as f:
+        f.write(
+            f"native_oai_config = {{'apikey': {oai_secret!r}}}\n"
+            f"fs_app_secret = {fs_secret!r}\n"
+            "custom_existing = 'old'\n"
+        )
+    old_manager = desktop_bridge.manager
+
+    async def scenario():
+        desktop_bridge.manager = desktop_bridge.AgentManager()
+        desktop_bridge.manager.ga_root = td
+        client = TestClient(TestServer(desktop_bridge.create_app()))
+        await client.start_server()
+        try:
+            origin = str(client.make_url("/")).rstrip("/")
+            auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
+            missing = await client.get("/mykey")
+            assert missing.status == 401
+
+            resp = await client.get("/mykey", headers=auth)
+            assert resp.status == 200
+            data = await resp.json()
+            assert "raw" not in data
+            assert data["keys"]["fs_app_secret"].endswith("***")
+            assert fs_secret not in json.dumps(data, ensure_ascii=False)
+            assert oai_secret not in json.dumps(data, ensure_ascii=False)
+
+            illegal = await client.post("/mykey", headers=auth, json={"updates": {"bad.key": "x"}})
+            assert illegal.status == 400
+            unknown = await client.post("/mykey", headers=auth, json={"updates": {"brand_new_key": "x"}})
+            assert unknown.status == 400
+            ok = await client.post("/mykey", headers=auth, json={"updates": {"custom_existing": "new"}})
+            assert ok.status == 200
+            with open(os.path.join(td, "mykey.py"), encoding="utf-8") as f:
+                assert "custom_existing = 'new'" in f.read()
+            assert any(name.startswith("mykey.py.bak.") for name in os.listdir(td))
+        finally:
+            await client.close()
+            desktop_bridge.manager = old_manager
+
+    asyncio.run(scenario())
+
+
 def test_desktop_bridge_tts_route_generates_local_audio_without_path_escape():
     desktop_bridge = importlib.import_module("frontends.desktop_bridge")
     from aiohttp.test_utils import TestClient, TestServer
@@ -2314,9 +2415,7 @@ def test_desktop_bridge_tts_route_generates_local_audio_without_path_escape():
             expected_dir = os.path.realpath(os.path.join(td, "temp", "desktop_tts"))
             actual_path = os.path.realpath(calls[0][1]["output_path"])
             assert os.path.commonpath([actual_path, expected_dir]) == expected_dir
-            audio_without_token = await client.get(data["audio_url"])
-            assert audio_without_token.status == 401
-            audio = await client.get(data["audio_url"] + "?token=" + desktop_bridge.BRIDGE_TOKEN)
+            audio = await client.get(data["audio_url"])
             assert audio.status == 200
             assert await audio.read()
             escape = await client.get("/tts/audio/../secret.wav?token=" + desktop_bridge.BRIDGE_TOKEN)
@@ -2887,7 +2986,7 @@ def test_install_check_validates_030_source_install_contracts():
     assert result["ok"] is True
     assert names["python_310_plus"] is True
     assert names["source_files_present"] is True
-    assert names["version_is_030"] is True
+    assert names["version_consistent"] is True
     assert names["runtime_contracts_pass"] is True
     assert names["privacy_audit_passes"] is True
     assert names["runtime_audit_inventory_ready"] is True
@@ -3135,7 +3234,7 @@ def test_install_script_can_install_current_branch_without_setup():
     )
     assert wrapper_verify.returncode == 0, (wrapper_verify.stdout or "") + (wrapper_verify.stderr or "")
     assert "安装预检" in output
-    assert "正在安装 0.3.1 源码依赖" not in output
+    assert "正在安装 0.3.2 源码依赖" not in output
     verify = subprocess.run(
         [sys.executable, os.path.join(target, "penglai"), "install-check", "--json"],
         cwd=target,
@@ -3372,13 +3471,16 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
         assert text in index_html
     for text in ("新任务", "思考中…", "中枢状态", "中枢桥接已就绪。", "发送此确认选择", "也可以直接在输入框回复。", "只会管理 penglai-runtime-hub", "install-check", "update-check", "中枢会话状态", "中枢运行记录", "等待确认", "语音转写", "语音输出", "speakLastAssistant", "synthesizeSpeech"):
         assert text in app_js
-    for text in ("window.penglai", "window.__PENGLAI_BRIDGE_TOKEN__", "X-Penglai-Bridge-Token", "getRuntimeStatus", "getRuntimeRuns", "/runtime/status", "/runtime/runs", "/tts/say"):
+    for text in ("window.penglai", "bridge_rpc", "getRuntimeStatus", "getRuntimeRuns", "/runtime/status", "/runtime/runs", "/tts/say"):
         assert text in bridge_js
+    assert "window.__PENGLAI_BRIDGE_TOKEN__" not in bridge_js
+    assert "X-Penglai-Bridge-Token" not in bridge_js
     assert "window.ga" not in bridge_js
     for text in ("permission-actions", "permission-choice-btn"):
         assert text in app_js or text in styles_css
-    for text in ("自动初始化并启动", "启用语音转写", "SenseVoice", "启用语音输出", "MOSS-TTS-Nano", "install_runtime", "includeVoice", "includeTts"):
+    for text in ("自动初始化并启动", "首次启动使用安装包内置运行时", "不会在线下载核心依赖", "准备包内运行时", "写入本地配置", "启用语音转写", "SenseVoice", "启用语音输出", "MOSS-TTS-Nano", "install_runtime", "includeVoice", "includeTts"):
         assert text in fallback_html
+    assert '<input id="voice-opt" type="checkbox" checked>' not in fallback_html
 
 
 def test_desktop_package_identity_targets_penglai_release():
@@ -3396,22 +3498,29 @@ def test_desktop_package_identity_targets_penglai_release():
         cargo_toml = fh.read()
     with open(os.path.join(desktop_dir, "src-tauri", "src", "lib.rs"), "r", encoding="utf-8") as fh:
         lib_rs = fh.read()
+    with open(os.path.join(root, "packaging", "build_desktop_runtime.py"), "r", encoding="utf-8") as fh:
+        payload_builder = fh.read()
+    with open(os.path.join(root, "penglai_setup.py"), "r", encoding="utf-8") as fh:
+        setup_py = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.1"
+    assert package_json["version"] == "0.3.2"
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.1"
+    assert package_lock["packages"][""]["version"] == "0.3.2"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.1"
+    assert tauri_conf["version"] == "0.3.2"
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
+    assert "resources/penglai-runtime/**/*" in tauri_conf["bundle"]["resources"]
+    assert "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json" in tauri_conf["plugins"]["updater"]["endpoints"]
+    assert "https://gh-proxy.com" in tauri_conf["app"]["security"]["csp"]
     assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
     assert tauri_conf["bundle"]["windows"]["digestAlgorithm"] == "sha256"
     assert tauri_conf["bundle"]["windows"]["timestampUrl"].startswith("http://timestamp.")
@@ -3440,9 +3549,89 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.1"' in cargo_toml
+    assert 'version = "0.3.2"' in cargo_toml
+    assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
+    assert "fn bridge_rpc" in lib_rs
+    assert "bridge_rpc_path_allowed" in lib_rs
+    assert "PENGLAI_DESKTOP_BRIDGE_TOKEN" in lib_rs
+    assert "configure_bridge_command" in lib_rs
+    assert "fetch_bridge_token" not in lib_rs
+    assert "bridge_rpc," in lib_rs
+    assert "def _voice_install()" in setup_py
+    assert "py = sys.executable" in setup_py
+    assert "PACKAGED_RUNTIME_RESOURCE" in lib_rs
+    assert '"penglai-runtime"' in lib_rs
+    assert 'join("resources").join(PACKAGED_RUNTIME_RESOURCE)' in lib_rs
+    assert "fn packaged_runtime_dir" in lib_rs
+    assert "fn verify_packaged_runtime" in lib_rs
+    assert "fn safe_manifest_path" in lib_rs
+    assert "Sha256::new" in lib_rs
+    assert "RuntimeManifestPlatform" in lib_rs
+    assert "RuntimeDependencyLock" in lib_rs
+    assert "python_kind" in lib_rs
+    assert "python_scope" in lib_rs
+    assert "std::env::consts::OS" in lib_rs
+    assert "std::env::consts::ARCH" in lib_rs
+    assert "包内运行时平台不匹配" in lib_rs
+    assert "包内运行时架构不匹配" in lib_rs
+    assert "fn verify_manifest_python" in lib_rs
+    assert "fn manifest_python_path" in lib_rs
+    assert "python_scope == \"runtime\"" in lib_rs
+    assert "fn packaged_runtime_dir_from_exe" in lib_rs
+    assert "fn runtime_payload_selfcheck" in lib_rs
+    assert "fn prepare_packaged_runtime" in lib_rs
+    assert "fn runtime_install_selfcheck" in lib_rs
+    assert "fn allow_online_bootstrap_fallback" in lib_rs
+    assert "PENGLAI_DESKTOP_ALLOW_ONLINE_BOOTSTRAP" in lib_rs
+    assert "为保证首次启动零下载" in lib_rs
+    assert "fn configured_or_default_runtime" in lib_rs
+    assert "--runtime-payload-selfcheck" in lib_rs
+    assert "--runtime-install-selfcheck" in lib_rs
+    assert '"python_path": python_path' in lib_rs
+    assert '"python_kind": manifest.python_kind.as_deref().unwrap_or_default()' in lib_rs
+    assert '"python_scope": manifest.python_scope.as_deref().unwrap_or_default()' in lib_rs
+    assert '"bridge": target.join("frontends").join("desktop_bridge.py").exists()' in lib_rs
+    assert "installed runtime payload not found next to desktop executable" in lib_rs
+    assert "包内 Python 未纳入 SHA-256 文件清单" in lib_rs
+    assert "dependency_lock 缺少核心依赖" in lib_rs
+    assert "dependency_lock 缺少版本号" in lib_rs
+    assert "manifest path contains unsafe component" in lib_rs
+    assert "meta.len() != item.size" in lib_rs
+    assert "actual != item.sha256" in lib_rs
+    assert "fn install_from_packaged_runtime" in lib_rs
+    assert "source/penglai" in payload_builder
+    assert "source/frontends/desktop_bridge.py" in payload_builder
+    assert '"manifest.json"' in lib_rs
+    assert '"kind": "penglai-desktop-runtime"' in payload_builder
+    assert '"platform": {' in payload_builder
+    assert '"python_version":' in payload_builder
+    assert '"python_kind": python_kind' in payload_builder
+    assert '"python_scope": python_scope' in payload_builder
+    assert "lock = dependency_lock(" in payload_builder
+    assert "safe_extract_tar" in payload_builder
+    assert "PBS_RELEASE" in payload_builder
+    assert "python-build-standalone" in payload_builder
+    assert "--with-standalone-python" in payload_builder
+    assert "--pbs-base-url" in payload_builder
+    assert "--pbs-url-template" in payload_builder
+    assert "PENGLAI_PBS_BASE_URL" in payload_builder
+    assert "PENGLAI_PBS_URL_TEMPLATE" in payload_builder
+    assert "PENGLAI_PIP_INDEX" in payload_builder
+    assert "download_archive" in payload_builder
+    assert "valid_tar_gz" in payload_builder
+    assert "remove_pycache" in payload_builder
+    assert "--python-bundle" in payload_builder
+    assert "CORE_DEP_SPECS" in payload_builder
+    assert "pip\", \"list\", \"--format=json\"" in payload_builder
+    assert '"sha256": sha256_file(path)' in payload_builder
+    assert '"size": path.stat().st_size' in payload_builder
+    assert '"mykey.py"' in payload_builder
+    assert '"_internal"' in payload_builder
+    assert "--with-venv" in payload_builder
+    assert "--forbid-venv" in open(os.path.join(root, "packaging", "verify_desktop_runtime.py"), "r", encoding="utf-8").read()
+    assert os.path.exists(os.path.join(root, "packaging", "verify_desktop_runtime.py"))
     assert "install.ps1" in lib_rs
     assert "install.sh" in lib_rs
     assert "PENGLAI_INSTALL_DEPS" in lib_rs
@@ -3461,6 +3650,217 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "GenericAgent" not in json.dumps(tauri_conf)
 
 
+def test_desktop_runtime_payload_builder_generates_hashed_manifest_without_private_inputs():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    output = os.path.join(tempfile.mkdtemp(), "penglai-runtime")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "build_desktop_runtime.py"),
+            "--source",
+            root,
+            "--output",
+            output,
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (result.stdout or "") + (result.stderr or "")
+    with open(os.path.join(output, "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest["schema"] == 1
+    assert manifest["kind"] == "penglai-desktop-runtime"
+    assert manifest["platform"]["os"]
+    assert manifest["platform"]["machine"]
+    assert manifest["python_relpath"] == ""
+    assert manifest["python_kind"] == ""
+    assert manifest["python_scope"] == ""
+    assert "python_version" in manifest
+    assert manifest["dependency_lock"] == []
+    for dep in ("requests", "beautifulsoup4", "aiohttp", "lark-oapi", "pyyaml"):
+        assert dep in manifest["core_deps"]
+    assert manifest["entrypoints"]["cli"] == "source/penglai"
+    assert manifest["entrypoints"]["bridge"] == "source/frontends/desktop_bridge.py"
+    paths = {item["path"]: item for item in manifest["files"]}
+    assert "source/penglai" in paths
+    assert "source/agent_loop.py" in paths
+    assert "source/frontends/desktop_bridge.py" in paths
+    assert not any(path.startswith("source/_internal/") for path in paths)
+    assert not any(os.path.basename(path) in {"mykey.py", ".env"} for path in paths)
+
+    penglai_path = os.path.join(output, "source", "penglai")
+    with open(penglai_path, "rb") as f:
+        actual_sha = hashlib.sha256(f.read()).hexdigest()
+    assert paths["source/penglai"]["sha256"] == actual_sha
+    assert paths["source/penglai"]["size"] == os.path.getsize(penglai_path)
+
+    verify = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "verify_desktop_runtime.py"),
+            output,
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert verify.returncode == 0, (verify.stdout or "") + (verify.stderr or "")
+    assert json.loads(verify.stdout)["ok"] is True
+
+
+def test_desktop_runtime_payload_builder_skips_its_in_tree_output_dir():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    fixture = os.path.join(tempfile.mkdtemp(), "repo")
+    os.makedirs(os.path.join(fixture, "frontends", "desktop", "src-tauri", "resources"), exist_ok=True)
+    for rel, content in {
+        "penglai": "#!/usr/bin/env python3\n",
+        "agent_loop.py": "",
+        "frontends/desktop_bridge.py": "",
+    }.items():
+        path = os.path.join(fixture, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+    output = os.path.join(fixture, "frontends", "desktop", "src-tauri", "resources", "penglai-runtime")
+    result = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "build_desktop_runtime.py"),
+            "--source",
+            fixture,
+            "--output",
+            output,
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (result.stdout or "") + (result.stderr or "")
+    with open(os.path.join(output, "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    paths = {item["path"] for item in manifest["files"]}
+    assert "source/penglai" in paths
+    assert not any("resources/penglai-runtime" in path for path in paths)
+
+
+def test_desktop_runtime_verifier_requires_standalone_python_when_requested():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    payload = os.path.join(tempfile.mkdtemp(), "penglai-runtime")
+    files = {
+        "source/penglai": "#!/usr/bin/env python3\n",
+        "source/agent_loop.py": "",
+        "source/frontends/desktop_bridge.py": "",
+        "python/bin/python3": "fake-python\n",
+        "python/lib/python3.11/site-packages/pip/_internal/__init__.py": "",
+    }
+    for rel, content in files.items():
+        path = os.path.join(payload, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+    file_rows = []
+    for rel in sorted(files):
+        path = os.path.join(payload, *rel.split("/"))
+        with open(path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        file_rows.append({"path": rel, "sha256": digest, "size": os.path.getsize(path)})
+
+    manifest = {
+        "schema": 1,
+        "kind": "penglai-desktop-runtime",
+        "platform": {"os": sys.platform, "machine": platform.machine().lower()},
+        "python_kind": "standalone",
+        "python_scope": "runtime",
+        "python_relpath": "python/bin/python3",
+        "python_version": "3.11.15",
+        "core_deps": ["requests", "beautifulsoup4", "bottle", "aiohttp", "lark-oapi", "qrcode", "pillow", "pyyaml"],
+        "dependency_lock": [
+            {"name": name, "version": "1.0.0"}
+            for name in ["requests", "beautifulsoup4", "bottle", "aiohttp", "lark-oapi", "qrcode", "pillow", "pyyaml"]
+        ],
+        "entrypoints": {"cli": "source/penglai", "bridge": "source/frontends/desktop_bridge.py"},
+        "files": file_rows,
+    }
+    manifest_path = os.path.join(payload, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh)
+
+    verify = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "verify_desktop_runtime.py"),
+            payload,
+            "--require-bundled-python",
+            "--forbid-venv",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert verify.returncode == 0, (verify.stdout or "") + (verify.stderr or "")
+    result = json.loads(verify.stdout)
+    assert result["python_kind"] == "standalone"
+    assert result["python_scope"] == "runtime"
+
+    extra_env = os.path.join(payload, ".env")
+    with open(extra_env, "w", encoding="utf-8") as fh:
+        fh.write("SECRET=1\n")
+    unlisted = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "verify_desktop_runtime.py"),
+            payload,
+            "--require-bundled-python",
+            "--forbid-venv",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert unlisted.returncode != 0
+    assert "payload contains files not listed in manifest" in unlisted.stderr
+    os.remove(extra_env)
+
+    os.makedirs(os.path.join(payload, "source", ".venv", "bin"), exist_ok=True)
+    venv_python = os.path.join(payload, "source", ".venv", "bin", "python")
+    with open(venv_python, "w", encoding="utf-8") as fh:
+        fh.write("fake-venv-python\n")
+    with open(venv_python, "rb") as fh:
+        digest = hashlib.sha256(fh.read()).hexdigest()
+    manifest["python_kind"] = "venv"
+    manifest["python_scope"] = "source"
+    manifest["python_relpath"] = ".venv/bin/python"
+    manifest["files"].append({"path": "source/.venv/bin/python", "sha256": digest, "size": os.path.getsize(venv_python)})
+    with open(manifest_path, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh)
+
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(root, "packaging", "verify_desktop_runtime.py"),
+            payload,
+            "--require-bundled-python",
+            "--forbid-venv",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert rejected.returncode != 0
+    assert "venv-style Python is forbidden" in rejected.stderr
+
+
 def test_desktop_release_workflow_builds_validates_and_publishes_release():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     workflow_path = os.path.join(root, ".github", "workflows", "desktop-release.yml")
@@ -3468,22 +3868,48 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         workflow = fh.read()
 
     for text in (
-        "name: desktop-release",
-        "- main",
-        "\"v0.3.1\"",
-        "macos-14",
-        "windows-latest",
-        "if: github.ref == 'refs/tags/v0.3.1'",
+            "name: desktop-release",
+            "- main",
+            "\"v*\"",
+            "macos-14",
+            "windows-latest",
+            "if: startsWith(github.ref, 'refs/tags/v')",
         "actions/setup-python@v5",
         "frontends/*.py",
         "install.ps1",
+        "packaging/**",
         "frontends/desktop/package-lock.json",
         "npm ci",
         "node --check frontends/desktop/static/app.js",
         "node --check frontends/desktop/static/penglai-web.js",
         "[scriptblock]::Create((Get-Content install.ps1 -Raw))",
         "cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml",
+        "Configure Cargo mirror",
+        "RUSTUP_DIST_SERVER",
+        "RUSTUP_UPDATE_ROOT",
+        "PENGLAI_CARGO_REGISTRY_INDEX",
+        "PENGLAI_CARGO_REGISTRY_NAME",
+        "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/",
+        "replace-with = \"$PENGLAI_CARGO_REGISTRY_NAME\"",
+        "Cache desktop build downloads",
+        "NPM_CONFIG_REGISTRY",
+        "https://registry.npmmirror.com/",
+        "PIP_INDEX_URL",
         "Desktop bridge contract tests",
+        "Build desktop runtime payload",
+        "packaging/build_desktop_runtime.py",
+        "packaging/verify_desktop_runtime.py",
+        "--output frontends/desktop/src-tauri/resources/penglai-runtime",
+        "--with-standalone-python mac-arm64",
+        "--with-standalone-python win-x64",
+        "PENGLAI_PBS_BASE_URL",
+        "PENGLAI_PBS_URL_TEMPLATE",
+        "PENGLAI_PBS_CACHE",
+        "PENGLAI_PIP_INDEX",
+        "PENGLAI_UPDATER_BASE_URL",
+        "Desktop installers include the Penglai runtime, standalone Python, and core dependencies",
+        "--require-bundled-python",
+        "--forbid-venv",
         "Runtime bootstrap smoke",
         "PENGLAI_BRANCH=main",
         "PENGLAI_INSTALL_DEPS=1",
@@ -3509,6 +3935,15 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "npm run build:mac",
         "npm run build:windows",
         "hdiutil attach -readonly",
+        "Contents/Resources/penglai-runtime",
+        "python packaging/verify_desktop_runtime.py \"$runtime_payload\" --require-bundled-python --forbid-venv",
+        "Contents/MacOS/penglai-desktop\" --runtime-payload-selfcheck",
+        "--runtime-install-selfcheck",
+        "runtime install selfcheck used non-portable Python kind",
+        "runtime install selfcheck reported unknown Python scope",
+        "runtime install selfcheck used external Python",
+        "runtime install selfcheck did not report desktop bridge",
+        "Runtime install selfcheck did not unpack desktop_bridge.py",
         "Unsigned build: verified DMG layout and adhoc signature structure",
         "codesign --verify --deep --strict --verbose=4",
         "Authority=Developer ID Application",
@@ -3518,10 +3953,10 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "spctl -a -vvv -t exec",
         "spctl -a -vvv -t open --context context:primary-signature",
         "com.apple.quarantine",
-        "Penglai_0.3.1_macos_aarch64.dmg",
-        "Penglai_0.3.1_windows_x64_setup.exe",
-        "penglai-0.3.1-macos-aarch64",
-        "penglai-0.3.1-windows-x64",
+            "Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg",
+            "Penglai_$($env:PENGLAI_VERSION)_windows_x64_setup.exe",
+            "penglai-${{ env.PENGLAI_VERSION }}-macos-aarch64",
+            "penglai-${{ env.PENGLAI_VERSION }}-windows-x64",
         "Check Windows signing secrets",
         "Import Windows signing certificate",
         "WINDOWS_CERTIFICATE",
@@ -3530,7 +3965,8 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "certificateThumbprint",
         "Get-AuthenticodeSignature",
         "Invoke-WebRequest -UseBasicParsing",
-        "window\\.__PENGLAI_BRIDGE_TOKEN__",
+        "PENGLAI_DESKTOP_BRIDGE_TOKEN",
+        "Installed Penglai app exposed the desktop bridge token in index HTML.",
         "$origin/status",
         "$origin/ops/checks",
         '@($opsDoc.commands.read_only) -contains "install-check"',
@@ -3544,6 +3980,17 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "DisplayName -like \"Penglai*\"",
         "AddSeconds(30)",
         "DisplayIcon",
+        "Installed Penglai runtime payload manifest not found",
+        "Where-Object { $_.FullName -like \"*penglai-runtime*\" }",
+        "python packaging/verify_desktop_runtime.py $runtimePayload --require-bundled-python --forbid-venv",
+        "--runtime-payload-selfcheck",
+        "Installed Penglai runtime payload selfcheck failed",
+        "Installed Penglai runtime install selfcheck failed",
+        "Runtime install selfcheck used non-portable Python kind",
+        "Runtime install selfcheck reported unknown Python scope",
+        "Runtime install selfcheck did not unpack desktop_bridge.py",
+        "Runtime install selfcheck used external Python",
+        "Runtime install selfcheck did not report desktop bridge",
         "QuietUninstallString",
         "UninstallString",
         "Start-Process -FilePath $installedExe.FullName -PassThru",
@@ -3554,10 +4001,10 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "actions/upload-artifact@v4",
         "actions/download-artifact@v4",
         "gh release create",
-        "macOS and Windows installers are **unsigned**.",
+            "macOS and Windows installers are **not code-signed by Apple/Microsoft**",
         "Upgrade from 0.2.x is not guaranteed stable",
         "Other channels are experimental",
-        "Docker is no longer supported in 0.3.0.",
+            "Docker is no longer supported since 0.3.0.",
     ):
         assert text in workflow
 

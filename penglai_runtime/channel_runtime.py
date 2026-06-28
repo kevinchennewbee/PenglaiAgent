@@ -204,7 +204,10 @@ async def _deliver_with_plan(app, chat_id, raw_text, ctx):
     skipped_count = len(plan.allowed_paths) if plan.external_delivery.delivered else 0
 
     if plan.body and not plan.external_delivery.delivered:
-        await _send_text(app, chat_id, plan.body, ctx)
+        if plan.allowed_paths or plan.withheld:
+            await _send_text(app, chat_id, plan.body, ctx)
+        else:
+            await _send_done(app, chat_id, plan.body, ctx)
 
     if plan.allowed_paths and not plan.external_delivery.delivered:
         send_media = getattr(app, "send_media", None) or getattr(app, "send_file", None)

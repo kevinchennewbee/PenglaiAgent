@@ -11,6 +11,17 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
+_ORIGINAL_MODULES = {name: sys.modules.get(name) for name in ("plugins.hooks", "agent_loop", "ga", "requests")}
+
+
+def _restore_test_patches():
+    for name, module in _ORIGINAL_MODULES.items():
+        if module is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
+
+
 # 伪 GA 依赖，隔离导入
 for m, attrs in [("plugins.hooks", {"register": lambda e: (lambda f: f)}),
                  ("agent_loop", {"StepOutcome": type("S", (), {"__init__": lambda s, *a, **k: None})}),
@@ -73,5 +84,6 @@ check("单源不标 ★（convergent=False）", all(not x["convergent"] for x in
 ps._mykey = _orig
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")
+_restore_test_patches()
 if __name__ == "__main__":
     sys.exit(1 if failed else 0)

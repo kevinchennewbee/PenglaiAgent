@@ -39,7 +39,7 @@
   penglai companion <status|enable|mode|pause|resume|why|test>  主动陪伴管理（--json 支持）
   penglai help      显示本帮助
 """
-import json, os, sys, shutil, subprocess
+import json, os, sys, shutil, sqlite3, subprocess, uuid
 
 # realpath 而非 abspath：install.sh 会软链 ~/.local/bin/penglai → 仓库内本体，
 # abspath 会把 ROOT 解析到 ~/.local/bin，整个发行版找不到自己（真机踩过）
@@ -1515,11 +1515,66 @@ def config_status(as_json=False):
     return 0
 
 # ---------- 完整数据备份/恢复（0.3.1 版本迁移用）----------
+def _copy_sqlite_consistent(src, dst):
+    """Copy a SQLite database with WAL-safe backup API and integrity check."""
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    tmp = f"{dst}.tmp.{uuid.uuid4().hex}"
+    try:
+        with sqlite3.connect(src, timeout=30) as src_conn, sqlite3.connect(tmp) as dst_conn:
+            src_conn.backup(dst_conn)
+            check = dst_conn.execute("PRAGMA integrity_check").fetchone()
+            if not check or check[0] != "ok":
+                raise RuntimeError(f"SQLite integrity_check failed: {check[0] if check else 'no result'}")
+        os.replace(tmp, dst)
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _copy_file_atomic(src, dst):
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    tmp = f"{dst}.tmp.{uuid.uuid4().hex}"
+    try:
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dst)
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _replace_tree_atomic(src, dst):
+    parent = os.path.dirname(dst)
+    os.makedirs(parent, exist_ok=True)
+    tmp = os.path.join(parent, f".{os.path.basename(dst)}.restore-tmp-{uuid.uuid4().hex}")
+    old = os.path.join(parent, f".{os.path.basename(dst)}.restore-old-{uuid.uuid4().hex}")
+    try:
+        shutil.copytree(src, tmp)
+        if os.path.exists(dst):
+            os.replace(dst, old)
+        os.replace(tmp, dst)
+        if os.path.exists(old):
+            shutil.rmtree(old)
+    except Exception:
+        if os.path.exists(tmp):
+            shutil.rmtree(tmp, ignore_errors=True)
+        if os.path.exists(old) and not os.path.exists(dst):
+            os.replace(old, dst)
+        raise
+
+
 def backup_cmd():
     """penglai backup — 完整数据备份（用于版本迁移前）"""
     import time
     ts = time.strftime('%Y%m%d-%H%M%S')
     backup_dir = os.path.join(BACKUP_DIR, f"full-{ts}")
+    if os.path.exists(backup_dir):
+        backup_dir = os.path.join(BACKUP_DIR, f"full-{ts}-{uuid.uuid4().hex[:8]}")
     tmp_dir = backup_dir + ".tmp"
 
     if os.path.exists(tmp_dir):
@@ -1540,8 +1595,7 @@ def backup_cmd():
     # temp/runtime_hub.sqlite3
     sqlite_path = os.path.join(ROOT, "temp", "runtime_hub.sqlite3")
     if os.path.exists(sqlite_path):
-        os.makedirs(os.path.join(tmp_dir, "temp"), exist_ok=True)
-        shutil.copy2(sqlite_path, os.path.join(tmp_dir, "temp", "runtime_hub.sqlite3"))
+        _copy_sqlite_consistent(sqlite_path, os.path.join(tmp_dir, "temp", "runtime_hub.sqlite3"))
         items.append("temp/runtime_hub.sqlite3")
     # ~/.wxbot/token.json
     wxbot_token = os.path.expanduser("~/.wxbot/token.json")
@@ -1582,39 +1636,52 @@ def restore_cmd(backup_path=None):
         print(f"{BAD} 备份目录不存在：{src}")
         return 1
 
+    current_has_data = any(
+        os.path.exists(path)
+        for path in (
+            _mykey_path(),
+            os.path.join(ROOT, "memory"),
+            os.path.join(ROOT, "temp", "runtime_hub.sqlite3"),
+            os.path.expanduser("~/.wxbot/token.json"),
+            os.path.expanduser("~/.penglai_desktop_settings.json"),
+        )
+    )
+    if current_has_data:
+        print(f"{WARN} 恢复前先自动备份当前数据，避免恢复失败导致覆盖丢失。")
+        pre_rc = backup_cmd()
+        if pre_rc != 0:
+            print(f"{BAD} 恢复前备份失败，已停止恢复。")
+            return pre_rc
+
     items = []
     # mykey.py
     mykey_bak = os.path.join(src, "mykey.py")
     if os.path.exists(mykey_bak):
-        shutil.copy2(mykey_bak, _mykey_path())
+        _copy_file_atomic(mykey_bak, _mykey_path())
         items.append("mykey.py")
     # memory/
     mem_bak = os.path.join(src, "memory")
     if os.path.isdir(mem_bak):
         mem_dst = os.path.join(ROOT, "memory")
-        if os.path.exists(mem_dst):
-            shutil.rmtree(mem_dst)
-        shutil.copytree(mem_bak, mem_dst)
+        _replace_tree_atomic(mem_bak, mem_dst)
         items.append("memory/")
     # temp/runtime_hub.sqlite3
     sqlite_bak = os.path.join(src, "temp", "runtime_hub.sqlite3")
     if os.path.exists(sqlite_bak):
         sqlite_dst = os.path.join(ROOT, "temp", "runtime_hub.sqlite3")
-        os.makedirs(os.path.dirname(sqlite_dst), exist_ok=True)
-        shutil.copy2(sqlite_bak, sqlite_dst)
+        _copy_sqlite_consistent(sqlite_bak, sqlite_dst)
         items.append("temp/runtime_hub.sqlite3")
     # ~/.wxbot/token.json
     wxbot_bak = os.path.join(src, ".wxbot", "token.json")
     if os.path.exists(wxbot_bak):
         wxbot_dst = os.path.expanduser("~/.wxbot/token.json")
-        os.makedirs(os.path.dirname(wxbot_dst), exist_ok=True)
-        shutil.copy2(wxbot_bak, wxbot_dst)
+        _copy_file_atomic(wxbot_bak, wxbot_dst)
         items.append("~/.wxbot/token.json")
     # ~/.penglai_desktop_settings.json
     desktop_bak = os.path.join(src, ".penglai_desktop_settings.json")
     if os.path.exists(desktop_bak):
         desktop_dst = os.path.expanduser("~/.penglai_desktop_settings.json")
-        shutil.copy2(desktop_bak, desktop_dst)
+        _copy_file_atomic(desktop_bak, desktop_dst)
         items.append("~/.penglai_desktop_settings.json")
 
     if not items:

@@ -2653,7 +2653,7 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
 });
 
 // ============================================================
-// Penglai Desktop 0.3.1 — 9-Module Shell Router & Renderers
+// Penglai Desktop 0.3.2 — 9-Module Shell Router & Renderers
 // Appended IIFE. Coexists with legacy chat logic above.
 // Each module renders into its <section class="pl-view"> container
 // defined in index.html. Reuses window.penglai bridge adapter and

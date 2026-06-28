@@ -1,13 +1,15 @@
 use std::process::{Command, Child, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::collections::HashMap;
 use std::net::TcpStream;
 use std::io::{Read, Write, BufRead, BufReader};
 use std::time::{Duration, Instant};
 use std::thread;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
+use std::fs;
 use tauri::{Manager, Emitter};
 use tauri_plugin_updater::UpdaterExt;
+use sha2::{Digest, Sha256};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -15,6 +17,9 @@ use std::os::windows::process::CommandExt;
 static BRIDGE_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 const PENGLAI_OWNER_REPO: &str = "kevinchennewbee/PenglaiAgent";
 const PENGLAI_RELEASE_BRANCH: &str = "main";
+const PACKAGED_RUNTIME_RESOURCE: &str = "penglai-runtime";
+const PACKAGED_RUNTIME_MANIFEST: &str = "manifest.json";
+static DESKTOP_BRIDGE_TOKEN: OnceLock<String> = OnceLock::new();
 
 #[derive(serde::Serialize, Clone)]
 struct InstallProgress {
@@ -37,6 +42,39 @@ struct UpdateInfo {
     old_version: String,
     new_version: String,
     detail: String,
+}
+
+#[derive(serde::Deserialize)]
+struct RuntimeManifest {
+    schema: u32,
+    kind: String,
+    platform: Option<RuntimeManifestPlatform>,
+    python_kind: Option<String>,
+    python_scope: Option<String>,
+    python_relpath: Option<String>,
+    python_version: Option<String>,
+    core_deps: Option<Vec<String>>,
+    dependency_lock: Option<Vec<RuntimeDependencyLock>>,
+    files: Vec<RuntimeManifestFile>,
+}
+
+#[derive(serde::Deserialize)]
+struct RuntimeManifestPlatform {
+    os: String,
+    machine: String,
+}
+
+#[derive(serde::Deserialize)]
+struct RuntimeManifestFile {
+    path: String,
+    sha256: String,
+    size: u64,
+}
+
+#[derive(serde::Deserialize)]
+struct RuntimeDependencyLock {
+    name: String,
+    version: String,
 }
 
 /// Get project root (parent of frontends/)
@@ -120,6 +158,10 @@ fn default_runtime_project_dir() -> PathBuf {
         .join("PenglaiAgentDesktop")
 }
 
+fn is_penglai_runtime_dir(path: &Path) -> bool {
+    path.join("penglai").exists() && path.join("agent_loop.py").exists()
+}
+
 fn raw_github_url(path: &str) -> String {
     format!(
         "https://raw.githubusercontent.com/{}/refs/heads/{}/{}",
@@ -143,6 +185,335 @@ fn find_project_dir() -> Option<String> {
         }
     }
     None
+}
+
+fn packaged_runtime_dir(app_handle: &tauri::AppHandle) -> Option<PathBuf> {
+    let candidates = [
+        app_handle.path().resource_dir().ok().map(|p| p.join(PACKAGED_RUNTIME_RESOURCE)),
+        app_handle.path().resource_dir().ok().map(|p| p.join("resources").join(PACKAGED_RUNTIME_RESOURCE)),
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join(PACKAGED_RUNTIME_RESOURCE))),
+        Some(project_root().join("frontends").join("desktop").join("src-tauri").join("resources").join(PACKAGED_RUNTIME_RESOURCE)),
+    ];
+    candidates
+        .into_iter()
+        .flatten()
+        .find(|p| p.join(PACKAGED_RUNTIME_MANIFEST).exists() && p.join("source").join("penglai").exists())
+}
+
+fn allow_online_bootstrap_fallback() -> bool {
+    cfg!(debug_assertions)
+        || std::env::var("PENGLAI_DESKTOP_ALLOW_ONLINE_BOOTSTRAP")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+}
+
+fn packaged_runtime_dir_from_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
+    let mut candidates = vec![
+        exe_dir.join(PACKAGED_RUNTIME_RESOURCE),
+    ];
+    if let Some(contents_dir) = exe_dir.parent() {
+        candidates.push(contents_dir.join("Resources").join(PACKAGED_RUNTIME_RESOURCE));
+        candidates.push(contents_dir.join("Resources").join("resources").join(PACKAGED_RUNTIME_RESOURCE));
+    }
+    if let Some(parent) = exe_dir.parent().and_then(|p| p.parent()) {
+        candidates.push(parent.join(PACKAGED_RUNTIME_RESOURCE));
+    }
+    candidates
+        .into_iter()
+        .find(|p| p.join(PACKAGED_RUNTIME_MANIFEST).exists() && p.join("source").join("penglai").exists())
+}
+
+fn safe_manifest_path(root: &Path, rel: &str) -> Result<PathBuf, String> {
+    let rel_path = Path::new(rel);
+    if rel_path.is_absolute() {
+        return Err(format!("manifest path must be relative: {}", rel));
+    }
+    let mut out = root.to_path_buf();
+    for component in rel_path.components() {
+        match component {
+            Component::Normal(part) => out.push(part),
+            _ => return Err(format!("manifest path contains unsafe component: {}", rel)),
+        }
+    }
+    Ok(out)
+}
+
+fn sha256_hex(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|e| format!("open {:?}: {}", path, e))?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0_u8; 1024 * 64];
+    loop {
+        let n = file.read(&mut buf).map_err(|e| format!("read {:?}: {}", path, e))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn normalize_package_name(name: &str) -> String {
+    name.trim().to_ascii_lowercase().replace('_', "-")
+}
+
+fn verify_manifest_python(runtime_dir: &Path, manifest: &RuntimeManifest) -> Result<(), String> {
+    let python_relpath = manifest.python_relpath.as_deref().unwrap_or("").trim();
+    if python_relpath.is_empty() {
+        return Ok(());
+    }
+    let python_kind = manifest.python_kind.as_deref().unwrap_or("").trim();
+    if !matches!(python_kind, "standalone" | "embedded" | "venv") {
+        return Err(format!("包内 Python manifest python_kind 不支持: {}", python_kind));
+    }
+    let python_scope = manifest.python_scope.as_deref().unwrap_or("").trim();
+    if !matches!(python_scope, "runtime" | "source") {
+        return Err(format!("包内 Python manifest python_scope 不支持: {}", python_scope));
+    }
+    let source_python_root;
+    let python_root = if python_scope == "runtime" {
+        runtime_dir
+    } else {
+        source_python_root = runtime_dir.join("source");
+        &source_python_root
+    };
+    let python_path = safe_manifest_path(python_root, python_relpath)?;
+    let meta = fs::metadata(&python_path)
+        .map_err(|e| format!("包内 Python 不存在 {:?}: {}", python_path, e))?;
+    if !meta.is_file() {
+        return Err(format!("包内 Python manifest 指向非文件: {:?}", python_path));
+    }
+    let manifest_python_file = if python_scope == "runtime" {
+        python_relpath.replace('\\', "/")
+    } else {
+        format!("source/{}", python_relpath.replace('\\', "/"))
+    };
+    if !manifest.files.iter().any(|item| item.path == manifest_python_file) {
+        return Err(format!("包内 Python 未纳入 SHA-256 文件清单: {}", manifest_python_file));
+    }
+    if manifest.python_version.as_deref().unwrap_or("").trim().is_empty() {
+        return Err("包内 Python manifest 缺少 python_version".into());
+    }
+    let core_deps = manifest.core_deps.as_ref()
+        .ok_or_else(|| "包内 Python manifest 缺少 core_deps".to_string())?;
+    let dependency_lock = manifest.dependency_lock.as_ref()
+        .ok_or_else(|| "包内 Python manifest 缺少 dependency_lock".to_string())?;
+    if dependency_lock.is_empty() {
+        return Err("包内 Python dependency_lock 为空".into());
+    }
+    let mut locked = std::collections::HashSet::new();
+    for dep in dependency_lock {
+        if dep.version.trim().is_empty() {
+            return Err(format!("包内 Python dependency_lock 缺少版本号: {}", dep.name));
+        }
+        locked.insert(normalize_package_name(&dep.name));
+    }
+    for dep in core_deps {
+        let dep_name = normalize_package_name(dep);
+        if !locked.contains(&dep_name) {
+            return Err(format!("包内 Python dependency_lock 缺少核心依赖: {}", dep));
+        }
+    }
+    Ok(())
+}
+
+fn manifest_python_path(runtime_dir: &Path, project: &Path, manifest: &RuntimeManifest) -> Option<String> {
+    let python_relpath = manifest.python_relpath.as_deref().unwrap_or("").trim();
+    if python_relpath.is_empty() {
+        return None;
+    }
+    let python_scope = manifest.python_scope.as_deref().unwrap_or("").trim();
+    let root = if python_scope == "runtime" { runtime_dir } else { project };
+    safe_manifest_path(root, python_relpath)
+        .ok()
+        .filter(|p| p.is_file())
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+fn verify_packaged_runtime(runtime_dir: &Path) -> Result<RuntimeManifest, String> {
+    let manifest_path = runtime_dir.join(PACKAGED_RUNTIME_MANIFEST);
+    let manifest_text = fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("读取包内运行时 manifest 失败 {:?}: {}", manifest_path, e))?;
+    let manifest: RuntimeManifest = serde_json::from_str(&manifest_text)
+        .map_err(|e| format!("解析包内运行时 manifest 失败 {:?}: {}", manifest_path, e))?;
+    if manifest.schema != 1 || manifest.kind != "penglai-desktop-runtime" {
+        return Err(format!("包内运行时 manifest 类型不匹配: schema={} kind={}", manifest.schema, manifest.kind));
+    }
+    if manifest.files.is_empty() {
+        return Err("包内运行时 manifest 没有文件清单".into());
+    }
+    if let Some(platform) = &manifest.platform {
+        let expected_os = std::env::consts::OS;
+        let actual_os = match platform.os.as_str() {
+            "darwin" => "macos",
+            "win32" | "cygwin" | "msys" => "windows",
+            "linux" => "linux",
+            other => other,
+        };
+        if actual_os != expected_os {
+            return Err(format!("包内运行时平台不匹配: expected {} got {}", expected_os, platform.os));
+        }
+        let expected_machine = std::env::consts::ARCH;
+        let actual_machine = match platform.machine.as_str() {
+            "amd64" | "x86_64" => "x86_64",
+            "arm64" | "aarch64" => "aarch64",
+            other => other,
+        };
+        if actual_machine != expected_machine {
+            return Err(format!(
+                "包内运行时架构不匹配: expected {} got {}",
+                expected_machine,
+                platform.machine
+            ));
+        }
+    }
+    verify_manifest_python(runtime_dir, &manifest)?;
+    for item in &manifest.files {
+        let path = safe_manifest_path(runtime_dir, &item.path)?;
+        let meta = fs::metadata(&path)
+            .map_err(|e| format!("包内运行时文件缺失 {:?}: {}", path, e))?;
+        if !meta.is_file() {
+            return Err(format!("包内运行时 manifest 指向非文件: {:?}", path));
+        }
+        if meta.len() != item.size {
+            return Err(format!(
+                "包内运行时文件大小不匹配 {:?}: expected {} got {}",
+                path,
+                item.size,
+                meta.len()
+            ));
+        }
+        let actual = sha256_hex(&path)?;
+        if actual != item.sha256 {
+            return Err(format!("包内运行时 SHA-256 不匹配 {:?}: expected {} got {}", path, item.sha256, actual));
+        }
+    }
+    Ok(manifest)
+}
+
+fn runtime_payload_selfcheck() -> Result<(), String> {
+    let runtime_dir = packaged_runtime_dir_from_exe()
+        .ok_or_else(|| "installed runtime payload not found next to desktop executable".to_string())?;
+    let manifest = verify_packaged_runtime(&runtime_dir)?;
+    let payload = serde_json::json!({
+        "ok": true,
+        "runtime_dir": runtime_dir.to_string_lossy(),
+        "files": manifest.files.len(),
+        "python_kind": manifest.python_kind.as_deref().unwrap_or_default(),
+        "python_scope": manifest.python_scope.as_deref().unwrap_or_default(),
+        "python_relpath": manifest.python_relpath.as_deref().unwrap_or_default(),
+        "locked_deps": manifest.dependency_lock.as_ref().map(|deps| deps.len()).unwrap_or(0),
+    });
+    println!("{}", serde_json::to_string(&payload).unwrap_or_else(|_| "{\"ok\":true}".to_string()));
+    Ok(())
+}
+
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| format!("create {:?}: {}", dst, e))?;
+    for entry in fs::read_dir(src).map_err(|e| format!("read {:?}: {}", src, e))? {
+        let entry = entry.map_err(|e| format!("read entry {:?}: {}", src, e))?;
+        let file_type = entry.file_type().map_err(|e| format!("file type {:?}: {}", entry.path(), e))?;
+        let target = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else if file_type.is_file() {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent).map_err(|e| format!("create {:?}: {}", parent, e))?;
+            }
+            fs::copy(entry.path(), &target)
+                .map_err(|e| format!("copy {:?} -> {:?}: {}", entry.path(), target, e))?;
+        }
+    }
+    Ok(())
+}
+
+fn prepare_packaged_runtime(runtime_dir: &Path, project: &Path) -> Result<String, String> {
+    let manifest = verify_packaged_runtime(runtime_dir)?;
+    let source_dir = runtime_dir.join("source");
+    if !is_penglai_runtime_dir(&source_dir) {
+        return Err(format!("包内运行时缺少 source/penglai 或 source/agent_loop.py: {:?}", runtime_dir));
+    }
+
+    if !is_penglai_runtime_dir(project) {
+        if project.exists() {
+            let mut entries = fs::read_dir(project)
+                .map_err(|e| format!("读取运行时目录失败 {:?}: {}", project, e))?;
+            if entries.next().is_some() {
+                return Err(format!(
+                    "运行时目录非空且不是蓬莱运行时，为避免覆盖用户数据已停止: {}",
+                    project.display()
+                ));
+            }
+        }
+        let tmp = project.with_extension(format!("unpack.{}", std::process::id()));
+        if tmp.exists() {
+            fs::remove_dir_all(&tmp).map_err(|e| format!("清理临时目录失败 {:?}: {}", tmp, e))?;
+        }
+        copy_dir_recursive(&source_dir, &tmp)?;
+        if project.exists() {
+            fs::remove_dir_all(project).map_err(|e| format!("清理空运行时目录失败 {:?}: {}", project, e))?;
+        }
+        fs::rename(&tmp, project)
+            .map_err(|e| format!("安装包内运行时失败 {:?} -> {:?}: {}", tmp, project, e))?;
+    }
+
+    let python_path = manifest_python_path(runtime_dir, project, &manifest)
+        .or_else(|| find_project_python(&project.to_path_buf()))
+        .unwrap_or_else(find_python);
+    Ok(python_path)
+}
+
+fn install_from_packaged_runtime(
+    app_handle: &tauri::AppHandle,
+    runtime_dir: &Path,
+    project: &Path,
+) -> Result<String, String> {
+    let _ = app_handle.emit("install-progress", InstallProgress {
+        step: "bootstrap".to_string(),
+        line: format!("使用包内运行时: {}", runtime_dir.display()),
+        done: false,
+        ok: true,
+    });
+
+    if is_penglai_runtime_dir(project) {
+        let _ = app_handle.emit("install-progress", InstallProgress {
+            step: "bootstrap".to_string(),
+            line: format!("复用已有运行时: {}", project.display()),
+            done: false,
+            ok: true,
+        });
+    }
+
+    let python_path = prepare_packaged_runtime(runtime_dir, project)?;
+    let _ = app_handle.emit("install-progress", InstallProgress {
+        step: "bootstrap".to_string(),
+        line: "包内运行时已就绪".to_string(),
+        done: true,
+        ok: true,
+    });
+    Ok(python_path)
+}
+
+fn runtime_install_selfcheck(target: &Path) -> Result<(), String> {
+    let runtime_dir = packaged_runtime_dir_from_exe()
+        .ok_or_else(|| "installed runtime payload not found next to desktop executable".to_string())?;
+    let manifest = verify_packaged_runtime(&runtime_dir)?;
+    let python_path = prepare_packaged_runtime(&runtime_dir, target)?;
+    let payload = serde_json::json!({
+        "ok": true,
+        "runtime_dir": runtime_dir.to_string_lossy(),
+        "target": target.to_string_lossy(),
+        "python_kind": manifest.python_kind.as_deref().unwrap_or_default(),
+        "python_scope": manifest.python_scope.as_deref().unwrap_or_default(),
+        "python_path": python_path,
+        "bridge": target.join("frontends").join("desktop_bridge.py").exists(),
+    });
+    println!("{}", serde_json::to_string(&payload).unwrap_or_else(|_| "{\"ok\":true}".to_string()));
+    Ok(())
 }
 
 fn settings_path() -> PathBuf {
@@ -214,25 +585,56 @@ pub fn get_or_discover_config() -> (String, String) {
     (python, project)
 }
 
+fn configured_or_default_runtime() -> (String, PathBuf) {
+    let (python, project) = get_or_discover_config();
+    if !python.is_empty() && !project.is_empty() {
+        return (python, PathBuf::from(project));
+    }
+    let project = default_runtime_project_dir();
+    let python = find_project_python(&project).unwrap_or_else(find_python);
+    (python, project)
+}
+
 fn is_bridge_port_open() -> bool {
     TcpStream::connect(("127.0.0.1", 14168)).is_ok()
 }
 
-fn is_bridge_running() -> bool {
-    let mut stream = match TcpStream::connect(("127.0.0.1", 14168)) {
-        Ok(stream) => stream,
-        Err(_) => return false,
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(700)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(700)));
-    let request = b"GET / HTTP/1.1\r\nHost: 127.0.0.1:14168\r\nConnection: close\r\n\r\n";
-    if stream.write_all(request).is_err() {
-        return false;
+fn generate_bridge_token() -> String {
+    let mut seed = [0u8; 32];
+    #[cfg(unix)]
+    {
+        if let Ok(mut f) = fs::File::open("/dev/urandom") {
+            if f.read_exact(&mut seed).is_ok() {
+                return seed.iter().map(|b| format!("{:02x}", b)).collect();
+            }
+        }
     }
-    let mut buf = Vec::new();
-    let _ = stream.read_to_end(&mut buf);
-    let body = String::from_utf8_lossy(&buf);
-    body.contains("window.__PENGLAI_BRIDGE_TOKEN__") && body.contains("penglai-web.js")
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let pid = std::process::id() as u128;
+    let digest = Sha256::digest(format!("{}:{}:{:?}", now, pid, std::env::current_exe()).as_bytes());
+    digest.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+fn desktop_bridge_token() -> &'static str {
+    DESKTOP_BRIDGE_TOKEN.get_or_init(|| {
+        std::env::var("PENGLAI_DESKTOP_BRIDGE_TOKEN")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(generate_bridge_token)
+    })
+}
+
+fn configure_bridge_command(cmd: &mut Command) {
+    cmd.env("PENGLAI_DESKTOP_BRIDGE_TOKEN", desktop_bridge_token());
+}
+
+fn is_bridge_running() -> bool {
+    bridge_get("/status")
+        .map(|body| body.contains("\"ok\":") && body.contains("\"transport\""))
+        .unwrap_or(false)
 }
 
 fn wait_for_bridge_ready(timeout: Duration) -> bool {
@@ -252,50 +654,12 @@ fn wait_for_bridge_ready(timeout: Duration) -> bool {
 // through these functions over 127.0.0.1:14168.
 // ============================================================
 
-/// Fetch the bridge token from the running bridge's index page HTML.
-/// The bridge injects `window.__PENGLAI_BRIDGE_TOKEN__="..."` into /
-fn fetch_bridge_token() -> Option<String> {
-    let mut stream = TcpStream::connect(("127.0.0.1", 14168)).ok()?;
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(1500)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(1500)));
-    let request = b"GET / HTTP/1.1\r\nHost: 127.0.0.1:14168\r\nConnection: close\r\n\r\n";
-    stream.write_all(request).ok()?;
-    let mut buf = Vec::new();
-    stream.read_to_end(&mut buf).ok()?;
-    let body = String::from_utf8_lossy(&buf);
-    let marker = "window.__PENGLAI_BRIDGE_TOKEN__=";
-    let idx = body.find(marker)?;
-    let rest = &body[idx + marker.len()..];
-    let trimmed = rest.trim_start();
-    if trimmed.starts_with('"') {
-        let end = trimmed[1..].find('"')?;
-        Some(trimmed[1..=end].to_string())
-    } else if trimmed.starts_with('\'') {
-        let end = trimmed[1..].find('\'')?;
-        Some(trimmed[1..=end].to_string())
-    } else {
-        let end = trimmed.find(|c: char| c == ';' || c == '\n' || c == '<').unwrap_or(trimmed.len());
-        Some(trimmed[..end].trim().to_string())
-    }
-}
-
 /// Check whether the running bridge is in --bootstrap mode by looking for
 /// the `window.__PENGLAI_BOOTSTRAP__=true` marker in the index page.
 fn is_bridge_bootstrap() -> bool {
-    let mut stream = match TcpStream::connect(("127.0.0.1", 14168)) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(1000)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(1000)));
-    let request = b"GET / HTTP/1.1\r\nHost: 127.0.0.1:14168\r\nConnection: close\r\n\r\n";
-    if stream.write_all(request).is_err() {
-        return false;
-    }
-    let mut buf = Vec::new();
-    let _ = stream.read_to_end(&mut buf);
-    let body = String::from_utf8_lossy(&buf);
-    body.contains("window.__PENGLAI_BOOTSTRAP__=true")
+    bridge_get("/status")
+        .map(|body| body.contains("\"bootstrap\": true") || body.contains("\"bootstrap\":true"))
+        .unwrap_or(false)
 }
 
 /// Decode an HTTP response body, handling chunked transfer encoding.
@@ -332,8 +696,7 @@ fn decode_http_body(headers: &str, body: &str) -> String {
 /// Make a synchronous HTTP request to the local bridge (127.0.0.1:14168).
 /// `body` is None for GET, Some(json) for POST.
 fn bridge_http(method: &str, path: &str, body: Option<&str>) -> Result<String, String> {
-    let token = fetch_bridge_token()
-        .ok_or_else(|| "bridge token unavailable (bridge not running on 127.0.0.1:14168)".to_string())?;
+    let token = desktop_bridge_token();
     let mut stream = TcpStream::connect(("127.0.0.1", 14168))
         .map_err(|e| format!("connect bridge failed: {}", e))?;
     stream.set_read_timeout(Some(Duration::from_secs(300))).ok();
@@ -374,6 +737,47 @@ fn bridge_post(path: &str, body: &str) -> Result<String, String> {
     bridge_http("POST", path, Some(body))
 }
 
+fn bridge_rpc_path_allowed(method: &str, path: &str) -> bool {
+    let m = method.to_ascii_uppercase();
+    if !matches!(m.as_str(), "GET" | "POST" | "DELETE") {
+        return false;
+    }
+    path.starts_with("/")
+        && !path.contains("://")
+        && !path.contains("..")
+        && !path.contains('\r')
+        && !path.contains('\n')
+        && (
+            path == "/status"
+            || path == "/config"
+            || path == "/model-profiles"
+            || path == "/sessions"
+            || path.starts_with("/session/")
+            || path.starts_with("/ops/")
+            || path.starts_with("/runtime/")
+            || path.starts_with("/tts/")
+            || path == "/path/open"
+            || path.starts_with("/channels")
+            || path.starts_with("/abilities")
+            || path == "/mykey"
+            || path == "/doctor"
+            || path.starts_with("/setup/")
+        )
+}
+
+#[tauri::command]
+fn bridge_rpc(method: String, path: String, body: String) -> Result<String, String> {
+    if !bridge_rpc_path_allowed(&method, &path) {
+        return Err(format!("blocked bridge RPC path: {} {}", method, path));
+    }
+    let m = method.to_ascii_uppercase();
+    if m == "GET" {
+        bridge_get(&path)
+    } else {
+        bridge_http(&m, &path, Some(&body))
+    }
+}
+
 #[allow(dead_code)]
 fn start_bridge() {
     let script = find_bridge_script();
@@ -391,6 +795,7 @@ fn start_bridge() {
     let mut cmd = Command::new(&python);
     cmd.arg(&script)
        .current_dir(script.parent().unwrap());
+    configure_bridge_command(&mut cmd);
 
     #[cfg(windows)]
     if !show_console {
@@ -586,6 +991,7 @@ fn start_bridge_with_config(app_handle: tauri::AppHandle, python_path: String, p
 
         let mut cmd = Command::new(&py);
         cmd.arg(&script).current_dir(&dir);
+        configure_bridge_command(&mut cmd);
         #[cfg(windows)]
         cmd.creation_flags(0x08000000);
         let child = cmd.spawn().map_err(|e| format!("Failed to spawn: {}", e))?;
@@ -656,10 +1062,15 @@ fn install_runtime(
     let project = default_runtime_project_dir();
     let project_dir = project.to_string_lossy().to_string();
 
-    let cmd = build_install_command(&project);
-    run_streaming(&app_handle, cmd, "bootstrap")?;
-
-    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+    let python_path = if let Some(runtime_dir) = packaged_runtime_dir(&app_handle) {
+        install_from_packaged_runtime(&app_handle, &runtime_dir, &project)?
+    } else if allow_online_bootstrap_fallback() {
+        let cmd = build_install_command(&project);
+        run_streaming(&app_handle, cmd, "bootstrap")?;
+        find_project_python(&project).unwrap_or_else(find_python)
+    } else {
+        return Err("安装包缺少内置 penglai-runtime；为保证首次启动零下载，发布版不会在线安装运行时。".to_string());
+    };
 
     if include_voice {
         let mut cmd = Command::new(&python_path);
@@ -691,6 +1102,7 @@ fn install_runtime(
         }
         let mut cmd = Command::new(&python_path);
         cmd.arg(&script).arg("--bootstrap").current_dir(&project);
+        configure_bridge_command(&mut cmd);
         #[cfg(windows)]
         cmd.creation_flags(0x08000000);
         let child = cmd.spawn().map_err(|e| {
@@ -721,8 +1133,7 @@ fn install_runtime_step(
     app_handle: tauri::AppHandle,
     step: String,
 ) -> Result<String, String> {
-    let project = default_runtime_project_dir();
-    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+    let (python_path, project) = configured_or_default_runtime();
 
     match step.as_str() {
         "voice" => {
@@ -761,8 +1172,7 @@ fn install_runtime_step(
 
 #[tauri::command]
 fn check_update() -> Result<UpdateInfo, String> {
-    let project = default_runtime_project_dir();
-    let python_path = find_project_python(&project).unwrap_or_else(find_python);
+    let (python_path, project) = configured_or_default_runtime();
 
     let mut cmd = Command::new(&python_path);
     cmd.arg("penglai").arg("update").arg("--check").current_dir(&project);
@@ -906,6 +1316,31 @@ fn setup_op(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--runtime-payload-selfcheck") {
+        match runtime_payload_selfcheck() {
+            Ok(()) => std::process::exit(0),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(2);
+            }
+        }
+    }
+    if let Some(idx) = args.iter().position(|a| a == "--runtime-install-selfcheck") {
+        let target = match args.get(idx + 1) {
+            Some(path) => PathBuf::from(path),
+            None => {
+                eprintln!("--runtime-install-selfcheck requires a target directory");
+                std::process::exit(2);
+            }
+        };
+        match runtime_install_selfcheck(&target) {
+            Ok(()) => std::process::exit(0),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(2);
+            }
+        }
+    }
     let no_autostart = args.iter().any(|a| a == "--no-autostart");
     let dev_mode = args.iter().any(|a| a == "--dev");
 
@@ -921,6 +1356,7 @@ pub fn run() {
             if script.exists() {
                 let mut cmd = Command::new(&py_str);
                 cmd.arg(&script).current_dir(&dir);
+                configure_bridge_command(&mut cmd);
                 #[cfg(windows)]
                 cmd.creation_flags(0x08000000);
                 if let Ok(child) = cmd.spawn() {
@@ -946,6 +1382,7 @@ pub fn run() {
             install_runtime,
             install_runtime_step,
             check_update,
+            bridge_rpc,
             setup_op,
             check_app_update,
             install_app_update,

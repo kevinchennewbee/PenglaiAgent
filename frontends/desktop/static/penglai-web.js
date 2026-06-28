@@ -7,9 +7,9 @@
   let ws = null;
   let cachedBridgeReady = null;
   const bridgeBase = `${location.protocol}//${location.hostname}:14168`;
-  const bridgeToken = window.__PENGLAI_BRIDGE_TOKEN__ || new URLSearchParams(location.search).get('token') || '';
-  const wsQuery = bridgeToken ? `?token=${encodeURIComponent(bridgeToken)}` : '';
-  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:14168/ws${wsQuery}`;
+  const tauriInvoke = window.__TAURI__?.core?.invoke;
+  const hasNativeBridgeRpc = typeof tauriInvoke === 'function';
+  const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:14168/ws`;
 
   function on(channel, cb) {
     if (typeof cb !== 'function') return () => {};
@@ -32,11 +32,18 @@
 
   async function http(path, options = {}) {
     const headers = Object.assign({}, options.headers || {});
-    if (bridgeToken) headers['X-Penglai-Bridge-Token'] = bridgeToken;
     const init = Object.assign({}, options, { headers });
     if (init.body && typeof init.body !== 'string') {
       headers['Content-Type'] = headers['Content-Type'] || 'application/json';
       init.body = JSON.stringify(init.body);
+    }
+    if (hasNativeBridgeRpc) {
+      const text = await tauriInvoke('bridge_rpc', {
+        method: (init.method || 'GET').toUpperCase(),
+        path,
+        body: init.body || '',
+      });
+      try { return text ? JSON.parse(text) : {}; } catch (_) { return { raw: text }; }
     }
     const res = await fetch(`${bridgeBase}${path}`, init);
     const text = await res.text();
@@ -53,7 +60,6 @@
 
   function bridgeUrl(path) {
     const url = new URL(path, bridgeBase);
-    if (bridgeToken) url.searchParams.set('token', bridgeToken);
     return url.toString();
   }
 

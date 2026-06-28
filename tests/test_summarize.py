@@ -8,12 +8,26 @@
 import os
 import sys
 import types
+import socket as _socket
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from _harness import install_fakes, fresh_import, run_gen, Resp  # noqa: E402
+
+_ORIGINAL_MODULES = {name: sys.modules.get(name) for name in ("agent_loop", "ga", "requests", "requests.compat")}
+_ORIGINAL_SOCKET_GETADDRINFO = _socket.getaddrinfo
+
+
+def _restore_test_patches():
+    for name, module in _ORIGINAL_MODULES.items():
+        if module is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
+    _socket.getaddrinfo = _ORIGINAL_SOCKET_GETADDRINFO
+
 
 install_fakes()
 ps = fresh_import("plugins.penglai_summarize")
@@ -211,5 +225,6 @@ check("空url — 返回 Error 不崩", isinstance(outcome, StepOutcome) and "Er
 
 failed = [n for n, ok in PASS if not ok]
 print(f"\n{len(PASS) - len(failed)}/{len(PASS)} 通过")
+_restore_test_patches()
 if __name__ == "__main__":
     sys.exit(1 if failed else 0)

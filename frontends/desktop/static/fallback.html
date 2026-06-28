@@ -91,19 +91,19 @@ select{cursor:pointer}
   <!-- ====== Phase 1: Runtime Install ====== -->
   <div id="phase-runtime" class="hidden">
     <h1 id="rw-title">初始化蓬莱运行时</h1>
-    <p class="sub" id="rw-sub">首次启动会自动下载运行时、Python 环境和基础依赖，国内优先镜像。</p>
+    <p class="sub" id="rw-sub">首次启动使用安装包内置运行时、Python 环境和基础依赖；不会在线下载核心依赖。</p>
 
     <div class="steps" id="rw-steps">
-      <div class="step-item active" data-num="1">下载运行时</div>
-      <div class="step-item" data-num="2">安装依赖</div>
+      <div class="step-item active" data-num="1">准备包内运行时</div>
+      <div class="step-item" data-num="2">写入本地配置</div>
       <div class="step-item" data-num="3">能力选择</div>
       <div class="step-item" data-num="4">诊断验证</div>
     </div>
 
     <div class="options" id="rw-opts">
       <label class="option">
-        <input id="voice-opt" type="checkbox" checked>
-        <div>启用语音转写<span>SenseVoice 本地模型，约 230MB，国内优先镜像。</span></div>
+        <input id="voice-opt" type="checkbox">
+        <div>启用语音转写<span>可稍后显式下载 SenseVoice 本地模型，约 230MB。</span></div>
       </label>
       <label class="option">
         <input id="tts-opt" type="checkbox">

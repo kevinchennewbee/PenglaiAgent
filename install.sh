@@ -140,12 +140,14 @@ if not remote:
     remote = info_str(build_info, "remote")
     remote_url = info_str(build_info, "remote_url")
 
-source = env("PENGLAI_INSTALL_SOURCE") or info_str(build_info, "source")
+source = env("PENGLAI_INSTALL_SOURCE")
 if not source:
-    if is_git(target):
-        source = "git"
-    elif source_dir:
+    if source_dir:
         source = "source"
+    elif info_str(build_info, "source"):
+        source = info_str(build_info, "source")
+    elif is_git(target):
+        source = "git"
     else:
         source = "archive"
 

@@ -20,7 +20,7 @@ def test_fetch_timeout_returns_failed_process(monkeypatch):
     monkeypatch.setattr(cli, "sh", fake_sh)
     result = cli._git("fetch", "origin")
     assert result.returncode == 124
-    assert "timeout" in result.stderr
+    assert "timeout" in result.stderr or "超时" in result.stderr
 
 
 def test_non_fetch_git_command_uses_plain_git(monkeypatch):
@@ -51,5 +51,6 @@ def test_release_remote_prefers_penglaiagent_remote(monkeypatch):
 
     monkeypatch.setattr(cli, "_git", fake_git)
     monkeypatch.delenv("PENGLAI_RELEASE_REMOTE", raising=False)
+    monkeypatch.setenv("PENGLAI_RELEASE_BRANCH", "main")
     assert cli._release_remote() == "release"
     assert cli._release_ref() == "release/main"
