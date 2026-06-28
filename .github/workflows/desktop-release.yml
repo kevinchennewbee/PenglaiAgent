@@ -835,28 +835,65 @@ jobs:
         shell: bash
         run: |
           cat > release-notes.md <<'EOF'
-          PenglaiAgent ${PENGLAI_VERSION} — self-hosted AI butler with Runtime Hub and desktop clients.
+          PenglaiAgent ${PENGLAI_VERSION} / 蓬莱 ${PENGLAI_VERSION}
+
+          中文说明在前，English follows.
+
+          ## ${PENGLAI_VERSION} 主要更新
+
+          - **本地桌面运行环境**：Mac（Apple Silicon）DMG 和 Windows（x64）安装器内置 Penglai runtime、standalone Python 和核心依赖。
+          - **免手动 Python / 免源码 / 免现场 pip**：首次启动不需要用户安装 Python、clone 源码或在线安装核心 Python 包。
+          - **完整桌面客户端**：图形化设置向导、多会话工作台、系统托盘、更新检测、渠道和能力管理。
+          - **国内升级路径**：`latest.json` 默认使用 `gh-proxy.com` Release 资产 URL；CI 提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关。
+          - **安装器自检**：Windows 发布流程跑过静默安装、runtime 验证、应用自检和卸载验证；macOS 发布流程验证 DMG、adhoc 重签和 updater artifact 重新生成。
+          - **桌面桥接安全**：bridge token 不再注入页面 JavaScript；敏感 RPC 走原生 Tauri command，WebSocket 只保留事件通道。
+          - **完整设置向导**：语言 -> LLM 选择（12 个供应商，带连通性测试）-> IM 渠道配置（飞书扫码、微信等）-> 身份命名 -> 能力面板 -> 写入配置并启动验证。
+          - **可选本地语音能力**：SenseVoice 转写 / 情绪识别、MOSS-TTS-Nano 语音合成为可选本地能力；不等同于所有大模型权重默认预装。
+          - **更新机制**：`penglai update --check` 和一键 `--apply`，带自动备份和回滚。
+          - **记忆系统**：L1 索引 -> L2 事实 -> L3 SOP -> L4 会话日志，行动验证后写入。
+          - **补配置**：桌面设置里可重新启用渠道或能力，不需要重新跑完整向导。
+          - **Doctor 诊断**：CLI 和桌面端都集成系统健康检查。
+
+          ## 安装
+
+          ### 桌面版（推荐新用户）
+          - **macOS**：下载 DMG，拖入 Applications。首次打开如被拦截，到“系统设置 -> 隐私与安全性 -> 仍要打开”。
+          - **Windows**：下载安装器并运行。如 SmartScreen 拦截，点“更多信息 -> 仍要运行”。
+          - 桌面安装包内置 Penglai runtime、standalone Python 和核心依赖；首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
+          - 应用内升级元数据默认指向国内更友好的 `gh-proxy.com` 资产 URL。
+
+          ### 命令行
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+          ```
+
+          ## 重要说明
+          - macOS 和 Windows 安装包目前**没有 Apple Developer ID / Microsoft Authenticode 平台签名**。Gatekeeper / SmartScreen 首次启动提示仍可能出现，需要按上面的方式放行。Tauri updater 的 `.sig` 更新签名是另一套机制，已生成并用于应用内更新校验。
+          - macOS 当前只支持 Apple Silicon，暂不支持 Intel Mac。
+          - 从 0.2.x 升级不保证稳定，建议新安装。
+          - 飞书是当前验证最充分的 IM 渠道，其他渠道仍偏实验性。
+          - 0.3.0 起不再支持 Docker，没有 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署路径。
 
           ## What's new in ${PENGLAI_VERSION}
 
-          - **Runtime Hub**: Unified execution layer for all channels (Feishu, WeChat, terminal, desktop). FIFO queuing, task auditing, session persistence.
-          - **Desktop clients**: Native Mac (Apple Silicon) and Windows (x64) apps with complete setup wizard, multi-session chat, system tray, update detection, channel/ability management, and a bundled local runtime.
-          - **No manual Python or source checkout**: Desktop installers include standalone Python and core dependencies, so first launch does not need users to install Python, clone the repo, or download Python packages live.
+          - **Bundled desktop runtime**: Mac (Apple Silicon) DMG and Windows (x64) installer include the Penglai runtime, standalone Python, and core dependencies.
+          - **No manual Python, source checkout, or live pip install**: first launch does not require users to install Python, clone the repository, or download core Python packages live.
+          - **Complete desktop clients**: native setup wizard, multi-session chat, system tray, update detection, channel management, and ability management.
           - **Mainland-friendly updater**: `latest.json` defaults to `gh-proxy.com` release asset URLs, with CI mirror/cache knobs for npm, pip, Cargo, rustup, and Python-build-standalone.
           - **Installer selfchecks**: Windows release runs silent install, runtime verification, app selfcheck, and uninstall verification; macOS verifies the DMG after adhoc re-sign and updater artifact regeneration.
-          - **Desktop bridge security**: The bridge token is not injected into page JavaScript; sensitive RPC goes through native Tauri commands and WebSocket remains event-only.
-          - **Complete setup wizard**: Language → LLM selection (12 providers with live connectivity test) → IM channel setup (Feishu QR scan, WeChat, etc.) → Identity naming → Capability panel (voice/TTS/companion/critic/intel) → Config writing and launch verification.
-          - **Voice & TTS**: Local SenseVoice transcription (emotion + acoustic events) and MOSS-TTS-Nano speech synthesis, both CPU-only.
+          - **Desktop bridge security**: the bridge token is not injected into page JavaScript; sensitive RPC goes through native Tauri commands and WebSocket remains event-only.
+          - **Complete setup wizard**: language -> LLM selection (12 providers with live connectivity test) -> IM channel setup (Feishu QR scan, WeChat, etc.) -> identity naming -> ability panel -> config writing and launch verification.
+          - **Optional local voice capabilities**: SenseVoice transcription / emotion recognition and MOSS-TTS-Nano speech synthesis are optional local capabilities; this does not mean every large model weight is preinstalled by default.
           - **Update mechanism**: `penglai update --check` and one-click `--apply` with automatic backup and rollback.
-          - **Memory system**: 4-layer architecture (L1 index → L2 facts → L3 SOPs → L4 session logs), action-verified only.
-          - **补配置 (supplementary config)**: Channel and ability management panel in desktop settings — re-enable channels or abilities post-install without re-running the full wizard.
-          - **Doctor diagnostics**: Full system health check integrated into both CLI and desktop.
+          - **Memory system**: L1 index -> L2 facts -> L3 SOPs -> L4 session logs, action-verified only.
+          - **Supplementary config**: channel and ability management panel in desktop settings; re-enable channels or abilities without re-running the full wizard.
+          - **Doctor diagnostics**: full system health check integrated into both CLI and desktop.
 
           ## Install
 
           ### Desktop (recommended for new users)
-          - **macOS**: Download the DMG, drag to Applications. On first open, go to System Settings → Privacy & Security → Open Anyway.
-          - **Windows**: Download the installer, run it. SmartScreen → More Info → Run Anyway.
+          - **macOS**: download the DMG and drag it to Applications. On first open, go to System Settings -> Privacy & Security -> Open Anyway if blocked.
+          - **Windows**: download and run the installer. If SmartScreen blocks it, choose More Info -> Run Anyway.
           - Desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
           - In-app updater metadata points at mainland-friendly `gh-proxy.com` asset URLs by default.
 
@@ -866,9 +903,9 @@ jobs:
           ```
 
           ## Important notes
-          - macOS and Windows installers are **not code-signed by Apple/Microsoft** (community project without Developer Program membership). Gatekeeper/SmartScreen will still block first launch — bypass as noted above. The Tauri app itself, however, is signed via `tauri-plugin-updater` (separate signing key), so in-app auto-updates are verified and install cleanly. Apple Developer ID signing/notarization and the updater signing key are two independent mechanisms; only the latter is configured today.
-          - Apple Silicon only for macOS. Intel Mac not supported.
-          - Upgrade from 0.2.x is not guaranteed stable; fresh install recommended.
+          - macOS and Windows installers are **not code-signed by Apple/Microsoft**. Gatekeeper/SmartScreen may still block first launch; bypass as noted above. Tauri updater `.sig` signing is separate and is configured for in-app update verification.
+          - Apple Silicon only for macOS. Intel Mac is not supported.
+          - Upgrade from 0.2.x is not guaranteed stable; fresh install is recommended.
           - Feishu is the most validated IM channel. Other channels are experimental.
           - Docker is no longer supported since 0.3.0. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
           EOF
@@ -881,7 +918,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${PENGLAI_VERSION}"
-          NOTES="PenglaiAgent ${PENGLAI_VERSION} release notes"
+          NOTES="PenglaiAgent ${PENGLAI_VERSION} / 蓬莱 ${PENGLAI_VERSION} release notes"
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           DEFAULT_BASE_URL="https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
           BASE_URL="${PENGLAI_UPDATER_BASE_URL:-$DEFAULT_BASE_URL}"
