@@ -53,7 +53,7 @@
         <a href="./en/" class="nav-lang">中 / EN</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 <span class="penglai-version">0.3.2</span>
+          下载 <span class="penglai-version">0.3.3</span>
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -69,7 +69,7 @@
   <!-- ========== Hero Section ========== -->
   <section class="hero" id="hero">
     <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.2</span></div>
+      <div class="hero-badge reveal">v<span class="penglai-version">0.3.3</span></div>
       <h1 class="hero-title reveal reveal-delay-1">蓬莱</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
       <p class="hero-subtitle reveal reveal-delay-2">把能干活、能听、能说的 Agent，带到你已经在用的地方</p>
@@ -517,7 +517,7 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">下载 0.3.2 安装包（macOS Apple Silicon / Windows x64）。桌面包已内置 Penglai runtime、standalone Python 和核心依赖。</p>
+              <p class="step-text">下载 0.3.3 安装包（macOS Apple Silicon / macOS Intel x64 / Windows x64）。桌面包已内置 Penglai runtime、standalone Python 和核心依赖。</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">复制</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
@@ -622,42 +622,42 @@
     <div class="section-inner">
       <div class="section-header">
         <div class="section-label reveal">更新日志</div>
-        <h2 class="section-title reveal reveal-delay-1">v0.3.2：桌面本地运行环境</h2>
-        <p class="section-desc reveal reveal-delay-2">这次更新重点不是多一个按钮，而是让普通用户下载桌面安装包后可以直接启动。</p>
+        <h2 class="section-title reveal reveal-delay-1">v0.3.3：Intel Mac 桌面支持</h2>
+        <p class="section-desc reveal reveal-delay-2">这次更新补齐 macOS Intel x64 桌面包，并继续加固首次设置、迁移和升级链路。</p>
       </div>
 
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
             <div class="feature-icon">📦</div>
-            <h3 class="feature-title">免 Python / 免源码</h3>
+            <h3 class="feature-title">三端桌面安装包</h3>
           </div>
-          <p class="feature-desc">Mac 和 Windows 桌面包内置 Penglai runtime、standalone Python 与核心依赖。首次启动不需要用户自己装 Python、clone 仓库或现场下载 Python 包。</p>
+          <p class="feature-desc">macOS Apple Silicon、macOS Intel x64 和 Windows x64 安装包内置 Penglai runtime、standalone Python 与核心依赖。首次启动不需要用户自己装 Python、clone 仓库或现场下载 Python 包。</p>
         </div>
         <div class="feature-card reveal reveal-delay-1">
           <div class="feature-card-header">
             <div class="feature-icon">🧪</div>
-            <h3 class="feature-title">安装包自检</h3>
+            <h3 class="feature-title">Intel Mac 独立 lane</h3>
           </div>
-          <p class="feature-desc">Windows 发布流程加入静默安装、安装后 runtime 验证、应用自检和卸载验证；macOS DMG 经过运行时打包、重签后 updater 产物重建和 DMG 布局验证。</p>
+          <p class="feature-desc">发布流水线新增 macOS Intel x64 DMG，使用独立构建 runner、x86_64 Tauri target、mac-x64 standalone Python 和 darwin-x86_64 updater key。</p>
         </div>
         <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
             <div class="feature-icon">🌏</div>
             <h3 class="feature-title">国内升级路径</h3>
           </div>
-          <p class="feature-desc">桌面 updater 的 latest.json 默认指向 gh-proxy.com 安装包地址；CI 也加入 npm、pip、Cargo、rustup、Python-build-standalone 镜像和缓存开关。</p>
+          <p class="feature-desc">桌面 updater 的 latest.json 可同时发布 darwin-aarch64、darwin-x86_64 和 windows-x86_64，并默认指向 gh-proxy.com 安装包地址。</p>
         </div>
         <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
             <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">桥接安全加固</h3>
+            <h3 class="feature-title">迁移与安全加固</h3>
           </div>
-          <p class="feature-desc">桌面 bridge token 不再注入网页 JavaScript；敏感 RPC 走 Tauri 原生命令，WebSocket 保持事件通道并检查 origin。</p>
+          <p class="feature-desc">首次设置接入 Hermes / OpenClaw 迁移预览，默认不搬明文 secret；桌面状态变更操作需要二次确认令牌。</p>
         </div>
       </div>
 
-      <p class="section-desc reveal" style="margin-top:28px;">限制说明：当前 macOS 只发布 Apple Silicon 包；Apple Developer ID 公证和 Windows Authenticode 尚未配置，首次打开仍可能出现 Gatekeeper / SmartScreen 提示。</p>
+      <p class="section-desc reveal" style="margin-top:28px;">限制说明：macOS 与 Windows 安装包目前没有 Apple Developer ID / Microsoft Authenticode 平台签名；首次打开仍可能出现 Gatekeeper / SmartScreen 提示。请按机器架构选择 Apple Silicon 或 Intel x64 DMG。</p>
     </div>
   </section>
 
@@ -707,7 +707,7 @@
       </div>
       <div class="footer-right">
         <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.2</span></div>
+        <div class="footer-license">v<span class="penglai-version">0.3.3</span></div>
         <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
           Made with AI, for everyone.
         </div>
@@ -1041,7 +1041,7 @@
   })();
   </script>
 
-  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.2 -->
+  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.3 -->
   <script>
   (function() {
     fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
