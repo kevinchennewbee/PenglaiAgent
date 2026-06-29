@@ -49,7 +49,7 @@
         <a href="../" class="nav-lang">EN / 中</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download <span class="penglai-version">0.3.2</span>
+          Download <span class="penglai-version">0.3.3</span>
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -65,7 +65,7 @@
   <!-- ========== Hero Section ========== -->
   <section class="hero" id="hero">
     <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.2</span></div>
+      <div class="hero-badge reveal">v<span class="penglai-version">0.3.3</span></div>
       <h1 class="hero-title reveal reveal-delay-1">Penglai</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
       <p class="hero-subtitle reveal reveal-delay-2">Bring agents that can work, listen, and speak to the tools you already use</p>
@@ -513,7 +513,7 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">Download the 0.3.2 installer for your platform (macOS Apple Silicon / Windows x64). Desktop packages include the Penglai runtime, standalone Python, and core dependencies.</p>
+              <p class="step-text">Download the 0.3.3 installer for your platform (macOS Apple Silicon / macOS Intel x64 / Windows x64). Desktop packages include the Penglai runtime, standalone Python, and core dependencies.</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">Copy</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
@@ -618,42 +618,42 @@
     <div class="section-inner">
       <div class="section-header">
         <div class="section-label reveal">Changelog</div>
-        <h2 class="section-title reveal reveal-delay-1">v0.3.2: Local Desktop Runtime</h2>
-        <p class="section-desc reveal reveal-delay-2">This release is not about one more button. It makes the desktop installers behave like real local apps for ordinary users.</p>
+        <h2 class="section-title reveal reveal-delay-1">v0.3.3: Intel Mac Desktop Support</h2>
+        <p class="section-desc reveal reveal-delay-2">This update adds the macOS Intel x64 desktop package and keeps hardening first-run setup, migration, and update flows.</p>
       </div>
 
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
             <div class="feature-icon">📦</div>
-            <h3 class="feature-title">No Python, No Source Checkout</h3>
+            <h3 class="feature-title">Three Desktop Installers</h3>
           </div>
-          <p class="feature-desc">Mac and Windows desktop packages bundle the Penglai runtime, standalone Python, and core dependencies. First launch no longer asks users to install Python, clone the repo, or download Python packages live.</p>
+          <p class="feature-desc">macOS Apple Silicon, macOS Intel x64, and Windows x64 installers bundle the Penglai runtime, standalone Python, and core dependencies. First launch no longer asks users to install Python, clone the repo, or download Python packages live.</p>
         </div>
         <div class="feature-card reveal reveal-delay-1">
           <div class="feature-card-header">
             <div class="feature-icon">🧪</div>
-            <h3 class="feature-title">Installer Selfchecks</h3>
+            <h3 class="feature-title">Dedicated Intel Mac Lane</h3>
           </div>
-          <p class="feature-desc">Windows release now runs silent install, installed runtime verification, app selfcheck, and uninstall verification. macOS DMG verifies the bundled runtime, rebuilds updater artifacts after adhoc signing, and checks DMG layout.</p>
+          <p class="feature-desc">The release pipeline now builds a separate macOS Intel x64 DMG with its own runner, x86_64 Tauri target, mac-x64 standalone Python, and darwin-x86_64 updater key.</p>
         </div>
         <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
             <div class="feature-icon">🌏</div>
             <h3 class="feature-title">Mainland-Friendly Updates</h3>
           </div>
-          <p class="feature-desc">Desktop updater latest.json now points to gh-proxy.com asset URLs by default. CI also includes mirror and cache knobs for npm, pip, Cargo, rustup, and Python-build-standalone.</p>
+          <p class="feature-desc">Desktop updater latest.json can publish darwin-aarch64, darwin-x86_64, and windows-x86_64, with release asset URLs defaulting to gh-proxy.com.</p>
         </div>
         <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
             <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">Bridge Security Hardening</h3>
+            <h3 class="feature-title">Migration and Safety Hardening</h3>
           </div>
-          <p class="feature-desc">The desktop bridge token is no longer injected into page JavaScript. Sensitive RPC now goes through native Tauri commands, while WebSocket remains event-only with origin checks.</p>
+          <p class="feature-desc">First-run setup now includes a Hermes / OpenClaw migration preview that does not move plaintext secrets by default. Desktop state-changing operations require a second confirmation token.</p>
         </div>
       </div>
 
-      <p class="section-desc reveal" style="margin-top:28px;">Known limit: macOS currently ships Apple Silicon only. Apple Developer ID notarization and Windows Authenticode are not configured yet, so first launch may still show Gatekeeper / SmartScreen warnings.</p>
+      <p class="section-desc reveal" style="margin-top:28px;">Known limit: macOS and Windows installers are not signed with Apple Developer ID / Microsoft Authenticode yet, so first launch may still show Gatekeeper / SmartScreen warnings. Choose the Apple Silicon or Intel x64 DMG that matches your Mac.</p>
     </div>
   </section>
 
@@ -703,7 +703,7 @@
       </div>
       <div class="footer-right">
         <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.2</span></div>
+        <div class="footer-license">v<span class="penglai-version">0.3.3</span></div>
         <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
           Made with AI, for everyone.
         </div>
@@ -1032,7 +1032,7 @@
   })();
   </script>
 
-  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.2 -->
+  <!-- Dynamic version fetch: keep the 0.3.3 fallback if the GitHub Releases API is unavailable. -->
   <script>
   (function() {
     fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
