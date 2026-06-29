@@ -622,42 +622,54 @@
     <div class="section-inner">
       <div class="section-header">
         <div class="section-label reveal">更新日志</div>
-        <h2 class="section-title reveal reveal-delay-1">v0.3.3：Intel Mac 桌面支持</h2>
-        <p class="section-desc reveal reveal-delay-2">这次更新补齐 macOS Intel x64 桌面包，并继续加固首次设置、迁移和升级链路。</p>
+        <h2 class="section-title reveal reveal-delay-1">近期 0.3.x 工作留痕</h2>
+        <p class="section-desc reveal reveal-delay-2">官网保留最近 0.3.x 系列的关键发布记录，便于快速理解蓬莱从 Runtime Hub 到桌面发行的连续演进。</p>
       </div>
 
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
-            <div class="feature-icon">📦</div>
-            <h3 class="feature-title">三端桌面安装包</h3>
+            <div class="feature-icon">🏁</div>
+            <h3 class="feature-title">v0.3.3 · 2026-06-29</h3>
           </div>
-          <p class="feature-desc">macOS Apple Silicon、macOS Intel x64 和 Windows x64 安装包内置 Penglai runtime、standalone Python 与核心依赖。首次启动不需要用户自己装 Python、clone 仓库或现场下载 Python 包。</p>
+          <p class="feature-desc">Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 darwin-x86_64 updater 元数据，保留 0.3.2 内置运行时策略；首次设置接入 Hermes / OpenClaw 迁移预览，默认不暴露明文 secret；状态变更操作加入二次确认。</p>
         </div>
         <div class="feature-card reveal reveal-delay-1">
           <div class="feature-card-header">
-            <div class="feature-icon">🧪</div>
-            <h3 class="feature-title">Intel Mac 独立 lane</h3>
+            <div class="feature-icon">📦</div>
+            <h3 class="feature-title">v0.3.2 · 2026-06-28</h3>
           </div>
-          <p class="feature-desc">发布流水线新增 macOS Intel x64 DMG，使用独立构建 runner、x86_64 Tauri target、mac-x64 standalone Python 和 darwin-x86_64 updater key。</p>
+          <p class="feature-desc">桌面本地运行环境发布：macOS Apple Silicon DMG 与 Windows x64 安装器内置 Penglai runtime、standalone Python 和核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场下载 Python 包；latest.json 默认指向 gh-proxy.com 资产地址。</p>
         </div>
         <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
-            <div class="feature-icon">🌏</div>
-            <h3 class="feature-title">国内升级路径</h3>
+            <div class="feature-icon">🔁</div>
+            <h3 class="feature-title">v0.3.1 · 2026-06-27</h3>
           </div>
-          <p class="feature-desc">桌面 updater 的 latest.json 可同时发布 darwin-aarch64、darwin-x86_64 和 windows-x86_64，并默认指向 gh-proxy.com 安装包地址。</p>
+          <p class="feature-desc">迁移机制、自动升级链路和版本动态化落地：新增 penglai backup / restore / uninstall-legacy，setup --only 支持局部补配；tauri-plugin-updater 六道关卡打通；Runtime Hub 稳态、伴随模式和上下文闭环进一步收口。</p>
         </div>
         <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">迁移与安全加固</h3>
+            <div class="feature-icon">🧭</div>
+            <h3 class="feature-title">v0.3.0 · 2026-06-25</h3>
           </div>
-          <p class="feature-desc">首次设置接入 Hermes / OpenClaw 迁移预览，默认不搬明文 secret；桌面状态变更操作需要二次确认令牌。</p>
+          <p class="feature-desc">Runtime Hub 正式版：Mac / Windows 原生桌面客户端、飞书 QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、penglai update 自动备份回滚升级；Docker 从公开支持矩阵中全面撤出。</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-card-header">
+            <div class="feature-icon">🧪</div>
+            <h3 class="feature-title">v0.3.0-preview.1 · 2026-06-25</h3>
+          </div>
+          <p class="feature-desc">0.3.0 预发布真实产物验证：GitHub prerelease 同时产出 macOS DMG 与 Windows NSIS artifact，Windows 静默安装 / 卸载验收通过，腾讯云 install-check、runtime-audit、privacy-audit 和服务状态复验通过。</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-header">
+            <div class="feature-icon">🛡️</div>
+            <h3 class="feature-title">发布边界</h3>
+          </div>
+          <p class="feature-desc">限制说明：macOS 与 Windows 安装包目前没有 Apple Developer ID / Microsoft Authenticode 平台签名；首次打开仍可能出现 Gatekeeper / SmartScreen 提示。请按机器架构选择 Apple Silicon 或 Intel x64 DMG。</p>
         </div>
       </div>
-
-      <p class="section-desc reveal" style="margin-top:28px;">限制说明：macOS 与 Windows 安装包目前没有 Apple Developer ID / Microsoft Authenticode 平台签名；首次打开仍可能出现 Gatekeeper / SmartScreen 提示。请按机器架构选择 Apple Silicon 或 Intel x64 DMG。</p>
     </div>
   </section>
 
