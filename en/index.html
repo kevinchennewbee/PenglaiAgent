@@ -618,42 +618,54 @@
     <div class="section-inner">
       <div class="section-header">
         <div class="section-label reveal">Changelog</div>
-        <h2 class="section-title reveal reveal-delay-1">v0.3.3: Intel Mac Desktop Support</h2>
-        <p class="section-desc reveal reveal-delay-2">This update adds the macOS Intel x64 desktop package and keeps hardening first-run setup, migration, and update flows.</p>
+        <h2 class="section-title reveal reveal-delay-1">Recent 0.3.x Release Trail</h2>
+        <p class="section-desc reveal reveal-delay-2">The website keeps the recent 0.3.x release history visible so users can see how Penglai evolved from Runtime Hub to a desktop-ready distribution.</p>
       </div>
 
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
-            <div class="feature-icon">📦</div>
-            <h3 class="feature-title">Three Desktop Installers</h3>
+            <div class="feature-icon">🏁</div>
+            <h3 class="feature-title">v0.3.3 · 2026-06-29</h3>
           </div>
-          <p class="feature-desc">macOS Apple Silicon, macOS Intel x64, and Windows x64 installers bundle the Penglai runtime, standalone Python, and core dependencies. First launch no longer asks users to install Python, clone the repo, or download Python packages live.</p>
+          <p class="feature-desc">Intel Mac desktop support release: adds a dedicated macOS Intel x64 DMG and darwin-x86_64 updater metadata while keeping the 0.3.2 bundled runtime model. First-run setup now includes Hermes / OpenClaw migration preview, avoids returning plaintext secrets by default, and requires a second confirmation token for state-changing operations.</p>
         </div>
         <div class="feature-card reveal reveal-delay-1">
           <div class="feature-card-header">
-            <div class="feature-icon">🧪</div>
-            <h3 class="feature-title">Dedicated Intel Mac Lane</h3>
+            <div class="feature-icon">📦</div>
+            <h3 class="feature-title">v0.3.2 · 2026-06-28</h3>
           </div>
-          <p class="feature-desc">The release pipeline now builds a separate macOS Intel x64 DMG with its own runner, x86_64 Tauri target, mac-x64 standalone Python, and darwin-x86_64 updater key.</p>
+          <p class="feature-desc">Local desktop runtime release: macOS Apple Silicon DMG and Windows x64 installer bundle the Penglai runtime, standalone Python, and core dependencies. First launch no longer asks users to install Python, clone the source tree, or download Python packages live. latest.json defaults to gh-proxy.com release asset URLs.</p>
         </div>
         <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
-            <div class="feature-icon">🌏</div>
-            <h3 class="feature-title">Mainland-Friendly Updates</h3>
+            <div class="feature-icon">🔁</div>
+            <h3 class="feature-title">v0.3.1 · 2026-06-27</h3>
           </div>
-          <p class="feature-desc">Desktop updater latest.json can publish darwin-aarch64, darwin-x86_64, and windows-x86_64, with release asset URLs defaulting to gh-proxy.com.</p>
+          <p class="feature-desc">Migration, auto-update, and dynamic versioning milestone: adds penglai backup / restore / uninstall-legacy, setup --only partial reconfiguration, and a six-gate tauri-plugin-updater path. Runtime Hub stability, companion modes, and context closure were tightened.</p>
         </div>
         <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">Migration and Safety Hardening</h3>
+            <div class="feature-icon">🧭</div>
+            <h3 class="feature-title">v0.3.0 · 2026-06-25</h3>
           </div>
-          <p class="feature-desc">First-run setup now includes a Hermes / OpenClaw migration preview that does not move plaintext secrets by default. Desktop state-changing operations require a second confirmation token.</p>
+          <p class="feature-desc">Runtime Hub GA: native Mac / Windows desktop clients, Feishu QR auto-create, MOSS-TTS-Nano local TTS, penglai update with automatic backup and rollback, and Docker removed from the public support matrix.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-card-header">
+            <div class="feature-icon">🧪</div>
+            <h3 class="feature-title">v0.3.0-preview.1 · 2026-06-25</h3>
+          </div>
+          <p class="feature-desc">Real 0.3.0 preview artifact validation: GitHub prerelease produced both macOS DMG and Windows NSIS artifacts, Windows silent install / uninstall verification passed, and Tencent Cloud install-check, runtime-audit, privacy-audit, and service-state verification all passed.</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-header">
+            <div class="feature-icon">🛡️</div>
+            <h3 class="feature-title">Release Boundary</h3>
+          </div>
+          <p class="feature-desc">Known limit: macOS and Windows installers are not signed with Apple Developer ID / Microsoft Authenticode yet, so first launch may still show Gatekeeper / SmartScreen warnings. Choose the Apple Silicon or Intel x64 DMG that matches your Mac.</p>
         </div>
       </div>
-
-      <p class="section-desc reveal" style="margin-top:28px;">Known limit: macOS and Windows installers are not signed with Apple Developer ID / Microsoft Authenticode yet, so first launch may still show Gatekeeper / SmartScreen warnings. Choose the Apple Silicon or Intel x64 DMG that matches your Mac.</p>
     </div>
   </section>
 
