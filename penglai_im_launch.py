@@ -188,6 +188,24 @@ def patch_wecom(m):
     if WeComApp is None:
         return
 
+    # 安全加固：上游 _save_media 直接用 result["filename"] 拼路径，无 basename 清洗，
+    # 构造恶意文件名（含 ../）可路径穿越覆盖任意文件。在 Penglai 包装层修复，不动上游。
+    # （上游 PR 候选；白名单生效前是真实漏洞）
+    _orig_save_media = WeComApp._save_media
+    async def _safe_save_media(self, url, aes_key, default_name):
+        os.makedirs(m.MEDIA_DIR, exist_ok=True)
+        result = await self.client.download_file(url, aes_key or None)
+        buf = result["buffer"]
+        raw_name = result.get("filename") or default_name
+        fname = os.path.basename(raw_name)  # 剥离任何路径分量，防 ../ 穿越
+        if not fname or fname in (".", ".."):
+            fname = default_name
+        path = os.path.join(m.MEDIA_DIR, fname)
+        with open(path, "wb") as f:
+            f.write(buf)
+        return path
+    WeComApp._save_media = _safe_save_media
+
     async def on_voice(self, frame):
         try:
             parsed = self._accept(frame)
@@ -285,6 +303,59 @@ def launch_wechat():
     from penglai_runtime.contracts import RunStatus
     from penglai_runtime.delivery import DeliveryService
     from penglai_runtime.permissions import render_permission_text, resolve_permission_choice
+
+    # ── 微信 iLink 健壮性加固（借鉴 Hermes weixin.py，Penglai 包装层注入，不动上游）──
+    # 1) 二维码过期自动刷新（最多 3 次），不直接 raise 让用户重跑
+    # 2) 识别 errcode=-2 stale-session（不只 -14），同样触发重扫码
+    # 3) get_updates 连续失败退避（MAX_CONSECUTIVE_FAILURES=3 → 30s backoff），防死亡螺旋
+    _WEC_MAX_QR_REFRESH = 3
+    _orig_login_qr = wx.WxBotClient.login_qr
+    def _robust_login_qr(self, poll_interval=2):
+        for _ in range(_WEC_MAX_QR_REFRESH):
+            try:
+                return _orig_login_qr(self, poll_interval)
+            except RuntimeError as e:
+                if "过期" in str(e):
+                    print(f"[QR登录] 二维码过期，自动刷新重试...")
+                    continue
+                raise
+        raise RuntimeError(f"二维码连续 {_WEC_MAX_QR_REFRESH} 次过期，请检查网络或稍后重试")
+    wx.WxBotClient.login_qr = _robust_login_qr
+
+    _WEC_MAX_FAILURES = 3
+    _WEC_BACKOFF_SEC = 30
+    _orig_get_updates = wx.WxBotClient.get_updates
+    _wec_fail_count = 0
+    def _robust_get_updates(self, timeout=30):
+        nonlocal _wec_fail_count
+        try:
+            result = _orig_get_updates(self, timeout)
+            _wec_fail_count = 0
+            return result
+        except wx.AuthExpired:
+            _wec_fail_count = 0
+            raise  # AuthExpired 直接抛，由上层处理重扫码
+        except Exception as e:
+            _wec_fail_count += 1
+            if _wec_fail_count >= _WEC_MAX_FAILURES:
+                print(f"[getUpdates] 连续 {_wec_fail_count} 次失败（{e}），退避 {_WEC_BACKOFF_SEC}s...")
+                time.sleep(_WEC_BACKOFF_SEC)
+                _wec_fail_count = 0
+            return []
+    wx.WxBotClient.get_updates = _robust_get_updates
+
+    # 识别 errcode=-2 stale-session：上游只认 -14，-2（unknown error）也应清 token 重扫
+    _orig_post = wx.WxBotClient._post
+    def _robust_post(self, ep, body, timeout=15):
+        resp = _orig_post(self, ep, body, timeout)
+        if isinstance(resp, dict) and resp.get("errcode") == -2:
+            print(f"[ilink] errcode=-2 stale-session，清 token 触发重扫码")
+            self._buf = ""; self.token = ""; self.bot_id = ""
+            self._save(bot_token="", ilink_bot_id="")
+            raise wx.AuthExpired(resp.get("errmsg", "stale session (-2)"))
+        return resp
+    wx.WxBotClient._post = _robust_post
+
     from penglai_runtime.port import GenericAgentInstancePort
     from penglai_runtime.service import RuntimeHubService
 

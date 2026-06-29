@@ -1,6 +1,6 @@
 {
   "productName": "Penglai",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.penglai.agent",
   "build": {
     "frontendDist": "../static"
@@ -49,8 +49,8 @@
     "homepage": "https://github.com/kevinchennewbee/PenglaiAgent",
     "category": "Productivity",
     "resources": ["resources/penglai-runtime/**/*"],
-    "shortDescription": "Penglai 0.3.2 desktop — self-hosted AI butler",
-    "longDescription": "Penglai desktop is the native control surface for PenglaiAgent 0.3.2. It provides a complete setup wizard (LLM, IM channels, abilities), multi-session chat workspace, Runtime Hub diagnostics, one-click update, system tray monitoring, and local speech playback. Mac (Apple Silicon) and Windows (x64).",
+    "shortDescription": "Penglai 0.3.3 desktop — self-hosted AI butler",
+    "longDescription": "Penglai desktop is the native control surface for PenglaiAgent 0.3.3. It provides a complete setup wizard (LLM, IM channels, abilities), multi-session chat workspace, Runtime Hub diagnostics, one-click update, system tray monitoring, and local speech playback. macOS Apple Silicon, macOS Intel x64, and Windows x64.",
     "icon": ["icons/icon.ico", "icons/icon.icns", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
     "windows": {
       "allowDowngrades": false,

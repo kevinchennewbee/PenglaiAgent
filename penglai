@@ -477,14 +477,14 @@ def doctor():
     as_json = "--json" in sys.argv[2:]
     findings = []
 
-    def add(name, ok, problem="", next_step_command="", detail=""):
+    def add(name, ok, problem="", next_step_command="", detail="", severity="error"):
         findings.append({
             "name": name, "ok": bool(ok),
             "problem": problem, "next_step_command": next_step_command,
-            "detail": detail,
+            "detail": detail, "severity": severity if not ok else "ok",
         })
         if not as_json:
-            mark = OK if ok else BAD
+            mark = OK if ok else (WARN if severity == "warning" else BAD)
             line = f"{mark} {name}"
             if not ok:
                 if next_step_command:
@@ -617,7 +617,9 @@ def doctor():
             problem="mykey.py 不存在",
             next_step_command="penglai setup --only llm")
 
-    # 3b. 飞书白名单（空/含* = 对所有可见用户开放本机执行能力，必须红）
+    # 3b. 飞书白名单（空/含* = 对所有可见用户开放本机执行能力）
+    # 注意：白名单为空是【安全告警】而非【连通性失败】——飞书长连接本身是通的。
+    # issue #3: 用户曾因白名单 ✗ 误以为飞书连不上，故此处明确区分。
     if os.path.exists(mykey):
         r = sh([py, "-c", "import mykey;a=getattr(mykey,'fs_allowed_users',[]);"
                 "print('OPEN' if (not a or '*' in a) else 'LOCKED:%d' % len(a))"], cwd=ROOT)
@@ -626,15 +628,12 @@ def doctor():
             if not as_json: print(f"{OK} 飞书白名单：已收紧（{st.split(':')[1]} 个授权用户）")
         else:
             oid = _owner_open_id_from_log()
-            if oid:
-                add("飞书白名单", False,
-                    problem="fs_allowed_users 为空=任何可见用户都能驱动本机 agent！已从日志认出你的 open_id",
-                    next_step_command=f"penglai setup --only feishu（设 fs_allowed_users=['{oid}'] 且 fs_owner_open_id='{oid}'）",
-                    detail=oid)
-            else:
-                add("飞书白名单", False,
-                    problem="fs_allowed_users 为空/含*，任何可见用户都能驱动本机 agent！",
-                    next_step_command="penglai setup --only feishu")
+            prob = ("fs_allowed_users 为空=任何可见用户都能驱动本机 agent（安全告警，非连通性问题）！"
+                    + ("已从日志认出你的 open_id" if oid else "为空/含*"))
+            nsc = (f"penglai setup --only feishu（设 fs_allowed_users=['{oid}'] 且 fs_owner_open_id='{oid}'）"
+                   if oid else "penglai setup --only feishu")
+            add("飞书白名单（安全告警，非连通性）", False,
+                problem=prob, next_step_command=nsc, detail=oid, severity="warning")
 
     # 3c. 飞书 0.3.0 wrapper runtime 链路（低副作用：不启动 WSS、不初始化 LLM、不发消息）
     try:

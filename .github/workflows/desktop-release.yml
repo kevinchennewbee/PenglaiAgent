@@ -24,8 +24,24 @@ permissions:
 
 jobs:
   macos-dmg:
-    name: macOS DMG release
-    runs-on: macos-14
+    name: macOS DMG release (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: macos-14
+            python_target: mac-arm64
+            rust_target: aarch64-apple-darwin
+            dmg_arch: aarch64
+            updater_platform: darwin-aarch64
+          - arch: x86_64
+            runner: macos-15-intel
+            python_target: mac-x64
+            rust_target: x86_64-apple-darwin
+            dmg_arch: x64
+            updater_platform: darwin-x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -44,6 +60,9 @@ jobs:
             fi
             echo "PENGLAI_VERSION=${cargo_version}" >> "$GITHUB_ENV"
           fi
+          # DMG 架构后缀（aarch64 / x64）+ updater 平台 key，供 shell 引用
+          echo "PENGLAI_DMG_ARCH=${{ matrix.dmg_arch }}" >> "$GITHUB_ENV"
+          echo "PENGLAI_UPDATER_PLATFORM=${{ matrix.updater_platform }}" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -56,7 +75,9 @@ jobs:
         env:
           RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER || 'https://mirrors.tuna.tsinghua.edu.cn/rustup' }}
           RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT || 'https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup' }}
-        run: rustup toolchain install stable --profile minimal
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add ${{ matrix.rust_target }}
 
       - name: Configure Cargo mirror
         shell: bash
@@ -180,7 +201,7 @@ jobs:
           python packaging/build_desktop_runtime.py \
             --source . \
             --output frontends/desktop/src-tauri/resources/penglai-runtime \
-            --with-standalone-python mac-arm64
+            --with-standalone-python ${{ matrix.python_target }}
           python packaging/verify_desktop_runtime.py \
             frontends/desktop/src-tauri/resources/penglai-runtime \
             --require-bundled-python \
@@ -221,7 +242,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_aarch64.dmg"
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg"
           test -f "$dmg"
           work_dir="$(mktemp -d /tmp/penglai-repack.XXXXXX)"
           mount_dir="$(mktemp -d /tmp/penglai-dmg-mount.XXXXXX)"
@@ -248,7 +269,7 @@ jobs:
           bundle_dir="$GITHUB_WORKSPACE/frontends/desktop/src-tauri/target/release/bundle"
           dmg_dir="$bundle_dir/dmg"
           macos_dir="$bundle_dir/macos"
-          dmg="$dmg_dir/Penglai_${PENGLAI_VERSION}_aarch64.dmg"
+          dmg="$dmg_dir/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg"
           test -f "$dmg"
 
           # Remove stale updater artifacts emitted before the adhoc re-sign.
@@ -268,9 +289,9 @@ jobs:
           # Regenerate the updater tarball from the adhoc-signed .app. Tauri
           # v2 with createUpdaterArtifacts=true ships .app.tar.gz on macOS
           # (a tarball of the .app bundle, not of the .dmg), so we mirror
-          # that format and the Penglai_${PENGLAI_VERSION}_aarch64.* prefix so the Stage
+          # that format and the Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.* prefix so the Stage
           # step's glob still matches and latest.json stays consistent.
-          tar -czf "$macos_dir/Penglai_${PENGLAI_VERSION}_aarch64.app.tar.gz" -C "$work_dir" Penglai.app
+          tar -czf "$macos_dir/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.app.tar.gz" -C "$work_dir" Penglai.app
 
           # Re-sign the new tarball with the tauri updater private key. The
           # key was generated without a password, so --password "" matches
@@ -280,11 +301,11 @@ jobs:
           npx --no-install tauri signer sign \
             --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
             --password "" \
-            "$macos_dir/Penglai_${PENGLAI_VERSION}_aarch64.app.tar.gz" < /dev/null
+            "$macos_dir/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.app.tar.gz" < /dev/null
 
-          test -f "$macos_dir/Penglai_${PENGLAI_VERSION}_aarch64.app.tar.gz.sig"
+          test -f "$macos_dir/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.app.tar.gz.sig"
           rm -rf "$work_dir"
-          echo "Regenerated Penglai_${PENGLAI_VERSION}_aarch64.app.tar.gz + .sig after adhoc re-sign"
+          echo "Regenerated Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.app.tar.gz + .sig after adhoc re-sign"
 
       - name: Verify DMG
         shell: bash
@@ -293,7 +314,7 @@ jobs:
           APPLE_SIGNING_AVAILABLE: ${{ steps.check-apple-signing.outputs.available || 'false' }}
         run: |
           set -euo pipefail
-          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_aarch64.dmg"
+          dmg="frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg"
           test -f "$dmg"
           hdiutil imageinfo "$dmg" | tee /tmp/penglai-dmg-imageinfo.txt
           mount_dir="$(mktemp -d /tmp/penglai-dmg.XXXXXX)"
@@ -386,18 +407,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_aarch64.dmg \
-            dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg
+          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg \
+            dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg
           # Copy updater artifacts (.tar.gz + .sig) for tauri-plugin-updater.
           # Tauri v2 with createUpdaterArtifacts=true may emit .dmg.tar.gz or
           # .app.tar.gz depending on version; pick whichever exists and
           # normalize the name to match the latest.json URL.
           updater_tarball="$(find frontends/desktop/src-tauri/target/release/bundle \
-            -type f -name "Penglai_${PENGLAI_VERSION}_aarch64.*.tar.gz" 2>/dev/null | head -n1 || true)"
+            -type f -name "Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.*.tar.gz" 2>/dev/null | head -n1 || true)"
           if [ -n "$updater_tarball" ] && [ -f "$updater_tarball" ]; then
-            cp "$updater_tarball" dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz
+            cp "$updater_tarball" dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz
             if [ -f "${updater_tarball}.sig" ]; then
-              cp "${updater_tarball}.sig" dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz.sig
+              cp "${updater_tarball}.sig" dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz.sig
             fi
           fi
           ls -la dist/
@@ -406,7 +427,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: penglai-${{ env.PENGLAI_VERSION }}-macos-aarch64
+          name: penglai-${{ env.PENGLAI_VERSION }}-macos-${{ matrix.dmg_arch }}
           path: |
             dist/*.dmg
             dist/*.tar.gz
@@ -841,7 +862,7 @@ jobs:
 
           ## ${PENGLAI_VERSION} 主要更新
 
-          - **本地桌面运行环境**：Mac（Apple Silicon）DMG 和 Windows（x64）安装器内置 Penglai runtime、standalone Python 和核心依赖。
+          - **本地桌面运行环境**：macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器内置 Penglai runtime、standalone Python 和核心依赖。
           - **免手动 Python / 免源码 / 免现场 pip**：首次启动不需要用户安装 Python、clone 源码或在线安装核心 Python 包。
           - **完整桌面客户端**：图形化设置向导、多会话工作台、系统托盘、更新检测、渠道和能力管理。
           - **国内升级路径**：`latest.json` 默认使用 `gh-proxy.com` Release 资产 URL；CI 提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关。
@@ -869,14 +890,14 @@ jobs:
 
           ## 重要说明
           - macOS 和 Windows 安装包目前**没有 Apple Developer ID / Microsoft Authenticode 平台签名**。Gatekeeper / SmartScreen 首次启动提示仍可能出现，需要按上面的方式放行。Tauri updater 的 `.sig` 更新签名是另一套机制，已生成并用于应用内更新校验。
-          - macOS 当前只支持 Apple Silicon，暂不支持 Intel Mac。
+          - macOS 分 Apple Silicon 与 Intel x64 两个 DMG，请按机器架构下载对应安装包。
           - 从 0.2.x 升级不保证稳定，建议新安装。
           - 飞书是当前验证最充分的 IM 渠道，其他渠道仍偏实验性。
           - 0.3.0 起不再支持 Docker，没有 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署路径。
 
           ## What's new in ${PENGLAI_VERSION}
 
-          - **Bundled desktop runtime**: Mac (Apple Silicon) DMG and Windows (x64) installer include the Penglai runtime, standalone Python, and core dependencies.
+          - **Bundled desktop runtime**: macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer include the Penglai runtime, standalone Python, and core dependencies.
           - **No manual Python, source checkout, or live pip install**: first launch does not require users to install Python, clone the repository, or download core Python packages live.
           - **Complete desktop clients**: native setup wizard, multi-session chat, system tray, update detection, channel management, and ability management.
           - **Mainland-friendly updater**: `latest.json` defaults to `gh-proxy.com` release asset URLs, with CI mirror/cache knobs for npm, pip, Cargo, rustup, and Python-build-standalone.
@@ -904,7 +925,7 @@ jobs:
 
           ## Important notes
           - macOS and Windows installers are **not code-signed by Apple/Microsoft**. Gatekeeper/SmartScreen may still block first launch; bypass as noted above. Tauri updater `.sig` signing is separate and is configured for in-app update verification.
-          - Apple Silicon only for macOS. Intel Mac is not supported.
+          - macOS ships separate Apple Silicon and Intel x64 DMGs; download the artifact that matches your Mac.
           - Upgrade from 0.2.x is not guaranteed stable; fresh install is recommended.
           - Feishu is the most validated IM channel. Other channels are experimental.
           - Docker is no longer supported since 0.3.0. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
@@ -945,6 +966,11 @@ jobs:
           add_platform "darwin-aarch64" \
             "dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz.sig" \
             "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz"
+
+          # macOS x86_64 (Intel Mac, 0.3.3+)
+          add_platform "darwin-x86_64" \
+            "dist/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz.sig" \
+            "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz"
 
           # Windows x86_64 (NSIS -setup.exe + .sig)
           add_platform "windows-x86_64" \

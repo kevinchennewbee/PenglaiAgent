@@ -28,7 +28,8 @@ def reload_mykeys():
         mt = os.stat(_mykey_path).st_mtime_ns if _mykey_path else -1
         if mt == _mykey_mtime: return globals().get('mykeys', {}), False
         mk = _load_mykeys(); _mykey_mtime = os.stat(_mykey_path).st_mtime_ns
-        print(f'[Info] Load mykeys from {_mykey_path}')
+        if os.environ.get('PENGLAI_DEBUG_CONFIG'):
+            print(f'[Info] Load mykeys from {_mykey_path}', file=sys.stderr)
         globals().update(mykeys=mk)
         return mk, True
     except: return globals().get('mykeys', {}), False
@@ -59,6 +60,7 @@ def compress_history_tags(messages, keep_recent=10, max_len=800, force=False, in
                 if not isinstance(b, dict): continue
                 t = b.get('type')
                 if t == 'text' and isinstance(b.get('text'), str): b['text'] = _trunc(b['text'])
+                elif t == 'thinking' and isinstance(b.get('thinking'), str): b['thinking'] = _trunc_str(b['thinking'])
                 elif t == 'tool_result':
                     tc = b.get('content')
                     if isinstance(tc, str): b['content'] = _trunc_str(tc)
@@ -918,6 +920,7 @@ def _ensure_text_block(blocks):
     return txt
 
 def _write_llm_log(label, content, log_path=None, model=''):
+    if log_path is False: return
     if not log_path:
         log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'temp/model_responses/model_responses_{os.getpid()}.txt')
     os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
@@ -965,6 +968,8 @@ class MixinSession:
     def primary(self): return self._sessions[0]
     @property
     def model(self): return getattr(self._sessions[self._cur_idx], 'model', None)
+    @property
+    def current_name(self): return getattr(self._sessions[self._cur_idx], 'name', None)
     def _pick(self):
         if self._cur_idx and time.time() - self._switched_at > self._spring_sec: self._cur_idx = 0
         return self._cur_idx

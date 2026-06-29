@@ -1188,7 +1188,7 @@ def test_version_metadata_reads_source_copy_build_info_without_git():
     td = tempfile.mkdtemp()
     os.makedirs(os.path.join(td, "installer"), exist_ok=True)
     with open(os.path.join(td, "installer", "pyproject.toml"), "w", encoding="utf-8") as f:
-        f.write('[project]\nversion = "0.3.2"\n')
+        f.write(f'[project]\nversion = "{VERSION}"\n')
     with open(os.path.join(td, ".penglai-build.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -1351,6 +1351,31 @@ def test_agent_runner_records_taskrun_permission_failure_and_cancel():
     assert queued.status == RunStatus.PENDING
     assert promoted == queued.event
     runner.cancel(active.session.session_id, drop_pending=True)
+
+
+def test_agent_runner_clears_active_port_after_completed_run():
+    runner = AgentRunner(owner_user_ids={"owner"})
+
+    class SignalAwarePort(CallableAgentPort):
+        def __init__(self):
+            super().__init__(lambda _event: "done", worker_id="signal-aware")
+            self.signalled = 0
+
+        def signal_stop(self):
+            self.signalled += 1
+
+    port = SignalAwarePort()
+    result = runner.submit(
+        InboundEvent("run-clear-port", "desktop", "owner", "hello"),
+        port,
+        send_body=False,
+        send_notice=False,
+    )
+
+    assert result.status == RunStatus.SUCCEEDED
+    assert result.session.session_id not in runner._active_ports
+    runner.cancel(result.session.session_id)
+    assert port.signalled == 0
 
 
 def test_taskrun_terminal_status_cannot_be_overwritten_by_late_cancel_or_success():
@@ -2214,6 +2239,13 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
         calls.append((name, allow_state, root, timeout))
         return {"ok": True, "command": name, "returncode": 0, "stdout": "ok", "stderr": ""}
 
+    migrate_home = os.path.join(td, "old-hermes")
+    os.makedirs(os.path.join(migrate_home, "memories"), exist_ok=True)
+    with open(os.path.join(migrate_home, ".env"), "w", encoding="utf-8") as fh:
+        fh.write("FEISHU_APP_ID=cli_audit_app\nFEISHU_APP_SECRET=fs-secret-should-not-leak-123456\n")
+    with open(os.path.join(migrate_home, "memories", "MEMORY.md"), "w", encoding="utf-8") as fh:
+        fh.write("prefers careful release audits\n")
+
     async def scenario():
         desktop_bridge.manager = desktop_bridge.AgentManager()
         desktop_bridge.manager.ga_root = td
@@ -2259,7 +2291,14 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             update_check_resp = await client.get("/ops/command?name=update-check", headers=auth)
             service_status_resp = await client.get("/ops/command?name=runtime-service-status", headers=auth)
             service_install_get = await client.get("/ops/command?name=runtime-service-install", headers=auth)
+            # L2.1: 状态变更操作需二次确认。第一次 POST 返回 need_confirm + token
             service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1})
+            first_resp = await service_install_post.json()
+            assert first_resp.get("need_confirm") is True
+            confirm_token = first_resp["confirm_token"]
+            # 第二次带 confirm_token 才真正执行
+            service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1, "confirm_token": confirm_token})
+            migrate_preview_resp = await client.post("/setup/migrate/preview", headers=auth, json={"src_id": "hermes", "home": migrate_home, "with_secrets": False})
             legacy_restart_get = await client.get("/ops/command?name=restart", headers=auth)
             runtime_status_resp = await client.get("/runtime/status?session_id=owner:default", headers=auth)
             runtime_runs_resp = await client.get("/runtime/runs?session_id=owner:default&limit=3", headers=auth)
@@ -2281,6 +2320,13 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             assert (await service_status_resp.json())["command"] == "runtime-service-status"
             assert service_install_get.status == 400
             assert (await service_install_post.json())["command"] == "runtime-service-install"
+            assert migrate_preview_resp.status == 200
+            migrate_preview = await migrate_preview_resp.json()
+            migrate_payload = json.dumps(migrate_preview, ensure_ascii=False)
+            assert "plan" not in migrate_preview
+            assert "fs-secret-should-not-leak-123456" not in migrate_payload
+            assert "fs-s…3456" in migrate_payload
+            assert migrate_preview["summary"]["channels_detected"] == ["fs_app_id", "fs_app_secret"]
             assert legacy_restart_get.status == 400
             assert runtime_evil.status == 401
             assert path_anywhere.status == 400
@@ -3193,7 +3239,7 @@ def test_install_script_can_install_current_branch_without_setup():
         "PENGLAI_DIR": target,
         "PENGLAI_SKIP_SETUP": "1",
         "PENGLAI_INSTALL_VERIFY": "1",
-        "PENGLAI_PIP_TIMEOUT": "20",
+        "PENGLAI_PIP_TIMEOUT": "90",
     })
 
     result = subprocess.run(
@@ -3273,6 +3319,20 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
         f.write("#!/usr/bin/env python3\nprint('minimal penglai')\n")
     with open(os.path.join(source, "agent_loop.py"), "w", encoding="utf-8") as f:
         f.write("# minimal source marker\n")
+    with open(os.path.join(source, "pyproject.toml"), "w", encoding="utf-8") as f:
+        f.write(
+            '[project]\n'
+            'name = "penglai-install-fixture"\n'
+            f'version = "{VERSION}"\n'
+            'requires-python = ">=3.10"\n'
+            '\n'
+            '[build-system]\n'
+            'requires = ["setuptools>=68.0"]\n'
+            'build-backend = "setuptools.build_meta"\n'
+            '\n'
+            '[tool.setuptools]\n'
+            'py-modules = []\n'
+        )
     with open(os.path.join(source, ".penglai-build.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -3305,7 +3365,7 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
         env=env,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=240,
     )
     output = (result.stdout or "") + (result.stderr or "")
 
@@ -3478,7 +3538,7 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
     assert "window.ga" not in bridge_js
     for text in ("permission-actions", "permission-choice-btn"):
         assert text in app_js or text in styles_css
-    for text in ("自动初始化并启动", "首次启动使用安装包内置运行时", "不会在线下载核心依赖", "准备包内运行时", "写入本地配置", "启用语音转写", "SenseVoice", "启用语音输出", "MOSS-TTS-Nano", "install_runtime", "includeVoice", "includeTts"):
+    for text in ("自动初始化并启动", "首次启动使用安装包内置运行时", "不会在线下载核心依赖", "准备包内运行时", "写入本地配置", "检测到旧管家", "migrate_detect", "migrate_preview", "migrate_apply", "escHtml(s.label)", "escHtml(s.home)", "启用语音转写", "SenseVoice", "启用语音输出", "MOSS-TTS-Nano", "install_runtime", "includeVoice", "includeTts"):
         assert text in fallback_html
     assert '<input id="voice-opt" type="checkbox" checked>' not in fallback_html
 
@@ -3508,21 +3568,22 @@ def test_desktop_package_identity_targets_penglai_release():
         installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.2"
-    assert 'VERSION = "0.3.2"' in runtime_init
-    assert 'version = "0.3.2"' in installer_pyproject
+    assert package_json["version"] == "0.3.3"
+    assert 'VERSION = "0.3.3"' in runtime_init
+    assert 'version = "0.3.3"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.2"
+    assert package_lock["packages"][""]["version"] == "0.3.3"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.2"
+    assert tauri_conf["version"] == "0.3.3"
     assert tauri_conf["identifier"] == "com.penglai.agent"
+    assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
     assert "resources/penglai-runtime/**/*" in tauri_conf["bundle"]["resources"]
     assert "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json" in tauri_conf["plugins"]["updater"]["endpoints"]
@@ -3555,7 +3616,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.2"' in cargo_toml
+    assert 'version = "0.3.3"' in cargo_toml
     assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
@@ -3879,6 +3940,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
             "- main",
             "\"v*\"",
             "macos-14",
+            "macos-15-intel",
             "windows-latest",
             "if: startsWith(github.ref, 'refs/tags/v')",
         "actions/setup-python@v5",
@@ -3907,7 +3969,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "packaging/build_desktop_runtime.py",
         "packaging/verify_desktop_runtime.py",
         "--output frontends/desktop/src-tauri/resources/penglai-runtime",
-        "--with-standalone-python mac-arm64",
+        "--with-standalone-python ${{ matrix.python_target }}",
         "--with-standalone-python win-x64",
         "PENGLAI_PBS_BASE_URL",
         "PENGLAI_PBS_URL_TEMPLATE",
@@ -3915,6 +3977,10 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "PENGLAI_PIP_INDEX",
         "PENGLAI_UPDATER_BASE_URL",
         "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}",
+        "macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器",
+        "macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer",
+        "macOS 分 Apple Silicon 与 Intel x64 两个 DMG",
+        "macOS ships separate Apple Silicon and Intel x64 DMGs",
         "Desktop installers include the Penglai runtime, standalone Python, and core dependencies",
         "--require-bundled-python",
         "--forbid-venv",
@@ -3961,11 +4027,12 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "spctl -a -vvv -t exec",
         "spctl -a -vvv -t open --context context:primary-signature",
         "com.apple.quarantine",
-            "Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg",
+            "Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg",
             "Penglai_$($env:PENGLAI_VERSION)_windows_x64_setup.exe",
             "darwin-aarch64",
+            "darwin-x86_64",
             "windows-x86_64",
-            "penglai-${{ env.PENGLAI_VERSION }}-macos-aarch64",
+            "penglai-${{ env.PENGLAI_VERSION }}-macos-${{ matrix.dmg_arch }}",
             "penglai-${{ env.PENGLAI_VERSION }}-windows-x64",
         "Check Windows signing secrets",
         "Import Windows signing certificate",
@@ -4028,11 +4095,12 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "friend-test",
         "upload_qa_artifacts",
         "qa-unsigned",
-        "--prerelease",
+        "--prerelease=true",
         "--latest=false",
         "docs/desktop-friend-test.md",
-        "darwin-x86_64",
-        "macos_x64.dmg.tar.gz.sig",
+        "macOS 当前只支持 Apple Silicon",
+        "Apple Silicon only for macOS",
+        "Intel Mac is not supported",
     ):
         assert text not in workflow
 

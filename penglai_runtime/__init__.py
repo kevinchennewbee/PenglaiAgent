@@ -5,7 +5,7 @@ This package defines Penglai-layer contracts that can be tested without
 changing the GenericAgent execution core.
 """
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 
 from .contracts import InboundEvent, PermissionRequest, RunStatus, SessionRef, TaskRun
 from .hub import PenglaiRuntimeHub

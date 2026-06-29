@@ -1306,6 +1306,9 @@ fn setup_op(
             bridge_post(&format!("/channels/{}/enable", channel), "{}")
         }
         "check_main_update" => bridge_get("/setup/check_main_update"),
+        "migrate_detect" => bridge_get("/setup/migrate/detect"),
+        "migrate_preview" => bridge_post("/setup/migrate/preview", &params),
+        "migrate_apply" => bridge_post("/setup/migrate/apply", &params),
         _ => Err(format!("未知操作: {}", op)),
     }
 }

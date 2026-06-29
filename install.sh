@@ -26,6 +26,35 @@ CORE_DEPS="requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
 say()  { printf '%s\n' "$1"; }
 die()  { printf '❌ %s\n' "$1" >&2; exit 1; }
 
+run_with_timeout() {
+    limit="${1:-180}"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$limit" "$@"
+        return $?
+    fi
+    if command -v perl >/dev/null 2>&1; then
+        perl -e 'my $limit=shift @ARGV; my $pid=fork(); die "fork failed: $!\n" unless defined $pid; if (!$pid) { exec @ARGV or die "exec failed: $!\n" } local $SIG{ALRM}=sub { kill "TERM", $pid; sleep 2; kill "KILL", $pid; exit 124 }; alarm $limit; waitpid($pid, 0); my $s=$?; alarm 0; exit(($s & 127) ? 128 + ($s & 127) : ($s >> 8));' "$limit" "$@"
+        return $?
+    fi
+    "$@" &
+    child=$!
+    (
+        sleep "$limit"
+        if kill -0 "$child" 2>/dev/null; then
+            kill "$child" 2>/dev/null || true
+            sleep 2
+            kill -9 "$child" 2>/dev/null || true
+        fi
+    ) &
+    guard=$!
+    wait "$child"
+    rc=$?
+    kill "$guard" 2>/dev/null || true
+    [ "$rc" -ge 128 ] && return 124
+    return "$rc"
+}
+
 say "🏮 蓬莱 · Penglai — 住在飞书、微信和终端里的中文 AI 管家"
 command -v curl >/dev/null || die "需要 curl(macOS/多数 Linux 自带)。Ubuntu: apt install -y curl"
 
@@ -311,24 +340,20 @@ if [ -z "$PY" ]; then
                 *)               UV_TRIPLE="x86_64-unknown-linux-gnu" ;;
             esac
             mkdir -p "$HOME/.local/bin"
-            curl -fsSL "${PROXY}https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_TRIPLE}.tar.gz" \
+            curl -fsSL --connect-timeout 15 --max-time "${PENGLAI_UV_DOWNLOAD_TIMEOUT:-180}" "${PROXY}https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_TRIPLE}.tar.gz" \
                 | tar -xz -C "$HOME/.local/bin" --strip-components=1
         else
-            curl -fsSL https://astral.sh/uv/install.sh | sh >/dev/null
+            curl -fsSL --connect-timeout 15 --max-time "${PENGLAI_UV_DOWNLOAD_TIMEOUT:-180}" https://astral.sh/uv/install.sh | sh >/dev/null
         fi
     fi
     command -v uv >/dev/null || PATH="$HOME/.local/bin:$PATH"
     command -v uv >/dev/null || die "uv 安装失败,请手动安装 Python 3.10+ 后重试"
     [ -n "$MIRROR" ] && export UV_PYTHON_INSTALL_MIRROR="${PROXY}https://github.com/astral-sh/python-build-standalone/releases/download"
     if [ ! -x .venv/bin/python ]; then
-        uv venv .venv --python 3.11 --quiet
+        run_with_timeout "${PENGLAI_UV_VENV_TIMEOUT:-300}" uv venv .venv --python 3.11 --quiet
     fi
     run_uv_pip() {
-        if command -v timeout >/dev/null 2>&1; then
-            timeout "${PENGLAI_PIP_TIMEOUT:-180}" uv pip install --python .venv/bin/python --quiet "$@"
-        else
-            uv pip install --python .venv/bin/python --quiet "$@"
-        fi
+        run_with_timeout "${PENGLAI_PIP_TIMEOUT:-180}" uv pip install --python .venv/bin/python --quiet "$@"
     }
     say "  📦 正在安装依赖..."
     PIP_INDEX="${PENGLAI_PIP_INDEX:-}"
@@ -355,11 +380,7 @@ install_source_deps() {
         "$PY" -m venv .venv
     fi
     run_pip() {
-        if command -v timeout >/dev/null 2>&1; then
-            timeout "${PENGLAI_PIP_TIMEOUT:-180}" .venv/bin/python -m pip install --quiet "$@"
-        else
-            .venv/bin/python -m pip install --quiet "$@"
-        fi
+        run_with_timeout "${PENGLAI_PIP_TIMEOUT:-180}" .venv/bin/python -m pip install --quiet "$@"
     }
     say "  📦 正在安装源码依赖..."
     PIP_INDEX="${PENGLAI_PIP_INDEX:-}"

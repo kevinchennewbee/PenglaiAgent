@@ -4,6 +4,7 @@
 GenericAgent owns `llmcore._write_llm_log`; Penglai keeps that upstream file
 unchanged and mounts this wrapper at plugin load time.
 """
+import os
 import sys
 
 import llmcore
@@ -23,4 +24,5 @@ if not getattr(llmcore._write_llm_log, "_penglai_logguard", False):
     _guarded_write_llm_log._penglai_logguard = True
     _guarded_write_llm_log._penglai_orig = _orig_write_llm_log
     llmcore._write_llm_log = _guarded_write_llm_log
-    sys.stderr.write("[penglai_logguard] LLM 日志脱敏已挂载（llmcore._write_llm_log）\n")
+    if os.environ.get("PENGLAI_DEBUG_PLUGINS"):
+        sys.stderr.write("[penglai_logguard] LLM 日志脱敏已挂载（llmcore._write_llm_log）\n")

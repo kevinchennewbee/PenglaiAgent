@@ -68,6 +68,7 @@ class AgentRunner:
         self._event_run_ids = {}
         self._active_run_ids = {}
         self._session_run_ids = {}
+        self._active_ports = {}  # L2.2: session_id → 正在执行的 port，供 cancel 中断子进程
 
     def submit(
         self,
@@ -147,8 +148,16 @@ class AgentRunner:
     def _execute(self, event, session, decision, task_run, port, *,
                  base_dir=None, exclude_paths=None, send_body=True, send_notice=True,
                  fail_on_delivery_failure=False, cancel_check=None):
+        # L2.2: 注册当前 port，供 cancel() 中断正在执行的 GA 子进程
+        sid = getattr(session, "session_id", "")
+        if sid and port is not None:
+            self._active_ports[sid] = port
         try:
-            raw, interaction, permission = self._run_port(event, port)
+            try:
+                raw, interaction, permission = self._run_port(event, port)
+            finally:
+                if sid and self._active_ports.get(sid) is port:
+                    self._active_ports.pop(sid, None)
         except Exception as exc:
             if not task_run.terminal:
                 task_run.fail(exc)
@@ -339,6 +348,13 @@ class AgentRunner:
         active = self._active_run_ids.pop(sid, None)
         if active and active in self.runs:
             self.runs[active].cancel("cancelled by runtime")
+        # L2.2: 中断 GA 当前正在执行的 do_code_run 子进程，实现"真取消"而非等下一轮 turn 边界
+        port = self._active_ports.pop(sid, None)
+        if port is not None and hasattr(port, "signal_stop"):
+            try:
+                port.signal_stop()
+            except Exception:
+                pass
         if drop_pending:
             for run_id in self._session_run_ids.get(sid, ()):
                 run = self.runs.get(run_id)

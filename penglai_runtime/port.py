@@ -99,6 +99,23 @@ class GenericAgentInstancePort(AgentPort):
         self.timeout = float(timeout)
         self.turn_hook = turn_hook
 
+    def signal_stop(self):
+        """L2.2: 中断 GA 当前正在执行的 do_code_run 子进程。
+        GA 的 code_run 通过检查 stop_signal list 来 kill 子进程；
+        设置 agent.code_stop_signal 触发正在跑的工具子进程终止，
+        配合 turn 边界的 cancel_check 实现"真取消"而非"标记后等下一轮"。"""
+        agent = self.agent
+        if agent is None:
+            return
+        try:
+            # GA 的 stop_sig 用于中断整个 agent run 循环
+            agent.stop_sig = True
+            # code_stop_signal 用于中断当前 do_code_run 的子进程
+            if hasattr(agent, "code_stop_signal"):
+                agent.code_stop_signal.append(True)
+        except Exception:
+            pass
+
     def _prompt(self, event):
         if callable(self.prompt_builder):
             return self.prompt_builder(event)

@@ -1,5 +1,6 @@
 # penglai_providers.yaml — 蓬莱 LLM 提供商目录
 # 来源：各官方文档实时抓取 2026-06-11；2026-06-12 按用户实测报告 v2 全面修正
+# 2026-06-29 核实修正：hunyuan 旧版全下线→hy3-preview；openrouter slug 点号；moonshot→k2.7-code；bailian→qwen3.6-flash
 # （套餐与按量的 base_url/Key/默认模型三件套互不通用；Anthropic 与 OpenAI 协议端点不同不可混用）
 # 用途：setup 向导、Web 初始化、客户端 — 所有入口读此文件，此处更新即全局生效
 #
@@ -8,7 +9,7 @@
 # default: true → 向导默认高亮该模型
 # base_url = OpenAI 兼容端点（蓬莱/GA 实际调用的）；base_url_anthropic = Anthropic 协议端点（备查）
 
-updated: "2026-06-12"
+updated: "2026-06-29"
 currency: CNY
 
 # 向导显示顺序（越靠前越先展示）
@@ -231,8 +232,8 @@ providers:
             input_cny: 12.0
             output_cny: 36.0
             features: [thinking, tools, cache]
-          - id: qwen3.5-flash
-            display: "千问3.5-Flash（快速/低价）"
+          - id: qwen3.6-flash
+            display: "千问3.6-Flash（快速/低价）"
             context_k: 1000
             input_cny: 0.2
             output_cny: 2.0
@@ -458,14 +459,22 @@ providers:
         base_url_anthropic: "https://api.moonshot.cn/anthropic"
         note: "API 端点是 api.moonshot.cn，platform.kimi.com 仅为开发者门户"
         models:
+          - id: kimi-k2.7-code
+            display: "Kimi K2.7 Code（官方当前默认，最强 Coding，强制开启 thinking）"
+            context_k: 256
+            features: [thinking, tools]
+            default: true
+          - id: kimi-k2.7-code-highspeed
+            display: "Kimi K2.7 Code Highspeed（高速版）"
+            context_k: 256
+            features: [thinking, tools]
           - id: kimi-k2.6
-            display: "Kimi K2.6（最新多模态）"
+            display: "Kimi K2.6（多模态，支持视觉）"
             context_k: 256
             input_cny: 6.50
             input_cached_cny: 1.10
             output_cny: 27.0
             features: [thinking, vision, tools, auto_cache]
-            default: true
           - id: kimi-k2.5
             display: "Kimi K2.5"
             context_k: 256
@@ -498,7 +507,7 @@ providers:
             display: "Kimi K2.5（套餐默认）"
             default: true
     default_billing: paygo
-    default_model: kimi-k2.6
+    default_model: kimi-k2.7-code
 
   # ============================================================
   # 7. OpenRouter — 国际模型聚合，适合访问 Claude/GPT 等
@@ -512,7 +521,7 @@ providers:
         base_url: "https://openrouter.ai/api/v1"
         note: "聚合 400+ 模型；免费额度 50 次/天；国内访问需科学上网"
         models:
-          - id: anthropic/claude-sonnet-4-6
+          - id: anthropic/claude-sonnet-4.6
             display: "Claude Sonnet 4.6（推荐）"
             features: [vision, tools]
             default: true
@@ -531,7 +540,7 @@ providers:
             display: "腾讯混元 HY3 Preview（开源旗舰，OpenRouter 上线，曾限免）"
             features: [thinking, tools]
     default_billing: paygo
-    default_model: "anthropic/claude-sonnet-4-6"
+    default_model: "anthropic/claude-sonnet-4.6"
 
   # ============================================================
   # 8. 百川 AI — 中文优化
@@ -569,35 +578,13 @@ providers:
       paygo:
         label: "按量付费（TokenHub 计费）"
         base_url: "https://api.hunyuan.cloud.tencent.com/v1"
-        note: "需腾讯云账号；HY3(hy3-preview,295B MoE/256K)已于 2026-04 开源，腾讯云按量端点逐步开通——若 hy3-preview 连通测试失败说明你的账号尚未开通，可改 HY2.0 或经 OpenRouter 用 tencent/hy3-preview；hunyuan-t1/turbo 旧系列 2026-06-22 下线"
+        note: "需腾讯云账号；原混元平台 2026-09-30 全面停服，HY2.0/turbos/t1 等旧版本已于 2026-06-22 下线，统一迁移到 hy3-preview。hy3-preview(295B MoE/256K)2026-04 开源，腾讯云按量端点逐步开通——若连通失败说明账号尚未开通，可经 OpenRouter 用 tencent/hy3-preview"
         models:
           - id: hy3-preview
-            display: "混元 HY3 Preview（最新开源旗舰，295B MoE/256K，腾讯云开通中）"
+            display: "混元 HY3 Preview（最新开源旗舰，295B MoE/256K，官方推荐迁移目标）"
             context_k: 256
             features: [thinking, tools]
-          - id: hunyuan-2.0-thinking
-            display: "混元 2.0 Thinking（旗舰思考，按量端点确认可用，推荐）"
-            context_k: 256
-            input_cny: 3.975
-            output_cny: 15.9
-            features: [thinking]
             default: true
-          - id: hunyuan-2.0-instruct
-            display: "混元 2.0 Instruct（通用）"
-            context_k: 256
-            input_cny: 3.18
-            output_cny: 7.95
-          - id: hunyuan-a13b
-            display: "混元 A13B（轻量低价）"
-            context_k: 32
-            input_cny: 0.5
-            output_cny: 2.0
-          - id: hunyuan-lite
-            display: "混元 Lite（免费）"
-            context_k: 32
-            input_cny: 0.0
-            output_cny: 0.0
-            free: true
       token_plan:
         label: "Token Plan（订阅）"
         # 套餐专属端点（与按量端点不同域名！）—— 2026-06-12 用户报告修正
@@ -634,16 +621,19 @@ providers:
           - id: minimax-m2.7
             display: "MiniMax M2.7（第三方）"
     default_billing: paygo
-    default_model: hunyuan-2.0-thinking
+    default_model: hy3-preview
     deprecated:
-      - id: hunyuan-turbos-20250416
-        replace: hunyuan-2.0-thinking
+      - id: hunyuan-2.0-thinking
+        replace: hy3-preview
         deadline: "2026-06-22"
-      - id: hunyuan-turbo-20250416
-        replace: hunyuan-2.0-thinking
+      - id: hunyuan-2.0-instruct
+        replace: hy3-preview
         deadline: "2026-06-22"
-      - id: hunyuan-t1-20250721
-        replace: hunyuan-2.0-thinking
+      - id: hunyuan-turbos-latest
+        replace: hy3-preview
+        deadline: "2026-06-22"
+      - id: hunyuan-t1-latest
+        replace: hy3-preview
         deadline: "2026-06-22"
 
   # ============================================================

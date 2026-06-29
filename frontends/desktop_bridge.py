@@ -71,6 +71,9 @@ PROTECTED_PATH_PREFIXES = (
     "/path/open",
 )
 
+# L2.1: 状态变更操作（update-apply 等）的二次确认令牌池：{token: (command, timestamp)}
+_PENDING_STATE_CONFIRMS = {}
+
 
 def find_default_ga_root() -> Path:
     candidates = [
@@ -899,10 +902,28 @@ async def ops_command_post_handler(request):
     body = await read_json(request)
     name = body.get("command", "")
     timeout = body.get("timeout")
+    confirm_token = body.get("confirm_token", "")
     catalog = command_catalog()
-    allowed = set(catalog.get("read_only", ())) | set(catalog.get("state_changing", ()))
+    state_changing = set(catalog.get("state_changing", ()))
+    allowed = set(catalog.get("read_only", ())) | state_changing
     if name not in allowed:
         return json_ok({"ok": False, "error": f"不支持的运维命令：{name}"}, status=400)
+    # L2.1 安全：状态变更操作（update-apply / runtime-service-install/uninstall）需二次确认。
+    # 第一次请求（无 confirm_token）返回 need_confirm + 一次性 token；
+    # 第二次请求带相同 confirm_token 才真正执行。防止本地进程拿到 bridge token 后直接触发高危操作。
+    if name in state_changing and not confirm_token:
+        import secrets as _sec
+        token = _sec.token_urlsafe(16)
+        _PENDING_STATE_CONFIRMS[token] = (name, time.time())
+        return json_ok({"ok": False, "need_confirm": True, "confirm_token": token,
+                        "message": f"即将执行高危操作 {name}，请确认。此操作可能重启服务或更新运行时。"})
+    if name in state_changing and confirm_token:
+        pending = _PENDING_STATE_CONFIRMS.pop(confirm_token, None)
+        if pending is None or pending[0] != name:
+            return json_ok({"ok": False, "error": "确认令牌无效或已过期，请重新发起"}, status=400)
+        # 令牌 60 秒有效
+        if time.time() - pending[1] > 60:
+            return json_ok({"ok": False, "error": "确认令牌已过期，请重新发起"}, status=400)
     try:
         data = await asyncio.to_thread(run_ops_command, name, root=manager.ga_root, allow_state=True, timeout=timeout)
     except ValueError as exc:
@@ -1674,6 +1695,97 @@ async def setup_check_main_update_handler(request):
         return json_ok({"has_update": False, "detail": str(e)[:200]})
 
 
+# ============================================================
+# 迁移：从 Hermes / OpenClaw 搬家（M1.1 桌面端接入）
+# 复用 penglai_migrate 的 detect/build_plan/preview/apply，桌面只做 HTTP I/O。
+# 三步：detect（探测）→ preview（dry-run 预览）→ apply（落盘）
+# ============================================================
+
+async def setup_migrate_detect_handler(request):
+    """探测本机是否有 Hermes/OpenClaw 旧管家。返回命中的源列表。"""
+    _require_token(request)
+    try:
+        import sys
+        cwd = manager.ga_root
+        if str(cwd) not in sys.path:
+            sys.path.insert(0, str(cwd))
+        import penglai_migrate as pm
+        hits = pm.detect()
+        return json_ok({
+            "found": len(hits) > 0,
+            "sources": [{"id": h[0], "home": h[1], "label": h[2]} for h in hits],
+        })
+    except Exception as e:
+        return json_ok({"found": False, "error": str(e)[:200], "sources": []})
+
+
+async def setup_migrate_preview_handler(request):
+    """对指定源做 dry-run 预览，返回四件搬运计划（secret 默认脱敏）。"""
+    _require_token(request)
+    body = await read_json(request)
+    src_id = str(body.get("src_id") or "")
+    home = str(body.get("home") or "")
+    with_secrets = bool(body.get("with_secrets"))
+    if not src_id or not home:
+        return json_ok({"ok": False, "error": "missing src_id or home"}, status=400)
+    try:
+        import sys
+        cwd = manager.ga_root
+        if str(cwd) not in sys.path:
+            sys.path.insert(0, str(cwd))
+        import penglai_migrate as pm
+        plan = pm.build_plan(src_id, home, {"with_secrets": with_secrets})
+        # 只返回脱敏后的可读预览。plan 内含从旧配置解析出的 API key /
+        # 渠道 secret，不能原样回给前端或落入桌面 WebView 调试面板。
+        preview_lines = pm._preview_lines(plan, with_secrets)
+        return json_ok({
+            "preview_text": "\n".join(preview_lines),
+            "with_secrets": with_secrets,
+            "summary": {
+                "src_id": plan.get("src_id", ""),
+                "label": plan.get("label", ""),
+                "home": plan.get("home", ""),
+                "memory_sections": {k: len(v) for k, v in (plan.get("memory") or {}).items()},
+                "channels_detected": list(plan.get("channels_detected") or []),
+                "has_persona": bool(plan.get("persona")),
+                "deferred_count": len(plan.get("deferred") or []),
+            },
+        })
+    except Exception as e:
+        return json_ok({"ok": False, "error": f"迁移预览失败：{e}"}, status=500)
+
+
+async def setup_migrate_apply_handler(request):
+    """执行迁移落盘：先 _backup()，再 apply()。返回五态 results。"""
+    _require_token(request)
+    body = await read_json(request)
+    src_id = str(body.get("src_id") or "")
+    home = str(body.get("home") or "")
+    with_secrets = bool(body.get("with_secrets"))
+    agent_name = str(body.get("agent_name") or "")
+    if not src_id or not home:
+        return json_ok({"ok": False, "error": "missing src_id or home"}, status=400)
+    try:
+        import sys
+        cwd = manager.ga_root
+        if str(cwd) not in sys.path:
+            sys.path.insert(0, str(cwd))
+        import penglai_migrate as pm
+        plan = pm.build_plan(src_id, home, {"with_secrets": with_secrets})
+        if agent_name:
+            plan["agent_name"] = agent_name
+        backup_dir = pm._backup()
+        results = pm.apply(plan, {"with_secrets": with_secrets})
+        return json_ok({
+            "results": results,
+            "backup_dir": backup_dir,
+            "agent_name": plan.get("agent_name") or "",
+        })
+    except Exception as e:
+        return json_ok({"ok": False, "error": f"迁移执行失败：{e}"}, status=500)
+
+
+
 async def runtime_status_handler(request):
     _require_runtime_read_available(request)
     session_id = request.query.get("session_id") or _active_runtime_session_id()
@@ -1758,6 +1870,9 @@ def create_app():
     app.router.add_post("/setup/write_mykey", setup_write_mykey_handler)
     app.router.add_get("/setup/service_status", setup_service_status_handler)
     app.router.add_get("/setup/check_main_update", setup_check_main_update_handler)
+    app.router.add_get("/setup/migrate/detect", setup_migrate_detect_handler)
+    app.router.add_post("/setup/migrate/preview", setup_migrate_preview_handler)
+    app.router.add_post("/setup/migrate/apply", setup_migrate_apply_handler)
 
     # Serve static frontend (desktop/static/)
     static_dir = APP_DIR / "desktop" / "static"

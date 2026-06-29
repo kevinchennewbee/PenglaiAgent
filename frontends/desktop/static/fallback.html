@@ -127,6 +127,18 @@ select{cursor:pointer}
     </details>
   </div>
 
+  <!-- ====== Phase 1.5: Migrate from old butler (Hermes/OpenClaw) ====== -->
+  <div id="phase-migrate" class="hidden">
+    <h1>检测到旧管家</h1>
+    <p class="sub" id="mig-sub"></p>
+    <div id="mig-body"></div>
+    <div class="btn-row" id="mig-btns">
+      <button class="secondary" id="mig-skip-btn" onclick="migrateSkip()">全新配置</button>
+      <button id="mig-next-btn" onclick="migratePreview()">查看搬运计划</button>
+    </div>
+    <div class="status-msg" id="mig-status"></div>
+  </div>
+
   <!-- ====== Phase 2: Full Setup Wizard ====== -->
   <div id="phase-setup" class="hidden">
     <h1 id="sw-title">配置蓬莱</h1>
@@ -162,6 +174,8 @@ const {listen} = window.__TAURI__.event;
 let pythonPath = '', projectDir = '';
 let installDone = false;
 let setupStep = 0;  // 0-5 (6 steps)
+let migrateSources = [];  // M1.1: 检测到的旧管家源
+let migratePlan = null;   // M1.1: 迁移预览计划
 let setupData = {
   lang: 'zh',
   llm: {},           // {name, apikey, apibase, model}
@@ -411,11 +425,8 @@ async function startRuntimeInstall() {
 
     installDone = true;
     rwLog.classList.add('hidden');
-    // Transition to setup wizard
-    document.getElementById('phase-runtime').classList.add('hidden');
-    document.getElementById('phase-setup').classList.remove('hidden');
-    document.getElementById('sw-log').classList.remove('hidden');
-    renderSetupStep();
+    // 先检测是否有旧管家可迁移，再决定进迁移页还是 setup wizard
+    await enterSetupOrMigrate();
   } catch(e) {
     appendLog(rwLog, '❌ ' + e, 'err');
     rwStatus.className = 'status-msg err';
@@ -426,6 +437,102 @@ async function startRuntimeInstall() {
     // Restore options so the user can adjust voice/tts and retry
     rwOpts.classList.remove('hidden');
   }
+}
+
+// 进入 setup 前先检测旧管家（M1.1 桌面端迁移）
+async function enterSetupOrMigrate() {
+  try {
+    const r = JSON.parse(await callSetupOp('migrate_detect', '{}'));
+    if (r && r.found && r.sources && r.sources.length > 0) {
+      // 探到旧管家 → 进迁移选择页
+      migrateSources = r.sources;
+      document.getElementById('phase-runtime').classList.add('hidden');
+      document.getElementById('phase-migrate').classList.remove('hidden');
+      const labels = r.sources.map(s => s.label).join('、');
+      document.getElementById('mig-sub').textContent = '发现已安装的 ' + labels + '。可把【记忆 / 模型 / 渠道 / 人设】直接搬到蓬莱，省去从零配置。';
+      let body = '<div class="step-content"><p>检测到以下旧管家：</p><ul style="margin:.5rem 0 1rem 1.2rem">';
+      r.sources.forEach((s, i) => {
+        body += `<li><label><input type="radio" name="mig-src" value="${i}" ${i===0?'checked':''}> ${escHtml(s.label)}（${escHtml(s.home)}）</label></li>`;
+      });
+      body += '</ul><p class="log-muted">选择「查看搬运计划」预览将搬运的内容（凭证默认脱敏），确认后一键搬家。或选「全新配置」从零开始。</p></div>';
+      document.getElementById('mig-body').innerHTML = body;
+      return;
+    }
+  } catch(e) {
+    // 迁移检测失败不阻断，继续进 wizard
+    appendLog(document.getElementById('sw-log'), '[迁移检测] ' + e, 'err');
+  }
+  // 未探到旧管家或检测失败 → 直接进 setup wizard
+  document.getElementById('phase-runtime').classList.add('hidden');
+  document.getElementById('phase-setup').classList.remove('hidden');
+  document.getElementById('sw-log').classList.remove('hidden');
+  renderSetupStep();
+}
+
+// 迁移：跳过，进全新配置 wizard
+function migrateSkip() {
+  document.getElementById('phase-migrate').classList.add('hidden');
+  document.getElementById('phase-setup').classList.remove('hidden');
+  document.getElementById('sw-log').classList.remove('hidden');
+  renderSetupStep();
+}
+
+// 迁移：预览搬运计划
+async function migratePreview() {
+  const sel = document.querySelector('input[name=mig-src]:checked');
+  if (!sel) return;
+  const src = migrateSources[parseInt(sel.value)];
+  const migStatus = document.getElementById('mig-status');
+  const migNext = document.getElementById('mig-next-btn');
+  migNext.disabled = true; migNext.textContent = '生成预览中…';
+  try {
+    const r = JSON.parse(await callSetupOp('migrate_preview', JSON.stringify({src_id: src.id, home: src.home, with_secrets: false})));
+    if (r && r.error) { migStatus.className = 'status-msg err'; migStatus.textContent = r.error; return; }
+    migratePlan = r;
+    // 展示预览文本 + 确认按钮
+    let body = '<div class="step-content"><pre style="white-space:pre-wrap;background:var(--bg-alt);padding:.8rem;border-radius:6px;font-size:.78rem;max-height:50vh;overflow:auto">' + escHtml(r.preview_text || '') + '</pre>';
+    body += '<label style="display:block;margin-top:.6rem"><input type="checkbox" id="mig-secrets"> 搬运明文凭证（不勾选则凭证留空，事后用 penglai setup --only 补）</label>';
+    body += '<p class="log-muted" style="margin-top:.4rem">确认后将自动备份现有 mykey.py + memory/，再执行搬运。</p></div>';
+    document.getElementById('mig-body').innerHTML = body;
+    migNext.textContent = '确认搬运';
+    migNext.onclick = migrateApply;
+    migNext.disabled = false;
+  } catch(e) {
+    migStatus.className = 'status-msg err'; migStatus.textContent = '预览失败：' + e;
+  } finally {
+    if (migNext.textContent === '生成预览中…') { migNext.disabled = false; migNext.textContent = '查看搬运计划'; }
+  }
+}
+
+// 迁移：执行搬运
+async function migrateApply() {
+  const sel = document.querySelector('input[name=mig-src]:checked');
+  if (!sel) return;
+  const src = migrateSources[parseInt(sel.value)];
+  const withSecrets = document.getElementById('mig-secrets') && document.getElementById('mig-secrets').checked;
+  const migStatus = document.getElementById('mig-status');
+  const migNext = document.getElementById('mig-next-btn');
+  migNext.disabled = true; migNext.textContent = '搬运中…';
+  try {
+    const r = JSON.parse(await callSetupOp('migrate_apply', JSON.stringify({src_id: src.id, home: src.home, with_secrets: withSecrets, agent_name: setupData.agentName})));
+    if (r && r.error) { migStatus.className = 'status-msg err'; migStatus.textContent = r.error; migNext.disabled = false; migNext.textContent = '确认搬运'; return; }
+    const res = r.results || {};
+    let summary = `✅ 迁移完成。备份：${r.backup_dir || '(无)'}\n`;
+    summary += `已搬运 ${(res.migrated||[]).length} 项，跳过 ${(res.skipped||[]).length} 项，待支持 ${(res.deferred||[]).length} 项，冲突 ${(res.conflict||[]).length} 项，失败 ${(res.error||[]).length} 项。`;
+    if ((res.deferred||[]).length) summary += '\n⚠️ 会话历史暂不支持搬运（诚实标注）。';
+    migStatus.className = 'status-msg ok'; migStatus.textContent = summary;
+    // 迁移完成 → 进 setup wizard 继续配置（迁移已配齐模型/渠道/记忆/人设，用户可在 wizard 微调）
+    document.getElementById('mig-next-btn').textContent = '继续配置';
+    document.getElementById('mig-next-btn').onclick = migrateSkip;
+    document.getElementById('mig-next-btn').disabled = false;
+  } catch(e) {
+    migStatus.className = 'status-msg err'; migStatus.textContent = '搬运失败：' + e;
+    migNext.disabled = false; migNext.textContent = '确认搬运';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function doManualStart() {

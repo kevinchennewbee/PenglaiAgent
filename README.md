@@ -2,7 +2,7 @@
 
 <img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
 
-# 蓬莱 · Penglai 0.3.2
+# 蓬莱 · Penglai 0.3.3
 
 ### 住在你飞书、微信和终端里的自托管 AI Runtime Hub
 
@@ -29,10 +29,11 @@
 
 **Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
 
-**v0.3.2 is the local desktop runtime release** — it turns the native Mac / Windows clients into install-and-run packages for ordinary users:
+**v0.3.3 is the Intel Mac desktop support release** — it keeps the bundled local runtime from 0.3.2 and adds a separate macOS Intel x64 DMG alongside Apple Silicon and Windows:
 
 - 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
 - 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
+- 🖥️ **Mac coverage**: separate DMGs for Apple Silicon and Intel x64, plus the Windows x64 installer
 - 🌏 **Mainland-friendly updates**: updater metadata and asset URLs default to a `gh-proxy.com` mirror, with CI mirror knobs for npm / pip / Cargo / rustup / Python-build-standalone
 
 You can use the native Mac / Windows desktop clients, or deploy to your own host with one command. Your memory, logs, config, and channel credentials stay on your machine by default.
@@ -67,7 +68,7 @@ As for "eight immortals crossing the sea, each showing their divine power" — t
 
 - 🏮 **Ten-minute setup** — `penglai setup` paged wizard (bilingual CN/EN): auto-installs dependencies (mainland China auto-switches to Tsinghua mirror) → pick model & test connectivity → **channels on one page** (Feishu QR scan auto-creates app, no webpage needed) → name your butler → ability panel with real enablement (voice pre-installed, companion/intel on demand)
 - 💬 **Feishu + WeChat, both QR-scan** — Feishu scan builds bot with long-poll connection (no public IP needed); personal WeChat scan login for text/voice/image send-receive
-- 🖥️ **Native desktop clients** — Mac (Apple Silicon) and Windows (x64) installers with full graphical setup wizard, multi-session chat, system tray, channel/ability management, in-app auto-update, and a bundled local runtime so first launch does not require Python or pip
+- 🖥️ **Native desktop clients** — macOS Apple Silicon, macOS Intel x64, and Windows x64 installers with full graphical setup wizard, multi-session chat, system tray, channel/ability management, in-app auto-update, and a bundled local runtime so first launch does not require Python or pip
 - 🎙️ **Ears that hear emotion** — local CPU SenseVoice (~230MB): speech-to-text + 7 emotion labels (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), enters conversation as `[voice(emotion:down): so tired today]`
 - 🔊 **Voice that speaks back** — MOSS-TTS-Nano local TTS synthesizes text replies into speech, CPU-only, for desktop readout and IM voice bars
 - 🧠 **Four-layer memory** — GA-core index/facts/skills/raw-sessions file-based memory, pure markdown and auditable; pre-write threat scan (prompt injection / role hijack / key leakage), overwrite forbidden; long-term facts carry **time/source/importance signatures, new values auto-invalidate old ones**
@@ -100,9 +101,10 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 
 **Desktop clients** (recommended for new users): download from [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases)
 - macOS Apple Silicon DMG
+- macOS Intel x64 DMG
 - Windows x64 installer
 
-The 0.3.2 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
+The 0.3.3 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
 
 Daily commands:
 
@@ -228,6 +230,21 @@ Three layers of protection ensure data is never lost:
 
 ---
 
+## 📋 0.3.3 Key Changes
+
+0.3.3 is a follow-up desktop release focused on Intel Mac support and setup hardening. It does not move or rebuild the v0.3.2 tag.
+
+| Area | What 0.3.3 brings |
+|---|---|
+| Intel Mac desktop | Adds a separate macOS Intel x64 DMG lane using `macos-15-intel`, `x86_64-apple-darwin`, standalone Python `mac-x64`, and updater key `darwin-x86_64` |
+| Release metadata | `latest.json` can publish both `darwin-aarch64` and `darwin-x86_64` when their updater signatures exist, plus Windows x64 |
+| Migration setup | Desktop first-run setup can detect Hermes/OpenClaw, preview a migration plan, then opt in to backup-and-apply migration |
+| Safety hardening | State-changing desktop ops require a second confirmation token; migration preview responses avoid returning raw secrets |
+| Runtime cancellation | Runtime Hub cancellation propagates to active GA code execution and clears active port references after the run |
+| Docs clarity | README, release notes, and desktop metadata distinguish Apple Silicon, Intel Mac, and Windows artifacts |
+
+---
+
 ## 📋 0.3.2 Key Changes
 
 0.3.2 focuses on distribution hardening: the desktop release now behaves like a real local app instead of a source checkout wrapped in a shell.
@@ -304,6 +321,7 @@ Thanks to all issue reporters and testers. Special thanks to:
 
 ## 📄 Version Timeline
 
+- **v0.3.3 · 2026-06-29** — Intel Mac desktop support release: adds a separate macOS Intel x64 DMG and `darwin-x86_64` updater metadata while preserving the 0.3.2 bundled runtime model; desktop migration preview is wired into first-run setup with secret-safe responses; state-changing desktop ops require a second confirmation token.
 - **v0.3.2 · 2026-06-28** — Local desktop runtime release: Mac Apple Silicon DMG and Windows x64 installer bundle standalone Python and core dependencies; first launch no longer requires Python, source checkout, or pip; Windows silent install/uninstall verification; macOS DMG verification with adhoc re-sign; updater `latest.json` defaults to `gh-proxy.com` asset URLs; desktop bridge token no longer leaks into page JavaScript; release upload is idempotent.
 - **v0.3.1 · 2026-06-27** — Milestone: migration mechanism + auto-update pipeline + dynamic versioning. `penglai backup/restore/uninstall-legacy`; `setup --only` partial reconfig; `tauri-plugin-updater` six gates; version dynamicization; Mac adhoc re-sign + updater regen; Runtime Hub stabilization; companion 4-mode + context closure.
 - **v0.3.0 · 2026-06-25** — Runtime Hub GA. Native Mac/Windows desktop clients, Feishu QR auto-create, MOSS-TTS-Nano local TTS, `penglai update` auto-rollback, Docker fully withdrawn.
@@ -318,10 +336,11 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 **蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-**v0.3.2 是桌面本地运行环境发布**——它把 Mac / Windows 原生客户端推进到普通用户可以直接安装、直接启动的形态：
+**v0.3.3 是 Intel Mac 桌面支持发布**——它继承 0.3.2 的内置本地运行环境，并新增独立的 macOS Intel x64 DMG：
 
 - 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
 - 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
+- 🖥️ **Mac 覆盖更完整**：Apple Silicon 与 Intel x64 分别提供 DMG，Windows 继续提供 x64 安装器
 - 🌏 **国内网络更友好**：升级清单和安装包 URL 默认走 `gh-proxy.com`，CI 也提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关
 
 你可以用 Mac / Windows 原生桌面客户端，也可以一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
@@ -356,7 +375,7 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 - 🏮 **十分钟开箱** —— `penglai setup` 翻页式向导（中/英双语）：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **渠道一页选**（飞书扫码自动建应用，免开网页）→ 给管家起名 → 能力面板真启用（语音默认装好，陪伴/情报按需开）
 - 💬 **飞书 + 微信双渠道，都是扫码** —— 飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字/语音/图片收发
-- 🖥️ **原生桌面客户端** —— Mac（Apple Silicon）和 Windows（x64）安装包，图形化设置向导、多会话工作台、系统托盘、渠道和能力管理、应用内自动升级，并内置本地运行环境，首次启动不要求用户安装 Python 或 pip 包
+- 🖥️ **原生桌面客户端** —— macOS Apple Silicon、macOS Intel x64 和 Windows x64 安装包，图形化设置向导、多会话工作台、系统托盘、渠道和能力管理、应用内自动升级，并内置本地运行环境，首次启动不要求用户安装 Python 或 pip 包
 - 🎙️ **听得出情绪的耳朵** —— 本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪标签（高兴/悲伤/生气/害怕…）+ 声学事件（笑声/哭声/掌声…），`[语音(情绪:低落): 今天好累]` 这样进入对话
 - 🔊 **会说话的嘴** —— MOSS-TTS-Nano 本地 TTS，把文字回复合成为语音，CPU 本地推理，适合桌面朗读和 IM 语音条
 - 🧠 **四层记忆** —— 基于 GA 内核的索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（提示注入/角色劫持/密钥落库），禁止覆盖；长期事实带**时间/来源/重要度签名、新值自动作废旧值**（治过期偏好污染）
@@ -389,9 +408,10 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 
 **桌面客户端**（推荐新用户）：在 [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases) 下载
 - macOS Apple Silicon DMG
+- macOS Intel x64 DMG
 - Windows x64 安装包
 
-0.3.2 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
+0.3.3 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
 
 日常运维：
 
@@ -519,6 +539,21 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ---
 
+## 📋 0.3.3 主要变化
+
+0.3.3 是 0.3.2 之后的桌面支持补齐版本，重点是 Intel Mac 支持和设置链路加固。它不移动、不重建 v0.3.2 tag。
+
+| 领域 | 0.3.3 带来的变化 |
+|---|---|
+| Intel Mac 桌面版 | 新增独立 macOS Intel x64 DMG lane，使用 `macos-15-intel`、`x86_64-apple-darwin`、standalone Python `mac-x64` 和 updater key `darwin-x86_64` |
+| 发布元数据 | `latest.json` 在签名产物存在时可同时发布 `darwin-aarch64`、`darwin-x86_64` 和 Windows x64 |
+| 迁移设置 | 桌面首次启动可检测 Hermes/OpenClaw，预览搬运计划，再由用户选择备份并执行迁移 |
+| 安全加固 | 桌面状态变更操作需要二次确认令牌；迁移预览响应不再返回原始 secret |
+| 运行时取消 | Runtime Hub 取消会传播到 GA 代码执行，并在运行结束后清理 active port 引用 |
+| 文档清晰度 | README、release notes 和桌面元数据明确区分 Apple Silicon、Intel Mac 和 Windows 安装包 |
+
+---
+
 ## 📋 0.3.2 主要变化
 
 0.3.2 聚焦发行加固：桌面版不再像“源码目录外面套一个壳”，而是更接近真正的本地应用安装包。
@@ -595,6 +630,7 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📄 版本时间线
 
+- **v0.3.3 · 2026-06-29** — Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 `darwin-x86_64` updater 元数据，保留 0.3.2 的内置运行时策略；桌面首次启动接入 secret-safe 迁移预览；桌面状态变更操作需要二次确认令牌。
 - **v0.3.2 · 2026-06-28** — 桌面本地运行环境发布：Mac Apple Silicon DMG 和 Windows x64 安装器内置 standalone Python 与核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场 pip；Windows 静默安装/卸载验证；macOS DMG 验证与 adhoc 重签；updater `latest.json` 默认使用 `gh-proxy.com` 安装包 URL；桌面 bridge token 不再暴露到网页 JavaScript；Release 资产可幂等覆盖上传。
 - **v0.3.1 · 2026-06-27** — 里程碑：迁移机制 + 自动升级链路 + 版本号动态化。`penglai backup/restore/uninstall-legacy`；`setup --only` 局部补配；`tauri-plugin-updater` 六道关卡；版本号动态化；Mac adhoc 重签名 + updater 产物重生成；Runtime Hub 稳态化；陪伴四档模式 + context 闭环。
 - **v0.3.0 · 2026-06-25** — Runtime Hub 正式版。Mac/Windows 原生桌面客户端、飞书 QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、`penglai update` 自动备份回滚升级、Docker 全面撤出支持矩阵。
