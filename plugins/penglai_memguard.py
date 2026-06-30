@@ -238,7 +238,9 @@ def _guarded_code_run_mem(self, args, response):
     outcome = yield from _orig_code_run_mem(self, args, response)
     try:
         violations = _enforce_memory(snap)
-    except Exception:
+    except Exception as e:
+        audit("memguard_restore_failed", {"error": str(e), "files": sorted(snap.keys())},
+              blocked=True, reason="记忆卫生:还原检查异常")
         violations = []
     if violations:
         for fp, why in violations:

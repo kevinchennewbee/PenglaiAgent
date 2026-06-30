@@ -20,6 +20,9 @@ RED_CODE = [
     (_CMD + r"mkfs\b|\bdd\b[^|\n]*\bof=/dev/|>\s*/dev/(sd|nvme|vd)", "磁盘破坏操作"),
     (_CMD + r"(shutdown|reboot|halt|poweroff)\b", "关机/重启服务器"),
     (r":\(\)\s*\{[^}]*\|[^}]*&[^}]*\}", "fork 炸弹"),
+    (r"\b([A-Za-z_]\w*)\s*\(\)\s*\{[^}]*\b\1\b[^}]*\|[^}]*\b\1\b[^}]*&[^}]*\}", "fork 炸弹(命名函数递归)"),
+    (r"while\s+(true|1)\s*;\s*do[^\n]{0,80}\|[^\n]{0,80}&[^\n]{0,80}done", "fork 炸弹(while 循环管道)"),
+    (r"os\.fork\(\)[\s\S]{0,120}(for|while|range)", "Python fork 炸弹"),
     (r"(pkill|killall)\s+(-9\s+)?(-f\s+)?['\"]?python", "无差别杀 python 进程（会杀掉蓬莱自己）"),
     (_CMD + r"chmod\s+(-R\s+)?777\s+/\s*$", "根目录权限破坏"),
     (r"(mykey\.py|\.ssh/id_)[^\n]{0,120}(curl|wget|\bnc\b|requests\.(post|put)|urlopen)"
@@ -56,15 +59,30 @@ def _audit_path():
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, time.strftime("%Y-%m") + ".jsonl")
 
+_URL_BARE_TOKEN_RE = re.compile(r"(\w+)://([^\s:/@]{8,})@([^\s:/@]+)")
 _MASK = re.compile(
     r"((?:sk|tvly|fc|cpk|gsk|glm|xai)[-_][A-Za-z0-9_\-]{8,}"      # 常见 key 值前缀(OpenAI/Tavily/Firecrawl/Agnes/智谱/xAI 等)
-    r"|\b\w*(?:api[_-]?key|secret|token|password|_key)\w*\b['\"]?\s*[:=]\s*['\"]?[^'\"\s,}]{6,})", re.I)
+    r"|\b\w*(?:api[_-]?key|secret|token|password|_key)\w*\b['\"]?\s*[:=]\s*['\"]?[^'\"\s,}]{6,}"
+    r"|(?i:(?:token|api[_-]?key|secret|password)=)[^&\s'\"<>]{6,})")
+
+
+def _strip_control_chars(s):
+    if not isinstance(s, str):
+        return s
+    return "".join(c for c in s if c >= " " or c in "\t\n")
+
+
+def _redact_text(s):
+    if not isinstance(s, str):
+        return s
+    s = _URL_BARE_TOKEN_RE.sub(r"\1://***@\3", s)
+    return _strip_control_chars(_MASK.sub("***", s))
 
 def audit(tool, args, blocked=False, reason=""):
     try:
         s = json.dumps({k: v for k, v in (args or {}).items() if not str(k).startswith("_")},
                        ensure_ascii=False, default=str)[:600]
-        rec = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "tool": tool, "args": _MASK.sub("***", s)}
+        rec = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "tool": tool, "args": _redact_text(s)}
         if blocked:
             rec["blocked"] = True
             rec["reason"] = reason
@@ -110,7 +128,7 @@ def _scrub(s):
     MiniMax/DeepSeek/TinyFish/飞书 secret 明文写进 model_responses 日志（真实运行中踩过，
     违 GA 宪法第4条 key 文件 reference-only）。复用审计同款 _MASK；agent 本就不该读 key 原值
     （配置走 mykey_set），脱敏不影响正常用。"""
-    return _MASK.sub("***", s) if isinstance(s, str) else s
+    return _redact_text(s) if isinstance(s, str) else s
 
 
 def _guarded_code_run(self, args, response):

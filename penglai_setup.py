@@ -507,6 +507,7 @@ _MODEL_URLS = (
     "https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
 )
+SHERPA_ONNX_PACKAGE = "sherpa-onnx==1.13.3"
 
 def _dl_progress(url, dest):
     """下载到 dest，单行刷新进度。失败抛异常由调用方兜。"""
@@ -538,10 +539,10 @@ def _voice_install():
         uv = shutil.which("uv") or next((p for p in [os.path.expanduser("~/.local/bin/uv")]
                                          if os.path.exists(p)), None)
         if uv:
-            r = subprocess.run([uv, "pip", "install", "-q", "--python", py, "sherpa-onnx"],
+            r = subprocess.run([uv, "pip", "install", "-q", "--python", py, SHERPA_ONNX_PACKAGE],
                                capture_output=True, text=True, env={**os.environ, "UV_DEFAULT_INDEX": idx})
         else:
-            r = subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, "sherpa-onnx"],
+            r = subprocess.run([py, "-m", "pip", "install", "-q", "-i", idx, SHERPA_ONNX_PACKAGE],
                                capture_output=True, text=True)
         if r.returncode != 0 or subprocess.run([py, "-c", "import sherpa_onnx"],
                                                capture_output=True).returncode != 0:

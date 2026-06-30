@@ -73,6 +73,17 @@ PROTECTED_PATH_PREFIXES = (
 
 # L2.1: 状态变更操作（update-apply 等）的二次确认令牌池：{token: (command, timestamp)}
 _PENDING_STATE_CONFIRMS = {}
+_STATE_CONFIRM_TTL_SECONDS = 60
+
+
+def _cleanup_state_confirms(now=None):
+    now = time.time() if now is None else float(now)
+    expired = [
+        token for token, (_name, ts) in list(_PENDING_STATE_CONFIRMS.items())
+        if now - ts > _STATE_CONFIRM_TTL_SECONDS
+    ]
+    for token in expired:
+        _PENDING_STATE_CONFIRMS.pop(token, None)
 
 
 def find_default_ga_root() -> Path:
@@ -908,10 +919,10 @@ async def ops_command_post_handler(request):
     allowed = set(catalog.get("read_only", ())) | state_changing
     if name not in allowed:
         return json_ok({"ok": False, "error": f"不支持的运维命令：{name}"}, status=400)
-    # L2.1 安全：状态变更操作（update-apply / runtime-service-install/uninstall）需二次确认。
-    # 第一次请求（无 confirm_token）返回 need_confirm + 一次性 token；
-    # 第二次请求带相同 confirm_token 才真正执行。防止本地进程拿到 bridge token 后直接触发高危操作。
-    if name in state_changing and not confirm_token:
+    _cleanup_state_confirms()
+    # L2.1 安全：desktop bridge 已经要求 loopback origin + bridge token。
+    # 0.3.4 桌面按钮默认直接执行；只有显式 require_two_step 的调用者走二次确认。
+    if name in state_changing and not confirm_token and body.get("require_two_step"):
         import secrets as _sec
         token = _sec.token_urlsafe(16)
         _PENDING_STATE_CONFIRMS[token] = (name, time.time())
@@ -922,7 +933,7 @@ async def ops_command_post_handler(request):
         if pending is None or pending[0] != name:
             return json_ok({"ok": False, "error": "确认令牌无效或已过期，请重新发起"}, status=400)
         # 令牌 60 秒有效
-        if time.time() - pending[1] > 60:
+        if time.time() - pending[1] > _STATE_CONFIRM_TTL_SECONDS:
             return json_ok({"ok": False, "error": "确认令牌已过期，请重新发起"}, status=400)
     try:
         data = await asyncio.to_thread(run_ops_command, name, root=manager.ga_root, allow_state=True, timeout=timeout)

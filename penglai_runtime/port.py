@@ -51,6 +51,27 @@ class AgentPort:
         raise NotImplementedError
 
 
+def _signal_generic_agent(agent):
+    """Request cancellation on a live GenericAgent and its current code tool."""
+    if agent is None:
+        return
+    try:
+        agent.stop_sig = True
+    except Exception:
+        pass
+    targets = [agent]
+    handler = getattr(agent, "handler", None)
+    if handler is not None:
+        targets.append(handler)
+    for target in targets:
+        try:
+            sig = getattr(target, "code_stop_signal", None)
+            if isinstance(sig, list):
+                sig.append(True)
+        except Exception:
+            pass
+
+
 class CallableAgentPort(AgentPort):
     """Wrap an existing callable without changing the GA execution core."""
 
@@ -104,17 +125,7 @@ class GenericAgentInstancePort(AgentPort):
         GA 的 code_run 通过检查 stop_signal list 来 kill 子进程；
         设置 agent.code_stop_signal 触发正在跑的工具子进程终止，
         配合 turn 边界的 cancel_check 实现"真取消"而非"标记后等下一轮"。"""
-        agent = self.agent
-        if agent is None:
-            return
-        try:
-            # GA 的 stop_sig 用于中断整个 agent run 循环
-            agent.stop_sig = True
-            # code_stop_signal 用于中断当前 do_code_run 的子进程
-            if hasattr(agent, "code_stop_signal"):
-                agent.code_stop_signal.append(True)
-        except Exception:
-            pass
+        _signal_generic_agent(self.agent)
 
     def _prompt(self, event):
         if callable(self.prompt_builder):
@@ -287,3 +298,7 @@ class GenericAgentPort(GenericAgentInstancePort):
             turn_hook=self.turn_hook,
         )
         return port.run(event)
+
+    def signal_stop(self):
+        """Cancel the owned GA instance instead of signalling this wrapper."""
+        _signal_generic_agent(self._owned_agent)

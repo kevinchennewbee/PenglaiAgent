@@ -45,6 +45,45 @@ def test_benign_python_runs():
     assert ran and not blocked, "正常代码不应被拦"
 
 
+def test_named_fork_bomb_blocked():
+    blocked, ran = _drive({"type": "bash", "script": "f(){ f|f& };f"})
+    assert blocked and not ran, "命名递归 fork bomb 必须被拦"
+
+
+def test_while_fork_bomb_blocked():
+    blocked, ran = _drive({"type": "bash", "script": "while true; do :|:& done"})
+    assert blocked and not ran, "while 管道后台 fork bomb 必须被拦"
+
+
+def test_python_fork_bomb_blocked():
+    blocked, ran = _drive({"type": "python", "script": "import os; [os.fork() for _ in range(9999)]"})
+    assert blocked and not ran, "Python os.fork 批量 fork 必须被拦"
+
+
+def test_all_redline_patterns_compile():
+    install_fakes()
+    rl = fresh_import("plugins.penglai_redline")
+    import re
+    for pattern, _why in rl.RED_CODE:
+        re.compile(pattern)
+
+
+def test_redact_bare_token_url():
+    install_fakes()
+    rl = fresh_import("plugins.penglai_redline")
+    text = "https://PASSWORD123456@github.com/org/repo.git?token=secret-token-123456789&ok=1"
+    redacted = rl._redact_text(text)
+    assert "PASSWORD123456" not in redacted
+    assert "secret-token-123456789" not in redacted
+    assert "https://***@github.com" in redacted
+
+
+def test_strip_control_chars():
+    install_fakes()
+    rl = fresh_import("plugins.penglai_redline")
+    assert rl._strip_control_chars("ok\x1b[31m\nnext") == "ok[31m\nnext"
+
+
 def test_no_false_positive_on_string_mention():
     # reboot 出现在字符串里（非命令起始位）不应误杀，体现"误杀率优先"
     blocked, ran = _drive({"script": "print('remember to reboot the server tomorrow')"})

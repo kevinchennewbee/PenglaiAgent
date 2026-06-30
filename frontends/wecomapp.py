@@ -1,4 +1,4 @@
-import asyncio, os, select, sys, threading, time, traceback
+import asyncio, os, select, sys, threading, time, traceback, uuid
 from collections import deque
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional, TypedDict
@@ -101,7 +101,10 @@ class WeComApp(AgentChatMixin):
         os.makedirs(MEDIA_DIR, exist_ok=True)
         result = await self.client.download_file(url, aes_key or None)
         buf = result["buffer"]
-        fname = result.get("filename") or default_name
+        raw_name = result.get("filename") or default_name
+        fname = os.path.basename(str(raw_name or ""))
+        if not fname or fname in (".", ".."):
+            fname = os.path.basename(str(default_name or "")) or f"{uuid.uuid4().hex[:8]}.bin"
         path = os.path.join(MEDIA_DIR, fname)
         with open(path, "wb") as f:
             f.write(buf)

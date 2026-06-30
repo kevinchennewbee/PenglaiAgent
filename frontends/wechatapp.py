@@ -269,6 +269,12 @@ class WxBotClient:
 # ── Unified media download (IMAGE/VIDEO/FILE/VOICE) ──
 _MEDIA_KEYS = {'image_item': '.jpg', 'video_item': '.mp4', 'file_item': '', 'voice_item': '.silk'}
 
+def _safe_media_name(name, ext=""):
+    fname = os.path.basename(str(name or ""))
+    if not fname or fname in (".", ".."):
+        fname = f"{uuid.uuid4().hex[:8]}{ext or '.bin'}"
+    return fname
+
 def _dl_media(items):
     """Download & decrypt all media items → list of local file paths."""
     paths = []
@@ -285,7 +291,7 @@ def _dl_media(items):
                            if sub.get('media', {}).get('aes_key') else bytes.fromhex(ak))
                 ct = requests.get(f'{CDN_BASE}/download?encrypted_query_param={quote(eq)}', headers={'User-Agent': UA}, timeout=60).content
                 pt = AES.new(aes_key, AES.MODE_ECB).decrypt(ct); pt = pt[:-pt[-1]]
-                fname = sub.get('file_name') or f'{uuid.uuid4().hex[:8]}{ext or ".bin"}'
+                fname = _safe_media_name(sub.get('file_name'), ext)
                 p = os.path.join(_TEMP_DIR, fname); open(p, 'wb').write(pt)
                 paths.append(p); print(f'[WX] media saved: {fname}', file=sys.__stdout__)
             except Exception as e:

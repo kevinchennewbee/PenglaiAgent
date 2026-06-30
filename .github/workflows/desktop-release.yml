@@ -963,7 +963,11 @@ jobs:
           platforms=""
 
           add_platform() {
-            local key="$1" sig_file="$2" url="$3"
+            local key="$1" bundle_file="$2" sig_file="$3" url="$4"
+            if [ ! -f "$bundle_file" ]; then
+              echo "::error::Missing updater bundle for ${key}: ${bundle_file}"
+              return 1
+            fi
             if [ -f "$sig_file" ]; then
               local sig_val url_val
               sig_val="$(jq -Rs . < "$sig_file")"
@@ -971,22 +975,26 @@ jobs:
               if [ -n "$platforms" ]; then platforms="${platforms},"; fi
               platforms="${platforms}\"${key}\":{\"signature\":${sig_val},\"url\":${url_val}}"
             else
-              echo "::warning::Missing updater signature: $sig_file"
+              echo "::error::Missing updater signature for ${key}: $sig_file"
+              return 1
             fi
           }
 
           # macOS aarch64 (updater artifact is .dmg.tar.gz + .sig)
           add_platform "darwin-aarch64" \
+            "dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz" \
             "dist/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz.sig" \
             "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_aarch64.dmg.tar.gz"
 
           # macOS x86_64 (Intel Mac, 0.3.3+)
           add_platform "darwin-x86_64" \
+            "dist/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz" \
             "dist/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz.sig" \
             "${BASE_URL}/Penglai_${PENGLAI_VERSION}_macos_x64.dmg.tar.gz"
 
           # Windows x86_64 (NSIS -setup.exe + .sig)
           add_platform "windows-x86_64" \
+            "dist/Penglai_${PENGLAI_VERSION}_windows_x64_setup.exe" \
             "dist/Penglai_${PENGLAI_VERSION}_windows_x64_setup.exe.sig" \
             "${BASE_URL}/Penglai_${PENGLAI_VERSION}_windows_x64_setup.exe"
 
@@ -1006,6 +1014,7 @@ jobs:
 
           echo "Generated dist/latest.json:"
           cat dist/latest.json
+          jq -e '.platforms["darwin-aarch64"] and .platforms["darwin-x86_64"] and .platforms["windows-x86_64"]' dist/latest.json >/dev/null
 
       - name: Create release
         env:

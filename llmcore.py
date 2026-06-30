@@ -1,5 +1,6 @@
 import os, json, re, time, requests, sys, threading, urllib3, base64, importlib, uuid, pathlib
 from datetime import datetime
+from enum import Enum
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 _RESP_CACHE_KEY = str(uuid.uuid4()); _RESP_CODEX_KEY = str(uuid.uuid4())
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +38,66 @@ def reload_mykeys():
 def __getattr__(name):  # once guard in PEP 562
     if name == 'mykeys': return reload_mykeys()[0]
     raise AttributeError(f"module 'llmcore' has no attribute {name}")
+
+
+class FailoverReason(Enum):
+    TRANSIENT = "transient"
+    RATE_LIMIT = "rate_limit"
+    OVERLOADED = "overloaded"
+    SERVER_ERROR = "server_error"
+    MODEL_NOT_FOUND = "model_not_found"
+    AUTH = "auth"
+    AUTH_PERMANENT = "auth_permanent"
+    TERMINAL = "terminal"
+
+
+_OVERLOADED_PATTERNS = [
+    "服务过载", "当前负载过高", "访问量过大", "overloaded",
+    "too many concurrent", "throttling",
+]
+_AUTH_PERMANENT_PATTERNS = ["invalid api key", "invalid_api_key", "key revoked", "key expired"]
+_AUTH_PATTERNS = ["unauthorized", "permission denied", "forbidden", "401", "403"]
+_MODEL_NOT_FOUND_PATTERNS = ["model not found", "does not exist", "decommissioned", "not found"]
+
+
+def _classify_failover_reason(status=None, body="", error_type=""):
+    if os.environ.get("PENGLAI_FAILOVER_CLASSIFY", "1") != "1":
+        return None
+    body_lower = (body or "").lower()
+    err_lower = (error_type or "").lower()
+    if status in (401, 403) or any(p in body_lower for p in _AUTH_PERMANENT_PATTERNS):
+        return FailoverReason.AUTH_PERMANENT
+    if any(p in body_lower for p in _AUTH_PATTERNS):
+        return FailoverReason.AUTH
+    if status == 404 or any(p in body_lower for p in _MODEL_NOT_FOUND_PATTERNS):
+        return FailoverReason.MODEL_NOT_FOUND
+    if status == 429:
+        return FailoverReason.RATE_LIMIT
+    if any(p in body_lower for p in _OVERLOADED_PATTERNS):
+        return FailoverReason.OVERLOADED
+    if status and 500 <= int(status) < 600:
+        return FailoverReason.SERVER_ERROR
+    if err_lower in {"timeout", "connectionerror", "chunkedencodingerror"}:
+        return FailoverReason.TRANSIENT
+    return FailoverReason.TERMINAL
+
+
+def _failover_marker(reason, detail):
+    name = reason.name if isinstance(reason, FailoverReason) else str(reason or "TERMINAL")
+    msg = str(detail or "").strip()
+    return f"!!!Failover[{name}]" + (f": {msg}" if msg else "")
+
+
+def read_bounded(resp, max_bytes=16 << 20):
+    chunks, total = [], 0
+    for chunk in resp.iter_content(chunk_size=8192):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError(f"response exceeded {max_bytes} bytes")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 def compress_history_tags(messages, keep_recent=10, max_len=800, force=False, interval=5):
     """Compress <thinking>/<tool_use>/<tool_result> tags in older messages to save tokens."""
@@ -374,12 +435,16 @@ def _stream_with_retry(sess, url, headers, payload, parse_fn):
             with requests.post(url, headers=headers, json=payload, stream=sess.stream, 
                                timeout=(sess.connect_timeout, sess.read_timeout), proxies=sess.proxies, verify=sess.verify) as r:
                 if r.status_code >= 400:
+                    try: body = r.text.strip()[:500]
+                    except: body = ""
+                    reason = _classify_failover_reason(r.status_code, body)
+                    if reason in {FailoverReason.OVERLOADED, FailoverReason.SERVER_ERROR, FailoverReason.MODEL_NOT_FOUND}:
+                        err = _failover_marker(reason, f"HTTP {r.status_code}" + (f": {body}" if body else ""))
+                        yield err; return [{"type": "text", "text": err}]
                     if r.status_code in _RETRYABLE and attempt < sess.max_retries:
                         d = _delay(r, attempt)
                         print(f"[LLM Retry] HTTP {r.status_code}, retry in {d:.1f}s ({attempt+1}/{sess.max_retries+1})")
                         time.sleep(d); continue
-                    try: body = r.text.strip()[:500]
-                    except: body = ""
                     err = f"!!!Error: HTTP {r.status_code}" + (f": {body}" if body else "")
                     yield err; return [{"type": "text", "text": err}]
                 gen = parse_fn(r)
@@ -388,13 +453,13 @@ def _stream_with_retry(sess, url, headers, payload, parse_fn):
                 except StopIteration as e:
                     if not e.value and not streamed: raise requests.ConnectionError("empty response")
                     return e.value or []
-        except (requests.Timeout, requests.ConnectionError) as e:
+        except (requests.Timeout, requests.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
             #pathlib.Path(__file__).parent.joinpath('temp','bad_requests.json').write_text(json.dumps({"url":url,"headers":headers,"payload":payload,"err":str(e),"t":time.time()},ensure_ascii=False),encoding='utf-8')
             err = f"!!!Error: {type(e).__name__}: {e}" if str(e) else f"!!!Error: {type(e).__name__}"
             if attempt < sess.max_retries:
                 d = _delay(None, attempt)
                 print(f"[LLM Retry] {type(e).__name__}, retry in {d:.1f}s ({attempt+1}/{sess.max_retries+1})")
-                yield err; time.sleep(d); continue
+                time.sleep(d); continue
             yield err; return [{"type": "text", "text": err}]
         except Exception as e:
             err = f"\n\n[!!! 流异常中断 {type(e).__name__}: {e} !!!]" if streamed else f"!!!Error: {type(e).__name__}: {e}"
@@ -975,7 +1040,7 @@ class MixinSession:
         return self._cur_idx
     def _raw_ask(self, *args, **kwargs):
         base, n = self._pick(), len(self._sessions)
-        test_error = lambda x: isinstance(x, str) and x.lstrip().startswith(('!!!Error:', '[Error:'))
+        test_error = lambda x: isinstance(x, str) and x.lstrip().startswith(('!!!Error:', '!!!Failover[', '[Error:'))
         for attempt in range(self._retries + 1):
             idx = (base + attempt) % n
             gen = self._orig_raw_asks[idx](*args, **kwargs)

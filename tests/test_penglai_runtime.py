@@ -1462,6 +1462,48 @@ def test_generic_agent_port_calls_put_task_and_returns_done():
     assert stub.prompts == [("PROMPT:ping", "runtime-hub-test", ("img.png",))]
 
 
+def test_generic_agent_instance_port_signal_stop_hits_handler_code_signal():
+    class Handler:
+        def __init__(self):
+            self.code_stop_signal = []
+
+    class FakeAgent:
+        def __init__(self):
+            self.handler = Handler()
+            self.stop_sig = False
+
+    agent = FakeAgent()
+    port = GenericAgentInstancePort(agent=agent)
+    port.signal_stop()
+
+    assert agent.stop_sig is True
+    assert agent.handler.code_stop_signal == [True]
+
+
+def test_generic_agent_port_signal_stop_hits_owned_agent_not_wrapper():
+    class Handler:
+        def __init__(self):
+            self.code_stop_signal = []
+
+    class FakeAgent:
+        def __init__(self):
+            self.handler = Handler()
+            self.llmclients = [object()]
+            self.llmclient = self.llmclients[0]
+            self.stop_sig = False
+
+        def run(self):
+            return None
+
+    stub = FakeAgent()
+    port = GenericAgentPort(agent_factory=lambda: stub, timeout=1)
+    port._ensure_agent()
+    port.signal_stop()
+
+    assert stub.stop_sig is True
+    assert stub.handler.code_stop_signal == [True]
+
+
 def test_generic_agent_port_waits_for_final_turn_hook():
     class Resp:
         def __init__(self, content):
@@ -2291,13 +2333,16 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             update_check_resp = await client.get("/ops/command?name=update-check", headers=auth)
             service_status_resp = await client.get("/ops/command?name=runtime-service-status", headers=auth)
             service_install_get = await client.get("/ops/command?name=runtime-service-install", headers=auth)
-            # L2.1: 状态变更操作需二次确认。第一次 POST 返回 need_confirm + token
+            # 0.3.4: desktop bridge 已有 loopback+bridge-token，默认直接执行；
+            # 显式 require_two_step 时仍保留二次确认路径。
             service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1})
             first_resp = await service_install_post.json()
-            assert first_resp.get("need_confirm") is True
-            confirm_token = first_resp["confirm_token"]
-            # 第二次带 confirm_token 才真正执行
-            service_install_post = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1, "confirm_token": confirm_token})
+            assert first_resp.get("need_confirm") is not True
+            service_install_confirm = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1, "require_two_step": True})
+            confirm_resp = await service_install_confirm.json()
+            assert confirm_resp.get("need_confirm") is True
+            confirm_token = confirm_resp["confirm_token"]
+            service_install_confirm = await client.post("/ops/command", headers=auth, json={"command": "runtime-service-install", "timeout": 1, "confirm_token": confirm_token})
             migrate_preview_resp = await client.post("/setup/migrate/preview", headers=auth, json={"src_id": "hermes", "home": migrate_home, "with_secrets": False})
             legacy_restart_get = await client.get("/ops/command?name=restart", headers=auth)
             runtime_status_resp = await client.get("/runtime/status?session_id=owner:default", headers=auth)
@@ -2319,7 +2364,8 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
             assert (await update_check_resp.json())["command"] == "update-check"
             assert (await service_status_resp.json())["command"] == "runtime-service-status"
             assert service_install_get.status == 400
-            assert (await service_install_post.json())["command"] == "runtime-service-install"
+            assert first_resp["command"] == "runtime-service-install"
+            assert (await service_install_confirm.json())["command"] == "runtime-service-install"
             assert migrate_preview_resp.status == 200
             migrate_preview = await migrate_preview_resp.json()
             migrate_payload = json.dumps(migrate_preview, ensure_ascii=False)
@@ -2340,6 +2386,7 @@ def test_desktop_bridge_ops_routes_reuse_runtime_control_contracts():
                 ("install-check", False, td, None),
                 ("update-check", False, td, None),
                 ("runtime-service-status", False, td, None),
+                ("runtime-service-install", True, td, 1),
                 ("runtime-service-install", True, td, 1),
             ]
         finally:
@@ -3568,25 +3615,25 @@ def test_desktop_package_identity_targets_penglai_release():
         installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.3"
-    assert 'VERSION = "0.3.3"' in runtime_init
-    assert 'version = "0.3.3"' in installer_pyproject
+    assert package_json["version"] == "0.3.4"
+    assert 'VERSION = "0.3.4"' in runtime_init
+    assert 'version = "0.3.4"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.3"
+    assert package_lock["packages"][""]["version"] == "0.3.4"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.3"
+    assert tauri_conf["version"] == "0.3.4"
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
     assert "resources/penglai-runtime/**/*" in tauri_conf["bundle"]["resources"]
-    assert "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json" in tauri_conf["plugins"]["updater"]["endpoints"]
+    assert tauri_conf["plugins"]["updater"]["endpoints"][0] == "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json"
     assert "https://gh-proxy.com" in tauri_conf["app"]["security"]["csp"]
     assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
     assert tauri_conf["bundle"]["windows"]["digestAlgorithm"] == "sha256"
@@ -3616,7 +3663,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.3"' in cargo_toml
+    assert 'version = "0.3.4"' in cargo_toml
     assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
@@ -3700,6 +3747,11 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "--with-venv" in payload_builder
     assert "--forbid-venv" in open(os.path.join(root, "packaging", "verify_desktop_runtime.py"), "r", encoding="utf-8").read()
     assert os.path.exists(os.path.join(root, "packaging", "verify_desktop_runtime.py"))
+    workflow = open(os.path.join(root, ".github", "workflows", "desktop-release.yml"), "r", encoding="utf-8").read()
+    assert 'jq -e \'.platforms["darwin-aarch64"] and .platforms["darwin-x86_64"] and .platforms["windows-x86_64"]\'' in workflow
+    assert "Missing updater bundle" in workflow
+    assert "Missing updater signature" in workflow
+    assert 'SHERPA_ONNX_PACKAGE = "sherpa-onnx==1.13.3"' in setup_py
     assert "install.ps1" in lib_rs
     assert "install.sh" in lib_rs
     assert "PENGLAI_INSTALL_DEPS" in lib_rs

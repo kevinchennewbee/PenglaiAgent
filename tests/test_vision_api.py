@@ -106,6 +106,33 @@ def test_repair_vision_api_strips_thinking_blocks():
             pass
 
 
+def test_template_openai_compat_respects_versioned_api_base(monkeypatch):
+    mod = SourceFileLoader(
+        "vision_api_template_test",
+        os.path.join(ROOT, "memory", "vision_api.template.py"),
+    ).load_module()
+    seen = {}
+
+    class Resp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    def post(url, **kwargs):
+        seen["url"] = url
+        return Resp()
+
+    monkeypatch.setattr(mod.requests, "post", post)
+    assert mod._call_openai_compat(
+        "xx", "describe", 1,
+        apibase="https://ark.cn-beijing.volces.com/api/coding/v3",
+        apikey="k", model="m",
+    ) == "ok"
+    assert seen["url"] == "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions"
+
+
 if __name__ == "__main__":
     test_repair_existing_generated_vision_api()
     test_repaired_chat_completions_url_respects_versioned_base()

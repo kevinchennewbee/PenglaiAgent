@@ -1724,9 +1724,13 @@ def _patch(fs):
         ).start()
 
     def handle_card_action(data):
-        from lark_oapi.event.callback.model.p2_card_action_trigger import (
-            P2CardActionTriggerResponse,
-        )
+        try:
+            from lark_oapi.event.callback.model.p2_card_action_trigger import (
+                P2CardActionTriggerResponse,
+            )
+        except Exception:
+            class P2CardActionTriggerResponse(dict):
+                pass
 
         def resp(kind, content):
             return P2CardActionTriggerResponse({"toast": {"type": kind, "content": content}})

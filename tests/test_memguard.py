@@ -72,5 +72,23 @@ def test_reading_memory_is_not_touched():
     assert open(mem, encoding="utf-8").read() == "baseline\n", "纯读 memory/ 不应触发任何还原"
 
 
+def test_memguard_restore_failure_audited():
+    td = tempfile.mkdtemp()
+    H, h = _setup(td)
+    calls = []
+    mg = sys.modules["plugins.penglai_memguard"]
+    old_enforce = mg._enforce_memory
+    old_audit = mg.audit
+    try:
+        mg._enforce_memory = lambda _snap: (_ for _ in ()).throw(RuntimeError("restore boom"))
+        mg.audit = lambda tool, args, blocked=False, reason="": calls.append((tool, args, blocked, reason))
+        _run_code(H, h, "print('ok')")
+    finally:
+        mg._enforce_memory = old_enforce
+        mg.audit = old_audit
+    assert calls and calls[0][0] == "memguard_restore_failed"
+
+
+
 if __name__ == "__main__":
     raise SystemExit(run_tests(dict(globals())))

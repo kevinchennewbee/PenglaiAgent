@@ -2,7 +2,7 @@
 
 <img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
 
-# 蓬莱 · Penglai 0.3.3
+# 蓬莱 · Penglai 0.3.4
 
 ### 住在你飞书、微信和终端里的自托管 AI Runtime Hub
 
@@ -29,12 +29,13 @@
 
 **Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
 
-**v0.3.3 is the Intel Mac desktop support release** — it keeps the bundled local runtime from 0.3.2 and adds a separate macOS Intel x64 DMG alongside Apple Silicon and Windows:
+**v0.3.4 is a trusted-maintenance desktop release** — it keeps the bundled local runtime and three-platform desktop distribution from 0.3.3, then tightens the update, runtime, memory, IM media, and tool-result guardrails:
 
 - 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
 - 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
 - 🖥️ **Mac coverage**: separate DMGs for Apple Silicon and Intel x64, plus the Windows x64 installer
 - 🌏 **Mainland-friendly updates**: updater metadata and asset URLs default to a `gh-proxy.com` mirror, with CI mirror knobs for npm / pip / Cargo / rustup / Python-build-standalone
+- 🛡️ **Trusted-runtime fixes**: upgrade apply, cancellation, Conductor auth, memory load scanning, IM media filenames, and LLM failover are hardened in the real client paths
 
 You can use the native Mac / Windows desktop clients, or deploy to your own host with one command. Your memory, logs, config, and channel credentials stay on your machine by default.
 
@@ -104,7 +105,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 - macOS Intel x64 DMG
 - Windows x64 installer
 
-The 0.3.3 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
+The 0.3.4 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
 
 Daily commands:
 
@@ -230,18 +231,18 @@ Three layers of protection ensure data is never lost:
 
 ---
 
-## 📋 0.3.3 Key Changes
+## 📋 0.3.4 Key Changes
 
-0.3.3 is a follow-up desktop release focused on Intel Mac support and setup hardening. It does not move or rebuild the v0.3.2 tag.
+0.3.4 is a follow-up maintenance release focused on making the 0.3.3 trusted-runtime promises real in day-to-day use. It does not add a new architecture track; 0.4 remains the expansion line.
 
-| Area | What 0.3.3 brings |
+| Area | What 0.3.4 brings |
 |---|---|
-| Intel Mac desktop | Adds a separate macOS Intel x64 DMG lane using `macos-15-intel`, `x86_64-apple-darwin`, standalone Python `mac-x64`, and updater key `darwin-x86_64` |
-| Release metadata | `latest.json` can publish both `darwin-aarch64` and `darwin-x86_64` when their updater signatures exist, plus Windows x64 |
-| Migration setup | Desktop first-run setup can detect Hermes/OpenClaw, preview a migration plan, then opt in to backup-and-apply migration |
-| Safety hardening | State-changing desktop ops require a second confirmation token; migration preview responses avoid returning raw secrets |
-| Runtime cancellation | Runtime Hub cancellation propagates to active GA code execution and clears active port references after the run |
-| Docs clarity | README, release notes, and desktop metadata distinguish Apple Silicon, Intel Mac, and Windows artifacts |
+| Desktop update | One-click state-changing desktop ops work through the authenticated bridge again; optional two-step confirmation remains available for callers that request it |
+| Runtime trust | Runtime cancellation reaches the active GA code tool; Conductor HTTP/WS gains loopback + token authentication |
+| Memory and tools | Long-term memory is scanned again before prompt injection; external web/file/MCP results are marked as untrusted data |
+| IM media safety | WeChat and WeCom media filenames are basename-sanitized at source entrypoints |
+| LLM resilience | Retry/failover classifies overload, server, auth, and model errors before same-backend retry can hide them |
+| Release gates | `latest.json` generation fails closed if any desktop updater platform artifact or signature is missing |
 
 ---
 
@@ -321,6 +322,7 @@ Thanks to all issue reporters and testers. Special thanks to:
 
 ## 📄 Version Timeline
 
+- **v0.3.4 · 2026-06-30** — Trusted-maintenance release: fixes desktop update apply flow, Runtime Hub cancellation, inline eval exposure, Conductor auth, IM media path traversal, redline fork-bomb coverage, memory load-time scanning, failover classification, and fail-closed desktop updater metadata checks.
 - **v0.3.3 · 2026-06-29** — Intel Mac desktop support release: adds a separate macOS Intel x64 DMG and `darwin-x86_64` updater metadata while preserving the 0.3.2 bundled runtime model; desktop migration preview is wired into first-run setup with secret-safe responses; state-changing desktop ops require a second confirmation token.
 - **v0.3.2 · 2026-06-28** — Local desktop runtime release: Mac Apple Silicon DMG and Windows x64 installer bundle standalone Python and core dependencies; first launch no longer requires Python, source checkout, or pip; Windows silent install/uninstall verification; macOS DMG verification with adhoc re-sign; updater `latest.json` defaults to `gh-proxy.com` asset URLs; desktop bridge token no longer leaks into page JavaScript; release upload is idempotent.
 - **v0.3.1 · 2026-06-27** — Milestone: migration mechanism + auto-update pipeline + dynamic versioning. `penglai backup/restore/uninstall-legacy`; `setup --only` partial reconfig; `tauri-plugin-updater` six gates; version dynamicization; Mac adhoc re-sign + updater regen; Runtime Hub stabilization; companion 4-mode + context closure.
@@ -336,12 +338,13 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 **蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-**v0.3.3 是 Intel Mac 桌面支持发布**——它继承 0.3.2 的内置本地运行环境，并新增独立的 macOS Intel x64 DMG：
+**v0.3.4 是可信化维护发布**——它继承 0.3.3 的三平台桌面分发和内置本地运行环境，重点修正升级、运行时、记忆、IM 媒体和工具结果边界：
 
 - 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
 - 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
 - 🖥️ **Mac 覆盖更完整**：Apple Silicon 与 Intel x64 分别提供 DMG，Windows 继续提供 x64 安装器
 - 🌏 **国内网络更友好**：升级清单和安装包 URL 默认走 `gh-proxy.com`，CI 也提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关
+- 🛡️ **可信运行补强**：一键升级、取消执行、Conductor 认证、记忆读时扫描、IM 媒体文件名和 LLM failover 都在真实客户端路径中加固
 
 你可以用 Mac / Windows 原生桌面客户端，也可以一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
 
@@ -411,7 +414,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 - macOS Intel x64 DMG
 - Windows x64 安装包
 
-0.3.3 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
+0.3.4 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
 
 日常运维：
 
@@ -539,18 +542,18 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ---
 
-## 📋 0.3.3 主要变化
+## 📋 0.3.4 主要变化
 
-0.3.3 是 0.3.2 之后的桌面支持补齐版本，重点是 Intel Mac 支持和设置链路加固。它不移动、不重建 v0.3.2 tag。
+0.3.4 是 0.3.3 之后的可信化维护版本，目标是让 0.3.3 的安全和可靠性承诺在真实客户端路径里生效；它不扩新架构，0.4 仍然是能力扩展线。
 
-| 领域 | 0.3.3 带来的变化 |
+| 领域 | 0.3.4 带来的变化 |
 |---|---|
-| Intel Mac 桌面版 | 新增独立 macOS Intel x64 DMG lane，使用 `macos-15-intel`、`x86_64-apple-darwin`、standalone Python `mac-x64` 和 updater key `darwin-x86_64` |
-| 发布元数据 | `latest.json` 在签名产物存在时可同时发布 `darwin-aarch64`、`darwin-x86_64` 和 Windows x64 |
-| 迁移设置 | 桌面首次启动可检测 Hermes/OpenClaw，预览搬运计划，再由用户选择备份并执行迁移 |
-| 安全加固 | 桌面状态变更操作需要二次确认令牌；迁移预览响应不再返回原始 secret |
-| 运行时取消 | Runtime Hub 取消会传播到 GA 代码执行，并在运行结束后清理 active port 引用 |
-| 文档清晰度 | README、release notes 和桌面元数据明确区分 Apple Silicon、Intel Mac 和 Windows 安装包 |
+| 桌面升级 | 一键升级通过已认证 desktop bridge 恢复直接执行；需要二次确认的调用者仍可显式开启 |
+| 运行时可信 | Runtime Hub 取消会打到正在执行的 GA code tool；Conductor HTTP/WS 增加 loopback + token 认证 |
+| 记忆和工具 | 长期记忆注入前再次扫描；web/file/MCP 等外部结果标记为不可信数据 |
+| IM 媒体安全 | 微信、企微媒体文件名在源入口做 basename 清洗 |
+| LLM 韧性 | 过载、服务器错误、认证、模型不存在等错误先分类，再决定重试或切换模型 |
+| 发布门槛 | `latest.json` 缺任一平台包体或签名时 CI 直接失败 |
 
 ---
 
@@ -630,6 +633,7 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📄 版本时间线
 
+- **v0.3.4 · 2026-06-30** — 可信化维护发布：修复桌面升级执行链路、Runtime Hub 取消、inline eval 暴露、Conductor 认证、IM 媒体路径穿越、fork-bomb 红线覆盖、记忆读时扫描、failover 分类，以及桌面 updater 元数据 fail-closed 检查。
 - **v0.3.3 · 2026-06-29** — Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 `darwin-x86_64` updater 元数据，保留 0.3.2 的内置运行时策略；桌面首次启动接入 secret-safe 迁移预览；桌面状态变更操作需要二次确认令牌。
 - **v0.3.2 · 2026-06-28** — 桌面本地运行环境发布：Mac Apple Silicon DMG 和 Windows x64 安装器内置 standalone Python 与核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场 pip；Windows 静默安装/卸载验证；macOS DMG 验证与 adhoc 重签；updater `latest.json` 默认使用 `gh-proxy.com` 安装包 URL；桌面 bridge token 不再暴露到网页 JavaScript；Release 资产可幂等覆盖上传。
 - **v0.3.1 · 2026-06-27** — 里程碑：迁移机制 + 自动升级链路 + 版本号动态化。`penglai backup/restore/uninstall-legacy`；`setup --only` 局部补配；`tauri-plugin-updater` 六道关卡；版本号动态化；Mac adhoc 重签名 + updater 产物重生成；Runtime Hub 稳态化；陪伴四档模式 + context 闭环。

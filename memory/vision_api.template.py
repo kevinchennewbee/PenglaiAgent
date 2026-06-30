@@ -98,8 +98,10 @@ def _call_claude(b64, prompt, timeout, max_tokens=1024):
 
 def _call_openai_compat(b64, prompt, timeout, *, apibase, apikey, model, proxy=None):
     proxies = {'https': proxy, 'http': proxy} if proxy else None
+    base = apibase.rstrip('/')
+    url = base + ('/chat/completions' if re.search(r'/v\d+$', base) else '/v1/chat/completions')
     resp = requests.post(
-        apibase.rstrip('/') + '/v1/chat/completions',
+        url,
         json={'model': model, 'messages': [{
             'role': 'user',
             'content': [

@@ -1,10 +1,12 @@
-import os, sys, re, time, json, uuid, queue, asyncio, threading
+import os, sys, re, time, json, uuid, queue, asyncio, threading, hmac, secrets
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
+from pathlib import Path
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,6 +17,44 @@ from agentmain import GenericAgent
 HOST = "127.0.0.1"
 PORT = 8900
 HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "conductor.html")
+
+
+def _load_or_create_conductor_token():
+    env = os.environ.get("PENGLAI_CONDUCTOR_TOKEN", "").strip()
+    if env:
+        return env
+    path = Path.home() / ".penglai" / "conductor_token"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        val = path.read_text(encoding="utf-8").strip()
+        if val:
+            return val
+    except FileNotFoundError:
+        pass
+    val = secrets.token_urlsafe(32)
+    path.write_text(val, encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except Exception:
+        pass
+    return val
+
+
+CONDUCTOR_TOKEN = _load_or_create_conductor_token()
+
+
+def _is_loopback_origin(origin: str) -> bool:
+    if not origin:
+        return True
+    try:
+        host = urlparse(origin).hostname
+    except Exception:
+        return False
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def _token_ok(token: str) -> bool:
+    return bool(CONDUCTOR_TOKEN and token and hmac.compare_digest(token, CONDUCTOR_TOKEN))
 
 
 @asynccontextmanager
@@ -28,6 +68,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Conductor", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def conductor_auth(req: Request, call_next):
+    origin = (req.headers.get("origin") or "").lower()
+    if origin and not _is_loopback_origin(origin):
+        return JSONResponse({"error": "non-loopback origin rejected"}, status_code=401)
+    token = req.headers.get("X-Penglai-Bridge-Token") or req.query_params.get("token", "")
+    if not _token_ok(token):
+        return JSONResponse({"error": "missing or invalid conductor token"}, status_code=401)
+    return await call_next(req)
 
 class ChatIn(BaseModel):
     msg: str
@@ -379,7 +430,14 @@ def im_poll_loop():
             conductor.notify({"type": "im_signal", "source": name})
 
 @app.get("/")
-def index(): return FileResponse(HTML_PATH)
+def index():
+    html = open(HTML_PATH, "r", encoding="utf-8").read()
+    bootstrap = (
+        "<script>"
+        f"window.__PENGLAI_CONDUCTOR_TOKEN__={json.dumps(CONDUCTOR_TOKEN)};"
+        "</script>"
+    )
+    return HTMLResponse(html.replace("</head>", bootstrap + "\n</head>"))
 
 @app.get("/readme")
 def readme(): return PlainTextResponse(READMES["api"])
@@ -456,6 +514,12 @@ def api_approval(body: ApprovalIn):
 
 @app.websocket("/ws")
 async def websocket(ws: WebSocket):
+    origin = (ws.headers.get("origin") or "").lower()
+    if origin and not _is_loopback_origin(origin):
+        await ws.close(code=4401); return
+    token = ws.headers.get("X-Penglai-Bridge-Token") or ws.query_params.get("token", "")
+    if not _token_ok(token):
+        await ws.close(code=4401); return
     await ws.accept()
     ws_clients.add(ws)
     try:
@@ -471,5 +535,5 @@ async def websocket(ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn, webbrowser, threading
-    threading.Timer(1.0, lambda: webbrowser.open(f"http://{HOST}:{PORT}")).start()
+    threading.Timer(1.0, lambda: webbrowser.open(f"http://{HOST}:{PORT}/?token={CONDUCTOR_TOKEN}")).start()
     uvicorn.run("conductor:app", host=HOST, port=PORT, reload=False)

@@ -191,20 +191,20 @@ def patch_wecom(m):
     # 安全加固：上游 _save_media 直接用 result["filename"] 拼路径，无 basename 清洗，
     # 构造恶意文件名（含 ../）可路径穿越覆盖任意文件。在 Penglai 包装层修复，不动上游。
     # （上游 PR 候选；白名单生效前是真实漏洞）
-    _orig_save_media = WeComApp._save_media
-    async def _safe_save_media(self, url, aes_key, default_name):
-        os.makedirs(m.MEDIA_DIR, exist_ok=True)
-        result = await self.client.download_file(url, aes_key or None)
-        buf = result["buffer"]
-        raw_name = result.get("filename") or default_name
-        fname = os.path.basename(raw_name)  # 剥离任何路径分量，防 ../ 穿越
-        if not fname or fname in (".", ".."):
-            fname = default_name
-        path = os.path.join(m.MEDIA_DIR, fname)
-        with open(path, "wb") as f:
-            f.write(buf)
-        return path
-    WeComApp._save_media = _safe_save_media
+    if hasattr(WeComApp, "_save_media"):
+        async def _safe_save_media(self, url, aes_key, default_name):
+            os.makedirs(m.MEDIA_DIR, exist_ok=True)
+            result = await self.client.download_file(url, aes_key or None)
+            buf = result["buffer"]
+            raw_name = result.get("filename") or default_name
+            fname = os.path.basename(str(raw_name or ""))
+            if not fname or fname in (".", ".."):
+                fname = os.path.basename(str(default_name or "")) or "media.bin"
+            path = os.path.join(m.MEDIA_DIR, fname)
+            with open(path, "wb") as f:
+                f.write(buf)
+            return path
+        WeComApp._save_media = _safe_save_media
 
     async def on_voice(self, frame):
         try:
