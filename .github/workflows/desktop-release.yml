@@ -875,18 +875,16 @@ jobs:
 
           ## ${PENGLAI_VERSION} 主要更新
 
-          - **本地桌面运行环境**：macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器内置 Penglai runtime、standalone Python 和核心依赖。
-          - **免手动 Python / 免源码 / 免现场 pip**：首次启动不需要用户安装 Python、clone 源码或在线安装核心 Python 包。
-          - **完整桌面客户端**：图形化设置向导、多会话工作台、系统托盘、更新检测、渠道和能力管理。
-          - **国内升级路径**：`latest.json` 默认使用 `gh-proxy.com` Release 资产 URL；CI 提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关。
-          - **安装器自检**：Windows 发布流程跑过静默安装、runtime 验证、应用自检和卸载验证；macOS 发布流程验证 DMG、adhoc 重签和 updater artifact 重新生成。
-          - **桌面桥接安全**：bridge token 不再注入页面 JavaScript；敏感 RPC 走原生 Tauri command，WebSocket 只保留事件通道。
-          - **完整设置向导**：语言 -> LLM 选择（12 个供应商，带连通性测试）-> IM 渠道配置（飞书扫码、微信等）-> 身份命名 -> 能力面板 -> 写入配置并启动验证。
-          - **可选本地语音能力**：SenseVoice 转写 / 情绪识别、MOSS-TTS-Nano 语音合成为可选本地能力；不等同于所有大模型权重默认预装。
-          - **更新机制**：`penglai update --check` 和一键 `--apply`，带自动备份和回滚。
-          - **记忆系统**：L1 索引 -> L2 事实 -> L3 SOP -> L4 会话日志，行动验证后写入。
-          - **补配置**：桌面设置里可重新启用渠道或能力，不需要重新跑完整向导。
-          - **Doctor 诊断**：CLI 和桌面端都集成系统健康检查。
+          - **可信化维护发布**：0.3.4 继承 0.3.3 的三平台桌面分发，重点修真实客户端路径里的升级、取消、记忆、工具结果和发布完整性问题。
+          - **桌面升级链路修正**：已认证 desktop bridge 上的一键状态变更操作恢复直接执行；需要二次确认的调用者仍可显式开启 `require_two_step`。
+          - **Runtime Hub 取消更可靠**：取消信号现在会打到真实 GenericAgent 实例和当前 GA code tool，而不是只打到外层 wrapper。
+          - **Conductor 认证加固**：本机控制台 HTTP / WebSocket 增加 loopback origin 检查和持久 token 认证。
+          - **记忆和外部结果防注入**：长期记忆注入前再次扫描；web / file / MCP 外部结果标记为不可信数据，降低 prompt injection 风险。
+          - **IM 媒体路径安全**：微信、企微媒体文件名在入口处做 basename 清洗，避免路径穿越。
+          - **LLM failover 更可解释**：过载、服务端错误、模型不存在、认证错误等先分类，再决定重试或切换，减少模糊失败。
+          - **发布门槛 fail-closed**：`latest.json` 生成要求 macOS Apple Silicon、macOS Intel x64、Windows x64 的 updater 包体和签名都存在，缺任一项直接失败。
+          - **版本链统一**：runtime、installer、desktop package、Cargo、Tauri 配置统一到 0.3.4。
+          - **三平台桌面包仍内置本地运行环境**：macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器继续内置 Penglai runtime、standalone Python 和核心依赖。
 
           ## 安装
 
@@ -910,18 +908,16 @@ jobs:
 
           ## What's new in ${PENGLAI_VERSION}
 
-          - **Bundled desktop runtime**: macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer include the Penglai runtime, standalone Python, and core dependencies.
-          - **No manual Python, source checkout, or live pip install**: first launch does not require users to install Python, clone the repository, or download core Python packages live.
-          - **Complete desktop clients**: native setup wizard, multi-session chat, system tray, update detection, channel management, and ability management.
-          - **Mainland-friendly updater**: `latest.json` defaults to `gh-proxy.com` release asset URLs, with CI mirror/cache knobs for npm, pip, Cargo, rustup, and Python-build-standalone.
-          - **Installer selfchecks**: Windows release runs silent install, runtime verification, app selfcheck, and uninstall verification; macOS verifies the DMG after adhoc re-sign and updater artifact regeneration.
-          - **Desktop bridge security**: the bridge token is not injected into page JavaScript; sensitive RPC goes through native Tauri commands and WebSocket remains event-only.
-          - **Complete setup wizard**: language -> LLM selection (12 providers with live connectivity test) -> IM channel setup (Feishu QR scan, WeChat, etc.) -> identity naming -> ability panel -> config writing and launch verification.
-          - **Optional local voice capabilities**: SenseVoice transcription / emotion recognition and MOSS-TTS-Nano speech synthesis are optional local capabilities; this does not mean every large model weight is preinstalled by default.
-          - **Update mechanism**: `penglai update --check` and one-click `--apply` with automatic backup and rollback.
-          - **Memory system**: L1 index -> L2 facts -> L3 SOPs -> L4 session logs, action-verified only.
-          - **Supplementary config**: channel and ability management panel in desktop settings; re-enable channels or abilities without re-running the full wizard.
-          - **Doctor diagnostics**: full system health check integrated into both CLI and desktop.
+          - **Trusted-maintenance release**: 0.3.4 keeps the three-platform desktop distribution from 0.3.3 and focuses on the real update, cancellation, memory, tool-result, and release-integrity paths.
+          - **Desktop update path fixed**: authenticated desktop bridge state-changing operations can execute directly again; callers that need a second confirmation can still request `require_two_step`.
+          - **More reliable Runtime Hub cancellation**: stop signals now reach the owned GenericAgent instance and the active GA code tool instead of only the wrapper.
+          - **Conductor authentication hardened**: local control HTTP / WebSocket traffic now requires loopback origin checks plus a persistent token.
+          - **Memory and external-result injection guardrails**: long-term memory is scanned again before prompt injection; web / file / MCP outputs are marked as untrusted data.
+          - **IM media path safety**: WeChat and WeCom media filenames are basename-sanitized at source entrypoints to avoid path traversal.
+          - **Clearer LLM failover**: overload, server error, model-not-found, and auth failures are classified before retry or backend switching.
+          - **Fail-closed release gates**: `latest.json` now requires updater bundles and signatures for macOS Apple Silicon, macOS Intel x64, and Windows x64; missing any platform fails the release.
+          - **Version chain unified**: runtime, installer, desktop package, Cargo, and Tauri metadata all report 0.3.4.
+          - **Bundled desktop runtime remains**: macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer continue to include the Penglai runtime, standalone Python, and core dependencies.
 
           ## Install
 
