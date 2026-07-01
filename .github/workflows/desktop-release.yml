@@ -644,6 +644,19 @@ jobs:
             return $candidate
           }
 
+          function Stop-BridgeListeners([int]$Port = 14168, [int]$TimeoutSeconds = 20) {
+            $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+            do {
+              $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+                Where-Object { $_.OwningProcess -and $_.OwningProcess -gt 0 })
+              if ($listeners.Count -eq 0) { return }
+              $listeners |
+                Select-Object -ExpandProperty OwningProcess -Unique |
+                ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+              Start-Sleep -Seconds 2
+            } until ((Get-Date) -gt $deadline)
+          }
+
           $setup = Get-ChildItem "frontends/desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" | Select-Object -First 1
           if (-not $setup) { throw "NSIS setup exe not found" }
           if ($env:WINDOWS_SIGNING_AVAILABLE -eq "true") {
@@ -795,9 +808,7 @@ jobs:
               Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 2
             }
-            # Kill any remaining bridge process on port 14168
-            $bridgePid = (Get-NetTCPConnection -LocalPort 14168 -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
-            if ($bridgePid) { Stop-Process -Id $bridgePid -Force -ErrorAction SilentlyContinue }
+            Stop-BridgeListeners -Port 14168 -TimeoutSeconds 20
           }
 
           $uninstallString = if ($app.QuietUninstallString) { [string]$app.QuietUninstallString } else { [string]$app.UninstallString }
@@ -821,6 +832,7 @@ jobs:
             Where-Object { $_.DisplayName -like "Penglai*" } |
             Select-Object -First 1
           if ($remainingApps) { throw "Penglai uninstall registry entry remains: $($remainingApps.DisplayName)" }
+          Stop-BridgeListeners -Port 14168 -TimeoutSeconds 20
           $portOpen = Get-NetTCPConnection -LocalPort 14168 -State Listen -ErrorAction SilentlyContinue
           if ($portOpen) { throw "Desktop bridge port 14168 is still listening after uninstall smoke cleanup." }
 
