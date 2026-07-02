@@ -336,10 +336,25 @@ def _combined_output(res):
 
 
 def choose_default_voice(text):
-    raw = str(text or "")
-    if any("\u3400" <= ch <= "\u9fff" for ch in raw):
-        return "Junhao"
-    return "Ava"
+    """向后兼容：保留原签名和原有默认声音映射。
+
+    原行为：中文 -> Junhao（男声），英文 -> Ava（女声）。
+    0.3.5 起，新代码应直接使用 voice_profiles.resolve_voice() 以获得
+    性别/persona/显式指定支持。此函数保持单参数签名以兼容现有调用方，
+    不应用 persona 推断（避免改变历史默认声音）。
+    """
+    from .voice_profiles import resolve_voice, _detect_lang, DEFAULT_VOICE
+    lang = _detect_lang(text)
+    # 保持历史默认：中文男声 Junhao，英文女声 Ava
+    historical_default = DEFAULT_VOICE.get((lang, "male"), "Junhao") if lang == "zh" else DEFAULT_VOICE.get((lang, "female"), "Ava")
+    return resolve_voice(text, gender="male" if lang == "zh" else "female", persona="butler", explicit_voice=historical_default)
+
+
+def list_voices(public_only: bool = True):
+    """列出可用声音档案（0.3.5 新增）。"""
+    from .voice_profiles import list_voice_profiles
+    return list_voice_profiles(public_only=public_only)
+
 
 
 def _audio_meta(path):

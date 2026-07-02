@@ -874,6 +874,12 @@ def cli_main(argv):
         return _cli_why(want_json)
     if sub == "test":
         return _cli_test(rest, want_json)
+    if sub == "voice":
+        return _cli_voice(rest, want_json)
+    if sub == "profile":
+        return _cli_profile(rest, want_json)
+    if sub == "reflection":
+        return _cli_reflection(want_json)
     print(f"未知子命令: {sub}\n")
     return _cli_help()
 
@@ -890,6 +896,9 @@ def _cli_help():
     print("  why [--json]                   展示最近触发原因 + 本次决策")
     print("  test --dry-run                 干跑：调 _decide，不真投递")
     print("  test --send                    真投递一条测试消息（飞书+微信）")
+    print("  voice male|female|auto         设置默认声音性别（0.3.5）")
+    print("  profile butler|steady_male|warm_female|custom  设置人格风格（0.3.5）")
+    print("  reflection [--json]            展示最近本地反思摘要（0.3.5）")
     print("")
     print("模式行为差异:")
     print("  quiet   只 weather 必说；其他触发源一律 skip")
@@ -1165,3 +1174,120 @@ def _cli_test(rest, want_json):
     print(f"❌ 投递失败: {'; '.join(errors) if errors else '所有渠道失败'}")
     print("   提示: 检查 fs_app_id/fs_app_secret 配置，或微信 token (~/.wxbot/token.json)")
     return 1
+
+
+def _cli_voice(rest, want_json):
+    """penglai companion voice male|female|auto [--json]
+
+    0.3.5：设置默认声音性别，写入 mykey.companion_voice_gender。
+    """
+    gender = rest[0] if rest else ""
+    valid = {"male", "female", "auto", "m", "f"}
+    norm = {"m": "male", "f": "female"}
+    if gender not in valid:
+        print("❌ 用法: penglai companion voice male|female|auto")
+        return 1
+    gender = norm.get(gender, gender)
+    if not _cli_set_mykey({"companion_voice_gender": gender}):
+        return 1
+    # 显示当前会解析到的声音
+    try:
+        from penglai_runtime.voice_profiles import resolve_voice, list_voice_profiles
+        sample_zh = resolve_voice("你好", gender=gender, persona="butler")
+        sample_en = resolve_voice("hello", gender=gender, persona="butler")
+    except Exception:
+        sample_zh = sample_en = "（voice_profiles 不可用）"
+    if want_json:
+        print(json.dumps({"voice_gender": gender, "zh_sample": sample_zh, "en_sample": sample_en},
+                         ensure_ascii=False, indent=2))
+        return 0
+    print(f"✅ 已设置 companion_voice_gender = {gender}")
+    print(f"   中文默认声音: {sample_zh}")
+    print(f"   英文默认声音: {sample_en}")
+    print(f"   查看全部声音: penglai tts-voices")
+    return 0
+
+
+def _cli_profile(rest, want_json):
+    """penglai companion profile butler|steady_male|warm_female|custom [--json]
+
+    0.3.5：设置人格风格，写入 mykey.companion_persona 和 companion_relationship_style。
+    """
+    persona = rest[0] if rest else ""
+    valid = {"butler", "steady_male", "warm_female", "custom"}
+    if persona not in valid:
+        print("❌ 用法: penglai companion profile butler|steady_male|warm_female|custom")
+        return 1
+    pairs = {"companion_persona": persona, "companion_relationship_style": persona}
+    if not _cli_set_mykey(pairs):
+        return 1
+    if want_json:
+        print(json.dumps({"persona": persona, "relationship_style": persona},
+                         ensure_ascii=False, indent=2))
+        return 0
+    desc = {
+        "butler": "稳重管家：稳、准、任务闭环，克制",
+        "steady_male": "稳重男声：更直接、更任务导向",
+        "warm_female": "温和陪伴：情绪承接更多",
+        "custom": "自定义：由用户配置决定",
+    }
+    print(f"✅ 已设置 companion_persona = {persona}")
+    print(f"   {desc.get(persona, '')}")
+    return 0
+
+
+def _cli_reflection(want_json):
+    """penglai companion reflection [--json]
+
+    0.3.5：展示最近本地反思摘要（来自 daily_reflection，若存在）。
+    """
+    import os as _os
+    refl_dir = _os.path.join(_ROOT, "temp", "companion_reflections")
+    latest = None
+    latest_path = None
+    try:
+        if _os.path.isdir(refl_dir):
+            files = sorted(f for f in _os.listdir(refl_dir) if f.endswith(".json"))
+            if files:
+                latest_path = _os.path.join(refl_dir, files[-1])
+                with open(latest_path, encoding="utf-8") as f:
+                    latest = json.load(f)
+    except Exception as e:
+        if want_json:
+            print(json.dumps({"error": str(e)}, ensure_ascii=False))
+            return 1
+        print(f"❌ 读取反思失败: {e}")
+        return 1
+    if not latest:
+        if want_json:
+            print(json.dumps({"reflection": None, "note": "尚无每日反思（Phase 4 落地后生成）"},
+                             ensure_ascii=False, indent=2))
+            return 0
+        print("（尚无每日反思。daily_reflection 在 Phase 4 落地后会生成 temp/companion_reflections/YYYY-MM-DD.json）")
+        return 0
+    if want_json:
+        print(json.dumps({"reflection": latest, "path": latest_path},
+                         ensure_ascii=False, indent=2, default=str))
+        return 0
+    print(f"=== 每日反思（{latest.get('date', '?')}）===")
+    themes = latest.get("themes") or []
+    if themes:
+        print(f"主题: {', '.join(themes)}")
+    arc = latest.get("emotional_arc")
+    if arc:
+        print(f"情绪弧线: {arc}")
+    unresolved = latest.get("unresolved_items") or []
+    if unresolved:
+        print("未闭环事项:")
+        for item in unresolved:
+            print(f"  - {item}")
+    opps = latest.get("care_opportunities") or []
+    if opps:
+        print("主动陪伴点:")
+        for opp in opps:
+            kind = opp.get("kind", "?")
+            score = opp.get("score", 0)
+            reason = opp.get("reason", "")
+            print(f"  - [{kind}] score={score}: {reason}")
+    return 0
+

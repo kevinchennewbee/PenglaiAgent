@@ -9,8 +9,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from llmcore import reload_mykeys, ToolClient, MixinSession, NativeToolClient, NativeClaudeSession, NativeOAISession, resolve_client
 from agent_loop import agent_runner_loop
 try:
-    from plugins.hooks import discover_and_load; discover_and_load()
-except Exception: pass
+    from plugins.hooks import discover_and_load
+    discover_and_load(strict=os.environ.get("PENGLAI_ALLOW_UNGUARDED") != "1")
+except Exception as e:
+    if os.environ.get("PENGLAI_ALLOW_UNGUARDED") == "1":
+        print(f"[WARN] Penglai security plugins failed to load (unguarded bypass): {e}")
+    else:
+        raise RuntimeError(
+            "Penglai security plugins failed to load; refusing to start unguarded. "
+            "Set PENGLAI_ALLOW_UNGUARDED=1 only for explicit emergency/debug use."
+        ) from e
 from ga import GenericAgentHandler, smart_format, get_global_memory, format_error, consume_file
 
 script_dir = os.path.dirname(os.path.abspath(__file__))

@@ -334,7 +334,7 @@
     const consoleBody= document.getElementById('consoleBody');
     const logCount   = document.getElementById('logCount');
     let ws;
-    const conductorToken = window.__PENGLAI_CONDUCTOR_TOKEN__ || new URLSearchParams(location.search).get('token') || '';
+    const conductorToken = window.__PENGLAI_CONDUCTOR_TOKEN__ || '';
     function authHeaders(extra){
       return Object.assign({'X-Penglai-Bridge-Token': conductorToken}, extra || {});
     }
@@ -440,7 +440,7 @@
     /* ---------- WS ---------- */
     function connect(){
       const proto = location.protocol==='https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(conductorToken)}`);
+      ws = new WebSocket(`${proto}://${location.host}/ws`, [`penglai.${conductorToken}`]);
       ws.onopen = ()=> wsStatus.textContent = 'connected';
       ws.onclose = ()=>{ wsStatus.textContent = 'disconnected · retrying'; setTimeout(connect,1200); };
       ws.onerror = ()=> wsStatus.textContent = 'error';

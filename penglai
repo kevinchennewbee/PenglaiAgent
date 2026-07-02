@@ -362,12 +362,13 @@ GUARD_PLUGINS = ["plugins.penglai_redline", "plugins.penglai_memguard", "plugins
 def guardcheck():
     """验证安全插件（红线/记忆卫生/文件外发/日志脱敏）真正 import 且挂载。
     供 doctor / start / systemd 单元统一复用。0=已挂载 1=未挂载。
-    机制：discover_and_load 对失败插件 except:pass（fail-open），故启动前必须主动核验，
+    机制：discover_and_load(strict=True) 聚合失败插件并抛错，坏插件默认阻断启动；
+    PENGLAI_ALLOW_UNGUARDED=1 时退回 fail-open 仅用于显式救援。仍主动核验挂载点，
     否则 agent 可能在【无任何防护】下运行而无人知晓。"""
     try:
         sys.path.insert(0, ROOT)
         import plugins.hooks as h
-        h.discover_and_load()
+        h.discover_and_load(strict=os.environ.get("PENGLAI_ALLOW_UNGUARDED") != "1")
         import ga
         miss = [m for m in GUARD_PLUGINS if m not in sys.modules]
         cr = ga.GenericAgentHandler.do_code_run.__module__
@@ -1023,6 +1024,42 @@ def _release_branch():
 def _release_ref(remote=None):
     return f"{remote or _release_remote()}/{_release_branch()}"
 
+def _verify_release_integrity(newsha, remote=None):
+    """Fail closed unless the target release commit is cryptographically trusted.
+
+    Source updates are code execution.  Compile/guardcheck catches broken code, but
+    it cannot prove the fetched commit came from a trusted release.  The normal
+    path accepts either a signed tag pointing at the target commit or a signed
+    target commit.  Development and emergency use can bypass this only with an
+    explicit dangerous environment flag.
+    """
+    newsha = (newsha or "").strip()
+    if not newsha:
+        return False, "目标 commit 为空"
+    if os.environ.get("PENGLAI_ALLOW_UNSIGNED_UPDATE") == "1":
+        return True, "PENGLAI_ALLOW_UNSIGNED_UPDATE=1"
+    if os.environ.get("PENGLAI_UPDATE_REQUIRE_SIGNATURE", "1") == "0":
+        return True, "PENGLAI_UPDATE_REQUIRE_SIGNATURE=0"
+    remote = remote or _release_remote()
+    _git("fetch", "--tags", remote)
+    tag_proc = _git("tag", "--points-at", newsha)
+    tags = [t.strip() for t in (tag_proc.stdout or "").splitlines() if t.strip()]
+    for tag in tags:
+        if not tag.startswith("v"):
+            continue
+        verify = _git("tag", "-v", tag)
+        if verify.returncode == 0:
+            return True, f"signed tag {tag}"
+    commit_verify = _git("verify-commit", newsha)
+    if commit_verify.returncode == 0:
+        return True, "signed commit"
+    detail = (commit_verify.stderr or commit_verify.stdout or "").strip()
+    return False, (
+        "目标版本缺少可信签名。请发布 signed tag 或 signed commit 后再升级；"
+        "开发/应急环境可显式设置 PENGLAI_ALLOW_UNSIGNED_UPDATE=1。"
+        + (f" git verify-commit: {detail[:160]}" if detail else "")
+    )
+
 def _gh_proxy(url):
     """把 github.com 直连 URL 包成可配置 GitHub 镜像（国内 GFW 兜底，与 install.sh 同源）。
     非 github / 已是镜像 返回空串。"""
@@ -1053,6 +1090,10 @@ def _fetch_status():
     old = _git("rev-parse", "HEAD").stdout.strip()
     new = _git("rev-parse", ref).stdout.strip()
     behind = int(_git("rev-list", "--count", f"HEAD..{ref}").stdout.strip() or "0")
+    if behind:
+        ok, verify_detail = _verify_release_integrity(new, remote=remote)
+        if not ok:
+            return False, behind, old, new, verify_detail
     return True, behind, old, new, ""
 
 def _changelog(old, new):
@@ -1884,6 +1925,35 @@ def tts_feishu_test_cmd():
     from penglai_runtime import tts_service
     return tts_service.feishu_test_main(sys.argv[2:])
 
+def tts_voices_cmd():
+    """penglai tts-voices [--json]
+
+    列出可用声音档案（0.3.5 新增）。
+    """
+    sys.path.insert(0, ROOT)
+    from penglai_runtime import voice_profiles
+    import json as _json
+    voices = voice_profiles.list_voice_profiles(public_only=True)
+    use_json = "--json" in sys.argv[2:]
+    if use_json:
+        print(_json.dumps({"voices": voices}, ensure_ascii=False, indent=2))
+        return 0
+    if not voices:
+        print("（无可用声音）")
+        return 0
+    print("可用声音档案（公开）：")
+    cur_lang = None
+    for v in voices:
+        if v["lang"] != cur_lang:
+            cur_lang = v["lang"]
+            lang_label = "中文" if cur_lang == "zh" else "英文"
+            print(f"\n  [{lang_label}]")
+        gender_label = "男声" if v["gender"] == "male" else "女声"
+        personas = ", ".join(v["persona_hints"]) if v["persona_hints"] else "-"
+        print(f"    {v['voice_id']:<12} {gender_label}  {v['label']}  人格: {personas}")
+    print("\n配置：在 mykey.py 设置 companion_voice_gender = 'male'|'female'|'auto'")
+    return 0
+
 def feishu_service_cmd():
     sys.path.insert(0, ROOT)
     from penglai_runtime import feishu_service
@@ -1921,6 +1991,7 @@ def main():
             "tts-smoke": tts_smoke_cmd,
             "tts-say": tts_say_cmd,
             "tts-feishu-test": tts_feishu_test_cmd,
+            "tts-voices": tts_voices_cmd,
             "feishu-service": feishu_service_cmd,
             "companion": companion_cmd,
             "_guardcheck": guardcheck, "_update_supervisor": update_supervisor,

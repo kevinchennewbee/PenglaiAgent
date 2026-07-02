@@ -66,6 +66,10 @@ def _make_handler():
             yield "[orig] file_patch\n"
             return StepOutcome({"status": "success"})
 
+        def do_web_execute_js(self, args, response):
+            script = args.get("script") or self._extract_code_block(response, "javascript")
+            return StepOutcome({"status": "success", "js_return": script or ""}, next_prompt="\n")
+
     return GenericAgentHandler
 
 

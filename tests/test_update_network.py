@@ -54,3 +54,110 @@ def test_release_remote_prefers_penglaiagent_remote(monkeypatch):
     monkeypatch.setenv("PENGLAI_RELEASE_BRANCH", "main")
     assert cli._release_remote() == "release"
     assert cli._release_ref() == "release/main"
+
+
+def test_update_integrity_rejects_unsigned_target(monkeypatch):
+    cli = _load_cli()
+    calls = []
+
+    def fake_git(*args):
+        calls.append(args)
+        if args == ("fetch", "--tags", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("tag", "--points-at", "abc123"):
+            return subprocess.CompletedProcess(["git"], 0, "v0.3.5\n", "")
+        if args == ("tag", "-v", "v0.3.5"):
+            return subprocess.CompletedProcess(["git"], 1, "", "no signature")
+        if args == ("verify-commit", "abc123"):
+            return subprocess.CompletedProcess(["git"], 1, "", "no signature")
+        return subprocess.CompletedProcess(["git"], 1, "", "")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    monkeypatch.delenv("PENGLAI_ALLOW_UNSIGNED_UPDATE", raising=False)
+    monkeypatch.delenv("PENGLAI_UPDATE_REQUIRE_SIGNATURE", raising=False)
+    ok, detail = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is False
+    assert "缺少可信签名" in detail
+    assert ("tag", "-v", "v0.3.5") in calls
+
+
+def test_update_integrity_accepts_signed_tag(monkeypatch):
+    cli = _load_cli()
+
+    def fake_git(*args):
+        if args == ("fetch", "--tags", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("tag", "--points-at", "abc123"):
+            return subprocess.CompletedProcess(["git"], 0, "v0.3.5\n", "")
+        if args == ("tag", "-v", "v0.3.5"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        return subprocess.CompletedProcess(["git"], 1, "", "")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    ok, detail = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is True
+    assert detail == "signed tag v0.3.5"
+
+
+def test_update_integrity_accepts_signed_commit_without_signed_tag(monkeypatch):
+    """目标 commit 没有 signed tag，但 commit 本身已签名，应通过。"""
+    cli = _load_cli()
+
+    def fake_git(*args):
+        if args == ("fetch", "--tags", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("tag", "--points-at", "abc123"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("verify-commit", "abc123"):
+            return subprocess.CompletedProcess(["git"], 0, "Good signature", "")
+        return subprocess.CompletedProcess(["git"], 1, "", "")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    monkeypatch.delenv("PENGLAI_ALLOW_UNSIGNED_UPDATE", raising=False)
+    monkeypatch.delenv("PENGLAI_UPDATE_REQUIRE_SIGNATURE", raising=False)
+    ok, detail = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is True
+    assert detail == "signed commit"
+
+
+def test_update_integrity_rejects_target_with_no_tags(monkeypatch):
+    """目标 commit 没有任何 tag 且 commit 未签名，应 fail closed。"""
+    cli = _load_cli()
+
+    def fake_git(*args):
+        if args == ("fetch", "--tags", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("tag", "--points-at", "abc123"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        if args == ("verify-commit", "abc123"):
+            return subprocess.CompletedProcess(["git"], 1, "", "no signature")
+        return subprocess.CompletedProcess(["git"], 1, "", "")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    monkeypatch.delenv("PENGLAI_ALLOW_UNSIGNED_UPDATE", raising=False)
+    monkeypatch.delenv("PENGLAI_UPDATE_REQUIRE_SIGNATURE", raising=False)
+    ok, detail = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is False
+    assert "缺少可信签名" in detail
+
+
+def test_update_integrity_bypass_envs_are_not_default_path(monkeypatch):
+    """默认环境（未设置 bypass 变量）必须 fail closed；bypass 变量不是默认安全路径。"""
+    cli = _load_cli()
+
+    def fake_git(*args):
+        if args == ("fetch", "--tags", "release"):
+            return subprocess.CompletedProcess(["git"], 0, "", "")
+        return subprocess.CompletedProcess(["git"], 1, "", "no signature")
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+    monkeypatch.delenv("PENGLAI_ALLOW_UNSIGNED_UPDATE", raising=False)
+    monkeypatch.delenv("PENGLAI_UPDATE_REQUIRE_SIGNATURE", raising=False)
+    ok, _ = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is False, "default path must require signature, not silently bypass"
+
+    # 显式 bypass 才放行
+    monkeypatch.setenv("PENGLAI_ALLOW_UNSIGNED_UPDATE", "1")
+    ok, detail = cli._verify_release_integrity("abc123", remote="release")
+    assert ok is True
+    assert "PENGLAI_ALLOW_UNSIGNED_UPDATE" in detail

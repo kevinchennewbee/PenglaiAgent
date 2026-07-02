@@ -10,6 +10,14 @@ The only trustworthy boundary against an adversarial LLM or malicious tool outpu
 
 `penglai doctor` will warn if it detects the runtime running as root or under a shared login account.
 
+## Conductor token threat model (0.3.5)
+
+The Conductor web console (`frontends/conductor.py`) binds to `127.0.0.1:8900` and authenticates each request with a local `X-Penglai-Bridge-Token` header. As of 0.3.5 the token is **no longer accepted via URL query** (`?token=...`) to prevent leakage through browser history, `Referer` headers, server logs, and screen-sharing. The token is injected into the root page as `window.__PENGLAI_CONDUCTOR_TOKEN__` and read from there by the client; WebSocket connections pass it via the `sec-websocket-protocol` subprotocol (`penglai.<token>`) instead of the query string.
+
+**What this prevents:** passive leakage of the token into URLs that may be logged, shared, or captured by browser extensions with history access.
+
+**What this does NOT prevent:** the token still lives in the page's JavaScript memory and in `~/.penglai/conductor_token`. Any process running as the **same local user** can read the token file, inspect the page DOM, or read process memory. This is the same-user local trust boundary and is intentional: the Conductor is a single-user local tool. If you need to defend against same-user local read (for example, a malicious browser extension or another local process), you must run the Conductor under a separate user account or container, or implement a one-time bootstrap / session cookie flow — none of which is in 0.3.5 scope. Do not describe query-token removal as "Conductor is now secure against local attackers"; it is only a URL-leakage hardening step.
+
 ## Reporting a Vulnerability
 
 Please do not post secrets, API keys, Feishu/WeChat credentials, cookies, private logs, or personal data in public issues.

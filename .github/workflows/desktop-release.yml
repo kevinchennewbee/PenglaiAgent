@@ -181,12 +181,13 @@ jobs:
           node --check frontends/desktop/static/penglai-web.js
           cargo check --manifest-path frontends/desktop/src-tauri/Cargo.toml
 
-      - name: Desktop bridge contract tests
+      - name: Desktop bridge and security contract tests
         env:
           PIP_INDEX_URL: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
         run: |
           python -m pip install --disable-pip-version-check pytest aiohttp
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
+          python -m pytest -q tests/test_redline.py tests/test_memguard.py tests/test_media_path_safety.py tests/test_conductor_auth.py tests/test_fileguard.py tests/test_update_network.py tests/test_wechat_auth.py
 
       - name: Build desktop runtime payload
         shell: bash

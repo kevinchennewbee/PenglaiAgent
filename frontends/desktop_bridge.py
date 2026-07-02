@@ -51,7 +51,11 @@ MYKEY_UPDATE_ALLOWLIST = {
     "fs_owner_open_id",
     "fs_allowed_users",
     "wechat_enabled",
+    "wechat_allowed_users",
     "companion_enabled",
+    "companion_mode",
+    "companion_relationship_style",
+    "companion_voice_gender",
     "critic_model",
     "critic_mode",
     "tinyfish_key",
@@ -67,6 +71,7 @@ PROTECTED_PATH_PREFIXES = (
     "/session/",
     "/ops/",
     "/runtime/",
+    "/companion/",
     "/tts/",
     "/path/open",
 )
@@ -725,7 +730,7 @@ def _requires_bridge_auth(request) -> bool:
 
 
 def _request_bridge_token(request) -> str:
-    return request.headers.get(BRIDGE_TOKEN_HEADER, "") or request.query.get("token", "")
+    return request.headers.get(BRIDGE_TOKEN_HEADER, "")
 
 
 def _bridge_auth_ok(request) -> bool:
@@ -1009,6 +1014,30 @@ async def tts_audio_handler(request):
     return web.FileResponse(target, headers={"Content-Type": "audio/wav"})
 
 
+async def tts_voices_handler(request):
+    """GET /tts/voices — 列出可用声音档案（0.3.5 新增）。"""
+    _require_token(request)
+    from penglai_runtime.voice_profiles import list_voice_profiles, resolve_voice
+
+    keys = _read_mykey_keys()
+    gender = keys.get("companion_voice_gender") or "auto"
+    persona = keys.get("companion_persona") or keys.get("companion_relationship_style") or "butler"
+    voices = list_voice_profiles(public_only=True)
+    # 标注当前默认会解析到哪个声音
+    sample_zh = resolve_voice("你好", gender=gender, persona=persona)
+    sample_en = resolve_voice("hello", gender=gender, persona=persona)
+    return json_ok({
+        "ok": True,
+        "voices": voices,
+        "current": {
+            "gender": gender,
+            "persona": persona,
+            "zh_sample": sample_zh,
+            "en_sample": sample_en,
+        },
+    })
+
+
 # ── Channel & Ability management (v0.3.1 补配置) ─────────────────────
 
 CHANNEL_REGISTRY = (
@@ -1259,6 +1288,214 @@ async def mykey_update_handler(request):
     return json_ok({"ok": True, "updated": list(updates.keys())})
 
 
+def _write_mykey_updates(updates: dict):
+    mk = Path(manager.ga_root) / "mykey.py"
+    if mk.exists():
+        lines = mk.read_text(encoding="utf-8").splitlines(keepends=True)
+    else:
+        lines = []
+    existing_keys = set(_read_mykey_keys().keys())
+    for key, val in updates.items():
+        key = str(key or "")
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key) or key.startswith("__"):
+            raise ValueError(f"非法配置项名称: {key}")
+        if key not in MYKEY_UPDATE_ALLOWLIST and key not in existing_keys:
+            raise ValueError(f"不允许通过桌面接口新增未知配置项: {key}")
+        val_str = str(val) if isinstance(val, bool) else repr(str(val))
+        found = False
+        for i, line in enumerate(lines):
+            if re.match(rf"^{re.escape(key)}\s*=", line.strip()):
+                lines[i] = f"{key} = {val_str}\n"
+                found = True
+                break
+        if not found:
+            lines.append(f"{key} = {val_str}\n")
+    if mk.exists():
+        import datetime, shutil
+        bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        shutil.copy2(mk, bak)
+    tmp = mk.with_name(f".{mk.name}.tmp.{uuid.uuid4().hex}")
+    tmp.write_text("".join(lines), encoding="utf-8")
+    _chmod_private(tmp)
+    try:
+        py_compile.compile(str(tmp), doraise=True)
+    except Exception:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+    os.replace(tmp, mk)
+    _chmod_private(mk)
+    return {"ok": True, "updated": list(updates.keys())}
+
+
+async def companion_config_handler(request):
+    _require_token(request)
+    from penglai_runtime.companion_loop import companion_profile, companion_state, normalize_mode
+
+    keys = _read_mykey_keys()
+    enabled = str(keys.get("companion_enabled", "")).lower() == "true"
+    mode = normalize_mode(keys.get("companion_mode") or "present")
+    state = companion_state(manager.ga_root)
+    return json_ok({
+        "ok": True,
+        "enabled": enabled,
+        "mode": "off" if not enabled else mode,
+        "normalizedMode": mode,
+        "relationshipStyle": keys.get("companion_relationship_style") or "butler",
+        "voiceGender": keys.get("companion_voice_gender") or "auto",
+        "lastReason": state.get("last_reason", ""),
+        "lastDecision": state.get("last_decision", ""),
+        "lastResult": state.get("last_result", ""),
+        "lastCheckTs": state.get("last_check_ts", 0),
+        "profile": companion_profile(manager.ga_root),
+    })
+
+
+async def companion_heartbeats_handler(request):
+    _require_token(request)
+    from penglai_runtime.companion_loop import companion_heartbeats
+
+    try:
+        limit = int(request.query.get("limit") or 20)
+    except Exception:
+        limit = 20
+    return json_ok({"ok": True, "heartbeats": companion_heartbeats(limit=limit)})
+
+
+async def companion_mode_handler(request):
+    _require_token(request)
+    from penglai_runtime.companion_loop import normalize_mode
+
+    data = await read_json(request)
+    mode = str(data.get("mode") or "").strip().lower()
+    if mode == "normal":
+        mode = "present"
+    if mode not in {"off", "quiet", "present", "active"}:
+        return json_ok({"ok": False, "error": "mode 必须是 off|quiet|present|active"}, status=400)
+    updates = {"companion_enabled": mode != "off"}
+    if mode != "off":
+        updates["companion_mode"] = normalize_mode(mode)
+    try:
+        result = _write_mykey_updates(updates)
+    except Exception as exc:
+        return json_ok({"ok": False, "error": str(exc)[:240]}, status=400)
+    result.update({"mode": mode, "enabled": mode != "off"})
+    return json_ok(result)
+
+
+async def companion_feedback_handler(request):
+    _require_token(request)
+    from penglai_runtime.companion_loop import append_feedback
+
+    data = await read_json(request)
+    rec = append_feedback(manager.ga_root, data)
+    return json_ok({"ok": True, "feedback": rec})
+
+
+async def companion_voice_handler(request):
+    """POST /companion/voice — 设置默认声音性别（0.3.5）。"""
+    _require_token(request)
+    data = await read_json(request)
+    gender = str(data.get("gender") or "").strip().lower()
+    norm = {"m": "male", "f": "female"}
+    gender = norm.get(gender, gender)
+    if gender not in ("male", "female", "auto"):
+        return json_ok({"ok": False, "error": "gender 必须是 male|female|auto"}, status=400)
+    try:
+        result = _write_mykey_updates({"companion_voice_gender": gender})
+    except Exception as exc:
+        return json_ok({"ok": False, "error": str(exc)[:240]}, status=400)
+    # 返回解析到的声音样本
+    from penglai_runtime.voice_profiles import resolve_voice
+    keys = _read_mykey_keys()
+    persona = keys.get("companion_persona") or "butler"
+    result.update({
+        "gender": gender,
+        "zh_sample": resolve_voice("你好", gender=gender, persona=persona),
+        "en_sample": resolve_voice("hello", gender=gender, persona=persona),
+    })
+    return json_ok(result)
+
+
+async def companion_persona_handler(request):
+    """POST /companion/persona — 设置人格风格（0.3.5）。"""
+    _require_token(request)
+    data = await read_json(request)
+    persona = str(data.get("persona") or "").strip().lower()
+    if persona not in ("butler", "steady_male", "warm_female", "custom"):
+        return json_ok({"ok": False, "error": "persona 必须是 butler|steady_male|warm_female|custom"}, status=400)
+    try:
+        result = _write_mykey_updates({
+            "companion_persona": persona,
+            "companion_relationship_style": persona,
+        })
+    except Exception as exc:
+        return json_ok({"ok": False, "error": str(exc)[:240]}, status=400)
+    result.update({"persona": persona})
+    return json_ok(result)
+
+
+async def companion_why_handler(request):
+    """GET /companion/why — 展示最近主动陪伴决策原因（0.3.5）。"""
+    _require_token(request)
+    from penglai_runtime.companion_loop import companion_state
+
+    state = companion_state(manager.ga_root)
+    return json_ok({
+        "ok": True,
+        "last_decision": state.get("last_decision", ""),
+        "last_reason": state.get("last_reason", ""),
+        "last_trigger_kind": state.get("last_trigger_kind", ""),
+        "last_result": state.get("last_result", ""),
+        "last_check_ts": state.get("last_check_ts", 0),
+        "last_sent_ts": state.get("last_sent_ts", 0),
+        "last_sent_body": state.get("last_sent_body", ""),
+    })
+
+
+async def companion_reflection_handler(request):
+    """GET /companion/reflection — 最近每日反思摘要（0.3.5）。"""
+    _require_token(request)
+    import os as _os
+    refl_dir = _os.path.join(manager.ga_root, "temp", "companion_reflections")
+    latest = None
+    latest_path = ""
+    try:
+        if _os.path.isdir(refl_dir):
+            files = sorted(f for f in _os.listdir(refl_dir) if f.endswith(".json"))
+            if files:
+                latest_path = _os.path.join(refl_dir, files[-1])
+                with open(latest_path, encoding="utf-8") as f:
+                    latest = json.loads(f.read())
+    except Exception as exc:
+        return json_ok({"ok": False, "error": str(exc)[:240]}, status=500)
+    if not latest:
+        return json_ok({"ok": True, "reflection": None,
+                        "note": "尚无每日反思（Phase 4 落地后生成）"})
+    return json_ok({"ok": True, "reflection": latest, "path": latest_path})
+
+
+async def companion_test_handler(request):
+    """POST /companion/test — 干跑一次主动陪伴决策（0.3.5）。"""
+    _require_token(request)
+    data = await read_json(request) if request.can_read_body else {}
+    send = bool(data.get("send"))
+    py = _find_python()
+    args = [py, os.path.join(manager.ga_root, "penglai"), "companion", "test"]
+    args.append("--send" if send else "--dry-run")
+    args.append("--json")
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=30, cwd=manager.ga_root)
+    except Exception as exc:
+        return json_ok({"ok": False, "error": str(exc)[:240]}, status=500)
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except Exception:
+        payload = {"raw_stdout": (proc.stdout or "")[:500]}
+    return json_ok({"ok": proc.returncode == 0, "returncode": proc.returncode,
+                    "result": payload, "stderr": (proc.stderr or "")[:500]})
+
+
 async def doctor_handler(request):
     _require_token(request)
     import subprocess, platform, os, socket
@@ -1292,6 +1529,25 @@ async def doctor_handler(request):
     # Channel checks
     for ch in _channel_status():
         add_check(f"渠道 {ch['name']}", ch["configured"], "已配置" if ch["configured"] else "未配置")
+
+    # WeChat allowlist check: 有微信 token 但无 wechat_allowed_users = critical
+    try:
+        keys = _read_mykey_keys()
+        wx_token = bool(keys.get("wx_app_id")) or bool(keys.get("wx_token_path"))
+        wx_token = wx_token or Path.home().joinpath(".wxbot").exists()
+        allow = keys.get("wechat_allowed_users")
+        allow_set = allow not in (None, "", [], [""])
+        if wx_token and not allow_set:
+            add_check(
+                "微信白名单",
+                False,
+                "检测到微信 token 但未配置 wechat_allowed_users；通道处于 fail-closed。"
+                "请在 mykey.py 设置 wechat_allowed_users=['your_openid'] 或桌面配置中写入。",
+            )
+        elif wx_token and allow_set:
+            add_check("微信白名单", True, "wechat_allowed_users 已配置")
+    except Exception as e:
+        add_check("微信白名单", True, f"检测跳过：{e}")
 
     # Ability checks
     for ab in _ability_status():
@@ -1859,7 +2115,17 @@ def create_app():
     app.router.add_post("/ops/command", ops_command_post_handler)
     app.router.add_get("/runtime/status", runtime_status_handler)
     app.router.add_get("/runtime/runs", runtime_runs_handler)
+    app.router.add_get("/companion/config", companion_config_handler)
+    app.router.add_get("/companion/heartbeats", companion_heartbeats_handler)
+    app.router.add_post("/companion/mode", companion_mode_handler)
+    app.router.add_post("/companion/voice", companion_voice_handler)
+    app.router.add_post("/companion/persona", companion_persona_handler)
+    app.router.add_get("/companion/why", companion_why_handler)
+    app.router.add_get("/companion/reflection", companion_reflection_handler)
+    app.router.add_post("/companion/test", companion_test_handler)
+    app.router.add_post("/companion/feedback", companion_feedback_handler)
     app.router.add_post("/tts/say", tts_say_handler)
+    app.router.add_get("/tts/voices", tts_voices_handler)
     app.router.add_get("/tts/audio/{name}", tts_audio_handler)
     app.router.add_post("/path/open", path_open_handler)
     app.router.add_get("/channels", channels_list_handler)

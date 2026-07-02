@@ -2512,11 +2512,71 @@ def test_desktop_bridge_tts_route_generates_local_audio_without_path_escape():
             assert audio.status == 200
             assert await audio.read()
             escape = await client.get("/tts/audio/../secret.wav?token=" + desktop_bridge.BRIDGE_TOKEN)
-            assert escape.status in {400, 404}
+            assert escape.status in {400, 401, 404}
         finally:
             await client.close()
             desktop_bridge.manager = old_manager
             desktop_bridge.tts_service = old_tts_service
+
+    asyncio.run(scenario())
+
+
+def test_desktop_companion_api_reads_config_updates_mode_and_lists_heartbeats():
+    desktop_bridge = importlib.import_module("frontends.desktop_bridge")
+    from aiohttp.test_utils import TestClient, TestServer
+    from penglai_runtime.context_events import append_context_event
+
+    td = tempfile.mkdtemp()
+    context_log = os.path.join(td, "context.jsonl")
+    open(os.path.join(td, "mykey.py"), "w", encoding="utf-8").write(
+        "companion_enabled = True\n"
+        "companion_mode = 'present'\n"
+        "companion_relationship_style = 'butler'\n"
+    )
+    old_manager = desktop_bridge.manager
+    old_context = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+
+    async def scenario():
+        desktop_bridge.manager = desktop_bridge.AgentManager()
+        desktop_bridge.manager.ga_root = td
+        os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = context_log
+        append_context_event(
+            "companion_sent",
+            "记得收尾 0.3.5 token=abc12345",
+            channel="companion",
+            metadata={"trigger": "free", "mode": "present"},
+            session_id="owner:default",
+            session_scope="owner",
+        )
+        client = TestClient(TestServer(desktop_bridge.create_app()))
+        await client.start_server()
+        try:
+            origin = str(client.make_url("/")).rstrip("/")
+            auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
+            cfg = await client.get("/companion/config", headers=auth)
+            assert cfg.status == 200
+            data = await cfg.json()
+            assert data["mode"] == "present"
+            assert data["relationshipStyle"] == "butler"
+
+            mode = await client.post("/companion/mode", headers=auth, json={"mode": "active"})
+            assert mode.status == 200
+            assert (await mode.json())["mode"] == "active"
+            mykey_text = open(os.path.join(td, "mykey.py"), encoding="utf-8").read()
+            assert "companion_enabled = True" in mykey_text
+            assert "companion_mode = 'active'" in mykey_text
+
+            heartbeats = await client.get("/companion/heartbeats?limit=5", headers=auth)
+            hb = await heartbeats.json()
+            assert hb["heartbeats"]
+            assert "token=***" in hb["heartbeats"][0]["message"]
+        finally:
+            await client.close()
+            desktop_bridge.manager = old_manager
+            if old_context is None:
+                os.environ.pop("PENGLAI_CONTEXT_EVENTS_LOG", None)
+            else:
+                os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = old_context
 
     asyncio.run(scenario())
 

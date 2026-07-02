@@ -409,6 +409,7 @@ native_oai_config = {
 # fs_app_id = 'cli_xxxxxxxxxxxxxxxx'
 # fs_app_secret = 'xxxxxxxxxxxxxxxx'
 # fs_allowed_users = ['ou_xxxxxxxxxxxxxxxx']        # 留空或 ['*'] 表示允许所有飞书用户
+# wechat_allowed_users = ['your_wechat_user_id']    # 必填；['*'] 才显式允许所有微信用户
 # wecom_bot_id = 'your_bot_id'
 # wecom_secret = 'your_bot_secret'
 # wecom_allowed_users = ['your_user_id']            # 留空或 ['*'] 表示允许所有企业微信用户

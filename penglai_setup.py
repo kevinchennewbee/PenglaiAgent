@@ -860,7 +860,87 @@ def step_wechat():
     if subprocess.run([py, "-c", code]).returncode != 0:
         print(f"{BAD} " + T("扫码未完成（可稍后重跑 penglai setup，只重做本步）")); return False
     print(f"{OK} " + T("微信绑定成功（token 已存 ~/.wxbot/，重启不用重扫）"))
+    # 0.3.5：捕获 owner openid 写入 wechat_allowed_users，避免 fail-closed 后老用户卡死
+    _ensure_wechat_allowlist(py)
     return True
+
+def _ensure_wechat_allowlist(py):
+    """扫码后引导用户发一条消息捕获 owner openid，写入 wechat_allowed_users。
+
+    微信 token 只存 bot 侧凭据，不含 owner openid；运行时 on_message 才能拿到
+    from_user_id。为避免老用户升级到 0.3.5 后微信通道 fail-closed 却无法配置，
+    这里给一次「发消息→抓 uid→写白名单」的机会；跳过则提示稍后用 doctor 配置。
+    """
+    try:
+        import llmcore
+        mk = llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        mk = {}
+    existing = mk.get("wechat_allowed_users")
+    if existing not in (None, "", [], [""]):
+        print(f"{OK} " + T("wechat_allowed_users 已配置，跳过 owner 捕获"))
+        return
+    print("  " + T("⚠ 微信通道默认 fail-closed：未配置 wechat_allowed_users 时拒绝所有消息。"))
+    ans = ask(T("现在用绑定的微信给蓬莱发一条任意消息，我来抓你的 openid 并写入白名单？(y/n)"), "y")
+    if not ans.lower().startswith("y"):
+        print(f"{WARN} " + T("已跳过。稍后可：1) 桌面「诊断」查看；2) 手动在 mykey.py 写 wechat_allowed_users=['你的openid']；3) 重跑 penglai setup --only wechat"))
+        return
+    # 跑一次短轮询抓第一条消息的 from_user_id
+    code = ("import sys, json, time\n"
+            f"sys.path[:0] = [{ROOT!r}, {os.path.join(ROOT, 'frontends')!r}]\n"
+            "from wechatapp import WxBotClient\n"
+            "b = WxBotClient()\n"
+            "if not b.token:\n"
+            "    print('NO_TOKEN'); sys.exit(0)\n"
+            "deadline = time.time() + 90\n"
+            "while time.time() < deadline:\n"
+            "    for m in b.get_updates(timeout=20):\n"
+            "        uid = m.get('from_user_id', '')\n"
+            "        if uid:\n"
+            "            print('OWNER_UID=' + uid); sys.exit(0)\n"
+            "print('TIMEOUT')\n")
+    r = subprocess.run([py, "-c", code], capture_output=True, text=True, timeout=100)
+    out = (r.stdout or "").strip()
+    if out.startswith("OWNER_UID="):
+        uid = out.split("=", 1)[1].strip()
+        if uid:
+            _write_mykey_field("wechat_allowed_users", [uid])
+            print(f"{OK} " + T("已写入 wechat_allowed_users=['{u}']，微信通道现在接受你的消息", u=uid))
+            return
+    if "TIMEOUT" in out:
+        print(f"{WARN} " + T("90 秒内未收到消息。稍后可重跑 penglai setup --only wechat，或在 mykey.py 手动填写。"))
+    else:
+        print(f"{WARN} " + T("owner 捕获失败（{e}），稍后可手动配置", e=(out or r.stderr or '')[-120:]))
+
+def _write_mykey_field(key, value):
+    """向 mykey.py 追加或更新单个字段（用于 setup 阶段写入白名单等）。"""
+    import ast as _ast
+    mk_path = os.path.join(ROOT, "mykey.py")
+    if not os.path.exists(mk_path):
+        # 从模板复制一份再写
+        tpl = os.path.join(ROOT, "mykey_template.py")
+        if os.path.exists(tpl):
+            import shutil
+            shutil.copy2(tpl, mk_path)
+    if not os.path.exists(mk_path):
+        with open(mk_path, "w", encoding="utf-8") as f:
+            f.write("# mykey.py\n")
+    with open(mk_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    val_repr = repr(value)
+    found = False
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith(key + " ") or stripped.startswith(key + "=") or stripped.startswith(key + "\t"):
+            indent = line[:len(line) - len(stripped)]
+            lines[i] = f"{indent}{key} = {val_repr}\n"
+            found = True
+            break
+    if not found:
+        lines.append(f"{key} = {val_repr}\n")
+    with open(mk_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
 
 # ---------- 步骤 6：启动并验证 ----------
 def _fsapp_pids():
