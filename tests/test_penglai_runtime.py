@@ -2512,11 +2512,71 @@ def test_desktop_bridge_tts_route_generates_local_audio_without_path_escape():
             assert audio.status == 200
             assert await audio.read()
             escape = await client.get("/tts/audio/../secret.wav?token=" + desktop_bridge.BRIDGE_TOKEN)
-            assert escape.status in {400, 404}
+            assert escape.status in {400, 401, 404}
         finally:
             await client.close()
             desktop_bridge.manager = old_manager
             desktop_bridge.tts_service = old_tts_service
+
+    asyncio.run(scenario())
+
+
+def test_desktop_companion_api_reads_config_updates_mode_and_lists_heartbeats():
+    desktop_bridge = importlib.import_module("frontends.desktop_bridge")
+    from aiohttp.test_utils import TestClient, TestServer
+    from penglai_runtime.context_events import append_context_event
+
+    td = tempfile.mkdtemp()
+    context_log = os.path.join(td, "context.jsonl")
+    open(os.path.join(td, "mykey.py"), "w", encoding="utf-8").write(
+        "companion_enabled = True\n"
+        "companion_mode = 'present'\n"
+        "companion_relationship_style = 'butler'\n"
+    )
+    old_manager = desktop_bridge.manager
+    old_context = os.environ.get("PENGLAI_CONTEXT_EVENTS_LOG")
+
+    async def scenario():
+        desktop_bridge.manager = desktop_bridge.AgentManager()
+        desktop_bridge.manager.ga_root = td
+        os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = context_log
+        append_context_event(
+            "companion_sent",
+            "记得收尾 0.3.5 token=abc12345",
+            channel="companion",
+            metadata={"trigger": "free", "mode": "present"},
+            session_id="owner:default",
+            session_scope="owner",
+        )
+        client = TestClient(TestServer(desktop_bridge.create_app()))
+        await client.start_server()
+        try:
+            origin = str(client.make_url("/")).rstrip("/")
+            auth = {desktop_bridge.BRIDGE_TOKEN_HEADER: desktop_bridge.BRIDGE_TOKEN, "Origin": origin}
+            cfg = await client.get("/companion/config", headers=auth)
+            assert cfg.status == 200
+            data = await cfg.json()
+            assert data["mode"] == "present"
+            assert data["relationshipStyle"] == "butler"
+
+            mode = await client.post("/companion/mode", headers=auth, json={"mode": "active"})
+            assert mode.status == 200
+            assert (await mode.json())["mode"] == "active"
+            mykey_text = open(os.path.join(td, "mykey.py"), encoding="utf-8").read()
+            assert "companion_enabled = True" in mykey_text
+            assert "companion_mode = 'active'" in mykey_text
+
+            heartbeats = await client.get("/companion/heartbeats?limit=5", headers=auth)
+            hb = await heartbeats.json()
+            assert hb["heartbeats"]
+            assert "token=***" in hb["heartbeats"][0]["message"]
+        finally:
+            await client.close()
+            desktop_bridge.manager = old_manager
+            if old_context is None:
+                os.environ.pop("PENGLAI_CONTEXT_EVENTS_LOG", None)
+            else:
+                os.environ["PENGLAI_CONTEXT_EVENTS_LOG"] = old_context
 
     asyncio.run(scenario())
 
@@ -3615,20 +3675,20 @@ def test_desktop_package_identity_targets_penglai_release():
         installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.4"
-    assert 'VERSION = "0.3.4"' in runtime_init
-    assert 'version = "0.3.4"' in installer_pyproject
+    assert package_json["version"] == "0.3.5"
+    assert 'VERSION = "0.3.5"' in runtime_init
+    assert 'version = "0.3.5"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.4"
+    assert package_lock["packages"][""]["version"] == "0.3.5"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.4"
+    assert tauri_conf["version"] == "0.3.5"
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
@@ -3663,7 +3723,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.4"' in cargo_toml
+    assert 'version = "0.3.5"' in cargo_toml
     assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs

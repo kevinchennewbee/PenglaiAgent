@@ -28,7 +28,7 @@ CHANNELS = {
                      pip={}, keys=[], allow="fs_allowed_users", tested=True,
                      note="主渠道，penglai setup 向导扫码建应用 + 连接验证闭环"),
     "wechat":   dict(label="微信",     script="wechatapp.py",    service="penglai-wechat",
-                     pip={}, keys=[], allow=None, tested=True,
+                     pip={}, keys=[], allow="wechat_allowed_users", tested=True,
                      note="penglai setup 向导扫码登录（iLink，token 存 ~/.wxbot/）"),
     "dingtalk": dict(label="钉钉",     script="dingtalkapp.py",  service="penglai-dingtalk",
                      pip={"dingtalk-stream": "dingtalk_stream"},

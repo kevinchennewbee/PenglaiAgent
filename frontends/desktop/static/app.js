@@ -2992,7 +2992,7 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
   // ============================================================
   //  Companion (SubTask 25.8) — four-mode segment + heartbeat timeline
   // ============================================================
-  let companionCache = { mode: 'normal', heartbeats: [] };
+  let companionCache = { mode: 'present', heartbeats: [], voices: [], why: null };
 
   function renderCompanion(container) {
     container.innerHTML = '<div class="pl-note">加载陪伴配置…</div>';
@@ -3006,6 +3006,13 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
       if (cfg) companionCache = Object.assign(companionCache, cfg);
       const hb = await window.penglai.apiGet('/companion/heartbeats?limit=20').catch(() => null);
       if (hb && hb.heartbeats) companionCache.heartbeats = hb.heartbeats;
+      const voices = await window.penglai.apiGet('/tts/voices').catch(() => null);
+      if (voices && voices.voices) {
+        companionCache.voices = voices.voices;
+        companionCache.voiceCurrent = voices.current || {};
+      }
+      const why = await window.penglai.apiGet('/companion/why').catch(() => null);
+      if (why) companionCache.why = why;
     } catch (_) { /* endpoints may not exist yet */ }
     renderCompanionContent();
   }
@@ -3016,10 +3023,10 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
     const modes = [
       { id: 'off', label: '关闭', desc: '完全不主动说话' },
       { id: 'quiet', label: '安静', desc: '仅天气等必要提示' },
-      { id: 'normal', label: '常规', desc: '按需主动提醒' },
+      { id: 'present', label: '常规', desc: '按需主动提醒' },
       { id: 'active', label: '活跃', desc: '频繁主动交互' }
     ];
-    const current = companionCache.mode || 'normal';
+    const current = companionCache.mode || 'present';
     const heartbeats = companionCache.heartbeats || [];
     const hbHtml = heartbeats.length
       ? heartbeats.map((h) => `
@@ -3029,6 +3036,26 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
             ${h.tag ? `<span class="pl-tag">${esc(h.tag)}</span>` : ''}
           </div>`).join('')
       : '<div class="pl-note">暂无心跳记录</div>';
+    const voices = companionCache.voices || [];
+    const vc = companionCache.voiceCurrent || {};
+    const curGender = vc.gender || companionCache.voiceGender || 'auto';
+    const curPersona = companionCache.relationshipStyle || companionCache.persona || 'butler';
+    const personas = [
+      { id: 'butler', label: '稳重管家' },
+      { id: 'steady_male', label: '稳重男声' },
+      { id: 'warm_female', label: '温和陪伴' },
+      { id: 'custom', label: '自定义' }
+    ];
+    const why = companionCache.why || {};
+    const whyHtml = why.last_decision
+      ? `<div class="pl-heartbeat-item">
+           <span class="pl-heartbeat-time">最近决策</span>
+           <span class="pl-heartbeat-msg">${esc(why.last_decision)} · ${esc(why.last_reason || '')}</span>
+           ${why.last_trigger_kind ? `<span class="pl-tag">${esc(why.last_trigger_kind)}</span>` : ''}
+         </div>`
+      : '<div class="pl-note">暂无主动陪伴记录</div>';
+    const zhVoices = voices.filter(v => v.lang === 'zh');
+    const zhVoiceOpts = zhVoices.map(v => `<option value="${esc(v.voice_id)}">${esc(v.label)}（${v.gender === 'male' ? '男' : '女'}）</option>`).join('');
     view.innerHTML = `
       <div class="pl-companion-wrap">
         <div class="pl-section">
@@ -3038,14 +3065,44 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
               <button class="pl-mode-btn ${current === m.id ? 'active' : ''}" data-mode="${m.id}" title="${esc(m.desc)}">${esc(m.label)}</button>
             `).join('')}
           </div>
-          <p class="pl-section-hint">${cliHint('penglai companion mode <off|quiet|normal|active>')}</p>
+          <p class="pl-section-hint">${cliHint('penglai companion mode <off|quiet|present|active>')}</p>
+        </div>
+        <div class="pl-section">
+          <div class="pl-section-title">声音人格（0.3.5）</div>
+          <div class="pl-mode-segment" role="tablist">
+            ${['auto','male','female'].map(g => `
+              <button class="pl-mode-btn ${curGender === g ? 'active' : ''}" data-voice-gender="${g}" title="默认声音性别">${g === 'auto' ? '自动' : (g === 'male' ? '男声' : '女声')}</button>
+            `).join('')}
+          </div>
+          <div class="pl-mode-segment" role="tablist" style="margin-top:8px">
+            ${personas.map(p => `
+              <button class="pl-mode-btn ${curPersona === p.id ? 'active' : ''}" data-persona="${p.id}" title="人格风格">${esc(p.label)}</button>
+            `).join('')}
+          </div>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <select id="pl-companion-test-voice" class="pl-input" style="min-width:160px">
+              <option value="">试听声音（默认）</option>
+              ${zhVoiceOpts}
+            </select>
+            <input id="pl-companion-test-text" class="pl-input" type="text" value="你好，我是蓬莱，需要我帮忙吗？" style="flex:1; min-width:200px" />
+            <button class="pl-btn" id="pl-companion-audition"><span data-lucide="volume-2"></span>试听</button>
+          </div>
+          <p class="pl-section-hint">${cliHint('penglai tts-voices · penglai companion voice male|female|auto')}</p>
+        </div>
+        <div class="pl-section">
+          <div class="pl-section-title">为什么主动出现</div>
+          <div class="pl-heartbeat-list">${whyHtml}</div>
         </div>
         <div class="pl-section">
           <div class="pl-section-title">心跳时间线</div>
           <div class="pl-heartbeat-list">${hbHtml}</div>
         </div>
       </div>`;
-    view.querySelectorAll('.pl-mode-btn').forEach((b) => b.addEventListener('click', () => setCompanionMode(b.dataset.mode)));
+    view.querySelectorAll('.pl-mode-btn[data-mode]').forEach((b) => b.addEventListener('click', () => setCompanionMode(b.dataset.mode)));
+    view.querySelectorAll('.pl-mode-btn[data-voice-gender]').forEach((b) => b.addEventListener('click', () => setCompanionVoice(b.dataset.voiceGender)));
+    view.querySelectorAll('.pl-mode-btn[data-persona]').forEach((b) => b.addEventListener('click', () => setCompanionPersona(b.dataset.persona)));
+    const auditionBtn = $('pl-companion-audition');
+    if (auditionBtn) auditionBtn.addEventListener('click', companionAudition);
     refreshIcons();
   }
 
@@ -3057,6 +3114,49 @@ $('update-dismiss-btn')?.addEventListener('click', () => {
       renderCompanionContent();
     } catch (err) {
       fail('切换陪伴模式失败', err);
+    }
+  }
+
+  async function setCompanionVoice(gender) {
+    try {
+      const res = await window.penglai.apiPost('/companion/voice', { gender });
+      companionCache.voiceGender = gender;
+      if (res && res.zh_sample) companionCache.voiceCurrent = Object.assign(companionCache.voiceCurrent || {}, { gender, zh_sample: res.zh_sample });
+      diag('info', `声音性别已设为 ${gender}`);
+      renderCompanionContent();
+    } catch (err) {
+      fail('设置声音性别失败', err);
+    }
+  }
+
+  async function setCompanionPersona(persona) {
+    try {
+      await window.penglai.apiPost('/companion/persona', { persona });
+      companionCache.relationshipStyle = persona;
+      diag('info', `人格风格已设为 ${persona}`);
+      renderCompanionContent();
+    } catch (err) {
+      fail('设置人格风格失败', err);
+    }
+  }
+
+  async function companionAudition() {
+    const voiceSel = $('pl-companion-test-voice');
+    const textInput = $('pl-companion-test-text');
+    const voice = voiceSel ? voiceSel.value : '';
+    const text = textInput ? textInput.value.trim() : '';
+    if (!text) { fail('试听文本为空', null); return; }
+    try {
+      const res = await window.penglai.apiPost('/tts/say', { text, voice: voice || undefined });
+      if (res && res.audio_url) {
+        const audio = new Audio(res.audio_url);
+        audio.play().catch(() => fail('音频播放失败', null));
+        diag('info', `试听：${voice || '默认声音'}`);
+      } else {
+        fail('试听失败：TTS 资源未就绪', res);
+      }
+    } catch (err) {
+      fail('试听失败', err);
     }
   }
 

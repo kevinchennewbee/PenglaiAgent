@@ -56,6 +56,13 @@ def _is_loopback_origin(origin: str) -> bool:
 def _token_ok(token: str) -> bool:
     return bool(CONDUCTOR_TOKEN and token and hmac.compare_digest(token, CONDUCTOR_TOKEN))
 
+def _ws_protocol_token(ws: WebSocket) -> str:
+    raw = ws.headers.get("sec-websocket-protocol") or ""
+    for item in [x.strip() for x in raw.split(",") if x.strip()]:
+        if item.startswith("penglai."):
+            return item[len("penglai."):]
+    return ""
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -75,7 +82,9 @@ async def conductor_auth(req: Request, call_next):
     origin = (req.headers.get("origin") or "").lower()
     if origin and not _is_loopback_origin(origin):
         return JSONResponse({"error": "non-loopback origin rejected"}, status_code=401)
-    token = req.headers.get("X-Penglai-Bridge-Token") or req.query_params.get("token", "")
+    if req.url.path == "/" and req.method == "GET":
+        return await call_next(req)
+    token = req.headers.get("X-Penglai-Bridge-Token") or ""
     if not _token_ok(token):
         return JSONResponse({"error": "missing or invalid conductor token"}, status_code=401)
     return await call_next(req)
@@ -517,7 +526,7 @@ async def websocket(ws: WebSocket):
     origin = (ws.headers.get("origin") or "").lower()
     if origin and not _is_loopback_origin(origin):
         await ws.close(code=4401); return
-    token = ws.headers.get("X-Penglai-Bridge-Token") or ws.query_params.get("token", "")
+    token = ws.headers.get("X-Penglai-Bridge-Token") or _ws_protocol_token(ws)
     if not _token_ok(token):
         await ws.close(code=4401); return
     await ws.accept()
@@ -535,5 +544,5 @@ async def websocket(ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn, webbrowser, threading
-    threading.Timer(1.0, lambda: webbrowser.open(f"http://{HOST}:{PORT}/?token={CONDUCTOR_TOKEN}")).start()
+    threading.Timer(1.0, lambda: webbrowser.open(f"http://{HOST}:{PORT}/")).start()
     uvicorn.run("conductor:app", host=HOST, port=PORT, reload=False)

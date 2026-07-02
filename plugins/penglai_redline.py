@@ -28,6 +28,11 @@ RED_CODE = [
     (r"(mykey\.py|\.ssh/id_)[^\n]{0,120}(curl|wget|\bnc\b|requests\.(post|put)|urlopen)"
      r"|(curl|wget)[^\n]{0,120}(mykey\.py|\.ssh/id_)", "疑似密钥外传"),
 ]
+RED_JS = [
+    (r"\b(fetch|XMLHttpRequest|sendBeacon)\b[\s\S]{0,240}\b(document\.cookie|localStorage|sessionStorage)\b", "浏览器敏感数据外传"),
+    (r"\b(document\.cookie|localStorage|sessionStorage)\b[\s\S]{0,240}\b(fetch|XMLHttpRequest|sendBeacon)\b", "浏览器敏感数据外传"),
+    (r"\b(open-apis/)?im/v1/files\b|\bopen\.feishu\.cn\b[\s\S]{0,160}\bim/v1/files\b", "直接调用 IM 文件发送 API"),
+]
 _IM_FILE_API_RE = re.compile(
     r"(open-apis/)?im/v1/files|open\.feishu\.cn[^\n'\"]*/open-apis/im/v1/files",
     re.I,
@@ -101,6 +106,7 @@ def _block(self, args, reason):
     return StepOutcome(msg, next_prompt=self._get_anchor_prompt(skip=args.get("_index", 0) > 0))
 
 _orig_code_run = GenericAgentHandler.do_code_run
+_orig_web_execute_js = getattr(GenericAgentHandler, "do_web_execute_js", None)
 
 def _resolve_code(self, args, response):
     """与 ga.do_code_run 同口径取【真正会被执行】的代码，堵死绕过：
@@ -157,6 +163,49 @@ def _guarded_code_run(self, args, response):
     return outcome
 
 GenericAgentHandler.do_code_run = _guarded_code_run
+
+def _resolve_js(self, args, response):
+    script = args.get("script", "")
+    if not script:
+        try:
+            script = self._extract_code_block(response, "javascript")
+        except Exception:
+            script = ""
+    try:
+        abs_path = self._get_abs_path(str(script).strip())
+        if os.path.isfile(abs_path):
+            with open(abs_path, "r", encoding="utf-8") as f:
+                script = f.read()
+    except Exception:
+        pass
+    return str(script or "")
+
+def _scrub_data(data):
+    if isinstance(data, str):
+        return _scrub(data)
+    if isinstance(data, dict):
+        return {k: _scrub_data(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_scrub_data(v) for v in data]
+    return data
+
+def _guarded_web_execute_js(self, args, response):
+    script = _resolve_js(self, args, response)
+    for pat, why in RED_JS:
+        if re.search(pat, script, re.I | re.M):
+            audit("web_execute_js", {"script": script[:300]}, blocked=True, reason=why)
+            return _block(self, args, why)
+    outcome = _orig_web_execute_js(self, args, response)
+    if outcome is not None:
+        outcome = StepOutcome(
+            _scrub_data(getattr(outcome, "data", None)),
+            next_prompt=outcome.next_prompt,
+            should_exit=outcome.should_exit,
+        )
+    return outcome
+
+if _orig_web_execute_js is not None:
+    GenericAgentHandler.do_web_execute_js = _guarded_web_execute_js
 
 def _make_write_guard(orig, toolname):
     def _guarded(self, args, response):

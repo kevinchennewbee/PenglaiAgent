@@ -43,25 +43,64 @@ def has(event):
     return bool(_registry.get(event))
 
 
-def discover_and_load(plugin_dir=None):
+class PluginLoadError(RuntimeError):
+    """聚合一个或多个插件加载失败。strict 模式下由 discover_and_load 抛出。"""
+
+
+def discover_and_load(plugin_dir=None, strict=False):
+    """发现并加载 plugin_dir 下所有插件。
+
+    strict=False（历史行为，仍 fail-open）：每个插件独立 try/except，失败只写
+    stderr 并继续。返回按插件名索引的 {name: True|False} 结果。
+
+    strict=True（0.3.5 发布门禁）：聚合所有失败插件，只要有任一加载失败就抛
+    PluginLoadError，错误信息列出全部失败插件及原因。agentmain / _guardcheck
+    的默认启动路径应使用 strict=True，让坏插件阻断启动而不是静默 fail-open。
+    """
     if plugin_dir is None:
         plugin_dir = os.path.join(_PROJECT_ROOT, 'plugins')
+    results = {}
+    plugin_dir = os.path.abspath(plugin_dir)
     if not os.path.isdir(plugin_dir):
-        return
+        return results
     parent = os.path.dirname(plugin_dir)
+    pkg_name = os.path.basename(plugin_dir)
     if parent not in sys.path:
         sys.path.insert(0, parent)
+    failures = {}
     for fn in sorted(os.listdir(plugin_dir)):
         if fn.startswith('_') or not fn.endswith('.py'):
             continue
         name = fn[:-3]
-        load(name)
+        ok, err = _load_module(f"{pkg_name}.{name}")
+        results[name] = ok
+        if not ok:
+            failures[name] = err
+    if strict and failures:
+        names = ", ".join(sorted(failures))
+        details = "; ".join(f"{n}: {e}" for n, e in sorted(failures.items()))
+        raise PluginLoadError(
+            f"refusing to load with broken plugins [{names}]: {details}. "
+            f"Set PENGLAI_ALLOW_UNGUARDED=1 only for explicit emergency/debug bypass."
+        )
+    return results
 
 
 def load(name):
+    """向后兼容：返回 True/False，失败只写 stderr。新代码应改用 strict 路径。
+
+    保留 `plugins.{name}` 写法以兼容现有调用方（guardcheck 等）。
+    """
+    ok, err = _load_module(f'plugins.{name}')
+    if not ok:
+        sys.stderr.write(f"[hooks] plugin '{name}' load failed: {err}\n")
+    return ok
+
+
+def _load_module(full_module_name):
+    """加载指定全限定模块名，返回 (ok, error_or_None)。"""
     try:
-        importlib.import_module(f'plugins.{name}')
-        return True
+        importlib.import_module(full_module_name)
+        return True, None
     except Exception as e:
-        sys.stderr.write(f"[hooks] plugin '{name}' load failed: {e}\n")
-        return False
+        return False, str(e)

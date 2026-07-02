@@ -621,12 +621,60 @@ def _tts_install():
     if not os.path.exists(py):
         py = sys.executable
     print("  " + T("安装 MOSS-TTS-Nano 本地语音输出（约 728MB ONNX 权重，国内优先 ModelScope）..."), flush=True)
-    r = subprocess.run([py, os.path.join(ROOT, "penglai"), "enable", "tts"], cwd=ROOT)
+    # 直接调 penglai_abilities.enable_tts（penglai enable 是渠道命令，不路由能力）
+    r = subprocess.run([py, "-c",
+                        "import sys; sys.path.insert(0, %r); from penglai_abilities import enable_tts; sys.exit(enable_tts())" % ROOT],
+                       cwd=ROOT)
     if r.returncode == 0:
         print(f"  {OK} " + T("语音输出就绪：本地 CPU 合成，可供桌面播放/IM 语音投递使用"))
         return True
-    print(f"  {WARN}" + T("语音输出未就绪；稍后可重跑 penglai enable tts 补装/续装"))
+    print(f"  {WARN}" + T("语音输出未就绪；稍后可重跑 penglai setup --only abilities 补装/续装"))
     return False
+
+
+def _ask_companion_voice_gender():
+    """0.3.5：TTS 开启后询问默认声音性别（计划 5.2）。
+
+    写入 mykey.companion_voice_gender。auto=按 persona 推断（默认 butler→男声）。
+    """
+    print()
+    print("     " + c(T("🎤 声音人格：蓬莱用哪个声音说话？"), F(252)))
+    print("     " + c(T("   男声（Junhao 俊昊）：稳、准、任务导向"), F(245)))
+    print("     " + c(T("   女声（Xiaoyu 小语）：温和、承接更多"), F(245)))
+    print("     " + c(T("   自动：按人格风格推断（默认管家→男声）"), F(245)))
+    print("     " + c(T("不下载 voice cloning，不模仿名人。"), F(245)))
+    choice = ask(T("默认声音性别？[1=男声 2=女声 3=自动]"), "1").strip()
+    gender = {"1": "male", "2": "female", "3": "auto"}.get(choice, "male")
+    try:
+        mykey_update({"companion_voice_gender": gender})
+        sample = {"male": "Junhao", "female": "Xiaoyu", "auto": "Junhao（管家默认）"}[gender]
+        print(f"  {OK} " + T("已设置 companion_voice_gender = {g}（中文默认 {s}）", g=gender, s=sample))
+    except Exception as e:
+        print(f"  {WARN}" + T("声音性别写入失败（{e}），稍后可用 penglai companion voice male|female|auto 补设", e=e))
+
+
+def _ask_companion_persona():
+    """0.3.5：主动陪伴开启后询问人格风格（计划 5.2）。
+
+    写入 mykey.companion_persona 和 companion_relationship_style。
+    默认 butler（稳重管家），不默认虚拟恋人。
+    """
+    print()
+    print("     " + c(T("🤵 人格风格：蓬莱怎么跟你相处？"), F(252)))
+    print("     " + c(T("   1. 稳重管家（butler）：稳、准、任务闭环，克制（默认推荐）"), F(245)))
+    print("     " + c(T("   2. 稳重男声（steady_male）：更直接、更任务导向"), F(245)))
+    print("     " + c(T("   3. 温和陪伴（warm_female）：情绪承接更多"), F(245)))
+    print("     " + c(T("   4. 自定义（custom）：由你后续配置"), F(245)))
+    print("     " + c(T("默认不虚拟恋人，不暧昧绑定；成人私有部署可后续改关系风格。"), F(245)))
+    choice = ask(T("人格风格？[1-4]"), "1").strip()
+    persona = {"1": "butler", "2": "steady_male", "3": "warm_female", "4": "custom"}.get(choice, "butler")
+    try:
+        mykey_update({"companion_persona": persona, "companion_relationship_style": persona})
+        desc = {"butler": "稳重管家", "steady_male": "稳重男声", "warm_female": "温和陪伴", "custom": "自定义"}[persona]
+        print(f"  {OK} " + T("已设置 companion_persona = {p}（{d}）", p=persona, d=desc))
+    except Exception as e:
+        print(f"  {WARN}" + T("人格风格写入失败（{e}），稍后可用 penglai companion profile butler|steady_male|warm_female|custom 补设", e=e))
+
 
 
 def step_abilities(llm_name=""):
@@ -651,6 +699,8 @@ def step_abilities(llm_name=""):
     print("     " + c(T("默认不开，避免首次安装多拉大模型；稍后也可运行 penglai enable tts。"), F(245)))
     if ask(T("现在启用语音输出？(y/n)"), "n").lower().startswith("y"):
         _tts_install()
+        # 0.3.5：TTS 开启后询问默认声音性别（计划 5.2）
+        _ask_companion_voice_gender()
     # —— 主动陪伴（opt-in：有持续 token 成本）——
     print()
     print("  💞 " + c(T("主动陪伴（会主动关心你，不只是被动回复）"), BOLD, F(252)))
@@ -660,6 +710,8 @@ def step_abilities(llm_name=""):
     if ask(T("现在开启主动陪伴？(y/n)"), "n").lower().startswith("y"):
         print(f"  {OK} " + T("主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）"))
         out["companion_enabled"] = True
+        # 0.3.5：主动陪伴开启后询问人格风格（计划 5.2）
+        _ask_companion_persona()
     # —— 批判脑（opt-in：跨厂商复核，绊线本就出厂常开）——
     print()
     print("  🧐 " + c(T("批判脑 smart 档（防幻觉第二保险：异厂商复核）"), BOLD, F(252)))
@@ -860,7 +912,87 @@ def step_wechat():
     if subprocess.run([py, "-c", code]).returncode != 0:
         print(f"{BAD} " + T("扫码未完成（可稍后重跑 penglai setup，只重做本步）")); return False
     print(f"{OK} " + T("微信绑定成功（token 已存 ~/.wxbot/，重启不用重扫）"))
+    # 0.3.5：捕获 owner openid 写入 wechat_allowed_users，避免 fail-closed 后老用户卡死
+    _ensure_wechat_allowlist(py)
     return True
+
+def _ensure_wechat_allowlist(py):
+    """扫码后引导用户发一条消息捕获 owner openid，写入 wechat_allowed_users。
+
+    微信 token 只存 bot 侧凭据，不含 owner openid；运行时 on_message 才能拿到
+    from_user_id。为避免老用户升级到 0.3.5 后微信通道 fail-closed 却无法配置，
+    这里给一次「发消息→抓 uid→写白名单」的机会；跳过则提示稍后用 doctor 配置。
+    """
+    try:
+        import llmcore
+        mk = llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        mk = {}
+    existing = mk.get("wechat_allowed_users")
+    if existing not in (None, "", [], [""]):
+        print(f"{OK} " + T("wechat_allowed_users 已配置，跳过 owner 捕获"))
+        return
+    print("  " + T("⚠ 微信通道默认 fail-closed：未配置 wechat_allowed_users 时拒绝所有消息。"))
+    ans = ask(T("现在用绑定的微信给蓬莱发一条任意消息，我来抓你的 openid 并写入白名单？(y/n)"), "y")
+    if not ans.lower().startswith("y"):
+        print(f"{WARN} " + T("已跳过。稍后可：1) 桌面「诊断」查看；2) 手动在 mykey.py 写 wechat_allowed_users=['你的openid']；3) 重跑 penglai setup --only wechat"))
+        return
+    # 跑一次短轮询抓第一条消息的 from_user_id
+    code = ("import sys, json, time\n"
+            f"sys.path[:0] = [{ROOT!r}, {os.path.join(ROOT, 'frontends')!r}]\n"
+            "from wechatapp import WxBotClient\n"
+            "b = WxBotClient()\n"
+            "if not b.token:\n"
+            "    print('NO_TOKEN'); sys.exit(0)\n"
+            "deadline = time.time() + 90\n"
+            "while time.time() < deadline:\n"
+            "    for m in b.get_updates(timeout=20):\n"
+            "        uid = m.get('from_user_id', '')\n"
+            "        if uid:\n"
+            "            print('OWNER_UID=' + uid); sys.exit(0)\n"
+            "print('TIMEOUT')\n")
+    r = subprocess.run([py, "-c", code], capture_output=True, text=True, timeout=100)
+    out = (r.stdout or "").strip()
+    if out.startswith("OWNER_UID="):
+        uid = out.split("=", 1)[1].strip()
+        if uid:
+            _write_mykey_field("wechat_allowed_users", [uid])
+            print(f"{OK} " + T("已写入 wechat_allowed_users=['{u}']，微信通道现在接受你的消息", u=uid))
+            return
+    if "TIMEOUT" in out:
+        print(f"{WARN} " + T("90 秒内未收到消息。稍后可重跑 penglai setup --only wechat，或在 mykey.py 手动填写。"))
+    else:
+        print(f"{WARN} " + T("owner 捕获失败（{e}），稍后可手动配置", e=(out or r.stderr or '')[-120:]))
+
+def _write_mykey_field(key, value):
+    """向 mykey.py 追加或更新单个字段（用于 setup 阶段写入白名单等）。"""
+    import ast as _ast
+    mk_path = os.path.join(ROOT, "mykey.py")
+    if not os.path.exists(mk_path):
+        # 从模板复制一份再写
+        tpl = os.path.join(ROOT, "mykey_template.py")
+        if os.path.exists(tpl):
+            import shutil
+            shutil.copy2(tpl, mk_path)
+    if not os.path.exists(mk_path):
+        with open(mk_path, "w", encoding="utf-8") as f:
+            f.write("# mykey.py\n")
+    with open(mk_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    val_repr = repr(value)
+    found = False
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith(key + " ") or stripped.startswith(key + "=") or stripped.startswith(key + "\t"):
+            indent = line[:len(line) - len(stripped)]
+            lines[i] = f"{indent}{key} = {val_repr}\n"
+            found = True
+            break
+    if not found:
+        lines.append(f"{key} = {val_repr}\n")
+    with open(mk_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
 
 # ---------- 步骤 6：启动并验证 ----------
 def _fsapp_pids():

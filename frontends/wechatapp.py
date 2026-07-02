@@ -16,6 +16,32 @@ class AuthExpired(Exception):
 # ── Per-user abort flags (shared between on_message invocations) ──
 _task_aborted: dict = {}  # uid -> True  (set by /stop, read by _handle)
 
+def _wechat_allowed_users():
+    try:
+        import llmcore
+        mk = llmcore.reload_mykeys()[0] or {}
+    except Exception:
+        try:
+            import mykey
+            mk = {k: v for k, v in vars(mykey).items() if not k.startswith('_')}
+        except Exception:
+            mk = {}
+    raw = mk.get("wechat_allowed_users", None)
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        raw = [x.strip() for x in re.split(r"[,，\s]+", raw) if x.strip()]
+    try:
+        return {str(x).strip() for x in (raw or []) if str(x).strip()}
+    except TypeError:
+        return set()
+
+def _wechat_public_access(uid):
+    allowed = _wechat_allowed_users()
+    if allowed is None:
+        return False
+    return "*" in allowed or str(uid or "").strip() in allowed
+
 # ── WxBotClient (inline from wx_bot_client.py) ──
 for _k in ('HTTPS_PROXY', 'https_proxy'):
     os.environ.pop(_k, None)  # avoid inherited proxy breaking WeChat long-poll SSL
@@ -343,6 +369,13 @@ def on_message(bot, msg):
     text = bot.extract_text(msg).strip()
     uid = msg.get('from_user_id', '')
     ctx = msg.get('context_token', '')
+    if not _wechat_public_access(uid):
+        print(f'[WX] 拒绝未授权用户: {uid}', file=sys.__stdout__)
+        try:
+            bot.send_text(uid, "未授权访问：请在 mykey.py 配置 wechat_allowed_users 后再使用。", context_token=ctx)
+        except Exception:
+            pass
+        return
     media_paths = _dl_media(msg.get('item_list', []))
     if not text and not media_paths: return
     if media_paths:
