@@ -621,11 +621,14 @@ def _tts_install():
     if not os.path.exists(py):
         py = sys.executable
     print("  " + T("安装 MOSS-TTS-Nano 本地语音输出（约 728MB ONNX 权重，国内优先 ModelScope）..."), flush=True)
-    r = subprocess.run([py, os.path.join(ROOT, "penglai"), "enable", "tts"], cwd=ROOT)
+    # 直接调 penglai_abilities.enable_tts（penglai enable 是渠道命令，不路由能力）
+    r = subprocess.run([py, "-c",
+                        "import sys; sys.path.insert(0, %r); from penglai_abilities import enable_tts; sys.exit(enable_tts())" % ROOT],
+                       cwd=ROOT)
     if r.returncode == 0:
         print(f"  {OK} " + T("语音输出就绪：本地 CPU 合成，可供桌面播放/IM 语音投递使用"))
         return True
-    print(f"  {WARN}" + T("语音输出未就绪；稍后可重跑 penglai enable tts 补装/续装"))
+    print(f"  {WARN}" + T("语音输出未就绪；稍后可重跑 penglai setup --only abilities 补装/续装"))
     return False
 
 
