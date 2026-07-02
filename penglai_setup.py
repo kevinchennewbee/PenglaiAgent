@@ -629,6 +629,51 @@ def _tts_install():
     return False
 
 
+def _ask_companion_voice_gender():
+    """0.3.5：TTS 开启后询问默认声音性别（计划 5.2）。
+
+    写入 mykey.companion_voice_gender。auto=按 persona 推断（默认 butler→男声）。
+    """
+    print()
+    print("     " + c(T("🎤 声音人格：蓬莱用哪个声音说话？"), F(252)))
+    print("     " + c(T("   男声（Junhao 俊昊）：稳、准、任务导向"), F(245)))
+    print("     " + c(T("   女声（Xiaoyu 小语）：温和、承接更多"), F(245)))
+    print("     " + c(T("   自动：按人格风格推断（默认管家→男声）"), F(245)))
+    print("     " + c(T("不下载 voice cloning，不模仿名人。"), F(245)))
+    choice = ask(T("默认声音性别？[1=男声 2=女声 3=自动]"), "1").strip()
+    gender = {"1": "male", "2": "female", "3": "auto"}.get(choice, "male")
+    try:
+        mykey_update({"companion_voice_gender": gender})
+        sample = {"male": "Junhao", "female": "Xiaoyu", "auto": "Junhao（管家默认）"}[gender]
+        print(f"  {OK} " + T("已设置 companion_voice_gender = {g}（中文默认 {s}）", g=gender, s=sample))
+    except Exception as e:
+        print(f"  {WARN}" + T("声音性别写入失败（{e}），稍后可用 penglai companion voice male|female|auto 补设", e=e))
+
+
+def _ask_companion_persona():
+    """0.3.5：主动陪伴开启后询问人格风格（计划 5.2）。
+
+    写入 mykey.companion_persona 和 companion_relationship_style。
+    默认 butler（稳重管家），不默认虚拟恋人。
+    """
+    print()
+    print("     " + c(T("🤵 人格风格：蓬莱怎么跟你相处？"), F(252)))
+    print("     " + c(T("   1. 稳重管家（butler）：稳、准、任务闭环，克制（默认推荐）"), F(245)))
+    print("     " + c(T("   2. 稳重男声（steady_male）：更直接、更任务导向"), F(245)))
+    print("     " + c(T("   3. 温和陪伴（warm_female）：情绪承接更多"), F(245)))
+    print("     " + c(T("   4. 自定义（custom）：由你后续配置"), F(245)))
+    print("     " + c(T("默认不虚拟恋人，不暧昧绑定；成人私有部署可后续改关系风格。"), F(245)))
+    choice = ask(T("人格风格？[1-4]"), "1").strip()
+    persona = {"1": "butler", "2": "steady_male", "3": "warm_female", "4": "custom"}.get(choice, "butler")
+    try:
+        mykey_update({"companion_persona": persona, "companion_relationship_style": persona})
+        desc = {"butler": "稳重管家", "steady_male": "稳重男声", "warm_female": "温和陪伴", "custom": "自定义"}[persona]
+        print(f"  {OK} " + T("已设置 companion_persona = {p}（{d}）", p=persona, d=desc))
+    except Exception as e:
+        print(f"  {WARN}" + T("人格风格写入失败（{e}），稍后可用 penglai companion profile butler|steady_male|warm_female|custom 补设", e=e))
+
+
+
 def step_abilities(llm_name=""):
     """能力面板：一页看全蓬莱层能力。选了就真装真启（语音默认开），不做摆设。"""
     page(5, T("蓬莱能力（按需开启，立即生效）"))
@@ -651,6 +696,8 @@ def step_abilities(llm_name=""):
     print("     " + c(T("默认不开，避免首次安装多拉大模型；稍后也可运行 penglai enable tts。"), F(245)))
     if ask(T("现在启用语音输出？(y/n)"), "n").lower().startswith("y"):
         _tts_install()
+        # 0.3.5：TTS 开启后询问默认声音性别（计划 5.2）
+        _ask_companion_voice_gender()
     # —— 主动陪伴（opt-in：有持续 token 成本）——
     print()
     print("  💞 " + c(T("主动陪伴（会主动关心你，不只是被动回复）"), BOLD, F(252)))
@@ -660,6 +707,8 @@ def step_abilities(llm_name=""):
     if ask(T("现在开启主动陪伴？(y/n)"), "n").lower().startswith("y"):
         print(f"  {OK} " + T("主动陪伴已开启（默认勿扰 22-8 点、最短间隔 4 小时；可后续在 mykey.py 调）"))
         out["companion_enabled"] = True
+        # 0.3.5：主动陪伴开启后询问人格风格（计划 5.2）
+        _ask_companion_persona()
     # —— 批判脑（opt-in：跨厂商复核，绊线本就出厂常开）——
     print()
     print("  🧐 " + c(T("批判脑 smart 档（防幻觉第二保险：异厂商复核）"), BOLD, F(252)))
