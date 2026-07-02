@@ -857,6 +857,11 @@ jobs:
       - windows-nsis
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set PENGLAI_VERSION
         shell: bash
         run: |
@@ -871,6 +876,12 @@ jobs:
             fi
             echo "PENGLAI_VERSION=${cargo_version}" >> "$GITHUB_ENV"
           fi
+
+      - name: Verify signed release tag
+        shell: bash
+        run: |
+          gpg --import packaging/penglai-release-signing-key.asc
+          git tag -v "$GITHUB_REF_NAME"
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -888,15 +899,14 @@ jobs:
 
           ## ${PENGLAI_VERSION} 主要更新
 
-          - **可信化维护发布**：0.3.4 继承 0.3.3 的三平台桌面分发，重点修真实客户端路径里的升级、取消、记忆、工具结果和发布完整性问题。
-          - **桌面升级链路修正**：已认证 desktop bridge 上的一键状态变更操作恢复直接执行；需要二次确认的调用者仍可显式开启 `require_two_step`。
-          - **Runtime Hub 取消更可靠**：取消信号现在会打到真实 GenericAgent 实例和当前 GA code tool，而不是只打到外层 wrapper。
-          - **Conductor 认证加固**：本机控制台 HTTP / WebSocket 增加 loopback origin 检查和持久 token 认证。
-          - **记忆和外部结果防注入**：长期记忆注入前再次扫描；web / file / MCP 外部结果标记为不可信数据，降低 prompt injection 风险。
-          - **IM 媒体路径安全**：微信、企微媒体文件名在入口处做 basename 清洗，避免路径穿越。
-          - **LLM failover 更可解释**：过载、服务端错误、模型不存在、认证错误等先分类，再决定重试或切换，减少模糊失败。
-          - **发布门槛 fail-closed**：`latest.json` 生成要求 macOS Apple Silicon、macOS Intel x64、Windows x64 的 updater 包体和签名都存在，缺任一项直接失败。
-          - **版本链统一**：runtime、installer、desktop package、Cargo、Tauri 配置统一到 0.3.4。
+          - **可信发布门禁**：release job 会导入公开发布公钥并验证 `v${PENGLAI_VERSION}` 是 signed annotated tag；`penglai update` 默认 fail-closed，unsigned target 会被拒绝。
+          - **插件 strict load**：坏插件默认阻断启动和 `_guardcheck`，只有显式 `PENGLAI_ALLOW_UNGUARDED=1` 的开发/救援路径才允许继续并记录警告。
+          - **WeChat allowlist 迁移**：微信通道要求 `wechat_allowed_users`；setup 可捕获 owner，doctor 能诊断“有 token 无 allowlist”的老配置。
+          - **Conductor token 边界**：本机控制台不再接受 query token；WebSocket 改用 subprotocol/header 鉴权，并在 SECURITY.md 写清同用户本地信任边界。
+          - **Companion Loop foundation**：本地每日反思、陪伴点挖掘、自适应学习基座、多段式主动对话计划已经形成 foundation/API skeleton；这不是完整自适应陪伴。
+          - **声音人格**：10 个公开声音（中文男/女声 + 英文男/女声）、男/女声选择、名人模仿/语音克隆默认屏蔽，CLI/桌面/API 三端可选可试听。
+          - **桌面端新增**：声音选择、试听、人格风格选择、“为什么主动出现”面板和今日反思摘要。
+          - **诚实边界**：Companion Loop 的 act（真实投递）和 learn（真实反馈采集）尚未接入生产心跳，公开文案不声称 fully adaptive。
           - **三平台桌面包仍内置本地运行环境**：macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器继续内置 Penglai runtime、standalone Python 和核心依赖。
 
           ## 安装
@@ -921,15 +931,14 @@ jobs:
 
           ## What's new in ${PENGLAI_VERSION}
 
-          - **Trusted-maintenance release**: 0.3.4 keeps the three-platform desktop distribution from 0.3.3 and focuses on the real update, cancellation, memory, tool-result, and release-integrity paths.
-          - **Desktop update path fixed**: authenticated desktop bridge state-changing operations can execute directly again; callers that need a second confirmation can still request `require_two_step`.
-          - **More reliable Runtime Hub cancellation**: stop signals now reach the owned GenericAgent instance and the active GA code tool instead of only the wrapper.
-          - **Conductor authentication hardened**: local control HTTP / WebSocket traffic now requires loopback origin checks plus a persistent token.
-          - **Memory and external-result injection guardrails**: long-term memory is scanned again before prompt injection; web / file / MCP outputs are marked as untrusted data.
-          - **IM media path safety**: WeChat and WeCom media filenames are basename-sanitized at source entrypoints to avoid path traversal.
-          - **Clearer LLM failover**: overload, server error, model-not-found, and auth failures are classified before retry or backend switching.
-          - **Fail-closed release gates**: `latest.json` now requires updater bundles and signatures for macOS Apple Silicon, macOS Intel x64, and Windows x64; missing any platform fails the release.
-          - **Version chain unified**: runtime, installer, desktop package, Cargo, and Tauri metadata all report 0.3.4.
+          - **Trusted release gates**: the release job imports the public release key and verifies `v${PENGLAI_VERSION}` as a signed annotated tag; `penglai update` remains fail-closed and rejects unsigned targets by default.
+          - **Plugin strict load**: broken plugins block startup and `_guardcheck` by default; only explicit `PENGLAI_ALLOW_UNGUARDED=1` development/rescue mode can continue with a warning.
+          - **WeChat allowlist migration**: WeChat now requires `wechat_allowed_users`; setup can capture the owner and doctor diagnoses old configs with a token but no allowlist.
+          - **Conductor token boundary**: local control no longer accepts query tokens; WebSocket auth uses subprotocol/header paths, with the same-user local trust model documented in SECURITY.md.
+          - **Companion Loop foundation**: local daily reflection, care opportunity mining, adaptive feedback primitives, and proactive dialogue plans now form a foundation/API skeleton; this is not a fully adaptive companion.
+          - **Voice profiles**: 10 public voices cover Chinese/English male/female defaults; celebrity impersonation and voice cloning are blocked from default public choices, with CLI/desktop/API selection and audition.
+          - **Desktop additions**: voice gender, persona style, audition, "why proactive", and reflection summary controls are exposed in the companion panel.
+          - **Honest boundary**: Companion Loop act (real delivery) and learn (real feedback capture) are not wired into the production heartbeat yet, so public copy does not claim fully adaptive behavior.
           - **Bundled desktop runtime remains**: macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer continue to include the Penglai runtime, standalone Python, and core dependencies.
 
           ## Install

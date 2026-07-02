@@ -70,7 +70,7 @@ def test_setup_abilities_offer_optional_tts_without_forcing_big_download():
     assert "MOSS-TTS-Nano" in src
     assert "约下载 728MB ONNX 权重" in src
     assert 'ask(T("现在启用语音输出？(y/n)"), "n")' in src
-    assert '"penglai"), "enable", "tts"' in src
+    assert "from penglai_abilities import enable_tts; sys.exit(enable_tts())" in src
 
 
 def test_manual_start_commands_use_absolute_install_dir():

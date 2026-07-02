@@ -20,6 +20,9 @@ from penglai_runtime import companion_loop as cl
 from penglai_runtime.context_events import append_context_event
 
 
+DAYTIME_TS = time.mktime((2026, 7, 3, 12, 0, 0, 0, 0, -1))
+
+
 # ── care_opportunities ──────────────────────────────────────────────────
 
 def test_mine_opportunities_from_reflection():
@@ -112,7 +115,7 @@ def test_policy_silent_when_no_opportunity():
 
 
 def test_policy_silent_when_cooldown_active():
-    now = time.time()
+    now = DAYTIME_TS
     state = {f"last_sent_task_closure_ts": now - 60}  # 1 分钟前刚发过
     reflection = {"care_opportunities": [{"kind": "task_closure", "score": 0.9, "reason": "test"}]}
     decision = cp.decide_companion_action({"enabled": True, "mode": "present"}, state, reflection, now=now)
@@ -121,7 +124,7 @@ def test_policy_silent_when_cooldown_active():
 
 
 def test_policy_speak_on_strong_opportunity():
-    now = time.time()
+    now = DAYTIME_TS
     reflection = {"care_opportunities": [{"kind": "task_closure", "score": 0.9, "reason": "README 未闭环", "suggested_opening": "README 还没完成"}]}
     decision = cp.decide_companion_action({"enabled": True, "mode": "present", "voice_gender": "male"}, {}, reflection, now=now)
     assert decision["decision"] == "speak"

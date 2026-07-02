@@ -3675,20 +3675,20 @@ def test_desktop_package_identity_targets_penglai_release():
         installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.4"
-    assert 'VERSION = "0.3.4"' in runtime_init
-    assert 'version = "0.3.4"' in installer_pyproject
+    assert package_json["version"] == "0.3.5"
+    assert 'VERSION = "0.3.5"' in runtime_init
+    assert 'version = "0.3.5"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.4"
+    assert package_lock["packages"][""]["version"] == "0.3.5"
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.4"
+    assert tauri_conf["version"] == "0.3.5"
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
@@ -3723,7 +3723,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.4"' in cargo_toml
+    assert 'version = "0.3.5"' in cargo_toml
     assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
