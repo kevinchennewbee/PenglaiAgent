@@ -881,6 +881,12 @@ jobs:
         shell: bash
         run: |
           gpg --import packaging/penglai-release-signing-key.asc
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          tag_type=$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")
+          if [ "$tag_type" != "tag" ]; then
+            echo "::error::${GITHUB_REF_NAME} is ${tag_type}, expected signed annotated tag"
+            exit 1
+          fi
           git tag -v "$GITHUB_REF_NAME"
 
       - name: Download artifacts
