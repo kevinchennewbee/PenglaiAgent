@@ -53,7 +53,7 @@
         <a href="./en/" class="nav-lang">中 / EN</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 <span class="penglai-version">0.3.4</span>
+          下载 <span class="penglai-version">0.3.5</span>
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -69,7 +69,7 @@
   <!-- ========== Hero Section ========== -->
   <section class="hero" id="hero">
     <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.4</span></div>
+      <div class="hero-badge reveal">v<span class="penglai-version">0.3.5</span></div>
       <h1 class="hero-title reveal reveal-delay-1">蓬莱</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
       <p class="hero-subtitle reveal reveal-delay-2">把能干活、能听、能说的 Agent，带到你已经在用的地方</p>
@@ -517,7 +517,7 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">下载 0.3.4 安装包（macOS Apple Silicon / macOS Intel x64 / Windows x64）。桌面包已内置 Penglai runtime、standalone Python 和核心依赖。</p>
+              <p class="step-text">下载 0.3.5 安装包（macOS Apple Silicon / macOS Intel x64 / Windows x64）。桌面包已内置 Penglai runtime、standalone Python 和核心依赖。</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">复制</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
@@ -629,26 +629,33 @@
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
+            <div class="feature-icon">🔏</div>
+            <h3 class="feature-title">v0.3.5 · 2026-07-03</h3>
+          </div>
+          <p class="feature-desc">可信发布门禁与主动陪伴 Loop 基座：三平台桌面发布继续保留真实安装包验证，新增 release tag 签名校验门禁、GitHub Release 产物聚合、latest.json 更新路径，以及 Companion Loop 的策略 / 事件 / 记忆接口骨架。主动陪伴仍是可验证基座，不宣称已经完成生产自适应闭环。</p>
+        </div>
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-card-header">
             <div class="feature-icon">🛡️</div>
             <h3 class="feature-title">v0.3.4 · 2026-06-30</h3>
           </div>
           <p class="feature-desc">可信化维护发布：保留 0.3.3 的三平台桌面分发，重点修复桌面一键升级执行链路、Runtime Hub 取消、Conductor 认证、inline eval 暴露、长期记忆读时扫描、外部工具结果不可信标记、微信/企微媒体路径清洗、LLM failover 分类，以及 updater 元数据缺包/缺签名时 fail-closed。</p>
         </div>
-        <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-card reveal reveal-delay-2">
           <div class="feature-card-header">
             <div class="feature-icon">🏁</div>
             <h3 class="feature-title">v0.3.3 · 2026-06-29</h3>
           </div>
           <p class="feature-desc">Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 darwin-x86_64 updater 元数据，保留 0.3.2 内置运行时策略；首次设置接入 Hermes / OpenClaw 迁移预览，默认不暴露明文 secret；状态变更操作加入二次确认。</p>
         </div>
-        <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-card reveal reveal-delay-3">
           <div class="feature-card-header">
             <div class="feature-icon">📦</div>
             <h3 class="feature-title">v0.3.2 · 2026-06-28</h3>
           </div>
           <p class="feature-desc">桌面本地运行环境发布：macOS Apple Silicon DMG 与 Windows x64 安装器内置 Penglai runtime、standalone Python 和核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场下载 Python 包；latest.json 默认指向 gh-proxy.com 资产地址。</p>
         </div>
-        <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-card reveal">
           <div class="feature-card-header">
             <div class="feature-icon">🔁</div>
             <h3 class="feature-title">v0.3.1 · 2026-06-27</h3>
@@ -726,7 +733,7 @@
       </div>
       <div class="footer-right">
         <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.4</span></div>
+        <div class="footer-license">v<span class="penglai-version">0.3.5</span></div>
         <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
           Made with AI, for everyone.
         </div>
@@ -1060,7 +1067,7 @@
   })();
   </script>
 
-  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.4 -->
+  <!-- 版本号动态获取：从 GitHub Releases API 读取最新 tag，失败时保留 HTML 里的 fallback 0.3.5 -->
   <script>
   (function() {
     fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
