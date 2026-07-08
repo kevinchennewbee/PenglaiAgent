@@ -176,3 +176,7 @@ secrets/
 # Generated desktop runtime payload; README documents the contract.
 frontends/desktop/src-tauri/resources/penglai-runtime/*
 !frontends/desktop/src-tauri/resources/penglai-runtime/README.md
+
+# Workspace-local archive and agent memory (not for public repo)
+archive/
+AGENTS.md
