@@ -5882,7 +5882,10 @@ class GenericAgentTUI(App[None]):
         if m:
             token = m.group(1)
             if token.isdigit():
-                sessions = continue_list(exclude_log=os.path.basename(getattr(sess.agent, "log_path", "") or ""))
+                sessions = continue_list(
+                    exclude_log=os.path.basename(getattr(sess.agent, "log_path", "") or ""),
+                    rewind_root=self._rw_rewind_root(),
+                )
                 idx = int(token) - 1
                 if not (0 <= idx < len(sessions)):
                     self._system(f"❌ 索引越界（有效范围 1-{len(sessions)}）"); return
@@ -5901,7 +5904,10 @@ class GenericAgentTUI(App[None]):
                 self._system(f"❌ 找不到名为 {token!r} 的会话"); return
             self._do_continue_restore(path)
             return
-        sessions = continue_list(exclude_log=os.path.basename(getattr(sess.agent, "log_path", "") or ""))
+        sessions = continue_list(
+            exclude_log=os.path.basename(getattr(sess.agent, "log_path", "") or ""),
+            rewind_root=self._rw_rewind_root(),
+        )
         if not sessions:
             self._system("❌ 没有可恢复的历史会话"); return
         choices = []
@@ -5958,9 +5964,15 @@ class GenericAgentTUI(App[None]):
         import continue_cmd as _cc
         try:
             if copy:
-                result, ok = _cc.continue_copy(sess.agent, path, sess.agent_id)
+                result, ok = _cc.continue_copy(
+                    sess.agent, path, sess.agent_id,
+                    allow_empty=True, restore_wm=True,
+                )
             else:
-                result, ok = _cc.continue_inplace(sess.agent, path, sess.agent_id)
+                result, ok = _cc.continue_inplace(
+                    sess.agent, path, sess.agent_id,
+                    allow_empty=True, restore_wm=True,
+                )
         except Exception as e:
             msg = f"❌ 恢复失败: {e}"
             self._system(msg); return msg
@@ -5968,8 +5980,36 @@ class GenericAgentTUI(App[None]):
             self._system(result); return result
         # 原地:new_log == path(接管原文件);拷贝:new_log 是内容相同的新副本。
         new_log = getattr(sess.agent, "log_path", "") or ""
+        # Rebind the checkpoint store to the continued log. Copy-continue gets
+        # a new log id, so clone the source tree before reconciling it against
+        # the full native log. Reconciliation must never use compressed live
+        # backend history: the append-only log is the durable truth source.
+        worldline_warning = ""
+        try:
+            temp_dir = os.path.normpath(os.path.join(FRONTENDS_DIR, '..', 'temp'))
+            sess.store = RewindStore.for_log(temp_dir, new_log, temp_dir)
+            sess.agent._rw_store = sess.store
+            if copy:
+                old_root = os.path.join(
+                    temp_dir, '.ga_rewind', RewindStore.key_for_log(path),
+                )
+                sess.store.resume_from(os.path.normpath(old_root))
+            log_history = _cc.parse_native_log(new_log, allow_empty=True)
+            sess.store.reconcile(log_history or [])
+        except Exception as exc:
+            # Continuing the conversation remains useful, but a failed tree
+            # rebind must be visible instead of silently pretending rewind is
+            # durable for the restored session.
+            sess.store = None
+            sess.agent._rw_store = None
+            worldline_warning = (
+                "⚠ 世界线恢复失败，本次续接已禁用持久回退: "
+                f"{type(exc).__name__}: {exc}"
+            )
         def _finish():
             sess.messages.clear()
+            if worldline_warning:
+                sess.messages.append(ChatMessage(role="system", content=worldline_warning))
             # Plan state belongs to the *previous* conversation. Clearing it
             # along with messages stops the planbar from leaking stale items
             # (`Plan (3/7)` from #4 qxs) into the freshly-restored session.

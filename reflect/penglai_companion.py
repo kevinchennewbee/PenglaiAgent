@@ -677,6 +677,7 @@ def run_runtime_task(prompt, *, agent=None, service=None, port=None):
             state,
             task_run=result.task_run,
         )
+        _cf_learn(kind, cfg, "failed")
         _save_state(state)
         return f"[FAILED] {state['last_error']}"
     status, body = _finalize_companion_result(
@@ -1310,4 +1311,3 @@ def _cli_reflection(want_json):
             reason = opp.get("reason", "")
             print(f"  - [{kind}] score={score}: {reason}")
     return 0
-

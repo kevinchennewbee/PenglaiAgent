@@ -49,6 +49,13 @@ def default_state() -> dict:
         "quiet_windows": [],
         "positive_patterns": [],
         "negative_patterns": [],
+        "outcome_stats": {
+            "counts": {},
+            "last_outcome": "",
+            "last_kind": "",
+            "last_mode": "",
+            "last_ts": 0,
+        },
         "updated_ts": 0,
     }
 
@@ -79,6 +86,10 @@ def load_state(root: str | os.PathLike[str]) -> dict:
     state.setdefault("quiet_windows", [])
     state.setdefault("positive_patterns", [])
     state.setdefault("negative_patterns", [])
+    state.setdefault("outcome_stats", {
+        "counts": {}, "last_outcome": "", "last_kind": "",
+        "last_mode": "", "last_ts": 0,
+    })
     state.setdefault("updated_ts", 0)
     return redact_obj(state)
 
@@ -181,6 +192,22 @@ def learn_from_companion_outcome(decision: dict, outcome: str, recent_events: li
     outcome = str(outcome or "").lower()
     kind = str(decision.get("opportunity", {}).get("kind") or decision.get("kind") or "")
     mode = str(decision.get("expression", {}).get("mode") or decision.get("mode") or "")
+
+    # Persist an auditable, secret-free outcome trail for every wired result.
+    # This is telemetry, not preference learning: failed/silent still leave all
+    # user weights and negative-feedback counters untouched.
+    stats = dict(state.get("outcome_stats") or {})
+    counts = dict(stats.get("counts") or {})
+    if outcome:
+        counts[outcome] = int(counts.get(outcome, 0)) + 1
+    stats.update({
+        "counts": counts,
+        "last_outcome": outcome,
+        "last_kind": kind,
+        "last_mode": mode,
+        "last_ts": time.time(),
+    })
+    state["outcome_stats"] = stats
 
     if outcome == "replied":
         if kind:

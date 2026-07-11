@@ -3651,6 +3651,7 @@ def test_desktop_static_ui_uses_chinese_runtime_labels():
 
 
 def test_desktop_package_identity_targets_penglai_release():
+    expected_version = "0.3.6"
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     desktop_dir = os.path.join(root, "frontends", "desktop")
     with open(os.path.join(desktop_dir, "package.json"), "r", encoding="utf-8") as fh:
@@ -3675,20 +3676,21 @@ def test_desktop_package_identity_targets_penglai_release():
         installer_pyproject = fh.read()
 
     assert package_json["name"] == "penglai-desktop"
-    assert package_json["version"] == "0.3.5"
-    assert 'VERSION = "0.3.5"' in runtime_init
-    assert 'version = "0.3.5"' in installer_pyproject
+    assert package_json["version"] == expected_version
+    assert f'VERSION = "{expected_version}"' in runtime_init
+    assert f'version = "{expected_version}"' in installer_pyproject
     assert package_json["scripts"]["build:mac"] == "tauri build --bundles dmg"
     assert package_json["scripts"]["build:windows"] == "tauri build --bundles nsis"
     assert package_lock["packages"][""]["name"] == "penglai-desktop"
-    assert package_lock["packages"][""]["version"] == "0.3.5"
+    assert package_lock["version"] == expected_version
+    assert package_lock["packages"][""]["version"] == expected_version
     assert "!package-lock.json" in desktop_gitignore
     for package in package_lock["packages"].values():
         resolved = package.get("resolved")
         if resolved:
             assert resolved.startswith("https://registry.npmjs.org/")
     assert tauri_conf["productName"] == "Penglai"
-    assert tauri_conf["version"] == "0.3.5"
+    assert tauri_conf["version"] == expected_version
     assert tauri_conf["identifier"] == "com.penglai.agent"
     assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
@@ -3723,7 +3725,7 @@ def test_desktop_package_identity_targets_penglai_release():
     except ImportError:
         pass
     assert 'name = "penglai-desktop"' in cargo_toml
-    assert 'version = "0.3.5"' in cargo_toml
+    assert f'version = "{expected_version}"' in cargo_toml
     assert 'sha2 = "0.10"' in cargo_toml
     assert ".penglai_desktop_settings.json" in lib_rs
     assert "fn install_runtime" in lib_rs
@@ -4068,9 +4070,9 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "Configure Cargo mirror",
         "RUSTUP_DIST_SERVER",
         "RUSTUP_UPDATE_ROOT",
+        "Configured Rust mirror failed; retrying with official rustup servers.",
         "PENGLAI_CARGO_REGISTRY_INDEX",
         "PENGLAI_CARGO_REGISTRY_NAME",
-        "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/",
         "replace-with = \"$PENGLAI_CARGO_REGISTRY_NAME\"",
         "Cache desktop build downloads",
         "NPM_CONFIG_REGISTRY",
@@ -4100,7 +4102,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "PENGLAI_BRANCH=main",
         "PENGLAI_INSTALL_DEPS=1",
         "PENGLAI_SKIP_SETUP=1",
-        "python -m pip install --disable-pip-version-check pytest aiohttp",
+        "python -m pip install --disable-pip-version-check pytest requests",
         "desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels",
         "Check Apple signing secrets",
         "Import Apple Developer ID certificate",

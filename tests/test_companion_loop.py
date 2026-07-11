@@ -87,6 +87,7 @@ def test_default_state_has_required_fields():
     assert "expression_preference" in state
     assert "negative_feedback" in state
     assert "learned_preferences" in state
+    assert "outcome_stats" in state
     assert state["opportunity_weights"]["task_closure"] > 0
 
 
@@ -185,9 +186,11 @@ def test_learn_failed_does_not_touch_user_preferences():
     # 投递失败不学习用户偏好
     assert state["opportunity_weights"]["task_closure"] == before
     assert state["negative_feedback"]["ignored_count_7d"] == 0
+    assert state["outcome_stats"]["counts"]["failed"] == 1
+    assert state["outcome_stats"]["last_kind"] == "task_closure"
 
 
-def test_learn_silent_is_noop():
+def test_learn_silent_records_outcome_without_learning_preference():
     state = cf.default_state()
     before = json.dumps(state, sort_keys=True)
     state = cf.learn_from_companion_outcome(
@@ -198,6 +201,8 @@ def test_learn_silent_is_noop():
     )
     # silent 只更新 updated_ts，不影响偏好
     assert state["opportunity_weights"]["ritual"] == cf.DEFAULT_OPPORTUNITY_WEIGHTS["ritual"]
+    assert state["outcome_stats"]["counts"]["silent"] == 1
+    assert state["outcome_stats"]["last_outcome"] == "silent"
 
 
 def test_adaptation_state_redacts_secrets_on_save(tmp_path):

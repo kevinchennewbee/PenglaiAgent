@@ -72,17 +72,33 @@ jobs:
           cache-dependency-path: frontends/desktop/package-lock.json
 
       - name: Setup Rust
+        shell: bash
         env:
-          RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER || 'https://mirrors.tuna.tsinghua.edu.cn/rustup' }}
-          RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT || 'https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup' }}
+          PENGLAI_RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER }}
+          PENGLAI_RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT }}
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup target add ${{ matrix.rust_target }}
+          set -euo pipefail
+          if [ -n "${PENGLAI_RUSTUP_DIST_SERVER:-}" ]; then
+            export RUSTUP_DIST_SERVER="$PENGLAI_RUSTUP_DIST_SERVER"
+          fi
+          if [ -n "${PENGLAI_RUSTUP_UPDATE_ROOT:-}" ]; then
+            export RUSTUP_UPDATE_ROOT="$PENGLAI_RUSTUP_UPDATE_ROOT"
+          fi
+          if ! rustup toolchain install stable --profile minimal \
+            || ! rustup target add ${{ matrix.rust_target }}; then
+            if [ -z "${RUSTUP_DIST_SERVER:-}${RUSTUP_UPDATE_ROOT:-}" ]; then
+              exit 1
+            fi
+            echo "::warning::Configured Rust mirror failed; retrying with official rustup servers."
+            unset RUSTUP_DIST_SERVER RUSTUP_UPDATE_ROOT
+            rustup toolchain install stable --profile minimal
+            rustup target add ${{ matrix.rust_target }}
+          fi
 
       - name: Configure Cargo mirror
         shell: bash
         env:
-          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX || 'sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/' }}
+          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX }}
           PENGLAI_CARGO_REGISTRY_NAME: ${{ vars.PENGLAI_CARGO_REGISTRY_NAME || 'penglai-mirror' }}
         run: |
           if [ -n "$PENGLAI_CARGO_REGISTRY_INDEX" ]; then
@@ -187,7 +203,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp fastapi lark-oapi qrcode pillow pyyaml
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
-          python -m pytest -q tests/test_redline.py tests/test_memguard.py tests/test_media_path_safety.py tests/test_conductor_auth.py tests/test_fileguard.py tests/test_update_network.py tests/test_wechat_auth.py
+          python -m pytest -q tests/test_redline.py tests/test_memguard.py tests/test_media_path_safety.py tests/test_conductor_auth.py tests/test_fileguard.py tests/test_update_network.py tests/test_wechat_auth.py tests/test_worldline.py
 
       - name: Build desktop runtime payload
         shell: bash
@@ -478,16 +494,31 @@ jobs:
           cache-dependency-path: frontends/desktop/package-lock.json
 
       - name: Setup Rust
-        shell: pwsh
+        shell: bash
         env:
-          RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER || 'https://mirrors.tuna.tsinghua.edu.cn/rustup' }}
-          RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT || 'https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup' }}
-        run: rustup toolchain install stable --profile minimal
+          PENGLAI_RUSTUP_DIST_SERVER: ${{ vars.RUSTUP_DIST_SERVER }}
+          PENGLAI_RUSTUP_UPDATE_ROOT: ${{ vars.RUSTUP_UPDATE_ROOT }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PENGLAI_RUSTUP_DIST_SERVER:-}" ]; then
+            export RUSTUP_DIST_SERVER="$PENGLAI_RUSTUP_DIST_SERVER"
+          fi
+          if [ -n "${PENGLAI_RUSTUP_UPDATE_ROOT:-}" ]; then
+            export RUSTUP_UPDATE_ROOT="$PENGLAI_RUSTUP_UPDATE_ROOT"
+          fi
+          if ! rustup toolchain install stable --profile minimal; then
+            if [ -z "${RUSTUP_DIST_SERVER:-}${RUSTUP_UPDATE_ROOT:-}" ]; then
+              exit 1
+            fi
+            echo "::warning::Configured Rust mirror failed; retrying with official rustup servers."
+            unset RUSTUP_DIST_SERVER RUSTUP_UPDATE_ROOT
+            rustup toolchain install stable --profile minimal
+          fi
 
       - name: Configure Cargo mirror
         shell: pwsh
         env:
-          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX || 'sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/' }}
+          PENGLAI_CARGO_REGISTRY_INDEX: ${{ vars.PENGLAI_CARGO_REGISTRY_INDEX }}
           PENGLAI_CARGO_REGISTRY_NAME: ${{ vars.PENGLAI_CARGO_REGISTRY_NAME || 'penglai-mirror' }}
         run: |
           $ErrorActionPreference = "Stop"
@@ -584,6 +615,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
+          python -m pytest -q tests/test_worldline.py
 
       - name: Build desktop runtime payload
         shell: pwsh

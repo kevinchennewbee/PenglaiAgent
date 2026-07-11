@@ -350,7 +350,7 @@ def _rounds_for_file(path, st):
     return n, key
 
 
-def list_sessions(exclude_pid=None, exclude_log=None):
+def list_sessions(exclude_pid=None, exclude_log=None, rewind_root=None):
     """Newest-first list of (path, mtime, preview_text, n_rounds). Preview uses head/tail window only.
 
     `exclude_log` (basename, e.g. 'model_responses_123456.txt') drops the caller's
@@ -380,6 +380,45 @@ def list_sessions(exclude_pid=None, exclude_log=None):
         valid_keys.append(key)
         out.append((f, mtime, preview, rounds))
     _save_rounds_cache(valid_keys)
+    # A conversation rewound to its origin has an intentionally empty log, so
+    # the normal size/preview filters above hide it. TUI v2 may opt into
+    # discovering those sessions through their persisted worldline tree. A
+    # missing log is not eligible: it is commonly an archived L4 session and
+    # must not be resurrected as an orphan.
+    if rewind_root and os.path.isdir(rewind_root):
+        have = {os.path.basename(p) for p, *_ in out}
+        try:
+            keys = os.listdir(rewind_root)
+        except OSError:
+            keys = []
+        for key in keys:
+            if not key.startswith('model_responses_'):
+                continue
+            log_name = key + '.txt'
+            if log_name in have or log_name == exclude_log:
+                continue
+            log_path = os.path.join(_LOG_DIR, log_name)
+            try:
+                if os.path.getsize(log_path) >= 32:
+                    continue
+            except OSError:
+                continue
+            try:
+                with open(os.path.join(rewind_root, key, 'tree.json'), encoding='utf-8') as fh:
+                    data = json.load(fh)
+            except Exception:
+                continue
+            nodes = data.get('nodes') or {}
+            real_nodes = [node for node in nodes.values() if node.get('kind') != 'origin']
+            if not real_nodes:
+                continue
+            try:
+                mtime = os.path.getmtime(os.path.join(rewind_root, key, 'tree.json'))
+            except OSError:
+                mtime = 0
+            head = data.get('head')
+            title = (nodes.get(head, {}).get('title') if head else '') or '（已回退至会话起点）'
+            out.append((log_path, mtime, f'[世界线] {title}', len(real_nodes)))
     out.sort(key=lambda x: x[1], reverse=True)
     return out
 _MD_ESCAPE_RE = re.compile(r'([\\`*_\[\]])')
@@ -1044,9 +1083,14 @@ def begin_fresh_session(agent, agent_id=None):
     _clear_conversation_state(agent)
 
 
-def _load_history_into(agent, path):
+def _load_history_into(agent, path, restore_wm=False):
     """把 `path` 解析进 backend.history(native;否则降级摘要)。镜像 restore() 的解析,
-    但不 abort/不快照(日志重指由调用方先做好)。返回 (msg, is_full)。"""
+    但不 abort/不快照(日志重指由调用方先做好)。返回 (msg, is_full)。
+
+    `restore_wm` is opt-in so other frontends preserve their existing behavior.
+    Worldline-enabled TUI sessions use it to rebuild per-turn working memory from
+    the same append-only native log used as the conversation source of truth.
+    """
     try:
         with open(path, encoding='utf-8', errors='replace') as fh:
             content = fh.read()
@@ -1059,6 +1103,8 @@ def _load_history_into(agent, path):
     name = os.path.basename(path)
     if history is not None:
         _replace_backend_history(agent, history)
+        if restore_wm and hasattr(agent, 'history'):
+            agent.history = _derive_hist_info(history)
         return f'✅ 已恢复 {len(pairs)} 轮完整对话（{name}）', True
     from chatapp_common import _restore_native_history, _restore_text_pairs
     summary = _restore_text_pairs(content) or _restore_native_history(content)
@@ -1070,10 +1116,11 @@ def _load_history_into(agent, path):
     return f'⚠️ 非 native 格式，降级恢复 {n} 轮摘要（{name}）', False
 
 
-def continue_inplace(agent, path, agent_id=None):
+def continue_inplace(agent, path, agent_id=None, allow_empty=False, restore_wm=False):
     """原地续:把 agent 的日志指回 `path` 本身,之后轮次追加到 X,延续同一会话。
     调用方应已确认空闲(session_occupant 为 None);抢锁失败(被占)返回错误。
-    返回 (msg, ok)。"""
+    `allow_empty` is reserved for a persisted worldline rewound to its origin.
+    `restore_wm` rebuilds working memory from the native log. 返回 (msg, ok)。"""
     try: agent.abort()
     except Exception: pass
     if not acquire_lock(path, agent_id):       # 先抢到目标锁;失败则保持现状,不丢自己的锁
@@ -1082,12 +1129,19 @@ def continue_inplace(agent, path, agent_id=None):
     if cur and os.path.basename(cur) != os.path.basename(path):
         release_lock(cur)                       # 目标到手,旧会话释放为空闲(同一文件则不放)
     _retarget_log(agent, path)
-    return _load_history_into(agent, path)
+    msg, ok = _load_history_into(agent, path, restore_wm=restore_wm)
+    if not ok and allow_empty and _is_empty_log(path):
+        _replace_backend_history(agent, [])
+        if restore_wm and hasattr(agent, 'history'):
+            agent.history = []
+        return '✅ 已恢复空会话（回退至会话起点；世界线树已重连）', True
+    return msg, ok
 
 
-def continue_copy(agent, path, agent_id=None):
+def continue_copy(agent, path, agent_id=None, allow_empty=False, restore_wm=False):
     """拷贝续:铸新 logid、把 `path` 内容拷进去,在副本上续;`path` 原件不动。
-    用于"被占用→用户选拷贝"以及快照源。返回 (msg, ok)。"""
+    用于"被占用→用户选拷贝"以及快照源。`allow_empty` / `restore_wm` 同
+    continue_inplace。返回 (msg, ok)。"""
     try: agent.abort()
     except Exception: pass
     release_current(agent)
@@ -1098,7 +1152,13 @@ def continue_copy(agent, path, agent_id=None):
         pass
     acquire_lock(newp, agent_id)
     _retarget_log(agent, newp)
-    return _load_history_into(agent, newp)
+    msg, ok = _load_history_into(agent, newp, restore_wm=restore_wm)
+    if not ok and allow_empty and _is_empty_log(newp):
+        _replace_backend_history(agent, [])
+        if restore_wm and hasattr(agent, 'history'):
+            agent.history = []
+        return '✅ 已恢复空会话（回退至会话起点；世界线树已重连）', True
+    return msg, ok
 
 
 def _is_empty_log(path):

@@ -29,7 +29,7 @@
 
 **Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
 
-**v0.3.6 brings Worldline checkpoint rewind to the TUI, fixes three safety/quality bugs from upstream, wires Companion failure/silent feedback learning, and marks the Telegram channel as tested** — it syncs the upstream Worldline checkpoint tree (content-addressable blob + three restore modes), fixes stdin=DEVNULL / Claude refusal / turn_end summary fallback, and wires Companion failed/silent outcomes into the feedback learning layer. The TUI now supports /worldline for tree-based rewind. Replied/ignored feedback learning (echo detection) is planned for 0.3.7.
+**v0.3.6 brings Worldline checkpoint rewind to the TUI, fixes upstream safety/quality bugs, records Companion failure/silent outcomes, and marks the Telegram channel as tested** — it syncs the upstream Worldline checkpoint tree (content-addressable blob + three restore modes), fixes subprocess stdin isolation / Claude refusal / turn-end summaries / concurrent long-prompt files / browser-driver broken pipes, and records Companion failed/silent outcomes without treating system failures as user preference. The TUI now supports `/worldline` for tree-based rewind. Replied/ignored feedback learning (echo detection) is planned for 0.3.7.
 
 - 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
 - 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
@@ -234,20 +234,20 @@ Three layers of protection ensure data is never lost:
 
 ## 📋 0.3.6 Key Changes
 
-0.3.6 is a release-trust and companion-foundation release. It makes the update path more honest and fail-closed, then lays the local building blocks for future adaptive companionship without overclaiming that the production heartbeat is fully adaptive today.
+0.3.6 finishes and hardens the Worldline rewind integration while preserving the trusted-release and Companion Loop foundations from 0.3.5. It focuses on recoverability, concurrency safety, browser/runtime resilience, and honest companion outcome telemetry.
 
 | Area | What 0.3.6 brings |
 |---|---|
-| Release integrity | Signed annotated tag verification; the public release key is stored at `packaging/penglai-release-signing-key.asc`; `penglai update` rejects unsigned targets by default |
-| Plugin safety | `plugins/hooks.py` strict fail-closed load; broken plugins block startup and `_guardcheck` unless explicit rescue mode is enabled |
-| Channel access | WeChat `wechat_allowed_users` allowlist migration, setup owner capture, and doctor diagnostics for old token-only configs |
-| Conductor auth | Query-token auth removed; WebSocket/header/subprotocol auth paths retained; same-user local trust boundary documented in `SECURITY.md` |
-| Companion Loop | Foundation/API skeleton: daily reflection, care opportunity mining, adaptive feedback primitives, and proactive dialogue plans |
-| Voice profiles | 10 public voices, male/female selection, celebrity-impersonation blocked, CLI/desktop/API voice listing and audition |
-| Desktop UI | Voice gender, persona style, audition, "why proactive", and reflection summary controls in the companion panel |
-| Setup wizard | TTS asks default voice gender; companion setup asks persona style without enabling voice cloning or IM voice push by default |
+| Worldline rewind | Persistent checkpoint tree with content-addressed file blobs, conversation/code/both restore modes, `/rewind` timeline and `/worldline` tree UI |
+| Resume correctness | Rewound-to-origin sessions remain discoverable; `/continue` restores working memory, rebinds or clones the tree, and reconciles it against the full native log |
+| LLM/runtime safety | Claude refusal becomes terminal text instead of an empty-response retry; turn-end summaries prefer the cleaned response body; subprocesses no longer inherit TTY stdin |
+| Concurrency | Long prompts use PID + nanosecond filenames so concurrent agents cannot overwrite each other's task input |
+| Browser resilience | TMWebDriver logging tolerates broken/closed stdout so a detached parent cannot tear down the extension WebSocket loop |
+| Companion outcomes | Failed and silent outcomes are persisted as redacted telemetry without changing user-preference weights; replied/ignored echo detection remains future work |
+| Desktop release | Every desktop/package/runtime version is aligned to 0.3.6; CI tests Worldline and falls back to official Rust servers when a configured mirror fails |
+| Channel status | Telegram is marked tested; unverified DingTalk, QQ, WeCom, and Discord paths remain explicitly pending |
 
-Important boundary: Companion Loop act (real delivery) and learn (real feedback capture) are not wired into the production companion heartbeat yet. Public copy should say **Companion Loop foundation**, not "fully adaptive companion".
+Important boundary: failed/silent system outcomes are now recorded, but replied/ignored user-feedback capture is not implemented. Public copy must not claim a fully adaptive companion.
 
 ---
 
@@ -342,7 +342,7 @@ Thanks to all issue reporters and testers. Special thanks to:
 
 ## 📄 Version Timeline
 
-- **v0.3.6 · 2026-07-11** - Worldline checkpoint rewind (`/worldline`), stdin=DEVNULL fix (3 places), Claude refusal handling, turn_end summary `_c` fallback, Companion failed/silent feedback learning wired, Telegram channel marked tested.
+- **v0.3.6 · 2026-07-12** - Worldline checkpoint rewind (`/worldline`), subprocess stdin isolation, Claude refusal and turn-end summary fixes, concurrent long-prompt and browser-driver broken-pipe fixes, Companion failed/silent outcome telemetry, Telegram channel marked tested.
 - **v0.3.5 · 2026-07-03** — Trusted release gates + Companion Loop foundation: signed tag verification, plugin strict load, WeChat allowlist migration, Conductor query-token removal, daily reflection, care opportunity mining, voice profiles, and proactive dialogue plans. The loop is a foundation/API skeleton; real delivery and real feedback learning are not yet wired into the production heartbeat.
 - **v0.3.4 · 2026-06-30** — Trusted-maintenance release: fixes desktop update apply flow, Runtime Hub cancellation, inline eval exposure, Conductor auth, IM media path traversal, redline fork-bomb coverage, memory load-time scanning, failover classification, and fail-closed desktop updater metadata checks.
 - **v0.3.3 · 2026-06-29** — Intel Mac desktop support release: adds a separate macOS Intel x64 DMG and `darwin-x86_64` updater metadata while preserving the 0.3.2 bundled runtime model; desktop migration preview is wired into first-run setup with secret-safe responses; state-changing desktop ops require a second confirmation token.
@@ -360,7 +360,7 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 **蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-**v0.3.6 强化可信发布门禁，并引入主动陪伴 Loop 基座**——它继承 0.3.4 的三平台桌面分发和内置本地运行环境，补上 signed release 验证、插件和通道门禁、本地反思原语、可选声音档案和桌面陪伴控制。它现在还**不宣称完整自适应陪伴**：真实投递和真实反馈学习尚未接入生产 companion 心跳。
+**v0.3.6 带来 TUI 世界线检查点回溯、上游安全与质量修复、陪伴失败/静默结果记录，并将 Telegram 标记为已实测**——它同步 content-addressable blob + 三种恢复模式的 Worldline 树，修复子进程 stdin 隔离、Claude refusal、turn-end 摘要、并发长提示词文件冲突和浏览器驱动断管，并记录 failed/silent 结果但不会把系统失败误学成用户偏好。TUI 现可用 `/worldline` 树状回退；replied/ignored 回声检测留待 0.3.7。
 
 - 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
 - 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
@@ -569,20 +569,20 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📋 0.3.6 主要变化
 
-0.3.6 是可信发布和陪伴基座版本：先让升级链路更诚实、更 fail-closed，再为未来真正自适应的主动陪伴打下本地基座，但不把尚未接入生产心跳的能力包装成已完成。
+0.3.6 在继承 0.3.5 可信发布与 Companion Loop 基座的同时，补完整并加固 Worldline 回溯集成，重点解决可恢复性、并发安全、浏览器/运行时韧性和诚实的陪伴结果记录。
 
 | 领域 | 0.3.6 带来的变化 |
 |---|---|
-| 发布完整性 | signed annotated tag 验证；公开发布公钥保存在 `packaging/penglai-release-signing-key.asc`；`penglai update` 默认拒绝 unsigned target |
-| 插件安全 | `plugins/hooks.py` strict fail-closed；坏插件默认阻断启动和 `_guardcheck`，只有显式救援模式才允许继续 |
-| 通道访问 | WeChat `wechat_allowed_users` 白名单迁移、setup owner 捕获、doctor 诊断老的 token-only 配置 |
-| Conductor 认证 | 移除 query-token 认证；保留 WebSocket/header/subprotocol 鉴权路径；`SECURITY.md` 写清同用户本地信任边界 |
-| Companion Loop | foundation/API skeleton：每日反思、陪伴点挖掘、自适应反馈原语、多段式主动对话计划 |
-| 声音档案 | 10 个公开声音、男/女声选择、名人模仿屏蔽、CLI/桌面/API 可列出可试听 |
-| 桌面 UI | companion 面板支持声音性别、人设风格、试听、“为什么主动出现”和今日反思摘要 |
-| Setup 向导 | TTS 开启后询问默认声音性别；主动陪伴开启后询问人格风格，不默认开启 voice cloning 或 IM 语音推送 |
+| Worldline 回溯 | 持久检查点树、content-addressable 文件 blob、仅对话/仅代码/两者恢复模式、`/rewind` 时间线与 `/worldline` 树 UI |
+| 续接正确性 | 回退到起点的空日志会话仍可发现；`/continue` 恢复工作记忆、重绑/复制树，并按完整 native 日志对账 |
+| LLM/运行时安全 | Claude refusal 作为终态文本返回而非触发空回复重试；turn-end 摘要优先清洗后的正文；子进程不再继承 TTY stdin |
+| 并发安全 | 长提示词文件名使用 PID + 纳秒，同一秒并行 agent 不会互相覆盖任务输入 |
+| 浏览器韧性 | TMWebDriver 输出兼容 broken/closed stdout，父进程脱离终端时不会带崩扩展 WebSocket 循环 |
+| 陪伴结果 | failed/silent 以脱敏 telemetry 持久化，但不改变用户偏好权重；replied/ignored 回声检测仍是后续工作 |
+| 桌面发布 | desktop/package/runtime 版本统一为 0.3.6；CI 纳入 Worldline 测试，配置的 Rust 镜像失败时回退官方源 |
+| 渠道状态 | Telegram 标记已实测；钉钉、QQ、企微、Discord 仍诚实标注待实测 |
 
-重要边界：Companion Loop 的 act（真实投递）和 learn（真实反馈采集）尚未接入生产 companion 心跳。公开文案只能说**主动陪伴 Loop 基座**，不能说“完整自适应陪伴已完成”。
+重要边界：系统 failed/silent 结果已记录，但 replied/ignored 用户反馈采集尚未实现，不能宣称“完整自适应陪伴已完成”。
 
 ---
 
@@ -677,7 +677,7 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📄 版本时间线
 
-- **v0.3.6 · 2026-07-11** - Worldline 检查点回溯（`/worldline`）、stdin=DEVNULL 修复（3 处）、Claude refusal 处理、turn_end summary `_c` fallback、Companion 失败/静默反馈学习接线、Telegram 渠道标注已实测。
+- **v0.3.6 · 2026-07-12** - Worldline 检查点回溯（`/worldline`）、子进程 stdin 隔离、Claude refusal 与 turn-end 摘要修复、并发长提示词和浏览器驱动断管修复、Companion failed/silent 结果记录、Telegram 渠道标注已实测。
 - **v0.3.5 · 2026-07-03** — 可信发布门禁 + Companion Loop foundation：signed tag 验证、插件 strict load、WeChat allowlist 迁移、Conductor query-token removal、每日反思、陪伴点挖掘、声音档案和主动对话计划。当前是 foundation/API skeleton，真实投递和真实反馈学习尚未接入生产心跳。
 - **v0.3.4 · 2026-06-30** — 可信化维护发布：修复桌面升级执行链路、Runtime Hub 取消、inline eval 暴露、Conductor 认证、IM 媒体路径穿越、fork-bomb 红线覆盖、记忆读时扫描、failover 分类，以及桌面 updater 元数据 fail-closed 检查。
 - **v0.3.3 · 2026-06-29** — Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 `darwin-x86_64` updater 元数据，保留 0.3.2 的内置运行时策略；桌面首次启动接入 secret-safe 迁移预览；桌面状态变更操作需要二次确认令牌。

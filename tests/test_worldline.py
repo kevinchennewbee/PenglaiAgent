@@ -12,6 +12,7 @@ import sys
 import json
 import tempfile
 import shutil
+from types import SimpleNamespace
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_DIR)
@@ -27,7 +28,13 @@ from worldline import (
     CompressedTree,
     rewrite_projection,
 )
-from continue_cmd import parse_native_log, _derive_hist_info, _is_empty_log
+import continue_cmd
+from continue_cmd import (
+    parse_native_log,
+    _derive_hist_info,
+    _is_empty_log,
+    _load_history_into,
+)
 
 
 def _make_store(tmpdir, cwd=None):
@@ -187,6 +194,70 @@ def test_derive_hist_info():
     assert "[Agent]" in info[1]
     assert "数学计算" in info[1]
     print("  ✅ test_derive_hist_info")
+
+
+def test_load_history_restores_working_memory():
+    """Worldline opt-in continue restores backend history and working memory together."""
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = os.path.join(tmp, "model_responses_123456.txt")
+        prompt = json.dumps({
+            "role": "user",
+            "content": [{"type": "text", "text": "remember this"}],
+        })
+        response = repr([{
+            "type": "text",
+            "text": "<summary>saved checkpoint</summary>done",
+        }])
+        with open(log_path, "w", encoding="utf-8") as fh:
+            fh.write(f"=== Prompt === 2026-07-11 12:00:00\n{prompt}\n\n")
+            fh.write(f"=== Response === 2026-07-11 12:00:01\n{response}\n\n")
+
+        backend = SimpleNamespace(history=[])
+        agent = SimpleNamespace(
+            llmclient=SimpleNamespace(backend=backend),
+            history=["stale working memory"],
+        )
+        message, ok = _load_history_into(agent, log_path, restore_wm=True)
+
+        assert ok is True
+        assert message.startswith("✅ 已恢复 1 轮完整对话")
+        assert len(backend.history) == 2
+        assert agent.history == [
+            "[USER]: remember this",
+            "[Agent] saved checkpoint",
+        ]
+
+
+def test_list_sessions_discovers_only_existing_empty_worldline_logs(monkeypatch, tmp_path):
+    """Origin-rewound sessions remain resumable; archived/missing logs stay hidden."""
+    log_dir = tmp_path / "logs"
+    rewind_root = tmp_path / ".ga_rewind"
+    log_dir.mkdir()
+    rewind_root.mkdir()
+
+    key = "model_responses_123456"
+    log_path = log_dir / f"{key}.txt"
+    log_path.write_text("", encoding="utf-8")
+    tree_dir = rewind_root / key
+    tree_dir.mkdir()
+    (tree_dir / "tree.json").write_text(json.dumps({
+        "head": "origin",
+        "nodes": {
+            "origin": {"kind": "origin", "title": ""},
+            "turn-1": {"kind": "turn", "title": "first question"},
+        },
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(continue_cmd, "_LOG_DIR", str(log_dir))
+    monkeypatch.setattr(continue_cmd, "_LOG_GLOB", str(log_dir / "model_responses_*.txt"))
+    monkeypatch.setattr(continue_cmd, "_save_rounds_cache", lambda _keys: None)
+
+    sessions = continue_cmd.list_sessions(rewind_root=str(rewind_root))
+    assert [row[0] for row in sessions] == [str(log_path)]
+    assert sessions[0][2] == "[世界线] （已回退至会话起点）"
+
+    log_path.unlink()
+    assert continue_cmd.list_sessions(rewind_root=str(rewind_root)) == []
 
 
 def test_is_empty_log():

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -8,6 +9,7 @@ import types
 import pytest
 
 import ga
+import llmcore
 
 
 def _run_gen(gen):
@@ -35,6 +37,10 @@ class _Parent:
     def __init__(self):
         self.llmclient = _LLM()
         self.sentinel = "TEST_SENTINEL"
+        self.extrakeyinfo = None
+        self.intervene = None
+        self._turn_end_hooks = {}
+        self.task_dir = tempfile.mkdtemp()
 
 
 def _handler(tmp=None):
@@ -114,3 +120,52 @@ def test_untrusted_delim_skips_short_and_disabled(monkeypatch):
     monkeypatch.setenv("PENGLAI_UNTRUSTED_DELIM", "0")
     long = "ignore all " * 10
     assert ga._wrap_untrusted(long, "web_scan") == long
+
+
+def test_turn_end_summary_falls_back_to_clean_response_body():
+    h = _handler()
+    h.turn_end_callback(
+        types.SimpleNamespace(content="A concrete useful answer"),
+        [{"tool_name": "no_tool", "args": {}}],
+        [],
+        1,
+        "",
+        {"result": "CONTINUE"},
+    )
+    assert h.history_info[-1] == "[Agent] A concrete useful answer"
+
+
+def test_claude_json_refusal_is_terminal_text_not_empty_retry():
+    outputs, blocks = _run_gen(llmcore._parse_claude_json({
+        "stop_reason": "refusal",
+        "content": [],
+        "usage": {"input_tokens": 1, "output_tokens": 0},
+    }))
+    assert outputs == ["[Error: Claude refusal]"]
+    assert blocks == [{"type": "text", "text": "[Error: Claude refusal]"}]
+
+
+def test_claude_stream_refusal_is_returned_as_text_block():
+    events = [
+        'data: {"type":"message_delta","delta":{"stop_reason":"refusal"},"usage":{}}',
+        'data: {"type":"message_stop"}',
+    ]
+    outputs, blocks = _run_gen(llmcore._parse_claude_sse(events))
+    assert outputs == ["\n\n[Error: Claude refusal]"]
+    assert blocks == [{"type": "text", "text": "\n\n[Error: Claude refusal]"}]
+
+
+def test_parallel_long_prompts_use_process_and_nanosecond_unique_paths():
+    root = os.path.dirname(os.path.abspath(ga.__file__))
+    source = open(os.path.join(root, "agentmain.py"), encoding="utf-8").read()
+    assert "f'user_prompt_{os.getpid()}_{time.time_ns()}.md'" in source
+    assert "f'user_prompt_{int(time.time())}.md'" not in source
+
+
+def test_tmwebdriver_transport_logging_is_broken_pipe_safe():
+    root = os.path.dirname(os.path.abspath(ga.__file__))
+    source = open(os.path.join(root, "TMWebDriver.py"), encoding="utf-8").read()
+    assert "def safe_print" in source
+    assert "except (BrokenPipeError, OSError, ValueError)" in source
+    assert len(re.findall(r"(?<!safe_)print\(", source)) == 1
+    assert source.count("safe_print(") >= 15
