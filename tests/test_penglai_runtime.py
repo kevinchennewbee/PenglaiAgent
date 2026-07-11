@@ -4078,6 +4078,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "NPM_CONFIG_REGISTRY",
         "https://registry.npmmirror.com/",
         "PIP_INDEX_URL",
+        "pyyaml rich",
         "Desktop bridge contract tests",
         "Build desktop runtime payload",
         "packaging/build_desktop_runtime.py",

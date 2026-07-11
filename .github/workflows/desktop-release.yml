@@ -201,7 +201,7 @@ jobs:
         env:
           PIP_INDEX_URL: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
         run: |
-          python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp fastapi lark-oapi qrcode pillow pyyaml
+          python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp fastapi lark-oapi qrcode pillow pyyaml rich
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
           python -m pytest -q tests/test_redline.py tests/test_memguard.py tests/test_media_path_safety.py tests/test_conductor_auth.py tests/test_fileguard.py tests/test_update_network.py tests/test_wechat_auth.py tests/test_worldline.py
 
@@ -613,7 +613,7 @@ jobs:
         env:
           PIP_INDEX_URL: ${{ vars.PENGLAI_PIP_INDEX || 'https://pypi.tuna.tsinghua.edu.cn/simple' }}
         run: |
-          python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml
+          python -m pip install --disable-pip-version-check pytest requests beautifulsoup4 bottle aiohttp lark-oapi qrcode pillow pyyaml rich
           python -m pytest -q tests/test_penglai_runtime.py -k 'desktop_bridge or desktop_static_ui_uses_chinese_runtime_labels or desktop_package_identity_targets_penglai_release or selfcheck_exercises_runtime_contracts or install_script_targets_main_release'
           python -m pytest -q tests/test_worldline.py
 
