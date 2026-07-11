@@ -297,7 +297,7 @@ _CHANNEL_MENU = (
     ("wechat",   "微信 WeChat",       "已实测·扫码登录个人微信"),
     ("dingtalk", "钉钉 DingTalk",     "扫码自动建应用·待实测"),
     ("qq",       "QQ",                "扫码自动建应用·待实测"),
-    ("telegram", "Telegram",          "贴 token 接入·待实测"),
+    ("telegram", "Telegram",          "贴 token 接入·已实测"),
     ("discord",  "Discord",           "贴 token 接入·待实测"),
     ("wecom",    "企业微信 WeCom",    "贴 token 接入·待实测"),
 )

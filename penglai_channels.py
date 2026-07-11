@@ -56,7 +56,7 @@ CHANNELS = {
     "telegram": dict(label="Telegram", script="tgapp.py",        service="penglai-telegram",
                      pip={"python-telegram-bot>=20": "telegram"},
                      keys=["tg_bot_token"],
-                     allow="tg_allowed_users", tested=False, allow_int=True,
+                     allow="tg_allowed_users", tested=True, allow_int=True,
                      guide=["Telegram 里找 @BotFather → 发送 /newbot → 起名",
                             "把 BotFather 给的 bot token 贴进来即可（需可访问 api.telegram.org）"]),
     "discord":  dict(label="Discord",  script="dcapp.py",        service="penglai-discord",

@@ -145,7 +145,7 @@ All channels share the same memory — **one butler, multiple doors**:
 | DingTalk | `penglai enable dingtalk`, **QR auto-create** | 🔧 Wrapped (built-in ASR) | ⚠️ Pending real-device |
 | QQ | `penglai enable qq`, **QR auto-create bot** | 🔧 Wrapped (wav+emotion) | ⚠️ Pending real-device |
 | WeCom | `penglai enable wecom`, backend bot | 🔧 Wrapped (built-in ASR) | ⚠️ Pending real-device |
-| Telegram | `penglai enable telegram`, @BotFather token | — | ⚠️ Pending real-device |
+| Telegram | `penglai enable telegram`, @BotFather token | — | ✅ Tested |
 | Discord | `penglai enable discord`, dev portal token | — | ⚠️ Pending real-device |
 
 > "Pending" = integration code is ready (IM framework from GA upstream, voice wrapping by Penglai layer), but we haven't completed real-device testing. Honesty over appearances.
@@ -480,7 +480,7 @@ penglai privacy-audit --strict  # 发布前隐私检查
 | 钉钉 | `penglai enable dingtalk`，**扫码自动建应用** | 🔧 封装(自带ASR) | ⚠️ 待实测 |
 | QQ | `penglai enable qq`，**扫码自动建机器人** | 🔧 封装(wav+情绪) | ⚠️ 待实测 |
 | 企业微信 | `penglai enable wecom`，后台建智能机器人贴凭证 | 🔧 封装(自带ASR) | ⚠️ 待实测 |
-| Telegram | `penglai enable telegram`，@BotFather 贴 token | — | ⚠️ 待实测 |
+| Telegram | `penglai enable telegram`，@BotFather 贴 token | — | ✅ 已实测 |
 | Discord | `penglai enable discord`，开发者后台贴 token | — | ⚠️ 待实测 |
 
 > 「待实测」= 接入代码已就绪（IM 框架为 GA 上游自带，语音接收为蓬莱层封装），但我们还没在真机走完全程——实测过一个就升级成 ✅。诚实比好看重要。
