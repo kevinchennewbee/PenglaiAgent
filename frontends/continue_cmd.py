@@ -118,6 +118,62 @@ def _parse_native_history(pairs):
     return history
 
 
+def parse_native_log(path, allow_empty=False):
+    """Parse a native `model_responses_*.txt` log into backend.history.
+
+    Public wrapper around the mature `/continue` parser. It intentionally only
+    restores complete Prompt->Response pairs; dangling Prompt / partial turns keep
+    the current continue semantics and are ignored. Returns:
+    - list (possibly [] when allow_empty=True) on native success;
+    - None when the file is unreadable / non-native / empty without allow_empty.
+    """
+    try:
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            content = fh.read()
+    except Exception:
+        return [] if allow_empty else None
+    pairs = _pairs(content)
+    if not pairs:
+        if allow_empty and (_is_empty_log(path) or _BLOCK_RE.findall(content or '')):
+            return []
+        return None
+    return _parse_native_history(pairs)
+
+
+def _derive_hist_info(history):
+    """从 native history 重建 history_info(轮级纪要):真实用户提问 -> `[USER]: …`;每条
+    assistant(=一轮) -> `[Agent] <summary>`(无 summary 取首行)。与 ga.turn_end_callback /
+    worldline 树同口径。纯函数、不依赖 worldline,供续接 opt-in 恢复工作记忆(见 restore_wm)。"""
+    def _all_text(m):
+        c = m.get('content') if isinstance(m, dict) else None
+        if isinstance(c, str): return c
+        if isinstance(c, list):
+            return '\n'.join(b.get('text', '') for b in c
+                             if isinstance(b, dict) and b.get('type') == 'text')
+        return ''
+    def _is_tool_result(m):
+        c = m.get('content') if isinstance(m, dict) else None
+        return isinstance(c, list) and any(
+            isinstance(b, dict) and b.get('type') == 'tool_result' for b in c)
+    out = []
+    for m in history or []:
+        if not isinstance(m, dict): continue
+        role = m.get('role')
+        if role == 'user':
+            if _is_tool_result(m): continue
+            t = strip_project_mode(_all_text(m)).strip()
+            if t and not t.startswith(_INJECT_MARKERS):
+                out.append(f'[USER]: {t}')
+        elif role == 'assistant':
+            txt = re.sub(r'```.*?```|<thinking>.*?</thinking>', '', _all_text(m), flags=re.DOTALL)
+            mt = re.search(r'<summary>(.*?)</summary>', txt, re.DOTALL)
+            s = mt.group(1).strip()[:80] if (mt and mt.group(1).strip()) else ''
+            if not s:
+                s = next((ln.strip()[:80] for ln in txt.splitlines() if ln.strip()), '（无摘要）')
+            out.append(f'[Agent] {s}')
+    return out
+
+
 _PREVIEW_WIN = 32 * 1024
 
 # Content-grep budget for `/continue` search box: read at most this many bytes
@@ -1043,6 +1099,14 @@ def continue_copy(agent, path, agent_id=None):
     acquire_lock(newp, agent_id)
     _retarget_log(agent, newp)
     return _load_history_into(agent, newp)
+
+
+def _is_empty_log(path):
+    """日志空(<32 字节)或缺失。用于 allow_empty:回退到会话起点后日志被清空的会话。"""
+    try:
+        return os.path.getsize(path) < 32
+    except OSError:
+        return True
 
 
 def install(cls):

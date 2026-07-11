@@ -428,6 +428,24 @@ def _record_companion_context(kind, body, cfg, state, *, task_run=None, extra=No
         print(f"[companion] 上下文事件记录失败: {e}")
 
 
+def _cf_learn(kind, cfg, outcome):
+    """0.3.6: 把 failed/silent 结果喂给 companion_feedback 的自适应学习。
+    replied/ignored 需要回声检测（用户是否回复），留 0.3.7。
+    失败静默，绝不打断主流程。"""
+    try:
+        from penglai_runtime.companion_feedback import load_state as _cf_load, save_state as _cf_save, learn_from_companion_outcome as _cf_learn_fn
+        _cf_state = _cf_load(_ROOT)
+        _cf_state = _cf_learn_fn(
+            decision={"kind": kind, "mode": cfg.get("mode", "present")},
+            outcome=outcome,
+            recent_events=None,
+            state=_cf_state,
+        )
+        _cf_save(_ROOT, _cf_state)
+    except Exception:
+        pass
+
+
 def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, errors=None):
     body = _body_from_result(result)
     cfg = _cfg()
@@ -473,6 +491,7 @@ def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, 
             state,
             task_run=task_run,
         )
+        _cf_learn(kind, cfg, "silent")
         _save_state(state)
         print("[companion] 沉默（无值得主动联系的理由）")
         return "silent", body
@@ -543,6 +562,7 @@ def _finalize_companion_result(result, *, task_run=None, store=None, sent=None, 
         state,
         task_run=task_run,
     )
+    _cf_learn(kind, cfg, "failed")
     _save_state(state)
     print("[companion] 所有渠道发送失败，未记终态（下次心跳将重试）")
     return "failed", body

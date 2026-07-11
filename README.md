@@ -2,7 +2,7 @@
 
 <img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
 
-# 蓬莱 · Penglai 0.3.5
+# 蓬莱 · Penglai 0.3.6
 
 ### 住在你飞书、微信和终端里的自托管 AI Runtime Hub
 
@@ -29,7 +29,7 @@
 
 **Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
 
-**v0.3.5 hardens trusted release gates and introduces the Companion Loop foundation** — it keeps the bundled local runtime and three-platform desktop distribution from 0.3.4, then adds signed release verification, stricter plugin/channel gates, local reflection primitives, selectable voice profiles, and companion controls. It does **not** claim a fully adaptive companion yet: real delivery and real feedback learning are still not wired into the production companion heartbeat.
+**v0.3.6 brings Worldline checkpoint rewind to the TUI, fixes three safety/quality bugs from upstream, wires Companion failure/silent feedback learning, and marks the Telegram channel as tested** — it syncs the upstream Worldline checkpoint tree (content-addressable blob + three restore modes), fixes stdin=DEVNULL / Claude refusal / turn_end summary fallback, and wires Companion failed/silent outcomes into the feedback learning layer. The TUI now supports /worldline for tree-based rewind. Replied/ignored feedback learning (echo detection) is planned for 0.3.7.
 
 - 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
 - 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
@@ -106,7 +106,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 - macOS Intel x64 DMG
 - Windows x64 installer
 
-The 0.3.5 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
+The 0.3.6 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
 
 Daily commands:
 
@@ -232,11 +232,11 @@ Three layers of protection ensure data is never lost:
 
 ---
 
-## 📋 0.3.5 Key Changes
+## 📋 0.3.6 Key Changes
 
-0.3.5 is a release-trust and companion-foundation release. It makes the update path more honest and fail-closed, then lays the local building blocks for future adaptive companionship without overclaiming that the production heartbeat is fully adaptive today.
+0.3.6 is a release-trust and companion-foundation release. It makes the update path more honest and fail-closed, then lays the local building blocks for future adaptive companionship without overclaiming that the production heartbeat is fully adaptive today.
 
-| Area | What 0.3.5 brings |
+| Area | What 0.3.6 brings |
 |---|---|
 | Release integrity | Signed annotated tag verification; the public release key is stored at `packaging/penglai-release-signing-key.asc`; `penglai update` rejects unsigned targets by default |
 | Plugin safety | `plugins/hooks.py` strict fail-closed load; broken plugins block startup and `_guardcheck` unless explicit rescue mode is enabled |
@@ -342,6 +342,7 @@ Thanks to all issue reporters and testers. Special thanks to:
 
 ## 📄 Version Timeline
 
+- **v0.3.6 · 2026-07-11** - Worldline checkpoint rewind (`/worldline`), stdin=DEVNULL fix (3 places), Claude refusal handling, turn_end summary `_c` fallback, Companion failed/silent feedback learning wired, Telegram channel marked tested.
 - **v0.3.5 · 2026-07-03** — Trusted release gates + Companion Loop foundation: signed tag verification, plugin strict load, WeChat allowlist migration, Conductor query-token removal, daily reflection, care opportunity mining, voice profiles, and proactive dialogue plans. The loop is a foundation/API skeleton; real delivery and real feedback learning are not yet wired into the production heartbeat.
 - **v0.3.4 · 2026-06-30** — Trusted-maintenance release: fixes desktop update apply flow, Runtime Hub cancellation, inline eval exposure, Conductor auth, IM media path traversal, redline fork-bomb coverage, memory load-time scanning, failover classification, and fail-closed desktop updater metadata checks.
 - **v0.3.3 · 2026-06-29** — Intel Mac desktop support release: adds a separate macOS Intel x64 DMG and `darwin-x86_64` updater metadata while preserving the 0.3.2 bundled runtime model; desktop migration preview is wired into first-run setup with secret-safe responses; state-changing desktop ops require a second confirmation token.
@@ -359,7 +360,7 @@ Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgen
 
 **蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
 
-**v0.3.5 强化可信发布门禁，并引入主动陪伴 Loop 基座**——它继承 0.3.4 的三平台桌面分发和内置本地运行环境，补上 signed release 验证、插件和通道门禁、本地反思原语、可选声音档案和桌面陪伴控制。它现在还**不宣称完整自适应陪伴**：真实投递和真实反馈学习尚未接入生产 companion 心跳。
+**v0.3.6 强化可信发布门禁，并引入主动陪伴 Loop 基座**——它继承 0.3.4 的三平台桌面分发和内置本地运行环境，补上 signed release 验证、插件和通道门禁、本地反思原语、可选声音档案和桌面陪伴控制。它现在还**不宣称完整自适应陪伴**：真实投递和真实反馈学习尚未接入生产 companion 心跳。
 
 - 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
 - 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
@@ -438,7 +439,7 @@ curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbe
 - macOS Intel x64 DMG
 - Windows x64 安装包
 
-0.3.5 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
+0.3.6 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
 
 日常运维：
 
@@ -566,11 +567,11 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ---
 
-## 📋 0.3.5 主要变化
+## 📋 0.3.6 主要变化
 
-0.3.5 是可信发布和陪伴基座版本：先让升级链路更诚实、更 fail-closed，再为未来真正自适应的主动陪伴打下本地基座，但不把尚未接入生产心跳的能力包装成已完成。
+0.3.6 是可信发布和陪伴基座版本：先让升级链路更诚实、更 fail-closed，再为未来真正自适应的主动陪伴打下本地基座，但不把尚未接入生产心跳的能力包装成已完成。
 
-| 领域 | 0.3.5 带来的变化 |
+| 领域 | 0.3.6 带来的变化 |
 |---|---|
 | 发布完整性 | signed annotated tag 验证；公开发布公钥保存在 `packaging/penglai-release-signing-key.asc`；`penglai update` 默认拒绝 unsigned target |
 | 插件安全 | `plugins/hooks.py` strict fail-closed；坏插件默认阻断启动和 `_guardcheck`，只有显式救援模式才允许继续 |
@@ -676,6 +677,7 @@ Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语�
 
 ## 📄 版本时间线
 
+- **v0.3.6 · 2026-07-11** - Worldline 检查点回溯（`/worldline`）、stdin=DEVNULL 修复（3 处）、Claude refusal 处理、turn_end summary `_c` fallback、Companion 失败/静默反馈学习接线、Telegram 渠道标注已实测。
 - **v0.3.5 · 2026-07-03** — 可信发布门禁 + Companion Loop foundation：signed tag 验证、插件 strict load、WeChat allowlist 迁移、Conductor query-token removal、每日反思、陪伴点挖掘、声音档案和主动对话计划。当前是 foundation/API skeleton，真实投递和真实反馈学习尚未接入生产心跳。
 - **v0.3.4 · 2026-06-30** — 可信化维护发布：修复桌面升级执行链路、Runtime Hub 取消、inline eval 暴露、Conductor 认证、IM 媒体路径穿越、fork-bomb 红线覆盖、记忆读时扫描、failover 分类，以及桌面 updater 元数据 fail-closed 检查。
 - **v0.3.3 · 2026-06-29** — Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 `darwin-x86_64` updater 元数据，保留 0.3.2 的内置运行时策略；桌面首次启动接入 secret-safe 迁移预览；桌面状态变更操作需要二次确认令牌。

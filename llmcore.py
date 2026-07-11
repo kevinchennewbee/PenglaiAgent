@@ -179,6 +179,10 @@ def auto_make_url(base, path):
     return f"{b}/{p}" if re.search(r'/v\d+(/|$)', b) else f"{b}/v1/{p}"
 
 def _parse_claude_json(data):
+    if data.get("stop_reason") == "refusal":
+        err = "[Error: Claude refusal]"
+        yield err
+        return [{"type": "text", "text": err}]
     content_blocks = data.get("content", [])
     _record_usage(data.get("usage", {}), "messages")
     for b in content_blocks:
@@ -244,6 +248,7 @@ def _parse_claude_sse(resp_lines):
     if not warn:
         if not got_message_stop and not stop_reason: warn = "\n\n[!!! 流异常中断，未收到完整响应 !!!]"
         elif stop_reason == "max_tokens": warn = "\n\n[!!! Response truncated: max_tokens !!!]"
+        elif stop_reason == "refusal": warn = "\n\n[Error: Claude refusal]"
     if current_block:
         if current_block["type"] == "tool_use":
             try: current_block["input"] = json.loads(tool_json_buf) if tool_json_buf else {}

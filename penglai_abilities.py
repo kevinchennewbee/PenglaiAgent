@@ -819,6 +819,7 @@ def status():
     print("  🌤️ 天气查询 — 内核标配，已自动启用（免 key）")
     print("  🔗 网页/文章总结 — 内核标配，已自动启用（发链接说「帮我总结」即可）")
     print("  🛡️ 红线/记忆卫生/出站文件白名单（Runtime Hub/IM 交付层）— 出厂常开（确定性防线，不可关）")
+    print("  ⏪ 对话回溯 - TUI 内 /worldline 检查点树状回退（0.3.6 新增）")
     print("\n  加 IM 渠道：penglai enable <dingtalk|qq|telegram|discord|wecom> · 渠道总览：penglai channels")
     return 0
 
