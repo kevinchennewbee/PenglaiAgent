@@ -23,8 +23,41 @@ permissions:
   contents: read
 
 jobs:
+  private-mirror-guard:
+    name: Private mirror release guard
+    if: github.repository == 'kevinchennewbee/Penglai'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private mirror
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Verify public release-source parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_repo="https://github.com/kevinchennewbee/PenglaiAgent.git"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            public_ref="refs/tags/${GITHUB_REF_NAME}^{}"
+          else
+            public_ref="refs/heads/${GITHUB_REF_NAME}"
+          fi
+          public_sha="$(git ls-remote "$public_repo" "$public_ref" | awk 'NR == 1 {print $1}')"
+          if [ -z "$public_sha" ]; then
+            echo "::error::Public release source is missing ${public_ref}"
+            exit 1
+          fi
+          if [ "$public_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Private mirror ${GITHUB_SHA} differs from public release source ${public_sha}"
+            exit 1
+          fi
+          git diff --check "$GITHUB_SHA^" "$GITHUB_SHA"
+          echo "Private mirror matches the public release source at ${GITHUB_SHA}"
+
   macos-dmg:
     name: macOS DMG release (${{ matrix.arch }})
+    if: github.repository == 'kevinchennewbee/PenglaiAgent'
     strategy:
       fail-fast: false
       matrix:
@@ -466,6 +499,7 @@ jobs:
 
   windows-nsis:
     name: Windows NSIS release
+    if: github.repository == 'kevinchennewbee/PenglaiAgent'
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -887,7 +921,7 @@ jobs:
     needs:
       - macos-dmg
       - windows-nsis
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.repository == 'kevinchennewbee/PenglaiAgent' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
