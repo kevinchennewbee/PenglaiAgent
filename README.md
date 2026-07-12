@@ -4,9 +4,9 @@
 
 # 蓬莱 · Penglai 0.3.6
 
-### 住在你飞书、微信和终端里的自托管 AI Runtime Hub
+### A self-hosted AI Runtime Hub in your Feishu, WeChat, and terminal · 住在你飞书、微信和终端里的自托管 AI Runtime Hub
 
-**八仙过海，各显神通**
+**Eight immortals cross the sea, each showing their own powers · 八仙过海，各显神通**
 
 [![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -19,7 +19,7 @@
 
 </div>
 
-> 📌 **Official channels:** this GitHub repository · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · [penglai.pages.dev](https://penglai.pages.dev/) · PyPI [`penglai`](https://pypi.org/project/penglai). Do not enter API keys, bot tokens, or account credentials on unofficial sites or bots.
+> 📌 **Official channels / 官方渠道：** this GitHub repository / 本 GitHub 仓库 · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · [penglai.pages.dev](https://penglai.pages.dev/) · PyPI [`penglai`](https://pypi.org/project/penglai). Do not enter API keys, bot tokens, or account credentials on unofficial sites or bots. / 请勿在非官方站点或机器人中输入 API Key、机器人令牌或账户凭据。
 
 ---
 
@@ -37,6 +37,8 @@
 - 🛡️ **Trusted release gates**: signed annotated release tags, fail-closed update checks, strict plugin loading, WeChat allowlists, and query-token removal for Conductor
 - 🔊 **Selectable local voices**: 10 public Chinese/English male/female voices, with celebrity impersonation and voice cloning blocked from default public choices
 - 🧭 **Companion Loop foundation**: local daily reflection, care opportunity mining, adaptive feedback primitives, proactive dialogue plans, and desktop "why proactive" controls
+- 🌏 **Mainland-network friendly**: updater manifests and installer URLs default to `gh-proxy.com`; CI also exposes npm / pip / Cargo / rustup / Python-build-standalone mirror and cache controls
+- 🛡️ **Trusted runtime hardening**: one-click updates, execution cancellation, Conductor authentication, memory load-time scanning, IM media filenames, and LLM failover are hardened on real client paths
 
 You can use the native Mac / Windows desktop clients, or deploy to your own host with one command. Your memory, logs, config, and channel credentials stay on your machine by default.
 
