@@ -49,7 +49,7 @@
         <a href="../" class="nav-lang">EN / 中</a>
         <a href="#install" class="nav-cta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download <span class="penglai-version">0.3.5</span>
+          Download <span class="penglai-version">0.3.6</span>
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -65,7 +65,7 @@
   <!-- ========== Hero Section ========== -->
   <section class="hero" id="hero">
     <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.5</span></div>
+      <div class="hero-badge reveal">v<span class="penglai-version">0.3.6</span></div>
       <h1 class="hero-title reveal reveal-delay-1">Penglai</h1>
       <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
       <p class="hero-subtitle reveal reveal-delay-2">Bring agents that can work, listen, and speak to the tools you already use</p>
@@ -513,7 +513,7 @@
           <div class="install-step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <p class="step-text">Download the 0.3.5 installer for your platform (macOS Apple Silicon / macOS Intel x64 / Windows x64). Desktop packages include the Penglai runtime, standalone Python, and core dependencies.</p>
+              <p class="step-text">Download the 0.3.6 installer for your platform (macOS Apple Silicon / macOS Intel x64 / Windows x64). Desktop packages include the Penglai runtime, standalone Python, and core dependencies.</p>
               <div class="code-block">
                 <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">Copy</button>
                 https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
@@ -625,6 +625,13 @@
       <div class="feature-grid">
         <div class="feature-card reveal">
           <div class="feature-card-header">
+            <div class="feature-icon">🌌</div>
+            <h3 class="feature-title">v0.3.6 · 2026-07-12</h3>
+          </div>
+          <p class="feature-desc">Verifiable Worldline release: conversation rewind is completed as a persistent branching timeline, with working-memory restoration and native-log reconciliation when a session is resumed. This release also fixes long-prompt temporary-file races, broken browser pipes, Claude refusal finalization, and Companion failure outcome tracking, while hardening three-platform release gates, version consistency, and Rust download fallback.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-card-header">
             <div class="feature-icon">🔏</div>
             <h3 class="feature-title">v0.3.5 · 2026-07-03</h3>
           </div>
@@ -729,7 +736,7 @@
       </div>
       <div class="footer-right">
         <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.5</span></div>
+        <div class="footer-license">v<span class="penglai-version">0.3.6</span></div>
         <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
           Made with AI, for everyone.
         </div>
@@ -1058,7 +1065,7 @@
   })();
   </script>
 
-  <!-- Dynamic version fetch: keep the 0.3.5 fallback if the GitHub Releases API is unavailable. -->
+  <!-- Dynamic version fetch: keep the 0.3.6 fallback if the GitHub Releases API is unavailable. -->
   <script>
   (function() {
     fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
