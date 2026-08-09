@@ -7,7 +7,8 @@ import { assertPublicHttpUrl, fetchPublicHttp } from "../capabilities/network-sa
 import {
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  openRegularFileNoFollow,
+  readPrivateTextFile,
 } from "../security/private-file.js";
 
 const MAX_SKILL_FILE_BYTES = 2 * 1024 * 1024;
@@ -82,8 +83,14 @@ function hashDirectory(root: string): { sha256: string; files: number; bytes: nu
         continue;
       }
       if (!entry.isFile()) throw new Error("skill packages may contain only regular files");
-      const data = fs.readFileSync(absolute);
-      if (data.byteLength > MAX_SKILL_FILE_BYTES) throw new Error(`skill file exceeds ${MAX_SKILL_FILE_BYTES} bytes`);
+      const opened = openRegularFileNoFollow(absolute);
+      let data: Buffer;
+      try {
+        if (opened.stat.size > MAX_SKILL_FILE_BYTES) throw new Error(`skill file exceeds ${MAX_SKILL_FILE_BYTES} bytes`);
+        data = fs.readFileSync(opened.descriptor);
+      } finally {
+        fs.closeSync(opened.descriptor);
+      }
       files += 1;
       bytes += data.byteLength;
       if (files > MAX_SKILL_FILES || bytes > MAX_SKILL_TOTAL_BYTES) throw new Error("skill package exceeds safe size limits");
@@ -249,9 +256,16 @@ export class SkillStore {
   }
 
   private readIndex(): SkillIndex {
-    if (!fs.existsSync(this.indexPath)) return { schemaVersion: 1, skills: [] };
-    hardenPrivateFile(this.indexPath, MAX_SKILL_INDEX_BYTES);
-    const row = JSON.parse(fs.readFileSync(this.indexPath, "utf8")) as SkillIndex;
+    let raw: string;
+    try {
+      raw = readPrivateTextFile(this.indexPath, MAX_SKILL_INDEX_BYTES, true).text;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return { schemaVersion: 1, skills: [] };
+      }
+      throw error;
+    }
+    const row = JSON.parse(raw) as SkillIndex;
     if (row?.schemaVersion !== 1 || !Array.isArray(row.skills)) {
       throw new Error("skill index has an unsupported or malformed schema");
     }
@@ -274,7 +288,7 @@ export class SkillStore {
         throw new Error(`installed skill '${row.name}' failed integrity verification`);
       }
       const filePath = path.join(dir, "SKILL.md");
-      const content = fs.readFileSync(filePath, "utf8");
+      const content = readPrivateTextFile(filePath, MAX_SKILL_FILE_BYTES).text;
       const parsed = parseFrontmatter(content);
       if (parsed.name !== row.name || parsed.description !== row.description) {
         throw new Error(`installed skill '${row.name}' metadata does not match its receipt`);
@@ -293,7 +307,7 @@ export class SkillStore {
       throw new Error(`installed skill '${row.name}' failed integrity verification`);
     }
     const filePath = path.join(dir, "SKILL.md");
-    const content = fs.readFileSync(filePath, "utf8");
+    const content = readPrivateTextFile(filePath, MAX_SKILL_FILE_BYTES).text;
     const parsed = parseFrontmatter(content);
     if (parsed.name !== row.name || parsed.description !== row.description) throw new Error(`installed skill '${row.name}' metadata does not match its receipt`);
     return { ...row, content, filePath };
@@ -305,8 +319,16 @@ export class SkillStore {
     try {
       const materialized = await materializeSource(source.trim(), tempRoot);
       const skillFile = path.join(materialized, "SKILL.md");
-      if (!fs.existsSync(skillFile)) throw new Error("skill package has no SKILL.md at its root");
-      const parsed = parseFrontmatter(fs.readFileSync(skillFile, "utf8"));
+      let skillText: string;
+      try {
+        skillText = readPrivateTextFile(skillFile, MAX_SKILL_FILE_BYTES).text;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          throw new Error("skill package has no SKILL.md at its root");
+        }
+        throw error;
+      }
+      const parsed = parseFrontmatter(skillText);
       staging = path.join(this.root, `.staging-${parsed.name}-${crypto.randomBytes(4).toString("hex")}`);
       copyPackage(materialized, staging);
       const measured = hashDirectory(staging);

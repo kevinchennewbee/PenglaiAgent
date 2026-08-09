@@ -7,14 +7,13 @@
  * durable config contract so the desktop Settings UI has a real backend.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { randomUUID } from "node:crypto";
 import { penglaiDataDir } from "../data-dir.js";
 import {
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  readPrivateTextFile,
 } from "../security/private-file.js";
 
 const MCP_CONFIG_MAX_BYTES = 1024 * 1024;
@@ -49,11 +48,16 @@ function configPath(dataDir?: string): string {
 
 export function loadMcpConfig(dataDir?: string): McpConfigFile {
   const file = configPath(dataDir);
-  if (!fs.existsSync(file)) {
-    return { schemaVersion: 1, servers: [] };
+  let text: string;
+  try {
+    text = readPrivateTextFile(file, MCP_CONFIG_MAX_BYTES, true).text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { schemaVersion: 1, servers: [] };
+    }
+    throw error;
   }
-  hardenPrivateFile(file, MCP_CONFIG_MAX_BYTES);
-  const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as McpConfigFile;
+  const raw = JSON.parse(text) as McpConfigFile;
   if (!raw || raw.schemaVersion !== 1 || !Array.isArray(raw.servers)) {
     throw new Error("MCP config has an unsupported or malformed schema");
   }

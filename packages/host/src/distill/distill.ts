@@ -29,6 +29,7 @@ import * as path from "node:path";
 import type { ModelProfile, Project, Run, SopMeta, Task } from "@penglai/protocol";
 import type { MemoryStore } from "../memory.js";
 import type { ProductStore } from "../storage/product-store.js";
+import { openRegularFileNoFollow } from "../security/private-file.js";
 import {
   auditCandidateSop,
   type AuditFinding,
@@ -147,8 +148,17 @@ export class DistillService {
 
     // ① 复盘素材：transcript 摘录（session JSONL → user/assistant 文本）。
     let excerpt = "";
-    if (sessionPath && fs.existsSync(sessionPath)) {
-      excerpt = transcriptExcerptFromSession(fs.readFileSync(sessionPath, "utf-8"));
+    if (sessionPath) {
+      try {
+        const opened = openRegularFileNoFollow(sessionPath);
+        try {
+          excerpt = transcriptExcerptFromSession(fs.readFileSync(opened.descriptor, "utf-8"));
+        } finally {
+          fs.closeSync(opened.descriptor);
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
     }
     if (!excerpt.trim()) {
       excerpt = `目标：${task.objective}\n（无引擎 transcript 可用，仅按目标复盘）`;

@@ -18,7 +18,7 @@ import { penglaiHome } from "./conversation-store.js";
 import {
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  readPrivateTextFile,
 } from "./security/private-file.js";
 
 const MAX_TODOS = 40;
@@ -51,9 +51,7 @@ export function loadWorkbench(conversationId: string): ConversationWorkbench {
   ensurePrivateDirectory(base);
   const file = workbenchPath(conversationId);
   try {
-    if (!fs.existsSync(file)) return emptyWorkbench();
-    hardenPrivateFile(file, MAX_WORKBENCH_BYTES);
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ConversationWorkbench;
+    const raw = JSON.parse(readPrivateTextFile(file, MAX_WORKBENCH_BYTES, true).text) as ConversationWorkbench;
     return {
       todos: Array.isArray(raw.todos) ? raw.todos : [],
       subagents: Array.isArray(raw.subagents) ? raw.subagents : [],
@@ -61,6 +59,7 @@ export function loadWorkbench(conversationId: string): ConversationWorkbench {
       updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
     };
   } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyWorkbench();
     if (error instanceof Error && error.message.startsWith("Private")) throw error;
     return emptyWorkbench();
   }

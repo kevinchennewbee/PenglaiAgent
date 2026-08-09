@@ -35,6 +35,7 @@ import {
   type WorkProposal,
 } from "@penglai/protocol";
 import type { ProductStore } from "./storage/product-store.js";
+import { atomicWritePrivateJson, readPrivateTextFile } from "./security/private-file.js";
 
 export type ModeSwitchErrorCode =
   | "conversation_not_found"
@@ -191,8 +192,14 @@ export class WorkProposalStore {
   private readonly proposals = new Map<string, WorkProposal>();
 
   constructor(private readonly filename: string) {
-    if (!fs.existsSync(filename)) return;
-    const parsed = JSON.parse(fs.readFileSync(filename, "utf8")) as unknown;
+    let raw: string;
+    try {
+      raw = readPrivateTextFile(filename, 4 * 1024 * 1024, true).text;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("work proposal file is not an object");
     }
@@ -265,40 +272,11 @@ export class WorkProposalStore {
   }
 
   private persist(): void {
-    const dir = path.dirname(this.filename);
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const tmp = `${this.filename}.${process.pid}.${crypto.randomUUID()}.tmp`;
     const file: ProposalFile = {
       version: SCHEMA_VERSION,
       proposals: [...this.proposals.values()].sort((a, b) => a.createdAt - b.createdAt),
     };
-    let fd: number | null = null;
-    try {
-      fd = fs.openSync(tmp, "wx", 0o600);
-      fs.writeFileSync(fd, `${JSON.stringify(file, null, 2)}\n`, "utf8");
-      fs.fsyncSync(fd);
-      fs.closeSync(fd);
-      fd = null;
-      fs.renameSync(tmp, this.filename);
-      fs.chmodSync(this.filename, 0o600);
-      try {
-        const dirFd = fs.openSync(dir, "r");
-        try {
-          fs.fsyncSync(dirFd);
-        } finally {
-          fs.closeSync(dirFd);
-        }
-      } catch {
-        // Some platforms cannot fsync directories; the file itself is synced.
-      }
-    } finally {
-      if (fd !== null) fs.closeSync(fd);
-      try {
-        fs.unlinkSync(tmp);
-      } catch {
-        // Rename already consumed it, or creation failed before a temp existed.
-      }
-    }
+    atomicWritePrivateJson(this.filename, file, 4 * 1024 * 1024);
   }
 }
 

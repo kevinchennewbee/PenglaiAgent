@@ -20,7 +20,7 @@ import {
   appendPrivateLine,
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  readPrivateTextFile,
 } from "./security/private-file.js";
 
 const MAX_CONVERSATION_META_BYTES = 2 * 1024 * 1024;
@@ -140,12 +140,13 @@ export function loadConversationMeta(conversationId: string): ConversationMeta |
   ensurePrivateDirectory(conversationsBaseDir());
   const file = metaPath(conversationId);
   try {
-    if (!fs.existsSync(file)) return null;
-    hardenPrivateFile(file, MAX_CONVERSATION_META_BYTES);
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ConversationMeta;
+    const raw = JSON.parse(
+      readPrivateTextFile(file, MAX_CONVERSATION_META_BYTES, true).text,
+    ) as ConversationMeta;
     if (!raw || raw.id !== conversationId) return null;
     return raw;
   } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     if (error instanceof Error && error.message.startsWith("Private")) throw error;
     return null;
   }
@@ -156,9 +157,13 @@ export function loadMessages(conversationId: string): Message[] {
   if (!fs.existsSync(conversationsBaseDir())) return [];
   ensurePrivateDirectory(conversationsBaseDir());
   const file = transcriptPath(conversationId);
-  if (!fs.existsSync(file)) return [];
-  hardenPrivateFile(file, MAX_TRANSCRIPT_BYTES);
-  const text = fs.readFileSync(file, "utf-8");
+  let text: string;
+  try {
+    text = readPrivateTextFile(file, MAX_TRANSCRIPT_BYTES, true).text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
   const messages: Message[] = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
