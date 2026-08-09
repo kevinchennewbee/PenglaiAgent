@@ -223,6 +223,18 @@ jobs:
           rustc --print target-list | grep -Fx "${{ matrix.target }}"
           rustc --print cfg --target "${{ matrix.target }}" | grep -E '^target_arch='
 
+      - name: Verify updater signing secret matches embedded public key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          canary="$RUNNER_TEMP/penglai-updater-signing-canary.txt"
+          printf '%s\n' "Penglai updater signing preflight for $GITHUB_SHA" > "$canary"
+          npm run tauri --workspace @penglai/desktop -- signer sign "$canary"
+          node packages/desktop/updater/verify-signing-key.mjs --file "$canary"
+
       - name: Build Tauri release with updater signing
         working-directory: packages/desktop
         env:
