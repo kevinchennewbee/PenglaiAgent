@@ -281,11 +281,11 @@ LLM_PROVIDERS = [
         'template': {
             'name': 'tencent-tokenhub', 'apikey': 'sk-<your-tokenhub-key>',
             'apibase': 'https://tokenhub.tencentmaas.com/v1',
-            'model': 'hy3-preview',
+            'model': 'hy3',
             'api_mode': 'chat_completions',
         },
         'key_hint': '在 https://console.cloud.tencent.com/tokenhub 获取 API Key',
-        'model_choices': ['hy3-preview'],
+        'model_choices': ['hy3'],
         'extra_fields': [
             {'key': 'apibase', 'label': 'API 地址 (apibase)', 'default': 'https://tokenhub.tencentmaas.com/v1'},
         ],

@@ -13,6 +13,13 @@ env/
 build/
 dist/
 *.egg-info/
+node_modules/
+
+# 0.4 Host build/runtime artifacts
+packages/host/dist-runtime/
+packages/host/dist/
+packages/host/migrate/out/
+.penglai/
 
 .streamlit/
 
@@ -32,9 +39,17 @@ auth.json
 model_responses.txt
 
 # Sensitive files (API keys, credentials)
+# 根目录真实密钥文件：全局忽略。下方例外放行 0.4 迁移测试的合成夹具
+# （fixtures/03home/mykey.py 全为假凭证，必须入库，否则干净 clone 测试必红）。
 mykey.py
 mykey.py.bak*
+!packages/host/test/fixtures/03home/mykey.py
 penglai-migrate-backup-*/
+
+# 0.4 migration output (contains API keys in .env.penglai)
+packages/host/migrate/out/
+.env.penglai
+__pycache__/
 
 tasks/
 
@@ -139,7 +154,7 @@ sche_tasks/
 # CDP Bridge 密钥配置（首次运行自动生成）
 assets/tmwd_cdp_bridge/config.js
 assets/copilot_proxy.pyw
-**log.*
+*.log
 
 # Reflect (ignore new files, whitelist existing)
 reflect/*
@@ -177,6 +192,25 @@ secrets/
 frontends/desktop/src-tauri/resources/penglai-runtime/*
 !frontends/desktop/src-tauri/resources/penglai-runtime/README.md
 
-# Workspace-local archive and agent memory (not for public repo)
+# Workspace-local archive, agent memory, and architecture discussion (not for public repo)
 archive/
 AGENTS.md
+docs/*
+# 0.4.0 owner-facing acceptance docs are product surface, tracked on purpose.
+!docs/OWNER_ACCEPTANCE.md
+!docs/DOGFOOD_LOG.md
+# 0.4.0 release notes draft and gh-pages website source drafts are release material.
+!docs/RELEASE_NOTES_0.4.0.md
+# 0.4.x release process and uninstall docs are product surface, tracked on purpose.
+!docs/RELEASE_PROCESS.md
+!docs/UNINSTALL.md
+!docs/PRIVACY_AND_DATA.md
+!docs/SECURITY_AUDIT_0.4.0.md
+!docs/website/
+!docs/website/**
+run_m3_tests/
+
+# ── 发布合规：内部日志/验收文档不入库（2026-07-31 决策）──
+M1_BUILD_LOG.md
+docs/DOGFOOD_LOG.md
+docs/OWNER_ACCEPTANCE.md

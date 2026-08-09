@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Penglai Workbench</title>
+  <link rel="stylesheet" href="/style.css" />
+  <!-- The host server injects the auth token here at serve time.
+       Cross-origin pages cannot read this due to the same-origin policy. -->
+  <script>window.__PENGLAI_TOKEN__ = __PENGLAI_TOKEN_VALUE__;</script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Penglai <span class="dim">Workbench · 0.4</span></div>
+    <div class="topbar-right">
+      <select id="profileSelect" class="input profile-select" title="Active model profile"></select>
+      <button id="modelConfigBtn" class="btn icon" title="Model configuration">&#9881;</button>
+      <span id="usageBadge" class="badge">-</span>
+      <span id="connBadge" class="badge conn-off">ws: off</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ── left: sessions / goal / workspace ────────────────────── -->
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Sessions</h2>
+          <button id="newSessionBtn" class="btn small" disabled>+ New</button>
+        </div>
+        <ul id="sessionList" class="session-list"></ul>
+      </section>
+
+      <section class="panel" id="goalPanel">
+        <h2>Goal</h2>
+        <div id="goalIdleView">
+          <textarea id="goalObjectiveInput" class="input mono" rows="2"
+            placeholder="Describe the objective the agent should drive toward…"></textarea>
+          <button id="startGoalBtn" class="btn primary" disabled>Start Goal</button>
+        </div>
+        <div id="goalActiveView" class="hidden">
+          <div id="goalObjectiveText" class="goal-objective"></div>
+          <div class="row">
+            <span id="goalStatusBadge" class="badge active">active</span>
+            <span id="goalIdLabel" class="dim small"></span>
+          </div>
+          <div class="row">
+            <button id="completeGoalBtn" class="btn">Mark Complete</button>
+            <button id="cancelGoalBtn" class="btn danger">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Workspace</h2>
+        <div id="workspacePath" class="workspace-path dim">not opened</div>
+        <input id="rootPath" class="input mono" type="text" placeholder="/path/to/project" />
+        <div class="row">
+          <button id="openWorkspaceBtn" class="btn primary">Open</button>
+          <span id="workspaceStatus" class="dim small"></span>
+        </div>
+      </section>
+    </aside>
+
+    <!-- ── right: tabs + composer ───────────────────────────────── -->
+    <section class="main">
+      <div class="tabbar">
+        <div class="tabs">
+          <button class="tab active" data-tab="chat">Chat</button>
+          <button class="tab" data-tab="terminal">Terminal</button>
+          <button class="tab" data-tab="diff">Diff <span id="diffCount" class="tab-count">0</span></button>
+        </div>
+        <div class="tabbar-right">
+          <span id="sessionTitle" class="dim">no session</span>
+          <span id="sessionStatus" class="badge">idle</span>
+          <button id="abortBtn" class="btn danger" disabled>Abort</button>
+        </div>
+      </div>
+
+      <div class="tab-panels">
+        <div id="panelChat" class="tab-panel active">
+          <div id="messages" class="messages">
+            <div class="empty">Open a workspace to begin.</div>
+          </div>
+        </div>
+        <div id="panelTerminal" class="tab-panel">
+          <div id="terminalOutput" class="terminal"></div>
+        </div>
+        <div id="panelDiff" class="tab-panel">
+          <div id="diffList" class="diff-list">
+            <div class="empty">No file changes yet. Edits and writes will appear here.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <textarea id="composerInput" class="input mono" rows="3"
+          placeholder="Send a message…  (Enter to send, Shift+Enter for newline)"></textarea>
+        <div class="composer-actions">
+          <label class="check">
+            <input id="goalMode" type="checkbox" />
+            <span>Goal mode</span>
+          </label>
+          <span id="turnIndicator" class="dim small hidden"></span>
+          <button id="sendBtn" class="btn primary" disabled>Send</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── model configuration modal ─────────────────────────────── -->
+  <div id="modelModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Model Configuration</h2>
+        <button id="closeModalBtn" class="btn icon" data-close-modal>&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <span>Saved profiles</span>
+          <ul id="modalProfileList" class="modal-profile-list"></ul>
+        </div>
+        <hr class="modal-sep" />
+        <div class="field">
+          <span>Label</span>
+          <input id="modalLabel" class="input" type="text" placeholder="my-grok" />
+        </div>
+        <div class="field">
+          <span>Base URL</span>
+          <input id="modalBaseUrl" class="input mono" type="text" placeholder="https://api.x.ai/v1" />
+        </div>
+        <div class="field">
+          <span>API Key <span class="dim">(inline; held in-memory only)</span></span>
+          <input id="modalApiKey" class="input mono" type="password" placeholder="paste key, or leave blank to use env" />
+        </div>
+        <div class="field">
+          <span>Model</span>
+          <input id="modalModel" class="input mono" type="text" placeholder="grok-2-latest" />
+        </div>
+        <div id="envInfo" class="env-info dim small"></div>
+      </div>
+      <div class="modal-foot">
+        <button id="useProfileBtn" class="btn">Use Selected</button>
+        <button id="saveProfileBtn" class="btn primary">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1692,7 +1692,7 @@ async def setup_list_providers_handler(request):
     if data is None:
         data = {
             "wizard_order": ["deepseek", "volcengine", "bailian", "zhipu", "minimax",
-                              "moonshot", "openrouter", "hunyuan", "xunfei", "agnes", "custom"],
+                              "moonshot", "openai", "xai", "openrouter", "hunyuan", "custom"],
             "providers": {},
         }
     return json_ok(data)

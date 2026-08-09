@@ -1,0 +1,172 @@
+name: host-test
+
+# CI for the 0.4 TS Host (packages/**). This is ADDITIONAL to the 0.3
+# desktop-release workflow and does not touch it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - ".github/workflows/host-test.yml"
+      - ".github/workflows/host-release.yml"
+      - "scripts/**"
+      - "docs/RELEASE_PROCESS.md"
+      - "docs/RELEASE_NOTES_0.4.0.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "packaging/penglai-release-signing-key.asc"
+      - "vitest.config.ts"
+      - "tsconfig.json"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "packages/**"
+      - ".github/workflows/host-test.yml"
+      - ".github/workflows/host-release.yml"
+      - "scripts/**"
+      - "docs/RELEASE_PROCESS.md"
+      - "docs/RELEASE_NOTES_0.4.0.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "packaging/penglai-release-signing-key.asc"
+      - "vitest.config.ts"
+      - "tsconfig.json"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: host-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Host test + typecheck + packaging smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
+
+      - name: Test (vitest + coverage)
+        # Install the v8 coverage provider ad-hoc (not in package.json) so the
+        # root `vitest run` can emit a coverage report without touching deps.
+        run: |
+          npm install --no-save @vitest/coverage-v8@^3.0.0
+          npx vitest run --coverage
+
+      - name: Typecheck
+        # tsc --noEmit per workspace. Fails fast on type errors (the build step
+        # below also compiles, so this is the stricter gate). Desktop TS is
+        # included so renderer type drift breaks CI, not only a v0.4 tag build.
+        run: |
+          npm run typecheck --workspace @penglai/protocol
+          npm run typecheck --workspace @penglai/host
+          npm run typecheck --workspace @penglai/desktop
+
+      - name: Protocol contract check
+        # ErrorCode union vs host RPC surface must stay in sync (drift = dead
+        # or undocumented codes; clients cannot branch reliably).
+        run: node scripts/check-protocol-contract.mjs
+
+      - name: Release version/channel contract
+        # One exact version across JS/Rust/Tauri/locks, three fixed platform
+        # mappings, and the dedicated desktop-v0.4 updater channel.
+        run: node scripts/check-release-contract.mjs
+
+      - name: Desktop allowlist check
+        # Renderer RPC calls must be a subset of the Rust host_rpc allowlist,
+        # and every allowlist entry must be real (dead entries invite drift).
+        run: node scripts/check-desktop-allowlist.mjs
+
+      - name: Build desktop renderer
+        # vite build produces the dist/ the token-boundary check inspects.
+        run: npm run build --workspace @penglai/desktop
+
+      - name: Renderer token boundary
+        # The host credential must never reach renderer JS (0.3 had this as a
+        # release-time assertion; 0.4 keeps it in CI).
+        run: node scripts/check-renderer-token-boundary.mjs
+
+      - name: Release gates (fast subset)
+        # The slow gates (full vitest/eval) already ran above; run the fast
+        # deterministic gates so scan/deps/files/statement/schema cannot rot
+        # between releases.
+        run: node scripts/release-check.mjs --only=scan,deps,files,statement,schema
+
+      - name: Build runtime (packaging smoke)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PENGLAI_VERSION="$(node -p "require('./packages/desktop/updater/release-contract.json').version")"
+          echo "PENGLAI_VERSION=$PENGLAI_VERSION" >> "$GITHUB_ENV"
+          echo "PENGLAI_RUNTIME_TARGET=linux-x64" >> "$GITHUB_ENV"
+          node packages/host/scripts/build-runtime.mjs \
+            --version "$PENGLAI_VERSION" --target linux-x64
+
+      - name: Verify runtime
+        # Verifies manifest hashes, boots the Host from dist-runtime, hits
+        # /health, and runs doctor. Proves the packaged runtime is bootable.
+        run: node packages/host/scripts/verify-runtime.mjs --version "$PENGLAI_VERSION" --target "$PENGLAI_RUNTIME_TARGET"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: host-coverage
+          path: coverage/
+          if-no-files-found: warn
+
+  desktop-rust:
+    name: Desktop Rust (macOS arm64)
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup pinned Rust toolchain action
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.96.0"
+          components: rustfmt
+
+      - name: Assert current macOS arm runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = "macOS"
+          test "$RUNNER_ARCH" = "ARM64"
+          node scripts/check-release-contract.mjs \
+            --platform darwin-aarch64 \
+            --target aarch64-apple-darwin \
+            --runner-os "$RUNNER_OS" \
+            --runner-arch "$RUNNER_ARCH"
+
+      - name: Rust format, check, and tests
+        working-directory: packages/desktop/src-tauri
+        run: |
+          cargo fmt --check
+          cargo check --locked
+          cargo test --locked

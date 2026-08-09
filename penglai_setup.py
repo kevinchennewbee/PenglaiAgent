@@ -114,17 +114,15 @@ def _get_provider_list():
         # 内置兜底（数据来自 penglai_providers.yaml，保持同步）
         return [
             (1,  "DeepSeek",               "deepseek",   "paygo", "https://api.deepseek.com",                    "deepseek-v4-flash",           "https://platform.deepseek.com"),
-            (2,  "字节火山 Ark (按量)",     "volcengine", "paygo", "https://ark.cn-beijing.volces.com/api/v3",    "doubao-seed-2.0-lite",        "https://console.volcengine.com/ark"),
+            (2,  "字节火山 Ark (按量)",     "volcengine", "paygo", "https://ark.cn-beijing.volces.com/api/v3",    "doubao-seed-evolving",        "https://console.volcengine.com/ark"),
             (3,  "字节火山 Ark (Coding)",   "volcengine", "coding_plan", "https://ark.cn-beijing.volces.com/api/coding/v3", "ark-code-latest", "https://console.volcengine.com/ark"),
             (4,  "阿里云百炼 Qwen",         "bailian",    "paygo", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen3.7-plus",         "https://bailian.console.aliyun.com"),
-            (5,  "智谱 GLM",               "zhipu",      "paygo", "https://open.bigmodel.cn/api/paas/v4/",       "glm-5.1",                     "https://open.bigmodel.cn"),
+            (5,  "智谱 GLM",               "zhipu",      "paygo", "https://open.bigmodel.cn/api/paas/v4/",       "glm-5.2",                     "https://open.bigmodel.cn"),
             (6,  "MiniMax",                "minimax",    "paygo", "https://api.minimaxi.com/v1",                 "MiniMax-M3",                  "https://platform.minimaxi.com"),
-            (7,  "Moonshot Kimi",          "moonshot",   "paygo", "https://api.moonshot.cn/v1",                  "kimi-k2.6",                   "https://platform.kimi.com"),
-            (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-4-6", "https://openrouter.ai"),
-            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hunyuan-2.0-thinking",        "https://cloud.tencent.com/product/hunyuan"),
-            (10, "讯飞星火",               "xunfei",     "paygo", "https://spark-api-open.xf-yun.com/v1",        "max-32k",                     "https://www.xfyun.cn"),
-            (11, "Agnes AI（免费体验）",   "agnes",      "paygo", "https://apihub.agnes-ai.com/v1",              "agnes-2.0-flash",             "https://agnes-ai.com"),
-            (12, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
+            (7,  "Moonshot Kimi",          "moonshot",   "paygo", "https://api.moonshot.cn/v1",                  "kimi-k3",                     "https://platform.kimi.com"),
+            (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-5",   "https://openrouter.ai"),
+            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hy3",                         "https://cloud.tencent.com/product/hunyuan"),
+            (10, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
         ]
     rows = []
     idx = 1

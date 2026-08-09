@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "releaseLine": "0.4",
+  "version": "0.4.0",
+  "repository": "kevinchennewbee/PenglaiAgent",
+  "channelTag": "desktop-v0.4",
+  "bundledNodeVersion": "22.22.2",
+  "rustToolchain": "1.96.0",
+  "releaseNotes": "docs/RELEASE_NOTES_0.4.0.md",
+  "platforms": [
+    {
+      "key": "darwin-aarch64",
+      "runner": "macos-15",
+      "runnerOs": "macOS",
+      "runnerArch": "ARM64",
+      "os": "macos",
+      "arch": "aarch64",
+      "target": "aarch64-apple-darwin",
+      "bundleSuffix": "macos_aarch64.app.tar.gz",
+      "installerSuffix": "macos_aarch64.dmg"
+    },
+    {
+      "key": "darwin-x86_64",
+      "runner": "macos-15-intel",
+      "runnerOs": "macOS",
+      "runnerArch": "X64",
+      "os": "macos",
+      "arch": "x64",
+      "target": "x86_64-apple-darwin",
+      "bundleSuffix": "macos_x64.app.tar.gz",
+      "installerSuffix": "macos_x64.dmg"
+    },
+    {
+      "key": "windows-x86_64",
+      "runner": "windows-latest",
+      "runnerOs": "Windows",
+      "runnerArch": "X64",
+      "os": "windows",
+      "arch": "x64",
+      "target": "x86_64-pc-windows-msvc",
+      "bundleSuffix": "windows_x64_setup.exe",
+      "installerSuffix": "windows_x64_setup.exe"
+    }
+  ],
+  "standaloneRuntime": {
+    "target": "linux-x64",
+    "archiveSuffixes": [
+      "linux-x64.tar.gz",
+      "linux-x64.zip"
+    ]
+  }
+}

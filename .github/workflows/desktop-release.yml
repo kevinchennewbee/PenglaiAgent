@@ -5,7 +5,11 @@ on:
     branches:
       - main
     tags:
-      - "v*"
+      # 0.3 桌面线发布 tag（0.3 线冻结后仅紧急维护）。显式排除 v0.4*：
+      # 0.4 的发布由 host-release.yml 负责（v0.4* tag），若此处仍为 v*，
+      # 一个 v0.4.x tag 会同时触发两个 workflow，DMG/setup.exe 同名互踩、
+      # latest.json 互相 clobber（用户可能下载到 0.3 二进制却标 0.4）。
+      - "v0.3*"
     paths:
       - ".github/workflows/desktop-release.yml"
       - "install.sh"
@@ -66,7 +70,7 @@ jobs:
           echo "PENGLAI_UPDATER_PLATFORM=${{ matrix.updater_platform }}" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -114,7 +118,7 @@ jobs:
           fi
 
       - name: Cache desktop build downloads
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             .cache/pbs
@@ -126,7 +130,7 @@ jobs:
             ${{ runner.os }}-desktop-downloads-
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -189,7 +193,7 @@ jobs:
       - name: Install desktop dependencies
         working-directory: frontends/desktop
         env:
-          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmmirror.com/' }}
+          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmjs.org/' }}
         run: npm ci
 
       - name: Static checks
@@ -456,7 +460,7 @@ jobs:
 
       - name: Upload macOS artifact
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: penglai-${{ env.PENGLAI_VERSION }}-macos-${{ matrix.dmg_arch }}
           path: |
@@ -489,7 +493,7 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -536,7 +540,7 @@ jobs:
           }
 
       - name: Cache desktop build downloads
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             .cache\pbs
@@ -548,7 +552,7 @@ jobs:
             ${{ runner.os }}-desktop-downloads-
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -599,7 +603,7 @@ jobs:
       - name: Install desktop dependencies
         working-directory: frontends/desktop
         env:
-          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmmirror.com/' }}
+          NPM_CONFIG_REGISTRY: ${{ vars.NPM_CONFIG_REGISTRY || 'https://registry.npmjs.org/' }}
         run: npm ci
 
       - name: Static checks
@@ -873,7 +877,7 @@ jobs:
 
       - name: Upload Windows artifact
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: penglai-${{ env.PENGLAI_VERSION }}-windows-x64
           path: |
@@ -892,7 +896,7 @@ jobs:
     if: github.repository == 'kevinchennewbee/PenglaiAgent' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -924,7 +928,7 @@ jobs:
           git tag -v "$GITHUB_REF_NAME"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
           merge-multiple: true

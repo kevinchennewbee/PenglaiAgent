@@ -1,0 +1,38 @@
+{
+  "name": "penglai-agent-os",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "vitest run",
+    "eval": "vitest run packages/host/test/eval",
+    "schema:sync": "node scripts/sync-schema-versions.mjs",
+    "schema:check": "node scripts/sync-schema-versions.mjs --check",
+    "catalog:sync": "node scripts/sync-catalog.mjs",
+    "protocol:check": "node scripts/check-protocol-contract.mjs",
+    "desktop:allowlist": "node scripts/check-desktop-allowlist.mjs",
+    "renderer:token-boundary": "node scripts/check-renderer-token-boundary.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "yaml": "^2.9.0"
+  },
+  "dependencies": {
+    "sherpa-onnx": "^1.13.4"
+  },
+  "optionalDependencies": {
+    "onnxruntime-node": "^1.24.1"
+  },
+  "overrides": {
+    "adm-zip": "0.6.0",
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26"
+  }
+}
