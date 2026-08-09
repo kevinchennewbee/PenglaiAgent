@@ -204,7 +204,10 @@ function handleEvent(msg) {
 function appendTurnMarker(turnIndex) {
   const node = document.createElement("div");
   node.className = "turn-marker";
-  node.innerHTML = `<span class="turn-tag">turn ${(turnIndex ?? 0) + 1}</span>`;
+  const tag = document.createElement("span");
+  tag.className = "turn-tag";
+  tag.textContent = `turn ${Number.isFinite(Number(turnIndex)) ? Number(turnIndex) + 1 : 1}`;
+  node.appendChild(tag);
   els.messages.appendChild(node);
   scrollDown();
 }

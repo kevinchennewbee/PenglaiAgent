@@ -39,7 +39,7 @@ CONTRIBUTING.md,100644,2119,39,3faa4b51ea818755cdc94b2e0e40ea54c8371beb0f5c6f7e4
 docs/PRIVACY_AND_DATA.md,100644,3506,61,a7f3f57fb7ec8eacc500615344fb59c8b0b713f9203a5ff06812d7a977d974f8,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/RELEASE_NOTES_0.4.0.md,100644,7606,74,1098bef90fa6fbfebd6b4e7a3e7cb484bfbd3ee9b62606c604587fff258d7f03,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/RELEASE_PROCESS.md,100644,7905,159,8bfb463cc6c0a5a2ca4b93f7334bd4e28c64094405b62d0858a192f9784fc029,text,docs-config,byte/line inventory+targeted claim/config consistency review
-docs/SECURITY_AUDIT_0.4.0.md,100644,12621,243,c40924c57bc4e0d2a3c1e021e1abc386d2f89977a042f5f553a48acfcbb4dbe0,text,docs-config,byte/line inventory+targeted claim/config consistency review
+docs/SECURITY_AUDIT_0.4.0.md,100644,16632,307,50e6cca9db6f3accc54784e76671650fbd8f2eec295def0007f5c2d24a2c9fb4,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/UNINSTALL.md,100644,2938,64,487e55b426d6b3473567446d177f5b8a80978ec4540285908e82192c4530cdd2,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/website/index.md,100644,1076,16,4a8169ddf0047ed3a4e4370aa270d0986408ebb6605cc47e429c908c6fb3692b,text,docs-config,byte/line inventory+targeted claim/config consistency review
 frontends/at_complete.py,100644,10652,273,bc1b74c2da7efa22bd26cca4e0cfa6fc88b236be7e9d5bab72175f049456df8c,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
@@ -380,7 +380,7 @@ packages/host/src/voice/third_party/moss_tts/runtime.mjs,100644,98137,2358,de66e
 packages/host/src/wechat/bridge.ts,100644,10405,312,013d1746a1dc379145a920d907aeaa74ce6a476f6f8a65c90a855b9c92407849,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/wechat/ilink.ts,100644,7657,222,d2eb01c98266e894bbe09319f784bfb0ce494f6ddffb569717b2d443a5b790e6,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/wechat/runtime.ts,100644,4507,146,56647c7166ad8011f4398adbf1ae8cfbdf2edfd5edbe6a7f9957e10e9a5c579d,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
-packages/host/static/app.js,100644,36569,1049,08d30315ce9dd046fe4b4e87921a04cb8a04a7d546d15ca3ee66ae50f3453ee2,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
+packages/host/static/app.js,100644,36683,1052,534106a333b87e47fb4bbf8cf62f1b450812fbe69d4838cd72a1dc7f3783c63a,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 packages/host/static/index.html,100644,6365,155,b36dcb42b21adec1e27342b35fc2b246bf252935cfa7d7ed98fdb022f92c1558,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 packages/host/static/style.css,100644,18036,540,0f0fc9172e902bbbed85bdb2056366c2c2ab5b43a6873c80e8c27d84eca6c37c,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 packages/host/test/agent-rpc.test.ts,100644,10169,289,4e40f9054ba6657f67e95ff783f007c4f14b946602d16c2c1ee9a80ebf1310e1,text,tests,line scan+syntax/compiler+executed test suite
