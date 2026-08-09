@@ -20,9 +20,9 @@
     "renderer:token-boundary": "node scripts/check-renderer-token-boundary.mjs"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "3.2.7",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
     "yaml": "^2.9.0"
   },
   "dependencies": {
