@@ -127,6 +127,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install Unicode PDF test font
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes fonts-droid-fallback
+
       - name: Dependency vulnerability audit
         run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
 
