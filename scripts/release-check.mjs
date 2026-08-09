@@ -398,6 +398,7 @@ const BANNED_PATTERNS = [
   { re: /run_m3_tests/i, why: "本地测试脚本目录" },
   { re: /^(?:frontends|ga_cli|installer|memory|penglai_runtime|plugins|reflect|tests)(\/|$)/i, why: "0.3 legacy runtime/source tree" },
   { re: /(^|\/)desktop-release\.yml$/i, why: "0.3 legacy desktop release workflow" },
+  { re: /^packages\/desktop\/src-tauri\/resources\/host-runtime\//i, why: "构建时生成的 Host runtime 不能预先跟踪，否则干净 runner 会拒绝安全覆盖" },
   { re: /(^|\/)__pycache__(\/|$)|\.pyc$/i, why: "Python cache artifact" },
   { re: /(^|\/)(?:REARCHITECTURE|M[0-9]+_BUILD_LOG|DOGFOOD_LOG|OWNER_ACCEPTANCE)/i, why: "内部开发或验收文档" },
 ];
