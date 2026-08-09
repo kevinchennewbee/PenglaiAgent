@@ -201,8 +201,9 @@ Paths: `SECURITY.md`, `docs/PRIVACY_AND_DATA.md`, `NOTICE`, `README.md`,
 
 ### F-10 — Local installer acceptance — passed with explicit signing limit
 
-The rebuilt Apple Silicon DMG is 259,236,192 bytes with SHA-256
-`34079daf42a0c8bdb5068c26fc3f204c052ee88bb3aa2cedc49d186acf50ac07`.
+The Apple Silicon DMG rebuilt from source equivalent to final `main` is
+257,426,811 bytes with SHA-256
+`95e840c6c2c539da0094468acce2f475bc6265ccbe28836c857167bab9839a69`.
 `hdiutil` verified its image checksum. The mounted app passed ad-hoc seal
 verification and a sandboxed install/use/uninstall lifecycle using its bundled
 Node 22.22.2 Host runtime. This proves local integrity and functionality, not an

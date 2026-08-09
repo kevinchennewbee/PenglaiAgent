@@ -37,9 +37,9 @@ assets/tools_schema.json,100644,5896,74,182b239bdc71aa41456b3a96462a150c22ce97c9
 CHANGELOG.md,100644,4869,53,38beb2226985ca1612e8d41f2764ae4f00d3e50ba42bbed4516b03d22c46925e,text,docs-config,byte/line inventory+targeted claim/config consistency review
 CONTRIBUTING.md,100644,2119,39,3faa4b51ea818755cdc94b2e0e40ea54c8371beb0f5c6f7e42bb5825f99a8640,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/PRIVACY_AND_DATA.md,100644,3506,61,a7f3f57fb7ec8eacc500615344fb59c8b0b713f9203a5ff06812d7a977d974f8,text,docs-config,byte/line inventory+targeted claim/config consistency review
-docs/RELEASE_NOTES_0.4.0.md,100644,7606,74,1098bef90fa6fbfebd6b4e7a3e7cb484bfbd3ee9b62606c604587fff258d7f03,text,docs-config,byte/line inventory+targeted claim/config consistency review
+docs/RELEASE_NOTES_0.4.0.md,100644,7645,74,5f0a40501233575d2c512b4e53448701e4c417c7298e77fc6ce9493f31aa3082,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/RELEASE_PROCESS.md,100644,7905,159,8bfb463cc6c0a5a2ca4b93f7334bd4e28c64094405b62d0858a192f9784fc029,text,docs-config,byte/line inventory+targeted claim/config consistency review
-docs/SECURITY_AUDIT_0.4.0.md,100644,17164,313,2c4f63600a18f5c4cf8fd0f22ff110dc595a833bb5d07694e8ce4154718400a8,text,docs-config,byte/line inventory+targeted claim/config consistency review
+docs/SECURITY_AUDIT_0.4.0.md,100644,17203,314,f66529edffeafec0dac59381d5bd0a5857c9b35aa0a2c7a8e3feea9a9c472554,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/UNINSTALL.md,100644,2938,64,487e55b426d6b3473567446d177f5b8a80978ec4540285908e82192c4530cdd2,text,docs-config,byte/line inventory+targeted claim/config consistency review
 docs/website/index.md,100644,1076,16,4a8169ddf0047ed3a4e4370aa270d0986408ebb6605cc47e429c908c6fb3692b,text,docs-config,byte/line inventory+targeted claim/config consistency review
 frontends/at_complete.py,100644,10652,273,bc1b74c2da7efa22bd26cca4e0cfa6fc88b236be7e9d5bab72175f049456df8c,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
@@ -457,7 +457,7 @@ packages/host/test/url-safety.test.ts,100644,982,29,2438577cca5a3da193a36d1824b3
 packages/host/test/usage-stats.test.ts,100644,1516,47,10c10a6e453a0716d01ae9750ba85b35ede8ad7580fb794312ce350d17bdc63f,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/usage.test.ts,100644,8985,277,81a8036e2988e3e6147b7aa88f5812a0afc0efa9678e8ba2965dc80de1a05286,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/voice.test.ts,100644,30420,723,d63f1e7e68036ad01d29a90bed87a943ee34c074b1dd8a9af293dfe8b96dcf50,text,tests,line scan+syntax/compiler+executed test suite
-packages/host/test/wechat-ilink.test.ts,untracked,1566,51,0cafa09fc0ed0d8318209c73f25bbdd8291be8a96866fd035c9ac93173d1eb82,text,tests,line scan+syntax/compiler+executed test suite
+packages/host/test/wechat-ilink.test.ts,100644,1566,51,0cafa09fc0ed0d8318209c73f25bbdd8291be8a96866fd035c9ac93173d1eb82,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/tsconfig.json,100644,140,9,d56002ba285195e85ecb491b62915e017fbbfdf51d792ebc8be4c9669b4fa3cf,text,docs-config,byte/line inventory+targeted claim/config consistency review
 packages/protocol/package.json,100644,225,13,d827e9c3050639a5f91828c269739224b44a3c88bae8b274ac61a56720aad372,text,0.4-protocol,line scan+TypeScript compiler+contract tests
 packages/protocol/src/index.ts,100644,23110,784,23adfbe6363dfaf2295d9316f17595e975f24ec67a14ee3610db15dbc207fce0,text,0.4-protocol,line scan+TypeScript compiler+contract tests
