@@ -119,6 +119,8 @@ describe("latest.json 契约（模板 ↔ 生成器 ↔ 工作流）", () => {
     expect(workflow).toContain("latest.json");
     expect(workflow).toContain("desktop-v0.4");
     expect(workflow).toContain("verify-release-assets.mjs");
+    expect(workflow).toContain("Verify updater signing secret matches embedded public key");
+    expect(workflow).toContain("verify-signing-key.mjs");
   });
 });
 
