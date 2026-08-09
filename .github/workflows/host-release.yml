@@ -231,6 +231,7 @@ jobs:
         run: npm run tauri:build:release -- --target "${{ matrix.target }}"
 
       - name: Verify bundled runtime version and target
+        shell: bash
         run: |
           node packages/host/scripts/verify-runtime.mjs \
             --runtime packages/desktop/src-tauri/resources/host-runtime \
