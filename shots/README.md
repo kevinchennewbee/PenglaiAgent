@@ -16,7 +16,8 @@
 ## 1. 桌面工作台（desktop-workbench.png）
 
 ```bash
-SITE=<官网仓库>  REPO=<PenglaiAgent-040-rebuild>
+SITE=/absolute/path/to/PenglaiAgent-gh-pages
+REPO=/absolute/path/to/PenglaiAgent
 export PENGLAI_DATA_DIR=/tmp/penglai-demo/data
 export PENGLAI_SHOT_BASE=/tmp/penglai-demo
 export PENGLAI_SHOT_PORT=14173          # 避开 14169（本机真实 penglai serve）
@@ -48,7 +49,8 @@ node "$SITE/shots/capture.mjs" http://localhost:1421 \
 ## 2. 桌面首次启动向导三张（desktop-wizard-*.png）
 
 ```bash
-SITE=<官网仓库>  REPO=<PenglaiAgent-040-rebuild>
+SITE=/absolute/path/to/PenglaiAgent-gh-pages
+REPO=/absolute/path/to/PenglaiAgent
 export PENGLAI_DATA_DIR=/tmp/penglai-shot-wizard/data
 export PENGLAI_SHOT_BASE=/tmp/penglai-shot-wizard
 export PENGLAI_SHOT_PORT=14174          # 避开 14169（真实 serve）与 14173（工作台截图）
@@ -86,7 +88,7 @@ python3 render_terminal.py /tmp/wizard.txt cli-wizard.png \
 Color Emoji，2x 超采样；也可用 `PENGLAI_CJK_FONT` 与
 `PENGLAI_CJK_BOLD_FONT` 指定本机字体文件。
 语义着色（节标题金 / ✓ 绿 / › 青）。"--from/--drop-last" 只裁剪 scrollback
-区间，不改字。向导 banner（0.3 遗留文案）被裁掉，见官网仓库 NOTES 与遗留清单。
+区间，不改字。向导 banner 等截屏外内容不进入图片。
 
 ## 4. 飞书审批卡片（feishu-approval.png，界面示意）
 

@@ -2,7 +2,7 @@
  * shots/serve_wizard.mts — 官网截图用：桌面首次启动向导的真实后端。
  *
  * 在产品仓库根目录下运行（tsx 解析产品内 TS 源码）：
- *   cd <PenglaiAgent-040-rebuild>
+ *   cd /absolute/path/to/PenglaiAgent
  *   PENGLAI_DATA_DIR=/tmp/penglai-shot-wizard/data \
  *     node --import tsx <site-repo>/shots/serve_wizard.mts
  *
