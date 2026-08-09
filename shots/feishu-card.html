@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<!--
+  shots/feishu-card.html — 飞书审批卡片高保真渲染（界面示意）。
+  卡片 JSON 由产品真实构建函数生成（feishu_card_data.mts → feishu-card.js），
+  本页只做视觉渲染：飞书桌面端浅色会话 + legacy interactive card 结构。
+  渲染器按 tag 通用解析（div/fields/hr/action/button/note/lark_md），不手写内容。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: #EFF0F1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .winbar {
+    height: 44px; background: #F7F8FA; border-bottom: 1px solid #E4E6E8;
+    display: flex; align-items: center; padding: 0 16px; gap: 8px; flex-shrink: 0;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .winbar .title { margin: 0 auto; font-size: 13px; color: #1F2329; font-weight: 600; transform: translateX(-26px); }
+  .chathead {
+    background: #fff; border-bottom: 1px solid #E9EBED; padding: 12px 24px;
+    font-size: 16px; font-weight: 600; color: #1F2329; flex-shrink: 0;
+  }
+  .chathead small { font-size: 11px; color: #8F959E; font-weight: 400; margin-left: 8px; padding: 1px 6px; border: 1px solid #DEE0E3; border-radius: 4px; }
+  .stream { padding: 24px 28px 36px; display: flex; flex-direction: column; gap: 18px; }
+  .msg { display: flex; gap: 10px; max-width: 640px; }
+  .msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: #fff;
+    font-family: "Songti SC", "Noto Serif SC", serif;
+  }
+  .avatar.bot { background: #C44531; }
+  .avatar.me { background: #3370FF; font-family: -apple-system, "PingFang SC", sans-serif; font-size: 14px; }
+  .mname { font-size: 12px; color: #8F959E; margin-bottom: 4px; }
+  .msg.mine .mname { text-align: right; }
+  .bubble {
+    background: #fff; border-radius: 3px 12px 12px 12px; padding: 10px 14px;
+    font-size: 14px; line-height: 1.6; color: #1F2329; box-shadow: 0 1px 2px rgba(31,35,41,.06);
+  }
+  .msg.mine .bubble { background: #D6E4FF; border-radius: 12px 3px 12px 12px; }
+
+  /* ── 飞书 interactive card ── */
+  .card {
+    width: 420px; background: #fff; border-radius: 3px 12px 12px 12px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,41,.08); border: 1px solid #E9EBED;
+  }
+  .card-header {
+    padding: 10px 14px; font-size: 14px; font-weight: 600; color: #fff;
+  }
+  .tpl-red { background: #F54A45; }
+  .tpl-orange { background: #FF8800; }
+  .tpl-green { background: #34C724; }
+  .tpl-grey { background: #8F959E; }
+  .card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .fields { display: flex; gap: 16px; }
+  .fields > div { flex: 1; }
+  .md { font-size: 13.5px; line-height: 1.65; color: #1F2329; white-space: pre-wrap; word-break: break-word; }
+  .md b { font-weight: 600; }
+  .md code {
+    font-family: "SF Mono", Menlo, monospace; font-size: 12px;
+    background: #F2F3F5; border-radius: 4px; padding: 1px 5px;
+  }
+  .card hr { border: none; border-top: 1px solid #E9EBED; }
+  .actions { display: flex; gap: 10px; }
+  .btn {
+    border: none; border-radius: 6px; padding: 7px 18px; font-size: 13.5px; font-weight: 500;
+    cursor: default; color: #fff;
+  }
+  .btn.primary { background: #3370FF; }
+  .btn.danger { background: #fff; color: #F54A45; border: 1px solid #F54A45; }
+  .note { font-size: 12px; color: #8F959E; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="winbar">
+    <span class="dot" style="background:#FF5F57"></span>
+    <span class="dot" style="background:#FEBC2E"></span>
+    <span class="dot" style="background:#28C840"></span>
+    <span class="title">飞书</span>
+  </div>
+  <div class="chathead">蓬莱 <small>机器人</small></div>
+  <div class="stream">
+    <div class="msg mine">
+      <div class="avatar me">我</div>
+      <div>
+        <div class="mname">我 · 14:32</div>
+        <div class="bubble">官网 Hero 改完了？没问题就推到 main。</div>
+      </div>
+    </div>
+    <div class="msg">
+      <div class="avatar bot">蓬</div>
+      <div>
+        <div class="mname">蓬莱 · 14:33</div>
+        <div class="bubble">改动已在项目 jail 内完成、本地验证通过。推送会改变远端状态，按四级制请你确认：</div>
+      </div>
+    </div>
+    <div class="msg">
+      <div class="avatar bot" style="visibility:hidden">蓬</div>
+      <div id="card-slot"></div>
+    </div>
+  </div>
+
+<script src="feishu-card.js"></script>
+<script>
+(function () {
+  var card = window.PENGLAI_CARD;
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function md(content) {
+    // lark_md 子集：**bold**、`code`、换行
+    return esc(content)
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\n/g, "<br>");
+  }
+  function render(el) {
+    if (el.tag === "hr") return "<hr>";
+    if (el.tag === "div" && el.fields) {
+      return '<div class="fields">' + el.fields.map(function (f) {
+        return "<div>" + md(f.text.content) + "</div>";
+      }).join("") + "</div>";
+    }
+    if (el.tag === "div" && el.text) return '<div class="md">' + md(el.text.content) + "</div>";
+    if (el.tag === "action") {
+      return '<div class="actions">' + el.actions.map(function (a) {
+        return '<button class="btn ' + esc(a.type) + '">' + esc(a.text.content) + "</button>";
+      }).join("") + "</div>";
+    }
+    if (el.tag === "note") {
+      return '<div class="note">' + el.elements.map(function (n) { return esc(n.content); }).join("") + "</div>";
+    }
+    return "";
+  }
+  var html =
+    '<div class="card">' +
+      '<div class="card-header tpl-' + esc(card.header.template) + '">' + esc(card.header.title.content) + "</div>" +
+      '<div class="card-body">' + card.elements.map(render).join("") + "</div>" +
+    "</div>";
+  document.getElementById("card-slot").innerHTML = html;
+})();
+</script>
+</body>
+</html>
