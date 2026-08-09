@@ -79,10 +79,10 @@ deletion behaviour are documented in
 ## Release and dependency integrity
 
 The npm lock is restricted to the official npm registry and includes integrity
-hashes. GitHub Actions are pinned to commit SHAs, Dependabot covers npm, Cargo
-and Actions, and CI runs npm vulnerability auditing. Rust and npm advisory
-results and target-specific limitations are recorded in
-[`docs/SECURITY_AUDIT_0.4.0.md`](docs/SECURITY_AUDIT_0.4.0.md).
+hashes. GitHub Actions are pinned to commit SHAs, Dependabot security alerts and
+security updates are enabled, and CI runs npm vulnerability auditing. The
+public release gate also rejects secrets, private paths, internal artifacts and
+legacy runtime source.
 
 Local macOS packages are ad-hoc signed unless the maintainer configures Apple
 Developer ID and notarization. Ad-hoc signing checks bundle integrity but does

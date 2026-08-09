@@ -117,7 +117,7 @@ packages/protocol   跨进程协议、版本与错误码
 packages/host       TypeScript Host、CLI、执行/策略/存储/渠道
 packages/desktop    React + Tauri 2 原生桌面工作台
 scripts             契约、发布、安全、runtime 与生命周期门禁
-docs                发布说明、发布流程、官网源文档
+docs                用户隐私、卸载、发布说明与发布流程
 ```
 
 ## 开发与发布门禁
@@ -154,7 +154,7 @@ penglai migrate
 
 ## License 与致谢
 
-公开发布采用两分支策略：应用源码与 Release 在 `main`，双语静态官网在 `gh-pages`，两者都由 Owner 分别审核后推送。0.3.x Python 产品线已冻结并归档于 `v0.3.6`，仓库中保留的 Python 文件只用于历史、迁移与兼容性测试。
+公开仓库只保留两个长期分支：应用源码与 Release 在 `main`，双语静态官网在 `gh-pages`。0.3.x Python 产品线已冻结在 `v0.3.6` tag/Release；`main` 不携带旧 Python runtime，也不跟踪任何 `.py/.pyw` 文件。TypeScript 迁移器所需的合成 0.3 输入以不执行的 `.fixture` 原料保存，测试时只在系统临时目录还原旧文件名。
 
 Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期产品基因，也感谢 Trae Agent 相关实现为 0.4 重构提供的调研参照。当前执行内核锁定 `@earendil-works/pi-agent-core` / `@earendil-works/pi-ai` 0.83.0（MIT）；0.84.1 的持久化 AgentHarness 接口与当前发布架构不兼容，未在 0.4.0 中冒险升级。MOSS-TTS-Nano Node 适配包含 OpenMOSS Apache-2.0 归属与许可证；其余第三方归属以 Release 中的 `THIRD_PARTY_NOTICES.txt` 与 SBOM 为准。
 

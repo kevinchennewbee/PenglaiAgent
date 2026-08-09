@@ -20,7 +20,6 @@ const EXPECTED_CHECKS = [
   "token",
   "conversations-dir",
   "model-profile",
-  "python",
   "git",
   // 语音能力探测（可选 I/O 层，懒加载；warn 也带 fix）
   "voice-asr",
@@ -28,7 +27,7 @@ const EXPECTED_CHECKS = [
 ];
 
 describe("doctor: runDoctor", () => {
-  it("returns a result for every check (10 total)", async () => {
+  it("returns a result for every supported check", async () => {
     const results = await runDoctor();
     expect(results).toHaveLength(EXPECTED_CHECKS.length);
     const names = results.map((r) => r.check);

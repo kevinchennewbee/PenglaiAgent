@@ -1,10 +1,11 @@
 /**
  * 0.3 → 0.4 迁移工具测试（fixture 端到端）。
  *
- * fixture `fixtures/03home/` 是 0.3 格式的虚构数据目录（mykey.py 按
+ * fixture `fixtures/03home/` 是 0.3 格式的虚构数据目录原料（mykey.py 按
  * mykey_template.py 格式构造、全假凭证；memory/ 含 0.3 真实 SOP 样例
  * verify_sop / penglai_compress_sop 与虚构 L1/L2）——绝不读 owner
- * 真实私密数据。
+ * 真实私密数据。仓库中的 Python 文件名加 `.fixture` 后缀；测试仅在
+ * 系统临时目录还原旧文件名，不执行这些内容。
  *
  * 覆盖：探测 / 扫描分类 / 计划幂等决策 / 执行（0600 + 备份 + 报告掩码）/
  * 幂等复跑 / 冲突跳过 / L1 ≤30 行铁律（裁剪+归档）/ 回滚 / CLI 命令面
@@ -44,7 +45,9 @@ import { ProductStore } from "../src/storage/product-store.js";
 import { acquireDataDirOperationLock } from "../src/migrate/operation-lock.js";
 import type { CliIO } from "../src/cli/format.js";
 
-const FIXTURE_03 = path.join(__dirname, "fixtures", "03home");
+const FIXTURE_SOURCE_03 = path.join(__dirname, "fixtures", "03home");
+let fixtureRoot = "";
+let FIXTURE_03 = "";
 const CLOCK = () => new Date("2026-07-29T15:30:00");
 
 let dataDir = "";
@@ -158,11 +161,25 @@ async function planFixture(dir = dataDir) {
 
 beforeEach(() => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-migrate-test-"));
+  fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-03-fixture-"));
+  FIXTURE_03 = path.join(fixtureRoot, "03home");
+  fs.cpSync(FIXTURE_SOURCE_03, FIXTURE_03, {
+    recursive: true,
+    filter: (source) => !source.includes(`${path.sep}__pycache__`),
+  });
+  for (const [source, target] of [
+    ["legacy-config.fixture", "mykey.py"],
+    ["legacy-template.fixture", "mykey_template_full.py"],
+    ["memory/legacy-keychain.fixture", "memory/keychain.py"],
+  ]) {
+    fs.renameSync(path.join(FIXTURE_03, source), path.join(FIXTURE_03, target));
+  }
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
   fs.rmSync(dataDir, { recursive: true, force: true });
+  fs.rmSync(fixtureRoot, { recursive: true, force: true });
 });
 
 // ── 探测与小工具 ───────────────────────────────────────────────

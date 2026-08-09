@@ -1,8 +1,8 @@
 /**
  * 供应商目录移植保真度测试。
  *
- *   1. 全量保真：生成的 PROVIDER_CATALOG 与仓库根目录
- *      penglai_providers.yaml（0.3 生产仓库 2026-06-29 实测修正版的镜像）
+ *   1. 全量保真：生成的 PROVIDER_CATALOG 与 Host 内的
+ *      catalog.source.yaml
  *      逐字段深比较一致——一个字段都不许丢。
  *   2. 抽查 5 家供应商的关键字段（deepseek / volcengine / bailian /
  *      zhipu / hunyuan），显式钉死计费模式、双协议 base_url、价格、
@@ -36,7 +36,7 @@ import {
 } from "../src/providers/catalog.js";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const YAML_PATH = path.join(REPO_ROOT, "penglai_providers.yaml");
+const YAML_PATH = path.join(REPO_ROOT, "packages/host/src/providers/catalog.source.yaml");
 
 function yamlDoc(): Record<string, unknown> {
   return YAML.parse(fs.readFileSync(YAML_PATH, "utf-8")) as Record<string, unknown>;

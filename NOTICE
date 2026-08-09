@@ -1,60 +1,44 @@
 蓬莱 · Penglai
 ================
 
-Penglai (蓬莱) is a downstream *distribution* of GenericAgent — the GA execution
-core is kept upstream-first and Penglai capabilities live in additive files,
-runtime plugins, wrappers, and channel adapters. This NOTICE records the
-copyright and brand boundaries that the single root LICENSE (upstream MIT) does
-not, by itself, make obvious to license scanners or downstream users.
+Penglai (蓬莱) 0.4 is a TypeScript/Tauri application built around the pinned Pi
+agent runtime. The repository history before 0.4 includes MIT-licensed
+GenericAgent-derived work; that history remains available in the 0.3 tags but
+is not the 0.4 runtime.
 
 
 Code license
 ------------
 
-Penglai-authored code and the retained GenericAgent-derived MIT code are MIT
-licensed (see ./LICENSE). Bundled third-party code keeps its own license; in
+Penglai-authored code is MIT licensed (see ./LICENSE). Historical
+GenericAgent-derived code retains its upstream MIT notice. Bundled third-party
+code keeps its own license; in
 particular, the modified MOSS-TTS-Nano Node runtime is Apache-2.0 and carries
 its upstream notice and license. See ./THIRD_PARTY_NOTICES.md for the complete
 distribution notices.
 
-  * Upstream kernel — GenericAgent
+  * Historical 0.3 foundation — GenericAgent
     Copyright (c) 2025 lsdefine
     https://github.com/lsdefine/GenericAgent
     The upstream MIT copyright notice in ./LICENSE is retained in full.
 
-  * Penglai distribution layer
+  * Penglai 0.4 application
     Copyright (c) 2026 Kevin Chen (kevinchennewbee)
     Released under the same MIT terms.
-    The Penglai layer includes additive files plus the distro's own front page,
-    docs, wrappers, tests, and maintained adapter deltas, e.g.: README.md,
-    CONTRIBUTING.md, NOTICE, .gitattributes, penglai,
-    penglai_setup.py, penglai_providers.yaml, penglai_runtime/*,
-    plugins/penglai_*.py, reflect/penglai_companion.py,
-    memory/penglai_*_sop.md, install.sh, installer/*,
-    .github/workflows/*, .github/assets/*, tests/*, and Penglai-owned IM
-    adapter changes that are covered by tests.
+    The 0.4 application source lives under packages/ with public release,
+    security and user documentation at the repository root and under docs/.
 
 Third-party assets and high-permission helper components bundled with the
 distribution are recorded separately in ./THIRD_PARTY_NOTICES.md.
 
 
-Upstream execution core stays upstream-first
---------------------------------------------
+Runtime boundary
+----------------
 
-The GA execution core (ga.py, agent_loop.py, agentmain.py, llmcore.py and the
-tool loop they define), together with the root pyproject.toml and LICENSE, is
-treated upstream-first so that GenericAgent kernel updates stay mergeable.
-Some IM frontend files are also adapter surfaces in Penglai runtime work;
-those deltas are distribution-layer behavior and must remain explicit,
-reviewable, and covered by tests.
-
-As a distribution, Penglai curates the tree: upstream files that only describe
-or promote the GenericAgent project itself (its own README, docs/, demo media,
-community QR codes, technical report) are not part of running the distro and are
-not carried here. The repository's front page is this repo's root README.md
-(Penglai-branded). Penglai's only install entry points are install.sh /
-the PyPI bootstrap (installer/), all pointing at
-kevinchennewbee/PenglaiAgent.
+The production agent lifecycle is provided by the pinned MIT-licensed Pi
+packages through Penglai's AgentKernel adapter. Penglai owns product state,
+policy, channels, evidence, Desktop, packaging and updates. See
+./THIRD_PARTY_NOTICES.md for exact versions and attribution.
 
 
 Brand

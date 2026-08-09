@@ -1,8 +1,7 @@
 /**
  * GENERATED FILE — DO NOT EDIT BY HAND.
  *
- * 由 scripts/sync-catalog.mjs 从仓库根目录 penglai_providers.yaml 生成
- * （该 yaml 镜像自 0.3 生产仓库 penglai_providers.yaml，2026-06-29 实测修正版）。
+ * 由 scripts/sync-catalog.mjs 从 packages/host/src/providers/catalog.source.yaml 生成。
  * 这是三层新鲜度机制的 L1 种子层（兜底）：L2 = 向导实时拉取 /models，
  * L3 = penglai catalog refresh 覆盖层（providers/overlay.ts）。
  * 重新生成：node scripts/sync-catalog.mjs
@@ -1231,4 +1230,4 @@ export const PROVIDER_CATALOG = {
   }
 } as const;
 
-export const PROVIDER_CATALOG_SOURCE = "penglai_providers.yaml";
+export const PROVIDER_CATALOG_SOURCE = "packages/host/src/providers/catalog.source.yaml";

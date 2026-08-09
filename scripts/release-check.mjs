@@ -14,7 +14,7 @@
  *   ④ 隐私/密钥扫描（全部 git 跟踪文件；假测试 fixture 走显式白名单）
  *   ⑤ 依赖许可证扫描（Earendil/Pi 必须 MIT；全 lock 无 copyleft）
  *   ⑥ 无禁推文件混入（内部设计文档/密钥文件/未放行 docs）
- *   ⑦ 0.3 Python 存量与 0.4 的关系声明存在（README）
+ *   ⑦ TypeScript-only 0.4 发布树与两分支声明
  *   ⑧ schema 单一真相源交叉校验（protocol/Rust/manifest 脚本）
  *
  * 结论：全部通过 → 「可推送」；任一项失败 → 「不可推送」，exit 1。
@@ -170,18 +170,7 @@ const SCAN_WHITELIST = [
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-owner-other-key-000000000000", reason: "迁移测试合成 fixture key" },
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-user-fixture2222222222222222beef", reason: "迁移测试合成 fixture key" },
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-half333333333333333333333333", reason: "迁移测试合成半成品 key" },
-  // —— 0.3 Python 测试 fixture（合成密钥，用于打码/拦截断言）——
-  { rule: "openai-key", file: /^tests\//, match: "sk-1234567890abcdef", reason: "0.3 打码测试合成 key" },
-  { rule: "openai-key", file: /^tests\//, match: "sk-testsecret123456", reason: "0.3 打码测试合成 key" },
-  { rule: "email", file: /^tests\/test_redline\.py$/, match: "PASSWORD123456", reason: "0.3 红线测试合成 URL 凭证" },
   { rule: "email", file: /^package-lock\.json$/, match: "i@izs.me", reason: "glob 包公开 deprecated 元数据中的维护者联系邮箱" },
-  // —— SSRF 防护测试的 RFC1918 合成地址（测试数据，非真实内网）——
-  { rule: "intranet-ip", file: /^tests\/test_summarize\.py$/, reason: "0.3 SSRF 防护测试合成私网地址" },
-  // —— 专用服务账户示例（安全加固建议中名为 "penglai" 的专用账户，非 owner 个人路径）——
-  { rule: "personal-path", file: /^penglai_runtime\//, match: "/home/penglai", reason: "0.3 systemd 单元示例的专用服务账户 home" },
-  { rule: "personal-path", file: /^penglai_runtime\//, match: "/Users/penglai", reason: "0.3 launchd plist 示例的专用服务账户 home" },
-  { rule: "personal-path", file: /^tests\//, match: "/home/penglai", reason: "上述示例的测试断言" },
-  { rule: "personal-path", file: /^tests\//, match: "/Users/penglai", reason: "上述示例的测试断言" },
   // —— bash-guard 攻击样本（H1/H2 回归测试的合成越狱/外发命令，非 owner 路径）——
   { rule: "personal-path", file: /^packages\/host\/test\/bash-guard\.test\.ts$/, match: "/Users/x", reason: "H1 攻击样本（cp /Users/x/token.txt …）合成路径" },
   { rule: "personal-path", file: /^packages\/host\/test\/policy\.test\.ts$/, match: "/Users/x", reason: "H1 L4 策略回归样本（cp /Users/x/token.txt …）合成路径" },
@@ -194,10 +183,6 @@ const SCAN_WHITELIST = [
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-owner-other-key-000000000000", reason: "本表 fixture 声明自引用" },
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-user-fixture2222222222222222beef", reason: "本表 fixture 声明自引用" },
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-half333333333333333333333333", reason: "本表 fixture 声明自引用" },
-  { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-1234567890abcdef", reason: "本表 fixture 声明自引用" },
-  { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-testsecret123456", reason: "本表 fixture 声明自引用" },
-  { rule: "personal-path", file: /^scripts\/release-check\.mjs$/, match: "/home/penglai", reason: "本表服务账户示例声明自引用" },
-  { rule: "personal-path", file: /^scripts\/release-check\.mjs$/, match: "/Users/penglai", reason: "本表服务账户示例声明自引用" },
   { rule: "minisign-secret", file: /^scripts\/release-check\.mjs$/, match: "untrusted comment: minisign encrypted secret key", reason: "本表密钥规则声明自引用（规则正则本体，非真实私钥）" },
   { rule: "email", file: /^scripts\/release-check\.mjs$/, match: "i@izs.me", reason: "本表依赖元数据邮箱例外声明自引用" },
 ];
@@ -411,21 +396,20 @@ const BANNED_PATTERNS = [
   { re: /penglai-migrate-backup-/i, why: "迁移备份（含密钥）" },
   { re: /restore_commit\.txt/i, why: "本地恢复标记" },
   { re: /run_m3_tests/i, why: "本地测试脚本目录" },
+  { re: /^(?:frontends|ga_cli|installer|memory|penglai_runtime|plugins|reflect|tests)(\/|$)/i, why: "0.3 legacy runtime/source tree" },
+  { re: /(^|\/)desktop-release\.yml$/i, why: "0.3 legacy desktop release workflow" },
+  { re: /(^|\/)__pycache__(\/|$)|\.pyc$/i, why: "Python cache artifact" },
+  { re: /(^|\/)(?:REARCHITECTURE|M[0-9]+_BUILD_LOG|DOGFOOD_LOG|OWNER_ACCEPTANCE)/i, why: "内部开发或验收文档" },
 ];
 /** 合成测试夹具白名单：这些路径形似密钥但实为假数据，必须入库。 */
 const FIXTURE_ALLOW = [
   /^packages\/host\/test\/fixtures\/03home\/mykey\.py$/,
 ];
 const DOCS_ALLOW = [
-  /^docs\/OWNER_ACCEPTANCE\.md$/,
-  /^docs\/DOGFOOD_LOG\.md$/,
   /^docs\/RELEASE_NOTES_0\.4\.0\.md$/,
   /^docs\/RELEASE_PROCESS\.md$/,
   /^docs\/UNINSTALL\.md$/,
   /^docs\/PRIVACY_AND_DATA\.md$/,
-  /^docs\/SECURITY_AUDIT_0\.4\.0\.md$/,
-  /^docs\/audit\//,
-  /^docs\/website\//,
 ];
 
 function checkFiles() {
@@ -456,22 +440,20 @@ function checkFiles() {
 }
 
 // ────────────────────────────────────────────────────────────
-// ⑦ 0.3 关系声明存在
+// ⑦ TypeScript-only 0.4 发布树与两分支声明
 // ────────────────────────────────────────────────────────────
 function checkStatement() {
   const lines = [];
   let pass = true;
   let readme = "";
   try { readme = readFileSync(path.join(ROOT, "README.md"), "utf8"); }
-  catch { record("statement", "⑦ 0.3↔0.4 关系声明", false, [bad("README.md 不存在")]); return; }
+  catch { record("statement", "⑦ TypeScript-only 0.4 发布树", false, [bad("README.md 不存在")]); return; }
 
   const REQUIRED = [
-    { re: /0\.3\.x/, label: "提及 0.3.x 产品线" },
-    { re: /v0\.3\.6/, label: "0.3 归档于 v0.3.6 标签" },
+    { re: /v0\.3\.6/, label: "0.3 历史只保留于 v0.3.6" },
     { re: /gh-pages/, label: "声明两分支策略（main + gh-pages）" },
-    { re: /Python/i, label: "说明 0.3 是 Python 产品线" },
-    { re: /冻结维护|归档|frozen|archiv/i, label: "说明 0.3 冻结/归档" },
-    { re: /TypeScript|TS 重写/i, label: "说明 0.4 是 TS 重写" },
+    { re: /不携带旧 Python runtime|does not.*Python runtime|is not the 0\.4 runtime/i, label: "说明 main 不携带旧 Python runtime" },
+    { re: /TypeScript/, label: "说明 0.4 是 TypeScript 产品线" },
     { re: /GenericAgent/, label: "致谢 GenericAgent 基因" },
     { re: /@earendil-works\/pi|Pi 内核|Pi kernel/i, label: "致谢 Pi 内核" },
     { re: /Trae/i, label: "致谢 Trae Agent 调研" },
@@ -480,9 +462,23 @@ function checkStatement() {
     if (r.re.test(readme)) lines.push(ok(`README ${r.label}`));
     else { pass = false; lines.push(bad(`README 缺少：${r.label}`)); }
   }
-  const pyCount = gitCandidateFiles().filter((f) => f.endsWith(".py")).length;
-  lines.push(`${DIM}仓库内 0.3 Python 存量：${pyCount} 个 .py 跟踪文件（保留为迁移参考，README 已声明关系）${RESET}`);
-  record("statement", "⑦ 0.3 Python 存量与 0.4 的关系声明", pass, lines);
+  const files = gitCandidateFiles();
+  const pythonFiles = files.filter((file) => file.endsWith(".py") || file.endsWith(".pyw"));
+  if (pythonFiles.length > 0) {
+    pass = false;
+    for (const file of pythonFiles) lines.push(bad(`0.4 发布树含 Python 文件：${file}`));
+  } else {
+    lines.push(ok("发布树无 .py/.pyw；0.3 迁移样本使用不执行的 .fixture 原料"));
+  }
+  const legacyRoots = ["assets/", "frontends/", "ga_cli/", "installer/", "memory/", "penglai_runtime/", "plugins/", "reflect/", "tests/"];
+  const legacyFiles = files.filter((file) => legacyRoots.some((root) => file.startsWith(root)));
+  if (legacyFiles.length > 0) {
+    pass = false;
+    for (const file of legacyFiles.slice(0, 20)) lines.push(bad(`legacy tree remains: ${file}`));
+  } else {
+    lines.push(ok("旧 0.3 runtime、桌面、CLI、插件、记忆和测试树均未进入 main"));
+  }
+  record("statement", "⑦ TypeScript-only 0.4 发布树", pass, lines);
 }
 
 // ────────────────────────────────────────────────────────────

@@ -18,8 +18,7 @@
 ## 0.4 工作流
 
 0.4 是唯一的未来产品线。新功能和修复只进入 `packages/` 的 TypeScript/Tauri 路径。
-仓库根目录的 Python 0.3 代码仅作为迁移参考，在完成能力提取后退出 0.4 发布路径。
-0.4 的里程碑施工记录见 [`M1_BUILD_LOG.md`](M1_BUILD_LOG.md)，发布门禁由
+0.3 的代码历史保留在 `v0.3.6`，不回流 `main`。发布门禁由
 `node scripts/release-check.mjs` 把关。
 
 ---
@@ -30,9 +29,8 @@ a pinned Pi release through a narrow adapter. Do not copy or fork Pi's agent
 loop. Penglai owns projects, tasks, runs, evidence, Desktop, IM, supervision,
 security, persistence, packaging, and releases.
 
-0.4 is the only future product line. Root Python 0.3 code is migration
-reference only and leaves the 0.4 release path after proven behavior has been
-extracted. See [`M1_BUILD_LOG.md`](M1_BUILD_LOG.md) for the milestone build
-records; `node scripts/release-check.mjs` enforces the release gate.
+0.4 is the only future product line. The 0.3 source history remains available
+at `v0.3.6` and does not return to `main`; `node scripts/release-check.mjs`
+enforces the release gate.
 
 「蓬莱 / Penglai」名称与视觉品牌保留所有权利，详见 [NOTICE](NOTICE)。

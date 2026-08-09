@@ -1,5 +1,5 @@
 /**
- * 供应商目录（Provider Catalog）— 0.3.x penglai_providers.yaml 的 TS 移植。
+ * 供应商目录（Provider Catalog）— TypeScript Host 的离线种子与实时覆盖层。
  *
  * 数据本体在 catalog.generated.ts（由 scripts/sync-catalog.mjs 从仓库根目录
  * penglai_providers.yaml 生成，全字段保真：计费模式 / 双协议 base_url /

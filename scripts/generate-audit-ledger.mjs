@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultOutput = path.join(ROOT, "docs/audit/FILE_LEDGER_0.4.0.csv");
+const defaultOutput = path.join(ROOT, ".release-private/FILE_LEDGER_0.4.0.csv");
 const outputArg = process.argv.indexOf("--output");
 const output = path.resolve(
   ROOT,
@@ -24,12 +24,12 @@ function area(file) {
   if (file.startsWith("packages/desktop/src-tauri/") || file.startsWith("packages/desktop/updater/")) return "0.4-desktop-native-update";
   if (file.startsWith("packages/desktop/src/")) return "0.4-desktop-renderer";
   if (file.startsWith("packages/protocol/")) return "0.4-protocol";
-  if (file.startsWith("packages/host/test/") || file.startsWith("packages/desktop/test/") || file.startsWith("tests/")) return "tests";
+  if (file.startsWith("packages/host/test/") || file.startsWith("packages/desktop/test/")) return "tests";
   if (file.startsWith(".github/")) return "github-release-ci";
   if (file.endsWith("lock.json") || file.endsWith("Cargo.lock") || file === "package-lock.json") return "dependency-lock";
   if (/\.(md|txt|json|ya?ml|toml)$/i.test(file)) return "docs-config";
   if (/\.(png|ico|icns|pdf|dmg|exe|deb|zip|gz|bz2|onnx|model)$/i.test(file)) return "binary-asset";
-  if (/\.(py|js|mjs|cjs|ts|tsx|rs|sh|css|html)$/i.test(file)) return "legacy-or-support-source";
+  if (/\.(py|js|mjs|cjs|ts|tsx|rs|sh|css|html)$/i.test(file)) return "support-source";
   return "other";
 }
 
@@ -42,7 +42,7 @@ function coverage(file, group, binary) {
   if (group === "tests") return "line scan+syntax/compiler+executed test suite";
   if (group === "github-release-ci") return "byte/line inventory+targeted manual release review+actionlint+shellcheck";
   if (group === "dependency-lock") return "line scan+package parser+SCA+SBOM";
-  if (group === "legacy-or-support-source") return "byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests";
+  if (group === "support-source") return "byte/line inventory+language compiler+Semgrep+targeted dangerous-API review+tests";
   if (group === "docs-config") return "byte/line inventory+targeted claim/config consistency review";
   return "line scan+hash+repository consistency review";
 }
