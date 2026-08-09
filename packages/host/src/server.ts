@@ -3950,8 +3950,11 @@ function constantTimeEq(a: string, b: string): boolean {
 function tokenFromHeaders(req: http.IncomingMessage): string {
   const auth = req.headers["authorization"];
   if (typeof auth === "string" && auth.length > 0) {
-    const m = auth.match(/^Bearer\s+(.+)$/i);
-    return m ? m[1].trim() : auth.trim();
+    const trimmed = auth.trim();
+    if (trimmed.slice(0, 6).toLowerCase() === "bearer" && /\s/.test(trimmed[6] ?? "")) {
+      return trimmed.slice(7).trimStart();
+    }
+    return trimmed;
   }
   const x = req.headers["x-penglai-token"];
   if (typeof x === "string") return x.trim();
@@ -4125,7 +4128,10 @@ function startServerLocked(
   const host = options.host ?? DEFAULT_HOST;
   const port = options.port ?? DEFAULT_PORT;
   const token = options.token ?? loadOrCreateHostToken(options.dataDir ?? penglaiDataDir());
-  const log = options.log ?? ((line: string) => console.error(`[host] ${line}`));
+  const log = options.log ?? ((line: string) => {
+    const singleLine = line.replace(/[\r\n\u2028\u2029]+/g, " ");
+    console.error(`[host] ${singleLine}`);
+  });
 
   const {
     methods,

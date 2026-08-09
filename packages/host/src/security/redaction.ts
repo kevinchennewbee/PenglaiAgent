@@ -6,10 +6,66 @@ export interface RedactionResult {
   redactions: number;
 }
 
+function redactPemPrivateKeys(input: string): RedactionResult {
+  const begin = "-----BEGIN ";
+  let cursor = 0;
+  let text = "";
+  let redactions = 0;
+  while (cursor < input.length) {
+    const start = input.indexOf(begin, cursor);
+    if (start < 0) {
+      text += input.slice(cursor);
+      break;
+    }
+    const headerEnd = input.indexOf("-----", start + begin.length);
+    if (headerEnd < 0) {
+      text += input.slice(cursor);
+      break;
+    }
+    const label = input.slice(start + begin.length, headerEnd);
+    if (
+      label.length > 64 ||
+      !label.endsWith("PRIVATE KEY") ||
+      [...label].some((character) => character !== " " && (character < "A" || character > "Z"))
+    ) {
+      text += input.slice(cursor, start + begin.length);
+      cursor = start + begin.length;
+      continue;
+    }
+    const endMarker = `-----END ${label}-----`;
+    const end = input.indexOf(endMarker, headerEnd + 5);
+    if (end < 0) {
+      text += input.slice(cursor);
+      break;
+    }
+    text += `${input.slice(cursor, start)}[REDACTED PRIVATE KEY]`;
+    cursor = end + endMarker.length;
+    redactions += 1;
+  }
+  return { text, redactions };
+}
+
+function isSensitiveAssignmentKey(prefix: string): boolean {
+  const separator = Math.min(
+    ...[prefix.indexOf("="), prefix.indexOf(":")].filter((index) => index >= 0),
+  );
+  const normalized = prefix
+    .slice(0, separator)
+    .trim()
+    .toLowerCase()
+    .replaceAll("_", "")
+    .replaceAll("-", "");
+  return [
+    "apikey", "accesstoken", "refreshtoken", "authtoken", "password",
+    "passwd", "secret", "privatekey",
+  ].some((marker) => normalized === marker || normalized.endsWith(marker));
+}
+
 /** Best-effort defense against credentials being persisted in logs/evidence. */
 export function redactSensitiveText(input: string, homeDir = os.homedir()): RedactionResult {
-  let text = input;
-  let redactions = 0;
+  const pem = redactPemPrivateKeys(input);
+  let text = pem.text;
+  let redactions = pem.redactions;
   const apply = (pattern: RegExp, replacement: string | ((...args: string[]) => string)): void => {
     text = text.replace(pattern, (...args: string[]) => {
       redactions += 1;
@@ -17,11 +73,17 @@ export function redactSensitiveText(input: string, homeDir = os.homedir()): Reda
     });
   };
 
-  apply(/-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----/g, "[REDACTED PRIVATE KEY]");
   apply(/\b(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, (_m, prefix) => `${prefix}[REDACTED]`);
   apply(/((?:authorization|proxy-authorization)\s*:\s*(?:bearer|basic)\s+)[^\s'";,]+/gi, (_m, prefix) => `${prefix}[REDACTED]`);
   apply(/("(?:apiKey|accessToken|refreshToken|authToken|token|password|secret|privateKey)"\s*:\s*")[^"]*(")/gi, (_m, prefix, suffix) => `${prefix}[REDACTED]${suffix}`);
-  apply(/((?:[A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|REFRESH[_-]?TOKEN|AUTH[_-]?TOKEN|PASSWORD|PASSWD|SECRET|PRIVATE[_-]?KEY)[A-Z0-9_]*|api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|password|passwd|secret|private[_-]?key)\s*[=:]\s*)('[^']*'|"[^"]*"|[^\s,;]+)/gi, (_m, prefix) => `${prefix}[REDACTED]`);
+  text = text.replace(
+    /(\b[A-Za-z_][A-Za-z0-9_-]{0,127}\s*[=:]\s*)('[^'\r\n]*'|"[^"\r\n]*"|[^\s,;\r\n]+)/g,
+    (match, prefix: string) => {
+      if (!isSensitiveAssignmentKey(prefix)) return match;
+      redactions += 1;
+      return `${prefix}[REDACTED]`;
+    },
+  );
   apply(/(--(?:api-key|token|password|secret)(?:=|\s+))('[^']*'|"[^"]*"|[^\s]+)/gi, (_m, prefix) => `${prefix}[REDACTED]`);
   apply(/([?&](?:access_token|api_key|apikey|token|key|secret|password)=)[^&#\s]+/gi, (_m, prefix) => `${prefix}[REDACTED]`);
   apply(/\b(?:sk-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{16,}|AKIA[0-9A-Z]{16})\b/g, "[REDACTED TOKEN]");

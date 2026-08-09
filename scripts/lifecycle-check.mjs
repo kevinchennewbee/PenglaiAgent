@@ -296,8 +296,18 @@ async function main() {
   else bad("config.createProfile 返回异常");
   const profilesFile = path.join(DATA_HOST, "profiles.json");
   if (fs.existsSync(profilesFile)) {
-    const mode = fs.statSync(profilesFile).mode & 0o777;
-    const content = fs.readFileSync(profilesFile, "utf-8");
+    const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+    const descriptor = fs.openSync(profilesFile, fs.constants.O_RDONLY | noFollow);
+    let mode;
+    let content;
+    try {
+      const stat = fs.fstatSync(descriptor);
+      if (!stat.isFile()) throw new Error("profiles.json is not a regular file");
+      mode = stat.mode & 0o777;
+      content = fs.readFileSync(descriptor, "utf-8");
+    } finally {
+      fs.closeSync(descriptor);
+    }
     if (mode === 0o600 && content.includes("lifecycle-mock") && content.includes("lifecycle-demo-key")) {
       ok("profiles.json 落盘：0600 私密权限 + 档案与 key 在内（host 侧保管）");
     } else bad(`profiles.json 权限 ${mode.toString(8)} 或内容不符`);

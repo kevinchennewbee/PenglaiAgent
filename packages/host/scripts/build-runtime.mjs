@@ -23,13 +23,31 @@ const HOST_PKG = path.join(REPO_ROOT, "packages", "host");
 const PROTOCOL_PKG = path.join(REPO_ROOT, "packages", "protocol");
 const SCHEMA_VERSIONS_PATH = path.join(__dirname, "schema-versions.generated.json");
 
+function readRegularFile(file, encoding = null) {
+  const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | noFollow);
+  try {
+    const stat = fs.fstatSync(descriptor);
+    const pathStat = fs.lstatSync(file);
+    if (
+      !stat.isFile() || pathStat.isSymbolicLink() || !pathStat.isFile() ||
+      stat.dev !== pathStat.dev || stat.ino !== pathStat.ino
+    ) {
+      throw new Error(`expected stable regular file: ${file}`);
+    }
+    return fs.readFileSync(descriptor, encoding ?? undefined);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 function loadSchemaVersions() {
   if (!fs.existsSync(SCHEMA_VERSIONS_PATH)) {
     die(
       `missing ${SCHEMA_VERSIONS_PATH}; run: node scripts/sync-schema-versions.mjs`,
     );
   }
-  return JSON.parse(fs.readFileSync(SCHEMA_VERSIONS_PATH, "utf8"));
+  return JSON.parse(readRegularFile(SCHEMA_VERSIONS_PATH, "utf8"));
 }
 const ROOT_LOCK_PATH = path.join(REPO_ROOT, "package-lock.json");
 const MINIMUM_NODE_VERSION = "22.19.0";
@@ -109,12 +127,12 @@ function defaultTarget() {
 }
 
 function die(message) {
-  console.error(`error: ${message}`);
+  console.error(`error: ${String(message).replace(/[\r\n\u2028\u2029]+/g, " ")}`);
   process.exit(1);
 }
 
 function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  return JSON.parse(readRegularFile(file, "utf8"));
 }
 
 function writeJson(file, value) {
@@ -265,12 +283,37 @@ async function officialNodeBinary(target) {
     die(`official Node executable is empty in ${distribution.archive}`);
   }
   fs.mkdirSync(path.dirname(cachedExecutable), { recursive: true });
-  fs.writeFileSync(cachedExecutable, result.stdout, { mode: 0o700 });
-  if (!target.includes("windows")) fs.chmodSync(cachedExecutable, 0o755);
-  const version = inspectNode(cachedExecutable);
+  const temporaryExecutable = `${cachedExecutable}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(
+      temporaryExecutable,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL |
+        (process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0)),
+      0o700,
+    );
+    fs.writeFileSync(descriptor, result.stdout);
+    fs.fsyncSync(descriptor);
+    if (!target.includes("windows")) fs.fchmodSync(descriptor, 0o755);
+    fs.closeSync(descriptor);
+    descriptor = null;
+  } catch (error) {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    fs.rmSync(temporaryExecutable, { force: true });
+    throw error;
+  }
+  let version;
+  try {
+    version = inspectNode(temporaryExecutable);
+  } catch (error) {
+    fs.rmSync(temporaryExecutable, { force: true });
+    throw error;
+  }
   if (version !== BUNDLED_NODE_VERSION) {
+    fs.rmSync(temporaryExecutable, { force: true });
     die(`official Node cache reports ${version}, expected ${BUNDLED_NODE_VERSION}`);
   }
+  fs.renameSync(temporaryExecutable, cachedExecutable);
   return cachedExecutable;
 }
 

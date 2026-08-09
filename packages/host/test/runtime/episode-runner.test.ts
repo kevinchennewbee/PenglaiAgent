@@ -175,7 +175,7 @@ describe("EpisodeRunner", () => {
     const result = await runner.prompt("c", { text: "go", delivery: "steer" });
     expect(result.text).toBe("done");
     expect(result.stopReason).toBe("completed");
-    expect(result.runId).toMatch(/^ep_|run_/);
+    expect(result.runId).toMatch(/^(?:ep_|run_)/);
   });
 });
 

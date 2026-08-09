@@ -14,18 +14,20 @@ import { isWithinWorkspace, assertInWorkspace, resolveInWorkspace } from "../src
 
 let root: string;
 let outsideFile: string;
+let testRoot: string;
 
 beforeAll(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-jail-"));
+  testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-jail-"));
+  root = path.join(testRoot, "workspace");
+  fs.mkdirSync(root);
   fs.mkdirSync(path.join(root, "sub"));
   fs.writeFileSync(path.join(root, "file.txt"), "hello\n");
-  outsideFile = path.join(os.tmpdir(), "penglai-jail-outside.txt");
+  outsideFile = path.join(testRoot, "outside.txt");
   fs.writeFileSync(outsideFile, "secret\n");
 });
 
 afterAll(() => {
-  fs.rmSync(root, { recursive: true, force: true });
-  fs.rmSync(outsideFile, { force: true });
+  fs.rmSync(testRoot, { recursive: true, force: true });
 });
 
 describe("jail: isWithinWorkspace", () => {

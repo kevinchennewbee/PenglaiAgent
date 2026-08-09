@@ -19,6 +19,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { CliError, type HostClient } from "./client.js";
 import type { CommandContext } from "./commands.js";
 import { flagValue, type ParsedArgs } from "./format.js";
+import { openRegularFileNoFollow } from "../security/private-file.js";
 
 // ── RPC 形状（与 host voice/service.ts 对齐） ──────────────────
 
@@ -139,12 +140,17 @@ export function recordWithFFmpeg(opts: { maxSeconds?: number; onTick?: (line: st
       settled = true;
       process.stdin.removeListener("data", onKey);
       try {
-        if (fs.existsSync(tmp) && fs.statSync(tmp).size > 44) {
-          const wavBase64 = fs.readFileSync(tmp).toString("base64");
-          fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
-          resolve(ok ? { wavBase64, format: "wav" } : null);
-          return;
+        const opened = openRegularFileNoFollow(tmp);
+        let wavBase64: string;
+        try {
+          if (opened.stat.size <= 44) throw new Error("recorded WAV is empty");
+          wavBase64 = fs.readFileSync(opened.descriptor).toString("base64");
+        } finally {
+          fs.closeSync(opened.descriptor);
         }
+        fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
+        resolve(ok ? { wavBase64, format: "wav" } : null);
+        return;
       } catch {
         /* fall through */
       }

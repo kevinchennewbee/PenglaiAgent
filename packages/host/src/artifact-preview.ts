@@ -3,6 +3,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { readDocument } from "./capabilities/documents.js";
+import { openRegularFileNoFollow } from "./security/private-file.js";
 
 const DOCUMENT_EXTENSIONS = new Set([".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".md", ".csv", ".tsv", ".json", ".yaml", ".yml", ".xml", ".html", ".htm", ".rtf"]);
 const SOURCE_EXTENSIONS = new Set([
@@ -22,21 +23,25 @@ export interface ArtifactPreview {
 }
 
 function readSourcePreview(target: string, maxChars: number): ArtifactPreview {
-  const stat = fs.statSync(target);
-  if (stat.size > MAX_SOURCE_BYTES) {
-    throw new Error(`text artifact exceeds the ${MAX_SOURCE_BYTES} byte preview limit`);
+  const opened = openRegularFileNoFollow(target);
+  try {
+    if (opened.stat.size > MAX_SOURCE_BYTES) {
+      throw new Error(`text artifact exceeds the ${MAX_SOURCE_BYTES} byte preview limit`);
+    }
+    const buffer = fs.readFileSync(opened.descriptor);
+    if (buffer.includes(0)) throw new Error("binary artifact cannot be previewed as text");
+    const decoded = buffer.toString("utf-8");
+    const truncated = decoded.length > maxChars;
+    return {
+      path: target,
+      name: path.basename(target),
+      format: path.extname(target).slice(1).toLowerCase() || "text",
+      text: truncated ? decoded.slice(0, maxChars) : decoded,
+      truncated,
+    };
+  } finally {
+    fs.closeSync(opened.descriptor);
   }
-  const buffer = fs.readFileSync(target);
-  if (buffer.includes(0)) throw new Error("binary artifact cannot be previewed as text");
-  const decoded = buffer.toString("utf-8");
-  const truncated = decoded.length > maxChars;
-  return {
-    path: target,
-    name: path.basename(target),
-    format: path.extname(target).slice(1).toLowerCase() || "text",
-    text: truncated ? decoded.slice(0, maxChars) : decoded,
-    truncated,
-  };
 }
 
 export async function previewArtifactFile(

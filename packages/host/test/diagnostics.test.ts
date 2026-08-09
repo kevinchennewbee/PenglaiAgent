@@ -24,6 +24,15 @@ describe("diagnostic export", () => {
     expect(result.redactions).toBeGreaterThanOrEqual(4);
   });
 
+  it("redacts PEM keys and long adversarial assignment text without regex backtracking", () => {
+    const pem = ["-----BEGIN ", "PRIVATE KEY-----\nabc123\n-----END PRIVATE KEY-----"].join("");
+    const repeated = `NOT_A_CREDENTIAL=${"0".repeat(200_000)}`;
+    const result = sanitizeDiagnosticText(`${pem}\n${repeated}`, "/example-home");
+    expect(result.text).toContain("[REDACTED PRIVATE KEY]");
+    expect(result.text).toContain(repeated);
+    expect(result.text).not.toContain("abc123");
+  });
+
   it("exports only bounded text logs and never product state", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-diagnostics-"));
     roots.push(root);

@@ -77,11 +77,31 @@ for (const file of files) {
   const absolute = path.join(ROOT, file);
   // `git ls-files --cached` also lists paths deleted in the working tree.
   // They are changes to review, but are not part of the candidate snapshot.
-  if (!fs.existsSync(absolute)) continue;
-  const stat = fs.lstatSync(absolute);
-  const data = stat.isSymbolicLink()
-    ? Buffer.from(fs.readlinkSync(absolute), "utf-8")
-    : fs.readFileSync(absolute);
+  let stat;
+  let data;
+  try {
+    stat = fs.lstatSync(absolute);
+    if (stat.isSymbolicLink()) {
+      data = Buffer.from(fs.readlinkSync(absolute), "utf-8");
+    } else {
+      const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+      const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | noFollow);
+      try {
+        const openedStat = fs.fstatSync(descriptor);
+        if (
+          !openedStat.isFile() || openedStat.dev !== stat.dev || openedStat.ino !== stat.ino
+        ) {
+          throw new Error(`candidate changed during audit: ${file}`);
+        }
+        data = fs.readFileSync(descriptor);
+      } finally {
+        fs.closeSync(descriptor);
+      }
+    }
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    throw error;
+  }
   const binary = data.includes(0);
   // For text, decoding and splitting here deliberately traverses every byte
   // and every line; language-aware gates provide the semantic layer.

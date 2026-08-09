@@ -20,6 +20,7 @@ import {
 import { runDoctor, type DoctorResult } from "./doctor.js";
 import { penglaiDataDir } from "./data-dir.js";
 import { redactSensitiveText } from "./security/redaction.js";
+import { openRegularFileNoFollow } from "./security/private-file.js";
 
 const MAX_LOG_FILES = 20;
 const MAX_LOG_BYTES_EACH = 2 * 1024 * 1024;
@@ -76,15 +77,20 @@ function recentLogFiles(logDir: string): string[] {
 }
 
 function readLogTail(file: string): Buffer {
-  const stat = fs.statSync(file);
-  const bytes = Math.min(stat.size, MAX_LOG_BYTES_EACH);
-  const fd = fs.openSync(file, "r");
+  const opened = openRegularFileNoFollow(file);
+  const bytes = Math.min(opened.stat.size, MAX_LOG_BYTES_EACH);
   try {
     const buffer = Buffer.alloc(bytes);
-    fs.readSync(fd, buffer, 0, bytes, Math.max(0, stat.size - bytes));
+    fs.readSync(
+      opened.descriptor,
+      buffer,
+      0,
+      bytes,
+      Math.max(0, opened.stat.size - bytes),
+    );
     return buffer;
   } finally {
-    fs.closeSync(fd);
+    fs.closeSync(opened.descriptor);
   }
 }
 

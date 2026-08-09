@@ -14,13 +14,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOST_PKG = path.resolve(__dirname, "..");
 const SCHEMA_VERSIONS_PATH = path.join(__dirname, "schema-versions.generated.json");
 
+function readRegularFile(file, encoding = null) {
+  const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | noFollow);
+  try {
+    const stat = fs.fstatSync(descriptor);
+    const pathStat = fs.lstatSync(file);
+    if (
+      !stat.isFile() || pathStat.isSymbolicLink() || !pathStat.isFile() ||
+      stat.dev !== pathStat.dev || stat.ino !== pathStat.ino
+    ) {
+      throw new Error(`expected stable regular file: ${file}`);
+    }
+    return fs.readFileSync(descriptor, encoding ?? undefined);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 function loadSchemaVersions() {
   if (!fs.existsSync(SCHEMA_VERSIONS_PATH)) {
     throw new Error(
       `missing ${SCHEMA_VERSIONS_PATH}; run: node scripts/sync-schema-versions.mjs`,
     );
   }
-  return JSON.parse(fs.readFileSync(SCHEMA_VERSIONS_PATH, "utf8"));
+  return JSON.parse(readRegularFile(SCHEMA_VERSIONS_PATH, "utf8"));
 }
 
 function parseArgs() {
@@ -61,7 +79,7 @@ Options:
 
 function sha256File(file) {
   const hash = crypto.createHash("sha256");
-  hash.update(fs.readFileSync(file));
+  hash.update(readRegularFile(file));
   return hash.digest("hex");
 }
 
@@ -99,11 +117,13 @@ function safePayloadPath(runtimeDirectory, relativePath) {
 
 function verifyManifest(runtimeDirectory, expectedVersion = null, expectedTarget = null) {
   const manifestPath = path.join(runtimeDirectory, "manifest.json");
-  if (!fs.existsSync(manifestPath)) throw new Error("manifest.json is missing");
-  if (fs.lstatSync(manifestPath).isSymbolicLink()) {
-    throw new Error("manifest.json must not be a symlink");
+  let manifest;
+  try {
+    manifest = JSON.parse(readRegularFile(manifestPath, "utf8"));
+  } catch (error) {
+    if ((error?.code ?? "") === "ENOENT") throw new Error("manifest.json is missing");
+    throw error;
   }
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   if (manifest.schemaVersion !== 2) {
     throw new Error(`unsupported runtime manifest schema: ${manifest.schemaVersion}`);
   }
