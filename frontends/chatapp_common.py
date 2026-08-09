@@ -12,6 +12,7 @@ from plugins.penglai_artifacts import (
     summarize_blocked,
 )
 from penglai_runtime.delivery import plan_delivery
+from penglai_runtime.private_files import ensure_private_dir, harden_private_file
 
 HELP_COMMANDS = (
     ("/help", "显示帮助"),
@@ -325,8 +326,12 @@ def require_runtime(agent, label, **required):
 
 def redirect_log(script_file, log_name, label, allowed):
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(script_file))), "temp")
-    os.makedirs(log_dir, exist_ok=True)
-    logf = open(os.path.join(log_dir, log_name), "a", encoding="utf-8", buffering=1)
+    ensure_private_dir(log_dir)
+    log_path = os.path.join(log_dir, log_name)
+    if os.path.lexists(log_path):
+        harden_private_file(log_path)
+    descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    logf = os.fdopen(descriptor, "a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = logf
     print(f"[NEW] {label} process starting, the above are history infos ...")
     print(f"[{label}] allow list: {allowed_label(allowed)}")

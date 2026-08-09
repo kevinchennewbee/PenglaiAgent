@@ -319,7 +319,6 @@
     </div><!-- /app-grid -->
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     const cardsEl    = document.getElementById('cards');
     const messagesEl = document.getElementById('messages');
@@ -340,7 +339,9 @@
     }
 
     function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-    function renderMd(s){ try { return marked.parse(s||'', { breaks: true, gfm: true }); } catch(e){ return esc(s); } }
+    // Agent/model output is untrusted. Keep the archived console text-only;
+    // parsing arbitrary Markdown into innerHTML would re-enable stored XSS.
+    function renderMd(s){ return esc(s).replace(/\n/g,'<br>'); }
 
     /* ---------- subagent 卡片 ---------- */
     function renderCards(items){

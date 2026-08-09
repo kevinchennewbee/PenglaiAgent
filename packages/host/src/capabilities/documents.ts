@@ -137,17 +137,17 @@ function createPptx(target: string, title: string | undefined, content: string):
     const body = (lines[0]?.startsWith("# ") ? lines.slice(1) : lines).join("\n").trim();
     return { heading, body };
   });
-  const files: Record<string, Uint8Array> = {
-    "[Content_Types].xml": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_slide, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`),
-    "_rels/.rels": strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>'),
-    "ppt/presentation.xml": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_slide, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`),
-    "ppt/_rels/presentation.xml.rels": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_slide, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("")}</Relationships>`),
-  };
+  const files = new Map<string, Uint8Array>([
+    ["[Content_Types].xml", strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>${slides.map((_slide, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`)],
+    ["_rels/.rels", strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>')],
+    ["ppt/presentation.xml", strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>${slides.map((_slide, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`)],
+    ["ppt/_rels/presentation.xml.rels", strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${slides.map((_slide, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("")}</Relationships>`)],
+  ]);
   slides.forEach((slide, index) => {
     const shape = (id: number, name: string, text: string, y: number, h: number, size: number) => `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="685800" y="${y}"/><a:ext cx="10820400" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="zh-CN" sz="${size}"/><a:t>${xmlEscape(text)}</a:t></a:r></a:p></p:txBody></p:sp>`;
-    files[`ppt/slides/slide${index + 1}.xml`] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shape(2, "Title", slide.heading, 685800, 1143000, 3000)}${shape(3, "Body", slide.body || " ", 2057400, 3886200, 1800)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
+    files.set(`ppt/slides/slide${index + 1}.xml`, strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shape(2, "Title", slide.heading, 685800, 1143000, 3000)}${shape(3, "Body", slide.body || " ", 2057400, 3886200, 1800)}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`));
   });
-  const result = writeZipDocument(target, files);
+  const result = writeZipDocument(target, Object.fromEntries(files));
   return { ...result, pages: slides.length };
 }
 
@@ -196,15 +196,14 @@ function assertOfficeZipBounds(buffer: Buffer): void {
   if (entries === 0) throw new Error("Office document has no valid ZIP directory");
 }
 
-function unzipOffice(buffer: Buffer): Record<string, Uint8Array> {
+function unzipOffice(buffer: Buffer): Map<string, Uint8Array> {
   assertOfficeZipBounds(buffer);
-  const files = unzipSync(new Uint8Array(buffer));
-  const names = Object.keys(files);
-  const total = names.reduce((sum, name) => sum + (files[name]?.byteLength ?? 0), 0);
-  if (names.length > MAX_OFFICE_ENTRIES || total > MAX_OFFICE_UNCOMPRESSED_BYTES) {
+  const entries = Object.entries(unzipSync(new Uint8Array(buffer)));
+  const total = entries.reduce((sum, [, bytes]) => sum + bytes.byteLength, 0);
+  if (entries.length > MAX_OFFICE_ENTRIES || total > MAX_OFFICE_UNCOMPRESSED_BYTES) {
     throw new Error("Office document expands beyond the safe ZIP limit");
   }
-  return files;
+  return new Map(entries);
 }
 
 function xmlText(bytes: Uint8Array | undefined, label: string): string {
@@ -214,7 +213,7 @@ function xmlText(bytes: Uint8Array | undefined, label: string): string {
 
 function readDocx(buffer: Buffer): string {
   const files = unzipOffice(buffer);
-  const doc = load(xmlText(files["word/document.xml"], "word/document.xml"), { xmlMode: true });
+  const doc = load(xmlText(files.get("word/document.xml"), "word/document.xml"), { xmlMode: true });
   return doc("w\\:p, p")
     .map((_i, paragraph) => doc(paragraph).find("w\\:t, t").map((_j, text) => doc(text).text()).get().join(""))
     .get()
@@ -233,15 +232,15 @@ function columnIndex(reference: string): number {
 function readXlsx(buffer: Buffer): string {
   const files = unzipOffice(buffer);
   const shared: string[] = [];
-  if (files["xl/sharedStrings.xml"]) {
-    const strings = load(xmlText(files["xl/sharedStrings.xml"], "xl/sharedStrings.xml"), { xmlMode: true });
+  if (files.has("xl/sharedStrings.xml")) {
+    const strings = load(xmlText(files.get("xl/sharedStrings.xml"), "xl/sharedStrings.xml"), { xmlMode: true });
     strings("si").each((_i, item) => {
       shared.push(strings(item).find("t").map((_j, text) => strings(text).text()).get().join(""));
     });
   }
 
   const relationships = new Map<string, string>();
-  const rels = load(xmlText(files["xl/_rels/workbook.xml.rels"], "xl/_rels/workbook.xml.rels"), { xmlMode: true });
+  const rels = load(xmlText(files.get("xl/_rels/workbook.xml.rels"), "xl/_rels/workbook.xml.rels"), { xmlMode: true });
   rels("Relationship").each((_i, element) => {
     const id = rels(element).attr("Id") ?? "";
     const target = rels(element).attr("Target") ?? "";
@@ -249,18 +248,20 @@ function readXlsx(buffer: Buffer): string {
       const normalized = target.startsWith("/")
         ? target.slice(1)
         : path.posix.normalize(path.posix.join("xl", target));
-      relationships.set(id, normalized);
+      if (/^xl\/worksheets\/[A-Za-z0-9._-]+\.xml$/.test(normalized)) {
+        relationships.set(id, normalized);
+      }
     }
   });
 
-  const workbook = load(xmlText(files["xl/workbook.xml"], "xl/workbook.xml"), { xmlMode: true });
+  const workbook = load(xmlText(files.get("xl/workbook.xml"), "xl/workbook.xml"), { xmlMode: true });
   const lines: string[] = [];
   workbook("sheet").each((_i, sheet) => {
     const name = workbook(sheet).attr("name") ?? "Sheet";
     const relationId = workbook(sheet).attr("r:id") ?? "";
     const target = relationships.get(relationId);
-    if (!target || !files[target]) return;
-    const worksheet = load(xmlText(files[target], target), { xmlMode: true });
+    if (!target || !files.has(target)) return;
+    const worksheet = load(xmlText(files.get(target), target), { xmlMode: true });
     lines.push(`# Sheet: ${name}`);
     worksheet("row").each((_rowIndex, row) => {
       const values = new Map<number, string>();
@@ -289,12 +290,12 @@ function readXlsx(buffer: Buffer): string {
 
 function readPptx(buffer: Buffer): string {
   const files = unzipOffice(buffer);
-  const slideNames = Object.keys(files)
+  const slideNames = [...files.keys()]
     .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
     .sort((a, b) => Number(a.match(/\d+/)?.[0] ?? 0) - Number(b.match(/\d+/)?.[0] ?? 0));
   return slideNames
     .map((name, index) => {
-      const doc = load(xmlText(files[name], name), { xmlMode: true });
+      const doc = load(xmlText(files.get(name), name), { xmlMode: true });
       const texts = doc("a\\:t, t")
         .map((_i, element) => doc(element).text())
         .get()

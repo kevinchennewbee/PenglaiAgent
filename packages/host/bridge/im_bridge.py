@@ -37,6 +37,9 @@ import urllib.request
 
 class PenglaiHostBridge:
     def __init__(self, port=14169, token=None):
+        port = int(port)
+        if not 1 <= port <= 65535:
+            raise ValueError("Host port is out of range")
         self.base_url = f"http://127.0.0.1:{port}"
         self.token = token or self._load_token()
 

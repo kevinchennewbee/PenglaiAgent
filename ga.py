@@ -1,4 +1,4 @@
-import sys, os, re, json, time, threading, importlib, webbrowser
+import sys, os, re, json, time, threading, importlib, webbrowser, ast
 from datetime import datetime
 from pathlib import Path
 import tempfile, traceback, subprocess, itertools, collections, difflib, shutil
@@ -163,7 +163,8 @@ def log_memory_access(path):
     except: stats = {}
     fname = os.path.basename(path)
     stats[fname] = {'count': stats.get(fname, {}).get('count', 0) + 1, 'last': datetime.now().strftime('%Y-%m-%d')}
-    with open(stats_file, 'w', encoding='utf-8') as f: json.dump(stats, f, indent=2, ensure_ascii=False)
+    from penglai_runtime.private_files import atomic_write_private
+    atomic_write_private(stats_file, json.dumps(stats, indent=2, ensure_ascii=False))
 
 def web_execute_js(script, switch_tab_id=None, no_monitor=False):
     """执行 JS 脚本来控制浏览器，并捕获结果和页面变化"""
@@ -263,27 +264,50 @@ def consume_file(dr, file):
         os.remove(os.path.join(dr, file))
         return content
 
-class _InlineEvalHandlerProxy:
-    """Expose only the legacy inline_eval SOP surface, never GA internals."""
-    __slots__ = ("_handler",)
-    _ALLOWED = {"enter_plan_mode", "_done_hooks"}
+def _run_inline_action(handler, code):
+    """Run the two historical SOP actions without Python eval/exec.
 
-    def __init__(self, handler):
-        self._handler = handler
-
-    def __getattr__(self, name):
-        if name in self._ALLOWED:
-            return getattr(self._handler, name)
-        raise AttributeError(f"inline_eval handler access denied: {name}")
-
-
-_INLINE_EVAL_BUILTINS = {
-    "len": len, "range": range, "str": str, "repr": repr, "int": int,
-    "float": float, "bool": bool, "list": list, "dict": dict, "set": set,
-    "tuple": tuple, "min": min, "max": max, "sum": sum, "Exception": Exception,
-    "NameError": NameError, "AttributeError": AttributeError,
-    "TimeoutError": TimeoutError,
-}
+    The old ``inline_eval`` switch evaluated model-provided Python inside the
+    Agent process. A proxy object cannot make that safe: bound methods and
+    private attributes still expose the original handler through Python object
+    introspection. Keep compatibility only for the two declarative actions
+    shipped by Penglai's own SOPs and reject every other syntax.
+    """
+    if not isinstance(code, str) or len(code) > 8192:
+        raise ValueError("inline action must be a bounded string")
+    tree = ast.parse(code, mode="exec")
+    if not 1 <= len(tree.body) <= 4:
+        raise ValueError("inline action must contain 1-4 approved calls")
+    for statement in tree.body:
+        if not isinstance(statement, ast.Expr) or not isinstance(statement.value, ast.Call):
+            raise ValueError("inline action supports approved calls only")
+        call = statement.value
+        if call.keywords or len(call.args) != 1 or not isinstance(call.args[0], ast.Constant) or not isinstance(call.args[0].value, str):
+            raise ValueError("inline action requires one literal string argument")
+        value = call.args[0].value
+        if len(value) > 4096:
+            raise ValueError("inline action argument is too long")
+        target = call.func
+        if (
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "handler"
+            and target.attr == "enter_plan_mode"
+        ):
+            handler.enter_plan_mode(value)
+            continue
+        if (
+            isinstance(target, ast.Attribute)
+            and target.attr == "append"
+            and isinstance(target.value, ast.Attribute)
+            and isinstance(target.value.value, ast.Name)
+            and target.value.value.id == "handler"
+            and target.value.attr == "_done_hooks"
+        ):
+            handler._done_hooks.append(value)
+            continue
+        raise ValueError("unsupported inline action")
+    return "OK"
 
 
 def _master_file_ok(path):
@@ -346,38 +370,10 @@ class GenericAgentHandler(BaseHandler):
         code_cwd = os.path.normpath(self.cwd)
         maxlen = 10000 // args.get('_tool_num', 1)
         if code_type == 'python' and args.get("inline_eval"):
-            hist = ''
             try:
-                hist = json.dumps(self.parent.llmclient.backend.history)
-            except Exception:
-                pass
-            ns = {
-                'handler': _InlineEvalHandlerProxy(self),
-                'history': hist,
-                '__builtins__': dict(_INLINE_EVAL_BUILTINS),
-            }
-            old_cwd = os.getcwd()
-            import signal as _sig
-            old_handler = None
-            alarm_ready = hasattr(_sig, 'SIGALRM')
-            def _alarm(_s, _f):
-                raise TimeoutError('inline_eval timeout')
-            try:
-                os.chdir(cwd)
-                if alarm_ready:
-                    old_handler = _sig.signal(_sig.SIGALRM, _alarm)
-                    _sig.alarm(max(1, int(args.get("timeout", 10) or 10)))
-                try:
-                    try: result = repr(eval(code, ns))
-                    except SyntaxError: exec(code, ns); result = ns.get('_r', 'OK')
-                    except TimeoutError: result = 'Error: inline_eval timeout'
-                except Exception as e: result = f'Error: {e}'
-            finally:
-                if alarm_ready:
-                    _sig.alarm(0)
-                    if old_handler is not None:
-                        _sig.signal(_sig.SIGALRM, old_handler)
-                os.chdir(old_cwd)
+                result = _run_inline_action(self, code)
+            except (SyntaxError, ValueError) as e:
+                result = f'Error: {e}'
         else: result = yield from code_run(code, code_type, timeout, cwd, code_cwd=code_cwd, stop_signal=self.code_stop_signal, maxlen=maxlen, myprint=self.print)
         next_prompt = self._get_anchor_prompt(skip=args.get('_index', 0) > 0)
         return StepOutcome(result, next_prompt=next_prompt)
@@ -503,7 +499,12 @@ class GenericAgentHandler(BaseHandler):
         return StepOutcome(result, next_prompt=next_prompt)
 
     def export_history(self, fn):
-        with open(fn, 'w', encoding='utf-8') as f: json.dump(self.parent.llmclient.backend.history, f, ensure_ascii=False)
+        from penglai_runtime.private_files import atomic_write_private
+        atomic_write_private(
+            fn,
+            json.dumps(self.parent.llmclient.backend.history, ensure_ascii=False),
+            max_bytes=256 * 1024 * 1024,
+        )
     def _in_plan_mode(self): return self.working.get('in_plan_mode')
     def _exit_plan_mode(self): self.working.pop('in_plan_mode', None)
     def enter_plan_mode(self, plan_path): 

@@ -1,5 +1,7 @@
 import dns from "node:dns/promises";
+import dnsCallback from "node:dns";
 import net from "node:net";
+import { Agent } from "undici";
 
 const BLOCKED_HOSTS = new Set([
   "localhost",
@@ -38,7 +40,19 @@ function blockedIpv6(address: string): boolean {
   if (/^fe[89ab]/.test(normalized)) return true;
   if (normalized.startsWith("ff")) return true;
   const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-  return mapped ? blockedIpv4(mapped) : false;
+  if (mapped) return blockedIpv4(mapped);
+  const mappedHex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mappedHex) {
+    const high = Number.parseInt(mappedHex[1], 16);
+    const low = Number.parseInt(mappedHex[2], 16);
+    return blockedIpv4(`${high >>> 8}.${high & 0xff}.${low >>> 8}.${low & 0xff}`);
+  }
+  return false;
+}
+
+function normalizedHostname(hostname: string): string {
+  const lowered = hostname.toLowerCase().replace(/\.$/, "");
+  return lowered.startsWith("[") && lowered.endsWith("]") ? lowered.slice(1, -1) : lowered;
 }
 
 export function isBlockedNetworkAddress(address: string): boolean {
@@ -47,6 +61,61 @@ export function isBlockedNetworkAddress(address: string): boolean {
   if (family === 6) return blockedIpv6(address);
   return true;
 }
+
+/**
+ * Connection-time DNS gate used by Undici. URL preflight alone has a DNS
+ * rebinding time-of-check/time-of-use gap: a hostname may resolve publicly
+ * during validation and privately when the socket is opened. This lookup is
+ * installed on the actual HTTP connector, so every new socket validates the
+ * address it will connect to.
+ */
+function safeConnectionLookup(
+  hostname: string,
+  options: { family?: number; hints?: number },
+  callback: (error: NodeJS.ErrnoException | null, address: string, family: number) => void,
+): void {
+  const normalizedHost = normalizedHostname(hostname);
+  if (
+    !normalizedHost ||
+    BLOCKED_HOSTS.has(normalizedHost) ||
+    normalizedHost.endsWith(".localhost") ||
+    normalizedHost.endsWith(".local")
+  ) {
+    callback(Object.assign(new Error("local or private hosts are not allowed"), { code: "EACCES" }), "", 0);
+    return;
+  }
+  dnsCallback.lookup(
+    hostname,
+    { family: options.family === 4 || options.family === 6 ? options.family : 0, hints: options.hints, all: false, verbatim: true },
+    (error, address, family) => {
+      if (error) {
+        callback(error, "", 0);
+        return;
+      }
+      const literalHost = net.isIP(normalizedHost) !== 0;
+      const allowedSyntheticProxy = !literalHost && family === 4 && syntheticProxyIpv4(address);
+      if (!allowedSyntheticProxy && isBlockedNetworkAddress(address)) {
+        callback(
+          Object.assign(new Error(`connection resolved to a private or reserved address (${address})`), { code: "EACCES" }),
+          "",
+          0,
+        );
+        return;
+      }
+      callback(null, address, family);
+    },
+  );
+}
+
+const PUBLIC_NETWORK_DISPATCHER = new Agent({
+  connect: {
+    // Node's overloaded LookupFunction type includes an `all: true` form;
+    // this connector deliberately forces a single address so that the exact
+    // address handed to the socket is the one checked above.
+    lookup: safeConnectionLookup as never,
+  },
+  autoSelectFamily: false,
+});
 
 export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
   let url: URL;
@@ -59,7 +128,7 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
     throw new Error("only http/https URLs are allowed");
   }
   if (url.username || url.password) throw new Error("URL credentials are not allowed");
-  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  const host = normalizedHostname(url.hostname);
   if (!host || BLOCKED_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
     throw new Error("local or private hosts are not allowed");
   }
@@ -80,4 +149,20 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
     }
   }
   return url;
+}
+
+/** Fetch through the connection-time public-network gate. Redirects remain
+ * manual/error at callers so each Location is separately revalidated. */
+export async function fetchPublicHttp(
+  rawUrl: string | URL,
+  init: globalThis.RequestInit = {},
+): Promise<globalThis.Response> {
+  const url = await assertPublicHttpUrl(rawUrl.toString());
+  // Node's built-in fetch is powered by Undici and accepts its Dispatcher
+  // extension. Keep the standard fetch entry point so tests can replace the
+  // transport, while production sockets use the guarded dispatcher.
+  return fetch(url, {
+    ...init,
+    dispatcher: PUBLIC_NETWORK_DISPATCHER,
+  } as globalThis.RequestInit);
 }

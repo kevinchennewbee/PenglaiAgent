@@ -39,6 +39,11 @@ function taskInput(cron = "60") {
   return { cron, prompt: "run the nightly check", workspacePath: "/tmp/proj", enabled: true };
 }
 
+function expectPrivateMode(target: string, expected: number): void {
+  if (process.platform === "win32") return;
+  expect(fs.statSync(target).mode & 0o777).toBe(expected);
+}
+
 // ── scheduler: persistence ─────────────────────────────────────
 
 describe("scheduler: persistence (save -> reload -> same tasks)", () => {
@@ -57,6 +62,8 @@ describe("scheduler: persistence (save -> reload -> same tasks)", () => {
     expect(reloaded.workspacePath).toBe("/tmp/proj");
     expect(reloaded.enabled).toBe(true);
     expect(reloaded.lastRun).toBeNull();
+    expectPrivateMode(path.join(tmp, "scheduler"), 0o700);
+    expectPrivateMode(path.join(tmp, "scheduler", "tasks.json"), 0o600);
   });
 
   it("updateTask mutates and persists fields (id is immutable)", () => {
@@ -260,5 +267,23 @@ describe("companion: trigger firing (fake timers)", () => {
     const actions = lines.map((l) => JSON.parse(l).action);
     expect(actions).toContain("enable");
     expect(actions).toContain("trigger");
+    expectPrivateMode(path.join(tmp, "companion.json"), 0o600);
+    expectPrivateMode(path.join(tmp, "logs"), 0o700);
+    expectPrivateMode(logFile, 0o600);
+  });
+
+  it("redacts credentials from failed companion callbacks", async () => {
+    const c = new CompanionService({ persist: true });
+    c.enable();
+    c.start(() => {
+      throw new Error("Bearer very-secret-token");
+    });
+
+    expect(await c.trigger("emotion")).toBe(false);
+    c.stop();
+
+    const log = fs.readFileSync(path.join(tmp, "logs", "companion.jsonl"), "utf-8");
+    expect(log).toContain("[REDACTED]");
+    expect(log).not.toContain("very-secret-token");
   });
 });

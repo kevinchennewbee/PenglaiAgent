@@ -8,8 +8,9 @@
  * so this script builds the .app, applies a complete ad-hoc seal, and creates
  * a plain read-only DMG without Finder automation.
  *
- * This is intentionally not the signed release path. `tauri:build:release`
- * still owns Developer ID/updater signing and release assets.
+ * This is intentionally not the updater-signed release path.
+ * `tauri:build:release` still owns updater signing and release assets. Both
+ * paths use an ad-hoc macOS app seal; neither claims Developer ID notarization.
  */
 
 import { execFileSync } from "node:child_process";

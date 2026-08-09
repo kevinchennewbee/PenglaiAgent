@@ -45,9 +45,23 @@ export async function previewArtifactFile(
   maxChars = DEFAULT_MAX_CHARS,
 ): Promise<ArtifactPreview> {
   const limit = Math.max(1_000, Math.min(DEFAULT_MAX_CHARS, Math.floor(maxChars)));
-  const extension = path.extname(target).toLowerCase();
+  const rootReal = fs.realpathSync(workspaceRoot);
+  const targetReal = fs.realpathSync(target);
+  const relative = path.relative(rootReal, targetReal);
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error("artifact preview target escapes the workspace");
+  }
+  const stat = fs.lstatSync(targetReal);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error("artifact preview target must be a regular file");
+  }
+  const extension = path.extname(targetReal).toLowerCase();
   if (DOCUMENT_EXTENSIONS.has(extension)) {
-    const preview = await readDocument(workspaceRoot, target, limit);
+    const preview = await readDocument(rootReal, targetReal, limit);
     return {
       path: preview.path,
       name: path.basename(preview.path),
@@ -56,6 +70,6 @@ export async function previewArtifactFile(
       truncated: preview.truncated,
     };
   }
-  if (SOURCE_EXTENSIONS.has(extension)) return readSourcePreview(target, limit);
+  if (SOURCE_EXTENSIONS.has(extension)) return readSourcePreview(targetReal, limit);
   throw new Error(`preview is not available for '${extension || "this file type"}'`);
 }

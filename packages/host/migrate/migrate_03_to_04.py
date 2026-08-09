@@ -374,7 +374,8 @@ def write_04_config(
     Returns a dict of written file paths.
     """
     out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(out, 0o700)
     written: dict[str, Path] = {}
 
     # profiles.json: strip report-only fields so it matches the 0.4 protocol
@@ -397,6 +398,7 @@ def write_04_config(
     profiles_path = out / "profiles.json"
     with open(profiles_path, "w", encoding="utf-8") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
+    os.chmod(profiles_path, 0o600)
     written["profiles"] = profiles_path
 
     # .env.penglai: one VAR=value per profile key. Placeholders are emitted
@@ -424,6 +426,7 @@ def write_04_config(
         pass
     with open(env_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+    os.chmod(env_path, 0o600)
     written["env"] = env_path
 
     # im_credentials.json: preserved verbatim (masked copy for the report,
@@ -431,6 +434,7 @@ def write_04_config(
     im_path = out / "im_credentials.json"
     with open(im_path, "w", encoding="utf-8") as f:
         json.dump(credentials, f, ensure_ascii=False, indent=2)
+    os.chmod(im_path, 0o600)
     written["im_credentials"] = im_path
 
     # register_profiles.py: registers each profile into a running Host via
@@ -440,6 +444,7 @@ def write_04_config(
     reg_src = _REGISTER_PROFILES_TEMPLATE
     with open(reg_path, "w", encoding="utf-8") as f:
         f.write(reg_src)
+    os.chmod(reg_path, 0o700)
     written["register_profiles"] = reg_path
 
     return written
@@ -510,7 +515,8 @@ def backup_03(source_dir: str | Path, dest_root: str | Path | None = None) -> Pa
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest_root = Path(dest_root).resolve() if dest_root else src.parent
     backup_dir = dest_root / f"penglai_03_backup_{ts}"
-    backup_dir.mkdir(parents=True, exist_ok=False)
+    backup_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
+    os.chmod(backup_dir, 0o700)
 
     # Small, high-value files/dirs only -- not node_modules / temp / .git.
     targets = ["mykey.py", "mykey.json", "memory", "skills", "frontends",
@@ -535,6 +541,7 @@ def backup_03(source_dir: str | Path, dest_root: str | Path | None = None) -> Pa
         f"source: {src}\nitems: {copied}\n",
         encoding="utf-8",
     )
+    os.chmod(backup_dir / "BACKUP_MANIFEST.txt", 0o600)
     return backup_dir
 
 
@@ -718,6 +725,7 @@ def main(argv: list[str] | None = None) -> int:
     report_path = output_dir / "migration_report.txt"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
+    os.chmod(report_path, 0o600)
     print(f"\n[5/5] Report -> {report_path}")
     print("\n" + report)
     return 0

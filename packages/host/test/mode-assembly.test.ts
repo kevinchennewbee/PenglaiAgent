@@ -255,9 +255,12 @@ describe("permission dial owner boundary", () => {
     }
   });
 
-  it("auto-approves L1 read-only bash under auto_edit/full but not plan/confirm", () => {
+  it("never auto-approves apparently read-only bash without an OS sandbox", () => {
     const decision = checkPolicy("bash", { command: "git status" }, workspaceRoot);
-    expect(decision).toMatchObject({ allowed: true, level: "L1" });
+    expect(decision).toMatchObject({ allowed: false, code: "needs_approval", level: "L3" });
+    for (const mode of ["confirm", "auto_edit", "full", "plan"] as const) {
+      expect(permissionModeAutoApprovesPolicyDecision(mode, decision)).toBe(false);
+    }
   });
 });
 

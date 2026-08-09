@@ -160,6 +160,28 @@ afterAll(async () => {
 });
 
 describe("server: dataDir migration lock ordering", () => {
+  it("refuses non-loopback binds and weak production tokens before touching storage", async () => {
+    const guardDir = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-server-guard-"));
+    const databasePath = path.join(guardDir, "product.db");
+    await expect(
+      startServer({ host: "0.0.0.0", port: 0, dataDir: guardDir, databasePath }),
+    ).rejects.toThrow(/non-loopback bind/i);
+    expect(fs.existsSync(databasePath)).toBe(false);
+
+    const priorVitest = process.env.VITEST;
+    delete process.env.VITEST;
+    try {
+      await expect(
+        startServer({ port: 0, token: "too-short", dataDir: guardDir, databasePath }),
+      ).rejects.toThrow(/at least 32 characters/i);
+    } finally {
+      if (priorVitest === undefined) delete process.env.VITEST;
+      else process.env.VITEST = priorVitest;
+    }
+    expect(fs.existsSync(databasePath)).toBe(false);
+    fs.rmSync(guardDir, { recursive: true, force: true });
+  });
+
   it("active migration blocks Host before product.db is created, then close releases runtime lock", async () => {
     const lockedDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-server-lock-"));
     const databasePath = path.join(lockedDataDir, "product.db");
@@ -303,6 +325,13 @@ describe("server: JSON-RPC workspace + conversation", () => {
     });
     expect(body.error).toBeDefined();
     expect(body.error.data?.code).toBe("workspace_required");
+  });
+
+  it("workspace.open rejects a regular file as the workspace root", async () => {
+    const file = path.join(workspaceDir, "not-a-workspace.txt");
+    fs.writeFileSync(file, "file\n", "utf8");
+    const { body } = await rpc("workspace.open", { rootPath: file });
+    expect((body.error as { data?: { code?: string } }).data?.code).toBe("workspace_required");
   });
 
   it("conversation.create returns a conversation bound to the workspace", async () => {

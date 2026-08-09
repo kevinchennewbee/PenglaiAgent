@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { parse } from "yaml";
 import {
   CANONICAL_REPOSITORY,
@@ -23,6 +24,8 @@ import { buildReleaseSbom } from "../updater/generate-sbom.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const WORKFLOW_PATH = path.join(ROOT, ".github/workflows/host-release.yml");
+const PUBLISH_WORKFLOW_PATH = path.join(ROOT, ".github/workflows/host-publish.yml");
+const SIGNING_GATE_PATH = path.join(ROOT, "packages/desktop/scripts/require-release-signing.mjs");
 const CONTRACT = loadReleaseContract();
 const tempDirectories: string[] = [];
 
@@ -277,12 +280,15 @@ describe("host-release workflow policy", () => {
   const raw = fs.readFileSync(WORKFLOW_PATH, "utf8");
   const workflow = parse(raw) as Record<string, any>;
 
-  it("has a strict tag-only trigger and least-privilege publish boundary", () => {
+  it("has a strict tag-only trigger and can write only a draft", () => {
     expect(workflow.on.push.tags).toEqual(["v0.4.*"]);
     expect(workflow.on.workflow_dispatch).toBeUndefined();
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.jobs.release.permissions).toEqual({ contents: "write" });
     expect(workflow.jobs.release.environment).toBe("release");
+    expect(raw).toContain("Create draft release only");
+    expect(raw).not.toContain("--draft=false");
+    expect(raw).not.toContain("gh release upload");
   });
 
   it("pins every third-party action to a full commit", () => {
@@ -291,7 +297,7 @@ describe("host-release workflow policy", () => {
     for (const use of uses) expect(use.split("@")[1]).toMatch(/^[0-9a-f]{40}$/);
   });
 
-  it("validates signed annotated tag/target before a draft-first exact release", () => {
+  it("validates signed annotated tag/target before an exact draft release", () => {
     for (const gate of [
       "git verify-tag --raw",
       "primary_fingerprints",
@@ -303,8 +309,11 @@ describe("host-release workflow policy", () => {
       "verify-release-assets.mjs",
       "SHA256SUMS.sig",
       "SBOM.cdx.json",
+      "codesign --verify --deep --strict",
+      "Signature=adhoc",
+      "hdiutil verify",
+      'readlink "$mountpoint/Applications"',
       "--draft",
-      "--draft=false",
       "desktop-v0.4",
     ]) {
       expect(raw).toContain(gate);
@@ -312,7 +321,79 @@ describe("host-release workflow policy", () => {
     expect(raw).toContain('--repository "$GITHUB_REPOSITORY"');
     expect(raw).toContain('--repo "$GITHUB_REPOSITORY"');
     expect(raw.indexOf("--draft")).toBeLessThan(raw.indexOf("Download draft assets"));
-    expect(raw.indexOf("Download draft assets")).toBeLessThan(raw.indexOf("--draft=false"));
     expect(raw).not.toMatch(/APPLE_(CERTIFICATE|SIGNING|ID)|WINDOWS_(CERTIFICATE|SIGNING)|notari[sz]e/i);
+  });
+});
+
+describe("manual host-publish workflow policy", () => {
+  const raw = fs.readFileSync(PUBLISH_WORKFLOW_PATH, "utf8");
+  const workflow = parse(raw) as Record<string, any>;
+
+  it("requires workflow_dispatch, a protected environment, and an exact confirmation", () => {
+    expect(workflow.on.push).toBeUndefined();
+    expect(workflow.on.workflow_dispatch.inputs.tag.required).toBe(true);
+    expect(workflow.on.workflow_dispatch.inputs.confirm.required).toBe(true);
+    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.jobs.publish.permissions).toEqual({ contents: "write" });
+    expect(workflow.jobs.publish.environment).toBe("release");
+    expect(raw).toContain('"publish-$PUBLISH_TAG"');
+  });
+
+  it("re-verifies the signed tag and draft assets before publishing", () => {
+    for (const gate of [
+      "git verify-tag --raw",
+      "VALIDSIG",
+      "verify-release-assets.mjs",
+      "must exist as a non-prerelease draft",
+      "Reject updater channel rollback",
+      "--draft=false",
+      "desktop-v0.4",
+    ]) {
+      expect(raw).toContain(gate);
+    }
+    expect(raw.indexOf("verify-release-assets.mjs")).toBeLessThan(raw.indexOf("--draft=false"));
+  });
+
+  it("pins every third-party action to a full commit", () => {
+    const uses = [...raw.matchAll(/uses:\s*([^\s#]+)/g)].map((match) => match[1]);
+    expect(uses.length).toBeGreaterThan(0);
+    for (const use of uses) expect(use.split("@")[1]).toMatch(/^[0-9a-f]{40}$/);
+  });
+});
+
+describe("release signing credential gate", () => {
+  function runSigningGate(extraEnv: Record<string, string | undefined>) {
+    const env = { ...process.env };
+    delete env.TAURI_SIGNING_PRIVATE_KEY;
+    delete env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD;
+    for (const [key, value] of Object.entries(extraEnv)) {
+      if (value === undefined) delete env[key];
+      else env[key] = value;
+    }
+    return spawnSync(process.execPath, [SIGNING_GATE_PATH], {
+      env,
+      encoding: "utf-8",
+    });
+  }
+
+  it("fails closed without the private key", () => {
+    const result = runSigningGate({});
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("TAURI_SIGNING_PRIVATE_KEY");
+  });
+
+  it("accepts the same unencrypted-key mode used by the 0.3.6 release", () => {
+    const result = runSigningGate({ TAURI_SIGNING_PRIVATE_KEY: "fixture-private-key" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("unencrypted-key mode");
+  });
+
+  it("also accepts an encrypted key with its password", () => {
+    const result = runSigningGate({
+      TAURI_SIGNING_PRIVATE_KEY: "fixture-private-key",
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "fixture-password",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("encrypted updater signing key");
   });
 });

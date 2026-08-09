@@ -5,8 +5,11 @@
  *   POST accounts.feishu.cn/oauth/v1/app/registration
  *   action=init → begin(PersonalAgent) → poll → client_id + client_secret
  *
- * Desktop/CLI can drive this then call channel.setup with the returned creds.
+ * Desktop/CLI drive the public session state; Host consumes and persists the
+ * confirmed credentials without returning the secret through renderer RPC.
  */
+
+import * as crypto from "node:crypto";
 
 const FS_REG = "https://accounts.feishu.cn/oauth/v1/app/registration";
 
@@ -42,7 +45,17 @@ async function postForm(body: Record<string, string>): Promise<Record<string, un
 }
 
 function sid(): string {
-  return `fsqr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `fsqr_${crypto.randomUUID()}`;
+}
+
+/** Consume confirmed credentials inside Host so secrets never enter renderer RPC. */
+export function takeFeishuQrCredentials(
+  sessionId: string,
+): { appId: string; appSecret: string } | null {
+  const session = sessions.get(sessionId);
+  if (session?.status !== "confirmed" || !session.appId || !session.appSecret) return null;
+  sessions.delete(sessionId);
+  return { appId: session.appId, appSecret: session.appSecret };
 }
 
 export async function startFeishuQrCreate(): Promise<FeishuQrSession> {

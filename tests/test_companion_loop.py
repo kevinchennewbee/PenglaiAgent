@@ -58,6 +58,9 @@ def test_append_feedback_writes_jsonl(tmp_path):
     data = json.loads(lines[0])
     assert data["type"] == "test"
     assert "ts" in data
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert path.parent.stat().st_mode & 0o777 == 0o700
 
 
 def test_append_feedback_redacts_secrets(tmp_path):
@@ -103,6 +106,8 @@ def test_save_and_load_state_roundtrip(tmp_path):
     cf.save_state(tmp_path, state)
     loaded = cf.load_state(tmp_path)
     assert loaded["opportunity_weights"]["ritual"] < cf.DEFAULT_OPPORTUNITY_WEIGHTS["ritual"]
+    if os.name != "nt":
+        assert cf.adaptation_path(tmp_path).stat().st_mode & 0o777 == 0o600
 
 
 def test_adjust_opportunity_weight_clamps():

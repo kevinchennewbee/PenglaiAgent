@@ -24,7 +24,10 @@ const conf = JSON.parse(
 ) as {
   version: string;
   plugins?: { updater?: { pubkey?: string; endpoints?: string[] } };
-  bundle?: { createUpdaterArtifacts?: boolean };
+  bundle?: {
+    createUpdaterArtifacts?: boolean;
+    macOS?: { signingIdentity?: string; hardenedRuntime?: boolean };
+  };
 };
 
 /** tauri 文档示例公钥（其私钥人人皆知，配置成它 = 更新链彻底失守）。 */
@@ -57,6 +60,11 @@ describe("tauri.conf.json updater 块", () => {
     expect(conf.bundle?.createUpdaterArtifacts).toBe(true);
   });
 
+  it("macOS 发布包始终做完整 ad-hoc 封签", () => {
+    expect(conf.bundle?.macOS?.signingIdentity).toBe("-");
+    expect(conf.bundle?.macOS?.hardenedRuntime).toBe(true);
+  });
+
   it("版本号是三段数字 semver", () => {
     expect(conf.version).toMatch(/^\d+\.\d+\.\d+$/);
   });
@@ -67,7 +75,11 @@ describe("capabilities 权限面", () => {
     const capabilities = JSON.parse(
       fs.readFileSync(path.join(SRC_TAURI, "capabilities", "default.json"), "utf-8"),
     ) as { permissions: string[] };
-    expect(capabilities.permissions).toContain("notification:default");
+    expect(capabilities.permissions).toEqual(expect.arrayContaining([
+      "notification:allow-is-permission-granted",
+      "notification:allow-request-permission",
+      "notification:allow-notify",
+    ]));
     for (const permission of capabilities.permissions) {
       expect(permission).not.toMatch(/^updater:/);
     }

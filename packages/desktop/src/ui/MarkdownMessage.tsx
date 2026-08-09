@@ -34,7 +34,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   );
 }
 
-function publicHref(href: string | undefined): string | null {
+export function publicHref(href: string | undefined): string | null {
   if (!href) return null;
   try {
     const url = new URL(href);

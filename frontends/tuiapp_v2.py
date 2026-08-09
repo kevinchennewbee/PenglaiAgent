@@ -1580,6 +1580,8 @@ _SETTINGS_PATH = os.path.join(
 
 def _load_settings() -> dict:
     try:
+        from penglai_runtime.private_files import harden_private_file
+        harden_private_file(_SETTINGS_PATH, max_bytes=1024 * 1024)
         with open(_SETTINGS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
@@ -1590,9 +1592,12 @@ def _save_settings(patch: dict) -> None:
     cur = _load_settings()
     cur.update(patch)
     try:
-        os.makedirs(os.path.dirname(_SETTINGS_PATH), exist_ok=True)
-        with open(_SETTINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(cur, f, ensure_ascii=False, indent=2)
+        from penglai_runtime.private_files import atomic_write_private
+        atomic_write_private(
+            _SETTINGS_PATH,
+            json.dumps(cur, ensure_ascii=False, indent=2),
+            max_bytes=1024 * 1024,
+        )
     except Exception:
         pass
 

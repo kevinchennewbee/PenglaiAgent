@@ -4,7 +4,8 @@
 # u2 (uiautomator2) 不受idle限制，适合动画密集app（美团等）
 # 弹窗检测: ui(clickable_only=True, raw=True) 找全屏FrameLayout+底部小ImageView(关闭X)
 # 已知包名: 美团外卖=com.sankuai.meituan.takeoutnew 淘宝=com.taobao.taobao
-import subprocess, xml.etree.ElementTree as ET, os, re, shutil
+import subprocess, os, re, shutil
+from defusedxml import ElementTree as ET
 
 ADB = shutil.which("adb") or "adb"
 LOCAL_XML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui_mt.xml")
@@ -32,6 +33,10 @@ def _dump_native():
 
 def _parse_xml(xml_str, keyword=None, clickable_only=False, raw=False):
     """解析XML字符串为节点列表"""
+    if not isinstance(xml_str, str) or len(xml_str.encode("utf-8", errors="ignore")) > 8 * 1024 * 1024:
+        raise ValueError("UI hierarchy XML is empty or exceeds 8 MiB")
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", xml_str, re.IGNORECASE):
+        raise ValueError("DTD/entity declarations are not allowed in UI hierarchy XML")
     root = ET.fromstring(xml_str)
     nodes = []
     for n in root.iter("node"):

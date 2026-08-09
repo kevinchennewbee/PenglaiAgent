@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { WebSocket } from "ws";
+import { ensurePrivateDirectory } from "../security/private-file.js";
 import type { RuntimeHandshake } from "@penglai/protocol";
 import { penglaiDataDir } from "../data-dir.js";
 import { readAndHardenHostToken } from "../token-file.js";
@@ -131,8 +132,10 @@ export class HostClient {
   ): Promise<void> {
     const dataDir = penglaiDataDir();
     const logDir = path.join(dataDir, "logs");
-    fs.mkdirSync(logDir, { recursive: true });
-    const logFd = fs.openSync(path.join(logDir, "host.log"), "a");
+    ensurePrivateDirectory(logDir);
+    const logFile = path.join(logDir, "host.log");
+    const logFd = fs.openSync(logFile, "a", 0o600);
+    fs.chmodSync(logFile, 0o600);
     const child = spawn(
       process.execPath,
       [

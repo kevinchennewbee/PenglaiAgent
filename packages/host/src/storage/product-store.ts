@@ -328,9 +328,26 @@ export class ProductStore {
     options: ProductStoreOptions = {},
   ) {
     if (filename !== ":memory:") {
-      const directory = path.dirname(path.resolve(filename));
+      const resolved = path.resolve(filename);
+      const directory = path.dirname(resolved);
       fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+      const directoryStat = fs.lstatSync(directory);
+      if (directoryStat.isSymbolicLink() || !directoryStat.isDirectory()) {
+        throw new Error(`Product data directory must be a regular directory: ${directory}`);
+      }
+      if (typeof process.getuid === "function" && directoryStat.uid !== process.getuid()) {
+        throw new Error(`Product data directory is not owned by the current user: ${directory}`);
+      }
       fs.chmodSync(directory, 0o700);
+      if (fs.existsSync(resolved)) {
+        const databaseStat = fs.lstatSync(resolved);
+        if (databaseStat.isSymbolicLink() || !databaseStat.isFile()) {
+          throw new Error(`Product database must be a regular file, not a symlink: ${resolved}`);
+        }
+        if (typeof process.getuid === "function" && databaseStat.uid !== process.getuid()) {
+          throw new Error(`Product database is not owned by the current user: ${resolved}`);
+        }
+      }
     }
     this.database = new DatabaseSync(filename);
     this.database.exec(`

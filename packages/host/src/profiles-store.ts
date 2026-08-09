@@ -18,6 +18,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeProviderBaseUrl } from "./providers/url-safety.js";
+import { atomicWritePrivateJson, hardenPrivateFile } from "./security/private-file.js";
 
 /** One persisted profile entry (the on-disk shape). */
 export interface PersistedProfileEntry {
@@ -45,6 +46,8 @@ interface ProfilesFile {
   schemaVersion: 1;
   profiles: PersistedProfileEntry[];
 }
+
+const MAX_PROFILES_FILE_BYTES = 1024 * 1024;
 
 export function profilesFilePath(dataDir: string): string {
   return path.join(dataDir, "profiles.json");
@@ -76,8 +79,15 @@ export function loadPersistedProfiles(dataDir: string): PersistedProfileEntry[] 
   const file = profilesFilePath(dataDir);
   let parsed: ProfilesFile;
   try {
+    hardenPrivateFile(file, MAX_PROFILES_FILE_BYTES);
     parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as ProfilesFile;
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Private config")
+    ) {
+      throw error;
+    }
     return [];
   }
   if (!Array.isArray(parsed?.profiles)) return [];
@@ -109,6 +119,7 @@ export function savePersistedProfile(
   dataDir: string,
   entry: PersistedProfileEntry,
 ): string {
+  if (!isValidEntry(entry)) throw new Error("Refusing to persist an invalid model profile");
   const safeBaseUrl = assertSafeProviderBaseUrl(entry.baseUrl);
   const profiles = loadPersistedProfiles(dataDir).filter((p) => p.id !== entry.id);
   profiles.push({
@@ -128,18 +139,7 @@ export function savePersistedProfile(
     ...(entry.capabilities ? { capabilities: entry.capabilities } : {}),
   });
   const file = profilesFilePath(dataDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp-${process.pid}-${Date.now().toString(36)}`;
   const payload: ProfilesFile = { schemaVersion: 1, profiles };
-  fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-  fs.renameSync(tmp, file);
-  try {
-    fs.chmodSync(file, 0o600);
-  } catch {
-    /* best-effort permission hardening */
-  }
+  atomicWritePrivateJson(file, payload, MAX_PROFILES_FILE_BYTES);
   return file;
 }

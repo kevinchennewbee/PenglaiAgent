@@ -10,6 +10,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as https from "node:https";
+import * as os from "node:os";
 import * as path from "node:path";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
@@ -33,6 +34,8 @@ function loadSchemaVersions() {
 const ROOT_LOCK_PATH = path.join(REPO_ROOT, "package-lock.json");
 const MINIMUM_NODE_VERSION = "22.19.0";
 const BUNDLED_NODE_VERSION = "22.22.2";
+const MAX_NODE_ARCHIVE_BYTES = 128 * 1024 * 1024;
+const MAX_DOWNLOAD_REDIRECTS = 5;
 const NODE_DISTRIBUTIONS = {
   "aarch64-apple-darwin": {
     archive: `node-v${BUNDLED_NODE_VERSION}-darwin-arm64.tar.gz`,
@@ -118,14 +121,47 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function assertSafeOutputDirectory(directory) {
+  const resolved = path.resolve(directory);
+  const forbidden = new Set([
+    path.parse(resolved).root,
+    path.resolve(os.homedir()),
+    REPO_ROOT,
+    HOST_PKG,
+    PROTOCOL_PKG,
+  ]);
+  if (forbidden.has(resolved)) die(`refusing unsafe runtime output directory: ${resolved}`);
+  if (!fs.existsSync(resolved)) return;
+  const stat = fs.lstatSync(resolved);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) die(`runtime output must be a real directory: ${resolved}`);
+  const entries = fs.readdirSync(resolved);
+  if (entries.length === 0) return;
+  const manifestPath = path.join(resolved, "manifest.json");
+  try {
+    const manifest = readJson(manifestPath);
+    if (manifest.name !== "@penglai/host-runtime" || manifest.schemaVersion !== 2) throw new Error("marker mismatch");
+  } catch {
+    die(`refusing to replace non-Penglai non-empty output directory: ${resolved}`);
+  }
+}
+
 function sha256File(file) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(file));
   return hash.digest("hex");
 }
 
-function download(url, destination) {
+function download(url, destination, redirects = 0) {
   return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") {
+      reject(new Error(`refusing non-HTTPS download URL: ${url}`));
+      return;
+    }
+    if (redirects > MAX_DOWNLOAD_REDIRECTS) {
+      reject(new Error(`too many redirects while downloading ${url}`));
+      return;
+    }
     const request = https.get(url, (response) => {
       if (
         response.statusCode &&
@@ -134,7 +170,11 @@ function download(url, destination) {
         response.headers.location
       ) {
         response.resume();
-        download(new URL(response.headers.location, url).toString(), destination)
+        download(
+          new URL(response.headers.location, url).toString(),
+          destination,
+          redirects + 1,
+        )
           .then(resolve, reject);
         return;
       }
@@ -143,8 +183,21 @@ function download(url, destination) {
         reject(new Error(`download ${url} returned HTTP ${response.statusCode}`));
         return;
       }
+      const declared = Number(response.headers["content-length"] ?? 0);
+      if (declared > MAX_NODE_ARCHIVE_BYTES) {
+        response.resume();
+        reject(new Error(`download ${url} exceeds the archive size limit`));
+        return;
+      }
       const temporary = `${destination}.partial`;
       const output = fs.createWriteStream(temporary, { mode: 0o600 });
+      let received = 0;
+      response.on("data", (chunk) => {
+        received += chunk.length;
+        if (received > MAX_NODE_ARCHIVE_BYTES) {
+          request.destroy(new Error(`download ${url} exceeds the archive size limit`));
+        }
+      });
       response.pipe(output);
       output.on("finish", () => {
         output.close(() => {
@@ -157,7 +210,10 @@ function download(url, destination) {
         reject(error);
       });
     });
-    request.on("error", reject);
+    request.on("error", (error) => {
+      fs.rmSync(`${destination}.partial`, { force: true });
+      reject(error);
+    });
   });
 }
 
@@ -196,25 +252,25 @@ async function officialNodeBinary(target) {
     die(`official Node archive checksum mismatch for ${distribution.archive}`);
   }
 
-  const extracted = path.join(cacheRoot, "extracted");
-  fs.rmSync(extracted, { recursive: true, force: true });
-  fs.mkdirSync(extracted, { recursive: true });
-  const result = spawnSync("tar", ["-xf", archive, "-C", extracted], {
-    encoding: "utf8",
+  // Extract only the one pinned executable. This avoids trusting archive paths,
+  // links, permissions, or unrelated members even after checksum validation.
+  const result = spawnSync("tar", ["-xOf", archive, distribution.executable], {
+    encoding: null,
+    maxBuffer: MAX_NODE_ARCHIVE_BYTES,
   });
   if (result.status !== 0) {
-    die(`extract official Node archive failed: ${result.stderr || result.error}`);
+    die(`extract official Node executable failed: ${result.stderr || result.error}`);
   }
-  const source = path.join(extracted, ...distribution.executable.split("/"));
-  if (!fs.existsSync(source)) die(`official Node executable missing after extraction: ${source}`);
+  if (!Buffer.isBuffer(result.stdout) || result.stdout.length === 0) {
+    die(`official Node executable is empty in ${distribution.archive}`);
+  }
   fs.mkdirSync(path.dirname(cachedExecutable), { recursive: true });
-  fs.copyFileSync(source, cachedExecutable);
+  fs.writeFileSync(cachedExecutable, result.stdout, { mode: 0o700 });
   if (!target.includes("windows")) fs.chmodSync(cachedExecutable, 0o755);
   const version = inspectNode(cachedExecutable);
   if (version !== BUNDLED_NODE_VERSION) {
     die(`official Node cache reports ${version}, expected ${BUNDLED_NODE_VERSION}`);
   }
-  fs.rmSync(extracted, { recursive: true, force: true });
   return cachedExecutable;
 }
 
@@ -369,17 +425,36 @@ function productionDependencyClosure() {
   };
 }
 
+function runtimeDependencyPath(lockPath) {
+  const hostPrefix = "packages/host/";
+  return lockPath.startsWith(hostPrefix) ? lockPath.slice(hostPrefix.length) : lockPath;
+}
+
 function copyProductionDependencies(outDirectory) {
   const closure = productionDependencyClosure();
   const licenses = [];
+  const destinations = new Map();
 
   for (const lockPath of closure.lockPaths) {
     const source = path.join(REPO_ROOT, ...lockPath.split("/"));
-    const destination = path.join(outDirectory, ...lockPath.split("/"));
+    // npm stores workspace-specific versions below packages/host/node_modules.
+    // The standalone runtime replaces that workspace, so those packages must
+    // be rooted at runtime/node_modules or Node cannot resolve them from src/.
+    const runtimePath = runtimeDependencyPath(lockPath);
+    const previous = destinations.get(runtimePath);
+    if (previous && previous !== lockPath) {
+      die(`dependency paths ${previous} and ${lockPath} collide at ${runtimePath}`);
+    }
+    destinations.set(runtimePath, lockPath);
+    const destination = path.join(outDirectory, ...runtimePath.split("/"));
     fs.mkdirSync(path.dirname(destination), { recursive: true });
+    const sourceStat = fs.lstatSync(source);
+    if (sourceStat.isSymbolicLink()) {
+      die(`locked runtime dependency must not be a symlink: ${lockPath}`);
+    }
     fs.cpSync(source, destination, {
       recursive: true,
-      dereference: true,
+      dereference: false,
       filter: (entry) => !entry.split(path.sep).includes(".cache"),
     });
 
@@ -389,7 +464,8 @@ function copyProductionDependencies(outDirectory) {
       version: metadata.version ?? "unknown",
       license: metadata.license ?? "UNKNOWN",
       integrity: metadata.integrity ?? null,
-      path: lockPath,
+      path: runtimePath,
+      lockPath,
     });
   }
 
@@ -452,6 +528,7 @@ async function main() {
     : await officialNodeBinary(args.target);
   const nodeVersion = inspectNode(nodeBinary);
   const outDirectory = args.out;
+  assertSafeOutputDirectory(outDirectory);
   const nodeFilename = args.target.includes("windows") ? "node.exe" : "node";
   const nodeRelativePath = `bin/${nodeFilename}`;
 
@@ -513,6 +590,12 @@ async function main() {
     size: fs.statSync(file).size,
   }));
   const schemaVersions = loadSchemaVersions();
+  const requiredPackages = [
+    ...Object.keys(hostPackage.dependencies ?? {}).filter(
+      (dependency) => dependency !== "@penglai/protocol",
+    ),
+    ...Object.keys(hostPackage.optionalDependencies ?? {}),
+  ].sort();
   const manifest = {
     schemaVersion: 2,
     name: "@penglai/host-runtime",
@@ -530,6 +613,7 @@ async function main() {
       sha256: sha256File(nodeDestination),
     },
     dependencyCount: licenses.length,
+    requiredPackages,
     requiredVoiceEngines: ["onnxruntime-node", "sherpa-onnx"],
     fileCount: files.length,
     totalSize: files.reduce((total, entry) => total + entry.size, 0),

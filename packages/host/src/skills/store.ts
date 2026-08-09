@@ -3,12 +3,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { unzipSync } from "fflate";
-import { assertPublicHttpUrl } from "../capabilities/network-safety.js";
+import { assertPublicHttpUrl, fetchPublicHttp } from "../capabilities/network-safety.js";
+import {
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "../security/private-file.js";
 
 const MAX_SKILL_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_SKILL_TOTAL_BYTES = 20 * 1024 * 1024;
 const MAX_SKILL_FILES = 500;
 const MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_SKILL_INDEX_BYTES = 2 * 1024 * 1024;
 
 export interface InstalledSkill {
   name: string;
@@ -92,13 +98,16 @@ function hashDirectory(root: string): { sha256: string; files: number; bytes: nu
 function copyPackage(source: string, target: string): void {
   const sourceRoot = fs.realpathSync(source);
   const walk = (from: string, to: string) => {
-    fs.mkdirSync(to, { recursive: true, mode: 0o700 });
+    ensurePrivateDirectory(to);
     for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
       const sourcePath = path.join(from, entry.name);
       const targetPath = path.join(to, entry.name);
       if (entry.isSymbolicLink()) throw new Error("skill packages cannot contain symbolic links");
       if (entry.isDirectory()) walk(sourcePath, targetPath);
-      else if (entry.isFile()) fs.copyFileSync(sourcePath, targetPath, fs.constants.COPYFILE_EXCL);
+      else if (entry.isFile()) {
+        fs.copyFileSync(sourcePath, targetPath, fs.constants.COPYFILE_EXCL);
+        fs.chmodSync(targetPath, 0o600);
+      }
       else throw new Error("skill packages may contain only regular files");
     }
   };
@@ -109,7 +118,7 @@ function copyPackage(source: string, target: string): void {
 async function fetchBytes(url: string): Promise<Uint8Array> {
   let current = (await assertPublicHttpUrl(url)).toString();
   for (let redirects = 0; redirects <= 5; redirects += 1) {
-    const response = await fetch(current, { redirect: "manual", signal: AbortSignal.timeout(20_000) });
+    const response = await fetchPublicHttp(current, { redirect: "manual", signal: AbortSignal.timeout(20_000) });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) throw new Error("skill download redirect has no location");
@@ -172,8 +181,10 @@ async function materializeSource(source: string, tempRoot: string): Promise<stri
     const stat = fs.statSync(local);
     if (stat.isFile() && path.basename(local).toLowerCase() === "skill.md") {
       const root = path.join(tempRoot, "package");
-      fs.mkdirSync(root, { recursive: true });
-      fs.copyFileSync(local, path.join(root, "SKILL.md"));
+      ensurePrivateDirectory(root);
+      const target = path.join(root, "SKILL.md");
+      fs.copyFileSync(local, target);
+      fs.chmodSync(target, 0o600);
       return root;
     }
     if (!stat.isDirectory()) throw new Error("local skill source must be a directory or SKILL.md");
@@ -202,7 +213,7 @@ async function materializeSource(source: string, tempRoot: string): Promise<stri
       },
     });
     const root = path.join(tempRoot, "package");
-    fs.mkdirSync(root, { recursive: true });
+    ensurePrivateDirectory(root);
     const names = Object.keys(files);
     const prefix = names[0]?.split("/")[0] ?? "";
     const wanted = tree.suffix ? `${prefix}/${tree.suffix}/` : `${prefix}/`;
@@ -212,7 +223,7 @@ async function materializeSource(source: string, tempRoot: string): Promise<stri
       if (!relative || relative.split("/").some((part) => part === ".." || part === "")) continue;
       const target = path.join(root, relative);
       if (!inside(root, target)) throw new Error("skill archive path escapes package root");
-      fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+      ensurePrivateDirectory(path.dirname(target));
       fs.writeFileSync(target, files[name], { mode: 0o600 });
     }
     return root;
@@ -220,7 +231,7 @@ async function materializeSource(source: string, tempRoot: string): Promise<stri
   const url = new URL(source);
   if (url.hostname.toLowerCase() === "raw.githubusercontent.com" && path.basename(url.pathname).toLowerCase() === "skill.md") {
     const root = path.join(tempRoot, "package");
-    fs.mkdirSync(root, { recursive: true });
+    ensurePrivateDirectory(root);
     fs.writeFileSync(path.join(root, "SKILL.md"), await fetchBytes(source), { mode: 0o600 });
     return root;
   }
@@ -234,22 +245,21 @@ export class SkillStore {
   constructor(dataDir: string) {
     this.root = path.join(dataDir, "skills");
     this.indexPath = path.join(this.root, "index.json");
-    fs.mkdirSync(this.root, { recursive: true, mode: 0o700 });
+    ensurePrivateDirectory(this.root);
   }
 
   private readIndex(): SkillIndex {
-    try {
-      const row = JSON.parse(fs.readFileSync(this.indexPath, "utf8")) as SkillIndex;
-      return row?.schemaVersion === 1 && Array.isArray(row.skills) ? row : { schemaVersion: 1, skills: [] };
-    } catch {
-      return { schemaVersion: 1, skills: [] };
+    if (!fs.existsSync(this.indexPath)) return { schemaVersion: 1, skills: [] };
+    hardenPrivateFile(this.indexPath, MAX_SKILL_INDEX_BYTES);
+    const row = JSON.parse(fs.readFileSync(this.indexPath, "utf8")) as SkillIndex;
+    if (row?.schemaVersion !== 1 || !Array.isArray(row.skills)) {
+      throw new Error("skill index has an unsupported or malformed schema");
     }
+    return row;
   }
 
   private writeIndex(index: SkillIndex): void {
-    const temp = `${this.indexPath}.${process.pid}.tmp`;
-    fs.writeFileSync(temp, `${JSON.stringify(index, null, 2)}\n`, { mode: 0o600 });
-    fs.renameSync(temp, this.indexPath);
+    atomicWritePrivateJson(this.indexPath, index, MAX_SKILL_INDEX_BYTES);
   }
 
   list(): InstalledSkill[] {

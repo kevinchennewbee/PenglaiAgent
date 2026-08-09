@@ -1,26 +1,9 @@
 name: desktop-release
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      # 0.3 桌面线发布 tag（0.3 线冻结后仅紧急维护）。显式排除 v0.4*：
-      # 0.4 的发布由 host-release.yml 负责（v0.4* tag），若此处仍为 v*，
-      # 一个 v0.4.x tag 会同时触发两个 workflow，DMG/setup.exe 同名互踩、
-      # latest.json 互相 clobber（用户可能下载到 0.3 二进制却标 0.4）。
-      - "v0.3*"
-    paths:
-      - ".github/workflows/desktop-release.yml"
-      - "install.sh"
-      - "install.ps1"
-      - "frontends/desktop/**"
-      - "frontends/*.py"
-      - "penglai"
-      - "penglai_im_launch.py"
-      - "penglai_runtime/**"
-      - "packaging/**"
-      - "tests/test_penglai_runtime.py"
+  # 0.3 is frozen at v0.3.6. The historical recipe remains inspectable, but
+  # every job has an unreachable push-only guard; 0.4 tags are owned solely
+  # by host-release.yml.
   workflow_dispatch:
 
 permissions:
@@ -29,7 +12,7 @@ permissions:
 jobs:
   macos-dmg:
     name: macOS DMG release (${{ matrix.arch }})
-    if: github.repository == 'kevinchennewbee/PenglaiAgent'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -392,7 +375,10 @@ jobs:
           codesign --verify --deep --strict --verbose=4 "$mount_dir/Penglai.app"
           sign_info="$(codesign -dv --verbose=4 "$mount_dir/Penglai.app" 2>&1)"
           printf '%s\n' "$sign_info"
-          ! grep -F "code has no resources" <<<"$sign_info"
+          if grep -F "code has no resources" <<<"$sign_info"; then
+            echo "::error::codesign reported missing sealed resources"
+            exit 1
+          fi
           if [ "$APPLE_SIGNING_AVAILABLE" != "true" ]; then
             echo "Unsigned build: verified DMG layout and adhoc signature structure (no 'damaged' error)."
             exit 0
@@ -400,8 +386,14 @@ jobs:
           grep -F "Authority=Developer ID Application" <<<"$sign_info"
           grep -F "TeamIdentifier=$APPLE_TEAM_ID" <<<"$sign_info"
           grep -F "(runtime)" <<<"$sign_info"
-          ! grep -F "Signature=adhoc" <<<"$sign_info"
-          ! grep -F "TeamIdentifier=not set" <<<"$sign_info"
+          if grep -F "Signature=adhoc" <<<"$sign_info"; then
+            echo "::error::Developer ID build unexpectedly has an ad-hoc signature"
+            exit 1
+          fi
+          if grep -F "TeamIdentifier=not set" <<<"$sign_info"; then
+            echo "::error::Developer ID build is missing its TeamIdentifier"
+            exit 1
+          fi
           xcrun stapler validate "$mount_dir/Penglai.app"
           spctl -a -vvv -t exec "$mount_dir/Penglai.app"
           xcrun stapler validate "$dmg"
@@ -442,8 +434,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg \
-            dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg
+          cp "frontends/desktop/src-tauri/target/release/bundle/dmg/Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.dmg" \
+            "dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg"
           # Copy updater artifacts (.tar.gz + .sig) for tauri-plugin-updater.
           # Tauri v2 with createUpdaterArtifacts=true may emit .dmg.tar.gz or
           # .app.tar.gz depending on version; pick whichever exists and
@@ -451,9 +443,9 @@ jobs:
           updater_tarball="$(find frontends/desktop/src-tauri/target/release/bundle \
             -type f -name "Penglai_${PENGLAI_VERSION}_${PENGLAI_DMG_ARCH}.*.tar.gz" 2>/dev/null | head -n1 || true)"
           if [ -n "$updater_tarball" ] && [ -f "$updater_tarball" ]; then
-            cp "$updater_tarball" dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz
+            cp "$updater_tarball" "dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz"
             if [ -f "${updater_tarball}.sig" ]; then
-              cp "${updater_tarball}.sig" dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz.sig
+              cp "${updater_tarball}.sig" "dist/Penglai_${PENGLAI_VERSION}_macos_${PENGLAI_DMG_ARCH}.dmg.tar.gz.sig"
             fi
           fi
           ls -la dist/
@@ -471,7 +463,7 @@ jobs:
 
   windows-nsis:
     name: Windows NSIS release
-    if: github.repository == 'kevinchennewbee/PenglaiAgent'
+    if: github.event_name == 'push'
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -886,14 +878,19 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: GitHub release
+    # Frozen 0.3.6 may still be rebuilt for forensic comparison, but this
+    # archival workflow must never mutate Releases. 0.4 publishing belongs
+    # exclusively to host-release.yml and an Owner-signed v0.4.x tag.
+    # The workflow only accepts workflow_dispatch, so this push-only guard is
+    # intentionally unreachable while keeping the archived job readable.
+    if: github.event_name == 'push'
+    name: Archived GitHub release job (disabled)
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     needs:
       - macos-dmg
       - windows-nsis
-    if: github.repository == 'kevinchennewbee/PenglaiAgent' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout release tag
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -936,19 +933,20 @@ jobs:
       - name: Write release notes
         shell: bash
         run: |
+          # The quoted heredoc is literal; the following replacement substitutes the version safely.
           cat > release-notes.md <<'EOF'
-          PenglaiAgent ${PENGLAI_VERSION} / 蓬莱 ${PENGLAI_VERSION}
+          PenglaiAgent @@PENGLAI_VERSION@@ / 蓬莱 @@PENGLAI_VERSION@@
 
           中文说明在前，English follows.
 
-          ## ${PENGLAI_VERSION} 主要更新
+          ## @@PENGLAI_VERSION@@ 主要更新
 
           - **Worldline 对话时间线**：TUI 的 `/rewind`、`/forward`、`/branches` 和 `/continue` 现在使用持久化分支树；续接会话会恢复工作记忆，并用原生会话日志校验当前时间线，避免分支记录与真实上下文漂移。
           - **续接与归档语义收口**：有持久 Worldline 的空日志会被正确发现；缺失原生日志的归档/孤儿会话仍保持隐藏；重绑定失败时明确关闭持久回溯，不伪装为成功恢复。
           - **运行时稳定性修复**：长提示词临时文件改为进程级唯一命名，浏览器传输输出能安全处理 BrokenPipe，Claude 拒绝响应与 turn-end 清理得到回归覆盖。
           - **失败结果可观测**：Companion 记录 failed / silent 结果的计数、最近类型和时间，但不会把失败或沉默误学成用户偏好。
           - **发行链加固**：修复桌面端版本漂移，Rust/Cargo 镜像失败会回退官方源，并将 Worldline、拒绝响应和传输边界测试纳入 macOS / Windows 发布门禁。
-          - **可信发布门禁**：release job 会导入公开发布公钥并验证 `v${PENGLAI_VERSION}` 是 signed annotated tag；`penglai update` 默认 fail-closed，unsigned target 会被拒绝。
+          - **可信发布门禁**：release job 会导入公开发布公钥并验证 `v@@PENGLAI_VERSION@@` 是 signed annotated tag；`penglai update` 默认 fail-closed，unsigned target 会被拒绝。
           - **插件 strict load**：坏插件默认阻断启动和 `_guardcheck`，只有显式 `PENGLAI_ALLOW_UNGUARDED=1` 的开发/救援路径才允许继续并记录警告。
           - **WeChat allowlist 迁移**：微信通道要求 `wechat_allowed_users`；setup 可捕获 owner，doctor 能诊断“有 token 无 allowlist”的老配置。
           - **Conductor token 边界**：本机控制台不再接受 query token；WebSocket 改用 subprotocol/header 鉴权，并在 SECURITY.md 写清同用户本地信任边界。
@@ -964,11 +962,12 @@ jobs:
           - **macOS**：下载 DMG，拖入 Applications。首次打开如被拦截，到“系统设置 -> 隐私与安全性 -> 仍要打开”。
           - **Windows**：下载安装器并运行。如 SmartScreen 拦截，点“更多信息 -> 仍要运行”。
           - 桌面安装包内置 Penglai runtime、standalone Python 和核心依赖；首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
-          - 应用内升级元数据默认指向国内更友好的 `gh-proxy.com` 资产 URL。
+          - 应用内升级元数据只指向项目官方 GitHub Release 资产 URL。
 
           ### 命令行
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+          curl --fail --proto '=https' --tlsv1.2 -o penglai-0.3.6-install.sh https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/v0.3.6/install.sh
+          sh penglai-0.3.6-install.sh
           ```
 
           ## 重要说明
@@ -978,14 +977,14 @@ jobs:
           - 飞书是当前验证最充分的 IM 渠道，其他渠道仍偏实验性。
           - 0.3.0 起不再支持 Docker，没有 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署路径。
 
-          ## What's new in ${PENGLAI_VERSION}
+          ## What's new in @@PENGLAI_VERSION@@
 
           - **Worldline conversation timeline**: TUI `/rewind`, `/forward`, `/branches`, and `/continue` now share a persistent branch tree. Resuming restores working memory and reconciles the active timeline with the native session log so branches cannot silently drift from real context.
           - **Resume and archive semantics**: empty logs with a persisted Worldline are discoverable, while archived/orphaned sessions without their native log remain hidden. A failed store rebind visibly disables durable rewind instead of pretending recovery succeeded.
           - **Runtime stability**: long-prompt files use process-unique names, browser transport output handles broken pipes safely, and Claude refusal plus turn-end cleanup behavior has regression coverage.
           - **Failure outcome telemetry**: Companion tracks failed/silent counts, last outcome kind, and timestamp without learning failures or silence as user preferences.
           - **Release hardening**: desktop version drift is fixed, Rust/Cargo mirror failures fall back to official sources, and Worldline, refusal-response, and transport-boundary tests are enforced on macOS and Windows release gates.
-          - **Trusted release gates**: the release job imports the public release key and verifies `v${PENGLAI_VERSION}` as a signed annotated tag; `penglai update` remains fail-closed and rejects unsigned targets by default.
+          - **Trusted release gates**: the release job imports the public release key and verifies `v@@PENGLAI_VERSION@@` as a signed annotated tag; `penglai update` remains fail-closed and rejects unsigned targets by default.
           - **Plugin strict load**: broken plugins block startup and `_guardcheck` by default; only explicit `PENGLAI_ALLOW_UNGUARDED=1` development/rescue mode can continue with a warning.
           - **WeChat allowlist migration**: WeChat now requires `wechat_allowed_users`; setup can capture the owner and doctor diagnoses old configs with a token but no allowlist.
           - **Conductor token boundary**: local control no longer accepts query tokens; WebSocket auth uses subprotocol/header paths, with the same-user local trust model documented in SECURITY.md.
@@ -1001,11 +1000,12 @@ jobs:
           - **macOS**: download the DMG and drag it to Applications. On first open, go to System Settings -> Privacy & Security -> Open Anyway if blocked.
           - **Windows**: download and run the installer. If SmartScreen blocks it, choose More Info -> Run Anyway.
           - Desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
-          - In-app updater metadata points at mainland-friendly `gh-proxy.com` asset URLs by default.
+          - In-app updater metadata only points at the project's official GitHub Release asset URLs.
 
           ### Command line
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+          curl --fail --proto '=https' --tlsv1.2 -o penglai-0.3.6-install.sh https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/v0.3.6/install.sh
+          sh penglai-0.3.6-install.sh
           ```
 
           ## Important notes
@@ -1015,7 +1015,8 @@ jobs:
           - Feishu is the most validated IM channel. Other channels are experimental.
           - Docker is no longer supported since 0.3.0. There is no Dockerfile, docker-compose, docker-install, GHCR image, or container deployment path.
           EOF
-          sed -i 's/\${PENGLAI_VERSION}/'"${PENGLAI_VERSION}"'/g' release-notes.md
+          sed -i.bak "s/@@PENGLAI_VERSION@@/${PENGLAI_VERSION}/g" release-notes.md
+          rm -f release-notes.md.bak
 
       - name: Generate latest.json for tauri-plugin-updater
         shell: bash
@@ -1026,7 +1027,7 @@ jobs:
           VERSION="${PENGLAI_VERSION}"
           NOTES="PenglaiAgent ${PENGLAI_VERSION} / 蓬莱 ${PENGLAI_VERSION} release notes"
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          DEFAULT_BASE_URL="https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
+          DEFAULT_BASE_URL="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}"
           BASE_URL="${PENGLAI_UPDATER_BASE_URL:-$DEFAULT_BASE_URL}"
           BASE_URL="${BASE_URL%/}"
 

@@ -188,6 +188,12 @@ describe("feishu protocol: endpoint discovery", () => {
     expect(() =>
       parseEndpointResponse({ code: 0, data: { URL: "https://nope" } }),
     ).toThrow(FeishuProtocolError);
+    expect(() =>
+      parseEndpointResponse({ code: 0, data: { URL: "ws://example.com/socket" } }),
+    ).toThrow(FeishuProtocolError);
+    expect(
+      parseEndpointResponse({ code: 0, data: { URL: "ws://127.0.0.1:17777/socket" } }).url,
+    ).toBe("ws://127.0.0.1:17777/socket");
   });
 });
 

@@ -111,7 +111,9 @@ def GrabWindowBg(hwnd_or_name, timeout=5):
 	"""WGC后台截图(Win10+), 传hwnd(int)或窗口标题(str), 返回PIL Image"""
 	import threading, tempfile
 	from windows_capture import WindowsCapture, Frame, CaptureControl
-	tmp = tempfile.mktemp(suffix='.png')
+	tmp_file = tempfile.NamedTemporaryFile(prefix='penglai-wgc-', suffix='.png', delete=False)
+	tmp = tmp_file.name
+	tmp_file.close()
 	done = threading.Event()
 	kw = {'window_hwnd': hwnd_or_name} if isinstance(hwnd_or_name, int) else {'window_name': hwnd_or_name}
 	cap = WindowsCapture(cursor_capture=False, draw_border=False, **kw)

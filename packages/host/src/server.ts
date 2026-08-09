@@ -160,7 +160,11 @@ import {
   saveChannelConfig,
   type FeishuChannelConfig,
 } from "./feishu/config.js";
-import { pollFeishuQrCreate, startFeishuQrCreate } from "./feishu/qr-create.js";
+import {
+  pollFeishuQrCreate,
+  startFeishuQrCreate,
+  takeFeishuQrCredentials,
+} from "./feishu/qr-create.js";
 import {
   clearWechatToken,
   loadWechatToken,
@@ -185,7 +189,7 @@ const DEFAULT_PORT = 14169; // matches 0.3 desktop_bridge port
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 /** Per-client WS buffer ceiling: a slow consumer is dropped, never buffered. */
 const WS_MAX_BUFFERED = 2 * 1024 * 1024;
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 const RUNTIME_INSTANCE_ID = crypto.randomUUID();
 
 /** SOP the Autonomous service submits as a prompt when the user is idle. */
@@ -302,6 +306,8 @@ function createHost(options: ServerOptions): {
   ownsProductStore: boolean;
   /** Stop every IM channel runtime (ws clients, event subscriptions). */
   stopChannels: () => Promise<void>;
+  /** Finish post-run jobs before their ProductStore dependency is closed. */
+  drainBackground: () => Promise<void>;
 } {
   const ownsProductStore = options.productStore === undefined;
   const productStore =
@@ -543,6 +549,7 @@ function createHost(options: ServerOptions): {
     publish: broadcast,
     log: hostLog,
   });
+  const distillJobs = new Set<Promise<unknown>>();
 
   // 语音服务（design §7：统一会话的本地 ASR+TTS，数据不出机）。语音是 I/O
   // 层——蒸馏/审批/预算机制与其天然兼容（语音进出的都是 conversation.prompt
@@ -654,12 +661,14 @@ function createHost(options: ServerOptions): {
       // 蒸馏环入口：干净完工的 run → 复盘→候选 SOP→审计→入树（异步，
       // 绝不阻塞 settle 尾段；失败只留 host 日志与 Evidence）。
       onRunCompleted: (info) => {
-        void distillService.distillRun(info).catch((error) => {
+        const job = distillService.distillRun(info).catch((error) => {
           hostLog(
             `distillation failed for run ${info.run.id}: ` +
               `${error instanceof Error ? error.message : String(error)}`,
           );
         });
+        distillJobs.add(job);
+        void job.finally(() => distillJobs.delete(job));
       },
       onUsage: (episode) => {
         // Durable cost ledger (design §7): one row per (day, mode, project).
@@ -2265,8 +2274,8 @@ function createHost(options: ServerOptions): {
       const rootPath = reqStr(params, "rootPath");
       const name = optStr(params, "name") ?? (path.basename(path.resolve(rootPath)) || "workspace");
       const resolved = path.resolve(rootPath);
-      if (!fs.existsSync(resolved)) {
-        throw new RpcError(-32000, `workspace root does not exist: ${resolved}`, { code: "workspace_required" });
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        throw new RpcError(-32000, `workspace root is not an existing directory: ${resolved}`, { code: "workspace_required" });
       }
       let realRoot: string;
       try {
@@ -3486,7 +3495,7 @@ ${goalText}
 
     /**
      * 按需下载语音模型（which=asr|tts|all）。镜像优先 + .part 断点续传 +
-     * tar 兜底；进度经 voice 频道广播 voice.download.progress。
+     * 固定官方 revision/大小/SHA-256；进度经 voice 频道广播 voice.download.progress。
      */
     "voice.install": async (params) => {
       const which = reqEnum(params, "which", ["asr", "tts", "all"] as const);
@@ -3631,13 +3640,21 @@ ${goalText}
     "channel.feishu.qrPoll": async (params) => {
       const sessionId = reqStr(params, "sessionId");
       const session = await pollFeishuQrCreate(sessionId);
+      const credentials = takeFeishuQrCredentials(sessionId);
+      if (credentials) {
+        saveChannelConfig(productDataDir, { ...credentials, enabled: true });
+        await startFeishuChannel({
+          ...credentials,
+          domain: "https://open.feishu.cn",
+          enabled: true,
+        });
+      }
       return {
         sessionId: session.sessionId,
         qrUrl: session.qrUrl,
         status: session.status,
         appId: session.appId ?? null,
-        // Secret only returned once on confirmed so Desktop can immediately setup.
-        appSecret: session.status === "confirmed" ? (session.appSecret ?? null) : null,
+        configured: credentials !== null,
         error: session.error ?? null,
         expiresAt: session.expiresAt,
         intervalSec: session.intervalSec,
@@ -3801,6 +3818,9 @@ ${goalText}
       await stopFeishuChannel();
       channelController.wechatBridge?.stop();
       channelController.wechat?.stop();
+    },
+    drainBackground: async () => {
+      await Promise.allSettled([...distillJobs]);
     },
   };
 }
@@ -4065,6 +4085,21 @@ function resolvedServerStorage(options: ServerOptions): {
  * returned server has fully closed. Migration uses the same exclusive lane.
  */
 export function startServer(options: ServerOptions = {}): Promise<StartedServer> {
+  const requestedHost = (options.host ?? DEFAULT_HOST).toLowerCase();
+  if (!LOOPBACK_HOSTS.has(requestedHost)) {
+    return Promise.reject(
+      new Error(`Penglai Host refuses a non-loopback bind address: ${options.host}`),
+    );
+  }
+  if (
+    options.token !== undefined &&
+    !process.env.VITEST &&
+    options.token.trim().length < 32
+  ) {
+    return Promise.reject(
+      new Error("Penglai Host token must contain at least 32 characters"),
+    );
+  }
   const storage = resolvedServerStorage(options);
   let operationLock: DataDirOperationLock | null = null;
   try {
@@ -4101,6 +4136,7 @@ function startServerLocked(
     productStore,
     ownsProductStore,
     stopChannels,
+    drainBackground,
   } = createHost(options);
 
   const server = http.createServer(async (req, res) => {
@@ -4300,6 +4336,7 @@ function startServerLocked(
               ),
               new Promise((r) => setTimeout(r, 8_500)),
             ]);
+            await drainBackground();
             await stopChannels();
             await new Promise<void>((resolveClose) => {
               // Stop the background service tickers first.

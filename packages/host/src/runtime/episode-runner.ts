@@ -295,6 +295,20 @@ export class EpisodeRunner {
               resolve({ approved: true, note: "scheduled: L2 auto-approved" });
               return;
             }
+            const timeout = setTimeout(() => {
+              this.pendingApprovals.delete(approvalId);
+              resolve({ approved: false, note: "approval timed out" });
+            }, 30 * 60_000);
+            this.pendingApprovals.set(approvalId, {
+              sessionKey,
+              resolve: (verdict) => {
+                clearTimeout(timeout);
+                resolve(verdict);
+              },
+            });
+            // Register before notifying transports. An in-process desktop/CLI
+            // listener may decide synchronously from this event; emitting first
+            // creates a race where a valid decision is reported as "not found".
             emit({
               event: "episode.approval.requested",
               sessionKey,
@@ -305,19 +319,6 @@ export class EpisodeRunner {
               capability: req.capability,
               action: req.action,
               argsExcerpt: req.argsExcerpt,
-            });
-            // The transport decides by emitting back via resolveApproval;
-            // for now, without a registered resolver, deny after a timeout.
-            // Step 5 wires CLI/desktop/Feishu resolvers here.
-            const timeout = setTimeout(() => {
-              resolve({ approved: false, note: "approval timed out" });
-            }, 30 * 60_000);
-            this.pendingApprovals.set(approvalId, {
-              sessionKey,
-              resolve: (verdict) => {
-                clearTimeout(timeout);
-                resolve(verdict);
-              },
             });
           }),
         emit: (ke) => {

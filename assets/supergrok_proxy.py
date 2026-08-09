@@ -34,6 +34,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer, HTTPServer
 from urllib.parse import urlencode, urlparse, parse_qs
 
 import requests
+from penglai_runtime.private_files import atomic_write_private, harden_private_file
 
 XAI_CLIENT_ID = 'b1a00492-073a-47ea-816f-4c329264a828'
 XAI_AUTHORIZE_URL = 'https://auth.x.ai/oauth2/authorize'
@@ -45,6 +46,7 @@ XAI_API_BASE = 'https://api.x.ai/v1'
 DEFAULT_STORE = os.path.join(os.path.expanduser('~'), '.genericagent', 'xai_oauth.json')
 DEFAULT_PROXY_PORT = 15433
 REFRESH_MARGIN = 120
+_LOOPBACK_LISTEN_HOSTS = {'127.0.0.1', 'localhost'}
 
 
 def log(msg):
@@ -61,6 +63,14 @@ def make_proxies(proxy: str | None):
     return {'http': proxy, 'https': proxy}
 
 
+def validate_listen_host(host: str) -> str:
+    """The OAuth proxy has no downstream authentication; never expose it."""
+    value = str(host or '').strip().lower().rstrip('.')
+    if value not in _LOOPBACK_LISTEN_HOSTS:
+        raise ValueError('SuperGrok proxy must listen on exact loopback (127.0.0.1 or localhost)')
+    return value
+
+
 class TokenManager:
     def __init__(self, store_path=DEFAULT_STORE, proxy='http://127.0.0.1:2082'):
         self.store_path = os.path.expanduser(store_path)
@@ -74,6 +84,7 @@ class TokenManager:
 
     def load(self):
         try:
+            harden_private_file(self.store_path, max_bytes=1024 * 1024)
             with open(self.store_path, encoding='utf-8') as f:
                 data = json.load(f)
             self.access_token = data.get('access_token')
@@ -81,20 +92,18 @@ class TokenManager:
             self.expires_at = float(data.get('expires_at') or 0)
             if self.access_token:
                 remain = int(self.expires_at - time.time())
-                log(f"Token loaded: ***{self.access_token[-6:]} expires_in={remain}s")
+                log(f"Token loaded: [redacted] expires_in={remain}s")
         except FileNotFoundError:
             log(f"No saved token: {self.store_path}")
         except Exception as e:
-            log(f"Failed to load token: {e}")
+            raise RuntimeError(f"refusing unsafe or corrupt OAuth token store: {e}") from e
 
     def save(self, data):
-        os.makedirs(os.path.dirname(self.store_path), exist_ok=True)
-        with open(self.store_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        try:
-            os.chmod(self.store_path, 0o600)
-        except OSError:
-            pass
+        atomic_write_private(
+            self.store_path,
+            json.dumps(data, ensure_ascii=False, indent=2),
+            max_bytes=1024 * 1024,
+        )
         log(f"Token saved: {self.store_path}")
 
     def login(self, open_browser=True, timeout=300):
@@ -301,6 +310,7 @@ def cmd_refresh(args):
 
 
 def cmd_serve(args):
+    args.host = validate_listen_host(args.host)
     mgr = TokenManager(args.store, args.upstream_proxy)
     if not mgr.access_token:
         log("No token found. Starting login first...")

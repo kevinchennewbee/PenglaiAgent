@@ -84,5 +84,22 @@ def test_manual_start_commands_use_absolute_install_dir():
     assert "cd /opt/penglai && /opt/penglai/.venv/bin/python /opt/penglai/agentmain.py --reflect /opt/penglai/reflect/scheduler.py" in text
 
 
+def test_model_connectivity_url_rejects_credential_leaks():
+    ps, _ = _setup_mykey("")
+    assert ps._validated_api_url("https://api.example.com/v1") == "https://api.example.com/v1"
+    assert ps._validated_api_url("http://127.0.0.1:8080/v1") == "http://127.0.0.1:8080/v1"
+    for unsafe in (
+        "file:///tmp/secret",
+        "http://api.example.com/v1",
+        "https://user:pass" + "@api.example.com/v1",
+        "https://api.example.com/v1#fragment",
+    ):
+        try:
+            ps._validated_api_url(unsafe)
+            raise AssertionError(f"unsafe API URL accepted: {unsafe}")
+        except ValueError:
+            pass
+
+
 if __name__ == "__main__":
     raise SystemExit(run_tests(dict(globals())))

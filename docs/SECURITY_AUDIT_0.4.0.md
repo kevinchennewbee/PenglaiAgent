@@ -20,25 +20,40 @@ paths as of the audit date.
 This verdict is deliberately narrower than “perfectly secure”. The desktop is
 a same-user application, its command/MCP processes are not OS-sandboxed, and
 the local DMG is ad-hoc signed rather than Apple Developer ID signed/notarized.
-The final GitHub branch-protection and repository security settings are Owner
-cutover controls and must be checked when the candidate is pushed.
+GitHub branch protection and repository security settings were configured and
+read back through the API before the candidate branch was pushed.
 
 ## Evidence summary
 
 | Evidence | Observed result | Finding/path |
 | --- | --- | --- |
-| `npm test` | 71 files, 838 tests passed | F-01 through F-05 regression coverage |
+| `npm test` | 71 files, 859 tests passed | F-01 through F-11 regression coverage |
+| `pytest -q tests` | 421 tests passed; 12 deprecation warnings | legacy/migration safety coverage |
+| current + legacy `cargo fmt/check/test --locked` | passed; current shell 2 tests, legacy shell 0 | native desktop compile/test coverage |
 | `npm audit --audit-level=moderate --registry=https://registry.npmjs.org` | 0 vulnerabilities | F-06 |
 | `cargo audit --file packages/desktop/src-tauri/Cargo.lock` | 0 vulnerabilities; 17 allowed warnings | F-07 |
 | `cargo tree ... --target aarch64-apple-darwin -i glib@0.18.5` | dependency absent | F-07 |
 | `cargo tree ... --target x86_64-pc-windows-msvc -i glib@0.18.5` | dependency absent | F-07 |
 | `cargo tree ... --target x86_64-unknown-linux-gnu -i glib@0.18.5` | reachable through Tauri GTK3 | F-07 |
 | `node scripts/release-check.mjs` | public-source release gates pass | F-06, F-08, F-09 |
+| Gitleaks candidate snapshot | 606 candidate files; 0 leaks | public-tree secret check |
+| Semgrep candidate snapshot | 49 findings: 42 warnings + 7 manually bounded error-level matches | dangerous API review |
+| Bandit production source | 591 low, 23 medium, 0 high over 55,558 LOC | legacy Python dangerous API review |
 | `npm run tauri:build:local -w @penglai/desktop` | build, ad-hoc seal and `hdiutil verify` pass | F-10 |
 | `node scripts/lifecycle-check.mjs` | install, first launch, isolated Host, setup, chat, Evidence preview, redacted diagnostics and uninstall pass | F-01, F-02, F-05, F-10 |
 
-The full release gate was rerun on the clean one-commit public-history branch
-and passed all eight groups.
+The audit ledger traverses and hashes every byte and line in the candidate; it
+does not pretend that one human semantically proved every line. Language-aware
+compilers/scanners/tests cover the full tree, with manual review concentrated
+on trust boundaries and scanner findings. Semgrep parsed about 99.9% of its
+targets but reported 29 fixpoint-timeout warnings; those surfaces also remain
+covered by compiler/tests and targeted review. Its seven error-level matches
+are the fixed numeric loopback extension probe, two fixed-allowlist argv-only
+legacy subprocess sites (reported by two rules each), and two exact-loopback
+BBS fetch sites. Bandit's 23 medium matches are 21 reviewed URL openers, one
+intentional non-loopback rejection self-check, and one documentation-string SQL
+false positive. The complete eight-group release gate was rerun against the
+working candidate including untracked additions and passed.
 
 ## Findings and repairs
 
@@ -149,8 +164,8 @@ Paths: `SECURITY.md`, `docs/PRIVACY_AND_DATA.md`, `NOTICE`, `README.md`,
 
 ### F-10 — Local installer acceptance — passed with explicit signing limit
 
-The rebuilt Apple Silicon DMG is 252,154,286 bytes with SHA-256
-`83e3bdb69181c51427998ff00e01be513cdced9d19614f177615c866d178b02e`.
+The rebuilt Apple Silicon DMG is 259,236,192 bytes with SHA-256
+`34079daf42a0c8bdb5068c26fc3f204c052ee88bb3aa2cedc49d186acf50ac07`.
 `hdiutil` verified its image checksum. The mounted app passed ad-hoc seal
 verification and a sandboxed install/use/uninstall lifecycle using its bundled
 Node 22.22.2 Host runtime. This proves local integrity and functionality, not an
@@ -159,30 +174,50 @@ Apple-verified publisher identity or notarization.
 Path: `packages/desktop/scripts/build-local-dmg.mjs`,
 `scripts/lifecycle-check.mjs`, `docs/RELEASE_NOTES_0.4.0.md`.
 
+### F-11 — Packaged Host could not resolve the Pi workspace dependency — fixed
+
+The first clean DMG lifecycle found a real release blocker that unit tests in
+the monorepo had hidden: npm installed the pinned Pi packages below the Host
+workspace, and the runtime packager preserved that workspace prefix inside the
+standalone artifact. Node therefore could not resolve `pi-agent-core` from the
+packaged Host. The packager now maps workspace-owned dependencies to the
+standalone runtime root, fails on destination collisions, and records every
+direct required package in the signed runtime manifest. The verifier rejects a
+runtime missing any of them. A rebuilt DMG then passed isolated Host boot,
+Doctor, setup, Pi chat and the full lifecycle.
+
+Paths: `packages/host/scripts/build-runtime.mjs`,
+`packages/host/scripts/verify-runtime.mjs`,
+`packages/host/test/runtime-integrity.test.ts`, `scripts/lifecycle-check.mjs`.
+
 ## Owner cutover controls
 
 These controls live in GitHub settings and cannot be made true by a source
-commit alone:
+commit alone. API inspection and authorized remediation on 2026-08-09 now
+confirm:
 
-Read-only API inspection on 2026-08-09 found:
-
-- `main` is not protected and no repository ruleset exists;
-- Actions currently allow all actions and do not require SHA pinning at the
-  repository-setting level (the candidate workflow files themselves are pinned);
-- Dependabot vulnerability alerts and security updates are disabled;
-- private vulnerability reporting is disabled;
+- the repository is public and the authenticated Owner has `ADMIN`;
+- `main` requires a pull request, strict passing checks for Public Python, Host
+  packaging and Desktop Rust, linear history and resolved conversations;
+  administrator enforcement is on, while force pushes and deletion are off;
+- repository Action SHA pinning is required and workflow permissions default to
+  read-only;
+- Dependabot vulnerability alerts/security updates and private vulnerability
+  reporting are enabled;
+- the protected `release` environment requires the Owner reviewer and accepts
+  only `v0.4.*` tags;
+- the public description identifies the TypeScript Host + Pi 0.4 product;
 - secret scanning and push protection are enabled, with zero open secret
-  scanning alerts visible to the authenticated owner.
+  scanning alerts visible to the authenticated Owner.
 
-1. Require pull-request review and passing checks on `main`; block force pushes
-   and branch deletion.
-2. Restrict allowed Actions to trusted/pinned actions and retain least-privilege
-   workflow permissions.
-3. Enable Dependabot alerts/security updates and private vulnerability
-   reporting.
-4. Review the clean public candidate diff and the website diff before push.
-5. Publish as a draft first. Inspect checksums/SBOM/assets downloaded back from
-   GitHub before promoting it to a public release.
+The remaining cutover sequence is operational rather than a missing control:
+
+1. Push the candidate branch and merge only through the protected PR after all
+   three required checks pass.
+2. Push the separately reviewed `gh-pages` commit.
+3. Create and push the Owner-signed annotated tag only from the accepted `main`.
+4. Inspect the generated draft Release checksums, SBOM and downloaded assets;
+   then use the separate manual publish workflow with the exact confirmation.
 
 ## Reproduction
 
@@ -191,8 +226,10 @@ Run from a clean checkout on the candidate commit:
 ```bash
 npm ci
 npm test
+PYTHONPATH=. pytest -q tests
 npm audit --audit-level=moderate --registry=https://registry.npmjs.org
 node scripts/release-check.mjs
+actionlint .github/workflows/*.yml
 cargo audit --file packages/desktop/src-tauri/Cargo.lock
 cargo check --locked --manifest-path packages/desktop/src-tauri/Cargo.toml
 cargo test --locked --manifest-path packages/desktop/src-tauri/Cargo.toml

@@ -54,7 +54,7 @@ def test_inline_eval_cannot_access_parent_name():
         "inline_eval": True,
         "code": "try:\n    parent.sentinel\nexcept NameError:\n    _r='no-parent'",
     }, _Resp()))
-    assert outcome.data == "no-parent"
+    assert outcome.data.startswith("Error:")
 
 
 def test_inline_eval_cannot_reach_parent_via_handler():
@@ -64,20 +64,34 @@ def test_inline_eval_cannot_reach_parent_via_handler():
         "inline_eval": True,
         "code": "try:\n    handler.parent.sentinel\nexcept AttributeError:\n    _r='no-handler-parent'",
     }, _Resp()))
-    assert outcome.data == "no-handler-parent"
+    assert outcome.data.startswith("Error:")
     assert "TEST_SENTINEL" not in outcome.data
 
 
-@pytest.mark.skipif(not hasattr(__import__("signal"), "SIGALRM"), reason="SIGALRM required")
-def test_inline_eval_timeout_kills_long_loop():
+def test_inline_eval_rejects_arbitrary_python():
     h = _handler()
     _outs, outcome = _run_gen(h.do_code_run({
         "type": "python",
         "inline_eval": True,
-        "timeout": 1,
         "code": "while True:\n    pass",
     }, _Resp()))
-    assert "timeout" in outcome.data
+    assert outcome.data.startswith("Error:")
+
+
+def test_inline_eval_allows_only_the_two_declarative_sop_actions(tmp_path):
+    h = _handler(str(tmp_path))
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    _outs, outcome = _run_gen(h.do_code_run({
+        "type": "python",
+        "inline_eval": True,
+        "code": (
+            f"handler.enter_plan_mode({str(plan)!r})\n"
+            "handler._done_hooks.append('owner-visible review')"
+        ),
+    }, _Resp()))
+    assert outcome.data == "OK"
+    assert h._done_hooks == ["owner-visible review"]
 
 
 def test_master_injection_rejects_group_writable_file():
@@ -169,3 +183,31 @@ def test_tmwebdriver_transport_logging_is_broken_pipe_safe():
     assert "except (BrokenPipeError, OSError, ValueError)" in source
     assert len(re.findall(r"(?<!safe_)print\(", source)) == 1
     assert source.count("safe_print(") >= 15
+
+
+def test_tmwebdriver_refuses_non_loopback_bridge_binding():
+    from TMWebDriver import TMWebDriver
+
+    with pytest.raises(ValueError, match="loopback"):
+        TMWebDriver(host="0.0.0.0")
+    with pytest.raises(ValueError, match="port"):
+        TMWebDriver(port=65535)
+
+
+def test_tmwebdriver_bridge_config_is_private_atomic_and_refuses_symlink(tmp_path, monkeypatch):
+    import TMWebDriver as tmwd
+
+    config = tmp_path / "config.js"
+    monkeypatch.setattr(tmwd, "_BRIDGE_CONFIG", str(config))
+    tid, token = tmwd._ensure_bridge_config()
+    assert re.fullmatch(r"__ljq_[0-9a-f]{1,16}", tid)
+    assert len(token) >= 32
+    assert stat.S_IMODE(config.stat().st_mode) == 0o600
+
+    target = tmp_path / "target.js"
+    target.write_text("do not overwrite", encoding="utf-8")
+    config.unlink()
+    config.symlink_to(target)
+    with pytest.raises(RuntimeError, match="symlink"):
+        tmwd._ensure_bridge_config()
+    assert target.read_text(encoding="utf-8") == "do not overwrite"

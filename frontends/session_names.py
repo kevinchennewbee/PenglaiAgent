@@ -4,6 +4,7 @@ JSON sidecar at `temp/model_responses/session_names.json` maps log-file
 basename → user name. Touched only by `/rename` and `/continue <name>`.
 """
 import glob, json, os, re, threading
+from penglai_runtime.private_files import atomic_write_private, harden_private_file
 
 _LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         'temp', 'model_responses')
@@ -14,6 +15,7 @@ _lock = threading.Lock()
 
 def _load() -> dict:
     try:
+        harden_private_file(_REG_PATH, max_bytes=1024 * 1024)
         with open(_REG_PATH, encoding='utf-8') as f:
             d = json.load(f)
             return d if isinstance(d, dict) else {}
@@ -22,11 +24,11 @@ def _load() -> dict:
 
 
 def _save(d: dict) -> None:
-    os.makedirs(_LOG_DIR, exist_ok=True)
-    tmp = _REG_PATH + '.tmp'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(d, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, _REG_PATH)
+    atomic_write_private(
+        _REG_PATH,
+        json.dumps(d, ensure_ascii=False, indent=2),
+        max_bytes=1024 * 1024,
+    )
 
 
 def _resolve_basename(basename: str):

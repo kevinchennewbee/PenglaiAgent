@@ -98,6 +98,22 @@ describe("profiles-store: durable BYOK profiles", () => {
     );
     expect(loadPersistedProfiles(dataDir).map((p) => p.id)).toEqual(["ok"]);
   });
+
+  it.runIf(process.platform !== "win32")("rejects a symlinked private profiles file", () => {
+    const dataDir = tempDir("penglai-profiles-");
+    const outside = path.join(tempDir("penglai-profiles-outside-"), "profiles.json");
+    fs.writeFileSync(outside, JSON.stringify({ schemaVersion: 1, profiles: [] }), { mode: 0o600 });
+    fs.symlinkSync(outside, profilesFilePath(dataDir));
+    expect(() => loadPersistedProfiles(dataDir)).toThrow(/regular file, not a symlink/);
+    expect(() => savePersistedProfile(dataDir, {
+      id: "safe",
+      label: "Safe",
+      provider: "custom",
+      baseUrl: "https://example.com/v1",
+      model: "model",
+      apiKeyEnv: "",
+    })).toThrow(/regular file, not a symlink/);
+  });
 });
 
 describe("model-smoke: classified one-shot verification", () => {

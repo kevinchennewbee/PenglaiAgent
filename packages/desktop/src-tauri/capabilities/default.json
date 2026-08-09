@@ -4,7 +4,6 @@
   "description": "Default capabilities for the Penglai 0.4 desktop main window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
     "core:window:default",
     "core:window:allow-show",
     "core:window:allow-hide",
@@ -12,10 +11,15 @@
     "core:window:allow-close",
     "core:window:allow-unminimize",
     "core:window:allow-get-all-windows",
-    "core:webview:default",
+    "core:window:allow-start-dragging",
     "core:event:default",
     "dialog:allow-open",
-    "notification:default",
-    "opener:default"
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-notify",
+    "opener:allow-open-url",
+    "opener:allow-open-path",
+    "opener:allow-reveal-item-in-dir",
+    "opener:allow-default-urls"
   ]
 }

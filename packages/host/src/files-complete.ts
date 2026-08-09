@@ -25,8 +25,9 @@ export function completeFiles(input: {
   query?: string;
   limit?: number;
 }): FileCompleteHit[] {
-  const root = path.resolve(input.rootPath);
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) return [];
+  const unresolvedRoot = path.resolve(input.rootPath);
+  if (!fs.existsSync(unresolvedRoot) || !fs.statSync(unresolvedRoot).isDirectory()) return [];
+  const root = fs.realpathSync(unresolvedRoot);
   const limit = Math.min(Math.max(input.limit ?? 30, 1), 80);
   const q = (input.query ?? "").replace(/\\/g, "/");
   const hasSlash = q.includes("/");
@@ -34,10 +35,17 @@ export function completeFiles(input: {
   const basePart = hasSlash ? q.slice(q.lastIndexOf("/") + 1) : q;
   const dirAbs = path.resolve(root, dirPart || ".");
   if (!isInsideRoot(root, dirAbs) || !fs.existsSync(dirAbs)) return [];
+  let realDir: string;
+  try {
+    realDir = fs.realpathSync(dirAbs);
+  } catch {
+    return [];
+  }
+  if (!isInsideRoot(root, realDir)) return [];
 
   let names: string[] = [];
   try {
-    names = fs.readdirSync(dirAbs);
+    names = fs.readdirSync(realDir);
   } catch {
     return [];
   }
@@ -48,10 +56,14 @@ export function completeFiles(input: {
     if (lower && !name.toLowerCase().startsWith(lower) && !name.toLowerCase().includes(lower)) {
       continue;
     }
-    const abs = path.join(dirAbs, name);
+    const abs = path.join(realDir, name);
     let isDir = false;
     try {
-      isDir = fs.statSync(abs).isDirectory();
+      const stat = fs.lstatSync(abs);
+      if (stat.isSymbolicLink()) continue;
+      const real = fs.realpathSync(abs);
+      if (!isInsideRoot(root, real)) continue;
+      isDir = stat.isDirectory();
     } catch {
       continue;
     }

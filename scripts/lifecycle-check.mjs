@@ -11,7 +11,7 @@
  *   node scripts/lifecycle-check.mjs --keep     # 跑完保留 /tmp 现场（调试用）
  *
  * 隔离纪律：
- *   - app 拷贝到 /tmp/penglai-apps/（不动 /Applications）；
+ *   - app 拷贝到本次唯一的 /tmp/penglai-lifecycle-<id>/apps/（不动 /Applications）；
  *   - 一切数据写 PENGLAI_DATA_DIR=/tmp/penglai-lifecycle-*（不碰真实 ~/.penglai）；
  *   - 本机 14169 若被既有 `penglai serve` 占用：app 按产品语义复用既有 Host
  *     （不催生自己的 runtime），脚本**如实记录该偏差**，并改用沙盒端口
@@ -42,7 +42,7 @@ const SANDBOX_PORT = 14175;
 const KEEP = process.argv.includes("--keep");
 
 const BASE = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-lifecycle-"));
-const APP_DIR = "/tmp/penglai-apps";
+const APP_DIR = path.join(BASE, "apps");
 const APP_INSTALLED = path.join(APP_DIR, "Penglai.app");
 const DATA_APP = path.join(BASE, "data-app");
 const DATA_HOST = path.join(BASE, "data-host");
@@ -405,12 +405,17 @@ async function main() {
   else bad(`端口 ${SANDBOX_PORT} 仍被占用（pid ${leftover.join("/")}）`);
   const stray = (() => {
     try {
-      return execFileSync("sh", ["-c", `ps aux | grep -F "${BASE}" | grep -v grep || true`], { encoding: "utf-8" }).trim();
+      return execFileSync("ps", ["aux"], { encoding: "utf-8" })
+        .split("\n")
+        .filter((line) => line.includes(BASE))
+        .join("\n")
+        .trim();
     } catch { return ""; }
   })();
   if (!stray) ok("无残留进程（沙盒路径扫描）");
   else bad(`残留进程：${stray.split("\n")[0].slice(0, 120)}`);
   if (!KEEP) {
+    if (!APP_DIR.startsWith(`${BASE}${path.sep}`)) throw new Error("refusing to remove app outside lifecycle sandbox");
     fs.rmSync(APP_DIR, { recursive: true, force: true });
     if (!fs.existsSync(APP_INSTALLED)) ok("隔离 app 已删除（卸载动作完成）");
     else bad("app 删除失败");
@@ -467,8 +472,10 @@ try {
   }
   try { mockServer?.close(); } catch { /* closed */ }
   if (!KEEP) {
+    if (!APP_DIR.startsWith(`${BASE}${path.sep}`) || !BASE.startsWith(path.join(os.tmpdir(), "penglai-lifecycle-"))) {
+      throw new Error("refusing to clean outside lifecycle sandbox");
+    }
     try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* fine */ }
-    try { fs.rmSync(APP_DIR, { recursive: true, force: true }); } catch { /* fine */ }
   }
   console.log(lines.join("\n"));
   console.log(`\n（沙盒 ${BASE}${KEEP ? " 已保留" : " 已清理"}）`);

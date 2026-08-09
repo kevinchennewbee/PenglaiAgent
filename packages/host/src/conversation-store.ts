@@ -16,6 +16,15 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import type { Message } from "@penglai/protocol";
 import { penglaiDataDir } from "./data-dir.js";
+import {
+  appendPrivateLine,
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "./security/private-file.js";
+
+const MAX_CONVERSATION_META_BYTES = 2 * 1024 * 1024;
+const MAX_TRANSCRIPT_BYTES = 512 * 1024 * 1024;
 
 // ── home resolution ────────────────────────────────────────────
 
@@ -70,9 +79,10 @@ function transcriptPath(conversationId: string): string {
 /** Append a single message to the conversation transcript (creates dirs as
  *  needed). */
 export function saveMessage(conversationId: string, message: Message): void {
+  ensurePrivateDirectory(conversationsBaseDir());
   const dir = conversationDir(conversationId);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(transcriptPath(conversationId), JSON.stringify(message) + "\n", "utf-8");
+  ensurePrivateDirectory(dir);
+  appendPrivateLine(transcriptPath(conversationId), JSON.stringify(message));
 }
 
 /**
@@ -118,30 +128,36 @@ function metaPath(conversationId: string): string {
 }
 
 export function saveConversationMeta(meta: ConversationMeta): void {
+  ensurePrivateDirectory(conversationsBaseDir());
   const dir = conversationDir(meta.id);
-  fs.mkdirSync(dir, { recursive: true });
+  ensurePrivateDirectory(dir);
   const file = metaPath(meta.id);
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
-  fs.renameSync(tmp, file);
+  atomicWritePrivateJson(file, meta, MAX_CONVERSATION_META_BYTES);
 }
 
 export function loadConversationMeta(conversationId: string): ConversationMeta | null {
+  if (!fs.existsSync(conversationsBaseDir())) return null;
+  ensurePrivateDirectory(conversationsBaseDir());
   const file = metaPath(conversationId);
   try {
     if (!fs.existsSync(file)) return null;
+    hardenPrivateFile(file, MAX_CONVERSATION_META_BYTES);
     const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ConversationMeta;
     if (!raw || raw.id !== conversationId) return null;
     return raw;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Private")) throw error;
     return null;
   }
 }
 
 /** Read every message from a conversation transcript. Returns [] if none yet. */
 export function loadMessages(conversationId: string): Message[] {
+  if (!fs.existsSync(conversationsBaseDir())) return [];
+  ensurePrivateDirectory(conversationsBaseDir());
   const file = transcriptPath(conversationId);
   if (!fs.existsSync(file)) return [];
+  hardenPrivateFile(file, MAX_TRANSCRIPT_BYTES);
   const text = fs.readFileSync(file, "utf-8");
   const messages: Message[] = [];
   for (const line of text.split("\n")) {
@@ -163,6 +179,7 @@ export function loadMessages(conversationId: string): Message[] {
 export function listConversations(): string[] {
   const base = conversationsBaseDir();
   if (!fs.existsSync(base)) return [];
+  ensurePrivateDirectory(base);
   return fs
     .readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory())

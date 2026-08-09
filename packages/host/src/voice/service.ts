@@ -8,7 +8,7 @@
  *          TTS 都可用（移植自旧分支 tools/voice.ts 的诚实 seam）；
  *       ② MOSS 全管线：官方 ONNX prefill/decode + local decoder +
  *          audio codec，多会话真实权重合成本地 48kHz 双声道 PCM。
- *   - install：按需下载模型（assets.ts：镜像优先 + .part 断点 + tar 兜底）。
+ *   - install：按需下载模型（assets.ts：固定 revision/hash + 镜像回退 + .part 断点）。
  *
  * 所有引擎/下载都走注入缝；模型缺失、引擎缺失、麦克风缺失一律精确降级，
  * 绝不抛出、绝不 stub 成「假装成功」。
@@ -25,6 +25,7 @@ import {
   type DownloadDeps,
   type DownloadProgress,
   type ModelInstallResult,
+  type VoiceModelSpec,
 } from "./assets.js";
 import {
   ffmpegBin,
@@ -62,6 +63,8 @@ export interface VoiceServiceDeps extends DownloadDeps {
   sherpaFactory?: () => SherpaOnnx | null;
   ortFactory?: () => OrtNode | null;
   ffmpegPath?: string | null;
+  /** Test/embedding seam; production omits this and uses the pinned built-in manifests. */
+  specs?: Partial<Record<"asr" | "tts", VoiceModelSpec>>;
   mossRuntimeFactory?: (modelDir: string) => {
     synthesize(text: string): Promise<{
       samples: Float32Array;
@@ -139,12 +142,13 @@ export class VoiceService {
 
   /** 按需下载模型（asr / tts / all）；进度经 onProgress 回调逐块上报。 */
   async install(which: "asr" | "tts" | "all"): Promise<ModelInstallResult[]> {
-    const specs = which === "all" ? [SENSEVOICE_SPEC, MOSS_TTS_SPEC] : [which === "asr" ? SENSEVOICE_SPEC : MOSS_TTS_SPEC];
+    const asrSpec = this.deps.specs?.asr ?? SENSEVOICE_SPEC;
+    const ttsSpec = this.deps.specs?.tts ?? MOSS_TTS_SPEC;
+    const specs = which === "all" ? [asrSpec, ttsSpec] : [which === "asr" ? asrSpec : ttsSpec];
     const results: ModelInstallResult[] = [];
     for (const spec of specs) {
       const result = await ensureVoiceModel(spec, this.deps.dataDir, {
         ...(this.deps.fetchImpl ? { fetchImpl: this.deps.fetchImpl } : {}),
-        ...(this.deps.spawnImpl ? { spawnImpl: this.deps.spawnImpl } : {}),
         ...(this.deps.onProgress
           ? { onProgress: (event: DownloadProgress) => this.deps.onProgress?.(event) }
           : {}),

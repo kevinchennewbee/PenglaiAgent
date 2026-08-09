@@ -97,6 +97,14 @@ describe("ProductStore", () => {
     expect(fs.statSync(filename).mode & 0o777).toBe(0o600);
   });
 
+  it.runIf(process.platform !== "win32")("rejects a symlinked product database", () => {
+    const { directory, filename } = temporaryDatabase();
+    const outside = path.join(directory, "outside.db");
+    fs.writeFileSync(outside, "not a database", { mode: 0o600 });
+    fs.symlinkSync(outside, filename);
+    expect(() => new ProductStore(filename)).toThrow(/regular file, not a symlink/);
+  });
+
   it("keeps the first task completion timestamp across later runs", () => {
     const store = new ProductStore(":memory:");
     const project = store.createProject({

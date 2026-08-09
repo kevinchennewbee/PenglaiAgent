@@ -971,8 +971,8 @@ def is_git_repo():
 def _in_docker():
     return os.environ.get("PENGLAI_DOCKER") == "1" or os.path.exists("/.dockerenv")
 
-REINSTALL_HINT = ("curl -fsSL https://raw.githubusercontent.com/"
-                  "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
+REINSTALL_HINT = ("从 GitHub Releases 的 v0.3.6 页面下载固定版 install.sh，"
+                  "先检查内容再本地执行；0.4 请安装桌面版或 TS CLI。")
 UPDATE_LOG = os.path.join(ROOT, "temp", "update.log")
 
 def _git(*args):
@@ -1064,7 +1064,7 @@ def _gh_proxy(url):
     """把 github.com 直连 URL 包成可配置 GitHub 镜像（国内 GFW 兜底，与 install.sh 同源）。
     非 github / 已是镜像 返回空串。"""
     url = (url or "").strip()
-    proxy = os.environ.get("PENGLAI_GH_PROXY", "https://gh-proxy.com/").strip()
+    proxy = os.environ.get("PENGLAI_GH_PROXY", "").strip()
     if proxy and not proxy.endswith("/"):
         proxy += "/"
     if not url or not proxy or url.startswith(proxy) or "github.com" not in url:
@@ -1126,40 +1126,10 @@ def _preflight():
     return True, ""
 
 def update():
-    """安全更新到最新版蓬莱发行仓。用法：
-       penglai update           交互式：显示更新内容 → 确认 → 安全升级
-       penglai update --check   只检查不升级（管家先用这个报告，用户确认后再 --apply）
-       penglai update --apply   已确认，直接执行安全升级（预检→后台重启→健康检查→失败回滚）
-    不在用户机 merge lsdefine 上游（浅克隆 unrelated-histories 必炸，F-013），只跟随发行仓。"""
-    flag = sys.argv[2] if len(sys.argv) > 2 else ""
-    if _in_docker():
-        print(f"{BAD} Docker/容器部署已从 Penglai 0.3.0 支持矩阵撤出。")
-        print("   请使用桌面安装包、install.sh、PyPI 引导器或源码安装。")
-        return 2
-    print("🔄 检查蓬莱更新 ...")
-    ok, behind, old, new, err = _fetch_status()
-    if not ok:
-        print(f"{BAD} {err}"); return 1
-    if behind == 0:
-        print(f"{OK} 已是最新版蓬莱。"); return 0
-    logs = _changelog(old, new)
-    print(f"\n  发行仓有 {behind} 个新提交（{old[:7]} → {new[:7]}）：")
-    for l in logs[:12]:
-        print("   • " + l)
-    if flag == "--check":
-        print(f"\n  确认升级请运行：penglai update --apply（或 penglai update 交互确认）")
-        return 0
-    if flag != "--apply":
-        # 交互确认（CLI 直接跑）。非 tty 又没 --apply 则不擅自升级。
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            print(f"\n  非交互环境：确认后用 penglai update --apply 执行"); return 0
-        try:
-            ans = input("\n  升级并自动重启？失败会自动回滚 (y/n): ").strip().lower()
-        except EOFError:
-            ans = ""
-        if not ans.startswith("y"):
-            print("  已取消。"); return 0
-    return _do_update(old, new)
+    """The Python 0.3 line is immutable; 0.4 uses the TS CLI/Desktop updater."""
+    print(f"{BAD} Python 0.3 更新通道已冻结在 v0.3.6，不会把旧运行时原地升级成 0.4。")
+    print("   0.4 是 TS Pi 核心的新产品线；请从 GitHub Releases 安装 0.4 桌面版或 TS CLI。")
+    return 2
 
 def _do_update(old, new):
     if _git("status", "--porcelain").stdout.strip():

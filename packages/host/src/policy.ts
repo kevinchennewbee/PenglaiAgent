@@ -38,7 +38,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { isWithinWorkspace } from "./jail.js";
-import { classifyBashCommand } from "./sandbox/shell-env.js";
 import {
   bashCommandEscapesJail,
   isCloudMetadataCommand,
@@ -690,33 +689,22 @@ function checkToolPolicy(
       );
     }
 
-    // Classify the verb: read-only probes are L1 (autonomous); workspace
-    // mutations / installs / builds are L2 (one-click confirm, grantable);
-    // anything unknown is conservatively L2.
-    const level = classifyBashCommand(command);
-    if (level === "danger") {
-      return NEEDS_DECISION(
-        "needs_approval",
-        "L3",
-        { capability: CAPABILITY_L3_BASH, action: `bash: ${excerpt(command)}` },
-        "needs_approval: command classified as dangerous (L3)",
-      );
-    }
-    if (level === "read") {
-      return ALLOWED("read-only bash command (L1)");
-    }
-    // "write" or "unknown": L2 (reversible workspace mutation).
-    if (context.hasGrant?.(GRANT_MODIFY_EXISTING)) {
-      return ALLOWED(`allowed by project grant '${GRANT_MODIFY_EXISTING}' (同类免问)`, "L2");
-    }
+    // Static shell classification cannot prove that an apparently harmless
+    // command is read-only: interpreters, package scripts, git hooks/config,
+    // command substitution, and dynamically-built paths can all execute
+    // arbitrary code. The current runtime scrubs the environment and enforces
+    // visible jail paths, but it is not an OS sandbox. Therefore every bash
+    // invocation that survives the L4/outbound/delete checks requires an
+    // explicit, non-grantable Owner L3 decision. This may only be relaxed when
+    // a tested cross-platform process broker is the actual execution boundary.
     return NEEDS_DECISION(
-      "needs_confirm",
-      "L2",
+      "needs_approval",
+      "L3",
       {
-        capability: GRANT_MODIFY_EXISTING,
+        capability: CAPABILITY_L3_BASH,
         action: `bash: ${excerpt(command)}`,
       },
-      "needs_confirm: shell command that may mutate the workspace (L2; grantable per project)",
+      "needs_approval: shell execution is unsandboxed and requires explicit Owner approval (L3)",
     );
   }
 
@@ -758,8 +746,8 @@ function checkToolPolicy(
  *   3. Sensitive key path (path arg, or bash command token) -> denied (L4).
  *   4. protected Host namespace -> deny unless an exact read/write exception.
  *   5. explicit assistant read/write root -> allowed.
- *   6. jail escape -> l4_denied; bash is graded L1-L3 by deterministic
- *      command classification; overwriting existing files -> needs_confirm
+ *   6. jail escape -> l4_denied; every other bash call requires L3 until an
+ *      OS process sandbox ships; overwriting existing files -> needs_confirm
  *      (L2, per-project grantable 同类免问); new-file drafts / reads -> L1.
  *
  * @param toolName       one of read/write/edit/bash or a registered host tool

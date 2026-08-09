@@ -9,7 +9,16 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
 import { penglaiDataDir } from "../data-dir.js";
+import {
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "../security/private-file.js";
+
+const MCP_CONFIG_MAX_BYTES = 1024 * 1024;
+const MCP_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
 export type McpTransport = "stdio" | "sse" | "http";
 
@@ -40,31 +49,21 @@ function configPath(dataDir?: string): string {
 
 export function loadMcpConfig(dataDir?: string): McpConfigFile {
   const file = configPath(dataDir);
-  try {
-    if (!fs.existsSync(file)) {
-      return { schemaVersion: 1, servers: [] };
-    }
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as McpConfigFile;
-    if (!raw || raw.schemaVersion !== 1 || !Array.isArray(raw.servers)) {
-      return { schemaVersion: 1, servers: [] };
-    }
-    return raw;
-  } catch {
+  if (!fs.existsSync(file)) {
     return { schemaVersion: 1, servers: [] };
   }
+  hardenPrivateFile(file, MCP_CONFIG_MAX_BYTES);
+  const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as McpConfigFile;
+  if (!raw || raw.schemaVersion !== 1 || !Array.isArray(raw.servers)) {
+    throw new Error("MCP config has an unsupported or malformed schema");
+  }
+  return raw;
 }
 
 export function saveMcpConfig(doc: McpConfigFile, dataDir?: string): void {
   const file = configPath(dataDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 });
-  fs.renameSync(tmp, file);
-  try {
-    fs.chmodSync(file, 0o600);
-  } catch {
-    /* best-effort */
-  }
+  ensurePrivateDirectory(path.dirname(file));
+  atomicWritePrivateJson(file, doc, MCP_CONFIG_MAX_BYTES);
 }
 
 export function listMcpServers(dataDir?: string): McpServerConfig[] {
@@ -100,8 +99,10 @@ export function upsertMcpServer(
   const now = Date.now();
   const id =
     input.id?.trim() ||
-    `mcp_${now.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  const existing = doc.servers.find((s) => s.id === id);
+    `mcp_${randomUUID()}`;
+  if (!MCP_ID_PATTERN.test(id)) throw new Error("MCP id must contain only letters, digits, dot, underscore, or dash");
+  const existingIndex = doc.servers.findIndex((s) => s.id === id);
+  const existing = existingIndex >= 0 ? doc.servers[existingIndex] : undefined;
   const row: McpServerConfig = {
     id,
     name: input.name.trim() || id,
@@ -115,8 +116,8 @@ export function upsertMcpServer(
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
-  if (existing) {
-    Object.assign(existing, row);
+  if (existingIndex >= 0) {
+    doc.servers[existingIndex] = row;
   } else {
     doc.servers.push(row);
   }
@@ -144,7 +145,7 @@ export function describeBuiltinToolSurface(): {
     local: [
       "read",
       "write / edit（按路径和覆盖规则审批）",
-      "bash（净化环境；按命令风险走 L1 / L2 / L3 / L4）",
+      "bash（当前无跨平台 OS 沙箱，因此每次执行均需 Owner L3；越界路径直接 L4）",
       "document_read（PDF / DOCX / XLSX / PPTX / 常用文本）",
       "document_create_pdf（新建 PDF；不覆盖已有文件）",
       "document_create（新建 PDF / DOCX / XLSX / PPTX；不覆盖已有文件）",
@@ -159,7 +160,7 @@ export function describeBuiltinToolSurface(): {
     ],
     notes: [
       "Plan 只装配 read、document_read、skill_list、skill_show。",
-      "confirm / auto_edit / full 装配完整原子工具面；Web 每次均需 Owner L3。",
+      "confirm / auto_edit / full 装配完整原子工具面；Bash、Web、MCP 每次均需 Owner L3。",
       "模型不能选择或信任项目目录；项目切换只能由 Owner 发起。",
       "MCP 子进程使用私有临时 HOME 与净化环境；远程传输逐跳拒绝私网/元数据地址。",
     ],

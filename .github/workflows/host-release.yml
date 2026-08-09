@@ -170,6 +170,35 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  public-python:
+    name: Public Python + legacy safety
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install project and locked audit tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest==9.1.1 pyyaml==6.0.3 rich==14.2.0 httpx2==2.10.0 bandit==1.9.4
+
+      - name: Compile, test, and reject high-severity findings
+        run: |
+          python -m compileall -q . -x '(^|/)(node_modules|target|\.git|\.venv)(/|$)'
+          python -m pytest -q tests --tb=short
+          bandit -r . -x './tests,./node_modules,./packages/desktop/src-tauri/target,./frontends/desktop/src-tauri/target' -lll
+
   desktop:
     name: Desktop (${{ matrix.key }})
     needs: [validate, runtime]
@@ -250,6 +279,33 @@ jobs:
             exit 1
           fi
           dmg="$(find "$bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          app="$bundle/macos/Penglai.app"
+          test -d "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign_details="$(codesign -dv --verbose=4 "$app" 2>&1)"
+          printf '%s\n' "$codesign_details"
+          grep -Fq 'Signature=adhoc' <<<"$codesign_details"
+          grep -Fq 'TeamIdentifier=not set' <<<"$codesign_details"
+          hdiutil verify "$dmg"
+          mountpoint="$(mktemp -d "$RUNNER_TEMP/penglai-dmg.XXXXXX")"
+          case "$mountpoint" in
+            "$RUNNER_TEMP"/penglai-dmg.*) ;;
+            *) echo "::error::unexpected DMG mountpoint"; exit 1 ;;
+          esac
+          cleanup_mount() {
+            if mount | grep -Fq " on $mountpoint "; then
+              hdiutil detach "$mountpoint"
+            fi
+            rmdir "$mountpoint"
+          }
+          trap cleanup_mount EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mountpoint" "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$mountpoint/Penglai.app"
+          test -L "$mountpoint/Applications"
+          [[ "$(readlink "$mountpoint/Applications")" == "/Applications" ]]
+          hdiutil detach "$mountpoint"
+          rmdir "$mountpoint"
+          trap - EXIT
           npm run tauri --workspace @penglai/desktop -- signer sign "$GITHUB_WORKSPACE/$dmg"
           test -s "$dmg.sig"
           mkdir -p dist
@@ -285,8 +341,8 @@ jobs:
           retention-days: 3
 
   release:
-    name: Verify draft, publish, then advance desktop-v0.4 channel
-    needs: [validate, runtime, desktop]
+    name: Create and independently verify draft release
+    needs: [validate, runtime, public-python, desktop]
     if: github.repository == 'kevinchennewbee/PenglaiAgent'
     runs-on: ubuntu-latest
     environment: release
@@ -376,64 +432,3 @@ jobs:
             --dir draft-download
           node packages/desktop/updater/verify-release-assets.mjs \
             --dir draft-download --version "$PENGLAI_VERSION"
-
-      - name: Publish verified version release
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release edit "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft=false \
-            --latest
-
-      - name: Advance dedicated desktop-v0.4 metadata channel
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir channel-download
-          channel_state=""
-          if gh release view "$PENGLAI_CHANNEL" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            channel_state="$(gh release view "$PENGLAI_CHANNEL" \
-              --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
-              --jq '[.isDraft,.isPrerelease] | @tsv')"
-            if [[ "$channel_state" != $'false\ttrue' ]]; then
-              echo "::error::$PENGLAI_CHANNEL must be a published prerelease metadata channel"
-              exit 1
-            fi
-            existing_channel_assets="$(gh release view "$PENGLAI_CHANNEL" \
-              --repo "$GITHUB_REPOSITORY" --json assets \
-              --jq '[.assets[].name] | sort | join("\n")')"
-            if [[ -n "$existing_channel_assets" && "$existing_channel_assets" != "latest.json" ]]; then
-              echo "::error::$PENGLAI_CHANNEL contains assets outside the metadata contract"
-              exit 1
-            fi
-          else
-            gh release create "$PENGLAI_CHANNEL" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --draft \
-              --latest=false \
-              --title "Penglai Desktop v0.4 stable update channel" \
-              --notes "Metadata-only channel. Installers remain on immutable signed v0.4.x releases."
-          fi
-          gh release upload "$PENGLAI_CHANNEL" dist/latest.json \
-            --repo "$GITHUB_REPOSITORY" --clobber
-          gh release download "$PENGLAI_CHANNEL" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern latest.json \
-            --dir channel-download
-          cmp dist/latest.json channel-download/latest.json
-          channel_assets="$(gh release view "$PENGLAI_CHANNEL" \
-            --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '[.assets[].name] | sort | join("\n")')"
-          if [[ "$channel_assets" != "latest.json" ]]; then
-            echo "::error::$PENGLAI_CHANNEL must contain exactly latest.json"
-            exit 1
-          fi
-          if [[ "$channel_state" == "" ]]; then
-            gh release edit "$PENGLAI_CHANNEL" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft=false \
-              --prerelease \
-              --latest=false
-          fi

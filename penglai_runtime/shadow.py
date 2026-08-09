@@ -14,6 +14,7 @@ from .delivery import plan_delivery
 from .flags import shadow_enabled
 from .output_cleaner import clean_final_text
 from .redaction import redact_text
+from .private_files import append_private_line
 
 
 def _root():
@@ -78,9 +79,7 @@ def build_delivery_shadow_event(
 
 def write_shadow_event(event, *, log_path=None):
     path = log_path or default_shadow_log_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+    append_private_line(path, json.dumps(event, ensure_ascii=False, sort_keys=True))
     return path
 
 

@@ -1,8 +1,70 @@
-import json, threading, time, uuid, queue, socket, requests, traceback
+import ast, hmac, ipaddress, json, os, re, secrets, stat, tempfile, threading, time, uuid, queue, socket, requests, traceback
 from typing import Any
 from simple_websocket_server import WebSocketServer, WebSocket
 import bottle
 from bottle import request
+
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+_BRIDGE_CONFIG = os.path.join(_ROOT, "assets", "tmwd_cdp_bridge", "config.js")
+
+def _ensure_bridge_config():
+    """Return (TID, token), upgrading old tokenless local configs safely."""
+    directory = os.path.dirname(os.path.abspath(_BRIDGE_CONFIG))
+    os.makedirs(directory, exist_ok=True)
+    directory_info = os.lstat(directory)
+    if stat.S_ISLNK(directory_info.st_mode) or not stat.S_ISDIR(directory_info.st_mode):
+        raise RuntimeError("browser bridge config directory must be a regular directory")
+    if hasattr(os, "geteuid") and directory_info.st_uid != os.geteuid():
+        raise RuntimeError("browser bridge config directory must be owned by the current user")
+    text = ""
+    if os.path.lexists(_BRIDGE_CONFIG):
+        info = os.lstat(_BRIDGE_CONFIG)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise RuntimeError("browser bridge config must be a regular file, not a symlink")
+        if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
+            raise RuntimeError("browser bridge config must be owned by the current user")
+        if info.st_size > 8192:
+            raise RuntimeError("browser bridge config is unexpectedly large")
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(_BRIDGE_CONFIG, flags)
+        try:
+            opened = os.fstat(descriptor)
+            if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                raise RuntimeError("browser bridge config changed while opening")
+            text = os.read(descriptor, 8193).decode("utf-8")
+        finally:
+            os.close(descriptor)
+    tid_match = re.search(r"\bTID\s*=\s*(['\"].*?['\"])", text)
+    token_match = re.search(r"\bTMWD_BRIDGE_TOKEN\s*=\s*(['\"].*?['\"])", text)
+    try: tid = ast.literal_eval(tid_match.group(1)) if tid_match else ""
+    except (ValueError, SyntaxError): tid = ""
+    try: token = ast.literal_eval(token_match.group(1)) if token_match else ""
+    except (ValueError, SyntaxError): token = ""
+    if not isinstance(tid, str) or not re.fullmatch(r"__ljq_[0-9a-f]{1,16}", tid):
+        tid = f"__ljq_{secrets.token_hex(6)}"
+    if not isinstance(token, str) or len(token) < 32:
+        token = secrets.token_urlsafe(32)
+    payload = f"const TID = {json.dumps(tid)};\nconst TMWD_BRIDGE_TOKEN = {json.dumps(token)};\n".encode("utf-8")
+    descriptor, temporary = tempfile.mkstemp(prefix=".config.js.", dir=directory)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
+            descriptor = -1
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, _BRIDGE_CONFIG)
+        os.chmod(_BRIDGE_CONFIG, 0o600)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+    return tid, token
 
 def safe_print(*args, **kwargs):
     """Keep browser transport alive when a detached parent's stdout is gone."""
@@ -42,7 +104,18 @@ class Session:
 
 class TMWebDriver:  
     def __init__(self, host: str = '127.0.0.1', port: int = 18765):  
+        normalized_host = str(host or "").strip().rstrip(".").lower()
+        try:
+            loopback = ipaddress.ip_address(normalized_host).is_loopback
+        except ValueError:
+            loopback = normalized_host == "localhost"
+        if not loopback:
+            raise ValueError("TMWebDriver browser bridge must remain on loopback")
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65534:
+            raise ValueError("TMWebDriver port must leave room for the adjacent HTTP port")
+        host = normalized_host
         self.host, self.port = host, port
+        self.bridge_tid, self.bridge_token = _ensure_bridge_config()
         self.sessions, self.results, self.acks = {}, {}, {}
         self.default_session_id = None  
         self.latest_session_id = None  
@@ -58,7 +131,9 @@ class TMWebDriver:
 
         @app.route('/api/longpoll', method=['GET', 'POST'])
         def long_poll():
-            data = request.json
+            data = request.json or {}
+            if not hmac.compare_digest(str(data.get('token') or ''), self.bridge_token):
+                return bottle.HTTPError(404, 'not found')
             session_id = data.get('sessionId')  
             session_info = {'url': data.get('url'), 'title': data.get('title', ''), 'type': 'http'}  
             if session_id not in self.sessions: 
@@ -82,7 +157,9 @@ class TMWebDriver:
 
         @app.route('/api/result', method=['GET','POST'])
         def result():
-            data = request.json
+            data = request.json or {}
+            if not hmac.compare_digest(str(data.get('token') or ''), self.bridge_token):
+                return bottle.HTTPError(404, 'not found')
             if data.get('type') == 'result':  
                 self.results[data.get('id')] = {'success': True, 'data': data.get('result'), 'newTabs': data.get('newTabs', [])}  
             elif data.get('type') == 'error':  
@@ -91,7 +168,9 @@ class TMWebDriver:
 
         @app.route('/link', method=['GET','POST'])
         def link():
-            data = request.json
+            data = request.json or {}
+            if not hmac.compare_digest(str(data.get('token') or ''), self.bridge_token):
+                return bottle.HTTPError(404, 'not found')
             if data.get('cmd') == 'get_all_sessions': return json.dumps({'r': self.get_all_sessions()}, ensure_ascii=False)  
             if data.get('cmd') == 'find_session': 
                 url_pattern = data.get('url_pattern', '')
@@ -126,9 +205,19 @@ class TMWebDriver:
     def start_ws_server(self) -> None:  
         driver = self  
         class JSExecutor(WebSocket):  
+            authenticated = False
             def handle(self) -> None:  
                 try:  
                     data = json.loads(self.data)  
+                    if not self.authenticated:
+                        supplied = str(data.get('token') or '') if data.get('type') == 'auth' else ''
+                        if not hmac.compare_digest(supplied, driver.bridge_token):
+                            safe_print("Rejected unauthenticated browser bridge client")
+                            self.close()
+                            return
+                        self.authenticated = True
+                        self.send_message(json.dumps({'type': 'auth_ok'}))
+                        return
                     if data.get('type') == 'ready':  
                         session_id = data.get('sessionId')  
                         session_info = {'url': data.get('url'), 'title': data.get('title', ''),
@@ -165,7 +254,7 @@ class TMWebDriver:
         server_thread = threading.Thread(target=self.server.serve_forever)  
         server_thread.daemon = True  
         server_thread.start()  
-        safe_print(f"WebSocket server running on ws://{self.host}:{self.port}")
+        safe_print(f"WebSocket server running on loopback {self.host}:{self.port}")
     
     def _register_client(self, session_id: str, client: WebSocket, session_info) -> None:  
         is_new_session = session_id not in self.sessions
@@ -249,7 +338,8 @@ class TMWebDriver:
         return rr
     
     def _remote_cmd(self, cmd):
-        try: return requests.post(self.remote, headers={"Content-Type": "application/json"}, json=cmd, timeout=30).json()
+        payload = {**cmd, "token": self.bridge_token}
+        try: return requests.post(self.remote, headers={"Content-Type": "application/json"}, json=payload, timeout=30).json()
         except (ConnectionError, requests.exceptions.ConnectionError):
             raise ConnectionError("TMWebDriver master未运行，看tmwebdriver_sop后台启动一个TMWebDriver")
 

@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 from .redaction import redact_obj, redact_text
+from .private_files import atomic_write_private, harden_private_file
 
 
 # 默认机会类型权重（>1 增强倾向，<1 降频）。只能影响倾向，不能凭空新增越权能力。
@@ -69,6 +70,7 @@ def load_state(root: str | os.PathLike[str]) -> dict:
     state = default_state()
     path = adaptation_path(root)
     try:
+        harden_private_file(path)
         data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, dict):
             # 合并而非替换，保证新增字段有默认值
@@ -97,13 +99,10 @@ def load_state(root: str | os.PathLike[str]) -> dict:
 def save_state(root: str | os.PathLike[str], state: dict) -> dict:
     """持久化自适应状态（脱敏后写入）。"""
     path = adaptation_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
     state = dict(state or {})
     state["updated_ts"] = time.time()
     payload = redact_obj(state)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_write_private(path, json.dumps(payload, ensure_ascii=False, sort_keys=True))
     return payload
 
 

@@ -28,6 +28,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+  validatePrivateDirectory,
+  validatePrivateFile,
+} from "./security/private-file.js";
 import * as crypto from "node:crypto";
 import type { Evidence, SopMeta } from "@penglai/protocol";
 import {
@@ -198,12 +204,13 @@ function noteTitle(stem: string, content: string): string {
 
 function listNotes(dir: string): MemoryNoteMeta[] {
   if (!fs.existsSync(dir)) return [];
+  validatePrivateDirectory(dir);
   return fs
     .readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => {
       const file = path.join(dir, entry.name);
-      const stat = fs.statSync(file);
+      const stat = validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
       let content = "";
       try {
         content = fs.readFileSync(file, "utf-8");
@@ -227,6 +234,8 @@ function readNote(dir: string, name: string): string {
   if (!fs.existsSync(file)) {
     throw new MemoryError("memory_not_found", `memory note not found: ${stem}`);
   }
+  validatePrivateDirectory(dir);
+  validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
   return fs.readFileSync(file, "utf-8");
 }
 
@@ -248,7 +257,10 @@ const BUILTIN_SEED_HASHES = new Map(
 
 function atomicWriteFile(filename: string, content: string): void {
   const directory = path.dirname(filename);
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  ensurePrivateDirectory(directory);
+  if (fs.existsSync(filename)) {
+    hardenPrivateFile(filename, Math.max(MEMORY_NOTE_MAX_BYTES, Buffer.byteLength(content, "utf-8")));
+  }
   const temporary = `${filename}.${process.pid}.${crypto.randomUUID()}.tmp`;
   let fd: number | null = null;
   try {
@@ -412,6 +424,28 @@ export class MemoryStore {
     return path.join(projectRoot, PROJECT_MEMORY_DIR);
   }
 
+  private static secureProjectDir(projectRoot: string, create: boolean): string {
+    if (!fs.existsSync(projectRoot)) {
+      if (!create) return path.join(path.resolve(projectRoot), PROJECT_MEMORY_DIR);
+      throw new MemoryError("memory_denied", `project root is not a directory: ${projectRoot}`);
+    }
+    const canonicalRoot = fs.realpathSync(projectRoot);
+    if (!fs.statSync(canonicalRoot).isDirectory()) {
+      throw new MemoryError("memory_denied", `project root is not a directory: ${projectRoot}`);
+    }
+    const privateRoot = path.join(canonicalRoot, ".penglai");
+    const memoryRoot = path.join(privateRoot, "memory");
+    if (create) {
+      ensurePrivateDirectory(privateRoot);
+      ensurePrivateDirectory(memoryRoot);
+    } else {
+      if (!fs.existsSync(memoryRoot)) return memoryRoot;
+      if (fs.existsSync(privateRoot)) ensurePrivateDirectory(privateRoot);
+      ensurePrivateDirectory(memoryRoot);
+    }
+    return memoryRoot;
+  }
+
   // ── layout ───────────────────────────────────────────────────
 
   /**
@@ -420,15 +454,12 @@ export class MemoryStore {
    * overwrites an existing L1.
    */
   ensureGlobalLayout(): void {
-    fs.mkdirSync(this.globalRoot, { recursive: true, mode: 0o700 });
-    try {
-      fs.chmodSync(this.globalRoot, 0o700);
-    } catch {
-      /* best-effort permission hardening */
-    }
+    ensurePrivateDirectory(this.globalRoot);
     const l1 = path.join(this.globalRoot, L1_FILE_NAME);
     if (!fs.existsSync(l1)) {
-      fs.writeFileSync(l1, L1_SEED, { encoding: "utf-8", mode: 0o600 });
+      atomicWriteFile(l1, L1_SEED);
+    } else {
+      hardenPrivateFile(l1, MEMORY_NOTE_MAX_BYTES);
     }
   }
 
@@ -444,6 +475,8 @@ export class MemoryStore {
     if (!fs.existsSync(file) && !fs.existsSync(this.sopRoot)) {
       return { content: "", truncated: false };
     }
+    if (fs.existsSync(this.globalRoot)) validatePrivateDirectory(this.globalRoot);
+    if (fs.existsSync(file)) validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
     // Rebuild from verified receipts at injection time so a revoked, missing,
     // corrupted, or tampered SOP cannot survive through a stale disk pointer.
     // The returned view is freshly rendered even if persisting the cache fails.
@@ -493,6 +526,8 @@ export class MemoryStore {
   readManagedSection(tag: string): string[] | null {
     const file = path.join(this.globalRoot, L1_FILE_NAME);
     if (!fs.existsSync(file)) return null;
+    validatePrivateDirectory(this.globalRoot);
+    validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
     const current = fs.readFileSync(file, "utf-8");
     const { start, end } = managedMarkers(tag);
     const location = locateManagedSection(current, start, end);
@@ -586,11 +621,8 @@ export class MemoryStore {
         `archive note exceeds the ${MEMORY_NOTE_MAX_BYTES}-byte cap (${sizeBytes} bytes)`,
       );
     }
-    fs.mkdirSync(this.globalRoot, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(this.globalRoot, `${stem}.md`), content, {
-      encoding: "utf-8",
-      mode: 0o600,
-    });
+    this.ensureGlobalLayout();
+    atomicWriteFile(path.join(this.globalRoot, `${stem}.md`), content);
     return {
       name: stem,
       title: noteTitle(stem, content),
@@ -641,9 +673,9 @@ export class MemoryStore {
   }
 
   private ensureMigrationAuthorityKey(): Buffer {
+    this.ensureGlobalLayout();
     const existing = this.readMigrationAuthorityKey();
     if (existing) return existing;
-    fs.mkdirSync(this.globalRoot, { recursive: true, mode: 0o700 });
     const filename = this.sopMigrationAuthorityFile();
     const encoded = crypto.randomBytes(32).toString("hex");
     let fd: number | null = null;
@@ -772,16 +804,10 @@ export class MemoryStore {
     const filePath = path.join(this.sopRoot, `${stem}.md`);
     const receiptPath = this.sopReceiptPath(stem);
     try {
-      const fileStat = fs.lstatSync(filePath);
-      const receiptStat = fs.lstatSync(receiptPath);
-      if (
-        !fileStat.isFile() ||
-        fileStat.isSymbolicLink() ||
-        !receiptStat.isFile() ||
-        receiptStat.isSymbolicLink()
-      ) {
-        return null;
-      }
+      validatePrivateDirectory(this.sopRoot);
+      validatePrivateDirectory(this.sopAuditRoot);
+      const fileStat = validatePrivateFile(filePath, MEMORY_NOTE_MAX_BYTES + 512);
+      validatePrivateFile(receiptPath, 128 * 1024);
       const raw = fs.readFileSync(filePath, "utf-8");
       const newline = raw.indexOf("\n");
       if (newline < 0) return null;
@@ -835,7 +861,8 @@ export class MemoryStore {
     const receiptPath = this.sopReceiptPath(stem);
     if (!fs.existsSync(filePath) && !fs.existsSync(receiptPath)) return;
     const quarantineRoot = path.join(this.globalRoot, "sop-quarantine");
-    fs.mkdirSync(quarantineRoot, { recursive: true, mode: 0o700 });
+    this.ensureGlobalLayout();
+    ensurePrivateDirectory(quarantineRoot);
     const suffix = `${Date.now()}-${crypto.randomUUID()}`;
     for (const [source, extension] of [[filePath, "md"], [receiptPath, "json"]] as const) {
       if (!fs.existsSync(source)) continue;
@@ -905,8 +932,9 @@ export class MemoryStore {
     ) {
       this.quarantineUntrustedSop(stem);
     }
-    fs.mkdirSync(this.sopRoot, { recursive: true, mode: 0o700 });
-    fs.mkdirSync(this.sopAuditRoot, { recursive: true, mode: 0o700 });
+    this.ensureGlobalLayout();
+    ensurePrivateDirectory(this.sopRoot);
+    ensurePrivateDirectory(this.sopAuditRoot);
     const header =
       `<!-- penglai-sop:v2; receipt=${receipt.receiptId}; name=${stem}; ` +
       `body_sha256=${receipt.bodySha256}; source=${receipt.sourceKind} -->\n`;
@@ -1044,6 +1072,7 @@ export class MemoryStore {
   }
 
   private refreshL1SopIndex(): string {
+    this.ensureGlobalLayout();
     const l1File = path.join(this.globalRoot, L1_FILE_NAME);
     const current = fs.existsSync(l1File)
       ? fs.readFileSync(l1File, "utf-8")
@@ -1071,12 +1100,12 @@ export class MemoryStore {
 
   /** Index of the project's memory notes (titles + stats). */
   listProject(projectRoot: string): MemoryNoteMeta[] {
-    return listNotes(MemoryStore.projectDir(projectRoot));
+    return listNotes(MemoryStore.secureProjectDir(projectRoot, false));
   }
 
   /** Read one project note by name. Throws memory_not_found when absent. */
   readProjectNote(projectRoot: string, name: string): string {
-    return readNote(MemoryStore.projectDir(projectRoot), name);
+    return readNote(MemoryStore.secureProjectDir(projectRoot, false), name);
   }
 
   /**
@@ -1107,9 +1136,8 @@ export class MemoryStore {
         `memory note exceeds the ${MEMORY_NOTE_MAX_BYTES}-byte cap (${sizeBytes} bytes)`,
       );
     }
-    const dir = MemoryStore.projectDir(projectRoot);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, `${stem}.md`), content, "utf-8");
+    const dir = MemoryStore.secureProjectDir(projectRoot, true);
+    atomicWriteFile(path.join(dir, `${stem}.md`), content);
     return {
       name: stem,
       title: noteTitle(stem, content),

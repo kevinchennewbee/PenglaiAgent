@@ -1,7 +1,4 @@
-const requiredVariables = [
-  "TAURI_SIGNING_PRIVATE_KEY",
-  "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
-];
+const requiredVariables = ["TAURI_SIGNING_PRIVATE_KEY"];
 
 const missingVariables = requiredVariables.filter(
   (name) => !process.env[name]?.trim(),
@@ -19,4 +16,8 @@ if (missingVariables.length > 0) {
   process.exit(1);
 }
 
-process.stdout.write("[release] updater signing credentials are present\n");
+process.stdout.write(
+  process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()
+    ? "[release] encrypted updater signing key credentials are present\n"
+    : "[release] updater signing key is present (unencrypted-key mode)\n",
+);

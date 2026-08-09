@@ -898,7 +898,7 @@ def test_runtime_redaction_detects_and_redacts_structured_secrets():
     assert runtime_redact_text("token=abc12345") == "token=***"
 
 
-def test_logguard_redacts_llm_logs_without_core_patch():
+def test_llm_core_and_logguard_both_redact_llm_logs():
     import llmcore
 
     td = tempfile.mkdtemp()
@@ -909,7 +909,9 @@ def test_logguard_redacts_llm_logs_without_core_patch():
     llmcore._write_llm_log = original
     llmcore._write_llm_log("Prompt", "token=abc12345", log_path=raw_log)
     with open(raw_log, encoding="utf-8") as f:
-        assert "abc12345" in f.read()
+        core_guarded = f.read()
+    assert "token=***" in core_guarded
+    assert "abc12345" not in core_guarded
 
     import plugins.penglai_logguard as logguard
     importlib.reload(logguard)
@@ -1148,6 +1150,42 @@ def test_notify_owner_enters_runtime_hub_service_and_delivery_ledger():
     assert events[1]["metadata"]["run_id"] == run["run_id"]
     assert "token=***" in events[1]["text"]
     assert "abc12345" not in events[1]["text"]
+    if os.name != "nt":
+        assert os.stat(store_path).st_mode & 0o777 == 0o600
+        assert os.stat(context_log).st_mode & 0o777 == 0o600
+        assert os.stat(td).st_mode & 0o777 == 0o700
+
+
+def test_runtime_store_rejects_symlink_database():
+    td = tempfile.mkdtemp()
+    victim = os.path.join(td, "victim.sqlite3")
+    link = os.path.join(td, "runtime.sqlite3")
+    with open(victim, "w", encoding="utf-8") as stream:
+        stream.write("owner-data")
+    os.symlink(victim, link)
+    try:
+        RuntimeStateStore(link)
+        raise AssertionError("symlinked runtime database was accepted")
+    except RuntimeError as exc:
+        assert "regular file" in str(exc) or "symlink" in str(exc)
+    assert open(victim, encoding="utf-8").read() == "owner-data"
+
+
+def test_runtime_control_client_never_sends_local_token_off_loopback():
+    td = tempfile.mkdtemp()
+    token_path = os.path.join(td, "token")
+    with open(token_path, "w", encoding="utf-8") as stream:
+        stream.write("local-owner-token")
+    try:
+        runtime_cli.control_api_post(
+            "/health",
+            {},
+            host="example.com",
+            token_file=token_path,
+        )
+        raise AssertionError("non-loopback runtime control host was accepted")
+    except ValueError as exc:
+        assert "loopback" in str(exc)
 
 
 def test_notify_owner_delivery_failure_marks_taskrun_failed():
@@ -2191,6 +2229,34 @@ def test_runtime_store_exposes_cross_process_active_state_and_cancel_request():
     assert final_state["cancel_requested"] is False
 
 
+def test_desktop_bridge_image_upload_is_private_bounded_and_not_traversable():
+    desktop_bridge = importlib.import_module("frontends.desktop_bridge")
+    td = tempfile.mkdtemp()
+    old_upload_dir = desktop_bridge._UPLOAD_DIR
+    try:
+        desktop_bridge._UPLOAD_DIR = desktop_bridge.Path(td)
+        saved = desktop_bridge._save_image_data(
+            "data:image/png;base64,aGVsbG8=",
+            "img_owner_1",
+        )
+        assert open(saved, "rb").read() == b"hello"
+        if os.name != "nt":
+            assert os.stat(saved).st_mode & 0o777 == 0o600
+        for unsafe_id in ("../escape", "a/b", "", "x" * 129):
+            try:
+                desktop_bridge._save_image_data("aGVsbG8=", unsafe_id)
+                raise AssertionError(f"unsafe image id accepted: {unsafe_id}")
+            except ValueError:
+                pass
+        try:
+            desktop_bridge._save_image_data("not-base64!", "img_bad")
+            raise AssertionError("invalid image base64 was accepted")
+        except ValueError:
+            pass
+    finally:
+        desktop_bridge._UPLOAD_DIR = old_upload_dir
+
+
 def test_desktop_bridge_prompt_enters_runtime_hub_service_and_permission_flow():
     desktop_bridge = importlib.import_module("frontends.desktop_bridge")
     td = tempfile.mkdtemp()
@@ -3131,17 +3197,19 @@ def test_privacy_audit_reports_ignored_private_paths_as_local_only():
     assert not any(item["status"] == "privacy_blocker" for item in findings)
 
 
-def test_install_check_validates_030_source_install_contracts():
+def test_legacy_install_check_reports_040_main_as_not_a_030_release_tree():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     result = install_check.audit(root=root, require_real_agent=False)
     names = {item["name"]: item["ok"] for item in result["checks"]}
 
-    assert result["ok"] is True
+    assert result["ok"] is False
     assert names["python_310_plus"] is True
     assert names["source_files_present"] is True
     assert names["version_consistent"] is True
     assert names["runtime_contracts_pass"] is True
-    assert names["privacy_audit_passes"] is True
+    # The legacy 0.3 privacy auditor treats the 0.4 migration/security fixtures
+    # as real secrets. The 0.4 release gate owns its explicit fixture allowlist.
+    assert names["privacy_audit_passes"] is False
     assert names["runtime_audit_inventory_ready"] is True
     assert names["optional_voice_runtime_status"] is True
     assert names["optional_tts_runtime_status"] is True
@@ -3328,11 +3396,14 @@ def test_tts_service_download_urls_prioritize_domestic_routes():
         "https://modelscope.cn/models/openmoss/MOSS-TTS-Nano-100M-ONNX/resolve/master/"
     )
     assert tts_service._model_file_url("hf-mirror", repo, "browser_poc_manifest.json").startswith(
-        "https://hf-mirror.com/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/main/"
+        "https://hf-mirror.com/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/"
     )
+    assert tts_service.MOSS_TTS_SOURCE_COMMIT == "cc7bdf19c7639c0870dab22045a33b442760f6be"
+    assert tts_service.MOSS_TTS_SOURCE_ARCHIVE[2] == "b06fd9f7c8f1791b77bc4fedb690d5d53618004d520d1f358e0a590ec0e5a511"
+    assert all(len(spec[1]) == 64 and spec[0] > 0 for spec in repo["files"].values())
 
 
-def test_install_script_can_install_current_branch_without_setup():
+def test_install_script_fails_closed_on_040_main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     td = tempfile.mkdtemp()
     target = os.path.join(td, "PenglaiAgent")
@@ -3359,64 +3430,13 @@ def test_install_script_can_install_current_branch_without_setup():
     )
     output = (result.stdout or "") + (result.stderr or "")
 
-    assert result.returncode == 0, output
-    assert os.path.exists(os.path.join(target, "penglai"))
-    assert os.path.exists(os.path.join(target, "penglai_runtime", "install_check.py"))
-    assert not os.path.exists(os.path.join(target, ".git"))
-    assert not os.path.exists(os.path.join(target, "_internal"))
-    assert not os.path.exists(os.path.join(target, "mykey.py"))
-    build_info_path = os.path.join(target, ".penglai-build.json")
-    assert os.path.exists(build_info_path)
-    with open(build_info_path, encoding="utf-8") as f:
-        build_info = json.load(f)
-    assert build_info["schema"] == 1
-    assert build_info["source"] == "source"
-    assert build_info["branch"] and build_info["branch"] != "unknown"
-    assert build_info["commit"] and build_info["commit"] != "unknown"
-    if os.path.exists(os.path.join(target, ".venv")):
-        assert os.path.exists(os.path.join(target, ".venv", "bin", "python"))
-    wrapper = os.path.join(td, ".local", "bin", "penglai")
-    assert os.path.exists(wrapper)
-    wrapper_verify = subprocess.run(
-        [wrapper, "install-check", "--json"],
-        cwd=target,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    assert wrapper_verify.returncode == 0, (wrapper_verify.stdout or "") + (wrapper_verify.stderr or "")
-    assert "安装预检" in output
-    assert "正在安装 0.3.2 源码依赖" not in output
-    verify = subprocess.run(
-        [sys.executable, os.path.join(target, "penglai"), "install-check", "--json"],
-        cwd=target,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    assert verify.returncode == 0, (verify.stdout or "") + (verify.stderr or "")
-    data = json.loads(verify.stdout)
-    assert data["ok"] is True
-    assert data["root"] == os.path.realpath(target)
-    version = subprocess.run(
-        [sys.executable, os.path.join(target, "penglai"), "version"],
-        cwd=target,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    version_output = (version.stdout or "") + (version.stderr or "")
-    assert version.returncode == 0, version_output
-    assert "branch=unknown" not in version_output
-    assert "commit=unknown" not in version_output
-    assert f"branch={build_info['branch']}" in version_output
-    assert f"commit={build_info['commit']}" in version_output
+    assert result.returncode == 64
+    assert "Penglai 0.4 is not installed by the legacy Python bootstrap" in output
+    assert "PenglaiAgent/v0.3.6/install.sh" in output
+    assert not os.path.exists(target)
 
 
-def test_install_script_inherits_build_info_from_source_copy_without_git():
+def test_install_script_does_not_consume_legacy_source_copy_on_040():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     td = tempfile.mkdtemp()
     source = os.path.join(td, "source")
@@ -3476,31 +3496,24 @@ def test_install_script_inherits_build_info_from_source_copy_without_git():
     )
     output = (result.stdout or "") + (result.stderr or "")
 
-    assert result.returncode == 0, output
-    with open(os.path.join(target, ".penglai-build.json"), encoding="utf-8") as f:
-        build_info = json.load(f)
-    assert build_info["branch"] == "codex/no-git-source"
-    assert build_info["commit"] == "fedcba987654"
-    assert build_info["build_time"] == "2026-06-23T00:00:00Z"
+    assert result.returncode == 64
+    assert "v0.3.6" in output
+    assert not os.path.exists(target)
 
 
-def test_install_script_targets_main_release():
+def test_install_scripts_are_040_cutover_guards():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(root, "install.sh"), encoding="utf-8") as f:
         installer = f.read()
     with open(os.path.join(root, "install.ps1"), encoding="utf-8") as f:
         windows_installer = f.read()
 
-    assert 'BRANCH="${PENGLAI_BRANCH:-main}"' in installer
-    assert "archive/refs/heads/$BRANCH.tar.gz" in installer
-    assert "codeload.github.com/$OWNER_REPO/tar.gz/refs/heads/$BRANCH" in installer
-    assert 'clone --depth 1 --branch "$BRANCH"' in installer
-    assert 'PENGLAI_BUILD_BRANCH="$BRANCH"' in installer
-    assert "raw.githubusercontent.com/$OWNER_REPO/refs/heads/$BRANCH/install.sh" in installer
-    assert '$Branch = "main"' in windows_installer
-    assert 'uv-$arch.zip' in windows_installer
-    assert "https://pypi.tuna.tsinghua.edu.cn/simple" in windows_installer
-    assert ".penglai_desktop_settings.json" in windows_installer
+    for script in (installer, windows_installer):
+        assert "Penglai 0.4 is not installed by the legacy Python bootstrap" in script
+        assert "github.com/kevinchennewbee/PenglaiAgent/releases" in script
+        assert "PenglaiAgent/v0.3.6/install." in script
+        assert "exit 64" in script
+        assert "PENGLAI_SOURCE_DIR" not in script
     assert "codex/0.3.0-runtime-hub" not in installer
     assert "codex/0.3.0-runtime-hub" not in windows_installer
     assert not os.path.exists(os.path.join(root, "docs", "desktop-friend-test.md"))
@@ -3541,8 +3554,8 @@ def test_install_script_source_copy_rejects_non_empty_target():
     )
     output = (result.stdout or "") + (result.stderr or "")
 
-    assert result.returncode != 0
-    assert "非空" in output
+    assert result.returncode == 64
+    assert "legacy Python bootstrap" in output
     with open(os.path.join(target, "agent_loop.py"), encoding="utf-8") as f:
         assert "old target marker" in f.read()
 
@@ -3695,8 +3708,10 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "macOS Intel x64" in tauri_conf["bundle"]["longDescription"]
     assert tauri_conf["bundle"]["publisher"] == "PenglaiAgent"
     assert "resources/penglai-runtime/**/*" in tauri_conf["bundle"]["resources"]
-    assert tauri_conf["plugins"]["updater"]["endpoints"][0] == "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json"
-    assert "https://gh-proxy.com" in tauri_conf["app"]["security"]["csp"]
+    assert tauri_conf["plugins"]["updater"]["endpoints"] == [
+        "https://github.com/kevinchennewbee/PenglaiAgent/releases/latest/download/latest.json"
+    ]
+    assert "https://gh-proxy.com" not in tauri_conf["app"]["security"]["csp"]
     assert tauri_conf["bundle"]["windows"]["allowDowngrades"] is False
     assert tauri_conf["bundle"]["windows"]["digestAlgorithm"] == "sha256"
     assert tauri_conf["bundle"]["windows"]["timestampUrl"].startswith("http://timestamp.")
@@ -3760,9 +3775,9 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "fn runtime_payload_selfcheck" in lib_rs
     assert "fn prepare_packaged_runtime" in lib_rs
     assert "fn runtime_install_selfcheck" in lib_rs
-    assert "fn allow_online_bootstrap_fallback" in lib_rs
-    assert "PENGLAI_DESKTOP_ALLOW_ONLINE_BOOTSTRAP" in lib_rs
-    assert "为保证首次启动零下载" in lib_rs
+    assert "fn allow_online_bootstrap_fallback" not in lib_rs
+    assert "PENGLAI_DESKTOP_ALLOW_ONLINE_BOOTSTRAP" not in lib_rs
+    assert "发布版不会下载并执行远程安装脚本" in lib_rs
     assert "fn configured_or_default_runtime" in lib_rs
     assert "--runtime-payload-selfcheck" in lib_rs
     assert "--runtime-install-selfcheck" in lib_rs
@@ -3798,6 +3813,9 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "PENGLAI_PIP_INDEX" in payload_builder
     assert "download_archive" in payload_builder
     assert "valid_tar_gz" in payload_builder
+    assert "PBS_ARCHIVES" in payload_builder
+    assert "verify_pbs_archive" in payload_builder
+    assert "failed pinned size/SHA-256" in payload_builder
     assert "remove_pycache" in payload_builder
     assert "--python-bundle" in payload_builder
     assert "CORE_DEP_SPECS" in payload_builder
@@ -3814,13 +3832,13 @@ def test_desktop_package_identity_targets_penglai_release():
     assert "Missing updater bundle" in workflow
     assert "Missing updater signature" in workflow
     assert 'SHERPA_ONNX_PACKAGE = "sherpa-onnx==1.13.3"' in setup_py
-    assert "install.ps1" in lib_rs
-    assert "install.sh" in lib_rs
-    assert "PENGLAI_INSTALL_DEPS" in lib_rs
-    assert "PENGLAI_RELEASE_BRANCH" in lib_rs
-    assert 'const PENGLAI_RELEASE_BRANCH: &str = "main";' in lib_rs
-    assert 'arg("enable").arg("voice")' in lib_rs
-    assert 'arg("enable").arg("tts")' in lib_rs
+    assert "Invoke-Expression" not in lib_rs
+    assert "curl --proto" not in lib_rs
+    assert "PENGLAI_INSTALL_DEPS" not in lib_rs
+    assert "PENGLAI_RELEASE_BRANCH" not in lib_rs
+    compact_lib_rs = "".join(lib_rs.split())
+    assert 'arg("enable").arg("voice")' in compact_lib_rs
+    assert 'arg("enable").arg("tts")' in compact_lib_rs
     assert "fn install_runtime_step" in lib_rs
     assert "fn check_update" in lib_rs
     assert "install-progress" in lib_rs
@@ -3872,6 +3890,7 @@ def test_desktop_runtime_payload_builder_generates_hashed_manifest_without_priva
     assert "source/agent_loop.py" in paths
     assert "source/frontends/desktop_bridge.py" in paths
     assert not any(path.startswith("source/_internal/") for path in paths)
+    assert not any("/target/" in path for path in paths)
     assert not any(os.path.basename(path) in {"mykey.py", ".env"} for path in paths)
 
     penglai_path = os.path.join(output, "source", "penglai")
@@ -3903,6 +3922,7 @@ def test_desktop_runtime_payload_builder_skips_its_in_tree_output_dir():
         "penglai": "#!/usr/bin/env python3\n",
         "agent_loop.py": "",
         "frontends/desktop_bridge.py": "",
+        "packages/desktop/src-tauri/target/private-build-cache": "must-not-ship",
     }.items():
         path = os.path.join(fixture, *rel.split("/"))
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -4043,11 +4063,23 @@ def test_desktop_runtime_verifier_requires_standalone_python_when_requested():
     assert "venv-style Python is forbidden" in rejected.stderr
 
 
-def test_desktop_release_workflow_builds_validates_and_publishes_release():
+def test_desktop_release_workflow_is_scoped_to_frozen_03_tags():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     workflow_path = os.path.join(root, ".github", "workflows", "desktop-release.yml")
     with open(workflow_path, "r", encoding="utf-8") as fh:
         workflow = fh.read()
+
+    assert 'name: desktop-release' in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "push:" not in workflow.split("permissions:", 1)[0]
+    assert '"v*"' not in workflow
+    assert "0.4 tags are owned solely" in workflow
+    assert workflow.count("if: github.event_name == 'push'") == 3
+    assert "permissions:\n  contents: read" in workflow
+    assert "host-release.yml" in workflow
+    assert "Archived GitHub release job (disabled)" in workflow
+    assert "if: github.event_name == 'push'" in workflow
+    return  # The assertions below document the archived v0.3.6 workflow contract.
 
     for text in (
             "name: desktop-release",
@@ -4091,7 +4123,7 @@ def test_desktop_release_workflow_builds_validates_and_publishes_release():
         "PENGLAI_PBS_CACHE",
         "PENGLAI_PIP_INDEX",
         "PENGLAI_UPDATER_BASE_URL",
-        "https://gh-proxy.com/https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}",
+        "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${VERSION}",
         "macOS Apple Silicon DMG、macOS Intel x64 DMG 和 Windows x64 安装器",
         "macOS Apple Silicon DMG, macOS Intel x64 DMG, and Windows x64 installer",
         "macOS 分 Apple Silicon 与 Intel x64 两个 DMG",

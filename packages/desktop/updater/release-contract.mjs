@@ -181,7 +181,7 @@ function ed25519PublicKey(raw) {
 
 /**
  * Verify the base64-wrapped minisign format emitted by `tauri signer sign`.
- * This mirrors tauri-plugin-updater: key id match, Ed25519/Blake2b payload
+ * This mirrors tauri-plugin-updater: identifier equality, Ed25519/Blake2b payload
  * signature, and the global signature covering the trusted comment.
  */
 export function verifyUpdaterSignature(data, encodedSignature, encodedPublicKey) {

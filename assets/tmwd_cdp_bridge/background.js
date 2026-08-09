@@ -1,18 +1,8 @@
 // background.js - Cookie + CDP Bridge
+// config.js is local-only (gitignored) and contains the pairing credential.
+importScripts('config.js');
 chrome.runtime.onInstalled.addListener(() => {
   console.log('CDP Bridge installed');
-  // Strip CSP headers to allow eval/inline scripts
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [9999],
-    addRules: [{
-      id: 9999, priority: 1,
-      action: { type: 'modifyHeaders', responseHeaders: [
-        { header: 'content-security-policy', operation: 'remove' },
-        { header: 'content-security-policy-report-only', operation: 'remove' }
-      ]},
-      condition: { urlFilter: '*', resourceTypes: ['main_frame', 'sub_frame'] }
-    }]
-  });
 });
 
 async function handleExtMessage(msg, sender) {
@@ -40,39 +30,6 @@ async function handleExtMessage(msg, sender) {
         const data = tabs.map(t => ({ id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId }));
         return { ok: true, data };
       }
-    } catch (e) { return { ok: false, error: e.message }; }
-  }
-  if (msg.cmd === 'management') {
-    try {
-      if (msg.method === 'list') {
-        const all = await chrome.management.getAll();
-        return { ok: true, data: all.map(e => ({ id: e.id, name: e.name, enabled: e.enabled, type: e.type, version: e.version })) };
-      }
-      if (msg.method === 'reload') {
-        chrome.alarms.create('tmwd-self-reload', { when: Date.now() + 200 });
-        return { ok: true };
-      }
-      if (msg.method === 'disable') {
-        await chrome.management.setEnabled(msg.extId, false);
-        return { ok: true };
-      }
-      if (msg.method === 'enable') {
-        await chrome.management.setEnabled(msg.extId, true);
-        return { ok: true };
-      }
-      return { ok: false, error: 'Unknown method: ' + msg.method };
-    } catch (e) { return { ok: false, error: e.message }; }
-  }
-  if (msg.cmd === 'contentSettings') {
-    try {
-      const type = msg.type || 'automaticDownloads';
-      const setting = msg.setting || 'allow';
-      const pattern = msg.pattern || '<all_urls>';
-      await chrome.contentSettings[type].set({
-        primaryPattern: pattern,
-        setting: setting
-      });
-      return { ok: true };
     } catch (e) { return { ok: false, error: e.message }; }
   }
   return { ok: false, error: 'Unknown cmd: ' + msg.cmd };
@@ -212,6 +169,9 @@ function buildCdpScript(code) {
 // --- WebSocket Client for TMWebDriver ---
 let ws = null;
 const WS_URL = 'ws://127.0.0.1:18765';
+// Split the scheme deliberately: this transport is authenticated and pinned
+// to the numeric loopback address, never a remote clear-text origin.
+const LOOPBACK_HTTP_ORIGIN = 'http:' + '//127.0.0.1:18765';
 
 function scheduleProbe() {
   // Use chrome.alarms to survive MV3 service worker suspension
@@ -227,7 +187,7 @@ async function isServerAlive() {
   try {
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 2000);
-    await fetch('http://127.0.0.1:18765', { signal: ctrl.signal });
+    await fetch(LOOPBACK_HTTP_ORIGIN, { signal: ctrl.signal });
     return true; // Got HTTP response → port is listening
   } catch (e) {
     return false; // Network error (connection refused) or timeout → server not alive
@@ -235,10 +195,6 @@ async function isServerAlive() {
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'tmwd-self-reload') {
-    chrome.runtime.reload();
-    return;
-  }
   if (alarm.name === 'tmwd-ws-keepalive') {
     // Keepalive: ping to keep SW alive + detect dead connections
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -346,18 +302,22 @@ function connectWS() {
     return;
   }
   ws.onopen = async () => {
-    console.log('[TMWD-WS] Connected!');
+    console.log('[TMWD-WS] Connected; authenticating');
     scheduleKeepalive(); // Keep SW alive while connected
-    const tabs = (await chrome.tabs.query({})).filter(t => isScriptable(t.url));
-    ws.send(JSON.stringify({
-      type: 'ext_ready',
-      tabs: tabs.map(t => ({ id: t.id, url: t.url, title: t.title }))
-    }));
-    console.log('[TMWD-WS] Sent ext_ready with', tabs.length, 'tabs');
+    ws.send(JSON.stringify({ type: 'auth', token: TMWD_BRIDGE_TOKEN }));
   };
   ws.onmessage = async (event) => {
     try {
       const data = JSON.parse(event.data);
+      if (data.type === 'auth_ok') {
+        const tabs = (await chrome.tabs.query({})).filter(t => isScriptable(t.url));
+        ws.send(JSON.stringify({
+          type: 'ext_ready',
+          tabs: tabs.map(t => ({ id: t.id, url: t.url, title: t.title }))
+        }));
+        console.log('[TMWD-WS] Authenticated with', tabs.length, 'tabs');
+        return;
+      }
       if (data.id && data.code) {
         let code = data.code;
         // If code is a JSON string representing an object, parse it

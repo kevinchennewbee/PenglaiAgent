@@ -486,7 +486,8 @@ def install_launchd(label_id, program_args, logf):
     companion 陪伴 / wechat)补 Linux systemd Restart=always 的等价物——macOS 无头服务器才有真正的
     守护与开机自启。真机教训：旧版非 systemd 只裸 Popen fire-and-forget，被杀/崩就永久死、开机不自启、
     更新重启后还滞留旧码。program_args=完整启动命令 list；logf=日志路径。返回是否注册成功。"""
-    from xml.sax.saxutils import escape as _x
+    from html import escape as _html_escape
+    _x = lambda value: _html_escape(str(value), quote=False)
     pc = _pc()
     plist_dir = os.path.expanduser("~/Library/LaunchAgents"); os.makedirs(plist_dir, exist_ok=True)
     plist_path = os.path.join(plist_dir, label_id + ".plist")

@@ -4,9 +4,9 @@
  * Two jobs:
  *   1. Scrub the environment so BYOK keys / Feishu secrets / host tokens never
  *      reach a model-driven child process (the C2 class of leak).
- *   2. Classify a command into an approval level so the policy gate can treat
- *      read-only probes as L1, workspace mutations as L2, outbound/destructive
- *      actions as L3, and jail/credential references as L4.
+ *   2. Classify commands for audit detail. The classifier cannot authorize
+ *      execution: policy.ts requires L3 for all bash calls until an OS process
+ *      sandbox ships; jail/credential references remain L4.
  *
  * Phase 1 runs the child directly with the scrubbed env. Phase 2 will route
  * execution through the Rust sandbox sidecar (Seatbelt / bubblewrap); the
@@ -135,8 +135,9 @@ export interface BashExecution {
  *   - force inheritEnv off and install the scrubbed allowlist env
  *   - (Phase 2) route the command through the sandbox sidecar.
  *
- * The policy gate has already decided allow/ask/deny before this runs; this
- * is purely an execution-environment control.
+ * The policy gate has already required an explicit L3 Owner decision before
+ * this runs; this is purely an execution-environment control, not an OS
+ * sandbox.
  */
 export function prepareBashExecution(execution: BashExecution): void {
   const shellHome = path.join(os.tmpdir(), `penglai-shell-home-${process.pid}`);
@@ -162,10 +163,8 @@ export type BashLevel = "read" | "write" | "danger" | "unknown";
 
 /**
  * First command word → classification. This is a conservative heuristic; the
- * static classifier is NOT a security boundary (the L4 jail/path checks in
- * policy.ts are), but it lets the policy gate auto-allow read-only probes and
- * escalate obvious outbound/destructive verbs to L3. Unknown verbs fall
- * through to L2 by default (reversible workspace mutation needs a confirm).
+ * static classifier is NOT a security boundary. It remains useful for audit
+ * descriptions and a future process broker, but it cannot authorize execution.
  */
 const READ_ONLY_COMMANDS = new Set([
   // file inspection

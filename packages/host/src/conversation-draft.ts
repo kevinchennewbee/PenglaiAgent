@@ -7,6 +7,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { ensurePrivateDirectory } from "./security/private-file.js";
 
 const SAFE_CONVERSATION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -25,7 +26,7 @@ function establishOwnedDirectory(directory: string, label: string): string {
   if (fs.existsSync(directory) && fs.lstatSync(directory).isSymbolicLink()) {
     throw new Error(`${label} must not be a symlink: ${directory}`);
   }
-  fs.mkdirSync(directory, { recursive: true });
+  ensurePrivateDirectory(directory);
   const resolved = fs.realpathSync(directory);
   if (!isSamePath(resolved, directory) || !fs.statSync(resolved).isDirectory()) {
     throw new Error(`${label} is not an isolated directory: ${directory}`);
@@ -52,8 +53,9 @@ export function resolveConversationDraftRoot(
     );
   }
 
-  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const canonicalDataDir = fs.realpathSync(dataDir);
+  ensurePrivateDirectory(canonicalDataDir);
   const draftsRoot = establishOwnedDirectory(
     path.join(canonicalDataDir, "drafts"),
     "conversation drafts root",

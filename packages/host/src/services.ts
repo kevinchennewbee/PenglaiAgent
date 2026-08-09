@@ -31,6 +31,15 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { penglaiHome } from "./conversation-store.js";
+import {
+  appendPrivateLine,
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "./security/private-file.js";
+import { redactSensitiveText } from "./security/redaction.js";
+
+const MAX_SERVICE_STATE_BYTES = 16 * 1024 * 1024;
 
 // ── public types ───────────────────────────────────────────────
 
@@ -121,8 +130,7 @@ function newTaskId(): string {
 /** Best-effort append of one JSON line to a log file (creates dirs as needed). */
 function appendJsonl(file: string, entry: Record<string, unknown>): void {
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, JSON.stringify({ ts: Date.now(), ...entry }) + "\n", "utf-8");
+    appendPrivateLine(file, JSON.stringify({ ts: Date.now(), ...entry }));
   } catch {
     // Logging must never break the service.
   }
@@ -162,6 +170,7 @@ export class SchedulerService {
     const file = this.tasksFile();
     if (!file || !fs.existsSync(file)) return;
     try {
+      hardenPrivateFile(file, MAX_SERVICE_STATE_BYTES);
       const arr = JSON.parse(fs.readFileSync(file, "utf-8"));
       if (Array.isArray(arr)) {
         for (const t of arr as ScheduledTask[]) {
@@ -178,8 +187,7 @@ export class SchedulerService {
     const file = this.tasksFile();
     if (!file) return;
     try {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, JSON.stringify(Array.from(this.tasks.values()), null, 2), "utf-8");
+      atomicWritePrivateJson(file, Array.from(this.tasks.values()), MAX_SERVICE_STATE_BYTES);
     } catch {
       // Best-effort: in-memory state stays correct even if the write fails.
     }
@@ -483,6 +491,8 @@ export class CompanionService {
 
   private loadState(): void {
     try {
+      if (!fs.existsSync(this.statePath)) return;
+      hardenPrivateFile(this.statePath, MAX_SERVICE_STATE_BYTES);
       const parsed = JSON.parse(fs.readFileSync(this.statePath, "utf8")) as Partial<CompanionStatus>;
       this.enabled = parsed.enabled === true;
       if (parsed.mode === "quiet" || parsed.mode === "present" || parsed.mode === "active") {
@@ -499,9 +509,7 @@ export class CompanionService {
   private saveState(): void {
     if (!this.persist) return;
     try {
-      fs.mkdirSync(path.dirname(this.statePath), { recursive: true });
-      fs.writeFileSync(this.statePath, JSON.stringify(this.status(), null, 2) + "\n", { mode: 0o600 });
-      fs.chmodSync(this.statePath, 0o600);
+      atomicWritePrivateJson(this.statePath, this.status(), MAX_SERVICE_STATE_BYTES);
     } catch {
       // Persistence failure must not crash the Host; the event log records
       // subsequent behavior for diagnosis.
@@ -547,7 +555,11 @@ export class CompanionService {
       await this.onTrigger(source);
       return true;
     } catch (error) {
-      this.log({ action: "failed", source, error: error instanceof Error ? error.message : String(error) });
+      this.log({
+        action: "failed",
+        source,
+        error: redactSensitiveText(error instanceof Error ? error.message : String(error)).text,
+      });
       return false;
     }
   }

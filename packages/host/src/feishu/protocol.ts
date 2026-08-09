@@ -338,13 +338,25 @@ export function parseEndpointResponse(raw: unknown): {
     );
   }
   const data = (body.data ?? {}) as Record<string, unknown>;
-  if (
-    typeof data.URL !== "string" ||
-    (!data.URL.startsWith("wss://") && !data.URL.startsWith("ws://"))
-  ) {
+  if (typeof data.URL !== "string") {
     throw new FeishuProtocolError("endpoint discovery returned no wss URL");
   }
-  return { url: data.URL, clientConfig: parseClientConfig(data.ClientConfig) };
+  let endpoint: URL;
+  try {
+    endpoint = new URL(data.URL);
+  } catch {
+    throw new FeishuProtocolError("endpoint discovery returned an invalid WebSocket URL");
+  }
+  const hostname = endpoint.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const loopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  if (
+    endpoint.username ||
+    endpoint.password ||
+    (endpoint.protocol !== "wss:" && !(endpoint.protocol === "ws:" && loopback))
+  ) {
+    throw new FeishuProtocolError("endpoint discovery requires wss, except ws on exact loopback");
+  }
+  return { url: endpoint.toString(), clientConfig: parseClientConfig(data.ClientConfig) };
 }
 
 /** 从连接 URL 提取 service_id / device_id（ping 帧与日志用）。 */

@@ -2,11 +2,12 @@ import os, sys, re, threading, queue, time, socket, json, struct, base64, uuid, 
 from pathlib import Path
 from urllib.parse import quote
 import requests, qrcode
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES  # nosec B413 - maintained pycryptodome package
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp')
 from agentmain import GeneraticAgent
 from plugins.penglai_artifacts import artifact_kind, classify_file_markers, summarize_blocked
+from penglai_runtime.private_files import atomic_write_private, ensure_private_dir, harden_private_file
 
 # ── AuthExpired (errcode -14 from getUpdates) ──
 class AuthExpired(Exception):
@@ -47,7 +48,7 @@ for _k in ('HTTPS_PROXY', 'https_proxy'):
     os.environ.pop(_k, None)  # avoid inherited proxy breaking WeChat long-poll SSL
 API = 'https://ilinkai.weixin.qq.com'
 TOKEN_FILE = Path.home() / '.wxbot' / 'token.json'
-TOKEN_FILE.parent.mkdir(exist_ok=True)
+ensure_private_dir(TOKEN_FILE.parent)
 VER, MSG_USER, MSG_BOT, ITEM_TEXT, STATE_FINISH = '2.1.10', 1, 2, 1, 2
 ILINK_APP_ID = 'bot'
 ILINK_APP_CLIENT_VERSION = (2 << 16) | (1 << 8) | 10
@@ -68,13 +69,18 @@ class WxBotClient:
 
     def _load(self):
         if self._tf.exists():
+            harden_private_file(self._tf, max_bytes=1024 * 1024)
             d = json.loads(self._tf.read_text('utf-8'))
             self.token, self.bot_id, self._buf = d.get('bot_token',''), d.get('ilink_bot_id',''), d.get('updates_buf','')
 
     def _save(self, **kw):
         d = {'bot_token': self.token or '', 'ilink_bot_id': self.bot_id or '',
              'updates_buf': self._buf or '', **kw}
-        self._tf.write_text(json.dumps(d, ensure_ascii=False, indent=2), 'utf-8')
+        atomic_write_private(
+            self._tf,
+            json.dumps(d, ensure_ascii=False, indent=2),
+            max_bytes=1024 * 1024,
+        )
 
     def _post(self, ep, body, timeout=15):
         data = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
@@ -219,13 +225,15 @@ class WxBotClient:
             thumb_ciphertext_size = ((len(thumb_raw) // 16) + 1) * 16
         body = {
             'filekey': filekey, 'media_type': media_type, 'to_user_id': to_user_id,
-            'rawsize': len(raw), 'rawfilemd5': hashlib.md5(raw).hexdigest(),
+            # iLink requires MD5 as a transport checksum, not as an
+            # authentication or signature primitive.
+            'rawsize': len(raw), 'rawfilemd5': hashlib.md5(raw, usedforsecurity=False).hexdigest(),
             'filesize': ciphertext_size,
             'no_need_thumb': item_key not in ('image_item', 'video_item'),
             'aeskey': aes_key.hex(), 'base_info': {'channel_version': VER}}
         if thumb_raw:
             body.update({'thumb_rawsize': len(thumb_raw),
-                         'thumb_rawfilemd5': hashlib.md5(thumb_raw).hexdigest(),
+                         'thumb_rawfilemd5': hashlib.md5(thumb_raw, usedforsecurity=False).hexdigest(),
                          'thumb_filesize': thumb_ciphertext_size})
         resp = self._post('ilink/bot/getuploadurl', body)
         upload_param = resp.get('upload_param', '')
@@ -318,7 +326,9 @@ def _dl_media(items):
                 ct = requests.get(f'{CDN_BASE}/download?encrypted_query_param={quote(eq)}', headers={'User-Agent': UA}, timeout=60).content
                 pt = AES.new(aes_key, AES.MODE_ECB).decrypt(ct); pt = pt[:-pt[-1]]
                 fname = _safe_media_name(sub.get('file_name'), ext)
-                p = os.path.join(_TEMP_DIR, fname); open(p, 'wb').write(pt)
+                ensure_private_dir(_TEMP_DIR)
+                p = os.path.join(_TEMP_DIR, fname)
+                atomic_write_private(p, pt, max_bytes=100 * 1024 * 1024)
                 paths.append(p); print(f'[WX] media saved: {fname}', file=sys.__stdout__)
             except Exception as e:
                 print(f'[WX] media dl err ({key}): {e}', file=sys.__stdout__)
@@ -474,7 +484,12 @@ if __name__ == '__main__':
     _do_relogin = '--relogin' in sys.argv
     try: _lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); _lock.bind(('127.0.0.1', 19531))
     except OSError: print('[WeChat] Another instance running, exiting.'); sys.exit(1)
-    _logf = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp', 'wechatapp.log'), 'a', encoding='utf-8', buffering=1)
+    _log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp', 'wechatapp.log')
+    ensure_private_dir(os.path.dirname(_log_path))
+    if os.path.lexists(_log_path):
+        harden_private_file(_log_path)
+    _log_fd = os.open(_log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    _logf = os.fdopen(_log_fd, 'a', encoding='utf-8', buffering=1)
     sys.stdout = sys.stderr = _logf
     print(f'[NEW] Process starting {time.strftime("%m-%d %H:%M")}')
     bot = WxBotClient()

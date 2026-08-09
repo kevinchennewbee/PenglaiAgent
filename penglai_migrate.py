@@ -394,10 +394,13 @@ def _backup():
     """时间戳备份 mykey.py + memory/（搬运是写凭证+记忆，出错要能还原）。返回备份目录。"""
     ts = time.strftime("%Y%m%d-%H%M%S")
     bdir = os.path.join(ROOT, f"penglai-migrate-backup-{ts}")
-    os.makedirs(bdir, exist_ok=True)
+    os.makedirs(bdir, mode=0o700, exist_ok=True)
+    os.chmod(bdir, 0o700)
     mk = os.path.join(ROOT, "mykey.py")
     if os.path.exists(mk):
-        shutil.copy2(mk, os.path.join(bdir, "mykey.py"))
+        copied_mykey = os.path.join(bdir, "mykey.py")
+        shutil.copy2(mk, copied_mykey)
+        os.chmod(copied_mykey, 0o600)
     mem = os.path.join(ROOT, "memory")
     if os.path.isdir(mem):
         shutil.copytree(mem, os.path.join(bdir, "memory"), dirs_exist_ok=True)
@@ -412,9 +415,13 @@ def _atomic_write(path, text):
     """原子落盘 tmp+os.replace（写 L1/L2 记忆,崩溃中途不留半截；另有 _backup 兜底）。"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
+    os.chmod(path, 0o600)
 
 
 def _sanitize_section_body(body):

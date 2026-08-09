@@ -41,6 +41,10 @@ describe("SkillStore", () => {
     expect(store.inspect(installed.name)?.sha256).toBe(installed.sha256);
     expect(store.remove(installed.name)).toBe(true);
     expect(store.list()).toEqual([]);
+    if (process.platform !== "win32") {
+      expect(fs.statSync(store.root).mode & 0o777).toBe(0o700);
+      expect(fs.statSync(path.join(store.root, "index.json")).mode & 0o777).toBe(0o600);
+    }
   });
 
   it("fails closed after installed content is modified without a new receipt", async () => {
@@ -55,5 +59,26 @@ describe("SkillStore", () => {
     fs.rmSync(path.join(source, "linked.md"));
     fs.writeFileSync(path.join(source, "SKILL.md"), "# Missing frontmatter");
     await expect(store.install(source)).rejects.toThrow(/frontmatter/i);
+  });
+
+  it("fails closed for corrupt or symlinked indexes", () => {
+    const index = path.join(store.root, "index.json");
+    fs.writeFileSync(index, "not-json");
+    expect(() => store.list()).toThrow();
+    fs.rmSync(index);
+    const victim = path.join(root, "victim.json");
+    fs.writeFileSync(victim, "owner-data");
+    fs.symlinkSync(victim, index);
+    expect(() => store.list()).toThrow(/regular file|symlink/i);
+    expect(fs.readFileSync(victim, "utf8")).toBe("owner-data");
+  });
+
+  it("rejects a symlink used as the skill store root", () => {
+    const dataDir = path.join(root, "linked-data");
+    const outside = path.join(root, "outside");
+    fs.mkdirSync(dataDir);
+    fs.mkdirSync(outside);
+    fs.symlinkSync(outside, path.join(dataDir, "skills"), process.platform === "win32" ? "junction" : "dir");
+    expect(() => new SkillStore(dataDir)).toThrow(/regular directory/i);
   });
 });

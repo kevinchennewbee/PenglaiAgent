@@ -22,6 +22,7 @@ DeliveryService 再经飞书官方 API 和/或微信 iLink API 直发主人（�
 """
 import os, sys, json, time, socket, urllib.request, urllib.parse, uuid
 from datetime import datetime
+from penglai_runtime.private_files import atomic_write_private, harden_private_file
 
 # 端口锁：防止重复启动（与 scheduler 的 45762 错开）
 try: _lock
@@ -82,6 +83,7 @@ def _cfg():
 
 def _load_json(path):
     try:
+        harden_private_file(path)
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
@@ -89,11 +91,7 @@ def _load_json(path):
 
 def _save_state(s):
     try:
-        os.makedirs(os.path.dirname(_STATE), exist_ok=True)
-        tmp = _STATE + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(s, f, ensure_ascii=False)
-        os.replace(tmp, _STATE)          # 原子落盘：要么旧要么新，绝不留半截状态
+        atomic_write_private(_STATE, json.dumps(s, ensure_ascii=False))
     except Exception:
         pass
 

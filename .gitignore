@@ -8,10 +8,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 .venv/
+uv.lock
 venv/
 env/
 build/
 dist/
+coverage/
 *.egg-info/
 node_modules/
 
@@ -206,6 +208,8 @@ docs/*
 !docs/UNINSTALL.md
 !docs/PRIVACY_AND_DATA.md
 !docs/SECURITY_AUDIT_0.4.0.md
+!docs/audit/
+!docs/audit/FILE_LEDGER_0.4.0.csv
 !docs/website/
 !docs/website/**
 run_m3_tests/

@@ -22,7 +22,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -58,9 +58,22 @@ function run(cmd, args, opts = {}) {
   };
 }
 
-function gitTrackedFiles() {
-  const out = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-  return out.split("\n").map((s) => s.trim()).filter(Boolean);
+function gitCandidateFiles() {
+  const out = execFileSync(
+    "git",
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+    { cwd: ROOT, encoding: "buffer", maxBuffer: 16 * 1024 * 1024 },
+  );
+  return [...new Set(out.toString("utf8").split("\0").filter(Boolean))]
+    .filter((rel) => {
+      try {
+        lstatSync(path.join(ROOT, rel));
+        return true;
+      } catch {
+        return false; // tracked deletion is not part of the candidate tree
+      }
+    })
+    .sort();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -161,6 +174,7 @@ const SCAN_WHITELIST = [
   { rule: "openai-key", file: /^tests\//, match: "sk-1234567890abcdef", reason: "0.3 打码测试合成 key" },
   { rule: "openai-key", file: /^tests\//, match: "sk-testsecret123456", reason: "0.3 打码测试合成 key" },
   { rule: "email", file: /^tests\/test_redline\.py$/, match: "PASSWORD123456", reason: "0.3 红线测试合成 URL 凭证" },
+  { rule: "email", file: /^package-lock\.json$/, match: "i@izs.me", reason: "glob 包公开 deprecated 元数据中的维护者联系邮箱" },
   // —— SSRF 防护测试的 RFC1918 合成地址（测试数据，非真实内网）——
   { rule: "intranet-ip", file: /^tests\/test_summarize\.py$/, reason: "0.3 SSRF 防护测试合成私网地址" },
   // —— 专用服务账户示例（安全加固建议中名为 "penglai" 的专用账户，非 owner 个人路径）——
@@ -185,6 +199,7 @@ const SCAN_WHITELIST = [
   { rule: "personal-path", file: /^scripts\/release-check\.mjs$/, match: "/home/penglai", reason: "本表服务账户示例声明自引用" },
   { rule: "personal-path", file: /^scripts\/release-check\.mjs$/, match: "/Users/penglai", reason: "本表服务账户示例声明自引用" },
   { rule: "minisign-secret", file: /^scripts\/release-check\.mjs$/, match: "untrusted comment: minisign encrypted secret key", reason: "本表密钥规则声明自引用（规则正则本体，非真实私钥）" },
+  { rule: "email", file: /^scripts\/release-check\.mjs$/, match: "i@izs.me", reason: "本表依赖元数据邮箱例外声明自引用" },
 ];
 
 const ASSET_EMAIL_EXT = /\.(png|jpe?g|gif|webp|icns|ico|svg)$/i; // 128x128@2x.png 之类
@@ -193,7 +208,7 @@ const BINARY_EXT = /\.(png|jpe?g|gif|webp|icns|ico|zip|gz|tar|wasm|onnx|dmg|exe|
 function checkScan() {
   const lines = [];
   let pass = true;
-  const files = gitTrackedFiles();
+  const files = gitCandidateFiles();
   const whitelistHits = new Map(); // index -> count
   const violations = [];
   let scanned = 0;
@@ -227,7 +242,7 @@ function checkScan() {
     }
   }
 
-  lines.push(ok(`扫描 git 跟踪文件 ${scanned} 个（二进制/超大除外），规则 ${SCAN_RULES.length} 类`));
+  lines.push(ok(`扫描候选树文件 ${scanned} 个（含未跟踪新增；二进制/超大除外），规则 ${SCAN_RULES.length} 类`));
   for (const v of violations.slice(0, 40)) {
     lines.push(bad(`${v.rel}:${v.lineNo} 命中「${v.rule.desc}」：${v.hit.slice(0, 60)}`));
   }
@@ -332,16 +347,33 @@ function checkDeps() {
       pass = false;
       lines.push(bad(`${dep} 未精确 pin ${PINNED_PI_VERSION}（当前声明 ${declared}）`));
     }
-    const lockEntry = pkgs[`node_modules/${dep}`];
+    // npm may hoist the dependency to the root or keep it below the Host
+    // workspace. Select the exact declared version instead of assuming one
+    // physical node_modules layout.
+    const lockEntry = Object.entries(pkgs)
+      .filter(([name]) => name === `node_modules/${dep}` || name.endsWith(`/node_modules/${dep}`))
+      .map(([, entry]) => entry)
+      .find((entry) => entry?.version === PINNED_PI_VERSION);
     if (!lockEntry || lockEntry.license !== "MIT") {
       pass = false;
       lines.push(bad(`${dep} lock 记录许可证非 MIT：${lockEntry?.license}`));
     } else {
       lines.push(ok(`${dep}@${lockEntry.version} —— MIT（lock 记录）`));
     }
+    const installedCandidates = [
+      path.join(ROOT, "packages/host/node_modules", dep, "package.json"),
+      path.join(ROOT, "node_modules", dep, "package.json"),
+    ];
+    const installedPath = installedCandidates.find((candidate) => existsSync(candidate));
     try {
-      const installed = JSON.parse(readFileSync(path.join(ROOT, "node_modules", dep, "package.json"), "utf8"));
-      if (installed.license !== "MIT") { pass = false; lines.push(bad(`${dep} 已安装包许可证非 MIT`)); }
+      if (!installedPath) throw new Error("not installed");
+      const installed = JSON.parse(readFileSync(installedPath, "utf8"));
+      if (installed.version !== PINNED_PI_VERSION || installed.license !== "MIT") {
+        pass = false;
+        lines.push(bad(`${dep} 已安装包版本/许可证不匹配`));
+      } else {
+        lines.push(ok(`${dep}@${installed.version} —— MIT（已安装包）`));
+      }
     } catch {
       lines.push(warn(`${dep} 未在 node_modules 安装（CI 环境下以 lock 为准）`));
     }
@@ -392,13 +424,14 @@ const DOCS_ALLOW = [
   /^docs\/UNINSTALL\.md$/,
   /^docs\/PRIVACY_AND_DATA\.md$/,
   /^docs\/SECURITY_AUDIT_0\.4\.0\.md$/,
+  /^docs\/audit\//,
   /^docs\/website\//,
 ];
 
 function checkFiles() {
   const lines = [];
   let pass = true;
-  const files = gitTrackedFiles();
+  const files = gitCandidateFiles();
   for (const rel of files) {
     // 合成夹具白名单优先：形似密钥但实为假数据，跳过 banned 检查。
     if (FIXTURE_ALLOW.some((a) => a.test(rel))) continue;
@@ -418,7 +451,7 @@ function checkFiles() {
       if (m) { pass = false; lines.push(bad(`${rel} 引用内部设计文档名「${m[0]}」`)); }
     } catch { /* 文件可能尚未创建（RELEASE_NOTES） */ }
   }
-  if (pass) lines.push(ok(`跟踪文件 ${files.length} 个，无禁推文件混入；docs/ 仅白名单内文件`));
+  if (pass) lines.push(ok(`候选树文件 ${files.length} 个（含未跟踪新增），无禁推文件混入；docs/ 仅白名单内文件`));
   record("files", "⑥ 禁推文件检查", pass, lines);
 }
 
@@ -447,7 +480,7 @@ function checkStatement() {
     if (r.re.test(readme)) lines.push(ok(`README ${r.label}`));
     else { pass = false; lines.push(bad(`README 缺少：${r.label}`)); }
   }
-  const pyCount = gitTrackedFiles().filter((f) => f.endsWith(".py")).length;
+  const pyCount = gitCandidateFiles().filter((f) => f.endsWith(".py")).length;
   lines.push(`${DIM}仓库内 0.3 Python 存量：${pyCount} 个 .py 跟踪文件（保留为迁移参考，README 已声明关系）${RESET}`);
   record("statement", "⑦ 0.3 Python 存量与 0.4 的关系声明", pass, lines);
 }

@@ -14,7 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { listMcpServers, type McpServerConfig } from "./config.js";
-import { assertPublicHttpUrl } from "../capabilities/network-safety.js";
+import { assertPublicHttpUrl, fetchPublicHttp } from "../capabilities/network-safety.js";
 import { scrubbedShellEnv } from "../sandbox/shell-env.js";
 import { wrapUntrustedContent } from "../security/untrusted-content.js";
 
@@ -70,7 +70,7 @@ interface LiveSession {
 async function fetchPublicMcp(url: string, init: RequestInit): Promise<Response> {
   let current = (await assertPublicHttpUrl(url)).toString();
   for (let redirects = 0; redirects <= 5; redirects += 1) {
-    const response = await fetch(current, { ...init, redirect: "manual" });
+    const response = await fetchPublicHttp(current, { ...init, redirect: "manual" });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) throw new Error("MCP redirect has no location");

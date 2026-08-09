@@ -110,6 +110,7 @@ if str(DEFAULT_GA_ROOT) not in sys.path:
     sys.path.insert(0, str(DEFAULT_GA_ROOT))
 
 from penglai_runtime.redaction import redact_text as _redact_secret_text
+from penglai_runtime.private_files import atomic_write_private, ensure_private_dir
 
 # --bootstrap: minimal HTTP + setup endpoints, defer heavy runtime imports.
 # Used by the Tauri shell before mykey.py / runtime config exists so the setup
@@ -535,9 +536,11 @@ class AgentManager:
 import base64
 import tempfile
 
-# Shared temp dir for image uploads (persists for process lifetime)
-_UPLOAD_DIR = Path(tempfile.gettempdir()) / "ga_web2_uploads"
-_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# Per-process private upload directory; never share a predictable /tmp path
+# across local users or bridge instances.
+_UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="penglai-desktop-uploads-"))
+ensure_private_dir(_UPLOAD_DIR)
+_MAX_DESKTOP_IMAGE_BYTES = 20 * 1024 * 1024
 
 
 def _desktop_tts_dir() -> Path:
@@ -552,6 +555,8 @@ def _save_image_data(data_url: str, img_id: str) -> str:
     else:
         b64 = data_url
         header = ""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(img_id or "")):
+        raise ValueError("invalid desktop image id")
     ext = "png"
     if "jpeg" in header or "jpg" in header:
         ext = "jpg"
@@ -559,8 +564,14 @@ def _save_image_data(data_url: str, img_id: str) -> str:
         ext = "webp"
     elif "gif" in header:
         ext = "gif"
+    try:
+        payload = base64.b64decode(b64, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise ValueError("invalid base64 desktop image") from exc
+    if len(payload) > _MAX_DESKTOP_IMAGE_BYTES:
+        raise ValueError("desktop image exceeds 20 MiB")
     fpath = _UPLOAD_DIR / f"{img_id}.{ext}"
-    fpath.write_bytes(base64.b64decode(b64))
+    atomic_write_private(fpath, payload, max_bytes=_MAX_DESKTOP_IMAGE_BYTES)
     return str(fpath)
 
 
@@ -1049,6 +1060,7 @@ CHANNEL_REGISTRY = (
     ("discord",  "Discord",           "贴 token 接入·待实测"),
     ("wecom",    "企业微信 WeCom",    "贴 token 接入·待实测"),
 )
+CHANNEL_ENABLE_IDS = {item[0]: item[0] for item in CHANNEL_REGISTRY}
 
 ABILITY_REGISTRY = (
     ("voice",     "语音转写",   "本地 SenseVoice，转写+情绪+声学事件"),
@@ -1057,6 +1069,7 @@ ABILITY_REGISTRY = (
     ("critic",    "批判脑",     "异厂商复核防幻觉"),
     ("intel",     "情报矩阵",   "多源搜索交叉验证"),
 )
+ABILITY_ENABLE_IDS = {item[0]: item[0] for item in ABILITY_REGISTRY}
 
 def _find_python():
     """Find a working Python interpreter."""
@@ -1105,6 +1118,11 @@ def _safe_mykey_value(key, value):
     if isinstance(value, str):
         return _redact_secret_text(value)
     return value
+
+
+def _safe_process_output(value, limit=20000):
+    """Bound and redact local installer output before it crosses the bridge."""
+    return _redact_secret_text(str(value or ""))[:limit]
 
 
 def _channel_status():
@@ -1167,18 +1185,18 @@ async def channels_list_handler(request):
 async def channel_enable_handler(request):
     _require_token(request)
     name = request.match_info.get("name", "")
-    valid = [c[0] for c in CHANNEL_REGISTRY]
-    if name not in valid:
+    safe_name = CHANNEL_ENABLE_IDS.get(name)
+    if safe_name is None:
         return json_ok({"ok": False, "error": f"未知渠道: {name}"}, status=400)
     try:
         import subprocess, platform
         py = _find_python()
-        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", name]
+        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", safe_name]
         proc = subprocess.run(cmd, cwd=manager.ga_root, capture_output=True, text=True, timeout=120)
         ok = proc.returncode == 0
-        return json_ok({"ok": ok, "stdout": proc.stdout, "stderr": proc.stderr})
+        return json_ok({"ok": ok, "stdout": _safe_process_output(proc.stdout), "stderr": _safe_process_output(proc.stderr)})
     except Exception as e:
-        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+        return json_ok({"ok": False, "error": _safe_process_output(e, 200)}, status=500)
 
 
 async def channel_disable_handler(request):
@@ -1204,18 +1222,18 @@ async def abilities_list_handler(request):
 async def ability_enable_handler(request):
     _require_token(request)
     name = request.match_info.get("name", "")
-    valid = [a[0] for a in ABILITY_REGISTRY]
-    if name not in valid:
+    safe_name = ABILITY_ENABLE_IDS.get(name)
+    if safe_name is None:
         return json_ok({"ok": False, "error": f"未知能力: {name}"}, status=400)
     try:
         import subprocess
         py = _find_python()
-        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", name]
+        cmd = [py, str(Path(manager.ga_root) / "penglai"), "enable", safe_name]
         proc = subprocess.run(cmd, cwd=manager.ga_root, capture_output=True, text=True, timeout=300)
         ok = proc.returncode == 0
-        return json_ok({"ok": ok, "stdout": proc.stdout, "stderr": proc.stderr})
+        return json_ok({"ok": ok, "stdout": _safe_process_output(proc.stdout), "stderr": _safe_process_output(proc.stderr)})
     except Exception as e:
-        return json_ok({"ok": False, "error": str(e)[:200]}, status=500)
+        return json_ok({"ok": False, "error": _safe_process_output(e, 200)}, status=500)
 
 
 async def ability_disable_handler(request):
@@ -1272,6 +1290,7 @@ async def mykey_update_handler(request):
         import datetime, shutil
         bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
         shutil.copy2(mk, bak)
+        _chmod_private(bak)
     tmp = mk.with_name(f".{mk.name}.tmp.{uuid.uuid4().hex}")
     tmp.write_text("".join(lines), encoding="utf-8")
     _chmod_private(tmp)
@@ -1314,6 +1333,7 @@ def _write_mykey_updates(updates: dict):
         import datetime, shutil
         bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
         shutil.copy2(mk, bak)
+        _chmod_private(bak)
     tmp = mk.with_name(f".{mk.name}.tmp.{uuid.uuid4().hex}")
     tmp.write_text("".join(lines), encoding="utf-8")
     _chmod_private(tmp)
@@ -1594,6 +1614,23 @@ def _chmod_private(path) -> None:
         pass
 
 
+def _write_private_atomic(path: Path, text: str) -> None:
+    if path.is_symlink():
+        raise RuntimeError(f"refusing to write credential file through symlink: {path}")
+    tmp = path.with_name(f".{path.name}.tmp.{uuid.uuid4().hex}")
+    descriptor = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)
+        _chmod_private(path)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+
+
 def _list_penglai_processes() -> list:
     """List running penglai-related processes across platforms.
 
@@ -1700,12 +1737,20 @@ async def setup_list_providers_handler(request):
 
 async def setup_test_llm_handler(request):
     _require_token(request)
-    import urllib.request
+    import urllib.parse, urllib.request
     body = await read_json(request)
     base = str(body.get("base_url") or "").rstrip("/")
     model = str(body.get("model") or "")
     key = str(body.get("api_key") or "")
     try:
+        parsed = urllib.parse.urlsplit(base)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("model base_url must be an http(s) URL without embedded credentials")
+        hostname = parsed.hostname.lower()
+        if parsed.scheme == "http" and hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise ValueError("public model endpoints must use https; http is loopback-only")
+        if parsed.fragment:
+            raise ValueError("model base_url must not contain a fragment")
         req = urllib.request.Request(
             f"{base}/chat/completions",
             data=json.dumps({"model": model, "messages": [{"role": "user", "content": "回复两个字：蓬莱"}], "max_tokens": 64}).encode(),
@@ -1752,13 +1797,17 @@ async def setup_feishu_qr_init_handler(request):
 
 async def setup_feishu_qr_poll_handler(request):
     _require_token(request)
-    import urllib.request
+    import urllib.parse, urllib.request
     body = await read_json(request)
     device_code = str(body.get("device_code") or "")
     try:
         req = urllib.request.Request(
             "https://accounts.feishu.cn/oauth/v1/app/registration",
-            data=f"action=poll&device_code={device_code}&tp=ob_app".encode(),
+            data=urllib.parse.urlencode({
+                "action": "poll",
+                "device_code": device_code,
+                "tp": "ob_app",
+            }).encode(),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         resp = urllib.request.urlopen(req, timeout=20)
@@ -1878,6 +1927,7 @@ async def setup_write_mykey_handler(request):
     if mk.exists():
         bak = mk.with_name(f"mykey.py.bak.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
         shutil.copy2(mk, bak)
+        _chmod_private(bak)
     llm_name = str(body.get("llm_name") or "DeepSeek")
     llm_key = str(body.get("llm_key") or "")
     llm_base = str(body.get("llm_base") or "https://api.deepseek.com")
@@ -1922,8 +1972,7 @@ fs_owner_open_id = {fs_owner_open_id!r}
         parts.append(f"tavily_key = {tavily_key!r}\n")
     if firecrawl_key:
         parts.append(f"firecrawl_key = {firecrawl_key!r}\n")
-    mk.write_text("".join(parts), encoding="utf-8")
-    _chmod_private(mk)
+    _write_private_atomic(mk, "".join(parts))
     return json_ok({"ok": True, "path": str(mk), "source": "bridge-direct"})
 
 
@@ -2095,7 +2144,10 @@ async def path_open_handler(request):
 
 
 def create_app():
-    app = web.Application(middlewares=[desktop_security_middleware])
+    app = web.Application(
+        middlewares=[desktop_security_middleware],
+        client_max_size=30 * 1024 * 1024,
+    )
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/status", status_handler)
     app.router.add_get("/config", get_config_handler)
@@ -2184,5 +2236,5 @@ if __name__ == "__main__":
         print(f"拒绝启动桌面桥接：BRIDGE_HOST 必须是本机回环地址，当前为 {host}", file=sys.stderr)
         sys.exit(2)
     mode_tag = " [bootstrap]" if BOOTSTRAP_MODE else ""
-    print(f"蓬莱桌面桥接{mode_tag}：http://{host}:{port}  ws://{host}:{port}/ws", file=sys.stderr)
+    print(f"蓬莱桌面桥接{mode_tag}：本机回环 {host}:{port}（HTTP + WebSocket）", file=sys.stderr)
     web.run_app(create_app(), host=host, port=port, print=None)

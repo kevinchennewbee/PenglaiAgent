@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .context_events import recent_context_events
 from .redaction import redact_obj, redact_text
+from .private_files import atomic_write_private, ensure_private_dir, harden_private_file
 
 
 def reflections_dir(root: str | os.PathLike[str]) -> Path:
@@ -162,12 +163,10 @@ def generate_reflection(
 
     # 写入文件（脱敏后）
     out_dir = reflections_dir(root)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(out_dir)
     out_path = reflection_path(root, date_str)
     payload = redact_obj(reflection)
-    tmp = out_path.with_name(f".{out_path.name}.tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2), encoding="utf-8")
-    os.replace(tmp, out_path)
+    atomic_write_private(out_path, json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2))
     return payload
 
 
@@ -175,6 +174,7 @@ def load_reflection(root: str | os.PathLike[str], date_str: str | None = None) -
     """加载指定日期的反思（缺失返回 None）。"""
     path = reflection_path(root, date_str)
     try:
+        harden_private_file(path)
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None

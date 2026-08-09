@@ -453,6 +453,8 @@ def _make_session_id() -> str:
 def _load_history() -> list:
     if os.path.exists(HISTORY_FILE):
         try:
+            from penglai_runtime.private_files import harden_private_file
+            harden_private_file(HISTORY_FILE, max_bytes=64 * 1024 * 1024)
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
@@ -461,9 +463,12 @@ def _load_history() -> list:
 
 
 def _save_history(history: list):
-    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    from penglai_runtime.private_files import atomic_write_private
+    atomic_write_private(
+        HISTORY_FILE,
+        json.dumps(history, ensure_ascii=False, indent=2),
+        max_bytes=64 * 1024 * 1024,
+    )
 
 
 def _build_prompt_with_uploads(prompt: str, files: list) -> tuple:
@@ -474,7 +479,8 @@ def _build_prompt_with_uploads(prompt: str, files: list) -> tuple:
     if not files:
         return prompt, prompt, []
 
-    os.makedirs("temp/uploaded", exist_ok=True)
+    from penglai_runtime.private_files import atomic_write_private, ensure_private_dir
+    ensure_private_dir("temp/uploaded")
     attachment_chunks = ["\n\n[用户上传附件 — 文件已保存到本地磁盘，可用 file_read 工具读取]"]
     display_attachments = []
     img_count, file_names = 0, []
@@ -489,8 +495,7 @@ def _build_prompt_with_uploads(prompt: str, files: list) -> tuple:
             f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{safe}",
         )
         try:
-            with open(saved, "wb") as out:
-                out.write(raw)
+            atomic_write_private(saved, raw, max_bytes=100 * 1024 * 1024)
         except Exception:
             saved = "(保存失败)"
 

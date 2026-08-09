@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -390,6 +391,7 @@ fn spawn_host(app: &tauri::AppHandle, dev_mode: bool) -> Result<(), String> {
     }
     cmd.current_dir(&launch.root)
         .env("PENGLAI_DATA_DIR", &data_dir)
+        .env("PENGLAI_DESKTOP_MANAGED", "1")
         .arg(&launch.entry)
         .arg("serve")
         .arg("--port")
@@ -943,7 +945,7 @@ enum WsFrame {
 /// handshake nonce — not a credential — so a tiny local encoder suffices.
 fn base64_encode(data: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = *chunk.get(1).unwrap_or(&0) as u32;
@@ -1028,6 +1030,18 @@ fn ws_connect(token: &str, channel_id: &str) -> Result<TcpStream, String> {
     if !status_line.contains(" 101") {
         return Err(format!("Host event upgrade refused: {}", status_line));
     }
+    let accept = head_text.lines().skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("sec-websocket-accept")
+            .then(|| value.trim().to_string())
+    });
+    let expected_accept = base64_encode(&Sha1::digest(format!(
+        "{}258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
+        key
+    )));
+    if accept.as_deref() != Some(expected_accept.as_str()) {
+        return Err("Host event upgrade returned an invalid WebSocket accept value".to_string());
+    }
     Ok(stream)
 }
 
@@ -1073,7 +1087,7 @@ fn ws_read_frame(stream: &mut TcpStream) -> std::io::Result<WsFrame> {
             }
         }
         match opcode {
-            0x0 | 0x1 | 0x2 => {
+            0x0..=0x2 => {
                 if opcode != 0x0 {
                     message_opcode = Some(opcode);
                 }
@@ -1227,7 +1241,10 @@ fn host_unsubscribe(channel_id: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let no_autostart = std::env::args().any(|a| a == "--no-autostart");
-    let dev_mode = std::env::args().any(|a| a == "--dev");
+    // A packaged binary must never switch to an env-selected development
+    // runtime because of a command-line flag. Debug builds already use the
+    // source runtime through cfg(debug_assertions).
+    let dev_mode = cfg!(debug_assertions);
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -1358,6 +1375,7 @@ pub fn run() {
                 if ready {
                     let _ = app.emit("host-ready", host_status());
                 }
+                #[cfg(feature = "devtools")]
                 if dev_mode {
                     w.open_devtools();
                 }

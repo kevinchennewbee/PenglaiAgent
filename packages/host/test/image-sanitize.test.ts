@@ -48,7 +48,7 @@ describe("sanitizeImages", () => {
 
   it("caps to MAX_IMAGES_PER_PROMPT", () => {
     const images = Array.from({ length: 10 }, (_, i) => ({
-      data: `data${i}`,
+      data: Buffer.from(`data${i}`).toString("base64"),
       mimeType: "image/png",
     }));
     expect(sanitizeImages(images)).toHaveLength(MAX_IMAGES_PER_PROMPT);
@@ -58,10 +58,10 @@ describe("sanitizeImages", () => {
     const big = "A".repeat(Math.ceil(4 * 1024 * 1024 * 1.4) + 10);
     const out = sanitizeImages([
       { data: big, mimeType: "image/png" },
-      { data: "small", mimeType: "image/png" },
+      { data: "c21hbGw=", mimeType: "image/png" },
     ]);
     expect(out).toHaveLength(1);
-    expect(out[0]?.data).toBe("small");
+    expect(out[0]?.data).toBe("c21hbGw=");
   });
 
   it("truncates name to 80 chars and returns [] for undefined input", () => {

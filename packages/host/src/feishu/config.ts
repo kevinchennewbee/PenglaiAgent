@@ -13,7 +13,11 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { assertSafeProviderBaseUrl } from "../providers/url-safety.js";
+import { atomicWritePrivateJson, hardenPrivateFile } from "../security/private-file.js";
 import { FEISHU_DEFAULT_DOMAIN } from "./protocol.js";
+
+const MAX_CHANNELS_FILE_BYTES = 1024 * 1024;
 
 export interface FeishuChannelConfig {
   appId: string;
@@ -40,8 +44,11 @@ export function channelsFilePath(dataDir: string): string {
 export function loadChannelConfig(dataDir: string): FeishuChannelConfig | null {
   let parsed: ChannelsFile;
   try {
-    parsed = JSON.parse(fs.readFileSync(channelsFilePath(dataDir), "utf-8"));
-  } catch {
+    const file = channelsFilePath(dataDir);
+    hardenPrivateFile(file, MAX_CHANNELS_FILE_BYTES);
+    parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Private config")) throw error;
     return null;
   }
   const feishu = parsed?.feishu;
@@ -57,10 +64,11 @@ export function loadChannelConfig(dataDir: string): FeishuChannelConfig | null {
   return {
     appId: feishu.appId,
     appSecret: feishu.appSecret,
-    domain:
+    domain: assertSafeProviderBaseUrl(
       typeof feishu.domain === "string" && feishu.domain
         ? feishu.domain
         : FEISHU_DEFAULT_DOMAIN,
+    ),
     enabled: feishu.enabled === true,
   };
 }
@@ -78,7 +86,7 @@ export function resolveChannelConfig(dataDir: string): FeishuChannelConfig | nul
   return {
     appId,
     appSecret,
-    domain: envDomain || fromFile?.domain || FEISHU_DEFAULT_DOMAIN,
+    domain: assertSafeProviderBaseUrl(envDomain || fromFile?.domain || FEISHU_DEFAULT_DOMAIN),
     enabled: fromFile?.enabled ?? true, // 纯 env 配置视为启用（显式 export 即意图）
   };
 }
@@ -96,27 +104,21 @@ export function saveChannelConfig(
     enabled?: boolean;
   },
 ): string {
+  const appId = config.appId.trim();
+  const appSecret = config.appSecret.trim();
+  if (!appId || appId.length > 512) throw new Error("Feishu appId is empty or too long");
+  if (!appSecret || appSecret.length > 4096) throw new Error("Feishu appSecret is empty or too long");
+  const domain = assertSafeProviderBaseUrl(config.domain ?? FEISHU_DEFAULT_DOMAIN);
   const file = channelsFilePath(dataDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const payload: ChannelsFile = {
     schemaVersion: 1,
     feishu: {
-      appId: config.appId,
-      appSecret: config.appSecret,
-      domain: config.domain ?? FEISHU_DEFAULT_DOMAIN,
+      appId,
+      appSecret,
+      domain,
       enabled: config.enabled ?? true,
     },
   };
-  const tmp = `${file}.tmp-${process.pid}-${Date.now().toString(36)}`;
-  fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-  fs.renameSync(tmp, file);
-  try {
-    fs.chmodSync(file, 0o600);
-  } catch {
-    /* best-effort permission hardening */
-  }
+  atomicWritePrivateJson(file, payload, MAX_CHANNELS_FILE_BYTES);
   return file;
 }

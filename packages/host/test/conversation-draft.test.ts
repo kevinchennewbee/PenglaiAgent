@@ -23,6 +23,11 @@ describe("conversation draft isolation", () => {
     const dataDir = temporaryDirectory("penglai-draft-data-");
     const root = resolveConversationDraftRoot(dataDir, "conv_owner");
     expect(root).toBe(fs.realpathSync(path.join(dataDir, "drafts", "conv_owner")));
+    if (process.platform !== "win32") {
+      expect(fs.statSync(dataDir).mode & 0o777).toBe(0o700);
+      expect(fs.statSync(path.join(dataDir, "drafts")).mode & 0o777).toBe(0o700);
+      expect(fs.statSync(root!).mode & 0o777).toBe(0o700);
+    }
   });
 
   it("rejects traversal and overlong conversation ids", () => {

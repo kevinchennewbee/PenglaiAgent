@@ -13,6 +13,15 @@ import * as path from "node:path";
 import type { ThreadGoal, ThreadGoalStatus } from "@penglai/protocol";
 import { SCHEMA_VERSION } from "@penglai/protocol";
 import { penglaiHome } from "./conversation-store.js";
+import {
+  appendPrivateLine,
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "./security/private-file.js";
+
+const MAX_GOAL_BYTES = 2 * 1024 * 1024;
+const MAX_GOAL_HISTORY_BYTES = 64 * 1024 * 1024;
 
 export const HOST_TOOL_UPDATE_GOAL = "update_goal";
 
@@ -39,6 +48,7 @@ export function loadGoal(conversationId: string): ThreadGoal | null {
   const file = goalPath(conversationId);
   try {
     if (!fs.existsSync(file)) return null;
+    hardenPrivateFile(file, MAX_GOAL_BYTES);
     const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ThreadGoal;
     if (!raw || raw.conversationId !== conversationId) return null;
     return raw;
@@ -49,17 +59,15 @@ export function loadGoal(conversationId: string): ThreadGoal | null {
 
 export function saveGoal(goal: ThreadGoal): void {
   const file = goalPath(goal.conversationId);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(goal, null, 2)}\n`, "utf-8");
-  fs.renameSync(tmp, file);
+  ensurePrivateDirectory(path.dirname(file));
+  atomicWritePrivateJson(file, goal, MAX_GOAL_BYTES);
 }
 
 function appendHistory(goal: ThreadGoal): void {
   try {
     const file = historyPath(goal.conversationId);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.appendFileSync(file, `${JSON.stringify(goal)}\n`, "utf-8");
+    if (fs.existsSync(file)) hardenPrivateFile(file, MAX_GOAL_HISTORY_BYTES);
+    appendPrivateLine(file, JSON.stringify(goal));
   } catch {
     /* best-effort */
   }

@@ -1,8 +1,10 @@
 # 蓬莱 0.4 桌面发布流程
 
-本文描述 `host-release.yml` 的唯一稳定发布路径。修改这套文件不会自动发版；只有
-Owner 为精确 commit 创建并推送受信任的 signed annotated `v0.4.x` tag 后，工作流
-才会开始。分支和手工触发不能进入发布作业。
+本文描述 `host-release.yml`（构建并验证草稿）和 `host-publish.yml`（Owner 人工公开）
+组成的唯一稳定发布路径。修改这套文件不会自动发版；只有 Owner 为精确 commit 创建
+并推送受信任的 signed annotated `v0.4.x` tag 后，构建工作流才会开始。它最多创建
+draft Release，绝不会在同一次 tag 运行里自动公开。公开必须由 Owner 检查草稿后手工
+触发第二个工作流，并输入精确确认词。
 
 ## 1. 三条信任链不要混写
 
@@ -12,9 +14,10 @@ Owner 为精确 commit 创建并推送受信任的 signed annotated `v0.4.x` tag
 | Tauri updater minisign key | updater bundle、DMG detached signature、`SHA256SUMS` | 私钥只允许出现在 Owner 密钥库和 GitHub Actions secret；客户端只内置公钥 |
 | Apple Developer ID / Windows Authenticode | 操作系统发行者身份、Gatekeeper / SmartScreen 体验 | **尚未配置或验证**；不得把 minisign 写成 notarization、Developer ID 或 Authenticode |
 
-`TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 都必须存在且非空。
-发布脚本会拒绝无密码/无私钥构建。私钥正文、密码、Owner 本地密钥路径不得进入
-仓库、日志、artifact、release notes 或 SBOM。
+`TAURI_SIGNING_PRIVATE_KEY` 必须存在且非空；若私钥本身加密，再配置
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。与 0.3.6 相同的无密码 updater 私钥允许把密码
+Secret 留空，发布脚本仍会拒绝无私钥构建。私钥正文、密码、Owner 本地密钥路径不得
+进入仓库、日志、artifact、release notes 或 SBOM。
 
 ## 2. 版本和目标的单一契约
 
@@ -51,7 +54,7 @@ tag 还必须精确等于 `v<contract.version>`；不存在“0.4.1 壳 + 0.4.0 
    本地产物。
 4. 在 GitHub 配置名为 `release` 的 protected environment，并要求 Owner approval。
    仓库文件只能引用该 environment，无法证明网页侧保护规则已经开启。
-5. 确认 updater 私钥/密码 secrets 与客户端内置公钥是同一密钥对。
+5. 确认 updater 私钥（以及加密私钥所需的可选密码）与客户端内置公钥是同一密钥对。
 6. 对批准的精确 commit 创建 signed annotated tag；轻量 tag、未签名 tag、预发布
    semver（如 `v0.4.1-rc.1`）都会失败。
 
@@ -69,19 +72,37 @@ git push <public-remote> v0.4.0
    由契约输出三平台 matrix。
 2. `runtime`：在 Linux x64 构建 self-contained Host runtime，按 exact version/target
    验 manifest、完整文件集、hash、boot handshake 和 doctor，再打 tar/zip。
-3. `desktop`：每个平台自己重建 bundled runtime；Tauri 产生 updater bundle 签名；
-   macOS DMG 另产 detached minisign（它不是 Apple code signing）。
+3. `desktop`：每个平台自己重建 bundled runtime；Tauri 产生 updater bundle 签名。
+   macOS 使用 `signingIdentity: "-"` 完成 adhoc 应用封签，再验证 app、
+   `hdiutil verify`、只读挂载后的 app 和 Applications 链接；DMG 另产
+   detached minisign。adhoc/minisign 都不是 Apple Developer ID 或 notarization。
 4. `release`：生成不可变 `v0.4.x` asset URL 的 `latest.json`、从 npm/Cargo lock 与
    pinned bundled Node 生成 CycloneDX SBOM、第三方 notice；生成并 minisign
    `SHA256SUMS`。
 5. `verify-release-assets.mjs` 要求精确资产集合，真实验证每个 minisign、manifest
    平台集合、SBOM 结构和全部 SHA-256。任何额外、缺失、空文件或 symlink 都失败。
-6. 只创建 **draft Release**；再从 GitHub draft 下载全部资产并重新执行相同验证。
-7. 回读通过后才 publish/mark latest；随后只把已经验证的 `latest.json` 推进固定
-   `desktop-v0.4` metadata prerelease。
+6. `host-release.yml` 只创建 **draft Release**；再从 GitHub draft 下载全部资产并
+   重新执行相同验证，然后结束。它没有 publish 或更新 channel 的步骤。
+7. Owner 在 GitHub 页面检查 Actions、草稿说明和全部资产后，手工运行
+   `host-publish.yml`，输入 tag 和精确的 `publish-<tag>` 确认词。
+8. `host-publish.yml` 再次验证版本契约、Owner signed annotated tag、draft 状态和全部
+   下载资产；同时拒绝 updater channel 版本回退或同版本重放。全部通过后才
+   publish/mark latest，随后只把已验证的 `latest.json` 推进固定 `desktop-v0.4`
+   metadata prerelease。
 
-工作流拒绝覆盖已存在的版本 Release。失败留下 draft 时，Owner 先检查失败证据，再
-手工决定是否删除 draft 后重跑；自动化不会 clobber 一个已有的版本发布。
+构建工作流拒绝覆盖已存在的版本 Release。失败留下 draft 时，Owner 先检查失败证据，
+再手工决定是否删除 draft 后重跑；自动化不会 clobber 一个已有的版本发布。发布工作流
+只接受现存、未公开、非 prerelease 的精确 tag 草稿；对已经公开的 Release 会失败。
+
+手工发布时，在 Actions 中选择 `host-publish`，输入例如：
+
+```text
+tag: v0.4.0
+confirm: publish-v0.4.0
+```
+
+未配置 protected `release` environment 时不要运行发布工作流；仓库内 YAML 无法替代
+GitHub 网页侧的 required reviewer 规则。
 
 ## 5. 独立稳定更新通道
 

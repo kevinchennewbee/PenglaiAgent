@@ -14,5 +14,11 @@ describe("files-complete", () => {
     expect(hits.some((h) => h.path === "readme.md")).toBe(true);
     const nested = completeFiles({ rootPath: root, query: "src/m" });
     expect(nested.some((h) => h.path.includes("main.ts"))).toBe(true);
+
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-files-outside-"));
+    fs.writeFileSync(path.join(outside, "secret.txt"), "outside");
+    fs.symlinkSync(outside, path.join(root, "linked-outside"));
+    expect(completeFiles({ rootPath: root, query: "linked-outside/" })).toEqual([]);
+    expect(completeFiles({ rootPath: root, query: "linked" })).toEqual([]);
   });
 });

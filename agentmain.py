@@ -1,4 +1,4 @@
-import os, sys, threading, queue, time, json, re, random, locale
+import os, sys, threading, queue, time, json, re, random, locale, secrets
 os.environ.setdefault('GA_LANG', 'zh' if any(k in (locale.getlocale()[0] or '').lower() for k in ('zh', 'chinese')) else 'en')
 if sys.stdout is None: sys.stdout = open(os.devnull, "w")
 elif hasattr(sys.stdout, 'reconfigure'): sys.stdout.reconfigure(errors='replace')
@@ -20,6 +20,12 @@ except Exception as e:
             "Set PENGLAI_ALLOW_UNGUARDED=1 only for explicit emergency/debug use."
         ) from e
 from ga import GenericAgentHandler, smart_format, get_global_memory, format_error, consume_file
+from penglai_runtime.private_files import (
+    append_private_line,
+    atomic_write_private,
+    ensure_private_dir,
+    harden_private_file,
+)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 def load_tool_schema(suffix=''):
@@ -30,18 +36,26 @@ load_tool_schema()
 
 lang_suffix = '_en' if os.environ.get('GA_LANG', '') == 'en' else ''
 mem_dir = os.path.join(script_dir, 'memory')
-if not os.path.exists(mem_dir): os.makedirs(mem_dir)
+ensure_private_dir(mem_dir)
 mem_txt = os.path.join(mem_dir, 'global_mem.txt')
-if not os.path.exists(mem_txt): open(mem_txt, 'w', encoding='utf-8').write('# [Global Memory - L2]\n')
+if not os.path.exists(mem_txt): atomic_write_private(mem_txt, '# [Global Memory - L2]\n')
+else: harden_private_file(mem_txt, max_bytes=64 * 1024 * 1024)
 mem_insight = os.path.join(mem_dir, 'global_mem_insight.txt')
 if not os.path.exists(mem_insight):
     t = os.path.join(script_dir, f'assets/global_mem_insight_template{lang_suffix}.txt')
-    open(mem_insight, 'w', encoding='utf-8').write(open(t, encoding='utf-8').read() if os.path.exists(t) else '')
+    atomic_write_private(mem_insight, open(t, encoding='utf-8').read() if os.path.exists(t) else '')
+else: harden_private_file(mem_insight, max_bytes=64 * 1024 * 1024)
 cdp_cfg = os.path.join(script_dir, 'assets/tmwd_cdp_bridge/config.js')
 if not os.path.exists(cdp_cfg):
     try:
         os.makedirs(os.path.dirname(cdp_cfg), exist_ok=True)
-        open(cdp_cfg, 'w', encoding='utf-8').write(f"const TID = '__ljq_{hex(random.randint(0, 99999999))[2:8]}';")
+        with open(cdp_cfg, 'w', encoding='utf-8') as f:
+            f.write(
+                f"const TID = '__ljq_{hex(random.randint(0, 99999999))[2:8]}';\n"
+                f"const TMWD_BRIDGE_TOKEN = '{secrets.token_urlsafe(32)}';\n"
+            )
+        try: os.chmod(cdp_cfg, 0o600)
+        except OSError: pass
     except Exception as e: print(f'[WARN] CDP config init failed: {e} — advanced web features (tmwebdriver) will be unavailable.')
 
 def get_system_prompt():
@@ -155,7 +169,7 @@ class GenericAgent:
                     script_dir, 'temp',
                     f'user_prompt_{os.getpid()}_{time.time_ns()}.md',
                 )
-                with open(task_file, 'w', encoding='utf-8') as f: f.write(raw_query)
+                atomic_write_private(task_file, raw_query, max_bytes=64 * 1024 * 1024)
                 raw_query = f'Long user prompt saved to {task_file}. Read and execute.'
             rquery = smart_format(raw_query.replace('\n', ' '), max_str_len=200)
             self.history.append(f"[USER]: {rquery}")
@@ -220,15 +234,23 @@ if __name__ == '__main__':
     parser.add_argument('--nobg', action='store_true')
     parser.add_argument('--nolog', action='store_true')
     args, _unknown = parser.parse_known_args()
+    if args.task and (
+        not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args.task)
+        or args.task in {".", ".."}
+    ):
+        parser.error("--task must be a safe 1-128 character task id")
     _reflect_args = dict(zip([k.lstrip('-') for k in _unknown[::2]], _unknown[1::2])) if _unknown else {}
 
     if (args.func or args.task) and not args.nobg:
         import subprocess, platform
         cmd = [sys.executable, os.path.abspath(__file__)] + [a for a in sys.argv[1:]] + ['--nobg']
         if args.task:
-            d = os.path.join(script_dir, f'temp/{args.task}'); os.makedirs(d, exist_ok=True)
-            out = open(os.path.join(d, 'stdout.log'), 'w', encoding='utf-8')
-            err = open(os.path.join(d, 'stderr.log'), 'w', encoding='utf-8')
+            d = os.path.join(script_dir, f'temp/{args.task}'); ensure_private_dir(d)
+            out_path, err_path = os.path.join(d, 'stdout.log'), os.path.join(d, 'stderr.log')
+            atomic_write_private(out_path, "")
+            atomic_write_private(err_path, "")
+            out = open(out_path, 'w', encoding='utf-8')
+            err = open(err_path, 'w', encoding='utf-8')
         else: out, err = subprocess.DEVNULL, subprocess.DEVNULL
         p = subprocess.Popen(cmd, cwd=script_dir,
             creationflags=0x08000000 if platform.system() == 'Windows' else 0,
@@ -248,9 +270,9 @@ if __name__ == '__main__':
         agent.task_dir = d = os.path.join(script_dir, f'temp/{args.task}'); nround = ''
         infile = os.path.join(d, 'input.txt'); outfile = f'{d}/output{nround}.txt'
         if args.input:
-            os.makedirs(d, exist_ok=True)
+            ensure_private_dir(d)
             import glob; [os.remove(f) for f in glob.glob(os.path.join(d, 'output*.txt'))]
-            with open(infile, 'w', encoding='utf-8') as f: f.write(args.input)
+            atomic_write_private(infile, args.input, max_bytes=64 * 1024 * 1024)
         histfile = histfile or os.path.join(d, '_history.json')
     elif args.func:
         infile = args.func; outfile = os.path.splitext(args.func)[0] + '.out.txt'
@@ -282,7 +304,11 @@ if __name__ == '__main__':
         mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
         if hasattr(mod, 'init'): mod.init(_reflect_args)
         _mt = os.path.getmtime(args.reflect)
-        print(f'[Reflect] loaded {args.reflect}' + (f' args={_reflect_args}' if _reflect_args else ''))
+        _safe_reflect_args = {
+            key: ("<redacted>" if re.search(r"(?:key|token|secret|password)", key, re.I) else value)
+            for key, value in _reflect_args.items()
+        }
+        print(f'[Reflect] loaded {args.reflect}' + (f' args={_safe_reflect_args}' if _safe_reflect_args else ''))
         while True:
             if os.path.getmtime(args.reflect) != _mt:
                 try:
@@ -310,9 +336,13 @@ if __name__ == '__main__':
                 except Exception as e:
                     if getattr(mod, 'ONCE', False): raise
                     print(f'[Reflect] drain error: {e}'); result = f'[ERROR] {e}'
-                log_dir = os.path.join(script_dir, 'temp/reflect_logs'); os.makedirs(log_dir, exist_ok=True)
+                log_dir = os.path.join(script_dir, 'temp/reflect_logs'); ensure_private_dir(log_dir)
                 script_name = os.path.splitext(os.path.basename(args.reflect))[0]
-                open(os.path.join(log_dir, f'{script_name}_{datetime.now():%Y-%m-%d}.log'), 'a', encoding='utf-8').write(f'[{datetime.now():%m-%d %H:%M}]\n{result}\n\n')
+                from penglai_runtime.redaction import redact_text
+                append_private_line(
+                    os.path.join(log_dir, f'{script_name}_{datetime.now():%Y-%m-%d}.log'),
+                    f'[{datetime.now():%m-%d %H:%M}]\n{redact_text(str(result))}\n',
+                )
                 if not handled_done and (on_done := getattr(mod, 'on_done', None)):
                     try: on_done(result)
                     except Exception as e: print(f'[Reflect] on_done error: {e}')

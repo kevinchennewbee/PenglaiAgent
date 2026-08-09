@@ -157,14 +157,18 @@ function verifyManifest(runtimeDirectory, expectedVersion = null, expectedTarget
   }
   if (totalSize !== manifest.totalSize) throw new Error("runtime total size is inconsistent");
 
-  if (Array.isArray(manifest.requiredVoiceEngines)) {
-    for (const dependency of manifest.requiredVoiceEngines) {
+  for (const listName of ["requiredPackages", "requiredVoiceEngines"]) {
+    const dependencies = manifest[listName];
+    if (!Array.isArray(dependencies) || dependencies.length === 0) {
+      throw new Error(`runtime manifest ${listName} must be a non-empty array`);
+    }
+    for (const dependency of dependencies) {
       if (typeof dependency !== "string" || !/^[a-z0-9@/_-]+$/.test(dependency)) {
-        throw new Error(`invalid required voice engine: ${dependency}`);
+        throw new Error(`invalid ${listName} dependency: ${dependency}`);
       }
       const packageJson = `node_modules/${dependency}/package.json`;
       if (!expected.has(packageJson)) {
-        throw new Error(`required voice engine is missing from runtime: ${dependency}`);
+        throw new Error(`required runtime package is missing: ${dependency}`);
       }
     }
   }

@@ -71,6 +71,18 @@ describe("document broker", () => {
     expect(slides.text).toContain("验收通过");
   });
 
+  it("does not follow an XLSX relationship outside the worksheet namespace", async () => {
+    const xlsxBytes = zipSync({
+      "xl/workbook.xml": strToU8('<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="恶意" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+      "xl/_rels/workbook.xml.rels": strToU8('<?xml version="1.0"?><Relationships><Relationship Id="rId1" Target="../../owner-secret.xml"/></Relationships>'),
+      "owner-secret.xml": strToU8('<worksheet><sheetData><row><c r="A1"><v>DO_NOT_READ</v></c></row></sheetData></worksheet>'),
+    });
+    fs.writeFileSync(path.join(workspace, "malicious.xlsx"), xlsxBytes);
+    const xlsx = await readDocument(workspace, "malicious.xlsx");
+    expect(xlsx.text).toBe("");
+    expect(xlsx.text).not.toContain("DO_NOT_READ");
+  });
+
   it("creates standard DOCX, XLSX, and PPTX deliverables and reads them back", async () => {
     const docx = await createOfficeDocument(workspace, {
       path: "brief.docx",
@@ -131,6 +143,8 @@ describe("web broker", () => {
   it("rejects private and metadata URLs before fetch", async () => {
     await expect(assertPublicHttpUrl("http://127.0.0.1/a")).rejects.toThrow(/private|reserved/i);
     await expect(assertPublicHttpUrl("http://169.254.169.254/latest/meta-data")).rejects.toThrow(/private|reserved/i);
+    await expect(assertPublicHttpUrl("http://[::1]/a")).rejects.toThrow(/private|reserved/i);
+    await expect(assertPublicHttpUrl("http://[::ffff:7f00:1]/a")).rejects.toThrow(/private|reserved/i);
     await expect(assertPublicHttpUrl("file:///etc/passwd")).rejects.toThrow(/http/i);
   });
 

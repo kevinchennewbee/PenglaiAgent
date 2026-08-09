@@ -1,5 +1,5 @@
 # checklist_helper.py — CL(folder) 一站式任务清单（支持 checklist/mapreduce 两种模式）
-import json, time, subprocess, socket, sys
+import json, time, subprocess, socket, sys, os, secrets
 from pathlib import Path
 _R = Path(__file__).resolve().parent.parent
 _BBS, _MAIN = _R/"assets/agent_bbs.py", _R/"agentmain.py"
@@ -36,15 +36,23 @@ class CL:
     def bbs_key(self): return self._d["bbs"]["key"] if self._d["bbs"] else None
     @property
     def mode(self): return "mapreduce" if self._d["bbs"] else "checklist"
-    def _save(self): self.path.write_text(json.dumps(self._d, ensure_ascii=False, indent=1), "utf-8")
+    def _save(self):
+        fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(self._d, ensure_ascii=False, indent=1))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(self.path, 0o600)
 
     def _ensure_bbs(self):
         if self._d["bbs"]: return
-        with socket.socket() as s: s.bind(('',0)); port = s.getsockname()[1]
-        key = f"cl_{int(time.time())%1000}"
+        with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+        key = secrets.token_urlsafe(32)
         (self.folder/"bbs").mkdir(exist_ok=True)
-        subprocess.Popen(["python", str(_BBS), "--cwd", str(self.folder/"bbs"),
-                          "--port", str(port), "--key", key], **_PK)
+        child_env = os.environ.copy()
+        child_env["PENGLAI_BBS_BOARD_KEY"] = key
+        subprocess.Popen([sys.executable, str(_BBS), "--cwd", str(self.folder/"bbs"),
+                          "--port", str(port)], env=child_env, **_PK)
         time.sleep(1)
         self._d["bbs"] = {"url": f"http://127.0.0.1:{port}", "key": key}
         self._save()
@@ -80,9 +88,11 @@ class CL:
     def start_worker(self, n=None):
         n = n or self.workers or 1
         if n <= 0: return
+        child_env = os.environ.copy()
+        child_env["PENGLAI_BBS_BOARD_KEY"] = self.bbs_key
         for i in range(n):
-            subprocess.Popen(["python", str(_MAIN), "--reflect", str(_W_RE),
-                "--base_url", self.bbs_url, "--board_key", self.bbs_key, "--name", f"w{i+1}"], **_PK)
+            subprocess.Popen([sys.executable, str(_MAIN), "--reflect", str(_W_RE),
+                "--base_url", self.bbs_url, "--name", f"w{i+1}"], env=child_env, **_PK)
             if i < n - 1: time.sleep(5)
 
     def _pid_alive(self, pid):
@@ -97,6 +107,6 @@ class CL:
         if old_pid and self._pid_alive(old_pid):
             print(f"[CL] master already running (PID {old_pid}), skip")
             return
-        p = subprocess.Popen(["python", str(_MAIN), "--reflect", str(_M_RE),
+        p = subprocess.Popen([sys.executable, str(_MAIN), "--reflect", str(_M_RE),
             "--mr_folder", str(self.folder.resolve())], **_PK)
         self._d["master_pid"] = p.pid; self._save()

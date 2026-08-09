@@ -7,17 +7,18 @@ import sqlite3
 import time
 
 from .redaction import redact_obj, redact_text
+from .private_files import ensure_private_dir, harden_private_file
 
 
 def default_store_path(root=None):
     override = os.environ.get("PENGLAI_RUNTIME_STORE_PATH", "").strip()
     if override:
         path = os.path.abspath(os.path.expanduser(override))
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        ensure_private_dir(os.path.dirname(path))
         return path
     base = root or os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     path = os.path.join(base, "temp", "runtime_hub.sqlite3")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ensure_private_dir(os.path.dirname(path))
     return path
 
 
@@ -34,14 +35,27 @@ class RuntimeStateStore:
     """Small durable store for runtime events and task runs."""
 
     def __init__(self, path=None):
-        self.path = path or default_store_path()
-        os.makedirs(os.path.dirname(os.path.realpath(self.path)), exist_ok=True)
+        self.path = os.path.abspath(path or default_store_path())
+        ensure_private_dir(os.path.dirname(self.path))
+        if os.path.lexists(self.path):
+            harden_private_file(self.path)
+        else:
+            descriptor = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.close(descriptor)
         self._init_db()
+        self._harden_database_files()
+
+    def _harden_database_files(self):
+        for suffix in ("", "-wal", "-shm"):
+            candidate = self.path + suffix
+            if os.path.lexists(candidate):
+                harden_private_file(candidate)
 
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=30)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=30000")
+        self._harden_database_files()
         return conn
 
     def _connect_immediate(self):
@@ -56,6 +70,7 @@ class RuntimeStateStore:
         conn = sqlite3.connect(self.path, timeout=30, isolation_level=None)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=30000")
+        self._harden_database_files()
         return conn
 
     def _init_db(self):
@@ -147,10 +162,43 @@ class RuntimeStateStore:
                 self._ensure_column(conn, "session_state", name, definition)
 
     def _ensure_column(self, conn, table, name, definition):
-        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        migrations = {
+            ("task_runs", "permission_json", "TEXT NOT NULL DEFAULT '{}'"):
+                "ALTER TABLE task_runs ADD COLUMN permission_json TEXT NOT NULL DEFAULT '{}'",
+            ("task_runs", "artifacts_json", "TEXT NOT NULL DEFAULT '[]'"):
+                "ALTER TABLE task_runs ADD COLUMN artifacts_json TEXT NOT NULL DEFAULT '[]'",
+            ("task_runs", "log_excerpt", "TEXT NOT NULL DEFAULT ''"):
+                "ALTER TABLE task_runs ADD COLUMN log_excerpt TEXT NOT NULL DEFAULT ''",
+            ("session_state", "active", "INTEGER NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN active INTEGER NOT NULL DEFAULT 0",
+            ("session_state", "active_run_id", "TEXT NOT NULL DEFAULT ''"):
+                "ALTER TABLE session_state ADD COLUMN active_run_id TEXT NOT NULL DEFAULT ''",
+            ("session_state", "active_status", "TEXT NOT NULL DEFAULT ''"):
+                "ALTER TABLE session_state ADD COLUMN active_status TEXT NOT NULL DEFAULT ''",
+            ("session_state", "pending_count", "INTEGER NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN pending_count INTEGER NOT NULL DEFAULT 0",
+            ("session_state", "cancel_requested", "INTEGER NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0",
+            ("session_state", "cancel_drop_pending", "INTEGER NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN cancel_drop_pending INTEGER NOT NULL DEFAULT 0",
+            ("session_state", "cancel_reason", "TEXT NOT NULL DEFAULT ''"):
+                "ALTER TABLE session_state ADD COLUMN cancel_reason TEXT NOT NULL DEFAULT ''",
+            ("session_state", "cancel_requested_at", "REAL NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN cancel_requested_at REAL NOT NULL DEFAULT 0",
+            ("session_state", "metadata_json", "TEXT NOT NULL DEFAULT '{}'"):
+                "ALTER TABLE session_state ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'",
+            ("session_state", "updated_at", "REAL NOT NULL DEFAULT 0"):
+                "ALTER TABLE session_state ADD COLUMN updated_at REAL NOT NULL DEFAULT 0",
+        }
+        sql = migrations.get((table, name, definition))
+        if sql is None:
+            raise ValueError("unsupported schema migration column")
+        rows = conn.execute(
+            "PRAGMA table_info(task_runs)" if table == "task_runs" else "PRAGMA table_info(session_state)"
+        ).fetchall()
         if name in {row[1] for row in rows}:
             return
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+        conn.execute(sql)
 
     def record_event(self, event, session):
         with self._connect() as conn:

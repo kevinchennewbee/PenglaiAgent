@@ -66,17 +66,15 @@ describe("policy: project-anchored (jail = workspace)", () => {
     expect(d.approval?.capability).toBe("l2:modify-existing");
   });
 
-  it("classifies read-only bash as L1, mutations as L2, dangerous as L3", () => {
-    // read-only probe → L1 autonomous
+  it("requires L3 for every bash command until an OS sandbox ships", () => {
     const read = checkPolicy("bash", { command: "echo hello" }, workspace);
-    expect(read.allowed).toBe(true);
-    expect(read.level).toBe("L1");
-    // workspace mutation → L2
+    expect(read.allowed).toBe(false);
+    expect(read.code).toBe("needs_approval");
+    expect(read.level).toBe("L3");
     const write = checkPolicy("bash", { command: "npm install" }, workspace);
     expect(write.allowed).toBe(false);
-    expect(write.code).toBe("needs_confirm");
-    expect(write.level).toBe("L2");
-    // outbound / destructive → L3
+    expect(write.code).toBe("needs_approval");
+    expect(write.level).toBe("L3");
     const danger = checkPolicy("bash", { command: "git push origin main" }, workspace);
     expect(danger.allowed).toBe(false);
     expect(danger.code).toBe("needs_approval");
@@ -123,17 +121,18 @@ describe("policy: floating (same full tools, jail = workspace)", () => {
     expect(d.allowed).toBe(true);
   });
 
-  it("allows new writes, asks L2 for edit, and grades bash by risk", () => {
+  it("allows new writes, asks L2 for edit, and keeps bash at L3", () => {
     // new file write = L1
     expect(checkPolicy("write", { path: "out.txt", content: "x" }, workspace).allowed).toBe(true);
     // overwrite existing = L2 needs_confirm (permission dial / approval), NOT needs_work_mode
     const edit = checkPolicy("edit", { path: "file.txt", old_text: "a", new_text: "b" }, workspace);
     expect(edit.allowed).toBe(false);
     expect(edit.code).toBe("needs_confirm");
-    // echo is read-only → L1
+    // No OS process sandbox: even echo requires an explicit L3 decision.
     expect(checkPolicy("bash", { command: "echo hello" }, workspace)).toMatchObject({
-      allowed: true,
-      level: "L1",
+      allowed: false,
+      code: "needs_approval",
+      level: "L3",
     });
   });
 
@@ -290,7 +289,7 @@ describe("policy: protected Host namespace and conversation-scoped drafts", () =
       ownDrafts,
       ctx(),
     );
-    expect(readOnly).toMatchObject({ allowed: true, level: "L1" });
+    expect(readOnly).toMatchObject({ allowed: false, code: "needs_approval", level: "L3" });
 
     const write = checkPolicy(
       "bash",
@@ -300,8 +299,8 @@ describe("policy: protected Host namespace and conversation-scoped drafts", () =
     );
     expect(write).toMatchObject({
       allowed: false,
-      code: "needs_confirm",
-      level: "L2",
+      code: "needs_approval",
+      level: "L3",
     });
   });
 
@@ -466,25 +465,26 @@ describe("policy: the four-level adjudication matrix (审批四级制)", () => {
 
   });
 
-  it("L2 同类免问 applies to file edits and L2 bash, but never lowers L3", () => {
+  it("L2 同类免问 applies to file edits but never lowers bash or L3", () => {
     const grants = new Set(["l2:modify-existing"]);
     const ctx = { hasGrant: (key: string) => grants.has(key) };
     const overwrite = checkPolicy("write", { path: "file.txt", content: "x" }, workspace, ctx);
     expect(overwrite.allowed).toBe(true);
     expect(overwrite.reason).toContain("同类免问");
-    // L2 bash (npm install) can be auto-approved by the same workspace grant.
+    // Bash is never covered by an L2 grant without an OS process sandbox.
     const install = checkPolicy("bash", { command: "npm install" }, workspace, ctx);
-    expect(install.allowed).toBe(true);
-    expect(install.level).toBe("L2");
-    // A different caller without the grant gets L2 confirm.
+    expect(install.allowed).toBe(false);
+    expect(install.code).toBe("needs_approval");
+    expect(install.level).toBe("L3");
+    // A different caller without the grant remains L3 too.
     const other = checkPolicy(
       "bash",
       { command: "npm install" },
       workspace,
       { hasGrant: () => false },
     );
-    expect(other.code).toBe("needs_confirm");
-    expect(other.level).toBe("L2");
+    expect(other.code).toBe("needs_approval");
+    expect(other.level).toBe("L3");
     // L3 is never lowered by any grant.
     const push = checkPolicy("bash", { command: "git push origin main" }, workspace, ctx);
     expect(push.allowed).toBe(false);
@@ -524,7 +524,7 @@ describe("policy: the four-level adjudication matrix (审批四级制)", () => {
     }
   });
 
-  it("L1: read-only bash commands run autonomously", () => {
+  it("L3: apparently read-only bash commands never run autonomously", () => {
     for (const command of [
       "git status",
       "git diff",
@@ -539,12 +539,13 @@ describe("policy: the four-level adjudication matrix (审批四级制)", () => {
       "npm list",
     ]) {
       const d = checkPolicy("bash", { command }, workspace);
-      expect(d.allowed, command).toBe(true);
-      expect(d.level, command).toBe("L1");
+      expect(d.allowed, command).toBe(false);
+      expect(d.code, command).toBe("needs_approval");
+      expect(d.level, command).toBe("L3");
     }
   });
 
-  it("L2: workspace-mutating commands need one confirmation", () => {
+  it("L3: workspace-mutating bash is not grantable", () => {
     for (const command of [
       "npm install",
       "npm run build",
@@ -554,8 +555,23 @@ describe("policy: the four-level adjudication matrix (审批四级制)", () => {
       "touch file.txt",
     ]) {
       const d = checkPolicy("bash", { command }, workspace);
-      expect(d.code, `${command} → ${d.code} (${d.level})`).toBe("needs_confirm");
-      expect(d.level, command).toBe("L2");
+      expect(d.code, `${command} → ${d.code} (${d.level})`).toBe("needs_approval");
+      expect(d.level, command).toBe("L3");
+    }
+  });
+
+  it("L3: interpreter and package-script disguises never execute silently", () => {
+    for (const command of [
+      "python -c \"__import__('urllib.request').urlopen('https://example.com')\"",
+      "node -e \"require('node:fs').readFileSync('/etc/passwd')\"",
+      "npm test",
+      "git status",
+      "echo $(printf hidden)",
+    ]) {
+      const decision = checkPolicy("bash", { command }, workspace);
+      expect(decision.allowed, command).toBe(false);
+      expect(decision.code, command).toBe("needs_approval");
+      expect(decision.level, command).toBe("L3");
     }
   });
 

@@ -8,13 +8,16 @@
  * Secrets live under the Penglai data dir — never mykey.py.
  */
 
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { atomicWritePrivateJson, hardenPrivateFile } from "../security/private-file.js";
 
 const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const CHANNEL_VERSION = "2.2.0";
+const MAX_WECHAT_TOKEN_FILE_BYTES = 1024 * 1024;
 
 export interface WechatToken {
   botToken: string;
@@ -41,7 +44,9 @@ export function wechatTokenPath(dataDir: string): string {
 
 export function loadWechatToken(dataDir: string): WechatToken | null {
   try {
-    const raw = JSON.parse(fs.readFileSync(wechatTokenPath(dataDir), "utf-8")) as Record<
+    const file = wechatTokenPath(dataDir);
+    hardenPrivateFile(file, MAX_WECHAT_TOKEN_FILE_BYTES);
+    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as Record<
       string,
       unknown
     >;
@@ -65,14 +70,17 @@ export function loadWechatToken(dataDir: string): WechatToken | null {
             ? raw.get_updates_buf
             : undefined,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Private config")) throw error;
     return null;
   }
 }
 
 export function saveWechatToken(dataDir: string, token: WechatToken): string {
+  if (!token.botToken.trim() || token.botToken.length > 16_384) {
+    throw new Error("WeChat bot token is empty or too long");
+  }
   const file = wechatTokenPath(dataDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const payload = {
     schemaVersion: 1,
     botToken: token.botToken,
@@ -80,17 +88,7 @@ export function saveWechatToken(dataDir: string, token: WechatToken): string {
     loginTime: token.loginTime ?? new Date().toISOString(),
     getUpdatesBuf: token.getUpdatesBuf ?? "",
   };
-  const tmp = `${file}.tmp-${process.pid}-${Date.now().toString(36)}`;
-  fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-  fs.renameSync(tmp, file);
-  try {
-    fs.chmodSync(file, 0o600);
-  } catch {
-    /* best-effort */
-  }
+  atomicWritePrivateJson(file, payload, MAX_WECHAT_TOKEN_FILE_BYTES);
   return file;
 }
 
@@ -116,7 +114,7 @@ async function ilinkGet(pathname: string, query: Record<string, string>): Promis
 }
 
 function sessionId(): string {
-  return `wxbind_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `wxbind_${crypto.randomUUID()}`;
 }
 
 /** Start a QR bind session for personal WeChat iLink bot. */

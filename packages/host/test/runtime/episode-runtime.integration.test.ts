@@ -101,7 +101,7 @@ describe("EpisodeRunner + production kernel (integration)", () => {
     expect(events).toContain("episode.completed");
   });
 
-  it("executes a read-only bash command (L1) without approval", async () => {
+  it("requires explicit approval even for apparently read-only bash", async () => {
     const prompt = "跑个 echo";
     mock.register(prompt, [
       {
@@ -112,17 +112,16 @@ describe("EpisodeRunner + production kernel (integration)", () => {
 
     let sawApprovalRequest = false;
     runner.on((e) => {
-      if (e.event === "episode.approval.requested") sawApprovalRequest = true;
-      if (e.event === "episode.tool.completed" && e.toolName === "bash") {
-        // Tool completed without an approval event = L1 auto-run.
+      if (e.event === "episode.approval.requested") {
+        sawApprovalRequest = true;
+        runner.resolveApproval(e.approvalId, { approved: true, note: "test owner approved" });
       }
     });
 
     runner.submit("conv-test", { text: prompt, delivery: "steer" });
     await runner.join("conv-test");
 
-    // echo is L1 (read-only), so no approval event should fire.
-    expect(sawApprovalRequest).toBe(false);
+    expect(sawApprovalRequest).toBe(true);
   });
 
   it("stops an episode when the tool-failure safety ceiling trips", async () => {
@@ -161,6 +160,14 @@ describe("EpisodeRunner + production kernel (integration)", () => {
     const tightRunner = new EpisodeRunner({
       kernel: tightKernel,
       defaultPermissionMode: "auto_edit",
+    });
+    tightRunner.on((event) => {
+      if (event.event === "episode.approval.requested") {
+        tightRunner.resolveApproval(event.approvalId, {
+          approved: true,
+          note: "test owner approved failure-loop command",
+        });
+      }
     });
 
     // Script several turns, each invoking a command that exits non-zero.

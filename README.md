@@ -55,19 +55,21 @@ npm run cli -w @penglai/host -- chat
 npm run cli -w @penglai/host -- doctor
 ```
 
-常用命令：
+从源码目录运行常用命令：
 
 ```bash
-penglai doctor
-penglai doctor --export
-penglai status
-penglai project list
-penglai task list
-penglai approval list
-penglai budget status
-penglai channel list
-penglai migrate --dry-run
+npm run cli -w @penglai/host -- doctor
+npm run cli -w @penglai/host -- doctor --export
+npm run cli -w @penglai/host -- status
+npm run cli -w @penglai/host -- project list
+npm run cli -w @penglai/host -- task list
+npm run cli -w @penglai/host -- approval list
+npm run cli -w @penglai/host -- budget status
+npm run cli -w @penglai/host -- channel list
+npm run cli -w @penglai/host -- migrate --dry-run
 ```
+
+如果通过 `packages/host/scripts/install.sh` 或 `install.ps1` 安装 Host，上述命令可直接简写为 `penglai ...`；安装器只接受通过生产构建的运行时，不会静默降级为源码开发模式。
 
 ## Desktop 与 DMG
 
@@ -77,7 +79,7 @@ penglai migrate --dry-run
 npm run tauri:dev -w @penglai/desktop
 ```
 
-本机 unsigned DMG（只用于本地验收，不等于 Developer ID / notarization）：
+本机 adhoc-signed DMG（只用于本地验收，不等于 Developer ID / notarization 或正式 updater 签名）：
 
 ```bash
 npm run tauri:build:local -w @penglai/desktop
@@ -154,7 +156,7 @@ penglai migrate
 
 公开发布采用两分支策略：应用源码与 Release 在 `main`，双语静态官网在 `gh-pages`，两者都由 Owner 分别审核后推送。0.3.x Python 产品线已冻结并归档于 `v0.3.6`，仓库中保留的 Python 文件只用于历史、迁移与兼容性测试。
 
-Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期产品基因，也感谢 Trae Agent 相关实现为 0.4 重构提供的调研参照。当前执行内核使用 `@earendil-works/pi-agent-core` / `@earendil-works/pi-ai` 0.83.0（MIT）；MOSS-TTS-Nano Node 适配包含 OpenMOSS Apache-2.0 归属与许可证；其余第三方归属以 Release 中的 `THIRD_PARTY_NOTICES.txt` 与 SBOM 为准。
+Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期产品基因，也感谢 Trae Agent 相关实现为 0.4 重构提供的调研参照。当前执行内核锁定 `@earendil-works/pi-agent-core` / `@earendil-works/pi-ai` 0.83.0（MIT）；0.84.1 的持久化 AgentHarness 接口与当前发布架构不兼容，未在 0.4.0 中冒险升级。MOSS-TTS-Nano Node 适配包含 OpenMOSS Apache-2.0 归属与许可证；其余第三方归属以 Release 中的 `THIRD_PARTY_NOTICES.txt` 与 SBOM 为准。
 
 ---
 
@@ -182,4 +184,4 @@ Key guarantees:
 - local SenseVoice ASR, the complete MOSS-TTS-Nano ONNX CPU pipeline, and opt-in active companionship;
 - 0.3 migration with dry-run, backup and rollback.
 
-Build and test commands are identical to the Chinese sections above. For a local unsigned macOS bundle, run `npm run tauri:build:local -w @penglai/desktop`, then `node scripts/lifecycle-check.mjs`. Unsigned local bundles are for acceptance testing only; they do not prove Developer ID signing or notarization.
+Build and test commands are identical to the Chinese sections above. For a local ad-hoc-signed macOS bundle, run `npm run tauri:build:local -w @penglai/desktop`, then `node scripts/lifecycle-check.mjs`. Local acceptance bundles do not prove Developer ID signing, notarization, or formal updater signing.

@@ -392,6 +392,17 @@ describe("project layer", () => {
       expect((error as MemoryError).code).toBe("note_too_large");
     }
   });
+
+  it.runIf(process.platform !== "win32")("rejects a symlinked project memory directory", () => {
+    const outside = path.join(root, "outside-memory");
+    fs.mkdirSync(outside);
+    fs.mkdirSync(path.join(projectRoot, ".penglai"));
+    fs.symlinkSync(outside, MemoryStore.projectDir(projectRoot));
+    expect(() =>
+      store.writeProjectNote(projectRoot, "escape", "must stay inside", { anchored: true }),
+    ).toThrow(/regular directory/);
+    expect(fs.existsSync(path.join(outside, "escape.md"))).toBe(false);
+  });
 });
 
 describe("system-prompt injection", () => {

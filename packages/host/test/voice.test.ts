@@ -2,8 +2,8 @@
  * 语音测试（chat 模式本地 ASR+TTS，I/O 层）。
  *
  *   1. 下载器（assets）：假 fetch 内存字节——进度、.part 断点续传（Range
- *      头 + 206 追加 / 200 截断重下）、镜像顺序回退、sha256 校验、tar 兜底
- *      （假 spawn 模拟解压）、幂等跳过。**绝不真实下载大模型**。
+ *      头 + 206 追加 / 200 截断重下）、镜像顺序回退、sha256 校验、已有文件
+ *      复验、幂等跳过。**绝不真实下载大模型**。
  *   2. 能力探测（engine）：components → ready/partial/disabled，懒加载
  *      降级（无引擎不抛）。
  *   3. 服务（service）：假 sherpa 转写（情绪标签解析）、契约引擎假 ort
@@ -117,7 +117,6 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
       ...SENSEVOICE_SPEC,
       required: ["a.onnx"],
       files: [{ name: "a.onnx", urls: ["https://hf-mirror.com/x/a.onnx"] }],
-      fallbackTar: undefined,
     };
     const progress: DownloadProgress[] = [];
     const result = await ensureVoiceModel(spec, dataDir, {
@@ -144,7 +143,6 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
       files: [
         { name: "a.onnx", urls: ["https://hf-mirror.com/x/a.onnx", "https://huggingface.co/x/a.onnx"] },
       ],
-      fallbackTar: undefined,
     };
     const result = await ensureVoiceModel(spec, dataDir, { fetchImpl });
     expect(result.ok).toBe(true);
@@ -166,7 +164,6 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
       ...SENSEVOICE_SPEC,
       required: ["a.onnx"],
       files: [{ name: "a.onnx", urls: ["https://hf-mirror.com/x/a.onnx"] }],
-      fallbackTar: undefined,
     };
     const result = await ensureVoiceModel(spec, dataDir, { fetchImpl });
     expect(result.ok).toBe(true);
@@ -186,7 +183,6 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
       ...SENSEVOICE_SPEC,
       required: ["a.onnx"],
       files: [{ name: "a.onnx", urls: ["https://hf-mirror.com/x/a.onnx"] }],
-      fallbackTar: undefined,
     };
     const result = await ensureVoiceModel(spec, dataDir, { fetchImpl });
     expect(result.ok).toBe(true);
@@ -209,42 +205,33 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
           sha256: good,
         },
       ],
-      fallbackTar: undefined,
     };
     const result = await ensureVoiceModel(spec, dataDir, { fetchImpl });
     expect(result.ok).toBe(true);
     expect(fs.readFileSync(path.join(senseVoiceDir(dataDir), "a.onnx"), "utf-8")).toBe("good-bytes");
   });
 
-  it("tar 兜底：单文件全失败 → 整包下载 + 假 spawn 解压（0.3.x 策略）", async () => {
-    const { fetchImpl } = fakeFetch({ "https://gh-proxy.com/": "tar-bytes" });
+  it("已有文件哈希不符时不会误判幂等，而会重新下载并复验", async () => {
+    const { fetchImpl, requests } = fakeFetch({ "https://huggingface.co/": "good-bytes" });
     const spec = {
-      ...SENSEVOICE_SPEC, // 自带 fallbackTar
-      required: ["model.int8.onnx", "tokens.txt"],
+      ...SENSEVOICE_SPEC,
+      required: ["a.onnx"],
       files: [
         {
-          name: "model.int8.onnx",
-          urls: ["https://hf-mirror.com/x/model.int8.onnx", "https://huggingface.co/x/model.int8.onnx"],
+          name: "a.onnx",
+          urls: ["https://huggingface.co/x/a.onnx"],
+          sizeBytes: "good-bytes".length,
+          sha256: sha256("good-bytes"),
         },
-        { name: "tokens.txt", urls: ["https://hf-mirror.com/x/tokens.txt", "https://huggingface.co/x/tokens.txt"] },
       ],
     };
-    const spawnCalls: string[][] = [];
-    const result = await ensureVoiceModel(spec, dataDir, {
-      fetchImpl,
-      spawnImpl: (cmd, args) => {
-        spawnCalls.push([cmd, ...args]);
-        // 假解压：把就绪文件写进目标目录
-        const destDir = args[args.length - 1];
-        fs.mkdirSync(destDir, { recursive: true });
-        fs.writeFileSync(path.join(destDir, "model.int8.onnx"), "from-tar");
-        fs.writeFileSync(path.join(destDir, "tokens.txt"), "<blank>\n");
-        return { status: 0 };
-      },
-    });
+    const dir = senseVoiceDir(dataDir);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "a.onnx"), "evil-bytes");
+    const result = await ensureVoiceModel(spec, dataDir, { fetchImpl });
     expect(result.ok).toBe(true);
-    expect(result.detail).toContain("tar 兜底");
-    expect(spawnCalls[0][0]).toBe("tar");
+    expect(requests).toHaveLength(1);
+    expect(fs.readFileSync(path.join(dir, "a.onnx"), "utf8")).toBe("good-bytes");
   });
 
   it("MOSS 清单：两组仓库 16 个文件 + modelscope 镜像在前", () => {
@@ -252,6 +239,8 @@ describe("voice assets: 下载器（假 fetch，零真实下载）", () => {
     expect(MOSS_TTS_SPEC.files[0].urls[0]).toContain("modelscope.cn");
     expect(MOSS_TTS_SPEC.files[0].name).toContain("MOSS-TTS-Nano-100M-ONNX/");
     expect(MOSS_TTS_SPEC.files.at(-1)?.name).toContain("MOSS-Audio-Tokenizer-Nano-ONNX/");
+    expect(MOSS_TTS_SPEC.files.every((file) => file.sizeBytes && /^[a-f0-9]{64}$/.test(file.sha256 ?? ""))).toBe(true);
+    expect(SENSEVOICE_SPEC.files.every((file) => file.sizeBytes && /^[a-f0-9]{64}$/.test(file.sha256 ?? ""))).toBe(true);
     expect(modelDirFor(MOSS_TTS_SPEC, dataDir)).toContain("moss-tts");
   });
 });
@@ -546,6 +535,18 @@ describe("voice: RPC + REPL 语音链路（假引擎/假外设）", () => {
         ortFactory: () => null,
         ffmpegPath: "/usr/bin/ffmpeg",
         fetchImpl: fakeFetch({ "https://": "file-bytes" }).fetchImpl,
+        specs: {
+          asr: {
+            ...SENSEVOICE_SPEC,
+            required: ["model.int8.onnx", "tokens.txt"],
+            files: ["model.int8.onnx", "tokens.txt"].map((name) => ({
+              name,
+              urls: [`https://example.invalid/${name}`],
+              sizeBytes: "file-bytes".length,
+              sha256: sha256("file-bytes"),
+            })),
+          },
+        },
       },
     });
     const client = await HostClient.connect({ port: server.port, token: TOKEN });

@@ -24,6 +24,7 @@ import {
 } from "../state/workbench.js";
 import { formatRatio, formatTokens, timeAgo } from "../state/format.js";
 import { Icon } from "./Icon.js";
+import { publicHref } from "./MarkdownMessage.js";
 
 // ── 进行中 ─────────────────────────────────────────────────────
 
@@ -179,6 +180,8 @@ export function ChannelsPanel({
 
   const feishuState = channelStateLabel(feishu?.state ?? "stopped");
   const wechatState = channelStateLabel(wechat?.state ?? "unconfigured");
+  const safeFeishuQrUrl = publicHref(feishuQrUrl ?? undefined);
+  const safeWechatQrUrl = publicHref(wechatQrUrl ?? undefined);
 
   return (
     <main className="task-surface">
@@ -225,20 +228,15 @@ export function ChannelsPanel({
                           sessionId: string;
                           status: string;
                           appId: string | null;
-                          appSecret: string | null;
+                          configured: boolean;
                           error: string | null;
                           qrUrl: string;
                         }>("channel.feishu.qrPoll", { sessionId: started.sessionId }),
                       (row) => ["confirmed", "denied", "expired", "error"].includes(row.status),
                     );
                     setFeishuQrStatus(final.status);
-                    if (final.status === "confirmed" && final.appId && final.appSecret) {
+                    if (final.status === "confirmed" && final.appId && final.configured) {
                       setAppId(final.appId);
-                      await bridge!.rpc("channel.setup", {
-                        channel: "feishu",
-                        appId: final.appId,
-                        appSecret: final.appSecret,
-                      });
                       setNotice("飞书已接入。私聊机器人拿 open_id，再加白名单。");
                       setFeishuQrUrl(null);
                     } else {
@@ -276,9 +274,9 @@ export function ChannelsPanel({
             {feishuQrUrl && (
               <div className="channel-setup-form">
                 <p className="muted">扫码状态：{feishuQrStatus ?? "pending"}</p>
-                <a href={feishuQrUrl} target="_blank" rel="noreferrer">
-                  打开扫码页 / 复制链接
-                </a>
+                {safeFeishuQrUrl
+                  ? <a href={safeFeishuQrUrl} target="_blank" rel="noopener noreferrer">打开扫码页 / 复制链接</a>
+                  : <span className="unsafe-link">扫码地址协议无效，已阻止打开</span>}
                 <code className="muted" style={{ wordBreak: "break-all" }}>{feishuQrUrl}</code>
               </div>
             )}
@@ -431,7 +429,9 @@ export function ChannelsPanel({
               <div className="channel-setup-form">
                 <p className="muted">扫码状态：{wechatQrStatus ?? "pending"}</p>
                 {/* iLink returns a scannable content URL; open or render via external QR if needed */}
-                <a href={wechatQrUrl} target="_blank" rel="noreferrer">打开/复制二维码内容</a>
+                {safeWechatQrUrl
+                  ? <a href={safeWechatQrUrl} target="_blank" rel="noopener noreferrer">打开/复制二维码内容</a>
+                  : <span className="unsafe-link">二维码内容不是安全网页地址，仅显示文本</span>}
                 <code className="muted" style={{ wordBreak: "break-all" }}>{wechatQrUrl}</code>
               </div>
             )}

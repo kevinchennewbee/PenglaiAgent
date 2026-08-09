@@ -45,9 +45,35 @@ describe("mcp config", () => {
     expect(loadMcpConfig(dataDir).servers).toHaveLength(0);
   });
 
+  it("refuses to overwrite a symlinked secret-bearing config", () => {
+    const victim = path.join(dataDir, "victim.json");
+    fs.writeFileSync(victim, "owner-data", "utf8");
+    fs.symlinkSync(victim, path.join(dataDir, "mcp.json"));
+    expect(() =>
+      upsertMcpServer(
+        { name: "echo", transport: "stdio", command: process.execPath },
+        dataDir,
+      ),
+    ).toThrow(/regular file|symlink/i);
+    expect(fs.readFileSync(victim, "utf8")).toBe("owner-data");
+  });
+
+  it("fails closed instead of erasing a corrupt config", () => {
+    const config = path.join(dataDir, "mcp.json");
+    fs.writeFileSync(config, "not-json", "utf8");
+    expect(() => loadMcpConfig(dataDir)).toThrow();
+    expect(() =>
+      upsertMcpServer(
+        { name: "echo", transport: "stdio", command: process.execPath },
+        dataDir,
+      ),
+    ).toThrow();
+    expect(fs.readFileSync(config, "utf8")).toBe("not-json");
+  });
+
   it("describes honest tool surface notes", () => {
     const surface = describeBuiltinToolSurface();
-    expect(surface.local.some((row) => row.includes("bash") && row.includes("L1"))).toBe(true);
+    expect(surface.local.some((row) => row.includes("bash") && row.includes("L3"))).toBe(true);
     expect(surface.local.some((row) => row.includes("document_read"))).toBe(true);
     expect(surface.local.some((row) => row.includes("document_create_pdf"))).toBe(true);
     expect(surface.network).toEqual([expect.stringContaining("web_search / web_fetch")]);

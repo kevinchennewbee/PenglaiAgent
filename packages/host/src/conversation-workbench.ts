@@ -8,16 +8,23 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as crypto from "node:crypto";
 import type {
   ConversationTodo,
   ConversationTodoStatus,
   ConversationWorkbench,
 } from "@penglai/protocol";
 import { penglaiHome } from "./conversation-store.js";
+import {
+  atomicWritePrivateJson,
+  ensurePrivateDirectory,
+  hardenPrivateFile,
+} from "./security/private-file.js";
 
 const MAX_TODOS = 40;
 const MAX_LEGACY_SUBAGENTS = 20;
 const MAX_LEGACY_JOBS = 20;
+const MAX_WORKBENCH_BYTES = 2 * 1024 * 1024;
 
 function assertValidConversationId(conversationId: string): void {
   if (!/^[A-Za-z0-9_-]+$/.test(conversationId)) {
@@ -35,13 +42,17 @@ function emptyWorkbench(): ConversationWorkbench {
 }
 
 function id(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
 export function loadWorkbench(conversationId: string): ConversationWorkbench {
+  const base = path.join(penglaiHome(), "conversations");
+  if (!fs.existsSync(base)) return emptyWorkbench();
+  ensurePrivateDirectory(base);
   const file = workbenchPath(conversationId);
   try {
     if (!fs.existsSync(file)) return emptyWorkbench();
+    hardenPrivateFile(file, MAX_WORKBENCH_BYTES);
     const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ConversationWorkbench;
     return {
       todos: Array.isArray(raw.todos) ? raw.todos : [],
@@ -49,7 +60,8 @@ export function loadWorkbench(conversationId: string): ConversationWorkbench {
       jobs: Array.isArray(raw.jobs) ? raw.jobs : [],
       updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Private")) throw error;
     return emptyWorkbench();
   }
 }
@@ -59,8 +71,9 @@ export function saveWorkbench(
   wb: ConversationWorkbench,
 ): ConversationWorkbench {
   assertValidConversationId(conversationId);
+  ensurePrivateDirectory(path.join(penglaiHome(), "conversations"));
   const dir = path.dirname(workbenchPath(conversationId));
-  fs.mkdirSync(dir, { recursive: true });
+  ensurePrivateDirectory(dir);
   const next: ConversationWorkbench = {
     todos: wb.todos.slice(0, MAX_TODOS),
     // Preserve bounded legacy history on TODO writes. There is deliberately
@@ -70,9 +83,7 @@ export function saveWorkbench(
     updatedAt: Date.now(),
   };
   const file = workbenchPath(conversationId);
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
-  fs.renameSync(tmp, file);
+  atomicWritePrivateJson(file, next, MAX_WORKBENCH_BYTES);
   return next;
 }
 

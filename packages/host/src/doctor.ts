@@ -19,6 +19,7 @@ import { conversationsBaseDir } from "./conversation-store.js";
 import { penglaiDataDir } from "./data-dir.js";
 import { inspectHostTokenFile } from "./token-file.js";
 import { probeVoice } from "./voice/engine.js";
+import { loadPersistedProfiles } from "./profiles-store.js";
 
 // ── public types ───────────────────────────────────────────────
 
@@ -118,6 +119,9 @@ function checkNode(): DoctorResult {
 }
 
 function checkNpm(): DoctorResult {
+  if (process.env.PENGLAI_DESKTOP_MANAGED === "1") {
+    return { check: "npm", status: "ok", message: "Desktop 自带运行时；日常使用不需要系统 npm。" };
+  }
   const v = commandOutput("npm -v");
   if (v) return { check: "npm", status: "ok", message: `npm v${v}` };
   return {
@@ -171,11 +175,21 @@ function checkConversationsDir(): DoctorResult {
 
 function checkModelProfile(): DoctorResult {
   const configured = MODEL_KEY_ENVS.filter((env) => !!process.env[env]);
-  if (configured.length > 0) {
+  let persisted = 0;
+  try {
+    persisted = loadPersistedProfiles(penglaiDataDir()).filter(
+      (profile) => !!profile.apiKey || !!profile.apiKeyEnv,
+    ).length;
+  } catch {
+    // The dedicated private-file Doctor/security checks surface an unsafe file.
+  }
+  if (configured.length > 0 || persisted > 0) {
     return {
       check: "model-profile",
       status: "ok",
-      message: `at least one model API key configured (${configured.join(", ")}).`,
+      message: configured.length > 0
+        ? `at least one model API key configured (${configured.join(", ")}).`
+        : `${persisted} persisted model profile(s) configured.`,
     };
   }
   return {
@@ -187,6 +201,9 @@ function checkModelProfile(): DoctorResult {
 }
 
 function checkPython(): DoctorResult {
+  if (process.env.PENGLAI_DESKTOP_MANAGED === "1") {
+    return { check: "python", status: "ok", message: "0.4 Desktop 核心为 TypeScript；日常使用不需要系统 Python。" };
+  }
   // `python` first (Windows / many distros), then `python3` (most Linux/macOS).
   const py = commandOutput("python --version") || commandOutput("python3 --version");
   if (py) return { check: "python", status: "ok", message: py };

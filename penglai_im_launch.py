@@ -15,7 +15,10 @@
 由 penglai_channels 以 `python penglai_im_launch.py <dingtalk|qq|wecom>` 启动。
 """
 import os
+import ipaddress
+import socket
 import sys
+from urllib.parse import urljoin, urlsplit
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, ROOT)
@@ -26,13 +29,60 @@ os.chdir(ROOT)
 
 
 # ---------- 公共：下载语音直链 → 本地 SenseVoice 转写 ----------
+_VOICE_REDIRECT_CODES = {301, 302, 303, 307, 308}
+
+
+def _validate_voice_url(url):
+    parsed = urlsplit(str(url).strip())
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("voice media URL must be HTTPS without embedded credentials or fragments")
+    for info in socket.getaddrinfo(parsed.hostname, parsed.port or 443):
+        ip = ipaddress.ip_address(info[4][0])
+        mapped = getattr(ip, "ipv4_mapped", None)
+        if mapped is not None:
+            ip = mapped
+        if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            raise ValueError("voice media URL resolves to a private or reserved address")
+    return parsed.geturl()
+
+
+def _open_voice_url(url, timeout=60, max_redirects=5):
+    """Open one public HTTPS media URL while revalidating every redirect.
+
+    urllib's default redirect handler silently follows Location and would let a
+    public URL bounce into loopback/private space after the initial check.
+    """
+    import urllib.error
+    import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(_NoRedirect())
+    current = _validate_voice_url(url)
+    for hop in range(max_redirects + 1):
+        req = urllib.request.Request(current, headers={"User-Agent": "penglai-im-voice"})
+        try:
+            return opener.open(req, timeout=timeout)
+        except urllib.error.HTTPError as error:
+            if error.code not in _VOICE_REDIRECT_CODES:
+                raise
+            if hop >= max_redirects:
+                raise ValueError("voice media URL exceeded redirect limit") from error
+            location = error.headers.get("Location")
+            if not location:
+                raise ValueError("voice media redirect omitted Location") from error
+            current = _validate_voice_url(urljoin(current, location))
+    raise ValueError("voice media URL exceeded redirect limit")
+
+
 def _transcribe_url(url, suffix=".wav"):
     """下载语音直链 → SenseVoice 转写 → (text, emotion)。任何失败返回 (None, "")，
     调用方自行回退到平台自带 ASR 文本。"""
     if not url:
         return None, ""
     import tempfile
-    import urllib.request
     try:
         from plugins.penglai_voice import transcribe_file
     except Exception as e:
@@ -43,9 +93,19 @@ def _transcribe_url(url, suffix=".wav"):
         os.makedirs(os.path.join(ROOT, "temp"), exist_ok=True)
         fd, path = tempfile.mkstemp(suffix=suffix, dir=os.path.join(ROOT, "temp"))
         os.close(fd)
-        req = urllib.request.Request(url, headers={"User-Agent": "penglai-im-voice"})
-        with urllib.request.urlopen(req, timeout=60) as r, open(path, "wb") as f:
-            f.write(r.read())
+        with _open_voice_url(url, timeout=60) as r, open(path, "wb") as f:
+            declared = int(r.headers.get("Content-Length") or 0)
+            if declared > 25 * 1024 * 1024:
+                raise ValueError("voice media exceeds 25 MiB")
+            total = 0
+            while True:
+                chunk = r.read(256 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 25 * 1024 * 1024:
+                    raise ValueError("voice media exceeds 25 MiB")
+                f.write(chunk)
         res = transcribe_file(path)
         if "error" in res:
             sys.stderr.write(f"[im_voice] 转写失败：{res['error'][:80]}\n")
@@ -670,9 +730,11 @@ def launch_wechat():
         try:
             uid = msg.get("from_user_id", "")
             if uid and not os.path.exists(_master):
-                os.makedirs(os.path.dirname(_master), exist_ok=True)
-                json.dump({"uid": uid, "ts": time.time()},
-                          open(_master, "w", encoding="utf-8"))
+                from penglai_runtime.private_files import atomic_write_private
+                atomic_write_private(
+                    _master,
+                    json.dumps({"uid": uid, "ts": time.time()}),
+                )
                 print(f"[wx_master] 已记录主人 uid（首位对话者）", file=sys.__stdout__)
         except Exception:
             pass
@@ -706,7 +768,13 @@ def launch_wechat():
         lock.bind(("127.0.0.1", _wechat_lock_port))
     except OSError:
         print("[微信] 已有一个实例在运行，退出。"); return 1
-    logf = open(os.path.join(ROOT, "temp", "wechatapp.log"), "a", encoding="utf-8", buffering=1)
+    log_path = os.path.join(ROOT, "temp", "wechatapp.log")
+    from penglai_runtime.private_files import ensure_private_dir, harden_private_file
+    ensure_private_dir(os.path.dirname(log_path))
+    if os.path.lexists(log_path):
+        harden_private_file(log_path)
+    log_descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    logf = os.fdopen(log_descriptor, "a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = logf
     print(f'[NEW] Process starting {time.strftime("%m-%d %H:%M")} (penglai_im_launch)')
     bot = wx.WxBotClient()

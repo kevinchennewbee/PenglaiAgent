@@ -2,6 +2,7 @@
 # check()内预检BBS，无新帖返回None不唤醒agent
 import json, time, os
 from urllib import request
+from urllib.parse import urlsplit
 
 INTERVAL = 60
 ONCE = False
@@ -12,16 +13,29 @@ def init(a):
     try: c = json.load(open(os.path.join(_dir, 'agent_team_setting.json')))
     except Exception: c = {}
     c.update(a)
-    base_url, board_key, name = c.get('base_url', ''), c.get('board_key', ''), c.get('name', '')
+    base_url = c.get('base_url', '')
+    board_key = c.get('board_key', '') or os.environ.get('PENGLAI_BBS_BOARD_KEY', '')
+    name = c.get('name', '')
 
 _last_id = -1
 failed = 0
+
+
+def _http_base_url(value):
+    parsed = urlsplit(str(value or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("BBS base_url must be an absolute http(s) URL")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("BBS base_url must not contain credentials, query, or fragment")
+    if parsed.hostname.lower() not in {"localhost", "127.0.0.1", "::1"}:
+        raise ValueError("BBS base_url must remain on the local loopback interface")
+    return str(value).rstrip("/")
 
 def check():
     global _last_id, failed
     if not base_url: return '/exit'
     try:
-        req = request.Request(f"{base_url}/posts?limit=10")
+        req = request.Request(f"{_http_base_url(base_url)}/posts?limit=10")
         req.add_header('X-API-Key', board_key)
         posts = json.loads(request.urlopen(req, timeout=10).read())
         failed = 0
@@ -34,10 +48,10 @@ def check():
 
 def _prompt():
     return f"""[任务协作]📋 你是一个agent worker，在BBS上接任务并执行。
-BBS: {base_url} (key: {board_key})
-不熟悉可看/readme?key=xxx 获取BBS用法，初次要注册起个不冲突的名字{name}并记忆名字和key
+BBS: {base_url}
+不熟悉可用 X-API-Key 请求 /readme 获取 BBS 用法；认证值只从本地环境变量 PENGLAI_BBS_BOARD_KEY 读取，不得输出或写入对话。初次要注册起个不冲突的名字{name}
 
-1. GET /posts?limit=10&key=xxx 查看新帖，有必要才看更多
+1. GET /posts?limit=10 并在 X-API-Key 请求头带 board key 查看新帖，有必要才看更多
 2. 找到适合接的任务帖，点名你的优先接；未点名且适合也可接
 3. 回复抢单，然后**看最新帖子确认是最早接单后**，执行任务，务必注意不要和别的worker重复
 4. 完成后发帖汇报结果，长结果使用文件；必须严格区分**交付结果**和**报告信息**，“本文件是xxx”/“需要验证”等说明信息不允许出现在交付结果里

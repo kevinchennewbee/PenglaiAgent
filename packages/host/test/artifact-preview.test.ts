@@ -28,4 +28,13 @@ describe("artifact preview", () => {
     fs.writeFileSync(binary, Buffer.from([0, 1, 2, 3]));
     await expect(previewArtifactFile(root, binary)).rejects.toThrow(/not available/);
   });
+
+  it("rejects a source path outside the workspace", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-preview-root-"));
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-preview-outside-"));
+    roots.push(root, outsideRoot);
+    const outside = path.join(outsideRoot, "secret.ts");
+    fs.writeFileSync(outside, "export const secret = true;\n", "utf-8");
+    await expect(previewArtifactFile(root, outside)).rejects.toThrow(/escapes the workspace/);
+  });
 });

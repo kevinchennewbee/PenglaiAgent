@@ -28,7 +28,7 @@ set -u
 # Resolve the repo root from this script's location (packages/host/bridge).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 PYTHON="${PYTHON:-python}"
 HOST_PORT="${PENGLAI_HOST_PORT:-14169}"

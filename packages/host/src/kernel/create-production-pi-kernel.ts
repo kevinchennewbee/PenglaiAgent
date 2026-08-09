@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ensurePrivateDirectory } from "../security/private-file.js";
 import {
   AgentHarness,
   DEFAULT_COMPACTION_SETTINGS,
@@ -506,9 +507,9 @@ function thinkingLevelOf(raw: string | undefined): ThinkingLevel {
 }
 
 /**
- * Only L2 workspace confirmations may be auto-approved by an execution dial.
- * L3 always remains an explicit Owner decision. Bash is mounted, but every
- * call still passes through the deterministic policy ladder before execution.
+ * Only L2 file confirmations may be auto-approved by an execution dial. L3
+ * always remains an explicit Owner decision. Bash is mounted, but without a
+ * cross-platform OS sandbox every bash call is L3 and never auto-approved.
  */
 export function permissionModeAutoApprovesPolicyDecision(
   permissionMode: "confirm" | "auto_edit" | "full" | "plan",
@@ -624,8 +625,10 @@ export async function createProductionPiKernel(
 
   const env = new NodeExecutionEnv({ cwd: options.workspaceRoot });
   const canonicalDataDir = (() => {
-    fs.mkdirSync(options.dataDir, { recursive: true });
-    return fs.realpathSync(options.dataDir);
+    fs.mkdirSync(options.dataDir, { recursive: true, mode: 0o700 });
+    const canonical = fs.realpathSync(options.dataDir);
+    ensurePrivateDirectory(canonical);
+    return canonical;
   })();
   const conversationDraftRoot = resolveConversationDraftRoot(
     canonicalDataDir,

@@ -1,5 +1,5 @@
 import { load } from "cheerio";
-import { assertPublicHttpUrl } from "./network-safety.js";
+import { assertPublicHttpUrl, fetchPublicHttp } from "./network-safety.js";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
@@ -72,7 +72,7 @@ export async function fetchPublicPage(rawUrl: string, timeoutMs = DEFAULT_TIMEOU
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await fetchPublicHttp(url, {
         redirect: "manual",
         signal: controller.signal,
         headers: { "user-agent": USER_AGENT, accept: "text/html,text/plain,application/json;q=0.9,*/*;q=0.2" },
@@ -153,7 +153,7 @@ async function fetchSearchMarkup(rawUrl: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
+    const response = await fetchPublicHttp(url, {
       redirect: "error",
       signal: controller.signal,
       headers: { "user-agent": USER_AGENT, accept: "text/html" },

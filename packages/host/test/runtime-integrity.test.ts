@@ -47,8 +47,12 @@ beforeAll(() => {
   const nodeName = process.platform === "win32" ? "node.exe" : "node";
   const nodePath = path.join(runtimeRoot, "bin", nodeName);
   const entryPath = path.join(runtimeRoot, "src", "cli.js");
+  const corePackage = path.join(runtimeRoot, "node_modules", "fixture-core", "package.json");
+  const voicePackage = path.join(runtimeRoot, "node_modules", "fixture-voice", "package.json");
   fs.mkdirSync(path.dirname(nodePath), { recursive: true });
   fs.mkdirSync(path.dirname(entryPath), { recursive: true });
+  fs.mkdirSync(path.dirname(corePackage), { recursive: true });
+  fs.mkdirSync(path.dirname(voicePackage), { recursive: true });
   if (process.platform === "win32") {
     fs.copyFileSync(process.execPath, nodePath);
   } else {
@@ -65,7 +69,9 @@ beforeAll(() => {
     );
   }
   fs.writeFileSync(entryPath, "export {};\n");
-  const files = [nodePath, entryPath].map((file) => ({
+  fs.writeFileSync(corePackage, '{"name":"fixture-core"}\n');
+  fs.writeFileSync(voicePackage, '{"name":"fixture-voice"}\n');
+  const files = [nodePath, entryPath, corePackage, voicePackage].map((file) => ({
     path: path.relative(runtimeRoot, file).split(path.sep).join("/"),
     sha256: sha256(file),
     size: fs.statSync(file).size,
@@ -81,6 +87,8 @@ beforeAll(() => {
       version: process.version.replace(/^v/, ""),
       sha256: sha256(nodePath),
     },
+    requiredPackages: ["fixture-core"],
+    requiredVoiceEngines: ["fixture-voice"],
     fileCount: files.length,
     totalSize: files.reduce((sum, file) => sum + file.size, 0),
     files,
@@ -163,7 +171,7 @@ describe("runtime manifest integrity gate", () => {
     try {
       const result = verify();
       expect(result.status).not.toBe(0);
-      expect(result.stderr).toContain("required voice engine is missing from runtime: sherpa-onnx");
+      expect(result.stderr).toContain("required runtime package is missing: sherpa-onnx");
     } finally {
       restoreManifest();
     }

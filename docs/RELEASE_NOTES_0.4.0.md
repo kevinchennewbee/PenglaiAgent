@@ -49,19 +49,19 @@ penglai migrate
 
 ## 本地候选验收
 
-- 全量：71 个测试文件、838 项测试通过；17 条生产路径 eval 回放通过。旧 `ChatRunner` 与 24 项死代码测试已删除，生产执行只剩 EpisodeRunner → Pi 一条路径。
+- 全量：71 个 TypeScript 测试文件、859 项测试通过；421 项 Python 回归测试通过；17 条生产路径 eval 回放通过。旧 `ChatRunner` 与 24 项死代码测试已删除，生产执行只剩 EpisodeRunner → Pi 一条路径。
 - 文档与网页：真实生成并回读中文 PDF；DOCX / XLSX / PPTX 均由 LibreOffice 26.2.4.2 实际打开并转成 PDF 目检；路径/符号链接越界、网页 SSRF/重定向、真实公网页面搜索与抓取均通过。
 - 生态：公开 GitHub PDF Skill 经桌面真实安装、哈希收据、查看和启用；本地 stdio MCP 完成握手、工具发现与调用，且验证私有 HOME；HTTP/SSE 边界由自动化覆盖。
-- 契约：22 个协议错误码一致；84 个 Desktop RPC 调用均由 Rust allowlist 允许且由 Host 实现；renderer 构建产物不含 Host token 处理。
+- 契约：23 个协议错误码一致；84 个 Desktop RPC 调用均由 Rust allowlist 允许且由 Host 实现；renderer 构建产物不含 Host token 处理。
 - 语音：使用本机真实模型权重完成 MOSS 中文合成 → SenseVoice 中文识别回环。
 - 官网：中英文桌面页面与 390px 移动布局完成浏览器验收，无脚本错误或横向溢出。
 - 安全与依赖：Host token 不再进入 URL；token/档案文件强制当前用户、普通文件与 0600；公网模型端点强制 HTTPS；文档、网页和 MCP 输出按不可信数据隔离；Evidence、审批与诊断统一脱敏。npm 审计为 0 个已知漏洞，Cargo 审计为 0 个漏洞；Linux GUI 依赖仍有 RustSec 维护性/unsound 警告，0.4.0 不发布 Linux GUI，仅发布不含该 Rust GUI 树的 headless runtime。完整边界与证据见 `docs/SECURITY_AUDIT_0.4.0.md`。
-- DMG：Apple Silicon 本地候选 `Penglai_0.4.0_aarch64.dmg` 为 252,154,286 bytes，SHA-256 `83e3bdb69181c51427998ff00e01be513cdced9d19614f177615c866d178b02e`；`hdiutil verify`、只读挂载、Applications 链接、隔离目录复制、完整 adhoc seal、壳启动、独立 Host 握手、向导档案、身份诞生、mock 对话/用量、工作区内产物预览、诊断 ZIP 解压/权限/脱敏、退出、端口释放与卸载均通过。
-- 包内运行时：固定 Node 22.22.2、21,342 个文件、150 个生产依赖、588,734,400 bytes，并校验 Node 与 manifest；本机真实权重完成 48kHz MOSS 合成（4.64 秒、可听波形）→ SenseVoice 中文识别回环。
+- DMG：Apple Silicon 本地候选 `Penglai_0.4.0_aarch64.dmg` 为 259,236,192 bytes，SHA-256 `34079daf42a0c8bdb5068c26fc3f204c052ee88bb3aa2cedc49d186acf50ac07`；`hdiutil verify`、只读挂载、Applications 链接、隔离目录复制、完整 adhoc seal、壳启动、独立 Host 握手、向导档案、身份诞生、mock Pi 对话/用量、工作区内产物预览、诊断 ZIP 解压/权限/脱敏、退出、端口释放与卸载均通过。
+- 包内运行时：固定 Node 22.22.2、21,343 个文件、150 个生产依赖、588,758,731 bytes，并校验 Node、manifest 与所有 Host 直接必需包。第一次隔离安装曾真实抓到 Pi 工作区依赖层级错置，修复打包器和验证器后重建 DMG 才通过。本机真实权重完成 48kHz MOSS 合成（4.64 秒、可听波形）→ SenseVoice 中文识别回环。
 
 ## 发行者签名现状
 
-本地候选 DMG 使用完整的 adhoc seal，但不带 Apple Developer ID/notarization。Windows Authenticode 也未配置。正式 Release 工作流仍必须经过受保护环境、updater minisign、资产回读、SHA-256、SBOM 与 release contract；minisign 保护更新资产来源与完整性，但不能替代操作系统发行者信任。
+本地候选 DMG 使用完整的 adhoc seal，但不带 Apple Developer ID/notarization。GitHub macOS 构建也已固定 `signingIdentity: "-"`，并在上传前重新挂载 DMG、验证 adhoc 封签与 Applications 链接。Windows Authenticode 未配置。正式 Release 工作流仍必须经过受保护环境、updater minisign、资产回读、SHA-256、SBOM 与 release contract；minisign 保护更新资产来源与完整性，但不能替代操作系统发行者信任。
 
 ## 发布资产计划
 

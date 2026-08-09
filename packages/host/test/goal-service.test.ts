@@ -23,11 +23,19 @@ describe("goal-service", () => {
     fs.rmSync(home, { recursive: true, force: true });
   });
 
+  function expectPrivateMode(target: string, expected: number): void {
+    if (process.platform === "win32") return;
+    expect(fs.statSync(target).mode & 0o777).toBe(expected);
+  }
+
   it("sets active goal and mirrors text", () => {
     const g = setActiveGoal({ conversationId: "conv_test", objective: "修绿构建" });
     expect(g.status).toBe("active");
     expect(mirrorGoalText(g)).toBe("修绿构建");
     expect(loadGoal("conv_test")?.objective).toBe("修绿构建");
+    const conversationDir = path.join(home, "conversations", "conv_test");
+    expectPrivateMode(conversationDir, 0o700);
+    expectPrivateMode(path.join(conversationDir, "goal.json"), 0o600);
   });
 
   it("complete requires summary and episode settlement keeps it terminal", () => {
@@ -42,6 +50,10 @@ describe("goal-service", () => {
     });
     expect(done.status).toBe("completed");
     expect(mirrorGoalText(done)).toBeNull();
+    expectPrivateMode(
+      path.join(home, "conversations", "conv_test", "goal-history.jsonl"),
+      0o600,
+    );
     const decision = onEpisodeEnd({
       conversationId: "conv_test",
       stopReason: "completed",

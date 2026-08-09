@@ -760,6 +760,7 @@ export interface SopMeta {
 export type ErrorCode =
   | "workspace_required"
   | "model_error"
+  | "preview_unavailable"
   | "conversation_busy"
   | "conversation_not_found"
   | "authority_changed"
