@@ -14,6 +14,10 @@ dependencies = [
     "bottle>=0.12",
     "simple-websocket-server>=0.4",
     "aiohttp>=3.9",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "python-multipart>=0.0.20,<1",
+    "defusedxml>=0.7,<1",
 ]
 
 [project.optional-dependencies]

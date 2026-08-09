@@ -2,6 +2,7 @@
 Pure functions + one `install(cls)` monkey-patch entry. No side effects at import.
 """
 import ast, atexit, glob, json, os, random, re, shutil, threading, time
+from penglai_runtime.private_files import atomic_write_private, ensure_private_dir, harden_private_file
 _LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         'temp', 'model_responses')
 _LOG_GLOB = os.path.join(_LOG_DIR, 'model_responses_*.txt')
@@ -276,6 +277,7 @@ def _load_rounds_cache():
         return _rounds_cache
     _rounds_cache = {}
     try:
+        harden_private_file(_ROUNDS_CACHE_PATH, max_bytes=64 * 1024 * 1024)
         with open(_ROUNDS_CACHE_PATH, encoding='utf-8') as fh:
             data = json.load(fh)
         if isinstance(data, dict) and data.get('version') == _ROUNDS_CACHE_VERSION:
@@ -297,12 +299,12 @@ def _save_rounds_cache(valid_keys=None):
             for k in list(_rounds_cache.keys()):
                 if k not in keep:
                     _rounds_cache.pop(k, None)
-        os.makedirs(os.path.dirname(_ROUNDS_CACHE_PATH), exist_ok=True)
-        tmp = _ROUNDS_CACHE_PATH + '.tmp'
         data = {'version': _ROUNDS_CACHE_VERSION, 'items': _rounds_cache}
-        with open(tmp, 'w', encoding='utf-8') as fh:
-            json.dump(data, fh, ensure_ascii=False, separators=(',', ':'))
-        os.replace(tmp, _ROUNDS_CACHE_PATH)
+        atomic_write_private(
+            _ROUNDS_CACHE_PATH,
+            json.dumps(data, ensure_ascii=False, separators=(',', ':')),
+            max_bytes=64 * 1024 * 1024,
+        )
         _rounds_cache_dirty = False
     except Exception:
         # Cache is a performance hint only; never break /continue on cache I/O.
@@ -453,20 +455,19 @@ def _snapshot_current_log(pid=None):
     if not os.path.isfile(path):
         return None
     try:
+        harden_private_file(path, max_bytes=256 * 1024 * 1024)
         with open(path, encoding='utf-8', errors='replace') as fh:
             content = fh.read()
     except Exception:
         return None
     if not _pairs(content):
         return None
-    os.makedirs(_LOG_DIR, exist_ok=True)
+    ensure_private_dir(_LOG_DIR)
     pid = os.getpid() if pid is None else pid
     stamp = time.strftime('%Y%m%d_%H%M%S')
     snapshot = os.path.join(_LOG_DIR, f'model_responses_snapshot_{pid}_{stamp}_{time.time_ns() % 1_000_000_000:09d}.txt')
-    with open(snapshot, 'w', encoding='utf-8', errors='replace') as fh:
-        fh.write(content)
-    with open(path, 'w', encoding='utf-8', errors='replace'):
-        pass
+    atomic_write_private(snapshot, content, max_bytes=256 * 1024 * 1024)
+    atomic_write_private(path, "", max_bytes=256 * 1024 * 1024)
     return snapshot
 
 
@@ -889,7 +890,7 @@ def handle_frontend_command(agent, query, exclude_pid=None):
 # 独占:每个 TUI 会话出生即持有自己日志的一把锁(`.locks/<logid>.lock`);
 #   整进程共用一个心跳线程,每 ~5s touch 锁文件 mtime(无 fsync)。
 #   判活 = 锁 mtime 在 30s 内新鲜;超 30s 视为持锁者已死,可被接管。
-#   抢锁用原子 O_EXCL;锁基础设施任何故障都降级为"假定空闲、放行续接",绝不阻断 /continue。
+#   抢锁用原子 O_EXCL；锁基础设施故障时失败即停，绝不允许两个进程同时改一段历史。
 # ===========================================================================
 
 _LOCK_DIR = os.path.join(_LOG_DIR, '.locks')
@@ -907,6 +908,7 @@ def _lock_path(log_path):
 
 def _read_lock(lock_file):
     try:
+        harden_private_file(lock_file, max_bytes=64 * 1024)
         with open(lock_file, encoding='utf-8') as fh:
             return json.load(fh)
     except Exception:
@@ -932,10 +934,9 @@ def session_occupant(log_path):
 
 
 def acquire_lock(log_path, agent_id=None):
-    """尝试独占 `log_path`。成功(或锁设施故障降级)返回 True;
-    仅当被另一活进程(心跳新鲜)持有时返回 False。"""
+    """尝试独占 `log_path`；占用或锁设施故障均返回 False。"""
     try:
-        os.makedirs(_LOCK_DIR, exist_ok=True)
+        ensure_private_dir(_LOCK_DIR)
         lf = _lock_path(log_path)
         meta = {'pid': os.getpid(), 'agent_id': agent_id,
                 'log': os.path.basename(log_path),
@@ -960,15 +961,17 @@ def acquire_lock(log_path, agent_id=None):
                 cur2 = _read_lock(lf)
                 if cur2 and cur2.get('pid') != os.getpid() and _lock_fresh(lf):
                     return False                  # 抢锁竞态输了
-                with open(lf, 'w', encoding='utf-8') as fh:
-                    fh.write(blob)
+                # Any second creator means ownership is ambiguous. Never
+                # overwrite a lock that appeared during takeover.
+                return False
         with _hb_lock:
             _held_locks.add(log_path)
         _ensure_hb_thread()
         return True
     except Exception:
-        # 锁设施故障绝不阻断续接 —— 降级为"假定空闲、放行"。
-        return True
+        # A broken lock facility must not allow two processes to mutate one
+        # conversation history concurrently.
+        return False
 
 
 def release_lock(log_path):
@@ -1061,7 +1064,9 @@ def acquire_birth_lock(agent, agent_id=None):
     使本会话对"占用检测"可见 —— 别的会话才能据此判定它是否还活着。"""
     lp = getattr(agent, 'log_path', '') or ''
     if lp:
-        acquire_lock(lp, agent_id)
+        if not acquire_lock(lp, agent_id):
+            raise RuntimeError("cannot acquire private conversation history lock")
+    return True
 
 
 def release_current(agent):
@@ -1079,7 +1084,8 @@ def begin_fresh_session(agent, agent_id=None):
     release_current(agent)
     newp = _new_log_path()
     _retarget_log(agent, newp)
-    acquire_lock(newp, agent_id)
+    if not acquire_lock(newp, agent_id):
+        raise RuntimeError("cannot acquire private conversation history lock")
     _clear_conversation_state(agent)
 
 

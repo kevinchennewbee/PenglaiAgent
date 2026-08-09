@@ -215,27 +215,20 @@ def _install_script_check(root):
         text = open(path, encoding="utf-8", errors="replace").read()
     except OSError as exc:
         return _check("install_script_branch_test_mode", False, str(exc))
+    # main is the TypeScript 0.4 line. The old Python bootstrap must fail
+    # closed and point users to the desktop release plus the immutable v0.3.6
+    # installer; otherwise main would silently install the wrong product.
     required = (
-        "PENGLAI_SOURCE_DIR",
-        "PENGLAI_SKIP_SETUP",
-        "PENGLAI_INSTALL_VERIFY",
-        "PENGLAI_INSTALL_DEPS",
-        "requests",
-        "beautifulsoup4",
-        "bottle",
-        "aiohttp",
-        "lark-oapi",
-        "qrcode",
-        "pillow",
-        "pyyaml",
-        ".venv/bin/python",
+        "Penglai 0.4 is not installed by the legacy Python bootstrap",
+        "github.com/kevinchennewbee/PenglaiAgent/releases",
+        "PenglaiAgent/v0.3.6/install.sh",
+        "exit 64",
     )
     missing = [token for token in required if token not in text]
-    private_excludes = all(token in text for token in ("--exclude=.git", "--exclude=mykey.py", "--exclude=_internal"))
     return _check(
         "install_script_branch_test_mode",
-        not missing and private_excludes,
-        "分支源码安装模式就绪" if not missing and private_excludes else f"缺失={missing} 私有排除={private_excludes}",
+        not missing,
+        "0.4 主分支安装入口已 fail-closed；0.3.6 安装器固定到 tag" if not missing else f"缺失={missing}",
     )
 
 

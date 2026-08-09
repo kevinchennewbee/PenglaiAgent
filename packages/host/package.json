@@ -1,0 +1,43 @@
+{
+  "name": "@penglai/host",
+  "version": "0.4.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "bin": {
+    "penglai": "./bin/penglai.mjs"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-static.mjs",
+    "typecheck": "tsc --noEmit",
+    "start": "node --import tsx src/index.ts",
+    "cli": "node --import tsx src/cli.ts",
+    "serve": "node --import tsx src/cli.ts serve --port 14169",
+    "runtime:build": "node scripts/build-runtime.mjs",
+    "runtime:verify": "node scripts/verify-runtime.mjs",
+    "test": "vitest run --root ../.."
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.83.0",
+    "@earendil-works/pi-ai": "0.83.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@penglai/protocol": "*",
+    "cheerio": "^1.2.0",
+    "fflate": "^0.8.3",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.2.108",
+    "sentencepiece-js": "^1.1.0",
+    "typebox": "1.3.7",
+    "undici": "7.29.0",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.0"
+  },
+  "optionalDependencies": {
+    "onnxruntime-node": "^1.24.1",
+    "sherpa-onnx": "^1.13.4"
+  }
+}

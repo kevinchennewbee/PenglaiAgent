@@ -1,0 +1,434 @@
+name: host-release
+
+# Penglai Desktop 0.4 release chain. A stable release is accepted only from an
+# Owner-signed annotated v0.4.x tag whose target and repository version contract
+# are identical. Branch/manual builds belong in host-test.yml.
+on:
+  push:
+    tags:
+      - "v0.4.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-v0.4-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate signed tag + release contract
+    if: github.repository == 'kevinchennewbee/PenglaiAgent'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.contract.outputs.version }}
+      matrix: ${{ steps.contract.outputs.matrix }}
+      channel: ${{ steps.contract.outputs.channel }}
+      notes: ${{ steps.contract.outputs.notes }}
+      node: ${{ steps.contract.outputs.node }}
+      rust: ${{ steps.contract.outputs.rust }}
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate version source of truth
+        id: contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-release-contract.mjs \
+            --tag "$GITHUB_REF_NAME" \
+            --repository "$GITHUB_REPOSITORY" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify trusted signed annotated tag and exact target
+        shell: bash
+        env:
+          TRUSTED_RELEASE_FINGERPRINT: B2F1810F9E6D6A2B1AECD29524E14ADA7E3A80EA
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/penglai-release-gpg"
+          install -d -m 0700 "$GNUPGHOME"
+          if [[ "$GITHUB_REF_TYPE" != "tag" || ! "$GITHUB_REF_NAME" =~ ^v0\.4\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::release ref must be a strict v0.4.x stable tag"
+            exit 1
+          fi
+          mapfile -t primary_fingerprints < <(
+            gpg --batch --with-colons --import-options show-only \
+              --import packaging/penglai-release-signing-key.asc \
+              | awk -F: '$1 == "pub" { want_primary = 1; next } $1 == "fpr" && want_primary { print $10; want_primary = 0 }'
+          )
+          if [[ "${#primary_fingerprints[@]}" -ne 1 ]]; then
+            echo "::error::repository release key file must contain exactly one primary key"
+            exit 1
+          fi
+          if [[ "${primary_fingerprints[0]}" != "$TRUSTED_RELEASE_FINGERPRINT" ]]; then
+            echo "::error::repository release primary key is not the trusted Owner key"
+            exit 1
+          fi
+          gpg --batch --import packaging/penglai-release-signing-key.asc
+          tag_type="$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")"
+          if [[ "$tag_type" != "tag" ]]; then
+            echo "::error::$GITHUB_REF_NAME is $tag_type, expected signed annotated tag"
+            exit 1
+          fi
+          verify_output="$(git verify-tag --raw "$GITHUB_REF_NAME" 2>&1)" || {
+            printf '%s\n' "$verify_output"
+            exit 1
+          }
+          printf '%s\n' "$verify_output"
+          mapfile -t valid_signatures < <(
+            printf '%s\n' "$verify_output" | sed -n 's/^\[GNUPG:\] VALIDSIG //p'
+          )
+          if [[ "${#valid_signatures[@]}" -ne 1 ]]; then
+            echo "::error::tag must have exactly one valid Owner signature"
+            exit 1
+          fi
+          signing_fingerprint="$(awk '{ print $1 }' <<<"${valid_signatures[0]}")"
+          primary_fingerprint="$(awk '{ print $10 }' <<<"${valid_signatures[0]}")"
+          if [[ "$signing_fingerprint" != "$TRUSTED_RELEASE_FINGERPRINT" && "$primary_fingerprint" != "$TRUSTED_RELEASE_FINGERPRINT" ]]; then
+            echo "::error::valid tag signature is not rooted in the trusted Owner key"
+            exit 1
+          fi
+          tag_target="$(git rev-parse "$GITHUB_REF_NAME^{commit}")"
+          checkout_target="$(git rev-parse HEAD)"
+          if [[ "$tag_target" != "$GITHUB_SHA" || "$checkout_target" != "$GITHUB_SHA" ]]; then
+            echo "::error::tag target, workflow SHA, and checkout HEAD are not identical"
+            exit 1
+          fi
+
+  runtime:
+    name: Build Host runtime (linux-x64)
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PENGLAI_VERSION: ${{ needs.validate.outputs.version }}
+      PENGLAI_RUNTIME_TARGET: linux-x64
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ needs.validate.outputs.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
+
+      - name: Release tests and typechecks
+        run: |
+          npm test
+          npm run typecheck --workspace @penglai/protocol
+          npm run typecheck --workspace @penglai/host
+          npm run typecheck --workspace @penglai/desktop
+          node scripts/check-release-contract.mjs --tag "$GITHUB_REF_NAME"
+          node scripts/release-check.mjs --only=scan,deps,files,statement,schema
+
+      - name: Build and verify exact runtime
+        run: |
+          node packages/host/scripts/build-runtime.mjs \
+            --version "$PENGLAI_VERSION" \
+            --target "$PENGLAI_RUNTIME_TARGET"
+          node packages/host/scripts/verify-runtime.mjs \
+            --version "$PENGLAI_VERSION" \
+            --target "$PENGLAI_RUNTIME_TARGET"
+
+      - name: Package standalone runtime archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          ( cd packages/host && tar -czf \
+            "$GITHUB_WORKSPACE/release-assets/penglai-host-runtime-${PENGLAI_VERSION}-linux-x64.tar.gz" \
+            dist-runtime )
+          ( cd packages/host && zip -rq \
+            "$GITHUB_WORKSPACE/release-assets/penglai-host-runtime-${PENGLAI_VERSION}-linux-x64.zip" \
+            dist-runtime )
+          test -s "release-assets/penglai-host-runtime-${PENGLAI_VERSION}-linux-x64.tar.gz"
+          test -s "release-assets/penglai-host-runtime-${PENGLAI_VERSION}-linux-x64.zip"
+
+      - name: Upload standalone runtime archives
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: host-runtime-archives
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 3
+
+  public-python:
+    name: Public Python + legacy safety
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install project and locked audit tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest==9.1.1 pyyaml==6.0.3 rich==14.2.0 httpx2==2.10.0 bandit==1.9.4
+
+      - name: Compile, test, and reject high-severity findings
+        run: |
+          python -m compileall -q . -x '(^|/)(node_modules|target|\.git|\.venv)(/|$)'
+          python -m pytest -q tests --tb=short
+          bandit -r . -x './tests,./node_modules,./packages/desktop/src-tauri/target,./frontends/desktop/src-tauri/target' -lll
+
+  desktop:
+    name: Desktop (${{ matrix.key }})
+    needs: [validate, runtime]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.validate.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    environment: release
+    permissions:
+      contents: read
+    env:
+      PENGLAI_VERSION: ${{ needs.validate.outputs.version }}
+      PENGLAI_RUNTIME_TARGET: ${{ matrix.target }}
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ needs.validate.outputs.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup pinned Rust toolchain action
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ needs.validate.outputs.rust }}
+          targets: ${{ matrix.target }}
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Assert runner architecture and Rust target
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-release-contract.mjs \
+            --tag "$GITHUB_REF_NAME" \
+            --platform "${{ matrix.key }}" \
+            --target "${{ matrix.target }}" \
+            --runner-os "$RUNNER_OS" \
+            --runner-arch "$RUNNER_ARCH"
+          rustc --print target-list | grep -Fx "${{ matrix.target }}"
+          rustc --print cfg --target "${{ matrix.target }}" | grep -E '^target_arch='
+
+      - name: Build Tauri release with updater signing
+        working-directory: packages/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri:build:release -- --target "${{ matrix.target }}"
+
+      - name: Verify bundled runtime version and target
+        run: |
+          node packages/host/scripts/verify-runtime.mjs \
+            --runtime packages/desktop/src-tauri/resources/host-runtime \
+            --version "$PENGLAI_VERSION" \
+            --target "$PENGLAI_RUNTIME_TARGET"
+
+      - name: Collect and sign macOS artifacts
+        if: matrix.os == 'macos'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bundle="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          tarball="$bundle/macos/Penglai.app.tar.gz"
+          test -s "$tarball"
+          test -s "$tarball.sig"
+          dmg_count="$(find "$bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -print | wc -l | tr -d ' ')"
+          if [[ "$dmg_count" -ne 1 ]]; then
+            echo "::error::expected exactly one DMG, found $dmg_count"
+            exit 1
+          fi
+          dmg="$(find "$bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          app="$bundle/macos/Penglai.app"
+          test -d "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign_details="$(codesign -dv --verbose=4 "$app" 2>&1)"
+          printf '%s\n' "$codesign_details"
+          grep -Fq 'Signature=adhoc' <<<"$codesign_details"
+          grep -Fq 'TeamIdentifier=not set' <<<"$codesign_details"
+          hdiutil verify "$dmg"
+          mountpoint="$(mktemp -d "$RUNNER_TEMP/penglai-dmg.XXXXXX")"
+          case "$mountpoint" in
+            "$RUNNER_TEMP"/penglai-dmg.*) ;;
+            *) echo "::error::unexpected DMG mountpoint"; exit 1 ;;
+          esac
+          cleanup_mount() {
+            if mount | grep -Fq " on $mountpoint "; then
+              hdiutil detach "$mountpoint"
+            fi
+            rmdir "$mountpoint"
+          }
+          trap cleanup_mount EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mountpoint" "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$mountpoint/Penglai.app"
+          test -L "$mountpoint/Applications"
+          [[ "$(readlink "$mountpoint/Applications")" == "/Applications" ]]
+          hdiutil detach "$mountpoint"
+          rmdir "$mountpoint"
+          trap - EXIT
+          npm run tauri --workspace @penglai/desktop -- signer sign "$GITHUB_WORKSPACE/$dmg"
+          test -s "$dmg.sig"
+          mkdir -p dist
+          cp "$tarball" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.bundleSuffix }}"
+          cp "$tarball.sig" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.bundleSuffix }}.sig"
+          cp "$dmg" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.installerSuffix }}"
+          cp "$dmg.sig" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.installerSuffix }}.sig"
+
+      - name: Collect Windows updater artifacts
+        if: matrix.os == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          setup_count="$(find "$bundle/nsis" -maxdepth 1 -type f -name '*-setup.exe' -print | wc -l | tr -d ' ')"
+          if [[ "$setup_count" -ne 1 ]]; then
+            echo "::error::expected exactly one NSIS setup.exe, found $setup_count"
+            exit 1
+          fi
+          setup="$(find "$bundle/nsis" -maxdepth 1 -type f -name '*-setup.exe' -print -quit)"
+          test -s "$setup"
+          test -s "$setup.sig"
+          mkdir -p dist
+          cp "$setup" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.bundleSuffix }}"
+          cp "$setup.sig" "dist/Penglai_${PENGLAI_VERSION}_${{ matrix.bundleSuffix }}.sig"
+
+      - name: Upload exact desktop artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.key }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: Create and independently verify draft release
+    needs: [validate, runtime, public-python, desktop]
+    if: github.repository == 'kevinchennewbee/PenglaiAgent'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      PENGLAI_VERSION: ${{ needs.validate.outputs.version }}
+      PENGLAI_CHANNEL: ${{ needs.validate.outputs.channel }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact release ref
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ needs.validate.outputs.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate immutable updater manifest, SBOM, and notices
+        shell: bash
+        run: |
+          set -euo pipefail
+          node packages/desktop/updater/generate-latest-json.mjs \
+            --from-dir dist \
+            --version "$PENGLAI_VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "Penglai ${PENGLAI_VERSION} stable desktop update" \
+            --out dist/latest.json
+          node packages/desktop/updater/generate-sbom.mjs \
+            --out dist/SBOM.cdx.json
+          cp THIRD_PARTY_NOTICES.md dist/THIRD_PARTY_NOTICES.txt
+
+      - name: Bind exact assets with SHA-256 and minisign
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node packages/desktop/scripts/require-release-signing.mjs
+          node packages/desktop/updater/verify-release-assets.mjs \
+            --dir dist --version "$PENGLAI_VERSION" --write-sha256
+          npm run tauri --workspace @penglai/desktop -- signer sign \
+            "$GITHUB_WORKSPACE/dist/SHA256SUMS"
+          test -s dist/SHA256SUMS.sig
+          node packages/desktop/updater/verify-release-assets.mjs \
+            --dir dist --version "$PENGLAI_VERSION"
+
+      - name: Create draft release only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::release $GITHUB_REF_NAME already exists; refusing to mutate or clobber it"
+            exit 1
+          fi
+          cp "${{ needs.validate.outputs.notes }}" release-notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --draft \
+            --latest=false \
+            --title "Penglai ${PENGLAI_VERSION}" \
+            --notes-file release-notes.md
+
+      - name: Download draft assets and re-verify exact bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir draft-download
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir draft-download
+          node packages/desktop/updater/verify-release-assets.mjs \
+            --dir draft-download --version "$PENGLAI_VERSION"

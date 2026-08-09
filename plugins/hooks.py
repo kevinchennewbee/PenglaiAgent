@@ -1,6 +1,8 @@
 import os
 import sys
 import importlib
+import importlib.util
+import re
 
 # 模块级注册表: event_name -> [callback, ...]
 _registry = {}
@@ -72,7 +74,7 @@ def discover_and_load(plugin_dir=None, strict=False):
         if fn.startswith('_') or not fn.endswith('.py'):
             continue
         name = fn[:-3]
-        ok, err = _load_module(f"{pkg_name}.{name}")
+        ok, err = _load_module(f"{pkg_name}.{name}", plugin_root=plugin_dir, expected_package=pkg_name)
         results[name] = ok
         if not ok:
             failures[name] = err
@@ -91,15 +93,27 @@ def load(name):
 
     保留 `plugins.{name}` 写法以兼容现有调用方（guardcheck 等）。
     """
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", str(name or "")):
+        sys.stderr.write(f"[hooks] invalid plugin name: {name!r}\n")
+        return False
     ok, err = _load_module(f'plugins.{name}')
     if not ok:
         sys.stderr.write(f"[hooks] plugin '{name}' load failed: {err}\n")
     return ok
 
 
-def _load_module(full_module_name):
+def _load_module(full_module_name, plugin_root=None, expected_package="plugins"):
     """加载指定全限定模块名，返回 (ok, error_or_None)。"""
     try:
+        prefix = f"{expected_package}."
+        name = full_module_name[len(prefix):] if full_module_name.startswith(prefix) else ""
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name):
+            raise ValueError("plugin module must be one direct child of the selected plugin package")
+        spec = importlib.util.find_spec(full_module_name)
+        origin = os.path.realpath(spec.origin or "") if spec else ""
+        allowed_root = os.path.realpath(plugin_root or os.path.join(_PROJECT_ROOT, "plugins"))
+        if not origin or os.path.commonpath((allowed_root, origin)) != allowed_root:
+            raise ValueError("plugin module resolves outside the repository plugins directory")
         importlib.import_module(full_module_name)
         return True, None
     except Exception as e:

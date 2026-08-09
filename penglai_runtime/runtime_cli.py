@@ -9,6 +9,7 @@ import os
 import urllib.error
 import urllib.request
 import uuid
+import ipaddress
 
 from . import VERSION
 from .contracts import InboundEvent, PermissionRequest
@@ -19,6 +20,18 @@ from .service import RuntimeHubService
 
 
 DEFAULT_CONTROL_PORT = 8765
+
+
+def _validated_loopback_host(host):
+    value = str(host or "").strip().lower()
+    if value == "localhost":
+        return value
+    try:
+        if ipaddress.ip_address(value).is_loopback:
+            return value
+    except ValueError:
+        pass
+    raise ValueError("runtime control API host must be a loopback address")
 
 STATUS_LABELS = {
     "queued": "排队中",
@@ -291,7 +304,12 @@ def control_api_post(path, data, *, host="127.0.0.1", port=DEFAULT_CONTROL_PORT,
     token = _read_token(token_path)
     if not token:
         raise FileNotFoundError(f"未找到中枢控制令牌：{token_path}")
-    url = f"http://{host}:{int(port)}{path}"
+    host = _validated_loopback_host(host)
+    port = int(port)
+    if not 1 <= port <= 65535:
+        raise ValueError("runtime control API port is out of range")
+    bracketed_host = f"[{host}]" if ":" in host else host
+    url = f"http://{bracketed_host}:{port}{path}"
     raw = json.dumps(data or {}).encode("utf-8")
     req = urllib.request.Request(
         url,

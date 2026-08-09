@@ -1,0 +1,1234 @@
+/**
+ * GENERATED FILE — DO NOT EDIT BY HAND.
+ *
+ * 由 scripts/sync-catalog.mjs 从仓库根目录 penglai_providers.yaml 生成
+ * （该 yaml 镜像自 0.3 生产仓库 penglai_providers.yaml，2026-06-29 实测修正版）。
+ * 这是三层新鲜度机制的 L1 种子层（兜底）：L2 = 向导实时拉取 /models，
+ * L3 = penglai catalog refresh 覆盖层（providers/overlay.ts）。
+ * 重新生成：node scripts/sync-catalog.mjs
+ */
+
+export const PROVIDER_CATALOG = {
+  "updated": "2026-07-29",
+  "currency": "CNY",
+  "wizard_order": [
+    "deepseek",
+    "volcengine",
+    "bailian",
+    "zhipu",
+    "minimax",
+    "moonshot",
+    "openai",
+    "xai",
+    "openrouter",
+    "hunyuan",
+    "custom"
+  ],
+  "providers": {
+    "deepseek": {
+      "display": "DeepSeek",
+      "signup_url": "https://platform.deepseek.com",
+      "billing": {
+        "paygo": {
+          "label": "按量付费",
+          "base_url": "https://api.deepseek.com",
+          "base_url_anthropic": "https://api.deepseek.com/anthropic",
+          "note": "充值余额即用，无月租",
+          "models": [
+            {
+              "id": "deepseek-v4-flash",
+              "display": "V4 Flash（通用，推荐）",
+              "context_k": 1000,
+              "max_output_k": 384,
+              "input_cny": 1,
+              "input_cached_cny": 0.02,
+              "output_cny": 2,
+              "features": [
+                "thinking",
+                "tools",
+                "json_mode"
+              ],
+              "default": true
+            },
+            {
+              "id": "deepseek-v4-pro",
+              "display": "V4 Pro（强推理）",
+              "context_k": 1000,
+              "max_output_k": 384,
+              "input_cny": 3,
+              "input_cached_cny": 0.025,
+              "output_cny": 6,
+              "features": [
+                "thinking",
+                "tools",
+                "json_mode"
+              ]
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "deepseek-v4-flash",
+      "deprecated": [
+        {
+          "id": "deepseek-chat",
+          "replace": "deepseek-v4-flash",
+          "deadline": "2026-07-24"
+        },
+        {
+          "id": "deepseek-reasoner",
+          "replace": "deepseek-v4-flash",
+          "deadline": "2026-07-24"
+        }
+      ]
+    },
+    "volcengine": {
+      "display": "字节火山 Ark",
+      "signup_url": "https://console.volcengine.com/ark",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（token 计费）",
+          "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+          "note": "直接填模型名（Seed 2.0 起无需创建推理接入点）；最新推荐 doubao-seed-evolving（周迭代）",
+          "models": [
+            {
+              "id": "doubao-seed-evolving",
+              "display": "Seed Evolving（周迭代旗舰，推荐）",
+              "context_k": 1000,
+              "input_cny": 6,
+              "output_cny": 30,
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ],
+              "default": true
+            },
+            {
+              "id": "doubao-seed-2.1-pro",
+              "display": "Seed 2.1 Pro（稳定旗舰）",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.1-turbo",
+              "display": "Seed 2.1 Turbo（更快）",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-pro",
+              "display": "Seed 2.0 Pro（旗舰多模态）",
+              "context_k": 256,
+              "input_cny": 3.2,
+              "output_cny": 16,
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-code",
+              "display": "Seed 2.0 Code（代码专家）",
+              "context_k": 256,
+              "input_cny": 3.2,
+              "output_cny": 16,
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-lite",
+              "display": "Seed 2.0 Lite（均衡/便宜）",
+              "context_k": 256,
+              "input_cny": 0.6,
+              "output_cny": 3.6,
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-mini",
+              "display": "Seed 2.0 Mini（最快/最便宜）",
+              "context_k": 256,
+              "input_cny": 0.2,
+              "output_cny": 2,
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ]
+            }
+          ]
+        },
+        "coding_plan": {
+          "label": "Coding Plan（编码套餐）",
+          "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+          "base_url_anthropic": "https://ark.cn-beijing.volces.com/api/coding",
+          "warning": "Coding Plan 专属端点+条款：仅限官方编码工具交互；蓬莱常驻管家请用「按量付费」OpenAI 兼容 base_url，混用可能拒服或按量扣费",
+          "plans": [
+            {
+              "id": "lite",
+              "display": "Lite ¥40/月",
+              "price_cny": 40,
+              "desc": "适合中等强度日常 AI 编码"
+            },
+            {
+              "id": "pro",
+              "display": "Pro ¥200/月",
+              "price_cny": 200,
+              "desc": "大型项目、重度多文件编码"
+            }
+          ],
+          "models": [
+            {
+              "id": "ark-code-latest",
+              "display": "ark-code-latest（官方推荐，自动跟随最新）",
+              "default": true
+            },
+            {
+              "id": "doubao-seed-evolving",
+              "display": "Seed Evolving"
+            },
+            {
+              "id": "doubao-seed-2.1-pro",
+              "display": "Seed 2.1 Pro"
+            },
+            {
+              "id": "doubao-seed-2.0-code",
+              "display": "Seed 2.0 Code"
+            },
+            {
+              "id": "doubao-seed-2.0-pro",
+              "display": "Seed 2.0 Pro"
+            },
+            {
+              "id": "deepseek-v4-flash",
+              "display": "DeepSeek V4 Flash"
+            },
+            {
+              "id": "deepseek-v4-pro",
+              "display": "DeepSeek V4 Pro"
+            },
+            {
+              "id": "kimi-k2.6",
+              "display": "Kimi K2.6"
+            },
+            {
+              "id": "glm-5.1",
+              "display": "GLM-5.1"
+            },
+            {
+              "id": "MiniMax-M3",
+              "display": "MiniMax M3"
+            }
+          ]
+        },
+        "agent_plan": {
+          "label": "Agent Plan（智能体套餐，AFP 积分计费）",
+          "base_url": "https://ark.cn-beijing.volces.com/api/agent",
+          "warning": "套餐专属端点 /api/agent（与按量不互通）；AFP 积分计费、平台自动调度；蓬莱接入待实测",
+          "plans": [
+            {
+              "id": "small",
+              "display": "Small ¥40/月",
+              "price_cny": 40,
+              "afp_month": 20000,
+              "afp_5h": 2000,
+              "desc": "轻度智能体，无视频生成"
+            },
+            {
+              "id": "medium",
+              "display": "Medium ¥200/月",
+              "price_cny": 200,
+              "afp_month": 100000,
+              "afp_5h": 10000,
+              "desc": "标准智能体 + Seedance 1.5 视频生成"
+            },
+            {
+              "id": "large",
+              "display": "Large ¥500/月",
+              "price_cny": 500,
+              "afp_month": 250000,
+              "afp_5h": 25000,
+              "desc": "重度用户 + Seedance 2.0 视频生成"
+            },
+            {
+              "id": "max",
+              "display": "Max ¥1000/月",
+              "price_cny": 1000,
+              "afp_month": 500000,
+              "afp_5h": 50000,
+              "desc": "最大配额，多智能体生产环境"
+            }
+          ],
+          "models": [
+            {
+              "id": "doubao-seed-evolving",
+              "display": "Seed Evolving（推荐）",
+              "afp_in": 2.5,
+              "afp_out": 2.5,
+              "default": true
+            },
+            {
+              "id": "doubao-seed-2.0-lite",
+              "display": "Seed 2.0 Lite",
+              "afp_in": 0.5,
+              "afp_out": 0.5
+            },
+            {
+              "id": "doubao-seed-2.0-pro",
+              "display": "Seed 2.0 Pro",
+              "afp_in": 2.5,
+              "afp_out": 2.5
+            },
+            {
+              "id": "deepseek-v4-flash",
+              "display": "DeepSeek V4 Flash",
+              "afp_in": 0.5,
+              "afp_out": 0.5
+            },
+            {
+              "id": "glm-5.1",
+              "display": "GLM-5.1",
+              "afp_in": 4.5,
+              "afp_out": 4.5
+            },
+            {
+              "id": "kimi-k2.6",
+              "display": "Kimi K2.6",
+              "afp_in": 4.5,
+              "afp_out": 4.5
+            },
+            {
+              "id": "MiniMax-M3",
+              "display": "MiniMax M3",
+              "afp_in": 2.5,
+              "afp_out": 2.5
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "doubao-seed-evolving",
+      "deprecated": [
+        {
+          "id": "doubao-seed-1.6",
+          "replace": "doubao-seed-evolving"
+        },
+        {
+          "id": "doubao-seed-1.8",
+          "replace": "doubao-seed-2.1-pro"
+        },
+        {
+          "id": "doubao-seed-2.0-lite",
+          "replace": "doubao-seed-evolving"
+        },
+        {
+          "id": "deepseek-v3.2",
+          "replace": "deepseek-v4-flash"
+        }
+      ]
+    },
+    "bailian": {
+      "display": "阿里云百炼 (Qwen)",
+      "signup_url": "https://bailian.console.aliyun.com",
+      "billing": {
+        "paygo": {
+          "label": "按量付费",
+          "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "base_url_anthropic": "https://dashscope.aliyuncs.com/apps/anthropic",
+          "note": "新用户每模型赠送 100 万 token（90 天有效）",
+          "models": [
+            {
+              "id": "qwen3.7-plus",
+              "display": "千问3.7-Plus（多模态，推荐）",
+              "context_k": 1000,
+              "input_cny": 2,
+              "output_cny": 8,
+              "features": [
+                "thinking",
+                "vision",
+                "tools",
+                "cache"
+              ],
+              "default": true
+            },
+            {
+              "id": "qwen3.7-max",
+              "display": "千问3.7-Max（旗舰）",
+              "context_k": 1000,
+              "input_cny": 12,
+              "output_cny": 36,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "qwen3.7-flash",
+              "display": "千问3.7-Flash（快速/低价）",
+              "context_k": 1000,
+              "input_cny": 0.3,
+              "output_cny": 3,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "qwen3.8-max-preview",
+              "display": "Qwen3.8-Max Preview（Token Plan 专属）",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "qwen3.6-flash",
+              "display": "千问3.6-Flash（上代低价）",
+              "context_k": 1000,
+              "input_cny": 0.2,
+              "output_cny": 2,
+              "features": [
+                "thinking",
+                "cache"
+              ]
+            },
+            {
+              "id": "qwen-flash",
+              "display": "千问Flash（最低价）",
+              "context_k": 1000,
+              "input_cny": 0.15,
+              "output_cny": 1.5,
+              "features": [
+                "cache"
+              ]
+            },
+            {
+              "id": "qwen3-vl-plus",
+              "display": "千问VL3-Plus（图像理解）",
+              "context_k": 256,
+              "input_cny": 1,
+              "output_cny": 10,
+              "features": [
+                "vision",
+                "thinking"
+              ]
+            },
+            {
+              "id": "qwen3-vl-flash",
+              "display": "千问VL3-Flash（图像理解，低价）",
+              "context_k": 256,
+              "input_cny": 0.15,
+              "output_cny": 1.5,
+              "features": [
+                "vision"
+              ]
+            },
+            {
+              "id": "qwen3-coder-plus",
+              "display": "千问Coder3-Plus（代码专家）",
+              "context_k": 1000,
+              "input_cny": 4,
+              "output_cny": 16,
+              "features": [
+                "tools",
+                "cache"
+              ]
+            }
+          ]
+        },
+        "coding_plan": {
+          "label": "Coding Plan（编码套餐）",
+          "base_url": "https://coding.dashscope.aliyuncs.com/v1",
+          "base_url_anthropic": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+          "warning": "需专属 sk-sp- 前缀 Key（与普通 Key 不通用，混用按量计费扣费）；官方条款仅限编码工具交互使用、禁止自动化/常驻调用，接入常驻管家有封禁风险——建议选按量",
+          "plans": [
+            {
+              "id": "pro",
+              "display": "Pro ¥200/月",
+              "price_cny": 200,
+              "desc": "90,000 次/月（5小时 6,000 / 周 45,000），Lite 已停售（2026-04-13）"
+            }
+          ],
+          "models": [
+            {
+              "id": "qwen3.7-plus",
+              "display": "千问3.7-Plus（推荐）",
+              "default": true
+            },
+            {
+              "id": "qwen3-coder-plus",
+              "display": "千问Coder3-Plus"
+            },
+            {
+              "id": "qwen3.6-plus",
+              "display": "千问3.6-Plus"
+            },
+            {
+              "id": "glm-5",
+              "display": "GLM-5"
+            },
+            {
+              "id": "kimi-k2.5",
+              "display": "Kimi K2.5"
+            },
+            {
+              "id": "MiniMax-M2.5",
+              "display": "MiniMax M2.5"
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "qwen3.7-plus"
+    },
+    "zhipu": {
+      "display": "智谱 GLM",
+      "signup_url": "https://open.bigmodel.cn",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（含免费模型）",
+          "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+          "note": "GLM-4.7-Flash 完全免费；新用户赠 2000 万 token",
+          "models": [
+            {
+              "id": "glm-5.2",
+              "display": "GLM-5.2（最新旗舰，1M 上下文，推荐）",
+              "context_k": 1000,
+              "max_output_k": 128,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ],
+              "default": true
+            },
+            {
+              "id": "glm-5.1",
+              "display": "GLM-5.1（上一代旗舰）",
+              "context_k": 200,
+              "max_output_k": 128,
+              "input_cny": 6,
+              "output_cny": 24,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "glm-5-turbo",
+              "display": "GLM-5-Turbo",
+              "context_k": 200,
+              "max_output_k": 128,
+              "input_cny": 5,
+              "output_cny": 22,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "glm-5",
+              "display": "GLM-5",
+              "context_k": 200,
+              "max_output_k": 128,
+              "input_cny": 4,
+              "output_cny": 18,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "glm-4.5-air",
+              "display": "GLM-4.5-Air（高性价比）",
+              "context_k": 128,
+              "max_output_k": 96,
+              "input_cny": 0.8,
+              "output_cny": 2,
+              "features": [
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "glm-4.7-flashx",
+              "display": "GLM-4.7-FlashX（快速低价）",
+              "context_k": 200,
+              "input_cny": 0.5,
+              "output_cny": 3
+            },
+            {
+              "id": "glm-4.7-flash",
+              "display": "GLM-4.7-Flash（完全免费）",
+              "context_k": 200,
+              "max_output_k": 128,
+              "input_cny": 0,
+              "output_cny": 0,
+              "free": true
+            },
+            {
+              "id": "glm-5v-turbo",
+              "display": "GLM-5V-Turbo（多模态 Agent）",
+              "context_k": 200,
+              "max_output_k": 128,
+              "input_cny": 5,
+              "output_cny": 22,
+              "features": [
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "glm-4.6v-flash",
+              "display": "GLM-4.6V-Flash（视觉免费）",
+              "context_k": 128,
+              "input_cny": 0,
+              "output_cny": 0,
+              "free": true,
+              "features": [
+                "vision"
+              ]
+            }
+          ]
+        },
+        "coding_plan": {
+          "label": "Coding Plan（编码套餐）",
+          "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+          "base_url_anthropic": "https://open.bigmodel.cn/api/anthropic",
+          "warning": "套餐端点与按量 /api/paas/v4 不同，配错报 1113 或扣余额；高峰期(14-18点)旗舰模型 2-3 倍扣额度；官方面向编码工具，常驻管家接入待实测",
+          "plans": [
+            {
+              "id": "lite",
+              "display": "Lite ¥49/月",
+              "price_cny": 49,
+              "desc": "5小时约 80 次 / 周约 400 次"
+            },
+            {
+              "id": "pro",
+              "display": "Pro ¥149/月",
+              "price_cny": 149,
+              "desc": "5小时约 400 次 / 周约 2,000 次"
+            },
+            {
+              "id": "max",
+              "display": "Max ¥469/月",
+              "price_cny": 469,
+              "desc": "5小时约 1,600 次 / 周约 8,000 次"
+            }
+          ],
+          "models": [
+            {
+              "id": "glm-5.2",
+              "display": "GLM-5.2（默认，Coding 主推）",
+              "default": true
+            },
+            {
+              "id": "glm-5-turbo",
+              "display": "GLM-5-Turbo"
+            },
+            {
+              "id": "glm-4.7",
+              "display": "GLM-4.7（1 倍额度）"
+            },
+            {
+              "id": "glm-5.1",
+              "display": "GLM-5.1（调用可能自动路由到 5.2）"
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "glm-5.2"
+    },
+    "minimax": {
+      "display": "MiniMax",
+      "signup_url": "https://platform.minimaxi.com",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（普通 API Key）",
+          "base_url": "https://api.minimaxi.com/v1",
+          "base_url_anthropic": "https://api.minimaxi.com/anthropic",
+          "note": "M3 永久五折优惠，≤512k 输入享折扣价；全球版端点为 api.minimax.io",
+          "models": [
+            {
+              "id": "MiniMax-M3",
+              "display": "MiniMax-M3（最新，推荐）",
+              "context_k": 1000,
+              "input_cny": 2.1,
+              "output_cny": 8.4,
+              "features": [
+                "tools",
+                "cache",
+                "vision"
+              ],
+              "default": true
+            },
+            {
+              "id": "MiniMax-M2.7",
+              "display": "MiniMax-M2.7（稳定）",
+              "context_k": 200,
+              "input_cny": 2.1,
+              "output_cny": 8.4,
+              "features": [
+                "tools",
+                "cache"
+              ]
+            },
+            {
+              "id": "MiniMax-M2.7-highspeed",
+              "display": "MiniMax-M2.7-Highspeed（高并发）",
+              "context_k": 200,
+              "input_cny": 4.2,
+              "output_cny": 16.8,
+              "features": [
+                "tools"
+              ]
+            }
+          ]
+        },
+        "token_plan": {
+          "label": "Token Plan（订阅 Key，积分制）",
+          "base_url": "https://api.minimaxi.com/v1",
+          "base_url_anthropic": "https://api.minimaxi.com/anthropic",
+          "note": "订阅后获得专属 Key（与按量 Key 不互通）；官方主推 Anthropic 端点，OpenAI /v1 待实测",
+          "plans": [
+            {
+              "id": "plus",
+              "display": "Plus ¥49/月",
+              "price_cny": 49,
+              "desc": "适合 3-4 个 agent 日常使用"
+            },
+            {
+              "id": "max",
+              "display": "Max ¥119/月",
+              "price_cny": 119,
+              "desc": "适合 4-5 个 agent"
+            },
+            {
+              "id": "ultra",
+              "display": "Ultra ¥469/月",
+              "price_cny": 469,
+              "desc": "适合 6-7 个 agent 并发"
+            }
+          ],
+          "models": [
+            {
+              "id": "MiniMax-M3",
+              "display": "MiniMax-M3（推荐）",
+              "context_k": 1000,
+              "features": [
+                "tools",
+                "cache",
+                "vision"
+              ],
+              "default": true
+            },
+            {
+              "id": "MiniMax-M2.7",
+              "display": "MiniMax-M2.7",
+              "context_k": 200,
+              "features": [
+                "tools",
+                "cache"
+              ]
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "MiniMax-M3"
+    },
+    "moonshot": {
+      "display": "Moonshot Kimi",
+      "signup_url": "https://platform.kimi.com",
+      "billing": {
+        "paygo": {
+          "label": "按量付费",
+          "base_url": "https://api.moonshot.cn/v1",
+          "base_url_anthropic": "https://api.moonshot.cn/anthropic",
+          "note": "API 端点是 api.moonshot.cn，platform.kimi.com 仅为开发者门户",
+          "models": [
+            {
+              "id": "kimi-k3",
+              "display": "Kimi K3（最新旗舰，1M，推荐）",
+              "context_k": 1000,
+              "features": [
+                "thinking",
+                "tools"
+              ],
+              "default": true
+            },
+            {
+              "id": "kimi-k2.7-code",
+              "display": "Kimi K2.7 Code（强 Coding，强制 thinking）",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "kimi-k2.7-code-highspeed",
+              "display": "Kimi K2.7 Code Highspeed",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "kimi-k2.6",
+              "display": "Kimi K2.6（多模态）",
+              "context_k": 256,
+              "input_cny": 6.5,
+              "input_cached_cny": 1.1,
+              "output_cny": 27,
+              "features": [
+                "thinking",
+                "vision",
+                "tools",
+                "auto_cache"
+              ]
+            },
+            {
+              "id": "kimi-k2.5",
+              "display": "Kimi K2.5",
+              "context_k": 256,
+              "input_cny": 4,
+              "input_cached_cny": 0.7,
+              "output_cny": 21,
+              "features": [
+                "thinking",
+                "vision",
+                "tools",
+                "auto_cache"
+              ]
+            }
+          ]
+        },
+        "coding_plan": {
+          "label": "Coding Plan（编码套餐）",
+          "base_url": "",
+          "base_url_anthropic": "https://api.moonshot.cn/anthropic",
+          "warning": "套餐仅限 Anthropic 协议 + 指定编码工具（Kimi CLI/Claude Code/Roo Code），且仅限个人交互使用——蓬莱管家接入不适用，请选 Kimi 按量付费",
+          "plans": [
+            {
+              "id": "andante",
+              "display": "Andante ¥49/月",
+              "price_cny": 49,
+              "desc": "7 天滚动周期，5小时配额约 300-1,200 次"
+            },
+            {
+              "id": "moderato",
+              "display": "Moderato ¥99/月",
+              "price_cny": 99,
+              "desc": "更大配额，多设备共享"
+            },
+            {
+              "id": "allegretto",
+              "display": "Allegretto ¥199/月",
+              "price_cny": 199,
+              "desc": "20 倍 Code 额度 / 4 倍 Agent 额度"
+            }
+          ],
+          "models": [
+            {
+              "id": "kimi-k3",
+              "display": "Kimi K3（Moderato+ 可用）",
+              "default": true
+            },
+            {
+              "id": "kimi-k2.7-code",
+              "display": "Kimi K2.7 Code"
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "kimi-k3"
+    },
+    "openai": {
+      "display": "OpenAI",
+      "signup_url": "https://platform.openai.com",
+      "billing": {
+        "paygo": {
+          "label": "按量付费",
+          "base_url": "https://api.openai.com/v1",
+          "note": "官方 OpenAI 兼容 /v1；国内访问通常需科学上网；Key 在 platform.openai.com",
+          "models": [
+            {
+              "id": "gpt-4.1-mini",
+              "display": "GPT-4.1 mini（均衡，推荐）",
+              "context_k": 1000,
+              "features": [
+                "tools",
+                "vision",
+                "json_mode"
+              ],
+              "default": true
+            },
+            {
+              "id": "gpt-4.1",
+              "display": "GPT-4.1",
+              "context_k": 1000,
+              "features": [
+                "tools",
+                "vision",
+                "json_mode"
+              ]
+            },
+            {
+              "id": "gpt-4o-mini",
+              "display": "GPT-4o mini",
+              "context_k": 128,
+              "features": [
+                "tools",
+                "vision",
+                "json_mode"
+              ]
+            },
+            {
+              "id": "o4-mini",
+              "display": "o4-mini（推理）",
+              "context_k": 200,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "gpt-4.1-mini"
+    },
+    "xai": {
+      "display": "xAI Grok",
+      "signup_url": "https://console.x.ai",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（官方 API Key）",
+          "base_url": "https://api.x.ai/v1",
+          "note": "官方 OpenAI 兼容端点；Key 在 console.x.ai；国内通常需科学上网。网页登录/SuperGrok 订阅反代不是官方产品路径，请用「自定义端点」自担风险接本地网关。",
+          "models": [
+            {
+              "id": "grok-4.5",
+              "display": "Grok 4.5（旗舰，推荐）",
+              "context_k": 500,
+              "input_usd": 2,
+              "output_usd": 6,
+              "features": [
+                "thinking",
+                "tools"
+              ],
+              "default": true
+            },
+            {
+              "id": "grok-4.3",
+              "display": "Grok 4.3（1M 上下文）",
+              "context_k": 1000,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "grok-3",
+              "display": "Grok 3",
+              "context_k": 128,
+              "features": [
+                "tools"
+              ]
+            },
+            {
+              "id": "grok-3-mini",
+              "display": "Grok 3 mini",
+              "context_k": 128,
+              "features": [
+                "tools"
+              ]
+            },
+            {
+              "id": "grok-2-latest",
+              "display": "Grok 2 latest（兼容旧配置）",
+              "context_k": 128,
+              "features": [
+                "tools"
+              ]
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "grok-4.5",
+      "deprecated": [
+        {
+          "id": "grok-beta",
+          "replace": "grok-4.5",
+          "deadline": "2026-07-29"
+        },
+        {
+          "id": "grok-2-latest",
+          "replace": "grok-4.5",
+          "deadline": "2026-12-31"
+        },
+        {
+          "id": "grok-3-mini",
+          "replace": "grok-4.5",
+          "deadline": "2026-12-31"
+        }
+      ]
+    },
+    "openrouter": {
+      "display": "OpenRouter",
+      "signup_url": "https://openrouter.ai",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（+5.5% 平台费）",
+          "base_url": "https://openrouter.ai/api/v1",
+          "note": "聚合 400+ 模型；免费额度 50 次/天；国内访问需科学上网",
+          "models": [
+            {
+              "id": "anthropic/claude-sonnet-5",
+              "display": "Claude Sonnet 5（推荐）",
+              "features": [
+                "vision",
+                "tools"
+              ],
+              "default": true
+            },
+            {
+              "id": "anthropic/claude-sonnet-4.6",
+              "display": "Claude Sonnet 4.6",
+              "features": [
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "anthropic/claude-opus-5",
+              "display": "Claude Opus 5",
+              "features": [
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "deepseek/deepseek-v4-flash",
+              "display": "DeepSeek V4 Flash",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "x-ai/grok-4.5",
+              "display": "Grok 4.5（经 OpenRouter）",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "moonshotai/kimi-k3",
+              "display": "Kimi K3",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "z-ai/glm-5.2",
+              "display": "GLM-5.2",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            },
+            {
+              "id": "google/gemini-2.5-flash",
+              "display": "Gemini 2.5 Flash",
+              "features": [
+                "thinking",
+                "vision",
+                "tools"
+              ]
+            },
+            {
+              "id": "tencent/hy3",
+              "display": "腾讯混元 Hy3（正式版）",
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "anthropic/claude-sonnet-5"
+    },
+    "hunyuan": {
+      "display": "腾讯混元",
+      "signup_url": "https://cloud.tencent.com/product/hunyuan",
+      "billing": {
+        "paygo": {
+          "label": "按量付费（TokenHub 计费）",
+          "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
+          "note": "需腾讯云账号/TokenHub；Hy3 正式版 model=hy3（2026-07 发布）。hy3-preview 将于 2026-08-31 下线并自动切到 hy3。旧 HY2.0/turbos/t1 已于 2026-06-22 下线。若直连未开通可经 OpenRouter 用 tencent/hy3。",
+          "models": [
+            {
+              "id": "hy3",
+              "display": "混元 Hy3（正式版，推荐）",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools",
+                "cache"
+              ],
+              "default": true
+            },
+            {
+              "id": "hy3-preview",
+              "display": "混元 Hy3 Preview（将于 2026-08-31 下线）",
+              "context_k": 256,
+              "features": [
+                "thinking",
+                "tools"
+              ]
+            }
+          ]
+        },
+        "token_plan": {
+          "label": "Token Plan（订阅）",
+          "base_url": "https://api.lkeap.cloud.tencent.com/plan/v3",
+          "base_url_anthropic": "https://api.lkeap.cloud.tencent.com/plan/anthropic",
+          "warning": "每个主账号仅一个套餐 Key；到期剩余 token 不结转；官方条款禁止 API 自动化调用——常驻管家接入有风险；Hy 专享档不支持图片/视频多模态",
+          "plans": [
+            {
+              "id": "lite",
+              "display": "Lite ¥39/月（Hy 专享 ¥28）",
+              "price_cny": 39,
+              "desc": "3500 万 token/月"
+            },
+            {
+              "id": "standard",
+              "display": "Standard ¥99/月（Hy ¥78）",
+              "price_cny": 99,
+              "desc": "1 亿 token/月"
+            },
+            {
+              "id": "pro",
+              "display": "Pro ¥299/月（Hy ¥238）",
+              "price_cny": 299,
+              "desc": "3.2 亿 token/月"
+            },
+            {
+              "id": "max",
+              "display": "Max ¥599/月（Hy ¥468）",
+              "price_cny": 599,
+              "desc": "6.5 亿 token/月"
+            }
+          ],
+          "models": [
+            {
+              "id": "tc-code-latest",
+              "display": "tc-code-latest（Auto 智能路由，默认）",
+              "default": true
+            },
+            {
+              "id": "hy3",
+              "display": "Hy3（混元正式版，256K）"
+            },
+            {
+              "id": "hy3-preview",
+              "display": "Hy3 Preview（8/31 下线）"
+            },
+            {
+              "id": "glm-5.2",
+              "display": "GLM-5.2（第三方）"
+            },
+            {
+              "id": "kimi-k3",
+              "display": "Kimi K3（第三方）"
+            },
+            {
+              "id": "MiniMax-M3",
+              "display": "MiniMax M3（第三方）"
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": "hy3",
+      "deprecated": [
+        {
+          "id": "hy3-preview",
+          "replace": "hy3",
+          "deadline": "2026-08-31"
+        },
+        {
+          "id": "hunyuan-2.0-thinking",
+          "replace": "hy3",
+          "deadline": "2026-06-22"
+        },
+        {
+          "id": "hunyuan-2.0-instruct",
+          "replace": "hy3",
+          "deadline": "2026-06-22"
+        },
+        {
+          "id": "hunyuan-turbos-latest",
+          "replace": "hy3",
+          "deadline": "2026-06-22"
+        },
+        {
+          "id": "hunyuan-t1-latest",
+          "replace": "hy3",
+          "deadline": "2026-06-22"
+        }
+      ]
+    },
+    "custom": {
+      "display": "自定义 OpenAI 兼容端点",
+      "signup_url": "",
+      "billing": {
+        "paygo": {
+          "label": "自定义",
+          "base_url": "",
+          "note": "任何兼容 OpenAI /chat/completions 的端点均可",
+          "models": [
+            {
+              "id": "",
+              "display": "（手动填入）",
+              "default": true
+            }
+          ]
+        }
+      },
+      "default_billing": "paygo",
+      "default_model": ""
+    }
+  }
+} as const;
+
+export const PROVIDER_CATALOG_SOURCE = "penglai_providers.yaml";

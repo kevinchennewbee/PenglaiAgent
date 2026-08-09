@@ -1,12 +1,12 @@
 name: 🏗️ 安装失败 / Install failure
-description: curl / desktop / pip / git 任一受支持安装路径出问题
+description: 桌面版 / TS CLI / 冻结的 0.3.6 安装路径出问题
 labels: [install]
 body:
   - type: dropdown
     id: method
     attributes:
       label: 安装方式
-      options: ["桌面安装包", "curl | sh 一行安装", "pip install penglai", "git clone + penglai setup", "其他"]
+      options: ["0.4 桌面安装包", "0.4 TS CLI", "0.3.6 PyPI 引导器", "0.3.6 固定版本源码安装", "其他"]
     validations: { required: true }
   - type: input
     id: os

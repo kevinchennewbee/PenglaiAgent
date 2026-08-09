@@ -17,8 +17,13 @@ def check() -> bool:
     start = int(time.time()) - INTERVAL - 5
     for cid in cfg.get("lark_chat_ids", []):
         r = subprocess.run(
-            f"lark-cli im +chat-messages-list --as user --chat-id {cid} --start {start} --page-size 1",
-            shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
+            [
+                "lark-cli", "im", "+chat-messages-list", "--as", "user",
+                "--chat-id", str(cid), "--start", str(start), "--page-size", "1",
+            ],
+            shell=False, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", env=env, timeout=30,
+        )
         try:
             if json.loads(r.stdout)["data"]["total"]:
                 return True

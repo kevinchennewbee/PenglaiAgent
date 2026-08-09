@@ -11,7 +11,7 @@
   · 翻页式 UX — tty 下每步清屏如新页面（参考 Hermes alternate-screen 思路的 stdlib 等价）；
     非 tty/NO_COLOR 自动降级为顺序输出
 """
-import os, sys, json, time, shutil, subprocess, unicodedata, urllib.request
+import ast, os, sys, json, time, shutil, subprocess, unicodedata, urllib.parse, urllib.request, hashlib
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -114,17 +114,15 @@ def _get_provider_list():
         # 内置兜底（数据来自 penglai_providers.yaml，保持同步）
         return [
             (1,  "DeepSeek",               "deepseek",   "paygo", "https://api.deepseek.com",                    "deepseek-v4-flash",           "https://platform.deepseek.com"),
-            (2,  "字节火山 Ark (按量)",     "volcengine", "paygo", "https://ark.cn-beijing.volces.com/api/v3",    "doubao-seed-2.0-lite",        "https://console.volcengine.com/ark"),
+            (2,  "字节火山 Ark (按量)",     "volcengine", "paygo", "https://ark.cn-beijing.volces.com/api/v3",    "doubao-seed-evolving",        "https://console.volcengine.com/ark"),
             (3,  "字节火山 Ark (Coding)",   "volcengine", "coding_plan", "https://ark.cn-beijing.volces.com/api/coding/v3", "ark-code-latest", "https://console.volcengine.com/ark"),
             (4,  "阿里云百炼 Qwen",         "bailian",    "paygo", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen3.7-plus",         "https://bailian.console.aliyun.com"),
-            (5,  "智谱 GLM",               "zhipu",      "paygo", "https://open.bigmodel.cn/api/paas/v4/",       "glm-5.1",                     "https://open.bigmodel.cn"),
+            (5,  "智谱 GLM",               "zhipu",      "paygo", "https://open.bigmodel.cn/api/paas/v4/",       "glm-5.2",                     "https://open.bigmodel.cn"),
             (6,  "MiniMax",                "minimax",    "paygo", "https://api.minimaxi.com/v1",                 "MiniMax-M3",                  "https://platform.minimaxi.com"),
-            (7,  "Moonshot Kimi",          "moonshot",   "paygo", "https://api.moonshot.cn/v1",                  "kimi-k2.6",                   "https://platform.kimi.com"),
-            (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-4-6", "https://openrouter.ai"),
-            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hunyuan-2.0-thinking",        "https://cloud.tencent.com/product/hunyuan"),
-            (10, "讯飞星火",               "xunfei",     "paygo", "https://spark-api-open.xf-yun.com/v1",        "max-32k",                     "https://www.xfyun.cn"),
-            (11, "Agnes AI（免费体验）",   "agnes",      "paygo", "https://apihub.agnes-ai.com/v1",              "agnes-2.0-flash",             "https://agnes-ai.com"),
-            (12, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
+            (7,  "Moonshot Kimi",          "moonshot",   "paygo", "https://api.moonshot.cn/v1",                  "kimi-k3",                     "https://platform.kimi.com"),
+            (8,  "OpenRouter",             "openrouter", "paygo", "https://openrouter.ai/api/v1",                "anthropic/claude-sonnet-5",   "https://openrouter.ai"),
+            (9,  "腾讯混元",               "hunyuan",    "paygo", "https://api.hunyuan.cloud.tencent.com/v1",    "hy3",                         "https://cloud.tencent.com/product/hunyuan"),
+            (10, "自定义 OpenAI 兼容端点", "custom",     "paygo", "",                                            "",                            ""),
         ]
     rows = []
     idx = 1
@@ -153,10 +151,27 @@ def ask(prompt, default=""):
         return default
     return v or default
 
+def _validated_api_url(url):
+    parsed = urllib.parse.urlsplit(str(url or "").strip())
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("API URL must be an absolute http(s) URL")
+    if parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("API URL must not contain credentials or a fragment")
+    if parsed.scheme == "http" and parsed.hostname.lower() not in ("localhost", "127.0.0.1", "::1"):
+        raise ValueError("public API endpoints must use https; http is loopback-only")
+    return parsed.geturl()
+
+
+class _NoApiRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RuntimeError("API redirects are refused to protect credentials")
+
+
 def post_json(url, payload, headers=None, timeout=40):
+    url = _validated_api_url(url)
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json", **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with urllib.request.build_opener(_NoApiRedirect).open(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
 # ---------- 步骤 0：语言 ----------
@@ -192,9 +207,7 @@ def step_env():
             except ImportError:
                 print(f"{BAD} " + T("系统 Python 缺 venv 模块（全新 Ubuntu 常见）。任选一个修法后重试："))
                 print("    sudo apt install -y python3-venv")
-                print("    " + T("或用一键脚本（自动装 uv 托管 Python，不动系统）："))
-                print("    curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/"
-                      "kevinchennewbee/PenglaiAgent/main/install.sh | sh")
+                print("    " + T("或从 GitHub Releases 下载固定版本安装脚本，先检查内容，再本地执行。"))
                 sys.exit(1)
         idx = "https://pypi.tuna.tsinghua.edu.cn/simple"
         core_deps = ["requests", "beautifulsoup4", "bottle", "aiohttp", "lark-oapi", "qrcode", "pillow", "pyyaml"]
@@ -497,34 +510,49 @@ MODEL_BASE = os.environ.get("PENGLAI_MODEL_DIR", os.path.expanduser("~/penglai-m
 MODEL_DIR = os.path.join(MODEL_BASE, "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17")
 # 单文件直下只取 int8 推理件(229MB+tokens 0.3MB)。官方 tar 包内含 895MB 的 fp32
 # model.onnx(我们不用),整包下载会让用户多拉近 4 倍流量——实测踩坑(2026-06-12)
-_MODEL_FILES = ("model.int8.onnx", "tokens.txt")
+_MODEL_REVISION = "2365baeacb507f821a0c8120fcee3d484dba7a07"
+_MODEL_FILES = {
+    "model.int8.onnx": (239_233_841, "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"),
+    "tokens.txt": (315_894, "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"),
+}
 _MODEL_FILE_BASES = (
-    "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/",
-    "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/",
-)
-_MODEL_TAR = ("sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2")
-_MODEL_URLS = (
-    "https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/" + _MODEL_TAR,
+    f"https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/{_MODEL_REVISION}/",
+    f"https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/{_MODEL_REVISION}/",
 )
 SHERPA_ONNX_PACKAGE = "sherpa-onnx==1.13.3"
 
-def _dl_progress(url, dest):
-    """下载到 dest，单行刷新进度。失败抛异常由调用方兜。"""
+def _file_matches(path, expected_size, expected_sha256):
+    if not os.path.isfile(path) or os.path.getsize(path) != expected_size:
+        return False
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest() == expected_sha256
+
+def _dl_progress(url, dest, expected_size, expected_sha256):
+    """下载固定大小且固定 SHA-256 的模型文件；失败抛异常由调用方兜。"""
     req = urllib.request.Request(url, headers={"User-Agent": "penglai-setup"})
     with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         total = int(r.headers.get("Content-Length") or 0)
+        if total and total != expected_size:
+            raise RuntimeError(f"模型响应大小不符：{total} != {expected_size}")
         got = 0
         while True:
             chunk = r.read(1 << 18)
             if not chunk:
                 break
-            f.write(chunk); got += len(chunk)
+            got += len(chunk)
+            if got > expected_size:
+                raise RuntimeError("模型下载超过固定大小")
+            f.write(chunk)
             if total:
                 print(f"\r  {got // (1 << 20)}MB / {total // (1 << 20)}MB", end="", flush=True)
             else:
                 print(f"\r  {got // (1 << 20)}MB", end="", flush=True)
     print()
+    if not _file_matches(dest, expected_size, expected_sha256):
+        raise RuntimeError("模型文件大小或 SHA-256 校验失败")
 
 def _voice_install():
     """语音能力真实落地：sherpa-onnx + ffmpeg + SenseVoice 模型。只报告可证实状态。"""
@@ -564,8 +592,8 @@ def _voice_install():
             print(f"  {OK} " + T("ffmpeg 就绪"))
     else:
         print(f"  {OK} " + T("ffmpeg 就绪"))
-    # 3) SenseVoice 模型（int8 推理件约 230MB；hf 镜像单文件直下，gh-proxy tar 兜底）
-    if all(os.path.isfile(os.path.join(MODEL_DIR, name)) for name in _MODEL_FILES):
+    # 3) SenseVoice 模型（固定 revision、大小和 SHA-256；只取 int8 推理件）
+    if all(_file_matches(os.path.join(MODEL_DIR, name), *spec) for name, spec in _MODEL_FILES.items()):
         print(f"  {OK} " + T("模型已存在，跳过下载"))
     else:
         print("  " + T("下载 SenseVoice 模型（约 230MB，国内自动走镜像）..."))
@@ -573,39 +601,15 @@ def _voice_install():
         got = False
         for base in _MODEL_FILE_BASES:
             try:
-                for fn in _MODEL_FILES:
+                for fn, spec in _MODEL_FILES.items():
                     part = os.path.join(MODEL_DIR, fn + ".part")
-                    _dl_progress(base + fn, part)
+                    _dl_progress(base + fn, part, *spec)
                     os.replace(part, os.path.join(MODEL_DIR, fn))
                 got = True
                 break
             except Exception as e:
                 print(f"  {WARN}" + T("下载失败：{e}", e=str(e)[:80]))
-        if not got:
-            # tar 兜底（含 895MB fp32，解压后即删，只留 int8）
-            tar_path = os.path.join(MODEL_BASE, _MODEL_TAR)
-            for url in _MODEL_URLS:
-                try:
-                    _dl_progress(url, tar_path)
-                    got = True
-                    break
-                except Exception as e:
-                    print(f"  {WARN}" + T("下载失败：{e}", e=str(e)[:80]))
-            if got:
-                print("  " + T("解压中..."), flush=True)
-                import tarfile
-                try:
-                    with tarfile.open(tar_path, "r:bz2") as tf:
-                        try:
-                            tf.extractall(MODEL_BASE, filter="data")
-                        except TypeError:   # Python < 3.12 无 filter 参数
-                            tf.extractall(MODEL_BASE)
-                finally:
-                    try: os.remove(tar_path)
-                    except OSError: pass
-                try: os.remove(os.path.join(MODEL_DIR, "model.onnx"))   # fp32 不用，省 895MB
-                except OSError: pass
-        if not all(os.path.isfile(os.path.join(MODEL_DIR, name)) for name in _MODEL_FILES):
+        if not all(_file_matches(os.path.join(MODEL_DIR, name), *spec) for name, spec in _MODEL_FILES.items()):
             ok = False
     # 4) 诚实结论
     if ok:
@@ -760,6 +764,7 @@ def _backup_mykey(tag="bak"):
         return None
     bak = f"{path}.{tag}.{time.strftime('%Y%m%d-%H%M%S')}"
     shutil.copy2(path, bak)
+    os.chmod(bak, 0o600)
     return bak
 
 
@@ -1144,7 +1149,7 @@ def _patch_allowlist(open_id):
             pass
         return False
     try:
-        cur = eval(m.group(1), {"__builtins__": {}})
+        cur = ast.literal_eval(m.group(1))
     except Exception:
         return False
     if cur:   # 已非空，尊重现状，不动

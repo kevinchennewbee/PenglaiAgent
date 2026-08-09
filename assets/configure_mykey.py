@@ -13,6 +13,7 @@ import sys
 import re
 import shutil
 import json
+import tempfile
 import urllib.request
 from datetime import datetime
 
@@ -281,11 +282,11 @@ LLM_PROVIDERS = [
         'template': {
             'name': 'tencent-tokenhub', 'apikey': 'sk-<your-tokenhub-key>',
             'apibase': 'https://tokenhub.tencentmaas.com/v1',
-            'model': 'hy3-preview',
+            'model': 'hy3',
             'api_mode': 'chat_completions',
         },
         'key_hint': '在 https://console.cloud.tencent.com/tokenhub 获取 API Key',
-        'model_choices': ['hy3-preview'],
+        'model_choices': ['hy3'],
         'extra_fields': [
             {'key': 'apibase', 'label': 'API 地址 (apibase)', 'default': 'https://tokenhub.tencentmaas.com/v1'},
         ],
@@ -978,7 +979,7 @@ def _feishu_scan(platform):
         result = result_holder['data']
         print(f"\n  {C['green']}✅ 应用创建成功！{C['reset']}")
         print(f"  App ID:     {C['bold']}{result['client_id']}{C['reset']}")
-        print(f"  App Secret: {C['bold']}{result['client_secret']}{C['reset']}")
+        print(f"  App Secret: {C['dim']}已安全接收，不在终端显示{C['reset']}")
         return {
             'fs_app_id': result['client_id'],
             'fs_app_secret': result['client_secret'],
@@ -1243,11 +1244,16 @@ def _backup_with_name(model_names, platform_ids):
             parts.append(pid_clean)
     safe_name = '_'.join(parts)
     if safe_name == 'mykey':
-        safe_name = 'mykey_backup'  # 避免和源文件同名
+        safe_name = 'backup'
     if len(safe_name) > 100:
         safe_name = safe_name[:100]
-    backup_path = os.path.join(PROJECT_ROOT, f'{safe_name}.py')
+    # Keep every credential backup under the repository-wide ignored/banned
+    # mykey.py.bak.* namespace so it cannot enter source or desktop payloads.
+    backup_path = os.path.join(PROJECT_ROOT, f'mykey.py.bak.{safe_name}')
+    if os.path.islink(backup_path):
+        raise RuntimeError('refusing to replace a mykey backup symbolic link')
     shutil.copy2(MYKPY_PATH, backup_path)
+    os.chmod(backup_path, 0o600)
     return backup_path
 
 
@@ -1370,9 +1376,21 @@ def main():
         backup = _backup_with_name(model_names, [p['id'] for p in platform_infos])
         print(f"\n  {C['green']}✓ 旧配置已备份至:{C['reset']} {C['dim']}{backup}{C['reset']}")
 
-    # 写入
-    with open(MYKPY_PATH, 'w', encoding='utf-8') as f:
-        f.write(content)
+    # 原子、私有写入；mykey.py 包含模型与渠道凭证。
+    if os.path.islink(MYKPY_PATH):
+        raise RuntimeError('refusing to write mykey.py through a symbolic link')
+    fd, tmp = tempfile.mkstemp(prefix='.mykey-', suffix='.tmp', dir=PROJECT_ROOT)
+    try:
+        os.chmod(tmp, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, MYKPY_PATH)
+        os.chmod(MYKPY_PATH, 0o600)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     print(f"\n  {C['green']}✓ mykey.py 已生成!{C['reset']}")
 
     # ── 完成提示 ──

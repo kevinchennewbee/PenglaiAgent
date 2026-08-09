@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.runtime-cache/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/resources/host-runtime/*
+*.log

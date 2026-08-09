@@ -25,6 +25,20 @@ from pathlib import Path
 
 PBS_RELEASE = "20260510"
 PBS_PYTHON_VERSION = "3.11.15"
+PBS_ARCHIVES = {
+    "aarch64-apple-darwin": {
+        "size": 27_056_080,
+        "sha256": "fdfc363b538662eb7441a14e06f72c4a992c56af7f401f5730ea5081f8f8ad6e",
+    },
+    "x86_64-apple-darwin": {
+        "size": 26_973_041,
+        "sha256": "5f1eb247cbca2c0ad5ccbf6d299a4f54b31b5c63b492d74c3531dc4344a42f88",
+    },
+    "x86_64-pc-windows-msvc": {
+        "size": 25_669_205,
+        "sha256": "756d7f148498b8822f6aedf44a020613576f09983161f346ad36dcef6238cdc3",
+    },
+}
 
 CORE_DEP_SPECS = [
     "requests==2.34.2",
@@ -35,6 +49,7 @@ CORE_DEP_SPECS = [
     "qrcode[pil]==8.2",
     "pillow==12.0.0",
     "pyyaml==6.0.3",
+    "defusedxml==0.7.1",
 ]
 CORE_DEPS = [spec.split("==", 1)[0].split("[", 1)[0] for spec in CORE_DEP_SPECS]
 
@@ -63,6 +78,7 @@ EXCLUDE_DIRS = {
     "node_modules",
     "penglai-desktop-design",
     "secrets",
+    "target",
     "temp",
     "tmp",
 }
@@ -70,6 +86,7 @@ EXCLUDE_DIRS = {
 EXCLUDE_FILES = {
     ".DS_Store",
     ".env",
+    ".git",
     ".penglai-build.json",
     "auth.json",
     "model_responses.txt",
@@ -107,6 +124,27 @@ def should_skip(path: Path, rel: str) -> bool:
     if name in EXCLUDE_FILES:
         return True
     return any(fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat) for pat in EXCLUDE_PATTERNS)
+
+
+def assert_safe_output(output: Path, source: Path) -> None:
+    forbidden = {Path(output.anchor).resolve(), Path.home().resolve(), source, source.parent}
+    if output in forbidden:
+        raise RuntimeError(f"refusing unsafe payload output directory: {output}")
+    if not output.exists():
+        return
+    if output.is_symlink() or not output.is_dir():
+        raise RuntimeError(f"payload output must be a real directory: {output}")
+    entries = list(output.iterdir())
+    if not entries:
+        return
+    marker = output / "README.md"
+    manifest = output / "manifest.json"
+    if not marker.is_file() or marker.read_text("utf-8") != PAYLOAD_README:
+        raise RuntimeError(f"refusing to replace non-Penglai non-empty output directory: {output}")
+    if manifest.exists():
+        data = json.loads(manifest.read_text("utf-8"))
+        if data.get("schema") != 1 or data.get("kind") != "penglai-desktop-runtime":
+            raise RuntimeError(f"payload manifest marker mismatch: {output}")
 
 
 def copy_source(source: Path, target: Path) -> None:
@@ -234,11 +272,19 @@ def strip_python_bundle(python_dir: Path, target: str) -> None:
 
 def safe_extract_tar(tf: tarfile.TarFile, target: Path) -> None:
     target_resolved = target.resolve()
-    for member in tf.getmembers():
+    members = tf.getmembers()
+    for member in members:
         member_path = (target / member.name).resolve()
         if member_path != target_resolved and target_resolved not in member_path.parents:
             raise SystemExit(f"unsafe python-build-standalone archive path: {member.name}")
-    tf.extractall(target)
+        if member.ischr() or member.isblk() or member.isfifo():
+            raise SystemExit(f"unsafe special file in python-build-standalone archive: {member.name}")
+        if member.issym() or member.islnk():
+            link_base = member_path.parent if member.issym() else target_resolved
+            link_target = (link_base / member.linkname).resolve()
+            if link_target != target_resolved and target_resolved not in link_target.parents:
+                raise SystemExit(f"unsafe archive link target: {member.name} -> {member.linkname}")
+    tf.extractall(target, members=members)  # nosec B202: every member validated above
 
 
 def valid_tar_gz(path: Path) -> bool:
@@ -250,13 +296,41 @@ def valid_tar_gz(path: Path) -> bool:
         return False
 
 
-def download_archive(url: str, archive: Path) -> None:
+def verify_pbs_archive(archive: Path, *, expected_size: int, expected_sha256: str) -> bool:
+    return (
+        archive.is_file()
+        and archive.stat().st_size == expected_size
+        and sha256_file(archive) == expected_sha256
+        and valid_tar_gz(archive)
+    )
+
+
+def download_archive(
+    url: str,
+    archive: Path,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+) -> None:
     tmp = archive.with_suffix(archive.suffix + ".part")
     tmp.unlink(missing_ok=True)
-    urllib.request.urlretrieve(url, tmp)
-    if not valid_tar_gz(tmp):
+    req = urllib.request.Request(url, headers={"User-Agent": "penglai-runtime-builder/0.3.6"})
+    with urllib.request.urlopen(req, timeout=120) as response, tmp.open("xb") as output:
+        declared = int(response.headers.get("Content-Length") or 0)
+        if declared and declared != expected_size:
+            raise SystemExit(f"python-build-standalone size mismatch: {declared} != {expected_size}")
+        copied = 0
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            copied += len(chunk)
+            if copied > expected_size:
+                raise SystemExit("python-build-standalone download exceeded pinned size")
+            output.write(chunk)
+    if not verify_pbs_archive(tmp, expected_size=expected_size, expected_sha256=expected_sha256):
         tmp.unlink(missing_ok=True)
-        raise SystemExit(f"downloaded python-build-standalone archive is invalid: {url}")
+        raise SystemExit(f"downloaded python-build-standalone archive failed pinned size/SHA-256: {url}")
     tmp.replace(archive)
 
 
@@ -269,6 +343,7 @@ def create_standalone_python(
     pbs_url_template: str,
 ) -> str:
     triple = target_triple(target)
+    expected = PBS_ARCHIVES[triple]
     filename = f"cpython-{PBS_PYTHON_VERSION}+{PBS_RELEASE}-{triple}-install_only_stripped.tar.gz"
     if pbs_url_template:
         url = pbs_url_template.format(
@@ -282,10 +357,19 @@ def create_standalone_python(
         url = f"{pbs_base_url}/{PBS_RELEASE}/{filename}"
     cache_dir.mkdir(parents=True, exist_ok=True)
     archive = cache_dir / filename
-    if archive.exists() and not valid_tar_gz(archive):
+    if archive.exists() and not verify_pbs_archive(
+        archive,
+        expected_size=expected["size"],
+        expected_sha256=expected["sha256"],
+    ):
         archive.unlink()
     if not archive.exists():
-        download_archive(url, archive)
+        download_archive(
+            url,
+            archive,
+            expected_size=expected["size"],
+            expected_sha256=expected["sha256"],
+        )
 
     python_dir = output / "python"
     if python_dir.exists():
@@ -411,6 +495,7 @@ def main() -> int:
     output = Path(args.output).resolve()
     source_payload = output / "source"
 
+    assert_safe_output(output, source)
     if output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True, exist_ok=True)

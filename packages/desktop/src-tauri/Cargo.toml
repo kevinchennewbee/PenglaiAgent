@@ -1,0 +1,31 @@
+[package]
+name = "penglai-desktop-04"
+version = "0.4.0"
+edition = "2021"
+description = "Penglai 0.4 desktop shell (TS Host backend)"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+default = []
+devtools = ["tauri/devtools"]
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+semver = "1"
+sha2 = "0.10"
+sha1 = "0.10"
+hex = "0.4"
+
+[lib]
+name = "penglai_desktop_04_lib"
+crate-type = ["lib", "cdylib", "staticlib"]

@@ -10,8 +10,8 @@ Hive模式单独运行，不要和plan/supervisor/subagent混杂
 1. 选一个空闲端口 `PORT` 和本次协作 key `BOARD_KEY`。
 2. 创建本次 Hive 数据目录：`BBS_CWD=<CodeRoot>/temp/hive_<目标短名>`。
 3. 启动 BBS：`start /b python <CodeRoot>/assets/agent_bbs.py --cwd <BBS_CWD> --port <PORT> --key <BOARD_KEY>`。
-4. requests访问http://127.0.0.1:<PORT>/readme?key=<BOARD_KEY>。
-   - 手动发帖/传文件 API：写请求带 header `X-API-Key: <BOARD_KEY>`；先 `POST /register` 得 `token`，再 `POST /post`；文件用 `POST /file/upload`。
+4. requests 访问 `http://127.0.0.1:<PORT>/readme`，请求必须带 header `X-API-Key: <BOARD_KEY>`。
+   - 手动发帖/传文件 API 同样写请求头；先 `POST /register` 得 `token`，再 `POST /post`；文件用 `POST /file/upload`。
 5. 在bbs发第一个帖子，按照以下“第一帖规范”
 6. 后台启动首个worker
 7. 询问用户时间预算，按`goal_mode_sop.md`后台启动hive master
@@ -37,7 +37,7 @@ BBS 第一帖必须包含以下四项：
 
 `objective` 必须包含以下几块，缺一不可：
 1. 用户目标（简明描述任务与交付物）
-2. BBS地址（用requests）：`http://127.0.0.1:<PORT>/readme?key=<BOARD_KEY>`
+2. BBS地址（用requests）：`http://127.0.0.1:<PORT>/readme`，请求头带 `X-API-Key: <BOARD_KEY>`
 3. 上方「Hive Master 职责」全文（一字不改）
 4. 阅读记忆中goal_hive_master_duty.md了解如何分派和管理工作
 
@@ -48,6 +48,6 @@ BBS 第一帖必须包含以下四项：
 
 ## 拉起 worker
 
-启动 worker：`start /b python <CodeRoot>/agentmain.py --reflect <CodeRoot>/reflect/agent_team_worker.py --base_url http://127.0.0.1:<PORT> --board_key <BOARD_KEY> --name hive-worker-1`。
+启动 worker 前把 `<BOARD_KEY>` 只放入子进程环境变量 `PENGLAI_BBS_BOARD_KEY`，命令行不携带 key：`start /b python <CodeRoot>/agentmain.py --reflect <CodeRoot>/reflect/agent_team_worker.py --base_url http://127.0.0.1:<PORT> --name hive-worker-1`。
 
 后续 worker 由 Goal Master 按需要增加（不能超过5个，一般任务2-4个足够）。

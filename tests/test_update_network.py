@@ -39,6 +39,13 @@ def test_non_fetch_git_command_uses_plain_git(monkeypatch):
     assert "timeout" not in seen["kw"]
 
 
+def test_legacy_update_command_is_frozen_before_network(monkeypatch, capsys):
+    cli = _load_cli()
+    monkeypatch.setattr(cli, "_fetch_status", lambda: (_ for _ in ()).throw(AssertionError("network must not run")))
+    assert cli.update() == 2
+    assert "v0.3.6" in capsys.readouterr().out
+
+
 def test_release_remote_prefers_penglaiagent_remote(monkeypatch):
     cli = _load_cli()
 

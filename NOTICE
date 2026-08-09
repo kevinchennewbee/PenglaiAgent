@@ -11,7 +11,11 @@ not, by itself, make obvious to license scanners or downstream users.
 Code license
 ------------
 
-All code is MIT licensed (see ./LICENSE).
+Penglai-authored code and the retained GenericAgent-derived MIT code are MIT
+licensed (see ./LICENSE). Bundled third-party code keeps its own license; in
+particular, the modified MOSS-TTS-Nano Node runtime is Apache-2.0 and carries
+its upstream notice and license. See ./THIRD_PARTY_NOTICES.md for the complete
+distribution notices.
 
   * Upstream kernel — GenericAgent
     Copyright (c) 2025 lsdefine

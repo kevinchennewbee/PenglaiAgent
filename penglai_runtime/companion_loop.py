@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .context_events import recent_context_events
 from .redaction import redact_obj, redact_text
+from .private_files import append_private_line, ensure_private_dir, harden_private_file
 
 
 VALID_MODES = {"off", "quiet", "present", "active"}
@@ -29,7 +30,7 @@ def normalize_mode(mode: str | None) -> str:
 
 def temp_dir(root: str | os.PathLike[str]) -> Path:
     path = Path(root).resolve() / "temp"
-    path.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(path)
     return path
 
 
@@ -47,6 +48,7 @@ def feedback_path(root: str | os.PathLike[str]) -> Path:
 
 def _load_json(path: Path, default):
     try:
+        harden_private_file(path)
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return default
@@ -98,9 +100,7 @@ def append_feedback(root: str | os.PathLike[str], feedback: dict) -> dict:
         "value": redact_text(feedback.get("value", "")),
         "context": redact_obj(feedback.get("context") or {}),
     }
-    path = feedback_path(root)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
+    append_private_line(feedback_path(root), json.dumps(rec, ensure_ascii=False, sort_keys=True))
     return rec
 
 
@@ -153,4 +153,3 @@ def run_companion_loop_tick(cfg: dict, state: dict, now: float | None = None, *,
         decision["plan"] = plan
 
     return decision
-

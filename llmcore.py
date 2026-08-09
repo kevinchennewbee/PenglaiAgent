@@ -1,4 +1,5 @@
 import os, json, re, time, requests, sys, threading, urllib3, base64, importlib, uuid, pathlib
+from urllib.parse import urlsplit
 from datetime import datetime
 from enum import Enum
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -19,7 +20,16 @@ def _load_mykeys():
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mykey.json')
     if not os.path.exists(p): raise Exception('[ERROR] mykey.py not found in sys.path and mykey.json not found. Run "python configure_mykey.py" or copy mykey_template.py to mykey.py and fill in your keys.')
     with open(_mykey_path := p, encoding='utf-8') as f: mk = json.load(f)
-    if isinstance(mk, dict) and 'remote_url' in mk: return requests.get(mk['remote_url'], timeout=10).json()
+    if isinstance(mk, dict) and 'remote_url' in mk:
+        remote_url = str(mk['remote_url']).strip()
+        parsed = urlsplit(remote_url)
+        if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+            raise ValueError('mykey remote_url must be an HTTPS URL without embedded credentials or fragments')
+        response = requests.get(remote_url, timeout=10, allow_redirects=False)
+        response.raise_for_status()
+        if int(response.headers.get('Content-Length') or 0) > 1024 * 1024 or len(response.content) > 1024 * 1024:
+            raise ValueError('mykey remote_url response exceeds 1 MiB')
+        return response.json()
     return mk
 
 _mykey_path = _mykey_mtime = None
@@ -993,11 +1003,14 @@ def _write_llm_log(label, content, log_path=None, model=''):
     if log_path is False: return
     if not log_path:
         log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'temp/model_responses/model_responses_{os.getpid()}.txt')
-    os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
+    from penglai_runtime.private_files import append_private_line
+    from penglai_runtime.redaction import redact_text
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if model: model = f' model={model}'
-    with open(log_path, 'a', encoding='utf-8', errors='replace') as f:
-        f.write(f"=== {label} === {ts}{model}\n{content}\n\n")
+    safe_label = redact_text(str(label))
+    safe_content = redact_text(str(content))
+    safe_model = redact_text(str(model))
+    model_suffix = f' model={safe_model}' if safe_model else ''
+    append_private_line(log_path, f"=== {safe_label} === {ts}{model_suffix}\n{safe_content}\n")
 
 def tryparse(json_str):
     try: return json.loads(json_str)

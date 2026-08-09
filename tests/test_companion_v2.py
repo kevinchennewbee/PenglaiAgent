@@ -150,6 +150,8 @@ def _read_state():
 cp._save_state({"k": 1})
 check("原子写:回读一致", cp._load_json(cp._STATE).get("k") == 1)
 check("原子写:无 .tmp 残留", not os.path.exists(cp._STATE + ".tmp"))
+if os.name != "nt":
+    check("原子写:状态文件0600", os.stat(cp._STATE).st_mode & 0o777 == 0o600)
 check("句柄:不存在路径返回{}", cp._load_json("/nonexistent/xyz/none.json") == {})
 
 # A4 租约防重复 / 过期可再触发（直接 _decide）

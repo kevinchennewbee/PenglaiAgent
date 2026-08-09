@@ -1,32 +1,101 @@
 # Security Policy
 
-## Security model: where the real boundary is
+This document describes the current 0.4 security model. The archived 0.3.x
+Python line has different components and should be evaluated from the
+`v0.3.6` tag.
 
-Penglai's deterministic safety rails — dangerous-command redline interception, sensitive-path blocking, memory write threat scanning, file-delivery allowlists, and full tool-call audit JSONL — are **in-process heuristics (a supplementary layer), not an OS-level security boundary**.
+## Supported versions
 
-The only trustworthy boundary against an adversarial LLM or malicious tool output is **OS-level isolation**: a dedicated user account, a container, or a sandbox. Penglai runs the agent and its tools in the same process as your configuration and credentials by default.
+| Version | Status |
+| --- | --- |
+| 0.4.x | Security fixes accepted |
+| 0.3.x | Frozen; critical fixes only |
+| older | Unsupported |
 
-**Recommendation**: for scenarios that process untrusted input, execute high-sensitivity operations, or run autonomously for long periods, run the Penglai runtime under a dedicated non-root user account (or in a container) so that even a bypassed heuristic cannot reach your primary credentials, browser sessions, or SSH keys. Do not treat "the redline blocked it" as equivalent to "it is safe" — the redline reduces risk, it does not eliminate it.
+## Trust boundary
 
-`penglai doctor` will warn if it detects the runtime running as root or under a shared login account.
+Penglai is a single-user, local-first desktop application. The Tauri renderer
+talks to a TypeScript Host bound to loopback. HTTP and WebSocket requests need
+a random Host credential. That credential is generated atomically, stored as
+a current-user regular file at `~/.penglai/host.token`, hardened to mode 0600,
+and is never accepted in a URL query string. The native bridge and development
+proxy inject it outside renderer JavaScript; browser-compatible WebSockets use
+an authenticated subprotocol.
 
-## Conductor token threat model (0.3.5)
+This protects against accidental URL/history/log leakage and unauthenticated
+loopback callers. It does **not** protect against another malicious process
+running as the same OS user. Such a process can read application files or
+inspect process memory. Use a separate OS account or container when that is in
+your threat model.
 
-The Conductor web console (`frontends/conductor.py`) binds to `127.0.0.1:8900` and authenticates each request with a local `X-Penglai-Bridge-Token` header. As of 0.3.5 the token is **no longer accepted via URL query** (`?token=...`) to prevent leakage through browser history, `Referer` headers, server logs, and screen-sharing. The token is injected into the root page as `window.__PENGLAI_CONDUCTOR_TOKEN__` and read from there by the client; WebSocket connections pass it via the `sec-websocket-protocol` subprotocol (`penglai.<token>`) instead of the query string.
+Penglai's policy levels, approvals, realpath workspace jail, sensitive-path
+denials and command checks are deterministic defence-in-depth, not an OS
+sandbox. `bash`, an installed MCP server and other child processes run with the
+rights of the current user. Do not treat an approval dialog or a blocked command
+as proof that arbitrary hostile code is safe.
 
-**What this prevents:** passive leakage of the token into URLs that may be logged, shared, or captured by browser extensions with history access.
+## Credentials and network use
 
-**What this does NOT prevent:** the token still lives in the page's JavaScript memory and in `~/.penglai/conductor_token`. Any process running as the **same local user** can read the token file, inspect the page DOM, or read process memory. This is the same-user local trust boundary and is intentional: the Conductor is a single-user local tool. If you need to defend against same-user local read (for example, a malicious browser extension or another local process), you must run the Conductor under a separate user account or container, or implement a one-time bootstrap / session cookie flow — none of which is in 0.3.5 scope. Do not describe query-token removal as "Conductor is now secure against local attackers"; it is only a URL-leakage hardening step.
+- Model keys stay in the Host and are not returned by RPC or exposed to the
+  renderer. `profiles.json` and `host.token` are local private files.
+- Public model endpoints must use HTTPS. Plain HTTP is accepted only for exact
+  loopback hosts (`localhost`, `127.0.0.1`, `::1`). URLs containing credentials
+  or fragments are rejected.
+- Public web fetching revalidates DNS and every redirect against private,
+  loopback, link-local and metadata ranges. Web and MCP calls require Owner L3
+  approval.
+- Third-party Skill and MCP content is not trusted code merely because it was
+  installed. Declarative Skills are hash-verified and cannot run package
+  installers or TypeScript hooks. MCP servers are Owner-started executables and
+  retain the privileges of the current user.
 
-## Reporting a Vulnerability
+## Prompt-injection boundary
 
-Please do not post secrets, API keys, Feishu/WeChat credentials, cookies, private logs, or personal data in public issues.
+Text extracted from documents, search results, fetched pages and MCP tools is
+wrapped as untrusted data before it reaches the model. The system prompt says
+that instructions, fake authority claims and tool requests inside those blocks
+must not be followed. This reduces indirect prompt-injection risk but cannot
+mathematically guarantee model behaviour. Sensitive operations still pass
+through deterministic policy and Owner approval; never grant an untrusted MCP
+or page broader OS access than necessary.
 
-To report a vulnerability, open a GitHub issue with sensitive values redacted, or contact the maintainer privately if the report requires non-public reproduction details. Include:
+## Audit data and redaction
 
-- affected PenglaiAgent version or commit
-- install path, operating system, and runtime mode
-- the smallest redacted reproduction you can provide
-- whether the issue can expose `mykey.py`, `.env`, IM credentials, cookies, local files, or generated artifacts
+Task lifecycle, steps, approvals and Evidence are persisted in local SQLite;
+conversation transcripts and goal history use local JSONL/JSON files. Evidence
+comes from tool-observed diffs, disk re-reads, command output and exit state,
+not from the model's claim of success.
 
-Confirmed security-impacting fixes in upstream GenericAgent are evaluated for PenglaiAgent within 48 hours when they affect this distribution.
+Before Evidence and approval audit fields are written, credential-shaped text
+is redacted recursively (Bearer/basic credentials, common key/token/password
+assignments, URL secrets, CLI secret flags, well-known token formats and PEM
+private keys). Diagnostic exports apply the same redactor and exclude product
+state, credentials, profiles, conversations, databases, memory, Skills and MCP
+configuration. Redaction is best-effort: users should still avoid pasting
+secrets into prompts, file contents or commands. Full data locations and
+deletion behaviour are documented in
+[`docs/PRIVACY_AND_DATA.md`](docs/PRIVACY_AND_DATA.md).
+
+## Release and dependency integrity
+
+The npm lock is restricted to the official npm registry and includes integrity
+hashes. GitHub Actions are pinned to commit SHAs, Dependabot covers npm, Cargo
+and Actions, and CI runs npm vulnerability auditing. Rust and npm advisory
+results and target-specific limitations are recorded in
+[`docs/SECURITY_AUDIT_0.4.0.md`](docs/SECURITY_AUDIT_0.4.0.md).
+
+Local macOS packages are ad-hoc signed unless the maintainer configures Apple
+Developer ID and notarization. Ad-hoc signing checks bundle integrity but does
+not establish an Apple-verified publisher identity. Tauri updater minisign is
+also not a substitute for Developer ID, notarization or Windows Authenticode.
+
+## Reporting a vulnerability
+
+Do not put secrets, credentials, private logs or personal data in a public
+issue. Prefer GitHub's private vulnerability reporting when enabled. If that is
+unavailable, open a minimal public issue requesting a private contact channel,
+without reproduction secrets.
+
+Include the affected version/commit, OS and architecture, the smallest redacted
+reproduction, expected impact, and whether local credentials, files, channels,
+updates or generated artifacts may be affected.

@@ -9,6 +9,7 @@ import os
 import time
 
 from .redaction import redact_obj, redact_text
+from .private_files import append_private_line, harden_private_file
 
 
 def _root():
@@ -91,9 +92,7 @@ def append_context_event(
         event["session_scope"] = session_scope
     if chat_id:
         event["chat_hash"] = _hash(chat_id)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+    append_private_line(path, json.dumps(event, ensure_ascii=False, sort_keys=True))
     return event
 
 
@@ -131,6 +130,7 @@ def recent_context_events(
     path = log_path or default_context_log_path()
     if not os.path.exists(path):
         return []
+    harden_private_file(path)
     cutoff = time.time() - max_age_hours * 3600
     events = []
     try:

@@ -7,6 +7,7 @@
 挂载：包装 do_code_run / do_file_write / do_file_patch（类级，GA 零改动）+ tool_before 审计钩子。
 """
 import os, re, json, time
+from penglai_runtime.private_files import append_private_line, ensure_private_dir
 
 from plugins.hooks import register
 from agent_loop import StepOutcome
@@ -61,7 +62,7 @@ def _audit_path():
         if base == repo or base.startswith(repo + os.sep):
             base = os.path.expanduser("~/penglai-work")
         d = os.path.join(base, "audit")
-    os.makedirs(d, exist_ok=True)
+    ensure_private_dir(d)
     return os.path.join(d, time.strftime("%Y-%m") + ".jsonl")
 
 _URL_BARE_TOKEN_RE = re.compile(r"(\w+)://([^\s:/@]{8,})@([^\s:/@]+)")
@@ -91,8 +92,7 @@ def audit(tool, args, blocked=False, reason=""):
         if blocked:
             rec["blocked"] = True
             rec["reason"] = reason
-        with open(_audit_path(), "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        append_private_line(_audit_path(), json.dumps(rec, ensure_ascii=False))
     except Exception:
         pass  # 审计失败绝不影响主流程
 

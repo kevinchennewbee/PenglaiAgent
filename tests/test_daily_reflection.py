@@ -34,6 +34,10 @@ def test_generate_reflection_creates_file(tmp_path, monkeypatch):
     date_str = time.strftime("%Y-%m-%d", time.localtime(now))
     path = dr.reflection_path(tmp_path, date_str)
     assert path.exists()
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert path.parent.stat().st_mode & 0o777 == 0o700
+        assert log_path.stat().st_mode & 0o777 == 0o600
 
     # 结构完整
     assert reflection["date"] == date_str

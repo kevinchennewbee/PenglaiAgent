@@ -15,7 +15,7 @@ GA 上游自带 IM 前端（frontends/*.py），蓬莱层在此之上提供统�
   penglai disable <渠道>      停用并卸载服务
 """
 import json
-import os, re, subprocess, sys, time
+import os, re, subprocess, sys, tempfile, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OK, BAD, WARN = "✅", "❌", "⚠️ "
@@ -230,7 +230,7 @@ def _aes_gcm_decrypt(b64ct, b64key):
     except ImportError:
         pass
     try:
-        from Crypto.Cipher import AES  # pycryptodome
+        from Crypto.Cipher import AES  # nosec B413 - this is maintained pycryptodome, not obsolete pycrypto
         c = AES.new(key, AES.MODE_GCM, nonce=iv)
         return c.decrypt_and_verify(body[:-16], body[-16:]).decode("utf-8")
     except ImportError:
@@ -317,9 +317,19 @@ def qq_qr():
 
 def mykey_set(pairs):
     path = os.path.join(ROOT, "mykey.py")
+    if os.path.islink(path):
+        raise RuntimeError("refusing to write mykey.py through a symbolic link")
     txt = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
     if txt:
-        open(path + ".bak", "w", encoding="utf-8").write(txt)
+        backup = path + ".bak"
+        if os.path.islink(backup):
+            raise RuntimeError("refusing to write mykey.py backup through a symbolic link")
+        fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(txt)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(backup, 0o600)
     lines, done = txt.splitlines(), set()
     for i, l in enumerate(lines):
         m = re.match(r"^(\w+)\s*=", l)
@@ -330,7 +340,18 @@ def mykey_set(pairs):
     if rest:
         lines += ["", "# —— 蓬莱渠道配置（penglai enable 写入）——"]
         lines += [f"{k} = {pairs[k]!r}" for k in rest]
-    open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    fd, tmp = tempfile.mkstemp(prefix=".mykey-", suffix=".tmp", dir=ROOT)
+    try:
+        os.chmod(tmp, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write("\n".join(lines) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)
+        os.chmod(path, 0o600)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def mykey_get(key):

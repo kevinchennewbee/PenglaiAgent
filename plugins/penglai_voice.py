@@ -164,13 +164,13 @@ def _drop_emotion_signal(emotion):
     if emotion not in _NEG_EMOTIONS: return
     try:
         import json, time
+        from penglai_runtime.private_files import atomic_write_private
         sig = {}
         try: sig = json.load(open(_SIGNALS, encoding="utf-8"))
         except Exception: pass
         emos = (sig.get("emotions") or [])[-19:]
         emos.append({"e": emotion, "ts": time.time()})
-        os.makedirs(os.path.dirname(_SIGNALS), exist_ok=True)
-        json.dump({"emotions": emos}, open(_SIGNALS, "w", encoding="utf-8"), ensure_ascii=False)
+        atomic_write_private(_SIGNALS, json.dumps({"emotions": emos}, ensure_ascii=False))
     except Exception:
         pass
 

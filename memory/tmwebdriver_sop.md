@@ -42,7 +42,7 @@ fetch('PDF_URL').then(r=>r.blob()).then(b=>{
 
 ## CDP桥(tmwd_cdp_bridge扩展) ⭐首选
 扩展路径：`assets/tmwd_cdp_bridge/`(需安装，含debugger权限)
-⚠TID约定标识：首次运行自动生成到`assets/tmwd_cdp_bridge/config.js`(已gitignore)，扩展通过manifest引用
+首次运行会把随机配对令牌写入 `assets/tmwd_cdp_bridge/config.js`（已 gitignore、0600）；扩展后台与 TMWebDriver 必须使用同一令牌，未认证的本机进程会被拒绝。
 调用：`web_execute_js` script直传JSON字符串（工具层自动识别对象格式，走WS→background.js cmd路由）
 ```js
 // 直接传JSON字符串作为script参数，无需DOM操作
@@ -52,13 +52,8 @@ web_execute_js script='{"cmd": "cdp", "tabId": N, "method": "...", "params": {..
 web_execute_js script='{"cmd": "batch", "commands": [...]}'
 // 返回值直接是JSON结果
 ```
-通信方式：⭐JSON字符串直传(首选) | TID DOM方式(TID元素+MutationObserver，web_scan/execute_js底层依赖)
-单命令：`{cmd:'tabs'}` | `{cmd:'cookies'}` | `{cmd:'cdp', tabId:N, method:'...', params:{...}}` | `{cmd:'management', method:'list|reload|disable|enable', extId:'...'}`
-- management：list返回所有扩展信息；reload/disable/enable需传extId
-- contentSettings：`{cmd:'contentSettings', type:'automaticDownloads', pattern:'https://*/*', setting:'allow'}`
-  - 绕过Chrome"下载多个文件"对话框（该对话框会阻塞整个浏览器JS执行）
-  - type可选：automaticDownloads/popups/notifications等；setting：allow/block/ask
-  - ⚠CDP的Browser.setDownloadBehavior在扩展中不可用（chrome.debugger仅tab级），此为替代方案
+通信方式：仅使用已认证 WebSocket 的 JSON 命令；旧 TID DOM 注入通道已移除，避免所有网页常驻内容脚本。
+单命令：`{cmd:'tabs'}` | `{cmd:'cookies'}` | `{cmd:'cdp', tabId:N, method:'...', params:{...}}`
 - ⭐batch混合：`{cmd:'batch', commands:[{cmd:'cookies'},{cmd:'tabs'},{cmd:'cdp',...},...]}`
   - 返回`{ok:true, results:[...]}`，一次请求多命令，CDP懒attach复用session
   - 子命令会自动继承外层batch的tabId（如cookies命令可正确获取当前页面URL）

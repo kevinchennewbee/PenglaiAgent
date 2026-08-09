@@ -1,690 +1,187 @@
-<div align="center">
+# 蓬莱 Penglai 0.4
 
-<img src=".github/assets/banner.png" alt="Penglai 蓬莱" width="100%"/>
+> 一个以 TypeScript Host 为核心、以 Pi 为 agent runtime 的本地 AI 工作台。
 
-# 蓬莱 · Penglai 0.3.6
+[English](#english) · [更新日志](CHANGELOG.md) · [0.4.0 发布说明](docs/RELEASE_NOTES_0.4.0.md) · [安全边界](SECURITY.md) · [隐私与本地数据](docs/PRIVACY_AND_DATA.md)
 
-### A self-hosted AI Runtime Hub in your Feishu, WeChat, and terminal · 住在你飞书、微信和终端里的自托管 AI Runtime Hub
+![Version](https://img.shields.io/badge/version-0.4.0-2563eb?style=flat-square)
+![TypeScript](https://img.shields.io/badge/core-TypeScript-3178c6?style=flat-square)
+![Pi](https://img.shields.io/badge/Pi-0.83.0-8b5cf6?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)
 
-**Eight immortals cross the sea, each showing their own powers · 八仙过海，各显神通**
+蓬莱 0.4.0 不是给 Pi 再做一个外壳。它把 0.3.x 已验证的个人助理能力重构为一个本地控制平面：持续会话、可信项目、Task / Run / Evidence、审批、预算、恢复、飞书与微信入口，都连接同一个 Host、同一份事实和同一条执行路径。
 
-[![License](https://img.shields.io/badge/code-MIT-22c55e?style=flat-square)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![Desktop](https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-0f766e?style=flat-square)](https://github.com/kevinchennewbee/PenglaiAgent/releases)
-[![Runtime](https://img.shields.io/badge/Runtime-Hub-c44531?style=flat-square)](#-penglai-runtime-hub)
-[![Kernel](https://img.shields.io/badge/powered%20by-GenericAgent-8b5cf6?style=flat-square)](https://github.com/lsdefine/GenericAgent)
-[![Website](https://img.shields.io/badge/Website-Penglai-3fbaa6?style=flat-square)](https://kevinchennewbee.github.io/PenglaiAgent/)
+## 0.4.0 的产品边界
 
-**[English](#-english) · [中文](#-中文)** · [Website](https://kevinchennewbee.github.io/PenglaiAgent/) · [Release](https://github.com/kevinchennewbee/PenglaiAgent/releases)
+- **只有一个助理、一个会话面。** 不再把 chat/work 当成两套产品或两种能力。会话未绑定项目时工作在助理自己的目录；Owner 明确确认后，它锚定到一个 realpath 校验过的项目目录。工具面不因标签切换。
+- **只有一条 agent 执行路径。** Desktop、CLI、Goal、飞书、微信和持久化 Task 最终都进入 `EpisodeRunner → Pi AgentKernel`。TaskRunner 只保留 Run / Step / Evidence / checkpoint 的持久化生命周期，不再拥有另一套模型循环。
+- **CLI 是完整核心，Desktop 是原生工作台。** Tauri 2 桌面版启动随包内置的 Node + TypeScript Host；它不是独立后端，也不要求用户安装 Node、Python 或源码树。
+- **结果必须可核对。** 文件 diff、磁盘重读、命令退出态、审批决定、token 用量和 checkpoint 进入持久证据轨；模型的“我完成了”不等于完成证据。
 
-</div>
+## 能力
 
-> 📌 **Official channels / 官方渠道：** this GitHub repository / 本 GitHub 仓库 · [kevinchennewbee.github.io/PenglaiAgent](https://kevinchennewbee.github.io/PenglaiAgent/) · [penglai.pages.dev](https://penglai.pages.dev/) · PyPI [`penglai`](https://pypi.org/project/penglai). Do not enter API keys, bot tokens, or account credentials on unofficial sites or bots. / 请勿在非官方站点或机器人中输入 API Key、机器人令牌或账户凭据。
+- 持续对话：流式输出、安全 Markdown/GFM、表格与代码复制、图片和普通文件输入、steer / follow-up / interrupt、Pi 原生 compact、thinking 档位；全部历史可搜索、重命名、归档和恢复。
+- Goal：持久目标、计划模式 kick / continue、blocked / complete 状态和 Owner 解封边界。
+- 项目与任务：Project、Task、Run、Step、Evidence、Approval、checkpoint、崩溃恢复和续跑。
+- 权限档位：`plan`、`confirm`、`auto_edit`、`full`；L1 自主、L2 可确认并按项目记住、L3 每次强制人工、L4 直接拒绝。
+- 安全围栏：项目 realpath jail、敏感凭证路径拒绝、外发/推送/删除检测、工具调用前 authority 复核；Host token 不进入 renderer 或 URL，公开模型端点强制 HTTPS，文档/网页/MCP 内容明确标记为不可信数据。
+- 常用工作能力：Pi 的 `read / write / edit / bash` 原子工具直接覆盖代码、Git、压缩、日志、构建、测试与进程检查；Host 补充 PDF / DOCX / XLSX / PPTX 读取与生成、会话文件 inbox、产物打开/定位及应用内只读文本预览，以及带公网/SSRF 边界和 L3 审批的真实网页搜索与抓取。无需记工具名，也不增加任务卡片。
+- 成本控制：全局日预算与项目日预算、80% 预警、100% 熔断、人工 lift 和完整用量账本。
+- 记忆与技能：全局 L1、项目记忆、Owner 批准的 SOP 技能树，以及 Run 完成后的蒸馏/审计流程；桌面可从本地或 GitHub 安装声明式 Agent Skill，逐次验哈希并支持查看、启停和卸载，不运行 package installer、生命周期钩子或任意 TypeScript extension。
+- MCP：桌面可配置 stdio / HTTP / SSE、手动连接、预览工具和断开；Host 启动绝不自启第三方服务，stdio 使用私有临时 HOME，远程传输逐跳防 SSRF，每次 MCP 工具调用都必须重新经过 Owner L3。
+- 多入口同一事实：CLI、Tauri Desktop、飞书长连接、微信 iLink；白名单、路由、审批和 transcript 都由本地 Host 管理。
+- 本地语音：SenseVoice ASR（含情绪/语言标签）+ MOSS-TTS-Nano ONNX CPU 全管线；桌面可录音转写、逐条朗读，模型按需下载且不构成启动硬依赖。
+- 主动陪伴：默认关闭、Owner 明确启用；保留勿扰强度、晨间/晚间/空闲机会、SenseVoice 负面情绪承接和飞书/微信主动短消息，生成仍走同一 EpisodeRunner。
+- 0.3 迁移：模型档案、飞书配置/白名单、L1 记忆和 SOP 的 dry-run、备份、迁移与 rollback。
+- 模型接入：11 个内置供应商/自定义 OpenAI-compatible 端点，实时 `/models` 探测、废弃模型提示和目录刷新。
+- 诊断与支持：Desktop Doctor 和 `penglai doctor --export` 可导出受限脱敏诊断包；只收集运行时元数据、Doctor 结果和有界近期文本日志，明确排除 token、模型档案、会话、数据库、记忆、Skill 与 MCP 配置。
 
----
+0.4.0 不开放任意 Pi TypeScript extension/hooks、browser/CUA、scheduler 或 autonomous 工具执行。MCP 只在 Owner 手动连接后按逐工具 L3 挂载；主动陪伴不执行无人值守工具，只把可审计的内部观察事件提交给同一核心，并以 `plan` 权限生成短消息。
 
-<a id="-english"></a>
+## 快速开始（源码）
 
-## 🌟 Overview
-
-**Penglai** is not another chatbot shell. It is a self-hosted personal AI Runtime Hub running on your own machine: [GenericAgent](https://github.com/lsdefine/GenericAgent) is the execution core, the `penglai` CLI is the product core, Runtime Hub is the runtime layer, and the native desktop app is the control surface. Penglai unifies desktop, Feishu (Lark), WeChat, terminal, voice, images, files, proactive messages, and long-term memory into one coherent runtime.
-
-**v0.3.6 brings Worldline checkpoint rewind to the TUI, fixes upstream safety/quality bugs, records Companion failure/silent outcomes, and marks the Telegram channel as tested** — it syncs the upstream Worldline checkpoint tree (content-addressable blob + three restore modes), fixes subprocess stdin isolation / Claude refusal / turn-end summaries / concurrent long-prompt files / browser-driver broken pipes, and records Companion failed/silent outcomes without treating system failures as user preference. The TUI now supports `/worldline` for tree-based rewind. Replied/ignored feedback learning (echo detection) is planned for 0.3.7.
-
-- 📦 **No manual Python**: desktop installers bundle a standalone Python runtime and core dependencies
-- 🧳 **No source checkout**: new users can install the DMG / EXE directly, without cloning the repo
-- 🖥️ **Mac coverage**: separate DMGs for Apple Silicon and Intel x64, plus the Windows x64 installer
-- 🛡️ **Trusted release gates**: signed annotated release tags, fail-closed update checks, strict plugin loading, WeChat allowlists, and query-token removal for Conductor
-- 🔊 **Selectable local voices**: 10 public Chinese/English male/female voices, with celebrity impersonation and voice cloning blocked from default public choices
-- 🧭 **Companion Loop foundation**: local daily reflection, care opportunity mining, adaptive feedback primitives, proactive dialogue plans, and desktop "why proactive" controls
-- 🌏 **Mainland-network friendly**: updater manifests and installer URLs default to `gh-proxy.com`; CI also exposes npm / pip / Cargo / rustup / Python-build-standalone mirror and cache controls
-- 🛡️ **Trusted runtime hardening**: one-click updates, execution cancellation, Conductor authentication, memory load-time scanning, IM media filenames, and LLM failover are hardened on real client paths
-
-You can use the native Mac / Windows desktop clients, or deploy to your own host with one command. Your memory, logs, config, and channel credentials stay on your machine by default.
-
-Voice is a full listen-and-speak loop: FunASR / SenseVoice handles local speech-to-text (transcription + emotion + acoustic events), MOSS-TTS-Nano synthesizes text replies as speech. Both run on local CPU — voice data never leaves your machine.
-
----
-
-## 🌊 Origin: A non-coder and his AI butler
-
-I worked a decade in network engineering, security, and ops — but I couldn't write code. Not a single line. Every line in this repository was "spoken" sentence by sentence using AI coding tools. Penglai itself is the proof of what it wants to demonstrate: **in the AI era, ordinary people can build tools for themselves.**
-
-The motivation comes from real pain. As a regular user trying to embrace this transformation, I tried nearly every tool on the market and hit their walls. I saw the sharpness of the CLI era — Claude Code, OpenCode, Kimi CLI, all excellent. I saw the polish of the desktop era — Codex Desktop, Qoder, WorkBuddy, Claude Cowork, bringing Agents into windows. They're all good, but they all assume the same thing: **you're sitting at a computer.**
-
-I kept thinking about how computing evolved: DOS gave it to people who could type commands, Windows gave it to people who could use a mouse, mobile put it in everyone's pocket. Agents are on the same path — **CLI is its DOS, desktop apps are its Windows, and the next stop is mobile, in fragmented time.** Every vendor's mobile app will have its own brilliance, but for most people, the most convenient, simplest thing they actually open every day is a chat app. **If you can send a WeChat message, you should be able to use an Agent** — no new skills required.
-
-[GenericAgent](https://github.com/lsdefine/GenericAgent) is the cleanest Agent core I've seen, so Penglai doesn't reinvent the wheel. Penglai completes the "last mile": run it on any machine you own — a headless cloud server, a Mac mini in the corner — then move it into your Feishu and WeChat, so it's always there on your commute, in your lunch break, one message away.
-
----
-
-## 🏝️ Why "Penglai"
-
-Penglai (蓬莱) is the mythical island mountain in Chinese mythology. According to the *Records of the Grand Historian*, east of the Bohai Sea stand three divine mountains — Penglai, Fangzhang, and Yingzhou — where immortals dwell, holding the elixir of immortality. Qin Shi Huang once sent Xu Fu with three thousand boys and girls to seek it, but they never arrived. For two thousand years, "Penglai" has been the Chinese imagination of **a beautiful place visible but unreachable.**
-
-I chose this name because today's AI is to ordinary people what Penglai was to the ancients: everyone hears it's miraculous, but few actually set foot on it — APIs, terminals, config files are the fog on the sea. **Penglai wants to bring the immortal mountain into your chat window: you don't need to learn navigation; if you can send a WeChat message, you can reach the island.** The immortal mountain of the AI era shouldn't belong only to those who can code.
-
-As for "eight immortals crossing the sea, each showing their divine power" — the legend of eight immortals each using their own magical treasure to cross the sea to Penglai — this is the project's technical philosophy: multi-model, multi-channel, specialists each doing their part, every model crossing the sea in its own way, all serving the same you.
-
----
-
-## ✨ What it can do
-
-- 🏮 **Ten-minute setup** — `penglai setup` paged wizard (bilingual CN/EN): auto-installs dependencies (mainland China auto-switches to Tsinghua mirror) → pick model & test connectivity → **channels on one page** (Feishu QR scan auto-creates app, no webpage needed) → name your butler → ability panel with real enablement (voice pre-installed, companion/intel on demand)
-- 💬 **Feishu + WeChat, both QR-scan** — Feishu scan builds bot with long-poll connection (no public IP needed); personal WeChat scan login for text/voice/image send-receive
-- 🖥️ **Native desktop clients** — macOS Apple Silicon, macOS Intel x64, and Windows x64 installers with full graphical setup wizard, multi-session chat, system tray, channel/ability management, in-app auto-update, and a bundled local runtime so first launch does not require Python or pip
-- 🎙️ **Ears that hear emotion** — local CPU SenseVoice (~230MB): speech-to-text + 7 emotion labels (happy/sad/angry/fearful…) + acoustic events (laughter/crying/applause…), enters conversation as `[voice(emotion:down): so tired today]`
-- 🔊 **Voice that speaks back** — MOSS-TTS-Nano local TTS synthesizes text replies into speech, CPU-only, for desktop readout and IM voice bars
-- 🧠 **Four-layer memory** — GA-core index/facts/skills/raw-sessions file-based memory, pure markdown and auditable; pre-write threat scan (prompt injection / role hijack / key leakage), overwrite forbidden; long-term facts carry **time/source/importance signatures, new values auto-invalidate old ones**
-- 🛡️ **Deterministic safety rails** — dangerous command & path redline interception + full tool-call audit JSONL — **relies on deterministic checks, not LLM self-awareness**. Covers dangerous commands, sensitive paths, memory writes, file exfiltration (whitelist currently covers Feishu channel)
-- 🔎 **Web search out of the box** — built-in free Bing fallback, **works on headless servers** (no browser needed); `penglai enable intel` adds TinyFish/Tavily for multi-source cross-validation
-- 🧐 **Anti-hallucination dual insurance** — local tripwire **on by default** (free): catches "overconfidence" phrasing and triggers self-check; `penglai enable critic` picks a **different vendor** model for cross-check (free options like GLM-4.7-Flash, or stronger paid models)
-- 🧰 **Built-in skills + local skill market** — butler ships with reminder/schedule, weather, web article summary (no key, headless-ok); `penglai skill` is a local apt-style market (curated, security-scanned on install, no network fetching). Skills are GA-native SOPs — external skills must be rewritten as SOPs first
-- 📦 **Ten-minute migration (from Hermes/OpenClaw)** — `penglai migrate` brings old butler's memory/models/channels/identity over (preview + backup + honest labeling of what can't move)
-- 🌙 **Truly proactive, never noisy** <sub>opt-in</sub> — heartbeat + hard-coded gates: **severe weather alerts**, **proactive care from detected voice emotion**, morning/evening greetings, idle check-ins; do-not-disturb hours, never interrupts active conversation, frequency caps
-- 🎛️ **Abilities anytime** — didn't enable something in the wizard? One command: `penglai enable voice|companion|intel`; `penglai abilities` shows the full picture — no need to re-run wizard
-- ⚙️ **One-command ops** — `penglai doctor` full checkup (directly tells you which command to run for any issue) / `status` / `logs` / `update` one-click upgrade with auto-rollback
-
-> Every item above runs on real servers every day — not a roadmap.
-
----
-
-## 🚀 Quick Start
-
-New machine, just one command — no Python, no git needed, the script handles everything:
+要求：Node.js `>=22.19`。桌面本地打包还需要 Rust 与 macOS Command Line Tools。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+git clone https://github.com/kevinchennewbee/PenglaiAgent.git
+cd PenglaiAgent
+npm ci
+
+# 首次配置并进入终端会话
+npm run cli -w @penglai/host -- setup
+npm run cli -w @penglai/host -- chat
+
+# 检查本机能力
+npm run cli -w @penglai/host -- doctor
 ```
 
-Mainland China (via mirror, same one command):
+从源码目录运行常用命令：
 
 ```bash
-curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+npm run cli -w @penglai/host -- doctor
+npm run cli -w @penglai/host -- doctor --export
+npm run cli -w @penglai/host -- status
+npm run cli -w @penglai/host -- project list
+npm run cli -w @penglai/host -- task list
+npm run cli -w @penglai/host -- approval list
+npm run cli -w @penglai/host -- budget status
+npm run cli -w @penglai/host -- channel list
+npm run cli -w @penglai/host -- migrate --dry-run
 ```
 
-**Desktop clients** (recommended for new users): download from [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases)
-- macOS Apple Silicon DMG
-- macOS Intel x64 DMG
-- Windows x64 installer
+如果通过 `packages/host/scripts/install.sh` 或 `install.ps1` 安装 Host，上述命令可直接简写为 `penglai ...`；安装器只接受通过生产构建的运行时，不会静默降级为源码开发模式。
 
-The 0.3.6 desktop installers include the Penglai runtime, standalone Python, and core dependencies. First launch does not require users to install Python, clone source code, or download Python packages.
+## Desktop 与 DMG
 
-Daily commands:
+开发窗口：
 
 ```bash
-penglai                         # chat in terminal
-penglai setup                   # full setup wizard
-penglai setup --only feishu     # partial reconfig: Feishu only, LLM config untouched
-penglai setup --only llm|identity|feishu|wechat|channels|abilities|companion
-penglai config status --json    # config overview
-penglai config backup           # atomic config backup
-penglai config restore <name>   # rollback to backup
-penglai channels [--json]       # channel matrix + next-step commands
-penglai companion status        # companion status / mode / last trigger
-penglai companion mode quiet|present|active
-penglai doctor                  # checkup: env/deps/config/services + next-step commands
-penglai abilities               # voice/TTS/companion/search/critic overview
-penglai enable voice|tts|companion|intel|critic
-penglai update                  # safe upgrade with auto-rollback
-penglai privacy-audit --strict  # pre-release privacy check
+npm run tauri:dev -w @penglai/desktop
 ```
 
-> 💡 **Upgrading is worry-free**: `penglai update` is fully automatic after confirmation — compile + security plugin pre-check catches bad updates, then a detached background supervisor restarts and runs connection health checks, **auto-rolls-back if the new version fails to start**, and reports results to your IM. You can also just tell the butler in chat: "check for updates / upgrade".
-
----
-
-## 💬 Channel Matrix: one butler, many doors
-
-All channels share the same memory — **one butler, multiple doors**:
-
-| Channel | Setup | Voice | Status |
-|---|---|---|---|
-| Desktop (Mac/Windows) | Download installer | ✅ TTS playback | ✅ Released |
-| Feishu (Lark) | `penglai setup`, **QR auto-create app** | ✅ STT+emotion | ✅ Validated |
-| WeChat (personal) | `penglai setup`, QR login | ✅ STT+emotion (silk) | ✅ Validated |
-| Terminal TUI | run `penglai` | — | ✅ Built-in |
-| DingTalk | `penglai enable dingtalk`, **QR auto-create** | 🔧 Wrapped (built-in ASR) | ⚠️ Pending real-device |
-| QQ | `penglai enable qq`, **QR auto-create bot** | 🔧 Wrapped (wav+emotion) | ⚠️ Pending real-device |
-| WeCom | `penglai enable wecom`, backend bot | 🔧 Wrapped (built-in ASR) | ⚠️ Pending real-device |
-| Telegram | `penglai enable telegram`, @BotFather token | — | ✅ Tested |
-| Discord | `penglai enable discord`, dev portal token | — | ⚠️ Pending real-device |
-
-> "Pending" = integration code is ready (IM framework from GA upstream, voice wrapping by Penglai layer), but we haven't completed real-device testing. Honesty over appearances.
-> Voice column: ✅ = validated on real device; 🔧 = Penglai layer has wrapped voice reception (upstream frontends originally discarded it); — = no voice for this channel.
-
----
-
-## 🆚 Penglai vs bare GenericAgent
-
-Penglai doesn't modify the core — it completes the "last mile from runnable to usable" on top of GA:
-
-| Dimension | Bare GenericAgent | Penglai Distribution |
-|---|---|---|
-| Setup | Manual mykey edit, manual deps | 10-min paged wizard (bilingual, auto mirror) |
-| IM access | Read frontend code yourself | Feishu/WeChat QR + DingTalk/QQ/WeCom one command |
-| Voice | None | Local SenseVoice STT+emotion, all-channel wrapping |
-| Safety | Basic | Redline/memory hygiene/outbound file whitelist, deterministic |
-| Ability mgmt | Edit config files | `penglai enable / abilities` post-install toggles |
-| Distribution | git clone | curl / installer / pip one-liner + mainland auto-mirror |
-| Ops | Manual | `penglai doctor` checkup with fix commands |
-| Desktop | None | Native Mac/Windows with 9-module control surface |
-| Auto-update | None | Desktop updater + `penglai update` dual path |
-| Core | — | **Zero modification**, upstream upgrades merge cleanly |
-
----
-
-## 🧬 Architecture: standing on the core's shoulders
-
-```mermaid
-flowchart LR
-    U["👤 User"] -->|"text · voice · image"| IM["💬 Desktop / Feishu / WeChat / Terminal…"]
-    IM --> P["🏮 Penglai Layer<br/>Wizard · CLI · Channel wrap · Voice emotion · Safety"]
-    P --> H["⚙️ Runtime Hub<br/>Queue · TaskRun · Permission · Context events"]
-    H --> G["🧠 GenericAgent Core (zero diff)<br/>~130-line Agent Loop"]
-    G --> T["🔧 Tool execution"]
-    G --> M["📚 Four-layer memory"]
-    G --> L["☁️ LLM (12 vendors)"]
-    H --> V["🎙️ Voice Stack<br/>SenseVoice · MOSS-TTS-Nano"]
-    H --> S["🛡️ Safety Layer<br/>Redline · memguard · fileguard · log redaction"]
-    P -. "redline · audit · memory hygiene · outbound whitelist" .-> G
-```
-
-- **Zero core modification**: `ga.py`, `frontends/`, `llmcore.py`, memory tools stay zero-diff; GA core upgrades merge cleanly. Penglai only trims and augments above the core.
-- **Form gradient**: new capabilities prefer SOP (0 code) → hook plugin → heartbeat module → tool — restraint by design, not laziness.
-- **Identity & memory separation**: factory state has zero user memory, only one identity line. Your memory is your privacy asset, never enters the distribution.
-
----
-
-## 🏗️ Penglai Runtime Hub
-
-The Runtime Hub is 0.3.0's core: it unifies desktop, Feishu, WeChat, terminal, voice, files, and proactive messages into one set of events, queues, permissions, and run records, then hands off to GenericAgent for execution.
-
-What users actually feel:
-
-- **Messages don't get lost**: while a task runs, subsequent messages queue up.
-- **Context is more coherent**: desktop, IM, terminal, companion share the same context events.
-- **File delivery is more reliable**: images, videos, PDFs, Markdown, Office docs sent by real artifact type; sensitive extensions deterministically blocked.
-- **Logs are safer**: API keys, tokens, secrets, authorization headers uniformly redacted before entering logs and history.
-- **Status is more diagnosable**: Runtime Hub, Feishu, WeChat, scheduler, companion report separately — no more "seems to be running".
-- **Releases are more auditable**: `privacy-audit`, `runtime-audit`, `install-check`, `doctor` all independently verifiable.
-
----
-
-## 🔄 Auto-update: two independent paths
-
-0.3.2 keeps the dual update model from 0.3.1 and makes the desktop path usable in domestic networks:
-
-- **Desktop app**: via `tauri-plugin-updater`, six gates all passed — signing key generated and verified in CI, `latest.json` auto-published to Release, frontend `app.js` calls updater API for check/download/verify/install; `fallback.html` setup UI also has update entry, so you can update even if the main window is stuck. Since 0.3.2, `latest.json` points updater downloads at `gh-proxy.com` by default.
-- **Runtime (CLI / Runtime Hub)**: `penglai update` backs up current version, pulls new version, verifies, switches, auto-rolls-back on failure.
-
-Desktop updater and `penglai update` don't depend on each other.
-
----
-
-## 📦 Migration: upgradeable, switchable, restorable
-
-Three layers of protection ensure data is never lost:
-
-1. **User-active layer**: `penglai backup` / `penglai restore` — full data backup/restore (mykey + memory + sqlite + wxbot token + desktop settings)
-2. **Installer-defense layer**: `install.sh` / `install.ps1` auto-backs up user data before `rm -rf`, restores after unpack; refuses to continue if version is unrecognizable
-3. **Legacy-cleanup layer**: `penglai uninstall-legacy` cleans launchd/systemd services and prompts for old directory removal; desktop `detect_legacy_penglai` detects and prompts migration before wizard start
-
-**Migration flow**: old version `penglai backup` → install the latest release → new version `penglai restore` → (optional) `penglai uninstall-legacy`
-
----
-
-## 📋 0.3.6 Key Changes
-
-0.3.6 finishes and hardens the Worldline rewind integration while preserving the trusted-release and Companion Loop foundations from 0.3.5. It focuses on recoverability, concurrency safety, browser/runtime resilience, and honest companion outcome telemetry.
-
-| Area | What 0.3.6 brings |
-|---|---|
-| Worldline rewind | Persistent checkpoint tree with content-addressed file blobs, conversation/code/both restore modes, `/rewind` timeline and `/worldline` tree UI |
-| Resume correctness | Rewound-to-origin sessions remain discoverable; `/continue` restores working memory, rebinds or clones the tree, and reconciles it against the full native log |
-| LLM/runtime safety | Claude refusal becomes terminal text instead of an empty-response retry; turn-end summaries prefer the cleaned response body; subprocesses no longer inherit TTY stdin |
-| Concurrency | Long prompts use PID + nanosecond filenames so concurrent agents cannot overwrite each other's task input |
-| Browser resilience | TMWebDriver logging tolerates broken/closed stdout so a detached parent cannot tear down the extension WebSocket loop |
-| Companion outcomes | Failed and silent outcomes are persisted as redacted telemetry without changing user-preference weights; replied/ignored echo detection remains future work |
-| Desktop release | Every desktop/package/runtime version is aligned to 0.3.6; CI tests Worldline and falls back to official Rust servers when a configured mirror fails |
-| Channel status | Telegram is marked tested; unverified DingTalk, QQ, WeCom, and Discord paths remain explicitly pending |
-
-Important boundary: failed/silent system outcomes are now recorded, but replied/ignored user-feedback capture is not implemented. Public copy must not claim a fully adaptive companion.
-
----
-
-## 📋 0.3.4 Key Changes
-
-0.3.4 is a follow-up maintenance release focused on making the 0.3.3 trusted-runtime promises real in day-to-day use. It does not add a new architecture track; 0.4 remains the expansion line.
-
-| Area | What 0.3.4 brings |
-|---|---|
-| Desktop update | One-click state-changing desktop ops work through the authenticated bridge again; optional two-step confirmation remains available for callers that request it |
-| Runtime trust | Runtime cancellation reaches the active GA code tool; Conductor HTTP/WS gains loopback + token authentication |
-| Memory and tools | Long-term memory is scanned again before prompt injection; external web/file/MCP results are marked as untrusted data |
-| IM media safety | WeChat and WeCom media filenames are basename-sanitized at source entrypoints |
-| LLM resilience | Retry/failover classifies overload, server, auth, and model errors before same-backend retry can hide them |
-| Release gates | `latest.json` generation fails closed if any desktop updater platform artifact or signature is missing |
-
----
-
-## 📋 0.3.2 Key Changes
-
-0.3.2 focuses on distribution hardening: the desktop release now behaves like a real local app instead of a source checkout wrapped in a shell.
-
-| Area | What 0.3.2 brings |
-|---|---|
-| Bundled desktop runtime | Adds a reproducible `penglai-runtime` payload with standalone Python, locked dependencies, manifest hashes, entrypoint checks, and no `.venv` dependency |
-| First-launch reliability | Tauri fails closed if the packaged runtime is missing; runtime payload and install selfchecks verify the selected Python, bridge extraction, and runtime scope |
-| Windows installer | NSIS release now performs silent install, installed runtime verification, app selfcheck, runtime install selfcheck, and uninstall verification |
-| macOS DMG | Apple Silicon DMG is built with bundled runtime; unsigned builds are adhoc re-signed, updater artifacts regenerated after signing, and DMG layout verified |
-| Domestic update path | `latest.json` publishes `gh-proxy.com` asset URLs; release CI includes npm / pip / Cargo / rustup / Python-build-standalone mirror and cache knobs |
-| Desktop bridge security | The bridge token is no longer injected into page JavaScript; sensitive RPC goes through native Tauri commands, and WebSocket stays event-only with origin checks |
-| Release pipeline | Release publishing is idempotent, only advertises platforms actually built (`darwin-aarch64`, `windows-x86_64`), and can overwrite existing v0.3.2 assets safely |
-
-Important limitation: Apple Developer ID notarization and Windows Authenticode signing are not configured yet. Users may still see Gatekeeper / SmartScreen warnings on first launch, even though updater `.sig` verification is present.
-
----
-
-## 📋 0.3.1 Key Changes
-
-0.3.0 established the right architecture direction; 0.3.1 closes the loop on "right direction but half-finished implementation".
-
-| Area | What 0.3.1 brings |
-|---|---|
-| CLI core | `setup --only` partial reconfig (reconfigure Feishu without re-running full API Key flow); `config backup/restore` atomic config mgmt; `channels` / `companion` subcommands; CLI QR output; setup end-to-end smoke test |
-| Desktop control surface | Fixed `_require_token` so 9 handlers work; eliminated 9 inline Python ops (bridge `--bootstrap` mode, Rust shell back to thin); `tauri-plugin-updater` auto-update; 9-module frontend rebuild (Chat / Runs / Channels / Abilities / Companion / Diagnostics / Logs / Update / Security); Mac frosted glass + Windows Mica |
-| Runtime Hub | TaskRun state machine closure (`WAITING_PERMISSION → RUNNING → SUCCEEDED`); crash recovery (zombie TaskRun marked failed on restart); SQLite TOCTOU fix (`BEGIN IMMEDIATE`); owner messages via control API, multi-entry shared GA session |
-| Outbound delivery | Feishu / DingTalk / QQ / WeCom unified via DeliveryService safety policy, file-exfil blocked notice consistent across channels |
-| Companion | off / quiet / present / active four-mode differentiation; active no longer "must speak", consecutive SILENT auto-escalates cooldown; companion events visible in next prompt (context closure) |
-| Diagnostics | `doctor` outputs "problem + next-step command" format; detects legacy process residuals; auto smoke test after setup |
-| Desktop safe init | Fixed `install_runtime` not launching bridge causing "click no response"; fixed Windows IME Chinese input crash; `setup_op` retry; `finalizeSetup` validation |
-| Auto-update | `tauri-plugin-updater` six gates all passed (signing key + CI generates `latest.json` + frontend call); `fallback.html` can also check updates; `app.js` dual-layer update UI |
-| Version dynamicization | Entire repo changed from hardcoded 0.3.0 to dynamic `VERSION` constant reference |
-| Mac packaging | `icon.icns` added; adhoc re-sign then regenerate `.tar.gz` + `.sig` |
-
-> GitHub issue #2 (reconfiguring Feishu dragged back through full API Key flow) is fixed in 0.3.1 via `penglai setup --only feishu` and desktop dual-path.
-
----
-
-## 🛡️ Safety & Privacy Boundaries
-
-- Public repo contains no personal memory, logs, run history, tokens, or private config.
-- API keys, chat history, long-term memory, channel credentials, and local voice processing data stay on your machine by default.
-- Logs, context events, and run history are redacted before writing.
-- `memory/global_mem.txt`, `memory/global_mem_insight.txt`, `temp/`, `_internal/` are local runtime state, not committed.
-- Safety rails reduce risk, not guarantee absolute security; deploy on a machine you control.
-- For vulnerability reports, redact first — see [SECURITY.md](SECURITY.md).
-
----
-
-## 📜 License & Brand
-
-- **Code**: [MIT](LICENSE) license. Upstream GenericAgent copyright notice fully preserved; Penglai-layer code © 2026 Kevin Chen, also MIT-licensed — use, modify, commercialize freely.
-- **Brand**: "Penglai" / "蓬莱" name, logo, and banner visual assets are **all rights reserved**, not covered by the code license. Don't use them for your distribution, derivative, or commercial naming/branding without written permission.
-- **Upstream core**: `ga.py`, `frontends/`, `llmcore.py`, memory tools are [GenericAgent](https://github.com/lsdefine/GenericAgent) core files (zero-diff preserved); Penglai trims and augments above them.
-
----
-
-## 🙏 Acknowledgments
-
-Penglai stands on these projects:
-
-- [GenericAgent](https://github.com/lsdefine/GenericAgent) (MIT) — the core itself: minimal Agent loop, L1-L4 memory, self-evolving skill tree
-- [SenseVoice / FunASR](https://github.com/FunAudioLLM/SenseVoice) (MIT) · [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0) — CPU-friendly voice & emotion recognition
-- [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano) (Apache-2.0) — local speech synthesis
-- [Tauri](https://github.com/tauri-apps/tauri) (MIT/Apache-2.0) — native Mac/Windows desktop shell
-- [Feishu / Lark SDK](https://github.com/larksuite/oapi-sdk-python) (MIT) — IM integration
-
-Thanks to all issue reporters and testers. Special thanks to:
-- [@larrylinli](https://github.com/larrylinli) — issues #2/#3/#4, drove `setup --only`, Feishu diagnostics, desktop architecture improvements
-- [@ljfhdwxsk](https://github.com/ljfhdwxsk) — issue #1, Docker/WSL install feedback that hardened the installer
-
----
-
-## 📄 Version Timeline
-
-- **v0.3.6 · 2026-07-12** - Worldline checkpoint rewind (`/worldline`), subprocess stdin isolation, Claude refusal and turn-end summary fixes, concurrent long-prompt and browser-driver broken-pipe fixes, Companion failed/silent outcome telemetry, Telegram channel marked tested.
-- **v0.3.5 · 2026-07-03** — Trusted release gates + Companion Loop foundation: signed tag verification, plugin strict load, WeChat allowlist migration, Conductor query-token removal, daily reflection, care opportunity mining, voice profiles, and proactive dialogue plans. The loop is a foundation/API skeleton; real delivery and real feedback learning are not yet wired into the production heartbeat.
-- **v0.3.4 · 2026-06-30** — Trusted-maintenance release: fixes desktop update apply flow, Runtime Hub cancellation, inline eval exposure, Conductor auth, IM media path traversal, redline fork-bomb coverage, memory load-time scanning, failover classification, and fail-closed desktop updater metadata checks.
-- **v0.3.3 · 2026-06-29** — Intel Mac desktop support release: adds a separate macOS Intel x64 DMG and `darwin-x86_64` updater metadata while preserving the 0.3.2 bundled runtime model; desktop migration preview is wired into first-run setup with secret-safe responses; state-changing desktop ops require a second confirmation token.
-- **v0.3.2 · 2026-06-28** — Local desktop runtime release: Mac Apple Silicon DMG and Windows x64 installer bundle standalone Python and core dependencies; first launch no longer requires Python, source checkout, or pip; Windows silent install/uninstall verification; macOS DMG verification with adhoc re-sign; updater `latest.json` defaults to `gh-proxy.com` asset URLs; desktop bridge token no longer leaks into page JavaScript; release upload is idempotent.
-- **v0.3.1 · 2026-06-27** — Milestone: migration mechanism + auto-update pipeline + dynamic versioning. `penglai backup/restore/uninstall-legacy`; `setup --only` partial reconfig; `tauri-plugin-updater` six gates; version dynamicization; Mac adhoc re-sign + updater regen; Runtime Hub stabilization; companion 4-mode + context closure.
-- **v0.3.0 · 2026-06-25** — Runtime Hub GA. Native Mac/Windows desktop clients, Feishu QR auto-create, MOSS-TTS-Nano local TTS, `penglai update` auto-rollback, Docker fully withdrawn.
-
-Full timeline: [Website changelog](https://kevinchennewbee.github.io/PenglaiAgent/#changelog)
-
----
-
-<a id="-中文"></a>
-
-## 🌟 项目简介
-
-**蓬莱**不是另一个聊天机器人壳子。它是一个跑在你自己机器上的个人 AI Runtime Hub：[GenericAgent](https://github.com/lsdefine/GenericAgent) 是执行核心，`penglai` CLI 是产品核心，Runtime Hub 是运行中枢，桌面是原生控制面。蓬莱运行层统一桌面、飞书、微信、终端、语音、图片、文件、主动消息和长期记忆。
-
-**v0.3.6 带来 TUI 世界线检查点回溯、上游安全与质量修复、陪伴失败/静默结果记录，并将 Telegram 标记为已实测**——它同步 content-addressable blob + 三种恢复模式的 Worldline 树，修复子进程 stdin 隔离、Claude refusal、turn-end 摘要、并发长提示词文件冲突和浏览器驱动断管，并记录 failed/silent 结果但不会把系统失败误学成用户偏好。TUI 现可用 `/worldline` 树状回退；replied/ignored 回声检测留待 0.3.7。
-
-- 📦 **无需手动安装 Python**：桌面安装包内置 standalone Python 和核心依赖
-- 🧳 **无需源码目录**：新用户下载 DMG / EXE 就能安装，不需要 clone 仓库
-- 🖥️ **Mac 覆盖更完整**：Apple Silicon 与 Intel x64 分别提供 DMG，Windows 继续提供 x64 安装器
-- 🛡️ **可信发布门禁**：signed annotated tag、fail-closed update、插件 strict load、WeChat allowlist、Conductor query-token removal
-- 🔊 **可选本地声音**：10 个公开中英男女声，默认屏蔿名人模仿和语音克隆
-- 🧭 **主动陪伴 Loop 基座**：本地每日反思、陪伴点挖掘、自适应反馈原语、多段式主动对话计划和桌面“为什么主动出现”
-- 🌏 **国内网络更友好**：升级清单和安装包 URL 默认走 `gh-proxy.com`，CI 也提供 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关
-- 🛡️ **可信运行补强**：一键升级、取消执行、Conductor 认证、记忆读时扫描、IM 媒体文件名和 LLM failover 都在真实客户端路径中加固
-
-你可以用 Mac / Windows 原生桌面客户端，也可以一行命令部署到自己的主机。你的记忆、日志、配置和渠道凭证默认都留在你自己的机器上。
-
-语音能力是完整的听说闭环：FunASR / SenseVoice 路线在本地把语音转成文字、识别情绪和声学事件；MOSS-TTS-Nano 把文字回复本地合成为语音。两边都可以 CPU 本地运行，语音数据默认不出本机。
-
----
-
-## 🌊 缘起：一个不会写代码的人，和他的 AI 管家
-
-我做了十年网络技术、网络安全与网络运维，但**不会写代码——一行都不会**。这个仓库里的每一行代码，都是我用 AI 编程工具一句话一句话"说"出来的。蓬莱本身就是它想证明的那件事：**AI 时代，普通人也能为自己造工具。**
-
-初心来自真实的痛。作为一个想认真拥抱这场变革的普通用户，我把市面上摸得到的工具几乎用了个遍，也实打实撞过它们的墙。我见证了 CLI 时代的锋利——Claude Code、OpenCode、Kimi CLI 个个出色；也看到了桌面时代的完善与流行——Codex 桌面版、Qoder、WorkBuddy、Claude Cowork 把 Agent 做进了窗口里。它们都很好，但它们都默认同一件事：**你得坐在电脑前。**
-
-我总想起电脑的来路：DOS 把计算交给会敲命令的人，Windows 的图形界面把它交给会用鼠标的人，而移动互联网把它装进了每个人的口袋。Agent 正在走同一条路——**CLI 是它的 DOS，桌面应用是它的 Windows，下一站一定在移动端、在碎片时间里。** 各家的移动 App 会各有精彩，但对普通大众而言，最方便、最简单、每天真实会打开的，是聊天软件。**会发微信，就该会用 Agent**——不需要再学任何新东西。
-
-[GenericAgent](https://github.com/lsdefine/GenericAgent) 是我见过最干净的 Agent 内核，所以蓬莱不重造轮子，核心完全站在它的肩膀上。蓬莱要补的是"最后一公里"：让它跑在你拥有的任何一台机器上——无头云服务器、角落里 24 小时待机的 Mac mini，Windows 也在路上——然后住进你的飞书和微信，在通勤的地铁上、午休的间隙里，随叫随到，一直都在。
-
----
-
-## 🏝️ 为什么叫「蓬莱」
-
-蓬莱是中国神话里的海上仙山。《史记》记载，渤海之东有三神山——蓬莱、方丈、瀛洲，仙人居之，藏不死之药；秦始皇曾遣徐福率三千童男童女东渡求访，终未能至。两千年来，"蓬莱"是中国人对**可望而不可即的美好之地**最古老的想象。
-
-我选这个名字，是因为今天的 AI 之于普通人，恰如蓬莱之于古人：人人听说它神奇，真正登上去的人却很少——API、终端、配置文件，就是横在海面上的那层迷雾。**蓬莱想做的，是把仙山搬进你的聊天窗口：你不必学会航海，会发微信，就能上岛。** AI 时代的仙山，不该只属于会写代码的人。
-
-至于"八仙过海，各显神通"——传说八位神仙各凭自己的法器渡海赴蓬莱——这正是项目的技术哲学：多模型、多渠道、专家各司其职，每个模型用自己的方式渡海，服务同一个你。
-
----
-
-## ✨ 它能做什么
-
-- 🏮 **十分钟开箱** —— `penglai setup` 翻页式向导（中/英双语）：自装依赖（国内自动切清华镜像）→ 选模型测连通 → **渠道一页选**（飞书扫码自动建应用，免开网页）→ 给管家起名 → 能力面板真启用（语音默认装好，陪伴/情报按需开）
-- 💬 **飞书 + 微信双渠道，都是扫码** —— 飞书扫码建机器人、长连接免公网 IP；个人微信扫码登录，文字/语音/图片收发
-- 🖥️ **原生桌面客户端** —— macOS Apple Silicon、macOS Intel x64 和 Windows x64 安装包，图形化设置向导、多会话工作台、系统托盘、渠道和能力管理、应用内自动升级，并内置本地运行环境，首次启动不要求用户安装 Python 或 pip 包
-- 🎙️ **听得出情绪的耳朵** —— 本地 CPU 跑 SenseVoice（约 230MB）：语音转写 + 7 种情绪标签（高兴/悲伤/生气/害怕…）+ 声学事件（笑声/哭声/掌声…），`[语音(情绪:低落): 今天好累]` 这样进入对话
-- 🔊 **会说话的嘴** —— MOSS-TTS-Nano 本地 TTS，把文字回复合成为语音，CPU 本地推理，适合桌面朗读和 IM 语音条
-- 🧠 **四层记忆** —— 基于 GA 内核的索引/事实/技能/原始会话四层文件式记忆，纯 markdown 可审计；写入前威胁扫描（提示注入/角色劫持/密钥落库），禁止覆盖；长期事实带**时间/来源/重要度签名、新值自动作废旧值**（治过期偏好污染）
-- 🛡️ **确定性安全护栏** —— 危险命令与路径红线拦截 + 全量工具调用审计 JSONL——**靠确定性检查，不靠 LLM 自觉**。已覆盖危险命令、敏感路径、记忆写入、文件外发（白名单当前仅覆盖飞书渠道）等关键风险面
-- 🔎 **网页搜索开箱即用** —— 内置免费 Bing 兜底，**无头云服务器也能查**天气/新闻/事实（不依赖浏览器）；想要多源交叉验证再 `penglai enable intel` 叠加 TinyFish/Tavily 等独立搜索源
-- 🧐 **防幻觉双保险** —— 本地绊线**出厂常开**（免费）：嗅到「过度自信」措辞就拦下自检；`penglai enable critic` 从**整张厂商目录任选**一个**不同厂商**的复核模型（免费如 GLM-4.7-Flash，也可投更强的付费模型换更大视差）——单模型查不出自己的幻觉
-- 🧰 **出厂内置技能 + 本地技能集市** —— 管家自带提醒/日程、天气查询、网页文章总结（免 key、无头可用）；`penglai skill` 是本地 apt 式集市（出厂精选、装时过安全扫描、不联网拉）。技能一律是 GA 原生 SOP——外部技能必须先改写成 SOP 才能收编
-- 📦 **十分钟搬家（从 Hermes/OpenClaw）** —— `penglai migrate` 把旧管家的记忆/模型/渠道/人设搬过来（预览 + 备份 + 诚实标注搬不了的）
-- 🌙 **真主动，不扰民** <sub>opt-in</sub> —— 心跳 + 硬编码门禁的真主动：**恶劣天气预警**、**从语音里听出的情绪主动关心**、早晚问候、久未联系才招呼；勿扰时段、对话中绝不插话、频率上限——像朋友想起你，而不是闹钟响了
-- 🎛️ **能力随时补开** —— 第一次向导没开的，事后一条命令补上：`penglai enable voice|companion|intel` 开能力、`penglai abilities` 看全貌——不必重跑向导
-- ⚙️ **运维一个命令** —— `penglai doctor` 一键体检，**未启用的项直接告诉你用哪条命令开** / `status` / `logs` / `update` 一键升级到最新版
-
-> 以上每一条都在真实服务器上每天跑着，不是路线图。
-
----
-
-## 🚀 快速开始
-
-新机器只要联网，**一行命令**——没有 Python、没有 git 都不要紧，脚本全自动备好：
+本机 adhoc-signed DMG（只用于本地验收，不等于 Developer ID / notarization 或正式 updater 签名）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+npm run tauri:build:local -w @penglai/desktop
+node scripts/lifecycle-check.mjs
 ```
 
-国内网络（走镜像，同样一行）：
+构建会先生成并验证可移植 Host runtime，再把它作为 Tauri resource 放进 `.app`。正式 Release 还必须通过 Owner 签名 tag、受保护环境、updater minisign、资产回读、SHA-256、SBOM 和 release contract 门禁；流程见 [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md)。
+
+## 架构
+
+```text
+Desktop / CLI / Feishu / WeChat
+                │
+                ▼
+      TypeScript Host (loopback + token)
+        ├─ Conversation / Goal / Project
+        ├─ Task / Run / Step / Evidence
+        ├─ Approval / Budget / Memory
+        └─ EpisodeRunner
+                │
+                ▼
+       Pi AgentKernel 0.83.0
+        ├─ model I/O + streaming
+        ├─ read / write / edit / bash
+        ├─ Office / PDF + public Web broker
+        ├─ verified Agent Skills + manual MCP
+        ├─ session history + compact
+        └─ policy + approval hooks
+```
+
+仓库结构：
+
+```text
+packages/protocol   跨进程协议、版本与错误码
+packages/host       TypeScript Host、CLI、执行/策略/存储/渠道
+packages/desktop    React + Tauri 2 原生桌面工作台
+scripts             契约、发布、安全、runtime 与生命周期门禁
+docs                发布说明、发布流程、官网源文档
+```
+
+## 开发与发布门禁
 
 ```bash
-curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
+npm test
+npm run typecheck -w @penglai/protocol
+npm run typecheck -w @penglai/host
+npm run typecheck -w @penglai/desktop
+npm run build
+npm run protocol:check
+npm run desktop:allowlist
+npm run renderer:token-boundary
+npm audit --audit-level=moderate --registry=https://registry.npmjs.org
+node scripts/release-check.mjs
 ```
 
-**桌面客户端**（推荐新用户）：在 [GitHub Releases](https://github.com/kevinchennewbee/PenglaiAgent/releases) 下载
-- macOS Apple Silicon DMG
-- macOS Intel x64 DMG
-- Windows x64 安装包
+## 安全说明
 
-0.3.6 桌面安装包已经内置 Penglai runtime、standalone Python 和核心依赖。首次启动不需要用户安装 Python、clone 源码或现场下载 Python 包。
+Penglai 的 policy、jail、审批和路径检查是重要的进程内防线，但不是 OS sandbox。0.4.0 因此不宣称能安全执行任意不可信 MCP、插件或长期无人值守的外部代码。密钥只留在 Host 进程及权限受限的本地配置中；L3 外发/删除永远不能“同类免问”；L4 越狱/凭证访问直接拒绝。
 
-日常运维：
+macOS Developer ID / notarization 和 Windows Authenticode 尚未配置或验证。正式 updater 包由 minisign 保护，但 minisign 不能替代操作系统发行者信任。完整说明见 [SECURITY.md](SECURITY.md) 与 [发布说明](docs/RELEASE_NOTES_0.4.0.md)。
+
+## 从 0.3.x 升级
+
+0.3.x 是已经发布的 Python 产品线，最终版本保留在 [`v0.3.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.3.6)。0.4.0 是独立的 TypeScript 跨代升级，不覆盖 0.3 的更新通道。请先保留旧数据并执行：
 
 ```bash
-penglai                         # 终端里直接聊天
-penglai setup                   # 配置向导（全量）
-penglai setup --only feishu     # 局部补配：只重配飞书，不触碰已配置的 LLM
-penglai setup --only llm|identity|feishu|wechat|channels|abilities|companion
-penglai config status --json    # 配置概览（--json 供桌面调用）
-penglai config backup           # 原子备份当前配置
-penglai config restore <名称>   # 回滚到备份
-penglai channels [--json]       # 渠道矩阵 + 下一步命令
-penglai companion status        # 主动陪伴状态 / 模式 / 最近触发原因
-penglai companion mode quiet|present|active   # 切换陪伴模式
-penglai doctor                  # 体检：环境/依赖/配置/服务/旧版本残留进程 + 下一步命令
-penglai abilities               # 语音/TTS/陪伴/搜索/批判脑能力总览
-penglai enable voice|tts|companion|intel|critic
-penglai update                  # 安全升级：预检 → 后台重启 → 健康检查 → 失败自动回滚
-penglai privacy-audit --strict  # 发布前隐私检查
+penglai migrate --dry-run
+penglai migrate
 ```
 
-> 💡 **升级很省心**：`penglai update` 确认后全自动——先编译+安全插件预检拦住坏更新，再由脱离进程的后台监工重启并做连接健康检查，**新版起不来会自动回滚到上一个能跑的版本**，全程结果发到你飞书/微信，不用 SSH 上服务器。你也可以让管家在 IM 里直接说「检查更新 / 升级」。
+迁移写入前会备份；仍建议额外备份整个 `~/.penglai/`。
 
-> **Docker 已撤出支持矩阵**：0.3.0 起不再提供 Dockerfile、docker-compose、docker-install、GHCR 镜像或容器部署支持。请使用桌面安装包、`install.sh`、PyPI 引导器或源码安装。
+## License 与致谢
 
----
+公开发布采用两分支策略：应用源码与 Release 在 `main`，双语静态官网在 `gh-pages`，两者都由 Owner 分别审核后推送。0.3.x Python 产品线已冻结并归档于 `v0.3.6`，仓库中保留的 Python 文件只用于历史、迁移与兼容性测试。
 
-## 💬 渠道矩阵：一个管家，多个门
-
-所有渠道共享同一份记忆——**同一个管家，多个门**：
-
-| 渠道 | 接入方式 | 语音 | 状态 |
-|---|---|---|---|
-| 桌面（Mac/Windows） | 下载安装包 | ✅ TTS 朗读 | ✅ 已发布 |
-| 飞书 | `penglai setup` 向导，**扫码自动建应用** | ✅ 转写+情绪 | ✅ 已实测 |
-| 微信（个人号） | `penglai setup` 向导，扫码登录 | ✅ 转写+情绪（silk） | ✅ 已实测 |
-| 终端 TUI | 裸跑 `penglai` 即聊 | — | ✅ 内核自带 |
-| 钉钉 | `penglai enable dingtalk`，**扫码自动建应用** | 🔧 封装(自带ASR) | ⚠️ 待实测 |
-| QQ | `penglai enable qq`，**扫码自动建机器人** | 🔧 封装(wav+情绪) | ⚠️ 待实测 |
-| 企业微信 | `penglai enable wecom`，后台建智能机器人贴凭证 | 🔧 封装(自带ASR) | ⚠️ 待实测 |
-| Telegram | `penglai enable telegram`，@BotFather 贴 token | — | ✅ 已实测 |
-| Discord | `penglai enable discord`，开发者后台贴 token | — | ⚠️ 待实测 |
-
-> 「待实测」= 接入代码已就绪（IM 框架为 GA 上游自带，语音接收为蓬莱层封装），但我们还没在真机走完全程——实测过一个就升级成 ✅。诚实比好看重要。
-> 语音列：✅=真机验证过；🔧=发行层已封装语音接收（上游前端原本丢弃语音），待真机实测；—=该渠道无语音。
+Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期产品基因，也感谢 Trae Agent 相关实现为 0.4 重构提供的调研参照。当前执行内核锁定 `@earendil-works/pi-agent-core` / `@earendil-works/pi-ai` 0.83.0（MIT）；0.84.1 的持久化 AgentHarness 接口与当前发布架构不兼容，未在 0.4.0 中冒险升级。MOSS-TTS-Nano Node 适配包含 OpenMOSS Apache-2.0 归属与许可证；其余第三方归属以 Release 中的 `THIRD_PARTY_NOTICES.txt` 与 SBOM 为准。
 
 ---
 
-## 🆚 蓬莱 vs 裸 GenericAgent
+## English
 
-蓬莱不改内核，只在 GA 之上补齐"从能跑到好用"的最后一公里：
+Penglai 0.4 is a local AI workbench built around a TypeScript Host and the Pi agent runtime. It preserves the useful product ideas proven by 0.3.x—persistent assistance, IM access, memory and workflows—while adding durable projects, tasks, runs, evidence, approvals, budgets and recovery.
 
-| 维度 | 裸 GenericAgent | 蓬莱发行版 |
-|---|---|---|
-| 上手 | 手动改 mykey、装依赖 | 十分钟翻页向导（中英双语、自动镜像） |
-| IM 接入 | 自己读前端代码接 | 飞书/微信扫码 + 钉钉/QQ/企微一条命令 |
-| 语音 | 无 | 本地 SenseVoice 转写+情绪，全渠道封装 |
-| 安全 | 基础 | 红线/记忆卫生/出站文件白名单，确定性防线 |
-| 能力管理 | 改配置文件 | `penglai enable / abilities` 事后开关 |
-| 安装分发 | git clone | curl / 安装包 / pip 一行 + 国内自动镜像 |
-| 运维 | 手动 | `penglai doctor` 体检并直接给修复命令 |
-| 桌面 | 无 | 原生 Mac/Windows + 9 模块控制面 |
-| 自动升级 | 无 | 桌面 updater + `penglai update` 双路径 |
-| 内核 | — | **零改动**，上游升级照常合并 |
+There is one assistant and one conversation surface. A conversation either works on the assistant's own ground or is explicitly anchored by the owner to a realpath-checked project directory; this is a boundary change, not a second capability mode. Desktop, CLI, Goal, Feishu, WeChat and durable Tasks all execute through `EpisodeRunner → Pi AgentKernel`.
 
----
+The Tauri 2 desktop app bundles its target Node runtime and the TypeScript Host. End users do not need a system Node, Python installation or source checkout. The desktop provides conversations, project/task supervision, approval cards, usage and budget views, evidence, channels, settings, runtime diagnostics and update controls over the same Host facts as the CLI.
 
-## 🧬 架构：站在内核肩膀上
+Key guarantees:
 
-```mermaid
-flowchart LR
-    U["👤 用户"] -->|"文字 · 语音 · 图片"| IM["💬 桌面 / 飞书 / 微信 / 终端…"]
-    IM --> P["🏮 蓬莱发行层<br/>向导 · CLI · 渠道封装 · 语音情绪 · 安全插件"]
-    P --> H["⚙️ Runtime Hub<br/>队列 · TaskRun · 权限 · 上下文事件"]
-    H --> G["🧠 GenericAgent 内核（零改动）<br/>~130 行 Agent Loop"]
-    G --> T["🔧 工具执行"]
-    G --> M["📚 四层记忆"]
-    G --> L["☁️ 大模型（12 家可选）"]
-    H --> V["🎙️ 语音栈<br/>SenseVoice · MOSS-TTS-Nano"]
-    H --> S["🛡️ 安全层<br/>红线 · memguard · fileguard · 日志脱敏"]
-    P -. "红线 · 审计 · 记忆卫生 · 出站白名单" .-> G
-```
+- durable Conversation / Goal / Project / Task / Run / Step / Evidence records;
+- one Pi execution path with streaming, tools, steering, interruption and compaction;
+- `plan`, `confirm`, `auto_edit` and `full` permission dials;
+- L1 autonomous, L2 owner-confirmable/grantable, L3 always human, L4 denied;
+- realpath project jail, credential-path denial and authority revalidation;
+- Pi atomic tools for files, code, Git, archives, logs, builds and tests, plus bounded PDF/DOCX/XLSX/PPTX create/read and public Web search/fetch brokers;
+- safe Markdown/GFM, ordinary file import, jailed in-app text preview plus artifact open/reveal, searchable/archivable history and background completion notifications;
+- a redacted diagnostic export containing bounded recent text logs and runtime health only, never conversations, credentials, profiles, databases, memories, skills or MCP configuration;
+- local/GitHub declarative Agent Skill installation with integrity receipts, plus manually connected stdio/HTTP/SSE MCP tools that require L3 approval on every call;
+- global/project daily budgets, warnings, breakers and auditable lifts;
+- Feishu and WeChat routes into the same local transcript and approval truth;
+- local SenseVoice ASR, the complete MOSS-TTS-Nano ONNX CPU pipeline, and opt-in active companionship;
+- 0.3 migration with dry-run, backup and rollback.
 
-- **内核零改动**：`ga.py`、`frontends/`、`llmcore.py`、记忆工具等内核文件保持零 diff，GA 的内核升级照常合并；发行层只在内核之上做裁剪与增补。
-- **形态梯度**：新能力优先用 SOP（0 行代码）实现，其次 hook 插件，再次心跳模块，最后才是工具——克制是设计，不是懒。
-- **身份与记忆分离**：出厂态零用户记忆，只带一行身份。你的记忆是你的隐私资产，永不进发行版。
-
----
-
-## 🏗️ Penglai Runtime Hub
-
-Runtime Hub 是 0.3.0 的核心：它把桌面、飞书、微信、终端、语音、文件和主动消息统一成同一套事件、队列、权限和运行记录，再交给 GenericAgent 执行。
-
-用户能直接感受到的变化：
-
-- **消息不容易丢**：任务运行中，后续消息进入队列。
-- **上下文更连贯**：桌面、IM、终端、主动陪伴进入同一套上下文事件。
-- **文件外发更可靠**：图片、视频、PDF、Markdown、Office 文档按真实产物类型发送；敏感后缀确定性拦截。
-- **日志更安全**：API Key、token、secret、authorization 等统一脱敏后再进入日志和历史。
-- **状态更可诊断**：Runtime Hub、飞书、微信、调度器、主动陪伴分开报告，不再只有"好像在跑"。
-- **发布更可审计**：`privacy-audit`、`runtime-audit`、`install-check`、`doctor` 都能独立验证。
-
----
-
-## 🔄 自动升级：两条独立路径
-
-0.3.2 继承 0.3.1 的双升级路径，并把桌面升级链路补到更适合国内网络的状态：
-
-- **桌面应用**：基于 `tauri-plugin-updater`，六道关卡全部打通——签名密钥在 CI 中生成并校验，`latest.json` 由 CI 自动发布到 Release，前端 `app.js` 调用 updater API 完成检查、下载、校验、安装；`fallback.html` 配置界面也接入了升级入口，即使主窗口卡住也能从配置界面检查更新。0.3.2 起，`latest.json` 默认指向 `gh-proxy.com` 镜像下载地址。
-- **运行时（CLI / Runtime Hub）**：执行 `penglai update` 会先备份当前版本，拉取新版本，校验后切换，失败自动回滚。
-
-桌面应用升级走 updater，运行时升级走 `penglai update`，两条路径互不依赖。
-
----
-
-## 📦 迁移机制：可升级、可换机、可回退
-
-三层兜底，确保数据不丢：
-
-1. **用户主动层**：`penglai backup` / `penglai restore` 完整数据备份恢复（mykey + memory + sqlite + wxbot token + 桌面配置）
-2. **安装器防御层**：install.sh / install.ps1 在 `rm -rf` 前自动备份用户数据，解压后恢复；版本不可识别时拒绝继续
-3. **旧版本清理层**：`penglai uninstall-legacy` 清 launchd/systemd 服务 + 桌面端 `detect_legacy_penglai` 向导启动前检测提示
-
-**迁移流程**：旧版本 `penglai backup` → 安装最新版 → 新版本 `penglai restore` →（可选）`penglai uninstall-legacy`
-
----
-
-## 📋 0.3.6 主要变化
-
-0.3.6 在继承 0.3.5 可信发布与 Companion Loop 基座的同时，补完整并加固 Worldline 回溯集成，重点解决可恢复性、并发安全、浏览器/运行时韧性和诚实的陪伴结果记录。
-
-| 领域 | 0.3.6 带来的变化 |
-|---|---|
-| Worldline 回溯 | 持久检查点树、content-addressable 文件 blob、仅对话/仅代码/两者恢复模式、`/rewind` 时间线与 `/worldline` 树 UI |
-| 续接正确性 | 回退到起点的空日志会话仍可发现；`/continue` 恢复工作记忆、重绑/复制树，并按完整 native 日志对账 |
-| LLM/运行时安全 | Claude refusal 作为终态文本返回而非触发空回复重试；turn-end 摘要优先清洗后的正文；子进程不再继承 TTY stdin |
-| 并发安全 | 长提示词文件名使用 PID + 纳秒，同一秒并行 agent 不会互相覆盖任务输入 |
-| 浏览器韧性 | TMWebDriver 输出兼容 broken/closed stdout，父进程脱离终端时不会带崩扩展 WebSocket 循环 |
-| 陪伴结果 | failed/silent 以脱敏 telemetry 持久化，但不改变用户偏好权重；replied/ignored 回声检测仍是后续工作 |
-| 桌面发布 | desktop/package/runtime 版本统一为 0.3.6；CI 纳入 Worldline 测试，配置的 Rust 镜像失败时回退官方源 |
-| 渠道状态 | Telegram 标记已实测；钉钉、QQ、企微、Discord 仍诚实标注待实测 |
-
-重要边界：系统 failed/silent 结果已记录，但 replied/ignored 用户反馈采集尚未实现，不能宣称“完整自适应陪伴已完成”。
-
----
-
-## 📋 0.3.4 主要变化
-
-0.3.4 是 0.3.3 之后的可信化维护版本，目标是让 0.3.3 的安全和可靠性承诺在真实客户端路径里生效；它不扩新架构，0.4 仍然是能力扩展线。
-
-| 领域 | 0.3.4 带来的变化 |
-|---|---|
-| 桌面升级 | 一键升级通过已认证 desktop bridge 恢复直接执行；需要二次确认的调用者仍可显式开启 |
-| 运行时可信 | Runtime Hub 取消会打到正在执行的 GA code tool；Conductor HTTP/WS 增加 loopback + token 认证 |
-| 记忆和工具 | 长期记忆注入前再次扫描；web/file/MCP 等外部结果标记为不可信数据 |
-| IM 媒体安全 | 微信、企微媒体文件名在源入口做 basename 清洗 |
-| LLM 韧性 | 过载、服务器错误、认证、模型不存在等错误先分类，再决定重试或切换模型 |
-| 发布门槛 | `latest.json` 缺任一平台包体或签名时 CI 直接失败 |
-
----
-
-## 📋 0.3.2 主要变化
-
-0.3.2 聚焦发行加固：桌面版不再像“源码目录外面套一个壳”，而是更接近真正的本地应用安装包。
-
-| 领域 | 0.3.2 带来的变化 |
-|---|---|
-| 内置桌面运行时 | 新增可复现的 `penglai-runtime` payload，包含 standalone Python、锁定依赖、manifest 哈希、入口检查，不依赖 `.venv` |
-| 首次启动可靠性 | Tauri 在 packaged runtime 缺失时 fail closed；runtime payload 和安装自检会验证所选 Python、bridge 解包和运行时来源 |
-| Windows 安装器 | NSIS 发布流程加入静默安装、安装后 runtime 验证、应用自检、runtime install 自检和卸载验证 |
-| macOS DMG | Apple Silicon DMG 内置运行时；无证书构建走 adhoc 重签，签名后重新生成 updater 产物，并验证 DMG 布局 |
-| 国内升级路径 | `latest.json` 发布 `gh-proxy.com` 安装包 URL；发布 CI 加入 npm / pip / Cargo / rustup / Python-build-standalone 镜像和缓存开关 |
-| 桌面桥接安全 | bridge token 不再注入网页 JavaScript；敏感 RPC 改走 Tauri native command，WebSocket 保持事件通道并检查 origin |
-| 发布流水线 | 发布动作幂等；只声明实际构建的平台（`darwin-aarch64`、`windows-x86_64`）；可安全覆盖已有 v0.3.2 资产 |
-
-重要限制：Apple Developer ID 公证和 Windows Authenticode 签名还没有配置。首次启动仍可能出现 Gatekeeper / SmartScreen 提示；但 updater `.sig` 校验已经生成并随 Release 发布。
-
----
-
-## 📋 0.3.1 主要变化
-
-0.3.0 建立了正确的架构方向；0.3.1 把"方向正确但实现半成品"的核心架构真正落地闭环。
-
-| 领域 | 0.3.1 带来的变化 |
-|---|---|
-| CLI 核心 | `setup --only` 局部补配（重配飞书不再走 API Key 全流程）；`config backup/restore` 原子配置管理；`channels` / `companion` 子命令；CLI 二维码输出；setup 端到端 smoke test |
-| 桌面控制面 | 修复 `_require_token` 让 9 个 handler 正常工作；消除 9 个内联 Python op（bridge `--bootstrap` 模式，Rust 壳回归薄壳）；接 `tauri-plugin-updater` 自动更新；前端 9 模块重构（Chat / Runs / Channels / Abilities / Companion / Diagnostics / Logs / Update / Security）；Mac 毛玻璃 + Windows Mica 双平台适配 |
-| Runtime Hub | TaskRun 状态机闭合（`WAITING_PERMISSION → RUNNING → SUCCEEDED`）；崩溃恢复（重启时把僵尸 TaskRun 标记 failed）；SQLite TOCTOU 修复（`BEGIN IMMEDIATE`）；owner 消息走 control API，多入口共享同一个 GA 会话 |
-| 出站投递 | 飞书 / 钉钉 / QQ / 企业微信统一走 DeliveryService 安全策略，文件外发 blocked notice 全渠道一致 |
-| 主动陪伴 | off / quiet / present / active 四档模式差异化；active 不再"必须说"，连续 SILENT 自动升级冷却；companion 事件在下一轮 prompt 可见（context 闭环） |
-| 诊断 | `doctor` 输出"问题 + 下一步命令"格式；检测旧版本残留进程；setup 完成后自动冒烟验证 |
-| 桌面安全初始化 | 修复 `install_runtime` 后 bridge 未拉起导致"点击无反应"；修复 Windows IME 中文输入崩溃；`setup_op` 重试机制；`finalizeSetup` 校验 |
-| 自动升级 | `tauri-plugin-updater` 六道关卡全通（签名密钥 + CI 生成 `latest.json` + 前端调用）；`fallback.html` 配置界面也能检查更新；`app.js` 两层升级 UI |
-| 版本号动态化 | 全仓库从硬编码 0.3.0 改为动态引用 `VERSION` 常量 |
-| Mac 打包修复 | `icon.icns` 加入配置；adhoc 重签名后重新生成 `.tar.gz` + `.sig` |
-
-> GitHub issue #2（重配飞书被拉回 API Key 全流程）在 0.3.1 用 `penglai setup --only feishu` 和桌面双路径修复。
-
----
-
-## 🛡️ 安全和隐私边界
-
-- 公开仓库不包含个人记忆、日志、运行历史、token 或私有配置。
-- API Key、聊天记录、长期记忆、渠道凭证和本地语音处理数据默认留在你自己的机器上。
-- 日志、上下文事件和运行历史在写入前会做脱敏。
-- `memory/global_mem.txt`、`memory/global_mem_insight.txt`、`temp/`、`_internal/` 等本地运行态默认不入库。
-- 安全护栏是降低风险，不是绝对安全保证；建议部署在你自己控制的机器上。
-- 漏洞反馈请先脱敏，详见 [SECURITY.md](SECURITY.md)。
-
----
-
-## 📜 许可与品牌
-
-- **代码**：[MIT](LICENSE) 许可。上游 GenericAgent 的版权声明完整保留；蓬莱层代码 © 2026 Kevin Chen，同样以 MIT 发布——随便用、随便改、随便商用。
-- **品牌**：「蓬莱」「Penglai」名称、logo 与横幅视觉资产**保留所有权利**，不在代码许可范围内。未经书面许可，请勿将其用于你的分发版本、衍生产品或商业宣传的命名与标识。
-- **内核来自上游**：`ga.py`、`frontends/`、`llmcore.py`、记忆工具等是 [GenericAgent](https://github.com/lsdefine/GenericAgent) 的内核原文件（零改动保留）；蓬莱在其上做发行层的裁剪与增补。
-
----
-
-## 🙏 致谢
-
-蓬莱站在这些项目的肩膀上：
-
-- [GenericAgent](https://github.com/lsdefine/GenericAgent)（MIT）——内核本身：极简 Agent 循环、L1-L4 记忆、自进化技能树
-- [SenseVoice / FunASR](https://github.com/FunAudioLLM/SenseVoice)（MIT）· [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)（Apache-2.0）——CPU 友好的语音与情绪识别
-- [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano)（Apache-2.0）——本地语音合成
-- [Tauri](https://github.com/tauri-apps/tauri)（MIT/Apache-2.0）——Mac/Windows 原生桌面壳
-- [Feishu / Lark SDK](https://github.com/larksuite/oapi-sdk-python)（MIT）——IM 集成
-
-感谢所有提 issue、反馈问题、参与测试的用户。特别感谢：
-- [@larrylinli](https://github.com/larrylinli)——issue #2/#3/#4，推动 `setup --only` 局部补配、飞书接入诊断、桌面端架构说明改进
-- [@ljfhdwxsk](https://github.com/ljfhdwxsk)——issue #1，Docker/WSL 安装反馈，帮助加固安装器
-
----
-
-## 📄 版本时间线
-
-- **v0.3.6 · 2026-07-12** - Worldline 检查点回溯（`/worldline`）、子进程 stdin 隔离、Claude refusal 与 turn-end 摘要修复、并发长提示词和浏览器驱动断管修复、Companion failed/silent 结果记录、Telegram 渠道标注已实测。
-- **v0.3.5 · 2026-07-03** — 可信发布门禁 + Companion Loop foundation：signed tag 验证、插件 strict load、WeChat allowlist 迁移、Conductor query-token removal、每日反思、陪伴点挖掘、声音档案和主动对话计划。当前是 foundation/API skeleton，真实投递和真实反馈学习尚未接入生产心跳。
-- **v0.3.4 · 2026-06-30** — 可信化维护发布：修复桌面升级执行链路、Runtime Hub 取消、inline eval 暴露、Conductor 认证、IM 媒体路径穿越、fork-bomb 红线覆盖、记忆读时扫描、failover 分类，以及桌面 updater 元数据 fail-closed 检查。
-- **v0.3.3 · 2026-06-29** — Intel Mac 桌面支持发布：新增独立 macOS Intel x64 DMG 与 `darwin-x86_64` updater 元数据，保留 0.3.2 的内置运行时策略；桌面首次启动接入 secret-safe 迁移预览；桌面状态变更操作需要二次确认令牌。
-- **v0.3.2 · 2026-06-28** — 桌面本地运行环境发布：Mac Apple Silicon DMG 和 Windows x64 安装器内置 standalone Python 与核心依赖；首次启动不再要求用户安装 Python、clone 源码或现场 pip；Windows 静默安装/卸载验证；macOS DMG 验证与 adhoc 重签；updater `latest.json` 默认使用 `gh-proxy.com` 安装包 URL；桌面 bridge token 不再暴露到网页 JavaScript；Release 资产可幂等覆盖上传。
-- **v0.3.1 · 2026-06-27** — 里程碑：迁移机制 + 自动升级链路 + 版本号动态化。`penglai backup/restore/uninstall-legacy`；`setup --only` 局部补配；`tauri-plugin-updater` 六道关卡；版本号动态化；Mac adhoc 重签名 + updater 产物重生成；Runtime Hub 稳态化；陪伴四档模式 + context 闭环。
-- **v0.3.0 · 2026-06-25** — Runtime Hub 正式版。Mac/Windows 原生桌面客户端、飞书 QR 扫码自动创建、MOSS-TTS-Nano 本地语音合成、`penglai update` 自动备份回滚升级、Docker 全面撤出支持矩阵。
-
-完整时间线见 [官网更新日志](https://kevinchennewbee.github.io/PenglaiAgent/#changelog)。
+Build and test commands are identical to the Chinese sections above. For a local ad-hoc-signed macOS bundle, run `npm run tauri:build:local -w @penglai/desktop`, then `node scripts/lifecycle-check.mjs`. Local acceptance bundles do not prove Developer ID signing, notarization, or formal updater signing.

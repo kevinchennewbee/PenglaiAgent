@@ -9,6 +9,7 @@ Hub service events.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -34,45 +35,48 @@ from .capabilities import (
 
 ROOT = Path(__file__).resolve().parents[1]
 MOSS_TTS_REPO_URL = "https://github.com/OpenMOSS/MOSS-TTS-Nano.git"
-MOSS_TTS_SOURCE_ARCHIVES = (
-    "https://gh-proxy.com/https://github.com/OpenMOSS/MOSS-TTS-Nano/archive/refs/heads/main.zip",
-    "https://github.com/OpenMOSS/MOSS-TTS-Nano/archive/refs/heads/main.zip",
+MOSS_TTS_SOURCE_COMMIT = "cc7bdf19c7639c0870dab22045a33b442760f6be"
+MOSS_TTS_SOURCE_ARCHIVE = (
+    f"https://codeload.github.com/OpenMOSS/MOSS-TTS-Nano/zip/{MOSS_TTS_SOURCE_COMMIT}",
+    14_293_491,
+    "b06fd9f7c8f1791b77bc4fedb690d5d53618004d520d1f358e0a590ec0e5a511",
 )
 MOSS_TTS_BASE_DEPS = (
-    "numpy",
-    "sentencepiece",
-    "onnxruntime",
-    "huggingface_hub",
+    "numpy==2.2.6",
+    "sentencepiece==0.2.1",
+    "onnxruntime==1.23.2",
+    "huggingface_hub==0.36.0",
 )
 MOSS_TTS_TORCH_DEPS = ("torch==2.7.0", "torchaudio==2.7.0")
 MOSS_TTS_TORCH_CPU_DEPS = ("torch==2.7.0+cpu", "torchaudio==2.7.0+cpu")
 PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
-TTS_ONNX_FILES = (
-    "browser_poc_manifest.json",
-    "tts_browser_onnx_meta.json",
-    "tokenizer.model",
-    "moss_tts_decode_step.onnx",
-    "moss_tts_global_shared.data",
-    "moss_tts_local_cached_step.onnx",
-    "moss_tts_local_decoder.onnx",
-    "moss_tts_local_fixed_sampled_frame.onnx",
-    "moss_tts_local_shared.data",
-    "moss_tts_prefill.onnx",
-)
-CODEC_ONNX_FILES = (
-    "codec_browser_onnx_meta.json",
-    "moss_audio_tokenizer_decode_full.onnx",
-    "moss_audio_tokenizer_decode_shared.data",
-    "moss_audio_tokenizer_decode_step.onnx",
-    "moss_audio_tokenizer_encode.data",
-    "moss_audio_tokenizer_encode.onnx",
-)
+TTS_ONNX_FILES = {
+    "browser_poc_manifest.json": (503_354, "097d80e993dc29f0bae427590b4f77084a161cb578b50d82c29f455d5faa9eee"),
+    "tts_browser_onnx_meta.json": (4_487, "3edf25232dcd0af3d061c837e9a968a39e2f8592e06777d740503c4f2244f95c"),
+    "tokenizer.model": (470_897, "c353ee1479b536bf414c1b247f5542b6607fb8ae91320e5af1781fee200fddff"),
+    "moss_tts_decode_step.onnx": (291_483, "698cbc2fc1c2feca16e5895614ed52bbb32ded10f236c076f477b2e69abf32d8"),
+    "moss_tts_global_shared.data": (440_813_568, "bce8312c3df6a44545302cae229b61054fe0672e0b252ba59cba47adeed831dc"),
+    "moss_tts_local_cached_step.onnx": (53_685, "aa9035fefc1c138a951a8bcfc0374fb03a25f1ece67f7f7f53bce349b84a1dd5"),
+    "moss_tts_local_decoder.onnx": (49_231, "51aa754301b38550a5f9adda0ad93bd3dc95819afb511e6dcabf4a90b345a454"),
+    "moss_tts_local_fixed_sampled_frame.onnx": (471_262, "40cdb00efc171c450cf91468e01429caa41b0252222cd308e978f58fe354afa8"),
+    "moss_tts_local_shared.data": (229_678_080, "bae7782032c0fb12490ab42afe009f87ae6c75a0f0596fc7b5c08e4d5ee93916"),
+    "moss_tts_prefill.onnx": (283_305, "d56126dcd0574c2f15d98fc6b35eda68d0386b5bd9c5e38e28548d6f2ea8f3db"),
+}
+CODEC_ONNX_FILES = {
+    "codec_browser_onnx_meta.json": (17_036, "3e291c883bb7d11ff2fe8e964e3e495519760358859f35c951254c7741592731"),
+    "moss_audio_tokenizer_decode_full.onnx": (681_902, "0fbbafe3fd4afa2a019af5c5ced204af6e2d1db044fa40f021525d2aee95b4ac"),
+    "moss_audio_tokenizer_decode_shared.data": (44_198_912, "e69d52e0f4e84ca27850557ee54face46632d3a5a16c89bd246c7c408466dcad"),
+    "moss_audio_tokenizer_decode_step.onnx": (351_400, "9527c86a29e1837edec1f74db57d5eeaadb3a715af3382703566460afed25855"),
+    "moss_audio_tokenizer_encode.data": (44_507_136, "aa751265b2bab2887eac224484546b194875aa7494b607115439b3dc6b228a2c"),
+    "moss_audio_tokenizer_encode.onnx": (815_775, "eadea4a645abdcf98714c7aead122ee2ce7da6e080f9f80b977cd1ca8e19473a"),
+}
 MODEL_REPOS = (
     {
         "name": "MOSS-TTS-Nano-100M-ONNX",
         "target": "tts",
         "modelscope": "openmoss/MOSS-TTS-Nano-100M-ONNX",
         "hf": "OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX",
+        "revision": "f52645cb467506d8e18e746ddd59482685b74e58",
         "files": TTS_ONNX_FILES,
     },
     {
@@ -80,6 +84,7 @@ MODEL_REPOS = (
         "target": "codec",
         "modelscope": "openmoss/MOSS-Audio-Tokenizer-Nano-ONNX",
         "hf": "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
+        "revision": "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae",
         "files": CODEC_ONNX_FILES,
     },
 )
@@ -98,13 +103,75 @@ def _run(cmd, *, cwd=None, env=None, timeout=None, stream=False):
     return subprocess.run(cmd, cwd=cwd, env=env, timeout=timeout, capture_output=True, text=True)
 
 
-def _download_file(url, dest, *, stream=False, timeout=60):
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for chunk in iter(lambda: source.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_matches(path, size, sha256):
+    path = Path(path)
+    return path.is_file() and path.stat().st_size == size and _sha256(path) == sha256
+
+
+def _source_file_hashes(root):
+    root = Path(root)
+    return {
+        path.relative_to(root).as_posix(): _sha256(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.name != ".penglai-source.json" and ".git" not in path.parts
+    }
+
+
+def _write_source_receipt(root):
+    root = Path(root)
+    receipt = {
+        "schema": 1,
+        "commit": MOSS_TTS_SOURCE_COMMIT,
+        "archive_sha256": MOSS_TTS_SOURCE_ARCHIVE[2],
+        "files": _source_file_hashes(root),
+    }
+    (root / ".penglai-source.json").write_text(json.dumps(receipt, sort_keys=True), "utf-8")
+
+
+def _verified_source_receipt(root):
+    try:
+        receipt = json.loads((Path(root) / ".penglai-source.json").read_text("utf-8"))
+        return (
+            receipt.get("schema") == 1
+            and receipt.get("commit") == MOSS_TTS_SOURCE_COMMIT
+            and receipt.get("archive_sha256") == MOSS_TTS_SOURCE_ARCHIVE[2]
+            and receipt.get("files") == _source_file_hashes(root)
+        )
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _verified_source_install(root):
+    root = Path(root)
+    if (root / ".git").is_dir():
+        head = _run(["git", "-C", str(root), "rev-parse", "HEAD"], timeout=30)
+        clean = _run(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"], timeout=30)
+        return (
+            head.returncode == 0
+            and (head.stdout or "").strip() == MOSS_TTS_SOURCE_COMMIT
+            and clean.returncode == 0
+            and not (clean.stdout or "").strip()
+        )
+    return _verified_source_receipt(root)
+
+
+def _download_file(url, dest, *, expected_size, expected_sha256, stream=False, timeout=60):
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
     req = urllib.request.Request(url, headers={"User-Agent": "penglai-moss-tts/0.3"})
     with urllib.request.urlopen(req, timeout=timeout) as resp, open(part, "wb") as f:
         total = int(resp.headers.get("Content-Length") or 0)
+        if total and total != expected_size:
+            raise RuntimeError(f"download size mismatch: {total} != {expected_size}")
         got = 0
         while True:
             chunk = resp.read(1 << 20)
@@ -112,6 +179,8 @@ def _download_file(url, dest, *, stream=False, timeout=60):
                 break
             f.write(chunk)
             got += len(chunk)
+            if got > expected_size:
+                raise RuntimeError("download exceeds pinned size")
             if stream:
                 if total:
                     print(f"\r  {dest.name}: {got // (1 << 20)}MB / {total // (1 << 20)}MB", end="", flush=True)
@@ -119,6 +188,8 @@ def _download_file(url, dest, *, stream=False, timeout=60):
                     print(f"\r  {dest.name}: {got // (1 << 20)}MB", end="", flush=True)
     if stream:
         print()
+    if not _file_matches(part, expected_size, expected_sha256):
+        raise RuntimeError("download size or SHA-256 mismatch")
     os.replace(part, dest)
     return {"path": str(dest), "bytes": dest.stat().st_size}
 
@@ -128,42 +199,66 @@ def _download_and_extract_source_archive(repo_dir, *, stream=False):
     parent = repo_dir.parent
     parent.mkdir(parents=True, exist_ok=True)
     last_error = ""
-    for url in MOSS_TTS_SOURCE_ARCHIVES:
-        zip_path = parent / "MOSS-TTS-Nano-main.zip"
-        tmp_dir = parent / ".MOSS-TTS-Nano-extract"
+    url, archive_size, archive_sha256 = MOSS_TTS_SOURCE_ARCHIVE
+    zip_path = parent / f"MOSS-TTS-Nano-{MOSS_TTS_SOURCE_COMMIT}.zip"
+    tmp_dir = parent / ".MOSS-TTS-Nano-extract"
+    try:
+        if stream:
+            print(f"  下载 MOSS-TTS-Nano 源码包：{url}")
+        _download_file(url, zip_path, expected_size=archive_size, expected_sha256=archive_sha256, stream=stream)
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path) as zf:
+            root = tmp_dir.resolve()
+            total_bytes = 0
+            infos = zf.infolist()
+            if len(infos) > 10_000:
+                raise RuntimeError("MOSS-TTS archive has too many entries")
+            for info in infos:
+                relative = info.filename.replace("\\", "/")
+                if relative.startswith("/") or any(part in ("", "..") for part in relative.rstrip("/").split("/")):
+                    raise RuntimeError(f"unsafe ZIP path: {info.filename}")
+                # Unix symlink mode in the high 16 bits.
+                if ((info.external_attr >> 16) & 0o170000) == 0o120000:
+                    raise RuntimeError(f"ZIP symlinks are not allowed: {info.filename}")
+                total_bytes += max(0, int(info.file_size or 0))
+                if total_bytes > 512 * 1024 * 1024:
+                    raise RuntimeError("MOSS-TTS archive exceeds 512 MiB expanded")
+                destination = (root / relative).resolve()
+                if destination != root and root not in destination.parents:
+                    raise RuntimeError(f"ZIP path escapes extraction root: {info.filename}")
+                if info.is_dir():
+                    destination.mkdir(parents=True, exist_ok=True)
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(info) as source, open(destination, "xb") as output:
+                    shutil.copyfileobj(source, output)
+        source_root = next(
+            (p for p in tmp_dir.iterdir() if (p / "infer_onnx.py").is_file()),
+            None,
+        )
+        if source_root is None:
+            raise RuntimeError("archive does not contain infer_onnx.py")
+        if repo_dir.exists():
+            raise RuntimeError(f"refusing to replace existing source directory: {repo_dir}")
+        shutil.move(str(source_root), str(repo_dir))
+        _write_source_receipt(repo_dir)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         try:
-            if stream:
-                print(f"  下载 MOSS-TTS-Nano 源码包：{url}")
-            _download_file(url, zip_path, stream=stream)
-            if tmp_dir.exists():
-                shutil.rmtree(tmp_dir)
-            tmp_dir.mkdir(parents=True, exist_ok=True)
-            with zipfile.ZipFile(zip_path) as zf:
-                zf.extractall(tmp_dir)
-            source_root = next(
-                (p for p in tmp_dir.iterdir() if (p / "infer_onnx.py").is_file()),
-                None,
-            )
-            if source_root is None:
-                raise RuntimeError("archive does not contain infer_onnx.py")
-            if repo_dir.exists():
-                shutil.rmtree(repo_dir)
-            shutil.move(str(source_root), str(repo_dir))
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            try:
-                zip_path.unlink()
-            except OSError:
-                pass
-            return {"ok": True, "repo_dir": str(repo_dir), "source": "archive", "url": url}
-        except Exception as exc:
-            last_error = str(exc)
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            try:
-                zip_path.unlink()
-            except OSError:
-                pass
-            if stream:
-                print(f"  ⚠️ 源码包下载失败：{last_error[:160]}")
+            zip_path.unlink()
+        except OSError:
+            pass
+        return {"ok": True, "repo_dir": str(repo_dir), "source": "archive", "url": url}
+    except Exception as exc:
+        last_error = str(exc)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        try:
+            zip_path.unlink()
+        except OSError:
+            pass
+        if stream:
+            print(f"  ⚠️ 源码包下载失败：{last_error[:160]}")
     return {"ok": False, "repo_dir": str(repo_dir), "error": last_error}
 
 
@@ -179,15 +274,32 @@ def ensure_moss_tts_repo(*, base_dir=None, update=False, stream=False, timeout=6
     repo_dir = Path(moss_tts_repo_dir(base_dir=base_dir))
     repo_dir.parent.mkdir(parents=True, exist_ok=True)
     if (repo_dir / ".git").is_dir():
-        if update:
-            res = _run(["git", "-C", str(repo_dir), "pull", "--ff-only"], stream=stream, timeout=timeout)
-            if res.returncode != 0:
-                return {"ok": False, "repo_dir": str(repo_dir), "error": _combined_output(res)}
-    elif (repo_dir / "infer_onnx.py").is_file() and (repo_dir / "onnx_tts_runtime.py").is_file() and not update:
-        return {"ok": True, "repo_dir": str(repo_dir), "source": "existing"}
+        head = _run(["git", "-C", str(repo_dir), "rev-parse", "HEAD"], timeout=30)
+        if head.returncode != 0 or (head.stdout or "").strip() != MOSS_TTS_SOURCE_COMMIT:
+            fetch = _run(["git", "-C", str(repo_dir), "fetch", "--depth", "1", "origin", MOSS_TTS_SOURCE_COMMIT], stream=stream, timeout=timeout)
+            if fetch.returncode != 0:
+                return {"ok": False, "repo_dir": str(repo_dir), "error": _combined_output(fetch)}
+            checkout = _run(["git", "-C", str(repo_dir), "checkout", "--detach", MOSS_TTS_SOURCE_COMMIT], stream=stream, timeout=timeout)
+            if checkout.returncode != 0:
+                return {"ok": False, "repo_dir": str(repo_dir), "error": _combined_output(checkout)}
+        clean = _run(["git", "-C", str(repo_dir), "status", "--porcelain", "--untracked-files=all"], timeout=30)
+        if clean.returncode != 0 or (clean.stdout or "").strip():
+            return {"ok": False, "repo_dir": str(repo_dir), "error": "pinned MOSS-TTS source checkout has local or untracked changes"}
+    elif repo_dir.exists():
+        if _verified_source_receipt(repo_dir):
+            return {"ok": True, "repo_dir": str(repo_dir), "source": "verified-archive", "commit": MOSS_TTS_SOURCE_COMMIT[:12]}
+        return {"ok": False, "repo_dir": str(repo_dir), "error": "existing MOSS-TTS source is not a verified pinned checkout"}
     else:
-        res = _run(["git", "clone", "--depth", "1", MOSS_TTS_REPO_URL, str(repo_dir)], stream=stream, timeout=timeout)
+        res = _run(["git", "clone", "--filter=blob:none", "--no-checkout", MOSS_TTS_REPO_URL, str(repo_dir)], stream=stream, timeout=timeout)
+        if res.returncode == 0:
+            res = _run(["git", "-C", str(repo_dir), "fetch", "--depth", "1", "origin", MOSS_TTS_SOURCE_COMMIT], stream=stream, timeout=timeout)
+        if res.returncode == 0:
+            res = _run(["git", "-C", str(repo_dir), "checkout", "--detach", MOSS_TTS_SOURCE_COMMIT], stream=stream, timeout=timeout)
         if res.returncode != 0:
+            if repo_dir.exists():
+                if repo_dir.is_symlink() or repo_dir.parent.resolve() not in repo_dir.resolve().parents:
+                    return {"ok": False, "repo_dir": str(repo_dir), "error": "unsafe partial clone path"}
+                shutil.rmtree(repo_dir)
             archive = _download_and_extract_source_archive(repo_dir, stream=stream)
             if not archive.get("ok"):
                 return {
@@ -209,14 +321,22 @@ def _model_file_url(source, repo, filename):
     if source == "modelscope":
         return f"https://modelscope.cn/models/{repo['modelscope']}/resolve/master/{filename}"
     if source == "hf-mirror":
-        return f"https://hf-mirror.com/{repo['hf']}/resolve/main/{filename}"
-    return f"https://huggingface.co/{repo['hf']}/resolve/main/{filename}"
+        return f"https://hf-mirror.com/{repo['hf']}/resolve/{repo['revision']}/{filename}"
+    return f"https://huggingface.co/{repo['hf']}/resolve/{repo['revision']}/{filename}"
 
 
 def _repo_target_dir(repo, *, base_dir=None):
     if repo["target"] == "tts":
         return Path(moss_tts_onnx_tts_dir(base_dir=base_dir))
     return Path(moss_tts_onnx_codec_dir(base_dir=base_dir))
+
+
+def _all_model_assets_verified(*, base_dir=None):
+    return all(
+        _file_matches(_repo_target_dir(repo, base_dir=base_dir) / name, *spec)
+        for repo in MODEL_REPOS
+        for name, spec in repo["files"].items()
+    )
 
 
 def download_moss_tts_onnx_assets(*, base_dir=None, stream=False):
@@ -226,7 +346,7 @@ def download_moss_tts_onnx_assets(*, base_dir=None, stream=False):
     for repo in MODEL_REPOS:
         target = _repo_target_dir(repo, base_dir=base_dir)
         target.mkdir(parents=True, exist_ok=True)
-        missing = [name for name in repo["files"] if not (target / name).is_file()]
+        missing = [name for name, spec in repo["files"].items() if not _file_matches(target / name, *spec)]
         if not missing:
             skipped.append(repo["name"])
             continue
@@ -236,11 +356,15 @@ def download_moss_tts_onnx_assets(*, base_dir=None, stream=False):
                 print(f"  下载 {repo['name']}：{source}")
             for name in list(missing):
                 dest = target / name
-                if dest.is_file() and dest.stat().st_size > 0:
+                spec = repo["files"][name]
+                if _file_matches(dest, *spec):
                     missing.remove(name)
                     continue
                 try:
-                    item = _download_file(_model_file_url(source, repo, name), dest, stream=stream)
+                    item = _download_file(
+                        _model_file_url(source, repo, name), dest,
+                        expected_size=spec[0], expected_sha256=spec[1], stream=stream,
+                    )
                     item.update({"repo": repo["name"], "file": name, "source": source})
                     downloads.append(item)
                     missing.remove(name)
@@ -269,7 +393,7 @@ def download_moss_tts_onnx_assets(*, base_dir=None, stream=False):
             }
     final = tts_runtime_status(model_base=base_dir) if base_dir else tts_runtime_status()
     return {
-        "ok": final["components"].get("moss_tts_onnx_model") and final["components"].get("moss_audio_tokenizer_onnx"),
+        "ok": _all_model_assets_verified(base_dir=base_dir),
         "stage": "model_download",
         "downloads": downloads,
         "skipped": skipped,
@@ -389,10 +513,10 @@ def synthesize(
 ):
     repo_dir = Path(moss_tts_repo_dir(base_dir=base_dir))
     entrypoint = repo_dir / "infer_onnx.py"
-    if not entrypoint.is_file():
-        return {"ok": False, "error": f"MOSS-TTS-Nano repo missing: {entrypoint}"}
+    if not entrypoint.is_file() or not _verified_source_install(repo_dir):
+        return {"ok": False, "error": f"MOSS-TTS-Nano repo missing or not pinned/clean: {entrypoint}"}
     st = tts_runtime_status(model_base=base_dir) if base_dir else tts_runtime_status()
-    model_ready = st["components"].get("moss_tts_onnx_model") and st["components"].get("moss_audio_tokenizer_onnx")
+    model_ready = _all_model_assets_verified(base_dir=base_dir)
     if not model_ready:
         if not allow_download:
             return {"ok": False, "error": "MOSS-TTS-Nano ONNX assets missing", "status": st}

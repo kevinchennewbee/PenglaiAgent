@@ -105,7 +105,7 @@ def test_web_execute_js_scrubs_returned_secret():
     fresh_import("plugins.penglai_redline")
     H = ga.GenericAgentHandler
     h = H()
-    outcome = H.do_web_execute_js(h, {"script": "token=abc123456789"}, Resp())
+    outcome = H.do_web_execute_js(h, {"script": "token=" + "abc123456789"}, Resp())
     assert outcome.data["js_return"] == "***"
 
 
@@ -122,6 +122,10 @@ def test_audit_path_avoids_source_root_workspace():
         os.environ.pop("PENGLAI_AUDIT_DIR", None)
         p = rl._audit_path()
         assert p.startswith(os.path.join(tmp, "penglai-work", "audit") + os.sep), p
+        rl.audit("read", {"path": "owner-note.txt"})
+        if os.name != "nt":
+            assert os.stat(os.path.dirname(p)).st_mode & 0o777 == 0o700
+            assert os.stat(p).st_mode & 0o777 == 0o600
     finally:
         if old_home is None: os.environ.pop("HOME", None)
         else: os.environ["HOME"] = old_home
@@ -129,6 +133,24 @@ def test_audit_path_avoids_source_root_workspace():
         else: os.environ["GA_WORKSPACE_ROOT"] = old_ws
         if old_audit is None: os.environ.pop("PENGLAI_AUDIT_DIR", None)
         else: os.environ["PENGLAI_AUDIT_DIR"] = old_audit
+
+
+def test_setup_helpers_do_not_print_returned_app_secret():
+    source = open(os.path.join(REPO, "assets", "configure_mykey.py"), encoding="utf-8").read()
+    assert "{result['client_secret']}" not in source
+    assert "App Secret:" in source and "不在终端显示" in source
+
+
+def test_legacy_setup_helpers_write_credentials_privately_and_atomically():
+    setup = open(os.path.join(REPO, "assets", "configure_mykey.py"), encoding="utf-8").read()
+    channels = open(os.path.join(REPO, "penglai_channels.py"), encoding="utf-8").read()
+    for source in (setup, channels):
+        assert "mkstemp" in source
+        assert "0o600" in source
+        assert "os.replace" in source
+        assert "os.path.islink" in source
+    assert "mykey.py.bak.{safe_name}" in setup
+    assert "f'{safe_name}.py'" not in setup
 
 
 if __name__ == "__main__":

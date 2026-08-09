@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import types
+import urllib.error
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import penglai_im_launch as L
@@ -99,6 +100,35 @@ def test_wechat_no_token_exits_before_frontend_import():
             os.environ.pop("HOME", None)
         else:
             os.environ["HOME"] = old_home
+
+
+def test_voice_redirect_revalidates_target(monkeypatch):
+    class FakeRedirectOpener:
+        def open(self, request, timeout):
+            raise urllib.error.HTTPError(
+                request.full_url,
+                302,
+                "Found",
+                {"Location": "http://127.0.0.1/private"},
+                None,
+            )
+
+    monkeypatch.setattr(L.socket, "getaddrinfo", lambda *args: [(2, 1, 6, "", ("93.184.216.34", 443))])
+    monkeypatch.setattr("urllib.request.build_opener", lambda *args: FakeRedirectOpener())
+    try:
+        L._open_voice_url("https://public.example/audio.wav")
+        raise AssertionError("private redirect must be rejected")
+    except ValueError as error:
+        assert "HTTPS" in str(error) or "private" in str(error)
+
+
+def test_voice_url_rejects_private_dns(monkeypatch):
+    monkeypatch.setattr(L.socket, "getaddrinfo", lambda *args: [(2, 1, 6, "", ("169.254.169.254", 443))])
+    try:
+        L._validate_voice_url("https://media.example/audio.wav")
+        raise AssertionError("private DNS result must be rejected")
+    except ValueError as error:
+        assert "private" in str(error)
 
 
 if __name__ == "__main__":

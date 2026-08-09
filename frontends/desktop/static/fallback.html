@@ -684,7 +684,7 @@ async function loadProviders() {
     providers = data;
     renderProviderTable(data);
   } catch(e) {
-    document.getElementById('provider-list').innerHTML = `<p class="log-err">加载厂商列表失败：${e}<br><br>可能原因：运行时桥接未启动。请返回上一步重新初始化，或点击"手动指定路径"用已有运行时启动。</p>`;
+    document.getElementById('provider-list').innerHTML = `<p class="log-err">加载厂商列表失败：${escHtml(String(e))}<br><br>可能原因：运行时桥接未启动。请返回上一步重新初始化，或点击"手动指定路径"用已有运行时启动。</p>`;
   }
 }
 
@@ -833,7 +833,7 @@ async function feishuQRInit() {
     // Start polling
     startFSPoll(r.device_code);
   } catch(e) {
-    document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${e}</p>`;
+    document.getElementById('fs-status').innerHTML = `<p class="log-err">❌ ${escHtml(String(e))}</p>`;
   }
 }
 
