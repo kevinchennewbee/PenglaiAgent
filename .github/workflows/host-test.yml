@@ -76,7 +76,7 @@ jobs:
       - name: Install Unicode PDF test font
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes fonts-noto-cjk
+          sudo apt-get install --no-install-recommends --yes fonts-droid-fallback
 
       - name: Test (vitest + coverage)
         # The coverage provider is an exact, lockfile-bound dev dependency.
