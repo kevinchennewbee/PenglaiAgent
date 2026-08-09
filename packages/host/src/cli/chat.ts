@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { openRegularFileNoFollow } from "../security/private-file.js";
 import * as readline from "node:readline";
 import type { Conversation } from "@penglai/protocol";
 import { CliError, type HostClient } from "./client.js";
@@ -84,23 +85,30 @@ function loadCliImage(filePath: string): {
   name: string;
 } {
   const resolved = path.resolve(filePath.replace(/^~(?=\/|$)/, process.env.HOME ?? ""));
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+  let opened;
+  try {
+    opened = openRegularFileNoFollow(resolved);
+  } catch {
     throw new CliError(`image not found: ${filePath}`);
   }
-  const ext = path.extname(resolved).toLowerCase();
-  const mimeType = CLI_IMAGE_MIME[ext];
-  if (!mimeType) {
-    throw new CliError(`unsupported image type ${ext || "(none)"} — use png/jpg/gif/webp`);
+  try {
+    const ext = path.extname(resolved).toLowerCase();
+    const mimeType = CLI_IMAGE_MIME[ext];
+    if (!mimeType) {
+      throw new CliError(`unsupported image type ${ext || "(none)"} — use png/jpg/gif/webp`);
+    }
+    if (opened.stat.size > 4 * 1024 * 1024) {
+      throw new CliError(`image too large (>4MB): ${filePath}`);
+    }
+    const buf = fs.readFileSync(opened.descriptor);
+    return {
+      data: buf.toString("base64"),
+      mimeType,
+      name: path.basename(resolved),
+    };
+  } finally {
+    fs.closeSync(opened.descriptor);
   }
-  const buf = fs.readFileSync(resolved);
-  if (buf.byteLength > 4 * 1024 * 1024) {
-    throw new CliError(`image too large (>4MB): ${filePath}`);
-  }
-  return {
-    data: buf.toString("base64"),
-    mimeType,
-    name: path.basename(resolved),
-  };
 }
 
 // ── slash commands ─────────────────────────────────────────────

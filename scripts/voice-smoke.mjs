@@ -6,7 +6,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { VoiceService } from "../packages/host/dist/src/voice/service.js";
 
-const output = path.resolve(process.argv[2] || path.join(os.tmpdir(), "penglai-040-moss-smoke.wav"));
+const output = path.resolve(
+  process.argv[2] ||
+    path.join(fs.mkdtempSync(path.join(os.tmpdir(), "penglai-040-moss-smoke-")), "output.wav"),
+);
 const text = process.argv[3] || "你好，我是蓬莱。语音合成真机验收已经开始。";
 const dataDir = process.env.PENGLAI_DATA_DIR
   ? path.resolve(process.env.PENGLAI_DATA_DIR)

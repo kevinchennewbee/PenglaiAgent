@@ -27,7 +27,7 @@ read back through the API before the candidate branch was pushed.
 
 | Evidence | Observed result | Finding/path |
 | --- | --- | --- |
-| `npm test` | 71 files, 859 tests passed | F-01 through F-11 regression coverage |
+| `npm test` | 71 files, 860 tests passed | F-01 through F-12 regression coverage |
 | `pytest -q tests` | 421 tests passed; 12 deprecation warnings | legacy/migration safety coverage |
 | current + legacy `cargo fmt/check/test --locked` | passed; current shell 2 tests, legacy shell 0 | native desktop compile/test coverage |
 | `npm audit --audit-level=moderate --registry=https://registry.npmjs.org` | 0 vulnerabilities | F-06 |
@@ -39,6 +39,8 @@ read back through the API before the candidate branch was pushed.
 | Gitleaks candidate snapshot | 606 candidate files; 0 leaks | public-tree secret check |
 | Semgrep candidate snapshot | 49 findings: 42 warnings + 7 manually bounded error-level matches | dangerous API review |
 | Bandit production source | 591 low, 23 medium, 0 high over 55,558 LOC | legacy Python dangerous API review |
+| GitHub CodeQL default setup, run `31309734868` | Actions, JavaScript/TypeScript, Python and Rust analyzed; 114 alerts opened for classification | F-12 |
+| PR #18 CodeQL, run `31310641231` | four language analyses passed; the CodeQL PR check passed after fixes and evidence-backed classifications | F-12 |
 | `npm run tauri:build:local -w @penglai/desktop` | build, ad-hoc seal and `hdiutil verify` pass | F-10 |
 | `node scripts/lifecycle-check.mjs` | install, first launch, isolated Host, setup, chat, Evidence preview, redacted diagnostics and uninstall pass | F-01, F-02, F-05, F-10 |
 
@@ -54,6 +56,40 @@ BBS fetch sites. Bandit's 23 medium matches are 21 reviewed URL openers, one
 intentional non-loopback rejection self-check, and one documentation-string SQL
 false positive. The complete eight-group release gate was rerun against the
 working candidate including untracked additions and passed.
+
+## Evidence to finding to path
+
+Scope authorization is the repository Owner's requested public-release review
+and remediation. In scope are the tracked public tree, GitHub repository
+settings, CI/release workflows and locally built 0.4 artifacts. Network work is
+limited to the Owner-authorized GitHub repository, dependency advisory sources
+and the product's documented loopback/provider boundaries; no unrelated
+service was probed.
+
+| Evidence | Reproduction | Content hash | Linked findings |
+| --- | --- | --- | --- |
+| E-01 candidate byte/line ledger | `node scripts/generate-audit-ledger.mjs` | per-file SHA-256 in `docs/audit/FILE_LEDGER_0.4.0.csv` | F-01–F-12 |
+| E-02 complete local release gate | `TZ=UTC node scripts/release-check.mjs` | n/a; deterministic console report | F-01–F-09, F-11, F-12 |
+| E-03 initial GitHub CodeQL scan | inspect Actions run `31309734868` and the code-scanning API | n/a; GitHub-retained SARIF | F-12 |
+| E-04 protected PR rescan | inspect PR #18 and Actions run `31310641231` | n/a; GitHub-retained checks/SARIF | F-12 |
+| E-05 packaged desktop lifecycle | `node scripts/lifecycle-check.mjs` against the recorded DMG | DMG SHA-256 in F-10 | F-01, F-02, F-05, F-10, F-11 |
+
+P-01 is the public-release security path: E-01 established the exact source
+snapshot; E-02 exercised the release contract; E-03 found scanner candidates;
+each candidate was either repaired with a regression test or classified with a
+public GitHub rationale; E-04 independently rescanned the PR; the protected
+`main` checks then gate merge. The residual boundary is explicit: a signed tag,
+release-environment approval and GitHub Release publication remain separate
+Owner actions.
+
+```mermaid
+flowchart LR
+  A["E-01: hash every candidate file"] --> B["E-02: full local release gate"]
+  B --> C["E-03: four-language CodeQL scan"]
+  C --> D["Fix or evidence-backed classification"]
+  D --> E["E-04: protected PR rescan"]
+  E --> F["Owner-approved tag and Release"]
+```
 
 ## Findings and repairs
 
@@ -190,6 +226,35 @@ Paths: `packages/host/scripts/build-runtime.mjs`,
 `packages/host/scripts/verify-runtime.mjs`,
 `packages/host/test/runtime-integrity.test.ts`, `scripts/lifecycle-check.mjs`.
 
+### F-12 — First four-language CodeQL baseline exposed unreviewed trust-boundary candidates — fixed/classified
+
+The first GitHub default-setup scan opened 114 alerts: 3 critical, 87 high and
+24 medium. Treating that new baseline as clean would have been incorrect. The
+review separated it into three evidence-bearing classes:
+
+- 24 current 0.4 findings were repaired in PR #18: file check/use races,
+  symlink-sensitive credential and artifact reads, predictable temporary
+  paths, polynomial regular expressions, log injection, an incorrectly
+  anchored test expression and one dormant static-page XSS sink;
+- 18 current findings were documented as false positives or test-only flows,
+  including fixed-loopback Host authentication, signed canonical updater
+  assets, pinned-and-hashed voice models, private non-executable memory/SOP
+  files, owner-selected HTTPS model review and masked migration reports;
+- 72 findings belong exclusively to the frozen v0.3.6 Python/legacy desktop
+  archive. They were dismissed as `won't fix`, not claimed as repaired, with a
+  repository-visible warning that the 0.4 runtime/build does not execute those
+  paths and that any future reuse requires a new review.
+
+The PR CodeQL check and all four language analyses pass. After the protected
+merge, the 24 repaired default-branch alerts are expected to close from the new
+analysis rather than by dismissal. The code-scanning API must be re-read after
+merge before a release tag is authorized.
+
+Paths: PR #18; `packages/host/src/security/private-file.ts`,
+`packages/host/src/security/redaction.ts`, `packages/host/src/token-file.ts`,
+`packages/host/src/server.ts`, `packages/host/scripts/*.mjs`,
+`scripts/generate-audit-ledger.mjs`, `scripts/lifecycle-check.mjs`.
+
 ## Owner cutover controls
 
 These controls live in GitHub settings and cannot be made true by a source
@@ -212,11 +277,10 @@ confirm:
 
 The remaining cutover sequence is operational rather than a missing control:
 
-1. Push the candidate branch and merge only through the protected PR after all
-   three required checks pass.
-2. Push the separately reviewed `gh-pages` commit.
-3. Create and push the Owner-signed annotated tag only from the accepted `main`.
-4. Inspect the generated draft Release checksums, SBOM and downloaded assets;
+1. Merge security hardening PR #18 only after required checks and CodeQL pass,
+   then re-read the default-branch alert count.
+2. Create and push the Owner-signed annotated tag only from the accepted `main`.
+3. Inspect the generated draft Release checksums, SBOM and downloaded assets;
    then use the separate manual publish workflow with the exact confirmation.
 
 ## Reproduction

@@ -58,6 +58,24 @@ function section(title) { lines.push(`\n${BOLD}${title}${RESET}`); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function readRegularFile(file, encoding = null) {
+  const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | noFollow);
+  try {
+    const stat = fs.fstatSync(descriptor);
+    const pathStat = fs.lstatSync(file);
+    if (
+      !stat.isFile() || pathStat.isSymbolicLink() || !pathStat.isFile() ||
+      stat.dev !== pathStat.dev || stat.ino !== pathStat.ino
+    ) {
+      throw new Error(`expected stable regular file: ${file}`);
+    }
+    return { data: fs.readFileSync(descriptor, encoding ?? undefined), stat };
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 async function waitHealth(port, timeoutMs = 30_000) {
   const started = Date.now();
   for (;;) {
@@ -276,7 +294,7 @@ async function main() {
   if (fs.existsSync(path.join(DATA_HOST, "host.token")) && fs.existsSync(path.join(DATA_HOST, "product.db"))) {
     ok(`数据目录隔离生效：沙盒内 host.token + product.db（端口 ${SANDBOX_PORT}，非 ${HOST_PORT}）`);
   } else bad("沙盒数据目录缺 host.token 或 product.db");
-  const token = fs.readFileSync(path.join(DATA_HOST, "host.token"), "utf-8").trim();
+  const token = readRegularFile(path.join(DATA_HOST, "host.token"), "utf-8").data.trim();
 
   // 向导档案（host 层；UI 层已由截图流水线验证，见文件头注释）
   const mock = await startMockModel();
@@ -295,13 +313,17 @@ async function main() {
   if (created?.id === "lifecycle-mock") ok("config.createProfile 成功（模拟向导保存）");
   else bad("config.createProfile 返回异常");
   const profilesFile = path.join(DATA_HOST, "profiles.json");
-  if (fs.existsSync(profilesFile)) {
-    const mode = fs.statSync(profilesFile).mode & 0o777;
-    const content = fs.readFileSync(profilesFile, "utf-8");
+  try {
+    const profileFile = readRegularFile(profilesFile, "utf-8");
+    const mode = profileFile.stat.mode & 0o777;
+    const content = profileFile.data;
     if (mode === 0o600 && content.includes("lifecycle-mock") && content.includes("lifecycle-demo-key")) {
       ok("profiles.json 落盘：0600 私密权限 + 档案与 key 在内（host 侧保管）");
     } else bad(`profiles.json 权限 ${mode.toString(8)} 或内容不符`);
-  } else bad("profiles.json 未生成");
+  } catch (error) {
+    if (error?.code === "ENOENT") bad("profiles.json 未生成");
+    else throw error;
+  }
   const resolved = await rpc(SANDBOX_PORT, token, "config.resolveProfile", {});
   if (resolved?.profile?.id === "lifecycle-mock" && resolved.hasKey) ok("config.resolveProfile 立即可用（向导后状态）");
   else bad("resolveProfile 未命中新档案");

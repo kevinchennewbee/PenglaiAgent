@@ -15,10 +15,9 @@
  * data dir.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeProviderBaseUrl } from "./providers/url-safety.js";
-import { atomicWritePrivateJson, hardenPrivateFile } from "./security/private-file.js";
+import { atomicWritePrivateJson, readPrivateTextFile } from "./security/private-file.js";
 
 /** One persisted profile entry (the on-disk shape). */
 export interface PersistedProfileEntry {
@@ -77,17 +76,17 @@ function isValidEntry(entry: unknown): entry is PersistedProfileEntry {
 /** Load persisted profiles; tolerant of a missing or corrupt file. */
 export function loadPersistedProfiles(dataDir: string): PersistedProfileEntry[] {
   const file = profilesFilePath(dataDir);
+  let raw: string;
+  try {
+    raw = readPrivateTextFile(file, MAX_PROFILES_FILE_BYTES, true).text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
   let parsed: ProfilesFile;
   try {
-    hardenPrivateFile(file, MAX_PROFILES_FILE_BYTES);
-    parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as ProfilesFile;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("Private config")
-    ) {
-      throw error;
-    }
+    parsed = JSON.parse(raw) as ProfilesFile;
+  } catch {
     return [];
   }
   if (!Array.isArray(parsed?.profiles)) return [];

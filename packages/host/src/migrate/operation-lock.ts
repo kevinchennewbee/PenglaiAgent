@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { readPrivateTextFile } from "../security/private-file.js";
 
 const LOCK_DIRECTORY_NAME = ".penglai-operation-lock";
 const CLAIM_FILE_RE = /^claim-(\d+)-([0-9a-f]{32})\.json$/;
@@ -105,9 +106,7 @@ function parseClaim(raw: unknown): OperationClaim | null {
 
 function readClaim(file: string): OperationClaim | null {
   try {
-    const stat = fs.lstatSync(file);
-    if (stat.isSymbolicLink() || !stat.isFile()) return null;
-    return parseClaim(JSON.parse(fs.readFileSync(file, "utf-8")));
+    return parseClaim(JSON.parse(readPrivateTextFile(file, 64 * 1024).text));
   } catch {
     return null;
   }

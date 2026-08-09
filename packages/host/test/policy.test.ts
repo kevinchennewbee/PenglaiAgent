@@ -27,18 +27,20 @@ import {
 
 let workspace: string;
 let outsideFile: string;
+let testRoot: string;
 
 beforeAll(() => {
-  workspace = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-policy-"));
+  testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-policy-"));
+  workspace = path.join(testRoot, "workspace");
+  fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, "file.txt"), "hello\n");
   fs.mkdirSync(path.join(workspace, "sub"), { recursive: true });
-  outsideFile = path.join(os.tmpdir(), "penglai-policy-outside.txt");
+  outsideFile = path.join(testRoot, "outside.txt");
   fs.writeFileSync(outsideFile, "secret\n");
 });
 
 afterAll(() => {
-  fs.rmSync(workspace, { recursive: true, force: true });
-  fs.rmSync(outsideFile, { force: true });
+  fs.rmSync(testRoot, { recursive: true, force: true });
 });
 
 describe("policy: project-anchored (jail = workspace)", () => {

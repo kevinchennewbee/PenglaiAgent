@@ -31,6 +31,7 @@ import * as path from "node:path";
 import {
   ensurePrivateDirectory,
   hardenPrivateFile,
+  readPrivateTextFile,
   validatePrivateDirectory,
   validatePrivateFile,
 } from "./security/private-file.js";
@@ -660,11 +661,9 @@ export class MemoryStore {
   private readMigrationAuthorityKey(): Buffer | null {
     const filename = this.sopMigrationAuthorityFile();
     try {
-      const stat = fs.lstatSync(filename);
-      if (!stat.isFile() || stat.isSymbolicLink()) return null;
+      const { text, stat } = readPrivateTextFile(filename, 128);
       if (process.platform !== "win32" && (stat.mode & 0o077) !== 0) return null;
-      if (typeof process.getuid === "function" && stat.uid !== process.getuid()) return null;
-      const encoded = fs.readFileSync(filename, "utf-8").trim();
+      const encoded = text.trim();
       if (!/^[0-9a-f]{64}$/.test(encoded)) return null;
       return Buffer.from(encoded, "hex");
     } catch {

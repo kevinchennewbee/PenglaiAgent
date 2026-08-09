@@ -20,6 +20,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { openRegularFileNoFollow } from "./security/private-file.js";
 import * as crypto from "node:crypto";
 import type { Evidence } from "@penglai/protocol";
 import type { ProductStore } from "./storage/product-store.js";
@@ -171,8 +172,14 @@ function recordWriteEvidence(ctx: ToolEvidenceContext): Evidence | null {
     try {
       const abs = path.resolve(ctx.workspaceRoot, relArg);
       const real = fs.realpathSync(abs);
-      if (isWithinWorkspace(ctx.workspaceRoot, real) && fs.statSync(real).isFile()) {
-        const buffer = fs.readFileSync(real);
+      if (isWithinWorkspace(ctx.workspaceRoot, real)) {
+        const opened = openRegularFileNoFollow(real);
+        let buffer: Buffer;
+        try {
+          buffer = fs.readFileSync(opened.descriptor);
+        } finally {
+          fs.closeSync(opened.descriptor);
+        }
         const slice = buffer.subarray(0, MAX_WRITE_OBSERVE_BYTES);
         // Both ends realpath-resolved before relativizing (macOS /var → /private/var).
         const realRoot = fs.realpathSync(ctx.workspaceRoot);

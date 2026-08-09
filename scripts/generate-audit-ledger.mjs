@@ -77,11 +77,33 @@ for (const file of files) {
   const absolute = path.join(ROOT, file);
   // `git ls-files --cached` also lists paths deleted in the working tree.
   // They are changes to review, but are not part of the candidate snapshot.
-  if (!fs.existsSync(absolute)) continue;
-  const stat = fs.lstatSync(absolute);
-  const data = stat.isSymbolicLink()
-    ? Buffer.from(fs.readlinkSync(absolute), "utf-8")
-    : fs.readFileSync(absolute);
+  let stat;
+  let data;
+  let symlink = false;
+  try {
+    if (trackedModes.get(file) === "120000") {
+      symlink = true;
+      data = Buffer.from(fs.readlinkSync(absolute), "utf-8");
+    } else {
+      const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+      const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | noFollow);
+      try {
+        stat = fs.fstatSync(descriptor);
+        if (!stat.isFile()) throw new Error(`candidate is not a regular file: ${file}`);
+        data = fs.readFileSync(descriptor);
+      } finally {
+        fs.closeSync(descriptor);
+      }
+    }
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    if (error?.code === "ELOOP") {
+      symlink = true;
+      data = Buffer.from(fs.readlinkSync(absolute), "utf-8");
+    } else {
+      throw error;
+    }
+  }
   const binary = data.includes(0);
   // For text, decoding and splitting here deliberately traverses every byte
   // and every line; language-aware gates provide the semantic layer.
@@ -96,7 +118,7 @@ for (const file of files) {
     data.length,
     lines,
     crypto.createHash("sha256").update(data).digest("hex"),
-    stat.isSymbolicLink() ? "symlink-target" : binary ? "binary" : "text",
+    symlink ? "symlink-target" : binary ? "binary" : "text",
     group,
     coverage(file, group, binary),
   ]);
