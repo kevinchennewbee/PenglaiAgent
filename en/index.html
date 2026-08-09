@@ -3,759 +3,478 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Penglai — Self-Hosted AI Runtime Hub</title>
-  <meta name="description" content="Bring agents that can work, listen, and speak to the tools you already use. Penglai is a self-hosted AI Runtime Hub with multi-channel access across Desktop, Feishu, WeChat, Terminal, and more.">
+  <title>Penglai 0.4.0 — the personal AI assistant that lives in your Feishu, belongs to you, and knows you better over time</title>
+  <meta name="description" content="Penglai 0.4.0: an open-source TypeScript personal AI assistant. One core connects Desktop, CLI, Feishu and WeChat; SenseVoice, MOSS-TTS and opt-in active companionship run locally.">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="alternate" hreflang="zh-CN" href="https://kevinchennewbee.github.io/PenglaiAgent/">
+  <link rel="alternate" hreflang="en" href="https://kevinchennewbee.github.io/PenglaiAgent/en/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Penglai 0.4.0 — the personal AI assistant that lives in your Feishu">
+  <meta property="og:description" content="An open-source TypeScript assistant with the Pi engine, local voice and opt-in active companionship; Desktop, CLI and IM share one source of truth.">
+  <meta property="og:url" content="https://kevinchennewbee.github.io/PenglaiAgent/en/">
+  <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/desktop-workbench.webp">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_CN">
   <link rel="stylesheet" href="../styles/main.css">
-  <style>
-    /* Canvas container */
-    #fairy-canvas {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .mountain-layer { position:fixed; bottom:0; left:0; width:100vw; height:40vh; pointer-events:none; z-index:0; }
-    .fog, .fairy-particle, .fairy-svg, .silk-ribbon, .sword-streak { display: none !important; }
-  </style>
-
-  <canvas id="fairy-canvas"></canvas>
 </head>
 <body>
 
-  <!-- ========== Mountain & mist background layer ========== -->
-  <svg class="mountain-layer" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M0 400 L0 320 Q80 280 160 300 Q240 260 320 240 Q380 220 420 250 Q480 200 540 180 Q600 160 640 190 Q700 150 760 170 Q820 140 880 160 Q940 130 1000 155 Q1060 140 1100 170 Q1160 150 1200 180 Q1280 200 1340 220 Q1400 240 1440 230 L1440 400 Z" fill="rgba(140,145,135,0.15)"/>
-    <path d="M0 400 L0 340 Q100 310 200 320 Q300 290 400 270 Q500 250 560 280 Q620 240 700 220 Q780 200 840 230 Q900 210 960 240 Q1020 220 1080 250 Q1140 230 1200 260 Q1300 280 1380 290 L1440 280 L1440 400 Z" fill="rgba(130,135,128,0.12)"/>
-    <path d="M0 400 L0 360 Q120 340 240 350 Q360 330 480 310 Q580 290 660 320 Q740 300 820 280 Q900 270 980 290 Q1060 280 1140 300 Q1240 310 1340 320 L1440 310 L1440 400 Z" fill="rgba(150,152,145,0.10)"/>
+  <!-- Fairy mist: Perlin flow-field particles -->
+  <canvas id="fairy-canvas" aria-hidden="true"></canvas>
+
+  <!-- Immortal-mountain mist background -->
+  <svg class="mountain-layer" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path class="ridge-1" d="M0 400 L0 320 Q80 280 160 300 Q240 260 320 240 Q380 220 420 250 Q480 200 540 180 Q600 160 640 190 Q700 150 760 170 Q820 140 880 160 Q940 130 1000 155 Q1060 140 1100 170 Q1160 150 1200 180 Q1280 200 1340 220 Q1400 240 1440 230 L1440 400 Z"/>
+    <path class="ridge-2" d="M0 400 L0 340 Q100 310 200 320 Q300 290 400 270 Q500 250 560 280 Q620 240 700 220 Q780 200 840 230 Q900 210 960 240 Q1020 220 1080 250 Q1140 230 1200 260 Q1300 280 1380 290 L1440 280 L1440 400 Z"/>
+    <path class="ridge-3" d="M0 400 L0 360 Q120 340 240 350 Q360 330 480 310 Q580 290 660 320 Q740 300 820 280 Q900 270 980 290 Q1060 280 1140 300 Q1240 310 1340 320 L1440 310 L1440 400 Z"/>
   </svg>
 
-  <!-- ========== Navigation ========== -->
   <nav class="nav" id="nav">
     <div class="nav-inner">
-      <a href="#" class="nav-logo">
-        <div class="nav-logo-seal">蓬</div>
-        <div class="nav-logo-text">Penglai <span>Penglai</span></div>
+      <a href="#hero" class="nav-logo">
+        <span class="seal">蓬</span>
+        <span class="nav-logo-text">蓬莱<small>PENGLAI</small></span>
       </a>
       <ul class="nav-links" id="navLinks">
-        <li><a href="#features">Features</a></li>
-        <li><a href="#channels">Channels</a></li>
+        <li><a href="#story">Origin</a></li>
+        <li><a href="#modes">One surface</a></li>
+        <li><a href="#trio">Why Penglai</a></li>
+        <li><a href="#abilities">Capabilities</a></li>
         <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#changelog">Changelog</a></li>
-        <li><a href="#install">Install</a></li>
-        <li><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="#start">Start</a></li>
       </ul>
       <div class="nav-right">
-        <a href="../" class="nav-lang">EN / 中</a>
-        <a href="#install" class="nav-cta">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download <span class="penglai-version">0.3.6</span>
+        <a href="../" class="nav-lang" hreflang="zh-CN">中 / EN</a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="nav-cta">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+          GitHub
         </a>
-        <button class="nav-toggle" id="navToggle" aria-label="Menu">
+        <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-controls="navLinks" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- ========== Hero Section ========== -->
-  <section class="hero" id="hero">
-    <div class="hero-content">
-      <div class="hero-badge reveal">v<span class="penglai-version">0.3.6</span></div>
-      <h1 class="hero-title reveal reveal-delay-1">Penglai</h1>
-      <div class="hero-title-en reveal reveal-delay-1">P E N G L A I</div>
-      <p class="hero-subtitle reveal reveal-delay-2">Bring agents that can work, listen, and speak to the tools you already use</p>
-      <ul class="hero-values reveal reveal-delay-3">
-        <li>A self-hosted AI Runtime Hub living inside your Feishu, WeChat, and Terminal</li>
-        <li>Local CPU voice pipeline &middot; Data stays on your machine by default &middot; Deterministic safety guardrails</li>
-      </ul>
-      <div class="hero-ctas reveal reveal-delay-4">
-        <a href="#install" class="btn-primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Download Desktop Client
-        </a>
-        <a href="#install" class="btn-ghost">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          One-Line Install
-        </a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn-text">
+  <main>
+
+    <!-- ========== 1. Hero ========== -->
+    <section class="hero" id="hero">
+      <div class="hero-badges reveal">
+        <span class="pill accent"><b>v0.4.0</b></span>
+        <span class="pill">Open source · <b>MIT</b></span>
+        <span class="pill">Rewritten in <b>TypeScript</b></span>
+        <span class="pill">Powered by the <b>Pi kernel</b></span>
+        <span class="pill"><b>macOS</b> installer</span>
+      </div>
+      <div class="hero-name reveal reveal-delay-1">
+        <span class="seal">蓬</span>
+        <h1>蓬莱</h1>
+        <span class="hero-version">0.4.0</span>
+      </div>
+      <p class="hero-tagline reveal reveal-delay-1">The personal AI assistant that lives in your Feishu, belongs entirely to you, and knows you better over time</p>
+      <p class="hero-modes reveal reveal-delay-2"><b>One core</b> · <b>Pi engine</b> · <b>local companionship</b> — one memory, one identity, one execution path</p>
+      <div class="hero-ctas reveal reveal-delay-3">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
           GitHub
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for macOS
         </a>
       </div>
-    </div>
+      <figure class="shot reveal reveal-delay-3">
+        <div class="shot-frame">
+          <div class="shot-bar"><i></i><i></i><i></i><span>Penglai desktop workbench</span></div>
+          <img src="../shots/desktop-workbench.webp" alt="Real capture of the Penglai desktop workbench: projects and conversations on the left, task panel in the middle, evidence rail on the right" width="1600" height="1000" loading="eager">
+        </div>
+        <figcaption class="shot-caption">A real capture of the desktop workbench: task panel + evidence rail. Approvals, file changes, and checkpoints in the rail all come from observed execution — never narrated by the model.</figcaption>
+      </figure>
+    </section>
 
-    <!-- Hero Preview Mockups -->
-    <div class="hero-preview reveal reveal-delay-4">
-      <div class="hero-preview-grid">
-        <!-- Desktop Mockup -->
-        <div class="hero-mockup">
-          <div class="mockup-header">
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <span class="mockup-title">Penglai Desktop</span>
+    <!-- ========== 2. Origin ========== -->
+    <section class="section story" id="story">
+      <div class="section-inner">
+        <div class="story-quote">
+          <div class="section-label reveal">Origin</div>
+          <h2 class="section-title reveal reveal-delay-1">A non-coder and his AI butler</h2>
+          <blockquote class="reveal reveal-delay-2">I spent a decade in network engineering, security, and ops — but I couldn't write code. Not a line. Every line in this repository was spoken, sentence by sentence, through AI coding tools. Penglai itself is the proof of what it wants to show: <b>in the AI era, ordinary people can build tools for themselves.</b></blockquote>
+          <p class="reveal reveal-delay-2">0.3 proved the narrative: move the agent into the chat apps you already use, and keep every byte of data on your own machine. But in the Python era, auditable approvals were still "right direction, half-built implementation." <b>0.4 is a serious rewrite</b> — TypeScript, strongly-typed protocols, and the open-source Pi kernel — turning spoken ideas into kernel-level capabilities.</p>
+          <p class="reveal reveal-delay-3">Penglai is the mythical island mountain in the <i>Records of the Grand Historian</i> — everyone has heard of it, almost nobody has set foot on it. Today's AI is to ordinary people what Penglai was to the ancients; APIs, terminals, and config files are the fog on the sea. We want to bring the immortal mountain into your chat window: <b>no navigation to learn — if you can send a message, you can reach the island.</b> As the legend goes, "eight immortals cross the sea, each showing their own powers" — many models, many channels, each in its own way, all serving the same you.</p>
+          <div class="story-sign reveal reveal-delay-3">— the author of Penglai, after the 0.4 rewrite</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 3. One core, project-scoped boundaries ========== -->
+    <section class="section" id="modes">
+      <div class="section-inner">
+        <div class="section-label reveal">One surface</div>
+        <h2 class="section-title reveal reveal-delay-1">Same assistant; projects only tighten its boundary</h2>
+        <p class="section-desc reveal reveal-delay-2">There is no "lite mode." The assistant you chat with in the terminal is the same one that writes files in a trusted project — tools, budgets, and approvals never change with the label; only the boundary does.</p>
+        <div class="modes-grid">
+          <div class="mode-card chat reveal">
+            <div class="mode-tag"><span class="zh">浮动</span><span class="en">FLOATING</span></div>
+            <p>Anchored at its own ground (memory and drafts): questions, drafts, thinking out loud.</p>
+            <ul class="mode-list">
+              <li>Chats with you, answers questions, reads files — streaming turns, instant replies</li>
+              <li>When the conversation turns to changing project files, it proposes anchoring instead of acting on its own</li>
+              <li>The full toolset is always in its hands; what stops it is approval and the jail, not a "mode"</li>
+            </ul>
           </div>
-          <div class="mockup-body" style="padding: 12px;">
-            <div style="display:flex; height:100%; gap:6px;">
-              <!-- Left sidebar -->
-              <div style="width:30%; background:#F3F2EE; border-radius:6px; padding:6px; display:flex; flex-direction:column; gap:4px;">
-                <div style="font-size:8px; font-weight:700; color:#1A1A1A; padding:2px 4px;">Penglai Agent</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px; background:#FAFAF7; border-radius:3px;">💬 Chat Workspace</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">▶ Run History</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">📡 Channel Manager</div>
-                <div style="font-size:6px; color:#5A5A55; padding:2px 4px;">✨ Skill Manager</div>
-              </div>
-              <!-- Right chat area -->
-              <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
-                <div style="font-size:7px; color:#8A8A82; text-align:center;">Today 14:30</div>
-                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">Check today's server status</div>
-                <div style="align-self:flex-end; background:#C44531; color:#fff; padding:4px 6px; border-radius:6px 0 6px 6px; font-size:7px; max-width:80%;">Runtime Hub running normally ✅&#10;CPU 23% · Memory 45%&#10;3 alerts resolved</div>
-                <div style="align-self:flex-start; background:#F3F2EE; padding:4px 6px; border-radius:0 6px 6px 6px; font-size:7px; color:#1A1A1A; max-width:80%;">Thanks!</div>
-              </div>
+          <div class="mode-card work reveal reveal-delay-1">
+            <div class="mode-tag"><span class="zh">项目锚定</span><span class="en">ANCHORED</span></div>
+            <p>Anchored to a project directory you explicitly trust: long autonomous loops, fully inside the project jail.</p>
+            <ul class="mode-list">
+              <li>Writes code, runs commands, edits files — all inside the realpath-checked jail</li>
+              <li>Anchoring ≠ trust: work starts only with your nod; key operations are approvable and revertible</li>
+              <li>On completion it self-reviews, records evidence and cost, and can cite the artifacts back in the conversation</li>
+            </ul>
+          </div>
+        </div>
+        <p class="modes-foot reveal reveal-delay-1">A permission dial (plan → confirm → auto-edit → full) tunes how often you are asked; the four-level ladder is one backbone</p>
+        <figure class="shot modes-shot reveal">
+          <div class="shot-frame">
+            <div class="shot-bar"><i></i><i></i><i></i><span>Real execution replay</span></div>
+            <img src="../shots/desktop-conversation.webp" alt="Penglai's single conversation surface: a floating turn proposes a project anchor, then completes inside the jail with evidence" width="1600" height="1000" loading="lazy">
+          </div>
+          <figcaption class="shot-caption">An end-to-end test replay: the model is a scripted local endpoint; every other step runs production code paths.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ========== 4. Three things ========== -->
+    <section class="section" id="trio">
+      <div class="section-inner">
+        <div class="section-label reveal">Why Penglai</div>
+        <h2 class="section-title reveal reveal-delay-1">Three things others can't give you</h2>
+        <div class="trio-grid">
+          <div class="trio-card reveal">
+            <div class="trio-num">其一 · I</div>
+            <h3>Presence</h3>
+            <div class="trio-sub">Living inside your IM</div>
+            <p>No new app to install, no terminal to babysit. It lives in your Feishu — one message away on your commute or your lunch break. The next stop for agents isn't the IDE; it's the chat window you already open every day.</p>
+          </div>
+          <div class="trio-card reveal reveal-delay-1">
+            <div class="trio-num">其二 · II</div>
+            <h3>Sovereignty</h3>
+            <div class="trio-sub">Persistent data is self-hosted on your machine</div>
+            <p>Chats, memory, abilities and credentials are persisted on your hardware; logs are redacted before disk and none of this ships in a distribution. A call to your chosen BYOK model sends the prompt and context needed for that task to its endpoint.</p>
+          </div>
+          <div class="trio-card reveal reveal-delay-2">
+            <div class="trio-num">其三 · III</div>
+            <h3>Evolution</h3>
+            <div class="trio-sub">A skill tree rooted locally</div>
+            <p>Every finished task is automatically reviewed, distilled into an SOP, and admitted to the skill tree only after an audit. The next similar job runs faster and steadier — it grows stronger on your machine, not pricier.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 5. Capabilities ========== -->
+    <section class="section" id="abilities">
+      <div class="section-inner">
+        <div class="section-label reveal">Capabilities</div>
+        <h2 class="section-title reveal reveal-delay-1">What 0.4.0 actually does</h2>
+        <p class="section-desc reveal reveal-delay-2">Every item below is covered by the current 0.4.0 code and local acceptance — this is not a roadmap.</p>
+        <div class="ability-grid">
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+            <h3>Full penglai CLI</h3>
+            <p>Run it bare and chat; a first-run wizard wires up your model. doctor, status, migrate — one command each. <code>doctor --export</code> creates a redacted support bundle that excludes credentials and product state.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="11" cy="14" r="3"/><line x1="13.2" y1="16.2" x2="16" y2="19"/></svg></div>
+            <h3>Documents and the public Web</h3>
+            <p>Import and read PDF, Word, Excel and PowerPoint; create standard PDF, DOCX, XLSX and PPTX deliverables; preview common document and code artifacts as read-only text inside Desktop; search and fetch real public pages with source links. Every network call asks you first.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+            <h3>Four-tier approvals</h3>
+            <p>L1 autonomous / L2 one-click / L3 mandatory confirm + trace / L4 refuse — fully logged and replayable.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+            <h3>Feishu channel</h3>
+            <p>Chat, kick-off, progress, and approval cards — the full workflow closes the loop inside the IM.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg></div>
+            <h3>Skills and MCP ecosystem</h3>
+            <p>Install, verify, enable and remove local/GitHub Agent Skills. MCP is manual-connect only, never auto-started, and every tool call requires fresh L3 approval. Distilled SOPs still enter through audit.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+            <h3>Cost circuit breaker</h3>
+            <p>A visible usage ledger; when the budget trips, it breaks first and asks later — never silently burns.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+            <h3>Local voice</h3>
+            <p>SenseVoice ASR plus the complete MOSS-TTS-Nano ONNX CPU pipeline; Desktop recording and per-message playback stay local.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.8-7.8a5.5 5.5 0 0 0 1-7.8z"/></svg></div>
+            <h3>Active companionship</h3>
+            <p>Off by default. Choose quiet, present, or active; morning/evening opportunities and emotion follow-ups still use the same EpisodeRunner.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <h3>One-command 0.3 → 0.4 migration</h3>
+            <p>Memory, model profiles, and identity come over from 0.3 in a single command.</p>
+          </div>
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
+            <h3>Desktop evidence rail</h3>
+            <p>Safe Markdown, ordinary-file inbox, full searchable history and completion notifications; jailed evidence artifacts preview, open or reveal in Finder, with every fact grounded in observation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 6. Feishu approval (illustrative render) ========== -->
+    <section class="section" id="approval">
+      <div class="section-inner">
+        <div class="split">
+          <div class="split-copy reveal">
+            <div class="section-label">Approvals</div>
+            <h3>The nod happens in the chat</h3>
+            <p>Operations that change external state — pushes, publishes, destructive edits — require your confirmation under the four-tier policy. Approval cards land right in the Feishu conversation: <b>level, action, reason, task</b> at a glance, approve or reject in one tap.</p>
+            <p>Who asked, who decided, and when — <b>all logged and replayable</b>. Buttons optional: replying "approve b3f1c9a2" works just the same.</p>
+          </div>
+          <figure class="shot reveal reveal-delay-1">
+            <div class="shot-frame">
+              <img src="../shots/feishu-approval.webp" alt="Penglai L3 approval card in a Feishu conversation: level, task, action, reason, and approve/reject buttons (illustrative render)" width="980" height="700" loading="lazy">
+            </div>
+            <figcaption class="shot-caption">An L3 approval card in Feishu (illustrative render; the card structure comes from the product's real protocol).</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 7. Architecture ========== -->
+    <section class="section" id="architecture">
+      <div class="section-inner" style="text-align:center;">
+        <div class="section-label reveal" style="text-align:left;">Architecture</div>
+        <h2 class="section-title reveal reveal-delay-1" style="text-align:left;">One core, three classes of thin clients</h2>
+        <p class="section-desc reveal reveal-delay-2" style="text-align:left;">The headless Host is the only product core. CLI, Desktop, Feishu, and WeChat are thin clients — every fact comes from the Host; clients hold no product state.</p>
+        <div class="arch reveal">
+          <svg class="arch-svg" viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Penglai 0.4 architecture: CLI, Desktop, and Feishu/WeChat thin-client classes connect to the headless Host core, which embeds the Pi open-source kernel and connects to BYOK model providers">
+            <defs>
+              <style>
+                .node { fill: var(--surface, #fff); stroke: var(--line-strong, #D4CFC4); stroke-width: 1.2; }
+                .node-title { font: 600 15px var(--font-sans, sans-serif); fill: var(--ink, #1A1A1A); }
+                .node-sub { font: 12px var(--font-sans, sans-serif); fill: var(--ink-3, #8A8A82); }
+                .host-box { fill: none; stroke: var(--cinnabar, #C44531); stroke-width: 1.6; stroke-dasharray: 6 4; rx: 18; }
+                .host-title { font: 700 17px var(--font-serif, serif); fill: var(--cinnabar, #C44531); }
+                .edge { stroke: var(--line-strong, #D4CFC4); stroke-width: 1.4; fill: none; }
+                .edge-label { font: 11px var(--font-sans, sans-serif); fill: var(--ink-3, #8A8A82); }
+                .pi-box { fill: var(--surface-2, #F6F4EE); stroke: var(--gold, #B98A2E); stroke-width: 1.2; }
+              </style>
+            </defs>
+
+            <!-- Three thin-client classes: CLI, Desktop, and IM (Feishu / WeChat) -->
+            <g>
+              <rect class="node" x="60" y="40" width="190" height="64" rx="12"/>
+              <text class="node-title" x="155" y="68" text-anchor="middle">penglai CLI</text>
+              <text class="node-sub" x="155" y="90" text-anchor="middle">run bare &amp; chat · full ops</text>
+            </g>
+            <g>
+              <rect class="node" x="60" y="168" width="190" height="64" rx="12"/>
+              <text class="node-title" x="155" y="196" text-anchor="middle">Desktop workbench</text>
+              <text class="node-sub" x="155" y="218" text-anchor="middle">Tauri · tasks + evidence rail</text>
+            </g>
+            <g>
+              <rect class="node" x="60" y="296" width="190" height="64" rx="12"/>
+              <text class="node-title" x="155" y="324" text-anchor="middle">Feishu / WeChat</text>
+              <text class="node-sub" x="155" y="346" text-anchor="middle">chat · tasks · approval · presence</text>
+            </g>
+
+            <!-- Headless Host core -->
+            <rect class="host-box" x="420" y="96" width="250" height="208" rx="18"/>
+            <text class="host-title" x="545" y="132" text-anchor="middle">Headless Host</text>
+            <text class="node-sub" x="545" y="154" text-anchor="middle">sole product core · one surface · L1–L4</text>
+            <rect class="pi-box" x="456" y="176" width="178" height="84" rx="12"/>
+            <text class="node-title" x="545" y="210" text-anchor="middle">Pi open-source kernel</text>
+            <text class="node-sub" x="545" y="232" text-anchor="middle">@earendil-works/pi-agent-core</text>
+            <text class="node-sub" x="545" y="250" text-anchor="middle">MIT</text>
+
+            <!-- BYOK models -->
+            <g>
+              <rect class="node" x="760" y="140" width="140" height="120" rx="12"/>
+              <text class="node-title" x="830" y="176" text-anchor="middle">BYOK models</text>
+              <text class="node-sub" x="830" y="200" text-anchor="middle">11-vendor catalog</text>
+              <text class="node-sub" x="830" y="220" text-anchor="middle">any OpenAI-</text>
+              <text class="node-sub" x="830" y="238" text-anchor="middle">compatible endpoint</text>
+            </g>
+
+            <!-- Edges -->
+            <path class="edge" d="M250 72 C 340 72, 340 130, 415 145"/>
+            <path class="edge" d="M250 200 C 330 200, 340 200, 415 200"/>
+            <path class="edge" d="M250 328 C 340 328, 340 270, 415 255"/>
+            <path class="edge" d="M670 200 L 755 200"/>
+            <text class="edge-label" x="332" y="52" text-anchor="middle">thin clients</text>
+            <text class="edge-label" x="712" y="188" text-anchor="middle">your keys</text>
+          </svg>
+        </div>
+        <p class="arch-note reveal">0.3 ran on GenericAgent (with gratitude — the "genes"); in the 0.4 rewrite, Pi is the engine and the Host is the product.</p>
+      </div>
+    </section>
+
+    <!-- ========== 8. Security & BYOK ========== -->
+    <section class="section" id="security">
+      <div class="section-inner">
+        <div class="section-label reveal">Security &amp; privacy</div>
+        <h2 class="section-title reveal reveal-delay-1">Deterministic guardrails, not model self-awareness</h2>
+        <div class="guard-grid">
+          <div class="guard-card reveal">
+            <h3>Data sovereignty</h3>
+            <ul class="guard-list">
+              <li><b>Self-hosted by default</b>API keys, chat history, long-term memory and channel credentials are persisted locally; model calls send only the prompt and context needed for the current task.</li>
+              <li><b>Auditable approvals</b>For every tier: who asked, who decided, and when — all logged and replayable.</li>
+              <li><b>Injection defenses</b>Document, web and MCP results are wrapped as untrusted data; fake system or owner instructions inside them have no authority, and sensitive actions still pass deterministic approval.</li>
+              <li><b>Voice stays local</b>SenseVoice ASR + MOSS-TTS-Nano run entirely on your CPU — voice data never leaves the machine.</li>
+            </ul>
+          </div>
+          <div class="guard-card reveal reveal-delay-1">
+            <h3>BYOK · bring your own key</h3>
+            <ul class="guard-list">
+              <li><b>Built-in 11-vendor catalog</b>The setup wizard live-tests each step; keys are stored in a 0600 private file on your machine.</li>
+              <li><b>OpenAI-compatible endpoints</b>Public gateways require HTTPS; plain HTTP is restricted to exact localhost / 127.0.0.1 / ::1.</li>
+            </ul>
+            <div class="provider-row">
+              <span>DeepSeek</span><span>Volcano Ark</span><span>Alibaba Bailian</span><span>Zhipu</span><span>MiniMax</span><span>Kimi</span><span>OpenRouter</span><span>…</span><span>OpenAI-compatible</span>
             </div>
           </div>
         </div>
-        <!-- Feishu Mockup -->
-        <div class="hero-mockup">
-          <div class="mockup-header">
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <span class="mockup-title">Feishu Channel</span>
-          </div>
-          <div class="mockup-body">
-            <div class="mockup-chat">
-              <div class="mockup-bubble user">Today's server monitoring report</div>
-              <div class="mockup-bubble bot">Generating daily report, please wait...</div>
-              <div class="mockup-bubble bot">Report ready: CPU 23%, Memory 45%, 3 alerts resolved.</div>
-            </div>
-          </div>
-        </div>
-        <!-- Terminal Mockup -->
-        <div class="hero-mockup">
-          <div class="mockup-header">
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <span class="mockup-title">Terminal</span>
-          </div>
-          <div class="mockup-body">
-            <div class="mockup-terminal">
-              <div><span class="prompt">$</span> <span class="cmd">penglai</span> start</div>
-              <div style="color:#4CAF50;">Runtime Hub started :8200</div>
-              <div><span class="prompt">$</span> <span class="cmd">penglai</span> chat "Today's summary"</div>
-              <div>Processing request...</div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ========== Story Section ========== -->
-  <section class="story" id="story">
-    <div class="story-inner">
-      <div class="story-label reveal">Founder's Note</div>
-      <blockquote class="story-quote reveal reveal-delay-1">
-        I spent ten years in networking, security, and ops — but I never learned to code. Every line in Penglai was written by me speaking to AI coding tools, one sentence at a time.
-      </blockquote>
-      <blockquote class="story-quote-2 reveal reveal-delay-2">
-        Penglai is the very thing it set out to prove: in the AI era, ordinary people can build their own tools.
-      </blockquote>
-      <p class="story-author reveal reveal-delay-3">—— Kevin Chen, Founder of Penglai</p>
-
-      <div class="story-origin reveal reveal-delay-4">
-        <p><strong>Why "Penglai"?</strong> In Chinese mythology, Penglai is a legendary island of immortals on the sea — beautiful, yet forever out of reach. This project reclaims that name to say: those seemingly distant AI capabilities can actually be within reach — installed on your own machine, driven by the tools you already know.</p>
-        <p>This is a Penglai that is within reach.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Architecture Section — Eight Immortals Cross the Sea ========== -->
-  <section class="architecture" id="architecture">
-    <div class="section-inner">
-      <div class="section-header">
-        <div class="section-label reveal">Architecture</div>
-        <h2 class="section-title reveal reveal-delay-1">Eight Immortals Cross the Sea</h2>
-        <p class="section-desc reveal reveal-delay-2">Multiple channels, capabilities, and models working in harmony — each module crosses the sea its own way, serving the same you</p>
-      </div>
-
-      <!-- Dynamic SVG Architecture Diagram -->
-      <div class="arch-diagram reveal">
-        <!-- Glow orbs -->
-        <div class="glow-orb" style="top:30%; left:35%;"></div>
-        <div class="glow-orb" style="top:50%; left:55%; animation-delay:-3s;"></div>
-
-        <svg viewBox="0 0 900 420" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#1685A9" stop-opacity="0.1"/>
-              <stop offset="50%" stop-color="#1CA3D4" stop-opacity="0.6"/>
-              <stop offset="100%" stop-color="#1685A9" stop-opacity="0.1"/>
-            </linearGradient>
-            <radialGradient id="hub-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#1CA3D4" stop-opacity="0.15"/>
-              <stop offset="100%" stop-color="#1CA3D4" stop-opacity="0"/>
-            </radialGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="2" result="blur"/>
-              <feMerge>
-                <feMergeNode in="blur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-          </defs>
-
-          <!-- Glow orb behind hub -->
-          <circle cx="450" cy="210" r="80" fill="url(#hub-glow)" class="arch-node-glow"/>
-
-          <!-- Connection lines from channels to hub -->
-          <line x1="150" y1="70" x2="400" y2="180" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="300" y1="50" x2="420" y2="180" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="450" y1="55" x2="450" y2="175" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="600" y1="50" x2="480" y2="180" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="750" y1="70" x2="500" y2="180" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-
-          <!-- Connection lines from hub to core -->
-          <line x1="380" y1="240" x2="220" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="430" y1="245" x2="350" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="470" y1="245" x2="550" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-          <line x1="520" y1="240" x2="700" y2="340" stroke="url(#line-grad)" stroke-width="1.5" class="flow-line"/>
-
-          <!-- Channel nodes (top row) -->
-          <g filter="url(#glow)">
-            <!-- Desktop -->
-            <rect x="110" y="30" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="150" y="55" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Desktop</text>
-            <!-- Feishu -->
-            <rect x="260" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="300" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Feishu</text>
-            <!-- WeChat -->
-            <rect x="410" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="450" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">WeChat</text>
-            <!-- Terminal -->
-            <rect x="560" y="15" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="600" y="40" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Terminal</text>
-            <!-- DingTalk -->
-            <rect x="710" y="30" width="80" height="40" rx="8" fill="#FFFFFF" stroke="#B98A2E" stroke-width="1"/>
-            <text x="750" y="55" text-anchor="middle" fill="#B98A2E" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">DingTalk</text>
-          </g>
-
-          <!-- Central Hub Node -->
-          <g filter="url(#glow)">
-            <circle cx="450" cy="210" r="42" fill="#FFFFFF" stroke="#1CA3D4" stroke-width="2"/>
-            <circle cx="450" cy="210" r="38" fill="none" stroke="#1CA3D4" stroke-width="0.5" stroke-opacity="0.3"/>
-            <text x="450" y="205" text-anchor="middle" fill="#1685A9" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="700">Runtime</text>
-            <text x="450" y="220" text-anchor="middle" fill="#1685A9" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="700">Hub</text>
-          </g>
-
-          <!-- Core nodes (bottom row) -->
-          <g filter="url(#glow)">
-            <!-- GenericAgent -->
-            <rect x="150" y="330" width="120" height="44" rx="10" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="210" y="357" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">GenericAgent</text>
-            <!-- Voice Stack -->
-            <rect x="290" y="330" width="120" height="44" rx="10" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="350" y="357" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Voice Stack</text>
-            <!-- Memory -->
-            <rect x="480" y="330" width="120" height="44" rx="10" fill="#FFFFFF" stroke="#1685A9" stroke-width="1"/>
-            <text x="540" y="357" text-anchor="middle" fill="#1A1A1A" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Memory</text>
-            <!-- Safety -->
-            <rect x="640" y="330" width="120" height="44" rx="10" fill="#FFFFFF" stroke="#C44531" stroke-width="1"/>
-            <text x="700" y="357" text-anchor="middle" fill="#C44531" font-size="11" font-family="system-ui, PingFang SC, sans-serif" font-weight="500">Safety</text>
-          </g>
-
-          <!-- Labels -->
-          <text x="450" y="130" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CHANNELS</text>
-          <text x="450" y="310" text-anchor="middle" fill="#8A8A82" font-size="10" font-family="system-ui, PingFang SC, sans-serif" font-weight="500" letter-spacing="0.1em">CORE CAPABILITIES</text>
-        </svg>
-      </div>
-
-      <!-- Code snippet panel -->
-      <div class="arch-code reveal">
-        <div class="arch-code-bar">
-          <span class="arch-code-dot"></span>
-          <span class="arch-code-dot"></span>
-          <span class="arch-code-dot"></span>
-          <span>One command to add a new channel</span>
-        </div>
-        <div class="arch-code-body">
-          <div><span class="hash-comment"># Enable Feishu channel (scan QR to auto-create app)</span></div>
-          <div><span class="command">penglai</span> <span class="flag">enable</span> feishu</div>
-          <div>&nbsp;</div>
-          <div><span class="hash-comment"># Start Runtime Hub service</span></div>
-          <div><span class="command">penglai</span> <span class="flag">start</span></div>
-          <div>&nbsp;</div>
-          <div><span class="hash-comment"># Enable proactive companion mode</span></div>
-          <div><span class="command">penglai</span> <span class="flag">companion</span> enable</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Core Features Section ========== -->
-  <section class="features" id="features">
-    <div class="section-inner">
-      <div class="section-header">
-        <div class="section-label reveal">Key Metrics</div>
-        <h2 class="section-title reveal reveal-delay-1">Numbers That Speak</h2>
-        <p class="section-desc reveal reveal-delay-2">Not features on a roadmap — capabilities running daily on real servers</p>
-      </div>
-
-      <!-- Metrics Grid -->
-      <div class="metrics-grid">
-        <div class="metric-card reveal">
-          <div class="metric-number"><span class="counter" data-target="8">0</span></div>
-          <div class="metric-label">Channels</div>
-          <div class="metric-desc">Desktop, Feishu, WeChat, Terminal, DingTalk, QQ, WeCom, Telegram</div>
-        </div>
-        <div class="metric-card reveal reveal-delay-1">
-          <div class="metric-number"><span class="counter" data-target="4">0</span></div>
-          <div class="metric-label">Memory Layers</div>
-          <div class="metric-desc">Index, Fact, Skill, Session — fully Markdown-auditable</div>
-        </div>
-        <div class="metric-card reveal reveal-delay-2">
-          <div class="metric-number"><span class="counter" data-target="0">0</span></div>
-          <div class="metric-label">Data Leaks</div>
-          <div class="metric-desc">Local CPU voice inference, data stays on your machine by default</div>
-        </div>
-        <div class="metric-card reveal reveal-delay-3">
-          <div class="metric-number"><span class="counter" data-target="10">0</span></div>
-          <div class="metric-label">Minutes to Start</div>
-          <div class="metric-desc">Scan QR to connect, one command, up and running in ten minutes</div>
-        </div>
-      </div>
-
-      <!-- Feature Cards -->
-      <div class="feature-grid">
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🎙️</div>
-            <h3 class="feature-title">Local Voice Dual-Stack</h3>
-          </div>
-          <p class="feature-desc">
-            SenseVoice speech recognition + MOSS-TTS speech synthesis, all running on your local CPU. No GPU, no cloud services —
-            just say a word to interact, without touching anything beyond microphone permissions.
-          </p>
-          <a href="#" class="feature-link" onclick="return false;">
-            Learn more
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </a>
-        </div>
-        <div class="feature-card reveal reveal-delay-1">
-          <div class="feature-card-header">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">Deterministic Safety Guardrails</h3>
-          </div>
-          <p class="feature-desc">
-            A rule-based safety layer that does not rely on AI judgment. Tool-call whitelists, tiered permissions, operation audit logs —
-            every step is deterministic logic, reviewable and accountable.
-          </p>
-          <a href="#" class="feature-link" onclick="return false;">
-            Learn more
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </a>
-        </div>
-        <div class="feature-card reveal reveal-delay-2">
-          <div class="feature-card-header">
-            <div class="feature-icon">🧐</div>
-            <h3 class="feature-title">Anti-Hallucination Double-Safety</h3>
-          </div>
-          <p class="feature-desc">
-            A four-layer memory architecture ensures the agent "knows" what it knows and what it doesn't. The fact layer stores verified information,
-            the index layer provides contextual retrieval, effectively reducing AI-fabricated content.
-          </p>
-          <a href="#" class="feature-link" onclick="return false;">
-            Learn more
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </a>
-        </div>
-        <div class="feature-card reveal reveal-delay-3">
-          <div class="feature-card-header">
-            <div class="feature-icon">🌙</div>
-            <h3 class="feature-title">Proactive Without Being Annoying</h3>
-          </div>
-          <p class="feature-desc">
-            Not a passive bot that replies to every message. Penglai Agent can proactively inspect systems, send scheduled reports, and trigger anomaly alerts,
-            while strictly respecting do-not-disturb hours and frequency limits — working for you without bothering you.
-          </p>
-          <a href="#" class="feature-link" onclick="return false;">
-            Learn more
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Channel Showcase ========== -->
-  <section class="channels" id="channels">
-    <div class="section-inner">
-      <div class="section-header">
-        <div class="section-label reveal">Channel Matrix</div>
-        <h2 class="section-title reveal reveal-delay-1">One Butler, Many Doors</h2>
-        <p class="section-desc reveal reveal-delay-2">Your AI Agent should live wherever you already open every day</p>
-      </div>
-
-      <div class="channels-grid">
-        <!-- Desktop -->
-        <div class="channel-card reveal">
-          <div class="channel-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <div class="channel-name">Desktop Client</div>
-          <div class="channel-status verified">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            Verified
-          </div>
-          <div class="channel-voice">🎙️ Voice support</div>
-          <div class="channel-cmd">Download Desktop</div>
-        </div>
-        <!-- Feishu -->
-        <div class="channel-card reveal reveal-delay-1">
-          <div class="channel-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div class="channel-name">Feishu</div>
-          <div class="channel-status verified">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            Verified
-          </div>
-          <div class="channel-voice">🎙️ Voice support</div>
-          <div class="channel-cmd">penglai enable feishu</div>
-        </div>
-        <!-- WeChat -->
-        <div class="channel-card reveal reveal-delay-2">
-          <div class="channel-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          </div>
-          <div class="channel-name">WeChat</div>
-          <div class="channel-status verified">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            Verified
-          </div>
-          <div class="channel-voice">🎙️ Voice support</div>
-          <div class="channel-cmd">penglai enable wechat</div>
-        </div>
-        <!-- Terminal -->
-        <div class="channel-card reveal reveal-delay-3">
-          <div class="channel-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          </div>
-          <div class="channel-name">Terminal</div>
-          <div class="channel-status verified">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            Verified
-          </div>
-          <div class="channel-voice">🎙️ Voice support</div>
-          <div class="channel-cmd">penglai</div>
-        </div>
-      </div>
-
-      <!-- Pending channels -->
-      <div class="channels-pending">
-        <div class="channel-card-mini reveal">
-          <div class="channel-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </div>
-          <div class="channel-name">DingTalk</div>
-          <div class="channel-status pending">⚠️ Pending</div>
-        </div>
-        <div class="channel-card-mini reveal reveal-delay-1">
-          <div class="channel-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-          </div>
-          <div class="channel-name">QQ</div>
-          <div class="channel-status pending">⚠️ Pending</div>
-        </div>
-        <div class="channel-card-mini reveal reveal-delay-2">
-          <div class="channel-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-          <div class="channel-name">WeCom</div>
-          <div class="channel-status pending">⚠️ Pending</div>
-        </div>
-        <div class="channel-card-mini reveal reveal-delay-3">
-          <div class="channel-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          </div>
-          <div class="channel-name">Telegram</div>
-          <div class="channel-status pending">⚠️ Pending</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Install Section ========== -->
-  <section class="install" id="install">
-    <div class="section-inner">
-      <div class="section-header">
-        <div class="section-label reveal">Quick Start</div>
-        <h2 class="section-title reveal reveal-delay-1">Get Started</h2>
-        <p class="section-desc reveal reveal-delay-2">Three methods — pick whichever suits you</p>
-      </div>
-
-      <div class="install-tabs reveal" id="installTabs">
-        <div class="tab-indicator" id="tabIndicator"></div>
-        <button class="install-tab active" data-tab="desktop">Desktop Client</button>
-        <button class="install-tab" data-tab="cli">Command Line</button>
-        <button class="install-tab" data-tab="pip">pip</button>
-      </div>
-
-      <!-- Desktop Panel -->
-      <div class="install-panel active" id="panel-desktop">
-        <div class="install-steps">
-          <div class="install-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <p class="step-text">Download the 0.3.6 installer for your platform (macOS Apple Silicon / macOS Intel x64 / Windows x64). Desktop packages include the Penglai runtime, standalone Python, and core dependencies.</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="https://github.com/kevinchennewbee/PenglaiAgent/releases/latest">Copy</button>
-                https://github.com/kevinchennewbee/PenglaiAgent/releases/latest
+    <!-- ========== 9. Quick start ========== -->
+    <section class="section" id="start">
+      <div class="section-inner">
+        <div class="section-label reveal">Quick start</div>
+        <h2 class="section-title reveal reveal-delay-1">Three commands to wake it up</h2>
+        <div class="quick-grid">
+          <div class="reveal">
+            <div class="term">
+              <div class="term-bar"><i></i><i></i><i></i></div>
+              <div class="term-body">
+                <div class="term-line"><span class="prompt">$ </span>npm ci</div>
+                <div class="term-line"><span class="prompt">$ </span>npm run cli -w @penglai/host -- setup</div>
+                <div class="term-line"><span class="prompt">$ </span>npm run cli -w @penglai/host -- chat</div>
+                <div class="term-comment"># Configure once, then enter the same conversation surface</div>
               </div>
             </div>
           </div>
-          <div class="install-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <p class="step-text">Open the installer — drag to Applications (Mac) or follow the setup wizard (Windows). First launch no longer requires manual Python, source checkout, or live pip downloads.</p>
+          <div class="quick-notes reveal reveal-delay-1">
+            <div class="quick-note">
+              <span class="qn-num">1</span>
+              <div><b>A one-minute first-run wizard.</b>Pick a vendor → pick billing → pick a model → paste your key → a real call verifies it — paged, in Chinese and English.</div>
+            </div>
+            <div class="quick-note">
+              <span class="qn-num">2</span>
+              <div><b>Rather avoid the terminal?</b>Grab the macOS installer from <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases" target="_blank" rel="noopener">GitHub Releases</a> — the desktop's first launch opens the very same wizard: pick a vendor, verify the key, watch the identity being born, then land in the workbench.</div>
+            </div>
+            <div class="quick-note">
+              <span class="qn-num">3</span>
+              <div><b>Coming from 0.3?</b>One command migrates your memory, model profiles, and identity — the old butler gets a new engine seamlessly.</div>
             </div>
           </div>
-          <div class="install-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <p class="step-text">Launch Penglai Desktop and follow the wizard to configure your first Agent. In-app update metadata now defaults to mainland-friendly gh-proxy asset URLs.</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="Open Penglai → Click Get Started">Copy</button>
-                Open Penglai → Click "Get Started"
-              </div>
-            </div>
+        </div>
+        <figure class="shot quick-shot reveal">
+          <div class="shot-frame">
+            <div class="shot-bar"><i></i><i></i><i></i><span>penglai setup</span></div>
+            <img src="../shots/cli-wizard.webp" alt="Real capture of the Penglai first-run wizard: 11-vendor catalog, billing modes, model selection, key verification" width="963" height="1231" loading="lazy">
           </div>
+          <figcaption class="shot-caption">A real capture of the first-run wizard: a built-in 11-vendor catalog plus any OpenAI-compatible endpoint; keys live in a private file on your machine.</figcaption>
+        </figure>
+        <div class="quick-shots-duo">
+          <figure class="shot reveal">
+            <div class="shot-frame">
+              <div class="shot-bar"><i></i><i></i><i></i><span>Penglai Desktop · first-run wizard</span></div>
+              <img src="../shots/desktop-wizard-provider.webp" alt="Real capture of the desktop first-run wizard: vendor picker with the 11-vendor catalog plus a custom OpenAI-compatible endpoint" width="1600" height="1120" loading="lazy">
+            </div>
+            <figcaption class="shot-caption">The desktop's first launch opens the same wizard: the shared 11-vendor catalog plus custom endpoints, every step reversible.</figcaption>
+          </figure>
+          <figure class="shot reveal reveal-delay-1">
+            <div class="shot-frame">
+              <div class="shot-bar"><i></i><i></i><i></i><span>Penglai Desktop · the identity is born</span></div>
+              <img src="../shots/desktop-wizard-identity.webp" alt="Real capture of the desktop first-run wizard: after the smoke test passes, naming the assistant and holding the birth ceremony — self-introduction and seed disciplines entering the skill tree" width="1600" height="1120" loading="lazy">
+            </div>
+            <figcaption class="shot-caption">Once the key passes a real call, give it a name — it introduces itself, seed disciplines pass audit into the skill tree. Once, and only once.</figcaption>
+          </figure>
         </div>
       </div>
+    </section>
 
-      <!-- CLI Panel -->
-      <div class="install-panel" id="panel-cli">
-        <div class="install-steps">
-          <div class="install-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <p class="step-text">Install Penglai CLI with one command (auto-provisions Python &amp; deps)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh">Copy</button>
-                curl -fsSL https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/main/install.sh | sh
-              </div>
-            </div>
+    <!-- ========== 10. License & acknowledgments ========== -->
+    <section class="section" id="legal">
+      <div class="section-inner">
+        <div class="section-label reveal">License &amp; thanks</div>
+        <h2 class="section-title reveal reveal-delay-1">License &amp; Brand</h2>
+        <div class="legal-grid">
+          <div class="legal-card reveal">
+            <h3>License</h3>
+            <p><b>Code:</b> <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>. The Pi kernel's copyright notice is preserved in full; the Penglai layer is MIT too — use, modify, and commercialize freely.</p>
+            <p><b>Brand:</b> the "Penglai" / "蓬莱" name, logo, and visual assets are <b>all rights reserved</b> and are not covered by the code license. Please obtain written permission before using them for your distribution, derivative, or commercial naming.</p>
+            <p><b>The 0.3 line:</b> the GenericAgent-based Python product is frozen at <code>v0.3.6</code>; 0.4.0 is a TypeScript rewrite. This page describes locally accepted release-candidate capabilities; the final <code>main</code> and Release remain the Owner's publishing decision.</p>
           </div>
-          <div class="install-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <p class="step-text">Start Runtime Hub service (Feishu + WeChat + scheduler)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="penglai start">Copy</button>
-                penglai start
-              </div>
-            </div>
+          <div class="legal-card reveal reveal-delay-1">
+            <h3>Acknowledgments — standing on these projects</h3>
+            <ul class="ack-list">
+              <li><a href="https://github.com/earendil-works/pi-agent-core" target="_blank" rel="noopener">Pi · @earendil-works/pi-agent-core</a><span class="lic">MIT</span> — the engine: 0.4's open-source kernel</li>
+              <li><a href="https://github.com/lsdefine/GenericAgent" target="_blank" rel="noopener">GenericAgent</a><span class="lic">MIT</span> — the genes: 0.3's execution core, and the cleanest agent loop we've seen</li>
+              <li><a href="https://github.com/FunAudioLLM/SenseVoice" target="_blank" rel="noopener">SenseVoice</a><span class="lic">MIT</span> · <a href="https://github.com/k2-fsa/sherpa-onnx" target="_blank" rel="noopener">sherpa-onnx</a><span class="lic">Apache-2.0</span> — local voice</li>
+              <li><a href="https://github.com/tauri-apps/tauri" target="_blank" rel="noopener">Tauri</a><span class="lic">MIT/Apache-2.0</span> — the desktop shell</li>
+              <li><a href="https://www.moonshot.cn/" target="_blank" rel="noopener">Kimi K3 + Kimi Work</a> — built with: 0.4.0 was designed and implemented by Kimi K3 in Kimi Work</li>
+            </ul>
           </div>
-          <div class="install-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <p class="step-text">Start chatting (direct TUI, equivalent to upstream GA tuiapp_v2)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="penglai">Copy</button>
-                penglai
-              </div>
-            </div>
-          </div>
+        </div>
+        <div class="legacy-note reveal">
+          Official channels: this GitHub repository and this site only. Never enter API keys, bot tokens, or account credentials on unofficial sites or bots. For vulnerability reports, redact first — see <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a> and <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/PRIVACY_AND_DATA.md" target="_blank" rel="noopener">Privacy and local data</a>.
         </div>
       </div>
+    </section>
 
-      <!-- Pip Panel -->
-      <div class="install-panel" id="panel-pip">
-        <div class="install-steps">
-          <div class="install-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <p class="step-text">Install Penglai core via pip (PyPI package name: penglai)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="pip install penglai">Copy</button>
-                pip install penglai
-              </div>
-            </div>
-          </div>
-          <div class="install-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <p class="step-text">Run the setup wizard (auto-configures LLM, identity, channels, abilities)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="penglai setup">Copy</button>
-                penglai setup
-              </div>
-            </div>
-          </div>
-          <div class="install-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <p class="step-text">Configure individual modules as needed (e.g., Feishu only)</p>
-              <div class="code-block">
-                <button class="copy-btn" data-copy="penglai setup --only feishu">Copy</button>
-                penglai setup --only feishu
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+  </main>
 
-  <!-- ========== Changelog Section ========== -->
-  <section class="features" id="changelog">
-    <div class="section-inner">
-      <div class="section-header">
-        <div class="section-label reveal">Changelog</div>
-        <h2 class="section-title reveal reveal-delay-1">Recent 0.3.x Release Trail</h2>
-        <p class="section-desc reveal reveal-delay-2">The website keeps the recent 0.3.x release history visible so users can see how Penglai evolved from Runtime Hub to a desktop-ready distribution.</p>
-      </div>
-
-      <div class="feature-grid">
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🌌</div>
-            <h3 class="feature-title">v0.3.6 · 2026-07-12</h3>
-          </div>
-          <p class="feature-desc">Verifiable Worldline release: conversation rewind is completed as a persistent branching timeline, with working-memory restoration and native-log reconciliation when a session is resumed. This release also fixes long-prompt temporary-file races, broken browser pipes, Claude refusal finalization, and Companion failure outcome tracking, while hardening three-platform release gates, version consistency, and Rust download fallback.</p>
-        </div>
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🔏</div>
-            <h3 class="feature-title">v0.3.5 · 2026-07-03</h3>
-          </div>
-          <p class="feature-desc">Trusted release gates and Companion Loop foundation: the three-platform desktop release keeps real installer validation while adding signed release-tag verification, GitHub Release artifact aggregation, latest.json updater output, and the policy / event / memory interface skeleton for Companion Loop. Companion Loop is a verifiable foundation here, not a claim of a completed production adaptive loop.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-1">
-          <div class="feature-card-header">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">v0.3.4 · 2026-06-30</h3>
-          </div>
-          <p class="feature-desc">Trusted-maintenance release: keeps the three-platform desktop distribution from 0.3.3 while fixing the desktop one-click update path, Runtime Hub cancellation, Conductor authentication, inline eval exposure, memory load-time scanning, untrusted external tool-result marking, WeChat / WeCom media path sanitization, LLM failover classification, and fail-closed updater metadata checks for missing bundles or signatures.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-2">
-          <div class="feature-card-header">
-            <div class="feature-icon">🏁</div>
-            <h3 class="feature-title">v0.3.3 · 2026-06-29</h3>
-          </div>
-          <p class="feature-desc">Intel Mac desktop support release: adds a dedicated macOS Intel x64 DMG and darwin-x86_64 updater metadata while keeping the 0.3.2 bundled runtime model. First-run setup now includes Hermes / OpenClaw migration preview, avoids returning plaintext secrets by default, and requires a second confirmation token for state-changing operations.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-3">
-          <div class="feature-card-header">
-            <div class="feature-icon">📦</div>
-            <h3 class="feature-title">v0.3.2 · 2026-06-28</h3>
-          </div>
-          <p class="feature-desc">Local desktop runtime release: macOS Apple Silicon DMG and Windows x64 installer bundle the Penglai runtime, standalone Python, and core dependencies. First launch no longer asks users to install Python, clone the source tree, or download Python packages live. latest.json defaults to gh-proxy.com release asset URLs.</p>
-        </div>
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🔁</div>
-            <h3 class="feature-title">v0.3.1 · 2026-06-27</h3>
-          </div>
-          <p class="feature-desc">Migration, auto-update, and dynamic versioning milestone: adds penglai backup / restore / uninstall-legacy, setup --only partial reconfiguration, and a six-gate tauri-plugin-updater path. Runtime Hub stability, companion modes, and context closure were tightened.</p>
-        </div>
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🧭</div>
-            <h3 class="feature-title">v0.3.0 · 2026-06-25</h3>
-          </div>
-          <p class="feature-desc">Runtime Hub GA: native Mac / Windows desktop clients, Feishu QR auto-create, MOSS-TTS-Nano local TTS, penglai update with automatic backup and rollback, and Docker removed from the public support matrix.</p>
-        </div>
-        <div class="feature-card reveal">
-          <div class="feature-card-header">
-            <div class="feature-icon">🧪</div>
-            <h3 class="feature-title">v0.3.0-preview.1 · 2026-06-25</h3>
-          </div>
-          <p class="feature-desc">Real 0.3.0 preview artifact validation: GitHub prerelease produced both macOS DMG and Windows NSIS artifacts, Windows silent install / uninstall verification passed, and Tencent Cloud install-check, runtime-audit, privacy-audit, and service-state verification all passed.</p>
-        </div>
-        <div class="feature-card reveal reveal-delay-1">
-          <div class="feature-card-header">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">Release Boundary</h3>
-          </div>
-          <p class="feature-desc">Known limit: macOS and Windows installers are not signed with Apple Developer ID / Microsoft Authenticode yet, so first launch may still show Gatekeeper / SmartScreen warnings. Choose the Apple Silicon or Intel x64 DMG that matches your Mac.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Trust Section ========== -->
-  <section class="trust" id="trust">
-    <div class="trust-inner">
-      <div class="trust-label reveal">Honesty over aesthetics</div>
-      <p class="trust-quote reveal reveal-delay-1">
-        Every feature above runs on real servers daily — not a roadmap.<br>
-        Every capability in Penglai is something you can verify right now.
-      </p>
-      <div class="trust-credits reveal reveal-delay-2">
-        <div class="trust-credit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          GenericAgent
-        </div>
-        <div class="trust-credit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          SenseVoice
-        </div>
-        <div class="trust-credit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          MOSS-TTS-Nano
-        </div>
-        <div class="trust-credit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Tauri
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== Footer ========== -->
+  <!-- ========== 11. Footer ========== -->
   <footer class="footer">
     <div class="footer-inner">
-      <div class="footer-left">
-        <div class="footer-seal">蓬</div>
-        <div class="footer-brand">Penglai</div>
-        <div class="footer-tagline">Immortal Island &middot; Within Reach</div>
-        <div class="footer-links">
-          <a href="#features">Features</a>
-          <a href="#channels">Channels</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#install">Install</a>
-          <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a>
+      <div class="footer-brand">
+        <span class="seal">蓬</span>
+        <div>
+          <div class="footer-brand-name">蓬莱 Penglai</div>
+          <div class="footer-brand-tag">Eight immortals cross the sea, each showing their own powers.</div>
         </div>
       </div>
-      <div class="footer-right">
-        <div class="footer-license">MIT License</div>
-        <div class="footer-license">v<span class="penglai-version">0.3.6</span></div>
-        <div class="footer-license" style="margin-top:4px;color:var(--text-muted);font-size:12px;">
-          Made with AI, for everyone.
-        </div>
+      <div class="footer-links">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="../" hreflang="zh-CN">中文</a>
       </div>
     </div>
     <div class="footer-bottom">
-      &copy; 2026 Penglai Project. Self-hosted. Self-controlled.
+      <span>© 2026 Kevin Chen · Code MIT · Brand all rights reserved</span>
+      <span class="ver">v0.4.0</span>
     </div>
   </footer>
 
-  <!-- ========== JavaScript ========== -->
+  <!-- Fairy mist particles (palette follows system color scheme) -->
   <script>
   (function() {
-    // Perlin Noise simplified implementation
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     var perlin = (function() {
       var p = [];
       for (var i = 0; i < 256; i++) p[i] = Math.floor(Math.random() * 256);
       var perm = [];
-      for (var i = 0; i < 512; i++) perm[i] = p[i & 255];
+      for (var j = 0; j < 512; j++) perm[j] = p[j & 255];
       function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
       function lerp(t, a, b) { return a + t * (b - a); }
       function grad(hash, x, y) {
@@ -781,40 +500,50 @@
     var ctx = canvas.getContext('2d');
     var W, H;
     var particles = [];
-    var PARTICLE_COUNT = 120;
+    var PARTICLE_COUNT = 90;
     var NOISE_SCALE = 0.003;
     var NOISE_SPEED = 0.0004;
     var time = 0;
     var mouse = { x: -9999, y: -9999, active: false };
-    var MOUSE_RADIUS = 400;
-    var MOUSE_FORCE = 2.5;
+    var MOUSE_RADIUS = 360;
+    var MOUSE_FORCE = 2.2;
+    var darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-    // Brand color palette
-    var colors = [
-      { r:22, g:133, b:169 },
-      { r:150, g:210, b:230 },
-      { r:255, g:255, b:255 },
-      { r:200, g:230, b:240 },
-      { r:185, g:138, b:46 },
-      { r:196, g:69,  b:49 },
-    ];
+    function palette() {
+      return darkQuery.matches
+        ? [
+            { r: 85,  g: 169, b: 203 },
+            { r: 120, g: 190, b: 215 },
+            { r: 233, g: 231, b: 223 },
+            { r: 90,  g: 150, b: 180 },
+            { r: 205, g: 167, b: 94  },
+            { r: 214, g: 106, b: 85  },
+          ]
+        : [
+            { r: 22,  g: 133, b: 169 },
+            { r: 150, g: 210, b: 230 },
+            { r: 120, g: 118, b: 110 },
+            { r: 200, g: 230, b: 240 },
+            { r: 185, g: 138, b: 46  },
+            { r: 196, g: 69,  b: 49  },
+          ];
+    }
+    var colors = palette();
+    darkQuery.addEventListener('change', function() { colors = palette(); });
 
     function resize() {
       W = canvas.width = window.innerWidth;
       H = canvas.height = window.innerHeight;
     }
 
-    function Particle() {
-      this.trail = [];
-      this.maxTrail = 30 + Math.floor(Math.random() * 40);
-      this.reset();
-    }
+    function Particle() { this.reset(); this.trail = []; }
     Particle.prototype.reset = function() {
       this.x = Math.random() * W;
       this.y = Math.random() * H;
-      this.speed = 0.3 + Math.random() * 1.2;
+      this.speed = 0.3 + Math.random() * 1.1;
       this.life = 0;
       this.maxLife = 200 + Math.random() * 400;
+      this.maxTrail = 24 + Math.floor(Math.random() * 30);
       this.trail = [];
       var r = Math.random();
       if (r < 0.05) this.color = colors[5];
@@ -822,7 +551,7 @@
       else if (r < 0.35) this.color = colors[0];
       else if (r < 0.55) this.color = colors[1];
       else this.color = colors[Math.random() < 0.5 ? 2 : 3];
-      this.width = 0.5 + Math.random() * 1.5;
+      this.width = 0.5 + Math.random() * 1.4;
     };
     Particle.prototype.update = function() {
       this.trail.push({ x: this.x, y: this.y });
@@ -830,7 +559,6 @@
       var angle = perlin(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time) * Math.PI * 4;
       var vx = Math.cos(angle) * this.speed;
       var vy = Math.sin(angle) * this.speed - 0.3;
-
       if (mouse.active) {
         var dx = mouse.x - this.x;
         var dy = mouse.y - this.y;
@@ -841,16 +569,12 @@
           vy += (dy / dist) * force;
         }
       }
-
       this.x += vx;
       this.y += vy;
       this.life++;
       if (this.life > this.maxLife || this.x < -20 || this.x > W + 20 || this.y < -20 || this.y > H + 20) {
         this.reset();
-        if (Math.random() < 0.6) {
-          this.y = H + Math.random() * 20;
-          this.x = Math.random() * W;
-        }
+        if (Math.random() < 0.6) { this.y = H + Math.random() * 20; this.x = Math.random() * W; }
       }
     };
     Particle.prototype.draw = function() {
@@ -860,7 +584,7 @@
       if (this.life < 30) lifeAlpha = this.life / 30;
       else if (this.life > this.maxLife - 60) lifeAlpha = (this.maxLife - this.life) / 60;
       else lifeAlpha = 1;
-      lifeAlpha *= 0.4;
+      lifeAlpha *= darkQuery.matches ? 0.5 : 0.38;
       var c = this.color;
       for (var i = 1; i < len; i++) {
         var t = i / len;
@@ -872,40 +596,31 @@
         ctx.lineTo(this.trail[i].x, this.trail[i].y);
         ctx.stroke();
       }
-      var head = this.trail[len - 1];
-      ctx.beginPath();
-      ctx.arc(head.x, head.y, this.width * 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + (lifeAlpha * 0.3) + ')';
-      ctx.fill();
     };
 
     function init() {
       resize();
       particles = [];
-      for (var i = 0; i < PARTICLE_COUNT; i++) {
-        particles.push(new Particle());
-      }
+      for (var i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
     }
 
     function animate() {
-      ctx.clearRect(0, 0, W, H);
-      for (var i = 0; i < particles.length; i++) {
-        particles[i].update();
-        particles[i].draw();
+      if (!document.hidden) {
+        ctx.clearRect(0, 0, W, H);
+        for (var i = 0; i < particles.length; i++) {
+          particles[i].update();
+          particles[i].draw();
+        }
+        time += NOISE_SPEED;
       }
-      time += NOISE_SPEED;
       requestAnimationFrame(animate);
     }
 
-    window.addEventListener('resize', function() { resize(); });
+    window.addEventListener('resize', resize);
     document.addEventListener('mousemove', function(e) {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-      mouse.active = true;
+      mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
     });
-    document.addEventListener('mouseleave', function() {
-      mouse.active = false;
-    });
+    document.addEventListener('mouseleave', function() { mouse.active = false; });
     init();
     animate();
   })();
@@ -914,171 +629,30 @@
   <script>
   (function() {
     'use strict';
-
-    // ---- Scroll-based nav shadow ----
     var nav = document.getElementById('nav');
     window.addEventListener('scroll', function() {
-      if (window.scrollY > 10) {
-        nav.classList.add('scrolled');
-      } else {
-        nav.classList.remove('scrolled');
-      }
+      nav.classList.toggle('scrolled', window.scrollY > 10);
     }, { passive: true });
 
-    // ---- Mobile menu toggle ----
     var navToggle = document.getElementById('navToggle');
     var navLinks = document.getElementById('navLinks');
     navToggle.addEventListener('click', function() {
-      navLinks.classList.toggle('open');
+      var open = navLinks.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', String(open));
     });
-
     navLinks.querySelectorAll('a').forEach(function(link) {
       link.addEventListener('click', function() {
         navLinks.classList.remove('open');
+        navToggle.setAttribute('aria-expanded', 'false');
       });
     });
 
-    // ---- Scroll Reveal (IntersectionObserver) ----
     var revealObserver = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('revealed');
-        }
+        if (entry.isIntersecting) entry.target.classList.add('revealed');
       });
-    }, {
-      threshold: 0.1,
-      rootMargin: '0px 0px -60px 0px'
-    });
-
-    document.querySelectorAll('.reveal').forEach(function(el) {
-      revealObserver.observe(el);
-    });
-
-    // ---- Number Counter Animation ----
-    var counterObserver = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          var el = entry.target;
-          var target = parseInt(el.dataset.target, 10);
-          if (target === 0) {
-            el.textContent = '0';
-            counterObserver.unobserve(el);
-            return;
-          }
-          var duration = 1200;
-          var start = performance.now();
-          var animate = function(now) {
-            var elapsed = now - start;
-            var progress = Math.min(elapsed / duration, 1);
-            var eased = 1 - Math.pow(1 - progress, 3);
-            el.textContent = Math.round(eased * target);
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            } else {
-              el.textContent = target;
-            }
-          };
-          requestAnimationFrame(animate);
-          counterObserver.unobserve(el);
-        }
-      });
-    }, { threshold: 0.5 });
-
-    document.querySelectorAll('.counter').forEach(function(el) {
-      counterObserver.observe(el);
-    });
-
-    // ---- Install Tabs ----
-    var tabsContainer = document.getElementById('installTabs');
-    var tabs = tabsContainer.querySelectorAll('.install-tab');
-    var indicator = document.getElementById('tabIndicator');
-    var panels = document.querySelectorAll('.install-panel');
-
-    function updateIndicator(activeTab) {
-      var rect = activeTab.getBoundingClientRect();
-      var parentRect = tabsContainer.getBoundingClientRect();
-      indicator.style.left = (rect.left - parentRect.left) + 'px';
-      indicator.style.width = rect.width + 'px';
-    }
-
-    function switchTab(targetTab) {
-      tabs.forEach(function(t) { t.classList.remove('active'); });
-      panels.forEach(function(p) { p.classList.remove('active'); });
-
-      var activeTab = tabsContainer.querySelector('[data-tab="' + targetTab + '"]');
-      activeTab.classList.add('active');
-      document.getElementById('panel-' + targetTab).classList.add('active');
-      updateIndicator(activeTab);
-    }
-
-    tabs.forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        switchTab(tab.dataset.tab);
-      });
-    });
-
-    // Initialize indicator
-    var initialActive = tabsContainer.querySelector('.install-tab.active');
-    if (initialActive) {
-      requestAnimationFrame(function() {
-        updateIndicator(initialActive);
-      });
-    }
-
-    window.addEventListener('resize', function() {
-      var active = tabsContainer.querySelector('.install-tab.active');
-      if (active) updateIndicator(active);
-    });
-
-    // ---- Copy Button ----
-    document.querySelectorAll('.copy-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var text = btn.dataset.copy;
-        navigator.clipboard.writeText(text).then(function() {
-          var original = btn.textContent;
-          btn.textContent = 'Copied';
-          btn.style.color = '#4CAF50';
-          setTimeout(function() {
-            btn.textContent = original;
-            btn.style.color = '';
-          }, 1500);
-        }).catch(function() {
-          btn.textContent = 'Copy failed';
-          setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-        });
-      });
-    });
-
-    // ---- Smooth Scroll for anchor links ----
-    document.querySelectorAll('a[href^="#"]').forEach(function(link) {
-      link.addEventListener('click', function(e) {
-        var href = link.getAttribute('href');
-        if (href === '#') return;
-        var target = document.querySelector(href);
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth' });
-        }
-      });
-    });
-
-  })();
-  </script>
-
-  <!-- Dynamic version fetch: keep the 0.3.6 fallback if the GitHub Releases API is unavailable. -->
-  <script>
-  (function() {
-    fetch('https://api.github.com/repos/kevinchennewbee/PenglaiAgent/releases/latest')
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(data) {
-        if (!data || !data.tag_name) return;
-        var version = data.tag_name.replace(/^v/, '');
-        if (!version) return;
-        document.querySelectorAll('.penglai-version').forEach(function(el) {
-          el.textContent = version;
-        });
-      })
-      .catch(function() { /* 静默失败，保留 fallback */ });
+    }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+    document.querySelectorAll('.reveal').forEach(function(el) { revealObserver.observe(el); });
   })();
   </script>
 </body>
