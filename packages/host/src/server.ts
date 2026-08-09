@@ -4128,10 +4128,7 @@ function startServerLocked(
   const host = options.host ?? DEFAULT_HOST;
   const port = options.port ?? DEFAULT_PORT;
   const token = options.token ?? loadOrCreateHostToken(options.dataDir ?? penglaiDataDir());
-  const log = options.log ?? ((line: string) => {
-    const singleLine = line.replace(/[\r\n\u2028\u2029]+/g, " ");
-    console.error(`[host] ${singleLine}`);
-  });
+  const log = options.log ?? ((line: string) => console.error("[host]", JSON.stringify(line)));
 
   const {
     methods,

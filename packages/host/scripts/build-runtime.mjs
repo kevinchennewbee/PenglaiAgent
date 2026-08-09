@@ -127,7 +127,7 @@ function defaultTarget() {
 }
 
 function die(message) {
-  console.error(`error: ${String(message).replace(/[\r\n\u2028\u2029]+/g, " ")}`);
+  console.error("error:", JSON.stringify(String(message)));
   process.exit(1);
 }
 
