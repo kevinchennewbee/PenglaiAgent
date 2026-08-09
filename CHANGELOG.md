@@ -2,7 +2,7 @@
 
 蓬莱的版本记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。0.3.x Python 产品线的完整历史保留在 `v0.3.6` 标签。
 
-## [0.4.0] — 2026-08-09（本地发布候选，尚未发布）
+## [0.4.0] — 2026-08-09
 
 0.4.0 是以 TypeScript Host、Pi AgentKernel 与 Tauri 2 Desktop 为核心的跨代重构。它只有一套执行核心：Desktop、CLI、Goal、飞书、微信与持久 Task 都进入 `EpisodeRunner → Pi AgentKernel`；项目锚定只改变工作目录与权限边界，不代表另一种产品模式。
 
@@ -42,7 +42,7 @@
 - 66 个测试文件、820 项测试全部通过；17 条生产路径 eval 回放全部通过；旧 `ChatRunner` 实现及其只覆盖死代码的 24 项测试已删除。
 - Protocol 22 个错误码一致；Desktop 82 个 RPC 调用全部位于 Rust allowlist 且 Host 已实现；renderer 构建产物无 Host token 处理。
 - SenseVoice 与 MOSS 官方真实权重完成中文合成→识别回环，不使用 mock。
-- macOS Apple Silicon 本地 DMG（241,139,797 bytes，SHA-256 `a8c65e49…8162`）通过镜像校验、安装/启动、独立 Host/RPC、真实语音、退出和卸载生命周期；完整记录见 `docs/RELEASE_NOTES_0.4.0.md`。
+- macOS Apple Silicon 本地 DMG（246,395,712 bytes，SHA-256 `dc0c66e5…d7d1eb`）通过镜像校验、安装/启动、独立 Host/RPC、向导、Pi 对话、产物预览、诊断脱敏、退出和卸载生命周期；完整记录见 `docs/RELEASE_NOTES_0.4.0.md`。
 
 ### Known distribution limits
 

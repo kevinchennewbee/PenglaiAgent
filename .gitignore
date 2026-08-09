@@ -1,220 +1,88 @@
+# Dependencies and build output
+node_modules/
+coverage/
+dist/
+build/
+target/
+packages/host/dist/
+packages/host/dist-runtime/
+packages/desktop/dist/
+packages/desktop/.runtime-cache/
+packages/desktop/src-tauri/resources/host-runtime/
+packages/desktop/src-tauri/target/
+
+# Local runtime and test state
+.penglai/
+.playwright-cli/
 temp/
 tmp/
 audit/
-_internal/
-.internal/
-
+tasks/
 __pycache__/
+**/__pycache__/
 *.py[cod]
-*$py.class
-.venv/
+*.egg-info/
 uv.lock
+.venv/
 venv/
 env/
-build/
-dist/
-coverage/
-*.egg-info/
-node_modules/
 
-# 0.4 Host build/runtime artifacts
-packages/host/dist-runtime/
-packages/host/dist/
-packages/host/migrate/out/
-.penglai/
-
-.streamlit/
-
+# Editor and OS files
 .vscode/
 .idea/
-.playwright-cli/
+.vs/
+.trae/
+.claude/
 *.swp
 *.swo
-
 .DS_Store
 Thumbs.db
 
-*.log
+# Secrets, owner data, logs and private release evidence
 .env
-.penglai-build.json
+.env.*
+!.env.example
 auth.json
-model_responses.txt
-
-# Sensitive files (API keys, credentials)
-# 根目录真实密钥文件：全局忽略。下方例外放行 0.4 迁移测试的合成夹具
-# （fixtures/03home/mykey.py 全为假凭证，必须入库，否则干净 clone 测试必红）。
 mykey.py
 mykey.py.bak*
 !packages/host/test/fixtures/03home/mykey.py
-penglai-migrate-backup-*/
-
-# 0.4 migration output (contains API keys in .env.penglai)
-packages/host/migrate/out/
-.env.penglai
-__pycache__/
-
-tasks/
-
-*.zip
-*.exe
-
-memory/*
-!memory/memory_management_sop.md
-
-# Allow tracking of specific SOPs
-!memory/web_setup_sop.md
-!memory/autonomous_operation_sop.md
-!memory/autonomous_operation_sop/
-!memory/autonomous_operation_sop/**
-!memory/scheduled_task_sop.md
-
-# L4 session archiver (only the script, not archives)
-!memory/L4_raw_sessions/
-memory/L4_raw_sessions/*
-!memory/L4_raw_sessions/compress_session.py
-!memory/L4_raw_sessions/salient_mining_sop.md
-
-# ljqCtrl related tools
-!memory/ljqCtrl.py
-!memory/ljqCtrl_sop.md
-!memory/macljqCtrl.py
-!memory/computer_use.md
-
-# procmem_scanner related tools
-!memory/procmem_scanner.py
-!memory/procmem_scanner_sop.md
-
-# TMWebDriver SOP
-!memory/tmwebdriver_sop.md
-
-# Vue3 Component SOP
-!memory/vue3_component_sop.md
-
-# Subagent SOP
-!memory/subagent.md
-
-# Incubator SOP
-!memory/incubator_sop.md
-
-# Supervisor SOP
-!memory/supervisor_sop.md
-
-# Plan SOP
-!memory/plan_sop.md
-
-# Goal Mode SOP
-!memory/goal_mode_sop.md
-
-# Goal Hive Mode SOP
-!memory/goal_hive_sop.md
-!memory/goal_hive_master_duty.md
-
-# Morphling SOP
-!memory/morphling_sop.md
-
-
-# ADB UI tool
-!memory/adb_ui.py
-
-# Keychain
-!memory/keychain.py
-
-# Vision / OCR / UI detection tools
-!memory/ocr_utils.py
-!memory/vision_sop.md
-!memory/ui_detect.py
-!memory/vision_api.template.py
-
-# Memory management
-!memory/memory_cleanup_sop.md
-
-# Checklist/MapReduce
-!memory/checklist_helper.py
-!memory/checklist_sop.md
-
-# Code Review Principles
-!memory/code_review_principles.md
-
-# Review Mode SOP
-!memory/review_sop.md
-
-# 蓬莱 SOP 包（penglai_ 前缀，与上游 SOP 永不撞名）
-!memory/penglai_checkpoint_sop.md
-!memory/penglai_compress_sop.md
-!memory/penglai_genmedia_sop.md
-!memory/penglai_channels_sop.md
-!memory/penglai_weather_sop.md
-!memory/penglai_memsig_sop.md
-!memory/penglai_self_restart_sop.md
-!memory/penglai_im_vision_sop.md
-
-# Visual Studio
-.vs/
-restore_commit.txt
-
-sche_tasks/
-# CDP Bridge 密钥配置（首次运行自动生成）
-assets/tmwd_cdp_bridge/config.js
-assets/copilot_proxy.pyw
-*.log
-
-# Reflect (ignore new files, whitelist existing)
-reflect/*
-!reflect/autonomous.py
-!reflect/scheduler.py
-!reflect/agent_team_worker.py
-!reflect/goal_mode.py
-!reflect/checklist_master.py
-!reflect/penglai_companion.py
-
-# Conductor IM plugins: 私有插件/配置不入库。示例为 _email_example.py / _lark_example.py
-# （以 _ 开头不会被加载器自动轮询）。去掉下划线/示例后缀复制为 email.py / lark.py 即启用。
-frontends/conductor_im_plugins/wechat.py
-frontends/conductor_im_plugins/email.py
-frontends/conductor_im_plugins/lark.py
-frontends/conductor_im_plugins/config.local.json
-
-# Universal: never track __pycache__ anywhere
-**/__pycache__/
-
-.claude/
-# Project Mode SOP
-!memory/project_mode_sop.md
-
-# IDE / spec / design artifacts (internal, not for public release)
-.trae/
-penglai-desktop-design/
---css
 *.key
 *.pem
 *.p12
 secrets/
-
-# Generated desktop runtime payload; README documents the contract.
-frontends/desktop/src-tauri/resources/penglai-runtime/*
-!frontends/desktop/src-tauri/resources/penglai-runtime/README.md
-
-# Workspace-local archive, agent memory, and architecture discussion (not for public repo)
+*.log
+model_responses.txt
+penglai-migrate-backup-*/
+.release-private/
 archive/
 AGENTS.md
+restore_commit.txt
+
+# Local release artifacts
+*.dmg
+*.exe
+*.zip
+*.tar
+*.tar.gz
+*.sig
+SBOM.cdx.json
+SHA256SUMS
+
+# Public docs are an explicit allowlist; internal design/audit notes stay local.
 docs/*
-# 0.4.0 owner-facing acceptance docs are product surface, tracked on purpose.
-!docs/OWNER_ACCEPTANCE.md
-!docs/DOGFOOD_LOG.md
-# 0.4.0 release notes draft and gh-pages website source drafts are release material.
+!docs/PRIVACY_AND_DATA.md
 !docs/RELEASE_NOTES_0.4.0.md
-# 0.4.x release process and uninstall docs are product surface, tracked on purpose.
 !docs/RELEASE_PROCESS.md
 !docs/UNINSTALL.md
-!docs/PRIVACY_AND_DATA.md
-!docs/SECURITY_AUDIT_0.4.0.md
-!docs/audit/
-!docs/audit/FILE_LEDGER_0.4.0.csv
-!docs/website/
-!docs/website/**
-run_m3_tests/
 
-# ── 发布合规：内部日志/验收文档不入库（2026-07-31 决策）──
-M1_BUILD_LOG.md
-docs/DOGFOOD_LOG.md
-docs/OWNER_ACCEPTANCE.md
+# The 0.3 implementation is tag history, not part of the 0.4 main tree.
+/assets/
+/frontends/
+/ga_cli/
+/installer/
+/memory/
+/penglai_runtime/
+/plugins/
+/reflect/
+/skills/
+/tests/

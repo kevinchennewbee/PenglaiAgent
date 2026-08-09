@@ -2,7 +2,7 @@
  * mykey.py 字面量解析器测试（迁移工具的安全前提：绝不执行 Python，
  * 只解析字面量；解析失败容错到下一个变量）。
  *
- * fixture `fixtures/03home/mykey_template_full.py` 是 0.3 仓库
+ * fixture `fixtures/03home/legacy-template.fixture` 是 0.3 仓库
  * mykey_template.py 的逐字节副本（模板无任何真实凭证）——解析器
  * 必须完整吃下 0.3 真实格式。
  */
@@ -95,7 +95,7 @@ describe("parseMykeyAssignments: 顶格赋值抽取", () => {
   });
 
   it("吃下 0.3 真实模板（mykey_template.py 逐字节副本）", () => {
-    const source = fs.readFileSync(path.join(FIXTURE_03, "mykey_template_full.py"), "utf-8");
+    const source = fs.readFileSync(path.join(FIXTURE_03, "legacy-template.fixture"), "utf-8");
     const result = parseMykeyAssignments(source);
     // 模板里未注释的有效赋值：mixin_config + 一个 native_oai_config 示例。
     expect(result.unparsable).toEqual([]);

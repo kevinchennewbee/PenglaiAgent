@@ -52,7 +52,7 @@ const MODEL_KEY_ENVS = ["GROK_API_KEY", "DEEPSEEK_API_KEY", "ZAI_API_KEY", "OPEN
 
 /**
  * Run a command and return true if it exits 0. `execSync` runs through the
- * platform shell by default, so Windows resolves `npm` / `python` / `git`
+ * platform shell by default, so Windows resolves `npm` / `git`
  * shims (npm.cmd, etc.) via PATHEXT without an explicit `shell` option.
  * Never throws.
  */
@@ -200,21 +200,6 @@ function checkModelProfile(): DoctorResult {
   };
 }
 
-function checkPython(): DoctorResult {
-  if (process.env.PENGLAI_DESKTOP_MANAGED === "1") {
-    return { check: "python", status: "ok", message: "0.4 Desktop 核心为 TypeScript；日常使用不需要系统 Python。" };
-  }
-  // `python` first (Windows / many distros), then `python3` (most Linux/macOS).
-  const py = commandOutput("python --version") || commandOutput("python3 --version");
-  if (py) return { check: "python", status: "ok", message: py };
-  return {
-    check: "python",
-    status: "warn",
-    message: "Python not found on PATH (needed for sidecar tools / IM bridge).",
-    fix: "install Python 3 (https://www.python.org/downloads/)",
-  };
-}
-
 function checkGit(): DoctorResult {
   const v = commandOutput("git --version");
   if (v) return { check: "git", status: "ok", message: v };
@@ -270,7 +255,6 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorResu
     checkTokenFile,
     checkConversationsDir,
     checkModelProfile,
-    checkPython,
     checkGit,
   ];
 

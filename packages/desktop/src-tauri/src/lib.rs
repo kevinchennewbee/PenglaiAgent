@@ -1,7 +1,7 @@
 //! Penglai 0.4 desktop shell (Tauri 2).
 //!
-//! This is the 0.4 successor to frontends/desktop/src-tauri (the 0.3 Python
-//! bridge shell). Instead of spawning `python desktop_bridge.py` on :14168, the
+//! This is the 0.4 successor to the 0.3 Python bridge shell. Instead of
+//! spawning `python desktop_bridge.py` on :14168, the
 //! 0.4 shell spawns the TypeScript Host:
 //!
 //!   node packages/host/src/cli.ts serve --port 14169        (dev, via tsx)

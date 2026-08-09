@@ -1,8 +1,0 @@
-# Rust build artifacts
-src-tauri/target/
-src-tauri/gen/
-
-# Node
-node_modules/
-package-lock.json
-!package-lock.json

@@ -1,18 +1,18 @@
 name: 🏗️ 安装失败 / Install failure
-description: 桌面版 / TS CLI / 冻结的 0.3.6 安装路径出问题
+description: 0.4 桌面版或 TypeScript CLI 安装失败
 labels: [install]
 body:
   - type: dropdown
     id: method
     attributes:
       label: 安装方式
-      options: ["0.4 桌面安装包", "0.4 TS CLI", "0.3.6 PyPI 引导器", "0.3.6 固定版本源码安装", "其他"]
+      options: ["0.4 桌面安装包", "0.4 TypeScript CLI", "0.3.6 → 0.4 数据迁移", "其他"]
     validations: { required: true }
   - type: input
     id: os
     attributes:
-      label: 系统与 Python 版本
-      placeholder: "如 Ubuntu 22.04 / Python 3.10.12（python3 --version）"
+      label: 系统与 Penglai 版本
+      placeholder: "如 macOS 15.5 / Penglai 0.4.0 / Apple Silicon"
     validations: { required: true }
   - type: textarea
     id: cmd
