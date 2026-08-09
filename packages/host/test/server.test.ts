@@ -600,9 +600,11 @@ describe("server: JSON-RPC conversation + config + usage", () => {
   });
 
   it("wires trusted distill receipts to the server's durable Evidence store", () => {
+    const authorityRoot = path.join(workspaceDir, "sop-authority-project");
+    fs.mkdirSync(authorityRoot, { recursive: true });
     const project = started.handle.productStore.createProject({
       name: "sop-authority",
-      rootPath: workspaceDir,
+      rootPath: authorityRoot,
       trusted: true,
     });
     const task = started.handle.productStore.createTask({

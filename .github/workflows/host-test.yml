@@ -73,6 +73,11 @@ jobs:
       - name: Dependency vulnerability audit
         run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
 
+      - name: Install Unicode PDF test font
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes fonts-noto-cjk
+
       - name: Test (vitest + coverage)
         # The coverage provider is an exact, lockfile-bound dev dependency.
         run: |

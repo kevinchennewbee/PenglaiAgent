@@ -208,9 +208,7 @@ describe("companion: default state + enable/disable", () => {
 describe("companion: trigger firing (fake timers)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    // Keep general heartbeat tests deterministic regardless of the local wall
-    // clock. The dedicated quiet-hours case below sets 23:00 explicitly.
-    vi.setSystemTime(new Date("2026-08-08T12:00:00+08:00"));
+    vi.setSystemTime(new Date("2026-08-08T04:00:00Z"));
   });
   afterEach(() => vi.useRealTimers());
 
@@ -224,7 +222,12 @@ describe("companion: trigger firing (fake timers)", () => {
   });
 
   it("trigger fires -> callback called when enabled and interval elapses", () => {
-    const c = new CompanionService({ intervalMs: 1000, tickMs: 1000, persist: false });
+    const c = new CompanionService({
+      intervalMs: 1000,
+      tickMs: 1000,
+      persist: false,
+      clock: () => new Date(2026, 7, 8, 12),
+    });
     c.enable();
     const fired: CompanionSource[] = [];
     c.start((s) => fired.push(s));
@@ -239,8 +242,12 @@ describe("companion: trigger firing (fake timers)", () => {
   });
 
   it("automatic heartbeat observes 22:00-08:00 quiet hours", async () => {
-    vi.setSystemTime(new Date("2026-08-08T23:00:00+08:00"));
-    const c = new CompanionService({ intervalMs: 1000, tickMs: 1000, persist: false });
+    const c = new CompanionService({
+      intervalMs: 1000,
+      tickMs: 1000,
+      persist: false,
+      clock: () => new Date(2026, 7, 8, 23),
+    });
     c.enable({ mode: "active" });
     const fired: CompanionSource[] = [];
     c.start((s) => fired.push(s));
@@ -254,7 +261,12 @@ describe("companion: trigger firing (fake timers)", () => {
   });
 
   it("persists enable/disable + triggers to companion.jsonl when persist is on", () => {
-    const c = new CompanionService({ intervalMs: 1000, tickMs: 1000, persist: true });
+    const c = new CompanionService({
+      intervalMs: 1000,
+      tickMs: 1000,
+      persist: true,
+      clock: () => new Date(2026, 7, 8, 12),
+    });
     c.enable();
     const fired: CompanionSource[] = [];
     c.start((s) => fired.push(s));

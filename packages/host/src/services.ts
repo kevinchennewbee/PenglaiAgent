@@ -91,6 +91,8 @@ export interface CompanionOptions extends ServiceOptions {
   intervalMs?: number;
   /** Durable config location; defaults to ~/.penglai/companion.json. */
   statePath?: string;
+  /** Injectable wall clock for deterministic local-time policy tests. */
+  clock?: () => Date;
 }
 
 export type CompanionMode = "quiet" | "present" | "active";
@@ -422,6 +424,7 @@ export class CompanionService {
   private readonly tickMs: number;
   private readonly persist: boolean;
   private readonly statePath: string;
+  private readonly clock: () => Date;
   private lastFire: number;
   private lastSource: CompanionSource | null = null;
   private interval: NodeJS.Timeout | null = null;
@@ -432,6 +435,7 @@ export class CompanionService {
     this.tickMs = options.tickMs ?? DEFAULT_TICK_MS;
     this.persist = options.persist ?? false;
     this.statePath = options.statePath ?? path.join(penglaiHome(), "companion.json");
+    this.clock = options.clock ?? (() => new Date());
     this.lastFire = Date.now();
     if (this.persist) this.loadState();
   }
@@ -476,7 +480,7 @@ export class CompanionService {
   /** Time-aware ritual source. Weather is never guessed; emotion is emitted
    * only by an observed ASR signal or an explicit manual trigger. */
   private nextSource(): CompanionSource {
-    const hour = new Date().getHours();
+    const hour = this.clock().getHours();
     if (hour >= 8 && hour < 11) return "morning";
     if (hour >= 18 && hour < 22) return "evening";
     return "free";
@@ -485,7 +489,7 @@ export class CompanionService {
   /** Automatic companionship observes a local 22:00-08:00 quiet window.
    * Explicit manual/emotion triggers still use `trigger()` and are not lost. */
   private inDoNotDisturbWindow(): boolean {
-    const hour = new Date().getHours();
+    const hour = this.clock().getHours();
     return hour >= 22 || hour < 8;
   }
 

@@ -10,9 +10,9 @@ path,git_mode,bytes,lines,sha256,media,area,coverage
 .github/ISSUE_TEMPLATE/03-security.yml,100644,1023,26,2eff2ab1d5e757b505b09647c0b661eae21f14dd7462af48573a196a0e2a7111,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
 .github/ISSUE_TEMPLATE/config.yml,100644,424,9,221a3f34b286f512f3c7da69d899d4644a171eb6c56e0d3e94e8261efdd2772c,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
 .github/workflows/desktop-release.yml,100644,61858,1115,d61fb50ad8cc4faf9ea550b025c0ef3a5508221f35846915b784b81d2bf28ad5,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
-.github/workflows/host-publish.yml,untracked,10294,243,a50d97db04b0630791e47a166a98771deaa38de2f62b96738c5efc7133220ba2,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
+.github/workflows/host-publish.yml,100644,10294,243,a50d97db04b0630791e47a166a98771deaa38de2f62b96738c5efc7133220ba2,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
 .github/workflows/host-release.yml,100644,17583,435,3bc3a8071b1c2f195a706663ed79093343de42ec74389435d899290329a40569,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
-.github/workflows/host-test.yml,100644,6499,178,d8b0fb1ae382348f6641e6e2b63f9e1543795694d667215f287bc9570bd54904,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
+.github/workflows/host-test.yml,100644,6665,183,39757f47ce3209d8e3ba67bfacb4307eb2a377f06ff8d25c20d6a0d3e84ae210,text,github-release-ci,byte/line inventory+targeted manual release review+actionlint+shellcheck
 .gitignore,100644,4702,221,dd0834c67275e6f1e5485ce0fd1abbe46f779475b106e42c5b6f3fb982623b4c,text,other,line scan+hash+repository consistency review
 agent_loop.py,100644,6832,134,8ed907d542b1f0ed235b50332231e15939133ac4f6fb01b535c82e2407c02451,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 agentmain.py,100644,20844,375,ccdf41431b362157be528fe91cceb2dae3325e2d44efd80b0c8b533121296be7,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
@@ -287,7 +287,7 @@ packages/host/src/approvals.ts,100644,10970,329,e4a68469c6d5d676c162e93a953e1879
 packages/host/src/artifact-preview.ts,100644,2775,76,f792713f7baebf5194fb5020a474685f0fdfb82919ae948db8981d1171281e42,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/bash-guard.ts,100644,16405,500,be84ba5bfe9388e10f8b032d698ad0edf0156fc88b6924377ee4b9798e1d7c02,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/budget.ts,100644,13809,367,7f94aba60719f9130e0a6eced146bf64ae046e4d298460a1d8afc97dd08fc7a9,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
-packages/host/src/capabilities/documents.ts,100644,28063,495,1a9f350c335f52333889cdb2a1c7ebfde1038354112e810574dc65e0ebc812e3,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
+packages/host/src/capabilities/documents.ts,100644,28125,496,34538682f4322da67d6c9f47923e7ce495445085d5365d5625f037966c7e153a,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/capabilities/network-safety.ts,100644,6312,169,ab4d8231c353597292118e7f1f3c19a1e2c31473b514902d9e777969817c11e6,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/capabilities/web.ts,100644,6212,168,5c8f905942e1dc7b8c7b53bfb7d3e914fa46d52e815544b1398ec992872bc82e,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/checkpoints.ts,100644,7248,210,602e64fff02bbce2896023bfb9809067c223d72df6217109eeff8f4d02fc735b,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
@@ -358,11 +358,11 @@ packages/host/src/runtime/episode-runner.ts,100644,16951,438,ac1095cf51b88035048
 packages/host/src/runtime/run-coordinator.ts,100644,6292,192,e307a8d530aeca322bd7162eba1dae0d3f8878160ef59ef199967186cd3d77d4,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/runtime/task-episode-kernel.ts,100644,5030,171,40f3a09bf7678aa34b60595bfd6053b61c4ecd97eda344732dd150924f832c46,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/sandbox/shell-env.ts,100644,12176,334,43b4011aa6f230742ee4feb8c79f3138bbc42a1bd1afb5b7596db7f38f9df706,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
-packages/host/src/security/private-file.ts,untracked,3217,83,e936ccbfedf9612c24c3951402768a13940411ebb490a38ebd5d11844f446f0b,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
+packages/host/src/security/private-file.ts,100644,3217,83,e936ccbfedf9612c24c3951402768a13940411ebb490a38ebd5d11844f446f0b,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/security/redaction.ts,100644,2758,51,7f4151c725a9903ea782071dc71016b9bb200b5d305012ed4dfc4b5cda59a891,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/security/untrusted-content.ts,100644,1252,25,3b2142f4e2c04c44241d254dd11c15d28cc6049dab4098e90d288e0704ddee84,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/server.ts,100644,165358,4370,60051a30b990d4d8e7a9dde6752124a8e714e486166354ca724c4ea85482dc40,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
-packages/host/src/services.ts,100644,20836,576,1d14a192e0245a61da44868bed0ebf24fb6ad816cf70990cba371adb40e42738,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
+packages/host/src/services.ts,100644,21028,580,49de8bbae96dd6c9a34455ef50f4c63928e9b67b01cec0835780f900bab077e8,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/skills/store.ts,100644,15252,359,e52cf475df285c0b9894ffe7e776312800a3d1bfa3dbb2539c757736435fff86,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/storage/product-store.ts,100644,71826,2066,4cb7db6294877acbb0151d8ddf01163c1f9beb5eb84b6cc6de7e1457080e4b60,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
 packages/host/src/task-runner.ts,100644,38446,1075,03c9dd3854eb3f250488316c5f82a86ffb57bd6c9129bd7134dc018387f2737c,text,0.4-host-production,byte/line inventory+TypeScript compiler+Semgrep+targeted manual trust-boundary review+Vitest
@@ -444,8 +444,8 @@ packages/host/test/runtime/episode-runner.test.ts,100644,7209,185,acf177d38d4426
 packages/host/test/runtime/episode-runtime.integration.test.ts,100644,6140,191,dc7f269d1d915bddd00ca023a0796056069846c3a48ea5c0f67497c9eea53ea6,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/runtime/run-coordinator.test.ts,100644,5380,166,3b469ebadd6aa11f0a253bb244951a4b7742502350fa6fed42d55f956f4a5c73,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/security/redteam.test.ts,100644,10295,244,03685097476e6ba8e912fcad92057135d8580a63558f61166d5befab85e16f89,text,tests,line scan+syntax/compiler+executed test suite
-packages/host/test/server.test.ts,100644,31661,862,0ff067970133b130ada1711c1f1fc41a9973298122523de232c90c58dcefccde,text,tests,line scan+syntax/compiler+executed test suite
-packages/host/test/services-complete.test.ts,100644,10570,290,8a5d65bc8069994c5c3faea15aef4f1c65176f50941d0640908b960764f3a8e8,text,tests,line scan+syntax/compiler+executed test suite
+packages/host/test/server.test.ts,100644,31792,864,62365d849a80ee420030f3f05a3294cc2fdfa655d1974e5ad3206a4d67f22caa,text,tests,line scan+syntax/compiler+executed test suite
+packages/host/test/services-complete.test.ts,100644,10555,302,8f3d79eb1cccc04ac85d329144158184913c8ccf8604f7b61b4a1fe1d6d1bfca,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/services.test.ts,100644,5941,190,ca81547886f8ff34a3bb68518feb1d8df925c406adee14d09ef4b3f3a69e93d9,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/setup-wizard.test.ts,100644,28410,747,fe5bc01a152746946ca78bfad297529b8bfeba3c850a58fc883362f26ac3b782,text,tests,line scan+syntax/compiler+executed test suite
 packages/host/test/skill-store.test.ts,100644,3502,85,ebfa40d251bb7423ebf47dcd8d519201a4e03d7e90217da476015ab19dec7f0a,text,tests,line scan+syntax/compiler+executed test suite
@@ -499,7 +499,7 @@ penglai_runtime/output_cleaner.py,100644,2207,71,11aa96cf5d72522ea47212ba76c98c8
 penglai_runtime/permissions.py,100644,2845,73,d23ecc77753faf7f9e53aa04ae8efc53f2a15307f6126d67e302272486f46df3,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 penglai_runtime/port.py,100644,10893,305,e9577ae90743730f14b148824e1a8132dff70d867bdfb0421b17cfdee12f1709,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 penglai_runtime/privacy_audit.py,100644,12325,415,1494d3b21a790f4b8d3ee5d84d1390ffcd693626a2ab2db2f2fab471a9c3c477,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
-penglai_runtime/private_files.py,untracked,3301,90,acb7fd7fe01bd80842f1194bc275086b149efa797f03bbb8168b87181bb9a5fa,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
+penglai_runtime/private_files.py,100644,3301,90,acb7fd7fe01bd80842f1194bc275086b149efa797f03bbb8168b87181bb9a5fa,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 penglai_runtime/proactive_dialogue.py,100644,6773,222,0567bd32fd71215cc5279d3acf6c40d34c2a1345b838427b0ab1434b115a88a6,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 penglai_runtime/queueing.py,100644,2257,75,71a30ea7706ec3efd3b12c14b3dc61a237fb94897ae84346d05afcc8b8f7102c,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 penglai_runtime/redaction.py,100644,1996,59,be93038b139e449fe26e74d293c138f55ec9ead839b89b9028c1ad5f4e8ce133,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
@@ -544,7 +544,7 @@ scripts/check-desktop-allowlist.mjs,100644,5969,160,87d0c874ea44f3b156cc0c2049b2
 scripts/check-protocol-contract.mjs,100644,4403,124,b7016ed37ecc0a660b97d3e106c111f4c2ecba63a386d16cf4ee2f35c0c21009,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 scripts/check-release-contract.mjs,100644,3689,92,c18cf7b73b4861d68a09245cfd116bb323fe9301383c8d7df3036ea48b584396,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 scripts/check-renderer-token-boundary.mjs,100644,2459,72,54fb125d3453a88af67898d616468818cd4055817f7639ba14c33b0d05140b6c,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
-scripts/generate-audit-ledger.mjs,untracked,5168,112,8ecfb388d7825ca8270a88acdacbf954c85fcca8ac7d7f263c9347532aa119fe,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
+scripts/generate-audit-ledger.mjs,100644,5168,112,8ecfb388d7825ca8270a88acdacbf954c85fcca8ac7d7f263c9347532aa119fe,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 scripts/lifecycle-check.mjs,100644,25205,484,541e5d33106a62ffb86334d10465f98620207ae91c75dc69e1ac01de1b3b5811,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 scripts/release-check.mjs,100644,32827,575,45c16c19c390034687e5886770130e1923a6a60baac0a68f2a5c81238ba851b7,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 scripts/sync-catalog.mjs,100644,3708,83,10817bdf416581aeb87bf14f4f5e63c11d526c0ed38c8ada45ef9479a5ee9da7,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
@@ -565,7 +565,7 @@ skills/slides-html.md,100644,4358,50,000003d49ddc3757ab0ae9dc07cc57c2e8cffda6f2f
 skills/wechat-article.md,100644,4932,73,642922a533ae05dac7ca9a7e9c70360c58f90b86bedb7ce9e5a7f3c3c85dbc7e,text,docs-config,byte/line inventory+targeted claim/config consistency review
 tests/_harness.py,100644,4179,122,06900857f497734dda0a49bf2f0d46628b539ae99e7e2929f9906618aca1726d,text,tests,line scan+syntax/compiler+executed test suite
 tests/conftest.py,100644,584,25,54958e5ddcf903566afa1b82ce9ae3006d90eaacf380e4787815d3a201798d51,text,tests,line scan+syntax/compiler+executed test suite
-tests/test_agent_bbs_security.py,untracked,4303,101,a2f1a2ef584eb60850d0a9edce6df602e063e06187db00c766578286b39a230f,text,tests,line scan+syntax/compiler+executed test suite
+tests/test_agent_bbs_security.py,100644,4303,101,a2f1a2ef584eb60850d0a9edce6df602e063e06187db00c766578286b39a230f,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_artifacts.py,100644,2962,88,9298fa06c1eb483d5760dcb0efc14ecf71f1f3667592ebf4b4fbe2a2123cb82f,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_companion_loop.py,100644,9324,250,19fb7d2305acf320653997ad8569a2f4f97fc009e3610b7151d3903eb7090066,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_companion_policy.py,100644,9491,226,cf1c9420458fa6d59443fa2016477cd5b5d9d430bb73e9fa9ab2a2aa9f855658,text,tests,line scan+syntax/compiler+executed test suite
@@ -585,11 +585,11 @@ tests/test_penglai_mcp.py,100644,5680,130,f113f9bac50c79d71bc40d2668497e903f524b
 tests/test_penglai_migrate.py,100644,8290,205,0afdef880c2728779663ee88fbcc7e5f052c675479f6be80aa10c29ce1395aac,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_penglai_runtime.py,100644,174870,4296,61b4bb7fc85fa6c445991ebe281ab410a03a079c56fd1176d4319bd5b60a3d8b,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_penglai_skills.py,100644,7660,151,f4d27d0b6ea2d24def7cb8403f886607a76550240eb3fa2137274f5433e77b04,text,tests,line scan+syntax/compiler+executed test suite
-tests/test_private_files.py,untracked,3395,97,b320fec3d4561ee2aecee161e410a311e943d7fbc2047a0e10d41234cf606e59,text,tests,line scan+syntax/compiler+executed test suite
+tests/test_private_files.py,100644,3395,97,b320fec3d4561ee2aecee161e410a311e943d7fbc2047a0e10d41234cf606e59,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_redline.py,100644,6104,158,a425dab7c5e86db6563a45961faf19d516d307c41dadb48e01e48619f913c0c7,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_search_fallback.py,100644,3690,90,206c4aaf8b8b03f0c32df397bc267323298c4caea159bc5135187b596d9378a3,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_summarize.py,100644,9651,231,2fae1e5d274ee7fc8d9d48793f246ef1a938c3cc5a454bc047088e94c31cff44,text,tests,line scan+syntax/compiler+executed test suite
-tests/test_supergrok_proxy_security.py,untracked,1621,46,d060da692c1094337a8c5819f9470922a101ee6f102dfd2d4a99f33a676bb581,text,tests,line scan+syntax/compiler+executed test suite
+tests/test_supergrok_proxy_security.py,100644,1621,46,d060da692c1094337a8c5819f9470922a101ee6f102dfd2d4a99f33a676bb581,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_update_network.py,100644,7090,171,40808a87b087761ddd1ddabf19a7db4f8c116ac07e1e6dd03b2ce28942d47a32,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_vision_api.py,100644,4570,142,c741ef12844e9a9f935b867bcce23b30c3fe39f39ccb8f45164d97ff43523f60,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_voice_chunking.py,100644,3450,108,45230174475e9d3f6439d77594273c02915cf36ca0589723ba8355f8a084dacf,text,tests,line scan+syntax/compiler+executed test suite
@@ -599,7 +599,7 @@ tests/test_wechat_setup_migration.py,100644,4320,120,84a8adac3c0f147290c8363e374
 tests/test_wizard_allowlist.py,100644,4505,106,bb39e630f649a36a5d7fbb04d4a491dc7ea5dd45587f0535b02a49546096fed9,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_wizard_i18n.py,100644,2127,61,1435cff0f56bd35f69557950af0a1939aea762737b378c4bd5335930c3f8739a,text,tests,line scan+syntax/compiler+executed test suite
 tests/test_worldline.py,100644,13651,384,b854b74af6d1eec028f18703e52f1a9dd622ca4db249055ce95f22dc2ee008b0,text,tests,line scan+syntax/compiler+executed test suite
-tests/test_xml_security.py,untracked,705,21,241386da1244ea95db40ea23588e397c132dd66e5c0ad1d456f0f9421d4a76c3,text,tests,line scan+syntax/compiler+executed test suite
+tests/test_xml_security.py,100644,705,21,241386da1244ea95db40ea23588e397c132dd66e5c0ad1d456f0f9421d4a76c3,text,tests,line scan+syntax/compiler+executed test suite
 THIRD_PARTY_NOTICES.md,100644,4295,72,9d9ca03895cc5c9bfd8fe38ee04ef6f128dc161f1c6a79adaf1c394b178dbba1,text,docs-config,byte/line inventory+targeted claim/config consistency review
 TMWebDriver.py,100644,19843,381,bea11110f9cf2ecc579285d9abe9e6c0d790de04d5c18631a8f3c7a4bf7febc0,text,legacy-or-support-source,byte/line inventory+syntax compiler+Semgrep/Bandit+targeted dangerous-API review+tests
 tsconfig.json,100644,303,15,159d548856b9c31ad54c2850e736dc429279f45a3b66ec2ad8ae355420b84f63,text,docs-config,byte/line inventory+targeted claim/config consistency review

@@ -350,6 +350,7 @@ function findPdfFont(): string {
   const candidates = [
     "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
     "/Library/Fonts/Arial Unicode.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttf",
     "C:\\Windows\\Fonts\\msyh.ttf",
