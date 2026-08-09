@@ -3,10 +3,10 @@
  * Built from product-store usage_counters + optional model attribution file.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { UsageReport, UsageRow } from "@penglai/protocol";
 import { localDay } from "./usage.js";
+import { appendPrivateLine, readPrivateTextFile } from "./security/private-file.js";
 
 export type UsageRange = "7d" | "30d" | "all";
 
@@ -72,8 +72,7 @@ export function recordModelUsage(
     day: hit.day || localDay(),
   };
   try {
-    fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    fs.appendFileSync(modelLedgerPath(dataDir), `${JSON.stringify(row)}\n`, { encoding: "utf-8" });
+    appendPrivateLine(modelLedgerPath(dataDir), JSON.stringify(row));
   } catch {
     /* ignore */
   }
@@ -81,7 +80,7 @@ export function recordModelUsage(
 
 function readModelHits(dataDir: string): UsageModelHit[] {
   try {
-    const raw = fs.readFileSync(modelLedgerPath(dataDir), "utf-8");
+    const raw = readPrivateTextFile(modelLedgerPath(dataDir), 64 * 1024 * 1024).text;
     const hits: UsageModelHit[] = [];
     for (const line of raw.split("\n")) {
       if (!line.trim()) continue;

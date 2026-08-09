@@ -4,6 +4,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { load } from "cheerio";
 import { strToU8, unzipSync, zipSync } from "fflate";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { openRegularFileNoFollow } from "../security/private-file.js";
 
 const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const MAX_OFFICE_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
@@ -330,7 +331,16 @@ export async function readDocument(
 ): Promise<{ path: string; format: string; text: string; truncated: boolean }> {
   const target = resolveDocumentReadPath(workspaceRoot, inputPath);
   const extension = path.extname(target).toLowerCase();
-  const buffer = fs.readFileSync(target);
+  const opened = openRegularFileNoFollow(target);
+  let buffer: Buffer;
+  try {
+    if (opened.stat.size > MAX_DOCUMENT_BYTES) {
+      throw new Error(`document is too large (${opened.stat.size} bytes; limit ${MAX_DOCUMENT_BYTES})`);
+    }
+    buffer = fs.readFileSync(opened.descriptor);
+  } finally {
+    fs.closeSync(opened.descriptor);
+  }
   let text: string;
   if (extension === ".pdf") text = await readPdf(buffer);
   else if (extension === ".docx") text = readDocx(buffer);

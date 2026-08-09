@@ -27,7 +27,7 @@ read back through the API before the candidate branch was pushed.
 
 | Evidence | Observed result | Finding/path |
 | --- | --- | --- |
-| `npm test` | 71 files, 860 tests passed | F-01 through F-12 regression coverage |
+| `npm test` | 72 files, 862 tests passed | F-01 through F-12 regression coverage |
 | `pytest -q tests` | 421 tests passed; 12 deprecation warnings | legacy/migration safety coverage |
 | current + legacy `cargo fmt/check/test --locked` | passed; current shell 2 tests, legacy shell 0 | native desktop compile/test coverage |
 | `npm audit --audit-level=moderate --registry=https://registry.npmjs.org` | 0 vulnerabilities | F-06 |
@@ -40,7 +40,8 @@ read back through the API before the candidate branch was pushed.
 | Semgrep candidate snapshot | 49 findings: 42 warnings + 7 manually bounded error-level matches | dangerous API review |
 | Bandit production source | 591 low, 23 medium, 0 high over 55,558 LOC | legacy Python dangerous API review |
 | GitHub CodeQL default setup, run `31309734868` | Actions, JavaScript/TypeScript, Python and Rust analyzed; 114 alerts opened for classification | F-12 |
-| PR #18 CodeQL, run `31310641231` | four language analyses passed; the CodeQL PR check passed after fixes and evidence-backed classifications | F-12 |
+| PR #18 CodeQL, final run `31310952927` | four language analyses passed; the CodeQL PR check passed with zero annotations | F-12 |
+| protected `main` CodeQL, run `31311133375` | four language analyses passed; all 24 repaired baseline alerts closed automatically | F-12 |
 | `npm run tauri:build:local -w @penglai/desktop` | build, ad-hoc seal and `hdiutil verify` pass | F-10 |
 | `node scripts/lifecycle-check.mjs` | install, first launch, isolated Host, setup, chat, Evidence preview, redacted diagnostics and uninstall pass | F-01, F-02, F-05, F-10 |
 
@@ -236,7 +237,7 @@ review separated it into three evidence-bearing classes:
   symlink-sensitive credential and artifact reads, predictable temporary
   paths, polynomial regular expressions, log injection, an incorrectly
   anchored test expression and one dormant static-page XSS sink;
-- 18 current findings were documented as false positives or test-only flows,
+- 18 baseline current findings were documented as false positives or test-only flows,
   including fixed-loopback Host authentication, signed canonical updater
   assets, pinned-and-hashed voice models, private non-executable memory/SOP
   files, owner-selected HTTPS model review and masked migration reports;
@@ -245,10 +246,15 @@ review separated it into three evidence-bearing classes:
   repository-visible warning that the 0.4 runtime/build does not execute those
   paths and that any future reuse requires a new review.
 
-The PR CodeQL check and all four language analyses pass. After the protected
-merge, the 24 repaired default-branch alerts are expected to close from the new
-analysis rather than by dismissal. The code-scanning API must be re-read after
-merge before a release tag is authorized.
+The PR CodeQL check and all four language analyses passed. Protected `main`
+run `31311133375` then closed all 24 repaired alerts from new analysis rather
+than dismissal. It opened one additional medium candidate for persisting the
+fixed-domain WeChat iLink polling cursor. That flow is bounded, private and
+non-executable and was documented as a false positive; following its call path
+also triggered a systematic completion pass that moved every remaining Host
+private-state read (WeChat/Feishu tokens, conversations, goals, MCP, skills,
+memory, services, usage and overlays) onto stable no-follow descriptors. A new
+WeChat symlink regression test covers the discovered gap.
 
 Paths: PR #18; `packages/host/src/security/private-file.ts`,
 `packages/host/src/security/redaction.ts`, `packages/host/src/token-file.ts`,
@@ -277,8 +283,8 @@ confirm:
 
 The remaining cutover sequence is operational rather than a missing control:
 
-1. Merge security hardening PR #18 only after required checks and CodeQL pass,
-   then re-read the default-branch alert count.
+1. Merge the private-file completion PR only after required checks and CodeQL
+   pass, then re-read the default-branch alert count.
 2. Create and push the Owner-signed annotated tag only from the accepted `main`.
 3. Inspect the generated draft Release checksums, SBOM and downloaded assets;
    then use the separate manual publish workflow with the exact confirmation.

@@ -57,7 +57,15 @@ export function readPrivateTextFile(
   maxBytes: number,
   harden = false,
 ): { text: string; stat: fs.Stats } {
-  const opened = openRegularFileNoFollow(file);
+  let opened: OpenedRegularFile;
+  try {
+    opened = openRegularFileNoFollow(file);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Expected a stable regular file")) {
+      throw new Error(`Private config must be a regular file, not a symlink: ${file}`);
+    }
+    throw error;
+  }
   try {
     assertPrivateStat(opened.stat, file, maxBytes);
     if (harden) fs.fchmodSync(opened.descriptor, 0o600);

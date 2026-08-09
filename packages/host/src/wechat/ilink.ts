@@ -11,7 +11,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { atomicWritePrivateJson, hardenPrivateFile } from "../security/private-file.js";
+import { atomicWritePrivateJson, readPrivateTextFile } from "../security/private-file.js";
 
 const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 const UA =
@@ -45,8 +45,7 @@ export function wechatTokenPath(dataDir: string): string {
 export function loadWechatToken(dataDir: string): WechatToken | null {
   try {
     const file = wechatTokenPath(dataDir);
-    hardenPrivateFile(file, MAX_WECHAT_TOKEN_FILE_BYTES);
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as Record<
+    const raw = JSON.parse(readPrivateTextFile(file, MAX_WECHAT_TOKEN_FILE_BYTES, true).text) as Record<
       string,
       unknown
     >;

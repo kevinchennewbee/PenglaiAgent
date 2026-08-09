@@ -11,10 +11,9 @@
  * 密钥绝不进日志、绝不硬编码；加载对缺失/损坏文件宽容（视为未配置）。
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeProviderBaseUrl } from "../providers/url-safety.js";
-import { atomicWritePrivateJson, hardenPrivateFile } from "../security/private-file.js";
+import { atomicWritePrivateJson, readPrivateTextFile } from "../security/private-file.js";
 import { FEISHU_DEFAULT_DOMAIN } from "./protocol.js";
 
 const MAX_CHANNELS_FILE_BYTES = 1024 * 1024;
@@ -45,8 +44,7 @@ export function loadChannelConfig(dataDir: string): FeishuChannelConfig | null {
   let parsed: ChannelsFile;
   try {
     const file = channelsFilePath(dataDir);
-    hardenPrivateFile(file, MAX_CHANNELS_FILE_BYTES);
-    parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+    parsed = JSON.parse(readPrivateTextFile(file, MAX_CHANNELS_FILE_BYTES, true).text);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Private config")) throw error;
     return null;

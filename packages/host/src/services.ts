@@ -35,7 +35,7 @@ import {
   appendPrivateLine,
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  readPrivateTextFile,
 } from "./security/private-file.js";
 import { redactSensitiveText } from "./security/redaction.js";
 
@@ -170,10 +170,9 @@ export class SchedulerService {
   /** Load tasks from disk into the in-memory map (constructor only). */
   private loadTasks(): void {
     const file = this.tasksFile();
-    if (!file || !fs.existsSync(file)) return;
+    if (!file) return;
     try {
-      hardenPrivateFile(file, MAX_SERVICE_STATE_BYTES);
-      const arr = JSON.parse(fs.readFileSync(file, "utf-8"));
+      const arr = JSON.parse(readPrivateTextFile(file, MAX_SERVICE_STATE_BYTES, true).text);
       if (Array.isArray(arr)) {
         for (const t of arr as ScheduledTask[]) {
           if (t && typeof t.id === "string") this.tasks.set(t.id, t);
@@ -360,8 +359,7 @@ export class AutonomousService {
   readSop(): string | null {
     if (!this.sopPath) return null;
     try {
-      if (!fs.existsSync(this.sopPath)) return null;
-      return fs.readFileSync(this.sopPath, "utf-8");
+      return readPrivateTextFile(this.sopPath, MAX_SERVICE_STATE_BYTES).text;
     } catch {
       return null;
     }
@@ -495,9 +493,9 @@ export class CompanionService {
 
   private loadState(): void {
     try {
-      if (!fs.existsSync(this.statePath)) return;
-      hardenPrivateFile(this.statePath, MAX_SERVICE_STATE_BYTES);
-      const parsed = JSON.parse(fs.readFileSync(this.statePath, "utf8")) as Partial<CompanionStatus>;
+      const parsed = JSON.parse(
+        readPrivateTextFile(this.statePath, MAX_SERVICE_STATE_BYTES, true).text,
+      ) as Partial<CompanionStatus>;
       this.enabled = parsed.enabled === true;
       if (parsed.mode === "quiet" || parsed.mode === "present" || parsed.mode === "active") {
         this.mode = parsed.mode;

@@ -16,8 +16,8 @@
  * 本文件 re-export 保持既有 import 路径不变。
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
+import { atomicWritePrivateJson, readPrivateTextFile } from "../security/private-file.js";
 import {
   type CatalogOverlayEntry,
 } from "./overlay-view.js";
@@ -62,7 +62,7 @@ export function loadCatalogOverlay(dataDir: string): CatalogOverlayEntry[] {
   let parsed: CatalogOverlayFile;
   try {
     parsed = JSON.parse(
-      fs.readFileSync(catalogOverlayPath(dataDir), "utf-8"),
+      readPrivateTextFile(catalogOverlayPath(dataDir), 2 * 1024 * 1024, true).text,
     ) as CatalogOverlayFile;
   } catch {
     return [];
@@ -81,13 +81,7 @@ export function saveCatalogOverlayEntry(
   );
   entries.push(entry);
   const file = catalogOverlayPath(dataDir);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.tmp-${process.pid}-${Date.now().toString(36)}`;
   const payload: CatalogOverlayFile = { schemaVersion: 1, entries };
-  fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-  fs.renameSync(tmp, file);
+  atomicWritePrivateJson(file, payload, 2 * 1024 * 1024);
   return file;
 }

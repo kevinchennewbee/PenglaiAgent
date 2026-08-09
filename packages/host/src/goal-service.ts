@@ -8,7 +8,6 @@
  * Per-goal budget is optional soft ceiling on the ThreadGoal itself.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ThreadGoal, ThreadGoalStatus } from "@penglai/protocol";
 import { SCHEMA_VERSION } from "@penglai/protocol";
@@ -17,12 +16,10 @@ import {
   appendPrivateLine,
   atomicWritePrivateJson,
   ensurePrivateDirectory,
-  hardenPrivateFile,
+  readPrivateTextFile,
 } from "./security/private-file.js";
 
 const MAX_GOAL_BYTES = 2 * 1024 * 1024;
-const MAX_GOAL_HISTORY_BYTES = 64 * 1024 * 1024;
-
 export const HOST_TOOL_UPDATE_GOAL = "update_goal";
 
 function goalPath(conversationId: string): string {
@@ -47,9 +44,7 @@ function newGoalId(): string {
 export function loadGoal(conversationId: string): ThreadGoal | null {
   const file = goalPath(conversationId);
   try {
-    if (!fs.existsSync(file)) return null;
-    hardenPrivateFile(file, MAX_GOAL_BYTES);
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as ThreadGoal;
+    const raw = JSON.parse(readPrivateTextFile(file, MAX_GOAL_BYTES, true).text) as ThreadGoal;
     if (!raw || raw.conversationId !== conversationId) return null;
     return raw;
   } catch {
@@ -66,7 +61,6 @@ export function saveGoal(goal: ThreadGoal): void {
 function appendHistory(goal: ThreadGoal): void {
   try {
     const file = historyPath(goal.conversationId);
-    if (fs.existsSync(file)) hardenPrivateFile(file, MAX_GOAL_HISTORY_BYTES);
     appendPrivateLine(file, JSON.stringify(goal));
   } catch {
     /* best-effort */

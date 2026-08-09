@@ -211,13 +211,7 @@ function listNotes(dir: string): MemoryNoteMeta[] {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => {
       const file = path.join(dir, entry.name);
-      const stat = validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
-      let content = "";
-      try {
-        content = fs.readFileSync(file, "utf-8");
-      } catch {
-        /* unreadable note still lists with a fallback title */
-      }
+      const { text: content, stat } = readPrivateTextFile(file, MEMORY_NOTE_MAX_BYTES);
       const stem = entry.name.slice(0, -3);
       return {
         name: stem,
@@ -232,12 +226,15 @@ function listNotes(dir: string): MemoryNoteMeta[] {
 function readNote(dir: string, name: string): string {
   const stem = noteStem(name);
   const file = path.join(dir, `${stem}.md`);
-  if (!fs.existsSync(file)) {
-    throw new MemoryError("memory_not_found", `memory note not found: ${stem}`);
-  }
   validatePrivateDirectory(dir);
-  validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
-  return fs.readFileSync(file, "utf-8");
+  try {
+    return readPrivateTextFile(file, MEMORY_NOTE_MAX_BYTES).text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new MemoryError("memory_not_found", `memory note not found: ${stem}`);
+    }
+    throw error;
+  }
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -526,10 +523,14 @@ export class MemoryStore {
    */
   readManagedSection(tag: string): string[] | null {
     const file = path.join(this.globalRoot, L1_FILE_NAME);
-    if (!fs.existsSync(file)) return null;
-    validatePrivateDirectory(this.globalRoot);
-    validatePrivateFile(file, MEMORY_NOTE_MAX_BYTES);
-    const current = fs.readFileSync(file, "utf-8");
+    let current: string;
+    try {
+      validatePrivateDirectory(this.globalRoot);
+      current = readPrivateTextFile(file, MEMORY_NOTE_MAX_BYTES).text;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
     const { start, end } = managedMarkers(tag);
     const location = locateManagedSection(current, start, end);
     if (!location || location === "invalid") return null;
@@ -550,7 +551,7 @@ export class MemoryStore {
   writeManagedSection(tag: string, lines: string[]): boolean {
     this.ensureGlobalLayout();
     const file = path.join(this.globalRoot, L1_FILE_NAME);
-    const current = fs.readFileSync(file, "utf-8");
+    const current = readPrivateTextFile(file, MEMORY_NOTE_MAX_BYTES).text;
     const { start, end } = managedMarkers(tag);
     if (lines.some((line) => RESERVED_MANAGED_NAMESPACE_PATTERN.test(line))) {
       return false;
@@ -805,9 +806,10 @@ export class MemoryStore {
     try {
       validatePrivateDirectory(this.sopRoot);
       validatePrivateDirectory(this.sopAuditRoot);
-      const fileStat = validatePrivateFile(filePath, MEMORY_NOTE_MAX_BYTES + 512);
-      validatePrivateFile(receiptPath, 128 * 1024);
-      const raw = fs.readFileSync(filePath, "utf-8");
+      const fileRead = readPrivateTextFile(filePath, MEMORY_NOTE_MAX_BYTES + 512);
+      const receiptRead = readPrivateTextFile(receiptPath, 128 * 1024);
+      const fileStat = fileRead.stat;
+      const raw = fileRead.text;
       const newline = raw.indexOf("\n");
       if (newline < 0) return null;
       const header = raw.slice(0, newline);
@@ -815,7 +817,7 @@ export class MemoryStore {
       const match = header.match(SOP_HEADER_PATTERN);
       if (!match) return null;
       const [, receiptId, headerName, headerSha256, headerSource] = match;
-      const parsed = JSON.parse(fs.readFileSync(receiptPath, "utf-8")) as unknown;
+      const parsed = JSON.parse(receiptRead.text) as unknown;
       if (!isValidReceipt(parsed)) return null;
       const receipt = parsed;
       const bodySha256 = sha256Text(body);
@@ -1073,9 +1075,12 @@ export class MemoryStore {
   private refreshL1SopIndex(): string {
     this.ensureGlobalLayout();
     const l1File = path.join(this.globalRoot, L1_FILE_NAME);
-    const current = fs.existsSync(l1File)
-      ? fs.readFileSync(l1File, "utf-8")
-      : "";
+    let current = "";
+    try {
+      current = readPrivateTextFile(l1File, MEMORY_NOTE_MAX_BYTES).text;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
     let output: string;
     try {
       output = this.renderL1SopIndex(current, this.listSops());
