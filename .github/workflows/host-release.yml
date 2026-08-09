@@ -49,7 +49,7 @@ jobs:
       - name: Verify trusted signed annotated tag and exact target
         shell: bash
         env:
-          TRUSTED_RELEASE_FINGERPRINT: B2F1810F9E6D6A2B1AECD29524E14ADA7E3A80EA
+          TRUSTED_RELEASE_FINGERPRINT: 108B8D1D5592D8F71EEAC9AB362CF5452371B1E5
         run: |
           set -euo pipefail
           export GNUPGHOME="$RUNNER_TEMP/penglai-release-gpg"

@@ -35,7 +35,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PUBLISH_TAG: ${{ inputs.tag }}
       PUBLISH_CONFIRM: ${{ inputs.confirm }}
-      TRUSTED_RELEASE_FINGERPRINT: B2F1810F9E6D6A2B1AECD29524E14ADA7E3A80EA
+      TRUSTED_RELEASE_FINGERPRINT: 108B8D1D5592D8F71EEAC9AB362CF5452371B1E5
     steps:
       - name: Require exact Owner confirmation
         shell: bash
