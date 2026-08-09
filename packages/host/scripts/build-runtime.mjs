@@ -154,6 +154,10 @@ function assertSafeOutputDirectory(directory) {
   if (stat.isSymbolicLink() || !stat.isDirectory()) die(`runtime output must be a real directory: ${resolved}`);
   const entries = fs.readdirSync(resolved);
   if (entries.length === 0) return;
+  // Tauri validates resource globs during ordinary `cargo check`, before the
+  // release runtime exists. The committed sentinel keeps that glob valid in a
+  // clean checkout and is the only non-manifest directory we may replace.
+  if (entries.length === 1 && entries[0] === ".gitkeep") return;
   const manifestPath = path.join(resolved, "manifest.json");
   try {
     const manifest = readJson(manifestPath);

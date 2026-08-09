@@ -8,7 +8,8 @@ packages/host/dist/
 packages/host/dist-runtime/
 packages/desktop/dist/
 packages/desktop/.runtime-cache/
-packages/desktop/src-tauri/resources/host-runtime/
+packages/desktop/src-tauri/resources/host-runtime/*
+!packages/desktop/src-tauri/resources/host-runtime/.gitkeep
 packages/desktop/src-tauri/target/
 
 # Local runtime and test state
