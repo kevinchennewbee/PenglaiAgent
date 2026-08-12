@@ -340,7 +340,8 @@ describe("manual host-publish workflow policy", () => {
     expect(workflow.on.workflow_dispatch.inputs.confirm.required).toBe(true);
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.jobs.publish.permissions).toEqual({ contents: "write" });
-    expect(workflow.jobs.publish.environment).toBe("release");
+    expect(workflow.jobs.publish.environment).toContain("release-channel-recovery");
+    expect(workflow.jobs.publish.environment).toContain("release");
     expect(raw).toContain('"publish-$PUBLISH_TAG"');
     expect(raw).toContain('"recover-channel-$PUBLISH_TAG"');
   });
