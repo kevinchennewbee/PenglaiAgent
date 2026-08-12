@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>蓬莱 Penglai 0.4.0 — 住在你飞书里、完全属于你、越用越懂你的个人 AI 助理</title>
-  <meta name="description" content="蓬莱 0.4.0：开源（MIT）个人 AI 助理，TypeScript 重写。一个核心连接桌面、CLI、飞书与微信；SenseVoice、MOSS-TTS 与主动陪伴在本机运行，项目边界、记忆与证据都属于你。">
+  <title>蓬莱 Penglai 0.4.1 — 住在你飞书里、读得懂你资料的个人 AI 助理</title>
+  <meta name="description" content="蓬莱 0.4.1：开源（MIT）个人 AI 助理。新增个人上下文：授权本地文档目录，本机索引、离线检索，回答带 Host 验证的来源引用。一个核心连接桌面、CLI、飞书与微信；语音与陪伴在本机运行，记忆与证据都属于你。">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="alternate" hreflang="zh-CN" href="https://kevinchennewbee.github.io/PenglaiAgent/">
   <link rel="alternate" hreflang="en" href="https://kevinchennewbee.github.io/PenglaiAgent/en/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="蓬莱 Penglai 0.4.0 — 住在你飞书里的个人 AI 助理">
-  <meta property="og:description" content="开源（MIT）个人 AI 助理：一个 TypeScript 核心、Pi 引擎、本地语音与主动陪伴；桌面、CLI、飞书和微信共享同一份事实。">
+  <meta property="og:title" content="蓬莱 Penglai 0.4.1 — 住在你飞书里、读得懂你资料的个人 AI 助理">
+  <meta property="og:description" content="开源（MIT）个人 AI 助理：授权本地资料目录，本机索引，回答带 Host 验证的来源引用；一个 TypeScript 核心、Pi 引擎、本地语音与主动陪伴。">
   <meta property="og:url" content="https://kevinchennewbee.github.io/PenglaiAgent/">
   <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/desktop-workbench.webp">
   <meta property="og:locale" content="zh_CN">
@@ -63,7 +63,8 @@
     <!-- ========== 1. Hero ========== -->
     <section class="hero" id="hero">
       <div class="hero-badges reveal">
-        <span class="pill accent"><b>v0.4.0</b></span>
+        <span class="pill accent"><b>v0.4.1</b></span>
+        <span class="pill accent">新 · <b>个人上下文</b></span>
         <span class="pill">代码 <b>MIT</b> 开源</span>
         <span class="pill"><b>TypeScript</b> 重写</span>
         <span class="pill">Powered by <b>Pi 内核</b></span>
@@ -72,16 +73,16 @@
       <div class="hero-name reveal reveal-delay-1">
         <span class="seal">蓬</span>
         <h1>蓬莱</h1>
-        <span class="hero-version">0.4.0</span>
+        <span class="hero-version">0.4.1</span>
       </div>
       <p class="hero-tagline reveal reveal-delay-1">住在你飞书里、完全属于你、越用越懂你的个人 AI 助理</p>
-      <p class="hero-modes reveal reveal-delay-2"><b>一个核心</b> · <b>Pi 引擎</b> · <b>本地陪伴</b>——同一记忆、同一身份、同一执行路径</p>
+      <p class="hero-modes reveal reveal-delay-2"><b>一个核心</b> · <b>Pi 引擎</b> · <b>读得懂你的资料</b>——同一记忆、同一身份、同一执行路径</p>
       <div class="hero-ctas reveal reveal-delay-3">
         <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
           GitHub
         </a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_aarch64.dmg" target="_blank" rel="noopener" class="btn btn-ghost">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg" target="_blank" rel="noopener" class="btn btn-ghost">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           下载 macOS（Apple 芯片）
         </a>
@@ -178,9 +179,14 @@
     <section class="section" id="abilities">
       <div class="section-inner">
         <div class="section-label reveal">能力</div>
-        <h2 class="section-title reveal reveal-delay-1">0.4.0 真实能力清单</h2>
-        <p class="section-desc reveal reveal-delay-2">每一条都由当前 0.4.0 代码与本地验收覆盖——不是 roadmap。</p>
+        <h2 class="section-title reveal reveal-delay-1">0.4 真实能力清单</h2>
+        <p class="section-desc reveal reveal-delay-2">每一条都由当前 0.4.1 代码与真实验收覆盖——不是 roadmap。</p>
         <div class="ability-grid">
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><circle cx="12" cy="10" r="2.5"/><line x1="14" y1="12" x2="16.5" y2="14.5"/></svg></div>
+            <h3>个人上下文 <span class="pill accent" style="font-size:.7em;vertical-align:middle;">0.4.1 新</span></h3>
+            <p>授权一个本地文档目录，本机 SQLite+FTS5 建立可删除的派生索引——不上传、不改原文件、随时移除。对话与任务自动检索，回答带 Host 验证的来源卡片：哪个文件、哪一节、是否已过时，跨重启如实更新。装好即有用：向导一步交资料，空会话直接给出从你文档标题生成的示例问题。</p>
+          </div>
           <div class="ability reveal">
             <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
             <h3>penglai CLI 完全体</h3>
@@ -377,7 +383,7 @@
             </div>
             <div class="quick-note">
               <span class="qn-num">二</span>
-              <div><b>不想碰命令行？</b>直接下载 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_aarch64.dmg">Apple 芯片版</a>或 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_x64.dmg">Intel 版</a>。桌面首次启动即同一只向导。安装包采用与 0.3.6 相同的本地签名方式，未购买 Apple 开发者证书、未公证；首次打开如被 Gatekeeper 拦截，请在“系统设置 → 隐私与安全性”中确认允许。</div>
+              <div><b>不想碰命令行？</b>直接下载 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg">Apple 芯片版</a>或 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_x64.dmg">Intel 版</a>。桌面首次启动即同一只向导。安装包采用与 0.3.6 相同的本地签名方式，未购买 Apple 开发者证书、未公证；首次打开如被 Gatekeeper 拦截，请在“系统设置 → 隐私与安全性”中确认允许。</div>
             </div>
             <div class="quick-note">
               <span class="qn-num">三</span>
@@ -421,7 +427,7 @@
             <h3>许可</h3>
             <p><b>代码：</b>蓬莱与保留的 GenericAgent 代码采用 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>；MOSS-TTS Node 适配等第三方组件保留各自许可证与归属，详见 Third-Party Notices。</p>
             <p><b>品牌：</b>「Penglai / 蓬莱」名称、logo 与视觉资产<b>保留所有权利</b>，不在代码许可证内。用于你的发行版、衍生品或商业冠名前，请先取得书面授权。</p>
-            <p><b>版本边界：</b>基于 GenericAgent 的 Python 产品线（0.3.x）冻结在历史标签 <code>v0.3.6</code>；当前 <code>main</code> 与正式 <code>v0.4.0</code> Release 是以 Pi 为核心的 TypeScript 重写。</p>
+            <p><b>版本边界：</b>基于 GenericAgent 的 Python 产品线（0.3.x）冻结在历史标签 <code>v0.3.6</code>；当前 <code>main</code> 与正式 <code>v0.4.x</code> Release 是以 Pi 为核心的 TypeScript 重写，最新版本 <code>v0.4.1</code>。</p>
           </div>
           <div class="legal-card reveal reveal-delay-1">
             <h3>致谢 · 站在这些项目上</h3>
@@ -461,7 +467,7 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 Kevin Chen · 代码 MIT · 品牌保留所有权利</span>
-      <span class="ver">v0.4.0</span>
+      <span class="ver">v0.4.1</span>
     </div>
   </footer>
 
