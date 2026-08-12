@@ -401,7 +401,7 @@ export class TaskRunner {
   private settleRun(
     stepId: string,
     runId: string,
-    status: "completed" | "failed",
+    status: "completed" | "failed" | "cancelled",
     message: string | null,
   ): void {
     try {
@@ -412,8 +412,11 @@ export class TaskRunner {
       const terminalStep =
         liveStep && ["completed", "failed", "skipped"].includes(liveStep.status);
 
+      // Steps have no cancelled status; Owner abort maps step→failed, run→cancelled
+      // (same as abortWithReason).
+      const stepStatus = status === "cancelled" ? "failed" : status;
       if (!terminalStep && liveStep) {
-        this.store.transitionStep(stepId, status, message ?? "Pi episode settled");
+        this.store.transitionStep(stepId, stepStatus, message ?? "Pi episode settled");
       }
       if (!terminalRun && liveRun) {
         this.store.transitionRun(runId, status, message);
@@ -730,6 +733,8 @@ export class TaskRunner {
             });
           }
         }
+        // C5: .then only runs when the episode kernel reported completed
+        // (budget/aborted/failed reject with stopReason; see task-episode-kernel).
         this.settleRun(step.id, run.id, "completed", null);
         this.publish(options.task.id, {
           event: "task.run.completed",
@@ -739,7 +744,33 @@ export class TaskRunner {
       })
       .catch((error) => {
         if (active.cancelled || budgetStop) return;
+        const stopReason =
+          error && typeof error === "object" && "stopReason" in error
+            ? (error as { stopReason?: string }).stopReason
+            : undefined;
         const message = error instanceof Error ? error.message : String(error);
+        // Episode budget stop: keep the existing blocked path (not failed, not
+        // completed) so onRunCompleted/distill never fires.
+        if (stopReason === "budget") {
+          budgetStop = message || "episode budget exhausted";
+          return;
+        }
+        if (stopReason === "aborted") {
+          // Owner abort / interrupt already transitions via abortWithReason;
+          // if we still land here (e.g. episode abort without active.cancelled),
+          // leave a cancelled terminal rather than mislabeling as failed.
+          const live = this.store.getRun(run.id);
+          if (live && !["completed", "failed", "cancelled"].includes(live.status)) {
+            this.settleRun(step.id, run.id, "cancelled", message || "episode aborted");
+            this.publish(options.task.id, {
+              event: "task.run.cancelled",
+              taskId: options.task.id,
+              runId: run.id,
+              message: message || "episode aborted",
+            });
+          }
+          return;
+        }
         this.settleRun(step.id, run.id, "failed", message);
         this.publish(options.task.id, {
           event: "task.run.failed",
@@ -822,6 +853,19 @@ export class TaskRunner {
           );
         } finally {
           if (budgetStop) {
+            // R8: episode-kernel budget and local counters both end here.
+            // Keep Run and the current Step on the same non-success terminal
+            // (blocked) so distill never fires and restart recovery cannot
+            // revive a budget-stopped step as still running.
+            const currentStep = this.store.getStep(step.id);
+            if (
+              currentStep &&
+              !["completed", "failed", "skipped", "blocked"].includes(
+                currentStep.status,
+              )
+            ) {
+              this.store.transitionStep(step.id, "blocked", budgetStop);
+            }
             const current = this.store.getRun(run.id);
             if (current?.status === "running") {
               this.store.transitionRun(run.id, "blocked", budgetStop);

@@ -2,6 +2,39 @@
 
 蓬莱的版本记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。0.3.x Python 产品线的完整历史保留在 `v0.3.6` 标签。
 
+## [0.4.1] — 2026-08-12
+
+0.4.1 交付「这个 Agent 能在 Owner 授权范围内持续理解其真实资料」的个人上下文 V1，修复 0.4.0 中会造成消息、状态、审批与证据失真的真实问题，并补齐首次体验闭环（向导授权资料、空会话示例问题）。完整说明见 [0.4.1 发布说明](RELEASE_NOTES_0.4.1.md)。
+
+### Added
+
+- 个人上下文 V1：Owner 从桌面原生目录选择器或 CLI 显式授权 global / project 目录，Host 本地 SQLite+FTS5 派生索引，原文件绝不改写或删除。
+- Host 验证的结构化来源引用：Chat assistant message 可选 `contextReferences[]`，跨会话持久化并在重启后恢复；桌面显示可点击来源卡片（标题、相对路径、位置、current/stale/revoked 状态），点击只提交 opaque ref。
+- 持久 verified ref 生命周期：`current` / `stale` / `revoked` / `unavailable` / `unknown`；reindex 通过 source + 相对路径 + hash 稳定重映射，不再因重新生成 chunk id 让旧引用无条件死亡。
+- Task Evidence 新类别 `source`：仅由 Host/tool observation 创建，URI 使用 opaque internal ref，metadata 携带相对路径、位置、document/chunk hash、query、run 与状态；桌面证据轨新增「资料来源」区。
+- 结构化 chunk 定位：Markdown/TXT 保留 heading/offset；CSV/TSV 保留表头与行组；JSON/YAML/XML 保留 key path；每个 chunk 至少一个可解释位置。
+- Provider 统一 Host-only transport：list-models、smoke 与真实 Pi inference 共用 DNS 全地址检查、私网/metadata 拒绝、逐跳 redirect 重验证与 DNS rebinding 防护。
+- 首次体验：向导新增可跳过的「个人上下文」步；空会话引导添加资料或展示离线示例问题；Host RPC `context.suggestions`（真实标题模板，不调用模型）。
+- CLI 可信路径面：`context.source.describe`（不进 renderer allowlist）供 list 显示真实 rootPath。
+
+### Changed
+
+- 目录授权信任边界前移：renderer 不再拥有 raw 绝对路径授权能力；Desktop 通过 trusted native command 完成目录选择与注册，Host 保留 canonical path / scope / project / 敏感路径复核。
+- Provider origin 变化时旧密钥立即解绑且绝不发往新 origin；同一更新携带新字面 key 时进程内立即生效（R6 同进程修复）。
+- Episode 审批：`remembered` 返回实际 grant 结果（L3 永远 false，不再回显请求），`decidedBy` 必填并进入审计；abort 后的迟到审批无法复活旧 Episode。
+- 预算熔断：Run 与当前 Step 一起进入 `blocked` 非成功终态，重启后保持 blocked，绝不 completed/failed 或触发蒸馏。
+- renderer 构建边界：纯模型合并移入 browser-safe `merge-models.ts`，Desktop 不再 import Host 网络实现模块；新增 `renderer:network-boundary` 静态门禁。
+- `conversation.get` 批量刷新历史 `contextReferences[].status`（reindex/撤销后卡片不再冻结旧徽标）。
+- IM / Desktop 对排队应答分流：渠道默认等待真实终态；Desktop RPC 使用结构化 `steer_queued` / `followup_queued` ack（禁止文本子串匹配）。
+
+### Fixed
+
+- 旧实现中 renderer 通过 `context.source.add` 提交任意绝对路径、Context ref 仅存于进程内 Map、reindex 后旧引用直接消失、Chat 无结构化来源、source Evidence 元数据不全等 R1–R5 缺陷。
+- 文件索引 TOCTOU：同一已验证打开对象完成 fstat + hash + 读取，解析使用同一 buffer，不再校验后二次按路径打开。
+- 飞书等渠道把 `stopReason:"queued"` 当成失败展示；原生添加大目录时同步 Host RPC 阻塞 Tauri 异步运行时；episode abort 未走 `active.cancelled` 时被记成 failed；CLI list 打印 undefined 路径；remove 返回布尔却当路径打印。
+
+[0.4.1]: https://github.com/kevinchennewbee/PenglaiAgent/compare/v0.4.0...v0.4.1
+
 ## [0.4.0] — 2026-08-09
 
 0.4.0 是以 TypeScript Host、Pi AgentKernel 与 Tauri 2 Desktop 为核心的跨代重构。它只有一套执行核心：Desktop、CLI、Goal、飞书、微信与持久 Task 都进入 `EpisodeRunner → Pi AgentKernel`；项目锚定只改变工作目录与权限边界，不代表另一种产品模式。

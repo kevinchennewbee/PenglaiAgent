@@ -409,6 +409,8 @@ export class FeishuChannel {
         conversationId: conversation.id,
         text,
         workspaceRoot,
+        // F1: wait for the real terminal reply (never surface queued as failure).
+        waitForTerminal: true,
       });
     } catch (error) {
       const code = (error as { code?: unknown }).code;
@@ -428,6 +430,15 @@ export class FeishuChannel {
         );
       }
       throw error;
+    }
+    // F1: queued is a non-terminal ack — never show it as a failure. With
+    // waitForTerminal defaulting true on the executor, channels should receive
+    // the real terminal; this guard is defense in depth.
+    if (result.stopReason === "queued") {
+      this.log(
+        `chat ${chatId}: ignoring non-terminal queued ack (waitForTerminal should have blocked this)`,
+      );
+      return;
     }
     if (result.stopReason !== "completed") {
       await this.safeSendText(

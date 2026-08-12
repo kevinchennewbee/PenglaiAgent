@@ -123,17 +123,30 @@ export function createTaskEpisodeKernel(
     delivery: "followup" | "steer",
   ): Promise<void> => {
     if (disposed) throw new Error("task episode kernel is disposed");
+    // C4: durable Task runId stays on the adapter session; each prompt /
+    // follow-up / steer gets a unique episodeRequestId so waiters never share
+    // a terminal event with a concurrent request on the same run.
+    const episodeRequestId =
+      `ep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const result = await deps.runner.prompt(sessionKey, {
       text: input.text,
       images: input.images,
       delivery,
       permissionMode: options.permissionMode ?? "confirm",
-      runId: options.runId,
+      runId: episodeRequestId,
     });
-    emit({ kind: "run.completed", raw: result });
-    if (result.stopReason === "failed") {
-      throw new Error(result.stopDetail ?? "task episode failed");
-    }
+    emit({
+      kind: "run.completed",
+      raw: { ...result, durableRunId: options.runId, episodeRequestId },
+    });
+    // C5: only a real completed episode looks successful to TaskRunner.
+    // budget / aborted / failed must not fall through to settleRun(completed).
+    if (result.stopReason === "completed") return;
+    const err = new Error(
+      result.stopDetail ?? `task episode ${result.stopReason}`,
+    ) as Error & { stopReason: typeof result.stopReason };
+    err.stopReason = result.stopReason;
+    throw err;
   };
 
   return {

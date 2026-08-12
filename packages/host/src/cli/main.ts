@@ -19,6 +19,7 @@ import {
   cmdConfig,
   cmdDistill,
   cmdDoctor,
+  cmdContext,
   cmdMemory,
   cmdMode,
   cmdProject,
@@ -97,6 +98,16 @@ memory（只读；防污染铁律无后门）
   memory list [--project <id>]
   memory read <name | projectId/name>
   memory sop list|show <name>|remove <name>   SOP 技能树（蒸馏环入树的产物）
+
+context（个人上下文 V1：Owner 显式授权目录 · 本地 FTS · 不改原文件）
+  context status
+  context source add <path> --scope global
+  context source add <path> --scope project --project <id>
+  context source list [--scope global|project] [--project <id>]
+  context source reindex <source-id>
+  context source remove <source-id>     只删索引，原文件保留
+  context search "<query>" [--project <id>] [--global-only]
+  context read <context-ref>
 
 distill（蒸馏环：复盘 → 候选 SOP → 审计 → 入树）
   distill                   蒸馏环配置（开关 / 复盘模型档位 / 审计模型位）
@@ -281,6 +292,11 @@ export async function runCli(argv: string[], options: CliRunOptions = {}): Promi
       case "memory": {
         const client = await HostClient.connect({ port, token });
         return await cmdMemory(makeContext(client, io), subArgs);
+      }
+
+      case "context": {
+        const client = await HostClient.connect({ port, token });
+        return await cmdContext(makeContext(client, io), subArgs);
       }
 
       case "budget": {

@@ -79,6 +79,86 @@ function LogItem({ item }: { item: Evidence }) {
   );
 }
 
+function SourceEvidenceItem({
+  item,
+  bridge,
+}: {
+  item: Evidence;
+  bridge: PenglaiBridge;
+}) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const contextRef =
+    typeof item.metadata.contextRef === "string"
+      ? item.metadata.contextRef
+      : item.uri?.startsWith("penglai-context://")
+        ? item.uri.slice("penglai-context://".length)
+        : null;
+  const status =
+    typeof item.metadata.status === "string"
+      ? item.metadata.status
+      : item.metadata.stale === true
+        ? "stale"
+        : "current";
+  const relativePath =
+    typeof item.metadata.relativePath === "string"
+      ? item.metadata.relativePath
+      : item.summary;
+  return (
+    <div className={`evidence-item source status-${status}`}>
+      <div className="evidence-item-head">
+        <Icon name="file" size={14} />
+        <strong>{item.title}</strong>
+        <span className="provenance-chip">工具观测</span>
+      </div>
+      <small>
+        {relativePath}
+        {status === "stale"
+          ? " · 来源已更新"
+          : status === "revoked"
+            ? " · 已撤销"
+            : ""}
+      </small>
+      {contextRef && status !== "revoked" && (
+        <button
+          className="link-button"
+          disabled={busy}
+          onClick={() => {
+            void (async () => {
+              setBusy(true);
+              setNotice(null);
+              try {
+                const result = await bridge.rpc<{
+                  status?: string;
+                  text?: string;
+                  stale?: boolean;
+                }>("context.read", { contextRef, maxChars: 1_500 });
+                const st = result.status ?? (result.stale ? "stale" : "current");
+                if (st === "revoked") {
+                  setNotice("来源已撤销，不返回正文");
+                  return;
+                }
+                setNotice(
+                  (result.text ?? "").replace(/\s+/g, " ").slice(0, 160) ||
+                    "(空片段)",
+                );
+              } catch (error) {
+                setNotice(String(error));
+              } finally {
+                setBusy(false);
+              }
+            })();
+          }}
+        >
+          {busy ? "读取中…" : "按 ref 打开"}
+        </button>
+      )}
+      {notice && <EvidenceText text={notice} />}
+      <small>{timeAgo(item.createdAt)}</small>
+    </div>
+  );
+}
+
 type ArtifactPreview = {
   path: string;
   name: string;
@@ -233,6 +313,16 @@ export function EvidenceRail({
           {groups.commands.slice(0, 4).map((item) => <CheckItem key={item.id} item={item} />)}
           {groups.tests.length + groups.commands.length === 0 && (
             <p className="evidence-empty-copy">暂无检查记录</p>
+          )}
+        </section>
+
+        <section className="evidence-section">
+          <div className="evidence-heading"><span>资料来源</span><em>{groups.sources.length}</em></div>
+          {groups.sources.slice(0, 8).map((item) => (
+            <SourceEvidenceItem key={item.id} item={item} bridge={bridge} />
+          ))}
+          {groups.sources.length === 0 && (
+            <p className="evidence-empty-copy">任务检索个人上下文后，这里显示 Host 观测到的来源</p>
           )}
         </section>
 

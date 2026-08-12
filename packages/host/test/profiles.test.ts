@@ -301,4 +301,86 @@ describe("config profile RPCs: persistence + smoke", () => {
     const listed = (await rpc("config.listProfiles", {})) as Array<{ id: string }>;
     expect(listed).toHaveLength(5); // built-in catalog only
   });
+
+  it("S1: changing baseUrl origin clears stored secret; path change keeps it", async () => {
+    server = await boot();
+    await rpc("config.createProfile", {
+      id: "bound",
+      baseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+      apiKey: "sk-must-not-follow",
+    });
+    let resolved = await rpc("config.resolveProfile", { profileId: "bound" });
+    expect(resolved.hasKey).toBe(true);
+
+    // Path-only change keeps the credential binding.
+    const pathOnly = await rpc("config.updateProfile", {
+      id: "bound",
+      baseUrl: "https://api.deepseek.com/v2",
+    });
+    expect(pathOnly.originChanged).toBe(false);
+    expect(pathOnly.credentialCleared).toBe(false);
+    resolved = await rpc("config.resolveProfile", { profileId: "bound" });
+    expect(resolved.hasKey).toBe(true);
+
+    // Origin change clears the old secret; must re-bind.
+    const moved = await rpc("config.updateProfile", {
+      id: "bound",
+      baseUrl: "https://api.openai.com/v1",
+    });
+    expect(moved.originChanged).toBe(true);
+    expect(moved.credentialCleared).toBe(true);
+    expect(moved.credentialHint).toMatch(/旧密钥|重新绑定/);
+    resolved = await rpc("config.resolveProfile", { profileId: "bound" });
+    expect(resolved.hasKey).toBe(false);
+    const disk = fs.readFileSync(profilesFilePath(dataDir), "utf-8");
+    expect(disk).not.toContain("sk-must-not-follow");
+  });
+
+  it("R6: origin change + new literal key is bound immediately in-process", async () => {
+    server = await boot();
+    await rpc("config.createProfile", {
+      id: "rebind-now",
+      baseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+      apiKey: "sk-fixtureold00000000000000000000dead",
+    });
+    let resolved = await rpc("config.resolveProfile", { profileId: "rebind-now" });
+    expect(resolved.hasKey).toBe(true);
+
+    // Same update: new origin AND new literal key. Disk and memory must both
+    // use the new key immediately; the old key must never remain bound.
+    const updated = await rpc("config.updateProfile", {
+      id: "rebind-now",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: "sk-fixturenew00000000000000000000beef",
+    });
+    expect(updated.originChanged).toBe(true);
+    expect(updated.credentialCleared).toBe(false);
+    resolved = await rpc("config.resolveProfile", { profileId: "rebind-now" });
+    expect(resolved.hasKey).toBe(true);
+    const disk = fs.readFileSync(profilesFilePath(dataDir), "utf-8");
+    expect(disk).toContain("sk-fixturenew00000000000000000000beef");
+    expect(disk).not.toContain("sk-fixtureold00000000000000000000dead");
+  });
+
+  it("R6: origin change without new credentials fail-closes (no old key)", async () => {
+    server = await boot();
+    await rpc("config.createProfile", {
+      id: "fail-closed",
+      baseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+      apiKey: "sk-fixtureold00000000000000000000dead",
+    });
+    const moved = await rpc("config.updateProfile", {
+      id: "fail-closed",
+      baseUrl: "https://api.openai.com/v1",
+    });
+    expect(moved.originChanged).toBe(true);
+    expect(moved.credentialCleared).toBe(true);
+    const resolved = await rpc("config.resolveProfile", { profileId: "fail-closed" });
+    expect(resolved.hasKey).toBe(false);
+    const disk = fs.readFileSync(profilesFilePath(dataDir), "utf-8");
+    expect(disk).not.toContain("sk-fixtureold00000000000000000000dead");
+  });
 });

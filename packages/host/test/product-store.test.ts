@@ -168,6 +168,58 @@ describe("ProductStore", () => {
     reopened.close();
   });
 
+  it("C6: restart preserves paused and blocked; only live runs fail", () => {
+    const { filename } = temporaryDatabase();
+    const store = new ProductStore(filename);
+    const project = store.createProject({
+      name: "c6",
+      rootPath: "/tmp/c6-recovery",
+      trusted: true,
+    });
+    const pausedTask = store.createTask({
+      projectId: project.id,
+      title: "owner paused",
+      objective: "stay paused across restart",
+    });
+    const blockedTask = store.createTask({
+      projectId: project.id,
+      title: "budget blocked",
+      objective: "stay blocked across restart",
+    });
+    const runningTask = store.createTask({
+      projectId: project.id,
+      title: "was running",
+      objective: "must fail on restart",
+    });
+    const pausedRun = store.createRun({
+      taskId: pausedTask.id,
+      modelProfileId: "test",
+    });
+    const blockedRun = store.createRun({
+      taskId: blockedTask.id,
+      modelProfileId: "test",
+    });
+    const runningRun = store.createRun({
+      taskId: runningTask.id,
+      modelProfileId: "test",
+    });
+    store.transitionRun(pausedRun.id, "running");
+    store.transitionRun(pausedRun.id, "paused");
+    store.transitionRun(blockedRun.id, "running");
+    store.transitionRun(blockedRun.id, "blocked", "turn budget exhausted");
+    store.transitionRun(runningRun.id, "running");
+    store.close();
+
+    const reopened = new ProductStore(filename);
+    expect(reopened.getRun(pausedRun.id)?.status).toBe("paused");
+    expect(reopened.getRun(blockedRun.id)?.status).toBe("blocked");
+    expect(reopened.getRun(runningRun.id)?.status).toBe("failed");
+    expect(reopened.getRun(runningRun.id)?.error).toBe(
+      "Interrupted by previous Host shutdown",
+    );
+    reopened.close();
+  });
+
   it("rejects duplicate workspace bindings and stale approval decisions", () => {
     const store = new ProductStore(":memory:");
     const project = store.createProject({ name: "one", rootPath: "/tmp/one" });

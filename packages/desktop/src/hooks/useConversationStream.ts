@@ -12,6 +12,7 @@ import { toBridgeError } from "../bridge/types.js";
 import {
   initialStreamState,
   loadTranscript,
+  noticeForPromptAck,
   reduceConversationEvent,
   type StreamState,
 } from "../state/conversation.js";
@@ -142,11 +143,9 @@ export function useConversationStream(
           delivery,
           images: images.length > 0 ? images : undefined,
         });
-        if (result?.stopDetail === "queued" || result?.text?.includes("queued")) {
-          setNotice("已排队 · 当前回复结束后自动发送");
-        } else if (result?.stopDetail === "steered" || result?.text?.includes("steered")) {
-          setNotice("已立即插入当前回合");
-        }
+        // F1: match structured stopDetail enums only — never text substrings.
+        const ackNotice = noticeForPromptAck(result?.stopDetail);
+        if (ackNotice) setNotice(ackNotice);
       } catch (error) {
         const shaped = toBridgeError(error);
         setNotice(

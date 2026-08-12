@@ -1,17 +1,25 @@
 # 蓬莱 Penglai 0.4
 
 > 一个以 TypeScript Host 为核心、以 Pi 为 agent runtime 的本地 AI 工作台。
+> 它住在你的机器上，读得懂你授权的资料，给出的每条引用都由 Host 验证。
 
-[English](#english) · [更新日志](CHANGELOG.md) · [0.4.0 发布说明](docs/RELEASE_NOTES_0.4.0.md) · [安全边界](SECURITY.md) · [隐私与本地数据](docs/PRIVACY_AND_DATA.md)
+[English](#english) · [官网](https://kevinchennewbee.github.io/PenglaiAgent/) · [下载](https://github.com/kevinchennewbee/PenglaiAgent/releases/latest) · [更新日志](CHANGELOG.md) · [0.4.1 发布说明](RELEASE_NOTES_0.4.1.md) · [安全边界](SECURITY.md) · [隐私与本地数据](docs/PRIVACY_AND_DATA.md)
 
-![Version](https://img.shields.io/badge/version-0.4.0-2563eb?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.1-2563eb?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/core-TypeScript-3178c6?style=flat-square)
 ![Pi](https://img.shields.io/badge/Pi-0.83.0-8b5cf6?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-16a34a?style=flat-square)
 
-蓬莱 0.4.0 不是给 Pi 再做一个外壳。它把 0.3.x 已验证的个人助理能力重构为一个本地控制平面：持续会话、可信项目、Task / Run / Evidence、审批、预算、恢复、飞书与微信入口，都连接同一个 Host、同一份事实和同一条执行路径。
+蓬莱 0.4 不是给 Pi 再做一个外壳。它把 0.3.x 已验证的个人助理能力重构为一个本地控制平面：持续会话、可信项目、Task / Run / Evidence、审批、预算、恢复、飞书与微信入口，都连接同一个 Host、同一份事实和同一条执行路径。
 
-## 0.4.0 的产品边界
+## 0.4.1：它开始读得懂你的资料
+
+- **个人上下文 V1。** 你显式授权一个本地文档目录（向导里一步完成，或 CLI `penglai context source add`），蓬莱在本机用 SQLite + FTS5 建立可删除的派生索引。不上传任何内容，绝不改写原文件，随时可移除授权。
+- **Host 验证的来源引用。** 回答带来源卡片：哪个文件、哪一节、什么状态（current / stale / revoked）。引用跨重启与重索引持久，文件变了徽标如实变——不是模型嘴上的"引用"。
+- **装好即有用。** 向导里交出资料目录，空会话直接给出从你文档真实标题生成的示例问题，点击即问。
+- **一批失真修复。** IM 排队应答不再被当成失败、Owner 取消不再记成 failed、大目录索引不再卡住原生壳等；详见[发布说明](RELEASE_NOTES_0.4.1.md)。
+
+## 产品边界
 
 - **只有一个助理、一个会话面。** 不再把 chat/work 当成两套产品或两种能力。会话未绑定项目时工作在助理自己的目录；Owner 明确确认后，它锚定到一个 realpath 校验过的项目目录。工具面不因标签切换。
 - **只有一条 agent 执行路径。** Desktop、CLI、Goal、飞书、微信和持久化 Task 最终都进入 `EpisodeRunner → Pi AgentKernel`。TaskRunner 只保留 Run / Step / Evidence / checkpoint 的持久化生命周期，不再拥有另一套模型循环。
@@ -28,6 +36,7 @@
 - 常用工作能力：Pi 的 `read / write / edit / bash` 原子工具直接覆盖代码、Git、压缩、日志、构建、测试与进程检查；Host 补充 PDF / DOCX / XLSX / PPTX 读取与生成、会话文件 inbox、产物打开/定位及应用内只读文本预览，以及带公网/SSRF 边界和 L3 审批的真实网页搜索与抓取。无需记工具名，也不增加任务卡片。
 - 成本控制：全局日预算与项目日预算、80% 预警、100% 熔断、人工 lift 和完整用量账本。
 - 记忆与技能：全局 L1、项目记忆、Owner 批准的 SOP 技能树，以及 Run 完成后的蒸馏/审计流程；桌面可从本地或 GitHub 安装声明式 Agent Skill，逐次验哈希并支持查看、启停和卸载，不运行 package installer、生命周期钩子或任意 TypeScript extension。
+- 个人上下文 V1（0.4.1）：Owner 从桌面原生目录选择器或 CLI 显式授权 global/project 目录；Host 本地 SQLite+FTS5 离线派生索引，绝不改写原文件；Chat 与 Work 按作用域自动检索并可继续深读；回答显示 Host 验证的来源卡片，Task 可生成 `source` Evidence；引用跨重启/重索引/撤销后仍能准确显示 current/stale/revoked/unavailable。
 - MCP：桌面可配置 stdio / HTTP / SSE、手动连接、预览工具和断开；Host 启动绝不自启第三方服务，stdio 使用私有临时 HOME，远程传输逐跳防 SSRF，每次 MCP 工具调用都必须重新经过 Owner L3。
 - 多入口同一事实：CLI、Tauri Desktop、飞书长连接、微信 iLink；白名单、路由、审批和 transcript 都由本地 Host 管理。
 - 本地语音：SenseVoice ASR（含情绪/语言标签）+ MOSS-TTS-Nano ONNX CPU 全管线；桌面可录音转写、逐条朗读，模型按需下载且不构成启动硬依赖。
@@ -36,7 +45,7 @@
 - 模型接入：11 个内置供应商/自定义 OpenAI-compatible 端点，实时 `/models` 探测、废弃模型提示和目录刷新。
 - 诊断与支持：Desktop Doctor 和 `penglai doctor --export` 可导出受限脱敏诊断包；只收集运行时元数据、Doctor 结果和有界近期文本日志，明确排除 token、模型档案、会话、数据库、记忆、Skill 与 MCP 配置。
 
-0.4.0 不开放任意 Pi TypeScript extension/hooks、browser/CUA、scheduler 或 autonomous 工具执行。MCP 只在 Owner 手动连接后按逐工具 L3 挂载；主动陪伴不执行无人值守工具，只把可审计的内部观察事件提交给同一核心，并以 `plan` 权限生成短消息。
+0.4 不开放任意 Pi TypeScript extension/hooks、browser/CUA、scheduler 或 autonomous 工具执行。MCP 只在 Owner 手动连接后按逐工具 L3 挂载；主动陪伴不执行无人值守工具，只把可审计的内部观察事件提交给同一核心，并以 `plan` 权限生成短消息。
 
 ## 快速开始（源码）
 
@@ -137,9 +146,9 @@ node scripts/release-check.mjs
 
 ## 安全说明
 
-Penglai 的 policy、jail、审批和路径检查是重要的进程内防线，但不是 OS sandbox。0.4.0 因此不宣称能安全执行任意不可信 MCP、插件或长期无人值守的外部代码。密钥只留在 Host 进程及权限受限的本地配置中；L3 外发/删除永远不能“同类免问”；L4 越狱/凭证访问直接拒绝。
+Penglai 的 policy、jail、审批和路径检查是重要的进程内防线，但不是 OS sandbox。0.4 因此不宣称能安全执行任意不可信 MCP、插件或长期无人值守的外部代码。密钥只留在 Host 进程及权限受限的本地配置中；L3 外发/删除永远不能“同类免问”；L4 越狱/凭证访问直接拒绝。
 
-macOS Developer ID / notarization 和 Windows Authenticode 尚未配置或验证。正式 updater 包由 minisign 保护，但 minisign 不能替代操作系统发行者信任。完整说明见 [SECURITY.md](SECURITY.md) 与 [发布说明](docs/RELEASE_NOTES_0.4.0.md)。
+macOS Developer ID / notarization 和 Windows Authenticode 尚未配置或验证。正式 updater 包由 minisign 保护，但 minisign 不能替代操作系统发行者信任。完整说明见 [SECURITY.md](SECURITY.md) 与 [0.4.1 发布说明](RELEASE_NOTES_0.4.1.md)。
 
 ## 从 0.3.x 升级
 
@@ -164,6 +173,8 @@ Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期�
 
 Penglai 0.4 is a local AI workbench built around a TypeScript Host and the Pi agent runtime. It preserves the useful product ideas proven by 0.3.x—persistent assistance, IM access, memory and workflows—while adding durable projects, tasks, runs, evidence, approvals, budgets and recovery.
 
+**New in 0.4.1 — Personal Context V1.** You explicitly grant Penglai a local documents directory (one optional step in the setup wizard, or `penglai context source add` in the CLI). The Host builds a deletable derived index on your machine with SQLite + FTS5—nothing is uploaded, original files are never modified, and revoking a grant removes only the index. Answers carry Host-verified source cards showing the file, the section and a live status (current / stale / revoked); references survive restarts and reindexing, and the badges change truthfully when your files do. An empty chat now offers example questions generated offline from your real document titles, so the app is useful the moment setup ends. 0.4.1 also fixes a batch of state-fidelity bugs (queued IM replies shown as failures, owner cancellations recorded as `failed`, large-directory indexing blocking the native shell, and more)—see the [release notes](RELEASE_NOTES_0.4.1.md).
+
 There is one assistant and one conversation surface. A conversation either works on the assistant's own ground or is explicitly anchored by the owner to a realpath-checked project directory; this is a boundary change, not a second capability mode. Desktop, CLI, Goal, Feishu, WeChat and durable Tasks all execute through `EpisodeRunner → Pi AgentKernel`.
 
 The Tauri 2 desktop app bundles its target Node runtime and the TypeScript Host. End users do not need a system Node, Python installation or source checkout. The desktop provides conversations, project/task supervision, approval cards, usage and budget views, evidence, channels, settings, runtime diagnostics and update controls over the same Host facts as the CLI.
@@ -174,6 +185,7 @@ Key guarantees:
 - one Pi execution path with streaming, tools, steering, interruption and compaction;
 - `plan`, `confirm`, `auto_edit` and `full` permission dials;
 - L1 autonomous, L2 owner-confirmable/grantable, L3 always human, L4 denied;
+- owner-granted personal context with local FTS indexing and Host-verified source references;
 - realpath project jail, credential-path denial and authority revalidation;
 - Pi atomic tools for files, code, Git, archives, logs, builds and tests, plus bounded PDF/DOCX/XLSX/PPTX create/read and public Web search/fetch brokers;
 - safe Markdown/GFM, ordinary file import, jailed in-app text preview plus artifact open/reveal, searchable/archivable history and background completion notifications;

@@ -24,9 +24,9 @@ class FakeKernel implements AgentKernel {
   readonly sessionId = "fake";
   isRunning = false;
   private listeners = new Set<KernelEventListener>();
-  private settle!: () => void;
-  private promptPromise = new Promise<void>((resolve) => {
-    this.settle = resolve;
+  private settle!: (error?: Error) => void;
+  private promptPromise = new Promise<void>((resolve, reject) => {
+    this.settle = (error) => (error ? reject(error) : resolve());
   });
   readonly abort = vi.fn(async () => this.settle());
   readonly steer = vi.fn(async () => undefined);
@@ -62,6 +62,12 @@ class FakeKernel implements AgentKernel {
 
   complete(): void {
     this.settle();
+  }
+
+  /** Reject the episode without going through TaskRunner.abort (active.cancelled stays false). */
+  failWithStopReason(stopReason: "aborted" | "failed" | "budget", detail: string): void {
+    const error = Object.assign(new Error(detail), { stopReason });
+    this.settle(error);
   }
 }
 
@@ -157,6 +163,42 @@ describe("TaskRunner", () => {
     await runner.wait(run.id);
     expect(store.getRun(run.id)?.status).toBe("cancelled");
     expect(kernel.abort).toHaveBeenCalledOnce();
+    store.close();
+  });
+
+  it("F3: episode abort without active.cancelled settles as cancelled and publishes terminal", async () => {
+    const { store, project, task } = setup();
+    const kernel = new FakeKernel();
+    const publish = vi.fn();
+    const onRunCompleted = vi.fn();
+    const runner = new TaskRunner(store, "/tmp/data", async () => kernel, publish, {
+      onRunCompleted,
+    });
+    const run = await runner.start({
+      task,
+      project,
+      profile,
+      apiKey: "secret",
+      source: "desktop",
+      mode: "work",
+    });
+    // Episode rejects with aborted while TaskRunner.abort never ran
+    // (active.cancelled remains false) — must not mislabel as failed.
+    kernel.failWithStopReason("aborted", "episode interrupted by replacement");
+    await runner.wait(run.id);
+
+    expect(store.getRun(run.id)?.status).toBe("cancelled");
+    expect(store.getRun(run.id)?.error).toContain("episode interrupted");
+    const step = store.getTaskBundle(task.id)?.steps[0];
+    expect(step?.status).toBe("failed");
+    expect(publish).toHaveBeenCalledWith(
+      task.id,
+      expect.objectContaining({ event: "task.run.cancelled", runId: run.id }),
+    );
+    expect(
+      publish.mock.calls.some(([, event]) => event.event === "task.run.failed"),
+    ).toBe(false);
+    expect(onRunCompleted).not.toHaveBeenCalled();
     store.close();
   });
 
@@ -474,6 +516,60 @@ describe("TaskRunner bounded episodes (design §5)", () => {
       expect.objectContaining({ event: "task.run.blocked" }),
     );
     store.close();
+  });
+
+  it("R8: budget stop leaves Run AND Step blocked, survives reopen, never distills", async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-r8-"));
+    const dbFile = path.join(dataDir, "product.db");
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-r8-ws-"));
+    try {
+      const first = new ProductStore(dbFile);
+      const project = first.createProject({
+        name: "p",
+        rootPath: workspace,
+        trusted: true,
+      });
+      const task = first.createTask({
+        projectId: project.id,
+        title: "budget",
+        objective: "x",
+      });
+      const kernel = new FakeKernel();
+      const onRunCompleted = vi.fn();
+      const runner = new TaskRunner(first, dataDir, async () => kernel, undefined, {
+        onRunCompleted,
+      });
+      const run = await runner.start({
+        task,
+        project,
+        profile,
+        apiKey: "k",
+        source: "desktop",
+        mode: "work",
+        budget: { maxTurns: 1 },
+      });
+      kernel.emit({ kind: "turn.completed" });
+      await runner.wait(run.id);
+
+      // Both Run and Step share the same non-success terminal.
+      const bundle = first.getTaskBundle(task.id);
+      expect(bundle?.runs[0].status).toBe("blocked");
+      expect(bundle?.steps[0].status).toBe("blocked");
+      expect(bundle?.task.status).toBe("blocked");
+      // Never completed → never distilled.
+      expect(onRunCompleted).not.toHaveBeenCalled();
+      first.close();
+
+      // R8: blocked survives Host restart — never revived as running/queued.
+      const reopened = new ProductStore(dbFile);
+      const after = reopened.getTaskBundle(task.id);
+      expect(after?.runs[0].status).toBe("blocked");
+      expect(after?.steps[0].status).toBe("blocked");
+      reopened.close();
+    } finally {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it("stops at the tool-failure ceiling", async () => {

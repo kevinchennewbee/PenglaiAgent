@@ -9,19 +9,14 @@
  * 失败一律分类降级（auth/network/endpoint/timeout），绝不打断向导。
  */
 
-import type { CatalogModel } from "./catalog.js";
 import { assertSafeProviderBaseUrl } from "./url-safety.js";
+import type {
+  ListModelsFailureKind,
+  ListModelsResult,
+} from "./merge-models.js";
+import { fetchProviderHttp } from "./provider-transport.js";
 
-export type ListModelsFailureKind = "auth" | "network" | "endpoint" | "timeout";
-
-export interface ListModelsResult {
-  ok: boolean;
-  kind: "ok" | ListModelsFailureKind;
-  /** 实时模型 id（拉取成功时）。 */
-  ids: string[];
-  /** 人类可读一行说明（中文，向导面向）。 */
-  detail: string;
-}
+export type { ListModelsFailureKind, ListModelsResult };
 
 export interface ListModelsInput {
   baseUrl: string;
@@ -48,17 +43,33 @@ async function errorExcerpt(res: Response): Promise<string> {
 /** 拉取实时模型列表；任何失败都返回分类结果，不抛异常。 */
 export async function listRemoteModels(input: ListModelsInput): Promise<ListModelsResult> {
   const timeoutMs = input.timeoutMs ?? 8_000;
-  const url = `${assertSafeProviderBaseUrl(input.baseUrl)}/models`;
+  assertSafeProviderBaseUrl(input.baseUrl);
   const headers: Record<string, string> = {};
   if (input.apiKey?.trim()) headers.Authorization = `Bearer ${input.apiKey.trim()}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { method: "GET", headers, signal: AbortSignal.timeout(timeoutMs) });
+    // R7: share Host-only provider transport with smoke / inference paths.
+    res = await fetchProviderHttp(input.baseUrl, "/models", {
+      method: "GET",
+      headers,
+      timeoutMs,
+    });
   } catch (error) {
     const name = error instanceof Error ? error.name : "";
+    const message = error instanceof Error ? error.message : String(error);
     if (name === "TimeoutError" || name === "AbortError") {
       return { ok: false, kind: "timeout", ids: [], detail: `拉取模型列表超时（${Math.round(timeoutMs / 1000)}s）` };
+    }
+    if (
+      /private|reserved|local|loopback|redirect/i.test(message)
+    ) {
+      return {
+        ok: false,
+        kind: "network",
+        ids: [],
+        detail: `模型列表被安全策略拒绝：${message.slice(0, 120)}`,
+      };
     }
     return { ok: false, kind: "network", ids: [], detail: "模型列表不可达（网络或端点地址问题）" };
   }
@@ -93,53 +104,9 @@ export async function listRemoteModels(input: ListModelsInput): Promise<ListMode
   return { ok: true, kind: "ok", ids, detail: `实时模型列表：${ids.length} 个模型` };
 }
 
-// ── 合并：实时列表优先，目录信息按 id 补充 ──────────────────────
-
-export interface MergedModel {
-  id: string;
-  /** 展示名（目录有则用目录 display，实时新增用 id 本体）。 */
-  display: string;
-  /** 目录条目（实时列表里没有对应目录信息时为 undefined）。 */
-  catalog?: CatalogModel;
-  /** live = 只在实时列表；catalog = 只在目录；both = 两边都有。 */
-  source: "live" | "catalog" | "both";
-  /** 目录 default 高亮。 */
-  isDefault: boolean;
-}
-
-/**
- * 合并实时列表与目录模型：实时列表顺序优先，目录价格/特性/上下文按 id
- * 匹配补充；目录里剩余模型排在后面（source="catalog"）。
- */
-export function mergeModels(
-  catalogModels: readonly CatalogModel[],
-  liveIds: readonly string[],
-): MergedModel[] {
-  const byId = new Map(catalogModels.map((m) => [m.id, m]));
-  const merged: MergedModel[] = [];
-  const seen = new Set<string>();
-  for (const id of liveIds) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const catalog = byId.get(id);
-    merged.push({
-      id,
-      display: catalog?.display ?? id,
-      ...(catalog ? { catalog } : {}),
-      source: catalog ? "both" : "live",
-      isDefault: catalog?.default === true,
-    });
-  }
-  for (const model of catalogModels) {
-    if (seen.has(model.id)) continue;
-    seen.add(model.id);
-    merged.push({
-      id: model.id,
-      display: model.display,
-      catalog: model,
-      source: "catalog",
-      isDefault: model.default === true,
-    });
-  }
-  return merged;
-}
+// ── 合并：browser-safe pure helpers live in merge-models.ts (R11). ──
+// Re-export for Host callers that historically imported from models.ts.
+export {
+  mergeModels,
+  type MergedModel,
+} from "./merge-models.js";

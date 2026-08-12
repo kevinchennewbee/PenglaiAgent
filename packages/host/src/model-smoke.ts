@@ -1,4 +1,5 @@
 import { assertSafeProviderBaseUrl } from "./providers/url-safety.js";
+import { fetchProviderHttp } from "./providers/provider-transport.js";
 
 /**
  * One-shot model smoke test (setup wizard / `config.smokeTest`).
@@ -46,14 +47,15 @@ async function errorExcerpt(res: Response): Promise<string> {
 
 export async function smokeTestModel(input: SmokeInput): Promise<SmokeResult> {
   const timeoutMs = input.timeoutMs ?? 30_000;
-  const url = `${assertSafeProviderBaseUrl(input.baseUrl)}/chat/completions`;
+  assertSafeProviderBaseUrl(input.baseUrl);
   const startedAt = Date.now();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (input.apiKey.trim()) headers.Authorization = `Bearer ${input.apiKey.trim()}`;
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    // R7: same DNS/redirect/private-IP policy as list-models / inference.
+    res = await fetchProviderHttp(input.baseUrl, "/chat/completions", {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -62,16 +64,25 @@ export async function smokeTestModel(input: SmokeInput): Promise<SmokeResult> {
         max_tokens: 1,
         stream: false,
       }),
-      signal: AbortSignal.timeout(timeoutMs),
+      timeoutMs,
     });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     const name = error instanceof Error ? error.name : "";
+    const message = error instanceof Error ? error.message : String(error);
     if (name === "TimeoutError" || name === "AbortError") {
       return {
         ok: false,
         kind: "timeout",
         detail: `连接超时（${Math.round(timeoutMs / 1000)}s）——检查网络或端点地址`,
+        latencyMs,
+      };
+    }
+    if (/private|reserved|local|loopback|redirect|metadata/i.test(message)) {
+      return {
+        ok: false,
+        kind: "network",
+        detail: `连接被安全策略拒绝：${message.slice(0, 120)}`,
         latencyMs,
       };
     }

@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "releaseLine": "0.4",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": "kevinchennewbee/PenglaiAgent",
   "channelTag": "desktop-v0.4",
   "bundledNodeVersion": "22.22.2",
   "rustToolchain": "1.96.0",
-  "releaseNotes": "docs/RELEASE_NOTES_0.4.0.md",
+  "releaseNotes": "RELEASE_NOTES_0.4.1.md",
   "platforms": [
     {
       "key": "darwin-aarch64",
