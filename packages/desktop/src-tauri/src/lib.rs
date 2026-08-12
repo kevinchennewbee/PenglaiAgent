@@ -674,7 +674,12 @@ async fn context_register_source(
     if scope != "global" && scope != "project" {
         return Err(HostRpcError::transport("scope must be global or project"));
     }
-    if scope == "project" && project_id.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+    if scope == "project"
+        && project_id
+            .as_ref()
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(true)
+    {
         return Err(HostRpcError::transport("project scope requires projectId"));
     }
     let data_dir = host_data_dir(&app).map_err(HostRpcError::transport)?;
@@ -712,10 +717,7 @@ async fn context_register_source(
     );
     if let Some(project_id) = project_id {
         if !project_id.trim().is_empty() {
-            params.insert(
-                "projectId".into(),
-                serde_json::Value::String(project_id),
-            );
+            params.insert("projectId".into(), serde_json::Value::String(project_id));
         }
     }
     if let Some(display_name) = display_name {
