@@ -252,7 +252,15 @@ export class WechatBridge {
         text,
         permissionMode: "auto_edit",
         delivery: "queue",
+        // F1: wait for the real terminal reply (never surface queued ack as chat text).
+        waitForTerminal: true,
       });
+      if (result.stopReason === "queued") {
+        this.deps.log?.(
+          "wechat bridge: ignoring non-terminal queued ack (waitForTerminal should have blocked this)",
+        );
+        return;
+      }
       const reply = (result.text || "").trim();
       if (reply) {
         await this.sendText(from, reply.slice(0, 3500), msg);

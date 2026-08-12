@@ -1,8 +1,8 @@
 {
   "protocolSchemaVersion": 1,
   "databaseSchemaVersion": 7,
-  "productVersion": "0.4.0",
-  "minimumDesktopVersion": "0.4.0",
+  "productVersion": "0.4.1",
+  "minimumDesktopVersion": "0.4.1",
   "source": "packages/protocol/src/index.ts",
   "generatedBy": "scripts/sync-schema-versions.mjs"
 }

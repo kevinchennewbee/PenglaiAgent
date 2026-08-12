@@ -49,6 +49,11 @@ export interface ApprovalVerdict {
   note: string;
   /** L2 only: remember this approval for the scope (project or session). */
   remember?: boolean;
+  /**
+   * R9: actor that made the decision (desktop:owner, cli:user, …).
+   * Required on Host RPC approve paths; audit must not invent a default.
+   */
+  decidedBy?: string;
 }
 
 /**

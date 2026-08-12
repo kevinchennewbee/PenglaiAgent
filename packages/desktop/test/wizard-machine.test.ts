@@ -17,6 +17,7 @@ import {
 import {
   SMOKE_SKIP_WARNING,
   backTarget,
+  advanceFromContext,
   confirmSaved,
   defaultModelIndex,
   deprecatedNotice,
@@ -104,7 +105,7 @@ const probeAuth: ListModelsResult = { ok: false, kind: "auth", ids: [], detail: 
 // ── 推进 ───────────────────────────────────────────────────────
 
 describe("步骤推进", () => {
-  it("happy path：welcome → provider → billing → model → key → identity", () => {
+  it("happy path：welcome → provider → billing → model → key → context → identity", () => {
     let nav = initialWizardNav();
     expect(nav.step).toBe("welcome");
     nav = { ...nav, step: "provider" };
@@ -118,6 +119,8 @@ describe("步骤推进", () => {
     expect(nav.step).toBe("key");
     expect(nav.selections.modelId).toBe("beta-1");
     nav = confirmSaved(nav);
+    expect(nav.step).toBe("context");
+    nav = advanceFromContext(nav);
     expect(nav.step).toBe("identity");
   });
 
@@ -154,6 +157,9 @@ describe("步骤推进", () => {
     nav = pickCustomModel(nav, "my-model");
     expect(nav.selections.modelId).toBe("my-model");
     nav = confirmSaved(nav);
+    expect(nav.step).toBe("context");
+    expect(backTarget("context", nav.selections, FIXTURE)).toBe("customModel");
+    nav = advanceFromContext(nav);
     expect(nav.step).toBe("identity");
   });
 
@@ -303,8 +309,9 @@ describe("deprecated 提示与冒烟跳过", () => {
     expect(profileIdFor(sel, FIXTURE)).toBe("beta-plan"); // 非默认模式带模式后缀
     expect(labelFor(sel, FIXTURE)).toContain("Beta");
     expect(SMOKE_SKIP_WARNING).toContain("跳过验证");
-    // 跳过后照常进 identity
-    expect(confirmSaved(navAt("key")).step).toBe("identity");
+    // 跳过冒烟后进入可选 context，再进 identity
+    expect(confirmSaved(navAt("key")).step).toBe("context");
+    expect(advanceFromContext(confirmSaved(navAt("key"))).step).toBe("identity");
   });
 });
 
@@ -350,6 +357,12 @@ describe("步骤进度与供应商行", () => {
     expect(stepProgress("customModel", true)?.label).toBe("冒烟验证");
     expect(stepProgress("welcome", false)).toBeNull();
     expect(stepProgress("identity", false)).toBeNull();
+    expect(stepProgress("context", false)).toEqual({
+      index: 5,
+      total: 5,
+      label: "个人上下文（可选）",
+    });
+    expect(backTarget("context", navAt("key").selections, FIXTURE)).toBe("key");
   });
 
   it("供应商行：向导顺序 + 计费短标签 + 默认模型 + custom 语义", () => {

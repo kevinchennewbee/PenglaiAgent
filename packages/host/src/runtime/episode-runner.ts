@@ -164,6 +164,31 @@ export class EpisodeRunner {
   private readonly followups = new Map<string, EpisodeInput[]>();
   private readonly signals = new Map<string, AbortController>();
   private readonly emitter = new EventEmitter();
+  /**
+   * C7: session-scoped L2 grants for EpisodeRunner chat path.
+   * Keyed by sessionKey (conversation id) → capability set.
+   * Never applies to L3. Cleared only when the process restarts (in-memory)
+   * or explicitly via clearSessionGrants.
+   */
+  private readonly sessionGrants = new Map<string, Set<string>>();
+  /**
+   * R9: durable-enough approval audit for episode path (process lifetime).
+   * Records actor, decision time, requested remember, and actual grant result.
+   */
+  private readonly approvalAudit = new Map<
+    string,
+    {
+      approvalId: string;
+      sessionKey: string;
+      capability: string;
+      level: string;
+      decidedBy: string | null;
+      decidedAt: number;
+      approved: boolean;
+      rememberRequested: boolean;
+      remembered: boolean;
+    }
+  >();
 
   constructor(private readonly deps: EpisodeRunnerDeps) {
     this.coordinator = new RunCoordinator(async (sessionKey, handle) => {
@@ -172,6 +197,30 @@ export class EpisodeRunner {
     this.deps.log?.(
       `EpisodeRunner ready (default dial: ${deps.defaultPermissionMode ?? "auto_edit"})`,
     );
+  }
+
+  /** C7 test/ops helper: whether this session already granted a capability. */
+  hasSessionGrant(sessionKey: string, capability: string): boolean {
+    return this.sessionGrants.get(sessionKey)?.has(capability) === true;
+  }
+
+  clearSessionGrants(sessionKey: string): void {
+    this.sessionGrants.delete(sessionKey);
+  }
+
+  /** R9: latest audit row for an approval id (tests + Host RPC). */
+  getApprovalAudit(approvalId: string): {
+    approvalId: string;
+    sessionKey: string;
+    capability: string;
+    level: string;
+    decidedBy: string | null;
+    decidedAt: number;
+    approved: boolean;
+    rememberRequested: boolean;
+    remembered: boolean;
+  } | null {
+    return this.approvalAudit.get(approvalId) ?? null;
   }
 
   /** Subscribe to lifecycle/streaming events for a session (or all). */
@@ -201,14 +250,18 @@ export class EpisodeRunner {
     const queue = this.followups.get(sessionKey) ?? [];
 
     if (delivery === "interrupt") {
-      // Abort any active run; the queued input becomes the successor.
-      queue.length = 0;
-      queue.push(input);
+      // Owner replacement input: cancel active + prior queue, keep only X.
+      // Distinct from public interrupt()/abort, which discards the queue.
+      this.cancelApprovalsForSession(sessionKey, "episode interrupted");
+      const replaced = queue.splice(0, queue.length);
+      this.abortQueuedInputs(sessionKey, replaced, "replaced by interrupt delivery");
+      const queuedInput = { ...input, runId };
+      queue.push(queuedInput);
       this.followups.set(sessionKey, queue);
       const wasActive = this.coordinator.active(sessionKey);
       this.coordinator.interrupt(sessionKey);
       if (wasActive) {
-        // interrupt cleared pendingWake; re-request one successor.
+        // interrupt cleared pendingWake; re-request one successor for X.
         this.coordinator.wake(sessionKey);
       } else {
         void this.coordinator.run(sessionKey);
@@ -216,12 +269,12 @@ export class EpisodeRunner {
       return { runId };
     }
 
-    queue.push(input);
+    queue.push({ ...input, runId });
     this.followups.set(sessionKey, queue);
 
     if (delivery === "followup" || delivery === "steer") {
       // Wake coalesces: if active, a successor drains the queue; if idle,
-      // it starts now.
+      // it starts now. Remaining queue items re-wake after each execute().
       this.coordinator.wake(sessionKey);
       return { runId };
     }
@@ -229,7 +282,7 @@ export class EpisodeRunner {
     // scheduled / interactive default: ensure a run is active.
     if (this.coordinator.active(sessionKey)) {
       // Already running; the queued input is drained by a successor when
-      // the current run settles (coalesced wake).
+      // the current run settles (coalesced wake + remaining-queue re-wake).
       this.coordinator.wake(sessionKey);
     } else {
       void this.coordinator.run(sessionKey);
@@ -237,9 +290,17 @@ export class EpisodeRunner {
     return { runId };
   }
 
-  /** Interrupt/abort whatever is running for this session key. */
+  /**
+   * Owner abort/stop: cancel the active episode and every queued but unstarted
+   * input. Each waiter settles as aborted; the queue is empty afterward.
+   * Distinct from delivery:"interrupt", which keeps the replacement input.
+   */
   interrupt(sessionKey: string): boolean {
     this.cancelApprovalsForSession(sessionKey, "episode interrupted");
+    const queue = this.followups.get(sessionKey) ?? [];
+    const cancelled = queue.splice(0, queue.length);
+    this.followups.delete(sessionKey);
+    this.abortQueuedInputs(sessionKey, cancelled, "session aborted by owner");
     return this.coordinator.interrupt(sessionKey);
   }
 
@@ -254,8 +315,9 @@ export class EpisodeRunner {
   // ── execution (runs inside the coordinator) ──────────────────
 
   private async execute(sessionKey: string, handle: RunHandle): Promise<void> {
-    // Drain one input per run. Coalesced wakes cause successor runs that
-    // drain subsequent inputs.
+    // Drain one input per coordinator run. Remaining queue items must
+    // re-wake a successor (C1): a boolean pendingWake only guarantees one
+    // successor even when B/C/D were all enqueued during A.
     const queue = this.followups.get(sessionKey) ?? [];
     const input = queue.shift();
     if (queue.length === 0) this.followups.delete(sessionKey);
@@ -288,6 +350,18 @@ export class EpisodeRunner {
         signal: controller.signal,
         requestApproval: (req) =>
           new Promise<ApprovalVerdict>((resolve) => {
+            // C7: session grant short-circuits L2 only. L3 never remembers.
+            if (
+              req.level === "L2" &&
+              !req.capability.startsWith("l3:") &&
+              this.hasSessionGrant(sessionKey, req.capability)
+            ) {
+              resolve({
+                approved: true,
+                note: "session grant (allow for conversation)",
+              });
+              return;
+            }
             const approvalId = `apr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
             // Scheduled runs auto-approve L2 but still ask L3 (which may
             // never arrive — the kernel should treat timeout as denied).
@@ -301,6 +375,8 @@ export class EpisodeRunner {
             }, 30 * 60_000);
             this.pendingApprovals.set(approvalId, {
               sessionKey,
+              capability: req.capability,
+              level: req.level,
               resolve: (verdict) => {
                 clearTimeout(timeout);
                 resolve(verdict);
@@ -342,35 +418,127 @@ export class EpisodeRunner {
         },
       });
 
-      emit({
-        event: "episode.completed",
-        sessionKey,
-        runId,
-        stopReason: result.stopReason,
-        stopDetail: result.stopDetail ?? null,
-        text: result.text,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        turns: result.turns,
-      });
+      // Active abort often surfaces as a thrown signal; some kernels return
+      // aborted. Always emit a terminal event so prompt() waiters settle.
+      if (controller.signal.aborted && result.stopReason === "completed") {
+        emit({
+          event: "episode.completed",
+          sessionKey,
+          runId,
+          stopReason: "aborted",
+          stopDetail: "episode interrupted",
+          text: result.text,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          turns: result.turns,
+        });
+      } else {
+        emit({
+          event: "episode.completed",
+          sessionKey,
+          runId,
+          stopReason: result.stopReason,
+          stopDetail: result.stopDetail ?? null,
+          text: result.text,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          turns: result.turns,
+        });
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      emit({ event: "episode.error", sessionKey, runId, error: message });
+      if (controller.signal.aborted || handle.signal.aborted) {
+        // Owner abort / interrupt: settle as aborted completed so waiters
+        // observe stopReason:"aborted" rather than a bare rejection.
+        emit({
+          event: "episode.completed",
+          sessionKey,
+          runId,
+          stopReason: "aborted",
+          stopDetail:
+            error instanceof Error ? error.message : "episode interrupted",
+          text: "",
+          inputTokens: 0,
+          outputTokens: 0,
+          turns: 0,
+        });
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        emit({ event: "episode.error", sessionKey, runId, error: message });
+      }
     } finally {
       handle.signal.removeEventListener("abort", onAbort);
       this.signals.delete(sessionKey);
-      // If followups arrived while running, coordinator.wake already
-      // scheduled a successor; nothing to do here.
+      // C1: boolean wake coalescing only schedules one successor. If the
+      // queue still holds unstarted inputs, request another run so B/C/D
+      // each execute once in order. Spurious empty wakes are no-ops.
+      const remaining = this.followups.get(sessionKey);
+      if (remaining && remaining.length > 0) {
+        this.coordinator.wake(sessionKey);
+      }
     }
   }
 
-  /** Transport-facing: resolve a pending approval requested by a run. */
-  resolveApproval(approvalId: string, verdict: ApprovalVerdict): boolean {
+  /** Emit aborted terminals for queued inputs that will never start. */
+  private abortQueuedInputs(
+    sessionKey: string,
+    inputs: EpisodeInput[],
+    detail: string,
+  ): void {
+    for (const input of inputs) {
+      const runId = input.runId;
+      if (!runId) continue;
+      this.emitter.emit("event", {
+        event: "episode.completed",
+        sessionKey,
+        runId,
+        stopReason: "aborted",
+        stopDetail: detail,
+        text: "",
+        inputTokens: 0,
+        outputTokens: 0,
+        turns: 0,
+      } satisfies EpisodeEvent);
+    }
+  }
+
+  /**
+   * Transport-facing: resolve a pending approval requested by a run.
+   * Returns false when the id is unknown. When handled, `remembered` is the
+   * actual grant outcome (never an echo of the request flag).
+   */
+  resolveApproval(
+    approvalId: string,
+    verdict: ApprovalVerdict,
+  ): { handled: boolean; remembered: boolean } {
     const pending = this.pendingApprovals.get(approvalId);
-    if (!pending) return false;
+    if (!pending) return { handled: false, remembered: false };
     this.pendingApprovals.delete(approvalId);
+    // C7/R9: remember only for L2. L3/L4 remember is ignored (never persists).
+    let remembered = false;
+    if (
+      verdict.approved &&
+      verdict.remember === true &&
+      pending.level === "L2" &&
+      !pending.capability.startsWith("l3:")
+    ) {
+      const set = this.sessionGrants.get(pending.sessionKey) ?? new Set<string>();
+      set.add(pending.capability);
+      this.sessionGrants.set(pending.sessionKey, set);
+      remembered = true;
+    }
+    this.approvalAudit.set(approvalId, {
+      approvalId,
+      sessionKey: pending.sessionKey,
+      capability: pending.capability,
+      level: pending.level,
+      decidedBy: verdict.decidedBy?.trim() || null,
+      decidedAt: Date.now(),
+      approved: verdict.approved,
+      rememberRequested: verdict.remember === true,
+      remembered,
+    });
     pending.resolve(verdict);
-    return true;
+    return { handled: true, remembered };
   }
 
   private cancelApprovalsForSession(sessionKey: string, note: string): void {
@@ -432,6 +600,11 @@ export class EpisodeRunner {
 
   private pendingApprovals = new Map<
     string,
-    { sessionKey: string; resolve: (verdict: ApprovalVerdict) => void }
+    {
+      sessionKey: string;
+      capability: string;
+      level: "L2" | "L3";
+      resolve: (verdict: ApprovalVerdict) => void;
+    }
   >();
 }

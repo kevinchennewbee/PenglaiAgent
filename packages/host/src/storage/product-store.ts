@@ -700,11 +700,15 @@ export class ProductStore {
    * and gives the owner a clean, auditable retry path.
    */
   private recoverInterruptedRuns(): void {
+    // C6: Host restart must not rewrite Owner intent.
+    // - running / waiting_approval / queued → failed/interrupted (process gone)
+    // - paused / blocked → keep status (user paused or budget-blocked)
+    // - completed / failed / cancelled → unchanged
     const interrupted = this.database
       .prepare(
         `SELECT id, task_id
          FROM runs
-         WHERE status IN ('queued', 'running', 'paused', 'waiting_approval', 'blocked')`,
+         WHERE status IN ('queued', 'running', 'waiting_approval')`,
       )
       .all() as Array<{ id: string; task_id: string }>;
     if (interrupted.length === 0) {

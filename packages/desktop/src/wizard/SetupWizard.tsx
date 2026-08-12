@@ -2,7 +2,7 @@
  * 桌面首次启动向导（React）。
  *
  * 顶层架构：
- *   - 流程：欢迎 → 厂家 → 计费/套餐（不可跳）→ 模型 → Key/冒烟 → 身份 → 工作台
+ *   - 流程：欢迎 → 厂家 → 计费/套餐（不可跳）→ 模型 → Key/冒烟 → 个人上下文（可跳）→ 身份 → 工作台
  *   - 壳底栏统一「上一步 | 下一步」并排（长列表滚动时导航仍固定可见）
  *   - 步骤只渲染内容 + 声明 canProceed；不各自塞主按钮
  *   - 状态机：wizard/machine.ts；目录：wizard/catalog.ts
@@ -32,6 +32,7 @@ import {
 } from "./catalog.js";
 import {
   SMOKE_SKIP_WARNING,
+  advanceFromContext,
   billingGuidance,
   billingRows,
   confirmSaved,
@@ -126,6 +127,16 @@ export function SetupWizard({
   const [customIdInput, setCustomIdInput] = useState("custom");
   const [liveProbe, setLiveProbe] = useState<ListModelsResult | null>(null);
   const [savedProfile, setSavedProfile] = useState<{ id: string; verified: boolean; skipped: boolean } | null>(null);
+  const [contextBusy, setContextBusy] = useState(false);
+  const [contextNotice, setContextNotice] = useState<string | null>(null);
+  const [contextSummary, setContextSummary] = useState<{
+    id: string;
+    status: string;
+    successCount: number;
+    failureCount: number;
+    fileCount?: number;
+    indexedAt?: number | null;
+  } | null>(null);
 
   /** 过期异步结果守卫（换步/卸载后不得再落状态）。 */
   const genRef = useRef(0);
@@ -133,7 +144,8 @@ export function SetupWizard({
 
   const sel = nav.selections;
   const progress = stepProgress(nav.step, smoke.phase !== "idle");
-  const canBack = !["welcome", "identity"].includes(nav.step) && smoke.phase !== "verifying";
+  const canBack =
+    !["welcome", "identity", "context"].includes(nav.step) && smoke.phase !== "verifying";
 
   // 进入 provider 步预选第一家（CLI 默认序号 1）。
   useEffect(() => {
@@ -745,6 +757,102 @@ export function SetupWizard({
     );
   }
 
+  async function registerContextSource(): Promise<void> {
+    setContextBusy(true);
+    setContextNotice(null);
+    try {
+      const isTauri =
+        typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+      if (!isTauri) {
+        setContextNotice("需要在桌面应用中完成目录授权；浏览器开发壳可跳过本步。");
+        return;
+      }
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<{
+        cancelled?: boolean;
+        source?: {
+          id: string;
+          status: string;
+          successCount: number;
+          failureCount: number;
+          fileCount?: number;
+          indexedAt?: number | null;
+        };
+      }>("context_register_source", { scope: "global", projectId: null });
+      if (result?.cancelled) {
+        setContextNotice("已取消选择目录");
+        return;
+      }
+      if (!result?.source) {
+        setContextNotice("注册未返回索引结果");
+        return;
+      }
+      setContextSummary(result.source);
+      setContextNotice(
+        result.source.failureCount > 0
+          ? `部分完成：成功 ${result.source.successCount}，失败 ${result.source.failureCount}`
+          : `已索引 ${result.source.successCount} 个文件（本地，不上传）`,
+      );
+    } catch (error) {
+      setContextNotice(`添加失败：${String(error)}`);
+      setContextSummary(null);
+    } finally {
+      setContextBusy(false);
+    }
+  }
+
+  function renderContext() {
+    return (
+      <div className="wizard-identity">
+        <div className="brand-seal large">蓬</div>
+        <p className="eyebrow">个人上下文（可选）</p>
+        <h1>把工作资料交给它理解</h1>
+        <p className="wizard-lead">
+          选择一个你管理的文档目录。蓬莱会在本机建立可删除的派生索引，不上传任何内容；
+          随时可在设置里移除授权，原文件不会被改动或删除。
+        </p>
+        {contextSummary && (
+          <div className="wizard-intro-card">
+            <p>
+              状态 {contextSummary.status} · 成功 {contextSummary.successCount}
+              {typeof contextSummary.fileCount === "number"
+                ? ` / ${contextSummary.fileCount}`
+                : ""}
+              {" · "}失败 {contextSummary.failureCount}
+            </p>
+            {contextSummary.indexedAt ? (
+              <p className="wizard-dim">
+                索引时间 {new Date(contextSummary.indexedAt).toLocaleString()}
+              </p>
+            ) : null}
+          </div>
+        )}
+        {contextNotice && (
+          <p className={contextSummary && contextSummary.failureCount > 0 ? "wizard-warn" : "wizard-dim"}>
+            {contextNotice}
+          </p>
+        )}
+        <div className="wizard-actions center">
+          <button
+            className="primary-button"
+            disabled={contextBusy}
+            onClick={() => void registerContextSource()}
+          >
+            {contextBusy ? "正在索引…" : contextSummary ? "再选一个目录" : "选择资料目录"}
+          </button>
+          <button
+            className="primary-button"
+            disabled={contextBusy}
+            onClick={() => goto(advanceFromContext(nav))}
+          >
+            {contextSummary ? "下一步：身份诞生" : "跳过，稍后再加"}
+            <Icon name="chevron" size={15} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   function renderIdentity() {
     if (identity.phase === "loading") {
       return <p className="wizard-dim"><i className="mini-spinner" /> 正在确认它是否已有名字…</p>;
@@ -862,6 +970,7 @@ export function SetupWizard({
   const chrome: WizardChrome = (() => {
     switch (nav.step) {
       case "welcome":
+      case "context":
       case "identity":
         return { kind: "none", showBack: false, primaryLabel: "", primaryEnabled: false };
       case "provider":
@@ -887,7 +996,7 @@ export function SetupWizard({
           return { kind: "busy", showBack: true, primaryLabel: "验证中…", primaryEnabled: false };
         }
         if (smoke.phase === "ok") {
-          return selectionChrome({ step: "key", canProceed: true, primaryLabel: "下一步：身份诞生" });
+          return selectionChrome({ step: "key", canProceed: true, primaryLabel: "下一步：个人上下文" });
         }
         // idle / failed：主按钮 = 开始验证（key 页内容区仍保留重试/跳过菜单）
         return selectionChrome({
@@ -913,7 +1022,7 @@ export function SetupWizard({
           return { kind: "busy", showBack: true, primaryLabel: "验证中…", primaryEnabled: false };
         }
         if (smoke.phase === "ok") {
-          return selectionChrome({ step: "customModel", canProceed: true, primaryLabel: "下一步：身份诞生" });
+          return selectionChrome({ step: "customModel", canProceed: true, primaryLabel: "下一步：个人上下文" });
         }
         return selectionChrome({
           step: "customModel",
@@ -1010,12 +1119,13 @@ export function SetupWizard({
       case "customBase": return renderCustomBase();
       case "customKey": return renderCustomKey();
       case "customModel": return renderCustomModel();
+      case "context": return renderContext();
       case "identity": return renderIdentity();
     }
   })();
 
   const title = (() => {
-    if (nav.step === "welcome" || nav.step === "identity") return null;
+    if (nav.step === "welcome" || nav.step === "identity" || nav.step === "context") return null;
     if (nav.step === "provider") return "选择供应商（蓬莱的大脑）";
     if (nav.step === "billing") return `选择计费模式（${provider?.display ?? ""}）`;
     if (nav.step === "model") return `选择模型（${provider?.display ?? ""} · ${billingMode?.label ?? ""}）`;

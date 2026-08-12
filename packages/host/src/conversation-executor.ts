@@ -21,17 +21,31 @@ export interface ConversationPromptInput {
   recordUserMessage?: boolean;
   delivery?: "queue" | "now";
   images?: ConversationImageAttachment[];
+  /**
+   * F1: when the session already has an active episode:
+   * - true (default): wait for this input's real terminal result (IM channels)
+   * - false: return a non-terminal queued ack immediately (Desktop RPC)
+   */
+  waitForTerminal?: boolean;
 }
 
 export interface ConversationPromptResult {
   conversationId: string;
   episodeId: string;
   text: string;
-  stopReason: "completed" | "budget" | "aborted" | "failed";
+  /**
+   * Terminal episode outcomes, or "queued" for a non-terminal ack when the
+   * session already has an active episode (C3: never fake "completed").
+   */
+  stopReason: "completed" | "budget" | "aborted" | "failed" | "queued";
   stopDetail: string | null;
   turns: number;
   inputTokens: number;
   outputTokens: number;
+  /** Present on non-terminal ack responses (active session queue/steer). */
+  status?: "queued";
+  accepted?: boolean;
+  delivery?: string;
 }
 
 /**

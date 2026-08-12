@@ -29,10 +29,12 @@ import {
   initialStreamState,
   loadTranscript,
   messageText,
+  noticeForPromptAck,
   reduceConversationEvent,
   streamItems,
   toolSummary,
 } from "../src/state/conversation.js";
+import { CONVERSATION_PROMPT_ACK } from "@penglai/protocol";
 import {
   buildProjectTree,
   checkHandshake,
@@ -464,5 +466,16 @@ describe("groupEvidence + usage + budget dimensions", () => {
     expect(taskStateClass("archived")).toBe("paused");
     expect(taskStatusLabel("waiting_approval")).toBe("待审批");
     expect(taskStatusLabel("blocked")).toBe("已熔断");
+  });
+});
+
+describe("F1 noticeForPromptAck", () => {
+  it("maps structured stopDetail enums and ignores text substrings", () => {
+    expect(noticeForPromptAck(CONVERSATION_PROMPT_ACK.FOLLOWUP_QUEUED)).toContain("已排队");
+    expect(noticeForPromptAck(CONVERSATION_PROMPT_ACK.STEER_QUEUED)).toContain("插入");
+    expect(noticeForPromptAck("steered")).toBeNull();
+    expect(noticeForPromptAck("queued")).toBeNull();
+    expect(noticeForPromptAck("(queued as follow-up)")).toBeNull();
+    expect(noticeForPromptAck(null)).toBeNull();
   });
 });

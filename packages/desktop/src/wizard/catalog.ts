@@ -35,11 +35,13 @@ export {
   type ProviderEntry,
 } from "../../../host/src/providers/catalog.js";
 
+// R11: pure merge + type-only list result — never import Host models.ts
+// (that module pulls network-safety / node:dns / undici into the renderer graph).
 export {
   mergeModels,
   type ListModelsResult,
   type MergedModel,
-} from "../../../host/src/providers/models.js";
+} from "../../../host/src/providers/merge-models.js";
 
 export {
   calibrationLine,

@@ -6,13 +6,275 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Project } from "@penglai/protocol";
+import type { ContextReference, Project } from "@penglai/protocol";
 import type { ConversationStream } from "../hooks/useConversationStream.js";
 import type { PenglaiBridge, SubscriptionState } from "../bridge/types.js";
 import { streamItems, toolSummary, type StreamItem } from "../state/conversation.js";
 import { clockLabel } from "../state/format.js";
 import { Icon } from "./Icon.js";
 import { MarkdownMessage } from "./MarkdownMessage.js";
+
+export function ContextSourceCards({
+  refs,
+  bridge,
+}: {
+  refs: ContextReference[];
+  bridge?: PenglaiBridge | null;
+}) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busyRef, setBusyRef] = useState<string | null>(null);
+  if (refs.length === 0) return null;
+  return (
+    <div className="context-source-cards" aria-label="来源卡片">
+      {refs.map((ref) => {
+        const statusLabel =
+          ref.status === "current"
+            ? "当前"
+            : ref.status === "stale"
+              ? "来源已更新"
+              : ref.status === "revoked"
+                ? "已撤销"
+                : "不可用";
+        const canOpen = ref.status === "current" || ref.status === "stale";
+        return (
+          <button
+            key={ref.ref}
+            type="button"
+            className={`context-source-card status-${ref.status}`}
+            disabled={!bridge || !canOpen || busyRef === ref.ref}
+            title={
+              ref.status === "revoked"
+                ? "来源授权已移除，无法打开正文"
+                : ref.status === "stale"
+                  ? "来源已更新；点击通过 Host 按 ref 安全读取"
+                  : "点击通过 Host 按 ref 安全读取（不提交路径）"
+            }
+            onClick={() => {
+              if (!bridge || !canOpen) return;
+              void (async () => {
+                setBusyRef(ref.ref);
+                setNotice(null);
+                try {
+                  // R4: renderer only submits opaque ref — Host resolves safely.
+                  const result = await bridge.rpc<{
+                    status?: string;
+                    stale?: boolean;
+                    text?: string;
+                    relativePath?: string;
+                  }>("context.read", { contextRef: ref.ref, maxChars: 2_000 });
+                  const status = result.status ?? (result.stale ? "stale" : "current");
+                  if (status === "revoked") {
+                    setNotice(`[${ref.ordinal}] 来源已撤销，不返回正文`);
+                    return;
+                  }
+                  const preview = (result.text ?? "").replace(/\s+/g, " ").slice(0, 180);
+                  setNotice(
+                    `[${ref.ordinal}] ${result.relativePath ?? ref.relativePath}` +
+                      (status === "stale" ? " · 来源已更新" : "") +
+                      (preview ? ` — ${preview}` : ""),
+                  );
+                } catch (error) {
+                  setNotice(`打开来源失败：${String(error)}`);
+                } finally {
+                  setBusyRef(null);
+                }
+              })();
+            }}
+          >
+            <span className="context-source-ordinal">[{ref.ordinal}]</span>
+            <span className="context-source-title">{ref.title || ref.relativePath}</span>
+            <span className="context-source-path">{ref.relativePath}</span>
+            {ref.location?.headingPath ? (
+              <span className="context-source-loc">{ref.location.headingPath}</span>
+            ) : null}
+            <span className={`context-source-status status-${ref.status}`}>{statusLabel}</span>
+          </button>
+        );
+      })}
+      {notice && <p className="muted context-source-notice">{notice}</p>}
+    </div>
+  );
+}
+
+/** W2: empty-conversation guide — add sources or click Host-generated example questions. */
+export function ChatEmptyGuide({
+  bridge,
+  onAsk,
+  onDismissAdd,
+}: {
+  bridge?: PenglaiBridge | null;
+  onAsk: (question: string) => void;
+  onDismissAdd?: () => void;
+}) {
+  const [suggestions, setSuggestions] = useState<
+    Array<{ question: string; documentTitle: string; relativePath: string }>
+  >([]);
+  const [hasSources, setHasSources] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dismissedAdd, setDismissedAdd] = useState(false);
+
+  useEffect(() => {
+    if (!bridge) {
+      setHasSources(false);
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const listed = await bridge.rpc<{ sources?: Array<{ id: string }> }>(
+          "context.source.list",
+          {},
+        );
+        const count = listed.sources?.length ?? 0;
+        if (cancelled) return;
+        setHasSources(count > 0);
+        if (count === 0) {
+          setSuggestions([]);
+          return;
+        }
+        const result = await bridge.rpc<{
+          suggestions?: Array<{
+            question: string;
+            documentTitle: string;
+            relativePath: string;
+          }>;
+        }>("context.suggestions", { globalOnly: true, limit: 3 });
+        if (!cancelled) setSuggestions(result.suggestions ?? []);
+      } catch {
+        if (!cancelled) {
+          setHasSources(false);
+          setSuggestions([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  const addSource = async (): Promise<void> => {
+    if (!bridge) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const isTauri =
+        typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+      if (!isTauri) {
+        setNotice("需要在桌面应用中添加资料目录；也可使用 CLI。");
+        return;
+      }
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<{
+        cancelled?: boolean;
+        source?: { id: string; successCount: number; failureCount: number };
+      }>("context_register_source", { scope: "global", projectId: null });
+      if (result?.cancelled) {
+        setNotice("已取消选择目录");
+        return;
+      }
+      if (!result?.source) {
+        setNotice("注册未返回结果");
+        return;
+      }
+      setHasSources(true);
+      setNotice(
+        `已索引 · 成功 ${result.source.successCount} · 失败 ${result.source.failureCount}`,
+      );
+      const sug = await bridge.rpc<{
+        suggestions?: Array<{
+          question: string;
+          documentTitle: string;
+          relativePath: string;
+        }>;
+      }>("context.suggestions", { globalOnly: true, limit: 3 });
+      setSuggestions(sug.suggestions ?? []);
+    } catch (error) {
+      setNotice(`添加失败：${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (hasSources === null) {
+    return (
+      <div className="new-task-intro">
+        <div className="brand-seal intro">蓬</div>
+        <h2>从一句话开始</h2>
+        <p className="muted">正在确认个人上下文…</p>
+      </div>
+    );
+  }
+
+  if (!hasSources && !dismissedAdd) {
+    return (
+      <div className="new-task-intro" data-testid="chat-empty-add-source">
+        <div className="brand-seal intro">蓬</div>
+        <h2>让它先读懂你的工作资料</h2>
+        <p>
+          添加一个本地文档目录后，对话会自动检索并带来源卡片。索引只在本机，不上传；随时可移除。
+        </p>
+        <div className="wizard-actions center">
+          <button
+            type="button"
+            className="primary-button"
+            disabled={busy || !bridge}
+            onClick={() => void addSource()}
+          >
+            {busy ? "正在索引…" : "添加工作资料"}
+          </button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              setDismissedAdd(true);
+              onDismissAdd?.();
+            }}
+          >
+            暂不
+          </button>
+        </div>
+        {notice && <p className="muted">{notice}</p>}
+      </div>
+    );
+  }
+
+  if (suggestions.length > 0) {
+    return (
+      <div className="new-task-intro" data-testid="chat-empty-suggestions">
+        <div className="brand-seal intro">蓬</div>
+        <h2>试试问它这些</h2>
+        <p>问题来自你已授权资料的真实标题（离线生成，不调用模型）。</p>
+        <div className="chat-suggestion-list">
+          {suggestions.map((item) => (
+            <button
+              key={`${item.relativePath}:${item.question}`}
+              type="button"
+              className="secondary-button chat-suggestion-button"
+              onClick={() => onAsk(item.question)}
+            >
+              {item.question}
+            </button>
+          ))}
+        </div>
+        {notice && <p className="muted">{notice}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="new-task-intro">
+      <div className="brand-seal intro">蓬</div>
+      <h2>从一句话开始</h2>
+      <p>
+        一个对话，完整工具。建议开聊前用输入框「选择项目」绑定工作区（绑定后本会话不再中途换项目）。
+        直接说需求即可。
+      </p>
+      {notice && <p className="muted">{notice}</p>}
+    </div>
+  );
+}
 
 export type ConversationApprovalCard = {
   id: string;
@@ -62,11 +324,13 @@ function StreamEntry({
   onOpenTask,
   onExitWork,
   onSpeak,
+  bridge,
 }: {
   item: StreamItem;
   onOpenTask: (taskId: string) => void;
   onExitWork: () => void;
   onSpeak?: (text: string) => void;
+  bridge?: PenglaiBridge | null;
 }) {
   if (item.kind === "message") {
     const images = item.images ?? [];
@@ -122,6 +386,9 @@ function StreamEntry({
             </div>
           )}
           {item.text ? <MarkdownMessage text={item.text} /> : null}
+          {item.role === "assistant" && item.contextReferences?.length ? (
+            <ContextSourceCards refs={item.contextReferences} bridge={bridge} />
+          ) : null}
         </div>
       </article>
     );
@@ -1056,14 +1323,16 @@ export function ChatPanel({
             </div>
           )}
           {items.length === 0 && (
-            <div className="new-task-intro">
-              <div className="brand-seal intro">蓬</div>
-              <h2>从一句话开始</h2>
-              <p>
-                一个对话，完整工具。建议开聊前用输入框「选择项目」绑定工作区（绑定后本会话不再中途换项目）。
-                直接说需求即可。
-              </p>
-            </div>
+            <ChatEmptyGuide
+              bridge={bridge}
+              onAsk={(question) => {
+                onSend(question, {
+                  delivery: "queue",
+                  permissionMode,
+                  thinkingLevel,
+                });
+              }}
+            />
           )}
           {items.map((item, index) => (
             <StreamEntry
@@ -1072,6 +1341,7 @@ export function ChatPanel({
               onOpenTask={onOpenTask}
               onExitWork={() => void stream.exitWork("paused")}
               onSpeak={ttsReady ? onSpeakText : undefined}
+              bridge={bridge}
             />
           ))}
         </div>

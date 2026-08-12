@@ -19,3 +19,37 @@ export function assertSafeProviderBaseUrl(raw: string): string {
   }
   return url.href.replace(/\/$/, "");
 }
+
+/**
+ * S1: Normalize a provider base URL to its credential origin boundary:
+ * scheme + host + effective port. Path changes alone do not rebind secrets.
+ */
+export function providerOriginKey(raw: string): string {
+  const normalized = assertSafeProviderBaseUrl(raw);
+  const url = new URL(normalized);
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const port =
+    url.port ||
+    (url.protocol === "https:" ? "443" : url.protocol === "http:" ? "80" : "");
+  return `${url.protocol}//${hostname}:${port}`;
+}
+
+/** True when two base URLs share the same credential origin. */
+export function sameProviderOrigin(a: string, b: string): boolean {
+  try {
+    return providerOriginKey(a) === providerOriginKey(b);
+  } catch {
+    return false;
+  }
+}
+
+/** Exact-loopback / localhost endpoints (Owner-local OpenAI-compatible). */
+export function isLocalProviderBaseUrl(raw: string): boolean {
+  try {
+    const url = new URL(assertSafeProviderBaseUrl(raw));
+    const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    return LOOPBACK_PROVIDER_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+}

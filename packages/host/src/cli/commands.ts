@@ -759,6 +759,193 @@ export async function cmdMemory(ctx: CommandContext, args: ParsedArgs): Promise<
   );
 }
 
+// ── personal context V1 ─────────────────────────────────────
+
+/**
+ * `penglai context …` — Owner-authorized personal/project document sources.
+ * Host is SSOT; CLI never indexes or deletes original files itself.
+ */
+export async function cmdContext(ctx: CommandContext, args: ParsedArgs): Promise<number> {
+  const { io, style } = ctx;
+  const group = args.positionals[0] ?? "status";
+
+  if (group === "status") {
+    const status = (await ctx.client.rpc("context.status", {})) as {
+      sources: Array<{
+        id: string;
+        displayName: string;
+        scopeType: string;
+        status: string;
+        successCount: number;
+        failureCount: number;
+        fileCount: number;
+      }>;
+      fts: string;
+    };
+    io.line(style.bold("personal context (本地 FTS · 不改原文件)"));
+    io.line(`  FTS tokenizer  ${status.fts}`);
+    if (status.sources.length === 0) {
+      io.line(style.dim("  (no sources — penglai context source add <path> --scope global)"));
+      return 0;
+    }
+    for (const s of status.sources) {
+      io.line(
+        `  ${s.id}  ${s.displayName}  ${style.dim(`${s.scopeType} · ${s.status} · ok=${s.successCount}/${s.fileCount} fail=${s.failureCount}`)}`,
+      );
+    }
+    return 0;
+  }
+
+  if (group === "source") {
+    const action = args.positionals[1] ?? "list";
+    if (action === "list") {
+      const projectId = flagValue(args.flags, "project");
+      const scope = flagValue(args.flags, "scope");
+      const result = (await ctx.client.rpc("context.source.list", {
+        ...(projectId ? { projectId } : {}),
+        ...(scope ? { scope } : {}),
+      })) as {
+        sources: Array<{
+          id: string;
+          displayName: string;
+          scopeType: string;
+          projectId: string | null;
+          status: string;
+          successCount: number;
+          failureCount: number;
+          indexedAt: number | null;
+        }>;
+        fts: string;
+      };
+      io.line(style.bold(`context sources (fts=${result.fts})`));
+      if (result.sources.length === 0) {
+        io.line(style.dim("  (empty)"));
+        return 0;
+      }
+      for (const s of result.sources) {
+        // F4: list strips rootPath for renderer safety; CLI redeems via describe
+        // (not on the Desktop renderer allowlist).
+        const detail = (await ctx.client.rpc("context.source.describe", {
+          sourceId: s.id,
+        })) as { source: { rootPath: string } };
+        io.line(
+          `  ${s.id}  ${s.displayName}  ${style.dim(s.scopeType + (s.projectId ? `:${s.projectId}` : ""))}`,
+        );
+        io.line(
+          `    ${detail.source.rootPath}  ${style.dim(`${s.status} · ok=${s.successCount} fail=${s.failureCount}`)}`,
+        );
+      }
+      return 0;
+    }
+    if (action === "add") {
+      const rootPath = requireArg(
+        args,
+        2,
+        "path — penglai context source add <path> --scope global|project",
+      );
+      const scope = flagValue(args.flags, "scope") ?? "global";
+      if (scope !== "global" && scope !== "project") {
+        throw new CliError("--scope must be global or project");
+      }
+      const projectId = flagValue(args.flags, "project");
+      if (scope === "project" && !projectId) {
+        throw new CliError("project scope requires --project <id>");
+      }
+      const result = (await ctx.client.rpc("context.source.add", {
+        rootPath: path.resolve(rootPath),
+        scope,
+        trustedChannel: "cli",
+        ...(projectId ? { projectId } : {}),
+        displayName: flagValue(args.flags, "name") ?? undefined,
+      })) as { source: { id: string; status: string; successCount: number; failureCount: number; fileCount: number }; fts: string };
+      io.line(
+        `${style.green("indexed")} ${result.source.id}  status=${result.source.status}  ` +
+          `ok=${result.source.successCount}/${result.source.fileCount} fail=${result.source.failureCount}  fts=${result.fts}`,
+      );
+      return 0;
+    }
+    if (action === "reindex") {
+      const sourceId = requireArg(args, 2, "source id");
+      const result = (await ctx.client.rpc("context.source.reindex", {
+        sourceId,
+      })) as { source: { id: string; status: string; successCount: number; failureCount: number } };
+      io.line(
+        `${style.green("reindexed")} ${result.source.id}  status=${result.source.status}  ` +
+          `ok=${result.source.successCount} fail=${result.source.failureCount}`,
+      );
+      return 0;
+    }
+    if (action === "remove") {
+      const sourceId = requireArg(args, 2, "source id");
+      const result = (await ctx.client.rpc("context.source.remove", {
+        sourceId,
+      })) as { ok: boolean; originalFilesPreserved: boolean };
+      if (!result.ok) {
+        io.line(style.dim(`source not found: ${sourceId}`));
+        return 1;
+      }
+      io.line(
+        `${style.yellow("removed index")} ${sourceId}` +
+          (result.originalFilesPreserved
+            ? style.dim(" · 原文件未受影响")
+            : ""),
+      );
+      return 0;
+    }
+    throw new CliError(`unknown context source action: ${action} (list|add|reindex|remove)`);
+  }
+
+  if (group === "search") {
+    const query = requireArg(args, 1, 'query — penglai context search "合同编号"');
+    const projectId = flagValue(args.flags, "project");
+    const globalOnly = Boolean(args.flags["global-only"] || args.flags.globalOnly);
+    const result = (await ctx.client.rpc("context.search", {
+      query,
+      ...(projectId ? { projectId } : {}),
+      ...(globalOnly ? { globalOnly: true } : {}),
+    })) as {
+      hits: Array<{
+        contextRef: string;
+        relativePath: string;
+        title: string;
+        headingPath: string | null;
+        snippet: string;
+        score: number;
+      }>;
+    };
+    if (result.hits.length === 0) {
+      io.line(style.dim("no hits"));
+      return 0;
+    }
+    for (const hit of result.hits) {
+      io.line(`${style.bold(hit.contextRef)}  ${hit.relativePath}  ${style.dim(hit.title)}`);
+      if (hit.headingPath) io.line(style.dim(`  # ${hit.headingPath}`));
+      io.line(`  ${oneLine(hit.snippet, 120)}`);
+    }
+    return 0;
+  }
+
+  if (group === "read") {
+    const contextRef = requireArg(args, 1, "contextRef — penglai context read <ref>");
+    const result = (await ctx.client.rpc("context.read", { contextRef })) as {
+      relativePath: string;
+      title: string;
+      text: string;
+      stale: boolean;
+      documentSha256: string;
+    };
+    io.line(style.bold(`${result.title} · ${result.relativePath}`));
+    if (result.stale) io.line(style.yellow("source content changed since this ref was minted"));
+    io.line(style.dim(`sha256 ${result.documentSha256.slice(0, 16)}…`));
+    io.line(result.text);
+    return 0;
+  }
+
+  throw new CliError(
+    `unknown context command: ${group} (status|source|search|read) — see \`penglai help\``,
+  );
+}
+
 // ── distill（蒸馏环配置） ──────────────────────────────────────
 
 /**

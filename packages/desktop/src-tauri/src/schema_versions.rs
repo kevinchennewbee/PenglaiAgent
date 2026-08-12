@@ -4,5 +4,5 @@
 
 pub const PROTOCOL_SCHEMA_VERSION: u64 = 1;
 pub const DATABASE_SCHEMA_VERSION: u64 = 7;
-pub const PRODUCT_VERSION: &str = "0.4.0";
-pub const MIN_DESKTOP_VERSION: &str = "0.4.0";
+pub const PRODUCT_VERSION: &str = "0.4.1";
+pub const MIN_DESKTOP_VERSION: &str = "0.4.1";

@@ -261,12 +261,12 @@ describe("server: health + headless surface", () => {
     expect(body.ok).toBe(true);
     expect(body).toMatchObject({
       product: "Penglai",
-      productVersion: "0.4.0",
+      productVersion: "0.4.1",
       runtime: "host",
-      runtimeVersion: "0.4.0",
+      runtimeVersion: "0.4.1",
       protocolSchemaVersion: 1,
       databaseSchemaVersion: 7,
-      minimumDesktopVersion: "0.4.0",
+      minimumDesktopVersion: "0.4.1",
     });
     expect(body.instanceId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,

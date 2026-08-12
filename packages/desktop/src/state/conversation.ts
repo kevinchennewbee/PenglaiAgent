@@ -7,18 +7,32 @@
  *   - live streaming bubble is replaced (not stacked) when the episode ends
  */
 
-import type {
-  Conversation,
-  Message,
-  MessageContent,
-  Mode,
-  Project,
-  Task,
-  TextContent,
+import {
+  CONVERSATION_PROMPT_ACK,
+  type Conversation,
+  type Message,
+  type MessageContent,
+  type Mode,
+  type Project,
+  type Task,
+  type TextContent,
 } from "@penglai/protocol";
 
 const MAX_TOOLS = 20;
 const MAX_EXTRAS = 50;
+
+/** F1: map structured prompt ack stopDetail → user-visible notice (no substring match). */
+export function noticeForPromptAck(
+  stopDetail: string | null | undefined,
+): string | null {
+  if (stopDetail === CONVERSATION_PROMPT_ACK.FOLLOWUP_QUEUED) {
+    return "已排队 · 当前回复结束后自动发送";
+  }
+  if (stopDetail === CONVERSATION_PROMPT_ACK.STEER_QUEUED) {
+    return "已排队插入当前会话";
+  }
+  return null;
+}
 
 const THINK_BLOCK_RE = /<(think|thinking)(?:\s[^>]*)?>[\s\S]*?<\/\1>/gi;
 const OPEN_THINK_RE = /<(think|thinking)(?:\s[^>]*)?>/i;
@@ -297,6 +311,8 @@ export type StreamItem =
       text: string;
       at: number;
       images?: StreamImage[];
+      /** R4: Host-verified context refs for assistant source cards. */
+      contextReferences?: Message["contextReferences"];
     }
   | { kind: "streaming"; text: string; tools: ToolActivity[]; thinking: string }
   | { kind: "thinking"; text: string }
@@ -336,6 +352,10 @@ export function streamItems(state: StreamState): StreamItem[] {
         text,
         at: message.createdAt,
         images: images.length > 0 ? images : undefined,
+        contextReferences:
+          message.role === "assistant" && message.contextReferences?.length
+            ? message.contextReferences
+            : undefined,
       },
     });
   }

@@ -170,6 +170,13 @@ const SCAN_WHITELIST = [
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-owner-other-key-000000000000", reason: "迁移测试合成 fixture key" },
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-user-fixture2222222222222222beef", reason: "迁移测试合成 fixture key" },
   { rule: "openai-key", file: /^packages\/host\/test\//, match: "sk-half333333333333333333333333", reason: "迁移测试合成半成品 key" },
+  // —— 0.4.1 R6 provider credential 回归：合成 key，非真实凭证 ——
+  { rule: "openai-key", file: /^packages\/host\/test\/profiles\.test\.ts$/, match: "sk-fixtureold00000000000000000000dead", reason: "R6 origin+key 同进程绑定合成 fixture key" },
+  { rule: "openai-key", file: /^packages\/host\/test\/profiles\.test\.ts$/, match: "sk-fixturenew00000000000000000000beef", reason: "R6 origin+key 同进程绑定合成 fixture key" },
+  // —— R7 安全策略测试：URL 凭证 / 私网拒绝路径的合成断言（非真实凭据）——
+  { rule: "email", file: /^packages\/host\/test\/safe-inference-fetch\.test\.ts$/, match: "pass@api.example.com", reason: "URL 内嵌凭证拒绝路径合成断言（user:pass@host）" },
+  { rule: "intranet-ip", file: /^packages\/host\/test\/safe-inference-fetch\.test\.ts$/, match: "192.168.1.1", reason: "私网地址拒绝路径合成断言（请求方必须被拒）" },
+  { rule: "intranet-ip", file: /^packages\/host\/test\/safe-inference-fetch\.test\.ts$/, match: "10.0.0.5", reason: "私网地址拒绝路径合成断言（请求方必须被拒）" },
   { rule: "email", file: /^package-lock\.json$/, match: "i@izs.me", reason: "glob 包公开 deprecated 元数据中的维护者联系邮箱" },
   // —— bash-guard 攻击样本（H1/H2 回归测试的合成越狱/外发命令，非 owner 路径）——
   { rule: "personal-path", file: /^packages\/host\/test\/bash-guard\.test\.ts$/, match: "/Users/x", reason: "H1 攻击样本（cp /Users/x/token.txt …）合成路径" },
@@ -183,6 +190,11 @@ const SCAN_WHITELIST = [
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-owner-other-key-000000000000", reason: "本表 fixture 声明自引用" },
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-user-fixture2222222222222222beef", reason: "本表 fixture 声明自引用" },
   { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-half333333333333333333333333", reason: "本表 fixture 声明自引用" },
+  { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-fixtureold00000000000000000000dead", reason: "本表 R6 fixture 声明自引用" },
+  { rule: "openai-key", file: /^scripts\/release-check\.mjs$/, match: "sk-fixturenew00000000000000000000beef", reason: "本表 R6 fixture 声明自引用" },
+  { rule: "email", file: /^scripts\/release-check\.mjs$/, match: "pass@api.example.com", reason: "本表 R7 合成断言声明自引用" },
+  { rule: "intranet-ip", file: /^scripts\/release-check\.mjs$/, match: "192.168.1.1", reason: "本表 R7 合成断言声明自引用" },
+  { rule: "intranet-ip", file: /^scripts\/release-check\.mjs$/, match: "10.0.0.5", reason: "本表 R7 合成断言声明自引用" },
   { rule: "minisign-secret", file: /^scripts\/release-check\.mjs$/, match: "untrusted comment: minisign encrypted secret key", reason: "本表密钥规则声明自引用（规则正则本体，非真实私钥）" },
   { rule: "email", file: /^scripts\/release-check\.mjs$/, match: "i@izs.me", reason: "本表依赖元数据邮箱例外声明自引用" },
 ];

@@ -26,6 +26,7 @@ use sha2::{Digest, Sha256};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use tauri::{Emitter, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 // Updater commands live next to the manifest generator + template in
 // packages/desktop/updater/. Included here so the logic is co-located with
@@ -658,6 +659,167 @@ fn penglai_home(app: tauri::AppHandle) -> Result<String, String> {
     Ok(dir.to_string_lossy().to_string())
 }
 
+/// R1: trusted native path for Personal Context directory authorization.
+/// Opens the OS folder picker in the native shell, canonicalizes the path,
+/// and registers the source with the Host via a trustedChannel="native" RPC.
+/// The renderer only receives source metadata — never a reusable absolute path
+/// parameter for source.add.
+#[tauri::command]
+async fn context_register_source(
+    app: tauri::AppHandle,
+    scope: String,
+    project_id: Option<String>,
+    display_name: Option<String>,
+) -> Result<serde_json::Value, HostRpcError> {
+    if scope != "global" && scope != "project" {
+        return Err(HostRpcError::transport("scope must be global or project"));
+    }
+    if scope == "project" && project_id.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+        return Err(HostRpcError::transport("project scope requires projectId"));
+    }
+    let data_dir = host_data_dir(&app).map_err(HostRpcError::transport)?;
+    // Folder picker runs on the main thread via the dialog plugin.
+    let folder = tauri::async_runtime::spawn_blocking({
+        let app = app.clone();
+        move || {
+            app.dialog()
+                .file()
+                .set_title("选择要授权给蓬莱的资料目录")
+                .blocking_pick_folder()
+        }
+    })
+    .await
+    .map_err(|error| HostRpcError::transport(format!("folder picker task failed: {error}")))?;
+
+    let Some(folder) = folder else {
+        return Ok(serde_json::json!({ "cancelled": true }));
+    };
+    let root_path = match folder.into_path() {
+        Ok(path) => path.to_string_lossy().to_string(),
+        Err(error) => {
+            return Err(HostRpcError::transport(format!(
+                "resolve folder path: {error}"
+            )));
+        }
+    };
+
+    let mut params = serde_json::Map::new();
+    params.insert("rootPath".into(), serde_json::Value::String(root_path));
+    params.insert("scope".into(), serde_json::Value::String(scope));
+    params.insert(
+        "trustedChannel".into(),
+        serde_json::Value::String("native".into()),
+    );
+    if let Some(project_id) = project_id {
+        if !project_id.trim().is_empty() {
+            params.insert(
+                "projectId".into(),
+                serde_json::Value::String(project_id),
+            );
+        }
+    }
+    if let Some(display_name) = display_name {
+        if !display_name.trim().is_empty() {
+            params.insert(
+                "displayName".into(),
+                serde_json::Value::String(display_name),
+            );
+        }
+    }
+
+    // host_rpc_blocking allowlist excludes context.source.add for renderer calls,
+    // so register via a privileged native-only path that bypasses the allowlist
+    // for this single trusted method. Blocking TCP/index work must stay off the
+    // async runtime (same pattern as host_rpc → spawn_blocking).
+    tauri::async_runtime::spawn_blocking(move || {
+        host_rpc_blocking_trusted(
+            data_dir,
+            "context.source.add".to_string(),
+            serde_json::Value::Object(params),
+        )
+    })
+    .await
+    .map_err(|error| HostRpcError::transport(format!("trusted Host RPC task failed: {error}")))?
+}
+
+/// Native-only Host RPC that may call methods not on the renderer allowlist
+/// (directory registration). Renderer host_rpc continues to enforce allowlist.
+fn host_rpc_blocking_trusted(
+    data_dir: PathBuf,
+    method: String,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, HostRpcError> {
+    if method != "context.source.add" {
+        return Err(HostRpcError::transport(
+            "trusted native RPC only allows context.source.add",
+        ));
+    }
+    if !params.is_object() {
+        return Err(HostRpcError::transport("RPC params must be an object"));
+    }
+    let token = read_host_token(&data_dir).map_err(HostRpcError::transport)?;
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": params,
+    })
+    .to_string();
+    let request = format!(
+        "POST /api HTTP/1.1\r\n\
+         Host: 127.0.0.1:{HOST_PORT}\r\n\
+         Content-Type: application/json\r\n\
+         X-Penglai-Token: {token}\r\n\
+         Content-Length: {}\r\n\
+         Connection: close\r\n\r\n{}",
+        body.len(),
+        body,
+    );
+    let mut stream = TcpStream::connect(("127.0.0.1", HOST_PORT))
+        .map_err(|error| HostRpcError::transport(format!("connect to Host: {}", error)))?;
+    let timeout = Some(Duration::from_secs(10 * 60));
+    stream
+        .set_read_timeout(timeout)
+        .map_err(|error| HostRpcError::transport(format!("set Host read timeout: {}", error)))?;
+    stream
+        .set_write_timeout(timeout)
+        .map_err(|error| HostRpcError::transport(format!("set Host write timeout: {}", error)))?;
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|error| HostRpcError::transport(format!("write Host RPC: {}", error)))?;
+    let mut response = String::new();
+    stream
+        .take(16 * 1024 * 1024)
+        .read_to_string(&mut response)
+        .map_err(|error| HostRpcError::transport(format!("read Host RPC: {}", error)))?;
+    let (headers, payload) = response
+        .split_once("\r\n\r\n")
+        .ok_or_else(|| HostRpcError::transport("Host returned malformed HTTP"))?;
+    if !headers.lines().next().unwrap_or_default().contains(" 200 ") {
+        return Err(HostRpcError::transport(
+            "Host returned a non-200 response".to_string(),
+        ));
+    }
+    let envelope: serde_json::Value = serde_json::from_str(payload)
+        .map_err(|error| HostRpcError::transport(format!("parse Host RPC: {}", error)))?;
+    if let Some(error) = envelope.get("error") {
+        let message = error
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("Host RPC failed");
+        let code = error
+            .get("data")
+            .and_then(|data| data.get("code"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        return Err(HostRpcError::remote(message.to_string(), code));
+    }
+    envelope
+        .get("result")
+        .cloned()
+        .ok_or_else(|| HostRpcError::transport("Host RPC response has no result"))
+}
+
 /// Read the loopback credential from the data dir (shared by the RPC proxy
 /// and the WS event bridge). The token never leaves the native shell.
 fn read_host_token(data_dir: &Path) -> Result<String, String> {
@@ -783,6 +945,14 @@ fn host_rpc_blocking(
         "workspace.open",
         "memory.sopList",
         "memory.sopShow",
+        // R1: renderer must NOT call context.source.add with raw paths.
+        // Directory pick + register is a native command (context_register_source).
+        // list/reindex/remove use sourceId only; context.read opens by opaque ref.
+        "context.source.list",
+        "context.source.reindex",
+        "context.source.remove",
+        "context.read",
+        "context.suggestions",
         "skill.list",
         "skill.inspect",
         "skill.install",
@@ -1264,6 +1434,7 @@ pub fn run() {
             host_subscribe,
             host_unsubscribe,
             penglai_home,
+            context_register_source,
             update::check_app_update,
             update::install_app_update,
         ])
