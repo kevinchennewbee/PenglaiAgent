@@ -8,9 +8,10 @@
  *     → billing（选接入方式：按量 / Coding Plan / Agent Plan / Token Plan…）
  *     → model（在该接入方式下选模型）
  *     → key（填 Key → 冒烟 → 保存）
+ *     → context（可选：授权个人资料目录）
  *     → identity
  *
- *   自定义端点：provider(custom) → customBase → customKey → customModel
+ *   自定义端点：provider(custom) → customBase → customKey → customModel → context
  *
  * 架构纪律：
  *   - 壳（SetupWizard 底栏）统一「上一步 | 下一步」并排；步骤只提供内容与
@@ -48,6 +49,7 @@ export type WizardStepId =
   | "billing"
   | "model"
   | "key"
+  | "context"
   | "identity"
   | "customBase"
   | "customKey"
@@ -193,9 +195,14 @@ export function pickCustomModel(nav: WizardNav, modelId: string): WizardNav {
   return { ...nav, selections: { ...nav.selections, modelId: modelId.trim() } };
 }
 
-/** 档案保存成功 → 身份诞生。 */
+/** 档案保存成功 → 个人上下文（可跳过）→ 身份诞生。 */
 export function confirmSaved(nav: WizardNav): WizardNav {
-  return { ...nav, step: "identity" };
+  return { ...nav, step: "context" };
+}
+
+/** 跳过或完成个人上下文步 → 身份诞生。 */
+export function advanceFromContext(nav: WizardNav): WizardNav {
+  return nav.step === "context" ? { ...nav, step: "identity" } : nav;
 }
 
 // ── 返回上一步 ─────────────────────────────────────────────────
@@ -222,6 +229,9 @@ export function backTarget(
       return "customBase";
     case "customModel":
       return "customKey";
+    case "context":
+      // After standard key save or custom-model save.
+      return _selections.providerId === "custom" ? "customModel" : "key";
     default:
       return step; // welcome / identity
   }
@@ -252,7 +262,10 @@ export function selectionChrome(options: {
   canProceed: boolean;
   primaryLabel?: string;
 }): WizardChrome {
-  const showBack = options.step !== "welcome" && options.step !== "identity";
+  const showBack =
+    options.step !== "welcome" &&
+    options.step !== "identity" &&
+    options.step !== "context";
   return {
     kind: "nav",
     showBack,
@@ -489,6 +502,8 @@ export function stepProgress(
       return customSmoking
         ? { index: 4, total: 4, label: "冒烟验证" }
         : { index: 3, total: 4, label: "选择模型" };
+    case "context":
+      return { index: 5, total: 5, label: "个人上下文（可选）" };
     default:
       return null;
   }

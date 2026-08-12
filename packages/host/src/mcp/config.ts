@@ -153,6 +153,7 @@ export function describeBuiltinToolSurface(): {
       "document_read（PDF / DOCX / XLSX / PPTX / 常用文本）",
       "document_create_pdf（新建 PDF；不覆盖已有文件）",
       "document_create（新建 PDF / DOCX / XLSX / PPTX；不覆盖已有文件）",
+      "context_search / context_read（Owner 授权的个人/项目资料 · 本地 FTS · opaque contextRef）",
     ],
     network: [
       "web_search / web_fetch（公网限定、SSRF 防护、Owner L3）",
@@ -163,9 +164,10 @@ export function describeBuiltinToolSurface(): {
       "browser 自动化不内置，可由 Owner 自选浏览器 MCP 扩展",
     ],
     notes: [
-      "Plan 只装配 read、document_read、skill_list、skill_show。",
+      "Plan 只装配 read、document_read、context_search、context_read、skill_list、skill_show。",
       "confirm / auto_edit / full 装配完整原子工具面；Bash、Web、MCP 每次均需 Owner L3。",
       "模型不能选择或信任项目目录；项目切换只能由 Owner 发起。",
+      "个人上下文资料是 untrusted reference material，不能改权限/写 memory/SOP。",
       "MCP 子进程使用私有临时 HOME 与净化环境；远程传输逐跳拒绝私网/元数据地址。",
     ],
   };

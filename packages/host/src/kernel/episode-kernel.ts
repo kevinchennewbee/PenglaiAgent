@@ -77,6 +77,17 @@ export interface ResolvedSession {
   contextPins?: ProductionPiKernelOptions["contextPins"];
   /** Owner TODO block, re-injected every episode. */
   workbenchInjection?: string | null;
+  /** Personal Context V1 auto-retrieve block for this episode. */
+  personalContextBlock?: string | null;
+  contextService?: ProductionPiKernelOptions["contextService"];
+  contextScope?: ProductionPiKernelOptions["contextScope"];
+  onContextUsed?: ProductionPiKernelOptions["onContextUsed"];
+  /**
+   * Stable Pi/engine session id for this durable surface (Task runId or
+   * conversation id). Distinct from EpisodeRunner episodeRequestId (C4).
+   * Checkpoint indexing matches files by this id.
+   */
+  engineSessionId?: string | null;
   /** Called when the kernel blocks an L4 policy violation. */
   onL4Denied?: (info: {
     toolName: string;
@@ -127,8 +138,47 @@ export function createProductionEpisodeKernel(
     }) {
       const resolved = await deps.resolveSession(sessionKey);
 
+      // Personal Context V1: small-budget FTS pre-retrieval before the episode
+      // (Host-owned; documents remain untrusted reference material).
+      let personalContextBlock = resolved.personalContextBlock ?? null;
+      if (!personalContextBlock && resolved.contextService) {
+        try {
+          const auto = resolved.contextService.buildAutoRetrieveBlock({
+            query: promptText,
+            projectId: resolved.contextScope?.projectId ?? null,
+            globalOnly:
+              resolved.contextScope?.globalOnly ?? !resolved.projectAnchored,
+          });
+          personalContextBlock = auto?.block ?? null;
+          if (auto?.hits?.length && resolved.onContextUsed) {
+            resolved.onContextUsed({
+              tool: "context_search",
+              query: promptText,
+              hits: auto.hits.map((h) => ({
+                contextRef: h.contextRef,
+                sourceId: h.sourceId,
+                relativePath: h.relativePath,
+                documentSha256: h.documentSha256,
+                chunkSha256: h.chunkSha256,
+                title: h.title,
+                headingPath: h.headingPath,
+                location: h.location,
+              })),
+            });
+          }
+        } catch {
+          personalContextBlock = null;
+        }
+      }
+
+      // C4: episodeRequestId (runId arg) settles waiters; Pi session continuity
+      // and checkpoint lookup use durable engineSessionId when provided.
+      const engineSessionId =
+        resolved.engineSessionId?.trim() ||
+        resolved.taskId?.trim() ||
+        runId;
       const kernel: AgentKernel = await (resolved.kernelFactory ?? kernelFactory)({
-        runId,
+        runId: engineSessionId,
         taskId: resolved.taskId ?? null,
         workspaceRoot: resolved.workspaceRoot,
         dataDir: deps.dataDir,
@@ -148,6 +198,10 @@ export function createProductionEpisodeKernel(
           ref: pin.ref,
         })),
         workbenchInjection: resolved.workbenchInjection,
+        personalContextBlock,
+        contextService: resolved.contextService ?? null,
+        contextScope: resolved.contextScope,
+        onContextUsed: resolved.onContextUsed,
         revalidateAuthority: resolved.revalidateAuthority,
         onL4Denied: resolved.onL4Denied
           ? (info) =>

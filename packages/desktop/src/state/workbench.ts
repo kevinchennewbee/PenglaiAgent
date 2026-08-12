@@ -234,6 +234,8 @@ export interface EvidenceGroups {
   commands: Evidence[];
   /** 产物（checkpoint 会话索引、蒸馏产物等）。 */
   artifacts: Evidence[];
+  /** R5: Host-observed personal context sources (opaque refs). */
+  sources: Evidence[];
 }
 
 export function groupEvidence(evidence: Evidence[]): EvidenceGroups {
@@ -243,6 +245,7 @@ export function groupEvidence(evidence: Evidence[]): EvidenceGroups {
     tests: [],
     commands: [],
     artifacts: [],
+    sources: [],
   };
   for (const item of [...evidence].sort((a, b) => b.createdAt - a.createdAt)) {
     switch (item.kind) {
@@ -254,6 +257,9 @@ export function groupEvidence(evidence: Evidence[]): EvidenceGroups {
         break;
       case "command":
         groups.commands.push(item);
+        break;
+      case "source":
+        groups.sources.push(item);
         break;
       case "artifact":
       case "file":

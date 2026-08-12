@@ -63,6 +63,7 @@ import {
   type CompanionSource,
 } from "./services.js";
 import {
+  CONVERSATION_PROMPT_ACK,
   DATABASE_SCHEMA_VERSION,
   MIN_DESKTOP_VERSION,
   PRODUCT_VERSION,
@@ -85,7 +86,10 @@ import {
 import { McpSessionManager } from "./mcp/client.js";
 import { penglaiDataDir } from "./data-dir.js";
 import { loadOrCreateHostToken } from "./token-file.js";
-import { assertSafeProviderBaseUrl } from "./providers/url-safety.js";
+import {
+  assertSafeProviderBaseUrl,
+  sameProviderOrigin,
+} from "./providers/url-safety.js";
 import {
   TaskRunner,
   type TaskKernelFactory,
@@ -109,6 +113,8 @@ import {
   type ProductionPiKernelOptions,
 } from "./kernel/create-production-pi-kernel.js";
 import { MemoryStore } from "./memory.js";
+import { ContextGrantTable, ContextService } from "./context/index.js";
+import { EpisodeVerifiedRefCollector } from "./context/verified-refs.js";
 import { SkillStore } from "./skills/store.js";
 import { localDay } from "./usage.js";
 import { sweepMissingCheckpoints } from "./checkpoints.js";
@@ -304,6 +310,8 @@ function createHost(options: ServerOptions): {
   };
   productStore: ProductStore;
   ownsProductStore: boolean;
+  /** Close host-owned resources that outlive individual RPCs (context index, …). */
+  closeHostResources: () => void;
   /** Stop every IM channel runtime (ws clients, event subscriptions). */
   stopChannels: () => Promise<void>;
   /** Finish post-run jobs before their ProductStore dependency is closed. */
@@ -421,6 +429,113 @@ function createHost(options: ServerOptions): {
     },
   );
   memoryStore.ensureGlobalLayout();
+  // Personal Context V1: Owner-authorized document sources + local FTS index.
+  // Separate from memory (identity/SOP) and from product.db runs/evidence.
+  const contextService = new ContextService({
+    dataDir: productDataDir,
+    projectExists: (projectId) => productStore.getProject(projectId) !== null,
+    // Host process allows trusted raw-path add (CLI / native). Renderer must
+    // not call context.source.add with a path (desktop allowlist + UI).
+    allowRawPathAdd: true,
+  });
+  /** R1: single-use short-TTL grants for native directory authorization. */
+  const contextGrants = new ContextGrantTable({ defaultTtlMs: 60_000 });
+  /**
+   * R4: per-episode verified context refs for conversation sessions.
+   * Keyed by conversationId (sessionKey). Cleared on episode start.
+   */
+  const conversationVerifiedRefs = new Map<string, EpisodeVerifiedRefCollector>();
+  /**
+   * R4: per-task-episode verified refs keyed by task sessionKey (`task:…`).
+   */
+  const taskVerifiedRefs = new Map<string, EpisodeVerifiedRefCollector>();
+
+  function observeContextForCollector(
+    collector: EpisodeVerifiedRefCollector | undefined,
+    info: {
+      tool: "context_search" | "context_read";
+      hits?: Array<{
+        contextRef: string;
+        sourceId?: string;
+        relativePath: string;
+        documentSha256: string;
+        chunkSha256?: string;
+        title: string;
+        headingPath?: string | null;
+        location?: {
+          headingPath?: string | null;
+          page?: number | null;
+          slide?: number | null;
+          sheet?: string | null;
+          keyPath?: string | null;
+        } | null;
+      }>;
+      read?: {
+        contextRef: string;
+        sourceId?: string;
+        relativePath: string;
+        documentSha256: string;
+        chunkSha256?: string;
+        title: string;
+        stale: boolean;
+        status?: string;
+        headingPath?: string | null;
+        location?: {
+          headingPath?: string | null;
+          page?: number | null;
+          slide?: number | null;
+          sheet?: string | null;
+          keyPath?: string | null;
+        } | null;
+      };
+    },
+  ): void {
+    if (!collector) return;
+    if (info.tool === "context_search" && info.hits) {
+      collector.observeHits(
+        info.hits.map((h) => ({
+          contextRef: h.contextRef,
+          sourceId: h.sourceId ?? "",
+          documentId: "",
+          chunkId: "",
+          relativePath: h.relativePath,
+          title: h.title,
+          headingPath: h.headingPath ?? null,
+          snippet: "",
+          score: 0,
+          documentSha256: h.documentSha256,
+          chunkSha256: h.chunkSha256 ?? "",
+          scopeType: "global",
+          projectId: null,
+          location: h.location ?? null,
+        })),
+      );
+    } else if (info.tool === "context_read" && info.read) {
+      collector.observeRead({
+        contextRef: info.read.contextRef,
+        sourceId: info.read.sourceId ?? "",
+        documentId: "",
+        chunkId: "",
+        relativePath: info.read.relativePath,
+        title: info.read.title,
+        headingPath: info.read.headingPath ?? null,
+        text: "",
+        documentSha256: info.read.documentSha256,
+        chunkSha256: info.read.chunkSha256 ?? "",
+        location: info.read.location ?? null,
+        status:
+          info.read.status === "stale" ||
+          info.read.status === "revoked" ||
+          info.read.status === "unavailable" ||
+          info.read.status === "current"
+            ? info.read.status
+            : info.read.stale
+              ? "stale"
+              : "current",
+        stale: info.read.stale,
+      });
+    }
+  }
   const skillStore = new SkillStore(productDataDir);
   // Manual-connect only: configuration survives restarts, but Host startup
   // never spawns or contacts a third-party MCP server.
@@ -590,6 +705,8 @@ function createHost(options: ServerOptions): {
       projectAnchored: true,
       taskId: taskOptions.taskId,
       conversationId: taskOptions.conversationId ?? null,
+      // Durable Task run id — Pi session + checkpoint indexing (not episodeRequestId).
+      engineSessionId: taskOptions.runId,
       memory: taskOptions.memory,
       hostTools: taskOptions.hostTools,
       hasPolicyGrant: taskOptions.hasPolicyGrant,
@@ -599,6 +716,76 @@ function createHost(options: ServerOptions): {
       workbenchInjection: taskOptions.conversationId
         ? buildWorkbenchInjection(taskOptions.conversationId)
         : null,
+      contextService,
+      contextScope: {
+        projectId:
+          productStore.getTask(taskOptions.taskId)?.projectId ?? null,
+        globalOnly: false,
+      },
+      onContextUsed: (info) => {
+        const taskId = taskOptions.taskId;
+        const collector =
+          taskVerifiedRefs.get(sessionKey) ??
+          (() => {
+            const c = new EpisodeVerifiedRefCollector();
+            taskVerifiedRefs.set(sessionKey, c);
+            return c;
+          })();
+        observeContextForCollector(collector, info);
+        if (!taskId) return;
+        try {
+          if (info.tool === "context_search" && info.hits) {
+            for (const hit of info.hits.slice(0, 8)) {
+              productStore.addEvidence({
+                taskId,
+                runId: taskOptions.runId,
+                kind: "source",
+                title: `Context search: ${hit.title}`,
+                summary: hit.relativePath,
+                uri: `penglai-context://${hit.contextRef}`,
+                sha256: hit.documentSha256,
+                metadata: {
+                  provenance: "tool-observed",
+                  tool: "context_search",
+                  query: info.query ?? null,
+                  contextRef: hit.contextRef,
+                  relativePath: hit.relativePath,
+                  sourceId: hit.sourceId ?? null,
+                  chunkSha256: hit.chunkSha256 ?? null,
+                  location: hit.location ?? null,
+                  runId: taskOptions.runId,
+                },
+              });
+            }
+          } else if (info.tool === "context_read" && info.read) {
+            productStore.addEvidence({
+              taskId,
+              runId: taskOptions.runId,
+              kind: "source",
+              title: `Context read: ${info.read.title}`,
+              summary: info.read.relativePath,
+              uri: `penglai-context://${info.read.contextRef}`,
+              sha256: info.read.documentSha256,
+              metadata: {
+                provenance: "tool-observed",
+                tool: "context_read",
+                contextRef: info.read.contextRef,
+                relativePath: info.read.relativePath,
+                sourceId: info.read.sourceId ?? null,
+                chunkSha256: info.read.chunkSha256 ?? null,
+                stale: info.read.stale,
+                status: info.read.status ?? (info.read.stale ? "stale" : "current"),
+                location: info.read.location ?? null,
+                runId: taskOptions.runId,
+              },
+            });
+          }
+        } catch (error) {
+          hostLog(
+            `task context evidence failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
       onL4Denied: (info) =>
         taskOptions.onL4Denied?.({
           toolName: info.toolName,
@@ -784,6 +971,73 @@ function createHost(options: ServerOptions): {
             ref: pin.ref,
           })),
           workbenchInjection: buildWorkbenchInjection(conversation.id),
+          // Personal Context V1: tools + auto-retrieve scoped to floating
+          // (global) or project-anchored (project + global) sources.
+          contextService,
+          contextScope: {
+            projectId: projectId || null,
+            globalOnly: !projectAnchored,
+          },
+          onContextUsed: (info) => {
+            // R4: always collect Host-verified refs for Chat source cards.
+            const collector =
+              conversationVerifiedRefs.get(sessionKey) ??
+              (() => {
+                const c = new EpisodeVerifiedRefCollector();
+                conversationVerifiedRefs.set(sessionKey, c);
+                return c;
+              })();
+            observeContextForCollector(collector, info);
+            if (!taskId) return;
+            try {
+              if (info.tool === "context_search" && info.hits) {
+                for (const hit of info.hits.slice(0, 8)) {
+                  productStore.addEvidence({
+                    taskId,
+                    kind: "source",
+                    title: `Context search: ${hit.title}`,
+                    summary: hit.relativePath,
+                    uri: `penglai-context://${hit.contextRef}`,
+                    sha256: hit.documentSha256,
+                    metadata: {
+                      provenance: "tool-observed",
+                      tool: "context_search",
+                      query: info.query ?? null,
+                      contextRef: hit.contextRef,
+                      relativePath: hit.relativePath,
+                      sourceId: hit.sourceId ?? null,
+                      chunkSha256: hit.chunkSha256 ?? null,
+                      location: hit.location ?? null,
+                    },
+                  });
+                }
+              } else if (info.tool === "context_read" && info.read) {
+                productStore.addEvidence({
+                  taskId,
+                  kind: "source",
+                  title: `Context read: ${info.read.title}`,
+                  summary: info.read.relativePath,
+                  uri: `penglai-context://${info.read.contextRef}`,
+                  sha256: info.read.documentSha256,
+                  metadata: {
+                    provenance: "tool-observed",
+                    tool: "context_read",
+                    contextRef: info.read.contextRef,
+                    relativePath: info.read.relativePath,
+                    sourceId: info.read.sourceId ?? null,
+                    chunkSha256: info.read.chunkSha256 ?? null,
+                    stale: info.read.stale,
+                    status: info.read.status ?? (info.read.stale ? "stale" : "current"),
+                    location: info.read.location ?? null,
+                  },
+                });
+              }
+            } catch (error) {
+              hostLog(
+                `context evidence failed: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          },
           // Project-scoped L2 grants ("remember for this project") are
           // strictly scoped to the anchored project — never scan across
           // jails (the old 同类免问 leak).
@@ -902,6 +1156,8 @@ function createHost(options: ServerOptions): {
     // beat has been persisted and broadcast below.
     switch (event.event) {
       case "episode.started":
+        // Fresh verified-ref set for this episode (R4).
+        conversationVerifiedRefs.set(channelId, new EpisodeVerifiedRefCollector());
         touchConversation(channelId, { status: "running" });
         broadcast(channelId, {
           event: "conversation.prompt.started",
@@ -984,12 +1240,14 @@ function createHost(options: ServerOptions): {
           : "";
       if (transcriptText) {
         try {
+          const refs = conversationVerifiedRefs.get(channelId)?.snapshot() ?? [];
           const assistantMessage = {
             id: `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
             conversationId: channelId,
             role: "assistant" as const,
             createdAt: Date.now(),
             content: [{ type: "text" as const, text: transcriptText }],
+            ...(refs.length > 0 ? { contextReferences: refs } : {}),
           };
           saveMessage(channelId, assistantMessage);
           broadcast(channelId, {
@@ -1164,6 +1422,8 @@ function createHost(options: ServerOptions): {
     const permissionMode = input.permissionMode ?? "auto_edit";
     const thinkingLevel = input.thinkingLevel ?? "medium";
     const delivery = input.delivery === "now" ? "steer" : "followup";
+    // F1: IM channels wait for the real reply; Desktop RPC asks for an ack.
+    const waitForTerminal = input.waitForTerminal !== false;
 
     if (episodeRunner.active(conversationId)) {
       if (input.requireNewEpisode) {
@@ -1173,30 +1433,48 @@ function createHost(options: ServerOptions): {
           { code: "conversation_busy" },
         );
       }
-      if (input.recordUserMessage !== false) {
-        persistConversationUserBeat(conversationId, promptText, images);
+      if (!waitForTerminal) {
+        if (input.recordUserMessage !== false) {
+          persistConversationUserBeat(conversationId, promptText, images);
+        }
+        const runId =
+          `ep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        runPrompts.set(runId, promptText);
+        episodeRunner.submit(conversationId, {
+          text: promptText,
+          delivery,
+          permissionMode,
+          thinkingLevel,
+          images: images.length > 0 ? images : undefined,
+          runId,
+        });
+        // C3: acknowledgement is not a terminal episode result. Never return
+        // stopReason:"completed" for a queued/steered follow-up — that made UI
+        // stop the spinner and write a fake assistant terminal message.
+        return {
+          conversationId,
+          episodeId: runId,
+          text:
+            delivery === "steer"
+              ? "(queued steer into active session)"
+              : "(queued as follow-up)",
+          status: "queued",
+          accepted: true,
+          delivery,
+          // Explicit non-terminal marker for older clients that only check
+          // stopReason. "queued" is not a completed episode.
+          stopReason: "queued",
+          stopDetail:
+            delivery === "steer"
+              ? CONVERSATION_PROMPT_ACK.STEER_QUEUED
+              : CONVERSATION_PROMPT_ACK.FOLLOWUP_QUEUED,
+          turns: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+        };
       }
-      const runId =
-        `ep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      runPrompts.set(runId, promptText);
-      episodeRunner.submit(conversationId, {
-        text: promptText,
-        delivery,
-        permissionMode,
-        thinkingLevel,
-        images: images.length > 0 ? images : undefined,
-        runId,
-      });
-      return {
-        conversationId,
-        episodeId: runId,
-        text: delivery === "steer" ? "(steered into active episode)" : "(queued as follow-up)",
-        stopReason: "completed",
-        stopDetail: delivery === "steer" ? "steered" : "queued",
-        turns: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-      };
+      // waitForTerminal: fall through to budget + episodeRunner.prompt, which
+      // queues behind the active episode and resolves with the real terminal.
     }
 
     const profileId = conversation.modelProfileId ?? "default";
@@ -2225,16 +2503,34 @@ function createHost(options: ServerOptions): {
       // ids are not registered in the legacy ConversationApprovalService.
       // Try the runner first, then fall back to the legacy service.
       const note = optStr(params, "note");
+      const decidedBy = reqStr(params, "decidedBy");
       const remember = params.rememberSession === true || params.remember === "session";
-      const handled = episodeRunner.resolveApproval(approvalId, {
+      const resolved = episodeRunner.resolveApproval(approvalId, {
         approved: true,
         note: note ?? "approved",
-        remember,
+        // C7: pass remember so EpisodeRunner can grant L2 session capability.
+        remember: remember === true,
+        decidedBy,
       });
-      if (handled) return { ok: true, runner: "episode" };
+      if (resolved.handled) {
+        // R9: remembered is actual grant outcome, never request echo.
+        // L3 remember requests therefore return remembered:false.
+        const audit = episodeRunner.getApprovalAudit(approvalId);
+        return {
+          ok: true,
+          runner: "episode",
+          remembered: resolved.remembered,
+          decidedBy,
+          decidedAt: audit?.decidedAt ?? null,
+          scope: audit?.sessionKey ?? null,
+          approvalId,
+          level: audit?.level ?? null,
+          capability: audit?.capability ?? null,
+        };
+      }
       return conversationApprovals.approve({
         approvalId,
-        decidedBy: reqStr(params, "decidedBy"),
+        decidedBy,
         note,
         // Grok-style: allow for this conversation (session grant) on L2.
         rememberSession: remember,
@@ -2243,14 +2539,23 @@ function createHost(options: ServerOptions): {
     "conversation.approval.reject": (params) => {
       const approvalId = reqStr(params, "approvalId");
       const note = optStr(params, "note");
-      const handled = episodeRunner.resolveApproval(approvalId, {
+      const decidedBy = reqStr(params, "decidedBy");
+      const resolved = episodeRunner.resolveApproval(approvalId, {
         approved: false,
         note: note ?? "denied",
+        decidedBy,
       });
-      if (handled) return { ok: true, runner: "episode" };
+      if (resolved.handled) {
+        return {
+          ok: true,
+          runner: "episode",
+          decidedBy,
+          approvalId,
+        };
+      }
       return conversationApprovals.reject({
         approvalId,
-        decidedBy: reqStr(params, "decidedBy"),
+        decidedBy,
         note,
       });
     },
@@ -2405,7 +2710,26 @@ function createHost(options: ServerOptions): {
         throw new RpcError(-32000, `unknown conversationId: ${conversationId}`, { code: "conversation_not_found" });
       }
       const messages = loadMessages(conversationId);
-      return { conversation, messages };
+      // F6: refresh contextReferences[].status from durable Host state so
+      // reindex/revoke/unavailable are visible without a later context.read.
+      const refIds = messages.flatMap((message) =>
+        (message.contextReferences ?? []).map((ref) => ref.ref),
+      );
+      if (refIds.length === 0) {
+        return { conversation, messages };
+      }
+      const statuses = contextService.resolveReferenceStatuses(refIds);
+      const refreshed = messages.map((message) => {
+        if (!message.contextReferences?.length) return message;
+        return {
+          ...message,
+          contextReferences: message.contextReferences.map((ref) => ({
+            ...ref,
+            status: statuses.get(ref.ref) ?? "unavailable",
+          })),
+        };
+      });
+      return { conversation, messages: refreshed };
     },
 
     "conversation.attachment.import": (params) => {
@@ -2478,6 +2802,9 @@ function createHost(options: ServerOptions): {
         permissionMode,
         thinkingLevel,
         delivery: deliveryRaw === "now" ? "now" : "queue",
+        // F1: Desktop needs a non-terminal ack so the spinner/notice can update
+        // while the real reply arrives over the event stream.
+        waitForTerminal: false,
         images: Array.isArray(params.images)
           ? (params.images as Array<Record<string, unknown>>).map((row) => ({
               data: typeof row?.data === "string" ? row.data : "",
@@ -2595,12 +2922,19 @@ function createHost(options: ServerOptions): {
       const approvalId = reqStr(params, "approvalId");
       const approved = params.approved !== false;
       const note = optStr(params, "note") ?? (approved ? "approved" : "denied");
-      const ok = episodeRunner.resolveApproval(approvalId, {
+      const decidedBy = optStr(params, "decidedBy") ?? "agent-rpc";
+      const resolved = episodeRunner.resolveApproval(approvalId, {
         approved,
         note,
         remember: params.remember === true,
+        decidedBy,
       });
-      return { ok };
+      return {
+        ok: resolved.handled,
+        remembered: resolved.remembered,
+        decidedBy,
+        approvalId,
+      };
     },
     "agent.active": async (params) => {
       const conversationId = reqStr(params, "conversationId");
@@ -2974,6 +3308,270 @@ ${goalText}
       skills: [...memoryStore.listSops().map((s) => s.name), ...skillStore.list().filter((s) => s.enabled).map((s) => s.name)],
     }),
 
+    // ── Personal Context V1 (Owner-authorized sources + FTS) ───
+    // Separate from memory.* (identity/SOP). Original files are never modified.
+    //
+    // R1 trust boundary:
+    // - context.source.add accepts raw rootPath only for trustedChannel
+    //   "cli" | "native" | "test". Desktop renderer allowlist excludes this method.
+    // - context.source.addFromGrant redeems a single-use native grant (no path
+    //   from renderer). Prefer native register command on Tauri.
+    "context.source.add": async (params) => {
+      try {
+        const scopeType = reqEnum(params, "scope", ["global", "project"] as const);
+        const rootPath = reqStr(params, "rootPath");
+        const projectId = optStr(params, "projectId");
+        const displayName = optStr(params, "displayName");
+        const channel = optStr(params, "trustedChannel") ?? "cli";
+        if (channel !== "cli" && channel !== "native" && channel !== "test") {
+          throw Object.assign(
+            new Error(
+              "context.source.add rejects untrusted channels; use native grant or CLI",
+            ),
+            { code: "context_add_untrusted" },
+          );
+        }
+        const source = await contextService.addSource({
+          rootPath,
+          scopeType,
+          projectId,
+          displayName,
+          trustedChannel: channel,
+        });
+        return { source, fts: contextService.store.ftsMode() };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    /** Mint a single-use grant (native shell only; not on renderer allowlist). */
+    "context.grant.mint": (params) => {
+      try {
+        const scopeType = reqEnum(params, "scope", ["global", "project"] as const);
+        const rootPath = reqStr(params, "rootPath");
+        const sessionId = reqStr(params, "sessionId");
+        const projectId = optStr(params, "projectId");
+        const root = contextService.canonicalizeRoot(rootPath);
+        const grant = contextGrants.mint({
+          rootPath: root,
+          scopeType,
+          projectId,
+          sessionId,
+          ttlMs: optPositiveNumber(params, "ttlMs") ?? 60_000,
+        });
+        // Return opaque grant fields only — path stays Host-side until redeem.
+        return {
+          grantId: grant.grantId,
+          nonce: grant.nonce,
+          expiresAt: grant.expiresAt,
+          scopeType: grant.scopeType,
+          projectId: grant.projectId,
+          sessionId: grant.sessionId,
+        };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    /** Redeem grant → register source. Safe for allowlisted Desktop if needed. */
+    "context.source.addFromGrant": async (params) => {
+      try {
+        const grantId = reqStr(params, "grantId");
+        const sessionId = reqStr(params, "sessionId");
+        const scopeType = reqEnum(params, "scope", ["global", "project"] as const);
+        const projectId = optStr(params, "projectId");
+        const nonce = optStr(params, "nonce");
+        const displayName = optStr(params, "displayName");
+        const redeemed = contextGrants.redeem({
+          grantId,
+          sessionId,
+          scopeType,
+          projectId,
+          nonce,
+        });
+        const source = await contextService.addSource({
+          rootPath: redeemed.rootPath,
+          scopeType: redeemed.scopeType,
+          projectId: redeemed.projectId,
+          displayName,
+          trustedChannel: "native",
+        });
+        return {
+          source: {
+            id: source.id,
+            scopeType: source.scopeType,
+            projectId: source.projectId,
+            displayName: source.displayName,
+            status: source.status,
+            generation: source.generation,
+            fileCount: source.fileCount,
+            successCount: source.successCount,
+            failureCount: source.failureCount,
+            lastError: source.lastError,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            indexedAt: source.indexedAt,
+            // Intentionally omit rootPath from renderer-facing response.
+          },
+          fts: contextService.store.ftsMode(),
+        };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    "context.source.list": (params) => {
+      const scope = optStr(params, "scope");
+      const projectId = optStr(params, "projectId");
+      const sources = contextService.listSources({
+        scopeType:
+          scope === "global" || scope === "project" ? scope : undefined,
+        projectId,
+      });
+      // Renderer-safe listing: no absolute root paths.
+      return {
+        sources: sources.map((s) => ({
+          id: s.id,
+          scopeType: s.scopeType,
+          projectId: s.projectId,
+          displayName: s.displayName,
+          status: s.status,
+          generation: s.generation,
+          fileCount: s.fileCount,
+          successCount: s.successCount,
+          failureCount: s.failureCount,
+          lastError: s.lastError,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          indexedAt: s.indexedAt,
+        })),
+        fts: contextService.store.ftsMode(),
+      };
+    },
+    // F4: CLI/trusted clients only. Not on the Desktop renderer allowlist —
+    // returns absolute rootPath for Owner path-aware management.
+    "context.source.describe": (params) => {
+      const sourceId = reqStr(params, "sourceId");
+      const source = contextService.getSource(sourceId);
+      if (!source || source.status === "removed") {
+        throw new RpcError(-32000, `context source not found: ${sourceId}`, {
+          code: "invalid_params",
+        });
+      }
+      return {
+        source: {
+          id: source.id,
+          scopeType: source.scopeType,
+          projectId: source.projectId,
+          displayName: source.displayName,
+          rootPath: source.rootPath,
+          status: source.status,
+          generation: source.generation,
+          fileCount: source.fileCount,
+          successCount: source.successCount,
+          failureCount: source.failureCount,
+          lastError: source.lastError,
+          createdAt: source.createdAt,
+          updatedAt: source.updatedAt,
+          indexedAt: source.indexedAt,
+        },
+      };
+    },
+    "context.source.reindex": async (params) => {
+      try {
+        const source = await contextService.reindex(reqStr(params, "sourceId"));
+        return {
+          source: {
+            id: source.id,
+            scopeType: source.scopeType,
+            projectId: source.projectId,
+            displayName: source.displayName,
+            status: source.status,
+            generation: source.generation,
+            fileCount: source.fileCount,
+            successCount: source.successCount,
+            failureCount: source.failureCount,
+            lastError: source.lastError,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            indexedAt: source.indexedAt,
+          },
+        };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    "context.source.remove": (params) => {
+      try {
+        const result = contextService.removeSource(reqStr(params, "sourceId"));
+        return {
+          ok: result.removed,
+          // F5: honest boolean — never echo absolute path; originals are never deleted.
+          originalFilesPreserved: result.removed,
+        };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    "context.search": (params) => {
+      try {
+        const query = reqStr(params, "query");
+        const projectId = optStr(params, "projectId");
+        const globalOnly = params.globalOnly === true;
+        const limit = optPositiveNumber(params, "limit");
+        const hits = contextService.search({
+          query,
+          projectId,
+          globalOnly,
+          limit,
+        });
+        return { hits, query };
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    // W2: offline example questions from real indexed titles (no model, no abs paths).
+    "context.suggestions": (params) => {
+      const projectId = optStr(params, "projectId");
+      const globalOnly = params.globalOnly === true;
+      const limit = optPositiveNumber(params, "limit");
+      return {
+        suggestions: contextService.suggestions({
+          projectId,
+          globalOnly,
+          limit,
+        }),
+      };
+    },
+    "context.read": (params) => {
+      try {
+        const contextRef = reqStr(params, "contextRef");
+        const maxChars = optPositiveNumber(params, "maxChars");
+        return contextService.read(contextRef, maxChars);
+      } catch (error) {
+        throw toRpcError(error);
+      }
+    },
+    "context.status": () => ({
+      sources: contextService.listSources().map((s) => ({
+        id: s.id,
+        scopeType: s.scopeType,
+        projectId: s.projectId,
+        displayName: s.displayName,
+        status: s.status,
+        generation: s.generation,
+        fileCount: s.fileCount,
+        successCount: s.successCount,
+        failureCount: s.failureCount,
+        lastError: s.lastError,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        indexedAt: s.indexedAt,
+      })),
+      fts: contextService.store.ftsMode(),
+      limits: {
+        maxFileBytes: 25 * 1024 * 1024,
+        maxFilesPerSource: 2000,
+      },
+    }),
+
     // ── two-layer memory (design §6) ───────────────────────────
     // Reads are open. Writes obey the anti-pollution iron rules:
     //   - global layer: CLOSED channel until the M2′ distillation loop;
@@ -3334,7 +3932,11 @@ ${goalText}
       return profile;
     },
 
-    /** Update profile fields (context window, vision, label, model) without re-keying. */
+    /**
+     * Update profile fields. S1: when baseUrl origin (scheme/host/port) changes,
+     * never silently reuse the previous secret — clear stored key and require
+     * Owner re-bind. Path-only changes keep the binding.
+     */
     "config.updateProfile": (params) => {
       const id = reqStr(params, "id");
       const existing = profiles.get(id);
@@ -3362,12 +3964,33 @@ ${goalText}
       const baseUrl = assertSafeProviderBaseUrl(
         optStr(params, "baseUrl") ?? existing.baseUrl,
       );
+      const originChanged = !sameProviderOrigin(existing.baseUrl, baseUrl);
+      // Explicit re-bind: params may supply a new literal key or apiKeyEnv.
+      const rebindKey = optStr(params, "apiKey");
+      const rebindEnv = optStr(params, "apiKeyEnv");
+      // R6: origin change always drops the previous in-memory secret first.
+      // If this same update supplies a new literal key, bind it immediately so
+      // the process uses the new key without requiring a restart. Never keep
+      // the old key bound when the origin changes.
+      if (originChanged) {
+        customApiKeys.delete(id);
+      }
+      if (rebindKey) {
+        customApiKeys.set(id, rebindKey);
+      } else if (originChanged) {
+        // Explicit fail-closed: origin moved with no new literal key.
+        customApiKeys.delete(id);
+      }
+      const nextApiKeyEnv = originChanged
+        ? rebindEnv ?? ""
+        : rebindEnv ?? existing.apiKeyEnv;
       const profile: ModelProfile = {
         ...existing,
         label: optStr(params, "label") ?? existing.label,
         model: nextModel,
         baseUrl,
         provider: optStr(params, "provider") ?? existing.provider,
+        apiKeyEnv: nextApiKeyEnv,
         capabilities: {
           tools: true,
           streaming: true,
@@ -3378,6 +4001,8 @@ ${goalText}
       };
       profiles.set(id, profile);
       const persisted = loadPersistedProfiles(productDataDir).find((p) => p.id === id);
+      const keepSecret =
+        !originChanged && !rebindKey && Boolean(persisted?.apiKey);
       savePersistedProfile(productDataDir, {
         id,
         label: profile.label,
@@ -3385,14 +4010,30 @@ ${goalText}
         baseUrl: profile.baseUrl,
         model: profile.model,
         apiKeyEnv: profile.apiKeyEnv,
-        ...(persisted?.apiKey ? { apiKey: persisted.apiKey } : {}),
+        ...(rebindKey
+          ? { apiKey: rebindKey }
+          : keepSecret
+            ? { apiKey: persisted!.apiKey }
+            : {}),
         ...(typeof contextWindowTokens === "number"
           ? { contextWindowTokens }
           : {}),
         ...(typeof maxOutputTokens === "number" ? { maxOutputTokens } : {}),
         capabilities: profile.capabilities,
       });
-      return profile;
+      return {
+        ...profile,
+        // Surface S1/R6 binding state for UI: old key is not auto-sent to new origin.
+        // When a new literal key is supplied in the same update, credential is bound
+        // (not cleared). Only origin change without a new key reports cleared.
+        credentialCleared: originChanged && !rebindKey,
+        credentialBound: Boolean(rebindKey) || (!originChanged && Boolean(keepSecret)),
+        originChanged,
+        credentialHint:
+          originChanged && !rebindKey
+            ? "服务地址已改变，旧密钥不会自动发送到新地址；请重新绑定密钥。"
+            : null,
+      };
     },
 
     /**
@@ -3814,6 +4455,13 @@ ${goalText}
     services: { scheduler, autonomous, companion, mcpSessions },
     productStore,
     ownsProductStore,
+    closeHostResources: () => {
+      try {
+        contextService.close();
+      } catch {
+        /* best effort */
+      }
+    },
     stopChannels: async () => {
       await stopFeishuChannel();
       channelController.wechatBridge?.stop();
@@ -4138,6 +4786,7 @@ function startServerLocked(
     services,
     productStore,
     ownsProductStore,
+    closeHostResources,
     stopChannels,
     drainBackground,
   } = createHost(options);
@@ -4289,6 +4938,7 @@ function startServerLocked(
       if (resourcesReleased) return;
       resourcesReleased = true;
       try {
+        closeHostResources();
         if (ownsProductStore) productStore.close();
       } finally {
         operationLock.release();

@@ -42,10 +42,10 @@ const ENV_ALLOWLIST = new Set([
   // Build systems read these (CPU count, parallelism)
   "MAKEFLAGS",
   "CMAKE_BUILD_PARALLEL_LEVEL",
-  // npm/node respect these; they do not carry secrets
+  // npm respect these; they do not carry secrets. NODE_OPTIONS is NOT
+  // allowlisted (S3): it can inject --require/--import loaders into child Node.
   "npm_config_registry",
   "npm_config_cache",
-  "NODE_OPTIONS",
   // Git identity (non-secret; avoids "please tell me who you are")
   "GIT_AUTHOR_NAME",
   "GIT_AUTHOR_EMAIL",
@@ -100,7 +100,63 @@ const ENV_DENYLIST = new Set([
   "LARK_APP_SECRET",
   // WeChat
   "WX_BOT_TOKEN",
+  // S3 loader / startup injection vectors (defense-in-depth)
+  "NODE_OPTIONS",
+  "BASH_ENV",
+  "ENV",
+  "PYTHONPATH",
+  "PYTHONHOME",
+  "PERL5OPT",
+  "RUBYOPT",
+  "NODE_PATH",
 ]);
+
+/**
+ * S3: names MCP config must never override — PATH/loaders can turn a
+ * user-configured stdio server into host-side code injection. Prefix rules
+ * cover LD_ and DYLD_ loader variables which differ by platform.
+ */
+const MCP_ENV_OVERRIDE_BLOCKLIST = new Set([
+  "PATH",
+  "PATHEXT",
+  "NODE_OPTIONS",
+  "NODE_PATH",
+  "BASH_ENV",
+  "ENV",
+  "PYTHONPATH",
+  "PYTHONHOME",
+  "PERL5OPT",
+  "RUBYOPT",
+  "HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+]);
+
+function isBlockedMcpEnvKey(key: string): boolean {
+  const upper = key.toUpperCase();
+  if (MCP_ENV_OVERRIDE_BLOCKLIST.has(upper)) return true;
+  if (upper.startsWith("LD_") || upper.startsWith("DYLD_")) return true;
+  if (ENV_DENYLIST.has(upper)) return true;
+  return false;
+}
+
+/**
+ * Merge Owner-provided MCP env on top of the scrubbed shell env, dropping
+ * dangerous override keys. Home/XDG are applied by the MCP client after this.
+ */
+export function sanitizeMcpEnvOverrides(
+  overrides: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!overrides) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    if (isBlockedMcpEnvKey(key)) continue;
+    if (typeof value !== "string") continue;
+    out[key] = value;
+  }
+  return out;
+}
 
 /**
  * Build the scrubbed environment for a bash child. We start from an empty

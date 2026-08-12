@@ -106,6 +106,8 @@ interface World {
     holdOpen?: boolean;
   };
   chatReply: string;
+  /** F1: keep the chat episode open until FakeKernel.complete(). */
+  chatHoldOpen: boolean;
   rpc<T = any>(method: string, params?: Record<string, unknown>): Promise<T>;
   injectText(text: string, opts?: { openId?: string; eventId?: string }): void;
   injectCardAction(value: Record<string, unknown>, opts?: { openId?: string; eventId?: string }): void;
@@ -190,6 +192,7 @@ async function startWorld(): Promise<World> {
   const world = {} as World;
   world.taskBehavior = { turns: 1, holdApproval: false, reply: "活干完了", holdOpen: false };
   world.chatReply = "蓬莱已收到";
+  world.chatHoldOpen = false;
 
   const serverOptions = {
     port: 0,
@@ -202,9 +205,14 @@ async function startWorld(): Promise<World> {
       const kernel = new FakeKernel();
       chatKernels.push(kernel);
       const reply = world.chatReply;
+      const holdOpen = world.chatHoldOpen;
       const originalPrompt = kernel.prompt.bind(kernel);
       kernel.prompt = (input: KernelPrompt) => {
         const promise = originalPrompt(input);
+        if (holdOpen) {
+          // F1: leave the episode open until the test calls complete().
+          return promise;
+        }
         kernel.emit({ kind: "message.delta", textDelta: reply });
         kernel.emit({ kind: "turn.completed" });
         kernel.complete();
@@ -455,6 +463,55 @@ describe("feishu channel: chat → Conversation (同一产品记录)", () => {
     const messages = loadMessages(routes[0].conversationId);
     const assistant = messages.find((m) => m.role === "assistant");
     expect(JSON.stringify(assistant?.content)).toContain("很".repeat(100)); // 全文在 transcript
+  });
+
+  it("F1: busy session second message waits for real reply, never shows [episode queued]", async () => {
+    world.chatHoldOpen = true;
+    world.chatReply = "第一轮真实回复";
+    world.injectText("第一轮");
+    await new Promise<void>((resolve, reject) => {
+      const start = Date.now();
+      const tick = () => {
+        if (world.chatKernels[0]?.isRunning) return resolve();
+        if (Date.now() - start > 5000) return reject(new Error("chat kernel not running"));
+        setTimeout(tick, 10);
+      };
+      tick();
+    });
+
+    world.chatReply = "第二轮真实回复";
+    world.injectText("第二轮");
+    await new Promise((r) => setTimeout(r, 200));
+    const early = world.mock
+      .sentMessages()
+      .map(messageText)
+      .filter((t) => t.includes("episode queued") || t.includes("[episode "));
+    expect(early).toEqual([]);
+
+    // Finish first episode; second should then run and deliver its reply.
+    world.chatKernels[0]!.emit({ kind: "message.delta", textDelta: "第一轮真实回复" });
+    world.chatKernels[0]!.emit({ kind: "turn.completed" });
+    world.chatKernels[0]!.complete();
+
+    await new Promise<void>((resolve, reject) => {
+      const start = Date.now();
+      const tick = () => {
+        if (world.chatKernels[1]?.isRunning) return resolve();
+        if (Date.now() - start > 5000) return reject(new Error("second chat kernel not running"));
+        setTimeout(tick, 10);
+      };
+      tick();
+    });
+    world.chatKernels[1]!.emit({ kind: "message.delta", textDelta: "第二轮真实回复" });
+    world.chatKernels[1]!.emit({ kind: "turn.completed" });
+    world.chatKernels[1]!.complete();
+
+    await world.waitForText("第二轮真实回复");
+    const failureStyle = world.mock
+      .sentMessages()
+      .map(messageText)
+      .filter((t) => t.includes("episode queued") || t.includes("[episode queued"));
+    expect(failureStyle).toEqual([]);
   });
 });
 

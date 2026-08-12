@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertSafeProviderBaseUrl } from "../src/providers/url-safety.js";
+import {
+  assertSafeProviderBaseUrl,
+  isLocalProviderBaseUrl,
+  providerOriginKey,
+  sameProviderOrigin,
+} from "../src/providers/url-safety.js";
 
 describe("provider base URL safety", () => {
   it("accepts TLS endpoints and exact loopback development endpoints", () => {
@@ -24,5 +29,43 @@ describe("provider base URL safety", () => {
     ]) {
       expect(() => assertSafeProviderBaseUrl(value)).toThrow();
     }
+  });
+
+  it("S1: origin key ignores path but tracks scheme/host/port", () => {
+    expect(sameProviderOrigin("https://api.example.com/v1", "https://api.example.com/v2")).toBe(
+      true,
+    );
+    expect(
+      sameProviderOrigin("https://api.example.com/v1", "https://api.example.com:443/v1"),
+    ).toBe(true);
+    expect(
+      sameProviderOrigin("https://api.example.com/v1", "https://other.example.com/v1"),
+    ).toBe(false);
+    expect(
+      sameProviderOrigin("https://api.example.com/v1", "http://127.0.0.1:11434/v1"),
+    ).toBe(false);
+    expect(providerOriginKey("https://API.Example.com:443/foo")).toBe(
+      "https://api.example.com:443",
+    );
+    expect(isLocalProviderBaseUrl("http://127.0.0.1:11434")).toBe(true);
+    expect(isLocalProviderBaseUrl("https://api.openai.com")).toBe(false);
+  });
+});
+
+describe("R7 provider transport policy", () => {
+  it("rejects private/metadata hostnames before connect on public path", async () => {
+    const { fetchProviderHttp } = await import(
+      "../src/providers/provider-transport.js"
+    );
+    await expect(
+      fetchProviderHttp("https://169.254.169.254/latest", "/models", {
+        timeoutMs: 2_000,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      fetchProviderHttp("https://metadata.google.internal/", "/models", {
+        timeoutMs: 2_000,
+      }),
+    ).rejects.toThrow();
   });
 });

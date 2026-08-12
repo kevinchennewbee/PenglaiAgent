@@ -17,7 +17,8 @@
     "catalog:sync": "node scripts/sync-catalog.mjs",
     "protocol:check": "node scripts/check-protocol-contract.mjs",
     "desktop:allowlist": "node scripts/check-desktop-allowlist.mjs",
-    "renderer:token-boundary": "node scripts/check-renderer-token-boundary.mjs"
+    "renderer:token-boundary": "node scripts/check-renderer-token-boundary.mjs",
+    "renderer:network-boundary": "node scripts/check-renderer-network-boundary.mjs"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "3.2.7",

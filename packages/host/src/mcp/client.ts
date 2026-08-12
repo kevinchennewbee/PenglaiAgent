@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { listMcpServers, type McpServerConfig } from "./config.js";
 import { assertPublicHttpUrl, fetchPublicHttp } from "../capabilities/network-safety.js";
-import { scrubbedShellEnv } from "../sandbox/shell-env.js";
+import { scrubbedShellEnv, sanitizeMcpEnvOverrides } from "../sandbox/shell-env.js";
 import { wrapUntrustedContent } from "../security/untrusted-content.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -379,9 +379,10 @@ export class McpSessionManager {
     const sandboxHome = fs.mkdtempSync(path.join(os.tmpdir(), "penglai-mcp-home-"));
     fs.chmodSync(sandboxHome, 0o700);
     // Minimal env: do not dump every host secret or the owner's home into MCP children.
+    // S3: config.env cannot override PATH/NODE_OPTIONS/loaders/HOME.
     const scrubbedEnv: NodeJS.ProcessEnv = {
       ...scrubbedShellEnv(),
-      ...(config.env ?? {}),
+      ...sanitizeMcpEnvOverrides(config.env),
       HOME: sandboxHome,
       XDG_CACHE_HOME: path.join(sandboxHome, ".cache"),
       XDG_CONFIG_HOME: path.join(sandboxHome, ".config"),

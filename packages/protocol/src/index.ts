@@ -13,8 +13,8 @@
 
 export const SCHEMA_VERSION = 1 as const;
 export const DATABASE_SCHEMA_VERSION = 7 as const;
-export const PRODUCT_VERSION = "0.4.0" as const;
-export const MIN_DESKTOP_VERSION = "0.4.0" as const;
+export const PRODUCT_VERSION = "0.4.1" as const;
+export const MIN_DESKTOP_VERSION = "0.4.1" as const;
 
 export interface RuntimeHandshake {
   ok: true;
@@ -501,6 +501,52 @@ export type MessageContent =
   | ToolCallContent
   | ToolResultContent;
 
+/**
+ * Host-verified personal context reference attached to an assistant message.
+ * Never trust model-invented paths or refs for structured UI/Evidence.
+ */
+export type ContextReferenceStatus =
+  | "current"
+  | "stale"
+  | "revoked"
+  | "unavailable";
+
+/**
+ * F1: structured non-terminal ack details for conversation.prompt when a
+ * session is already active. Clients must match these enums — never substrings.
+ */
+export const CONVERSATION_PROMPT_ACK = {
+  STEER_QUEUED: "steer_queued",
+  FOLLOWUP_QUEUED: "followup_queued",
+} as const;
+
+export type ConversationPromptAckDetail =
+  (typeof CONVERSATION_PROMPT_ACK)[keyof typeof CONVERSATION_PROMPT_ACK];
+
+export interface ContextReferenceLocation {
+  headingPath?: string | null;
+  page?: number | null;
+  slide?: number | null;
+  sheet?: string | null;
+  rowStart?: number | null;
+  rowEnd?: number | null;
+  keyPath?: string | null;
+  offsetStart?: number | null;
+  offsetEnd?: number | null;
+}
+
+export interface ContextReference {
+  ref: string;
+  ordinal: number;
+  sourceId: string;
+  title: string;
+  relativePath: string;
+  location: ContextReferenceLocation | null;
+  documentSha256: string;
+  chunkSha256: string;
+  status: ContextReferenceStatus;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -511,6 +557,11 @@ export interface Message {
   name?: string;
   ok?: boolean;
   isError?: boolean;
+  /**
+   * R4: Host-verified context refs for this assistant message only.
+   * Optional and backward compatible; older transcripts omit the field.
+   */
+  contextReferences?: ContextReference[];
 }
 
 // ── Turn ───────────────────────────────────────────────────────

@@ -4,7 +4,7 @@
  * 在 CLI —— 桌面首版只读展示，不藏功能，如实指路。
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   BudgetStatus,
   ModelProfile,
@@ -757,7 +757,29 @@ export function SettingsPanel({
   const [dailyInput, setDailyInput] = useState<string>("");
   const [perProjectInput, setPerProjectInput] = useState<string>("");
   const [inputsReady, setInputsReady] = useState(false);
-  const [tab, setTab] = useState<"models" | "usage" | "tools" | "skills" | "runtime">("models");
+  const [tab, setTab] = useState<
+    "models" | "usage" | "tools" | "skills" | "context" | "runtime"
+  >("models");
+  const [contextSources, setContextSources] = useState<
+    Array<{
+      id: string;
+      displayName: string;
+      /** Absolute path is Host-private; renderer list no longer receives it (R1). */
+      rootPath?: string;
+      scopeType: string;
+      projectId: string | null;
+      status: string;
+      successCount: number;
+      failureCount: number;
+      fileCount: number;
+      indexedAt: number | null;
+      lastError?: string | null;
+    }>
+  >([]);
+  const [contextFts, setContextFts] = useState<string>("");
+  const [contextProjectId, setContextProjectId] = useState<string>("");
+  const [contextBusy, setContextBusy] = useState(false);
+  const [contextNotice, setContextNotice] = useState<string | null>(null);
   const [editProfileId, setEditProfileId] = useState("");
   const [editContextTokens, setEditContextTokens] = useState("");
   const [profileSaveNotice, setProfileSaveNotice] = useState<string | null>(null);
@@ -797,6 +819,32 @@ export function SettingsPanel({
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : null;
   };
   const maxDaily = Math.max(1, ...(usageStats?.daily.map((d) => d.tokens) ?? [1]));
+
+  const reloadContextSources = useCallback(async () => {
+    if (!bridge) return;
+    try {
+      const result = await bridge.rpc<{
+        sources: typeof contextSources;
+        fts: string;
+      }>("context.source.list", {});
+      setContextSources(result.sources ?? []);
+      setContextFts(result.fts ?? "");
+    } catch (error) {
+      setContextNotice(`加载个人上下文失败：${String(error)}`);
+    }
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge) return;
+    if (tab !== "context") return;
+    let cancelled = false;
+    void reloadContextSources().then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, tab, reloadContextSources]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -876,6 +924,7 @@ export function SettingsPanel({
               ["models", "模型"],
               ["tools", "工具与联网"],
               ["skills", "技能"],
+              ["context", "个人上下文"],
               ["usage", "用量与预算"],
               ["runtime", "运行时"],
             ] as const
@@ -1263,6 +1312,177 @@ export function SettingsPanel({
               )}
               <p className="muted">安装器只接收声明式 Agent Skill 包并逐次验哈希；不会运行 npm install、生命周期钩子或任意 Pi TypeScript extension。SOP 写入仍只走蒸馏审计。</p>
               {integrationNotice && <p className="muted">{integrationNotice}</p>}
+            </section>
+          )}
+
+          {tab === "context" && (
+            <section className="info-card">
+              <h3>个人上下文 V1（本地 FTS · 不改原文件）</h3>
+              <p className="muted">
+                仅索引 Owner 显式授权的目录。Chat 默认检索 global；项目工作区额外可见该项目 sources。
+                移除 source 只删派生索引。FTS：{contextFts || "—"}
+              </p>
+              <div className="wizard-reentry" style={{ gap: 8, flexWrap: "wrap" }}>
+                <button
+                  className="primary-button"
+                  disabled={contextBusy}
+                  onClick={() => {
+                    void (async () => {
+                      setContextBusy(true);
+                      setContextNotice(null);
+                      try {
+                        // R1: never send raw absolute paths from renderer.
+                        // Tauri: trusted native command picks dir + registers with Host.
+                        // Non-Tauri (plain browser): Desktop add is closed; use CLI.
+                        const isTauri =
+                          typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+                        if (!isTauri) {
+                          setContextNotice(
+                            "浏览器开发壳不支持添加资料目录（避免 raw path 授权）。请使用桌面壳或 CLI：penglai context source add <path> --scope global",
+                          );
+                          return;
+                        }
+                        const scope = contextProjectId ? "project" : "global";
+                        if (scope === "project" && !contextProjectId) {
+                          setContextNotice("项目 scope 需要选择项目");
+                          return;
+                        }
+                        const { invoke } = await import("@tauri-apps/api/core");
+                        const result = await invoke<{
+                          cancelled?: boolean;
+                          source?: {
+                            id: string;
+                            status: string;
+                            successCount: number;
+                            failureCount: number;
+                          };
+                        }>("context_register_source", {
+                          scope,
+                          projectId: scope === "project" ? contextProjectId : null,
+                        });
+                        if (result?.cancelled) {
+                          setContextNotice("已取消选择目录");
+                          return;
+                        }
+                        if (!result?.source) {
+                          setContextNotice("注册未返回 source 元数据");
+                          return;
+                        }
+                        setContextNotice(
+                          `已索引 ${result.source.id} · ${result.source.status} · ok=${result.source.successCount} fail=${result.source.failureCount}`,
+                        );
+                        await reloadContextSources();
+                      } catch (error) {
+                        setContextNotice(`添加失败：${String(error)}`);
+                      } finally {
+                        setContextBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {contextBusy ? "索引中…" : contextProjectId ? "添加项目资料目录" : "添加个人资料目录"}
+                </button>
+                <select
+                  value={contextProjectId}
+                  onChange={(e) => setContextProjectId(e.target.value)}
+                  aria-label="上下文作用域项目"
+                >
+                  <option value="">作用域：全局 (global)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      项目：{p.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="secondary-button"
+                  disabled={!bridge || contextBusy}
+                  onClick={() => void reloadContextSources()}
+                >
+                  刷新
+                </button>
+              </div>
+              {contextSources.length === 0 ? (
+                <p className="muted">还没有授权目录。CLI：`penglai context source add &lt;path&gt; --scope global`</p>
+              ) : (
+                contextSources.map((source) => (
+                  <div className="ability-row" key={source.id}>
+                    <span
+                      className={
+                        source.status === "ready" ? "ability-dot ok" : "ability-dot"
+                      }
+                    />
+                    <strong>
+                      {source.displayName}
+                      <em className="default-mark">
+                        {source.scopeType}
+                        {source.projectId ? `:${source.projectId.slice(0, 8)}` : ""}
+                      </em>
+                    </strong>
+                    <small>
+                      {source.status} · ok={source.successCount}/
+                      {source.fileCount} fail={source.failureCount}
+                      {source.indexedAt
+                        ? ` · 索引于 ${new Date(source.indexedAt).toLocaleString()}`
+                        : ""}
+                      {source.lastError ? ` · ${source.lastError}` : ""}
+                    </small>
+                    <button
+                      className="secondary-button"
+                      disabled={contextBusy || !bridge}
+                      onClick={() => {
+                        void (async () => {
+                          if (!bridge) return;
+                          setContextBusy(true);
+                          try {
+                            await bridge.rpc("context.source.reindex", {
+                              sourceId: source.id,
+                            });
+                            await reloadContextSources();
+                          } catch (error) {
+                            setContextNotice(`重扫失败：${String(error)}`);
+                          } finally {
+                            setContextBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      重扫
+                    </button>
+                    <button
+                      className="secondary-button"
+                      disabled={contextBusy || !bridge}
+                      onClick={() => {
+                        void (async () => {
+                          if (!bridge) return;
+                          setContextBusy(true);
+                          try {
+                            const result = await bridge.rpc<{
+                              ok: boolean;
+                              originalFilesPreserved?: boolean;
+                            }>("context.source.remove", { sourceId: source.id });
+                            setContextNotice(
+                              result.ok
+                                ? result.originalFilesPreserved
+                                  ? "已移除索引；原文件未受影响"
+                                  : "已移除索引"
+                                : "source 不存在",
+                            );
+                            await reloadContextSources();
+                          } catch (error) {
+                            setContextNotice(`移除失败：${String(error)}`);
+                          } finally {
+                            setContextBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      移除授权
+                    </button>
+                  </div>
+                ))
+              )}
+              {contextNotice && <p className="muted">{contextNotice}</p>}
             </section>
           )}
 

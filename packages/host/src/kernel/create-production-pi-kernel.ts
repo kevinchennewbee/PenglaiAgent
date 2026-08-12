@@ -40,9 +40,15 @@ import { createPiKernel } from "./pi-kernel.js";
 import type { AgentKernel } from "./kernel.js";
 import { resolveConversationDraftRoot } from "../conversation-draft.js";
 import { prepareBashExecution } from "../sandbox/shell-env.js";
-import { createCapabilityTools, HOST_TOOL_DOCUMENT_READ } from "./capability-tools.js";
+import {
+  createCapabilityTools,
+  HOST_TOOL_CONTEXT_READ,
+  HOST_TOOL_CONTEXT_SEARCH,
+  HOST_TOOL_DOCUMENT_READ,
+} from "./capability-tools.js";
 import { UNTRUSTED_CONTENT_SYSTEM_RULE } from "../security/untrusted-content.js";
 import { assertSafeProviderBaseUrl } from "../providers/url-safety.js";
+import { wrapProviderStreamsWithSafeFetch } from "../providers/safe-inference-fetch.js";
 
 export interface ProductionPiKernelOptions {
   runId: string;
@@ -104,6 +110,18 @@ export interface ProductionPiKernelOptions {
   }>;
   /** Optional owner TODO block. */
   workbenchInjection?: string | null;
+  /**
+   * Personal Context V1: auto-retrieved untrusted reference material for this
+   * episode (Host-built; never model-authored).
+   */
+  personalContextBlock?: string | null;
+  /** Context service for context_search / context_read tools. */
+  contextService?: import("../context/index.js").ContextService | null;
+  contextScope?: {
+    projectId?: string | null;
+    globalOnly?: boolean;
+  };
+  onContextUsed?: import("./capability-tools.js").CapabilityToolOptions["onContextUsed"];
 }
 
 function providerId(profileId: string): string {
@@ -247,12 +265,20 @@ export interface ToolSurfaceOptions {
   conversationId?: string | null;
   workspaceRoot?: string;
   dataDir?: string;
+  contextService?: import("../context/index.js").ContextService | null;
+  contextScope?: {
+    projectId?: string | null;
+    globalOnly?: boolean;
+  };
+  onContextUsed?: import("./capability-tools.js").CapabilityToolOptions["onContextUsed"];
 }
 
 const FILE_TOOL_NAMES = new Set(["read", "write", "edit", "bash"]);
 const PLAN_TOOL_NAMES = new Set([
   "read",
   HOST_TOOL_DOCUMENT_READ,
+  HOST_TOOL_CONTEXT_SEARCH,
+  HOST_TOOL_CONTEXT_READ,
   HOST_TOOL_SKILL_LIST,
   HOST_TOOL_SKILL_SHOW,
 ]);
@@ -288,7 +314,14 @@ export function buildToolSurface(
     }
   }
   if (options.workspaceRoot) {
-    tools.push(...createCapabilityTools({ workspaceRoot: options.workspaceRoot }));
+    tools.push(
+      ...createCapabilityTools({
+        workspaceRoot: options.workspaceRoot,
+        contextService: options.contextService ?? null,
+        contextScope: options.contextScope,
+        onContextUsed: options.onContextUsed,
+      }),
+    );
   }
   if (options.hostTools?.listSkills) {
     tools.push(createSkillListTool(options.hostTools));
@@ -363,6 +396,11 @@ export interface SystemPromptOptions {
   workspaceRoot: string;
   memory?: MemoryStore;
   permissionMode?: "confirm" | "auto_edit" | "full" | "plan";
+  /**
+   * Personal Context V1 auto-retrieved untrusted reference material for this
+   * episode (Host-built).
+   */
+  personalContextBlock?: string | null;
   /** Active goal text for this conversation (orientation, not a separate hive). */
   goal?: string | null;
   /** Owner-pinned context always re-injected. */
@@ -454,10 +492,11 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
 
   const pinsBlock = formatContextPins(options.contextPins);
   const workbenchBlock = options.workbenchInjection?.trim() || "";
+  const personalContextBlock = options.personalContextBlock?.trim() || "";
   const toolSurfaceLine =
     options.permissionMode === "plan"
-      ? "PLAN MODE tool surface is read-only: read, document_read, and owner-approved skill lookup only. Mutating and outbound tools are unavailable."
-      : "There is only ONE conversation surface. Available tools: read, write, edit, bash, document_read, document_create/document_create_pdf, web_search, web_fetch, owner-approved skill lookup, goal status, and any Owner-manually-connected MCP tools. Document tools create real PDF/DOCX/XLSX/PPTX files inside the workspace. Web and every MCP call require Owner L3 approval. Browser automation is not built in.";
+      ? "PLAN MODE tool surface is read-only: read, document_read, context_search, context_read, and owner-approved skill lookup only. Mutating and outbound tools are unavailable."
+      : "There is only ONE conversation surface. Available tools: read, write, edit, bash, document_read, document_create/document_create_pdf, context_search, context_read, web_search, web_fetch, owner-approved skill lookup, goal status, and any Owner-manually-connected MCP tools. Document tools create real PDF/DOCX/XLSX/PPTX files inside the workspace. Personal context tools only search Owner-authorized sources via opaque contextRef (never absolute paths). Web and every MCP call require Owner L3 approval. Browser automation is not built in.";
   const networkingLine =
     options.permissionMode === "plan"
       ? "Network tools are unavailable in plan mode. Base the plan on owner-provided context and local read-only evidence."
@@ -478,6 +517,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
       : "",
     goalBlock,
     pinsBlock,
+    personalContextBlock,
     workbenchBlock,
     "",
   ].filter((line) => line !== undefined && line !== "");
@@ -715,6 +755,13 @@ export async function createProductionPiKernel(
     contextWindow,
     maxTokens,
   };
+  // R7: real inference must pass the same DNS/redirect/private-IP policy as
+  // list-models and smoke. openAICompletionsApi supports a custom fetch; we
+  // inject the safe transport for every stream call (turn / compaction / etc.).
+  const safeStreams = wrapProviderStreamsWithSafeFetch(
+    openAICompletionsApi(),
+    safeBaseUrl,
+  ) as ReturnType<typeof openAICompletionsApi>;
   const provider = createProvider({
     id,
     name: options.profile.label,
@@ -729,7 +776,7 @@ export async function createProductionPiKernel(
       },
     },
     models: [modelDefinition],
-    api: openAICompletionsApi(),
+    api: safeStreams,
   });
   const models = createModels();
   models.setProvider(provider);
