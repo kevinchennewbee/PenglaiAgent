@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Penglai 0.4.0 — the personal AI assistant that lives in your Feishu, belongs to you, and knows you better over time</title>
-  <meta name="description" content="Penglai 0.4.0: an open-source TypeScript personal AI assistant. One core connects Desktop, CLI, Feishu and WeChat; SenseVoice, MOSS-TTS and opt-in active companionship run locally.">
+  <title>Penglai 0.4.1 — the personal AI assistant that lives in your Feishu and actually understands your documents</title>
+  <meta name="description" content="Penglai 0.4.1: an open-source TypeScript personal AI assistant. New personal context: grant a local documents folder, get on-device indexing and Host-verified source references. One core connects Desktop, CLI, Feishu and WeChat; voice and companionship run locally.">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="alternate" hreflang="zh-CN" href="https://kevinchennewbee.github.io/PenglaiAgent/">
   <link rel="alternate" hreflang="en" href="https://kevinchennewbee.github.io/PenglaiAgent/en/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Penglai 0.4.0 — the personal AI assistant that lives in your Feishu">
+  <meta property="og:title" content="Penglai 0.4.1 — the personal AI assistant that lives in your Feishu and understands your documents">
   <meta property="og:description" content="An open-source TypeScript assistant with the Pi engine, local voice and opt-in active companionship; Desktop, CLI and IM share one source of truth.">
   <meta property="og:url" content="https://kevinchennewbee.github.io/PenglaiAgent/en/">
   <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/desktop-workbench.webp">
@@ -63,7 +63,8 @@
     <!-- ========== 1. Hero ========== -->
     <section class="hero" id="hero">
       <div class="hero-badges reveal">
-        <span class="pill accent"><b>v0.4.0</b></span>
+        <span class="pill accent"><b>v0.4.1</b></span>
+        <span class="pill accent">New · <b>Personal Context</b></span>
         <span class="pill">Open source · <b>MIT</b></span>
         <span class="pill">Rewritten in <b>TypeScript</b></span>
         <span class="pill">Powered by the <b>Pi kernel</b></span>
@@ -72,16 +73,16 @@
       <div class="hero-name reveal reveal-delay-1">
         <span class="seal">蓬</span>
         <h1>蓬莱</h1>
-        <span class="hero-version">0.4.0</span>
+        <span class="hero-version">0.4.1</span>
       </div>
       <p class="hero-tagline reveal reveal-delay-1">The personal AI assistant that lives in your Feishu, belongs entirely to you, and knows you better over time</p>
-      <p class="hero-modes reveal reveal-delay-2"><b>One core</b> · <b>Pi engine</b> · <b>local companionship</b> — one memory, one identity, one execution path</p>
+      <p class="hero-modes reveal reveal-delay-2"><b>One core</b> · <b>Pi engine</b> · <b>understands your documents</b> — one memory, one identity, one execution path</p>
       <div class="hero-ctas reveal reveal-delay-3">
         <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
           GitHub
         </a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_aarch64.dmg" target="_blank" rel="noopener" class="btn btn-ghost">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg" target="_blank" rel="noopener" class="btn btn-ghost">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download for Apple silicon
         </a>
@@ -178,9 +179,14 @@
     <section class="section" id="abilities">
       <div class="section-inner">
         <div class="section-label reveal">Capabilities</div>
-        <h2 class="section-title reveal reveal-delay-1">What 0.4.0 actually does</h2>
-        <p class="section-desc reveal reveal-delay-2">Every item below is covered by the current 0.4.0 code and local acceptance — this is not a roadmap.</p>
+        <h2 class="section-title reveal reveal-delay-1">What 0.4 actually does</h2>
+        <p class="section-desc reveal reveal-delay-2">Every item below is covered by the current 0.4.1 code and real acceptance runs — this is not a roadmap.</p>
         <div class="ability-grid">
+          <div class="ability reveal">
+            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><circle cx="12" cy="10" r="2.5"/><line x1="14" y1="12" x2="16.5" y2="14.5"/></svg></div>
+            <h3>Personal context <span class="pill accent" style="font-size:.7em;vertical-align:middle;">New in 0.4.1</span></h3>
+            <p>Grant one local documents folder; Penglai builds a deletable derived index on your machine with SQLite + FTS5 — nothing uploaded, originals never modified, revocable any time. Chats and tasks retrieve automatically, and answers carry Host-verified source cards: which file, which section, and whether it has gone stale — kept truthful across restarts. Useful from minute one: hand over a folder in the wizard and an empty chat offers example questions generated from your real document titles.</p>
+          </div>
           <div class="ability reveal">
             <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
             <h3>Full penglai CLI</h3>
@@ -377,7 +383,7 @@
             </div>
             <div class="quick-note">
               <span class="qn-num">2</span>
-              <div><b>Rather avoid the terminal?</b>Download the <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_aarch64.dmg">Apple-silicon build</a> or the <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.0/Penglai_0.4.0_macos_x64.dmg">Intel build</a>. The first launch opens the same wizard. These builds use the same local signing approach as 0.3.6; they are not notarized because the project does not use a paid Apple Developer certificate. If Gatekeeper blocks the first launch, explicitly allow it under System Settings → Privacy &amp; Security.</div>
+              <div><b>Rather avoid the terminal?</b>Download the <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg">Apple-silicon build</a> or the <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_x64.dmg">Intel build</a>. The first launch opens the same wizard. These builds use the same local signing approach as 0.3.6; they are not notarized because the project does not use a paid Apple Developer certificate. If Gatekeeper blocks the first launch, explicitly allow it under System Settings → Privacy &amp; Security.</div>
             </div>
             <div class="quick-note">
               <span class="qn-num">3</span>
@@ -421,7 +427,7 @@
             <h3>License</h3>
             <p><b>Code:</b> <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>. The Pi kernel's copyright notice is preserved in full; the Penglai layer is MIT too — use, modify, and commercialize freely.</p>
             <p><b>Brand:</b> the "Penglai" / "蓬莱" name, logo, and visual assets are <b>all rights reserved</b> and are not covered by the code license. Please obtain written permission before using them for your distribution, derivative, or commercial naming.</p>
-            <p><b>Version boundary:</b> the GenericAgent-based Python product line (0.3.x) is frozen in the historical <code>v0.3.6</code> tag; the current <code>main</code> and formal <code>v0.4.0</code> Release are the Pi-centered TypeScript rewrite.</p>
+            <p><b>Version boundary:</b> the GenericAgent-based Python product line (0.3.x) is frozen in the historical <code>v0.3.6</code> tag; the current <code>main</code> and formal <code>v0.4.x</code> Releases are the Pi-centered TypeScript rewrite, currently at <code>v0.4.1</code>.</p>
           </div>
           <div class="legal-card reveal reveal-delay-1">
             <h3>Acknowledgments — standing on these projects</h3>
@@ -461,7 +467,7 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 Kevin Chen · Code MIT · Brand all rights reserved</span>
-      <span class="ver">v0.4.0</span>
+      <span class="ver">v0.4.1</span>
     </div>
   </footer>
 
