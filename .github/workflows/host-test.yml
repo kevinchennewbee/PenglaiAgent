@@ -108,6 +108,11 @@ jobs:
         # release-time assertion; 0.4 keeps it in CI).
         run: node scripts/check-renderer-token-boundary.mjs
 
+      - name: Renderer network boundary
+        # Host-only DNS, redirect and inference transports must never enter the
+        # browser renderer source graph or its built Vite assets.
+        run: node scripts/check-renderer-network-boundary.mjs
+
       - name: Release gates (fast subset)
         # The slow gates (full vitest/eval) already ran above; run the fast
         # deterministic gates so scan/deps/files/statement/schema cannot rot

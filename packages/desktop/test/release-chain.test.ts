@@ -331,27 +331,35 @@ describe("manual host-publish workflow policy", () => {
 
   it("requires workflow_dispatch, a protected environment, and an exact confirmation", () => {
     expect(workflow.on.push).toBeUndefined();
+    expect(workflow.on.workflow_dispatch.inputs.operation.required).toBe(true);
+    expect(workflow.on.workflow_dispatch.inputs.operation.options).toEqual([
+      "publish",
+      "channel-recovery",
+    ]);
     expect(workflow.on.workflow_dispatch.inputs.tag.required).toBe(true);
     expect(workflow.on.workflow_dispatch.inputs.confirm.required).toBe(true);
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.jobs.publish.permissions).toEqual({ contents: "write" });
     expect(workflow.jobs.publish.environment).toBe("release");
     expect(raw).toContain('"publish-$PUBLISH_TAG"');
+    expect(raw).toContain('"recover-channel-$PUBLISH_TAG"');
   });
 
-  it("re-verifies the signed tag and draft assets before publishing", () => {
+  it("re-verifies signed immutable assets before publishing or recovering the channel", () => {
     for (const gate of [
       "git verify-tag --raw",
       "VALIDSIG",
       "verify-release-assets.mjs",
-      "must exist as a non-prerelease draft",
-      "Reject updater channel rollback",
+      "wrong state for $PUBLISH_OPERATION",
+      "Reject updater channel rollback or conflicting replay",
+      "refusing conflicting updater replay",
       "--draft=false",
       "desktop-v0.4",
     ]) {
       expect(raw).toContain(gate);
     }
     expect(raw.indexOf("verify-release-assets.mjs")).toBeLessThan(raw.indexOf("--draft=false"));
+    expect(raw).toContain("if: inputs.operation == 'publish'");
   });
 
   it("pins every third-party action to a full commit", () => {

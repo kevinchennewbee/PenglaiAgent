@@ -31,6 +31,9 @@ deliverables remain in the Owner-selected workspace.
 ## What leaves the computer
 
 - Prompts, selected context and tool results sent to the configured model API.
+  Personal-context source files and the complete SQLite/FTS index stay local,
+  but snippets retrieved for a cloud-model request are selected context and
+  therefore leave the computer for that configured provider.
 - Search terms and fetched public URLs when the Owner approves web research.
 - MCP arguments sent to an Owner-connected remote MCP endpoint; stdio MCP runs
   locally but is still third-party code.
