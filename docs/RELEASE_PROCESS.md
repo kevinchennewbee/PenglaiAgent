@@ -86,19 +86,36 @@ git push <public-remote> v0.4.0
 7. Owner 在 GitHub 页面检查 Actions、草稿说明和全部资产后，手工运行
    `host-publish.yml`，输入 tag 和精确的 `publish-<tag>` 确认词。
 8. `host-publish.yml` 再次验证版本契约、Owner signed annotated tag、draft 状态和全部
-   下载资产；同时拒绝 updater channel 版本回退或同版本重放。全部通过后才
+   下载资产；同时拒绝 updater channel 版本回退或同版本冲突重放。全部通过后才
    publish/mark latest，随后只把已验证的 `latest.json` 推进固定 `desktop-v0.4`
    metadata prerelease。
 
+如果版本 Release 已经公开但 metadata channel 因中断或误操作落后，禁止重打或替换
+同版本安装包。Owner 改用同一 `host-publish` workflow 的 `channel-recovery` operation，
+输入精确 signed tag 与 `recover-channel-<tag>` 确认词。恢复模式要求版本 Release 已是
+公开 stable，仍会重新下载并验证全部资产，只允许把较旧 channel 推进到候选版本；
+同版本仅在 manifest 字节完全一致时幂等成功，任何回退或冲突重放都失败。恢复模式
+不会执行 Release publish 步骤。
+
 构建工作流拒绝覆盖已存在的版本 Release。失败留下 draft 时，Owner 先检查失败证据，
-再手工决定是否删除 draft 后重跑；自动化不会 clobber 一个已有的版本发布。发布工作流
-只接受现存、未公开、非 prerelease 的精确 tag 草稿；对已经公开的 Release 会失败。
+再手工决定是否删除 draft 后重跑；自动化不会 clobber 一个已有的版本发布。正常
+`publish` operation 只接受现存、未公开、非 prerelease 的精确 tag 草稿；已经公开的
+stable Release 只有 `channel-recovery` operation 可以接受，而且该模式不能再次发布或
+替换版本资产。
 
 手工发布时，在 Actions 中选择 `host-publish`，输入例如：
 
 ```text
 tag: v0.4.0
 confirm: publish-v0.4.0
+```
+
+只恢复已经公开版本的更新通道时输入：
+
+```text
+operation: channel-recovery
+tag: v0.4.1
+confirm: recover-channel-v0.4.1
 ```
 
 未配置 protected `release` environment 时不要运行发布工作流；仓库内 YAML 无法替代

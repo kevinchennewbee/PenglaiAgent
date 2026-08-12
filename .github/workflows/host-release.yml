@@ -141,7 +141,12 @@ jobs:
           npm run typecheck --workspace @penglai/protocol
           npm run typecheck --workspace @penglai/host
           npm run typecheck --workspace @penglai/desktop
+          node scripts/check-protocol-contract.mjs
           node scripts/check-release-contract.mjs --tag "$GITHUB_REF_NAME"
+          node scripts/check-desktop-allowlist.mjs
+          npm run build --workspace @penglai/desktop
+          node scripts/check-renderer-token-boundary.mjs
+          node scripts/check-renderer-network-boundary.mjs
           node scripts/release-check.mjs --only=scan,deps,files,statement,schema
 
       - name: Build and verify exact runtime
