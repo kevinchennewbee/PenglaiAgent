@@ -95,7 +95,9 @@ git push <public-remote> v0.4.0
 输入精确 signed tag 与 `recover-channel-<tag>` 确认词。恢复模式要求版本 Release 已是
 公开 stable，仍会重新下载并验证全部资产，只允许把较旧 channel 推进到候选版本；
 同版本仅在 manifest 字节完全一致时幂等成功，任何回退或冲突重放都失败。恢复模式
-不会执行 Release publish 步骤。
+不会执行 Release publish 步骤。GitHub Environment 必须分开配置：`release` 只允许
+`v0.4.*` tags；`release-channel-recovery` 只允许 protected `main`，两者都要求 Owner
+review 且禁止 administrator bypass。不要为了恢复通道而放宽 tag-only `release` 环境。
 
 构建工作流拒绝覆盖已存在的版本 Release。失败留下 draft 时，Owner 先检查失败证据，
 再手工决定是否删除 draft 后重跑；自动化不会 clobber 一个已有的版本发布。正常

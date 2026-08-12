@@ -37,7 +37,12 @@ jobs:
     name: Re-verify release and publish or recover desktop-v0.4
     if: github.repository == 'kevinchennewbee/PenglaiAgent'
     runs-on: ubuntu-latest
-    environment: release
+    # GitHub resolves Environment protection before any step runs. Normal
+    # publishing is dispatched from the signed v0.4.x tag and remains in the
+    # tag-only `release` environment. Recovery uses the protected `main` copy
+    # of this workflow, so it has a separate main-only, Owner-reviewed
+    # environment instead of weakening the release tag policy.
+    environment: ${{ inputs.operation == 'channel-recovery' && 'release-channel-recovery' || 'release' }}
     permissions:
       contents: write
     env:
