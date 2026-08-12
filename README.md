@@ -14,7 +14,7 @@
 
 ## 0.4.1：它开始读得懂你的资料
 
-- **个人上下文 V1。** 你显式授权一个本地文档目录（向导里一步完成，或 CLI `penglai context source add`），蓬莱在本机用 SQLite + FTS5 建立可删除的派生索引。不上传任何内容，绝不改写原文件，随时可移除授权。
+- **个人上下文 V1。** 你显式授权一个本地文档目录（向导里一步完成，或 CLI `penglai context source add`），蓬莱在本机用 SQLite + FTS5 建立可删除的派生索引。原文件与完整索引不上传、绝不改写原文件，随时可移除授权；使用云模型回答时，本次检索到的相关片段会发送给你选择的模型供应商。
 - **Host 验证的来源引用。** 回答带来源卡片：哪个文件、哪一节、什么状态（current / stale / revoked）。引用跨重启与重索引持久，文件变了徽标如实变——不是模型嘴上的"引用"。
 - **装好即有用。** 向导里交出资料目录，空会话直接给出从你文档真实标题生成的示例问题，点击即问。
 - **一批失真修复。** IM 排队应答不再被当成失败、Owner 取消不再记成 failed、大目录索引不再卡住原生壳等；详见[发布说明](RELEASE_NOTES_0.4.1.md)。
@@ -173,7 +173,7 @@ Penglai 使用 [MIT License](LICENSE)，继承并感谢 GenericAgent 的早期�
 
 Penglai 0.4 is a local AI workbench built around a TypeScript Host and the Pi agent runtime. It preserves the useful product ideas proven by 0.3.x—persistent assistance, IM access, memory and workflows—while adding durable projects, tasks, runs, evidence, approvals, budgets and recovery.
 
-**New in 0.4.1 — Personal Context V1.** You explicitly grant Penglai a local documents directory (one optional step in the setup wizard, or `penglai context source add` in the CLI). The Host builds a deletable derived index on your machine with SQLite + FTS5—nothing is uploaded, original files are never modified, and revoking a grant removes only the index. Answers carry Host-verified source cards showing the file, the section and a live status (current / stale / revoked); references survive restarts and reindexing, and the badges change truthfully when your files do. An empty chat now offers example questions generated offline from your real document titles, so the app is useful the moment setup ends. 0.4.1 also fixes a batch of state-fidelity bugs (queued IM replies shown as failures, owner cancellations recorded as `failed`, large-directory indexing blocking the native shell, and more)—see the [release notes](RELEASE_NOTES_0.4.1.md).
+**New in 0.4.1 — Personal Context V1.** You explicitly grant Penglai a local documents directory (one optional step in the setup wizard, or `penglai context source add` in the CLI). The Host builds a deletable derived index on your machine with SQLite + FTS5: original files and the complete index stay local, original files are never modified, and revoking a grant removes only the index. When a cloud model answers, the relevant snippets retrieved for that request are sent to the model provider you selected. Answers carry Host-verified source cards showing the file, the section and a live status (current / stale / revoked); references survive restarts and reindexing, and the badges change truthfully when your files do. An empty chat now offers example questions generated offline from your real document titles, so the app is useful the moment setup ends. 0.4.1 also fixes a batch of state-fidelity bugs (queued IM replies shown as failures, owner cancellations recorded as `failed`, large-directory indexing blocking the native shell, and more)—see the [release notes](RELEASE_NOTES_0.4.1.md).
 
 There is one assistant and one conversation surface. A conversation either works on the assistant's own ground or is explicitly anchored by the owner to a realpath-checked project directory; this is a boundary change, not a second capability mode. Desktop, CLI, Goal, Feishu, WeChat and durable Tasks all execute through `EpisodeRunner → Pi AgentKernel`.
 

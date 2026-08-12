@@ -6,7 +6,7 @@
 
 ## 个人上下文 V1
 
-- **显式授权，本地索引。** Owner 通过桌面原生目录选择器或 CLI 授权 global / project 目录；Host 用 SQLite + FTS5 在本机建立离线派生索引。原文件绝不改写或删除；随时可在设置或 CLI 移除授权，移除只删索引。
+- **显式授权，本地索引。** Owner 通过桌面原生目录选择器或 CLI 授权 global / project 目录；Host 用 SQLite + FTS5 在本机建立离线派生索引。原文件与完整索引不上传，原文件绝不改写或删除；随时可在设置或 CLI 移除授权，移除只删索引。使用云模型回答时，本次检索到的相关片段会发送给 Owner 选择的模型供应商。
 - **Host 验证的来源引用。** 助理回答可携带 `contextReferences[]` 来源卡片：文档标题、相对路径、章节/行/键位置与 current / stale / revoked / unavailable 状态。引用由 Host 逐条验证并跨会话持久化，重启、重索引、撤销授权后徽标如实更新——不是模型嘴上的"引用"。
 - **结构化定位。** Markdown/TXT 保留 heading 与偏移；CSV/TSV 保留表头与行组；JSON/YAML/XML 保留 key path。每个引用都能解释"出自哪里"。
 - **Task 证据轨新增 `source` 类别。** 仅由 Host/tool observation 创建，metadata 带相对路径、位置、document/chunk hash 与查询；桌面证据轨新增「资料来源」区。
@@ -44,7 +44,7 @@
 
 - macOS Developer ID / notarization 与 Windows Authenticode 尚未配置；首次启动可能出现 Gatekeeper / SmartScreen 提示。updater 资产由 minisign 保护，但 minisign 不替代操作系统发行者信任。
 - FTS trigram 分词需要至少 3 个字符的查询词；两字中文词请换更长表述。
-- 个人上下文 V1 支持 Markdown / TXT / CSV / TSV / JSON / YAML / XML 等文本格式；PDF / DOCX 索引在后续版本。
+- 个人上下文 V1 当前支持 PDF / DOCX / XLSX / PPTX / Markdown / TXT / CSV / TSV / JSON / YAML / XML / HTML / RTF；复杂版式、扫描件 OCR 与公式还原不属于 V1 保证。
 - 多平台真机安装与 0.4.0 → 0.4.1 updater 生命周期验证在 Release 资产产出后按 [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) §7 补做。
 
 ## 从 0.4.0 升级

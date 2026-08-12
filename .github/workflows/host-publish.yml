@@ -1,18 +1,27 @@
 name: host-publish
 
-# Publishing is deliberately separate from the signed-tag build. The tag
-# workflow can only create and verify a draft. An Owner must inspect that draft
-# and then manually enter an exact confirmation before this workflow can make
-# the immutable version release public and advance the 0.4 updater channel.
+# Publishing is deliberately separate from the signed-tag build. The normal
+# path publishes a verified draft and advances the updater channel. The
+# recovery path repairs only a lagging metadata channel from an already-public,
+# independently verified immutable release; it never rebuilds or replaces a
+# versioned asset.
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: "Publish a draft, or recover only the updater channel"
+        required: true
+        default: publish
+        type: choice
+        options:
+          - publish
+          - channel-recovery
       tag:
         description: "Exact signed stable tag to publish (for example v0.4.0)"
         required: true
         type: string
       confirm:
-        description: "Enter publish-<tag> exactly (for example publish-v0.4.0)"
+        description: "Enter publish-<tag> or recover-channel-<tag> exactly"
         required: true
         type: string
 
@@ -25,7 +34,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Re-verify draft, publish, and advance desktop-v0.4
+    name: Re-verify release and publish or recover desktop-v0.4
     if: github.repository == 'kevinchennewbee/PenglaiAgent'
     runs-on: ubuntu-latest
     environment: release
@@ -35,6 +44,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PUBLISH_TAG: ${{ inputs.tag }}
       PUBLISH_CONFIRM: ${{ inputs.confirm }}
+      PUBLISH_OPERATION: ${{ inputs.operation }}
       TRUSTED_RELEASE_FINGERPRINT: 108B8D1D5592D8F71EEAC9AB362CF5452371B1E5
     steps:
       - name: Require exact Owner confirmation
@@ -45,8 +55,13 @@ jobs:
             echo "::error::tag must be a strict stable v0.4.x tag"
             exit 1
           fi
-          if [[ "$PUBLISH_CONFIRM" != "publish-$PUBLISH_TAG" ]]; then
-            echo "::error::confirmation must equal publish-$PUBLISH_TAG"
+          case "$PUBLISH_OPERATION" in
+            publish) expected_confirm="publish-$PUBLISH_TAG" ;;
+            channel-recovery) expected_confirm="recover-channel-$PUBLISH_TAG" ;;
+            *) echo "::error::unsupported operation: $PUBLISH_OPERATION"; exit 1 ;;
+          esac
+          if [[ "$PUBLISH_CONFIRM" != "$expected_confirm" ]]; then
+            echo "::error::confirmation must equal $expected_confirm"
             exit 1
           fi
 
@@ -113,7 +128,7 @@ jobs:
           fi
           echo "tag_target=$tag_target" >> "$GITHUB_OUTPUT"
 
-      - name: Require an unpublished draft for the exact tag
+      - name: Require the exact release state for this operation
         shell: bash
         run: |
           set -euo pipefail
@@ -121,13 +136,17 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --json tagName,isDraft,isPrerelease \
             --jq '[.tagName,.isDraft,.isPrerelease] | @tsv')"
-          expected_state="$(printf '%s\ttrue\tfalse' "$PUBLISH_TAG")"
+          if [[ "$PUBLISH_OPERATION" == "publish" ]]; then
+            expected_state="$(printf '%s\ttrue\tfalse' "$PUBLISH_TAG")"
+          else
+            expected_state="$(printf '%s\tfalse\tfalse' "$PUBLISH_TAG")"
+          fi
           if [[ "$release_state" != "$expected_state" ]]; then
-            echo "::error::$PUBLISH_TAG must exist as a non-prerelease draft"
+            echo "::error::$PUBLISH_TAG has the wrong state for $PUBLISH_OPERATION"
             exit 1
           fi
 
-      - name: Download and cryptographically re-verify every draft asset
+      - name: Download and cryptographically re-verify every release asset
         shell: bash
         run: |
           set -euo pipefail
@@ -139,7 +158,8 @@ jobs:
             --dir release-download \
             --version "${PUBLISH_TAG#v}"
 
-      - name: Reject updater channel rollback before publication
+      - name: Reject updater channel rollback or conflicting replay
+        id: channel_guard
         shell: bash
         env:
           PENGLAI_CHANNEL: ${{ steps.contract.outputs.channel }}
@@ -176,13 +196,24 @@ jobs:
             if (!match) throw new Error(`invalid stable channel version: ${value}`);
             return Number(match[1]);
           };
-          if (patch(candidate.version) <= patch(current.version)) {
-            throw new Error(`refusing updater rollback/replay ${current.version} -> ${candidate.version}`);
+          const currentPatch = patch(current.version);
+          const candidatePatch = patch(candidate.version);
+          if (candidatePatch < currentPatch) {
+            throw new Error(`refusing updater rollback ${current.version} -> ${candidate.version}`);
+          }
+          if (candidatePatch === currentPatch) {
+            const currentBytes = fs.readFileSync(process.env.CURRENT_MANIFEST);
+            const candidateBytes = fs.readFileSync(process.env.CANDIDATE_MANIFEST);
+            if (!currentBytes.equals(candidateBytes)) {
+              throw new Error(`refusing conflicting updater replay for ${candidate.version}`);
+            }
+            console.log(`updater channel already has the exact ${candidate.version} manifest`);
           }
           NODE
           fi
 
       - name: Publish the independently verified immutable version release
+        if: inputs.operation == 'publish'
         shell: bash
         run: |
           set -euo pipefail
