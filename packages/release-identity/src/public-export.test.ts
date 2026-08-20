@@ -26,6 +26,7 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   assert.equal(pathAllowed("LICENSE"), true);
   assert.equal(pathAllowed("SECURITY.md"), true);
   assert.equal(pathAllowed("CONTRIBUTING.md"), true);
+  assert.equal(pathAllowed(".npmrc"), true);
   assert.equal(pathAllowed("STATE.md"), false);
   assert.equal(pathAllowed("docs/GROK_HANDOFF.md"), false);
   assert.equal(pathAllowed("docs/PLAN.md"), false);
@@ -100,6 +101,7 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "README.md",
       "SECURITY.md",
       "CONTRIBUTING.md",
+      ".npmrc",
       "package.json",
       "pnpm-lock.yaml",
       "release-contract.json",
