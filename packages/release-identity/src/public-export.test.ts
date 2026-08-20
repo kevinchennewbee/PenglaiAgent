@@ -138,6 +138,16 @@ test("R50-PREP-006 export must contain source lock and provenance", () => {
   });
 });
 
+test("public TypeScript project references are all present in the export", () => {
+  const tsconfig = JSON.parse(readFileSync(join(root, "tsconfig.json"), "utf8")) as {
+    references?: Array<{ path?: string }>;
+  };
+  const missing = (tsconfig.references ?? [])
+    .map((entry) => String(entry.path ?? ""))
+    .filter((path) => !path || !pathAllowed(`${path}/package.json`));
+  assert.deepEqual(missing, []);
+});
+
 test("R50-PREP-009 future public assets must equal accepted bytes", () => {
   const sha = "a".repeat(64);
   assert.doesNotThrow(() => futurePublicAssetIdentityGate(sha, sha));
