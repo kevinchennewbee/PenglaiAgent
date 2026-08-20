@@ -59,8 +59,14 @@ export const PUBLIC_EXPORT_DENY = [
   "packages/credentials-keychain",
   "packages/plugin-smoke",
   "packages/plugin-center/src/loopback-llm.ts",
+  "packages/plugin-center/src/loopback-llm.test.ts",
+  "packages/plugin-center/src/loopback-live.test.ts",
   "packages/plugin-center/src/usable-fixture.ts",
+  "packages/plugin-center/src/usable-fixture.test.ts",
   "packages/im/src/test-only-causal.ts",
+  "packages/release-identity/src/freeze.test.ts",
+  "packages/release-identity/src/leftover-gates.test.ts",
+  "packages/release-identity/src/remaining-gates.test.ts",
 ] as const;
 
 export const REQUIRED_PUBLIC_DOCS = [

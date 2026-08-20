@@ -32,7 +32,13 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   assert.equal(pathAllowed("docs/PLAN.md"), false);
   assert.equal(pathAllowed("packages/credentials-keychain/src/index.ts"), false);
   assert.equal(pathAllowed("packages/plugin-center/src/loopback-llm.ts"), false);
+  assert.equal(pathAllowed("packages/plugin-center/src/loopback-llm.test.ts"), false);
+  assert.equal(pathAllowed("packages/plugin-center/src/loopback-live.test.ts"), false);
+  assert.equal(pathAllowed("packages/plugin-center/src/usable-fixture.test.ts"), false);
   assert.equal(pathAllowed("packages/im/src/test-only-causal.ts"), false);
+  assert.equal(pathAllowed("packages/release-identity/src/freeze.test.ts"), false);
+  assert.equal(pathAllowed("packages/release-identity/src/leftover-gates.test.ts"), false);
+  assert.equal(pathAllowed("packages/release-identity/src/remaining-gates.test.ts"), false);
   assert.equal(pathAllowed("evidence/generated/x.json"), false);
   assert.equal(pathAllowed("dist/Penglai_0.5.0_macos_aarch64.dmg"), false);
   const a = publicExportTreeSha256([
