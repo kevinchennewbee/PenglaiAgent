@@ -78,14 +78,6 @@ if (wantCleanRoom) {
     mkdirSync(dirname(to), { recursive: true });
     cpSync(join(ROOT, rel), to);
   }
-  const tsconfigPath = join(dest, "tsconfig.json");
-  if (existsSync(tsconfigPath)) {
-    const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8"));
-    tsconfig.references = (tsconfig.references ?? []).filter(
-      (r) => !String(r.path ?? "").includes("credentials-keychain") && !String(r.path ?? "").includes("plugin-smoke"),
-    );
-    writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
-  }
   const install = spawnSync("pnpm", ["install", "--frozen-lockfile", "--ignore-scripts"], {
     cwd: dest,
     encoding: "utf8",
