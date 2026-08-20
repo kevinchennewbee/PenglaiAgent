@@ -16,8 +16,45 @@ import {
 } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
-import { runTestOnlyCausalRoute } from "./test-only-causal.js";
 import { contribute } from "./client.js";
+
+async function runTestOnlyCausalRoute(
+  host: PenglaiImHost,
+  input: { workspaceId: string; sessionId: string },
+): Promise<{ causalRoute: true; inboundId: string; turnId: string; routeId: string; reply: string }> {
+  const binding = host.createBinding({
+    channel: "weixin",
+    accountId: "test-profile",
+    peerId: "test-peer",
+    workspaceId: input.workspaceId,
+    sessionId: input.sessionId,
+  });
+  const accepted = await host.plane.submitInbound({
+    adapter: "weixin",
+    adapterMessageKey: `causal-${Date.now()}`,
+    accountRef: "test-profile",
+    peerRef: "test-peer",
+    chatKind: "private",
+    bodyKind: "text",
+    text: "reply with the exact token penglai-causal-ok",
+    receivedAt: Date.now(),
+  });
+  if (accepted.kind !== "accepted") {
+    throw new PenglaiError("DSH_UNAVAILABLE", `causal inbound rejected: ${accepted.text}`);
+  }
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    const outbox = host.store.pendingOutbox(binding.id);
+    const reply = outbox.map((item) => item.payloadText).join("");
+    const inboundId = outbox[0]?.inboundId;
+    const turnId = outbox[0]?.turnId;
+    if (inboundId && turnId && reply.includes("penglai-causal-ok")) {
+      return { causalRoute: true, inboundId, turnId, routeId: binding.id, reply };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new PenglaiError("DSH_UNAVAILABLE", "causal Message→Turn→route did not complete");
+}
 
 test("im runtime wires single control plane", async () => {
   const rt = createRuntime({
