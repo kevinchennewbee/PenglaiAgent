@@ -3,664 +3,110 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>蓬莱 Penglai 0.4.1 — 住在你飞书里、读得懂你资料的个人 AI 助理</title>
-  <meta name="description" content="蓬莱 0.4.1：开源（MIT）个人 AI 助理。新增个人上下文：授权本地文档目录，本机索引、离线检索，回答带 Host 验证的来源引用。一个核心连接桌面、CLI、飞书与微信；语音与陪伴在本机运行，记忆与证据都属于你。">
+  <title>蓬莱 Penglai 0.5.0 — 让 DSH 更容易来到每个人身边</title>
+  <meta name="description" content="蓬莱 0.5.0 是基于官方 DeepSeek Harness 的本地桌面发行版：安装、引导、BYOK 与可组合插件开箱即用。Apple Silicon 首发。">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="alternate" hreflang="zh-CN" href="https://kevinchennewbee.github.io/PenglaiAgent/">
-  <link rel="alternate" hreflang="en" href="https://kevinchennewbee.github.io/PenglaiAgent/en/">
+  <link rel="alternate" hreflang="zh-CN" href="https://penglai.pages.dev/">
+  <link rel="alternate" hreflang="en" href="https://penglai.pages.dev/en/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="蓬莱 Penglai 0.4.1 — 住在你飞书里、读得懂你资料的个人 AI 助理">
-  <meta property="og:description" content="开源（MIT）个人 AI 助理：授权本地资料目录，本机索引，回答带 Host 验证的来源引用；一个 TypeScript 核心、Pi 引擎、本地语音与主动陪伴。">
-  <meta property="og:url" content="https://kevinchennewbee.github.io/PenglaiAgent/">
-  <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/desktop-workbench.webp">
+  <meta property="og:title" content="蓬莱 Penglai 0.5.0 — DSH 的本地桌面发行版与插件生态">
+  <meta property="og:description" content="官方 DSH 是唯一核心；蓬莱提供可靠分发、首次引导与可热插拔的本地能力。">
+  <meta property="og:url" content="https://penglai.pages.dev/">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:locale:alternate" content="en_US">
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-
-  <!-- 仙气 Perlin 流场粒子 -->
   <canvas id="fairy-canvas" aria-hidden="true"></canvas>
-
-  <!-- 仙山雾气背景层 -->
   <svg class="mountain-layer" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path class="ridge-1" d="M0 400 L0 320 Q80 280 160 300 Q240 260 320 240 Q380 220 420 250 Q480 200 540 180 Q600 160 640 190 Q700 150 760 170 Q820 140 880 160 Q940 130 1000 155 Q1060 140 1100 170 Q1160 150 1200 180 Q1280 200 1340 220 Q1400 240 1440 230 L1440 400 Z"/>
     <path class="ridge-2" d="M0 400 L0 340 Q100 310 200 320 Q300 290 400 270 Q500 250 560 280 Q620 240 700 220 Q780 200 840 230 Q900 210 960 240 Q1020 220 1080 250 Q1140 230 1200 260 Q1300 280 1380 290 L1440 280 L1440 400 Z"/>
     <path class="ridge-3" d="M0 400 L0 360 Q120 340 240 350 Q360 330 480 310 Q580 290 660 320 Q740 300 820 280 Q900 270 980 290 Q1060 280 1140 300 Q1240 310 1340 320 L1440 310 L1440 400 Z"/>
   </svg>
 
-  <nav class="nav" id="nav">
-    <div class="nav-inner">
-      <a href="#hero" class="nav-logo">
-        <span class="seal">蓬</span>
-        <span class="nav-logo-text">蓬莱<small>PENGLAI</small></span>
-      </a>
-      <ul class="nav-links" id="navLinks">
-        <li><a href="#story">缘起</a></li>
-        <li><a href="#modes">一个对话面</a></li>
-        <li><a href="#trio">差异化</a></li>
-        <li><a href="#abilities">能力</a></li>
-        <li><a href="#architecture">架构</a></li>
-        <li><a href="#start">开始</a></li>
-      </ul>
-      <div class="nav-right">
-        <a href="./en/" class="nav-lang" hreflang="en">中 / EN</a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="nav-cta">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
-          GitHub
-        </a>
-        <button class="nav-toggle" id="navToggle" aria-label="菜单" aria-controls="navLinks" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </nav>
+  <nav class="nav" id="nav"><div class="nav-inner">
+    <a href="#hero" class="nav-logo"><span class="seal">蓬</span><span class="nav-logo-text">蓬莱<small>PENGLAI</small></span></a>
+    <ul class="nav-links" id="navLinks"><li><a href="#story">初心</a></li><li><a href="#compose">组合</a></li><li><a href="#abilities">插件</a></li><li><a href="#architecture">架构</a></li><li><a href="#security">隐私</a></li><li><a href="#start">下载</a></li></ul>
+    <div class="nav-right"><a href="./en/" class="nav-lang" hreflang="en">中 / EN</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="nav-cta">GitHub</a><button class="nav-toggle" id="navToggle" aria-label="菜单" aria-controls="navLinks" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+  </div></nav>
 
   <main>
-
-    <!-- ========== 1. Hero ========== -->
     <section class="hero" id="hero">
-      <div class="hero-badges reveal">
-        <span class="pill accent"><b>v0.4.1</b></span>
-        <span class="pill accent">新 · <b>个人上下文</b></span>
-        <span class="pill">代码 <b>MIT</b> 开源</span>
-        <span class="pill"><b>TypeScript</b> 重写</span>
-        <span class="pill">Powered by <b>Pi 内核</b></span>
-        <span class="pill"><b>macOS</b> 安装包</span>
-      </div>
-      <div class="hero-name reveal reveal-delay-1">
-        <span class="seal">蓬</span>
-        <h1>蓬莱</h1>
-        <span class="hero-version">0.4.1</span>
-      </div>
-      <p class="hero-tagline reveal reveal-delay-1">住在你飞书里、完全属于你、越用越懂你的个人 AI 助理</p>
-      <p class="hero-modes reveal reveal-delay-2"><b>一个核心</b> · <b>Pi 引擎</b> · <b>读得懂你的资料</b>——同一记忆、同一身份、同一执行路径</p>
-      <div class="hero-ctas reveal reveal-delay-3">
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
-          GitHub
-        </a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg" target="_blank" rel="noopener" class="btn btn-ghost">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 macOS（Apple 芯片）
-        </a>
-      </div>
-      <figure class="shot reveal reveal-delay-3">
-        <div class="shot-frame">
-          <div class="shot-bar"><i></i><i></i><i></i><span>蓬莱桌面工作台</span></div>
-          <img src="shots/desktop-workbench.webp" alt="蓬莱桌面工作台三栏实拍：左侧项目与对话，中间任务面，右侧证据轨" width="1600" height="1000" loading="eager">
-        </div>
-        <figcaption class="shot-caption">桌面工作台实拍：任务面 + 证据轨。证据轨里的审批留痕、文件变更、checkpoint，全部来自真实执行观测——不由模型自述。</figcaption>
-      </figure>
+      <div class="hero-badges reveal"><span class="pill accent"><b>v0.5.0</b></span><span class="pill">Powered by <b>DeepSeek Harness</b></span><span class="pill"><b>MIT</b> 开源</span><span class="pill"><b>Apple Silicon</b> 首发</span><span class="pill"><b>BYOK</b></span></div>
+      <div class="hero-name reveal reveal-delay-1"><span class="seal">蓬</span><h1>蓬莱</h1><span class="hero-version">0.5.0</span></div>
+      <p class="hero-tagline reveal reveal-delay-1">让 DSH 更容易来到每个人身边</p>
+      <p class="hero-modes reveal reveal-delay-2"><b>官方 DSH 是唯一核心</b> · <b>蓬莱负责可靠分发</b> · <b>能力都可以组合</b></p>
+      <div class="hero-ctas reveal reveal-delay-3"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.0/Penglai_0.5.0_macos_aarch64.dmg" class="btn btn-primary">下载 Apple 芯片版</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-ghost">查看开源代码</a></div>
+      <p class="modes-foot reveal reveal-delay-3">macOS 13+ · M1 / M2 / M3 / M4 · 社区验证版 · ad-hoc 签名 · 未公证</p>
     </section>
 
-    <!-- ========== 2. 缘起 ========== -->
-    <section class="section story" id="story">
-      <div class="section-inner">
-        <div class="story-quote">
-          <div class="section-label reveal">缘起</div>
-          <h2 class="section-title reveal reveal-delay-1">一个不会写代码的人，和他的 AI 管家</h2>
-          <blockquote class="reveal reveal-delay-2">我做了十年网络工程、安全和运维，但不会写代码——一行都不会。这个仓库里的每一行，都是用 AI 编程工具一句话一句话「说」出来的。蓬莱本身就是它想证明的东西：<b>AI 时代，普通人也能为自己造工具。</b></blockquote>
-          <p class="reveal reveal-delay-2">0.3 验证了那条叙事：把 Agent 搬进你已经在用的聊天工具，数据全部留在自己的机器上。但 Python 时代的它，审批留痕还停在「方向对、实现半成」。<b>0.4 是一次认真的重写</b>——TypeScript、强类型协议、Pi 开源内核，把聊出来的想法做成内核级能力。</p>
-          <p class="reveal reveal-delay-3">蓬莱是《史记》里的海上仙山，人人听说、少有人到。今天的 AI 之于普通人，就像当年的蓬莱——API、终端、配置文件是海上的雾。我们想做的，是把仙山搬进你的聊天窗：<b>不用学航海，会发消息，就能到。</b>所谓「八仙过海，各显神通」——多模型、多渠道，各展所长，服务同一个你。</p>
-          <div class="story-sign reveal reveal-delay-3">—— 蓬莱作者，写于 0.4 重写之后</div>
-        </div>
+    <section class="section story" id="story"><div class="section-inner"><div class="story-quote">
+      <div class="section-label reveal">初心</div><h2 class="section-title reveal reveal-delay-1">如果 DSH 像 Linux，蓬莱想成为更容易抵达的发行层</h2>
+      <blockquote class="reveal reveal-delay-2">不是再造一个 Agent，也不是给 DSH 换一张贴纸。蓬莱尊重「万物皆插件」：把安装、首次配置和常用能力组合好，让普通人也能真正用上 DSH。</blockquote>
+      <p class="reveal reveal-delay-2">0.5.0 是一次彻底重构。Agent、Workspace、Session、Turn、模型、工具和基础 Web UI 全部由官方 DSH 提供；蓬莱只做桌面发行、产品引导与符合 DSH 标准的插件。</p>
+      <p class="reveal reveal-delay-3">这样做的意义很简单：DSH 继续进化，蓬莱可以更快跟进；社区有优秀插件，经过审查也可以加入；而蓬莱自己的灵魂能力，也能作为标准插件自由组合。</p>
+      <div class="story-sign reveal reveal-delay-3">—— 八仙过海，各显神通；同一个 DSH，组合出属于你的蓬莱</div>
+    </div></div></section>
+
+    <section class="section" id="compose"><div class="section-inner">
+      <div class="section-label reveal">开箱与组合</div><h2 class="section-title reveal reveal-delay-1">默认很干净，需要什么，再装什么</h2><p class="section-desc reveal reveal-delay-2">首次安装只有 DSH 核心与蓬莱插件中心。所有扩展默认关闭，安装、启用、停用与模型下载都由用户决定。</p>
+      <div class="modes-grid">
+        <div class="mode-card chat reveal"><div class="mode-tag"><span class="zh">基础</span><span class="en">CORE</span></div><p><b>只用 DSH，也已经完整可用。</b></p><ul class="mode-list"><li>官方 Web UI、工作区、会话、模型与工具</li><li>首次向导选择 provider / model 并真实验证 API Key</li><li>中文默认，支持 English 与浅色/深色/跟随系统</li></ul></div>
+        <div class="mode-card work reveal reveal-delay-1"><div class="mode-tag"><span class="zh">组合</span><span class="en">PLUGINS</span></div><p><b>像搭积木一样增加本地能力。</b></p><ul class="mode-list"><li>IM 可以单独工作，不依赖 ASR 或 TTS</li><li>ASR、TTS、Context、Memory、Budget、Companion 均可热插拔</li><li>真实状态来自 DSH loader，不显示假卡片或静态“已安装”</li></ul></div>
       </div>
-    </section>
+    </div></section>
 
-    <!-- ========== 3. 一个核心，边界随项目收紧 ========== -->
-    <section class="section" id="modes">
-      <div class="section-inner">
-        <div class="section-label reveal">一个对话面</div>
-        <h2 class="section-title reveal reveal-delay-1">同一个它，项目只改变边界</h2>
-        <p class="section-desc reveal reveal-delay-2">没有"精简模式"。你在终端里聊天的那个它，和它在受信项目里写文件的那个它，是同一个——工具、预算、审批不因标签而变，变的只是边界。</p>
-        <div class="modes-grid">
-          <div class="mode-card chat reveal">
-            <div class="mode-tag"><span class="zh">浮动</span><span class="en">FLOATING</span></div>
-            <p>锚定在它自己的地盘（记忆与草稿）：提问、起草、把想法说出口。</p>
-            <ul class="mode-list">
-              <li>陪你聊、答问题、读文件，流式回合即问即答</li>
-              <li>聊到要动项目文件的活儿，它会提议锚定——而不是擅自开工</li>
-              <li>全工具集始终在它手里；真正拦住它的是审批与 jail，不是"模式"</li>
-            </ul>
-          </div>
-          <div class="mode-card work reveal reveal-delay-1">
-            <div class="mode-tag"><span class="zh">项目锚定</span><span class="en">ANCHORED</span></div>
-            <p>锚定到你显式信任的项目目录：长循环自主干活，全程在项目 jail 内。</p>
-            <ul class="mode-list">
-              <li>写代码、跑命令、改文件，全程在 realpath 校验的 jail 内</li>
-              <li>锚定 ≠ 信任：开工前要你点头，关键操作可审批、可回退</li>
-              <li>完工自动复盘，证据与成本落账，回到对话还能引用产物</li>
-            </ul>
-          </div>
-        </div>
-        <p class="modes-foot reveal reveal-delay-1">一个权限旋钮（plan → confirm → auto-edit → full）调节问你多频繁；四级审批是同一副骨架</p>
-        <figure class="shot modes-shot reveal">
-          <div class="shot-frame">
-            <div class="shot-bar"><i></i><i></i><i></i><span>真实执行回放</span></div>
-            <img src="shots/desktop-conversation.webp" alt="蓬莱同一对话面实拍：浮动会话提出项目锚定，确认后在 jail 内完成并留下证据" width="1600" height="1000" loading="lazy">
-          </div>
-          <figcaption class="shot-caption">端到端测试回放：模型使用本机脚本端点，其余每一步都走生产代码路径。</figcaption>
-        </figure>
+    <section class="section" id="abilities"><div class="section-inner">
+      <div class="section-label reveal">蓬莱插件</div><h2 class="section-title reveal reveal-delay-1">1 + 1，大于 2</h2><p class="section-desc reveal reveal-delay-2">每个能力都遵循 DSH 插件边界；组合起来，才形成蓬莱独有的体验。</p>
+      <div class="ability-grid">
+        <div class="ability reveal"><h3>插件中心</h3><p>从真实 loader inventory 管理内置与第一方插件。0.5.0 不开放任意 npm、Git 或 URL 在线安装。</p></div>
+        <div class="ability reveal"><h3>消息连接 · IM</h3><p>微信与飞书私聊接入，同一消息经过耐久 claim、官方 DSH Turn，再回到原渠道。扫码者默认是唯一允许身份。</p></div>
+        <div class="ability reveal"><h3>本地语音识别 · ASR</h3><p>SenseVoice 模型按需下载并显示进度。微信加密 SILK 在本机解码、识别，语言与情绪只作为内部辅助上下文。</p></div>
+        <div class="ability reveal"><h3>MOSS-TTS-Nano</h3><p>按需安装本地模型，把 DSH 的最终回复合成为语音。飞书使用原生音频消息；微信当前提供可靠可播放音频。</p></div>
+        <div class="ability reveal"><h3>个人上下文</h3><p>只索引你明确授权的目录，本机 SQLite FTS5 建立可删除的派生索引，不修改源文件。</p></div>
+        <div class="ability reveal"><h3>分层记忆</h3><p>区分全局、工作区和会话候选；长期记忆与 SOP 需要可见 diff 和你的确认，SOP 复用官方 DSH Skills。</p></div>
+        <div class="ability reveal"><h3>Token 预算</h3><p>消费官方 TokenMeter 与模型路由；价格不可信时只报 token，不编造金额，硬上限在新 Turn 前熔断。</p></div>
+        <div class="ability reveal"><h3>主动陪伴</h3><p>默认关闭。复用官方 Schedule、Session 与 Turn，受安静时段、每日上限、精确绑定和禁止无人值守工具约束。</p></div>
       </div>
-    </section>
+    </div></section>
 
-    <!-- ========== 4. 三件事别人给不了 ========== -->
-    <section class="section" id="trio">
-      <div class="section-inner">
-        <div class="section-label reveal">差异化</div>
-        <h2 class="section-title reveal reveal-delay-1">三件事，别人给不了</h2>
-        <div class="trio-grid">
-          <div class="trio-card reveal">
-            <div class="trio-num">其一</div>
-            <h3>入口</h3>
-            <div class="trio-sub">住在 IM 里的随身在场</div>
-            <p>不用新装 App，不用守着终端。它住在你的飞书里——通勤路上、午休间隙，一条消息就到。Agent 的下一站不在 IDE 里，在你每天打开的那个聊天窗。</p>
-          </div>
-          <div class="trio-card reveal reveal-delay-1">
-            <div class="trio-num">其二</div>
-            <h3>主权</h3>
-            <div class="trio-sub">持久数据自托管在你机器上</div>
-            <p>聊天、记忆、能力与凭据都由你的机器持久保存，日志先脱敏再落盘，也不进入分发包。调用你选择的 BYOK 模型时，完成当前任务所需的提示与上下文会发送到该模型端点。</p>
-          </div>
-          <div class="trio-card reveal reveal-delay-2">
-            <div class="trio-num">其三</div>
-            <h3>进化</h3>
-            <div class="trio-sub">技能树长在本地</div>
-            <p>每次任务完工自动复盘，把做法蒸馏成 SOP，经审计才入技能树。同类活儿下一次干得更快更稳——它在你机器上越用越强，而不是越用越贵。</p>
-          </div>
-        </div>
+    <section class="section" id="architecture"><div class="section-inner">
+      <div class="section-label reveal">架构</div><h2 class="section-title reveal reveal-delay-1">DSH 在中心，蓬莱在外围把体验做好</h2>
+      <div class="trio-grid">
+        <div class="trio-card reveal"><div class="trio-num">CORE</div><h3>DeepSeek Harness</h3><div class="trio-sub">唯一 Agent 与 UI 核心</div><p>模型、工作区、会话、工具、审批、权限、基础 Web UI 与插件运行时均由官方 DSH 提供。</p></div>
+        <div class="trio-card reveal reveal-delay-1"><div class="trio-num">DISTRO</div><h3>蓬莱桌面发行层</h3><div class="trio-sub">安装、引导、品牌与生命周期</div><p>内置目标架构 Node、Electron、固定 DSH closure 与许可证；不依赖 PATH、全局包或首次联网安装核心。</p></div>
+        <div class="trio-card reveal reveal-delay-2"><div class="trio-num">ECOSYSTEM</div><h3>标准化插件生态</h3><div class="trio-sub">可选、可组合、可卸载</div><p>蓬莱第一方插件通过 DSH 官方 service、slot、Remote 与 loader 接入，不建立第二套 Agent 或聊天系统。</p></div>
+      </div><p class="arch-note reveal">当前固定官方 DSH 0.1.0-rc.8。Penglai 0.5.0 不再包含旧 Pi / Host 产品线。</p>
+    </div></section>
+
+    <section class="section" id="security"><div class="section-inner">
+      <div class="section-label reveal">隐私与安全</div><h2 class="section-title reveal reveal-delay-1">本地优先，但不对边界说漂亮话</h2>
+      <div class="guard-grid">
+        <div class="guard-card reveal"><h3>你能明确知道什么留在本机</h3><ul class="guard-list"><li>API Key 与渠道秘密走 DSH 官方 credentials seam，渲染器永远读不到明文。</li><li>macOS 凭据目录/文件使用 0700/0600 与原子写；同一系统用户的高权限进程仍可能读取，这是已公开边界。</li><li>ASR、TTS、索引、记忆、预算账本与陪伴计划可按类别查看和删除；工作区与授权源目录永不纳入应用删除计划。</li><li>无云账户、无同步、无遥测。</li></ul></div>
+        <div class="guard-card reveal reveal-delay-1"><h3>联网与信任说明</h3><ul class="guard-list"><li>调用你选择的云模型时，本次任务所需提示与上下文会发送到相应 provider。</li><li>语音模型按需从固定来源下载并校验；核心首次启动不会联网安装依赖。</li><li>0.5.0 为 community-verified：应用采用 ad-hoc 签名，未使用 Developer ID，未公证。</li><li>0.4.1 → 0.5.0 是全新世代安装，不读取、迁移或删除旧秘密与状态。</li></ul></div>
       </div>
-    </section>
+    </div></section>
 
-    <!-- ========== 5. 能力清单 ========== -->
-    <section class="section" id="abilities">
-      <div class="section-inner">
-        <div class="section-label reveal">能力</div>
-        <h2 class="section-title reveal reveal-delay-1">0.4 真实能力清单</h2>
-        <p class="section-desc reveal reveal-delay-2">每一条都由当前 0.4.1 代码与真实验收覆盖——不是 roadmap。</p>
-        <div class="ability-grid">
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><circle cx="12" cy="10" r="2.5"/><line x1="14" y1="12" x2="16.5" y2="14.5"/></svg></div>
-            <h3>个人上下文 <span class="pill accent" style="font-size:.7em;vertical-align:middle;">0.4.1 新</span></h3>
-            <p>授权一个本地文档目录，本机 SQLite+FTS5 建立可删除的派生索引——原文件与完整索引留在本机、不改原文件、随时移除；使用云模型回答时，本次检索到的相关片段会发送给你选择的模型供应商。对话与任务自动检索，回答带 Host 验证的来源卡片：哪个文件、哪一节、是否已过时，跨重启如实更新。装好即有用：向导一步交资料，空会话直接给出从你文档标题生成的示例问题。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
-            <h3>penglai CLI 完全体</h3>
-            <p>裸跑即聊，首次向导配模型；doctor、status、迁移，日常运维一个命令。<code>doctor --export</code> 可生成明确排除凭证与产品状态的脱敏诊断包。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="11" cy="14" r="3"/><line x1="13.2" y1="16.2" x2="16" y2="19"/></svg></div>
-            <h3>文档与公开网页</h3>
-            <p>导入并读取 PDF、Word、Excel、PPT，生成标准 PDF / DOCX / XLSX / PPTX；常用文档和代码产物可在桌面内只读文本预览；搜索和抓取真实公网页面并保留引用，联网每次由你确认。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
-            <h3>审批四级制</h3>
-            <p>L1 自主 / L2 一键 / L3 强制确认+溯源 / L4 拒绝，全程留痕可回放。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
-            <h3>飞书渠道</h3>
-            <p>聊天、开工、进度、审批卡片——完整工作流在 IM 里闭环。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg></div>
-            <h3>Skill 与 MCP 生态</h3>
-            <p>本地/GitHub Skill 可验哈希安装、启停和卸载；MCP 仅手动连接、不自启，每次工具调用都由你 L3 确认。完工 SOP 仍经蒸馏审计入树。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
-            <h3>成本预算熔断</h3>
-            <p>用量账本全程可见；预算触顶先熔断、再请示，不静默烧钱。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
-            <h3>本地语音</h3>
-            <p>SenseVoice ASR + MOSS-TTS-Nano ONNX CPU 全管线；桌面录音转写与逐条朗读都在本机完成。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.8-7.8a5.5 5.5 0 0 0 1-7.8z"/></svg></div>
-            <h3>主动陪伴</h3>
-            <p>默认关闭；你选择安静、在场或主动。晨晚机会与情绪承接仍走同一 EpisodeRunner，不另起 Agent。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-            <h3>0.3 → 0.4 一键迁移</h3>
-            <p>记忆、模型档案、身份，一条命令从 0.3 带过来。</p>
-          </div>
-          <div class="ability reveal">
-            <div class="a-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
-            <h3>桌面证据轨</h3>
-            <p>安全 Markdown、普通文件 inbox、完整历史与完成通知；证据轨产物经项目围栏后可预览、直接打开或在 Finder 定位，事实来自真实观测，零 LLM 自述。</p>
-          </div>
-        </div>
+    <section class="section" id="start"><div class="section-inner">
+      <div class="section-label reveal">开始</div><h2 class="section-title reveal reveal-delay-1">下载、拖入应用程序、跟着向导走</h2>
+      <div class="quick-grid">
+        <div class="reveal"><div class="term"><div class="term-bar"><i></i><i></i><i></i></div><div class="term-body"><div class="term-comment"># 0.5.0 首发平台</div><div class="term-line">macOS 13+</div><div class="term-line">Apple Silicon · arm64</div><div class="term-line">M1 / M2 / M3 / M4</div><div class="term-comment"># Intel macOS 与 Windows：后续版本</div></div></div></div>
+        <div class="quick-notes reveal reveal-delay-1"><div class="quick-note"><span class="qn-num">一</span><div><b>下载 DMG。</b>发布页同时提供 SHA256SUMS、SBOM、第三方声明与公开导出清单。</div></div><div class="quick-note"><span class="qn-num">二</span><div><b>拖动 Penglai.app 到 Applications。</b>因为未公证，首次启动可能需要在“系统设置 → 隐私与安全性”中明确允许。</div></div><div class="quick-note"><span class="qn-num">三</span><div><b>完成首次向导。</b>选择语言与主题、provider 与 model，写入自己的 API Key 并真实测试，再创建工作区；IM 可以跳过。</div></div></div>
       </div>
-    </section>
+      <div class="hero-ctas reveal"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.0/Penglai_0.5.0_macos_aarch64.dmg" class="btn btn-primary">下载 Penglai 0.5.0</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0" class="btn btn-ghost">查看发布说明与校验文件</a></div>
+    </div></section>
 
-    <!-- ========== 6. 飞书审批（界面示意） ========== -->
-    <section class="section" id="approval">
-      <div class="section-inner">
-        <div class="split">
-          <div class="split-copy reveal">
-            <div class="section-label">审批</div>
-            <h3>点头，在聊天里完成</h3>
-            <p>改变外部状态的操作——推送、发布、删改——按四级制必须你确认。审批卡直接推到飞书会话里：<b>级别、操作、理由、任务</b>一目了然，批准或拒绝一键完成。</p>
-            <p>谁发起、谁决定、何时发生，<b>全程留痕可回放</b>。也可以不用按钮：回复「批准 b3f1c9a2」同样生效。</p>
-          </div>
-          <figure class="shot reveal reveal-delay-1">
-            <div class="shot-frame">
-              <img src="shots/feishu-approval.webp" alt="飞书会话中的蓬莱 L3 审批卡片：级别、任务、操作、理由与批准/拒绝按钮（界面示意）" width="980" height="700" loading="lazy">
-            </div>
-            <figcaption class="shot-caption">飞书 L3 审批卡片（界面示意；卡片结构取自产品真实协议）。</figcaption>
-          </figure>
-        </div>
+    <section class="section" id="legal"><div class="section-inner">
+      <div class="section-label reveal">开源与致谢</div><h2 class="section-title reveal reveal-delay-1">代码开放，边界清楚</h2>
+      <div class="legal-grid">
+        <div class="legal-card reveal"><h3>许可与品牌</h3><p><b>代码：</b>蓬莱公开源代码采用 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE">MIT</a>；第三方组件保留各自许可证与归属。</p><p><b>品牌：</b>“Penglai / 蓬莱”名称、logo 与视觉资产保留所有权利，不包含在代码许可证中。</p><p><b>版本：</b>公开 <code>main</code> 现在只呈现 0.5.0 的 DSH 发行版源树；旧版本仍可在 Git 历史与历史 Release 中查阅，但不再代表当前架构。</p></div>
+        <div class="legal-card reveal reveal-delay-1"><h3>站在优秀开源项目肩上</h3><ul class="ack-list"><li><a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> —— 0.5.0 唯一 Agent 与 Web UI 核心</li><li><a href="https://github.com/FunAudioLLM/SenseVoice">SenseVoice</a> · <a href="https://github.com/k2-fsa/sherpa-onnx">sherpa-onnx</a> —— 本地语音识别</li><li>MOSS-TTS-Nano 与所有随包依赖的准确归属，见 Release 中的 Third-Party Notices 与 SBOM。</li><li>产品方向、取舍、风险判断与发布由 Owner 负责；多个 AI 工具参与了不同阶段的实现与审查。</li></ul></div>
       </div>
-    </section>
-
-    <!-- ========== 7. 架构 ========== -->
-    <section class="section" id="architecture">
-      <div class="section-inner" style="text-align:center;">
-        <div class="section-label reveal" style="text-align:left;">架构</div>
-        <h2 class="section-title reveal reveal-delay-1" style="text-align:left;">一个核心，三类薄门</h2>
-        <p class="section-desc reveal reveal-delay-2" style="text-align:left;">Host 无头核心是唯一的产品核心；CLI、桌面、飞书与微信都是薄客户端——每条事实都来自 Host，客户端不持有产品状态。</p>
-        <div class="arch reveal">
-          <svg class="arch-svg" viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="蓬莱 0.4 架构：CLI、桌面和飞书/微信三类薄客户端连接 Host 无头核心，核心内是 Pi 开源内核，下方连接 BYOK 模型供应商">
-            <defs>
-              <style>
-                .node { fill: var(--surface, #fff); stroke: var(--line-strong, #D4CFC4); stroke-width: 1.2; }
-                .node-title { font: 600 15px var(--font-sans, sans-serif); fill: var(--ink, #1A1A1A); }
-                .node-sub { font: 12px var(--font-sans, sans-serif); fill: var(--ink-3, #8A8A82); }
-                .host-box { fill: none; stroke: var(--cinnabar, #C44531); stroke-width: 1.6; stroke-dasharray: 6 4; rx: 18; }
-                .host-title { font: 700 17px var(--font-serif, serif); fill: var(--cinnabar, #C44531); }
-                .edge { stroke: var(--line-strong, #D4CFC4); stroke-width: 1.4; fill: none; }
-                .edge-label { font: 11px var(--font-sans, sans-serif); fill: var(--ink-3, #8A8A82); }
-                .pi-box { fill: var(--surface-2, #F6F4EE); stroke: var(--gold, #B98A2E); stroke-width: 1.2; }
-              </style>
-            </defs>
-
-            <!-- 三类薄客户端：CLI、Desktop、IM（飞书 / 微信） -->
-            <g>
-              <rect class="node" x="60" y="40" width="190" height="64" rx="12"/>
-              <text class="node-title" x="155" y="68" text-anchor="middle">penglai CLI</text>
-              <text class="node-sub" x="155" y="90" text-anchor="middle">裸跑即聊 · 运维完全体</text>
-            </g>
-            <g>
-              <rect class="node" x="60" y="168" width="190" height="64" rx="12"/>
-              <text class="node-title" x="155" y="196" text-anchor="middle">桌面工作台</text>
-              <text class="node-sub" x="155" y="218" text-anchor="middle">Tauri · 任务面 + 证据轨</text>
-            </g>
-            <g>
-              <rect class="node" x="60" y="296" width="190" height="64" rx="12"/>
-              <text class="node-title" x="155" y="324" text-anchor="middle">飞书 / 微信</text>
-              <text class="node-sub" x="155" y="346" text-anchor="middle">聊天 · 开工 · 审批 · 陪伴</text>
-            </g>
-
-            <!-- Host 无头核心 -->
-            <rect class="host-box" x="420" y="96" width="250" height="208" rx="18"/>
-            <text class="host-title" x="545" y="132" text-anchor="middle">Host 无头核心</text>
-            <text class="node-sub" x="545" y="154" text-anchor="middle">唯一产品核心 · 单对话面 · 审批四级</text>
-            <rect class="pi-box" x="456" y="176" width="178" height="84" rx="12"/>
-            <text class="node-title" x="545" y="210" text-anchor="middle">Pi 开源内核</text>
-            <text class="node-sub" x="545" y="232" text-anchor="middle">@earendil-works/pi-agent-core</text>
-            <text class="node-sub" x="545" y="250" text-anchor="middle">MIT</text>
-
-            <!-- BYOK 模型 -->
-            <g>
-              <rect class="node" x="760" y="140" width="140" height="120" rx="12"/>
-              <text class="node-title" x="830" y="176" text-anchor="middle">BYOK 模型</text>
-              <text class="node-sub" x="830" y="200" text-anchor="middle">11 家供应商目录</text>
-              <text class="node-sub" x="830" y="220" text-anchor="middle">任意 OpenAI</text>
-              <text class="node-sub" x="830" y="238" text-anchor="middle">兼容端点</text>
-            </g>
-
-            <!-- 连线 -->
-            <path class="edge" d="M250 72 C 340 72, 340 130, 415 145"/>
-            <path class="edge" d="M250 200 C 330 200, 340 200, 415 200"/>
-            <path class="edge" d="M250 328 C 340 328, 340 270, 415 255"/>
-            <path class="edge" d="M670 200 L 755 200"/>
-            <text class="edge-label" x="332" y="52" text-anchor="middle">薄客户端</text>
-            <text class="edge-label" x="712" y="188" text-anchor="middle">自带 key</text>
-          </svg>
-        </div>
-        <p class="arch-note reveal">0.3 的执行内核是 GenericAgent（致谢「基因」）；0.4 重写后，Pi 是引擎，Host 是产品。</p>
-      </div>
-    </section>
-
-    <!-- ========== 8. 安全与隐私 + BYOK ========== -->
-    <section class="section" id="security">
-      <div class="section-inner">
-        <div class="section-label reveal">安全与隐私</div>
-        <h2 class="section-title reveal reveal-delay-1">确定性护栏，不靠模型自觉</h2>
-        <div class="guard-grid">
-          <div class="guard-card reveal">
-            <h3>数据主权</h3>
-            <ul class="guard-list">
-              <li><b>默认自托管</b>API key、聊天记录、长期记忆、渠道凭据由本机持久保存；模型调用只发送当前任务需要的提示与上下文。</li>
-              <li><b>审批留痕</b>四级审批谁发起、谁决定、何时发生，全部落账，可回放。</li>
-              <li><b>注入防线</b>文档、网页与 MCP 返回都包裹为不可信数据；即使其中伪装成系统或 Owner 指令也不得执行，敏感动作仍走确定性审批。</li>
-              <li><b>语音不出机</b>SenseVoice ASR + MOSS-TTS-Nano 全在本机 CPU 完成，语音数据不出机。</li>
-            </ul>
-          </div>
-          <div class="guard-card reveal reveal-delay-1">
-            <h3>BYOK · 自带 key</h3>
-            <ul class="guard-list">
-              <li><b>11 家供应商目录内置</b>安装向导逐项验活，key 存于本机 0600 私密文件。</li>
-              <li><b>OpenAI 兼容端点</b>公网网关强制 HTTPS；HTTP 只允许本机 localhost / 127.0.0.1 / ::1。</li>
-            </ul>
-            <div class="provider-row">
-              <span>DeepSeek</span><span>字节火山</span><span>阿里百炼</span><span>智谱</span><span>MiniMax</span><span>Kimi</span><span>OpenRouter</span><span>…</span><span>OpenAI 兼容端点</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 9. 快速开始 ========== -->
-    <section class="section" id="start">
-      <div class="section-inner">
-        <div class="section-label reveal">快速开始</div>
-        <h2 class="section-title reveal reveal-delay-1">三行命令，把它叫醒</h2>
-        <div class="quick-grid">
-          <div class="reveal">
-            <div class="term">
-              <div class="term-bar"><i></i><i></i><i></i></div>
-              <div class="term-body">
-                <div class="term-line"><span class="prompt">$ </span>npm ci</div>
-                <div class="term-line"><span class="prompt">$ </span>npm run cli -w @penglai/host -- setup</div>
-                <div class="term-line"><span class="prompt">$ </span>npm run cli -w @penglai/host -- chat</div>
-                <div class="term-comment"># 首次配置后，进入同一个对话面</div>
-              </div>
-            </div>
-          </div>
-          <div class="quick-notes reveal reveal-delay-1">
-            <div class="quick-note">
-              <span class="qn-num">一</span>
-              <div><b>首次向导，一分钟接上大脑。</b>选供应商 → 选计费 → 选模型 → 填 key → 真实调用验活，全程中文分页。</div>
-            </div>
-            <div class="quick-note">
-              <span class="qn-num">二</span>
-              <div><b>不想碰命令行？</b>直接下载 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_aarch64.dmg">Apple 芯片版</a>或 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.4.1/Penglai_0.4.1_macos_x64.dmg">Intel 版</a>。桌面首次启动即同一只向导。安装包采用与 0.3.6 相同的本地签名方式，未购买 Apple 开发者证书、未公证；首次打开如被 Gatekeeper 拦截，请在“系统设置 → 隐私与安全性”中确认允许。</div>
-            </div>
-            <div class="quick-note">
-              <span class="qn-num">三</span>
-              <div><b>从 0.3 来？</b>一条命令迁移记忆、模型档案与身份，老管家无缝换新引擎。</div>
-            </div>
-          </div>
-        </div>
-        <figure class="shot quick-shot reveal">
-          <div class="shot-frame">
-            <div class="shot-bar"><i></i><i></i><i></i><span>penglai setup</span></div>
-            <img src="shots/cli-wizard.webp" alt="penglai 首次向导实拍：11 家供应商目录、计费模式、模型选择、key 验证" width="963" height="1231" loading="lazy">
-          </div>
-          <figcaption class="shot-caption">首次向导实拍：内置 11 家供应商目录 + HTTPS / 本机 OpenAI 兼容端点，key 存本机私密文件。</figcaption>
-        </figure>
-        <div class="quick-shots-duo">
-          <figure class="shot reveal">
-            <div class="shot-frame">
-              <div class="shot-bar"><i></i><i></i><i></i><span>蓬莱桌面 · 首次启动向导</span></div>
-              <img src="shots/desktop-wizard-provider.webp" alt="桌面首次启动向导实拍：供应商选择页，11 家供应商目录加自定义 OpenAI 兼容端点" width="1600" height="1120" loading="lazy">
-            </div>
-            <figcaption class="shot-caption">桌面首次启动即向导：同一只供应商目录（11 家 + 自定义端点），逐页可返回。</figcaption>
-          </figure>
-          <figure class="shot reveal reveal-delay-1">
-            <div class="shot-frame">
-              <div class="shot-bar"><i></i><i></i><i></i><span>蓬莱桌面 · 身份诞生</span></div>
-              <img src="shots/desktop-wizard-identity.webp" alt="桌面首次启动向导实拍：冒烟验证通过后，起名并举行身份诞生仪式，自我介绍与种子工作纪律入树" width="1600" height="1120" loading="lazy">
-            </div>
-            <figcaption class="shot-caption">key 真实验活后，给它起个名字——自我介绍、第一套工作纪律过审入树，只做一次。</figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 10. License & 致谢 ========== -->
-    <section class="section" id="legal">
-      <div class="section-inner">
-        <div class="section-label reveal">许可与致谢</div>
-        <h2 class="section-title reveal reveal-delay-1">License &amp; Brand</h2>
-        <div class="legal-grid">
-          <div class="legal-card reveal">
-            <h3>许可</h3>
-            <p><b>代码：</b>蓬莱与保留的 GenericAgent 代码采用 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>；MOSS-TTS Node 适配等第三方组件保留各自许可证与归属，详见 Third-Party Notices。</p>
-            <p><b>品牌：</b>「Penglai / 蓬莱」名称、logo 与视觉资产<b>保留所有权利</b>，不在代码许可证内。用于你的发行版、衍生品或商业冠名前，请先取得书面授权。</p>
-            <p><b>版本边界：</b>基于 GenericAgent 的 Python 产品线（0.3.x）冻结在历史标签 <code>v0.3.6</code>；当前 <code>main</code> 与正式 <code>v0.4.x</code> Release 是以 Pi 为核心的 TypeScript 重写，最新版本 <code>v0.4.1</code>。</p>
-          </div>
-          <div class="legal-card reveal reveal-delay-1">
-            <h3>致谢 · 开源基础与协作工具</h3>
-            <ul class="ack-list">
-              <li><a href="https://github.com/earendil-works/pi-agent-core" target="_blank" rel="noopener">Pi · @earendil-works/pi-agent-core</a><span class="lic">MIT</span> —— 引擎：0.4 的开源内核</li>
-              <li><a href="https://github.com/lsdefine/GenericAgent" target="_blank" rel="noopener">GenericAgent</a><span class="lic">MIT</span> —— 基因：0.3 的执行内核，致以最干净的 Agent 实现</li>
-              <li><a href="https://github.com/FunAudioLLM/SenseVoice" target="_blank" rel="noopener">SenseVoice</a><span class="lic">MIT</span> · <a href="https://github.com/k2-fsa/sherpa-onnx" target="_blank" rel="noopener">sherpa-onnx</a><span class="lic">Apache-2.0</span> —— 本地语音</li>
-              <li><a href="https://github.com/tauri-apps/tauri" target="_blank" rel="noopener">Tauri</a><span class="lic">MIT/Apache-2.0</span> —— 桌面外壳</li>
-              <li><b>协作开发：</b><a href="https://www.moonshot.cn/" target="_blank" rel="noopener">Kimi Work</a>、<a href="https://x.ai/" target="_blank" rel="noopener">Grok Build</a>、<a href="https://www.cursor.com/" target="_blank" rel="noopener">Cursor</a> 与 <a href="https://openai.com/codex/" target="_blank" rel="noopener">OpenAI Codex</a> 在不同阶段参与实现、审查与迭代。</li>
-              <li><b>责任归属：</b>产品方向、架构取舍、风险判断、验收和发布由 Owner 主导并负责；没有任何单一模型或平台独立完成整个版本。</li>
-            </ul>
-          </div>
-        </div>
-        <div class="legacy-note reveal">
-          官方渠道仅此 GitHub 仓库与本站。请勿在非官方站点或机器人中输入 API Key、机器人令牌或账户凭据。安全反馈请先脱敏；另见仓库 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a> 与 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/docs/PRIVACY_AND_DATA.md" target="_blank" rel="noopener">隐私与本地数据</a>。
-        </div>
-      </div>
-    </section>
-
+      <div class="legacy-note reveal">官方渠道仅此 GitHub 仓库与本站。不要在非官方网页或机器人中输入 API Key、微信 token、飞书 App Secret 或其他凭据。安全问题请先脱敏后按 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">SECURITY.md</a> 报告。</div>
+    </div></section>
   </main>
 
-  <!-- ========== 11. Footer ========== -->
-  <footer class="footer">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <span class="seal">蓬</span>
-        <div>
-          <div class="footer-brand-name">蓬莱 Penglai</div>
-          <div class="footer-brand-tag">八仙过海，各显神通。</div>
-        </div>
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases" target="_blank" rel="noopener">Releases</a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/issues" target="_blank" rel="noopener">Issues</a>
-        <a href="./en/" hreflang="en">English</a>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2026 Kevin Chen · 代码 MIT · 品牌保留所有权利</span>
-      <span class="ver">v0.4.1</span>
-    </div>
-  </footer>
-
-  <!-- 仙气 Perlin 流场粒子（随系统深浅色换色） -->
-  <script>
-  (function() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    var perlin = (function() {
-      var p = [];
-      for (var i = 0; i < 256; i++) p[i] = Math.floor(Math.random() * 256);
-      var perm = [];
-      for (var j = 0; j < 512; j++) perm[j] = p[j & 255];
-      function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
-      function lerp(t, a, b) { return a + t * (b - a); }
-      function grad(hash, x, y) {
-        var h = hash & 3;
-        var u = h < 2 ? x : y;
-        var v = h < 2 ? y : x;
-        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-      }
-      return function noise(x, y) {
-        var X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
-        x -= Math.floor(x); y -= Math.floor(y);
-        var u = fade(x), v = fade(y);
-        var A = perm[X] + Y, B = perm[X + 1] + Y;
-        return lerp(v,
-          lerp(u, grad(perm[A], x, y), grad(perm[B], x - 1, y)),
-          lerp(u, grad(perm[A + 1], x, y - 1), grad(perm[B + 1], x - 1, y - 1))
-        );
-      };
-    })();
-
-    var canvas = document.getElementById('fairy-canvas');
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var W, H;
-    var particles = [];
-    var PARTICLE_COUNT = 90;
-    var NOISE_SCALE = 0.003;
-    var NOISE_SPEED = 0.0004;
-    var time = 0;
-    var mouse = { x: -9999, y: -9999, active: false };
-    var MOUSE_RADIUS = 360;
-    var MOUSE_FORCE = 2.2;
-    var darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-    function palette() {
-      return darkQuery.matches
-        ? [
-            { r: 85,  g: 169, b: 203 },  // 青
-            { r: 120, g: 190, b: 215 },  // 浅青
-            { r: 233, g: 231, b: 223 },  // 纸白
-            { r: 90,  g: 150, b: 180 },  // 灰青
-            { r: 205, g: 167, b: 94  },  // 金
-            { r: 214, g: 106, b: 85  },  // 朱砂
-          ]
-        : [
-            { r: 22,  g: 133, b: 169 },  // 青
-            { r: 150, g: 210, b: 230 },  // 浅蓝
-            { r: 120, g: 118, b: 110 },  // 墨灰
-            { r: 200, g: 230, b: 240 },  // 极浅蓝
-            { r: 185, g: 138, b: 46  },  // 金
-            { r: 196, g: 69,  b: 49  },  // 朱砂
-          ];
-    }
-    var colors = palette();
-    darkQuery.addEventListener('change', function() { colors = palette(); });
-
-    function resize() {
-      W = canvas.width = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    }
-
-    function Particle() { this.reset(); this.trail = []; }
-    Particle.prototype.reset = function() {
-      this.x = Math.random() * W;
-      this.y = Math.random() * H;
-      this.speed = 0.3 + Math.random() * 1.1;
-      this.life = 0;
-      this.maxLife = 200 + Math.random() * 400;
-      this.maxTrail = 24 + Math.floor(Math.random() * 30);
-      this.trail = [];
-      var r = Math.random();
-      if (r < 0.05) this.color = colors[5];
-      else if (r < 0.2) this.color = colors[4];
-      else if (r < 0.35) this.color = colors[0];
-      else if (r < 0.55) this.color = colors[1];
-      else this.color = colors[Math.random() < 0.5 ? 2 : 3];
-      this.width = 0.5 + Math.random() * 1.4;
-    };
-    Particle.prototype.update = function() {
-      this.trail.push({ x: this.x, y: this.y });
-      if (this.trail.length > this.maxTrail) this.trail.shift();
-      var angle = perlin(this.x * NOISE_SCALE, this.y * NOISE_SCALE + time) * Math.PI * 4;
-      var vx = Math.cos(angle) * this.speed;
-      var vy = Math.sin(angle) * this.speed - 0.3;
-      if (mouse.active) {
-        var dx = mouse.x - this.x;
-        var dy = mouse.y - this.y;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < MOUSE_RADIUS && dist > 1) {
-          var force = (1 - dist / MOUSE_RADIUS) * MOUSE_FORCE;
-          vx += (dx / dist) * force;
-          vy += (dy / dist) * force;
-        }
-      }
-      this.x += vx;
-      this.y += vy;
-      this.life++;
-      if (this.life > this.maxLife || this.x < -20 || this.x > W + 20 || this.y < -20 || this.y > H + 20) {
-        this.reset();
-        if (Math.random() < 0.6) { this.y = H + Math.random() * 20; this.x = Math.random() * W; }
-      }
-    };
-    Particle.prototype.draw = function() {
-      var len = this.trail.length;
-      if (len < 2) return;
-      var lifeAlpha;
-      if (this.life < 30) lifeAlpha = this.life / 30;
-      else if (this.life > this.maxLife - 60) lifeAlpha = (this.maxLife - this.life) / 60;
-      else lifeAlpha = 1;
-      lifeAlpha *= darkQuery.matches ? 0.5 : 0.38;
-      var c = this.color;
-      for (var i = 1; i < len; i++) {
-        var t = i / len;
-        var alpha = t * lifeAlpha;
-        ctx.strokeStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')';
-        ctx.lineWidth = this.width * (0.3 + t * 0.7);
-        ctx.beginPath();
-        ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
-        ctx.lineTo(this.trail[i].x, this.trail[i].y);
-        ctx.stroke();
-      }
-    };
-
-    function init() {
-      resize();
-      particles = [];
-      for (var i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
-    }
-
-    function animate() {
-      if (!document.hidden) {
-        ctx.clearRect(0, 0, W, H);
-        for (var i = 0; i < particles.length; i++) {
-          particles[i].update();
-          particles[i].draw();
-        }
-        time += NOISE_SPEED;
-      }
-      requestAnimationFrame(animate);
-    }
-
-    window.addEventListener('resize', resize);
-    document.addEventListener('mousemove', function(e) {
-      mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
-    });
-    document.addEventListener('mouseleave', function() { mouse.active = false; });
-    init();
-    animate();
-  })();
-  </script>
-
-  <script>
-  (function() {
-    'use strict';
-    var nav = document.getElementById('nav');
-    window.addEventListener('scroll', function() {
-      nav.classList.toggle('scrolled', window.scrollY > 10);
-    }, { passive: true });
-
-    var navToggle = document.getElementById('navToggle');
-    var navLinks = document.getElementById('navLinks');
-    navToggle.addEventListener('click', function() {
-      var open = navLinks.classList.toggle('open');
-      navToggle.setAttribute('aria-expanded', String(open));
-    });
-    navLinks.querySelectorAll('a').forEach(function(link) {
-      link.addEventListener('click', function() {
-        navLinks.classList.remove('open');
-        navToggle.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    var revealObserver = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) entry.target.classList.add('revealed');
-      });
-    }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
-    document.querySelectorAll('.reveal').forEach(function(el) { revealObserver.observe(el); });
-  })();
-  </script>
+  <footer class="footer"><div class="footer-inner"><div class="footer-brand"><span class="seal">蓬</span><div><div class="footer-brand-name">蓬莱 Penglai</div><div class="footer-brand-tag">八仙过海，各显神通。</div></div></div><div class="footer-links"><a href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases">Releases</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/issues">Issues</a><a href="./en/" hreflang="en">English</a></div></div><div class="footer-bottom"><span>© 2026 Kevin Chen · 代码 MIT · 品牌保留所有权利</span><span class="ver">v0.5.0</span></div></footer>
+  <script src="scripts/site.js"></script>
 </body>
 </html>
