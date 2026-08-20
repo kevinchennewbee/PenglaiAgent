@@ -1,0 +1,467 @@
+import { randomUUID } from "node:crypto";
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { PenglaiError } from "@penglai/contracts";
+import {
+  assertPluginPackageManifest,
+  extractTarGz,
+  sha256File,
+  type PluginCatalogEntry,
+} from "@penglai/runtime";
+
+export interface ProfileTxResult {
+  phase: "committed" | "rolled_back";
+  id: string;
+  action: "enable" | "disable" | "update" | "rollback";
+  operationId?: string;
+  version?: string;
+  restartRequired?: boolean;
+  previousEnabled?: boolean;
+}
+
+export interface ResourceCounts {
+  workers: number;
+  sockets: number;
+  timers: number;
+  remotes: number;
+  db: number;
+  modelSessions: number;
+  audioHandles: number;
+}
+
+interface TransactionJournal {
+  schema: 2;
+  operationId: string;
+  phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
+  id: string;
+  action: ProfileTxResult["action"];
+  previousEnabled: boolean;
+  version?: string;
+  packageSha256?: string;
+  errorClass?: string;
+}
+
+function isUnder(root: string, candidate: string): boolean {
+  const rel = relative(resolve(root), resolve(candidate));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function assertTransactionPaths(opts: {
+  userDataRoot: string;
+  profileDir: string;
+  txDir: string;
+}): void {
+  if (
+    !isAbsolute(opts.userDataRoot) ||
+    !isUnder(opts.userDataRoot, opts.profileDir) ||
+    !isUnder(opts.userDataRoot, opts.txDir) ||
+    resolve(opts.profileDir) === resolve(opts.userDataRoot) ||
+    resolve(opts.txDir) === resolve(opts.userDataRoot)
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "Center transaction path escaped userData");
+  }
+  if (existsSync(opts.profileDir) && lstatSync(opts.profileDir).isSymbolicLink()) {
+    throw new PenglaiError("SECURITY_POLICY", "Center profile must not be a symlink");
+  }
+  if (existsSync(opts.txDir) && lstatSync(opts.txDir).isSymbolicLink()) {
+    throw new PenglaiError("SECURITY_POLICY", "Center transaction dir must not be a symlink");
+  }
+}
+
+function copyDir(src: string, dest: string): void {
+  if (!existsSync(src) || !lstatSync(src).isDirectory()) {
+    throw new PenglaiError("STORE_CORRUPT", "profile directory missing");
+  }
+  mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+  cpSync(src, dest, {
+    recursive: true,
+    dereference: false,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: false,
+  });
+}
+
+function atomicJournal(path: string, value: unknown): void {
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync(temp, JSON.stringify(value, null, 2), {
+    mode: 0o600,
+    flag: "w",
+  });
+  renameSync(temp, path);
+}
+
+export function setPatchDisabled(
+  patchText: string,
+  pluginId: string,
+  disabled: boolean,
+): string {
+  const short = pluginId.replace("@penglai/", "penglai-");
+  const endsWithNl = patchText.endsWith("\n");
+  const lines = patchText.split("\n");
+  const out: string[] = [];
+  let block: string[] = [];
+  let matches = 0;
+  const flush = (): void => {
+    if (!block.length) return;
+    const text = block.join("\n");
+    const hit =
+      text.includes(`name: "${pluginId}"`) ||
+      text.includes(`name: '${pluginId}'`) ||
+      text.includes(`id: ${short}`);
+    if (hit) {
+      matches += 1;
+      const idLine = block.find((line) => /^\s*-\s+id:\s+/.test(line)) ?? "";
+      const idIndent = /^(\s*)/.exec(idLine)?.[1] ?? "    ";
+      const fieldIndent = `${idIndent}  `;
+      const kept = block.filter((line) => !/^\s*disabled:\s+/.test(line));
+      while (kept.length && kept[kept.length - 1] === "") kept.pop();
+      kept.push(`${fieldIndent}disabled: ${disabled ? "true" : "false"}`);
+      out.push(...kept);
+    } else {
+      out.push(...block);
+    }
+    block = [];
+  };
+  for (const line of lines) {
+    if (/^\s*-\s+id:\s+/.test(line)) flush();
+    block.push(line);
+  }
+  flush();
+  if (matches !== 1) {
+    throw new PenglaiError(
+      "STORE_CORRUPT",
+      `${pluginId} profile entry count ${matches}`,
+    );
+  }
+  const joined = out.join("\n");
+  return endsWithNl && !joined.endsWith("\n") ? `${joined}\n` : joined;
+}
+
+export { sha256File };
+
+export function assertPackageIntegrity(
+  packageFile: string,
+  expectedSha: string,
+): string {
+  if (!existsSync(packageFile)) {
+    throw new PenglaiError("INVALID_INPUT", "package missing");
+  }
+  if (!/^[0-9a-f]{64}$/.test(expectedSha)) {
+    throw new PenglaiError("SECURITY_POLICY", "checksum required");
+  }
+  const got = sha256File(packageFile);
+  if (expectedSha !== got) {
+    throw new PenglaiError("SECURITY_POLICY", "checksum mismatch");
+  }
+  return got;
+}
+
+function extractedRoot(directory: string): string {
+  if (existsSync(join(directory, "package.json"))) return directory;
+  const nested = join(directory, "package");
+  if (existsSync(join(nested, "package.json"))) return nested;
+  throw new PenglaiError("STORE_CORRUPT", "package.json missing");
+}
+
+async function verifyExtractedPackage(
+  directory: string,
+  entry: PluginCatalogEntry,
+  importModule = true,
+): Promise<string> {
+  const root = extractedRoot(directory);
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as unknown;
+  assertPluginPackageManifest(manifest, entry);
+  const host = join(root, "dist", "index.js");
+  if (!existsSync(host)) {
+    throw new PenglaiError("STORE_CORRUPT", `${entry.id} host bundle missing`);
+  }
+  if (entry.hasClient && !existsSync(join(root, "dist", "client.js"))) {
+    throw new PenglaiError("STORE_CORRUPT", `${entry.id} client bundle missing`);
+  }
+  const source = readFileSync(host, "utf8");
+  if (/from\s+["'][^"']*\/src\/|\.tsx?["']/.test(source)) {
+    throw new PenglaiError("SECURITY_POLICY", `${entry.id} source dependency in package`);
+  }
+  if (importModule) {
+    const loaded = (await import(
+      `${pathToFileURL(host).href}?penglai-dry=${randomUUID()}`
+    )) as Record<string, unknown>;
+    const plugin = (loaded.default ?? loaded) as Record<string, unknown>;
+    if (
+      typeof loaded.apply !== "function" &&
+      typeof plugin.apply !== "function" &&
+      typeof loaded.default !== "function"
+    ) {
+      throw new PenglaiError("STORE_CORRUPT", `${entry.id} plugin apply export missing`);
+    }
+  }
+  return root;
+}
+
+export async function dryLoadPackage(
+  packageFile: string,
+  entry: PluginCatalogEntry,
+): Promise<{ name: string; version: string; sha256: string }> {
+  const sha256 = assertPackageIntegrity(packageFile, entry.sha256);
+  const temp = `${packageFile}.dry-${process.pid}-${randomUUID()}`;
+  mkdirSync(temp, { recursive: true, mode: 0o700 });
+  try {
+    extractTarGz(readFileSync(packageFile), temp);
+    await verifyExtractedPackage(temp, entry);
+    return { name: entry.id, version: entry.version, sha256 };
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function assertResourceZero(snapshot: ResourceCounts): void {
+  for (const [name, value] of Object.entries(snapshot)) {
+    if (!Number.isSafeInteger(value) || value !== 0) {
+      throw new PenglaiError(
+        "DSH_UNAVAILABLE",
+        `plugin resource ${name} not zero: ${String(value)}`,
+      );
+    }
+  }
+}
+
+export async function runProfileTransaction(opts: {
+  userDataRoot: string;
+  profileDir: string;
+  txDir: string;
+  pluginsDir: string;
+  entry: PluginCatalogEntry;
+  action: "enable" | "disable" | "update";
+  previousEnabled: boolean;
+  applyLive: (input: {
+    id: string;
+    enabled: boolean;
+    forceReload: boolean;
+  }) => Promise<void>;
+  verifyActual: (input: {
+    id: string;
+    enabled: boolean;
+  }) => Promise<void>;
+  readResources?: () => ResourceCounts;
+  commitDesired: (enabled: boolean) => void;
+  rollbackDesired: (enabled: boolean) => void;
+}): Promise<ProfileTxResult> {
+  assertTransactionPaths(opts);
+  if (!isAbsolute(opts.pluginsDir)) {
+    throw new PenglaiError("SECURITY_POLICY", "trusted plugin directory must be absolute");
+  }
+  mkdirSync(opts.txDir, { recursive: true, mode: 0o700 });
+  const operationId = randomUUID();
+  const journalPath = join(opts.txDir, "journal.json");
+  const lock = join(opts.txDir, "active.lock");
+  const lastGood = join(opts.txDir, "last-good");
+  const staging = join(opts.txDir, `staging-${operationId}`);
+  const packageStage = join(opts.txDir, `package-${operationId}`);
+  const backup = `${opts.profileDir}.center-backup`;
+  const desiredEnabled =
+    opts.action === "disable"
+      ? false
+      : opts.action === "enable"
+        ? true
+        : opts.previousEnabled;
+  const journal: TransactionJournal = {
+    schema: 2,
+    operationId,
+    phase: "staging",
+    id: opts.entry.id,
+    action: opts.action,
+    previousEnabled: opts.previousEnabled,
+    version: opts.entry.version,
+    ...(opts.action === "update" || opts.action === "enable"
+      ? { packageSha256: opts.entry.sha256 }
+      : {}),
+  };
+  writeFileSync(lock, operationId, { mode: 0o600, flag: "wx" });
+  let swapped = false;
+  try {
+    rmSync(staging, { recursive: true, force: true });
+    rmSync(packageStage, { recursive: true, force: true });
+    rmSync(lastGood, { recursive: true, force: true });
+    copyDir(opts.profileDir, lastGood);
+    atomicJournal(journalPath, journal);
+    copyDir(opts.profileDir, staging);
+    const patchPath = join(staging, "cordis.patch.yml");
+    if (!existsSync(patchPath)) {
+      throw new PenglaiError("STORE_CORRUPT", "cordis.patch.yml missing");
+    }
+    const nextPatch = setPatchDisabled(
+      readFileSync(patchPath, "utf8"),
+      opts.entry.id,
+      !desiredEnabled,
+    );
+    writeFileSync(patchPath, nextPatch, { mode: 0o600 });
+    const scoped = join(staging, "node_modules", ...opts.entry.id.split("/"));
+    if (
+      opts.action === "update" ||
+      (opts.action === "enable" && !existsSync(scoped))
+    ) {
+      const packageFile = join(opts.pluginsDir, opts.entry.packageFile);
+      if (!isUnder(opts.pluginsDir, packageFile)) {
+        throw new PenglaiError("SECURITY_POLICY", "plugin package escaped catalog root");
+      }
+      assertPackageIntegrity(packageFile, opts.entry.sha256);
+      mkdirSync(packageStage, { recursive: true, mode: 0o700 });
+      extractTarGz(readFileSync(packageFile), packageStage);
+      const packageRoot = await verifyExtractedPackage(packageStage, opts.entry, false);
+      rmSync(scoped, { recursive: true, force: true });
+      copyDir(packageRoot, scoped);
+      await verifyExtractedPackage(scoped, opts.entry, true);
+    } else if (opts.action === "enable") {
+      await verifyExtractedPackage(scoped, opts.entry, true);
+    }
+    journal.phase = "activating";
+    atomicJournal(journalPath, journal);
+    rmSync(backup, { recursive: true, force: true });
+    renameSync(opts.profileDir, backup);
+    try {
+      renameSync(staging, opts.profileDir);
+      swapped = true;
+    } catch (error) {
+      renameSync(backup, opts.profileDir);
+      throw error;
+    }
+    await opts.applyLive({
+      id: opts.entry.id,
+      enabled: desiredEnabled,
+      forceReload: opts.action === "update",
+    });
+    journal.phase = "verifying";
+    atomicJournal(journalPath, journal);
+    await opts.verifyActual({ id: opts.entry.id, enabled: desiredEnabled });
+    if (!desiredEnabled) {
+      if (!opts.readResources) {
+        throw new PenglaiError("DSH_UNAVAILABLE", `${opts.entry.id} resource probe missing`);
+      }
+      assertResourceZero(opts.readResources());
+    }
+    opts.commitDesired(desiredEnabled);
+    journal.phase = "committed";
+    atomicJournal(journalPath, journal);
+    rmSync(backup, { recursive: true, force: true });
+    return {
+      phase: "committed",
+      id: opts.entry.id,
+      action: opts.action,
+      operationId,
+      version: opts.entry.version,
+      restartRequired: opts.action === "update",
+    };
+  } catch (error) {
+    try {
+      if (swapped && existsSync(backup)) {
+        const failed = `${opts.profileDir}.failed-${operationId}`;
+        renameSync(opts.profileDir, failed);
+        renameSync(backup, opts.profileDir);
+        rmSync(failed, { recursive: true, force: true });
+      }
+      await opts.applyLive({
+        id: opts.entry.id,
+        enabled: opts.previousEnabled,
+        forceReload: opts.action === "update",
+      });
+      await opts.verifyActual({ id: opts.entry.id, enabled: opts.previousEnabled });
+      opts.rollbackDesired(opts.previousEnabled);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        `Center transaction and rollback failed for ${opts.entry.id}`,
+      );
+    } finally {
+      journal.phase = "rolled_back";
+      journal.errorClass =
+        error instanceof PenglaiError ? error.errorClass : "DSH_UNAVAILABLE";
+      atomicJournal(journalPath, journal);
+    }
+    throw error;
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+    rmSync(packageStage, { recursive: true, force: true });
+    rmSync(lock, { force: true });
+  }
+}
+
+export function recoverInterruptedTransaction(opts: {
+  userDataRoot: string;
+  profileDir: string;
+  txDir: string;
+  id?: string;
+}): ProfileTxResult | { phase: "idle" | "committed" } {
+  assertTransactionPaths(opts);
+  const journalPath = join(opts.txDir, "journal.json");
+  const lockPath = join(opts.txDir, "active.lock");
+  if (!existsSync(journalPath)) {
+    rmSync(lockPath, { force: true });
+    return { phase: "idle" };
+  }
+  const raw = JSON.parse(readFileSync(journalPath, "utf8")) as {
+    phase?: string;
+    id?: string;
+    previousEnabled?: boolean;
+  };
+  if (raw.phase === "committed") {
+    rmSync(lockPath, { force: true });
+    return { phase: "committed" };
+  }
+  if (["staging", "activating", "verifying"].includes(String(raw.phase))) {
+    const id = opts.id ?? raw.id;
+    if (!id || typeof raw.previousEnabled !== "boolean") {
+      throw new PenglaiError("STORE_CORRUPT", "Center recovery journal incomplete");
+    }
+    const out = rollbackLastGood({ ...opts, id });
+    rmSync(lockPath, { force: true });
+    return { ...out, previousEnabled: raw.previousEnabled };
+  }
+  rmSync(lockPath, { force: true });
+  return { phase: "idle" };
+}
+
+export function rollbackLastGood(opts: {
+  userDataRoot: string;
+  profileDir: string;
+  txDir: string;
+  id: string;
+}): ProfileTxResult {
+  assertTransactionPaths(opts);
+  const lastGood = join(opts.txDir, "last-good");
+  if (!existsSync(lastGood)) {
+    throw new PenglaiError("STORE_CORRUPT", "last-good missing");
+  }
+  const staging = join(opts.txDir, `rollback-${randomUUID()}`);
+  const backup = `${opts.profileDir}.rollback-backup`;
+  const activationBackup = `${opts.profileDir}.center-backup`;
+  copyDir(lastGood, staging);
+  rmSync(backup, { recursive: true, force: true });
+  if (existsSync(opts.profileDir)) renameSync(opts.profileDir, backup);
+  try {
+    renameSync(staging, opts.profileDir);
+    rmSync(backup, { recursive: true, force: true });
+    rmSync(activationBackup, { recursive: true, force: true });
+  } catch (error) {
+    if (!existsSync(opts.profileDir) && existsSync(backup)) {
+      renameSync(backup, opts.profileDir);
+    }
+    throw error;
+  }
+  const journalPath = join(opts.txDir, "journal.json");
+  if (existsSync(journalPath)) {
+    const raw = JSON.parse(readFileSync(journalPath, "utf8")) as Record<string, unknown>;
+    atomicJournal(journalPath, { ...raw, phase: "rolled_back" });
+  }
+  return { phase: "rolled_back", id: opts.id, action: "rollback" };
+}

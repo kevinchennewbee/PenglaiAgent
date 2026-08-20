@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "references": [
+    { "path": "../contracts" },
+    { "path": "../persistence" },
+    { "path": "../routing-core" },
+    { "path": "../dsh-bridge" },
+    { "path": "../channel-weixin" },
+    { "path": "../channel-feishu" }
+  ],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/test-only-causal.ts"]
+}

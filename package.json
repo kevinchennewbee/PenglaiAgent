@@ -1,41 +1,82 @@
 {
-  "name": "penglai-agent-os",
+  "name": "penglai-v2",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.14.0",
   "engines": {
-    "node": ">=22.19.0"
+    "node": "22.22.2",
+    "pnpm": "10.14.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "onnxruntime-node>adm-zip": "0.6.0"
+    }
   },
   "scripts": {
-    "build": "npm run build --workspaces",
-    "test": "vitest run",
-    "eval": "vitest run packages/host/test/eval",
-    "schema:sync": "node scripts/sync-schema-versions.mjs",
-    "schema:check": "node scripts/sync-schema-versions.mjs --check",
-    "catalog:sync": "node scripts/sync-catalog.mjs",
-    "protocol:check": "node scripts/check-protocol-contract.mjs",
-    "desktop:allowlist": "node scripts/check-desktop-allowlist.mjs",
-    "renderer:token-boundary": "node scripts/check-renderer-token-boundary.mjs",
-    "renderer:network-boundary": "node scripts/check-renderer-network-boundary.mjs"
+    "format:check": "node scripts/format-check.mjs",
+    "lint": "tsc -b --pretty false --force",
+    "typecheck": "tsc -b --pretty false --force",
+    "test:unit": "node --import tsx --test packages/contracts/src/*.test.ts packages/audio-codecs/src/*.test.ts packages/routing-core/src/*.test.ts packages/persistence/src/*.test.ts packages/testkit/src/*.test.ts packages/local-control/src/*.test.ts packages/runtime/src/*.test.ts packages/plugin-center/src/*.test.ts packages/plugin-reference/src/*.test.ts packages/release-identity/src/*.test.ts packages/asr/src/*.test.ts packages/moss-tts/src/*.test.ts packages/context/src/*.test.ts packages/memory/src/*.test.ts packages/budget/src/*.test.ts packages/companion/src/*.test.ts",
+    "test:contract": "node --import tsx --test packages/dsh-bridge/src/*.test.ts packages/channel-weixin/src/*.test.ts packages/channel-mock/src/*.test.ts packages/channel-feishu/src/*.test.ts",
+    "test:integration": "node --import tsx --test packages/im/src/*.test.ts",
+    "test:e2e": "node --import tsx --test apps/desktop/src/*.test.ts",
+    "test:e2e:installed": "node scripts/e2e-installed.mjs",
+    "test:u3:welcome": "node scripts/u3-welcome-smoke.mjs",
+    "test:failure-baseline": "node --import tsx scripts/failure-baseline.mjs",
+    "test:security": "node --import tsx --test packages/routing-core/src/security.test.ts packages/local-control/src/security.test.ts apps/desktop/src/security.test.ts",
+    "test:chaos": "node --import tsx --test packages/routing-core/src/chaos.test.ts packages/persistence/src/chaos.test.ts",
+    "test:fault": "node --import tsx --test packages/routing-core/src/chaos.test.ts packages/persistence/src/chaos.test.ts",
+    "test:soak": "node --import tsx --test packages/routing-core/src/soak.test.ts",
+    "test:soak:installed": "node scripts/soak-installed.mjs",
+    "test:soak:usable": "node --import tsx scripts/soak-usable.mjs",
+    "audit:secrets": "node scripts/audit-secrets.mjs",
+    "audit:dependencies": "node scripts/audit-dependencies.mjs",
+    "audit:licenses": "node scripts/audit-licenses.mjs",
+    "audit:supply-chain": "node scripts/audit-dependencies.mjs && node scripts/audit-licenses.mjs && node scripts/sbom.mjs",
+    "sbom": "node scripts/sbom.mjs",
+    "build": "tsc -b && node scripts/copy-moss-runtime.mjs && node scripts/copy-desktop-static.mjs && node scripts/bundle-desktop.mjs",
+    "bundle:desktop": "node scripts/bundle-desktop.mjs",
+    "pack:plugins": "node scripts/pack-plugins.mjs",
+    "package:mac": "node scripts/package-mac.mjs --target darwin-arm64",
+    "package:windows": "node scripts/package-windows-nsis.mjs",
+    "build:local-dmg": "node scripts/build-local-dmg.mjs --target darwin-arm64",
+    "verify:versions": "node scripts/verify-versions.mjs",
+    "verify:identity": "node --import tsx scripts/verify-identity.mjs",
+    "verify:contracts": "node --import tsx scripts/verify-contracts.mjs",
+    "verify:dependencies": "node scripts/verify-dependencies.mjs",
+    "verify:closure": "node scripts/verify-closure.mjs",
+    "verify:profile": "node --import tsx scripts/verify-profile.mjs",
+    "verify:profile:voice-matrix": "node --import tsx scripts/verify-profile.mjs --voice-matrix",
+    "verify:artifact": "node scripts/verify-artifact.mjs",
+    "verify:fuses": "node --import tsx scripts/verify-fuses.mjs",
+    "verify:signing": "node scripts/verify-signing.mjs",
+    "verify:notarization": "node scripts/verify-notarization.mjs",
+    "verify:evidence": "node --import tsx scripts/verify-evidence.mjs",
+    "verify:release": "node --import tsx scripts/verify-release.mjs",
+    "verify:installed": "node --import tsx scripts/verify-installed.mjs",
+    "verify:live": "node scripts/verify-live.mjs",
+    "verify:public-export": "node --import tsx scripts/verify-public-export.mjs",
+    "prepare:public-export": "node --import tsx scripts/prepare-public-export.mjs",
+    "verify:soak": "node --import tsx scripts/verify-soak.mjs",
+    "verify:asr-real": "node --import tsx scripts/verify-asr-real.ts",
+    "verify:moss-real": "node --import tsx scripts/verify-moss-real.ts",
+    "progress": "node scripts/progress.mjs",
+    "probe:r2": "node scripts/probe-r2.mjs",
+    "evidence:r2": "node scripts/evidence-r2.mjs",
+    "verify:r2": "node scripts/verify-r2.mjs",
+    "verify:r1": "node scripts/verify-r1.mjs",
+    "probe:dsh": "node --import tsx packages/dsh-bridge/src/probe.ts",
+    "probe:dsh-contracts": "node scripts/probe-dsh-contracts.mjs",
+    "probe:dsh-u0": "node --import tsx scripts/probe-dsh-u0.mjs",
+    "probe:rc1": "node --import tsx scripts/probe-rc1.mjs",
+    "probe:makers": "node --import tsx scripts/probe-makers.mjs",
+    "ensure:electron": "node scripts/ensure-electron.mjs"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "3.2.7",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
-    "yaml": "^2.9.0"
-  },
-  "dependencies": {
-    "sherpa-onnx": "^1.13.4"
-  },
-  "optionalDependencies": {
-    "onnxruntime-node": "^1.24.1"
-  },
-  "overrides": {
-    "adm-zip": "0.6.0",
-    "glob": "10.5.0",
-    "nanoid": "3.3.18",
-    "postcss": "8.5.26"
+    "@types/node": "22.16.5",
+    "esbuild": "0.25.9",
+    "tsx": "4.20.3",
+    "typescript": "5.9.2"
   }
 }

@@ -1,14 +1,29 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "outDir": "dist",
-    "rootDir": "src"
-  }
+  "files": [],
+  "references": [
+    { "path": "packages/contracts" },
+    { "path": "packages/audio-codecs" },
+    { "path": "packages/testkit" },
+    { "path": "packages/persistence" },
+    { "path": "packages/routing-core" },
+    { "path": "packages/channel-mock" },
+    { "path": "packages/channel-weixin" },
+    { "path": "packages/channel-feishu" },
+    { "path": "packages/dsh-bridge" },
+    { "path": "packages/local-control" },
+    { "path": "packages/runtime" },
+    { "path": "packages/credentials-keychain" },
+    { "path": "packages/plugin-center" },
+    { "path": "packages/plugin-smoke" },
+    { "path": "packages/plugin-reference" },
+    { "path": "packages/asr" },
+    { "path": "packages/moss-tts" },
+    { "path": "packages/context" },
+    { "path": "packages/memory" },
+    { "path": "packages/budget" },
+    { "path": "packages/companion" },
+    { "path": "packages/release-identity" },
+    { "path": "packages/im" },
+    { "path": "apps/desktop" }
+  ]
 }

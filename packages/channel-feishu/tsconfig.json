@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "references": [{ "path": "../contracts" }, { "path": "../audio-codecs" }, { "path": "../routing-core" }, { "path": "../persistence" }, { "path": "../testkit" }, { "path": "../asr" }, { "path": "../moss-tts" }],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

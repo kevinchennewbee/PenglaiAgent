@@ -1,0 +1,37 @@
+{
+  "dsh": "0.1.0-rc.6",
+  "kind": "ui-only",
+  "reason": "Penglai product title and sidebar wordmark; no Agent/runtime/network changes",
+  "mustRemainOfficial": [
+    "@deepseek-ai/dsh-agent",
+    "@deepseek-ai/dsh-session",
+    "@deepseek-ai/dsh-llm",
+    "@deepseek-ai/dsh-workspace"
+  ],
+  "files": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "upstreamSha256": "85b42d12a45dd4a3acea9b11237c6eee3f0d374281620a29ace088f2d24246c5",
+      "patchedSha256": "7fa7dfdf67e65b0a078786f06cfe9a1c5f6ac3a4f89cad44b3aef55490539c86",
+      "upstream": "upstream/dsh-web-frontend.index.html",
+      "patched": "patched/dsh-web-frontend.index.html"
+    },
+    {
+      "id": "sidebar-wordmark",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-sidebar/lib/client.js",
+      "upstreamSha256": "b8f03724988d75954b88d1fbaecf7e0cd1bf5dd17b722f7cfeb65220f9de915b",
+      "patchedSha256": "7e58e1d730188fb288c171a0644095c27cf70664675273aa50de229b8a9988dc",
+      "upstream": "upstream/dsh-client-ui-sidebar.client.js",
+      "patched": "patched/dsh-client-ui-sidebar.client.js"
+    },
+    {
+      "id": "welcome-notice",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "upstreamSha256": "203a45293da9403be449e7452a155cba07d66a719c0b32d500f66cf0ba528f1d",
+      "patchedSha256": "6204609fd18f7f56a59e6f91fc1c9d02f25579e22b493028191c59f5a8681be6",
+      "upstream": "upstream/dsh-client-ui-settings-models.client.js",
+      "patched": "patched/dsh-client-ui-settings-models.client.js"
+    }
+  ]
+}

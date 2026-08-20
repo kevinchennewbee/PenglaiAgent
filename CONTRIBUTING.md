@@ -1,36 +1,54 @@
-# 为蓬莱做贡献 · Contributing to Penglai
+# Contributing to Penglai
 
-蓬莱（Penglai）0.4 是面向个人项目与长期任务的本地 Agent 工作台。0.4 的产品代码位于
-`packages/`，采用 TypeScript/Tauri，并使用固定版本的 Pi 作为上游 Agent 内核。
+Penglai is a desktop distribution of official DeepSeek Harness. Product work happens on a single `main` branch. Do not open feature branches, worktrees, or pull requests unless the repository owner changes that contract.
 
-- **Pi 本身的 Agent 生命周期、模型和工具执行问题** → 先用最小复现确认，再反馈到
-  [Pi](https://github.com/earendil-works/pi) 上游。
-- **蓬莱产品问题**（项目/任务/运行/证据、桌面工作台、IM、Supervisor、安全策略、持久化、
-  打包与发布）→ 在本仓库提 issue / PR。
+## Prerequisites
 
-## PR 约定
+- Node `22.22.2`
+- pnpm `10.14.0`
+- macOS 13.0+ (macOS 14+ recommended for the current Apple Silicon native runner)
+- Do not depend on GitHub Actions. Local or self-hosted native runners are the source of installed evidence.
 
-1. **不要复制或分叉 Pi 的 Agent 循环。** 上游差异收敛在 `AgentKernel` 适配层。
-2. **安全相关改动必须配套回归测试**，并验证真实执行边界，不把路径检查或 `cwd` 当成沙箱。
-3. **面向用户的字符串中英兼顾**即可；代码注释跟随周围风格，别堆无谓注释。
-4. 小而可审的 diff，一个 PR 一件事。
+## Required reading before code
 
-## 0.4 工作流
+Read `PRODUCT_CONSTITUTION.md`, then `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/ACCEPTANCE.md`, and `docs/PUBLICATION_0.5.0.md`. Do not implement a second Agent runtime, a second chat UI, a provider gateway, or a production secret path other than official credentials-local YAML.
 
-0.4 是唯一的未来产品线。新功能和修复只进入 `packages/` 的 TypeScript/Tauri 路径。
-0.3 的代码历史保留在 `v0.3.6`，不回流 `main`。发布门禁由
-`node scripts/release-check.mjs` 把关。
+## Develop
 
----
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test:unit
+pnpm test:contract
+pnpm test:integration
+pnpm test:security
+```
 
-Penglai 0.4 is a local workbench for personal projects and long-running agent
-tasks. Product code lives in `packages/`, uses TypeScript/Tauri, and integrates
-a pinned Pi release through a narrow adapter. Do not copy or fork Pi's agent
-loop. Penglai owns projects, tasks, runs, evidence, Desktop, IM, supervision,
-security, persistence, packaging, and releases.
+Installed evidence must come from the exact installer, not from `dist` staging or a source-tree Electron launch:
 
-0.4 is the only future product line. The 0.3 source history remains available
-at `v0.3.6` and does not return to `main`; `node scripts/release-check.mjs`
-enforces the release gate.
+```bash
+pnpm test:e2e:installed
+pnpm verify:fuses
+pnpm verify:installed
+```
 
-「蓬莱 / Penglai」名称与视觉品牌保留所有权利，详见 [NOTICE](NOTICE)。
+## Package
+
+```bash
+pnpm package:mac
+pnpm build:local-dmg --reuse-app
+```
+
+`package:mac` refuses a dirty tree and refuses `HEAD != origin/main`. macOS arm64 and macOS x64 must be built separately. A universal app is not two installers.
+
+## Public export
+
+`pnpm prepare:public-export` builds an allowlisted source tree and `publicExportTreeSha256`. `STATE.md`, evidence, `dist`, and private handoff documents are excluded. Public repo, tag, Release, and updater channel work are not authorized in this repository pass.
+
+## Secrets
+
+Never commit API keys, Weixin tokens, Feishu App Secrets, updater private keys, QR images, chat bodies, or owner absolute paths. Fixture secrets stay in isolated test profiles.
+
+## Language and identity
+
+Fresh installs default to Chinese. English must remain switchable and persistent. New Penglai UI must ship complete zh and en copy. Do not hide official DSH appearance, Models, Workspace, Session, tools, approvals, or settings.

@@ -1,0 +1,187 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { PenglaiError } from "@penglai/contracts";
+import { inspectStorageInventory, previewDeletionPlan, buildDeletionPlan } from "./uninstall.js";
+import {
+  applyWindowsCredentialAcl,
+  assertWindowsJobHonest,
+  deletionInspectionOptionsForPlatform,
+  parseWindowsHostReport,
+  refusePosixModeAsWindowsAcl,
+  requireWindowsNativeHost,
+  resolveWindowsHostExecutable,
+  spawnOwnedDshProcess,
+  windowsJobObjectPlan,
+  windowsNativeHostContract,
+  windowsNativeHostSourceFacts,
+  windowsNativeHostStatus,
+} from "./windows-host.js";
+import { assertWindowsNsisScript, WINDOWS_NSIS_CONTRACT } from "./packaging.js";
+
+test("Windows Job Object contract requires suspended-create, kill-on-close, and no breakaway", () => {
+  const plan = windowsJobObjectPlan();
+  assert.deepEqual(plan, {
+    killOnJobClose: true,
+    breakawayOk: false,
+    assignSpawnedChildren: true,
+    createSuspendedThenAssign: true,
+  });
+  assertWindowsJobHonest(plan);
+  assert.throws(
+    () => assertWindowsJobHonest({ killOnJobClose: true, breakawayOk: false, assignSpawnedChildren: true }),
+    /suspended/,
+  );
+  assert.throws(
+    () => assertWindowsJobHonest({ ...plan, breakawayOk: true }),
+    /breakaway/,
+  );
+});
+
+test("Windows ACL apply is never applied=true without a native host path", () => {
+  assert.throws(() => refusePosixModeAsWindowsAcl("posix-mode"), /POSIX mode cannot impersonate/);
+  assert.throws(() => applyWindowsCredentialAcl([{ id: "Everyone", allow: true }]), /must not allow Everyone/);
+  const planned = applyWindowsCredentialAcl([{ id: "current-user", allow: true }]);
+  assert.equal(planned.applied, false);
+  assert.equal(planned.reason, "plan-only");
+  assert.throws(
+    () => applyWindowsCredentialAcl("/tmp/penglai-credentials", { platform: "darwin" }),
+    /POSIX mode cannot impersonate/,
+  );
+  assert.throws(
+    () => applyWindowsCredentialAcl("C:\\Users\\owner\\Penglai\\0.5\\.credentials.yaml", { platform: "win32" }),
+    /native Windows host/,
+  );
+});
+
+test("native Windows host source encodes Job Object, ACL, and reparse facts", () => {
+  const facts = windowsNativeHostSourceFacts();
+  assert.equal(facts.present, true);
+  assert.equal(facts.createJobObject, true);
+  assert.equal(facts.killOnJobClose, true);
+  assert.equal(facts.createSuspended, true);
+  assert.equal(facts.assignProcess, true);
+  assert.equal(facts.resumeThread, true);
+  assert.equal(facts.forbidsBreakaway, true);
+  assert.equal(facts.namedSecurityInfo, true);
+  assert.equal(facts.reparseAttribute, true);
+  assert.equal(facts.jobSupervise, true);
+  assert.equal(facts.deletePlan, true);
+  assert.match(facts.source, /penglai_windows_host\.c$/);
+  const src = readFileSync(facts.source, "utf8");
+  assert.doesNotMatch(src, /applied:\s*true/);
+  assert.match(src, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
+  assert.match(src, /CREATE_SUSPENDED/);
+  assert.match(src, /FILE_ATTRIBUTE_REPARSE_POINT/);
+});
+
+test("Windows native host is unavailable on this runner and fail-closed", () => {
+  const status = windowsNativeHostStatus("darwin");
+  assert.equal(status.required, false);
+  assert.equal(status.available, false);
+  const win = windowsNativeHostStatus("win32");
+  assert.equal(win.required, true);
+  assert.equal(win.available, Boolean(resolveWindowsHostExecutable()));
+  assert.throws(() => requireWindowsNativeHost("darwin"), /not a Windows host/);
+  if (process.platform !== "win32") {
+    assert.throws(() => requireWindowsNativeHost("win32"), /native Windows host/);
+  }
+});
+
+test("Windows deletion inspection refuses missing owner and reparse probes", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-win-del-"));
+  const plan = buildDeletionPlan({
+    operationId: "win-probes",
+    categories: ["cache"],
+    userData: root,
+    confirmCredentials: false,
+  });
+  assert.throws(
+    () => previewDeletionPlan(plan, root, [], [], { platform: "win32" }),
+    /native owner and reparse-point probes/,
+  );
+  assert.throws(() => deletionInspectionOptionsForPlatform("win32"), /native owner and reparse-point probes/);
+  mkdirSync(join(root, "cache"), { recursive: true });
+  writeFileSync(join(root, "cache", "one.txt"), "one");
+  const injected = deletionInspectionOptionsForPlatform("win32", {
+    available: true,
+    ownerProbe: () => "sid:S-1-5-21-fixture",
+    reparseProbe: () => false,
+  });
+  const preview = previewDeletionPlan(plan, root, [], [], injected);
+  assert.equal(preview.targets[0]?.owner, "sid:S-1-5-21-fixture");
+  assert.throws(
+    () =>
+      previewDeletionPlan(plan, root, [], [], {
+        platform: "win32",
+        ownerProbe: () => "sid:S-1-5-21-fixture",
+        reparseProbe: () => true,
+      }),
+    /reparse/,
+  );
+});
+
+test("owned DSH spawn on Windows requires the native job supervisor", () => {
+  assert.throws(
+    () =>
+      spawnOwnedDshProcess({
+        platform: "win32",
+        executable: "C:\\Penglai\\runtime\\node\\node.exe",
+        entry: "C:\\Penglai\\runtime\\dsh\\lib\\bin.js",
+        args: ["--profile", "web"],
+        env: {},
+        port: 9,
+      }),
+    /native Windows host/,
+  );
+  const report = parseWindowsHostReport(
+    JSON.stringify({
+      ok: true,
+      command: "job-supervise",
+      pid: 4242,
+      startMs: 1_700_000_000_000,
+      owner: "sid:S-1-5-21-owner",
+      jobAssigned: true,
+      killOnJobClose: true,
+      breakawayOk: false,
+    }),
+  );
+  assert.equal(report.pid, 4242);
+  assert.equal(report.jobAssigned, true);
+  assert.equal(report.killOnJobClose, true);
+  assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: true, pid: 1, breakawayOk: true })), /breakaway/);
+  assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: false, error: "reparse" })), /reparse/);
+});
+
+test("NSIS script default-preserves user data and only deletes via capability handoff", () => {
+  const script = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
+  assertWindowsNsisScript(script);
+  assert.match(script, /RequestExecutionLevel\s+user/);
+  assert.match(script, /SimpChinese/);
+  assert.match(script, /English/);
+  assert.match(script, new RegExp(WINDOWS_NSIS_CONTRACT.upgradeCode));
+  assert.match(script, /penglai-windows-host\.exe/);
+  assert.match(script, /deletion-capability\.json/);
+  assert.doesNotMatch(script, /RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\0\.5"/);
+  assert.match(script, /SectionUninstall/);
+  // Numeric downgrade comparison (not lexicographic) and no installer
+  // self-deleting a desktop shortcut it never created.
+  assert.match(script, /\$\{VersionCompare\}/);
+  assert.doesNotMatch(script, /\$\{If\}\s+\$0\s+S>\s*"\$\{PENGLAI_VERSION\}"/);
+  assert.doesNotMatch(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
+  // The recursive app-tree delete must be guarded to the default install dir.
+  assert.match(script, /RMDir\s+\/r\s+"\$INSTDIR"\s*\n\s*\$\{Else\}/);
+  const contract = windowsNativeHostContract();
+  assert.equal(contract.posixModeImpersonation, false);
+});
+
+test("Windows inventory helper is not implied by a darwin inspect", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-win-inv-"));
+  mkdirSync(join(root, "cache"), { recursive: true });
+  writeFileSync(join(root, "cache", "a"), "1");
+  const inventory = inspectStorageInventory({ userData: root, cacheRoot: join(root, "cache") }, [], []);
+  assert.equal(inventory.categories.length, 13);
+  assert.equal(resolve(inventory.categories.find((row) => row.category === "cache")?.targets[0]?.path ?? ""), resolve(join(root, "cache")));
+});

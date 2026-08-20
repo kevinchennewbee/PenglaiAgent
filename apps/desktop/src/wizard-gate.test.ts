@@ -1,0 +1,46 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
+import { PRELOAD_API, navigationDecision } from "./preload.js";
+
+test("onboarding ledger is complete only when current is COMPLETE", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-ledger-"));
+  assert.equal(onboardingLedgerComplete(root), false);
+  mkdirSync(join(root, "onboarding"), { mode: 0o700 });
+  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "welcome-v1" }));
+  assert.equal(onboardingLedgerComplete(root), false);
+  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE" }));
+  assert.equal(onboardingLedgerComplete(root), true);
+});
+
+test("wizard URL stays on the authenticated proxy origin", () => {
+  assert.equal(wizardUrlForOrigin("http://127.0.0.1:9/"), "http://127.0.0.1:9/wizard/");
+  assert.equal(navigationDecision("http://127.0.0.1:9/wizard/", "http://127.0.0.1:9/"), "allow");
+  assert.equal(navigationDecision("http://127.0.0.1:9/wizard/index.html", "http://127.0.0.1:9/"), "allow");
+  assert.equal(
+    navigationDecision("http://127.0.0.1:9/wizard/", "http://127.0.0.1:9/", undefined, { wizardComplete: true }),
+    "deny",
+  );
+  assert.equal(
+    navigationDecision("http://127.0.0.1:9/", "http://127.0.0.1:9/", undefined, { wizardComplete: true }),
+    "allow",
+  );
+});
+
+test("preload API includes wizardFinished and wizardPickFolder", () => {
+  assert.ok(PRELOAD_API.includes("wizardFinished"));
+  assert.ok(PRELOAD_API.includes("wizardPickFolder"));
+});
+
+test("startup failure text redacts secret-shaped fragments", () => {
+  const raw = "credentials.set failed: api_key=sk-abcdefghijklmnopqrstuvwxyz012345 token=wx-secret leftover sk-zzzzzzzzzzzzzzzz";
+  const safe = sanitizeStartupReason(raw);
+  assert.equal(safe.includes("sk-abcdefghijklmnopqrstuvwxyz012345"), false);
+  assert.equal(safe.includes("wx-secret"), false);
+  assert.match(safe, /sk-\[redacted\]/);
+  assert.match(safe, /api_key=\[redacted\]/);
+  assert.match(safe, /token=\[redacted\]/);
+});

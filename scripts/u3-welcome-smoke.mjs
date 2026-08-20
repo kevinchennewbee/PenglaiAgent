@@ -1,0 +1,200 @@
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { ROOT, gitState } from "./lib/repo.mjs";
+import { finish } from "./lib/exit-contract.mjs";
+import { attachPage, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
+import { SNAPSHOT_JS, observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
+import {
+  ARM64_DMG,
+  ARM64_INSTALLER,
+  exeInside,
+  installFromExactDmg,
+  launchPackaged,
+  leftoversByCommand,
+  ownedProcessTree,
+  stopChild,
+  waitForFile,
+  assertInstalledPenglaiIdentity,
+} from "./lib/installed-app.mjs";
+import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+
+const WELCOME_JS = `(() => {
+  const text = (document.body && document.body.innerText ? document.body.innerText : "").replace(/\\s+/g, " ");
+  const headings = Array.from(document.querySelectorAll("h1,h2,h3,[role=heading]")).map((h) =>
+    (h.textContent || "").replace(/\\s+/g, " ").trim(),
+  );
+  const buttons = Array.from(document.querySelectorAll("button, [role=button]")).map((n) => ({
+    text: (n.textContent || "").replace(/\\s+/g, " ").trim(),
+    disabled: Boolean(n.disabled),
+  }));
+  const welcomePenglai = /欢迎使用蓬莱|Welcome to Penglai/.test(text) || headings.some((h) => /欢迎使用蓬莱|Welcome to Penglai/.test(h));
+  const officialInternalNotice = /内测声明|Internal Testing Notice/.test(text);
+  const continueBtn = buttons.find((b) => /^(继续|Continue)$/.test(b.text));
+  return {
+    title: document.title,
+    href: location.href,
+    hasRoot: Boolean(document.getElementById("root")),
+    hasDshBoot: typeof window.__DSH_BOOT__ !== "undefined",
+    recovery: Boolean(document.querySelector("[data-penglai-recovery]")),
+    welcomePenglai,
+    officialInternalNotice,
+    continueVisible: Boolean(continueBtn),
+    continueDisabled: Boolean(continueBtn?.disabled),
+    headings: headings.filter(Boolean).slice(0, 16),
+    buttons: buttons.filter((b) => b.text).slice(0, 24),
+  };
+})()`;
+
+const CLICK_CONTINUE_JS = `(() => {
+  const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
+  const btn = buttons.find((n) => /^(继续|Continue)$/.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
+  if (!btn) return { ok: false, reason: "missing" };
+  if (btn.disabled) return { ok: false, reason: "disabled" };
+  btn.click();
+  return { ok: true, text: (btn.textContent || "").replace(/\\s+/g, " ").trim() };
+})()`;
+
+const outDir = join(ROOT, "evidence/generated");
+mkdirSync(outDir, { recursive: true });
+const recPath = join(outDir, "u3-welcome-smoke.json");
+const git = gitState();
+if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
+  finish("STALE", { command: "u3-welcome-smoke", reason: "candidate source must be clean main at origin/main", ...git });
+}
+
+function writeRec(rec) {
+  writeFileSync(recPath, `${JSON.stringify(rec, null, 2)}\n`);
+}
+
+const installed = installFromExactDmg(ARM64_DMG, join(ROOT, ".tmp-u3-welcome-app"));
+if (!installed.ok) {
+  const rec = { command: "u3-welcome-smoke", verdict: "INCOMPLETE", reason: installed.reason ?? "exact DMG missing" };
+  writeRec(rec);
+  finish("INCOMPLETE", rec);
+}
+const identity = assertInstalledPenglaiIdentity(installed.app);
+if (!identity.ok) {
+  const rec = { command: "u3-welcome-smoke", verdict: "FAIL", reason: `installed app identity ${identity.reason}` };
+  writeRec(rec);
+  finish("FAIL", rec);
+}
+const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: git.head, expectedTarget: "darwin-aarch64" });
+if (packaged.verdict !== "PASS") {
+  const rec = { command: "u3-welcome-smoke", verdict: packaged.verdict, reason: packaged.reason };
+  writeRec(rec);
+  finish(packaged.verdict, rec);
+}
+
+const app = installed.app;
+const exe = exeInside(app);
+const resources = resolve(join(app, "Contents", "Resources"));
+const userData = join(ROOT, ".tmp-u3-welcome");
+rmSync(userData, { recursive: true, force: true });
+mkdirSync(userData, { recursive: true });
+
+const debugPort = await freePort();
+const launched = launchPackaged(exe, resources, userData, [
+  `--remote-debugging-port=${debugPort}`,
+  "--remote-allow-origins=*",
+]);
+const gatewayFile = join(userData, "gateway.port");
+const sawGateway = await waitForFile(gatewayFile, 90_000);
+
+let official = null;
+let welcome = null;
+let welcomeClick = { ok: false, reason: "not-run" };
+let afterContinue = null;
+let attachErr = "";
+try {
+  const { session } = await attachPage(debugPort, 90_000);
+  official = await observeOfficialSurfaces(session);
+  welcome = await waitEval(
+    session,
+    WELCOME_JS,
+    (s) => Boolean(s && s.welcomePenglai && s.continueVisible && !s.continueDisabled && !s.officialInternalNotice && !s.recovery),
+    30_000,
+  );
+  if (welcome?.welcomePenglai && welcome.continueVisible && !welcome.continueDisabled) {
+    welcomeClick = await evaluate(session, CLICK_CONTINUE_JS);
+  }
+  if (welcomeClick.ok) {
+    afterContinue = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      (s) => Boolean(s && s.hasRoot && s.hasDshBoot && !s.recovery),
+      15_000,
+    );
+  }
+  session.close();
+} catch (err) {
+  attachErr = err instanceof Error ? err.message : String(err);
+}
+
+const tree = ownedProcessTree(app, resources, launched.child.pid);
+const leftoverNeedle = resolve(join(resources, "runtime/dsh/lib/bin.js"));
+await stopChild(launched.child);
+const leftovers = leftoversByCommand(leftoverNeedle);
+
+const welcomeReachable = Boolean(
+  welcome?.welcomePenglai && welcome.continueVisible && !welcome.continueDisabled && !welcome.officialInternalNotice,
+);
+const mainUsable = Boolean(
+  official?.official &&
+    official.snap?.hasRoot &&
+    official.snap?.hasDshBoot &&
+    !official.snap?.recovery &&
+    official.http?.official &&
+    official.websocket?.opened &&
+    welcomeClick.ok &&
+    afterContinue?.hasRoot &&
+    afterContinue?.hasDshBoot &&
+    !afterContinue?.recovery,
+);
+const ownedDsh = Boolean(tree.dshPid && tree.ownedAbsolute);
+const ok = Boolean(sawGateway && !attachErr && welcomeReachable && mainUsable && ownedDsh && leftovers.length === 0);
+
+const rec = {
+  command: "u3-welcome-smoke",
+  verdict: ok ? "PASS" : attachErr || !sawGateway ? "FAIL" : "FAIL",
+  installer: ARM64_INSTALLER,
+  installerSha256: installed.installerSha256,
+  sourceSha: packaged.release.sourceSha,
+  target: "darwin-aarch64",
+  dsh: packaged.release.dsh,
+  sawGateway,
+  attachErr: attachErr || undefined,
+  official: {
+    href: official?.snap?.href,
+    title: official?.snap?.title,
+    hasRoot: official?.snap?.hasRoot,
+    hasDshBoot: official?.snap?.hasDshBoot,
+    recovery: official?.snap?.recovery,
+    http: official?.http,
+    websocket: official?.websocket,
+  },
+  welcome: {
+    reachable: welcomeReachable,
+    penglai: welcome?.welcomePenglai,
+    officialInternalNotice: welcome?.officialInternalNotice,
+    continueVisible: welcome?.continueVisible,
+    continueDisabled: welcome?.continueDisabled,
+    headings: welcome?.headings,
+    click: welcomeClick,
+  },
+  mainUi: {
+    usable: mainUsable,
+    afterContinue: afterContinue
+      ? {
+          href: afterContinue.href,
+          hasRoot: afterContinue.hasRoot,
+          hasDshBoot: afterContinue.hasDshBoot,
+          recovery: afterContinue.recovery,
+          headings: afterContinue.headings,
+        }
+      : null,
+  },
+  processTree: { dshPid: tree.dshPid, ownedAbsolute: tree.ownedAbsolute, leftovers: leftovers.length },
+};
+writeRec(rec);
+if (!ok) finish("FAIL", rec);
+finish("PASS", rec);

@@ -1,0 +1,26 @@
+{
+  "name": "@penglai/channel-feishu",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "1.73.0",
+    "@penglai/asr": "workspace:*",
+    "@penglai/audio-codecs": "workspace:*",
+    "@penglai/contracts": "workspace:*",
+    "@penglai/moss-tts": "workspace:*",
+    "@penglai/routing-core": "workspace:*",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@penglai/persistence": "workspace:*",
+    "@penglai/testkit": "workspace:*",
+    "@types/qrcode": "1.5.5"
+  }
+}

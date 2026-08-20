@@ -1,0 +1,17 @@
+{
+  "name": "@penglai/audio-codecs",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@penglai/contracts": "workspace:*",
+    "libopus-wasm": "0.2.0",
+    "silk-wasm": "3.7.1"
+  }
+}

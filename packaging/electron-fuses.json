@@ -1,0 +1,10 @@
+{
+  "policy": "0.5.0-unpacked-app",
+  "runAsNode": false,
+  "enableNodeOptionsEnvironmentVariable": false,
+  "enableNodeCliInspectArguments": false,
+  "enableEmbeddedAsarIntegrityValidation": false,
+  "onlyLoadAppFromAsar": false,
+  "dryRun": false,
+  "note": "app is Resources/app directory, not asar; onlyLoadAppFromAsar stays false"
+}

@@ -1,0 +1,7 @@
+Penglai channel-feishu reimplements a minimal Device Flow + p2p text subset
+informed by the MIT-licensed official repository:
+
+  https://github.com/larksuite/openclaw-lark
+  commit dde0be3680d6fd5443cab426c8f4b3216266346a
+
+Penglai does not depend on the OpenClaw runtime.
