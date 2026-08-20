@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "product": "Penglai",
+  "version": "0.5.0",
+  "candidateKind": "public-publication-candidate",
+  "trustTier": "community-verified",
+  "generationId": "penglai-dsh-v0.5",
+  "phase": "UNFROZEN",
+  "electronVersion": "43.4.0",
+  "nodeVersion": "22.22.2",
+  "dshVersion": "0.1.0-rc.8",
+  "updaterChannel": "desktop-v0.5",
+  "updaterPublicKeyId": "penglai-0.5-fixture-c957dae9779a5797",
+  "updaterPublicKeyHex": "c957dae9779a5797d8e07e2a1adad76639b0edacf62ed13a1e5d0b2a4782fe19",
+  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/desktop-v0.5/latest.json",
+  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/desktop-v0.5/latest.json.sig",
+  "updaterAllowedAssetHosts": ["github.com"],
+  "canonicalMaker": "penglai-controlled-pipeline",
+  "publication": {
+    "repo": "kevinchennewbee/PenglaiAgent",
+    "tag": "v0.5.0",
+    "release": "v0.5.0",
+    "channel": "NOT_PUBLISHED_0_5_0"
+  },
+  "targets": [
+    {
+      "key": "darwin-aarch64",
+      "platform": "darwin",
+      "arch": "arm64",
+      "installer": "Penglai_0.5.0_macos_aarch64.dmg"
+    }
+  ],
+  "runtimeInputs": [
+    {
+      "kind": "node",
+      "target": "darwin-aarch64",
+      "filename": "node-v22.22.2-darwin-arm64.tar.gz",
+      "archive": "tar.gz",
+      "url": "https://nodejs.org/dist/v22.22.2/node-v22.22.2-darwin-arm64.tar.gz",
+      "sha256": "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000"
+    },
+    {
+      "kind": "electron",
+      "target": "darwin-aarch64",
+      "filename": "electron-v43.4.0-darwin-arm64.zip",
+      "archive": "zip",
+      "url": "https://github.com/electron/electron/releases/download/v43.4.0/electron-v43.4.0-darwin-arm64.zip",
+      "sha256": "827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac"
+    }
+  ],
+  "exactAssets": [
+    "Penglai_0.5.0_macos_aarch64.dmg",
+    "release-manifest.json",
+    "SBOM.cdx.json",
+    "THIRD_PARTY_NOTICES.txt",
+    "SHA256SUMS",
+    "public-export-manifest.json"
+  ]
+}

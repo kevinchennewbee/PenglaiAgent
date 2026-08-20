@@ -1,0 +1,66 @@
+{
+  "dsh": "0.1.0-rc.8",
+  "kind": "ui-only",
+  "reason": "Penglai product title, first-run disclosure, hero copy/ink-wash background, visible IM voice rows, and a nested Penglai settings group. rc.8 official brand slots remain authoritative; the settings hierarchy is an exact-hash UI-only extension because settings.section has no parent field; no Agent/runtime/network changes",
+  "mustRemainOfficial": [
+    "@deepseek-ai/dsh-agent",
+    "@deepseek-ai/dsh-session",
+    "@deepseek-ai/dsh-llm",
+    "@deepseek-ai/dsh-workspace"
+  ],
+  "files": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "upstreamSha256": "1af3332985a498e11b8a4b34e29304c59beedf0838eea3b3d61b676f0288c7f0",
+      "patchedSha256": "74270abce71134e31c01ab50a50a76c24ffd6a2903e03c032447093d3d8f57d6",
+      "upstream": "upstream/dsh-web-frontend.index.html",
+      "patched": "patched/dsh-web-frontend.index.html"
+    },
+    {
+      "id": "welcome-notice",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "upstreamSha256": "c60420e2e6a9cd16ff560683f137f00c9768f367bd8f6203839d75c52dcc2a10",
+      "patchedSha256": "08049160cf53172cf5c73ab54364748822759451510c446af6714aefc8c3011f",
+      "upstream": "upstream/dsh-client-ui-settings-models.client.js",
+      "patched": "patched/dsh-client-ui-settings-models.client.js"
+    },
+    {
+      "id": "conversation-hero",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "upstreamSha256": "dc48b35b74c71ddfe321d5a8e2604bbbbbc7e5136876740616ef4292b4e61b52",
+      "patchedSha256": "b7a2a6b92ac25efe48b7d605ccd69a0f072cc587d3ac73d4fec14d5a51722f1d",
+      "upstream": "upstream/dsh-client-ui-conversation.client.js",
+      "patched": "patched/dsh-client-ui-conversation.client.js"
+    },
+    {
+      "id": "settings-submenu",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "upstreamSha256": "9298ac5b087056555498550e0e0e6dd9d3202dce48bb07b2a2c4bfeed1d63da5",
+      "patchedSha256": "b3c9085db2742327b395435a0d7c23bc74f61702ec164b393eba56b4964d0968",
+      "transform": "settings-submenu-v1"
+    }
+  ],
+  "brand": [
+    {
+      "name": "logo-64.png",
+      "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985"
+    },
+    {
+      "name": "logo-256.png",
+      "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2"
+    },
+    {
+      "name": "ink-wash-light.jpg",
+      "sha256": "656729a3a8b6f3294a50db59e7392d082ad83caba1b6d74e86b44b55e34b7c2e"
+    },
+    {
+      "name": "ink-wash-dark.jpg",
+      "sha256": "4575b1a0bdc0e25e6e352386a712be524ad59aeb63bb4f20b8adb43d30d4de39"
+    },
+    {
+      "name": "title.js",
+      "sha256": "e9d7a6121d9a4850ad6af12dd52fd1f5d4423052e612b4fcaa55d8941c786a74"
+    }
+  ]
+}

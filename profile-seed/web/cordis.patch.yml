@@ -1,0 +1,29 @@
+- insert:
+    - id: penglai-plugin-center
+      name: "@penglai/plugin-center"
+    - id: penglai-asr
+      name: "@penglai/asr"
+      disabled: true
+    - id: penglai-moss-tts
+      name: "@penglai/moss-tts"
+      disabled: true
+    - id: penglai-im
+      name: "@penglai/im"
+      disabled: true
+    - id: penglai-context
+      name: "@penglai/context"
+      disabled: true
+    - id: penglai-memory
+      name: "@penglai/memory"
+      disabled: true
+    - id: penglai-budget
+      name: "@penglai/budget"
+      disabled: true
+    - id: penglai-official-schedule
+      name: "@deepseek-ai/dsh-schedule"
+    - id: penglai-companion
+      name: "@penglai/companion"
+      disabled: true
+    - id: penglai-plugin-reference
+      name: "@penglai/plugin-reference"
+      disabled: true

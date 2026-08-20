@@ -1,0 +1,16 @@
+Penglai channel-weixin reimplements a minimal subset of the publicly documented
+Weixin iLink HTTP/JSON protocol. Protocol field names and login endpoint
+behavior were understood by reading the MIT-licensed official repository:
+
+  https://github.com/Tencent/openclaw-weixin
+  commit cef0bfc390393f716903e16d50408118047f87e0
+  package @tencent-weixin/openclaw-weixin@2.4.6
+
+Tencent is pleased to support the open source community by making
+openclaw-weixin available.
+
+Copyright (C) 2026 Tencent. All rights reserved.
+
+openclaw-weixin is licensed under the MIT License. See the official
+repository LICENSE file. Penglai does not vendor the OpenClaw plugin
+glue and does not depend on the OpenClaw runtime.

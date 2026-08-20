@@ -1,0 +1,357 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  activatePrivateProfile,
+  assertAbsoluteExecutable,
+  detectKeychainOverride,
+  dshWebArgs,
+  doctor,
+  doctorExitCode,
+  evaluateInventory,
+  extractedPackageRoot,
+  assertPluginJsClosure,
+  isOfficialDshHtml,
+  isPenglaiProductTitle,
+  recoverProfile,
+  resolveRuntimeLayout,
+  resolveUserLayout,
+  seedFreshSettings,
+  writeJournal,
+  FIRST_PARTY_PLUGIN_METADATA,
+  runtimePluginTarget,
+} from "./index.js";
+
+test("embedded DSH Web never opens the operating-system browser", () => {
+  assert.deepEqual(dshWebArgs(3080), [
+    "--profile",
+    "web",
+    "--no-open",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "3080",
+  ]);
+});
+
+function writeTrustedPluginSet(
+  app: string,
+  markers: Record<string, string> = {},
+): void {
+  const pluginsDir = join(app, "plugins");
+  mkdirSync(pluginsDir, { recursive: true });
+  const target = runtimePluginTarget();
+  const entries = FIRST_PARTY_PLUGIN_METADATA.map((metadata) => {
+    const stage = mkdtempSync(join(tmpdir(), "penglai-plugin-fixture-"));
+    mkdirSync(join(stage, "dist"), { recursive: true });
+    const hasClient = ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts"].includes(metadata.id);
+    writeFileSync(
+      join(stage, "dist", "index.js"),
+      `export function apply() {}\nexport const marker = ${JSON.stringify(markers[metadata.id] ?? metadata.id)};\nexport default { apply };\n`,
+    );
+    if (hasClient) writeFileSync(join(stage, "dist", "client.js"), "export const apply = () => {};\n");
+    writeFileSync(
+      join(stage, "package.json"),
+      JSON.stringify({
+        name: metadata.id,
+        version: metadata.version,
+        type: "module",
+        main: "dist/index.js",
+        exports: {
+          ".": "./dist/index.js",
+          ...(hasClient ? { "./client": "./dist/client.js" } : {}),
+        },
+        penglaiPlugin: {
+          schema: 1,
+          id: metadata.id,
+          dshExact: metadata.dsh.exact,
+          target,
+          platforms: metadata.platforms,
+          capabilities: metadata.capabilities,
+          permissions: metadata.permissions,
+          source: metadata.source,
+          provenanceClass: metadata.provenanceClass,
+          license: metadata.license,
+          migration: metadata.migration,
+          rollback: metadata.rollback,
+        },
+      }),
+    );
+    const archive = join(pluginsDir, metadata.packageFile);
+    execFileSync("tar", ["-czf", archive, "-C", stage, "."]);
+    return {
+      ...metadata,
+      sha256: createHash("sha256").update(readFileSync(archive)).digest("hex"),
+      target,
+      hasClient,
+    };
+  });
+  writeFileSync(
+    join(pluginsDir, "catalog.json"),
+    JSON.stringify({ schema: 2, target, entries }),
+  );
+}
+
+test("IM host that inlines Lark/axios CJS is rejected", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-im-cjs-"));
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "@penglai/im", main: "dist/index.js", exports: { ".": "./dist/index.js" } }),
+  );
+  writeFileSync(join(dir, "dist", "index.js"), 'var util = __require("util");\nthrow new Error("Dynamic require of \\"util\\" is not supported");\n');
+  assert.throws(() => assertPluginJsClosure(dir, "@penglai/im"), /inlines Lark\/axios CJS/);
+});
+
+test("R2-DIST-003 refuses relative executables", () => {
+  assert.throws(() => assertAbsoluteExecutable("dsh", "dsh"));
+  assert.throws(() => assertAbsoluteExecutable("node", "node"));
+});
+
+test("R2-DIST-018 doctor is machine readable and fails closed", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  const layout = resolveRuntimeLayout(app);
+  const report = doctor(layout, user);
+  assert.equal(report.pathFallback, false);
+  assert.equal(report.node.present, false);
+  assert.equal(doctorExitCode(report), 2);
+});
+
+test("doctor fails closed on a missing runtime manifest even when binaries exist", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-manifest-"));
+  const layout = resolveRuntimeLayout(app);
+  mkdirSync(join(app, "runtime", "node", "bin"), { recursive: true });
+  mkdirSync(join(app, "runtime", "dsh", "lib"), { recursive: true });
+  writeFileSync(layout.nodeBin, "#!/bin/sh\n");
+  writeFileSync(layout.dshEntry, "#!/bin/sh\n");
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-manifest-")));
+  const report = doctor(layout, user);
+  assert.equal(report.node.present, true);
+  assert.equal(report.runtimeManifest, "missing");
+  assert.equal(doctorExitCode(report), 2);
+});
+
+test("existing profile is refreshed from newer first-party plugin tarballs", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), "{\"name\":\"web\"}\n");
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  writeFileSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", ".keep"), "official\n");
+  writeTrustedPluginSet(app, { "@penglai/plugin-reference": "v1" });
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  writeFileSync(join(user.profileWeb, "package.json"), '{"name":"web"}\n');
+  mkdirSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist"), { recursive: true });
+  writeFileSync(
+    join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist", "index.js"),
+    "export const marker = 'installed-by-user';\n",
+  );
+  const layout = resolveRuntimeLayout(app);
+  activatePrivateProfile(layout, user);
+  assert.match(readFileSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist", "index.js"), "utf8"), /v1/);
+  writeTrustedPluginSet(app, { "@penglai/plugin-reference": "v2" });
+  activatePrivateProfile(layout, user);
+  assert.match(readFileSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-reference", "dist", "index.js"), "utf8"), /v2/);
+});
+
+test("R2-DIST-011 seed activates private profile once", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), "{\"name\":\"web\"}\n");
+  writeTrustedPluginSet(app);
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  writeFileSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", ".keep"), "official\n");
+  const layout = resolveRuntimeLayout(app);
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  activatePrivateProfile(layout, user);
+  assert.equal(existsSync(join(user.profileWeb, "package.json")), true);
+  assert.match(readFileSync(join(user.profileWeb, "package.json"), "utf8"), /web/);
+});
+
+test("plugin tarball root without package/ prefix is accepted", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "penglai-tgz-"));
+  writeFileSync(join(tmp, "package.json"), "{\"name\":\"@penglai/im\"}\n");
+  assert.equal(extractedPackageRoot(tmp), tmp);
+});
+
+test("process identity rejects pid reuse without matching start time", async () => {
+  const { killIdentity, processStillMatches } = await import("./process.js");
+  const stale = {
+    pid: 1,
+    pgid: 1,
+    startMs: 1,
+    executable: "/no/such/node",
+    dshEntry: "/no/such/dsh",
+    port: 1,
+    startedAt: new Date(1).toISOString(),
+  };
+  assert.equal(processStillMatches(stale), false);
+  assert.equal(killIdentity(stale, "SIGTERM"), false);
+});
+
+test("official DSH HTML identity does not depend on DeepSeek Harness title", () => {
+  assert.equal(
+    isOfficialDshHtml('<!doctype html><html><head><title>蓬莱 Penglai</title></head><body><div id="root"></div><script src="/assets/index.js"></script></body></html>'),
+    true,
+  );
+  assert.equal(
+    isOfficialDshHtml('<!doctype html><html><head><title>DeepSeek Harness</title></head><body><div id="root"></div><script src="/assets/index.js"></script></body></html>'),
+    true,
+  );
+  assert.equal(
+    isOfficialDshHtml('<html><body data-penglai-recovery="1"><title>蓬莱 Penglai</title><div id="root"></div></body></html>'),
+    false,
+  );
+  assert.equal(isPenglaiProductTitle("蓬莱 Penglai"), true);
+  assert.equal(isPenglaiProductTitle("Penglai · DeepSeek Harness failed to start"), false);
+});
+
+test("R2I-BRAND-005 fresh settings seed locale zh without overwriting", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(user.dshHome, { recursive: true });
+  seedFreshSettings(user);
+  const first = readFileSync(join(user.dshHome, "settings.yaml"), "utf8");
+  assert.match(first, /preference: zh/);
+  writeFileSync(join(user.dshHome, "settings.yaml"), "locale:\n  preference: en\n");
+  seedFreshSettings(user);
+  assert.match(readFileSync(join(user.dshHome, "settings.yaml"), "utf8"), /preference: en/);
+});
+
+test("R2I-CRED-008 keychain override is detected without reading secrets", () => {
+  assert.equal(detectKeychainOverride('name: "@penglai/credentials-keychain"').required, true);
+  assert.equal(detectKeychainOverride('name: "@penglai/im"').required, false);
+});
+
+test("distribution inventory requires core services but keeps optional IM absent", () => {
+  const proof = evaluateInventory({
+    entries: [
+      { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active" },
+      { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
+      { moduleName: "@penglai/plugin-smoke", enabled: false, fiberPhase: null },
+    ],
+  });
+  assert.equal(proof.ok, true);
+  assert.equal(proof.im, false);
+  assert.equal(proof.smokeDisabled, true);
+  const empty = evaluateInventory({});
+  assert.equal(empty.ok, false);
+});
+
+test("R2I-DIST-007 refuses to install historical keychain tarball into profile", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), "{\"name\":\"web\"}\n");
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  writeFileSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", ".keep"), "official\n");
+  const dir = mkdtempSync(join(tmpdir(), "penglai-kc-"));
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  writeFileSync(join(dir, "package.json"), "{\"name\":\"@penglai/credentials-keychain\",\"main\":\"dist/index.js\"}\n");
+  writeFileSync(join(dir, "dist", "index.js"), "export const name = 'kc';\n");
+  mkdirSync(join(app, "plugins"), { recursive: true });
+  execFileSync("tar", ["-czf", join(app, "plugins", "penglai-credentials-keychain-0.2.0.tgz"), "-C", dir, "."]);
+  writeTrustedPluginSet(app);
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  const layout = resolveRuntimeLayout(app);
+  assert.throws(() => activatePrivateProfile(layout, user), /unlisted bundled plugin archive|catalog set mismatch/);
+});
+
+test("fresh profile installs only Center and links official @deepseek-ai", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), "{\"name\":\"web\"}\n");
+  const official = join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", "dsh-credentials");
+  mkdirSync(official, { recursive: true });
+  writeFileSync(join(official, "package.json"), "{\"name\":\"@deepseek-ai/dsh-credentials\"}\n");
+  writeTrustedPluginSet(app);
+  const layout = resolveRuntimeLayout(app);
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  activatePrivateProfile(layout, user);
+  assert.equal(
+    existsSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-center", "dist", "index.js")),
+    true,
+  );
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
+  const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
+  assert.equal(lstatSync(linked).isSymbolicLink(), true);
+  assert.equal(readlinkSync(linked), layout.officialDeepseek);
+});
+
+test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
+  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.id !== "@penglai/plugin-center");
+  assert.ok(optional.length > 0);
+  assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
+  const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8");
+  for (const entry of optional) {
+    const short = entry.id.replace("@penglai/", "penglai-");
+    assert.match(
+      patch,
+      new RegExp(
+        `id: ${short}\\n\\s+name: ["']${entry.id.replace("/", "\\/")}["']\\n\\s+disabled: true`,
+      ),
+      entry.id,
+    );
+  }
+});
+
+test("R2-DIST-012 interrupted staging rolls back", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
+  mkdirSync(user.transactions, { recursive: true });
+  mkdirSync(user.profileWeb, { recursive: true });
+  writeJournal(user, { id: "t1", phase: "staging", lastGood: user.profileWeb });
+  mkdirSync(join(user.transactions, "staging"), { recursive: true });
+  const j = recoverProfile(user);
+  assert.equal(j.phase, "rolled_back");
+});
+
+test("Center transaction is restored before DSH profile activation", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-center-preboot-")));
+  const txDir = join(user.root, "profiles", "center-tx");
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(join(txDir, "last-good"), { recursive: true });
+  mkdirSync(join(user.root, "plugins"), { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  writeFileSync(join(user.profileWeb, "cordis.patch.yml"), "failed: true\n");
+  writeFileSync(join(txDir, "last-good", "cordis.patch.yml"), "good: true\n");
+  writeFileSync(join(user.root, "plugins", "desired.json"), JSON.stringify({ "@penglai/im": false }));
+  writeFileSync(join(txDir, "active.lock"), "fixture");
+  writeFileSync(
+    join(txDir, "journal.json"),
+    JSON.stringify({
+      schema: 2,
+      operationId: "24e69732-d08b-4f05-a628-ddf0bcf99a50",
+      phase: "verifying",
+      id: "@penglai/im",
+      action: "disable",
+      previousEnabled: true,
+      version: "0.5.0",
+    }),
+  );
+  recoverProfile(user);
+  assert.match(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /good: true/);
+  const desired = JSON.parse(readFileSync(join(user.root, "plugins", "desired.json"), "utf8")) as Record<string, boolean>;
+  assert.equal(desired["@penglai/im"], true);
+  assert.equal(existsSync(join(txDir, "active.lock")), false);
+  const journal = JSON.parse(readFileSync(join(txDir, "journal.json"), "utf8")) as { phase: string };
+  assert.equal(journal.phase, "rolled_back");
+});
+
+test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer", () => {
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(src, /cwd:\s*user\.dshHome/);
+  assert.match(src, /DSH_HOME:\s*user\.dshHome/);
+  assert.doesNotMatch(src, /cwd:\s*process\.cwd\(\)/);
+  const yamlHook = src.includes("join(user.dshHome, \".credentials.yaml\")") || src.includes('join(user.dshHome, ".credentials.yaml")');
+  assert.equal(yamlHook, true);
+});

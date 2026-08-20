@@ -1,0 +1,18 @@
+{
+  "name": "@penglai/persistence",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@penglai/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@penglai/testkit": "workspace:*"
+  }
+}

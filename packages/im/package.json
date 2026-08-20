@@ -1,0 +1,37 @@
+{
+  "name": "@penglai/im",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./dist/client.js"
+    }
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "@penglai/channel-feishu": "workspace:*",
+    "@penglai/channel-weixin": "workspace:*",
+    "@penglai/contracts": "workspace:*",
+    "@penglai/dsh-bridge": "workspace:*",
+    "@penglai/persistence": "workspace:*",
+    "@penglai/routing-core": "workspace:*",
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.8"
+  }
+}

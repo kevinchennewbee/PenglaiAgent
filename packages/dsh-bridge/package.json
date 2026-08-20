@@ -1,0 +1,38 @@
+{
+  "name": "@penglai/dsh-bridge",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./src/plugin.ts",
+      "default": "./dist/plugin.js"
+    }
+  },
+  "dependencies": {
+    "@penglai/contracts": "workspace:*",
+    "@penglai/budget": "workspace:*",
+    "@penglai/routing-core": "workspace:*",
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-agent": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-llm": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-session": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-workspace": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-locale": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-theme": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-host-plugin-inventory": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-credentials-local": "0.1.0-rc.8"
+  },
+  "devDependencies": {
+    "@penglai/persistence": "workspace:*",
+    "@penglai/testkit": "workspace:*"
+  }
+}

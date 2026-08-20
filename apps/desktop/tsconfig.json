@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "lib": ["ES2023", "DOM"]
+  },
+  "references": [
+    { "path": "../../packages/contracts" },
+    { "path": "../../packages/persistence" },
+    { "path": "../../packages/routing-core" },
+    { "path": "../../packages/dsh-bridge" },
+    { "path": "../../packages/channel-weixin" },
+    { "path": "../../packages/im" },
+    { "path": "../../packages/local-control" },
+    { "path": "../../packages/runtime" },
+    { "path": "../../packages/testkit" }
+  ],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

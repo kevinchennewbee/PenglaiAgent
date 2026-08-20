@@ -1,0 +1,51 @@
+{
+  "dsh": "0.1.0-rc.7",
+  "kind": "ui-only",
+  "reason": "Penglai product title, logo, ink-wash hero, and sidebar wordmark; no Agent/runtime/network changes",
+  "mustRemainOfficial": [
+    "@deepseek-ai/dsh-agent",
+    "@deepseek-ai/dsh-session",
+    "@deepseek-ai/dsh-llm",
+    "@deepseek-ai/dsh-workspace"
+  ],
+  "files": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "upstreamSha256": "dd159dc02803ac2b16892ec5843567722e0b18e93a9a7a888c77410ea108a13e",
+      "patchedSha256": "57da33abdda2323d2610c73a91ada5cb69936a374995237efe84f50f7be4a6b9",
+      "upstream": "upstream/dsh-web-frontend.index.html",
+      "patched": "patched/dsh-web-frontend.index.html"
+    },
+    {
+      "id": "sidebar-wordmark",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-sidebar/lib/client.js",
+      "upstreamSha256": "b9bd53c300a07199cadcfee7c2a35c6ca4633849ce14574738c26649b09657ba",
+      "patchedSha256": "ee1b2c63b5f5a4a04ea4db2b66b882c999490002e7a051f260085e7f6c5ee6e1",
+      "upstream": "upstream/dsh-client-ui-sidebar.client.js",
+      "patched": "patched/dsh-client-ui-sidebar.client.js"
+    },
+    {
+      "id": "welcome-notice",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "upstreamSha256": "92b93c91601fa8b787b62a431c82e41dc046d768b31866370aae55b959114894",
+      "patchedSha256": "c5b3c539f96ccbe9ce17957c756a9f788e991005913bf67d2041d87e1e52d8e9",
+      "upstream": "upstream/dsh-client-ui-settings-models.client.js",
+      "patched": "patched/dsh-client-ui-settings-models.client.js"
+    },
+    {
+      "id": "conversation-hero",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "upstreamSha256": "0980922f58332dea0ff18079d2da728f7a81136079babf0278776d6897a45d80",
+      "patchedSha256": "1b8baab3dad1af5cdefac4d31f2012c36c85d41d1c09ffdefd29a8a5798b5d98",
+      "upstream": "upstream/dsh-client-ui-conversation.client.js",
+      "patched": "patched/dsh-client-ui-conversation.client.js"
+    }
+  ],
+  "brand": [
+    { "name": "logo-64.png", "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985" },
+    { "name": "logo-256.png", "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2" },
+    { "name": "ink-wash-light.jpg", "sha256": "656729a3a8b6f3294a50db59e7392d082ad83caba1b6d74e86b44b55e34b7c2e" },
+    { "name": "ink-wash-dark.jpg", "sha256": "4575b1a0bdc0e25e6e352386a712be524ad59aeb63bb4f20b8adb43d30d4de39" }
+  ]
+}

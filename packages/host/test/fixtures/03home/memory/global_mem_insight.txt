@@ -1,5 +1,0 @@
-# 0.3 L1 样例（global_mem_insight.txt 格式；内容为 fixture 虚构）
-高频: 验证纪律→verify_sop; 压缩→penglai_compress_sop; 渠道→penglai_channels_sop
-低频: weather / genmedia / im_vision / tmwebdriver
-RULES: 禁无条件杀python(会杀自己); 搜索用google不用百度; es(PATH有)防找路径
-偏好: 报告中文; 证据先行; 免费免key优先
