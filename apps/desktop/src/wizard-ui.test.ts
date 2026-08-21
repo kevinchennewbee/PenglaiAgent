@@ -41,8 +41,10 @@ test("wizard JS is plain source with Typert envelope and no DSH client", () => {
   assert.match(js, /data-penglai-wizard-key/);
   assert.match(js, /data-penglai-wizard-language-zh/);
   assert.match(js, /data-penglai-wizard-language-en/);
-  assert.doesNotMatch(js, /data-penglai-wizard-workspace/);
-  assert.doesNotMatch(js, /data-penglai-wizard-message/);
+  assert.match(js, /data-penglai-wizard-workspace/);
+  assert.match(js, /data-penglai-wizard-message/);
+  assert.match(js, /createWorkspace/);
+  assert.match(js, /runFirstConversation/);
   assert.doesNotMatch(js, /data-penglai-wizard-im/);
   assert.match(js, /readKeyDraft\(\);\s*state\.busy = true/);
   assert.match(js, /patchStatus\(\)/);
@@ -116,7 +118,7 @@ test("wizard unwraps official server-response and refuses a top-level args envel
   assert.match(js, /if \(!state\.current\) return false;/);
 });
 
-test("wizard screens are 5 numbered steps: language, privacy, models, key test, enter", () => {
+test("wizard screens are 7 numbered steps including workspace and first turn", () => {
   const screens = extractObject("LEDGER_SCREENS", "\\[[\\s\\S]*?\\n  \\];") as Array<{
     id: string;
     ledger: string;
@@ -125,9 +127,9 @@ test("wizard screens are 5 numbered steps: language, privacy, models, key test, 
   }>;
   assert.deepEqual(
     screens.map((s) => s.id),
-    ["language", "privacy", "models", "keytest", "done"],
+    ["language", "privacy", "models", "keytest", "workspace", "firstturn", "done"],
   );
-  assert.deepEqual(screens.map((s) => s.number), [1, 2, 3, 4, 5]);
+  assert.deepEqual(screens.map((s) => s.number), [1, 2, 3, 4, 5, 6, 7]);
   assert.equal(screens.every((s) => s.skippable === false), true);
 });
 
@@ -162,4 +164,6 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
   );
   assert.match(js, /throw new Error\(t\("errorGeneric"\)\)/);
   assert.doesNotMatch(js, /if \(!result \|\| result\.passed !== true\) throw new Error\(t\("errorGeneric"\)\)/);
+  assert.match(js, /official nonce Turn did not complete/);
+  assert.match(js, /official first Turn did not complete/);
 });

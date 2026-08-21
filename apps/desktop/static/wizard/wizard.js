@@ -2,7 +2,7 @@
   const COPY = {
     zh: {
       brand: "蓬莱 Penglai",
-      progress: "第 {n} 步，共 5 步",
+      progress: "第 {n} 步，共 7 步",
       back: "上一步",
       skip: "跳过",
       continue: "继续",
@@ -22,8 +22,16 @@
       provider: "供应商",
       model: "模型",
       credentialTitle: "输入 API 密钥",
-      credentialBody: "密钥只保存在本机 YAML 文件。点继续会立刻测试一次连通，通过后进入蓬莱。",
+      credentialBody: "密钥只保存在本机 YAML 文件。点继续会立刻测试一次连通。",
       apiKey: "API 密钥",
+      workspaceTitle: "工作区",
+      workspaceBody: "选择一个本机文件夹作为官方 Workspace。蓬莱不会把工作区建在自己的数据目录或安装目录里。",
+      workspacePath: "文件夹",
+      workspaceTitleField: "名称",
+      workspacePick: "选择文件夹",
+      firstTurnTitle: "第一条消息",
+      firstTurnBody: "向官方 Session 发送第一条真实消息。成功后会重启进入蓬莱。",
+      firstTurnMessage: "消息",
       doneTitle: "可以开始使用",
       doneBody: "引导完成。接下来进入蓬莱。",
       busy: "正在处理…",
@@ -43,7 +51,7 @@
     },
     en: {
       brand: "Penglai",
-      progress: "Step {n} of 5",
+      progress: "Step {n} of 7",
       back: "Back",
       skip: "Skip",
       continue: "Continue",
@@ -63,8 +71,16 @@
       provider: "Provider",
       model: "Model",
       credentialTitle: "Enter API key",
-      credentialBody: "The key stays in a local YAML file on this computer. Continue runs one connectivity test, then opens Penglai.",
+      credentialBody: "The key stays in a local YAML file on this computer. Continue runs one connectivity test.",
       apiKey: "API key",
+      workspaceTitle: "Workspace",
+      workspaceBody: "Choose a local folder as the official Workspace. Penglai will not use its data directory or install directory.",
+      workspacePath: "Folder",
+      workspaceTitleField: "Name",
+      workspacePick: "Choose folder",
+      firstTurnTitle: "First message",
+      firstTurnBody: "Send the first real message on the official Session. After it succeeds, Penglai restarts into the main window.",
+      firstTurnMessage: "Message",
       doneTitle: "Ready",
       doneBody: "Setup is complete. Penglai is ready.",
       busy: "Working…",
@@ -89,7 +105,9 @@
     { id: "privacy", ledger: "privacy-v1", number: 2, skippable: false },
     { id: "models", ledger: "model-provider-v1", number: 3, skippable: false },
     { id: "keytest", ledger: "credential-v1", number: 4, skippable: false },
-    { id: "done", ledger: "COMPLETE", number: 5, skippable: false },
+    { id: "workspace", ledger: "workspace-v1", number: 5, skippable: false },
+    { id: "firstturn", ledger: "first-turn-v1", number: 6, skippable: false },
+    { id: "done", ledger: "COMPLETE", number: 7, skippable: false },
   ];
 
   const state = {
@@ -101,6 +119,9 @@
     models: [],
     selection: null,
     keyDraft: "",
+    workspacePath: "",
+    workspaceTitle: "Penglai",
+    firstMessage: "你好",
     error: "",
     busy: false,
     viewIndex: 0,
@@ -118,16 +139,9 @@
     if (current === "credential-v1" || current === "model-test-v1") {
       return LEDGER_SCREENS.find((s) => s.id === "keytest");
     }
-    if (
-      current === "workspace-v1" ||
-      current === "first-turn-v1" ||
-      current === "core-ready-v1" ||
-      current === "im-offer-v1" ||
-      current === "voice-offer-v1" ||
-      current === "context-offer-v1" ||
-      current === "memory-offer-v1" ||
-      current === "COMPLETE"
-    ) {
+    if (current === "workspace-v1") return LEDGER_SCREENS.find((s) => s.id === "workspace");
+    if (current === "first-turn-v1") return LEDGER_SCREENS.find((s) => s.id === "firstturn");
+    if (current === "COMPLETE") {
       return LEDGER_SCREENS.find((s) => s.id === "done");
     }
     return LEDGER_SCREENS.find((s) => s.ledger === current) || LEDGER_SCREENS[0];
@@ -284,6 +298,8 @@
       const value = readKeyDraft();
       return value.length >= 4 && value.length <= 4096 && !/[\r\n]/.test(value);
     }
+    if (id === "workspace") return Boolean(state.workspacePath);
+    if (id === "firstturn") return Boolean((state.firstMessage || "").trim());
     return true;
   }
 
@@ -350,9 +366,20 @@
         const nonce = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
         const result = await rpc("testSelectedModel", { nonce });
         if (!result || result.passed !== true) {
-          throw new Error(t("errorGeneric"));
+          throw new Error("official nonce Turn did not complete");
         }
       }
+    } else if (id === "workspace") {
+      if (!state.workspacePath) throw new Error(t("errorJail"));
+      await rpc("createWorkspace", {
+        path: state.workspacePath,
+        title: (state.workspaceTitle || "Penglai").slice(0, 128),
+      });
+    } else if (id === "firstturn") {
+      const message = (state.firstMessage || "").trim();
+      if (!message) throw new Error(t("errorGeneric"));
+      const result = await rpc("runFirstConversation", { message });
+      if (!result || result.passed !== true) throw new Error("official first Turn did not complete");
     } else if (id === "done") {
       await finishWizard();
       return;
@@ -574,6 +601,60 @@
         ]),
       ];
     }
+    if (screen.id === "workspace") {
+      return [
+        el("p", {}, [t("workspaceBody")]),
+        el("label", {}, [
+          t("workspaceTitleField"),
+          el("input", {
+            type: "text",
+            "data-penglai-wizard-workspace-title": "1",
+            value: state.workspaceTitle,
+            onInput: (ev) => {
+              state.workspaceTitle = ev.target.value;
+            },
+          }),
+        ]),
+        el("p", { className: "field-label" }, [t("workspacePath")]),
+        el("p", { "data-penglai-wizard-workspace": "1" }, [state.workspacePath || ""]),
+        el(
+          "button",
+          {
+            type: "button",
+            "data-penglai-wizard-workspace-pick": "1",
+            onClick: async () => {
+              try {
+                const picked = await desktop("wizardPickFolder");
+                if (picked) {
+                  state.workspacePath = String(picked);
+                  render();
+                }
+              } catch (err) {
+                state.error = formatWizardError(err, "rpc");
+                render();
+              }
+            },
+          },
+          [t("workspacePick")],
+        ),
+      ];
+    }
+    if (screen.id === "firstturn") {
+      return [
+        el("p", {}, [t("firstTurnBody")]),
+        el("label", {}, [
+          t("firstTurnMessage"),
+          el("textarea", {
+            "data-penglai-wizard-message": "1",
+            value: state.firstMessage,
+            onInput: (ev) => {
+              state.firstMessage = ev.target.value;
+              patchContinue();
+            },
+          }),
+        ]),
+      ];
+    }
     return [el("p", {}, [t("doneBody")])];
   }
 
@@ -585,6 +666,8 @@
       privacy: "privacyTitle",
       models: "modelsTitle",
       keytest: "credentialTitle",
+      workspace: "workspaceTitle",
+      firstturn: "firstTurnTitle",
       done: "doneTitle",
     };
     const root = document.getElementById("wizard-root");

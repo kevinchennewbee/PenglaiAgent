@@ -44,49 +44,47 @@ function existingDir(path: string): boolean {
   }
 }
 
-function walkOfficialFiles(root: string, visit: (path: string, name: string) => boolean, depth = 0): boolean {
-  if (depth > 6 || !existingDir(root)) return false;
-  let names: string[];
+function workspaceJsonHasId(path: string, workspaceId: string): boolean {
+  if (!regularFile(path)) return false;
   try {
-    names = readdirSync(root);
+    const raw = JSON.parse(readFileSync(path, "utf8")) as { workspaceIds?: unknown };
+    return Array.isArray(raw.workspaceIds) && raw.workspaceIds.includes(workspaceId);
   } catch {
     return false;
   }
-  for (const name of names.slice(0, 64)) {
-    const path = join(root, name);
-    if (regularFile(path) && visit(path, name)) return true;
-    if (existingDir(path) && walkOfficialFiles(path, visit, depth + 1)) return true;
-  }
-  return false;
 }
 
-/** Official workspace domain JSON written by DSH storage, not an empty Penglai marker dir. */
+/** Official workspace domain JSON written by DSH storage-json as `<domain>.json`. */
 export function officialWorkspaceRecord(dshHome: string, workspaceId: string): boolean {
   if (!workspaceId || workspaceId.includes("..") || workspaceId.includes("/") || workspaceId.includes("\\")) {
     return false;
   }
-  return walkOfficialFiles(dshHome, (path, name) => {
-    if (name !== "workspace.json") return false;
-    try {
-      const raw = JSON.parse(readFileSync(path, "utf8")) as { workspaceIds?: unknown };
-      return Array.isArray(raw.workspaceIds) && raw.workspaceIds.includes(workspaceId);
-    } catch {
-      return false;
-    }
-  });
+  return ["workspace.json", join("storage", "workspace.json"), join("data", "workspace.json")].some((rel) =>
+    workspaceJsonHasId(join(dshHome, rel), workspaceId),
+  );
 }
 
-/** Official session JSONL written by DSH persistence, not an empty Penglai marker dir. */
+/** Official session JSONL: `<session-root>/<project>/<sessionId>/session.jsonl`. */
 export function officialSessionLog(dshHome: string, sessionId: string): boolean {
   if (!sessionId || sessionId.includes("..") || sessionId.includes("/") || sessionId.includes("\\")) {
     return false;
   }
-  return walkOfficialFiles(dshHome, (path, name) => {
-    if (name !== "session.jsonl" && name !== "session.jsonl.gz") return false;
-    const parent = path.slice(0, -name.length - 1);
-    const folder = parent.split(/[/\\]/).pop() ?? "";
-    return folder === sessionId;
-  });
+  const roots = [join(dshHome, "sessions"), join(dshHome, "session-logs"), join(dshHome, "projects")];
+  for (const root of roots) {
+    if (!existingDir(root)) continue;
+    let projects: string[];
+    try {
+      projects = readdirSync(root);
+    } catch {
+      continue;
+    }
+    for (const project of projects.slice(0, 64)) {
+      const log = join(root, project, sessionId, "session.jsonl");
+      const gz = join(root, project, sessionId, "session.jsonl.gz");
+      if (regularFile(log) || regularFile(gz)) return true;
+    }
+  }
+  return false;
 }
 
 function credentialStillConfigured(userRoot: string, credentialRef: string): boolean {

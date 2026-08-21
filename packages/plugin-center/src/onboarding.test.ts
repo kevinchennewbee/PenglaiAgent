@@ -94,9 +94,10 @@ test("R2I-ONB-001/002 onboarding steps are ordered and durable", () => {
   assert.deepEqual(loaded.completed, ["welcome-v1", "appearance-locale-v1", "privacy-v1"]);
   assert.equal(loaded.current, "model-provider-v1");
   assert.throws(() => completeStep(loaded, "model-provider-v1", "forged-token"));
-  assert.equal(ONBOARDING_STEPS.length, 6);
+  assert.equal(ONBOARDING_STEPS.length, 8);
   assert.ok(ONBOARDING_STEPS.includes("credential-v1"));
-  assert.equal(ONBOARDING_STEPS.includes("first-turn-v1"), false);
+  assert.equal(ONBOARDING_STEPS.includes("workspace-v1"), true);
+  assert.equal(ONBOARDING_STEPS.includes("first-turn-v1"), true);
 });
 
 test("R50-ONB-002/003/004 official catalog and onboarding slot are required", () => {
@@ -202,6 +203,24 @@ test("R50-ONB-009/010 core ready and IM offer cannot skip official Turn", () => 
     nonce: "n1",
     durableFinal: "PENGLAI_OK_n1",
   });
+  assert.equal(state.current, "workspace-v1");
+  assert.throws(
+    () => completeStepWithEvidence(state, "first-turn-v1", state.advanceToken, { officialSessionId: "x" }),
+    /expected workspace-v1/,
+  );
+  state = completeStepWithEvidence(state, "workspace-v1", state.advanceToken, {
+    workspaceId: "ws-real",
+    workspaceWritable: true,
+  });
+  assert.throws(
+    () => completeStepWithEvidence(state, "first-turn-v1", state.advanceToken, {}),
+    /official first Turn/,
+  );
+  state = completeStepWithEvidence(state, "first-turn-v1", state.advanceToken, {
+    officialSessionId: "11111111-1111-4111-8111-111111111111",
+    durableFinalDigest: "a".repeat(64),
+    turnCompleted: true,
+  });
   assert.equal(state.current, "COMPLETE");
 });
 
@@ -243,7 +262,7 @@ test("R50-ONB-003/006 server validates model and API test exact Session final", 
   const result = await passed.testSelectedModel({ nonce: "ny" });
   assert.equal((result as { passed?: boolean }).passed, true);
   assert.equal("final" in (result as object), false);
-  assert.equal(passed.status().current, "COMPLETE");
+  assert.equal(passed.status().current, "workspace-v1");
 });
 
 test("R50-ONB-003 wizard lists official providers and models through penglaiOnboarding", () => {
@@ -359,9 +378,12 @@ test("R50-ONB-008 recordWorkspace verifies the official registry server-side", a
 
 test("R50-ONB-009 first conversation is a visible official Session and survives restart", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
+  const { mkdirSync } = await import("node:fs");
   const wsDir = mkdtempSync(join(tmpdir(), "penglai-ws-first-"));
   const prompts: string[] = [];
-  const dir = mkdtempSync(join(tmpdir(), "penglai-onb-first-"));
+  const userDataRoot = mkdtempSync(join(tmpdir(), "penglai-ud-first-"));
+  const dir = join(userDataRoot, "onboarding");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
   const services = officialServices({
     workspaceDir: wsDir,
     prompts,
@@ -369,6 +391,7 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   });
   const impl = createPenglaiOnboardingRemoteImpl({
     dir,
+    userDataRoot,
     officialCatalog: () => ({ providers: [{ id: "deepseek", protocol: "deepseek", configured: true }] }),
     officialWelcomeAck: () => true,
     agents: services,
@@ -379,13 +402,19 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   await impl.verifyCredential({ ref: "DEEPSEEK_API_KEY" });
   const api = await impl.testSelectedModel({ nonce: "api1" });
   assert.equal((api as { passed?: boolean }).passed, true);
+  assert.equal(impl.status().current, "workspace-v1");
+  await impl.createWorkspace({ path: wsDir, title: "Docs" });
+  const first = await impl.runFirstConversation({ message: "你好" });
+  assert.equal((first as { passed?: boolean }).passed, true);
   assert.equal(impl.status().current, "COMPLETE");
-  assert.deepEqual(prompts, ["PENGLAI_OK_api1"]);
+  assert.deepEqual(prompts, ["PENGLAI_OK_api1", "你好"]);
   const factsDisk = readFileSync(join(dir, "onboarding-facts.json"), "utf8");
   assert.equal(factsDisk.includes("PENGLAI_OK_"), false);
+  assert.equal(factsDisk.includes("你好"), false);
 
   const resumed = createPenglaiOnboardingRemoteImpl({
     dir,
+    userDataRoot,
     officialCatalog: () => ({ providers: [{ id: "deepseek", protocol: "deepseek", configured: true }] }),
     officialWelcomeAck: () => true,
     agents: services,
@@ -554,7 +583,7 @@ test("official nonce Turn observes (session, event) firehose without sessionId i
   advanceToModelTest(impl, { credentialRef: "DEEPSEEK_API_KEY" });
   const result = await impl.testSelectedModel({ nonce: "fire1" });
   assert.equal((result as { passed?: boolean }).passed, true);
-  assert.equal(impl.status().current, "COMPLETE");
+  assert.equal(impl.status().current, "workspace-v1");
 });
 
 test("MISSING_CREDENTIAL on official turn/end fails as auth without waiting out the nonce timeout", async () => {
@@ -618,7 +647,7 @@ test("stale derived DeepSeek ref remaps to DEEPSEEK_API_KEY before the nonce Tur
   assert.equal(created.length, 1);
   const json = JSON.stringify(result);
   assert.equal(json.includes(SECRET), false);
-  assert.equal(impl.status().current, "COMPLETE");
+  assert.equal(impl.status().current, "workspace-v1");
 });
 
 test("official nonce Turn reads whenIdle + durable session log without a firehose", async () => {
@@ -678,7 +707,7 @@ test("official nonce Turn reads whenIdle + durable session log without a firehos
   const started = Date.now();
   const result = await impl.testSelectedModel({ nonce });
   assert.equal((result as { passed?: boolean }).passed, true);
-  assert.equal(impl.status().current, "COMPLETE");
+  assert.equal(impl.status().current, "workspace-v1");
   assert.equal(Date.now() - started < 2000, true);
 });
 

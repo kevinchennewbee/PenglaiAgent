@@ -554,7 +554,7 @@ test("createWorkspace uses official registry after path jail and never guesses l
     descriptor: { configured: true, source: "file", writable: true, serverVerified: true },
   });
   impl.advance("model-test-v1", { nonce: "n1", durableFinal: "PENGLAI_OK_n1" });
-  assert.equal(impl.status().current, "COMPLETE");
+  assert.equal(impl.status().current, "workspace-v1");
 
   await assert.rejects(() => impl.createWorkspace({ path: "relative", title: "X" }), /absolute/);
   await assert.rejects(() => impl.createWorkspace({ path: dir, title: "X" }), /SECURITY_POLICY|onboarding/);
@@ -573,7 +573,11 @@ test("createWorkspace uses official registry after path jail and never guesses l
   symlinkSync(userDataRoot, link);
   await assert.rejects(() => impl.createWorkspace({ path: link, title: "X" }), /SECURITY_POLICY|userData/);
 
-  await assert.rejects(() => impl.createWorkspace({ path: allowed, title: "Docs" }), /not allowed|expected|COMPLETE|workspace/);
+  const created = await impl.createWorkspace({ path: allowed, title: "Docs" });
+  assert.equal(created.current, "first-turn-v1");
+  assert.equal(impl.facts().workspaceId, "ws-created");
+  assert.equal(impl.facts().workspacePath, allowed);
+  assert.equal(rows.some((row) => row.id === "ws-decoy"), true);
 });
 
 test("status returns selection and workspaceId without secrets", async () => {
