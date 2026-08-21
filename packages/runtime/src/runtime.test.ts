@@ -25,6 +25,7 @@ import {
   FIRST_PARTY_PLUGIN_METADATA,
   profilePluginEnabled,
   runtimePluginTarget,
+  windowsOwnedProcessEnvironment,
 } from "./index.js";
 
 test("embedded DSH Web never opens the operating-system browser", () => {
@@ -37,6 +38,20 @@ test("embedded DSH Web never opens the operating-system browser", () => {
     "--port",
     "3080",
   ]);
+});
+
+test("Windows owned DSH receives only the required OS environment", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-win-env-"));
+  const env = windowsOwnedProcessEnvironment(root, {
+    SystemRoot: "C:\\Windows",
+    ComSpec: "C:\\Windows\\System32\\cmd.exe",
+    SECRET_TOKEN: "must-not-cross",
+  });
+  assert.equal(env.SystemRoot, "C:\\Windows");
+  assert.equal(env.USERPROFILE, root);
+  assert.match(String(env.PATH), /System32/);
+  assert.equal("SECRET_TOKEN" in env, false);
+  assert.ok(existsSync(String(env.TEMP)));
 });
 
 function writeTrustedPluginSet(
