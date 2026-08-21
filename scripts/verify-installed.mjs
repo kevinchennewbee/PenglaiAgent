@@ -3,7 +3,17 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { inspectDmgEvidence, inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
+import { inspectInstallerEvidence, inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
+import {
+  evidenceName,
+  hostMatchesTarget,
+  installerForTarget,
+  missingReleaseTargets,
+  nativeBlocked,
+  parseTargetArg,
+  RELEASE_TARGETS,
+  walkedCoreOnboarding,
+} from "./lib/release-targets.mjs";
 
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
 
@@ -13,9 +23,43 @@ mkdirSync(evidenceDir, { recursive: true });
 writeFileSync(assertionFile, "");
 process.env.PENGLAI_EVIDENCE_DIR = assertionFile;
 
-const path = join(evidenceDir, "installed-e2e.json");
+if (process.argv.includes("--aggregate")) {
+  const present = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
+  const missing = missingReleaseTargets(present);
+  const sourceShas = present.map((target) => {
+    const rec = JSON.parse(readFileSync(join(evidenceDir, evidenceName("installed-e2e", target)), "utf8"));
+    return rec.sourceSha;
+  });
+  const unique = [...new Set(sourceShas.filter(Boolean))];
+  if (missing.length) {
+    finish("INCOMPLETE", {
+      command: "verify:installed",
+      reason: "three-target installed evidence set is incomplete",
+      present,
+      missing,
+    });
+  }
+  if (unique.length !== 1) {
+    finish("FAIL", {
+      command: "verify:installed",
+      reason: "installed evidence source SHA is not identical across targets",
+      unique,
+    });
+  }
+  finish("PASS", { command: "verify:installed", targets: present, sourceSha: unique[0] });
+}
+
+const target = parseTargetArg();
+const blocked = nativeBlocked("verify:installed", target);
+if (blocked) finish("BLOCKED", { command: "verify:installed", ...blocked });
+
+const path = existsSync(join(evidenceDir, evidenceName("installed-e2e", target)))
+  ? join(evidenceDir, evidenceName("installed-e2e", target))
+  : target === "darwin-aarch64"
+    ? join(evidenceDir, "installed-e2e.json")
+    : join(evidenceDir, evidenceName("installed-e2e", target));
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:installed", reason: "no 0.5 installed evidence" });
+  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.1 installed evidence for ${target}`, target });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
 const blob = JSON.stringify(rec);
@@ -23,10 +67,15 @@ if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob))
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
 if (rec.productVersion !== "0.5.1" || rec.verdict !== "PASS") {
-  finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS" });
+  finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
 }
-if (rec.fromExactDmg !== true || rec.installer !== "Penglai_0.5.1_macos_aarch64.dmg") {
-  finish("FAIL", { command: "verify:installed", reason: "installed evidence was not from exact 0.5 arm64 DMG" });
+const expectedInstaller = installerForTarget(target);
+if (rec.fromExactDmg !== true || rec.installer !== expectedInstaller) {
+  finish("FAIL", {
+    command: "verify:installed",
+    reason: `installed evidence was not from exact ${expectedInstaller}`,
+    target,
+  });
 }
 if (rec.sourceRead === true) {
   finish("FAIL", { command: "verify:installed", reason: "source-read cannot produce installed PASS" });
@@ -51,15 +100,17 @@ const git = gitState();
 if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
   finish("STALE", { command: "verify:installed", reason: "candidate source must be clean main at origin/main", ...git });
 }
-const dmgPath = join(ROOT, "evidence/generated/local-dmg.json");
-const app = packagedAppForTarget(ROOT, "darwin-aarch64");
-const packaged = inspectPackagedCandidate({ app, candidateSha: git.head, expectedTarget: "darwin-aarch64" });
+const dmgPath = join(evidenceDir, evidenceName("local-installer", target));
+const legacyDmg = join(evidenceDir, "local-dmg.json");
+const evidencePath = existsSync(dmgPath) ? dmgPath : legacyDmg;
+const app = packagedAppForTarget(ROOT, target);
+const packaged = inspectPackagedCandidate({ app, candidateSha: git.head, expectedTarget: target });
 if (packaged.verdict !== "PASS") {
-  finish(packaged.verdict, { command: "verify:installed", reason: packaged.reason, app });
+  finish(packaged.verdict, { command: "verify:installed", reason: packaged.reason, app, target });
 }
-const dmg = inspectDmgEvidence({ root: ROOT, packaged, evidencePath: dmgPath });
+const dmg = inspectInstallerEvidence({ root: ROOT, packaged, evidencePath });
 if (dmg.verdict !== "PASS") {
-  finish(dmg.verdict, { command: "verify:installed", reason: dmg.reason, dmg: dmg.dmgPath });
+  finish(dmg.verdict, { command: "verify:installed", reason: dmg.reason, dmg: dmg.installerPath ?? dmg.dmgPath, target });
 }
 const bound = identity.bindArtifactFreshness({
   candidateSha: packaged.release.sourceSha,
@@ -70,13 +121,13 @@ const bound = identity.bindArtifactFreshness({
 if (!bound.ok) {
   finish(bound.verdict, { command: "verify:installed", reason: bound.reason });
 }
-const native = process.arch === "arm64" && process.platform === "darwin";
+const native = hostMatchesTarget(target);
 const common = {
   candidateSourceSha: packaged.release.sourceSha,
-  target: "darwin-aarch64",
+  target,
   runnerNative: native,
   artifactSha256: rec.installerSha256,
-  rawEvidencePointer: "evidence/generated/installed-e2e.json",
+  rawEvidencePointer: path.replace(`${ROOT}/`, ""),
   exitCode: 0,
   status: "PASS",
 };
@@ -85,8 +136,8 @@ identity.recordAssertion({
   acceptanceId: "R50-E2E-001",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "from-exact-arm64-dmg",
-  details: { safe: "installed evidence mounted exact Penglai_0.5.1_macos_aarch64.dmg" },
+  assertionId: "from-exact-installer",
+  details: { safe: `installed evidence mounted exact ${expectedInstaller}` },
 });
 identity.recordAssertion({
   ...common,
@@ -117,8 +168,8 @@ identity.recordAssertion({
   acceptanceId: "R50-MAC-009",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "exact-dmg-installed-suite",
-  details: { safe: "arm64 exact DMG installed suite recorded official boot observations" },
+  assertionId: "exact-installer-installed-suite",
+  details: { safe: `${target} exact installer suite recorded official boot observations` },
 });
 identity.recordAssertion({
   ...common,
@@ -140,8 +191,8 @@ identity.recordAssertion({
   assertionId: "official-llm-providers-in-models-step",
   details: { safe: "models step listed official llm.providers cards and continue was clicked" },
 });
-if (!walked.includes("workspace")) {
-  finish("FAIL", { command: "verify:installed", reason: "workspace step was not walked after models" });
+if (!walkedCoreOnboarding(walked)) {
+  finish("FAIL", { command: "verify:installed", reason: "workspace and first-turn steps were not walked after models" });
 }
 identity.recordAssertion({
   ...common,
@@ -151,9 +202,6 @@ identity.recordAssertion({
   assertionId: "workspace-after-nonce",
   details: { safe: "installed walk recorded official workspace after models nonce Turn" },
 });
-if (!walked.includes("im-later") && !walked.includes("im-offer") && !walked.includes("mounted-im-offer")) {
-  finish("FAIL", { command: "verify:installed", reason: "IM offer after CORE_READY was not observed" });
-}
 const settingsWalked = first.settingsWalk?.walked ?? [];
 if (!["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
   finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, update, or uninstall was not observed" });
@@ -182,15 +230,7 @@ identity.recordAssertion({
   acceptanceId: "R50-ONB-009",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "core-ready-then-im-offer",
-  details: { safe: "installed walk reached IM offer only after core-ready" },
+  assertionId: "workspace-and-first-turn",
+  details: { safe: "installed walk reached workspace and first-turn after core-ready facts" },
 });
-identity.recordAssertion({
-  ...common,
-  acceptanceId: "R50-ONB-010",
-  runnerId: "installed",
-  testId: "verify-installed",
-  assertionId: "im-offer-later-choice",
-  details: { safe: "installed walk observed IM offer later choice after core ready" },
-});
-finish("PASS", { command: "verify:installed", installerSha256: rec.installerSha256 });
+finish("PASS", { command: "verify:installed", installerSha256: rec.installerSha256, target });
