@@ -8,7 +8,7 @@ import { finish } from "./lib/exit-contract.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const contractsBuild = spawnSync(
-  "pnpm",
+  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
   ["exec", "tsc", "-b", "packages/contracts", "--pretty", "false", "--force"],
   { cwd: ROOT, encoding: "utf8", env: { ...process.env } },
 );
@@ -16,7 +16,7 @@ if (contractsBuild.status !== 0) {
   finish("FAIL", {
     command: "prepare:public-export",
     reason: "could not build the source dependency required by the export policy",
-    detail: String(contractsBuild.stderr || contractsBuild.stdout || "").slice(-800),
+    detail: String(contractsBuild.error || contractsBuild.stderr || contractsBuild.stdout || "").slice(-800),
   });
 }
 
