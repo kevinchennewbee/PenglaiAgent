@@ -56,7 +56,7 @@ Companion assets:
 
 ## Plugin registry dependency
 
-The signed catalog release in `kevinchennewbee/PenglaiPluginRegistry` must be immutable and must verify with the public key embedded in this exact client. The first catalog and its plugin tarballs remain NOT_RUN until immutable Releases are enabled and remote readback passes.
+The signed catalog release [`plugin-catalog-v1.000001`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000001) is immutable and verifies with the public key embedded in this exact client. Live production refresh, catalog and archive verification, disabled install, and offline last-good recovery PASS.
 
 ## Upgrade boundary
 

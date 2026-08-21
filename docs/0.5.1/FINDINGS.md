@@ -1,16 +1,16 @@
 # Penglai 0.5.1 findings ledger
 
-Baseline: branch `0.5.1`. Source work may be pushed as a Draft PR. Do not merge `main`, tag `v0.5.1`, or publish installers until the BLOCKED native and immutable items below are closed.
+Baseline: merged `main`. Do not tag `v0.5.1` or publish installers until the native items below are closed and the exact release bytes are frozen.
 
-Status in this ledger is evidence-backed. Source tests are not packaged, installed, or release-plane evidence. Missing Intel/Windows native runners and GitHub Immutable Releases remain **BLOCKED** / **NOT_RUN**, not accepted residuals.
+Status in this ledger is evidence-backed. Source tests are not packaged, installed, or release-plane evidence. Native package status is recorded only from matching GitHub-hosted runners.
 
-| ID | Severity | Evidence | Owner decision | Status | Acceptance |
+| ID | Severity | Evidence | Resolution | Status | Acceptance |
 | --- | --- | --- | --- | --- | --- |
-| P51-TREE-001 | blocker | plugin-registry/plugin-pilot `package.json` were excluded locally | `git add -f`; public-export reads git index blobs | source PASS | tracked tree, no Owner home path |
+| P51-TREE-001 | blocker | plugin-registry/plugin-pilot `package.json` were excluded locally | `git add -f`; public-export reads git index blobs | source PASS | tracked tree, no maintainer home path |
 | P51-CORE-001 | blocker | `profilePluginEnabled` YAML parse | keep structured YAML parse | source PASS | optional plugins absent/disabled/enabled |
 | P51-AUTH-001 | blocker | Context used `extra.sessionId` | bind `exec.agent.id` via DSH ToolRunContext | source PASS | forged extra.sessionId fail closed |
-| P51-SUPPLY-001 | blocker | PPDP/1 host: GitHub immutable discovery, streaming hash, tar policy, CAS cache, install disabled | production refresh rejects renderer URL/key | source PASS; packaged/installed **NOT_RUN** | tamper/downgrade/tar fail closed |
-| P51-SUPPLY-002 | blocker | Plugin Center mapped only FIRST_PARTY_CARDS | remote catalog rows + bundled; remote loader row via profile tx | source PASS; live GitHub **BLOCKED** | remote source/version/DSH/permissions/signature/state |
+| P51-SUPPLY-001 | blocker | PPDP/1 host: GitHub immutable discovery, streaming hash, tar policy, CAS cache, install disabled | production refresh rejects renderer URL/key | source PASS; live GitHub PASS | tamper/downgrade/tar fail closed |
+| P51-SUPPLY-002 | blocker | Plugin Center mapped only FIRST_PARTY_CARDS | remote catalog rows + bundled; remote loader row via profile tx | source PASS; live immutable catalog PASS | remote source/version/DSH/permissions/signature/state |
 | P51-DESKTOP-001 | blocker | packaged Electron ignored `PENGLAI_RESOURCES` only when harness env unset | packaged always ignores overlay | source PASS; exact DMG **NOT_RUN** | polluted env still uses sealed runtime |
 | P51-DESKTOP-002 | blocker | `PENGLAI_ALLOW_TEST_HARNESS` bypassed packaged debug refusal | removed from production | source PASS; exact DMG **NOT_RUN** | packaged debug flags exit non-zero |
 | P51-OWNER-001 | blocker | deletion used renderer `{confirmed:true}` | native `dialog.showMessageBox` required | source PASS; installed **NOT_RUN** | no renderer-only delete |
@@ -24,7 +24,7 @@ Status in this ledger is evidence-backed. Source tests are not packaged, install
 | P51-VISION-001 | blocker | official rc.1 vision model untested in Penglai | adapter `listModels` + mock HTTP `image_url` + onboarding save | source PASS; installed API E2E **NOT_RUN** | live small-image call on installed client |
 | P51-SELECT-001 | high | last-good grant used `artifacts[0]` | shared `selectCatalogArtifact` exact-then-any | source PASS | shuffled catalog SHA matches install SHA |
 | P51-MIGRATE-001 | high | rc.8 → rc.1 user-data migrate missing | versioned backup + idempotent marker + fail-closed restore | source PASS; live 0.5.0 copy **NOT_RUN** | credentials/workspace/session/settings/desired preserved |
-| P51-SIGN-001 | medium | sign/read-back/rotation tools | scripts added | source PASS; live Release **BLOCKED** | read-back after Owner publish |
+| P51-SIGN-001 | medium | sign/read-back/rotation tools | scripts added | plugin catalog read-back PASS; app Release pending | read-back after publication |
 | P51-LOCAL-001 | high | inner DSH loopback may bypass proxy | residual | residual | documented; no fake token |
 | P51-QR-001 | high | QR challenge may leak vendor ref | deferred | deferred | guess/replay fail |
 
@@ -34,7 +34,7 @@ Status in this ledger is evidence-backed. Source tests are not packaged, install
 - **P51-WINDOWS-001 / P51-INTEL-001:** in-scope for 0.5.1. Status is **BLOCKED** until a matching native runner produces exact installers and installed E2E. They are not deferred extras and not an Apple Silicon-only support claim.
 - Plugin `permissions` are review/confirm metadata, not an OS sandbox.
 - Offline clients cannot learn new revocations until the next successful signed catalog fetch.
-- Public repo `kevinchennewbee/PenglaiPluginRegistry` now exists with schema, pilot plugin, and contribution rules. GitHub REST does not expose an Immutable Releases enable switch; Owner must turn it on in both repository settings. Until API read-back is `immutable: true`, live PPDP/PUDP remain **BLOCKED**. Do not publish a catalog Release that clients would ignore.
+- Public repo `kevinchennewbee/PenglaiPluginRegistry` contains the schema, pilot plugin, and contribution rules. Immutable Release `plugin-catalog-v1.000001` reads back as `immutable: true`. Production refresh, signature and archive verification, disabled install, and offline last-good recovery PASS.
 - Updater and plugin-catalog public keys match the 0.5.1 embedded trust roots. Private PEM stays outside git. A second offline copy exists outside the repository.
 
 ## Commands (source)
@@ -57,7 +57,7 @@ pnpm package:windows   # must exit 4 on macOS
 | exact `Penglai_0.5.1_macos_aarch64.dmg` | **NOT_RUN** |
 | exact Intel DMG / Windows Setup | **BLOCKED** (no native runner) |
 | Plugin Center installed UI | **NOT_RUN** |
-| PPDP live GitHub catalog | **BLOCKED** (registry missing) |
+| PPDP live GitHub catalog | **PASS**, immutable `plugin-catalog-v1.000001` |
 | PUDP live higher semver Release | **BLOCKED** |
 | public-export clean-room `--clean-room` | **NOT_RUN** this session |
-| push / tag / GitHub Release | **not authorized** |
+| app tag / GitHub Release | authorized; pending exact three-target freeze |

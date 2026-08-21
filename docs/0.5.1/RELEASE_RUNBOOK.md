@@ -10,7 +10,7 @@ Declared installers from one source SHA:
 - `Penglai_0.5.1_macos_x64.dmg`
 - `Penglai_0.5.1_windows_x64_setup.exe`
 
-The public Plugin Registry exists, both repositories have Immutable Releases enabled, and the embedded public-key fingerprints match the Owner key directory plus backup. Intel/Windows native runners and exact installed evidence remain **BLOCKED** until executed; none may be replaced by cross-build output. Do not tag or publish until Owner freeze.
+The public Plugin Registry exists, both repositories have Immutable Releases enabled, and the embedded public-key fingerprints match the maintainer key directory plus backup. Catalog `plugin-catalog-v1.000001` has passed immutable REST read-back and production-client verification. Native evidence may not be replaced by cross-build output. Do not tag or publish until the exact three-target set is frozen.
 
 ## Local source gates
 
@@ -27,7 +27,7 @@ node scripts/verify-release-keys.mjs
 
 `package:mac --target darwin-x64` and `package:windows` must exit 4 on a non-matching host. Before every native build, run `pnpm prepare:public-export` on the same clean `main` SHA.
 
-## After Owner approval
+## Native build and publication
 
 1. Build Apple Silicon with `pnpm package:dmg:arm` on a native Apple Silicon Mac.
 2. Build Intel with `pnpm package:dmg:intel` on a native Intel Mac.
