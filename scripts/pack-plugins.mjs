@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,
@@ -42,7 +43,6 @@ const effectiveTarget = targetArg ?? (localTarget && ALLOWED_TARGETS.has(localTa
 mkdirSync(dest, { recursive: true });
 mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });
 
-const PRODUCT_VERSION = "0.5.1";
 const FORBIDDEN = ["@penglai/credentials-keychain", "@penglai/plugin-smoke"];
 
 const packs = [

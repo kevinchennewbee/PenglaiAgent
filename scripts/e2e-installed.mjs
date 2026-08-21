@@ -45,7 +45,7 @@ const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
 const artifactPath = process.env.PENGLAI_ARTIFACT || ARM64_DMG;
 const installed = installFromExactDmg(artifactPath, join(ROOT, ".tmp-installed-e2e-app"));
 if (!installed.ok) {
-  finish("INCOMPLETE", { command: "test:e2e:installed", reason: installed.reason ?? "exact Penglai_0.5.0_macos_aarch64.dmg missing" });
+  finish("INCOMPLETE", { command: "test:e2e:installed", reason: installed.reason ?? "exact Penglai_0.5.1_macos_aarch64.dmg missing" });
 }
 const identity = assertInstalledPenglaiIdentity(installed.app);
 if (!identity.ok) {
@@ -190,7 +190,7 @@ const official = walk?.official ?? {};
 const http = official.http ?? { status: 0, ok: false, official: false };
 if (http.status === 401) http.officialProxy = true;
 const first = {
-  productVersion: "0.5.0",
+  productVersion: "0.5.1",
   pid: launched.child.pid,
   recovery: Boolean(walk?.last?.recovery),
   sourceRead: false,
@@ -251,7 +251,7 @@ const fail = (reason, extra = {}) => {
   const rec = {
     command: "test:e2e:installed",
     verdict: "FAIL",
-    productVersion: "0.5.0",
+    productVersion: "0.5.1",
     fromExactDmg: true,
     installer: ARM64_INSTALLER,
     installerSha256: installed.installerSha256,
@@ -305,7 +305,7 @@ const canPass =
 const rec = {
   command: "test:e2e:installed",
   verdict: canPass ? "PASS" : "INCOMPLETE",
-  productVersion: "0.5.0",
+  productVersion: "0.5.1",
   fromExactDmg: true,
   installer: ARM64_INSTALLER,
   installerSha256: installed.installerSha256,

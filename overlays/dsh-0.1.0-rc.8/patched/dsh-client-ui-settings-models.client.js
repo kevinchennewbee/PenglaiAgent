@@ -2343,17 +2343,17 @@ window.__ModuleLoader__.load({
 		* Bump only when the notice changes materially and every user should see it
 		* again. The acknowledgement is compared for exact equality.
 		*/
-		const WELCOME_NOTICE_VERSION = "penglai-0.5.0.3";
+		const WELCOME_NOTICE_VERSION = "penglai-0.5.1.0";
 		/** The complete editable internal-testing notice in both supported GUI locales. */
 		const WELCOME_NOTICE_COPY = {
 			zh: {
 				title: "欢迎使用蓬莱",
-				body: "欢迎使用蓬莱 0.5.0。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和即时通讯凭据只保存在本机私有 YAML 文件，不会上传到蓬莱云。本版属于 community-verified：macOS 使用 ad-hoc 签名且未公证；请不要关闭系统安全提示。关于页保留引擎版本和开源归属。",
+				body: "欢迎使用蓬莱 0.5.1。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和即时通讯凭据只保存在本机私有 YAML 文件，不会上传到蓬莱云。本版属于 community-verified：macOS 使用 ad-hoc 签名且未公证；请不要关闭系统安全提示。关于页保留引擎版本和开源归属。",
 				continueLabel: "开始使用"
 			},
 			en: {
 				title: "Welcome to Penglai",
-				body: "Welcome to Penglai 0.5.0. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay in an app-private local YAML file on this computer and are not uploaded to a Penglai cloud. This build is community-verified: macOS is ad-hoc signed and not notarized. Do not turn off system security warnings. About preserves engine version and open-source attribution.",
+				body: "Welcome to Penglai 0.5.1. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay in an app-private local YAML file on this computer and are not uploaded to a Penglai cloud. This build is community-verified: macOS is ad-hoc signed and not notarized. Do not turn off system security warnings. About preserves engine version and open-source attribution.",
 				continueLabel: "Get started"
 			}
 		};

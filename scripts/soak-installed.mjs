@@ -48,7 +48,7 @@ const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
 if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   finish("INCOMPLETE", {
     command: "test:soak:installed",
-    productVersion: "0.5.0",
+    productVersion: "0.5.1",
     requestedHours: hoursWanted,
     sourceSha: git.head,
     reason:
@@ -58,7 +58,7 @@ if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
 
 const installed = installFromExactDmg(process.env.PENGLAI_ARTIFACT || ARM64_DMG, join(ROOT, ".tmp-installed-soak-app"));
 if (!installed.ok) {
-  finish("INCOMPLETE", { command: "test:soak:installed", reason: installed.reason ?? "exact Penglai_0.5.0_macos_aarch64.dmg missing" });
+  finish("INCOMPLETE", { command: "test:soak:installed", reason: installed.reason ?? "exact Penglai_0.5.1_macos_aarch64.dmg missing" });
 }
 if (expectedTarget !== "darwin-aarch64") {
   finish("FAIL", {
@@ -322,7 +322,7 @@ const leftover = leftoversByCommand(installedDsh).filter((line) => line.includes
 const elapsedHours = (Date.now() - started) / 3600_000;
 const rec = {
   command: "test:soak:installed",
-  productVersion: "0.5.0",
+  productVersion: "0.5.1",
   hours: elapsedHours,
   requestedHours: hoursWanted,
   samples,

@@ -196,7 +196,7 @@ writeFileSync(
   join(staging, "runtime-manifest.json"),
   JSON.stringify(
     {
-      release: "0.5.0",
+      release: "0.5.1",
       target,
       dsh: "0.1.0-rc.8",
       node: "22.22.2",

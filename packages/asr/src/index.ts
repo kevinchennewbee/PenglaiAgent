@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, type ErrorClass } from "@penglai/contracts";
+import { PenglaiError, RELEASE, type ErrorClass } from "@penglai/contracts";
 import { createAsrSettingsApi, PenglaiAsrRemote } from "./remote.js";
 import {
   AudioHandleRegistry,
@@ -28,7 +28,7 @@ import {
 
 export const name = "@penglai/asr";
 export const inject: string[] = [];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 const OPERATION_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const MAX_TRANSCRIPTION_QUEUE = 8;

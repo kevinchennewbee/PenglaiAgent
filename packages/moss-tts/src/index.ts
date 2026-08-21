@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { createMossTtsService } from "./service.js";
 import { createMossTtsSettingsApi, PenglaiMossTtsRemote } from "./remote.js";
 
 export const name = "@penglai/moss-tts";
 export const inject: string[] = [];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 interface FileCapabilityHost {
   resolveReadDirectory(capabilityRef: string): Promise<string>;

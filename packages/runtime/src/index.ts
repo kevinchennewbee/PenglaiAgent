@@ -49,7 +49,7 @@ export * from "./windows-host.js";
 export * from "./packaging.js";
 export * from "./fuses.js";
 
-export const PENGLAI_VERSION = "0.5.0";
+export const PENGLAI_VERSION = "0.5.1";
 export const PINNED_DSH = "0.1.0-rc.8";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";

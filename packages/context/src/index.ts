@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertGrant, ContextIndex, hostSourceStatus, revokeDerived, type ContextGrant } from "./service.js";
 import { createContextSettingsApi, PenglaiContextRemote } from "./remote.js";
 
 export const name = "@penglai/context";
 export const inject = ["tools", "workspaceRegistry"];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 export function createContextService(indexPath = ":memory:") {
   const index = new ContextIndex(indexPath);

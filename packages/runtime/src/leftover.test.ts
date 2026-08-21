@@ -154,7 +154,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false, companionArmed: false }), /busy/);
 });
 
-test("R50-DIST: packaged identity is Penglai 0.5.0 and Windows NSIS stays current-user", async () => {
+test("R50-DIST: packaged identity is Penglai 0.5.1 and Windows NSIS stays current-user", async () => {
   const {
     assertPenglaiAppIdentity,
     assertWindowsNsisContract,
@@ -176,7 +176,7 @@ test("R50-DIST: packaged identity is Penglai 0.5.0 and Windows NSIS stays curren
   const facts = parseInfoPlistIdentity(rewritten);
   assertPenglaiAppIdentity(facts);
   assert.equal(facts.executable, "Penglai");
-  assert.equal(facts.shortVersion, "0.5.0");
+  assert.equal(facts.shortVersion, "0.5.1");
   assert.match(rewritten, /penglai\.icns/);
   assert.match(rewritten, /<string>13\.0<\/string>/);
   assertWindowsNsisContract({
