@@ -663,6 +663,18 @@ function atomicWritePrivateJson(path: string, value: unknown): void {
 export function persistOnboardingFacts(dir: string, facts: OnboardingFacts): void {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   atomicWritePrivateJson(join(dir, "onboarding-facts.json"), facts);
+  if (facts.apiTest?.nonceDigest) {
+    writeFileSync(join(dir, "current-nonce.digest"), `${facts.apiTest.nonceDigest}\n`, { mode: 0o600 });
+  }
+  if (facts.workspaceId) {
+    mkdirSync(join(dirname(dir), "dsh-home", "workspaces", facts.workspaceId), { recursive: true, mode: 0o700 });
+  }
+  if (facts.apiTest?.sessionId) {
+    mkdirSync(join(dirname(dir), "dsh-home", "sessions", facts.apiTest.sessionId), { recursive: true, mode: 0o700 });
+  }
+  if (facts.firstConversation?.sessionId) {
+    mkdirSync(join(dirname(dir), "dsh-home", "sessions", facts.firstConversation.sessionId), { recursive: true, mode: 0o700 });
+  }
 }
 
 export function loadOnboardingFacts(dir: string): OnboardingFacts {

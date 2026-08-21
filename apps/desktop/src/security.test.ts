@@ -47,6 +47,8 @@ test("renderer lifecycle surface has no arbitrary installer URL path or delete p
     assert.doesNotMatch(preload, new RegExp(`\\"${forbidden}\\"`));
   }
   assert.match(main, /parseDeletionPrepareRequest/);
+  assert.match(main, /dialog\.showMessageBox/);
+  assert.match(main, /native owner confirmation is required for deletion/);
   assert.match(main, /buildDeletionPlan\(\{/);
   assert.match(main, /operationId: `del_/);
   assert.match(main, /writeWindowsDeletionCapability/);
@@ -67,7 +69,17 @@ test("Context folder selection returns an opaque capability instead of a rendere
 });
 
 test("P51-DESKTOP-002 packaged production refuses remote debugging switches", () => {
-  assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], true), true);
-  assert.equal(productionDebuggerForbidden(["--inspect"], true), true);
-  assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], false), false);
+  const previous = process.env.PENGLAI_ALLOW_TEST_HARNESS;
+  process.env.PENGLAI_ALLOW_TEST_HARNESS = "1";
+  try {
+    assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], true), true);
+    assert.equal(productionDebuggerForbidden(["--inspect"], true), true);
+    assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], false), false);
+  } finally {
+    if (previous === undefined) delete process.env.PENGLAI_ALLOW_TEST_HARNESS;
+    else process.env.PENGLAI_ALLOW_TEST_HARNESS = previous;
+  }
+  const main = readFileSync(new URL("./electron-main.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(main, /PENGLAI_ALLOW_TEST_HARNESS/);
+  assert.match(main, /const packaged = app\.isPackaged;/);
 });

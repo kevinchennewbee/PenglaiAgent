@@ -21,7 +21,7 @@
       "id": "welcome-notice",
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
       "upstreamSha256": "c60420e2e6a9cd16ff560683f137f00c9768f367bd8f6203839d75c52dcc2a10",
-      "patchedSha256": "08049160cf53172cf5c73ab54364748822759451510c446af6714aefc8c3011f",
+      "patchedSha256": "300b987fcf0a291641343cdadbb30be5b97b07effb8a375f1cfb555f1e936f2f",
       "upstream": "upstream/dsh-client-ui-settings-models.client.js",
       "patched": "patched/dsh-client-ui-settings-models.client.js"
     },
