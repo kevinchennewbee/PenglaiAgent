@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import { ALLOWED_ASSET_HOSTS, APP_REPO, GITHUB_OWNER } from "./catalog-schema.js";
+import { ALLOWED_ASSET_HOSTS, APP_REPO, GITHUB_OWNER, compareSemver } from "./catalog-schema.js";
 import { canonicalizeBytes } from "./canonical-json.js";
 import { downloadVerifiedBytes } from "./download.js";
 import { EMBEDDED_UPDATER_PUBLIC_KEY } from "./embedded-keys.js";
-import { appListUrl, selectHighestAppRelease } from "./release-discovery.js";
+import { appListUrl, fetchGithubReleasePages, selectHighestAppRelease } from "./release-discovery.js";
 import { decodeDetachedSignature, verifyBytes } from "./signature.js";
 import { acceptMonotonic } from "./trust-ledger.js";
 
@@ -31,6 +31,8 @@ export interface AppUpdateManifest {
   signingKeyId: string;
   minimumSourceVersion: string;
   notesUrl: string;
+  candidateSourceSha: string;
+  publicExportTreeSha256: string;
   platforms: Record<string, AppUpdatePlatform>;
   migration: {
     fromSchema: number;
@@ -44,6 +46,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"] as const;
+
+function requireSemver(value: unknown, label: string): string {
+  if (typeof value !== "string" || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value)) {
+    throw new PenglaiError("INVALID_INPUT", `${label} must be semver`);
+  }
+  return value;
+}
+
+function requireIdentitySha(value: unknown, label: string): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value) || /^0{64}$/.test(value)) {
+    throw new PenglaiError("SECURITY_POLICY", `${label} sha256 must be a real digest`);
+  }
+  return value;
+}
+
 export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpdateManifest {
   if (!isRecord(raw) || raw.schema !== APP_UPDATE_SCHEMA) {
     throw new PenglaiError("INVALID_INPUT", "app update schema");
@@ -52,17 +70,36 @@ export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpd
   if (!Number.isSafeInteger(raw.sequence) || Number(raw.sequence) < 1) {
     throw new PenglaiError("SECURITY_POLICY", "update sequence");
   }
-  const version = String(raw.version ?? "");
+  const version = requireSemver(raw.version, "version");
+  const minimumSourceVersion = requireSemver(raw.minimumSourceVersion, "minimumSourceVersion");
   const releaseTag = String(raw.releaseTag ?? "");
   if (releaseTag !== `v${version}`) throw new PenglaiError("SECURITY_POLICY", "releaseTag must match version");
+  const issuedAt = Date.parse(String(raw.issuedAt ?? ""));
   const expiresAt = Date.parse(String(raw.expiresAt ?? ""));
-  if (!Number.isFinite(expiresAt) || nowMs > expiresAt) throw new PenglaiError("SECURITY_POLICY", "update manifest expired");
+  if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || expiresAt <= issuedAt) {
+    throw new PenglaiError("SECURITY_POLICY", "update timestamps");
+  }
+  if (nowMs > expiresAt) throw new PenglaiError("SECURITY_POLICY", "update manifest expired");
   if (!isRecord(raw.platforms) || !isRecord(raw.migration)) throw new PenglaiError("INVALID_INPUT", "update platforms");
+  if (raw.migration.backupRequired !== true) {
+    throw new PenglaiError("SECURITY_POLICY", "update backupRequired must be true");
+  }
+  const fromSchema = Number(raw.migration.fromSchema);
+  const toSchema = Number(raw.migration.toSchema);
+  if (!Number.isSafeInteger(fromSchema) || !Number.isSafeInteger(toSchema) || fromSchema < 1 || toSchema < fromSchema) {
+    throw new PenglaiError("SECURITY_POLICY", "update migration schema range");
+  }
   const platforms: Record<string, AppUpdatePlatform> = {};
   for (const [key, value] of Object.entries(raw.platforms)) {
+    if (!(UPDATE_TARGETS as readonly string[]).includes(key)) {
+      throw new PenglaiError("SECURITY_POLICY", `unsupported update target ${key}`);
+    }
     platforms[key] = parsePlatform(value, releaseTag);
   }
-  const migration = raw.migration;
+  const notesUrl = String(raw.notesUrl ?? "");
+  if (!notesUrl.startsWith("https://github.com/kevinchennewbee/PenglaiAgent/releases/")) {
+    throw new PenglaiError("SECURITY_POLICY", "update notes URL");
+  }
   return {
     schema: APP_UPDATE_SCHEMA,
     sequence: Number(raw.sequence),
@@ -71,15 +108,17 @@ export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpd
     releaseTag,
     issuedAt: String(raw.issuedAt),
     expiresAt: String(raw.expiresAt),
-    signingKeyId: String(raw.signingKeyId),
-    minimumSourceVersion: String(raw.minimumSourceVersion),
-    notesUrl: String(raw.notesUrl),
+    signingKeyId: String(raw.signingKeyId ?? ""),
+    minimumSourceVersion,
+    notesUrl,
+    candidateSourceSha: requireIdentitySha(raw.candidateSourceSha, "candidate source"),
+    publicExportTreeSha256: requireIdentitySha(raw.publicExportTreeSha256, "public export tree"),
     platforms,
     migration: {
-      fromSchema: Number(migration.fromSchema),
-      toSchema: Number(migration.toSchema),
+      fromSchema,
+      toSchema,
       backupRequired: true,
-      rollbackCompatible: migration.rollbackCompatible === true,
+      rollbackCompatible: raw.migration.rollbackCompatible === true,
     },
   };
 }
@@ -100,13 +139,24 @@ function parsePlatform(raw: unknown, releaseTag: string): AppUpdatePlatform {
       throw new PenglaiError("SECURITY_POLICY", "update asset is not the immutable tagged release");
     }
   }
-  if (!/^[0-9a-f]{64}$/.test(String(raw.sha256 ?? ""))) throw new PenglaiError("SECURITY_POLICY", "update sha256");
+  if (!/^[0-9a-f]{64}$/.test(String(raw.sha256 ?? "")) || /^0{64}$/.test(String(raw.sha256))) {
+    throw new PenglaiError("SECURITY_POLICY", "update sha256");
+  }
+  if (!Number.isSafeInteger(raw.assetId) || Number(raw.assetId) <= 0) {
+    throw new PenglaiError("SECURITY_POLICY", "update assetId");
+  }
+  if (!Number.isSafeInteger(raw.size) || Number(raw.size) <= 0) {
+    throw new PenglaiError("SECURITY_POLICY", "update size");
+  }
+  if (typeof raw.signature !== "string" || !raw.signature) {
+    throw new PenglaiError("SECURITY_POLICY", "update signature");
+  }
   return {
     assetId: Number(raw.assetId),
     url,
     size: Number(raw.size),
     sha256: String(raw.sha256),
-    signature: String(raw.signature),
+    signature: raw.signature,
   };
 }
 
@@ -124,33 +174,33 @@ export async function discoverSignedAppUpdate(input: {
       digest: string;
       manifest: AppUpdateManifest;
       bytes: Buffer;
+      assets: Array<{ id: number; name: string; size: number; url: string }>;
     }
   | undefined
 > {
   const fetchImpl = input.fetchImpl ?? fetch;
   const publicKeyHex = input.publicKeyHex ?? EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex;
   const signingKeyId = input.signingKeyId ?? EMBEDDED_UPDATER_PUBLIC_KEY.keyId;
-  const list = await downloadVerifiedBytes({
+  const listed = await fetchGithubReleasePages({
     url: appListUrl(),
-    sha256: "pending",
-    size: 2 * 1024 * 1024,
-    maxBytes: 2 * 1024 * 1024,
     fetchImpl,
-    skipHash: true,
+    timeoutMs: 15_000,
+    maxPages: 5,
+    maxBytes: 2 * 1024 * 1024,
   });
-  const raw = JSON.parse(list.toString("utf8")) as unknown;
-  if (!Array.isArray(raw)) throw new PenglaiError("INVALID_INPUT", "GitHub app releases list");
-  const release = selectHighestAppRelease(raw, input.currentVersion);
+  const release = selectHighestAppRelease(listed.releases, input.currentVersion);
   if (!release) return undefined;
   const jsonAsset = release.assets.find((row) => row.name === UPDATE_MANIFEST_ASSET);
   const sigAsset = release.assets.find((row) => row.name === UPDATE_MANIFEST_SIGNATURE_ASSET);
   if (!jsonAsset || !sigAsset) throw new PenglaiError("INVALID_INPUT", "update manifest assets missing");
+  const ownerRepo = `${GITHUB_OWNER}/${APP_REPO}`;
   const bytes = await downloadVerifiedBytes({
     url: jsonAsset.url,
     sha256: jsonAsset.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
     size: jsonAsset.size,
     maxBytes: 1024 * 1024,
     assetId: jsonAsset.id,
+    ownerRepo,
     fetchImpl,
     skipHash: !jsonAsset.digest,
   });
@@ -160,12 +210,16 @@ export async function discoverSignedAppUpdate(input: {
     size: sigAsset.size,
     maxBytes: 256,
     assetId: sigAsset.id,
+    ownerRepo,
     fetchImpl,
     skipHash: true,
   });
   const json = JSON.parse(bytes.toString("utf8")) as unknown;
   verifyBytes(bytes, decodeDetachedSignature(sig), publicKeyHex);
   const manifest = parseAppUpdateManifest(json, input.nowMs ?? Date.now());
+  if (compareSemver(input.currentVersion, manifest.minimumSourceVersion) < 0) {
+    throw new PenglaiError("SECURITY_POLICY", "below minimum");
+  }
   if (manifest.signingKeyId !== signingKeyId && manifest.signingKeyId !== publicKeyHex.slice(0, 24)) {
     throw new PenglaiError("SECURITY_POLICY", "update signingKeyId is not the embedded updater key");
   }
@@ -183,5 +237,5 @@ export async function discoverSignedAppUpdate(input: {
       tag: release.tag,
     });
   }
-  return { tag: release.tag, digest, manifest, bytes };
+  return { tag: release.tag, digest, manifest, bytes, assets: release.assets };
 }

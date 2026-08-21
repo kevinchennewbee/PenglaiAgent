@@ -300,10 +300,35 @@ test("R50-UPD-005 downloader fails closed on redirect truncation oversize and wr
   });
 
   await assert.rejects(
-    invoke(mkdtempSync(join(tmpdir(), "penglai-update-redirect-")), (async () =>
-      new Response(null, { status: 302, headers: { location: asset.url } })) as typeof fetch),
-    /redirect refused/,
+    invoke(mkdtempSync(join(tmpdir(), "penglai-update-redirect-evil-")), (async () =>
+      new Response(null, { status: 302, headers: { location: "https://evil.example/steal" } })) as typeof fetch),
+    /host not allowed|redirect refused/,
   );
+  const github302 = mkdtempSync(join(tmpdir(), "penglai-update-redirect-ok-"));
+  const hops: string[] = [];
+  const cdn = "https://objects.githubusercontent.com/github-production-release-asset-2e65be/Penglai.dmg";
+  const got = await downloadVerifiedPayload({
+    url: asset.url,
+    destDir: github302,
+    expectedSha256: asset.sha256,
+    expectedSize: asset.size,
+    signature: Buffer.from(asset.signature, "base64"),
+    publicKeyHex: fixture.publicKeyHex,
+    fetchImpl: (async (input: string | URL | Request, init?: RequestInit) => {
+      hops.push(`${init?.method ?? "GET"}:${String(input)}`);
+      if (String(input) === asset.url) {
+        return new Response(null, { status: 302, headers: { location: cdn } });
+      }
+      if (String(input) === cdn) {
+        if (init?.method === "HEAD") return new Response(null, { status: 200, headers: { "content-length": String(asset.size) } });
+        return response(fixture.payload, { "content-length": String(fixture.payload.length) });
+      }
+      return new Response("no", { status: 404 });
+    }) as typeof fetch,
+  });
+  assert.equal(got.bytes, fixture.payload.length);
+  assert.ok(hops.some((row) => row.startsWith("HEAD:")));
+  assert.ok(hops.some((row) => row.includes("objects.githubusercontent.com")));
   await assert.rejects(
     invoke(mkdtempSync(join(tmpdir(), "penglai-update-short-")), (async () =>
       response(fixture.payload.subarray(0, -1))) as typeof fetch),
@@ -319,7 +344,11 @@ test("R50-UPD-005 downloader fails closed on redirect truncation oversize and wr
   writeFileSync(join(resumeRoot, `${asset.sha256}.dmg.part`), prefix, { mode: 0o600 });
   await assert.rejects(
     invoke(resumeRoot, (async (_input: string | URL | Request, init?: RequestInit) => {
-      assert.equal(new Headers(init?.headers).get("range"), `bytes=${prefix.length}-`);
+      const range = new Headers(init?.headers).get("range");
+      if (init?.method === "HEAD" || !range) {
+        return new Response(null, { status: 200, headers: { "content-length": String(asset.size) } });
+      }
+      assert.equal(range, `bytes=${prefix.length}-`);
       return new Response(fixture.payload.subarray(prefix.length), {
         status: 206,
         headers: {
