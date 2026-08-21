@@ -7,6 +7,19 @@ import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
+const contractsBuild = spawnSync(
+  "pnpm",
+  ["exec", "tsc", "-b", "packages/contracts", "--pretty", "false", "--force"],
+  { cwd: ROOT, encoding: "utf8", env: { ...process.env } },
+);
+if (contractsBuild.status !== 0) {
+  finish("FAIL", {
+    command: "prepare:public-export",
+    reason: "could not build the source dependency required by the export policy",
+    detail: String(contractsBuild.stderr || contractsBuild.stdout || "").slice(-800),
+  });
+}
+
 const pe = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/public-export.ts")).href);
 const pins = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/pins.ts")).href);
 
