@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, rmSync, cpSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,12 @@ export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
   "darwin-x86_64": "node-addon-require-builtin-darwin-x64",
   "win32-x86_64": "node-addon-require-builtin-win32-x64-msvc",
+};
+
+export const NODE_PTY_PREBUILD_BY_TARGET = {
+  "darwin-aarch64": "darwin-arm64",
+  "darwin-x86_64": "darwin-x64",
+  "win32-x86_64": "win32-x64",
 };
 
 const ROOT_CANDIDATE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -82,6 +88,46 @@ function copyFlatPackage(dir, dest) {
   rmSync(join(dest, "node_modules"), { recursive: true, force: true });
 }
 
+export function pruneNodePtyNativePayloads(modulesDir, target) {
+  const expected = NODE_PTY_PREBUILD_BY_TARGET[target];
+  if (!expected) throw new Error(`no node-pty native mapping for ${target}`);
+  const nodePty = join(modulesDir, "node-pty");
+  if (!existsSync(nodePty)) return { present: false, target: expected };
+  const prebuilds = join(nodePty, "prebuilds");
+  const expectedPrebuild = join(prebuilds, expected);
+  if (!existsSync(expectedPrebuild)) {
+    throw new Error(`embedded DSH closure missing node-pty ${expected}`);
+  }
+  for (const name of readdirSync(prebuilds)) {
+    if (name !== expected) rmSync(join(prebuilds, name), { recursive: true, force: true });
+  }
+  const binding = join(
+    expectedPrebuild,
+    target === "win32-x86_64" ? "conpty.node" : "pty.node",
+  );
+  if (!existsSync(binding)) {
+    throw new Error(`embedded DSH closure missing node-pty binding ${target}`);
+  }
+  const conpty = join(nodePty, "third_party", "conpty");
+  if (target !== "win32-x86_64") {
+    rmSync(conpty, { recursive: true, force: true });
+  } else if (existsSync(conpty)) {
+    for (const name of readdirSync(conpty)) {
+      if (name !== "1.25.260303002") {
+        rmSync(join(conpty, name), { recursive: true, force: true });
+        continue;
+      }
+      const versionRoot = join(conpty, name);
+      for (const platform of readdirSync(versionRoot)) {
+        if (platform !== "win10-x64") {
+          rmSync(join(versionRoot, platform), { recursive: true, force: true });
+        }
+      }
+    }
+  }
+  return { present: true, target: expected, binding };
+}
+
 export function resolveRequireBuiltinNative(installAnchor, target) {
   const name = REQUIRE_BUILTIN_NATIVE_BY_TARGET[target];
   if (!name) throw new Error(`no require-builtin native mapping for ${target}`);
@@ -108,6 +154,7 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
     if (name === appName) continue;
     copyFlatPackage(dir, join(modulesDir, name));
   }
+  const nodePty = pruneNodePtyNativePayloads(modulesDir, target);
   const native = resolveRequireBuiltinNative(installAnchor, target);
   if (!native.dir || !existsSync(join(native.dir, "package.json"))) {
     throw new Error(`embedded DSH closure missing ${native.name} for ${target}`);
@@ -126,5 +173,6 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
   return {
     packages: [...flattened.keys()],
     native: native.name,
+    nodePty,
   };
 }
