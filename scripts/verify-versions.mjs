@@ -22,7 +22,7 @@ for (const [name, ver] of Object.entries(seed.dependencies ?? {})) {
 }
 const info = JSON.parse(readFileSync(join(ROOT, "release-info.json"), "utf8"));
 if (info.productVersion !== EXPECT) bad.push(`release-info ${info.productVersion}`);
-if (info.candidateKind !== "public-publication-candidate") bad.push(`release-info candidateKind ${info.candidateKind}`);
+if (info.candidateKind !== "public-community-release") bad.push(`release-info candidateKind ${info.candidateKind}`);
 if (info.trustTier !== "community-verified") bad.push(`release-info trustTier ${info.trustTier}`);
 if (info.generationId !== "penglai-dsh-v0.5") bad.push(`release-info generationId ${info.generationId}`);
 const nvm = readFileSync(join(ROOT, ".nvmrc"), "utf8").trim();

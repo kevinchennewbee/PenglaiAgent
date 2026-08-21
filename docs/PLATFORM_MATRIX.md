@@ -25,7 +25,7 @@ Grok 必须新增单一 `release-contract.json`（具体路径由实现固定）
   "schemaVersion": 1,
   "product": "Penglai",
   "version": "0.5.1",
-  "candidateKind": "public-publication-candidate",
+  "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "electronVersion": "43.4.0",
   "nodeVersion": "22.22.2",

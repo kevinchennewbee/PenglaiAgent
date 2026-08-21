@@ -20,7 +20,7 @@ import {
 } from "./pins.js";
 import { isStaleSha } from "./stale.js";
 
-export type CandidateKind = "public-publication-candidate";
+export type CandidateKind = "public-community-release";
 export type TrustTier = "community-verified";
 export type IdentityPhase = "UNFROZEN" | "TARGET_BUILT" | "TARGET_ACCEPTED" | "RELEASE_SET_FROZEN";
 

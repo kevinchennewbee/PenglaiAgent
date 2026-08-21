@@ -1,12 +1,4 @@
-import {
-  closeSync,
-  ftruncateSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
@@ -144,20 +136,14 @@ async function waitInventory(enabled, notBefore, timeoutMs = 90_000) {
 }
 
 function setProfileEnabled(enabled) {
-  const fd = openSync(profilePatch, "r+");
-  try {
-    let text = readFileSync(fd, "utf8");
-    for (const id of OPTIONAL_PLUGINS) {
-      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`(^\\s+name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+)(true|false)`, "m");
-      if (!pattern.test(text)) throw new Error(`installed profile is missing ${id}`);
-      text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
-    }
-    ftruncateSync(fd, 0);
-    writeFileSync(fd, text);
-  } finally {
-    closeSync(fd);
+  let text = readFileSync(profilePatch, "utf8");
+  for (const id of OPTIONAL_PLUGINS) {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(^\\s+name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+)(true|false)`, "m");
+    if (!pattern.test(text)) throw new Error(`installed profile is missing ${id}`);
+    text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
   }
+  writeFileSync(profilePatch, text, { mode: 0o600 });
 }
 
 function installedPackages() {

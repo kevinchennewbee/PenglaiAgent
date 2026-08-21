@@ -214,7 +214,7 @@ const info = {
     ?.replace(/\.dmg$/, ""),
   buildNumber: 0,
   candidateOrdinal: 0,
-  candidateKind: "public-publication-candidate",
+  candidateKind: "public-community-release",
   trustTier: "community-verified",
   generationId: "penglai-dsh-v0.5",
   phase: "TARGET_BUILT",

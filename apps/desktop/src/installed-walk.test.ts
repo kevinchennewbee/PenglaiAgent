@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import test from "node:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -106,6 +106,8 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);
   assert.match(compat, /observeOfficialTransport/);
+  assert.match(compat, /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/);
+  assert.doesNotMatch(compat, /ftruncateSync/);
   assert.doesNotMatch(compat, /observeOfficialSurfaces/);
   assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
   assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
@@ -203,7 +205,7 @@ test("installed app helper refuses Electron executable and wrong Info.plist iden
 });
 
 test("installed UI harness executes only the exact installed resources/app", async () => {
-  const { installedHarnessSpec } = await import("../../../scripts/lib/installed-app.mjs");
+  const { installedHarnessEnvironment, installedHarnessSpec } = await import("../../../scripts/lib/installed-app.mjs");
   const rootDir = mkdtempSync(join(tmpdir(), "penglai-installed-harness-"));
   const harness = join(rootDir, "Electron");
   const resources = join(rootDir, "installed", "resources");
@@ -219,6 +221,22 @@ test("installed UI harness executes only the exact installed resources/app", asy
     () => installedHarnessSpec(join(rootDir, "missing"), resources),
     /harness executable missing/,
   );
+  const windowsEnv = installedHarnessEnvironment(
+    resources,
+    join(rootDir, "profile"),
+    {},
+    "win32",
+    {
+      SystemRoot: "C:\\Windows",
+      ComSpec: "C:\\Windows\\System32\\cmd.exe",
+      SECRET_TOKEN: "must-not-cross",
+    },
+  );
+  assert.equal(windowsEnv.SystemRoot, "C:\\Windows");
+  assert.equal(windowsEnv.USERPROFILE, join(rootDir, "profile"));
+  assert.match(windowsEnv.PATH, /System32/);
+  assert.equal("SECRET_TOKEN" in windowsEnv, false);
+  assert.ok(existsSync(windowsEnv.TEMP));
 });
 
 test("soak runner samples IM offline sleep update uninstall on the exact DMG", () => {

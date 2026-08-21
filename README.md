@@ -91,7 +91,7 @@ Penglai Center is a real DSH host/client plugin inside the official DSH settings
 
 Version 0.5.1 adds PPDP/1, the Penglai Plugin Distribution Protocol. The client can discover versioned GitHub Releases from the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry), verify a Penglai Ed25519 signature and each archive hash, install a package in the disabled state, ask for permission confirmation, and roll back a failed activation.
 
-The protocol and trust root are in the 0.5.1 source. The first signed public catalog has not been published yet, so the current client has no remote catalog it can truthfully refresh. Once that release exists, new reviewed DSH plugins can be added to the catalog without rebuilding the Penglai desktop application.
+The first signed catalog is live as the immutable [`plugin-catalog-v1.000001`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000001) Release. The production client has refreshed it from GitHub, verified the catalog and pilot archive, installed the pilot disabled, and recovered the signed last-good catalog offline. Future reviewed DSH plugins can be published in a new catalog sequence without rebuilding the Penglai desktop application.
 
 Penglai Center does not accept arbitrary npm packages, Git repositories, or download URLs. A DSH plugin runs with the local DSH process permissions. Catalog permission fields explain what was reviewed and what the user is confirming; they are not an operating-system sandbox.
 
@@ -177,11 +177,21 @@ pnpm package:windows       # native Windows x64 with MSVC and NSIS
 
 A successful source build is not release evidence. See [0.5.1 publication contract](docs/PUBLICATION_0.5.1.md), [acceptance registry](docs/ACCEPTANCE.md), and [contributing guide](CONTRIBUTING.md).
 
-## License and acknowledgements
+## People, tools, and acknowledgements
 
 Penglai source is released under the [MIT License](LICENSE). The Penglai name, logo, and visual identity are not granted by the software license.
 
-The project is maintained by [Kevin Chen / 陈克文](https://github.com/kevinchennewbee). Across the 0.3, 0.4, and 0.5 generations, implementation and review have also been assisted by [Kimi Work](https://www.kimi.com/en/products/download), [Grok Build](https://grok.com/), [Cursor Agent](https://cursor.com/), [Claude Code](https://www.anthropic.com/claude-code), and [OpenAI Codex](https://openai.com/codex/). These credits record real collaboration. They do not transfer authorship, judgment, or release accountability to a model or tool.
+The project is created and maintained by [Kevin Chen / 陈克文](https://github.com/kevinchennewbee). Across the 0.3, 0.4, and 0.5 generations, implementation and review have also been assisted by the following AI tools:
+
+| Collaborator | Contribution |
+| --- | --- |
+| [Kimi Work](https://www.kimi.com/en/products/download) | research, implementation, and long-running repository work |
+| [Grok Build](https://grok.com/) | implementation, review, and native release preparation |
+| [Cursor Agent](https://cursor.com/) | implementation and repository edits |
+| [Claude Code](https://www.anthropic.com/claude-code) | implementation and review |
+| [OpenAI Codex](https://openai.com/codex/) | release audit, fixes, verification, documentation, and publication |
+
+These credits record real collaboration. They do not transfer authorship, judgment, or release accountability to a model or tool.
 
 Penglai 0.5 stands on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), [Electron](https://github.com/electron/electron), [Node.js](https://github.com/nodejs/node), [TypeScript](https://github.com/microsoft/TypeScript), and [pnpm](https://github.com/pnpm/pnpm). Local speech and channel support builds on [SenseVoice](https://github.com/FunAudioLLM/SenseVoice), [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano), [Lark Node SDK](https://github.com/larksuite/node-sdk), [Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin), [silk-wasm](https://github.com/idranme/silk-wasm), and [libopus-wasm](https://github.com/openclaw/libopus-wasm). Earlier generations also learned from [GenericAgent](https://github.com/lsdefine/GenericAgent) and [Pi Agent](https://github.com/earendil-works/pi).
 
@@ -245,7 +255,7 @@ Penglai Center 是 official DSH settings 里的真实 host/client 插件。insta
 
 0.5.1 加入 PPDP/1，也就是蓬莱插件发行协议。客户端从公开的 [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) 查找按版本发布的 GitHub Release，验证蓬莱 Ed25519 签名和每个 tar 包的 SHA。插件先以 disabled 状态安装，用户确认权限后再启用；启用失败会回滚。
 
-协议和公钥已经进入 0.5.1 源码，但第一份正式签名 catalog 还没有发布。现在点击刷新，没有可用的远端目录是正常结果。第一份 catalog 通过验收并发布后，以后加入新的 DSH 插件只需要发一个新的 catalog sequence，不需要为了改列表重做桌面客户端。
+第一份签名 catalog 已经作为不可变的 [`plugin-catalog-v1.000001`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000001) Release 发布。生产客户端已经真实完成 GitHub 刷新、catalog 与试点 tar 包验签、disabled 安装，以及断网后的 signed last-good 恢复。以后加入经过审核的 DSH 插件，只需要发布新的 catalog sequence，不需要为了改列表重做桌面客户端。
 
 插件中心不接受任意 npm、Git 仓库或下载 URL。DSH 插件与本机 DSH 进程共享权限。catalog 里的 permission 用来说明审核内容和用户正在确认什么，不是操作系统沙箱。
 
@@ -331,11 +341,21 @@ pnpm package:windows       # Windows x64，需要 MSVC 与 NSIS
 
 源码构建成功不算发布证据。发布流程见 [0.5.1 公开发布合同](docs/PUBLICATION_0.5.1.md)、[验收清单](docs/ACCEPTANCE.md)与[贡献指南](CONTRIBUTING.md)。
 
-## License 与致谢
+## 人、工具与致谢
 
 Penglai 源码使用 [MIT License](LICENSE)。软件许可证不包含 Penglai 名称、logo 和视觉识别的授权。
 
-项目由 [陈克文 / Kevin Chen](https://github.com/kevinchennewbee) 发起并维护。在 0.3、0.4 和 0.5 的不同阶段，[Kimi Work](https://www.kimi.com/en/products/download)、[Grok Build](https://grok.com/)、[Cursor Agent](https://cursor.com/)、[Claude Code](https://www.anthropic.com/claude-code) 和 [OpenAI Codex](https://openai.com/codex/) 参与过实现与审查。这里的署名记录真实发生过的协作，不把作者身份、判断或发布责任交给任何模型和工具。
+项目由 [陈克文 / Kevin Chen](https://github.com/kevinchennewbee) 发起并维护。0.3、0.4、0.5 几代开发与审查过程中，也得到以下 AI 工具的实际协助：
+
+| 协作者 | 参与内容 |
+| --- | --- |
+| [Kimi Work](https://www.kimi.com/en/products/download) | 调研、实现和长时间仓库任务 |
+| [Grok Build](https://grok.com/) | 实现、审查与原生发布准备 |
+| [Cursor Agent](https://cursor.com/) | 实现与仓库编辑 |
+| [Claude Code](https://www.anthropic.com/claude-code) | 实现与审查 |
+| [OpenAI Codex](https://openai.com/codex/) | 发布审计、修复、验证、文档与公开发布 |
+
+这些署名记录真实协作，不把作者身份、判断和发布责任交给模型或工具。
 
 Penglai 0.5 建立在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)、[Electron](https://github.com/electron/electron)、[Node.js](https://github.com/nodejs/node)、[TypeScript](https://github.com/microsoft/TypeScript) 和 [pnpm](https://github.com/pnpm/pnpm) 之上。本地语音和渠道能力感谢 [SenseVoice](https://github.com/FunAudioLLM/SenseVoice)、[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)、[MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano)、[Lark Node SDK](https://github.com/larksuite/node-sdk)、[Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin)、[silk-wasm](https://github.com/idranme/silk-wasm) 和 [libopus-wasm](https://github.com/openclaw/libopus-wasm)。更早的版本也从 [GenericAgent](https://github.com/lsdefine/GenericAgent) 与 [Pi Agent](https://github.com/earendil-works/pi) 得到过启发。
 

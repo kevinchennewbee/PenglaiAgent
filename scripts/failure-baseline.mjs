@@ -187,11 +187,11 @@ function probePublication() {
     pub.repo === "kevinchennewbee/PenglaiAgent" &&
     pub.tag === "v0.5.1" &&
     pub.release === "v0.5.1" &&
-    pub.channel === "NOT_PUBLISHED_0_5_1";
+    pub.channel === "stable-v0.5.1";
   if (!ok) {
     return result("FB-PUBLICATION", "REPRODUCED", "publication fields do not match the owner-authorized destination", { pub });
   }
-  return result("FB-PUBLICATION", "CLOSED", "public repo/tag/release are exact and updater channel is unpublished", { pub });
+  return result("FB-PUBLICATION", "CLOSED", "public repo/tag/release and stable publication channel are exact", { pub });
 }
 
 function probeOnboarding() {

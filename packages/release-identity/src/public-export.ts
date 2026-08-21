@@ -187,7 +187,7 @@ export function buildPublicationDraft(input: {
   return {
     schemaVersion: 1,
     productVersion: PRODUCT_VERSION,
-    candidateKind: "public-publication-candidate",
+    candidateKind: "public-community-release",
     trustTier: "community-verified",
     generationId: "penglai-dsh-v0.5",
     phase: "UNFROZEN",

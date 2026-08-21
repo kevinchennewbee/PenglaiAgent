@@ -148,15 +148,7 @@ export async function waitForFile(path, ms) {
 
 export function launchPackaged(exe, resources, userData, extraArgs = [], extraEnv = {}) {
   const child = spawn(exe, ["--disable-gpu", "--in-process-gpu", ...extraArgs], {
-    env: {
-      PATH: "/usr/bin:/bin",
-      NODE_PATH: "",
-      HOME: userData,
-      PENGLAI_USER_DATA: userData,
-      PENGLAI_RESOURCES: resources,
-      PENGLAI_PLUGINS_DIR: join(resources, "plugins"),
-      ...extraEnv,
-    },
+    env: installedHarnessEnvironment(resources, userData, extraEnv),
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
@@ -167,6 +159,47 @@ export function launchPackaged(exe, resources, userData, extraArgs = [], extraEn
     output += String(d);
   });
   return { child, output: () => output };
+}
+
+export function installedHarnessEnvironment(
+  resources,
+  userData,
+  extraEnv = {},
+  platform = process.platform,
+  sourceEnv = process.env,
+) {
+  const common = {
+    NODE_PATH: "",
+    HOME: userData,
+    PENGLAI_USER_DATA: userData,
+    PENGLAI_RESOURCES: resources,
+    PENGLAI_PLUGINS_DIR: join(resources, "plugins"),
+  };
+  if (platform !== "win32") {
+    return { PATH: "/usr/bin:/bin", ...common, ...extraEnv };
+  }
+  const systemRoot = sourceEnv.SystemRoot || sourceEnv.WINDIR || "C:\\Windows";
+  const temp = join(userData, "temp");
+  const appData = join(userData, "AppData", "Roaming");
+  const localAppData = join(userData, "AppData", "Local");
+  for (const path of [temp, appData, localAppData]) {
+    mkdirSync(path, { recursive: true });
+  }
+  return {
+    PATH: `${join(systemRoot, "System32")};${systemRoot}`,
+    SystemRoot: systemRoot,
+    WINDIR: systemRoot,
+    ComSpec: sourceEnv.ComSpec || join(systemRoot, "System32", "cmd.exe"),
+    PATHEXT: sourceEnv.PATHEXT || ".COM;.EXE;.BAT;.CMD",
+    ProgramData: sourceEnv.ProgramData || "C:\\ProgramData",
+    USERPROFILE: userData,
+    APPDATA: appData,
+    LOCALAPPDATA: localAppData,
+    TEMP: temp,
+    TMP: temp,
+    ...common,
+    ...extraEnv,
+  };
 }
 
 export function installedHarnessSpec(harnessExe, resources) {
@@ -196,15 +229,7 @@ export function launchInstalledHarness(
     spec.executable,
     ["--disable-gpu", "--in-process-gpu", ...extraArgs, spec.appEntry],
     {
-      env: {
-        PATH: "/usr/bin:/bin",
-        NODE_PATH: "",
-        HOME: userData,
-        PENGLAI_USER_DATA: userData,
-        PENGLAI_RESOURCES: resources,
-        PENGLAI_PLUGINS_DIR: join(resources, "plugins"),
-        ...extraEnv,
-      },
+      env: installedHarnessEnvironment(resources, userData, extraEnv),
       stdio: ["ignore", "pipe", "pipe"],
     },
   );

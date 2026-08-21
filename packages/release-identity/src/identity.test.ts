@@ -138,7 +138,7 @@ test("R50-TRUTH-008 publication fields match the owner-authorized public target"
   assert.equal(id.publication.repo, "kevinchennewbee/PenglaiAgent");
   assert.equal(id.publication.tag, "v0.5.1");
   assert.equal(id.publication.release, "v0.5.1");
-  assert.equal(id.publication.channel, "NOT_PUBLISHED_0_5_1");
+  assert.equal(id.publication.channel, "stable-v0.5.1");
   assert.throws(
     () =>
       assertReleaseIdentity({
