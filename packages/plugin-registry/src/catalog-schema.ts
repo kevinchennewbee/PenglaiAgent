@@ -275,8 +275,17 @@ export function assertCompatibleWithPenglai(
 }
 
 export function compareSemver(a: string, b: string): number {
-  const pa = a.split(".").map((part) => Number.parseInt(part.replace(/[^0-9].*$/, ""), 10) || 0);
-  const pb = b.split(".").map((part) => Number.parseInt(part.replace(/[^0-9].*$/, ""), 10) || 0);
+  const numericPrefix = (part: string): number => {
+    let end = 0;
+    while (end < part.length) {
+      const code = part.charCodeAt(end);
+      if (code < 48 || code > 57) break;
+      end += 1;
+    }
+    return end === 0 ? 0 : Number.parseInt(part.slice(0, end), 10) || 0;
+  };
+  const pa = a.split(".").map(numericPrefix);
+  const pb = b.split(".").map(numericPrefix);
   for (let i = 0; i < 3; i += 1) {
     const da = pa[i] ?? 0;
     const db = pb[i] ?? 0;

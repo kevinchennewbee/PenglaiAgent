@@ -29,6 +29,20 @@ if (embed !== 0) {
   });
 }
 
+if (native) {
+  const helperBuild = run(process.execPath, ["scripts/build-windows-host.mjs"]);
+  if (helperBuild !== 0) {
+    finish("FAIL", { command: "package:windows-payload", reason: "native Windows helper build failed" });
+  }
+  const helper = join(ROOT, "dist", "native-win32-x86_64", "penglai-windows-host.exe");
+  const helperDir = join(staging, "runtime", "helpers");
+  if (!existsSync(helper)) {
+    finish("FAIL", { command: "package:windows-payload", reason: "compiled Windows helper missing" });
+  }
+  mkdirSync(helperDir, { recursive: true });
+  cpSync(helper, join(helperDir, "penglai-windows-host.exe"));
+}
+
 const ensure = spawnSync(process.execPath, ["scripts/ensure-electron.mjs", "--target", "win32-x64"], {
   cwd: ROOT,
   encoding: "utf8",
@@ -71,6 +85,9 @@ cpSync(join(staging, "plugins"), join(resources, "plugins"), { recursive: true }
 for (const name of ["runtime-manifest.json", "release-contract.json", ".closure-complete"]) {
   const src = join(staging, name);
   if (existsSync(src)) cpSync(src, join(resources, name === ".closure-complete" ? "closure-credential.json" : name));
+}
+if (native && !existsSync(join(resources, "runtime", "helpers", "penglai-windows-host.exe"))) {
+  finish("FAIL", { command: "package:windows-payload", reason: "payload is missing the compiled Windows helper" });
 }
 
 const arch = spawnSync(process.execPath, ["scripts/verify-native-arch.mjs", payload, "win32-x86_64"], {

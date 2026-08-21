@@ -243,11 +243,11 @@ test("build inputs reject dirty named SHA and HEAD drift", () => {
   );
 });
 
-test("GitHub Actions is UNAVAILABLE", () => {
-  assert.equal(GITHUB_ACTIONS_STATUS, "UNAVAILABLE");
+test("GitHub Actions is AVAILABLE for the 0.5.1 source candidate", () => {
+  assert.equal(GITHUB_ACTIONS_STATUS, "AVAILABLE");
 });
 
-test("product version is 0.5.0 and registry count matches the document", () => {
+test("product version is 0.5.1 and registry count matches the document", () => {
   assert.equal(PRODUCT_VERSION, "0.5.1");
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const ids = parseAcceptanceIds(md);

@@ -8,15 +8,15 @@ import { declaredSourceSha, recordAssertion } from "./assertion.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninstall", () => {
-  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.0.md"), "utf8");
-  assert.match(notes, /fresh install/i);
-  assert.match(notes, /0\.4\.1/);
+  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.1.md"), "utf8");
+  assert.match(notes, /manual DMG overlay/i);
+  assert.match(notes, /0\.5\.0/);
   assert.match(notes, /community-verified/);
   assert.match(notes, /not notarized/);
   assert.match(notes, /silent auto-update/i);
-  assert.match(notes, /Weixin|微信/);
-  assert.match(notes, /Feishu|飞书/);
-  assert.match(notes, /Workspace/);
+  assert.match(notes, /Plugin Center/);
+  assert.match(notes, /darwin-x86_64/);
+  assert.match(notes, /win32-x86_64/);
   assert.doesNotMatch(notes, /already notarized|App Store|zero-config Feishu|全自动升级/);
   recordAssertion({
     acceptanceId: "R50-PREP-007",
@@ -26,15 +26,15 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "release notes draft states 0.4 fresh install, community trust, assisted upgrade, uninstall defaults" },
+    details: { safe: "0.5.1 notes state manual 0.5.0 overlay, three targets, community trust, and future signed updates" },
   });
 });
 
-test("R50-PREP-008 publication manifest lists the exact Apple Silicon release", () => {
-  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.0.md"), "utf8");
-  assert.match(md, /Penglai_0\.5\.0_macos_aarch64\.dmg/);
-  assert.doesNotMatch(md, /Penglai_0\.5\.0_macos_x64\.dmg/);
-  assert.doesNotMatch(md, /Penglai_0\.5\.0_windows_x64_setup\.exe/);
+test("R50-PREP-008 publication manifest lists the exact three-target release", () => {
+  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.1.md"), "utf8");
+  assert.match(md, /Penglai_0\.5\.1_macos_aarch64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.1_macos_x64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.1_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
   assert.match(md, /UNFROZEN/);
@@ -43,11 +43,11 @@ test("R50-PREP-008 publication manifest lists the exact Apple Silicon release", 
     acceptanceId: "R50-PREP-008",
     runnerId: "manifest",
     testId: "publication-manifest-draft",
-    assertionId: "exact-apple-silicon-assets",
+    assertionId: "exact-three-target-assets",
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "publication manifest draft lists one Apple Silicon installer and the authorized public destination" },
+    details: { safe: "publication manifest draft lists three installers and the authorized public destination" },
   });
 });
 

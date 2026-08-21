@@ -97,6 +97,7 @@ export interface WindowsNativeHostSourceFacts {
   reparseAttribute: boolean;
   jobSupervise: boolean;
   deletePlan: boolean;
+  processSuspendResume: boolean;
 }
 
 export function windowsNativeHostSourcePath(): string {
@@ -123,6 +124,11 @@ export function windowsNativeHostSourceFacts(): WindowsNativeHostSourceFacts {
     reparseAttribute: text.includes("FILE_ATTRIBUTE_REPARSE_POINT"),
     jobSupervise: text.includes("job-supervise"),
     deletePlan: text.includes("delete-plan"),
+    processSuspendResume:
+      text.includes("process-suspend") &&
+      text.includes("process-resume") &&
+      text.includes("CreateToolhelp32Snapshot") &&
+      text.includes("SuspendThread"),
   };
 }
 

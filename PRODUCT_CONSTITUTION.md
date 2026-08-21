@@ -47,7 +47,7 @@
 - fresh 安装完成引导后必须先得到可独立使用的 official DSH core。除承载品牌、引导续接与目录事务的 `@penglai/plugin-center` 外，IM、ASR、MOSS-TTS、Context、Memory、Budget、Companion 都是默认未安装、未加载的可选扩展。
 - 0.4.1 到 0.5.0 是明确的架构代际切换：不提供自动升级，不导入旧会话、凭据或配置，不删除旧数据。0.5.0 使用隔离的数据根 `Penglai/0.5`。0.5.1 必须提供 rc.8 → rc.1 的显式、可回滚数据迁移。
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。
-- GitHub Actions 当前不可用。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
+- GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
 - 0.5.1 本轮本地工程不得自行 push/tag/Release。Owner 未书面接受密钥离线备份、上游冻结证据与全部硬门禁前，不得发布依赖该信任根的第一版。
 
 ## 反偏航自检

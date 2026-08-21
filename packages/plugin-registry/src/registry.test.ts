@@ -10,6 +10,7 @@ import {
   assertInstallAllowed,
   assertManifestMatchesCatalog,
   canonicalize,
+  compareSemver,
   inspectPluginEntries,
   parseAppUpdateManifest,
   parseSignedPluginCatalog,
@@ -20,6 +21,12 @@ import {
   signBytes,
   verifySignedCatalog,
 } from "./index.js";
+
+test("version comparison uses a linear numeric-prefix parser", () => {
+  assert.equal(compareSemver("0.5.1", "0.5.0"), 1);
+  assert.equal(compareSemver("0.5.1-rc.1", "0.5.1"), 0);
+  assert.equal(compareSemver(`1.${"/".repeat(100_000)}x.0`, "1.0.0"), 0);
+});
 
 function keys() {
   const pair = generateKeyPairSync("ed25519");

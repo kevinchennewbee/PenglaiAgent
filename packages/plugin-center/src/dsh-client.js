@@ -334,7 +334,7 @@ window.__ModuleLoader__.load({
                   jsx.jsx("span", {
                     className: "penglai-capability-icon",
                     children: jsx.jsx(PageIcon, {
-                      id: `penglai-${id.split("/").pop()?.replace("plugin-center", "center").replace("moss-tts", "moss-tts")}`,
+                      id: `penglai-${id.split("/").pop()?.replace("plugin-center", "center")}`,
                     }),
                   }),
                   jsx.jsxs("span", {

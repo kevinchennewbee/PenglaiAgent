@@ -223,8 +223,21 @@ export async function stopChild(child, timeoutMs = 8_000) {
   return closed;
 }
 
-export function signalPid(pid, signal) {
+export function signalPid(pid, signal, windowsHelper) {
   if (!pid) return false;
+  if (process.platform === "win32") {
+    if (!windowsHelper || !existsSync(windowsHelper)) return false;
+    const command = signal === "SIGSTOP" ? "process-suspend" : signal === "SIGCONT" ? "process-resume" : "";
+    if (!command) return false;
+    const r = spawnSync(windowsHelper, [command, "--pid", String(pid)], { encoding: "utf8", windowsHide: true });
+    if (r.status !== 0) return false;
+    try {
+      const report = JSON.parse(String(r.stdout ?? "").trim().split("\n").filter(Boolean).at(-1) ?? "{}");
+      return report.ok === true && report.command === command && Number(report.changed) > 0;
+    } catch {
+      return false;
+    }
+  }
   const flag = String(signal).startsWith("SIG") ? `-${signal}` : `-${signal}`;
   const r = spawnSync("/bin/kill", [flag, String(pid)], { encoding: "utf8" });
   return r.status === 0;

@@ -17,7 +17,7 @@ import {
   TRUST_TIER,
 } from "./pins.js";
 
-test("R50-TRUTH-001 identity pins are 0.5.0", () => {
+test("R50-TRUTH-001 identity pins are 0.5.1", () => {
   const id = emptyIdentity("a".repeat(40), false);
   const checked = assertReleaseIdentity(id);
   assert.equal(checked.productVersion, PRODUCT_VERSION);
@@ -25,8 +25,8 @@ test("R50-TRUTH-001 identity pins are 0.5.0", () => {
   recordAssertion({
     acceptanceId: "R50-TRUTH-001",
     runnerId: "release-identity.identity",
-    testId: "identity-pins-0.5.0",
-    assertionId: "productVersion-is-0.5.0",
+    testId: "identity-pins-0.5.1",
+    assertionId: "productVersion-is-0.5.1",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,

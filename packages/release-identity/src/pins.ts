@@ -74,7 +74,7 @@ export const REQUIRED_HARD_FAMILIES = [
   { prefix: "R50-COMP", start: 1, end: 8 },
   { prefix: "R50-LIVE", start: 9, end: 16 },
 ] as const;
-export const GITHUB_ACTIONS_STATUS = "UNAVAILABLE";
+export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
 
