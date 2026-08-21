@@ -1,14 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
-  closeSync,
-  constants,
   cpSync,
   existsSync,
-  fstatSync,
   lstatSync,
   mkdirSync,
-  openSync,
-  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -20,6 +15,7 @@ import { PenglaiError } from "@penglai/contracts";
 import {
   assertPluginPackageManifest,
   extractTarGz,
+  inspectTarGz,
   sha256File,
   type PluginCatalogEntry,
 } from "@penglai/runtime";
@@ -190,34 +186,18 @@ function extractedRoot(directory: string): string {
   throw new PenglaiError("STORE_CORRUPT", "package.json missing");
 }
 
-function walkArchiveFiles(root: string, rel = ""): ArchiveFile[] {
-  const abs = rel ? join(root, rel) : root;
-  const st = lstatSync(abs);
-  if (st.isDirectory()) {
-    const children = readdirSync(abs);
-    return children.flatMap((name) => walkArchiveFiles(root, rel ? join(rel, name) : name));
-  }
-  if (!st.isFile()) return [];
-  const handle = openSync(abs, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-  try {
-    const opened = fstatSync(handle);
-    if (!opened.isFile() || opened.dev !== st.dev || opened.ino !== st.ino) {
-      throw new PenglaiError("SECURITY_POLICY", "archive entry changed during inspection");
-    }
-    return [{ path: rel.replaceAll("\\", "/"), kind: "file", data: readFileSync(handle) }];
-  } finally {
-    closeSync(handle);
-  }
-}
-
 async function verifyExtractedPackage(
   directory: string,
   entry: PluginCatalogEntry,
   importModule = true,
+  archiveFiles?: readonly ArchiveFile[],
 ): Promise<string> {
   const root = extractedRoot(directory);
   if (entry.source === "penglai-plugin-registry") {
-    const inspected = inspectPluginEntries(walkArchiveFiles(root));
+    if (!archiveFiles) {
+      throw new PenglaiError("SECURITY_POLICY", "signed archive inspection evidence missing");
+    }
+    const inspected = inspectPluginEntries(archiveFiles);
     assertManifestMatchesCatalog({
       catalogId: entry.id,
       catalogVersion: entry.version,
@@ -278,8 +258,8 @@ export async function dryLoadPackage(
   const temp = `${packageFile}.dry-${process.pid}-${randomUUID()}`;
   mkdirSync(temp, { recursive: true, mode: 0o700 });
   try {
-    extractTarGz(readFileSync(packageFile), temp);
-    await verifyExtractedPackage(temp, entry);
+    const archiveFiles = extractTarGz(readFileSync(packageFile), temp);
+    await verifyExtractedPackage(temp, entry, true, archiveFiles);
     return { name: entry.id, version: entry.version, sha256 };
   } finally {
     rmSync(temp, { recursive: true, force: true });
@@ -379,13 +359,19 @@ export async function runProfileTransaction(opts: {
       }
       assertPackageIntegrity(packageFile, opts.entry.sha256);
       mkdirSync(packageStage, { recursive: true, mode: 0o700 });
-      extractTarGz(readFileSync(packageFile), packageStage);
-      const packageRoot = await verifyExtractedPackage(packageStage, opts.entry, false);
+      const archiveFiles = extractTarGz(readFileSync(packageFile), packageStage);
+      const packageRoot = await verifyExtractedPackage(packageStage, opts.entry, false, archiveFiles);
       rmSync(scoped, { recursive: true, force: true });
       copyDir(packageRoot, scoped);
-      await verifyExtractedPackage(scoped, opts.entry, true);
+      await verifyExtractedPackage(scoped, opts.entry, true, archiveFiles);
     } else if (opts.action === "enable") {
-      await verifyExtractedPackage(scoped, opts.entry, true);
+      const packageFile = join(opts.pluginsDir, opts.entry.packageFile);
+      if (!isUnder(opts.pluginsDir, packageFile)) {
+        throw new PenglaiError("SECURITY_POLICY", "plugin package escaped catalog root");
+      }
+      assertPackageIntegrity(packageFile, opts.entry.sha256);
+      const archiveFiles = inspectTarGz(readFileSync(packageFile));
+      await verifyExtractedPackage(scoped, opts.entry, true, archiveFiles);
     }
     journal.phase = "activating";
     atomicJournal(journalPath, journal);
