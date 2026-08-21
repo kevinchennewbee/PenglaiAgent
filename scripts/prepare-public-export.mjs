@@ -8,8 +8,15 @@ import { finish } from "./lib/exit-contract.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const contractsBuild = spawnSync(
-  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-  ["exec", "tsc", "-b", "packages/contracts", "--pretty", "false", "--force"],
+  process.execPath,
+  [
+    join(ROOT, "node_modules", "typescript", "bin", "tsc"),
+    "-b",
+    "packages/contracts",
+    "--pretty",
+    "false",
+    "--force",
+  ],
   { cwd: ROOT, encoding: "utf8", env: { ...process.env } },
 );
 if (contractsBuild.status !== 0) {
