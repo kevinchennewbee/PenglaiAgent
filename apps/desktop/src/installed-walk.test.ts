@@ -141,6 +141,28 @@ test("installed harness shutdown waits for the process close after SIGKILL", () 
   assert.doesNotMatch(helper, /resolveClose\(\[null, "SIGKILL"\]\)/);
 });
 
+test("installed restart requests the product lifecycle before signal fallback", async () => {
+  const { requestBrowserClose } = await import("../../../scripts/lib/installed-app.mjs");
+  const calls: unknown[][] = [];
+  let closed = false;
+  const session = {
+    send: async (...args: unknown[]) => {
+      calls.push(args);
+      return {};
+    },
+    close: () => {
+      closed = true;
+    },
+  };
+  assert.equal(await requestBrowserClose(session, 321), true);
+  assert.deepEqual(calls, [["Browser.close", {}, 321]]);
+  assert.equal(closed, true);
+
+  const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  assert.match(compat, /requestBrowserClose\(cdpSession\)/);
+  assert.ok(compat.indexOf("requestBrowserClose(cdpSession)") < compat.indexOf("stopChild(launched.child)"));
+});
+
 test("installed harness shutdown returns only after the child is gone", async (context) => {
   const { stopChild } = await import("../../../scripts/lib/installed-app.mjs");
   const child = spawn(
