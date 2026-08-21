@@ -30,7 +30,7 @@ The name is the island where the Eight Immortals each show their own skill. That
 
 ## What changed in 0.5.1
 
-0.5.0 rebuilt Penglai around official DSH. 0.5.1 adds:
+0.5.0 rebuilt Penglai around official DSH. Local 0.5.1 work adds (source-tested; exact DMG and live Releases **NOT_RUN**):
 
 - **PPDP/1** — signed, immutable plugin catalogs and packages
 - **PUDP/1** — versioned immutable app update manifests (`update-manifest-v1.json`), not a mutable `latest.json`
@@ -119,7 +119,7 @@ MIT for Penglai source. DSH and third-party components keep their licenses. No P
 
 ## 0.5.1 变了什么
 
-0.5.0 把蓬莱重建到官方 DSH 上。0.5.1 增加：
+0.5.0 把蓬莱重建到官方 DSH 上。本地 0.5.1 增加（源码测试；exact DMG 与 live Release **NOT_RUN**）：
 
 - **PPDP/1**：签名且不可变的插件目录与插件包
 - **PUDP/1**：按版本不可变的应用更新清单，不再使用可变 `latest.json`
