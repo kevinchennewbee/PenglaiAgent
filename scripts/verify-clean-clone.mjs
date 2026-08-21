@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -10,36 +10,50 @@ const state = gitState();
 if (state.dirty) {
   finish("FAIL", {
     command: "verify:clean-clone",
-    reason: "clean-clone gate requires a clean Git tree so git archive matches HEAD",
+    reason: "clean-clone gate requires a clean Git tree so the clone matches HEAD",
   });
 }
 
+const head = git(["rev-parse", "HEAD"]);
 const dest = mkdtempSync(join(tmpdir(), "penglai-clean-clone-"));
-const archive = spawnSync("git", ["archive", "--format=tar", "HEAD"], {
-  cwd: ROOT,
-  encoding: "buffer",
-  maxBuffer: 512 * 1024 * 1024,
-});
-if (archive.status !== 0) {
+const clone = spawnSync(
+  "git",
+  ["clone", "--local", "--no-hardlinks", "--no-checkout", ROOT, dest],
+  { encoding: "utf8", timeout: 120_000 },
+);
+if (clone.status !== 0) {
   rmSync(dest, { recursive: true, force: true });
   finish("FAIL", {
     command: "verify:clean-clone",
-    reason: "git archive HEAD failed",
-    detail: String(archive.stderr || "").slice(-800),
+    reason: "git clone --local failed",
+    detail: String(clone.stderr || clone.stdout || "").slice(-800),
   });
 }
-const extract = spawnSync("tar", ["-xf", "-", "-C", dest], {
-  input: archive.stdout,
-  encoding: "buffer",
-  maxBuffer: 512 * 1024 * 1024,
+const checkout = spawnSync("git", ["checkout", "--detach", head], {
+  cwd: dest,
+  encoding: "utf8",
 });
-if (extract.status !== 0) {
+if (checkout.status !== 0) {
   rmSync(dest, { recursive: true, force: true });
   finish("FAIL", {
     command: "verify:clean-clone",
-    reason: "git archive extract failed",
-    detail: String(extract.stderr || "").slice(-800),
+    reason: "clone checkout of HEAD failed",
+    detail: String(checkout.stderr || checkout.stdout || "").slice(-800),
   });
+}
+const clonedHead = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dest, encoding: "utf8" });
+if (clonedHead.status !== 0 || clonedHead.stdout.trim() !== head) {
+  rmSync(dest, { recursive: true, force: true });
+  finish("FAIL", {
+    command: "verify:clean-clone",
+    reason: "cloned HEAD does not match source SHA",
+    head,
+    cloned: clonedHead.stdout.trim(),
+  });
+}
+if (!existsSync(join(dest, ".git"))) {
+  rmSync(dest, { recursive: true, force: true });
+  finish("FAIL", { command: "verify:clean-clone", reason: "clone is missing .git" });
 }
 
 function run(command, args, label) {
@@ -61,17 +75,24 @@ const steps = [];
 steps.push(run("pnpm", ["install", "--frozen-lockfile"], "frozen-install"));
 if (steps.at(-1).status === 0) steps.push(run("pnpm", ["typecheck"], "typecheck"));
 if (steps.at(-1).status === 0) steps.push(run("pnpm", ["build"], "build"));
-if (steps.at(-1).status === 0) {
-  steps.push(run("pnpm", ["test:unit"], "test:unit"));
+if (steps.at(-1).status === 0) steps.push(run("git", ["status", "--porcelain"], "post-build-status"));
+if (steps.at(-1).status === 0 && String(steps.at(-1).tail).trim()) {
+  rmSync(dest, { recursive: true, force: true });
+  finish("FAIL", {
+    command: "verify:clean-clone",
+    reason: "build polluted the cloned tree",
+    head,
+    dirty: steps.at(-1).tail,
+  });
 }
+if (steps.at(-1).status === 0) steps.push(run("pnpm", ["test:unit"], "test:unit"));
 
 const failed = steps.find((step) => step.status !== 0);
-const head = git(["rev-parse", "HEAD"]);
 rmSync(dest, { recursive: true, force: true });
 if (failed) {
   finish("FAIL", {
     command: "verify:clean-clone",
-    reason: `${failed.label} failed in git-archive tree`,
+    reason: `${failed.label} failed in cloned tree`,
     productVersion: PRODUCT_VERSION,
     head,
     steps: steps.map((step) => ({ label: step.label, status: step.status })),
@@ -82,5 +103,6 @@ finish("PASS", {
   command: "verify:clean-clone",
   productVersion: PRODUCT_VERSION,
   head,
+  method: "git-clone-local-detach",
   steps: steps.map((step) => ({ label: step.label, status: step.status })),
 });
