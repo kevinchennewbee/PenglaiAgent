@@ -47,6 +47,10 @@ test("native dependency scan accepts upstream builder paths but rejects local pa
     Buffer.from("/Users/runner/work/_temp/onnx/src/defs.cc\0"),
   ]);
   assert.deepEqual(scanBundleBytes("vendor/runtime.dylib", githubRunnerVendor), []);
+  assert.deepEqual(
+    scanBundleBytes("vendor/runtime.dylib", githubRunnerVendor, "/Users/runner"),
+    [],
+  );
   const unknownBuilder = Buffer.concat([
     Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1, 0]),
     Buffer.from("/Users/random-builder/work/source.cc\0"),
@@ -61,6 +65,14 @@ test("native dependency scan accepts upstream builder paths but rejects local pa
   ]);
   assert.match(
     scanBundleBytes("vendor/runtime.dylib", local).join("\n"),
+    /local packager path/,
+  );
+  const runnerLocal = Buffer.concat([
+    Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1, 0]),
+    Buffer.from("/Users/runner/private-build/source.cc\0"),
+  ]);
+  assert.match(
+    scanBundleBytes("vendor/runtime.dylib", runnerLocal, "/Users/runner").join("\n"),
     /local packager path/,
   );
 });
