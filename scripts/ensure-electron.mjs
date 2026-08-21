@@ -150,9 +150,19 @@ if (!zipPath) {
   process.exit(4);
 }
 mkdirSync(outDir, { recursive: true });
-const unzip = spec.platform === "win32"
-  ? spawnSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${outDir}'`], { stdio: "inherit" })
-  : spawnSync("ditto", ["-x", "-k", zipPath, outDir], { stdio: "inherit" });
+function extractZip(archive, dest) {
+  if (process.platform === "win32") {
+    return spawnSync(
+      "powershell",
+      ["-NoProfile", "-Command", `Expand-Archive -Force -Path '${archive}' -DestinationPath '${dest}'`],
+      { stdio: "inherit" },
+    );
+  }
+  const ditto = spawnSync("ditto", ["-x", "-k", archive, dest], { stdio: "inherit" });
+  if (ditto.status === 0) return ditto;
+  return spawnSync("unzip", ["-q", archive, "-d", dest], { stdio: "inherit" });
+}
+const unzip = extractZip(zipPath, outDir);
 if (unzip.status !== 0) {
   console.error("ensure-electron BLOCKED: failed to extract target Electron zip");
   process.exit(4);

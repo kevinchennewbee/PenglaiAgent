@@ -81,9 +81,25 @@ if (got !== nodeInput.sha256) {
 const extractDir = join(staging, "extract");
 mkdirSync(extractDir, { recursive: true });
 if (nodeInput.archive === "zip") {
-  const names = execFileSync("unzip", ["-Z", "-1", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
-  for (const n of names) assertSafeName(n);
-  execFileSync("unzip", ["-q", archivePath, "-d", extractDir], { stdio: "inherit" });
+  const unzip = spawnSync("unzip", ["-v"], { encoding: "utf8" });
+  if (unzip.status === 0) {
+    const names = execFileSync("unzip", ["-Z", "-1", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+    for (const n of names) assertSafeName(n);
+    execFileSync("unzip", ["-q", archivePath, "-d", extractDir], { stdio: "inherit" });
+  } else if (process.platform === "win32") {
+    const expanded = spawnSync(
+      "powershell",
+      ["-NoProfile", "-Command", `Expand-Archive -Force -Path '${archivePath}' -DestinationPath '${extractDir}'`],
+      { stdio: "inherit" },
+    );
+    if (expanded.status !== 0) {
+      console.error("embed-runtime BLOCKED: unzip and Expand-Archive both unavailable");
+      process.exit(4);
+    }
+  } else {
+    console.error("embed-runtime BLOCKED: unzip missing for zip runtime archive");
+    process.exit(4);
+  }
 } else {
   const names = execFileSync("tar", ["-tzf", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
   for (const n of names) assertSafeName(n);
