@@ -36,7 +36,10 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "license.rtf"
+!ifndef PENGLAI_LICENSE
+  !define PENGLAI_LICENSE "license.rtf"
+!endif
+!insertmacro MUI_PAGE_LICENSE "${PENGLAI_LICENSE}"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -48,7 +51,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "Penglai 0.5.0 requires 64-bit Windows."
+    MessageBox MB_ICONSTOP "Penglai 0.5.1 requires 64-bit Windows."
     Abort
   ${EndIf}
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayVersion"
@@ -65,7 +68,10 @@ FunctionEnd
 
 Section "Penglai" SecApp
   SetOutPath "$INSTDIR"
-  File /r "payload\*.*"
+!ifndef PENGLAI_PAYLOAD
+  !define PENGLAI_PAYLOAD "..\..\dist\runtime-staging-win32-x86_64\payload"
+!endif
+  File /r "${PENGLAI_PAYLOAD}\*.*"
   CreateDirectory "$SMPROGRAMS\Penglai"
   CreateShortCut "$SMPROGRAMS\Penglai\Penglai.lnk" "$INSTDIR\Penglai.exe"
   WriteRegStr HKCU "Software\Penglai\0.5" "InstallDir" "$INSTDIR"
