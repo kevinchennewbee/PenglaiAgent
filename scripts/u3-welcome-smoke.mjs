@@ -5,9 +5,8 @@ import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
 import { SNAPSHOT_JS, observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
 import {
-  exeInside,
   installFromExactInstaller,
-  launchPackaged,
+  launchInstalledHarness,
   leftoversByCommand,
   ownedProcessTree,
   resourcesInside,
@@ -94,14 +93,21 @@ if (packaged.verdict !== "PASS") {
 }
 
 const app = installed.app;
-const exe = exeInside(app, expectedTarget);
 const resources = resourcesInside(app, expectedTarget);
+const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+if (!harnessApp) {
+  finish("INCOMPLETE", {
+    command: "u3-welcome-smoke",
+    reason: "installed UI walk requires a separate Electron harness executable",
+    target: expectedTarget,
+  });
+}
 const userData = join(ROOT, ".tmp-u3-welcome");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 
 const debugPort = await freePort();
-const launched = launchPackaged(exe, resources, userData, [
+const launched = launchInstalledHarness(harnessApp, resources, userData, [
   `--remote-debugging-port=${debugPort}`,
   "--remote-allow-origins=*",
 ]);

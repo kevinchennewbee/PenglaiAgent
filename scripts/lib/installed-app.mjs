@@ -169,6 +169,55 @@ export function launchPackaged(exe, resources, userData, extraArgs = [], extraEn
   return { child, output: () => output };
 }
 
+export function installedHarnessSpec(harnessExe, resources) {
+  const executable = resolve(String(harnessExe ?? ""));
+  const appEntry = resolve(join(resources, "app"));
+  if (!harnessExe || !existsSync(executable)) {
+    throw new Error("installed UI harness executable missing");
+  }
+  if (
+    !existsSync(join(appEntry, "package.json")) ||
+    !existsSync(join(appEntry, "electron-main.js"))
+  ) {
+    throw new Error("installed UI harness requires the exact installed resources/app");
+  }
+  return { executable, appEntry };
+}
+
+export function launchInstalledHarness(
+  harnessExe,
+  resources,
+  userData,
+  extraArgs = [],
+  extraEnv = {},
+) {
+  const spec = installedHarnessSpec(harnessExe, resources);
+  const child = spawn(
+    spec.executable,
+    ["--disable-gpu", "--in-process-gpu", ...extraArgs, spec.appEntry],
+    {
+      env: {
+        PATH: "/usr/bin:/bin",
+        NODE_PATH: "",
+        HOME: userData,
+        PENGLAI_USER_DATA: userData,
+        PENGLAI_RESOURCES: resources,
+        PENGLAI_PLUGINS_DIR: join(resources, "plugins"),
+        ...extraEnv,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let output = "";
+  child.stdout.on("data", (d) => {
+    output += String(d);
+  });
+  child.stderr.on("data", (d) => {
+    output += String(d);
+  });
+  return { child, output: () => output, spec };
+}
+
 export function ownedProcessTree(app, resources, electronPid) {
   const windows = existsSync(join(app, "Penglai.exe"));
   const nodeBin = resolve(join(resources, windows ? "runtime/node/node.exe" : "runtime/node/bin/node"));

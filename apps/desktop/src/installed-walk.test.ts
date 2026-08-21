@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -87,6 +88,8 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /await delay\(1_200\)/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(e2e, /assertInstalledPenglaiIdentity/);
+  assert.match(e2e, /launchPackaged\(exe, resources, refuseUser/);
+  assert.match(e2e, /launchInstalledHarness\(harnessApp, resources, userData/);
 });
 
 test("single-instance ownership is scoped after the app-private userData path", () => {
@@ -101,6 +104,25 @@ test("installed app helper refuses Electron executable and wrong Info.plist iden
   assert.match(helper, /CFBundleExecutable/);
   assert.match(helper, /com\.penglai\.dsh/);
   assert.doesNotMatch(helper, /for \(const name of \["Penglai", "Electron"\]\)/);
+});
+
+test("installed UI harness executes only the exact installed resources/app", async () => {
+  const { installedHarnessSpec } = await import("../../../scripts/lib/installed-app.mjs");
+  const rootDir = mkdtempSync(join(tmpdir(), "penglai-installed-harness-"));
+  const harness = join(rootDir, "Electron");
+  const resources = join(rootDir, "installed", "resources");
+  mkdirSync(join(resources, "app"), { recursive: true });
+  writeFileSync(harness, "harness");
+  writeFileSync(join(resources, "app", "package.json"), "{}");
+  writeFileSync(join(resources, "app", "electron-main.js"), "main");
+  assert.deepEqual(installedHarnessSpec(harness, resources), {
+    executable: harness,
+    appEntry: join(resources, "app"),
+  });
+  assert.throws(
+    () => installedHarnessSpec(join(rootDir, "missing"), resources),
+    /harness executable missing/,
+  );
 });
 
 test("soak runner samples IM offline sleep update uninstall on the exact DMG", () => {
