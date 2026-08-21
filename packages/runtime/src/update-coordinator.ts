@@ -19,6 +19,11 @@ import {
   type UpdateState,
 } from "./update.js";
 import { crashSafeUpdate, downloadVerifiedPayload, drainOwnedServices } from "./update-flow.js";
+import {
+  appListUrl,
+  discoverSignedAppUpdate,
+  EMBEDDED_UPDATER_PUBLIC_KEY,
+} from "@penglai/plugin-registry";
 
 export interface OwnedServiceState {
   dshRunning: boolean;
@@ -70,6 +75,8 @@ export interface AssistedUpdateConfig {
   journalDir: string;
   ledgerPath: string;
   backupRoot: string;
+  trustPath?: string;
+  discoverUpdates?: boolean;
   manifestPolicy?: Omit<UpdateManifestPolicy, "trustedKeyId" | "allowCurrentCheck">;
   fetchImpl?: typeof fetch;
   handoff?: VerifiedInstallerHandoff;
@@ -145,8 +152,15 @@ export class AssistedUpdateCoordinator {
     for (const path of [config.updatesRoot, config.journalDir, config.ledgerPath, config.backupRoot]) {
       if (!isAbsolute(path)) throw new PenglaiError("SECURITY_POLICY", "update paths must be absolute");
     }
-    assertCanonicalManifestUrl(config.canonicalManifestUrl, config.canonicalManifestUrl);
-    assertCanonicalManifestUrl(config.canonicalManifestSignatureUrl, config.canonicalManifestSignatureUrl);
+    if (config.discoverUpdates !== false) {
+      const list = new URL(appListUrl());
+      if (list.href !== appListUrl()) {
+        throw new PenglaiError("SECURITY_POLICY", "non-canonical update discovery URL");
+      }
+    } else {
+      assertCanonicalManifestUrl(config.canonicalManifestUrl, config.canonicalManifestUrl);
+      assertCanonicalManifestUrl(config.canonicalManifestSignatureUrl, config.canonicalManifestSignatureUrl);
+    }
     if (!config.signatureKeyId || !/^[0-9a-f]{64}$/i.test(config.publicKeyHex)) {
       throw new PenglaiError("SECURITY_POLICY", "trusted updater identity required");
     }
@@ -208,25 +222,91 @@ export class AssistedUpdateCoordinator {
     this.#abort = controller;
     try {
       const fetchImpl = this.#config.fetchImpl ?? fetch;
-      const [bytes, signatureBytes] = await Promise.all([
-        fetchExactBytes(this.#config.canonicalManifestUrl, fetchImpl, 1024 * 1024, controller.signal),
-        fetchExactBytes(this.#config.canonicalManifestSignatureUrl, fetchImpl, 1024, controller.signal),
-      ]);
-      const verified = verifyManifestBytes({
-        bytes,
-        signature: decodeManifestSignature(signatureBytes),
-        publicKeyHex: this.#config.publicKeyHex,
-        currentVersion: this.#config.currentVersion,
-        target: this.#config.target,
-        policy: {
-          ...this.#config.manifestPolicy,
-          trustedKeyId: this.#config.signatureKeyId,
-          allowCurrentCheck: true,
-        },
-      });
+      let version: string;
+      let digest: string;
+      let signatureKeyId = this.#config.signatureKeyId;
+      if (this.#config.discoverUpdates !== false) {
+        const found = await discoverSignedAppUpdate({
+          currentVersion: this.#config.currentVersion,
+          fetchImpl,
+          publicKeyHex: this.#config.publicKeyHex || EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex,
+          signingKeyId: this.#config.signatureKeyId || EMBEDDED_UPDATER_PUBLIC_KEY.keyId,
+          ...(this.#config.trustPath ? { trustPath: this.#config.trustPath } : {}),
+        });
+        if (!found) {
+          this.#journal = {
+            ...this.#journal,
+            state: "CURRENT",
+            version: this.#config.currentVersion,
+          };
+          this.#persist();
+          return this.status();
+        }
+        const platform = found.manifest.platforms[this.#config.target];
+        if (!platform) throw new PenglaiError("INVALID_INPUT", "platform missing");
+        version = found.manifest.version;
+        digest = found.digest;
+        signatureKeyId = found.manifest.signingKeyId;
+        this.#manifestDigest = digest;
+        this.#asset = {
+          target: this.#config.target,
+          kind: this.#config.target.startsWith("darwin-") ? "dmg" : "setup",
+          version,
+          url: platform.url,
+          sha256: platform.sha256,
+          signature: platform.signature,
+          size: platform.size,
+          minimumOsVersion: "13.0",
+          candidateSourceSha: "0".repeat(64),
+          publicExportTreeSha256: "0".repeat(64),
+          releaseManifestSha256: digest,
+        };
+        this.#manifest = {
+          schemaVersion: 1,
+          channel: "desktop-v0.5",
+          version,
+          minimumVersion: found.manifest.minimumSourceVersion,
+          publishedAt: found.manifest.issuedAt,
+          notesUrl: found.manifest.notesUrl,
+          signatureKeyId,
+          candidateSourceSha: "0".repeat(64),
+          publicExportTreeSha256: "0".repeat(64),
+          releaseManifestSha256: digest,
+          migration: {
+            generation: "0.5",
+            fromVersion: found.manifest.minimumSourceVersion,
+            throughVersion: this.#config.currentVersion,
+            toVersion: version,
+          },
+          platforms: { [this.#config.target]: this.#asset },
+        };
+      } else {
+        const [bytes, signatureBytes] = await Promise.all([
+          fetchExactBytes(this.#config.canonicalManifestUrl, fetchImpl, 1024 * 1024, controller.signal),
+          fetchExactBytes(this.#config.canonicalManifestSignatureUrl, fetchImpl, 1024, controller.signal),
+        ]);
+        const verified = verifyManifestBytes({
+          bytes,
+          signature: decodeManifestSignature(signatureBytes),
+          publicKeyHex: this.#config.publicKeyHex,
+          currentVersion: this.#config.currentVersion,
+          target: this.#config.target,
+          policy: {
+            ...this.#config.manifestPolicy,
+            trustedKeyId: this.#config.signatureKeyId,
+            allowCurrentCheck: true,
+          },
+        });
+        version = verified.manifest.version;
+        digest = verified.digest;
+        signatureKeyId = verified.manifest.signatureKeyId;
+        this.#manifest = verified.manifest;
+        this.#manifestDigest = digest;
+        this.#asset = verified.manifest.platforms[this.#config.target]!;
+      }
       const ledger = readUpdateLedger(this.#config.ledgerPath);
       if (ledger) {
-        if (ledger.signatureKeyId !== this.#config.signatureKeyId) {
+        if (ledger.signatureKeyId !== this.#config.signatureKeyId && ledger.signatureKeyId !== signatureKeyId) {
           throw new PenglaiError("SECURITY_POLICY", "installed update ledger signing key mismatch");
         }
         const installedOrder = compareSemver(this.#config.currentVersion, ledger.version);
@@ -235,36 +315,28 @@ export class AssistedUpdateCoordinator {
         }
         if (
           installedOrder === 0 &&
-          compareSemver(verified.manifest.version, this.#config.currentVersion) === 0 &&
-          verified.digest !== ledger.manifestSha256
+          compareSemver(version, this.#config.currentVersion) === 0 &&
+          digest !== ledger.manifestSha256
         ) {
           throw new PenglaiError("SECURITY_POLICY", "same-version manifest replay mismatch");
         }
       }
-      if (compareSemver(verified.manifest.version, this.#config.currentVersion) === 0) {
+      if (compareSemver(version, this.#config.currentVersion) === 0) {
         this.#journal = {
           ...this.#journal,
           state: "CURRENT",
-          version: verified.manifest.version,
-          manifestSha256: verified.digest,
+          version,
+          manifestSha256: digest,
         };
         this.#persist();
         return this.status();
       }
-      assertUpdateLedgerAllows(
-        ledger,
-        verified.manifest.version,
-        verified.digest,
-        verified.manifest.signatureKeyId,
-      );
-      this.#manifest = verified.manifest;
-      this.#manifestDigest = verified.digest;
-      this.#asset = verified.manifest.platforms[this.#config.target]!;
+      assertUpdateLedgerAllows(ledger, version, digest, signatureKeyId);
       this.#journal = {
         ...this.#journal,
         state: "AVAILABLE",
-        version: verified.manifest.version,
-        manifestSha256: verified.digest,
+        version,
+        manifestSha256: digest,
         payloadSha256: this.#asset.sha256,
       };
       this.#persist();
