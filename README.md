@@ -23,7 +23,15 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.1 is still being verified. The current public installer is 0.5.0 for Apple Silicon. Intel Mac and Windows x64 packages do not exist as accepted releases yet. New screenshots will be added only after they are captured from installed 0.5.1 builds.
+> Penglai 0.5.1 is still being verified. The current public installer is 0.5.0 for Apple Silicon. Intel Mac and Windows x64 packages do not exist as accepted releases yet. The images below were captured from an installed 0.5.1 Apple Silicon candidate, not from 0.5.0 or a source dev server.
+
+<p align="center">
+  <img src=".github/assets/0.5.1/welcome.png" width="32%" alt="Penglai 0.5.1 welcome and appearance step">
+  <img src=".github/assets/0.5.1/models.png" width="32%" alt="Penglai 0.5.1 official DeepSeek model selection">
+  <img src=".github/assets/0.5.1/api-key.png" width="32%" alt="Penglai 0.5.1 local API key step with an empty field">
+</p>
+
+<p align="center"><sub>Installed 0.5.1 candidate, Apple Silicon, DSH 0.1.1-rc.1. <a href="docs/0.5.1/SCREENSHOTS.md">Capture provenance</a>.</sub></p>
 
 <a id="english"></a>
 
