@@ -29,6 +29,7 @@ export interface OfficialUsableCtx {
       title?: string;
       path?: string;
       sessionIds?: readonly string[];
+      attachSession?: (sessionId: string) => Promise<void>;
       detachSession?: (sessionId: string) => Promise<void>;
     }>;
     delete?: (id: string) => Promise<boolean>;
@@ -42,7 +43,7 @@ export interface OfficialUsableCtx {
       agent: {
         followup: (m: unknown) => void;
         whenIdle?: () => Promise<void>;
-        session?: OfficialSessionLog;
+        session?: OfficialSessionLog & { flush?: () => Promise<void> };
       };
       dispose: () => Promise<void>;
     }>;
@@ -913,6 +914,7 @@ async function runOfficialTurn(
     prompt: string;
     sourceKind: "penglai-onboarding-api-test" | "penglai-onboarding-first-conversation";
     maxTokens: number;
+    attachWorkspaceId?: string;
   },
 ): Promise<{ sessionId: string; final: string; turnCompleted: boolean }> {
   if (!ctx.agents) throw new PenglaiError("DSH_UNAVAILABLE", "official agents missing");
@@ -963,6 +965,15 @@ async function runOfficialTurn(
       turnCompleted = true;
       turnFailure = turnFailureFromReason(durable.reason) ?? turnFailure;
     }
+    if (!turnFailure && opts.attachWorkspaceId) {
+      if (!handle) throw new PenglaiError("DSH_UNAVAILABLE", "official agents missing");
+      const workspace = ctx.workspaceRegistry?.list?.().find((row) => row.id === opts.attachWorkspaceId);
+      if (!workspace?.attachSession) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official workspace attachSession missing");
+      }
+      await workspace.attachSession(sessionId);
+      if (typeof handle.agent.session?.flush === "function") await handle.agent.session.flush();
+    }
   } finally {
     clearTimeout(timer);
     if (typeof disposeEvent === "function") disposeEvent();
@@ -1000,7 +1011,7 @@ export async function runOfficialNonceTurn(
 
 export async function runOfficialFirstConversation(
   ctx: OfficialUsableCtx,
-  opts: { message: string; provider: string; model: string; cwd: string },
+  opts: { message: string; provider: string; model: string; cwd: string; workspaceId: string },
 ): Promise<{
   passed: boolean;
   sessionId: string;
@@ -1011,6 +1022,7 @@ export async function runOfficialFirstConversation(
 }> {
   const message = opts.message.trim();
   if (!message || message.length > 4000) throw new PenglaiError("INVALID_INPUT", "first conversation message required");
+  if (!opts.workspaceId) throw new PenglaiError("INVALID_INPUT", "official workspace required");
   const result = await runOfficialTurn(ctx, {
     provider: opts.provider,
     model: opts.model,
@@ -1018,6 +1030,7 @@ export async function runOfficialFirstConversation(
     prompt: message,
     sourceKind: "penglai-onboarding-first-conversation",
     maxTokens: 1024,
+    attachWorkspaceId: opts.workspaceId,
   });
   const finalDigest = result.final ? createHash("sha256").update(result.final, "utf8").digest("hex") : undefined;
   return {

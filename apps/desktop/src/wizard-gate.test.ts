@@ -30,6 +30,12 @@ test("onboarding ledger is complete only when current is COMPLETE", () => {
   mkdirSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true });
   writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
   assert.equal(onboardingLedgerComplete(root), false, "empty Penglai marker dirs are not official DSH facts");
+  mkdirSync(join(root, "dsh-home", "storage"), { recursive: true });
+  writeFileSync(
+    join(root, "dsh-home", "storage", "workspace.json"),
+    JSON.stringify({ initialized: true, workspaceIds: ["ws-1"] }),
+  );
+  assert.equal(onboardingLedgerComplete(root), false, "guessed storage/workspace.json is not the official domain file");
   writeFileSync(
     join(root, "dsh-home", "workspace.json"),
     JSON.stringify({ initialized: true, workspaceIds: ["ws-1"] }),

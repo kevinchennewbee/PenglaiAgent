@@ -54,35 +54,31 @@ function workspaceJsonHasId(path: string, workspaceId: string): boolean {
   }
 }
 
-/** Official workspace domain JSON written by DSH storage-json as `<domain>.json`. */
+/** Official workspace domain JSON: `$DSH_HOME/workspace.json`. */
 export function officialWorkspaceRecord(dshHome: string, workspaceId: string): boolean {
   if (!workspaceId || workspaceId.includes("..") || workspaceId.includes("/") || workspaceId.includes("\\")) {
     return false;
   }
-  return ["workspace.json", join("storage", "workspace.json"), join("data", "workspace.json")].some((rel) =>
-    workspaceJsonHasId(join(dshHome, rel), workspaceId),
-  );
+  return workspaceJsonHasId(join(dshHome, "workspace.json"), workspaceId);
 }
 
-/** Official session JSONL: `<session-root>/<project>/<sessionId>/session.jsonl`. */
+/** Official session JSONL: `projectDir(DSH_HOME, cwd)/<sessionId>/session.jsonl`. */
 export function officialSessionLog(dshHome: string, sessionId: string): boolean {
   if (!sessionId || sessionId.includes("..") || sessionId.includes("/") || sessionId.includes("\\")) {
     return false;
   }
-  const roots = [join(dshHome, "sessions"), join(dshHome, "session-logs"), join(dshHome, "projects")];
-  for (const root of roots) {
-    if (!existingDir(root)) continue;
-    let projects: string[];
-    try {
-      projects = readdirSync(root);
-    } catch {
-      continue;
-    }
-    for (const project of projects.slice(0, 64)) {
-      const log = join(root, project, sessionId, "session.jsonl");
-      const gz = join(root, project, sessionId, "session.jsonl.gz");
-      if (regularFile(log) || regularFile(gz)) return true;
-    }
+  const root = join(dshHome, "projects");
+  if (!existingDir(root)) return false;
+  let projects: string[];
+  try {
+    projects = readdirSync(root);
+  } catch {
+    return false;
+  }
+  for (const project of projects.slice(0, 64)) {
+    const log = join(root, project, sessionId, "session.jsonl");
+    const gz = join(root, project, sessionId, "session.jsonl.gz");
+    if (regularFile(log) || regularFile(gz)) return true;
   }
   return false;
 }

@@ -28,8 +28,8 @@ BYOK 不是 Penglai 自建 LLM 模块。DSH 已通过 `dsh-llm-pi-ai` 提供多�
 1. 选择中文或 English。
 2. 用所选语言阅读隐私与本地 YAML 边界。
 3. 从 official Models 同一来源列出厂家：`listConfigurableProviders` 目录优先，再合并 live `listProviders`，不复制 Penglai 静态 catalog。
-4. 用户选 provider/model，填入 API key；一次 official nonce Turn 测试通过后进入蓬莱。密钥经 `credentials.set`，`describe` 只回 descriptor。
-5. Workspace、首次对话、微信/飞书连接都在 official DSH Web / Penglai IM 里完成，不再塞进前置向导。
+4. 用户选 provider/model，填入 API key；一次 official nonce Turn 测试连通。密钥经 `credentials.set`，`describe` 只回 descriptor。
+5. 向导内创建或选择官方 Workspace，再发第一条真实消息（official Agent/Session/Turn，durable final 后挂到该 Workspace）。微信/飞书连接仍在 DSH Web / Penglai IM 里完成。
 
 ledger `current === "COMPLETE"` 后 `wizardFinished` 先验证 official DSH Web，成功才下线 `/wizard` 并切换，失败回滚保留向导。向导是临时 bootstrap 面，不是长期第二 UI。
 

@@ -44,6 +44,8 @@ test("wizard JS is plain source with Typert envelope and no DSH client", () => {
   assert.match(js, /data-penglai-wizard-workspace/);
   assert.match(js, /data-penglai-wizard-message/);
   assert.match(js, /createWorkspace/);
+  assert.match(js, /listWorkspaces/);
+  assert.match(js, /recordWorkspace/);
   assert.match(js, /runFirstConversation/);
   assert.doesNotMatch(js, /data-penglai-wizard-im/);
   assert.match(js, /readKeyDraft\(\);\s*state\.busy = true/);

@@ -68,7 +68,7 @@ export const SNAPSHOT_JS = `(() => {
   };
 })()`;
 
-export const WIZARD_RESUME_STEPS = ["language", "privacy", "models", "keytest"];
+export const WIZARD_RESUME_STEPS = ["language", "privacy", "models", "keytest", "workspace", "firstturn"];
 
 export function wizardResumeReady(snap) {
   return Boolean(snap?.wizard && snap.wizardStep && WIZARD_RESUME_STEPS.includes(snap.wizardStep));

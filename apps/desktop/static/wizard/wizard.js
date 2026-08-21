@@ -29,6 +29,8 @@
       workspacePath: "文件夹",
       workspaceTitleField: "名称",
       workspacePick: "选择文件夹",
+      workspaceExisting: "已有工作区",
+      workspaceNone: "没有已有工作区，请选择文件夹。",
       firstTurnTitle: "第一条消息",
       firstTurnBody: "向官方 Session 发送第一条真实消息。成功后会重启进入蓬莱。",
       firstTurnMessage: "消息",
@@ -78,6 +80,8 @@
       workspacePath: "Folder",
       workspaceTitleField: "Name",
       workspacePick: "Choose folder",
+      workspaceExisting: "Existing workspace",
+      workspaceNone: "No existing workspace. Choose a folder.",
       firstTurnTitle: "First message",
       firstTurnBody: "Send the first real message on the official Session. After it succeeds, Penglai restarts into the main window.",
       firstTurnMessage: "Message",
@@ -120,6 +124,8 @@
     selection: null,
     keyDraft: "",
     workspacePath: "",
+    workspaceId: "",
+    workspaces: [],
     workspaceTitle: "Penglai",
     firstMessage: "你好",
     error: "",
@@ -298,7 +304,7 @@
       const value = readKeyDraft();
       return value.length >= 4 && value.length <= 4096 && !/[\r\n]/.test(value);
     }
-    if (id === "workspace") return Boolean(state.workspacePath);
+    if (id === "workspace") return Boolean(state.workspacePath || state.workspaceId);
     if (id === "firstturn") return Boolean((state.firstMessage || "").trim());
     return true;
   }
@@ -327,6 +333,14 @@
     state.viewIndex = Math.max(0, LEDGER_SCREENS.findIndex((s) => s.id === live.id));
     if (live.id === "models" && providers.length === 0) {
       state.error = t("errorCatalog");
+    }
+    if (live.id === "workspace") {
+      try {
+        const listed = await rpc("listWorkspaces");
+        state.workspaces = Array.isArray(listed) ? listed : [];
+      } catch {
+        state.workspaces = [];
+      }
     }
   }
 
@@ -370,11 +384,15 @@
         }
       }
     } else if (id === "workspace") {
-      if (!state.workspacePath) throw new Error(t("errorJail"));
-      await rpc("createWorkspace", {
-        path: state.workspacePath,
-        title: (state.workspaceTitle || "Penglai").slice(0, 128),
-      });
+      if (state.workspaceId && !state.workspacePath) {
+        await rpc("recordWorkspace", { workspaceId: state.workspaceId });
+      } else {
+        if (!state.workspacePath) throw new Error(t("errorJail"));
+        await rpc("createWorkspace", {
+          path: state.workspacePath,
+          title: (state.workspaceTitle || "Penglai").slice(0, 128),
+        });
+      }
     } else if (id === "firstturn") {
       const message = (state.firstMessage || "").trim();
       if (!message) throw new Error(t("errorGeneric"));
@@ -605,6 +623,25 @@
       return [
         el("p", {}, [t("workspaceBody")]),
         el("label", {}, [
+          t("workspaceExisting"),
+          el(
+            "select",
+            {
+              "data-penglai-wizard-workspace-select": "1",
+              onChange: (ev) => {
+                state.workspaceId = ev.target.value;
+                if (state.workspaceId) state.workspacePath = "";
+                render();
+              },
+            },
+            [option("", t("workspaceNone"), !state.workspaceId)].concat(
+              state.workspaces.map((row) =>
+                option(row.id, (row.title || row.path || row.id) + "", state.workspaceId === row.id),
+              ),
+            ),
+          ),
+        ]),
+        el("label", {}, [
           t("workspaceTitleField"),
           el("input", {
             type: "text",
@@ -627,6 +664,7 @@
                 const picked = await desktop("wizardPickFolder");
                 if (picked) {
                   state.workspacePath = String(picked);
+                  state.workspaceId = "";
                   render();
                 }
               } catch (err) {
