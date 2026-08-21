@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   closeSync,
+  constants,
   cpSync,
   existsSync,
   fstatSync,
@@ -197,7 +198,7 @@ function walkArchiveFiles(root: string, rel = ""): ArchiveFile[] {
     return children.flatMap((name) => walkArchiveFiles(root, rel ? join(rel, name) : name));
   }
   if (!st.isFile()) return [];
-  const handle = openSync(abs, "r");
+  const handle = openSync(abs, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const opened = fstatSync(handle);
     if (!opened.isFile() || opened.dev !== st.dev || opened.ino !== st.ino) {
