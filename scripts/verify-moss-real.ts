@@ -141,7 +141,7 @@ try {
     target: `${process.platform}-${process.arch}`,
     runtime: {
       engine: "onnxruntime-node",
-      engineVersion: "1.27.0",
+      engineVersion: "1.23.2",
       tokenizer: "sentencepiece-js",
       tokenizerVersion: "1.1.0",
       modifiedRuntimeSha256:
