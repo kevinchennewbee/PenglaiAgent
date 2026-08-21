@@ -27,6 +27,13 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !define HELPER "$INSTDIR\runtime\helpers\penglai-windows-host.exe"
 !define CAPABILITY "${USERDATA}\uninstall\deletion-capability.json"
 
+!ifdef PENGLAI_ICON
+  !define MUI_ICON "${PENGLAI_ICON}"
+  !define MUI_UNICON "${PENGLAI_ICON}"
+  Icon "${PENGLAI_ICON}"
+  UninstallIcon "${PENGLAI_ICON}"
+!endif
+
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
@@ -40,6 +47,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
   !define PENGLAI_LICENSE "license.rtf"
 !endif
 !insertmacro MUI_PAGE_LICENSE "${PENGLAI_LICENSE}"
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -48,6 +56,9 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
+
+LangString DESC_Desktop ${LANG_SIMPCHINESE} "桌面快捷方式"
+LangString DESC_Desktop ${LANG_ENGLISH} "Desktop shortcut"
 
 Function .onInit
   ${IfNot} ${RunningX64}
@@ -85,10 +96,15 @@ Section "Penglai" SecApp
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 SectionEnd
 
+Section /o "$(DESC_Desktop)" SecDesktop
+  CreateShortCut "$DESKTOP\Penglai.lnk" "$INSTDIR\Penglai.exe"
+SectionEnd
+
 Section "un.Penglai" SectionUninstall
   ; Default uninstall: app, shortcuts, uninstall registry, update cache.
   ; UserData is preserved unless a one-shot capability file exists.
   Delete "$SMPROGRAMS\Penglai\Penglai.lnk"
+  Delete "$DESKTOP\Penglai.lnk"
   RMDir "$SMPROGRAMS\Penglai"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
   DeleteRegKey HKCU "Software\Penglai\0.5"

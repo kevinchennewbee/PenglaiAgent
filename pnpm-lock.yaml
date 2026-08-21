@@ -34,6 +34,9 @@ importers:
       esbuild:
         specifier: 0.25.9
         version: 0.25.9
+      resedit:
+        specifier: 3.0.2
+        version: 3.0.2
       tsx:
         specifier: 4.20.3
         version: 4.20.3
@@ -4162,6 +4165,10 @@ packages:
   path-to-regexp@8.4.2:
     resolution: {integrity: sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA==}
 
+  pe-library@2.0.1:
+    resolution: {integrity: sha512-/qjYFqNSlq59B5DI36am++5/3gMgh02QnzpYigrwrW6s+QpU0mHf09/iA4wjTu21UUxodyV7ZCetV5MiDhaN/A==}
+    engines: {node: '>=20'}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -4257,6 +4264,10 @@ packages:
 
   require-main-filename@2.0.0:
     resolution: {integrity: sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==}
+
+  resedit@3.0.2:
+    resolution: {integrity: sha512-FnqVDJYX4etlEnz2AaJYE1c1FTcgrsHiI2U4DXRxO4CIzbGP7r0jml9uZIMlvzCom2pbBLZjIhF26wj92y1cVQ==}
+    engines: {node: '>=20'}
 
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
@@ -8882,6 +8893,8 @@ snapshots:
 
   path-to-regexp@8.4.2: {}
 
+  pe-library@2.0.1: {}
+
   picocolors@1.1.1: {}
 
   picomatch@4.0.5: {}
@@ -8968,6 +8981,10 @@ snapshots:
   require-from-string@2.0.2: {}
 
   require-main-filename@2.0.0: {}
+
+  resedit@3.0.2:
+    dependencies:
+      pe-library: 2.0.1
 
   resolve-pkg-maps@1.0.0: {}
 

@@ -167,15 +167,27 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(script, /deletion-capability\.json/);
   assert.doesNotMatch(script, /RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\0\.5"/);
   assert.match(script, /SectionUninstall/);
-  // Numeric downgrade comparison (not lexicographic) and no installer
-  // self-deleting a desktop shortcut it never created.
+  // Numeric downgrade comparison (not lexicographic) and an explicitly
+  // optional desktop shortcut with matching uninstall cleanup.
   assert.match(script, /\$\{VersionCompare\}/);
   assert.doesNotMatch(script, /\$\{If\}\s+\$0\s+S>\s*"\$\{PENGLAI_VERSION\}"/);
-  assert.doesNotMatch(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
+  assert.match(script, /Section\s+\/o\s+"\$\(DESC_Desktop\)"/);
+  assert.match(script, /CreateShortCut\s+"\$DESKTOP\\Penglai\.lnk"/);
+  assert.match(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
   // The recursive app-tree delete must be guarded to the default install dir.
   assert.match(script, /RMDir\s+\/r\s+"\$INSTDIR"\s*\n\s*\$\{Else\}/);
   const contract = windowsNativeHostContract();
   assert.equal(contract.posixModeImpersonation, false);
+  const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
+  const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
+  assert.match(payload, /public-export\.json/);
+  assert.match(payload, /release-info\.json/);
+  assert.match(payload, /stamp-windows-exe\.mjs/);
+  assert.match(payload, /Penglai\.ico/);
+  assert.match(packager, /local-installer-win32-x86_64\.json/);
+  assert.match(packager, /\/DPENGLAI_ICON=/);
+  assert.match(script, /!define MUI_ICON "\$\{PENGLAI_ICON\}"/);
+  assert.match(packager, /exact Setup did not reinstall/);
 });
 
 test("Windows inventory helper is not implied by a darwin inspect", () => {
