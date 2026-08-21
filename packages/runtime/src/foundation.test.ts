@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
@@ -113,6 +121,51 @@ test("official DSH closure BFS includes runtime packages that healProfilesModule
   assertDshClosure(links);
   for (const name of REQUIRED_DSH_RUNTIME_PACKAGES) {
     assert.equal(links.has(name), true, name);
+  }
+});
+
+test("DSH closure keeps only the node-pty payload for the declared release target", async () => {
+  const { pruneNodePtyNativePayloads } = await import(
+    "../../../scripts/lib/dsh-closure.mjs"
+  );
+  const targets = [
+    ["darwin-aarch64", "darwin-arm64", "pty.node"],
+    ["darwin-x86_64", "darwin-x64", "pty.node"],
+    ["win32-x86_64", "win32-x64", "conpty.node"],
+  ] as const;
+  for (const [target, keep, binding] of targets) {
+    const modules = mkdtempSync(join(tmpdir(), `penglai-node-pty-${keep}-`));
+    const nodePty = join(modules, "node-pty");
+    for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "win32-arm64", "win32-x64"]) {
+      const dir = join(nodePty, "prebuilds", platform);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, platform.startsWith("win32") ? "conpty.node" : "pty.node"), platform);
+    }
+    for (const platform of ["win10-arm64", "win10-x64"]) {
+      const dir = join(nodePty, "third_party", "conpty", "1.25.260303002", platform);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "conpty.dll"), platform);
+    }
+    const result = pruneNodePtyNativePayloads(modules, target);
+    assert.equal(result.present, true);
+    assert.equal(existsSync(join(nodePty, "prebuilds", keep, binding)), true);
+    for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "win32-arm64", "win32-x64"]) {
+      assert.equal(existsSync(join(nodePty, "prebuilds", platform)), platform === keep);
+    }
+    assert.equal(
+      existsSync(join(nodePty, "third_party", "conpty")),
+      target === "win32-x86_64",
+    );
+    if (target === "win32-x86_64") {
+      assert.equal(
+        existsSync(join(nodePty, "third_party", "conpty", "1.25.260303002", "win10-x64", "conpty.dll")),
+        true,
+      );
+      assert.equal(
+        existsSync(join(nodePty, "third_party", "conpty", "1.25.260303002", "win10-arm64")),
+        false,
+      );
+    }
   }
 });
 
