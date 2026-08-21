@@ -24,6 +24,8 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/PUBLICATION_0.5.0.md",
   "docs/PUBLICATION_MANIFEST_0.5.0.md",
   "docs/RELEASE_NOTES_0.5.0.md",
+  "docs/RELEASE_NOTES_0.5.1.md",
+  "docs/0.5.1",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -40,6 +42,9 @@ export const PUBLIC_EXPORT_ALLOW = [
   "tsconfig.json",
   "tsconfig.base.json",
   "release-contract.json",
+  "release-info.json",
+  ".nvmrc",
+  ".gitignore",
   "PRODUCT_CONSTITUTION.md",
 ] as const;
 
@@ -82,6 +87,7 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/PUBLICATION_0.5.0.md",
   "docs/PUBLICATION_MANIFEST_0.5.0.md",
   "docs/RELEASE_NOTES_0.5.0.md",
+  "docs/RELEASE_NOTES_0.5.1.md",
 ] as const;
 
 export interface ExportFile {

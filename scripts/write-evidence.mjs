@@ -3,6 +3,10 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 
+if (!process.env.PENGLAI_ALLOW_HISTORICAL_R1_EVIDENCE) {
+  console.error("P51-EVIDENCE-001: scripts/write-evidence.mjs is a historical R1 writer and cannot write 0.5.1 candidate evidence");
+  process.exit(2);
+}
 const runId = `20260815T${new Date().toISOString().replace(/[-:]/g, "").slice(9, 15)}Z-r1`;
 const dir = `evidence/releases/v0.1.0-alpha.1/${runId}`;
 mkdirSync(`${dir}/package`, { recursive: true });

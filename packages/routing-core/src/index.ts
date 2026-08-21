@@ -1391,17 +1391,28 @@ export class RoutingControlPlane {
     this.store.audit("desktop_turn", { sessionId, turnId }, this.clock.now());
   }
 
-  markSending(outboxId: string): void {
+  markSending(outboxId: string, workerId = "local"): void {
     const item = this.store.getOutbox(outboxId);
     if (!item) return;
     if (item.state === "delivered" || item.state === "dead") return;
-    this.store.setOutboxState(outboxId, "sending", item.attempts, item.nextAttemptAt);
+    const claimed =
+      item.state === "claimed" && item.workerId === workerId
+        ? item
+        : this.store.claimOutbox({ outboxId, workerId, now: this.clock.now() });
+    if (!claimed) return;
+    this.store.setOutboxState(outboxId, "sending", claimed.attempts, claimed.nextAttemptAt, {
+      expectedStates: ["claimed"],
+      workerId,
+    });
   }
 
   markDelivered(outboxId: string): void {
     const existing = this.store.getOutbox(outboxId);
     if (existing?.state === "delivered") return;
-    this.store.setOutboxState(outboxId, "delivered", existing?.attempts ?? 0, this.clock.now());
+    const ok = this.store.setOutboxState(outboxId, "delivered", existing?.attempts ?? 0, this.clock.now(), {
+      expectedStates: ["pending", "retryable", "claimed", "sending", "uncertain"],
+    });
+    if (!ok) return;
     const item = this.store.getOutbox(outboxId);
     if (item && item.fragmentIndex + 1 === item.fragmentCount) {
       this.store.setInboundState(item.inboundId, "delivered");
@@ -1426,16 +1437,24 @@ export class RoutingControlPlane {
     }
     const attempts = item.attempts + 1;
     if (attempts >= CONFIG.outboxMaxAttempts) {
-      this.store.setOutboxState(outboxId, "dead", attempts, this.clock.now());
+      this.store.setOutboxState(outboxId, "dead", attempts, this.clock.now(), {
+        expectedStates: ["claimed", "sending", "uncertain", "retryable"],
+      });
       this.store.setInboundState(item.inboundId, "dead");
       return;
     }
     const backoff = CONFIG.outboxBaseBackoffMs * 2 ** (attempts - 1);
-    this.store.setOutboxState(outboxId, "retryable", attempts, this.clock.now() + backoff);
+    this.store.setOutboxState(outboxId, "uncertain", attempts, this.clock.now() + backoff, {
+      expectedStates: ["claimed", "sending"],
+    });
   }
 
   dueOutbox(routeId: string): ReturnType<Store["pendingOutbox"]> {
-    return this.store.pendingOutbox(routeId).filter((i: { nextAttemptAt: number; state: string }) => i.nextAttemptAt <= this.clock.now() && i.state !== "sending");
+    return this.store.pendingOutbox(routeId).filter((i: { nextAttemptAt: number; state: string; leaseUntil?: number }) => {
+      if (i.state === "sending" && (i.leaseUntil ?? 0) > this.clock.now()) return false;
+      if (i.state === "claimed" && (i.leaseUntil ?? 0) > this.clock.now()) return false;
+      return i.nextAttemptAt <= this.clock.now();
+    });
   }
 
   requireVendorTarget(routeId: string): string {

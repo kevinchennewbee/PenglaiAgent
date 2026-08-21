@@ -32,20 +32,24 @@ import {
   configureGenerationPaths,
   installedApplicationPath,
   loadUpdaterReleaseContract,
+  consumeOwnerCapability,
+  issueOwnerCapability,
   parseConfirmedRequest,
   parseDeletionPrepareRequest,
   parseOperationRequest,
   readWorkspaceProtection,
   releaseTarget,
 } from "./lifecycle.js";
+import { productionDebuggerForbidden } from "./production-flags.js";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
 import { createContextGrantReceipt } from "./context-grant.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 function resourcesRoot(): string {
+  const packaged = app.isPackaged && process.env.PENGLAI_ALLOW_TEST_HARNESS !== "1";
   return findResourcesRoot({
-    ...(process.env.PENGLAI_RESOURCES ? { envRoot: process.env.PENGLAI_RESOURCES } : {}),
+    ...(!packaged && process.env.PENGLAI_RESOURCES ? { envRoot: process.env.PENGLAI_RESOURCES } : {}),
     ...(typeof process.resourcesPath === "string" && process.resourcesPath ? { resourcesPath: process.resourcesPath } : {}),
     moduleDir: here,
   });
@@ -136,6 +140,11 @@ async function observeOfficialWebsocket(win: BrowserWindow): Promise<{ opened: b
 }
 
 async function main(): Promise<void> {
+  if (productionDebuggerForbidden(process.argv, app.isPackaged)) {
+    process.stderr.write("Penglai production build refuses debugger switches\n");
+    app.exit(2);
+    return;
+  }
   const platform = process.platform === "darwin" || process.platform === "win32"
     ? process.platform
     : undefined;
@@ -445,13 +454,24 @@ async function main(): Promise<void> {
           return updater.cancel();
         }
         if (name === "confirmUpdate") {
-          if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one confirmation payload is required");
-          const input = parseConfirmedRequest(args[0]);
+          requireNoArguments(args);
           if (pendingDeletion) throw new PenglaiError("INVALID_INPUT", "data deletion confirmation is active");
+          const version = updater.status().version ?? "unknown";
+          const summary = `Install Penglai ${version} from the verified signed installer. This is not a silent update.`;
+          const picked = await dialog.showMessageBox(win, {
+            type: "warning",
+            buttons: ["Cancel", "Install"],
+            defaultId: 1,
+            cancelId: 0,
+            message: summary,
+          });
+          if (picked.response !== 1) throw new PenglaiError("SECURITY_POLICY", "owner cancelled update");
+          const cap = issueOwnerCapability({ action: "update", summary });
+          consumeOwnerCapability({ capabilityId: cap.capabilityId, action: "update", summary });
           return exclusive(async () => {
             let drained = false;
             try {
-              const status = await updater.confirmAndHandoff(input, {
+              const status = await updater.confirmAndHandoff({ confirmed: true }, {
                 stopAndDrain: async () => {
                   drained = true;
                   return stopOwnedServices();

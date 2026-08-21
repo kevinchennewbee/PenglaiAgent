@@ -45,7 +45,7 @@ type ContextService = ReturnType<typeof createContextService>;
 
 interface CordisContextLike {
   tools?: { register(definition: Record<string, unknown>): unknown };
-  workspaceRegistry?: { list(): Array<{ id: string; title?: string; path?: string }> };
+  workspaceRegistry?: { list(): Array<{ id: string; title?: string; path?: string; sessionIds?: readonly string[] }> };
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
 }
@@ -54,6 +54,20 @@ function requireUserData(): string {
   const root = process.env.PENGLAI_USER_DATA;
   if (!root) throw new PenglaiError("DSH_UNAVAILABLE", "PENGLAI_USER_DATA required for @penglai/context");
   return root;
+}
+
+export function boundWorkspaceId(ctx: CordisContextLike, extra: unknown): string | undefined {
+  const bag = extra && typeof extra === "object" ? (extra as Record<string, unknown>) : {};
+  const sessionId =
+    (typeof bag.sessionId === "string" && bag.sessionId) ||
+    (bag.session && typeof bag.session === "object" && typeof (bag.session as { id?: unknown }).id === "string"
+      ? String((bag.session as { id: string }).id)
+      : undefined);
+  if (!sessionId) throw new PenglaiError("UNAUTHORIZED", "context tools require host session binding");
+  const workspaces = ctx.workspaceRegistry?.list() ?? [];
+  const hit = workspaces.find((row) => row.sessionIds?.includes(sessionId));
+  if (!hit) throw new PenglaiError("UNAUTHORIZED", "session is not bound to an official Workspace");
+  return hit.id;
 }
 
 function registerContextTools(ctx: CordisContextLike, service: ContextService): void {
@@ -65,7 +79,7 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
       type: "object",
       additionalProperties: false,
       required: ["query"],
-      properties: { query: { type: "string" }, workspace_id: { type: "string" } },
+      properties: { query: { type: "string" } },
     },
     output: {
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
@@ -73,10 +87,13 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
         { type: "text", text: `[UNTRUSTED USER-AUTHORIZED CONTEXT]\n${JSON.stringify(value)}` },
       ],
     },
-    async execute(args: unknown) {
+    async execute(args: unknown, extra?: unknown) {
       const input = args as { query?: unknown; workspace_id?: unknown };
       if (typeof input.query !== "string") throw new PenglaiError("INVALID_INPUT", "context query required");
-      return service.search(input.query, typeof input.workspace_id === "string" ? input.workspace_id : undefined);
+      if (input.workspace_id !== undefined) {
+        throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
+      }
+      return service.search(input.query, boundWorkspaceId(ctx, extra));
     },
   });
   ctx.tools.register({
@@ -86,7 +103,7 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
       type: "object",
       additionalProperties: false,
       required: ["path"],
-      properties: { path: { type: "string" }, workspace_id: { type: "string" } },
+      properties: { path: { type: "string" } },
     },
     output: {
       schema: { type: "object", additionalProperties: true },
@@ -94,10 +111,13 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
         { type: "text", text: `[UNTRUSTED USER-AUTHORIZED CONTEXT]\n${JSON.stringify(value)}` },
       ],
     },
-    async execute(args: unknown) {
+    async execute(args: unknown, extra?: unknown) {
       const input = args as { path?: unknown; workspace_id?: unknown };
       if (typeof input.path !== "string") throw new PenglaiError("INVALID_INPUT", "context path required");
-      return service.read(input.path, typeof input.workspace_id === "string" ? input.workspace_id : undefined);
+      if (input.workspace_id !== undefined) {
+        throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
+      }
+      return service.read(input.path, boundWorkspaceId(ctx, extra));
     },
   });
 }

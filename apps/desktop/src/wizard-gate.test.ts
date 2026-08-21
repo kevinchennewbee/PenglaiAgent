@@ -13,6 +13,16 @@ test("onboarding ledger is complete only when current is COMPLETE", () => {
   writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "welcome-v1" }));
   assert.equal(onboardingLedgerComplete(root), false);
   writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE" }));
+  assert.equal(onboardingLedgerComplete(root), false, "P51-ONBOARD-001 COMPLETE without facts is not ready");
+  writeFileSync(
+    join(root, "onboarding", "onboarding-facts.json"),
+    JSON.stringify({
+      selection: { provider: "deepseek", model: "chat" },
+      credentialRef: "PENGLAI_TEST_KEY",
+      workspaceId: "ws-1",
+      apiTest: { nonceDigest: "a".repeat(64), finalDigest: "b".repeat(64), sessionId: "s1" },
+    }),
+  );
   assert.equal(onboardingLedgerComplete(root), true);
 });
 

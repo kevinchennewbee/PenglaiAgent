@@ -77,6 +77,16 @@ export class BudgetLedger {
         at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS budget_actual_day ON budget_actual(day);
+      CREATE TABLE IF NOT EXISTS budget_releases (
+        reservation_key TEXT PRIMARY KEY,
+        day TEXT NOT NULL,
+        workspace_id TEXT,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        estimated_tokens INTEGER NOT NULL,
+        released_at TEXT NOT NULL,
+        reason TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS budget_reservations (
         reservation_key TEXT PRIMARY KEY,
         day TEXT NOT NULL,
@@ -357,10 +367,33 @@ export class BudgetLedger {
     });
   }
 
-  releaseTurn(sessionId: string, turn: number): number {
+  releaseTurn(sessionId: string, turn: number, reason = "turn-end"): number {
     const prefix = `${sessionId}:${turn}:`;
-    const result = this.db.prepare("DELETE FROM budget_reservations WHERE reservation_key LIKE ?").run(`${prefix}%`);
-    return Number(result.changes);
+    return this.inTransaction(() => {
+      const rows = this.db
+        .prepare(
+          "SELECT reservation_key AS reservationKey, day, workspace_id AS workspaceId, provider, model, estimated_tokens AS estimatedTokens FROM budget_reservations WHERE reservation_key LIKE ?",
+        )
+        .all(`${prefix}%`) as Array<{
+        reservationKey: string;
+        day: string;
+        workspaceId: string | null;
+        provider: string;
+        model: string;
+        estimatedTokens: number;
+      }>;
+      const now = new Date().toISOString();
+      for (const row of rows) {
+        this.db
+          .prepare(
+            `INSERT OR IGNORE INTO budget_releases(reservation_key,day,workspace_id,provider,model,estimated_tokens,released_at,reason)
+             VALUES (?,?,?,?,?,?,?,?)`,
+          )
+          .run(row.reservationKey, row.day, row.workspaceId, row.provider, row.model, row.estimatedTokens, now, reason);
+        this.db.prepare("DELETE FROM budget_reservations WHERE reservation_key=?").run(row.reservationKey);
+      }
+      return rows.length;
+    });
   }
 
   status(now: number): {

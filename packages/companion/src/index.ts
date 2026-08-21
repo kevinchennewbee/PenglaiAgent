@@ -550,7 +550,7 @@ export class ProductionCompanionService {
       const state =
         error instanceof PenglaiError &&
         error.errorClass === "DELIVERY_TRANSIENT"
-          ? "failed"
+          ? "uncertain"
           : "suppressed";
       this.store.markDispatch(dispatch.triggerId, state, this.now(), {
         outcomeCode: code,

@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.0";
+export const PRODUCT_VERSION = "0.5.1";
 export const CANDIDATE_KIND = "public-publication-candidate";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -65,9 +65,9 @@ export const UPDATER_CHANNEL = "desktop-v0.5";
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.0",
-  release: "v0.5.0",
-  channel: "NOT_PUBLISHED_0_5_0",
+  tag: "v0.5.1",
+  release: "v0.5.1",
+  channel: "NOT_PUBLISHED_0_5_1",
 });
 
 export const RELEASE_TARGETS = [
@@ -75,7 +75,7 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.0_macos_aarch64.dmg",
+    installer: "Penglai_0.5.1_macos_aarch64.dmg",
   },
 ] as const;
 

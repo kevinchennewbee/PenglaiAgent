@@ -9,6 +9,8 @@ import {
   configureGenerationPaths,
   installedApplicationPath,
   loadUpdaterReleaseContract,
+  consumeOwnerCapability,
+  issueOwnerCapability,
   parseConfirmedRequest,
   parseDeletionPrepareRequest,
   parseOperationRequest,
@@ -66,8 +68,15 @@ test("complete deletion requires the exact phrase", () => {
 });
 
 test("renderer lifecycle payloads are narrow and complete delete is separately confirmed", () => {
-  assert.deepEqual(parseConfirmedRequest({ confirmed: true }), { confirmed: true });
+  assert.throws(() => parseConfirmedRequest({ confirmed: true }), /unknown field|capability/);
   assert.throws(() => parseConfirmedRequest({ confirmed: true, path: "/tmp/evil" }), /unknown field/);
+  const cap = issueOwnerCapability({ action: "update", summary: "install 0.5.2" });
+  assert.deepEqual(parseConfirmedRequest({ capabilityId: cap.capabilityId }), { capabilityId: cap.capabilityId });
+  consumeOwnerCapability({ capabilityId: cap.capabilityId, action: "update", summary: "install 0.5.2" });
+  assert.throws(
+    () => consumeOwnerCapability({ capabilityId: cap.capabilityId, action: "update", summary: "install 0.5.2" }),
+    /already used|invalid/,
+  );
   assert.deepEqual(parseOperationRequest({ operationId: "del_12345678" }), { operationId: "del_12345678" });
   assert.throws(() => parseOperationRequest({ operationId: "x" }), /operation id/);
   assert.deepEqual(

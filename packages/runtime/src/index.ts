@@ -208,16 +208,56 @@ function isSymlink(path: string): boolean {
   }
 }
 
-function profilePluginEnabled(patchText: string, pluginId: string): boolean {
+function unquoteYaml(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+export interface CordisPatchPlugin {
+  id?: string;
+  name?: string;
+  disabled?: boolean;
+}
+
+export function parseCordisPatchPlugins(text: string): CordisPatchPlugin[] {
+  const plugins: CordisPatchPlugin[] = [];
+  let current: CordisPatchPlugin | undefined;
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/(^|\s)#.*$/, "");
+    const item = line.match(/^\s*-\s+(id|name):\s*(.+)$/);
+    if (item) {
+      current = { [item[1] === "id" ? "id" : "name"]: unquoteYaml(item[2] ?? "") };
+      plugins.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const named = line.match(/^\s+(id|name|disabled):\s*(.+)$/);
+    if (!named) continue;
+    const key = named[1];
+    const value = unquoteYaml(named[2] ?? "");
+    if (key === "disabled") current.disabled = value.toLowerCase() === "true";
+    else if (key === "id") current.id = value;
+    else current.name = value;
+  }
+  return plugins;
+}
+
+export function profilePluginEnabled(patchText: string, pluginId: string): boolean {
   const short = pluginId.replace("@penglai/", "penglai-");
-  const blocks = patchText.split(/(?=^\\s*-\\s+id:\\s+)/m);
-  const block = blocks.find(
-    (candidate) =>
-      candidate.includes(`id: ${short}`) ||
-      candidate.includes(`name: "${pluginId}"`) ||
-      candidate.includes(`name: '${pluginId}'`),
+  const hit = parseCordisPatchPlugins(patchText).find(
+    (row) =>
+      row.id === short ||
+      row.id === pluginId ||
+      row.name === pluginId ||
+      row.name === short,
   );
-  return Boolean(block && !/^\\s*disabled:\\s+true\\s*$/m.test(block));
+  return Boolean(hit && hit.disabled !== true);
 }
 
 export function installFirstPartyPlugins(

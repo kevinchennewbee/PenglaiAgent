@@ -203,18 +203,6 @@ importers:
 
   packages/contracts: {}
 
-  packages/credentials-keychain:
-    dependencies:
-      '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
-      '@deepseek-ai/dsh-credentials':
-        specifier: 0.1.0-rc.8
-        version: 0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1))
-      '@penglai/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-
   packages/dsh-bridge:
     dependencies:
       '@deepseek-ai/cordis':
@@ -373,13 +361,26 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/plugin-registry':
+        specifier: workspace:*
+        version: link:../plugin-registry
       '@penglai/runtime':
         specifier: workspace:*
         version: link:../runtime
 
+  packages/plugin-pilot:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/plugin-reference: {}
 
-  packages/plugin-smoke: {}
+  packages/plugin-registry:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/release-identity:
     dependencies:

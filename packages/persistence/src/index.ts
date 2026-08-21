@@ -198,6 +198,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE voice_jobs ADD COLUMN asr_emotion TEXT;
   UPDATE schema_meta SET version = 9;
   `,
+  `
+  ALTER TABLE outbox ADD COLUMN worker_id TEXT;
+  ALTER TABLE outbox ADD COLUMN lease_until INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE outbox ADD COLUMN vendor_idempotency_key TEXT;
+  UPDATE schema_meta SET version = 10;
+  `,
 ];
 
 export const PENDING_MENU_TTL_MS = 24 * 60 * 60 * 1000;
@@ -831,15 +837,60 @@ export class Store {
 
   pendingOutbox(routeId: string): OutboxItem[] {
     const rows = this.db
-      .prepare("SELECT * FROM outbox WHERE route_id=? AND state IN ('pending','retryable','sending') ORDER BY sequence ASC")
+      .prepare(
+        "SELECT * FROM outbox WHERE route_id=? AND state IN ('pending','retryable','claimed','sending','uncertain') ORDER BY sequence ASC",
+      )
       .all(routeId) as Record<string, string | number>[];
     return rows.map((r) => this.mapOutbox(r));
   }
 
-  setOutboxState(outboxId: string, state: OutboxState, attempts: number, nextAttemptAt: number): void {
+  claimOutbox(input: {
+    outboxId: string;
+    workerId: string;
+    now: number;
+    leaseMs?: number;
+  }): OutboxItem | undefined {
+    const leaseUntil = input.now + (input.leaseMs ?? 15_000);
+    const result = this.db
+      .prepare(
+        `UPDATE outbox
+            SET state='claimed', worker_id=?, lease_until=?
+          WHERE outbox_id=?
+            AND state IN ('pending','retryable','uncertain')
+            AND (lease_until IS NULL OR lease_until=0 OR lease_until < ?)`,
+      )
+      .run(input.workerId, leaseUntil, input.outboxId, input.now);
+    if (!Number(result.changes)) return undefined;
+    return this.getOutbox(input.outboxId);
+  }
+
+  setOutboxState(
+    outboxId: string,
+    state: OutboxState,
+    attempts: number,
+    nextAttemptAt: number,
+    extra?: { workerId?: string; expectedStates?: readonly OutboxState[] },
+  ): boolean {
+    const expected = extra?.expectedStates;
+    if (expected?.length) {
+      const placeholders = expected.map(() => "?").join(",");
+      const result = this.db
+        .prepare(
+          `UPDATE outbox SET state=?, attempts=?, next_attempt_at=?${
+            extra?.workerId ? ", worker_id=?" : ""
+          } WHERE outbox_id=? AND state IN (${placeholders})`,
+        )
+        .run(
+          ...(extra?.workerId
+            ? [state, attempts, nextAttemptAt, extra.workerId, outboxId, ...expected]
+            : [state, attempts, nextAttemptAt, outboxId, ...expected]),
+        );
+      return Number(result.changes) > 0;
+    }
     this.db
       .prepare("UPDATE outbox SET state=?, attempts=?, next_attempt_at=? WHERE outbox_id=?")
       .run(state, attempts, nextAttemptAt, outboxId);
+    return true;
   }
 
   getOutbox(outboxId: string): OutboxItem | undefined {
@@ -1016,6 +1067,9 @@ export class Store {
       state: row.state as OutboxState,
       attempts: Number(row.attempts),
       nextAttemptAt: Number(row.next_attempt_at),
+      ...(row.worker_id ? { workerId: String(row.worker_id) } : {}),
+      ...(row.lease_until !== undefined ? { leaseUntil: Number(row.lease_until) } : {}),
+      ...(row.vendor_idempotency_key ? { vendorIdempotencyKey: String(row.vendor_idempotency_key) } : {}),
       fragmentIndex: Number(row.fragment_index),
       fragmentCount: Number(row.fragment_count),
     };

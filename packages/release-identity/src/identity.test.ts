@@ -21,7 +21,7 @@ test("R50-TRUTH-001 identity pins are 0.5.0", () => {
   const id = emptyIdentity("a".repeat(40), false);
   const checked = assertReleaseIdentity(id);
   assert.equal(checked.productVersion, PRODUCT_VERSION);
-  assert.equal(checked.productVersion, "0.5.0");
+  assert.equal(checked.productVersion, "0.5.1");
   recordAssertion({
     acceptanceId: "R50-TRUTH-001",
     runnerId: "release-identity.identity",
@@ -131,14 +131,14 @@ test("tampered sourceSha is rejected", () => {
 test("R50-TRUTH-008 publication fields match the owner-authorized public target", () => {
   const id = assertReleaseIdentity(emptyIdentity("e".repeat(40), false));
   assert.equal(id.publication.repo, "kevinchennewbee/PenglaiAgent");
-  assert.equal(id.publication.tag, "v0.5.0");
-  assert.equal(id.publication.release, "v0.5.0");
-  assert.equal(id.publication.channel, "NOT_PUBLISHED_0_5_0");
+  assert.equal(id.publication.tag, "v0.5.1");
+  assert.equal(id.publication.release, "v0.5.1");
+  assert.equal(id.publication.channel, "NOT_PUBLISHED_0_5_1");
   assert.throws(
     () =>
       assertReleaseIdentity({
         ...emptyIdentity("e".repeat(40), false),
-        publication: { ...id.publication, tag: "v0.5.1" },
+        publication: { ...id.publication, tag: "v0.5.2" },
       }),
     /publication.tag/,
   );

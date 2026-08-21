@@ -23,6 +23,7 @@ import {
   seedFreshSettings,
   writeJournal,
   FIRST_PARTY_PLUGIN_METADATA,
+  profilePluginEnabled,
   runtimePluginTarget,
 } from "./index.js";
 
@@ -354,4 +355,22 @@ test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer
   assert.doesNotMatch(src, /cwd:\s*process\.cwd\(\)/);
   const yamlHook = src.includes("join(user.dshHome, \".credentials.yaml\")") || src.includes('join(user.dshHome, ".credentials.yaml")');
   assert.equal(yamlHook, true);
+});
+
+test("P51-CORE-001 optional plugins stay disabled despite indent, comments, and reordering", () => {
+  const patch = `
+# seed
+- id: penglai-plugin-center
+  name: "@penglai/plugin-center"
+- name: "@penglai/im"
+  id: penglai-im
+  disabled: true
+- id: penglai-asr
+  disabled: true # comment
+`;
+  assert.equal(profilePluginEnabled(patch, "@penglai/plugin-center"), true);
+  assert.equal(profilePluginEnabled(patch, "@penglai/im"), false);
+  assert.equal(profilePluginEnabled(patch, "@penglai/asr"), false);
+  assert.equal(profilePluginEnabled(patch, "@penglai/companion"), false);
+  assert.equal(profilePluginEnabled("- id: penglai-im\n  disabled: true\n", "@penglai/im"), false);
 });
