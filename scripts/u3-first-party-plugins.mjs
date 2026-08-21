@@ -1,6 +1,9 @@
 import {
+  closeSync,
   existsSync,
+  ftruncateSync,
   mkdirSync,
+  openSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -141,15 +144,20 @@ async function waitInventory(enabled, notBefore, timeoutMs = 90_000) {
 }
 
 function setProfileEnabled(enabled) {
-  if (!existsSync(profilePatch)) throw new Error("installed profile patch missing");
-  let text = readFileSync(profilePatch, "utf8");
-  for (const id of OPTIONAL_PLUGINS) {
-    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(`(^\\s+name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+)(true|false)`, "m");
-    if (!pattern.test(text)) throw new Error(`installed profile is missing ${id}`);
-    text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
+  const fd = openSync(profilePatch, "r+");
+  try {
+    let text = readFileSync(fd, "utf8");
+    for (const id of OPTIONAL_PLUGINS) {
+      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`(^\\s+name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+)(true|false)`, "m");
+      if (!pattern.test(text)) throw new Error(`installed profile is missing ${id}`);
+      text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
+    }
+    ftruncateSync(fd, 0);
+    writeFileSync(fd, text);
+  } finally {
+    closeSync(fd);
   }
-  writeFileSync(profilePatch, text);
 }
 
 function installedPackages() {
