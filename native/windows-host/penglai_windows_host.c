@@ -568,5 +568,4 @@ int main(int argc, char **argv) {
     return cmd_delete_plan(file, token, root);
   }
   fail("unknown-command");
-  return 2;
 }

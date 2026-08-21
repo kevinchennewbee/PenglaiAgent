@@ -29,6 +29,37 @@ function run(command, args, options = {}) {
   execFileSync(command, args, { cwd: ROOT, stdio: "inherit", ...options });
 }
 
+function waitSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function createDmg(args, dmgPath) {
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const result = spawnSync("hdiutil", args, {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.status === 0) return;
+
+    const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    const retryable = diagnostic.includes("Resource busy");
+    if (!retryable || attempt === attempts) {
+      const detail = result.error?.message ?? `exit ${result.status ?? "unknown"}`;
+      throw new Error(`hdiutil create failed: ${detail}`);
+    }
+
+    rmSync(dmgPath, { force: true });
+    const delayMs = attempt * 2_000;
+    process.stderr.write(
+      `hdiutil create reported Resource busy; retrying ${attempt + 1}/${attempts} after ${delayMs}ms\n`,
+    );
+    waitSync(delayMs);
+  }
+}
+
 function sha256(p) {
   return createHash("sha256").update(readFileSync(p)).digest("hex");
 }
@@ -103,7 +134,7 @@ const staging = mkdtempSync(join(tmpdir(), "penglai-local-dmg-"));
 try {
   run("ditto", [appPath, join(staging, "Penglai.app")]);
   symlinkSync("/Applications", join(staging, "Applications"));
-  run("hdiutil", [
+  createDmg([
     "create",
     "-volname",
     "Penglai",
@@ -115,7 +146,7 @@ try {
     "zlib-level=9",
     "-ov",
     dmgPath,
-  ]);
+  ], dmgPath);
   run("hdiutil", ["verify", dmgPath]);
 } finally {
   rmSync(staging, { recursive: true, force: true });
