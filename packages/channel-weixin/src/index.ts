@@ -555,7 +555,8 @@ export class WeixinAdapter {
         this.authState = "error";
         throw new PenglaiError("AUTH_EXPIRED", "weixin credential missing");
       }
-      this.plane.markSending(item.outboxId);
+      const claimToken = this.plane.markSending(item.outboxId, "weixin");
+      if (!claimToken) continue;
       const delivery = this.plane.resolveVoiceDelivery(item.outboxId);
       const currentTarget = delivery.vendorTarget;
       const ctx = contextToken
@@ -566,7 +567,7 @@ export class WeixinAdapter {
       if (needsText && !receipt.textSent) {
         const textResult = await this.transport.send(currentTarget, delivery.finalText, `${item.outboxId}-text`, ctx);
         if (!("ok" in textResult && textResult.ok)) {
-          this.plane.markSendResult(item.outboxId, "error" in textResult ? textResult.error : "transient");
+          this.plane.markSendResult(item.outboxId, "error" in textResult ? textResult.error : "transient", claimToken);
           continue;
         }
         receipt = this.plane.store.markVoiceDeliveryPart(item.outboxId, "text", this.plane.clock.now());
@@ -584,7 +585,7 @@ export class WeixinAdapter {
           if (!receipt.textSent) {
             const fallback = await this.transport.send(currentTarget, delivery.finalText, `${item.outboxId}-fallback`, ctx);
             if (!("ok" in fallback && fallback.ok)) {
-              this.plane.markSendResult(item.outboxId, "error" in fallback ? fallback.error : "transient");
+              this.plane.markSendResult(item.outboxId, "error" in fallback ? fallback.error : "transient", claimToken);
               continue;
             }
             receipt = this.plane.store.markVoiceDeliveryPart(item.outboxId, "text", this.plane.clock.now());
@@ -595,7 +596,7 @@ export class WeixinAdapter {
       const complete = delivery.mode === "text"
         ? receipt.textSent
         : receipt.audioSent || (receipt.fallbackUsed && receipt.textSent);
-      if (complete) this.plane.markDelivered(item.outboxId);
+      if (complete) this.plane.markDelivered(item.outboxId, claimToken);
     }
   }
 

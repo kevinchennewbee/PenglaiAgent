@@ -56,17 +56,17 @@ function requireUserData(): string {
   return root;
 }
 
-export function boundWorkspaceId(ctx: CordisContextLike, extra: unknown): string | undefined {
-  const bag = extra && typeof extra === "object" ? (extra as Record<string, unknown>) : {};
-  const sessionId =
-    (typeof bag.sessionId === "string" && bag.sessionId) ||
-    (bag.session && typeof bag.session === "object" && typeof (bag.session as { id?: unknown }).id === "string"
-      ? String((bag.session as { id: string }).id)
-      : undefined);
-  if (!sessionId) throw new PenglaiError("UNAUTHORIZED", "context tools require host session binding");
+export function boundWorkspaceId(ctx: CordisContextLike, exec: unknown): string | undefined {
+  const bag = exec && typeof exec === "object" ? (exec as Record<string, unknown>) : {};
+  const agent = bag.agent && typeof bag.agent === "object" ? (bag.agent as { id?: unknown }) : undefined;
+  const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
+  if (!agentId) throw new PenglaiError("UNAUTHORIZED", "context tools require ToolRunContext exec.agent.id");
+  if ("sessionId" in bag && bag.sessionId !== undefined && !agent) {
+    throw new PenglaiError("UNAUTHORIZED", "model extra.sessionId is not a workspace authority");
+  }
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
-  const hit = workspaces.find((row) => row.sessionIds?.includes(sessionId));
-  if (!hit) throw new PenglaiError("UNAUTHORIZED", "session is not bound to an official Workspace");
+  const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
+  if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
   return hit.id;
 }
 
@@ -87,13 +87,13 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
         { type: "text", text: `[UNTRUSTED USER-AUTHORIZED CONTEXT]\n${JSON.stringify(value)}` },
       ],
     },
-    async execute(args: unknown, extra?: unknown) {
+    async execute(args: unknown, exec?: unknown) {
       const input = args as { query?: unknown; workspace_id?: unknown };
       if (typeof input.query !== "string") throw new PenglaiError("INVALID_INPUT", "context query required");
       if (input.workspace_id !== undefined) {
         throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
       }
-      return service.search(input.query, boundWorkspaceId(ctx, extra));
+      return service.search(input.query, boundWorkspaceId(ctx, exec));
     },
   });
   ctx.tools.register({
@@ -111,13 +111,13 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
         { type: "text", text: `[UNTRUSTED USER-AUTHORIZED CONTEXT]\n${JSON.stringify(value)}` },
       ],
     },
-    async execute(args: unknown, extra?: unknown) {
+    async execute(args: unknown, exec?: unknown) {
       const input = args as { path?: unknown; workspace_id?: unknown };
       if (typeof input.path !== "string") throw new PenglaiError("INVALID_INPUT", "context path required");
       if (input.workspace_id !== undefined) {
         throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
       }
-      return service.read(input.path, boundWorkspaceId(ctx, extra));
+      return service.read(input.path, boundWorkspaceId(ctx, exec));
     },
   });
 }

@@ -361,7 +361,8 @@ export class FeishuAdapter {
   async pumpOutbox(routeId: string, to: string): Promise<void> {
     if (!to) throw new PenglaiError("SECURITY_POLICY", "vendor reply target required");
     for (const item of this.plane.dueOutbox(routeId)) {
-      this.plane.markSending(item.outboxId);
+      const claimToken = this.plane.markSending(item.outboxId, "feishu");
+      if (!claimToken) continue;
       const delivery = this.plane.resolveVoiceDelivery(item.outboxId);
       const currentTarget = delivery.vendorTarget;
       let receipt = this.plane.store.getVoiceDeliveryReceipt(item.outboxId);
@@ -369,7 +370,7 @@ export class FeishuAdapter {
       if (needsText && !receipt.textSent) {
         const textResult = await this.sendText(currentTarget, delivery.finalText);
         if (!("ok" in textResult && textResult.ok)) {
-          this.plane.markSendResult(item.outboxId, this.mapSendError(textResult));
+          this.plane.markSendResult(item.outboxId, this.mapSendError(textResult), claimToken);
           continue;
         }
         receipt = this.plane.store.markVoiceDeliveryPart(item.outboxId, "text", this.plane.clock.now());
@@ -382,7 +383,7 @@ export class FeishuAdapter {
           if (!receipt.textSent) {
             const fallback = await this.sendText(currentTarget, delivery.finalText);
             if (!("ok" in fallback && fallback.ok)) {
-              this.plane.markSendResult(item.outboxId, this.mapSendError(fallback));
+              this.plane.markSendResult(item.outboxId, this.mapSendError(fallback), claimToken);
               continue;
             }
             receipt = this.plane.store.markVoiceDeliveryPart(item.outboxId, "text", this.plane.clock.now());
@@ -393,7 +394,7 @@ export class FeishuAdapter {
       const complete = delivery.mode === "text"
         ? receipt.textSent
         : receipt.audioSent || (receipt.fallbackUsed && receipt.textSent);
-      if (complete) this.plane.markDelivered(item.outboxId);
+      if (complete) this.plane.markDelivered(item.outboxId, claimToken);
     }
   }
 

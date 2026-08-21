@@ -179,10 +179,11 @@ test("P51-AUTH-001 model workspace_id cannot choose another Workspace", async ()
       ],
     },
   };
-  assert.equal(boundWorkspaceId(ctx, { sessionId: "sess-1" }), "ws-current");
-  assert.equal(boundWorkspaceId(ctx, { sessionId: "sess-2" }), "ws-other");
-  assert.throws(() => boundWorkspaceId(ctx, {}), /session binding/);
-  assert.throws(() => boundWorkspaceId(ctx, { sessionId: "forged" }), /not bound/);
+  assert.equal(boundWorkspaceId(ctx, { agent: { id: "sess-1" } }), "ws-current");
+  assert.equal(boundWorkspaceId(ctx, { agent: { id: "sess-2" } }), "ws-other");
+  assert.throws(() => boundWorkspaceId(ctx, {}), /exec.agent.id/);
+  assert.throws(() => boundWorkspaceId(ctx, { sessionId: "sess-1" }), /exec.agent.id/);
+  assert.throws(() => boundWorkspaceId(ctx, { agent: { id: "forged" } }), /not bound/);
 });
 
 test("production Context apply refuses an in-memory fallback", () => {
