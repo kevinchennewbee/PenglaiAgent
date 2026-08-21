@@ -251,25 +251,32 @@ export function waitChildExit(child, timeoutMs = 15_000) {
 }
 
 export async function stopChild(child, timeoutMs = 8_000) {
+  if (child.exitCode !== null || child.signalCode) return [child.exitCode, child.signalCode];
+  const closed = new Promise((resolveClose) =>
+    child.once("close", (code, signal) => resolveClose([code, signal])),
+  );
   try {
     child.kill("SIGTERM");
   } catch {
     /* already gone */
   }
-  const closed = await Promise.race([
-    new Promise((resolveClose) => child.on("close", (c, s) => resolveClose([c, s]))),
-    new Promise((resolveClose) =>
-      setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* */
-        }
-        resolveClose([null, "SIGKILL"]);
-      }, timeoutMs),
-    ),
+  const graceful = await Promise.race([
+    closed.then((value) => ({ exited: true, value })),
+    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout({ exited: false }), timeoutMs)),
   ]);
-  return closed;
+  if (graceful.exited) return graceful.value;
+  try {
+    child.kill("SIGKILL");
+  } catch {
+    /* already gone */
+  }
+  const forced = await Promise.race([
+    closed.then((value) => ({ exited: true, value })),
+    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout({ exited: false }), 5_000)),
+  ]);
+  if (!forced.exited) throw new Error(`child ${child.pid ?? "unknown"} did not exit after SIGKILL`);
+  await new Promise((resolveDelay) => setTimeout(resolveDelay, 300));
+  return forced.value;
 }
 
 export function signalPid(pid, signal, windowsHelper) {
