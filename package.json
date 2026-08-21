@@ -83,6 +83,7 @@
     "prepare:public-export": "node --import tsx scripts/prepare-public-export.mjs",
     "verify:clean-clone": "node --import tsx scripts/verify-clean-clone.mjs",
     "sign:catalog": "node --import tsx scripts/sign-catalog.mjs",
+    "sign:plugin-artifact": "node --import tsx scripts/sign-plugin-artifact.mjs",
     "sign:update-manifest": "node --import tsx scripts/sign-update-manifest.mjs",
     "readback:release": "node --import tsx scripts/readback-release.mjs",
     "rotate:release-keys": "node scripts/rotate-release-keys.mjs",
