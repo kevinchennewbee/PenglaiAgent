@@ -5,6 +5,7 @@ import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, t } from "@penglai/contracts";
 import {
   PluginDistributionClient,
+  selectCatalogArtifact,
   type CachedPackage,
   type RegistrySnapshot,
 } from "@penglai/plugin-registry";
@@ -73,13 +74,6 @@ export interface CenterRemote {
   installDisabled(id: string, capabilityId?: string): Promise<unknown>;
 }
 
-function selectArtifact(
-  artifacts: ReadonlyArray<{ target: string; sha256: string }>,
-  hostTarget: string,
-) {
-  return artifacts.find((row) => row.target === hostTarget) ?? artifacts.find((row) => row.target === "any");
-}
-
 function catalogEntry(
   entries: readonly PluginCatalogEntry[],
   id: string,
@@ -90,10 +84,7 @@ function catalogEntry(
   if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
   const remote = registry.entry(id);
   const hostTarget = runtimePluginTarget();
-  const artifact = selectArtifact(remote.artifacts, hostTarget);
-  if (!artifact) {
-    throw new PenglaiError("INVALID_INPUT", `${id} is incompatible with target ${hostTarget}`);
-  }
+  const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
   if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
     throw new PenglaiError("SECURITY_POLICY", `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`);
   }

@@ -21,6 +21,8 @@ import {
   migrateRc8UserData,
   pluginPermissionDigest,
   quarantineRevokedPlugins,
+  runtimePluginTarget,
+  selectCatalogArtifact,
   readInventorySnapshot,
   recoverProfile,
   resolveUserLayout,
@@ -101,12 +103,18 @@ function describePluginForOwner(userRoot: string, id: string): {
           networkOrigins?: string[];
           dataPaths?: string[];
           nativeCode?: boolean;
-          artifacts?: Array<{ sha256?: string }>;
+          artifacts?: Array<{ target?: string; sha256?: string }>;
         }>;
       };
     };
     const entry = snap.catalog?.entries?.find((row) => row.id === id);
-    const sha256 = entry?.artifacts?.[0]?.sha256;
+    const artifacts = (entry?.artifacts ?? []).filter(
+      (row): row is { target: string; sha256: string } =>
+        typeof row.target === "string" && typeof row.sha256 === "string",
+    );
+    const sha256 = artifacts.length
+      ? selectCatalogArtifact(artifacts, runtimePluginTarget()).sha256
+      : undefined;
     if (entry?.id && entry.version && sha256) {
       return {
         id: entry.id,
