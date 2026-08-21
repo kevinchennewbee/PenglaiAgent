@@ -1,0 +1,8 @@
+# Byte-pinned third-party notices and vendored runtime sources must be
+# identical on every native checkout. Git for Windows otherwise rewrites
+# these text files to CRLF and breaks the supply-chain hash gate.
+packages/asr/third_party/*.txt text eol=lf
+packages/moss-tts/third_party/*.txt text eol=lf
+packages/moss-tts/third_party/*.md text eol=lf
+packages/moss-tts/src/third_party/moss_tts/LICENSE text eol=lf
+packages/moss-tts/src/third_party/moss_tts/runtime.mjs text eol=lf
