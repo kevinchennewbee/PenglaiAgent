@@ -1,6 +1,6 @@
 # Penglai 0.5.1
 
-Penglai 0.5.1 adds a signed plugin distribution protocol (PPDP/1) and a versioned app-update protocol (PUDP/1). It is a community release of official DeepSeek Harness `0.1.1-rc.1` with three declared targets: `darwin-aarch64`, `darwin-x86_64`, and `win32-x86_64`. Native status is recorded only from a matching runner.
+Penglai 0.5.1 adds a signed plugin distribution protocol (PPDP/1) and a versioned app-update protocol (PUDP/1). It is a community-verified release of official DeepSeek Harness `0.1.1-rc.1` with three declared targets: `darwin-aarch64`, `darwin-x86_64`, and `win32-x86_64`. Native status is recorded only from a matching runner.
 
 The signed Plugin Registry is live. The desktop application is not shipped until the exact three installers and their native evidence are frozen into the immutable `v0.5.1` Release.
 

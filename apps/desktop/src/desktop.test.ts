@@ -3,8 +3,10 @@ import test from "node:test";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { assertIpcName } from "./preload.js";
 
-test("unsigned notice present", () => {
+test("community release notice keeps platform trust limits without candidate wording", () => {
   assert.match(UNSIGNED_NOTICE, /ad-hoc|unsigned|not notarized/i);
+  assert.match(UNSIGNED_NOTICE, /community release/i);
+  assert.doesNotMatch(UNSIGNED_NOTICE, /candidate|not a public release/i);
 });
 
 test("IPC allowlist rejects unknown", () => {
@@ -78,7 +80,7 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /setWindowOpenHandler\(\(\{ url \}\) =>/);
 });
 
-test("control shell documents unsigned alpha", async () => {
+test("control shell documents the community trust boundary", async () => {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
   assert.match(html, /ad-hoc|unsigned|not notarized/i);

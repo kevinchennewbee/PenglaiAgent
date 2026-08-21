@@ -154,7 +154,7 @@ export function assertReleaseContract(raw: unknown): ReleaseContract {
   if (pub.repo !== "kevinchennewbee/PenglaiAgent") throw new PenglaiError("SECURITY_POLICY", "publication.repo");
   if (pub.tag !== "v0.5.1") throw new PenglaiError("SECURITY_POLICY", "publication.tag");
   if (pub.release !== "v0.5.1") throw new PenglaiError("SECURITY_POLICY", "publication.release");
-  if (pub.channel !== "NOT_PUBLISHED_0_5_1") throw new PenglaiError("SECURITY_POLICY", "publication.channel");
+  if (pub.channel !== "stable-v0.5.1") throw new PenglaiError("SECURITY_POLICY", "publication.channel");
   if (!Array.isArray(raw.targets) || raw.targets.length !== RELEASE_TARGETS.length) {
     throw new PenglaiError("INVALID_INPUT", "targets");
   }

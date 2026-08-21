@@ -208,7 +208,7 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.1 public-publication-candidate. trustTier=community-verified. Ad-hoc signed, not notarized. Do not disable Gatekeeper. This is not a public release.\n",
+  "Penglai 0.5.1 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
@@ -217,10 +217,10 @@ const info = {
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
-  candidateKind: "public-publication-candidate",
+  candidateKind: "public-community-release",
   trustTier: "community-verified",
   generationId: "penglai-dsh-v0.5",
-  phase: "UNFROZEN",
+  phase: "TARGET_BUILT",
   sourceSha: sha,
   treeDirty: dirty.length > 0,
   targetPlatform: targetSpec.triple,

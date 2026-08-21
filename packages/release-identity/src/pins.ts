@@ -1,6 +1,6 @@
 export const PRODUCT_NAME = "Penglai";
 export const PRODUCT_VERSION = "0.5.1";
-export const CANDIDATE_KIND = "public-publication-candidate";
+export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
 export const IDENTITY_PHASE_UNFROZEN = "UNFROZEN";
@@ -82,7 +82,7 @@ export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
   tag: "v0.5.1",
   release: "v0.5.1",
-  channel: "NOT_PUBLISHED_0_5_1",
+  channel: "stable-v0.5.1",
 });
 
 export const RELEASE_TARGETS = [

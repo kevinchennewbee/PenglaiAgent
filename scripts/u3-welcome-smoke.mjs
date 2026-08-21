@@ -156,8 +156,8 @@ const welcomeReachable = Boolean(
 );
 const wizardAdvanced = Boolean(
   !official?.snap?.recovery &&
-    official.http?.official &&
-    official.websocket?.opened &&
+    official?.http?.official &&
+    official?.websocket?.opened &&
     welcomeClick.ok &&
     afterContinue?.privacyStep &&
     !afterContinue?.recovery,
@@ -205,6 +205,7 @@ const rec = {
       : null,
   },
   processTree: { dshPid: tree.dshPid, ownedAbsolute: tree.ownedAbsolute, leftovers: leftovers.length },
+  outputTail: launched.output().slice(-2000),
 };
 writeRec(rec);
 if (!ok) finish("FAIL", rec);

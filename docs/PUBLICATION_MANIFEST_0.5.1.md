@@ -1,16 +1,16 @@
-# PUBLICATION_MANIFEST 0.5.1 (draft)
+# PUBLICATION_MANIFEST 0.5.1
 
-Status: **draft / UNFROZEN**. Exact hashes are filled only after the merged `main` source and all three native installers are frozen.
+Status: **stable publication contract**. Exact installer hashes live in the immutable GitHub Release metadata and `release-manifest.json`; the source document does not duplicate values that only exist after native packaging.
 
 ## Identity
 
 | Field | Value |
 | --- | --- |
 | productVersion | `0.5.1` |
-| candidateKind | `public-publication-candidate` |
+| candidateKind | `public-community-release` |
 | trustTier | `community-verified` |
 | generationId | `penglai-dsh-v0.5` |
-| phase | `UNFROZEN` |
+| phase | native artifacts advance from `TARGET_BUILT` to immutable Release read-back |
 | targets | `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64` |
 | macOS signature | ad-hoc, not notarized, no Developer ID |
 | Windows signature | no Authenticode; SmartScreen warning expected |
@@ -51,7 +51,7 @@ Companion assets:
 | publicRepo | `kevinchennewbee/PenglaiAgent` |
 | publicTag | `v0.5.1` |
 | futurePublicCommitSha | written after push |
-| updaterChannel | `NOT_PUBLISHED_0_5_1` |
+| publicationChannel | `stable-v0.5.1` |
 | immutableRelease | must read back `true` before publication |
 
 ## Plugin registry dependency
