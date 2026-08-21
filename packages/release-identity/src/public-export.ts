@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./pins.js";
+import {
+  PINNED_DSH,
+  PINNED_ELECTRON,
+  PINNED_NODE,
+  PINNED_PNPM,
+  PRODUCT_VERSION,
+  PUBLICATION_TARGET,
+  RELEASE_TARGETS,
+} from "./pins.js";
 
 export const PUBLIC_EXPORT_ALLOW = [
   "apps",
@@ -183,18 +191,20 @@ export function buildPublicationDraft(input: {
     publicExportTreeSha256: input.publicExportTreeSha256,
     exportFiles: input.files,
     pins: {
-      dsh: "0.1.0-rc.8",
-      electron: "43.4.0",
-      node: "22.22.2",
-      pnpm: "10.14.0",
+      dsh: PINNED_DSH,
+      electron: PINNED_ELECTRON,
+      node: PINNED_NODE,
+      pnpm: PINNED_PNPM,
     },
-    installers: [
-      { name: `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`, sha256: "", native: "pending" },
-    ],
+    installers: RELEASE_TARGETS.map((row) => ({
+      name: row.installer,
+      sha256: "",
+      native: "pending",
+    })),
     limitations: [
-      `${PRODUCT_VERSION} launches on Apple Silicon only; Intel macOS and Windows remain future targets`,
-      "community-verified: macOS ad-hoc/not notarized",
-      "0.4.1 to 0.5.0 is clean-generation; no state/secret migration",
+      `${PRODUCT_VERSION} declares darwin-aarch64, darwin-x86_64, and win32-x86_64; native PASS requires a matching runner`,
+      "community-verified: macOS ad-hoc/not notarized; Windows has no Authenticode",
+      "0.5.0 to 0.5.1 is a manual overlay install on Apple Silicon; Intel/Windows are fresh installs",
       `no silent auto-update from 0.5.0; 0.5.1 discovers later immutable PenglaiAgent Releases`,
       "public destination is owner-authorized; execution is verified after publication",
     ],

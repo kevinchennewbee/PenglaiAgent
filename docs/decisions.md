@@ -336,9 +336,15 @@
 
 ### D-054 — 0.5.0 首发收敛为 Apple Silicon 单一安装包
 
-- 状态：ACCEPTED（Owner 2026-08-20 明确授权）
+- 状态：ACCEPTED（Owner 2026-08-20 明确授权）；0.5.1 范围由 D-055 扩展，0.5.0 已发布边界不变
 - 决定：0.5.0 公开 release set 只包含 `Penglai_0.5.0_macos_aarch64.dmg`。Intel macOS 与 Windows 的构建、NSIS、ACL、Job Object 等工程资产保留为后续路线，但不属于 0.5.0 支持矩阵、Hard registry 或 Release 资产。Owner 同时授权把脱敏 public-export 替换开源 `PenglaiAgent` 的 `main` 工作树、更新官网并创建 `v0.5.0` Release。
 - 后果：发布文案必须明确 Apple Silicon/macOS 13+、ad-hoc/not notarized、0.4.1 clean-generation 边界；不得声称 Intel/Windows 已发布。公开 main 通过普通提交替换旧 Pi/Tauri 产品树，不重写 Git 历史；Release 必须使用私有 main 构建并验收的 exact DMG bytes。
+
+### D-055 — 0.5.1 冻结 DSH 0.1.1-rc.1 并声明三端
+
+- 状态：ACCEPTED（本地工程，尚未授权 push/tag/Release）
+- 决定：0.5.1 以 `@deepseek-ai/dsh@0.1.1-rc.1`（tag `dsh-v0.1.1-rc.1`，commit `528c682e061696f5a160f363f236ecbf53cbd006`，npm integrity `sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==`）为唯一核心。release target 为 `darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。0.5.0→0.5.1 仅手动覆盖；PPDP 与后续同平台 PUDP 属于 0.5.1。
+- 后果：不得跟随 npm `latest`/`next`；Intel/Windows 缺原生 runner 时该 target 为 BLOCKED；不得把 ARM Electron 改名成 x64。
 
 ## Superseded
 

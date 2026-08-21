@@ -13,10 +13,25 @@ export const PINNED_TYPESCRIPT = "5.9.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const PINNED_ELECTRON_DARWIN_ARM64_SHA256 =
   "827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac";
-export const PINNED_DSH = "0.1.0-rc.8";
-export const PINNED_DSH_COMMIT = "141eb6fef83422698aef7a981029e843e8161534";
+export const PINNED_ELECTRON_DARWIN_X64_SHA256 =
+  "7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24";
+export const PINNED_ELECTRON_WIN32_X64_SHA256 =
+  "ef0709cfa719739acce73de6f9b684304baf38c6454376638a70d34a7cecffe0";
+export const PINNED_NODE_DARWIN_ARM64_SHA256 =
+  "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
+export const PINNED_NODE_DARWIN_X64_SHA256 =
+  "12a6abb9c2902cf48a21120da13f87fde1ed1b71a13330712949e8db818708ba";
+export const PINNED_NODE_WIN32_X64_SHA256 =
+  "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
+/** Exact npm+GitHub freeze. Never follow dist-tags `latest` or `next`. */
+export const PINNED_DSH = "0.1.1-rc.1";
+export const PINNED_DSH_COMMIT = "528c682e061696f5a160f363f236ecbf53cbd006";
+export const PINNED_DSH_TAG = "dsh-v0.1.1-rc.1";
 export const PINNED_DSH_INTEGRITY =
-  "sha512-VQU5NlomrKLRgcXuOf+sxWFvqxPA8q9vMhrKPlPPXiOJEhGlGlAdiyxZvZxkCVI+v0zbhe21cY3/luLyxpSzzA==";
+  "sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==";
+export const PINNED_DSH_SHASUM = "aa9953e6b9ae3f09dc28d6520510909108314566";
+export const PINNED_DSH_NPM_LATEST = "0.1.0-rc.7";
+export const PINNED_DSH_NPM_NEXT = "0.1.1-rc.1";
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const PINNED_WEIXIN_REF = "2.4.6";
@@ -77,9 +92,80 @@ export const RELEASE_TARGETS = [
     arch: "arm64",
     installer: "Penglai_0.5.1_macos_aarch64.dmg",
   },
+  {
+    key: "darwin-x86_64",
+    platform: "darwin",
+    arch: "x64",
+    installer: "Penglai_0.5.1_macos_x64.dmg",
+  },
+  {
+    key: "win32-x86_64",
+    platform: "win32",
+    arch: "x64",
+    installer: "Penglai_0.5.1_windows_x64_setup.exe",
+  },
 ] as const;
 
 export type ReleaseTargetKey = (typeof RELEASE_TARGETS)[number]["key"];
+
+/** Vendor archive names stay as published (darwin-x64, win-x64). Selection uses RELEASE_TARGETS.key only. */
+export const RUNTIME_INPUTS = [
+  {
+    kind: "node" as const,
+    target: "darwin-aarch64" as const,
+    filename: `node-v${PINNED_NODE}-darwin-arm64.tar.gz`,
+    archive: "tar.gz",
+    url: `https://nodejs.org/dist/v${PINNED_NODE}/node-v${PINNED_NODE}-darwin-arm64.tar.gz`,
+    sha256: PINNED_NODE_DARWIN_ARM64_SHA256,
+  },
+  {
+    kind: "electron" as const,
+    target: "darwin-aarch64" as const,
+    filename: `electron-v${PINNED_ELECTRON}-darwin-arm64.zip`,
+    archive: "zip",
+    url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-darwin-arm64.zip`,
+    sha256: PINNED_ELECTRON_DARWIN_ARM64_SHA256,
+  },
+  {
+    kind: "node" as const,
+    target: "darwin-x86_64" as const,
+    filename: `node-v${PINNED_NODE}-darwin-x64.tar.gz`,
+    archive: "tar.gz",
+    url: `https://nodejs.org/dist/v${PINNED_NODE}/node-v${PINNED_NODE}-darwin-x64.tar.gz`,
+    sha256: PINNED_NODE_DARWIN_X64_SHA256,
+  },
+  {
+    kind: "electron" as const,
+    target: "darwin-x86_64" as const,
+    filename: `electron-v${PINNED_ELECTRON}-darwin-x64.zip`,
+    archive: "zip",
+    url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-darwin-x64.zip`,
+    sha256: PINNED_ELECTRON_DARWIN_X64_SHA256,
+  },
+  {
+    kind: "node" as const,
+    target: "win32-x86_64" as const,
+    filename: `node-v${PINNED_NODE}-win-x64.zip`,
+    archive: "zip",
+    url: `https://nodejs.org/dist/v${PINNED_NODE}/node-v${PINNED_NODE}-win-x64.zip`,
+    sha256: PINNED_NODE_WIN32_X64_SHA256,
+  },
+  {
+    kind: "electron" as const,
+    target: "win32-x86_64" as const,
+    filename: `electron-v${PINNED_ELECTRON}-win32-x64.zip`,
+    archive: "zip",
+    url: `https://github.com/electron/electron/releases/download/v${PINNED_ELECTRON}/electron-v${PINNED_ELECTRON}-win32-x64.zip`,
+    sha256: PINNED_ELECTRON_WIN32_X64_SHA256,
+  },
+] as const;
+
+export function releaseTargetFromHost(platform: string, arch: string): ReleaseTargetKey {
+  const normalized = arch === "x86_64" ? "x64" : arch === "aarch64" ? "arm64" : arch;
+  const found = RELEASE_TARGETS.find((row) => row.platform === platform && row.arch === normalized);
+  if (!found) throw new Error(`unsupported installed target ${platform}/${arch}`);
+  return found.key;
+}
 
 export const HARD_SUBGATES = [
   { name: "format:check", kind: "format", mode: "run" },

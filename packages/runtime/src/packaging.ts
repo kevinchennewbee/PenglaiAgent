@@ -117,5 +117,5 @@ export function assertWindowsNsisScript(script: string): void {
 export const CROSS_BUILD_TARGETS = [
   { packTarget: "darwin-arm64", releaseKey: "darwin-aarch64", installer: `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg` },
   { packTarget: "darwin-x64", releaseKey: "darwin-x86_64", installer: `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`, translatedOnly: true },
-  { packTarget: "win32-x64", releaseKey: "windows-x86_64", installer: `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`, nativeEvidence: false },
+  { packTarget: "win32-x64", releaseKey: "win32-x86_64", installer: `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`, nativeEvidence: false },
 ] as const;

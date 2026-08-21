@@ -82,7 +82,7 @@ test("embed-runtime is target-aware and reads the release contract", () => {
   const src = readFileSync(new URL("../../../scripts/embed-runtime.mjs", import.meta.url), "utf8");
   assert.match(src, /--target/);
   assert.match(src, /release-contract\.json/);
-  assert.match(src, /windows-x86_64/);
+  assert.match(src, /win32-x86_64/);
   assert.match(src, /darwin-x86_64/);
   assert.match(src, /materializeDshClosure/);
   assert.match(src, /rmSync\(staging, \{ recursive: true, force: true, maxRetries: 5, retryDelay: 100 \}\)/);

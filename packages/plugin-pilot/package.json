@@ -16,7 +16,7 @@
     "schema": 2,
     "id": "@penglai/plugin-pilot",
     "version": "1.0.0",
-    "dshExact": "0.1.0-rc.8",
+    "dshExact": "0.1.1-rc.1",
     "centerProtocol": 1,
     "entry": "dist/index.js",
     "targets": ["any"],

@@ -18,11 +18,16 @@ import { GENERATION_ID } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-test("R50-DIST-001 committed release-contract pins the Apple Silicon target and hashed downloads", () => {
+test("R50-DIST-001 committed release-contract pins three targets and hashed downloads", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const contract = assertReleaseContract(raw);
-  assert.equal(contract.targets.length, 1);
-  assert.equal(contract.runtimeInputs.length, 2);
+  assert.equal(contract.dshVersion, "0.1.1-rc.1");
+  assert.deepEqual(
+    contract.targets.map((row) => row.key),
+    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+  );
+  assert.equal(contract.targets.length, 3);
+  assert.equal(contract.runtimeInputs.length, 6);
   assert.ok(updaterRequiresIndependentSignature(contract));
   assert.deepEqual(contract.exactAssets, [...EXACT_RELEASE_ASSETS]);
   assert.doesNotThrow(() => assertCanonicalUpdaterManifestUrl(contract.updaterManifestUrl));
@@ -35,7 +40,7 @@ test("R50-DIST-001 committed release-contract pins the Apple Silicon target and 
     acceptanceId: "R50-DIST-001",
     runnerId: "release-identity.contract",
     testId: "release-contract-pins",
-    assertionId: "apple-silicon-target-hashed-downloads-exact-set",
+    assertionId: "three-targets-hashed-downloads-exact-set",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,
@@ -91,6 +96,18 @@ test("translated preflight is BLOCKED and cannot claim native", () => {
   assert.throws(() => assertNoFakeArtifact(translated, true), PenglaiError);
   const arm = evaluateTargetPreflight({ platform: "darwin", arch: "arm64", native: true }, "darwin-aarch64");
   assert.equal(arm.verdict, "READY");
+  const intelOnArm = evaluateTargetPreflight(
+    { platform: "darwin", arch: "arm64", native: true },
+    "darwin-x86_64",
+  );
+  assert.equal(intelOnArm.verdict, "BLOCKED");
+  assert.equal(intelOnArm.nativeEvidenceAllowed, false);
+  const windowsOnMac = evaluateTargetPreflight(
+    { platform: "darwin", arch: "arm64", native: true },
+    "win32-x86_64",
+  );
+  assert.equal(windowsOnMac.verdict, "BLOCKED");
+  assert.equal(windowsOnMac.nativeEvidenceAllowed, false);
 });
 
 test("generation id is isolated from 0.4 data roots", () => {

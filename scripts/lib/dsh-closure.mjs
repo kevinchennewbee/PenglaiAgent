@@ -19,7 +19,7 @@ export const REQUIRED_DSH_RUNTIME_PACKAGES = [
 export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
   "darwin-x86_64": "node-addon-require-builtin-darwin-x64",
-  "windows-x86_64": "node-addon-require-builtin-win32-x64-msvc",
+  "win32-x86_64": "node-addon-require-builtin-win32-x64-msvc",
 };
 
 const ROOT_CANDIDATE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");

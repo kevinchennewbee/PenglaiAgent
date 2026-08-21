@@ -200,7 +200,7 @@ export async function runFailClosedCertification(opts = {}) {
   } else if (fault === "wrong-artifact") {
     writeHealth({ installerSha256: "ff".repeat(32) });
   } else if (fault === "wrong-target") {
-    writeHealth({ target: "windows-x86_64" });
+    writeHealth({ target: "win32-x86_64" });
   }
 
   let last = null;

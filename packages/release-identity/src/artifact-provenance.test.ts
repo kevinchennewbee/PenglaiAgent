@@ -30,7 +30,7 @@ function fixture(
   const manifest = {
     release: "0.5.1",
     target: overrides.manifestTarget ?? "darwin-aarch64",
-    dsh: "0.1.0-rc.8",
+    dsh: "0.1.1-rc.1",
     files: [
       {
         path: "runtime/node/bin/node",
@@ -51,7 +51,7 @@ function fixture(
       sourceSha: overrides.sourceSha ?? sourceSha,
       treeDirty: false,
       targetPlatform: "darwin-arm64",
-      dsh: "0.1.0-rc.8",
+      dsh: "0.1.1-rc.1",
       ...(overrides.omitPublicExportTreeSha256
         ? {}
         : { publicExportTreeSha256: "e".repeat(64) }),
