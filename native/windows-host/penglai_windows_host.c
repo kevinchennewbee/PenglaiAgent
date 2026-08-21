@@ -159,17 +159,12 @@ static int apply_current_user_acl(const wchar_t *path) {
   GetTokenInformation(token, TokenUser, NULL, 0, &needed);
   TOKEN_USER *user = (TOKEN_USER *)calloc(1, needed ? needed : 1);
   int ok = 0;
-  EXPLICIT_ACCESS_W ea[5];
-  PSID users = NULL;
-  PSID everyone = NULL;
+  EXPLICIT_ACCESS_W ea[3];
   PSID system = NULL;
   PSID admins = NULL;
   PACL dacl = NULL;
   SID_IDENTIFIER_AUTHORITY nt = SECURITY_NT_AUTHORITY;
-  SID_IDENTIFIER_AUTHORITY world = SECURITY_WORLD_SID_AUTHORITY;
   if (!user || !GetTokenInformation(token, TokenUser, user, needed, &needed)) goto done;
-  if (!AllocateAndInitializeSid(&nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_USERS, 0, 0, 0, 0, 0, 0, &users)) goto done;
-  if (!AllocateAndInitializeSid(&world, 1, SECURITY_WORLD_RID, 0, 0, 0, 0, 0, 0, 0, &everyone)) goto done;
   if (!AllocateAndInitializeSid(&nt, 1, SECURITY_LOCAL_SYSTEM_RID, 0, 0, 0, 0, 0, 0, 0, &system)) goto done;
   if (!AllocateAndInitializeSid(&nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &admins)) goto done;
   ZeroMemory(ea, sizeof(ea));
@@ -191,19 +186,10 @@ static int apply_current_user_acl(const wchar_t *path) {
   ea[2].Trustee.TrusteeForm = TRUSTEE_IS_SID;
   ea[2].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
   ea[2].Trustee.ptstrName = (LPWSTR)admins;
-  ea[3].grfAccessPermissions = GENERIC_ALL;
-  ea[3].grfAccessMode = DENY_ACCESS;
-  ea[3].grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
-  ea[3].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-  ea[3].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-  ea[3].Trustee.ptstrName = (LPWSTR)users;
-  ea[4].grfAccessPermissions = GENERIC_ALL;
-  ea[4].grfAccessMode = DENY_ACCESS;
-  ea[4].grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
-  ea[4].Trustee.TrusteeForm = TRUSTEE_IS_SID;
-  ea[4].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-  ea[4].Trustee.ptstrName = (LPWSTR)everyone;
-  if (SetEntriesInAclW(5, ea, NULL, &dacl) != ERROR_SUCCESS) goto done;
+  /* A protected DACL containing only these three allow ACEs denies every
+     omitted principal. Explicit DENY_ACCESS ACEs for Users or Everyone would
+     also deny the current user because that user belongs to both groups. */
+  if (SetEntriesInAclW(3, ea, NULL, &dacl) != ERROR_SUCCESS) goto done;
   if (SetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT,
                             OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
                             user->User.Sid, NULL, dacl, NULL) != ERROR_SUCCESS) {
@@ -212,8 +198,6 @@ static int apply_current_user_acl(const wchar_t *path) {
   ok = 1;
 done:
   if (dacl) LocalFree(dacl);
-  if (users) FreeSid(users);
-  if (everyone) FreeSid(everyone);
   if (system) FreeSid(system);
   if (admins) FreeSid(admins);
   free(user);

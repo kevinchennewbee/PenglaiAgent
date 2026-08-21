@@ -59,10 +59,11 @@ test("posix credential modes and atomic write", () => {
   assert.equal(readFileSync(file, "utf8"), "secret: x\n");
 });
 
-test("Windows ACL plan denies Users/Everyone", () => {
+test("Windows ACL plan denies Users/Everyone by omission, never conflicting ACEs", () => {
   const plan = windowsCredentialAcl();
   assert.ok(plan.deny.includes("Users"));
   assert.ok(plan.deny.includes("Everyone"));
+  assert.equal(plan.denyMode, "implicit-by-omission");
   assert.throws(() => assertWindowsAclHonest([{ id: "Everyone", allow: true }]), PenglaiError);
   assert.doesNotThrow(() => assertWindowsAclHonest([{ id: "current-user", allow: true }]));
 });

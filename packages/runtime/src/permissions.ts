@@ -12,6 +12,7 @@ export interface WindowsAclPlan {
   owner: "current-user";
   allow: Array<"current-user" | "SYSTEM" | "Administrators">;
   deny: Array<"Users" | "Everyone">;
+  denyMode: "implicit-by-omission";
 }
 
 export function posixCredentialModes(): { dir: number; file: number } {
@@ -23,6 +24,7 @@ export function windowsCredentialAcl(): WindowsAclPlan {
     owner: "current-user",
     allow: ["current-user", "SYSTEM", "Administrators"],
     deny: ["Users", "Everyone"],
+    denyMode: "implicit-by-omission",
   };
 }
 
