@@ -18,6 +18,19 @@ const contract = {
   verdict: process.platform === "win32" && process.arch === "x64" ? "READY" : "BLOCKED",
 };
 
+if (contract.nativeEvidenceAllowed) {
+  const payloadPrep = spawnSync(process.execPath, ["scripts/package-windows-payload.mjs"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: "inherit",
+  });
+  contract.payloadExit = payloadPrep.status ?? 1;
+  if (payloadPrep.status !== 0) {
+    console.error("package-windows-nsis payload builder failed");
+    process.exit(payloadPrep.status === 4 ? 4 : 1);
+  }
+}
+
 if (!contract.nativeEvidenceAllowed) {
   mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });
   writeFileSync(join(ROOT, "evidence/generated/windows-nsis-preflight.json"), JSON.stringify(contract, null, 2));

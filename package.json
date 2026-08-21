@@ -56,6 +56,7 @@
     "bundle:desktop": "node scripts/bundle-desktop.mjs",
     "pack:plugins": "node scripts/pack-plugins.mjs",
     "package:mac": "node scripts/package-mac.mjs --target darwin-arm64",
+    "package:windows-payload": "node scripts/package-windows-payload.mjs",
     "package:windows": "node scripts/package-windows-nsis.mjs",
     "build:local-dmg": "node scripts/build-local-dmg.mjs --target darwin-arm64",
     "verify:versions": "node scripts/verify-versions.mjs",
