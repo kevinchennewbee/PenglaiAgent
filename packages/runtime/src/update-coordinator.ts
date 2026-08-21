@@ -6,6 +6,7 @@ import {
   VerifiedInstallerHandoff,
   assertCanonicalManifestUrl,
   assertUpdateLedgerAllows,
+  assertUpdateManifest,
   compareSemver,
   readUpdateJournal,
   readUpdateLedger,
@@ -245,6 +246,16 @@ export class AssistedUpdateCoordinator {
         const platform = found.manifest.platforms[this.#config.target];
         if (!platform) throw new PenglaiError("INVALID_INPUT", "platform missing");
         version = found.manifest.version;
+        const expectedFilename =
+          this.#config.target === "darwin-aarch64"
+            ? `Penglai_${version}_macos_aarch64.dmg`
+            : this.#config.target === "darwin-x86_64"
+              ? `Penglai_${version}_macos_x64.dmg`
+              : `Penglai_${version}_windows_x64_setup.exe`;
+        const githubAsset = found.assets.find((row) => row.name === expectedFilename);
+        if (!githubAsset || githubAsset.id !== platform.assetId || githubAsset.size !== platform.size) {
+          throw new PenglaiError("SECURITY_POLICY", "update asset identity does not match GitHub release");
+        }
         digest = found.digest;
         signatureKeyId = found.manifest.signingKeyId;
         this.#manifestDigest = digest;
@@ -257,8 +268,8 @@ export class AssistedUpdateCoordinator {
           signature: platform.signature,
           size: platform.size,
           minimumOsVersion: "13.0",
-          candidateSourceSha: "0".repeat(64),
-          publicExportTreeSha256: "0".repeat(64),
+          candidateSourceSha: found.manifest.candidateSourceSha,
+          publicExportTreeSha256: found.manifest.publicExportTreeSha256,
           releaseManifestSha256: digest,
         };
         this.#manifest = {
@@ -269,8 +280,8 @@ export class AssistedUpdateCoordinator {
           publishedAt: found.manifest.issuedAt,
           notesUrl: found.manifest.notesUrl,
           signatureKeyId,
-          candidateSourceSha: "0".repeat(64),
-          publicExportTreeSha256: "0".repeat(64),
+          candidateSourceSha: found.manifest.candidateSourceSha,
+          publicExportTreeSha256: found.manifest.publicExportTreeSha256,
           releaseManifestSha256: digest,
           migration: {
             generation: "0.5",
@@ -280,6 +291,11 @@ export class AssistedUpdateCoordinator {
           },
           platforms: { [this.#config.target]: this.#asset },
         };
+        assertUpdateManifest(this.#manifest, this.#config.currentVersion, this.#config.target, {
+          ...this.#config.manifestPolicy,
+          trustedKeyId: signatureKeyId,
+          allowCurrentCheck: true,
+        });
       } else {
         const [bytes, signatureBytes] = await Promise.all([
           fetchExactBytes(this.#config.canonicalManifestUrl, fetchImpl, 1024 * 1024, controller.signal),

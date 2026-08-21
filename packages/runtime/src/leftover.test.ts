@@ -140,7 +140,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   const sig = sign(null, payload, privateKey);
   const dest = mkdtempSync(join(tmpdir(), "penglai-upd-dl-"));
   const out = await downloadVerifiedPayload({
-    url: "https://example.invalid/Penglai_0.5.1_macos_aarch64.dmg",
+    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg",
     destDir: dest,
     expectedSha256: sha,
     expectedSize: payload.length,

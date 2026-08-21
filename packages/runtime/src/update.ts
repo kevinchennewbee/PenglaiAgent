@@ -72,7 +72,7 @@ export interface UpdateManifestPolicy {
 const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"] as const;
 
 function assertSha(value: unknown, label: string): asserts value is string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) {
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value) || /^0{64}$/.test(value)) {
     throw new PenglaiError("SECURITY_POLICY", `${label} sha256 invalid`);
   }
 }

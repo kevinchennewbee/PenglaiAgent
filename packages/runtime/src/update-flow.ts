@@ -17,6 +17,7 @@ import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { PenglaiError } from "@penglai/contracts";
+import { assertSafeDownloadUrl } from "@penglai/plugin-registry";
 import {
   nextUpdateState,
   verifyPayload,
@@ -102,17 +103,48 @@ export async function downloadVerifiedPayload(opts: {
     return { path: finalPath, bytes: complete.length, kind };
   }
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const headers: Record<string, string> = {};
-  if (existing > 0) headers.Range = `bytes=${existing}-`;
-  const res = await fetchImpl(opts.url, {
-    headers,
+  let currentUrl = opts.url;
+  assertSafeDownloadUrl(currentUrl);
+  const cancelBody = async (response: Response | undefined): Promise<void> => {
+    try {
+      await response?.body?.cancel?.();
+    } catch {
+      /* hop bodies are discarded */
+    }
+  };
+  let hopRes: Response | undefined;
+  for (let hop = 0; hop <= 3; hop += 1) {
+    hopRes = await fetchImpl(currentUrl, {
+      redirect: "manual",
+      method: "HEAD",
+      ...(opts.signal ? { signal: opts.signal } : {}),
+    });
+    if (hopRes.status === 405 || hopRes.status === 501) {
+      await cancelBody(hopRes);
+      hopRes = await fetchImpl(currentUrl, {
+        redirect: "manual",
+        ...(opts.signal ? { signal: opts.signal } : {}),
+      });
+    }
+    if (hopRes.status < 300 || hopRes.status >= 400) break;
+    const location = hopRes.headers.get("location");
+    await cancelBody(hopRes);
+    if (!location || hop === 3) {
+      throw new PenglaiError("SECURITY_POLICY", "update redirect refused");
+    }
+    currentUrl = new URL(location, currentUrl).href;
+    assertSafeDownloadUrl(currentUrl);
+    hopRes = undefined;
+  }
+  await cancelBody(hopRes);
+  const rangeHeaders = existing > 0 ? { Range: `bytes=${existing}-` } : undefined;
+  let res = await fetchImpl(currentUrl, {
     redirect: "manual",
+    ...(rangeHeaders ? { headers: rangeHeaders } : {}),
     ...(opts.signal ? { signal: opts.signal } : {}),
   });
-  if (res.redirected || (res.url && res.url !== opts.url)) {
-    throw new PenglaiError("SECURITY_POLICY", "update redirect refused");
-  }
   if (res.status >= 300 && res.status < 400) {
+    await cancelBody(res);
     throw new PenglaiError("SECURITY_POLICY", "update redirect refused");
   }
   if (existing > 0 && res.status === 200) {
