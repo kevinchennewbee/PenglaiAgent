@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="overlays/dsh-0.1.0-rc.8/brand/logo-256.png" width="112" alt="Penglai logo">
+  <img src="overlays/dsh-0.1.1-rc.1/brand/logo-256.png" width="112" alt="Penglai logo">
 </p>
 
 <h1 align="center">Penglai · 蓬莱</h1>
@@ -50,7 +50,8 @@ DSH plugins share the local DSH process. Permission fields are review/confirm me
 
 ## Product boundaries
 
-- Apple Silicon / macOS 13+ only for this candidate
+- Declared 0.5.1 targets: `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64` from the same source SHA
+- Native PASS is reserved for a matching runner. Missing Intel/Windows builders stay **BLOCKED** / **NOT_RUN**, not Apple Silicon-only support
 - community-verified: ad-hoc seal, not notarized, no Developer ID
 - BYOK via official DSH credentials YAML
 - Weixin/Feishu private text+voice only
@@ -60,7 +61,7 @@ DSH plugins share the local DSH process. Permission fields are review/confirm me
 
 ```text
 Penglai Desktop (Electron)
-  → embedded Node + official DSH 0.1.0-rc.8
+  → embedded Node + official DSH 0.1.1-rc.1
   → authenticated loopback proxy
   → pre-DSH /wizard then official DSH Web
   → Plugin Center + optional signed plugins
@@ -68,9 +69,9 @@ Penglai Desktop (Electron)
 
 ## Install / first run / BYOK
 
-1. Install the Apple Silicon DMG.
-2. Complete privacy, locale, provider, API test, and Workspace.
-3. Use official DSH Web. Install plugins from Center only after reviewing permissions.
+1. Install the matching target installer (`Penglai_0.5.1_macos_aarch64.dmg`, Intel DMG, or Windows Setup) once a native candidate exists.
+2. Complete privacy, locale, provider, API test, Workspace, and the first official Turn.
+3. Use official DSH Web. Install plugins from Center only after the main-process permission dialog.
 
 ## Build, test, contribute
 
@@ -139,7 +140,8 @@ DSH 插件与本地 DSH 进程共享权限。权限字段用于审核和确认�
 
 ## 产品边界
 
-- 本候选仅 Apple Silicon / macOS 13+
+- 0.5.1 声明三个 target：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`，必须来自同一 source SHA
+- Native PASS 只来自对应原生 runner。缺 Intel/Windows 构建器只能写 **BLOCKED** / **NOT_RUN**，不得写成单端已发布
 - community-verified：ad-hoc seal，未公证，无 Developer ID
 - BYOK 走官方 DSH credentials YAML
 - 微信/飞书仅授权私聊文字与语音
@@ -149,7 +151,7 @@ DSH 插件与本地 DSH 进程共享权限。权限字段用于审核和确认�
 
 ```text
 蓬莱桌面（Electron）
-  → 嵌入 Node + 官方 DSH 0.1.0-rc.8
+  → 嵌入 Node + 官方 DSH 0.1.1-rc.1
   → 经认证的 loopback 代理
   → 引导完成前 /wizard，之后官方 DSH Web
   → 插件中心 + 可选签名插件
@@ -157,9 +159,9 @@ DSH 插件与本地 DSH 进程共享权限。权限字段用于审核和确认�
 
 ## 安装 / 首次使用 / BYOK
 
-1. 安装 Apple Silicon DMG。
-2. 完成隐私、语言、供应商、API 测试与 Workspace。
-3. 使用官方 DSH Web。仅在查看权限后从插件中心安装插件。
+1. 安装对应 target 的安装包（Apple Silicon DMG、Intel DMG 或 Windows Setup），以原生候选存在为前提。
+2. 完成隐私、语言、供应商、API 测试、Workspace 和第一条官方 Turn。
+3. 使用官方 DSH Web。仅在主进程权限对话框确认后从插件中心安装插件。
 
 ## 从源码开发
 
