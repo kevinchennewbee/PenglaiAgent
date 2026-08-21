@@ -57,8 +57,8 @@ const target = parseTargetArg();
 const blocked = nativeBlocked("u3-first-party-plugins", target);
 if (blocked) finish("BLOCKED", { command: "u3-first-party-plugins", ...blocked });
 const installer = installerForTarget(target);
-const installedRoot = join(ROOT, ".tmp-u3-plugin-app");
-const userData = join(ROOT, ".tmp-u3-plugin-profile");
+const installedRoot = join(ROOT, ".tmp", "u3-plugin-app");
+const userData = join(ROOT, ".tmp", "u3-plugin-profile");
 const installed = installFromExactInstaller(
   join(ROOT, "dist", installer),
   installedRoot,
