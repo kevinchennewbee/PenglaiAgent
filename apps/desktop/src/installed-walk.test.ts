@@ -105,10 +105,33 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /all-disabled-after-restart/);
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);
+  assert.match(compat, /observeOfficialTransport/);
+  assert.doesNotMatch(compat, /observeOfficialSurfaces/);
   assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
   assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
   assert.match(compat, /pre-DSH wizard/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
+});
+
+test("plugin transport observation does not wait for the post-wizard DOM", async () => {
+  const { observeOfficialTransport } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const expressions: string[] = [];
+  const session = {
+    send: async (method: string, params: { expression: string }) => {
+      assert.equal(method, "Runtime.evaluate");
+      expressions.push(params.expression);
+      const value = params.expression.includes("fetch(location.origin")
+        ? { status: 200, ok: true, official: true }
+        : params.expression.includes("new WebSocket")
+          ? { opened: true, readyState: 1 }
+          : { wizard: true, hasRoot: false, hasDshBoot: false };
+      return { result: { value } };
+    },
+  };
+  const result = await observeOfficialTransport(session);
+  assert.equal(result.official, true);
+  assert.equal(result.snap.wizard, true);
+  assert.equal(expressions.length, 3);
 });
 
 test("installed harness shutdown waits for the process close after SIGKILL", () => {

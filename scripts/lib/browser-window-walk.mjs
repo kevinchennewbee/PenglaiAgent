@@ -308,6 +308,13 @@ export async function observeOfficialSurfaces(session) {
   return { snap, http, websocket, official: Boolean(snap?.hasDshBoot && snap?.hasRoot && !snap?.recovery && http?.official && websocket?.opened) };
 }
 
+export async function observeOfficialTransport(session) {
+  const snap = await evaluate(session, SNAPSHOT_JS);
+  const http = await evaluate(session, HTTP_JS);
+  const websocket = await evaluate(session, WS_JS);
+  return { snap, http, websocket, official: Boolean(http?.official && websocket?.opened) };
+}
+
 async function walkWizardKeyless(session, opts, helpers) {
   const { shot, steps, walked, userData, stopAfter } = helpers;
   const deadEnds = [];
