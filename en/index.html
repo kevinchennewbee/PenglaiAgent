@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Penglai 0.5.0 — bringing DSH within everyone's reach</title>
-  <meta name="description" content="Penglai 0.5.0 is a local desktop distribution built on official DeepSeek Harness, with guided setup, BYOK and composable plugins. Apple Silicon first.">
+  <title>Penglai 0.5.1 — a three-platform desktop distribution for DSH</title>
+  <meta name="description" content="Penglai 0.5.1 packages official DeepSeek Harness 0.1.1-rc.1 for Apple silicon, Intel Mac and Windows x64, with a remotely refreshable signed plugin center.">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="alternate" hreflang="zh-CN" href="https://penglai.pages.dev/">
   <link rel="alternate" hreflang="en" href="https://penglai.pages.dev/en/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Penglai 0.5.0 — a desktop distribution and plugin ecosystem for DSH">
-  <meta property="og:description" content="Official DSH is the sole core; Penglai adds reliable distribution, onboarding and hot-pluggable local abilities.">
+  <meta property="og:title" content="Penglai 0.5.1 — a three-platform desktop distribution and plugin ecosystem for DSH">
+  <meta property="og:description" content="Official DSH is the sole core: native desktop packages, onboarding, a signed plugin catalog and a trusted path for later updates.">
   <meta property="og:url" content="https://penglai.pages.dev/en/">
   <meta property="og:locale" content="en_US">
   <link rel="stylesheet" href="../styles/main.css">
@@ -31,21 +31,30 @@
 
   <main>
     <section class="hero" id="hero">
-      <div class="hero-badges reveal"><span class="pill accent"><b>v0.5.0</b></span><span class="pill">Powered by <b>DeepSeek Harness</b></span><span class="pill"><b>MIT</b> source</span><span class="pill"><b>Apple Silicon</b> first</span><span class="pill"><b>BYOK</b></span></div>
-      <div class="hero-name reveal reveal-delay-1"><span class="seal">蓬</span><h1>Penglai</h1><span class="hero-version">0.5.0</span></div>
+      <div class="hero-badges reveal"><span class="pill accent"><b>v0.5.1</b></span><span class="pill"><b>Native 3/3 PASS</b></span><span class="pill"><b>DSH 0.1.1-rc.1</b></span><span class="pill"><b>macOS arm64 + x64</b></span><span class="pill"><b>Windows x64</b></span><span class="pill"><b>MIT</b> source</span></div>
+      <div class="hero-name reveal reveal-delay-1"><span class="seal">蓬</span><h1>Penglai</h1><span class="hero-version">0.5.1</span></div>
       <p class="hero-tagline reveal reveal-delay-1">Bringing DSH within everyone's reach</p>
       <p class="hero-modes reveal reveal-delay-2"><b>Official DSH is the sole core</b> · <b>Penglai makes it dependable to ship</b> · <b>abilities remain composable</b></p>
-      <div class="hero-ctas reveal reveal-delay-3"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.0/Penglai_0.5.0_macos_aarch64.dmg" class="btn btn-primary">Download for Apple silicon</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="btn btn-ghost">Explore the source</a></div>
-      <p class="modes-foot reveal reveal-delay-3">macOS 13+ · M1 / M2 / M3 / M4 · community-verified · ad-hoc sealed · not notarized</p>
+      <div class="hero-ctas reveal reveal-delay-3"><a href="#start" class="btn btn-primary">Choose your client</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1" class="btn btn-ghost">Release notes and checksums</a></div>
+      <p class="modes-foot reveal reveal-delay-3">community-verified · macOS ad-hoc sealed and not notarized · Windows not Authenticode-signed</p>
     </section>
 
     <section class="section story" id="story"><div class="section-inner"><div class="story-quote">
       <div class="section-label reveal">Purpose</div><h2 class="section-title reveal reveal-delay-1">If DSH is like Linux, Penglai aims to be an approachable distribution layer</h2>
       <blockquote class="reveal reveal-delay-2">Penglai does not rebuild an agent and is not merely a skin. It respects DSH's “everything is a plugin” philosophy: package installation, first-run setup and practical combinations so ordinary people can truly use DSH.</blockquote>
-      <p class="reveal reveal-delay-2">Version 0.5.0 is a full reconstruction. Official DSH owns Agent, Workspace, Session, Turn, models, tools and the base Web UI. Penglai adds the desktop distribution, product onboarding and standards-compliant DSH plugins.</p>
-      <p class="reveal reveal-delay-3">That boundary lets Penglai follow DSH quickly, adopt excellent reviewed community work, and evolve its own distinctive abilities without creating a second runtime.</p>
+      <p class="reveal reveal-delay-2">Version 0.5.0 was the full reconstruction: Agent, Workspace, Session, Turn, models, tools and the base Web UI returned to official DSH. Version 0.5.1 makes that decision installable on three platforms and moves the core to official DSH 0.1.1-rc.1.</p>
+      <p class="reveal reveal-delay-3">It also turns Plugin Center into a path for growth. Reviewed DSH plugins can enter a signed, immutable GitHub Release catalog; users refresh, download, confirm permissions and enable them without reinstalling Penglai for every new plugin.</p>
       <div class="story-sign reveal reveal-delay-3">— one DSH, many powers, a Penglai composed for you</div>
     </div></div></section>
+
+    <section class="section product-shots" id="screens"><div class="section-inner">
+      <div class="section-label reveal">The real 0.5.1</div><h2 class="section-title reveal reveal-delay-1">Not old screenshots, not a development server</h2><p class="section-desc reveal reveal-delay-2">These captures were taken again from the final Apple silicon DMG in the immutable Release, bound to source <code>6ec35c8…</code> and running official DSH 0.1.1-rc.1. The API-key field is empty; no external model call is fabricated.</p>
+      <div class="shot-grid reveal reveal-delay-2">
+        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>welcome · 0.5.1</span></div><img src="../shots/0.5.1-welcome.png" alt="Penglai 0.5.1 welcome and appearance step"></div><figcaption class="shot-caption">Welcome, language and appearance</figcaption></figure>
+        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>official models · DSH rc.1</span></div><img src="../shots/0.5.1-models.png" alt="Penglai 0.5.1 official model selection"></div><figcaption class="shot-caption">Official DSH model directory</figcaption></figure>
+        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>BYOK · local credentials</span></div><img src="../shots/0.5.1-api-key.png" alt="Penglai 0.5.1 empty API key step"></div><figcaption class="shot-caption">Local credentials and the real API-test gate</figcaption></figure>
+      </div>
+    </div></section>
 
     <section class="section" id="compose"><div class="section-inner">
       <div class="section-label reveal">Out of the box</div><h2 class="section-title reveal reveal-delay-1">Clean by default. Install only what you want.</h2><p class="section-desc reveal reveal-delay-2">A fresh installation contains the DSH core and Penglai Plugin Center. Every extension is off by default; installation, activation and model downloads remain your choice.</p>
@@ -58,12 +67,12 @@
     <section class="section" id="abilities"><div class="section-inner">
       <div class="section-label reveal">Penglai plugins</div><h2 class="section-title reveal reveal-delay-1">One plus one becomes more than two</h2><p class="section-desc reveal reveal-delay-2">Each ability respects DSH boundaries. Their composition is where Penglai becomes distinctive.</p>
       <div class="ability-grid">
-        <div class="ability reveal"><h3>Plugin Center</h3><p>Manages built-in and first-party plugins from real loader inventory. Version 0.5.0 does not install arbitrary npm, Git or URL packages.</p></div>
+        <div class="ability reveal"><h3>Plugin Center</h3><p>Manages plugins from real DSH loader inventory and reads a <a href="https://github.com/kevinchennewbee/PenglaiPluginRegistry">public signed catalog</a>. Only reviewed, Penglai-signed, hash-matching Releases are accepted; arbitrary npm, Git and URL installation remain closed.</p></div>
         <div class="ability reveal"><h3>IM connections</h3><p>Private Weixin and Feishu conversations flow through a durable claim, an official DSH Turn, and back to the original channel. The scanner is the default sole identity.</p></div>
         <div class="ability reveal"><h3>Local ASR</h3><p>Downloads SenseVoice on demand with visible progress. Encrypted Weixin SILK is decoded and transcribed locally; language and emotion remain internal auxiliary context.</p></div>
         <div class="ability reveal"><h3>MOSS-TTS-Nano</h3><p>Installs the local model on demand and speaks exact durable DSH finals. Feishu uses native audio; Weixin currently receives reliable playable audio.</p></div>
         <div class="ability reveal"><h3>Personal context</h3><p>Indexes only directories you explicitly grant, using a deletable local SQLite FTS5 derivative index without modifying source files.</p></div>
-        <div class="ability reveal"><h3>Layered memory</h3><p>Separates global, Workspace and session-candidate memory. Long-term changes and SOPs require a visible diff and owner confirmation; SOPs use official DSH Skills.</p></div>
+        <div class="ability reveal"><h3>Layered memory</h3><p>Separates global, Workspace and session-candidate memory. Long-term changes and SOPs require a visible diff and your confirmation; SOPs use official DSH Skills.</p></div>
         <div class="ability reveal"><h3>Token budget</h3><p>Consumes official TokenMeter and routes. When prices are not trustworthy it reports tokens only; hard limits stop a new Turn before invocation.</p></div>
         <div class="ability reveal"><h3>Companion</h3><p>Off by default. Reuses official Schedule, Session and Turn under quiet hours, daily caps, exact bindings and a no-unattended-tools gate.</p></div>
       </div>
@@ -75,37 +84,38 @@
         <div class="trio-card reveal"><div class="trio-num">CORE</div><h3>DeepSeek Harness</h3><div class="trio-sub">The sole Agent and UI core</div><p>Models, workspaces, sessions, tools, approvals, permissions, base Web UI and plugin runtime all come from official DSH.</p></div>
         <div class="trio-card reveal reveal-delay-1"><div class="trio-num">DISTRO</div><h3>Penglai desktop distribution</h3><div class="trio-sub">Install, onboard, brand, lifecycle</div><p>Embeds the target Node, Electron, pinned DSH closure and licenses. It never depends on PATH, global packages or first-run installation of the core.</p></div>
         <div class="trio-card reveal reveal-delay-2"><div class="trio-num">ECOSYSTEM</div><h3>Standard plugins</h3><div class="trio-sub">Optional, composable, removable</div><p>First-party plugins use official DSH services, slots, Remote and loader seams. They do not create a second Agent or chat system.</p></div>
-      </div><p class="arch-note reveal">Currently pinned to official DSH 0.1.0-rc.8. Penglai 0.5.0 contains none of the former Pi/Host product line.</p>
+      </div><p class="arch-note reveal">Pinned to official DSH 0.1.1-rc.1. Penglai 0.5.1 contains none of the former Pi/Host product line and runs no second Agent beside DSH.</p>
     </div></section>
 
     <section class="section" id="security"><div class="section-inner">
       <div class="section-label reveal">Privacy and security</div><h2 class="section-title reveal reveal-delay-1">Local-first, without pretending the boundary is magic</h2>
       <div class="guard-grid">
         <div class="guard-card reveal"><h3>What stays local</h3><ul class="guard-list"><li>API keys and channel secrets use the official DSH credentials seam; renderer code never reads plaintext.</li><li>macOS credential directories/files use 0700/0600 and atomic writes. A privileged process under the same OS user may still read them — this is an explicit boundary.</li><li>ASR, TTS, indexes, memory, budget ledgers and companion schedules are separately inspectable and deletable. Workspaces and granted source folders are never application deletion targets.</li><li>No cloud account, sync or telemetry.</li></ul></div>
-        <div class="guard-card reveal reveal-delay-1"><h3>Network and trust</h3><ul class="guard-list"><li>Calling your chosen cloud model sends the prompt and context needed for that request to its provider.</li><li>Voice models download on demand from pinned sources with integrity checks; first boot never installs the core from the network.</li><li>Version 0.5.0 is community-verified: ad-hoc sealed, without Developer ID or notarization.</li><li>0.4.1 → 0.5.0 is a clean-generation install. Old secrets and state are not read, migrated or deleted.</li></ul></div>
+        <div class="guard-card reveal reveal-delay-1"><h3>Network, updates and trust</h3><ul class="guard-list"><li>Calling your chosen cloud model sends the prompt and context needed for that request to its provider.</li><li>Voice models download on demand from pinned sources with integrity checks; first boot never installs the core from the network.</li><li>macOS packages are ad-hoc sealed without Developer ID or notarization. Windows has no Authenticode signature and may show a system warning.</li><li>0.5.0 → 0.5.1 is a manual overlay that preserves 0.5-generation data. From 0.5.1 onward, later same-platform updates use signed immutable Releases, verification and explicit user confirmation; never silent replacement.</li></ul></div>
       </div>
     </div></section>
 
     <section class="section" id="start"><div class="section-inner">
-      <div class="section-label reveal">Get started</div><h2 class="section-title reveal reveal-delay-1">Download, drag to Applications, follow the wizard</h2>
-      <div class="quick-grid">
-        <div class="reveal"><div class="term"><div class="term-bar"><i></i><i></i><i></i></div><div class="term-body"><div class="term-comment"># v0.5.0 launch target</div><div class="term-line">macOS 13+</div><div class="term-line">Apple silicon · arm64</div><div class="term-line">M1 / M2 / M3 / M4</div><div class="term-comment"># Intel macOS and Windows: later releases</div></div></div></div>
-        <div class="quick-notes reveal reveal-delay-1"><div class="quick-note"><span class="qn-num">1</span><div><b>Download the DMG.</b>The Release also includes SHA256SUMS, an SBOM, third-party notices and the public-export manifest.</div></div><div class="quick-note"><span class="qn-num">2</span><div><b>Drag Penglai.app to Applications.</b>Because it is not notarized, first launch may require explicit permission under System Settings → Privacy &amp; Security.</div></div><div class="quick-note"><span class="qn-num">3</span><div><b>Complete onboarding.</b>Choose language/theme, provider/model, write and test your API key, then create a workspace. IM is optional.</div></div></div>
+      <div class="section-label reveal">Get started</div><h2 class="section-title reveal reveal-delay-1">One version, three native installers</h2><p class="section-desc reveal reveal-delay-2">All three clients come from one frozen source commit. Verify the file against SHA256SUMS in the Release; macOS may require explicit first-launch permission under System Settings → Privacy &amp; Security.</p>
+      <div class="download-grid reveal reveal-delay-2">
+        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg"><b>Apple silicon</b><span>macOS 13+ · M1 / M2 / M3 / M4</span><code>Penglai_0.5.1_macos_aarch64.dmg</code></a>
+        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_x64.dmg"><b>Intel Mac</b><span>macOS · x86_64</span><code>Penglai_0.5.1_macos_x64.dmg</code></a>
+        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_windows_x64_setup.exe"><b>Windows x64</b><span>Current-user NSIS installer</span><code>Penglai_0.5.1_windows_x64_setup.exe</code></a>
       </div>
-      <div class="hero-ctas reveal"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.0/Penglai_0.5.0_macos_aarch64.dmg" class="btn btn-primary">Download Penglai 0.5.0</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0" class="btn btn-ghost">Release notes and checksums</a></div>
+      <div class="hero-ctas reveal"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1" class="btn btn-primary">Penglai 0.5.1 Release</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" class="btn btn-ghost">Explore the source</a></div>
     </div></section>
 
     <section class="section" id="legal"><div class="section-inner">
       <div class="section-label reveal">Open source and thanks</div><h2 class="section-title reveal reveal-delay-1">Open code, explicit boundaries</h2>
       <div class="legal-grid">
-        <div class="legal-card reveal"><h3>License and brand</h3><p><b>Code:</b> Penglai's public source is <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE">MIT</a>; third-party components retain their respective licenses and attribution.</p><p><b>Brand:</b> the Penglai / 蓬莱 name, logo and visual assets remain all rights reserved and are outside the code license.</p><p><b>Version boundary:</b> public <code>main</code> now presents only the 0.5.0 DSH distribution source tree. Older versions remain available in Git history and historical Releases but no longer describe the current architecture.</p></div>
-        <div class="legal-card reveal reveal-delay-1"><h3>Built on excellent open source</h3><ul class="ack-list"><li><a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> — the sole Agent and Web UI core in 0.5.0</li><li><a href="https://github.com/FunAudioLLM/SenseVoice">SenseVoice</a> · <a href="https://github.com/k2-fsa/sherpa-onnx">sherpa-onnx</a> — local speech recognition</li><li>See the Release's Third-Party Notices and SBOM for exact MOSS-TTS-Nano and bundled dependency attribution.</li><li>The Owner is responsible for product direction, tradeoffs, risk decisions and publication; several AI tools contributed to implementation and review.</li></ul></div>
+        <div class="legal-card reveal"><h3>License, author and AI collaboration</h3><p><b>Code:</b> Penglai's public source is <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE">MIT</a>; third-party components retain their licenses and attribution.</p><p><b>Created and maintained by:</b> <a href="https://github.com/kevinchennewbee">Kevin Chen / 陈克文</a>. Product direction, taste, risk decisions, acceptance and publication remain human responsibilities.</p><p><b>Collaboration tools:</b> <a href="https://www.kimi.com/en/products/download">Kimi Work</a>, <a href="https://grok.com/">Grok Build</a>, <a href="https://cursor.com/">Cursor Agent</a>, <a href="https://www.anthropic.com/claude-code">Claude Code</a> and <a href="https://openai.com/codex/">OpenAI Codex</a> assisted implementation and review across different stages.</p></div>
+        <div class="legal-card reveal reveal-delay-1"><h3>Built on excellent open source</h3><ul class="ack-list"><li><a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> · <a href="https://github.com/electron/electron">Electron</a> · <a href="https://github.com/nodejs/node">Node.js</a> · <a href="https://github.com/microsoft/TypeScript">TypeScript</a> · <a href="https://github.com/pnpm/pnpm">pnpm</a></li><li><a href="https://github.com/FunAudioLLM/SenseVoice">SenseVoice</a> · <a href="https://github.com/k2-fsa/sherpa-onnx">sherpa-onnx</a> · <a href="https://github.com/OpenMOSS/MOSS-TTS-Nano">MOSS-TTS-Nano</a></li><li><a href="https://github.com/larksuite/node-sdk">Lark Node SDK</a> · <a href="https://github.com/Tencent/openclaw-weixin">Tencent openclaw-weixin</a> · <a href="https://github.com/idranme/silk-wasm">silk-wasm</a> · <a href="https://github.com/openclaw/libopus-wasm">libopus-wasm</a></li><li>See the 0.5.1 Release's Third-Party Notices and SBOM for the exact shipped versions, licenses and files.</li></ul></div>
       </div>
       <div class="legacy-note reveal">The only official channels are this GitHub repository and this site. Never enter an API key, Weixin token, Feishu App Secret or other credentials into an unofficial page or bot. Report redacted security concerns through <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">SECURITY.md</a>.</div>
     </div></section>
   </main>
 
-  <footer class="footer"><div class="footer-inner"><div class="footer-brand"><span class="seal">蓬</span><div><div class="footer-brand-name">Penglai 蓬莱</div><div class="footer-brand-tag">Eight immortals cross the sea, each showing their own powers.</div></div></div><div class="footer-links"><a href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases">Releases</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/issues">Issues</a><a href="../" hreflang="zh-CN">中文</a></div></div><div class="footer-bottom"><span>© 2026 Kevin Chen · Code MIT · Brand all rights reserved</span><span class="ver">v0.5.0</span></div></footer>
+  <footer class="footer"><div class="footer-inner"><div class="footer-brand"><span class="seal">蓬</span><div><div class="footer-brand-name">Penglai 蓬莱</div><div class="footer-brand-tag">Eight immortals cross the sea, each showing their own powers.</div></div></div><div class="footer-links"><a href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases">Releases</a><a href="https://github.com/kevinchennewbee/PenglaiPluginRegistry">Plugin Registry</a><a href="../" hreflang="zh-CN">中文</a></div></div><div class="footer-bottom"><span>© 2026 Kevin Chen · Code MIT · Brand all rights reserved</span><span class="ver">v0.5.1</span></div></footer>
   <script src="../scripts/site.js"></script>
 </body>
 </html>
