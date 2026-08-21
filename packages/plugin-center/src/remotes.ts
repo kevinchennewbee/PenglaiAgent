@@ -16,6 +16,7 @@ import {
   runtimePluginTarget,
   type PluginCatalogEntry,
   type PluginOwnerAction,
+  type ProductPluginTarget,
 } from "@penglai/runtime";
 import {
   rollbackLastGood,
@@ -78,12 +79,12 @@ function catalogEntry(
   entries: readonly PluginCatalogEntry[],
   id: string,
   registry?: PluginDistributionClient,
+  hostTarget: ProductPluginTarget = runtimePluginTarget(),
 ): PluginCatalogEntry {
   const entry = entries.find((candidate) => candidate.id === id);
   if (entry) return entry;
   if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
   const remote = registry.entry(id);
-  const hostTarget = runtimePluginTarget();
   const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
   if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
     throw new PenglaiError("SECURITY_POLICY", `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`);
@@ -164,10 +165,12 @@ export function createCenterRemote(opts: {
   userDataRoot: string;
   registry?: PluginDistributionClient;
   stagePackage?: (pkg: CachedPackage) => Promise<void>;
+  target?: ProductPluginTarget;
 }): CenterRemote {
+  const hostTarget = (): ProductPluginTarget => opts.target ?? runtimePluginTarget();
   const requireOwner = (id: string, action: PluginOwnerAction, capabilityId: string | undefined): void => {
     if (!capabilityId) throw new PenglaiError("SECURITY_POLICY", "native owner capability is required");
-    const entry = catalogEntry(opts.catalog, id, opts.registry);
+    const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
     consumePluginOwnerGrant({
       userDataRoot: opts.userDataRoot,
       capabilityId,
@@ -187,7 +190,7 @@ export function createCenterRemote(opts: {
     id: string,
     action: "enable" | "disable" | "update" | "install",
   ) => {
-    const entry = catalogEntry(opts.catalog, id, opts.registry);
+    const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
     if (action === "disable" && id === "@penglai/plugin-center") {
       throw new PenglaiError("SECURITY_POLICY", "required plugin cannot be disabled");
     }
@@ -315,14 +318,14 @@ export function createCenterRemote(opts: {
     async installDisabled(id: string, capabilityId?: string) {
       if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
       requireOwner(id, "plugin-install", capabilityId);
-      const pkg = await opts.registry.downloadPackage(id, runtimePluginTarget());
+      const pkg = await opts.registry.downloadPackage(id, hostTarget());
       await opts.stagePackage?.(pkg);
       const installed = await transact(id, "install");
       await waitForInventory(opts.inventory, id, false);
       return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true, phase: installed.phase };
     },
     async rollback(id: string) {
-      catalogEntry(opts.catalog, id, opts.registry);
+      catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       const enabled = previousEnabledFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
         userDataRoot: opts.userDataRoot,

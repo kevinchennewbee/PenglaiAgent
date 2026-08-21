@@ -109,6 +109,9 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/);
   assert.doesNotMatch(compat, /ftruncateSync/);
   assert.doesNotMatch(compat, /observeOfficialSurfaces/);
+  const welcome = readFileSync(join(root, "scripts/u3-welcome-smoke.mjs"), "utf8");
+  assert.match(welcome, /startup\.error\.log/);
+  assert.match(welcome, /dsh\.stderr\.log/);
   assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
   assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
   assert.match(compat, /pre-DSH wizard/);

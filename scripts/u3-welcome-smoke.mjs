@@ -148,8 +148,10 @@ try {
 
 const tree = ownedProcessTree(app, resources, launched.child.pid);
 const leftoverNeedle = resolve(join(resources, "runtime/dsh/lib/bin.js"));
-await stopChild(launched.child);
+const stopped = await stopChild(launched.child);
 const leftovers = leftoversByCommand(leftoverNeedle);
+const readDiagnostic = (path) =>
+  existsSync(path) ? readFileSync(path, "utf8").slice(-4000) : "";
 
 const welcomeReachable = Boolean(
   welcome?.welcomePenglai && welcome.continueVisible && !welcome.continueDisabled && !welcome.officialInternalNotice,
@@ -205,6 +207,11 @@ const rec = {
       : null,
   },
   processTree: { dshPid: tree.dshPid, ownedAbsolute: tree.ownedAbsolute, leftovers: leftovers.length },
+  stopped: { code: stopped[0], signal: stopped[1] },
+  diagnostics: {
+    startupError: readDiagnostic(join(userData, "logs", "startup.error.log")),
+    dshError: readDiagnostic(join(userData, "logs", "dsh.stderr.log")),
+  },
   outputTail: launched.output().slice(-2000),
 };
 writeRec(rec);

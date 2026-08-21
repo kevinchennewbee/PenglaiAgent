@@ -819,6 +819,32 @@ export function dshWebArgs(port: number): string[] {
   return ["--profile", "web", "--no-open", "--host", "127.0.0.1", "--port", String(port)];
 }
 
+export function windowsOwnedProcessEnvironment(
+  userRoot: string,
+  sourceEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const systemRoot = sourceEnv.SystemRoot || sourceEnv.WINDIR || "C:\\Windows";
+  const temp = join(userRoot, "temp");
+  const appData = join(userRoot, "AppData", "Roaming");
+  const localAppData = join(userRoot, "AppData", "Local");
+  for (const path of [temp, appData, localAppData]) {
+    mkdirSync(path, { recursive: true, mode: 0o700 });
+  }
+  return {
+    PATH: `${join(systemRoot, "System32")};${systemRoot}`,
+    SystemRoot: systemRoot,
+    WINDIR: systemRoot,
+    ComSpec: sourceEnv.ComSpec || join(systemRoot, "System32", "cmd.exe"),
+    PATHEXT: sourceEnv.PATHEXT || ".COM;.EXE;.BAT;.CMD",
+    ProgramData: sourceEnv.ProgramData || "C:\\ProgramData",
+    USERPROFILE: userRoot,
+    APPDATA: appData,
+    LOCALAPPDATA: localAppData,
+    TEMP: temp,
+    TMP: temp,
+  };
+}
+
 export class EmbeddedDshSupervisor {
   state: "stopped" | "starting" | "healthy" | "crashed" | "stopping" = "stopped";
   port = 0;
@@ -863,7 +889,7 @@ export class EmbeddedDshSupervisor {
     };
     const dshArgs = dshWebArgs(this.port);
     if (process.platform === "win32") {
-      childEnv.PATH = "C:\\Windows\\System32;C:\\Windows";
+      Object.assign(childEnv, windowsOwnedProcessEnvironment(user.root));
       const spawned = spawnOwnedDshProcess({
         platform: "win32",
         executable: this.layout.nodeBin,
