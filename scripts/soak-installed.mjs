@@ -7,7 +7,7 @@ import { HTTP_JS, SNAPSHOT_JS, walkInstalledBrowserWindow } from "./lib/browser-
 import {
   exeInside,
   installFromExactInstaller,
-  launchPackaged,
+  launchInstalledHarness,
   leftoversByCommand,
   ownedProcessTree,
   resourcesInside,
@@ -99,6 +99,14 @@ if (expectedArtifact !== installed.installerSha256) {
 const exe = exeInside(installed.app, expectedTarget);
 if (!exe) finish("FAIL", { command: "test:soak:installed", reason: "installed Penglai executable missing", target: expectedTarget });
 const resources = resourcesInside(installed.app, expectedTarget);
+const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+if (!harnessApp) {
+  finish("INCOMPLETE", {
+    command: "test:soak:installed",
+    reason: "installed soak requires a separate Electron harness executable",
+    target: expectedTarget,
+  });
+}
 const userData = join(ROOT, ".tmp-installed-soak");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
@@ -107,8 +115,8 @@ const installedNode = join(resources, expectedTarget === "win32-x86_64" ? "runti
 const installedDsh = join(resources, "runtime/dsh/lib/bin.js");
 
 const debugPort = await freePort();
-const launched = launchPackaged(
-  exe,
+const launched = launchInstalledHarness(
+  harnessApp,
   resources,
   userData,
   [`--remote-debugging-port=${debugPort}`, "--remote-allow-origins=*"],

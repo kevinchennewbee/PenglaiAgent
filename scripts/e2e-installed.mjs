@@ -8,6 +8,7 @@ import {
   exeInside,
   findWelcomeAck,
   installFromExactInstaller,
+  launchInstalledHarness,
   launchPackaged,
   waitChildExit,
   leftoversByCommand,
@@ -149,7 +150,7 @@ if (!harnessApp) {
   });
 }
 const debugPort = await freePort();
-const launched = launchPackaged(exe, resources, userData, [
+const launched = launchInstalledHarness(harnessApp, resources, userData, [
   `--remote-debugging-port=${debugPort}`,
   "--remote-allow-origins=*",
 ]);
@@ -191,7 +192,7 @@ if (walk?.wizardKeyless?.ok) {
   const ledgerBefore = existsSync(ledgerPath) ? JSON.parse(readFileSync(ledgerPath, "utf8")) : null;
   await stopChild(launched.child);
   const debugPort2 = await freePort();
-  const launched2 = launchPackaged(exe, resources, userData, [
+  const launched2 = launchInstalledHarness(harnessApp, resources, userData, [
     `--remote-debugging-port=${debugPort2}`,
     "--remote-allow-origins=*",
   ]);
