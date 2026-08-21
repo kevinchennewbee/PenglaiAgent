@@ -25,6 +25,8 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.14.0 --activate
           pnpm install --frozen-lockfile
+      - name: Build source dependencies for the distribution verifier
+        run: pnpm build
       - name: Verify immutable catalog, disabled install, and offline recovery
         env:
           GITHUB_TOKEN: ${{ github.token }}
