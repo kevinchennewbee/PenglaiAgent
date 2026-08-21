@@ -43,6 +43,8 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
+      - name: Build source from the clean checkout
+        run: pnpm build
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Installed welcome and process smoke
@@ -85,6 +87,8 @@ jobs:
           choco install nsis --no-progress -y
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
+      - name: Build source from the clean checkout
+        run: pnpm build
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |
