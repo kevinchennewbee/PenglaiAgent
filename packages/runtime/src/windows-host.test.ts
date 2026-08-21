@@ -184,6 +184,10 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);
   assert.match(payload, /Penglai\.ico/);
+  assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
+  assert.match(packager, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
+  assert.doesNotMatch(payload, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);
+  assert.doesNotMatch(packager, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);
   assert.match(packager, /local-installer-win32-x86_64\.json/);
   assert.match(packager, /\/DPENGLAI_ICON=/);
   assert.match(script, /!define MUI_ICON "\$\{PENGLAI_ICON\}"/);

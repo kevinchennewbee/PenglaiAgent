@@ -196,6 +196,12 @@ const pack = spawnSync(
   { cwd: ROOT, stdio: "inherit" },
 );
 if (pack.status !== 0) process.exit(pack.status ?? 1);
+const packedPlugins = join(ROOT, "dist", "runtime-staging", "plugins");
+const stagedPlugins = join(staging, "plugins");
+if (packedPlugins !== stagedPlugins) {
+  rmSync(stagedPlugins, { recursive: true, force: true });
+  cpSync(packedPlugins, stagedPlugins, { recursive: true });
+}
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
 

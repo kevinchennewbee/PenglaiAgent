@@ -196,9 +196,13 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(installedHelper, /process-resume/);
   const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
   assert.match(windowsPayload, /build-windows-host\.mjs/);
+  assert.match(windowsPayload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(windowsPayload, /join\(staging, "runtime", "helpers"\)/);
   assert.match(windowsPayload, /stamp-windows-exe\.mjs/);
   assert.match(windowsPayload, /release-info\.json/);
+  const embedRuntime = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");
+  assert.match(embedRuntime, /packedPlugins !== stagedPlugins/);
+  assert.match(embedRuntime, /cpSync\(packedPlugins, stagedPlugins/);
   const verifyInstalled = readFileSync(join(root, "scripts/verify-installed.mjs"), "utf8");
   assert.match(verifyInstalled, /R50-WIN-009/);
   assert.match(verifyInstalled, /R50-MAC-010/);
