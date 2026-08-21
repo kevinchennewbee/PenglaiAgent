@@ -20,17 +20,6 @@
     });
   }
 
-  if ("IntersectionObserver" in window) {
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) entry.target.classList.add("revealed");
-      });
-    }, { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
-    document.querySelectorAll(".reveal").forEach(function (element) { observer.observe(element); });
-  } else {
-    document.querySelectorAll(".reveal").forEach(function (element) { element.classList.add("revealed"); });
-  }
-
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   var canvas = document.getElementById("fairy-canvas");
   if (!canvas) return;

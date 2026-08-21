@@ -130,17 +130,11 @@ code, pre { font-family: var(--font-mono); }
 
 main, nav, footer { position: relative; z-index: 1; }
 
-/* --- Scroll Reveal --- */
+/* --- Content is readable before and without JavaScript --- */
 .reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-              transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 1;
+  transform: none;
 }
-.reveal.revealed { opacity: 1; transform: translateY(0); }
-.reveal-delay-1 { transition-delay: 0.08s; }
-.reveal-delay-2 { transition-delay: 0.16s; }
-.reveal-delay-3 { transition-delay: 0.24s; }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
@@ -414,6 +408,16 @@ main, nav, footer { position: relative; z-index: 1; }
   line-height: 1.7;
 }
 .shot-caption code { font-size: 12px; color: var(--ink-2); }
+
+.product-shots { padding-top: 72px; }
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 48px;
+}
+.shot-grid .shot-frame { height: 100%; }
+.shot-grid img { aspect-ratio: 1.72; object-fit: cover; object-position: top; }
 
 /* --- 缘起 --- */
 .story { padding-top: 40px; }
@@ -731,6 +735,30 @@ main, nav, footer { position: relative; z-index: 1; }
 }
 .quick-shots-duo .shot { margin: 0; }
 
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 48px 0 44px;
+}
+.download-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 28px 24px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.download-card:hover { color: var(--ink); transform: translateY(-3px); border-color: var(--cinnabar); box-shadow: var(--shadow-md); }
+.download-card b { font-family: var(--font-serif); font-size: 21px; }
+.download-card span { color: var(--ink-2); font-size: 14px; }
+.download-card code { color: var(--cyan); font-size: 11.5px; overflow-wrap: anywhere; }
+
 /* --- License & 致谢 --- */
 .legal-grid {
   display: grid;
@@ -829,6 +857,7 @@ main, nav, footer { position: relative; z-index: 1; }
   .ability-grid { grid-template-columns: repeat(2, 1fr); }
   .split, .quick-grid { grid-template-columns: 1fr; gap: 36px; }
   .quick-shots-duo { grid-template-columns: 1fr; }
+  .shot-grid, .download-grid { grid-template-columns: 1fr; }
   .trio-grid { grid-template-columns: 1fr; }
   .guard-grid, .legal-grid { grid-template-columns: 1fr; }
   .nav-links { gap: 18px; }
