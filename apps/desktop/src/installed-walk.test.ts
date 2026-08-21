@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import test from "node:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -103,7 +105,42 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /all-disabled-after-restart/);
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);
+  assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
+  assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
+  assert.match(compat, /pre-DSH wizard/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
+});
+
+test("installed harness shutdown waits for the process close after SIGKILL", () => {
+  const helper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
+  assert.match(helper, /closed\.then\(\(value\) => \(\{ exited: true, value \}\)\)/);
+  assert.match(helper, /did not exit after SIGKILL/);
+  assert.doesNotMatch(helper, /resolveClose\(\[null, "SIGKILL"\]\)/);
+});
+
+test("installed harness shutdown returns only after the child is gone", async (context) => {
+  const { stopChild } = await import("../../../scripts/lib/installed-app.mjs");
+  const child = spawn(
+    process.execPath,
+    ["-e", "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],
+    { stdio: "ignore" },
+  );
+  context.after(() => {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  });
+  await once(child, "spawn");
+  const pid = child.pid;
+  assert.ok(pid);
+  await stopChild(child, 50);
+  assert.ok(child.exitCode !== null || child.signalCode);
+  assert.throws(
+    () => process.kill(pid, 0),
+    (error: NodeJS.ErrnoException) => error.code === "ESRCH",
+  );
 });
 
 test("single-instance ownership is scoped after the app-private userData path", () => {

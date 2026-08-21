@@ -253,8 +253,6 @@ const commonOk = phases.every(
     !phase.attachErr &&
     phase.official.http &&
     phase.official.websocket &&
-    phase.official.hasRoot &&
-    phase.official.hasDshBoot &&
     phase.processTree.ownedAbsolute &&
     phase.processTree.dshPid > 0 &&
     phase.processTree.leftovers === 0,
@@ -278,7 +276,7 @@ const rec = {
   dsh: packaged.release.dsh,
   plugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile; enable all bundled optional entries; DSH loader active; restart; disable all; restart",
+    "exact installed profile behind the pre-DSH wizard; official DSH HTTP/WebSocket and loader inventory; enable all; restart; disable all; restart",
   phases,
 };
 writeRec(rec);
