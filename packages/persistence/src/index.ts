@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -203,6 +204,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE outbox ADD COLUMN lease_until INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE outbox ADD COLUMN vendor_idempotency_key TEXT;
   UPDATE schema_meta SET version = 10;
+  `,
+  `
+  ALTER TABLE outbox ADD COLUMN claim_token TEXT;
+  UPDATE schema_meta SET version = 11;
   `,
 ];
 
@@ -850,16 +855,26 @@ export class Store {
     now: number;
     leaseMs?: number;
   }): OutboxItem | undefined {
+    const existing = this.getOutbox(input.outboxId);
+    if (
+      existing?.state === "claimed" &&
+      existing.workerId === input.workerId &&
+      existing.claimToken &&
+      (existing.leaseUntil ?? 0) > input.now
+    ) {
+      return existing;
+    }
     const leaseUntil = input.now + (input.leaseMs ?? 15_000);
+    const claimToken = randomBytes(16).toString("hex");
     const result = this.db
       .prepare(
         `UPDATE outbox
-            SET state='claimed', worker_id=?, lease_until=?
+            SET state='claimed', worker_id=?, lease_until=?, claim_token=?
           WHERE outbox_id=?
             AND state IN ('pending','retryable','uncertain')
             AND (lease_until IS NULL OR lease_until=0 OR lease_until < ?)`,
       )
-      .run(input.workerId, leaseUntil, input.outboxId, input.now);
+      .run(input.workerId, leaseUntil, claimToken, input.outboxId, input.now);
     if (!Number(result.changes)) return undefined;
     return this.getOutbox(input.outboxId);
   }
@@ -869,9 +884,26 @@ export class Store {
     state: OutboxState,
     attempts: number,
     nextAttemptAt: number,
-    extra?: { workerId?: string; expectedStates?: readonly OutboxState[] },
+    extra?: { workerId?: string; expectedStates?: readonly OutboxState[]; claimToken?: string },
   ): boolean {
+    const current = this.getOutbox(outboxId);
+    if (current?.state === "delivered" || current?.state === "dead") return false;
     const expected = extra?.expectedStates;
+    if (extra?.claimToken) {
+      const placeholders = (expected?.length ? expected : ["claimed", "sending", "uncertain"]).map(() => "?").join(",");
+      const result = this.db
+        .prepare(
+          `UPDATE outbox SET state=?, attempts=?, next_attempt_at=?${
+            extra.workerId ? ", worker_id=?" : ""
+          } WHERE outbox_id=? AND claim_token=? AND state IN (${placeholders})`,
+        )
+        .run(
+          ...(extra.workerId
+            ? [state, attempts, nextAttemptAt, extra.workerId, outboxId, extra.claimToken, ...(expected ?? ["claimed", "sending", "uncertain"])]
+            : [state, attempts, nextAttemptAt, outboxId, extra.claimToken, ...(expected ?? ["claimed", "sending", "uncertain"])]),
+        );
+      return Number(result.changes) > 0;
+    }
     if (expected?.length) {
       const placeholders = expected.map(() => "?").join(",");
       const result = this.db
@@ -1070,6 +1102,7 @@ export class Store {
       ...(row.worker_id ? { workerId: String(row.worker_id) } : {}),
       ...(row.lease_until !== undefined ? { leaseUntil: Number(row.lease_until) } : {}),
       ...(row.vendor_idempotency_key ? { vendorIdempotencyKey: String(row.vendor_idempotency_key) } : {}),
+      ...(row.claim_token ? { claimToken: String(row.claim_token) } : {}),
       fragmentIndex: Number(row.fragment_index),
       fragmentCount: Number(row.fragment_count),
     };

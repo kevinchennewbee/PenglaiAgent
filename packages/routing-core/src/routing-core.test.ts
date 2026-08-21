@@ -465,7 +465,8 @@ test("R1-STATE-013 restart does not resend delivered", async () => {
   });
   h.plane.onAssistantFinal({ sessionId: "sess1", turnId: "8", text: "ok" });
   const item = h.store.pendingOutbox(routeId)[0]!;
-  h.plane.markDelivered(item.outboxId);
+  const claim = h.plane.markSending(item.outboxId, "test-worker");
+  h.plane.markDelivered(item.outboxId, claim);
   assert.equal(h.plane.dueOutbox(routeId).length, 0);
 });
 
@@ -692,8 +693,9 @@ test("R1-STATE-003/004 duplicate final and ack are idempotent", async () => {
   const n = h.store.db.prepare("SELECT COUNT(*) AS c FROM outbox").get() as { c: number };
   assert.equal(Number(n.c), 1);
   const item = h.store.pendingOutbox(routeId)[0]!;
-  h.plane.markDelivered(item.outboxId);
-  h.plane.markDelivered(item.outboxId);
+  const claim = h.plane.markSending(item.outboxId, "test-worker");
+  h.plane.markDelivered(item.outboxId, claim);
+  h.plane.markDelivered(item.outboxId, claim);
   assert.equal(h.store.getOutbox(item.outboxId)?.state, "delivered");
 });
 

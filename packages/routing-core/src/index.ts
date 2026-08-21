@@ -1391,26 +1391,31 @@ export class RoutingControlPlane {
     this.store.audit("desktop_turn", { sessionId, turnId }, this.clock.now());
   }
 
-  markSending(outboxId: string, workerId = "local"): void {
+  markSending(outboxId: string, workerId = "local"): string | undefined {
     const item = this.store.getOutbox(outboxId);
-    if (!item) return;
-    if (item.state === "delivered" || item.state === "dead") return;
+    if (!item) return undefined;
+    if (item.state === "delivered" || item.state === "dead") return undefined;
     const claimed =
-      item.state === "claimed" && item.workerId === workerId
+      item.state === "claimed" && item.workerId === workerId && item.claimToken
         ? item
         : this.store.claimOutbox({ outboxId, workerId, now: this.clock.now() });
-    if (!claimed) return;
-    this.store.setOutboxState(outboxId, "sending", claimed.attempts, claimed.nextAttemptAt, {
+    if (!claimed?.claimToken) return undefined;
+    const ok = this.store.setOutboxState(outboxId, "sending", claimed.attempts, claimed.nextAttemptAt, {
       expectedStates: ["claimed"],
       workerId,
+      claimToken: claimed.claimToken,
     });
+    return ok ? claimed.claimToken : undefined;
   }
 
-  markDelivered(outboxId: string): void {
+  markDelivered(outboxId: string, claimToken?: string): void {
     const existing = this.store.getOutbox(outboxId);
     if (existing?.state === "delivered") return;
+    const token = claimToken ?? existing?.claimToken;
+    if (!token) return;
     const ok = this.store.setOutboxState(outboxId, "delivered", existing?.attempts ?? 0, this.clock.now(), {
-      expectedStates: ["pending", "retryable", "claimed", "sending", "uncertain"],
+      expectedStates: ["sending", "claimed"],
+      claimToken: token,
     });
     if (!ok) return;
     const item = this.store.getOutbox(outboxId);
@@ -1419,19 +1424,27 @@ export class RoutingControlPlane {
     }
   }
 
-  markSendResult(outboxId: string, result: "delivered" | "transient" | "permanent" | "auth"): void {
+  markSendResult(outboxId: string, result: "delivered" | "transient" | "permanent" | "auth", claimToken?: string): void {
     const item = this.store.getOutbox(outboxId);
     if (!item) return;
+    const token = claimToken ?? item.claimToken;
     if (result === "delivered") {
-      this.markDelivered(outboxId);
+      this.markDelivered(outboxId, token);
       return;
     }
+    if (item.state === "delivered" || item.state === "dead") return;
     if (result === "auth") {
-      this.store.setOutboxState(outboxId, "retryable", item.attempts, this.clock.now() + 86_400_000);
+      this.store.setOutboxState(outboxId, "retryable", item.attempts, this.clock.now() + 86_400_000, {
+        expectedStates: ["pending", "claimed", "sending", "uncertain"],
+        ...(token ? { claimToken: token } : {}),
+      });
       return;
     }
     if (result === "permanent") {
-      this.store.setOutboxState(outboxId, "dead", item.attempts + 1, this.clock.now());
+      this.store.setOutboxState(outboxId, "dead", item.attempts + 1, this.clock.now(), {
+        expectedStates: ["pending", "claimed", "sending", "uncertain", "retryable"],
+        ...(token ? { claimToken: token } : {}),
+      });
       this.store.setInboundState(item.inboundId, "dead");
       return;
     }
@@ -1439,6 +1452,7 @@ export class RoutingControlPlane {
     if (attempts >= CONFIG.outboxMaxAttempts) {
       this.store.setOutboxState(outboxId, "dead", attempts, this.clock.now(), {
         expectedStates: ["claimed", "sending", "uncertain", "retryable"],
+        ...(token ? { claimToken: token } : {}),
       });
       this.store.setInboundState(item.inboundId, "dead");
       return;
@@ -1446,6 +1460,7 @@ export class RoutingControlPlane {
     const backoff = CONFIG.outboxBaseBackoffMs * 2 ** (attempts - 1);
     this.store.setOutboxState(outboxId, "uncertain", attempts, this.clock.now() + backoff, {
       expectedStates: ["claimed", "sending"],
+      ...(token ? { claimToken: token } : {}),
     });
   }
 
@@ -1472,7 +1487,10 @@ export class RoutingControlPlane {
     } catch {
       const items = this.store.pendingOutbox(routeId);
       for (const item of items) {
-        this.markSendResult(item.outboxId, "permanent");
+        this.store.setOutboxState(item.outboxId, "dead", item.attempts + 1, this.clock.now(), {
+          expectedStates: ["pending", "retryable", "claimed", "sending", "uncertain"],
+        });
+        this.store.setInboundState(item.inboundId, "dead");
         this.store.audit("outbox_fail_closed_no_vendor_target", { outboxId: item.outboxId, routeId }, this.clock.now());
       }
       return items.length;

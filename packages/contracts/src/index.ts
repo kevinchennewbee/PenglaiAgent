@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 export * from "./i18n.js";
 export * from "./typert.js";
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 export const RELEASE = "0.5.1";
 
 export const CONFIG = Object.freeze({
@@ -158,6 +158,7 @@ export interface OutboxItem {
   workerId?: string;
   leaseUntil?: number;
   vendorIdempotencyKey?: string;
+  claimToken?: string;
 }
 
 export interface AgentLease {
