@@ -91,6 +91,19 @@ test("Windows native host is unavailable on this runner and fail-closed", () => 
   }
 });
 
+test("installed Windows helper resolves only through the exact packaged app root", () => {
+  const appRoot = mkdtempSync(join(tmpdir(), "penglai-win-app-root-"));
+  const helper = join(appRoot, "runtime", "helpers", "penglai-windows-host.exe");
+  mkdirSync(join(appRoot, "runtime", "helpers"), { recursive: true });
+  writeFileSync(helper, "fixture");
+  assert.equal(resolveWindowsHostExecutable(appRoot), helper);
+  assert.equal(requireWindowsNativeHost("win32", appRoot), helper);
+  const inspection = deletionInspectionOptionsForPlatform("win32", { appRoot });
+  assert.equal(inspection.platform, "win32");
+  assert.equal(typeof inspection.ownerProbe, "function");
+  assert.equal(typeof inspection.reparseProbe, "function");
+});
+
 test("Windows deletion inspection refuses missing owner and reparse probes", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-win-del-"));
   const plan = buildDeletionPlan({

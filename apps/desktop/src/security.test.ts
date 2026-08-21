@@ -55,6 +55,9 @@ test("renderer lifecycle surface has no arbitrary installer URL path or delete p
   assert.match(main, /operationId: `del_/);
   assert.match(main, /writeWindowsDeletionCapability/);
   assert.match(main, /deletionInspectionOptionsForPlatform/);
+  assert.match(main, /ensurePrivateHome\(user, layout\.appRoot\)/);
+  assert.match(main, /deletionInspectionOptionsForPlatform\(platform, \{ appRoot: layout\.appRoot \}\)/);
+  assert.ok(main.indexOf("const layout = layoutFromResources(resources)") < main.indexOf("ensurePrivateHome(user, layout.appRoot)"));
   assert.doesNotMatch(center, /openVerifiedInstaller|planUninstall|__PENGLAI_VERIFIED_INSTALL_OPERATION/);
   assert.match(center, /DELETE PENGLAI DATA/);
   assert.match(center, /confirmPluginAction/);
