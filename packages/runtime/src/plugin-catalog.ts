@@ -64,7 +64,7 @@ export interface EmbeddedPluginManifest {
 
 const TARGETS = [...PRODUCT_PLUGIN_TARGETS];
 const common = {
-  version: "0.5.0",
+  version: "0.5.1",
   dsh: { exact: PINNED_PLUGIN_DSH },
   platforms: TARGETS,
   source: "bundled-first-party" as const,
@@ -78,7 +78,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/plugin-center",
-      packageFile: "penglai-plugin-center-0.5.0.tgz",
+      packageFile: "penglai-plugin-center-0.5.1.tgz",
       capabilities: ["settings-ui", "catalog", "profile-transaction"],
       permissions: ["profile-write"],
       defaultEnabled: true,
@@ -88,7 +88,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/im",
-      packageFile: "penglai-im-0.5.0.tgz",
+      packageFile: "penglai-im-0.5.1.tgz",
       capabilities: ["settings-ui", "im-weixin", "im-feishu", "private-voice"],
       permissions: ["credentials-service", "local-database", "outbound-network"],
       defaultEnabled: false,
@@ -98,7 +98,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/plugin-reference",
-      packageFile: "penglai-plugin-reference-0.5.0.tgz",
+      packageFile: "penglai-plugin-reference-0.5.1.tgz",
       capabilities: ["platform-proof"],
       permissions: [],
       defaultEnabled: false,
@@ -108,7 +108,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/asr",
-      packageFile: "penglai-asr-0.5.0.tgz",
+      packageFile: "penglai-asr-0.5.1.tgz",
       capabilities: ["settings-ui", "local-asr", "model-manager"],
       permissions: ["microphone", "local-model"],
       defaultEnabled: false,
@@ -118,7 +118,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/moss-tts",
-      packageFile: "penglai-moss-tts-0.5.0.tgz",
+      packageFile: "penglai-moss-tts-0.5.1.tgz",
       capabilities: ["settings-ui", "local-tts", "model-manager"],
       permissions: ["local-model", "audio-output"],
       defaultEnabled: false,
@@ -128,7 +128,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/context",
-      packageFile: "penglai-context-0.5.0.tgz",
+      packageFile: "penglai-context-0.5.1.tgz",
       capabilities: ["authorized-context", "source-cards"],
       permissions: ["local-index", "authorized-files-read"],
       defaultEnabled: false,
@@ -138,7 +138,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/memory",
-      packageFile: "penglai-memory-0.5.0.tgz",
+      packageFile: "penglai-memory-0.5.1.tgz",
       capabilities: ["layered-memory", "official-skill-promotion"],
       permissions: ["local-memory", "official-skill-write"],
       defaultEnabled: false,
@@ -148,7 +148,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/budget",
-      packageFile: "penglai-budget-0.5.0.tgz",
+      packageFile: "penglai-budget-0.5.1.tgz",
       capabilities: ["token-budget", "pre-invocation-gate"],
       permissions: ["token-meter", "model-invocation-gate"],
       defaultEnabled: false,
@@ -158,7 +158,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/companion",
-      packageFile: "penglai-companion-0.5.0.tgz",
+      packageFile: "penglai-companion-0.5.1.tgz",
       capabilities: ["proactive-companion", "schedule-composition"],
       permissions: ["schedule", "dedicated-agent", "im-send"],
       defaultEnabled: false,

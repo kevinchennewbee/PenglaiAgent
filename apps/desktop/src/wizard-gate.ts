@@ -19,7 +19,41 @@ export function onboardingLedgerComplete(userRoot: string): boolean {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
     const rec = raw as Record<string, unknown>;
     if (rec.schema !== undefined && rec.schema !== 2) return false;
-    return rec.current === "COMPLETE";
+    if (rec.current !== "COMPLETE") return false;
+    return onboardingFactsProveReady(join(userRoot, "onboarding"));
+  } catch {
+    return false;
+  }
+}
+
+export function onboardingFactsProveReady(dir: string): boolean {
+  const path = join(dir, "onboarding-facts.json");
+  if (!existsSync(path)) return false;
+  let st;
+  try {
+    st = lstatSync(path);
+  } catch {
+    return false;
+  }
+  if (!st.isFile() || st.isSymbolicLink()) return false;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const selection = raw.selection as { provider?: unknown; model?: unknown } | undefined;
+    const apiTest = raw.apiTest as { nonceDigest?: unknown; finalDigest?: unknown; sessionId?: unknown } | undefined;
+    return Boolean(
+      typeof selection?.provider === "string" &&
+        selection.provider &&
+        typeof selection.model === "string" &&
+        selection.model &&
+        typeof raw.credentialRef === "string" &&
+        raw.credentialRef &&
+        typeof raw.workspaceId === "string" &&
+        raw.workspaceId &&
+        typeof apiTest?.nonceDigest === "string" &&
+        /^[0-9a-f]{64}$/.test(apiTest.nonceDigest) &&
+        typeof apiTest.finalDigest === "string" &&
+        /^[0-9a-f]{64}$/.test(apiTest.finalDigest),
+    );
   } catch {
     return false;
   }

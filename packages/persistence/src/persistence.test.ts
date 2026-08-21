@@ -50,7 +50,7 @@ test("cursor persist and event dedupe refuse tenant mismatch", () => {
 
 test("schema 6 exposes guards, sending recovery, and durable dispatch mode", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 9);
+  assert.equal(store.schemaVersion(), 10);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putGuard("r1", { pairingAttempts: 2, pairingLockedUntil: 9, rateWindowStart: 1, rateCount: 3 });
   assert.equal(store.getGuard("r1").pairingAttempts, 2);
@@ -108,7 +108,7 @@ test("schema 5 persists binding voice policy and resumable opaque voice jobs", (
 
 test("schema 8 persists pending IM menus and expires them", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 9);
+  assert.equal(store.schemaVersion(), 10);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putPendingMenu("r1", {
     kind: "projects",
@@ -126,7 +126,7 @@ test("schema 8 persists pending IM menus and expires them", () => {
 
 test("schema 7 lets WeChat and Feishu share one official default session", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 9);
+  assert.equal(store.schemaVersion(), 10);
   const unique = store.db
     .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='bindings_active_session'")
     .get() as { name?: string } | undefined;
@@ -154,5 +154,44 @@ test("schema 7 lets WeChat and Feishu share one official default session", () =>
   });
   assert.equal(store.activeBinding("wx")?.sessionId, "sess1");
   assert.equal(store.activeBinding("fs")?.sessionId, "sess1");
+  store.close();
+});
+
+test("P51-IM-001 outbox claim is exclusive", () => {
+  const store = new Store(":memory:");
+  store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
+  store.insertInbound(
+    {
+      inboundId: "in1",
+      adapterMessageKey: "k1",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "text",
+      redactedDigest: "d",
+      state: "outbox_pending",
+    },
+    "hi",
+    1,
+  );
+  store.insertOutbox({
+    outboxId: "out1",
+    routeId: "r1",
+    inboundId: "in1",
+    turnId: "t1",
+    sequence: 1,
+    payloadKind: "text",
+    payloadRef: "r",
+    payloadText: "hi",
+    state: "pending",
+    attempts: 0,
+    nextAttemptAt: 1,
+    fragmentIndex: 0,
+    fragmentCount: 1,
+  });
+  const first = store.claimOutbox({ outboxId: "out1", workerId: "w1", now: 10 });
+  const second = store.claimOutbox({ outboxId: "out1", workerId: "w2", now: 10 });
+  assert.equal(first?.workerId, "w1");
+  assert.equal(second, undefined);
+  assert.equal(store.getOutbox("out1")?.state, "claimed");
   store.close();
 });

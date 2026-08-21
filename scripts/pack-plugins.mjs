@@ -42,7 +42,7 @@ const effectiveTarget = targetArg ?? (localTarget && ALLOWED_TARGETS.has(localTa
 mkdirSync(dest, { recursive: true });
 mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });
 
-const PRODUCT_VERSION = "0.5.0";
+const PRODUCT_VERSION = "0.5.1";
 const FORBIDDEN = ["@penglai/credentials-keychain", "@penglai/plugin-smoke"];
 
 const packs = [

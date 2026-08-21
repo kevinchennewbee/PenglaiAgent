@@ -22,7 +22,7 @@ import {
 const TARGET = "darwin-aarch64";
 const CURRENT = "0.5.0";
 const NEXT = "0.5.1-test.1";
-const MANIFEST_URL = "https://updates.penglai.example/desktop-v0.5/latest.json";
+const MANIFEST_URL = "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/update-manifest-v1.json";
 const MANIFEST_SIGNATURE_URL = `${MANIFEST_URL}.sig`;
 
 interface SignedFixture {
@@ -56,7 +56,7 @@ function signedFixture(version = NEXT): SignedFixture {
     version,
     minimumVersion: CURRENT,
     publishedAt: "2026-08-17T00:00:00.000Z",
-    notesUrl: `https://github.com/example/penglai/releases/tag/v${version}`,
+    notesUrl: `https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v${version}`,
     signatureKeyId: identity.keyId,
     candidateSourceSha: "a".repeat(64),
     publicExportTreeSha256: "b".repeat(64),
@@ -72,7 +72,7 @@ function signedFixture(version = NEXT): SignedFixture {
         target: TARGET,
         kind: "dmg",
         version,
-        url: `https://github.com/example/penglai/releases/download/v${version}/Penglai_${version}_macos_aarch64.dmg`,
+        url: `https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v${version}/Penglai_${version}_macos_aarch64.dmg`,
         sha256: payloadSha,
         signature: sign(null, payload, identity.privateKey).toString("base64"),
         size: payload.length,

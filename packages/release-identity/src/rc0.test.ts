@@ -248,7 +248,7 @@ test("GitHub Actions is UNAVAILABLE", () => {
 });
 
 test("product version is 0.5.0 and registry count matches the document", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.0");
+  assert.equal(PRODUCT_VERSION, "0.5.1");
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const ids = parseAcceptanceIds(md);
   const entries = assertRegistryConsistent(md);

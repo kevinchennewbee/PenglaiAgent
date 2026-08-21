@@ -12,7 +12,7 @@ import {
 } from "./service.js";
 
 export type CompanionDispatchState =
-  "claimed" | "turn_running" | "suppressed" | "failed" | "outbox_queued";
+  "claimed" | "turn_running" | "suppressed" | "failed" | "outbox_queued" | "uncertain";
 
 export interface CompanionScheduleRow {
   localId: string;
@@ -137,7 +137,7 @@ export class CompanionStore {
         final_digest TEXT,
         outbox_refs_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL,
-        UNIQUE(session_id,turn_no)
+        UNIQUE(trigger_id)
       );
       CREATE TABLE IF NOT EXISTS companion_clock(
         singleton INTEGER PRIMARY KEY CHECK(singleton=1),
@@ -149,10 +149,36 @@ export class CompanionStore {
       .get() as { version: number | null };
     if (!version.version)
       this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
-    if (version.version !== null && version.version > 2)
+    if (version.version !== null && version.version > 3)
       throw new PenglaiError("STORE_CORRUPT", "newer companion schema");
     if (version.version === 1)
       this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
+    if (version.version === 2) {
+      this.db.exec(`
+        CREATE TABLE companion_dispatch_v3 (
+          trigger_id TEXT PRIMARY KEY,
+          official_id TEXT NOT NULL,
+          trigger_class TEXT NOT NULL,
+          occurrence_at TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          turn_no INTEGER NOT NULL,
+          policy_revision INTEGER NOT NULL,
+          state TEXT NOT NULL,
+          outcome_code TEXT,
+          route_id TEXT,
+          day TEXT,
+          final_digest TEXT,
+          outbox_refs_json TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        INSERT INTO companion_dispatch_v3 SELECT
+          trigger_id,official_id,trigger_class,occurrence_at,session_id,turn_no,policy_revision,state,outcome_code,route_id,day,final_digest,outbox_refs_json,updated_at
+        FROM companion_dispatch;
+        DROP TABLE companion_dispatch;
+        ALTER TABLE companion_dispatch_v3 RENAME TO companion_dispatch;
+        INSERT INTO schema_meta(version) VALUES (3);
+      `);
+    }
     this.db
       .prepare(
         `INSERT OR IGNORE INTO companion_config(

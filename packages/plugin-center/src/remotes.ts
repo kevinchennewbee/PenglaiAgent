@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, t } from "@penglai/contracts";
+import { verifySignedCatalog } from "@penglai/plugin-registry";
 import { type PluginCatalogEntry } from "@penglai/runtime";
 import {
   rollbackLastGood,
@@ -46,6 +47,7 @@ export interface CenterRemote {
   disable(id: string): Promise<unknown>;
   update(id: string): Promise<unknown>;
   rollback(id: string): Promise<unknown>;
+  refreshRegistry(input?: { url?: string; json?: unknown; signature?: Buffer; publicKeyHex?: string; signingKeyId?: string }): unknown;
 }
 
 function catalogEntry(
@@ -178,6 +180,26 @@ export function createCenterRemote(opts: {
     update(id: string) {
       return transact(id, "update");
     },
+    refreshRegistry(input?: { url?: string; json?: unknown; signature?: Buffer; publicKeyHex?: string; signingKeyId?: string }) {
+      if (input?.url) {
+        throw new PenglaiError("SECURITY_POLICY", "arbitrary catalog URL is not an install source");
+      }
+      const disclaimer = {
+        sandbox: false,
+        sharedProcess: t("en", "pluginSharedProcess"),
+        noArbitraryInstall: t("en", "pluginNoArbitraryInstall"),
+      };
+      if (input?.json && input.signature && input.publicKeyHex && input.signingKeyId) {
+        const verified = verifySignedCatalog({
+          json: input.json,
+          signature: input.signature,
+          publicKeyHex: input.publicKeyHex,
+          signingKeyId: input.signingKeyId,
+        });
+        return { ...disclaimer, digest: verified.digest, sequence: verified.catalog.sequence };
+      }
+      return { ...disclaimer, source: "bundled-first-party" };
+    },
     async rollback(id: string) {
       catalogEntry(opts.catalog, id);
       const enabled = previousEnabledFromJournal(opts.txDir, id);
@@ -228,4 +250,8 @@ export class PenglaiCenterRemote extends TypertRemoteService {
     return this.impl.rollback(input.id);
   }
 
+  @Remote
+  refreshRegistry() {
+    return this.impl.refreshRegistry();
+  }
 }

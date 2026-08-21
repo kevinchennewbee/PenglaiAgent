@@ -169,6 +169,22 @@ test("Context client registers a real official settings tab", () => {
   assert.doesNotMatch(source, /type: "text"[^\n]+requestedPath/);
 });
 
+test("P51-AUTH-001 model workspace_id cannot choose another Workspace", async () => {
+  const { boundWorkspaceId } = await import("./index.js");
+  const ctx = {
+    workspaceRegistry: {
+      list: () => [
+        { id: "ws-current", sessionIds: ["sess-1"] },
+        { id: "ws-other", sessionIds: ["sess-2"] },
+      ],
+    },
+  };
+  assert.equal(boundWorkspaceId(ctx, { sessionId: "sess-1" }), "ws-current");
+  assert.equal(boundWorkspaceId(ctx, { sessionId: "sess-2" }), "ws-other");
+  assert.throws(() => boundWorkspaceId(ctx, {}), /session binding/);
+  assert.throws(() => boundWorkspaceId(ctx, { sessionId: "forged" }), /not bound/);
+});
+
 test("production Context apply refuses an in-memory fallback", () => {
   const previous = process.env.PENGLAI_USER_DATA;
   delete process.env.PENGLAI_USER_DATA;

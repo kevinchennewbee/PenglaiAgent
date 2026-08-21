@@ -1,0 +1,10 @@
+{
+  "productVersion": "0.5.1",
+  "candidateKind": "public-publication-candidate",
+  "trustTier": "community-verified",
+  "generationId": "penglai-dsh-v0.5",
+  "node": "22.22.2",
+  "pnpm": "10.14.0",
+  "dsh": "0.1.0-rc.8",
+  "electron": "43.4.0"
+}

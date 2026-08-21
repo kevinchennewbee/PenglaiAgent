@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 export * from "./i18n.js";
 export * from "./typert.js";
 
-export const SCHEMA_VERSION = 9;
-export const RELEASE = "0.5.0";
+export const SCHEMA_VERSION = 10;
+export const RELEASE = "0.5.1";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -71,7 +71,14 @@ export type InboundState =
   | "delivered"
   | "dead";
 
-export type OutboxState = "pending" | "sending" | "retryable" | "delivered" | "dead";
+export type OutboxState =
+  | "pending"
+  | "claimed"
+  | "sending"
+  | "retryable"
+  | "uncertain"
+  | "delivered"
+  | "dead";
 
 export type BodyKind = "text" | "voice" | "control";
 
@@ -148,6 +155,9 @@ export interface OutboxItem {
   nextAttemptAt: number;
   fragmentIndex: number;
   fragmentCount: number;
+  workerId?: string;
+  leaseUntil?: number;
+  vendorIdempotencyKey?: string;
 }
 
 export interface AgentLease {

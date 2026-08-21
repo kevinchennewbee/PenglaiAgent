@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
@@ -213,13 +214,54 @@ export function parseDeletionPrepareRequest(value: unknown): DeletionPrepareRequ
   };
 }
 
-export function parseConfirmedRequest(value: unknown): { confirmed: true } {
-  const input = record(value);
-  exactKeys(input, ["confirmed"]);
-  if (input.confirmed !== true) {
-    throw new PenglaiError("SECURITY_POLICY", "explicit confirmation is required");
+export interface OwnerCapability {
+  capabilityId: string;
+  action: string;
+  digest: string;
+  expiresAt: number;
+}
+
+const issuedCapabilities = new Map<string, OwnerCapability>();
+
+export function issueOwnerCapability(input: {
+  action: string;
+  summary: string;
+  now?: number;
+  ttlMs?: number;
+}): OwnerCapability {
+  const now = input.now ?? Date.now();
+  const capability: OwnerCapability = {
+    capabilityId: `owncap_${randomBytes(16).toString("hex")}`,
+    action: input.action,
+    digest: createHash("sha256").update(input.summary).digest("hex"),
+    expiresAt: now + (input.ttlMs ?? 120_000),
+  };
+  issuedCapabilities.set(capability.capabilityId, capability);
+  return capability;
+}
+
+export function consumeOwnerCapability(input: {
+  capabilityId: string;
+  action: string;
+  summary: string;
+  now?: number;
+}): void {
+  const now = input.now ?? Date.now();
+  const found = issuedCapabilities.get(input.capabilityId);
+  issuedCapabilities.delete(input.capabilityId);
+  const digest = createHash("sha256").update(input.summary).digest("hex");
+  if (!found || found.action !== input.action || found.digest !== digest || found.expiresAt <= now) {
+    throw new PenglaiError("SECURITY_POLICY", "owner capability is invalid, expired, or already used");
   }
-  return { confirmed: true };
+}
+
+export function parseConfirmedRequest(value: unknown): { capabilityId: string } {
+  const input = record(value);
+  exactKeys(input, ["capabilityId"]);
+  if (typeof input.capabilityId !== "string" || !/^owncap_[a-f0-9]{32}$/.test(input.capabilityId)) {
+    throw new PenglaiError("SECURITY_POLICY", "native owner capability is required");
+  }
+  return { capabilityId: input.capabilityId };
 }
 
 export function parseOperationRequest(value: unknown, requireConfirmed = false): {

@@ -108,11 +108,19 @@ function immutableHttpsUrl(value: unknown, label: string, allowCanonicalLatest =
   return parsed;
 }
 
-export function assertCanonicalManifestUrl(actual: string, canonical: string): void {
-  const got = immutableHttpsUrl(actual, "manifest", true);
-  const expected = immutableHttpsUrl(canonical, "canonical manifest", true);
-  if (got.href !== expected.href) {
-    throw new PenglaiError("SECURITY_POLICY", "non-canonical update manifest URL");
+export function assertCanonicalManifestUrl(actual: string, canonical?: string): void {
+  const got = immutableHttpsUrl(actual, "manifest", false);
+  if (got.hostname !== "github.com" && got.hostname !== "api.github.com") {
+    throw new PenglaiError("SECURITY_POLICY", "non-canonical update manifest host");
+  }
+  if (!got.pathname.includes("/kevinchennewbee/PenglaiAgent/releases/")) {
+    throw new PenglaiError("SECURITY_POLICY", "non-canonical update manifest path");
+  }
+  if (canonical) {
+    const expected = immutableHttpsUrl(canonical, "canonical manifest", false);
+    if (got.href !== expected.href) {
+      throw new PenglaiError("SECURITY_POLICY", "non-canonical update manifest URL");
+    }
   }
 }
 

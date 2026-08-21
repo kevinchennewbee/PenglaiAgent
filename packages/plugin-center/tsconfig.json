@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "references": [{ "path": "../contracts" }, { "path": "../runtime" }],
+  "references": [{ "path": "../contracts" }, { "path": "../runtime" }, { "path": "../plugin-registry" }],
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/loopback-llm.ts", "src/usable-fixture.ts"]
 }

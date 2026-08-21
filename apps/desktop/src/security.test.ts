@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { assertSafeListenHost, PenglaiError } from "@penglai/contracts";
 import { assertIpcName, navigationDecision, officialVendorConsoleDecision } from "./preload.js";
+import { productionDebuggerForbidden } from "./production-flags.js";
 
 test("R1-DESK-010 renderer has no node integration API surface", () => {
   assert.equal(assertIpcName("require"), false);
@@ -63,4 +64,10 @@ test("Context folder selection returns an opaque capability instead of a rendere
   assert.match(capability, /ctxpick_/);
   assert.match(capability, /mode: 0o600/);
   assert.doesNotMatch(preload, /readContextPath|indexDirectory/);
+});
+
+test("P51-DESKTOP-002 packaged production refuses remote debugging switches", () => {
+  assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], true), true);
+  assert.equal(productionDebuggerForbidden(["--inspect"], true), true);
+  assert.equal(productionDebuggerForbidden(["--remote-debugging-port=9222"], false), false);
 });

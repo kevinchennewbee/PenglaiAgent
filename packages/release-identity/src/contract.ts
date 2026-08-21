@@ -16,6 +16,8 @@ export const EXACT_USER_INSTALLERS = RELEASE_TARGETS.map((t) => t.installer);
 
 export const EXACT_RELEASE_ASSETS = [
   ...EXACT_USER_INSTALLERS,
+  "update-manifest-v1.json",
+  "update-manifest-v1.json.sig",
   "release-manifest.json",
   "SBOM.cdx.json",
   "THIRD_PARTY_NOTICES.txt",
@@ -100,8 +102,8 @@ export function assertCanonicalUpdaterManifestUrl(url: string, signature = false
     throw new PenglaiError("INVALID_INPUT", "invalid updater manifest URL");
   }
   const expectedPath = signature
-    ? "/kevinchennewbee/PenglaiAgent/releases/download/desktop-v0.5/latest.json.sig"
-    : "/kevinchennewbee/PenglaiAgent/releases/download/desktop-v0.5/latest.json";
+    ? "/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/update-manifest-v1.json.sig"
+    : "/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/update-manifest-v1.json";
   if (
     parsed.protocol !== "https:" ||
     parsed.hostname !== "github.com" ||
@@ -109,9 +111,10 @@ export function assertCanonicalUpdaterManifestUrl(url: string, signature = false
     parsed.password ||
     parsed.search ||
     parsed.hash ||
-    parsed.pathname !== expectedPath
+    parsed.pathname !== expectedPath ||
+    /(^|[/_.-])latest([/_.-]|$)/i.test(parsed.pathname)
   ) {
-    throw new PenglaiError("SECURITY_POLICY", "updater manifest URL is not canonical desktop-v0.5 HTTPS");
+    throw new PenglaiError("SECURITY_POLICY", "updater manifest URL is not canonical PUDP/1 HTTPS");
   }
 }
 
@@ -148,9 +151,9 @@ export function assertReleaseContract(raw: unknown): ReleaseContract {
   const pub = raw.publication;
   if (!isRecord(pub)) throw new PenglaiError("INVALID_INPUT", "publication");
   if (pub.repo !== "kevinchennewbee/PenglaiAgent") throw new PenglaiError("SECURITY_POLICY", "publication.repo");
-  if (pub.tag !== "v0.5.0") throw new PenglaiError("SECURITY_POLICY", "publication.tag");
-  if (pub.release !== "v0.5.0") throw new PenglaiError("SECURITY_POLICY", "publication.release");
-  if (pub.channel !== "NOT_PUBLISHED_0_5_0") throw new PenglaiError("SECURITY_POLICY", "publication.channel");
+  if (pub.tag !== "v0.5.1") throw new PenglaiError("SECURITY_POLICY", "publication.tag");
+  if (pub.release !== "v0.5.1") throw new PenglaiError("SECURITY_POLICY", "publication.release");
+  if (pub.channel !== "NOT_PUBLISHED_0_5_1") throw new PenglaiError("SECURITY_POLICY", "publication.channel");
   if (!Array.isArray(raw.targets) || raw.targets.length !== RELEASE_TARGETS.length) {
     throw new PenglaiError("INVALID_INPUT", "targets");
   }
