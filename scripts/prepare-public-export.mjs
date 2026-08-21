@@ -133,14 +133,28 @@ if (wantCleanRoom) {
       detail: String(extract.stderr || "").slice(-800),
     });
   }
-  const install = spawnSync("pnpm", ["install", "--frozen-lockfile", "--ignore-scripts"], {
+  const corepackCli = process.env.COREPACK_ROOT
+    ? join(process.env.COREPACK_ROOT, "dist", "corepack.js")
+    : "";
+  if (!corepackCli || !existsSync(corepackCli)) {
+    finish("FAIL", {
+      command: "prepare:public-export",
+      reason: "clean-room requires the Corepack CLI that launched the pinned pnpm",
+    });
+  }
+  const install = spawnSync(process.execPath, [corepackCli, "pnpm", "install", "--frozen-lockfile", "--ignore-scripts"], {
     cwd: dest,
     encoding: "utf8",
     env: { ...process.env },
   });
-  const typecheck = install.status === 0
-    ? spawnSync("pnpm", ["exec", "tsc", "-b", "--pretty", "false", "--force"], { cwd: dest, encoding: "utf8", env: { ...process.env } })
-    : null;
+  const typecheck =
+    install.status === 0
+      ? spawnSync(
+          process.execPath,
+          [join(dest, "node_modules", "typescript", "bin", "tsc"), "-b", "--pretty", "false", "--force"],
+          { cwd: dest, encoding: "utf8", env: { ...process.env } },
+        )
+      : null;
   const scriptCheck = spawnSync(process.execPath, ["--check", join(dest, "scripts/prepare-public-export.mjs")], {
     encoding: "utf8",
   });
@@ -156,7 +170,7 @@ if (wantCleanRoom) {
       install.status === 0 && (typecheck?.status ?? 1) === 0 && scriptCheck.status === 0
         ? "git-archive lock-only install and typecheck passed"
         : "clean-room install or typecheck failed",
-    installTail: String(install.stderr || install.stdout || "").slice(-800),
+    installTail: String(install.error || install.stderr || install.stdout || "").slice(-800),
   };
   if (install.status !== 0 || (typecheck && typecheck.status !== 0) || scriptCheck.status !== 0) {
     writeFileSync(join(ROOT, "evidence/generated/public-export.json"), JSON.stringify({
