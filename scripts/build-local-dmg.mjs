@@ -233,6 +233,24 @@ writeFileSync(
   ),
 );
 writeFileSync(
+  join(ROOT, `evidence/generated/local-installer-${expectedTarget}.json`),
+  JSON.stringify(
+    {
+      dmg: targetSpec.dmg,
+      sha256: hash,
+      sourceSha: head,
+      treeDirty: dirty,
+      signatureKind: "adhoc",
+      phase: "TARGET_BUILT",
+      installer: targetSpec.dmg.split("/").pop(),
+      target: expectedTarget,
+      publicExportTreeSha256: packagedBeforeSeal.release.publicExportTreeSha256,
+    },
+    null,
+    2,
+  ),
+);
+writeFileSync(
   join(ROOT, "evidence/generated/TARGET_BUILT.json"),
   JSON.stringify(
     {

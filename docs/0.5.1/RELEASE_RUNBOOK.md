@@ -10,7 +10,7 @@ Declared installers from one source SHA:
 - `Penglai_0.5.1_macos_x64.dmg`
 - `Penglai_0.5.1_windows_x64_setup.exe`
 
-Missing Intel/Windows native runners, PluginRegistry, immutable Releases, or key backup are **BLOCKED**, never native PASS. Do not push, tag, or publish until Owner freeze.
+The public Plugin Registry exists, both repositories have Immutable Releases enabled, and the embedded public-key fingerprints match the Owner key directory plus backup. Intel/Windows native runners and exact installed evidence remain **BLOCKED** until executed; none may be replaced by cross-build output. Do not tag or publish until Owner freeze.
 
 ## Local source gates
 
@@ -22,12 +22,16 @@ pnpm test:security
 pnpm verify:identity
 pnpm verify:contracts
 pnpm verify:clean-clone
+node scripts/verify-release-keys.mjs
 ```
 
-`package:mac --target darwin-x64` and `package:windows` must exit 4 on a non-matching host.
+`package:mac --target darwin-x64` and `package:windows` must exit 4 on a non-matching host. Before every native build, run `pnpm prepare:public-export` on the same clean `main` SHA.
 
 ## After Owner approval
 
-1. WIP branch + Draft PR only if the Owner asks to backup collaboration.
-2. Merge main only after review. Build the three artifacts from exact main.
-3. Draft GitHub Release readback; publish only when Hard evidence is PASS.
+1. Build Apple Silicon with `pnpm package:dmg:arm` on a native Apple Silicon Mac.
+2. Build Intel with `pnpm package:dmg:intel` on a native Intel Mac.
+3. From an x64 Native Tools Command Prompt with NSIS installed, build Windows with `pnpm package:windows`. This compiles the native helper, stamps `Penglai.exe`, creates Setup, reinstalls the exact Setup, and writes target-bound installer evidence.
+4. On each native runner, execute `test:e2e:installed`, `verify:installed`, and the two-hour `test:soak:installed` with the exact `PENGLAI_TARGET`; retain the target-specific evidence files.
+5. Aggregate the three native evidence sets and require `verify:installed --aggregate`, `verify:evidence`, and `verify:release` to PASS.
+6. Create draft GitHub Releases, attach all exact assets, and publish only after every Hard gate is PASS. Immutable Releases are effective when the draft is published; read them back afterward.

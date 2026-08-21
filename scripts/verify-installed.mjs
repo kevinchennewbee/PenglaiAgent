@@ -165,12 +165,22 @@ identity.recordAssertion({
 });
 identity.recordAssertion({
   ...common,
-  acceptanceId: "R50-MAC-009",
+  acceptanceId: target === "win32-x86_64" ? "R50-WIN-009" : "R50-MAC-009",
   runnerId: "installed",
   testId: "verify-installed",
   assertionId: "exact-installer-installed-suite",
   details: { safe: `${target} exact installer suite recorded official boot observations` },
 });
+if (target === "darwin-x86_64") {
+  identity.recordAssertion({
+    ...common,
+    acceptanceId: "R50-MAC-010",
+    runnerId: "installed",
+    testId: "verify-installed",
+    assertionId: "intel-native-runner",
+    details: { safe: "Intel installer evidence was recorded on a native darwin-x86_64 runner" },
+  });
+}
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-002",

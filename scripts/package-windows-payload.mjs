@@ -1,14 +1,29 @@
 #!/usr/bin/env node
 // Assemble win32-x86_64 NSIS payload. Native Setup PASS remains win32-x64 only.
-import { cpSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { ROOT } from "./lib/repo.mjs";
+import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 
 const staging = join(ROOT, "dist", "runtime-staging-win32-x86_64");
 const payload = join(staging, "payload");
 const native = process.platform === "win32" && process.arch === "x64";
+const git = gitState();
+const publicExportPath = join(ROOT, "evidence", "generated", "public-export.json");
+const publicExport = existsSync(publicExportPath) ? JSON.parse(readFileSync(publicExportPath, "utf8")) : null;
+if (
+  native &&
+  (git.branch !== "main" || git.head !== git.originMain || git.dirty ||
+    publicExport?.privateCandidateSourceSha !== git.head ||
+    publicExport?.treeDirty !== false ||
+    !/^[0-9a-f]{64}$/.test(String(publicExport?.publicExportTreeSha256 ?? "")))
+) {
+  finish("STALE", {
+    command: "package:windows-payload",
+    reason: "native Windows payload requires clean main at origin/main and current public export evidence",
+  });
+}
 
 function run(cmd, args, extra = {}) {
   const result = spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", stdio: "inherit", ...extra });
@@ -71,9 +86,19 @@ const electronDir = existsSync(join(dirname(electronRoot), "electron.exe"))
 cpSync(electronDir, payload, { recursive: true });
 const electronExe = join(payload, "electron.exe");
 const penglaiExe = join(payload, "Penglai.exe");
+const penglaiIcon = join(ROOT, "dist", "native-win32-x86_64", "Penglai.ico");
 if (existsSync(electronExe) && !existsSync(penglaiExe)) renameSync(electronExe, penglaiExe);
 if (!existsSync(penglaiExe) && !existsSync(join(payload, "Penglai.exe"))) {
   finish("FAIL", { command: "package:windows-payload", reason: "Penglai.exe missing after Electron copy" });
+}
+const stamped = run(process.execPath, [
+  "scripts/stamp-windows-exe.mjs",
+  penglaiExe,
+  join(ROOT, "overlays", "dsh-0.1.1-rc.1", "brand", "logo-256.png"),
+  penglaiIcon,
+]);
+if (stamped !== 0) {
+  finish("FAIL", { command: "package:windows-payload", reason: "Penglai.exe resource stamping failed" });
 }
 
 const resources = join(payload, "resources");
@@ -85,6 +110,38 @@ cpSync(join(staging, "plugins"), join(resources, "plugins"), { recursive: true }
 for (const name of ["runtime-manifest.json", "release-contract.json", ".closure-complete"]) {
   const src = join(staging, name);
   if (existsSync(src)) cpSync(src, join(resources, name === ".closure-complete" ? "closure-credential.json" : name));
+}
+if (native) {
+  writeFileSync(
+    join(resources, "release-info.json"),
+    `${JSON.stringify({
+      productName: "Penglai",
+      productVersion: "0.5.1",
+      buildNumber: 0,
+      candidateOrdinal: 0,
+      candidateKind: "public-publication-candidate",
+      trustTier: "community-verified",
+      generationId: "penglai-dsh-v0.5",
+      phase: "UNFROZEN",
+      sourceSha: git.head,
+      treeDirty: false,
+      targetPlatform: "win32-x64",
+      electron: "43.4.0",
+      node: "22.22.2",
+      embeddedNode: "22.22.2",
+      dsh: "0.1.1-rc.1",
+      profileSchema: 3,
+      catalogSchema: 2,
+      imSchema: 3,
+      schemaVersion: 2,
+      signed: false,
+      notarized: false,
+      authenticode: false,
+      signatureKind: "unsigned-nsis",
+      developerIdSigned: false,
+      publicExportTreeSha256: publicExport.publicExportTreeSha256,
+    }, null, 2)}\n`,
+  );
 }
 if (native && !existsSync(join(resources, "runtime", "helpers", "penglai-windows-host.exe"))) {
   finish("FAIL", { command: "package:windows-payload", reason: "payload is missing the compiled Windows helper" });
