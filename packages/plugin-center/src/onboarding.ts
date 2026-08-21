@@ -81,6 +81,8 @@ export const ONBOARDING_STEPS = [
   "model-provider-v1",
   "credential-v1",
   "model-test-v1",
+  "workspace-v1",
+  "first-turn-v1",
 ] as const;
 
 export const OFFICIAL_ONBOARDING_SLOT = "settings.onboarding" as const;
@@ -120,6 +122,7 @@ export interface OnboardingFacts {
   credentialRef?: string;
   apiTest?: { nonceDigest: string; sessionId: string; finalDigest: string };
   workspaceId?: string;
+  workspacePath?: string;
   firstConversation?: { sessionId: string; messageDigest: string; finalDigest: string };
 }
 
@@ -280,6 +283,22 @@ export function completeStepWithEvidence(
       })
     ) {
       throw new PenglaiError("INVALID_INPUT", "official nonce Turn required");
+    }
+  }
+  if (id === "workspace-v1") {
+    if (!evidence.workspaceId || evidence.workspaceWritable !== true) {
+      throw new PenglaiError("INVALID_INPUT", "official workspace required");
+    }
+  }
+  if (id === "first-turn-v1") {
+    if (
+      !canMarkConversationPassed({
+        ...(evidence.officialSessionId ? { sessionId: evidence.officialSessionId } : {}),
+        ...(evidence.durableFinalDigest ? { durableFinalDigest: evidence.durableFinalDigest } : {}),
+        ...(evidence.turnCompleted !== undefined ? { turnCompleted: evidence.turnCompleted } : {}),
+      })
+    ) {
+      throw new PenglaiError("INVALID_INPUT", "official first Turn required");
     }
   }
   return completeStep(state, id, token);
@@ -678,6 +697,7 @@ export function loadOnboardingFacts(dir: string): OnboardingFacts {
   }
   if (typeof raw.credentialRef === "string" && raw.credentialRef.length <= 256) facts.credentialRef = raw.credentialRef;
   if (typeof raw.workspaceId === "string" && raw.workspaceId.length <= 256) facts.workspaceId = raw.workspaceId;
+  if (typeof raw.workspacePath === "string" && raw.workspacePath.length <= 4096) facts.workspacePath = raw.workspacePath;
   if (
     raw.apiTest &&
     /^[0-9a-f]{64}$/.test(raw.apiTest.nonceDigest) &&

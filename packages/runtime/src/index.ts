@@ -761,6 +761,9 @@ export {
 
 export * from "./plugin-catalog.js";
 export * from "./safe-tar.js";
+export * from "./plugin-owner.js";
+export * from "./generation-migrate.js";
+export * from "./boot-revoke.js";
 
 export function processesMatching(marker: string): Array<{ pid: number; command: string }> {
   if (!marker || marker.length < 8) return [];

@@ -16,6 +16,7 @@ import {
   persistAppearanceToOfficialSettings,
   persistWelcomeAckToOfficialSettings,
   runOfficialNonceTurn,
+  runOfficialFirstConversation,
   onboardingApiTestCwd,
   releaseOnboardingTestWorkspaces,
   verifyWorkspaceInRegistry,
@@ -198,10 +199,24 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
         userDataRoot,
         installRoots,
       });
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        `workspace creation is not allowed from ${host.status().current}`,
-      );
+      if (host.status().current !== "workspace-v1") {
+        throw new PenglaiError(
+          "INVALID_INPUT",
+          `workspace creation is not allowed from ${host.status().current}`,
+        );
+      }
+      const registry = official().workspaceRegistry;
+      if (!registry?.create || !registry.list) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official workspace registry missing");
+      }
+      const created = await registry.create(input.path, title);
+      const found = verifyWorkspaceInRegistry(registry, created.id);
+      assertWritableWorkspace(found.path ?? input.path);
+      host.saveFacts({ workspaceId: found.id, workspacePath: found.path ?? input.path });
+      return host.advance("workspace-v1", {
+        workspaceId: found.id,
+        workspaceWritable: true,
+      });
     },
     async selectModel(input) {
       const state = host.status();
@@ -386,18 +401,61 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
       }));
     },
     recordWorkspace(input) {
-      void input;
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        `workspace selection is not allowed from ${host.status().current}`,
-      );
+      if (host.status().current !== "workspace-v1") {
+        throw new PenglaiError(
+          "INVALID_INPUT",
+          `workspace selection is not allowed from ${host.status().current}`,
+        );
+      }
+      const registry = official().workspaceRegistry;
+      const found = verifyWorkspaceInRegistry(registry, input.workspaceId);
+      assertWritableWorkspace(found.path);
+      host.saveFacts({ workspaceId: found.id, ...(found.path ? { workspacePath: found.path } : {}) });
+      return host.advance("workspace-v1", {
+        workspaceId: found.id,
+        workspaceWritable: true,
+      });
     },
     async runFirstConversation(input) {
-      void input;
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        `first conversation is not allowed from ${host.status().current}`,
-      );
+      if (host.status().current !== "first-turn-v1") {
+        throw new PenglaiError(
+          "INVALID_INPUT",
+          `first conversation is not allowed from ${host.status().current}`,
+        );
+      }
+      const facts = host.facts();
+      const cwd = facts.workspacePath;
+      if (!cwd) throw new PenglaiError("INVALID_INPUT", "official workspace path required");
+      const selection = facts.selection;
+      if (!selection?.provider || !selection.model) {
+        throw new PenglaiError("INVALID_INPUT", "provider and model selection required");
+      }
+      const result = await runOfficialFirstConversation(official(), {
+        message: input.message,
+        provider: selection.provider,
+        model: selection.model,
+        cwd,
+      });
+      if (!result.passed || !result.finalDigest) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official first Turn did not complete");
+      }
+      host.saveFacts({
+        firstConversation: {
+          sessionId: result.sessionId,
+          messageDigest: result.messageDigest,
+          finalDigest: result.finalDigest,
+        },
+      });
+      return {
+        passed: true,
+        sessionId: result.sessionId,
+        digest: result.finalDigest,
+        ...(host.advance("first-turn-v1", {
+          officialSessionId: result.sessionId,
+          durableFinalDigest: result.finalDigest,
+          turnCompleted: true,
+        }) as object),
+      };
     },
   };
 }

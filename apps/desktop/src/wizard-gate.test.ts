@@ -72,6 +72,7 @@ test("wizard URL stays on the authenticated proxy origin", () => {
 test("preload API includes wizardFinished and wizardPickFolder", () => {
   assert.ok(PRELOAD_API.includes("wizardFinished"));
   assert.ok(PRELOAD_API.includes("wizardPickFolder"));
+  assert.ok(PRELOAD_API.includes("confirmPluginAction"));
 });
 
 test("startup failure text redacts secret-shaped fragments", () => {

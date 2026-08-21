@@ -108,8 +108,8 @@ test("R50-ONB-005/006/007/008/009/010/012 fail-closed official evidence", () => 
   let state = emptyOnboarding();
   assert.throws(() => completeStepWithEvidence(state, "core-ready-v1", state.advanceToken, { nonce: "n" }));
 
-  assert.equal(ONBOARDING_STEPS.includes("workspace-v1"), false);
-  assert.equal(ONBOARDING_STEPS.includes("first-turn-v1"), false);
+  assert.equal(ONBOARDING_STEPS.includes("workspace-v1"), true);
+  assert.equal(ONBOARDING_STEPS.includes("first-turn-v1"), true);
   assert.equal(ONBOARDING_STEPS.includes("im-offer-v1"), false);
   const afterTest = stateAt([...ONBOARDING_STEPS]);
   assert.deepEqual(afterTest.completed, [...ONBOARDING_STEPS]);
