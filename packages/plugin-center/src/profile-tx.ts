@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
+  closeSync,
   cpSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
@@ -194,7 +197,16 @@ function walkArchiveFiles(root: string, rel = ""): ArchiveFile[] {
     return children.flatMap((name) => walkArchiveFiles(root, rel ? join(rel, name) : name));
   }
   if (!st.isFile()) return [];
-  return [{ path: rel.replaceAll("\\", "/"), kind: "file", data: readFileSync(abs) }];
+  const handle = openSync(abs, "r");
+  try {
+    const opened = fstatSync(handle);
+    if (!opened.isFile() || opened.dev !== st.dev || opened.ino !== st.ino) {
+      throw new PenglaiError("SECURITY_POLICY", "archive entry changed during inspection");
+    }
+    return [{ path: rel.replaceAll("\\", "/"), kind: "file", data: readFileSync(handle) }];
+  } finally {
+    closeSync(handle);
+  }
 }
 
 async function verifyExtractedPackage(

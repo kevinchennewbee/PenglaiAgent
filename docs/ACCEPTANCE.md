@@ -1,8 +1,8 @@
-# Penglai 0.5.0 Apple Silicon 公开版验收合同
+# Penglai 0.5.1 三端公开版验收合同
 
 ## 1. 判定对象与结论
 
-唯一验收对象是一个 exact private `Penglai 0.5.0` release set：同一 clean private source、同一 deterministic public-export tree、一个 Apple Silicon DMG、配套 manifests/SBOM/notices、Apple Silicon native installed evidence 和集中真实 live evidence。Intel macOS 与 Windows 属于后续路线，不进入本次 Hard registry 或 Release 资产集。
+唯一验收对象是一个 exact private `Penglai 0.5.1` release set：同一 clean private source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices、三个目标各自的 native installed/soak evidence 和集中真实 live evidence。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。
 
 允许结论：
 
@@ -14,13 +14,12 @@
 
 ## 2. Evidence 规则
 
-以下每一行都是 Hard。registry由本文机器动态解析；2026-08-20 将 Intel/Windows 项移入 Future registry 后，预期共 **242** 个唯一`R50-*` ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
+以下每一行都是 Hard。registry由本文机器动态解析；0.5.1 将 Intel Mac 与 Windows x64 纳入正式发行，预期共 **256** 个唯一`R50-*` ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
 
 平台标记：
 
-- `all`：当前 Apple Silicon target 适用，或平台无关自动门。
-- `mac-arm`：当前 exact native artifact。
-- `mac-x64`、`win-x64`：仅出现在 Future registry，不参与 0.5.0 PASS。
+- `all`：平台类门禁展开为全部三个目标；非平台类门禁只执行一次源码/聚合检查。
+- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.1 PASS。
 - `live`：真实账户最后集中执行。
 - `aggregate`：release-set/public-export聚合。
 
@@ -30,14 +29,14 @@
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.0 | contract/all |
-| `R50-TRUTH-002` | candidateKind、trustTier、generation、Apple Silicon target与exact filename一致 | contract/all |
+| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.1 | contract/all |
+| `R50-TRUTH-002` | candidateKind、trustTier、generation、三个target与三个exact filename一致 | contract/all |
 | `R50-TRUTH-003` | 旧alpha artifact/evidence/READY全部STALE并被verifier拒绝 | failure/all |
 | `R50-TRUTH-004` | UNFROZEN identity不得携带artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | private工作流只有main，无branch/worktree/PR/tag，push为fast-forward | git/aggregate |
 | `R50-TRUTH-006` | candidate freeze时HEAD=origin/main且dirty=false | git/aggregate |
 | `R50-TRUTH-007` | 任一子门FAIL/INCOMPLETE/STALE都使verify:release non-zero | fault/all |
-| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.0`，且0.5 updater channel未发布 | manifest/aggregate |
+| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.1`，且发布前updater channel保持未发布 | manifest/aggregate |
 
 ### B. DSH唯一核心与 capability parity（8）
 
@@ -62,7 +61,7 @@
 | `R50-UI-004` |light/dark/system三态覆盖全部Penglai UI | visual/all |
 | `R50-UI-005` |system主题运行时变化即时响应并持久 | installed/all |
 | `R50-UI-006` |品牌overlay不阻断DSH导航、Models、Workspace、Session、设置 | parity/all |
-| `R50-UI-007` |About显示0.5.0、DSH/target/trust/data/license准确 | installed/all |
+| `R50-UI-007` |About显示0.5.1、DSH/target/trust/data/license准确 | installed/all |
 | `R50-UI-008` |UI/README不出现已公证、Authenticode或silent auto-update误述 | content/aggregate |
 
 ### D. 首次引导、多API、Workspace与Turn（12）
@@ -90,7 +89,7 @@
 | `R50-CRED-002` |production provider为app-private credentials-local YAML | installed/all |
 | `R50-CRED-003` |renderer/Remote/network永远读不回明文 | security/all |
 | `R50-CRED-004` |macOS目录0700、文件0600、owner正确、原子写 | installed/mac-arm |
-| `FUTURE-CRED-005` |Windows DACL限当前用户/SYSTEM/必要管理员，无Users/Everyone读 | future/win-x64 |
+| `R50-CRED-005` |Windows DACL限当前用户/SYSTEM/必要管理员，无Users/Everyone读 | installed/win-x64 |
 | `R50-CRED-006` |Keychain/MemoryVault/env/SQLite/browser storage无生产fallback | artifact+security/all |
 | `R50-CRED-007` |backup/update/diagnostics/evidence不复制明文credential | security/all |
 | `R50-CRED-008` |0.4.1 credential不读取、不迁移、不删除 | legacy/all |
@@ -180,7 +179,7 @@
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-DIST-001` |release contract钉死Apple Silicon target、Electron/Node/DSH/download/hash | contract/all |
+| `R50-DIST-001` |release contract钉死三个target各自的Electron/Node/DSH/download/hash | contract/all |
 | `R50-DIST-002` |每target独立clean staging/cache/manifest，无交叉arch复用 | build/all |
 | `R50-DIST-003` |安全解包拒绝zip slip/symlink/case/reserved path | security/all |
 | `R50-DIST-004` |DSH/plugin closure从lock/packlist构建，不复制dev node_modules | closure/all |
@@ -191,35 +190,35 @@
 | `R50-DIST-009` |bundle含integrity/licenses/SBOM/notices/profile、八个first-party plugins及target voice/document engines完整闭包 | artifact/all |
 | `R50-DIST-010` |bundle不含fixture/evidence/private key/secret/owner path | artifact+security/all |
 
-### L. Apple Silicon DMG（7 Hard + 3 Future）
+### L. macOS Apple Silicon 与 Intel DMG（10 Hard）
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
 | `R50-MAC-001` |arm64 app仅含正确arm64 Electron/Node/Mach-O/closure | artifact/mac-arm |
-| `FUTURE-MAC-002` |x64 app仅含正确x64 Electron/Node/Mach-O/closure | future/mac-x64 |
-| `FUTURE-MAC-003` |arm64/x64 app独立构建，不能复制改名或错误同hash | future/aggregate |
-| `R50-MAC-004` |Info.plist/name/version/bundle id/icon/About正确 | installed/mac-arm |
-| `R50-MAC-005` |真实fuses/hardening从packaged binary验证 | security/mac-arm |
-| `R50-MAC-006` |ad-hoc seal后codesign --verify --deep --strict PASS | signing/mac-arm |
-| `R50-MAC-007` |DMG只读、hdiutil verify、Applications link/layout正确 | artifact/mac-arm |
-| `R50-MAC-008` |挂载DMG后重新验app seal/integrity/target | artifact/mac-arm |
-| `R50-MAC-009` |exact DMG fresh install后完整installed suite PASS | installed/mac-arm |
-| `FUTURE-MAC-010` |x64 final evidence来自Intel native；Rosetta只标translated | future/mac-x64 |
+| `R50-MAC-002` |x64 app仅含正确x64 Electron/Node/Mach-O/closure | artifact/mac-x64 |
+| `R50-MAC-003` |arm64/x64 app独立构建，不能复制改名或错误同hash | artifact/aggregate |
+| `R50-MAC-004` |Info.plist/name/version/bundle id/icon/About正确 | installed/mac-arm+mac-x64 |
+| `R50-MAC-005` |真实fuses/hardening从packaged binary验证 | security/mac-arm+mac-x64 |
+| `R50-MAC-006` |ad-hoc seal后codesign --verify --deep --strict PASS | signing/mac-arm+mac-x64 |
+| `R50-MAC-007` |DMG只读、hdiutil verify、Applications link/layout正确 | artifact/mac-arm+mac-x64 |
+| `R50-MAC-008` |挂载DMG后重新验app seal/integrity/target | artifact/mac-arm+mac-x64 |
+| `R50-MAC-009` |exact DMG fresh install后完整installed suite PASS | installed/mac-arm+mac-x64 |
+| `R50-MAC-010` |x64 final evidence来自Intel native；Rosetta只标translated | installed/mac-x64 |
 
-### M. Future registry — Windows x64 Setup（不参与 0.5.0 PASS）
+### M. Windows x64 Setup（10 Hard）
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `FUTURE-WIN-001` |Setup由native Windows x64 runner生成且closure为win32-x64 | future/win-x64 |
-| `FUTURE-WIN-002` |current-user install默认不请求admin | future/win-x64 |
-| `FUTURE-WIN-003` |SimpChinese/English选择、名称/icon/version/publisher声明正确 | future/win-x64 |
-| `FUTURE-WIN-004` |Start Menu/可选desktop/Apps & Features注册正确 | future/win-x64 |
-| `FUTURE-WIN-005` |路径含空格中文、repair/running app/downgrade行为正确 | future/win-x64 |
-| `FUTURE-WIN-006` |Job Object/等价监管确保退出升级卸载无孤儿 | future/win-x64 |
-| `FUTURE-WIN-007` |userData/credentials current-user ACL真实生效 | future/win-x64 |
-| `FUTURE-WIN-008` |junction/reparse/locked file不造成越界或强制删除 | future/win-x64 |
-| `FUTURE-WIN-009` |exact Setup fresh install后完整installed suite PASS | future/win-x64 |
-| `FUTURE-WIN-010` |无Authenticode准确记录，不用minisign冒充OS publisher | future/win-x64 |
+| `R50-WIN-001` |Setup由native Windows x64 runner生成且closure为win32-x64 | artifact/win-x64 |
+| `R50-WIN-002` |current-user install默认不请求admin | installed/win-x64 |
+| `R50-WIN-003` |SimpChinese/English选择、名称/icon/version/publisher声明正确 | installed/win-x64 |
+| `R50-WIN-004` |Start Menu/可选desktop/Apps & Features注册正确 | installed/win-x64 |
+| `R50-WIN-005` |路径含空格中文、repair/running app/downgrade行为正确 | installed/win-x64 |
+| `R50-WIN-006` |Job Object/等价监管确保退出升级卸载无孤儿 | installed/win-x64 |
+| `R50-WIN-007` |userData/credentials current-user ACL真实生效 | installed/win-x64 |
+| `R50-WIN-008` |junction/reparse/locked file不造成越界或强制删除 | installed/win-x64 |
+| `R50-WIN-009` |exact Setup fresh install后完整installed suite PASS | installed/win-x64 |
+| `R50-WIN-010` |无Authenticode准确记录，不用minisign冒充OS publisher | artifact/win-x64 |
 
 ### N. 0.5 assisted update与回滚（12）
 
@@ -236,7 +235,7 @@
 | `R50-UPD-009` |新版本post-verify成功commit，失败rollback/recovery | chaos+installed/all |
 | `R50-UPD-010` |每个update state crash可重放，inbox/outbox不丢不双发 | chaos/all |
 | `R50-UPD-011` |fixture key/server/test payload不进入production artifact | artifact/all |
-| `R50-UPD-012` |Apple Silicon native target的0.5→test-next valid/failure suites PASS | installed/mac-arm |
+| `R50-UPD-012` |三个native target的0.5.1→test-next valid/failure suites PASS | installed/all |
 
 ### O. 卸载、数据管理与legacy隔离（10）
 
@@ -297,7 +296,7 @@
 | `R50-E2E-006` |evidence完整绑定source/export/target/artifact/native/result digest | evidence/all |
 | `R50-E2E-007` |missing/duplicate/stale/unknown/translated-as-native均拒绝 | evidence/all |
 | `R50-E2E-008` |verify:release传播全部适用hard gates与退出码 | aggregator/all |
-| `R50-E2E-009` |单一DMG exact-set/version/source/export/trust一致 | artifact/aggregate |
+| `R50-E2E-009` |三个安装包exact-set/version/source/export/trust一致 | artifact/aggregate |
 | `R50-E2E-010` |freeze后任一byte/input变化使manifest/evidence stale | fault/aggregate |
 
 ### S. Public-export与公开准备（10）
@@ -344,7 +343,7 @@
 | `R50-VOICE-002` |`@penglai/moss-tts` 是真实DSH host/client plugin与typed service，无第二Agent/UI | architecture+installed/all |
 | `R50-VOICE-003` |Center actual inventory/health区分plugin active、model not-installed/ready/failed | integration+installed/all |
 | `R50-VOICE-004` |SenseVoice/MOSS/codec模型有immutable revision、size、SHA、license、atomic resume/import/delete | supply-chain+fault/all |
-| `R50-VOICE-005` |Apple Silicon target含正确sherpa/ORT/SILK/Opus closure，无PATH/Python/system ffmpeg/first-run install | artifact+installed/mac-arm |
+| `R50-VOICE-005` |三个target含各自正确sherpa/ORT/SILK/Opus closure，无PATH/Python/system ffmpeg/first-run install | artifact+installed/all |
 | `R50-VOICE-006` |DSH mic只在user gesture授权，支持record/pause/cancel/transcribe/edit-confirm且权限按origin隔离 | installed+security/all |
 | `R50-VOICE-007` |ASR按magic/codec/size/duration解码，输出text/language/emotion/no-speech并有界清理 | integration+security/all |
 | `R50-VOICE-008` |audio attachment复用official DSH seam，转写确认后才进入official Turn | integration+installed/all |
@@ -376,7 +375,7 @@
 | `R50-CTXMEM-013` |IM文字/语音进入bound official Turn后使用同一Context/Memory scope，adapter不直接检索/注入 | integration+security/all |
 | `R50-CTXMEM-014` |Context/Memory settings、index/schema/candidates可迁移/导出/分项删除且不含未授权正文 | migration+security/all |
 | `R50-CTXMEM-015` |disable/update/uninstall停止indexer/distiller/Remote/DB，resource-zero且外部sources永不删除 | chaos+installed/all |
-| `R50-CTXMEM-016` |exact Apple Silicon installed target完成grant→index→query→citation→revoke及memory scope/consent/restart suite | installed/mac-arm |
+| `R50-CTXMEM-016` |三个exact installed target完成grant→index→query→citation→revoke及memory scope/consent/restart suite | installed/all |
 
 ### W. 用量与预算（6）
 
@@ -400,14 +399,14 @@
 | `R50-COMP-005` |ASR emotion仅用户opt-in且不保存原文；quiet-hours/budget/rate/recent-stop优先于trigger | security+time/all |
 | `R50-COMP-006` |text/voice只经@penglai/im typed outbound和exact authorized route；TTS失败只降级一次文本 | integration/all |
 | `R50-COMP-007` |trigger claim/Turn/outbox/delivery durable，sleep/wake/restart/clock jump不重复，disable/logout资源为零 | chaos+installed/all |
-| `R50-COMP-008` |exact Apple Silicon installed target完成virtual-clock text/voice/quiet-hours/disable suite，live只留opaque trigger证据 | installed+live/mac-arm |
+| `R50-COMP-008` |三个exact installed target完成virtual-clock text/voice/quiet-hours/disable suite，live只留opaque trigger证据 | installed+live/all |
 
 ## 4. Codex 独立验收动作
 
-Grok写`READY_FOR_CODEX_0_5_ACCEPTANCE`后，Codex不相信SELF-CHECK，至少执行：
+实现者写`READY_FOR_CODEX_0_5_1_ACCEPTANCE`后，Codex不相信SELF-CHECK，至少执行：
 
-1. 检查private clean main、origin、source/export/release manifest与exact Apple Silicon DMG hash。
-2. 从exact Apple Silicon DMG重装并核对 native target；Intel/Windows 不属于本次验收。
+1. 检查private clean main、origin、source/export/release manifest与三个exact installer hash。
+2. 分别在Apple Silicon、Intel Mac、Windows x64原生runner从exact installer重装并核对target。
 3. 通过真实UI重跑fresh onboarding、DSH parity、Center、IM mock/fixture、update、uninstall。
 4. 重跑format/type/unit/contract/integration/security/chaos/soak/closure/profile/artifact/fuses/signing/evidence/release。
 5. 随机抽查每组evidence到原始assertion/JUnit/trace，查是否扇出或读源码作弊。
@@ -415,7 +414,7 @@ Grok写`READY_FOR_CODEX_0_5_ACCEPTANCE`后，Codex不相信SELF-CHECK，至少�
 7. 审查update signature/anti-rollback/journal与delete boundary/junction防护。
 8. 重生public-export并比tree hash；检查license/secret/owner path/公开文案。
 9. 核对community trust陈述，不要求或伪造notary。
-10. 发布前确认公开写入有 Owner 授权；发布后核对 public commit/tag/Release/asset 与 exact source/export/DMG 一致。
+10. 发布前确认公开写入有 Owner 授权；发布后核对 public commit/tag/Release/assets 与 exact source/export/三个installer一致。
 
 ## 5. 一票否决
 
@@ -428,7 +427,7 @@ Grok写`READY_FOR_CODEX_0_5_ACCEPTANCE`后，Codex不相信SELF-CHECK，至少�
 - 0.4.1数据被自动读取迁移或删除。
 - updater不验独立签名、允许回退/可变URL，或无Developer ID却声称silent auto-update。
 - uninstaller可能递归Workspace/root/home/legacy/symlink/junction/reparse target。
-- Apple Silicon 包使用cross/translated/emulated结果冒充native，或 Release 多出未验收的 Intel/Windows 安装包。
+- 任一平台使用cross/translated/emulated结果冒充native，或Release缺少/多出未验收的三端安装包。
 - verifier INCOMPLETE却exit 0、Hard ID硬编码PASS、旧SHA/evidence复用。
 - ad-hoc候选被称为已公证、Developer ID或系统信任。
-- 未经 Owner 明确授权修改开源仓库或发布0.5.0。
+- 未经 Owner 明确授权修改开源仓库或发布0.5.1。

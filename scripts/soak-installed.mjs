@@ -80,6 +80,12 @@ const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: ex
 if (packaged.verdict !== "PASS") {
   finish(packaged.verdict, { command: "test:soak:installed", reason: packaged.reason, expectedSource, expectedTarget });
 }
+const windowsHelper = expectedTarget === "win32-x86_64"
+  ? join(resourcesInside(installed.app), "runtime", "helpers", "penglai-windows-host.exe")
+  : undefined;
+if (expectedTarget === "win32-x86_64" && !existsSync(windowsHelper)) {
+  finish("FAIL", { command: "test:soak:installed", reason: "packaged Windows native helper missing" });
+}
 const candidateSourceSha = packaged.release.sourceSha;
 const expectedArtifact = process.env.PENGLAI_EXPECTED_ARTIFACT_SHA ?? installed.installerSha256;
 if (expectedArtifact !== installed.installerSha256) {
@@ -228,7 +234,7 @@ async function sampleOffline() {
   const dshPid = first.dshPid || tree.dshPid;
   const port = first.url ? Number(new URL(first.url).port) : 0;
   if (!dshPid || !port) return mark("offline", { ok: false, reason: "no dsh pid/port" });
-  const stopped = signalPid(dshPid, "SIGSTOP");
+  const stopped = signalPid(dshPid, "SIGSTOP", windowsHelper);
   await delay(1_500);
   let down = false;
   try {
@@ -237,7 +243,7 @@ async function sampleOffline() {
   } catch {
     down = true;
   }
-  const continued = signalPid(dshPid, "SIGCONT");
+  const continued = signalPid(dshPid, "SIGCONT", windowsHelper);
   const recovered = await waitHealth(60_000);
   const live = await liveSample();
   mark("offline", {
@@ -252,9 +258,9 @@ async function sampleOffline() {
 
 async function sampleSleep() {
   const electronPid = launched.child.pid;
-  const stopped = signalPid(electronPid, "SIGSTOP");
+  const stopped = signalPid(electronPid, "SIGSTOP", windowsHelper);
   await delay(4_000);
-  const continued = signalPid(electronPid, "SIGCONT");
+  const continued = signalPid(electronPid, "SIGCONT", windowsHelper);
   const recovered = await waitHealth(60_000);
   let pageOk = false;
   if (session) {

@@ -19,7 +19,11 @@ export const PLATFORM_TOKEN_TO_TARGET: Record<string, string> = {
 };
 
 export const PLATFORM_SCOPED_RUNNER_CLASSES = new Set([
+  "artifact",
+  "build",
+  "closure",
   "installed",
+  "signing",
   "soak",
   "live",
   "visual",

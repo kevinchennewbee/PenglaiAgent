@@ -17,6 +17,7 @@
 #include <windows.h>
 #include <aclapi.h>
 #include <sddl.h>
+#include <tlhelp32.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -360,6 +361,76 @@ static int cmd_identity(DWORD pid) {
   return 0;
 }
 
+static int cmd_process_suspend_resume(DWORD pid, int suspend) {
+  if (!pid) fail("pid");
+  HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+  if (snapshot == INVALID_HANDLE_VALUE) win_fail("CreateToolhelp32Snapshot");
+  THREADENTRY32 entry;
+  ZeroMemory(&entry, sizeof(entry));
+  entry.dwSize = sizeof(entry);
+  DWORD *thread_ids = NULL;
+  size_t count = 0;
+  if (Thread32First(snapshot, &entry)) {
+    do {
+      if (entry.th32OwnerProcessID != pid) continue;
+      DWORD *next = (DWORD *)realloc(thread_ids, (count + 1) * sizeof(DWORD));
+      if (!next) {
+        free(thread_ids);
+        CloseHandle(snapshot);
+        fail("memory");
+      }
+      thread_ids = next;
+      thread_ids[count++] = entry.th32ThreadID;
+    } while (Thread32Next(snapshot, &entry));
+  }
+  CloseHandle(snapshot);
+  if (!count) {
+    free(thread_ids);
+    fail("process-threads-not-found");
+  }
+
+  size_t changed = 0;
+  for (size_t i = 0; i < count; i++) {
+    HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread_ids[i]);
+    if (!thread) {
+      if (suspend) {
+        for (size_t j = 0; j < changed; j++) {
+          HANDLE rollback = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread_ids[j]);
+          if (rollback) {
+            ResumeThread(rollback);
+            CloseHandle(rollback);
+          }
+        }
+      }
+      free(thread_ids);
+      win_fail("OpenThread");
+    }
+    DWORD previous = suspend ? SuspendThread(thread) : ResumeThread(thread);
+    CloseHandle(thread);
+    if (previous == (DWORD)-1) {
+      if (suspend) {
+        for (size_t j = 0; j < changed; j++) {
+          HANDLE rollback = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread_ids[j]);
+          if (rollback) {
+            ResumeThread(rollback);
+            CloseHandle(rollback);
+          }
+        }
+      }
+      free(thread_ids);
+      win_fail(suspend ? "SuspendThread" : "ResumeThread");
+    }
+    changed++;
+  }
+  printf(
+      "{\"ok\":true,\"command\":\"process-%s\",\"pid\":%lu,\"changed\":%llu}\n",
+      suspend ? "suspend" : "resume",
+      (unsigned long)pid,
+      (unsigned long long)changed);
+  free(thread_ids);
+  return 0;
+}
+
 static int delete_one(const wchar_t *root, const char *path_utf8, const char *expected_owner) {
   wchar_t *path = utf8_to_wide(path_utf8);
   if (!path) fail("utf16");
@@ -483,6 +554,11 @@ int main(int argc, char **argv) {
     const char *pid = opt(argc, argv, "--pid");
     if (!pid) fail("pid");
     return cmd_identity((DWORD)strtoul(pid, NULL, 10));
+  }
+  if (strcmp(cmd, "process-suspend") == 0 || strcmp(cmd, "process-resume") == 0) {
+    const char *pid = opt(argc, argv, "--pid");
+    if (!pid) fail("pid");
+    return cmd_process_suspend_resume((DWORD)strtoul(pid, NULL, 10), strcmp(cmd, "process-suspend") == 0);
   }
   if (strcmp(cmd, "delete-plan") == 0) {
     const char *file = opt(argc, argv, "--file");

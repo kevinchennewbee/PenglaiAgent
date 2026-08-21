@@ -127,6 +127,8 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/PUBLICATION_0.5.0.md",
       "docs/PUBLICATION_MANIFEST_0.5.0.md",
       "docs/RELEASE_NOTES_0.5.0.md",
+      "docs/PUBLICATION_0.5.1.md",
+      "docs/PUBLICATION_MANIFEST_0.5.1.md",
       "docs/RELEASE_NOTES_0.5.1.md",
     ]),
   );
@@ -198,7 +200,7 @@ test("R50-PREP-010 publication fields match the owner-authorized target", () => 
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "public repo, v0.5.0 tag and release are exact; updater channel remains unpublished" },
+    details: { safe: "public repo, v0.5.1 tag and release are exact; updater channel remains unpublished until freeze" },
   });
 });
 

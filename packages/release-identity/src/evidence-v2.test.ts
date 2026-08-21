@@ -111,6 +111,15 @@ test("one native arm64 assertion cannot close the three-target installed ID", ()
   assert.deepEqual(manifest.ids[0]?.missingTargets, ["darwin-x86_64", "win32-x86_64"]);
 });
 
+test("packaging evidence expands to every declared target", () => {
+  for (const runner of ["artifact", "build", "closure", "signing"]) {
+    assert.deepEqual(
+      requiredSlots(entry("R50-DIST-001", `${runner}/all`)).map((slot) => slot.target),
+      ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+    );
+  }
+});
+
 test("a unit-suite record cannot satisfy an installed/soak/live ID", () => {
   const installed = entry("R50-ONB-001", "installed/all");
   const soak = entry("R50-REL-010", "soak/all");

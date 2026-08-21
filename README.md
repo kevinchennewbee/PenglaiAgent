@@ -30,13 +30,14 @@ The name is the island where the Eight Immortals each show their own skill. That
 
 ## What changed in 0.5.1
 
-0.5.0 rebuilt Penglai around official DSH. Local 0.5.1 work adds (source-tested; exact DMG and live Releases **NOT_RUN**):
+0.5.0 rebuilt Penglai around official DSH. The 0.5.1 candidate adds (source-tested; exact three-target installers and live Releases **NOT_RUN**):
 
 - **PPDP/1** — signed, immutable plugin catalogs and packages
 - **PUDP/1** — versioned immutable app update manifests (`update-manifest-v1.json`), not a mutable `latest.json`
+- Official DSH `deepseek-v4-flash-vision-exp` discovery and image attachment routing
 - Fail-closed fixes for optional-plugin install, Context workspace binding, wizard COMPLETE, outbox CAS, Companion triggers, budget release audit, packaged env/debug, and native Owner confirmation
 
-0.5.0 → 0.5.1 is a **manual DMG overlay**. It keeps the `Penglai/0.5` data root. It is not a one-click update from 0.5.0.
+0.5.0 → 0.5.1 is a **manual DMG overlay on Apple Silicon**. It keeps the `Penglai/0.5` data root. Intel Mac and Windows x64 are fresh installs because 0.5.0 did not ship those clients. It is not a one-click update from 0.5.0.
 
 ## One DSH core, many reviewed plugins
 
@@ -52,7 +53,7 @@ DSH plugins share the local DSH process. Permission fields are review/confirm me
 
 - Declared 0.5.1 targets: `darwin-aarch64`, `darwin-x86_64`, `win32-x86_64` from the same source SHA
 - Native PASS is reserved for a matching runner. Missing Intel/Windows builders stay **BLOCKED** / **NOT_RUN**, not Apple Silicon-only support
-- community-verified: ad-hoc seal, not notarized, no Developer ID
+- community-verified: macOS is ad-hoc sealed, not notarized, with no Developer ID; Windows has no Authenticode and may show SmartScreen warnings
 - BYOK via official DSH credentials YAML
 - Weixin/Feishu private text+voice only
 - Companion off by default; no unattended tools
@@ -75,7 +76,7 @@ Penglai Desktop (Electron)
 
 ## Build, test, contribute
 
-Node `22.22.2`, pnpm `10.14.0`. See `CONTRIBUTING.md`. Do not push until Owner review for this 0.5.1 pass.
+Node `22.22.2`, pnpm `10.14.0`. See `CONTRIBUTING.md`. Source checks do not replace native installed evidence for any release target.
 
 ```bash
 corepack enable
@@ -120,13 +121,14 @@ MIT for Penglai source. DSH and third-party components keep their licenses. No P
 
 ## 0.5.1 变了什么
 
-0.5.0 把蓬莱重建到官方 DSH 上。本地 0.5.1 增加（源码测试；exact DMG 与 live Release **NOT_RUN**）：
+0.5.0 把蓬莱重建到官方 DSH 上。0.5.1 候选增加（源码测试；三端 exact 安装包与 live Release **NOT_RUN**）：
 
 - **PPDP/1**：签名且不可变的插件目录与插件包
 - **PUDP/1**：按版本不可变的应用更新清单，不再使用可变 `latest.json`
+- 官方 DSH `deepseek-v4-flash-vision-exp` 模型发现与图片附件调用链
 - 可选插件安装、Context 工作区绑定、向导 COMPLETE、Outbox CAS、陪伴触发器、预算释放审计、打包环境/调试开关、以及主进程原生确认的 fail-closed 修复
 
-0.5.0 → 0.5.1 是 **手动覆盖安装 DMG**，保留 `Penglai/0.5` 数据根。0.5.0 不能一键升级。
+Apple Silicon 上，0.5.0 → 0.5.1 是 **手动覆盖安装 DMG**，保留 `Penglai/0.5` 数据根。Intel Mac 与 Windows x64 因 0.5.0 未提供对应客户端，属于全新安装。0.5.0 不能一键升级。
 
 ## 一个 DSH 核心，许多经过审核的插件
 
@@ -142,7 +144,7 @@ DSH 插件与本地 DSH 进程共享权限。权限字段用于审核和确认�
 
 - 0.5.1 声明三个 target：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`，必须来自同一 source SHA
 - Native PASS 只来自对应原生 runner。缺 Intel/Windows 构建器只能写 **BLOCKED** / **NOT_RUN**，不得写成单端已发布
-- community-verified：ad-hoc seal，未公证，无 Developer ID
+- community-verified：macOS 为 ad-hoc seal、未公证、无 Developer ID；Windows 无 Authenticode，可能出现 SmartScreen 警告
 - BYOK 走官方 DSH credentials YAML
 - 微信/飞书仅授权私聊文字与语音
 - Companion 默认关闭，禁止无人值守工具
@@ -165,7 +167,7 @@ DSH 插件与本地 DSH 进程共享权限。权限字段用于审核和确认�
 
 ## 从源码开发
 
-需要 Node `22.22.2` 与 pnpm `10.14.0`。贡献前请读 `CONTRIBUTING.md`。本轮 0.5.1 在 Owner 检查前不推送。
+需要 Node `22.22.2` 与 pnpm `10.14.0`。贡献前请读 `CONTRIBUTING.md`。源码门禁不能替代任何目标的原生安装验收。
 
 ## 时间线
 

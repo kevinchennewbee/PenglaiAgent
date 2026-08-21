@@ -117,5 +117,12 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
     assert.match(soak, new RegExp(`"${sample}"`));
   }
   assert.match(soak, /SIGSTOP/);
+  assert.match(soak, /penglai-windows-host\.exe/);
+  const installedHelper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
+  assert.match(installedHelper, /process-suspend/);
+  assert.match(installedHelper, /process-resume/);
+  const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
+  assert.match(windowsPayload, /build-windows-host\.mjs/);
+  assert.match(windowsPayload, /join\(staging, "runtime", "helpers"\)/);
   assert.match(soak, /remote-debugging-port/);
 });
