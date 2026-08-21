@@ -28,18 +28,25 @@ import {
 const dest = join(ROOT, "dist/runtime-staging/plugins");
 rmSync(dest, { recursive: true, force: true });
 mkdirSync(dest, { recursive: true });
-const targetArg = process.argv.includes("--target") ? process.argv[process.argv.indexOf("--target") + 1] : process.env.PENGLAI_PACK_TARGET;
+const targetArg = process.argv.includes("--target")
+  ? process.argv[process.argv.indexOf("--target") + 1]
+  : process.env.PENGLAI_PACK_TARGET;
 const ALLOWED_TARGETS = new Set(["darwin-arm64", "darwin-x64", "win32-x64"]);
 if (targetArg && !ALLOWED_TARGETS.has(targetArg)) {
-  console.error("pack-plugins --target must be darwin-arm64, darwin-x64, or win32-x64");
+  console.error(
+    "pack-plugins --target must be darwin-arm64, darwin-x64, or win32-x64",
+  );
   process.exit(1);
 }
-const localTarget = process.platform === "darwin"
-  ? `darwin-${process.arch}`
-  : process.platform === "win32"
-    ? `win32-${process.arch}`
-    : null;
-const effectiveTarget = targetArg ?? (localTarget && ALLOWED_TARGETS.has(localTarget) ? localTarget : null);
+const localTarget =
+  process.platform === "darwin"
+    ? `darwin-${process.arch}`
+    : process.platform === "win32"
+      ? `win32-${process.arch}`
+      : null;
+const effectiveTarget =
+  targetArg ??
+  (localTarget && ALLOWED_TARGETS.has(localTarget) ? localTarget : null);
 mkdirSync(dest, { recursive: true });
 mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });
 
@@ -138,7 +145,11 @@ const packs = [
     host: "src/index.ts",
     client: "src/dsh-client.js",
     dshClient: {
-      inject: ["@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-ui-settings"],
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
       platform: "web",
     },
   },
@@ -149,7 +160,11 @@ const packs = [
     host: "src/index.ts",
     client: "src/dsh-client.js",
     dshClient: {
-      inject: ["@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-ui-settings"],
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
       platform: "web",
     },
   },
@@ -160,7 +175,11 @@ const packs = [
     host: "src/index.ts",
     client: "src/dsh-client.js",
     dshClient: {
-      inject: ["@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-ui-settings"],
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
       platform: "web",
     },
   },
@@ -175,8 +194,9 @@ for (const p of packs) {
 
 if (
   packs.length !== FIRST_PARTY_PLUGIN_METADATA.length ||
-  packs.some((pack) =>
-    !FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === pack.id),
+  packs.some(
+    (pack) =>
+      !FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === pack.id),
   )
 ) {
   console.error("pack list and trusted first-party catalog metadata diverged");
@@ -202,11 +222,18 @@ function normalizedArchiveFiles(root, dir = root, files = []) {
       continue;
     }
     if (!stat.isFile()) {
-      console.error("plugin archive stage contains a non-regular entry", absolute);
+      console.error(
+        "plugin archive stage contains a non-regular entry",
+        absolute,
+      );
       process.exit(1);
     }
     const archivePath = relative(root, absolute).split(sep).join("/");
-    if (!archivePath || archivePath.includes("\n") || Buffer.byteLength(archivePath) > 100) {
+    if (
+      !archivePath ||
+      archivePath.includes("\n") ||
+      Buffer.byteLength(archivePath) > 100
+    ) {
       console.error("plugin ustar path is unsafe or too long", archivePath);
       process.exit(1);
     }
@@ -308,7 +335,8 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
     dereference: true,
     filter: (src) => {
       if (src === pkgRoot) return true;
-      if (relative(pkgRoot, src).split(/[\\/]/).includes("node_modules")) return false;
+      if (relative(pkgRoot, src).split(/[\\/]/).includes("node_modules"))
+        return false;
       const filter = filters.get(name);
       return filter ? filter(pkgRoot, src) : true;
     },
@@ -323,9 +351,16 @@ function vendorLarkSdk(stage) {
   const fromDir = join(ROOT, "packages/channel-feishu");
   const destNm = join(stage, "node_modules");
   vendorNpmPackage(fromDir, LARK_SDK, destNm, new Set());
-  const vendored = JSON.parse(readFileSync(join(destNm, LARK_SDK, "package.json"), "utf8"));
+  const vendored = JSON.parse(
+    readFileSync(join(destNm, LARK_SDK, "package.json"), "utf8"),
+  );
   if (vendored.version !== PINNED_LARK_SDK) {
-    console.error("vendored Lark SDK is", vendored.version, "expected", PINNED_LARK_SDK);
+    console.error(
+      "vendored Lark SDK is",
+      vendored.version,
+      "expected",
+      PINNED_LARK_SDK,
+    );
     process.exit(1);
   }
 }
@@ -336,22 +371,48 @@ function vendorQrcode(stage) {
   // yargs is CLI-only; toDataURL needs pngjs + dijkstrajs. Skipping yargs keeps
   // find-up owner-path docs out of the production tarball scanner.
   const seen = new Set(["yargs"]);
-  vendorNpmPackage(fromDir, QRCODE, destNm, seen, new Map([
-    [QRCODE, (pkgRoot, src) => {
-      const rel = relative(pkgRoot, src).split(/[\\/]/);
-      return !(rel[0] === "bin" || rel[0] === "build" || rel[0] === "helper");
-    }],
-  ]));
-  const vendored = JSON.parse(readFileSync(join(destNm, QRCODE, "package.json"), "utf8"));
+  vendorNpmPackage(
+    fromDir,
+    QRCODE,
+    destNm,
+    seen,
+    new Map([
+      [
+        QRCODE,
+        (pkgRoot, src) => {
+          const rel = relative(pkgRoot, src).split(/[\\/]/);
+          return !(
+            rel[0] === "bin" ||
+            rel[0] === "build" ||
+            rel[0] === "helper"
+          );
+        },
+      ],
+    ]),
+  );
+  const vendored = JSON.parse(
+    readFileSync(join(destNm, QRCODE, "package.json"), "utf8"),
+  );
   if (vendored.version !== PINNED_QRCODE) {
-    console.error("vendored qrcode is", vendored.version, "expected", PINNED_QRCODE);
+    console.error(
+      "vendored qrcode is",
+      vendored.version,
+      "expected",
+      PINNED_QRCODE,
+    );
     process.exit(1);
   }
-  if (existsSync(join(destNm, "yargs")) || existsSync(join(destNm, "find-up"))) {
+  if (
+    existsSync(join(destNm, "yargs")) ||
+    existsSync(join(destNm, "find-up"))
+  ) {
     console.error("vendored qrcode must not pull CLI deps yargs/find-up");
     process.exit(1);
   }
-  if (!existsSync(join(destNm, "pngjs", "package.json")) || !existsSync(join(destNm, "dijkstrajs", "package.json"))) {
+  if (
+    !existsSync(join(destNm, "pngjs", "package.json")) ||
+    !existsSync(join(destNm, "dijkstrajs", "package.json"))
+  ) {
     console.error("vendored qrcode missing pngjs/dijkstrajs");
     process.exit(1);
   }
@@ -375,20 +436,37 @@ async function vendorAudioCodecs(stage) {
     process.exit(1);
   }
   const silkBinary = join(silkRoot, "lib", "silk.wasm");
-  if (!existsSync(silkBinary) || readFileSync(silkBinary).subarray(0, 4).toString("hex") !== "0061736d") {
+  if (
+    !existsSync(silkBinary) ||
+    readFileSync(silkBinary).subarray(0, 4).toString("hex") !== "0061736d"
+  ) {
     console.error("vendored silk-wasm binary missing or invalid");
     process.exit(1);
   }
-  const opusGenerated = join(opusRoot, "dist", "generated", "libopus.generated.mjs");
+  const opusGenerated = join(
+    opusRoot,
+    "dist",
+    "generated",
+    "libopus.generated.mjs",
+  );
   let opusBytes = readFileSync(opusGenerated);
   if (!opusBytes.includes(Buffer.from([0x00, 0x61, 0x73, 0x6d]))) {
     console.error("vendored libopus-wasm embedded binary missing");
     process.exit(1);
   }
   for (const [path, expected] of [
-    [join(silkRoot, "LICENSE"), "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74"],
-    [join(opusRoot, "LICENSE"), "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27"],
-    [join(opusRoot, "THIRD_PARTY_NOTICES.md"), "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8"],
+    [
+      join(silkRoot, "LICENSE"),
+      "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74",
+    ],
+    [
+      join(opusRoot, "LICENSE"),
+      "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27",
+    ],
+    [
+      join(opusRoot, "THIRD_PARTY_NOTICES.md"),
+      "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8",
+    ],
   ]) {
     if (!existsSync(path) || sha256(path) !== expected) {
       console.error("audio codec license hash mismatch", path);
@@ -399,11 +477,22 @@ async function vendorAudioCodecs(stage) {
   // tree does not itself retain a concrete developer home path. The exact
   // bytes are still required to scrub the pinned upstream module.
   const upstreamOwnerPrefix = Buffer.from(
-    ["", "Users", "steipete", "Projects", "libopus-wasm", ".cache", "opus-1.6.1", ""].join("/"),
+    [
+      "",
+      "Users",
+      "steipete",
+      "Projects",
+      "libopus-wasm",
+      ".cache",
+      "opus-1.6.1",
+      "",
+    ].join("/"),
   );
   const macosHomePrefix = Buffer.from(["", "Users", ""].join("/"));
-  const alreadyScrubbedHash = "ded4c50a60e4848919d093890563b623404bb9a1bf9e039845603f1ecb282fa5";
-  const upstreamHash = "7f254556d782ac20a304068d4ecf7a1b9e6e94df5694f550e6d14c217d7e2028";
+  const alreadyScrubbedHash =
+    "ded4c50a60e4848919d093890563b623404bb9a1bf9e039845603f1ecb282fa5";
+  const upstreamHash =
+    "7f254556d782ac20a304068d4ecf7a1b9e6e94df5694f550e6d14c217d7e2028";
   const currentHash = sha256(opusGenerated);
   const work = Buffer.from(opusBytes);
   if (currentHash === upstreamHash) {
@@ -431,13 +520,22 @@ async function vendorAudioCodecs(stage) {
     process.exit(1);
   }
   writeFileSync(opusGenerated, work);
-  const loaded = await import(`${pathToFileURL(join(opusRoot, "dist", "index.js")).href}?packed=1`);
+  const loaded = await import(
+    `${pathToFileURL(join(opusRoot, "dist", "index.js")).href}?packed=1`
+  );
   const runtime = await loaded.loadLibopus();
   if (runtime.version !== "libopus 1.6.1") {
-    console.error("vendored libopus-wasm runtime version mismatch", runtime.version);
+    console.error(
+      "vendored libopus-wasm runtime version mismatch",
+      runtime.version,
+    );
     process.exit(1);
   }
-  const encoder = await loaded.createEncoder({ sampleRate: 16_000, channels: 1, frameSize: 320 });
+  const encoder = await loaded.createEncoder({
+    sampleRate: 16_000,
+    channels: 1,
+    frameSize: 320,
+  });
   try {
     const packet = encoder.encode(new Int16Array(320));
     if (!(packet instanceof Uint8Array) || packet.length === 0) {
@@ -456,11 +554,19 @@ function vendorSherpaOnnx(stage) {
   const root = join(destNm, SHERPA_ONNX);
   const vendored = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   if (vendored.version !== PINNED_SHERPA_ONNX) {
-    console.error("vendored sherpa-onnx is", vendored.version, "expected", PINNED_SHERPA_ONNX);
+    console.error(
+      "vendored sherpa-onnx is",
+      vendored.version,
+      "expected",
+      PINNED_SHERPA_ONNX,
+    );
     process.exit(1);
   }
   const wasm = join(root, "sherpa-onnx-wasm-nodejs.wasm");
-  if (!existsSync(wasm) || readFileSync(wasm).subarray(0, 4).toString("hex") !== "0061736d") {
+  if (
+    !existsSync(wasm) ||
+    readFileSync(wasm).subarray(0, 4).toString("hex") !== "0061736d"
+  ) {
     console.error("vendored sherpa-onnx WASM missing or invalid");
     process.exit(1);
   }
@@ -474,8 +580,14 @@ function vendorSherpaOnnx(stage) {
     dereference: false,
   });
   const expectedLicenses = new Map([
-    ["FunASR-MODEL_LICENSE-1.1.txt", "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8"],
-    ["sherpa-onnx-Apache-2.0.txt", "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"],
+    [
+      "FunASR-MODEL_LICENSE-1.1.txt",
+      "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8",
+    ],
+    [
+      "sherpa-onnx-Apache-2.0.txt",
+      "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    ],
   ]);
   for (const [file, expected] of expectedLicenses) {
     const actual = sha256(join(stage, "third_party", file));
@@ -497,7 +609,11 @@ function assertTargetBinary(path, target) {
   const bytes = readFileSync(path);
   if (target === "darwin-arm64" || target === "darwin-x64") {
     const expectedCpu = target === "darwin-arm64" ? 0x0100000c : 0x01000007;
-    if (bytes.length < 8 || bytes.readUInt32LE(0) !== 0xfeedfacf || bytes.readUInt32LE(4) !== expectedCpu) {
+    if (
+      bytes.length < 8 ||
+      bytes.readUInt32LE(0) !== 0xfeedfacf ||
+      bytes.readUInt32LE(4) !== expectedCpu
+    ) {
       console.error("MOSS ORT Mach-O target mismatch", target, path);
       process.exit(1);
     }
@@ -506,7 +622,8 @@ function assertTargetBinary(path, target) {
   if (target === "win32-x64") {
     const peOffset = bytes.length >= 0x40 ? bytes.readUInt32LE(0x3c) : -1;
     if (
-      bytes.length < peOffset + 6 || bytes.subarray(0, 2).toString("ascii") !== "MZ" ||
+      bytes.length < peOffset + 6 ||
+      bytes.subarray(0, 2).toString("ascii") !== "MZ" ||
       bytes.subarray(peOffset, peOffset + 4).toString("ascii") !== "PE\0\0" ||
       bytes.readUInt16LE(peOffset + 4) !== 0x8664
     ) {
@@ -518,33 +635,48 @@ function assertTargetBinary(path, target) {
 
 function vendorMossRuntime(stage) {
   if (!effectiveTarget) {
-    console.error("MOSS plugin packaging requires --target on non-macOS/non-Windows builders");
+    console.error(
+      "MOSS plugin packaging requires --target on non-macOS/non-Windows builders",
+    );
     process.exit(1);
   }
   const targetParts = ortTargetParts(effectiveTarget);
   const fromDir = join(ROOT, "packages/moss-tts");
   const destNm = join(stage, "node_modules");
   const filters = new Map([
-    [ONNX_RUNTIME_NODE, (root, src) => {
-      const parts = relative(root, src).split(sep);
-      if (parts[0] !== "bin" || parts[1] !== "napi-v6") return true;
-      if (parts.length <= 2) return true;
-      if (parts[2] !== targetParts[0]) return false;
-      return parts.length === 3 || parts[3] === targetParts[1];
-    }],
+    [
+      ONNX_RUNTIME_NODE,
+      (root, src) => {
+        const parts = relative(root, src).split(sep);
+        if (parts[0] !== "bin" || parts[1] !== "napi-v6") return true;
+        if (parts.length <= 2) return true;
+        if (parts[2] !== targetParts[0]) return false;
+        return parts.length === 3 || parts[3] === targetParts[1];
+      },
+    ],
   ]);
   vendorNpmPackage(fromDir, ONNX_RUNTIME_NODE, destNm, new Set(), filters);
   vendorNpmPackage(fromDir, SENTENCEPIECE_JS, destNm, new Set(), filters);
 
   const ortRoot = join(destNm, ONNX_RUNTIME_NODE);
   const sentencepieceRoot = join(destNm, SENTENCEPIECE_JS);
-  const ortPackage = JSON.parse(readFileSync(join(ortRoot, "package.json"), "utf8"));
-  const sentencepiecePackage = JSON.parse(readFileSync(join(sentencepieceRoot, "package.json"), "utf8"));
-  if (ortPackage.version !== PINNED_ONNX_RUNTIME_NODE || ortPackage.license !== "MIT") {
+  const ortPackage = JSON.parse(
+    readFileSync(join(ortRoot, "package.json"), "utf8"),
+  );
+  const sentencepiecePackage = JSON.parse(
+    readFileSync(join(sentencepieceRoot, "package.json"), "utf8"),
+  );
+  if (
+    ortPackage.version !== PINNED_ONNX_RUNTIME_NODE ||
+    ortPackage.license !== "MIT"
+  ) {
     console.error("vendored onnxruntime-node pin/license mismatch");
     process.exit(1);
   }
-  if (sentencepiecePackage.version !== PINNED_SENTENCEPIECE_JS || sentencepiecePackage.license !== "Apache-2.0") {
+  if (
+    sentencepiecePackage.version !== PINNED_SENTENCEPIECE_JS ||
+    sentencepiecePackage.license !== "Apache-2.0"
+  ) {
     console.error("vendored sentencepiece-js pin/license mismatch");
     process.exit(1);
   }
@@ -560,7 +692,8 @@ function vendorMossRuntime(stage) {
   for (const platform of ["darwin", "linux", "win32"]) {
     for (const arch of ["arm64", "x64"]) {
       if (platform === targetParts[0] && arch === targetParts[1]) continue;
-      if (existsSync(join(binRoot, platform, arch))) unexpected.push(`${platform}-${arch}`);
+      if (existsSync(join(binRoot, platform, arch)))
+        unexpected.push(`${platform}-${arch}`);
     }
   }
   if (unexpected.length) {
@@ -568,21 +701,39 @@ function vendorMossRuntime(stage) {
     process.exit(1);
   }
 
-  const runtimeSource = join(ROOT, "packages/moss-tts/src/third_party/moss_tts");
+  const runtimeSource = join(
+    ROOT,
+    "packages/moss-tts/src/third_party/moss_tts",
+  );
   const runtimeDest = join(stage, "dist/third_party/moss_tts");
   mkdirSync(runtimeDest, { recursive: true });
   cpSync(join(runtimeSource, "runtime.mjs"), join(runtimeDest, "runtime.mjs"));
   cpSync(join(runtimeSource, "LICENSE"), join(runtimeDest, "LICENSE"));
-  if (sha256(join(runtimeDest, "runtime.mjs")) !== "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c") {
+  if (
+    sha256(join(runtimeDest, "runtime.mjs")) !==
+    "b49d214bbe9ba9849d48e1588c66a70173eee76c211bb4f473b5eadf7bce038c"
+  ) {
     console.error("modified MOSS Node runtime hash mismatch");
     process.exit(1);
   }
   const notices = join(ROOT, "packages/moss-tts/third_party");
-  cpSync(notices, join(stage, "third_party"), { recursive: true, dereference: false });
+  cpSync(notices, join(stage, "third_party"), {
+    recursive: true,
+    dereference: false,
+  });
   const expectedLicenses = new Map([
-    ["OpenMOSS-Apache-2.0.txt", "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d"],
-    ["onnxruntime-MIT.txt", "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"],
-    ["sentencepiece-js-Apache-2.0.txt", "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"],
+    [
+      "OpenMOSS-Apache-2.0.txt",
+      "e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d",
+    ],
+    [
+      "onnxruntime-MIT.txt",
+      "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    ],
+    [
+      "sentencepiece-js-Apache-2.0.txt",
+      "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    ],
   ]);
   for (const [file, expected] of expectedLicenses) {
     const actual = sha256(join(stage, "third_party", file));
@@ -602,7 +753,11 @@ for (const p of packs) {
     console.error("missing trusted catalog metadata/target", p.id);
     process.exit(1);
   }
-  const stage = join(ROOT, "dist/plugin-pack", p.id.replace("@", "").replace("/", "-"));
+  const stage = join(
+    ROOT,
+    "dist/plugin-pack",
+    p.id.replace("@", "").replace("/", "-"),
+  );
   rmSync(stage, { recursive: true, force: true });
   mkdirSync(join(stage, "dist"), { recursive: true });
   const vendorLark = p.id === "@penglai/im";
@@ -636,7 +791,11 @@ for (const p of packs) {
     logLevel: "silent",
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
-  if (hostJs.includes("from \"../src/") || hostJs.includes("from './src/") || hostJs.includes("from \"./src/")) {
+  if (
+    hostJs.includes('from "../src/') ||
+    hostJs.includes("from './src/") ||
+    hostJs.includes('from "./src/')
+  ) {
     console.error(p.id, "host bundle still imports src");
     process.exit(1);
   }
@@ -649,7 +808,10 @@ for (const p of packs) {
       console.error(p.id, "host bundle dropped the official Lark SDK import");
       process.exit(1);
     }
-    if (hostJs.includes("Dynamic require of") || hostJs.includes("form-data/lib/form_data")) {
+    if (
+      hostJs.includes("Dynamic require of") ||
+      hostJs.includes("form-data/lib/form_data")
+    ) {
       console.error(p.id, "host bundle still inlines Lark/axios CJS");
       process.exit(1);
     }
@@ -681,8 +843,14 @@ for (const p of packs) {
     vendorSherpaOnnx(stage);
   }
   if (vendorMoss) {
-    if (!hostJs.includes(ONNX_RUNTIME_NODE) || !hostJs.includes(SENTENCEPIECE_JS)) {
-      console.error(p.id, "host bundle dropped the MOSS native runtime imports");
+    if (
+      !hostJs.includes(ONNX_RUNTIME_NODE) ||
+      !hostJs.includes(SENTENCEPIECE_JS)
+    ) {
+      console.error(
+        p.id,
+        "host bundle dropped the MOSS native runtime imports",
+      );
       process.exit(1);
     }
     vendorMossRuntime(stage);
@@ -719,22 +887,30 @@ for (const p of packs) {
       migration: catalogMetadata.migration,
       rollback: catalogMetadata.rollback,
     },
-    ...(p.dshClient ? { dsh: { client: { ...p.dshClient, immediately: true } } } : {}),
-    ...(vendorLark ? {
-      dependencies: {
-        [LARK_SDK]: PINNED_LARK_SDK,
-        [QRCODE]: PINNED_QRCODE,
-        [SILK_WASM]: PINNED_SILK_WASM,
-        [LIBOPUS_WASM]: PINNED_LIBOPUS_WASM,
-      },
-    } : {}),
-    ...(vendorSherpa ? { dependencies: { [SHERPA_ONNX]: PINNED_SHERPA_ONNX } } : {}),
-    ...(vendorMoss ? {
-      dependencies: {
-        [ONNX_RUNTIME_NODE]: PINNED_ONNX_RUNTIME_NODE,
-        [SENTENCEPIECE_JS]: PINNED_SENTENCEPIECE_JS,
-      },
-    } : {}),
+    ...(p.dshClient
+      ? { dsh: { client: { ...p.dshClient, immediately: true } } }
+      : {}),
+    ...(vendorLark
+      ? {
+          dependencies: {
+            [LARK_SDK]: PINNED_LARK_SDK,
+            [QRCODE]: PINNED_QRCODE,
+            [SILK_WASM]: PINNED_SILK_WASM,
+            [LIBOPUS_WASM]: PINNED_LIBOPUS_WASM,
+          },
+        }
+      : {}),
+    ...(vendorSherpa
+      ? { dependencies: { [SHERPA_ONNX]: PINNED_SHERPA_ONNX } }
+      : {}),
+    ...(vendorMoss
+      ? {
+          dependencies: {
+            [ONNX_RUNTIME_NODE]: PINNED_ONNX_RUNTIME_NODE,
+            [SENTENCEPIECE_JS]: PINNED_SENTENCEPIECE_JS,
+          },
+        }
+      : {}),
   };
   writeFileSync(join(stage, "package.json"), JSON.stringify(pkg, null, 2));
   if (vendorLark) {
@@ -744,8 +920,15 @@ for (const p of packs) {
       process.exit(1);
     }
     const loaded = await import(pathToFileURL(sdkEntry).href);
-    if (typeof loaded.Client !== "function" || typeof loaded.WSClient !== "function" || typeof loaded.EventDispatcher !== "function") {
-      console.error(p.id, "vendored Lark SDK missing Client/WSClient/EventDispatcher");
+    if (
+      typeof loaded.Client !== "function" ||
+      typeof loaded.WSClient !== "function" ||
+      typeof loaded.EventDispatcher !== "function"
+    ) {
+      console.error(
+        p.id,
+        "vendored Lark SDK missing Client/WSClient/EventDispatcher",
+      );
       process.exit(1);
     }
   }
@@ -757,7 +940,12 @@ for (const p of packs) {
   const reproducedHash = sha256(reproduction);
   rmSync(reproduction, { force: true });
   if (reproducedHash !== hash) {
-    console.error("plugin archive is not byte-reproducible", p.id, hash, reproducedHash);
+    console.error(
+      "plugin archive is not byte-reproducible",
+      p.id,
+      hash,
+      reproducedHash,
+    );
     process.exit(1);
   }
   entries.push({
@@ -768,49 +956,42 @@ for (const p of packs) {
   });
 }
 
-{
-  const stage = join(ROOT, ".tmp-plugin-pack", "plugin-pilot");
-  rmSync(stage, { recursive: true, force: true });
-  mkdirSync(join(stage, "dist"), { recursive: true });
-  await build({
-    absWorkingDir: ROOT,
-    entryPoints: [join(ROOT, "packages/plugin-pilot/src/index.ts")],
-    bundle: true,
-    platform: "node",
-    format: "esm",
-    target: "node22",
-    outfile: join(stage, "dist/index.js"),
-    packages: "external",
-    sourcemap: false,
-    logLevel: "silent",
-  });
-  const pkgJson = JSON.parse(readFileSync(join(ROOT, "packages/plugin-pilot/package.json"), "utf8"));
-  writeFileSync(join(stage, "package.json"), JSON.stringify({
-    name: "@penglai/plugin-pilot",
-    version: pkgJson.penglaiPlugin.version,
-    type: "module",
-    main: "dist/index.js",
-    penglaiPlugin: pkgJson.penglaiPlugin,
-  }, null, 2));
-  const tgz = join(dest, "penglai-plugin-pilot-1.0.0.tgz");
-  writeDeterministicTgz(stage, tgz);
-  writeFileSync(
-    join(ROOT, "evidence/generated/plugin-pilot.json"),
-    JSON.stringify({
-      id: "@penglai/plugin-pilot",
-      version: "1.0.0",
-      sha256: sha256(tgz),
-      file: "penglai-plugin-pilot-1.0.0.tgz",
-    }, null, 2),
-  );
-}
-
-const { assertPackedArtifactClean } = await import(pathToFileURL(join(ROOT, "packages/runtime/src/scanner.ts")).href);
+const { assertPackedArtifactClean } = await import(
+  pathToFileURL(join(ROOT, "packages/runtime/src/scanner.ts")).href
+);
 for (const entry of entries) {
   assertPackedArtifactClean(join(dest, entry.packageFile));
 }
 
-const catalog = { schema: PLUGIN_CATALOG_SCHEMA, target: effectiveTarget, entries };
+const expectedArchives = entries.map((entry) => entry.packageFile).sort();
+const packedArchives = readdirSync(dest)
+  .filter((file) => file.endsWith(".tgz"))
+  .sort();
+if (JSON.stringify(packedArchives) !== JSON.stringify(expectedArchives)) {
+  console.error("packed plugin archive set does not exactly match catalog", {
+    expectedArchives,
+    packedArchives,
+  });
+  process.exit(1);
+}
+
+const catalog = {
+  schema: PLUGIN_CATALOG_SCHEMA,
+  target: effectiveTarget,
+  entries,
+};
 writeFileSync(join(dest, "catalog.json"), JSON.stringify(catalog, null, 2));
-writeFileSync(join(ROOT, "evidence/generated/plugin-catalog.json"), JSON.stringify(catalog, null, 2));
-console.log("pack-plugins", JSON.stringify(entries.map((e) => ({ id: e.id, sha256: e.sha256.slice(0, 12), hasClient: e.hasClient }))));
+writeFileSync(
+  join(ROOT, "evidence/generated/plugin-catalog.json"),
+  JSON.stringify(catalog, null, 2),
+);
+console.log(
+  "pack-plugins",
+  JSON.stringify(
+    entries.map((e) => ({
+      id: e.id,
+      sha256: e.sha256.slice(0, 12),
+      hasClient: e.hasClient,
+    })),
+  ),
+);
