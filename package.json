@@ -40,6 +40,7 @@
     "test:e2e": "node --import tsx --test apps/desktop/src/*.test.ts",
     "test:e2e:installed": "node scripts/e2e-installed.mjs",
     "test:u3:welcome": "node scripts/u3-welcome-smoke.mjs",
+    "test:u3:plugins": "node scripts/u3-first-party-plugins.mjs",
     "test:failure-baseline": "node --import tsx scripts/failure-baseline.mjs",
     "test:security": "node --import tsx --test packages/routing-core/src/security.test.ts packages/local-control/src/security.test.ts apps/desktop/src/security.test.ts",
     "test:chaos": "node --import tsx --test packages/routing-core/src/chaos.test.ts packages/persistence/src/chaos.test.ts",

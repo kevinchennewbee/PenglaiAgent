@@ -92,6 +92,20 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(e2e, /launchInstalledHarness\(harnessApp, resources, userData/);
 });
 
+test("native release workflow proves bundled optional plugins across restart", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
+  const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  assert.match(workflow, /pnpm test:u3:plugins/g);
+  assert.match(workflow, /u3-first-party-plugins\.json/g);
+  assert.match(compat, /installFromExactInstaller/);
+  assert.match(compat, /inspectPackagedCandidate/);
+  assert.match(compat, /all-enabled-after-restart/);
+  assert.match(compat, /all-disabled-after-restart/);
+  assert.match(compat, /fiberPhase/);
+  assert.match(compat, /official\.websocket/);
+  assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
+});
+
 test("single-instance ownership is scoped after the app-private userData path", () => {
   const main = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
   const configure = main.indexOf("configureGenerationPaths({");
