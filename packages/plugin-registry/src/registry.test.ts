@@ -346,8 +346,12 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
         { status: 200 },
       );
     }
-    if (url.endsWith("plugin-catalog-v1.json")) return new Response(bytes, { status: 200 });
-    if (url.endsWith("plugin-catalog-v1.json.sig")) return new Response(signature, { status: 200 });
+    if (url.endsWith("/releases/assets/11") || url.endsWith("plugin-catalog-v1.json")) {
+      return new Response(bytes, { status: 200 });
+    }
+    if (url.endsWith("/releases/assets/12") || url.endsWith("plugin-catalog-v1.json.sig")) {
+      return new Response(signature, { status: 200 });
+    }
     return new Response("no", { status: 404 });
   }) as typeof fetch;
   const client = new PluginDistributionClient({
@@ -359,6 +363,59 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
     nowMs: () => Date.parse("2026-08-22T00:00:00.000Z"),
   });
   await assert.rejects(() => client.refresh(), /embedded plugin key|signingKeyId|signature mismatch/);
+});
+
+test("GitHub 302 to official asset host is followed and hashed", async () => {
+  const { downloadVerifiedBytes } = await import("./download.js");
+  const body = Buffer.from("penglai-asset");
+  const sha = createHash("sha256").update(body).digest("hex");
+  const hops: string[] = [];
+  const fetchImpl = (async (input) => {
+    hops.push(String(input));
+    if (String(input).includes("github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/")) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location:
+            "https://objects.githubusercontent.com/github-production-release-asset-2e65be/file?token=1",
+        },
+      });
+    }
+    if (String(input).includes("objects.githubusercontent.com")) {
+      return new Response(body, { status: 200, headers: { "content-length": String(body.length) } });
+    }
+    return new Response("no", { status: 404 });
+  }) as typeof fetch;
+  const got = await downloadVerifiedBytes({
+    url: "https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/plugin-pilot-v1.0.0/penglai-plugin-pilot-1.0.0-any.tgz",
+    sha256: sha,
+    size: body.length,
+    maxBytes: 1024,
+    fetchImpl,
+  });
+  assert.equal(got.equals(body), true);
+  assert.equal(hops.length, 2);
+});
+
+test("GitHub 302 to a non-GitHub host is refused", async () => {
+  const { downloadVerifiedBytes } = await import("./download.js");
+  const fetchImpl = (async () =>
+    new Response(null, {
+      status: 302,
+      headers: { location: "https://evil.example/steal" },
+    })) as typeof fetch;
+  await assert.rejects(
+    () =>
+      downloadVerifiedBytes({
+        url: "https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/plugin-pilot-v1.0.0/penglai-plugin-pilot-1.0.0-any.tgz",
+        sha256: "a".repeat(64),
+        size: 12,
+        maxBytes: 1024,
+        skipHash: true,
+        fetchImpl,
+      }),
+    /host not allowed/,
+  );
 });
 
 void sign;

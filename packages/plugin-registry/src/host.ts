@@ -202,9 +202,10 @@ export class PluginDistributionClient {
     const entry = this.entry(id);
     const artifact =
       entry.artifacts.find((row) => row.target === target) ??
-      entry.artifacts.find((row) => row.target === "any") ??
-      entry.artifacts[0];
-    if (!artifact) throw new PenglaiError("INVALID_INPUT", `${id} has no artifact`);
+      (target === "any" ? undefined : entry.artifacts.find((row) => row.target === "any"));
+    if (!artifact) {
+      throw new PenglaiError("INVALID_INPUT", `${id} is incompatible with target ${target}`);
+    }
     assertInstallAllowed(catalog, entry.id, entry.version, artifact.sha256);
     const fetchImpl = this.#config.fetchImpl ?? fetch;
     const tgz = await downloadVerifiedBytes({

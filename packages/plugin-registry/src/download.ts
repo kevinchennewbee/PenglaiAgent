@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import { ALLOWED_ASSET_HOSTS, GITHUB_API_ORIGIN } from "./catalog-schema.js";
+import { ALLOWED_ASSET_HOSTS, GITHUB_API_ORIGIN, GITHUB_OWNER, PLUGIN_REGISTRY_REPO } from "./catalog-schema.js";
 
 export interface DownloadRequest {
   url: string;
@@ -10,29 +10,95 @@ export interface DownloadRequest {
   maxBytes: number;
   fetchImpl?: typeof fetch;
   skipHash?: boolean;
+  ownerRepo?: string;
 }
 
-const API_HOSTS = Object.freeze(["api.github.com", ...ALLOWED_ASSET_HOSTS]);
+const REDIRECT_HOSTS = Object.freeze([
+  "github.com",
+  "api.github.com",
+  "objects.githubusercontent.com",
+  "release-assets.githubusercontent.com",
+]);
+const MAX_REDIRECTS = 3;
 
-export async function downloadVerifiedBytes(input: DownloadRequest): Promise<Buffer> {
-  const parsed = new URL(input.url);
+export function assertSafeDownloadUrl(raw: string, previous?: URL): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new PenglaiError("SECURITY_POLICY", "download URL invalid");
+  }
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hash) {
     throw new PenglaiError("SECURITY_POLICY", "download URL must be exact https");
   }
-  if (parsed.search && parsed.hostname !== "api.github.com") {
+  if (parsed.port && parsed.port !== "443") {
+    throw new PenglaiError("SECURITY_POLICY", "download must use default https port");
+  }
+  if (
+    parsed.search &&
+    parsed.hostname !== "api.github.com" &&
+    parsed.hostname !== "objects.githubusercontent.com" &&
+    parsed.hostname !== "release-assets.githubusercontent.com"
+  ) {
     throw new PenglaiError("SECURITY_POLICY", "download URL must be exact https");
   }
-  if (!API_HOSTS.includes(parsed.hostname)) {
-    throw new PenglaiError("SECURITY_POLICY", "download host not allowed");
+  if (!REDIRECT_HOSTS.includes(parsed.hostname) || !ALLOWED_ASSET_HOSTS.includes(parsed.hostname)) {
+    throw new PenglaiError("SECURITY_POLICY", `download host not allowed ${parsed.hostname}`);
   }
   if (parsed.hostname === "api.github.com" && parsed.origin !== GITHUB_API_ORIGIN) {
     throw new PenglaiError("SECURITY_POLICY", "download host not allowed");
   }
+  if (parsed.hostname === "github.com" && !/^\/[^/]+\/[^/]+\/releases\/(download|assets)\//.test(parsed.pathname)) {
+    throw new PenglaiError("SECURITY_POLICY", "github download path is not an immutable release asset");
+  }
+  if (
+    parsed.hostname === "api.github.com" &&
+    !/^\/repos\/[^/]+\/[^/]+\/(releases(\/assets\/\d+)?|releases\?)/.test(parsed.pathname) &&
+    !/^\/repos\/[^/]+\/[^/]+\/releases(\/|$)/.test(parsed.pathname)
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "GitHub API path is not a release asset");
+  }
+  if (previous && parsed.hostname === "localhost") {
+    throw new PenglaiError("SECURITY_POLICY", "download host not allowed localhost");
+  }
+  return parsed;
+}
+
+function githubAssetApiUrl(assetId: number, ownerRepo?: string): string {
+  const repo = ownerRepo ?? `${GITHUB_OWNER}/${PLUGIN_REGISTRY_REPO}`;
+  return `${GITHUB_API_ORIGIN}/repos/${repo}/releases/assets/${assetId}`;
+}
+
+export async function downloadVerifiedBytes(input: DownloadRequest): Promise<Buffer> {
+  let url = input.url;
+  if (input.assetId && input.assetId > 0 && new URL(input.url).hostname === "github.com") {
+    url = githubAssetApiUrl(input.assetId, input.ownerRepo);
+  }
+  const parsed = assertSafeDownloadUrl(url);
   if (input.size <= 0 || input.size > input.maxBytes) throw new PenglaiError("SECURITY_POLICY", "download size bound");
   const fetchImpl = input.fetchImpl ?? fetch;
-  const response = await fetchImpl(input.url, { redirect: "manual" });
-  if (response.status !== 200 || response.redirected || (response.url && response.url !== input.url)) {
-    throw new PenglaiError("SECURITY_POLICY", `download refused: ${response.status}`);
+  let current = parsed;
+  let response: Response | undefined;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const headers: Record<string, string> = {};
+    if (current.hostname === "api.github.com" && /\/releases\/assets\/\d+$/.test(current.pathname)) {
+      headers.accept = "application/octet-stream";
+    }
+    response = await fetchImpl(current.href, { redirect: "manual", headers });
+    if (response.status === 200 && !response.redirected) break;
+    if (response.status !== 301 && response.status !== 302 && response.status !== 303 && response.status !== 307 && response.status !== 308) {
+      throw new PenglaiError("SECURITY_POLICY", `download refused: ${response.status}`);
+    }
+    const location = response.headers.get("location");
+    if (!location || hop === MAX_REDIRECTS) {
+      throw new PenglaiError("SECURITY_POLICY", `download refused: ${response.status}`);
+    }
+    const next = new URL(location, current);
+    assertSafeDownloadUrl(next.href, current);
+    current = next;
+  }
+  if (!response || response.status !== 200) {
+    throw new PenglaiError("SECURITY_POLICY", `download refused: ${response?.status ?? 0}`);
   }
   const declared = response.headers.get("content-length");
   if (!input.skipHash && declared !== null && Number(declared) !== input.size) {
