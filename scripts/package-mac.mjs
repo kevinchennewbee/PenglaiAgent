@@ -103,7 +103,7 @@ if (closure.verdict !== "PASS") {
   );
   process.exit(1);
 }
-const ensure = spawnSync(process.execPath, ["scripts/ensure-electron.mjs"], {
+const ensure = spawnSync(process.execPath, ["scripts/ensure-electron.mjs", "--target", targetArg], {
   encoding: "utf8",
 });
 if (ensure.status !== 0) {
@@ -247,6 +247,13 @@ writeFileSync(
   join(resources, "release-info.json"),
   JSON.stringify(info, null, 2),
 );
+const native = spawnSync(process.execPath, ["scripts/verify-native-arch.mjs", appDir, targetSpec.runtimeTarget], {
+  encoding: "utf8",
+});
+if (native.status !== 0) {
+  process.stderr.write(native.stderr || native.stdout || "verify-native-arch failed\n");
+  process.exit(native.status ?? 1);
+}
 const zip = targetSpec.zip;
 rmSync(zip, { force: true });
 execSync(`ditto -c -k --sequesterRsrc "${outRoot}" "${zip}"`);
