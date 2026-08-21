@@ -7,7 +7,12 @@ export const GITHUB_OWNER = "kevinchennewbee";
 export const PLUGIN_REGISTRY_REPO = "PenglaiPluginRegistry";
 export const APP_REPO = "PenglaiAgent";
 export const GITHUB_API_ORIGIN = "https://api.github.com";
-export const ALLOWED_ASSET_HOSTS = Object.freeze(["github.com", "objects.githubusercontent.com"]);
+export const ALLOWED_ASSET_HOSTS = Object.freeze([
+  "github.com",
+  "api.github.com",
+  "objects.githubusercontent.com",
+  "release-assets.githubusercontent.com",
+]);
 
 export type ProvenanceClass =
   | "official-core"

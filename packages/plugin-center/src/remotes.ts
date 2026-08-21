@@ -8,7 +8,7 @@ import {
   type CachedPackage,
   type RegistrySnapshot,
 } from "@penglai/plugin-registry";
-import { type PluginCatalogEntry } from "@penglai/runtime";
+import { PINNED_PLUGIN_DSH, type PluginCatalogEntry } from "@penglai/runtime";
 import {
   rollbackLastGood,
   runProfileTransaction,
@@ -69,10 +69,37 @@ export interface CenterRemote {
 function catalogEntry(
   entries: readonly PluginCatalogEntry[],
   id: string,
+  registry?: PluginDistributionClient,
 ): PluginCatalogEntry {
   const entry = entries.find((candidate) => candidate.id === id);
-  if (!entry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
-  return entry;
+  if (entry) return entry;
+  if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
+  const remote = registry.entry(id);
+  const artifact =
+    remote.artifacts.find((row) => row.target === "any") ?? remote.artifacts[0];
+  if (!artifact) throw new PenglaiError("INVALID_INPUT", "unlisted package");
+  if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
+    throw new PenglaiError("SECURITY_POLICY", `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`);
+  }
+  return {
+    id: remote.id,
+    version: remote.version,
+    packageFile: `${remote.id.replace("@", "").replaceAll("/", "-")}-${remote.version}.tgz`,
+    dsh: { exact: PINNED_PLUGIN_DSH },
+    platforms: ["darwin-arm64", "darwin-x64", "win32-x64"],
+    capabilities: remote.capabilities,
+    permissions: remote.permissions,
+    defaultEnabled: false,
+    builtIn: false,
+    source: "bundled-first-party",
+    provenanceClass: remote.provenanceClass === "community-reviewed" ? "community-reviewed" : "penglai-first-party",
+    license: remote.license,
+    migration: remote.migration,
+    rollback: "last-good-profile",
+    sha256: artifact.sha256,
+    target: "darwin-arm64",
+    hasClient: false,
+  };
 }
 
 async function waitForInventory(
@@ -129,7 +156,7 @@ export function createCenterRemote(opts: {
     id: string,
     action: "enable" | "disable" | "update",
   ) => {
-    const entry = catalogEntry(opts.catalog, id);
+    const entry = catalogEntry(opts.catalog, id, opts.registry);
     if (action === "disable" && id === "@penglai/plugin-center") {
       throw new PenglaiError("SECURITY_POLICY", "required plugin cannot be disabled");
     }
@@ -262,7 +289,7 @@ export function createCenterRemote(opts: {
       return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true };
     },
     async rollback(id: string) {
-      catalogEntry(opts.catalog, id);
+      catalogEntry(opts.catalog, id, opts.registry);
       const enabled = previousEnabledFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
         userDataRoot: opts.userDataRoot,
