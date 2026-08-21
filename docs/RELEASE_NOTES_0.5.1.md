@@ -2,6 +2,8 @@
 
 Penglai 0.5.1 adds a signed plugin distribution protocol (PPDP/1) and a versioned app-update protocol (PUDP/1). The desktop app is still a community-verified, ad-hoc sealed Apple Silicon distribution of official DeepSeek Harness 0.1.0-rc.8.
 
+This file is **not a publication freeze**. Exact DMG, live GitHub Releases, and Plugin Center installed E2E are **NOT_RUN**. Do not treat it as a shipped 0.5.1 until Owner freeze.
+
 ## Upgrade from 0.5.0
 
 Install the 0.5.1 DMG manually over 0.5.0. User data in `Penglai/0.5` is kept. 0.5.0 cannot one-click update: it embeds a fixture updater key and never published `latest.json`.
