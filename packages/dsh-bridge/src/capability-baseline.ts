@@ -3,7 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
 export const PINNED_DSH_INTEGRITY =
-  "sha512-VQU5NlomrKLRgcXuOf+sxWFvqxPA8q9vMhrKPlPPXiOJEhGlGlAdiyxZvZxkCVI+v0zbhe21cY3/luLyxpSzzA==";
+  "sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",

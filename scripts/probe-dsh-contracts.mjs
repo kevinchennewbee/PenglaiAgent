@@ -18,7 +18,7 @@ const dump = execFileSync(process.execPath, [dshBin, "--profile", "web", "--dump
   env: { ...process.env, DSH_HOME: home, PATH: process.env.PATH },
 });
 const report = {
-  dsh: "0.1.0-rc.8",
+  dsh: "0.1.1-rc.1",
   credentialsPackage: cred,
   sessionPackage: session,
   hasCredentialsLocal: dump.includes("dsh-credentials-local"),

@@ -51,10 +51,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglai-v2", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.0-rc.8" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.0-rc.8" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.0-rc.8" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.0-rc.8" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.1-rc.1" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.1-rc.1" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.1-rc.1" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.1-rc.1" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },

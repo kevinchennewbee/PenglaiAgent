@@ -48,9 +48,9 @@ export function applyInlineTransform(source, transform) {
 }
 
 export function loadOverlayManifest() {
-  const dir = join(ROOT, "overlays/dsh-0.1.0-rc.8");
+  const dir = join(ROOT, "overlays/dsh-0.1.1-rc.1");
   const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
-  if (manifest.dsh !== "0.1.0-rc.8" || manifest.kind !== "ui-only") {
+  if (manifest.dsh !== "0.1.1-rc.1" || manifest.kind !== "ui-only") {
     throw new Error("overlay manifest identity drift");
   }
   return { dir, manifest };
@@ -66,7 +66,7 @@ const BRAND_FILES = [
 
 export function applyBrandAssets(
   dshRoot,
-  overlayDir = join(ROOT, "overlays/dsh-0.1.0-rc.8"),
+  overlayDir = join(ROOT, "overlays/dsh-0.1.1-rc.1"),
 ) {
   const dest = join(
     dshRoot,

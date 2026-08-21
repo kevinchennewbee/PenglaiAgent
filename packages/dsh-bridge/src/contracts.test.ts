@@ -38,7 +38,7 @@ test("R2-UP-006 memory provider is official CredentialProvider", async () => {
   assert.equal(mem instanceof CredentialProvider, true);
   const ref = credentialRef("DEEPSEEK_API_KEY");
   let updates = 0;
-  ctx.on("credentials/updated", () => {
+  ctx.on("credentials/reference-updated", () => {
     updates += 1;
   });
   await mem.set(ref, "canary-not-a-secret-for-git");

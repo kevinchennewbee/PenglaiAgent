@@ -85,11 +85,11 @@ test("recordAssertion keeps the caller source SHA when PENGLAI_CANDIDATE_SHA dif
   }
 });
 
-test("one native arm64 assertion closes the current single-target installed ID", () => {
+test("one native arm64 assertion cannot close the three-target installed ID", () => {
   const installedAll = entry("R50-CORE-001", "installed/all");
   assert.deepEqual(
     requiredSlots(installedAll).map((s) => s.target),
-    ["darwin-aarch64"],
+    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
   );
   const manifest = evaluateEvidenceV2({
     registry: [installedAll],
@@ -107,9 +107,8 @@ test("one native arm64 assertion closes the current single-target installed ID",
       }),
     ],
   });
-  assert.equal(manifest.results[0]?.status, "PASS");
-  assert.deepEqual(manifest.ids[0]?.missingTargets, []);
-  assert.equal(manifest.verdict, "PASS");
+  assert.notEqual(manifest.results[0]?.status, "PASS");
+  assert.deepEqual(manifest.ids[0]?.missingTargets, ["darwin-x86_64", "win32-x86_64"]);
 });
 
 test("a unit-suite record cannot satisfy an installed/soak/live ID", () => {

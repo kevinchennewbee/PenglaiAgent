@@ -3,11 +3,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { ROOT, readJson } from "./lib/repo.mjs";
-
-const PINNED_DSH = "0.1.0-rc.8";
-const PINNED_DSH_COMMIT = "141eb6fef83422698aef7a981029e843e8161534";
-const PINNED_DSH_INTEGRITY =
-  "sha512-VQU5NlomrKLRgcXuOf+sxWFvqxPA8q9vMhrKPlPPXiOJEhGlGlAdiyxZvZxkCVI+v0zbhe21cY3/luLyxpSzzA==";
+import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_INTEGRITY } from "./lib/product.mjs";
 
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
 if (!lock.includes(PINNED_DSH)) {
@@ -19,14 +15,14 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const adr = readFileSync(join(ROOT, "docs/adr/0031-dsh-010-rc8-pin-and-brand-slots.md"), "utf8");
+const adr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
 if (!adr.includes(PINNED_DSH) || !adr.includes(PINNED_DSH_COMMIT)) {
-  console.error("ADR 0031 missing pin/commit");
+  console.error("ADR 0033 missing pin/commit");
   process.exit(1);
 }
-const sources = readFileSync(join(ROOT, "docs/sources.md"), "utf8");
-if (!sources.includes(PINNED_DSH_INTEGRITY) || !sources.includes(PINNED_DSH_COMMIT)) {
-  console.error("sources.md missing integrity/commit");
+const freeze = readFileSync(join(ROOT, "docs/0.5.1/DSH_FREEZE.md"), "utf8");
+if (!freeze.includes(PINNED_DSH_INTEGRITY) || !freeze.includes(PINNED_DSH_COMMIT)) {
+  console.error("DSH_FREEZE.md missing integrity/commit");
   process.exit(1);
 }
 const blob = JSON.stringify(readJson("package.json")) + JSON.stringify(desktop);

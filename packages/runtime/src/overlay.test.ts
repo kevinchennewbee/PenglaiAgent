@@ -34,25 +34,25 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   mkdirSync(join(dir, dirname(heroRel)), { recursive: true });
   mkdirSync(join(dir, dirname(settingsRel)), { recursive: true });
   cpSync(
-    join(root, "overlays/dsh-0.1.0-rc.8/upstream/dsh-web-frontend.index.html"),
+    join(root, "overlays/dsh-0.1.1-rc.1/upstream/dsh-web-frontend.index.html"),
     join(dir, htmlRel),
   );
   cpSync(
     join(
       root,
-      "overlays/dsh-0.1.0-rc.8/upstream/dsh-client-ui-settings-models.client.js",
+      "overlays/dsh-0.1.1-rc.1/upstream/dsh-client-ui-settings-models.client.js",
     ),
     join(dir, welcomeRel),
   );
   cpSync(
     join(
       root,
-      "overlays/dsh-0.1.0-rc.8/upstream/dsh-client-ui-conversation.client.js",
+      "overlays/dsh-0.1.1-rc.1/upstream/dsh-client-ui-conversation.client.js",
     ),
     join(dir, heroRel),
   );
   const settingsPackage = readdirSync(join(root, "node_modules/.pnpm")).find((name) =>
-    name.startsWith("@deepseek-ai+dsh-client-ui-settings-general@0.1.0-rc.8_"),
+    name.startsWith("@deepseek-ai+dsh-client-ui-settings-general@0.1.1-rc.1_"),
   );
   assert.ok(settingsPackage);
   cpSync(
