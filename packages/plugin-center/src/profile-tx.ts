@@ -4,6 +4,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -18,11 +19,12 @@ import {
   sha256File,
   type PluginCatalogEntry,
 } from "@penglai/runtime";
+import { assertManifestMatchesCatalog, inspectPluginEntries, type ArchiveFile } from "@penglai/plugin-registry";
 
 export interface ProfileTxResult {
   phase: "committed" | "rolled_back";
   id: string;
-  action: "enable" | "disable" | "update" | "rollback";
+  action: "enable" | "disable" | "update" | "rollback" | "install";
   operationId?: string;
   version?: string;
   restartRequired?: boolean;
@@ -148,6 +150,16 @@ export function setPatchDisabled(
   return endsWithNl && !joined.endsWith("\n") ? `${joined}\n` : joined;
 }
 
+export function upsertPatchDisabled(patchText: string, pluginId: string, disabled: boolean): string {
+  try {
+    return setPatchDisabled(patchText, pluginId, disabled);
+  } catch {
+    const short = pluginId.replace(/^@/, "").replaceAll("/", "-");
+    const row = `    - id: ${short}\n      name: "${pluginId}"\n      disabled: ${disabled ? "true" : "false"}\n`;
+    return patchText.endsWith("\n") ? `${patchText}${row}` : `${patchText}\n${row}`;
+  }
+}
+
 export { sha256File };
 
 export function assertPackageIntegrity(
@@ -174,21 +186,57 @@ function extractedRoot(directory: string): string {
   throw new PenglaiError("STORE_CORRUPT", "package.json missing");
 }
 
+function walkArchiveFiles(root: string, rel = ""): ArchiveFile[] {
+  const abs = rel ? join(root, rel) : root;
+  const st = lstatSync(abs);
+  if (st.isDirectory()) {
+    const children = readdirSync(abs);
+    return children.flatMap((name) => walkArchiveFiles(root, rel ? join(rel, name) : name));
+  }
+  if (!st.isFile()) return [];
+  return [{ path: rel.replaceAll("\\", "/"), kind: "file", data: readFileSync(abs) }];
+}
+
 async function verifyExtractedPackage(
   directory: string,
   entry: PluginCatalogEntry,
   importModule = true,
 ): Promise<string> {
   const root = extractedRoot(directory);
-  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as unknown;
-  assertPluginPackageManifest(manifest, entry);
-  const host = join(root, "dist", "index.js");
-  if (!existsSync(host)) {
-    throw new PenglaiError("STORE_CORRUPT", `${entry.id} host bundle missing`);
+  if (entry.source === "penglai-plugin-registry") {
+    const inspected = inspectPluginEntries(walkArchiveFiles(root));
+    assertManifestMatchesCatalog({
+      catalogId: entry.id,
+      catalogVersion: entry.version,
+      catalogPermissions: entry.permissions,
+      catalogCapabilities: entry.capabilities,
+      catalogDsh: entry.dsh.exact,
+      manifest: inspected.manifest,
+      ...(entry.entry ? { catalogEntry: entry.entry } : {}),
+      ...(entry.clientEntry ? { catalogClientEntry: entry.clientEntry } : {}),
+      ...(entry.nativeCode === false ? { catalogNativeCode: false } : {}),
+      ...(entry.networkOrigins ? { catalogNetworkOrigins: entry.networkOrigins } : {}),
+      ...(entry.dataPaths ? { catalogDataPaths: entry.dataPaths } : {}),
+    });
+    const host = join(root, inspected.manifest.entry);
+    if (!existsSync(host)) {
+      throw new PenglaiError("STORE_CORRUPT", `${entry.id} host bundle missing`);
+    }
+    if (inspected.manifest.clientEntry && !existsSync(join(root, inspected.manifest.clientEntry))) {
+      throw new PenglaiError("STORE_CORRUPT", `${entry.id} client bundle missing`);
+    }
+  } else {
+    const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as unknown;
+    assertPluginPackageManifest(manifest, entry);
+    const host = join(root, "dist", "index.js");
+    if (!existsSync(host)) {
+      throw new PenglaiError("STORE_CORRUPT", `${entry.id} host bundle missing`);
+    }
+    if (entry.hasClient && !existsSync(join(root, "dist", "client.js"))) {
+      throw new PenglaiError("STORE_CORRUPT", `${entry.id} client bundle missing`);
+    }
   }
-  if (entry.hasClient && !existsSync(join(root, "dist", "client.js"))) {
-    throw new PenglaiError("STORE_CORRUPT", `${entry.id} client bundle missing`);
-  }
+  const host = join(root, entry.entry ?? "dist/index.js");
   const source = readFileSync(host, "utf8");
   if (/from\s+["'][^"']*\/src\/|\.tsx?["']/.test(source)) {
     throw new PenglaiError("SECURITY_POLICY", `${entry.id} source dependency in package`);
@@ -242,7 +290,7 @@ export async function runProfileTransaction(opts: {
   txDir: string;
   pluginsDir: string;
   entry: PluginCatalogEntry;
-  action: "enable" | "disable" | "update";
+  action: "enable" | "disable" | "update" | "install";
   previousEnabled: boolean;
   applyLive: (input: {
     id: string;
@@ -270,7 +318,7 @@ export async function runProfileTransaction(opts: {
   const packageStage = join(opts.txDir, `package-${operationId}`);
   const backup = `${opts.profileDir}.center-backup`;
   const desiredEnabled =
-    opts.action === "disable"
+    opts.action === "disable" || opts.action === "install"
       ? false
       : opts.action === "enable"
         ? true
@@ -283,7 +331,7 @@ export async function runProfileTransaction(opts: {
     action: opts.action,
     previousEnabled: opts.previousEnabled,
     version: opts.entry.version,
-    ...(opts.action === "update" || opts.action === "enable"
+    ...(opts.action === "update" || opts.action === "enable" || opts.action === "install"
       ? { packageSha256: opts.entry.sha256 }
       : {}),
   };
@@ -300,7 +348,7 @@ export async function runProfileTransaction(opts: {
     if (!existsSync(patchPath)) {
       throw new PenglaiError("STORE_CORRUPT", "cordis.patch.yml missing");
     }
-    const nextPatch = setPatchDisabled(
+    const nextPatch = upsertPatchDisabled(
       readFileSync(patchPath, "utf8"),
       opts.entry.id,
       !desiredEnabled,
@@ -309,6 +357,7 @@ export async function runProfileTransaction(opts: {
     const scoped = join(staging, "node_modules", ...opts.entry.id.split("/"));
     if (
       opts.action === "update" ||
+      opts.action === "install" ||
       (opts.action === "enable" && !existsSync(scoped))
     ) {
       const packageFile = join(opts.pluginsDir, opts.entry.packageFile);

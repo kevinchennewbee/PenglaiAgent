@@ -11,7 +11,6 @@ import { isAbsolute, join, resolve } from "node:path";
 import { isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
-  extractTarGz,
   loadPluginCatalog,
   PINNED_PLUGIN_DSH,
   runtimePluginTarget,
@@ -220,6 +219,7 @@ export class PluginCenterHost {
     private readonly catalog: readonly CatalogEntry[],
     private readonly profileDir?: string,
     private readonly health?: (id: string) => PluginHealthResult,
+    private readonly allowId?: (id: string) => boolean,
   ) {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
     validateCatalog(catalog);
@@ -252,7 +252,7 @@ export class PluginCenterHost {
   }
 
   setDesired(id: string, enabled: boolean): void {
-    if (!this.catalog.some((e) => e.id === id))
+    if (!this.catalog.some((e) => e.id === id) && !this.allowId?.(id))
       throw new PenglaiError("INVALID_INPUT", "unlisted package");
     const next = { ...this.desired(), [id]: enabled };
     atomicJson(join(this.stateDir, "desired.json"), next);
@@ -288,15 +288,19 @@ export class PluginCenterHost {
     } catch {
       loaded = [];
     }
-    return this.catalog.map((e) => {
-      const hit = loaded.find((n) => rowMatches(n, e.id));
+    const ids = new Set(this.catalog.map((e) => e.id));
+    for (const id of Object.keys(desired)) ids.add(id);
+    return [...ids].map((id) => {
+      const e = this.catalog.find((row) => row.id === id);
+      const hit = loaded.find((n) => rowMatches(n, id));
       const isLoaded = rowLoaded(hit);
-      const wanted = Boolean(desired[e.id]);
-      const installed = this.installedVersion(e.id);
+      const wanted = Boolean(desired[id]);
+      const installed = this.installedVersion(id);
+      const version = e?.version ?? (installed !== "not-installed" && installed !== "invalid" ? installed : "remote");
       let health: PluginHealthResult = { healthy: false };
       if (isLoaded) {
         try {
-          health = this.health?.(e.id) ?? { healthy: true };
+          health = this.health?.(id) ?? { healthy: true };
         } catch (error) {
           health = {
             healthy: false,
@@ -305,12 +309,12 @@ export class PluginCenterHost {
         }
       }
       return {
-        id: e.id,
-        desired: wanted ? e.version : "disabled",
+        id,
+        desired: wanted ? version : "disabled",
         installed,
         loaded: isLoaded,
         healthy:
-          wanted && isLoaded && installed === e.version && health.healthy,
+          wanted && isLoaded && installed === version && health.healthy,
         actual: isLoaded ? "active" : wanted ? "failed" : "disabled",
         ...(health.error ? { error: health.error } : {}),
         ...(health.configuration === undefined
@@ -448,7 +452,7 @@ function resourceProbeFrom(
     "@penglai/companion": "penglaiCompanion",
   };
   const serviceName = serviceNames[id];
-  if (!serviceName) return undefined;
+  if (!serviceName) return { snapshot: () => ({ ...ZERO_RESOURCES }) };
   const service = ctx.get?.(serviceName) as
     | {
         resourceSnapshot?: () => Partial<typeof ZERO_RESOURCES>;
@@ -523,12 +527,28 @@ export function apply(ctx: {
   }
   installPenglaiProductIdentity(ctx);
   const catalog = loadPluginCatalog(pluginsDir, runtimePluginTarget(), true);
+  const registry = new PluginDistributionClient({
+    cacheRoot: join(userData, "plugins", "cas"),
+    trustPath: join(userData, "plugins", "trust-state.json"),
+    lastGoodPath: join(userData, "plugins", "last-good-catalog.json"),
+    penglaiVersion: RELEASE,
+    dshExact: PINNED_PLUGIN_DSH,
+    target: runtimePluginTarget(),
+  });
   const host = new PluginCenterHost(
     dir,
     inventory,
     catalog.entries,
     profileDir,
     (id) => pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id),
+    (id) => {
+      try {
+        registry.entry(id);
+        return true;
+      } catch {
+        return false;
+      }
+    },
   );
   const recovered = recoverInterruptedTransaction({
     userDataRoot: userData,
@@ -590,13 +610,6 @@ export function apply(ctx: {
   timer.unref?.();
   ctx.effect?.(() => () => clearInterval(timer));
   const txDir = join(userData, "profiles", "center-tx");
-  const registry = new PluginDistributionClient({
-    cacheRoot: join(userData, "plugins", "cas"),
-    trustPath: join(userData, "plugins", "trust-state.json"),
-    lastGoodPath: join(userData, "plugins", "last-good-catalog.json"),
-    penglaiVersion: RELEASE,
-    dshExact: PINNED_PLUGIN_DSH,
-  });
   const remote = createCenterRemote({
     host,
     inventory,
@@ -608,10 +621,9 @@ export function apply(ctx: {
           rowMatches(entry, input.id),
         );
         if (!row?.entryId) {
-          throw new PenglaiError(
-            "DSH_UNAVAILABLE",
-            `${input.id} official loader entry missing`,
-          );
+          await ctx.loader.resolve(input.id).update({ disabled: !input.enabled }, true, true);
+          await ctx.loader.await();
+          return;
         }
         const entry = ctx.loader.resolve(row.entryId);
         if (input.forceReload && input.enabled) {
@@ -632,10 +644,9 @@ export function apply(ctx: {
     pluginsDir,
     userDataRoot: userData,
     async stagePackage(pkg) {
-      const dest = join(profileDir, "node_modules", ...pkg.id.split("/"));
       const bytes = readFileSync(pkg.path);
-      mkdirSync(dest, { recursive: true, mode: 0o700 });
-      extractTarGz(bytes, dest);
+      const catalogName = `${pkg.id.replace("@", "").replaceAll("/", "-")}-${pkg.version}.tgz`;
+      writeFileSync(join(pluginsDir, catalogName), bytes, { mode: 0o600 });
     },
   });
   const welcomeAck = (): boolean => {

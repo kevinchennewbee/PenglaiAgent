@@ -28,7 +28,7 @@ export interface PluginCatalogMetadata {
   permissions: string[];
   defaultEnabled: boolean;
   builtIn: boolean;
-  source: "bundled-first-party";
+  source: "bundled-first-party" | "penglai-plugin-registry";
   provenanceClass: PluginProvenanceClass;
   license: string;
   migration: string;
@@ -39,6 +39,12 @@ export interface PluginCatalogEntry extends PluginCatalogMetadata {
   sha256: string;
   target: ProductPluginTarget;
   hasClient: boolean;
+  entry?: string;
+  clientEntry?: string;
+  networkOrigins?: string[];
+  dataPaths?: string[];
+  nativeCode?: boolean;
+  publisher?: string;
 }
 
 export interface PluginCatalogDocument {

@@ -8,7 +8,14 @@ import {
   type CachedPackage,
   type RegistrySnapshot,
 } from "@penglai/plugin-registry";
-import { PINNED_PLUGIN_DSH, type PluginCatalogEntry } from "@penglai/runtime";
+import {
+  PINNED_PLUGIN_DSH,
+  consumePluginOwnerGrant,
+  pluginPermissionDigest,
+  runtimePluginTarget,
+  type PluginCatalogEntry,
+  type PluginOwnerAction,
+} from "@penglai/runtime";
 import {
   rollbackLastGood,
   runProfileTransaction,
@@ -57,13 +64,20 @@ export interface CenterRemote {
     required: Record<string, boolean>;
     degraded?: boolean;
   };
-  enable(id: string): Promise<unknown>;
+  enable(id: string, capabilityId?: string): Promise<unknown>;
   disable(id: string): Promise<unknown>;
-  update(id: string): Promise<unknown>;
+  update(id: string, capabilityId?: string): Promise<unknown>;
   rollback(id: string): Promise<unknown>;
   refreshRegistry(): Promise<unknown>;
   download(id: string): Promise<unknown>;
-  installDisabled(id: string): Promise<unknown>;
+  installDisabled(id: string, capabilityId?: string): Promise<unknown>;
+}
+
+function selectArtifact(
+  artifacts: ReadonlyArray<{ target: string; sha256: string }>,
+  hostTarget: string,
+) {
+  return artifacts.find((row) => row.target === hostTarget) ?? artifacts.find((row) => row.target === "any");
 }
 
 function catalogEntry(
@@ -75,9 +89,11 @@ function catalogEntry(
   if (entry) return entry;
   if (!registry) throw new PenglaiError("INVALID_INPUT", "unlisted package");
   const remote = registry.entry(id);
-  const artifact =
-    remote.artifacts.find((row) => row.target === "any") ?? remote.artifacts[0];
-  if (!artifact) throw new PenglaiError("INVALID_INPUT", "unlisted package");
+  const hostTarget = runtimePluginTarget();
+  const artifact = selectArtifact(remote.artifacts, hostTarget);
+  if (!artifact) {
+    throw new PenglaiError("INVALID_INPUT", `${id} is incompatible with target ${hostTarget}`);
+  }
   if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
     throw new PenglaiError("SECURITY_POLICY", `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`);
   }
@@ -91,14 +107,20 @@ function catalogEntry(
     permissions: remote.permissions,
     defaultEnabled: false,
     builtIn: false,
-    source: "bundled-first-party",
+    source: "penglai-plugin-registry",
     provenanceClass: remote.provenanceClass === "community-reviewed" ? "community-reviewed" : "penglai-first-party",
     license: remote.license,
     migration: remote.migration,
     rollback: "last-good-profile",
     sha256: artifact.sha256,
-    target: "darwin-arm64",
-    hasClient: false,
+    target: hostTarget,
+    hasClient: Boolean(remote.clientEntry),
+    entry: remote.entry,
+    ...(remote.clientEntry ? { clientEntry: remote.clientEntry } : {}),
+    networkOrigins: remote.networkOrigins,
+    dataPaths: remote.dataPaths,
+    nativeCode: remote.nativeCode,
+    publisher: remote.publisher,
   };
 }
 
@@ -152,9 +174,27 @@ export function createCenterRemote(opts: {
   registry?: PluginDistributionClient;
   stagePackage?: (pkg: CachedPackage) => Promise<void>;
 }): CenterRemote {
+  const requireOwner = (id: string, action: PluginOwnerAction, capabilityId: string | undefined): void => {
+    if (!capabilityId) throw new PenglaiError("SECURITY_POLICY", "native owner capability is required");
+    const entry = catalogEntry(opts.catalog, id, opts.registry);
+    consumePluginOwnerGrant({
+      userDataRoot: opts.userDataRoot,
+      capabilityId,
+      action,
+      pluginId: id,
+      version: entry.version,
+      sha256: entry.sha256,
+      permissionDigest: pluginPermissionDigest({
+        permissions: entry.permissions,
+        ...(entry.networkOrigins ? { networkOrigins: entry.networkOrigins } : {}),
+        ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
+        nativeCode: entry.nativeCode === true,
+      }),
+    });
+  };
   const transact = async (
     id: string,
-    action: "enable" | "disable" | "update",
+    action: "enable" | "disable" | "update" | "install",
   ) => {
     const entry = catalogEntry(opts.catalog, id, opts.registry);
     if (action === "disable" && id === "@penglai/plugin-center") {
@@ -205,7 +245,9 @@ export function createCenterRemote(opts: {
           ...card,
           installed: recon?.installed ?? (card.downloaded ? "cached" : "not-installed"),
           loaded: rowLoaded(row),
-          enabled: recon ? recon.desired !== "disabled" : false,
+          enabled: recon
+            ? recon.desired !== "disabled"
+            : Boolean(opts.host.desired()[String(card.id)]),
           rollbackAvailable: existsSync(join(opts.txDir, "last-good")),
         };
       });
@@ -241,13 +283,15 @@ export function createCenterRemote(opts: {
         },
       };
     },
-    enable(id: string) {
+    enable(id: string, capabilityId?: string) {
+      requireOwner(id, "plugin-enable", capabilityId);
       return transact(id, "enable");
     },
     disable(id: string) {
       return transact(id, "disable");
     },
-    update(id: string) {
+    update(id: string, capabilityId?: string) {
+      requireOwner(id, "plugin-update", capabilityId);
       return transact(id, "update");
     },
     async refreshRegistry() {
@@ -277,16 +321,14 @@ export function createCenterRemote(opts: {
       if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
       return opts.registry.downloadPackage(id);
     },
-    async installDisabled(id: string) {
+    async installDisabled(id: string, capabilityId?: string) {
       if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
-      const pkg = await opts.registry.downloadPackage(id);
+      requireOwner(id, "plugin-install", capabilityId);
+      const pkg = await opts.registry.downloadPackage(id, runtimePluginTarget());
       await opts.stagePackage?.(pkg);
-      try {
-        opts.host.setDesired(id, false);
-      } catch {
-        /* remote plugins are not first-party catalog rows until loader inventories them */
-      }
-      return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true };
+      const installed = await transact(id, "install");
+      await waitForInventory(opts.inventory, id, false);
+      return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true, phase: installed.phase };
     },
     async rollback(id: string) {
       catalogEntry(opts.catalog, id, opts.registry);
@@ -319,8 +361,8 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  enable(input: { id: string }) {
-    return this.impl.enable(input.id);
+  enable(input: { id: string; capabilityId?: string }) {
+    return this.impl.enable(input.id, input.capabilityId);
   }
 
   @Remote
@@ -329,8 +371,8 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  update(input: { id: string }) {
-    return this.impl.update(input.id);
+  update(input: { id: string; capabilityId?: string }) {
+    return this.impl.update(input.id, input.capabilityId);
   }
 
   @Remote
@@ -349,7 +391,7 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  installDisabled(input: { id: string }) {
-    return this.impl.installDisabled(input.id);
+  installDisabled(input: { id: string; capabilityId?: string }) {
+    return this.impl.installDisabled(input.id, input.capabilityId);
   }
 }

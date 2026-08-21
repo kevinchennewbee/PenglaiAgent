@@ -43,6 +43,12 @@ export interface CatalogEntry {
   capabilities: string[];
   permissions: string[];
   defaultEnabled: false;
+  entry: string;
+  clientEntry?: string;
+  targets: string[];
+  nativeCode: false;
+  networkOrigins: string[];
+  dataPaths: string[];
   artifacts: CatalogArtifact[];
   migration: string;
   rollback: string;
@@ -159,6 +165,13 @@ function parseEntry(raw: unknown, seen: Set<string>): CatalogEntry {
     if (seen.has(key)) throw new PenglaiError("SECURITY_POLICY", "duplicate plugin artifact identity");
     seen.add(key);
   }
+  if (raw.nativeCode !== false) throw new PenglaiError("SECURITY_POLICY", "remote plugin cannot ship nativeCode");
+  const entry = requireString(raw.entry, "entry");
+  if (entry.includes("..") || entry.startsWith("/") || entry.startsWith("\\")) {
+    throw new PenglaiError("SECURITY_POLICY", "plugin entry path escape");
+  }
+  const targets = stringList(raw.targets, "targets");
+  if (!targets.length) throw new PenglaiError("INVALID_INPUT", "plugin targets");
   return {
     id,
     version,
@@ -172,6 +185,14 @@ function parseEntry(raw: unknown, seen: Set<string>): CatalogEntry {
     capabilities: stringList(raw.capabilities, "capabilities"),
     permissions: stringList(raw.permissions, "permissions"),
     defaultEnabled: false,
+    entry,
+    ...(typeof raw.clientEntry === "string" && raw.clientEntry
+      ? { clientEntry: requireString(raw.clientEntry, "clientEntry") }
+      : {}),
+    targets,
+    nativeCode: false,
+    networkOrigins: stringList(raw.networkOrigins, "networkOrigins"),
+    dataPaths: stringList(raw.dataPaths, "dataPaths"),
     artifacts,
     migration: requireString(raw.migration, "migration"),
     rollback: requireString(raw.rollback, "rollback"),

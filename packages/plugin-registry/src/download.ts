@@ -64,6 +64,15 @@ export function assertSafeDownloadUrl(raw: string, previous?: URL): URL {
   return parsed;
 }
 
+function inferOwnerRepo(url: string): string | undefined {
+  const parsed = new URL(url);
+  const github = /^\/([^/]+)\/([^/]+)\/releases\//.exec(parsed.pathname);
+  if (parsed.hostname === "github.com" && github) return `${github[1]}/${github[2]}`;
+  const api = /^\/repos\/([^/]+)\/([^/]+)\//.exec(parsed.pathname);
+  if (parsed.hostname === "api.github.com" && api) return `${api[1]}/${api[2]}`;
+  return undefined;
+}
+
 function githubAssetApiUrl(assetId: number, ownerRepo?: string): string {
   const repo = ownerRepo ?? `${GITHUB_OWNER}/${PLUGIN_REGISTRY_REPO}`;
   return `${GITHUB_API_ORIGIN}/repos/${repo}/releases/assets/${assetId}`;
@@ -71,12 +80,14 @@ function githubAssetApiUrl(assetId: number, ownerRepo?: string): string {
 
 export async function downloadVerifiedBytes(input: DownloadRequest): Promise<Buffer> {
   let url = input.url;
+  const ownerRepo = input.ownerRepo ?? inferOwnerRepo(input.url);
   if (input.assetId && input.assetId > 0 && new URL(input.url).hostname === "github.com") {
-    url = githubAssetApiUrl(input.assetId, input.ownerRepo);
+    url = githubAssetApiUrl(input.assetId, ownerRepo);
   }
   const parsed = assertSafeDownloadUrl(url);
   if (input.size <= 0 || input.size > input.maxBytes) throw new PenglaiError("SECURITY_POLICY", "download size bound");
   const fetchImpl = input.fetchImpl ?? fetch;
+  const timeout = AbortSignal.timeout(30_000);
   let current = parsed;
   let response: Response | undefined;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
@@ -84,7 +95,7 @@ export async function downloadVerifiedBytes(input: DownloadRequest): Promise<Buf
     if (current.hostname === "api.github.com" && /\/releases\/assets\/\d+$/.test(current.pathname)) {
       headers.accept = "application/octet-stream";
     }
-    response = await fetchImpl(current.href, { redirect: "manual", headers });
+    response = await fetchImpl(current.href, { redirect: "manual", headers, signal: timeout });
     if (response.status === 200 && !response.redirected) break;
     if (response.status !== 301 && response.status !== 302 && response.status !== 303 && response.status !== 307 && response.status !== 308) {
       throw new PenglaiError("SECURITY_POLICY", `download refused: ${response.status}`);

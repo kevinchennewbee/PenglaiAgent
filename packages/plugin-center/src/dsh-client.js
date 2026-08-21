@@ -1015,18 +1015,29 @@ window.__ModuleLoader__.load({
         };
         const mutate = async (id, action) => {
           if (!centerRemote) throw new Error("penglaiCenter remote missing");
-          if (action === "enable")
-            return unwrapRemote(await centerRemote.enable({ id }));
+          if (action === "enable" || action === "update" || action === "installDisabled") {
+            const api = window.penglai;
+            if (!api || typeof api.confirmPluginAction !== "function") {
+              throw new Error("native owner capability is required");
+            }
+            const cap = await api.confirmPluginAction({ id, action });
+            if (!cap || typeof cap.capabilityId !== "string") {
+              throw new Error("native owner capability is required");
+            }
+            if (action === "enable")
+              return unwrapRemote(await centerRemote.enable({ id, capabilityId: cap.capabilityId }));
+            if (action === "update")
+              return unwrapRemote(await centerRemote.update({ id, capabilityId: cap.capabilityId }));
+            return unwrapRemote(
+              await centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }),
+            );
+          }
           if (action === "disable")
             return unwrapRemote(await centerRemote.disable({ id }));
           if (action === "rollback")
             return unwrapRemote(await centerRemote.rollback({ id }));
-          if (action === "update")
-            return unwrapRemote(await centerRemote.update({ id }));
           if (action === "download")
             return unwrapRemote(await centerRemote.download({ id }));
-          if (action === "installDisabled")
-            return unwrapRemote(await centerRemote.installDisabled({ id }));
           if (action === "refreshRegistry")
             return unwrapRemote(await centerRemote.refreshRegistry());
           throw new Error("unknown action");

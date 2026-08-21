@@ -50,6 +50,11 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
         capabilities: ["pilot-echo"],
         permissions: [],
         defaultEnabled: false,
+        entry: "dist/index.js",
+        targets: ["any"],
+        nativeCode: false,
+        networkOrigins: [],
+        dataPaths: [],
         artifacts: [
           {
             target: "any",
@@ -69,6 +74,37 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+test("P51-UPDATE-001 PUDP identity refuses zero SHA placeholders", () => {
+  assert.throws(
+    () =>
+      parseAppUpdateManifest({
+        schema: "penglai.app-update.v1",
+        sequence: 2,
+        version: "0.5.2",
+        channel: "stable",
+        releaseTag: "v0.5.2",
+        issuedAt: "2026-09-01T00:00:00.000Z",
+        expiresAt: "2026-10-01T00:00:00.000Z",
+        signingKeyId: "k",
+        minimumSourceVersion: "0.5.1",
+        notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2",
+        candidateSourceSha: "0".repeat(64),
+        publicExportTreeSha256: "b".repeat(64),
+        platforms: {
+          "darwin-aarch64": {
+            assetId: 1,
+            url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_aarch64.dmg",
+            size: 10,
+            sha256: "a".repeat(64),
+            signature: "c2ln",
+          },
+        },
+        migration: { fromSchema: 5, toSchema: 6, backupRequired: true, rollbackCompatible: true },
+      }),
+    /real digest|sha256/,
+  );
+});
 
 test("P51-SUPPLY-001 signed catalog verifies canonical bytes and rejects tamper", () => {
   const identity = keys();
@@ -195,6 +231,7 @@ test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission
             permissions: [],
             nativeCode: false,
             installScripts: false,
+            targets: ["any"],
             networkOrigins: [],
             dataPaths: [],
             license: "MIT",
@@ -250,8 +287,10 @@ test("P51-UPDATE-001 PUDP/1 rejects latest.json and mutable releases", () => {
         signingKeyId: "k",
         minimumSourceVersion: "0.5.1",
         notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2",
+        candidateSourceSha: "a".repeat(64),
+        publicExportTreeSha256: "b".repeat(64),
         platforms: {
-          "darwin-arm64": {
+          "darwin-aarch64": {
             assetId: 1,
             url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/desktop-v0.5/latest.json",
             size: 10,
@@ -308,6 +347,26 @@ test("malicious tar corpus is rejected before install", async () => {
   assert.throws(() => inspectTarGz(gzipSync(tar)), /escape|unsafe|forbidden|checksum/);
 });
 
+test("last-good catalog without original signature bytes is unusable", async () => {
+  const { PluginDistributionClient } = await import("./host.js");
+  const dir = mkdtempSync(join(tmpdir(), "penglai-lkg-"));
+  writeFileSync(
+    join(dir, "last-good.json"),
+    JSON.stringify({
+      source: "github-immutable",
+      catalog: catalogJson(),
+      digest: "a".repeat(64),
+    }),
+  );
+  const client = new PluginDistributionClient({
+    cacheRoot: join(dir, "cas"),
+    trustPath: join(dir, "trust.json"),
+    lastGoodPath: join(dir, "last-good.json"),
+    penglaiVersion: "0.5.1",
+  });
+  assert.throws(() => client.snapshot(), /signature bytes|unusable/);
+});
+
 test("PPDP/1 host refresh uses embedded keys and last-good offline", async () => {
   const { PluginDistributionClient } = await import("./host.js");
   const identity = keys();
@@ -317,7 +376,7 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
   const dir = mkdtempSync(join(tmpdir(), "penglai-ppdp-"));
   const fetchImpl = (async (input) => {
     const url = String(input);
-    if (url.endsWith("/releases")) {
+    if (url.includes("/releases") && !url.includes("/assets/")) {
       return new Response(
         JSON.stringify([
           {

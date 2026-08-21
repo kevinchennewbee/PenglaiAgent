@@ -71,6 +71,7 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /wizardUrlForOrigin/);
   assert.match(main, /wizardFinished/);
   assert.match(main, /wizardPickFolder/);
+  assert.match(main, /confirmPluginAction/);
   assert.match(main, /onboardingLedgerComplete/);
   assert.match(main, /officialVendorConsoleDecision/);
   assert.match(main, /shell\.openExternal/);
