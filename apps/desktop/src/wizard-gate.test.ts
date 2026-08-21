@@ -29,17 +29,29 @@ test("onboarding ledger is complete only when current is COMPLETE", () => {
   mkdirSync(join(root, "dsh-home", "sessions", "s1"), { recursive: true });
   mkdirSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true });
   writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
+  assert.equal(onboardingLedgerComplete(root), false, "empty Penglai marker dirs are not official DSH facts");
+  writeFileSync(
+    join(root, "dsh-home", "workspace.json"),
+    JSON.stringify({ initialized: true, workspaceIds: ["ws-1"] }),
+  );
+  mkdirSync(join(root, "dsh-home", "projects", "_no-cwd", "s1"), { recursive: true });
+  mkdirSync(join(root, "dsh-home", "projects", "_no-cwd", "s-first"), { recursive: true });
+  writeFileSync(join(root, "dsh-home", "projects", "_no-cwd", "s1", "session.jsonl"), "{}\n");
+  writeFileSync(join(root, "dsh-home", "projects", "_no-cwd", "s-first", "session.jsonl"), "{}\n");
   assert.equal(onboardingLedgerComplete(root), true);
   writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "# gone\n");
   assert.equal(onboardingLedgerComplete(root), false, "deleted credential cannot skip");
   writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "DEEPSEEK_API_KEY: sk-test-value\n");
-  rmSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true, force: true });
+  writeFileSync(join(root, "dsh-home", "workspace.json"), JSON.stringify({ initialized: true, workspaceIds: [] }));
   assert.equal(onboardingLedgerComplete(root), false, "deleted Workspace cannot skip");
-  mkdirSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true });
+  writeFileSync(
+    join(root, "dsh-home", "workspace.json"),
+    JSON.stringify({ initialized: true, workspaceIds: ["ws-1"] }),
+  );
   writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"e".repeat(64)}\n`);
   assert.equal(onboardingLedgerComplete(root), false, "stale nonce cannot skip");
   writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
-  rmSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true, force: true });
+  rmSync(join(root, "dsh-home", "projects", "_no-cwd", "s-first"), { recursive: true, force: true });
   assert.equal(onboardingLedgerComplete(root), false, "missing first conversation cannot skip");
 });
 

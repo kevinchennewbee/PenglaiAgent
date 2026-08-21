@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export function onboardingLedgerComplete(userRoot: string): boolean {
@@ -44,6 +44,51 @@ function existingDir(path: string): boolean {
   }
 }
 
+function walkOfficialFiles(root: string, visit: (path: string, name: string) => boolean, depth = 0): boolean {
+  if (depth > 6 || !existingDir(root)) return false;
+  let names: string[];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return false;
+  }
+  for (const name of names.slice(0, 64)) {
+    const path = join(root, name);
+    if (regularFile(path) && visit(path, name)) return true;
+    if (existingDir(path) && walkOfficialFiles(path, visit, depth + 1)) return true;
+  }
+  return false;
+}
+
+/** Official workspace domain JSON written by DSH storage, not an empty Penglai marker dir. */
+export function officialWorkspaceRecord(dshHome: string, workspaceId: string): boolean {
+  if (!workspaceId || workspaceId.includes("..") || workspaceId.includes("/") || workspaceId.includes("\\")) {
+    return false;
+  }
+  return walkOfficialFiles(dshHome, (path, name) => {
+    if (name !== "workspace.json") return false;
+    try {
+      const raw = JSON.parse(readFileSync(path, "utf8")) as { workspaceIds?: unknown };
+      return Array.isArray(raw.workspaceIds) && raw.workspaceIds.includes(workspaceId);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Official session JSONL written by DSH persistence, not an empty Penglai marker dir. */
+export function officialSessionLog(dshHome: string, sessionId: string): boolean {
+  if (!sessionId || sessionId.includes("..") || sessionId.includes("/") || sessionId.includes("\\")) {
+    return false;
+  }
+  return walkOfficialFiles(dshHome, (path, name) => {
+    if (name !== "session.jsonl" && name !== "session.jsonl.gz") return false;
+    const parent = path.slice(0, -name.length - 1);
+    const folder = parent.split(/[/\\]/).pop() ?? "";
+    return folder === sessionId;
+  });
+}
+
 function credentialStillConfigured(userRoot: string, credentialRef: string): boolean {
   const yaml = join(userRoot, "dsh-home", ".credentials.yaml");
   if (!regularFile(yaml)) return false;
@@ -87,12 +132,12 @@ export function onboardingFactsProveReady(dir: string, userRoot = join(dir, ".."
       return false;
     }
     if (!credentialStillConfigured(userRoot, String(raw.credentialRef))) return false;
-    const workspaceDir = join(userRoot, "dsh-home", "workspaces", String(raw.workspaceId));
-    if (!existingDir(workspaceDir)) return false;
+    const dshHome = join(userRoot, "dsh-home");
+    if (!officialWorkspaceRecord(dshHome, String(raw.workspaceId))) return false;
     const nonceFile = join(dir, "current-nonce.digest");
     if (!regularFile(nonceFile) || readFileSync(nonceFile, "utf8").trim() !== apiTest.nonceDigest) return false;
-    if (!existingDir(join(userRoot, "dsh-home", "sessions", String(apiTest.sessionId)))) return false;
-    if (!existingDir(join(userRoot, "dsh-home", "sessions", String(first.sessionId)))) return false;
+    if (!officialSessionLog(dshHome, String(apiTest.sessionId))) return false;
+    if (!officialSessionLog(dshHome, String(first.sessionId))) return false;
     return true;
   } catch {
     return false;
