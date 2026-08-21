@@ -155,8 +155,7 @@ const welcomeReachable = Boolean(
   welcome?.welcomePenglai && welcome.continueVisible && !welcome.continueDisabled && !welcome.officialInternalNotice,
 );
 const wizardAdvanced = Boolean(
-  official?.official &&
-    !official.snap?.recovery &&
+  !official?.snap?.recovery &&
     official.http?.official &&
     official.websocket?.opened &&
     welcomeClick.ok &&
