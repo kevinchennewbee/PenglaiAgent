@@ -194,7 +194,7 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.0-rc.8",
+  dsh: "0.1.1-rc.1",
   profileSchema: 3,
   catalogSchema: 2,
   imSchema: 3,

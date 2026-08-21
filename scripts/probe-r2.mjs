@@ -49,7 +49,7 @@ const report = {
 };
 writeFileSync(join(outDir, "upstream.json"), JSON.stringify(report, null, 2));
 writeFileSync(join(outDir, "commands.jsonl"), records.map((r) => JSON.stringify({ argv: r.argv, exitCode: r.exitCode })).join("\n") + "\n");
-if (dsh.version !== "0.1.0-rc.8" || !hasCredentialsRow || !hasInventory) {
+if (dsh.version !== "0.1.1-rc.1" || !hasCredentialsRow || !hasInventory) {
   console.error("probe-r2 contract failed", report);
   process.exit(1);
 }

@@ -10,8 +10,8 @@ import {
 } from "@penglai/contracts";
 import type { AgentPort, DirectoryPort } from "@penglai/routing-core";
 
-export const PINNED_DSH = "0.1.0-rc.8";
-export const PINNED_DSH_COMMIT = "141eb6fef83422698aef7a981029e843e8161534";
+export const PINNED_DSH = "0.1.1-rc.1";
+export const PINNED_DSH_COMMIT = "528c682e061696f5a160f363f236ecbf53cbd006";
 
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([

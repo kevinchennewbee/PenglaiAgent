@@ -369,7 +369,7 @@ window.__ModuleLoader__.load({
                     children: [
                       jsx.jsx("dt", { children: t.centerDsh }),
                       jsx.jsx("dd", {
-                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.0-rc.8"),
+                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.1"),
                       }),
                     ],
                   }),

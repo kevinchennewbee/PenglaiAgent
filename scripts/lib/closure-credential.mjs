@@ -61,7 +61,7 @@ export function inspectClosureCredential({ staging, candidateSha, expectedTarget
   } catch {
     return { verdict: "FAIL", reason: "runtime manifest is malformed" };
   }
-  if (manifest.target !== expectedTarget || manifest.release !== "0.5.1" || manifest.dsh !== "0.1.0-rc.8") {
+  if (manifest.target !== expectedTarget || manifest.release !== "0.5.1" || manifest.dsh !== "0.1.1-rc.1") {
     return { verdict: "FAIL", reason: "runtime manifest identity mismatch" };
   }
   if (!Array.isArray(manifest.files) || manifest.files.length === 0) {
