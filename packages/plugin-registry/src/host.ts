@@ -26,6 +26,7 @@ import {
 } from "./archive-policy.js";
 import {
   catalogListUrl,
+  fetchGithubReleasePages,
   selectHighestCatalogRelease,
   type DiscoveredRelease,
 } from "./release-discovery.js";
@@ -51,6 +52,7 @@ export interface RegistryHostConfig {
   fetchImpl?: typeof fetch;
   nowMs?: () => number;
   keyEpoch?: number;
+  target?: string;
 }
 
 export interface RegistrySnapshot {
@@ -64,6 +66,8 @@ export interface RegistrySnapshot {
   signatureOk: true;
   catalog: SignedPluginCatalog;
   offline: boolean;
+  catalogBytes?: string;
+  signatureBytes?: string;
 }
 
 export interface CachedPackage {
@@ -114,18 +118,14 @@ export class PluginDistributionClient {
     const now = this.#config.nowMs?.() ?? Date.now();
     const fetchImpl = this.#config.fetchImpl ?? fetch;
     try {
-      const listUrl = catalogListUrl();
-      const list = await downloadVerifiedBytes({
-        url: listUrl,
-        sha256: "pending",
-        size: MAX_CATALOG_BYTES,
-        maxBytes: MAX_CATALOG_BYTES,
+      const listed = await fetchGithubReleasePages({
+        url: catalogListUrl(),
         fetchImpl,
-        skipHash: true,
+        timeoutMs: 15_000,
+        maxPages: 5,
+        maxBytes: MAX_CATALOG_BYTES,
       });
-      const raw = JSON.parse(list.toString("utf8")) as unknown;
-      if (!Array.isArray(raw)) throw new PenglaiError("INVALID_INPUT", "GitHub releases list");
-      const release = selectHighestCatalogRelease(raw);
+      const release = selectHighestCatalogRelease(listed.releases);
       const jsonAsset = assetNamed(release, CATALOG_JSON_ASSET);
       const sigAsset = assetNamed(release, CATALOG_SIG_ASSET);
       const jsonBytes = await downloadVerifiedBytes({
@@ -173,11 +173,16 @@ export class PluginDistributionClient {
         signatureOk: true,
         catalog,
         offline: false,
+        catalogBytes: canonicalizeBytes(json).toString("base64"),
+        signatureBytes: sigBytes.toString("base64"),
       };
       this.#snapshot = snapshot;
       atomicJson(this.#config.lastGoodPath, snapshot);
       return snapshot;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const security = /signature|SECURITY_POLICY|rollback|digest|tamper|expired|sequence|key epoch/i.test(message);
+      if (security) throw error;
       const last = this.#readLastGood(now);
       if (last) {
         this.#snapshot = { ...last, source: "last-good-offline", offline: true };
@@ -196,7 +201,7 @@ export class PluginDistributionClient {
     return entry;
   }
 
-  async downloadPackage(id: string, target = "any"): Promise<CachedPackage> {
+  async downloadPackage(id: string, target = this.#config.target ?? "any"): Promise<CachedPackage> {
     const catalog = this.snapshot()?.catalog;
     if (!catalog) throw new PenglaiError("INVALID_INPUT", "plugin catalog not loaded");
     const entry = this.entry(id);
@@ -269,7 +274,13 @@ export class PluginDistributionClient {
     const snap = this.snapshot();
     if (!snap) return [];
     return snap.catalog.entries.map((entry) => {
-      const artifact = entry.artifacts[0];
+      const hostTarget = this.#config.target;
+      const artifact =
+        (hostTarget
+          ? entry.artifacts.find((row) => row.target === hostTarget)
+          : undefined) ??
+        entry.artifacts.find((row) => row.target === "any") ??
+        entry.artifacts[0];
       const revoked = artifact
         ? shouldDisableOnBoot(snap.catalog, entry.id, entry.version, artifact.sha256)
         : false;
@@ -292,6 +303,17 @@ export class PluginDistributionClient {
         downloaded: cached,
         revoked,
         defaultEnabled: false,
+        sha256: artifact?.sha256,
+        entry: entry.entry,
+        ...(entry.clientEntry ? { clientEntry: entry.clientEntry } : {}),
+        targets: entry.targets,
+        networkOrigins: entry.networkOrigins,
+        dataPaths: entry.dataPaths,
+        nativeCode: entry.nativeCode,
+        incompatible: Boolean(
+          hostTarget &&
+            !entry.artifacts.some((row) => row.target === hostTarget || row.target === "any"),
+        ),
       };
     });
   }
@@ -300,10 +322,21 @@ export class PluginDistributionClient {
     if (!existsSync(this.#config.lastGoodPath)) return undefined;
     try {
       const raw = JSON.parse(readFileSync(this.#config.lastGoodPath, "utf8")) as RegistrySnapshot;
-      parseSignedPluginCatalog(raw.catalog, nowMs);
-      readTrustState(this.#config.trustPath);
-      return raw;
-    } catch {
+      if (!raw.catalogBytes || !raw.signatureBytes) {
+        throw new PenglaiError("STORE_CORRUPT", "last-good plugin catalog missing signature bytes");
+      }
+      const catalogBytes = Buffer.from(raw.catalogBytes, "base64");
+      const signatureBytes = Buffer.from(raw.signatureBytes, "base64");
+      verifyBytes(catalogBytes, decodeDetachedSignature(signatureBytes), EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.publicKeyHex);
+      const catalog = parseSignedPluginCatalog(JSON.parse(catalogBytes.toString("utf8")), nowMs);
+      const digest = createHash("sha256").update(catalogBytes).digest("hex");
+      const ledger = readTrustState(this.#config.trustPath);
+      if (ledger && (ledger.lastDigest !== digest || ledger.highestSequence !== catalog.sequence)) {
+        throw new PenglaiError("SECURITY_POLICY", "last-good catalog does not match trust ledger");
+      }
+      return { ...raw, catalog, digest, signatureOk: true };
+    } catch (error) {
+      if (error instanceof PenglaiError) throw error;
       throw new PenglaiError("STORE_CORRUPT", "last-good plugin catalog is unusable");
     }
   }

@@ -16,7 +16,11 @@ import {
   ensurePrivateHome,
   evaluateInventory,
   inspectStorageInventory,
+  issuePluginOwnerGrant,
   macOsUninstallGuide,
+  migrateRc8UserData,
+  pluginPermissionDigest,
+  quarantineRevokedPlugins,
   readInventorySnapshot,
   recoverProfile,
   resolveUserLayout,
@@ -24,6 +28,7 @@ import {
   writeWindowsDeletionCapability,
   clearWindowsDeletionCapability,
   type DeletionPreview,
+  type PluginOwnerAction,
 } from "@penglai/runtime";
 import { DshSupervisor, findResourcesRoot, isOwnedRuntimePath, layoutFromResources } from "./supervisor.js";
 import { assertIpcName, navigationDecision, officialVendorConsoleDecision, PRELOAD_API } from "./preload.js";
@@ -45,6 +50,78 @@ import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } f
 import { createContextGrantReceipt } from "./context-grant.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+function describePluginForOwner(userRoot: string, id: string): {
+  id: string;
+  version: string;
+  publisher: string;
+  sha256: string;
+  permissions: string[];
+  networkOrigins: string[];
+  dataPaths: string[];
+  nativeCode: boolean;
+} {
+  const bundledDir = process.env.PENGLAI_PLUGINS_DIR;
+  if (bundledDir && existsSync(join(bundledDir, "catalog.json"))) {
+    const doc = JSON.parse(readFileSync(join(bundledDir, "catalog.json"), "utf8")) as {
+      entries?: Array<{
+        id?: string;
+        version?: string;
+        sha256?: string;
+        permissions?: string[];
+        publisher?: string;
+        networkOrigins?: string[];
+        dataPaths?: string[];
+        nativeCode?: boolean;
+      }>;
+    };
+    const entry = doc.entries?.find((row) => row.id === id);
+    if (entry?.id && entry.version && typeof entry.sha256 === "string") {
+      return {
+        id: entry.id,
+        version: entry.version,
+        publisher: entry.publisher ?? "Penglai",
+        sha256: entry.sha256,
+        permissions: entry.permissions ?? [],
+        networkOrigins: entry.networkOrigins ?? [],
+        dataPaths: entry.dataPaths ?? [],
+        nativeCode: entry.nativeCode === true,
+      };
+    }
+  }
+  const lastGood = join(userRoot, "plugins", "last-good-catalog.json");
+  if (existsSync(lastGood)) {
+    const snap = JSON.parse(readFileSync(lastGood, "utf8")) as {
+      catalog?: {
+        entries?: Array<{
+          id?: string;
+          version?: string;
+          publisher?: string;
+          permissions?: string[];
+          networkOrigins?: string[];
+          dataPaths?: string[];
+          nativeCode?: boolean;
+          artifacts?: Array<{ sha256?: string }>;
+        }>;
+      };
+    };
+    const entry = snap.catalog?.entries?.find((row) => row.id === id);
+    const sha256 = entry?.artifacts?.[0]?.sha256;
+    if (entry?.id && entry.version && sha256) {
+      return {
+        id: entry.id,
+        version: entry.version,
+        publisher: entry.publisher ?? "Penglai",
+        sha256,
+        permissions: entry.permissions ?? [],
+        networkOrigins: entry.networkOrigins ?? [],
+        dataPaths: entry.dataPaths ?? [],
+        nativeCode: entry.nativeCode === true,
+      };
+    }
+  }
+  throw new PenglaiError("INVALID_INPUT", "unlisted package");
+}
 
 function resourcesRoot(): string {
   const packaged = app.isPackaged;
@@ -328,6 +405,8 @@ async function main(): Promise<void> {
 
   try {
     ensurePrivateHome(user);
+    migrateRc8UserData(user.root);
+    quarantineRevokedPlugins({ userDataRoot: user.root, profileDir: user.profileWeb });
     recoverProfile(user);
     const resources = resourcesRoot();
     const layout = layoutFromResources(resources);
@@ -608,6 +687,53 @@ async function main(): Promise<void> {
               throw error;
             }
           });
+        }
+        if (name === "confirmPluginAction") {
+          if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one plugin action payload is required");
+          const rec = args[0] as { id?: unknown; action?: unknown };
+          if (!rec || typeof rec.id !== "string" || !rec.id) {
+            throw new PenglaiError("INVALID_INPUT", "plugin id required");
+          }
+          const mapped: Record<string, PluginOwnerAction> = {
+            enable: "plugin-enable",
+            update: "plugin-update",
+            installDisabled: "plugin-install",
+          };
+          const ownerAction = typeof rec.action === "string" ? mapped[rec.action] : undefined;
+          if (!ownerAction) throw new PenglaiError("INVALID_INPUT", "plugin action required");
+          const described = describePluginForOwner(user.root, rec.id);
+          const summary = [
+            `${ownerAction} ${described.id} ${described.version}`,
+            `Publisher: ${described.publisher}`,
+            `SHA-256: ${described.sha256}`,
+            `Permissions: ${described.permissions.join(", ") || "(none)"}`,
+            `Network origins: ${described.networkOrigins.join(", ") || "(none)"}`,
+            `Data paths: ${described.dataPaths.join(", ") || "(none)"}`,
+            `Native code: ${described.nativeCode ? "yes" : "no"}`,
+          ].join("\n");
+          const picked = await dialog.showMessageBox(win, {
+            type: "warning",
+            buttons: ["Cancel", "Allow once"],
+            defaultId: 1,
+            cancelId: 0,
+            message: "Penglai plugin permission",
+            detail: summary,
+          });
+          if (picked.response !== 1) throw new PenglaiError("SECURITY_POLICY", "owner cancelled plugin action");
+          const grant = issuePluginOwnerGrant({
+            userDataRoot: user.root,
+            action: ownerAction,
+            pluginId: described.id,
+            version: described.version,
+            sha256: described.sha256,
+            permissionDigest: pluginPermissionDigest({
+              permissions: described.permissions,
+              networkOrigins: described.networkOrigins,
+              dataPaths: described.dataPaths,
+              nativeCode: described.nativeCode,
+            }),
+          });
+          return { capabilityId: grant.capabilityId };
         }
         if (name === "wizardPickFolder") {
           requireNoArguments(args);

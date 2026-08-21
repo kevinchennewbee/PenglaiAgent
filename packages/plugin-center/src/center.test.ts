@@ -362,6 +362,24 @@ test("R2-PC-017 rejects unlisted packages", () => {
   assert.throws(() => host.setDesired("@evil/pkg", true));
 });
 
+test("setDesired accepts signed catalog ids via allowId", () => {
+  const host = new PluginCenterHost(
+    mkdtempSync(join(tmpdir(), "pc-allow-")),
+    { list: () => [] },
+    TEST_CATALOG,
+    undefined,
+    undefined,
+    (id) => id === "@penglai/plugin-pilot",
+  );
+  host.setDesired("@penglai/plugin-pilot", false);
+  assert.equal(host.desired()["@penglai/plugin-pilot"], false);
+  assert.equal(
+    host.reconcile().find((row) => row.id === "@penglai/plugin-pilot")?.desired,
+    "disabled",
+  );
+  assert.throws(() => host.setDesired("@evil/pkg", true));
+});
+
 test("Center desired state is explicit and never changes loader actual", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/plugin-reference", true);
@@ -372,6 +390,14 @@ test("Center desired state is explicit and never changes loader actual", () => {
       ?.actual,
     "disabled",
   );
+});
+
+test("upsertPatchDisabled appends a remote loader row when missing", async () => {
+  const { upsertPatchDisabled } = await import("./profile-tx.js");
+  const src = `- insert:\n    - id: penglai-plugin-center\n      name: "@penglai/plugin-center"\n`;
+  const next = upsertPatchDisabled(src, "@penglai/plugin-pilot", true);
+  assert.match(next, /name: "@penglai\/plugin-pilot"/);
+  assert.match(next, /disabled: true/);
 });
 
 test("center profile patch enable/disable is textual and reversible", async () => {

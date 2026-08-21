@@ -68,22 +68,46 @@ function parseManifestV2(raw: unknown): EmbeddedPluginManifestV2 {
   if (typeof o.id !== "string" || typeof o.version !== "string" || typeof o.dshExact !== "string") {
     throw new PenglaiError("INVALID_INPUT", "plugin identity");
   }
+  if (typeof o.entry !== "string" || !o.entry.trim() || o.entry.includes("..") || o.entry.startsWith("/")) {
+    throw new PenglaiError("INVALID_INPUT", "plugin entry");
+  }
+  if (!Array.isArray(o.targets) || o.targets.length < 1 || o.targets.some((item) => typeof item !== "string" || !item)) {
+    throw new PenglaiError("INVALID_INPUT", "plugin targets");
+  }
+  if (!Array.isArray(o.capabilities) || o.capabilities.some((item) => typeof item !== "string")) {
+    throw new PenglaiError("INVALID_INPUT", "plugin capabilities");
+  }
+  if (!Array.isArray(o.permissions) || o.permissions.some((item) => typeof item !== "string")) {
+    throw new PenglaiError("INVALID_INPUT", "plugin permissions");
+  }
+  if (!Array.isArray(o.networkOrigins) || o.networkOrigins.some((item) => typeof item !== "string")) {
+    throw new PenglaiError("INVALID_INPUT", "plugin networkOrigins");
+  }
+  if (!Array.isArray(o.dataPaths) || o.dataPaths.some((item) => typeof item !== "string")) {
+    throw new PenglaiError("INVALID_INPUT", "plugin dataPaths");
+  }
+  if (typeof o.license !== "string" || !o.license.trim()) {
+    throw new PenglaiError("INVALID_INPUT", "plugin license");
+  }
+  if (typeof o.clientEntry === "string" && (o.clientEntry.includes("..") || o.clientEntry.startsWith("/"))) {
+    throw new PenglaiError("SECURITY_POLICY", "plugin clientEntry path escape");
+  }
   return {
     schema: 2,
     id: o.id,
     version: o.version,
     dshExact: o.dshExact,
     centerProtocol: 1,
-    entry: String(o.entry ?? "dist/index.js"),
-    ...(typeof o.clientEntry === "string" ? { clientEntry: o.clientEntry } : {}),
-    targets: Array.isArray(o.targets) ? o.targets.map(String) : ["any"],
-    capabilities: Array.isArray(o.capabilities) ? o.capabilities.map(String) : [],
-    permissions: Array.isArray(o.permissions) ? o.permissions.map(String) : [],
+    entry: o.entry,
+    ...(typeof o.clientEntry === "string" && o.clientEntry ? { clientEntry: o.clientEntry } : {}),
+    targets: o.targets.map(String),
+    capabilities: o.capabilities.map(String),
+    permissions: o.permissions.map(String),
     nativeCode: false,
     installScripts: false,
-    networkOrigins: Array.isArray(o.networkOrigins) ? o.networkOrigins.map(String) : [],
-    dataPaths: Array.isArray(o.dataPaths) ? o.dataPaths.map(String) : [],
-    license: String(o.license ?? "MIT"),
+    networkOrigins: o.networkOrigins.map(String),
+    dataPaths: o.dataPaths.map(String),
+    license: o.license,
   };
 }
 
@@ -94,6 +118,12 @@ export function assertManifestMatchesCatalog(input: {
   catalogCapabilities: readonly string[];
   catalogDsh: string;
   manifest: EmbeddedPluginManifestV2;
+  catalogEntry?: string;
+  catalogClientEntry?: string;
+  catalogTargets?: readonly string[];
+  catalogNativeCode?: false;
+  catalogNetworkOrigins?: readonly string[];
+  catalogDataPaths?: readonly string[];
 }): void {
   if (input.manifest.id !== input.catalogId || input.manifest.version !== input.catalogVersion) {
     throw new PenglaiError("SECURITY_POLICY", "embedded manifest identity drift");
@@ -106,5 +136,23 @@ export function assertManifestMatchesCatalog(input: {
   }
   if (input.manifest.capabilities.join("\0") !== input.catalogCapabilities.join("\0")) {
     throw new PenglaiError("SECURITY_POLICY", "package capabilities drift");
+  }
+  if (input.catalogEntry && input.manifest.entry !== input.catalogEntry) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest entry drift");
+  }
+  if (input.catalogClientEntry !== undefined && input.manifest.clientEntry !== input.catalogClientEntry) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest clientEntry drift");
+  }
+  if (input.catalogTargets && input.manifest.targets.join("\0") !== input.catalogTargets.join("\0")) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest targets drift");
+  }
+  if (input.catalogNativeCode !== undefined && input.manifest.nativeCode !== input.catalogNativeCode) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest nativeCode drift");
+  }
+  if (input.catalogNetworkOrigins && input.manifest.networkOrigins.join("\0") !== input.catalogNetworkOrigins.join("\0")) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest networkOrigins drift");
+  }
+  if (input.catalogDataPaths && input.manifest.dataPaths.join("\0") !== input.catalogDataPaths.join("\0")) {
+    throw new PenglaiError("SECURITY_POLICY", "embedded manifest dataPaths drift");
   }
 }

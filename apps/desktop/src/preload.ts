@@ -17,6 +17,7 @@ export const PRELOAD_API = [
   "wizardFinished",
   "wizardPickFolder",
   "pickContextFolder",
+  "confirmPluginAction",
 ] as const;
 
 export type PreloadApiName = (typeof PRELOAD_API)[number];

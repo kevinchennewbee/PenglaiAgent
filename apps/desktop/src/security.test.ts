@@ -49,12 +49,15 @@ test("renderer lifecycle surface has no arbitrary installer URL path or delete p
   assert.match(main, /parseDeletionPrepareRequest/);
   assert.match(main, /dialog\.showMessageBox/);
   assert.match(main, /native owner confirmation is required for deletion/);
+  assert.match(main, /confirmPluginAction/);
+  assert.match(main, /issuePluginOwnerGrant/);
   assert.match(main, /buildDeletionPlan\(\{/);
   assert.match(main, /operationId: `del_/);
   assert.match(main, /writeWindowsDeletionCapability/);
   assert.match(main, /deletionInspectionOptionsForPlatform/);
   assert.doesNotMatch(center, /openVerifiedInstaller|planUninstall|__PENGLAI_VERIFIED_INSTALL_OPERATION/);
   assert.match(center, /DELETE PENGLAI DATA/);
+  assert.match(center, /confirmPluginAction/);
 });
 
 test("Context folder selection returns an opaque capability instead of a renderer path primitive", () => {

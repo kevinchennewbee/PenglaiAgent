@@ -111,3 +111,74 @@ export function catalogListUrl(): string {
 export function appListUrl(): string {
   return `${GITHUB_API_ORIGIN}/repos/${GITHUB_OWNER}/${APP_REPO}/releases`;
 }
+
+function nextLink(header: string | null): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(",")) {
+    const match = /<([^>]+)>\s*;\s*rel="next"/i.exec(part);
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
+}
+
+export async function fetchGithubReleasePages(input: {
+  url: string;
+  fetchImpl: typeof fetch;
+  timeoutMs?: number;
+  maxPages?: number;
+  maxBytes?: number;
+  etag?: string;
+}): Promise<{ releases: GitHubReleaseLike[]; etag?: string; notModified?: boolean }> {
+  const maxPages = input.maxPages ?? 5;
+  const timeoutMs = input.timeoutMs ?? 15_000;
+  const maxBytes = input.maxBytes ?? 2 * 1024 * 1024;
+  const releases: GitHubReleaseLike[] = [];
+  let url = input.url.includes("?") ? input.url : `${input.url}?per_page=100`;
+  let etag = input.etag;
+  for (let page = 0; page < maxPages; page += 1) {
+    const parsed = new URL(url);
+    const pathMatch = /^\/repos\/([^/]+)\/([^/]+)\/releases$/.exec(parsed.pathname);
+    if (!pathMatch || parsed.origin !== GITHUB_API_ORIGIN) {
+      throw new PenglaiError("SECURITY_POLICY", "discovery must use the fixed GitHub API origin");
+    }
+    const owner = pathMatch[1];
+    const repo = pathMatch[2];
+    if (!owner || !repo) throw new PenglaiError("SECURITY_POLICY", "discovery must use the fixed GitHub API origin");
+    assertGithubApiUrl(`${parsed.origin}${parsed.pathname}`, owner, repo);
+    const headers: Record<string, string> = {
+      accept: "application/vnd.github+json",
+      "user-agent": "penglai-plugin-registry",
+    };
+    if (page === 0 && etag) headers["if-none-match"] = etag;
+    const response = await input.fetchImpl(url, {
+      headers,
+      redirect: "manual",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (response.status === 304) return { releases: [], ...(etag ? { etag } : {}), notModified: true };
+    if (response.status !== 200) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", `GitHub releases list refused: ${response.status}`);
+    }
+    if (page === 0) {
+      const nextEtag = response.headers.get("etag");
+      if (nextEtag) etag = nextEtag;
+    }
+    const declared = response.headers.get("content-length");
+    if (declared !== null && Number(declared) > maxBytes) {
+      throw new PenglaiError("SECURITY_POLICY", "GitHub releases list exceeded size bound");
+    }
+    const text = await response.text();
+    if (text.length > maxBytes) throw new PenglaiError("SECURITY_POLICY", "GitHub releases list exceeded size bound");
+    const raw = JSON.parse(text) as unknown;
+    if (!Array.isArray(raw)) throw new PenglaiError("INVALID_INPUT", "GitHub releases list");
+    releases.push(...(raw as GitHubReleaseLike[]));
+    const next = nextLink(response.headers.get("link"));
+    if (!next) break;
+    const nextUrl = new URL(next);
+    if (nextUrl.origin !== GITHUB_API_ORIGIN) {
+      throw new PenglaiError("SECURITY_POLICY", "GitHub pagination left the API origin");
+    }
+    url = nextUrl.href;
+  }
+  return { releases, ...(etag ? { etag } : {}) };
+}
