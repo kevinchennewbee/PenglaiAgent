@@ -73,7 +73,7 @@ if (blocked) finish("BLOCKED", { command: "u3-welcome-smoke", ...blocked });
 const expectedInstaller = installerForTarget(expectedTarget);
 const installed = installFromExactInstaller(
   join(ROOT, "dist", expectedInstaller),
-  join(ROOT, ".tmp-u3-welcome-app"),
+  join(ROOT, ".tmp", "u3-welcome-app"),
   expectedTarget,
 );
 if (!installed.ok) {
@@ -104,7 +104,7 @@ if (!harnessApp) {
     target: expectedTarget,
   });
 }
-const userData = join(ROOT, ".tmp-u3-welcome");
+const userData = join(ROOT, ".tmp", "u3-welcome-profile");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 
