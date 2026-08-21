@@ -11,6 +11,7 @@ import {
   findWelcomeAck,
   installFromExactDmg,
   launchPackaged,
+  waitChildExit,
   leftoversByCommand,
   ownedProcessTree,
   stopChild,
@@ -111,6 +112,27 @@ mkdirSync(userData, { recursive: true });
 const shotDir = join(userData, "shots");
 mkdirSync(shotDir, { recursive: true });
 
+const refuseUser = join(ROOT, ".tmp-installed-e2e-refuse");
+rmSync(refuseUser, { recursive: true, force: true });
+mkdirSync(refuseUser, { recursive: true });
+const refuse = launchPackaged(exe, resources, refuseUser, ["--remote-debugging-port=9"]);
+const refuseCode = await waitChildExit(refuse.child, 12_000);
+if (refuseCode === 0) {
+  finish("FAIL", {
+    command: "test:e2e:installed",
+    reason: "exact DMG accepted --remote-debugging-port",
+  });
+}
+const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+if (!harnessApp) {
+  finish("INCOMPLETE", {
+    command: "test:e2e:installed",
+    reason: "exact DMG refused debug flags; UI walk requires a separate harness build",
+    refuseCode,
+    installer: ARM64_INSTALLER,
+    productVersion: "0.5.1",
+  });
+}
 const debugPort = await freePort();
 const launched = launchPackaged(exe, resources, userData, [
   `--remote-debugging-port=${debugPort}`,

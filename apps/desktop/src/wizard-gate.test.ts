@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
@@ -14,16 +14,33 @@ test("onboarding ledger is complete only when current is COMPLETE", () => {
   assert.equal(onboardingLedgerComplete(root), false);
   writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE" }));
   assert.equal(onboardingLedgerComplete(root), false, "P51-ONBOARD-001 COMPLETE without facts is not ready");
-  writeFileSync(
-    join(root, "onboarding", "onboarding-facts.json"),
-    JSON.stringify({
-      selection: { provider: "deepseek", model: "chat" },
-      credentialRef: "PENGLAI_TEST_KEY",
-      workspaceId: "ws-1",
-      apiTest: { nonceDigest: "a".repeat(64), finalDigest: "b".repeat(64), sessionId: "s1" },
-    }),
-  );
+  const facts = {
+    selection: { provider: "deepseek", model: "chat" },
+    credentialRef: "DEEPSEEK_API_KEY",
+    workspaceId: "ws-1",
+    apiTest: { nonceDigest: "a".repeat(64), finalDigest: "b".repeat(64), sessionId: "s1" },
+    firstConversation: { sessionId: "s-first", messageDigest: "c".repeat(64), finalDigest: "d".repeat(64) },
+  };
+  writeFileSync(join(root, "onboarding", "onboarding-facts.json"), JSON.stringify(facts));
+  assert.equal(onboardingLedgerComplete(root), false, "JSON-only COMPLETE cannot skip");
+  mkdirSync(join(root, "dsh-home"), { recursive: true });
+  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "DEEPSEEK_API_KEY: sk-test-value\n");
+  mkdirSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true });
+  mkdirSync(join(root, "dsh-home", "sessions", "s1"), { recursive: true });
+  mkdirSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true });
+  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
   assert.equal(onboardingLedgerComplete(root), true);
+  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "# gone\n");
+  assert.equal(onboardingLedgerComplete(root), false, "deleted credential cannot skip");
+  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "DEEPSEEK_API_KEY: sk-test-value\n");
+  rmSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true, force: true });
+  assert.equal(onboardingLedgerComplete(root), false, "deleted Workspace cannot skip");
+  mkdirSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true });
+  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"e".repeat(64)}\n`);
+  assert.equal(onboardingLedgerComplete(root), false, "stale nonce cannot skip");
+  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
+  rmSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true, force: true });
+  assert.equal(onboardingLedgerComplete(root), false, "missing first conversation cannot skip");
 });
 
 test("wizard URL stays on the authenticated proxy origin", () => {

@@ -47,7 +47,7 @@ import { createContextGrantReceipt } from "./context-grant.js";
 const here = dirname(fileURLToPath(import.meta.url));
 
 function resourcesRoot(): string {
-  const packaged = app.isPackaged && process.env.PENGLAI_ALLOW_TEST_HARNESS !== "1";
+  const packaged = app.isPackaged;
   return findResourcesRoot({
     ...(!packaged && process.env.PENGLAI_RESOURCES ? { envRoot: process.env.PENGLAI_RESOURCES } : {}),
     ...(typeof process.resourcesPath === "string" && process.resourcesPath ? { resourcesPath: process.resourcesPath } : {}),
@@ -346,6 +346,8 @@ async function main(): Promise<void> {
       canonicalManifestSignatureUrl: releaseContract.updaterManifestSignatureUrl,
       publicKeyHex: releaseContract.updaterPublicKeyHex,
       signatureKeyId: releaseContract.updaterPublicKeyId,
+      discoverUpdates: true,
+      trustPath: join(user.root, "update", "trust-state.json"),
       updatesRoot: desktopData.updates,
       journalDir: join(user.root, "update", "journal"),
       ledgerPath: join(user.root, "update", "ledger.json"),
@@ -580,6 +582,20 @@ async function main(): Promise<void> {
               throw new PenglaiError("SECURITY_POLICY", "unknown deletion capability");
             }
             const current = pendingDeletion;
+            const native = await dialog.showMessageBox(win, {
+              type: "warning",
+              buttons: ["Cancel", "Delete"],
+              defaultId: 0,
+              cancelId: 0,
+              message: "Delete the selected Penglai data now?",
+              detail: current.preview.targets
+                .map((target) => `${target.path} (${target.entryCount} / ${target.totalBytes})`)
+                .slice(0, 20)
+                .join("\n"),
+            });
+            if (native.response !== 1) {
+              throw new PenglaiError("SECURITY_POLICY", "native owner confirmation is required for deletion");
+            }
             pendingDeletion = undefined;
             try {
               const result = current.authorizer.execute(input.operationId);

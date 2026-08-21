@@ -144,16 +144,20 @@ export class CompanionStore {
         last_day TEXT NOT NULL
       );
     `);
-    const version = this.db
-      .prepare("SELECT MAX(version) AS version FROM schema_meta")
-      .get() as { version: number | null };
-    if (!version.version)
-      this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
+    let version: { version: number | null };
+    try {
+      version = this.db.prepare("SELECT MAX(version) AS version FROM schema_meta").get() as {
+        version: number | null;
+      };
+    } catch {
+      throw new PenglaiError("STORE_CORRUPT", "companion schema_meta unreadable");
+    }
     if (version.version !== null && version.version > 3)
       throw new PenglaiError("STORE_CORRUPT", "newer companion schema");
-    if (version.version === 1)
-      this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
-    if (version.version === 2) {
+    if (!version.version) this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
+    const migrated = this.db.prepare("SELECT version FROM schema_meta WHERE version=3").get();
+    if (version.version === 1) this.db.exec("INSERT INTO schema_meta(version) VALUES (2)");
+    if (version.version === 2 && !migrated) {
       this.db.exec(`
         CREATE TABLE companion_dispatch_v3 (
           trigger_id TEXT PRIMARY KEY,

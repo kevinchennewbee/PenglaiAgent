@@ -118,6 +118,23 @@ export function ownedProcessTree(app, resources, electronPid) {
   };
 }
 
+export function waitChildExit(child, timeoutMs = 15_000) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        /* already gone */
+      }
+      resolve(child.exitCode ?? 1);
+    }, timeoutMs);
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      resolve(code ?? 1);
+    });
+  });
+}
+
 export async function stopChild(child, timeoutMs = 8_000) {
   try {
     child.kill("SIGTERM");
