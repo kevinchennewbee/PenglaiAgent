@@ -17,6 +17,7 @@ import {
   type CatalogEntry,
   type SignedPluginCatalog,
 } from "./catalog-schema.js";
+import { selectCatalogArtifact } from "./catalog-artifact.js";
 import { downloadVerifiedBytes, githubDigestToSha256 } from "./download.js";
 import { EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY } from "./embedded-keys.js";
 import {
@@ -205,12 +206,7 @@ export class PluginDistributionClient {
     const catalog = this.snapshot()?.catalog;
     if (!catalog) throw new PenglaiError("INVALID_INPUT", "plugin catalog not loaded");
     const entry = this.entry(id);
-    const artifact =
-      entry.artifacts.find((row) => row.target === target) ??
-      (target === "any" ? undefined : entry.artifacts.find((row) => row.target === "any"));
-    if (!artifact) {
-      throw new PenglaiError("INVALID_INPUT", `${id} is incompatible with target ${target}`);
-    }
+    const artifact = selectCatalogArtifact(entry.artifacts, target);
     assertInstallAllowed(catalog, entry.id, entry.version, artifact.sha256);
     const fetchImpl = this.#config.fetchImpl ?? fetch;
     const tgz = await downloadVerifiedBytes({
@@ -274,13 +270,13 @@ export class PluginDistributionClient {
     const snap = this.snapshot();
     if (!snap) return [];
     return snap.catalog.entries.map((entry) => {
-      const hostTarget = this.#config.target;
-      const artifact =
-        (hostTarget
-          ? entry.artifacts.find((row) => row.target === hostTarget)
-          : undefined) ??
-        entry.artifacts.find((row) => row.target === "any") ??
-        entry.artifacts[0];
+      const hostTarget = this.#config.target ?? "any";
+      let artifact: (typeof entry.artifacts)[number] | undefined;
+      try {
+        artifact = selectCatalogArtifact(entry.artifacts, hostTarget);
+      } catch {
+        artifact = undefined;
+      }
       const revoked = artifact
         ? shouldDisableOnBoot(snap.catalog, entry.id, entry.version, artifact.sha256)
         : false;

@@ -1,6 +1,7 @@
 export * from "./canonical-json.js";
 export * from "./signature.js";
 export * from "./catalog-schema.js";
+export * from "./catalog-artifact.js";
 export * from "./release-discovery.js";
 export * from "./download.js";
 export * from "./archive-policy.js";

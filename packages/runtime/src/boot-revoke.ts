@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PluginDistributionClient } from "@penglai/plugin-registry";
-import { PINNED_PLUGIN_DSH } from "./plugin-catalog.js";
+import { PluginDistributionClient, selectCatalogArtifact } from "@penglai/plugin-registry";
+import { PINNED_PLUGIN_DSH, runtimePluginTarget } from "./plugin-catalog.js";
 
 export interface BootRevokeResult {
   scanned: number;
@@ -105,7 +105,12 @@ export function quarantineRevokedPlugins(opts: {
       continue;
     }
     const entry = snap.catalog.entries.find((row) => row.id === id && row.version === version);
-    const sha256 = entry?.artifacts[0]?.sha256 ?? "";
+    let sha256 = "";
+    try {
+      if (entry?.artifacts.length) sha256 = selectCatalogArtifact(entry.artifacts, runtimePluginTarget()).sha256;
+    } catch {
+      sha256 = "";
+    }
     if (!sha256) continue;
     if (client.revokedOnBoot(id, version, sha256)) {
       patchDisable(opts.profileDir, id);

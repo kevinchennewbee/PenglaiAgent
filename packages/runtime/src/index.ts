@@ -760,6 +760,7 @@ export {
 } from "./process.js";
 
 export * from "./plugin-catalog.js";
+export { selectCatalogArtifact } from "@penglai/plugin-registry";
 export * from "./safe-tar.js";
 export * from "./plugin-owner.js";
 export * from "./generation-migrate.js";
