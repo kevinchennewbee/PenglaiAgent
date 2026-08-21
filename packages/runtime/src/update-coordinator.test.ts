@@ -134,6 +134,7 @@ function coordinatorConfig(
       currentOsVersion: "14.6",
     },
     fetchImpl: fixtureFetch(fixture),
+    discoverUpdates: false,
     ...overrides,
   };
 }
