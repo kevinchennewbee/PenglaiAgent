@@ -47,7 +47,11 @@ const rec = {
     embedRuntime: existsSync(join(ROOT, "scripts/embed-runtime.mjs")),
   },
   preflight: { host, arm },
-  futureTargets: ["darwin-x86_64", "win32-x86_64"],
+  declaredTargets: ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+  nativePassReserved: {
+    "darwin-x86_64": "BLOCKED",
+    "win32-x86_64": "BLOCKED",
+  },
   squirrelIsUserInstaller: false,
 };
 mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });

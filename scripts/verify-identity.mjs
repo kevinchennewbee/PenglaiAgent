@@ -26,8 +26,8 @@ try {
   if (identity.sourceSha && identity.sourceSha !== "NONE" && identity.phase !== "UNFROZEN") {
     assertIdentityMatchesGit(identity, git);
   }
-  if (git.branch !== "main") {
-    finish("FAIL", { command: "verify:identity", reason: `branch is ${git.branch}` });
+  if (git.branch !== "main" && identity.phase !== "UNFROZEN") {
+    finish("FAIL", { command: "verify:identity", reason: `frozen identity requires main, branch is ${git.branch}` });
   }
 } catch (err) {
   finish("FAIL", { command: "verify:identity", reason: String(err) });
