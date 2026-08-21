@@ -2,13 +2,15 @@
   <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/212dd84/.github/assets/banner-v1.png" width="100%" alt="Penglai, an AI island emerging from the mist">
 </p>
 
+<p align="center"><sub>The original Penglai project banner, preserved as part of the project's visual history. The product screenshots below come from the released 0.5.1 installer.</sub></p>
+
 <h1 align="center">Penglai · 蓬莱</h1>
 
 <p align="center"><strong>Bring the agent out of the terminal and into the computer you already use.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-0.5.0-2563eb?style=flat-square" alt="Current release 0.5.0"></a>
-  <a href="docs/RELEASE_NOTES_0.5.1.md"><img src="https://img.shields.io/badge/candidate-0.5.1-d97706?style=flat-square" alt="0.5.1 candidate"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1"><img src="https://img.shields.io/badge/release-0.5.1-2563eb?style=flat-square" alt="Current release 0.5.1"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696"><img src="https://img.shields.io/badge/native%20verification-3%2F3%20PASS-16a34a?style=flat-square" alt="Three native targets verified"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.1-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.1"></a>
   <a href="docs/PUBLICATION_0.5.1.md"><img src="https://img.shields.io/badge/desktop-macOS%20arm64%20%7C%20x64%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Three desktop targets"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
@@ -18,12 +20,12 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0">Current download</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1">Current download</a> ·
   <a href="docs/RELEASE_NOTES_0.5.1.md">0.5.1 notes</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.1 is still being verified. The current public installer is 0.5.0 for Apple Silicon. Intel Mac and Windows x64 packages do not exist as accepted releases yet. The images below were captured from an installed 0.5.1 Apple Silicon candidate, not from 0.5.0 or a source dev server.
+> Penglai 0.5.1 is released for Apple Silicon, Intel Mac, and Windows x64. All three native jobs installed and exercised the exact published packages from source `6ec35c8...`. The images below were captured again from the released Apple Silicon DMG, not from 0.5.0 or a source dev server.
 
 <p align="center">
   <img src=".github/assets/0.5.1/welcome.png" width="32%" alt="Penglai 0.5.1 welcome and appearance step">
@@ -31,7 +33,7 @@
   <img src=".github/assets/0.5.1/api-key.png" width="32%" alt="Penglai 0.5.1 local API key step with an empty field">
 </p>
 
-<p align="center"><sub>Installed 0.5.1 candidate, Apple Silicon, DSH 0.1.1-rc.1. <a href="docs/0.5.1/SCREENSHOTS.md">Capture provenance</a>.</sub></p>
+<p align="center"><sub>Released 0.5.1 DMG, Apple Silicon, DSH 0.1.1-rc.1. <a href="docs/0.5.1/SCREENSHOTS.md">Capture provenance</a>.</sub></p>
 
 <a id="english"></a>
 
@@ -59,15 +61,15 @@ This repository is also a record of human and AI collaboration. AI coding tools 
 
 Penglai 0.5.0 was a clean architectural reset around official DSH `0.1.0-rc.8`. It shipped one Apple Silicon DMG on 20 August 2026.
 
-The 0.5.1 work updates the core to official DSH `0.1.1-rc.1` and declares three release targets from one source commit:
+Penglai 0.5.1 was released on 22 August 2026. It updates the core to official DSH `0.1.1-rc.1` and ships three installers from one source commit:
 
-| Platform | Planned 0.5.1 installer | Current status |
+| Platform | 0.5.1 installer | Native result |
 | --- | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.1_macos_aarch64.dmg` | native release verification in progress |
-| Intel Mac | `Penglai_0.5.1_macos_x64.dmg` | native build and installed verification not complete |
-| Windows x64 | `Penglai_0.5.1_windows_x64_setup.exe` | native NSIS build and installed verification not complete |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg) | PASS |
+| Intel Mac | [`Penglai_0.5.1_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_x64.dmg) | PASS |
+| Windows x64 | [`Penglai_0.5.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_windows_x64_setup.exe) | PASS |
 
-The source tree currently passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, secret, and CodeQL checks. That does not prove that all three installers work. A platform is supported only after its native package has been installed and tested on matching hardware.
+The source tree passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, secret, and CodeQL checks. [Native run 32507017696](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696) separately built, installed, launched, and checked the exact three packages on matching native hosts. Source checks and installed evidence remain separate claims.
 
 ## One DSH core, optional Penglai plugins
 
@@ -83,7 +85,7 @@ A fresh profile starts with DSH and Penglai Center. The other Penglai plugins ar
 | `@penglai/budget` | local usage limits based on the official DSH TokenMeter and model route |
 | `@penglai/companion` | opt-in scheduled messages with quiet hours, daily limits, and channel binding |
 
-The 0.5.1 source suite exercises these packages against DSH rc.1, including packaging, typed services, settings registration, persistence, failure isolation, and selected lifecycle behavior. Full installed compatibility is still under test. We will not describe the old plugin set as 0.5.1-compatible until every plugin has passed install, enable, restart, disable, upgrade, rollback, and uninstall checks in the packaged application.
+All seven packages passed the 0.5.1 source suite against DSH rc.1. The exact packaged app on all three native targets then observed every plugin through four runtime phases: fresh default-disabled, all enabled, all enabled after DSH restart, and all disabled after a second restart. Each phase used the official DSH HTTP/WebSocket surface and loader inventory and left no owned process behind. This proves the shipped seven-plugin set across those phases; it does not turn every future plugin or every external service into a tested claim.
 
 ## Plugin Center
 
@@ -103,7 +105,7 @@ The setup flow covers privacy, language and appearance, provider credentials, th
 
 ## Install and upgrade
 
-The only accepted public desktop package today is [Penglai 0.5.0 for Apple Silicon](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0). Download the DMG and compare it with the published `SHA256SUMS` before installing.
+Download the appropriate package from the immutable [Penglai 0.5.1 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1) and compare it with the published `SHA256SUMS` before installing.
 
 Penglai 0.5.0 cannot update itself to 0.5.1. Apple Silicon users will install 0.5.1 manually over the existing application; data under the isolated `Penglai/0.5` generation is preserved. Intel Mac and Windows x64 are new installations because 0.5.0 never shipped those packages.
 
@@ -223,15 +225,15 @@ Agent loop、模型、工具、审批、Workspace、Session、Turn 和主界面�
 
 Penglai 0.5.0 围绕官方 DSH `0.1.0-rc.8` 重做了整个架构。2026 年 8 月 20 日发布的安装包只有一份 Apple Silicon DMG。
 
-0.5.1 把核心更新到官方 DSH `0.1.1-rc.1`，并声明同一份源码的三个发行目标：
+Penglai 0.5.1 已于 2026 年 8 月 22 日发布。它把核心更新到官方 DSH `0.1.1-rc.1`，同一份源码发布三个安装包：
 
-| 平台 | 计划中的 0.5.1 安装包 | 当前状态 |
+| 平台 | 0.5.1 安装包 | 原生验收 |
 | --- | --- | --- |
-| Apple Silicon，macOS 13+ | `Penglai_0.5.1_macos_aarch64.dmg` | 正在做原生发布验收 |
-| Intel Mac | `Penglai_0.5.1_macos_x64.dmg` | 原生构建与安装验收尚未完成 |
-| Windows x64 | `Penglai_0.5.1_windows_x64_setup.exe` | 原生 NSIS 构建与安装验收尚未完成 |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg) | PASS |
+| Intel Mac | [`Penglai_0.5.1_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_x64.dmg) | PASS |
+| Windows x64 | [`Penglai_0.5.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_windows_x64_setup.exe) | PASS |
 
-当前源码已经通过格式、类型、构建、单元、契约、集成、桌面 E2E、依赖、许可证、秘密扫描和 CodeQL。源码测试通过不等于三个安装包可用。只有在对应原生硬件上安装并验过，才能把那个平台写进正式支持范围。
+源码已经通过格式、类型、构建、单元、契约、集成、桌面 E2E、依赖、许可证、秘密扫描和 CodeQL。[原生运行 32507017696](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696) 又在对应原生机器上分别构建、安装、启动并检查了三份最终安装包。源码门禁与真实安装证据仍然是两种不同的事实。
 
 ## 一个 DSH 核心，七个可选插件
 
@@ -247,7 +249,7 @@ Penglai 0.5.0 围绕官方 DSH `0.1.0-rc.8` 重做了整个架构。2026 年 8 �
 | `@penglai/budget` | 根据 official DSH TokenMeter 与模型 route 统计和限制本地用量 |
 | `@penglai/companion` | 默认关闭的定时陪伴，带安静时段、每日上限和渠道绑定 |
 
-0.5.1 的源码测试已经在 DSH rc.1 下覆盖这些包的打包、类型化服务、设置注册、持久化、故障隔离和部分生命周期。真实安装兼容还在验证。每个插件没有走完安装、启用、重启、停用、升级、回滚和卸载之前，我们不会写“0.5.1 完全兼容原插件”。
+七个插件都通过了 DSH rc.1 下的 0.5.1 源码套件。随后，三端最终安装包又分别观察了四个运行阶段：首次启动默认停用、全部启用、重启 DSH 后仍全部启用、全部停用并再次重启。每一阶段都读取 official DSH HTTP/WebSocket 和 loader inventory，并确认没有残留的受管进程。这证明本次随包发布的七插件在这些阶段兼容，不等于替未来插件或所有外部服务做保证。
 
 ## 插件中心怎么更新
 
@@ -267,7 +269,7 @@ Penglai Center 是 official DSH settings 里的真实 host/client 插件。insta
 
 ## 安装与升级
 
-目前唯一通过公开验收的桌面安装包是 [Penglai 0.5.0 Apple Silicon 版](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0)。下载 DMG 后，请用 Release 中的 `SHA256SUMS` 核对文件。
+请从不可变的 [Penglai 0.5.1 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1) 下载对应平台安装包，并用其中的 `SHA256SUMS` 核对文件。
 
 0.5.0 不能在应用内直接升级到 0.5.1。Apple Silicon 用户需要手动覆盖安装，隔离在 `Penglai/0.5` 下的数据会保留。0.5.0 没有 Intel 与 Windows 客户端，这两个平台安装 0.5.1 属于全新安装。
 
