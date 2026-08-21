@@ -1,6 +1,5 @@
 import {
   closeSync,
-  existsSync,
   ftruncateSync,
   mkdirSync,
   openSync,
@@ -130,13 +129,13 @@ async function waitInventory(enabled, notBefore, timeoutMs = 90_000) {
   const end = Date.now() + timeoutMs;
   let last = null;
   while (Date.now() < end) {
-    if (existsSync(inventoryPath)) {
-      try {
-        last = JSON.parse(readFileSync(inventoryPath, "utf8"));
-        if (Date.parse(String(last?.at ?? "")) >= notBefore && rowsMatch(last, enabled)) return last;
-      } catch {
-        // The host replaces this snapshot periodically; retry a partial read.
-      }
+    try {
+      last = JSON.parse(readFileSync(inventoryPath, "utf8"));
+      if (Date.parse(String(last?.at ?? "")) >= notBefore && rowsMatch(last, enabled)) return last;
+    } catch (error) {
+      const missing = error && typeof error === "object" && "code" in error && error.code === "ENOENT";
+      if (!missing && !(error instanceof SyntaxError)) throw error;
+      // The host creates and then replaces this snapshot; retry a missing or partial read.
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
