@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
-import { SNAPSHOT_JS, observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
+import { observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
 import {
   installFromExactInstaller,
   launchInstalledHarness,
@@ -27,6 +27,7 @@ const WELCOME_JS = `(() => {
     disabled: Boolean(n.disabled),
   }));
   const welcomePenglai = /欢迎使用蓬莱|Welcome to Penglai/.test(text) || headings.some((h) => /欢迎使用蓬莱|Welcome to Penglai/.test(h));
+  const privacyStep = /隐私说明|Privacy notice/i.test(text) || headings.some((h) => /隐私说明|Privacy notice/i.test(h));
   const officialInternalNotice = /内测声明|Internal Testing Notice/.test(text);
   const continueBtn = buttons.find((b) => /^(继续|Continue)$/.test(b.text));
   return {
@@ -36,6 +37,7 @@ const WELCOME_JS = `(() => {
     hasDshBoot: typeof window.__DSH_BOOT__ !== "undefined",
     recovery: Boolean(document.querySelector("[data-penglai-recovery]")),
     welcomePenglai,
+    privacyStep,
     officialInternalNotice,
     continueVisible: Boolean(continueBtn),
     continueDisabled: Boolean(continueBtn?.disabled),
@@ -134,8 +136,8 @@ try {
   if (welcomeClick.ok) {
     afterContinue = await waitEval(
       session,
-      SNAPSHOT_JS,
-      (s) => Boolean(s && s.hasRoot && s.hasDshBoot && !s.recovery),
+      WELCOME_JS,
+      (s) => Boolean(s && s.privacyStep && !s.recovery),
       15_000,
     );
   }
@@ -152,20 +154,17 @@ const leftovers = leftoversByCommand(leftoverNeedle);
 const welcomeReachable = Boolean(
   welcome?.welcomePenglai && welcome.continueVisible && !welcome.continueDisabled && !welcome.officialInternalNotice,
 );
-const mainUsable = Boolean(
+const wizardAdvanced = Boolean(
   official?.official &&
-    official.snap?.hasRoot &&
-    official.snap?.hasDshBoot &&
     !official.snap?.recovery &&
     official.http?.official &&
     official.websocket?.opened &&
     welcomeClick.ok &&
-    afterContinue?.hasRoot &&
-    afterContinue?.hasDshBoot &&
+    afterContinue?.privacyStep &&
     !afterContinue?.recovery,
 );
 const ownedDsh = Boolean(tree.dshPid && tree.ownedAbsolute);
-const ok = Boolean(sawGateway && !attachErr && welcomeReachable && mainUsable && ownedDsh && leftovers.length === 0);
+const ok = Boolean(sawGateway && !attachErr && welcomeReachable && wizardAdvanced && ownedDsh && leftovers.length === 0);
 
 const rec = {
   command: "u3-welcome-smoke",
@@ -195,13 +194,12 @@ const rec = {
     headings: welcome?.headings,
     click: welcomeClick,
   },
-  mainUi: {
-    usable: mainUsable,
+  nextStep: {
+    privacy: wizardAdvanced,
     afterContinue: afterContinue
       ? {
           href: afterContinue.href,
-          hasRoot: afterContinue.hasRoot,
-          hasDshBoot: afterContinue.hasDshBoot,
+          privacyStep: afterContinue.privacyStep,
           recovery: afterContinue.recovery,
           headings: afterContinue.headings,
         }
