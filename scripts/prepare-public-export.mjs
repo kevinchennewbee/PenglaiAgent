@@ -1,48 +1,56 @@
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const pe = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/public-export.ts")).href);
 const pins = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/pins.ts")).href);
 
-function walk(dir, acc = []) {
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === "dist" || name === ".git" || name === "evidence" || name.startsWith(".tmp")) continue;
-    const abs = join(dir, name);
-    const st = statSync(abs);
-    const rel = relative(ROOT, abs).replaceAll("\\", "/");
-    const denied = pe.PUBLIC_EXPORT_DENY.some((d) => rel === d || rel.startsWith(`${d}/`));
-    if (denied) continue;
-    if (st.isDirectory()) {
-      walk(abs, acc);
-      continue;
-    }
-    if (!pe.pathAllowed(rel)) continue;
-    acc.push(rel);
-  }
-  return acc;
+function gitBuffer(args) {
+  return execFileSync("git", args, { cwd: ROOT, encoding: "buffer", maxBuffer: 64 * 1024 * 1024 });
 }
 
-const files = walk(ROOT).sort();
+function trackedExportFiles() {
+  const names = git(["ls-files", "-z"])
+    .split("\0")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((rel) => pe.pathAllowed(rel));
+  const modes = new Map();
+  for (const line of git(["ls-files", "--stage", "-z"]).split("\0").filter(Boolean)) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    const meta = line.slice(0, tab);
+    const path = line.slice(tab + 1);
+    const mode = meta.split(" ")[0];
+    if (path && mode) modes.set(path, mode === "100755" ? "0755" : "0644");
+  }
+  return names
+    .sort()
+    .map((rel) => ({ rel, mode: modes.get(rel) ?? "0644" }));
+}
+
+const tracked = trackedExportFiles();
+const files = tracked.map((row) => row.rel);
 const entries = [];
 const scanHits = [];
-for (const rel of files) {
-  const buf = readFileSync(join(ROOT, rel));
+for (const row of tracked) {
+  const buf = gitBuffer(["show", `:${row.rel}`]);
   const entry = {
-    path: rel,
+    path: row.rel,
     size: buf.length,
     sha256: createHash("sha256").update(buf).digest("hex"),
-    mode: "0644",
-    license: pe.classifyLicense(rel),
+    mode: row.mode,
+    license: pe.classifyLicense(row.rel),
   };
   entries.push(entry);
-  if (rel.endsWith(".png") || rel.endsWith(".jpg") || rel.endsWith(".tgz") || rel.endsWith(".wasm")) continue;
+  if (row.rel.endsWith(".png") || row.rel.endsWith(".jpg") || row.rel.endsWith(".tgz") || row.rel.endsWith(".wasm")) continue;
   try {
-    pe.scanExportText(rel, buf.toString("utf8"));
+    pe.scanExportText(row.rel, buf.toString("utf8"));
   } catch (err) {
     scanHits.push(String(err));
   }
@@ -57,9 +65,15 @@ try {
 if (scanHits.length) {
   finish("FAIL", { command: "prepare:public-export", reason: "export scan failed", hits: scanHits.slice(0, 20) });
 }
+if (files.includes("packages/plugin-registry/package.json") === false || files.includes("packages/plugin-pilot/package.json") === false) {
+  finish("FAIL", {
+    command: "prepare:public-export",
+    reason: "tracked Git tree is missing plugin-registry/plugin-pilot package.json",
+  });
+}
 
 const tree = pe.publicExportTreeSha256(entries);
-const git = gitState();
+const gitInfo = gitState();
 const publication = {
   ...pins.PUBLICATION_TARGET,
 };
@@ -73,10 +87,31 @@ if (wantCleanRoom) {
   const dest = join(ROOT, ".tmp-public-export", "tree");
   rmSync(dest, { recursive: true, force: true });
   mkdirSync(dest, { recursive: true });
-  for (const rel of files) {
-    const to = join(dest, rel);
-    mkdirSync(dirname(to), { recursive: true });
-    cpSync(join(ROOT, rel), to);
+  const indexTree = git(["write-tree"]);
+  const archive = spawnSync("git", ["archive", "--format=tar", indexTree, "--", ...files], {
+    cwd: ROOT,
+    encoding: "buffer",
+    maxBuffer: 256 * 1024 * 1024,
+  });
+  if (archive.status !== 0) {
+    finish("FAIL", {
+      command: "prepare:public-export",
+      reason: "git archive of tracked export files failed",
+      detail: String(archive.stderr || "").slice(-800),
+    });
+  }
+  const extract = spawnSync("tar", ["-xf", "-", "-C", dest], {
+    cwd: ROOT,
+    input: archive.stdout,
+    encoding: "buffer",
+    maxBuffer: 256 * 1024 * 1024,
+  });
+  if (extract.status !== 0) {
+    finish("FAIL", {
+      command: "prepare:public-export",
+      reason: "git archive extract failed",
+      detail: String(extract.stderr || "").slice(-800),
+    });
   }
   const install = spawnSync("pnpm", ["install", "--frozen-lockfile", "--ignore-scripts"], {
     cwd: dest,
@@ -92,12 +127,14 @@ if (wantCleanRoom) {
   cleanRoom = {
     executed: true,
     dest: ".tmp-public-export/tree",
+    source: "git-archive-index",
+    productVersion: PRODUCT_VERSION,
     installStatus: install.status,
     typecheckStatus: typecheck?.status ?? null,
     scriptCheckStatus: scriptCheck.status,
     reason:
       install.status === 0 && (typecheck?.status ?? 1) === 0 && scriptCheck.status === 0
-        ? "lock-only install and typecheck passed"
+        ? "git-archive lock-only install and typecheck passed"
         : "clean-room install or typecheck failed",
     installTail: String(install.stderr || install.stdout || "").slice(-800),
   };
@@ -118,8 +155,9 @@ const out = {
   schemaVersion: 1,
   publicExportTreeSha256: tree,
   files: entries.length,
-  privateCandidateSourceSha: git.head,
-  treeDirty: git.dirty,
+  privateCandidateSourceSha: gitInfo.head,
+  treeDirty: gitInfo.dirty,
+  source: "git-tracked-index",
   cleanRoom,
   publication,
   publicationExecuted: false,
@@ -128,7 +166,7 @@ writeFileSync(join(generated, "public-export.json"), JSON.stringify(out, null, 2
 writeFileSync(join(generated, "public-export-manifest.json"), JSON.stringify({ publicExportTreeSha256: tree, files: entries }, null, 2));
 writeFileSync(
   join(generated, "publication-manifest-draft.json"),
-  JSON.stringify(pe.buildPublicationDraft({ privateCandidateSourceSha: git.head, publicExportTreeSha256: tree, files: entries.length }), null, 2),
+  JSON.stringify(pe.buildPublicationDraft({ privateCandidateSourceSha: gitInfo.head, publicExportTreeSha256: tree, files: entries.length }), null, 2),
 );
 if (!existsSync(join(ROOT, "LICENSE"))) finish("FAIL", { command: "prepare:public-export", reason: "LICENSE missing" });
 if (cleanRoom.executed === true) {
@@ -138,5 +176,5 @@ finish("INCOMPLETE", {
   command: "prepare:public-export",
   tree,
   files: entries.length,
-  reason: "allowlist export and scans passed; clean-room lock-only install not executed",
+  reason: "allowlist export and scans passed from tracked Git index; clean-room lock-only install not executed",
 });

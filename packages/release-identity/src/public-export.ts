@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import { PUBLICATION_TARGET } from "./pins.js";
+import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./pins.js";
 
 export const PUBLIC_EXPORT_ALLOW = [
   "apps",
@@ -174,7 +174,7 @@ export function buildPublicationDraft(input: {
 }): Record<string, unknown> {
   return {
     schemaVersion: 1,
-    productVersion: "0.5.0",
+    productVersion: PRODUCT_VERSION,
     candidateKind: "public-publication-candidate",
     trustTier: "community-verified",
     generationId: "penglai-dsh-v0.5",
@@ -189,13 +189,13 @@ export function buildPublicationDraft(input: {
       pnpm: "10.14.0",
     },
     installers: [
-      { name: "Penglai_0.5.0_macos_aarch64.dmg", sha256: "", native: "pending" },
+      { name: `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg`, sha256: "", native: "pending" },
     ],
     limitations: [
-      "0.5.0 launches on Apple Silicon only; Intel macOS and Windows remain future targets",
+      `${PRODUCT_VERSION} launches on Apple Silicon only; Intel macOS and Windows remain future targets`,
       "community-verified: macOS ad-hoc/not notarized",
       "0.4.1 to 0.5.0 is clean-generation; no state/secret migration",
-      "no silent auto-update; updater channel is not published in 0.5.0",
+      `no silent auto-update from 0.5.0; 0.5.1 discovers later immutable PenglaiAgent Releases`,
       "public destination is owner-authorized; execution is verified after publication",
     ],
     publication: {

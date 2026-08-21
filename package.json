@@ -58,6 +58,7 @@
     "verify:live": "node scripts/verify-live.mjs",
     "verify:public-export": "node --import tsx scripts/verify-public-export.mjs",
     "prepare:public-export": "node --import tsx scripts/prepare-public-export.mjs",
+    "verify:clean-clone": "node --import tsx scripts/verify-clean-clone.mjs",
     "verify:soak": "node --import tsx scripts/verify-soak.mjs",
     "verify:asr-real": "node --import tsx scripts/verify-asr-real.ts",
     "verify:moss-real": "node --import tsx scripts/verify-moss-real.ts",
