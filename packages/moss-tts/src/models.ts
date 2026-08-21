@@ -320,10 +320,10 @@ export class TtsModelManager {
 
   describeCapability(): {
     plugin: "active";
-    engine: "onnxruntime-node-1.27.0";
+    engine: "onnxruntime-node-1.23.2";
     model: TtsModelState;
   } {
-    return { plugin: "active", engine: "onnxruntime-node-1.27.0", model: this.state };
+    return { plugin: "active", engine: "onnxruntime-node-1.23.2", model: this.state };
   }
 
   getOperation(operationId: string): TtsModelOperation | undefined {

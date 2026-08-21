@@ -86,7 +86,7 @@ Forge是Electron官方教程推荐的统一打包方向，但具体DMG/Windows m
 - TTS weights：`OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX@f52645cb467506d8e18e746ddd59482685b74e58`。
 - codec weights：`OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX@ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae`。
 - 16-file bundle identity：`cd877ae87fed8f9d26c237c5038242e796e51389`；每文件 size/SHA-256 在 `@penglai/moss-tts` manifest 与 SBOM 双重冻结。
-- CPU graph runtime：`onnxruntime-node@1.27.0`，integrity `sha512-QEzGwrvNBgv4uPVdnbHsOGG4G6T96mdlcFI8aAKPjMU8wOPpVocPXb6k3QGkaZagVTv2G9Bnnbo6Z3JdXr1fQw==`。
+- CPU graph runtime：`onnxruntime-node@1.23.2`，integrity `sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==`。这是 npm 最后一个同时携带 macOS arm64、macOS x64 与 Windows x64 N-API v6 二进制的冻结版本；三端插件打包门禁会逐一验证目标文件格式。
 - tokenizer runtime：`sentencepiece-js@1.1.0`，integrity `sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==`。
 - Weixin SILK runtime：[`silk-wasm@3.7.1`](https://github.com/idranme/silk-wasm)，MIT，integrity `sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2OJQENYhNgEPeCEOdI6Mbx1NxQsqxzwc3DKerw==`，独立 WASM 随 IM plugin 闭包。
 - Feishu Opus runtime：[`libopus-wasm@0.2.0`](https://github.com/openclaw/libopus-wasm/tree/55fe0b6faf9043518b7e1a7ea32e74659ecfbae7)，MIT，commit `55fe0b6faf9043518b7e1a7ea32e74659ecfbae7`，integrity `sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==`，libopus 1.6.1 WASM 内嵌且无安装脚本。

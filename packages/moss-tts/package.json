@@ -27,7 +27,7 @@
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.1",
     "@penglai/contracts": "workspace:*",
-    "onnxruntime-node": "1.27.0",
+    "onnxruntime-node": "1.23.2",
     "sentencepiece-js": "1.1.0"
   }
 }

@@ -11,7 +11,7 @@ const audioReq = createRequire(`${process.cwd()}/packages/audio-codecs/package.j
 const FUNASR_LICENSE_SHA256 = "7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8";
 const SHERPA_LICENSE_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30";
 const SHERPA_INTEGRITY = "sha512-kq3HgrXdbYCgK44U0gd2Cpnahf7qa59caPnROI7dy1+nKou8KdAsV9yUsCScZqTewvRyR/khUS97X26KE4JRMw==";
-const ONNX_RUNTIME_INTEGRITY = "sha512-QEzGwrvNBgv4uPVdnbHsOGG4G6T96mdlcFI8aAKPjMU8wOPpVocPXb6k3QGkaZagVTv2G9Bnnbo6Z3JdXr1fQw==";
+const ONNX_RUNTIME_INTEGRITY = "sha512-OBTsG0W8ddBVOeVVVychpVBS87A9YV5sa2hJ6lc025T97Le+J4v++PwSC4XFs1C62SWyNdof0Mh4KvnZgtt4aw==";
 const SENTENCEPIECE_INTEGRITY = "sha512-HN6teKCRO9tz37zbaNI3i+vMZ/JRWDt6kmZ7OVpzQv1jZHyYNmf5tE7CFpIYN86+y9TLB0cuscMdA3OHhT/MhQ==";
 const MOSS_SOURCE_COMMIT = "cc7bdf19c7639c0870dab22045a33b442760f6be";
 const MOSS_TTS_REVISION = "f52645cb467506d8e18e746ddd59482685b74e58";
@@ -78,7 +78,7 @@ const licenses = [
   {
     name: "onnxruntime-node",
     license: "MIT",
-    pin: "1.27.0",
+    pin: "1.23.2",
     integrity: ONNX_RUNTIME_INTEGRITY,
     licenseSha256: "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     bundledInInstaller: true,
@@ -171,7 +171,7 @@ const sentencepiecePkg = packageJsonFor("sentencepiece-js");
 const audioDir = join(process.cwd(), "packages/audio-codecs");
 const silkInfo = packageInfoFor("silk-wasm", audioReq, audioDir);
 const opusInfo = packageInfoFor("libopus-wasm", audioReq, audioDir);
-if (onnxPkg.version !== "1.27.0" || onnxPkg.license !== "MIT") {
+if (onnxPkg.version !== "1.23.2" || onnxPkg.license !== "MIT") {
   console.error("unexpected onnxruntime-node version/license", onnxPkg.version, onnxPkg.license);
   process.exit(1);
 }
@@ -197,7 +197,7 @@ if (!lock.includes(`sherpa-onnx@1.13.5:`) || !lock.includes(`integrity: ${SHERPA
   process.exit(1);
 }
 for (const [name, version, integrity] of [
-  ["onnxruntime-node", "1.27.0", ONNX_RUNTIME_INTEGRITY],
+  ["onnxruntime-node", "1.23.2", ONNX_RUNTIME_INTEGRITY],
   ["sentencepiece-js", "1.1.0", SENTENCEPIECE_INTEGRITY],
   ["silk-wasm", "3.7.1", SILK_INTEGRITY],
   ["libopus-wasm", "0.2.0", LIBOPUS_INTEGRITY],

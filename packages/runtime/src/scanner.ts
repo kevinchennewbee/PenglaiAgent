@@ -56,19 +56,23 @@ function isBinaryArtifact(rel: string, buf: Buffer): boolean {
 export function scanBundleBytes(rel: string, buf: Buffer): string[] {
   if (!isBinaryArtifact(rel, buf)) return scanBundleText(rel, buf.toString("utf8"));
   const text = buf.toString("latin1");
-  const pinnedUpstreamBuilderPrefix = ["", "Users", "cloudtest", "vss", "_work", ""].join("/");
-  const textWithoutPinnedUpstreamBuilders = text.replaceAll(
-    pinnedUpstreamBuilderPrefix,
-    "/pinned-upstream-builder/",
+  const pinnedUpstreamBuilderPrefixes = [
+    ["", "Users", "cloudtest", "vss", "_work", ""].join("/"),
+    ["", "Users", "runner", "work", "1", ""].join("/"),
+    ["", "Users", "runner", "work", "_temp", ""].join("/"),
+  ];
+  const textWithoutPinnedUpstreamBuilders = pinnedUpstreamBuilderPrefixes.reduce(
+    (sanitized, prefix) => sanitized.replaceAll(prefix, "/pinned-upstream-builder/"),
+    text,
   );
   const hits: string[] = [];
   for (const name of FORBIDDEN_NAMES) {
     if (rel.includes(name)) hits.push(`${rel}:${name}`);
   }
   for (const rule of FORBIDDEN) {
-    // The exact ONNX Runtime binary legitimately retains Microsoft's pinned
-    // macOS home builder prefix in assertion strings. No other owner path is
-    // exempted.
+    // Pinned ONNX Runtime binaries legitimately retain Microsoft's Azure and
+    // GitHub Actions macOS build roots in assertion strings. No other owner
+    // path is exempted, and the current packager home is checked separately.
     if (rule.re.test(textWithoutPinnedUpstreamBuilders)) {
       hits.push(`${rel}:${rule.reason}`);
     }

@@ -41,6 +41,12 @@ test("native dependency scan accepts upstream builder paths but rejects local pa
     Buffer.from("/Users/cloudtest/vss/_work/onnxruntime.cc\0"),
   ]);
   assert.deepEqual(scanBundleBytes("vendor/runtime.dylib", vendor), []);
+  const githubRunnerVendor = Buffer.concat([
+    Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1, 0]),
+    Buffer.from("/Users/runner/work/1/s/onnxruntime.cc\0"),
+    Buffer.from("/Users/runner/work/_temp/onnx/src/defs.cc\0"),
+  ]);
+  assert.deepEqual(scanBundleBytes("vendor/runtime.dylib", githubRunnerVendor), []);
   const unknownBuilder = Buffer.concat([
     Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0x0c, 0, 0, 1, 0]),
     Buffer.from("/Users/random-builder/work/source.cc\0"),

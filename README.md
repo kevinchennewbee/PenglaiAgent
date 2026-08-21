@@ -1,10 +1,18 @@
 <p align="center">
-  <img src="overlays/dsh-0.1.1-rc.1/brand/logo-256.png" width="112" alt="Penglai logo">
+  <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/212dd84/.github/assets/banner-v1.png" width="100%" alt="Penglai, an AI island emerging from the mist">
 </p>
 
 <h1 align="center">Penglai · 蓬莱</h1>
 
-<p align="center">DeepSeek Harness, packaged for a personal computer.</p>
+<p align="center"><strong>Bring the agent out of the terminal and into the computer you already use.</strong></p>
+
+<p align="center">
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-0.5.0-2563eb?style=flat-square" alt="Current release 0.5.0"></a>
+  <a href="docs/RELEASE_NOTES_0.5.1.md"><img src="https://img.shields.io/badge/candidate-0.5.1-d97706?style=flat-square" alt="0.5.1 candidate"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.1-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.1"></a>
+  <a href="docs/PUBLICATION_0.5.1.md"><img src="https://img.shields.io/badge/desktop-macOS%20arm64%20%7C%20x64%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Three desktop targets"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
+</p>
 
 <p align="center">
   <a href="#english">English</a> ·
@@ -15,13 +23,7 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.1 is still being verified. The current public installer is 0.5.0 for Apple Silicon. Intel Mac and Windows x64 packages do not exist as accepted releases yet.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/gh-pages/shots/desktop-conversation.webp" width="31%" alt="Penglai desktop conversation">
-  <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/gh-pages/shots/desktop-wizard-provider.webp" width="31%" alt="Penglai provider setup">
-  <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/gh-pages/shots/feishu-approval.webp" width="31%" alt="Penglai Feishu approval">
-</p>
+> Penglai 0.5.1 is still being verified. The current public installer is 0.5.0 for Apple Silicon. Intel Mac and Windows x64 packages do not exist as accepted releases yet. New screenshots will be added only after they are captured from installed 0.5.1 builds.
 
 <a id="english"></a>
 
@@ -34,6 +36,16 @@ Penglai is a desktop distribution of [DeepSeek Harness](https://github.com/deeps
 DSH owns the agent loop, models, tools, approvals, Workspace, Session, Turn, and the main Web interface. Penglai owns the desktop package, process supervision, local data layout, onboarding, update and uninstall behavior, product identity, and the plugin catalog. Penglai does not run a second agent or replace DSH chat with its own chat page.
 
 The name comes from the story of the Eight Immortals crossing the sea, each using a different skill. In Penglai, models, channels, local voice, memory, and other plugins bring different abilities to one DSH core.
+
+## A note from the author
+
+I spent more than ten years around networking, security, and operations, but I was not a software developer when Penglai began. What bothered me was not a lack of powerful agents. It was that most of them still expected an ordinary person to sit in front of a terminal, understand APIs and configuration files, and learn the language of software before receiving any benefit.
+
+Computers moved from command lines to windows and then into everyone's pocket. Agents should make the same journey. If I can send a message, I should be able to reach my own assistant. If it takes an action, I should be able to see what it was allowed to do, what actually happened, and what it cost.
+
+Penglai has been rebuilt more than once. Each rebuild left useful ideas behind, but it also made the core simpler. Version 0.5 is the clearest decision so far: DSH is the only agent core. Penglai should make that core easier to install, understand, extend, and trust. It should not build a second agent beside it.
+
+This repository is also a record of human and AI collaboration. AI coding tools can write and review a remarkable amount of code, but none of them is trusted by default and none of them is the author of Penglai. Product direction, taste, risk decisions, acceptance, and release responsibility remain human work.
 
 ## Where the project is now
 
@@ -161,7 +173,11 @@ A successful source build is not release evidence. See [0.5.1 publication contra
 
 Penglai source is released under the [MIT License](LICENSE). The Penglai name, logo, and visual identity are not granted by the software license.
 
-Penglai builds on DeepSeek Harness, Electron, Node, SenseVoice, sherpa-onnx, MOSS-TTS-Nano, the Feishu SDK, the Weixin iLink reference implementation, and other open-source work. Each dependency keeps its own license and attribution. Release packages include `THIRD_PARTY_NOTICES.txt` and `SBOM.cdx.json`.
+The project is maintained by [Kevin Chen / 陈克文](https://github.com/kevinchennewbee). Across the 0.3, 0.4, and 0.5 generations, implementation and review have also been assisted by [Kimi Work](https://www.kimi.com/en/products/download), [Grok Build](https://grok.com/), [Cursor Agent](https://cursor.com/), [Claude Code](https://www.anthropic.com/claude-code), and [OpenAI Codex](https://openai.com/codex/). These credits record real collaboration. They do not transfer authorship, judgment, or release accountability to a model or tool.
+
+Penglai 0.5 stands on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), [Electron](https://github.com/electron/electron), [Node.js](https://github.com/nodejs/node), [TypeScript](https://github.com/microsoft/TypeScript), and [pnpm](https://github.com/pnpm/pnpm). Local speech and channel support builds on [SenseVoice](https://github.com/FunAudioLLM/SenseVoice), [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano), [Lark Node SDK](https://github.com/larksuite/node-sdk), [Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin), [silk-wasm](https://github.com/idranme/silk-wasm), and [libopus-wasm](https://github.com/openclaw/libopus-wasm). Earlier generations also learned from [GenericAgent](https://github.com/lsdefine/GenericAgent) and [Pi Agent](https://github.com/earendil-works/pi).
+
+Thank you to every upstream maintainer and contributor. Each dependency keeps its own license and attribution. Release packages include `THIRD_PARTY_NOTICES.txt` and `SBOM.cdx.json` with the exact shipped versions and files.
 
 <a id="中文"></a>
 
@@ -174,6 +190,16 @@ Penglai builds on DeepSeek Harness, Electron, Node, SenseVoice, sherpa-onnx, MOS
 Agent loop、模型、工具、审批、Workspace、Session、Turn 和主界面都由 DSH 提供。蓬莱负责安装包、进程监管、本地数据目录、首次引导、升级与卸载、产品名称和插件目录。蓬莱不再运行第二套 Agent，也不做一张自己的聊天页来替代 DSH Web。
 
 “蓬莱”这个名字借的是八仙过海的故事。模型、渠道、本地语音、记忆和其他插件各有本领，但共用一个 DSH 核心。
+
+## 作者的话
+
+我做了十多年网络、安全和运维，但开始做蓬莱时，我并不会写软件。真正让我难受的，不是市面上没有强大的 Agent，而是它们大多仍然要求普通人坐在终端前，先学会 API、配置文件和软件工程的语言，才有资格得到帮助。
+
+计算机从命令行走进窗口，又走进每个人的口袋。Agent 也应该走完这段路。只要我能发一条消息，就应该能找到自己的助理；它替我做事时，我也应该看得见它得到了什么权限、究竟做了什么、花了多少成本。
+
+蓬莱重做过不止一次。每次重做都留下了一些值得保留的东西，也让核心变得更简单。0.5 是目前最明确的一次选择：DSH 是唯一的 Agent 核心。蓬莱要做的是让它更容易安装、理解、扩展和信任，而不是在旁边再造一个 Agent。
+
+这个仓库也是一份人与 AI 一起工作的记录。AI 编程工具可以写出、检查惊人数量的代码，但我不默认相信任何一个模型，它们也不是蓬莱的作者。产品方向、审美、风险取舍、验收和发布责任，最终仍然是人的工作。
 
 ## 项目现在做到哪了
 
@@ -301,4 +327,8 @@ pnpm package:windows       # Windows x64，需要 MSVC 与 NSIS
 
 Penglai 源码使用 [MIT License](LICENSE)。软件许可证不包含 Penglai 名称、logo 和视觉识别的授权。
 
-Penglai 建立在 DeepSeek Harness、Electron、Node、SenseVoice、sherpa-onnx、MOSS-TTS-Nano、飞书 SDK、微信 iLink 参考实现和其他开源工作之上。各依赖保留原许可证与归属。正式安装包会附带 `THIRD_PARTY_NOTICES.txt` 和 `SBOM.cdx.json`。
+项目由 [陈克文 / Kevin Chen](https://github.com/kevinchennewbee) 发起并维护。在 0.3、0.4 和 0.5 的不同阶段，[Kimi Work](https://www.kimi.com/en/products/download)、[Grok Build](https://grok.com/)、[Cursor Agent](https://cursor.com/)、[Claude Code](https://www.anthropic.com/claude-code) 和 [OpenAI Codex](https://openai.com/codex/) 参与过实现与审查。这里的署名记录真实发生过的协作，不把作者身份、判断或发布责任交给任何模型和工具。
+
+Penglai 0.5 建立在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)、[Electron](https://github.com/electron/electron)、[Node.js](https://github.com/nodejs/node)、[TypeScript](https://github.com/microsoft/TypeScript) 和 [pnpm](https://github.com/pnpm/pnpm) 之上。本地语音和渠道能力感谢 [SenseVoice](https://github.com/FunAudioLLM/SenseVoice)、[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)、[MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano)、[Lark Node SDK](https://github.com/larksuite/node-sdk)、[Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin)、[silk-wasm](https://github.com/idranme/silk-wasm) 和 [libopus-wasm](https://github.com/openclaw/libopus-wasm)。更早的版本也从 [GenericAgent](https://github.com/lsdefine/GenericAgent) 与 [Pi Agent](https://github.com/earendil-works/pi) 得到过启发。
+
+感谢所有上游维护者和贡献者。各依赖保留自己的许可证与归属，正式安装包会用 `THIRD_PARTY_NOTICES.txt` 和 `SBOM.cdx.json` 列出实际随包发布的精确版本与文件。

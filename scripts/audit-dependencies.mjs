@@ -39,7 +39,7 @@ if (pkg.scripts && Object.keys(pkg.scripts).some((k) => k.includes("preinstall")
 
 const ort = packageRoot("onnxruntime-node");
 if (
-  ort.metadata.version !== "1.27.0" || ort.metadata.license !== "MIT" ||
+  ort.metadata.version !== "1.23.2" || ort.metadata.license !== "MIT" ||
   ort.metadata.scripts?.postinstall !== "node ./script/install"
 ) {
   console.error("onnxruntime-node supply-chain contract drift");
@@ -51,7 +51,7 @@ if (admZip.metadata.version !== "0.6.0" || admZip.metadata.license !== "MIT") {
   console.error("onnxruntime-node adm-zip security override drift");
   process.exit(1);
 }
-for (const [platform, arch] of [["darwin", "arm64"], ["win32", "x64"]]) {
+for (const [platform, arch] of [["darwin", "arm64"], ["darwin", "x64"], ["win32", "x64"]]) {
   const targetRoot = join(ort.root, "bin", "napi-v6", platform, arch);
   if (!existsSync(join(targetRoot, "onnxruntime_binding.node"))) {
     console.error("onnxruntime-node packaged CPU target missing", `${platform}-${arch}`);
