@@ -1,8 +1,8 @@
 # Penglai 0.5.1 findings ledger
 
 Baseline: `kevinchennewbee/PenglaiAgent` `main` / `v0.5.0` / `ebfea25`.
-Spec: `/Users/agent/Downloads/GPT-5 Codex.md`.
-Owner decision for this pass: implement Batches A–G locally; **do not push or publish** until Owner review.
+Spec: owner-provided Penglai 0.5.1 signed plugin ecosystem plan (local path omitted from the public tree).
+Owner decision for this pass: implement locally; **do not push or publish** until Owner review. Status in this ledger is not completion evidence.
 
 | ID | Severity | Evidence | Owner decision | Status | Acceptance |
 | --- | --- | --- | --- | --- | --- |

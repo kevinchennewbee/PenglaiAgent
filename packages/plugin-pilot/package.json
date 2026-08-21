@@ -1,0 +1,31 @@
+{
+  "name": "@penglai/plugin-pilot",
+  "version": "0.5.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@penglai/contracts": "workspace:*"
+  },
+  "penglaiPlugin": {
+    "schema": 2,
+    "id": "@penglai/plugin-pilot",
+    "version": "1.0.0",
+    "dshExact": "0.1.0-rc.8",
+    "centerProtocol": 1,
+    "entry": "dist/index.js",
+    "targets": ["any"],
+    "capabilities": ["pilot-echo"],
+    "permissions": [],
+    "nativeCode": false,
+    "installScripts": false,
+    "networkOrigins": [],
+    "dataPaths": [],
+    "license": "MIT"
+  }
+}

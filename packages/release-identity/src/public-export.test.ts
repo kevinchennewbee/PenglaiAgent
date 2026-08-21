@@ -65,6 +65,15 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   });
 });
 
+test("tracked plugin package.json paths are exportable and FINDINGS has no owner home path", () => {
+  assert.equal(pathAllowed("packages/plugin-registry/package.json"), true);
+  assert.equal(pathAllowed("packages/plugin-pilot/package.json"), true);
+  const findings = readFileSync(join(root, "docs/0.5.1/FINDINGS.md"), "utf8");
+  assert.doesNotMatch(findings, /\/Users\/[A-Za-z0-9._-]+\//);
+  assert.doesNotMatch(findings, /\/Volumes\/KevinSSD/i);
+  assert.doesNotThrow(() => scanExportText("docs/0.5.1/FINDINGS.md", findings));
+});
+
 test("R50-PREP-002 export scan rejects secret and owner path", () => {
   assert.throws(() => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"), PenglaiError);
   assert.throws(() => scanExportText("README.md", "path /Volumes/KevinSSD-in/x"), PenglaiError);
