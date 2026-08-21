@@ -194,9 +194,18 @@ importers:
       '@deepseek-ai/cordis':
         specifier: 4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
+      '@deepseek-ai/dsh-agent':
+        specifier: 0.1.0-rc.8
+        version: 0.1.0-rc.8(3072dd915103e68004a5fa2f92494354)
+      '@deepseek-ai/dsh-tools':
+        specifier: 0.1.0-rc.8
+        version: 0.1.0-rc.8(4243fdba7685154d91af0787ae5a32dc)
       '@deepseek-ai/dsh-typert-protocol':
         specifier: 0.1.0-rc.8
         version: 0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.6(@deepseek-ai/cordis@4.0.1))
+      '@deepseek-ai/dsh-workspace':
+        specifier: 0.1.0-rc.8
+        version: 0.1.0-rc.8(5c11f97ab6d583a671d6739a2ae375a8)
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -406,6 +415,9 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/plugin-registry':
+        specifier: workspace:*
+        version: link:../plugin-registry
 
   packages/testkit:
     dependencies:

@@ -10,6 +10,7 @@
     }
   },
   "dependencies": {
-    "@penglai/contracts": "workspace:*"
+    "@penglai/contracts": "workspace:*",
+    "@penglai/plugin-registry": "workspace:*"
   }
 }

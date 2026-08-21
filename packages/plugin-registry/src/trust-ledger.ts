@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 
@@ -12,13 +12,28 @@ export interface TrustState {
 }
 
 export function readTrustState(path: string): TrustState | undefined {
+  if (!existsSync(path)) return undefined;
+  let raw: unknown;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as TrustState;
-    if (raw.schema !== 1) return undefined;
-    return raw;
+    raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
   } catch {
-    return undefined;
+    throw new PenglaiError("STORE_CORRUPT", "trust ledger unreadable");
   }
+  const rec = raw as TrustState;
+  if (
+    !rec ||
+    rec.schema !== 1 ||
+    (rec.kind !== "plugin-catalog" && rec.kind !== "app-update") ||
+    !Number.isSafeInteger(rec.highestSequence) ||
+    rec.highestSequence < 1 ||
+    !Number.isSafeInteger(rec.highestKeyEpoch) ||
+    rec.highestKeyEpoch < 0 ||
+    typeof rec.lastDigest !== "string" ||
+    !/^[0-9a-f]{64}$/.test(rec.lastDigest)
+  ) {
+    throw new PenglaiError("STORE_CORRUPT", "trust ledger malformed");
+  }
+  return rec;
 }
 
 export function acceptMonotonic(input: {

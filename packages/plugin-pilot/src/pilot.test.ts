@@ -8,7 +8,11 @@ test("P51-SUPPLY pilot plugin is inert JS with a fixed echo", async () => {
   assert.equal(name, "@penglai/plugin-pilot");
   assert.equal(version, "1.0.0");
   assert.equal(result.version, "1.0.0");
-  const tool = calls[0] as { name: string; execute: () => Promise<unknown> };
+  const tool = calls[0] as { name: string; execute: (...args: unknown[]) => Promise<unknown> };
   assert.equal(tool.name, "penglai_pilot_echo");
-  assert.deepEqual(await tool.execute(), { token: "penglai-pilot-ok", nativeCode: false, network: false });
+  assert.deepEqual(await tool.execute({}, { agent: { id: "sess-1" } }), {
+    token: "penglai-pilot-ok",
+    nativeCode: false,
+    network: false,
+  });
 });

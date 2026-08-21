@@ -13,8 +13,9 @@ export function apply(ctx?: { tools?: { register(definition: Record<string, unkn
       additionalProperties: false,
       properties: {},
     },
-    async execute() {
-      if (arguments.length > 1) throw new PenglaiError("INVALID_INPUT", "pilot tool takes no authority args");
+    async execute(args: unknown, exec?: unknown) {
+      void args;
+      void exec;
       return { token: "penglai-pilot-ok", nativeCode: false, network: false };
     },
   });

@@ -1,0 +1,309 @@
+import { createHash, randomBytes } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
+import { PenglaiError } from "@penglai/contracts";
+import { inspectTarGz } from "./tar.js";
+import { canonicalizeBytes } from "./canonical-json.js";
+import {
+  assertCompatibleWithPenglai,
+  PINNED_DSH,
+  parseSignedPluginCatalog,
+  type CatalogEntry,
+  type SignedPluginCatalog,
+} from "./catalog-schema.js";
+import { downloadVerifiedBytes, githubDigestToSha256 } from "./download.js";
+import { EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY } from "./embedded-keys.js";
+import {
+  assertManifestMatchesCatalog,
+  inspectPluginEntries,
+  type EmbeddedPluginManifestV2,
+} from "./archive-policy.js";
+import {
+  catalogListUrl,
+  selectHighestCatalogRelease,
+  type DiscoveredRelease,
+} from "./release-discovery.js";
+import { assertInstallAllowed, shouldDisableOnBoot } from "./revocation.js";
+import { decodeDetachedSignature, verifyBytes } from "./signature.js";
+import {
+  acceptMonotonic,
+  contentAddressedPath,
+  readTrustState,
+} from "./trust-ledger.js";
+
+export const CATALOG_JSON_ASSET = "plugin-catalog-v1.json";
+export const CATALOG_SIG_ASSET = "plugin-catalog-v1.json.sig";
+export const MAX_CATALOG_BYTES = 1024 * 1024;
+export const MAX_PACKAGE_BYTES = 64 * 1024 * 1024;
+
+export interface RegistryHostConfig {
+  cacheRoot: string;
+  trustPath: string;
+  lastGoodPath: string;
+  penglaiVersion: string;
+  dshExact?: string;
+  fetchImpl?: typeof fetch;
+  nowMs?: () => number;
+  keyEpoch?: number;
+}
+
+export interface RegistrySnapshot {
+  source: "github-immutable" | "last-good-offline";
+  tag: string;
+  sequence: number;
+  digest: string;
+  issuedAt: string;
+  expiresAt: string;
+  signingKeyId: string;
+  signatureOk: true;
+  catalog: SignedPluginCatalog;
+  offline: boolean;
+}
+
+export interface CachedPackage {
+  id: string;
+  version: string;
+  sha256: string;
+  size: number;
+  path: string;
+  signaturePath: string;
+  manifest: EmbeddedPluginManifestV2;
+  files: string[];
+}
+
+function atomicJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+  renameSync(tmp, path);
+}
+
+function assetNamed(release: DiscoveredRelease, name: string) {
+  const asset = release.assets.find((row) => row.name === name);
+  if (!asset || !asset.url || asset.id <= 0) {
+    throw new PenglaiError("INVALID_INPUT", `release missing ${name}`);
+  }
+  return asset;
+}
+
+export class PluginDistributionClient {
+  readonly #config: RegistryHostConfig;
+  #snapshot: RegistrySnapshot | undefined;
+
+  constructor(config: RegistryHostConfig) {
+    mkdirSync(config.cacheRoot, { recursive: true, mode: 0o700 });
+    mkdirSync(dirname(config.trustPath), { recursive: true, mode: 0o700 });
+    this.#config = config;
+  }
+
+  snapshot(): RegistrySnapshot | undefined {
+    return this.#snapshot ?? this.#readLastGood();
+  }
+
+  lastGood(): RegistrySnapshot | undefined {
+    return this.#readLastGood();
+  }
+
+  async refresh(): Promise<RegistrySnapshot> {
+    const now = this.#config.nowMs?.() ?? Date.now();
+    const fetchImpl = this.#config.fetchImpl ?? fetch;
+    try {
+      const listUrl = catalogListUrl();
+      const list = await downloadVerifiedBytes({
+        url: listUrl,
+        sha256: "pending",
+        size: MAX_CATALOG_BYTES,
+        maxBytes: MAX_CATALOG_BYTES,
+        fetchImpl,
+        skipHash: true,
+      });
+      const raw = JSON.parse(list.toString("utf8")) as unknown;
+      if (!Array.isArray(raw)) throw new PenglaiError("INVALID_INPUT", "GitHub releases list");
+      const release = selectHighestCatalogRelease(raw);
+      const jsonAsset = assetNamed(release, CATALOG_JSON_ASSET);
+      const sigAsset = assetNamed(release, CATALOG_SIG_ASSET);
+      const jsonBytes = await downloadVerifiedBytes({
+        url: jsonAsset.url,
+        sha256: jsonAsset.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
+        size: jsonAsset.size,
+        maxBytes: MAX_CATALOG_BYTES,
+        assetId: jsonAsset.id,
+        fetchImpl,
+        skipHash: !jsonAsset.digest,
+      });
+      if (jsonAsset.digest) githubDigestToSha256(jsonAsset.digest, createHash("sha256").update(jsonBytes).digest("hex"));
+      const sigBytes = await downloadVerifiedBytes({
+        url: sigAsset.url,
+        sha256: "pending",
+        size: sigAsset.size,
+        maxBytes: 256,
+        assetId: sigAsset.id,
+        fetchImpl,
+        skipHash: true,
+      });
+      const json = JSON.parse(jsonBytes.toString("utf8")) as unknown;
+      const digest = createHash("sha256").update(canonicalizeBytes(json)).digest("hex");
+      verifyBytes(canonicalizeBytes(json), decodeDetachedSignature(sigBytes), EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.publicKeyHex);
+      const catalog = parseSignedPluginCatalog(json, now);
+      if (catalog.signingKeyId !== EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.keyId) {
+        throw new PenglaiError("SECURITY_POLICY", "catalog signingKeyId is not the embedded plugin key");
+      }
+      acceptMonotonic({
+        path: this.#config.trustPath,
+        kind: "plugin-catalog",
+        sequence: catalog.sequence,
+        keyEpoch: this.#config.keyEpoch ?? 1,
+        digest,
+        tag: release.tag,
+      });
+      const snapshot: RegistrySnapshot = {
+        source: "github-immutable",
+        tag: release.tag,
+        sequence: catalog.sequence,
+        digest,
+        issuedAt: catalog.issuedAt,
+        expiresAt: catalog.expiresAt,
+        signingKeyId: catalog.signingKeyId,
+        signatureOk: true,
+        catalog,
+        offline: false,
+      };
+      this.#snapshot = snapshot;
+      atomicJson(this.#config.lastGoodPath, snapshot);
+      return snapshot;
+    } catch (error) {
+      const last = this.#readLastGood(now);
+      if (last) {
+        this.#snapshot = { ...last, source: "last-good-offline", offline: true };
+        return this.#snapshot;
+      }
+      throw error;
+    }
+  }
+
+  entry(id: string): CatalogEntry {
+    const catalog = this.snapshot()?.catalog;
+    if (!catalog) throw new PenglaiError("INVALID_INPUT", "plugin catalog not loaded");
+    const entry = catalog.entries.find((row) => row.id === id);
+    if (!entry) throw new PenglaiError("INVALID_INPUT", `${id} is not in the signed catalog`);
+    assertCompatibleWithPenglai(entry, this.#config.penglaiVersion, this.#config.dshExact ?? PINNED_DSH);
+    return entry;
+  }
+
+  async downloadPackage(id: string, target = "any"): Promise<CachedPackage> {
+    const catalog = this.snapshot()?.catalog;
+    if (!catalog) throw new PenglaiError("INVALID_INPUT", "plugin catalog not loaded");
+    const entry = this.entry(id);
+    const artifact =
+      entry.artifacts.find((row) => row.target === target) ??
+      entry.artifacts.find((row) => row.target === "any") ??
+      entry.artifacts[0];
+    if (!artifact) throw new PenglaiError("INVALID_INPUT", `${id} has no artifact`);
+    assertInstallAllowed(catalog, entry.id, entry.version, artifact.sha256);
+    const fetchImpl = this.#config.fetchImpl ?? fetch;
+    const tgz = await downloadVerifiedBytes({
+      url: artifact.url,
+      sha256: artifact.sha256,
+      size: artifact.size,
+      maxBytes: MAX_PACKAGE_BYTES,
+      assetId: artifact.assetId,
+      fetchImpl,
+    });
+    const sigUrl = artifact.url.replace(/[^/]+$/, artifact.signatureAsset);
+    const sig = await downloadVerifiedBytes({
+      url: sigUrl,
+      sha256: "pending",
+      size: 128,
+      maxBytes: 256,
+      fetchImpl,
+      skipHash: true,
+    });
+    verifyBytes(tgz, decodeDetachedSignature(sig), EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.publicKeyHex);
+    const tarEntries = inspectTarGz(tgz).map((row) => ({
+      path: row.path,
+      kind: row.kind,
+      data: row.data,
+    }));
+    const inspected = inspectPluginEntries(tarEntries);
+    assertManifestMatchesCatalog({
+      catalogId: entry.id,
+      catalogVersion: entry.version,
+      catalogPermissions: entry.permissions,
+      catalogCapabilities: entry.capabilities,
+      catalogDsh: entry.dsh.exact,
+      manifest: inspected.manifest,
+    });
+    const tgzPath = contentAddressedPath(this.#config.cacheRoot, artifact.sha256, ".tgz");
+    const sigPath = contentAddressedPath(this.#config.cacheRoot, artifact.sha256, ".tgz.sig");
+    mkdirSync(this.#config.cacheRoot, { recursive: true, mode: 0o700 });
+    const tmp = `${tgzPath}.${process.pid}.tmp`;
+    writeFileSync(tmp, tgz, { mode: 0o600 });
+    renameSync(tmp, tgzPath);
+    writeFileSync(sigPath, sig, { mode: 0o600 });
+    return {
+      id: entry.id,
+      version: entry.version,
+      sha256: artifact.sha256,
+      size: artifact.size,
+      path: tgzPath,
+      signaturePath: sigPath,
+      manifest: inspected.manifest,
+      files: inspected.files,
+    };
+  }
+
+  revokedOnBoot(id: string, version: string, sha256: string): boolean {
+    const catalog = this.snapshot()?.catalog;
+    if (!catalog) return false;
+    return shouldDisableOnBoot(catalog, id, version, sha256);
+  }
+
+  cards(): Array<Record<string, unknown>> {
+    const snap = this.snapshot();
+    if (!snap) return [];
+    return snap.catalog.entries.map((entry) => {
+      const artifact = entry.artifacts[0];
+      const revoked = artifact
+        ? shouldDisableOnBoot(snap.catalog, entry.id, entry.version, artifact.sha256)
+        : false;
+      const cached = artifact ? existsSync(contentAddressedPath(this.#config.cacheRoot, artifact.sha256, ".tgz")) : false;
+      return {
+        id: entry.id,
+        version: entry.version,
+        title: entry.title,
+        summary: entry.summary,
+        publisher: entry.publisher,
+        provenanceClass: entry.provenanceClass,
+        source: "penglai-plugin-registry",
+        dshExact: entry.dsh.exact,
+        dshCompatible: entry.dsh.exact === (this.#config.dshExact ?? PINNED_DSH),
+        permissions: entry.permissions,
+        capabilities: entry.capabilities,
+        signature: { keyId: snap.signingKeyId, ok: snap.signatureOk },
+        issuedAt: snap.issuedAt,
+        updatedAt: snap.issuedAt,
+        downloaded: cached,
+        revoked,
+        defaultEnabled: false,
+      };
+    });
+  }
+
+  #readLastGood(nowMs = this.#config.nowMs?.() ?? Date.now()): RegistrySnapshot | undefined {
+    if (!existsSync(this.#config.lastGoodPath)) return undefined;
+    try {
+      const raw = JSON.parse(readFileSync(this.#config.lastGoodPath, "utf8")) as RegistrySnapshot;
+      parseSignedPluginCatalog(raw.catalog, nowMs);
+      readTrustState(this.#config.trustPath);
+      return raw;
+    } catch {
+      throw new PenglaiError("STORE_CORRUPT", "last-good plugin catalog is unusable");
+    }
+  }
+}

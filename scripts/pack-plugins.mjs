@@ -768,6 +768,43 @@ for (const p of packs) {
   });
 }
 
+{
+  const stage = join(ROOT, ".tmp-plugin-pack", "plugin-pilot");
+  rmSync(stage, { recursive: true, force: true });
+  mkdirSync(join(stage, "dist"), { recursive: true });
+  await build({
+    absWorkingDir: ROOT,
+    entryPoints: [join(ROOT, "packages/plugin-pilot/src/index.ts")],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node22",
+    outfile: join(stage, "dist/index.js"),
+    packages: "external",
+    sourcemap: false,
+    logLevel: "silent",
+  });
+  const pkgJson = JSON.parse(readFileSync(join(ROOT, "packages/plugin-pilot/package.json"), "utf8"));
+  writeFileSync(join(stage, "package.json"), JSON.stringify({
+    name: "@penglai/plugin-pilot",
+    version: pkgJson.penglaiPlugin.version,
+    type: "module",
+    main: "dist/index.js",
+    penglaiPlugin: pkgJson.penglaiPlugin,
+  }, null, 2));
+  const tgz = join(dest, "penglai-plugin-pilot-1.0.0.tgz");
+  writeDeterministicTgz(stage, tgz);
+  writeFileSync(
+    join(ROOT, "evidence/generated/plugin-pilot.json"),
+    JSON.stringify({
+      id: "@penglai/plugin-pilot",
+      version: "1.0.0",
+      sha256: sha256(tgz),
+      file: "penglai-plugin-pilot-1.0.0.tgz",
+    }, null, 2),
+  );
+}
+
 const { assertPackedArtifactClean } = await import(pathToFileURL(join(ROOT, "packages/runtime/src/scanner.ts")).href);
 for (const entry of entries) {
   assertPackedArtifactClean(join(dest, entry.packageFile));

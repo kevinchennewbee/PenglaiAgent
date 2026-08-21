@@ -95,8 +95,17 @@ window.__ModuleLoader__.load({
       descriptors: [
         ...methods(
           "penglaiCenter",
-          ["list", "enable", "disable", "update", "rollback"],
-          ["enable", "disable", "update", "rollback"],
+          [
+            "list",
+            "enable",
+            "disable",
+            "update",
+            "rollback",
+            "refreshRegistry",
+            "download",
+            "installDisabled",
+          ],
+          ["enable", "disable", "update", "rollback", "download", "installDisabled"],
         ),
       ],
     };
@@ -151,6 +160,8 @@ window.__ModuleLoader__.load({
       const [state, setState] = React.useState({
         status: "loading",
         catalog: [],
+        remote: [],
+        registry: null,
         inventory: [],
         degraded: false,
       });
@@ -164,9 +175,12 @@ window.__ModuleLoader__.load({
             const catalog = Array.isArray(snapshot?.catalog)
               ? snapshot.catalog
               : [];
+            const remote = Array.isArray(snapshot?.remote) ? snapshot.remote : [];
             setState({
               status: snapshot?.degraded ? "degraded" : "ready",
               catalog,
+              remote,
+              registry: snapshot?.registry ?? null,
               inventory: Array.isArray(inventory) ? inventory : [],
               degraded: Boolean(snapshot?.degraded),
             });
@@ -175,6 +189,8 @@ window.__ModuleLoader__.load({
             setState({
               status: "degraded",
               catalog: [],
+              remote: [],
+              registry: null,
               inventory: [],
               degraded: true,
             }),
@@ -205,6 +221,9 @@ window.__ModuleLoader__.load({
             disable: localeCopy().centerActionDisabled,
             update: localeCopy().centerActionUpdated,
             rollback: localeCopy().centerActionRolledBack,
+            download: localeCopy().centerActionDownloaded,
+            installDisabled: localeCopy().centerActionInstalled,
+            refreshRegistry: localeCopy().centerActionRefreshed,
           };
           setActions((current) => ({
             ...current,
@@ -215,7 +234,10 @@ window.__ModuleLoader__.load({
             },
           }));
           if (
+            id &&
             id !== "@penglai/plugin-center" &&
+            action !== "refreshRegistry" &&
+            action !== "download" &&
             typeof window !== "undefined" &&
             typeof window.location?.reload === "function"
           ) {
@@ -250,33 +272,61 @@ window.__ModuleLoader__.load({
           ],
         ),
       );
-      const cards = FIRST_PARTY_CARDS.map((card) => {
-        const entry = live.get(card.id) ?? {};
+      for (const row of state.remote) {
+        const id = String(row.id ?? "");
+        if (id) live.set(id, { ...(live.get(id) ?? {}), ...row });
+      }
+      const cardIds = [];
+      const seen = new Set();
+      for (const row of [...state.remote, ...state.catalog, ...FIRST_PARTY_CARDS]) {
+        const id = String(row.id ?? "");
+        if (!id || seen.has(id) || id === "@penglai/plugin-reference") continue;
+        seen.add(id);
+        cardIds.push(id);
+      }
+      const firstParty = new Map(FIRST_PARTY_CARDS.map((card) => [card.id, card]));
+      const cards = cardIds.map((id) => {
+        const entry = live.get(id) ?? {};
+        const meta = firstParty.get(id);
         const loaded = Boolean(entry.loaded ?? entry.fiberPhase === "active");
         const desired = String(
           entry.desired ?? (entry.enabled === false ? "disabled" : "enabled"),
         );
         const installed = String(entry.installed ?? "unknown");
-        const notInstalled = installed === "not-installed";
+        const notInstalled = installed === "not-installed" || installed === "unknown";
         const healthy = Boolean(entry.healthy ?? false);
-        const actionState = actions[card.id] ?? {
+        const revoked = Boolean(entry.revoked);
+        const title =
+          entry.title?.["zh-CN"] ||
+          entry.title?.en ||
+          (meta ? t[meta.key] : id);
+        const hint =
+          entry.summary?.["zh-CN"] ||
+          entry.summary?.en ||
+          (meta ? t[`${meta.key}Hint`] : "");
+        const actionState = actions[id] ?? {
           busy: false,
           kind: "idle",
           message: "",
         };
-        const statusCopy = notInstalled
-          ? t.centerStatusNotInstalled
-          : healthy
-            ? t.centerStatusHealthy
-            : loaded
-              ? t.centerStatusAttention
-              : t.centerStatusInactive;
+        const statusCopy = revoked
+          ? t.centerStatusRevoked
+          : notInstalled
+            ? t.centerStatusNotInstalled
+            : healthy
+              ? t.centerStatusHealthy
+              : loaded
+                ? t.centerStatusAttention
+                : t.centerStatusInactive;
         return jsx.jsxs(
           "li",
           {
-            "data-penglai-plugin-card": card.id,
+            "data-penglai-plugin-card": id,
             "data-penglai-plugin-installed": installed,
             "data-penglai-plugin-loaded": String(loaded),
+            "data-penglai-plugin-source": String(entry.source ?? "bundled-first-party"),
+            "data-penglai-plugin-version": String(entry.version ?? ""),
+            "data-penglai-plugin-revoked": String(revoked),
             className: "penglai-capability-card",
             children: [
               jsx.jsxs("header", {
@@ -284,25 +334,71 @@ window.__ModuleLoader__.load({
                   jsx.jsx("span", {
                     className: "penglai-capability-icon",
                     children: jsx.jsx(PageIcon, {
-                      id: `penglai-${card.id.split("/").pop()?.replace("plugin-center", "center").replace("moss-tts", "moss-tts")}`,
+                      id: `penglai-${id.split("/").pop()?.replace("plugin-center", "center").replace("moss-tts", "moss-tts")}`,
                     }),
                   }),
                   jsx.jsxs("span", {
                     className: "penglai-capability-heading",
                     children: [
-                      jsx.jsx("strong", { children: t[card.key] }),
-                      jsx.jsx("code", { children: card.id }),
+                      jsx.jsx("strong", { children: title }),
+                      jsx.jsx("code", { children: id }),
                     ],
                   }),
                   jsx.jsx("span", {
-                    className: `penglai-status penglai-status-${healthy ? "good" : loaded ? "warn" : "muted"}`,
+                    className: `penglai-status penglai-status-${revoked ? "warn" : healthy ? "good" : loaded ? "warn" : "muted"}`,
                     children: statusCopy,
                   }),
                 ],
               }),
-              jsx.jsx("p", { children: t[`${card.key}Hint`] }),
+              hint ? jsx.jsx("p", { children: hint }) : null,
               jsx.jsxs("dl", {
                 children: [
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerSource }),
+                      jsx.jsx("dd", { children: String(entry.source ?? "bundled-first-party") }),
+                    ],
+                  }),
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerVersion }),
+                      jsx.jsx("dd", { children: String(entry.version ?? installed) }),
+                    ],
+                  }),
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerDsh }),
+                      jsx.jsx("dd", {
+                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.0-rc.8"),
+                      }),
+                    ],
+                  }),
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerPermissions }),
+                      jsx.jsx("dd", {
+                        children: Array.isArray(entry.permissions)
+                          ? entry.permissions.join(", ") || t.centerNoPermissions
+                          : t.centerNoPermissions,
+                      }),
+                    ],
+                  }),
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerSignature }),
+                      jsx.jsx("dd", {
+                        children: entry.signature
+                          ? `${entry.signature.keyId ?? ""} ${entry.signature.ok ? t.centerSignatureOk : t.centerSignatureBad}`
+                          : t.centerSignatureBundled,
+                      }),
+                    ],
+                  }),
+                  jsx.jsxs("div", {
+                    children: [
+                      jsx.jsx("dt", { children: t.centerUpdated }),
+                      jsx.jsx("dd", { children: String(entry.updatedAt ?? entry.issuedAt ?? "—") }),
+                    ],
+                  }),
                   jsx.jsxs("div", {
                     children: [
                       jsx.jsx("dt", { children: t.centerActual }),
@@ -343,12 +439,27 @@ window.__ModuleLoader__.load({
                     children: [
                       jsx.jsx("button", {
                         type: "button",
+                        "data-penglai-plugin-action": "download",
+                        disabled: actionState.busy || revoked,
+                        onClick: () => act(id, "download"),
+                        children: t.centerDownload,
+                      }),
+                      jsx.jsx("button", {
+                        type: "button",
+                        "data-penglai-plugin-action": "installDisabled",
+                        disabled: actionState.busy || revoked,
+                        onClick: () => act(id, "installDisabled"),
+                        children: t.centerInstallDisabled,
+                      }),
+                      jsx.jsx("button", {
+                        type: "button",
                         "data-penglai-plugin-action": "enable",
                         disabled:
                           actionState.busy ||
                           loaded ||
-                          card.id === "@penglai/plugin-center",
-                        onClick: () => act(card.id, "enable"),
+                          revoked ||
+                          id === "@penglai/plugin-center",
+                        onClick: () => act(id, "enable"),
                         children: notInstalled ? t.centerInstallEnable : t.centerEnable,
                       }),
                       jsx.jsx("button", {
@@ -356,23 +467,23 @@ window.__ModuleLoader__.load({
                         "data-penglai-plugin-action": "disable",
                         disabled:
                           actionState.busy ||
-                          card.id === "@penglai/plugin-center" ||
+                          id === "@penglai/plugin-center" ||
                           !loaded,
-                        onClick: () => act(card.id, "disable"),
+                        onClick: () => act(id, "disable"),
                         children: t.centerDisable,
                       }),
                       jsx.jsx("button", {
                         type: "button",
                         "data-penglai-plugin-action": "update",
-                        disabled: actionState.busy || notInstalled,
-                        onClick: () => act(card.id, "update"),
+                        disabled: actionState.busy || notInstalled || revoked,
+                        onClick: () => act(id, "update"),
                         children: t.centerVerifyUpdate,
                       }),
                       jsx.jsx("button", {
                         type: "button",
                         "data-penglai-plugin-action": "rollback",
                         disabled: actionState.busy,
-                        onClick: () => act(card.id, "rollback"),
+                        onClick: () => act(id, "rollback"),
                         children: t.centerRollback,
                       }),
                     ],
@@ -392,17 +503,32 @@ window.__ModuleLoader__.load({
                 : null,
             ],
           },
-          card.id,
+          id,
         );
       });
       return jsx.jsxs("section", {
         "data-penglai-center": "1",
         "data-penglai-center-status": state.degraded ? "error" : "ready",
+        "data-penglai-registry-source": String(state.registry?.source ?? "bundled-first-party"),
         role: "region",
         "aria-label": t.centerTitle,
         children: [
           jsx.jsx("h3", { children: t.centerTitle }),
           jsx.jsx("p", { children: t.centerHint }),
+          state.registry
+            ? jsx.jsx("p", {
+                "data-penglai-registry-sequence": String(state.registry.sequence ?? ""),
+                children: `${t.centerRegistry}: ${state.registry.source} ${state.registry.tag ?? ""} ${state.registry.offline ? t.centerOffline : ""}`.trim(),
+              })
+            : null,
+          mutate
+            ? jsx.jsx("button", {
+                type: "button",
+                "data-penglai-plugin-action": "refreshRegistry",
+                onClick: () => act("", "refreshRegistry"),
+                children: t.centerRefresh,
+              })
+            : null,
           state.degraded
             ? jsx.jsx("p", { role: "status", children: t.centerError })
             : null,
@@ -489,7 +615,26 @@ window.__ModuleLoader__.load({
         },
         centerTitle: "蓬莱插件中心",
         centerHint:
-          "默认只运行 DSH 核心与本中心。点击“安装并启用”才会从安装包内校验扩展、事务式写入 profile，并由 official DSH Loader 确认实际状态。",
+          "默认只运行 DSH 核心与本中心。远程目录来自 GitHub 不可变 Release；下载后先安装为停用，再经权限确认启用。",
+        centerRefresh: "刷新已签名目录",
+        centerRegistry: "目录来源",
+        centerOffline: "离线使用上次已验证目录",
+        centerSource: "来源",
+        centerVersion: "版本",
+        centerDsh: "DSH",
+        centerPermissions: "权限",
+        centerNoPermissions: "无额外权限",
+        centerSignature: "签名",
+        centerSignatureOk: "已验证",
+        centerSignatureBad: "失败",
+        centerSignatureBundled: "内置",
+        centerUpdated: "更新时间",
+        centerDownload: "下载",
+        centerInstallDisabled: "安装（停用）",
+        centerStatusRevoked: "已撤销",
+        centerActionDownloaded: "下载成功。",
+        centerActionInstalled: "已安装为停用。",
+        centerActionRefreshed: "目录已刷新。",
         centerLoading: "正在读取 official 插件清单…",
         centerError: "official 插件清单暂时不可用。",
         cardCenter: "蓬莱插件中心",
@@ -609,7 +754,26 @@ window.__ModuleLoader__.load({
         },
         centerTitle: "Penglai Plugin Center",
         centerHint:
-          "Only DSH core and this Center run by default. Install and enable verifies an extension from the bundled catalog, commits it transactionally, and confirms actual state through the official DSH Loader.",
+          "Only DSH core and this Center run by default. The remote catalog comes from immutable GitHub Releases; packages install disabled until permission confirm.",
+        centerRefresh: "Refresh signed catalog",
+        centerRegistry: "Catalog source",
+        centerOffline: "offline last-good catalog",
+        centerSource: "source",
+        centerVersion: "version",
+        centerDsh: "DSH",
+        centerPermissions: "permissions",
+        centerNoPermissions: "no extra permissions",
+        centerSignature: "signature",
+        centerSignatureOk: "verified",
+        centerSignatureBad: "failed",
+        centerSignatureBundled: "bundled",
+        centerUpdated: "updated",
+        centerDownload: "Download",
+        centerInstallDisabled: "Install disabled",
+        centerStatusRevoked: "Revoked",
+        centerActionDownloaded: "Downloaded.",
+        centerActionInstalled: "Installed disabled.",
+        centerActionRefreshed: "Catalog refreshed.",
         centerLoading: "Reading official plugin inventory…",
         centerError: "Official plugin inventory is temporarily unavailable.",
         cardCenter: "Penglai Plugin Center",
@@ -859,6 +1023,12 @@ window.__ModuleLoader__.load({
             return unwrapRemote(await centerRemote.rollback({ id }));
           if (action === "update")
             return unwrapRemote(await centerRemote.update({ id }));
+          if (action === "download")
+            return unwrapRemote(await centerRemote.download({ id }));
+          if (action === "installDisabled")
+            return unwrapRemote(await centerRemote.installDisabled({ id }));
+          if (action === "refreshRegistry")
+            return unwrapRemote(await centerRemote.refreshRegistry());
           throw new Error("unknown action");
         };
         return { list, mutate };

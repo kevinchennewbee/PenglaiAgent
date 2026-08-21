@@ -55,11 +55,23 @@ test("Center list marks degraded when reconcile is swallowed", () => {
   assert.deepEqual(snapshot.catalog, []);
 });
 
-test("DSH Center remote cannot open installers or plan filesystem deletion", () => {
+test("DSH Center remote cannot open installers or plan filesystem deletion", async () => {
   const trusted = "/tmp/penglai-center-lifecycle-boundary";
   const remote = remoteFor(trusted);
   assert.equal("openVerifiedInstaller" in remote, false);
   assert.equal("planUninstall" in remote, false);
-  assert.deepEqual(Object.keys(remote).sort(), ["disable", "enable", "list", "refreshRegistry", "rollback", "update"]);
-  assert.throws(() => remote.refreshRegistry({ url: "https://evil.example/catalog.json" }), /arbitrary/);
+  assert.deepEqual(Object.keys(remote).sort(), [
+    "disable",
+    "download",
+    "enable",
+    "installDisabled",
+    "list",
+    "refreshRegistry",
+    "rollback",
+    "update",
+  ]);
+  await assert.rejects(
+    () => (remote.refreshRegistry as (input?: unknown) => Promise<unknown>)({ url: "https://evil.example/catalog.json" }),
+    /renderer URL|public key|signingKeyId|arbitrary/,
+  );
 });

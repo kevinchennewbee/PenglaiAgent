@@ -8,9 +8,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { isRecord, PenglaiError } from "@penglai/contracts";
+import { isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
+  extractTarGz,
   loadPluginCatalog,
   PINNED_PLUGIN_DSH,
   runtimePluginTarget,
@@ -18,6 +19,7 @@ import {
   type PluginCatalogMetadata,
   type PluginProvenanceClass as ProvenanceClass,
 } from "@penglai/runtime";
+import { PluginDistributionClient } from "@penglai/plugin-registry";
 import { createCenterRemote, PenglaiCenterRemote } from "./remotes.js";
 import {
   createPenglaiOnboardingRemoteImpl,
@@ -588,10 +590,18 @@ export function apply(ctx: {
   timer.unref?.();
   ctx.effect?.(() => () => clearInterval(timer));
   const txDir = join(userData, "profiles", "center-tx");
+  const registry = new PluginDistributionClient({
+    cacheRoot: join(userData, "plugins", "cas"),
+    trustPath: join(userData, "plugins", "trust-state.json"),
+    lastGoodPath: join(userData, "plugins", "last-good-catalog.json"),
+    penglaiVersion: RELEASE,
+    dshExact: PINNED_PLUGIN_DSH,
+  });
   const remote = createCenterRemote({
     host,
     inventory,
     catalog: catalog.entries,
+    registry,
     lifecycle: {
       async apply(input) {
         const row = normalizeInventory(inventory.list()).find((entry) =>
@@ -621,6 +631,12 @@ export function apply(ctx: {
     txDir,
     pluginsDir,
     userDataRoot: userData,
+    async stagePackage(pkg) {
+      const dest = join(profileDir, "node_modules", ...pkg.id.split("/"));
+      const bytes = readFileSync(pkg.path);
+      mkdirSync(dest, { recursive: true, mode: 0o700 });
+      extractTarGz(bytes, dest);
+    },
   });
   const welcomeAck = (): boolean => {
     try {
