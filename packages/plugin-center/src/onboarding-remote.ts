@@ -426,6 +426,7 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
       const facts = host.facts();
       const cwd = facts.workspacePath;
       if (!cwd) throw new PenglaiError("INVALID_INPUT", "official workspace path required");
+      if (!facts.workspaceId) throw new PenglaiError("INVALID_INPUT", "official workspace required");
       const selection = facts.selection;
       if (!selection?.provider || !selection.model) {
         throw new PenglaiError("INVALID_INPUT", "provider and model selection required");
@@ -435,6 +436,7 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
         provider: selection.provider,
         model: selection.model,
         cwd,
+        workspaceId: facts.workspaceId,
       });
       if (!result.passed || !result.finalDigest) {
         throw new PenglaiError("DSH_UNAVAILABLE", "official first Turn did not complete");

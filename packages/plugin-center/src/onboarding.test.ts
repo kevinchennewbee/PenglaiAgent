@@ -28,6 +28,7 @@ function officialServices(opts: {
   workspaceDir: string;
   reply: (prompt: string) => string;
   prompts?: string[];
+  attached?: string[];
 }) {
   let listener: ((...args: unknown[]) => void) | undefined;
   return {
@@ -45,7 +46,16 @@ function officialServices(opts: {
       set: async () => undefined,
     },
     workspaceRegistry: {
-      list: () => [{ id: "ws-real", title: "Real", path: opts.workspaceDir }],
+      list: () => [
+        {
+          id: "ws-real",
+          title: "Real",
+          path: opts.workspaceDir,
+          attachSession: async (sessionId: string) => {
+            opts.attached?.push(sessionId);
+          },
+        },
+      ],
       create: async () => ({ id: "ws-real", title: "Real" }),
     },
     agents: {
@@ -381,12 +391,14 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   const { mkdirSync } = await import("node:fs");
   const wsDir = mkdtempSync(join(tmpdir(), "penglai-ws-first-"));
   const prompts: string[] = [];
+  const attached: string[] = [];
   const userDataRoot = mkdtempSync(join(tmpdir(), "penglai-ud-first-"));
   const dir = join(userDataRoot, "onboarding");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const services = officialServices({
     workspaceDir: wsDir,
     prompts,
+    attached,
     reply: (prompt) => (prompt.startsWith("PENGLAI_OK_") ? prompt : "你好，我已经在这个官方会话中回复。"),
   });
   const impl = createPenglaiOnboardingRemoteImpl({
@@ -408,6 +420,8 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   assert.equal((first as { passed?: boolean }).passed, true);
   assert.equal(impl.status().current, "COMPLETE");
   assert.deepEqual(prompts, ["PENGLAI_OK_api1", "你好"]);
+  assert.equal(attached.length, 1);
+  assert.equal(attached[0], (first as { sessionId?: string }).sessionId);
   const factsDisk = readFileSync(join(dir, "onboarding-facts.json"), "utf8");
   assert.equal(factsDisk.includes("PENGLAI_OK_"), false);
   assert.equal(factsDisk.includes("你好"), false);

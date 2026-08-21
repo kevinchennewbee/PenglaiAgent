@@ -580,6 +580,87 @@ test("createWorkspace uses official registry after path jail and never guesses l
   assert.equal(rows.some((row) => row.id === "ws-decoy"), true);
 });
 
+test("recordWorkspace selects an official registry row and first turn attaches the session", async () => {
+  const { userDataRoot, dir } = userTree();
+  const allowed = mkdtempSync(join(tmpdir(), "penglai-ws-select-"));
+  const attached: string[] = [];
+  const rows = [
+    {
+      id: "ws-existing",
+      title: "Existing",
+      path: allowed,
+      attachSession: async (sessionId: string) => {
+        attached.push(sessionId);
+      },
+    },
+  ];
+  let listener: ((...args: unknown[]) => void) | undefined;
+  const impl = createPenglaiOnboardingRemoteImpl({
+    dir,
+    userDataRoot,
+    officialCatalog: catalog,
+    officialWelcomeAck: () => true,
+    agents: {
+      settings: { mutate: async () => undefined, describe: () => [] },
+      llm: {
+        listProviders: () => [{ id: "deepseek", name: "DeepSeek" }],
+        listModels: async (provider) => [{ provider, id: "deepseek-chat", name: "DeepSeek Chat" }],
+        resolveModelInfo: async (provider, model) => ({ provider, id: model, name: model }),
+      },
+      credentials: {
+        describe: async () => ({ configured: true, source: "file", writable: true }),
+        set: async () => undefined,
+      },
+      workspaceRegistry: {
+        list: () => rows,
+        create: async () => ({ id: "ws-existing", title: "Existing" }),
+      },
+      agents: {
+        async create(input: { sessionId: string }) {
+          return {
+            agent: {
+              followup(message: { content?: Array<{ text?: string }> }) {
+                const prompt = message.content?.map((part) => part.text ?? "").join("") ?? "";
+                queueMicrotask(() => {
+                  listener?.("session/event", {
+                    type: "assistant/message",
+                    data: { sessionId: input.sessionId, message: { content: [{ type: "text", text: prompt }] } },
+                  });
+                  listener?.("session/event", { type: "turn/end", data: { sessionId: input.sessionId } });
+                });
+              },
+            },
+            async dispose() {},
+          };
+        },
+      },
+      on(event: string, fn: (...args: unknown[]) => void) {
+        if (event === "session/event") listener = fn;
+        return () => {
+          if (event === "session/event" && listener === fn) listener = undefined;
+        };
+      },
+    },
+  });
+  impl.advance("appearance-locale-v1", { locale: "zh", theme: "system" });
+  impl.advance("privacy-v1");
+  impl.advance("model-provider-v1", {
+    officialCatalog: catalog(),
+    providerSelection: { provider: "deepseek", model: "deepseek-chat" },
+  });
+  impl.saveFacts({ selection: { provider: "deepseek", model: "deepseek-chat" } });
+  impl.advance("credential-v1", {
+    descriptor: { configured: true, source: "file", writable: true, serverVerified: true },
+  });
+  impl.advance("model-test-v1", { nonce: "n1", durableFinal: "PENGLAI_OK_n1" });
+  const selected = impl.recordWorkspace({ workspaceId: "ws-existing" });
+  assert.equal(selected.current, "first-turn-v1");
+  const first = await impl.runFirstConversation({ message: "hello workspace" });
+  assert.equal((first as { passed?: boolean }).passed, true);
+  assert.equal(attached.length, 1);
+  assert.equal(impl.status().current, "COMPLETE");
+});
+
 test("status returns selection and workspaceId without secrets", async () => {
   const { dir } = userTree();
   const impl = createPenglaiOnboardingRemoteImpl({
