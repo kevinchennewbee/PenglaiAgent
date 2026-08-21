@@ -161,7 +161,7 @@ test("shipped evaluateLiveSample fails closed on injected faults and ignores sta
 
   const wrongTarget = evaluateLiveSample({
     now: Date.now(),
-    health: { ...greenHealth, target: "windows-x86_64" },
+    health: { ...greenHealth, target: "win32-x86_64" },
     observed: identity,
     expectedIdentity: identity,
     expected,

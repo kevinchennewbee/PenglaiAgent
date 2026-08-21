@@ -13,7 +13,7 @@ export const DESKTOP_TARGETS = RELEASE_TARGETS.map((t) => t.key);
 export const PLATFORM_TOKEN_TO_TARGET: Record<string, string> = {
   "mac-arm": "darwin-aarch64",
   "mac-x64": "darwin-x86_64",
-  "win-x64": "windows-x86_64",
+  "win-x64": "win32-x86_64",
   live: "live",
   aggregate: "aggregate",
 };

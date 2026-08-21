@@ -47,7 +47,7 @@ const rec = {
     embedRuntime: existsSync(join(ROOT, "scripts/embed-runtime.mjs")),
   },
   preflight: { host, arm },
-  futureTargets: ["darwin-x86_64", "windows-x86_64"],
+  futureTargets: ["darwin-x86_64", "win32-x86_64"],
   squirrelIsUserInstaller: false,
 };
 mkdirSync(join(ROOT, "evidence/generated"), { recursive: true });

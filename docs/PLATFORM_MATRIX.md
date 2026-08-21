@@ -1,14 +1,16 @@
-# Penglai 0.5.0 Apple Silicon 平台矩阵与后续 runner 路线
+# Penglai 0.5.1 三端平台矩阵
 
 ## 1. 固定矩阵
 
-0.5.0 首发只支持一个 desktop target；“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。
+0.5.1 声明三个 desktop target。每个 target 的“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。缺 runner 时该行是 `BLOCKED`，不是 PASS。
 
 | key | OS/arch | 用户安装包 | embedded Node | Electron | final runner |
 | --- | --- | --- | --- | --- | --- |
-| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.0_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
+| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.1_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
+| `darwin-x86_64` | macOS 13+ / Intel | `Penglai_0.5.1_macos_x64.dmg` | `node-v22.22.2-darwin-x64` | pinned darwin-x64 | Intel Mac（Rosetta 不能替代） |
+| `win32-x86_64` | Windows 10+ / x64 | `Penglai_0.5.1_windows_x64_setup.exe` | `node-v22.22.2-win-x64` | pinned win32-x64 | Windows x64 native runner |
 
-后续路线（不进入 0.5.0 Release 或 Hard registry）：Intel macOS 与 Windows x64。仓库保留对应打包、安全和生命周期工程，但必须等 native runner/installed evidence 完成后再决定版本与发布。
+0.5.0 已发布资产仍只有 Apple Silicon DMG。0.5.1 不得把 ARM Electron 改名成 x64，也不得把 Windows 预检写成 native PASS。
 
 `release-info.json` / `MINIMUM_MACOS` / Info.plist `LSMinimumSystemVersion` 一律 `13.0`。打包脚本会把 Electron 默认的 `14.0` 改写为 `13.0`，不得再分叉。
 
@@ -22,18 +24,18 @@ Grok 必须新增单一 `release-contract.json`（具体路径由实现固定）
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "candidateKind": "public-publication-candidate",
   "trustTier": "community-verified",
   "electronVersion": "43.4.0",
   "nodeVersion": "22.22.2",
-  "dshVersion": "0.1.0-rc.8",
+  "dshVersion": "0.1.1-rc.1",
   "targets": [
     {
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.0_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.1_macos_aarch64.dmg"
     }
   ]
 }

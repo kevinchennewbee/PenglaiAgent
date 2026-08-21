@@ -8,6 +8,7 @@ import {
   PRODUCT_NAME,
   PRODUCT_VERSION,
   RELEASE_TARGETS,
+  RUNTIME_INPUTS,
   TRUST_TIER,
   UPDATER_CHANNEL,
 } from "./pins.js";
@@ -166,10 +167,7 @@ export function assertReleaseContract(raw: unknown): ReleaseContract {
   }
   if (!Array.isArray(raw.runtimeInputs)) throw new PenglaiError("INVALID_INPUT", "runtimeInputs");
   const inputs = raw.runtimeInputs as RuntimeInput[];
-  const required = [
-    "darwin-aarch64:node",
-    "darwin-aarch64:electron",
-  ];
+  const required = RUNTIME_INPUTS.map((row) => `${row.target}:${row.kind}`);
   const have = new Set(inputs.map((i) => `${i.target}:${i.kind}`));
   for (const key of required) {
     if (!have.has(key)) throw new PenglaiError("INVALID_INPUT", `missing runtime input ${key}`);
@@ -178,6 +176,11 @@ export function assertReleaseContract(raw: unknown): ReleaseContract {
     if (!HEX64.test(input.sha256)) throw new PenglaiError("INVALID_INPUT", `runtime sha256 ${input.filename}`);
     assertCanonicalDownloadUrl(input.url);
     if (input.url.includes("latest")) throw new PenglaiError("SECURITY_POLICY", "latest URL");
+    const expect = RUNTIME_INPUTS.find((row) => row.target === input.target && row.kind === input.kind);
+    if (!expect) throw new PenglaiError("INVALID_INPUT", `unexpected runtime input ${input.target}:${input.kind}`);
+    if (input.filename !== expect.filename || input.url !== expect.url || input.sha256 !== expect.sha256) {
+      throw new PenglaiError("INVALID_INPUT", `runtime input drift ${input.target}:${input.kind}`);
+    }
   }
   if (inputs.length !== required.length) {
     throw new PenglaiError("INVALID_INPUT", `runtime input count ${inputs.length}`);

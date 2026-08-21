@@ -69,7 +69,7 @@ export interface UpdateManifestPolicy {
   currentOsVersion?: string;
 }
 
-const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"] as const;
+const UPDATE_TARGETS = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"] as const;
 
 function assertSha(value: unknown, label: string): asserts value is string {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) {
@@ -191,7 +191,7 @@ export function assertUpdateManifest(
   if (asset.target !== target || asset.version !== o.version) {
     throw new PenglaiError("SECURITY_POLICY", "asset target/version mismatch");
   }
-  const expectedKind = target.startsWith("darwin-") ? "dmg" : target === "windows-x86_64" ? "setup" : undefined;
+  const expectedKind = target.startsWith("darwin-") ? "dmg" : target === "win32-x86_64" ? "setup" : undefined;
   if (!expectedKind || asset.kind !== expectedKind) {
     throw new PenglaiError("SECURITY_POLICY", "asset installer kind mismatch");
   }

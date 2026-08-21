@@ -7,7 +7,7 @@ export const CLOSURE_CREDENTIAL_SCHEMA = 1;
 export function hostTarget(platform = process.platform, arch = process.arch) {
   if (platform === "darwin" && arch === "arm64") return "darwin-aarch64";
   if (platform === "darwin" && arch === "x64") return "darwin-x86_64";
-  if (platform === "win32" && arch === "x64") return "windows-x86_64";
+  if (platform === "win32" && arch === "x64") return "win32-x86_64";
   throw new Error(`unsupported host ${platform}/${arch}`);
 }
 

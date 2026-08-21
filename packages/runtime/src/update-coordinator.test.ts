@@ -268,7 +268,7 @@ test("R50-UPD-002/003/004 signed manifest rejects tamper wrong key target replay
       signature: fixture.manifestSignature,
       publicKeyHex: fixture.publicKeyHex,
       currentVersion: CURRENT,
-      target: "windows-x86_64",
+      target: "win32-x86_64",
     }),
     /platform missing/,
   );

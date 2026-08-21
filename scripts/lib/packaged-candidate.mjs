@@ -15,6 +15,11 @@ export const PACKAGED_TARGETS = Object.freeze({
     appRelative: "dist/Penglai-v0.5.1-x64-from-dmg/Penglai.app",
     dmgRelative: "dist/Penglai_0.5.1_macos_x64.dmg",
   }),
+  "win32-x86_64": Object.freeze({
+    buildTarget: "win32-x64",
+    appRelative: "dist/Penglai-v0.5.1-win32-x64/Penglai",
+    dmgRelative: "dist/Penglai_0.5.1_windows_x64_setup.exe",
+  }),
 });
 
 function readJson(path, label) {

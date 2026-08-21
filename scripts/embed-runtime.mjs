@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { materializeDshClosure } from "./lib/dsh-closure.mjs";
+import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -16,7 +17,7 @@ function argValue(name, fallback) {
 function hostTarget() {
   if (process.platform === "darwin" && process.arch === "arm64") return "darwin-aarch64";
   if (process.platform === "darwin" && process.arch === "x64") return "darwin-x86_64";
-  if (process.platform === "win32") return "windows-x86_64";
+  if (process.platform === "win32") return "win32-x86_64";
   throw new Error(`unsupported host ${process.platform}/${process.arch}`);
 }
 
@@ -103,18 +104,17 @@ rmSync(extractDir, { recursive: true, force: true });
 const workspaceRequire = createRequire(join(ROOT, "packages/dsh-bridge/package.json"));
 const workspaceDsh = dirname(workspaceRequire.resolve("@deepseek-ai/dsh/package.json"));
 const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "utf8")).version;
-  if (dshVersion !== "0.1.0-rc.8") {
-    console.error(`workspace DSH closure must be pinned to 0.1.0-rc.8, got ${dshVersion || "missing"}`);
+  if (dshVersion !== PINNED_DSH) {
+    console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
     process.exit(1);
   }
-  const { PINNED_DSH_INTEGRITY } = await import("../packages/release-identity/src/pins.ts");
   const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
   if (!lock.includes(PINNED_DSH_INTEGRITY)) {
     console.error("pnpm-lock.yaml is missing the pinned DSH integrity");
     process.exit(1);
   }
 const pnpmDshRoot = readdirSync(join(ROOT, "node_modules", ".pnpm"))
-  .filter((name) => name.startsWith("@deepseek-ai+dsh@0.1.0-rc.8_"))
+  .filter((name) => name.startsWith(`@deepseek-ai+dsh@${PINNED_DSH}_`))
   .map((name) => join(ROOT, "node_modules", ".pnpm", name))
   .find((candidate) => existsSync(join(candidate, "node_modules", "@deepseek-ai", "dsh")));
 const dshPackageDir = pnpmDshRoot ? join(pnpmDshRoot, "node_modules", "@deepseek-ai", "dsh") : "";
@@ -134,18 +134,18 @@ rmSync(join(dshDest, "node_modules", ".bin"), { recursive: true, force: true });
 console.log("embed-runtime flattened", flattened.packages.length, "packages native", flattened.native);
 
 const nodeBin =
-  target === "windows-x86_64"
+  target === "win32-x86_64"
     ? join(staging, "runtime", "node", "node.exe")
     : join(staging, "runtime", "node", "bin", "node");
 const dshBin = join(dshDest, "lib", "bin.js");
 let dshVersionProbe = `cross-staged ${target}`;
-if (existsSync(nodeBin) && target !== "windows-x86_64") {
+if (existsSync(nodeBin) && target !== "win32-x86_64") {
   const versionProbe = spawnSync(nodeBin, [dshBin, "--version"], {
     encoding: "utf8",
     env: { PATH: "/usr/bin:/bin", NODE_PATH: "" },
     cwd: dirname(nodeBin),
   });
-  if (versionProbe.status !== 0 || !String(versionProbe.stdout).includes("0.1.0-rc.8")) {
+  if (versionProbe.status !== 0 || !String(versionProbe.stdout).includes(PINNED_DSH)) {
     console.error("embedded DSH --version failed", versionProbe.stdout, versionProbe.stderr);
     process.exit(1);
   }
@@ -167,7 +167,7 @@ const pluginTarget = target === "darwin-aarch64"
   ? "darwin-arm64"
   : target === "darwin-x86_64"
     ? "darwin-x64"
-    : target === "windows-x86_64"
+    : target === "win32-x86_64"
       ? "win32-x64"
       : null;
 if (!pluginTarget) {
@@ -196,11 +196,11 @@ writeFileSync(
   join(staging, "runtime-manifest.json"),
   JSON.stringify(
     {
-      release: "0.5.1",
+      release: PRODUCT_VERSION,
       target,
-      dsh: "0.1.0-rc.8",
-      node: "22.22.2",
-      electron: "43.4.0",
+      dsh: PINNED_DSH,
+      node: PINNED_NODE,
+      electron: PINNED_ELECTRON,
       files,
     },
     null,
@@ -213,8 +213,8 @@ writeClosureCredential(staging, {
   sourceSha,
   target,
   manifestSha256: closureSha256File(manifestPath),
-  dsh: "0.1.0-rc.8",
-  node: "22.22.2",
+  dsh: PINNED_DSH,
+  node: PINNED_NODE,
   probe: dshVersionProbe,
   nativeProbed: target === host,
   completedAt: new Date().toISOString(),

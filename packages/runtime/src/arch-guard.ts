@@ -1,11 +1,11 @@
 import { PenglaiError } from "@penglai/contracts";
 
-export type ReleaseTargetKey = "darwin-aarch64" | "darwin-x86_64" | "windows-x86_64";
+export type ReleaseTargetKey = "darwin-aarch64" | "darwin-x86_64" | "win32-x86_64";
 
 const TARGET_ARCH: Record<ReleaseTargetKey, { platform: "darwin" | "win32"; arch: "arm64" | "x64" }> = {
   "darwin-aarch64": { platform: "darwin", arch: "arm64" },
   "darwin-x86_64": { platform: "darwin", arch: "x64" },
-  "windows-x86_64": { platform: "win32", arch: "x64" },
+  "win32-x86_64": { platform: "win32", arch: "x64" },
 };
 
 export interface ArchFacts {

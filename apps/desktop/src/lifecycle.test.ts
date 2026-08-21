@@ -40,7 +40,7 @@ test("desktop paths isolate Electron session/cache and keep one 0.5 generation",
 test("installed target mapping is exact", () => {
   assert.equal(releaseTarget("darwin", "arm64"), "darwin-aarch64");
   assert.equal(releaseTarget("darwin", "x64"), "darwin-x86_64");
-  assert.equal(releaseTarget("win32", "x64"), "windows-x86_64");
+  assert.equal(releaseTarget("win32", "x64"), "win32-x86_64");
   assert.throws(() => releaseTarget("linux", "x64"), /unsupported/);
 });
 

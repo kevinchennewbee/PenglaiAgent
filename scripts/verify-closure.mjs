@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { hostTarget, inspectClosureCredential, stagingForTarget } from "./lib/closure-credential.mjs";
+import { PINNED_DSH } from "./lib/product.mjs";
 
 function argValue(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -18,7 +19,7 @@ if (closure.verdict !== "PASS") {
   finish(closure.verdict, { command: "verify:closure", target, reason: closure.reason });
 }
 
-const nodeBin = join(staging, target === "windows-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
+const nodeBin = join(staging, target === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const dsh = join(staging, "runtime/dsh/lib/bin.js");
 if (!existsSync(nodeBin) || !existsSync(dsh)) {
   finish("FAIL", { command: "verify:closure", target, reason: "closure credential present but node/dsh missing" });
@@ -36,7 +37,7 @@ const probe = spawnSync(nodeBin, [dsh, "--version"], {
   cwd: "/tmp",
 });
 const output = `${probe.stdout ?? ""}${probe.stderr ?? ""}`;
-if (probe.status !== 0 || !output.includes("0.1.0-rc.8")) {
+if (probe.status !== 0 || !output.includes(PINNED_DSH)) {
   finish("FAIL", { command: "verify:closure", target, reason: "embedded DSH closure probe failed" });
 }
 const required = ["zod", "ws", "fflate", "eventsource-parser", "node-addon-require-builtin", "node-addon-native-custom-loader"];
@@ -47,7 +48,7 @@ if (missing.length) {
 const nativeName = {
   "darwin-aarch64": "node-addon-require-builtin-darwin-arm64",
   "darwin-x86_64": "node-addon-require-builtin-darwin-x64",
-  "windows-x86_64": "node-addon-require-builtin-win32-x64-msvc",
+  "win32-x86_64": "node-addon-require-builtin-win32-x64-msvc",
 }[target];
 if (nativeName && !existsSync(join(staging, "runtime/dsh/node_modules", nativeName, "package.json"))) {
   finish("FAIL", { command: "verify:closure", target, reason: `flattened DSH closure missing ${nativeName}` });
@@ -59,7 +60,7 @@ if (nativeName && !existsSync(join(staging, "runtime/dsh/node_modules", nativeNa
 const nativeAddonPackages = {
   "darwin-aarch64": ["@koromix/koffi-darwin-arm64", "@img/sharp-darwin-arm64", "@img/sharp-libvips-darwin-arm64"],
   "darwin-x86_64": ["@koromix/koffi-darwin-x64", "@img/sharp-darwin-x64", "@img/sharp-libvips-darwin-x64"],
-  "windows-x86_64": ["@koromix/koffi-win32-x64", "@img/sharp-win32-x64", "@img/sharp-libvips-win32-x64"],
+  "win32-x86_64": ["@koromix/koffi-win32-x64", "@img/sharp-win32-x64", "@img/sharp-libvips-win32-x64"],
 }[target] ?? [];
 const missingAddons = nativeAddonPackages.filter(
   (name) => !existsSync(join(staging, "runtime/dsh/node_modules", name, "package.json")),

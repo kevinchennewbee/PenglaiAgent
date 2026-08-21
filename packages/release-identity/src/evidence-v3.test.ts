@@ -43,7 +43,7 @@ test("evidence v3 import rejects wrong source/export/artifact/target, future tim
     () => assertImportableEvidence(base({ target: "darwin-aarch64", artifactSha256: "2".repeat(64) }), expected),
     /wrong-artifact/,
   );
-  assert.throws(() => assertImportableEvidence(base({ target: "windows-x86_64", artifactSha256: "1".repeat(64) }), expected), /wrong-target/);
+  assert.throws(() => assertImportableEvidence(base({ target: "win32-x86_64", artifactSha256: "1".repeat(64) }), expected), /wrong-target/);
   assert.throws(
     () => assertImportableEvidence(base({ runnerNative: true, translated: true, target: "darwin-aarch64", artifactSha256: "1".repeat(64) }), expected),
     /native/,

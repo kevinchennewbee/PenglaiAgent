@@ -33,22 +33,27 @@ test("R50-TRUTH-001 identity pins are 0.5.0", () => {
   });
 });
 
-test("R50-TRUTH-002 candidateKind trustTier generation and exact Apple Silicon target", () => {
+test("R50-TRUTH-002 candidateKind trustTier generation and three exact release targets", () => {
   const id = emptyIdentity("a".repeat(40), false);
   const checked = assertReleaseIdentity(id);
   assert.equal(checked.candidateKind, CANDIDATE_KIND);
   assert.equal(checked.trustTier, TRUST_TIER);
   assert.equal(checked.generationId, GENERATION_ID);
   assert.deepEqual(
+    checked.targets.map((t) => t.key),
+    ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],
+  );
+  assert.deepEqual(
     checked.targets.map((t) => t.installer),
     RELEASE_TARGETS.map((t) => t.installer),
   );
-  assert.equal(checked.targets.length, 1);
+  assert.equal(checked.targets.length, 3);
+  assert.equal(checked.dsh, "0.1.1-rc.1");
   recordAssertion({
     acceptanceId: "R50-TRUTH-002",
     runnerId: "release-identity.identity",
     testId: "identity-contract-fields",
-    assertionId: "kind-trust-generation-apple-silicon-target",
+    assertionId: "kind-trust-generation-three-targets",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,
