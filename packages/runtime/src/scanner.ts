@@ -53,7 +53,7 @@ function isBinaryArtifact(rel: string, buf: Buffer): boolean {
   return buf.subarray(0, Math.min(buf.length, 8192)).includes(0);
 }
 
-export function scanBundleBytes(rel: string, buf: Buffer): string[] {
+export function scanBundleBytes(rel: string, buf: Buffer, packagerHome = homedir()): string[] {
   if (!isBinaryArtifact(rel, buf)) return scanBundleText(rel, buf.toString("utf8"));
   const text = buf.toString("latin1");
   const pinnedUpstreamBuilderPrefixes = [
@@ -77,8 +77,12 @@ export function scanBundleBytes(rel: string, buf: Buffer): string[] {
       hits.push(`${rel}:${rule.reason}`);
     }
   }
-  const currentHome = homedir().replaceAll("\\", "/").replace(/\/+$/, "");
-  if (currentHome && currentHome !== "/" && text.includes(`${currentHome}/`)) {
+  const currentHome = packagerHome.replaceAll("\\", "/").replace(/\/+$/, "");
+  if (
+    currentHome &&
+    currentHome !== "/" &&
+    textWithoutPinnedUpstreamBuilders.includes(`${currentHome}/`)
+  ) {
     hits.push(`${rel}:local packager path`);
   }
   return hits;
