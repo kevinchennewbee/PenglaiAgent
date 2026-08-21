@@ -12,9 +12,10 @@ import {
 const repo = "kevinchennewbee/PenglaiAgent";
 const tag = process.argv[2] || `v${PRODUCT_VERSION}`;
 const api = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
+const githubHeaders = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10" };
 const response = await fetch(api, {
   redirect: "manual",
-  headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10" },
+  headers: githubHeaders,
 });
 if (response.status !== 200) {
   finish("INCOMPLETE", { command: "readback-release", reason: `GitHub ${response.status}`, tag });
@@ -119,6 +120,7 @@ if (!updateBytes || !updateSignature || !releaseManifestBytes) {
 verifyBytes(updateBytes, updateSignature, EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 const update = parseAppUpdateManifest(JSON.parse(updateBytes.toString("utf8")));
 const releaseManifest = JSON.parse(releaseManifestBytes.toString("utf8"));
+const publicExportManifest = JSON.parse(bytesByName.get("public-export-manifest.json").toString("utf8"));
 const sourceIdentity = createHash("sha256")
   .update(String(releaseManifest.privateCandidateSourceSha ?? ""))
   .digest("hex");
@@ -130,6 +132,47 @@ if (
   update.candidateSourceSha !== sourceIdentity
 ) {
   finish("FAIL", { command: "readback-release", reason: "update and release identity mismatch" });
+}
+
+let tagObjectResponse = await fetch(`https://api.github.com/repos/${repo}/git/ref/tags/${tag}`, {
+  redirect: "manual",
+  headers: githubHeaders,
+});
+if (tagObjectResponse.status !== 200) {
+  finish("FAIL", { command: "readback-release", reason: `tag ref ${tagObjectResponse.status}` });
+}
+let tagObject = (await tagObjectResponse.json()).object;
+for (let depth = 0; tagObject?.type === "tag" && depth < 3; depth += 1) {
+  tagObjectResponse = await fetch(tagObject.url, { redirect: "manual", headers: githubHeaders });
+  if (tagObjectResponse.status !== 200) {
+    finish("FAIL", { command: "readback-release", reason: `annotated tag ${tagObjectResponse.status}` });
+  }
+  tagObject = (await tagObjectResponse.json()).object;
+}
+if (
+  tagObject?.type !== "commit" ||
+  tagObject.sha !== releaseManifest.privateCandidateSourceSha ||
+  releaseManifest.product !== "Penglai" ||
+  releaseManifest.version !== PRODUCT_VERSION ||
+  releaseManifest.publicExportTreeSha256 !== publicExportManifest.publicExportTreeSha256
+) {
+  finish("FAIL", { command: "readback-release", reason: "tag, release manifest, or public export identity mismatch" });
+}
+
+const releaseArtifacts = Array.isArray(releaseManifest.artifacts) ? releaseManifest.artifacts : [];
+const installerNames = expected.filter((name) => name.endsWith(".dmg") || name.endsWith(".exe")).sort();
+if (JSON.stringify(releaseArtifacts.map((row) => row.name).sort()) !== JSON.stringify(installerNames)) {
+  finish("FAIL", { command: "readback-release", reason: "release manifest installer set mismatch" });
+}
+for (const declared of releaseArtifacts) {
+  const installer = bytesByName.get(declared.name);
+  if (
+    !installer ||
+    declared.bytes !== installer.length ||
+    declared.sha256 !== createHash("sha256").update(installer).digest("hex")
+  ) {
+    finish("FAIL", { command: "readback-release", reason: `release manifest mismatch for ${declared.name}` });
+  }
 }
 
 for (const [target, platform] of Object.entries(update.platforms)) {
