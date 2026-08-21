@@ -1,9 +1,8 @@
 import { PenglaiError } from "@penglai/contracts";
-import { APP_REPO, GITHUB_OWNER, PLUGIN_REGISTRY_REPO } from "./catalog-schema.js";
+import { APP_REPO, GITHUB_API_ORIGIN, GITHUB_OWNER, PLUGIN_REGISTRY_REPO } from "./catalog-schema.js";
 
 export const CATALOG_TAG = /^plugin-catalog-v1\.(\d{6})$/;
 export const APP_TAG = /^v\d+\.\d+\.\d+$/;
-export const GITHUB_API_ORIGIN = "https://api.github.com";
 
 export interface DiscoveredRelease {
   tag: string;

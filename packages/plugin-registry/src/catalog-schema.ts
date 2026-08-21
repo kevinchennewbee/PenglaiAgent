@@ -6,6 +6,7 @@ export const CENTER_PROTOCOL = 1 as const;
 export const GITHUB_OWNER = "kevinchennewbee";
 export const PLUGIN_REGISTRY_REPO = "PenglaiPluginRegistry";
 export const APP_REPO = "PenglaiAgent";
+export const GITHUB_API_ORIGIN = "https://api.github.com";
 export const ALLOWED_ASSET_HOSTS = Object.freeze(["github.com", "objects.githubusercontent.com"]);
 
 export type ProvenanceClass =

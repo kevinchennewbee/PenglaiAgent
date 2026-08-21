@@ -87,6 +87,10 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /@penglai\/asr/);
   assert.match(client, /@penglai\/moss-tts/);
   assert.match(client, /FIRST_PARTY_CARDS/);
+  assert.match(client, /snapshot\?\.remote/);
+  assert.match(client, /data-penglai-plugin-source/);
+  assert.match(client, /refreshRegistry/);
+  assert.match(client, /installDisabled/);
   assert.equal(client.includes('"settings.penglai.page"'), false);
   assert.match(client, /ctx\.slots\.inject\("settings\.section"/);
   assert.match(client, /id: "penglai-center"/);
@@ -99,6 +103,7 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /data-penglai-plugin-action-busy/);
   assert.match(client, /window\.location\.reload\(\)/);
   assert.match(client, /unwrapRemote\(await centerRemote\.enable/);
+  assert.match(client, /centerRemote\.refreshRegistry/);
   const block = client.match(/const FIRST_PARTY_CARDS = \[([\s\S]*?)\];/);
   assert.ok(block);
   const cardIds = [...block[1].matchAll(/id: "(@penglai\/[^"]+)"/g)].map(

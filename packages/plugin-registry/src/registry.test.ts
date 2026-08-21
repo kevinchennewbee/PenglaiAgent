@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -14,6 +14,7 @@ import {
   parseAppUpdateManifest,
   parseSignedPluginCatalog,
   publicKeyHexFromKey,
+  readTrustState,
   selectHighestAppRelease,
   selectHighestCatalogRelease,
   signBytes,
@@ -281,6 +282,83 @@ test("P51-UPDATE-001 PUDP/1 rejects latest.json and mutable releases", () => {
 
 test("canonical JSON is key-order insensitive", () => {
   assert.equal(canonicalize({ b: 1, a: 2 }), canonicalize({ a: 2, b: 1 }));
+});
+
+test("corrupt trust ledger fails closed", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-trust-corrupt-"));
+  const path = join(dir, "trust-state.json");
+  writeFileSync(path, "{not json");
+  assert.throws(() => readTrustState(path), /STORE_CORRUPT|unreadable|malformed/);
+  writeFileSync(path, JSON.stringify({ schema: 1, kind: "plugin-catalog" }));
+  assert.throws(() => readTrustState(path), /malformed/);
+});
+
+test("malicious tar corpus is rejected before install", async () => {
+  const { inspectTarGz } = await import("./tar.js");
+  const { gzipSync } = await import("node:zlib");
+  const block = Buffer.alloc(512);
+  block.write("../evil.js");
+  block[156] = 0x30;
+  const size = Buffer.from("00000000001 ");
+  size.copy(block, 124);
+  let sum = 0;
+  for (let i = 0; i < 512; i += 1) sum += i >= 148 && i < 156 ? 0x20 : block[i] ?? 0;
+  Buffer.from(sum.toString(8).padStart(6, "0") + "\0 ").copy(block, 148);
+  const tar = Buffer.concat([block, Buffer.alloc(512), Buffer.alloc(1024)]);
+  assert.throws(() => inspectTarGz(gzipSync(tar)), /escape|unsafe|forbidden|checksum/);
+});
+
+test("PPDP/1 host refresh uses embedded keys and last-good offline", async () => {
+  const { PluginDistributionClient } = await import("./host.js");
+  const identity = keys();
+  const json = catalogJson({ signingKeyId: identity.signingKeyId });
+  const bytes = Buffer.from(canonicalize(json), "utf8");
+  const signature = signBytes(bytes, identity.privateKey);
+  const dir = mkdtempSync(join(tmpdir(), "penglai-ppdp-"));
+  const fetchImpl = (async (input) => {
+    const url = String(input);
+    if (url.endsWith("/releases")) {
+      return new Response(
+        JSON.stringify([
+          {
+            tag_name: "plugin-catalog-v1.000002",
+            draft: false,
+            prerelease: false,
+            immutable: true,
+            assets: [
+              {
+                id: 11,
+                name: "plugin-catalog-v1.json",
+                browser_download_url:
+                  "https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/plugin-catalog-v1.000002/plugin-catalog-v1.json",
+                size: bytes.length,
+              },
+              {
+                id: 12,
+                name: "plugin-catalog-v1.json.sig",
+                browser_download_url:
+                  "https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/plugin-catalog-v1.000002/plugin-catalog-v1.json.sig",
+                size: signature.length,
+              },
+            ],
+          },
+        ]),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("plugin-catalog-v1.json")) return new Response(bytes, { status: 200 });
+    if (url.endsWith("plugin-catalog-v1.json.sig")) return new Response(signature, { status: 200 });
+    return new Response("no", { status: 404 });
+  }) as typeof fetch;
+  const client = new PluginDistributionClient({
+    cacheRoot: join(dir, "cas"),
+    trustPath: join(dir, "trust.json"),
+    lastGoodPath: join(dir, "last-good.json"),
+    penglaiVersion: "0.5.1",
+    fetchImpl,
+    nowMs: () => Date.parse("2026-08-22T00:00:00.000Z"),
+  });
+  await assert.rejects(() => client.refresh(), /embedded plugin key|signingKeyId|signature mismatch/);
 });
 
 void sign;

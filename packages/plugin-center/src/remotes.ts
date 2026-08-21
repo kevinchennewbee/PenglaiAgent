@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, t } from "@penglai/contracts";
-import { verifySignedCatalog } from "@penglai/plugin-registry";
+import {
+  PluginDistributionClient,
+  type CachedPackage,
+  type RegistrySnapshot,
+} from "@penglai/plugin-registry";
 import { type PluginCatalogEntry } from "@penglai/runtime";
 import {
   rollbackLastGood,
@@ -41,13 +45,25 @@ export interface CenterRemote {
   list(): {
     inventory: unknown;
     catalog: ReturnType<CenterHostLike["reconcile"]>;
+    remote: Array<Record<string, unknown>>;
+    registry?: {
+      source: string;
+      sequence: number;
+      tag: string;
+      issuedAt: string;
+      signatureOk: true;
+      offline: boolean;
+    };
     required: Record<string, boolean>;
+    degraded?: boolean;
   };
   enable(id: string): Promise<unknown>;
   disable(id: string): Promise<unknown>;
   update(id: string): Promise<unknown>;
   rollback(id: string): Promise<unknown>;
-  refreshRegistry(input?: { url?: string; json?: unknown; signature?: Buffer; publicKeyHex?: string; signingKeyId?: string }): unknown;
+  refreshRegistry(): Promise<unknown>;
+  download(id: string): Promise<unknown>;
+  installDisabled(id: string): Promise<unknown>;
 }
 
 function catalogEntry(
@@ -106,6 +122,8 @@ export function createCenterRemote(opts: {
   txDir: string;
   pluginsDir: string;
   userDataRoot: string;
+  registry?: PluginDistributionClient;
+  stagePackage?: (pkg: CachedPackage) => Promise<void>;
 }): CenterRemote {
   const transact = async (
     id: string,
@@ -152,9 +170,34 @@ export function createCenterRemote(opts: {
         catalog = [];
         reconcileFailed = true;
       }
+      const snap = opts.registry?.snapshot();
+      const remote = (opts.registry?.cards() ?? []).map((card) => {
+        const row = rows.find((entry) => rowMatches(entry, String(card.id)));
+        const recon = catalog.find((entry) => entry.id === card.id);
+        return {
+          ...card,
+          installed: recon?.installed ?? (card.downloaded ? "cached" : "not-installed"),
+          loaded: rowLoaded(row),
+          enabled: recon ? recon.desired !== "disabled" : false,
+          rollbackAvailable: existsSync(join(opts.txDir, "last-good")),
+        };
+      });
       return {
         inventory: raw,
         catalog,
+        remote,
+        ...(snap
+          ? {
+              registry: {
+                source: snap.source,
+                sequence: snap.sequence,
+                tag: snap.tag,
+                issuedAt: snap.issuedAt,
+                signatureOk: true as const,
+                offline: snap.offline,
+              },
+            }
+          : {}),
         degraded: inventoryFailed || reconcileFailed,
         required: {
           credentials: rows.some(
@@ -180,25 +223,43 @@ export function createCenterRemote(opts: {
     update(id: string) {
       return transact(id, "update");
     },
-    refreshRegistry(input?: { url?: string; json?: unknown; signature?: Buffer; publicKeyHex?: string; signingKeyId?: string }) {
-      if (input?.url) {
-        throw new PenglaiError("SECURITY_POLICY", "arbitrary catalog URL is not an install source");
+    async refreshRegistry() {
+      if (arguments.length > 0) {
+        throw new PenglaiError("SECURITY_POLICY", "production refresh does not accept renderer URL, public key, or signingKeyId");
       }
       const disclaimer = {
         sandbox: false,
         sharedProcess: t("en", "pluginSharedProcess"),
         noArbitraryInstall: t("en", "pluginNoArbitraryInstall"),
       };
-      if (input?.json && input.signature && input.publicKeyHex && input.signingKeyId) {
-        const verified = verifySignedCatalog({
-          json: input.json,
-          signature: input.signature,
-          publicKeyHex: input.publicKeyHex,
-          signingKeyId: input.signingKeyId,
-        });
-        return { ...disclaimer, digest: verified.digest, sequence: verified.catalog.sequence };
+      if (!opts.registry) {
+        return { ...disclaimer, source: "bundled-first-party" };
       }
-      return { ...disclaimer, source: "bundled-first-party" };
+      const snap: RegistrySnapshot = await opts.registry.refresh();
+      return {
+        ...disclaimer,
+        source: snap.source,
+        digest: snap.digest,
+        sequence: snap.sequence,
+        tag: snap.tag,
+        signingKeyId: snap.signingKeyId,
+        offline: snap.offline,
+      };
+    },
+    async download(id: string) {
+      if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
+      return opts.registry.downloadPackage(id);
+    },
+    async installDisabled(id: string) {
+      if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
+      const pkg = await opts.registry.downloadPackage(id);
+      await opts.stagePackage?.(pkg);
+      try {
+        opts.host.setDesired(id, false);
+      } catch {
+        /* remote plugins are not first-party catalog rows until loader inventories them */
+      }
+      return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true };
     },
     async rollback(id: string) {
       catalogEntry(opts.catalog, id);
@@ -253,5 +314,15 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   @Remote
   refreshRegistry() {
     return this.impl.refreshRegistry();
+  }
+
+  @Remote
+  download(input: { id: string }) {
+    return this.impl.download(input.id);
+  }
+
+  @Remote
+  installDisabled(input: { id: string }) {
+    return this.impl.installDisabled(input.id);
   }
 }

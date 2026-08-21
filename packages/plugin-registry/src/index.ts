@@ -8,6 +8,8 @@ export * from "./trust-ledger.js";
 export * from "./revocation.js";
 export * from "./app-update.js";
 export * from "./embedded-keys.js";
+export * from "./host.js";
+export * from "./tar.js";
 
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
