@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort } from "./lib/cdp.mjs";
-import { observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
+import { observeOfficialTransport } from "./lib/browser-window-walk.mjs";
 import {
   assertInstalledPenglaiIdentity,
   installFromExactInstaller,
@@ -191,7 +191,7 @@ async function runPhase(name, expectedEnabled) {
   let attachErr = "";
   try {
     const { session } = await attachPage(debugPort, 90_000);
-    official = await observeOfficialSurfaces(session);
+    official = await observeOfficialTransport(session);
     session.close();
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
