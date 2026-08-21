@@ -12,8 +12,15 @@ evidence/
 .tmp-public-export/
 .tmp-installed-from-dmg/
 .tmp-installed-e2e/
+.tmp-installed-*/
+.tmp-u3-welcome/
+.tmp-probe-dsh-home-rc1/
 coverage/
 *.log
+*.pem
+.env
+.env.*
+!.env.example
 .pnpm-store/
 apps/desktop/tsconfig.tsbuildinfo
 packages/*/tsconfig.tsbuildinfo

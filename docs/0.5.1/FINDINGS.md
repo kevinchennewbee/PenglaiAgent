@@ -1,8 +1,8 @@
 # Penglai 0.5.1 findings ledger
 
-Baseline: branch `0.5.1`. Local source work only; **do not push, tag, or publish** until Owner review.
+Baseline: branch `0.5.1`. Source work may be pushed as a Draft PR. Do not merge `main`, tag `v0.5.1`, or publish installers until the BLOCKED native and immutable items below are closed.
 
-Status in this ledger is evidence-backed. Source tests are not packaged, installed, or release-plane evidence. Missing Intel/Windows runners, PluginRegistry, immutable Releases, or key backup are **BLOCKED** / **NOT_RUN**, not accepted residuals.
+Status in this ledger is evidence-backed. Source tests are not packaged, installed, or release-plane evidence. Missing Intel/Windows native runners and GitHub Immutable Releases remain **BLOCKED** / **NOT_RUN**, not accepted residuals.
 
 | ID | Severity | Evidence | Owner decision | Status | Acceptance |
 | --- | --- | --- | --- | --- | --- |
@@ -19,8 +19,10 @@ Status in this ledger is evidence-backed. Source tests are not packaged, install
 | P51-ONBOARD-002 | blocker | six-step machine skipped Workspace + first Turn | `workspace-v1` + `first-turn-v1` in ONBOARDING_STEPS; official registry/create + Agent/Turn | source PASS; installed E2E **NOT_RUN** | restart enters DSH Web from official facts |
 | P51-IM-001 | high | outbox CAS without claim token | claim token + exclusive claim | source PASS | dual worker send-once |
 | P51-UPDATE-001 | high | updater always fetched `v0.5.1` own manifest | PUDP/1 discovers highest immutable semver; GitHub 302 then Range; no zero SHA | source PASS; live GitHub **BLOCKED** | evil repo/latest.json fail |
-| P51-WINDOWS-001 | blocker | Windows helper unreleased | three-target contract; non-native builder must exit 4 | **BLOCKED** pending win32-x64 runner | PE AMD64 Setup + installed E2E |
+| P51-WINDOWS-001 | blocker | Windows payload assembler added; NSIS still native-only | `package:windows-payload` CROSS_PREP; `package:windows` exit 4 off win32-x64 | **BLOCKED** pending win32-x64 runner | PE AMD64 Setup + installed E2E |
 | P51-INTEL-001 | blocker | ensure-electron was host-only | `--target` + Mach-O walk | **BLOCKED** pending darwin-x86_64 runner | Intel DMG native PASS |
+| P51-VISION-001 | blocker | official rc.1 vision model untested in Penglai | adapter `listModels` + mock HTTP `image_url` + onboarding save | source PASS; installed API E2E **NOT_RUN** | live small-image call on installed client |
+| P51-SELECT-001 | high | last-good grant used `artifacts[0]` | shared `selectCatalogArtifact` exact-then-any | source PASS | shuffled catalog SHA matches install SHA |
 | P51-MIGRATE-001 | high | rc.8 → rc.1 user-data migrate missing | versioned backup + idempotent marker + fail-closed restore | source PASS; live 0.5.0 copy **NOT_RUN** | credentials/workspace/session/settings/desired preserved |
 | P51-SIGN-001 | medium | sign/read-back/rotation tools | scripts added | source PASS; live Release **BLOCKED** | read-back after Owner publish |
 | P51-LOCAL-001 | high | inner DSH loopback may bypass proxy | residual | residual | documented; no fake token |
@@ -32,7 +34,8 @@ Status in this ledger is evidence-backed. Source tests are not packaged, install
 - **P51-WINDOWS-001 / P51-INTEL-001:** in-scope for 0.5.1. Status is **BLOCKED** until a matching native runner produces exact installers and installed E2E. They are not deferred extras and not an Apple Silicon-only support claim.
 - Plugin `permissions` are review/confirm metadata, not an OS sandbox.
 - Offline clients cannot learn new revocations until the next successful signed catalog fetch.
-- `kevinchennewbee/PenglaiPluginRegistry` and PenglaiAgent immutable Releases are not published. Live PPDP/PUDP remain **BLOCKED**.
+- Public repo `kevinchennewbee/PenglaiPluginRegistry` now exists with schema, pilot plugin, and contribution rules. GitHub REST does not expose an Immutable Releases enable switch; Owner must turn it on in both repository settings. Until API read-back is `immutable: true`, live PPDP/PUDP remain **BLOCKED**. Do not publish a catalog Release that clients would ignore.
+- Updater and plugin-catalog public keys match the 0.5.1 embedded trust roots. Private PEM stays outside git. A second offline copy exists outside the repository.
 
 ## Commands (source)
 
