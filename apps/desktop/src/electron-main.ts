@@ -412,12 +412,12 @@ async function main(): Promise<void> {
   };
 
   try {
-    ensurePrivateHome(user);
+    const resources = resourcesRoot();
+    const layout = layoutFromResources(resources);
+    ensurePrivateHome(user, layout.appRoot);
     migrateRc8UserData(user.root);
     quarantineRevokedPlugins({ userDataRoot: user.root, profileDir: user.profileWeb });
     recoverProfile(user);
-    const resources = resourcesRoot();
-    const layout = layoutFromResources(resources);
     live.attach(layout);
     process.env.PENGLAI_PLUGINS_DIR = join(layout.appRoot, "plugins");
     activatePrivateProfile(layout, user);
@@ -590,7 +590,7 @@ async function main(): Promise<void> {
             desktopData.managedData,
             protection.roots,
             desktopData.legacyCandidates,
-            deletionInspectionOptionsForPlatform(platform),
+            deletionInspectionOptionsForPlatform(platform, { appRoot: layout.appRoot }),
           );
         }
         if (name === "prepareDataDeletion") {
@@ -609,7 +609,10 @@ async function main(): Promise<void> {
                 protection.roots,
                 desktopData.legacyCandidates,
                 desktopData.uninstall,
-                { dataLayout: desktopData.managedData, ...deletionInspectionOptionsForPlatform(platform) },
+                {
+                  dataLayout: desktopData.managedData,
+                  ...deletionInspectionOptionsForPlatform(platform, { appRoot: layout.appRoot }),
+                },
               );
               const plan = buildDeletionPlan({
                 operationId: `del_${randomBytes(16).toString("hex")}`,

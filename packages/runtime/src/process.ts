@@ -16,6 +16,7 @@ export interface ProcessIdentity {
   port: number;
   startedAt: string;
   platform?: "darwin" | "win32";
+  appRoot?: string;
   owner?: string;
   jobAssigned?: boolean;
   supervisorPid?: number;
@@ -30,11 +31,18 @@ function hostPlatform(id?: ProcessIdentity): NodeJS.Platform {
   return process.platform;
 }
 
-export function readProcessStartMs(pid: number, platform: NodeJS.Platform = process.platform): number {
+export function readProcessStartMs(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+  appRoot?: string,
+): number {
   if (pid <= 0) return 0;
   if (platform === "win32") {
     try {
-      const report = invokeWindowsHost(["process-identity", "--pid", String(pid)], { platform: "win32" });
+      const report = invokeWindowsHost(["process-identity", "--pid", String(pid)], {
+        platform: "win32",
+        ...(appRoot ? { appRoot } : {}),
+      });
       return typeof report.startMs === "number" && Number.isFinite(report.startMs) ? report.startMs : 0;
     } catch {
       return 0;
@@ -60,9 +68,12 @@ export function readProcessPgid(pid: number, platform: NodeJS.Platform = process
   }
 }
 
-function windowsIdentityReport(pid: number): WindowsHostReport | undefined {
+function windowsIdentityReport(pid: number, appRoot?: string): WindowsHostReport | undefined {
   try {
-    return invokeWindowsHost(["process-identity", "--pid", String(pid)], { platform: "win32" });
+    return invokeWindowsHost(["process-identity", "--pid", String(pid)], {
+      platform: "win32",
+      ...(appRoot ? { appRoot } : {}),
+    });
   } catch {
     return undefined;
   }
@@ -72,7 +83,7 @@ export function processStillMatches(id: ProcessIdentity): boolean {
   if (id.pid <= 0) return false;
   const platform = hostPlatform(id);
   if (platform === "win32") {
-    const report = windowsIdentityReport(id.pid);
+    const report = windowsIdentityReport(id.pid, id.appRoot);
     if (!report || !report.startMs) return false;
     if (Math.abs(report.startMs - id.startMs) > 2000) return false;
     if (report.executable && !report.executable.toLowerCase().includes(id.executable.replace(/\//g, "\\").toLowerCase().split("\\").pop() ?? "node.exe")) {

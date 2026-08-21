@@ -118,15 +118,16 @@ export function resolveUserLayout(userData: string): UserLayout {
   };
 }
 
-export function ensurePrivateHome(user: UserLayout): void {
+export function ensurePrivateHome(user: UserLayout, appRoot?: string): void {
   for (const p of [user.root, user.dshHome, user.profileWeb, user.transactions, user.snapshots, dirname(user.imDb), user.logs]) {
     mkdirSync(p, { recursive: true, mode: 0o700 });
   }
   if (process.platform === "win32") {
-    applyWindowsCredentialAcl(user.dshHome, { platform: "win32" });
+    if (!appRoot) throw new PenglaiError("SECURITY_POLICY", "Windows private home requires the packaged app root");
+    applyWindowsCredentialAcl(user.dshHome, { platform: "win32", appRoot });
     const yaml = join(user.dshHome, ".credentials.yaml");
     if (existsSync(yaml)) {
-      applyWindowsCredentialAcl(yaml, { platform: "win32" });
+      applyWindowsCredentialAcl(yaml, { platform: "win32", appRoot });
     }
   }
 }
@@ -803,7 +804,7 @@ function waitChildExit(child: ChildProcess, timeoutMs: number): Promise<void> {
 export function killStaleSupervisor(layout: RuntimeLayout, user: UserLayout): void {
   const previous = readIdentity(user);
   if (previous) {
-    killIdentity(previous, "SIGKILL");
+    killIdentity({ ...previous, appRoot: layout.appRoot }, "SIGKILL");
     clearIdentity(user);
   }
   reapDshOrphans(layout);
@@ -919,6 +920,7 @@ export class EmbeddedDshSupervisor {
         port: this.port,
         startedAt: new Date(startMs).toISOString(),
         platform: "win32",
+        appRoot: this.layout.appRoot,
         owner: report.owner,
         jobAssigned: true,
         supervisorPid,

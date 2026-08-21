@@ -59,6 +59,7 @@ export interface WindowsAclApplyResult {
 export interface WindowsHostInvokeOptions {
   platform?: NodeJS.Platform;
   hostPath?: string;
+  appRoot?: string;
 }
 
 export function applyWindowsCredentialAcl(
@@ -252,7 +253,7 @@ export function parseWindowsHostReport(raw: string): WindowsHostReport {
 
 export function invokeWindowsHost(args: string[], options: WindowsHostInvokeOptions = {}): WindowsHostReport {
   const platform = options.platform ?? process.platform;
-  const host = options.hostPath ?? requireWindowsNativeHost(platform);
+  const host = options.hostPath ?? requireWindowsNativeHost(platform, options.appRoot);
   let stdout = "";
   try {
     stdout = execFileSync(host, args, { encoding: "utf8", timeout: 8_000, windowsHide: true });
@@ -287,19 +288,21 @@ export function windowsReparseProbe(path: string, options: WindowsHostInvokeOpti
 
 export function deletionInspectionOptionsForPlatform(
   platform: NodeJS.Platform,
-  override?: Partial<DeletionInspectionOptions> & { available?: boolean },
+  override?: Partial<DeletionInspectionOptions> & { available?: boolean; appRoot?: string },
 ): DeletionInspectionOptions {
   if (platform !== "win32") return { platform, ...override };
   if (override?.ownerProbe && override.reparseProbe) {
     return { platform, ...override };
   }
-  if (override?.available === false || !resolveWindowsHostExecutable()) {
+  if (override?.available === false || !resolveWindowsHostExecutable(override?.appRoot)) {
     throw new PenglaiError("SECURITY_POLICY", "Windows inventory requires native owner and reparse-point probes");
   }
   return {
     platform,
-    ownerProbe: (path) => windowsOwnerProbe(path),
-    reparseProbe: (path) => windowsReparseProbe(path),
+    ownerProbe: (path) =>
+      windowsOwnerProbe(path, { platform: "win32", ...(override?.appRoot ? { appRoot: override.appRoot } : {}) }),
+    reparseProbe: (path) =>
+      windowsReparseProbe(path, { platform: "win32", ...(override?.appRoot ? { appRoot: override.appRoot } : {}) }),
     ...override,
   };
 }
