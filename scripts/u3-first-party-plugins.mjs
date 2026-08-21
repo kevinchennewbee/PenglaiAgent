@@ -155,13 +155,19 @@ function setProfileEnabled(enabled) {
 function installedPackages() {
   return OPTIONAL_PLUGINS.map((id) => {
     const file = join(packageRoot, id.split("/")[1], "package.json");
-    if (!existsSync(file)) return { id, present: false };
-    const value = JSON.parse(readFileSync(file, "utf8"));
-    return {
-      id,
-      present: value.name === id,
-      version: value.version,
-    };
+    try {
+      const value = JSON.parse(readFileSync(file, "utf8"));
+      return {
+        id,
+        present: value.name === id,
+        version: value.version,
+      };
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        return { id, present: false };
+      }
+      throw error;
+    }
   });
 }
 
