@@ -1,19 +1,18 @@
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort, waitEval } from "./lib/cdp.mjs";
 import { SNAPSHOT_JS, walkInstalledBrowserWindow, wizardResumeReady } from "./lib/browser-window-walk.mjs";
 import {
-  ARM64_DMG,
-  ARM64_INSTALLER,
   exeInside,
   findWelcomeAck,
-  installFromExactDmg,
+  installFromExactInstaller,
   launchPackaged,
   waitChildExit,
   leftoversByCommand,
   ownedProcessTree,
+  resourcesInside,
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
@@ -21,6 +20,13 @@ import {
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import { evaluateLiveSample, probeLiveHttpWs, readProcessIdentity } from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import {
+  evidenceName,
+  installerForTarget,
+  nativeBlocked,
+  parseTargetArg,
+  walkedCoreOnboarding,
+} from "./lib/release-targets.mjs";
 
 const certFault = String(process.env.PENGLAI_RUNNER_FAULT ?? "").trim();
 if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
@@ -34,21 +40,30 @@ const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
 function writeRec(rec) {
-  writeFileSync(join(outDir, "installed-e2e.json"), JSON.stringify(rec, null, 2));
+  const payload = JSON.stringify(rec, null, 2);
+  writeFileSync(join(outDir, "installed-e2e.json"), payload);
+  writeFileSync(join(outDir, evidenceName("installed-e2e", expectedTarget)), payload);
 }
 
 const git = gitState();
 if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
   finish("STALE", { command: "test:e2e:installed", reason: "candidate source must be clean main at origin/main", ...git });
 }
-const expectedTarget = process.env.PENGLAI_EXPECTED_TARGET ?? process.env.PENGLAI_TARGET ?? "darwin-aarch64";
+const expectedTarget = parseTargetArg();
+const blocked = nativeBlocked("test:e2e:installed", expectedTarget);
+if (blocked) finish("BLOCKED", { command: "test:e2e:installed", ...blocked });
 const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
-const artifactPath = process.env.PENGLAI_ARTIFACT || ARM64_DMG;
-const installed = installFromExactDmg(artifactPath, join(ROOT, ".tmp-installed-e2e-app"));
+const expectedInstaller = installerForTarget(expectedTarget);
+const artifactPath = process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", expectedInstaller);
+const installed = installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-e2e-app"), expectedTarget);
 if (!installed.ok) {
-  finish("INCOMPLETE", { command: "test:e2e:installed", reason: installed.reason ?? "exact Penglai_0.5.1_macos_aarch64.dmg missing" });
+  finish(installed.blocked ? "BLOCKED" : "INCOMPLETE", {
+    command: "test:e2e:installed",
+    reason: installed.reason ?? `${expectedInstaller} missing`,
+    target: expectedTarget,
+  });
 }
-const identity = assertInstalledPenglaiIdentity(installed.app);
+const identity = assertInstalledPenglaiIdentity(installed.app, expectedTarget);
 if (!identity.ok) {
   finish("FAIL", { command: "test:e2e:installed", reason: `installed app identity ${identity.reason}` });
 }
@@ -58,7 +73,7 @@ if (packaged.verdict !== "PASS") {
 }
 const candidateSourceSha = packaged.release.sourceSha;
 
-const declaredTarget = "darwin-aarch64";
+const declaredTarget = expectedTarget;
 const expectedArtifact = process.env.PENGLAI_EXPECTED_ARTIFACT_SHA ?? installed.installerSha256;
 const identityJudged = evaluateLiveSample({
   now: Date.now(),
@@ -101,11 +116,11 @@ if (!identityJudged.ok) {
 }
 
 const app = installed.app;
-const exe = exeInside(app);
+const exe = exeInside(app, expectedTarget);
 if (!exe) {
-  finish("FAIL", { command: "test:e2e:installed", reason: "installed Penglai.app has no MacOS executable" });
+  finish("FAIL", { command: "test:e2e:installed", reason: "installed Penglai executable missing", target: expectedTarget });
 }
-const resources = resolve(join(app, "Contents", "Resources"));
+const resources = resourcesInside(app, expectedTarget);
 const userData = join(ROOT, ".tmp-installed-e2e");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
@@ -129,7 +144,7 @@ if (!harnessApp) {
     command: "test:e2e:installed",
     reason: "exact DMG refused debug flags; UI walk requires a separate harness build",
     refuseCode,
-    installer: ARM64_INSTALLER,
+    installer: expectedInstaller,
     productVersion: "0.5.1",
   });
 }
@@ -275,7 +290,7 @@ const fail = (reason, extra = {}) => {
     verdict: "FAIL",
     productVersion: "0.5.1",
     fromExactDmg: true,
-    installer: ARM64_INSTALLER,
+    installer: expectedInstaller,
     installerSha256: installed.installerSha256,
     sourceSha: candidateSourceSha,
     reason,
@@ -317,8 +332,7 @@ const canPass =
   first.welcome?.persisted &&
   walked.includes("privacy") &&
   walked.includes("models") &&
-  walked.includes("workspace") &&
-  (walked.includes("im-later") || walked.includes("im-offer")) &&
+  walkedCoreOnboarding(walked) &&
   ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
   ["ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion"].every(
     (id) => !settingsWalked.includes(id),
@@ -329,9 +343,11 @@ const rec = {
   verdict: canPass ? "PASS" : "INCOMPLETE",
   productVersion: "0.5.1",
   fromExactDmg: true,
-  installer: ARM64_INSTALLER,
+  installer: expectedInstaller,
   installerSha256: installed.installerSha256,
   sourceSha: candidateSourceSha,
+  target: expectedTarget,
+  host: { platform: process.platform, arch: process.arch },
   app,
   debugPort,
   first,

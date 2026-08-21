@@ -5,18 +5,18 @@ import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
 import { SNAPSHOT_JS, observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
 import {
-  ARM64_DMG,
-  ARM64_INSTALLER,
   exeInside,
-  installFromExactDmg,
+  installFromExactInstaller,
   launchPackaged,
   leftoversByCommand,
   ownedProcessTree,
+  resourcesInside,
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 
 const WELCOME_JS = `(() => {
   const text = (document.body && document.body.innerText ? document.body.innerText : "").replace(/\\s+/g, " ");
@@ -66,19 +66,27 @@ function writeRec(rec) {
   writeFileSync(recPath, `${JSON.stringify(rec, null, 2)}\n`);
 }
 
-const installed = installFromExactDmg(ARM64_DMG, join(ROOT, ".tmp-u3-welcome-app"));
+const expectedTarget = parseTargetArg();
+const blocked = nativeBlocked("u3-welcome-smoke", expectedTarget);
+if (blocked) finish("BLOCKED", { command: "u3-welcome-smoke", ...blocked });
+const expectedInstaller = installerForTarget(expectedTarget);
+const installed = installFromExactInstaller(
+  join(ROOT, "dist", expectedInstaller),
+  join(ROOT, ".tmp-u3-welcome-app"),
+  expectedTarget,
+);
 if (!installed.ok) {
-  const rec = { command: "u3-welcome-smoke", verdict: "INCOMPLETE", reason: installed.reason ?? "exact DMG missing" };
+  const rec = { command: "u3-welcome-smoke", verdict: installed.blocked ? "BLOCKED" : "INCOMPLETE", reason: installed.reason ?? "exact installer missing", target: expectedTarget };
   writeRec(rec);
-  finish("INCOMPLETE", rec);
+  finish(rec.verdict, rec);
 }
-const identity = assertInstalledPenglaiIdentity(installed.app);
+const identity = assertInstalledPenglaiIdentity(installed.app, expectedTarget);
 if (!identity.ok) {
   const rec = { command: "u3-welcome-smoke", verdict: "FAIL", reason: `installed app identity ${identity.reason}` };
   writeRec(rec);
   finish("FAIL", rec);
 }
-const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: git.head, expectedTarget: "darwin-aarch64" });
+const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: git.head, expectedTarget });
 if (packaged.verdict !== "PASS") {
   const rec = { command: "u3-welcome-smoke", verdict: packaged.verdict, reason: packaged.reason };
   writeRec(rec);
@@ -86,8 +94,8 @@ if (packaged.verdict !== "PASS") {
 }
 
 const app = installed.app;
-const exe = exeInside(app);
-const resources = resolve(join(app, "Contents", "Resources"));
+const exe = exeInside(app, expectedTarget);
+const resources = resourcesInside(app, expectedTarget);
 const userData = join(ROOT, ".tmp-u3-welcome");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
@@ -156,10 +164,10 @@ const ok = Boolean(sawGateway && !attachErr && welcomeReachable && mainUsable &&
 const rec = {
   command: "u3-welcome-smoke",
   verdict: ok ? "PASS" : attachErr || !sawGateway ? "FAIL" : "FAIL",
-  installer: ARM64_INSTALLER,
+  installer: expectedInstaller,
   installerSha256: installed.installerSha256,
   sourceSha: packaged.release.sourceSha,
-  target: "darwin-aarch64",
+  target: expectedTarget,
   dsh: packaged.release.dsh,
   sawGateway,
   attachErr: attachErr || undefined,

@@ -1,21 +1,26 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
 import { HTTP_JS, SNAPSHOT_JS, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
-  ARM64_DMG,
-  ARM64_INSTALLER,
   exeInside,
-  installFromExactDmg,
+  installFromExactInstaller,
   launchPackaged,
   leftoversByCommand,
   ownedProcessTree,
+  resourcesInside,
   signalPid,
   stopChild,
   waitForFile,
 } from "./lib/installed-app.mjs";
+import {
+  evidenceName,
+  installerForTarget,
+  nativeBlocked,
+  parseTargetArg,
+} from "./lib/release-targets.mjs";
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import {
   FAIL_CLOSED_DEADLINE_MS,
@@ -42,8 +47,11 @@ const git = gitState();
 if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
   finish("STALE", { command: "test:soak:installed", reason: "candidate source must be clean main at origin/main", ...git });
 }
-const expectedTarget = process.env.PENGLAI_EXPECTED_TARGET ?? process.env.PENGLAI_TARGET ?? "darwin-aarch64";
+const expectedTarget = parseTargetArg();
+const blocked = nativeBlocked("test:soak:installed", expectedTarget);
+if (blocked) finish("BLOCKED", { command: "test:soak:installed", ...blocked });
 const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
+const expectedInstaller = installerForTarget(expectedTarget);
 
 if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   finish("INCOMPLETE", {
@@ -56,16 +64,16 @@ if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   });
 }
 
-const installed = installFromExactDmg(process.env.PENGLAI_ARTIFACT || ARM64_DMG, join(ROOT, ".tmp-installed-soak-app"));
+const installed = installFromExactInstaller(
+  process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", expectedInstaller),
+  join(ROOT, ".tmp-installed-soak-app"),
+  expectedTarget,
+);
 if (!installed.ok) {
-  finish("INCOMPLETE", { command: "test:soak:installed", reason: installed.reason ?? "exact Penglai_0.5.1_macos_aarch64.dmg missing" });
-}
-if (expectedTarget !== "darwin-aarch64") {
-  finish("FAIL", {
+  finish(installed.blocked ? "BLOCKED" : "INCOMPLETE", {
     command: "test:soak:installed",
-    reason: "wrong-target",
-    expectedTarget,
-    declaredTarget: "darwin-aarch64",
+    reason: installed.reason ?? `${expectedInstaller} missing`,
+    target: expectedTarget,
   });
 }
 const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: expectedSource, expectedTarget });
@@ -82,14 +90,14 @@ if (expectedArtifact !== installed.installerSha256) {
     declaredArtifactSha: installed.installerSha256,
   });
 }
-const exe = exeInside(installed.app);
-if (!exe) finish("FAIL", { command: "test:soak:installed", reason: "installed Penglai.app has no MacOS executable" });
-const resources = resolve(join(installed.app, "Contents", "Resources"));
+const exe = exeInside(installed.app, expectedTarget);
+if (!exe) finish("FAIL", { command: "test:soak:installed", reason: "installed Penglai executable missing", target: expectedTarget });
+const resources = resourcesInside(installed.app, expectedTarget);
 const userData = join(ROOT, ".tmp-installed-soak");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 const healthFile = join(userData, "soak-health.json");
-const installedNode = join(resources, "runtime/node/bin/node");
+const installedNode = join(resources, expectedTarget === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const installedDsh = join(resources, "runtime/dsh/lib/bin.js");
 
 const debugPort = await freePort();
@@ -127,7 +135,7 @@ const failClosed = async (reason, extra = {}) => {
   finish("FAIL", {
     command: "test:soak:installed",
     reason,
-    installer: ARM64_INSTALLER,
+    installer: expectedInstaller,
     installerSha256: installed.installerSha256,
     sourceSha: candidateSourceSha,
     elapsedMs: extra.elapsedMs,
@@ -152,12 +160,12 @@ const liveSample = async () => {
     expected: {
       sourceSha: candidateSourceSha,
       artifactSha: installed.installerSha256,
-      target: "darwin-aarch64",
+      target: expectedTarget,
     },
     liveHttpWs: live,
     declaredSourceSha: candidateSourceSha,
     declaredArtifactSha: installed.installerSha256,
-    declaredTarget: "darwin-aarch64",
+    declaredTarget: expectedTarget,
   });
   if (!judged.ok && Date.now() - sampleStarted > FAIL_CLOSED_DEADLINE_MS) {
     return { ...judged, deadlineExceeded: true };
@@ -330,9 +338,11 @@ const rec = {
   orphans: leftover.length,
   leftovers: leftover.length,
   fromExactDmg: true,
-  installer: ARM64_INSTALLER,
+  installer: expectedInstaller,
   installerSha256: installed.installerSha256,
   sourceSha: candidateSourceSha,
+  target: expectedTarget,
+  host: { platform: process.platform, arch: process.arch },
   samplesCovered,
   sampleSet: samplesCovered,
   sampleLog,
@@ -342,6 +352,7 @@ const rec = {
     : null,
 };
 writeFileSync(join(outDir, "soak.json"), JSON.stringify(rec, null, 2));
+writeFileSync(join(outDir, evidenceName("soak", expectedTarget)), JSON.stringify(rec, null, 2));
 if (leftover.length) finish("FAIL", rec);
 if (elapsedHours < 2) {
   finish("INCOMPLETE", { ...rec, reason: "exact 0.5 two-hour soak not present" });

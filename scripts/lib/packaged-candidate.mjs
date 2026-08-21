@@ -57,15 +57,19 @@ export function inspectPackagedCandidate({
       verdict: "FAIL",
       reason: `unsupported packaged target ${expectedTarget}`,
     };
-  if (!app || !existsSync(join(app, "Contents/Info.plist"))) {
+  const windows = expectedTarget === "win32-x86_64";
+  const appPresent = windows
+    ? Boolean(app && existsSync(join(app, "Penglai.exe")))
+    : Boolean(app && existsSync(join(app, "Contents/Info.plist")));
+  if (!appPresent) {
     return {
       verdict: "INCOMPLETE",
-      reason: "exact from-DMG Penglai.app missing",
+      reason: windows ? "exact Windows Penglai.exe payload missing" : "exact from-DMG Penglai.app missing",
       app,
     };
   }
 
-  const resources = join(app, "Contents/Resources");
+  const resources = windows ? join(app, "resources") : join(app, "Contents/Resources");
   const releasePath = join(resources, "release-info.json");
   const manifestPath = join(resources, "runtime-manifest.json");
   const credentialPath = join(resources, "closure-credential.json");
@@ -195,7 +199,9 @@ export function inspectPackagedCandidate({
     }
   }
 
-  const nodeBin = join(resources, "runtime/node/bin/node");
+  const nodeBin = windows
+    ? join(resources, "runtime/node/node.exe")
+    : join(resources, "runtime/node/bin/node");
   const dshBin = join(resources, "runtime/dsh/lib/bin.js");
   if (!existsSync(nodeBin) || !existsSync(dshBin)) {
     return {
@@ -218,32 +224,42 @@ export function inspectPackagedCandidate({
   };
 }
 
-export function inspectDmgEvidence({ root, packaged, evidencePath }) {
+export function inspectInstallerEvidence({ root, packaged, evidencePath }) {
   const spec = PACKAGED_TARGETS[packaged.expectedTarget];
-  const dmgPath = join(root, spec.dmgRelative);
-  const evidenceRead = readJson(evidencePath, "local DMG evidence");
-  if (evidenceRead.error || !existsSync(dmgPath)) {
+  const installerPath = join(root, spec.dmgRelative);
+  const evidenceRead = readJson(evidencePath, "local installer evidence");
+  if (evidenceRead.error || !existsSync(installerPath)) {
     return {
       verdict: "INCOMPLETE",
-      reason: evidenceRead.error ?? "DMG missing",
-      dmgPath,
+      reason: evidenceRead.error ?? "installer missing",
+      dmgPath: installerPath,
+      installerPath,
     };
   }
   const evidence = evidenceRead.value;
-  const actualSha256 = sha256File(dmgPath);
+  const actualSha256 = sha256File(installerPath);
+  const windows = packaged.expectedTarget === "win32-x86_64";
+  const signatureOk = windows
+    ? evidence.signatureKind === "unsigned" || evidence.signatureKind === "unsigned-nsis"
+    : evidence.signatureKind === "adhoc";
   if (
     evidence.sourceSha !== packaged.release.sourceSha ||
     evidence.target !== packaged.expectedTarget ||
     evidence.sha256 !== actualSha256 ||
     evidence.treeDirty !== false ||
-    evidence.signatureKind !== "adhoc" ||
+    !signatureOk ||
     evidence.publicExportTreeSha256 !== packaged.release.publicExportTreeSha256
   ) {
     return {
       verdict: "STALE",
-      reason: "DMG evidence does not bind exact source, target, and bytes",
-      dmgPath,
+      reason: "installer evidence does not bind exact source, target, and bytes",
+      dmgPath: installerPath,
+      installerPath,
     };
   }
-  return { verdict: "PASS", dmgPath, actualSha256, evidence };
+  return { verdict: "PASS", dmgPath: installerPath, installerPath, actualSha256, evidence };
+}
+
+export function inspectDmgEvidence(opts) {
+  return inspectInstallerEvidence(opts);
 }

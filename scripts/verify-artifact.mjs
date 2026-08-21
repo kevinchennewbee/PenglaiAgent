@@ -3,8 +3,9 @@ import { execFileSync } from "node:child_process";
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
 import { ROOT, gitState } from "./lib/repo.mjs";
+import { nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 
-const expectedTarget = process.env.PENGLAI_TARGET ?? "darwin-aarch64";
+const expectedTarget = parseTargetArg();
 const git = gitState();
 if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
   finish("STALE", {
@@ -17,6 +18,7 @@ if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
   });
 }
 
+const blocked = nativeBlocked("verify:artifact", expectedTarget);
 const app = packagedAppForTarget(ROOT, expectedTarget);
 const packaged = inspectPackagedCandidate({
   app,
@@ -24,12 +26,27 @@ const packaged = inspectPackagedCandidate({
   expectedTarget,
 });
 if (packaged.verdict !== "PASS") {
+  if (blocked) {
+    finish("BLOCKED", {
+      command: "verify:artifact",
+      ...blocked,
+      inspect: packaged.verdict,
+      reason: packaged.reason,
+    });
+  }
   finish(packaged.verdict, {
     command: "verify:artifact",
     reason: packaged.reason,
     app,
     sourceSha: git.head,
     expectedTarget,
+  });
+}
+if (blocked) {
+  finish("BLOCKED", {
+    command: "verify:artifact",
+    ...blocked,
+    reason: "cross-built or foreign-host inspect is not native artifact PASS",
   });
 }
 

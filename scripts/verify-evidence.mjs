@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { ROOT, gitState, isDocsOnlyRange } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { evidenceName, missingReleaseTargets, RELEASE_TARGETS } from "./lib/release-targets.mjs";
 
 const git = gitState();
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
@@ -73,6 +74,24 @@ const currentExactDmg =
     : null;
 const currentArtifactByTarget = {};
 if (currentExactDmg) currentArtifactByTarget["darwin-aarch64"] = currentExactDmg.sha256;
+for (const target of RELEASE_TARGETS) {
+  const installerEvidence = join(evidenceDir, evidenceName("local-installer", target));
+  if (!existsSync(installerEvidence)) continue;
+  const rec = JSON.parse(readFileSync(installerEvidence, "utf8"));
+  if (rec?.sha256 && (rec.sourceSha === git.head || isDocsOnlyRange(rec.sourceSha, git.head))) {
+    currentArtifactByTarget[target] = rec.sha256;
+  }
+}
+const installedPresent = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
+const installedMissing = missingReleaseTargets(installedPresent);
+if (installedMissing.length) {
+  imported.push({
+    kind: "installed-set",
+    imported: false,
+    verdict: "INCOMPLETE",
+    reason: `missing installed evidence for ${installedMissing.join(",")}`,
+  });
+}
 
 function importFresh(kind, extra) {
   const bound = identity.bindArtifactFreshness({ candidateSha: git.head, ...extra });
