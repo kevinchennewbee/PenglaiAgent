@@ -76,6 +76,8 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.match(src, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
   assert.match(src, /CREATE_SUSPENDED/);
   assert.match(src, /FILE_ATTRIBUTE_REPARSE_POINT/);
+  assert.match(src, /SetEntriesInAclW\(3,/);
+  assert.doesNotMatch(src, /grfAccessMode\s*=\s*DENY_ACCESS/);
 });
 
 test("Windows native host is unavailable on this runner and fail-closed", () => {
