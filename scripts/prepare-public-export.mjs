@@ -170,6 +170,7 @@ writeFileSync(
 );
 if (!existsSync(join(ROOT, "LICENSE"))) finish("FAIL", { command: "prepare:public-export", reason: "LICENSE missing" });
 if (cleanRoom.executed === true) {
+  rmSync(join(ROOT, ".tmp-public-export", "tree"), { recursive: true, force: true });
   finish("PASS", { command: "prepare:public-export", tree, files: entries.length, cleanRoom });
 }
 finish("INCOMPLETE", {

@@ -1,6 +1,6 @@
 # Penglai 0.5.0 Apple Silicon 发布 Runbook
 
-本 runbook 对应 Owner 于 2026-08-20 授权的 `v0.5.0` 公开发布。唯一客户端资产是 `Penglai_0.5.0_macos_aarch64.dmg`。Intel Mac 与 Windows 属于未来版本，不得作为本轮 blocker、资产或兼容性声明。
+本 runbook 对应 Owner 于 2026-08-20 授权的 **`v0.5.0` 历史公开发布**。唯一已发布客户端资产是 `Penglai_0.5.0_macos_aarch64.dmg`。0.5.1 三端候选见 `docs/0.5.1/RELEASE_RUNBOOK.md`，不要把本文件当成现行 0.5.1 合同。
 
 ## 1. 私有源冻结
 

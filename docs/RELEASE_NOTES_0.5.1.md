@@ -1,6 +1,6 @@
 # Penglai 0.5.1
 
-Penglai 0.5.1 adds a signed plugin distribution protocol (PPDP/1) and a versioned app-update protocol (PUDP/1). The desktop app is still a community-verified, ad-hoc sealed Apple Silicon distribution of official DeepSeek Harness 0.1.0-rc.8.
+Penglai 0.5.1 adds a signed plugin distribution protocol (PPDP/1) and a versioned app-update protocol (PUDP/1). It is a community-verified, ad-hoc sealed distribution of official DeepSeek Harness `0.1.1-rc.1` with three declared targets: `darwin-aarch64`, `darwin-x86_64`, and `win32-x86_64`. Native PASS is reserved for a matching runner; Intel and Windows remain BLOCKED until those builders and installed E2E exist.
 
 This file is **not a publication freeze**. Exact DMG, live GitHub Releases, and Plugin Center installed E2E are **NOT_RUN**. Do not treat it as a shipped 0.5.1 until Owner freeze.
 
