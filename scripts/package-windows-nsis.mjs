@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
+import { stagingForTarget } from "./lib/closure-credential.mjs";
 
 const contract = {
   installer: "Penglai_0.5.1_windows_x64_setup.exe",
@@ -39,7 +40,7 @@ if (!contract.nativeEvidenceAllowed) {
   process.exit(4);
 }
 
-const staging = join(ROOT, "dist", "runtime-staging-win32-x86_64");
+const staging = stagingForTarget(ROOT, "win32-x86_64");
 const payload = join(staging, "payload");
 const nsi = join(ROOT, "scripts", "nsis", "Penglai.nsi");
 const license = join(ROOT, "scripts", "nsis", "license.rtf");

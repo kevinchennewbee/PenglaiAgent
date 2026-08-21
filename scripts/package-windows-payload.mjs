@@ -5,8 +5,9 @@ import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { stagingForTarget } from "./lib/closure-credential.mjs";
 
-const staging = join(ROOT, "dist", "runtime-staging-win32-x86_64");
+const staging = stagingForTarget(ROOT, "win32-x86_64");
 const payload = join(staging, "payload");
 const native = process.platform === "win32" && process.arch === "x64";
 const git = gitState();
