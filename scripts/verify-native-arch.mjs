@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Walk a packaged app and refuse the wrong Mach-O / PE machine.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 
 const root = process.argv[2];
@@ -9,9 +9,15 @@ if (!root || !target) {
   console.error("verify-native-arch <app-root> <darwin-aarch64|darwin-x86_64|win32-x86_64>");
   process.exit(2);
 }
-if (!existsSync(root)) {
-  console.error("verify-native-arch BLOCKED: app root missing", root);
-  process.exit(4);
+let rootStat;
+try {
+  rootStat = statSync(root);
+} catch (error) {
+  if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+    console.error("verify-native-arch BLOCKED: app root missing", root);
+    process.exit(4);
+  }
+  throw error;
 }
 
 const MACHO_64 = 0xfeedfacf;
@@ -75,7 +81,7 @@ if (!expected) {
   process.exit(1);
 }
 
-const files = walk(root);
+const files = rootStat.isFile() ? [root] : rootStat.isDirectory() ? walk(root) : [];
 const hits = [];
 for (const path of files) {
   const ext = extname(path).toLowerCase();
