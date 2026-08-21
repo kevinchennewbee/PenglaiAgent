@@ -250,6 +250,18 @@ export function waitChildExit(child, timeoutMs = 15_000) {
   });
 }
 
+export async function requestBrowserClose(session, timeoutMs = 5_000) {
+  if (!session) return false;
+  try {
+    await session.send("Browser.close", {}, timeoutMs);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    session.close();
+  }
+}
+
 export async function stopChild(child, timeoutMs = 8_000) {
   if (child.exitCode !== null || child.signalCode) return [child.exitCode, child.signalCode];
   const closed = new Promise((resolveClose) =>

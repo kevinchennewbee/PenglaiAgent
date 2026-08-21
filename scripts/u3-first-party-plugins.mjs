@@ -18,6 +18,7 @@ import {
   launchInstalledHarness,
   leftoversByCommand,
   ownedProcessTree,
+  requestBrowserClose,
   resourcesInside,
   stopChild,
   waitForFile,
@@ -189,21 +190,24 @@ async function runPhase(name, expectedEnabled) {
   const sawGateway = await waitForFile(join(userData, "gateway.port"), 90_000);
   let official = null;
   let attachErr = "";
+  let cdpSession = null;
   try {
     const { session } = await attachPage(debugPort, 90_000);
+    cdpSession = session;
     official = await observeOfficialTransport(session);
-    session.close();
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
   }
   const inventory = await waitInventory(expectedEnabled, startedAt);
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
+  const gracefulBrowserClose = await requestBrowserClose(cdpSession);
   await stopChild(launched.child);
   const leftovers = leftoversByCommand(dshNeedle);
   return {
     name,
     expectedEnabled,
     sawGateway,
+    gracefulBrowserClose,
     attachErr: attachErr || undefined,
     official: {
       http: official?.http?.official === true,
