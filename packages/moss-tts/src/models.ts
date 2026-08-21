@@ -535,7 +535,7 @@ export class TtsModelManager {
       }
       existing = info.size;
     }
-    const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.0 model-manager" };
+    const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.1 model-manager" };
     const validator = op.validators?.[file.path];
     if (existing) {
       headers.Range = `bytes=${existing}-`;

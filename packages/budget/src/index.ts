@@ -1,13 +1,13 @@
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { BudgetLedger, type BudgetIdentity, type BudgetScope } from "./ledger.js";
 import { BudgetGate, type BudgetLimit, type TokenMeterFact } from "./service.js";
 import { createBudgetSettingsApi, PenglaiBudgetRemote } from "./remote.js";
 
 export const name = "@penglai/budget";
 export const inject = ["tokenMeter", "agents", "workspaceRegistry"];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 export function createBudgetService(
   limit: BudgetLimit = { hardTokens: null },

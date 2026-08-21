@@ -7,13 +7,13 @@ import { CLOSURE_CREDENTIAL_SCHEMA } from "./closure-credential.mjs";
 export const PACKAGED_TARGETS = Object.freeze({
   "darwin-aarch64": Object.freeze({
     buildTarget: "darwin-arm64",
-    appRelative: "dist/Penglai-v0.5.0-arm64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.0_macos_aarch64.dmg",
+    appRelative: "dist/Penglai-v0.5.1-arm64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.1_macos_aarch64.dmg",
   }),
   "darwin-x86_64": Object.freeze({
     buildTarget: "darwin-x64",
-    appRelative: "dist/Penglai-v0.5.0-x64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.0_macos_x64.dmg",
+    appRelative: "dist/Penglai-v0.5.1-x64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.1_macos_x64.dmg",
   }),
 });
 
@@ -98,7 +98,7 @@ export function inspectPackagedCandidate({
   }
   if (
     release.productName !== "Penglai" ||
-    release.productVersion !== "0.5.0" ||
+    release.productVersion !== "0.5.1" ||
     release.generationId !== "penglai-dsh-v0.5" ||
     release.trustTier !== "community-verified" ||
     release.targetPlatform !== spec.buildTarget
@@ -128,7 +128,7 @@ export function inspectPackagedCandidate({
     };
   }
   if (
-    manifest.release !== "0.5.0" ||
+    manifest.release !== "0.5.1" ||
     manifest.target !== expectedTarget ||
     manifest.dsh !== release.dsh ||
     !Array.isArray(manifest.files) ||

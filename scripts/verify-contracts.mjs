@@ -107,4 +107,4 @@ if (makers.status !== 0) {
   process.exit(makers.status ?? 1);
 }
 if (makers.stdout) process.stdout.write(makers.stdout);
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.0");
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.1");

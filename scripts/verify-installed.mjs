@@ -22,10 +22,10 @@ const blob = JSON.stringify(rec);
 if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob)) {
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
-if (rec.productVersion !== "0.5.0" || rec.verdict !== "PASS") {
+if (rec.productVersion !== "0.5.1" || rec.verdict !== "PASS") {
   finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS" });
 }
-if (rec.fromExactDmg !== true || rec.installer !== "Penglai_0.5.0_macos_aarch64.dmg") {
+if (rec.fromExactDmg !== true || rec.installer !== "Penglai_0.5.1_macos_aarch64.dmg") {
   finish("FAIL", { command: "verify:installed", reason: "installed evidence was not from exact 0.5 arm64 DMG" });
 }
 if (rec.sourceRead === true) {
@@ -86,7 +86,7 @@ identity.recordAssertion({
   runnerId: "installed",
   testId: "verify-installed",
   assertionId: "from-exact-arm64-dmg",
-  details: { safe: "installed evidence mounted exact Penglai_0.5.0_macos_aarch64.dmg" },
+  details: { safe: "installed evidence mounted exact Penglai_0.5.1_macos_aarch64.dmg" },
 });
 identity.recordAssertion({
   ...common,

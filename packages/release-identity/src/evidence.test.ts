@@ -8,7 +8,7 @@ test("rejects hardcoded PASS", () => {
   assert.throws(
     () =>
       buildEvidenceManifest({
-        release: "0.5.0",
+        release: "0.5.1",
         runId: "x",
         candidateSha: "a".repeat(40),
         registry: ["R50-TRUTH-001"],
@@ -101,7 +101,7 @@ test("PASS without assertionId is rejected", () => {
   assert.throws(
     () =>
       buildEvidenceManifest({
-        release: "0.5.0",
+        release: "0.5.1",
         runId: "x",
         candidateSha: "a".repeat(40),
         registry: ["R50-TRUTH-001"],

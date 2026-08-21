@@ -10,14 +10,14 @@ import {
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry"];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 interface OfficialSkillSummary {
   name: string;

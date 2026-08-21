@@ -5,8 +5,8 @@ import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 
-export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.0_macos_aarch64.dmg");
-export const ARM64_INSTALLER = "Penglai_0.5.0_macos_aarch64.dmg";
+export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.1_macos_aarch64.dmg");
+export const ARM64_INSTALLER = "Penglai_0.5.1_macos_aarch64.dmg";
 
 export function leftoversByCommand(needle) {
   const r = spawnSync("/bin/ps", ["-axo", "pid=,ppid=,command="], { encoding: "utf8" });
@@ -64,7 +64,7 @@ export function readInstalledAppIdentity(app) {
 export function assertInstalledPenglaiIdentity(app) {
   const facts = readInstalledAppIdentity(app);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.0" || facts.version !== "0.5.0") {
+  if (facts.shortVersion !== "0.5.1" || facts.version !== "0.5.1") {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };

@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { CompanionStore, type CompanionDispatchRow } from "./scheduler.js";
 import {
   FRESH_COMPANION,
@@ -23,7 +23,7 @@ export const inject = [
   "penglaiImCore",
   "penglaiBudget",
 ];
-export const version = "0.5.0";
+export const version = RELEASE;
 
 interface AgentContextLike {
   tools?: {

@@ -1,6 +1,8 @@
+import { RELEASE } from "@penglai/contracts";
+
 export const PRODUCT_BUNDLE_ID = "com.penglai.dsh";
 export const PRODUCT_EXECUTABLE = "Penglai";
-export const PRODUCT_VERSION = "0.5.0";
+export const PRODUCT_VERSION = RELEASE;
 
 export interface AppIdentityFacts {
   executable: string;
@@ -60,7 +62,7 @@ export function rewriteElectronPlist(plist: string): string {
 }
 
 export const WINDOWS_NSIS_CONTRACT = {
-  installer: "Penglai_0.5.0_windows_x64_setup.exe",
+  installer: `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`,
   currentUser: true,
   bilingual: ["zh", "en"] as const,
   refuseDowngrade: true,
@@ -113,7 +115,7 @@ export function assertWindowsNsisScript(script: string): void {
 }
 
 export const CROSS_BUILD_TARGETS = [
-  { packTarget: "darwin-arm64", releaseKey: "darwin-aarch64", installer: "Penglai_0.5.0_macos_aarch64.dmg" },
-  { packTarget: "darwin-x64", releaseKey: "darwin-x86_64", installer: "Penglai_0.5.0_macos_x64.dmg", translatedOnly: true },
-  { packTarget: "win32-x64", releaseKey: "windows-x86_64", installer: "Penglai_0.5.0_windows_x64_setup.exe", nativeEvidence: false },
+  { packTarget: "darwin-arm64", releaseKey: "darwin-aarch64", installer: `Penglai_${PRODUCT_VERSION}_macos_aarch64.dmg` },
+  { packTarget: "darwin-x64", releaseKey: "darwin-x86_64", installer: `Penglai_${PRODUCT_VERSION}_macos_x64.dmg`, translatedOnly: true },
+  { packTarget: "win32-x64", releaseKey: "windows-x86_64", installer: `Penglai_${PRODUCT_VERSION}_windows_x64_setup.exe`, nativeEvidence: false },
 ] as const;

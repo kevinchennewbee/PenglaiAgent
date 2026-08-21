@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 
 const contract = {
-  installer: "Penglai_0.5.0_windows_x64_setup.exe",
+  installer: "Penglai_0.5.1_windows_x64_setup.exe",
   currentUser: true,
   languages: ["zh", "en"],
   refuseDowngrade: true,
