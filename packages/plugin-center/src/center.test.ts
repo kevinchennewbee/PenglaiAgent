@@ -637,15 +637,14 @@ test("R50-CENTER-007 tampered package checksum is rejected before activate", () 
   }
 });
 
-test("signed plugin bytes are hashed and consumed from one no-follow file descriptor", () => {
+test("signed plugin bytes are hashed and consumed from one bound file descriptor", () => {
   const source = readFileSync(
     new URL("./profile-tx.ts", import.meta.url),
     "utf8",
   );
-  assert.match(
-    source,
-    /openSync\(packageFile, constants\.O_RDONLY \| constants\.O_NOFOLLOW\)/,
-  );
+  assert.match(source, /openSync\(packageFile, "r"\)/);
+  assert.match(source, /opened\.ino !== named\.ino/);
+  assert.match(source, /named\.isSymbolicLink\(\)/);
   assert.match(source, /bytes = readFileSync\(fd\)/);
   assert.match(source, /createHash\("sha256"\)\.update\(bytes\)/);
   assert.doesNotMatch(

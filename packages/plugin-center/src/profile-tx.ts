@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
-  constants,
   cpSync,
   existsSync,
   fstatSync,
@@ -199,7 +198,7 @@ function readVerifiedPackage(
   let fd: number | undefined;
   let bytes: Buffer;
   try {
-    fd = openSync(packageFile, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(packageFile, "r");
     const opened = fstatSync(fd);
     const named = lstatSync(packageFile);
     if (
