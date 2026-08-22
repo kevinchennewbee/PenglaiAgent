@@ -1,6 +1,16 @@
 import { spawn } from "node:child_process";
 import { createHash, createPublicKey, verify } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 
@@ -307,6 +317,50 @@ export function verifyPayload(buf: Buffer, sha256: string, signature: Buffer, pu
   verifyDetached(buf, signature, publicKeyHex, "payload");
 }
 
+export function readBoundUpdatePayload(
+  path: string,
+  expectedSize: number,
+  options: { forbidExecutable?: boolean } = {},
+): Buffer {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, "r");
+    const opened = fstatSync(fd);
+    const named = lstatSync(path);
+    if (
+      !opened.isFile() ||
+      named.isSymbolicLink() ||
+      !named.isFile() ||
+      opened.dev !== named.dev ||
+      opened.ino !== named.ino ||
+      opened.size !== expectedSize ||
+      (options.forbidExecutable === true &&
+        process.platform !== "win32" &&
+        (opened.mode & 0o111) !== 0)
+    ) {
+      throw new PenglaiError("SECURITY_POLICY", "update payload identity mismatch");
+    }
+    const bytes = readFileSync(fd);
+    if (bytes.length !== expectedSize) {
+      throw new PenglaiError("SECURITY_POLICY", "update payload size changed while reading");
+    }
+    return bytes;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      throw new PenglaiError("INVALID_INPUT", "verified installer missing");
+    }
+    if (error instanceof PenglaiError) throw error;
+    throw new PenglaiError("SECURITY_POLICY", "update payload could not be opened safely");
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 export function verifyManifestBytes(input: {
   bytes: Buffer;
   signature: Buffer;
@@ -539,11 +593,8 @@ export class VerifiedInstallerHandoff {
   }
 
   #verifyFile(path: string, size: number, sha256: string, signature: Buffer): void {
-    if (!existsSync(path)) throw new PenglaiError("INVALID_INPUT", "verified installer missing");
-    const lst = lstatSync(path);
-    if (lst.isSymbolicLink() || !lst.isFile()) throw new PenglaiError("SECURITY_POLICY", "installer must be a regular file");
-    if (statSync(path).size !== size) throw new PenglaiError("SECURITY_POLICY", "installer size changed");
-    verifyPayload(readFileSync(path), sha256, signature, this.#publicKeyHex);
+    const bytes = readBoundUpdatePayload(path, size, { forbidExecutable: true });
+    verifyPayload(bytes, sha256, signature, this.#publicKeyHex);
   }
 }
 
