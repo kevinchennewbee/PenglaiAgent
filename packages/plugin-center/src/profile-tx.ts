@@ -1,9 +1,13 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
+  constants,
   cpSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -185,21 +189,61 @@ export function upsertPatchDisabled(
 
 export { sha256File };
 
+function readVerifiedPackage(
+  packageFile: string,
+  expectedSha: string,
+): { bytes: Buffer; sha256: string } {
+  if (!/^[0-9a-f]{64}$/.test(expectedSha)) {
+    throw new PenglaiError("SECURITY_POLICY", "checksum required");
+  }
+  let fd: number | undefined;
+  let bytes: Buffer;
+  try {
+    fd = openSync(packageFile, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const opened = fstatSync(fd);
+    const named = lstatSync(packageFile);
+    if (
+      !opened.isFile() ||
+      named.isSymbolicLink() ||
+      !named.isFile() ||
+      opened.dev !== named.dev ||
+      opened.ino !== named.ino
+    ) {
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        "plugin package must be one regular file",
+      );
+    }
+    bytes = readFileSync(fd);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      throw new PenglaiError("INVALID_INPUT", "package missing");
+    }
+    if (error instanceof PenglaiError) throw error;
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "plugin package could not be opened safely",
+    );
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+  const got = createHash("sha256").update(bytes).digest("hex");
+  if (expectedSha !== got) {
+    throw new PenglaiError("SECURITY_POLICY", "checksum mismatch");
+  }
+  return { bytes, sha256: got };
+}
+
 export function assertPackageIntegrity(
   packageFile: string,
   expectedSha: string,
 ): string {
-  if (!existsSync(packageFile)) {
-    throw new PenglaiError("INVALID_INPUT", "package missing");
-  }
-  if (!/^[0-9a-f]{64}$/.test(expectedSha)) {
-    throw new PenglaiError("SECURITY_POLICY", "checksum required");
-  }
-  const got = sha256File(packageFile);
-  if (expectedSha !== got) {
-    throw new PenglaiError("SECURITY_POLICY", "checksum mismatch");
-  }
-  return got;
+  return readVerifiedPackage(packageFile, expectedSha).sha256;
 }
 
 function extractedRoot(directory: string): string {
@@ -305,13 +349,13 @@ export async function dryLoadPackage(
   packageFile: string,
   entry: PluginCatalogEntry,
 ): Promise<{ name: string; version: string; sha256: string }> {
-  const sha256 = assertPackageIntegrity(packageFile, entry.sha256);
+  const verified = readVerifiedPackage(packageFile, entry.sha256);
   const temp = `${packageFile}.dry-${process.pid}-${randomUUID()}`;
   mkdirSync(temp, { recursive: true, mode: 0o700 });
   try {
-    const archiveFiles = extractTarGz(readFileSync(packageFile), temp);
+    const archiveFiles = extractTarGz(verified.bytes, temp);
     await verifyExtractedPackage(temp, entry, true, archiveFiles);
-    return { name: entry.id, version: entry.version, sha256 };
+    return { name: entry.id, version: entry.version, sha256: verified.sha256 };
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
@@ -421,12 +465,9 @@ export async function runProfileTransaction(opts: {
           "plugin package escaped catalog root",
         );
       }
-      assertPackageIntegrity(packageFile, opts.entry.sha256);
+      const verified = readVerifiedPackage(packageFile, opts.entry.sha256);
       mkdirSync(packageStage, { recursive: true, mode: 0o700 });
-      const archiveFiles = extractTarGz(
-        readFileSync(packageFile),
-        packageStage,
-      );
+      const archiveFiles = extractTarGz(verified.bytes, packageStage);
       const packageRoot = await verifyExtractedPackage(
         packageStage,
         opts.entry,
@@ -444,8 +485,8 @@ export async function runProfileTransaction(opts: {
           "plugin package escaped catalog root",
         );
       }
-      assertPackageIntegrity(packageFile, opts.entry.sha256);
-      const archiveFiles = inspectTarGz(readFileSync(packageFile));
+      const verified = readVerifiedPackage(packageFile, opts.entry.sha256);
+      const archiveFiles = inspectTarGz(verified.bytes);
       await verifyExtractedPackage(scoped, opts.entry, true, archiveFiles);
     }
     journal.phase = "activating";

@@ -637,6 +637,23 @@ test("R50-CENTER-007 tampered package checksum is rejected before activate", () 
   }
 });
 
+test("signed plugin bytes are hashed and consumed from one no-follow file descriptor", () => {
+  const source = readFileSync(
+    new URL("./profile-tx.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /openSync\(packageFile, constants\.O_RDONLY \| constants\.O_NOFOLLOW\)/,
+  );
+  assert.match(source, /bytes = readFileSync\(fd\)/);
+  assert.match(source, /createHash\("sha256"\)\.update\(bytes\)/);
+  assert.doesNotMatch(
+    source,
+    /assertPackageIntegrity\(packageFile,[\s\S]{0,240}readFileSync\(packageFile\)/,
+  );
+});
+
 test("Center disable rolls back when a measured plugin resource remains open", async () => {
   const { runProfileTransaction } = await import("./profile-tx.js");
   const root = mkdtempSync(join(tmpdir(), "penglai-center-resource-"));
