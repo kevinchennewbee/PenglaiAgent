@@ -4,7 +4,7 @@
 
 Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settings.plugins.tab`。它不是 Electron 外壳里的第二商店，也不是一个只写 `desired.json` 的状态页。
 
-## 2. 0.5.0 catalog
+## 2. 0.5.x 内置 catalog
 
 只允许 app 内签入并离线验证的包：
 
@@ -28,7 +28,13 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 - `penglai-first-party`：0.5真实交付ASR/MOSS-TTS/Context/Memory/Budget/Companion；以后蓬莱原生能力也只有完整实现和验收后才进入 catalog。
 - `community-reviewed`：未来优质社区插件，必须经过来源与许可证审核、作者/package identity、签名或受信 checksum、权限、DSH range、平台/ABI、sandbox、安全测试、migration 和 rollback。
 
-0.5.0 的数据模型、来源 badge 和 policy engine 要为后两类留正确扩展点，但本版不联网检索插件、不接受任意 npm/Git/URL、不展示空卡。语音模型下载是已签入插件的固定数据资产管理，不等于远程安装插件代码。
+内置 catalog 不接受任意 npm/Git/URL，也不展示空卡。语音模型下载是已签入插件的固定数据资产管理，不等于远程安装插件代码。
+
+## 2.2 签名远程 catalog
+
+0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
+
+当前不可变目录是 `plugin-catalog-v1.000002`。其中 `@penglai/office-reader` 0.1.0 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行。它不是完整 Office 编辑套件，公式只报告不计算，布局、图表和图片不冒充已还原。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展，不代表它们已安装。完成 BYOK 后 official DSH 必须独立可用；fresh profile 只安装 Center，其他扩展在用户点击“安装并启用”后才校验、写入、加载。任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 

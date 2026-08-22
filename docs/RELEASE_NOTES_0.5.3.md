@@ -6,7 +6,13 @@ Penglai 0.5.3 is an update-closeout hotfix. It keeps official DeepSeek Harness `
 
 - Upgrade post-verification no longer requires the optional Penglai IM plugin to be enabled. The hard gate now matches the product contract: embedded runtime integrity, profile readiness, required DSH credentials and Penglai Center inventory, and a healthy DSH process must pass; optional plugins may remain disabled.
 - A later manual overlay can reconcile a stale `RECOVERY_REQUIRED` journal from an older failed post-verification attempt. It records the installed newer version as current without inventing a signed update ledger, then allows future update checks again.
+- Signed remote plugin archives now stage under the app-private `Penglai/0.5/plugins/packages` tree. The application-bundled plugin directory remains read-only, and remote install/update rechecks package identity and SHA-256 before an atomic stage.
+- Windows packaging now writes and verifies the same Electron fuse policy as macOS: RunAsNode, `NODE_OPTIONS`, and CLI inspect are disabled in the packaged `Penglai.exe`. All three native release jobs inspect the final packaged binary.
 - Regression coverage proves both the default-disabled IM path and recovery of a superseded 0.5.2 journal.
+
+## Office Reader plugin
+
+The immutable signed catalog [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) adds `@penglai/office-reader` 0.1.0. It is a deliberately read-only first release: bounded text and cell extraction for DOCX, XLSX, and PPTX through the official DSH filesystem, with no network, native code, install scripts, or macro execution. It remains disabled until the owner confirms `workspace.read` in Plugin Center. Publishing later compatible catalog sequences does not require another desktop release.
 
 ## 0.5.2 correction
 
@@ -25,4 +31,4 @@ All paths preserve the `Penglai/0.5` data generation and external Workspaces. Th
 
 This remains a `community-verified` release. macOS packages are ad-hoc signed and not notarized; Windows is not Authenticode signed. Gatekeeper or SmartScreen may warn. Do not disable system security.
 
-The Plugin Center remains independent of desktop releases: another compatible, Penglai-signed catalog generation or DSH plugin archive can be published through the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) without rebuilding the client.
+The Plugin Center remains independent of desktop releases: another compatible, Penglai-signed catalog generation or DSH plugin archive can be published through the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) without rebuilding the client. Catalog 2 has passed production-path GitHub refresh, catalog and package signature verification, app-private staging, disabled-by-default installation, and offline last-good recovery.

@@ -16,7 +16,8 @@ import {
   pluginPermissionDigest,
 } from "../packages/runtime/src/index.ts";
 
-const expectedTag = process.argv[2] || "plugin-catalog-v1.000001";
+const expectedTag = process.argv[2] || "plugin-catalog-v1.000002";
+const expectedPlugin = process.argv[3] || "@penglai/office-reader";
 const root = mkdtempSync(join(tmpdir(), "penglai-live-plugin-catalog-"));
 const githubToken = process.env.GITHUB_TOKEN?.trim();
 const authenticatedGithubApiFetch = async (input, init = {}) => {
@@ -44,15 +45,20 @@ let record;
 try {
   const online = new PluginDistributionClient(shared);
   const snapshot = await online.refresh();
-  const entry = snapshot.catalog.entries.find((row) => row.id === "@penglai/plugin-pilot");
-  if (!entry) throw new Error("signed catalog is missing @penglai/plugin-pilot");
-  const pkg = await online.downloadPackage("@penglai/plugin-pilot");
+  const entry = snapshot.catalog.entries.find((row) => row.id === expectedPlugin);
+  if (!entry) throw new Error(`signed catalog is missing ${expectedPlugin}`);
+  if (!snapshot.catalog.entries.some((row) => row.id === "@penglai/plugin-pilot")) {
+    throw new Error("signed catalog dropped @penglai/plugin-pilot");
+  }
+  const pkg = await online.downloadPackage(expectedPlugin);
   const userDataRoot = join(root, "user-data");
   const profileDir = join(userDataRoot, "dsh-home", "profiles", "web");
   const txDir = join(userDataRoot, "profiles", "center-tx");
-  const pluginsDir = join(userDataRoot, "plugins", "packages");
+  const bundledPluginsDir = join(root, "bundled-plugins");
+  const registryPackagesDir = join(userDataRoot, "plugins", "packages");
   mkdirSync(profileDir, { recursive: true, mode: 0o700 });
-  mkdirSync(pluginsDir, { recursive: true, mode: 0o700 });
+  mkdirSync(bundledPluginsDir, { recursive: true, mode: 0o700 });
+  mkdirSync(registryPackagesDir, { recursive: true, mode: 0o700 });
   writeFileSync(join(profileDir, "cordis.patch.yml"), "# live signed catalog install\n", { mode: 0o600 });
 
   const desired = {};
@@ -63,7 +69,7 @@ try {
       installed
         ? [
             {
-              entryId: "penglai-plugin-pilot",
+              entryId: expectedPlugin.replace(/^@/, "").replaceAll("/", "-"),
               moduleName: entry.id,
               disabled: !enabled,
               enabled,
@@ -104,8 +110,8 @@ try {
     }),
     profileDir,
     txDir,
-    pluginsDir,
-    registryPackagesDir: pluginsDir,
+    pluginsDir: bundledPluginsDir,
+    registryPackagesDir,
     userDataRoot,
     target: "darwin-aarch64",
   });
@@ -126,8 +132,7 @@ try {
   const installedManifestPath = join(
     profileDir,
     "node_modules",
-    "@penglai",
-    "plugin-pilot",
+    ...entry.id.split("/"),
     "package.json",
   );
   const installedManifest = JSON.parse(readFileSync(installedManifestPath, "utf8"));
@@ -144,6 +149,8 @@ try {
       desired[entry.id] === false &&
       inventory.list()[0]?.enabled === false &&
       journal.phase === "committed" &&
+      existsSync(join(registryPackagesDir, `${entry.id.replace("@", "").replaceAll("/", "-")}-${entry.version}.tgz`)) &&
+      !existsSync(join(bundledPluginsDir, `${entry.id.replace("@", "").replaceAll("/", "-")}-${entry.version}.tgz`)) &&
       !existsSync(join(txDir, "active.lock")) &&
       !existsSync(join(userDataRoot, "plugins", "owner-capability.json")),
   );
@@ -157,7 +164,7 @@ try {
   const ok = Boolean(
     snapshot.source === "github-immutable" &&
       snapshot.tag === expectedTag &&
-      snapshot.sequence >= 1 &&
+      snapshot.sequence === 2 &&
       snapshot.signatureOk &&
       entry?.defaultEnabled === false &&
       entry.nativeCode === false &&
