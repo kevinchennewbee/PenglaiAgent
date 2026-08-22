@@ -4,8 +4,8 @@
 
 本合同覆盖：
 
-- 0.5.2 在 Apple Silicon、Intel Mac 与 Windows x64 的 fresh install、首次启动与恢复。
-- 公开版 0.5.1 → 0.5.2 的更新发现、签名验证、用户确认和 assisted install。
+- 0.5.3 在 Apple Silicon、Intel Mac 与 Windows x64 的 fresh install、首次启动与恢复。
+- 公开版 0.5.1 → 0.5.3 的更新发现、签名验证、用户确认和 assisted install。
 - profile/plugin/IM schema 的事务迁移与失败恢复。
 - Windows 原生卸载器和 macOS 应用内卸载准备/数据管理。
 - 0.4.1 旧架构的只读检测与 clean-generation 提示。
@@ -89,7 +89,7 @@ NOT_STARTED
 {
   "schemaVersion": 1,
   "channel": "desktop-v0.5",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publishedAt": "...",
   "minimumVersion": "0.5.0",
   "notesUrl": "...",
@@ -157,7 +157,7 @@ Electron官方说明macOS autoUpdater需要已签名app。当前0.5 community ca
 
 - loopback-only update server。
 - ephemeral test signing key；private fixture key 只在测试临时目录生成，不提交。
-- `0.5.2-test.N` payload，包含可识别版本但不含产品 secret。
+- `0.5.3-test.N` payload，包含可识别版本但不含产品 secret。
 - valid、tampered payload、wrong key、wrong arch、rollback、same version、truncated download、disconnect/resume、disk full、installer cancel、crash between every journal transition。
 
 fixture 不能通过 `/penglai/usable-fixture` 暴露给 production renderer。test-only entry 必须在 build-time test target 中编译隔离，release bundle scanner 证明不存在。

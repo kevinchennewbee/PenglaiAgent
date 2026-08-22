@@ -1,6 +1,8 @@
 # PUBLICATION_MANIFEST 0.5.2
 
-Status: `UNFROZEN`
+Status: `PUBLISHED_WITH_POST_VERIFY_DEFECT`
+
+The immutable v0.5.2 bytes are preserved. A real public 0.5.1 assisted-update drill installed and launched 0.5.2 but ended in `RECOVERY_REQUIRED / POST_VERIFY_FAILED` because the optional IM plugin was incorrectly required by post-verification. See `RELEASE_NOTES_0.5.2.md` and the 0.5.3 replacement contract.
 
 | Field | Value |
 | --- | --- |

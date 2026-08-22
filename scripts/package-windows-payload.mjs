@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
+import { writeRequiredFuses } from "./lib/electron-fuses.mjs";
 
 const staging = stagingForTarget(ROOT, "win32-x86_64");
 const payload = join(staging, "payload");
@@ -101,6 +102,11 @@ const stamped = run(process.execPath, [
 if (stamped !== 0) {
   finish("FAIL", { command: "package:windows-payload", reason: "Penglai.exe resource stamping failed" });
 }
+try {
+  writeRequiredFuses(penglaiExe);
+} catch (error) {
+  finish("FAIL", { command: "package:windows-payload", reason: `Penglai.exe fuse hardening failed: ${String(error)}` });
+}
 
 const resources = join(payload, "resources");
 mkdirSync(resources, { recursive: true });
@@ -117,7 +123,7 @@ if (native) {
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.2",
+      productVersion: "0.5.3",
       buildNumber: 0,
       candidateOrdinal: 0,
       candidateKind: "public-community-release",

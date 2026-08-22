@@ -49,7 +49,7 @@ export function writeRequiredFuses(path) {
   });
   if (Buffer.compare(before, after) !== 0) writeFileSync(path, after);
   const info = inspectFuseWire(readFileSync(path));
-  if (info.values.runAsNode !== false || info.values.enableNodeCliInspectArguments !== false) {
+  if (info.values.runAsNode !== false || info.values.enableNodeOptionsEnvironmentVariable !== false || info.values.enableNodeCliInspectArguments !== false) {
     throw new Error("failed to write required fuses");
   }
   return info;

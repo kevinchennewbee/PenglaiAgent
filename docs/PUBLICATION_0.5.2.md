@@ -1,5 +1,7 @@
 # PenglaiAgent 0.5.2 publication contract
 
+> **Post-release audit result:** the public update drill contradicted this contract after immutable publication. Installation reached 0.5.2 and DSH started, but the ledger ended in `RECOVERY_REQUIRED / POST_VERIFY_FAILED` because optional IM was disabled. The immutable Release is retained as published; 0.5.3 carries the fix and the completed replacement gate. Statements below describe the intended 0.5.2 gate and must not be read as evidence that it passed.
+
 0.5.2 is a three-target hotfix release of official DSH `0.1.1-rc.1`. Publication is authorized only after the merged clean `main` SHA produces native-verified Apple Silicon, Intel Mac, and Windows x64 installers and the exact release set is signed, published immutable, and read back from GitHub.
 
 The required installers are:

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { assertIpcName } from "./preload.js";
@@ -78,6 +79,13 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /officialVendorConsoleDecision/);
   assert.match(main, /shell\.openExternal/);
   assert.match(main, /setWindowOpenHandler\(\(\{ url \}\) =>/);
+});
+
+test("startup failure tears down owned services before rendering recovery", () => {
+  const source = readFileSync(new URL("./electron-main.ts", import.meta.url), "utf8");
+  const failProbe = source.slice(source.indexOf("const failProbe"), source.indexOf("const failProbe") + 900);
+  assert.match(failProbe, /await stopOwnedServices\(\)/);
+  assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recovery)"));
 });
 
 test("control shell documents the community trust boundary", async () => {

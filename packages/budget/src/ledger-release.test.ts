@@ -21,3 +21,23 @@ test("P51-BUDGET-001 releaseTurn audits reservations instead of forgetting them"
   const kept = ledger.db.prepare("SELECT COUNT(*) AS c FROM budget_releases").get() as { c: number };
   assert.equal(Number(kept.c), 1);
 });
+
+test("releaseTurn treats percent and underscore in session ids literally", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-budget-rel-literal-"));
+  const ledger = new BudgetLedger(join(dir, "ledger.sqlite3"));
+  const now = Date.now();
+  for (const reservationKey of ["s%:1:1", "safe:1:1", "s_:1:1", "solo:1:1"]) {
+    ledger.admit(
+      {
+        reservationKey,
+        estimatedTokens: 1,
+        identity: { provider: "deepseek", model: "chat" },
+      },
+      now,
+    );
+  }
+  assert.equal(ledger.releaseTurn("s%", 1), 1);
+  assert.equal(ledger.releaseTurn("s_", 1), 1);
+  const remaining = ledger.db.prepare("SELECT reservation_key FROM budget_reservations ORDER BY reservation_key").all() as Array<{ reservation_key: string }>;
+  assert.deepEqual(remaining.map((row) => row.reservation_key), ["safe:1:1", "solo:1:1"]);
+});

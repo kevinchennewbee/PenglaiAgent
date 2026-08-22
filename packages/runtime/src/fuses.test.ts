@@ -23,9 +23,11 @@ test("R50-SEC-004 fuse wire is read from binary bytes not config strings", () =>
   });
   const after = inspectFuseWire(flipped);
   assert.equal(after.values.runAsNode, false);
+  assert.equal(after.values.enableNodeOptionsEnvironmentVariable, false);
   assert.equal(after.values.enableNodeCliInspectArguments, false);
   assert.doesNotThrow(() => assertRequiredFuses(after.values));
   assert.throws(() => assertRequiredFuses(info.values));
+  assert.throws(() => assertRequiredFuses({ ...after.values, enableNodeOptionsEnvironmentVariable: true }));
 });
 
 test("R50-MAC-005 nine-byte Electron 43 fuse wire keeps onlyLoadAppFromAsar false", () => {

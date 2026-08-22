@@ -1,5 +1,19 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, t } from "@penglai/contracts";
@@ -87,7 +101,10 @@ function catalogEntry(
   const remote = registry.entry(id);
   const artifact = selectCatalogArtifact(remote.artifacts, hostTarget);
   if (remote.dsh.exact !== PINNED_PLUGIN_DSH) {
-    throw new PenglaiError("SECURITY_POLICY", `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`);
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      `${id} DSH pin is not ${PINNED_PLUGIN_DSH}`,
+    );
   }
   return {
     id: remote.id,
@@ -100,7 +117,10 @@ function catalogEntry(
     defaultEnabled: false,
     builtIn: false,
     source: "penglai-plugin-registry",
-    provenanceClass: remote.provenanceClass === "community-reviewed" ? "community-reviewed" : "penglai-first-party",
+    provenanceClass:
+      remote.provenanceClass === "community-reviewed"
+        ? "community-reviewed"
+        : "penglai-first-party",
     license: remote.license,
     migration: remote.migration,
     rollback: "last-good-profile",
@@ -153,6 +173,122 @@ function previousEnabledFromJournal(txDir: string, id: string): boolean {
   return raw.previousEnabled;
 }
 
+function isUnder(root: string, candidate: string): boolean {
+  const rel = relative(resolve(root), resolve(candidate));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function registryPackageRoot(
+  userDataRoot: string,
+  configured: string | undefined,
+): string {
+  const root = configured ?? join(userDataRoot, "plugins", "packages");
+  if (
+    !isAbsolute(root) ||
+    !isUnder(userDataRoot, root) ||
+    resolve(root) === resolve(userDataRoot)
+  ) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "registry package directory escaped userData",
+    );
+  }
+  mkdirSync(root, { recursive: true, mode: 0o700 });
+  if (lstatSync(root).isSymbolicLink()) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "registry package directory must not be a symlink",
+    );
+  }
+  if (!isUnder(realpathSync(userDataRoot), realpathSync(root))) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "registry package directory resolved outside userData",
+    );
+  }
+  return root;
+}
+
+export function stageRegistryPackage(input: {
+  pkg: CachedPackage;
+  entry: PluginCatalogEntry;
+  userDataRoot: string;
+  registryPackagesDir?: string;
+}): string {
+  const root = registryPackageRoot(
+    input.userDataRoot,
+    input.registryPackagesDir,
+  );
+  if (input.entry.source !== "penglai-plugin-registry") {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "only registry packages may enter the mutable package root",
+    );
+  }
+  if (
+    input.pkg.id !== input.entry.id ||
+    input.pkg.version !== input.entry.version ||
+    input.pkg.sha256 !== input.entry.sha256
+  ) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "downloaded package identity mismatch",
+    );
+  }
+  let packageFd: number | undefined;
+  let bytes: Buffer;
+  try {
+    packageFd = openSync(
+      input.pkg.path,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+    const openedStat = fstatSync(packageFd);
+    const pathStat = lstatSync(input.pkg.path);
+    if (
+      !openedStat.isFile() ||
+      pathStat.isSymbolicLink() ||
+      !pathStat.isFile() ||
+      openedStat.dev !== pathStat.dev ||
+      openedStat.ino !== pathStat.ino
+    ) {
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        "downloaded package must be a regular cached file",
+      );
+    }
+    bytes = readFileSync(packageFd);
+  } catch (error) {
+    if (error instanceof PenglaiError) throw error;
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "downloaded package must be a regular cached file",
+    );
+  } finally {
+    if (packageFd !== undefined) closeSync(packageFd);
+  }
+  if (createHash("sha256").update(bytes).digest("hex") !== input.entry.sha256) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "downloaded package checksum mismatch",
+    );
+  }
+  const destination = join(root, input.entry.packageFile);
+  if (!isUnder(root, destination)) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "registry package escaped mutable package root",
+    );
+  }
+  const temp = `${destination}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temp, bytes, { mode: 0o600, flag: "wx" });
+    renameSync(temp, destination);
+  } finally {
+    rmSync(temp, { force: true });
+  }
+  return destination;
+}
+
 export function createCenterRemote(opts: {
   host: CenterHostLike;
   inventory: { list(): unknown };
@@ -161,15 +297,26 @@ export function createCenterRemote(opts: {
   resourceProbe: (id: string) => ResourceProbe | undefined;
   profileDir: string;
   txDir: string;
+  /** Read-only packages shipped inside the application. */
   pluginsDir: string;
+  /** Mutable, app-private packages downloaded from the signed registry. */
+  registryPackagesDir?: string;
   userDataRoot: string;
   registry?: PluginDistributionClient;
-  stagePackage?: (pkg: CachedPackage) => Promise<void>;
   target?: ProductPluginTarget;
 }): CenterRemote {
-  const hostTarget = (): ProductPluginTarget => opts.target ?? runtimePluginTarget();
-  const requireOwner = (id: string, action: PluginOwnerAction, capabilityId: string | undefined): void => {
-    if (!capabilityId) throw new PenglaiError("SECURITY_POLICY", "native owner capability is required");
+  const hostTarget = (): ProductPluginTarget =>
+    opts.target ?? runtimePluginTarget();
+  const requireOwner = (
+    id: string,
+    action: PluginOwnerAction,
+    capabilityId: string | undefined,
+  ): void => {
+    if (!capabilityId)
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        "native owner capability is required",
+      );
     const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
     consumePluginOwnerGrant({
       userDataRoot: opts.userDataRoot,
@@ -180,7 +327,9 @@ export function createCenterRemote(opts: {
       sha256: entry.sha256,
       permissionDigest: pluginPermissionDigest({
         permissions: entry.permissions,
-        ...(entry.networkOrigins ? { networkOrigins: entry.networkOrigins } : {}),
+        ...(entry.networkOrigins
+          ? { networkOrigins: entry.networkOrigins }
+          : {}),
         ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
         nativeCode: entry.nativeCode === true,
       }),
@@ -192,7 +341,10 @@ export function createCenterRemote(opts: {
   ) => {
     const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
     if (action === "disable" && id === "@penglai/plugin-center") {
-      throw new PenglaiError("SECURITY_POLICY", "required plugin cannot be disabled");
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        "required plugin cannot be disabled",
+      );
     }
     const previousEnabled = Boolean(opts.host.desired()[id]);
     const probe = opts.resourceProbe(id);
@@ -200,7 +352,10 @@ export function createCenterRemote(opts: {
       userDataRoot: opts.userDataRoot,
       profileDir: opts.profileDir,
       txDir: opts.txDir,
-      pluginsDir: opts.pluginsDir,
+      pluginsDir:
+        entry.source === "penglai-plugin-registry"
+          ? registryPackageRoot(opts.userDataRoot, opts.registryPackagesDir)
+          : opts.pluginsDir,
       entry,
       action,
       previousEnabled,
@@ -237,7 +392,8 @@ export function createCenterRemote(opts: {
         const recon = catalog.find((entry) => entry.id === card.id);
         return {
           ...card,
-          installed: recon?.installed ?? (card.downloaded ? "cached" : "not-installed"),
+          installed:
+            recon?.installed ?? (card.downloaded ? "cached" : "not-installed"),
           loaded: rowLoaded(row),
           enabled: recon
             ? recon.desired !== "disabled"
@@ -269,7 +425,8 @@ export function createCenterRemote(opts: {
               rowLoaded(entry),
           ),
           "plugin-center": rows.some(
-            (entry) => rowMatches(entry, "@penglai/plugin-center") && rowLoaded(entry),
+            (entry) =>
+              rowMatches(entry, "@penglai/plugin-center") && rowLoaded(entry),
           ),
           im: rows.some(
             (entry) => rowMatches(entry, "@penglai/im") && rowLoaded(entry),
@@ -284,13 +441,33 @@ export function createCenterRemote(opts: {
     disable(id: string) {
       return transact(id, "disable");
     },
-    update(id: string, capabilityId?: string) {
+    async update(id: string, capabilityId?: string) {
       requireOwner(id, "plugin-update", capabilityId);
+      const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
+      if (entry.source === "penglai-plugin-registry") {
+        if (!opts.registry)
+          throw new PenglaiError(
+            "INVALID_INPUT",
+            "remote plugin registry is not configured",
+          );
+        const pkg = await opts.registry.downloadPackage(id, hostTarget());
+        stageRegistryPackage({
+          pkg,
+          entry,
+          userDataRoot: opts.userDataRoot,
+          ...(opts.registryPackagesDir
+            ? { registryPackagesDir: opts.registryPackagesDir }
+            : {}),
+        });
+      }
       return transact(id, "update");
     },
     async refreshRegistry() {
       if (arguments.length > 0) {
-        throw new PenglaiError("SECURITY_POLICY", "production refresh does not accept renderer URL, public key, or signingKeyId");
+        throw new PenglaiError(
+          "SECURITY_POLICY",
+          "production refresh does not accept renderer URL, public key, or signingKeyId",
+        );
       }
       const disclaimer = {
         sandbox: false,
@@ -312,17 +489,40 @@ export function createCenterRemote(opts: {
       };
     },
     async download(id: string) {
-      if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
+      if (!opts.registry)
+        throw new PenglaiError(
+          "INVALID_INPUT",
+          "remote plugin registry is not configured",
+        );
       return opts.registry.downloadPackage(id);
     },
     async installDisabled(id: string, capabilityId?: string) {
-      if (!opts.registry) throw new PenglaiError("INVALID_INPUT", "remote plugin registry is not configured");
+      if (!opts.registry)
+        throw new PenglaiError(
+          "INVALID_INPUT",
+          "remote plugin registry is not configured",
+        );
       requireOwner(id, "plugin-install", capabilityId);
       const pkg = await opts.registry.downloadPackage(id, hostTarget());
-      await opts.stagePackage?.(pkg);
+      const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
+      stageRegistryPackage({
+        pkg,
+        entry,
+        userDataRoot: opts.userDataRoot,
+        ...(opts.registryPackagesDir
+          ? { registryPackagesDir: opts.registryPackagesDir }
+          : {}),
+      });
       const installed = await transact(id, "install");
       await waitForInventory(opts.inventory, id, false);
-      return { id, version: pkg.version, sha256: pkg.sha256, enabled: false, installed: true, phase: installed.phase };
+      return {
+        id,
+        version: pkg.version,
+        sha256: pkg.sha256,
+        enabled: false,
+        installed: true,
+        phase: installed.phase,
+      };
     },
     async rollback(id: string) {
       catalogEntry(opts.catalog, id, opts.registry, hostTarget());

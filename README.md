@@ -2,17 +2,17 @@
   <img src="https://raw.githubusercontent.com/kevinchennewbee/PenglaiAgent/212dd84/.github/assets/banner-v1.png" width="100%" alt="Penglai, an AI island emerging from the mist">
 </p>
 
-<p align="center"><sub>The original Penglai project banner, preserved as part of the project's visual history. The product screenshots below come from the released 0.5.1 installer.</sub></p>
+<p align="center"><sub>The original Penglai project banner, preserved as part of the project's visual history.</sub></p>
 
 <h1 align="center">Penglai · 蓬莱</h1>
 
 <p align="center"><strong>Bring the agent out of the terminal and into the computer you already use.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1"><img src="https://img.shields.io/badge/release-0.5.1-2563eb?style=flat-square" alt="Current release 0.5.1"></a>
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696"><img src="https://img.shields.io/badge/native%20verification-3%2F3%20PASS-16a34a?style=flat-square" alt="Three native targets verified"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2"><img src="https://img.shields.io/badge/release-0.5.2-2563eb?style=flat-square" alt="Current release 0.5.2"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32546255748"><img src="https://img.shields.io/badge/native%20verification-3%2F3%20PASS-16a34a?style=flat-square" alt="Three native targets verified"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.1-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.1"></a>
-  <a href="docs/PUBLICATION_0.5.1.md"><img src="https://img.shields.io/badge/desktop-macOS%20arm64%20%7C%20x64%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Three desktop targets"></a>
+  <a href="docs/PUBLICATION_0.5.2.md"><img src="https://img.shields.io/badge/desktop-macOS%20arm64%20%7C%20x64%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Three desktop targets"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
@@ -20,20 +20,12 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1">Current download</a> ·
-  <a href="docs/RELEASE_NOTES_0.5.1.md">0.5.1 notes</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2">Current download</a> ·
+  <a href="docs/RELEASE_NOTES_0.5.2.md">0.5.2 notes</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.1 is released for Apple Silicon, Intel Mac, and Windows x64. All three native jobs installed and exercised the exact published packages from source `6ec35c8...`. The images below were captured again from the released Apple Silicon DMG, not from 0.5.0 or a source dev server.
-
-<p align="center">
-  <img src=".github/assets/0.5.1/welcome.png" width="32%" alt="Penglai 0.5.1 welcome and appearance step">
-  <img src=".github/assets/0.5.1/models.png" width="32%" alt="Penglai 0.5.1 official DeepSeek model selection">
-  <img src=".github/assets/0.5.1/api-key.png" width="32%" alt="Penglai 0.5.1 local API key step with an empty field">
-</p>
-
-<p align="center"><sub>Released 0.5.1 DMG, Apple Silicon, DSH 0.1.1-rc.1. <a href="docs/0.5.1/SCREENSHOTS.md">Capture provenance</a>.</sub></p>
+> Penglai 0.5.2 is released for Apple Silicon, Intel Mac, and Windows x64. All three native jobs installed and exercised the exact packages from source `2273c42...`. A later public 0.5.1 upgrade drill found an update-ledger defect when the optional IM plugin stayed disabled. The installed application still ran, but the update page reported recovery required. The immutable 0.5.2 files have not been replaced; [the correction is documented here](docs/RELEASE_NOTES_0.5.2.md), and the fix is in the 0.5.3 source line.
 
 <a id="english"></a>
 
@@ -61,15 +53,15 @@ This repository is also a record of human and AI collaboration. AI coding tools 
 
 Penglai 0.5.0 was a clean architectural reset around official DSH `0.1.0-rc.8`. It shipped one Apple Silicon DMG on 20 August 2026.
 
-Penglai 0.5.1 was released on 22 August 2026. It updates the core to official DSH `0.1.1-rc.1` and ships three installers from one source commit:
+Penglai 0.5.2 was released on 22 August 2026. It keeps official DSH `0.1.1-rc.1`, repairs the first-run path found during installed testing, and ships three installers from one source commit:
 
-| Platform | 0.5.1 installer | Native result |
+| Platform | 0.5.2 installer | Native result |
 | --- | --- | --- |
-| Apple Silicon, macOS 13+ | [`Penglai_0.5.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg) | PASS |
-| Intel Mac | [`Penglai_0.5.1_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_x64.dmg) | PASS |
-| Windows x64 | [`Penglai_0.5.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_windows_x64_setup.exe) | PASS |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.2_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_aarch64.dmg) | PASS |
+| Intel Mac | [`Penglai_0.5.2_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_x64.dmg) | PASS |
+| Windows x64 | [`Penglai_0.5.2_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_windows_x64_setup.exe) | PASS |
 
-The source tree passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, secret, and CodeQL checks. [Native run 32507017696](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696) separately built, installed, launched, and checked the exact three packages on matching native hosts. Source checks and installed evidence remain separate claims.
+The source tree passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, secret, and CodeQL checks. [Native run 32546255748](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32546255748) separately built, installed, launched, and checked the exact three packages on matching native hosts. Source checks and installed evidence remain separate claims.
 
 ## One DSH core, optional Penglai plugins
 
@@ -85,15 +77,15 @@ A fresh profile starts with DSH and Penglai Center. The other Penglai plugins ar
 | `@penglai/budget` | local usage limits based on the official DSH TokenMeter and model route |
 | `@penglai/companion` | opt-in scheduled messages with quiet hours, daily limits, and channel binding |
 
-All seven packages passed the 0.5.1 source suite against DSH rc.1. The exact packaged app on all three native targets then observed every plugin through four runtime phases: fresh default-disabled, all enabled, all enabled after DSH restart, and all disabled after a second restart. Each phase used the official DSH HTTP/WebSocket surface and loader inventory and left no owned process behind. This proves the shipped seven-plugin set across those phases; it does not turn every future plugin or every external service into a tested claim.
+All seven packages passed the 0.5.2 source suite against DSH rc.1. The exact packaged app on all three native targets then observed every plugin through four runtime phases: fresh default-disabled, all enabled, all enabled after DSH restart, and all disabled after a second restart. Each phase used the official DSH HTTP/WebSocket surface and loader inventory and left no owned process behind. This proves the shipped seven-plugin set across those phases; it does not turn every future plugin or every external service into a tested claim.
 
 ## Plugin Center
 
 Penglai Center is a real DSH host/client plugin inside the official DSH settings interface. Installed and active states come from the DSH loader inventory, not from a UI preference or a downloaded filename.
 
-Version 0.5.1 adds PPDP/1, the Penglai Plugin Distribution Protocol. The client can discover versioned GitHub Releases from the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry), verify a Penglai Ed25519 signature and each archive hash, install a package in the disabled state, ask for permission confirmation, and roll back a failed activation.
+Penglai includes PPDP/1, the Penglai Plugin Distribution Protocol. The client can discover versioned GitHub Releases from the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry), verify a Penglai Ed25519 signature and each archive hash, install a package in the disabled state, ask for permission confirmation, and roll back a failed activation.
 
-The first signed catalog is live as the immutable [`plugin-catalog-v1.000001`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000001) Release. The production client has refreshed it from GitHub, verified the catalog and pilot archive, installed the pilot disabled, and recovered the signed last-good catalog offline. Future reviewed DSH plugins can be published in a new catalog sequence without rebuilding the Penglai desktop application.
+The current signed catalog is the immutable [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) Release. It keeps the Pilot and adds `@penglai/office-reader` 0.1.0 for bounded, read-only DOCX/XLSX/PPTX extraction. The production client has refreshed it from GitHub, verified both signatures, staged the archive under app-private data, installed it disabled, and recovered the signed last-good catalog offline. Future reviewed DSH plugins can be published in a new catalog sequence without rebuilding the Penglai desktop application.
 
 Penglai Center does not accept arbitrary npm packages, Git repositories, or download URLs. A DSH plugin runs with the local DSH process permissions. Catalog permission fields explain what was reviewed and what the user is confirming; they are not an operating-system sandbox.
 
@@ -101,15 +93,15 @@ Penglai Center does not accept arbitrary npm packages, Git repositories, or down
 
 Penglai uses the official DSH model directory, adapters, and local YAML credentials service. It does not keep a separate provider registry or API key store.
 
-The setup flow covers privacy, language and appearance, provider credentials, the official model list, a real API test, Workspace selection, and the first official Turn. DeepSeek's rc.1 adapter includes `deepseek-v4-flash-vision-exp` with text and image input. The 0.5.1 source verifies model discovery and `image_url` attachment serialization; a real installed call with a user-provided key remains a release gate.
+The setup flow covers privacy, language and appearance, provider credentials, the official model list, a real API test, Workspace selection, and the first official Turn. DeepSeek's rc.1 adapter includes `deepseek-v4-flash-vision-exp` with text and image input. For 0.5.2, an installed Apple Silicon package completed a fresh provider setup, two real API tests, Workspace creation, a first official Turn, and entry into the official DSH interface. The temporary credential used for that acceptance is not part of the repository or Release.
 
 ## Install and upgrade
 
-Download the appropriate package from the immutable [Penglai 0.5.1 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1) and compare it with the published `SHA256SUMS` before installing.
+Download the appropriate package from the immutable [Penglai 0.5.2 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2) and compare it with the published `SHA256SUMS` before installing.
 
-Penglai 0.5.0 cannot update itself to 0.5.1. Apple Silicon users will install 0.5.1 manually over the existing application; data under the isolated `Penglai/0.5` generation is preserved. Intel Mac and Windows x64 are new installations because 0.5.0 never shipped those packages.
+Penglai 0.5.0 cannot update itself in-app and needs a manual same-platform overlay. Penglai 0.5.1 can discover, download, hash-check, signature-check, and hand off later releases from **Settings → Penglai → Update**. The immutable 0.5.2 package installs and runs, but that path can leave its update ledger in recovery when optional IM remains disabled. Users should install the corrective 0.5.3 package instead. If the 0.5.1 Workspace bug prevents reaching Settings, manually overlay the same-platform package. These paths preserve data under the isolated `Penglai/0.5` generation and external Workspaces.
 
-Penglai 0.5.1 contains PUDP/1, a signed and versioned application-update protocol for later same-platform releases. It uses immutable tagged assets and `update-manifest-v1.json`, never a mutable `latest.json`. Updates require verification and user confirmation. They are not silent.
+Penglai 0.5.1 and later contain PUDP/1, a signed and versioned application-update protocol for later same-platform releases. It uses immutable tagged assets and `update-manifest-v1.json`, never a mutable `latest.json`. Updates require verification and user confirmation. They are not silent. Discovery currently uses GitHub's unauthenticated Releases API, so a shared network that exhausts GitHub's anonymous rate limit must wait for the reset or use the immutable Release page for a manual same-platform overlay.
 
 ## Local data and trust
 
@@ -148,6 +140,8 @@ Penglai has changed architecture more than once. The old versions remain in Git 
 | 0.4 | a TypeScript Host, Pi runtime, Tauri desktop, durable tasks, evidence, and personal context |
 | 0.5.0 | a clean Electron distribution with official DSH as the only agent and Web UI core |
 | 0.5.1 | DSH rc.1, three release targets, signed plugin distribution, and a signed future update path |
+| 0.5.2 | installed first-run repairs and real provider/Turn acceptance; a later upgrade drill exposed the optional-IM post-verification defect |
+| 0.5.3 | update closeout: optional plugins no longer block commit, and a newer manual overlay can clear the superseded 0.5.2 recovery state without inventing a signed ledger |
 
 The useful product ideas can return as DSH plugins. Old databases, credentials, sessions, and execution engines do not automatically cross an architectural generation.
 
@@ -177,7 +171,7 @@ pnpm package:dmg:intel     # native Intel Mac
 pnpm package:windows       # native Windows x64 with MSVC and NSIS
 ```
 
-A successful source build is not release evidence. See [0.5.1 publication contract](docs/PUBLICATION_0.5.1.md), [acceptance registry](docs/ACCEPTANCE.md), and [contributing guide](CONTRIBUTING.md).
+A successful source build is not release evidence. See the [0.5.3 publication contract](docs/PUBLICATION_0.5.3.md), [acceptance registry](docs/ACCEPTANCE.md), and [contributing guide](CONTRIBUTING.md).
 
 ## People, tools, and acknowledgements
 
@@ -225,15 +219,15 @@ Agent loop、模型、工具、审批、Workspace、Session、Turn 和主界面�
 
 Penglai 0.5.0 围绕官方 DSH `0.1.0-rc.8` 重做了整个架构。2026 年 8 月 20 日发布的安装包只有一份 Apple Silicon DMG。
 
-Penglai 0.5.1 已于 2026 年 8 月 22 日发布。它把核心更新到官方 DSH `0.1.1-rc.1`，同一份源码发布三个安装包：
+Penglai 0.5.2 已于 2026 年 8 月 22 日发布。它继续使用官方 DSH `0.1.1-rc.1`，修复真实安装验收发现的首次引导问题，并由同一份源码发布三个安装包：
 
-| 平台 | 0.5.1 安装包 | 原生验收 |
+| 平台 | 0.5.2 安装包 | 原生验收 |
 | --- | --- | --- |
-| Apple Silicon，macOS 13+ | [`Penglai_0.5.1_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg) | PASS |
-| Intel Mac | [`Penglai_0.5.1_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_x64.dmg) | PASS |
-| Windows x64 | [`Penglai_0.5.1_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_windows_x64_setup.exe) | PASS |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.2_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_aarch64.dmg) | PASS |
+| Intel Mac | [`Penglai_0.5.2_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_x64.dmg) | PASS |
+| Windows x64 | [`Penglai_0.5.2_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_windows_x64_setup.exe) | PASS |
 
-源码已经通过格式、类型、构建、单元、契约、集成、桌面 E2E、依赖、许可证、秘密扫描和 CodeQL。[原生运行 32507017696](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32507017696) 又在对应原生机器上分别构建、安装、启动并检查了三份最终安装包。源码门禁与真实安装证据仍然是两种不同的事实。
+源码已经通过格式、类型、构建、单元、契约、集成、桌面 E2E、依赖、许可证、秘密扫描和 CodeQL。[原生运行 32546255748](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32546255748) 又在对应原生机器上分别构建、安装、启动并检查了三份最终安装包。源码门禁与真实安装证据仍然是两种不同的事实。
 
 ## 一个 DSH 核心，七个可选插件
 
@@ -249,15 +243,15 @@ Penglai 0.5.1 已于 2026 年 8 月 22 日发布。它把核心更新到官方 D
 | `@penglai/budget` | 根据 official DSH TokenMeter 与模型 route 统计和限制本地用量 |
 | `@penglai/companion` | 默认关闭的定时陪伴，带安静时段、每日上限和渠道绑定 |
 
-七个插件都通过了 DSH rc.1 下的 0.5.1 源码套件。随后，三端最终安装包又分别观察了四个运行阶段：首次启动默认停用、全部启用、重启 DSH 后仍全部启用、全部停用并再次重启。每一阶段都读取 official DSH HTTP/WebSocket 和 loader inventory，并确认没有残留的受管进程。这证明本次随包发布的七插件在这些阶段兼容，不等于替未来插件或所有外部服务做保证。
+七个插件都通过了 DSH rc.1 下的 0.5.2 源码套件。随后，三端最终安装包又分别观察了四个运行阶段：首次启动默认停用、全部启用、重启 DSH 后仍全部启用、全部停用并再次重启。每一阶段都读取 official DSH HTTP/WebSocket 和 loader inventory，并确认没有残留的受管进程。这证明本次随包发布的七插件在这些阶段兼容，不等于替未来插件或所有外部服务做保证。
 
 ## 插件中心怎么更新
 
 Penglai Center 是 official DSH settings 里的真实 host/client 插件。installed 和 active 状态只认 DSH loader inventory，不认 UI 里的开关文字，也不认下载目录里有没有一个文件。
 
-0.5.1 加入 PPDP/1，也就是蓬莱插件发行协议。客户端从公开的 [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) 查找按版本发布的 GitHub Release，验证蓬莱 Ed25519 签名和每个 tar 包的 SHA。插件先以 disabled 状态安装，用户确认权限后再启用；启用失败会回滚。
+蓬莱包含 PPDP/1，也就是蓬莱插件发行协议。客户端从公开的 [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) 查找按版本发布的 GitHub Release，验证蓬莱 Ed25519 签名和每个 tar 包的 SHA。插件先以 disabled 状态安装，用户确认权限后再启用；启用失败会回滚。
 
-第一份签名 catalog 已经作为不可变的 [`plugin-catalog-v1.000001`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000001) Release 发布。生产客户端已经真实完成 GitHub 刷新、catalog 与试点 tar 包验签、disabled 安装，以及断网后的 signed last-good 恢复。以后加入经过审核的 DSH 插件，只需要发布新的 catalog sequence，不需要为了改列表重做桌面客户端。
+当前签名 catalog 是不可变的 [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) Release。它保留试航插件，并新增 `@penglai/office-reader` 0.1.0，用于有界、只读地提取 DOCX、XLSX、PPTX。生产客户端已经真实完成 GitHub 刷新、两层验签、用户私有目录 staging、默认关闭安装，以及断网后的 signed last-good 恢复。以后加入经过审核的 DSH 插件，只需要发布新的 catalog sequence，不需要为了改列表重做桌面客户端。
 
 插件中心不接受任意 npm、Git 仓库或下载 URL。DSH 插件与本机 DSH 进程共享权限。catalog 里的 permission 用来说明审核内容和用户正在确认什么，不是操作系统沙箱。
 
@@ -265,15 +259,15 @@ Penglai Center 是 official DSH settings 里的真实 host/client 插件。insta
 
 蓬莱使用 official DSH 的模型目录、adapter 和本地 YAML credentials service，不维护第二份 provider 列表或 API Key 仓库。
 
-首次引导包括隐私、语言和外观、provider 凭据、official model list、真实 API test、Workspace 和第一条 official Turn。DSH rc.1 的 DeepSeek adapter 已包含 `deepseek-v4-flash-vision-exp`，支持文本与图片输入。0.5.1 源码已经验证模型发现和 `image_url` 图片附件序列化；使用用户 Key 的真实安装调用仍是发布门禁。
+首次引导包括隐私、语言和外观、provider 凭据、official model list、真实 API test、Workspace 和第一条 official Turn。DSH rc.1 的 DeepSeek adapter 已包含 `deepseek-v4-flash-vision-exp`，支持文本与图片输入。0.5.2 的 Apple Silicon 安装包已经完成全新 provider 配置、两次真实 API test、Workspace 创建、第一条 official Turn，并进入 official DSH 主界面。验收使用的临时凭据不在仓库或 Release 中。
 
 ## 安装与升级
 
-请从不可变的 [Penglai 0.5.1 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.1) 下载对应平台安装包，并用其中的 `SHA256SUMS` 核对文件。
+请从不可变的 [Penglai 0.5.2 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.2) 下载对应平台安装包，并用其中的 `SHA256SUMS` 核对文件。
 
-0.5.0 不能在应用内直接升级到 0.5.1。Apple Silicon 用户需要手动覆盖安装，隔离在 `Penglai/0.5` 下的数据会保留。0.5.0 没有 Intel 与 Windows 客户端，这两个平台安装 0.5.1 属于全新安装。
+0.5.0 不能在应用内直接升级，需要手动覆盖同平台的新版本。0.5.1 可以在 **设置 → 蓬莱 → 更新** 中发现、下载、校验 SHA、验签并交给系统安装器。不可变的 0.5.2 安装包能安装和运行，但当可选 IM 保持关闭时，这条升级路径可能把更新账本留在 recovery 状态；请改用修复该问题的 0.5.3。如果 0.5.1 的 Workspace 误判让用户进不了设置页，请手动覆盖同平台安装包。数据仍保留在 `Penglai/0.5` 隔离目录及外置 Workspace。
 
-0.5.1 包含 PUDP/1，为后续同平台版本提供签名、按版本发布的辅助更新。它读取 immutable tag 下的 `update-manifest-v1.json`，不用可变的 `latest.json`。更新必须先校验，再由用户确认，不会静默替换应用。
+0.5.1 及之后版本包含 PUDP/1，为后续同平台版本提供签名、按版本发布的辅助更新。它读取 immutable tag 下的 `update-manifest-v1.json`，不用可变的 `latest.json`。更新必须先校验，再由用户确认，不会静默替换应用。发现阶段目前使用 GitHub 匿名 Releases API；如果共享网络耗尽匿名额度，需要等 GitHub 重置，或从不可变 Release 页面下载同平台安装包手动覆盖。
 
 ## 本地数据与信任边界
 
@@ -312,6 +306,8 @@ Penglai Desktop (Electron)
 | 0.4 | TypeScript Host、Pi runtime、Tauri 桌面、持久任务、证据和个人上下文 |
 | 0.5.0 | 以 official DSH 为唯一 Agent 与 Web UI 核心的 Electron 发行版 |
 | 0.5.1 | DSH rc.1、三个发行目标、签名插件目录和后续签名更新路径 |
+| 0.5.2 | 真实安装首次引导修复和真实 provider/Turn 验收；后续升级演练发现可选 IM 错误参与 post-verify |
+| 0.5.3 | 修复升级收尾：可选插件不再阻断 commit；真实安装更高版本后，可以纠正旧的 0.5.2 recovery 状态，但不会伪造签名升级账本 |
 
 有价值的产品想法可以重新做成 DSH 插件。旧数据库、凭据、会话和执行引擎不会自动跨架构继承。
 
@@ -341,7 +337,7 @@ pnpm package:dmg:intel     # Intel Mac
 pnpm package:windows       # Windows x64，需要 MSVC 与 NSIS
 ```
 
-源码构建成功不算发布证据。发布流程见 [0.5.1 公开发布合同](docs/PUBLICATION_0.5.1.md)、[验收清单](docs/ACCEPTANCE.md)与[贡献指南](CONTRIBUTING.md)。
+源码构建成功不算发布证据。发布流程见 [0.5.3 公开发布合同](docs/PUBLICATION_0.5.3.md)、[验收清单](docs/ACCEPTANCE.md)与[贡献指南](CONTRIBUTING.md)。
 
 ## 人、工具与致谢
 

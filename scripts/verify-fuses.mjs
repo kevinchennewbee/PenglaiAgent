@@ -22,10 +22,10 @@ if (!existsSync(policyPath)) {
   });
 }
 const raw = JSON.parse(readFileSync(policyPath, "utf8"));
-if (raw.runAsNode !== false || raw.enableNodeCliInspectArguments !== false) {
+if (raw.runAsNode !== false || raw.enableNodeOptionsEnvironmentVariable !== false || raw.enableNodeCliInspectArguments !== false) {
   finish("FAIL", {
     command: "verify:fuses",
-    reason: "fuse policy must disable RunAsNode and CLI inspect",
+    reason: "fuse policy must disable RunAsNode, NODE_OPTIONS, and CLI inspect",
   });
 }
 
@@ -53,7 +53,8 @@ if (packaged.verdict !== "PASS") {
     expectedTarget,
   });
 }
-const binary = join(app, "Contents/Frameworks/Electron Framework.framework/Electron Framework");
+const windows = expectedTarget === "win32-x86_64";
+const binary = windows ? join(app, "Penglai.exe") : join(app, "Contents/Frameworks/Electron Framework.framework/Electron Framework");
 if (!existsSync(binary)) {
   finish("INCOMPLETE", {
     command: "verify:fuses",
@@ -68,10 +69,10 @@ try {
 } catch (err) {
   finish("FAIL", { command: "verify:fuses", reason: String(err), binary });
 }
-if (info.values.runAsNode !== false || info.values.enableNodeCliInspectArguments !== false) {
+if (info.values.runAsNode !== false || info.values.enableNodeOptionsEnvironmentVariable !== false || info.values.enableNodeCliInspectArguments !== false) {
   finish("FAIL", {
     command: "verify:fuses",
-    reason: "packaged binary fuses do not match required disabled RunAsNode/inspect",
+    reason: "packaged binary fuses do not match required disabled RunAsNode/NODE_OPTIONS/inspect",
     values: info.values,
     binary,
   });
@@ -87,10 +88,10 @@ identity.recordAssertion({
   runnerNative: process.platform === "darwin" && ((expectedTarget === "darwin-aarch64" && process.arch === "arm64") || (expectedTarget === "darwin-x86_64" && process.arch === "x64")),
   exitCode: 0,
   details: {
-    safe: "packaged Electron Framework bytes have RunAsNode and CLI inspect disabled",
+    safe: "packaged Electron binary bytes have RunAsNode, NODE_OPTIONS, and CLI inspect disabled",
   },
 });
-identity.recordAssertion({
+if (!windows) identity.recordAssertion({
   acceptanceId: "R50-MAC-005",
   runnerId: "security",
   testId: "verify-fuses-binary",
@@ -101,7 +102,7 @@ identity.recordAssertion({
   runnerNative: process.platform === "darwin" && ((expectedTarget === "darwin-aarch64" && process.arch === "arm64") || (expectedTarget === "darwin-x86_64" && process.arch === "x64")),
   exitCode: 0,
   details: {
-    safe: "arm64 packaged binary fuse wire inspected; onlyLoadAppFromAsar remains false for unpacked app",
+    safe: "packaged macOS binary fuse wire inspected; onlyLoadAppFromAsar remains false for unpacked app",
   },
 });
 finish("PASS", {

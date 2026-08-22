@@ -518,6 +518,7 @@ export function apply(ctx: {
   const dir = join(userData, "plugins");
   const inventory = ctx.pluginInventory;
   const profileDir = join(userData, "dsh-home", "profiles", "web");
+  const registryPackagesDir = join(userData, "plugins", "packages");
   const pluginsDir = process.env.PENGLAI_PLUGINS_DIR;
   if (!pluginsDir) {
     throw new PenglaiError(
@@ -642,12 +643,8 @@ export function apply(ctx: {
     profileDir,
     txDir,
     pluginsDir,
+    registryPackagesDir,
     userDataRoot: userData,
-    async stagePackage(pkg) {
-      const bytes = readFileSync(pkg.path);
-      const catalogName = `${pkg.id.replace("@", "").replaceAll("/", "-")}-${pkg.version}.tgz`;
-      writeFileSync(join(pluginsDir, catalogName), bytes, { mode: 0o600 });
-    },
   });
   const welcomeAck = (): boolean => {
     try {
