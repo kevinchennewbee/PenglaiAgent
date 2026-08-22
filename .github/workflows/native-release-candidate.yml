@@ -1,4 +1,4 @@
-name: Native 0.5.2 release candidate
+name: Native 0.5.3 release candidate
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.2-${{ github.ref }}
+  group: native-0.5.3-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -41,11 +41,11 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.2_macos_aarch64.dmg
+            installer: Penglai_0.5.3_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.2_macos_x64.dmg
+            installer: Penglai_0.5.3_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -88,7 +88,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.2-${{ matrix.target }}
+          name: penglai-0.5.3-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -150,11 +150,11 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.2-win32-x86_64
+          name: penglai-0.5.3-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.2_windows_x64_setup.exe
+            dist/Penglai_0.5.3_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json

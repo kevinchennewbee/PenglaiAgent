@@ -644,7 +644,7 @@ test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/im", true);
   const im = host.reconcile().find((r) => r.id === "@penglai/im");
-  assert.equal(im?.desired, "0.5.2");
+  assert.equal(im?.desired, "0.5.3");
   assert.equal(im?.loaded, false);
   assert.equal(im?.actual, "failed");
   assert.equal(im?.healthy, false);

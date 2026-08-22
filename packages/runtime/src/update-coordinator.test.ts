@@ -14,6 +14,7 @@ import { crashSafeUpdate, downloadVerifiedPayload } from "./update-flow.js";
 import {
   UPDATE_STATES,
   verifyManifestBytes,
+  writeUpdateJournal,
   writeUpdateLedger,
   type UpdateManifest,
   type UpdateState,
@@ -139,7 +140,7 @@ function coordinatorConfig(
   };
 }
 
-test("R50-UPD-001..009 signed assisted update commits only after explicit verified handoff", async () => {
+test("R50-UPD-001..009 signed assisted update commits with optional IM disabled after explicit verified handoff", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-update-coordinator-"));
   const fixture = signedFixture();
   const opened: Array<{ path: string; kind: "dmg" | "setup" }> = [];
@@ -193,7 +194,6 @@ test("R50-UPD-001..009 signed assisted update commits only after explicit verifi
     profileReady: true,
     pluginsReady: true,
     dshHealthy: true,
-    imHealthy: true,
   });
   assert.equal(committed.state, "COMMITTED");
   const ledger = JSON.parse(readFileSync(join(root, "state", "update-ledger.json"), "utf8")) as {
@@ -479,4 +479,22 @@ test("R50-UPD-004/009/010 ledger and every crash state fail closed", async () =>
   for (const state of UPDATE_STATES) {
     assert.equal(crashSafeUpdate({ operationId: "crash-state", state, drained: false }), expected.get(state));
   }
+
+  const supersededRoot = mkdtempSync(join(tmpdir(), "penglai-update-superseded-"));
+  writeUpdateJournal(join(supersededRoot, "journal"), {
+    operationId: "failed-0.5.2",
+    state: "RECOVERY_REQUIRED",
+    previousVersion: "0.5.1",
+    version: "0.5.2",
+    target: TARGET,
+    drained: true,
+    errorClass: "POST_VERIFY_FAILED",
+  });
+  const superseded = new AssistedUpdateCoordinator(coordinatorConfig(supersededRoot, fixture, {
+    currentVersion: "0.5.3",
+  }));
+  const reconciled = superseded.recoverOnLaunch();
+  assert.equal(reconciled.state, "CURRENT");
+  assert.equal(reconciled.version, "0.5.3");
+  assert.equal(reconciled.errorClass, undefined);
 });

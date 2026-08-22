@@ -1,6 +1,6 @@
 {
   "productName": "Penglai",
-  "productVersion": "0.5.2",
+  "productVersion": "0.5.3",
   "buildNumber": 0,
   "candidateOrdinal": 0,
   "candidateKind": "public-community-release",
@@ -16,19 +16,19 @@
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.2_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.3_macos_aarch64.dmg"
     },
     {
       "key": "darwin-x86_64",
       "platform": "darwin",
       "arch": "x64",
-      "installer": "Penglai_0.5.2_macos_x64.dmg"
+      "installer": "Penglai_0.5.3_macos_x64.dmg"
     },
     {
       "key": "win32-x86_64",
       "platform": "win32",
       "arch": "x64",
-      "installer": "Penglai_0.5.2_windows_x64_setup.exe"
+      "installer": "Penglai_0.5.3_windows_x64_setup.exe"
     }
   ],
   "electron": "43.4.0",
@@ -43,9 +43,9 @@
   "authenticode": false,
   "publication": {
     "repo": "kevinchennewbee/PenglaiAgent",
-    "tag": "v0.5.2",
-    "release": "v0.5.2",
-    "channel": "stable-v0.5.2"
+    "tag": "v0.5.3",
+    "release": "v0.5.3",
+    "channel": "stable-v0.5.3"
   },
   "pnpm": "10.14.0"
 }

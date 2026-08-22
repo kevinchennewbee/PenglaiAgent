@@ -105,8 +105,8 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
   const path = join(root, "evidence/generated/installed-e2e.json");
   if (!existsSync(path)) return;
   const rec = JSON.parse(readFileSync(path, "utf8"));
-  if (rec.verdict !== "PASS" || rec.fromExactDmg !== true || rec.productVersion !== "0.5.2") return;
-  if (rec.installer !== "Penglai_0.5.2_macos_aarch64.dmg") return;
+  if (rec.verdict !== "PASS" || rec.fromExactDmg !== true || rec.productVersion !== "0.5.3") return;
+  if (rec.installer !== "Penglai_0.5.3_macos_aarch64.dmg") return;
   const sourceSha = declaredSourceSha();
   const app = packagedAppForTarget(root, "darwin-aarch64");
   const packaged = inspectPackagedCandidate({ app, candidateSha: sourceSha, expectedTarget: "darwin-aarch64" });
@@ -135,7 +135,7 @@ test("installed exact-DMG evidence is attributed only from runner output", () =>
     runnerId: "installed",
     testId: "installed-e2e-file-R50-E2E-001",
     assertionId: "exact-dmg-not-staging",
-    details: { safe: "installed-e2e.json came from exact Penglai_0.5.2_macos_aarch64.dmg" },
+    details: { safe: "installed-e2e.json came from exact Penglai_0.5.3_macos_aarch64.dmg" },
   });
   recordAssertion({
     ...common,

@@ -9,7 +9,7 @@ export const PENGLAI_I18N = {
     asrTitle: "蓬莱语音识别",
     ttsTitle: "蓬莱语音合成",
     aboutTitle: "关于蓬莱",
-    aboutVersion: "版本 0.5.2",
+    aboutVersion: "版本 0.5.3",
     aboutDsh: "核心：DeepSeek Harness 0.1.1-rc.1",
     aboutTrust: "社区验证发行：macOS ad-hoc 未公证，Windows 无 Authenticode。不是静默自动更新。DSH 插件与本地 DSH 进程共享权限；蓬莱只分发逐版本审核并签名的插件。权限字段不是操作系统沙箱。",
     aboutData: "数据位于本机 Penglai/0.5，密钥写入 app-private YAML。",
@@ -39,7 +39,7 @@ export const PENGLAI_I18N = {
     updateTitle: "更新",
     uninstallTitle: "存储与卸载",
     pluginSharedProcess: "DSH 插件与本地 DSH 进程共享权限；权限列表用于审核与确认，不是沙箱。",
-    pluginNoArbitraryInstall: "0.5.2 只安装蓬莱签名目录中的插件，不提供任意 URL、npm 或 Git 安装。",
+    pluginNoArbitraryInstall: "0.5.3 只安装蓬莱签名目录中的插件，不提供任意 URL、npm 或 Git 安装。",
   },
   en: {
     appName: "Penglai",
@@ -49,7 +49,7 @@ export const PENGLAI_I18N = {
     asrTitle: "Penglai Speech Recognition",
     ttsTitle: "Penglai Speech Synthesis",
     aboutTitle: "About Penglai",
-    aboutVersion: "Version 0.5.2",
+    aboutVersion: "Version 0.5.3",
     aboutDsh: "Core: DeepSeek Harness 0.1.1-rc.1",
     aboutTrust: "Community-verified: macOS ad-hoc not notarized, Windows no Authenticode. This is not silent auto-update. DSH plugins share the local DSH process; Penglai only distributes version-reviewed signed plugins. Permission fields are not an OS sandbox.",
     aboutData: "Data stays in local Penglai/0.5. Secrets use app-private YAML.",
@@ -80,7 +80,7 @@ export const PENGLAI_I18N = {
     updateTitle: "Updates",
     uninstallTitle: "Storage and uninstall",
     pluginSharedProcess: "DSH plugins share the local DSH process. Permission lists are for review and confirmation, not a sandbox.",
-    pluginNoArbitraryInstall: "0.5.2 installs only plugins from the Penglai-signed catalog. Arbitrary URL, npm, or Git install is not offered.",
+    pluginNoArbitraryInstall: "0.5.3 installs only plugins from the Penglai-signed catalog. Arbitrary URL, npm, or Git install is not offered.",
   },
 } as const;
 

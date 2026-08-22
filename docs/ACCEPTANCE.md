@@ -1,8 +1,8 @@
-# Penglai 0.5.2 三端公开版验收合同
+# Penglai 0.5.3 三端公开版验收合同
 
 ## 1. 判定对象与结论
 
-唯一验收对象是一个 exact private `Penglai 0.5.2` release set：同一 clean private source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices、三个目标各自的 native installed/soak evidence 和集中真实 live evidence。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。
+唯一验收对象是一个 exact private `Penglai 0.5.3` release set：同一 clean private source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices、三个目标各自的 native installed/soak evidence 和集中真实 live evidence。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。
 
 允许结论：
 
@@ -14,12 +14,12 @@
 
 ## 2. Evidence 规则
 
-以下每一行都是 Hard。registry由本文机器动态解析；0.5.2 将 Intel Mac 与 Windows x64 纳入正式发行，预期共 **256** 个唯一`R50-*` ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
+以下每一行都是 Hard。registry由本文机器动态解析；0.5.3 将 Intel Mac 与 Windows x64 纳入正式发行，预期共 **256** 个唯一`R50-*` ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
 
 平台标记：
 
 - `all`：平台类门禁展开为全部三个目标；非平台类门禁只执行一次源码/聚合检查。
-- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.2 PASS。
+- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.3 PASS。
 - `live`：真实账户最后集中执行。
 - `aggregate`：release-set/public-export聚合。
 
@@ -29,14 +29,14 @@
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.2 | contract/all |
+| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.3 | contract/all |
 | `R50-TRUTH-002` | candidateKind、trustTier、generation、三个target与三个exact filename一致 | contract/all |
 | `R50-TRUTH-003` | 旧alpha artifact/evidence/READY全部STALE并被verifier拒绝 | failure/all |
 | `R50-TRUTH-004` | UNFROZEN identity不得携带artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | private工作流只有main，无branch/worktree/PR/tag，push为fast-forward | git/aggregate |
 | `R50-TRUTH-006` | candidate freeze时HEAD=origin/main且dirty=false | git/aggregate |
 | `R50-TRUTH-007` | 任一子门FAIL/INCOMPLETE/STALE都使verify:release non-zero | fault/all |
-| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.2`，且发布前updater channel保持未发布 | manifest/aggregate |
+| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.3`，且发布前updater channel保持未发布 | manifest/aggregate |
 
 ### B. DSH唯一核心与 capability parity（8）
 
@@ -61,7 +61,7 @@
 | `R50-UI-004` |light/dark/system三态覆盖全部Penglai UI | visual/all |
 | `R50-UI-005` |system主题运行时变化即时响应并持久 | installed/all |
 | `R50-UI-006` |品牌overlay不阻断DSH导航、Models、Workspace、Session、设置 | parity/all |
-| `R50-UI-007` |About显示0.5.2、DSH/target/trust/data/license准确 | installed/all |
+| `R50-UI-007` |About显示0.5.3、DSH/target/trust/data/license准确 | installed/all |
 | `R50-UI-008` |UI/README不出现已公证、Authenticode或silent auto-update误述 | content/aggregate |
 
 ### D. 首次引导、多API、Workspace与Turn（12）
@@ -232,10 +232,10 @@
 | `R50-UPD-006` |UI显示版本/notes/size/trust/status并明确用户确认 | installed/all |
 | `R50-UPD-007` |安装前drain DSH/IM并建立backup/journal | integration/all |
 | `R50-UPD-008` |macOS打开已验DMG、Windows打开已验Setup，无静默绕过 | installed/all |
-| `R50-UPD-009` |新版本post-verify成功commit，失败rollback/recovery | chaos+installed/all |
+| `R50-UPD-009` |新版本 post-verify 只要求核心 runtime/profile/required-plugin/DSH 健康；IM 等可选插件保持默认停用也必须 commit。失败则 rollback/recovery；只有真实安装了更高版本才可把旧 `RECOVERY_REQUIRED` 账本纠正为 current，且不得伪造签名升级 ledger | chaos+installed/all |
 | `R50-UPD-010` |每个update state crash可重放，inbox/outbox不丢不双发 | chaos/all |
 | `R50-UPD-011` |fixture key/server/test payload不进入production artifact | artifact/all |
-| `R50-UPD-012` |三个native target的0.5.2→test-next valid/failure suites PASS，且 Apple Silicon 公开版0.5.1→公开版0.5.2实装升级 PASS | installed/all |
+| `R50-UPD-012` |三个native target的0.5.3→test-next valid/failure suites PASS，且 Apple Silicon 公开版0.5.1→公开版0.5.3实装升级 PASS | installed/all |
 
 ### O. 卸载、数据管理与legacy隔离（10）
 
@@ -430,4 +430,4 @@
 - 任一平台使用cross/translated/emulated结果冒充native，或Release缺少/多出未验收的三端安装包。
 - verifier INCOMPLETE却exit 0、Hard ID硬编码PASS、旧SHA/evidence复用。
 - ad-hoc候选被称为已公证、Developer ID或系统信任。
-- 未经 Owner 明确授权修改开源仓库或发布0.5.2。
+- 未经 Owner 明确授权修改开源仓库或发布0.5.3。

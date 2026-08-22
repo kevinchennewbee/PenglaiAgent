@@ -1,6 +1,6 @@
 # 蓬莱产品宪法
 
-> 生效日期：2026-08-16；2026-08-20 经 Owner 明确修订 0.5.0 首发平台与公开授权；2026-08-21 修订 0.5.1 为 DSH `0.1.1-rc.1` 三端社区验证发行版；2026-08-22 授权 0.5.2 修复首次引导并验收 0.5.1 → 0.5.2 辅助更新。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
+> 生效日期：2026-08-16；2026-08-20 经 Owner 明确修订 0.5.0 首发平台与公开授权；2026-08-21 修订 0.5.1 为 DSH `0.1.1-rc.1` 三端社区验证发行版；2026-08-22 发布 0.5.2 后，公开升级演练发现可选 IM 被错误列为 post-verify 硬条件，随后授权 0.5.3 修复并重新验收 0.5.1 → 0.5.3 辅助更新。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
 
 ## 一句话定义
 
@@ -23,7 +23,7 @@
 9. **安装包必须自带可运行产品。** 干净 Mac/Windows 不应预装 Node、pnpm、Python、系统 ffmpeg 或 `dsh`。包内固定目标平台运行时、完整 DSH 闭包、profile seed、第一方插件（含语音 native/WASM engines）、许可证、SBOM 与完整性清单；生产禁止静默回退系统 PATH。大型 ASR/TTS 权重可在用户明确操作后按 immutable manifest/hash 按需下载，不得成为 DSH 启动依赖。
 10. **二次开发不得删减 DSH。** Penglai 可以替换产品名、字标、欢迎/引导文案和默认组合，并增加 Center/IM；但 official DSH 的浅色、深色、跟随系统动态主题、中英文切换、Models、Workspace、Session、工具、审批和设置能力必须保留。中文是 fresh install 默认值，不是删除 English。
 11. **安装、升级、卸载是产品能力。** 0.5.0 必须提供 fresh install、首次引导、0.5 系列后续升级、失败恢复和完整卸载/数据管理；升级或卸载不得误删用户 Workspace、旧版本数据或未明确选择的数据类别。
-12. **公开发布只消费精确验收资产。** 0.5.0 已发布边界仍是单一 Apple Silicon DMG。0.5.1 及 0.5.2 声明三个 target：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`，必须来自同一 source SHA。缺对应原生 runner 的 Intel/Windows 只能写 `BLOCKED`/`NOT_RUN`，不得写成 native PASS。公开 Release 必须上传验收过的同一 bytes，不能重建偷换。
+12. **公开发布只消费精确验收资产。** 0.5.0 已发布边界仍是单一 Apple Silicon DMG。0.5.1、0.5.2 及 0.5.3 声明三个 target：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`，必须来自同一 source SHA。缺对应原生 runner 的 Intel/Windows 只能写 `BLOCKED`/`NOT_RUN`，不得写成 native PASS。公开 Release 必须上传验收过的同一 bytes，不能重建偷换。
 
 插件生态分三层：DSH official core plugins 原样保留；Penglai 原生插件由蓬莱维护并经 Center 事务管理（0.5.0 内置 Center、IM、SenseVoice ASR、MOSS-TTS-Nano、个人上下文、分层记忆、预算与主动陪伴）；社区插件未来只有在来源审核、签名/完整性、权限、兼容、隔离、迁移和回滚门完整后才可加入受控 catalog，绝不等同于任意 npm/Git 安装。
 
@@ -39,8 +39,8 @@
 
 ## 当前发行边界
 
-- 当前目标是 **Penglai v0.5.2** — 以官方 DSH `0.1.1-rc.1` 为唯一核心的三端引导可靠性热修复。机器可读身份只来自 `packages/release-identity/src/pins.ts` 与 `release-contract.json`。
-- 三个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。用户安装包分别为 `Penglai_0.5.2_macos_aarch64.dmg`、`Penglai_0.5.2_macos_x64.dmg`、`Penglai_0.5.2_windows_x64_setup.exe`。禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
+- 当前目标是 **Penglai v0.5.3** — 以官方 DSH `0.1.1-rc.1` 为唯一核心的三端引导可靠性热修复。机器可读身份只来自 `packages/release-identity/src/pins.ts` 与 `release-contract.json`。
+- 三个 target key 全仓统一：`darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。用户安装包分别为 `Penglai_0.5.3_macos_aarch64.dmg`、`Penglai_0.5.3_macos_x64.dmg`、`Penglai_0.5.3_windows_x64_setup.exe`。禁止把 ARM Electron 改名成 Intel 包；禁止把 Windows 预检或交叉编译写成 native PASS。
 - 0.5.0 已发布的 Apple Silicon 客户端只能手动覆盖安装到 0.5.1；0.5.1 之后同平台才走 PUDP。不得声称 0.5.0 可一键升级。Intel/Windows 在 0.5.0 没有客户端，视为全新安装。
 - PPDP 是 0.5.1 产品能力，不是未来 TODO：签名目录、受限 GitHub 资产下载、默认禁用、主进程 Owner capability、DSH loader/profile 事务、inventory 回读。
 - 本地语音与第一方插件合同不变：`@penglai/asr`、`@penglai/moss-tts` 必须进入真实 DSH loader/Center，并服务 DSH Web、微信私聊语音和飞书私聊语音。两渠道仍不支持群聊、图片、普通文件、视频或富卡片。`@penglai/context`、`@penglai/memory`、`@penglai/budget`、`@penglai/companion` 同样纳入；Goal/Todo/Skills/MCP/Web/Attachments/Schedule/TokenMeter 使用 official DSH。
@@ -48,7 +48,7 @@
 - 0.4.1 到 0.5.0 是明确的架构代际切换：不提供自动升级，不导入旧会话、凭据或配置，不删除旧数据。0.5.0 使用隔离的数据根 `Penglai/0.5`。0.5.1 必须提供 rc.8 → rc.1 的显式、可回滚数据迁移。
 - community trust tier 不变：macOS ad-hoc / not notarized；Windows 无 Authenticode/SmartScreen 声誉。安装包及更新/插件清单仍须有 SHA-256、SBOM/notices，并诚实提示系统信誉警告。Penglai 自己的 Ed25519 更新/插件签名必须使用。
 - GitHub Actions 与 required CodeQL 当前可用，但不能替代安装包验收。Apple Silicon 本机可产生 darwin-aarch64 候选；Intel 与 Windows 的 native PASS 必须来自对应原生 runner。交叉构建或 Rosetta 只能作为补充证据。
-- Owner 已明确授权完成 0.5.2 修复、三端构建、发布与 0.5.1 → 0.5.2 实际升级验收。仍不得在门禁失败时发布，也不得把本机临时 API key 上传到 GitHub 或写入 evidence。
+- Owner 已明确授权完成 0.5.3 修复、三端构建、发布与 0.5.1 → 0.5.3 实际升级验收。仍不得在门禁失败时发布，也不得把本机临时 API key 上传到 GitHub 或写入 evidence。
 
 ## 反偏航自检
 
@@ -70,7 +70,7 @@
 - 飞书是否用假二维码或用户 OAuth Device Flow 冒充一键扫码，或把官方 `app/registration` 落地页 URL 直接当图片地址？
 - 品牌或中文 overlay 是否隐藏、破坏了 DSH 原有主题、语言、模型、会话、工作区、工具、审批或设置能力？
 - 升级/卸载是否可能静默迁移或删除 0.4.1 数据、用户 Workspace 或未选择的数据类别？
-- 是否把 ad-hoc 安装包写成已公证，或把缺少原生 runner 的 Intel/Windows 写成 0.5.2 已支持？
+- 是否把 ad-hoc 安装包写成已公证，或把缺少原生 runner 的 Intel/Windows 写成 0.5.3 已支持？
 - 是否把下载目录、renderer `confirmed: true` 或未进入 DSH inventory 的包写成插件已启用？
 
 只要存在一个“是”，该候选就不是本产品定义下的蓬莱。

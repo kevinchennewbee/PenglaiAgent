@@ -64,7 +64,7 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
     const rows = new Map<number, MemoryWrite & { id: number }>();
     return {
       name: "@penglai/memory",
-      version: "0.5.2",
+      version: "0.5.3",
       assertReadable,
       modelCannotWriteGlobal,
       write(input) {
@@ -109,7 +109,7 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
   }
   const service: MemoryService = {
     name: "@penglai/memory",
-    version: "0.5.2",
+    version: "0.5.3",
     assertReadable,
     modelCannotWriteGlobal,
     write(input, receipt = "manual") {

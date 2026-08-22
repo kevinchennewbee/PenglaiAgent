@@ -17,16 +17,16 @@ import {
   TRUST_TIER,
 } from "./pins.js";
 
-test("R50-TRUTH-001 identity pins are 0.5.2", () => {
+test("R50-TRUTH-001 identity pins are 0.5.3", () => {
   const id = emptyIdentity("a".repeat(40), false);
   const checked = assertReleaseIdentity(id);
   assert.equal(checked.productVersion, PRODUCT_VERSION);
-  assert.equal(checked.productVersion, "0.5.2");
+  assert.equal(checked.productVersion, "0.5.3");
   recordAssertion({
     acceptanceId: "R50-TRUTH-001",
     runnerId: "release-identity.identity",
-    testId: "identity-pins-0.5.2",
-    assertionId: "productVersion-is-0.5.2",
+    testId: "identity-pins-0.5.3",
+    assertionId: "productVersion-is-0.5.3",
     status: "PASS",
     candidateSourceSha: "a".repeat(40),
     exitCode: 0,
@@ -136,9 +136,9 @@ test("tampered sourceSha is rejected", () => {
 test("R50-TRUTH-008 publication fields match the owner-authorized public target", () => {
   const id = assertReleaseIdentity(emptyIdentity("e".repeat(40), false));
   assert.equal(id.publication.repo, "kevinchennewbee/PenglaiAgent");
-  assert.equal(id.publication.tag, "v0.5.2");
-  assert.equal(id.publication.release, "v0.5.2");
-  assert.equal(id.publication.channel, "stable-v0.5.2");
+  assert.equal(id.publication.tag, "v0.5.3");
+  assert.equal(id.publication.release, "v0.5.3");
+  assert.equal(id.publication.channel, "stable-v0.5.3");
   assert.throws(
     () =>
       assertReleaseIdentity({

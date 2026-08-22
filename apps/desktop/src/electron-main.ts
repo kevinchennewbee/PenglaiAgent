@@ -844,7 +844,6 @@ async function main(): Promise<void> {
         profileReady: report.profile.exists,
         pluginsReady: inventory.ok,
         dshHealthy: live.state === "healthy",
-        imHealthy: inventory.im,
         installerCancelled: pendingUpdate.version !== releaseContract.version,
       });
     }

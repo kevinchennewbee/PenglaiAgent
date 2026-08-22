@@ -1,5 +1,7 @@
 # Penglai 0.5.2
 
+> **Post-release correction:** the immutable 0.5.2 application installs and runs, but an assisted 0.5.1 → 0.5.2 update can record `POST_VERIFY_FAILED` after installation when the optional Penglai IM plugin is left disabled. The updater incorrectly treated that optional plugin as a post-install hard gate. The published 0.5.2 bytes have not been replaced. Use 0.5.3 or later; if 0.5.2 already shows recovery required, manually overlay the same-platform newer package once.
+
 Penglai 0.5.2 is a focused onboarding and update-reliability release. It keeps official DeepSeek Harness `0.1.1-rc.1` as the only core and ships the same three community-verified targets: `darwin-aarch64`, `darwin-x86_64`, and `win32-x86_64`.
 
 ## Fixed
@@ -11,7 +13,7 @@ Penglai 0.5.2 is a focused onboarding and update-reliability release. It keeps o
 
 ## Upgrade
 
-Penglai 0.5.1 users can open **Penglai → Update**, choose **Check for updates**, download the signed 0.5.2 installer, and confirm the normal system installer. The updater enumerates stable immutable GitHub Releases, verifies the Penglai Ed25519 signature and exact installer hash, and never installs silently. User data under the `Penglai/0.5` generation and external Workspaces are preserved.
+Penglai 0.5.1 can discover, verify, download, and hand off the signed 0.5.2 installer, but the post-install ledger defect described above prevents 0.5.2 from being the recommended target. Install the highest later stable release instead. User data under the `Penglai/0.5` generation and external Workspaces are preserved.
 
 Penglai 0.5.0 still requires a manual 0.5.2 overlay on Apple Silicon because 0.5.0 did not contain this production update trust path. Intel Mac and Windows x64 users can install 0.5.2 directly.
 

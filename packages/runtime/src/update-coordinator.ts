@@ -49,7 +49,6 @@ export interface PostUpdateFacts {
   profileReady: boolean;
   pluginsReady: boolean;
   dshHealthy: boolean;
-  imHealthy: boolean;
   installerCancelled?: boolean;
 }
 
@@ -194,6 +193,22 @@ export class AssistedUpdateCoordinator {
   }
 
   recoverOnLaunch(): UpdateCoordinatorStatus {
+    if (
+      this.#journal.state === "RECOVERY_REQUIRED" &&
+      this.#journal.version &&
+      compareSemver(this.#config.currentVersion, this.#journal.version) > 0
+    ) {
+      this.#journal = {
+        operationId: this.#journal.operationId,
+        state: "CURRENT",
+        previousVersion: this.#journal.version,
+        version: this.#config.currentVersion,
+        target: this.#config.target,
+        drained: false,
+      };
+      this.#persist();
+      return this.status();
+    }
     const recovered = crashSafeUpdate(this.#journal);
     if (recovered !== this.#journal.state) {
       this.#journal = {
@@ -503,8 +518,7 @@ export class AssistedUpdateCoordinator {
       facts.runtimeIntegrity &&
       facts.profileReady &&
       facts.pluginsReady &&
-      facts.dshHealthy &&
-      facts.imHealthy;
+      facts.dshHealthy;
     if (!healthy || !this.#journal.manifestSha256) {
       this.#journal = { ...this.#journal, state: "RECOVERY_REQUIRED", errorClass: "POST_VERIFY_FAILED" };
       this.#persist();

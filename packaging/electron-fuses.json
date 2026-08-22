@@ -1,5 +1,5 @@
 {
-  "policy": "0.5.2-unpacked-app",
+  "policy": "0.5.3-unpacked-app",
   "runAsNode": false,
   "enableNodeOptionsEnvironmentVariable": false,
   "enableNodeCliInspectArguments": false,
