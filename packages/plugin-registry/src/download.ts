@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import { ALLOWED_ASSET_HOSTS, GITHUB_API_ORIGIN, GITHUB_OWNER, PLUGIN_REGISTRY_REPO } from "./catalog-schema.js";
+import { ALLOWED_ASSET_HOSTS, GITHUB_API_ORIGIN } from "./catalog-schema.js";
 
 export interface DownloadRequest {
   url: string;
@@ -64,27 +64,12 @@ export function assertSafeDownloadUrl(raw: string, previous?: URL): URL {
   return parsed;
 }
 
-function inferOwnerRepo(url: string): string | undefined {
-  const parsed = new URL(url);
-  const github = /^\/([^/]+)\/([^/]+)\/releases\//.exec(parsed.pathname);
-  if (parsed.hostname === "github.com" && github) return `${github[1]}/${github[2]}`;
-  const api = /^\/repos\/([^/]+)\/([^/]+)\//.exec(parsed.pathname);
-  if (parsed.hostname === "api.github.com" && api) return `${api[1]}/${api[2]}`;
-  return undefined;
-}
-
-function githubAssetApiUrl(assetId: number, ownerRepo?: string): string {
-  const repo = ownerRepo ?? `${GITHUB_OWNER}/${PLUGIN_REGISTRY_REPO}`;
-  return `${GITHUB_API_ORIGIN}/repos/${repo}/releases/assets/${assetId}`;
-}
-
 export async function downloadVerifiedBytes(input: DownloadRequest): Promise<Buffer> {
-  let url = input.url;
-  const ownerRepo = input.ownerRepo ?? inferOwnerRepo(input.url);
-  if (input.assetId && input.assetId > 0 && new URL(input.url).hostname === "github.com") {
-    url = githubAssetApiUrl(input.assetId, ownerRepo);
-  }
-  const parsed = assertSafeDownloadUrl(url);
+  // Keep the signed, tagged browser_download_url as the transport URL. The
+  // asset id remains part of the signed catalog/update identity, but routing a
+  // public download through the REST asset endpoint consumes GitHub's tiny
+  // anonymous API quota and can make an otherwise public package return 403.
+  const parsed = assertSafeDownloadUrl(input.url);
   if (input.size <= 0 || input.size > input.maxBytes) throw new PenglaiError("SECURITY_POLICY", "download size bound");
   const fetchImpl = input.fetchImpl ?? fetch;
   const timeout = AbortSignal.timeout(30_000);

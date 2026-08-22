@@ -383,7 +383,11 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
   const dir = mkdtempSync(join(tmpdir(), "penglai-ppdp-"));
   const fetchImpl = (async (input) => {
     const url = String(input);
-    if (url.includes("/releases") && !url.includes("/assets/")) {
+    if (
+      url.startsWith("https://api.github.com/") &&
+      url.includes("/releases") &&
+      !url.includes("/assets/")
+    ) {
       return new Response(
         JSON.stringify([
           {
@@ -456,11 +460,15 @@ test("GitHub 302 to official asset host is followed and hashed", async () => {
     url: "https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/plugin-pilot-v1.0.0/penglai-plugin-pilot-1.0.0-any.tgz",
     sha256: sha,
     size: body.length,
+    assetId: 123,
+    ownerRepo: "kevinchennewbee/PenglaiPluginRegistry",
     maxBytes: 1024,
     fetchImpl,
   });
   assert.equal(got.equals(body), true);
   assert.equal(hops.length, 2);
+  assert.equal(hops[0]?.startsWith("https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/download/"), true);
+  assert.equal(hops.some((url) => url.includes("api.github.com/repos/")), false);
 });
 
 test("GitHub 302 to a non-GitHub host is refused", async () => {
