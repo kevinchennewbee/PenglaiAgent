@@ -518,6 +518,9 @@ test("ASR settings client registers the Penglai page slot and Typert remote", ()
   assert.match(client, /data-penglai-asr/);
   assert.match(client, /penglaiAsr/);
   assert.match(client, /testTranscribe/);
+  assert.match(client, /getUserMedia/);
+  assert.match(client, /MediaRecorder/);
+  assert.match(client, /setDraft/);
   assert.doesNotMatch(client, /fetch\("\/penglai\/asr"/);
   const remote = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
   assert.match(remote, /TypertRemoteService/);

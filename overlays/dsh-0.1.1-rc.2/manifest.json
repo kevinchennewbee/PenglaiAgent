@@ -30,7 +30,7 @@
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
       "upstreamSha256": "fe448ef7e0b1f3e7713dadfc7eff56b9f80d103a2111dfe69c1735ffd0196d61",
       "upstream": "upstream/dsh-client-ui-conversation.client.js",
-      "patchedSha256": "ad1a00a549d61b5629b7f5a927f4409cd7beeb64c94aa8d17cf6431036c99230",
+      "patchedSha256": "140514239a28be6ef0d8f99229add7a3fa691ec59aece4e788419b39ae250bc2",
       "patched": "patched/dsh-client-ui-conversation.client.js"
     },
     {

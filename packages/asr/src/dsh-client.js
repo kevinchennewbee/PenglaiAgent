@@ -460,6 +460,130 @@ window.__ModuleLoader__.load({
       });
     }
 
+    function writeComposerDraft(text, props) {
+      if (typeof props?.inputActions?.setDraft === "function") {
+        props.inputActions.setDraft(text);
+        return;
+      }
+      const area =
+        typeof document !== "undefined"
+          ? document.querySelector("textarea:not([disabled])")
+          : null;
+      if (!area) return;
+      const proto = window.HTMLTextAreaElement?.prototype;
+      const setter = proto
+        ? Object.getOwnPropertyDescriptor(proto, "value")?.set
+        : undefined;
+      if (setter) setter.call(area, text);
+      else area.value = text;
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function blobToBase64(blob) {
+      if (typeof blob.arrayBuffer === "function") {
+        return blob.arrayBuffer().then((buf) => {
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 1)
+            binary += String.fromCharCode(bytes[i]);
+          return btoa(binary);
+        });
+      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result ?? "");
+          resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function AsrMicButton(props) {
+      const api = props.remote?.penglaiAsrSettings;
+      const [view, setView] = React.useState({
+        recording: false,
+        error: "",
+        draft: "",
+      });
+      const recorderRef = React.useRef(null);
+      const chunksRef = React.useRef([]);
+      const stopRecording = () => {
+        const recorder = recorderRef.current;
+        recorderRef.current = null;
+        if (recorder && recorder.state !== "inactive") recorder.stop();
+      };
+      const transcribeBlob = (blob) => {
+        if (!api?.testTranscribe) return;
+        blobToBase64(blob)
+          .then((wavBase64) =>
+            api.testTranscribe({
+              wavBase64,
+              operationId: operationId("asrmic"),
+            }),
+          )
+          .then((value) => {
+            const out = unwrapRemote(value);
+            const text = String(out.text ?? "");
+            writeComposerDraft(text, props);
+            setView({ recording: false, error: "", draft: text });
+          })
+          .catch((error) => {
+            setView({
+              recording: false,
+              error: String(error && error.message ? error.message : error),
+              draft: "",
+            });
+          });
+      };
+      const toggle = () => {
+        if (view.recording) {
+          stopRecording();
+          return;
+        }
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          setView((current) => ({
+            ...current,
+            error: "microphone unavailable",
+          }));
+          return;
+        }
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            const recorder = new MediaRecorder(stream);
+            chunksRef.current = [];
+            recorder.ondataavailable = (event) => {
+              if (event.data && event.data.size > 0)
+                chunksRef.current.push(event.data);
+            };
+            recorder.onstop = () => {
+              stream.getTracks().forEach((track) => track.stop());
+              const blob = new Blob(chunksRef.current, { type: "audio/wav" });
+              transcribeBlob(blob);
+            };
+            recorderRef.current = recorder;
+            recorder.start();
+            setView({ recording: true, error: "", draft: "" });
+          })
+          .catch((error) => {
+            setView({
+              recording: false,
+              error: String(error && error.message ? error.message : error),
+              draft: "",
+            });
+          });
+      };
+      return jsx.jsx("button", {
+        type: "button",
+        "data-penglai-asr-mic": view.recording ? "recording" : "1",
+        "data-penglai-asr-draft": view.draft,
+        onClick: toggle,
+        children: view.recording ? "stop" : "mic",
+      });
+    }
+
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
@@ -487,14 +611,9 @@ window.__ModuleLoader__.load({
                 id: "penglai-asr-mic",
                 order: 1,
                 label: () => "mic",
-                inject: () => ({}),
+                inject: () => ({ remote: pageRemote }),
               },
-              () =>
-                jsx.jsx("button", {
-                  type: "button",
-                  "data-penglai-asr-mic": "1",
-                  children: "mic",
-                }),
+              AsrMicButton,
             ),
           );
         },

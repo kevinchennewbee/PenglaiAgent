@@ -9747,7 +9747,7 @@ children: [(0, react_jsx_runtime.jsx)("span", { "aria-hidden": true, style: { fo
 			});
 			const runMs = turn.start === void 0 || turn.end === void 0 ? void 0 : Math.max(0, turn.end.time - turn.start.time);
 			const messageId = closing.finalNode.messageId;
-			const assistantActions = messageId === void 0 ? null : renderSlot("conversation.chat.assistant-actions", { messageId });
+			const assistantActions = messageId === void 0 ? null : renderSlot("conversation.chat.assistant-actions", { messageId, text: assistantText(closing.blocks) });
 			return (0, react_jsx_runtime.jsxs)("div", {
 				className: TurnTailNodeView_module_css_default.root,
 				"data-turn-tail": data.turn,

@@ -158,11 +158,58 @@ export function createDocument(format: OfficeFormat, text: string): OfficeJob {
   return { id: `office-${format}`, format, bytes, text };
 }
 
+function primaryPart(format: Exclude<OfficeFormat, "pdf">): string {
+  if (format === "docx") return "word/document.xml";
+  if (format === "xlsx") return "xl/worksheets/sheet1.xml";
+  return "ppt/slides/slide1.xml";
+}
+
+function spliceXmlText(xml: string, replacement: string): string {
+  const escaped = replacement.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (xml.includes("</w:body>")) {
+    return xml.replace(
+      "</w:body>",
+      `<w:p><w:r><w:t>${escaped}</w:t></w:r></w:p></w:body>`,
+    );
+  }
+  if (xml.includes("</sheetData>")) {
+    return xml.replace(
+      "</sheetData>",
+      `<row r="999"><c r="A999" t="inlineStr"><is><t>${escaped}</t></is></c></row></sheetData>`,
+    );
+  }
+  if (xml.includes("</p:spTree>")) {
+    return xml.replace(
+      "</p:spTree>",
+      `<p:sp><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree>`,
+    );
+  }
+  return `${xml}${escaped}`;
+}
+
+function editPdf(bytes: Buffer, replacement: string): OfficeJob {
+  const raw = bytes.toString("latin1");
+  const extra = `BT /F1 12 Tf 72 680 Td <${utf16BeHex(replacement)}> Tj ET`;
+  const next = raw.includes("%%EOF")
+    ? raw.replace("%%EOF", `${extra}\n%%EOF`)
+    : `${raw}\n${extra}\n`;
+  const out = Buffer.from(next, "latin1");
+  return { id: "office-pdf", format: "pdf", bytes: out, text: inspect(out).text };
+}
+
 export function edit(bytes: Buffer, replacement: string): OfficeJob {
   requireSafe(replacement);
-  const before = inspect(bytes);
-  const created = createDocument(before.format, `${before.text} ${replacement}`.trim());
-  return created;
+  const format = detect(bytes);
+  if (format === "pdf") return editPdf(bytes, replacement);
+  const entries = readZip(bytes);
+  const target = primaryPart(format);
+  const next = entries.map((entry) =>
+    entry.name === target
+      ? { name: entry.name, data: Buffer.from(spliceXmlText(entry.data.toString("utf8"), replacement), "utf8") }
+      : { name: entry.name, data: Buffer.from(entry.data) },
+  );
+  const out = writeZip(next);
+  return { id: `office-${format}`, format, bytes: out, text: inspect(out).text };
 }
 
 export function commit(job: OfficeJob): Buffer {
@@ -177,5 +224,19 @@ export function createOfficeService() {
     create: createDocument,
     edit,
     commit,
+    status() {
+      return { state: "active", formats: ["docx", "xlsx", "pptx", "pdf"] as const };
+    },
+    resourceSnapshot() {
+      return {
+        workers: 0,
+        sockets: 0,
+        timers: 0,
+        remotes: 0,
+        db: 0,
+        modelSessions: 0,
+        audioHandles: 0,
+      };
+    },
   };
 }

@@ -47,6 +47,11 @@ function loadAsrClient(remote: Record<string, unknown>) {
     useEffect(fn: () => unknown) {
       effects.push(fn);
     },
+    useRef(init: unknown) {
+      const i = hookIndex++;
+      if (hooks[i] === undefined) hooks[i] = { current: init };
+      return hooks[i] as { current: unknown };
+    },
   };
   const registered: Array<{
     id: string;
@@ -123,6 +128,51 @@ function loadAsrClient(remote: Record<string, unknown>) {
     document: { documentElement: { lang: "zh" } },
     setInterval: () => 1,
     clearInterval: () => undefined,
+    btoa: (value: string) => Buffer.from(value, "binary").toString("base64"),
+    Event: class {
+      type: string;
+      bubbles: boolean;
+      constructor(type: string, init?: { bubbles?: boolean }) {
+        this.type = type;
+        this.bubbles = Boolean(init?.bubbles);
+      }
+    },
+    Blob: class {
+      parts: Array<Uint8Array>;
+      type: string;
+      size: number;
+      constructor(parts: Array<Uint8Array>, opts?: { type?: string }) {
+        this.parts = parts;
+        this.type = opts?.type ?? "";
+        this.size = parts.reduce((n, part) => n + part.byteLength, 0);
+      }
+      arrayBuffer() {
+        return Promise.resolve(Buffer.concat(this.parts.map((part) => Buffer.from(part))));
+      }
+    },
+    MediaRecorder: class {
+      ondataavailable: ((event: { data: { size: number; arrayBuffer: () => Promise<Buffer> } }) => void) | null =
+        null;
+      onstop: (() => void) | null = null;
+      state = "inactive";
+      start() {
+        this.state = "recording";
+      }
+      stop() {
+        this.state = "inactive";
+        const payload = Buffer.from("RIFF____WAVEfmt ");
+        const chunk = Object.assign(new Uint8Array(payload), { size: payload.length });
+        this.ondataavailable?.({ data: chunk });
+        this.onstop?.();
+      }
+    },
+    navigator: {
+      mediaDevices: {
+        getUserMedia: async () => ({
+          getTracks: () => [{ stop() {} }],
+        }),
+      },
+    },
     console,
   };
   vm.runInNewContext(
@@ -141,7 +191,14 @@ function loadAsrClient(remote: Record<string, unknown>) {
     for (const effect of effects) effect();
     return tree;
   };
-  return { registered, render, hooks, mounted, ready };
+  const renderId = (id: string, extra: Record<string, unknown> = {}) => {
+    hookIndex = 0;
+    effects.length = 0;
+    const row = registered.find((entry) => entry.id === id);
+    assert.ok(row, id);
+    return row!.Component({ ...row!.props, ...extra } as never);
+  };
+  return { registered, render, renderId, hooks, mounted, ready };
 }
 
 test("ASR settings client registers an official left-nav section and renders the state machine", async () => {
@@ -190,6 +247,43 @@ test("ASR settings client registers an official left-nav section and renders the
   assert.ok(attrs.includes("file-input"));
   assert.ok(attrs.some((row) => row.includes("audio/wav")));
   assert.ok(attrs.some((row) => row.includes("data-penglai-model-progress=asr")));
+});
+
+test("ASR conversation microphone records to the composer draft via shipped transcribe", async () => {
+  const drafts: string[] = [];
+  const remote = {
+    describe: async () => ({ model: "ready" }),
+    describeModels: async () => [],
+    testTranscribe: async (input: { wavBase64: string; operationId: string }) => {
+      assert.ok(input.wavBase64.length > 0);
+      assert.match(input.operationId, /^asrmic_/);
+      return { text: "你好蓬莱", language: "zh", charCount: 4 };
+    },
+  };
+  const loaded = loadAsrClient(remote);
+  await loaded.ready;
+  const mic = loaded.registered.find((row) => row.id === "penglai-asr-mic");
+  assert.ok(mic);
+  assert.equal(mic?.name, "conversation.input.right");
+  const renderMic = () =>
+    loaded.renderId("penglai-asr-mic", {
+      inputActions: { setDraft: (text: string) => drafts.push(text) },
+    }) as { props: Record<string, unknown> };
+  let button = renderMic();
+  assert.equal(button.props["data-penglai-asr-mic"], "1");
+  assert.equal(typeof button.props.onClick, "function");
+  (button.props.onClick as () => void)();
+  await Promise.resolve();
+  await Promise.resolve();
+  button = renderMic();
+  assert.equal(button.props["data-penglai-asr-mic"], "recording");
+  (button.props.onClick as () => void)();
+  for (let i = 0; i < 30 && drafts.length === 0; i += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.deepEqual(drafts, ["你好蓬莱"]);
+  button = renderMic();
+  assert.equal(button.props["data-penglai-asr-draft"], "你好蓬莱");
 });
 
 test("ASR settings testTranscribe rejects audio above 2MiB", async () => {

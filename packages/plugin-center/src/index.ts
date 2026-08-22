@@ -385,7 +385,7 @@ function officialOnboardingContext(
   };
 }
 
-function pluginHealthFrom(
+export function pluginHealthFrom(
   ctx: { get?: (name: string, strict?: boolean) => unknown },
   id: string,
 ): PluginHealthResult {
@@ -395,6 +395,7 @@ function pluginHealthFrom(
     "@penglai/moss-tts": "penglaiMossTts",
     "@penglai/context": "penglaiContext",
     "@penglai/memory": "penglaiMemory",
+    "@penglai/office": "penglaiOffice",
     "@penglai/budget": "penglaiBudget",
     "@penglai/companion": "penglaiCompanion",
   };
@@ -451,6 +452,7 @@ function resourceProbeFrom(
     "@penglai/moss-tts": "penglaiMossTts",
     "@penglai/context": "penglaiContext",
     "@penglai/memory": "penglaiMemory",
+    "@penglai/office": "penglaiOffice",
     "@penglai/budget": "penglaiBudget",
     "@penglai/companion": "penglaiCompanion",
   };

@@ -16,15 +16,13 @@ import {
   PluginCenterHost,
   R2_CATALOG,
   createPluginLifecycle,
+  pluginHealthFrom,
   validateCatalog,
   verifyPackage,
   workspaceProtectionSnapshot,
 } from "./index.js";
 import { contribute } from "./client.js";
-import {
-  FIRST_PARTY_PLUGIN_METADATA,
-  type PluginCatalogEntry,
-} from "@penglai/runtime";
+import { type PluginCatalogEntry } from "@penglai/runtime";
 
 const TEST_CATALOG: PluginCatalogEntry[] = R2_CATALOG.map((entry) => ({
   ...entry,
@@ -112,12 +110,14 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   const cardIds = [...block[1].matchAll(/id: "(@penglai\/[^"]+)"/g)].map(
     (row) => row[1],
   );
-  assert.deepEqual(
-    cardIds,
-    FIRST_PARTY_PLUGIN_METADATA.filter(
-      (entry) => entry.id !== "@penglai/plugin-reference",
-    ).map((entry) => entry.id),
-  );
+  assert.deepEqual(cardIds, [
+    "@penglai/im",
+    "@penglai/office",
+    "@penglai/asr",
+    "@penglai/moss-tts",
+    "@penglai/memory",
+    "@penglai/companion",
+  ]);
 });
 
 test("Penglai branding shadows rc.8 official single slots at a distinct priority", () => {
@@ -365,6 +365,7 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "@penglai/companion",
       "penglaiCompanionSettings",
     ],
+    ["../../office/src/dsh-client.js", "@penglai/office", "penglaiOffice"],
   ];
   for (const [path, packageName, namespace] of clients) {
     const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -790,6 +791,7 @@ test("Center probes optional sibling services through Cordis get without inject-
     "penglaiMossTts",
     "penglaiContext",
     "penglaiMemory",
+    "penglaiOffice",
     "penglaiBudget",
     "penglaiCompanion",
   ]) {
@@ -802,4 +804,54 @@ test("Center probes optional sibling services through Cordis get without inject-
       new RegExp(`ctx\\[.*${serviceName}|ctx\\.${serviceName}`),
     );
   }
+});
+
+test("fresh office+memory reconcile to actual=active/healthy and optionals do not", () => {
+  const root = mkdtempSync(join(tmpdir(), "pc-fresh-health-"));
+  const profileDir = join(root, "profile");
+  const ctx = {
+    get(name: string) {
+      if (name === "penglaiOffice" || name === "penglaiMemory") {
+        return { status: () => ({ state: "active" }) };
+      }
+      return undefined;
+    },
+  };
+  for (const id of ["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]) {
+    const dir = join(profileDir, "node_modules", ...id.split("/"));
+    mkdirSync(dir, { recursive: true });
+    const version = TEST_CATALOG.find((entry) => entry.id === id)?.version;
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: id, version }));
+  }
+  const host = new PluginCenterHost(
+    join(root, "state"),
+    {
+      list: () => [
+        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
+        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
+        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
+      ],
+    },
+    TEST_CATALOG,
+    profileDir,
+    (id) => pluginHealthFrom(ctx, id),
+  );
+  const rows = host.reconcile();
+  const office = rows.find((row) => row.id === "@penglai/office");
+  const memory = rows.find((row) => row.id === "@penglai/memory");
+  assert.equal(office?.actual, "active");
+  assert.equal(office?.healthy, true);
+  assert.equal(office?.loaded, true);
+  assert.equal(memory?.actual, "active");
+  assert.equal(memory?.healthy, true);
+  assert.equal(memory?.loaded, true);
+  for (const id of ["@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/companion"]) {
+    const row = rows.find((entry) => entry.id === id);
+    assert.equal(row?.actual, "disabled", id);
+    assert.equal(row?.loaded, false, id);
+    assert.equal(row?.healthy, false, id);
+    assert.equal(pluginHealthFrom(ctx, id).healthy, false, id);
+  }
+  assert.equal(pluginHealthFrom({ get: () => undefined }, "@penglai/office").healthy, false);
+  assert.equal(pluginHealthFrom(ctx, "@penglai/office").healthy, true);
 });

@@ -111,15 +111,19 @@ window.__ModuleLoader__.load({
       ],
     };
 
+    const HIDDEN_PRODUCT_CARDS = new Set([
+      "@penglai/plugin-center",
+      "@penglai/plugin-reference",
+      "@penglai/plugin-pilot",
+      "@penglai/context",
+      "@penglai/budget",
+    ]);
     const FIRST_PARTY_CARDS = [
-      { id: "@penglai/plugin-center", key: "cardCenter" },
       { id: "@penglai/im", key: "cardIm" },
+      { id: "@penglai/office", key: "cardOffice" },
       { id: "@penglai/asr", key: "cardAsr" },
       { id: "@penglai/moss-tts", key: "cardTts" },
-      { id: "@penglai/context", key: "cardContext" },
       { id: "@penglai/memory", key: "cardMemory" },
-      { id: "@penglai/office", key: "cardOffice" },
-      { id: "@penglai/budget", key: "cardBudget" },
       { id: "@penglai/companion", key: "cardCompanion" },
     ];
 
@@ -283,7 +287,7 @@ window.__ModuleLoader__.load({
       const seen = new Set();
       for (const row of [...state.remote, ...state.catalog, ...FIRST_PARTY_CARDS]) {
         const id = String(row.id ?? "");
-        if (!id || seen.has(id) || id === "@penglai/plugin-reference") continue;
+        if (!id || seen.has(id) || HIDDEN_PRODUCT_CARDS.has(id)) continue;
         seen.add(id);
         cardIds.push(id);
       }
