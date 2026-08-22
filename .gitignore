@@ -6,6 +6,8 @@
 .pytest_cache/
 .uploads/
 node_modules/
+third_party/mnemon/bin/
+third_party/mnemon/cache/
 dist/
 evidence/
 .tmp/

@@ -1,0 +1,3 @@
+Mnemon v0.2.4 (https://github.com/mnemon-dev/mnemon)
+License: MIT and/or Apache-2.0 as published by upstream.
+Penglai vendors only identity-pinned native binaries fetched by scripts/fetch-mnemon-assets.mjs.

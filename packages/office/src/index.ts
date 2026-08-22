@@ -6,8 +6,10 @@ import { PenglaiOfficeRemote } from "./remote.js";
 export const name = "@penglai/office";
 export const inject: string[] = [];
 export const version = RELEASE;
-export { createOfficeService, inspect, createDocument, edit, commit } from "./service.js";
+export { createOfficeService, inspect, createDocument, edit, commit, detect } from "./service.js";
 export type { OfficeFormat, DocumentInventory, OfficeJob } from "./service.js";
+export { OFFICE_TEMPLATES } from "./templates/catalog.js";
+export { assertAuthorizedBytes } from "./authorization.js";
 
 export function apply(ctx: Pick<Context, "provide"> & { effect?: (setup: () => () => void) => unknown }): ReturnType<typeof createOfficeService> {
   const svc = createOfficeService();

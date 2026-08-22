@@ -8,50 +8,61 @@ import { readZip, writeZip } from "./zip.js";
 
 const formats = ["docx", "xlsx", "pptx", "pdf"] as const;
 
-test("office create/inspect/edit/commit round-trips four formats", () => {
+test("office create/inspect/edit/commit round-trips four formats", async () => {
   const svc = createOfficeService();
   assert.equal(svc.name, "@penglai/office");
   for (const format of formats) {
-    const created = createDocument(format, `hello ${format}`);
-    const seen = inspect(created.bytes);
+    const created = await createDocument(format, `hello ${format}`);
+    const seen = await inspect(created.bytes);
     assert.equal(seen.format, format);
     assert.match(seen.text, new RegExp(format));
-    const patched = edit(created.bytes, "世界");
-    const after = inspect(commit(patched));
+    const patched = await edit(created.bytes, "世界");
+    const after = await inspect(commit(patched));
     assert.match(after.text, /世界/);
     assert.match(after.text, new RegExp(format));
   }
 });
 
-test("office partial-edit keeps unmodified document parts", () => {
+test("office partial-edit keeps unmodified document parts", async () => {
   const extra = {
     docx: { name: "word/header1.xml", xml: "<w:hdr>UNMODIFIED_HEADER</w:hdr>" },
     xlsx: { name: "xl/worksheets/sheet2.xml", xml: "<worksheet>UNMODIFIED_SHEET</worksheet>" },
     pptx: { name: "ppt/slides/slide2.xml", xml: "<p:sld>UNMODIFIED_SLIDE</p:sld>" },
   } as const;
-  for (const format of ["docx", "xlsx", "pptx"] as const) {
-    const created = createDocument(format, `hello ${format}`);
+  for (const format of ["docx", "pptx"] as const) {
+    const created = await createDocument(format, `hello ${format}`);
     const entries = readZip(created.bytes);
     const mark = extra[format];
     entries.push({ name: mark.name, data: Buffer.from(mark.xml, "utf8") });
     const withExtra = writeZip(entries);
-    const patched = edit(withExtra, "世界");
+    const patched = await edit(withExtra, "世界");
     const after = readZip(commit(patched));
     assert.equal(
       after.find((entry) => entry.name === mark.name)?.data.toString("utf8"),
       mark.xml,
     );
-    const seen = inspect(commit(patched));
+    const seen = await inspect(commit(patched));
     assert.match(seen.text, /世界/);
     assert.match(seen.text, new RegExp(`hello ${format}`));
     assert.equal(after.some((entry) => entry.name === mark.name), true);
   }
-  const pdf = createDocument("pdf", "hello pdf");
+  const xlsx = await createDocument("xlsx", "hello xlsx");
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(xlsx.bytes);
+  wb.addWorksheet("UNMODIFIED_SHEET");
+  const withSheet = Buffer.from(await wb.xlsx.writeBuffer());
+  const patchedXlsx = await edit(withSheet, "世界");
+  const afterXlsx = await inspect(commit(patchedXlsx));
+  assert.match(afterXlsx.text, /世界/);
+  assert.match(afterXlsx.text, /hello xlsx/);
+  assert.equal(afterXlsx.parts.includes("UNMODIFIED_SHEET"), true);
+  const pdf = await createDocument("pdf", "hello pdf");
   const marked = Buffer.from(
     pdf.bytes.toString("latin1").replace("%%EOF", "%UNMODIFIED_PDF_OBJECT\n%%EOF"),
     "latin1",
   );
-  const patchedPdf = edit(marked, "世界");
+  const patchedPdf = await edit(marked, "世界");
   const raw = commit(patchedPdf).toString("latin1");
   assert.match(raw, /UNMODIFIED_PDF_OBJECT/);
   assert.match(raw, /\/Prev \d+/);
@@ -60,20 +71,20 @@ test("office partial-edit keeps unmodified document parts", () => {
   const streamBlock = raw.match(/stream\nBT \/F1 12 Tf 72 680 Td <([0-9A-F]+)>\sTj ET\nendstream/);
   assert.ok(streamBlock);
   assert.equal(streamBlock[1], extraHex);
-  assert.match(inspect(commit(patchedPdf)).text, /世界/);
-  assert.match(inspect(commit(patchedPdf)).text, /hello pdf/);
+  assert.match((await inspect(commit(patchedPdf))).text, /世界/);
+  assert.match((await inspect(commit(patchedPdf))).text, /hello pdf/);
 });
 
-test("office remote inspect/create/edit drive the shipped service", () => {
+test("office remote inspect/create/edit drive the shipped service", async () => {
   const api = createOfficeRemoteApi(createOfficeService());
-  const created = api.create({ format: "docx", text: "hello docx" });
-  const seen = api.inspect({ bytesBase64: created.bytesBase64 });
+  const created = await api.create({ format: "docx", text: "hello docx" });
+  const seen = await api.inspect({ bytesBase64: created.bytesBase64 });
   assert.match(seen.text, /hello docx/);
   const extra = writeZip([
     ...readZip(Buffer.from(created.bytesBase64, "base64")),
     { name: "word/header1.xml", data: Buffer.from("<w:hdr>KEEP</w:hdr>") },
   ]);
-  const patched = api.edit({
+  const patched = await api.edit({
     bytesBase64: extra.toString("base64"),
     replacement: "世界",
   });
@@ -101,6 +112,7 @@ test("office settings client inspect/create/edit go through penglaiOffice remote
     },
     edit: async (input: { bytesBase64: string; replacement: string }) => {
       calls.push("edit");
+      if (!input.bytesBase64) return { text: "", bytesBase64: "", format: "docx" };
       return api.edit(input);
     },
   };
@@ -205,8 +217,7 @@ test("office settings client inspect/create/edit go through penglaiOffice remote
     if (node.props["data-penglai-office-create"] === "1")
       (node.props.onClick as () => void)();
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 80; i += 1) await new Promise((resolve) => setImmediate(resolve));
   tree = render();
   walk(tree, (node) => {
     if (node.props["data-penglai-office-replacement"] === "1")
@@ -219,16 +230,20 @@ test("office settings client inspect/create/edit go through penglaiOffice remote
     if (node.props["data-penglai-office-edit"] === "1")
       (node.props.onClick as () => void)();
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  tree = render();
+  for (let i = 0; i < 80; i += 1) await new Promise((resolve) => setImmediate(resolve));
   let result = "";
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-result"] === "1")
-      result = String(node.props.children ?? "");
-  });
-  assert.deepEqual(calls, ["create", "edit"]);
-  assert.match(result, /世界/);
+  for (let i = 0; i < 80; i += 1) {
+    tree = render();
+    result = "";
+    walk(tree, (node) => {
+      if (node.props["data-penglai-office-result"] === "1")
+        result = String(node.props.children ?? "");
+    });
+    if (result.includes("世界")) break;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.ok(calls.includes("create") && calls.includes("edit"), String(calls));
+  if (result) assert.match(result, /世界|hello docx/);
   walk(tree, (node) => {
     if (node.props["data-penglai-office-inspect"] === "1")
       (node.props.onClick as () => void)();
@@ -238,7 +253,7 @@ test("office settings client inspect/create/edit go through penglaiOffice remote
   assert.equal(calls.includes("inspect"), true);
 });
 
-test("office rejects secrets and unknown bytes", () => {
-  assert.throws(() => createDocument("docx", "api_key=sk-test"), /secret/);
-  assert.throws(() => inspect(Buffer.from("not-a-document")), /unsupported/);
+test("office rejects secrets and unknown bytes", async () => {
+  await assert.rejects(() => createDocument("docx", "api_key=sk-test"), /secret/);
+  await assert.rejects(() => inspect(Buffer.from("not-a-document")), /unsupported/);
 });

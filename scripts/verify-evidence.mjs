@@ -23,7 +23,14 @@ writeFileSync(unitAssertionFile, "");
 
 const collect = spawnSync(
   process.execPath,
-  ["--import", "tsx", "--test", "packages/release-identity/src/*.test.ts"],
+  [
+    "--import",
+    "tsx",
+    "--test",
+    "packages/release-identity/src/*.test.ts",
+    "packages/memory/src/r55-memory.test.ts",
+    "packages/office/src/r55-office.test.ts",
+  ],
   {
     cwd: ROOT,
     encoding: "utf8",

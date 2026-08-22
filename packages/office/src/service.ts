@@ -1,7 +1,17 @@
 import { PenglaiError, RELEASE } from "@penglai/contracts";
-import { readZip, writeZip } from "./zip.js";
+import { readZip } from "./zip.js";
+import type { OfficeFormat } from "./formats.js";
+import { assertAuthorizedBytes, assertWorkspace } from "./authorization.js";
+import { cancelJob, createJob, digestBytes, discardJob, getJob, setJobState, type OfficeJobRecord } from "./jobs.js";
+import { createDocx, editDocx, inspectDocx } from "./adapters/docx.js";
+import { createXlsx, editXlsx, inspectXlsx, verifyXlsx } from "./adapters/xlsx.js";
+import { createPptx, editPptx, inspectPptx } from "./adapters/pptx.js";
+import { createPdf, editPdf, inspectPdf, mergePdf, rotatePdf } from "./adapters/pdf.js";
+import { OFFICE_TEMPLATES, templateById } from "./templates/catalog.js";
+import { previewJob } from "./preview.js";
+import { diffJob } from "./diff.js";
 
-export type OfficeFormat = "docx" | "xlsx" | "pptx" | "pdf";
+export type { OfficeFormat } from "./formats.js";
 
 export interface DocumentInventory {
   format: OfficeFormat;
@@ -18,237 +28,68 @@ export interface OfficeJob {
 
 const SECRET = /api[_-]?key|password|private key/i;
 
-function xmlText(xml: string): string {
-  return xml
-    .replace(/<w:tab\/>/g, "\t")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function detect(bytes: Buffer): OfficeFormat {
-  if (bytes.subarray(0, 4).toString("binary") === "%PDF") return "pdf";
-  if (bytes.subarray(0, 2).toString("binary") === "PK") {
-    const names = readZip(bytes).map((e) => e.name);
-    if (names.some((n) => n.startsWith("word/"))) return "docx";
-    if (names.some((n) => n.startsWith("xl/"))) return "xlsx";
-    if (names.some((n) => n.startsWith("ppt/"))) return "pptx";
-  }
-  throw new PenglaiError("INVALID_INPUT", "unsupported office format");
-}
-
 function requireSafe(text: string): void {
   if (SECRET.test(text)) throw new PenglaiError("SECURITY_POLICY", "office secret rejection");
 }
 
-function utf16BeHex(text: string): string {
-  const units = Buffer.alloc(2 + text.length * 2);
-  units[0] = 0xfe;
-  units[1] = 0xff;
-  for (let i = 0; i < text.length; i += 1) {
-    const code = text.charCodeAt(i);
-    units[2 + i * 2] = (code >> 8) & 0xff;
-    units[3 + i * 2] = code & 0xff;
+export function detect(bytes: Buffer): OfficeFormat {
+  if (bytes.subarray(0, 4).toString("binary") === "%PDF") return "pdf";
+  if (bytes.subarray(0, 2).toString("binary") === "PK") {
+    const names = readZip(bytes).map((entry) => entry.name);
+    if (names.some((name) => name.startsWith("word/"))) return "docx";
+    if (names.some((name) => name.startsWith("xl/"))) return "xlsx";
+    if (names.some((name) => name.startsWith("ppt/"))) return "pptx";
   }
-  return units.toString("hex").toUpperCase();
+  throw new PenglaiError("INVALID_INPUT", "unsupported office format");
 }
 
-function decodePdfText(raw: string): string {
-  const parts: string[] = [];
-  for (const match of raw.matchAll(/<([0-9A-Fa-f]+)>/g)) {
-    const buf = Buffer.from(match[1] ?? "", "hex");
-    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
-      let decoded = "";
-      for (let i = 2; i + 1 < buf.length; i += 2) {
-        decoded += String.fromCharCode((buf[i]! << 8) | buf[i + 1]!);
-      }
-      parts.push(decoded);
-    } else {
-      parts.push(buf.toString("latin1"));
-    }
-  }
-  for (const match of raw.matchAll(/\(([^()\\]*)\)/g)) {
-    parts.push(match[1] ?? "");
-  }
-  return parts.join(" ").replace(/\s+/g, " ").trim();
-}
-
-export function inspect(bytes: Buffer): DocumentInventory {
+export async function inspect(bytes: Buffer): Promise<DocumentInventory> {
+  assertAuthorizedBytes(bytes);
   const format = detect(bytes);
-  if (format === "pdf") {
-    return { format, text: decodePdfText(bytes.toString("latin1")), parts: ["pdf"] };
-  }
-  const entries = readZip(bytes);
-  const xml = entries
-    .filter((e) => e.name.endsWith(".xml"))
-    .map((e) => xmlText(e.data.toString("utf8")))
-    .filter(Boolean)
-    .join(" ");
-  return { format, text: xml, parts: entries.map((e) => e.name) };
+  if (format === "docx") return { format, ...(await inspectDocx(bytes)) };
+  if (format === "xlsx") return { format, ...(await inspectXlsx(bytes)) };
+  if (format === "pptx") return { format, ...(await inspectPptx(bytes)) };
+  return { format, ...(await inspectPdf(bytes)) };
 }
 
-function contentTypes(extra: string): string {
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-${extra}
-</Types>`;
-}
-
-function rels(target: string, type: string): string {
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="${type}" Target="${target}"/>
-</Relationships>`;
-}
-
-export function createDocument(format: OfficeFormat, text: string): OfficeJob {
+export async function createDocument(format: OfficeFormat, text: string): Promise<OfficeJob> {
   requireSafe(text);
-  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  let bytes: Buffer;
-  if (format === "docx") {
-    bytes = writeZip([
-      { name: "[Content_Types].xml", data: Buffer.from(contentTypes('<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>')) },
-      { name: "_rels/.rels", data: Buffer.from(rels("word/document.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")) },
-      { name: "word/document.xml", data: Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${escaped}</w:t></w:r></w:p></w:body></w:document>`) },
-    ]);
-  } else if (format === "xlsx") {
-    bytes = writeZip([
-      { name: "[Content_Types].xml", data: Buffer.from(contentTypes('<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>')) },
-      { name: "_rels/.rels", data: Buffer.from(rels("xl/workbook.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")) },
-      { name: "xl/workbook.xml", data: Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/></sheets></workbook>`) },
-      { name: "xl/_rels/workbook.xml.rels", data: Buffer.from(rels("worksheets/sheet1.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet")) },
-      { name: "xl/worksheets/sheet1.xml", data: Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>${escaped}</t></is></c></row></sheetData></worksheet>`) },
-    ]);
-  } else if (format === "pptx") {
-    bytes = writeZip([
-      { name: "[Content_Types].xml", data: Buffer.from(contentTypes('<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>')) },
-      { name: "_rels/.rels", data: Buffer.from(rels("ppt/presentation.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")) },
-      { name: "ppt/presentation.xml", data: Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>`) },
-      { name: "ppt/_rels/presentation.xml.rels", data: Buffer.from(rels("slides/slide1.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide")) },
-      { name: "ppt/slides/slide1.xml", data: Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`) },
-    ]);
-  } else {
-    const stream = `BT /F1 12 Tf 72 720 Td <${utf16BeHex(text)}> Tj ET`;
-    const body = Buffer.from(stream, "latin1");
-    const objs = [
-      "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-      "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-      "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj",
-      `4 0 obj << /Length ${body.length} >> stream\n${stream}\nendstream endobj`,
-      "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-    ];
-    let pdf = "%PDF-1.4\n";
-    const xref: number[] = [0];
-    for (const obj of objs) {
-      xref.push(Buffer.byteLength(pdf, "latin1"));
-      pdf += `${obj}\n`;
-    }
-    const start = Buffer.byteLength(pdf, "latin1");
-    pdf += `xref\n0 ${xref.length}\n`;
-    pdf += "0000000000 65535 f \n";
-    for (const off of xref.slice(1)) pdf += `${String(off).padStart(10, "0")} 00000 n \n`;
-    pdf += `trailer << /Size ${xref.length} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF\n`;
-    bytes = Buffer.from(pdf, "latin1");
-  }
-  return { id: `office-${format}`, format, bytes, text };
+  const bytes =
+    format === "docx"
+      ? await createDocx(text)
+      : format === "xlsx"
+        ? await createXlsx(text)
+        : format === "pptx"
+          ? await createPptx(text)
+          : await createPdf(text);
+  const seen = await inspect(bytes);
+  const job = createJob(format, bytes, seen.text);
+  return { id: job.id, format, bytes, text: seen.text };
 }
 
-function primaryPart(format: Exclude<OfficeFormat, "pdf">): string {
-  if (format === "docx") return "word/document.xml";
-  if (format === "xlsx") return "xl/worksheets/sheet1.xml";
-  return "ppt/slides/slide1.xml";
-}
-
-function spliceXmlText(xml: string, replacement: string): string {
-  const escaped = replacement.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  if (xml.includes("</w:body>")) {
-    return xml.replace(
-      "</w:body>",
-      `<w:p><w:r><w:t>${escaped}</w:t></w:r></w:p></w:body>`,
-    );
-  }
-  if (xml.includes("</sheetData>")) {
-    return xml.replace(
-      "</sheetData>",
-      `<row r="999"><c r="A999" t="inlineStr"><is><t>${escaped}</t></is></c></row></sheetData>`,
-    );
-  }
-  if (xml.includes("</p:spTree>")) {
-    return xml.replace(
-      "</p:spTree>",
-      `<p:sp><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree>`,
-    );
-  }
-  return `${xml}${escaped}`;
-}
-
-function parsePdfTrailer(raw: string): { size: number; startxref: number } | undefined {
-  const eof = raw.lastIndexOf("%%EOF");
-  if (eof < 0) return undefined;
-  const head = raw.slice(0, eof);
-  const startxref = Number([...head.matchAll(/startxref\s+(\d+)/g)].at(-1)?.[1]);
-  const size = Number([...head.matchAll(/\/Size\s+(\d+)/g)].at(-1)?.[1]);
-  if (!Number.isFinite(startxref) || !Number.isInteger(size) || size < 2) return undefined;
-  return { size, startxref };
-}
-
-function xrefLine(offset: number, gen = 0, used = true): string {
-  return `${String(offset).padStart(10, "0")} ${String(gen).padStart(5, "0")} ${used ? "n" : "f"} \n`;
-}
-
-function editPdf(bytes: Buffer, replacement: string): OfficeJob {
-  const raw = bytes.toString("latin1");
-  const trailer = parsePdfTrailer(raw);
-  if (!trailer) throw new PenglaiError("INVALID_INPUT", "pdf edit requires xref trailer");
-  const extra = `BT /F1 12 Tf 72 680 Td <${utf16BeHex(replacement)}> Tj ET`;
-  const streamNo = trailer.size;
-  const pageNo = trailer.size + 1;
-  const pagesNo = trailer.size + 2;
-  const catalogNo = trailer.size + 3;
-  const origContents = (raw.match(/\/Contents\s+(\d+\s+0\s+R)/) ?? [])[1] ?? "4 0 R";
-  const prefix = raw.endsWith("\n") ? raw : `${raw}\n`;
-  const objects = [
-    `${streamNo} 0 obj << /Length ${Buffer.byteLength(extra, "latin1")} >> stream\n${extra}\nendstream endobj\n`,
-    `${pageNo} 0 obj << /Type /Page /Parent ${pagesNo} 0 R /MediaBox [0 0 612 792] /Contents [${origContents} ${streamNo} 0 R] /Resources << /Font << /F1 5 0 R >> >> >> endobj\n`,
-    `${pagesNo} 0 obj << /Type /Pages /Kids [${pageNo} 0 R] /Count 1 >> endobj\n`,
-    `${catalogNo} 0 obj << /Type /Catalog /Pages ${pagesNo} 0 R >> endobj\n`,
-  ];
-  let pos = Buffer.byteLength(prefix, "latin1");
-  const offsets: number[] = [];
-  for (const obj of objects) {
-    offsets.push(pos);
-    pos += Buffer.byteLength(obj, "latin1");
-  }
-  const xrefStart = pos;
-  const xref =
-    `xref\n0 1\n${xrefLine(0, 65535, false)}${streamNo} 4\n` +
-    offsets.map((off) => xrefLine(off)).join("");
-  const tail = `trailer << /Size ${catalogNo + 1} /Root ${catalogNo} 0 R /Prev ${trailer.startxref} >>\nstartxref\n${xrefStart}\n%%EOF\n`;
-  const out = Buffer.from(prefix + objects.join("") + xref + tail, "latin1");
-  return { id: "office-pdf", format: "pdf", bytes: out, text: inspect(out).text };
-}
-
-export function edit(bytes: Buffer, replacement: string): OfficeJob {
+export async function edit(bytes: Buffer, replacement: string): Promise<OfficeJob> {
   requireSafe(replacement);
+  assertAuthorizedBytes(bytes);
   const format = detect(bytes);
-  if (format === "pdf") return editPdf(bytes, replacement);
-  const entries = readZip(bytes);
-  const target = primaryPart(format);
-  const next = entries.map((entry) =>
-    entry.name === target
-      ? { name: entry.name, data: Buffer.from(spliceXmlText(entry.data.toString("utf8"), replacement), "utf8") }
-      : { name: entry.name, data: Buffer.from(entry.data) },
-  );
-  const out = writeZip(next);
-  return { id: `office-${format}`, format, bytes: out, text: inspect(out).text };
+  const before = digestBytes(bytes);
+  const next =
+    format === "docx"
+      ? editDocx(bytes, replacement)
+      : format === "xlsx"
+        ? await editXlsx(bytes, replacement)
+        : format === "pptx"
+          ? editPptx(bytes, replacement)
+          : await editPdf(bytes, replacement);
+  const seen = await inspect(next);
+  const job = createJob(format, next, seen.text, undefined, before);
+  return { id: job.id, format, bytes: next, text: seen.text };
 }
 
 export function commit(job: OfficeJob): Buffer {
+  return Buffer.from(job.bytes);
+}
+
+function jobBytes(job: OfficeJob): Buffer {
   return Buffer.from(job.bytes);
 }
 
@@ -258,10 +99,64 @@ export function createOfficeService() {
     version: RELEASE,
     inspect,
     create: createDocument,
+    async createFromTemplate(id: string, workspaceId?: string) {
+      const template = templateById(id);
+      const created = await createDocument(template.format, template.body);
+      if (workspaceId) getJob(created.id).workspaceId = workspaceId;
+      return created;
+    },
     edit,
-    commit,
+    async preview(jobId: string) {
+      return previewJob(getJob(jobId));
+    },
+    async diff(jobId: string) {
+      return diffJob(getJob(jobId));
+    },
+    async verify(jobId: string) {
+      const job = getJob(jobId);
+      if (job.format === "xlsx") await verifyXlsx(job.bytes);
+      setJobState(jobId, "VERIFIED");
+      return { ok: true, format: job.format, digest: job.digest };
+    },
+    commit(job: OfficeJob | string, receipt?: string) {
+      if (typeof job === "string") {
+        if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
+        const record = getJob(job);
+        record.state = "COMMITTED";
+        return Buffer.from(record.bytes);
+      }
+      return jobBytes(job);
+    },
+    async discard(jobId: string, receipt: string) {
+      if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office discard requires owner receipt");
+      discardJob(jobId);
+    },
+    async export(jobId: string, _target: OfficeFormat, receipt: string) {
+      if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office export requires owner receipt");
+      const job = getJob(jobId);
+      return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}` };
+    },
+    async cancel(jobId: string) {
+      cancelJob(jobId);
+    },
+    async rotate(bytes: Buffer) {
+      return rotatePdf(bytes);
+    },
+    async merge(left: Buffer, right: Buffer) {
+      return mergePdf(left, right);
+    },
+    templates() {
+      return OFFICE_TEMPLATES.map((row) => ({ id: row.id, format: row.format, title: row.title, license: row.license }));
+    },
+    assertWorkspace,
+    async health() {
+      return { state: "active" as const, formats: ["docx", "xlsx", "pptx", "pdf"] as const, templates: OFFICE_TEMPLATES.length };
+    },
     status() {
       return { state: "active", formats: ["docx", "xlsx", "pptx", "pdf"] as const };
+    },
+    async close() {
+      return { workers: 0, sockets: 0, timers: 0, remotes: 0, db: 0, modelSessions: 0, audioHandles: 0 };
     },
     resourceSnapshot() {
       return {
@@ -276,3 +171,5 @@ export function createOfficeService() {
     },
   };
 }
+
+export type OfficeService = ReturnType<typeof createOfficeService>;

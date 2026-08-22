@@ -60,6 +60,36 @@ export const PINNED_MOSS_TTS_MODEL_REVISION = "f52645cb467506d8e18e746ddd5948268
 export const PINNED_MOSS_CODEC_MODEL_REVISION = "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae";
 export const PINNED_MOSS_MODEL_BUNDLE_REVISION = "cd877ae87fed8f9d26c237c5038242e796e51389";
 export const PINNED_SHERPA_UPSTREAM_COMMIT = "3e409338959097c6518998c9b72757db257f5f6f";
+export const PINNED_DSH_MNEMON = "0.2.15";
+export const PINNED_DSH_MNEMON_COMMIT = "7def5b2bddd4ecb746f09b0c8dee8032e72c690d";
+export const PINNED_MNEMON = "0.2.4";
+export const PINNED_MNEMON_COMMIT = "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b";
+export const PINNED_MNEMON_ASSETS = [
+  {
+    target: "darwin-aarch64" as const,
+    filename: "mnemon_0.2.4_darwin_arm64.tar.gz",
+    sha256: "d363b6f3826acc50b9e21aa298c8d36010c53c480000878a13b6d41d5d5dcbd6",
+    binary: "mnemon",
+  },
+  {
+    target: "darwin-x86_64" as const,
+    filename: "mnemon_0.2.4_darwin_amd64.tar.gz",
+    sha256: "fd4cae937a28851848ea8d6916e2137cc0a0441a97873f691fa1a07ce76b51a7",
+    binary: "mnemon",
+  },
+  {
+    target: "win32-x86_64" as const,
+    filename: "mnemon_0.2.4_windows_amd64.zip",
+    sha256: "5194137995f2193de73a5b3fb22f39fb773f1c0f8db5f6f96eaced5f94422b8c",
+    binary: "mnemon.exe",
+  },
+] as const;
+export const PINNED_DOCX = "9.7.1";
+export const PINNED_MAMMOTH = "1.12.1";
+export const PINNED_EXCELJS = "4.4.0";
+export const PINNED_PDF_LIB = "1.17.1";
+export const PINNED_PPTFAST = "0.20.0";
+export const PINNED_PPTFAST_COMMIT = "7482c83436531530b46003ccdab62b1fa8c97969";
 export const PROFILE_SCHEMA = 3;
 export const CATALOG_SCHEMA = 3;
 export const IM_SCHEMA = 3;

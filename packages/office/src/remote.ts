@@ -22,13 +22,13 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
     health() {
       return { name: impl.name, version: impl.version, healthy: true, ...impl.status() };
     },
-    inspect(input: { bytesBase64: string }) {
-      const seen = impl.inspect(bytesFromBase64(input.bytesBase64));
+    async inspect(input: { bytesBase64: string }) {
+      const seen = await impl.inspect(bytesFromBase64(input.bytesBase64));
       return { format: seen.format, text: seen.text, parts: seen.parts };
     },
-    create(input: { format: OfficeFormat; text: string }) {
+    async create(input: { format: OfficeFormat; text: string }) {
       if (!FORMATS.has(input.format)) throw new PenglaiError("INVALID_INPUT", "unsupported office format");
-      const job = impl.create(input.format, input.text);
+      const job = await impl.create(input.format, input.text);
       return {
         id: job.id,
         format: job.format,
@@ -36,8 +36,8 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
         bytesBase64: job.bytes.toString("base64"),
       };
     },
-    edit(input: { bytesBase64: string; replacement: string }) {
-      const job = impl.edit(bytesFromBase64(input.bytesBase64), input.replacement);
+    async edit(input: { bytesBase64: string; replacement: string }) {
+      const job = await impl.edit(bytesFromBase64(input.bytesBase64), input.replacement);
       return {
         id: job.id,
         format: job.format,

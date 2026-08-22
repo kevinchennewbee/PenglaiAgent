@@ -14,6 +14,8 @@ import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
+import { IsolatedMemoryEngine } from "./engine/service.js";
+import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry"];
@@ -102,6 +104,14 @@ export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
 }) {
+  const engine = new IsolatedMemoryEngine(opts.userData);
+  if (discoverLegacy(opts.userData)) {
+    try {
+      importLegacy(opts.userData, engine);
+    } catch {
+      /* keep engine usable; legacy file stays */
+    }
+  }
   const store = new MemoryStore(join(opts.userData, "memory", "memory.sqlite3"));
   const base = createMemoryService(store);
   const skillsRoot = officialSkillsRoot(opts.userData);
@@ -131,9 +141,15 @@ export function createDurableMemoryService(opts: {
       store.audit("promote_sop", "official-skill", null, `${input.name}:${sha256}`);
       return { registry: "official-dsh-skills", name: input.name, sha256, observed: true };
     },
+    engine,
+    rememberExplicit(input: { text: string; workspaceId?: string }, actor?: string) {
+      const record = engine.rememberExplicit(input, actor ?? "user");
+      return { ok: true as const, id: record.rowId };
+    },
     close() {
       if (closed) return;
       closed = true;
+      engine.close();
       base.close?.();
     },
     resourceSnapshot() {
@@ -142,7 +158,7 @@ export function createDurableMemoryService(opts: {
         sockets: 0,
         timers: 0,
         remotes: 0,
-        db: closed ? 0 : 1,
+        db: closed ? 0 : engine.resourceSnapshot().db,
         modelSessions: 0,
         audioHandles: 0,
       };
@@ -172,6 +188,10 @@ Object.assign(apply, { inject });
 export default { name, inject, apply, version };
 export * from "./service.js";
 export * from "./store.js";
+export { IsolatedMemoryEngine } from "./engine/service.js";
+export { bundledMnemonBinary, MNEMON_ASSETS } from "./engine/mnemon-provider.js";
+export { importLegacy, previewLegacy } from "./migration/legacy-053.js";
+export { projectGraph } from "./graph/projection.js";
 export type { MemoryWrite };
 export { modelCannotWriteGlobal, assertReadable };
 export type { MemoryWrite as WriteInput };

@@ -26,6 +26,11 @@
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.2",
-    "@penglai/contracts": "workspace:*"
+    "@liustack/pptfast": "0.20.0",
+    "@penglai/contracts": "workspace:*",
+    "docx": "9.7.1",
+    "exceljs": "4.4.0",
+    "mammoth": "1.12.1",
+    "pdf-lib": "1.17.1"
   }
 }
