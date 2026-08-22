@@ -17,6 +17,6 @@ Penglai 0.5.0 still requires a manual 0.5.2 overlay on Apple Silicon because 0.5
 
 ## Trust and platform limits
 
-This remains a `community-verified` release. macOS packages are ad-hoc signed and not notarized; Windows is not Authenticode signed. Gatekeeper or SmartScreen may warn. Do not disable system security. Updates require user confirmation and are not silent.
+This remains a `community-verified` release. macOS packages are ad-hoc signed and not notarized; Windows is not Authenticode signed. Gatekeeper or SmartScreen may warn. Do not disable system security. There is no silent auto-update: every update requires explicit user confirmation before the verified installer opens.
 
 The Plugin Center continues using the signed public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry). A client update is not required merely to publish another compatible, signed catalog generation or plugin archive.
