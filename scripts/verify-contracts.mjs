@@ -15,14 +15,18 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const adr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
-if (!adr.includes(PINNED_DSH) || !adr.includes(PINNED_DSH_COMMIT)) {
-  console.error("ADR 0033 missing pin/commit");
+const freeze = readFileSync(join(ROOT, "docs/compatibility/DSH_011_RC2.md"), "utf8");
+if (
+  !freeze.includes(PINNED_DSH) ||
+  !freeze.includes(PINNED_DSH_COMMIT) ||
+  !freeze.includes(PINNED_DSH_INTEGRITY)
+) {
+  console.error("DSH_011_RC2.md missing current pin/commit/integrity");
   process.exit(1);
 }
-const freeze = readFileSync(join(ROOT, "docs/0.5.1/DSH_FREEZE.md"), "utf8");
-if (!freeze.includes(PINNED_DSH_INTEGRITY) || !freeze.includes(PINNED_DSH_COMMIT)) {
-  console.error("DSH_FREEZE.md missing integrity/commit");
+const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
+if (!historicalAdr.includes("0.1.1-rc.1") || !existsSync(join(ROOT, "docs/0.5.1/DSH_FREEZE.md"))) {
+  console.error("historical 0.5.1 DSH freeze records missing");
   process.exit(1);
 }
 const blob = JSON.stringify(readJson("package.json")) + JSON.stringify(desktop);
