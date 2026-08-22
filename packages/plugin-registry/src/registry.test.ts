@@ -383,7 +383,11 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
   const dir = mkdtempSync(join(tmpdir(), "penglai-ppdp-"));
   const fetchImpl = (async (input) => {
     const url = String(input);
-    if (url.includes("/releases") && !url.includes("/assets/")) {
+    if (
+      url.startsWith("https://api.github.com/") &&
+      url.includes("/releases") &&
+      !url.includes("/assets/")
+    ) {
       return new Response(
         JSON.stringify([
           {
