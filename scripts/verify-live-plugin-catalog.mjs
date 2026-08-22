@@ -16,8 +16,11 @@ import {
   pluginPermissionDigest,
 } from "../packages/runtime/src/index.ts";
 
-const expectedTag = process.argv[2] || "plugin-catalog-v1.000002";
+const expectedTag = process.argv[2] || "plugin-catalog-v1.000004";
 const expectedPlugin = process.argv[3] || "@penglai/office-reader";
+const expectedSequenceMatch = /^plugin-catalog-v1\.(\d{6})$/.exec(expectedTag);
+if (!expectedSequenceMatch) throw new Error("expected catalog tag is invalid");
+const expectedSequence = Number(expectedSequenceMatch[1]);
 const root = mkdtempSync(join(tmpdir(), "penglai-live-plugin-catalog-"));
 const githubToken = process.env.GITHUB_TOKEN?.trim();
 const authenticatedGithubApiFetch = async (input, init = {}) => {
@@ -164,7 +167,7 @@ try {
   const ok = Boolean(
     snapshot.source === "github-immutable" &&
       snapshot.tag === expectedTag &&
-      snapshot.sequence === 2 &&
+      snapshot.sequence === expectedSequence &&
       snapshot.signatureOk &&
       entry?.defaultEnabled === false &&
       entry.nativeCode === false &&

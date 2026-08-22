@@ -1026,8 +1026,18 @@ window.__ModuleLoader__.load({
             }
             if (action === "enable")
               return unwrapRemote(await centerRemote.enable({ id, capabilityId: cap.capabilityId }));
-            if (action === "update")
-              return unwrapRemote(await centerRemote.update({ id, capabilityId: cap.capabilityId }));
+            if (action === "update") {
+              const result = unwrapRemote(
+                await centerRemote.update({ id, capabilityId: cap.capabilityId }),
+              );
+              if (result?.restartRequired === true) {
+                if (typeof api.restartPluginRuntime !== "function") {
+                  throw new Error("native plugin runtime restart is required");
+                }
+                await api.restartPluginRuntime({ id });
+              }
+              return result;
+            }
             return unwrapRemote(
               await centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }),
             );

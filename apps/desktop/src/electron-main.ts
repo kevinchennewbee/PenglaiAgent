@@ -50,6 +50,12 @@ import {
 import { productionDebuggerForbidden } from "./production-flags.js";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
 import { createContextGrantReceipt } from "./context-grant.js";
+import {
+  issuePluginRuntimeRestart,
+  verifyPluginRuntimeRestart,
+  type PendingPluginRuntimeRestart,
+  type PluginUpdateJournalEvidence,
+} from "./plugin-runtime-restart.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -292,6 +298,7 @@ async function main(): Promise<void> {
     authorizer: DeletionAuthorizer;
     preview: DeletionPreview;
   } | undefined;
+  let pendingPluginRuntimeRestart: PendingPluginRuntimeRestart | undefined;
 
   const workspaceProtectionPath = join(user.root, "plugins", "workspace-protection.json");
 
@@ -749,7 +756,44 @@ async function main(): Promise<void> {
               nativeCode: described.nativeCode,
             }),
           });
+          if (ownerAction === "plugin-update") {
+            pendingPluginRuntimeRestart = issuePluginRuntimeRestart({
+              id: described.id,
+              version: described.version,
+              sha256: described.sha256,
+            });
+          }
           return { capabilityId: grant.capabilityId };
+        }
+        if (name === "restartPluginRuntime") {
+          if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one plugin restart payload is required");
+          const rec = args[0] as { id?: unknown };
+          if (!rec || typeof rec.id !== "string" || !rec.id) {
+            throw new PenglaiError("INVALID_INPUT", "plugin id required");
+          }
+          const journalPath = join(user.root, "profiles", "center-tx", "journal.json");
+          if (!existsSync(journalPath)) {
+            throw new PenglaiError("SECURITY_POLICY", "plugin update journal is missing");
+          }
+          const evidence = JSON.parse(readFileSync(journalPath, "utf8")) as PluginUpdateJournalEvidence;
+          const authorized = verifyPluginRuntimeRestart({
+            pending: pendingPluginRuntimeRestart,
+            requestedId: rec.id,
+            journal: evidence,
+          });
+          pendingPluginRuntimeRestart = undefined;
+          const timer = setTimeout(() => {
+            void exclusive(async () => {
+              await stopOwnedServices();
+              await restartOwnedServices();
+            }).catch((error) => failProbe(error instanceof Error ? error.message : String(error)));
+          }, 100);
+          timer.unref?.();
+          return {
+            scheduled: true,
+            id: authorized.id,
+            version: authorized.version,
+          };
         }
         if (name === "wizardPickFolder") {
           requireNoArguments(args);
