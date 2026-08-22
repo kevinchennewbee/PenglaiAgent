@@ -17,7 +17,7 @@ if (!artifactPath || !artifactPath.endsWith(".tgz")) {
   process.exit(2);
 }
 const { privateKeyFromPem, signBytes } = await import(
-  pathToFileURL(join(ROOT, "packages/plugin-registry/src/index.ts")).href
+  pathToFileURL(join(ROOT, "packages/plugin-registry/src/signature.ts")).href
 );
 const signature = signBytes(
   readFileSync(artifactPath),

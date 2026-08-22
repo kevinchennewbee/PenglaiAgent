@@ -10,8 +10,11 @@ if (!jsonPath) {
   console.error("usage: node scripts/sign-catalog.mjs <catalog.json>");
   process.exit(2);
 }
-const { canonicalizeBytes, privateKeyFromPem, signBytes } = await import(
-  pathToFileURL(join(ROOT, "packages/plugin-registry/src/index.ts")).href
+const { canonicalizeBytes } = await import(
+  pathToFileURL(join(ROOT, "packages/plugin-registry/src/canonical-json.ts")).href
+);
+const { privateKeyFromPem, signBytes } = await import(
+  pathToFileURL(join(ROOT, "packages/plugin-registry/src/signature.ts")).href
 );
 const json = JSON.parse(readFileSync(jsonPath, "utf8"));
 const signature = signBytes(canonicalizeBytes(json), privateKeyFromPem(readFileSync(keys, "utf8")));
