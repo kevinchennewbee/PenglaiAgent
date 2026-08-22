@@ -296,7 +296,11 @@ export class PluginCenterHost {
       const isLoaded = rowLoaded(hit);
       const wanted = Boolean(desired[id]);
       const installed = this.installedVersion(id);
-      const version = e?.version ?? (installed !== "not-installed" && installed !== "invalid" ? installed : "remote");
+      const version =
+        e?.version ??
+        (installed !== "not-installed" && installed !== "invalid"
+          ? installed
+          : "remote");
       let health: PluginHealthResult = { healthy: false };
       if (isLoaded) {
         try {
@@ -313,8 +317,7 @@ export class PluginCenterHost {
         desired: wanted ? version : "disabled",
         installed,
         loaded: isLoaded,
-        healthy:
-          wanted && isLoaded && installed === version && health.healthy,
+        healthy: wanted && isLoaded && installed === version && health.healthy,
         actual: isLoaded ? "active" : wanted ? "failed" : "disabled",
         ...(health.error ? { error: health.error } : {}),
         ...(health.configuration === undefined
@@ -479,17 +482,65 @@ function resourceProbeFrom(
   };
 }
 
-export function apply(ctx: {
-  loader: {
-    resolve(id: string): {
-      update(
-        options: { disabled?: boolean },
-        create?: boolean,
-        force?: boolean,
-      ): Promise<void>;
-    };
-    await(): Promise<void>;
+interface CenterLoader {
+  resolve(id: string): {
+    update(
+      options: { disabled?: boolean },
+      create?: boolean,
+      force?: boolean,
+    ): Promise<void>;
   };
+  create(options: {
+    id: string;
+    name: string;
+    disabled?: boolean;
+  }): Promise<string>;
+  remove(id: string): Promise<void>;
+  await(): Promise<void>;
+}
+
+export function createPluginLifecycle(
+  loader: CenterLoader,
+  inventory: { list(): unknown },
+) {
+  return {
+    async apply(input: {
+      id: string;
+      enabled: boolean;
+      forceReload: boolean;
+      present: boolean;
+    }) {
+      const row = normalizeInventory(inventory.list()).find((entry) =>
+        rowMatches(entry, input.id),
+      );
+      if (!input.present) {
+        if (row?.entryId) {
+          await loader.remove(row.entryId);
+          await loader.await();
+        }
+        return;
+      }
+      if (!row?.entryId) {
+        await loader.create({
+          id: input.id.replace(/^@/, "").replaceAll("/", "-"),
+          name: input.id,
+          disabled: !input.enabled,
+        });
+        await loader.await();
+        return;
+      }
+      const entry = loader.resolve(row.entryId);
+      if (input.forceReload && input.enabled) {
+        await entry.update({ disabled: true }, false, true);
+      }
+      await entry.update({ disabled: !input.enabled }, false, true);
+      await loader.await();
+    },
+  };
+}
+
+export function apply(ctx: {
+  loader: CenterLoader;
   pluginInventory: { list(): unknown };
   llm?: OfficialLlm;
   get?: (name: string) => unknown;
@@ -616,24 +667,7 @@ export function apply(ctx: {
     inventory,
     catalog: catalog.entries,
     registry,
-    lifecycle: {
-      async apply(input) {
-        const row = normalizeInventory(inventory.list()).find((entry) =>
-          rowMatches(entry, input.id),
-        );
-        if (!row?.entryId) {
-          await ctx.loader.resolve(input.id).update({ disabled: !input.enabled }, true, true);
-          await ctx.loader.await();
-          return;
-        }
-        const entry = ctx.loader.resolve(row.entryId);
-        if (input.forceReload && input.enabled) {
-          await entry.update({ disabled: true }, false, true);
-        }
-        await entry.update({ disabled: !input.enabled }, false, true);
-        await ctx.loader.await();
-      },
-    },
+    lifecycle: createPluginLifecycle(ctx.loader, inventory),
     resourceProbe: (id) =>
       resourceProbeFrom(
         ctx as typeof ctx & Record<string, unknown>,
