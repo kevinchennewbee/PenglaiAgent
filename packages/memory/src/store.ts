@@ -42,7 +42,7 @@ export class MemoryStore {
   readonly db: DatabaseSync;
 
   constructor(path: string) {
-    mkdirSync(dirname(path), { recursive: true });
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
     this.migrate();
   }

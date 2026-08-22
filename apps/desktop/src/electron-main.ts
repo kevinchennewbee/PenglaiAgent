@@ -390,6 +390,11 @@ async function main(): Promise<void> {
 
   const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
     const safe = sanitizeStartupReason(reason);
+    try {
+      await stopOwnedServices();
+    } catch {
+      /* recovery UI must still render after best-effort ownership teardown */
+    }
     const recovery = recoveryPage;
     if (existsSync(recovery)) {
       await win.loadFile(recovery);

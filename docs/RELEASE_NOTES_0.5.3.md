@@ -8,6 +8,7 @@ Penglai 0.5.3 is an update-closeout hotfix. It keeps official DeepSeek Harness `
 - A later manual overlay can reconcile a stale `RECOVERY_REQUIRED` journal from an older failed post-verification attempt. It records the installed newer version as current without inventing a signed update ledger, then allows future update checks again.
 - Signed remote plugin archives now stage under the app-private `Penglai/0.5/plugins/packages` tree. The application-bundled plugin directory remains read-only, and remote install/update rechecks package identity and SHA-256 before an atomic stage.
 - Windows packaging now writes and verifies the same Electron fuse policy as macOS: RunAsNode, `NODE_OPTIONS`, and CLI inspect are disabled in the packaged `Penglai.exe`. All three native release jobs inspect the final packaged binary.
+- Startup recovery now tears down the owned proxy and DSH process before showing the local recovery page. App-private persistence and memory directories are created owner-only, and budget reservation cleanup treats `%` and `_` in official session ids literally instead of as SQL wildcards.
 - Regression coverage proves both the default-disabled IM path and recovery of a superseded 0.5.2 journal.
 
 ## Office Reader plugin

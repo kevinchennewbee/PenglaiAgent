@@ -372,9 +372,9 @@ export class BudgetLedger {
     return this.inTransaction(() => {
       const rows = this.db
         .prepare(
-          "SELECT reservation_key AS reservationKey, day, workspace_id AS workspaceId, provider, model, estimated_tokens AS estimatedTokens FROM budget_reservations WHERE reservation_key LIKE ?",
+          "SELECT reservation_key AS reservationKey, day, workspace_id AS workspaceId, provider, model, estimated_tokens AS estimatedTokens FROM budget_reservations WHERE substr(reservation_key,1,?)=?",
         )
-        .all(`${prefix}%`) as Array<{
+        .all(prefix.length, prefix) as Array<{
         reservationKey: string;
         day: string;
         workspaceId: string | null;
