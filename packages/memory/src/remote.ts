@@ -5,9 +5,12 @@ import type { MemoryScope, MemoryWrite } from "./service.js";
 import type { SopPromotion, SopReceipt } from "./index.js";
 
 interface MemorySettingsHost {
-  write(input: MemoryWrite, receipt?: string): { ok: true; id?: number; viaOfficialSkill?: boolean };
-  list(scope: MemoryScope, workspaceId?: string): Array<{ id: number; text: string; workspaceId?: string | null }>;
-  deleteScope(scope: MemoryScope, workspaceId?: string): number;
+  write?(input: MemoryWrite, receipt?: string): { ok: true; id?: number; viaOfficialSkill?: boolean };
+  remember?(input: { text: string; workspaceId?: string }): Promise<{ id: string }>;
+  search?(query: string, workspaceId?: string): Promise<Array<{ id: string; content: string }>>;
+  forget?(id: string, workspaceId?: string): Promise<unknown>;
+  list?(scope: MemoryScope, workspaceId?: string): Array<{ id: number; text: string; workspaceId?: string | null }>;
+  deleteScope?(scope: MemoryScope, workspaceId?: string): number;
   promoteSop(input: SopPromotion): Promise<SopReceipt>;
 }
 
@@ -27,20 +30,36 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
     }
   };
   return {
-    status(input: { scope: MemoryScope; workspaceId?: string }) {
+    async status(input: { scope: MemoryScope; workspaceId?: string }) {
       requireScope(input.scope);
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
+      const rows =
+        service.list && !service.remember
+          ? service.list(input.scope, input.workspaceId)
+          : service.search
+            ? await service.search(input.scope === "workspace" ? "project" : "identity", input.workspaceId)
+            : [];
       return {
         scope: input.scope,
-        rows: service.list(input.scope, input.workspaceId),
+        rows,
         workspaces: workspaceRegistry.list().map((row) => ({ id: row.id, title: row.title ?? row.id })),
       };
     },
-    write(input: MemoryWrite) {
+    async write(input: MemoryWrite) {
       requireScope(input.scope);
       if (input.scope === "candidate") throw new PenglaiError("SECURITY_POLICY", "session candidates are written by the memory pipeline");
       if (typeof input.text !== "string" || !input.text.trim()) throw new PenglaiError("INVALID_INPUT", "memory text required");
+      if (input.scope === "global" && (!input.ownerConfirmed || !input.visibleDiff)) {
+        throw new PenglaiError("SECURITY_POLICY", "global/SOP write requires visible diff and Owner confirm");
+      }
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
+      if (service.remember) {
+        return service.remember({
+          text: input.text.trim(),
+          ...(input.scope === "workspace" ? { workspaceId: input.workspaceId } : {}),
+        });
+      }
+      if (!service.write) throw new PenglaiError("DSH_UNAVAILABLE", "memory write unavailable");
       return service.write({
         scope: input.scope,
         text: input.text.trim(),
@@ -48,11 +67,16 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
         ...(input.scope === "global" ? { ownerConfirmed: input.ownerConfirmed, visibleDiff: input.visibleDiff } : {}),
       }, "owner-settings");
     },
-    deleteScope(input: { scope: MemoryScope; workspaceId?: string; ownerConfirmed: boolean }) {
+    async deleteScope(input: { scope: MemoryScope; workspaceId?: string; ownerConfirmed: boolean }) {
       requireScope(input.scope);
       if (!input.ownerConfirmed) throw new PenglaiError("SECURITY_POLICY", "memory delete requires Owner confirmation");
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
-      return { removed: service.deleteScope(input.scope, input.workspaceId) };
+      if (service.forget && input.workspaceId) {
+        const rows = service.search ? await service.search("*", input.workspaceId) : [];
+        for (const row of rows) await service.forget(row.id, input.workspaceId);
+        return { removed: rows.length };
+      }
+      return { removed: service.deleteScope?.(input.scope, input.workspaceId) ?? 0 };
     },
     promoteSop(input: SopPromotion) { return service.promoteSop(input); },
   };

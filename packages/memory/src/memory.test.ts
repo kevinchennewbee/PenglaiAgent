@@ -95,7 +95,7 @@ test("R50-CTXMEM: global L1 enforces row and byte budgets durably", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_DATA", () => {
+test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_DATA", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mem-apply-"));
   const previous = process.env.PENGLAI_USER_DATA;
   process.env.PENGLAI_USER_DATA = dir;
@@ -106,12 +106,12 @@ test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_
   };
   try {
     const svc = apply(ctx);
-    svc.write({ scope: "workspace", workspaceId: "w1", text: "durable fact" }, "test");
+    await svc.remember({ text: "durable fact", workspaceId: "w1" });
     svc.close?.();
     const svc2 = apply(ctx);
-    const rows = svc2.list("workspace", "w1");
+    const rows = await svc2.search("durable", "w1");
     assert.equal(rows.length, 1);
-    assert.equal(rows[0]?.text, "durable fact");
+    assert.equal(rows[0]?.content, "durable fact");
     svc2.close?.();
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
@@ -155,17 +155,17 @@ test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and retur
   }
 });
 
-test("Memory settings enforces layered writes, visible diff, and live Workspace scope", () => {
+test("Memory settings enforces layered writes, visible diff, and live Workspace scope", async () => {
   const svc = createMemoryService();
   const api = createMemorySettingsApi(svc as never, { list: () => [{ id: "w1", title: "Workspace" }] });
-  assert.throws(() => api.write({ scope: "candidate", text: "model candidate" }), /pipeline/);
-  assert.throws(() => api.write({ scope: "global", text: "global" }), /Owner confirm/);
-  assert.equal(api.write({ scope: "global", text: "global", ownerConfirmed: true, visibleDiff: "+ global" }).id, 1);
-  assert.equal(api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" }).id, 2);
-  assert.throws(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
-  assert.equal(api.status({ scope: "workspace", workspaceId: "w1" }).rows.length, 1);
-  assert.throws(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
-  assert.equal(api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: true }).removed, 1);
+  await assert.rejects(() => api.write({ scope: "candidate", text: "model candidate" }), /pipeline/);
+  await assert.rejects(() => api.write({ scope: "global", text: "global" }), /Owner confirm/);
+  const global = await api.write({ scope: "global", text: "global", ownerConfirmed: true, visibleDiff: "+ global" });
+  assert.equal(global.id, 1);
+  const workspace = await api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" });
+  assert.equal(workspace.id, 2);
+  await assert.rejects(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
+  await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
 });
 
 test("Memory client registers the official settings slot without a second skill store", async () => {

@@ -34,7 +34,7 @@ export class MnemonProcessSupervisor {
   async probeVersion(): Promise<string | undefined> {
     if (!this.binaryPath || !existsSync(this.binaryPath)) return undefined;
     return await new Promise((resolve) => {
-      const proc = spawn(this.binaryPath!, ["version"], { stdio: ["ignore", "pipe", "pipe"] });
+      const proc = spawn(this.binaryPath!, ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
       let out = "";
       proc.stdout?.on("data", (chunk) => {
         out += String(chunk);

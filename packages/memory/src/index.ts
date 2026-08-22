@@ -14,7 +14,7 @@ import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
-import { IsolatedMemoryEngine } from "./engine/service.js";
+import { MnemonMemoryService } from "./engine/service.js";
 import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
 
 export const name = "@penglai/memory";
@@ -104,20 +104,44 @@ export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
 }) {
-  const engine = new IsolatedMemoryEngine(opts.userData);
-  if (discoverLegacy(opts.userData)) {
-    try {
-      importLegacy(opts.userData, engine);
-    } catch {
-      /* keep engine usable; legacy file stays */
-    }
-  }
-  const store = new MemoryStore(join(opts.userData, "memory", "memory.sqlite3"));
-  const base = createMemoryService(store);
+  const engine = new MnemonMemoryService(opts.userData);
   const skillsRoot = officialSkillsRoot(opts.userData);
   let closed = false;
   return {
-    ...base,
+    engine,
+    async remember(input: { text: string; workspaceId?: string }) {
+      return engine.remember(input);
+    },
+    async search(query: string, workspaceId?: string) {
+      return engine.search(query, workspaceId);
+    },
+    async recall(query: string, workspaceId?: string) {
+      return engine.recall(query, workspaceId);
+    },
+    async related(id: string, workspaceId?: string) {
+      return engine.related(id, workspaceId);
+    },
+    async why(id: string, workspaceId?: string) {
+      return engine.why(id, workspaceId);
+    },
+    async correct(oldId: string, text: string, workspaceId?: string) {
+      return engine.correct(oldId, text, workspaceId);
+    },
+    async forget(id: string, workspaceId?: string) {
+      return engine.forget(id, workspaceId);
+    },
+    async graph(workspaceId?: string, includePersonal = false) {
+      return engine.graph(workspaceId, includePersonal);
+    },
+    write(input: MemoryWrite) {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory writes go through remember()");
+    },
+    list() {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory lists go through search()");
+    },
+    deleteScope() {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory delete goes through forget()");
+    },
     async promoteSop(input: SopPromotion): Promise<SopReceipt> {
       const markdown = skillMarkdown(input);
       mkdirSync(skillsRoot, { recursive: true, mode: 0o700 });
@@ -138,19 +162,22 @@ export function createDurableMemoryService(opts: {
       renameSync(temp, target);
       await waitForOfficialSkill(opts.skills, input.name, opts.userData);
       const sha256 = createHash("sha256").update(readFileSync(target)).digest("hex");
-      store.audit("promote_sop", "official-skill", null, `${input.name}:${sha256}`);
       return { registry: "official-dsh-skills", name: input.name, sha256, observed: true };
     },
-    engine,
-    rememberExplicit(input: { text: string; workspaceId?: string }, actor?: string) {
-      const record = engine.rememberExplicit(input, actor ?? "user");
-      return { ok: true as const, id: record.rowId };
+    async rememberExplicit(input: { text: string; workspaceId?: string }) {
+      const row = await engine.remember(input);
+      return { ok: true as const, id: row.id };
+    },
+    async importPreview() {
+      return discoverLegacy(opts.userData);
+    },
+    async importConfirm() {
+      return importLegacy(opts.userData, engine);
     },
     close() {
       if (closed) return;
       closed = true;
       engine.close();
-      base.close?.();
     },
     resourceSnapshot() {
       return {
@@ -188,7 +215,7 @@ Object.assign(apply, { inject });
 export default { name, inject, apply, version };
 export * from "./service.js";
 export * from "./store.js";
-export { IsolatedMemoryEngine } from "./engine/service.js";
+export { MnemonMemoryService, IsolatedMemoryEngine } from "./engine/service.js";
 export { bundledMnemonBinary, MNEMON_ASSETS } from "./engine/mnemon-provider.js";
 export { importLegacy, previewLegacy } from "./migration/legacy-053.js";
 export { projectGraph } from "./graph/projection.js";

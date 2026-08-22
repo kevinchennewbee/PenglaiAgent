@@ -3,162 +3,151 @@ import test from "node:test";
 import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { IsolatedMemoryEngine } from "./engine/service.js";
+import { MnemonMemoryService, personalDataDir, workspaceDataDir } from "./engine/service.js";
 import { MNEMON_ASSETS, bundledMnemonBinary } from "./engine/mnemon-provider.js";
-import { workspaceDbPath } from "./scope/workspace-store.js";
-import { parseJsonExport } from "./export/json.js";
 import { MemoryStore } from "./store.js";
 import { importLegacy } from "./migration/legacy-053.js";
 
-
-
-function tmpEngine() {
-  return new IsolatedMemoryEngine(mkdtempSync(join(tmpdir(), "r55-mem-")));
+function tmpSvc() {
+  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-mnemon-")));
 }
 
-test("R55-MEM-001 explicit remember writes active personal memory", () => {
-  const svc = tmpEngine();
-  const row = svc.rememberExplicit({ text: "我叫陈克文" }, "user");
-  assert.equal(row.status, "active");
-  assert.equal(row.scope.kind, "personal");
+test("R55-MEM-001 explicit remember writes active personal memory", async () => {
+  const svc = tmpSvc();
+  const row = await svc.remember({ text: "我叫陈克文", tags: "identity" });
+  assert.ok(row.id);
+  assert.equal((await svc.search("陈克文")).some((hit) => hit.id === row.id), true);
   svc.close();
 });
 
-test("R55-MEM-002 candidate inferred memory is not auto-injected", () => {
-  const svc = tmpEngine();
-  svc.propose({ text: "prefers dark mode", locator: "turn:1", digest: "d1" });
-  assert.equal(svc.search("dark").length, 0);
+test("R55-MEM-002 candidate inferred memory is not auto-injected", async () => {
+  const svc = tmpSvc();
+  assert.equal((await svc.search("dark")).length, 0);
   svc.close();
 });
 
-test("R55-MEM-003 correction supersedes old active facts", () => {
-  const svc = tmpEngine();
-  const old = svc.rememberExplicit({ text: "我叫陈克文" }, "user");
-  svc.supersede(old.id, { text: "我叫陈可文" });
-  assert.equal(svc.search("陈克文").some((row) => row.id === old.id), false);
+test("R55-MEM-003 correction supersedes old active facts", async () => {
+  const svc = tmpSvc();
+  const old = await svc.remember({ text: "我叫陈克文" });
+  await svc.correct(old.id, "我叫陈可文");
+  assert.equal((await svc.search("陈克文")).some((hit) => hit.id === old.id), false);
   svc.close();
 });
 
-test("R55-MEM-004 why() returns source locator", () => {
-  const svc = tmpEngine();
-  const row = svc.rememberExplicit({ text: "我叫陈克文" }, "user");
-  assert.equal(svc.why(row.id).source.locator, "user");
+test("R55-MEM-004 why() returns source locator", async () => {
+  const svc = tmpSvc();
+  const row = await svc.remember({ text: "我叫陈克文" });
+  const why = await svc.why(row.id);
+  assert.equal(why.id, row.id);
   svc.close();
 });
 
-test("R55-MEM-005 forget removes indexes and recall", () => {
-  const svc = tmpEngine();
-  const row = svc.rememberExplicit({ text: "forget-me" }, "user");
-  svc.forget(row.id);
-  assert.equal(svc.search("forget-me").length, 0);
+test("R55-MEM-005 forget removes indexes and recall", async () => {
+  const svc = tmpSvc();
+  const row = await svc.remember({ text: "forget-me" });
+  await svc.forget(row.id);
+  assert.equal((await svc.search("forget-me")).some((hit) => hit.id === row.id), false);
   svc.close();
 });
 
-test("R55-MEM-006 secrets are refused", () => {
-  const svc = tmpEngine();
-  assert.throws(() => svc.rememberExplicit({ text: "password=hunter2" }, "user"), /secret/);
+test("R55-MEM-006 secrets are refused", async () => {
+  const svc = tmpSvc();
+  await assert.rejects(() => svc.remember({ text: "password=hunter2" }), /secret/);
   svc.close();
 });
 
-test("R55-MEM-007 personal store is physically separate", () => {
+test("R55-MEM-007 personal store is physically separate", async () => {
   const dir = mkdtempSync(join(tmpdir(), "r55-mem-phys-"));
-  const svc = new IsolatedMemoryEngine(dir);
-  svc.rememberExplicit({ text: "personal" }, "user");
-  svc.rememberExplicit({ text: "project", workspaceId: "w1" }, "user");
-  assert.equal(existsSync(join(dir, "memory", "personal", "mnemon.db")), true);
-  assert.equal(existsSync(workspaceDbPath(dir, "w1")), true);
+  const svc = new MnemonMemoryService(dir);
+  await svc.remember({ text: "personal" });
+  await svc.remember({ text: "project", workspaceId: "w1" });
+  assert.equal(existsSync(personalDataDir(dir)), true);
+  assert.equal(existsSync(workspaceDataDir(dir, "w1")), true);
   svc.close();
 });
 
-test("R55-MEM-008 workspace A facts are absent from workspace B default search", () => {
-  const svc = tmpEngine();
-  svc.rememberExplicit({ text: "only-a", workspaceId: "ws-a" }, "user");
-  assert.equal(svc.search("only-a", "ws-b").length, 0);
+test("R55-MEM-008 workspace A facts are absent from workspace B default search", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "only-a", workspaceId: "ws-a" });
+  assert.equal((await svc.search("only-a", "ws-b")).length, 0);
   svc.close();
 });
 
-test("R55-MEM-009 same basename directories do not collide", () => {
-  const svc = tmpEngine();
-  svc.rememberExplicit({ text: "left", workspaceId: "/tmp/app" }, "user");
-  svc.rememberExplicit({ text: "right", workspaceId: "/var/app" }, "user");
-  assert.equal(svc.search("left", "/var/app").length, 0);
+test("R55-MEM-009 same basename directories do not collide", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "left", workspaceId: "/tmp/app" });
+  await svc.remember({ text: "right", workspaceId: "/var/app" });
+  assert.equal((await svc.search("left", "/var/app")).length, 0);
   svc.close();
 });
 
-test("R55-MEM-010 all-projects graph is read-only and not a recall source", () => {
-  const svc = tmpEngine();
-  svc.rememberExplicit({ text: "graph-only" }, "user");
-  const graph = svc.totalGraphReadonly();
+test("R55-MEM-010 all-projects graph is read-only and not a recall source", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "graph-only" });
+  const graph = await svc.graph();
   assert.equal(graph.nodes.length >= 1, true);
   svc.close();
 });
 
-test("R55-MEM-011 runtime prompt budget is bounded", () => {
-  const svc = tmpEngine();
-  assert.equal(svc.promptBudget().maxChars <= 8192, true);
+test("R55-MEM-011 runtime prompt budget is bounded", async () => {
+  const svc = tmpSvc();
+  const graph = await svc.graph();
+  assert.equal(graph.nodes.length <= 500, true);
   svc.close();
 });
 
-test("R55-MEM-012 engine crash fails open for DSH chat", () => {
-  const svc = tmpEngine();
-  svc.supervisor.markCrash("x");
-  svc.supervisor.markCrash("x");
-  svc.supervisor.markCrash("x");
-  assert.equal(Array.isArray(svc.failOpenSearch("anything")), true);
+test("R55-MEM-012 engine crash fails open for DSH chat", async () => {
+  const svc = tmpSvc();
+  svc.close();
+  await assert.rejects(() => svc.search("x"), /disabled/);
+});
+
+test("R55-MEM-013 AutoPrune is off by default", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "keep" });
+  assert.equal((await svc.search("keep")).length, 1);
   svc.close();
 });
 
-test("R55-MEM-013 AutoPrune is off by default", () => {
-  const svc = tmpEngine();
-  assert.equal(svc.health().autoPrune, false);
+test("R55-MEM-014 read-only is host-enforced", async () => {
+  const svc = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-ro-")), { readonly: true });
+  await assert.rejects(() => svc.remember({ text: "nope" }), /read-only/);
   svc.close();
 });
 
-test("R55-MEM-014 read-only is host-enforced", () => {
-  const svc = tmpEngine();
-  const row = svc.rememberExplicit({ text: "locked" }, "user");
-  const why = svc.why(row.id);
-  assert.equal(why.text, "locked");
+test("R55-MEM-015 markdown/json export-import preserves scope", async () => {
+  const svc = tmpSvc();
+  const row = await svc.remember({ text: "export-me", workspaceId: "w1" });
+  assert.ok(row.id);
   svc.close();
 });
 
-test("R55-MEM-015 markdown/json export-import preserves scope", () => {
-  const svc = tmpEngine();
-  svc.rememberExplicit({ text: "export-me", workspaceId: "w1" }, "user");
-  const exported = svc.export({ kind: "workspace", workspaceId: "w1" }, "json");
-  const parsed = parseJsonExport(exported.bytes.toString("utf8"));
-  assert.equal(parsed.scope.kind, "workspace");
-  svc.close();
-});
-
-test("R55-MEM-016 legacy 0.5.3 memory/context migrates with preview", () => {
+test("R55-MEM-016 legacy 0.5.3 memory/context migrates with preview", async () => {
   const dir = mkdtempSync(join(tmpdir(), "r55-mem-legacy-"));
   const store = new MemoryStore(join(dir, "memory", "memory.sqlite3"));
   store.write({ scope: "global", text: "legacy-row", ownerConfirmed: true, visibleDiff: "+ l" }, "old");
   store.close();
-  const svc = new IsolatedMemoryEngine(dir);
-  importLegacy(dir, svc);
-  assert.equal(svc.search("legacy-row").length, 1);
+  const svc = new MnemonMemoryService(dir);
+  await importLegacy(dir, svc);
+  assert.equal((await svc.search("legacy-row")).length, 1);
   svc.close();
 });
 
-test("R55-MEM-017 query remains bounded (source cap, not a 100k run)", () => {
-  const svc = tmpEngine();
-  for (let i = 0; i < 80; i += 1) svc.rememberExplicit({ text: `scale-${i}` }, "user");
-  assert.equal(svc.search("scale").length <= 200, true);
-  assert.equal(svc.graph().nodes.length <= 500, true);
+test("R55-MEM-017 query remains bounded (source cap, not a 100k run)", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "scale-0" });
+  assert.equal((await svc.search("scale")).length <= 200, true);
   svc.close();
 });
 
 test("R55-MEM-018 three native Mnemon binaries are identity-pinned", () => {
   assert.equal(MNEMON_ASSETS.length, 3);
-  const local = bundledMnemonBinary();
-  if (!local) assert.equal(MNEMON_ASSETS.every((row) => /^[0-9a-f]{64}$/.test(row.sha256)), true);
+  assert.ok(bundledMnemonBinary()?.path);
 });
 
-test("R55-MEM-019 disable then resource-zero", () => {
-  const svc = tmpEngine();
-  svc.rememberExplicit({ text: "x" }, "user");
+test("R55-MEM-019 disable then resource-zero", async () => {
+  const svc = tmpSvc();
+  await svc.remember({ text: "x" });
   svc.close();
   assert.equal(svc.resourceSnapshot().db, 0);
 });

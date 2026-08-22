@@ -1,8 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MemoryStore } from "../store.js";
-import type { IsolatedMemoryEngine } from "../engine/service.js";
-import { digestText } from "../trust/governance.js";
+import type { MnemonMemoryService } from "../engine/service.js";
 
 export interface MigrationPreview {
   legacyPath: string;
@@ -36,28 +35,19 @@ export function previewLegacy(root: string): MigrationPreview | undefined {
   }
 }
 
-export function importLegacy(root: string, engine: IsolatedMemoryEngine): MigrationPreview {
+export async function importLegacy(root: string, engine: MnemonMemoryService): Promise<MigrationPreview> {
   const preview = previewLegacy(root);
   if (!preview) throw new Error("legacy memory sqlite missing");
   const store = new MemoryStore(preview.legacyPath);
   try {
     for (const row of store.list("global")) {
-      engine.rememberExplicit({ text: row.text }, "legacy-053");
+      await engine.remember({ text: row.text, tags: "legacy" });
     }
     const workspaceRows = store.db
       .prepare("SELECT workspace_id AS workspaceId, text FROM memory_rows WHERE scope = 'workspace'")
       .all() as Array<{ workspaceId: string; text: string }>;
     for (const row of workspaceRows) {
-      engine.rememberExplicit({ text: row.text, workspaceId: row.workspaceId }, "legacy-053");
-    }
-    const candidates = store.candidates();
-    for (const row of candidates) {
-      engine.propose({
-        text: row.text,
-        locator: `legacy:${row.id}`,
-        digest: digestText(row.text),
-        ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
-      });
+      await engine.remember({ text: row.text, workspaceId: row.workspaceId, tags: "legacy" });
     }
     return preview;
   } finally {
