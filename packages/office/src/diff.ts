@@ -10,8 +10,8 @@ export interface OfficeDiff {
 export function diffJob(job: OfficeJobRecord): OfficeDiff {
   return {
     jobId: job.id,
-    ...(job.beforeDigest ? { beforeDigest: job.beforeDigest } : {}),
+    beforeDigest: job.sourceDigest,
     afterDigest: job.digest,
-    changed: Boolean(job.beforeDigest && job.beforeDigest !== job.digest),
+    changed: job.sourceDigest !== job.digest,
   };
 }

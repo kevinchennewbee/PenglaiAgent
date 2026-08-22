@@ -28,13 +28,17 @@ export async function inspectXlsx(bytes: Buffer): Promise<{ text: string; parts:
   return { text: cells.join(" "), parts };
 }
 
-export async function editXlsx(bytes: Buffer, replacement: string): Promise<Buffer> {
+export async function editXlsx(
+  bytes: Buffer,
+  op: { sheet?: string; cell: string; value: string | number },
+): Promise<Buffer> {
   assertAuthorizedBytes(bytes);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(bytes as never);
-  const sheet = wb.worksheets[0];
+  const sheet = op.sheet ? wb.getWorksheet(op.sheet) : wb.worksheets[0];
   if (!sheet) throw new PenglaiError("INVALID_INPUT", "xlsx sheet missing");
-  sheet.getCell("A999").value = replacement;
+  if (!/^[A-Z]+[0-9]+$/i.test(op.cell)) throw new PenglaiError("INVALID_INPUT", "xlsx cell invalid");
+  sheet.getCell(op.cell.toUpperCase()).value = op.value;
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
 }

@@ -74,25 +74,25 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/office",
-      descriptors: ["health", "inspect", "create", "edit"].map((method) =>
+      descriptors: ["health", "inspect", "create", "edit", "preview", "approve", "commit"].map((method) =>
         remoteDescriptor(method, method !== "health"),
       ),
     };
     const COPY = {
       zh: {
         title: "蓬莱办公",
-        hint: "读取、创建和局部编辑 DOCX、XLSX、PPTX 与 PDF。未改动的文档部件会保留。",
+        hint: "读取、创建，并用格式专属操作编辑 DOCX、XLSX、PPTX 与 PDF。PDF 不嵌入中文正文。提交需要 Owner 收据。",
         create: "创建",
         inspect: "查看",
-        edit: "局部修改",
+        edit: "目标修改",
         result: "结果",
       },
       en: {
         title: "Penglai Office",
-        hint: "Inspect, create, and partially edit DOCX, XLSX, PPTX, and PDF. Unmodified parts are kept.",
+        hint: "Inspect, create, and apply typed operations to DOCX, XLSX, PPTX, and PDF. PDF does not embed CJK body text. Commit requires an Owner receipt.",
         create: "Create",
         inspect: "Inspect",
-        edit: "Partial edit",
+        edit: "Targeted edit",
         result: "Result",
       },
     };
@@ -187,7 +187,16 @@ window.__ModuleLoader__.load({
             onClick: () =>
               run("edit", {
                 bytesBase64: view.bytesBase64,
+                format: view.format,
                 replacement: view.replacement,
+                operation:
+                  view.format === "xlsx"
+                    ? { kind: "xlsx.setCell", cell: "B1", value: view.replacement }
+                    : view.format === "pptx"
+                      ? { kind: "pptx.replaceSlideText", slideIndex: 0, text: view.replacement }
+                      : view.format === "pdf"
+                        ? { kind: "pdf.watermark", text: view.replacement }
+                        : { kind: "docx.replaceParagraph", paragraphIndex: 0, text: view.replacement },
               }),
             children: t.edit,
           }),

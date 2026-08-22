@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   assertAuthorizedBytes,
   commit,
@@ -10,10 +13,8 @@ import {
   inspect,
 } from "./index.js";
 import { OFFICE_TEMPLATES } from "./templates/catalog.js";
-import { readZip, writeZip } from "./zip.js";
+import { writeZip } from "./zip.js";
 import { mergePdf, rotatePdf } from "./adapters/pdf.js";
-
-
 
 test("R55-OFFICE-001 DOCX inspect", async () => {
   const created = await createDocument("docx", "hello docx");
@@ -27,7 +28,7 @@ test("R55-OFFICE-002 DOCX create", async () => {
 
 test("R55-OFFICE-003 DOCX partial edit", async () => {
   const created = await createDocument("docx", "hello docx");
-  const patched = await edit(created.bytes, "世界");
+  const patched = await edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "世界" });
   assert.match((await inspect(commit(patched))).text, /世界/);
 });
 
@@ -50,8 +51,9 @@ test("R55-OFFICE-006 XLSX create", async () => {
 
 test("R55-OFFICE-007 XLSX partial edit", async () => {
   const created = await createDocument("xlsx", "hello xlsx");
-  const patched = await edit(created.bytes, "世界");
+  const patched = await edit(created.bytes, { kind: "xlsx.setCell", cell: "B1", value: "世界" });
   assert.match((await inspect(commit(patched))).text, /世界/);
+  assert.match((await inspect(commit(patched))).text, /hello xlsx/);
 });
 
 test("R55-OFFICE-008 XLSX verify", async () => {
@@ -73,7 +75,7 @@ test("R55-OFFICE-010 PPTX create", async () => {
 
 test("R55-OFFICE-011 PPTX partial edit", async () => {
   const created = await createDocument("pptx", "hello pptx");
-  const patched = await edit(created.bytes, "世界");
+  const patched = await edit(created.bytes, { kind: "pptx.replaceSlideText", slideIndex: 0, text: "世界" });
   assert.match((await inspect(commit(patched))).text, /世界/);
 });
 
@@ -91,13 +93,14 @@ test("R55-OFFICE-013 PDF inspect", async () => {
 
 test("R55-OFFICE-014 PDF create", async () => {
   const created = await createDocument("pdf", "created-pdf");
-  assert.match((await inspect(created.bytes)).text, /created-pdf|Penglai/);
+  assert.match((await inspect(created.bytes)).text, /created-pdf/);
 });
 
-test("R55-OFFICE-015 PDF partial edit", async () => {
+test("R55-OFFICE-015 PDF watermark not CJK stream", async () => {
   const created = await createDocument("pdf", "hello pdf");
-  const patched = await edit(created.bytes, "世界");
-  assert.match((await inspect(commit(patched))).text, /世界|hello pdf/);
+  const patched = await edit(created.bytes, { kind: "pdf.watermark", text: "WMARK" });
+  assert.match((await inspect(commit(patched))).text, /WMARK|hello pdf/);
+  await assert.rejects(() => edit(created.bytes, { kind: "pdf.watermark", text: "世界" }), /CJK|latin/i);
 });
 
 test("R55-OFFICE-016 PDF verify", async () => {
@@ -122,8 +125,11 @@ test("R55-OFFICE-019 TOCTOU reject", async () => {
   const svc = createOfficeService();
   const created = await svc.create("docx", "toctou");
   const first = digestOf(created.bytes);
-  const edited = await svc.edit(created.bytes, "changed");
+  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "changed" });
   assert.notEqual(digestOf(edited.bytes), first);
+  const receipt = svc.approve(edited.id);
+  assert.throws(() => svc.commit(edited.id, "owner-1"), /receipt/);
+  assert.ok(svc.commit(edited.id, receipt).length > 0);
 });
 
 test("R55-OFFICE-020 malicious documents fail closed", async () => {
@@ -139,28 +145,52 @@ test("R55-OFFICE-021 templates and OFL fonts only", () => {
   );
 });
 
-test("R55-OFFICE-022 preview then owner approval", async () => {
+test("R55-OFFICE-022 preview then HMAC owner approval", async () => {
   const svc = createOfficeService();
   const created = await svc.create("docx", "preview-me");
   const preview = await svc.preview(created.id);
-  assert.equal(preview[0]?.kind, "text");
+  assert.equal(preview[0]?.kind, "inventory");
   assert.throws(() => svc.commit(created.id), /receipt/);
-  const bytes = svc.commit(created.id, "owner-1");
+  assert.throws(() => svc.commit(created.id, "owner-1"), /receipt/);
+  const receipt = svc.approve(created.id);
+  const bytes = svc.commit(created.id, receipt);
   assert.ok(bytes.length > 0);
 });
 
 test("R55-OFFICE-023 atomic commit/undo", async () => {
   const svc = createOfficeService();
-  const created = await svc.create("docx", "discard-me");
-  await svc.discard(created.id, "owner-1");
-  await assert.rejects(() => svc.preview(created.id), /not found/);
+  const dir = mkdtempSync(join(tmpdir(), "penglai-office-tx-"));
+  const dest = join(dir, "note.docx");
+  const created = await svc.create("docx", "original-docx");
+  writeFileSync(dest, created.bytes);
+  const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" });
+  const receipt = svc.approve(edited.id);
+  svc.commitToPath(edited.id, receipt, dest, dir);
+  assert.match(readFileSync(dest).toString("utf8") === "" ? "x" : (await inspect(readFileSync(dest))).text, /revised-docx/);
+  svc.undo(edited.id, receipt);
+  assert.match((await inspect(readFileSync(dest))).text, /original-docx/);
+  const disposable = await svc.create("docx", "discard-me");
+  const discardReceipt = svc.approve(disposable.id);
+  await svc.discard(disposable.id, discardReceipt);
+  await assert.rejects(() => svc.preview(disposable.id), /not found/);
 });
 
 test("R55-OFFICE-024 IM file return path", async () => {
   const svc = createOfficeService();
   const created = await svc.create("docx", "im-return");
-  const exported = await svc.export(created.id, "docx", "owner-1");
+  const receipt = svc.approve(created.id);
+  const exported = await svc.export(created.id, "docx", receipt);
   assert.match(exported.filename, /\.docx$/);
+  assert.equal(exported.digest, createHash("sha256").update(exported.bytes).digest("hex"));
+});
+
+test("office PDF rotate and merge stay on pdf-lib", async () => {
+  const left = await createDocument("pdf", "left pdf");
+  const right = await createDocument("pdf", "right pdf");
+  const rotated = await rotatePdf(left.bytes);
+  const merged = await mergePdf(left.bytes, right.bytes);
+  assert.equal((await inspect(rotated)).format, "pdf");
+  assert.equal((await inspect(merged)).format, "pdf");
 });
 
 function digestOf(bytes: Buffer): string {

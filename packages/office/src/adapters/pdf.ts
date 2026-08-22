@@ -2,101 +2,59 @@ import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
 import { PenglaiError } from "@penglai/contracts";
 import { assertAuthorizedBytes } from "../authorization.js";
 
-function utf16BeHex(text: string): string {
-  const units = Buffer.alloc(2 + text.length * 2);
-  units[0] = 0xfe;
-  units[1] = 0xff;
-  for (let i = 0; i < text.length; i += 1) {
-    const code = text.charCodeAt(i);
-    units[2 + i * 2] = (code >> 8) & 0xff;
-    units[3 + i * 2] = code & 0xff;
+function assertLatinBody(text: string): void {
+  if (/[^\u0000-\u00ff]/.test(text)) {
+    throw new PenglaiError(
+      "INVALID_INPUT",
+      "pdf body text cannot embed CJK without an OFL font; 0.5.5 supports latin create/watermark/rotate/merge/inspect only",
+    );
   }
-  return units.toString("hex").toUpperCase();
 }
 
 function decodePdfText(raw: string): string {
   const parts: string[] = [];
-  for (const match of raw.matchAll(/<([0-9A-Fa-f]+)>/g)) {
-    const buf = Buffer.from(match[1] ?? "", "hex");
-    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
-      let decoded = "";
-      for (let i = 2; i + 1 < buf.length; i += 2) decoded += String.fromCharCode((buf[i]! << 8) | buf[i + 1]!);
-      parts.push(decoded);
-    } else {
-      parts.push(buf.toString("latin1"));
-    }
-  }
   for (const match of raw.matchAll(/\(([^()\\]*)\)/g)) parts.push(match[1] ?? "");
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 export async function createPdf(text: string): Promise<Buffer> {
+  assertLatinBody(text);
   const pdf = await PDFDocument.create();
   pdf.setTitle(text);
   pdf.setSubject(text);
   const page = pdf.addPage([612, 792]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
-  try {
-    page.drawText(text, { x: 72, y: 720, size: 12, font });
-  } catch {
-    page.drawText("Penglai Office", { x: 72, y: 740, size: 10, font, color: rgb(0, 0, 0) });
-  }
-  const bytes = Buffer.from(await pdf.save());
-  if (/[^\u0000-\u00ff]/.test(text)) {
-    return appendCjkStream(bytes, text);
-  }
-  return bytes;
+  page.drawText(text.slice(0, 180), { x: 72, y: 720, size: 12, font, color: rgb(0, 0, 0) });
+  return Buffer.from(await pdf.save());
 }
 
-function appendCjkStream(bytes: Buffer, text: string): Buffer {
-  const extra = `BT /F1 12 Tf 72 680 Td <${utf16BeHex(text)}> Tj ET`;
-  const raw = bytes.toString("latin1");
-  const startxref = Number([...raw.matchAll(/startxref\s+(\d+)/g)].at(-1)?.[1] ?? 0);
-  const size = Number([...raw.matchAll(/\/Size\s+(\d+)/g)].at(-1)?.[1] ?? 1);
-  const origContents = (raw.match(/\/Contents\s+(\d+\s+0\s+R)/) ?? [])[1] ?? "4 0 R";
-  const streamNo = size;
-  const pageNo = size + 1;
-  const pagesNo = size + 2;
-  const catalogNo = size + 3;
-  const prefix = raw.endsWith("\n") ? raw : `${raw}\n`;
-  const objects = [
-    `${streamNo} 0 obj << /Length ${Buffer.byteLength(extra, "latin1")} >> stream\n${extra}\nendstream endobj\n`,
-    `${pageNo} 0 obj << /Type /Page /Parent ${pagesNo} 0 R /MediaBox [0 0 612 792] /Contents [${origContents} ${streamNo} 0 R] /Resources << /Font << /F1 5 0 R >> >> >> endobj\n`,
-    `${pagesNo} 0 obj << /Type /Pages /Kids [${pageNo} 0 R] /Count 1 >> endobj\n`,
-    `${catalogNo} 0 obj << /Type /Catalog /Pages ${pagesNo} 0 R >> endobj\n`,
-  ];
-  let pos = Buffer.byteLength(prefix, "latin1");
-  const offsets: number[] = [];
-  for (const obj of objects) {
-    offsets.push(pos);
-    pos += Buffer.byteLength(obj, "latin1");
-  }
-  const xrefLine = (offset: number, gen = 0, used = true) =>
-    `${String(offset).padStart(10, "0")} ${String(gen).padStart(5, "0")} ${used ? "n" : "f"} \n`;
-  const xref = `xref\n0 1\n${xrefLine(0, 65535, false)}${streamNo} 4\n${offsets.map((off) => xrefLine(off)).join("")}`;
-  const tail = `trailer << /Size ${catalogNo + 1} /Root ${catalogNo} 0 R /Prev ${startxref} >>\nstartxref\n${pos}\n%%EOF\n`;
-  return Buffer.from(prefix + objects.join("") + xref + tail, "latin1");
-}
-
-export async function inspectPdf(bytes: Buffer): Promise<{ text: string; parts: string[] }> {
+export async function inspectPdf(bytes: Buffer): Promise<{ text: string; parts: string[]; pages: number }> {
   assertAuthorizedBytes(bytes);
   if (bytes.subarray(0, 4).toString("latin1") !== "%PDF") throw new PenglaiError("INVALID_INPUT", "unsupported office format");
   const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+  const pages = pdf.getPageCount();
   const meta = [pdf.getTitle(), pdf.getSubject()].filter(Boolean).join(" ");
   return {
     text: [meta, decodePdfText(bytes.toString("latin1"))].filter(Boolean).join(" "),
-    parts: [`pages:${pdf.getPageCount()}`],
+    parts: [`pages:${pages}`],
+    pages,
   };
 }
 
-export async function editPdf(bytes: Buffer, replacement: string): Promise<Buffer> {
+export async function editPdf(bytes: Buffer, op: { text: string }): Promise<Buffer> {
   assertAuthorizedBytes(bytes);
-  return appendCjkStream(bytes, replacement);
+  assertLatinBody(op.text);
+  const pdf = await PDFDocument.load(bytes);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const page = pdf.getPages()[0];
+  if (!page) throw new PenglaiError("INVALID_INPUT", "pdf has no pages");
+  page.drawText(op.text.slice(0, 120), { x: 72, y: 96, size: 10, font, color: rgb(0.4, 0.4, 0.4) });
+  return Buffer.from(await pdf.save());
 }
 
-export async function rotatePdf(bytes: Buffer): Promise<Buffer> {
+export async function rotatePdf(bytes: Buffer, angle: 90 | 180 | 270 = 90): Promise<Buffer> {
   const pdf = await PDFDocument.load(bytes);
-  for (const page of pdf.getPages()) page.setRotation(degrees(90));
+  for (const page of pdf.getPages()) page.setRotation(degrees(angle));
   return Buffer.from(await pdf.save());
 }
 

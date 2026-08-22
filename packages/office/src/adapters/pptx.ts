@@ -10,6 +10,12 @@ const require = createRequire(import.meta.url);
 function pptfastGenerate(): ((input: unknown) => Promise<Uint8Array>) | undefined {
   try {
     const pkg = dirname(require.resolve("@liustack/pptfast/package.json"));
+    try {
+      const nodePlatform = require(join(pkg, "dist/node.js")) as { installNodePlatform?: () => void };
+      nodePlatform.installNodePlatform?.();
+    } catch {
+      /* browser/electron already have DOMParser */
+    }
     const loaded = require(join(pkg, "dist/index.js")) as { generatePptx?: (input: unknown) => Promise<Uint8Array> };
     return loaded.generatePptx;
   } catch {
@@ -27,73 +33,64 @@ function xmlText(xml: string): string {
     .trim();
 }
 
-function fallbackPptx(text: string): Buffer {
-  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const types = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`;
-  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`;
-  const presentation = `<?xml version="1.0" encoding="UTF-8"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>`;
-  const presRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>`;
-  const slide = `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`;
-  return writeZip([
-    { name: "[Content_Types].xml", data: Buffer.from(types) },
-    { name: "_rels/.rels", data: Buffer.from(rels) },
-    { name: "ppt/presentation.xml", data: Buffer.from(presentation) },
-    { name: "ppt/_rels/presentation.xml.rels", data: Buffer.from(presRels) },
-    { name: "ppt/slides/slide1.xml", data: Buffer.from(slide) },
-  ]);
-}
-
 export async function createPptx(text: string): Promise<Buffer> {
   const generatePptx = pptfastGenerate();
-  if (generatePptx) {
-    try {
-      const bytes = await generatePptx({
-        filename: "penglai.pptx",
-        theme: { id: "consulting" },
-        slides: [
-          { type: "cover", heading: text.slice(0, 80), subheading: "Penglai Office" },
-          { type: "ending", heading: text.slice(0, 80) },
-        ],
-      });
-      return Buffer.from(bytes);
-    } catch {
-      return fallbackPptx(text);
-    }
+  if (!generatePptx) {
+    throw new PenglaiError("DSH_UNAVAILABLE", "pptx create requires @liustack/pptfast; homemade OOXML zip is not shipped");
   }
-  return fallbackPptx(text);
+  try {
+    const bytes = await generatePptx({
+      filename: "penglai.pptx",
+      theme: { id: "consulting" },
+      slides: [
+        { type: "cover", heading: text.slice(0, 80), subheading: "Penglai Office" },
+        { type: "ending", heading: text.slice(0, 80) },
+      ],
+    });
+    return Buffer.from(bytes);
+  } catch (error) {
+    throw new PenglaiError("INVALID_INPUT", `pptx create failed: ${error instanceof Error ? error.message : "pptfast"}`);
+  }
 }
 
-export async function inspectPptx(bytes: Buffer): Promise<{ text: string; parts: string[] }> {
+export async function inspectPptx(bytes: Buffer): Promise<{ text: string; parts: string[]; slides: string[] }> {
   assertAuthorizedBytes(bytes);
   const entries = readZip(bytes);
-  const xml = entries
-    .filter((entry) => entry.name.endsWith(".xml"))
-    .map((entry) => xmlText(entry.data.toString("utf8")))
-    .filter(Boolean)
-    .join(" ");
-  return { text: xml, parts: entries.map((entry) => entry.name) };
+  const slides = entries
+    .filter((entry) => /ppt\/slides\/slide\d+\.xml$/.test(entry.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    .map((entry) => xmlText(entry.data.toString("utf8")));
+  return {
+    text: slides.join(" "),
+    parts: [...entries.map((entry) => entry.name), ...slides.map((text, index) => `slide${index}:${text.slice(0, 80)}`)],
+    slides,
+  };
 }
 
-export function editPptx(bytes: Buffer, replacement: string): Buffer {
+export function editPptx(bytes: Buffer, op: { slideIndex: number; text: string }): Buffer {
   assertAuthorizedBytes(bytes);
-  const escaped = replacement.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escaped = op.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const entries = readZip(bytes);
+  const slideNames = entries
+    .map((entry) => entry.name)
+    .filter((name) => /ppt\/slides\/slide\d+\.xml$/.test(name))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const target = slideNames[op.slideIndex];
+  if (!target) throw new PenglaiError("INVALID_INPUT", "pptx slide index out of range");
   let patched = false;
   const next = entries.map((entry) => {
-    if (!entry.name.includes("ppt/slides/slide") || !entry.name.endsWith(".xml")) {
-      return { name: entry.name, data: Buffer.from(entry.data) };
-    }
-    if (patched) return { name: entry.name, data: Buffer.from(entry.data) };
+    if (entry.name !== target) return { name: entry.name, data: Buffer.from(entry.data) };
     const xml = entry.data.toString("utf8");
-    const withText = xml.includes("</p:spTree>")
-      ? xml.replace(
-          "</p:spTree>",
-          `<p:sp><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${escaped}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree>`,
-        )
-      : `${xml}${escaped}`;
+    if (!/<a:t[\s>]/.test(xml)) {
+      throw new PenglaiError("INVALID_INPUT", "pptx slide has no text run; complex edit is not supported in 0.5.5");
+    }
     patched = true;
-    return { name: entry.name, data: Buffer.from(withText, "utf8") };
+    return {
+      name: entry.name,
+      data: Buffer.from(xml.replace(/<a:t(?:\s[^>]*)?>[\s\S]*?<\/a:t>/, `<a:t>${escaped}</a:t>`), "utf8"),
+    };
   });
+  if (!patched) throw new PenglaiError("INVALID_INPUT", "pptx slide missing");
   return writeZip(next);
 }
 
