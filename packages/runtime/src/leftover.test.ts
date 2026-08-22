@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
@@ -96,6 +96,33 @@ test("R50-UPD-008/009/010 verified installer and crash replay", () => {
   assert.equal(applyUpdateOutcome("HANDOFF_TO_INSTALLER", false), "ROLLED_BACK");
   assert.equal(replayUpdateCrash("DOWNLOADING"), "DOWNLOADING");
   assert.equal(replayUpdateCrash("VERIFYING"), "VERIFYING");
+});
+
+test("verified installer handoff refuses a symlink even when target bytes are signed", () => {
+  if (process.platform === "win32") return;
+  const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-link-"));
+  const outside = join(root, "signed-outside.dmg");
+  const linked = join(root, "Penglai_0.5.3_macos_aarch64.dmg");
+  const payload = Buffer.from("signed-installer");
+  writeFileSync(outside, payload);
+  symlinkSync(outside, linked);
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const publicKeyHex = Buffer.from(
+    publicKey.export({ type: "spki", format: "der" }).subarray(-32),
+  ).toString("hex");
+  const signature = sign(null, payload, privateKey);
+  const sha256 = createHash("sha256").update(payload).digest("hex");
+  const handoff = new VerifiedInstallerHandoff(root, publicKeyHex);
+  assert.throws(
+    () => handoff.register({
+      operationId: "operation-link",
+      path: linked,
+      sha256,
+      size: payload.length,
+      signature,
+    }),
+    /identity mismatch/,
+  );
 });
 
 test("R50-UN-004 default uninstall preserves user data", () => {

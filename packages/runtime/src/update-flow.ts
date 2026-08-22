@@ -7,11 +7,11 @@ import {
   mkdirSync,
   openSync,
   closeSync,
+  fstatSync,
   fsyncSync,
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
 } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -20,6 +20,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { assertSafeDownloadUrl } from "@penglai/plugin-registry";
 import {
   nextUpdateState,
+  readBoundUpdatePayload,
   verifyPayload,
   writeUpdateJournal,
   type UpdateJournal,
@@ -62,16 +63,9 @@ export async function downloadVerifiedPayload(opts: {
   const part = join(opts.destDir, `${opts.expectedSha256}${suffix}.part`);
   const finalPath = join(opts.destDir, `${opts.expectedSha256}${suffix}`);
   if (existsSync(finalPath)) {
-    const stat = lstatSync(finalPath);
-    if (
-      stat.isSymbolicLink() ||
-      !stat.isFile() ||
-      stat.size !== opts.expectedSize ||
-      (process.platform !== "win32" && (stat.mode & 0o111) !== 0)
-    ) {
-      throw new PenglaiError("SECURITY_POLICY", "existing update payload identity mismatch");
-    }
-    const bytes = readFileSync(finalPath);
+    const bytes = readBoundUpdatePayload(finalPath, opts.expectedSize, {
+      forbidExecutable: true,
+    });
     verifyPayload(bytes, opts.expectedSha256, opts.signature, opts.publicKeyHex);
     return { path: finalPath, bytes: bytes.length, kind };
   }
@@ -91,7 +85,9 @@ export async function downloadVerifiedPayload(opts: {
     existing = 0;
   }
   if (existing === opts.expectedSize) {
-    const complete = readFileSync(part);
+    const complete = readBoundUpdatePayload(part, opts.expectedSize, {
+      forbidExecutable: true,
+    });
     try {
       verifyPayload(complete, opts.expectedSha256, opts.signature, opts.publicKeyHex);
     } catch (error) {
@@ -100,6 +96,15 @@ export async function downloadVerifiedPayload(opts: {
     }
     renameSync(part, finalPath);
     chmodSync(finalPath, 0o600);
+    try {
+      const committed = readBoundUpdatePayload(finalPath, opts.expectedSize, {
+        forbidExecutable: true,
+      });
+      verifyPayload(committed, opts.expectedSha256, opts.signature, opts.publicKeyHex);
+    } catch (error) {
+      rmSync(finalPath, { force: false, maxRetries: 0 });
+      throw error;
+    }
     return { path: finalPath, bytes: complete.length, kind };
   }
   const fetchImpl = opts.fetchImpl ?? fetch;
@@ -194,14 +199,19 @@ export async function downloadVerifiedPayload(opts: {
   }
   chmodSync(part, 0o600);
   const fileHandle = openSync(part, "r");
+  let buf: Buffer;
   try {
     fsyncSync(fileHandle);
+    const opened = fstatSync(fileHandle);
+    if (!opened.isFile() || opened.size !== opts.expectedSize) {
+      throw new PenglaiError("SECURITY_POLICY", "update size mismatch");
+    }
+    buf = readFileSync(fileHandle);
   } finally {
     closeSync(fileHandle);
   }
-  const bytes = statSync(part).size;
+  const bytes = buf.length;
   if (bytes !== opts.expectedSize) throw new PenglaiError("SECURITY_POLICY", "update size mismatch");
-  const buf = await import("node:fs/promises").then((fs) => fs.readFile(part));
   try {
     verifyPayload(buf, opts.expectedSha256, opts.signature, opts.publicKeyHex);
   } catch (error) {
@@ -210,6 +220,15 @@ export async function downloadVerifiedPayload(opts: {
   }
   renameSync(part, finalPath);
   chmodSync(finalPath, 0o600);
+  try {
+    const committed = readBoundUpdatePayload(finalPath, opts.expectedSize, {
+      forbidExecutable: true,
+    });
+    verifyPayload(committed, opts.expectedSha256, opts.signature, opts.publicKeyHex);
+  } catch (error) {
+    rmSync(finalPath, { force: false, maxRetries: 0 });
+    throw error;
+  }
   if (process.platform !== "win32") {
     const dirHandle = openSync(opts.destDir, "r");
     try {
