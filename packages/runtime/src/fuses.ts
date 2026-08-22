@@ -49,6 +49,9 @@ export function applyFuseWire(buf: Buffer, updates: Partial<Record<FuseName, boo
 
 export function assertRequiredFuses(values: FuseInspection["values"]): void {
   if (values.runAsNode !== false) throw new PenglaiError("SECURITY_POLICY", "RunAsNode must be disabled");
+  if (values.enableNodeOptionsEnvironmentVariable !== false) {
+    throw new PenglaiError("SECURITY_POLICY", "NODE_OPTIONS must be disabled");
+  }
   if (values.enableNodeCliInspectArguments !== false) {
     throw new PenglaiError("SECURITY_POLICY", "Node CLI inspect must be disabled");
   }

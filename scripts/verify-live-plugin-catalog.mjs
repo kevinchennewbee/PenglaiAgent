@@ -105,12 +105,9 @@ try {
     profileDir,
     txDir,
     pluginsDir,
+    registryPackagesDir: pluginsDir,
     userDataRoot,
     target: "darwin-aarch64",
-    async stagePackage(downloaded) {
-      const name = `${downloaded.id.replace("@", "").replaceAll("/", "-")}-${downloaded.version}.tgz`;
-      writeFileSync(join(pluginsDir, name), readFileSync(downloaded.path), { mode: 0o600 });
-    },
   });
   const grant = issuePluginOwnerGrant({
     userDataRoot,
