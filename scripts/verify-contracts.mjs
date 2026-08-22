@@ -132,4 +132,4 @@ if (!ensure.includes("--target") || ensure.includes("this script has no --arch")
   console.error("ensure-electron is still host-only");
   process.exit(1);
 }
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.3");
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.5");

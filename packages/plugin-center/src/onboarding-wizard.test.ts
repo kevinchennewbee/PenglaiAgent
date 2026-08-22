@@ -127,8 +127,8 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   const deepseekManifest = JSON.parse(readFileSync(deepseekPkg, "utf8")) as { name: string; version: string };
   assert.equal(piManifest.name, "@deepseek-ai/dsh-llm-pi-ai");
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
-  assert.equal(piManifest.version, "0.1.1-rc.1");
-  assert.equal(deepseekManifest.version, "0.1.1-rc.1");
+  assert.equal(piManifest.version, "0.1.1-rc.2");
+  assert.equal(deepseekManifest.version, "0.1.1-rc.2");
   const piMod = await import(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");
@@ -307,7 +307,7 @@ test("completeWelcome writes penglai welcomeNoticeVersion then advances welcome-
   assert.deepEqual(ops, [
     { ns: "ui-onboarding", path: ["welcomeNoticeVersion"], value: PENGLAI_WELCOME_NOTICE_VERSION },
   ]);
-  assert.equal(PENGLAI_WELCOME_NOTICE_VERSION, "penglai-0.5.3.0");
+  assert.equal(PENGLAI_WELCOME_NOTICE_VERSION, "penglai-0.5.5.0");
   const again = await impl.completeWelcome();
   assert.equal(again.current, "appearance-locale-v1");
   assert.equal(ops.length, 2);

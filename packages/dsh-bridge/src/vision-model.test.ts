@@ -22,8 +22,8 @@ const PNG = Buffer.from(
   "base64",
 );
 
-test("official dsh-llm-deepseek 0.1.1-rc.1 advertises the vision model", () => {
-  assert.equal(pkg.version, "0.1.1-rc.1");
+test("official dsh-llm-deepseek 0.1.1-rc.2 advertises the vision model", () => {
+  assert.equal(pkg.version, "0.1.1-rc.2");
   assert.match(deepseekLib, /id:\s*"deepseek-v4-flash-vision-exp"/);
   assert.match(deepseekLib, /name:\s*"DeepSeek-V4-Flash-Vision-Exp"/);
   assert.match(deepseekLib, /inputModalities:\s*\[\s*"text",\s*"image"\s*\]/);
@@ -61,6 +61,11 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
     const chunks: Buffer[] = [];
     req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
     req.on("end", () => {
+      if (String(req.url ?? "").startsWith("/files")) {
+        res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "files unavailable" } }));
+        return;
+      }
       captured.url = req.url;
       captured.body = Buffer.concat(chunks).toString("utf8");
       res.writeHead(200, { "content-type": "text/event-stream" });
@@ -84,6 +89,21 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
     resolveUserId: () => "penglai-vision-mock",
     resolveAttachments: () => ({
       readImage: async (ref: { mediaType: string }) => ({ ref, data: PNG }),
+      readImageRequest: async (ref: {
+        attachmentId: string;
+        mediaType?: string;
+        width?: number;
+        height?: number;
+      }) => ({
+        attachment: ref,
+        variantId: `variant-${ref.attachmentId}`,
+        mediaType: ref.mediaType ?? "image/png",
+        data: PNG,
+        bytes: PNG.length,
+        width: ref.width ?? 1,
+        height: ref.height ?? 1,
+        hasAlpha: false,
+      }),
     }),
   });
   const attachment = {

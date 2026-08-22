@@ -8,20 +8,20 @@ import {
 
 function fixture(): PluginCatalogDocument {
   return {
-    schema: 2,
+    schema: 3,
     target: "darwin-arm64",
     entries: FIRST_PARTY_PLUGIN_METADATA.map((entry) => ({
       ...entry,
       sha256: "a".repeat(64),
       target: "darwin-arm64",
-      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts"].includes(entry.id),
+      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/office", "@penglai/memory"].includes(entry.id),
     })),
   };
 }
 
 test("trusted plugin catalog binds exact metadata, checksum, and target", () => {
   const valid = fixture();
-  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 9);
+  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 10);
   assert.throws(
     () => validatePluginCatalog(valid, "darwin-x64"),
     /target mismatch/,

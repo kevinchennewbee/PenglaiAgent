@@ -456,6 +456,23 @@ window.__ModuleLoader__.load({
               MossTtsSettingsSection,
             ),
           );
+          viewCtx.slots.inject("conversation.chat.assistant-actions", () =>
+            viewCtx.slots.register(
+              {
+                name: "conversation.chat.assistant-actions",
+                id: "penglai-moss-tts-read",
+                order: 1,
+                label: () => "read-aloud",
+                inject: () => ({}),
+              },
+              () =>
+                jsx.jsx("button", {
+                  type: "button",
+                  "data-penglai-tts-read": "1",
+                  children: "read",
+                }),
+            ),
+          );
         },
       );
       try {

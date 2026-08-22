@@ -49,8 +49,8 @@ export * from "./windows-host.js";
 export * from "./packaging.js";
 export * from "./fuses.js";
 
-export const PENGLAI_VERSION = "0.5.3";
-export const PINNED_DSH = "0.1.1-rc.1";
+export const PENGLAI_VERSION = "0.5.5";
+export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
@@ -289,7 +289,7 @@ export function installFirstPartyPlugins(
     const short = entry.id.replace("@penglai/", "");
     const dest = join(nm, short);
     const shouldInstall =
-      entry.id === "@penglai/plugin-center" ||
+      entry.defaultEnabled ||
       requested.has(entry.id) ||
       existsSync(dest) ||
       profilePluginEnabled(patchText, entry.id);

@@ -73,7 +73,7 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-export const PENGLAI_WELCOME_NOTICE_VERSION = "penglai-0.5.3.0" as const;
+export const PENGLAI_WELCOME_NOTICE_VERSION = "penglai-0.5.5.0" as const;
 
 export const ONBOARDING_STEPS = [
   "welcome-v1",

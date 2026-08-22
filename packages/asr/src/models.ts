@@ -599,7 +599,7 @@ export class AsrModelManager {
       existing = info.size;
     }
     const headers: Record<string, string> = {
-      "User-Agent": "Penglai/0.5.3 model-manager",
+      "User-Agent": "Penglai/0.5.5 model-manager",
     };
     if (existing) headers.Range = `bytes=${existing}-`;
     const response = await this.fetchPinned(file.url, headers, signal);

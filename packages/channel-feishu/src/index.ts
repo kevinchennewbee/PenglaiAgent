@@ -55,15 +55,23 @@ export function parseFeishuEvent(raw: {
   text?: string;
 }): InboundEnvelope | { reject: "group" | "media" } {
   if (raw.chatType && raw.chatType !== "p2p" && raw.chatType !== "private") return { reject: "group" };
-  if (raw.messageType && raw.messageType !== "text" && raw.messageType !== "audio") return { reject: "media" };
+  if (
+    raw.messageType &&
+    raw.messageType !== "text" &&
+    raw.messageType !== "audio" &&
+    raw.messageType !== "image" &&
+    raw.messageType !== "file"
+  ) {
+    return { reject: "media" };
+  }
   return {
     adapter: "feishu",
     adapterMessageKey: raw.messageId,
     accountRef: "feishu",
     peerRef: createHash("sha256").update(raw.openId ?? "unknown").digest("hex").slice(0, 24),
     chatKind: "private",
-    bodyKind: raw.messageType === "audio" ? "voice" : "text",
-    text: raw.text ?? "",
+    bodyKind: raw.messageType === "audio" ? "voice" : raw.messageType === "image" || raw.messageType === "file" ? "media" : "text",
+    text: raw.text ?? (raw.messageType === "image" ? "[image]" : raw.messageType === "file" ? "[file]" : ""),
     receivedAt: Date.now(),
     ...(raw.openId ? { vendorTarget: raw.openId } : {}),
   };

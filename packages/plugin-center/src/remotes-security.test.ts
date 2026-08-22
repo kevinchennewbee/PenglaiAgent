@@ -83,6 +83,7 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
     "download",
     "enable",
     "installDisabled",
+    "installEnable",
     "list",
     "refreshRegistry",
     "rollback",

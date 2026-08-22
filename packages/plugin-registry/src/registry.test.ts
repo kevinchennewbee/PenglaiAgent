@@ -52,7 +52,7 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
         publisher: "Penglai",
         provenanceClass: "community-reviewed",
         license: "MIT",
-        dsh: { exact: "0.1.1-rc.1" },
+        dsh: { exact: "0.1.1-rc.2" },
         minPenglai: "0.5.1",
         capabilities: ["pilot-echo"],
         permissions: [],
@@ -231,7 +231,7 @@ test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission
             schema: 2,
             id: "@penglai/plugin-pilot",
             version: "1.0.0",
-            dshExact: "0.1.1-rc.1",
+            dshExact: "0.1.1-rc.2",
             centerProtocol: 1,
             entry: "dist/index.js",
             capabilities: ["pilot-echo"],
@@ -254,7 +254,7 @@ test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission
         catalogVersion: "1.0.0",
         catalogPermissions: ["workspace-write"],
         catalogCapabilities: ["pilot-echo"],
-        catalogDsh: "0.1.1-rc.1",
+        catalogDsh: "0.1.1-rc.2",
         manifest,
       }),
     /permissions/,
@@ -312,7 +312,7 @@ test("P51-UPDATE-001 PUDP/1 rejects latest.json and mutable releases", () => {
   const chosen = selectHighestAppRelease(
     [
       { tag_name: "v0.5.2", draft: false, prerelease: false, immutable: true, assets: [] },
-      { tag_name: "v0.5.3", draft: false, prerelease: false, immutable: false, assets: [] },
+      { tag_name: "v0.5.5", draft: false, prerelease: false, immutable: false, assets: [] },
     ],
     "0.5.1",
   );

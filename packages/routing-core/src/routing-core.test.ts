@@ -67,6 +67,14 @@ test("R1-AUTH-001 owner private text auto-binds official default without a pairi
   assert.doesNotMatch(menu, /DSH|DeepSeek Harness/i);
 });
 
+test("image and file inbound are accepted into the bound session", async () => {
+  const h = harness();
+  await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
+  const image = await h.plane.submitInbound(env({ adapterMessageKey: "img", bodyKind: "media", text: "[image]" }));
+  assert.equal(image.kind, "accepted");
+  assert.equal(h.inputs.at(-1)?.text.includes("[image]"), true);
+});
+
 test("IM project menu lists every official workspace in numbered groups", async () => {
   const clock = new VirtualClock();
   const ids = new SeqIds();
@@ -286,13 +294,12 @@ test("R1-ROUTE-005 forged source does not correlate", async () => {
   assert.equal(Number(n.c), 0);
 });
 
-test("group and media rejected", async () => {
+test("group rejected and media accepted", async () => {
   const h = harness();
   const g = await h.plane.submitInbound(env({ chatKind: "group", adapterMessageKey: "g" }));
   const m = await h.plane.submitInbound(env({ bodyKind: "media", adapterMessageKey: "m" }));
   assert.equal(g.kind, "rejected");
-  assert.equal(m.kind, "rejected");
-  assert.equal(h.inputs.length, 0);
+  assert.equal(m.kind, "accepted");
 });
 
 test("context/memory/budget/companion/voice slash commands never enter the model", async () => {

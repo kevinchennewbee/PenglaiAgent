@@ -1,7 +1,7 @@
 import { PenglaiError } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_V1 = "penglai.plugin-catalog.v1" as const;
-export const PINNED_DSH = "0.1.1-rc.1" as const;
+export const PINNED_DSH = "0.1.1-rc.2" as const;
 export const CENTER_PROTOCOL = 1 as const;
 export const GITHUB_OWNER = "kevinchennewbee";
 export const PLUGIN_REGISTRY_REPO = "PenglaiPluginRegistry";
@@ -152,7 +152,7 @@ function parseEntry(raw: unknown, seen: Set<string>): CatalogEntry {
   if (!isRecord(raw)) throw new PenglaiError("INVALID_INPUT", "catalog entry");
   if (raw.defaultEnabled !== false) throw new PenglaiError("SECURITY_POLICY", "remote plugins cannot defaultEnabled");
   if (!isRecord(raw.dsh) || raw.dsh.exact !== PINNED_DSH) {
-    throw new PenglaiError("SECURITY_POLICY", "plugin DSH pin must be 0.1.1-rc.1");
+    throw new PenglaiError("SECURITY_POLICY", "plugin DSH pin must be 0.1.1-rc.2");
   }
   if (!Array.isArray(raw.artifacts) || raw.artifacts.length < 1) {
     throw new PenglaiError("INVALID_INPUT", "plugin artifacts");

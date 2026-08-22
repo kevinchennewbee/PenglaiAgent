@@ -49,6 +49,13 @@ export interface MemoryService {
   assertReadable: typeof assertReadable;
   modelCannotWriteGlobal: typeof modelCannotWriteGlobal;
   write: (input: MemoryWrite, receipt?: string) => { ok: true; id?: number; viaOfficialSkill?: boolean };
+  rememberExplicit: (input: { text: string; workspaceId?: string }, actor?: string) => { ok: true; id?: number };
+  forget: (id: number, workspaceId?: string) => { ok: true };
+  why: (id: number, workspaceId?: string) => { id: number; text: string; scope: MemoryScope; source: string };
+  search: (
+    query: string,
+    workspaceId?: string,
+  ) => Array<{ id: number; text: string; workspaceId?: string | null }>;
   list: (scope: MemoryScope, workspaceId?: string) => Array<{ id: number; text: string; workspaceId?: string | null }>;
   readForSession: (
     workspaceId: string | undefined,
@@ -64,7 +71,7 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
     const rows = new Map<number, MemoryWrite & { id: number }>();
     return {
       name: "@penglai/memory",
-      version: "0.5.3",
+      version: "0.5.5",
       assertReadable,
       modelCannotWriteGlobal,
       write(input) {
@@ -94,6 +101,43 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
           workspace: workspaceId ? this.list("workspace", workspaceId).map((r) => ({ id: r.id, text: r.text })) : [],
         };
       },
+      rememberExplicit(input, actor = "user") {
+        const workspaceId = input.workspaceId;
+        return this.write(
+          workspaceId
+            ? { scope: "workspace", workspaceId, text: input.text }
+            : { scope: "global", text: input.text, ownerConfirmed: true, visibleDiff: `+ ${input.text}` },
+          actor,
+        );
+      },
+      forget(id, workspaceId) {
+        const row = rows.get(id);
+        if (!row) return { ok: true };
+        if (row.scope === "workspace" && workspaceId && row.workspaceId !== workspaceId) {
+          throw new PenglaiError("SECURITY_POLICY", "memory workspace scope isolation");
+        }
+        rows.delete(id);
+        return { ok: true };
+      },
+      why(id, workspaceId) {
+        const row = rows.get(id);
+        if (!row) throw new PenglaiError("INVALID_INPUT", "memory not found");
+        if (row.scope === "workspace" && workspaceId && row.workspaceId !== workspaceId) {
+          throw new PenglaiError("SECURITY_POLICY", "memory workspace scope isolation");
+        }
+        return { id, text: row.text, scope: row.scope, source: "user-explicit" };
+      },
+      search(query, workspaceId) {
+        const q = query.toLowerCase();
+        return [...rows.values()]
+          .filter((r) => {
+            if (r.scope === "workspace") return r.workspaceId === workspaceId;
+            if (r.scope === "global") return true;
+            return false;
+          })
+          .filter((r) => r.text.toLowerCase().includes(q))
+          .map((r) => ({ id: r.id, text: r.text, workspaceId: r.workspaceId ?? null }));
+      },
       deleteScope(scope, workspaceId) {
         let removed = 0;
         for (const [id, r] of [...rows.entries()]) {
@@ -109,11 +153,42 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
   }
   const service: MemoryService = {
     name: "@penglai/memory",
-    version: "0.5.3",
+    version: "0.5.5",
     assertReadable,
     modelCannotWriteGlobal,
     write(input, receipt = "manual") {
       return store.write(input, receipt);
+    },
+    rememberExplicit(input, actor = "user") {
+      const workspaceId = input.workspaceId;
+      return store.write(
+        workspaceId
+          ? { scope: "workspace", workspaceId, text: input.text }
+          : { scope: "global", text: input.text, ownerConfirmed: true, visibleDiff: `+ ${input.text}` },
+        actor,
+      );
+    },
+    forget(id, workspaceId) {
+      store.deleteId(id, workspaceId);
+      return { ok: true };
+    },
+    why(id, workspaceId) {
+      const row = store.get(id);
+      if (!row) throw new PenglaiError("INVALID_INPUT", "memory not found");
+      if (row.scope === "workspace" && workspaceId && row.workspaceId !== workspaceId) {
+        throw new PenglaiError("SECURITY_POLICY", "memory workspace scope isolation");
+      }
+      return { id: row.id, text: row.text, scope: row.scope, source: "user-explicit" };
+    },
+    search(query, workspaceId) {
+      const q = query.toLowerCase();
+      const rows = [
+        ...store.list("global"),
+        ...(workspaceId ? store.list("workspace", workspaceId) : []),
+      ];
+      return rows
+        .filter((r) => r.text.toLowerCase().includes(q))
+        .map((r) => ({ id: r.id, text: r.text, workspaceId: r.workspaceId }));
     },
     list(scope, workspaceId) {
       return store.list(scope, workspaceId).map((r) => ({ id: r.id, text: r.text, workspaceId: r.workspaceId }));

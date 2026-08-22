@@ -38,8 +38,8 @@ const shared = {
   cacheRoot: join(root, "cas"),
   trustPath: join(root, "trust-state.json"),
   lastGoodPath: join(root, "last-good-catalog.json"),
-  penglaiVersion: "0.5.3",
-  dshExact: "0.1.1-rc.1",
+  penglaiVersion: "0.5.5",
+  dshExact: "0.1.1-rc.2",
   target: "darwin-aarch64",
   fetchImpl: authenticatedGithubApiFetch,
 };
@@ -171,7 +171,7 @@ try {
       snapshot.signatureOk &&
       entry?.defaultEnabled === false &&
       entry.nativeCode === false &&
-      entry.dsh.exact === "0.1.1-rc.1" &&
+      entry.dsh.exact === "0.1.1-rc.2" &&
       pkg.id === entry.id &&
       pkg.version === entry.version &&
       pkg.sha256 === entry.artifacts[0]?.sha256 &&

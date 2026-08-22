@@ -570,10 +570,10 @@ export class RoutingControlPlane {
     if (env.bodyKind === "voice" && !(env.text ?? "").trim()) {
       return this.reject("INVALID_INPUT", "voice requires ASR transcript");
     }
-    if (env.bodyKind !== "text" && env.bodyKind !== "voice") {
+    if (env.bodyKind !== "text" && env.bodyKind !== "voice" && env.bodyKind !== "media") {
       return this.reject("INVALID_INPUT", "media is not accepted");
     }
-    const text = env.text ?? "";
+    const text = (env.text ?? "").trim() || (env.bodyKind === "media" ? "[attachment]" : "");
     if (utf8Bytes(text) > CONFIG.maxInboundUtf8Bytes) {
       return this.reject("INVALID_INPUT", "message too large");
     }

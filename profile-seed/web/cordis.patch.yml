@@ -15,7 +15,8 @@
       disabled: true
     - id: penglai-memory
       name: "@penglai/memory"
-      disabled: true
+    - id: penglai-office
+      name: "@penglai/office"
     - id: penglai-budget
       name: "@penglai/budget"
       disabled: true

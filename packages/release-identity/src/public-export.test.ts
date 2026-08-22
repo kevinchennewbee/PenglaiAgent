@@ -136,6 +136,9 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/PUBLICATION_0.5.3.md",
       "docs/PUBLICATION_MANIFEST_0.5.3.md",
       "docs/RELEASE_NOTES_0.5.3.md",
+      "docs/PUBLICATION_0.5.5.md",
+      "docs/PUBLICATION_MANIFEST_0.5.5.md",
+      "docs/RELEASE_NOTES_0.5.5.md",
     ]),
   );
   recordAssertion({

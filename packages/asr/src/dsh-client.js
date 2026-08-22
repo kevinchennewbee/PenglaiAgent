@@ -480,6 +480,23 @@ window.__ModuleLoader__.load({
               AsrSettingsSection,
             ),
           );
+          viewCtx.slots.inject("conversation.input.right", () =>
+            viewCtx.slots.register(
+              {
+                name: "conversation.input.right",
+                id: "penglai-asr-mic",
+                order: 1,
+                label: () => "mic",
+                inject: () => ({}),
+              },
+              () =>
+                jsx.jsx("button", {
+                  type: "button",
+                  "data-penglai-asr-mic": "1",
+                  children: "mic",
+                }),
+            ),
+          );
         },
       );
       try {

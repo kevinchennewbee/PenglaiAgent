@@ -63,7 +63,7 @@ function voicePlane() {
   return { clock, store, plane, inputs };
 }
 
-test("private voice is classified for ASR and images stay rejected", () => {
+test("private voice is classified for ASR and images enter as media", () => {
   const voice = parseOfficialInbound(
     { message_type: 1, from_user_id: "u", item_list: [{ type: 3, msg_id: "v1" }] },
     "a",
@@ -73,9 +73,12 @@ test("private voice is classified for ASR and images stay rejected", () => {
     assert.equal(voice.bodyKind, "voice");
     assert.equal(voice.adapterMessageKey, "v1");
   }
-  assert.deepEqual(parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2 }] }, "a"), {
-    reject: "media",
-  });
+  const image = parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2, msg_id: "img1" }] }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) {
+    assert.equal(image.bodyKind, "media");
+    assert.equal(image.text, "[image]");
+  }
 });
 
 test("parser rejects group and media without downloading", () => {
@@ -83,10 +86,9 @@ test("parser rejects group and media without downloading", () => {
     parseInbound({ messageId: "1", fromUserId: "u", chatType: "group", itemType: "text", text: "x" }, "a"),
     { reject: "group" },
   );
-  assert.deepEqual(
-    parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "media" }, "a"),
-    { reject: "media" },
-  );
+  const image = parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "image" }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) assert.equal(image.bodyKind, "media");
 });
 
 test("R50-VOICE: weixin inbound wav transcribes and outbound keeps a visible audio fallback", async () => {
@@ -184,9 +186,9 @@ test("official fixture: group_id and image item fail closed", () => {
   assert.deepEqual(parseOfficialInbound({ group_id: "g1", message_type: 1, item_list: [{ type: 1, text_item: { text: "x" } }] }, "a"), {
     reject: "group",
   });
-  assert.deepEqual(parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2 }] }, "a"), {
-    reject: "media",
-  });
+  const image = parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2, msg_id: "i2" }] }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) assert.equal(image.bodyKind, "media");
 });
 
 test("official private text yields stable adapter key", () => {
@@ -300,7 +302,7 @@ test("ilink client maps endpoints and never logs token", async () => {
   assert.ok(seen.every((s) => s.clientVersion === "132102"));
   for (const request of seen.filter((s) => s.body)) {
     const body = JSON.parse(request.body!) as { base_info?: { channel_version?: string; bot_agent?: string } };
-    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.3" });
+    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.5" });
     assert.match(Buffer.from(request.wechatUin!, "base64").toString("utf8"), /^\d+$/);
   }
 });

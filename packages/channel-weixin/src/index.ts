@@ -54,7 +54,7 @@ export interface WeixinRaw {
   messageId: string;
   fromUserId: string;
   chatType: "private" | "group";
-  itemType: "text" | "voice" | "media";
+  itemType: "text" | "voice" | "media" | "image" | "file" | "audio";
   text?: string;
   contextToken?: string;
   voice?: WeixinVoiceMediaRef;
@@ -99,12 +99,25 @@ export class MemoryVault implements CredentialVault {
 
 export function parseInbound(raw: WeixinRaw, accountRef: string): InboundEnvelope | { reject: string } {
   if (raw.chatType !== "private") return { reject: "group" };
-  if (raw.itemType !== "text" && raw.itemType !== "voice") return { reject: "media" };
+  if (!["text", "voice", "image", "file", "audio"].includes(String(raw.itemType))) return { reject: "media" };
   const n = Number(raw.messageId);
   const official: OfficialWeixinMessage = {
     from_user_id: raw.fromUserId,
     message_type: 1,
-    item_list: [{ type: raw.itemType === "voice" ? 3 : 1, msg_id: raw.messageId, text_item: { text: raw.text ?? "" } }],
+    item_list: [
+      {
+        type:
+          raw.itemType === "voice" || raw.itemType === "audio"
+            ? 3
+            : raw.itemType === "image"
+              ? 2
+              : raw.itemType === "file"
+                ? 4
+                : 1,
+        msg_id: raw.messageId,
+        text_item: { text: raw.text ?? "" },
+      },
+    ],
     ...(Number.isFinite(n) ? { message_id: n } : {}),
     ...(raw.contextToken ? { context_token: raw.contextToken } : {}),
   };

@@ -82,6 +82,7 @@ export interface CenterRemote {
     degraded?: boolean;
   };
   enable(id: string, capabilityId?: string): Promise<unknown>;
+  installEnable(id: string, capabilityId?: string): Promise<unknown>;
   disable(id: string): Promise<unknown>;
   update(id: string, capabilityId?: string): Promise<unknown>;
   rollback(id: string): Promise<unknown>;
@@ -456,6 +457,14 @@ export function createCenterRemote(opts: {
       requireOwner(id, "plugin-enable", capabilityId);
       return transact(id, "enable");
     },
+    async installEnable(id: string, capabilityId?: string) {
+      const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
+      if (entry.source === "penglai-plugin-registry") {
+        await this.installDisabled(id, capabilityId);
+      }
+      requireOwner(id, "plugin-enable", capabilityId);
+      return transact(id, "enable");
+    },
     disable(id: string) {
       return transact(id, "disable");
     },
@@ -585,6 +594,11 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   @Remote
   enable(input: { id: string; capabilityId?: string }) {
     return this.impl.enable(input.id, input.capabilityId);
+  }
+
+  @Remote
+  installEnable(input: { id: string; capabilityId?: string }) {
+    return this.impl.installEnable(input.id, input.capabilityId);
   }
 
   @Remote

@@ -3,7 +3,7 @@ export * from "./i18n.js";
 export * from "./typert.js";
 
 export const SCHEMA_VERSION = 11;
-export const RELEASE = "0.5.3";
+export const RELEASE = "0.5.5";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,

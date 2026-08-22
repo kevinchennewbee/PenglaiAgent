@@ -108,7 +108,7 @@ function writeTrustedPluginSet(
   });
   writeFileSync(
     join(pluginsDir, "catalog.json"),
-    JSON.stringify({ schema: 2, target, entries }),
+    JSON.stringify({ schema: 3, target, entries }),
   );
 }
 
@@ -281,7 +281,7 @@ test("R2I-DIST-007 refuses to install historical keychain tarball into profile",
   assert.throws(() => activatePrivateProfile(layout, user), /unlisted bundled plugin archive|catalog set mismatch/);
 });
 
-test("fresh profile installs only Center and links official @deepseek-ai", () => {
+test("fresh profile installs Center plus required builtins and links official @deepseek-ai", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
@@ -298,6 +298,8 @@ test("fresh profile installs only Center and links official @deepseek-ai", () =>
     existsSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-center", "dist", "index.js")),
     true,
   );
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(linked).isSymbolicLink(), true);
@@ -305,9 +307,16 @@ test("fresh profile installs only Center and links official @deepseek-ai", () =>
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.id !== "@penglai/plugin-center");
+  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]);
+  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
   assert.ok(optional.length > 0);
   assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.filter((entry) => required.has(entry.id)).every(
+      (entry) => entry.defaultEnabled === true,
+    ),
+    true,
+  );
   const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8");
   for (const entry of optional) {
     const short = entry.id.replace("@penglai/", "penglai-");
@@ -317,6 +326,14 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
         `id: ${short}\\n\\s+name: ["']${entry.id.replace("/", "\\/")}["']\\n\\s+disabled: true`,
       ),
       entry.id,
+    );
+  }
+  for (const id of ["@penglai/office", "@penglai/memory"]) {
+    const short = id.replace("@penglai/", "penglai-");
+    assert.match(patch, new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']`));
+    assert.doesNotMatch(
+      patch,
+      new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']\\n\\s+disabled: true`),
     );
   }
 });

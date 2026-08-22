@@ -19,12 +19,12 @@ test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
 });
 
-test("R1-UP-001 pinned official packages are 0.1.1-rc.1", () => {
+test("R1-UP-001 pinned official packages are 0.1.1-rc.2", () => {
   const pinned = probePinnedPackages();
-  assert.equal(pinned.dsh, "0.1.1-rc.1");
-  assert.equal(pinned.agent, "0.1.1-rc.1");
-  assert.equal(pinned.llm, "0.1.1-rc.1");
-  assert.equal(pinned.workspace, "0.1.1-rc.1");
+  assert.equal(pinned.dsh, "0.1.1-rc.2");
+  assert.equal(pinned.agent, "0.1.1-rc.2");
+  assert.equal(pinned.llm, "0.1.1-rc.2");
+  assert.equal(pinned.workspace, "0.1.1-rc.2");
 });
 
 test("R1-UP-002/003 legacy IM source is normalized to an official visible user source", () => {
@@ -86,7 +86,7 @@ test("voice source metadata is strict and enters only the model pre-step view", 
 test("bridge followup uses host agent only", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       followup(m) { calls.push(m.source.inboundId); },
@@ -118,7 +118,7 @@ test("bridge followup uses host agent only", async () => {
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       followup() { calls.push("followup"); },
@@ -152,7 +152,7 @@ test("bridge fails closed before waking an IM turn when the official model route
 test("bridge treats a durable DSH inbox message id as an idempotent replay", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       session: {
@@ -196,7 +196,7 @@ test("official apiProxy session.create is the only new-session seam", async () =
         },
       },
     },
-  }, "0.1.1-rc.1");
+  }, "0.1.1-rc.2");
   assert.deepEqual(await host.createSession?.("workspace-1"), { id: "official-session-1" });
   assert.equal(requests.length, 1);
   assert.equal(requests[0]?.payload.workspaceId, "workspace-1");
@@ -214,7 +214,7 @@ test("official apiProxy session.create is the only new-session seam", async () =
       },
     },
   );
-  assert.doesNotThrow(() => hostFromCordis(proxied as never, "0.1.1-rc.1"));
+  assert.doesNotThrow(() => hostFromCordis(proxied as never, "0.1.1-rc.2"));
 });
 
 test("official apiProxy session.models/selectModel are the only IM model command seams", async () => {
@@ -240,7 +240,7 @@ test("official apiProxy session.models/selectModel are the only IM model command
         },
       },
     },
-  }, "0.1.1-rc.1");
+  }, "0.1.1-rc.2");
   const bridge = new DshBridge(host);
   const directory = await bridge.describeSessionModels("session-1");
   assert.equal(directory.current.model, "deepseek-chat");
@@ -279,7 +279,7 @@ test("official apiProxy is resolved through the live Cordis context proxy", asyn
     },
   );
   assert.equal(Object.getOwnPropertyDescriptor(ctx, "apiProxy"), undefined);
-  const host = hostFromCordis(ctx as never, "0.1.1-rc.1");
+  const host = hostFromCordis(ctx as never, "0.1.1-rc.2");
   const directory = await host.describeSessionModels?.("session-proxy");
   assert.equal(directory?.current.model, "deepseek-chat");
   assert.deepEqual(calls, ["session-proxy"]);
@@ -292,7 +292,7 @@ test("budget hard limit blocks official followup before the agent", async () => 
   gate.reserve({ tokens: 1, priceTrusted: false });
   const bridge = new DshBridge(
     {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: (id) => ({
         id,
         followup(m) {

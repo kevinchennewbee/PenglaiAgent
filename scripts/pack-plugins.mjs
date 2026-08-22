@@ -154,6 +154,21 @@ const packs = [
     },
   },
   {
+    id: "@penglai/office",
+    dir: "packages/office",
+    file: `penglai-office-${PRODUCT_VERSION}.tgz`,
+    host: "src/index.ts",
+    client: "src/dsh-client.js",
+    dshClient: {
+      inject: [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+      ],
+      platform: "web",
+    },
+  },
+  {
     id: "@penglai/budget",
     dir: "packages/budget",
     file: `penglai-budget-${PRODUCT_VERSION}.tgz`,

@@ -75,7 +75,7 @@ export function quarantineRevokedPlugins(opts: {
     cacheRoot: join(opts.userDataRoot, "plugins", "cas"),
     trustPath,
     lastGoodPath,
-    penglaiVersion: "0.5.3",
+    penglaiVersion: "0.5.5",
     dshExact: PINNED_PLUGIN_DSH,
   });
   const snap = client.snapshot();

@@ -104,8 +104,9 @@ window.__ModuleLoader__.load({
             "refreshRegistry",
             "download",
             "installDisabled",
+            "installEnable",
           ],
-          ["enable", "disable", "update", "rollback", "download", "installDisabled"],
+          ["enable", "disable", "update", "rollback", "download", "installDisabled", "installEnable"],
         ),
       ],
     };
@@ -117,6 +118,7 @@ window.__ModuleLoader__.load({
       { id: "@penglai/moss-tts", key: "cardTts" },
       { id: "@penglai/context", key: "cardContext" },
       { id: "@penglai/memory", key: "cardMemory" },
+      { id: "@penglai/office", key: "cardOffice" },
       { id: "@penglai/budget", key: "cardBudget" },
       { id: "@penglai/companion", key: "cardCompanion" },
     ];
@@ -131,6 +133,7 @@ window.__ModuleLoader__.load({
       "penglai-context": "M3 6.5h7l2 2h9v10.5H3V6.5Zm5 7h8M8 16h5",
       "penglai-memory":
         "M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Zm0 0v6c0 1.1 3.1 2 7 2s7-.9 7-2V6M5 12v6c0 1.1 3.1 2 7 2s7-.9 7-2v-6",
+      "penglai-office": "M6 3h9l5 5v13H6V3Zm9 0v5h5M8 13h8M8 17h6",
       "penglai-budget": "M4 19a8 8 0 1 1 16 0M12 11l4-3M7 19h10",
       "penglai-companion":
         "M12 21S4 16.2 4 9.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8 3.5C20 16.2 12 21 12 21Z",
@@ -369,7 +372,7 @@ window.__ModuleLoader__.load({
                     children: [
                       jsx.jsx("dt", { children: t.centerDsh }),
                       jsx.jsx("dd", {
-                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.1"),
+                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.2"),
                       }),
                     ],
                   }),
@@ -459,7 +462,7 @@ window.__ModuleLoader__.load({
                           loaded ||
                           revoked ||
                           id === "@penglai/plugin-center",
-                        onClick: () => act(id, "enable"),
+                        onClick: () => act(id, notInstalled ? "installEnable" : "enable"),
                         children: notInstalled ? t.centerInstallEnable : t.centerEnable,
                       }),
                       jsx.jsx("button", {
@@ -649,6 +652,8 @@ window.__ModuleLoader__.load({
         cardContextHint: "只索引你明确授权的本地目录。",
         cardMemory: "分层记忆",
         cardMemoryHint: "长期记忆与 SOP 需要可见确认。",
+        cardOffice: "蓬莱办公",
+        cardOfficeHint: "读取、创建和编辑 DOCX、XLSX、PPTX 与 PDF。",
         cardBudget: "用量预算",
         cardBudgetHint: "到达硬上限会阻止新的对话。",
         cardCompanion: "主动陪伴",
@@ -791,6 +796,8 @@ window.__ModuleLoader__.load({
         cardMemory: "Layered memory",
         cardMemoryHint:
           "Long-term memory and SOPs need a visible confirmation.",
+        cardOffice: "Penglai Office",
+        cardOfficeHint: "Inspect, create, and edit DOCX, XLSX, PPTX, and PDF.",
         cardBudget: "Usage budget",
         cardBudgetHint: "A hard limit blocks new conversations.",
         cardCompanion: "Companion",
@@ -1015,7 +1022,7 @@ window.__ModuleLoader__.load({
         };
         const mutate = async (id, action) => {
           if (!centerRemote) throw new Error("penglaiCenter remote missing");
-          if (action === "enable" || action === "update" || action === "installDisabled") {
+          if (action === "enable" || action === "update" || action === "installDisabled" || action === "installEnable") {
             const api = window.penglai;
             if (!api || typeof api.confirmPluginAction !== "function") {
               throw new Error("native owner capability is required");
@@ -1026,6 +1033,14 @@ window.__ModuleLoader__.load({
             }
             if (action === "enable")
               return unwrapRemote(await centerRemote.enable({ id, capabilityId: cap.capabilityId }));
+            if (action === "installEnable")
+              return unwrapRemote(
+                await (centerRemote.installEnable
+                  ? centerRemote.installEnable({ id, capabilityId: cap.capabilityId })
+                  : centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }).then(() =>
+                      centerRemote.enable({ id, capabilityId: cap.capabilityId }),
+                    )),
+              );
             if (action === "update") {
               const result = unwrapRemote(
                 await centerRemote.update({ id, capabilityId: cap.capabilityId }),

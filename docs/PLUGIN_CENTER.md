@@ -34,7 +34,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-当前不可变目录是 `plugin-catalog-v1.000004`。其中 `@penglai/office-reader` 0.1.2 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行，并使用 DSH 0.1.1-rc.1 要求的结构化输入与输出 contract。它不是完整 Office 编辑套件，公式只报告不计算，布局、图表和图片不冒充已还原。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.3 会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。
+0.5.5 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。当前远程不可变目录仍是 `plugin-catalog-v1.000004`。其中 `@penglai/office-reader` 0.1.2 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行，并使用 DSH 0.1.1-rc.1 要求的结构化输入与输出 contract。它不是完整 Office 编辑套件，公式只报告不计算，布局、图表和图片不冒充已还原。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.3 会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展，不代表它们已安装。完成 BYOK 后 official DSH 必须独立可用；fresh profile 只安装 Center，其他扩展在用户点击“安装并启用”后才校验、写入、加载。任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 

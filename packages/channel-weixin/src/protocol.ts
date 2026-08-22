@@ -6,7 +6,7 @@ export const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 export const ILINK_CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const DEFAULT_ILINK_BOT_TYPE = "3";
 export const ILINK_APP_ID = "bot";
-export const ILINK_BOT_AGENT = "Penglai/0.5.3";
+export const ILINK_BOT_AGENT = "Penglai/0.5.5";
 /** Exact Tencent channel package pinned by docs/compatibility/WEIXIN_R2.md. */
 export const ILINK_CHANNEL_VERSION = "2.4.6";
 /** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.6"). */
@@ -237,14 +237,20 @@ export function parseOfficialInbound(
     return { reject: "non_user" };
   }
   const items = msg.item_list ?? [];
+  const allowed = new Set<number>([MessageItemType.TEXT, MessageItemType.VOICE, MessageItemType.IMAGE, MessageItemType.FILE]);
+  if (items.some((it) => it.type !== undefined && !allowed.has(it.type))) {
+    return { reject: "media" };
+  }
   const voiceOnly = items.length > 0 && items.every((it) => it.type === MessageItemType.VOICE);
-  if (items.some((it) => it.type !== undefined && it.type !== MessageItemType.TEXT && it.type !== MessageItemType.VOICE)) {
-    return { reject: "media" };
-  }
-  if (items.some((it) => it.type === MessageItemType.VOICE) && !voiceOnly) {
-    return { reject: "media" };
-  }
-  const text = items.map((it) => it.text_item?.text ?? "").join("");
+  const image = items.some((it) => it.type === MessageItemType.IMAGE);
+  const file = items.some((it) => it.type === MessageItemType.FILE);
+  const text = items
+    .map((it) => {
+      if (it.type === MessageItemType.IMAGE) return "[image]";
+      if (it.type === MessageItemType.FILE) return "[file]";
+      return it.text_item?.text ?? "";
+    })
+    .join("");
   const msgId =
     items.find((it) => it.msg_id)?.msg_id ??
     (msg.message_id !== undefined ? String(msg.message_id) : undefined) ??
@@ -257,7 +263,7 @@ export function parseOfficialInbound(
     peerRef: createHash("sha256").update(from).digest("hex").slice(0, 24),
     vendorTarget: from,
     chatKind: "private",
-    bodyKind: voiceOnly ? "voice" : "text",
+    bodyKind: voiceOnly ? "voice" : image || file ? "media" : "text",
     text,
     receivedAt: Date.now(),
   };

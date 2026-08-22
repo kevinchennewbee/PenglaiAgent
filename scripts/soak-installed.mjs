@@ -56,7 +56,7 @@ const expectedInstaller = installerForTarget(expectedTarget);
 if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   finish("INCOMPLETE", {
     command: "test:soak:installed",
-    productVersion: "0.5.3",
+    productVersion: "0.5.5",
     requestedHours: hoursWanted,
     sourceSha: git.head,
     reason:
@@ -344,7 +344,7 @@ const leftover = leftoversByCommand(installedDsh).filter((line) => line.includes
 const elapsedHours = (Date.now() - started) / 3600_000;
 const rec = {
   command: "test:soak:installed",
-  productVersion: "0.5.3",
+  productVersion: "0.5.5",
   hours: elapsedHours,
   requestedHours: hoursWanted,
   samples,

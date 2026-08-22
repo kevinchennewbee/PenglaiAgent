@@ -96,7 +96,7 @@ if (!existsSync(penglaiExe) && !existsSync(join(payload, "Penglai.exe"))) {
 const stamped = run(process.execPath, [
   "scripts/stamp-windows-exe.mjs",
   penglaiExe,
-  join(ROOT, "overlays", "dsh-0.1.1-rc.1", "brand", "logo-256.png"),
+  join(ROOT, "overlays", "dsh-0.1.1-rc.2", "brand", "logo-256.png"),
   penglaiIcon,
 ]);
 if (stamped !== 0) {
@@ -123,7 +123,7 @@ if (native) {
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.3",
+      productVersion: "0.5.5",
       buildNumber: 0,
       candidateOrdinal: 0,
       candidateKind: "public-community-release",
@@ -136,9 +136,9 @@ if (native) {
       electron: "43.4.0",
       node: "22.22.2",
       embeddedNode: "22.22.2",
-      dsh: "0.1.1-rc.1",
+      dsh: "0.1.1-rc.2",
       profileSchema: 3,
-      catalogSchema: 2,
+      catalogSchema: 3,
       imSchema: 3,
       schemaVersion: 2,
       signed: false,

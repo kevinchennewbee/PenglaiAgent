@@ -132,6 +132,23 @@ export class MemoryStore {
       .run(action, scope, workspaceId, receipt, at);
   }
 
+  get(id: number): MemoryRow | undefined {
+    return this.db
+      .prepare("SELECT id, scope, workspace_id AS workspaceId, text, created_at AS createdAt FROM memory_rows WHERE id = ?")
+      .get(id) as MemoryRow | undefined;
+  }
+
+  deleteId(id: number, workspaceId?: string): number {
+    const row = this.get(id);
+    if (!row) return 0;
+    if (row.scope === "workspace" && workspaceId && row.workspaceId !== workspaceId) {
+      throw new PenglaiError("SECURITY_POLICY", "memory workspace scope isolation");
+    }
+    const res = this.db.prepare("DELETE FROM memory_rows WHERE id = ?").run(id);
+    this.audit("forget", row.scope, row.workspaceId, `id=${id}`);
+    return Number(res.changes);
+  }
+
   deleteScope(scope: MemoryScope, workspaceId?: string): number {
     if (scope === "workspace" && !workspaceId) {
       throw new PenglaiError("INVALID_INPUT", "workspace delete needs workspaceId");
