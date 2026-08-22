@@ -412,7 +412,7 @@ main, nav, footer { position: relative; z-index: 1; }
 .product-shots { padding-top: 72px; }
 .shot-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   margin-top: 48px;
 }
