@@ -10,8 +10,11 @@ if (!jsonPath) {
   console.error("usage: node scripts/sign-update-manifest.mjs <update-manifest-v1.json>");
   process.exit(2);
 }
+// Import the leaf module directly. Importing src/index.ts makes Node resolve the
+// index's emitted .js specifiers from inside src/, which does not exist in a
+// source checkout even when tsx is registered.
 const { privateKeyFromPem, signBytes } = await import(
-  pathToFileURL(join(ROOT, "packages/plugin-registry/src/index.ts")).href
+  pathToFileURL(join(ROOT, "packages/plugin-registry/src/signature.ts")).href
 );
 const bytes = readFileSync(jsonPath);
 const signature = signBytes(bytes, privateKeyFromPem(readFileSync(keys, "utf8")));
