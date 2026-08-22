@@ -126,6 +126,13 @@ function catalogEntry(
     license: remote.license,
     migration: remote.migration,
     rollback: "last-good-profile",
+    installClass:
+      remote.provenanceClass === "community-reviewed"
+        ? "community-reviewed"
+        : "optional-first-party",
+    userVisible: false,
+    updatePolicy: "signed-overlay",
+    resourcePolicy: "none",
     sha256: artifact.sha256,
     target: hostTarget,
     hasClient: Boolean(remote.clientEntry),
@@ -458,11 +465,24 @@ export function createCenterRemote(opts: {
       return transact(id, "enable");
     },
     async installEnable(id: string, capabilityId?: string) {
+      requireOwner(id, "plugin-enable", capabilityId);
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       if (entry.source === "penglai-plugin-registry") {
-        await this.installDisabled(id, capabilityId);
+        if (!opts.registry)
+          throw new PenglaiError(
+            "INVALID_INPUT",
+            "remote plugin registry is not configured",
+          );
+        const pkg = await opts.registry.downloadPackage(id, hostTarget());
+        stageRegistryPackage({
+          pkg,
+          entry,
+          userDataRoot: opts.userDataRoot,
+          ...(opts.registryPackagesDir
+            ? { registryPackagesDir: opts.registryPackagesDir }
+            : {}),
+        });
       }
-      requireOwner(id, "plugin-enable", capabilityId);
       return transact(id, "enable");
     },
     disable(id: string) {

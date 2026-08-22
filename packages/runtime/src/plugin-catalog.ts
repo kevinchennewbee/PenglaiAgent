@@ -18,6 +18,21 @@ export type PluginProvenanceClass =
   | "penglai-first-party"
   | "community-reviewed";
 
+export type PluginInstallClass =
+  | "infrastructure"
+  | "required-builtin"
+  | "optional-first-party"
+  | "community-reviewed"
+  | "migration"
+  | "advanced-first-party"
+  | "internal-test";
+
+export type PluginUpdatePolicy = "signed-overlay" | "app-only";
+export type PluginResourcePolicy =
+  | "none"
+  | "optional-large-assets"
+  | "bundled-native";
+
 export interface PluginCatalogMetadata {
   id: string;
   version: string;
@@ -30,6 +45,10 @@ export interface PluginCatalogMetadata {
   builtIn: boolean;
   source: "bundled-first-party" | "penglai-plugin-registry";
   provenanceClass: PluginProvenanceClass;
+  installClass: PluginInstallClass;
+  userVisible: boolean;
+  updatePolicy: PluginUpdatePolicy;
+  resourcePolicy: PluginResourcePolicy;
   license: string;
   migration: string;
   rollback: "last-good-profile";
@@ -77,6 +96,7 @@ const common = {
   license: "MIT",
   migration: "none",
   rollback: "last-good-profile" as const,
+  updatePolicy: "signed-overlay" as const,
 };
 
 export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
@@ -90,6 +110,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: true,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "infrastructure",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -100,6 +123,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -110,6 +136,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "internal-test",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -120,6 +149,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "optional-large-assets",
     },
     {
       ...common,
@@ -130,6 +162,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "optional-large-assets",
     },
     {
       ...common,
@@ -140,6 +175,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "migration",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -149,7 +187,10 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       permissions: ["local-memory", "official-skill-write"],
       defaultEnabled: true,
       builtIn: true,
-      provenanceClass: "penglai-first-party",
+      provenanceClass: "penglai-builtin",
+      installClass: "required-builtin",
+      userVisible: true,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -159,7 +200,10 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       permissions: ["workspace-read", "workspace-write"],
       defaultEnabled: true,
       builtIn: true,
-      provenanceClass: "penglai-first-party",
+      provenanceClass: "penglai-builtin",
+      installClass: "required-builtin",
+      userVisible: true,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -170,6 +214,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "advanced-first-party",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
@@ -180,6 +227,9 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "none",
     },
   ] satisfies PluginCatalogMetadata[]);
 
@@ -207,6 +257,10 @@ function assertMetadataMatch(
     "builtIn",
     "source",
     "provenanceClass",
+    "installClass",
+    "userVisible",
+    "updatePolicy",
+    "resourcePolicy",
     "license",
     "migration",
     "rollback",

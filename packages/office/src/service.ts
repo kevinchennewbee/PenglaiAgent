@@ -187,13 +187,49 @@ function spliceXmlText(xml: string, replacement: string): string {
   return `${xml}${escaped}`;
 }
 
+function parsePdfTrailer(raw: string): { size: number; startxref: number } | undefined {
+  const eof = raw.lastIndexOf("%%EOF");
+  if (eof < 0) return undefined;
+  const head = raw.slice(0, eof);
+  const startxref = Number([...head.matchAll(/startxref\s+(\d+)/g)].at(-1)?.[1]);
+  const size = Number([...head.matchAll(/\/Size\s+(\d+)/g)].at(-1)?.[1]);
+  if (!Number.isFinite(startxref) || !Number.isInteger(size) || size < 2) return undefined;
+  return { size, startxref };
+}
+
+function xrefLine(offset: number, gen = 0, used = true): string {
+  return `${String(offset).padStart(10, "0")} ${String(gen).padStart(5, "0")} ${used ? "n" : "f"} \n`;
+}
+
 function editPdf(bytes: Buffer, replacement: string): OfficeJob {
   const raw = bytes.toString("latin1");
+  const trailer = parsePdfTrailer(raw);
+  if (!trailer) throw new PenglaiError("INVALID_INPUT", "pdf edit requires xref trailer");
   const extra = `BT /F1 12 Tf 72 680 Td <${utf16BeHex(replacement)}> Tj ET`;
-  const next = raw.includes("%%EOF")
-    ? raw.replace("%%EOF", `${extra}\n%%EOF`)
-    : `${raw}\n${extra}\n`;
-  const out = Buffer.from(next, "latin1");
+  const streamNo = trailer.size;
+  const pageNo = trailer.size + 1;
+  const pagesNo = trailer.size + 2;
+  const catalogNo = trailer.size + 3;
+  const origContents = (raw.match(/\/Contents\s+(\d+\s+0\s+R)/) ?? [])[1] ?? "4 0 R";
+  const prefix = raw.endsWith("\n") ? raw : `${raw}\n`;
+  const objects = [
+    `${streamNo} 0 obj << /Length ${Buffer.byteLength(extra, "latin1")} >> stream\n${extra}\nendstream endobj\n`,
+    `${pageNo} 0 obj << /Type /Page /Parent ${pagesNo} 0 R /MediaBox [0 0 612 792] /Contents [${origContents} ${streamNo} 0 R] /Resources << /Font << /F1 5 0 R >> >> >> endobj\n`,
+    `${pagesNo} 0 obj << /Type /Pages /Kids [${pageNo} 0 R] /Count 1 >> endobj\n`,
+    `${catalogNo} 0 obj << /Type /Catalog /Pages ${pagesNo} 0 R >> endobj\n`,
+  ];
+  let pos = Buffer.byteLength(prefix, "latin1");
+  const offsets: number[] = [];
+  for (const obj of objects) {
+    offsets.push(pos);
+    pos += Buffer.byteLength(obj, "latin1");
+  }
+  const xrefStart = pos;
+  const xref =
+    `xref\n0 1\n${xrefLine(0, 65535, false)}${streamNo} 4\n` +
+    offsets.map((off) => xrefLine(off)).join("");
+  const tail = `trailer << /Size ${catalogNo + 1} /Root ${catalogNo} 0 R /Prev ${trailer.startxref} >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+  const out = Buffer.from(prefix + objects.join("") + xref + tail, "latin1");
   return { id: "office-pdf", format: "pdf", bytes: out, text: inspect(out).text };
 }
 

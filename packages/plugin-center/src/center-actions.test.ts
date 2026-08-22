@@ -52,4 +52,15 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   assert.doesNotMatch(client, /data-penglai-onboarding/);
   assert.match(client, /data-penglai-center": "1"/);
   assert.match(client, /installEnable/);
+  assert.match(client, /centerActionInstalledEnabled/);
+  const main = readFileSync(new URL("../../../apps/desktop/src/electron-main.ts", import.meta.url), "utf8");
+  assert.match(main, /installEnable:\s*"plugin-enable"/);
+  const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8");
+  const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
+  const end = remotes.indexOf("disable(id: string) {\n      return transact(id, \"disable\")");
+  const installEnable = remotes.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(installEnable, /plugin-enable/);
+  assert.equal(installEnable.includes("this.installDisabled"), false);
+  assert.equal((installEnable.match(/requireOwner\(/g) ?? []).length, 1);
 });

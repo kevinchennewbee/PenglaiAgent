@@ -89,6 +89,14 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
     "rollback",
     "update",
   ]);
+  const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8");
+  const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
+  const end = remotes.indexOf("disable(id: string) {\n      return transact(id, \"disable\")");
+  const installEnable = remotes.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(installEnable, /requireOwner\(id, "plugin-enable"/);
+  assert.equal(installEnable.includes("this.installDisabled"), false);
+  assert.equal((installEnable.match(/requireOwner\(/g) ?? []).length, 1);
   await assert.rejects(
     () =>
       (remote.refreshRegistry as (input?: unknown) => Promise<unknown>)({

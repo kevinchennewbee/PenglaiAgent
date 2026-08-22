@@ -510,6 +510,31 @@ window.__ModuleLoader__.load({
       return bytes.length >= 12 && asciiAt(bytes, 0, 4) === "RIFF" && asciiAt(bytes, 8, 4) === "WAVE";
     }
 
+    function u16at(bytes, offset) {
+      return (bytes[offset] | (bytes[offset + 1] << 8)) >>> 0;
+    }
+
+    function u32at(bytes, offset) {
+      return (
+        (bytes[offset] |
+          (bytes[offset + 1] << 8) |
+          (bytes[offset + 2] << 16) |
+          (bytes[offset + 3] << 24)) >>>
+        0
+      );
+    }
+
+    function isPcm16Mono16k(bytes) {
+      return (
+        isRiffWave(bytes) &&
+        bytes.length >= 44 &&
+        u16at(bytes, 20) === 1 &&
+        u16at(bytes, 22) === 1 &&
+        u32at(bytes, 24) === 16000 &&
+        u16at(bytes, 34) === 16
+      );
+    }
+
     function u16le(n) {
       return [n & 255, (n >> 8) & 255];
     }
@@ -590,20 +615,22 @@ window.__ModuleLoader__.load({
     }
 
     function decodeToPcm16Wav(bytes) {
-      if (isRiffWave(bytes)) return Promise.resolve(bytes);
+      if (isPcm16Mono16k(bytes)) return Promise.resolve(bytes);
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (typeof Ctx !== "function") {
         return Promise.reject(new Error("AudioContext unavailable for microphone conversion"));
       }
       const ctx = new Ctx();
       const copy = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-      return Promise.resolve(ctx.decodeAudioData(copy)).then((audio) => {
-        const mixed = mixToMono(audio);
-        const resampled = resample(mixed.samples, mixed.sampleRate, 16000);
-        const wav = encodePcm16Wav(floatToPcm16(resampled), 16000);
-        if (typeof ctx.close === "function") void ctx.close();
-        return wav;
-      });
+      return Promise.resolve(ctx.decodeAudioData(copy))
+        .then((audio) => {
+          const mixed = mixToMono(audio);
+          const resampled = resample(mixed.samples, mixed.sampleRate, 16000);
+          return encodePcm16Wav(floatToPcm16(resampled), 16000);
+        })
+        .finally(() => {
+          if (typeof ctx.close === "function") return ctx.close();
+        });
     }
 
     function blobToPcm16WavBase64(blob) {

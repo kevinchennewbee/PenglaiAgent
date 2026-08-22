@@ -225,6 +225,7 @@ window.__ModuleLoader__.load({
           await refresh();
           const messages = {
             enable: localeCopy().centerActionEnabled,
+            installEnable: localeCopy().centerActionInstalledEnabled,
             disable: localeCopy().centerActionDisabled,
             update: localeCopy().centerActionUpdated,
             rollback: localeCopy().centerActionRolledBack,
@@ -283,14 +284,9 @@ window.__ModuleLoader__.load({
         const id = String(row.id ?? "");
         if (id) live.set(id, { ...(live.get(id) ?? {}), ...row });
       }
-      const cardIds = [];
-      const seen = new Set();
-      for (const row of [...state.remote, ...state.catalog, ...FIRST_PARTY_CARDS]) {
-        const id = String(row.id ?? "");
-        if (!id || seen.has(id) || HIDDEN_PRODUCT_CARDS.has(id)) continue;
-        seen.add(id);
-        cardIds.push(id);
-      }
+      const cardIds = FIRST_PARTY_CARDS.map((card) => card.id).filter(
+        (id) => !HIDDEN_PRODUCT_CARDS.has(id),
+      );
       const firstParty = new Map(FIRST_PARTY_CARDS.map((card) => [card.id, card]));
       const cards = cardIds.map((id) => {
         const entry = live.get(id) ?? {};
@@ -678,6 +674,7 @@ window.__ModuleLoader__.load({
         centerStatusNotInstalled: "未安装",
         centerActionWorking: "正在执行并核对 official Loader 状态…",
         centerActionEnabled: "启用成功。",
+        centerActionInstalledEnabled: "安装并启用成功。",
         centerActionDisabled: "停用成功。",
         centerActionUpdated: "校验并更新成功。",
         centerActionRolledBack: "回滚成功。",
@@ -823,6 +820,7 @@ window.__ModuleLoader__.load({
         centerStatusNotInstalled: "Not installed",
         centerActionWorking: "Applying the change and verifying the official Loader state…",
         centerActionEnabled: "Enabled.",
+        centerActionInstalledEnabled: "Installed and enabled.",
         centerActionDisabled: "Disabled.",
         centerActionUpdated: "Verified and updated.",
         centerActionRolledBack: "Rolled back.",
@@ -1037,14 +1035,14 @@ window.__ModuleLoader__.load({
             }
             if (action === "enable")
               return unwrapRemote(await centerRemote.enable({ id, capabilityId: cap.capabilityId }));
-            if (action === "installEnable")
+            if (action === "installEnable") {
+              if (typeof centerRemote.installEnable !== "function") {
+                throw new Error("installEnable remote missing");
+              }
               return unwrapRemote(
-                await (centerRemote.installEnable
-                  ? centerRemote.installEnable({ id, capabilityId: cap.capabilityId })
-                  : centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }).then(() =>
-                      centerRemote.enable({ id, capabilityId: cap.capabilityId }),
-                    )),
+                await centerRemote.installEnable({ id, capabilityId: cap.capabilityId }),
               );
+            }
             if (action === "update") {
               const result = unwrapRemote(
                 await centerRemote.update({ id, capabilityId: cap.capabilityId }),

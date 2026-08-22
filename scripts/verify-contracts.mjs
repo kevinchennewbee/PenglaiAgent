@@ -44,7 +44,7 @@ if (probe.status !== 0) {
   process.exit(probe.status ?? 1);
 }
 if (probe.stdout) process.stdout.write(probe.stdout);
-const rc1 = spawnSync(process.execPath, ["--import", "tsx", join(ROOT, "scripts/probe-rc1.mjs")], {
+const rc1 = spawnSync(process.execPath, ["--import", "tsx", join(ROOT, "scripts/probe-rc2.mjs")], {
   cwd: ROOT,
   encoding: "utf8",
 });

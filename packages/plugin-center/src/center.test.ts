@@ -118,6 +118,8 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
     "@penglai/memory",
     "@penglai/companion",
   ]);
+  assert.match(client, /const cardIds = FIRST_PARTY_CARDS\.map\(\(card\) => card\.id\)/);
+  assert.doesNotMatch(client, /\[\.\.\.state\.remote, \.\.\.state\.catalog, \.\.\.FIRST_PARTY_CARDS\]/);
 });
 
 test("Penglai branding shadows rc.8 official single slots at a distinct priority", () => {

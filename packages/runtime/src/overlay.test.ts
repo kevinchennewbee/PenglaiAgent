@@ -95,6 +95,14 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   assert.match(hero, /Hi, I am Penglai/);
   assert.doesNotMatch(hero, /探索未至之境/);
   assert.doesNotMatch(hero, /Into the Unknown/);
+  assert.match(
+    hero,
+    /renderSlot\("conversation\.chat\.assistant-actions", \{ messageId, text: assistantText\(closing\.blocks\) \}\)/,
+  );
+  assert.doesNotMatch(
+    hero,
+    /renderSlot\("conversation\.chat\.assistant-actions", \{ messageId \}\)/,
+  );
   assert.match(hero, /data-penglai-im-voice/);
   assert.match(hero, /penglaiVisibleVoiceContent/);
   assert.match(hero, /PENGLAI LOCAL ASR METADATA - NOT USER-AUTHORED/);

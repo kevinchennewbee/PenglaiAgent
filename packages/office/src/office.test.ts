@@ -54,6 +54,12 @@ test("office partial-edit keeps unmodified document parts", () => {
   const patchedPdf = edit(marked, "世界");
   const raw = commit(patchedPdf).toString("latin1");
   assert.match(raw, /UNMODIFIED_PDF_OBJECT/);
+  assert.match(raw, /\/Prev \d+/);
+  assert.equal((raw.match(/startxref/g) ?? []).length >= 2, true);
+  const extraHex = Buffer.from([0xfe, 0xff, 0x4e, 0x16, 0x75, 0x4c]).toString("hex").toUpperCase();
+  const streamBlock = raw.match(/stream\nBT \/F1 12 Tf 72 680 Td <([0-9A-F]+)>\sTj ET\nendstream/);
+  assert.ok(streamBlock);
+  assert.equal(streamBlock[1], extraHex);
   assert.match(inspect(commit(patchedPdf)).text, /世界/);
   assert.match(inspect(commit(patchedPdf)).text, /hello pdf/);
 });

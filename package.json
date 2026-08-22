@@ -100,7 +100,8 @@
     "probe:dsh": "node --import tsx packages/dsh-bridge/src/probe.ts",
     "probe:dsh-contracts": "node scripts/probe-dsh-contracts.mjs",
     "probe:dsh-u0": "node --import tsx scripts/probe-dsh-u0.mjs",
-    "probe:rc1": "node --import tsx scripts/probe-rc1.mjs",
+    "probe:rc2": "node --import tsx scripts/probe-rc2.mjs",
+    "probe:rc1": "node --import tsx scripts/probe-rc2.mjs",
     "probe:makers": "node --import tsx scripts/probe-makers.mjs",
     "ensure:electron": "node scripts/ensure-electron.mjs"
   },

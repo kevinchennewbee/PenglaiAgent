@@ -719,6 +719,7 @@ async function main(): Promise<void> {
           }
           const mapped: Record<string, PluginOwnerAction> = {
             enable: "plugin-enable",
+            installEnable: "plugin-enable",
             update: "plugin-update",
             installDisabled: "plugin-install",
           };

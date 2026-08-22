@@ -401,9 +401,7 @@ export function pluginHealthFrom(
   };
   const name = serviceName[id];
   if (!name) return { healthy: true };
-  // These are optional sibling-plugin services. Cordis property access is
-  // intentionally inject-gated, while Context#get is the official dynamic
-  // lookup for hot-pluggable services that must not block Center itself.
+  // Cordis inject-gated properties throw; Center must use Context#get.
   const service = ctx.get?.(name) as Record<string, unknown> | undefined;
   if (!service) return { healthy: false, error: `${name} service missing` };
   try {
