@@ -15,6 +15,7 @@ import vm from "node:vm";
 import {
   PluginCenterHost,
   R2_CATALOG,
+  createPluginLifecycle,
   validateCatalog,
   verifyPackage,
   workspaceProtectionSnapshot,
@@ -170,6 +171,62 @@ test("production Center has Typert remote and no ad-hoc HTTP", async () => {
   assert.equal(client.includes('fetch("/penglai/center"'), false);
   assert.match(remotes, /TypertRemoteService/);
   assert.match(remotes, /penglaiCenter/);
+});
+
+test("Center lifecycle creates a newly installed plugin by loader entry id and removes it on rollback", async () => {
+  const rows: Array<Record<string, unknown>> = [];
+  const calls: string[] = [];
+  const loader = {
+    resolve(id: string) {
+      calls.push(`resolve:${id}`);
+      return {
+        async update(options: { disabled?: boolean }) {
+          calls.push(`update:${id}:${String(options.disabled)}`);
+        },
+      };
+    },
+    async create(options: { id: string; name: string; disabled?: boolean }) {
+      calls.push(
+        `create:${options.id}:${options.name}:${String(options.disabled)}`,
+      );
+      rows.push({
+        entryId: options.id,
+        moduleName: options.name,
+        fiberPhase: options.disabled ? "disabled" : "active",
+      });
+      return options.id;
+    },
+    async remove(id: string) {
+      calls.push(`remove:${id}`);
+      const index = rows.findIndex((row) => row.entryId === id);
+      if (index >= 0) rows.splice(index, 1);
+    },
+    async await() {
+      calls.push("await");
+    },
+  };
+  const lifecycle = createPluginLifecycle(loader, { list: () => rows });
+  await lifecycle.apply({
+    id: "@penglai/office-reader",
+    enabled: false,
+    forceReload: false,
+    present: true,
+  });
+  assert.deepEqual(calls, [
+    "create:penglai-office-reader:@penglai/office-reader:true",
+    "await",
+  ]);
+  assert.equal(rows.length, 1);
+
+  calls.length = 0;
+  await lifecycle.apply({
+    id: "@penglai/office-reader",
+    enabled: false,
+    forceReload: false,
+    present: false,
+  });
+  assert.deepEqual(calls, ["remove:penglai-office-reader", "await"]);
+  assert.equal(rows.length, 0);
 });
 
 test("Penglai settings mounts strict generated-client descriptors before using remotes", async () => {

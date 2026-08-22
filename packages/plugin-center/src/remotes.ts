@@ -57,6 +57,7 @@ export interface PluginLifecycle {
     id: string;
     enabled: boolean;
     forceReload: boolean;
+    present: boolean;
   }): Promise<void>;
 }
 
@@ -140,6 +141,7 @@ async function waitForInventory(
   inventory: { list(): unknown },
   id: string,
   enabled: boolean,
+  present = true,
   timeoutMs = 8_000,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -149,16 +151,19 @@ async function waitForInventory(
       rowMatches(candidate, id),
     );
     observed = row ? String(row.fiberPhase ?? "disabled") : "missing";
-    if (rowLoaded(row) === enabled) return;
+    if (!present ? !row : Boolean(row) && rowLoaded(row) === enabled) return;
     await new Promise<void>((resolveWait) => setTimeout(resolveWait, 50));
   }
   throw new PenglaiError(
     "DSH_UNAVAILABLE",
-    `${id} loader postcondition expected enabled=${String(enabled)} observed=${observed}`,
+    `${id} loader postcondition expected present=${String(present)} enabled=${String(enabled)} observed=${observed}`,
   );
 }
 
-function previousEnabledFromJournal(txDir: string, id: string): boolean {
+function previousStateFromJournal(
+  txDir: string,
+  id: string,
+): { enabled: boolean; present: boolean } {
   const file = join(txDir, "journal.json");
   if (!existsSync(file)) {
     throw new PenglaiError("STORE_CORRUPT", "Center rollback journal missing");
@@ -166,11 +171,15 @@ function previousEnabledFromJournal(txDir: string, id: string): boolean {
   const raw = JSON.parse(readFileSync(file, "utf8")) as {
     id?: unknown;
     previousEnabled?: unknown;
+    previousPresent?: unknown;
   };
   if (raw.id !== id || typeof raw.previousEnabled !== "boolean") {
     throw new PenglaiError("STORE_CORRUPT", "Center rollback journal mismatch");
   }
-  return raw.previousEnabled;
+  return {
+    enabled: raw.previousEnabled,
+    present: raw.previousPresent !== false,
+  };
 }
 
 function isUnder(root: string, candidate: string): boolean {
@@ -347,6 +356,9 @@ export function createCenterRemote(opts: {
       );
     }
     const previousEnabled = Boolean(opts.host.desired()[id]);
+    const previousPresent = normalizeInventory(opts.inventory.list()).some(
+      (row) => rowMatches(row, id),
+    );
     const probe = opts.resourceProbe(id);
     return runProfileTransaction({
       userDataRoot: opts.userDataRoot,
@@ -359,9 +371,15 @@ export function createCenterRemote(opts: {
       entry,
       action,
       previousEnabled,
+      previousPresent,
       applyLive: (input) => opts.lifecycle.apply(input),
       verifyActual: (input) =>
-        waitForInventory(opts.inventory, input.id, input.enabled),
+        waitForInventory(
+          opts.inventory,
+          input.id,
+          input.enabled,
+          input.present,
+        ),
       ...(probe ? { readResources: () => probe.snapshot() } : {}),
       commitDesired: (enabled) => opts.host.setDesired(id, enabled),
       rollbackDesired: (enabled) => opts.host.setDesired(id, enabled),
@@ -526,16 +544,26 @@ export function createCenterRemote(opts: {
     },
     async rollback(id: string) {
       catalogEntry(opts.catalog, id, opts.registry, hostTarget());
-      const enabled = previousEnabledFromJournal(opts.txDir, id);
+      const previous = previousStateFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
         userDataRoot: opts.userDataRoot,
         profileDir: opts.profileDir,
         txDir: opts.txDir,
         id,
       });
-      await opts.lifecycle.apply({ id, enabled, forceReload: true });
-      await waitForInventory(opts.inventory, id, enabled);
-      opts.host.setDesired(id, enabled);
+      await opts.lifecycle.apply({
+        id,
+        enabled: previous.enabled,
+        forceReload: true,
+        present: previous.present,
+      });
+      await waitForInventory(
+        opts.inventory,
+        id,
+        previous.enabled,
+        previous.present,
+      );
+      opts.host.setDesired(id, previous.enabled);
       return out;
     },
   };
