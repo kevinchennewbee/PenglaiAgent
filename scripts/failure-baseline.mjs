@@ -146,14 +146,14 @@ async function probeStaleAlpha() {
 function probeVersions() {
   const root = readJson("package.json");
   const info = readJson("release-info.json");
-  const ok = root.version === "0.5.1" && info.productVersion === "0.5.1";
+  const ok = root.version === "0.5.2" && info.productVersion === "0.5.2";
   if (!ok) {
-    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info not 0.5.1", {
+    return result("FB-VERSIONS", "REPRODUCED", "workspace/release-info not 0.5.2", {
       packageVersion: root.version,
       productVersion: info.productVersion,
     });
   }
-  return result("FB-VERSIONS", "CLOSED", "root and release-info are 0.5.1", { version: root.version });
+  return result("FB-VERSIONS", "CLOSED", "root and release-info are 0.5.2", { version: root.version });
 }
 
 async function probeAggregator() {
@@ -185,9 +185,9 @@ function probePublication() {
   const pub = info.publication ?? {};
   const ok =
     pub.repo === "kevinchennewbee/PenglaiAgent" &&
-    pub.tag === "v0.5.1" &&
-    pub.release === "v0.5.1" &&
-    pub.channel === "stable-v0.5.1";
+    pub.tag === "v0.5.2" &&
+    pub.release === "v0.5.2" &&
+    pub.channel === "stable-v0.5.2";
   if (!ok) {
     return result("FB-PUBLICATION", "REPRODUCED", "publication fields do not match the owner-authorized destination", { pub });
   }
@@ -340,7 +340,7 @@ const dir = join(ROOT, "evidence", "generated");
 mkdirSync(dir, { recursive: true });
 writeFileSync(
   join(dir, "failure-baseline.json"),
-  JSON.stringify({ schema: 3, version: "0.5.1", probes: out, mustClose: MUST_CLOSE }, null, 2),
+  JSON.stringify({ schema: 3, version: "0.5.2", probes: out, mustClose: MUST_CLOSE }, null, 2),
 );
 console.log(
   "failure-baseline",

@@ -1,9 +1,9 @@
 export const RELEASE_TARGETS = Object.freeze(["darwin-aarch64", "darwin-x86_64", "win32-x86_64"]);
 
 export const TARGET_INSTALLERS = Object.freeze({
-  "darwin-aarch64": "Penglai_0.5.1_macos_aarch64.dmg",
-  "darwin-x86_64": "Penglai_0.5.1_macos_x64.dmg",
-  "win32-x86_64": "Penglai_0.5.1_windows_x64_setup.exe",
+  "darwin-aarch64": "Penglai_0.5.2_macos_aarch64.dmg",
+  "darwin-x86_64": "Penglai_0.5.2_macos_x64.dmg",
+  "win32-x86_64": "Penglai_0.5.2_windows_x64_setup.exe",
 });
 
 export function assertReleaseTarget(target) {

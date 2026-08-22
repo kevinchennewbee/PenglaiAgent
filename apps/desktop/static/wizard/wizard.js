@@ -47,6 +47,7 @@
       errorNetwork: "无法连接模型接口。请检查网络后重试。",
       errorAdapter: "这个供应商还不能用，请另选一个。",
       errorCatalog: "暂时读不到供应商列表。请重试。",
+      errorReady: "真实调用已经完成，但本地完成记录校验失败。请重试；若仍失败，请保留现场用于诊断。",
       retryCatalog: "重新读取列表",
       errorJail: "这个文件夹不能用作工作区（蓬莱数据目录或应用安装目录）。请另选一个。",
       errorRpc: "这一步的官方请求失败。请重试，或回到上一步检查输入。",
@@ -98,6 +99,7 @@
       errorNetwork: "The model API could not be reached. Check the network and retry.",
       errorAdapter: "This provider is not available yet. Choose another one.",
       errorCatalog: "The provider list could not be loaded. Retry.",
+      errorReady: "The real request completed, but local completion evidence failed validation. Retry and preserve the state for diagnostics if it still fails.",
       retryCatalog: "Reload list",
       errorJail: "That folder cannot be a workspace (Penglai data or the app install directory). Choose another folder.",
       errorRpc: "This official request failed. Retry, or go back and check the input.",
@@ -198,7 +200,8 @@
       };
       return t(keys[classifyApiTestError(err)] || "errorGeneric");
     }
-    if (/SECURITY_POLICY|jail|install directory|userData|onboarding/i.test(text)) return t("errorJail");
+    if (/onboarding ledger|completion evidence|not COMPLETE/i.test(text)) return t("errorReady");
+    if (/SECURITY_POLICY|jail|workspace path|install directory|userData|inside .* tree/i.test(text)) return t("errorJail");
     if (kind === "rpc" || /DSH_UNAVAILABLE|INVALID_INPUT|Typert|rpc/i.test(text)) return t("errorRpc");
     return t("errorGeneric");
   }
@@ -346,9 +349,31 @@
 
   async function goBack() {
     if (state.viewIndex <= 0) return;
-    state.viewIndex -= 1;
+    const target = LEDGER_SCREENS[state.viewIndex - 1];
     state.error = "";
+    const stepByScreen = {
+      models: "model-provider-v1",
+      keytest: "credential-v1",
+      workspace: "workspace-v1",
+      firstturn: "first-turn-v1",
+    };
+    const step = stepByScreen[target.id];
+    if (!step) {
+      state.viewIndex -= 1;
+      render();
+      return;
+    }
+    state.busy = true;
     render();
+    try {
+      await rpc("rewindOnboarding", { step });
+      await refreshStatus();
+    } catch (err) {
+      state.error = formatWizardError(err, "rpc");
+    } finally {
+      state.busy = false;
+      render();
+    }
   }
 
   async function finishWizard() {
@@ -417,8 +442,19 @@
       } else {
         await advanceLive();
       }
+      state.error = "";
     } catch (err) {
-      const kind = currentScreen().id === "keytest" ? "api-test" : "rpc";
+      const failedScreen = currentScreen().id;
+      const kind = failedScreen === "keytest" || failedScreen === "firstturn" ? "api-test" : "rpc";
+      const failureClass = kind === "api-test" ? classifyApiTestError(err) : "unknown";
+      if (failedScreen === "firstturn" && failureClass === "auth") {
+        try {
+          await rpc("rewindOnboarding", { step: "credential-v1" });
+          await refreshStatus();
+        } catch {
+          /* Preserve the original provider failure; Back remains available. */
+        }
+      }
       state.error = formatWizardError(err, kind);
     } finally {
       state.busy = false;

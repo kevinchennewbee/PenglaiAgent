@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
@@ -435,6 +435,22 @@ test("R50-ONB-009 first conversation is a visible official Session and survives 
   });
   assert.equal(resumed.status().current, "COMPLETE");
   assert.deepEqual(resumed.facts(), impl.facts());
+
+  const rewound = resumed.rewindOnboarding({ step: "credential-v1" });
+  assert.equal(rewound.current, "credential-v1");
+  assert.deepEqual(resumed.facts().selection, { provider: "deepseek", model: "deepseek-chat" });
+  assert.equal(resumed.facts().credentialRef, undefined);
+  assert.equal(resumed.facts().apiTest, undefined);
+  assert.equal(resumed.facts().workspaceId, undefined);
+  assert.equal(resumed.facts().firstConversation, undefined);
+  assert.equal(existsSync(join(dir, "current-nonce.digest")), false);
+  await resumed.enterCredential({ provider: "deepseek", value: "sk-replacement" });
+  assert.equal(resumed.status().current, "model-test-v1");
+  await resumed.testSelectedModel({ nonce: "api2" });
+  await resumed.createWorkspace({ path: wsDir, title: "Docs" });
+  const retried = await resumed.runFirstConversation({ message: "重试成功" });
+  assert.equal((retried as { passed?: boolean }).passed, true);
+  assert.equal(resumed.status().current, "COMPLETE");
 });
 
 test("R50-ONB-002 completeAppearance persists locale/theme through official settings", async () => {

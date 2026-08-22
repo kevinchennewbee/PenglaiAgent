@@ -8,9 +8,9 @@ import { declaredSourceSha, recordAssertion } from "./assertion.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninstall", () => {
-  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.1.md"), "utf8");
-  assert.match(notes, /manual DMG overlay/i);
-  assert.match(notes, /0\.5\.0/);
+  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.2.md"), "utf8");
+  assert.match(notes, /Penglai → Update/i);
+  assert.match(notes, /0\.5\.1/);
   assert.match(notes, /community-verified/);
   assert.match(notes, /not notarized/);
   assert.match(notes, /silent auto-update/i);
@@ -26,15 +26,15 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "0.5.1 notes state manual 0.5.0 overlay, three targets, community trust, and future signed updates" },
+    details: { safe: "0.5.2 notes state signed 0.5.1 upgrade, three targets, community trust, and update confirmation" },
   });
 });
 
 test("R50-PREP-008 publication manifest lists the exact three-target release", () => {
-  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.1.md"), "utf8");
-  assert.match(md, /Penglai_0\.5\.1_macos_aarch64\.dmg/);
-  assert.match(md, /Penglai_0\.5\.1_macos_x64\.dmg/);
-  assert.match(md, /Penglai_0\.5\.1_windows_x64_setup\.exe/);
+  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.2.md"), "utf8");
+  assert.match(md, /Penglai_0\.5\.2_macos_aarch64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.2_macos_x64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.2_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
   assert.match(md, /UNFROZEN/);

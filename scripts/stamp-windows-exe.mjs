@@ -67,12 +67,12 @@ for (const version of versions) {
     version.setStringValues(language, {
       CompanyName: "Penglai",
       FileDescription: "Penglai",
-      FileVersion: "0.5.1.0",
+      FileVersion: "0.5.2.0",
       InternalName: "Penglai",
       LegalCopyright: "Penglai contributors",
       OriginalFilename: "Penglai.exe",
       ProductName: "Penglai",
-      ProductVersion: "0.5.1.0",
+      ProductVersion: "0.5.2.0",
     });
   }
   version.outputToResourceEntries(resources.entries);

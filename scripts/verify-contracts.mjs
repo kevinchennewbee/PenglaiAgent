@@ -109,12 +109,17 @@ if (readme.includes("official DSH 0.1.0-rc.8") || readme.includes("官方 DSH 0.
   process.exit(1);
 }
 if (/Apple Silicon \/ macOS 13\+ only for this candidate/.test(readme) || /本候选仅 Apple Silicon/.test(readme)) {
-  console.error("README still claims 0.5.1 is Apple Silicon only");
+  console.error("README still claims the current release is Apple Silicon only");
   process.exit(1);
 }
 const notes051 = readFileSync(join(ROOT, "docs/RELEASE_NOTES_0.5.1.md"), "utf8");
 if (notes051.includes("0.1.0-rc.8")) {
   console.error("RELEASE_NOTES_0.5.1 still pins rc.8");
+  process.exit(1);
+}
+const notes052 = readFileSync(join(ROOT, "docs/RELEASE_NOTES_0.5.2.md"), "utf8");
+if (!notes052.includes("0.5.1 users") || !notes052.includes("Penglai → Update")) {
+  console.error("RELEASE_NOTES_0.5.2 does not describe the signed 0.5.1 assisted update");
   process.exit(1);
 }
 const findings = readFileSync(join(ROOT, "docs/0.5.1/FINDINGS.md"), "utf8");
@@ -127,4 +132,4 @@ if (!ensure.includes("--target") || ensure.includes("this script has no --arch")
   console.error("ensure-electron is still host-only");
   process.exit(1);
 }
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.1");
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.2");

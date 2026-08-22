@@ -15,7 +15,7 @@ const rec = JSON.parse(readFileSync(path, "utf8"));
 if (/0\.2\.0-alpha|ba5ba3dd|c19e393e/.test(JSON.stringify(rec))) {
   finish("STALE", { command: "verify:soak", reason: "soak evidence bound to stale alpha source/artifact" });
 }
-if (rec.productVersion !== "0.5.1" || rec.hours < 2) {
+if (rec.productVersion !== "0.5.2" || rec.hours < 2) {
   finish("INCOMPLETE", { command: "verify:soak", reason: "exact 0.5 two-hour soak not present" });
 }
 const current = existsSync(dmgPath) ? JSON.parse(readFileSync(dmgPath, "utf8")) : null;

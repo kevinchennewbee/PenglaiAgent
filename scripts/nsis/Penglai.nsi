@@ -1,13 +1,13 @@
-; Penglai 0.5.1 current-user NSIS Setup.
+; Penglai 0.5.2 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
 ; for install identity, bilingual UI, default-preserve userData, and
 ; capability-bound complete delete. Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.1"
+  !define PENGLAI_VERSION "0.5.2"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.1_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.2_windows_x64_setup.exe"
 !endif
 
 Unicode true
@@ -62,7 +62,7 @@ LangString DESC_Desktop ${LANG_ENGLISH} "Desktop shortcut"
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "Penglai 0.5.1 requires 64-bit Windows."
+    MessageBox MB_ICONSTOP "Penglai 0.5.2 requires 64-bit Windows."
     Abort
   ${EndIf}
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayVersion"
