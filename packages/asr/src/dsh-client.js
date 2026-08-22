@@ -643,7 +643,38 @@ window.__ModuleLoader__.load({
         recording: false,
         error: "",
         draft: "",
+        model: "",
       });
+      React.useEffect(() => {
+        if (!api?.describe) {
+          setView((current) => ({ ...current, error: "asr plugin unavailable", model: "unavailable" }));
+          return;
+        }
+        Promise.resolve(api.describe())
+          .then((value) => {
+            const cap = unwrapRemote(value) || {};
+            const model = String(cap.model ?? "not_installed");
+            setView((current) => ({
+              ...current,
+              model,
+              error:
+                model === "ready"
+                  ? ""
+                  : model === "downloading" || model === "verifying"
+                    ? "asr model downloading"
+                    : model === "corrupt" || model === "failed"
+                      ? "asr model failed checksum or load"
+                      : "asr model not installed",
+            }));
+          })
+          .catch((error) => {
+            setView((current) => ({
+              ...current,
+              model: "unavailable",
+              error: String(error && error.message ? error.message : error),
+            }));
+          });
+      }, [api]);
       const recorderRef = React.useRef(null);
       const chunksRef = React.useRef([]);
       const stopRecording = () => {
@@ -677,6 +708,13 @@ window.__ModuleLoader__.load({
       const toggle = () => {
         if (view.recording) {
           stopRecording();
+          return;
+        }
+        if (view.model && view.model !== "ready") {
+          setView((current) => ({
+            ...current,
+            error: current.error || "asr model not installed",
+          }));
           return;
         }
         if (!navigator?.mediaDevices?.getUserMedia) {
@@ -717,9 +755,12 @@ window.__ModuleLoader__.load({
       return jsx.jsx("button", {
         type: "button",
         "data-penglai-asr-mic": view.recording ? "recording" : "1",
+        "data-penglai-asr-model": view.model || "unknown",
         "data-penglai-asr-draft": view.draft,
+        "data-penglai-asr-mic-error": view.error || "",
+        disabled: Boolean(view.model && view.model !== "ready"),
         onClick: toggle,
-        children: view.recording ? "stop" : "mic",
+        children: view.error && view.model && view.model !== "ready" ? view.error : view.recording ? "stop" : "mic",
       });
     }
 

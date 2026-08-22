@@ -236,7 +236,9 @@ function loadAsrClient(remote: Record<string, unknown>) {
     effects.length = 0;
     const row = registered.find((entry) => entry.id === id);
     assert.ok(row, id);
-    return row!.Component({ ...row!.props, ...extra } as never);
+    const tree = row!.Component({ ...row!.props, ...extra } as never);
+    for (const effect of effects) effect();
+    return tree;
   };
   return { registered, render, renderId, hooks, mounted, ready };
 }

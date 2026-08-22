@@ -440,54 +440,67 @@ window.__ModuleLoader__.load({
                 ? jsx.jsxs("div", {
                     className: "penglai-card-actions",
                     children: [
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "download",
-                        disabled: actionState.busy || revoked,
-                        onClick: () => act(id, "download"),
-                        children: t.centerDownload,
-                      }),
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "installDisabled",
-                        disabled: actionState.busy || revoked,
-                        onClick: () => act(id, "installDisabled"),
-                        children: t.centerInstallDisabled,
-                      }),
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "enable",
-                        disabled:
-                          actionState.busy ||
-                          loaded ||
-                          revoked ||
-                          id === "@penglai/plugin-center",
-                        onClick: () => act(id, notInstalled ? "installEnable" : "enable"),
-                        children: notInstalled ? t.centerInstallEnable : t.centerEnable,
-                      }),
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "disable",
-                        disabled:
-                          actionState.busy ||
-                          id === "@penglai/plugin-center" ||
-                          !loaded,
-                        onClick: () => act(id, "disable"),
-                        children: t.centerDisable,
-                      }),
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "update",
-                        disabled: actionState.busy || notInstalled || revoked,
-                        onClick: () => act(id, "update"),
-                        children: t.centerVerifyUpdate,
-                      }),
-                      jsx.jsx("button", {
-                        type: "button",
-                        "data-penglai-plugin-action": "rollback",
-                        disabled: actionState.busy,
-                        onClick: () => act(id, "rollback"),
-                        children: t.centerRollback,
+                      notInstalled
+                        ? jsx.jsx("button", {
+                            type: "button",
+                            "data-penglai-plugin-action": "installEnable",
+                            disabled: actionState.busy || revoked,
+                            onClick: () => act(id, "installEnable"),
+                            children: t.centerInstallEnable,
+                          })
+                        : loaded
+                          ? jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-plugin-action": "disable",
+                              disabled:
+                                actionState.busy ||
+                                id === "@penglai/plugin-center",
+                              onClick: () => act(id, "disable"),
+                              children: t.centerDisable,
+                            })
+                          : jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-plugin-action": "enable",
+                              disabled:
+                                actionState.busy ||
+                                revoked ||
+                                id === "@penglai/plugin-center",
+                              onClick: () => act(id, "enable"),
+                              children: t.centerEnable,
+                            }),
+                      jsx.jsxs("details", {
+                        "data-penglai-plugin-advanced": "1",
+                        children: [
+                          jsx.jsx("summary", { children: t.centerAdvanced ?? "Advanced" }),
+                          jsx.jsx("button", {
+                            type: "button",
+                            "data-penglai-plugin-action": "download",
+                            disabled: actionState.busy || revoked,
+                            onClick: () => act(id, "download"),
+                            children: t.centerDownload,
+                          }),
+                          jsx.jsx("button", {
+                            type: "button",
+                            "data-penglai-plugin-action": "installDisabled",
+                            disabled: actionState.busy || revoked,
+                            onClick: () => act(id, "installDisabled"),
+                            children: t.centerInstallDisabled,
+                          }),
+                          jsx.jsx("button", {
+                            type: "button",
+                            "data-penglai-plugin-action": "update",
+                            disabled: actionState.busy || notInstalled || revoked,
+                            onClick: () => act(id, "update"),
+                            children: t.centerVerifyUpdate,
+                          }),
+                          jsx.jsx("button", {
+                            type: "button",
+                            "data-penglai-plugin-action": "rollback",
+                            disabled: actionState.busy,
+                            onClick: () => act(id, "rollback"),
+                            children: t.centerRollback,
+                          }),
+                        ],
                       }),
                     ],
                   })
@@ -633,6 +646,7 @@ window.__ModuleLoader__.load({
         centerSignatureBundled: "内置",
         centerUpdated: "更新时间",
         centerDownload: "下载",
+        centerAdvanced: "高级/诊断",
         centerInstallDisabled: "安装（停用）",
         centerStatusRevoked: "已撤销",
         centerActionDownloaded: "下载成功。",
@@ -775,6 +789,7 @@ window.__ModuleLoader__.load({
         centerSignatureBundled: "bundled",
         centerUpdated: "updated",
         centerDownload: "Download",
+        centerAdvanced: "Advanced / diagnostics",
         centerInstallDisabled: "Install disabled",
         centerStatusRevoked: "Revoked",
         centerActionDownloaded: "Downloaded.",
