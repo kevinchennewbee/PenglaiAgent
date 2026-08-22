@@ -479,25 +479,135 @@ window.__ModuleLoader__.load({
       area.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    function blobToBase64(blob) {
+    function blobToBytes(blob) {
       if (typeof blob.arrayBuffer === "function") {
-        return blob.arrayBuffer().then((buf) => {
-          const bytes = new Uint8Array(buf);
-          let binary = "";
-          for (let i = 0; i < bytes.length; i += 1)
-            binary += String.fromCharCode(bytes[i]);
-          return btoa(binary);
-        });
+        return blob.arrayBuffer().then((buf) => new Uint8Array(buf));
       }
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           const dataUrl = String(reader.result ?? "");
-          resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+          const b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1)
+            bytes[i] = binary.charCodeAt(i);
+          resolve(bytes);
         };
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
       });
+    }
+
+    function asciiAt(bytes, offset, length) {
+      let out = "";
+      for (let i = 0; i < length; i += 1)
+        out += String.fromCharCode(bytes[offset + i] ?? 0);
+      return out;
+    }
+
+    function isRiffWave(bytes) {
+      return bytes.length >= 12 && asciiAt(bytes, 0, 4) === "RIFF" && asciiAt(bytes, 8, 4) === "WAVE";
+    }
+
+    function u16le(n) {
+      return [n & 255, (n >> 8) & 255];
+    }
+
+    function u32le(n) {
+      return [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+    }
+
+    function encodePcm16Wav(pcm, sampleRate) {
+      const dataBytes = pcm.length * 2;
+      const bytes = new Uint8Array(44 + dataBytes);
+      bytes.set(
+        [
+          82, 73, 70, 70,
+          ...u32le(36 + dataBytes),
+          87, 65, 86, 69,
+          102, 109, 116, 32,
+          ...u32le(16),
+          ...u16le(1),
+          ...u16le(1),
+          ...u32le(sampleRate),
+          ...u32le(sampleRate * 2),
+          ...u16le(2),
+          ...u16le(16),
+          100, 97, 116, 97,
+          ...u32le(dataBytes),
+        ],
+        0,
+      );
+      for (let i = 0; i < pcm.length; i += 1) {
+        const sample = Math.max(-32768, Math.min(32767, pcm[i] | 0));
+        bytes[44 + i * 2] = sample & 255;
+        bytes[45 + i * 2] = (sample >> 8) & 255;
+      }
+      return bytes;
+    }
+
+    function mixToMono(buffer) {
+      const channels = Math.max(1, buffer.numberOfChannels || 1);
+      const length = buffer.length;
+      const mix = new Float32Array(length);
+      for (let channel = 0; channel < channels; channel += 1) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < length; i += 1) mix[i] += data[i] / channels;
+      }
+      return { samples: mix, sampleRate: buffer.sampleRate };
+    }
+
+    function resample(samples, fromRate, toRate) {
+      if (fromRate === toRate) return samples;
+      const outLen = Math.max(1, Math.round((samples.length * toRate) / fromRate));
+      const out = new Float32Array(outLen);
+      const ratio = fromRate / toRate;
+      for (let i = 0; i < outLen; i += 1) {
+        const src = i * ratio;
+        const i0 = Math.floor(src);
+        const i1 = Math.min(samples.length - 1, i0 + 1);
+        const t = src - i0;
+        out[i] = samples[i0] * (1 - t) + samples[i1] * t;
+      }
+      return out;
+    }
+
+    function floatToPcm16(samples) {
+      const pcm = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i += 1) {
+        const x = Math.max(-1, Math.min(1, samples[i]));
+        pcm[i] = x < 0 ? Math.round(x * 32768) : Math.round(x * 32767);
+      }
+      return pcm;
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 1)
+        binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+
+    function decodeToPcm16Wav(bytes) {
+      if (isRiffWave(bytes)) return Promise.resolve(bytes);
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (typeof Ctx !== "function") {
+        return Promise.reject(new Error("AudioContext unavailable for microphone conversion"));
+      }
+      const ctx = new Ctx();
+      const copy = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return Promise.resolve(ctx.decodeAudioData(copy)).then((audio) => {
+        const mixed = mixToMono(audio);
+        const resampled = resample(mixed.samples, mixed.sampleRate, 16000);
+        const wav = encodePcm16Wav(floatToPcm16(resampled), 16000);
+        if (typeof ctx.close === "function") void ctx.close();
+        return wav;
+      });
+    }
+
+    function blobToPcm16WavBase64(blob) {
+      return blobToBytes(blob).then((bytes) => decodeToPcm16Wav(bytes)).then(bytesToBase64);
     }
 
     function AsrMicButton(props) {
@@ -516,7 +626,7 @@ window.__ModuleLoader__.load({
       };
       const transcribeBlob = (blob) => {
         if (!api?.testTranscribe) return;
-        blobToBase64(blob)
+        blobToPcm16WavBase64(blob)
           .then((wavBase64) =>
             api.testTranscribe({
               wavBase64,
@@ -560,7 +670,9 @@ window.__ModuleLoader__.load({
             };
             recorder.onstop = () => {
               stream.getTracks().forEach((track) => track.stop());
-              const blob = new Blob(chunksRef.current, { type: "audio/wav" });
+              const blob = new Blob(chunksRef.current, {
+                type: recorder.mimeType || "audio/webm",
+              });
               transcribeBlob(blob);
             };
             recorderRef.current = recorder;

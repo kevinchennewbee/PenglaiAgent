@@ -100,6 +100,23 @@ function loadAsrClient(remote: Record<string, unknown>) {
     JSON,
     Error,
     window: {
+      AudioContext: class {
+        decodeAudioData(buf: ArrayBuffer) {
+          const header = Buffer.from(buf).subarray(0, 4);
+          assert.notEqual(header.toString("ascii"), "RIFF");
+          const samples = new Float32Array(4800);
+          for (let i = 0; i < samples.length; i += 1) samples[i] = Math.sin(i / 12) * 0.2;
+          return Promise.resolve({
+            numberOfChannels: 1,
+            length: samples.length,
+            sampleRate: 48000,
+            getChannelData: () => samples,
+          });
+        }
+        close() {
+          return Promise.resolve();
+        }
+      },
       __ModuleLoader__: {
         load(mod: {
           factory: (req: (name: string) => unknown) => {
@@ -129,6 +146,10 @@ function loadAsrClient(remote: Record<string, unknown>) {
     setInterval: () => 1,
     clearInterval: () => undefined,
     btoa: (value: string) => Buffer.from(value, "binary").toString("base64"),
+    atob: (value: string) => Buffer.from(value, "base64").toString("binary"),
+    Uint8Array,
+    Int16Array,
+    Float32Array,
     Event: class {
       type: string;
       bubbles: boolean;
@@ -151,6 +172,7 @@ function loadAsrClient(remote: Record<string, unknown>) {
       }
     },
     MediaRecorder: class {
+      mimeType = "audio/webm;codecs=opus";
       ondataavailable: ((event: { data: { size: number; arrayBuffer: () => Promise<Buffer> } }) => void) | null =
         null;
       onstop: (() => void) | null = null;
@@ -160,10 +182,28 @@ function loadAsrClient(remote: Record<string, unknown>) {
       }
       stop() {
         this.state = "inactive";
-        const payload = Buffer.from("RIFF____WAVEfmt ");
+        const payload = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        assert.notEqual(payload.subarray(0, 4).toString("ascii"), "RIFF");
         const chunk = Object.assign(new Uint8Array(payload), { size: payload.length });
         this.ondataavailable?.({ data: chunk });
         this.onstop?.();
+      }
+    },
+    AudioContext: class {
+      decodeAudioData(buf: ArrayBuffer) {
+        const header = Buffer.from(buf).subarray(0, 4);
+        assert.notEqual(header.toString("ascii"), "RIFF");
+        const samples = new Float32Array(4800);
+        for (let i = 0; i < samples.length; i += 1) samples[i] = Math.sin(i / 12) * 0.2;
+        return Promise.resolve({
+          numberOfChannels: 1,
+          length: samples.length,
+          sampleRate: 48000,
+          getChannelData: () => samples,
+        });
+      }
+      close() {
+        return Promise.resolve();
       }
     },
     navigator: {
@@ -255,7 +295,13 @@ test("ASR conversation microphone records to the composer draft via shipped tran
     describe: async () => ({ model: "ready" }),
     describeModels: async () => [],
     testTranscribe: async (input: { wavBase64: string; operationId: string }) => {
-      assert.ok(input.wavBase64.length > 0);
+      const wav = Buffer.from(input.wavBase64, "base64");
+      assert.equal(wav.subarray(0, 4).toString("ascii"), "RIFF");
+      assert.equal(wav.subarray(8, 12).toString("ascii"), "WAVE");
+      assert.equal(wav.readUInt16LE(20), 1);
+      assert.equal(wav.readUInt16LE(22), 1);
+      assert.equal(wav.readUInt32LE(24), 16000);
+      assert.equal(wav.readUInt16LE(34), 16);
       assert.match(input.operationId, /^asrmic_/);
       return { text: "你好蓬莱", language: "zh", charCount: 4 };
     },
