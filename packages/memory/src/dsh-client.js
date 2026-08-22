@@ -71,9 +71,19 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/memory",
-      descriptors: ["status", "write", "deleteScope", "promoteSop"].map(
-        remoteDescriptor,
-      ),
+      descriptors: [
+        "status",
+        "write",
+        "deleteScope",
+        "promoteSop",
+        "why",
+        "correct",
+        "forget",
+        "graph",
+        "export",
+        "importPreview",
+        "importConfirm",
+      ].map(remoteDescriptor),
     };
     const COPY = {
       zh: {
@@ -97,6 +107,13 @@ window.__ModuleLoader__.load({
         promote: "确认提升",
         unavailable: "记忆服务暂时不可用。",
         busy: "处理中…",
+        graph: "知识图谱",
+        includePersonal: "叠加个人记忆",
+        why: "解释",
+        correct: "更正",
+        forget: "忘记",
+        importPreview: "预览 0.5.3 迁移",
+        importConfirm: "确认迁移旧记忆",
       },
       en: {
         title: "Layered Memory",
@@ -119,6 +136,13 @@ window.__ModuleLoader__.load({
         promote: "Confirm promotion",
         unavailable: "Memory service is temporarily unavailable.",
         busy: "Working…",
+        graph: "Knowledge graph",
+        includePersonal: "Overlay personal memory",
+        why: "Why",
+        correct: "Correct",
+        forget: "Forget",
+        importPreview: "Preview 0.5.3 migration",
+        importConfirm: "Import legacy memory",
       },
     };
     const copy = () =>
@@ -153,6 +177,12 @@ window.__ModuleLoader__.load({
         busy: false,
         error: "",
         notice: "",
+        graph: { nodes: [], edges: [] },
+        includePersonal: false,
+        selectedId: "",
+        whyText: "",
+        correctText: "",
+        importNote: "",
       });
       const refresh = React.useCallback(() => {
         if (!api?.status) {
@@ -257,9 +287,126 @@ window.__ModuleLoader__.load({
             : null,
           jsx.jsx("ul", {
             children: v.rows.length
-              ? v.rows.map((r) => jsx.jsx("li", { children: r.text }, r.id))
+              ? v.rows.map((r) =>
+                  jsx.jsxs(
+                    "li",
+                    {
+                      children: [
+                        String(r.content || r.text || r.id),
+                        " ",
+                        jsx.jsx("button", {
+                          type: "button",
+                          "data-penglai-memory-why": String(r.id),
+                          onClick: () => {
+                            set((x) => ({ ...x, selectedId: String(r.id) }));
+                            run("why", {
+                              id: String(r.id),
+                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                            });
+                          },
+                          children: t.why,
+                        }),
+                        jsx.jsx("button", {
+                          type: "button",
+                          "data-penglai-memory-forget": String(r.id),
+                          onClick: () =>
+                            run("forget", {
+                              id: String(r.id),
+                              ownerConfirmed: true,
+                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                            }),
+                          children: t.forget,
+                        }),
+                      ],
+                    },
+                    r.id,
+                  ),
+                )
               : jsx.jsx("li", { children: t.empty }),
           }),
+          jsx.jsxs("label", {
+            children: [
+              jsx.jsx("input", {
+                type: "checkbox",
+                checked: v.includePersonal,
+                onChange: (e) =>
+                  set((x) => ({ ...x, includePersonal: e.target.checked })),
+              }),
+              t.includePersonal,
+            ],
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-graph": "1",
+            onClick: () =>
+              Promise.resolve(
+                api.graph({
+                  includePersonal: v.includePersonal,
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                }),
+              )
+                .then(unwrap)
+                .then((graph) => set((x) => ({ ...x, graph: graph || { nodes: [], edges: [] } })))
+                .catch((e) => set((x) => ({ ...x, error: message(e) }))),
+            children: t.graph,
+          }),
+          jsx.jsx("svg", {
+            "data-penglai-memory-graph-svg": "1",
+            width: "360",
+            height: "180",
+            viewBox: "0 0 360 180",
+            children: (v.graph.nodes || []).slice(0, 24).map((node, index) =>
+              jsx.jsx(
+                "circle",
+                {
+                  cx: 24 + (index % 8) * 42,
+                  cy: 24 + Math.floor(index / 8) * 52,
+                  r: 8,
+                  fill: node.scope === "personal" ? "#5b8" : "#58b",
+                },
+                node.id,
+              ),
+            ),
+          }),
+          jsx.jsx("input", {
+            "data-penglai-memory-correct": "1",
+            value: v.correctText,
+            placeholder: t.correct,
+            onChange: (e) => set((x) => ({ ...x, correctText: String(e.target.value) })),
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            disabled: !v.selectedId || !v.correctText.trim(),
+            onClick: () =>
+              run("correct", {
+                id: v.selectedId,
+                text: v.correctText,
+                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+              }),
+            children: t.correct,
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-import-preview": "1",
+            onClick: () =>
+              Promise.resolve(api.importPreview())
+                .then(unwrap)
+                .then((preview) =>
+                  set((x) => ({
+                    ...x,
+                    importNote: preview ? JSON.stringify(preview) : t.empty,
+                  })),
+                )
+                .catch((e) => set((x) => ({ ...x, error: message(e) }))),
+            children: t.importPreview,
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-import-confirm": "1",
+            onClick: () => run("importConfirm", { ownerConfirmed: true }),
+            children: t.importConfirm,
+          }),
+          v.importNote ? jsx.jsx("pre", { children: v.importNote }) : null,
           v.scope !== "candidate"
             ? jsx.jsxs("div", {
                 children: [

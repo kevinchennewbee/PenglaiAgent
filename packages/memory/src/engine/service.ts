@@ -103,6 +103,22 @@ export class MnemonMemoryService {
       content: hit?.content ?? "",
       scope: hit?.scope ?? (workspaceId ? "workspace" : "personal"),
       related,
+      source: "mnemon",
+      recalledBecause: hit ? "search-hit" : "related-lookup",
+      ...(workspaceId ? { workspaceId } : {}),
+    };
+  }
+
+  async export(workspaceId?: string, includePersonal = false) {
+    this.requireEnabled();
+    const hits = await this.search(".", workspaceId, includePersonal);
+    const graph = await this.graph(workspaceId, includePersonal);
+    return {
+      exportedAt: new Date().toISOString(),
+      includePersonal,
+      hits,
+      graph,
+      ...(workspaceId ? { workspaceId } : {}),
     };
   }
 

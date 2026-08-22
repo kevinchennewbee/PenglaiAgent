@@ -7,8 +7,14 @@ import type { SopPromotion, SopReceipt } from "./index.js";
 interface MemorySettingsHost {
   write?(input: MemoryWrite, receipt?: string): { ok: true; id?: number; viaOfficialSkill?: boolean };
   remember?(input: { text: string; workspaceId?: string }): Promise<{ id: string }>;
-  search?(query: string, workspaceId?: string): Promise<Array<{ id: string; content: string }>>;
+  search?(query: string, workspaceId?: string): Promise<Array<{ id: string; content?: string; text?: string }>>;
   forget?(id: string, workspaceId?: string): Promise<unknown>;
+  why?(id: string, workspaceId?: string): Promise<unknown>;
+  correct?(oldId: string, text: string, workspaceId?: string): Promise<unknown>;
+  graph?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
+  export?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
+  importPreview?(): Promise<unknown>;
+  importConfirm?(): Promise<unknown>;
   list?(scope: MemoryScope, workspaceId?: string): Array<{ id: number; text: string; workspaceId?: string | null }>;
   deleteScope?(scope: MemoryScope, workspaceId?: string): number;
   promoteSop(input: SopPromotion): Promise<SopReceipt>;
@@ -79,6 +85,38 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
       return { removed: service.deleteScope?.(input.scope, input.workspaceId) ?? 0 };
     },
     promoteSop(input: SopPromotion) { return service.promoteSop(input); },
+    async why(input: { id: string; workspaceId?: string }) {
+      if (!service.why) throw new PenglaiError("DSH_UNAVAILABLE", "memory why unavailable");
+      return service.why(input.id, input.workspaceId);
+    },
+    async correct(input: { id: string; text: string; workspaceId?: string }) {
+      if (!service.correct) throw new PenglaiError("DSH_UNAVAILABLE", "memory correct unavailable");
+      if (!input.text.trim()) throw new PenglaiError("INVALID_INPUT", "memory text required");
+      return service.correct(input.id, input.text.trim(), input.workspaceId);
+    },
+    async forget(input: { id: string; workspaceId?: string; ownerConfirmed: boolean }) {
+      if (!input.ownerConfirmed) throw new PenglaiError("SECURITY_POLICY", "memory forget requires Owner confirmation");
+      if (!service.forget) throw new PenglaiError("DSH_UNAVAILABLE", "memory forget unavailable");
+      return service.forget(input.id, input.workspaceId);
+    },
+    async graph(input: { workspaceId?: string; includePersonal?: boolean }) {
+      if (!service.graph) throw new PenglaiError("DSH_UNAVAILABLE", "memory graph unavailable");
+      if (input.workspaceId) requireWorkspace(input.workspaceId);
+      return service.graph(input.workspaceId, input.includePersonal === true);
+    },
+    async export(input: { workspaceId?: string; includePersonal?: boolean }) {
+      if (!service.export) throw new PenglaiError("DSH_UNAVAILABLE", "memory export unavailable");
+      return service.export(input.workspaceId, input.includePersonal === true);
+    },
+    async importPreview() {
+      if (!service.importPreview) throw new PenglaiError("DSH_UNAVAILABLE", "memory import preview unavailable");
+      return service.importPreview();
+    },
+    async importConfirm(input: { ownerConfirmed: boolean }) {
+      if (!input.ownerConfirmed) throw new PenglaiError("SECURITY_POLICY", "memory import requires Owner confirmation");
+      if (!service.importConfirm) throw new PenglaiError("DSH_UNAVAILABLE", "memory import unavailable");
+      return service.importConfirm();
+    },
   };
 }
 
@@ -88,6 +126,16 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
   @Remote write(input: MemoryWrite) { return this.api.write(input); }
   @Remote deleteScope(input: { scope: MemoryScope; workspaceId?: string; ownerConfirmed: boolean }) { return this.api.deleteScope(input); }
   @Remote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
+  @Remote why(input: { id: string; workspaceId?: string }) { return this.api.why(input); }
+  @Remote correct(input: { id: string; text: string; workspaceId?: string }) { return this.api.correct(input); }
+  @Remote forget(input: { id: string; workspaceId?: string; ownerConfirmed: boolean }) { return this.api.forget(input); }
+  @Remote graph(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.graph(input); }
+  @Remote export(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.export(input); }
+  @Remote importPreview() { return this.api.importPreview(); }
+  @Remote importConfirm(input: { ownerConfirmed: boolean }) { return this.api.importConfirm(input); }
 }
 
-export const TYPERT_REMOTE = { package: "@penglai/memory", descriptors: ["status", "write", "deleteScope", "promoteSop"] };
+export const TYPERT_REMOTE = {
+  package: "@penglai/memory",
+  descriptors: ["status", "write", "deleteScope", "promoteSop", "why", "correct", "forget", "graph", "export", "importPreview", "importConfirm"],
+};
