@@ -78,6 +78,11 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     readFileSync(join(dir, htmlRel), "utf8"),
     /penglai-brand\/title\.js/,
   );
+  const welcomeSource = readFileSync(join(dir, welcomeRel), "utf8");
+  assert.match(welcomeSource, /penglai-0\.5\.2\.0/);
+  assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.2/);
+  assert.match(welcomeSource, /Welcome to Penglai 0\.5\.2/);
+  assert.doesNotMatch(welcomeSource, /欢迎使用蓬莱 0\.5\.1|Welcome to Penglai 0\.5\.1/);
   const hero = readFileSync(join(dir, heroRel), "utf8");
   assert.match(hero, /conversation\.hero\.brand\.mark/);
   assert.doesNotMatch(hero, /data-penglai-hero-wordmark/);
@@ -126,7 +131,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   const welcome = readFileSync(join(dir, welcomeRel), "utf8");
   assert.match(welcome, /欢迎使用蓬莱/);
   assert.match(welcome, /Welcome to Penglai/);
-  assert.match(welcome, /penglai-0\.5\.1\.0/);
+  assert.match(welcome, /penglai-0\.5\.2\.0/);
   assert.match(welcome, /YAML/);
   assert.doesNotMatch(welcome, /内测声明/);
   assert.doesNotMatch(welcome, /official DSH Web/);
