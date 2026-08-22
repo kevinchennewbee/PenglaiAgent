@@ -13,7 +13,7 @@ Penglai 0.5.3 is an update-closeout hotfix. It keeps official DeepSeek Harness `
 
 ## Office Reader plugin
 
-The immutable signed catalog [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) adds `@penglai/office-reader` 0.1.0. It is a deliberately read-only first release: bounded text and cell extraction for DOCX, XLSX, and PPTX through the official DSH filesystem, with no network, native code, install scripts, or macro execution. It remains disabled until the owner confirms `workspace.read` in Plugin Center. Publishing later compatible catalog sequences does not require another desktop release.
+The immutable signed catalog [`plugin-catalog-v1.000004`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000004) carries `@penglai/office-reader` 0.1.2. It is a deliberately read-only first release: bounded text and cell extraction for DOCX, XLSX, and PPTX through the official DSH filesystem, with no network, native code, install scripts, or macro execution. Version 0.1.2 uses the exact structured input/output contracts required by DSH 0.1.1-rc.1. It remains disabled until the owner confirms `workspace.read` in Plugin Center. Publishing later compatible catalog sequences does not require another desktop release.
 
 ## 0.5.2 correction
 
@@ -32,4 +32,4 @@ All paths preserve the `Penglai/0.5` data generation and external Workspaces. Th
 
 This remains a `community-verified` release. macOS packages are ad-hoc signed and not notarized; Windows is not Authenticode signed. Gatekeeper or SmartScreen may warn. Do not disable system security.
 
-The Plugin Center remains independent of desktop releases: another compatible, Penglai-signed catalog generation or DSH plugin archive can be published through the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) without rebuilding the client. Catalog 2 has passed production-path GitHub refresh, catalog and package signature verification, app-private staging, disabled-by-default installation, and offline last-good recovery.
+The Plugin Center remains independent of desktop releases: another compatible, Penglai-signed catalog generation or DSH plugin archive can be published through the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) without rebuilding the client. Catalog 4 has passed production-path GitHub refresh, catalog and package signature verification, app-private staging, disabled-by-default installation, and offline last-good recovery. When an updated plugin package requires a fresh module instance, 0.5.3 permits an automatic embedded-DSH restart only after native owner approval and an exact committed update journal match.

@@ -12,6 +12,7 @@ test("community release notice keeps platform trust limits without candidate wor
 
 test("IPC allowlist rejects unknown", () => {
   assert.equal(assertIpcName("getHealth"), true);
+  assert.equal(assertIpcName("restartPluginRuntime"), true);
   assert.equal(assertIpcName("eval"), false);
 });
 

@@ -105,6 +105,8 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /window\.location\.reload\(\)/);
   assert.match(client, /unwrapRemote\(await centerRemote\.enable/);
   assert.match(client, /centerRemote\.refreshRegistry/);
+  assert.match(client, /restartRequired === true/);
+  assert.match(client, /api\.restartPluginRuntime\(\{ id \}\)/);
   const block = client.match(/const FIRST_PARTY_CARDS = \[([\s\S]*?)\];/);
   assert.ok(block);
   const cardIds = [...block[1].matchAll(/id: "(@penglai\/[^"]+)"/g)].map(

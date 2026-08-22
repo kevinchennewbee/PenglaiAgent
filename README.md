@@ -85,7 +85,7 @@ Penglai Center is a real DSH host/client plugin inside the official DSH settings
 
 Penglai includes PPDP/1, the Penglai Plugin Distribution Protocol. The client can discover versioned GitHub Releases from the public [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry), verify a Penglai Ed25519 signature and each archive hash, install a package in the disabled state, ask for permission confirmation, and roll back a failed activation.
 
-The current signed catalog is the immutable [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) Release. It keeps the Pilot and adds `@penglai/office-reader` 0.1.0 for bounded, read-only DOCX/XLSX/PPTX extraction. The production client has refreshed it from GitHub, verified both signatures, staged the archive under app-private data, installed it disabled, and recovered the signed last-good catalog offline. Future reviewed DSH plugins can be published in a new catalog sequence without rebuilding the Penglai desktop application.
+The current signed catalog is the immutable [`plugin-catalog-v1.000004`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000004) Release. It keeps the Pilot and carries `@penglai/office-reader` 0.1.2 for bounded, read-only DOCX/XLSX/PPTX extraction under the exact DSH 0.1.1-rc.1 tool contracts. The production client has refreshed it from GitHub, verified both signatures, staged the archive under app-private data, installed it disabled, and recovered the signed last-good catalog offline. Future reviewed DSH plugins can be published in a new catalog sequence without rebuilding the Penglai desktop application.
 
 Penglai Center does not accept arbitrary npm packages, Git repositories, or download URLs. A DSH plugin runs with the local DSH process permissions. Catalog permission fields explain what was reviewed and what the user is confirming; they are not an operating-system sandbox.
 
@@ -251,7 +251,7 @@ Penglai Center 是 official DSH settings 里的真实 host/client 插件。insta
 
 蓬莱包含 PPDP/1，也就是蓬莱插件发行协议。客户端从公开的 [Penglai Plugin Registry](https://github.com/kevinchennewbee/PenglaiPluginRegistry) 查找按版本发布的 GitHub Release，验证蓬莱 Ed25519 签名和每个 tar 包的 SHA。插件先以 disabled 状态安装，用户确认权限后再启用；启用失败会回滚。
 
-当前签名 catalog 是不可变的 [`plugin-catalog-v1.000002`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002) Release。它保留试航插件，并新增 `@penglai/office-reader` 0.1.0，用于有界、只读地提取 DOCX、XLSX、PPTX。生产客户端已经真实完成 GitHub 刷新、两层验签、用户私有目录 staging、默认关闭安装，以及断网后的 signed last-good 恢复。以后加入经过审核的 DSH 插件，只需要发布新的 catalog sequence，不需要为了改列表重做桌面客户端。
+当前签名 catalog 是不可变的 [`plugin-catalog-v1.000004`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000004) Release。它保留试航插件，并提供 `@penglai/office-reader` 0.1.2，在 DSH 0.1.1-rc.1 的精确工具 contract 下有界、只读地提取 DOCX、XLSX、PPTX。生产客户端已经真实完成 GitHub 刷新、两层验签、用户私有目录 staging、默认关闭安装，以及断网后的 signed last-good 恢复。以后加入经过审核的 DSH 插件，只需要发布新的 catalog sequence，不需要为了改列表重做桌面客户端。
 
 插件中心不接受任意 npm、Git 仓库或下载 URL。DSH 插件与本机 DSH 进程共享权限。catalog 里的 permission 用来说明审核内容和用户正在确认什么，不是操作系统沙箱。
 
