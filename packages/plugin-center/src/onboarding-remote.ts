@@ -22,6 +22,7 @@ import {
   verifyWorkspaceInRegistry,
   type OnboardingHost,
   type PublicOnboardingState,
+  type ReconfigurableOnboardingStep,
   type OfficialUsableCtx,
 } from "./onboarding.js";
 
@@ -43,6 +44,7 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
   officialWelcomeAck?: () => boolean;
   agents?: OfficialUsableCtx;
 }): OnboardingHost & {
+  rewindOnboarding(input: { step: ReconfigurableOnboardingStep }): PublicOnboardingState;
   completeWelcome(): Promise<PublicOnboardingState>;
   enterCredential(input: {
     provider: string;
@@ -87,6 +89,9 @@ export function createPenglaiOnboardingRemoteImpl(opts: {
   };
   return {
     ...host,
+    rewindOnboarding(input) {
+      return host.rewind(input.step);
+    },
     async completeWelcome() {
       const persisted = await persistWelcomeAckToOfficialSettings(official());
       if (!persisted)
@@ -514,6 +519,11 @@ export class PenglaiOnboardingRemote extends TypertRemoteService {
   @Remote
   completePrivacy() {
     return this.impl.advance("privacy-v1");
+  }
+
+  @Remote
+  rewindOnboarding(input: { step: ReconfigurableOnboardingStep }) {
+    return this.impl.rewindOnboarding(input);
   }
 
   @Remote

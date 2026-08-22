@@ -47,27 +47,28 @@ function existingDir(path: string): boolean {
 function workspaceJsonHasId(path: string, workspaceId: string): boolean {
   if (!regularFile(path)) return false;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as { workspaceIds?: unknown };
-    return Array.isArray(raw.workspaceIds) && raw.workspaceIds.includes(workspaceId);
+    const raw = JSON.parse(readFileSync(path, "utf8")) as {
+      workspaceIds?: unknown;
+      global?: { workspaceIds?: unknown };
+    };
+    const ids = Array.isArray(raw.global?.workspaceIds) ? raw.global.workspaceIds : raw.workspaceIds;
+    return Array.isArray(ids) && ids.includes(workspaceId);
   } catch {
     return false;
   }
 }
 
-/** Official workspace domain JSON: `$DSH_HOME/workspace.json`. */
+/** Official rc.1 workspace domain JSON, with the rc.8 path retained for overlay migration. */
 export function officialWorkspaceRecord(dshHome: string, workspaceId: string): boolean {
   if (!workspaceId || workspaceId.includes("..") || workspaceId.includes("/") || workspaceId.includes("\\")) {
     return false;
   }
-  return workspaceJsonHasId(join(dshHome, "workspace.json"), workspaceId);
+  return [join(dshHome, "storages", "workspace.json"), join(dshHome, "workspace.json")].some((path) =>
+    workspaceJsonHasId(path, workspaceId),
+  );
 }
 
-/** Official session JSONL: `projectDir(DSH_HOME, cwd)/<sessionId>/session.jsonl`. */
-export function officialSessionLog(dshHome: string, sessionId: string): boolean {
-  if (!sessionId || sessionId.includes("..") || sessionId.includes("/") || sessionId.includes("\\")) {
-    return false;
-  }
-  const root = join(dshHome, "projects");
+function sessionRootHasLog(root: string, sessionId: string): boolean {
   if (!existingDir(root)) return false;
   let projects: string[];
   try {
@@ -75,12 +76,28 @@ export function officialSessionLog(dshHome: string, sessionId: string): boolean 
   } catch {
     return false;
   }
-  for (const project of projects.slice(0, 64)) {
-    const log = join(root, project, sessionId, "session.jsonl");
-    const gz = join(root, project, sessionId, "session.jsonl.gz");
-    if (regularFile(log) || regularFile(gz)) return true;
+  const sessionDirs = [sessionId, `session-${sessionId}`];
+  const logNames = ["session.jsonl.zstd", "session.jsonl.gz", "session.jsonl"];
+  for (const project of projects.slice(0, 128)) {
+    const projectRoot = join(root, project);
+    if (!existingDir(projectRoot)) continue;
+    for (const sessionDir of sessionDirs) {
+      const sessionRoot = join(projectRoot, sessionDir);
+      if (!existingDir(sessionRoot)) continue;
+      if (logNames.some((name) => regularFile(join(sessionRoot, name)))) return true;
+    }
   }
   return false;
+}
+
+/** Official rc.1 session store, with the rc.8 root retained for overlay migration. */
+export function officialSessionLog(dshHome: string, sessionId: string): boolean {
+  if (!sessionId || sessionId.includes("..") || sessionId.includes("/") || sessionId.includes("\\")) {
+    return false;
+  }
+  return [join(dshHome, "sessions"), join(dshHome, "projects")].some((root) =>
+    sessionRootHasLog(root, sessionId),
+  );
 }
 
 function credentialStillConfigured(userRoot: string, credentialRef: string): boolean {
@@ -88,7 +105,18 @@ function credentialStillConfigured(userRoot: string, credentialRef: string): boo
   if (!regularFile(yaml)) return false;
   const text = readFileSync(yaml, "utf8");
   const escaped = credentialRef.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped}\\s*:\\s*\\S+`, "m").test(text);
+  if (new RegExp(`^${escaped}\\s*:\\s*\\S+`, "m").test(text)) return true;
+  const lines = text.split(/\r?\n/);
+  let inRefs = false;
+  for (const line of lines) {
+    if (/^refs\s*:\s*(?:#.*)?$/.test(line)) {
+      inRefs = true;
+      continue;
+    }
+    if (inRefs && /^\S/.test(line)) break;
+    if (inRefs && new RegExp(`^\\s+${escaped}\\s*:\\s*\\S+`).test(line)) return true;
+  }
+  return false;
 }
 
 export function onboardingFactsProveReady(dir: string, userRoot = join(dir, "..")): boolean {

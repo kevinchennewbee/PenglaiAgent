@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { PenglaiError, classifyApiTestError, type ApiTestErrorClass } from "@penglai/contracts";
 
@@ -102,6 +102,13 @@ export const OFFICIAL_ONBOARDING_STEPS = [
 ] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];
+export const RECONFIGURABLE_ONBOARDING_STEPS = [
+  "model-provider-v1",
+  "credential-v1",
+  "workspace-v1",
+  "first-turn-v1",
+] as const;
+export type ReconfigurableOnboardingStep = (typeof RECONFIGURABLE_ONBOARDING_STEPS)[number];
 
 export interface OnboardingState {
   schema: 2;
@@ -609,6 +616,7 @@ export interface OnboardingHost {
     workspaceId?: string;
   };
   advance(id: OnboardingStepId, evidence?: StepEvidence): OnboardingState;
+  rewind(id: ReconfigurableOnboardingStep): OnboardingState;
   facts(): OnboardingFacts;
   saveFacts(patch: Partial<OnboardingFacts>): OnboardingFacts;
 }
@@ -658,6 +666,33 @@ export function createOnboardingHost(opts: {
       persistOnboarding(opts.dir, next);
       return next;
     },
+    rewind(id) {
+      const state = load();
+      const target = ONBOARDING_STEPS.indexOf(id);
+      if (target < 0) throw new PenglaiError("INVALID_INPUT", "unknown onboarding rewind step");
+      const current = state.current === "COMPLETE" ? ONBOARDING_STEPS.length : ONBOARDING_STEPS.indexOf(state.current);
+      if (current < target) throw new PenglaiError("INVALID_INPUT", `onboarding cannot rewind forward to ${id}`);
+      const next: OnboardingState = {
+        schema: 2,
+        completed: state.completed.filter((step) => ONBOARDING_STEPS.indexOf(step) < target),
+        current: id,
+        advanceToken: randomUUID(),
+      };
+      const facts = loadOnboardingFacts(opts.dir);
+      if (target <= ONBOARDING_STEPS.indexOf("model-provider-v1")) delete facts.selection;
+      if (target <= ONBOARDING_STEPS.indexOf("credential-v1")) {
+        delete facts.credentialRef;
+        delete facts.apiTest;
+      }
+      if (target <= ONBOARDING_STEPS.indexOf("workspace-v1")) {
+        delete facts.workspaceId;
+        delete facts.workspacePath;
+      }
+      if (target <= ONBOARDING_STEPS.indexOf("first-turn-v1")) delete facts.firstConversation;
+      persistOnboardingFacts(opts.dir, facts);
+      persistOnboarding(opts.dir, next);
+      return next;
+    },
     facts() {
       return loadOnboardingFacts(opts.dir);
     },
@@ -685,6 +720,12 @@ export function persistOnboardingFacts(dir: string, facts: OnboardingFacts): voi
   atomicWritePrivateJson(join(dir, "onboarding-facts.json"), facts);
   if (facts.apiTest?.nonceDigest) {
     writeFileSync(join(dir, "current-nonce.digest"), `${facts.apiTest.nonceDigest}\n`, { mode: 0o600 });
+  } else {
+    try {
+      unlinkSync(join(dir, "current-nonce.digest"));
+    } catch {
+      /* already absent */
+    }
   }
 }
 

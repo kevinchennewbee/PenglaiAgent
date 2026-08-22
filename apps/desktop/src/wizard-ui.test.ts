@@ -157,8 +157,12 @@ test("wizard API-test classifier distinguishes auth, rate, model, timeout, netwo
   assert.match(js, /formatWizardError/);
   assert.match(js, /errorJail/);
   assert.match(js, /errorRpc/);
+  assert.match(js, /errorReady/);
   assert.match(js, /kind === "api-test"/);
   assert.match(js, /screen.id === "keytest"/);
+  assert.match(js, /failedScreen === "keytest" \|\| failedScreen === "firstturn"/);
+  assert.match(js, /rpc\("rewindOnboarding", \{ step \}\)/);
+  assert.match(js, /step: "credential-v1"/);
   assert.match(js, /testing/);
   assert.match(
     js,
