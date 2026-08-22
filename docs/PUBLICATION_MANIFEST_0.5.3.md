@@ -27,4 +27,6 @@ The exact ten-asset Release was published at `2026-08-22T08:29:45Z` and then mad
 
 Remote GitHub asset metadata reports the same SHA-256 values as the locally verified upload bytes. `update-manifest-v1.json` sequence 3 binds the exact GitHub asset ids, minimum source version `0.5.1`, source SHA, public-export tree, asset sizes, and detached Ed25519 signatures. Apple Silicon is `443178529` bytes, Intel Mac is `368144533` bytes, and Windows x64 is `332301887` bytes.
 
+The public 0.5.1 updater downloaded the exact Apple Silicon bytes, reached `READY_FOR_USER`, required native confirmation, and opened the verified DMG. After the system-level copy, the published 0.5.3 application launched official DSH with the preserved Workspace and reported `COMMITTED / 0.5.3`. A separate 0.5.1 fresh-profile wizard defect can keep the visible Settings entry unreachable; the publication notes document that source-version limitation and the manual same-platform overlay.
+
 The community updater signature proves Penglai Release integrity only. macOS remains ad-hoc signed and not notarized; Windows remains without Authenticode. CodeQL retains an explicit open baseline, so this publication does not claim a zero-alert scan.

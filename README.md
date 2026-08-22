@@ -64,8 +64,9 @@ Penglai 0.5.3 was released on 22 August 2026. It keeps official DSH `0.1.1-rc.1`
 The source tree passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, and secret gates. [Native run 32560185691](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32560185691) separately built, installed, launched, and checked all three packages on matching native hosts. Source checks and installed evidence remain separate claims. GitHub CodeQL still lists an open baseline of local file-race, regular-expression, build-script, and vendored-code findings; the release does not claim a zero-alert scan.
 
 <p align="center">
-  <img src=".github/assets/0.5.3/plugin-center-office-0.1.2.jpeg" width="49%" alt="Penglai Plugin Center showing the signed Office Reader 0.1.2 package healthy">
-  <img src=".github/assets/0.5.3/office-reader-real-e2e.jpeg" width="49%" alt="Office Reader extracting DOCX, XLSX, and PPTX through a real DeepSeek session">
+  <img src=".github/assets/0.5.3/plugin-center-office-0.1.2.jpeg" width="32%" alt="Penglai Plugin Center showing the signed Office Reader 0.1.2 package healthy">
+  <img src=".github/assets/0.5.3/office-reader-real-e2e.jpeg" width="32%" alt="Office Reader extracting DOCX, XLSX, and PPTX through a real DeepSeek session">
+  <img src=".github/assets/0.5.3/update-051-to-053-committed.jpeg" width="32%" alt="A public Penglai 0.5.1 updater handoff completed as Penglai 0.5.3">
 </p>
 
 ## One DSH core, optional Penglai plugins
@@ -104,7 +105,7 @@ The setup flow covers privacy, language and appearance, provider credentials, th
 
 Download the appropriate package from the immutable [Penglai 0.5.3 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.3) and compare it with the published `SHA256SUMS` before installing.
 
-Penglai 0.5.0 cannot update itself in-app and needs a manual same-platform overlay. A completed Penglai 0.5.1 profile can discover, download, hash-check, signature-check, and hand off later releases from **Settings → Penglai → Update**. The immutable 0.5.2 package installs and runs, but that path can leave its update ledger in recovery when optional IM remains disabled. Users should install the corrective 0.5.3 package instead. If the 0.5.1 Workspace bug prevents reaching Settings, manually overlay the same-platform package. These paths preserve data under the isolated `Penglai/0.5` generation and external Workspaces.
+Penglai 0.5.0 cannot update itself in-app and needs a manual same-platform overlay. A completed Penglai 0.5.1 profile can discover, download, hash-check, signature-check, and hand off later releases from **Settings → Penglai → Update**. A public 0.5.1 binary has downloaded and opened the exact signed 0.5.3 Apple Silicon DMG; after the system-level copy, 0.5.3 launched the official DSH UI and recorded `COMMITTED / 0.5.3`. The immutable 0.5.2 package installs and runs, but that path can leave its update ledger in recovery when optional IM remains disabled. Users should install the corrective 0.5.3 package instead. If the 0.5.1 Workspace bug prevents reaching Settings, manually overlay the same-platform package. These paths preserve data under the isolated `Penglai/0.5` generation and external Workspaces.
 
 Penglai 0.5.1 and later contain PUDP/1, a signed and versioned application-update protocol for later same-platform releases. It uses immutable tagged assets and `update-manifest-v1.json`, never a mutable `latest.json`. Updates require verification and user confirmation. They are not silent. Discovery currently uses GitHub's unauthenticated Releases API, so a shared network that exhausts GitHub's anonymous rate limit must wait for the reset or use the immutable Release page for a manual same-platform overlay.
 
@@ -270,7 +271,7 @@ Penglai Center 是 official DSH settings 里的真实 host/client 插件。insta
 
 请从不可变的 [Penglai 0.5.3 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.3) 下载对应平台安装包，并用其中的 `SHA256SUMS` 核对文件。
 
-0.5.0 不能在应用内直接升级，需要手动覆盖同平台的新版本。已经完成引导的 0.5.1 可以在 **设置 → 蓬莱 → 更新** 中发现、下载、校验 SHA、验签并交给系统安装器。不可变的 0.5.2 安装包能安装和运行，但当可选 IM 保持关闭时，这条升级路径可能把更新账本留在 recovery 状态；请改用修复该问题的 0.5.3。如果 0.5.1 的 Workspace 误判让用户进不了设置页，请手动覆盖同平台安装包。数据仍保留在 `Penglai/0.5` 隔离目录及外置 Workspace。
+0.5.0 不能在应用内直接升级，需要手动覆盖同平台的新版本。已经完成引导的 0.5.1 可以在 **设置 → 蓬莱 → 更新** 中发现、下载、校验 SHA、验签并交给系统安装器。公开 0.5.1 客户端已经真实下载并打开精确的 0.5.3 Apple Silicon 签名 DMG；完成系统级复制后，0.5.3 启动 official DSH 主界面，并写入 `COMMITTED / 0.5.3`。不可变的 0.5.2 安装包能安装和运行，但当可选 IM 保持关闭时，这条升级路径可能把更新账本留在 recovery 状态；请改用修复该问题的 0.5.3。如果 0.5.1 的 Workspace 误判让用户进不了设置页，请手动覆盖同平台安装包。数据仍保留在 `Penglai/0.5` 隔离目录及外置 Workspace。
 
 0.5.1 及之后版本包含 PUDP/1，为后续同平台版本提供签名、按版本发布的辅助更新。它读取 immutable tag 下的 `update-manifest-v1.json`，不用可变的 `latest.json`。更新必须先校验，再由用户确认，不会静默替换应用。发现阶段目前使用 GitHub 匿名 Releases API；如果共享网络耗尽匿名额度，需要等 GitHub 重置，或从不可变 Release 页面下载同平台安装包手动覆盖。
 
