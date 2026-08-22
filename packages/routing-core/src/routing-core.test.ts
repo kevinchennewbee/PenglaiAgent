@@ -70,9 +70,26 @@ test("R1-AUTH-001 owner private text auto-binds official default without a pairi
 test("image and file inbound are accepted into the bound session", async () => {
   const h = harness();
   await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
-  const image = await h.plane.submitInbound(env({ adapterMessageKey: "img", bodyKind: "media", text: "[image]" }));
+  const image = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "img",
+      bodyKind: "media",
+      text: "",
+      media: {
+        kind: "image",
+        source: "weixin",
+        sourceMessageId: "img",
+        sourceResourceId: "cdn-1",
+        mime: "image/png",
+        size: 67,
+        sha256: "a".repeat(64),
+        opaqueHandle: "media-img",
+      },
+    }),
+  );
   assert.equal(image.kind, "accepted");
-  assert.equal(h.inputs.at(-1)?.text.includes("[image]"), true);
+  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), true);
+  assert.equal(h.inputs.at(-1)?.text.includes("[image]"), false);
 });
 
 test("IM project menu lists every official workspace in numbered groups", async () => {
@@ -297,7 +314,23 @@ test("R1-ROUTE-005 forged source does not correlate", async () => {
 test("group rejected and media accepted", async () => {
   const h = harness();
   const g = await h.plane.submitInbound(env({ chatKind: "group", adapterMessageKey: "g" }));
-  const m = await h.plane.submitInbound(env({ bodyKind: "media", adapterMessageKey: "m" }));
+  const m = await h.plane.submitInbound(
+    env({
+      bodyKind: "media",
+      adapterMessageKey: "m",
+      text: "",
+      media: {
+        kind: "file",
+        source: "feishu",
+        sourceMessageId: "m",
+        sourceResourceId: "file-1",
+        mime: "application/octet-stream",
+        size: 4,
+        sha256: "b".repeat(64),
+        opaqueHandle: "media-file",
+      },
+    }),
+  );
   assert.equal(g.kind, "rejected");
   assert.equal(m.kind, "accepted");
 });

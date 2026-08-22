@@ -3,6 +3,9 @@ import * as Lark from "@larksuiteoapi/node-sdk";
 import {
   PenglaiError,
   classifyTransportError,
+  classifyMedia,
+  MediaStore,
+  mediaCaption,
   type InboundEnvelope,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -47,6 +50,13 @@ export interface FeishuAudioMediaRef {
   durationMs: number;
 }
 
+export interface FeishuFileMediaRef {
+  messageId: string;
+  fileKey: string;
+  messageType: "image" | "file";
+  filename?: string;
+}
+
 export function parseFeishuEvent(raw: {
   chatType?: string;
   messageType?: string;
@@ -71,7 +81,7 @@ export function parseFeishuEvent(raw: {
     peerRef: createHash("sha256").update(raw.openId ?? "unknown").digest("hex").slice(0, 24),
     chatKind: "private",
     bodyKind: raw.messageType === "audio" ? "voice" : raw.messageType === "image" || raw.messageType === "file" ? "media" : "text",
-    text: raw.text ?? (raw.messageType === "image" ? "[image]" : raw.messageType === "file" ? "[file]" : ""),
+    ...(raw.text ? { text: raw.text } : {}),
     receivedAt: Date.now(),
     ...(raw.openId ? { vendorTarget: raw.openId } : {}),
   };
@@ -80,6 +90,7 @@ export function parseFeishuEvent(raw: {
 export function parseOfficialReceiveWithMedia(data: unknown): {
   parsed: ReturnType<typeof parseFeishuEvent>;
   audio?: FeishuAudioMediaRef;
+  file?: FeishuFileMediaRef;
 } {
   const rec = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const event = (rec.event && typeof rec.event === "object" ? rec.event : rec) as Record<string, unknown>;
@@ -89,12 +100,20 @@ export function parseOfficialReceiveWithMedia(data: unknown): {
   let text = "";
   let fileKey = "";
   let durationMs = 0;
+  let filename = "";
   if (typeof message.content === "string") {
     try {
-      const content = JSON.parse(message.content) as { text?: string; file_key?: string; duration?: number | string };
+      const content = JSON.parse(message.content) as {
+        text?: string;
+        file_key?: string;
+        image_key?: string;
+        file_name?: string;
+        duration?: number | string;
+      };
       text = content.text ?? "";
-      fileKey = typeof content.file_key === "string" ? content.file_key : "";
+      fileKey = typeof content.file_key === "string" ? content.file_key : typeof content.image_key === "string" ? content.image_key : "";
       durationMs = Number(content.duration ?? 0);
+      filename = typeof content.file_name === "string" ? content.file_name : "";
     } catch {
       text = "";
     }
@@ -109,10 +128,21 @@ export function parseOfficialReceiveWithMedia(data: unknown): {
   const parsed = parseFeishuEvent(input);
   const messageId = input.messageId;
   const isAudio = !("reject" in parsed) && parsed.bodyKind === "voice";
+  const isFile = !("reject" in parsed) && parsed.bodyKind === "media" && (input.messageType === "image" || input.messageType === "file");
   return {
     parsed,
     ...(isAudio && fileKey && Number.isSafeInteger(durationMs)
       ? { audio: { messageId, fileKey, durationMs } }
+      : {}),
+    ...(isFile && fileKey
+      ? {
+          file: {
+            messageId,
+            fileKey,
+            messageType: input.messageType === "image" ? "image" : "file",
+            ...(filename ? { filename } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -139,6 +169,7 @@ export class FeishuAdapter {
   private readonly ownerStore: FeishuOwnerStore | undefined;
   private ownerOpenId: string | undefined;
   seen = new Set<string>();
+  readonly mediaStore = new MediaStore();
 
   constructor(
     private readonly plane: RoutingControlPlane,
@@ -325,6 +356,11 @@ export class FeishuAdapter {
       this.noticeAllowlist(fromOpenId);
       return { reject: "allowlist" };
     }
+    if (parsed.bodyKind === "media") {
+      if (!received.file?.fileKey) return { reject: "media" };
+      this.lastEnqueue = this.ingestFile(parsed, received.file);
+      return { accepted: true };
+    }
     if (parsed.bodyKind === "voice") {
       if (!received.audio || received.audio.durationMs <= 0 || received.audio.durationMs > 180_000) {
         return { reject: "audio" };
@@ -499,14 +535,37 @@ export class FeishuAdapter {
     }
   }
 
+  private async ingestFile(parsed: InboundEnvelope, ref: FeishuFileMediaRef) {
+    const bytes = await this.downloadMessageResource(ref.messageId, ref.fileKey, ref.messageType === "image" ? "image" : "file", this.voiceAbort.signal);
+    const kind = classifyMedia({
+      bytes,
+      ...(ref.filename ? { filename: ref.filename } : {}),
+      ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
+    });
+    parsed.media = this.mediaStore.put(bytes, {
+      kind,
+      source: "feishu",
+      sourceMessageId: ref.messageId,
+      sourceResourceId: ref.fileKey,
+      mime: kind === "image" ? "image/png" : kind === "pdf" ? "application/pdf" : kind === "office" ? "application/vnd.openxmlformats-officedocument" : "application/octet-stream",
+      ...(ref.filename ? { filename: ref.filename } : {}),
+    });
+    parsed.text = parsed.text || mediaCaption(parsed.media);
+    return this.plane.submitInbound(parsed);
+  }
+
   private async downloadAudioResource(ref: FeishuAudioMediaRef, signal: AbortSignal): Promise<Buffer> {
+    return this.downloadMessageResource(ref.messageId, ref.fileKey, "file", signal);
+  }
+
+  private async downloadMessageResource(messageId: string, fileKey: string, type: "file" | "image", signal: AbortSignal): Promise<Buffer> {
     const client = this.client;
     if (!client) throw new PenglaiError("AUTH_EXPIRED", "Feishu client unavailable");
     let response: Awaited<ReturnType<typeof client.im.messageResource.get>>;
     try {
       response = await client.im.messageResource.get({
-        params: { type: "file" },
-        path: { message_id: ref.messageId, file_key: ref.fileKey },
+        params: { type },
+        path: { message_id: messageId, file_key: fileKey },
       });
     } catch (err) {
       const klass = classifyTransportError(err);

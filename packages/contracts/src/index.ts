@@ -180,6 +180,68 @@ export interface PenglaiImSource {
   voice?: PenglaiVoiceMetadata;
 }
 
+export type MediaKind = "image" | "audio" | "office" | "pdf" | "file";
+
+export interface MediaEnvelope {
+  kind: MediaKind;
+  source: "weixin" | "feishu";
+  sourceMessageId: string;
+  sourceResourceId: string;
+  mime: string;
+  filename?: string;
+  size: number;
+  sha256: string;
+  opaqueHandle: string;
+  durationMs?: number;
+}
+
+export class MediaStore {
+  private readonly blobs = new Map<string, Buffer>();
+  put(
+    bytes: Buffer,
+    meta: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle"> & { opaqueHandle?: string },
+  ): MediaEnvelope {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const opaqueHandle = meta.opaqueHandle ?? `media-${sha256.slice(0, 24)}`;
+    this.blobs.set(opaqueHandle, Buffer.from(bytes));
+    return {
+      ...meta,
+      size: bytes.length,
+      sha256,
+      opaqueHandle,
+    };
+  }
+  get(handle: string): Buffer {
+    const bytes = this.blobs.get(handle);
+    if (!bytes) throw new PenglaiError("INVALID_INPUT", "media handle missing");
+    return Buffer.from(bytes);
+  }
+  drop(handle: string): void {
+    this.blobs.delete(handle);
+  }
+}
+
+export function classifyMedia(input: { filename?: string; mime?: string; bytes: Buffer }): MediaKind {
+  const mime = (input.mime ?? "").toLowerCase();
+  const name = (input.filename ?? "").toLowerCase();
+  const magic = input.bytes.subarray(0, 8).toString("latin1");
+  if (magic.startsWith("\x89PNG") || magic.startsWith("\xff\xd8") || mime.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/.test(name)) {
+    return "image";
+  }
+  if (magic.startsWith("RIFF") || magic.startsWith("OggS") || magic.startsWith("ID3") || magic.startsWith("#!SILK") || mime.startsWith("audio/")) {
+    return "audio";
+  }
+  if (magic.startsWith("%PDF") || mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (magic.startsWith("PK") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".pptx")) {
+    return "office";
+  }
+  return "file";
+}
+
+export function mediaCaption(media: MediaEnvelope): string {
+  return `[penglai-media kind=${media.kind} mime=${media.mime} sha256=${media.sha256.slice(0, 16)} handle=${media.opaqueHandle}]`;
+}
+
 export interface InboundEnvelope {
   adapter: AdapterName;
   adapterMessageKey: string;
@@ -190,6 +252,7 @@ export interface InboundEnvelope {
   bodyKind: "text" | "voice" | "media" | "other";
   text?: string;
   receivedAt: number;
+  media?: MediaEnvelope;
 }
 
 export interface ModelInput {

@@ -56,7 +56,10 @@ test("R2I-FS-011 group and media rejected", () => {
   assert.deepEqual(parseFeishuEvent({ chatType: "group", messageId: "1", text: "x" }), { reject: "group" });
   const image = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2" });
   assert.equal("reject" in image, false);
-  if (!("reject" in image)) assert.equal(image.bodyKind, "media");
+  if (!("reject" in image)) {
+    assert.equal(image.bodyKind, "media");
+    assert.notEqual(image.text, "[image]");
+  }
   const audio = parseFeishuEvent({ chatType: "p2p", messageType: "audio", messageId: "a1", openId: "o" });
   assert.equal("reject" in audio, false);
   if (!("reject" in audio)) assert.equal(audio.bodyKind, "voice");

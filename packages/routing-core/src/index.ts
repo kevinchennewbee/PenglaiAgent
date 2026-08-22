@@ -573,7 +573,14 @@ export class RoutingControlPlane {
     if (env.bodyKind !== "text" && env.bodyKind !== "voice" && env.bodyKind !== "media") {
       return this.reject("INVALID_INPUT", "media is not accepted");
     }
-    const text = (env.text ?? "").trim() || (env.bodyKind === "media" ? "[attachment]" : "");
+    if (env.bodyKind === "media" && !env.media?.opaqueHandle) {
+      return this.reject("INVALID_INPUT", "media requires a downloaded opaque handle");
+    }
+    const text =
+      (env.text ?? "").trim() ||
+      (env.bodyKind === "media" && env.media
+        ? `[penglai-media kind=${env.media.kind} mime=${env.media.mime} sha256=${env.media.sha256.slice(0, 16)} handle=${env.media.opaqueHandle}]`
+        : "");
     if (utf8Bytes(text) > CONFIG.maxInboundUtf8Bytes) {
       return this.reject("INVALID_INPUT", "message too large");
     }

@@ -63,6 +63,34 @@ function voicePlane() {
   return { clock, store, plane, inputs };
 }
 
+test("weixin image ingest downloads real bytes into a media envelope", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const { plane } = voicePlane();
+  const transport: WeixinTransport = {
+    async getQr() { return { qrRef: "qr", expiresAt: 1 }; },
+    async pollQr() { return { status: "connected", tokenRef: "t", scannerUserId: "u" }; },
+    async getUpdates(buf) { return { buf, messages: [] }; },
+    async send() { return { ok: true }; },
+    async downloadCdn() { return png; },
+  };
+  const ad = new WeixinAdapter(plane, transport, new MemoryVault());
+  await ad.startQr();
+  await ad.poll("qr");
+  const accepted = await ad.ingest({
+    messageId: "img-bytes",
+    fromUserId: "u",
+    chatType: "private",
+    itemType: "image",
+    image: { encrypt_query_param: "imgq", aes_key: Buffer.alloc(16).toString("base64") },
+  });
+  assert.equal(accepted.kind, "accepted");
+  const handle = `media-${createHash("sha256").update(png).digest("hex").slice(0, 24)}`;
+  assert.equal(ad.mediaStore.get(handle).equals(png), true);
+});
+
 test("private voice is classified for ASR and images enter as media", () => {
   const voice = parseOfficialInbound(
     { message_type: 1, from_user_id: "u", item_list: [{ type: 3, msg_id: "v1" }] },
@@ -77,7 +105,9 @@ test("private voice is classified for ASR and images enter as media", () => {
   assert.equal("reject" in image, false);
   if (!("reject" in image)) {
     assert.equal(image.bodyKind, "media");
-    assert.equal(image.text, "[image]");
+    assert.equal(image.text, undefined);
+    assert.equal(image.media?.kind, "image");
+    assert.notEqual(image.text, "[image]");
   }
 });
 
@@ -86,9 +116,13 @@ test("parser rejects group and media without downloading", () => {
     parseInbound({ messageId: "1", fromUserId: "u", chatType: "group", itemType: "text", text: "x" }, "a"),
     { reject: "group" },
   );
-  const image = parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "image" }, "a");
+  const image = parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "image", image: { encrypt_query_param: "imgq", aes_key: Buffer.alloc(16).toString("base64") } }, "a");
   assert.equal("reject" in image, false);
-  if (!("reject" in image)) assert.equal(image.bodyKind, "media");
+  if (!("reject" in image)) {
+    assert.equal(image.bodyKind, "media");
+    assert.equal(image.media?.kind, "image");
+    assert.notEqual(image.text, "[image]");
+  }
 });
 
 test("R50-VOICE: weixin inbound wav transcribes and outbound keeps a visible audio fallback", async () => {

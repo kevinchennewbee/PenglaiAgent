@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { isRecord, type InboundEnvelope } from "@penglai/contracts";
+import { isRecord, type InboundEnvelope, type MediaKind } from "@penglai/contracts";
 
 /** Official iLink bot surface. Isolated rewrite; not an OpenClaw plugin. */
 export const ILINK_BASE = "https://ilinkai.weixin.qq.com";
@@ -116,6 +116,7 @@ export interface OfficialWeixinMessage {
     text_item?: { text?: string };
     voice_item?: WeixinVoiceItem;
     file_item?: WeixinFileItem;
+    image_item?: { media?: WeixinCdnMedia };
   }>;
   context_token?: string;
 }
@@ -242,19 +243,26 @@ export function parseOfficialInbound(
     return { reject: "media" };
   }
   const voiceOnly = items.length > 0 && items.every((it) => it.type === MessageItemType.VOICE);
-  const image = items.some((it) => it.type === MessageItemType.IMAGE);
-  const file = items.some((it) => it.type === MessageItemType.FILE);
+  const image = items.find((it) => it.type === MessageItemType.IMAGE);
+  const file = items.find((it) => it.type === MessageItemType.FILE);
   const text = items
     .map((it) => {
-      if (it.type === MessageItemType.IMAGE) return "[image]";
-      if (it.type === MessageItemType.FILE) return "[file]";
+      if (it.type === MessageItemType.IMAGE || it.type === MessageItemType.FILE) return "";
       return it.text_item?.text ?? "";
     })
     .join("");
+  const resource =
+    image?.image_item?.media?.encrypt_query_param ??
+    file?.file_item?.media?.encrypt_query_param ??
+    image?.msg_id ??
+    file?.file_item?.file_name ??
+    file?.msg_id ??
+    "";
+  const mediaKind: MediaKind | undefined = image ? "image" : file ? (/\.pdf$/i.test(file.file_item?.file_name ?? "") ? "pdf" : /\.(docx|xlsx|pptx)$/i.test(file.file_item?.file_name ?? "") ? "office" : "file") : undefined;
   const msgId =
     items.find((it) => it.msg_id)?.msg_id ??
     (msg.message_id !== undefined ? String(msg.message_id) : undefined) ??
-    createHash("sha256").update(JSON.stringify({ accountRef, text, seq: msg.seq ?? 0 })).digest("hex");
+    createHash("sha256").update(JSON.stringify({ accountRef, text, seq: msg.seq ?? 0, resource })).digest("hex");
   const from = msg.from_user_id ?? "";
   return {
     adapter: "weixin",
@@ -264,8 +272,23 @@ export function parseOfficialInbound(
     vendorTarget: from,
     chatKind: "private",
     bodyKind: voiceOnly ? "voice" : image || file ? "media" : "text",
-    text,
+    ...(text ? { text } : {}),
     receivedAt: Date.now(),
+    ...(mediaKind
+      ? {
+          media: {
+            kind: mediaKind,
+            source: "weixin" as const,
+            sourceMessageId: msgId,
+            sourceResourceId: String(resource || msgId),
+            mime: mediaKind === "image" ? "image/png" : mediaKind === "pdf" ? "application/pdf" : "application/octet-stream",
+            size: 0,
+            sha256: "",
+            opaqueHandle: "",
+            ...(file?.file_item?.file_name ? { filename: file.file_item.file_name } : {}),
+          },
+        }
+      : {}),
   };
 }
 
