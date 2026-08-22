@@ -75,7 +75,7 @@ test("R50-REL-006/007 a11y contract covers live region, QR alt, contrast, and zo
 
 test("R50-UPD-008/009/010 verified installer and crash replay", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-"));
-  const path = join(root, "Penglai_0.5.1_macos_aarch64.dmg");
+  const path = join(root, "Penglai_0.5.2_macos_aarch64.dmg");
   const payload = Buffer.from("signed-installer");
   writeFileSync(path, payload);
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -140,7 +140,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   const sig = sign(null, payload, privateKey);
   const dest = mkdtempSync(join(tmpdir(), "penglai-upd-dl-"));
   const out = await downloadVerifiedPayload({
-    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.1/Penglai_0.5.1_macos_aarch64.dmg",
+    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.2/Penglai_0.5.2_macos_aarch64.dmg",
     destDir: dest,
     expectedSha256: sha,
     expectedSize: payload.length,
@@ -154,7 +154,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false, companionArmed: false }), /busy/);
 });
 
-test("R50-DIST: packaged identity is Penglai 0.5.1 and Windows NSIS stays current-user", async () => {
+test("R50-DIST: packaged identity is Penglai 0.5.2 and Windows NSIS stays current-user", async () => {
   const {
     assertPenglaiAppIdentity,
     assertWindowsNsisContract,
@@ -176,7 +176,7 @@ test("R50-DIST: packaged identity is Penglai 0.5.1 and Windows NSIS stays curren
   const facts = parseInfoPlistIdentity(rewritten);
   assertPenglaiAppIdentity(facts);
   assert.equal(facts.executable, "Penglai");
-  assert.equal(facts.shortVersion, "0.5.1");
+  assert.equal(facts.shortVersion, "0.5.2");
   assert.match(rewritten, /penglai\.icns/);
   assert.match(rewritten, /<string>13\.0<\/string>/);
   assertWindowsNsisContract({

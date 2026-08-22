@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 
-const EXPECT = "0.5.1";
+const EXPECT = "0.5.2";
 const pkgs = [join(ROOT, "package.json"), join(ROOT, "apps/desktop/package.json")];
 for (const name of readdirSync(join(ROOT, "packages"))) {
   pkgs.push(join(ROOT, "packages", name, "package.json"));

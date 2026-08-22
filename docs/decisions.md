@@ -346,6 +346,12 @@
 - 决定：0.5.1 以 `@deepseek-ai/dsh@0.1.1-rc.1`（tag `dsh-v0.1.1-rc.1`，commit `528c682e061696f5a160f363f236ecbf53cbd006`，npm integrity `sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==`）为唯一核心。release target 为 `darwin-aarch64`、`darwin-x86_64`、`win32-x86_64`。0.5.0→0.5.1 仅手动覆盖；PPDP 与后续同平台 PUDP 属于 0.5.1。
 - 后果：不得跟随 npm `latest`/`next`；Intel/Windows 缺原生 runner 时该 target 为 BLOCKED；不得把 ARM Electron 改名成 x64。
 
+### D-056 — 0.5.2 修复 rc.1 首次引导并实测 0.5.1 辅助升级
+
+- 状态：ACCEPTED（Owner 2026-08-22 明确授权修复、三端构建、发布和升级验收）
+- 决定：0.5.2 继续固定 DSH `0.1.1-rc.1`，修正完成门禁对 rc.1 `storages/workspace.json`、`global.workspaceIds`、`sessions/**/session.jsonl.zstd` 与嵌套 `credentials.refs` 的读取；“上一步”必须回滚持久引导状态和依赖事实。发布前必须用临时 BYOK 在 Apple Silicon 安装包完成真实模型测试与第一条 Turn，并用公开版 0.5.1 的 PUDP 路径发现、下载和安装公开版 0.5.2。
+- 后果：临时 secret 不得进入源码、命令输出、evidence 或 GitHub；Intel Mac 与 Windows x64 仍必须由对应原生 runner 构建并运行安装/插件兼容门禁。0.5.2 Release 继续使用现有离线 Ed25519 信任根、不可变 tag 资产和用户确认的系统安装器，不引入 silent update。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

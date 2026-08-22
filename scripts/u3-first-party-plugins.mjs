@@ -250,7 +250,7 @@ const commonOk = phases.every(
 const activeOk = activePhases.every(
   (phase) =>
     phase.rows.every((row) => row.present && row.enabled && row.phase === "active") &&
-    phase.packages.every((pkg) => pkg.present && pkg.version === "0.5.1"),
+    phase.packages.every((pkg) => pkg.present && pkg.version === "0.5.2"),
 );
 const disabledOk = disabledPhases.every((phase) =>
   phase.rows.every((row) => row.present && !row.enabled && row.phase === null),

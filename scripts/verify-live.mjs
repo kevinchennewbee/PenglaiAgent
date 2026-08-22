@@ -8,7 +8,7 @@ if (!existsSync(path)) {
   finish("INCOMPLETE", { command: "verify:live", reason: "no 0.5 live evidence" });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
-if (rec.productVersion !== "0.5.1") {
-  finish("STALE", { command: "verify:live", reason: "live evidence is not 0.5.1" });
+if (rec.productVersion !== "0.5.2") {
+  finish("STALE", { command: "verify:live", reason: "live evidence is not 0.5.2" });
 }
 finish("INCOMPLETE", { command: "verify:live", reason: "final live is reserved for RC15" });

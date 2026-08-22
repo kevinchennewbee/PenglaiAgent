@@ -36,6 +36,10 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/PUBLICATION_MANIFEST_0.5.1.md",
   "docs/RELEASE_NOTES_0.5.1.md",
   "docs/0.5.1",
+  "docs/PUBLICATION_0.5.2.md",
+  "docs/PUBLICATION_MANIFEST_0.5.2.md",
+  "docs/RELEASE_NOTES_0.5.2.md",
+  "docs/0.5.2",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -100,6 +104,9 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/PUBLICATION_0.5.1.md",
   "docs/PUBLICATION_MANIFEST_0.5.1.md",
   "docs/RELEASE_NOTES_0.5.1.md",
+  "docs/PUBLICATION_0.5.2.md",
+  "docs/PUBLICATION_MANIFEST_0.5.2.md",
+  "docs/RELEASE_NOTES_0.5.2.md",
 ] as const;
 
 export interface ExportFile {
@@ -209,7 +216,8 @@ export function buildPublicationDraft(input: {
       `${PRODUCT_VERSION} declares darwin-aarch64, darwin-x86_64, and win32-x86_64; native PASS requires a matching runner`,
       "community-verified: macOS ad-hoc/not notarized; Windows has no Authenticode",
       "0.5.0 to 0.5.1 is a manual overlay install on Apple Silicon; Intel/Windows are fresh installs",
-      `no silent auto-update from 0.5.0; 0.5.1 discovers later immutable PenglaiAgent Releases`,
+      "0.5.1 to 0.5.2 uses signed assisted update after user confirmation; 0.5.0 remains manual",
+      `no silent auto-update; ${PRODUCT_VERSION} discovers only later stable immutable PenglaiAgent Releases`,
       "public destination is owner-authorized; execution is verified after publication",
     ],
     publication: {
