@@ -129,6 +129,7 @@ try {
   };
   const manifest = finishEvidenceRun(run, "PASS", "real SenseVoice transcribed the licensed fixture", { evidence });
   console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:asr-real", dir: run.dir }));
+  if (manifest.verdict !== "PASS") process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);

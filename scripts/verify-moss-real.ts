@@ -196,6 +196,7 @@ try {
   };
   const manifest = finishEvidenceRun(run, "PASS", "real MOSS TTS synthesized and round-tripped through SenseVoice", { evidence });
   console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:moss-real", dir: run.dir }));
+  if (manifest.verdict !== "PASS") process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);

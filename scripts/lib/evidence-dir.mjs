@@ -17,15 +17,16 @@ export function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-export function evidenceDirFor(sourceSha, target = HOST_TARGET) {
-  return join(ROOT, "evidence", "generated", sourceSha, target);
+export function evidenceDirFor(sourceSha, target = HOST_TARGET, command = "unspecified") {
+  const safeCommand = String(command).replaceAll(":", "-");
+  return join(ROOT, "evidence", "generated", sourceSha, target, safeCommand);
 }
 
 export function beginEvidenceRun(input = {}) {
   const git = gitState();
   const target = input.target ?? HOST_TARGET;
   const command = input.command ?? "unspecified";
-  const dir = evidenceDirFor(git.head, target);
+  const dir = evidenceDirFor(git.head, target, command);
   mkdirSync(join(dir, "artifacts"), { recursive: true });
   writeFileSync(join(dir, "stdout.log"), "", { flag: "a" });
   writeFileSync(join(dir, "stderr.log"), "", { flag: "a" });

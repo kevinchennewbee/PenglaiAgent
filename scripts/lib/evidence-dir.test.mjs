@@ -12,6 +12,7 @@ test("dirty tree and fake sha cannot mint official PASS evidence", () => {
   assert.match(src, /working tree dirty; official PASS forbidden/);
   assert.doesNotMatch(src, /"a"\.repeat\(40\)/);
   assert.match(src, /evidence", "generated", sourceSha, target/);
+  assert.match(src, /safeCommand/);
 });
 
 test("fault injection: non-zero child, missing binary, and timeout stay non-PASS", () => {

@@ -4,6 +4,7 @@
 .penglai-build.json
 .venv/
 .pytest_cache/
+.cache/
 .uploads/
 node_modules/
 third_party/mnemon/bin/
