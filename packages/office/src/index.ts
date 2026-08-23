@@ -9,7 +9,7 @@ export const inject: string[] = ["tools", "workspaceRegistry"];
 export const version = RELEASE;
 export { createOfficeService, inspect, createDocument, edit, commit, detect } from "./service.js";
 export type { OfficeFormat, DocumentInventory, OfficeJob, OfficeOperation } from "./service.js";
-export { OFFICE_LIMITS } from "./operations.js";
+export { OFFICE_LIMITS, parseOfficeOperation } from "./operations.js";
 export { OFFICE_TEMPLATES } from "./templates/catalog.js";
 export { assertAuthorizedBytes } from "./authorization.js";
 export { registerOfficeTools } from "./tools.js";
@@ -34,14 +34,10 @@ export function apply(ctx: OfficeContext): ReturnType<typeof createOfficeService
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for office");
   if (!ctx.workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for office");
   const svc = createOfficeService({ userData });
-  try {
-    registerOfficeTools(ctx, svc);
-    ctx.provide("penglaiOffice", svc);
-    ctx.effect?.(() => () => undefined);
-    if (ctx instanceof Context) new PenglaiOfficeRemote(ctx as Context, svc);
-  } catch (error) {
-    throw error;
-  }
+  registerOfficeTools(ctx, svc);
+  ctx.provide("penglaiOffice", svc);
+  ctx.effect?.(() => () => undefined);
+  if (ctx instanceof Context) new PenglaiOfficeRemote(ctx as Context, svc);
   return svc;
 }
 

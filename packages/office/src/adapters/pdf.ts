@@ -1,18 +1,11 @@
-import { createRequire } from "node:module";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { PenglaiError } from "@penglai/contracts";
 import { assertAuthorizedBytes } from "../authorization.js";
 import { loadPenglaiCjkFont } from "../cjk-font.js";
 
-const require = createRequire(import.meta.url);
-
-function fontkitInstance(): { default?: unknown } | unknown {
-  return require("@pdf-lib/fontkit");
-}
-
 async function embedPenglaiFont(pdf: PDFDocument) {
-  const fontkit = fontkitInstance() as { default?: unknown };
-  pdf.registerFontkit((fontkit.default ?? fontkit) as never);
+  pdf.registerFontkit(fontkit as never);
   return pdf.embedFont(loadPenglaiCjkFont());
 }
 

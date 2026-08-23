@@ -330,30 +330,41 @@ export class ObjectStore {
   constructor(private readonly root?: string) {
     if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
   }
+  private assertHandle(handle: string): string {
+    if (!/^obj-[0-9a-f]{24}$/.test(handle)) {
+      throw new PenglaiError("INVALID_INPUT", "object handle rejected");
+    }
+    return handle;
+  }
   put(bytes: Buffer, meta: { kind: MediaKind; mime: string }): { handle: string; sha256: string } {
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const handle = `obj-${sha256.slice(0, 24)}`;
     this.mem.set(handle, { bytes: Buffer.from(bytes), kind: meta.kind, mime: meta.mime, sha256 });
     if (this.root) {
-      writeFileSync(join(this.root, `${handle}.bin`), bytes, { mode: 0o600 });
-      writeFileSync(
-        join(this.root, `${handle}.json`),
-        JSON.stringify({ handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length }),
-        { mode: 0o600 },
-      );
+      const bin = join(this.root, `${handle}.bin`);
+      const json = join(this.root, `${handle}.json`);
+      if (!existsSync(bin)) writeFileSync(bin, bytes, { mode: 0o600, flag: "wx" });
+      else if (createHash("sha256").update(readFileSync(bin)).digest("hex") !== sha256) {
+        throw new PenglaiError("SECURITY_POLICY", "object store hash collision");
+      }
+      writeFileSync(json, JSON.stringify({ handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length }), { mode: 0o600 });
     }
     return { handle, sha256 };
   }
   bind(handle: string, bind: ObjectBind): void {
-    const row = this.mem.get(handle);
-    if (row) row.bind = { ...bind };
-    if (this.root && existsSync(join(this.root, `${handle}.json`))) {
-      const raw = JSON.parse(readFileSync(join(this.root, `${handle}.json`), "utf8")) as Record<string, unknown>;
-      writeFileSync(join(this.root, `${handle}.json`), JSON.stringify({ ...raw, bind }), { mode: 0o600 });
+    const row = this.lookup(this.assertHandle(handle));
+    row.bind = { ...bind };
+    this.mem.set(handle, row);
+    if (this.root) {
+      writeFileSync(
+        join(this.root, `${handle}.json`),
+        JSON.stringify({ handle, sha256: row.sha256, kind: row.kind, mime: row.mime, size: row.bytes.length, bind }),
+        { mode: 0o600 },
+      );
     }
   }
   get(handle: string, sessionId: string): Buffer {
-    const row = this.lookup(handle);
+    const row = this.lookup(this.assertHandle(handle));
     if (!row.bind || row.bind.sessionId !== sessionId) {
       throw new PenglaiError("UNAUTHORIZED", "office/audio handle is not bound to this Session");
     }

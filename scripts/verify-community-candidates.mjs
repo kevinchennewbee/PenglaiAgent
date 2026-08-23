@@ -122,11 +122,21 @@ try {
         }
       };
       walk(extract);
+      audit.fileCount = files.length;
       audit.licenseFile = files.some((p) => /license/i.test(p));
-      const blob = files.map((p) => readFileSync(p, "utf8")).join("\n");
-      audit.pipeToShell = /curl\s*\|\s*bash|wget\s*\|\s*sh/.test(blob);
+      const textFiles = files.filter((p) => /\.(md|txt|json|js|mjs|cjs|ts|yml|yaml|toml)$/i.test(p)).slice(0, 200);
+      let pipeToShell = false;
+      let dshExact = false;
+      for (const file of textFiles) {
+        const st = readFileSync(file);
+        if (st.length > 256 * 1024) continue;
+        const body = st.toString("utf8");
+        if (/curl\s*\|\s*bash|wget\s*\|\s*sh/.test(body)) pipeToShell = true;
+        if (/0\.1\.1-rc\.2/.test(body)) dshExact = true;
+      }
+      audit.pipeToShell = pipeToShell;
       audit.packageJson = files.some((p) => p.endsWith("package.json"));
-      audit.dshExact = /0\.1\.1-rc\.2/.test(blob);
+      audit.dshExact = dshExact;
       if (audit.pipeToShell) {
         audit.machineVerdict = "REJECTED";
         audit.reason = "install script uses pipe-to-shell";

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
-import type { OfficeFormat, OfficeService } from "./service.js";
-import type { OfficeOperation } from "./operations.js";
+import type { OfficeFormat, OfficeJob, OfficeService } from "./service.js";
+import { parseOfficeOperation } from "./operations.js";
 import { safeWorkspaceFilename } from "./transaction.js";
 
 interface CordisTools {
@@ -36,19 +36,16 @@ function asFormat(value: unknown): OfficeFormat {
   throw new PenglaiError("INVALID_INPUT", "unsupported office format");
 }
 
-function asOperation(value: unknown): OfficeOperation {
-  if (!value || typeof value !== "object") throw new PenglaiError("INVALID_INPUT", "office operation required");
-  const op = value as OfficeOperation;
-  if (
-    op.kind === "docx.replaceParagraph" ||
-    op.kind === "xlsx.setCell" ||
-    op.kind === "pptx.replaceSlideText" ||
-    op.kind === "pdf.watermark" ||
-    op.kind === "pdf.rotate"
-  ) {
-    return op;
-  }
-  throw new PenglaiError("INVALID_INPUT", "office operation is not in the closed typed set");
+function publicJob(job: OfficeJob | (OfficeJob & { handle?: string })) {
+  return {
+    id: job.id,
+    format: job.format,
+    text: job.text,
+    parts: job.parts,
+    warnings: job.warnings,
+    digest: job.digest,
+    ...("handle" in job && job.handle ? { handle: job.handle } : {}),
+  };
 }
 
 export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void {
@@ -83,9 +80,9 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
         throw new PenglaiError("SECURITY_POLICY", "office inspect refuses model-supplied paths");
       }
       const ws = boundWorkspace(ctx, exec);
-      if (input.handle) return svc.inspectAttached(input.handle, ws.sessionId);
+      if (input.handle) return publicJob(await svc.inspectAttached(input.handle, ws.sessionId));
       if (!input.filename) throw new PenglaiError("INVALID_INPUT", "office inspect requires filename or handle");
-      return svc.inspectWorkspaceFile(join(ws.path, safeWorkspaceFilename(input.filename)), ws.path, ws.id);
+      return publicJob(await svc.inspectWorkspaceFile(join(ws.path, safeWorkspaceFilename(input.filename)), ws.path, ws.id));
     },
   });
   ctx.tools.register({
@@ -100,7 +97,7 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     output: jsonOutput("office attached inspect"),
     async execute(args: unknown, exec?: unknown) {
       const ws = boundWorkspace(ctx, exec);
-      return svc.inspectAttached(String((args as { handle?: string }).handle), ws.sessionId);
+      return publicJob(await svc.inspectAttached(String((args as { handle?: string }).handle), ws.sessionId));
     },
   });
   ctx.tools.register({
@@ -119,10 +116,12 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       const input = args as { format?: string; text?: string; template_id?: string };
       const ws = boundWorkspace(ctx, exec);
-      if (input.template_id) return svc.createFromTemplate(input.template_id, ws.id);
+      if (input.template_id) return publicJob(await svc.createFromTemplate(input.template_id, ws.id));
       if (!input.format || !input.text) throw new PenglaiError("INVALID_INPUT", "office create requires format and text or template_id");
       const created = await svc.create(asFormat(input.format), input.text);
-      return created;
+      svc.job(created.id).workspaceId = ws.id;
+      svc.job(created.id).sessionId = ws.sessionId;
+      return publicJob(created);
     },
   });
   ctx.tools.register({
@@ -142,13 +141,19 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       const input = args as { job_id?: string; handle?: string; operation?: unknown };
       const ws = boundWorkspace(ctx, exec);
-      const op = asOperation(input.operation);
+      const op = parseOfficeOperation(input.operation);
       if (input.handle) {
         const attached = await svc.inspectAttached(input.handle, ws.sessionId);
-        return svc.edit(attached.bytes, op);
+        const edited = await svc.edit(attached.bytes, op);
+        svc.job(edited.id).workspaceId = ws.id;
+        svc.job(edited.id).sessionId = ws.sessionId;
+        return publicJob(edited);
       }
       if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
-      return svc.edit(svc.job(input.job_id).bytes, op);
+      const edited = await svc.edit(svc.job(input.job_id).bytes, op);
+      svc.job(edited.id).workspaceId = ws.id;
+      svc.job(edited.id).sessionId = ws.sessionId;
+      return publicJob(edited);
     },
   });
   ctx.tools.register({
@@ -187,8 +192,13 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       const ws = boundWorkspace(ctx, exec);
       const jobId = String(input.job_id);
       const filename = safeWorkspaceFilename(String(input.filename));
-      const receipt = svc.approve(jobId);
-      return svc.commitToPath(jobId, receipt, join(ws.path, filename), ws.path);
+      const job = svc.job(jobId);
+      if (job.state !== "PREVIEW_READY" && job.state !== "OWNER_APPROVED") {
+        throw new PenglaiError("SECURITY_POLICY", "office commit requires preview then Owner confirmation");
+      }
+      const receipt = job.receipt ?? svc.approve(jobId);
+      const committed = svc.commitToPath(jobId, receipt, join(ws.path, filename), ws.path);
+      return { dest: committed.dest, digest: committed.digest, backup: committed.backup ? "retained" : undefined };
     },
   });
   ctx.tools.register({

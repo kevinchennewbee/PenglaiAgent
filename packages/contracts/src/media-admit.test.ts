@@ -31,6 +31,8 @@ test("object store binds handles to a session", () => {
   store.bind(handle, { sessionId: "sess-1", workspaceId: "ws" });
   assert.equal(store.get(handle, "sess-1").toString(), "docx");
   assert.throws(() => store.get(handle, "sess-2"), /bound|UNAUTHORIZED/i);
+  assert.throws(() => store.bind("../escape", { sessionId: "sess-1" }), /handle rejected/i);
+  assert.throws(() => store.get("obj-not-a-real-handle000000", "sess-1"), /handle rejected|missing/i);
 });
 
 test("attachDownloadedMedia requires saveImage for images", async () => {

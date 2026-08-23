@@ -20,7 +20,7 @@ if (!asset || !bin || !existsSync(bin) || sha256File(bin) !== asset.binarySha256
   process.exit(EXIT_BY_VERDICT.INCOMPLETE);
 }
 
-function mnemon(dataDir, args, timeoutMs = 15000, globalFlags = []) {
+function mnemon(dataDir, args, timeoutMs = 15000, globalFlags = [], record = true) {
   const started = Date.now();
   const argv = [bin, ...globalFlags, "--data-dir", dataDir, ...args];
   const result = spawnSync(argv[0], argv.slice(1), {
@@ -28,14 +28,16 @@ function mnemon(dataDir, args, timeoutMs = 15000, globalFlags = []) {
     timeout: timeoutMs,
     env: { PATH: "/usr/bin:/bin", LANG: process.env.LANG ?? "C", TMPDIR: tmpdir() },
   });
-  recordCommand(run, {
-    argv,
-    exitCode: result.status,
-    signal: result.signal,
-    durationMs: Date.now() - started,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  });
+  if (record) {
+    recordCommand(run, {
+      argv,
+      exitCode: result.status,
+      signal: result.signal,
+      durationMs: Date.now() - started,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+  }
   return result;
 }
 
@@ -123,7 +125,7 @@ const loadTimes = [];
 const loadStarted = Date.now();
 for (let i = 0; i < 10_000; i += 1) {
   const t0 = Date.now();
-  const row = mnemon(loadDir, ["remember", `scale-row-${i}`, "--cat", "fact", "--tags", "load"], 20_000);
+  const row = mnemon(loadDir, ["remember", `scale-row-${i}`, "--cat", "fact", "--tags", "load"], 20_000, [], false);
   loadTimes.push(Date.now() - t0);
   if (row.status !== 0) {
     const manifest = finishEvidenceRun(run, "FAIL", `mnemon 10k remember failed at ${i}`, { stderr: row.stderr });
@@ -147,12 +149,52 @@ recordCommand(run, {
   stdout: JSON.stringify({ n: 10_000, p50Ms: loadP50, p95Ms: loadP95, rss: process.memoryUsage().rss }),
 });
 
+const load100kDir = mkdtempSync(join(tmpdir(), "mnemon-100k-"));
+const load100kTimes = [];
+const load100kStarted = Date.now();
+const load100kBudgetMs = 15 * 60 * 1000;
+let load100kN = 0;
+let load100kTimedOut = false;
+for (; load100kN < 100_000; load100kN += 1) {
+  if (Date.now() - load100kStarted > load100kBudgetMs) {
+    load100kTimedOut = true;
+    break;
+  }
+  const t0 = Date.now();
+  const row = mnemon(load100kDir, ["remember", `scale100k-${load100kN}`, "--cat", "fact", "--tags", "load"], 20_000, [], false);
+  load100kTimes.push(Date.now() - t0);
+  if (row.status !== 0) {
+    const manifest = finishEvidenceRun(run, "FAIL", `mnemon 100k remember failed at ${load100kN}`, { stderr: row.stderr });
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+    process.exit(EXIT_BY_VERDICT.FAIL);
+  }
+}
+load100kTimes.sort((a, b) => a - b);
+const load100kP50 = load100kTimes[Math.floor(load100kTimes.length * 0.5)] ?? 0;
+const load100kP95 = load100kTimes[Math.floor(load100kTimes.length * 0.95)] ?? 0;
+const load100k = {
+  n: load100kN,
+  target: 100_000,
+  timedOut: load100kTimedOut,
+  p50Ms: load100kP50,
+  p95Ms: load100kP95,
+  durationMs: Date.now() - load100kStarted,
+  rss: process.memoryUsage().rss,
+};
+recordCommand(run, {
+  argv: [bin, "remember", "x100k"],
+  exitCode: load100kTimedOut ? 124 : 0,
+  durationMs: load100k.durationMs,
+  stdout: JSON.stringify(load100k),
+});
+
 writeFileSync(join(run.dir, "artifacts", "personal-viz.dot"), viz.stdout ?? "");
 const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/recall/related/viz/forget/isolation/10k", {
   mnemonVersion: String(version.stdout).trim(),
   binary: bin,
   mnemonReadonlyHonored,
   load10k: { n: 10_000, p50Ms: loadP50, p95Ms: loadP95, durationMs: Date.now() - loadStarted, rss: process.memoryUsage().rss },
+  load100k,
   note: mnemonReadonlyHonored
     ? "mnemon --readonly blocked writes"
     : "upstream --readonly did not block writes on a writable volume; Penglai runner must refuse write commands itself",

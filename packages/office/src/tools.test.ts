@@ -50,9 +50,17 @@ test("office conversation tools inspect, plan, preview, commit, undo without mod
     () => tools.get("penglai_office_inspect")?.execute({ path: "/etc/passwd" }, exec),
     /path|SECURITY/i,
   );
+  assert.equal("bytes" in (planned as object), false);
   const committed = await tools.get("penglai_office_commit")?.execute({ job_id: jobId, filename: "note.docx" }, exec) as { dest: string };
   assert.match((await svc.inspect(readFileSync(committed.dest))).text, /revised-tools/);
   await tools.get("penglai_office_undo")?.execute({ job_id: jobId }, exec);
+  await assert.rejects(
+    () => tools.get("penglai_office_plan")?.execute({
+      job_id: jobId,
+      operation: { kind: "docx.replaceParagraph", text: "no-index" },
+    }, exec),
+    /paragraphIndex/,
+  );
 });
 
 test("office attached handle is session-bound", async () => {

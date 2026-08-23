@@ -158,13 +158,10 @@ export class RoutingControlPlane {
   }
 
   private bindInboundObjects(env: InboundEnvelope, binding: Binding, routeId: string): void {
-    const handle = env.media?.officeHandle ?? env.media?.audioHandle;
-    if (!handle || !this.objects) return;
-    this.objects.bind(handle, {
-      sessionId: binding.sessionId,
-      workspaceId: binding.workspaceIdentity,
-      routeId,
-    });
+    if (!this.objects) return;
+    const bind = { sessionId: binding.sessionId, workspaceId: binding.workspaceIdentity, routeId };
+    if (env.media?.officeHandle) this.objects.bind(env.media.officeHandle, bind);
+    if (env.media?.audioHandle) this.objects.bind(env.media.audioHandle, bind);
   }
 
   private modelInputFromInbound(
