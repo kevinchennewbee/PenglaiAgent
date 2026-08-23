@@ -1,6 +1,6 @@
 {
   "name": "image-size",
-  "version": "0.0.0-penglai-disabled",
+  "version": "0.5.5",
   "private": true,
   "type": "commonjs",
   "main": "index.cjs",
