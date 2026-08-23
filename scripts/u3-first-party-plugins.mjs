@@ -4,7 +4,7 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort } from "./lib/cdp.mjs";
-import { observeOfficialTransport } from "./lib/browser-window-walk.mjs";
+import { observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
 import {
   assertInstalledPenglaiIdentity,
   installFromExactInstaller,
@@ -102,6 +102,31 @@ const packageRoot = join(userData, "dsh-home", "profiles", "web", "node_modules"
 const dshNeedle = resolve(join(resources, "runtime/dsh/lib/bin.js"));
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
+const onboardingDir = join(userData, "onboarding");
+mkdirSync(onboardingDir, { recursive: true, mode: 0o700 });
+writeFileSync(
+  join(onboardingDir, "onboarding.json"),
+  `${JSON.stringify(
+    {
+      schema: 2,
+      completed: [
+        "welcome-v1",
+        "appearance-locale-v1",
+        "privacy-v1",
+        "model-provider-v1",
+        "credential-v1",
+        "model-test-v1",
+        "workspace-v1",
+        "first-turn-v1",
+      ],
+      current: "COMPLETE",
+      advanceToken: "installed-product-ui-fixture",
+    },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
 
 function pluginRows(snapshot) {
   const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];
@@ -216,7 +241,7 @@ async function runPhase(name, expectedEnabled) {
   try {
     const { session } = await attachPage(debugPort, 90_000);
     cdpSession = session;
-    official = await observeOfficialTransport(session);
+    official = await observeOfficialSurfaces(session);
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
   }
@@ -236,6 +261,9 @@ async function runPhase(name, expectedEnabled) {
       websocket: official?.websocket?.opened === true,
       hasRoot: official?.snap?.hasRoot === true,
       hasDshBoot: official?.snap?.hasDshBoot === true,
+      mounted: official?.official === true,
+      bootOverlay: official?.snap?.bootOverlay === true,
+      bootFailure: official?.snap?.bootFailure || undefined,
     },
     rows: pluginRows(inventory),
     packages: installedPackages(),
@@ -279,6 +307,7 @@ const commonOk = phases.every(
     !phase.attachErr &&
     phase.official.http &&
     phase.official.websocket &&
+    phase.official.mounted &&
     phase.processTree.ownedAbsolute &&
     phase.processTree.dshPid > 0 &&
     phase.processTree.leftovers === 0,
@@ -308,7 +337,7 @@ const rec = {
   requiredInternal: REQUIRED_INTERNAL,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile behind the pre-DSH wizard; official DSH HTTP/WebSocket and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
+    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);

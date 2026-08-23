@@ -239,6 +239,19 @@ try {
   };
   verdict = "PASS";
 } catch (error) {
+  let ui;
+  if (session) {
+    try {
+      const snap = await evaluate(session, SNAPSHOT);
+      ui = {
+        step: snap?.step || "",
+        error: String(snap?.error || "").replaceAll(secret, "[redacted]"),
+        bootFailure: String(snap?.bootFailure || "").replaceAll(secret, "[redacted]"),
+      };
+    } catch {
+      /* the window may already be gone; the primary failure still remains */
+    }
+  }
   rec = {
     command: "test:e2e:installed:live",
     verdict: "FAIL",
@@ -248,6 +261,7 @@ try {
     installer,
     installerSha256: installed.installerSha256,
     reason: error instanceof Error ? error.message.replaceAll(secret, "[redacted]") : "live onboarding failed",
+    ...(ui ? { ui } : {}),
   };
 } finally {
   if (session) session.close();
