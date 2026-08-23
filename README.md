@@ -25,9 +25,15 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> **0.5.5 candidate under verification.** Local development targets official DSH `0.1.1-rc.2`, with Penglai Office and Penglai Memory as required-builtin plugins. There is no `v0.5.5` GitHub tag or Release yet. macOS remains ad-hoc/not notarized; Windows has no Authenticode. Intel Mac and Windows native installers are `AWAITING_NATIVE_MAC_X64` / `AWAITING_NATIVE_WIN_X64` until matching runners produce them. Live WeChat/Feishu and paid provider evidence stay `AWAITING_LIVE_CREDENTIAL`.
+> **0.5.5 candidate under verification.** Local development targets official DSH `0.1.1-rc.2`. A fresh profile loads official DSH plus required-builtin Penglai Office and Penglai Memory. IM, ASR, MOSS-TTS, and Companion stay installable and default-off. There is no `v0.5.5` GitHub tag or Release yet. macOS remains ad-hoc/not notarized; Windows has no Authenticode. Intel Mac and Windows native installers are `AWAITING_NATIVE_MAC_X64` / `AWAITING_NATIVE_WIN_X64` until matching runners produce them. Live WeChat/Feishu and paid provider evidence stay `AWAITING_LIVE_CREDENTIAL`.
 >
 > Penglai 0.5.3 remains the current public release for Apple Silicon, Intel Mac, and Windows x64. All three native jobs built, installed, launched, and exercised packages from source `afc75b2...`. The immutable 0.5.2 files remain available with their correction notice.
+
+<p align="center">
+  <img src=".github/assets/0.5.5/welcome.png" width="32%" alt="Penglai 0.5.5 installed welcome wizard, step 1 of 7">
+  <img src=".github/assets/0.5.5/privacy.png" width="32%" alt="Penglai 0.5.5 privacy notice in the installed wizard">
+  <img src=".github/assets/0.5.5/models.png" width="32%" alt="Penglai 0.5.5 official model picker in the installed wizard">
+</p>
 
 <a id="english"></a>
 
