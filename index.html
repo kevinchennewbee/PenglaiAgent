@@ -1,122 +1,125 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>蓬莱 Penglai 0.5.3 — DSH 的三端桌面发行版</title>
-  <meta name="description" content="蓬莱 0.5.3 基于官方 DeepSeek Harness 0.1.1-rc.1，提供 Apple Silicon、Intel Mac、Windows x64 客户端和可远程更新的签名插件中心。">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>蓬莱 0.5.5 | 把 DeepSeek Harness 装进你的电脑</title>
+  <meta name="description" content="蓬莱是 DeepSeek Harness 的本地优先桌面发行版。一个安装包带来首次引导、办公、记忆、微信与飞书、本地语音、插件中心和可靠升级。">
+  <meta property="og:title" content="蓬莱 0.5.5">
+  <meta property="og:description" content="DeepSeek Harness，装好就能用。办公、记忆、手机消息和本地语音都在一个桌面发行版里。">
+  <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/0.5.5/plugin-center.png">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="alternate" hreflang="zh-CN" href="https://penglai.pages.dev/">
-  <link rel="alternate" hreflang="en" href="https://penglai.pages.dev/en/">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="蓬莱 Penglai 0.5.3 — DSH 的三端桌面发行版与插件生态">
-  <meta property="og:description" content="官方 DSH 是唯一核心；三端安装、首次引导、签名插件目录与后续可信更新。">
-  <meta property="og:url" content="https://penglai.pages.dev/">
-  <meta property="og:locale" content="zh_CN">
-  <meta property="og:locale:alternate" content="en_US">
-  <link rel="stylesheet" href="styles/main.css">
+  <link rel="alternate" hreflang="en" href="./en/">
+  <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body>
-  <canvas id="fairy-canvas" aria-hidden="true"></canvas>
-  <svg class="mountain-layer" viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path class="ridge-1" d="M0 400 L0 320 Q80 280 160 300 Q240 260 320 240 Q380 220 420 250 Q480 200 540 180 Q600 160 640 190 Q700 150 760 170 Q820 140 880 160 Q940 130 1000 155 Q1060 140 1100 170 Q1160 150 1200 180 Q1280 200 1340 220 Q1400 240 1440 230 L1440 400 Z"/>
-    <path class="ridge-2" d="M0 400 L0 340 Q100 310 200 320 Q300 290 400 270 Q500 250 560 280 Q620 240 700 220 Q780 200 840 230 Q900 210 960 240 Q1020 220 1080 250 Q1140 230 1200 260 Q1300 280 1380 290 L1440 280 L1440 400 Z"/>
-    <path class="ridge-3" d="M0 400 L0 360 Q120 340 240 350 Q360 330 480 310 Q580 290 660 320 Q740 300 820 280 Q900 270 980 290 Q1060 280 1140 300 Q1240 310 1340 320 L1440 310 L1440 400 Z"/>
-  </svg>
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="seal">蓬</span><span>蓬莱 <small>PENGLAI</small></span></a>
+    <nav aria-label="主导航">
+      <a href="#new">0.5.5</a>
+      <a href="#inside">内置能力</a>
+      <a href="#story">缘起</a>
+      <a href="#download">下载</a>
+      <a href="./en/" hreflang="en">EN</a>
+      <a class="github" href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a>
+    </nav>
+  </header>
 
-  <nav class="nav" id="nav"><div class="nav-inner">
-    <a href="#hero" class="nav-logo"><span class="seal">蓬</span><span class="nav-logo-text">蓬莱<small>PENGLAI</small></span></a>
-    <ul class="nav-links" id="navLinks"><li><a href="#story">初心</a></li><li><a href="#compose">组合</a></li><li><a href="#abilities">插件</a></li><li><a href="#architecture">架构</a></li><li><a href="#security">隐私</a></li><li><a href="#start">下载</a></li></ul>
-    <div class="nav-right"><a href="./en/" class="nav-lang" hreflang="en">中 / EN</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" target="_blank" rel="noopener" class="nav-cta">GitHub</a><button class="nav-toggle" id="navToggle" aria-label="菜单" aria-controls="navLinks" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
-  </div></nav>
+  <main id="top">
+    <section class="hero">
+      <img class="hero-art" src="./shots/banner-v1.png" alt="云海中的蓬莱仙山">
+      <div class="hero-shade"></div>
+      <div class="hero-copy">
+        <p class="eyebrow">Penglai 0.5.5 · DeepSeek Harness 0.1.1-rc.2</p>
+        <h1>不是另一个 Agent。<br>是把好用的开源 Agent，真正装进电脑。</h1>
+        <p class="lead">蓬莱把官方 DeepSeek Harness、Node、Electron、首次引导、更新、卸载和一组实用 DSH 插件放进一个桌面客户端。你不用先学终端，也不用把日常交给一个新的云账号。</p>
+        <div class="actions">
+          <a class="button primary" href="#download">下载 0.5.5</a>
+          <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent">查看源代码</a>
+        </div>
+        <p class="quiet">MIT 开源 · 本地优先 · Apple Silicon / Intel Mac / Windows x64</p>
+      </div>
+    </div></section>
 
-  <main>
-    <section class="hero" id="hero">
-      <div class="hero-badges reveal"><span class="pill accent"><b>v0.5.3</b></span><span class="pill"><b>原生验收 3/3 PASS</b></span><span class="pill"><b>DSH 0.1.1-rc.1</b></span><span class="pill"><b>macOS arm64 + x64</b></span><span class="pill"><b>Windows x64</b></span><span class="pill"><b>MIT</b> 开源</span></div>
-      <div class="hero-name reveal reveal-delay-1"><span class="seal">蓬</span><h1>蓬莱</h1><span class="hero-version">0.5.3</span></div>
-      <p class="hero-tagline reveal reveal-delay-1">让 DSH 更容易来到每个人身边</p>
-      <p class="hero-modes reveal reveal-delay-2"><b>官方 DSH 是唯一核心</b> · <b>蓬莱负责可靠分发</b> · <b>能力都可以组合</b></p>
-      <div class="hero-ctas reveal reveal-delay-3"><a href="#start" class="btn btn-primary">选择你的客户端</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.3" class="btn btn-ghost">发布说明与校验</a></div>
-      <p class="modes-foot reveal reveal-delay-3">社区验证版 · macOS ad-hoc 签名且未公证 · Windows 未做 Authenticode 签名</p>
+    <section class="intro" id="new">
+      <div>
+        <p class="eyebrow">这次真正变了什么</p>
+        <h2>DSH 还是唯一核心，蓬莱把它变成了一个完整产品。</h2>
+      </div>
+      <p>模型、工具、Workspace、Session、Turn 和会话界面都归官方 DSH。蓬莱负责那些不起眼却决定“能不能交给普通人”的部分：安装、首次配置、本地路径、进程守护、插件启停、升级与数据清理。0.5.5 又把办公和记忆补成了开箱即用的默认能力。</p>
     </section>
 
-    <section class="section story" id="story"><div class="section-inner"><div class="story-quote">
-      <div class="section-label reveal">初心</div><h2 class="section-title reveal reveal-delay-1">如果 DSH 像 Linux，蓬莱想成为更容易抵达的发行层</h2>
-      <blockquote class="reveal reveal-delay-2">不是再造一个 Agent，也不是给 DSH 换一张贴纸。蓬莱尊重「万物皆插件」：把安装、首次配置和常用能力组合好，让普通人也能真正用上 DSH。</blockquote>
-      <p class="reveal reveal-delay-2">0.5.0 是一次彻底重构：Agent、Workspace、Session、Turn、模型、工具和基础 Web UI 全部回到官方 DSH。0.5.1 把这条路带到三个平台，0.5.3 则把真实升级演练发现的问题收尾，并继续固定官方 DSH 0.1.1-rc.1。</p>
-      <p class="reveal reveal-delay-3">插件中心现在也真正能继续生长。经过审核的 DSH 插件通过蓬莱签名、不可变的 GitHub Release 加入目录；用户刷新、下载、确认权限并启用，不必为了增加一款插件重装客户端。</p>
-      <div class="story-sign reveal reveal-delay-3">—— 八仙过海，各显神通；同一个 DSH，组合出属于你的蓬莱</div>
-    </div></div></section>
+    <figure class="feature-shot wide-shot">
+      <img src="./shots/0.5.5/plugin-center.png" alt="真实安装的蓬莱 0.5.5 插件中心">
+      <figcaption>0.5.5 真机截图。普通路径只保留启用或停用；版本、权限、摘要和诊断收进高级区域。</figcaption>
+    </figure>
 
-    <section class="section product-shots" id="screens"><div class="section-inner">
-      <div class="section-label reveal">真实的 0.5.3</div><h2 class="section-title reveal reveal-delay-1">插件真的更新，文件真的读过，旧客户端真的抵达新版本</h2><p class="section-desc reveal reveal-delay-2">下面三张图来自绑定发布源码 <code>afc75b2…</code> 的已安装 Apple Silicon 客户端。它从 GitHub 不可变 catalog 4 把 Office Reader 更新到 0.1.2，重启内置 DSH，再通过真实 DeepSeek 会话只读提取 DOCX、XLSX 与 PPTX。公开 0.5.1 客户端也真实下载并打开精确的 0.5.3 签名 DMG；完成系统复制后，保留的 profile 显示 <code>COMMITTED / 0.5.3</code>。</p>
-      <div class="shot-grid reveal reveal-delay-2">
-        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>signed catalog · Office Reader 0.1.2</span></div><img src="shots/0.5.3-plugin-center.jpeg" alt="蓬莱 0.5.3 插件中心显示 Office Reader 0.1.2 已安装且健康"></div><figcaption class="shot-caption">不可变 catalog、验签、安装状态与 DSH 健康</figcaption></figure>
-        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>real DeepSeek turn · three office formats</span></div><img src="shots/0.5.3-office-reader.jpeg" alt="真实 DeepSeek 会话通过 Office Reader 读取 DOCX XLSX PPTX"></div><figcaption class="shot-caption">真实模型调用与三个办公格式的只读提取</figcaption></figure>
-        <figure class="shot"><div class="shot-frame"><div class="shot-bar"><i></i><i></i><i></i><span>public 0.5.1 → 0.5.3 · committed</span></div><img src="shots/0.5.3-update-committed.jpeg" alt="公开 0.5.1 更新器交接后，蓬莱更新页显示 COMMITTED 0.5.3"></div><figcaption class="shot-caption">精确签名下载、用户确认、系统复制与已提交账本</figcaption></figure>
+    <section class="section" id="inside">
+      <p class="eyebrow">安装包里已经有</p>
+      <h2>办公和记忆默认启用，其余能力需要时再开。</h2>
+      <div class="cards">
+        <article><span class="state on">默认启用</span><h3>蓬莱办公</h3><p>读取、创建、修改、预览和保存 DOCX、XLSX、PPTX 与 PDF。写入前有计划和确认，PDF 自带中文字体，不要求用户安装 LibreOffice。</p></article>
+        <article><span class="state on">默认启用</span><h3>蓬莱记忆</h3><p>个人事实可以明确共享，项目内容只留在当前 Workspace。记忆有来源、可更正、可遗忘，也能用图谱看见它们如何相连。</p></article>
+        <article><span class="state">按需启用</span><h3>蓬莱手机消息</h3><p>微信和飞书共用同一条文字、图片、文件、语音管线，消息进入真正的 DSH Session，而不是另一套聊天系统。</p></article>
+        <article><span class="state">按需启用</span><h3>本地语音</h3><p>SenseVoice 负责语音识别，MOSS-TTS 负责语音生成。插件代码随包，较大的模型权重会在启用时说明后再下载。</p></article>
+        <article><span class="state">按需启用</span><h3>主动陪伴</h3><p>只有你主动开启后才会定时联系，并受安静时间、每日次数和指定消息渠道约束。默认不会擅自运行。</p></article>
+        <article><span class="state">持续更新</span><h3>签名插件中心</h3><p>插件列表来自不可变 GitHub Release。兼容的新插件可以通过签名目录加入，不必只为更新一张列表重发桌面版本。</p></article>
       </div>
     </div></section>
 
-    <section class="section" id="compose"><div class="section-inner">
-      <div class="section-label reveal">开箱与组合</div><h2 class="section-title reveal reveal-delay-1">默认很干净，需要什么，再装什么</h2><p class="section-desc reveal reveal-delay-2">首次安装只有 DSH 核心与蓬莱插件中心。所有扩展默认关闭，安装、启用、停用与模型下载都由用户决定。</p>
-      <div class="modes-grid">
-        <div class="mode-card chat reveal"><div class="mode-tag"><span class="zh">基础</span><span class="en">CORE</span></div><p><b>只用 DSH，也已经完整可用。</b></p><ul class="mode-list"><li>官方 Web UI、工作区、会话、模型与工具</li><li>首次向导选择 provider / model 并真实验证 API Key</li><li>中文默认，支持 English 与浅色/深色/跟随系统</li></ul></div>
-        <div class="mode-card work reveal reveal-delay-1"><div class="mode-tag"><span class="zh">组合</span><span class="en">PLUGINS</span></div><p><b>像搭积木一样增加本地能力。</b></p><ul class="mode-list"><li>IM 可以单独工作，不依赖 ASR 或 TTS</li><li>ASR、TTS、Context、Memory、Budget、Companion 均可热插拔</li><li>真实状态来自 DSH loader，不显示假卡片或静态“已安装”</li></ul></div>
+    <section class="gallery" aria-label="0.5.5 真机界面">
+      <figure><img src="./shots/0.5.5/office.png" alt="蓬莱办公设置页"><figcaption>蓬莱办公：创建、查看和有确认的修改流程</figcaption></figure>
+      <figure><img src="./shots/0.5.5/memory.png" alt="蓬莱记忆设置页"><figcaption>蓬莱记忆：Workspace 隔离、图谱、更正和迁移</figcaption></figure>
+      <figure><img src="./shots/0.5.5/mobile-messaging.png" alt="蓬莱手机消息设置页"><figcaption>手机消息：微信与飞书共用一个 IM 插件</figcaption></figure>
+      <figure><img src="./shots/0.5.5/speech-recognition.png" alt="蓬莱语音识别设置页"><figcaption>语音识别：模型安装后，电脑会话出现麦克风</figcaption></figure>
+    </section>
+
+    <section class="section first-run">
+      <div class="copy">
+        <p class="eyebrow">第一次打开，不该是一道坎</p>
+        <h2>七步引导，走到第一条真实回复才算完成。</h2>
+        <p>选语言和外观，了解本地数据边界，从官方模型列表选择供应商和模型，测试自己的 API Key，选一个真正的 Workspace，然后发送第一条 DSH 消息。可以返回、重试和重启续接；失败不会被伪装成成功。</p>
+      </div>
+      <img src="./shots/0.5.5/welcome.png" alt="蓬莱 0.5.5 首次引导欢迎页">
+    </section>
+
+    <section class="story section" id="story">
+      <p class="eyebrow">为什么叫蓬莱</p>
+      <blockquote>我做了十多年网络、安全和运维，却不是软件开发者。蓬莱一开始就想证明一件事：AI 时代，普通人也能为自己造工具。</blockquote>
+      <p>从命令行到窗口，再到每个人口袋里的手机，计算机一直在降低使用门槛。Agent 也应该走同一条路。会发消息，就应该能找到自己的助手；它替你做了什么、能看什么、花了多少，也应该讲得清楚。</p>
+      <p>蓬莱已经重做过不止一次。0.5 最重要的决定，是停止再造一个 Agent，转而站在 DeepSeek Harness 这个开源核心上，把安装、办公、记忆、手机消息和本地语音一件件做好。旧版本留在 Git 历史里讲这段路，但不会和新的 DSH 核心混在一起。</p>
+      <p class="signature">陈克文 / Kevin Chen</p>
+    </section>
+
+    <section class="trust section">
+      <p class="eyebrow">边界说在前面</p>
+      <h2>社区发行版，不把“签名”说成操作系统背书。</h2>
+      <div class="trust-grid">
+        <p><strong>没有蓬莱账号。</strong>没有遥测服务，也没有云端记忆同步。模型调用仍会把本次任务需要的内容发给你选择的模型供应商。</p>
+        <p><strong>macOS 未公证。</strong>安装包是 ad-hoc 签名；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。</p>
+        <p><strong>插件不是沙箱。</strong>签名、哈希、权限清单和回滚保护的是分发链路，但 DSH 插件仍与本地 DSH 共享进程权限。</p>
       </div>
     </div></section>
 
-    <section class="section" id="abilities"><div class="section-inner">
-      <div class="section-label reveal">蓬莱插件</div><h2 class="section-title reveal reveal-delay-1">1 + 1，大于 2</h2><p class="section-desc reveal reveal-delay-2">每个能力都遵循 DSH 插件边界；组合起来，才形成蓬莱独有的体验。</p>
-      <div class="ability-grid">
-        <div class="ability reveal"><h3>插件中心</h3><p>从真实 DSH loader inventory 管理插件，并读取<a href="https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000004">公开签名 catalog 4</a>。Office Reader 0.1.2 已完成验签、默认关闭安装、权限确认、更新后 DSH 重启和真实文档读取；不开放任意 npm、Git 或 URL 安装。</p></div>
-        <div class="ability reveal"><h3>消息连接 · IM</h3><p>微信与飞书私聊接入，同一消息经过耐久 claim、官方 DSH Turn，再回到原渠道。扫码者默认是唯一允许身份。</p></div>
-        <div class="ability reveal"><h3>本地语音识别 · ASR</h3><p>SenseVoice 模型按需下载并显示进度。微信加密 SILK 在本机解码、识别，语言与情绪只作为内部辅助上下文。</p></div>
-        <div class="ability reveal"><h3>MOSS-TTS-Nano</h3><p>按需安装本地模型，把 DSH 的最终回复合成为语音。飞书使用原生音频消息；微信当前提供可靠可播放音频。</p></div>
-        <div class="ability reveal"><h3>个人上下文</h3><p>只索引你明确授权的目录，本机 SQLite FTS5 建立可删除的派生索引，不修改源文件。</p></div>
-        <div class="ability reveal"><h3>分层记忆</h3><p>区分全局、工作区和会话候选；长期记忆与 SOP 需要可见 diff 和你的确认，SOP 复用官方 DSH Skills。</p></div>
-        <div class="ability reveal"><h3>Token 预算</h3><p>消费官方 TokenMeter 与模型路由；价格不可信时只报 token，不编造金额，硬上限在新 Turn 前熔断。</p></div>
-        <div class="ability reveal"><h3>主动陪伴</h3><p>默认关闭。复用官方 Schedule、Session 与 Turn，受安静时段、每日上限、精确绑定和禁止无人值守工具约束。</p></div>
+    <section class="download section" id="download">
+      <p class="eyebrow">Penglai 0.5.5</p>
+      <h2>选择你的电脑。</h2>
+      <div class="download-grid">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg"><strong>macOS · Apple 芯片</strong><span>M1 / M2 / M3 / M4 / M5</span></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_x64.dmg"><strong>macOS · Intel</strong><span>x86_64 Mac</span></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_windows_x64_setup.exe"><strong>Windows · x64</strong><span>64 位安装器</span></a>
       </div>
-    </div></section>
-
-    <section class="section" id="architecture"><div class="section-inner">
-      <div class="section-label reveal">架构</div><h2 class="section-title reveal reveal-delay-1">DSH 在中心，蓬莱在外围把体验做好</h2>
-      <div class="trio-grid">
-        <div class="trio-card reveal"><div class="trio-num">CORE</div><h3>DeepSeek Harness</h3><div class="trio-sub">唯一 Agent 与 UI 核心</div><p>模型、工作区、会话、工具、审批、权限、基础 Web UI 与插件运行时均由官方 DSH 提供。</p></div>
-        <div class="trio-card reveal reveal-delay-1"><div class="trio-num">DISTRO</div><h3>蓬莱桌面发行层</h3><div class="trio-sub">安装、引导、品牌与生命周期</div><p>内置目标架构 Node、Electron、固定 DSH closure 与许可证；不依赖 PATH、全局包或首次联网安装核心。</p></div>
-        <div class="trio-card reveal reveal-delay-2"><div class="trio-num">ECOSYSTEM</div><h3>标准化插件生态</h3><div class="trio-sub">可选、可组合、可卸载</div><p>蓬莱第一方插件通过 DSH 官方 service、slot、Remote 与 loader 接入，不建立第二套 Agent 或聊天系统。</p></div>
-      </div><p class="arch-note reveal">当前固定官方 DSH 0.1.1-rc.1。Penglai 0.5.3 不包含旧 Pi / Host 产品线，也不在旁边运行第二个 Agent。</p>
-    </div></section>
-
-    <section class="section" id="security"><div class="section-inner">
-      <div class="section-label reveal">隐私与安全</div><h2 class="section-title reveal reveal-delay-1">本地优先，但不对边界说漂亮话</h2>
-      <div class="guard-grid">
-        <div class="guard-card reveal"><h3>你能明确知道什么留在本机</h3><ul class="guard-list"><li>API Key 与渠道秘密走 DSH 官方 credentials seam，渲染器永远读不到明文。</li><li>macOS 凭据目录/文件使用 0700/0600 与原子写；同一系统用户的高权限进程仍可能读取，这是已公开边界。</li><li>ASR、TTS、索引、记忆、预算账本与陪伴计划可按类别查看和删除；工作区与授权源目录永不纳入应用删除计划。</li><li>无云账户、无同步、无遥测。</li></ul></div>
-        <div class="guard-card reveal reveal-delay-1"><h3>联网、升级与信任说明</h3><ul class="guard-list"><li>调用你选择的云模型时，本次任务所需提示与上下文会发送到相应 provider。</li><li>语音模型按需从固定来源下载并校验；核心首次启动不会联网安装依赖。</li><li>macOS 采用 ad-hoc 签名、没有 Developer ID、未公证；Windows 没有 Authenticode，系统可能显示安全提醒。</li><li>0.5.0 需要手动覆盖同平台安装包。已完成引导的 0.5.1 可使用签名更新器；若 0.5.1 的 Workspace 误判让设置页不可达，请手动安装同平台 0.5.3。两条路径都保留 0.5 代数据，并要求用户明确操作。</li></ul></div>
+      <p class="quiet">0.5.1、0.5.2、0.5.3 也可在“设置 → 蓬莱 → 更新”中获取 0.5.5。0.5.0 需要手动覆盖安装。更新不会静默执行。</p>
+      <div class="actions centered">
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5">中英文发布说明</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
       </div>
-    </div></section>
-
-    <section class="section" id="start"><div class="section-inner">
-      <div class="section-label reveal">开始</div><h2 class="section-title reveal reveal-delay-1">一个版本，三个原生安装包</h2><p class="section-desc reveal reveal-delay-2">三个客户端来自同一冻结源码。下载后请用 Release 里的 SHA256SUMS 核对；macOS 首次启动可能需要在“系统设置 → 隐私与安全性”中明确允许。</p>
-      <div class="download-grid reveal reveal-delay-2">
-        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.3/Penglai_0.5.3_macos_aarch64.dmg"><b>Apple Silicon</b><span>macOS 13+ · M1 / M2 / M3 / M4</span><code>Penglai_0.5.3_macos_aarch64.dmg</code></a>
-        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.3/Penglai_0.5.3_macos_x64.dmg"><b>Intel Mac</b><span>macOS · x86_64</span><code>Penglai_0.5.3_macos_x64.dmg</code></a>
-        <a class="download-card" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.3/Penglai_0.5.3_windows_x64_setup.exe"><b>Windows x64</b><span>当前用户 NSIS 安装包</span><code>Penglai_0.5.3_windows_x64_setup.exe</code></a>
-      </div>
-      <div class="hero-ctas reveal"><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.3" class="btn btn-primary">0.5.3 发布页</a><a href="https://github.com/kevinchennewbee/PenglaiAgent" class="btn btn-ghost">查看开源代码</a></div>
-    </div></section>
-
-    <section class="section" id="legal"><div class="section-inner">
-      <div class="section-label reveal">开源与致谢</div><h2 class="section-title reveal reveal-delay-1">代码开放，边界清楚</h2>
-      <div class="legal-grid">
-        <div class="legal-card reveal"><h3>许可、作者与 AI 协作</h3><p><b>代码：</b>蓬莱公开源代码采用 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/LICENSE">MIT</a>；第三方组件保留各自许可证与归属。</p><p><b>作者与维护：</b><a href="https://github.com/kevinchennewbee">陈克文 / Kevin Chen</a>。产品方向、审美、风险取舍、验收和发布责任始终由人承担。</p><p><b>协作工具：</b><a href="https://www.kimi.com/en/products/download">Kimi Work</a>、<a href="https://grok.com/">Grok Build</a>、<a href="https://cursor.com/">Cursor Agent</a>、<a href="https://www.anthropic.com/claude-code">Claude Code</a> 与 <a href="https://openai.com/codex/">OpenAI Codex</a> 参与过不同阶段的实现和审查。</p></div>
-        <div class="legal-card reveal reveal-delay-1"><h3>站在优秀开源项目肩上</h3><ul class="ack-list"><li><a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> · <a href="https://github.com/electron/electron">Electron</a> · <a href="https://github.com/nodejs/node">Node.js</a> · <a href="https://github.com/microsoft/TypeScript">TypeScript</a> · <a href="https://github.com/pnpm/pnpm">pnpm</a></li><li><a href="https://github.com/FunAudioLLM/SenseVoice">SenseVoice</a> · <a href="https://github.com/k2-fsa/sherpa-onnx">sherpa-onnx</a> · <a href="https://github.com/OpenMOSS/MOSS-TTS-Nano">MOSS-TTS-Nano</a></li><li><a href="https://github.com/larksuite/node-sdk">Lark Node SDK</a> · <a href="https://github.com/Tencent/openclaw-weixin">Tencent openclaw-weixin</a> · <a href="https://github.com/idranme/silk-wasm">silk-wasm</a> · <a href="https://github.com/openclaw/libopus-wasm">libopus-wasm</a></li><li>随包精确版本、许可证与文件见 0.5.3 Release 中的 Third-Party Notices 与 SBOM。</li></ul></div>
-      </div>
-      <div class="legacy-note reveal">官方渠道仅此 GitHub 仓库与本站。不要在非官方网页或机器人中输入 API Key、微信 token、飞书 App Secret 或其他凭据。安全问题请先脱敏后按 <a href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">SECURITY.md</a> 报告。</div>
-    </div></section>
+    </section>
   </main>
 
-  <footer class="footer"><div class="footer-inner"><div class="footer-brand"><span class="seal">蓬</span><div><div class="footer-brand-name">蓬莱 Penglai</div><div class="footer-brand-tag">八仙过海，各显神通。</div></div></div><div class="footer-links"><a href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases">Releases</a><a href="https://github.com/kevinchennewbee/PenglaiPluginRegistry">Plugin Registry</a><a href="./en/" hreflang="en">English</a></div></div><div class="footer-bottom"><span>© 2026 Kevin Chen · 代码 MIT · 品牌保留所有权利</span><span class="ver">v0.5.3</span></div></footer>
-  <script src="scripts/site.js"></script>
+  <footer>
+    <p>Penglai 由 <a href="https://github.com/kevinchennewbee">陈克文 / Kevin Chen</a> 发起并维护，基于 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>，MIT 开源。</p>
+    <p>感谢 Electron、Node.js、TypeScript、pnpm、SenseVoice、sherpa-onnx、MOSS-TTS-Nano、Mnemon、Lark SDK、openclaw-weixin 以及所有贡献者。</p>
+  </footer>
 </body>
 </html>
