@@ -1,17 +1,18 @@
 # Penglai 0.5.5 release notes
 
-Status: release candidate. This document does not claim that `v0.5.5` has been
-published. Source SHA, native run, installer hashes, and public read-back will be
-frozen only after the remaining release gates pass.
+Status: released. The immutable bilingual [`v0.5.5`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5)
+Release was published from source commit `2136ff691afa8bdbefa3079236426a72a3851237`.
+All three native targets passed and the ten public assets were downloaded and
+verified again after publication.
 
 Trust tier: `community-verified`. This is not silent auto-update.
 
 ## English
 
 Penglai 0.5.5 moves from official DeepSeek Harness `0.1.1-rc.1` to
-`0.1.1-rc.2`. DSH remains the only agent core. The release is planned for Apple
-Silicon (`darwin-aarch64`), Intel Mac (`darwin-x86_64`), and Windows x64
-(`win32-x86_64`) from one merged source commit.
+`0.1.1-rc.2`. DSH remains the only agent core. Apple Silicon
+(`darwin-aarch64`), Intel Mac (`darwin-x86_64`), and Windows x64
+(`win32-x86_64`) were built from one merged source commit.
 
 ### The short version
 
@@ -105,33 +106,34 @@ reference fixture and budget card are not presented as ordinary products.
 
 ### Catalog transition
 
-The planned signed `plugin-catalog-v1.000006` contains no replacement download.
+The signed [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) contains no replacement download.
 It revokes the old `@penglai/office-reader` exact artifact because full Penglai
 Office now ships in the desktop application. Catalog 000006 must not be
-published until the immutable 0.5.5 desktop Release exists. The historical
+published only after the immutable 0.5.5 desktop Release existed. The historical
 catalog Releases remain immutable.
 
 ### Verification and known limits
 
-The Apple Silicon candidate has been built from a clean public export, installed
-from its exact DMG, mounted against official DSH rc.2, and exercised through the
-required Office/Memory default plus optional plugin enable/restart/disable
-phases. Memory engine readiness, authorised-source UI, all optional settings
-surfaces, official HTTP/WebSocket, source identity, and zero leftover owned
-processes are part of that gate.
+The matching [native workflow](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
+passed on Apple Silicon, Intel Mac, and Windows x64. Every target used the same
+638-file clean public-export tree and passed exact installer identity, packaged
+Electron fuses, installed welcome/process smoke, Office and Memory defaults,
+and optional plugin enable/restart/disable/restart. The Windows runner also
+captured the real Simplified Chinese NSIS component page.
 
-Before publication, the matching Intel Mac and Windows x64 native jobs, final
-source gates, merge identity, metadata/signature generation, and immutable
-GitHub byte read-back must still pass. Real Weixin/Feishu accounts remain a
-separate external-credential limit. macOS is ad-hoc signed and not notarized;
-Windows has no Authenticode. Penglai signatures protect updater and plugin
-bytes, not operating-system publisher identity.
+The immutable Release contains exactly ten assets. Public read-back verified
+the tag-to-source binding, byte sizes, SHA-256 values, public-export tree,
+sequence-4 update manifest, manifest signature, and all three installer
+signatures. Real Weixin/Feishu accounts remain a separate external-credential
+limit. macOS is ad-hoc signed and not notarized; Windows has no Authenticode.
+Penglai signatures protect updater and plugin bytes, not operating-system
+publisher identity.
 
 ## 中文
 
 蓬莱 0.5.5 把唯一核心从官方 DeepSeek Harness `0.1.1-rc.1` 更新到
-`0.1.1-rc.2`。最终计划由同一个合并后的源码提交，在 Apple Silicon、Intel Mac 和
-Windows x64 三个原生环境分别构建。
+`0.1.1-rc.2`。Apple Silicon、Intel Mac 和 Windows x64 三个原生安装包已由同一个
+合并后的源码提交分别构建。
 
 ### 一句话版本
 
@@ -207,17 +209,20 @@ ASR、MOSS-TTS、记忆、办公、隐藏高级预算控制和主动陪伴。用
 
 ### 插件目录过渡
 
-计划中的签名 `plugin-catalog-v1.000006` 不提供替代下载。它按精确身份撤销旧
+已发布的签名 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006)
+不提供替代下载。它按精确身份撤销旧
 `@penglai/office-reader`，因为完整蓬莱办公已经随客户端提供。目录 000006 必须等
-不可变 0.5.5 桌面 Release 真实存在后才能发布；旧目录 Release 保持不可变。
+不可变 0.5.5 桌面 Release 真实存在后才发布；旧目录 Release 保持不可变。
 
 ### 验收与已知限制
 
-Apple Silicon 候选已经从 clean public export 构建，并从精确 DMG 安装。测试覆盖
-official DSH rc.2、办公与记忆默认启用、可选插件启用/重启/停用、记忆引擎 ready、
-授权资料 UI、全部可选设置页、official HTTP/WebSocket、源码身份和进程零残留。
+对应的[三端原生工作流](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
+已在 Apple Silicon、Intel Mac 和 Windows x64 全部通过。三个目标使用同一份 638 文件
+clean public-export 树，并通过安装包精确身份、Electron fuse、安装后首次启动与进程、
+办公和记忆默认启用，以及可选插件启用/重启/停用/再次重启。Windows runner 还保存了
+真实简体中文 NSIS 组件页截图。
 
-发布前仍需通过 Intel Mac、Windows x64 匹配原生 runner、最终源码门禁、合并身份、
-元数据与签名生成，以及 GitHub 不可变字节回读。真实微信/飞书账号仍是单独的外部
-凭据边界。macOS 为 ad-hoc 签名且未公证，Windows 没有 Authenticode。蓬莱签名保护
-升级和插件字节，不代表操作系统发布者身份。
+不可变 Release 严格包含十个资产。公网回读重新验证了 tag 到源码、字节大小、SHA-256、
+公开源码树、序号 4 的升级 manifest、manifest 签名和三个安装包签名。真实微信/飞书账号
+仍是单独的外部凭据边界。macOS 为 ad-hoc 签名且未公证，Windows 没有 Authenticode。
+蓬莱签名保护升级和插件字节，不代表操作系统发布者身份。
