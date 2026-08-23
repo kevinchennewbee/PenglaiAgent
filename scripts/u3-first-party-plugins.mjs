@@ -15,6 +15,7 @@ import {
   resourcesInside,
   stopChild,
   waitForFile,
+  resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import {
@@ -84,7 +85,7 @@ if (packaged.verdict !== "PASS") {
     reason: packaged.reason,
   });
 }
-const harness = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+const harness = resolveInstalledUiHarness();
 if (!harness) {
   finish("INCOMPLETE", {
     command: "u3-first-party-plugins",

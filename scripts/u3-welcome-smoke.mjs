@@ -14,6 +14,7 @@ import {
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
+  resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
@@ -98,7 +99,7 @@ if (packaged.verdict !== "PASS") {
 
 const app = installed.app;
 const resources = resourcesInside(app, expectedTarget);
-const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+const harnessApp = resolveInstalledUiHarness();
 if (!harnessApp) {
   finish("INCOMPLETE", {
     command: "u3-welcome-smoke",

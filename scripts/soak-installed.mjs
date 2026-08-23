@@ -15,6 +15,7 @@ import {
   signalPid,
   stopChild,
   waitForFile,
+  resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import {
   evidenceName,
@@ -101,7 +102,7 @@ if (expectedArtifact !== installed.installerSha256) {
 const exe = exeInside(installed.app, expectedTarget);
 if (!exe) finish("FAIL", { command: "test:soak:installed", reason: "installed Penglai executable missing", target: expectedTarget });
 const resources = resourcesInside(installed.app, expectedTarget);
-const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+const harnessApp = resolveInstalledUiHarness();
 if (!harnessApp) {
   finish("INCOMPLETE", {
     command: "test:soak:installed",

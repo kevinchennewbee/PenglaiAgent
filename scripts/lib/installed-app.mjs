@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, mkdtempSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
@@ -200,6 +201,19 @@ export function installedHarnessEnvironment(
     ...common,
     ...extraEnv,
   };
+}
+
+export function resolveInstalledUiHarness() {
+  const explicit = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+  if (explicit && existsSync(explicit)) return explicit;
+  try {
+    const require = createRequire(join(ROOT, "apps/desktop/package.json"));
+    const bin = require("electron");
+    if (typeof bin === "string" && existsSync(bin)) return bin;
+  } catch {
+    /* desktop electron is optional for source-only gates */
+  }
+  return undefined;
 }
 
 export function installedHarnessSpec(harnessExe, resources) {

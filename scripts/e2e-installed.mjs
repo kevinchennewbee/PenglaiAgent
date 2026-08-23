@@ -18,6 +18,7 @@ import {
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
+  resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import { evaluateLiveSample, probeLiveHttpWs, readProcessIdentity } from "./lib/runner-live.mjs";
@@ -141,7 +142,7 @@ if (refuseCode === 0) {
     reason: "exact DMG accepted --remote-debugging-port",
   });
 }
-const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+const harnessApp = resolveInstalledUiHarness();
 if (!harnessApp) {
   finish("INCOMPLETE", {
     command: "test:e2e:installed",
