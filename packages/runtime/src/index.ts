@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -518,14 +519,18 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
 }
 
 function copyDir(src: string, dest: string): void {
-  mkdirSync(dest, { recursive: true });
+  mkdirSync(dest, { recursive: true, mode: 0o700 });
   for (const name of readdirSync(src)) {
     const from = join(src, name);
     const to = join(dest, name);
     const st = lstatSync(from);
     if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) copyDir(from, to);
-    else writeFileSync(to, readFileSync(from), { mode: 0o600 });
+    else {
+      const mode = st.mode & 0o111 ? 0o700 : 0o600;
+      writeFileSync(to, readFileSync(from), { mode });
+      chmodSync(to, mode);
+    }
   }
 }
 

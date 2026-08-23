@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -80,6 +80,12 @@ function writeTrustedPluginSet(
       `export function apply() {}\nexport const marker = ${JSON.stringify(markers[metadata.id] ?? metadata.id)};\nexport default { apply };\n`,
     );
     if (hasClient) writeFileSync(join(stage, "dist", "client.js"), "export const apply = () => {};\n");
+    if (metadata.id === "@penglai/memory") {
+      const binary = join(stage, "resources", "mnemon", "mnemon");
+      mkdirSync(join(stage, "resources", "mnemon"), { recursive: true });
+      writeFileSync(binary, "fixture-mnemon\n", { mode: 0o755 });
+      if (process.platform !== "win32") chmodSync(binary, 0o755);
+    }
     writeFileSync(
       join(stage, "package.json"),
       JSON.stringify({
@@ -310,6 +316,19 @@ test("fresh profile installs Center plus required builtins and links official @d
   );
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
+  const memoryBinary = join(
+    user.profileWeb,
+    "node_modules",
+    "@penglai",
+    "memory",
+    "resources",
+    "mnemon",
+    "mnemon",
+  );
+  assert.equal(existsSync(memoryBinary), true);
+  if (process.platform !== "win32") {
+    assert.notEqual(lstatSync(memoryBinary).mode & 0o111, 0);
+  }
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
