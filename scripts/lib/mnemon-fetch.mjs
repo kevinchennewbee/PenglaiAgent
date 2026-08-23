@@ -19,7 +19,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { createWriteStream } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { MNEMON_ASSETS, MNEMON_UPSTREAM, mnemonAssetForTarget, mnemonReleaseUrl } from "../../packages/release-identity/src/mnemon-assets.ts";
+import { MNEMON_ASSETS, MNEMON_UPSTREAM, mnemonAssetForTarget, mnemonReleaseUrl } from "../../packages/release-identity/src/mnemon-assets.js";
 
 const HOST_ALLOW = new Set(MNEMON_UPSTREAM.hostAllowlist);
 

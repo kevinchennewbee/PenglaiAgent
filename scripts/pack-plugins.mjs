@@ -20,7 +20,7 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
-import { mnemonAssetForPluginTarget } from "../packages/release-identity/src/mnemon-assets.ts";
+import { mnemonAssetForPluginTarget } from "../packages/release-identity/src/mnemon-assets.js";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,

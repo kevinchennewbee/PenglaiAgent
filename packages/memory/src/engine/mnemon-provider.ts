@@ -2,11 +2,8 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
-import {
-  MNEMON_ASSETS,
-  mnemonAssetForHost,
-  type MnemonAssetPin,
-} from "@penglai/release-identity";
+import { MNEMON_ASSETS, mnemonAssetForHost } from "@penglai/release-identity";
+import type { MnemonAssetPin } from "@penglai/release-identity";
 
 export { MNEMON_ASSETS };
 

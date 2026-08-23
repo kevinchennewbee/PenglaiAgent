@@ -7,7 +7,7 @@ import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
-import { mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.ts";
+import { mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
