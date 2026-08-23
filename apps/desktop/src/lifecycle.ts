@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import {
   DATA_CATEGORIES,
   assertCanonicalManifestUrl,
@@ -86,12 +86,10 @@ export interface UpdaterReleaseContract {
 
 export function loadUpdaterReleaseContract(resourcesRoot: string): UpdaterReleaseContract {
   const path = join(resourcesRoot, "release-contract.json");
-  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !lstatSync(path).isFile()) {
-    throw new PenglaiError("STORE_CORRUPT", "embedded release contract missing or unsafe");
-  }
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
+    const bytes = readExactRegularFile(path, 256 * 1024);
+    raw = JSON.parse(bytes.toString("utf8"));
   } catch {
     throw new PenglaiError("STORE_CORRUPT", "embedded release contract unreadable");
   }
@@ -127,14 +125,10 @@ export function readWorkspaceProtection(
   now = Date.now(),
   maxAgeMs = 10_000,
 ): WorkspaceProtection {
-  if (!existsSync(path)) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace protection snapshot missing");
-  const stat = lstatSync(path);
-  if (stat.isSymbolicLink() || !stat.isFile()) {
-    throw new PenglaiError("SECURITY_POLICY", "Workspace protection snapshot must be a regular file");
-  }
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
+    const bytes = readExactRegularFile(path, 1024 * 1024);
+    raw = JSON.parse(bytes.toString("utf8"));
   } catch {
     throw new PenglaiError("STORE_CORRUPT", "Workspace protection snapshot unreadable");
   }

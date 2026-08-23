@@ -1,5 +1,5 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readExactRegularFile } from "@penglai/contracts";
 
 const COMPLETION_STEPS = [
   "welcome-v1",
@@ -14,19 +14,9 @@ const COMPLETION_STEPS = [
 
 export function onboardingLedgerComplete(userRoot: string): boolean {
   const path = join(userRoot, "onboarding", "onboarding.json");
-  if (!existsSync(path)) return false;
-  let st;
   try {
-    st = lstatSync(path);
-  } catch {
-    return false;
-  }
-  // The ledger must be a real regular file owned by the app-private home; a
-  // symlink here could be used to point at an attacker-controlled file that
-  // says "COMPLETE" and skips onboarding.
-  if (!st.isFile() || st.isSymbolicLink()) return false;
-  try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    const bytes = readExactRegularFile(path, 256 * 1024);
+    const raw = JSON.parse(bytes.toString("utf8")) as unknown;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
     const rec = raw as Record<string, unknown>;
     if (rec.schema !== 2) return false;
@@ -35,15 +25,6 @@ export function onboardingLedgerComplete(userRoot: string): boolean {
     const completed = rec.completed;
     if (!COMPLETION_STEPS.every((step) => completed.includes(step))) return false;
     return onboardingCompletionReceiptValid(join(userRoot, "onboarding"));
-  } catch {
-    return false;
-  }
-}
-
-function regularFile(path: string): boolean {
-  try {
-    const st = lstatSync(path);
-    return st.isFile() && !st.isSymbolicLink();
   } catch {
     return false;
   }
@@ -60,9 +41,9 @@ function regularFile(path: string): boolean {
  */
 export function onboardingCompletionReceiptValid(dir: string): boolean {
   const path = join(dir, "onboarding-facts.json");
-  if (!regularFile(path)) return false;
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const bytes = readExactRegularFile(path, 256 * 1024);
+    const raw = JSON.parse(bytes.toString("utf8")) as Record<string, unknown>;
     const selection = raw.selection as { provider?: unknown; model?: unknown } | undefined;
     const apiTest = raw.apiTest as { nonceDigest?: unknown; finalDigest?: unknown; sessionId?: unknown } | undefined;
     const first = raw.firstConversation as { sessionId?: unknown; messageDigest?: unknown; finalDigest?: unknown } | undefined;

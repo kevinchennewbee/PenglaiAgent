@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 
 export type AudioSource = "mic" | "im" | "attachment" | "fixture";
 
@@ -70,15 +70,12 @@ export class AudioHandleRegistry {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     this.initialized = true;
-    if (!existsSync(this.ledgerPath)) return;
     let raw: unknown;
     try {
-      const info = lstatSync(this.ledgerPath);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 512 * 1024) {
-        throw new Error("unsafe ASR handle ledger");
-      }
-      raw = JSON.parse(readFileSync(this.ledgerPath, "utf8")) as unknown;
-    } catch {
+      const bytes = readExactRegularFile(this.ledgerPath, 512 * 1024);
+      raw = JSON.parse(bytes.toString("utf8")) as unknown;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw new PenglaiError("STORE_CORRUPT", "ASR audio handle ledger corrupt");
     }
     if (!Array.isArray(raw)) {
@@ -94,14 +91,13 @@ export class AudioHandleRegistry {
       }
       const path = this.pathFor(record.filename);
       if (record.expiresAt > this.now()) {
-        const info = await lstat(path).catch(() => undefined);
-        if (
-          !info ||
-          !info.isFile() ||
-          info.isSymbolicLink() ||
-          info.size !== record.bytes ||
-          digest(await readFile(path)) !== record.digest
-        ) {
+        let bytes: Buffer | undefined;
+        try {
+          bytes = readExactRegularFile(path, MAX_AUDIO_BYTES);
+        } catch {
+          bytes = undefined;
+        }
+        if (!bytes || bytes.length !== record.bytes || digest(bytes) !== record.digest) {
           throw new PenglaiError("STORE_CORRUPT", "ASR audio handle file corrupt");
         }
       }
@@ -185,17 +181,13 @@ export class AudioHandleRegistry {
       throw new PenglaiError("INVALID_INPUT", "ASR audio handle expired");
     }
     const path = this.pathFor(record.filename);
-    const info = await lstat(path).catch(() => undefined);
-    if (
-      !info ||
-      !info.isFile() ||
-      info.isSymbolicLink() ||
-      info.size !== record.bytes
-    ) {
+    let buf: Buffer;
+    try {
+      buf = readExactRegularFile(path, MAX_AUDIO_BYTES);
+    } catch {
       throw new PenglaiError("SECURITY_POLICY", "ASR audio handle file rejected");
     }
-    const buf = await readFile(path);
-    if (digest(buf) !== record.digest) {
+    if (buf.length !== record.bytes || digest(buf) !== record.digest) {
       throw new PenglaiError("SECURITY_POLICY", "ASR audio handle digest mismatch");
     }
     return buf;

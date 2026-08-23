@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  constants,
   createReadStream,
   existsSync,
   lstatSync,
@@ -20,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { PenglaiError, type ErrorClass } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
 import type { AsrModelState } from "./service.js";
 
 export const SENSEVOICE_MODEL_ID = "sensevoice-int8";
@@ -637,7 +638,22 @@ export class AsrModelManager {
     ) {
       throw new PenglaiError("SECURITY_POLICY", "ASR model Content-Length mismatch");
     }
-    const handle = await open(part, append ? "a" : "w", 0o600);
+    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+    const flags =
+      constants.O_WRONLY |
+      constants.O_CREAT |
+      noFollow |
+      (append ? constants.O_APPEND : constants.O_TRUNC);
+    const handle = await open(part, flags, 0o600);
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.size !== (append ? existing : 0)) {
+        throw new PenglaiError("SECURITY_POLICY", "ASR model partial file changed before open");
+      }
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
     const completedBefore = op.completedBytes;
     let lastPersisted = existing;
     let written = existing;
@@ -866,13 +882,9 @@ export class AsrModelManager {
   }
 
   private restoreOperations(): void {
-    if (!existsSync(this.operationsPath)) return;
     try {
-      const info = lstatSync(this.operationsPath);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) {
-        throw new Error("unsafe operations ledger");
-      }
-      const raw = JSON.parse(readFileSync(this.operationsPath, "utf8")) as unknown;
+      const bytes = readExactRegularFile(this.operationsPath, 256 * 1024);
+      const raw = JSON.parse(bytes.toString("utf8")) as unknown;
       if (!Array.isArray(raw)) throw new Error("operations ledger shape");
       for (const value of raw) {
         if (!value || typeof value !== "object") {
@@ -886,7 +898,8 @@ export class AsrModelManager {
         this.operations.set(op.operationId, op);
       }
       this.persistOperations();
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw new PenglaiError("STORE_CORRUPT", "ASR model operation ledger corrupt");
     }
   }

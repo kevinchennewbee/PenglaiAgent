@@ -441,17 +441,23 @@ export class ObjectStore {
   }
 }
 
-function readExactRegularFile(path: string): Buffer {
+export function readExactRegularFile(path: string, maxBytes = Number.POSITIVE_INFINITY): Buffer {
   let fd: number | undefined;
   try {
     const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
     fd = openSync(path, constants.O_RDONLY | noFollow);
     const before = fstatSync(fd);
-    if (!before.isFile()) throw new PenglaiError("STORE_CORRUPT", "object store entry is not a regular file");
+    if (!before.isFile()) throw new PenglaiError("STORE_CORRUPT", "file is not a regular file");
+    if (!Number.isSafeInteger(maxBytes) && maxBytes !== Number.POSITIVE_INFINITY) {
+      throw new PenglaiError("INVALID_INPUT", "file byte limit invalid");
+    }
+    if (maxBytes < 0 || before.size > maxBytes) {
+      throw new PenglaiError("SECURITY_POLICY", "file exceeds byte limit");
+    }
     const bytes = readFileSync(fd);
     const after = fstatSync(fd);
     if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || bytes.length !== after.size) {
-      throw new PenglaiError("STORE_CORRUPT", "object store entry changed while open");
+      throw new PenglaiError("STORE_CORRUPT", "file changed while open");
     }
     return bytes;
   } finally {

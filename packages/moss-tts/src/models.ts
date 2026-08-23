@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  constants,
   createReadStream,
   existsSync,
   lstatSync,
@@ -20,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { PenglaiError, type ErrorClass } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
 
 export type TtsModelState =
   | "not_installed"
@@ -575,7 +576,22 @@ export class TtsModelManager {
     if (!Number.isFinite(length) || length < 0 || (length > 0 && existing + length > file.bytes)) {
       throw new PenglaiError("SECURITY_POLICY", "MOSS Content-Length mismatch");
     }
-    const handle = await open(part, append ? "a" : "w", 0o600);
+    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+    const flags =
+      constants.O_WRONLY |
+      constants.O_CREAT |
+      noFollow |
+      (append ? constants.O_APPEND : constants.O_TRUNC);
+    const handle = await open(part, flags, 0o600);
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.size !== (append ? existing : 0)) {
+        throw new PenglaiError("SECURITY_POLICY", "MOSS partial file changed before open");
+      }
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
     const before = op.completedBytes;
     let written = existing;
     let lastPersisted = existing;
@@ -784,11 +800,9 @@ export class TtsModelManager {
   }
 
   private restoreOperations(): void {
-    if (!existsSync(this.operationsPath)) return;
     try {
-      const info = lstatSync(this.operationsPath);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 512 * 1024) throw new Error("unsafe ledger");
-      const raw = JSON.parse(readFileSync(this.operationsPath, "utf8")) as unknown;
+      const bytes = readExactRegularFile(this.operationsPath, 512 * 1024);
+      const raw = JSON.parse(bytes.toString("utf8")) as unknown;
       if (!Array.isArray(raw)) throw new Error("ledger shape");
       for (const value of raw) {
         if (!this.validOperation(value)) throw new Error("ledger row");
@@ -797,7 +811,8 @@ export class TtsModelManager {
         this.operations.set(op.operationId, op);
       }
       this.persistOperations();
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw new PenglaiError("STORE_CORRUPT", "MOSS model operation ledger corrupt");
     }
   }
@@ -955,9 +970,8 @@ export class TtsModelManager {
   private async installedManifestValid(): Promise<boolean> {
     const path = join(this.revisionDir(), "manifest.json");
     try {
-      const info = await lstat(path);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 256 * 1024) return false;
-      const value = JSON.parse(readFileSync(path, "utf8")) as {
+      const bytes = readExactRegularFile(path, 256 * 1024);
+      const value = JSON.parse(bytes.toString("utf8")) as {
         id?: unknown;
         revision?: unknown;
         licenseSha256?: unknown;
