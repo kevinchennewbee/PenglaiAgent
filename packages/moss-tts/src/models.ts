@@ -528,80 +528,73 @@ export class TtsModelManager {
     const dest = this.destination(file);
     await this.ensurePrivateDirectory(dirname(dest));
     const part = this.partPath(file, op.operationId);
-    let existing = 0;
-    if (existsSync(part)) {
-      const info = await lstat(part);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > file.bytes) {
-        throw new PenglaiError("SECURITY_POLICY", "MOSS partial file unsafe");
-      }
-      existing = info.size;
-    }
-    const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.5 model-manager" };
-    const validator = op.validators?.[file.path];
-    if (existing) {
-      headers.Range = `bytes=${existing}-`;
-      if (validator) headers["If-Range"] = validator;
-    }
-    const response = await this.fetchPinned(file, headers, signal);
-    if (response.status !== 200 && response.status !== 206) {
-      throw new PenglaiError(
-        response.status >= 500 || response.status === 429 ? "DELIVERY_TRANSIENT" : "DELIVERY_PERMANENT",
-        `MOSS model download rejected with status ${response.status}`,
-      );
-    }
-    if (!response.body) throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS download body missing");
-    const responseValidator = response.headers.get("x-linked-etag") ?? response.headers.get("etag") ?? undefined;
-    if (validator && responseValidator && responseValidator !== validator) {
-      throw new PenglaiError("SECURITY_POLICY", "MOSS model validator changed during resume");
-    }
-    if (responseValidator && !validator) {
-      this.updateOperation(op, { validators: { ...(op.validators ?? {}), [file.path]: responseValidator } });
-    }
-    let append = false;
-    if (existing && response.status === 206) {
-      const range = response.headers.get("content-range") ?? "";
-      if (!range.startsWith(`bytes ${existing}-`) || !range.endsWith(`/${file.bytes}`)) {
-        throw new PenglaiError("SECURITY_POLICY", "MOSS Range response mismatch");
-      }
-      append = true;
-    } else if (existing && response.status === 200) {
-      existing = 0;
-    } else if (!existing && response.status === 206) {
-      const range = response.headers.get("content-range") ?? "";
-      if (!range.startsWith("bytes 0-") || !range.endsWith(`/${file.bytes}`)) {
-        throw new PenglaiError("SECURITY_POLICY", "MOSS unsolicited Range mismatch");
-      }
-    }
-    const length = Number(response.headers.get("content-length") ?? 0);
-    if (!Number.isFinite(length) || length < 0 || (length > 0 && existing + length > file.bytes)) {
-      throw new PenglaiError("SECURITY_POLICY", "MOSS Content-Length mismatch");
-    }
     const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
-    const flags =
-      constants.O_WRONLY |
-      constants.O_CREAT |
-      noFollow |
-      (append ? constants.O_APPEND : constants.O_TRUNC);
+    const flags = constants.O_RDWR | constants.O_CREAT | noFollow;
     const handle = await open(part, flags, 0o600);
+    const before = op.completedBytes;
+    let written = 0;
     try {
       const opened = await handle.stat();
-      if (!opened.isFile() || opened.size !== (append ? existing : 0)) {
-        throw new PenglaiError("SECURITY_POLICY", "MOSS partial file changed before open");
+      if (!opened.isFile() || opened.size > file.bytes) {
+        throw new PenglaiError("SECURITY_POLICY", "MOSS partial file unsafe");
       }
-    } catch (error) {
-      await handle.close();
-      throw error;
-    }
-    const before = op.completedBytes;
-    let written = existing;
-    let lastPersisted = existing;
-    try {
+      let existing = opened.size;
+      const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.5 model-manager" };
+      const validator = op.validators?.[file.path];
+      if (existing) {
+        headers.Range = `bytes=${existing}-`;
+        if (validator) headers["If-Range"] = validator;
+      }
+      const response = await this.fetchPinned(file, headers, signal);
+      if (response.status !== 200 && response.status !== 206) {
+        throw new PenglaiError(
+          response.status >= 500 || response.status === 429 ? "DELIVERY_TRANSIENT" : "DELIVERY_PERMANENT",
+          `MOSS model download rejected with status ${response.status}`,
+        );
+      }
+      if (!response.body) throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS download body missing");
+      const responseValidator = response.headers.get("x-linked-etag") ?? response.headers.get("etag") ?? undefined;
+      if (validator && responseValidator && responseValidator !== validator) {
+        throw new PenglaiError("SECURITY_POLICY", "MOSS model validator changed during resume");
+      }
+      if (responseValidator && !validator) {
+        this.updateOperation(op, { validators: { ...(op.validators ?? {}), [file.path]: responseValidator } });
+      }
+      if (existing && response.status === 206) {
+        const range = response.headers.get("content-range") ?? "";
+        if (!range.startsWith(`bytes ${existing}-`) || !range.endsWith(`/${file.bytes}`)) {
+          throw new PenglaiError("SECURITY_POLICY", "MOSS Range response mismatch");
+        }
+      } else if (existing && response.status === 200) {
+        await handle.truncate(0);
+        existing = 0;
+      } else if (!existing && response.status === 206) {
+        const range = response.headers.get("content-range") ?? "";
+        if (!range.startsWith("bytes 0-") || !range.endsWith(`/${file.bytes}`)) {
+          throw new PenglaiError("SECURITY_POLICY", "MOSS unsolicited Range mismatch");
+        }
+      }
+      const length = Number(response.headers.get("content-length") ?? 0);
+      if (!Number.isFinite(length) || length < 0 || (length > 0 && existing + length > file.bytes)) {
+        throw new PenglaiError("SECURITY_POLICY", "MOSS Content-Length mismatch");
+      }
+      written = existing;
+      let lastPersisted = existing;
       for await (const raw of response.body as unknown as AsyncIterable<Uint8Array>) {
         if (signal.aborted) throw signal.reason;
         const chunk = Buffer.from(raw);
+        if (written + chunk.length > file.bytes) {
+          throw new PenglaiError("SECURITY_POLICY", "MOSS download exceeds pin");
+        }
+        let offset = 0;
+        while (offset < chunk.length) {
+          const result = await handle.write(chunk, offset, chunk.length - offset, written + offset);
+          if (result.bytesWritten <= 0) {
+            throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS model write made no progress");
+          }
+          offset += result.bytesWritten;
+        }
         written += chunk.length;
-        if (written > file.bytes) throw new PenglaiError("SECURITY_POLICY", "MOSS download exceeds pin");
-        await handle.write(chunk);
         if (written - lastPersisted >= 1024 * 1024) {
           this.updateOperation(op, { completedBytes: before + written });
           lastPersisted = written;

@@ -591,81 +591,72 @@ export class AsrModelManager {
     const dest = this.destination(file);
     await mkdir(dirname(dest), { recursive: true, mode: 0o700 });
     const part = this.partPath(file, op.operationId);
-    let existing = 0;
-    if (existsSync(part)) {
-      const info = await lstat(part);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > file.bytes) {
-        throw new PenglaiError("SECURITY_POLICY", "ASR partial model file unsafe");
-      }
-      existing = info.size;
-    }
-    const headers: Record<string, string> = {
-      "User-Agent": "Penglai/0.5.5 model-manager",
-    };
-    if (existing) headers.Range = `bytes=${existing}-`;
-    const response = await this.fetchPinned(file.url, headers, signal);
-    if (response.status !== 200 && response.status !== 206) {
-      throw new PenglaiError(
-        response.status >= 500 || response.status === 429
-          ? "DELIVERY_TRANSIENT"
-          : "DELIVERY_PERMANENT",
-        `ASR model download rejected with status ${response.status}`,
-      );
-    }
-    if (!response.body) {
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ASR model download body missing");
-    }
-    let append = false;
-    if (existing && response.status === 206) {
-      const range = response.headers.get("content-range") ?? "";
-      if (!range.startsWith(`bytes ${existing}-`) || !range.endsWith(`/${file.bytes}`)) {
-        throw new PenglaiError("SECURITY_POLICY", "ASR model Range response mismatch");
-      }
-      append = true;
-    } else if (existing && response.status === 200) {
-      existing = 0;
-    } else if (!existing && response.status === 206) {
-      const range = response.headers.get("content-range") ?? "";
-      if (!range.startsWith("bytes 0-") || !range.endsWith(`/${file.bytes}`)) {
-        throw new PenglaiError("SECURITY_POLICY", "ASR model unsolicited Range mismatch");
-      }
-    }
-    const contentLength = Number(response.headers.get("content-length") ?? 0);
-    if (
-      !Number.isFinite(contentLength) ||
-      contentLength < 0 ||
-      (contentLength > 0 && existing + contentLength > file.bytes)
-    ) {
-      throw new PenglaiError("SECURITY_POLICY", "ASR model Content-Length mismatch");
-    }
     const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
-    const flags =
-      constants.O_WRONLY |
-      constants.O_CREAT |
-      noFollow |
-      (append ? constants.O_APPEND : constants.O_TRUNC);
+    const flags = constants.O_RDWR | constants.O_CREAT | noFollow;
     const handle = await open(part, flags, 0o600);
+    const completedBefore = op.completedBytes;
+    let written = 0;
     try {
       const opened = await handle.stat();
-      if (!opened.isFile() || opened.size !== (append ? existing : 0)) {
-        throw new PenglaiError("SECURITY_POLICY", "ASR model partial file changed before open");
+      if (!opened.isFile() || opened.size > file.bytes) {
+        throw new PenglaiError("SECURITY_POLICY", "ASR partial model file unsafe");
       }
-    } catch (error) {
-      await handle.close();
-      throw error;
-    }
-    const completedBefore = op.completedBytes;
-    let lastPersisted = existing;
-    let written = existing;
-    try {
+      let existing = opened.size;
+      const headers: Record<string, string> = {
+        "User-Agent": "Penglai/0.5.5 model-manager",
+      };
+      if (existing) headers.Range = `bytes=${existing}-`;
+      const response = await this.fetchPinned(file.url, headers, signal);
+      if (response.status !== 200 && response.status !== 206) {
+        throw new PenglaiError(
+          response.status >= 500 || response.status === 429
+            ? "DELIVERY_TRANSIENT"
+            : "DELIVERY_PERMANENT",
+          `ASR model download rejected with status ${response.status}`,
+        );
+      }
+      if (!response.body) {
+        throw new PenglaiError("DELIVERY_TRANSIENT", "ASR model download body missing");
+      }
+      if (existing && response.status === 206) {
+        const range = response.headers.get("content-range") ?? "";
+        if (!range.startsWith(`bytes ${existing}-`) || !range.endsWith(`/${file.bytes}`)) {
+          throw new PenglaiError("SECURITY_POLICY", "ASR model Range response mismatch");
+        }
+      } else if (existing && response.status === 200) {
+        await handle.truncate(0);
+        existing = 0;
+      } else if (!existing && response.status === 206) {
+        const range = response.headers.get("content-range") ?? "";
+        if (!range.startsWith("bytes 0-") || !range.endsWith(`/${file.bytes}`)) {
+          throw new PenglaiError("SECURITY_POLICY", "ASR model unsolicited Range mismatch");
+        }
+      }
+      const contentLength = Number(response.headers.get("content-length") ?? 0);
+      if (
+        !Number.isFinite(contentLength) ||
+        contentLength < 0 ||
+        (contentLength > 0 && existing + contentLength > file.bytes)
+      ) {
+        throw new PenglaiError("SECURITY_POLICY", "ASR model Content-Length mismatch");
+      }
+      let lastPersisted = existing;
+      written = existing;
       for await (const raw of response.body as unknown as AsyncIterable<Uint8Array>) {
         if (signal.aborted) throw signal.reason;
         const chunk = Buffer.from(raw);
-        written += chunk.length;
-        if (written > file.bytes) {
+        if (written + chunk.length > file.bytes) {
           throw new PenglaiError("SECURITY_POLICY", "ASR model download exceeds pinned size");
         }
-        await handle.write(chunk);
+        let offset = 0;
+        while (offset < chunk.length) {
+          const result = await handle.write(chunk, offset, chunk.length - offset, written + offset);
+          if (result.bytesWritten <= 0) {
+            throw new PenglaiError("DELIVERY_TRANSIENT", "ASR model write made no progress");
+          }
+          offset += result.bytesWritten;
+        }
+        written += chunk.length;
         if (written - lastPersisted >= 1024 * 1024) {
           this.updateOperation(op, {
             completedBytes: completedBefore + Math.min(written, file.bytes),
