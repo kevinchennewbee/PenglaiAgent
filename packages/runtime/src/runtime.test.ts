@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -38,6 +37,7 @@ import {
   runtimePluginTarget,
   windowsOwnedProcessEnvironment,
 } from "./index.js";
+import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
 
 test("embedded DSH Web never opens the operating-system browser", () => {
   assert.deepEqual(dshWebArgs(3080), [
@@ -124,7 +124,7 @@ function writeTrustedPluginSet(
       }),
     );
     const archive = join(pluginsDir, metadata.packageFile);
-    execFileSync("tar", ["-czf", archive, "-C", stage, "."]);
+    writeTestTarGz(stage, archive);
     return {
       ...metadata,
       sha256: createHash("sha256").update(readFileSync(archive)).digest("hex"),
@@ -299,7 +299,7 @@ test("R2I-DIST-007 refuses to install historical keychain tarball into profile",
   writeFileSync(join(dir, "package.json"), "{\"name\":\"@penglai/credentials-keychain\",\"main\":\"dist/index.js\"}\n");
   writeFileSync(join(dir, "dist", "index.js"), "export const name = 'kc';\n");
   mkdirSync(join(app, "plugins"), { recursive: true });
-  execFileSync("tar", ["-czf", join(app, "plugins", "penglai-credentials-keychain-0.2.0.tgz"), "-C", dir, "."]);
+  writeTestTarGz(dir, join(app, "plugins", "penglai-credentials-keychain-0.2.0.tgz"));
   writeTrustedPluginSet(app);
   mkdirSync(user.profileWeb, { recursive: true });
   mkdirSync(user.transactions, { recursive: true });

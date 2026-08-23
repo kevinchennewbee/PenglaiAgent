@@ -7,13 +7,12 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
-  readFileSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { randomBytes } from "node:crypto";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { digestBytes } from "./jobs.js";
 
 /**
@@ -80,24 +79,12 @@ function fsyncPath(path: string): void {
 }
 
 function readExistingRegularFile(path: string): Buffer | undefined {
-  let fd: number;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    return readExactRegularFile(path);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") return undefined;
-    if (code === "ELOOP") {
-      throw new PenglaiError("SECURITY_POLICY", "office refuses a pre-existing symlink destination");
-    }
     throw error;
-  }
-  try {
-    if (!fstatSync(fd).isFile()) {
-      throw new PenglaiError("SECURITY_POLICY", "office destination must be a regular file");
-    }
-    return readFileSync(fd);
-  } finally {
-    closeSync(fd);
   }
 }
 

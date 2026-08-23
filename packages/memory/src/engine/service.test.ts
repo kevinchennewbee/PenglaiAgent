@@ -28,7 +28,7 @@ test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   await memory.forget(personal.id);
   const after = await memory.search("测试用户");
   assert.equal(after.some((row) => row.id === personal.id), false);
-  assert.match(personalDataDir(dir), /memory\/mnemon\/personal/);
+  assert.equal(personalDataDir(dir), join(dir, "memory", "mnemon", "personal"));
   assert.notEqual(workspaceDataDir(dir, "ws-a"), workspaceDataDir(dir, "ws-b"));
   const graph = await memory.graph("ws-a");
   assert.equal(Array.isArray(graph.nodes), true);
