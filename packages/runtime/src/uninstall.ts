@@ -12,7 +12,7 @@ import {
   type Stats,
 } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 
 export const DATA_CATEGORIES = [
   "cache",
@@ -272,9 +272,12 @@ export function detectLegacy(root: string): { present: boolean; version?: string
   let version: string | undefined;
   for (const name of ["version", "VERSION", "app-version.txt"]) {
     const file = resolve(root, name);
-    if (existsSync(file) && statSync(file).isFile()) {
-      version = readFileSync(file, "utf8").trim().slice(0, 32);
+    try {
+      const bytes = readExactRegularFile(file, 4096);
+      version = bytes.toString("utf8").trim().slice(0, 32);
       break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") continue;
     }
   }
   return { present: true, ...(version ? { version } : {}), size: st.size };

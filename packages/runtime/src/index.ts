@@ -21,7 +21,7 @@ import { userInfo } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection, createServer } from "node:net";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import {
   clearIdentity,
   killIdentity,
@@ -369,13 +369,17 @@ export function installFirstPartyPlugins(
 
 export function seedFreshSettings(user: UserLayout): void {
   const settings = join(user.dshHome, "settings.yaml");
-  if (existsSync(settings)) return;
   mkdirSync(user.dshHome, { recursive: true, mode: 0o700 });
-  writeFileSync(
-    settings,
-    ["locale:", "  preference: zh", "ui-theme:", "  preference: system", ""].join("\n"),
-    { mode: 0o600 },
-  );
+  try {
+    writeFileSync(
+      settings,
+      ["locale:", "  preference: zh", "ui-theme:", "  preference: system", ""].join("\n"),
+      { mode: 0o600, flag: "wx" },
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    readExactRegularFile(settings, 4 * 1024 * 1024);
+  }
 }
 
 export function detectKeychainOverride(text: string): { required: boolean } {
@@ -396,21 +400,36 @@ export function recordKeychainMigrationIfNeeded(user: UserLayout): void {
   if (!detected.required) return;
   const marker = join(user.root, "migrations", "keychain-required.json");
   mkdirSync(dirname(marker), { recursive: true, mode: 0o700 });
-  if (existsSync(marker)) return;
-  writeFileSync(
-    marker,
-    JSON.stringify(
-      {
-        code: "CREDENTIAL_MIGRATION_REQUIRED",
-        action: "re-enter",
-        silentRead: false,
-        silentDelete: false,
-      },
-      null,
-      2,
-    ),
-    { mode: 0o600 },
-  );
+  try {
+    writeFileSync(
+      marker,
+      JSON.stringify(
+        {
+          code: "CREDENTIAL_MIGRATION_REQUIRED",
+          action: "re-enter",
+          silentRead: false,
+          silentDelete: false,
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600, flag: "wx" },
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    const current = JSON.parse(readExactRegularFile(marker, 64 * 1024).toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+    if (
+      current.code !== "CREDENTIAL_MIGRATION_REQUIRED" ||
+      current.action !== "re-enter" ||
+      current.silentRead !== false ||
+      current.silentDelete !== false
+    ) {
+      throw new PenglaiError("STORE_CORRUPT", "keychain migration marker invalid");
+    }
+  }
 }
 
 function removeCordisPluginBlock(patchText: string, pluginId: string): {

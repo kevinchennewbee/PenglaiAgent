@@ -1,9 +1,11 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -124,7 +126,13 @@ export function applyOverlayToRoot(dshRoot) {
     if (current !== file.upstreamSha256) {
       throw new Error(`overlay target hash mismatch ${file.id} got ${current}`);
     }
-    writeFileSync(target, patched);
+    const temp = `${target}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(temp, patched, { flag: "wx" });
+      renameSync(temp, target);
+    } finally {
+      rmSync(temp, { force: true });
+    }
     applied.push({ id: file.id, status: "applied" });
   }
   return { dsh: manifest.dsh, applied };

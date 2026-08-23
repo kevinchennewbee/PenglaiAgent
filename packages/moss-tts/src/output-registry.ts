@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { lstat, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 
 export interface TtsAudioHandle {
   id: string;
@@ -116,12 +116,13 @@ export class TtsOutputRegistry {
       throw new PenglaiError("SECURITY_POLICY", "TTS output handle metadata mismatch");
     }
     const path = join(this.root, record.file);
-    const info = await lstat(path);
-    if (!info.isFile() || info.isSymbolicLink() || info.size !== record.bytes) {
+    let wav: Buffer;
+    try {
+      wav = readExactRegularFile(path, record.bytes);
+    } catch {
       throw new PenglaiError("STORE_CORRUPT", "TTS output file invalid");
     }
-    const wav = readFileSync(path);
-    if (createHash("sha256").update(wav).digest("hex") !== record.digest) {
+    if (wav.length !== record.bytes || createHash("sha256").update(wav).digest("hex") !== record.digest) {
       throw new PenglaiError("STORE_CORRUPT", "TTS output digest mismatch");
     }
     return wav;
@@ -166,11 +167,9 @@ export class TtsOutputRegistry {
   }
 
   private restore(): void {
-    if (!existsSync(this.ledger)) return;
     try {
-      const info = lstatSync(this.ledger);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 512 * 1024) throw new Error("ledger unsafe");
-      const raw = JSON.parse(readFileSync(this.ledger, "utf8")) as unknown;
+      const bytes = readExactRegularFile(this.ledger, 512 * 1024);
+      const raw = JSON.parse(bytes.toString("utf8")) as unknown;
       if (!Array.isArray(raw)) throw new Error("ledger shape");
       for (const value of raw) {
         if (!this.valid(value)) throw new Error("ledger row");
@@ -181,7 +180,8 @@ export class TtsOutputRegistry {
       for (const entry of readdirSync(this.root)) {
         if (!allowed.has(entry)) throw new Error("unknown output file");
       }
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw new PenglaiError("STORE_CORRUPT", "TTS output ledger corrupt");
     }
   }

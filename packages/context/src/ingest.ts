@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
 import { inflateRawSync, inflateSync } from "node:zlib";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { assertGrant, type ContextGrant } from "./service.js";
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -161,17 +161,18 @@ export function walkGrant(grant: ContextGrant): IngestReport {
         report.failed += 1;
         continue;
       }
-      const info = lstatSync(file);
-      if (info.isSymbolicLink() || !info.isFile() || info.size > MAX_FILE_BYTES) {
-        report.skipped += 1;
-        continue;
-      }
       const ext = extname(file).toLowerCase();
       if (!TEXT_EXTS.has(ext) && !OFFICE_EXTS.has(ext) && !PDF_EXTS.has(ext)) {
         report.skipped += 1;
         continue;
       }
-      const buf = readFileSync(file);
+      let buf: Buffer;
+      try {
+        buf = readExactRegularFile(file, MAX_FILE_BYTES);
+      } catch {
+        report.skipped += 1;
+        continue;
+      }
       const body = extractText(file, buf);
       if (!body.trim()) {
         report.skipped += 1;

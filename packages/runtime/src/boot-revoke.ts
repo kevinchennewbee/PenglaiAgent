@@ -1,5 +1,7 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readExactRegularFile } from "@penglai/contracts";
 import { PluginDistributionClient, selectCatalogArtifact } from "@penglai/plugin-registry";
 import type { SignedPluginCatalog } from "@penglai/plugin-registry";
 import { PINNED_PLUGIN_DSH, runtimePluginTarget } from "./plugin-catalog.js";
@@ -17,8 +19,23 @@ function scopedPackageJson(profileDir: string, id: string): string | undefined {
 
 function patchDisable(profileDir: string, pluginId: string): void {
   const patchPath = join(profileDir, "cordis.patch.yml");
-  if (!existsSync(patchPath)) return;
-  writeFileSync(patchPath, upsertDisabled(readFileSync(patchPath, "utf8"), pluginId), { mode: 0o600 });
+  let current: Buffer;
+  try {
+    current = readExactRegularFile(patchPath, 4 * 1024 * 1024);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  const temp = join(profileDir, `.cordis.patch.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temp, upsertDisabled(current.toString("utf8"), pluginId), {
+      mode: 0o600,
+      flag: "wx",
+    });
+    renameSync(temp, patchPath);
+  } finally {
+    rmSync(temp, { force: true });
+  }
 }
 
 function upsertDisabled(patchText: string, pluginId: string): string {

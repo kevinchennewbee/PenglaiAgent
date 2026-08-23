@@ -1,0 +1,11 @@
+{
+  "name": "image-size",
+  "version": "0.5.5",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs"
+  },
+  "license": "MIT"
+}

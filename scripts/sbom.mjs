@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
 
 mkdirSync("evidence/generated", { recursive: true });
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
@@ -14,6 +15,38 @@ const components = [...names].sort().slice(0, 800).map((id) => ({
   version: id.split("@").at(-1),
   purl: `pkg:npm/${id}`,
 }));
+const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
+components.push({
+  type: "file",
+  name: "Noto Sans SC variable font",
+  version: fontSource.upstreamCommit,
+  "bom-ref": `pkg:github/notofonts/noto-cjk@${fontSource.upstreamCommit}`,
+  licenses: [{ license: { id: "OFL-1.1" } }],
+  properties: [
+    { name: "penglai:distribution", value: "bundled-in-office-plugin" },
+    { name: "penglai:upstream.file", value: fontSource.upstreamFile },
+    { name: "penglai:upstream.sha256", value: fontSource.upstreamSha256 },
+    { name: "penglai:bundled.sha256", value: fontSource.bundledSha256 },
+    { name: "penglai:modified", value: String(fontSource.modified) },
+  ],
+});
+components.push({
+  type: "application",
+  name: "Mnemon",
+  version: MNEMON_UPSTREAM.version,
+  "bom-ref": `pkg:github/${MNEMON_UPSTREAM.owner}/${MNEMON_UPSTREAM.repo}@${MNEMON_UPSTREAM.commit}`,
+  licenses: [{ license: { id: MNEMON_UPSTREAM.license } }],
+  properties: [
+    { name: "penglai:distribution", value: "bundled-platform-binary" },
+    { name: "penglai:upstream.tag", value: MNEMON_UPSTREAM.tag },
+    { name: "penglai:license.sha256", value: MNEMON_UPSTREAM.licenseSha256 },
+    ...MNEMON_ASSETS.flatMap((asset) => [
+      { name: `penglai:asset:${asset.target}:archive.sha256`, value: asset.archiveSha256 },
+      { name: `penglai:asset:${asset.target}:binary.sha256`, value: asset.binarySha256 },
+      { name: `penglai:asset:${asset.target}:binary.bytes`, value: String(asset.binaryBytes) },
+    ]),
+  ],
+});
 components.push({
   type: "machine-learning-model",
   name: "SenseVoiceSmall int8 sherpa-onnx conversion",

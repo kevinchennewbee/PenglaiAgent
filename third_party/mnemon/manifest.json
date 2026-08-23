@@ -1,5 +1,8 @@
 {
   "release": "v0.2.4",
   "commit": "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b",
+  "license": "Apache-2.0",
+  "licenseUrl": "https://github.com/mnemon-dev/mnemon/blob/67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b/LICENSE",
+  "licenseSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
   "binaries": "fetched by scripts/fetch-mnemon-assets.mjs; not stored in git"
 }

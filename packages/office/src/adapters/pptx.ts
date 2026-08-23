@@ -11,6 +11,16 @@ function pptfastGenerate(): ((input: unknown) => Promise<Uint8Array>) | undefine
   try {
     const pkg = dirname(require.resolve("@liustack/pptfast/package.json"));
     try {
+      const packed = require(join(pkg, "dist/penglai-runtime.cjs")) as {
+        generatePptx?: (input: unknown) => Promise<Uint8Array>;
+        installNodePlatform?: () => void;
+      };
+      packed.installNodePlatform?.();
+      if (packed.generatePptx) return packed.generatePptx;
+    } catch {
+      /* source checkout uses the upstream dist files directly */
+    }
+    try {
       const nodePlatform = require(join(pkg, "dist/node.js")) as { installNodePlatform?: () => void };
       nodePlatform.installNodePlatform?.();
     } catch {

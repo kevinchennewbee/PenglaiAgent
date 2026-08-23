@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -265,6 +266,57 @@ test("R50-VOICE: downloader resumes an exact Range and atomically verifies every
       existsSync(join(revisionDir, `model.int8.onnx.${operationId}.part`)),
       false,
     );
+  } finally {
+    await manager.dispose();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("R50-VOICE: downloader never follows a swapped partial-file path", async (context) => {
+  if (process.platform === "win32") {
+    context.skip("Windows reparse-point behavior is covered by the app-private ACL boundary");
+    return;
+  }
+  const root = mkdtempSync(join(tmpdir(), "penglai-asr-part-swap-"));
+  const model = Buffer.from("0123456789-model");
+  const tokens = Buffer.from("tokens-exact");
+  const manifest = fixtureManifest(model, tokens);
+  const revisionDir = join(root, "models", manifest.revision);
+  const { mkdirSync } = await import("node:fs");
+  mkdirSync(revisionDir, { recursive: true });
+  const operationId = "download_swap_1";
+  const part = join(revisionDir, `model.int8.onnx.${operationId}.part`);
+  const moved = `${part}.opened`;
+  const victim = join(root, "must-not-change.txt");
+  writeFileSync(part, model.subarray(0, 5));
+  writeFileSync(victim, "owner-data");
+  const { AsrModelManager } = await import("./models.js");
+  const manager = new AsrModelManager(join(root, "models"), manifest, {
+    async fetchImpl(input) {
+      if (String(input).includes("model.int8.onnx")) {
+        renameSync(part, moved);
+        symlinkSync(victim, part);
+        return new Response(model.subarray(5), {
+          status: 206,
+          headers: {
+            "content-length": String(model.length - 5),
+            "content-range": `bytes 5-${model.length - 1}/${model.length}`,
+          },
+        });
+      }
+      return new Response(tokens, {
+        status: 200,
+        headers: { "content-length": String(tokens.length) },
+      });
+    },
+  });
+  try {
+    await assert.rejects(
+      manager.prepareModel(operationId),
+      /ELOOP|regular file|file type rejected|SECURITY_POLICY/,
+    );
+    assert.equal(readFileSync(victim, "utf8"), "owner-data");
+    assert.equal(readFileSync(moved).toString(), model.toString());
   } finally {
     await manager.dispose();
     rmSync(root, { recursive: true, force: true });

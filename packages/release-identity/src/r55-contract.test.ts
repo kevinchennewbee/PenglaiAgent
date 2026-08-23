@@ -12,6 +12,7 @@ import {
   PRODUCT_VERSION,
   RELEASE_TARGETS,
 } from "./pins.js";
+import { MNEMON_UPSTREAM } from "./mnemon-assets.js";
 import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -37,6 +38,19 @@ test("R55-TRUTH-003 only three exact target installers", () => {
 
 test("R55-TRUTH-004 no 0.5.4/0.5.6/tag/release drift", () => {
   assert.equal(PRODUCT_VERSION.includes("0.5.4") || PRODUCT_VERSION.includes("0.5.6"), false);
+});
+
+test("bundled Mnemon uses its actual Apache-2.0 license", () => {
+  const manifest = JSON.parse(readFileSync(join(root, "third_party/mnemon/manifest.json"), "utf8"));
+  const sbomSource = readFileSync(join(root, "scripts/sbom.mjs"), "utf8");
+  const noticesSource = readFileSync(join(root, "scripts/third-party-notices.mjs"), "utf8");
+  assert.equal(MNEMON_UPSTREAM.license, "Apache-2.0");
+  assert.equal(manifest.license, "Apache-2.0");
+  assert.equal(manifest.licenseSha256, MNEMON_UPSTREAM.licenseSha256);
+  assert.equal(sbomSource.includes("Noto Sans SC variable font"), true);
+  assert.equal(sbomSource.includes("Mnemon"), true);
+  assert.equal(noticesSource.includes("Penglai Office"), true);
+  assert.equal(noticesSource.includes("Penglai Memory"), true);
 });
 
 test("R55-DSH-001 official Web/Agent/Session/Workspace unchanged", () => {

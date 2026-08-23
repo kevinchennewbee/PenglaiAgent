@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { PenglaiError } from "@penglai/contracts";
-import { walkGrant } from "./ingest.js";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
+import { MAX_FILE_BYTES, walkGrant } from "./ingest.js";
 
 export type SourceStatus = "current" | "stale" | "revoked" | "unavailable";
 
@@ -90,11 +90,9 @@ export interface DocumentRow {
 }
 
 function currentDigest(path: string): { exists: boolean; digest: string } {
-  if (!existsSync(path)) return { exists: false, digest: "" };
   try {
-    const info = statSync(path);
-    if (!info.isFile()) return { exists: false, digest: "" };
-    return { exists: true, digest: createHash("sha256").update(readFileSync(path)).digest("hex") };
+    const bytes = readExactRegularFile(path, MAX_FILE_BYTES);
+    return { exists: true, digest: createHash("sha256").update(bytes).digest("hex") };
   } catch {
     return { exists: false, digest: "" };
   }

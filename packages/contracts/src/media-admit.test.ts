@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,6 +9,7 @@ import {
   attachDownloadedMedia,
   imageMediaTypeFromBytes,
   isDiagnosticMediaCaption,
+  readExactRegularFile,
   userFacingMediaPrompt,
 } from "./index.js";
 
@@ -48,6 +49,20 @@ test("object store rejects persisted byte or metadata tampering", () => {
   const meta = JSON.parse(readFileSync(join(dir, `${handle}.json`), "utf8")) as Record<string, unknown>;
   writeFileSync(join(dir, `${handle}.json`), JSON.stringify({ ...meta, size: 1 }));
   assert.throws(() => new ObjectStore(dir).get(handle, "sess-1"), /metadata mismatch|STORE_CORRUPT/i);
+});
+
+test("exact regular-file reader bounds bytes and rejects symlinks", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-exact-file-"));
+  const file = join(dir, "entry.json");
+  writeFileSync(file, "trusted");
+  assert.equal(readExactRegularFile(file, 7).toString("utf8"), "trusted");
+  assert.throws(() => readExactRegularFile(file, 6), /byte limit|SECURITY_POLICY/i);
+
+  if (process.platform !== "win32") {
+    const link = join(dir, "entry-link.json");
+    symlinkSync(file, link);
+    assert.throws(() => readExactRegularFile(link, 7), /ELOOP|regular file|STORE_CORRUPT/i);
+  }
 });
 
 test("attachDownloadedMedia requires saveImage for images", async () => {

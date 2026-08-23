@@ -115,12 +115,20 @@ function copyDir(src: string, dest: string): void {
 }
 
 function atomicJournal(path: string, value: unknown): void {
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(value, null, 2), {
-    mode: 0o600,
-    flag: "w",
-  });
-  renameSync(temp, path);
+  atomicPrivateText(path, JSON.stringify(value, null, 2));
+}
+
+function atomicPrivateText(path: string, value: string): void {
+  const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temp, value, {
+      mode: 0o600,
+      flag: "wx",
+    });
+    renameSync(temp, path);
+  } finally {
+    rmSync(temp, { force: true });
+  }
 }
 
 export function setPatchDisabled(
@@ -450,7 +458,7 @@ export async function runProfileTransaction(opts: {
       opts.entry.id,
       !desiredEnabled,
     );
-    writeFileSync(patchPath, nextPatch, { mode: 0o600 });
+    atomicPrivateText(patchPath, nextPatch);
     const scoped = join(staging, "node_modules", ...opts.entry.id.split("/"));
     if (
       opts.action === "update" ||
