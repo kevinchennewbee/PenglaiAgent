@@ -106,7 +106,7 @@
 | `R50-CENTER-006` |desired不能冒充installed/active | fault/all |
 | `R50-CENTER-007` |tampered/incompatible/wrong-arch package在commit前拒绝 | security/all |
 | `R50-CENTER-008` |事务任一点crash后恢复单一一致或rollback | chaos/all |
-| `R50-CENTER-009` |fresh只运行Center；IM及六个能力插件均not-installed/absent，用户安装IM后才由真实loader+supervisor反证active | installed/all |
+| `R50-CENTER-009` |fresh 运行 Center + Office + Memory（required-builtin inventory `active`）；IM/ASR/MOSS-TTS/Companion 默认 disabled；用户启用后由真实 loader inventory 反证 active | installed/all |
 | `R50-CENTER-010` |disable/uninstall后无plugin worker/socket/timer/Remote/DB handle | installed/all |
 
 ### G. IM core、Remote、UI、持久化与supervisor（12）
