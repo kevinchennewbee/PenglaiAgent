@@ -107,8 +107,9 @@ $nsisSourcePath = Join-Path $PSScriptRoot 'nsis/Penglai.nsi'
 $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $nsisSource = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($nsisSourcePath))
 if ($nsisSource -notmatch 'Unicode true' -or
+    $nsisSource -notmatch 'Section "Penglai" SecApp' -or
     $nsisSource -notmatch 'LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"') {
-  throw "strict UTF-8 NSIS source does not contain the exact Unicode Chinese component contract"
+  throw "strict UTF-8 NSIS source does not contain the required app and Unicode Chinese component contract"
 }
 New-Item -ItemType Directory -Path $evidenceDir -Force | Out-Null
 $installTarget = Join-Path $env:TEMP "Penglai-0.5.5-ui-proof"
@@ -132,10 +133,9 @@ try {
   # exposes the surrounding Components page, but does not consistently expose
   # the individual tree item names on GitHub's Windows images. Prove the page
   # is genuinely Chinese, save the native screenshot, and bind that visual
-  # evidence to the exact UTF-16LE component string embedded in the installer.
+  # evidence to the strict UTF-8 input consumed by the Unicode NSIS compiler.
   $componentNames = Wait-PenglaiUiText $handle '组件|安装'
   $joined = $componentNames -join "`n"
-  if ($joined -notmatch '(?m)^Penglai$') { throw "required Penglai component missing" }
   if ($joined -match ([char]0xFFFD)) { throw "Unicode replacement character rendered in installer" }
   Save-PenglaiWindow $handle $screenshot
   if (-not (Test-Path -LiteralPath $screenshot -PathType Leaf)) {
@@ -149,6 +149,7 @@ try {
     expected = @('Penglai', '桌面快捷方式')
     componentNameProof = 'strict-utf8-nsis-source-plus-native-screenshot'
     compilerContract = 'Unicode true + makensis /INPUTCHARSET UTF8'
+    requiredAppExposedByUiAutomation = ($joined -match '(?m)^Penglai$')
     desktopNameExposedByUiAutomation = ($joined -match '桌面快捷方式')
     screenshot = 'windows-installer-components-zh.png'
     windowWidth = $process.MainWindowHandle -ne [IntPtr]::Zero
