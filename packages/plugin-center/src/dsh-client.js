@@ -344,7 +344,6 @@ window.__ModuleLoader__.load({
                     className: "penglai-capability-heading",
                     children: [
                       jsx.jsx("strong", { children: title }),
-                      jsx.jsx("code", { children: id }),
                     ],
                   }),
                   jsx.jsx("span", {
@@ -354,80 +353,14 @@ window.__ModuleLoader__.load({
                 ],
               }),
               hint ? jsx.jsx("p", { children: hint }) : null,
-              jsx.jsxs("dl", {
+              jsx.jsxs("p", {
+                className: "penglai-plugin-permissions",
                 children: [
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerSource }),
-                      jsx.jsx("dd", { children: String(entry.source ?? "bundled-first-party") }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerVersion }),
-                      jsx.jsx("dd", { children: String(entry.version ?? installed) }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerDsh }),
-                      jsx.jsx("dd", {
-                        children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.2"),
-                      }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerPermissions }),
-                      jsx.jsx("dd", {
-                        children: Array.isArray(entry.permissions)
-                          ? entry.permissions.join(", ") || t.centerNoPermissions
-                          : t.centerNoPermissions,
-                      }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerSignature }),
-                      jsx.jsx("dd", {
-                        children: entry.signature
-                          ? `${entry.signature.keyId ?? ""} ${entry.signature.ok ? t.centerSignatureOk : t.centerSignatureBad}`
-                          : t.centerSignatureBundled,
-                      }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerUpdated }),
-                      jsx.jsx("dd", { children: String(entry.updatedAt ?? entry.issuedAt ?? "—") }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerActual }),
-                      jsx.jsx("dd", { children: String(loaded) }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerDesired }),
-                      jsx.jsx("dd", { children: desired }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerInstalled }),
-                      jsx.jsx("dd", {
-                        children: installed,
-                      }),
-                    ],
-                  }),
-                  jsx.jsxs("div", {
-                    children: [
-                      jsx.jsx("dt", { children: t.centerHealthy }),
-                      jsx.jsx("dd", { children: String(healthy) }),
-                    ],
-                  }),
+                  t.centerPermissions,
+                  ": ",
+                  Array.isArray(entry.permissions)
+                    ? entry.permissions.join(", ") || t.centerNoPermissions
+                    : t.centerNoPermissions,
                 ],
               }),
               entry.error
@@ -472,6 +405,77 @@ window.__ModuleLoader__.load({
                         "data-penglai-plugin-advanced": "1",
                         children: [
                           jsx.jsx("summary", { children: t.centerAdvanced ?? "Advanced" }),
+                          jsx.jsxs("dl", {
+                            "data-penglai-plugin-diagnostics": "1",
+                            children: [
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerSource }),
+                                  jsx.jsx("dd", { children: String(entry.source ?? "bundled-first-party") }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: "id" }),
+                                  jsx.jsx("dd", { children: id }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerVersion }),
+                                  jsx.jsx("dd", { children: String(entry.version ?? installed) }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerDsh }),
+                                  jsx.jsx("dd", {
+                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.2"),
+                                  }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerSignature }),
+                                  jsx.jsx("dd", {
+                                    children: entry.signature
+                                      ? `${entry.signature.keyId ?? ""} ${entry.signature.ok ? t.centerSignatureOk : t.centerSignatureBad}`
+                                      : t.centerSignatureBundled,
+                                  }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerUpdated }),
+                                  jsx.jsx("dd", { children: String(entry.updatedAt ?? entry.issuedAt ?? "—") }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerActual }),
+                                  jsx.jsx("dd", { children: String(loaded) }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerDesired }),
+                                  jsx.jsx("dd", { children: desired }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerInstalled }),
+                                  jsx.jsx("dd", { children: installed }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerHealthy }),
+                                  jsx.jsx("dd", { children: String(healthy) }),
+                                ],
+                              }),
+                            ],
+                          }),
                           jsx.jsx("button", {
                             type: "button",
                             "data-penglai-plugin-action": "download",

@@ -120,6 +120,14 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   ]);
   assert.match(client, /const cardIds = FIRST_PARTY_CARDS\.map\(\(card\) => card\.id\)/);
   assert.doesNotMatch(client, /\[\.\.\.state\.remote, \.\.\.state\.catalog, \.\.\.FIRST_PARTY_CARDS\]/);
+  assert.match(client, /data-penglai-plugin-diagnostics/);
+  const diagnostics = client.slice(client.indexOf("data-penglai-plugin-diagnostics"));
+  assert.match(diagnostics, /centerDesired/);
+  assert.match(diagnostics, /centerActual/);
+  assert.ok(
+    client.indexOf("data-penglai-plugin-diagnostics") > client.indexOf("data-penglai-plugin-advanced"),
+    "desired/actual diagnostics belong inside the advanced details",
+  );
 });
 
 test("Penglai branding shadows rc.8 official single slots at a distinct priority", () => {
