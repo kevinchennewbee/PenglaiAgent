@@ -144,6 +144,27 @@ function clickButtonText(patterns) {
   })()`;
 }
 
+export function settingsTriggerClickScript() {
+  return `(() => {
+    const normalized = (value) => String(value || "").replace(/\\s+/g, " ").trim();
+    const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
+    const byText = buttons.find((node) =>
+      [node.textContent, node.getAttribute("aria-label"), node.getAttribute("title")]
+        .map(normalized)
+        .some((label) => /^(设置|Settings)$/.test(label)),
+    );
+    const button = byText || document.querySelector('button[aria-haspopup="dialog"][aria-expanded]');
+    if (!button) return { ok: false, reason: "missing", semanticFallback: false };
+    if (button.disabled) return { ok: false, reason: "disabled", semanticFallback: button !== byText };
+    button.click();
+    return {
+      ok: true,
+      semanticFallback: button !== byText,
+      text: normalized(button.textContent) || normalized(button.getAttribute("aria-label")) || normalized(button.getAttribute("title")),
+    };
+  })()`;
+}
+
 function clickPluginAction(pluginId, action) {
   return `(() => {
     const card = Array.from(document.querySelectorAll("[data-penglai-plugin-card]")).find(
@@ -180,7 +201,7 @@ async function installOptionalPlugins(session) {
         45_000,
       );
     }
-    await evaluate(session, clickButtonText(["^设置$", "^Settings$"]));
+    await evaluate(session, settingsTriggerClickScript());
     await delay(300);
     await evaluate(session, clickButtonText(["^蓬莱$", "^Penglai$"]));
     return waitEval(session, SNAPSHOT_JS, (snap) => Boolean(snap?.center), 15_000);
@@ -607,7 +628,10 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   ];
   const installResults = [];
   for (const target of settingsTargets) {
-    const click = await evaluate(session, clickButtonText(target.patterns));
+    const click = await evaluate(
+      session,
+      target.id === "ui-settings-open" ? settingsTriggerClickScript() : clickButtonText(target.patterns),
+    );
     await delay(700);
     const after = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
     if (target.flag && after?.[target.flag] && !settingsWalked.includes(target.id)) settingsWalked.push(target.id);

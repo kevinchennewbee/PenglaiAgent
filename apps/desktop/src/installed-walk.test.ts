@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import {
   REQUIRED_FRESH_SETTINGS_WALK,
   REQUIRED_FULL_SETTINGS_WALK,
@@ -102,9 +103,34 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /\^Later\$/);
   assert.match(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
+  assert.match(walk, /button\[aria-haspopup=\\?"dialog\\?"\]\[aria-expanded\]/);
+  assert.match(walk, /semanticFallback/);
   assert.match(e2e, /assertInstalledPenglaiIdentity/);
   assert.match(e2e, /launchPackaged\(exe, resources, refuseUser/);
   assert.match(e2e, /launchInstalledHarness\(harnessApp, resources, userData/);
+});
+
+test("collapsed official DSH settings trigger opens through its dialog semantics", async () => {
+  const { settingsTriggerClickScript } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  let clicked = false;
+  const button = {
+    disabled: false,
+    textContent: "",
+    getAttribute(name: string) {
+      if (name === "aria-haspopup") return "dialog";
+      if (name === "aria-expanded") return "false";
+      return null;
+    },
+    click() { clicked = true; },
+  };
+  const document = {
+    querySelectorAll: () => [button],
+    querySelector: (selector: string) => selector === 'button[aria-haspopup="dialog"][aria-expanded]' ? button : null,
+  };
+  const result = runInNewContext(settingsTriggerClickScript(), { document });
+  assert.equal(result.ok, true);
+  assert.equal(result.semanticFallback, true);
+  assert.equal(clicked, true);
 });
 
 test("live installed evidence captures public screenshots only after model selection and completed onboarding", () => {
