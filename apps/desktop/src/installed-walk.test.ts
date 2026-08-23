@@ -107,6 +107,8 @@ test("live installed evidence captures public screenshots only after model selec
   assert.match(live, /models-loaded\.png/);
   assert.match(live, /onboarding-complete\.png/);
   assert.match(live, /walkInstalledBrowserWindow/);
+  assert.match(live, /data-dsh-boot/);
+  assert.match(live, /Penglai product UI plugin boot failed/);
   assert.doesNotMatch(live, /captureShot\([^\n]*keytest|captureShot\([^\n]*credential/i);
 });
 

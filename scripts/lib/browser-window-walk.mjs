@@ -27,6 +27,8 @@ export const SNAPSHOT_JS = `(() => {
     hasRoot: Boolean(document.getElementById("root")),
     rootInert: Boolean(document.getElementById("root") && document.getElementById("root").inert),
     hasDshBoot: typeof window.__DSH_BOOT__ !== "undefined",
+    bootOverlay: Boolean(document.querySelector("[data-dsh-boot]")),
+    bootFailure: text(document.querySelector("[data-dsh-boot]")),
     recovery: Boolean(document.querySelector("[data-penglai-recovery]")),
     wizard: Boolean(document.querySelector("[data-penglai-wizard]")),
     wizardStep: (document.querySelector("[data-penglai-wizard-step]") && document.querySelector("[data-penglai-wizard-step]").getAttribute("data-penglai-wizard-step")) || "",
@@ -259,6 +261,8 @@ function slim(snap) {
     feishuWizard: snap.feishuWizard,
     rootInert: snap.rootInert,
     hasDshBoot: snap.hasDshBoot,
+    bootOverlay: snap.bootOverlay,
+    bootFailure: snap.bootFailure,
     hasRoot: snap.hasRoot,
     recovery: snap.recovery,
     navLabels: snap.navLabels,
@@ -300,10 +304,27 @@ function selectFirstOption(sel) {
 }
 
 export async function observeOfficialSurfaces(session) {
-  const snap = await waitEval(session, SNAPSHOT_JS, (s) => s && s.hasRoot && s.hasDshBoot && !s.recovery, 45_000);
+  const snap = await waitEval(
+    session,
+    SNAPSHOT_JS,
+    (s) => s && s.hasRoot && s.hasDshBoot && !s.bootOverlay && !s.recovery,
+    45_000,
+  );
   const http = await evaluate(session, HTTP_JS);
   const websocket = await evaluate(session, WS_JS);
-  return { snap, http, websocket, official: Boolean(snap?.hasDshBoot && snap?.hasRoot && !snap?.recovery && http?.official && websocket?.opened) };
+  return {
+    snap,
+    http,
+    websocket,
+    official: Boolean(
+      snap?.hasDshBoot &&
+      snap?.hasRoot &&
+      !snap?.bootOverlay &&
+      !snap?.recovery &&
+      http?.official &&
+      websocket?.opened
+    ),
+  };
 }
 
 export async function observeOfficialTransport(session) {

@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, Script } from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -87,6 +87,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     /欢迎使用蓬莱 0\.5\.[123]|Welcome to Penglai 0\.5\.[123]/,
   );
   const hero = readFileSync(join(dir, heroRel), "utf8");
+  assert.doesNotThrow(() => new Script(hero));
   assert.match(hero, /conversation\.hero\.brand\.mark/);
   assert.doesNotMatch(hero, /data-penglai-hero-wordmark/);
   assert.match(hero, /ink-wash-light/);
@@ -108,6 +109,8 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   assert.match(hero, /PENGLAI LOCAL ASR METADATA - NOT USER-AUTHORED/);
   assert.match(hero, /return content\.slice\(1\)/);
   const settings = readFileSync(join(dir, settingsRel), "utf8");
+  assert.doesNotThrow(() => new Script(welcomeSource));
+  assert.doesNotThrow(() => new Script(settings));
   assert.match(settings, /data-settings-parent/);
   assert.match(settings, /isPenglaiChild/);
   assert.match(settings, /entry\.id\.startsWith\("penglai-"\)/);

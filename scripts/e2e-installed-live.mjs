@@ -79,7 +79,8 @@ const SNAPSHOT = `(() => ({
   error: document.querySelector("[data-penglai-wizard-error]")?.textContent?.trim().slice(0, 240) || "",
   disabled: Boolean(document.querySelector("[data-penglai-wizard-continue]")?.disabled),
   root: Boolean(document.querySelector("#root")),
-  dsh: typeof window.__DSH_BOOT__ !== "undefined",
+  dsh: typeof window.__DSH_BOOT__ !== "undefined" && !document.querySelector("[data-dsh-boot]"),
+  bootFailure: document.querySelector("[data-dsh-boot]")?.textContent?.trim().slice(0, 240) || "",
   href: location.href,
 }))()`;
 
@@ -204,7 +205,9 @@ try {
     const finishClick = await evaluate(session, CLICK_CONTINUE);
     if (!finishClick?.ok) throw new Error("completed wizard did not open Penglai");
     const product = await waitEval(session, SNAPSHOT, (snap) => snap?.root && snap.dsh && !snap.wizard, 60_000);
-    if (!product?.root || !product.dsh) throw new Error("Penglai product UI did not open after onboarding");
+    if (!product?.root || !product.dsh) {
+      throw new Error(product?.bootFailure ? "Penglai product UI plugin boot failed" : "Penglai product UI did not open after onboarding");
+    }
     const settings = await walkInstalledBrowserWindow(session, { shotDir: publicShotDir, userData });
     if (settings.blocked.length) throw new Error(`public screenshot settings walk incomplete: ${settings.blocked.join(",")}`);
   }
