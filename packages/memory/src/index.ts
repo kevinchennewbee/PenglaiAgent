@@ -19,7 +19,7 @@ import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
 import { registerMemoryTools } from "./tools.js";
 
 export const name = "@penglai/memory";
-export const inject = ["skills", "workspaceRegistry"];
+export const inject = ["skills", "workspaceRegistry", "tools"];
 export const version = RELEASE;
 
 interface OfficialSkillSummary {
