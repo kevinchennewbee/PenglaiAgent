@@ -43,6 +43,7 @@ const HIDDEN_INTERNAL_CARD_IDS = [
   "@penglai/plugin-pilot",
   "@penglai/budget",
 ];
+const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
@@ -65,6 +66,7 @@ if (blocked) finish("BLOCKED", { command: "u3-first-party-plugins", ...blocked }
 const installer = installerForTarget(target);
 const installedRoot = join(ROOT, ".tmp", "u3-plugin-app");
 const userData = join(ROOT, ".tmp", "u3-plugin-profile");
+const publicShotDir = join(ROOT, "evidence", "generated", "readme-shots");
 const installed = installFromExactInstaller(
   join(ROOT, "dist", installer),
   installedRoot,
@@ -112,6 +114,10 @@ const packageRoot = join(userData, "dsh-home", "profiles", "web", "node_modules"
 const dshNeedle = resolve(join(resources, "runtime/dsh/lib/bin.js"));
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
+if (capturePublicShots) {
+  rmSync(publicShotDir, { recursive: true, force: true });
+  mkdirSync(publicShotDir, { recursive: true, mode: 0o700 });
+}
 const onboardingDir = join(userData, "onboarding");
 mkdirSync(onboardingDir, { recursive: true, mode: 0o700 });
 const fixtureWorkspaceId = "installed-ui-fixture-workspace";
@@ -287,7 +293,10 @@ async function runPhase(name, expectedEnabled) {
     cdpSession = session;
     official = await observeOfficialSurfaces(session);
     if (name === "fresh-default-disabled" && official?.official) {
-      productWalk = await walkInstalledBrowserWindow(session, { userData });
+      productWalk = await walkInstalledBrowserWindow(session, {
+        userData,
+        shotDir: capturePublicShots ? publicShotDir : undefined,
+      });
     }
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
@@ -407,6 +416,7 @@ const rec = {
   requiredBuiltin: REQUIRED_BUILTIN,
   rejectedLegacyPlugins: LEGACY_PLUGIN_IDS,
   hiddenInternalCards: HIDDEN_INTERNAL_CARD_IDS,
+  publicScreenshots: capturePublicShots,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
     "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
