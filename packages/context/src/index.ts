@@ -1,8 +1,6 @@
 import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertGrant, ContextIndex, hostSourceStatus, revokeDerived, type ContextGrant } from "./service.js";
-import { createContextSettingsApi, PenglaiContextRemote } from "./remote.js";
 
 export const name = "@penglai/memory-sources";
 export const inject = ["tools", "workspaceRegistry"];
@@ -122,7 +120,7 @@ function registerContextTools(ctx: CordisContextLike, service: ContextService): 
   });
 }
 
-export function apply(ctx: CordisContextLike) {
+function startContextService(ctx: CordisContextLike) {
   const userData = requireUserData();
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for context");
   const workspaceRegistry = ctx.workspaceRegistry;
@@ -131,7 +129,6 @@ export function apply(ctx: CordisContextLike) {
   try {
     registerContextTools(ctx, service);
     ctx.provide("penglaiMemorySources", service);
-    if (ctx instanceof Context) new PenglaiContextRemote(ctx, createContextSettingsApi(service, userData, workspaceRegistry));
     ctx.effect?.(() => () => service.close());
   } catch (error) {
     service.close();
@@ -140,8 +137,19 @@ export function apply(ctx: CordisContextLike) {
   return service;
 }
 
+export function apply(ctx: CordisContextLike) {
+  return startContextService(ctx);
+}
+
+// Memory owns the only public DSH module and Remote namespace. The source
+// index keeps its own lifecycle, while Memory exposes its settings methods.
+export function applyEmbeddedMemorySources(ctx: CordisContextLike) {
+  return startContextService(ctx);
+}
+
 Object.assign(apply, { inject });
 export default { name, inject, apply, version };
 export * from "./service.js";
 export * from "./ingest.js";
 export * from "./grant-capability.js";
+export { createContextSettingsApi } from "./remote.js";

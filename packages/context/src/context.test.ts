@@ -161,20 +161,24 @@ test("Context settings consumes one opaque picker capability and exposes no raw-
   }
 });
 
-test("Memory sources client mounts one internal remote without a standalone settings tab", () => {
+test("Memory sources client is an internal view over the one Memory Remote", () => {
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(source, /data-penglai-memory-sources-panel/);
-  assert.match(source, /penglaiMemorySourcesSettings/);
+  assert.match(source, /penglaiMemorySettings/);
+  assert.match(source, /sourcesStatus/);
+  assert.doesNotMatch(source, /penglaiMemorySourcesSettings/);
   assert.match(source, /pickContextFolder/);
   assert.match(source, /function createPenglaiMemorySourcesClient\(require\)/);
   assert.doesNotMatch(source, /__ModuleLoader__\.load/);
-  assert.match(source, /module\.exports = \{ apply, inject, ContextTab \}/);
+  assert.match(source, /return \{ ContextTab \}/);
+  assert.doesNotMatch(source, /remote\.\$mount/);
   assert.doesNotMatch(source, /slots\.register/);
   assert.doesNotMatch(source, /个人上下文|Personal Context/);
   const memory = readFileSync(new URL("../../memory/src/dsh-client.js", import.meta.url), "utf8");
   assert.match(memory, /createPenglaiMemorySourcesClient\(require\)/);
   assert.match(memory, /MemorySourcesModule\.ContextTab/);
-  assert.match(memory, /remote\.penglaiMemorySourcesSettings/);
+  assert.match(memory, /sourcesIngestCapability/);
+  assert.doesNotMatch(memory, /remote\.penglaiMemorySourcesSettings/);
   assert.doesNotMatch(source, /type: "text"[^\n]+requestedPath/);
 });
 

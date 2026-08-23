@@ -25,9 +25,21 @@ interface WorkspaceRegistryLike {
   list(): Array<{ id: string; title?: string }>;
 }
 
+interface MemorySourcesSettingsApi {
+  status(): unknown;
+  ingestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }): unknown;
+  reindex(input: { root: string }): unknown;
+  revoke(input: { root: string; ownerConfirmed: boolean }): unknown;
+  search(input: { query: string; workspaceId?: string }): unknown;
+}
+
 const scopes = new Set<MemoryScope>(["global", "workspace", "candidate"]);
 
-export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRegistry: WorkspaceRegistryLike) {
+export function createMemorySettingsApi(
+  service: MemorySettingsHost,
+  workspaceRegistry: WorkspaceRegistryLike,
+  sources?: MemorySourcesSettingsApi,
+) {
   const requireScope = (scope: MemoryScope) => {
     if (!scopes.has(scope)) throw new PenglaiError("INVALID_INPUT", "invalid memory scope");
   };
@@ -35,6 +47,10 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
     if (!workspaceId || !workspaceRegistry.list().some((row) => row.id === workspaceId)) {
       throw new PenglaiError("INVALID_INPUT", "memory Workspace is not live");
     }
+  };
+  const requireSources = () => {
+    if (!sources) throw new PenglaiError("DSH_UNAVAILABLE", "memory sources unavailable");
+    return sources;
   };
   return {
     async status(input: { scope: MemoryScope; workspaceId?: string }) {
@@ -116,6 +132,13 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
       if (!service.importConfirm) throw new PenglaiError("DSH_UNAVAILABLE", "memory import unavailable");
       return service.importConfirm();
     },
+    sourcesStatus() { return requireSources().status(); },
+    sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) {
+      return requireSources().ingestCapability(input);
+    },
+    sourcesReindex(input: { root: string }) { return requireSources().reindex(input); },
+    sourcesRevoke(input: { root: string; ownerConfirmed: boolean }) { return requireSources().revoke(input); },
+    sourcesSearch(input: { query: string; workspaceId?: string }) { return requireSources().search(input); },
   };
 }
 
@@ -132,9 +155,18 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
   @Remote export(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.export(input); }
   @Remote importPreview() { return this.api.importPreview(); }
   @Remote importConfirm(input: { ownerConfirmed: boolean }) { return this.api.importConfirm(input); }
+  @Remote sourcesStatus() { return this.api.sourcesStatus(); }
+  @Remote sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) { return this.api.sourcesIngestCapability(input); }
+  @Remote sourcesReindex(input: { root: string }) { return this.api.sourcesReindex(input); }
+  @Remote sourcesRevoke(input: { root: string; ownerConfirmed: boolean }) { return this.api.sourcesRevoke(input); }
+  @Remote sourcesSearch(input: { query: string; workspaceId?: string }) { return this.api.sourcesSearch(input); }
 }
 
 export const TYPERT_REMOTE = {
   package: "@penglai/memory",
-  descriptors: ["status", "write", "deleteScope", "promoteSop", "why", "correct", "forget", "graph", "export", "importPreview", "importConfirm"],
+  descriptors: [
+    "status", "write", "deleteScope", "promoteSop", "why", "correct", "forget", "graph", "export",
+    "importPreview", "importConfirm", "sourcesStatus", "sourcesIngestCapability", "sourcesReindex",
+    "sourcesRevoke", "sourcesSearch",
+  ],
 };

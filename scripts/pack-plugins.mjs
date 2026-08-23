@@ -929,9 +929,13 @@ for (const p of packs) {
       if (
         moduleRegistrations !== 1 ||
         !combinedClient.includes("function createPenglaiMemorySourcesClient(require)") ||
-        combinedClient.includes('id: "@penglai/memory-sources"')
+        combinedClient.includes('id: "@penglai/memory-sources"') ||
+        combinedClient.includes("penglaiMemorySourcesSettings") ||
+        !combinedClient.includes('"sourcesStatus"') ||
+        readFileSync(sourcesClient, "utf8").includes("remote.$mount") ||
+        hostJs.includes("penglaiMemorySourcesSettings")
       ) {
-        console.error("Penglai Memory client must register one loader-visible DSH module");
+        console.error("Penglai Memory client must register one DSH module and one Remote namespace");
         process.exit(1);
       }
       writeFileSync(

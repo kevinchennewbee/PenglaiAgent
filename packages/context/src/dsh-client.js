@@ -1,85 +1,6 @@
 function createPenglaiMemorySourcesClient(require) {
-    const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const inject = ["remote"];
-
-    function strictJson(value, depth = 0, seen = new Set()) {
-      if (
-        value === null ||
-        typeof value === "string" ||
-        typeof value === "boolean"
-      )
-        return value;
-      if (typeof value === "number" && Number.isFinite(value)) return value;
-      if (
-        depth > 12 ||
-        !value ||
-        typeof value !== "object" ||
-        (!Array.isArray(value) &&
-          Object.prototype.toString.call(value) !== "[object Object]")
-      )
-        throw new TypeError("Context Remote requires bounded JSON");
-      if (seen.has(value))
-        throw new TypeError("Context Remote rejects cyclic JSON");
-      seen.add(value);
-      const entries = Array.isArray(value) ? value : Object.entries(value);
-      if (entries.length > 4096)
-        throw new TypeError("Context Remote JSON is too large");
-      if (Array.isArray(value))
-        value.forEach((item) => strictJson(item, depth + 1, seen));
-      else
-        for (const [key, item] of entries) {
-          if (["__proto__", "prototype", "constructor"].includes(key))
-            throw new TypeError("Context Remote rejects unsafe fields");
-          strictJson(item, depth + 1, seen);
-        }
-      seen.delete(value);
-      return value;
-    }
-    const remoteCodec = (kind) => ({
-      mode: "strict",
-      typeSymbol: `@penglai/memory/client#sources-${kind}`,
-      schema: {
-        parse(value) {
-          if (
-            kind === "input" &&
-            (!value || typeof value !== "object" || Array.isArray(value))
-          )
-            throw new TypeError("Context Remote input must be an object");
-          return value === undefined ? value : strictJson(value);
-        },
-      },
-    });
-    const remoteDescriptor = (method, hasInput = false) => ({
-      id: `@penglai/memory#penglaiMemorySourcesSettings/${method}`,
-      service: "penglaiMemorySourcesSettings",
-      namespace: "penglaiMemorySourcesSettings",
-      method,
-      implementation: method,
-      invocation: { kind: "direct" },
-      parameters: hasInput
-        ? [
-            {
-              name: "input",
-              wire: "input",
-              source: "json",
-              codec: remoteCodec("input"),
-            },
-          ]
-        : [],
-      result: remoteCodec("result"),
-    });
-    const REMOTE = {
-      package: "@penglai/memory",
-      descriptors: [
-        "status",
-        "ingestCapability",
-        "reindex",
-        "revoke",
-        "search",
-      ].map((method) => remoteDescriptor(method, method !== "status")),
-    };
 
     const COPY = {
       zh: {
@@ -151,7 +72,16 @@ function createPenglaiMemorySourcesClient(require) {
 
     function ContextTab({ remote, embedded = false }) {
       const t = copy();
-      const api = remote?.penglaiMemorySourcesSettings;
+      const memory = remote?.penglaiMemorySettings;
+      const api = memory
+        ? {
+            status: memory.sourcesStatus,
+            ingestCapability: memory.sourcesIngestCapability,
+            reindex: memory.sourcesReindex,
+            revoke: memory.sourcesRevoke,
+            search: memory.sourcesSearch,
+          }
+        : undefined;
       const [view, setView] = React.useState({
         phase: "loading",
         snapshot: { grants: [], workspaces: [] },
@@ -169,7 +99,7 @@ function createPenglaiMemorySourcesClient(require) {
           setView((current) => ({ ...current, phase: "unavailable" }));
           return;
         }
-        Promise.resolve(api.status())
+        Promise.resolve(api.status({}))
           .then((value) => {
             const snapshot = unwrap(value) || { grants: [], workspaces: [] };
             setView((current) => ({
@@ -456,19 +386,5 @@ function createPenglaiMemorySourcesClient(require) {
         ],
       });
     }
-    function ContextSettingsSection(props) {
-      return jsx.jsx("div", {
-        className: "penglai-settings-page",
-        "data-penglai-settings": "context",
-        children: jsx.jsx(ContextTab, props),
-      });
-    }
-    async function apply(ctx) {
-      const disposeRemote = await ctx.remote.$mount(REMOTE);
-      return async () => {
-        await disposeRemote();
-      };
-    }
-    module.exports = { apply, inject, ContextTab };
-    return module.exports;
+    return { ContextTab };
 }

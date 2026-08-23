@@ -401,14 +401,13 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
     new URL("../../context/src/dsh-client.js", import.meta.url),
     "utf8",
   );
-  assert.match(context, /package: "@penglai\/memory"/);
-  assert.match(context, /namespace: "penglaiMemorySourcesSettings"/);
-  assert.match(context, /await ctx\.remote\.\$mount\(REMOTE\)/);
-  assert.match(context, /module\.exports = \{ apply, inject, ContextTab \}/);
+  assert.match(context, /remote\?\.penglaiMemorySettings/);
+  assert.match(context, /sourcesStatus/);
+  assert.doesNotMatch(context, /penglaiMemorySourcesSettings/);
+  assert.doesNotMatch(context, /ctx\.remote\.\$mount/);
+  assert.match(context, /return \{ ContextTab \}/);
   assert.doesNotMatch(context, /slots\.register/);
   assert.doesNotMatch(context, /viewFiber/);
-  assert.match(context, /mode: "strict"/);
-  assert.match(context, /rejects unsafe fields/);
 });
 
 test("R2I-CENTER-013 catalog has real first-party plugins and no historical cards", () => {

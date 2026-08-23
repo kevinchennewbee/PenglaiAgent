@@ -172,6 +172,24 @@ test("Memory settings enforces layered writes, visible diff, and live Workspace 
   await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
 });
 
+test("Memory exposes authorized sources through its one settings Remote", () => {
+  const calls: string[] = [];
+  const sources = {
+    status() { calls.push("status"); return { grants: [], workspaces: [] }; },
+    ingestCapability() { calls.push("ingest"); return { indexed: 1 }; },
+    reindex() { calls.push("reindex"); return { indexed: 1 }; },
+    revoke() { calls.push("revoke"); return { sourceUntouched: true }; },
+    search() { calls.push("search"); return []; },
+  };
+  const api = createMemorySettingsApi(createMemoryService() as never, { list: () => [{ id: "w1", title: "Workspace" }] }, sources);
+  assert.deepEqual(api.sourcesStatus(), { grants: [], workspaces: [] });
+  assert.deepEqual(api.sourcesIngestCapability({ capabilityRef: "opaque", scope: "global" }), { indexed: 1 });
+  assert.deepEqual(api.sourcesReindex({ root: "/authorized" }), { indexed: 1 });
+  assert.deepEqual(api.sourcesRevoke({ root: "/authorized", ownerConfirmed: true }), { sourceUntouched: true });
+  assert.deepEqual(api.sourcesSearch({ query: "hello" }), []);
+  assert.deepEqual(calls, ["status", "ingest", "reindex", "revoke", "search"]);
+});
+
 test("Memory client registers the official settings slot without a second skill store", async () => {
   const { readFileSync } = await import("node:fs");
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
@@ -181,7 +199,8 @@ test("Memory client registers the official settings slot without a second skill 
   assert.match(source, /embedded: true/);
   assert.match(source, /记忆来源/);
   assert.match(source, /penglaiMemorySettings/);
-  assert.match(source, /penglaiMemorySourcesSettings/);
+  assert.match(source, /sourcesStatus/);
+  assert.doesNotMatch(source, /penglaiMemorySourcesSettings/);
   assert.doesNotMatch(source, /@penglai\/context|个人上下文|Personal Context/);
   assert.match(source, /official-dsh-skills/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);

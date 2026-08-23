@@ -84,6 +84,11 @@ window.__ModuleLoader__.load({
         "export",
         "importPreview",
         "importConfirm",
+        "sourcesStatus",
+        "sourcesIngestCapability",
+        "sourcesReindex",
+        "sourcesRevoke",
+        "sourcesSearch",
       ].map(remoteDescriptor),
     };
     const COPY = {
@@ -648,11 +653,10 @@ window.__ModuleLoader__.load({
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiMemorySettings", "remote.penglaiMemorySourcesSettings"],
+        ["slots", "remote.penglaiMemorySettings"],
         (viewCtx) => {
           const pageRemote = {
             penglaiMemorySettings: viewCtx.remote.penglaiMemorySettings,
-            penglaiMemorySourcesSettings: viewCtx.remote.penglaiMemorySourcesSettings,
           };
           viewCtx.slots.inject("settings.section", () =>
             viewCtx.slots.register(
