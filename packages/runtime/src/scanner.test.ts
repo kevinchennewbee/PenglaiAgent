@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { PenglaiError } from "@penglai/contracts";
 import {
   assertPackedArtifactClean,
@@ -25,6 +26,16 @@ test("unpacking scanner accepts a clean packed tar", () => {
   writeFileSync(join(stage, "index.js"), "export const name = '@penglai/im';\n");
   const tar = join(mkdtempSync(join(tmpdir(), "penglai-scan-clean-tar-")), "plugin.tgz");
   writeTestTarGz(stage, tar);
+  assert.doesNotThrow(() => assertPackedArtifactClean(tar));
+});
+
+test("unpacking scanner accepts a clean plain tar without a host tar executable", () => {
+  const stage = mkdtempSync(join(tmpdir(), "penglai-scan-clean-plain-"));
+  writeFileSync(join(stage, "index.js"), "export const name = '@penglai/im';\n");
+  const tgz = join(mkdtempSync(join(tmpdir(), "penglai-scan-clean-plain-tar-")), "plugin.tgz");
+  writeTestTarGz(stage, tgz);
+  const tar = tgz.replace(/\.tgz$/, ".tar");
+  writeFileSync(tar, gunzipSync(readFileSync(tgz)));
   assert.doesNotThrow(() => assertPackedArtifactClean(tar));
 });
 
