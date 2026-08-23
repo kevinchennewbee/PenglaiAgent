@@ -12,9 +12,7 @@ Add-Type -AssemblyName System.Drawing
 
 Add-Type @'
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 
 public static class PenglaiInstallerNative {
   [StructLayout(LayoutKind.Sequential)]
@@ -35,27 +33,6 @@ public static class PenglaiInstallerNative {
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
 
-  public static bool FileContainsUtf16(string path, string value) {
-    byte[] needle = Encoding.Unicode.GetBytes(value);
-    byte[] buffer = new byte[(4 * 1024 * 1024) + needle.Length - 1];
-    int carried = 0;
-    using (FileStream stream = File.OpenRead(path)) {
-      while (true) {
-        int read = stream.Read(buffer, carried, buffer.Length - carried);
-        int available = carried + read;
-        for (int i = 0; i <= available - needle.Length; i++) {
-          bool match = true;
-          for (int j = 0; j < needle.Length; j++) {
-            if (buffer[i + j] != needle[j]) { match = false; break; }
-          }
-          if (match) { return true; }
-        }
-        if (read == 0) { return false; }
-        carried = Math.Min(needle.Length - 1, available);
-        Buffer.BlockCopy(buffer, available - carried, buffer, 0, carried);
-      }
-    }
-  }
 }
 '@
 
@@ -126,8 +103,12 @@ function Save-PenglaiWindow([IntPtr]$Handle, [string]$Path) {
 $installerPath = [System.IO.Path]::GetFullPath($Installer)
 $evidenceDir = [System.IO.Path]::GetFullPath($OutDir)
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) { throw "installer missing" }
-if (-not [PenglaiInstallerNative]::FileContainsUtf16($installerPath, '桌面快捷方式')) {
-  throw "installer does not contain the exact UTF-16LE Simplified Chinese desktop component name"
+$nsisSourcePath = Join-Path $PSScriptRoot 'nsis/Penglai.nsi'
+$strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+$nsisSource = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($nsisSourcePath))
+if ($nsisSource -notmatch 'Unicode true' -or
+    $nsisSource -notmatch 'LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"') {
+  throw "strict UTF-8 NSIS source does not contain the exact Unicode Chinese component contract"
 }
 New-Item -ItemType Directory -Path $evidenceDir -Force | Out-Null
 $installTarget = Join-Path $env:TEMP "Penglai-0.5.5-ui-proof"
@@ -166,7 +147,8 @@ try {
     command = 'windows-installer-ui-proof'
     language = 'zh-CN'
     expected = @('Penglai', '桌面快捷方式')
-    componentNameProof = 'installer-utf16le-plus-native-screenshot'
+    componentNameProof = 'strict-utf8-nsis-source-plus-native-screenshot'
+    compilerContract = 'Unicode true + makensis /INPUTCHARSET UTF8'
     desktopNameExposedByUiAutomation = ($joined -match '桌面快捷方式')
     screenshot = 'windows-installer-components-zh.png'
     windowWidth = $process.MainWindowHandle -ne [IntPtr]::Zero
