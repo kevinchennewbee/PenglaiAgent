@@ -88,8 +88,11 @@ function safeArchivePath(input: string): string | undefined {
   return normalized;
 }
 
-export function inspectTarGz(bytes: Buffer): SafeTarEntry[] {
-  const tar = gunzipSync(bytes, { maxOutputLength: MAX_ARCHIVE_BYTES });
+export function inspectTar(bytes: Buffer): SafeTarEntry[] {
+  if (bytes.length > MAX_ARCHIVE_BYTES) {
+    throw new PenglaiError("SECURITY_POLICY", "tar archive exceeds byte limit");
+  }
+  const tar = bytes;
   const entries: SafeTarEntry[] = [];
   const seen = new Set<string>();
   let offset = 0;
@@ -153,6 +156,10 @@ export function inspectTarGz(bytes: Buffer): SafeTarEntry[] {
   return entries;
 }
 
+export function inspectTarGz(bytes: Buffer): SafeTarEntry[] {
+  return inspectTar(gunzipSync(bytes, { maxOutputLength: MAX_ARCHIVE_BYTES }));
+}
+
 function assertDirectoryChain(root: string, target: string): void {
   const rel = relative(root, target);
   if (rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
@@ -167,14 +174,13 @@ function assertDirectoryChain(root: string, target: string): void {
   }
 }
 
-export function extractTarGz(bytes: Buffer, destination: string): SafeTarEntry[] {
+function extractEntries(entries: SafeTarEntry[], destination: string): SafeTarEntry[] {
   const root = resolve(destination);
   mkdirSync(root, { recursive: true, mode: 0o700 });
   if (lstatSync(root).isSymbolicLink()) {
     throw new PenglaiError("SECURITY_POLICY", "archive destination is symlink");
   }
   const canonicalRoot = realpathSync(root);
-  const entries = inspectTarGz(bytes);
   for (const entry of entries.filter((value) => value.kind === "directory")) {
     const target = resolve(canonicalRoot, ...entry.path.split("/"));
     assertDirectoryChain(canonicalRoot, dirname(target));
@@ -192,4 +198,12 @@ export function extractTarGz(bytes: Buffer, destination: string): SafeTarEntry[]
     });
   }
   return entries;
+}
+
+export function extractTar(bytes: Buffer, destination: string): SafeTarEntry[] {
+  return extractEntries(inspectTar(bytes), destination);
+}
+
+export function extractTarGz(bytes: Buffer, destination: string): SafeTarEntry[] {
+  return extractEntries(inspectTarGz(bytes), destination);
 }

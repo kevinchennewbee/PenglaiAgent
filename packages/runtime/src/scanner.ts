@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from "no
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
+import { extractTar, extractTarGz } from "./safe-tar.js";
 
 const FORBIDDEN = [
   { re: /\/penglai\/usable-fixture/, reason: "usable-fixture" },
@@ -125,11 +126,11 @@ export function unpackArchive(archivePath: string, dest: string): void {
     throw new PenglaiError("INVALID_INPUT", `archive missing ${archivePath}`);
   }
   if (/\.(tgz|tar\.gz)$/.test(archivePath)) {
-    execFileSync("tar", ["-xzf", archivePath, "-C", dest]);
+    extractTarGz(readFileSync(archivePath), dest);
     return;
   }
   if (archivePath.endsWith(".tar")) {
-    execFileSync("tar", ["-xf", archivePath, "-C", dest]);
+    extractTar(readFileSync(archivePath), dest);
     return;
   }
   if (archivePath.endsWith(".asar")) {
