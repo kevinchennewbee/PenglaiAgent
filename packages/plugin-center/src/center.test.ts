@@ -367,7 +367,7 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "@penglai/companion",
       "penglaiCompanionSettings",
     ],
-    ["../../office/src/dsh-client.js", "@penglai/office", "penglaiOffice"],
+    ["../../office/src/dsh-client.js", "@penglai/office", "penglaiOfficeSettings"],
   ];
   for (const [path, packageName, namespace] of clients) {
     const source = readFileSync(new URL(path, import.meta.url), "utf8");

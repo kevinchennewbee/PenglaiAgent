@@ -164,14 +164,14 @@ test("office settings client inspect/create/edit go through penglaiOffice remote
           );
           ready = exported.apply({
             remote: {
-              penglaiOffice: remote,
+              penglaiOfficeSettings: remote,
               async $mount() {
                 return () => undefined;
               },
             },
             inject(_deps: string[], callback: (ctx: unknown) => void) {
               callback({
-                remote: { penglaiOffice: remote },
+                remote: { penglaiOfficeSettings: remote },
                 slots: {
                   inject(_name: string, fn: () => unknown) {
                     fn();

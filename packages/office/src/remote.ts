@@ -77,7 +77,7 @@ export class PenglaiOfficeRemote extends TypertRemoteService {
     ctx: Context,
     private readonly impl: ReturnType<typeof createOfficeService>,
   ) {
-    super(ctx, "penglaiOffice");
+    super(ctx, "penglaiOfficeSettings");
   }
 
   @Remote

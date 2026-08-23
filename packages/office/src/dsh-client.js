@@ -54,9 +54,9 @@ window.__ModuleLoader__.load({
       },
     });
     const remoteDescriptor = (method, hasInput = false) => ({
-      id: `@penglai/office#penglaiOffice/${method}`,
-      service: "penglaiOffice",
-      namespace: "penglaiOffice",
+      id: `@penglai/office#penglaiOfficeSettings/${method}`,
+      service: "penglaiOfficeSettings",
+      namespace: "penglaiOfficeSettings",
       method,
       implementation: method,
       invocation: { kind: "direct" },
@@ -111,7 +111,7 @@ window.__ModuleLoader__.load({
 
     function OfficeSection({ remote }) {
       const t = localeCopy();
-      const api = remote?.penglaiOffice;
+      const api = remote?.penglaiOfficeSettings;
       const [view, setView] = React.useState({
         format: "docx",
         text: "",
@@ -211,9 +211,9 @@ window.__ModuleLoader__.load({
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiOffice"],
+        ["slots", "remote.penglaiOfficeSettings"],
         (viewCtx) => {
-          const pageRemote = { penglaiOffice: viewCtx.remote.penglaiOffice };
+          const pageRemote = { penglaiOfficeSettings: viewCtx.remote.penglaiOfficeSettings };
           viewCtx.slots.inject("settings.section", () =>
             viewCtx.slots.register(
               {
