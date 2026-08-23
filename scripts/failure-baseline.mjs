@@ -198,17 +198,22 @@ function probeOnboarding() {
   const src = existsSync(join(ROOT, "packages/plugin-center/src/onboarding.ts"))
     ? readFileSync(join(ROOT, "packages/plugin-center/src/onboarding.ts"), "utf8")
     : "";
-  const client = existsSync(join(ROOT, "packages/plugin-center/src/client.ts"))
-    ? readFileSync(join(ROOT, "packages/plugin-center/src/client.ts"), "utf8")
-    : "";
-  const officialUi = /settings\.onboarding/.test(client) && /contributeOnboarding|onboarding\.register/.test(client);
-  if (!officialUi) {
-    return result("FB-ONBOARDING", "REPRODUCED", "onboarding is not a complete official DSH client UI flow", {
-      officialUi,
-      helperPresent: /welcome-v1/.test(src),
+  const host = readText("packages/plugin-center/src/index.ts");
+  const wizard = readText("apps/desktop/static/wizard/wizard.js");
+  const officialFlow =
+    /OFFICIAL_ONBOARDING_SLOT\s*=\s*"settings\.onboarding"/.test(src) &&
+    /createPenglaiOnboardingRemoteImpl/.test(host) &&
+    /new PenglaiOnboardingRemote/.test(host) &&
+    /rpc\("listModels"/.test(wizard) &&
+    /rpc\("status"/.test(wizard) &&
+    /rpc\("runFirstConversation"/.test(wizard);
+  if (!officialFlow) {
+    return result("FB-ONBOARDING", "REPRODUCED", "authenticated onboarding does not complete the official DSH Remote flow", {
+      officialFlow,
+      ledgerPresent: /welcome-v1/.test(src),
     });
   }
-  return result("FB-ONBOARDING", "CLOSED", "onboarding registers official DSH client steps", { officialUi });
+  return result("FB-ONBOARDING", "CLOSED", "authenticated seven-step onboarding drives official DSH services", { officialFlow });
 }
 
 function probeUsableFixture() {
@@ -231,11 +236,12 @@ function probeWeixin() {
 }
 
 function probeFeishu() {
-  const src = readText("packages/channel-feishu/src/index.ts");
-  const client = readText("packages/im/src/client.ts");
-  const persisted = /adapter_configs|credentials\.set|app-secret/.test(src);
-  const wizard = /创建企业自建应用|configureFeishu/.test(client);
-  const device = /beginDeviceFlow|device_code/.test(src);
+  const host = readText("packages/im/src/host.ts");
+  const adapter = readText("packages/channel-feishu/src/index.ts");
+  const client = readText("packages/im/src/dsh-client.js");
+  const persisted = /putAdapterConfig/.test(host) && /vault\.write\(FEISHU_SECRET_REF/.test(host);
+  const wizard = /创建企业自建应用/.test(client) && /beginFeishuQr/.test(client) && /configureFeishu/.test(client);
+  const device = /beginDeviceFlow/.test(`${host}\n${adapter}\n${client}`);
   if (device || !persisted || !wizard) {
     return result("FB-FEISHU", "REPRODUCED", "Feishu App ID persistence/wizard is incomplete", {
       persisted,
@@ -243,7 +249,7 @@ function probeFeishu() {
       device,
     });
   }
-  return result("FB-FEISHU", "CLOSED", "Feishu wizard persists App ID/Secret ref without Device Flow", {
+  return result("FB-FEISHU", "CLOSED", "Feishu wizard persists App ID and a secret ref without user OAuth Device Flow", {
     persisted,
     wizard,
     device,
