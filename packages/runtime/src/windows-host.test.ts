@@ -210,8 +210,8 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(packager, /"\/INPUTCHARSET",\s*\n\s*"UTF8"/);
   assert.match(uiProof, /'\/LANG=2052'/);
   assert.match(uiProof, /桌面快捷方式/);
-  assert.match(uiProof, /FileContainsUtf16/);
-  assert.match(uiProof, /installer-utf16le-plus-native-screenshot/);
+  assert.match(uiProof, /\[System\.Text\.UTF8Encoding\]::new\(\$false, \$true\)/);
+  assert.match(uiProof, /strict-utf8-nsis-source-plus-native-screenshot/);
   assert.match(uiProof, /windows-installer-components-zh\.png/);
   assert.match(uiProof, /UIAutomationClient/);
   assert.match(payload, /public-export\.json/);
