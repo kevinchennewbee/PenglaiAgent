@@ -142,11 +142,18 @@ if (foundScale.status !== 0 || !String(foundScale.stdout).includes("scale-row-99
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
+const load10k = {
+  n: 10_000,
+  p50Ms: loadP50,
+  p95Ms: loadP95,
+  durationMs: Date.now() - loadStarted,
+  rss: process.memoryUsage().rss,
+};
 recordCommand(run, {
   argv: [bin, "remember", "x10k"],
   exitCode: 0,
-  durationMs: Date.now() - loadStarted,
-  stdout: JSON.stringify({ n: 10_000, p50Ms: loadP50, p95Ms: loadP95, rss: process.memoryUsage().rss }),
+  durationMs: load10k.durationMs,
+  stdout: JSON.stringify(load10k),
 });
 
 const load100kDir = mkdtempSync(join(tmpdir(), "mnemon-100k-"));
@@ -193,7 +200,7 @@ const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/rec
   mnemonVersion: String(version.stdout).trim(),
   binary: bin,
   mnemonReadonlyHonored,
-  load10k: { n: 10_000, p50Ms: loadP50, p95Ms: loadP95, durationMs: Date.now() - loadStarted, rss: process.memoryUsage().rss },
+  load10k,
   load100k,
   note: mnemonReadonlyHonored
     ? "mnemon --readonly blocked writes"
