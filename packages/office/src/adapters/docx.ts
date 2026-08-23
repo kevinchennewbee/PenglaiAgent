@@ -1,5 +1,4 @@
 import { Document, Packer, Paragraph, TextRun } from "docx";
-import mammoth from "mammoth";
 import { PenglaiError } from "@penglai/contracts";
 import { readZip, writeZip } from "../zip.js";
 import { assertAuthorizedBytes } from "../authorization.js";
@@ -29,14 +28,8 @@ export async function inspectDocx(bytes: Buffer): Promise<{ text: string; parts:
   const paragraphs = [...document.matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
     .map((match) => xmlText(match[0] ?? ""))
     .filter(Boolean);
-  let fallback = "";
-  try {
-    fallback = (await mammoth.extractRawText({ buffer: bytes })).value;
-  } catch {
-    fallback = "";
-  }
   return {
-    text: [paragraphs.join(" "), fallback].filter(Boolean).join(" "),
+    text: paragraphs.join(" "),
     parts: [...entries.map((entry) => entry.name), ...paragraphs.map((text, index) => `p${index}:${text.slice(0, 80)}`)],
     paragraphs,
   };

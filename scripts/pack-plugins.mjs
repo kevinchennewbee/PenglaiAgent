@@ -806,6 +806,9 @@ for (const p of packs) {
     sourcemap: false,
     legalComments: "none",
     logLevel: "silent",
+    banner: {
+      js: 'import { createRequire as __penglaiCreateRequire } from "node:module";\nconst require = __penglaiCreateRequire(import.meta.url);\n',
+    },
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
   if (
@@ -822,6 +825,10 @@ for (const p of packs) {
     )
   ) {
     console.error("production bundle forbidden dist/index.js:owner volume", p.id);
+    process.exit(1);
+  }
+  if (!hostJs.includes("__penglaiCreateRequire")) {
+    console.error(p.id, "host bundle missing Node createRequire banner");
     process.exit(1);
   }
   if (existsSync(join(stage, "src"))) {
