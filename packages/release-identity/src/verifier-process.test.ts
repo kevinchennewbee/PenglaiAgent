@@ -15,7 +15,7 @@ function lastJson(text: string): { verdict?: string } {
 
 test("closure verifier exits INCOMPLETE when its closure credential is absent", () => {
   const staging = mkdtempSync(join(tmpdir(), "penglai-missing-closure-"));
-  const result = spawnSync(process.execPath, ["scripts/verify-closure.mjs", "--staging", staging], {
+  const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/verify-closure.mjs", "--staging", staging], {
     cwd: root,
     encoding: "utf8",
   });
