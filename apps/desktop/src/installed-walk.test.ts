@@ -101,6 +101,15 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(e2e, /launchInstalledHarness\(harnessApp, resources, userData/);
 });
 
+test("live installed evidence captures public screenshots only after model selection and completed onboarding", () => {
+  const live = readFileSync(new URL("../../../scripts/e2e-installed-live.mjs", import.meta.url), "utf8");
+  assert.match(live, /PENGLAI_CAPTURE_PUBLIC_SHOTS/);
+  assert.match(live, /models-loaded\.png/);
+  assert.match(live, /onboarding-complete\.png/);
+  assert.match(live, /walkInstalledBrowserWindow/);
+  assert.doesNotMatch(live, /captureShot\([^\n]*keytest|captureShot\([^\n]*credential/i);
+});
+
 test("native release workflow proves bundled optional plugins across restart", () => {
   const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");

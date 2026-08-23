@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { attachPage, delay, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
+import { attachPage, captureShot, delay, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
+import { walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
   assertInstalledPenglaiIdentity,
   installFromExactInstaller,
@@ -23,6 +24,7 @@ import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from 
 const PRODUCT_VERSION = "0.5.5";
 const PROVIDER = "deepseek-official";
 const PREFERRED_MODEL = "deepseek-v4-flash-vision-exp";
+const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 
 function readSecretLine() {
   if (process.stdin.isTTY) process.stderr.write("DeepSeek API key (input is not recorded): ");
@@ -77,7 +79,7 @@ const SNAPSHOT = `(() => ({
   error: document.querySelector("[data-penglai-wizard-error]")?.textContent?.trim().slice(0, 240) || "",
   disabled: Boolean(document.querySelector("[data-penglai-wizard-continue]")?.disabled),
   root: Boolean(document.querySelector("#root")),
-  dsh: Boolean(document.querySelector("[data-dsh-boot]") || document.querySelector("[data-penglai-settings]")),
+  dsh: typeof window.__DSH_BOOT__ !== "undefined",
   href: location.href,
 }))()`;
 
@@ -140,10 +142,13 @@ if (secret.length < 4 || secret.length > 4096 || /[\r\n]/.test(secret)) {
 
 const userData = join(ROOT, ".tmp-installed-live");
 const workspace = join(ROOT, ".tmp-installed-live-workspace");
+const publicShotDir = join(ROOT, "evidence", "generated", "readme-shots");
 rmSync(userData, { recursive: true, force: true });
 rmSync(workspace, { recursive: true, force: true });
+if (capturePublicShots) rmSync(publicShotDir, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true, mode: 0o700 });
 mkdirSync(workspace, { recursive: true, mode: 0o700 });
+if (capturePublicShots) mkdirSync(publicShotDir, { recursive: true, mode: 0o700 });
 const resources = resourcesInside(installed.app, target);
 const port = await freePort();
 const launched = launchInstalledHarness(harness, resources, userData, [
@@ -168,6 +173,7 @@ try {
   const selected = await evaluate(session, selectValue("[data-penglai-wizard-model]", model));
   if (!selected?.ok) throw new Error("official DeepSeek model selection failed");
   await delay(300);
+  if (capturePublicShots) await captureShot(session, join(publicShotDir, "models-loaded.png"));
   await advance(session, "models", "keytest");
 
   const filled = await evaluate(session, inputValue("[data-penglai-wizard-key]", secret));
@@ -193,6 +199,15 @@ try {
   if (!firstClick?.ok) throw new Error("first Turn did not start");
   const done = await waitStep(session, "done", 180_000);
   if (done?.step !== "done" || done.error) throw new Error("official first Turn did not complete");
+  if (capturePublicShots) {
+    await captureShot(session, join(publicShotDir, "onboarding-complete.png"));
+    const finishClick = await evaluate(session, CLICK_CONTINUE);
+    if (!finishClick?.ok) throw new Error("completed wizard did not open Penglai");
+    const product = await waitEval(session, SNAPSHOT, (snap) => snap?.root && snap.dsh && !snap.wizard, 60_000);
+    if (!product?.root || !product.dsh) throw new Error("Penglai product UI did not open after onboarding");
+    const settings = await walkInstalledBrowserWindow(session, { shotDir: publicShotDir, userData });
+    if (settings.blocked.length) throw new Error(`public screenshot settings walk incomplete: ${settings.blocked.join(",")}`);
+  }
 
   const ledgerPath = join(userData, "onboarding", "onboarding.json");
   const factsPath = join(userData, "onboarding", "onboarding-facts.json");
@@ -217,6 +232,7 @@ try {
     apiTestFinalDigest: facts.apiTest.finalDigest,
     firstTurnFinalDigest: facts.firstConversation.finalDigest,
     processOwned: tree.ownedAbsolute,
+    publicScreenshots: capturePublicShots,
   };
   verdict = "PASS";
 } catch (error) {
