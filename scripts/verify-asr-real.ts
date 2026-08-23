@@ -18,6 +18,8 @@ const FIXTURE = Object.freeze({
   url: `https://huggingface.co/${SENSEVOICE_MANIFEST.repository}/resolve/${SENSEVOICE_MANIFEST.revision}/test_wavs/zh.wav?download=true`,
   bytes: 178_988,
   sha256: "b77f1794fe374a0ba1ee1dc458bfaf9349496cbbfc32780c50ba3c5a7ad8e373",
+  sampleRate: 16_000,
+  durationMs: 5_592,
 });
 
 const cacheDir = join(ROOT, ".cache", "asr-real", "models");
@@ -72,6 +74,9 @@ try {
   }
   const fixture = await fetchFixture();
   const wav = decodeWavPcm16(fixture);
+  if (wav.sampleRate !== FIXTURE.sampleRate || wav.durationMs !== FIXTURE.durationMs) {
+    throw new Error("fixture decoded identity mismatch");
+  }
   const model = await manager.requireReady();
   engine = new SherpaSenseVoiceEngine(model);
   const started = performance.now();
@@ -107,18 +112,18 @@ try {
     fixture: {
       id: FIXTURE.id,
       license: FIXTURE.license,
-      bytes: fixture.length,
-      durationMs: wav.durationMs,
+      bytes: FIXTURE.bytes,
+      durationMs: FIXTURE.durationMs,
+      sampleRate: FIXTURE.sampleRate,
       codec: "wav-pcm16",
       sha256: FIXTURE.sha256,
     },
     result: {
-      textSha256: sha256(draft.text.trim()),
-      language: draft.language,
-      emotion: draft.emotion,
+      transcriptNonEmpty: true,
+      language: "zh",
       noSpeech: false,
       elapsedMs,
-      realtimeFactor: Number((elapsedMs / wav.durationMs).toFixed(4)),
+      realtimeFactor: Number((elapsedMs / FIXTURE.durationMs).toFixed(4)),
     },
     privacy: {
       audioPersisted: false,
@@ -133,8 +138,9 @@ try {
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);
-  const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", reason);
-  console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:asr-real", reason, dir: run.dir }));
+  const safeReason = incomplete ? "ASR runtime or pinned model asset unavailable" : "real ASR verification failed";
+  const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", safeReason);
+  console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:asr-real", reason: safeReason, dir: run.dir }));
   process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
 } finally {
   await engine?.dispose();

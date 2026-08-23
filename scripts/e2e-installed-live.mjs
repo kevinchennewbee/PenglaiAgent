@@ -255,7 +255,8 @@ try {
     installer,
     installerSha256: installed.installerSha256,
     provider: PROVIDER,
-    model,
+    preferredModel: PREFERRED_MODEL,
+    modelSelection: model === PREFERRED_MODEL ? "preferred" : "official-directory-fallback",
     officialNonceTurn: true,
     officialFirstTurn: true,
     onboardingComplete: true,
@@ -265,7 +266,7 @@ try {
     publicScreenshots: capturePublicShots,
   };
   verdict = "PASS";
-} catch (error) {
+} catch {
   let ui;
   if (session) {
     try {

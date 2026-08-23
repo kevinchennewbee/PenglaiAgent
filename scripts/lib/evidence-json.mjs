@@ -62,8 +62,5 @@ export function sanitizeEvidenceValue(value, depth = 0, seen = new WeakSet(), ke
 
 export function writeEvidenceJson(path, value) {
   const payload = `${JSON.stringify(sanitizeEvidenceValue(value), null, 2)}\n`;
-  // This sink only receives bounded, recursively sanitized diagnostics. Exact
-  // remote artifacts are never written through this helper.
-  // lgtm[js/http-to-file-access]
   writeFileSync(path, payload, { mode: 0o600 });
 }

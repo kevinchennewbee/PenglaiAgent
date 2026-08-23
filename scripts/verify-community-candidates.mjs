@@ -17,6 +17,15 @@ const DOWNLOAD_HOSTS = new Set([
 ]);
 const MAX_REDIRECTS = 5;
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
+// Documentation is never an outbound-request capability. A human-reviewed
+// candidate must also be pinned here before the verifier may contact GitHub.
+const PINNED_NETWORK_CANDIDATES = Object.freeze([
+  Object.freeze({
+    name: "AnySearch",
+    repo: "anysearch-team/anysearch-dsh",
+    commit: "dce7a51c74b80f8fa51e53f510a572ab6dd60f28",
+  }),
+]);
 const ledger = readFileSync(join(ROOT, "docs/0.5.5/COMMUNITY_REVIEW_LEDGER.md"), "utf8");
 if (/curl\s*\|\s*bash/.test(ledger)) {
   const manifest = finishEvidenceRun(run, "FAIL", "ledger contains curl|bash");
@@ -37,9 +46,6 @@ function fetchHttps(raw, redirects = 0, base) {
   if (redirects > MAX_REDIRECTS) return Promise.reject(new Error("community archive redirect limit exceeded"));
   const url = checkedDownloadUrl(raw, base);
   return new Promise((resolve, reject) => {
-    // Ledger input is reduced to owner/name + a pinned hex commit before this
-    // call; every redirect is re-parsed and constrained to DOWNLOAD_HOSTS.
-    // lgtm[js/file-access-to-http]
     const req = https.get(url, { headers: { "user-agent": "penglai-community-audit" } }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
@@ -114,7 +120,15 @@ try {
       audits.push(audit);
       continue;
     }
-    const url = `https://codeload.github.com/${row.repo}/tar.gz/${row.commit}`;
+    const trusted = PINNED_NETWORK_CANDIDATES.find(
+      (candidate) => candidate.name === row.name && candidate.repo === row.repo && candidate.commit === row.commit,
+    );
+    if (!trusted) {
+      audit.reason = "ledger row has no matching code-owned network audit pin";
+      audits.push(audit);
+      continue;
+    }
+    const url = `https://codeload.github.com/${trusted.repo}/tar.gz/${trusted.commit}`;
     try {
       const res = await fetchHttps(url);
       audit.httpStatus = res.status;

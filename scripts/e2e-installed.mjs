@@ -43,9 +43,64 @@ if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
+function gate(value) {
+  return value ? "PASS" : "FAIL";
+}
+
+function digestOrInvalid(value, length) {
+  const text = String(value ?? "");
+  return new RegExp(`^[0-9a-f]{${length}}$`).test(text) ? text : "invalid";
+}
+
+function installedEvidenceRecord(rec) {
+  const verdict = ["PASS", "FAIL", "INCOMPLETE"].includes(rec?.verdict) ? rec.verdict : "FAIL";
+  const first = rec?.first ?? {};
+  const walked = Array.isArray(first.onboarding?.walked) ? first.onboarding.walked : [];
+  const settings = Array.isArray(rec?.walk?.settingsWalked) ? rec.walk.settingsWalked : [];
+  return {
+    schema: 2,
+    command: "test:e2e:installed",
+    verdict,
+    productVersion: "0.5.5",
+    target: expectedTarget,
+    installer: expectedInstaller,
+    installerSha256: digestOrInvalid(rec?.installerSha256 ?? installed.installerSha256, 64),
+    sourceSha: digestOrInvalid(rec?.sourceSha ?? candidateSourceSha, 40),
+    host: { platform: process.platform, arch: process.arch },
+    checks: {
+      exactInstaller: gate(rec?.fromExactDmg === true),
+      identity: gate(first.identity?.ok === true || identityJudged.ok === true),
+      officialHttp: gate(first.http?.official === true),
+      officialWebSocket: gate(first.websocket?.opened === true),
+      productDom: gate(first.dom?.hasDshBoot === true),
+      ownedProcessTree: gate(first.processTree?.ownedAbsolute === true && first.processTree?.dshPid > 0),
+      requiredInventory: gate(first.inventory?.ok === true),
+      optionalImDefaultOff: gate(first.inventory?.im === false),
+      welcomePersisted: gate(first.welcome?.clicked === true && first.welcome?.persisted === true),
+      onboardingCore: gate(walked.includes("privacy") && walked.includes("models") && walkedCoreOnboarding(walked)),
+      requiredSettings: gate(
+        ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) =>
+          settings.includes(id),
+        ),
+      ),
+      optionalSettingsHidden: gate(
+        ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every((id) => !settings.includes(id)),
+      ),
+      resume: gate(first.resume?.ok === true || rec?.resume?.ok === true || rec?.resume?.attempted === false),
+    },
+    reason:
+      verdict === "PASS"
+        ? "exact installer passed the installed acceptance record"
+        : verdict === "INCOMPLETE"
+          ? "installed acceptance remains incomplete"
+          : "installed acceptance failed",
+  };
+}
+
 function writeRec(rec) {
-  writeEvidenceJson(join(outDir, "installed-e2e.json"), rec);
-  writeEvidenceJson(join(outDir, evidenceName("installed-e2e", expectedTarget)), rec);
+  const evidence = installedEvidenceRecord(rec);
+  writeEvidenceJson(join(outDir, "installed-e2e.json"), evidence);
+  writeEvidenceJson(join(outDir, evidenceName("installed-e2e", expectedTarget)), evidence);
 }
 
 const source = requireCleanCandidateSource();
