@@ -1,9 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
+  constants,
   chmodSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readlinkSync,
   renameSync,
@@ -56,6 +60,30 @@ export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
+
+function readRegularFileNoFollow(path: string): Buffer | undefined;
+function readRegularFileNoFollow(path: string, encoding: "utf8"): string | undefined;
+function readRegularFileNoFollow(path: string, encoding?: "utf8"): Buffer | string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return undefined;
+    if (code === "ELOOP") {
+      throw new PenglaiError("SECURITY_POLICY", `runtime refuses a symlink source: ${path}`);
+    }
+    throw error;
+  }
+  try {
+    if (!fstatSync(fd).isFile()) {
+      throw new PenglaiError("SECURITY_POLICY", `runtime source is not a regular file: ${path}`);
+    }
+    return encoding === "utf8" ? readFileSync(fd, "utf8") : readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
 
 export interface RuntimeLayout {
   appRoot: string;
@@ -440,11 +468,8 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
   }
   const patchPath = join(profileRoot, "cordis.patch.yml");
   let profileEntryRemoved = false;
-  if (existsSync(patchPath)) {
-    if (lstatSync(patchPath).isSymbolicLink()) {
-      throw new PenglaiError("SECURITY_POLICY", "legacy Context patch must not be a symlink");
-    }
-    const current = readFileSync(patchPath, "utf8");
+  const current = readRegularFileNoFollow(patchPath, "utf8");
+  if (current !== undefined) {
     const next = removeCordisPluginBlock(current, "@penglai/context");
     if (next.removed === 1) {
       writeFileAtomic(patchPath, next.text, 0o600);
@@ -454,11 +479,9 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
 
   const manifestPath = join(profileRoot, "package.json");
   let manifestEntryRemoved = false;
-  if (existsSync(manifestPath)) {
-    if (lstatSync(manifestPath).isSymbolicLink()) {
-      throw new PenglaiError("SECURITY_POLICY", "legacy Context manifest must not be a symlink");
-    }
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+  const manifestText = readRegularFileNoFollow(manifestPath, "utf8");
+  if (manifestText !== undefined) {
+    const manifest = JSON.parse(manifestText) as {
       dependencies?: Record<string, string>;
     };
     if (manifest.dependencies && "@penglai/context" in manifest.dependencies) {
@@ -528,7 +551,9 @@ function copyDir(src: string, dest: string): void {
     if (st.isDirectory()) copyDir(from, to);
     else {
       const mode = st.mode & 0o111 ? 0o700 : 0o600;
-      writeFileSync(to, readFileSync(from), { mode });
+      const bytes = readRegularFileNoFollow(from);
+      if (!bytes) throw new PenglaiError("STORE_CORRUPT", `runtime seed changed while copying: ${from}`);
+      writeFileSync(to, bytes, { mode, flag: "wx" });
       chmodSync(to, mode);
     }
   }

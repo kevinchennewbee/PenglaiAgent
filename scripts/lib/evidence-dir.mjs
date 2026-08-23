@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, lstatSync, mkdirSync, writeFileSync, appendFi
 import { basename, join } from "node:path";
 import { ROOT, gitState } from "./repo.mjs";
 import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_TAG } from "./product.mjs";
+import { sanitizeEvidenceText, sanitizeEvidenceValue, writeEvidenceJson } from "./evidence-json.mjs";
 
 export const HOST_TARGET =
   process.platform === "darwin"
@@ -52,10 +53,11 @@ export function recordCommand(run, rec) {
     signal: rec.signal ?? null,
     durationMs: rec.durationMs ?? null,
   };
-  run.commands.push(row);
-  appendFileSync(join(run.dir, "commands.jsonl"), `${JSON.stringify(row)}\n`);
-  if (rec.stdout) appendFileSync(join(run.dir, "stdout.log"), rec.stdout.endsWith("\n") ? rec.stdout : `${rec.stdout}\n`);
-  if (rec.stderr) appendFileSync(join(run.dir, "stderr.log"), rec.stderr.endsWith("\n") ? rec.stderr : `${rec.stderr}\n`);
+  const safeRow = sanitizeEvidenceValue(row);
+  run.commands.push(safeRow);
+  appendFileSync(join(run.dir, "commands.jsonl"), `${JSON.stringify(safeRow)}\n`);
+  if (rec.stdout) appendFileSync(join(run.dir, "stdout.log"), `${sanitizeEvidenceText(rec.stdout, 1_048_576)}\n`);
+  if (rec.stderr) appendFileSync(join(run.dir, "stderr.log"), `${sanitizeEvidenceText(rec.stderr, 1_048_576)}\n`);
 }
 
 export function recordArtifact(run, path, mime = "application/octet-stream") {
@@ -103,7 +105,12 @@ export function finishEvidenceRun(run, verdict, reason, extra = {}) {
     reason: finalReason,
     ...extra,
   };
-  writeFileSync(join(run.dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-  writeFileSync(join(run.dir, "result.json"), `${JSON.stringify({ verdict: finalVerdict, reason: finalReason, sourceSha: run.git.head }, null, 2)}\n`);
-  return manifest;
+  const safeManifest = sanitizeEvidenceValue(manifest);
+  writeEvidenceJson(join(run.dir, "manifest.json"), safeManifest);
+  writeEvidenceJson(join(run.dir, "result.json"), {
+    verdict: finalVerdict,
+    reason: finalReason,
+    sourceSha: run.git.head,
+  });
+  return safeManifest;
 }

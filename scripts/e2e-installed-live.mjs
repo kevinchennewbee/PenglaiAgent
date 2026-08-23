@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { ROOT } from "./lib/repo.mjs";
@@ -21,11 +21,13 @@ import {
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 
 const PRODUCT_VERSION = "0.5.5";
 const PROVIDER = "deepseek-official";
 const PREFERRED_MODEL = "deepseek-v4-flash-vision-exp";
 const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
+const SAFE_WIZARD_STEPS = new Set(["language", "privacy", "models", "keytest", "workspace", "firstturn", "done"]);
 
 function readSecretLine() {
   if (process.stdin.isTTY) process.stderr.write("DeepSeek API key (input is not recorded): ");
@@ -174,24 +176,29 @@ const launched = launchInstalledHarness(harness, resources, userData, [
 let session;
 let verdict = "FAIL";
 let rec;
+let stage = "launch";
 try {
   if (!(await waitForFile(join(userData, "gateway.port"), 90_000))) throw new Error("gateway did not start");
   ({ session } = await attachPage(port, 90_000));
+  stage = "language-and-privacy";
   await advance(session, "language", "privacy");
   await advance(session, "privacy", "models");
 
+  stage = "official-model-directory";
   const provider = await evaluate(session, selectValue("[data-penglai-wizard-provider]", PROVIDER));
   if (!provider?.ok) throw new Error(`official DeepSeek provider unavailable: ${provider?.reason || "unknown"}`);
   await delay(1_000);
   const models = await evaluate(session, `(() => Array.from(document.querySelector("[data-penglai-wizard-model]")?.options || []).map((row) => row.value).filter(Boolean))()`);
   const model = Array.isArray(models) && models.includes(PREFERRED_MODEL) ? PREFERRED_MODEL : Array.isArray(models) ? models[0] : "";
   if (!model) throw new Error("official DeepSeek model directory is empty");
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model)) throw new Error("official DeepSeek model identifier is invalid");
   const selected = await evaluate(session, selectValue("[data-penglai-wizard-model]", model));
   if (!selected?.ok) throw new Error("official DeepSeek model selection failed");
   await delay(300);
   if (capturePublicShots) await captureShot(session, join(publicShotDir, "models-loaded.png"));
   await advance(session, "models", "keytest");
 
+  stage = "credential-nonce-turn";
   const filled = await evaluate(session, inputValue("[data-penglai-wizard-key]", secret));
   if (!filled?.ok) throw new Error("credential field unavailable");
   const keyReady = await waitEval(session, SNAPSHOT, (snap) => snap?.step === "keytest" && !snap.disabled, 5_000);
@@ -201,11 +208,13 @@ try {
   const workspaceStep = await waitStep(session, "workspace", 180_000);
   if (workspaceStep?.step !== "workspace" || workspaceStep.error) throw new Error("official nonce Turn did not reach workspace");
 
+  stage = "workspace-creation";
   const created = await evaluate(session, rpcExpression("createWorkspace", { path: workspace, title: "Penglai 0.5.5 Live" }));
   if (!created?.ok) throw new Error(`official workspace creation failed: ${created?.code || "unknown"}`);
   await evaluate(session, "location.reload(); true");
   const firstStep = await waitStep(session, "firstturn", 30_000);
   if (firstStep?.step !== "firstturn") throw new Error("wizard did not reach first Turn");
+  stage = "official-first-turn";
   const firstMessage = `Penglai 0.5.5 live verification ${randomUUID().slice(0, 8)}. Reply with OK.`;
   const message = await evaluate(session, inputValue("[data-penglai-wizard-message]", firstMessage));
   if (!message?.ok) throw new Error("first message field unavailable");
@@ -216,6 +225,7 @@ try {
   const done = await waitStep(session, "done", 180_000);
   if (done?.step !== "done" || done.error) throw new Error("official first Turn did not complete");
   if (capturePublicShots) {
+    stage = "product-settings-walk";
     await captureShot(session, join(publicShotDir, "onboarding-complete.png"));
     const finishClick = await evaluate(session, CLICK_CONTINUE);
     if (!finishClick?.ok) throw new Error("completed wizard did not open Penglai");
@@ -231,7 +241,9 @@ try {
   const factsPath = join(userData, "onboarding", "onboarding-facts.json");
   const ledger = existsSync(ledgerPath) ? JSON.parse(readFileSync(ledgerPath, "utf8")) : {};
   const facts = existsSync(factsPath) ? JSON.parse(readFileSync(factsPath, "utf8")) : {};
-  const completed = ledger.current === "COMPLETE" && Boolean(facts.apiTest?.finalDigest) && Boolean(facts.firstConversation?.finalDigest);
+  const apiDigest = String(facts.apiTest?.finalDigest ?? "");
+  const firstDigest = String(facts.firstConversation?.finalDigest ?? "");
+  const completed = ledger.current === "COMPLETE" && /^[0-9a-f]{64}$/.test(apiDigest) && /^[0-9a-f]{64}$/.test(firstDigest);
   if (!completed) throw new Error("onboarding completion evidence missing");
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
   rec = {
@@ -247,8 +259,8 @@ try {
     officialNonceTurn: true,
     officialFirstTurn: true,
     onboardingComplete: true,
-    apiTestFinalDigest: facts.apiTest.finalDigest,
-    firstTurnFinalDigest: facts.firstConversation.finalDigest,
+    apiTestFinalDigestRecorded: true,
+    firstTurnFinalDigestRecorded: true,
     processOwned: tree.ownedAbsolute,
     publicScreenshots: capturePublicShots,
   };
@@ -259,9 +271,9 @@ try {
     try {
       const snap = await evaluate(session, SNAPSHOT);
       ui = {
-        step: snap?.step || "",
-        error: String(snap?.error || "").replaceAll(secret, "[redacted]"),
-        bootFailure: String(snap?.bootFailure || "").replaceAll(secret, "[redacted]"),
+        step: SAFE_WIZARD_STEPS.has(snap?.step) ? snap.step : "unknown",
+        errorPresent: Boolean(snap?.error),
+        bootFailurePresent: Boolean(snap?.bootFailure),
       };
     } catch {
       /* the window may already be gone; the primary failure still remains */
@@ -275,7 +287,7 @@ try {
     sourceSha: packaged.release.sourceSha,
     installer,
     installerSha256: installed.installerSha256,
-    reason: error instanceof Error ? error.message.replaceAll(secret, "[redacted]") : "live onboarding failed",
+    reason: `live onboarding failed at ${stage}`,
     ...(ui ? { ui } : {}),
   };
 } finally {
@@ -293,7 +305,6 @@ try {
 
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
-const payload = JSON.stringify(rec, null, 2);
-writeFileSync(join(outDir, "installed-e2e-live.json"), payload);
-writeFileSync(join(outDir, evidenceName("installed-e2e-live", target)), payload);
+writeEvidenceJson(join(outDir, "installed-e2e-live.json"), rec);
+writeEvidenceJson(join(outDir, evidenceName("installed-e2e-live", target)), rec);
 finish(verdict, rec);

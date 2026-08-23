@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./repo.mjs";
+import { sanitizeEvidenceValue, writeEvidenceJson } from "./evidence-json.mjs";
 
 test("dirty tree and fake sha cannot mint official PASS evidence", () => {
   const src = readFileSync(new URL("./evidence-dir.mjs", import.meta.url), "utf8");
@@ -23,4 +24,22 @@ test("fault injection: non-zero child, missing binary, and timeout stay non-PASS
   const dir = mkdtempSync(join(tmpdir(), "penglai-ev-"));
   writeFileSync(join(dir, "corrupt.pdf"), "not-a-pdf");
   assert.equal(existsSync(join(dir, "corrupt.pdf")), true);
+});
+
+test("evidence JSON is bounded, cycle-safe, and redacts credentials", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-evidence-json-"));
+  const path = join(dir, "result.json");
+  const fakeCredential = ["sk", "examplecredential123456"].join("-");
+  const cyclic = { apiKey: fakeCredential, nested: {} };
+  cyclic.nested.self = cyclic;
+  cyclic.message = `provider said Bearer abcdefghijklmnopqrstuvwxyz ${"x".repeat(20_000)}`;
+  const safe = sanitizeEvidenceValue(cyclic);
+  assert.equal(safe.apiKey, "[redacted]");
+  assert.equal(safe.nested.self, "[cycle]");
+  assert.doesNotMatch(safe.message, /Bearer|abcdefghij/);
+  assert.match(safe.message, /truncated/);
+  writeEvidenceJson(path, cyclic);
+  const written = readFileSync(path, "utf8");
+  assert.doesNotMatch(written, /examplecredential|Bearer|abcdefghijklmnopqrstuvwxyz/);
+  assert.match(written, /\[redacted\]/);
 });

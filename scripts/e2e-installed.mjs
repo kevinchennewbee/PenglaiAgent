@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
@@ -30,6 +30,7 @@ import {
   parseTargetArg,
   walkedCoreOnboarding,
 } from "./lib/release-targets.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 
 const certFault = String(process.env.PENGLAI_RUNNER_FAULT ?? "").trim();
 if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
@@ -43,9 +44,8 @@ const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
 function writeRec(rec) {
-  const payload = JSON.stringify(rec, null, 2);
-  writeFileSync(join(outDir, "installed-e2e.json"), payload);
-  writeFileSync(join(outDir, evidenceName("installed-e2e", expectedTarget)), payload);
+  writeEvidenceJson(join(outDir, "installed-e2e.json"), rec);
+  writeEvidenceJson(join(outDir, evidenceName("installed-e2e", expectedTarget)), rec);
 }
 
 const source = requireCleanCandidateSource();

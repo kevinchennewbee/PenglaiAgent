@@ -1,7 +1,6 @@
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
 
 const SCRIPT = `#!/usr/bin/env node
 const { mkdirSync, readFileSync, writeFileSync, existsSync } = require("node:fs");
@@ -97,14 +96,15 @@ process.stderr.write("unknown command " + command + "\\n");
 process.exit(2);
 `;
 
-export function createTestMnemonBinary(dir = join(tmpdir(), `penglai-fake-mnemon-${randomUUID()}`)): string {
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const jsPath = join(dir, "mnemon.js");
+export function createTestMnemonBinary(dir?: string): string {
+  const ownedDir = dir ?? mkdtempSync(join(tmpdir(), "penglai-fake-mnemon-"));
+  if (dir) mkdirSync(ownedDir, { recursive: true, mode: 0o700 });
+  const jsPath = join(ownedDir, "mnemon.js");
   writeFileSync(jsPath, SCRIPT.replace(/^#!.*\n/, ""), { encoding: "utf8", mode: 0o644 });
   if (process.platform === "win32") {
     return jsPath;
   }
-  const path = join(dir, "mnemon");
+  const path = join(ownedDir, "mnemon");
   writeFileSync(
     path,
     `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(jsPath)} "$@"\n`,

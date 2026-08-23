@@ -1,4 +1,16 @@
-import { closeSync, copyFileSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, renameSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  fsyncSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { randomBytes } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
@@ -67,29 +79,72 @@ function fsyncPath(path: string): void {
   }
 }
 
+function readExistingRegularFile(path: string): Buffer | undefined {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return undefined;
+    if (code === "ELOOP") {
+      throw new PenglaiError("SECURITY_POLICY", "office refuses a pre-existing symlink destination");
+    }
+    throw error;
+  }
+  try {
+    if (!fstatSync(fd).isFile()) {
+      throw new PenglaiError("SECURITY_POLICY", "office destination must be a regular file");
+    }
+    return readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function openParentDirectoryNoFollow(parent: string): number | undefined {
+  // Windows cannot fsync a directory handle through node:fs. The workspace
+  // traversal gate still rejects reparse/symlink components there; POSIX keeps
+  // the exact no-follow directory open through backup, write and rename.
+  if (process.platform === "win32") return undefined;
+  let fd: number;
+  try {
+    fd = openSync(parent, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw new PenglaiError("SECURITY_POLICY", "office destination parent must not be a symlink");
+    }
+    throw error;
+  }
+  if (!fstatSync(fd).isDirectory()) {
+    closeSync(fd);
+    throw new PenglaiError("SECURITY_POLICY", "office destination parent must be a directory");
+  }
+  return fd;
+}
+
 export function atomicCommitFile(destPath: string, bytes: Buffer, backupPath: string): { destDigest: string; backup: string } {
   const parent = dirname(destPath);
   mkdirSync(parent, { recursive: true, mode: 0o700 });
-  if (existsSync(parent) && lstatSync(parent).isSymbolicLink()) {
-    throw new PenglaiError("SECURITY_POLICY", "office destination parent must not be a symlink");
-  }
-  if (existsSync(destPath) && lstatSync(destPath).isSymbolicLink()) {
-    throw new PenglaiError("SECURITY_POLICY", "office refuses a pre-existing symlink destination");
-  }
-  if (existsSync(destPath)) copyFileSync(destPath, backupPath);
-  const tmp = `${destPath}.${randomBytes(6).toString("hex")}.tmp`;
-  writeFileSync(tmp, bytes, { mode: 0o600, flag: "wx" });
-  fsyncPath(tmp);
-  renameSync(tmp, destPath);
+  const parentFd = openParentDirectoryNoFollow(parent);
   try {
-    const parentFd = openSync(parent, "r");
-    try {
-      fsyncSync(parentFd);
-    } finally {
-      closeSync(parentFd);
+    const previous = readExistingRegularFile(destPath);
+    if (previous !== undefined) {
+      writeFileSync(backupPath, previous, { mode: 0o600, flag: "wx" });
+      fsyncPath(backupPath);
     }
-  } catch {
-    /* directory fsync is best-effort on some volumes */
+    const tmp = `${destPath}.${randomBytes(6).toString("hex")}.tmp`;
+    writeFileSync(tmp, bytes, { mode: 0o600, flag: "wx" });
+    fsyncPath(tmp);
+    renameSync(tmp, destPath);
+    if (parentFd !== undefined) {
+      try {
+        fsyncSync(parentFd);
+      } catch {
+        /* directory fsync is best-effort on some volumes */
+      }
+    }
+  } finally {
+    if (parentFd !== undefined) closeSync(parentFd);
   }
   return { destDigest: digestBytes(bytes), backup: backupPath };
 }

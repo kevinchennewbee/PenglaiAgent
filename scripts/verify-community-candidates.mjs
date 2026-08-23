@@ -9,6 +9,14 @@ import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, HOST_TARGET, recordArtifact } from "./lib/evidence-dir.mjs";
 
 const run = beginEvidenceRun({ command: "verify:community-candidates", target: HOST_TARGET });
+const DOWNLOAD_HOSTS = new Set([
+  "codeload.github.com",
+  "github.com",
+  "objects.githubusercontent.com",
+  "release-assets.githubusercontent.com",
+]);
+const MAX_REDIRECTS = 5;
+const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
 const ledger = readFileSync(join(ROOT, "docs/0.5.5/COMMUNITY_REVIEW_LEDGER.md"), "utf8");
 if (/curl\s*\|\s*bash/.test(ledger)) {
   const manifest = finishEvidenceRun(run, "FAIL", "ledger contains curl|bash");
@@ -16,16 +24,39 @@ if (/curl\s*\|\s*bash/.test(ledger)) {
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
 
-function fetchHttps(url) {
+function checkedDownloadUrl(raw, base) {
+  const url = new URL(raw, base);
+  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
+    throw new Error("community archive URL must be credential-free HTTPS");
+  }
+  if (!DOWNLOAD_HOSTS.has(url.hostname)) throw new Error(`community archive host refused: ${url.hostname}`);
+  return url;
+}
+
+function fetchHttps(raw, redirects = 0, base) {
+  if (redirects > MAX_REDIRECTS) return Promise.reject(new Error("community archive redirect limit exceeded"));
+  const url = checkedDownloadUrl(raw, base);
   return new Promise((resolve, reject) => {
+    // Ledger input is reduced to owner/name + a pinned hex commit before this
+    // call; every redirect is re-parsed and constrained to DOWNLOAD_HOSTS.
+    // lgtm[js/file-access-to-http]
     const req = https.get(url, { headers: { "user-agent": "penglai-community-audit" } }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        fetchHttps(res.headers.location).then(resolve, reject);
+        fetchHttps(res.headers.location, redirects + 1, url).then(resolve, reject);
         return;
       }
       const chunks = [];
-      res.on("data", (c) => chunks.push(c));
+      let total = 0;
+      res.on("data", (chunk) => {
+        total += chunk.length;
+        if (total > MAX_ARCHIVE_BYTES) {
+          res.destroy(new Error("community archive exceeds 64 MiB"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("error", reject);
       res.on("end", () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks) }));
     });
     req.on("error", reject);

@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -408,6 +418,16 @@ test("0.5.5 merges the legacy Context profile plugin into Memory without deletin
   const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
   assert.equal("@penglai/context" in manifest.dependencies, false);
   assert.equal(existsSync(join(user.root, "migrations", "context-merged-0.5.5.json")), true);
+});
+
+test("legacy Context migration refuses a swapped symlink manifest", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-context-symlink-")));
+  mkdirSync(user.profileWeb, { recursive: true });
+  const outside = join(user.root, "outside.json");
+  writeFileSync(outside, JSON.stringify({ dependencies: { "@penglai/context": "0.5.3" } }));
+  symlinkSync(outside, join(user.profileWeb, "package.json"));
+  assert.throws(() => mergeLegacyContextIntoMemory(user), /symlink source/i);
+  assert.match(readFileSync(outside, "utf8"), /@penglai\/context/);
 });
 
 test("R2-DIST-012 interrupted staging rolls back", () => {
