@@ -1,14 +1,19 @@
-import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
+import { createRequire } from "node:module";
+import { PDFDocument, degrees, rgb } from "pdf-lib";
 import { PenglaiError } from "@penglai/contracts";
 import { assertAuthorizedBytes } from "../authorization.js";
+import { loadPenglaiCjkFont } from "../cjk-font.js";
 
-function assertLatinBody(text: string): void {
-  if (/[^\u0000-\u00ff]/.test(text)) {
-    throw new PenglaiError(
-      "INVALID_INPUT",
-      "pdf body text cannot embed CJK without an OFL font; 0.5.5 supports latin create/watermark/rotate/merge/inspect only",
-    );
-  }
+const require = createRequire(import.meta.url);
+
+function fontkitInstance(): { default?: unknown } | unknown {
+  return require("@pdf-lib/fontkit");
+}
+
+async function embedPenglaiFont(pdf: PDFDocument) {
+  const fontkit = fontkitInstance() as { default?: unknown };
+  pdf.registerFontkit((fontkit.default ?? fontkit) as never);
+  return pdf.embedFont(loadPenglaiCjkFont());
 }
 
 function decodePdfText(raw: string): string {
@@ -18,12 +23,11 @@ function decodePdfText(raw: string): string {
 }
 
 export async function createPdf(text: string): Promise<Buffer> {
-  assertLatinBody(text);
   const pdf = await PDFDocument.create();
   pdf.setTitle(text);
   pdf.setSubject(text);
   const page = pdf.addPage([612, 792]);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const font = await embedPenglaiFont(pdf);
   page.drawText(text.slice(0, 180), { x: 72, y: 720, size: 12, font, color: rgb(0, 0, 0) });
   return Buffer.from(await pdf.save());
 }
@@ -43,9 +47,8 @@ export async function inspectPdf(bytes: Buffer): Promise<{ text: string; parts: 
 
 export async function editPdf(bytes: Buffer, op: { text: string }): Promise<Buffer> {
   assertAuthorizedBytes(bytes);
-  assertLatinBody(op.text);
   const pdf = await PDFDocument.load(bytes);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const font = await embedPenglaiFont(pdf);
   const page = pdf.getPages()[0];
   if (!page) throw new PenglaiError("INVALID_INPUT", "pdf has no pages");
   page.drawText(op.text.slice(0, 120), { x: 72, y: 96, size: 10, font, color: rgb(0.4, 0.4, 0.4) });

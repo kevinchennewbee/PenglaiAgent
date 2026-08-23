@@ -28,6 +28,9 @@ export interface OfficeJobRecord {
   parts: string[];
   warnings: string[];
   workspaceId?: string;
+  sessionId?: string;
+  routeId?: string;
+  attachmentHandle?: string;
   sourcePath?: string;
   destPath?: string;
   digest: string;
@@ -58,6 +61,9 @@ export function createJob(input: {
   parts?: string[];
   warnings?: string[];
   workspaceId?: string;
+  sessionId?: string;
+  routeId?: string;
+  attachmentHandle?: string;
   sourcePath?: string;
   destPath?: string;
   ops?: OfficeOperation[];
@@ -79,6 +85,9 @@ export function createJob(input: {
     opsDigest: digestOps(ops),
     events: [{ at: Date.now(), state: "INSPECTED", note: "inspect" }],
     ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    ...(input.routeId ? { routeId: input.routeId } : {}),
+    ...(input.attachmentHandle ? { attachmentHandle: input.attachmentHandle } : {}),
     ...(input.sourcePath ? { sourcePath: input.sourcePath } : {}),
     ...(input.destPath ? { destPath: input.destPath } : {}),
   };

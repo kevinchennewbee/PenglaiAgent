@@ -31,15 +31,13 @@ test("office create/inspect/edit/commit round-trips OOXML with typed operations"
   }
 });
 
-test("office PDF create/inspect/watermark is latin-only and refuses CJK body text", async () => {
-  const created = await createDocument("pdf", "hello pdf");
+test("office PDF create/inspect/watermark embeds CJK through the bundled OFL font", async () => {
+  const created = await createDocument("pdf", "hello pdf 世界");
   const seen = await inspect(created.bytes);
   assert.equal(seen.format, "pdf");
-  assert.match(seen.text, /hello pdf/);
-  const patched = await edit(created.bytes, { kind: "pdf.watermark", text: "WMARK" });
-  assert.match((await inspect(commit(patched))).text, /WMARK|hello pdf/);
-  await assert.rejects(() => createDocument("pdf", "世界"), /CJK|latin/i);
-  await assert.rejects(() => edit(created.bytes, { kind: "pdf.watermark", text: "世界" }), /CJK|latin/i);
+  assert.match(seen.text, /hello pdf|世界/);
+  const patched = await edit(created.bytes, { kind: "pdf.watermark", text: "水印" });
+  assert.match((await inspect(commit(patched))).text, /水印|hello pdf|世界/);
 });
 
 test("office partial-edit keeps unmodified document parts", async () => {

@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -26,17 +26,17 @@ const dir = mkdtempSync(join(tmpdir(), "penglai-office-real-"));
 const docx = await createDocument("docx", "Penglai Office DOCX probe 世界");
 const xlsx = await createDocument("xlsx", "Penglai Office XLSX probe");
 const pptx = await createDocument("pptx", "Penglai Office PPTX probe");
-const pdf = await createDocument("pdf", "Penglai Office PDF probe");
+const pdf = await createDocument("pdf", "Penglai Office PDF probe 世界");
 const editedXlsx = await edit(xlsx.bytes, { kind: "xlsx.setCell", cell: "B1", value: "typed-cell" });
 const editedDocx = await edit(docx.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "typed-paragraph" });
 const editedPptx = await edit(pptx.bytes, { kind: "pptx.replaceSlideText", slideIndex: 0, text: "typed-slide" });
-const editedPdf = await edit(pdf.bytes, { kind: "pdf.watermark", text: "WMARK" });
+const editedPdf = await edit(pdf.bytes, { kind: "pdf.watermark", text: "水印" });
 
 const paths = {
-  docx: join(dir, "probe.docx"),
-  xlsx: join(dir, "probe.xlsx"),
-  pptx: join(dir, "probe.pptx"),
-  pdf: join(dir, "probe.pdf"),
+  docx: join(dir, "docx-probe.docx"),
+  xlsx: join(dir, "xlsx-probe.xlsx"),
+  pptx: join(dir, "pptx-probe.pptx"),
+  pdf: join(dir, "pdf-probe.pdf"),
 };
 writeFileSync(paths.docx, editedDocx.bytes);
 writeFileSync(paths.xlsx, editedXlsx.bytes);
@@ -47,8 +47,8 @@ for (const [name, path] of Object.entries(paths)) {
 }
 
 const seenPdf = await inspect(editedPdf.bytes);
-if (seenPdf.format !== "pdf" || !/WMARK|Penglai Office PDF probe/.test(seenPdf.text)) {
-  const manifest = finishEvidenceRun(run, "FAIL", "created PDF did not inspect with latin watermark");
+if (seenPdf.format !== "pdf" || !/水印|世界|Penglai Office PDF probe/.test(seenPdf.text)) {
+  const manifest = finishEvidenceRun(run, "FAIL", "created PDF did not inspect with CJK watermark");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
@@ -64,7 +64,7 @@ if (pdfinfo.status === 0 && pdftotext.status === 0) {
     console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
-  const textPath = join(dir, "probe.txt");
+  const textPath = join(dir, "pdf-probe.txt");
   const text = spawnSync(textBin, [paths.pdf, textPath], { encoding: "utf8" });
   recordCommand(run, { argv: [textBin, paths.pdf, textPath], exitCode: text.status, stdout: text.stdout, stderr: text.stderr });
   if (text.status !== 0) {
@@ -73,8 +73,8 @@ if (pdfinfo.status === 0 && pdftotext.status === 0) {
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
   const extracted = readFileSync(textPath, "utf8");
-  if (!/Penglai Office PDF probe|WMARK/.test(extracted)) {
-    const manifest = finishEvidenceRun(run, "FAIL", "pdftotext did not read latin PDF text", { extracted });
+  if (!/Penglai Office PDF probe|世界|水印/.test(extracted)) {
+    const manifest = finishEvidenceRun(run, "FAIL", "pdftotext did not read CJK PDF text", { extracted });
     console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
@@ -98,6 +98,7 @@ if (soffice.status !== 0) {
 
 const sofficeBin = soffice.stdout.trim();
 const convertDir = join(dir, "lo");
+mkdirSync(convertDir, { recursive: true, mode: 0o700 });
 const convert = spawnSync(
   sofficeBin,
   ["--headless", "--convert-to", "pdf", "--outdir", convertDir, paths.docx, paths.xlsx, paths.pptx],
@@ -113,6 +114,15 @@ if (convert.status !== 0) {
   const manifest = finishEvidenceRun(run, "FAIL", "LibreOffice rejected OOXML artifacts", { stderr: convert.stderr });
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
+}
+const loPdfs = ["docx-probe.pdf", "xlsx-probe.pdf", "pptx-probe.pdf"].map((name) => join(convertDir, name));
+for (const pdfPath of loPdfs) {
+  if (!existsSync(pdfPath) || readFileSync(pdfPath).length === 0) {
+    const manifest = finishEvidenceRun(run, "FAIL", `LibreOffice did not emit ${pdfPath}`);
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+    process.exit(EXIT_BY_VERDICT.FAIL);
+  }
+  recordArtifact(run, pdfPath, "application/pdf");
 }
 
 const manifest = finishEvidenceRun(run, "PASS", "LibreOffice and Poppler accepted office artifacts", {

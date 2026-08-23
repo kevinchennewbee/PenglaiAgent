@@ -816,7 +816,11 @@ for (const p of packs) {
     console.error(p.id, "host bundle still imports src");
     process.exit(1);
   }
-  if (/\/Users\/|\/Volumes\/|C:\\\\Users\\\\/.test(hostJs)) {
+  if (
+    /\/Users\/|\/Volumes\/|C:\\\\Users\\\\|sourceMappingURL|\/var\/folders\/|\\\\Temp\\\\|API_KEY|sk-penglai-fixture/.test(
+      hostJs,
+    )
+  ) {
     console.error("production bundle forbidden dist/index.js:owner volume", p.id);
     process.exit(1);
   }
@@ -894,6 +898,24 @@ for (const p of packs) {
     const got = sha256(destBin);
     if (got !== asset.binarySha256) {
       console.error("packed mnemon hash mismatch", got);
+      process.exit(1);
+    }
+  }
+  if (p.id === "@penglai/office") {
+    const fontSrc = join(ROOT, "packages/office/fonts/PenglaiCjkOfl.ttf");
+    const fontNotice = join(ROOT, "packages/office/fonts/OFL.txt");
+    if (!existsSync(fontSrc) || !existsSync(fontNotice)) {
+      console.error("office CJK OFL font missing");
+      process.exit(1);
+    }
+    const destFont = join(stage, "resources", "fonts", "PenglaiCjkOfl.ttf");
+    mkdirSync(dirname(destFont), { recursive: true });
+    cpSync(fontSrc, destFont);
+    cpSync(fontNotice, join(stage, "resources", "fonts", "OFL.txt"));
+    cpSync(join(ROOT, "packages/office/fonts/NOTICE"), join(stage, "resources", "fonts", "NOTICE"));
+    const fontHash = sha256(destFont);
+    if (fontHash !== "8b925746dd6c4a4a6b79b41101cebb2d13002ea82c0018b8cb0658127371f214") {
+      console.error("packed office CJK font hash mismatch", fontHash);
       process.exit(1);
     }
   }

@@ -1,0 +1,13 @@
+PenglaiCjkOfl.ttf is a SIL Open Font License 1.1 subset of Noto Sans SC
+from https://github.com/notofonts/noto-cjk (Adobe / Google).
+
+The 0.5.5 subset keeps only glyphs needed by Penglai office templates and
+PDF tests. Reserved names (Noto / Noto Sans SC) were replaced with
+PenglaiCjkOfl as required by the OFL for derivative works.
+
+Upstream file: Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
+Upstream SHA-256: d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964
+Subset SHA-256: 8b925746dd6c4a4a6b79b41101cebb2d13002ea82c0018b8cb0658127371f214
+
+The OFL text is in OFL.txt. This font is bundled so installed Office can
+embed CJK without depending on system fonts.

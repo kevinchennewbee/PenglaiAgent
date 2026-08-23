@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
     const COPY = {
       zh: {
         title: "蓬莱办公",
-        hint: "读取、创建，并用格式专属操作编辑 DOCX、XLSX、PPTX 与 PDF。PDF 不嵌入中文正文。提交需要 Owner 收据。",
+        hint: "对话里使用官方办公工具检查、预览、批准并保存。设置页只是诊断入口。PDF 使用内置 OFL 中文字体。提交需要 Owner 确认。",
         create: "创建",
         inspect: "查看",
         edit: "目标修改",
@@ -89,7 +89,7 @@ window.__ModuleLoader__.load({
       },
       en: {
         title: "Penglai Office",
-        hint: "Inspect, create, and apply typed operations to DOCX, XLSX, PPTX, and PDF. PDF does not embed CJK body text. Commit requires an Owner receipt.",
+        hint: "Use the official conversation tools to inspect, preview, approve, and save. This settings page is a diagnostic surface. PDF embeds CJK with the bundled OFL font. Writes require Owner confirmation.",
         create: "Create",
         inspect: "Inspect",
         edit: "Targeted edit",

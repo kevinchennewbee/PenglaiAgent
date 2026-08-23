@@ -29,5 +29,5 @@ export const OFFICE_LIMITS = {
   docx: "Inspect paragraphs/headers; create latin/CJK via docx; replace a numbered paragraph. Complex numbering, content-controls, and macros are refused.",
   xlsx: "Inspect sheets/cells/formulas; create/edit an explicit sheet+cell. Macros, external links, and protected workbooks are refused.",
   pptx: "Create via pptfast. Edit replaces the first text run on a numbered slide. Complex existing decks may be inspect-only.",
-  pdf: "Inspect metadata/pages; latin create; watermark/rotate/merge. CJK body text is not embedded in 0.5.5. Arbitrary PDF paragraph editing is not supported.",
+  pdf: "Inspect metadata/pages; create/watermark with the bundled OFL CJK font; rotate/merge. Arbitrary PDF paragraph rewriting is not supported.",
 } as const;

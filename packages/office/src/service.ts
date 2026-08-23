@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { ObjectStore, PenglaiError, RELEASE } from "@penglai/contracts";
 import { readZip } from "./zip.js";
 import type { OfficeFormat } from "./formats.js";
 import { assertAuthorizedBytes, assertWorkspace } from "./authorization.js";
@@ -152,13 +152,52 @@ export function commit(job: OfficeJob): Buffer {
   return Buffer.from(job.bytes);
 }
 
-export function createOfficeService() {
+export function createOfficeService(opts?: { userData?: string; objects?: ObjectStore }) {
   const secret = createReceiptSecret();
+  const objects =
+    opts?.objects ??
+    new ObjectStore(opts?.userData ? join(opts.userData, "objects") : process.env.PENGLAI_USER_DATA ? join(process.env.PENGLAI_USER_DATA, "objects") : undefined);
   return {
     name: "@penglai/office",
     version: RELEASE,
     inspect,
+    objects,
+    job(jobId: string) {
+      return getJob(jobId);
+    },
     create: createDocument,
+    async inspectAttached(handle: string, sessionId: string) {
+      const bytes = objects.get(handle, sessionId);
+      const seen = await inspectRaw(bytes);
+      const job = createJob({
+        format: seen.format,
+        bytes,
+        text: seen.text,
+        parts: seen.parts,
+        warnings: seen.warnings,
+        attachmentHandle: handle,
+        sessionId,
+      });
+      return { ...toPublic(job), handle };
+    },
+    async inspectWorkspaceFile(absPath: string, workspaceRoot: string, workspaceId: string) {
+      const dest = assertPathInWorkspace(absPath, workspaceRoot);
+      if (basename(dest) !== basename(absPath)) {
+        throw new PenglaiError("SECURITY_POLICY", "office inspect filename escaped");
+      }
+      const bytes = readFileSync(dest);
+      const seen = await inspectRaw(bytes);
+      const job = createJob({
+        format: seen.format,
+        bytes,
+        text: seen.text,
+        parts: seen.parts,
+        warnings: seen.warnings,
+        workspaceId,
+        sourcePath: dest,
+      });
+      return toPublic(job);
+    },
     async createFromTemplate(id: string, workspaceId?: string) {
       const template = templateById(id);
       const created = await createDocument(template.format, template.body);
@@ -274,6 +313,9 @@ export function createOfficeService() {
         ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
       });
       discardJob(jobId);
+    },
+    bindHandle(handle: string, bind: { sessionId: string; workspaceId?: string; routeId?: string }) {
+      objects.bind(handle, bind);
     },
     async export(jobId: string, _target: OfficeFormat, receipt: string) {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office export requires owner receipt");

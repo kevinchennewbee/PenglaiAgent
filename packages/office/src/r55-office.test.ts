@@ -96,11 +96,10 @@ test("R55-OFFICE-014 PDF create", async () => {
   assert.match((await inspect(created.bytes)).text, /created-pdf/);
 });
 
-test("R55-OFFICE-015 PDF watermark not CJK stream", async () => {
+test("R55-OFFICE-015 PDF watermark embeds CJK with OFL font", async () => {
   const created = await createDocument("pdf", "hello pdf");
-  const patched = await edit(created.bytes, { kind: "pdf.watermark", text: "WMARK" });
-  assert.match((await inspect(commit(patched))).text, /WMARK|hello pdf/);
-  await assert.rejects(() => edit(created.bytes, { kind: "pdf.watermark", text: "世界" }), /CJK|latin/i);
+  const patched = await edit(created.bytes, { kind: "pdf.watermark", text: "世界" });
+  assert.match((await inspect(commit(patched))).text, /世界|hello pdf/);
 });
 
 test("R55-OFFICE-016 PDF verify", async () => {
