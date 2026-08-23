@@ -115,7 +115,6 @@ window.__ModuleLoader__.load({
       "@penglai/plugin-center",
       "@penglai/plugin-reference",
       "@penglai/plugin-pilot",
-      "@penglai/context",
       "@penglai/budget",
     ]);
     const FIRST_PARTY_CARDS = [

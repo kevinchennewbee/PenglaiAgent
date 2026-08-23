@@ -152,7 +152,7 @@ Center分层：
 - renderer读不回明文；但同OS用户的高权限本地进程可能读取文件，不能宣传成Keychain级隔离。
 - IM只保留完成因果路由所需的受控状态；日志/evidence不含secret、QR、正文或真实identity。
 - 麦克风/IM原始语音与TTS临时输出按任务及时删除；本地声音参考是独立敏感数据类别，不进入日志/evidence，也不会从联系人语音自动创建。
-- Context只索引用户授权的realpath目录，撤销只删派生索引；Memory/预算/陪伴数据均app-private、可查看、可分项删除，不进入诊断或evidence正文。
+- 蓬莱记忆的资料源层只索引用户授权的realpath目录，撤销只删派生索引；记忆/预算/陪伴数据均app-private、可查看、可分项删除，不进入诊断或evidence正文。
 - 卸载默认保留数据，完整删除由用户明确选择。
 
 ## 9. 状态语言
@@ -168,4 +168,4 @@ Center分层：
 
 ## 10. 成功标准
 
-Apple Silicon 用户可以从 exact DMG fresh install，不安装开发工具，通过真实UI完成BYOK和Workspace/Turn，进入完整DSH Web，按需安装本地ASR/TTS、个人上下文/来源卡、分层记忆、预算和可选陪伴，并连接微信/飞书私聊text+voice，安全升级后续版本，并清楚可控地卸载。所有结论有exact source/export/artifact/native/live evidence支持。
+Apple Silicon 用户可以从 exact DMG fresh install，不安装开发工具，通过真实UI完成BYOK和Workspace/Turn，进入完整DSH Web，按需安装本地ASR/TTS，在一个蓬莱记忆插件里使用授权资料源、来源卡、分层记忆与图谱，按需启用陪伴，并连接微信/飞书私聊text+voice，安全升级后续版本，并清楚可控地卸载。所有结论有exact source/export/artifact/native/live evidence支持。

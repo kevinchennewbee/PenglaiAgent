@@ -85,6 +85,7 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /data-penglai-plugin-action/);
   assert.match(client, /@penglai\/asr/);
   assert.match(client, /@penglai\/moss-tts/);
+  assert.equal(client.includes("@penglai/context"), false);
   assert.match(client, /FIRST_PARTY_CARDS/);
   assert.match(client, /snapshot\?\.remote/);
   assert.match(client, /data-penglai-plugin-source/);

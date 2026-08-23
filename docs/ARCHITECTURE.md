@@ -142,7 +142,7 @@ Penglai composition 是加法：
 - 0.4.1 legacy detector 只能读取已知路径的存在、版本和大小；不打开旧 DB/credential，不迁移或删除。
 - `.credentials.yaml` 包含 secret；其他 profile/DB 只保存 ref 和非秘密描述。
 - IM DB 可以短期保存执行所需 inbound/outbound 文本，但必须有 retention、完成后清理和“清除消息记录”功能；evidence/diagnostics 不复制正文。
-- Context只保存授权descriptor与派生index，外部source不归app管理；Memory/voice/Context/Companion内容按独立retention和删除合同，Budget不保存prompt/response正文。
+- 蓬莱记忆的资料源层只保存授权descriptor与派生index，外部source不归app管理；Memory/voice/Companion内容按独立retention和删除合同，Budget不保存prompt/response正文。
 - macOS 对 root/credential 实施 0700/0600；Windows 实施当前用户专用 DACL，拒绝 junction/reparse escape。
 
 ## 5. 首次引导状态机

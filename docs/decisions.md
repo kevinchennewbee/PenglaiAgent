@@ -264,10 +264,10 @@
 - 决定：Goal/Todo/Skills/MCP/Web/Attachments/Schedule/TokenMeter继续由pinned official DSH拥有；Penglai只做parity、帮助/IM命令composition和差异化插件消费。
 - 后果：禁止恢复0.4.1 EpisodeRunner、Task/Run control plane、Skill/MCP/model registry或第二计量/调度核心。
 
-### D-044 — Context与Memory采用显式scope/consent
+### D-044 — 蓬莱记忆采用显式scope/consent
 
 - 状态：ACCEPTED
-- 决定：Context只索引用户显式授权realpath并只删派生数据；Memory分global L1/Workspace/candidates，global/SOP长期写入需visible diff和Owner确认，SOP复用official Skills。
+- 决定：蓬莱记忆的资料源层只索引用户显式授权realpath并只删派生数据；记忆层分global L1/Workspace/candidates，global/SOP长期写入需visible diff和Owner确认，SOP复用official Skills。
 - 后果：来源状态由host验证；模型不能修改源文件、跨Workspace污染或无确认写global/SOP。
 
 ### D-045 — Companion默认关闭且无无人值守工具
