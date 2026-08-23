@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
@@ -226,6 +226,7 @@ export function createOfficeService() {
       const backupRoot = process.env.PENGLAI_USER_DATA
         ? join(process.env.PENGLAI_USER_DATA, "office", "backups")
         : join(tmpdir(), "penglai-office-backups");
+      mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
       const backup = join(backupRoot, `penglai-office-${record.id}.bak`);
       setJobState(jobId, "STAGED", dest);
       const result = atomicCommitFile(dest, record.bytes, backup);
