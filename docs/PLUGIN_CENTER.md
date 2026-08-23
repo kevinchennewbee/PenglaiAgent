@@ -34,7 +34,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-0.5.5 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。当前远程不可变目录是 [`plugin-catalog-v1.000005`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000005)。其中 `@penglai/office-reader` 0.1.3 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行，并使用 DSH 0.1.1-rc.2 要求的结构化输入与输出 contract。它是验证远程热插拔发行链的轻量阅读扩展，不替代安装包内 required-builtin 的完整蓬莱办公。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.5 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
+0.5.5 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.5 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center、Office 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH、Office 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
