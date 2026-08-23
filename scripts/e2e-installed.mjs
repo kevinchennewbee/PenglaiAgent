@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort, waitEval } from "./lib/cdp.mjs";
 import { SNAPSHOT_JS, walkInstalledBrowserWindow, wizardResumeReady } from "./lib/browser-window-walk.mjs";
@@ -46,10 +47,11 @@ function writeRec(rec) {
   writeFileSync(join(outDir, evidenceName("installed-e2e", expectedTarget)), payload);
 }
 
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "test:e2e:installed", reason: "candidate source must be clean main at origin/main", ...git });
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "test:e2e:installed", reason: source.reason, ...source.git });
 }
+const git = source.git;
 const expectedTarget = parseTargetArg();
 const blocked = nativeBlocked("test:e2e:installed", expectedTarget);
 if (blocked) finish("BLOCKED", { command: "test:e2e:installed", ...blocked });

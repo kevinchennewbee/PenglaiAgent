@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, evaluate, freePort, waitEval } from "./lib/cdp.mjs";
 import { observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
@@ -58,10 +59,11 @@ const CLICK_CONTINUE_JS = `(() => {
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 const recPath = join(outDir, "u3-welcome-smoke.json");
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "u3-welcome-smoke", reason: "candidate source must be clean main at origin/main", ...git });
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "u3-welcome-smoke", reason: source.reason, ...source.git });
 }
+const git = source.git;
 
 function writeRec(rec) {
   writeFileSync(recPath, `${JSON.stringify(rec, null, 2)}\n`);

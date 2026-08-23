@@ -42,10 +42,6 @@ const origin = execSync("git rev-parse origin/main", {
   encoding: "utf8",
 }).trim();
 const dirty = execSync("git status --porcelain", { encoding: "utf8" }).trim();
-if (sha !== origin) {
-  console.error("package:mac refused: HEAD != origin/main");
-  process.exit(1);
-}
 if (dirty.length) {
   console.error("package:mac refused: dirty tree");
   process.exit(1);

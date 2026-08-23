@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 
 function runCodesign(args) {
@@ -14,14 +15,15 @@ function runCodesign(args) {
 }
 
 const expectedTarget = process.env.PENGLAI_TARGET ?? "darwin-aarch64";
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
+const source = requireCleanCandidateSource();
+if (!source.ok) {
   finish("STALE", {
     command: "verify:signing",
-    reason: "candidate source must be clean main at origin/main",
-    ...git,
+    reason: source.reason,
+    ...source.git,
   });
 }
+const git = source.git;
 const app = packagedAppForTarget(ROOT, expectedTarget);
 const packaged = inspectPackagedCandidate({
   app,

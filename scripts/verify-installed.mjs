@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectInstallerEvidence, inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
 import {
@@ -96,10 +97,11 @@ if (!first.welcome?.clicked || !first.welcome?.persisted) {
 if (!Array.isArray(first.onboarding?.walked) || !first.onboarding.walked.includes("privacy")) {
   finish("FAIL", { command: "verify:installed", reason: "official settings.onboarding privacy step was not observed" });
 }
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "verify:installed", reason: "candidate source must be clean main at origin/main", ...git });
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "verify:installed", reason: source.reason, ...source.git });
 }
+const git = source.git;
 const dmgPath = join(evidenceDir, evidenceName("local-installer", target));
 const legacyDmg = join(evidenceDir, "local-dmg.json");
 const evidencePath = existsSync(dmgPath) ? dmgPath : legacyDmg;

@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort } from "./lib/cdp.mjs";
 import { observeOfficialTransport } from "./lib/browser-window-walk.mjs";
@@ -37,14 +38,15 @@ mkdirSync(outDir, { recursive: true });
 const recPath = join(outDir, "u3-first-party-plugins.json");
 const writeRec = (value) => writeFileSync(recPath, `${JSON.stringify(value, null, 2)}\n`);
 
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
+const source = requireCleanCandidateSource();
+if (!source.ok) {
   finish("STALE", {
     command: "u3-first-party-plugins",
-    reason: "candidate source must be clean main at origin/main",
-    ...git,
+    reason: source.reason,
+    ...source.git,
   });
 }
+const git = source.git;
 
 const target = parseTargetArg();
 const blocked = nativeBlocked("u3-first-party-plugins", target);

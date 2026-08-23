@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
 import { HTTP_JS, SNAPSHOT_JS, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
@@ -43,10 +44,11 @@ const ms = Number(process.env.PENGLAI_SOAK_MS ?? String(Math.max(0, hoursWanted)
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "test:soak:installed", reason: "candidate source must be clean main at origin/main", ...git });
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "test:soak:installed", reason: source.reason, ...source.git });
 }
+const git = source.git;
 const expectedTarget = parseTargetArg();
 const blocked = nativeBlocked("test:soak:installed", expectedTarget);
 if (blocked) finish("BLOCKED", { command: "test:soak:installed", ...blocked });

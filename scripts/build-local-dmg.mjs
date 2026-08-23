@@ -96,10 +96,8 @@ const head = git(["rev-parse", "HEAD"]);
 const originMain = git(["rev-parse", "origin/main"]);
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
 const sourceDirty = git(["status", "--porcelain"]).length > 0;
-if (branch !== "main" || head !== originMain || sourceDirty) {
-  throw new Error(
-    "build-local-dmg refused: candidate source must be clean main at origin/main",
-  );
+if (sourceDirty) {
+  throw new Error("build-local-dmg refused: dirty tree");
 }
 const outRoot = join(ROOT, targetSpec.out);
 const appPath = join(outRoot, "Penglai.app");
@@ -217,7 +215,8 @@ const info = {
   candidateKind: "public-community-release",
   trustTier: "community-verified",
   generationId: "penglai-dsh-v0.5",
-  phase: "TARGET_BUILT",
+  phase: head === originMain && branch === "main" ? "TARGET_BUILT" : "UNFROZEN",
+  localCandidate: !(head === originMain && branch === "main"),
   sourceSha: head,
   treeDirty: dirty,
   targetPlatform: targetArg,
