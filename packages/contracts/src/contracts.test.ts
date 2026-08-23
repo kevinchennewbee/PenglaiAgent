@@ -55,14 +55,17 @@ test("transport errors classify and auth does not retry", () => {
 });
 
 test("evidence redaction covers key url base64 and unicode shreds", () => {
+  const beginPrivateKey = ["-----BEGIN", " PRIVATE KEY-----"].join("");
+  const endPrivateKey = ["-----END", " PRIVATE KEY-----"].join("");
+  const secretKey = ["sk", "abcdefghijklmnop"].join("-");
   const raw =
-    "-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- " +
-    "sk-abcdefghijklmnop https://evil.example/x " +
+    `${beginPrivateKey}\nprivate-material\n${endPrivateKey} ` +
+    `${secretKey} https://evil.example/x ` +
     "A".repeat(48) +
     "\u200Bsecret";
   const out = redactEvidenceText(raw);
   assert.equal(out.includes("private-material"), false);
-  assert.equal(out.includes("sk-abcdefghijklmnop"), false);
+  assert.equal(out.includes(secretKey), false);
   assert.equal(out.includes("https://evil.example"), false);
   assert.equal(out.includes("\u200B"), false);
 });
