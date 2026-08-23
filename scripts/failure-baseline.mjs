@@ -59,15 +59,15 @@ async function probeRegistry() {
     consistent &&
     ids.length === declared &&
     new Set(ids).size === declared &&
-    ids.every((id) => id.startsWith("R50-")) &&
+    ids.every((id) => /^(?:R50|R55)-/.test(id)) &&
     !isStaleCompletionMap(declared);
   if (!ok) {
-    return result("FB-REGISTRY", "REPRODUCED", "registry is not a unique dynamic R50 set matching the document", {
+    return result("FB-REGISTRY", "REPRODUCED", "registry is not a unique dynamic R50/R55 set matching the document", {
       count: ids.length,
       declared,
     });
   }
-  return result("FB-REGISTRY", "CLOSED", "ACCEPTANCE.md parses as a unique dynamic R50 Hard registry", { count: ids.length, declared });
+  return result("FB-REGISTRY", "CLOSED", "ACCEPTANCE.md parses as a unique dynamic R50/R55 Hard registry", { count: ids.length, declared });
 }
 
 function probeFusesExit() {
