@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { Writable } from "node:stream";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -29,9 +30,23 @@ const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 function readSecretLine() {
   if (process.stdin.isTTY) process.stderr.write("DeepSeek API key (input is not recorded): ");
   return new Promise((resolve, reject) => {
-    const rl = createInterface({ input: process.stdin, terminal: false });
+    // A TTY echoes input unless readline owns the terminal and writes through a
+    // muted stream. Keep credentials out of terminal transcripts while still
+    // accepting a plain pipe on non-interactive CI runners.
+    const muted = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    });
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdin.isTTY ? muted : undefined,
+      terminal: Boolean(process.stdin.isTTY),
+      historySize: 0,
+    });
     rl.once("line", (line) => {
       rl.close();
+      if (process.stdin.isTTY) process.stderr.write("\n");
       resolve(String(line).trim());
     });
     rl.once("error", reject);
