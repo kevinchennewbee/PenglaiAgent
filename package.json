@@ -73,6 +73,7 @@
     "verify:profile": "node --import tsx scripts/verify-profile.mjs",
     "verify:profile:voice-matrix": "node --import tsx scripts/verify-profile.mjs --voice-matrix",
     "verify:artifact": "node scripts/verify-artifact.mjs",
+    "verify:bundled-runtime": "node --import tsx scripts/verify-bundled-runtime.mjs",
     "verify:fuses": "node --import tsx scripts/verify-fuses.mjs",
     "verify:signing": "node scripts/verify-signing.mjs",
     "verify:notarization": "node scripts/verify-notarization.mjs",

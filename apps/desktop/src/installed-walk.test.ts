@@ -115,6 +115,11 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
   assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
   assert.match(compat, /pre-DSH wizard/);
+  const bundled = readFileSync(join(root, "scripts/verify-bundled-runtime.mjs"), "utf8");
+  assert.match(bundled, /Contents", "Resources"/);
+  assert.match(bundled, /mnemon/);
+  assert.match(bundled, /penglai_office_commit/);
+  assert.doesNotMatch(bundled, /join\(ROOT, "third_party"/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
 });
 
