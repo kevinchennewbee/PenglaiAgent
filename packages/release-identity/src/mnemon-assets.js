@@ -5,7 +5,8 @@ export const MNEMON_UPSTREAM = Object.freeze({
   repo: "mnemon",
   tag: "v0.2.4",
   version: "0.2.4",
-  license: "MIT",
+  license: "Apache-2.0",
+  licenseSha256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
   commit: "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b",
   hostAllowlist: ["github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"],
 });

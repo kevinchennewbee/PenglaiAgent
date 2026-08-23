@@ -7,7 +7,7 @@ import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
-import { mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
+import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -215,6 +215,15 @@ if (!existsSync(mnemonSrc) || sha256File(mnemonSrc) !== mnemonAsset.binarySha256
 }
 mkdirSync(join(staging, "mnemon"), { recursive: true });
 cpSync(mnemonSrc, join(staging, "mnemon", mnemonAsset.binaryFilename));
+const mnemonLicense = join(
+  ROOT,
+  "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+);
+if (!existsSync(mnemonLicense) || sha256File(mnemonLicense) !== MNEMON_UPSTREAM.licenseSha256) {
+  console.error("embed-runtime Mnemon Apache-2.0 license missing or hash mismatch");
+  process.exit(1);
+}
+cpSync(mnemonLicense, join(staging, "mnemon", "LICENSE"));
 if (mnemonAsset.executable) {
   const { chmodSync } = await import("node:fs");
   chmodSync(join(staging, "mnemon", mnemonAsset.binaryFilename), 0o755);

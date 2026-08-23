@@ -20,7 +20,10 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
-import { mnemonAssetForPluginTarget } from "../packages/release-identity/src/mnemon-assets.js";
+import {
+  MNEMON_UPSTREAM,
+  mnemonAssetForPluginTarget,
+} from "../packages/release-identity/src/mnemon-assets.js";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,
@@ -886,6 +889,15 @@ for (const p of packs) {
     const destBin = join(stage, "resources", "mnemon", asset.binaryFilename);
     mkdirSync(dirname(destBin), { recursive: true });
     cpSync(src, destBin);
+    const licenseSrc = join(
+      ROOT,
+      "packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt",
+    );
+    if (!existsSync(licenseSrc) || sha256(licenseSrc) !== MNEMON_UPSTREAM.licenseSha256) {
+      console.error("Mnemon Apache-2.0 license missing or hash mismatch");
+      process.exit(1);
+    }
+    cpSync(licenseSrc, join(stage, "resources", "mnemon", "LICENSE"));
     if (asset.executable) chmodSync(destBin, 0o755);
     const got = sha256(destBin);
     if (got !== asset.binarySha256) {
