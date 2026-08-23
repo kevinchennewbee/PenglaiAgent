@@ -16,6 +16,7 @@ import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
 import { MnemonMemoryService } from "./engine/service.js";
 import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
+import { registerMemoryTools } from "./tools.js";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry"];
@@ -133,6 +134,9 @@ export function createDurableMemoryService(opts: {
     async forget(id: string, workspaceId?: string) {
       return engine.forget(id, workspaceId);
     },
+    async deleteKnown(workspaceId?: string) {
+      return engine.deleteScope(workspaceId);
+    },
     async graph(workspaceId?: string, includePersonal = false) {
       return engine.graph(workspaceId, includePersonal);
     },
@@ -204,6 +208,7 @@ export function apply(ctx: CordisContextLike) {
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
   const service = createDurableMemoryService({ userData, skills: ctx.skills });
   try {
+    registerMemoryTools(ctx, service.engine);
     ctx.provide("penglaiMemory", service);
     if (ctx instanceof Context) new PenglaiMemoryRemote(ctx, createMemorySettingsApi(service, workspaceRegistry));
     ctx.effect?.(() => () => service.close?.());

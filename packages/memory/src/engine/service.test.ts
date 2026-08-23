@@ -35,6 +35,31 @@ test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   memory.close();
 });
 
+test("journal why/export/deleteScope do not search star or dot", async () => {
+  const memory = svc();
+  const row = await memory.remember({ text: "export-row", workspaceId: "ws-a" });
+  const why = await memory.why(row.id, "ws-a");
+  assert.equal(why.content, "export-row");
+  assert.equal(why.recalledBecause, "journal");
+  const exported = await memory.export("ws-a");
+  assert.equal(exported.rows.some((item) => item.id === row.id), true);
+  const removed = await memory.deleteScope("ws-a");
+  assert.equal(removed.removed, 1);
+  assert.equal((await memory.search("export-row", "ws-a")).length, 0);
+  memory.close();
+});
+
+test("bounded load writes stay searchable via journal", async () => {
+  const memory = svc();
+  for (let i = 0; i < 250; i += 1) {
+    await memory.remember({ text: `scale-row-${i}`, workspaceId: "ws-load" });
+  }
+  const found = await memory.search("scale-row-249", "ws-load");
+  assert.equal(found.some((row) => row.content.includes("249")), true);
+  assert.equal(memory.journal.listActive("workspace", "ws-load").length, 250);
+  memory.close();
+});
+
 test("mnemon runner refuses write commands when readonly", async () => {
   const memory = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-ro-")), { readonly: true, binaryPath });
   await assert.rejects(() => memory.remember({ text: "nope" }), /read-only/);

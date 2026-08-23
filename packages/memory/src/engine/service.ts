@@ -6,6 +6,7 @@ import { MnemonRunner } from "./runner.js";
 import { MnemonAdapter } from "./adapter.js";
 import { assertNotSecret } from "../trust/governance.js";
 import type { DotGraph } from "./dot.js";
+import { digestContent, MemoryJournal } from "./journal.js";
 
 export function workspaceHash(workspaceId: string): string {
   return createHash("sha256").update(`penglai-workspace:${workspaceId}`).digest("hex");
@@ -34,6 +35,7 @@ export class MnemonMemoryService {
   readonly enabled: boolean;
   readonly degraded: boolean;
   readonly degradeReason?: string;
+  readonly journal: MemoryJournal;
 
   constructor(
     private readonly root: string,
@@ -45,6 +47,7 @@ export class MnemonMemoryService {
       verifyHash: false,
     });
     this.enabled = opts.enabled !== false;
+    this.journal = new MemoryJournal(join(root, "memory", "journal.sqlite3"));
     if (!binary) {
       this.degraded = true;
       this.degradeReason = "mnemon binary missing";
@@ -76,11 +79,24 @@ export class MnemonMemoryService {
     const personal = this.requireEnabled();
     assertNotSecret(input.text);
     const adapter = input.workspaceId ? this.workspace(input.workspaceId) : personal;
-    return adapter.remember(input.text, {
+    const remembered = await adapter.remember(input.text, {
       cat: input.cat ?? "fact",
       source: "user",
       ...(input.tags ? { tags: input.tags } : {}),
     });
+    this.journal.upsert({
+      id: remembered.id,
+      scope: input.workspaceId ? "workspace" : "personal",
+      workspaceId: input.workspaceId ?? null,
+      content: input.text,
+      contentDigest: digestContent(input.text),
+      status: "committed",
+      source: "user",
+      tags: input.tags ?? "",
+      createdAt: new Date().toISOString(),
+      supersededBy: null,
+    });
+    return remembered;
   }
 
   async search(query: string, workspaceId?: string, includePersonal = false): Promise<MemoryHit[]> {
@@ -112,30 +128,42 @@ export class MnemonMemoryService {
   async why(id: string, workspaceId?: string) {
     this.requireEnabled();
     const related = await this.related(id, workspaceId);
-    const hits = await this.search(id, workspaceId, true);
-    const hit = hits.find((row) => row.id === id);
+    const indexed = this.journal.get(id);
     return {
       id,
-      content: hit?.content ?? "",
-      scope: hit?.scope ?? (workspaceId ? "workspace" : "personal"),
+      content: indexed?.content ?? "",
+      scope: indexed?.scope ?? (workspaceId ? "workspace" : "personal"),
       related,
-      source: "mnemon",
-      recalledBecause: hit ? "search-hit" : "related-lookup",
+      source: indexed?.source ?? "mnemon",
+      contentDigest: indexed?.contentDigest,
+      status: indexed?.status,
+      recalledBecause: indexed ? "journal" : "related-lookup",
       ...(workspaceId ? { workspaceId } : {}),
     };
   }
 
   async export(workspaceId?: string, includePersonal = false) {
     this.requireEnabled();
-    const hits = await this.search(".", workspaceId, includePersonal);
-    const graph = await this.graph(workspaceId, includePersonal);
+    const workspaceRows = workspaceId ? this.journal.listActive("workspace", workspaceId) : [];
+    const personalRows = includePersonal || !workspaceId ? this.journal.listActive("personal") : [];
     return {
+      schema: "penglai.memory.export.v1",
       exportedAt: new Date().toISOString(),
       includePersonal,
-      hits,
-      graph,
+      rows: [...workspaceRows, ...personalRows],
       ...(workspaceId ? { workspaceId } : {}),
     };
+  }
+
+  async deleteScope(workspaceId?: string) {
+    this.requireEnabled();
+    const rows = workspaceId
+      ? this.journal.listActive("workspace", workspaceId)
+      : this.journal.listActive("personal");
+    for (const row of rows) {
+      await this.forget(row.id, workspaceId);
+    }
+    return { removed: rows.length };
   }
 
   async correct(oldId: string, text: string, workspaceId?: string) {
@@ -148,14 +176,18 @@ export class MnemonMemoryService {
     const personal = this.requireEnabled();
     const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     await adapter.link(next.id, oldId);
+    this.journal.mark(oldId, "superseded", next.id);
     await adapter.forget(oldId);
+    this.journal.mark(oldId, "forgotten", next.id);
     return next;
   }
 
   async forget(id: string, workspaceId?: string) {
     const personal = this.requireEnabled();
     const adapter = workspaceId ? this.workspace(workspaceId) : personal;
-    return adapter.forget(id);
+    const result = await adapter.forget(id);
+    this.journal.mark(id, "forgotten");
+    return result;
   }
 
   async graph(workspaceId?: string, includePersonal = false): Promise<DotGraph> {
@@ -196,6 +228,7 @@ export class MnemonMemoryService {
 
   close(): void {
     this.closed = true;
+    this.journal.close();
   }
 
   resourceSnapshot() {

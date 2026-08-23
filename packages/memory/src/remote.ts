@@ -9,6 +9,7 @@ interface MemorySettingsHost {
   remember?(input: { text: string; workspaceId?: string }): Promise<{ id: string }>;
   search?(query: string, workspaceId?: string): Promise<Array<{ id: string; content?: string; text?: string }>>;
   forget?(id: string, workspaceId?: string): Promise<unknown>;
+  deleteKnown?(workspaceId?: string): Promise<{ removed: number }>;
   why?(id: string, workspaceId?: string): Promise<unknown>;
   correct?(oldId: string, text: string, workspaceId?: string): Promise<unknown>;
   graph?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
@@ -77,10 +78,8 @@ export function createMemorySettingsApi(service: MemorySettingsHost, workspaceRe
       requireScope(input.scope);
       if (!input.ownerConfirmed) throw new PenglaiError("SECURITY_POLICY", "memory delete requires Owner confirmation");
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
-      if (service.forget && input.workspaceId) {
-        const rows = service.search ? await service.search("*", input.workspaceId) : [];
-        for (const row of rows) await service.forget(row.id, input.workspaceId);
-        return { removed: rows.length };
+      if (service.deleteKnown) {
+        return service.deleteKnown(input.scope === "workspace" ? input.workspaceId : undefined);
       }
       return { removed: service.deleteScope?.(input.scope, input.workspaceId) ?? 0 };
     },
