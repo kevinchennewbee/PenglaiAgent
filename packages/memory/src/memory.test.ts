@@ -95,20 +95,12 @@ test("R50-CTXMEM: global L1 enforces row and byte budgets durably", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_DATA", async () => {
+test("R50-CTXMEM: production apply() wires app-private state and fails closed without a bundled Mnemon", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mem-apply-"));
   const previous = process.env.PENGLAI_USER_DATA;
   const previousBin = process.env.PENGLAI_MNEMON_BINARY;
   process.env.PENGLAI_USER_DATA = dir;
-  const target = process.platform === "win32" ? "win32-x86_64" : process.arch === "arm64" ? "darwin-aarch64" : "darwin-x86_64";
-  process.env.PENGLAI_MNEMON_BINARY = join(
-    process.cwd(),
-    "third_party",
-    "mnemon",
-    "bin",
-    target,
-    process.platform === "win32" ? "mnemon.exe" : "mnemon",
-  );
+  delete process.env.PENGLAI_MNEMON_BINARY;
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
@@ -116,13 +108,11 @@ test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_
   };
   try {
     const svc = apply(ctx);
-    await svc.remember({ text: "durable fact", workspaceId: "w1" });
+    assert.equal(svc.engine.degraded, true);
+    assert.equal(svc.engine.degradeReason, "mnemon binary missing");
+    await assert.rejects(() => svc.remember({ text: "durable fact", workspaceId: "w1" }), /mnemon binary missing/);
+    assert.equal(existsSync(join(dir, "memory", "journal.sqlite3")), true);
     svc.close?.();
-    const svc2 = apply(ctx);
-    const rows = await svc2.search("durable", "w1");
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0]?.content, "durable fact");
-    svc2.close?.();
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
