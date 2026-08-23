@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
-import { bundledMnemonBinary } from "./mnemon-provider.js";
+import { resolveMnemonBinary } from "./mnemon-provider.js";
 import { MnemonRunner } from "./runner.js";
 import { MnemonAdapter } from "./adapter.js";
 import { assertNotSecret } from "../trust/governance.js";
@@ -27,24 +27,36 @@ export interface MemoryHit {
 }
 
 export class MnemonMemoryService {
-  readonly runner: MnemonRunner;
-  readonly personal: MnemonAdapter;
+  readonly runner?: MnemonRunner;
+  readonly personal?: MnemonAdapter;
   private readonly workspaces = new Map<string, MnemonAdapter>();
   private closed = false;
   readonly enabled: boolean;
+  readonly degraded: boolean;
+  readonly degradeReason?: string;
 
   constructor(
     private readonly root: string,
-    opts: { readonly?: boolean; enabled?: boolean } = {},
+    opts: { readonly?: boolean; enabled?: boolean; binaryPath?: string; appRoot?: string } = {},
   ) {
-    const binary = bundledMnemonBinary();
-    if (!binary) throw new PenglaiError("DSH_UNAVAILABLE", "mnemon binary missing");
+    const binary = resolveMnemonBinary({
+      ...(opts.binaryPath ? { explicitPath: opts.binaryPath } : {}),
+      ...(opts.appRoot ? { appRoot: opts.appRoot } : {}),
+      verifyHash: false,
+    });
+    this.enabled = opts.enabled !== false;
+    if (!binary) {
+      this.degraded = true;
+      this.degradeReason = "mnemon binary missing";
+      return;
+    }
+    this.degraded = false;
     this.runner = new MnemonRunner(binary.path, opts.readonly === true);
     this.personal = new MnemonAdapter(this.runner, personalDataDir(root));
-    this.enabled = opts.enabled !== false;
   }
 
   private workspace(workspaceId: string): MnemonAdapter {
+    if (!this.runner) throw new PenglaiError("DSH_UNAVAILABLE", "mnemon binary missing");
     const existing = this.workspaces.get(workspaceId);
     if (existing) return existing;
     const adapter = new MnemonAdapter(this.runner, workspaceDataDir(this.root, workspaceId));
@@ -52,14 +64,18 @@ export class MnemonMemoryService {
     return adapter;
   }
 
-  private requireEnabled(): void {
+  private requireEnabled(): MnemonAdapter {
     if (this.closed || !this.enabled) throw new PenglaiError("SECURITY_POLICY", "memory plugin disabled");
+    if (this.degraded || !this.personal || !this.runner) {
+      throw new PenglaiError("DSH_UNAVAILABLE", this.degradeReason ?? "mnemon binary missing");
+    }
+    return this.personal;
   }
 
   async remember(input: { text: string; workspaceId?: string; cat?: string; tags?: string }) {
-    this.requireEnabled();
+    const personal = this.requireEnabled();
     assertNotSecret(input.text);
-    const adapter = input.workspaceId ? this.workspace(input.workspaceId) : this.personal;
+    const adapter = input.workspaceId ? this.workspace(input.workspaceId) : personal;
     return adapter.remember(input.text, {
       cat: input.cat ?? "fact",
       source: "user",
@@ -68,28 +84,28 @@ export class MnemonMemoryService {
   }
 
   async search(query: string, workspaceId?: string, includePersonal = false): Promise<MemoryHit[]> {
-    this.requireEnabled();
+    const personal = this.requireEnabled();
     const hits: MemoryHit[] = [];
     if (workspaceId) {
       const rows = (await this.workspace(workspaceId).search(query)) as Array<{ id: string; content: string }>;
       hits.push(...rows.map((row) => ({ ...row, scope: "workspace" as const, workspaceId })));
     }
     if (includePersonal || !workspaceId) {
-      const rows = (await this.personal.search(query)) as Array<{ id: string; content: string }>;
+      const rows = (await personal.search(query)) as Array<{ id: string; content: string }>;
       hits.push(...rows.map((row) => ({ ...row, scope: "personal" as const })));
     }
     return hits;
   }
 
   async recall(query: string, workspaceId?: string) {
-    this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : this.personal;
+    const personal = this.requireEnabled();
+    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     return adapter.recall(query);
   }
 
   async related(id: string, workspaceId?: string) {
-    this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : this.personal;
+    const personal = this.requireEnabled();
+    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     return adapter.related(id);
   }
 
@@ -129,34 +145,44 @@ export class MnemonMemoryService {
       tags: `supersedes:${oldId}`,
       ...(workspaceId ? { workspaceId } : {}),
     });
-    const adapter = workspaceId ? this.workspace(workspaceId) : this.personal;
+    const personal = this.requireEnabled();
+    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     await adapter.link(next.id, oldId);
     await adapter.forget(oldId);
     return next;
   }
 
   async forget(id: string, workspaceId?: string) {
-    this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : this.personal;
+    const personal = this.requireEnabled();
+    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     return adapter.forget(id);
   }
 
   async graph(workspaceId?: string, includePersonal = false): Promise<DotGraph> {
-    this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : this.personal;
+    const personal = this.requireEnabled();
+    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
     const graph = await adapter.vizDot();
     if (includePersonal && workspaceId) {
-      const personal = await this.personal.vizDot();
+      const overlay = await personal.vizDot();
       return {
-        nodes: [...graph.nodes, ...personal.nodes].slice(0, 500),
-        edges: [...graph.edges, ...personal.edges].slice(0, 2000),
-        truncated: graph.truncated || personal.truncated,
+        nodes: [...graph.nodes, ...overlay.nodes].slice(0, 500),
+        edges: [...graph.edges, ...overlay.edges].slice(0, 2000),
+        truncated: graph.truncated || overlay.truncated,
       };
     }
     return graph;
   }
 
   async health() {
+    if (this.degraded || !this.runner || !this.personal) {
+      return {
+        healthy: false,
+        engine: "mnemon-cli",
+        version: "unavailable",
+        personalInsights: 0,
+        reason: this.degradeReason ?? "mnemon binary missing",
+      };
+    }
     const version = await this.runner.version();
     const status = await this.personal.status().catch(() => ({ total_insights: 0, db_path: undefined as string | undefined }));
     return {

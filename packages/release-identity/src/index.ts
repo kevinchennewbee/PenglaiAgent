@@ -1,4 +1,5 @@
 export * from "./pins.js";
+export * from "./mnemon-assets.js";
 export * from "./exit.js";
 export * from "./assertion.js";
 export * from "./identity.js";

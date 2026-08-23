@@ -186,6 +186,9 @@ execFileSync("ditto", [
   join(runtimeStaging, "plugins"),
   join(resources, "plugins"),
 ]);
+if (existsSync(join(runtimeStaging, "mnemon"))) {
+  execFileSync("ditto", [join(runtimeStaging, "mnemon"), join(resources, "mnemon")]);
+}
 execFileSync("ditto", [
   join(runtimeStaging, "runtime-manifest.json"),
   join(resources, "runtime-manifest.json"),

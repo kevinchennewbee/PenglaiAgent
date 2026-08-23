@@ -4,12 +4,15 @@ import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MnemonMemoryService, personalDataDir, workspaceDataDir } from "./engine/service.js";
-import { MNEMON_ASSETS, bundledMnemonBinary } from "./engine/mnemon-provider.js";
+import { MNEMON_ASSETS } from "./engine/mnemon-provider.js";
+import { createTestMnemonBinary } from "./engine/test-binary.js";
+
+const binaryPath = createTestMnemonBinary();
 import { MemoryStore } from "./store.js";
 import { importLegacy } from "./migration/legacy-053.js";
 
 function tmpSvc() {
-  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-mnemon-")));
+  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-mnemon-")), { binaryPath });
 }
 
 test("R55-MEM-001 explicit remember writes active personal memory", async () => {
@@ -58,7 +61,7 @@ test("R55-MEM-006 secrets are refused", async () => {
 
 test("R55-MEM-007 personal store is physically separate", async () => {
   const dir = mkdtempSync(join(tmpdir(), "r55-mem-phys-"));
-  const svc = new MnemonMemoryService(dir);
+  const svc = new MnemonMemoryService(dir, { binaryPath });
   await svc.remember({ text: "personal" });
   await svc.remember({ text: "project", workspaceId: "w1" });
   assert.equal(existsSync(personalDataDir(dir)), true);
@@ -110,7 +113,7 @@ test("R55-MEM-013 AutoPrune is off by default", async () => {
 });
 
 test("R55-MEM-014 read-only is host-enforced", async () => {
-  const svc = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-ro-")), { readonly: true });
+  const svc = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-ro-")), { readonly: true, binaryPath });
   await assert.rejects(() => svc.remember({ text: "nope" }), /read-only/);
   svc.close();
 });
@@ -127,7 +130,7 @@ test("R55-MEM-016 legacy 0.5.3 memory/context migrates with preview", async () =
   const store = new MemoryStore(join(dir, "memory", "memory.sqlite3"));
   store.write({ scope: "global", text: "legacy-row", ownerConfirmed: true, visibleDiff: "+ l" }, "old");
   store.close();
-  const svc = new MnemonMemoryService(dir);
+  const svc = new MnemonMemoryService(dir, { binaryPath });
   await importLegacy(dir, svc);
   assert.equal((await svc.search("legacy-row")).length, 1);
   svc.close();
@@ -142,7 +145,12 @@ test("R55-MEM-017 query remains bounded (source cap, not a 100k run)", async () 
 
 test("R55-MEM-018 three native Mnemon binaries are identity-pinned", () => {
   assert.equal(MNEMON_ASSETS.length, 3);
-  assert.ok(bundledMnemonBinary()?.path);
+  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.archiveSha256)).size, 3);
+  assert.equal(new Set(MNEMON_ASSETS.map((row) => row.binarySha256)).size, 3);
+  for (const row of MNEMON_ASSETS) {
+    assert.notEqual(row.archiveSha256, row.binarySha256);
+    assert.ok(row.binaryBytes > 1_000_000);
+  }
 });
 
 test("R55-MEM-019 disable then resource-zero", async () => {

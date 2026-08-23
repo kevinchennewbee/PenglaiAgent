@@ -64,26 +64,13 @@ export const PINNED_DSH_MNEMON = "0.2.15";
 export const PINNED_DSH_MNEMON_COMMIT = "7def5b2bddd4ecb746f09b0c8dee8032e72c690d";
 export const PINNED_MNEMON = "0.2.4";
 export const PINNED_MNEMON_COMMIT = "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b";
-export const PINNED_MNEMON_ASSETS = [
-  {
-    target: "darwin-aarch64" as const,
-    filename: "mnemon_0.2.4_darwin_arm64.tar.gz",
-    sha256: "d363b6f3826acc50b9e21aa298c8d36010c53c480000878a13b6d41d5d5dcbd6",
-    binary: "mnemon",
-  },
-  {
-    target: "darwin-x86_64" as const,
-    filename: "mnemon_0.2.4_darwin_amd64.tar.gz",
-    sha256: "fd4cae937a28851848ea8d6916e2137cc0a0441a97873f691fa1a07ce76b51a7",
-    binary: "mnemon",
-  },
-  {
-    target: "win32-x86_64" as const,
-    filename: "mnemon_0.2.4_windows_amd64.zip",
-    sha256: "5194137995f2193de73a5b3fb22f39fb773f1c0f8db5f6f96eaced5f94422b8c",
-    binary: "mnemon.exe",
-  },
-] as const;
+export {
+  MNEMON_ASSETS as PINNED_MNEMON_ASSETS,
+  MNEMON_UPSTREAM,
+  mnemonAssetForHost,
+  mnemonAssetForTarget,
+  mnemonReleaseUrl,
+} from "./mnemon-assets.js";
 export const PINNED_DOCX = "9.7.1";
 export const PINNED_MAMMOTH = "1.12.1";
 export const PINNED_EXCELJS = "4.4.0";

@@ -5,11 +5,14 @@ import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, recordCommand, HOST_TARGET } from "./lib/evidence-dir.mjs";
-import { bundledMnemonBinary, MNEMON_ASSETS } from "../packages/memory/src/engine/mnemon-provider.ts";
+import { MNEMON_ASSETS, hostMnemonTarget, sha256File } from "../packages/memory/src/engine/mnemon-provider.ts";
 
 const run = beginEvidenceRun({ command: "verify:memory-real", target: HOST_TARGET });
-const bin = bundledMnemonBinary()?.path;
-if (!bin || !existsSync(bin)) {
+const asset = hostMnemonTarget();
+const bin = asset
+  ? join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename)
+  : undefined;
+if (!asset || !bin || !existsSync(bin) || sha256File(bin) !== asset.binarySha256) {
   const manifest = finishEvidenceRun(run, "INCOMPLETE", "mnemon binary missing for host target", {
     expected: MNEMON_ASSETS.map((row) => row.target),
   });

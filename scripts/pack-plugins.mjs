@@ -20,6 +20,7 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { mnemonAssetForPluginTarget } from "../packages/release-identity/src/mnemon-assets.ts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,
@@ -803,6 +804,7 @@ for (const p of packs) {
       ...(vendorMoss ? [ONNX_RUNTIME_NODE, SENTENCEPIECE_JS] : []),
     ],
     sourcemap: false,
+    legalComments: "none",
     logLevel: "silent",
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
@@ -812,6 +814,10 @@ for (const p of packs) {
     hostJs.includes('from "./src/')
   ) {
     console.error(p.id, "host bundle still imports src");
+    process.exit(1);
+  }
+  if (/\/Users\/|\/Volumes\/|C:\\\\Users\\\\/.test(hostJs)) {
+    console.error("production bundle forbidden dist/index.js:owner volume", p.id);
     process.exit(1);
   }
   if (existsSync(join(stage, "src"))) {
@@ -869,6 +875,27 @@ for (const p of packs) {
       process.exit(1);
     }
     vendorMossRuntime(stage);
+  }
+  if (p.id === "@penglai/memory") {
+    const asset = mnemonAssetForPluginTarget(effectiveTarget);
+    if (!asset) {
+      console.error("memory plugin missing mnemon pin for", effectiveTarget);
+      process.exit(1);
+    }
+    const src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
+    if (!existsSync(src)) {
+      console.error("mnemon binary missing; run pnpm fetch:mnemon-assets -- --target", asset.target);
+      process.exit(1);
+    }
+    const destBin = join(stage, "resources", "mnemon", asset.binaryFilename);
+    mkdirSync(dirname(destBin), { recursive: true });
+    cpSync(src, destBin);
+    if (asset.executable) chmodSync(destBin, 0o755);
+    const got = sha256(destBin);
+    if (got !== asset.binarySha256) {
+      console.error("packed mnemon hash mismatch", got);
+      process.exit(1);
+    }
   }
   if (p.client) {
     const clientSrc = join(ROOT, p.dir, p.client);

@@ -104,7 +104,10 @@ export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
 }) {
-  const engine = new MnemonMemoryService(opts.userData);
+  const engine = new MnemonMemoryService(opts.userData, {
+    ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
+    ...(process.env.PENGLAI_APP_ROOT ? { appRoot: process.env.PENGLAI_APP_ROOT } : {}),
+  });
   const skillsRoot = officialSkillsRoot(opts.userData);
   let closed = false;
   return {

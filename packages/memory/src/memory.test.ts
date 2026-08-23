@@ -13,6 +13,7 @@ import {
 } from "./index.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi } from "./remote.js";
+import { createTestMnemonBinary } from "./engine/test-binary.js";
 
 test("shipped memory remembers, isolates workspaces, and forgets", () => {
   const svc = createMemoryService();
@@ -98,7 +99,9 @@ test("R50-CTXMEM: global L1 enforces row and byte budgets durably", () => {
 test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_DATA", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mem-apply-"));
   const previous = process.env.PENGLAI_USER_DATA;
+  const previousBin = process.env.PENGLAI_MNEMON_BINARY;
   process.env.PENGLAI_USER_DATA = dir;
+  process.env.PENGLAI_MNEMON_BINARY = createTestMnemonBinary();
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
@@ -116,6 +119,8 @@ test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
+    if (previousBin === undefined) delete process.env.PENGLAI_MNEMON_BINARY;
+    else process.env.PENGLAI_MNEMON_BINARY = previousBin;
     rmSync(dir, { recursive: true, force: true });
   }
 });

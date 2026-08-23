@@ -5,14 +5,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MnemonMemoryService } from "./service.js";
 import { personalDataDir, workspaceDataDir } from "./service.js";
+import { createTestMnemonBinary } from "./test-binary.js";
 
-function svc() {
-  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-svc-")));
+const binaryPath = createTestMnemonBinary();
+
+function svc(dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-svc-"))) {
+  return new MnemonMemoryService(dir, { binaryPath });
 }
 
 test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-iso-"));
-  const memory = new MnemonMemoryService(dir);
+  const memory = new MnemonMemoryService(dir, { binaryPath });
   const personal = await memory.remember({ text: "我叫陈克文", tags: "identity" });
   await memory.remember({ text: "Penglai only ships 0.5.5", workspaceId: "ws-a", tags: "project" });
   await memory.remember({ text: "workspace B secret fact", workspaceId: "ws-b", tags: "project" });
@@ -33,7 +36,7 @@ test("mnemon service remembers, isolates workspaces, and forgets", async () => {
 });
 
 test("mnemon runner refuses write commands when readonly", async () => {
-  const memory = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-ro-")), { readonly: true });
+  const memory = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-ro-")), { readonly: true, binaryPath });
   await assert.rejects(() => memory.remember({ text: "nope" }), /read-only/);
   memory.close();
 });

@@ -350,6 +350,9 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/release-identity':
+        specifier: workspace:*
+        version: link:../release-identity
 
   packages/moss-tts:
     dependencies:
