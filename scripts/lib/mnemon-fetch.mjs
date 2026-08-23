@@ -172,4 +172,19 @@ export function publishBinary(extracted, destPath, asset) {
   return { path: destPath, sha256: publishedHash, bytes };
 }
 
+export function publishArchive(staged, destPath, asset) {
+  if (statSync(staged).size !== asset.archiveBytes) throw new Error(`archive size mismatch ${asset.archiveFilename}`);
+  if (sha256File(staged) !== asset.archiveSha256) throw new Error(`archive hash mismatch ${asset.archiveFilename}`);
+  mkdirSync(dirname(destPath), { recursive: true, mode: 0o755 });
+  const tmp = `${destPath}.${process.pid}.tmp`;
+  rmSync(tmp, { force: true });
+  cpSync(staged, tmp);
+  if (statSync(tmp).size !== asset.archiveBytes || sha256File(tmp) !== asset.archiveSha256) {
+    rmSync(tmp, { force: true });
+    throw new Error(`archive publish mismatch ${asset.archiveFilename}`);
+  }
+  renameSync(tmp, destPath);
+  return { path: destPath, sha256: asset.archiveSha256, bytes: asset.archiveBytes };
+}
+
 export { MNEMON_ASSETS, mnemonReleaseUrl };

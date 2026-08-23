@@ -21,7 +21,7 @@ export const MNEMON_ASSETS = Object.freeze([
     archiveBytes: 6_314_858,
     binaryFilename: "mnemon",
     binarySha256: "5dd38a083b9e790f9e6f3b4192aaf6d46c735dc05e8eabef18f05749ec83ca1f",
-    binaryBytes: 15_419_520,
+    binaryBytes: 15_419_522,
     executable: true,
   },
   {

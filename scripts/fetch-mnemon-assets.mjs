@@ -8,6 +8,7 @@ import {
   extractArchive,
   findExtractedBinary,
   parseFetchArgs,
+  publishArchive,
   publishBinary,
   selectAssets,
   sha256File,
@@ -36,11 +37,7 @@ for (const asset of wanted) {
     try {
       const staged = join(stage, asset.archiveFilename);
       await downloadHttps(url, staged);
-      if (statSync(staged).size !== asset.archiveBytes) throw new Error(`archive size mismatch ${asset.archiveFilename}`);
-      if (sha256File(staged) !== asset.archiveSha256) throw new Error(`archive hash mismatch ${asset.archiveFilename}`);
-      mkdirSync(join(destRoot, "cache"), { recursive: true });
-      const { renameSync } = await import("node:fs");
-      renameSync(staged, archive);
+      publishArchive(staged, archive, asset);
     } finally {
       rmSync(stage, { recursive: true, force: true });
     }
