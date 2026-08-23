@@ -6,7 +6,6 @@
     "@penglai/im": "0.5.5",
     "@penglai/asr": "0.5.5",
     "@penglai/moss-tts": "0.5.5",
-    "@penglai/context": "0.5.5",
     "@penglai/memory": "0.5.5",
     "@penglai/office": "0.5.5",
     "@penglai/budget": "0.5.5",

@@ -42,10 +42,12 @@ test("catalog v3 marks six user-visible products and office+memory as required-b
   assert.equal(memory?.defaultEnabled, true);
   assert.equal(office?.provenanceClass, "penglai-builtin");
   assert.equal(memory?.provenanceClass, "penglai-builtin");
-  const context = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/context");
-  assert.equal(context?.defaultEnabled, true);
-  assert.equal(context?.userVisible, false);
-  assert.equal(context?.installClass, "infrastructure");
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === "@penglai/context"),
+    false,
+  );
+  assert.ok(memory?.capabilities.includes("authorized-sources"));
+  assert.ok(memory?.permissions.includes("authorized-files-read"));
   assert.equal(
     FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/plugin-reference")
       ?.userVisible,
@@ -60,7 +62,7 @@ test("catalog v3 marks six user-visible products and office+memory as required-b
 
 test("trusted plugin catalog binds exact metadata, checksum, and target", () => {
   const valid = fixture();
-  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 10);
+  assert.equal(validatePluginCatalog(valid, "darwin-arm64").entries.length, 9);
   assert.throws(
     () => validatePluginCatalog(valid, "darwin-x64"),
     /target mismatch/,

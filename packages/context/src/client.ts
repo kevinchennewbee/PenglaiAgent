@@ -1,2 +1,2 @@
-export const name = "@penglai/context/client";
-export function contribute() { return { slot: "settings.section" as const, title: "Personal Context" }; }
+export const name = "@penglai/memory-sources/client";
+export function contribute() { return { slot: "memory.sources" as const, title: "Local sources" }; }

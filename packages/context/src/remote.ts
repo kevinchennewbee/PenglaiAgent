@@ -82,7 +82,7 @@ export function createContextSettingsApi(
 
 export class PenglaiContextRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createContextSettingsApi>) {
-    super(ctx, "penglaiContextSettings");
+    super(ctx, "penglaiMemorySourcesSettings");
   }
 
   @Remote status() { return this.api.status(); }
@@ -92,4 +92,4 @@ export class PenglaiContextRemote extends TypertRemoteService {
   @Remote search(input: { query: string; workspaceId?: string }) { return this.api.search(input); }
 }
 
-export const TYPERT_REMOTE = { package: "@penglai/context", descriptors: ["status", "ingestCapability", "reindex", "revoke", "search"] };
+export const TYPERT_REMOTE = { package: "@penglai/memory", descriptors: ["status", "ingestCapability", "reindex", "revoke", "search"] };

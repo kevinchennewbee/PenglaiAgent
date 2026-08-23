@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const ContextModule = require("@penglai/context");
+    const MemorySourcesModule = require("@penglai/memory-sources");
     const inject = ["remote"];
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
@@ -623,7 +623,7 @@ window.__ModuleLoader__.load({
         children: jsx.jsxs(React.Fragment, {
           children: [
             jsx.jsx(MemoryTab, props),
-            ContextModule?.ContextTab
+            MemorySourcesModule?.ContextTab
               ? jsx.jsxs("details", {
                   "data-penglai-memory-sources": "1",
                   children: [
@@ -634,7 +634,7 @@ window.__ModuleLoader__.load({
                         copy().sourcesHint,
                       ],
                     }),
-                    jsx.jsx(ContextModule.ContextTab, {
+                    jsx.jsx(MemorySourcesModule.ContextTab, {
                       ...props,
                       embedded: true,
                     }),
@@ -648,11 +648,11 @@ window.__ModuleLoader__.load({
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiMemorySettings", "remote.penglaiContextSettings"],
+        ["slots", "remote.penglaiMemorySettings", "remote.penglaiMemorySourcesSettings"],
         (viewCtx) => {
           const pageRemote = {
             penglaiMemorySettings: viewCtx.remote.penglaiMemorySettings,
-            penglaiContextSettings: viewCtx.remote.penglaiContextSettings,
+            penglaiMemorySourcesSettings: viewCtx.remote.penglaiMemorySourcesSettings,
           };
           viewCtx.slots.inject("settings.section", () =>
             viewCtx.slots.register(

@@ -134,7 +134,6 @@ window.__ModuleLoader__.load({
         "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3M8 22h8",
       "penglai-moss-tts":
         "M4 10v4h4l5 4V6L8 10H4Zm13-2a6 6 0 0 1 0 8M19.5 5a10 10 0 0 1 0 14",
-      "penglai-context": "M3 6.5h7l2 2h9v10.5H3V6.5Zm5 7h8M8 16h5",
       "penglai-memory":
         "M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Zm0 0v6c0 1.1 3.1 2 7 2s7-.9 7-2V6M5 12v6c0 1.1 3.1 2 7 2s7-.9 7-2v-6",
       "penglai-office": "M6 3h9l5 5v13H6V3Zm9 0v5h5M8 13h8M8 17h6",
@@ -684,8 +683,6 @@ window.__ModuleLoader__.load({
         cardAsrHint: "本地 SenseVoice。到「蓬莱语音识别」页下载模型并试转写。",
         cardTts: "蓬莱语音生成",
         cardTtsHint: "本地 MOSS-TTS。到「蓬莱语音合成」页下载模型并试听。",
-        cardContext: "个人上下文",
-        cardContextHint: "只索引你明确授权的本地目录。",
         cardMemory: "蓬莱记忆",
         cardMemoryHint: "本机分层记忆、项目隔离、授权资料、来源追溯与可视化；写入和遗忘需要可见确认。",
         cardOffice: "蓬莱办公",
@@ -830,8 +827,6 @@ window.__ModuleLoader__.load({
         cardTts: "Penglai Voice Generation",
         cardTtsHint:
           "Local MOSS-TTS. Open Penglai Speech Synthesis to download the model and preview a voice.",
-        cardContext: "Personal context",
-        cardContextHint: "Indexes only directories you explicitly authorize.",
         cardMemory: "Penglai Memory",
         cardMemoryHint:
           "Local layered memory with project isolation, authorized sources, provenance, and visualization. Remember and forget require visible confirmation.",

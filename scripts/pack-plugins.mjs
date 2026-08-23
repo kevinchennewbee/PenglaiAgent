@@ -125,21 +125,6 @@ const packs = [
     },
   },
   {
-    id: "@penglai/context",
-    dir: "packages/context",
-    file: `penglai-context-${PRODUCT_VERSION}.tgz`,
-    host: "src/index.ts",
-    client: "src/dsh-client.js",
-    dshClient: {
-      inject: [
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings",
-      ],
-      platform: "web",
-    },
-  },
-  {
     id: "@penglai/memory",
     dir: "packages/memory",
     file: `penglai-memory-${PRODUCT_VERSION}.tgz`,
@@ -932,7 +917,19 @@ for (const p of packs) {
       console.error("missing client", clientSrc);
       process.exit(1);
     }
-    cpSync(clientSrc, join(stage, "dist/client.js"));
+    if (p.id === "@penglai/memory") {
+      const sourcesClient = join(ROOT, "packages/context/src/dsh-client.js");
+      if (!existsSync(sourcesClient)) {
+        console.error("missing Penglai Memory sources client", sourcesClient);
+        process.exit(1);
+      }
+      writeFileSync(
+        join(stage, "dist/client.js"),
+        `${readFileSync(sourcesClient, "utf8").trimEnd()}\n${readFileSync(clientSrc, "utf8").trimStart()}`,
+      );
+    } else {
+      cpSync(clientSrc, join(stage, "dist/client.js"));
+    }
   }
   const pkg = {
     name: p.id,

@@ -36,6 +36,7 @@ import {
 } from "./plugin-catalog.js";
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
+import { writeFileAtomic } from "./permissions.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -383,6 +384,117 @@ export function recordKeychainMigrationIfNeeded(user: UserLayout): void {
   );
 }
 
+function removeCordisPluginBlock(patchText: string, pluginId: string): {
+  text: string;
+  removed: number;
+} {
+  const short = pluginId.replace(/^@/, "").replaceAll("/", "-");
+  const endsWithNewline = patchText.endsWith("\n");
+  const lines = patchText.split("\n");
+  const output: string[] = [];
+  let block: string[] = [];
+  let removed = 0;
+  const flush = (): void => {
+    if (!block.length) return;
+    const text = block.join("\n");
+    const matches =
+      text.includes(`name: "${pluginId}"`) ||
+      text.includes(`name: '${pluginId}'`) ||
+      text.includes(`id: ${short}`);
+    if (matches) removed += 1;
+    else output.push(...block);
+    block = [];
+  };
+  for (const line of lines) {
+    if (/^\s*-\s+id:\s+/.test(line)) flush();
+    block.push(line);
+  }
+  flush();
+  if (removed > 1) {
+    throw new PenglaiError("STORE_CORRUPT", `${pluginId} profile entry count ${removed}`);
+  }
+  const next = output.join("\n");
+  return {
+    text: endsWithNewline && !next.endsWith("\n") ? `${next}\n` : next,
+    removed,
+  };
+}
+
+/**
+ * 0.5.5 folds the former Context plugin into Penglai Memory. Preserve its
+ * derived index under userData/context, but retire the separately loadable
+ * profile package so upgraded profiles have the same one-plugin identity as a
+ * fresh install.
+ */
+export function mergeLegacyContextIntoMemory(user: UserLayout): {
+  changed: boolean;
+  profileEntryRemoved: boolean;
+  manifestEntryRemoved: boolean;
+  packageRemoved: boolean;
+  dataPreserved: true;
+} {
+  const profileRoot = resolve(user.profileWeb);
+  if (!pathWithin(user.root, profileRoot) || profileRoot === resolve(user.root)) {
+    throw new PenglaiError("SECURITY_POLICY", "legacy Context profile escaped userData");
+  }
+  const patchPath = join(profileRoot, "cordis.patch.yml");
+  let profileEntryRemoved = false;
+  if (existsSync(patchPath)) {
+    if (lstatSync(patchPath).isSymbolicLink()) {
+      throw new PenglaiError("SECURITY_POLICY", "legacy Context patch must not be a symlink");
+    }
+    const current = readFileSync(patchPath, "utf8");
+    const next = removeCordisPluginBlock(current, "@penglai/context");
+    if (next.removed === 1) {
+      writeFileAtomic(patchPath, next.text, 0o600);
+      profileEntryRemoved = true;
+    }
+  }
+
+  const manifestPath = join(profileRoot, "package.json");
+  let manifestEntryRemoved = false;
+  if (existsSync(manifestPath)) {
+    if (lstatSync(manifestPath).isSymbolicLink()) {
+      throw new PenglaiError("SECURITY_POLICY", "legacy Context manifest must not be a symlink");
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      dependencies?: Record<string, string>;
+    };
+    if (manifest.dependencies && "@penglai/context" in manifest.dependencies) {
+      delete manifest.dependencies["@penglai/context"];
+      writeFileAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+      manifestEntryRemoved = true;
+    }
+  }
+
+  const packagePath = join(profileRoot, "node_modules", "@penglai", "context");
+  if (!pathWithin(profileRoot, packagePath) || resolve(packagePath) === profileRoot) {
+    throw new PenglaiError("SECURITY_POLICY", "legacy Context package escaped profile");
+  }
+  const packageRemoved = existsSync(packagePath);
+  if (packageRemoved) rmSync(packagePath, { recursive: true, force: false });
+
+  const changed = profileEntryRemoved || manifestEntryRemoved || packageRemoved;
+  if (changed) {
+    atomicJson(join(user.root, "migrations", "context-merged-0.5.5.json"), {
+      schema: 1,
+      from: "@penglai/context",
+      into: "@penglai/memory",
+      profileEntryRemoved,
+      manifestEntryRemoved,
+      packageRemoved,
+      dataPreserved: true,
+    });
+  }
+  return {
+    changed,
+    profileEntryRemoved,
+    manifestEntryRemoved,
+    packageRemoved,
+    dataPreserved: true,
+  };
+}
+
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
@@ -397,6 +509,7 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
     rmSync(staging, { recursive: true, force: true });
     writeJournal(user, { id: "seed", phase: "committed", lastGood: user.profileWeb });
   } else {
+    mergeLegacyContextIntoMemory(user);
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
   }
   linkOfficialDeepseek(layout, user.profileWeb);

@@ -256,7 +256,6 @@ export const USER_CATALOG_PACKAGES = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/context",
   "@penglai/memory",
   "@penglai/office",
   "@penglai/budget",

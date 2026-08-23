@@ -356,15 +356,15 @@
 | `R50-VOICE-015` |飞书message resource audio→ASR；MOSS→Opus upload→`msg_type=audio`原target | integration+installed/all |
 | `R50-VOICE-016` |download/inference/playback/upload在crash/sleep/update/disable/logout/uninstall后可恢复且资源为零 | chaos+installed/all |
 
-### V. Personal Context 与分层 Memory（16）
+### V. 蓬莱记忆、授权资料与分层 Memory（16）
 
 | ID | Hard assertion | runner/platform |
 | --- | --- | --- |
-| `R50-CTXMEM-001` |`@penglai/context`与`@penglai/memory`均为真实DSH host/client plugins和typed services，无旧Host/第二Agent | architecture+installed/all |
-| `R50-CTXMEM-002` |Context grant只能由用户UI显式选择global/Workspace realpath，拒绝symlink/junction/reparse/敏感根 | security+installed/all |
+| `R50-CTXMEM-001` |`@penglai/memory`是唯一用户与loader可见的记忆插件；授权资料索引、来源卡、分层记忆与图谱均编译进同一host/client包，旧`@penglai/context`只迁移且不进入fresh profile/inventory | architecture+installed/all |
+| `R50-CTXMEM-002` |Memory资料授权只能由用户UI显式选择global/Workspace realpath，拒绝symlink/junction/reparse/敏感根 | security+installed/all |
 | `R50-CTXMEM-003` |本地文本/Markdown/PDF/DOCX/XLSX/PPTX有界提取，不执行宏/外链/active content | integration+security/all |
 | `R50-CTXMEM-004` |SQLite FTS5索引可增量/重建/暂停/恢复，crash/lock/corrupt/disk-full不污染active index | integration+chaos/all |
-| `R50-CTXMEM-005` |Agent只经official DSH typed context.search/read tool取资料，内容明确为不可信context | contract+integration/all |
+| `R50-CTXMEM-005` |Agent只经`@penglai/memory`注册的official DSH typed source search/read tool取资料，内容明确为不可信context | contract+integration/all |
 | `R50-CTXMEM-006` |来源卡由host验证文件/节页sheet/digest/index revision与current/stale/revoked/unavailable | integration+installed/all |
 | `R50-CTXMEM-007` |文件变化/移动/删除后citation状态准确更新，模型声明不能覆盖host事实 | fault+installed/all |
 | `R50-CTXMEM-008` |revoke/delete只移除grant/派生index/cache，原始目录/文件before-after hash不变 | security+installed/all |

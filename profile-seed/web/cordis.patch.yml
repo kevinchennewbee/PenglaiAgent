@@ -10,8 +10,6 @@
     - id: penglai-im
       name: "@penglai/im"
       disabled: true
-    - id: penglai-context
-      name: "@penglai/context"
     - id: penglai-memory
       name: "@penglai/memory"
     - id: penglai-office

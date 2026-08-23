@@ -17,6 +17,7 @@ import {
   assertPluginJsClosure,
   isOfficialDshHtml,
   isPenglaiProductTitle,
+  mergeLegacyContextIntoMemory,
   recoverProfile,
   resolveRuntimeLayout,
   resolveUserLayout,
@@ -64,7 +65,16 @@ function writeTrustedPluginSet(
   const entries = FIRST_PARTY_PLUGIN_METADATA.map((metadata) => {
     const stage = mkdtempSync(join(tmpdir(), "penglai-plugin-fixture-"));
     mkdirSync(join(stage, "dist"), { recursive: true });
-    const hasClient = ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts"].includes(metadata.id);
+    const hasClient = [
+      "@penglai/plugin-center",
+      "@penglai/im",
+      "@penglai/asr",
+      "@penglai/moss-tts",
+      "@penglai/memory",
+      "@penglai/office",
+      "@penglai/budget",
+      "@penglai/companion",
+    ].includes(metadata.id);
     writeFileSync(
       join(stage, "dist", "index.js"),
       `export function apply() {}\nexport const marker = ${JSON.stringify(markers[metadata.id] ?? metadata.id)};\nexport default { apply };\n`,
@@ -300,7 +310,7 @@ test("fresh profile installs Center plus required builtins and links official @d
   );
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
-  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context", "dist", "index.js")), true);
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(linked).isSymbolicLink(), true);
@@ -308,7 +318,7 @@ test("fresh profile installs Center plus required builtins and links official @d
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory", "@penglai/context"]);
+  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]);
   const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
   assert.ok(optional.length > 0);
   assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
@@ -337,6 +347,48 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']\\n\\s+disabled: true`),
     );
   }
+});
+
+test("0.5.5 merges the legacy Context profile plugin into Memory without deleting source indexes", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-context-merge-")));
+  mkdirSync(join(user.profileWeb, "node_modules", "@penglai", "context"), { recursive: true });
+  mkdirSync(join(user.root, "context"), { recursive: true });
+  writeFileSync(join(user.profileWeb, "node_modules", "@penglai", "context", "package.json"), "{}\n");
+  writeFileSync(join(user.root, "context", "context.sqlite3"), "preserved-index\n");
+  writeFileSync(
+    join(user.profileWeb, "cordis.patch.yml"),
+    [
+      "- insert:",
+      "    - id: penglai-context",
+      "      name: \"@penglai/context\"",
+      "    - id: penglai-memory",
+      "      name: \"@penglai/memory\"",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(user.profileWeb, "package.json"),
+    JSON.stringify({
+      name: "web",
+      dependencies: { "@penglai/context": "0.5.3", "@penglai/memory": "0.5.5" },
+    }),
+  );
+
+  const result = mergeLegacyContextIntoMemory(user);
+  assert.deepEqual(result, {
+    changed: true,
+    profileEntryRemoved: true,
+    manifestEntryRemoved: true,
+    packageRemoved: true,
+    dataPreserved: true,
+  });
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
+  assert.equal(readFileSync(join(user.root, "context", "context.sqlite3"), "utf8"), "preserved-index\n");
+  assert.doesNotMatch(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /@penglai\/context/);
+  assert.match(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /@penglai\/memory/);
+  const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
+  assert.equal("@penglai/context" in manifest.dependencies, false);
+  assert.equal(existsSync(join(user.root, "migrations", "context-merged-0.5.5.json")), true);
 });
 
 test("R2-DIST-012 interrupted staging rolls back", () => {

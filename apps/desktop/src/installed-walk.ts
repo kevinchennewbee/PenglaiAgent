@@ -79,7 +79,7 @@ export function settingsShotScript(): string {
       penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
       asr: Boolean(document.querySelector("[data-penglai-asr]")),
       tts: Boolean(document.querySelector("[data-penglai-tts]")),
-      context: Boolean(document.querySelector("[data-penglai-context]")),
+      memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
       budget: Boolean(document.querySelector("[data-penglai-budget]")),
       companion: Boolean(document.querySelector("[data-penglai-companion]")),

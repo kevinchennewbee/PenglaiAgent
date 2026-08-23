@@ -572,7 +572,7 @@ export class PenglaiOnboardingRemote extends TypertRemoteService {
 
   @Remote
   offerExtension(input: {
-    id: "voice-offer-v1" | "context-offer-v1" | "memory-offer-v1";
+    id: "voice-offer-v1" | "memory-offer-v1";
     choice: "later" | "configured";
   }) {
     void input;

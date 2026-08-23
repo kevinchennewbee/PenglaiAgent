@@ -43,7 +43,7 @@ const modes = process.argv.includes("--voice-matrix")
   : ["fresh"];
 
 function selectedPlugins(mode) {
-  const builtins = ["@penglai/office", "@penglai/memory", "@penglai/context"];
+  const builtins = ["@penglai/office", "@penglai/memory"];
   if (mode === "fresh") return builtins;
   if (mode === "im-only") return [...builtins, "@penglai/im"];
   if (mode === "im-asr") return [...builtins, "@penglai/im", "@penglai/asr"];
@@ -66,7 +66,6 @@ function configurePluginMode(profileWeb, mode) {
     "@penglai/im",
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/context",
     "@penglai/memory",
     "@penglai/office",
     "@penglai/budget",

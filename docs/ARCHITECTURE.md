@@ -18,7 +18,7 @@ Penglai desktop (Penglai.app / Penglai.exe, zh-CN first)
    │  └─ Context/Memory/Budget/Companion clients
    ├─ @penglai/plugin-center host
    ├─ @penglai/asr + @penglai/moss-tts hosts
-   ├─ @penglai/context + @penglai/memory hosts
+   ├─ @penglai/memory host（分层记忆 + 授权资料 + 来源卡 + 图谱）
    ├─ @penglai/budget + @penglai/companion hosts
    └─ @penglai/im host
       ├─ Typert Remote service
@@ -181,7 +181,7 @@ ledger `current === "COMPLETE"` 后 `wizardFinished` 先验证 official DSH Web 
 - key 写入 official credentials service；不显示环境变量名或明文回读。
 - “测试连接”先用 official provider/model discovery（若支持），最终必须通过 official DSH AgentHandle 创建低 token、无工具的临时 nonce Turn。
 - 测试失败保留草稿并显示 provider/network/auth/model 稳定错误；不得标记 core ready。
-- 测试通过、默认模型和 Workspace 就绪后，official DSH core 独立可用；下一步只展示可跳过的扩展目录。IM/ASR/MOSS-TTS/Context/Memory/Budget/Companion 默认未安装、未加载，只有用户选择“安装并启用”后才进入 profile。
+- 测试通过、默认模型和 Workspace 就绪后，official DSH core、Office与Memory可用；IM/ASR/MOSS-TTS/Budget/Companion仍为可选并默认未安装、未加载。
 
 ## 6. DSH profile composition
 
@@ -192,8 +192,7 @@ fresh profile 至少包含：
 - `@penglai/im` bundled catalog only；fresh `not-installed/disabled`，用户安装后两个 adapter 初始 `not_configured`。
 - `@penglai/asr` bundled catalog only；fresh `not-installed/disabled`，安装后 model 初始 `not_installed`。
 - `@penglai/moss-tts` bundled catalog only；fresh `not-installed/disabled`，安装后 model 初始 `not_installed`。
-- `@penglai/context` bundled catalog only；fresh `not-installed/disabled`，安装后初始 `unconfigured/no_grants`。
-- `@penglai/memory` bundled catalog only；fresh `not-installed/disabled`，安装后初始为空。
+- `@penglai/memory` required-builtin；fresh安装并active，初始记忆与授权来源均为空。旧`@penglai/context`不进入catalog/profile/inventory，其索引数据仅由0.5.5迁移接管。
 - `@penglai/budget` bundled catalog only；fresh `not-installed/disabled`，安装后初始 `unlimited`。
 - `@penglai/companion` bundled catalog only；fresh `not-installed/disabled`，安装后 product state 仍为 `disabled_by_user`。
 - `@penglai/plugin-reference` bundled catalog only and disabled。

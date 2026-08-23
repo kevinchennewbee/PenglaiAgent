@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: "@penglai/context",
+  id: "@penglai/memory-sources",
   factory: (require) => {
     const module = { exports: {} };
     const React = require("react");
@@ -41,7 +41,7 @@ window.__ModuleLoader__.load({
     }
     const remoteCodec = (kind) => ({
       mode: "strict",
-      typeSymbol: `@penglai/context/client#${kind}`,
+      typeSymbol: `@penglai/memory/client#sources-${kind}`,
       schema: {
         parse(value) {
           if (
@@ -54,9 +54,9 @@ window.__ModuleLoader__.load({
       },
     });
     const remoteDescriptor = (method, hasInput = false) => ({
-      id: `@penglai/context#penglaiContextSettings/${method}`,
-      service: "penglaiContextSettings",
-      namespace: "penglaiContextSettings",
+      id: `@penglai/memory#penglaiMemorySourcesSettings/${method}`,
+      service: "penglaiMemorySourcesSettings",
+      namespace: "penglaiMemorySourcesSettings",
       method,
       implementation: method,
       invocation: { kind: "direct" },
@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({
       result: remoteCodec("result"),
     });
     const REMOTE = {
-      package: "@penglai/context",
+      package: "@penglai/memory",
       descriptors: [
         "status",
         "ingestCapability",
@@ -85,7 +85,7 @@ window.__ModuleLoader__.load({
 
     const COPY = {
       zh: {
-        title: "个人上下文",
+        title: "本地资料来源",
         sourceTitle: "本地资料来源",
         hint: "只索引你通过系统文件夹选择器明确授权的目录。源文件始终只读；撤销只删除派生索引。",
         add: "授权并索引文件夹",
@@ -102,11 +102,11 @@ window.__ModuleLoader__.load({
         noSources: "尚未授权任何来源。",
         sourceUntouched: "源文件未改动",
         loading: "正在读取授权来源…",
-        unavailable: "个人上下文服务暂时不可用。",
+        unavailable: "蓬莱记忆的本地资料服务暂时不可用。",
         busy: "处理中…",
       },
       en: {
-        title: "Personal Context",
+        title: "Local sources",
         sourceTitle: "Local sources",
         hint: "Only folders explicitly authorized through the system picker are indexed. Source files stay read-only; revoke deletes derived indexes only.",
         add: "Authorize and index folder",
@@ -124,7 +124,7 @@ window.__ModuleLoader__.load({
         noSources: "No source is authorized yet.",
         sourceUntouched: "Source files untouched",
         loading: "Reading authorized sources…",
-        unavailable: "Personal Context is temporarily unavailable.",
+        unavailable: "Penglai Memory local sources are temporarily unavailable.",
         busy: "Working…",
       },
     };
@@ -153,7 +153,7 @@ window.__ModuleLoader__.load({
 
     function ContextTab({ remote, embedded = false }) {
       const t = copy();
-      const api = remote?.penglaiContextSettings;
+      const api = remote?.penglaiMemorySourcesSettings;
       const [view, setView] = React.useState({
         phase: "loading",
         snapshot: { grants: [], workspaces: [] },
@@ -286,21 +286,21 @@ window.__ModuleLoader__.load({
       };
       if (view.phase === "loading")
         return jsx.jsx("section", {
-          "data-penglai-context": "1",
-          "data-penglai-context-status": "loading",
+          "data-penglai-memory-sources-panel": "1",
+          "data-penglai-memory-sources-status": "loading",
           children: t.loading,
         });
       if (view.phase === "unavailable")
         return jsx.jsxs("section", {
-          "data-penglai-context": "1",
-          "data-penglai-context-status": "unavailable",
+          "data-penglai-memory-sources-panel": "1",
+          "data-penglai-memory-sources-status": "unavailable",
           children: [t.unavailable, view.error ? ` ${view.error}` : ""],
         });
       const grants = view.snapshot.grants || [];
       const workspaces = view.snapshot.workspaces || [];
       return jsx.jsxs("section", {
-        "data-penglai-context": "1",
-        "data-penglai-context-status": "ready",
+        "data-penglai-memory-sources-panel": "1",
+        "data-penglai-memory-sources-status": "ready",
         role: "region",
         "aria-label": t.title,
         children: [
@@ -361,7 +361,7 @@ window.__ModuleLoader__.load({
                   jsx.jsxs(
                     "li",
                     {
-                      "data-penglai-context-grant": grant.root,
+                      "data-penglai-memory-source-grant": grant.root,
                       children: [
                         jsx.jsx("code", { children: grant.root }),
                         ` · ${grant.scope}${grant.workspaceId ? `:${grant.workspaceId}` : ""} · ${t.documents}: ${grant.documents} · ${t.revision}: ${grant.revision} `,
@@ -429,7 +429,7 @@ window.__ModuleLoader__.load({
           }),
           view.hits.length
             ? jsx.jsx("ul", {
-                "data-penglai-context-results": "1",
+                "data-penglai-memory-source-results": "1",
                 children: view.hits.map((hit) =>
                   jsx.jsxs(
                     "li",
@@ -451,7 +451,7 @@ window.__ModuleLoader__.load({
           view.error
             ? jsx.jsx("p", {
                 role: "alert",
-                "data-penglai-context-error": "1",
+                "data-penglai-memory-source-error": "1",
                 children: view.error,
               })
             : null,

@@ -104,6 +104,7 @@ test("R50-CTXMEM: production apply() wires app-private state and fails closed wi
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
+    tools: { register() {} },
     provide() {},
   };
   try {
@@ -134,6 +135,7 @@ test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and retur
         snapshot: async () => ({ skills: [{ name: "release-check" }], complete: true }),
       },
       workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
+      tools: { register() {} },
       provide() {},
     });
     const receipt = await svc.promoteSop({
@@ -179,6 +181,8 @@ test("Memory client registers the official settings slot without a second skill 
   assert.match(source, /embedded: true/);
   assert.match(source, /记忆来源/);
   assert.match(source, /penglaiMemorySettings/);
+  assert.match(source, /penglaiMemorySourcesSettings/);
+  assert.doesNotMatch(source, /@penglai\/context|个人上下文|Personal Context/);
   assert.match(source, /official-dsh-skills/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });

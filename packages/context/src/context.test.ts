@@ -107,7 +107,7 @@ test("R50-CTXMEM-001/005/015 production apply uses durable userData, typed Cordi
       tools: { register: (definition) => tools.push(definition) },
       workspaceRegistry: { list: () => [] },
       provide: (serviceName, value) => {
-        assert.equal(serviceName, "penglaiContext");
+        assert.equal(serviceName, "penglaiMemorySources");
         provided = value;
       },
       effect: (setup) => {
@@ -117,7 +117,7 @@ test("R50-CTXMEM-001/005/015 production apply uses durable userData, typed Cordi
     assert.equal(provided, service);
     assert.deepEqual(
       tools.map((tool) => tool.name),
-      ["penglai_context_search", "penglai_context_read"],
+      ["penglai_memory_source_search", "penglai_memory_source_read"],
     );
     assert.equal((tools[0]?.description as string).includes("untrusted"), true);
     dispose?.();
@@ -161,17 +161,18 @@ test("Context settings consumes one opaque picker capability and exposes no raw-
   }
 });
 
-test("Context client mounts one remote for Penglai Memory without a standalone settings tab", () => {
+test("Memory sources client mounts one internal remote without a standalone settings tab", () => {
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
-  assert.match(source, /data-penglai-context/);
-  assert.match(source, /penglaiContextSettings/);
+  assert.match(source, /data-penglai-memory-sources-panel/);
+  assert.match(source, /penglaiMemorySourcesSettings/);
   assert.match(source, /pickContextFolder/);
   assert.match(source, /module\.exports = \{ apply, inject, ContextTab \}/);
   assert.doesNotMatch(source, /slots\.register/);
+  assert.doesNotMatch(source, /个人上下文|Personal Context/);
   const memory = readFileSync(new URL("../../memory/src/dsh-client.js", import.meta.url), "utf8");
-  assert.match(memory, /require\("@penglai\/context"\)/);
-  assert.match(memory, /ContextModule\.ContextTab/);
-  assert.match(memory, /remote\.penglaiContextSettings/);
+  assert.match(memory, /require\("@penglai\/memory-sources"\)/);
+  assert.match(memory, /MemorySourcesModule\.ContextTab/);
+  assert.match(memory, /remote\.penglaiMemorySourcesSettings/);
   assert.doesNotMatch(source, /type: "text"[^\n]+requestedPath/);
 });
 

@@ -12,6 +12,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { apply as applyMemorySources } from "@penglai/memory-sources";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
@@ -209,14 +210,18 @@ export function apply(ctx: CordisContextLike) {
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for memory");
   const workspaceRegistry = ctx.workspaceRegistry;
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
-  const service = createDurableMemoryService({ userData, skills: ctx.skills });
+  const sources = applyMemorySources(ctx);
+  let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
-    registerMemoryTools(ctx, service.engine);
-    ctx.provide("penglaiMemory", service);
-    if (ctx instanceof Context) new PenglaiMemoryRemote(ctx, createMemorySettingsApi(service, workspaceRegistry));
-    ctx.effect?.(() => () => service.close?.());
+    service = createDurableMemoryService({ userData, skills: ctx.skills });
+    const activeService = service;
+    registerMemoryTools(ctx, activeService.engine);
+    ctx.provide("penglaiMemory", activeService);
+    if (ctx instanceof Context) new PenglaiMemoryRemote(ctx, createMemorySettingsApi(activeService, workspaceRegistry));
+    ctx.effect?.(() => () => activeService.close?.());
   } catch (error) {
-    service.close();
+    service?.close();
+    sources.close();
     throw error;
   }
   return service;

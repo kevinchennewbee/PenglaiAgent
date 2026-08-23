@@ -400,8 +400,8 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
     new URL("../../context/src/dsh-client.js", import.meta.url),
     "utf8",
   );
-  assert.match(context, /package: "@penglai\/context"/);
-  assert.match(context, /namespace: "penglaiContextSettings"/);
+  assert.match(context, /package: "@penglai\/memory"/);
+  assert.match(context, /namespace: "penglaiMemorySourcesSettings"/);
   assert.match(context, /await ctx\.remote\.\$mount\(REMOTE\)/);
   assert.match(context, /module\.exports = \{ apply, inject, ContextTab \}/);
   assert.doesNotMatch(context, /slots\.register/);
@@ -419,7 +419,6 @@ test("R2I-CENTER-013 catalog has real first-party plugins and no historical card
   for (const id of [
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/context",
     "@penglai/memory",
     "@penglai/budget",
     "@penglai/companion",
@@ -810,7 +809,6 @@ test("Center probes optional sibling services through Cordis get without inject-
     "penglaiImCore",
     "penglaiAsr",
     "penglaiMossTts",
-    "penglaiContext",
     "penglaiMemory",
     "penglaiOffice",
     "penglaiBudget",

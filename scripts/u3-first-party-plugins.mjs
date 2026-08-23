@@ -28,7 +28,6 @@ import {
 } from "./lib/release-targets.mjs";
 
 const REQUIRED_BUILTIN = ["@penglai/office", "@penglai/memory"];
-const REQUIRED_INTERNAL = ["@penglai/context"];
 const OPTIONAL_PLUGINS = [
   "@penglai/im",
   "@penglai/asr",
@@ -36,7 +35,7 @@ const OPTIONAL_PLUGINS = [
   "@penglai/budget",
   "@penglai/companion",
 ];
-const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...REQUIRED_INTERNAL, ...OPTIONAL_PLUGINS];
+const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...OPTIONAL_PLUGINS];
 
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
@@ -186,7 +185,7 @@ function optionalRowOk(row, enabled) {
 function rowsMatch(snapshot, optionalEnabled) {
   const rows = pluginRows(snapshot);
   return (
-    [...REQUIRED_BUILTIN, ...REQUIRED_INTERNAL].every((id) => requiredRowOk(rows.find((row) => row.id === id))) &&
+    REQUIRED_BUILTIN.every((id) => requiredRowOk(rows.find((row) => row.id === id))) &&
     OPTIONAL_PLUGINS.every((id) => optionalRowOk(rows.find((row) => row.id === id), optionalEnabled))
   );
 }
@@ -216,7 +215,7 @@ function setOptionalEnabled(enabled) {
     if (!pattern.test(text)) throw new Error(`installed profile is missing optional ${id}`);
     text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
   }
-  for (const id of [...REQUIRED_BUILTIN, ...REQUIRED_INTERNAL]) {
+  for (const id of REQUIRED_BUILTIN) {
     const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const disabled = new RegExp(`name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+true`, "m");
     if (disabled.test(text)) throw new Error(`required-builtin ${id} must stay enabled`);
@@ -244,7 +243,7 @@ function installedPackages() {
 }
 
 function requiredPackagesOk(packages) {
-  return [...REQUIRED_BUILTIN, ...REQUIRED_INTERNAL].every((id) => {
+  return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
     return pkg?.present && pkg.version === "0.5.5";
   });
@@ -382,7 +381,6 @@ const rec = {
   dsh: packaged.release.dsh,
   plugins: TRACKED_PLUGINS,
   requiredBuiltin: REQUIRED_BUILTIN,
-  requiredInternal: REQUIRED_INTERNAL,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
     "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",

@@ -15,7 +15,6 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 - `@penglai/asr`
 - `@penglai/moss-tts`
 - `@penglai/companion`
-- `@penglai/context`（Memory 内部基础设施与旧数据迁移，不显示独立产品卡）
 - `@penglai/budget`（内部策略能力，不显示独立产品卡）
 - `@penglai/plugin-reference`（默认 disabled，仅用于 platform proof）
 - `@penglai/plugin-smoke`（测试 profile only，不进入用户 catalog）
@@ -25,7 +24,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 ## 2.1 生态来源与未来扩展
 
 - `official-core`：DSH 核心插件，Center 可显示只读来源/版本/健康，但不冒充 Penglai package，也不随意卸载核心依赖。
-- `penglai-builtin`：Center、Office 与 Memory 随 fresh profile 安装并 active；Context 仅作为 Memory 内部基础设施加载，不显示独立产品卡。IM/ASR/TTS/Companion 随 app 离线携带，但 fresh 默认未安装、未加载。
+- `penglai-builtin`：Center、Office 与 Memory 随 fresh profile 安装并 active；Memory 包内含授权资料索引与来源卡，不再加载独立 Context 插件。IM/ASR/TTS/Companion 随 app 离线携带，但 fresh 默认未安装、未加载。
 - `penglai-first-party`：蓬莱维护并完成兼容审核的扩展；以后蓬莱原生能力也只有完整实现和验收后才进入 catalog。
 - `community-reviewed`：未来优质社区插件，必须经过来源与许可证审核、作者/package identity、签名或受信 checksum、权限、DSH range、平台/ABI、sandbox、安全测试、migration 和 rollback。
 

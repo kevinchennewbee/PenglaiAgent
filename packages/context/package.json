@@ -1,5 +1,5 @@
 {
-  "name": "@penglai/context",
+  "name": "@penglai/memory-sources",
   "version": "0.5.5",
   "private": true,
   "type": "module",
@@ -7,20 +7,6 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
-    },
-    "./client": {
-      "types": "./src/client.ts",
-      "default": "./dist/client.js"
-    }
-  },
-  "dsh": {
-    "client": {
-      "inject": [
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings"
-      ],
-      "platform": "web"
     }
   },
   "dependencies": {

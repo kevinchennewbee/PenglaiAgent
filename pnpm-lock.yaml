@@ -350,6 +350,9 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/memory-sources':
+        specifier: workspace:*
+        version: link:../context
       '@penglai/release-identity':
         specifier: workspace:*
         version: link:../release-identity
