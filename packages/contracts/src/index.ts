@@ -4,6 +4,7 @@ import {
   constants,
   existsSync,
   fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readdirSync,
@@ -445,9 +446,24 @@ export function readExactRegularFile(path: string, maxBytes = Number.POSITIVE_IN
   let fd: number | undefined;
   try {
     const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
-    fd = openSync(path, constants.O_RDONLY | noFollow);
+    try {
+      fd = openSync(path, constants.O_RDONLY | noFollow);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+        throw new PenglaiError("SECURITY_POLICY", "file is a symlink source");
+      }
+      throw error;
+    }
     const before = fstatSync(fd);
     if (!before.isFile()) throw new PenglaiError("STORE_CORRUPT", "file is not a regular file");
+    const source = lstatSync(path);
+    if (source.isSymbolicLink()) {
+      throw new PenglaiError("SECURITY_POLICY", "file is a symlink source");
+    }
+    if (!source.isFile()) throw new PenglaiError("STORE_CORRUPT", "file is not a regular file");
+    if (source.dev !== before.dev || source.ino !== before.ino || source.size !== before.size) {
+      throw new PenglaiError("STORE_CORRUPT", "file path identity changed after open");
+    }
     if (!Number.isSafeInteger(maxBytes) && maxBytes !== Number.POSITIVE_INFINITY) {
       throw new PenglaiError("INVALID_INPUT", "file byte limit invalid");
     }

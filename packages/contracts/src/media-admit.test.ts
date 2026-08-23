@@ -61,7 +61,10 @@ test("exact regular-file reader bounds bytes and rejects symlinks", () => {
   if (process.platform !== "win32") {
     const link = join(dir, "entry-link.json");
     symlinkSync(file, link);
-    assert.throws(() => readExactRegularFile(link, 7), /ELOOP|regular file|STORE_CORRUPT/i);
+    assert.throws(
+      () => readExactRegularFile(link, 7),
+      /ELOOP|regular file|symlink source|STORE_CORRUPT|SECURITY_POLICY/i,
+    );
   }
 });
 

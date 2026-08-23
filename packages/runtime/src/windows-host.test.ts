@@ -204,6 +204,8 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.equal(contract.posixModeImpersonation, false);
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
   const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../../../.github/workflows/native-release-candidate.yml", import.meta.url), "utf8");
+  const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"));
   const uiProof = readFileSync(new URL("../../../scripts/windows-installer-ui-proof.ps1", import.meta.url), "utf8");
   assert.match(packager, /"\/INPUTCHARSET",\s*\n\s*"UTF8"/);
   assert.match(uiProof, /'\/LANG=2052'/);
@@ -214,6 +216,9 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);
   assert.match(payload, /writeRequiredFuses\(penglaiExe\)/);
+  assert.match(payload, /cpSync\(join\(staging, "mnemon"\), join\(resources, "mnemon"\)/);
+  assert.match(payload, /payload is missing the pinned Mnemon binary or license/);
+  assert.match(windowsWorkflow, /- name: Source and onboarding regression gates\s+shell: bash\s+run: \|/);
   assert.match(payload, /Penglai\.ico/);
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(packager, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
