@@ -350,23 +350,70 @@ window.__ModuleLoader__.load({
                 .catch((e) => set((x) => ({ ...x, error: message(e) }))),
             children: t.graph,
           }),
-          jsx.jsx("svg", {
-            "data-penglai-memory-graph-svg": "1",
-            width: "360",
-            height: "180",
-            viewBox: "0 0 360 180",
-            children: (v.graph.nodes || []).slice(0, 24).map((node, index) =>
-              jsx.jsx(
-                "circle",
-                {
-                  cx: 24 + (index % 8) * 42,
-                  cy: 24 + Math.floor(index / 8) * 52,
-                  r: 8,
-                  fill: node.scope === "personal" ? "#5b8" : "#58b",
-                },
-                node.id,
-              ),
-            ),
+          jsx.jsxs("div", {
+            "data-penglai-memory-graph-wrap": "1",
+            children: [
+              v.graph.truncated
+                ? jsx.jsx("p", {
+                    "data-penglai-memory-graph-truncated": "1",
+                    children: "truncated",
+                  })
+                : null,
+              jsx.jsxs("svg", {
+                "data-penglai-memory-graph-svg": "1",
+                width: "360",
+                height: "220",
+                viewBox: "0 0 360 220",
+                children: [
+                  (v.graph.edges || []).slice(0, 64).map((edge, index) => {
+                    const nodes = v.graph.nodes || [];
+                    const from = nodes.findIndex((n) => n.id === edge.from);
+                    const to = nodes.findIndex((n) => n.id === edge.to);
+                    if (from < 0 || to < 0) return null;
+                    const x1 = 24 + (from % 8) * 42;
+                    const y1 = 24 + Math.floor(from / 8) * 52;
+                    const x2 = 24 + (to % 8) * 42;
+                    const y2 = 24 + Math.floor(to / 8) * 52;
+                    return jsx.jsx(
+                      "line",
+                      {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        stroke: "#888",
+                        strokeWidth: "1",
+                      },
+                      `${edge.from}-${edge.to}-${index}`,
+                    );
+                  }),
+                  (v.graph.nodes || []).slice(0, 24).map((node, index) =>
+                    jsx.jsxs(
+                      "g",
+                      {
+                        children: [
+                          jsx.jsx("circle", {
+                            cx: 24 + (index % 8) * 42,
+                            cy: 24 + Math.floor(index / 8) * 52,
+                            r: 8,
+                            fill: node.scope === "personal" ? "#5b8" : "#58b",
+                            onClick: () => {
+                              set((x) => ({ ...x, selectedId: String(node.id) }));
+                              run("why", {
+                                id: String(node.id),
+                                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                              });
+                            },
+                          }),
+                          jsx.jsx("title", { children: String(node.summary || node.id) }),
+                        ],
+                      },
+                      node.id,
+                    ),
+                  ),
+                ],
+              }),
+            ],
           }),
           jsx.jsx("input", {
             "data-penglai-memory-correct": "1",

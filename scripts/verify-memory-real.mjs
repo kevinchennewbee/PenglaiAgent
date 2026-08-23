@@ -118,11 +118,41 @@ if (again.status !== 0) {
 const ro = mnemon(wsA, ["remember", "should fail"], 15000, ["--readonly"]);
 const mnemonReadonlyHonored = ro.status !== 0;
 
+const loadDir = mkdtempSync(join(tmpdir(), "mnemon-10k-"));
+const loadTimes = [];
+const loadStarted = Date.now();
+for (let i = 0; i < 10_000; i += 1) {
+  const t0 = Date.now();
+  const row = mnemon(loadDir, ["remember", `scale-row-${i}`, "--cat", "fact", "--tags", "load"], 20_000);
+  loadTimes.push(Date.now() - t0);
+  if (row.status !== 0) {
+    const manifest = finishEvidenceRun(run, "FAIL", `mnemon 10k remember failed at ${i}`, { stderr: row.stderr });
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+    process.exit(EXIT_BY_VERDICT.FAIL);
+  }
+}
+loadTimes.sort((a, b) => a - b);
+const loadP50 = loadTimes[Math.floor(loadTimes.length * 0.5)] ?? 0;
+const loadP95 = loadTimes[Math.floor(loadTimes.length * 0.95)] ?? 0;
+const foundScale = mnemon(loadDir, ["search", "scale-row-9999"]);
+if (foundScale.status !== 0 || !String(foundScale.stdout).includes("scale-row-9999")) {
+  const manifest = finishEvidenceRun(run, "FAIL", "mnemon 10k search missed last row");
+  console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
+recordCommand(run, {
+  argv: [bin, "remember", "x10k"],
+  exitCode: 0,
+  durationMs: Date.now() - loadStarted,
+  stdout: JSON.stringify({ n: 10_000, p50Ms: loadP50, p95Ms: loadP95, rss: process.memoryUsage().rss }),
+});
+
 writeFileSync(join(run.dir, "artifacts", "personal-viz.dot"), viz.stdout ?? "");
-const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/recall/related/viz/forget/isolation", {
+const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/recall/related/viz/forget/isolation/10k", {
   mnemonVersion: String(version.stdout).trim(),
   binary: bin,
   mnemonReadonlyHonored,
+  load10k: { n: 10_000, p50Ms: loadP50, p95Ms: loadP95, durationMs: Date.now() - loadStarted, rss: process.memoryUsage().rss },
   note: mnemonReadonlyHonored
     ? "mnemon --readonly blocked writes"
     : "upstream --readonly did not block writes on a writable volume; Penglai runner must refuse write commands itself",
