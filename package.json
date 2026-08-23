@@ -39,6 +39,7 @@
     "test:integration": "node --import tsx --test packages/im/src/*.test.ts",
     "test:e2e": "node --import tsx --test apps/desktop/src/*.test.ts",
     "test:e2e:installed": "node scripts/e2e-installed.mjs",
+    "test:e2e:installed:live": "node scripts/e2e-installed-live.mjs",
     "test:u3:welcome": "node scripts/u3-welcome-smoke.mjs",
     "test:u3:plugins": "node scripts/u3-first-party-plugins.mjs",
     "test:failure-baseline": "node --import tsx scripts/failure-baseline.mjs",
