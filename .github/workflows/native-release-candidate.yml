@@ -72,6 +72,8 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Verify packaged Electron fuses
@@ -133,6 +135,8 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |
