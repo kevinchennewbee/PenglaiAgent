@@ -14,7 +14,7 @@ import {
   utimesSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
@@ -301,6 +301,8 @@ const PINNED_SILK_WASM = "3.7.1";
 const SILK_WASM = "silk-wasm";
 const PINNED_LIBOPUS_WASM = "0.2.0";
 const LIBOPUS_WASM = "libopus-wasm";
+const PINNED_PPTFAST = "0.20.0";
+const PPTFAST = "@liustack/pptfast";
 
 function resolvePackageRoot(fromDir, name) {
   const linked = join(fromDir, "node_modules", ...name.split("/"));
@@ -418,6 +420,131 @@ function vendorQrcode(stage) {
     !existsSync(join(destNm, "dijkstrajs", "package.json"))
   ) {
     console.error("vendored qrcode missing pngjs/dijkstrajs");
+    process.exit(1);
+  }
+}
+
+async function vendorPptfast(stage) {
+  const fromDir = join(ROOT, "packages/office");
+  const destNm = join(stage, "node_modules");
+  const pkgRoot = resolvePackageRoot(fromDir, PPTFAST);
+  const packageDest = join(destNm, ...PPTFAST.split("/"));
+  mkdirSync(join(packageDest, "dist"), { recursive: true });
+  cpSync(join(pkgRoot, "package.json"), join(packageDest, "package.json"));
+  cpSync(join(pkgRoot, "LICENSE"), join(packageDest, "LICENSE"));
+  const vendored = JSON.parse(readFileSync(join(packageDest, "package.json"), "utf8"));
+  if (vendored.version !== PINNED_PPTFAST) {
+    console.error("vendored pptfast is", vendored.version, "expected", PINNED_PPTFAST);
+    process.exit(1);
+  }
+  const disabledImageModule = {
+    name: "penglai-office-no-images",
+    setup(context) {
+      context.onResolve({ filter: /^(image-size|sharp)$/ }, (args) => ({
+        path: args.path,
+        namespace: "penglai-office-disabled-image",
+      }));
+      context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.5 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        loader: "js",
+      }));
+    },
+  };
+  const pptfastBundle = await build({
+    absWorkingDir: ROOT,
+    stdin: {
+      contents: [
+        `import { generatePptx } from ${JSON.stringify(join(pkgRoot, "dist/index.js"))};`,
+        `import { installNodePlatform } from ${JSON.stringify(join(pkgRoot, "dist/node.js"))};`,
+        "export { generatePptx, installNodePlatform };",
+      ].join("\n"),
+      resolveDir: ROOT,
+      sourcefile: "penglai-pptfast-runtime.mjs",
+      loader: "js",
+    },
+    bundle: true,
+    platform: "node",
+    format: "cjs",
+    target: "node22",
+    outfile: join(packageDest, "dist/penglai-runtime.cjs"),
+    plugins: [disabledImageModule],
+    metafile: true,
+    sourcemap: false,
+    legalComments: "none",
+    logLevel: "silent",
+  });
+  const bundledPackages = new Map();
+  for (const input of Object.keys(pptfastBundle.metafile.inputs)) {
+    const absolute = isAbsolute(input) ? input : join(ROOT, input);
+    if (!absolute.includes(`${sep}node_modules${sep}`)) continue;
+    let cursor = dirname(absolute);
+    for (let depth = 0; depth < 14; depth += 1) {
+      const packageJson = join(cursor, "package.json");
+      if (existsSync(packageJson)) {
+        const metadata = JSON.parse(readFileSync(packageJson, "utf8"));
+        if (typeof metadata.name === "string" && typeof metadata.version === "string") {
+          bundledPackages.set(`${metadata.name}@${metadata.version}:${cursor}`, { cursor, metadata });
+          break;
+        }
+      }
+      const parent = dirname(cursor);
+      if (parent === cursor) break;
+      cursor = parent;
+    }
+  }
+  const licenseRows = [];
+  for (const { cursor, metadata } of [...bundledPackages.values()].sort((a, b) =>
+    `${a.metadata.name}@${a.metadata.version}`.localeCompare(`${b.metadata.name}@${b.metadata.version}`)
+  )) {
+    let licenseFiles = readdirSync(cursor)
+      .filter((file) => /^(licen[cs]e|notice)([-.].*)?$/i.test(file))
+      .sort();
+    if (licenseFiles.length === 0) {
+      licenseFiles = readdirSync(cursor)
+        .filter((file) => /^readme(?:\..*)?$/i.test(file))
+        .filter((file) => {
+          const readme = readFileSync(join(cursor, file), "utf8");
+          return (
+            /^#{1,6}\s+licen[cs]e\s*$/im.test(readme) &&
+            (/Permission is hereby granted/i.test(readme) ||
+              /Apache License\s+Version 2\.0/i.test(readme) ||
+              /Redistribution and use in source and binary forms/i.test(readme))
+          );
+        })
+        .sort();
+    }
+    if (licenseFiles.length === 0) {
+      console.error("bundled pptfast dependency has no license text", metadata.name, metadata.version);
+      process.exit(1);
+    }
+    const safePackage = `${metadata.name}@${metadata.version}`.replace(/[^A-Za-z0-9._-]/g, "_");
+    const licenseDest = join(packageDest, "third_party", safePackage);
+    mkdirSync(licenseDest, { recursive: true });
+    const files = licenseFiles.map((file) => {
+      const source = join(cursor, file);
+      cpSync(source, join(licenseDest, file));
+      return { file, sha256: sha256(source) };
+    });
+    licenseRows.push({
+      name: metadata.name,
+      version: metadata.version,
+      license: metadata.license ?? "SEE-LICENSE-FILES",
+      files,
+    });
+  }
+  writeFileSync(
+    join(packageDest, "third_party", "licenses.json"),
+    JSON.stringify(licenseRows, null, 2),
+  );
+  const runtime = readFileSync(join(packageDest, "dist/penglai-runtime.cjs"), "utf8");
+  if (
+    runtime.includes("/Users/") ||
+    runtime.includes("/Volumes/") ||
+    runtime.includes("C:\\Users\\") ||
+    runtime.includes('require("image-size")') ||
+    runtime.includes('require("sharp")')
+  ) {
+    console.error("Penglai Office pptfast runtime contains a host path or disabled dependency");
     process.exit(1);
   }
 }
@@ -769,6 +896,7 @@ for (const p of packs) {
   const vendorAudio = p.id === "@penglai/im";
   const vendorSherpa = p.id === "@penglai/asr";
   const vendorMoss = p.id === "@penglai/moss-tts";
+  const vendorOfficePptfast = p.id === "@penglai/office";
   await build({
     absWorkingDir: ROOT,
     entryPoints: [join(ROOT, p.dir, p.host)],
@@ -790,6 +918,7 @@ for (const p of packs) {
       ...(vendorAudio ? [SILK_WASM, LIBOPUS_WASM] : []),
       ...(vendorSherpa ? [SHERPA_ONNX] : []),
       ...(vendorMoss ? [ONNX_RUNTIME_NODE, SENTENCEPIECE_JS] : []),
+      ...(vendorOfficePptfast ? [PPTFAST] : []),
     ],
     sourcemap: false,
     legalComments: "none",
@@ -874,6 +1003,13 @@ for (const p of packs) {
       process.exit(1);
     }
     vendorMossRuntime(stage);
+  }
+  if (vendorOfficePptfast) {
+    if (!hostJs.includes(PPTFAST)) {
+      console.error(p.id, "host bundle dropped the pptfast runtime import");
+      process.exit(1);
+    }
+    await vendorPptfast(stage);
   }
   if (p.id === "@penglai/memory") {
     const asset = mnemonAssetForPluginTarget(effectiveTarget);
@@ -1006,8 +1142,31 @@ for (const p of packs) {
           },
         }
       : {}),
+    ...(vendorOfficePptfast
+      ? { dependencies: { [PPTFAST]: PINNED_PPTFAST } }
+      : {}),
   };
   writeFileSync(join(stage, "package.json"), JSON.stringify(pkg, null, 2));
+  if (vendorOfficePptfast) {
+    const packageRoot = join(stage, "node_modules", ...PPTFAST.split("/"));
+    const requirePptfast = createRequire(join(stage, "package.json"));
+    const loaded = requirePptfast(join(packageRoot, "dist/penglai-runtime.cjs"));
+    loaded.installNodePlatform?.();
+    const generated = Buffer.from(
+      await loaded.generatePptx({
+        filename: "packed-office-smoke.pptx",
+        theme: { id: "consulting" },
+        slides: [
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.5" },
+          { type: "ending", heading: "Packed runtime" },
+        ],
+      }),
+    );
+    if (generated.length < 1_000 || generated.subarray(0, 2).toString("ascii") !== "PK") {
+      console.error(p.id, "vendored pptfast failed its packed-runtime smoke");
+      process.exit(1);
+    }
+  }
   if (vendorLark) {
     const sdkEntry = join(stage, "node_modules", LARK_SDK, "lib", "index.js");
     if (!existsSync(sdkEntry)) {

@@ -61,9 +61,15 @@ Penglai Office
 
 - docx ${dependency(office, "docx")} - MIT: https://github.com/dolanmiu/docx
 - ExcelJS ${dependency(office, "exceljs")} - MIT: https://github.com/exceljs/exceljs
+- uuid 11.1.1 - MIT; security-pinned transitive dependency used by ExcelJS:
+  https://github.com/uuidjs/uuid
 - pptfast ${dependency(office, "@liustack/pptfast")} - MIT; commit
   7482c83436531530b46003ccdab62b1fa8c97969:
   https://github.com/liustack/pptfast
+  Penglai bundles a deterministic Node runtime generated from that exact
+  package, plus the license text for every npm package included in the bundle.
+  Image probing is deliberately unavailable in 0.5.5: PPTX creation is text
+  only, so vulnerable optional image-size and Sharp paths are not shipped.
 - pdf-lib ${dependency(office, "pdf-lib")} and @pdf-lib/fontkit
   ${dependency(office, "@pdf-lib/fontkit")} - MIT:
   https://github.com/Hopding/pdf-lib

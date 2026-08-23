@@ -73,6 +73,7 @@ const licenses = [
   },
   { name: "docx", license: "MIT", pin: "9.7.1", bundledInInstaller: true },
   { name: "exceljs", license: "MIT", pin: "4.4.0", bundledInInstaller: true },
+  { name: "uuid", license: "MIT", pin: "11.1.1", bundledInInstaller: true },
   { name: "@liustack/pptfast", license: "MIT", pin: "0.20.0", bundledInInstaller: true },
   { name: "pdf-lib", license: "MIT", pin: "1.17.1", bundledInInstaller: true },
   { name: "@pdf-lib/fontkit", license: "MIT", pin: "1.1.1", bundledInInstaller: true },
@@ -209,6 +210,13 @@ const sentencepiecePkg = packageJsonFor("sentencepiece-js");
 const audioDir = join(process.cwd(), "packages/audio-codecs");
 const silkInfo = packageInfoFor("silk-wasm", audioReq, audioDir);
 const opusInfo = packageInfoFor("libopus-wasm", audioReq, audioDir);
+const excelInfo = packageInfoFor(
+  "exceljs",
+  officeReq,
+  join(process.cwd(), "packages/office"),
+);
+const excelReq = createRequire(join(excelInfo.root, "package.json"));
+const uuidInfo = packageInfoFor("uuid", excelReq, excelInfo.root);
 if (onnxPkg.version !== "1.23.2" || onnxPkg.license !== "MIT") {
   console.error("unexpected onnxruntime-node version/license", onnxPkg.version, onnxPkg.license);
   process.exit(1);
@@ -227,6 +235,10 @@ if (silkInfo.pkg.version !== "3.7.1" || silkInfo.pkg.license !== "MIT") {
 }
 if (opusInfo.pkg.version !== "0.2.0" || opusInfo.pkg.license !== "MIT") {
   console.error("unexpected libopus-wasm version/license", opusInfo.pkg.version, opusInfo.pkg.license);
+  process.exit(1);
+}
+if (uuidInfo.pkg.version !== "11.1.1" || uuidInfo.pkg.license !== "MIT") {
+  console.error("unexpected uuid version/license", uuidInfo.pkg.version, uuidInfo.pkg.license);
   process.exit(1);
 }
 for (const [resolver, fromDir, name, version, license] of [
