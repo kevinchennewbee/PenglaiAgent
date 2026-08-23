@@ -4,7 +4,10 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort } from "./lib/cdp.mjs";
-import { observeOfficialSurfaces } from "./lib/browser-window-walk.mjs";
+import {
+  observeOfficialSurfaces,
+  walkInstalledBrowserWindow,
+} from "./lib/browser-window-walk.mjs";
 import {
   assertInstalledPenglaiIdentity,
   installFromExactInstaller,
@@ -75,9 +78,10 @@ if (!identity.ok) {
     reason: `installed app identity ${identity.reason}`,
   });
 }
+const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
 const packaged = inspectPackagedCandidate({
   app: installed.app,
-  candidateSha: git.head,
+  candidateSha: expectedSource,
   expectedTarget: target,
 });
 if (packaged.verdict !== "PASS") {
@@ -266,10 +270,14 @@ async function runPhase(name, expectedEnabled) {
   let official = null;
   let attachErr = "";
   let cdpSession = null;
+  let productWalk = null;
   try {
     const { session } = await attachPage(debugPort, 90_000);
     cdpSession = session;
     official = await observeOfficialSurfaces(session);
+    if (name === "fresh-default-disabled" && official?.official) {
+      productWalk = await walkInstalledBrowserWindow(session, { userData });
+    }
   } catch (error) {
     attachErr = error instanceof Error ? error.message : String(error);
   }
@@ -293,6 +301,15 @@ async function runPhase(name, expectedEnabled) {
       bootOverlay: official?.snap?.bootOverlay === true,
       bootFailure: official?.snap?.bootFailure || undefined,
     },
+    requiredCapabilities:
+      name === "fresh-default-disabled"
+        ? {
+            memoryReady:
+              productWalk?.steps?.find((step) => step.id === "ui-memory")
+                ?.snap?.memoryStatus === "ready",
+            settingsBlocked: productWalk?.blocked ?? ["settings-walk-missing"],
+          }
+        : undefined,
     rows: pluginRows(inventory),
     packages: installedPackages(),
     processTree: {
@@ -340,6 +357,9 @@ const commonOk = phases.every(
     phase.processTree.dshPid > 0 &&
     phase.processTree.leftovers === 0,
 );
+const requiredCapabilitiesOk =
+  phases[0]?.requiredCapabilities?.memoryReady === true &&
+  phases[0]?.requiredCapabilities?.settingsBlocked?.length === 0;
 const activeOk = activePhases.every(
   (phase) =>
     rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, true) &&
@@ -351,7 +371,7 @@ const disabledOk = disabledPhases.every(
     rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, false) &&
     requiredPackagesOk(phase.packages),
 );
-const ok = commonOk && activeOk && disabledOk;
+const ok = commonOk && requiredCapabilitiesOk && activeOk && disabledOk;
 const rec = {
   command: "u3-first-party-plugins",
   verdict: ok ? "PASS" : "FAIL",
@@ -365,7 +385,7 @@ const rec = {
   requiredInternal: REQUIRED_INTERNAL,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
+    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);

@@ -385,6 +385,8 @@ test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(src, /cwd:\s*user\.dshHome/);
   assert.match(src, /DSH_HOME:\s*user\.dshHome/);
+  assert.match(src, /PENGLAI_APP_ROOT:\s*env\.PENGLAI_APP_ROOT/);
+  assert.match(src, /PENGLAI_MNEMON_BINARY:\s*env\.PENGLAI_MNEMON_BINARY/);
   assert.doesNotMatch(src, /cwd:\s*process\.cwd\(\)/);
   const yamlHook = src.includes("join(user.dshHome, \".credentials.yaml\")") || src.includes('join(user.dshHome, ".credentials.yaml")');
   assert.equal(yamlHook, true);

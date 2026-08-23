@@ -912,6 +912,10 @@ export class EmbeddedDshSupervisor {
       PENGLAI_DSH_PIN: PINNED_DSH,
       LANG: env.LANG ?? "en_US.UTF-8",
       ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
+      ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
+      ...(env.PENGLAI_MNEMON_BINARY
+        ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY }
+        : {}),
     };
     const dshArgs = dshWebArgs(this.port);
     if (process.platform === "win32") {
