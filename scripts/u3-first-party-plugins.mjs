@@ -292,10 +292,17 @@ async function runPhase(name, expectedEnabled) {
     const { session } = await attachPage(debugPort, 90_000);
     cdpSession = session;
     official = await observeOfficialSurfaces(session);
-    if (name === "fresh-default-disabled" && official?.official) {
+    if (
+      (name === "fresh-default-disabled" || name === "all-enabled-after-restart") &&
+      official?.official
+    ) {
       productWalk = await walkInstalledBrowserWindow(session, {
         userData,
-        shotDir: capturePublicShots ? publicShotDir : undefined,
+        shotDir:
+          capturePublicShots && name === "all-enabled-after-restart"
+            ? publicShotDir
+            : undefined,
+        requireOptionalPlugins: name === "all-enabled-after-restart",
       });
     }
   } catch (error) {
@@ -335,6 +342,15 @@ async function runPhase(name, expectedEnabled) {
                 ?.find((step) => step.id === "ui-center")
                 ?.snap?.pluginCards ?? []
             ).some((row) => HIDDEN_INTERNAL_CARD_IDS.includes(row?.id)),
+            settingsBlocked: productWalk?.blocked ?? ["settings-walk-missing"],
+          }
+        : undefined,
+    enabledCapabilities:
+      name === "all-enabled-after-restart"
+        ? {
+            optionalSettingsReady: ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every(
+              (id) => productWalk?.settingsWalked?.includes(id),
+            ),
             settingsBlocked: productWalk?.blocked ?? ["settings-walk-missing"],
           }
         : undefined,
@@ -392,6 +408,11 @@ const requiredCapabilitiesOk =
   phases[0]?.requiredCapabilities?.authorizedSourcesEmbedded === true &&
   phases[0]?.requiredCapabilities?.hiddenInternalCardsAbsent === true &&
   phases[0]?.requiredCapabilities?.settingsBlocked?.length === 0;
+const enabledCapabilitiesOk =
+  phases.find((phase) => phase.name === "all-enabled-after-restart")
+    ?.enabledCapabilities?.optionalSettingsReady === true &&
+  phases.find((phase) => phase.name === "all-enabled-after-restart")
+    ?.enabledCapabilities?.settingsBlocked?.length === 0;
 const activeOk = activePhases.every(
   (phase) =>
     rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, true) &&
@@ -403,7 +424,7 @@ const disabledOk = disabledPhases.every(
     rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, false) &&
     requiredPackagesOk(phase.packages),
 );
-const ok = commonOk && requiredCapabilitiesOk && activeOk && disabledOk;
+const ok = commonOk && requiredCapabilitiesOk && enabledCapabilitiesOk && activeOk && disabledOk;
 const rec = {
   command: "u3-first-party-plugins",
   verdict: ok ? "PASS" : "FAIL",
@@ -419,7 +440,7 @@ const rec = {
   publicScreenshots: capturePublicShots,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
+    "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart and walk every optional settings surface; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);
