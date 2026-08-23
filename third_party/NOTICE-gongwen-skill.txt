@@ -1,0 +1,3 @@
+gongwen-skill (https://github.com/linhut/gongwen-skill)
+License: MIT
+Penglai 0.5.5 reuses GB/T 9704 template *copy* only. Upstream font files are not redistributed.

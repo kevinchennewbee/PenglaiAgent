@@ -4,6 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
+    const MemorySourcesModule = createPenglaiMemorySourcesClient(require);
     const inject = ["remote"];
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
@@ -71,13 +72,28 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/memory",
-      descriptors: ["status", "write", "deleteScope", "promoteSop"].map(
-        remoteDescriptor,
-      ),
+      descriptors: [
+        "status",
+        "write",
+        "deleteScope",
+        "promoteSop",
+        "why",
+        "correct",
+        "forget",
+        "graph",
+        "export",
+        "importPreview",
+        "importConfirm",
+        "sourcesStatus",
+        "sourcesIngestCapability",
+        "sourcesReindex",
+        "sourcesRevoke",
+        "sourcesSearch",
+      ].map(remoteDescriptor),
     };
     const COPY = {
       zh: {
-        title: "分层记忆",
+        title: "蓬莱记忆",
         hint: "候选记忆、工作区记忆与全局 L1 分层保存。模型不能直接写全局记忆；全局写入和删除均需你确认。",
         scope: "范围",
         global: "全局 L1",
@@ -97,9 +113,18 @@ window.__ModuleLoader__.load({
         promote: "确认提升",
         unavailable: "记忆服务暂时不可用。",
         busy: "处理中…",
+        graph: "知识图谱",
+        includePersonal: "叠加个人记忆",
+        why: "解释",
+        correct: "更正",
+        forget: "忘记",
+        importPreview: "预览 0.5.3 迁移",
+        importConfirm: "确认迁移旧记忆",
+        sources: "记忆来源",
+        sourcesHint: "可选：授权本地资料，让蓬莱在对应范围内建立只读索引。",
       },
       en: {
-        title: "Layered Memory",
+        title: "Penglai Memory",
         hint: "Session candidates, Workspace memory, and global L1 remain separate. Models cannot write global memory; global writes and deletion require your confirmation.",
         scope: "Scope",
         global: "Global L1",
@@ -119,6 +144,15 @@ window.__ModuleLoader__.load({
         promote: "Confirm promotion",
         unavailable: "Memory service is temporarily unavailable.",
         busy: "Working…",
+        graph: "Knowledge graph",
+        includePersonal: "Overlay personal memory",
+        why: "Why",
+        correct: "Correct",
+        forget: "Forget",
+        importPreview: "Preview 0.5.3 migration",
+        importConfirm: "Import legacy memory",
+        sources: "Memory sources",
+        sourcesHint: "Optional: authorize local material for read-only indexing in the selected scope.",
       },
     };
     const copy = () =>
@@ -153,6 +187,12 @@ window.__ModuleLoader__.load({
         busy: false,
         error: "",
         notice: "",
+        graph: { nodes: [], edges: [] },
+        includePersonal: false,
+        selectedId: "",
+        whyText: "",
+        correctText: "",
+        importNote: "",
       });
       const refresh = React.useCallback(() => {
         if (!api?.status) {
@@ -257,9 +297,173 @@ window.__ModuleLoader__.load({
             : null,
           jsx.jsx("ul", {
             children: v.rows.length
-              ? v.rows.map((r) => jsx.jsx("li", { children: r.text }, r.id))
+              ? v.rows.map((r) =>
+                  jsx.jsxs(
+                    "li",
+                    {
+                      children: [
+                        String(r.content || r.text || r.id),
+                        " ",
+                        jsx.jsx("button", {
+                          type: "button",
+                          "data-penglai-memory-why": String(r.id),
+                          onClick: () => {
+                            set((x) => ({ ...x, selectedId: String(r.id) }));
+                            run("why", {
+                              id: String(r.id),
+                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                            });
+                          },
+                          children: t.why,
+                        }),
+                        jsx.jsx("button", {
+                          type: "button",
+                          "data-penglai-memory-forget": String(r.id),
+                          onClick: () =>
+                            run("forget", {
+                              id: String(r.id),
+                              ownerConfirmed: true,
+                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                            }),
+                          children: t.forget,
+                        }),
+                      ],
+                    },
+                    r.id,
+                  ),
+                )
               : jsx.jsx("li", { children: t.empty }),
           }),
+          jsx.jsxs("label", {
+            children: [
+              jsx.jsx("input", {
+                type: "checkbox",
+                checked: v.includePersonal,
+                onChange: (e) =>
+                  set((x) => ({ ...x, includePersonal: e.target.checked })),
+              }),
+              t.includePersonal,
+            ],
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-graph": "1",
+            onClick: () =>
+              Promise.resolve(
+                api.graph({
+                  includePersonal: v.includePersonal,
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                }),
+              )
+                .then(unwrap)
+                .then((graph) => set((x) => ({ ...x, graph: graph || { nodes: [], edges: [] } })))
+                .catch((e) => set((x) => ({ ...x, error: message(e) }))),
+            children: t.graph,
+          }),
+          jsx.jsxs("div", {
+            "data-penglai-memory-graph-wrap": "1",
+            children: [
+              v.graph.truncated
+                ? jsx.jsx("p", {
+                    "data-penglai-memory-graph-truncated": "1",
+                    children: "truncated",
+                  })
+                : null,
+              jsx.jsxs("svg", {
+                "data-penglai-memory-graph-svg": "1",
+                width: "360",
+                height: "220",
+                viewBox: "0 0 360 220",
+                children: [
+                  (v.graph.edges || []).slice(0, 64).map((edge, index) => {
+                    const nodes = v.graph.nodes || [];
+                    const from = nodes.findIndex((n) => n.id === edge.from);
+                    const to = nodes.findIndex((n) => n.id === edge.to);
+                    if (from < 0 || to < 0) return null;
+                    const x1 = 24 + (from % 8) * 42;
+                    const y1 = 24 + Math.floor(from / 8) * 52;
+                    const x2 = 24 + (to % 8) * 42;
+                    const y2 = 24 + Math.floor(to / 8) * 52;
+                    return jsx.jsx(
+                      "line",
+                      {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        stroke: "#888",
+                        strokeWidth: "1",
+                      },
+                      `${edge.from}-${edge.to}-${index}`,
+                    );
+                  }),
+                  (v.graph.nodes || []).slice(0, 24).map((node, index) =>
+                    jsx.jsxs(
+                      "g",
+                      {
+                        children: [
+                          jsx.jsx("circle", {
+                            cx: 24 + (index % 8) * 42,
+                            cy: 24 + Math.floor(index / 8) * 52,
+                            r: 8,
+                            fill: node.scope === "personal" ? "#5b8" : "#58b",
+                            onClick: () => {
+                              set((x) => ({ ...x, selectedId: String(node.id) }));
+                              run("why", {
+                                id: String(node.id),
+                                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                              });
+                            },
+                          }),
+                          jsx.jsx("title", { children: String(node.summary || node.id) }),
+                        ],
+                      },
+                      node.id,
+                    ),
+                  ),
+                ],
+              }),
+            ],
+          }),
+          jsx.jsx("input", {
+            "data-penglai-memory-correct": "1",
+            value: v.correctText,
+            placeholder: t.correct,
+            onChange: (e) => set((x) => ({ ...x, correctText: String(e.target.value) })),
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            disabled: !v.selectedId || !v.correctText.trim(),
+            onClick: () =>
+              run("correct", {
+                id: v.selectedId,
+                text: v.correctText,
+                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+              }),
+            children: t.correct,
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-import-preview": "1",
+            onClick: () =>
+              Promise.resolve(api.importPreview())
+                .then(unwrap)
+                .then((preview) =>
+                  set((x) => ({
+                    ...x,
+                    importNote: preview ? JSON.stringify(preview) : t.empty,
+                  })),
+                )
+                .catch((e) => set((x) => ({ ...x, error: message(e) }))),
+            children: t.importPreview,
+          }),
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-memory-import-confirm": "1",
+            onClick: () => run("importConfirm", { ownerConfirmed: true }),
+            children: t.importConfirm,
+          }),
+          v.importNote ? jsx.jsx("pre", { children: v.importNote }) : null,
           v.scope !== "candidate"
             ? jsx.jsxs("div", {
                 children: [
@@ -421,7 +625,29 @@ window.__ModuleLoader__.load({
       return jsx.jsx("div", {
         className: "penglai-settings-page",
         "data-penglai-settings": "memory",
-        children: jsx.jsx(MemoryTab, props),
+        children: jsx.jsxs(React.Fragment, {
+          children: [
+            jsx.jsx(MemoryTab, props),
+            MemorySourcesModule?.ContextTab
+              ? jsx.jsxs("details", {
+                  "data-penglai-memory-sources": "1",
+                  children: [
+                    jsx.jsxs("summary", {
+                      children: [
+                        jsx.jsx("strong", { children: copy().sources }),
+                        " · ",
+                        copy().sourcesHint,
+                      ],
+                    }),
+                    jsx.jsx(MemorySourcesModule.ContextTab, {
+                      ...props,
+                      embedded: true,
+                    }),
+                  ],
+                })
+              : null,
+          ],
+        }),
       });
     }
     async function apply(ctx) {

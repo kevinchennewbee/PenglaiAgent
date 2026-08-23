@@ -79,6 +79,39 @@ function decryptAesEcb(ciphertext: Buffer, key: Buffer): Buffer {
   }
 }
 
+export async function downloadAndDecryptWeixinCdn(
+  media: WeixinCdnMedia,
+  base: string,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  const url = resolveDownloadUrl(media, base);
+  const key = parseAesKey(media.aes_key);
+  let response: Response;
+  try {
+    response = await fetchImpl(url, { method: "GET", redirect: "error", ...(signal ? { signal } : {}) });
+  } catch {
+    throw new PenglaiError("DELIVERY_TRANSIENT", "Weixin CDN download failed");
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new PenglaiError("AUTH_EXPIRED", "Weixin CDN authorization failed");
+  }
+  if (!response.ok) throw new PenglaiError("DELIVERY_TRANSIENT", `Weixin CDN status ${response.status}`);
+  const declared = Number(response.headers.get("content-length") ?? 0);
+  if (declared > WEIXIN_MEDIA_MAX_BYTES + 16) {
+    throw new PenglaiError("INVALID_INPUT", "Weixin encrypted size rejected");
+  }
+  const encrypted = Buffer.from(await response.arrayBuffer());
+  if (!encrypted.length || encrypted.length > WEIXIN_MEDIA_MAX_BYTES + 16 || encrypted.length % 16 !== 0) {
+    throw new PenglaiError("INVALID_INPUT", "Weixin ciphertext rejected");
+  }
+  const plaintext = decryptAesEcb(encrypted, key);
+  if (!plaintext.length || plaintext.length > WEIXIN_MEDIA_MAX_BYTES) {
+    throw new PenglaiError("INVALID_INPUT", "Weixin plaintext size rejected");
+  }
+  return plaintext;
+}
+
 export async function downloadAndDecryptWeixinVoice(
   ref: WeixinVoiceMediaRef,
   base: string,
@@ -94,31 +127,7 @@ export async function downloadAndDecryptWeixinVoice(
   if (!Number.isSafeInteger(ref.playtimeMs) || ref.playtimeMs <= 0 || ref.playtimeMs > 180_000) {
     throw new PenglaiError("INVALID_INPUT", "Weixin voice duration rejected");
   }
-  const url = resolveDownloadUrl(ref.media, base);
-  const key = parseAesKey(ref.media.aes_key);
-  let response: Response;
-  try {
-    response = await fetchImpl(url, { method: "GET", redirect: "error", ...(signal ? { signal } : {}) });
-  } catch {
-    throw new PenglaiError("DELIVERY_TRANSIENT", "Weixin voice CDN download failed");
-  }
-  if (response.status === 401 || response.status === 403) {
-    throw new PenglaiError("AUTH_EXPIRED", "Weixin voice CDN authorization failed");
-  }
-  if (!response.ok) throw new PenglaiError("DELIVERY_TRANSIENT", `Weixin voice CDN status ${response.status}`);
-  const declared = Number(response.headers.get("content-length") ?? 0);
-  if (declared > WEIXIN_MEDIA_MAX_BYTES + 16) {
-    throw new PenglaiError("INVALID_INPUT", "Weixin voice encrypted size rejected");
-  }
-  const encrypted = Buffer.from(await response.arrayBuffer());
-  if (!encrypted.length || encrypted.length > WEIXIN_MEDIA_MAX_BYTES + 16 || encrypted.length % 16 !== 0) {
-    throw new PenglaiError("INVALID_INPUT", "Weixin voice ciphertext rejected");
-  }
-  const plaintext = decryptAesEcb(encrypted, key);
-  if (!plaintext.length || plaintext.length > WEIXIN_MEDIA_MAX_BYTES) {
-    throw new PenglaiError("INVALID_INPUT", "Weixin voice plaintext size rejected");
-  }
-  return plaintext;
+  return downloadAndDecryptWeixinCdn(ref.media, base, fetchImpl, signal);
 }
 
 function encryptAesEcb(plaintext: Buffer, key: Buffer): Buffer {

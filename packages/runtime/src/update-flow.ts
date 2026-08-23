@@ -198,7 +198,10 @@ export async function downloadVerifiedPayload(opts: {
     throw new PenglaiError("DELIVERY_TRANSIENT", `update download interrupted: ${code ?? "UNKNOWN"}`);
   }
   chmodSync(part, 0o600);
-  const fileHandle = openSync(part, "r");
+  // Windows rejects FlushFileBuffers for a read-only handle. Reopen the
+  // app-private partial payload read/write so fsync is a real durability gate
+  // on every supported host, without changing its already-bounded contents.
+  const fileHandle = openSync(part, "r+");
   let buf: Buffer;
   try {
     fsyncSync(fileHandle);

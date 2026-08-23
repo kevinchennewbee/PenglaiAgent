@@ -1,6 +1,8 @@
 export const REQUIRED_FRESH_SETTINGS_WALK = [
   "ui-penglai",
   "ui-center",
+  "ui-office",
+  "ui-memory",
   "ui-update",
   "ui-uninstall",
 ] as const;
@@ -10,9 +12,8 @@ export const REQUIRED_FULL_SETTINGS_WALK = [
   "ui-im",
   "ui-asr",
   "ui-tts",
-  "ui-context",
+  "ui-office",
   "ui-memory",
-  "ui-budget",
   "ui-companion",
   "ui-update",
   "ui-uninstall",
@@ -78,7 +79,7 @@ export function settingsShotScript(): string {
       penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
       asr: Boolean(document.querySelector("[data-penglai-asr]")),
       tts: Boolean(document.querySelector("[data-penglai-tts]")),
-      context: Boolean(document.querySelector("[data-penglai-context]")),
+      memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
       budget: Boolean(document.querySelector("[data-penglai-budget]")),
       companion: Boolean(document.querySelector("[data-penglai-companion]")),

@@ -432,6 +432,10 @@ async function main(): Promise<void> {
     recoverProfile(user);
     live.attach(layout);
     process.env.PENGLAI_PLUGINS_DIR = join(layout.appRoot, "plugins");
+    process.env.PENGLAI_APP_ROOT = layout.appRoot;
+    const mnemonName = process.platform === "win32" ? "mnemon.exe" : "mnemon";
+    const mnemonPath = join(layout.appRoot, "mnemon", mnemonName);
+    if (existsSync(mnemonPath)) process.env.PENGLAI_MNEMON_BINARY = mnemonPath;
     activatePrivateProfile(layout, user);
     const report = doctor(layout, user);
     const releaseContract = loadUpdaterReleaseContract(resources);
@@ -719,6 +723,7 @@ async function main(): Promise<void> {
           }
           const mapped: Record<string, PluginOwnerAction> = {
             enable: "plugin-enable",
+            installEnable: "plugin-enable",
             update: "plugin-update",
             installDisabled: "plugin-install",
           };

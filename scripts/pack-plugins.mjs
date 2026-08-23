@@ -20,6 +20,7 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { mnemonAssetForPluginTarget } from "../packages/release-identity/src/mnemon-assets.js";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,
@@ -124,9 +125,9 @@ const packs = [
     },
   },
   {
-    id: "@penglai/context",
-    dir: "packages/context",
-    file: `penglai-context-${PRODUCT_VERSION}.tgz`,
+    id: "@penglai/memory",
+    dir: "packages/memory",
+    file: `penglai-memory-${PRODUCT_VERSION}.tgz`,
     host: "src/index.ts",
     client: "src/dsh-client.js",
     dshClient: {
@@ -139,9 +140,9 @@ const packs = [
     },
   },
   {
-    id: "@penglai/memory",
-    dir: "packages/memory",
-    file: `penglai-memory-${PRODUCT_VERSION}.tgz`,
+    id: "@penglai/office",
+    dir: "packages/office",
+    file: `penglai-office-${PRODUCT_VERSION}.tgz`,
     host: "src/index.ts",
     client: "src/dsh-client.js",
     dshClient: {
@@ -788,7 +789,11 @@ for (const p of packs) {
       ...(vendorMoss ? [ONNX_RUNTIME_NODE, SENTENCEPIECE_JS] : []),
     ],
     sourcemap: false,
+    legalComments: "none",
     logLevel: "silent",
+    banner: {
+      js: 'import { createRequire as __penglaiCreateRequire } from "node:module";\nconst require = __penglaiCreateRequire(import.meta.url);\n',
+    },
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
   if (
@@ -797,6 +802,18 @@ for (const p of packs) {
     hostJs.includes('from "./src/')
   ) {
     console.error(p.id, "host bundle still imports src");
+    process.exit(1);
+  }
+  if (
+    /\/Users\/|\/Volumes\/|C:\\\\Users\\\\|\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
+      hostJs,
+    )
+  ) {
+    console.error("production bundle forbidden dist/index.js:owner volume", p.id);
+    process.exit(1);
+  }
+  if (!hostJs.includes("__penglaiCreateRequire")) {
+    console.error(p.id, "host bundle missing Node createRequire banner");
     process.exit(1);
   }
   if (existsSync(join(stage, "src"))) {
@@ -855,13 +872,79 @@ for (const p of packs) {
     }
     vendorMossRuntime(stage);
   }
+  if (p.id === "@penglai/memory") {
+    const asset = mnemonAssetForPluginTarget(effectiveTarget);
+    if (!asset) {
+      console.error("memory plugin missing mnemon pin for", effectiveTarget);
+      process.exit(1);
+    }
+    const src = join(ROOT, "third_party", "mnemon", "bin", asset.target, asset.binaryFilename);
+    if (!existsSync(src)) {
+      console.error("mnemon binary missing; run pnpm fetch:mnemon-assets -- --target", asset.target);
+      process.exit(1);
+    }
+    const destBin = join(stage, "resources", "mnemon", asset.binaryFilename);
+    mkdirSync(dirname(destBin), { recursive: true });
+    cpSync(src, destBin);
+    if (asset.executable) chmodSync(destBin, 0o755);
+    const got = sha256(destBin);
+    if (got !== asset.binarySha256) {
+      console.error("packed mnemon hash mismatch", got);
+      process.exit(1);
+    }
+  }
+  if (p.id === "@penglai/office") {
+    const fontSrc = join(ROOT, "packages/office/fonts/NotoSansSC-VF.ttf");
+    const fontNotice = join(ROOT, "packages/office/fonts/OFL.txt");
+    if (!existsSync(fontSrc) || !existsSync(fontNotice)) {
+      console.error("office CJK OFL font missing");
+      process.exit(1);
+    }
+    const destFont = join(stage, "resources", "fonts", "NotoSansSC-VF.ttf");
+    mkdirSync(dirname(destFont), { recursive: true });
+    cpSync(fontSrc, destFont);
+    cpSync(fontNotice, join(stage, "resources", "fonts", "OFL.txt"));
+    cpSync(join(ROOT, "packages/office/fonts/NOTICE"), join(stage, "resources", "fonts", "NOTICE"));
+    const fontHash = sha256(destFont);
+    if (fontHash !== "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964") {
+      console.error("packed office CJK font hash mismatch", fontHash);
+      process.exit(1);
+    }
+  }
   if (p.client) {
     const clientSrc = join(ROOT, p.dir, p.client);
     if (!existsSync(clientSrc)) {
       console.error("missing client", clientSrc);
       process.exit(1);
     }
-    cpSync(clientSrc, join(stage, "dist/client.js"));
+    if (p.id === "@penglai/memory") {
+      const sourcesClient = join(ROOT, "packages/context/src/dsh-client.js");
+      if (!existsSync(sourcesClient)) {
+        console.error("missing Penglai Memory sources client", sourcesClient);
+        process.exit(1);
+      }
+      const combinedClient =
+        `${readFileSync(sourcesClient, "utf8").trimEnd()}\n${readFileSync(clientSrc, "utf8").trimStart()}`;
+      const moduleRegistrations = combinedClient.match(/__ModuleLoader__\.load/g)?.length ?? 0;
+      if (
+        moduleRegistrations !== 1 ||
+        !combinedClient.includes("function createPenglaiMemorySourcesClient(require)") ||
+        combinedClient.includes('id: "@penglai/memory-sources"') ||
+        combinedClient.includes("penglaiMemorySourcesSettings") ||
+        !combinedClient.includes('"sourcesStatus"') ||
+        readFileSync(sourcesClient, "utf8").includes("remote.$mount") ||
+        hostJs.includes("penglaiMemorySourcesSettings")
+      ) {
+        console.error("Penglai Memory client must register one DSH module and one Remote namespace");
+        process.exit(1);
+      }
+      writeFileSync(
+        join(stage, "dist/client.js"),
+        combinedClient,
+      );
+    } else {
+      cpSync(clientSrc, join(stage, "dist/client.js"));
+    }
   }
   const pkg = {
     name: p.id,

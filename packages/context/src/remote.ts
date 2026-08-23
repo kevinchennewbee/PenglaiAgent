@@ -1,5 +1,3 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
-import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError } from "@penglai/contracts";
 import type { ContextGrant } from "./service.js";
 import { consumeContextGrantCapability } from "./grant-capability.js";
@@ -79,17 +77,3 @@ export function createContextSettingsApi(
     },
   };
 }
-
-export class PenglaiContextRemote extends TypertRemoteService {
-  constructor(ctx: Context, private readonly api: ReturnType<typeof createContextSettingsApi>) {
-    super(ctx, "penglaiContextSettings");
-  }
-
-  @Remote status() { return this.api.status(); }
-  @Remote ingestCapability(input: Parameters<ReturnType<typeof createContextSettingsApi>["ingestCapability"]>[0]) { return this.api.ingestCapability(input); }
-  @Remote reindex(input: { root: string }) { return this.api.reindex(input); }
-  @Remote revoke(input: { root: string; ownerConfirmed: boolean }) { return this.api.revoke(input); }
-  @Remote search(input: { query: string; workspaceId?: string }) { return this.api.search(input); }
-}
-
-export const TYPERT_REMOTE = { package: "@penglai/context", descriptors: ["status", "ingestCapability", "reindex", "revoke", "search"] };

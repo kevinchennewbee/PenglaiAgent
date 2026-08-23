@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community-verified macOS DMG for Penglai 0.5.3.
+ * Community-verified macOS DMG for Penglai 0.5.5.
  * Follows PenglaiAgent v0.4.1: complete ad-hoc app seal, codesign strict
  * verification, ordinary UDZO DMG, hdiutil verify. Not Developer ID, not notarized.
  */
@@ -74,14 +74,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.3-arm64",
-    dmg: "dist/Penglai_0.5.3_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.3-arm64-from-dmg",
+    out: "dist/Penglai-v0.5.5-arm64",
+    dmg: "dist/Penglai_0.5.5_macos_aarch64.dmg",
+    from: "dist/Penglai-v0.5.5-arm64-from-dmg",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.3-x64",
-    dmg: "dist/Penglai_0.5.3_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.3-x64-from-dmg",
+    out: "dist/Penglai-v0.5.5-x64",
+    dmg: "dist/Penglai_0.5.5_macos_x64.dmg",
+    from: "dist/Penglai-v0.5.5-x64-from-dmg",
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -96,10 +96,8 @@ const head = git(["rev-parse", "HEAD"]);
 const originMain = git(["rev-parse", "origin/main"]);
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
 const sourceDirty = git(["status", "--porcelain"]).length > 0;
-if (branch !== "main" || head !== originMain || sourceDirty) {
-  throw new Error(
-    "build-local-dmg refused: candidate source must be clean main at origin/main",
-  );
+if (sourceDirty) {
+  throw new Error("build-local-dmg refused: dirty tree");
 }
 const outRoot = join(ROOT, targetSpec.out);
 const appPath = join(outRoot, "Penglai.app");
@@ -207,7 +205,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.3",
+  productVersion: "0.5.5",
   name: targetSpec.dmg
     .split("/")
     .pop()
@@ -217,7 +215,8 @@ const info = {
   candidateKind: "public-community-release",
   trustTier: "community-verified",
   generationId: "penglai-dsh-v0.5",
-  phase: "TARGET_BUILT",
+  phase: head === originMain && branch === "main" ? "TARGET_BUILT" : "UNFROZEN",
+  localCandidate: !(head === originMain && branch === "main"),
   sourceSha: head,
   treeDirty: dirty,
   targetPlatform: targetArg,
@@ -225,9 +224,9 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.1-rc.1",
+  dsh: "0.1.1-rc.2",
   profileSchema: 3,
-  catalogSchema: 2,
+  catalogSchema: 3,
   imSchema: 3,
   schemaVersion: 2,
   signed: false,

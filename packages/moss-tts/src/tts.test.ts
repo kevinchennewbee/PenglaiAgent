@@ -519,9 +519,13 @@ test("production source contains attributed ONNX pipeline and no tone/system fal
 test("MOSS-TTS settings client registers the Penglai page slot and Typert remote", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /settings\.section/);
+  assert.match(client, /conversation\.chat\.assistant-actions/);
+  assert.match(client, /data-penglai-tts-read/);
   assert.match(client, /data-penglai-tts/);
   assert.match(client, /penglaiMossTts/);
   assert.match(client, /previewVoice/);
+  assert.match(client, /readAloud/);
+  assert.match(client, /conversation\.chat\.assistant-actions/);
   assert.doesNotMatch(client, /fetch\("\/penglai\/tts"/);
   const remote = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
   assert.match(remote, /TypertRemoteService/);

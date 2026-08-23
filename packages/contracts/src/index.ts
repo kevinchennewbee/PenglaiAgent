@@ -1,9 +1,22 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
 export * from "./i18n.js";
 export * from "./typert.js";
 
 export const SCHEMA_VERSION = 11;
-export const RELEASE = "0.5.3";
+export const RELEASE = "0.5.5";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -180,6 +193,307 @@ export interface PenglaiImSource {
   voice?: PenglaiVoiceMetadata;
 }
 
+export type MediaKind = "image" | "audio" | "office" | "pdf" | "file";
+
+/** Official DSH rc.2 image attachment media types. */
+export type OfficialImageMediaType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+/** Durable official DSH `ImageAttachmentRef` fields. Never a filesystem path. */
+export interface OfficialImageRef {
+  attachmentId: string;
+  mediaType: OfficialImageMediaType;
+  bytes: number;
+  width: number;
+  height: number;
+  name?: string;
+}
+
+export interface ImageAdmission {
+  saveImage(input: {
+    data: Uint8Array;
+    mediaType: OfficialImageMediaType;
+    name?: string;
+  }): Promise<OfficialImageRef>;
+}
+
+export interface ObjectBind {
+  sessionId: string;
+  workspaceId?: string;
+  routeId?: string;
+}
+
+export interface MediaEnvelope {
+  kind: MediaKind;
+  source: "weixin" | "feishu";
+  sourceMessageId: string;
+  sourceResourceId: string;
+  mime: string;
+  filename?: string;
+  size: number;
+  sha256: string;
+  opaqueHandle: string;
+  durationMs?: number;
+  officialImage?: OfficialImageRef;
+  officeHandle?: string;
+  audioHandle?: string;
+}
+
+export class MediaStore {
+  private readonly blobs = new Map<string, Buffer>();
+  constructor(private readonly root?: string) {
+    if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
+  }
+  put(
+    bytes: Buffer,
+    meta: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle"> & { opaqueHandle?: string },
+  ): MediaEnvelope {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const opaqueHandle = meta.opaqueHandle ?? `media-${sha256.slice(0, 24)}`;
+    this.blobs.set(opaqueHandle, Buffer.from(bytes));
+    if (this.root) writeFileSync(join(this.root, `${sha256}.bin`), bytes, { mode: 0o600 });
+    return {
+      ...meta,
+      size: bytes.length,
+      sha256,
+      opaqueHandle,
+    };
+  }
+  get(handle: string): Buffer {
+    const bytes = this.blobs.get(handle);
+    if (bytes) return Buffer.from(bytes);
+    if (this.root && handle.startsWith("media-")) {
+      const prefix = handle.slice("media-".length);
+      const hit = readdirSync(this.root).find((name) => name.startsWith(prefix) && name.endsWith(".bin"));
+      if (hit && existsSync(join(this.root, hit))) return readFileSync(join(this.root, hit));
+    }
+    throw new PenglaiError("INVALID_INPUT", "media handle missing");
+  }
+  drop(handle: string): void {
+    this.blobs.delete(handle);
+  }
+}
+
+export function classifyMedia(input: { filename?: string; mime?: string; bytes: Buffer }): MediaKind {
+  const mime = (input.mime ?? "").toLowerCase();
+  const name = (input.filename ?? "").toLowerCase();
+  const magic = input.bytes.subarray(0, 8).toString("latin1");
+  if (magic.startsWith("\x89PNG") || magic.startsWith("\xff\xd8") || mime.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/.test(name)) {
+    return "image";
+  }
+  if (magic.startsWith("RIFF") || magic.startsWith("OggS") || magic.startsWith("ID3") || magic.startsWith("#!SILK") || mime.startsWith("audio/")) {
+    return "audio";
+  }
+  if (magic.startsWith("%PDF") || mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (magic.startsWith("PK") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".pptx")) {
+    return "office";
+  }
+  return "file";
+}
+
+export function mediaCaption(media: MediaEnvelope): string {
+  return `[penglai-media kind=${media.kind} mime=${media.mime} sha256=${media.sha256.slice(0, 16)} handle=${media.opaqueHandle}]`;
+}
+
+export function isDiagnosticMediaCaption(text: string): boolean {
+  return text.startsWith("[penglai-media ");
+}
+
+export function imageMediaTypeFromBytes(bytes: Buffer): OfficialImageMediaType | undefined {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") {
+    return "image/webp";
+  }
+  const gif = bytes.subarray(0, 6).toString("latin1");
+  if (gif === "GIF87a" || gif === "GIF89a") return "image/gif";
+  return undefined;
+}
+
+export function userFacingMediaPrompt(media: MediaEnvelope): string {
+  if (media.kind === "image") {
+    return media.officialImage
+      ? "用户发送了一张图片。"
+      : "图片已收到，但未能提交到官方 DSH 附件服务。";
+  }
+  if (media.kind === "office" || media.kind === "pdf") {
+    return "用户发送了一份文档。请使用 penglai_office_inspect_attached 查看当前会话已绑定的附件。";
+  }
+  if (media.kind === "audio") return "用户发送了一条语音。";
+  return "用户发送了一个文件。";
+}
+
+function mimeForKind(kind: MediaKind, bytes: Buffer, declared?: string): string {
+  if (kind === "image") return imageMediaTypeFromBytes(bytes) ?? "application/octet-stream";
+  if (kind === "pdf") return "application/pdf";
+  if (kind === "office") return declared && declared !== "application/octet-stream" ? declared : "application/vnd.openxmlformats-officedocument";
+  if (kind === "audio") return declared && declared.startsWith("audio/") ? declared : "application/octet-stream";
+  return declared ?? "application/octet-stream";
+}
+
+/**
+ * App-private content-addressed object store for Office/audio handles.
+ * Handles are opaque; bytes are never exposed as host paths to the model.
+ */
+export class ObjectStore {
+  private readonly mem = new Map<string, { bytes: Buffer; kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind }>();
+  constructor(private readonly root?: string) {
+    if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
+  }
+  private writeMetadata(handle: string, value: Record<string, unknown>): void {
+    if (!this.root) return;
+    const target = join(this.root, `${handle}.json`);
+    const temp = join(this.root, `.${handle}.${process.pid}.${randomUUID()}.tmp`);
+    writeFileSync(temp, JSON.stringify(value), { mode: 0o600, flag: "wx" });
+    renameSync(temp, target);
+  }
+  private assertHandle(handle: string): string {
+    if (!/^obj-[0-9a-f]{24}$/.test(handle)) {
+      throw new PenglaiError("INVALID_INPUT", "object handle rejected");
+    }
+    return handle;
+  }
+  put(bytes: Buffer, meta: { kind: MediaKind; mime: string }): { handle: string; sha256: string } {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const handle = `obj-${sha256.slice(0, 24)}`;
+    this.mem.set(handle, { bytes: Buffer.from(bytes), kind: meta.kind, mime: meta.mime, sha256 });
+    if (this.root) {
+      const bin = join(this.root, `${handle}.bin`);
+      try {
+        writeFileSync(bin, bytes, { mode: 0o600, flag: "wx" });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        if (createHash("sha256").update(readExactRegularFile(bin)).digest("hex") !== sha256) {
+          throw new PenglaiError("SECURITY_POLICY", "object store hash collision");
+        }
+      }
+      this.writeMetadata(handle, { handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length });
+    }
+    return { handle, sha256 };
+  }
+  bind(handle: string, bind: ObjectBind): void {
+    const row = this.lookup(this.assertHandle(handle));
+    row.bind = { ...bind };
+    this.mem.set(handle, row);
+    if (this.root) {
+      this.writeMetadata(handle, {
+        handle,
+        sha256: row.sha256,
+        kind: row.kind,
+        mime: row.mime,
+        size: row.bytes.length,
+        bind,
+      });
+    }
+  }
+  get(handle: string, sessionId: string): Buffer {
+    const row = this.lookup(this.assertHandle(handle));
+    if (!row.bind || row.bind.sessionId !== sessionId) {
+      throw new PenglaiError("UNAUTHORIZED", "office/audio handle is not bound to this Session");
+    }
+    return Buffer.from(row.bytes);
+  }
+  peek(handle: string): { kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
+    const row = this.lookup(this.assertHandle(handle));
+    return { kind: row.kind, mime: row.mime, sha256: row.sha256, ...(row.bind ? { bind: row.bind } : {}) };
+  }
+  private lookup(handle: string): { bytes: Buffer; kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
+    this.assertHandle(handle);
+    const hit = this.mem.get(handle);
+    if (hit) return hit;
+    if (this.root) {
+      const bin = join(this.root, `${handle}.bin`);
+      const json = join(this.root, `${handle}.json`);
+      let bytes: Buffer;
+      try {
+        bytes = readExactRegularFile(bin);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          throw new PenglaiError("INVALID_INPUT", "object handle missing");
+        }
+        throw error;
+      }
+      const actualSha256 = createHash("sha256").update(bytes).digest("hex");
+      if (`obj-${actualSha256.slice(0, 24)}` !== handle) {
+        throw new PenglaiError("STORE_CORRUPT", "object store content identity mismatch");
+      }
+      let meta: { handle?: string; kind?: MediaKind; mime?: string; sha256?: string; size?: number; bind?: ObjectBind };
+      try {
+        meta = JSON.parse(readExactRegularFile(json).toString("utf8")) as typeof meta;
+      } catch {
+        throw new PenglaiError("STORE_CORRUPT", "object store metadata invalid");
+      }
+      if (
+        meta.handle !== handle ||
+        meta.sha256 !== actualSha256 ||
+        meta.size !== bytes.length ||
+        !["image", "audio", "office", "pdf", "file"].includes(String(meta.kind)) ||
+        typeof meta.mime !== "string"
+      ) {
+        throw new PenglaiError("STORE_CORRUPT", "object store metadata mismatch");
+      }
+      const row = { bytes, kind: meta.kind!, mime: meta.mime, sha256: actualSha256, ...(meta.bind ? { bind: meta.bind } : {}) };
+      this.mem.set(handle, row);
+      return row;
+    }
+    throw new PenglaiError("INVALID_INPUT", "object handle missing");
+  }
+}
+
+function readExactRegularFile(path: string): Buffer {
+  let fd: number | undefined;
+  try {
+    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+    fd = openSync(path, constants.O_RDONLY | noFollow);
+    const before = fstatSync(fd);
+    if (!before.isFile()) throw new PenglaiError("STORE_CORRUPT", "object store entry is not a regular file");
+    const bytes = readFileSync(fd);
+    const after = fstatSync(fd);
+    if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || bytes.length !== after.size) {
+      throw new PenglaiError("STORE_CORRUPT", "object store entry changed while open");
+    }
+    return bytes;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+export async function attachDownloadedMedia(opts: {
+  store: MediaStore;
+  bytes: Buffer;
+  base: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle" | "officialImage" | "officeHandle" | "audioHandle">;
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
+}): Promise<MediaEnvelope> {
+  const kind = classifyMedia({
+    bytes: opts.bytes,
+    ...(opts.base.filename ? { filename: opts.base.filename } : {}),
+    ...(opts.base.mime ? { mime: opts.base.mime } : {}),
+  });
+  const mime = mimeForKind(kind, opts.bytes, opts.base.mime);
+  const env = opts.store.put(opts.bytes, { ...opts.base, kind, mime });
+  if (kind === "image") {
+    const mediaType = imageMediaTypeFromBytes(opts.bytes);
+    if (!mediaType) throw new PenglaiError("INVALID_INPUT", "image magic rejected");
+    if (!opts.imageAdmission) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "official DSH attachments.saveImage is required for images");
+    }
+    env.officialImage = await opts.imageAdmission.saveImage({
+      data: opts.bytes,
+      mediaType,
+      ...(opts.base.filename ? { name: opts.base.filename.replace(/^.*[/\\]/, "").slice(0, 80) } : {}),
+    });
+  }
+  if ((kind === "office" || kind === "pdf") && opts.objectStore) {
+    env.officeHandle = opts.objectStore.put(opts.bytes, { kind, mime }).handle;
+  }
+  if (kind === "audio" && opts.objectStore) {
+    env.audioHandle = opts.objectStore.put(opts.bytes, { kind, mime }).handle;
+  }
+  return env;
+}
+
 export interface InboundEnvelope {
   adapter: AdapterName;
   adapterMessageKey: string;
@@ -190,6 +504,7 @@ export interface InboundEnvelope {
   bodyKind: "text" | "voice" | "media" | "other";
   text?: string;
   receivedAt: number;
+  media?: MediaEnvelope;
 }
 
 export interface ModelInput {
@@ -200,6 +515,9 @@ export interface ModelInput {
   source: PenglaiImSource;
   mode: "followup" | "steer";
   recovery?: true;
+  images?: OfficialImageRef[];
+  officeHandle?: string;
+  audioHandle?: string;
 }
 
 export interface ClaimedFact {
@@ -394,9 +712,34 @@ export function backoffMs(attempt: number, klass: TransportErrorClass, jitter = 
   return Math.floor(exp * (0.5 + safeJitter * 0.5));
 }
 
+function redactPrivateKeyBlocks(text: string): string {
+  const beginPrefix = "-----BEGIN ";
+  let cursor = 0;
+  let out = "";
+  while (cursor < text.length) {
+    const begin = text.indexOf(beginPrefix, cursor);
+    if (begin < 0) return out + text.slice(cursor);
+    out += text.slice(cursor, begin);
+    const labelEnd = text.indexOf("-----", begin + beginPrefix.length);
+    if (labelEnd < 0 || labelEnd - begin > 96) return out + text.slice(begin);
+    const label = text.slice(begin + beginPrefix.length, labelEnd);
+    const validLabel = label.endsWith("PRIVATE KEY") && [...label].every((char) => char === " " || (char >= "A" && char <= "Z"));
+    if (!validLabel) {
+      out += beginPrefix;
+      cursor = begin + beginPrefix.length;
+      continue;
+    }
+    const endMarker = `-----END ${label}-----`;
+    const end = text.indexOf(endMarker, labelEnd + 5);
+    if (end < 0) return out + text.slice(begin);
+    out += "[redacted-key]";
+    cursor = end + endMarker.length;
+  }
+  return out;
+}
+
 export function redactEvidenceText(text: string): string {
-  return text
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[redacted-key]")
+  return redactPrivateKeyBlocks(text)
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
     .replace(/\bwxp_[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
     .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, "[redacted-b64]")

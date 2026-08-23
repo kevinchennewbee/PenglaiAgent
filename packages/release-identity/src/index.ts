@@ -1,4 +1,13 @@
 export * from "./pins.js";
+export {
+  MNEMON_ASSETS,
+  MNEMON_UPSTREAM,
+  mnemonAssetForHost,
+  mnemonAssetForPluginTarget,
+  mnemonAssetForTarget,
+  mnemonReleaseUrl,
+} from "./mnemon-assets.js";
+export type { MnemonAssetPin, MnemonAssetTarget } from "./mnemon-asset-types.js";
 export * from "./exit.js";
 export * from "./assertion.js";
 export * from "./identity.js";

@@ -1,6 +1,4 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   AsrModelManager,
@@ -14,6 +12,8 @@ import {
   MOSS_TTS_MANIFEST,
 } from "../packages/moss-tts/src/index.js";
 import { ROOT } from "./lib/repo.mjs";
+import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
+import { beginEvidenceRun, finishEvidenceRun, HOST_TARGET } from "./lib/evidence-dir.mjs";
 
 const FIXTURE = Object.freeze({
   id: "penglai-moss-roundtrip-zh-v1",
@@ -23,7 +23,7 @@ const FIXTURE = Object.freeze({
 });
 
 const cacheRoot = join(ROOT, ".cache", "moss-real");
-const evidencePath = join(ROOT, "evidence", "generated", "moss-real.json");
+const run = beginEvidenceRun({ command: "verify:moss-real", target: HOST_TARGET });
 
 function sha256(value: Buffer | string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -129,15 +129,10 @@ try {
     throw new Error("real MOSS cancellation did not terminate cleanly");
   }
 
-  const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  }).trim();
   const evidence = {
     schema: 1,
     assertion: "R50-VOICE-MOSS-REAL",
     status: "PASS",
-    sourceSha,
     target: `${process.platform}-${process.arch}`,
     runtime: {
       engine: "onnxruntime-node",
@@ -199,9 +194,15 @@ try {
     },
     generatedAt: new Date().toISOString(),
   };
-  mkdirSync(join(ROOT, "evidence", "generated"), { recursive: true });
-  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
-  console.log(JSON.stringify(evidence));
+  const manifest = finishEvidenceRun(run, "PASS", "real MOSS TTS synthesized and round-tripped through SenseVoice", { evidence });
+  console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:moss-real", dir: run.dir }));
+  if (manifest.verdict !== "PASS") process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
+} catch (error) {
+  const reason = error instanceof Error ? error.message : String(error);
+  const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);
+  const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", reason);
+  console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:moss-real", reason, dir: run.dir }));
+  process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
 } finally {
   await asrEngine?.dispose();
   await asrManager.dispose();

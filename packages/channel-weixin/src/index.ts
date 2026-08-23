@@ -1,8 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
+import { join } from "node:path";
 import {
   PenglaiError,
   backoffMs,
   classifyTransportError,
+  classifyMedia,
+  MediaStore,
+  attachDownloadedMedia,
+  type ImageAdmission,
+  type ObjectStore,
   type InboundEnvelope,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -11,9 +17,12 @@ import type { RoutingControlPlane, VoiceInboundClaim } from "@penglai/routing-co
 import { encodeWavToWeixinSilk } from "@penglai/audio-codecs";
 import { ILinkClient, type ILinkFetch } from "./ilink.js";
 import type { WeixinVoiceMediaRef } from "./cdn.js";
+import { downloadAndDecryptWeixinCdn } from "./cdn.js";
+import type { WeixinCdnMedia } from "./protocol.js";
 import { inboundVoiceToText, outboundTtsAttachment, weixinVisibleAudioFallback } from "./media.js";
 import {
   ILINK_BASE,
+  ILINK_CDN_BASE,
   parseOfficialInbound,
   buildSendBody,
   type OfficialWeixinMessage,
@@ -34,6 +43,7 @@ export interface WeixinTransport {
   getUpdates(buf: string, token?: string, signal?: AbortSignal): Promise<{ buf: string; messages: WeixinRaw[] }>;
   send(to: string, text: string, clientId: string, contextToken?: string): Promise<{ ok: true } | { error: "transient" | "permanent" | "auth" }>;
   downloadVoice?(ref: WeixinVoiceMediaRef, signal?: AbortSignal): Promise<Buffer>;
+  downloadCdn?(media: WeixinCdnMedia, signal?: AbortSignal): Promise<Buffer>;
   sendAudioFile?(
     to: string,
     input: { data: Buffer; filename: string; clientId: string; contextToken?: string },
@@ -54,10 +64,12 @@ export interface WeixinRaw {
   messageId: string;
   fromUserId: string;
   chatType: "private" | "group";
-  itemType: "text" | "voice" | "media";
+  itemType: "text" | "voice" | "media" | "image" | "file" | "audio";
   text?: string;
   contextToken?: string;
   voice?: WeixinVoiceMediaRef;
+  image?: WeixinCdnMedia;
+  file?: { media?: WeixinCdnMedia; file_name?: string };
 }
 
 export interface CredentialVault {
@@ -99,12 +111,27 @@ export class MemoryVault implements CredentialVault {
 
 export function parseInbound(raw: WeixinRaw, accountRef: string): InboundEnvelope | { reject: string } {
   if (raw.chatType !== "private") return { reject: "group" };
-  if (raw.itemType !== "text" && raw.itemType !== "voice") return { reject: "media" };
+  if (!["text", "voice", "image", "file", "audio"].includes(String(raw.itemType))) return { reject: "media" };
   const n = Number(raw.messageId);
   const official: OfficialWeixinMessage = {
     from_user_id: raw.fromUserId,
     message_type: 1,
-    item_list: [{ type: raw.itemType === "voice" ? 3 : 1, msg_id: raw.messageId, text_item: { text: raw.text ?? "" } }],
+    item_list: [
+      {
+        type:
+          raw.itemType === "voice" || raw.itemType === "audio"
+            ? 3
+            : raw.itemType === "image"
+              ? 2
+              : raw.itemType === "file"
+                ? 4
+                : 1,
+        msg_id: raw.messageId,
+        text_item: { text: raw.text ?? "" },
+        ...(raw.image ? { image_item: { media: raw.image } } : {}),
+        ...(raw.file ? { file_item: raw.file } : {}),
+      },
+    ],
     ...(Number.isFinite(n) ? { message_id: n } : {}),
     ...(raw.contextToken ? { context_token: raw.contextToken } : {}),
   };
@@ -125,6 +152,8 @@ function officialToRaw(msg: OfficialWeixinMessage): WeixinRaw {
       ...(msg.context_token ? { contextToken: msg.context_token } : {}),
     };
   }
+  const imageMedia = msg.item_list?.find((item) => item.image_item?.media)?.image_item?.media;
+  const fileItem = msg.item_list?.find((item) => item.file_item)?.file_item;
   const voice = msg.item_list?.find((item) => item.type === 3)?.voice_item;
   const voiceRef = voice?.media
     ? {
@@ -138,9 +167,18 @@ function officialToRaw(msg: OfficialWeixinMessage): WeixinRaw {
     messageId: parsed.adapterMessageKey,
     fromUserId: msg.from_user_id ?? "",
     chatType: "private",
-    itemType: parsed.bodyKind === "voice" ? "voice" : "text",
+    itemType:
+      parsed.bodyKind === "voice"
+        ? "voice"
+        : parsed.media?.kind === "image"
+          ? "image"
+          : parsed.bodyKind === "media"
+            ? "file"
+            : "text",
     text: parsed.text ?? "",
     ...(voiceRef ? { voice: voiceRef } : {}),
+    ...(imageMedia ? { image: imageMedia } : {}),
+    ...(fileItem ? { file: fileItem } : {}),
     ...(msg.context_token ? { contextToken: msg.context_token } : {}),
   };
 }
@@ -192,6 +230,10 @@ export class ILinkTransport implements WeixinTransport {
     return this.client.downloadVoice(ref, signal);
   }
 
+  downloadCdn(media: WeixinCdnMedia, signal?: AbortSignal) {
+    return downloadAndDecryptWeixinCdn(media, ILINK_CDN_BASE, fetch, signal);
+  }
+
   async sendAudioFile(
     to: string,
     input: { data: Buffer; filename: string; clientId: string; contextToken?: string },
@@ -239,6 +281,11 @@ export class WeixinAdapter {
   private cursorBlocked = false;
   private voiceAbort = new AbortController();
   private readonly activeVoiceJobs = new Map<string, Promise<void>>();
+  readonly mediaStore = new MediaStore(
+    ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "weixin")] : []),
+  );
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
   constructor(
     private readonly plane: RoutingControlPlane,
     private readonly transport: WeixinTransport,
@@ -529,6 +576,41 @@ export class WeixinAdapter {
       if (parsed.vendorTarget) this.contextByPeer.set(parsed.vendorTarget, raw.contextToken);
       await this.vault.write(WEIXIN_CONTEXT_CREDENTIAL_REF, raw.contextToken);
     }
+    if (parsed.bodyKind === "media") {
+      const media = parsed.media;
+      const cdn = raw.image ?? raw.file?.media;
+      if (!media || !cdn) return { kind: "rejected" as const, text: "media reference missing" };
+      const downloader = this.transport.downloadCdn
+        ?? ((item: WeixinCdnMedia, signal?: AbortSignal) => downloadAndDecryptWeixinCdn(item, ILINK_CDN_BASE, fetch, signal));
+      const bytes = await downloader(cdn);
+      try {
+        parsed.media = await attachDownloadedMedia({
+          store: this.mediaStore,
+          bytes,
+          base: {
+            kind: classifyMedia({
+              bytes,
+              ...(raw.file?.file_name ?? media.filename ? { filename: raw.file?.file_name ?? media.filename } : {}),
+              ...(media.mime ? { mime: media.mime } : {}),
+            }),
+            source: "weixin",
+            sourceMessageId: parsed.adapterMessageKey,
+            sourceResourceId: media.sourceResourceId,
+            mime: media.mime || "application/octet-stream",
+            ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
+          },
+          ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+          ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+        });
+      } catch (error) {
+        return {
+          kind: "rejected" as const,
+          text: error instanceof PenglaiError ? error.message : "media admission failed",
+        };
+      }
+      delete parsed.text;
+      return this.plane.submitInbound(parsed);
+    }
     if (parsed.bodyKind === "voice") {
       if (!raw.voice) return { kind: "rejected" as const, text: "voice media missing" };
       const mediaRefJson = JSON.stringify({ schema: 1, ...raw.voice });
@@ -598,6 +680,19 @@ export class WeixinAdapter {
         : receipt.audioSent || (receipt.fallbackUsed && receipt.textSent);
       if (complete) this.plane.markDelivered(item.outboxId, claimToken);
     }
+  }
+
+  async sendFile(to: string, data: Buffer, filename: string, clientId: string): Promise<{ ok: true } | { error: string }> {
+    const token = await this.vault.read(this.tokenRef);
+    if (!token || !this.transport.sendAudioFile) return { error: token ? "unsupported" : "auth" };
+    if (this.transport instanceof ILinkTransport) this.transport.lastToken = token;
+    const contextToken = this.contextByPeer.get(to) ?? await this.vault.read(WEIXIN_CONTEXT_CREDENTIAL_REF);
+    return this.transport.sendAudioFile(to, {
+      data,
+      filename,
+      clientId,
+      ...(contextToken ? { contextToken } : {}),
+    });
   }
 
   private scheduleVoiceClaim(claim: VoiceInboundClaim, ref: WeixinVoiceMediaRef): void {

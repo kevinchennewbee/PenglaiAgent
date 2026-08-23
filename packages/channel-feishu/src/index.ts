@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
+import { join } from "node:path";
 import * as Lark from "@larksuiteoapi/node-sdk";
 import {
   PenglaiError,
   classifyTransportError,
+  classifyMedia,
+  MediaStore,
+  attachDownloadedMedia,
+  type ImageAdmission,
+  type ObjectStore,
   type InboundEnvelope,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -47,6 +53,13 @@ export interface FeishuAudioMediaRef {
   durationMs: number;
 }
 
+export interface FeishuFileMediaRef {
+  messageId: string;
+  fileKey: string;
+  messageType: "image" | "file";
+  filename?: string;
+}
+
 export function parseFeishuEvent(raw: {
   chatType?: string;
   messageType?: string;
@@ -55,15 +68,23 @@ export function parseFeishuEvent(raw: {
   text?: string;
 }): InboundEnvelope | { reject: "group" | "media" } {
   if (raw.chatType && raw.chatType !== "p2p" && raw.chatType !== "private") return { reject: "group" };
-  if (raw.messageType && raw.messageType !== "text" && raw.messageType !== "audio") return { reject: "media" };
+  if (
+    raw.messageType &&
+    raw.messageType !== "text" &&
+    raw.messageType !== "audio" &&
+    raw.messageType !== "image" &&
+    raw.messageType !== "file"
+  ) {
+    return { reject: "media" };
+  }
   return {
     adapter: "feishu",
     adapterMessageKey: raw.messageId,
     accountRef: "feishu",
     peerRef: createHash("sha256").update(raw.openId ?? "unknown").digest("hex").slice(0, 24),
     chatKind: "private",
-    bodyKind: raw.messageType === "audio" ? "voice" : "text",
-    text: raw.text ?? "",
+    bodyKind: raw.messageType === "audio" ? "voice" : raw.messageType === "image" || raw.messageType === "file" ? "media" : "text",
+    ...(raw.text ? { text: raw.text } : {}),
     receivedAt: Date.now(),
     ...(raw.openId ? { vendorTarget: raw.openId } : {}),
   };
@@ -72,6 +93,7 @@ export function parseFeishuEvent(raw: {
 export function parseOfficialReceiveWithMedia(data: unknown): {
   parsed: ReturnType<typeof parseFeishuEvent>;
   audio?: FeishuAudioMediaRef;
+  file?: FeishuFileMediaRef;
 } {
   const rec = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const event = (rec.event && typeof rec.event === "object" ? rec.event : rec) as Record<string, unknown>;
@@ -81,12 +103,20 @@ export function parseOfficialReceiveWithMedia(data: unknown): {
   let text = "";
   let fileKey = "";
   let durationMs = 0;
+  let filename = "";
   if (typeof message.content === "string") {
     try {
-      const content = JSON.parse(message.content) as { text?: string; file_key?: string; duration?: number | string };
+      const content = JSON.parse(message.content) as {
+        text?: string;
+        file_key?: string;
+        image_key?: string;
+        file_name?: string;
+        duration?: number | string;
+      };
       text = content.text ?? "";
-      fileKey = typeof content.file_key === "string" ? content.file_key : "";
+      fileKey = typeof content.file_key === "string" ? content.file_key : typeof content.image_key === "string" ? content.image_key : "";
       durationMs = Number(content.duration ?? 0);
+      filename = typeof content.file_name === "string" ? content.file_name : "";
     } catch {
       text = "";
     }
@@ -101,10 +131,21 @@ export function parseOfficialReceiveWithMedia(data: unknown): {
   const parsed = parseFeishuEvent(input);
   const messageId = input.messageId;
   const isAudio = !("reject" in parsed) && parsed.bodyKind === "voice";
+  const isFile = !("reject" in parsed) && parsed.bodyKind === "media" && (input.messageType === "image" || input.messageType === "file");
   return {
     parsed,
     ...(isAudio && fileKey && Number.isSafeInteger(durationMs)
       ? { audio: { messageId, fileKey, durationMs } }
+      : {}),
+    ...(isFile && fileKey
+      ? {
+          file: {
+            messageId,
+            fileKey,
+            messageType: input.messageType === "image" ? "image" : "file",
+            ...(filename ? { filename } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -131,6 +172,11 @@ export class FeishuAdapter {
   private readonly ownerStore: FeishuOwnerStore | undefined;
   private ownerOpenId: string | undefined;
   seen = new Set<string>();
+  readonly mediaStore = new MediaStore(
+    ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "feishu")] : []),
+  );
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
 
   constructor(
     private readonly plane: RoutingControlPlane,
@@ -317,6 +363,11 @@ export class FeishuAdapter {
       this.noticeAllowlist(fromOpenId);
       return { reject: "allowlist" };
     }
+    if (parsed.bodyKind === "media") {
+      if (!received.file?.fileKey) return { reject: "media" };
+      this.lastEnqueue = this.ingestFile(parsed, received.file);
+      return { accepted: true };
+    }
     if (parsed.bodyKind === "voice") {
       if (!received.audio || received.audio.durationMs <= 0 || received.audio.durationMs > 180_000) {
         return { reject: "audio" };
@@ -422,6 +473,31 @@ export class FeishuAdapter {
     }
   }
 
+  async sendFile(receiveId: string, data: Buffer, filename: string): Promise<{ ok: true } | { error: string }> {
+    if (!this.client) return { error: "not connected" };
+    if (!data.length || data.length > 30 * 1024 * 1024) return { error: "file size rejected" };
+    try {
+      const uploaded = await this.client.im.file.create({
+        data: { file_type: "stream", file_name: filename, file: data },
+      });
+      if (!uploaded?.file_key) return { error: "file upload missing key" };
+      await this.client.im.message.create({
+        params: { receive_id_type: "open_id" },
+        data: {
+          receive_id: receiveId,
+          content: JSON.stringify({ file_key: uploaded.file_key }),
+          msg_type: "file",
+        },
+      });
+      return { ok: true };
+    } catch (err) {
+      const klass = classifyTransportError(err);
+      if (klass === "auth") return { error: "auth" };
+      if (klass === "rate") return { error: "429" };
+      return { error: "transient" };
+    }
+  }
+
   async ingest(raw: Parameters<typeof parseFeishuEvent>[0]) {
     const parsed = parseFeishuEvent(raw);
     if ("reject" in parsed) return { kind: "rejected" as const, text: parsed.reject };
@@ -491,14 +567,49 @@ export class FeishuAdapter {
     }
   }
 
+  private async ingestFile(parsed: InboundEnvelope, ref: FeishuFileMediaRef) {
+    const bytes = await this.downloadMessageResource(ref.messageId, ref.fileKey, ref.messageType === "image" ? "image" : "file", this.voiceAbort.signal);
+    try {
+      parsed.media = await attachDownloadedMedia({
+        store: this.mediaStore,
+        bytes,
+        base: {
+          kind: classifyMedia({
+            bytes,
+            ...(ref.filename ? { filename: ref.filename } : {}),
+            ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
+          }),
+          source: "feishu",
+          sourceMessageId: ref.messageId,
+          sourceResourceId: ref.fileKey,
+          mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
+          ...(ref.filename ? { filename: ref.filename } : {}),
+        },
+        ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+        ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+      });
+    } catch (error) {
+      return {
+        kind: "rejected" as const,
+        text: error instanceof PenglaiError ? error.message : "media admission failed",
+      };
+    }
+    delete parsed.text;
+    return this.plane.submitInbound(parsed);
+  }
+
   private async downloadAudioResource(ref: FeishuAudioMediaRef, signal: AbortSignal): Promise<Buffer> {
+    return this.downloadMessageResource(ref.messageId, ref.fileKey, "file", signal);
+  }
+
+  private async downloadMessageResource(messageId: string, fileKey: string, type: "file" | "image", signal: AbortSignal): Promise<Buffer> {
     const client = this.client;
     if (!client) throw new PenglaiError("AUTH_EXPIRED", "Feishu client unavailable");
     let response: Awaited<ReturnType<typeof client.im.messageResource.get>>;
     try {
       response = await client.im.messageResource.get({
-        params: { type: "file" },
-        path: { message_id: ref.messageId, file_key: ref.fileKey },
+        params: { type },
+        path: { message_id: messageId, file_key: fileKey },
       });
     } catch (err) {
       const klass = classifyTransportError(err);

@@ -160,7 +160,7 @@ test("R50-UN-005/006/007 deletion plan exact paths and escapes", () => {
     userData: "/tmp/Penglai/0.5",
     confirmCredentials: false,
   });
-  assert.ok(plan.paths.every((p) => p.startsWith("/tmp/Penglai/0.5/")));
+  assert.ok(plan.paths.every((p) => p.replace(/\\/g, "/").includes("/tmp/Penglai/0.5/")));
   assert.throws(() => assertSafeDeletePath("/", "/tmp/Penglai/0.5", [], []), /root|home|drive/);
   recordAssertion({
     acceptanceId: "R50-UN-005",

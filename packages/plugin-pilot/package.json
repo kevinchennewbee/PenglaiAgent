@@ -1,6 +1,6 @@
 {
   "name": "@penglai/plugin-pilot",
-  "version": "0.5.3",
+  "version": "0.5.5",
   "private": true,
   "type": "module",
   "exports": {
@@ -16,11 +16,15 @@
     "schema": 2,
     "id": "@penglai/plugin-pilot",
     "version": "1.0.0",
-    "dshExact": "0.1.1-rc.1",
+    "dshExact": "0.1.1-rc.2",
     "centerProtocol": 1,
     "entry": "dist/index.js",
-    "targets": ["any"],
-    "capabilities": ["pilot-echo"],
+    "targets": [
+      "any"
+    ],
+    "capabilities": [
+      "pilot-echo"
+    ],
     "permissions": [],
     "nativeCode": false,
     "installScripts": false,

@@ -27,7 +27,7 @@ import { resolveRuntimeLayout } from "./index.js";
 test("R50-DIST-006 generation layout isolates 0.5 and lists legacy", () => {
   const mac = resolveGenerationLayout({ platform: "darwin", home: "/Users/测 试" });
   assert.equal(mac.generationId, GENERATION_ID);
-  assert.match(mac.userData, /Penglai\/0\.5$/);
+  assert.match(mac.userData.replace(/\\/g, "/"), /Penglai\/0\.5$/);
   assert.match(mac.userData, /测 试/);
   assert.ok(mac.legacyCandidates.some((p) => p.includes("penglai-v0.2.0-alpha.3") || p.includes(".dsh")));
   const win = resolveGenerationLayout({ platform: "win32", home: "C:\\Users\\测 试", localAppData: "C:\\Users\\测 试\\AppData\\Local" });
@@ -47,7 +47,7 @@ test("R50-DIST-007 arch guard rejects mixed Electron/Node", () => {
   );
 });
 
-test("posix credential modes and atomic write", () => {
+test("posix credential modes and atomic write", { skip: process.platform === "win32" }, () => {
   const modes = posixCredentialModes();
   assert.equal(modes.dir, 0o700);
   assert.equal(modes.file, 0o600);
@@ -174,5 +174,5 @@ test("windows layout uses node.exe", () => {
   const layout = resolveRuntimeLayout("/app", "win32");
   assert.match(layout.nodeBin, /node\.exe$/);
   const mac = resolveRuntimeLayout("/app", "darwin");
-  assert.match(mac.nodeBin, /bin\/node$/);
+  assert.match(mac.nodeBin.replace(/\\/g, "/"), /bin\/node$/);
 });

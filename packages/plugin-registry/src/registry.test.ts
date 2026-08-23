@@ -11,6 +11,8 @@ import {
   assertManifestMatchesCatalog,
   canonicalize,
   compareSemver,
+  discoverSignedAppUpdate,
+  fetchGithubReleaseTags,
   inspectPluginEntries,
   parseAppUpdateManifest,
   parseSignedPluginCatalog,
@@ -26,6 +28,77 @@ test("version comparison uses a linear numeric-prefix parser", () => {
   assert.equal(compareSemver("0.5.1", "0.5.0"), 1);
   assert.equal(compareSemver("0.5.1-rc.1", "0.5.1"), 0);
   assert.equal(compareSemver(`1.${"/".repeat(100_000)}x.0`, "1.0.0"), 0);
+});
+
+test("GitHub Atom fallback extracts only exact release-tag links", async () => {
+  const feed = `<?xml version="1.0"?><feed>
+    <link href="https://github.com/kevinchennewbee/PenglaiAgent/releases"/>
+    <entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5"/></entry>
+    <entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6"/></entry>
+  </feed>`;
+  const tags = await fetchGithubReleaseTags({
+    owner: "kevinchennewbee",
+    repo: "PenglaiAgent",
+    fetchImpl: (async () => new Response(feed, { status: 200 })) as typeof fetch,
+  });
+  assert.deepEqual(tags, ["v0.5.5", "v0.5.6"]);
+});
+
+test("app update falls back from REST 403 to a tag-specific signed manifest", async () => {
+  const identity = keys();
+  const manifest = {
+    schema: "penglai.app-update.v1",
+    sequence: 6,
+    version: "0.5.6",
+    channel: "stable",
+    releaseTag: "v0.5.6",
+    issuedAt: "2026-08-23T00:00:00.000Z",
+    expiresAt: "2027-08-23T00:00:00.000Z",
+    signingKeyId: identity.signingKeyId,
+    minimumSourceVersion: "0.5.1",
+    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6",
+    candidateSourceSha: "a".repeat(64),
+    publicExportTreeSha256: "b".repeat(64),
+    platforms: {
+      "darwin-aarch64": {
+        assetId: 606,
+        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.6/Penglai_0.5.6_macos_aarch64.dmg",
+        size: 123,
+        sha256: "c".repeat(64),
+        signature: "c2ln",
+      },
+    },
+    migration: { fromSchema: 11, toSchema: 11, backupRequired: true, rollbackCompatible: true },
+  };
+  const bytes = Buffer.from(canonicalize(manifest), "utf8");
+  const signature = signBytes(bytes, identity.privateKey);
+  const hops: string[] = [];
+  const fetchImpl = (async (input) => {
+    const url = String(input);
+    hops.push(url);
+    if (url.startsWith("https://api.github.com/")) return new Response("rate limited", { status: 403 });
+    if (url.endsWith("/releases.atom")) {
+      return new Response(
+        '<feed><entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6"/></entry></feed>',
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("update-manifest-v1.json.sig")) return new Response(signature, { status: 200 });
+    if (url.endsWith("update-manifest-v1.json")) return new Response(bytes, { status: 200 });
+    return new Response("missing", { status: 404 });
+  }) as typeof fetch;
+  const found = await discoverSignedAppUpdate({
+    currentVersion: "0.5.5",
+    fetchImpl,
+    publicKeyHex: identity.publicKeyHex,
+    signingKeyId: identity.signingKeyId,
+    nowMs: Date.parse("2026-08-24T00:00:00.000Z"),
+  });
+  assert.equal(found?.tag, "v0.5.6");
+  assert.equal(found?.manifest.version, "0.5.6");
+  assert.deepEqual(found?.assets.map((asset) => asset.name), ["Penglai_0.5.6_macos_aarch64.dmg"]);
+  assert.equal(hops.some((url) => url.endsWith("/releases.atom")), true);
+  assert.equal(hops.some((url) => url.includes("/releases/download/v0.5.6/update-manifest-v1.json")), true);
 });
 
 function keys() {
@@ -52,7 +125,7 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
         publisher: "Penglai",
         provenanceClass: "community-reviewed",
         license: "MIT",
-        dsh: { exact: "0.1.1-rc.1" },
+        dsh: { exact: "0.1.1-rc.2" },
         minPenglai: "0.5.1",
         capabilities: ["pilot-echo"],
         permissions: [],
@@ -231,7 +304,7 @@ test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission
             schema: 2,
             id: "@penglai/plugin-pilot",
             version: "1.0.0",
-            dshExact: "0.1.1-rc.1",
+            dshExact: "0.1.1-rc.2",
             centerProtocol: 1,
             entry: "dist/index.js",
             capabilities: ["pilot-echo"],
@@ -254,7 +327,7 @@ test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission
         catalogVersion: "1.0.0",
         catalogPermissions: ["workspace-write"],
         catalogCapabilities: ["pilot-echo"],
-        catalogDsh: "0.1.1-rc.1",
+        catalogDsh: "0.1.1-rc.2",
         manifest,
       }),
     /permissions/,
@@ -312,7 +385,7 @@ test("P51-UPDATE-001 PUDP/1 rejects latest.json and mutable releases", () => {
   const chosen = selectHighestAppRelease(
     [
       { tag_name: "v0.5.2", draft: false, prerelease: false, immutable: true, assets: [] },
-      { tag_name: "v0.5.3", draft: false, prerelease: false, immutable: false, assets: [] },
+      { tag_name: "v0.5.5", draft: false, prerelease: false, immutable: false, assets: [] },
     ],
     "0.5.1",
   );
@@ -433,6 +506,45 @@ test("PPDP/1 host refresh uses embedded keys and last-good offline", async () =>
     nowMs: () => Date.parse("2026-08-22T00:00:00.000Z"),
   });
   await assert.rejects(() => client.refresh(), /embedded plugin key|signingKeyId|signature mismatch/);
+});
+
+test("PPDP/1 catalog refresh falls back from REST 403 to the exact signed tag", async () => {
+  const { PluginDistributionClient } = await import("./host.js");
+  const identity = keys();
+  const json = catalogJson({ signingKeyId: identity.signingKeyId });
+  const bytes = Buffer.from(canonicalize(json), "utf8");
+  const signature = signBytes(bytes, identity.privateKey);
+  const dir = mkdtempSync(join(tmpdir(), "penglai-ppdp-atom-"));
+  const hops: string[] = [];
+  const fetchImpl = (async (input) => {
+    const url = String(input);
+    hops.push(url);
+    if (url.startsWith("https://api.github.com/")) return new Response("rate limited", { status: 403 });
+    if (url.endsWith("/releases.atom")) {
+      return new Response(
+        '<feed><entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000002"/></entry></feed>',
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("plugin-catalog-v1.json.sig")) return new Response(signature, { status: 200 });
+    if (url.endsWith("plugin-catalog-v1.json")) return new Response(bytes, { status: 200 });
+    return new Response("missing", { status: 404 });
+  }) as typeof fetch;
+  const client = new PluginDistributionClient({
+    cacheRoot: join(dir, "cas"),
+    trustPath: join(dir, "trust.json"),
+    lastGoodPath: join(dir, "last-good.json"),
+    penglaiVersion: "0.5.5",
+    dshExact: "0.1.1-rc.2",
+    fetchImpl,
+    nowMs: () => Date.parse("2026-08-22T00:00:00.000Z"),
+  });
+  await assert.rejects(() => client.refresh(), /embedded plugin key|signingKeyId|signature mismatch/);
+  assert.equal(hops.some((url) => url.endsWith("/releases.atom")), true);
+  assert.equal(
+    hops.some((url) => url.includes("/releases/download/plugin-catalog-v1.000002/plugin-catalog-v1.json")),
+    true,
+  );
 });
 
 test("GitHub 302 to official asset host is followed and hashed", async () => {

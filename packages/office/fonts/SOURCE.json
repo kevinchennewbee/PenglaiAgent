@@ -1,0 +1,10 @@
+{
+  "family": "Noto Sans SC",
+  "license": "OFL-1.1",
+  "upstreamRepo": "https://github.com/notofonts/noto-cjk",
+  "upstreamCommit": "f8d157532fbfaeda587e826d4cd5b21a49186f7c",
+  "upstreamFile": "Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf",
+  "upstreamSha256": "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964",
+  "bundledSha256": "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964",
+  "modified": false
+}

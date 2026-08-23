@@ -75,7 +75,7 @@ test("R50-REL-006/007 a11y contract covers live region, QR alt, contrast, and zo
 
 test("R50-UPD-008/009/010 verified installer and crash replay", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-"));
-  const path = join(root, "Penglai_0.5.3_macos_aarch64.dmg");
+  const path = join(root, "Penglai_0.5.5_macos_aarch64.dmg");
   const payload = Buffer.from("signed-installer");
   writeFileSync(path, payload);
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -102,7 +102,7 @@ test("verified installer handoff refuses a symlink even when target bytes are si
   if (process.platform === "win32") return;
   const root = mkdtempSync(join(tmpdir(), "penglai-update-handoff-link-"));
   const outside = join(root, "signed-outside.dmg");
-  const linked = join(root, "Penglai_0.5.3_macos_aarch64.dmg");
+  const linked = join(root, "Penglai_0.5.5_macos_aarch64.dmg");
   const payload = Buffer.from("signed-installer");
   writeFileSync(outside, payload);
   symlinkSync(outside, linked);
@@ -144,7 +144,7 @@ test("R50-UN-010 complete delete then empty generation stays under userData", ()
     userData: root,
     confirmCredentials: false,
   });
-  const out = executeDeletionPlan(plan, root, [], []);
+  const out = executeDeletionPlan(plan, root, [], [], { platform: "darwin" });
   assert.equal(out.deleted.length, 1);
   assert.equal(existsSync(join(root, "keep.txt")), true);
 });
@@ -167,7 +167,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   const sig = sign(null, payload, privateKey);
   const dest = mkdtempSync(join(tmpdir(), "penglai-upd-dl-"));
   const out = await downloadVerifiedPayload({
-    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.3/Penglai_0.5.3_macos_aarch64.dmg",
+    url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg",
     destDir: dest,
     expectedSha256: sha,
     expectedSize: payload.length,
@@ -181,7 +181,7 @@ test("R50-UPD: download verifies size/hash/signature and crash mid-download retu
   assert.throws(() => drainOwnedServices({ dshRunning: true, asrBusy: false, ttsBusy: false, indexerBusy: false, companionArmed: false }), /busy/);
 });
 
-test("R50-DIST: packaged identity is Penglai 0.5.3 and Windows NSIS stays current-user", async () => {
+test("R50-DIST: packaged identity is Penglai 0.5.5 and Windows NSIS stays current-user", async () => {
   const {
     assertPenglaiAppIdentity,
     assertWindowsNsisContract,
@@ -203,7 +203,7 @@ test("R50-DIST: packaged identity is Penglai 0.5.3 and Windows NSIS stays curren
   const facts = parseInfoPlistIdentity(rewritten);
   assertPenglaiAppIdentity(facts);
   assert.equal(facts.executable, "Penglai");
-  assert.equal(facts.shortVersion, "0.5.3");
+  assert.equal(facts.shortVersion, "0.5.5");
   assert.match(rewritten, /penglai\.icns/);
   assert.match(rewritten, /<string>13\.0<\/string>/);
   assertWindowsNsisContract({

@@ -292,7 +292,7 @@ function opusHead(preSkip: number): Buffer {
 }
 
 function opusTags(): Buffer {
-  const vendor = Buffer.from("Penglai 0.5.3", "utf8");
+  const vendor = Buffer.from("Penglai 0.5.5", "utf8");
   const out = Buffer.alloc(8 + 4 + vendor.length + 4);
   out.write("OpusTags", 0);
   out.writeUInt32LE(vendor.length, 8);

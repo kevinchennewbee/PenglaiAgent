@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import { isRecord, type InboundEnvelope } from "@penglai/contracts";
+import { isRecord, type InboundEnvelope, type MediaKind } from "@penglai/contracts";
 
 /** Official iLink bot surface. Isolated rewrite; not an OpenClaw plugin. */
 export const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 export const ILINK_CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const DEFAULT_ILINK_BOT_TYPE = "3";
 export const ILINK_APP_ID = "bot";
-export const ILINK_BOT_AGENT = "Penglai/0.5.3";
+export const ILINK_BOT_AGENT = "Penglai/0.5.5";
 /** Exact Tencent channel package pinned by docs/compatibility/WEIXIN_R2.md. */
 export const ILINK_CHANNEL_VERSION = "2.4.6";
 /** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.6"). */
@@ -116,6 +116,7 @@ export interface OfficialWeixinMessage {
     text_item?: { text?: string };
     voice_item?: WeixinVoiceItem;
     file_item?: WeixinFileItem;
+    image_item?: { media?: WeixinCdnMedia };
   }>;
   context_token?: string;
 }
@@ -237,18 +238,31 @@ export function parseOfficialInbound(
     return { reject: "non_user" };
   }
   const items = msg.item_list ?? [];
+  const allowed = new Set<number>([MessageItemType.TEXT, MessageItemType.VOICE, MessageItemType.IMAGE, MessageItemType.FILE]);
+  if (items.some((it) => it.type !== undefined && !allowed.has(it.type))) {
+    return { reject: "media" };
+  }
   const voiceOnly = items.length > 0 && items.every((it) => it.type === MessageItemType.VOICE);
-  if (items.some((it) => it.type !== undefined && it.type !== MessageItemType.TEXT && it.type !== MessageItemType.VOICE)) {
-    return { reject: "media" };
-  }
-  if (items.some((it) => it.type === MessageItemType.VOICE) && !voiceOnly) {
-    return { reject: "media" };
-  }
-  const text = items.map((it) => it.text_item?.text ?? "").join("");
+  const image = items.find((it) => it.type === MessageItemType.IMAGE);
+  const file = items.find((it) => it.type === MessageItemType.FILE);
+  const text = items
+    .map((it) => {
+      if (it.type === MessageItemType.IMAGE || it.type === MessageItemType.FILE) return "";
+      return it.text_item?.text ?? "";
+    })
+    .join("");
+  const resource =
+    image?.image_item?.media?.encrypt_query_param ??
+    file?.file_item?.media?.encrypt_query_param ??
+    image?.msg_id ??
+    file?.file_item?.file_name ??
+    file?.msg_id ??
+    "";
+  const mediaKind: MediaKind | undefined = image ? "image" : file ? (/\.pdf$/i.test(file.file_item?.file_name ?? "") ? "pdf" : /\.(docx|xlsx|pptx)$/i.test(file.file_item?.file_name ?? "") ? "office" : "file") : undefined;
   const msgId =
     items.find((it) => it.msg_id)?.msg_id ??
     (msg.message_id !== undefined ? String(msg.message_id) : undefined) ??
-    createHash("sha256").update(JSON.stringify({ accountRef, text, seq: msg.seq ?? 0 })).digest("hex");
+    createHash("sha256").update(JSON.stringify({ accountRef, text, seq: msg.seq ?? 0, resource })).digest("hex");
   const from = msg.from_user_id ?? "";
   return {
     adapter: "weixin",
@@ -257,9 +271,24 @@ export function parseOfficialInbound(
     peerRef: createHash("sha256").update(from).digest("hex").slice(0, 24),
     vendorTarget: from,
     chatKind: "private",
-    bodyKind: voiceOnly ? "voice" : "text",
-    text,
+    bodyKind: voiceOnly ? "voice" : image || file ? "media" : "text",
+    ...(text ? { text } : {}),
     receivedAt: Date.now(),
+    ...(mediaKind
+      ? {
+          media: {
+            kind: mediaKind,
+            source: "weixin" as const,
+            sourceMessageId: msgId,
+            sourceResourceId: String(resource || msgId),
+            mime: mediaKind === "image" ? "image/png" : mediaKind === "pdf" ? "application/pdf" : "application/octet-stream",
+            size: 0,
+            sha256: "",
+            opaqueHandle: "",
+            ...(file?.file_item?.file_name ? { filename: file.file_item.file_name } : {}),
+          },
+        }
+      : {}),
   };
 }
 

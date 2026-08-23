@@ -1,18 +1,28 @@
-name: Native 0.5.3 release candidate
+name: Native 0.5.5 release candidate
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build native clients first; verify the live catalog only after its release exists
+        required: true
+        default: native
+        type: choice
+        options:
+          - native
+          - catalog
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.3-${{ github.ref }}
+  group: native-0.5.5-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   plugin-distribution:
     name: Signed Plugin Center distribution
+    if: ${{ inputs.mode == 'catalog' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -34,6 +44,7 @@ jobs:
 
   macos:
     name: macOS ${{ matrix.target }}
+    if: ${{ inputs.mode == 'native' }}
     strategy:
       fail-fast: false
       matrix:
@@ -41,11 +52,11 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.3_macos_aarch64.dmg
+            installer: Penglai_0.5.5_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.3_macos_x64.dmg
+            installer: Penglai_0.5.5_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -67,11 +78,14 @@ jobs:
       - name: Build source from the clean checkout
         run: pnpm build
       - name: Source and onboarding regression gates
+        shell: bash
         run: |
           pnpm test:unit
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
       - name: Verify packaged Electron fuses
@@ -92,7 +106,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.3-${{ matrix.target }}
+          name: penglai-0.5.5-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -104,6 +118,7 @@ jobs:
 
   windows:
     name: Windows win32-x86_64
+    if: ${{ inputs.mode == 'native' }}
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -133,6 +148,8 @@ jobs:
           pnpm test:contract
           pnpm test:security
           pnpm verify:contracts
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Build exact native installer with MSVC
         shell: cmd
         run: |
@@ -142,6 +159,12 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:fuses
+      - name: Prove Simplified Chinese installer UI on the native host
+        shell: pwsh
+        run: >-
+          ./scripts/windows-installer-ui-proof.ps1
+          -Installer ./dist/Penglai_0.5.5_windows_x64_setup.exe
+          -OutDir ./evidence/generated
       - name: Installed welcome and process smoke
         shell: pwsh
         env:
@@ -158,12 +181,14 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.3-win32-x86_64
+          name: penglai-0.5.5-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.3_windows_x64_setup.exe
+            dist/Penglai_0.5.5_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
+            evidence/generated/windows-installer-ui.json
+            evidence/generated/windows-installer-components-zh.png
             evidence/generated/public-export.json

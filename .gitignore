@@ -4,8 +4,11 @@
 .penglai-build.json
 .venv/
 .pytest_cache/
+.cache/
 .uploads/
 node_modules/
+third_party/mnemon/bin/
+third_party/mnemon/cache/
 dist/
 evidence/
 .tmp/
@@ -26,6 +29,5 @@ apps/desktop/tsconfig.tsbuildinfo
 packages/*/tsconfig.tsbuildinfo
 packages/*/*/tsconfig.tsbuildinfo
 STATE.md
-AGENTS.md
 docs/GROK_HANDOFF.md
 docs/PLAN.md

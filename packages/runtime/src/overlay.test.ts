@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, Script } from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -34,25 +34,25 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   mkdirSync(join(dir, dirname(heroRel)), { recursive: true });
   mkdirSync(join(dir, dirname(settingsRel)), { recursive: true });
   cpSync(
-    join(root, "overlays/dsh-0.1.1-rc.1/upstream/dsh-web-frontend.index.html"),
+    join(root, "overlays/dsh-0.1.1-rc.2/upstream/dsh-web-frontend.index.html"),
     join(dir, htmlRel),
   );
   cpSync(
     join(
       root,
-      "overlays/dsh-0.1.1-rc.1/upstream/dsh-client-ui-settings-models.client.js",
+      "overlays/dsh-0.1.1-rc.2/upstream/dsh-client-ui-settings-models.client.js",
     ),
     join(dir, welcomeRel),
   );
   cpSync(
     join(
       root,
-      "overlays/dsh-0.1.1-rc.1/upstream/dsh-client-ui-conversation.client.js",
+      "overlays/dsh-0.1.1-rc.2/upstream/dsh-client-ui-conversation.client.js",
     ),
     join(dir, heroRel),
   );
   const settingsPackage = readdirSync(join(root, "node_modules/.pnpm")).find((name) =>
-    name.startsWith("@deepseek-ai+dsh-client-ui-settings-general@0.1.1-rc.1_"),
+    name.startsWith("@deepseek-ai+dsh-client-ui-settings-general@0.1.1-rc.2"),
   );
   assert.ok(settingsPackage);
   cpSync(
@@ -79,14 +79,15 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     /penglai-brand\/title\.js/,
   );
   const welcomeSource = readFileSync(join(dir, welcomeRel), "utf8");
-  assert.match(welcomeSource, /penglai-0\.5\.3\.0/);
-  assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.3/);
-  assert.match(welcomeSource, /Welcome to Penglai 0\.5\.3/);
+  assert.match(welcomeSource, /penglai-0\.5\.5\.0/);
+  assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.5/);
+  assert.match(welcomeSource, /Welcome to Penglai 0\.5\.5/);
   assert.doesNotMatch(
     welcomeSource,
-    /欢迎使用蓬莱 0\.5\.[12]|Welcome to Penglai 0\.5\.[12]/,
+    /欢迎使用蓬莱 0\.5\.[123]|Welcome to Penglai 0\.5\.[123]/,
   );
   const hero = readFileSync(join(dir, heroRel), "utf8");
+  assert.doesNotThrow(() => new Script(hero));
   assert.match(hero, /conversation\.hero\.brand\.mark/);
   assert.doesNotMatch(hero, /data-penglai-hero-wordmark/);
   assert.match(hero, /ink-wash-light/);
@@ -95,11 +96,21 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   assert.match(hero, /Hi, I am Penglai/);
   assert.doesNotMatch(hero, /探索未至之境/);
   assert.doesNotMatch(hero, /Into the Unknown/);
+  assert.match(
+    hero,
+    /renderSlot\("conversation\.chat\.assistant-actions", \{ messageId, text: assistantText\(closing\.blocks\) \}\)/,
+  );
+  assert.doesNotMatch(
+    hero,
+    /renderSlot\("conversation\.chat\.assistant-actions", \{ messageId \}\)/,
+  );
   assert.match(hero, /data-penglai-im-voice/);
   assert.match(hero, /penglaiVisibleVoiceContent/);
   assert.match(hero, /PENGLAI LOCAL ASR METADATA - NOT USER-AUTHORED/);
   assert.match(hero, /return content\.slice\(1\)/);
   const settings = readFileSync(join(dir, settingsRel), "utf8");
+  assert.doesNotThrow(() => new Script(welcomeSource));
+  assert.doesNotThrow(() => new Script(settings));
   assert.match(settings, /data-settings-parent/);
   assert.match(settings, /isPenglaiChild/);
   assert.match(settings, /entry\.id\.startsWith\("penglai-"\)/);
@@ -134,7 +145,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   const welcome = readFileSync(join(dir, welcomeRel), "utf8");
   assert.match(welcome, /欢迎使用蓬莱/);
   assert.match(welcome, /Welcome to Penglai/);
-  assert.match(welcome, /penglai-0\.5\.3\.0/);
+  assert.match(welcome, /penglai-0\.5\.5\.0/);
   assert.match(welcome, /YAML/);
   assert.doesNotMatch(welcome, /内测声明/);
   assert.doesNotMatch(welcome, /official DSH Web/);

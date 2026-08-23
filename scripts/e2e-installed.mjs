@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, freePort, waitEval } from "./lib/cdp.mjs";
 import { SNAPSHOT_JS, walkInstalledBrowserWindow, wizardResumeReady } from "./lib/browser-window-walk.mjs";
@@ -17,6 +18,7 @@ import {
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
+  resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import { evaluateLiveSample, probeLiveHttpWs, readProcessIdentity } from "./lib/runner-live.mjs";
@@ -28,6 +30,7 @@ import {
   parseTargetArg,
   walkedCoreOnboarding,
 } from "./lib/release-targets.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 
 const certFault = String(process.env.PENGLAI_RUNNER_FAULT ?? "").trim();
 if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
@@ -40,16 +43,71 @@ if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
-function writeRec(rec) {
-  const payload = JSON.stringify(rec, null, 2);
-  writeFileSync(join(outDir, "installed-e2e.json"), payload);
-  writeFileSync(join(outDir, evidenceName("installed-e2e", expectedTarget)), payload);
+function gate(value) {
+  return value ? "PASS" : "FAIL";
 }
 
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "test:e2e:installed", reason: "candidate source must be clean main at origin/main", ...git });
+function digestOrInvalid(value, length) {
+  const text = String(value ?? "");
+  return new RegExp(`^[0-9a-f]{${length}}$`).test(text) ? text : "invalid";
 }
+
+function installedEvidenceRecord(rec) {
+  const verdict = ["PASS", "FAIL", "INCOMPLETE"].includes(rec?.verdict) ? rec.verdict : "FAIL";
+  const first = rec?.first ?? {};
+  const walked = Array.isArray(first.onboarding?.walked) ? first.onboarding.walked : [];
+  const settings = Array.isArray(rec?.walk?.settingsWalked) ? rec.walk.settingsWalked : [];
+  return {
+    schema: 2,
+    command: "test:e2e:installed",
+    verdict,
+    productVersion: "0.5.5",
+    target: expectedTarget,
+    installer: expectedInstaller,
+    installerSha256: digestOrInvalid(rec?.installerSha256 ?? installed.installerSha256, 64),
+    sourceSha: digestOrInvalid(rec?.sourceSha ?? candidateSourceSha, 40),
+    host: { platform: process.platform, arch: process.arch },
+    checks: {
+      exactInstaller: gate(rec?.fromExactDmg === true),
+      identity: gate(first.identity?.ok === true || identityJudged.ok === true),
+      officialHttp: gate(first.http?.official === true),
+      officialWebSocket: gate(first.websocket?.opened === true),
+      productDom: gate(first.dom?.hasDshBoot === true),
+      ownedProcessTree: gate(first.processTree?.ownedAbsolute === true && first.processTree?.dshPid > 0),
+      requiredInventory: gate(first.inventory?.ok === true),
+      optionalImDefaultOff: gate(first.inventory?.im === false),
+      welcomePersisted: gate(first.welcome?.clicked === true && first.welcome?.persisted === true),
+      onboardingCore: gate(walked.includes("privacy") && walked.includes("models") && walkedCoreOnboarding(walked)),
+      requiredSettings: gate(
+        ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) =>
+          settings.includes(id),
+        ),
+      ),
+      optionalSettingsHidden: gate(
+        ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every((id) => !settings.includes(id)),
+      ),
+      resume: gate(first.resume?.ok === true || rec?.resume?.ok === true || rec?.resume?.attempted === false),
+    },
+    reason:
+      verdict === "PASS"
+        ? "exact installer passed the installed acceptance record"
+        : verdict === "INCOMPLETE"
+          ? "installed acceptance remains incomplete"
+          : "installed acceptance failed",
+  };
+}
+
+function writeRec(rec) {
+  const evidence = installedEvidenceRecord(rec);
+  writeEvidenceJson(join(outDir, "installed-e2e.json"), evidence);
+  writeEvidenceJson(join(outDir, evidenceName("installed-e2e", expectedTarget)), evidence);
+}
+
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "test:e2e:installed", reason: source.reason, ...source.git });
+}
+const git = source.git;
 const expectedTarget = parseTargetArg();
 const blocked = nativeBlocked("test:e2e:installed", expectedTarget);
 if (blocked) finish("BLOCKED", { command: "test:e2e:installed", ...blocked });
@@ -139,14 +197,14 @@ if (refuseCode === 0) {
     reason: "exact DMG accepted --remote-debugging-port",
   });
 }
-const harnessApp = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+const harnessApp = resolveInstalledUiHarness();
 if (!harnessApp) {
   finish("INCOMPLETE", {
     command: "test:e2e:installed",
     reason: "exact DMG refused debug flags; UI walk requires a separate harness build",
     refuseCode,
     installer: expectedInstaller,
-    productVersion: "0.5.3",
+    productVersion: "0.5.5",
   });
 }
 const debugPort = await freePort();
@@ -228,7 +286,7 @@ const official = walk?.official ?? {};
 const http = official.http ?? { status: 0, ok: false, official: false };
 if (http.status === 401) http.officialProxy = true;
 const first = {
-  productVersion: "0.5.3",
+  productVersion: "0.5.5",
   pid: launched.child.pid,
   recovery: Boolean(walk?.last?.recovery),
   sourceRead: false,
@@ -289,7 +347,7 @@ const fail = (reason, extra = {}) => {
   const rec = {
     command: "test:e2e:installed",
     verdict: "FAIL",
-    productVersion: "0.5.3",
+    productVersion: "0.5.5",
     fromExactDmg: true,
     installer: expectedInstaller,
     installerSha256: installed.installerSha256,
@@ -334,15 +392,15 @@ const canPass =
   walked.includes("privacy") &&
   walked.includes("models") &&
   walkedCoreOnboarding(walked) &&
-  ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
-  ["ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion"].every(
+  ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
+  ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every(
     (id) => !settingsWalked.includes(id),
   );
 
 const rec = {
   command: "test:e2e:installed",
   verdict: canPass ? "PASS" : "INCOMPLETE",
-  productVersion: "0.5.3",
+  productVersion: "0.5.5",
   fromExactDmg: true,
   installer: expectedInstaller,
   installerSha256: installed.installerSha256,

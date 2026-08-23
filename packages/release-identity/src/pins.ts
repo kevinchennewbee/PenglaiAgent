@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.3";
+export const PRODUCT_VERSION = "0.5.5";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -24,14 +24,14 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
 /** Exact npm+GitHub freeze. Never follow dist-tags `latest` or `next`. */
-export const PINNED_DSH = "0.1.1-rc.1";
-export const PINNED_DSH_COMMIT = "528c682e061696f5a160f363f236ecbf53cbd006";
-export const PINNED_DSH_TAG = "dsh-v0.1.1-rc.1";
+export const PINNED_DSH = "0.1.1-rc.2";
+export const PINNED_DSH_COMMIT = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
+export const PINNED_DSH_TAG = "dsh-v0.1.1-rc.2";
 export const PINNED_DSH_INTEGRITY =
-  "sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==";
-export const PINNED_DSH_SHASUM = "aa9953e6b9ae3f09dc28d6520510909108314566";
+  "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg==";
+export const PINNED_DSH_SHASUM = "1a5112369f1c46b13a6e6f21de8af5e6afd45074";
 export const PINNED_DSH_NPM_LATEST = "0.1.0-rc.7";
-export const PINNED_DSH_NPM_NEXT = "0.1.1-rc.1";
+export const PINNED_DSH_NPM_NEXT = "0.1.1-rc.2";
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const PINNED_WEIXIN_REF = "2.4.6";
@@ -60,11 +60,28 @@ export const PINNED_MOSS_TTS_MODEL_REVISION = "f52645cb467506d8e18e746ddd5948268
 export const PINNED_MOSS_CODEC_MODEL_REVISION = "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae";
 export const PINNED_MOSS_MODEL_BUNDLE_REVISION = "cd877ae87fed8f9d26c237c5038242e796e51389";
 export const PINNED_SHERPA_UPSTREAM_COMMIT = "3e409338959097c6518998c9b72757db257f5f6f";
+export const PINNED_DSH_MNEMON = "0.2.15";
+export const PINNED_DSH_MNEMON_COMMIT = "7def5b2bddd4ecb746f09b0c8dee8032e72c690d";
+export const PINNED_MNEMON = "0.2.4";
+export const PINNED_MNEMON_COMMIT = "67ed1a2f80de902fd041eeaf3b90e7e3d2480d5b";
+export {
+  MNEMON_ASSETS as PINNED_MNEMON_ASSETS,
+  MNEMON_UPSTREAM,
+  mnemonAssetForHost,
+  mnemonAssetForTarget,
+  mnemonReleaseUrl,
+} from "./mnemon-assets.js";
+export const PINNED_DOCX = "9.7.1";
+export const PINNED_MAMMOTH = "1.12.1";
+export const PINNED_EXCELJS = "4.4.0";
+export const PINNED_PDF_LIB = "1.17.1";
+export const PINNED_PPTFAST = "0.20.0";
+export const PINNED_PPTFAST_COMMIT = "7482c83436531530b46003ccdab62b1fa8c97969";
 export const PROFILE_SCHEMA = 3;
-export const CATALOG_SCHEMA = 2;
+export const CATALOG_SCHEMA = 3;
 export const IM_SCHEMA = 3;
 export const ACCEPTANCE_DOC = "docs/ACCEPTANCE.md";
-export const HARD_ID_RE = /\| `(R50-[A-Z0-9]+-\d+)` \|/g;
+export const HARD_ID_RE = /\| `(R5[05]-[A-Z0-9]+-\d+)` \|/g;
 /** Previous registry generation. Never a completion map. */
 export const LEGACY_HARD_COUNT_STALE = 202;
 export const REQUIRED_HARD_FAMILIES = [
@@ -73,6 +90,12 @@ export const REQUIRED_HARD_FAMILIES = [
   { prefix: "R50-BUDGET", start: 1, end: 6 },
   { prefix: "R50-COMP", start: 1, end: 8 },
   { prefix: "R50-LIVE", start: 9, end: 16 },
+  { prefix: "R55-TRUTH", start: 1, end: 4 },
+  { prefix: "R55-DSH", start: 1, end: 4 },
+  { prefix: "R55-BUILTIN", start: 1, end: 12 },
+  { prefix: "R55-MEM", start: 1, end: 20 },
+  { prefix: "R55-OFFICE", start: 1, end: 24 },
+  { prefix: "R55-COMM", start: 1, end: 10 },
 ] as const;
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
@@ -80,9 +103,9 @@ export const UPDATER_CHANNEL = "desktop-v0.5";
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.3",
-  release: "v0.5.3",
-  channel: "stable-v0.5.3",
+  tag: "v0.5.5",
+  release: "v0.5.5",
+  channel: "stable-v0.5.5",
 });
 
 export const RELEASE_TARGETS = [
@@ -90,19 +113,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.3_macos_aarch64.dmg",
+    installer: "Penglai_0.5.5_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.3_macos_x64.dmg",
+    installer: "Penglai_0.5.5_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.3_windows_x64_setup.exe",
+    installer: "Penglai_0.5.5_windows_x64_setup.exe",
   },
 ] as const;
 
@@ -233,8 +256,8 @@ export const USER_CATALOG_PACKAGES = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/context",
   "@penglai/memory",
+  "@penglai/office",
   "@penglai/budget",
   "@penglai/companion",
   "@penglai/plugin-reference",

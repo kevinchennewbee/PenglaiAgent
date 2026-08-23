@@ -385,7 +385,7 @@ function officialOnboardingContext(
   };
 }
 
-function pluginHealthFrom(
+export function pluginHealthFrom(
   ctx: { get?: (name: string, strict?: boolean) => unknown },
   id: string,
 ): PluginHealthResult {
@@ -393,16 +393,14 @@ function pluginHealthFrom(
     "@penglai/im": "penglaiImCore",
     "@penglai/asr": "penglaiAsr",
     "@penglai/moss-tts": "penglaiMossTts",
-    "@penglai/context": "penglaiContext",
     "@penglai/memory": "penglaiMemory",
+    "@penglai/office": "penglaiOffice",
     "@penglai/budget": "penglaiBudget",
     "@penglai/companion": "penglaiCompanion",
   };
   const name = serviceName[id];
   if (!name) return { healthy: true };
-  // These are optional sibling-plugin services. Cordis property access is
-  // intentionally inject-gated, while Context#get is the official dynamic
-  // lookup for hot-pluggable services that must not block Center itself.
+  // Cordis inject-gated properties throw; Center must use Context#get.
   const service = ctx.get?.(name) as Record<string, unknown> | undefined;
   if (!service) return { healthy: false, error: `${name} service missing` };
   try {
@@ -449,8 +447,8 @@ function resourceProbeFrom(
     "@penglai/im": "penglaiImCore",
     "@penglai/asr": "penglaiAsr",
     "@penglai/moss-tts": "penglaiMossTts",
-    "@penglai/context": "penglaiContext",
     "@penglai/memory": "penglaiMemory",
+    "@penglai/office": "penglaiOffice",
     "@penglai/budget": "penglaiBudget",
     "@penglai/companion": "penglaiCompanion",
   };

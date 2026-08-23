@@ -60,7 +60,7 @@ test("im runtime wires single control plane", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -70,8 +70,8 @@ test("im runtime wires single control plane", async () => {
   rt.store.close();
 });
 
-test("IM requires only DSH core services; ASR and TTS stay optional", () => {
-  assert.deepEqual(inject, ["agents", "workspaceRegistry", "credentials", "apiProxy"]);
+test("IM requires DSH core services including official attachments; ASR and TTS stay optional", () => {
+  assert.deepEqual(inject, ["agents", "workspaceRegistry", "credentials", "apiProxy", "attachments"]);
 });
 
 test("optional voice capabilities resolve dynamically across hot plug and unload", () => {
@@ -150,7 +150,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -167,7 +167,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
     {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -224,7 +224,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -255,7 +255,7 @@ test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", asyn
   };
   const supervisor = { running: false, start: async () => undefined, stop: () => undefined };
   const host = new PenglaiImHost(rt.store, rt.plane, weixin as never, feishu as never, vault, supervisor as never, {
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: () => undefined,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
   });
@@ -323,7 +323,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -341,7 +341,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   const feishu = { status: "idle", setupRequired: true };
   const supervisor = { running: false, start: async () => undefined, stop: () => undefined };
   const host = new PenglaiImHost(rt.store, rt.plane, weixin as never, feishu as never, vault, supervisor as never, {
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: () => undefined,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
   });
@@ -369,7 +369,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -400,7 +400,7 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
     new CredentialsServiceVault(undefined),
     supervisor as never,
     {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
     },
@@ -417,7 +417,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -430,7 +430,7 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
     {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -475,7 +475,7 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
     inbox: { remove() { return true; } },
   };
   const hostLike = {
-    version: "0.1.1-rc.1" as const,
+    version: "0.1.1-rc.2" as const,
     getAgent: () => agent,
     listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
   };
@@ -560,10 +560,10 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
   const vault = new CredentialsServiceVault(credentials);
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   });
   const feishu = { status: "idle", setupRequired: false, connect: async () => undefined, stop() {} };
-  const host = new PenglaiImHost(rt.store, rt.plane, { health: () => ({ authState: "idle", hasCredential: false }) } as never, feishu as never, vault, { running: false, start: async () => undefined, stop: () => undefined } as never, { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [] });
+  const host = new PenglaiImHost(rt.store, rt.plane, { health: () => ({ authState: "idle", hasCredential: false }) } as never, feishu as never, vault, { running: false, start: async () => undefined, stop: () => undefined } as never, { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] });
   const configured = await host.configureFeishu({ appId: "cli_x", secret: "fixture-secret-not-real" });
   assert.equal(configured.configured, true);
   assert.equal(store.get(FEISHU_SECRET_REF), "fixture-secret-not-real");
@@ -576,7 +576,7 @@ test("R2I-CRED-009 feishu secret write/read via host round-trips without plainte
 test("Feishu owner is required for inbound and persists without appearing in overview", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   });
   const vault = new CredentialsServiceVault({
     async set() {},
@@ -611,7 +611,7 @@ test("Feishu owner is required for inbound and persists without appearing in ove
     feishu as never,
     vault,
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   await host.configureFeishu({ appId: "cli_manual" });
   const before = await host.getOverview();

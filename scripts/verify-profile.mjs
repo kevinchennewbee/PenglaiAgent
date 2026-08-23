@@ -43,16 +43,16 @@ const modes = process.argv.includes("--voice-matrix")
   : ["fresh"];
 
 function selectedPlugins(mode) {
-  if (mode === "fresh") return [];
-  if (mode === "im-only") return ["@penglai/im"];
-  if (mode === "im-asr") return ["@penglai/im", "@penglai/asr"];
-  if (mode === "im-tts") return ["@penglai/im", "@penglai/moss-tts"];
+  const builtins = ["@penglai/office", "@penglai/memory"];
+  if (mode === "fresh") return builtins;
+  if (mode === "im-only") return [...builtins, "@penglai/im"];
+  if (mode === "im-asr") return [...builtins, "@penglai/im", "@penglai/asr"];
+  if (mode === "im-tts") return [...builtins, "@penglai/im", "@penglai/moss-tts"];
   return [
+    ...builtins,
     "@penglai/im",
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/context",
-    "@penglai/memory",
     "@penglai/budget",
     "@penglai/companion",
   ];
@@ -66,8 +66,8 @@ function configurePluginMode(profileWeb, mode) {
     "@penglai/im",
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/context",
     "@penglai/memory",
+    "@penglai/office",
     "@penglai/budget",
     "@penglai/companion",
   ]) {
@@ -102,11 +102,13 @@ for (const mode of modes) {
     const im = loaded(proof, ["@penglai/im", "penglai-im"]);
     const asr = loaded(proof, ["@penglai/asr", "penglai-asr"]);
     const tts = loaded(proof, ["@penglai/moss-tts", "penglai-moss-tts"]);
+    const office = loaded(proof, ["@penglai/office", "penglai-office"]);
+    const memory = loaded(proof, ["@penglai/memory", "penglai-memory"]);
     const expectedAsr = mode === "full" || mode === "im-asr";
     const expectedTts = mode === "full" || mode === "im-tts";
     const expectedIm = mode !== "fresh";
-    if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts) {
-      throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts}`);
+    if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts || !office || !memory) {
+      throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts} office=${office} memory=${memory}`);
     }
     await supervisor.stop();
     const leftover = processesMatching(user.dshHome);

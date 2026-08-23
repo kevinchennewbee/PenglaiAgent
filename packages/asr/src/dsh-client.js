@@ -460,6 +460,310 @@ window.__ModuleLoader__.load({
       });
     }
 
+    function writeComposerDraft(text, props) {
+      if (typeof props?.inputActions?.setDraft === "function") {
+        props.inputActions.setDraft(text);
+        return;
+      }
+      const area =
+        typeof document !== "undefined"
+          ? document.querySelector("textarea:not([disabled])")
+          : null;
+      if (!area) return;
+      const proto = window.HTMLTextAreaElement?.prototype;
+      const setter = proto
+        ? Object.getOwnPropertyDescriptor(proto, "value")?.set
+        : undefined;
+      if (setter) setter.call(area, text);
+      else area.value = text;
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function blobToBytes(blob) {
+      if (typeof blob.arrayBuffer === "function") {
+        return blob.arrayBuffer().then((buf) => new Uint8Array(buf));
+      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result ?? "");
+          const b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1)
+            bytes[i] = binary.charCodeAt(i);
+          resolve(bytes);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function asciiAt(bytes, offset, length) {
+      let out = "";
+      for (let i = 0; i < length; i += 1)
+        out += String.fromCharCode(bytes[offset + i] ?? 0);
+      return out;
+    }
+
+    function isRiffWave(bytes) {
+      return bytes.length >= 12 && asciiAt(bytes, 0, 4) === "RIFF" && asciiAt(bytes, 8, 4) === "WAVE";
+    }
+
+    function u16at(bytes, offset) {
+      return (bytes[offset] | (bytes[offset + 1] << 8)) >>> 0;
+    }
+
+    function u32at(bytes, offset) {
+      return (
+        (bytes[offset] |
+          (bytes[offset + 1] << 8) |
+          (bytes[offset + 2] << 16) |
+          (bytes[offset + 3] << 24)) >>>
+        0
+      );
+    }
+
+    function isPcm16Mono16k(bytes) {
+      return (
+        isRiffWave(bytes) &&
+        bytes.length >= 44 &&
+        u16at(bytes, 20) === 1 &&
+        u16at(bytes, 22) === 1 &&
+        u32at(bytes, 24) === 16000 &&
+        u16at(bytes, 34) === 16
+      );
+    }
+
+    function u16le(n) {
+      return [n & 255, (n >> 8) & 255];
+    }
+
+    function u32le(n) {
+      return [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+    }
+
+    function encodePcm16Wav(pcm, sampleRate) {
+      const dataBytes = pcm.length * 2;
+      const bytes = new Uint8Array(44 + dataBytes);
+      bytes.set(
+        [
+          82, 73, 70, 70,
+          ...u32le(36 + dataBytes),
+          87, 65, 86, 69,
+          102, 109, 116, 32,
+          ...u32le(16),
+          ...u16le(1),
+          ...u16le(1),
+          ...u32le(sampleRate),
+          ...u32le(sampleRate * 2),
+          ...u16le(2),
+          ...u16le(16),
+          100, 97, 116, 97,
+          ...u32le(dataBytes),
+        ],
+        0,
+      );
+      for (let i = 0; i < pcm.length; i += 1) {
+        const sample = Math.max(-32768, Math.min(32767, pcm[i] | 0));
+        bytes[44 + i * 2] = sample & 255;
+        bytes[45 + i * 2] = (sample >> 8) & 255;
+      }
+      return bytes;
+    }
+
+    function mixToMono(buffer) {
+      const channels = Math.max(1, buffer.numberOfChannels || 1);
+      const length = buffer.length;
+      const mix = new Float32Array(length);
+      for (let channel = 0; channel < channels; channel += 1) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < length; i += 1) mix[i] += data[i] / channels;
+      }
+      return { samples: mix, sampleRate: buffer.sampleRate };
+    }
+
+    function resample(samples, fromRate, toRate) {
+      if (fromRate === toRate) return samples;
+      const outLen = Math.max(1, Math.round((samples.length * toRate) / fromRate));
+      const out = new Float32Array(outLen);
+      const ratio = fromRate / toRate;
+      for (let i = 0; i < outLen; i += 1) {
+        const src = i * ratio;
+        const i0 = Math.floor(src);
+        const i1 = Math.min(samples.length - 1, i0 + 1);
+        const t = src - i0;
+        out[i] = samples[i0] * (1 - t) + samples[i1] * t;
+      }
+      return out;
+    }
+
+    function floatToPcm16(samples) {
+      const pcm = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i += 1) {
+        const x = Math.max(-1, Math.min(1, samples[i]));
+        pcm[i] = x < 0 ? Math.round(x * 32768) : Math.round(x * 32767);
+      }
+      return pcm;
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 1)
+        binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+
+    function decodeToPcm16Wav(bytes) {
+      if (isPcm16Mono16k(bytes)) return Promise.resolve(bytes);
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (typeof Ctx !== "function") {
+        return Promise.reject(new Error("AudioContext unavailable for microphone conversion"));
+      }
+      const ctx = new Ctx();
+      const copy = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return Promise.resolve(ctx.decodeAudioData(copy))
+        .then((audio) => {
+          const mixed = mixToMono(audio);
+          const resampled = resample(mixed.samples, mixed.sampleRate, 16000);
+          return encodePcm16Wav(floatToPcm16(resampled), 16000);
+        })
+        .finally(() => {
+          if (typeof ctx.close === "function") return ctx.close();
+        });
+    }
+
+    function blobToPcm16WavBase64(blob) {
+      return blobToBytes(blob).then((bytes) => decodeToPcm16Wav(bytes)).then(bytesToBase64);
+    }
+
+    function AsrMicButton(props) {
+      const api = props.remote?.penglaiAsrSettings;
+      const [view, setView] = React.useState({
+        recording: false,
+        error: "",
+        draft: "",
+        model: "",
+      });
+      React.useEffect(() => {
+        if (!api?.describe) {
+          setView((current) => ({ ...current, error: "asr plugin unavailable", model: "unavailable" }));
+          return;
+        }
+        Promise.resolve(api.describe())
+          .then((value) => {
+            const cap = unwrapRemote(value) || {};
+            const model = String(cap.model ?? "not_installed");
+            setView((current) => ({
+              ...current,
+              model,
+              error:
+                model === "ready"
+                  ? ""
+                  : model === "downloading" || model === "verifying"
+                    ? "asr model downloading"
+                    : model === "corrupt" || model === "failed"
+                      ? "asr model failed checksum or load"
+                      : "asr model not installed",
+            }));
+          })
+          .catch((error) => {
+            setView((current) => ({
+              ...current,
+              model: "unavailable",
+              error: String(error && error.message ? error.message : error),
+            }));
+          });
+      }, [api]);
+      const recorderRef = React.useRef(null);
+      const chunksRef = React.useRef([]);
+      const stopRecording = () => {
+        const recorder = recorderRef.current;
+        recorderRef.current = null;
+        if (recorder && recorder.state !== "inactive") recorder.stop();
+      };
+      const transcribeBlob = (blob) => {
+        if (!api?.testTranscribe) return;
+        blobToPcm16WavBase64(blob)
+          .then((wavBase64) =>
+            api.testTranscribe({
+              wavBase64,
+              operationId: operationId("asrmic"),
+            }),
+          )
+          .then((value) => {
+            const out = unwrapRemote(value);
+            const text = String(out.text ?? "");
+            writeComposerDraft(text, props);
+            setView({ recording: false, error: "", draft: text });
+          })
+          .catch((error) => {
+            setView({
+              recording: false,
+              error: String(error && error.message ? error.message : error),
+              draft: "",
+            });
+          });
+      };
+      const toggle = () => {
+        if (view.recording) {
+          stopRecording();
+          return;
+        }
+        if (view.model && view.model !== "ready") {
+          setView((current) => ({
+            ...current,
+            error: current.error || "asr model not installed",
+          }));
+          return;
+        }
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          setView((current) => ({
+            ...current,
+            error: "microphone unavailable",
+          }));
+          return;
+        }
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            const recorder = new MediaRecorder(stream);
+            chunksRef.current = [];
+            recorder.ondataavailable = (event) => {
+              if (event.data && event.data.size > 0)
+                chunksRef.current.push(event.data);
+            };
+            recorder.onstop = () => {
+              stream.getTracks().forEach((track) => track.stop());
+              const blob = new Blob(chunksRef.current, {
+                type: recorder.mimeType || "audio/webm",
+              });
+              transcribeBlob(blob);
+            };
+            recorderRef.current = recorder;
+            recorder.start();
+            setView({ recording: true, error: "", draft: "" });
+          })
+          .catch((error) => {
+            setView({
+              recording: false,
+              error: String(error && error.message ? error.message : error),
+              draft: "",
+            });
+          });
+      };
+      return jsx.jsx("button", {
+        type: "button",
+        "data-penglai-asr-mic": view.recording ? "recording" : "1",
+        "data-penglai-asr-model": view.model || "unknown",
+        "data-penglai-asr-draft": view.draft,
+        "data-penglai-asr-mic-error": view.error || "",
+        disabled: Boolean(view.model && view.model !== "ready"),
+        onClick: toggle,
+        children: view.error && view.model && view.model !== "ready" ? view.error : view.recording ? "stop" : "mic",
+      });
+    }
+
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
@@ -478,6 +782,18 @@ window.__ModuleLoader__.load({
                 inject: () => ({ remote: pageRemote }),
               },
               AsrSettingsSection,
+            ),
+          );
+          viewCtx.slots.inject("conversation.input.right", () =>
+            viewCtx.slots.register(
+              {
+                name: "conversation.input.right",
+                id: "penglai-asr-mic",
+                order: 1,
+                label: () => "mic",
+                inject: () => ({ remote: pageRemote }),
+              },
+              AsrMicButton,
             ),
           );
         },

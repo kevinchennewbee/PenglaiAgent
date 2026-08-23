@@ -4,7 +4,7 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "references": [{ "path": "../contracts" }],
+  "references": [{ "path": "../contracts" }, { "path": "../release-identity" }],
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
 }

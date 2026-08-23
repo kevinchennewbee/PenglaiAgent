@@ -27,6 +27,8 @@ export const SNAPSHOT_JS = `(() => {
     hasRoot: Boolean(document.getElementById("root")),
     rootInert: Boolean(document.getElementById("root") && document.getElementById("root").inert),
     hasDshBoot: typeof window.__DSH_BOOT__ !== "undefined",
+    bootOverlay: Boolean(document.querySelector("[data-dsh-boot]")),
+    bootFailure: text(document.querySelector("[data-dsh-boot]")),
     recovery: Boolean(document.querySelector("[data-penglai-recovery]")),
     wizard: Boolean(document.querySelector("[data-penglai-wizard]")),
     wizardStep: (document.querySelector("[data-penglai-wizard-step]") && document.querySelector("[data-penglai-wizard-step]").getAttribute("data-penglai-wizard-step")) || "",
@@ -45,9 +47,11 @@ export const SNAPSHOT_JS = `(() => {
     im: Boolean(document.querySelector("[data-penglai-im]")),
     penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
     asr: Boolean(document.querySelector("[data-penglai-asr]")),
-    tts: Boolean(document.querySelector("[data-penglai-tts]")),
-    context: Boolean(document.querySelector("[data-penglai-context]")),
-    memory: Boolean(document.querySelector("[data-penglai-memory]")),
+      tts: Boolean(document.querySelector("[data-penglai-tts]")),
+      memorySources: Boolean(document.querySelector("[data-penglai-memory-sources-panel]")),
+      office: Boolean(document.querySelector("[data-penglai-office]")),
+      memory: Boolean(document.querySelector("[data-penglai-memory]")),
+      memoryStatus: document.querySelector("[data-penglai-memory]")?.getAttribute("data-penglai-memory-status") || "",
     budget: Boolean(document.querySelector("[data-penglai-budget]")),
     companion: Boolean(document.querySelector("[data-penglai-companion]")),
     pluginCards: Array.from(document.querySelectorAll("[data-penglai-plugin-card]")).map((card) => ({
@@ -160,9 +164,6 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/context",
-  "@penglai/memory",
-  "@penglai/budget",
   "@penglai/companion",
 ];
 
@@ -250,8 +251,9 @@ function slim(snap) {
     penglaiSettings: snap.penglaiSettings,
     asr: snap.asr,
     tts: snap.tts,
-    context: snap.context,
+    memorySources: snap.memorySources,
     memory: snap.memory,
+    memoryStatus: snap.memoryStatus,
     budget: snap.budget,
     companion: snap.companion,
     pluginCards: snap.pluginCards,
@@ -261,6 +263,8 @@ function slim(snap) {
     feishuWizard: snap.feishuWizard,
     rootInert: snap.rootInert,
     hasDshBoot: snap.hasDshBoot,
+    bootOverlay: snap.bootOverlay,
+    bootFailure: snap.bootFailure,
     hasRoot: snap.hasRoot,
     recovery: snap.recovery,
     navLabels: snap.navLabels,
@@ -302,10 +306,27 @@ function selectFirstOption(sel) {
 }
 
 export async function observeOfficialSurfaces(session) {
-  const snap = await waitEval(session, SNAPSHOT_JS, (s) => s && s.hasRoot && s.hasDshBoot && !s.recovery, 45_000);
+  const snap = await waitEval(
+    session,
+    SNAPSHOT_JS,
+    (s) => s && s.hasRoot && s.hasDshBoot && !s.bootOverlay && !s.recovery,
+    45_000,
+  );
   const http = await evaluate(session, HTTP_JS);
   const websocket = await evaluate(session, WS_JS);
-  return { snap, http, websocket, official: Boolean(snap?.hasDshBoot && snap?.hasRoot && !snap?.recovery && http?.official && websocket?.opened) };
+  return {
+    snap,
+    http,
+    websocket,
+    official: Boolean(
+      snap?.hasDshBoot &&
+      snap?.hasRoot &&
+      !snap?.bootOverlay &&
+      !snap?.recovery &&
+      http?.official &&
+      websocket?.opened
+    ),
+  };
 }
 
 export async function observeOfficialTransport(session) {
@@ -515,6 +536,62 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   steps.push({ id: "official-dom", snap: slim(official.snap), http: official.http, websocket: official.websocket });
   await shot("official-dom");
 
+  let welcomeClicked = false;
+  const welcomeVisible = official.snap?.buttons?.some(
+    (button) => button.visible && /^(开始使用|Get started)$/.test(button.text),
+  );
+  if (welcomeVisible) {
+    const click = await evaluate(
+      session,
+      clickButtonText(["^开始使用$", "^Get started$"]),
+    );
+    const after = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      (snapshot) =>
+        Boolean(
+          snapshot?.hasDshBoot &&
+            snapshot?.hasRoot &&
+            !snapshot.buttons?.some(
+              (button) =>
+                button.visible && /^(开始使用|Get started)$/.test(button.text),
+            ),
+        ),
+      15_000,
+    );
+    welcomeClicked = click?.ok === true && Boolean(after?.hasDshBoot && after?.hasRoot);
+    steps.push({ id: "welcome-dismiss", click, observed: welcomeClicked, snap: slim(after) });
+    await shot("welcome-dismissed");
+  }
+
+  // A secret-free COMPLETE fixture intentionally has no provider credential.
+  // Official DSH may therefore show its own BYOK prompt after the durable
+  // welcome has been dismissed.  This runner is walking product surfaces, not
+  // claiming that a key was configured, so use only the prompt's explicit
+  // non-destructive deferral action and prove that the overlay went away.
+  let byokDismissed = false;
+  const afterWelcome = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
+  const byokLaterVisible =
+    afterWelcome?.officialByok &&
+    afterWelcome?.buttons?.some(
+      (button) => button.visible && /^(稍后配置|Later)$/.test(button.text),
+    );
+  if (byokLaterVisible) {
+    const click = await evaluate(
+      session,
+      clickButtonText(["^稍后配置$", "^Later$"]),
+    );
+    const after = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      (snapshot) => Boolean(snapshot?.hasDshBoot && snapshot?.hasRoot && !snapshot?.officialByok),
+      15_000,
+    );
+    byokDismissed = click?.ok === true && after?.officialByok === false;
+    steps.push({ id: "official-byok-dismiss", click, observed: byokDismissed, snap: slim(after) });
+    await shot("official-byok-dismissed");
+  }
+
   const settingsTargets = [
     { id: "ui-settings-open", patterns: ["^设置$", "^Settings$"], flag: null },
     { id: "ui-penglai", patterns: ["^蓬莱$", "^Penglai$"], flag: "penglaiSettings" },
@@ -522,9 +599,8 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-im", patterns: ["^消息连接$", "^Messages$", "^Penglai IM$"], flag: "im" },
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
-    { id: "ui-context", patterns: ["^个人上下文$", "^Personal Context$", "^Personal context$"], flag: "context" },
-    { id: "ui-memory", patterns: ["^分层记忆$", "^Layered Memory$", "^Layered memory$"], flag: "memory" },
-    { id: "ui-budget", patterns: ["^Token 预算$", "^Token Budget$", "^Usage budget$"], flag: "budget" },
+    { id: "ui-office", patterns: ["^蓬莱办公$", "^Penglai Office$"], flag: "office" },
+    { id: "ui-memory", patterns: ["^蓬莱记忆$", "^Penglai Memory$"], flag: "memory" },
     { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$", "^Companion$"], flag: "companion" },
     { id: "ui-update", patterns: ["^更新$", "^Updates$"], flag: "update" },
     { id: "ui-uninstall", patterns: ["^存储与卸载$", "^Storage and uninstall$"], flag: "uninstall" },
@@ -546,10 +622,14 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   const last = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
   const blocked = [];
   const requiredSettings = opts.requireOptionalPlugins
-    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion", "ui-update", "ui-uninstall"]
-    : ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"];
+    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-office", "ui-memory", "ui-companion", "ui-update", "ui-uninstall"]
+    : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
   for (const id of requiredSettings) {
     if (!settingsWalked.includes(id)) blocked.push(id);
+  }
+  const memoryStep = steps.find((step) => step.id === "ui-memory");
+  if (memoryStep?.snap?.memoryStatus !== "ready") {
+    blocked.push("ui-memory-engine-not-ready");
   }
   if (opts.installOptionalPlugins && !OPTIONAL_PLUGIN_IDS.every((id) => installResults.some((row) => row.id === id && row.ok))) {
     blocked.push("install-optional-plugins");
@@ -560,7 +640,8 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     steps,
     last: slim(last),
     official,
-    welcome: { clicked: false },
+    welcome: { clicked: welcomeClicked },
+    officialByok: { deferred: byokDismissed },
     blocked,
     deadEnds: [],
     wizardKeyless: { ok: false, honestStop: "", reason: "already-complete" },

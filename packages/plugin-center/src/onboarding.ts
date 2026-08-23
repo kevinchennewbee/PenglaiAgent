@@ -73,7 +73,7 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-export const PENGLAI_WELCOME_NOTICE_VERSION = "penglai-0.5.3.0" as const;
+export const PENGLAI_WELCOME_NOTICE_VERSION = "penglai-0.5.5.0" as const;
 
 export const ONBOARDING_STEPS = [
   "welcome-v1",
@@ -97,8 +97,7 @@ export const OFFICIAL_ONBOARDING_STEPS = [
   { id: "penglai-core-ready", order: 20, step: "core-ready-v1" },
   { id: "penglai-im-offer", order: 30, step: "im-offer-v1" },
   { id: "penglai-voice-offer", order: 40, step: "voice-offer-v1" },
-  { id: "penglai-context-offer", order: 50, step: "context-offer-v1" },
-  { id: "penglai-memory-offer", order: 60, step: "memory-offer-v1" },
+  { id: "penglai-memory-offer", order: 50, step: "memory-offer-v1" },
 ] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];

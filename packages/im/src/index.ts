@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import {
   PenglaiError,
+  ObjectStore,
+  type ImageAdmission,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
 } from "@penglai/contracts";
@@ -24,12 +26,25 @@ export const inject = [
   "workspaceRegistry",
   "credentials",
   "apiProxy",
+  "attachments",
 ];
 
-export function createRuntime(opts: { dbPath: string; host: DshHost; token?: string }) {
+export function createRuntime(opts: {
+  dbPath: string;
+  host: DshHost;
+  token?: string;
+  objects?: ObjectStore;
+}) {
   const store = new Store(opts.dbPath);
   const bridge = new DshBridge(opts.host);
-  const plane = new RoutingControlPlane(store, SystemClock, new CryptoIds(), bridge, bridge);
+  const plane = new RoutingControlPlane(
+    store,
+    SystemClock,
+    new CryptoIds(),
+    bridge,
+    bridge,
+    opts.objects ? { bind: (handle, bind) => opts.objects!.bind(handle, bind) } : undefined,
+  );
   plane.recoverAfterCrash();
   return { store, plane, token: opts.token ?? new CryptoIds().token() };
 }
@@ -80,9 +95,12 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
   }
   mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
   const dsh = hostFromCordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
+  const objects = new ObjectStore(join(userData, "objects"));
+  const attachments = (ctx as CordisLike & { attachments?: ImageAdmission }).attachments;
   const rt = createRuntime({
     dbPath,
     host: dsh,
+    objects,
     ...(process.env.PENGLAI_CONTROL_TOKEN ? { token: process.env.PENGLAI_CONTROL_TOKEN } : {}),
   });
   listenOfficialEvents(ctx, rt.plane);
@@ -123,6 +141,12 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     feishuAppId ? { appId: feishuAppId } : undefined,
     voice,
   );
+  if (attachments) {
+    weixin.imageAdmission = attachments;
+    feishu.imageAdmission = attachments;
+  }
+  weixin.objectStore = objects;
+  feishu.objectStore = objects;
   ctx.on("internal/service", (...args: unknown[]) => {
     if (args[0] !== "penglaiAsr" || !voice.asr) return;
     queueMicrotask(() => {

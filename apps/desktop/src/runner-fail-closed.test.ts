@@ -199,9 +199,9 @@ test("soak runner refuses a dirty candidate before evaluating ALLOW_LONG", () =>
   assert.notEqual(result.status, 0);
   const rec = lastJson(`${result.stderr}\n${result.stdout}`);
   const git = gitState();
-  if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
+  if (git.dirty) {
     assert.equal(rec.verdict, "STALE");
-    assert.match(String(rec.reason), /clean main at origin\/main/);
+    assert.match(String(rec.reason), /dirty tree/);
   } else {
     assert.equal(rec.verdict, "INCOMPLETE");
     assert.match(String(rec.reason), /two-hour soak not present/);

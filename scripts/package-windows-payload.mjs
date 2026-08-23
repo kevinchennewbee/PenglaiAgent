@@ -4,6 +4,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeF
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 import { writeRequiredFuses } from "./lib/electron-fuses.mjs";
@@ -12,18 +13,19 @@ const staging = stagingForTarget(ROOT, "win32-x86_64");
 const payload = join(staging, "payload");
 const native = process.platform === "win32" && process.arch === "x64";
 const git = gitState();
+const source = requireCleanCandidateSource();
 const publicExportPath = join(ROOT, "evidence", "generated", "public-export.json");
 const publicExport = existsSync(publicExportPath) ? JSON.parse(readFileSync(publicExportPath, "utf8")) : null;
 if (
   native &&
-  (git.branch !== "main" || git.head !== git.originMain || git.dirty ||
+  (!source.ok ||
     publicExport?.privateCandidateSourceSha !== git.head ||
     publicExport?.treeDirty !== false ||
     !/^[0-9a-f]{64}$/.test(String(publicExport?.publicExportTreeSha256 ?? "")))
 ) {
   finish("STALE", {
     command: "package:windows-payload",
-    reason: "native Windows payload requires clean main at origin/main and current public export evidence",
+    reason: "native Windows payload requires a clean candidate and current public export evidence",
   });
 }
 
@@ -96,7 +98,7 @@ if (!existsSync(penglaiExe) && !existsSync(join(payload, "Penglai.exe"))) {
 const stamped = run(process.execPath, [
   "scripts/stamp-windows-exe.mjs",
   penglaiExe,
-  join(ROOT, "overlays", "dsh-0.1.1-rc.1", "brand", "logo-256.png"),
+  join(ROOT, "overlays", "dsh-0.1.1-rc.2", "brand", "logo-256.png"),
   penglaiIcon,
 ]);
 if (stamped !== 0) {
@@ -123,7 +125,7 @@ if (native) {
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.3",
+      productVersion: "0.5.5",
       buildNumber: 0,
       candidateOrdinal: 0,
       candidateKind: "public-community-release",
@@ -136,9 +138,9 @@ if (native) {
       electron: "43.4.0",
       node: "22.22.2",
       embeddedNode: "22.22.2",
-      dsh: "0.1.1-rc.1",
+      dsh: "0.1.1-rc.2",
       profileSchema: 3,
-      catalogSchema: 2,
+      catalogSchema: 3,
       imSchema: 3,
       schemaVersion: 2,
       signed: false,

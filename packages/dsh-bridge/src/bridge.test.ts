@@ -19,12 +19,12 @@ test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
 });
 
-test("R1-UP-001 pinned official packages are 0.1.1-rc.1", () => {
+test("R1-UP-001 pinned official packages are 0.1.1-rc.2", () => {
   const pinned = probePinnedPackages();
-  assert.equal(pinned.dsh, "0.1.1-rc.1");
-  assert.equal(pinned.agent, "0.1.1-rc.1");
-  assert.equal(pinned.llm, "0.1.1-rc.1");
-  assert.equal(pinned.workspace, "0.1.1-rc.1");
+  assert.equal(pinned.dsh, "0.1.1-rc.2");
+  assert.equal(pinned.agent, "0.1.1-rc.2");
+  assert.equal(pinned.llm, "0.1.1-rc.2");
+  assert.equal(pinned.workspace, "0.1.1-rc.2");
 });
 
 test("R1-UP-002/003 legacy IM source is normalized to an official visible user source", () => {
@@ -86,7 +86,7 @@ test("voice source metadata is strict and enters only the model pre-step view", 
 test("bridge followup uses host agent only", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       followup(m) { calls.push(m.source.inboundId); },
@@ -115,10 +115,82 @@ test("bridge followup uses host agent only", async () => {
   assert.deepEqual(calls, ["models:s", "in1"]);
 });
 
+test("bridge followup submits official DSH image blocks instead of media captions", async () => {
+  const sent: Array<{ type: string; text?: string; attachment?: { attachmentId: string } }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent: (id) => ({
+      id,
+      followup(m) {
+        sent.push(...m.content);
+      },
+      steer() {},
+      cancel() {},
+      inbox: { remove() { return true; } },
+    }),
+    async describeSessionModels() {
+      return {
+        current: { provider: "deepseek", model: "deepseek-v4-flash-vision-exp" },
+        routable: true,
+        groups: [],
+      };
+    },
+    listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+  });
+  const attachment = {
+    attachmentId: "att-1",
+    mediaType: "image/png" as const,
+    bytes: 67,
+    width: 1,
+    height: 1,
+  };
+  await bridge.followup({
+    sessionId: "s",
+    inboundId: "in-img",
+    routeId: "r",
+    text: "用户发送了一张图片。",
+    images: [attachment],
+    source: { kind: "user", schema: 1, routeId: "r", inboundId: "in-img", adapter: "weixin" },
+    mode: "followup",
+  });
+  assert.equal(sent.some((row) => row.type === "image" && row.attachment?.attachmentId === "att-1"), true);
+  assert.equal(sent.some((row) => row.type === "text" && String(row.text).includes("penglai-media")), false);
+});
+
+test("bridge supplies the session-bound opaque office handle to the official DSH turn", async () => {
+  const sent: Array<{ type: string; text?: string }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent: (id) => ({
+      id,
+      followup(message) { sent.push(...message.content); },
+      steer() {},
+      cancel() {},
+      inbox: { remove() { return true; } },
+    }),
+    async describeSessionModels() {
+      return { current: { provider: "deepseek", model: "deepseek-chat" }, routable: true, groups: [] };
+    },
+    listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+  });
+  await bridge.followup({
+    sessionId: "s",
+    inboundId: "in-office",
+    routeId: "r",
+    text: "用户发送了一份文档。请检查附件。",
+    officeHandle: "obj-0123456789abcdef01234567",
+    source: { kind: "user", schema: 1, routeId: "r", inboundId: "in-office", adapter: "feishu" },
+    mode: "followup",
+  });
+  const context = sent.find((part) => part.type === "text" && part.text?.includes("office_handle="));
+  assert.match(context?.text ?? "", /office_handle=obj-0123456789abcdef01234567/);
+  assert.doesNotMatch(context?.text ?? "", /[/\\](Users|Volumes|home|tmp)[/\\]/);
+});
+
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       followup() { calls.push("followup"); },
@@ -152,7 +224,7 @@ test("bridge fails closed before waking an IM turn when the official model route
 test("bridge treats a durable DSH inbox message id as an idempotent replay", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.1-rc.1",
+    version: "0.1.1-rc.2",
     getAgent: (id) => ({
       id,
       session: {
@@ -196,7 +268,7 @@ test("official apiProxy session.create is the only new-session seam", async () =
         },
       },
     },
-  }, "0.1.1-rc.1");
+  }, "0.1.1-rc.2");
   assert.deepEqual(await host.createSession?.("workspace-1"), { id: "official-session-1" });
   assert.equal(requests.length, 1);
   assert.equal(requests[0]?.payload.workspaceId, "workspace-1");
@@ -214,7 +286,7 @@ test("official apiProxy session.create is the only new-session seam", async () =
       },
     },
   );
-  assert.doesNotThrow(() => hostFromCordis(proxied as never, "0.1.1-rc.1"));
+  assert.doesNotThrow(() => hostFromCordis(proxied as never, "0.1.1-rc.2"));
 });
 
 test("official apiProxy session.models/selectModel are the only IM model command seams", async () => {
@@ -240,7 +312,7 @@ test("official apiProxy session.models/selectModel are the only IM model command
         },
       },
     },
-  }, "0.1.1-rc.1");
+  }, "0.1.1-rc.2");
   const bridge = new DshBridge(host);
   const directory = await bridge.describeSessionModels("session-1");
   assert.equal(directory.current.model, "deepseek-chat");
@@ -279,7 +351,7 @@ test("official apiProxy is resolved through the live Cordis context proxy", asyn
     },
   );
   assert.equal(Object.getOwnPropertyDescriptor(ctx, "apiProxy"), undefined);
-  const host = hostFromCordis(ctx as never, "0.1.1-rc.1");
+  const host = hostFromCordis(ctx as never, "0.1.1-rc.2");
   const directory = await host.describeSessionModels?.("session-proxy");
   assert.equal(directory?.current.model, "deepseek-chat");
   assert.deepEqual(calls, ["session-proxy"]);
@@ -292,7 +364,7 @@ test("budget hard limit blocks official followup before the agent", async () => 
   gate.reserve({ tokens: 1, priceTrusted: false });
   const bridge = new DshBridge(
     {
-      version: "0.1.1-rc.1",
+      version: "0.1.1-rc.2",
       getAgent: (id) => ({
         id,
         followup(m) {

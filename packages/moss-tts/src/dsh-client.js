@@ -84,6 +84,7 @@ window.__ModuleLoader__.load({
         "cancelDownload",
         "getOperation",
         "previewVoice",
+        "readAloud",
       ].map((method) =>
         remoteDescriptor(
           method,
@@ -436,6 +437,43 @@ window.__ModuleLoader__.load({
       });
     }
 
+    function TtsReadButton(props) {
+      const api = props.remote?.penglaiMossTtsSettings;
+      const [busy, setBusy] = React.useState(false);
+      const play = () => {
+        const text = String(props.text ?? "").trim();
+        if (!api?.readAloud || !text) return;
+        setBusy(true);
+        Promise.resolve(
+          api.readAloud({
+            text,
+            operationId: operationId("ttsread"),
+          }),
+        )
+          .then((value) => {
+            const out = unwrapRemote(value);
+            const binary = atob(String(out.wavBase64 ?? ""));
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1)
+              bytes[i] = binary.charCodeAt(i);
+            const url = URL.createObjectURL(
+              new Blob([bytes], { type: "audio/wav" }),
+            );
+            const audio = new Audio(url);
+            audio.onended = () => URL.revokeObjectURL(url);
+            void audio.play();
+          })
+          .finally(() => setBusy(false));
+      };
+      return jsx.jsx("button", {
+        type: "button",
+        "data-penglai-tts-read": "1",
+        disabled: busy,
+        onClick: play,
+        children: "read",
+      });
+    }
+
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
@@ -454,6 +492,18 @@ window.__ModuleLoader__.load({
                 inject: () => ({ remote: pageRemote }),
               },
               MossTtsSettingsSection,
+            ),
+          );
+          viewCtx.slots.inject("conversation.chat.assistant-actions", () =>
+            viewCtx.slots.register(
+              {
+                name: "conversation.chat.assistant-actions",
+                id: "penglai-moss-tts-read",
+                order: 1,
+                label: () => "read-aloud",
+                inject: () => ({ remote: pageRemote }),
+              },
+              TtsReadButton,
             ),
           );
         },

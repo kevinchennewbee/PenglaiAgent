@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -17,6 +27,7 @@ import {
   assertPluginJsClosure,
   isOfficialDshHtml,
   isPenglaiProductTitle,
+  mergeLegacyContextIntoMemory,
   recoverProfile,
   resolveRuntimeLayout,
   resolveUserLayout,
@@ -64,12 +75,27 @@ function writeTrustedPluginSet(
   const entries = FIRST_PARTY_PLUGIN_METADATA.map((metadata) => {
     const stage = mkdtempSync(join(tmpdir(), "penglai-plugin-fixture-"));
     mkdirSync(join(stage, "dist"), { recursive: true });
-    const hasClient = ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts"].includes(metadata.id);
+    const hasClient = [
+      "@penglai/plugin-center",
+      "@penglai/im",
+      "@penglai/asr",
+      "@penglai/moss-tts",
+      "@penglai/memory",
+      "@penglai/office",
+      "@penglai/budget",
+      "@penglai/companion",
+    ].includes(metadata.id);
     writeFileSync(
       join(stage, "dist", "index.js"),
       `export function apply() {}\nexport const marker = ${JSON.stringify(markers[metadata.id] ?? metadata.id)};\nexport default { apply };\n`,
     );
     if (hasClient) writeFileSync(join(stage, "dist", "client.js"), "export const apply = () => {};\n");
+    if (metadata.id === "@penglai/memory") {
+      const binary = join(stage, "resources", "mnemon", "mnemon");
+      mkdirSync(join(stage, "resources", "mnemon"), { recursive: true });
+      writeFileSync(binary, "fixture-mnemon\n", { mode: 0o755 });
+      if (process.platform !== "win32") chmodSync(binary, 0o755);
+    }
     writeFileSync(
       join(stage, "package.json"),
       JSON.stringify({
@@ -108,7 +134,7 @@ function writeTrustedPluginSet(
   });
   writeFileSync(
     join(pluginsDir, "catalog.json"),
-    JSON.stringify({ schema: 2, target, entries }),
+    JSON.stringify({ schema: 3, target, entries }),
   );
 }
 
@@ -281,7 +307,7 @@ test("R2I-DIST-007 refuses to install historical keychain tarball into profile",
   assert.throws(() => activatePrivateProfile(layout, user), /unlisted bundled plugin archive|catalog set mismatch/);
 });
 
-test("fresh profile installs only Center and links official @deepseek-ai", () => {
+test("fresh profile installs Center plus required builtins and links official @deepseek-ai", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
@@ -298,6 +324,22 @@ test("fresh profile installs only Center and links official @deepseek-ai", () =>
     existsSync(join(user.profileWeb, "node_modules", "@penglai", "plugin-center", "dist", "index.js")),
     true,
   );
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
+  const memoryBinary = join(
+    user.profileWeb,
+    "node_modules",
+    "@penglai",
+    "memory",
+    "resources",
+    "mnemon",
+    "mnemon",
+  );
+  assert.equal(existsSync(memoryBinary), true);
+  if (process.platform !== "win32") {
+    assert.notEqual(lstatSync(memoryBinary).mode & 0o111, 0);
+  }
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(linked).isSymbolicLink(), true);
@@ -305,10 +347,17 @@ test("fresh profile installs only Center and links official @deepseek-ai", () =>
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.id !== "@penglai/plugin-center");
+  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]);
+  const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
   assert.ok(optional.length > 0);
   assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);
-  const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8");
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.filter((entry) => required.has(entry.id)).every(
+      (entry) => entry.defaultEnabled === true,
+    ),
+    true,
+  );
+  const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   for (const entry of optional) {
     const short = entry.id.replace("@penglai/", "penglai-");
     assert.match(
@@ -319,6 +368,66 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
       entry.id,
     );
   }
+  for (const id of ["@penglai/office", "@penglai/memory"]) {
+    const short = id.replace("@penglai/", "penglai-");
+    assert.match(patch, new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']`));
+    assert.doesNotMatch(
+      patch,
+      new RegExp(`id: ${short}\\n\\s+name: ["']${id.replace("/", "\\/")}["']\\n\\s+disabled: true`),
+    );
+  }
+});
+
+test("0.5.5 merges the legacy Context profile plugin into Memory without deleting source indexes", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-context-merge-")));
+  mkdirSync(join(user.profileWeb, "node_modules", "@penglai", "context"), { recursive: true });
+  mkdirSync(join(user.root, "context"), { recursive: true });
+  writeFileSync(join(user.profileWeb, "node_modules", "@penglai", "context", "package.json"), "{}\n");
+  writeFileSync(join(user.root, "context", "context.sqlite3"), "preserved-index\n");
+  writeFileSync(
+    join(user.profileWeb, "cordis.patch.yml"),
+    [
+      "- insert:",
+      "    - id: penglai-context",
+      "      name: \"@penglai/context\"",
+      "    - id: penglai-memory",
+      "      name: \"@penglai/memory\"",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(user.profileWeb, "package.json"),
+    JSON.stringify({
+      name: "web",
+      dependencies: { "@penglai/context": "0.5.3", "@penglai/memory": "0.5.5" },
+    }),
+  );
+
+  const result = mergeLegacyContextIntoMemory(user);
+  assert.deepEqual(result, {
+    changed: true,
+    profileEntryRemoved: true,
+    manifestEntryRemoved: true,
+    packageRemoved: true,
+    dataPreserved: true,
+  });
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
+  assert.equal(readFileSync(join(user.root, "context", "context.sqlite3"), "utf8"), "preserved-index\n");
+  assert.doesNotMatch(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /@penglai\/context/);
+  assert.match(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /@penglai\/memory/);
+  const manifest = JSON.parse(readFileSync(join(user.profileWeb, "package.json"), "utf8"));
+  assert.equal("@penglai/context" in manifest.dependencies, false);
+  assert.equal(existsSync(join(user.root, "migrations", "context-merged-0.5.5.json")), true);
+});
+
+test("legacy Context migration refuses a swapped symlink manifest", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-context-symlink-")));
+  mkdirSync(user.profileWeb, { recursive: true });
+  const outside = join(user.root, "outside.json");
+  writeFileSync(outside, JSON.stringify({ dependencies: { "@penglai/context": "0.5.3" } }));
+  symlinkSync(outside, join(user.profileWeb, "package.json"));
+  assert.throws(() => mergeLegacyContextIntoMemory(user), /symlink source/i);
+  assert.match(readFileSync(outside, "utf8"), /@penglai\/context/);
 });
 
 test("R2-DIST-012 interrupted staging rolls back", () => {
@@ -367,6 +476,8 @@ test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(src, /cwd:\s*user\.dshHome/);
   assert.match(src, /DSH_HOME:\s*user\.dshHome/);
+  assert.match(src, /PENGLAI_APP_ROOT:\s*env\.PENGLAI_APP_ROOT/);
+  assert.match(src, /PENGLAI_MNEMON_BINARY:\s*env\.PENGLAI_MNEMON_BINARY/);
   assert.doesNotMatch(src, /cwd:\s*process\.cwd\(\)/);
   const yamlHook = src.includes("join(user.dshHome, \".credentials.yaml\")") || src.includes('join(user.dshHome, ".credentials.yaml")');
   assert.equal(yamlHook, true);

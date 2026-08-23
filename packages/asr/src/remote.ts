@@ -92,9 +92,6 @@ export function createAsrSettingsApi(service: AsrSettingsHost) {
         source: "attachment",
         ownerOperation: input.operationId,
       });
-      // Settings audio is a user-chosen local file, not a vendor IM message.
-      // gateAudio still enforces magic/size/duration; the capability triple only
-      // records that this path is already Owner-authorized and privately sourced.
       const result = await service.transcribe(
         handle,
         { authorized: true, claimed: true, privateChat: true },

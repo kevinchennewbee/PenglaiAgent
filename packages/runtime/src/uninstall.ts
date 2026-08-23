@@ -670,7 +670,13 @@ export function macOsUninstallGuide(input: {
   };
 }
 
-export function executeDeletionPlan(plan: DeletionPlan, userData: string, workspaceRoots: string[], legacyRoots: string[]): { deleted: string[] } {
-  const preview = previewDeletionPlan(plan, userData, workspaceRoots, legacyRoots);
-  return removeVerifiedTargets(preview, userData, workspaceRoots, legacyRoots);
+export function executeDeletionPlan(
+  plan: DeletionPlan,
+  userData: string,
+  workspaceRoots: string[],
+  legacyRoots: string[],
+  opts: DeletionInspectionOptions = {},
+): { deleted: string[] } {
+  const preview = previewDeletionPlan(plan, userData, workspaceRoots, legacyRoots, opts);
+  return removeVerifiedTargets(preview, userData, workspaceRoots, legacyRoots, opts);
 }

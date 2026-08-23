@@ -213,3 +213,144 @@ test("MOSS-TTS settings client loopback registers the official tab and decodes p
   assert.equal(blobs[0]?.type, "audio/wav");
   assert.equal(blobs[0]?.size, wav.length);
 });
+
+test("TTS assistant read-aloud plays shipped synthesize audio for the message text", async () => {
+  const wav = Buffer.from("RIFF____WAVEfmt ");
+  const played: string[] = [];
+  const read: string[] = [];
+  const hooks: unknown[] = [];
+  let hookIndex = 0;
+  const React = {
+    useState(init: unknown) {
+      const i = hookIndex++;
+      if (hooks[i] === undefined)
+        hooks[i] = typeof init === "function" ? (init as () => unknown)() : init;
+      return [
+        hooks[i],
+        (next: unknown) => {
+          hooks[i] =
+            typeof next === "function" ? (next as (v: unknown) => unknown)(hooks[i]) : next;
+        },
+      ];
+    },
+  };
+  function el(type: unknown, props: Record<string, unknown> | null) {
+    return { type, props: props ?? {} };
+  }
+  const registered: Array<{
+    id: string;
+    name: string;
+    props: { remote: unknown };
+    Component: (props: Record<string, unknown>) => { props: Record<string, unknown> };
+  }> = [];
+  const remote = {
+    describe: async () => ({ model: "ready" }),
+    describeModels: async () => [],
+    listVoices: async () => [{ id: "moss-zh-default", locale: "zh" }],
+    previewVoice: async () => ({ wavBase64: wav.toString("base64"), bytes: wav.length }),
+    readAloud: async (input: { text: string; operationId: string }) => {
+      read.push(input.text);
+      assert.match(input.operationId, /^ttsread_/);
+      return { wavBase64: wav.toString("base64"), bytes: wav.length };
+    },
+  };
+  let ready = Promise.resolve<unknown>(undefined);
+  const sandbox = {
+    Promise,
+    Object,
+    Array,
+    String,
+    Boolean,
+    JSON,
+    Error,
+    Buffer,
+    window: {
+      __ModuleLoader__: {
+        load(mod: {
+          factory: (req: (name: string) => unknown) => {
+            apply: (ctx: unknown) => Promise<unknown>;
+          };
+        }) {
+          const exported = mod.factory((name) =>
+            name === "react" ? React : { jsx: el, jsxs: el },
+          );
+          ready = exported.apply({
+            remote: {
+              penglaiMossTtsSettings: remote,
+              async $mount() {
+                return () => undefined;
+              },
+            },
+            inject(_deps: string[], callback: (ctx: unknown) => void) {
+              callback({
+                remote: { penglaiMossTtsSettings: remote },
+                slots: {
+                  inject(_name: string, fn: () => unknown) {
+                    fn();
+                  },
+                  register(
+                    meta: { id: string; name: string; inject: () => { remote: unknown } },
+                    Component: (props: Record<string, unknown>) => { props: Record<string, unknown> },
+                  ) {
+                    registered.push({
+                      id: meta.id,
+                      name: meta.name,
+                      props: meta.inject(),
+                      Component,
+                    });
+                  },
+                },
+              });
+              return Object.assign(Promise.resolve(), { dispose: async () => undefined });
+            },
+          });
+        },
+      },
+    },
+    document: { documentElement: { lang: "zh" } },
+    setInterval: () => 1,
+    clearInterval: () => undefined,
+    atob: (value: string) => Buffer.from(value, "base64").toString("binary"),
+    Uint8Array,
+    Blob: class {
+      type: string;
+      size: number;
+      constructor(parts: Array<Uint8Array>, opts?: { type?: string }) {
+        this.type = opts?.type ?? "";
+        this.size = parts.reduce((n, part) => n + part.byteLength, 0);
+      }
+    },
+    URL: {
+      createObjectURL: () => "blob:penglai-tts-read",
+      revokeObjectURL: () => undefined,
+    },
+    Audio: class {
+      src: string;
+      onended: (() => void) | null = null;
+      constructor(src: string) {
+        this.src = src;
+      }
+      play() {
+        played.push(this.src);
+        return Promise.resolve();
+      }
+    },
+    console,
+  };
+  vm.runInNewContext(
+    readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8"),
+    sandbox,
+  );
+  await ready;
+  const action = registered.find((row) => row.id === "penglai-moss-tts-read");
+  assert.ok(action);
+  assert.equal(action?.name, "conversation.chat.assistant-actions");
+  hookIndex = 0;
+  const button = action!.Component({ ...action!.props, text: "助手已经记住了" });
+  assert.equal(typeof button.props.onClick, "function");
+  (button.props.onClick as () => void)();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(read, ["助手已经记住了"]);
+  assert.deepEqual(played, ["blob:penglai-tts-read"]);
+});

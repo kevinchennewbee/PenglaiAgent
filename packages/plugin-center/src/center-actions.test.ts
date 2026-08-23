@@ -8,7 +8,7 @@ import { CredentialsServiceVault } from "../../im/src/credentials-vault.js";
 test("beginWeixinQr returns qrImageRef and production pack scripts require --target", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   });
   const weixin = {
     startQr: async () => ({ qrRef: "qr-1", qrImageRef: "data:image/png;base64,abc" }),
@@ -24,7 +24,7 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
     { status: "idle", stop() {}, appId: "" } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.1-rc.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   );
   const begun = await host.beginWeixinQr();
   assert.ok(begun.qrImageRef);
@@ -51,4 +51,16 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   assert.doesNotMatch(client, /appRoot\.inert\s*=\s*true/);
   assert.doesNotMatch(client, /data-penglai-onboarding/);
   assert.match(client, /data-penglai-center": "1"/);
+  assert.match(client, /installEnable/);
+  assert.match(client, /centerActionInstalledEnabled/);
+  const main = readFileSync(new URL("../../../apps/desktop/src/electron-main.ts", import.meta.url), "utf8");
+  assert.match(main, /installEnable:\s*"plugin-enable"/);
+  const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
+  const end = remotes.indexOf("disable(id: string) {\n      return transact(id, \"disable\")");
+  const installEnable = remotes.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(installEnable, /plugin-enable/);
+  assert.equal(installEnable.includes("this.installDisabled"), false);
+  assert.equal((installEnable.match(/requireOwner\(/g) ?? []).length, 1);
 });

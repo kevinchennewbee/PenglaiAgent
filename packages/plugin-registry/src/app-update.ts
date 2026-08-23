@@ -4,7 +4,13 @@ import { ALLOWED_ASSET_HOSTS, APP_REPO, GITHUB_OWNER, compareSemver } from "./ca
 import { canonicalizeBytes } from "./canonical-json.js";
 import { downloadVerifiedBytes } from "./download.js";
 import { EMBEDDED_UPDATER_PUBLIC_KEY } from "./embedded-keys.js";
-import { appListUrl, fetchGithubReleasePages, selectHighestAppRelease } from "./release-discovery.js";
+import {
+  appListUrl,
+  fetchGithubReleasePages,
+  fetchGithubReleaseTags,
+  selectHighestAppRelease,
+  taggedReleaseAssetUrl,
+} from "./release-discovery.js";
 import { decodeDetachedSignature, verifyBytes } from "./signature.js";
 import { acceptMonotonic } from "./trust-ledger.js";
 
@@ -181,35 +187,62 @@ export async function discoverSignedAppUpdate(input: {
   const fetchImpl = input.fetchImpl ?? fetch;
   const publicKeyHex = input.publicKeyHex ?? EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex;
   const signingKeyId = input.signingKeyId ?? EMBEDDED_UPDATER_PUBLIC_KEY.keyId;
-  const listed = await fetchGithubReleasePages({
-    url: appListUrl(),
-    fetchImpl,
-    timeoutMs: 15_000,
-    maxPages: 5,
-    maxBytes: 2 * 1024 * 1024,
-  });
-  const release = selectHighestAppRelease(listed.releases, input.currentVersion);
+  let release;
+  let atomFallback = false;
+  try {
+    const listed = await fetchGithubReleasePages({
+      url: appListUrl(),
+      fetchImpl,
+      timeoutMs: 15_000,
+      maxPages: 5,
+      maxBytes: 2 * 1024 * 1024,
+    });
+    release = selectHighestAppRelease(listed.releases, input.currentVersion);
+  } catch (error) {
+    const fallbackAllowed =
+      (error instanceof PenglaiError && error.errorClass === "DELIVERY_TRANSIENT") ||
+      error instanceof TypeError ||
+      (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name));
+    if (!fallbackAllowed) throw error;
+    const tags = await fetchGithubReleaseTags({
+      owner: GITHUB_OWNER,
+      repo: APP_REPO,
+      fetchImpl,
+      maxBytes: 2 * 1024 * 1024,
+    });
+    release = selectHighestAppRelease(
+      tags.map((tag) => ({ tag_name: tag, immutable: true, assets: [] })),
+      input.currentVersion,
+    );
+    atomFallback = true;
+  }
   if (!release) return undefined;
-  const jsonAsset = release.assets.find((row) => row.name === UPDATE_MANIFEST_ASSET);
-  const sigAsset = release.assets.find((row) => row.name === UPDATE_MANIFEST_SIGNATURE_ASSET);
-  if (!jsonAsset || !sigAsset) throw new PenglaiError("INVALID_INPUT", "update manifest assets missing");
+  const jsonAsset = atomFallback
+    ? undefined
+    : release.assets.find((row) => row.name === UPDATE_MANIFEST_ASSET);
+  const sigAsset = atomFallback
+    ? undefined
+    : release.assets.find((row) => row.name === UPDATE_MANIFEST_SIGNATURE_ASSET);
+  if (!atomFallback && (!jsonAsset || !sigAsset)) {
+    throw new PenglaiError("INVALID_INPUT", "update manifest assets missing");
+  }
   const ownerRepo = `${GITHUB_OWNER}/${APP_REPO}`;
   const bytes = await downloadVerifiedBytes({
-    url: jsonAsset.url,
-    sha256: jsonAsset.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
-    size: jsonAsset.size,
+    url: jsonAsset?.url ?? taggedReleaseAssetUrl(GITHUB_OWNER, APP_REPO, release.tag, UPDATE_MANIFEST_ASSET),
+    sha256: jsonAsset?.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
+    size: jsonAsset?.size ?? 1,
     maxBytes: 1024 * 1024,
-    assetId: jsonAsset.id,
+    ...(jsonAsset ? { assetId: jsonAsset.id } : {}),
     ownerRepo,
     fetchImpl,
-    skipHash: !jsonAsset.digest,
+    skipHash: !jsonAsset?.digest,
   });
   const sig = await downloadVerifiedBytes({
-    url: sigAsset.url,
+    url: sigAsset?.url ?? taggedReleaseAssetUrl(GITHUB_OWNER, APP_REPO, release.tag, UPDATE_MANIFEST_SIGNATURE_ASSET),
     sha256: "pending",
-    size: sigAsset.size,
+    size: sigAsset?.size ?? 1,
     maxBytes: 256,
-    assetId: sigAsset.id,
+    ...(sigAsset ? { assetId: sigAsset.id } : {}),
     ownerRepo,
     fetchImpl,
     skipHash: true,
@@ -237,5 +270,13 @@ export async function discoverSignedAppUpdate(input: {
       tag: release.tag,
     });
   }
-  return { tag: release.tag, digest, manifest, bytes, assets: release.assets };
+  const assets = atomFallback
+    ? Object.values(manifest.platforms).map((platform) => ({
+        id: platform.assetId,
+        name: decodeURIComponent(new URL(platform.url).pathname.slice(new URL(platform.url).pathname.lastIndexOf("/") + 1)),
+        size: platform.size,
+        url: platform.url,
+      }))
+    : release.assets;
+  return { tag: release.tag, digest, manifest, bytes, assets };
 }

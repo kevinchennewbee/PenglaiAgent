@@ -1,0 +1,3 @@
+dsh-mnemon 0.2.15 (https://github.com/omdsh-dev/dsh-mnemon)
+License: MIT
+Penglai does not ship the nine-provider UI. Upstream is used as a seam/reference for Host/Client memory integration.

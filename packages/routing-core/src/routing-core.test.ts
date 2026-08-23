@@ -67,6 +67,84 @@ test("R1-AUTH-001 owner private text auto-binds official default without a pairi
   assert.doesNotMatch(menu, /DSH|DeepSeek Harness/i);
 });
 
+test("image and file inbound are accepted into the bound session", async () => {
+  const h = harness();
+  await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
+  const officialImage = {
+    attachmentId: "att-img",
+    mediaType: "image/png" as const,
+    bytes: 67,
+    width: 1,
+    height: 1,
+  };
+  const image = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "img",
+      bodyKind: "media",
+      text: "",
+      media: {
+        kind: "image",
+        source: "weixin",
+        sourceMessageId: "img",
+        sourceResourceId: "cdn-1",
+        mime: "image/png",
+        size: 67,
+        sha256: "a".repeat(64),
+        opaqueHandle: "media-img",
+        officialImage,
+      },
+    }),
+  );
+  assert.equal(image.kind, "accepted");
+  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
+  assert.equal(h.inputs.at(-1)?.text.includes("[image]"), false);
+  assert.deepEqual(h.inputs.at(-1)?.images, [officialImage]);
+  const office = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "doc",
+      bodyKind: "media",
+      text: "",
+      media: {
+        kind: "office",
+        source: "weixin",
+        sourceMessageId: "doc",
+        sourceResourceId: "cdn-2",
+        mime: "application/vnd.openxmlformats-officedocument",
+        size: 32,
+        sha256: "b".repeat(64),
+        opaqueHandle: "media-doc",
+        officeHandle: "obj-officehandle00000001",
+      },
+    }),
+  );
+  assert.equal(office.kind, "accepted");
+  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-officehandle00000001");
+  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
+});
+
+test("image inbound without official DSH attachment is rejected", async () => {
+  const h = harness();
+  await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
+  const image = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "img-no-att",
+      bodyKind: "media",
+      text: "[penglai-media kind=image mime=image/png sha256=aaaaaaaa handle=media-x]",
+      media: {
+        kind: "image",
+        source: "weixin",
+        sourceMessageId: "img-no-att",
+        sourceResourceId: "cdn-1",
+        mime: "image/png",
+        size: 67,
+        sha256: "a".repeat(64),
+        opaqueHandle: "media-x",
+      },
+    }),
+  );
+  assert.equal(image.kind, "rejected");
+});
+
 test("IM project menu lists every official workspace in numbered groups", async () => {
   const clock = new VirtualClock();
   const ids = new SeqIds();
@@ -286,13 +364,28 @@ test("R1-ROUTE-005 forged source does not correlate", async () => {
   assert.equal(Number(n.c), 0);
 });
 
-test("group and media rejected", async () => {
+test("group rejected and media accepted", async () => {
   const h = harness();
   const g = await h.plane.submitInbound(env({ chatKind: "group", adapterMessageKey: "g" }));
-  const m = await h.plane.submitInbound(env({ bodyKind: "media", adapterMessageKey: "m" }));
+  const m = await h.plane.submitInbound(
+    env({
+      bodyKind: "media",
+      adapterMessageKey: "m",
+      text: "",
+      media: {
+        kind: "file",
+        source: "feishu",
+        sourceMessageId: "m",
+        sourceResourceId: "file-1",
+        mime: "application/octet-stream",
+        size: 4,
+        sha256: "b".repeat(64),
+        opaqueHandle: "media-file",
+      },
+    }),
+  );
   assert.equal(g.kind, "rejected");
-  assert.equal(m.kind, "rejected");
-  assert.equal(h.inputs.length, 0);
+  assert.equal(m.kind, "accepted");
 });
 
 test("context/memory/budget/companion/voice slash commands never enter the model", async () => {

@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
+  constants,
+  chmodSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readlinkSync,
   renameSync,
@@ -36,6 +41,7 @@ import {
 } from "./plugin-catalog.js";
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
+import { writeFileAtomic } from "./permissions.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -49,11 +55,35 @@ export * from "./windows-host.js";
 export * from "./packaging.js";
 export * from "./fuses.js";
 
-export const PENGLAI_VERSION = "0.5.3";
-export const PINNED_DSH = "0.1.1-rc.1";
+export const PENGLAI_VERSION = "0.5.5";
+export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
+
+function readRegularFileNoFollow(path: string): Buffer | undefined;
+function readRegularFileNoFollow(path: string, encoding: "utf8"): string | undefined;
+function readRegularFileNoFollow(path: string, encoding?: "utf8"): Buffer | string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return undefined;
+    if (code === "ELOOP") {
+      throw new PenglaiError("SECURITY_POLICY", `runtime refuses a symlink source: ${path}`);
+    }
+    throw error;
+  }
+  try {
+    if (!fstatSync(fd).isFile()) {
+      throw new PenglaiError("SECURITY_POLICY", `runtime source is not a regular file: ${path}`);
+    }
+    return encoding === "utf8" ? readFileSync(fd, "utf8") : readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
 
 export interface RuntimeLayout {
   appRoot: string;
@@ -226,22 +256,47 @@ export interface CordisPatchPlugin {
   disabled?: boolean;
 }
 
+function stripYamlComment(line: string): string {
+  let quote = "";
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i] ?? "";
+    if ((char === '"' || char === "'") && (i === 0 || line[i - 1] !== "\\")) {
+      quote = quote === char ? "" : quote ? quote : char;
+      continue;
+    }
+    if (!quote && char === "#" && (i === 0 || /\s/.test(line[i - 1] ?? ""))) return line.slice(0, i);
+  }
+  return line;
+}
+
+function yamlField(text: string): { key: "id" | "name" | "disabled"; value: string } | undefined {
+  const colon = text.indexOf(":");
+  if (colon < 1) return undefined;
+  const key = text.slice(0, colon).trim();
+  if (key !== "id" && key !== "name" && key !== "disabled") return undefined;
+  const value = text.slice(colon + 1).trim();
+  if (!value) return undefined;
+  return { key, value };
+}
+
 export function parseCordisPatchPlugins(text: string): CordisPatchPlugin[] {
   const plugins: CordisPatchPlugin[] = [];
   let current: CordisPatchPlugin | undefined;
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/(^|\s)#.*$/, "");
-    const item = line.match(/^\s*-\s+(id|name):\s*(.+)$/);
-    if (item) {
-      current = { [item[1] === "id" ? "id" : "name"]: unquoteYaml(item[2] ?? "") };
+    const line = stripYamlComment(rawLine);
+    const trimmed = line.trimStart();
+    const item = trimmed.startsWith("- ") ? yamlField(trimmed.slice(2).trimStart()) : undefined;
+    if (item && item.key !== "disabled") {
+      current = { [item.key]: unquoteYaml(item.value) };
       plugins.push(current);
       continue;
     }
     if (!current) continue;
-    const named = line.match(/^\s+(id|name|disabled):\s*(.+)$/);
+    if (line.length === trimmed.length) continue;
+    const named = yamlField(trimmed);
     if (!named) continue;
-    const key = named[1];
-    const value = unquoteYaml(named[2] ?? "");
+    const key = named.key;
+    const value = unquoteYaml(named.value);
     if (key === "disabled") current.disabled = value.toLowerCase() === "true";
     else if (key === "id") current.id = value;
     else current.name = value;
@@ -289,7 +344,7 @@ export function installFirstPartyPlugins(
     const short = entry.id.replace("@penglai/", "");
     const dest = join(nm, short);
     const shouldInstall =
-      entry.id === "@penglai/plugin-center" ||
+      entry.defaultEnabled ||
       requested.has(entry.id) ||
       existsSync(dest) ||
       profilePluginEnabled(patchText, entry.id);
@@ -358,6 +413,112 @@ export function recordKeychainMigrationIfNeeded(user: UserLayout): void {
   );
 }
 
+function removeCordisPluginBlock(patchText: string, pluginId: string): {
+  text: string;
+  removed: number;
+} {
+  const short = pluginId.replace(/^@/, "").replaceAll("/", "-");
+  const endsWithNewline = patchText.endsWith("\n");
+  const lines = patchText.split("\n");
+  const output: string[] = [];
+  let block: string[] = [];
+  let removed = 0;
+  const flush = (): void => {
+    if (!block.length) return;
+    const text = block.join("\n");
+    const matches =
+      text.includes(`name: "${pluginId}"`) ||
+      text.includes(`name: '${pluginId}'`) ||
+      text.includes(`id: ${short}`);
+    if (matches) removed += 1;
+    else output.push(...block);
+    block = [];
+  };
+  for (const line of lines) {
+    if (/^\s*-\s+id:\s+/.test(line)) flush();
+    block.push(line);
+  }
+  flush();
+  if (removed > 1) {
+    throw new PenglaiError("STORE_CORRUPT", `${pluginId} profile entry count ${removed}`);
+  }
+  const next = output.join("\n");
+  return {
+    text: endsWithNewline && !next.endsWith("\n") ? `${next}\n` : next,
+    removed,
+  };
+}
+
+/**
+ * 0.5.5 folds the former Context plugin into Penglai Memory. Preserve its
+ * derived index under userData/context, but retire the separately loadable
+ * profile package so upgraded profiles have the same one-plugin identity as a
+ * fresh install.
+ */
+export function mergeLegacyContextIntoMemory(user: UserLayout): {
+  changed: boolean;
+  profileEntryRemoved: boolean;
+  manifestEntryRemoved: boolean;
+  packageRemoved: boolean;
+  dataPreserved: true;
+} {
+  const profileRoot = resolve(user.profileWeb);
+  if (!pathWithin(user.root, profileRoot) || profileRoot === resolve(user.root)) {
+    throw new PenglaiError("SECURITY_POLICY", "legacy Context profile escaped userData");
+  }
+  const patchPath = join(profileRoot, "cordis.patch.yml");
+  let profileEntryRemoved = false;
+  const current = readRegularFileNoFollow(patchPath, "utf8");
+  if (current !== undefined) {
+    const next = removeCordisPluginBlock(current, "@penglai/context");
+    if (next.removed === 1) {
+      writeFileAtomic(patchPath, next.text, 0o600);
+      profileEntryRemoved = true;
+    }
+  }
+
+  const manifestPath = join(profileRoot, "package.json");
+  let manifestEntryRemoved = false;
+  const manifestText = readRegularFileNoFollow(manifestPath, "utf8");
+  if (manifestText !== undefined) {
+    const manifest = JSON.parse(manifestText) as {
+      dependencies?: Record<string, string>;
+    };
+    if (manifest.dependencies && "@penglai/context" in manifest.dependencies) {
+      delete manifest.dependencies["@penglai/context"];
+      writeFileAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+      manifestEntryRemoved = true;
+    }
+  }
+
+  const packagePath = join(profileRoot, "node_modules", "@penglai", "context");
+  if (!pathWithin(profileRoot, packagePath) || resolve(packagePath) === profileRoot) {
+    throw new PenglaiError("SECURITY_POLICY", "legacy Context package escaped profile");
+  }
+  const packageRemoved = existsSync(packagePath);
+  if (packageRemoved) rmSync(packagePath, { recursive: true, force: false });
+
+  const changed = profileEntryRemoved || manifestEntryRemoved || packageRemoved;
+  if (changed) {
+    atomicJson(join(user.root, "migrations", "context-merged-0.5.5.json"), {
+      schema: 1,
+      from: "@penglai/context",
+      into: "@penglai/memory",
+      profileEntryRemoved,
+      manifestEntryRemoved,
+      packageRemoved,
+      dataPreserved: true,
+    });
+  }
+  return {
+    changed,
+    profileEntryRemoved,
+    manifestEntryRemoved,
+    packageRemoved,
+    dataPreserved: true,
+  };
+}
+
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
@@ -372,6 +533,7 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
     rmSync(staging, { recursive: true, force: true });
     writeJournal(user, { id: "seed", phase: "committed", lastGood: user.profileWeb });
   } else {
+    mergeLegacyContextIntoMemory(user);
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
   }
   linkOfficialDeepseek(layout, user.profileWeb);
@@ -380,14 +542,20 @@ export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout):
 }
 
 function copyDir(src: string, dest: string): void {
-  mkdirSync(dest, { recursive: true });
+  mkdirSync(dest, { recursive: true, mode: 0o700 });
   for (const name of readdirSync(src)) {
     const from = join(src, name);
     const to = join(dest, name);
     const st = lstatSync(from);
     if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) copyDir(from, to);
-    else writeFileSync(to, readFileSync(from), { mode: 0o600 });
+    else {
+      const mode = st.mode & 0o111 ? 0o700 : 0o600;
+      const bytes = readRegularFileNoFollow(from);
+      if (!bytes) throw new PenglaiError("STORE_CORRUPT", `runtime seed changed while copying: ${from}`);
+      writeFileSync(to, bytes, { mode, flag: "wx" });
+      chmodSync(to, mode);
+    }
   }
 }
 
@@ -887,6 +1055,10 @@ export class EmbeddedDshSupervisor {
       PENGLAI_DSH_PIN: PINNED_DSH,
       LANG: env.LANG ?? "en_US.UTF-8",
       ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
+      ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
+      ...(env.PENGLAI_MNEMON_BINARY
+        ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY }
+        : {}),
     };
     const dshArgs = dshWebArgs(this.port);
     if (process.platform === "win32") {

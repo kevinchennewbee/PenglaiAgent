@@ -49,10 +49,27 @@ export function extractText(path: string, buf: Buffer): string {
 function extractPdfText(buf: Buffer): string {
   const raw = buf.toString("latin1");
   const chunks: string[] = [];
-  const streamRe = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let match: RegExpExecArray | null;
-  while ((match = streamRe.exec(raw))) {
-    const payload = Buffer.from(match[1] ?? "", "latin1");
+  let cursor = 0;
+  while (cursor < raw.length && chunks.length < 128) {
+    const marker = raw.indexOf("stream", cursor);
+    if (marker < 0) break;
+    const afterMarker = marker + "stream".length;
+    const dataStart = raw.startsWith("\r\n", afterMarker)
+      ? afterMarker + 2
+      : raw.startsWith("\n", afterMarker)
+        ? afterMarker + 1
+        : -1;
+    if (dataStart < 0) {
+      cursor = afterMarker;
+      continue;
+    }
+    const endMarker = raw.indexOf("endstream", dataStart);
+    if (endMarker < 0) break;
+    let dataEnd = endMarker;
+    if (dataEnd > dataStart && raw[dataEnd - 1] === "\n") dataEnd -= 1;
+    if (dataEnd > dataStart && raw[dataEnd - 1] === "\r") dataEnd -= 1;
+    const payload = Buffer.from(raw.slice(dataStart, dataEnd), "latin1");
+    cursor = endMarker + "endstream".length;
     let decoded: Buffer = payload;
     try {
       decoded = Buffer.from(inflateSync(payload));
@@ -84,12 +101,10 @@ function extractOfficeText(buf: Buffer, ext: string): string {
 }
 
 function stripXml(xml: string): string {
+  const entities: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"' };
   return xml
     .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
+    .replace(/&(amp|lt|gt|quot);/g, (_match, entity: string) => entities[entity] ?? "")
     .replace(/\s+/g, " ")
     .trim();
 }

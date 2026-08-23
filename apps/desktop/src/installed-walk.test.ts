@@ -21,7 +21,14 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-E2E-003 separates fresh settings from explicit full composition", () => {
-  assert.deepEqual([...REQUIRED_FRESH_SETTINGS_WALK], ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"]);
+  assert.deepEqual([...REQUIRED_FRESH_SETTINGS_WALK], [
+    "ui-penglai",
+    "ui-center",
+    "ui-office",
+    "ui-memory",
+    "ui-update",
+    "ui-uninstall",
+  ]);
   assert.deepEqual([...REQUIRED_FULL_SETTINGS_WALK], [...REQUIRED_SETTINGS_WALK]);
   assert.equal(settingsWalkComplete(["ui-update", "ui-center"], "fresh"), false);
   assert.equal(settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "fresh"), true);
@@ -88,34 +95,74 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /data-penglai-plugin-action/);
   assert.match(walk, /actionStatus === "success"/);
   assert.match(walk, /await delay\(1_200\)/);
+  assert.match(walk, /\^开始使用\$/);
+  assert.match(walk, /\^Get started\$/);
+  assert.match(walk, /welcome-dismiss/);
+  assert.match(walk, /\^稍后配置\$/);
+  assert.match(walk, /\^Later\$/);
+  assert.match(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(e2e, /assertInstalledPenglaiIdentity/);
   assert.match(e2e, /launchPackaged\(exe, resources, refuseUser/);
   assert.match(e2e, /launchInstalledHarness\(harnessApp, resources, userData/);
 });
 
+test("live installed evidence captures public screenshots only after model selection and completed onboarding", () => {
+  const live = readFileSync(new URL("../../../scripts/e2e-installed-live.mjs", import.meta.url), "utf8");
+  assert.match(live, /PENGLAI_CAPTURE_PUBLIC_SHOTS/);
+  assert.match(live, /models-loaded\.png/);
+  assert.match(live, /onboarding-complete\.png/);
+  assert.match(live, /walkInstalledBrowserWindow/);
+  assert.match(live, /data-dsh-boot/);
+  assert.match(live, /Penglai product UI plugin boot failed/);
+  assert.doesNotMatch(live, /captureShot\([^\n]*keytest|captureShot\([^\n]*credential/i);
+});
+
 test("native release workflow proves bundled optional plugins across restart", () => {
   const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  assert.match(workflow, /mode:\s*\n\s+description:/);
+  assert.match(workflow, /default: native/);
+  assert.match(workflow, /inputs\.mode == 'native'/g);
+  assert.match(workflow, /inputs\.mode == 'catalog'/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);
   assert.match(compat, /inspectPackagedCandidate/);
   assert.match(compat, /all-enabled-after-restart/);
+  assert.match(compat, /optionalSettingsReady/);
+  assert.match(compat, /requireOptionalPlugins: name === "all-enabled-after-restart"/);
   assert.match(compat, /all-disabled-after-restart/);
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);
-  assert.match(compat, /observeOfficialTransport/);
+  assert.match(compat, /observeOfficialSurfaces/);
+  assert.match(compat, /installed-product-ui-fixture/);
+  assert.match(compat, /phase\.official\.mounted/);
   assert.match(compat, /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/);
   assert.doesNotMatch(compat, /ftruncateSync/);
-  assert.doesNotMatch(compat, /observeOfficialSurfaces/);
   const welcome = readFileSync(join(root, "scripts/u3-welcome-smoke.mjs"), "utf8");
   assert.match(welcome, /startup\.error\.log/);
   assert.match(welcome, /dsh\.stderr\.log/);
-  assert.doesNotMatch(compat, /phase\.official\.hasRoot/);
-  assert.doesNotMatch(compat, /phase\.official\.hasDshBoot/);
-  assert.match(compat, /pre-DSH wizard/);
+  assert.doesNotMatch(compat, /pre-DSH wizard/);
+  const bundled = readFileSync(join(root, "scripts/verify-bundled-runtime.mjs"), "utf8");
+  assert.match(bundled, /Contents", "Resources"/);
+  assert.match(bundled, /mnemon/);
+  assert.match(bundled, /penglai_office_commit/);
+  assert.doesNotMatch(bundled, /join\(ROOT, "third_party"/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
+});
+
+test("Windows NSIS compiles UTF-8 source and exposes bilingual component copy", () => {
+  const packager = readFileSync(join(root, "scripts/package-windows-nsis.mjs"), "utf8");
+  const installer = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
+  const license = readFileSync(join(root, "scripts/nsis/license.rtf"), "utf8");
+  assert.match(packager, /"\/INPUTCHARSET",\s*"UTF8"/);
+  assert.match(installer, /Unicode true/);
+  assert.match(installer, /LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"/);
+  assert.match(installer, /LangString DESC_App \$\{LANG_SIMPCHINESE\} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"/);
+  assert.match(installer, /MUI_DESCRIPTION_TEXT \$\{SecDesktop\} "\$\(DESC_Desktop\)"/);
+  assert.doesNotMatch(installer, /0\.5\.3/);
+  assert.doesNotMatch(license, /0\.5\.3/);
 });
 
 test("plugin transport observation does not wait for the post-wizard DOM", async () => {

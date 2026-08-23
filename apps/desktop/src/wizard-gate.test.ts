@@ -1,18 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
 import { PRELOAD_API, navigationDecision } from "./preload.js";
 
-test("onboarding ledger is complete only when current is COMPLETE", () => {
+test("onboarding completion is durable after the evidence-gated first run", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-ledger-"));
   assert.equal(onboardingLedgerComplete(root), false);
   mkdirSync(join(root, "onboarding"), { mode: 0o700 });
   writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "welcome-v1" }));
   assert.equal(onboardingLedgerComplete(root), false);
-  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE" }));
+  const completed = [
+    "welcome-v1",
+    "appearance-locale-v1",
+    "privacy-v1",
+    "model-provider-v1",
+    "credential-v1",
+    "model-test-v1",
+    "workspace-v1",
+    "first-turn-v1",
+  ];
+  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE", completed }));
   assert.equal(onboardingLedgerComplete(root), false, "P51-ONBOARD-001 COMPLETE without facts is not ready");
   const facts = {
     selection: { provider: "deepseek", model: "chat" },
@@ -22,47 +32,19 @@ test("onboarding ledger is complete only when current is COMPLETE", () => {
     firstConversation: { sessionId: "s-first", messageDigest: "c".repeat(64), finalDigest: "d".repeat(64) },
   };
   writeFileSync(join(root, "onboarding", "onboarding-facts.json"), JSON.stringify(facts));
-  assert.equal(onboardingLedgerComplete(root), false, "JSON-only COMPLETE cannot skip");
-  mkdirSync(join(root, "dsh-home"), { recursive: true });
-  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-test-value\n");
-  mkdirSync(join(root, "dsh-home", "workspaces", "ws-1"), { recursive: true });
-  mkdirSync(join(root, "dsh-home", "sessions", "s1"), { recursive: true });
-  mkdirSync(join(root, "dsh-home", "sessions", "s-first"), { recursive: true });
-  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
-  assert.equal(onboardingLedgerComplete(root), false, "empty Penglai marker dirs are not official DSH facts");
-  mkdirSync(join(root, "dsh-home", "storage"), { recursive: true });
-  writeFileSync(
-    join(root, "dsh-home", "storage", "workspace.json"),
-    JSON.stringify({ initialized: true, workspaceIds: ["ws-1"] }),
-  );
-  assert.equal(onboardingLedgerComplete(root), false, "guessed storage/workspace.json is not the official domain file");
-  mkdirSync(join(root, "dsh-home", "storages"), { recursive: true });
-  writeFileSync(
-    join(root, "dsh-home", "storages", "workspace.json"),
-    JSON.stringify({ unit: { name: "workspace", version: 2 }, global: { initialized: true, workspaceIds: ["ws-1"] } }),
-  );
-  mkdirSync(join(root, "dsh-home", "sessions", "_no-cwd", "s1"), { recursive: true });
-  mkdirSync(join(root, "dsh-home", "sessions", "_no-cwd", "session-s-first"), { recursive: true });
-  writeFileSync(join(root, "dsh-home", "sessions", "_no-cwd", "s1", "session.jsonl.zstd"), "zstd-fixture");
-  writeFileSync(join(root, "dsh-home", "sessions", "_no-cwd", "session-s-first", "session.jsonl.zstd"), "zstd-fixture");
   assert.equal(onboardingLedgerComplete(root), true);
-  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "# gone\n");
-  assert.equal(onboardingLedgerComplete(root), false, "deleted credential cannot skip");
-  writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-test-value\n");
-  writeFileSync(
-    join(root, "dsh-home", "storages", "workspace.json"),
-    JSON.stringify({ global: { initialized: true, workspaceIds: [] } }),
-  );
-  assert.equal(onboardingLedgerComplete(root), false, "deleted Workspace cannot skip");
-  writeFileSync(
-    join(root, "dsh-home", "storages", "workspace.json"),
-    JSON.stringify({ global: { initialized: true, workspaceIds: ["ws-1"] } }),
-  );
-  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"e".repeat(64)}\n`);
-  assert.equal(onboardingLedgerComplete(root), false, "stale nonce cannot skip");
-  writeFileSync(join(root, "onboarding", "current-nonce.digest"), `${"a".repeat(64)}\n`);
-  rmSync(join(root, "dsh-home", "sessions", "_no-cwd", "session-s-first"), { recursive: true, force: true });
-  assert.equal(onboardingLedgerComplete(root), false, "missing first conversation cannot skip");
+  assert.equal(onboardingLedgerComplete(root), true, "mutable credential, Workspace and Session files are not boot gates");
+
+  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE", completed: completed.slice(0, -1) }));
+  assert.equal(onboardingLedgerComplete(root), false, "all evidence-gated steps must have completed");
+  writeFileSync(join(root, "onboarding", "onboarding.json"), JSON.stringify({ schema: 2, current: "COMPLETE", completed }));
+  writeFileSync(join(root, "onboarding", "onboarding-facts.json"), JSON.stringify({ ...facts, apiTest: { ...facts.apiTest, finalDigest: "bad" } }));
+  assert.equal(onboardingLedgerComplete(root), false, "malformed evidence digest is rejected");
+
+  writeFileSync(join(root, "onboarding", "onboarding-facts-real.json"), JSON.stringify(facts));
+  rmSync(join(root, "onboarding", "onboarding-facts.json"));
+  symlinkSync(join(root, "onboarding", "onboarding-facts-real.json"), join(root, "onboarding", "onboarding-facts.json"));
+  assert.equal(onboardingLedgerComplete(root), false, "completion facts cannot be a symlink");
 });
 
 test("wizard URL stays on the authenticated proxy origin", () => {

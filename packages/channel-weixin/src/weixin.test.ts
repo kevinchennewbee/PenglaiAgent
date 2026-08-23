@@ -63,7 +63,46 @@ function voicePlane() {
   return { clock, store, plane, inputs };
 }
 
-test("private voice is classified for ASR and images stay rejected", () => {
+test("weixin image ingest downloads real bytes into a media envelope", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const { plane } = voicePlane();
+  const transport: WeixinTransport = {
+    async getQr() { return { qrRef: "qr", expiresAt: 1 }; },
+    async pollQr() { return { status: "connected", tokenRef: "t", scannerUserId: "u" }; },
+    async getUpdates(buf) { return { buf, messages: [] }; },
+    async send() { return { ok: true }; },
+    async downloadCdn() { return png; },
+  };
+  const ad = new WeixinAdapter(plane, transport, new MemoryVault());
+  ad.imageAdmission = {
+    async saveImage(input) {
+      return {
+        attachmentId: "att-wx-png",
+        mediaType: input.mediaType,
+        bytes: input.data.byteLength,
+        width: 1,
+        height: 1,
+      };
+    },
+  };
+  await ad.startQr();
+  await ad.poll("qr");
+  const accepted = await ad.ingest({
+    messageId: "img-bytes",
+    fromUserId: "u",
+    chatType: "private",
+    itemType: "image",
+    image: { encrypt_query_param: "imgq", aes_key: Buffer.alloc(16).toString("base64") },
+  });
+  assert.equal(accepted.kind, "accepted");
+  const handle = `media-${createHash("sha256").update(png).digest("hex").slice(0, 24)}`;
+  assert.equal(ad.mediaStore.get(handle).equals(png), true);
+});
+
+test("private voice is classified for ASR and images enter as media", () => {
   const voice = parseOfficialInbound(
     { message_type: 1, from_user_id: "u", item_list: [{ type: 3, msg_id: "v1" }] },
     "a",
@@ -73,9 +112,14 @@ test("private voice is classified for ASR and images stay rejected", () => {
     assert.equal(voice.bodyKind, "voice");
     assert.equal(voice.adapterMessageKey, "v1");
   }
-  assert.deepEqual(parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2 }] }, "a"), {
-    reject: "media",
-  });
+  const image = parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2, msg_id: "img1" }] }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) {
+    assert.equal(image.bodyKind, "media");
+    assert.equal(image.text, undefined);
+    assert.equal(image.media?.kind, "image");
+    assert.notEqual(image.text, "[image]");
+  }
 });
 
 test("parser rejects group and media without downloading", () => {
@@ -83,10 +127,13 @@ test("parser rejects group and media without downloading", () => {
     parseInbound({ messageId: "1", fromUserId: "u", chatType: "group", itemType: "text", text: "x" }, "a"),
     { reject: "group" },
   );
-  assert.deepEqual(
-    parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "media" }, "a"),
-    { reject: "media" },
-  );
+  const image = parseInbound({ messageId: "2", fromUserId: "u", chatType: "private", itemType: "image", image: { encrypt_query_param: "imgq", aes_key: Buffer.alloc(16).toString("base64") } }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) {
+    assert.equal(image.bodyKind, "media");
+    assert.equal(image.media?.kind, "image");
+    assert.notEqual(image.text, "[image]");
+  }
 });
 
 test("R50-VOICE: weixin inbound wav transcribes and outbound keeps a visible audio fallback", async () => {
@@ -184,9 +231,9 @@ test("official fixture: group_id and image item fail closed", () => {
   assert.deepEqual(parseOfficialInbound({ group_id: "g1", message_type: 1, item_list: [{ type: 1, text_item: { text: "x" } }] }, "a"), {
     reject: "group",
   });
-  assert.deepEqual(parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2 }] }, "a"), {
-    reject: "media",
-  });
+  const image = parseOfficialInbound({ message_type: 1, from_user_id: "u", item_list: [{ type: 2, msg_id: "i2" }] }, "a");
+  assert.equal("reject" in image, false);
+  if (!("reject" in image)) assert.equal(image.bodyKind, "media");
 });
 
 test("official private text yields stable adapter key", () => {
@@ -300,7 +347,7 @@ test("ilink client maps endpoints and never logs token", async () => {
   assert.ok(seen.every((s) => s.clientVersion === "132102"));
   for (const request of seen.filter((s) => s.body)) {
     const body = JSON.parse(request.body!) as { base_info?: { channel_version?: string; bot_agent?: string } };
-    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.3" });
+    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.5" });
     assert.match(Buffer.from(request.wechatUin!, "base64").toString("utf8"), /^\d+$/);
   }
 });
@@ -756,5 +803,31 @@ test("R50-VOICE-014 Weixin adapter durably claims SILK, enters one Turn, and sen
   assert.equal(sentText.at(-1), "蓬莱文字通道测试，请回复：收到文字");
   assert.equal(h.store.pendingOutbox(input.routeId).length, 0);
   adapter.stopReceive();
+  h.store.close();
+});
+
+test("Weixin office return reuses the authenticated encrypted FILE transport", async () => {
+  const h = voicePlane();
+  const vault = new MemoryVault();
+  const sent: Array<{ to: string; data: Buffer; filename: string; clientId: string }> = [];
+  const transport: WeixinTransport = {
+    async getQr() { return { qrRef: "qr-file", expiresAt: Date.now() + 60_000 }; },
+    async pollQr() { return { status: "connected", tokenRef: "opaque-file-token", scannerUserId: "wx-owner" }; },
+    async getUpdates(buf) { return { buf, messages: [] }; },
+    async send() { return { ok: true }; },
+    async sendAudioFile(to, input) {
+      sent.push({ to, data: Buffer.from(input.data), filename: input.filename, clientId: input.clientId });
+      return { ok: true };
+    },
+  };
+  await vault.write(WEIXIN_TOKEN_CREDENTIAL_REF, "opaque-file-token");
+  const adapter = new WeixinAdapter(h.plane, transport, vault);
+  const bytes = Buffer.from("office-file-bytes");
+  assert.deepEqual(await adapter.sendFile("wx-owner", bytes, "report.docx", "office-digest-id"), { ok: true });
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.to, "wx-owner");
+  assert.equal(sent[0]?.filename, "report.docx");
+  assert.equal(sent[0]?.clientId, "office-digest-id");
+  assert.equal(sent[0]?.data.equals(bytes), true);
   h.store.close();
 });

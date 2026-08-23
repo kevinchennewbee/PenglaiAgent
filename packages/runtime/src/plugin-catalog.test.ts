@@ -8,16 +8,57 @@ import {
 
 function fixture(): PluginCatalogDocument {
   return {
-    schema: 2,
+    schema: 3,
     target: "darwin-arm64",
     entries: FIRST_PARTY_PLUGIN_METADATA.map((entry) => ({
       ...entry,
       sha256: "a".repeat(64),
       target: "darwin-arm64",
-      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts"].includes(entry.id),
+      hasClient: ["@penglai/plugin-center", "@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/office", "@penglai/memory"].includes(entry.id),
     })),
   };
 }
+
+test("catalog v3 marks six user-visible products and office+memory as required-builtin", () => {
+  const visible = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => entry.userVisible).map(
+    (entry) => entry.id,
+  );
+  assert.deepEqual(
+    [...visible].sort(),
+    [
+      "@penglai/asr",
+      "@penglai/companion",
+      "@penglai/im",
+      "@penglai/memory",
+      "@penglai/moss-tts",
+      "@penglai/office",
+    ],
+  );
+  const office = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/office");
+  const memory = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/memory");
+  assert.equal(office?.installClass, "required-builtin");
+  assert.equal(memory?.installClass, "required-builtin");
+  assert.equal(office?.defaultEnabled, true);
+  assert.equal(memory?.defaultEnabled, true);
+  assert.equal(office?.provenanceClass, "penglai-builtin");
+  assert.equal(memory?.provenanceClass, "penglai-builtin");
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.some((entry) => entry.id === "@penglai/context"),
+    false,
+  );
+  assert.ok(memory?.capabilities.includes("authorized-sources"));
+  assert.ok(memory?.permissions.includes("authorized-files-read"));
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/plugin-reference")
+      ?.userVisible,
+    false,
+  );
+  assert.equal(
+    FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/plugin-center")
+      ?.installClass,
+    "infrastructure",
+  );
+});
 
 test("trusted plugin catalog binds exact metadata, checksum, and target", () => {
   const valid = fixture();

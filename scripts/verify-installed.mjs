@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectInstallerEvidence, inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
 import {
@@ -59,14 +60,14 @@ const path = existsSync(join(evidenceDir, evidenceName("installed-e2e", target))
     ? join(evidenceDir, "installed-e2e.json")
     : join(evidenceDir, evidenceName("installed-e2e", target));
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.3 installed evidence for ${target}`, target });
+  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.5 installed evidence for ${target}`, target });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
 const blob = JSON.stringify(rec);
 if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob)) {
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
-if (rec.productVersion !== "0.5.3" || rec.verdict !== "PASS") {
+if (rec.productVersion !== "0.5.5" || rec.verdict !== "PASS") {
   finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
 }
 const expectedInstaller = installerForTarget(target);
@@ -96,10 +97,11 @@ if (!first.welcome?.clicked || !first.welcome?.persisted) {
 if (!Array.isArray(first.onboarding?.walked) || !first.onboarding.walked.includes("privacy")) {
   finish("FAIL", { command: "verify:installed", reason: "official settings.onboarding privacy step was not observed" });
 }
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
-  finish("STALE", { command: "verify:installed", reason: "candidate source must be clean main at origin/main", ...git });
+const source = requireCleanCandidateSource();
+if (!source.ok) {
+  finish("STALE", { command: "verify:installed", reason: source.reason, ...source.git });
 }
+const git = source.git;
 const dmgPath = join(evidenceDir, evidenceName("local-installer", target));
 const legacyDmg = join(evidenceDir, "local-dmg.json");
 const evidencePath = existsSync(dmgPath) ? dmgPath : legacyDmg;
@@ -213,10 +215,10 @@ identity.recordAssertion({
   details: { safe: "installed walk recorded official workspace after models nonce Turn" },
 });
 const settingsWalked = first.settingsWalk?.walked ?? [];
-if (!["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
-  finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, update, or uninstall was not observed" });
+if (!["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
+  finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, Office, Memory, update, or uninstall was not observed" });
 }
-if (["ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion"].some((id) => settingsWalked.includes(id))) {
+if (["ui-im", "ui-asr", "ui-tts", "ui-companion"].some((id) => settingsWalked.includes(id))) {
   finish("FAIL", { command: "verify:installed", reason: "fresh BrowserWindow exposed an optional plugin settings page" });
 }
 identity.recordAssertion({
@@ -224,8 +226,8 @@ identity.recordAssertion({
   acceptanceId: "R50-E2E-003",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "settings-center-optional-off-update-uninstall",
-  details: { safe: "fresh BrowserWindow showed Center update uninstall while optional plugin pages stayed absent" },
+  assertionId: "settings-required-builtins-optional-off-update-uninstall",
+  details: { safe: "fresh BrowserWindow showed Center Office Memory update uninstall while optional plugin pages stayed absent" },
 });
 identity.recordAssertion({
   ...common,

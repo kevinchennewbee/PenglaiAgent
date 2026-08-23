@@ -39,6 +39,6 @@ const staticSrc = join(ROOT, "apps/desktop/static");
 if (existsSync(staticSrc)) cpSync(staticSrc, join(outDir, "static"), { recursive: true });
 writeFileSync(
   join(outDir, "package.json"),
-  JSON.stringify({ name: "penglai", version: "0.5.3", type: "module", main: "electron-main.js" }, null, 2),
+  JSON.stringify({ name: "penglai", version: "0.5.5", type: "module", main: "electron-main.js" }, null, 2),
 );
 console.log("bundle-desktop", outDir);

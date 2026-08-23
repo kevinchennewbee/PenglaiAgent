@@ -7,6 +7,7 @@ import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
+import { mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -202,12 +203,29 @@ if (packedPlugins !== stagedPlugins) {
   rmSync(stagedPlugins, { recursive: true, force: true });
   cpSync(packedPlugins, stagedPlugins, { recursive: true });
 }
+const mnemonAsset = mnemonAssetForTarget(target);
+if (!mnemonAsset) {
+  console.error("embed-runtime missing mnemon pin for", target);
+  process.exit(1);
+}
+const mnemonSrc = join(ROOT, "third_party", "mnemon", "bin", mnemonAsset.target, mnemonAsset.binaryFilename);
+if (!existsSync(mnemonSrc) || sha256File(mnemonSrc) !== mnemonAsset.binarySha256) {
+  console.error("embed-runtime mnemon binary missing or hash mismatch; fetch the target asset first");
+  process.exit(1);
+}
+mkdirSync(join(staging, "mnemon"), { recursive: true });
+cpSync(mnemonSrc, join(staging, "mnemon", mnemonAsset.binaryFilename));
+if (mnemonAsset.executable) {
+  const { chmodSync } = await import("node:fs");
+  chmodSync(join(staging, "mnemon", mnemonAsset.binaryFilename), 0o755);
+}
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
 
 const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))
   .concat(existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [])
+  .concat(existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [])
   .concat([join(staging, "release-contract.json")])
   .map((abs) => ({
     path: abs.slice(staging.length + 1),

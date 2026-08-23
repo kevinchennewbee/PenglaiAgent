@@ -18,7 +18,7 @@ export interface AcceptanceEntry {
 export function parseAcceptanceRegistry(markdown: string): AcceptanceEntry[] {
   const entries: AcceptanceEntry[] = [];
   const seen = new Set<string>();
-  const row = /^\| `(R50-[A-Z0-9]+-\d+)` \| ?([^|\n]+?) \| ?([^|\n]+?) \| ?$/gm;
+  const row = /^\| `(R5[05]-[A-Z0-9]+-\d+)` \| ?([^|\n]+?) \| ?([^|\n]+?) \| ?$/gm;
   let m: RegExpExecArray | null;
   while ((m = row.exec(markdown))) {
     const id = m[1];
@@ -53,7 +53,7 @@ function splitRunner(runner: string): [string, string] {
 
 export function documentDeclaredHardCount(markdown: string): number {
   const m = String(markdown).match(/预期共 \*\*(\d+)\*\* 个唯一/);
-  if (!m) throw new PenglaiError("INVALID_INPUT", "acceptance document does not declare a unique R50 Hard count");
+  if (!m) throw new PenglaiError("INVALID_INPUT", "acceptance document does not declare a unique Hard count");
   const n = Number(m[1]);
   if (!Number.isInteger(n) || n <= 0) {
     throw new PenglaiError("INVALID_INPUT", `illegal declared hard count ${m[1]}`);
@@ -109,7 +109,7 @@ export function assertRegistryConsistent(markdown: string): AcceptanceEntry[] {
 
 export function assertR50Only(ids: readonly string[]): void {
   for (const id of ids) {
-    if (!/^R50-[A-Z0-9]+-\d+$/.test(id)) {
+    if (!/^R5[05]-[A-Z0-9]+-\d+$/.test(id)) {
       throw new PenglaiError("INVALID_INPUT", `illegal acceptance id ${id}`);
     }
     if (id.startsWith("R2I-")) {

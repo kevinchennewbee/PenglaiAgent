@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, mkdtempSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
@@ -6,8 +7,8 @@ import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 import { installerForTarget } from "./release-targets.mjs";
 
-export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.3_macos_aarch64.dmg");
-export const ARM64_INSTALLER = "Penglai_0.5.3_macos_aarch64.dmg";
+export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.5_macos_aarch64.dmg");
+export const ARM64_INSTALLER = "Penglai_0.5.5_macos_aarch64.dmg";
 
 export function leftoversByCommand(needle) {
   if (process.platform === "win32") {
@@ -129,7 +130,7 @@ export function readInstalledAppIdentity(app, target) {
 export function assertInstalledPenglaiIdentity(app, target) {
   const facts = readInstalledAppIdentity(app, target);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.3" || facts.version !== "0.5.3") {
+  if (facts.shortVersion !== "0.5.5" || facts.version !== "0.5.5") {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };
@@ -200,6 +201,19 @@ export function installedHarnessEnvironment(
     ...common,
     ...extraEnv,
   };
+}
+
+export function resolveInstalledUiHarness() {
+  const explicit = process.env.PENGLAI_INSTALLED_UI_HARNESS;
+  if (explicit && existsSync(explicit)) return explicit;
+  try {
+    const require = createRequire(join(ROOT, "apps/desktop/package.json"));
+    const bin = require("electron");
+    if (typeof bin === "string" && existsSync(bin)) return bin;
+  } catch {
+    /* desktop electron is optional for source-only gates */
+  }
+  return undefined;
 }
 
 export function installedHarnessSpec(harnessExe, resources) {

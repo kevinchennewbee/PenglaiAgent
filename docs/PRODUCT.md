@@ -69,10 +69,10 @@ Penglai 0.5.0 让 Apple Silicon Mac 用户安装一个自包含桌面应用，�
 - 0.5.0开始，应用检查签名manifest，下载并验签当前平台安装器，让用户确认原生安装，迁移0.5内部schema并失败回滚。
 - community trust版不宣称macOS silent auto-update。
 
-### 4.6 个人上下文、记忆、预算与陪伴
+### 4.6 蓬莱记忆、预算与陪伴
 
 1. 用户显式授权 global 或 Workspace 本地资料目录；Penglai只在本机建立可删除派生索引，原文件不改。
-2. Agent在official DSH Turn中调用context工具，回答显示host验证的current/stale/revoked/unavailable来源卡。
+2. Agent在official DSH Turn中调用蓬莱记忆提供的资料检索工具，回答显示host验证的current/stale/revoked/unavailable来源卡。
 3. global L1与Workspace memory严格分层；长期global记忆和SOP写入必须展示diff并由Owner确认，SOP复用official DSH Skills。
 4. budget读取official TokenMeter，按global/Workspace/provider限制新Turn；未知价格只报token。
 5. companion默认关闭；启用后按quiet hours/频率/预算，用official Schedule和dedicated DSH Turn发送绑定渠道的text或voice，不执行无人值守工具。
@@ -89,10 +89,10 @@ Penglai增加：
 
 - 首次引导编排。
 - official Settings 左栏用一个连续、视觉缩进的蓬莱分组承载第一方页面：“蓬莱”概览为组首，只有已启用能力才出现对应子项；不把多个能力横向挤入 official Plugins tabs，也不在内容区增加第三列导航。
-- Settings→蓬莱→概览：真实 loader 驱动的插件中心与八张能力卡。
+- Settings→蓬莱→概览：真实loader驱动的插件中心与六张用户产品卡。
 - Settings→蓬莱→连接→消息连接：IM 总览、微信、飞书、绑定、命令、诊断。
 - Settings→蓬莱→语音：ASR/TTS 模型、试转写、试听、声音与数据管理。
-- Settings→蓬莱→知识与记忆：个人上下文授权/索引/来源/撤销，以及 global/Workspace/candidates、审计与删除。
+- Settings→蓬莱→蓬莱记忆：授权资料/索引/来源/撤销，以及global/Workspace/candidates、图谱、审计与删除；不出现独立“个人上下文”插件。
 - Settings→蓬莱→控制与陪伴：TokenMeter 预算护栏与默认关闭的主动陪伴。
 - Settings→蓬莱→系统：更新、存储与卸载。
 - Center 和各能力插件分别通过 official `settings.section` 独立注册/卸载，并用连续 order 聚合在蓬莱组内；Center 改变 client roster 后只触发一次应用内 reload。这个组合不形成第二套 plugin runtime、settings shell 或强依赖组合。
@@ -118,7 +118,7 @@ DSH原有能力必须完整保留：
 - 由用户在 Center 按需安装、启用的统一IM插件。
 - 微信/飞书私聊text+voice闭环、binding、commands、strict causal route。
 - SenseVoice ASR与MOSS-TTS-Nano两个真实DSH插件、按需模型、Apple Silicon native engine。
-- 个人上下文/source cards、分层记忆、预算、主动陪伴四个真实DSH插件，并复用official Skills/Schedule/TokenMeter。
+- 蓬莱记忆（含授权资料、source cards、分层记忆与图谱）、预算、主动陪伴三个真实DSH插件，并复用official Skills/Schedule/TokenMeter。
 - crash/offline/sleep/worker/DB恢复与两小时soak。
 - 从0.5开始的signed assisted update与rollback。
 - macOS卸载与精确数据管理。
@@ -152,7 +152,7 @@ Center分层：
 - renderer读不回明文；但同OS用户的高权限本地进程可能读取文件，不能宣传成Keychain级隔离。
 - IM只保留完成因果路由所需的受控状态；日志/evidence不含secret、QR、正文或真实identity。
 - 麦克风/IM原始语音与TTS临时输出按任务及时删除；本地声音参考是独立敏感数据类别，不进入日志/evidence，也不会从联系人语音自动创建。
-- Context只索引用户授权的realpath目录，撤销只删派生索引；Memory/预算/陪伴数据均app-private、可查看、可分项删除，不进入诊断或evidence正文。
+- 蓬莱记忆的资料源层只索引用户授权的realpath目录，撤销只删派生索引；记忆/预算/陪伴数据均app-private、可查看、可分项删除，不进入诊断或evidence正文。
 - 卸载默认保留数据，完整删除由用户明确选择。
 
 ## 9. 状态语言
@@ -168,4 +168,4 @@ Center分层：
 
 ## 10. 成功标准
 
-Apple Silicon 用户可以从 exact DMG fresh install，不安装开发工具，通过真实UI完成BYOK和Workspace/Turn，进入完整DSH Web，按需安装本地ASR/TTS、个人上下文/来源卡、分层记忆、预算和可选陪伴，并连接微信/飞书私聊text+voice，安全升级后续版本，并清楚可控地卸载。所有结论有exact source/export/artifact/native/live evidence支持。
+Apple Silicon 用户可以从 exact DMG fresh install，不安装开发工具，通过真实UI完成BYOK和Workspace/Turn，进入完整DSH Web，按需安装本地ASR/TTS，在一个蓬莱记忆插件里使用授权资料源、来源卡、分层记忆与图谱，按需启用陪伴，并连接微信/飞书私聊text+voice，安全升级后续版本，并清楚可控地卸载。所有结论有exact source/export/artifact/native/live evidence支持。

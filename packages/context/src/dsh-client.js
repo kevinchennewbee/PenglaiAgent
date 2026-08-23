@@ -1,91 +1,11 @@
-window.__ModuleLoader__.load({
-  id: "@penglai/context",
-  factory: (require) => {
-    const module = { exports: {} };
+function createPenglaiMemorySourcesClient(require) {
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const inject = ["remote"];
-
-    function strictJson(value, depth = 0, seen = new Set()) {
-      if (
-        value === null ||
-        typeof value === "string" ||
-        typeof value === "boolean"
-      )
-        return value;
-      if (typeof value === "number" && Number.isFinite(value)) return value;
-      if (
-        depth > 12 ||
-        !value ||
-        typeof value !== "object" ||
-        (!Array.isArray(value) &&
-          Object.prototype.toString.call(value) !== "[object Object]")
-      )
-        throw new TypeError("Context Remote requires bounded JSON");
-      if (seen.has(value))
-        throw new TypeError("Context Remote rejects cyclic JSON");
-      seen.add(value);
-      const entries = Array.isArray(value) ? value : Object.entries(value);
-      if (entries.length > 4096)
-        throw new TypeError("Context Remote JSON is too large");
-      if (Array.isArray(value))
-        value.forEach((item) => strictJson(item, depth + 1, seen));
-      else
-        for (const [key, item] of entries) {
-          if (["__proto__", "prototype", "constructor"].includes(key))
-            throw new TypeError("Context Remote rejects unsafe fields");
-          strictJson(item, depth + 1, seen);
-        }
-      seen.delete(value);
-      return value;
-    }
-    const remoteCodec = (kind) => ({
-      mode: "strict",
-      typeSymbol: `@penglai/context/client#${kind}`,
-      schema: {
-        parse(value) {
-          if (
-            kind === "input" &&
-            (!value || typeof value !== "object" || Array.isArray(value))
-          )
-            throw new TypeError("Context Remote input must be an object");
-          return value === undefined ? value : strictJson(value);
-        },
-      },
-    });
-    const remoteDescriptor = (method, hasInput = false) => ({
-      id: `@penglai/context#penglaiContextSettings/${method}`,
-      service: "penglaiContextSettings",
-      namespace: "penglaiContextSettings",
-      method,
-      implementation: method,
-      invocation: { kind: "direct" },
-      parameters: hasInput
-        ? [
-            {
-              name: "input",
-              wire: "input",
-              source: "json",
-              codec: remoteCodec("input"),
-            },
-          ]
-        : [],
-      result: remoteCodec("result"),
-    });
-    const REMOTE = {
-      package: "@penglai/context",
-      descriptors: [
-        "status",
-        "ingestCapability",
-        "reindex",
-        "revoke",
-        "search",
-      ].map((method) => remoteDescriptor(method, method !== "status")),
-    };
 
     const COPY = {
       zh: {
-        title: "个人上下文",
+        title: "本地资料来源",
+        sourceTitle: "本地资料来源",
         hint: "只索引你通过系统文件夹选择器明确授权的目录。源文件始终只读；撤销只删除派生索引。",
         add: "授权并索引文件夹",
         scope: "范围",
@@ -101,11 +21,12 @@ window.__ModuleLoader__.load({
         noSources: "尚未授权任何来源。",
         sourceUntouched: "源文件未改动",
         loading: "正在读取授权来源…",
-        unavailable: "个人上下文服务暂时不可用。",
+        unavailable: "蓬莱记忆的本地资料服务暂时不可用。",
         busy: "处理中…",
       },
       en: {
-        title: "Personal Context",
+        title: "Local sources",
+        sourceTitle: "Local sources",
         hint: "Only folders explicitly authorized through the system picker are indexed. Source files stay read-only; revoke deletes derived indexes only.",
         add: "Authorize and index folder",
         scope: "Scope",
@@ -122,7 +43,7 @@ window.__ModuleLoader__.load({
         noSources: "No source is authorized yet.",
         sourceUntouched: "Source files untouched",
         loading: "Reading authorized sources…",
-        unavailable: "Personal Context is temporarily unavailable.",
+        unavailable: "Penglai Memory local sources are temporarily unavailable.",
         busy: "Working…",
       },
     };
@@ -149,9 +70,18 @@ window.__ModuleLoader__.load({
       return Promise.resolve(api.pickContextFolder());
     };
 
-    function ContextTab({ remote }) {
+    function ContextTab({ remote, embedded = false }) {
       const t = copy();
-      const api = remote?.penglaiContextSettings;
+      const memory = remote?.penglaiMemorySettings;
+      const api = memory
+        ? {
+            status: memory.sourcesStatus,
+            ingestCapability: memory.sourcesIngestCapability,
+            reindex: memory.sourcesReindex,
+            revoke: memory.sourcesRevoke,
+            search: memory.sourcesSearch,
+          }
+        : undefined;
       const [view, setView] = React.useState({
         phase: "loading",
         snapshot: { grants: [], workspaces: [] },
@@ -169,7 +99,7 @@ window.__ModuleLoader__.load({
           setView((current) => ({ ...current, phase: "unavailable" }));
           return;
         }
-        Promise.resolve(api.status())
+        Promise.resolve(api.status({}))
           .then((value) => {
             const snapshot = unwrap(value) || { grants: [], workspaces: [] };
             setView((current) => ({
@@ -284,25 +214,27 @@ window.__ModuleLoader__.load({
       };
       if (view.phase === "loading")
         return jsx.jsx("section", {
-          "data-penglai-context": "1",
-          "data-penglai-context-status": "loading",
+          "data-penglai-memory-sources-panel": "1",
+          "data-penglai-memory-sources-status": "loading",
           children: t.loading,
         });
       if (view.phase === "unavailable")
         return jsx.jsxs("section", {
-          "data-penglai-context": "1",
-          "data-penglai-context-status": "unavailable",
+          "data-penglai-memory-sources-panel": "1",
+          "data-penglai-memory-sources-status": "unavailable",
           children: [t.unavailable, view.error ? ` ${view.error}` : ""],
         });
       const grants = view.snapshot.grants || [];
       const workspaces = view.snapshot.workspaces || [];
       return jsx.jsxs("section", {
-        "data-penglai-context": "1",
-        "data-penglai-context-status": "ready",
+        "data-penglai-memory-sources-panel": "1",
+        "data-penglai-memory-sources-status": "ready",
         role: "region",
         "aria-label": t.title,
         children: [
-          jsx.jsx("h3", { children: t.title }),
+          jsx.jsx(embedded ? "h4" : "h3", {
+            children: embedded ? t.sourceTitle : t.title,
+          }),
           jsx.jsx("p", { children: t.hint }),
           jsx.jsxs("label", {
             children: [
@@ -357,7 +289,7 @@ window.__ModuleLoader__.load({
                   jsx.jsxs(
                     "li",
                     {
-                      "data-penglai-context-grant": grant.root,
+                      "data-penglai-memory-source-grant": grant.root,
                       children: [
                         jsx.jsx("code", { children: grant.root }),
                         ` · ${grant.scope}${grant.workspaceId ? `:${grant.workspaceId}` : ""} · ${t.documents}: ${grant.documents} · ${t.revision}: ${grant.revision} `,
@@ -425,7 +357,7 @@ window.__ModuleLoader__.load({
           }),
           view.hits.length
             ? jsx.jsx("ul", {
-                "data-penglai-context-results": "1",
+                "data-penglai-memory-source-results": "1",
                 children: view.hits.map((hit) =>
                   jsx.jsxs(
                     "li",
@@ -447,54 +379,12 @@ window.__ModuleLoader__.load({
           view.error
             ? jsx.jsx("p", {
                 role: "alert",
-                "data-penglai-context-error": "1",
+                "data-penglai-memory-source-error": "1",
                 children: view.error,
               })
             : null,
         ],
       });
     }
-    function ContextSettingsSection(props) {
-      return jsx.jsx("div", {
-        className: "penglai-settings-page",
-        "data-penglai-settings": "context",
-        children: jsx.jsx(ContextTab, props),
-      });
-    }
-    async function apply(ctx) {
-      const disposeRemote = await ctx.remote.$mount(REMOTE);
-      const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiContextSettings"],
-        (viewCtx) => {
-          const pageRemote = {
-            penglaiContextSettings: viewCtx.remote.penglaiContextSettings,
-          };
-          viewCtx.slots.inject("settings.section", () =>
-            viewCtx.slots.register(
-              {
-                name: "settings.section",
-                id: "penglai-context",
-                order: 18.4,
-                label: () => copy().title,
-                inject: () => ({ remote: pageRemote }),
-              },
-              ContextSettingsSection,
-            ),
-          );
-        },
-      );
-      try {
-        await viewFiber;
-      } catch (error) {
-        await disposeRemote();
-        throw error;
-      }
-      return async () => {
-        await viewFiber.dispose();
-        await disposeRemote();
-      };
-    }
-    module.exports = { apply, inject };
-    return module.exports;
-  },
-});
+    return { ContextTab };
+}

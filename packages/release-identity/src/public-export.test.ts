@@ -24,6 +24,7 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   assert.equal(pathAllowed("packaging/penglai.icns"), true);
   assert.equal(pathAllowed("packages/runtime/src/index.ts"), true);
   assert.equal(pathAllowed("LICENSE"), true);
+  assert.equal(pathAllowed("AGENTS.md"), true);
   assert.equal(pathAllowed("SECURITY.md"), true);
   assert.equal(pathAllowed("CONTRIBUTING.md"), true);
   assert.equal(pathAllowed(".npmrc"), true);
@@ -117,6 +118,7 @@ test("R50-PREP-005 required public docs are enumerated", () => {
     assertRequiredPublicDocs([
       "LICENSE",
       "README.md",
+      "AGENTS.md",
       "SECURITY.md",
       "CONTRIBUTING.md",
       ".npmrc",
@@ -136,6 +138,9 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/PUBLICATION_0.5.3.md",
       "docs/PUBLICATION_MANIFEST_0.5.3.md",
       "docs/RELEASE_NOTES_0.5.3.md",
+      "docs/PUBLICATION_0.5.5.md",
+      "docs/PUBLICATION_MANIFEST_0.5.5.md",
+      "docs/RELEASE_NOTES_0.5.5.md",
     ]),
   );
   recordAssertion({
@@ -146,7 +151,7 @@ test("R50-PREP-005 required public docs are enumerated", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "LICENSE README SECURITY CONTRIBUTING are required export docs" },
+    details: { safe: "LICENSE README AGENTS SECURITY CONTRIBUTING are required export docs" },
   });
 });
 

@@ -20,6 +20,7 @@
     { "path": "packages/moss-tts" },
     { "path": "packages/context" },
     { "path": "packages/memory" },
+    { "path": "packages/office" },
     { "path": "packages/budget" },
     { "path": "packages/companion" },
     { "path": "packages/release-identity" },

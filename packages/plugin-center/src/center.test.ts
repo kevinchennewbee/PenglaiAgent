@@ -16,15 +16,13 @@ import {
   PluginCenterHost,
   R2_CATALOG,
   createPluginLifecycle,
+  pluginHealthFrom,
   validateCatalog,
   verifyPackage,
   workspaceProtectionSnapshot,
 } from "./index.js";
 import { contribute } from "./client.js";
-import {
-  FIRST_PARTY_PLUGIN_METADATA,
-  type PluginCatalogEntry,
-} from "@penglai/runtime";
+import { type PluginCatalogEntry } from "@penglai/runtime";
 
 const TEST_CATALOG: PluginCatalogEntry[] = R2_CATALOG.map((entry) => ({
   ...entry,
@@ -87,6 +85,7 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /data-penglai-plugin-action/);
   assert.match(client, /@penglai\/asr/);
   assert.match(client, /@penglai\/moss-tts/);
+  assert.equal(client.includes("@penglai/context"), false);
   assert.match(client, /FIRST_PARTY_CARDS/);
   assert.match(client, /snapshot\?\.remote/);
   assert.match(client, /data-penglai-plugin-source/);
@@ -112,11 +111,27 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   const cardIds = [...block[1].matchAll(/id: "(@penglai\/[^"]+)"/g)].map(
     (row) => row[1],
   );
-  assert.deepEqual(
-    cardIds,
-    FIRST_PARTY_PLUGIN_METADATA.filter(
-      (entry) => entry.id !== "@penglai/plugin-reference",
-    ).map((entry) => entry.id),
+  assert.deepEqual(cardIds, [
+    "@penglai/im",
+    "@penglai/office",
+    "@penglai/asr",
+    "@penglai/moss-tts",
+    "@penglai/memory",
+    "@penglai/companion",
+  ]);
+  assert.match(client, /const remoteCardIds = state\.remote/);
+  assert.match(client, /\.\.\.remoteCardIds/);
+  assert.match(client, /all\.indexOf\(id\) === index/);
+  assert.match(client, /entry\.incompatible \|\| entry\.dshCompatible === false/);
+  assert.match(client, /centerStatusIncompatible/);
+  assert.doesNotMatch(client, /\[\.\.\.state\.remote, \.\.\.state\.catalog, \.\.\.FIRST_PARTY_CARDS\]/);
+  assert.match(client, /data-penglai-plugin-diagnostics/);
+  const diagnostics = client.slice(client.indexOf("data-penglai-plugin-diagnostics"));
+  assert.match(diagnostics, /centerDesired/);
+  assert.match(diagnostics, /centerActual/);
+  assert.ok(
+    client.indexOf("data-penglai-plugin-diagnostics") > client.indexOf("data-penglai-plugin-advanced"),
+    "desired/actual diagnostics belong inside the advanced details",
   );
 });
 
@@ -346,11 +361,6 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "penglaiMossTtsSettings",
     ],
     [
-      "../../context/src/dsh-client.js",
-      "@penglai/context",
-      "penglaiContextSettings",
-    ],
-    [
       "../../memory/src/dsh-client.js",
       "@penglai/memory",
       "penglaiMemorySettings",
@@ -365,6 +375,7 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "@penglai/companion",
       "penglaiCompanionSettings",
     ],
+    ["../../office/src/dsh-client.js", "@penglai/office", "penglaiOfficeSettings"],
   ];
   for (const [path, packageName, namespace] of clients) {
     const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -386,6 +397,17 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
     assert.match(source, /mode: "strict"/);
     assert.match(source, /rejects unsafe fields/);
   }
+  const context = readFileSync(
+    new URL("../../context/src/dsh-client.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(context, /remote\?\.penglaiMemorySettings/);
+  assert.match(context, /sourcesStatus/);
+  assert.doesNotMatch(context, /penglaiMemorySourcesSettings/);
+  assert.doesNotMatch(context, /ctx\.remote\.\$mount/);
+  assert.match(context, /return \{ ContextTab \}/);
+  assert.doesNotMatch(context, /slots\.register/);
+  assert.doesNotMatch(context, /viewFiber/);
 });
 
 test("R2I-CENTER-013 catalog has real first-party plugins and no historical cards", () => {
@@ -397,7 +419,6 @@ test("R2I-CENTER-013 catalog has real first-party plugins and no historical card
   for (const id of [
     "@penglai/asr",
     "@penglai/moss-tts",
-    "@penglai/context",
     "@penglai/memory",
     "@penglai/budget",
     "@penglai/companion",
@@ -475,7 +496,7 @@ test("center disable keeps official seed patch YAML indented", async () => {
   const src = readFileSync(
     new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url),
     "utf8",
-  );
+  ).replace(/\r\n/g, "\n");
   const off = setPatchDisabled(src, "@penglai/plugin-reference", true);
   assert.match(
     off,
@@ -719,7 +740,7 @@ test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/im", true);
   const im = host.reconcile().find((r) => r.id === "@penglai/im");
-  assert.equal(im?.desired, "0.5.3");
+  assert.equal(im?.desired, "0.5.5");
   assert.equal(im?.loaded, false);
   assert.equal(im?.actual, "failed");
   assert.equal(im?.healthy, false);
@@ -788,8 +809,8 @@ test("Center probes optional sibling services through Cordis get without inject-
     "penglaiImCore",
     "penglaiAsr",
     "penglaiMossTts",
-    "penglaiContext",
     "penglaiMemory",
+    "penglaiOffice",
     "penglaiBudget",
     "penglaiCompanion",
   ]) {
@@ -802,4 +823,54 @@ test("Center probes optional sibling services through Cordis get without inject-
       new RegExp(`ctx\\[.*${serviceName}|ctx\\.${serviceName}`),
     );
   }
+});
+
+test("fresh office+memory reconcile to actual=active/healthy and optionals do not", () => {
+  const root = mkdtempSync(join(tmpdir(), "pc-fresh-health-"));
+  const profileDir = join(root, "profile");
+  const ctx = {
+    get(name: string) {
+      if (name === "penglaiOffice" || name === "penglaiMemory") {
+        return { status: () => ({ state: "active" }) };
+      }
+      return undefined;
+    },
+  };
+  for (const id of ["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]) {
+    const dir = join(profileDir, "node_modules", ...id.split("/"));
+    mkdirSync(dir, { recursive: true });
+    const version = TEST_CATALOG.find((entry) => entry.id === id)?.version;
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: id, version }));
+  }
+  const host = new PluginCenterHost(
+    join(root, "state"),
+    {
+      list: () => [
+        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
+        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
+        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
+      ],
+    },
+    TEST_CATALOG,
+    profileDir,
+    (id) => pluginHealthFrom(ctx, id),
+  );
+  const rows = host.reconcile();
+  const office = rows.find((row) => row.id === "@penglai/office");
+  const memory = rows.find((row) => row.id === "@penglai/memory");
+  assert.equal(office?.actual, "active");
+  assert.equal(office?.healthy, true);
+  assert.equal(office?.loaded, true);
+  assert.equal(memory?.actual, "active");
+  assert.equal(memory?.healthy, true);
+  assert.equal(memory?.loaded, true);
+  for (const id of ["@penglai/im", "@penglai/asr", "@penglai/moss-tts", "@penglai/companion"]) {
+    const row = rows.find((entry) => entry.id === id);
+    assert.equal(row?.actual, "disabled", id);
+    assert.equal(row?.loaded, false, id);
+    assert.equal(row?.healthy, false, id);
+    assert.equal(pluginHealthFrom(ctx, id).healthy, false, id);
+  }
+  assert.equal(pluginHealthFrom({ get: () => undefined }, "@penglai/office").healthy, false);
+  assert.equal(pluginHealthFrom(ctx, "@penglai/office").healthy, true);
 });

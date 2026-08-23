@@ -3,8 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 
-export const PLUGIN_CATALOG_SCHEMA = 2 as const;
-export const PINNED_PLUGIN_DSH = "0.1.1-rc.1" as const;
+export const PLUGIN_CATALOG_SCHEMA = 3 as const;
+export const PINNED_PLUGIN_DSH = "0.1.1-rc.2" as const;
 export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",
@@ -18,6 +18,21 @@ export type PluginProvenanceClass =
   | "penglai-first-party"
   | "community-reviewed";
 
+export type PluginInstallClass =
+  | "infrastructure"
+  | "required-builtin"
+  | "optional-first-party"
+  | "community-reviewed"
+  | "migration"
+  | "advanced-first-party"
+  | "internal-test";
+
+export type PluginUpdatePolicy = "signed-overlay" | "app-only";
+export type PluginResourcePolicy =
+  | "none"
+  | "optional-large-assets"
+  | "bundled-native";
+
 export interface PluginCatalogMetadata {
   id: string;
   version: string;
@@ -30,6 +45,10 @@ export interface PluginCatalogMetadata {
   builtIn: boolean;
   source: "bundled-first-party" | "penglai-plugin-registry";
   provenanceClass: PluginProvenanceClass;
+  installClass: PluginInstallClass;
+  userVisible: boolean;
+  updatePolicy: PluginUpdatePolicy;
+  resourcePolicy: PluginResourcePolicy;
   license: string;
   migration: string;
   rollback: "last-good-profile";
@@ -70,13 +89,14 @@ export interface EmbeddedPluginManifest {
 
 const TARGETS = [...PRODUCT_PLUGIN_TARGETS];
 const common = {
-  version: "0.5.3",
+  version: "0.5.5",
   dsh: { exact: PINNED_PLUGIN_DSH },
   platforms: TARGETS,
   source: "bundled-first-party" as const,
   license: "MIT",
   migration: "none",
   rollback: "last-good-profile" as const,
+  updatePolicy: "signed-overlay" as const,
 };
 
 export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
@@ -84,92 +104,130 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/plugin-center",
-      packageFile: "penglai-plugin-center-0.5.3.tgz",
+      packageFile: "penglai-plugin-center-0.5.5.tgz",
       capabilities: ["settings-ui", "catalog", "profile-transaction"],
       permissions: ["profile-write"],
       defaultEnabled: true,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "infrastructure",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
       id: "@penglai/im",
-      packageFile: "penglai-im-0.5.3.tgz",
+      packageFile: "penglai-im-0.5.5.tgz",
       capabilities: ["settings-ui", "im-weixin", "im-feishu", "private-voice"],
       permissions: ["credentials-service", "local-database", "outbound-network"],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "none",
     },
     {
       ...common,
       id: "@penglai/plugin-reference",
-      packageFile: "penglai-plugin-reference-0.5.3.tgz",
+      packageFile: "penglai-plugin-reference-0.5.5.tgz",
       capabilities: ["platform-proof"],
       permissions: [],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-builtin",
+      installClass: "internal-test",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
       id: "@penglai/asr",
-      packageFile: "penglai-asr-0.5.3.tgz",
+      packageFile: "penglai-asr-0.5.5.tgz",
       capabilities: ["settings-ui", "local-asr", "model-manager"],
       permissions: ["microphone", "local-model"],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "optional-large-assets",
     },
     {
       ...common,
       id: "@penglai/moss-tts",
-      packageFile: "penglai-moss-tts-0.5.3.tgz",
+      packageFile: "penglai-moss-tts-0.5.5.tgz",
       capabilities: ["settings-ui", "local-tts", "model-manager"],
       permissions: ["local-model", "audio-output"],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
-    },
-    {
-      ...common,
-      id: "@penglai/context",
-      packageFile: "penglai-context-0.5.3.tgz",
-      capabilities: ["authorized-context", "source-cards"],
-      permissions: ["local-index", "authorized-files-read"],
-      defaultEnabled: false,
-      builtIn: true,
-      provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "optional-large-assets",
     },
     {
       ...common,
       id: "@penglai/memory",
-      packageFile: "penglai-memory-0.5.3.tgz",
-      capabilities: ["layered-memory", "official-skill-promotion"],
-      permissions: ["local-memory", "official-skill-write"],
-      defaultEnabled: false,
+      packageFile: "penglai-memory-0.5.5.tgz",
+      capabilities: [
+        "layered-memory",
+        "knowledge-graph",
+        "authorized-sources",
+        "source-cards",
+        "official-skill-promotion",
+      ],
+      permissions: [
+        "local-memory",
+        "local-index",
+        "authorized-files-read",
+        "official-skill-write",
+      ],
+      defaultEnabled: true,
       builtIn: true,
-      provenanceClass: "penglai-first-party",
+      provenanceClass: "penglai-builtin",
+      installClass: "required-builtin",
+      userVisible: true,
+      resourcePolicy: "none",
+    },
+    {
+      ...common,
+      id: "@penglai/office",
+      packageFile: "penglai-office-0.5.5.tgz",
+      capabilities: ["office-edit", "docx", "xlsx", "pptx", "pdf"],
+      permissions: ["workspace-read", "workspace-write"],
+      defaultEnabled: true,
+      builtIn: true,
+      provenanceClass: "penglai-builtin",
+      installClass: "required-builtin",
+      userVisible: true,
+      resourcePolicy: "none",
     },
     {
       ...common,
       id: "@penglai/budget",
-      packageFile: "penglai-budget-0.5.3.tgz",
+      packageFile: "penglai-budget-0.5.5.tgz",
       capabilities: ["token-budget", "pre-invocation-gate"],
       permissions: ["token-meter", "model-invocation-gate"],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "advanced-first-party",
+      userVisible: false,
+      resourcePolicy: "none",
     },
     {
       ...common,
       id: "@penglai/companion",
-      packageFile: "penglai-companion-0.5.3.tgz",
+      packageFile: "penglai-companion-0.5.5.tgz",
       capabilities: ["proactive-companion", "schedule-composition"],
       permissions: ["schedule", "dedicated-agent", "im-send"],
       defaultEnabled: false,
       builtIn: true,
       provenanceClass: "penglai-first-party",
+      installClass: "optional-first-party",
+      userVisible: true,
+      resourcePolicy: "none",
     },
   ] satisfies PluginCatalogMetadata[]);
 
@@ -197,6 +255,10 @@ function assertMetadataMatch(
     "builtIn",
     "source",
     "provenanceClass",
+    "installClass",
+    "userVisible",
+    "updatePolicy",
+    "resourcePolicy",
     "license",
     "migration",
     "rollback",

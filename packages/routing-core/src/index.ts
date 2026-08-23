@@ -19,6 +19,10 @@ import {
   type PenglaiAsrLanguage,
   type PenglaiImSource,
   type PenglaiVoiceMetadata,
+  type OfficialImageRef,
+  type ObjectBind,
+  isDiagnosticMediaCaption,
+  userFacingMediaPrompt,
 } from "@penglai/contracts";
 import { PENDING_MENU_TTL_MS, Store, type StoredPendingMenu, type VoiceJob } from "@penglai/persistence";
 import { helpText, parseCommand, welcomeMenuText } from "./commands.js";
@@ -64,6 +68,10 @@ export interface AgentPort {
   steer(input: ModelInput): Promise<{ dshMessageId: string }>;
   cancelCurrent(sessionId: string): Promise<void>;
   removeInbox(sessionId: string, dshMessageId: string): Promise<void>;
+}
+
+export interface ObjectBinder {
+  bind(handle: string, bind: ObjectBind): void;
 }
 
 export interface ControlReply {
@@ -144,8 +152,45 @@ export class RoutingControlPlane {
     readonly ids: Ids,
     readonly directory: DirectoryPort,
     readonly agent: AgentPort,
+    readonly objects?: ObjectBinder,
   ) {
     this.store.expirePendingMenus(this.clock.now(), PENDING_MENU_TTL_MS);
+  }
+
+  private bindInboundObjects(env: InboundEnvelope, binding: Binding, routeId: string): void {
+    if (!this.objects) return;
+    const bind = { sessionId: binding.sessionId, workspaceId: binding.workspaceIdentity, routeId };
+    if (env.media?.officeHandle) this.objects.bind(env.media.officeHandle, bind);
+    if (env.media?.audioHandle) this.objects.bind(env.media.audioHandle, bind);
+  }
+
+  private modelInputFromInbound(
+    env: InboundEnvelope,
+    binding: Binding,
+    inboundId: string,
+    routeId: string,
+    source: PenglaiImSource,
+    text: string,
+  ): ModelInput {
+    const images: OfficialImageRef[] = env.media?.officialImage ? [env.media.officialImage] : [];
+    return {
+      sessionId: binding.sessionId,
+      inboundId,
+      routeId,
+      text,
+      source,
+      mode: "followup",
+      ...(images.length ? { images } : {}),
+      ...(env.media?.officeHandle ? { officeHandle: env.media.officeHandle } : {}),
+      ...(env.media?.audioHandle ? { audioHandle: env.media.audioHandle } : {}),
+    };
+  }
+
+  private inboundModelText(env: InboundEnvelope): string {
+    const raw = (env.text ?? "").trim();
+    if (raw && !isDiagnosticMediaCaption(raw)) return raw;
+    if (env.bodyKind === "media" && env.media) return userFacingMediaPrompt(env.media);
+    return raw && isDiagnosticMediaCaption(raw) ? "" : raw;
   }
 
   recoverAfterCrash(): { sendingRecovered: number; uncertainQueued: number } {
@@ -570,10 +615,23 @@ export class RoutingControlPlane {
     if (env.bodyKind === "voice" && !(env.text ?? "").trim()) {
       return this.reject("INVALID_INPUT", "voice requires ASR transcript");
     }
-    if (env.bodyKind !== "text" && env.bodyKind !== "voice") {
+    if (env.bodyKind !== "text" && env.bodyKind !== "voice" && env.bodyKind !== "media") {
       return this.reject("INVALID_INPUT", "media is not accepted");
     }
-    const text = env.text ?? "";
+    if (env.bodyKind === "media" && !env.media?.opaqueHandle) {
+      return this.reject("INVALID_INPUT", "media requires a downloaded opaque handle");
+    }
+    if (env.bodyKind === "media" && env.media?.kind === "image" && !env.media.officialImage) {
+      return this.reject("DSH_UNAVAILABLE", "image requires official DSH attachments.saveImage");
+    }
+    if (
+      env.bodyKind === "media" &&
+      (env.media?.kind === "office" || env.media?.kind === "pdf") &&
+      !env.media.officeHandle
+    ) {
+      return this.reject("INVALID_INPUT", "office/pdf inbound requires a bound opaque office handle");
+    }
+    const text = this.inboundModelText(env);
     if (utf8Bytes(text) > CONFIG.maxInboundUtf8Bytes) {
       return this.reject("INVALID_INPUT", "message too large");
     }
@@ -644,14 +702,10 @@ export class RoutingControlPlane {
       this.clock.now(),
     );
     try {
-      const result = await this.agent.followup({
-        sessionId: binding.sessionId,
-        inboundId,
-        routeId,
-        text,
-        source,
-        mode: "followup",
-      });
+      this.bindInboundObjects(env, binding, routeId);
+      const result = await this.agent.followup(
+        this.modelInputFromInbound(env, binding, inboundId, routeId, source, text),
+      );
       const current = this.store.getInbound(inboundId);
       if (current?.state === "queued") {
         this.store.setInboundState(inboundId, "queued", result.dshMessageId);

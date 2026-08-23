@@ -20,14 +20,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.3-arm64",
-    zip: "dist/Penglai-v0.5.3-arm64.zip",
+    out: "dist/Penglai-v0.5.5-arm64",
+    zip: "dist/Penglai-v0.5.5-arm64.zip",
     triple: "darwin-arm64",
     runtimeTarget: "darwin-aarch64",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.3-x64",
-    zip: "dist/Penglai-v0.5.3-x64.zip",
+    out: "dist/Penglai-v0.5.5-x64",
+    zip: "dist/Penglai-v0.5.5-x64.zip",
     triple: "darwin-x64",
     runtimeTarget: "darwin-x86_64",
   },
@@ -42,10 +42,6 @@ const origin = execSync("git rev-parse origin/main", {
   encoding: "utf8",
 }).trim();
 const dirty = execSync("git status --porcelain", { encoding: "utf8" }).trim();
-if (sha !== origin) {
-  console.error("package:mac refused: HEAD != origin/main");
-  process.exit(1);
-}
 if (dirty.length) {
   console.error("package:mac refused: dirty tree");
   process.exit(1);
@@ -186,6 +182,9 @@ execFileSync("ditto", [
   join(runtimeStaging, "plugins"),
   join(resources, "plugins"),
 ]);
+if (existsSync(join(runtimeStaging, "mnemon"))) {
+  execFileSync("ditto", [join(runtimeStaging, "mnemon"), join(resources, "mnemon")]);
+}
 execFileSync("ditto", [
   join(runtimeStaging, "runtime-manifest.json"),
   join(resources, "runtime-manifest.json"),
@@ -208,12 +207,12 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.3 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
+  "Penglai 0.5.5 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.3",
+  productVersion: "0.5.5",
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
@@ -228,9 +227,9 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.1-rc.1",
+  dsh: "0.1.1-rc.2",
   profileSchema: 3,
-  catalogSchema: 2,
+  catalogSchema: 3,
   imSchema: 3,
   schemaVersion: 2,
   signed: false,

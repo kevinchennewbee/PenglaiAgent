@@ -8,16 +8,22 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { applyEmbeddedMemorySources, createContextSettingsApi } from "@penglai/memory-sources";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
+import { MnemonMemoryService } from "./engine/service.js";
+import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
+import { registerMemoryTools } from "./tools.js";
 
 export const name = "@penglai/memory";
-export const inject = ["skills", "workspaceRegistry"];
+export const inject = ["skills", "workspaceRegistry", "tools"];
 export const version = RELEASE;
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 interface OfficialSkillSummary {
   name: string;
@@ -102,12 +108,51 @@ export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
 }) {
-  const store = new MemoryStore(join(opts.userData, "memory", "memory.sqlite3"));
-  const base = createMemoryService(store);
+  const engine = new MnemonMemoryService(opts.userData, {
+    ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
+    ...(process.env.PENGLAI_APP_ROOT ? { appRoot: process.env.PENGLAI_APP_ROOT } : {}),
+    packageRoot: PACKAGE_ROOT,
+  });
   const skillsRoot = officialSkillsRoot(opts.userData);
   let closed = false;
   return {
-    ...base,
+    engine,
+    async remember(input: { text: string; workspaceId?: string }) {
+      return engine.remember(input);
+    },
+    async search(query: string, workspaceId?: string) {
+      return engine.search(query, workspaceId);
+    },
+    async recall(query: string, workspaceId?: string) {
+      return engine.recall(query, workspaceId);
+    },
+    async related(id: string, workspaceId?: string) {
+      return engine.related(id, workspaceId);
+    },
+    async why(id: string, workspaceId?: string) {
+      return engine.why(id, workspaceId);
+    },
+    async correct(oldId: string, text: string, workspaceId?: string) {
+      return engine.correct(oldId, text, workspaceId);
+    },
+    async forget(id: string, workspaceId?: string) {
+      return engine.forget(id, workspaceId);
+    },
+    async deleteKnown(workspaceId?: string) {
+      return engine.deleteScope(workspaceId);
+    },
+    async graph(workspaceId?: string, includePersonal = false) {
+      return engine.graph(workspaceId, includePersonal);
+    },
+    write(input: MemoryWrite) {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory writes go through remember()");
+    },
+    list() {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory lists go through search()");
+    },
+    deleteScope() {
+      throw new PenglaiError("SECURITY_POLICY", "runtime memory delete goes through forget()");
+    },
     async promoteSop(input: SopPromotion): Promise<SopReceipt> {
       const markdown = skillMarkdown(input);
       mkdirSync(skillsRoot, { recursive: true, mode: 0o700 });
@@ -128,13 +173,22 @@ export function createDurableMemoryService(opts: {
       renameSync(temp, target);
       await waitForOfficialSkill(opts.skills, input.name, opts.userData);
       const sha256 = createHash("sha256").update(readFileSync(target)).digest("hex");
-      store.audit("promote_sop", "official-skill", null, `${input.name}:${sha256}`);
       return { registry: "official-dsh-skills", name: input.name, sha256, observed: true };
+    },
+    async rememberExplicit(input: { text: string; workspaceId?: string }) {
+      const row = await engine.remember(input);
+      return { ok: true as const, id: row.id };
+    },
+    async importPreview() {
+      return discoverLegacy(opts.userData);
+    },
+    async importConfirm() {
+      return importLegacy(opts.userData, engine);
     },
     close() {
       if (closed) return;
       closed = true;
-      base.close?.();
+      engine.close();
     },
     resourceSnapshot() {
       return {
@@ -142,7 +196,7 @@ export function createDurableMemoryService(opts: {
         sockets: 0,
         timers: 0,
         remotes: 0,
-        db: closed ? 0 : 1,
+        db: closed ? 0 : engine.resourceSnapshot().db,
         modelSessions: 0,
         audioHandles: 0,
       };
@@ -156,13 +210,21 @@ export function apply(ctx: CordisContextLike) {
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for memory");
   const workspaceRegistry = ctx.workspaceRegistry;
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
-  const service = createDurableMemoryService({ userData, skills: ctx.skills });
+  const sources = applyEmbeddedMemorySources(ctx);
+  let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
-    ctx.provide("penglaiMemory", service);
-    if (ctx instanceof Context) new PenglaiMemoryRemote(ctx, createMemorySettingsApi(service, workspaceRegistry));
-    ctx.effect?.(() => () => service.close?.());
+    service = createDurableMemoryService({ userData, skills: ctx.skills });
+    const activeService = service;
+    registerMemoryTools(ctx, activeService.engine);
+    ctx.provide("penglaiMemory", activeService);
+    if (ctx instanceof Context) {
+      const sourcesApi = createContextSettingsApi(sources, userData, workspaceRegistry);
+      new PenglaiMemoryRemote(ctx, createMemorySettingsApi(activeService, workspaceRegistry, sourcesApi));
+    }
+    ctx.effect?.(() => () => activeService.close?.());
   } catch (error) {
-    service.close();
+    service?.close();
+    sources.close();
     throw error;
   }
   return service;
@@ -172,6 +234,10 @@ Object.assign(apply, { inject });
 export default { name, inject, apply, version };
 export * from "./service.js";
 export * from "./store.js";
+export { MnemonMemoryService, IsolatedMemoryEngine } from "./engine/service.js";
+export { bundledMnemonBinary, MNEMON_ASSETS } from "./engine/mnemon-provider.js";
+export { importLegacy, previewLegacy } from "./migration/legacy-053.js";
+export { projectGraph } from "./graph/projection.js";
 export type { MemoryWrite };
 export { modelCannotWriteGlobal, assertReadable };
 export type { MemoryWrite as WriteInput };

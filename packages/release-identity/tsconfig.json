@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "allowJs": true },
   "references": [{ "path": "../contracts" }],
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/mnemon-assets.js"],
   "exclude": ["src/**/*.test.ts"]
 }

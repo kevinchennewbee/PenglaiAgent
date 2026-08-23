@@ -39,8 +39,7 @@ export const MIGRATION_LEDGER = [
   { capability: "Weixin/Feishu IM", needle: "微信/飞书", decision: "PENGLAI_PLUGIN" },
   { capability: "SenseVoice ASR", needle: "SenseVoice ASR", decision: "PENGLAI_PLUGIN" },
   { capability: "MOSS-TTS-Nano", needle: "MOSS-TTS-Nano", decision: "PENGLAI_PLUGIN" },
-  { capability: "Personal Context", needle: "Personal Context", decision: "PENGLAI_PLUGIN" },
-  { capability: "layered Memory", needle: "memory", decision: "PENGLAI_PLUGIN" },
+  { capability: "Penglai Memory with authorized sources", needle: "@penglai/memory", decision: "PENGLAI_PLUGIN" },
   { capability: "Budget", needle: "budget", decision: "PENGLAI_PLUGIN" },
   { capability: "Companion", needle: "companionship", decision: "PENGLAI_PLUGIN" },
   { capability: "install/update/uninstall", needle: "安装更新卸载", decision: "DISTRIBUTION" },
@@ -129,7 +128,19 @@ export function assertParityLedger(parityMd: string): void {
 }
 
 export function assertNoLatestDownloads(text: string): void {
-  if (/https?:\/\/[^\s]+latest/i.test(text) && !/拒绝|禁止|must not|不得/.test(text)) {
+  const lower = text.toLowerCase();
+  let unsafeLatestUrl = false;
+  for (let cursor = lower.indexOf("latest"); cursor >= 0; cursor = lower.indexOf("latest", cursor + 6)) {
+    let start = cursor;
+    while (start > 0 && !/\s/.test(lower[start - 1] ?? "")) start -= 1;
+    const token = lower.slice(start, cursor + 6);
+    if (token.startsWith("http://") || token.startsWith("https://")) {
+      unsafeLatestUrl = true;
+      break;
+    }
+  }
+  const documentedRefusal = ["拒绝", "禁止", "must not", "不得"].some((token) => lower.includes(token));
+  if (unsafeLatestUrl && !documentedRefusal) {
     throw new PenglaiError("SECURITY_POLICY", "unqualified latest download URL");
   }
 }

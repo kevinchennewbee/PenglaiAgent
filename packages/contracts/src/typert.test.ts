@@ -22,7 +22,7 @@ test("unwrapTypertResult accepts envelopes and envelope-less success", () => {
 
 test("wizard classifier stays in lockstep with classifyApiTestError", () => {
   const js = readFileSync(join(root, "apps/desktop/static/wizard/wizard.js"), "utf8");
-  const match = js.match(/function classifyApiTestError\(err\) \{[\s\S]*?return "unknown";\n  \}/);
+  const match = js.match(/function classifyApiTestError\(err\) \{[\s\S]*?return "unknown";\r?\n  \}/);
   assert.ok(match);
   const classify = Function(`${match[0]}; return classifyApiTestError;`)() as (err: unknown) => string;
   const fixtures = [

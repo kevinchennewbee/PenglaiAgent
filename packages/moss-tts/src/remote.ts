@@ -54,6 +54,37 @@ export function createMossTtsSettingsApi(service: PenglaiMossTtsService) {
       assertOperationId(operationId);
       return service.getOperation(operationId);
     },
+    async readAloud(input: {
+      text: string;
+      voiceId?: string;
+      locale?: "zh" | "en" | "ja";
+      operationId: string;
+    }) {
+      assertOperationId(input.operationId);
+      if (service.describeCapability().model !== "ready") {
+        throw new PenglaiError("DSH_UNAVAILABLE", "MOSS-TTS model is not installed");
+      }
+      const finalText = String(input.text ?? "").trim();
+      if (!finalText) throw new PenglaiError("INVALID_INPUT", "read-aloud text required");
+      const locale = PREVIEW[input.locale ?? "zh"] ? (input.locale ?? "zh") : "zh";
+      const voiceId = input.voiceId || service.listVoices()[0]?.id || "moss-zh-default";
+      const result = await service.synthesize({
+        operationId: input.operationId,
+        sourceFinalId: `read-aloud:${input.operationId}`,
+        finalText,
+        finalDigest: digestFinal(finalText),
+        voiceId,
+        locale,
+      });
+      const wav = await service.readOutput(result.handle, input.operationId);
+      await service.releaseOutput(result.handle.id);
+      return {
+        digest: result.operation.outputDigest,
+        bytes: wav.length,
+        durationMs: result.operation.durationMs,
+        wavBase64: wav.toString("base64"),
+      };
+    },
     async previewVoice(input: { voiceId: string; locale: "zh" | "en" | "ja"; operationId: string }) {
       assertOperationId(input.operationId);
       if (service.describeCapability().model !== "ready") {
@@ -133,6 +164,16 @@ export class PenglaiMossTtsRemote extends TypertRemoteService {
   previewVoice(input: { voiceId: string; locale: "zh" | "en" | "ja"; operationId: string }) {
     return this.api.previewVoice(input);
   }
+
+  @Remote
+  readAloud(input: {
+    text: string;
+    voiceId?: string;
+    locale?: "zh" | "en" | "ja";
+    operationId: string;
+  }) {
+    return this.api.readAloud(input);
+  }
 }
 
 export const TYPERT_REMOTE = {
@@ -147,5 +188,6 @@ export const TYPERT_REMOTE = {
     "cancelDownload",
     "getOperation",
     "previewVoice",
+    "readAloud",
   ],
 };

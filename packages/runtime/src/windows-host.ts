@@ -333,6 +333,25 @@ export interface OwnedSpawnResult {
   };
 }
 
+export function quoteWindowsCommandArg(value: string): string {
+  let out = '"';
+  let backslashes = 0;
+  for (const char of value) {
+    if (char === "\\") {
+      backslashes += 1;
+      continue;
+    }
+    if (char === '"') {
+      out += "\\".repeat(backslashes * 2 + 1) + '"';
+      backslashes = 0;
+      continue;
+    }
+    out += "\\".repeat(backslashes) + char;
+    backslashes = 0;
+  }
+  return out + "\\".repeat(backslashes * 2) + '"';
+}
+
 export function spawnOwnedDshProcess(request: OwnedSpawnRequest): OwnedSpawnResult {
   if (request.platform === "win32") {
     // Fail first on the native supervisor being missing (the historical
@@ -341,9 +360,7 @@ export function spawnOwnedDshProcess(request: OwnedSpawnRequest): OwnedSpawnResu
     const host = requireWindowsNativeHost("win32", request.appRoot);
     if (!request.appRoot) throw new PenglaiError("SECURITY_POLICY", "Windows job supervisor requires an app root");
     assertOwnedAbsoluteNode(request.appRoot, request.executable);
-    const quoted = [request.executable, request.entry, ...request.args]
-      .map((part) => `"${part.replace(/"/g, '\\"')}"`)
-      .join(" ");
+    const quoted = [request.executable, request.entry, ...request.args].map(quoteWindowsCommandArg).join(" ");
     const child = spawn(host, ["job-supervise", "--exe", request.executable, "--cmdline", quoted], {
       env: request.env,
       stdio: ["pipe", "pipe", "pipe"],

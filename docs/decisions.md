@@ -254,9 +254,9 @@
 
 ### D-042 — 0.5 恢复Penglai已验证的原生优势
 
-- 状态：ACCEPTED
-- 决定：`@penglai/context`、`@penglai/memory`、`@penglai/budget`、`@penglai/companion`与ASR/MOSS一起作为真实第一方DSH plugins进入0.5。
-- 后果：Context/Memory/Budget/Companion必须满足host+client+typed service+lifecycle+migration+security+三平台installed/live；旧Host源码存在或Center卡片不算完成。
+- 状态：SUPERSEDED_BY_D-057
+- 决定：早期候选曾将`@penglai/context`与`@penglai/memory`作为两个插件；0.5.5不再采用该包装。
+- 后果：保留为历史决策记录，不能用来恢复独立Context产品卡或loader项。
 
 ### D-043 — DSH已有能力只复用
 
@@ -264,10 +264,10 @@
 - 决定：Goal/Todo/Skills/MCP/Web/Attachments/Schedule/TokenMeter继续由pinned official DSH拥有；Penglai只做parity、帮助/IM命令composition和差异化插件消费。
 - 后果：禁止恢复0.4.1 EpisodeRunner、Task/Run control plane、Skill/MCP/model registry或第二计量/调度核心。
 
-### D-044 — Context与Memory采用显式scope/consent
+### D-044 — 蓬莱记忆采用显式scope/consent
 
 - 状态：ACCEPTED
-- 决定：Context只索引用户显式授权realpath并只删派生数据；Memory分global L1/Workspace/candidates，global/SOP长期写入需visible diff和Owner确认，SOP复用official Skills。
+- 决定：蓬莱记忆的资料源层只索引用户显式授权realpath并只删派生数据；记忆层分global L1/Workspace/candidates，global/SOP长期写入需visible diff和Owner确认，SOP复用official Skills。
 - 后果：来源状态由host验证；模型不能修改源文件、跨Workspace污染或无确认写global/SOP。
 
 ### D-045 — Companion默认关闭且无无人值守工具
@@ -351,6 +351,12 @@
 - 状态：ACCEPTED（Owner 2026-08-22 明确授权修复、三端构建、发布和升级验收）
 - 决定：0.5.2 继续固定 DSH `0.1.1-rc.1`，修正完成门禁对 rc.1 `storages/workspace.json`、`global.workspaceIds`、`sessions/**/session.jsonl.zstd` 与嵌套 `credentials.refs` 的读取；“上一步”必须回滚持久引导状态和依赖事实。发布前必须用临时 BYOK 在 Apple Silicon 安装包完成真实模型测试与第一条 Turn，并用公开版 0.5.1 的 PUDP 路径发现、下载和安装公开版 0.5.2。
 - 后果：临时 secret 不得进入源码、命令输出、evidence 或 GitHub；Intel Mac 与 Windows x64 仍必须由对应原生 runner 构建并运行安装/插件兼容门禁。0.5.2 Release 继续使用现有离线 Ed25519 信任根、不可变 tag 资产和用户确认的系统安装器，不引入 silent update。
+
+### D-057 — 0.5.5 只有一个蓬莱记忆插件
+
+- 状态：ACCEPTED（Owner 2026-08-23 要求个人上下文与分层记忆真正融合）
+- 决定：`@penglai/memory`是fresh profile、catalog、loader inventory与用户界面中唯一的记忆插件。授权资料、FTS5索引、来源卡、分层记忆、图谱、纠错/遗忘与official Skill沉淀编译进同一host/client包。旧`@penglai/context`只作为0.5.3升级输入被移除，其派生索引保留并由Memory接管。
+- 后果：隐藏旧卡片或改标题不算融合；fresh/upgrade/installed证据必须反证独立Context package、profile项和inventory行。
 
 ## Superseded
 

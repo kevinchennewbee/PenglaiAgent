@@ -1,0 +1,3 @@
+@liustack/pptfast 0.20.0 (https://github.com/liustack/pptfast)
+License: MIT
+Used internally by @penglai/office for PPTX generation. Not exposed as a user-facing plugin card.

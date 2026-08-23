@@ -28,9 +28,9 @@ function fixture(
   writeFileSync(join(resources, "runtime/node/bin/node"), "node");
   writeFileSync(join(resources, "runtime/dsh/lib/bin.js"), "dsh");
   const manifest = {
-    release: "0.5.3",
+    release: "0.5.5",
     target: overrides.manifestTarget ?? "darwin-aarch64",
-    dsh: "0.1.1-rc.1",
+    dsh: "0.1.1-rc.2",
     files: [
       {
         path: "runtime/node/bin/node",
@@ -45,13 +45,13 @@ function fixture(
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.3",
+      productVersion: "0.5.5",
       generationId: "penglai-dsh-v0.5",
       trustTier: "community-verified",
       sourceSha: overrides.sourceSha ?? sourceSha,
       treeDirty: false,
       targetPlatform: "darwin-arm64",
-      dsh: "0.1.1-rc.1",
+      dsh: "0.1.1-rc.2",
       ...(overrides.omitPublicExportTreeSha256
         ? {}
         : { publicExportTreeSha256: "e".repeat(64) }),

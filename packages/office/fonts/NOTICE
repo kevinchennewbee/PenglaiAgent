@@ -1,0 +1,13 @@
+NotoSansSC-VF.ttf is the unmodified Simplified Chinese variable-font subset
+published by Adobe and Google in https://github.com/notofonts/noto-cjk.
+
+Penglai 0.5.5 bundles the complete upstream SC font instead of a fixture-only
+glyph subset, so arbitrary Simplified Chinese text is available offline.
+
+Upstream file: Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
+Upstream SHA-256: d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964
+Bundled SHA-256: d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964
+
+The OFL text is in OFL.txt. This font is bundled so installed Office can
+embed CJK without depending on system fonts. The font is redistributed
+unmodified and retains its upstream family name.

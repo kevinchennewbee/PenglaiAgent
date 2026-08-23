@@ -1,34 +1,20 @@
 {
-  "name": "@penglai/context",
-  "version": "0.5.3",
+  "name": "@penglai/memory-sources",
+  "version": "0.5.5",
   "private": true,
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
-    },
-    "./client": {
-      "types": "./src/client.ts",
-      "default": "./dist/client.js"
-    }
-  },
-  "dsh": {
-    "client": {
-      "inject": [
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings"
-      ],
-      "platform": "web"
     }
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.1",
-    "@deepseek-ai/dsh-tools": "0.1.1-rc.1",
-    "@deepseek-ai/dsh-agent": "0.1.1-rc.1",
-    "@deepseek-ai/dsh-workspace": "0.1.1-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-agent": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-workspace": "0.1.1-rc.2",
     "@penglai/contracts": "workspace:*"
   }
 }

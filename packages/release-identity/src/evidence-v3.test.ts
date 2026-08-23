@@ -97,7 +97,7 @@ test("evaluateEvidenceV3 stays blocked while Hard IDs are NOT_RUN", () => {
 test("R50-SEC/VOICE evidence recompute stays honest and scans voice/context surfaces", () => {
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const registry = parseAcceptanceRegistry(md);
-  assert.equal(registry.length, [...md.matchAll(/\| `(R50-[A-Z0-9-]+)`/g)].length);
+  assert.equal(registry.length, [...md.matchAll(/\| `(R5[05]-[A-Z0-9-]+)`/g)].length);
   assert.ok(registry.some((e) => e.id.startsWith("R50-VOICE-")));
   const scanner = readFileSync(join(root, "packages/runtime/src/scanner.ts"), "utf8");
   assert.match(scanner, /transcript body/);

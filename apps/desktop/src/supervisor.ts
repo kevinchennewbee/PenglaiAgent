@@ -32,6 +32,8 @@ export class DshSupervisor {
     this.inner = new EmbeddedDshSupervisor(this.layout);
     const extra: NodeJS.ProcessEnv = {};
     if (process.env.PENGLAI_PLUGINS_DIR) extra.PENGLAI_PLUGINS_DIR = process.env.PENGLAI_PLUGINS_DIR;
+    if (process.env.PENGLAI_APP_ROOT) extra.PENGLAI_APP_ROOT = process.env.PENGLAI_APP_ROOT;
+    if (process.env.PENGLAI_MNEMON_BINARY) extra.PENGLAI_MNEMON_BINARY = process.env.PENGLAI_MNEMON_BINARY;
     const out = await this.inner.start(user, extra);
     this.port = out.port;
     this.state = this.inner.state === "healthy" ? "healthy" : "crashed";

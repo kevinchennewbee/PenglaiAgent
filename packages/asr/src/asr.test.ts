@@ -513,9 +513,17 @@ function toneWav(sampleRate: number, durationMs: number): Buffer {
 test("ASR settings client registers the Penglai page slot and Typert remote", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /settings\.section/);
+  assert.match(client, /conversation\.input\.right/);
+  assert.match(client, /data-penglai-asr-mic/);
   assert.match(client, /data-penglai-asr/);
   assert.match(client, /penglaiAsr/);
   assert.match(client, /testTranscribe/);
+  assert.match(client, /getUserMedia/);
+  assert.match(client, /MediaRecorder/);
+  assert.match(client, /setDraft/);
+  assert.match(client, /decodeAudioData/);
+  assert.match(client, /encodePcm16Wav/);
+  assert.match(client, /audio\/webm/);
   assert.doesNotMatch(client, /fetch\("\/penglai\/asr"/);
   const remote = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
   assert.match(remote, /TypertRemoteService/);

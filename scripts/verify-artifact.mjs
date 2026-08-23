@@ -2,21 +2,20 @@ import { execFileSync } from "node:child_process";
 
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
-import { ROOT, gitState } from "./lib/repo.mjs";
+import { ROOT } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 
 const expectedTarget = parseTargetArg();
-const git = gitState();
-if (git.branch !== "main" || git.head !== git.originMain || git.dirty) {
+const source = requireCleanCandidateSource();
+if (!source.ok) {
   finish("STALE", {
     command: "verify:artifact",
-    reason: "candidate source must be clean main at origin/main",
-    branch: git.branch,
-    head: git.head,
-    originMain: git.originMain,
-    dirty: git.dirty,
+    reason: source.reason,
+    ...source.git,
   });
 }
+const git = source.git;
 
 const blocked = nativeBlocked("verify:artifact", expectedTarget);
 const app = packagedAppForTarget(ROOT, expectedTarget);

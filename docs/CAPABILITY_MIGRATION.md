@@ -15,8 +15,7 @@
 | 飞书私聊文本+语音 | BUILD | IM adapter + ASR/TTS services | app向导/SDK WS/audio收发 | conformance/live |
 | SenseVoice ASR | BUILD | `@penglai/asr` DSH plugin | mic/attachment/IM、本地模型管理 | native engine+installed/live |
 | MOSS-TTS-Nano | BUILD | `@penglai/moss-tts` DSH plugin | DSH朗读/voices/IM、本地模型管理 | native engine+installed/live |
-| 个人上下文/来源卡 | BUILD | `@penglai/context` DSH plugin | 授权目录、FTS5、检索/深读、current/stale/revoked来源 | scope/index/citation/installed/live |
-| global/Workspace记忆 | BUILD | `@penglai/memory` DSH plugin | L1、候选蒸馏、Owner确认、official Skill沉淀 | anti-pollution/consent/delete |
+| 蓬莱记忆 | BUILD | `@penglai/memory` DSH plugin | 授权目录、FTS5、来源卡、global/Workspace/candidate隔离、图谱、纠错/遗忘、Owner确认与official Skill沉淀；旧`@penglai/context`仅迁移 | scope/index/citation/anti-pollution/installed/live |
 | 用量/预算 | BUILD | `@penglai/budget` DSH plugin | official TokenMeter ledger/warn/block/lift | concurrency/clock/desktop+IM |
 | 主动陪伴 | BUILD | `@penglai/companion` DSH plugin | official Schedule/Turn、quiet hours、text/voice IM | opt-in/no-tools/dedupe/live |
 | Goal/Todo/Skills/MCP/Web/Attachments/Schedule/TokenMeter | REUSE | official DSH | installed parity与Penglai帮助/IM命令组合 | Apple Silicon parity，无duplicate runtime |

@@ -1,8 +1,8 @@
-# Penglai 0.5.3 三端公开版验收合同
+# Penglai 0.5.5 三端公开版验收合同
 
 ## 1. 判定对象与结论
 
-唯一验收对象是一个 exact private `Penglai 0.5.3` release set：同一 clean private source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices、三个目标各自的 native installed/soak evidence 和集中真实 live evidence。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。
+唯一验收对象是一个 exact `Penglai 0.5.5` release set：同一 clean source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices。本轮本地开发不创建 GitHub tag/Release；三端 native installed/soak 由后续 Codex 验收补齐。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。
 
 允许结论：
 
@@ -14,12 +14,12 @@
 
 ## 2. Evidence 规则
 
-以下每一行都是 Hard。registry由本文机器动态解析；0.5.3 将 Intel Mac 与 Windows x64 纳入正式发行，预期共 **256** 个唯一`R50-*` ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
+以下每一行都是 Hard。registry由本文机器动态解析；0.5.5 保留仍适用的 R50 门并新增 R55 产品门，预期共 **330** 个唯一 Hard ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
 
 平台标记：
 
 - `all`：平台类门禁展开为全部三个目标；非平台类门禁只执行一次源码/聚合检查。
-- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.3 PASS。
+- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.5 PASS。
 - `live`：真实账户最后集中执行。
 - `aggregate`：release-set/public-export聚合。
 
@@ -29,14 +29,14 @@
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.3 | contract/all |
+| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为0.5.5 | contract/all |
 | `R50-TRUTH-002` | candidateKind、trustTier、generation、三个target与三个exact filename一致 | contract/all |
 | `R50-TRUTH-003` | 旧alpha artifact/evidence/READY全部STALE并被verifier拒绝 | failure/all |
 | `R50-TRUTH-004` | UNFROZEN identity不得携带artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | private工作流只有main，无branch/worktree/PR/tag，push为fast-forward | git/aggregate |
 | `R50-TRUTH-006` | candidate freeze时HEAD=origin/main且dirty=false | git/aggregate |
 | `R50-TRUTH-007` | 任一子门FAIL/INCOMPLETE/STALE都使verify:release non-zero | fault/all |
-| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.3`，且发布前updater channel保持未发布 | manifest/aggregate |
+| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.5`，且发布前updater channel保持未发布 | manifest/aggregate |
 
 ### B. DSH唯一核心与 capability parity（8）
 
@@ -61,7 +61,7 @@
 | `R50-UI-004` |light/dark/system三态覆盖全部Penglai UI | visual/all |
 | `R50-UI-005` |system主题运行时变化即时响应并持久 | installed/all |
 | `R50-UI-006` |品牌overlay不阻断DSH导航、Models、Workspace、Session、设置 | parity/all |
-| `R50-UI-007` |About显示0.5.3、DSH/target/trust/data/license准确 | installed/all |
+| `R50-UI-007` |About显示0.5.5、DSH/target/trust/data/license准确 | installed/all |
 | `R50-UI-008` |UI/README不出现已公证、Authenticode或silent auto-update误述 | content/aggregate |
 
 ### D. 首次引导、多API、Workspace与Turn（12）
@@ -106,7 +106,7 @@
 | `R50-CENTER-006` |desired不能冒充installed/active | fault/all |
 | `R50-CENTER-007` |tampered/incompatible/wrong-arch package在commit前拒绝 | security/all |
 | `R50-CENTER-008` |事务任一点crash后恢复单一一致或rollback | chaos/all |
-| `R50-CENTER-009` |fresh只运行Center；IM及六个能力插件均not-installed/absent，用户安装IM后才由真实loader+supervisor反证active | installed/all |
+| `R50-CENTER-009` |fresh 运行 Center + Office + Memory（required-builtin inventory `active`）；IM/ASR/MOSS-TTS/Companion 默认 disabled；用户启用后由真实 loader inventory 反证 active | installed/all |
 | `R50-CENTER-010` |disable/uninstall后无plugin worker/socket/timer/Remote/DB handle | installed/all |
 
 ### G. IM core、Remote、UI、持久化与supervisor（12）
@@ -235,7 +235,7 @@
 | `R50-UPD-009` |新版本 post-verify 只要求核心 runtime/profile/required-plugin/DSH 健康；IM 等可选插件保持默认停用也必须 commit。失败则 rollback/recovery；只有真实安装了更高版本才可把旧 `RECOVERY_REQUIRED` 账本纠正为 current，且不得伪造签名升级 ledger | chaos+installed/all |
 | `R50-UPD-010` |每个update state crash可重放，inbox/outbox不丢不双发 | chaos/all |
 | `R50-UPD-011` |fixture key/server/test payload不进入production artifact | artifact/all |
-| `R50-UPD-012` |三个native target的0.5.3→test-next valid/failure suites PASS，且 Apple Silicon 公开版0.5.1→公开版0.5.3实装升级 PASS | installed/all |
+| `R50-UPD-012` |三个native target的0.5.5→test-next valid/failure suites PASS，且 Apple Silicon 公开版0.5.1→公开版0.5.5实装升级 PASS | installed/all |
 
 ### O. 卸载、数据管理与legacy隔离（10）
 
@@ -356,15 +356,15 @@
 | `R50-VOICE-015` |飞书message resource audio→ASR；MOSS→Opus upload→`msg_type=audio`原target | integration+installed/all |
 | `R50-VOICE-016` |download/inference/playback/upload在crash/sleep/update/disable/logout/uninstall后可恢复且资源为零 | chaos+installed/all |
 
-### V. Personal Context 与分层 Memory（16）
+### V. 蓬莱记忆、授权资料与分层 Memory（16）
 
 | ID | Hard assertion | runner/platform |
 | --- | --- | --- |
-| `R50-CTXMEM-001` |`@penglai/context`与`@penglai/memory`均为真实DSH host/client plugins和typed services，无旧Host/第二Agent | architecture+installed/all |
-| `R50-CTXMEM-002` |Context grant只能由用户UI显式选择global/Workspace realpath，拒绝symlink/junction/reparse/敏感根 | security+installed/all |
+| `R50-CTXMEM-001` |`@penglai/memory`是唯一用户与loader可见的记忆插件；授权资料索引、来源卡、分层记忆与图谱均编译进同一host/client包，旧`@penglai/context`只迁移且不进入fresh profile/inventory | architecture+installed/all |
+| `R50-CTXMEM-002` |Memory资料授权只能由用户UI显式选择global/Workspace realpath，拒绝symlink/junction/reparse/敏感根 | security+installed/all |
 | `R50-CTXMEM-003` |本地文本/Markdown/PDF/DOCX/XLSX/PPTX有界提取，不执行宏/外链/active content | integration+security/all |
 | `R50-CTXMEM-004` |SQLite FTS5索引可增量/重建/暂停/恢复，crash/lock/corrupt/disk-full不污染active index | integration+chaos/all |
-| `R50-CTXMEM-005` |Agent只经official DSH typed context.search/read tool取资料，内容明确为不可信context | contract+integration/all |
+| `R50-CTXMEM-005` |Agent只经`@penglai/memory`注册的official DSH typed source search/read tool取资料，内容明确为不可信context | contract+integration/all |
 | `R50-CTXMEM-006` |来源卡由host验证文件/节页sheet/digest/index revision与current/stale/revoked/unavailable | integration+installed/all |
 | `R50-CTXMEM-007` |文件变化/移动/删除后citation状态准确更新，模型声明不能覆盖host事实 | fault+installed/all |
 | `R50-CTXMEM-008` |revoke/delete只移除grant/派生index/cache，原始目录/文件before-after hash不变 | security+installed/all |
@@ -401,6 +401,107 @@
 | `R50-COMP-007` |trigger claim/Turn/outbox/delivery durable，sleep/wake/restart/clock jump不重复，disable/logout资源为零 | chaos+installed/all |
 | `R50-COMP-008` |三个exact installed target完成virtual-clock text/voice/quiet-hours/disable suite，live只留opaque trigger证据 | installed+live/all |
 
+### R55. 0.5.5 产品增量
+
+#### Truth / DSH（8）
+
+| ID | 要求 | Runner |
+| --- | --- | --- |
+| `R55-TRUTH-001` | all product/package/release versions exact 0.5.5 | contract/all |
+| `R55-TRUTH-002` | DSH exact rc.2 commit/integrity/shasum | contract/all |
+| `R55-TRUTH-003` | only three exact target installers | contract/all |
+| `R55-TRUTH-004` | no 0.5.4/0.5.6/tag/release drift | contract/all |
+| `R55-DSH-001` | official Web/Agent/Session/Workspace unchanged | architecture/all |
+| `R55-DSH-002` | official attachment/settings/slot seams used | contract/all |
+| `R55-DSH-003` | no parallel model/provider/chat runtime | architecture/all |
+| `R55-DSH-004` | Office/Memory failure does not block DSH | integration/all |
+
+#### Builtin lifecycle（12）
+
+| ID | 要求 | Runner |
+| --- | --- | --- |
+| `R55-BUILTIN-001` | fresh profile loads Office+Memory | profile/all |
+| `R55-BUILTIN-002` | actual inventory, not desired, drives UI | unit/all |
+| `R55-BUILTIN-003` | baseline repair works offline | unit/all |
+| `R55-BUILTIN-004` | signed overlay priority and identity | unit/all |
+| `R55-BUILTIN-005` | overlay failure returns last-good/baseline | unit/all |
+| `R55-BUILTIN-006` | Office disable preserves documents | unit/all |
+| `R55-BUILTIN-007` | Memory disable preserves data and stops recall | unit/all |
+| `R55-BUILTIN-008` | enable/restart persistence | integration/all |
+| `R55-BUILTIN-009` | delete resource differs from disable | unit/all |
+| `R55-BUILTIN-010` | complete-delete has preview/export/confirm | unit/all |
+| `R55-BUILTIN-011` | no orphan resource after lifecycle operations | unit/all |
+| `R55-BUILTIN-012` | DSH core remains usable in every state | integration/all |
+
+#### Memory（20）
+
+| ID | 要求 | Runner |
+| --- | --- | --- |
+| `R55-MEM-001` | explicit remember writes active personal memory | unit/all |
+| `R55-MEM-002` | candidate inferred memory is not auto-injected | unit/all |
+| `R55-MEM-003` | correction supersedes old active facts | unit/all |
+| `R55-MEM-004` | why() returns source locator | unit/all |
+| `R55-MEM-005` | forget removes indexes and recall | unit/all |
+| `R55-MEM-006` | secrets are refused | unit/all |
+| `R55-MEM-007` | personal store is physically separate | unit/all |
+| `R55-MEM-008` | workspace A facts are absent from workspace B default search | unit/all |
+| `R55-MEM-009` | same basename directories do not collide | unit/all |
+| `R55-MEM-010` | all-projects graph is read-only and not a recall source | unit/all |
+| `R55-MEM-011` | runtime prompt budget is bounded | unit/all |
+| `R55-MEM-012` | engine crash fails open for DSH chat | unit/all |
+| `R55-MEM-013` | AutoPrune is off by default | unit/all |
+| `R55-MEM-014` | read-only is host-enforced | unit/all |
+| `R55-MEM-015` | markdown/json export-import preserves scope | unit/all |
+| `R55-MEM-016` | legacy 0.5.3 memory/context migrates with preview | unit/all |
+| `R55-MEM-017` | 100k-scale query remains bounded | unit/all |
+| `R55-MEM-018` | three native Mnemon binaries are identity-pinned | artifact/all |
+| `R55-MEM-019` | disable then resource-zero | unit/all |
+| `R55-MEM-020` | installed UI shows Penglai Memory | installed/all |
+
+#### Office（24）
+
+| ID | 要求 | Runner |
+| --- | --- | --- |
+| `R55-OFFICE-001` | DOCX inspect | unit/all |
+| `R55-OFFICE-002` | DOCX create | unit/all |
+| `R55-OFFICE-003` | DOCX partial edit | unit/all |
+| `R55-OFFICE-004` | DOCX verify | unit/all |
+| `R55-OFFICE-005` | XLSX inspect | unit/all |
+| `R55-OFFICE-006` | XLSX create | unit/all |
+| `R55-OFFICE-007` | XLSX partial edit | unit/all |
+| `R55-OFFICE-008` | XLSX verify | unit/all |
+| `R55-OFFICE-009` | PPTX inspect | unit/all |
+| `R55-OFFICE-010` | PPTX create | unit/all |
+| `R55-OFFICE-011` | PPTX partial edit | unit/all |
+| `R55-OFFICE-012` | PPTX verify | unit/all |
+| `R55-OFFICE-013` | PDF inspect | unit/all |
+| `R55-OFFICE-014` | PDF create | unit/all |
+| `R55-OFFICE-015` | PDF partial edit | unit/all |
+| `R55-OFFICE-016` | PDF verify | unit/all |
+| `R55-OFFICE-017` | attachment authorization | unit/all |
+| `R55-OFFICE-018` | workspace isolation | unit/all |
+| `R55-OFFICE-019` | TOCTOU reject | unit/all |
+| `R55-OFFICE-020` | malicious documents fail closed | unit/all |
+| `R55-OFFICE-021` | templates and OFL fonts only | unit/all |
+| `R55-OFFICE-022` | preview then owner approval | unit/all |
+| `R55-OFFICE-023` | atomic commit/undo | unit/all |
+| `R55-OFFICE-024` | IM file return path | unit/all |
+
+#### Community（10）
+
+| ID | 要求 | Runner |
+| --- | --- | --- |
+| `R55-COMM-001` | exact provenance lock | contract/all |
+| `R55-COMM-002` | distributable license | contract/all |
+| `R55-COMM-003` | no install scripts | contract/all |
+| `R55-COMM-004` | permission prompt | unit/all |
+| `R55-COMM-005` | network allowlist | unit/all |
+| `R55-COMM-006` | rc.2 dry-load | unit/all |
+| `R55-COMM-007` | actual inventory | unit/all |
+| `R55-COMM-008` | rollback | unit/all |
+| `R55-COMM-009` | uninstall resource-zero | unit/all |
+| `R55-COMM-010` | quarantine exclusion | unit/all |
+
 ## 4. Codex 独立验收动作
 
 实现者写`READY_FOR_CODEX_0_5_1_ACCEPTANCE`后，Codex不相信SELF-CHECK，至少执行：
@@ -430,4 +531,4 @@
 - 任一平台使用cross/translated/emulated结果冒充native，或Release缺少/多出未验收的三端安装包。
 - verifier INCOMPLETE却exit 0、Hard ID硬编码PASS、旧SHA/evidence复用。
 - ad-hoc候选被称为已公证、Developer ID或系统信任。
-- 未经 Owner 明确授权修改开源仓库或发布0.5.3。
+- 未经 Owner 明确授权修改开源仓库或发布0.5.5。

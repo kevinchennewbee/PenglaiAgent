@@ -14,6 +14,20 @@ import {
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi } from "./remote.js";
 
+test("shipped memory remembers, isolates workspaces, and forgets", () => {
+  const svc = createMemoryService();
+  const personal = svc.rememberExplicit({ text: "我叫测试用户" });
+  const a = svc.rememberExplicit({ text: "Penglai only ships 0.5.5", workspaceId: "ws-a" });
+  svc.rememberExplicit({ text: "EVEAI uses four-party version checks", workspaceId: "ws-b" });
+  assert.equal(svc.search("测试用户").some((row) => row.text.includes("测试用户")), true);
+  assert.equal(svc.search("Penglai", "ws-a").some((row) => row.id === a.id), true);
+  assert.equal(svc.search("Penglai", "ws-b").some((row) => row.id === a.id), false);
+  assert.equal(svc.why(personal.id ?? 0).source, "user-explicit");
+  svc.forget(a.id ?? 0, "ws-a");
+  assert.equal(svc.search("Penglai", "ws-a").length, 0);
+  assert.equal(svc.search("测试用户").some((row) => row.id === personal.id), true);
+});
+
 test("Memory isolates Workspace scope and requires Owner confirm for global/SOP", () => {
   const svc = createMemoryService();
   assert.throws(() => assertReadable("workspace", "w1", "w2"), /isolation/);
@@ -81,27 +95,30 @@ test("R50-CTXMEM: global L1 enforces row and byte budgets durably", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_DATA", () => {
+test("R50-CTXMEM: production apply() wires app-private state and fails closed without a bundled Mnemon", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mem-apply-"));
   const previous = process.env.PENGLAI_USER_DATA;
+  const previousBin = process.env.PENGLAI_MNEMON_BINARY;
   process.env.PENGLAI_USER_DATA = dir;
+  delete process.env.PENGLAI_MNEMON_BINARY;
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
+    tools: { register() {} },
     provide() {},
   };
   try {
     const svc = apply(ctx);
-    svc.write({ scope: "workspace", workspaceId: "w1", text: "durable fact" }, "test");
+    assert.equal(svc.engine.degraded, true);
+    assert.equal(svc.engine.degradeReason, "mnemon binary missing");
+    await assert.rejects(() => svc.remember({ text: "durable fact", workspaceId: "w1" }), /mnemon binary missing/);
+    assert.equal(existsSync(join(dir, "memory", "journal.sqlite3")), true);
     svc.close?.();
-    const svc2 = apply(ctx);
-    const rows = svc2.list("workspace", "w1");
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0]?.text, "durable fact");
-    svc2.close?.();
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
+    if (previousBin === undefined) delete process.env.PENGLAI_MNEMON_BINARY;
+    else process.env.PENGLAI_MNEMON_BINARY = previousBin;
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -118,6 +135,7 @@ test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and retur
         snapshot: async () => ({ skills: [{ name: "release-check" }], complete: true }),
       },
       workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
+      tools: { register() {} },
       provide() {},
     });
     const receipt = await svc.promoteSop({
@@ -141,17 +159,35 @@ test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and retur
   }
 });
 
-test("Memory settings enforces layered writes, visible diff, and live Workspace scope", () => {
+test("Memory settings enforces layered writes, visible diff, and live Workspace scope", async () => {
   const svc = createMemoryService();
   const api = createMemorySettingsApi(svc as never, { list: () => [{ id: "w1", title: "Workspace" }] });
-  assert.throws(() => api.write({ scope: "candidate", text: "model candidate" }), /pipeline/);
-  assert.throws(() => api.write({ scope: "global", text: "global" }), /Owner confirm/);
-  assert.equal(api.write({ scope: "global", text: "global", ownerConfirmed: true, visibleDiff: "+ global" }).id, 1);
-  assert.equal(api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" }).id, 2);
-  assert.throws(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
-  assert.equal(api.status({ scope: "workspace", workspaceId: "w1" }).rows.length, 1);
-  assert.throws(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
-  assert.equal(api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: true }).removed, 1);
+  await assert.rejects(() => api.write({ scope: "candidate", text: "model candidate" }), /pipeline/);
+  await assert.rejects(() => api.write({ scope: "global", text: "global" }), /Owner confirm/);
+  const global = await api.write({ scope: "global", text: "global", ownerConfirmed: true, visibleDiff: "+ global" });
+  assert.equal(global.id, 1);
+  const workspace = await api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" });
+  assert.equal(workspace.id, 2);
+  await assert.rejects(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
+  await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
+});
+
+test("Memory exposes authorized sources through its one settings Remote", () => {
+  const calls: string[] = [];
+  const sources = {
+    status() { calls.push("status"); return { grants: [], workspaces: [] }; },
+    ingestCapability() { calls.push("ingest"); return { indexed: 1 }; },
+    reindex() { calls.push("reindex"); return { indexed: 1 }; },
+    revoke() { calls.push("revoke"); return { sourceUntouched: true }; },
+    search() { calls.push("search"); return []; },
+  };
+  const api = createMemorySettingsApi(createMemoryService() as never, { list: () => [{ id: "w1", title: "Workspace" }] }, sources);
+  assert.deepEqual(api.sourcesStatus(), { grants: [], workspaces: [] });
+  assert.deepEqual(api.sourcesIngestCapability({ capabilityRef: "opaque", scope: "global" }), { indexed: 1 });
+  assert.deepEqual(api.sourcesReindex({ root: "/authorized" }), { indexed: 1 });
+  assert.deepEqual(api.sourcesRevoke({ root: "/authorized", ownerConfirmed: true }), { sourceUntouched: true });
+  assert.deepEqual(api.sourcesSearch({ query: "hello" }), []);
+  assert.deepEqual(calls, ["status", "ingest", "reindex", "revoke", "search"]);
 });
 
 test("Memory client registers the official settings slot without a second skill store", async () => {
@@ -159,7 +195,13 @@ test("Memory client registers the official settings slot without a second skill 
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(source, /settings\.section/);
   assert.match(source, /data-penglai-memory/);
+  assert.match(source, /data-penglai-memory-sources/);
+  assert.match(source, /embedded: true/);
+  assert.match(source, /记忆来源/);
   assert.match(source, /penglaiMemorySettings/);
+  assert.match(source, /sourcesStatus/);
+  assert.doesNotMatch(source, /penglaiMemorySourcesSettings/);
+  assert.doesNotMatch(source, /@penglai\/context|个人上下文|Personal Context/);
   assert.match(source, /official-dsh-skills/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });
