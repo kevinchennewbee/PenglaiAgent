@@ -1,13 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  closeSync,
-  constants,
   chmodSync,
   existsSync,
-  fstatSync,
   lstatSync,
   mkdirSync,
-  openSync,
   readFileSync,
   readlinkSync,
   renameSync,
@@ -64,24 +60,13 @@ export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace
 function readRegularFileNoFollow(path: string): Buffer | undefined;
 function readRegularFileNoFollow(path: string, encoding: "utf8"): string | undefined;
 function readRegularFileNoFollow(path: string, encoding?: "utf8"): Buffer | string | undefined {
-  let fd: number;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const bytes = readExactRegularFile(path);
+    return encoding === "utf8" ? bytes.toString("utf8") : bytes;
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") return undefined;
-    if (code === "ELOOP") {
-      throw new PenglaiError("SECURITY_POLICY", `runtime refuses a symlink source: ${path}`);
-    }
     throw error;
-  }
-  try {
-    if (!fstatSync(fd).isFile()) {
-      throw new PenglaiError("SECURITY_POLICY", `runtime source is not a regular file: ${path}`);
-    }
-    return encoding === "utf8" ? readFileSync(fd, "utf8") : readFileSync(fd);
-  } finally {
-    closeSync(fd);
   }
 }
 

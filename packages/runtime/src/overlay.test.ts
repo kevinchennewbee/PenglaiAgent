@@ -7,7 +7,6 @@ import {
   writeFileSync,
   readFileSync,
   cpSync,
-  readdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -51,16 +50,10 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     ),
     join(dir, heroRel),
   );
-  const settingsPackage = readdirSync(join(root, "node_modules/.pnpm")).find((name) =>
-    name.startsWith("@deepseek-ai+dsh-client-ui-settings-general@0.1.1-rc.2"),
-  );
-  assert.ok(settingsPackage);
   cpSync(
     join(
       root,
-      "node_modules/.pnpm",
-      settingsPackage,
-      "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "overlays/dsh-0.1.1-rc.2/upstream/dsh-client-ui-settings-general.client.js",
     ),
     join(dir, settingsRel),
   );

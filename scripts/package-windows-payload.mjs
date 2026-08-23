@@ -116,6 +116,9 @@ cpSync(join(ROOT, "dist", "desktop-bundle"), join(resources, "app"), { recursive
 cpSync(join(staging, "runtime"), join(resources, "runtime"), { recursive: true });
 cpSync(join(staging, "profile-seed"), join(resources, "profile-seed"), { recursive: true });
 cpSync(join(staging, "plugins"), join(resources, "plugins"), { recursive: true });
+if (existsSync(join(staging, "mnemon"))) {
+  cpSync(join(staging, "mnemon"), join(resources, "mnemon"), { recursive: true });
+}
 for (const name of ["runtime-manifest.json", "release-contract.json", ".closure-complete"]) {
   const src = join(staging, name);
   if (existsSync(src)) cpSync(src, join(resources, name === ".closure-complete" ? "closure-credential.json" : name));
@@ -154,6 +157,9 @@ if (native) {
 }
 if (native && !existsSync(join(resources, "runtime", "helpers", "penglai-windows-host.exe"))) {
   finish("FAIL", { command: "package:windows-payload", reason: "payload is missing the compiled Windows helper" });
+}
+if (native && (!existsSync(join(resources, "mnemon", "mnemon.exe")) || !existsSync(join(resources, "mnemon", "LICENSE")))) {
+  finish("FAIL", { command: "package:windows-payload", reason: "payload is missing the pinned Mnemon binary or license" });
 }
 
 const arch = spawnSync(process.execPath, ["scripts/verify-native-arch.mjs", payload, "win32-x86_64"], {
