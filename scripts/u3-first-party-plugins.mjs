@@ -24,15 +24,16 @@ import {
   parseTargetArg,
 } from "./lib/release-targets.mjs";
 
+const REQUIRED_BUILTIN = ["@penglai/office", "@penglai/memory"];
 const OPTIONAL_PLUGINS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
   "@penglai/context",
-  "@penglai/memory",
   "@penglai/budget",
   "@penglai/companion",
 ];
+const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...OPTIONAL_PLUGINS];
 
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
@@ -104,7 +105,7 @@ mkdirSync(userData, { recursive: true });
 
 function pluginRows(snapshot) {
   const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];
-  return OPTIONAL_PLUGINS.map((id) => {
+  return TRACKED_PLUGINS.map((id) => {
     const hit = entries.find((row) => row?.moduleName === id);
     return {
       id,
@@ -115,9 +116,21 @@ function pluginRows(snapshot) {
   });
 }
 
-function rowsMatch(snapshot, enabled) {
-  return pluginRows(snapshot).every(
-    (row) => row.present && row.enabled === enabled && (enabled ? row.phase === "active" : row.phase === null),
+function requiredRowOk(row) {
+  return Boolean(row?.present && row.enabled && row.phase === "active");
+}
+
+function optionalRowOk(row, enabled) {
+  if (!row?.present) return false;
+  if (enabled) return row.enabled === true && row.phase === "active";
+  return row.enabled !== true && row.phase === null;
+}
+
+function rowsMatch(snapshot, optionalEnabled) {
+  const rows = pluginRows(snapshot);
+  return (
+    REQUIRED_BUILTIN.every((id) => requiredRowOk(rows.find((row) => row.id === id))) &&
+    OPTIONAL_PLUGINS.every((id) => optionalRowOk(rows.find((row) => row.id === id), optionalEnabled))
   );
 }
 
@@ -138,19 +151,24 @@ async function waitInventory(enabled, notBefore, timeoutMs = 90_000) {
   return last;
 }
 
-function setProfileEnabled(enabled) {
+function setOptionalEnabled(enabled) {
   let text = readFileSync(profilePatch, "utf8");
   for (const id of OPTIONAL_PLUGINS) {
     const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(`(^\\s+name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+)(true|false)`, "m");
-    if (!pattern.test(text)) throw new Error(`installed profile is missing ${id}`);
+    if (!pattern.test(text)) throw new Error(`installed profile is missing optional ${id}`);
     text = text.replace(pattern, `$1${enabled ? "false" : "true"}`);
+  }
+  for (const id of REQUIRED_BUILTIN) {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const disabled = new RegExp(`name:\\s+["']?${escaped}["']?\\s*\\r?\\n\\s+disabled:\\s+true`, "m");
+    if (disabled.test(text)) throw new Error(`required-builtin ${id} must stay enabled`);
   }
   writeFileSync(profilePatch, text, { mode: 0o600 });
 }
 
 function installedPackages() {
-  return OPTIONAL_PLUGINS.map((id) => {
+  return TRACKED_PLUGINS.map((id) => {
     const file = join(packageRoot, id.split("/")[1], "package.json");
     try {
       const value = JSON.parse(readFileSync(file, "utf8"));
@@ -165,6 +183,21 @@ function installedPackages() {
       }
       throw error;
     }
+  });
+}
+
+function requiredPackagesOk(packages) {
+  return REQUIRED_BUILTIN.every((id) => {
+    const pkg = packages.find((row) => row.id === id);
+    return pkg?.present && pkg.version === "0.5.5";
+  });
+}
+
+function optionalPackagesOk(packages, enabled) {
+  if (!enabled) return true;
+  return OPTIONAL_PLUGINS.every((id) => {
+    const pkg = packages.find((row) => row.id === id);
+    return pkg?.present && pkg.version === "0.5.5";
   });
 }
 
@@ -218,10 +251,10 @@ async function runPhase(name, expectedEnabled) {
 let phases = [];
 try {
   phases.push(await runPhase("fresh-default-disabled", false));
-  setProfileEnabled(true);
+  setOptionalEnabled(true);
   phases.push(await runPhase("all-enabled", true));
   phases.push(await runPhase("all-enabled-after-restart", true));
-  setProfileEnabled(false);
+  setOptionalEnabled(false);
   phases.push(await runPhase("all-disabled-after-restart", false));
 } catch (error) {
   const rec = {
@@ -252,11 +285,14 @@ const commonOk = phases.every(
 );
 const activeOk = activePhases.every(
   (phase) =>
-    phase.rows.every((row) => row.present && row.enabled && row.phase === "active") &&
-    phase.packages.every((pkg) => pkg.present && pkg.version === "0.5.5"),
+    rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, true) &&
+    requiredPackagesOk(phase.packages) &&
+    optionalPackagesOk(phase.packages, true),
 );
-const disabledOk = disabledPhases.every((phase) =>
-  phase.rows.every((row) => row.present && !row.enabled && row.phase === null),
+const disabledOk = disabledPhases.every(
+  (phase) =>
+    rowsMatch({ entries: phase.rows.map((row) => ({ moduleName: row.id, enabled: row.enabled, fiberPhase: row.phase })) }, false) &&
+    requiredPackagesOk(phase.packages),
 );
 const ok = commonOk && activeOk && disabledOk;
 const rec = {
@@ -267,9 +303,11 @@ const rec = {
   sourceSha: packaged.release.sourceSha,
   target,
   dsh: packaged.release.dsh,
-  plugins: OPTIONAL_PLUGINS,
+  plugins: TRACKED_PLUGINS,
+  requiredBuiltin: REQUIRED_BUILTIN,
+  optionalPlugins: OPTIONAL_PLUGINS,
   method:
-    "exact installed profile behind the pre-DSH wizard; official DSH HTTP/WebSocket and loader inventory; enable all; restart; disable all; restart",
+    "exact installed profile behind the pre-DSH wizard; official DSH HTTP/WebSocket and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
   phases,
 };
 writeRec(rec);
