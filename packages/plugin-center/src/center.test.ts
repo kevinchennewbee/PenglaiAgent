@@ -23,6 +23,7 @@ import {
 } from "./index.js";
 import { contribute } from "./client.js";
 import { type PluginCatalogEntry } from "@penglai/runtime";
+import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
 
 const TEST_CATALOG: PluginCatalogEntry[] = R2_CATALOG.map((entry) => ({
   ...entry,
@@ -527,7 +528,6 @@ test("R50-UPD-006/R50-UN-001 settings client registers update and uninstall cate
 });
 
 test("R50-CENTER-004/007 first enable installs verified package and rejects a bad update", async () => {
-  const { execFileSync } = await import("node:child_process");
   const { createHash } = await import("node:crypto");
   const { runProfileTransaction } = await import("./profile-tx.js");
   const root = mkdtempSync(join(tmpdir(), "penglai-center-tx-"));
@@ -573,7 +573,7 @@ test("R50-CENTER-004/007 first enable installs verified package and rejects a ba
     }),
   );
   const tgz = join(plugins, metadata.packageFile);
-  execFileSync("tar", ["-czf", tgz, "-C", pkgDir, "."]);
+  writeTestTarGz(pkgDir, tgz);
   const sha = createHash("sha256").update(readFileSync(tgz)).digest("hex");
   const entry: PluginCatalogEntry = {
     ...metadata,

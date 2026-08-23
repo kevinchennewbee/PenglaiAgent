@@ -265,7 +265,7 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   const preview = previewDeletionPlan(plan, root, [], [], { ...POSIX_INSPECTION, dataLayout });
   assert.equal(preview.targets.length, plan.paths.length);
   assert.equal(preview.targets.every((target) => target.category.length > 0), true);
-  const inventory = inspectStorageInventory(dataLayout, [], []);
+  const inventory = inspectStorageInventory(dataLayout, [], [], { ...POSIX_INSPECTION, dataLayout });
   assert.equal(inventory.categories.length, 13);
   assert.equal(inventory.categories.every((category) => category.deletable), true);
 

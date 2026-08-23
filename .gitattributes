@@ -6,3 +6,9 @@ packages/moss-tts/third_party/*.txt text eol=lf
 packages/moss-tts/third_party/*.md text eol=lf
 packages/moss-tts/src/third_party/moss_tts/LICENSE text eol=lf
 packages/moss-tts/src/third_party/moss_tts/runtime.mjs text eol=lf
+
+# Overlay hashes are release inputs. Keep source text byte-identical on
+# Windows instead of letting core.autocrlf invalidate the pinned manifest.
+overlays/dsh-0.1.1-rc.2/**/*.js text eol=lf
+overlays/dsh-0.1.1-rc.2/**/*.html text eol=lf
+overlays/dsh-0.1.1-rc.2/**/*.json text eol=lf

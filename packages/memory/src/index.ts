@@ -107,6 +107,7 @@ async function waitForOfficialSkill(
 export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
+  onClose?: () => void;
 }) {
   const engine = new MnemonMemoryService(opts.userData, {
     ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
@@ -188,7 +189,11 @@ export function createDurableMemoryService(opts: {
     close() {
       if (closed) return;
       closed = true;
-      engine.close();
+      try {
+        engine.close();
+      } finally {
+        opts.onClose?.();
+      }
     },
     resourceSnapshot() {
       return {
@@ -213,7 +218,11 @@ export function apply(ctx: CordisContextLike) {
   const sources = applyEmbeddedMemorySources(ctx);
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
-    service = createDurableMemoryService({ userData, skills: ctx.skills });
+    service = createDurableMemoryService({
+      userData,
+      skills: ctx.skills,
+      onClose: () => sources.close(),
+    });
     const activeService = service;
     registerMemoryTools(ctx, activeService.engine);
     ctx.provide("penglaiMemory", activeService);
@@ -223,8 +232,8 @@ export function apply(ctx: CordisContextLike) {
     }
     ctx.effect?.(() => () => activeService.close?.());
   } catch (error) {
-    service?.close();
-    sources.close();
+    if (service) service.close();
+    else sources.close();
     throw error;
   }
   return service;

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,13 +9,14 @@ import {
   assertProductionBundleClean,
   scanBundleBytes,
 } from "./scanner.js";
+import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
 
 test("unpacking scanner fails when a packed tar contains loopback/probe/shortcut/alpha fixture", () => {
   const stage = mkdtempSync(join(tmpdir(), "penglai-scan-dirty-"));
   writeFileSync(join(stage, "index.js"), "export const provider = 'penglai-loopback';\nexport function proveCausalRoute() {}\n");
   writeFileSync(join(stage, "probe.js"), "process.env.PENGLAI_INSTALLED_PROBE\n");
   const tar = join(mkdtempSync(join(tmpdir(), "penglai-scan-tar-")), "plugin.tgz");
-  execFileSync("tar", ["-czf", tar, "-C", stage, "."]);
+  writeTestTarGz(stage, tar);
   assert.throws(() => assertPackedArtifactClean(tar), /penglai-loopback|installed-probe|proveCausalRoute/);
 });
 
@@ -24,7 +24,7 @@ test("unpacking scanner accepts a clean packed tar", () => {
   const stage = mkdtempSync(join(tmpdir(), "penglai-scan-clean-"));
   writeFileSync(join(stage, "index.js"), "export const name = '@penglai/im';\n");
   const tar = join(mkdtempSync(join(tmpdir(), "penglai-scan-clean-tar-")), "plugin.tgz");
-  execFileSync("tar", ["-czf", tar, "-C", stage, "."]);
+  writeTestTarGz(stage, tar);
   assert.doesNotThrow(() => assertPackedArtifactClean(tar));
 });
 
