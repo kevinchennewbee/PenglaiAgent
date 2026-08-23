@@ -65,6 +65,14 @@ LangString DESC_Desktop ${LANG_SIMPCHINESE} "在桌面创建蓬莱快捷方式�
 LangString DESC_Desktop ${LANG_ENGLISH} "Create a Penglai shortcut on the desktop."
 
 Function .onInit
+  ; Native release automation can force one of the two shipped languages with
+  ; /LANG=2052 or /LANG=1033. This is also useful to support teams that run an
+  ; English Windows display language but want the Chinese Penglai installer.
+  ${GetParameters} $R9
+  ${GetOptions} "$R9" "/LANG=" $R8
+  ${If} $R8 != ""
+    StrCpy $LANGUAGE $R8
+  ${EndIf}
   ${IfNot} ${RunningX64}
     MessageBox MB_ICONSTOP "Penglai ${PENGLAI_VERSION} requires 64-bit Windows."
     Abort

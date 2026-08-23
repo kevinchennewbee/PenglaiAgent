@@ -195,6 +195,7 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.doesNotMatch(script, /\$\{If\}\s+\$0\s+S>\s*"\$\{PENGLAI_VERSION\}"/);
   assert.match(script, /Section\s+\/o\s+"\$\(NAME_Desktop\)"/);
   assert.match(script, /LangString\s+NAME_Desktop\s+\$\{LANG_SIMPCHINESE\}\s+"桌面快捷方式"/);
+  assert.match(script, /\$\{GetOptions\}\s+"\$R9"\s+"\/LANG="/);
   assert.match(script, /CreateShortCut\s+"\$DESKTOP\\Penglai\.lnk"/);
   assert.match(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
   // The recursive app-tree delete must be guarded to the default install dir.
@@ -203,7 +204,12 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.equal(contract.posixModeImpersonation, false);
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
   const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
+  const uiProof = readFileSync(new URL("../../../scripts/windows-installer-ui-proof.ps1", import.meta.url), "utf8");
   assert.match(packager, /\/INPUTCHARSET=UTF8/);
+  assert.match(uiProof, /'\/LANG=2052'/);
+  assert.match(uiProof, /桌面快捷方式/);
+  assert.match(uiProof, /windows-installer-components-zh\.png/);
+  assert.match(uiProof, /UIAutomationClient/);
   assert.match(payload, /public-export\.json/);
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);
