@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const MemorySourcesModule = require("@penglai/memory-sources");
+    const MemorySourcesModule = createPenglaiMemorySourcesClient(require);
     const inject = ["remote"];
     function strictJson(value, depth = 0, seen = new Set()) {
       if (

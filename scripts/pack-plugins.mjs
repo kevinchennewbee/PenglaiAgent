@@ -923,9 +923,20 @@ for (const p of packs) {
         console.error("missing Penglai Memory sources client", sourcesClient);
         process.exit(1);
       }
+      const combinedClient =
+        `${readFileSync(sourcesClient, "utf8").trimEnd()}\n${readFileSync(clientSrc, "utf8").trimStart()}`;
+      const moduleRegistrations = combinedClient.match(/__ModuleLoader__\.load/g)?.length ?? 0;
+      if (
+        moduleRegistrations !== 1 ||
+        !combinedClient.includes("function createPenglaiMemorySourcesClient(require)") ||
+        combinedClient.includes('id: "@penglai/memory-sources"')
+      ) {
+        console.error("Penglai Memory client must register one loader-visible DSH module");
+        process.exit(1);
+      }
       writeFileSync(
         join(stage, "dist/client.js"),
-        `${readFileSync(sourcesClient, "utf8").trimEnd()}\n${readFileSync(clientSrc, "utf8").trimStart()}`,
+        combinedClient,
       );
     } else {
       cpSync(clientSrc, join(stage, "dist/client.js"));

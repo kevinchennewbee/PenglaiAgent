@@ -1,6 +1,4 @@
-window.__ModuleLoader__.load({
-  id: "@penglai/memory-sources",
-  factory: (require) => {
+function createPenglaiMemorySourcesClient(require) {
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
@@ -473,5 +471,4 @@ window.__ModuleLoader__.load({
     }
     module.exports = { apply, inject, ContextTab };
     return module.exports;
-  },
-});
+}

@@ -166,11 +166,13 @@ test("Memory sources client mounts one internal remote without a standalone sett
   assert.match(source, /data-penglai-memory-sources-panel/);
   assert.match(source, /penglaiMemorySourcesSettings/);
   assert.match(source, /pickContextFolder/);
+  assert.match(source, /function createPenglaiMemorySourcesClient\(require\)/);
+  assert.doesNotMatch(source, /__ModuleLoader__\.load/);
   assert.match(source, /module\.exports = \{ apply, inject, ContextTab \}/);
   assert.doesNotMatch(source, /slots\.register/);
   assert.doesNotMatch(source, /个人上下文|Personal Context/);
   const memory = readFileSync(new URL("../../memory/src/dsh-client.js", import.meta.url), "utf8");
-  assert.match(memory, /require\("@penglai\/memory-sources"\)/);
+  assert.match(memory, /createPenglaiMemorySourcesClient\(require\)/);
   assert.match(memory, /MemorySourcesModule\.ContextTab/);
   assert.match(memory, /remote\.penglaiMemorySourcesSettings/);
   assert.doesNotMatch(source, /type: "text"[^\n]+requestedPath/);

@@ -169,5 +169,12 @@ test("R55-MEM-019 disable then resource-zero", async () => {
 
 test("R55-MEM-020 installed UI shows Penglai Memory", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  const sources = readFileSync(new URL("../../context/src/dsh-client.js", import.meta.url), "utf8");
+  const packed = `${sources.trimEnd()}\n${client.trimStart()}`;
   assert.match(client, /data-penglai-memory/);
+  assert.match(client, /createPenglaiMemorySourcesClient\(require\)/);
+  assert.equal(client.includes("@penglai/memory-sources"), false);
+  assert.equal((packed.match(/__ModuleLoader__\.load/g) ?? []).length, 1);
+  assert.doesNotMatch(packed, /id: "@penglai\/memory-sources"/);
+  assert.doesNotThrow(() => new Function(packed));
 });
