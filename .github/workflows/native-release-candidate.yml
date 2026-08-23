@@ -2,17 +2,27 @@ name: Native 0.5.5 release candidate
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build native clients first; verify the live catalog only after its release exists
+        required: true
+        default: native
+        type: choice
+        options:
+          - native
+          - catalog
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.5-${{ github.ref }}
+  group: native-0.5.5-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   plugin-distribution:
     name: Signed Plugin Center distribution
+    if: ${{ inputs.mode == 'catalog' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -34,6 +44,7 @@ jobs:
 
   macos:
     name: macOS ${{ matrix.target }}
+    if: ${{ inputs.mode == 'native' }}
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +118,7 @@ jobs:
 
   windows:
     name: Windows win32-x86_64
+    if: ${{ inputs.mode == 'native' }}
     runs-on: windows-2022
     timeout-minutes: 90
     steps:

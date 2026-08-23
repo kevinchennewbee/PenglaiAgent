@@ -121,11 +121,17 @@ test("live installed evidence captures public screenshots only after model selec
 test("native release workflow proves bundled optional plugins across restart", () => {
   const workflow = readFileSync(join(root, ".github/workflows/native-release-candidate.yml"), "utf8");
   const compat = readFileSync(join(root, "scripts/u3-first-party-plugins.mjs"), "utf8");
+  assert.match(workflow, /mode:\s*\n\s+description:/);
+  assert.match(workflow, /default: native/);
+  assert.match(workflow, /inputs\.mode == 'native'/g);
+  assert.match(workflow, /inputs\.mode == 'catalog'/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);
   assert.match(compat, /inspectPackagedCandidate/);
   assert.match(compat, /all-enabled-after-restart/);
+  assert.match(compat, /optionalSettingsReady/);
+  assert.match(compat, /requireOptionalPlugins: name === "all-enabled-after-restart"/);
   assert.match(compat, /all-disabled-after-restart/);
   assert.match(compat, /fiberPhase/);
   assert.match(compat, /official\.websocket/);

@@ -45,7 +45,9 @@ its final PASS evidence.
 ## 4. Open the pull request and build all native targets
 
 Push only the candidate branch, open one PR to `main`, and require repository CI.
-Dispatch `native-release-candidate.yml` for the exact PR SHA. The workflow must:
+Dispatch `native-release-candidate.yml` with `mode=native` for the exact PR SHA.
+Do not run `mode=catalog` until the signed plugin-catalog Release exists. The
+native workflow must:
 
 - build and install `darwin-aarch64`, `darwin-x86_64`, and `win32-x86_64`;
 - run the keyless onboarding dead-end walk on all three targets;
