@@ -10,11 +10,28 @@ import { atomicCommitFile, assertTrustedWorkspacePath } from "./transaction.js";
 import { PENGLAI_CJK_FONT_LICENSE, PENGLAI_CJK_FONT_SHA256, loadPenglaiCjkFont } from "./cjk-font.js";
 
 function registered(names: string[]) {
-  const tools = new Map<string, { execute: (args: unknown, exec?: unknown) => Promise<unknown> }>();
+  const tools = new Map<
+    string,
+    {
+      execute: (args: unknown, exec?: unknown) => Promise<unknown>;
+      output?: { schema?: unknown; render?: unknown };
+    }
+  >();
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-ws-"));
   const ctx = {
     tools: {
-      register(def: { name: string; execute: (args: unknown, exec?: unknown) => Promise<unknown> }) {
+      register(def: {
+        name: string;
+        execute: (args: unknown, exec?: unknown) => Promise<unknown>;
+        output?: { schema?: unknown; render?: unknown };
+      }) {
+        if (
+          def.output === undefined ||
+          typeof def.output !== "object" ||
+          typeof def.output.render !== "function"
+        ) {
+          throw new TypeError(`tool "${def.name}" must declare output { schema, render, presentationMeta? }`);
+        }
         tools.set(def.name, def);
         names.push(def.name);
       },
