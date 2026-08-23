@@ -536,6 +536,34 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   steps.push({ id: "official-dom", snap: slim(official.snap), http: official.http, websocket: official.websocket });
   await shot("official-dom");
 
+  let welcomeClicked = false;
+  const welcomeVisible = official.snap?.buttons?.some(
+    (button) => button.visible && /^(开始使用|Get started)$/.test(button.text),
+  );
+  if (welcomeVisible) {
+    const click = await evaluate(
+      session,
+      clickButtonText(["^开始使用$", "^Get started$"]),
+    );
+    const after = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      (snapshot) =>
+        Boolean(
+          snapshot?.hasDshBoot &&
+            snapshot?.hasRoot &&
+            !snapshot.buttons?.some(
+              (button) =>
+                button.visible && /^(开始使用|Get started)$/.test(button.text),
+            ),
+        ),
+      15_000,
+    );
+    welcomeClicked = click?.ok === true && Boolean(after?.hasDshBoot && after?.hasRoot);
+    steps.push({ id: "welcome-dismiss", click, observed: welcomeClicked, snap: slim(after) });
+    await shot("welcome-dismissed");
+  }
+
   const settingsTargets = [
     { id: "ui-settings-open", patterns: ["^设置$", "^Settings$"], flag: null },
     { id: "ui-penglai", patterns: ["^蓬莱$", "^Penglai$"], flag: "penglaiSettings" },
@@ -584,7 +612,7 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     steps,
     last: slim(last),
     official,
-    welcome: { clicked: false },
+    welcome: { clicked: welcomeClicked },
     blocked,
     deadEnds: [],
     wizardKeyless: { ok: false, honestStop: "", reason: "already-complete" },
