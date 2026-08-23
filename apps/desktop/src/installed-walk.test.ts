@@ -144,7 +144,7 @@ test("Windows NSIS compiles UTF-8 source and exposes bilingual component copy", 
   const packager = readFileSync(join(root, "scripts/package-windows-nsis.mjs"), "utf8");
   const installer = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   const license = readFileSync(join(root, "scripts/nsis/license.rtf"), "utf8");
-  assert.match(packager, /\/INPUTCHARSET=UTF8/);
+  assert.match(packager, /"\/INPUTCHARSET",\s*"UTF8"/);
   assert.match(installer, /Unicode true/);
   assert.match(installer, /LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"/);
   assert.match(installer, /LangString DESC_App \$\{LANG_SIMPCHINESE\} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"/);
