@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { join } from "node:path";
 import {
   PenglaiError,
   backoffMs,
@@ -278,7 +279,9 @@ export class WeixinAdapter {
   private cursorBlocked = false;
   private voiceAbort = new AbortController();
   private readonly activeVoiceJobs = new Map<string, Promise<void>>();
-  readonly mediaStore = new MediaStore();
+  readonly mediaStore = new MediaStore(
+    ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "weixin")] : []),
+  );
   constructor(
     private readonly plane: RoutingControlPlane,
     private readonly transport: WeixinTransport,

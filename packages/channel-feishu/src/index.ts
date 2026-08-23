@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { join } from "node:path";
 import * as Lark from "@larksuiteoapi/node-sdk";
 import {
   PenglaiError,
@@ -169,7 +170,9 @@ export class FeishuAdapter {
   private readonly ownerStore: FeishuOwnerStore | undefined;
   private ownerOpenId: string | undefined;
   seen = new Set<string>();
-  readonly mediaStore = new MediaStore();
+  readonly mediaStore = new MediaStore(
+    ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "feishu")] : []),
+  );
 
   constructor(
     private readonly plane: RoutingControlPlane,

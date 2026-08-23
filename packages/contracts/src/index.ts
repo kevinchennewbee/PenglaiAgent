@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 export * from "./i18n.js";
 export * from "./typert.js";
 
@@ -197,6 +199,9 @@ export interface MediaEnvelope {
 
 export class MediaStore {
   private readonly blobs = new Map<string, Buffer>();
+  constructor(private readonly root?: string) {
+    if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
+  }
   put(
     bytes: Buffer,
     meta: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle"> & { opaqueHandle?: string },
@@ -204,6 +209,7 @@ export class MediaStore {
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const opaqueHandle = meta.opaqueHandle ?? `media-${sha256.slice(0, 24)}`;
     this.blobs.set(opaqueHandle, Buffer.from(bytes));
+    if (this.root) writeFileSync(join(this.root, `${sha256}.bin`), bytes, { mode: 0o600 });
     return {
       ...meta,
       size: bytes.length,
@@ -213,8 +219,13 @@ export class MediaStore {
   }
   get(handle: string): Buffer {
     const bytes = this.blobs.get(handle);
-    if (!bytes) throw new PenglaiError("INVALID_INPUT", "media handle missing");
-    return Buffer.from(bytes);
+    if (bytes) return Buffer.from(bytes);
+    if (this.root && handle.startsWith("media-")) {
+      const prefix = handle.slice("media-".length);
+      const hit = readdirSync(this.root).find((name) => name.startsWith(prefix) && name.endsWith(".bin"));
+      if (hit && existsSync(join(this.root, hit))) return readFileSync(join(this.root, hit));
+    }
+    throw new PenglaiError("INVALID_INPUT", "media handle missing");
   }
   drop(handle: string): void {
     this.blobs.delete(handle);

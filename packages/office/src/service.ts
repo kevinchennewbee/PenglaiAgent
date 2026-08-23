@@ -223,7 +223,10 @@ export function createOfficeService() {
         ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
       });
       const dest = assertPathInWorkspace(destPath, workspaceRoot);
-      const backup = join(tmpdir(), `penglai-office-${record.id}.bak`);
+      const backupRoot = process.env.PENGLAI_USER_DATA
+        ? join(process.env.PENGLAI_USER_DATA, "office", "backups")
+        : join(tmpdir(), "penglai-office-backups");
+      const backup = join(backupRoot, `penglai-office-${record.id}.bak`);
       setJobState(jobId, "STAGED", dest);
       const result = atomicCommitFile(dest, record.bytes, backup);
       record.destPath = dest;

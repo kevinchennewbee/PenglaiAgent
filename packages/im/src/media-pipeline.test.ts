@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { classifyMedia, MediaStore, mediaCaption } from "@penglai/contracts";
 import { parseOfficialInbound, parseInbound } from "@penglai/channel-weixin";
 import { parseFeishuEvent, parseOfficialReceiveWithMedia } from "@penglai/channel-feishu";
@@ -61,6 +64,25 @@ test("weixin and feishu parse image/file without placeholder text", () => {
   );
   assert.equal("reject" in inbound, false);
   if (!("reject" in inbound)) assert.equal(inbound.media?.kind, "pdf");
+});
+
+test("media store persists bytes under an app-private root", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-media-"));
+  const store = new MediaStore(dir);
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const env = store.put(png, {
+    kind: "image",
+    source: "weixin",
+    sourceMessageId: "m1",
+    sourceResourceId: "r1",
+    mime: "image/png",
+    filename: "a.png",
+  });
+  const disk = new MediaStore(dir);
+  assert.equal(disk.get(env.opaqueHandle).equals(png), true);
 });
 
 test("media store classifies the shared fixture matrix", () => {
