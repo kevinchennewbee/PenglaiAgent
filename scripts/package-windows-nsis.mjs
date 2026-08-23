@@ -58,7 +58,8 @@ const out = join(ROOT, "dist", contract.installer);
 const packed = spawnSync(
   "makensis",
   [
-    "/INPUTCHARSET=UTF8",
+    "/INPUTCHARSET",
+    "UTF8",
     `/DPENGLAI_OUTFILE=${out}`,
     `/DPENGLAI_PAYLOAD=${payload}`,
     `/DPENGLAI_LICENSE=${license}`,

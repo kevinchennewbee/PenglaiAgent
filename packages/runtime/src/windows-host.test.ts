@@ -205,7 +205,7 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
   const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
   const uiProof = readFileSync(new URL("../../../scripts/windows-installer-ui-proof.ps1", import.meta.url), "utf8");
-  assert.match(packager, /\/INPUTCHARSET=UTF8/);
+  assert.match(packager, /"\/INPUTCHARSET",\s*\n\s*"UTF8"/);
   assert.match(uiProof, /'\/LANG=2052'/);
   assert.match(uiProof, /桌面快捷方式/);
   assert.match(uiProof, /windows-installer-components-zh\.png/);
