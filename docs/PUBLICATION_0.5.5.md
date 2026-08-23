@@ -7,3 +7,11 @@
 - `Penglai_0.5.5_windows_x64_setup.exe`
 
 The source branch must enter `main` through review and required checks. Build all three installers from the same merged source SHA on matching native runners, collect those exact bytes without rebuilding, generate and sign the remaining seven metadata assets, publish an immutable bilingual `v0.5.5` Release, then perform remote byte-for-byte readback. A failed required gate stops publication.
+
+This contract was fulfilled on 2026-08-24. Source commit
+`2136ff691afa8bdbefa3079236426a72a3851237` passed the three-target native run
+[`32656584336`](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336).
+The bilingual [`v0.5.5`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5)
+Release is immutable, contains the exact ten assets required by the release
+identity contract, and passed public byte-for-byte readback including update and
+installer signature verification.

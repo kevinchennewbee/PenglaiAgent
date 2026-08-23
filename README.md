@@ -9,7 +9,7 @@
 <p align="center"><strong>DeepSeek Harness, ready to live on a personal computer.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/0.5.5-release%20candidate-d97706?style=flat-square" alt="Penglai 0.5.5 release candidate">
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5"><img src="https://img.shields.io/badge/release-0.5.5-0f766e?style=flat-square" alt="Penglai 0.5.5"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.2-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.2"></a>
   <img src="https://img.shields.io/badge/targets-Apple%20Silicon%20%7C%20Intel%20Mac%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Apple Silicon, Intel Mac, and Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
@@ -19,23 +19,24 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.3">Current download</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5">Current download</a> ·
   <a href="docs/RELEASE_NOTES_0.5.5.md">0.5.5 notes</a> ·
   <a href="AGENTS.md">For AI contributors</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.5 is still going through native release verification. There is no
-> `v0.5.5` tag or GitHub Release yet, so 0.5.3 remains the public download.
-> Apple Silicon installed-product tests are green. Intel Mac and Windows x64
-> must still pass on matching GitHub runners. macOS builds are ad-hoc signed and
-> not notarized; Windows builds do not have Authenticode.
+> Penglai 0.5.5 is available for Apple Silicon, Intel Mac, and Windows x64.
+> All three installers came from one merged source commit and passed native
+> installed-product tests. The ten-asset Release is immutable and its public
+> bytes, hashes, updater signatures, and source identity were downloaded and
+> verified again after publication. macOS remains ad-hoc signed and not
+> notarized; Windows does not have Authenticode.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
   <img src=".github/assets/0.5.5/memory.png" width="49%" alt="Penglai Memory in the installed DSH settings">
 </p>
-<p align="center"><sub>Real screenshots from the installed Apple Silicon 0.5.5 candidate, not design mockups.</sub></p>
+<p align="center"><sub>Real screenshots from the installed 0.5.5 application, not design mockups.</sub></p>
 
 <a id="english"></a>
 
@@ -178,14 +179,19 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The 0.5.5 Release will contain exactly three native installers built from one
-merged source SHA:
+The immutable 0.5.5 Release contains exactly three native installers built from
+source commit [`2136ff69`](https://github.com/kevinchennewbee/PenglaiAgent/commit/2136ff691afa8bdbefa3079236426a72a3851237):
 
-| Platform | Planned asset | Current candidate evidence |
+| Platform | Release asset | Native installed evidence |
 | --- | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.5_macos_aarch64.dmg` | Installed U3 PASS locally |
-| Intel Mac | `Penglai_0.5.5_macos_x64.dmg` | Awaiting matching native runner |
-| Windows x64 | `Penglai_0.5.5_windows_x64_setup.exe` | Awaiting matching native runner |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.5_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg) | U3 PASS on native runner |
+| Intel Mac | [`Penglai_0.5.5_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_x64.dmg) | U3 PASS on native runner |
+| Windows x64 | [`Penglai_0.5.5_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_windows_x64_setup.exe) | U3 PASS plus native Simplified Chinese installer screenshot |
+
+The matching [native workflow](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
+passed for all three targets. A post-publication read-back downloaded all ten
+Release assets and rechecked the exact set, byte sizes, SHA-256 values, source
+tag, public-export tree, update manifest, and detached Ed25519 signatures.
 
 Penglai 0.5.1, 0.5.2, and 0.5.3 can check the signed 0.5 line from **Settings →
 Penglai → Updates**, or use a same-platform manual overlay. There is no silent
@@ -395,13 +401,19 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-0.5.5 最终 Release 必须由同一个合并后的源码 SHA，在对应原生机器上生成三个包：
+不可变的 0.5.5 Release 已由同一个合并后的源码提交
+[`2136ff69`](https://github.com/kevinchennewbee/PenglaiAgent/commit/2136ff691afa8bdbefa3079236426a72a3851237)
+在对应原生 runner 上生成三个包：
 
-| 平台 | 计划中的文件 | 当前候选证据 |
+| 平台 | 正式文件 | 原生安装证据 |
 | --- | --- | --- |
-| Apple Silicon，macOS 13+ | `Penglai_0.5.5_macos_aarch64.dmg` | 本机安装 U3 PASS |
-| Intel Mac | `Penglai_0.5.5_macos_x64.dmg` | 等待匹配的原生 runner |
-| Windows x64 | `Penglai_0.5.5_windows_x64_setup.exe` | 等待匹配的原生 runner |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.5_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg) | 原生 runner U3 PASS |
+| Intel Mac | [`Penglai_0.5.5_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_x64.dmg) | 原生 runner U3 PASS |
+| Windows x64 | [`Penglai_0.5.5_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_windows_x64_setup.exe) | U3 PASS，并有原生简体中文安装器截图 |
+
+对应的[三端原生工作流](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
+全部通过。发布后又从公网下载十个 Release 资产，重新核对了精确文件集、大小、SHA-256、
+源码 tag、公开源码树、升级 manifest 和 Ed25519 分离签名。
 
 0.5.1、0.5.2、0.5.3 可以从 **设置 → 蓬莱 → 更新** 检查 0.5 系列签名版本，
 也可以用同平台安装包手动覆盖。它不会静默升级。0.5.0 没有生产升级信任链，只能
