@@ -16,16 +16,16 @@ import { createMemorySettingsApi } from "./remote.js";
 
 test("shipped memory remembers, isolates workspaces, and forgets", () => {
   const svc = createMemoryService();
-  const personal = svc.rememberExplicit({ text: "我叫陈克文" });
+  const personal = svc.rememberExplicit({ text: "我叫测试用户" });
   const a = svc.rememberExplicit({ text: "Penglai only ships 0.5.5", workspaceId: "ws-a" });
   svc.rememberExplicit({ text: "EVEAI uses four-party version checks", workspaceId: "ws-b" });
-  assert.equal(svc.search("陈克文").some((row) => row.text.includes("陈克文")), true);
+  assert.equal(svc.search("测试用户").some((row) => row.text.includes("测试用户")), true);
   assert.equal(svc.search("Penglai", "ws-a").some((row) => row.id === a.id), true);
   assert.equal(svc.search("Penglai", "ws-b").some((row) => row.id === a.id), false);
   assert.equal(svc.why(personal.id ?? 0).source, "user-explicit");
   svc.forget(a.id ?? 0, "ws-a");
   assert.equal(svc.search("Penglai", "ws-a").length, 0);
-  assert.equal(svc.search("陈克文").some((row) => row.id === personal.id), true);
+  assert.equal(svc.search("测试用户").some((row) => row.id === personal.id), true);
 });
 
 test("Memory isolates Workspace scope and requires Owner confirm for global/SOP", () => {

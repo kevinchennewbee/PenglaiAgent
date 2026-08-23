@@ -61,7 +61,7 @@ const personal = mkdtempSync(join(tmpdir(), "mnemon-personal-"));
 const wsA = mkdtempSync(join(tmpdir(), "mnemon-wsa-"));
 const wsB = mkdtempSync(join(tmpdir(), "mnemon-wsb-"));
 
-const remembered = mnemon(personal, ["remember", "我叫陈克文", "--cat", "fact", "--source", "user", "--tags", "identity"]);
+const remembered = mnemon(personal, ["remember", "我叫测试用户", "--cat", "fact", "--source", "user", "--tags", "identity"]);
 if (remembered.status !== 0) {
   const manifest = finishEvidenceRun(run, "FAIL", "mnemon remember failed", { stderr: remembered.stderr });
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
@@ -71,11 +71,11 @@ const added = JSON.parse(remembered.stdout);
 mnemon(wsA, ["remember", "Penglai only ships 0.5.5", "--cat", "fact", "--tags", "project"]);
 mnemon(wsB, ["remember", "workspace B secret fact", "--cat", "fact", "--tags", "project"]);
 
-const found = mnemon(personal, ["search", "陈克文"]);
-const recall = mnemon(personal, ["recall", "陈克文"]);
+const found = mnemon(personal, ["search", "测试用户"]);
+const recall = mnemon(personal, ["recall", "测试用户"]);
 const related = mnemon(personal, ["related", added.id]);
 const viz = mnemon(personal, ["viz", "--format", "dot"]);
-if (found.status !== 0 || !found.stdout.includes("陈克文")) {
+if (found.status !== 0 || !found.stdout.includes("测试用户")) {
   const manifest = finishEvidenceRun(run, "FAIL", "mnemon search missed explicit remember");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
@@ -104,8 +104,8 @@ if (leak.stdout.includes("Penglai only ships")) {
 }
 
 mnemon(personal, ["forget", added.id]);
-const afterForget = mnemon(personal, ["search", "陈克文"]);
-if (afterForget.stdout.includes(added.id) || afterForget.stdout.includes("我叫陈克文")) {
+const afterForget = mnemon(personal, ["search", "测试用户"]);
+if (afterForget.stdout.includes(added.id) || afterForget.stdout.includes("我叫测试用户")) {
   const manifest = finishEvidenceRun(run, "FAIL", "forget did not remove recall");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);

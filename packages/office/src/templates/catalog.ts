@@ -9,8 +9,8 @@ export interface OfficeTemplate {
 }
 
 export const OFFICE_TEMPLATES: readonly OfficeTemplate[] = [
-  { id: "resume-zh", format: "docx", title: { en: "Chinese resume", "zh-CN": "中文简历" }, license: "generated-ir", body: "姓名：陈克文\n岗位：产品工程师" },
-  { id: "resume-en", format: "docx", title: { en: "English resume", "zh-CN": "英文简历" }, license: "generated-ir", body: "Name: Chen Kewen\nRole: Product engineer" },
+  { id: "resume-zh", format: "docx", title: { en: "Chinese resume", "zh-CN": "中文简历" }, license: "generated-ir", body: "姓名：示例用户\n岗位：产品工程师" },
+  { id: "resume-en", format: "docx", title: { en: "English resume", "zh-CN": "英文简历" }, license: "generated-ir", body: "Name: Example User\nRole: Product engineer" },
   { id: "report", format: "docx", title: { en: "Project report", "zh-CN": "项目报告" }, license: "generated-ir", body: "项目报告\n结论：Penglai 0.5.5 只发一次。" },
   { id: "minutes", format: "docx", title: { en: "Meeting minutes", "zh-CN": "会议纪要" }, license: "generated-ir", body: "会议纪要\n决议：办公与记忆为 required-builtin。" },
   { id: "contract", format: "docx", title: { en: "Contract draft", "zh-CN": "合同草案" }, license: "generated-ir", body: "合同草案\n双方确认本地优先交付。" },

@@ -20,9 +20,9 @@ function tmpSvc() {
 
 test("R55-MEM-001 explicit remember writes active personal memory", async () => {
   const svc = tmpSvc();
-  const row = await svc.remember({ text: "我叫陈克文", tags: "identity" });
+  const row = await svc.remember({ text: "我叫测试用户", tags: "identity" });
   assert.ok(row.id);
-  assert.equal((await svc.search("陈克文")).some((hit) => hit.id === row.id), true);
+  assert.equal((await svc.search("测试用户")).some((hit) => hit.id === row.id), true);
   svc.close();
 });
 
@@ -34,15 +34,15 @@ test("R55-MEM-002 candidate inferred memory is not auto-injected", async () => {
 
 test("R55-MEM-003 correction supersedes old active facts", async () => {
   const svc = tmpSvc();
-  const old = await svc.remember({ text: "我叫陈克文" });
+  const old = await svc.remember({ text: "我叫测试用户" });
   await svc.correct(old.id, "我叫陈可文");
-  assert.equal((await svc.search("陈克文")).some((hit) => hit.id === old.id), false);
+  assert.equal((await svc.search("测试用户")).some((hit) => hit.id === old.id), false);
   svc.close();
 });
 
 test("R55-MEM-004 why() returns source locator", async () => {
   const svc = tmpSvc();
-  const row = await svc.remember({ text: "我叫陈克文" });
+  const row = await svc.remember({ text: "我叫测试用户" });
   const why = await svc.why(row.id);
   assert.equal(why.id, row.id);
   svc.close();

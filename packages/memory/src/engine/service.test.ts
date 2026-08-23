@@ -16,17 +16,17 @@ function svc(dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-svc-"))) {
 test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-iso-"));
   const memory = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
-  const personal = await memory.remember({ text: "我叫陈克文", tags: "identity" });
+  const personal = await memory.remember({ text: "我叫测试用户", tags: "identity" });
   await memory.remember({ text: "Penglai only ships 0.5.5", workspaceId: "ws-a", tags: "project" });
   await memory.remember({ text: "workspace B secret fact", workspaceId: "ws-b", tags: "project" });
-  const found = await memory.search("陈克文");
+  const found = await memory.search("测试用户");
   assert.equal(found.some((row) => row.id === personal.id), true);
   const a = await memory.search("Penglai", "ws-a");
   const b = await memory.search("Penglai", "ws-b");
   assert.equal(a.some((row) => row.content.includes("Penglai")), true);
   assert.equal(b.some((row) => row.content.includes("Penglai")), false);
   await memory.forget(personal.id);
-  const after = await memory.search("陈克文");
+  const after = await memory.search("测试用户");
   assert.equal(after.some((row) => row.id === personal.id), false);
   assert.match(personalDataDir(dir), /memory\/mnemon\/personal/);
   assert.notEqual(workspaceDataDir(dir, "ws-a"), workspaceDataDir(dir, "ws-b"));
