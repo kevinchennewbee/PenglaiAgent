@@ -17,6 +17,13 @@ function boundWorkspaceId(ctx: CordisTools, exec: unknown): string | undefined {
   return hit.id;
 }
 
+function jsonOutput(description: string) {
+  return {
+    schema: { type: "object", additionalProperties: true },
+    render: (_args: unknown, value: unknown) => [{ type: "text", text: `${description}\n${JSON.stringify(value)}` }],
+  };
+}
+
 export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryService): void {
   if (!ctx.tools?.register) return;
   const failOpen = async (run: () => Promise<unknown>) => {
@@ -39,6 +46,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
       required: ["query"],
       properties: { query: { type: "string", minLength: 1, maxLength: 500 } },
     },
+    output: jsonOutput("memory search"),
     async execute(args: unknown, exec?: unknown) {
       const query = typeof (args as { query?: unknown }).query === "string" ? (args as { query: string }).query : "";
       if ((args as { workspace_id?: unknown }).workspace_id !== undefined) {
@@ -48,7 +56,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
         const workspaceId = boundWorkspaceId(ctx, exec);
         const workspace = workspaceId ? await engine.search(query, workspaceId, false) : [];
         const personal = await engine.search(query, undefined, true);
-        return [...workspace, ...personal].slice(0, 20);
+        return { results: [...workspace, ...personal].slice(0, 20) };
       });
     },
   });
@@ -61,6 +69,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
       required: ["id"],
       properties: { id: { type: "string", minLength: 8, maxLength: 80 } },
     },
+    output: jsonOutput("memory why"),
     async execute(args: unknown, exec?: unknown) {
       const id = String((args as { id?: unknown }).id ?? "");
       return failOpen(async () => engine.why(id, boundWorkspaceId(ctx, exec)));
@@ -78,6 +87,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
         scope: { type: "string", enum: ["personal", "workspace"] },
       },
     },
+    output: jsonOutput("memory remember"),
     async execute(args: unknown, exec?: unknown) {
       const input = args as { text?: string; scope?: string };
       if (!input.text) throw new PenglaiError("INVALID_INPUT", "memory text required");
@@ -102,6 +112,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
         text: { type: "string", minLength: 1, maxLength: 2000 },
       },
     },
+    output: jsonOutput("memory correct"),
     async execute(args: unknown, exec?: unknown) {
       const input = args as { id?: string; text?: string };
       return failOpen(async () => engine.correct(String(input.id), String(input.text), boundWorkspaceId(ctx, exec)));
@@ -116,6 +127,7 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
       required: ["id"],
       properties: { id: { type: "string", minLength: 8, maxLength: 80 } },
     },
+    output: jsonOutput("memory forget"),
     async execute(args: unknown, exec?: unknown) {
       return failOpen(async () => engine.forget(String((args as { id?: string }).id), boundWorkspaceId(ctx, exec)));
     },
