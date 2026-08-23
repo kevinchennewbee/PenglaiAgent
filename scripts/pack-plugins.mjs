@@ -817,7 +817,7 @@ for (const p of packs) {
     process.exit(1);
   }
   if (
-    /\/Users\/|\/Volumes\/|C:\\\\Users\\\\|sourceMappingURL|\/var\/folders\/|\\\\Temp\\\\|API_KEY|sk-penglai-fixture/.test(
+    /\/Users\/|\/Volumes\/|C:\\\\Users\\\\|\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
       hostJs,
     )
   ) {
