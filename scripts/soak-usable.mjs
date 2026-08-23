@@ -6,6 +6,7 @@ import {
   EmbeddedDshSupervisor,
   activatePrivateProfile,
   ensurePrivateHome,
+  installFirstPartyPlugins,
   leftoverDsh,
   resolveRuntimeLayout,
   resolveUserLayout,
@@ -17,11 +18,12 @@ const layout = resolveRuntimeLayout(staging);
 const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-soak-")));
 ensurePrivateHome(user);
 activatePrivateProfile(layout, user);
+installFirstPartyPlugins(layout, user.profileWeb, user.transactions, ["@penglai/office", "@penglai/memory"]);
 const sup = new EmbeddedDshSupervisor(layout);
 const started = Date.now();
 let checks = 0;
 try {
-  await sup.start(user);
+  await sup.start(user, { PENGLAI_PLUGINS_DIR: layout.pluginsDir });
   while (Date.now() - started < ms) {
     const res = await fetch(`http://127.0.0.1:${sup.port}/`);
     if (res.status !== 200) throw new Error(`soak http ${res.status}`);
