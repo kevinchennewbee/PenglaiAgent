@@ -1210,9 +1210,12 @@ for (const p of packs) {
   });
 }
 
-const { assertPackedArtifactClean } = await import(
-  pathToFileURL(join(ROOT, "packages/runtime/src/scanner.ts")).href
-);
+const scannerModule = join(ROOT, "packages/runtime/dist/scanner.js");
+if (!existsSync(scannerModule)) {
+  console.error("compiled runtime scanner missing; run pnpm build before pack:plugins");
+  process.exit(1);
+}
+const { assertPackedArtifactClean } = await import(pathToFileURL(scannerModule).href);
 for (const entry of entries) {
   assertPackedArtifactClean(join(dest, entry.packageFile));
 }
