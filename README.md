@@ -25,7 +25,9 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.3 is the corrective release for Apple Silicon, Intel Mac, and Windows x64. All three native jobs built, installed, launched, and exercised packages from source `afc75b2...`. It closes the 0.5.2 update-ledger defect, hardens updater byte verification, and adds a real signed Plugin Center update path with Office Reader 0.1.2. The immutable 0.5.2 files remain available with their correction notice.
+> **0.5.5 candidate under verification.** Local development targets official DSH `0.1.1-rc.2`, with Penglai Office and Penglai Memory as required-builtin plugins. There is no `v0.5.5` GitHub tag or Release yet. macOS remains ad-hoc/not notarized; Windows has no Authenticode. Intel Mac and Windows native installers are `AWAITING_NATIVE_MAC_X64` / `AWAITING_NATIVE_WIN_X64` until matching runners produce them. Live WeChat/Feishu and paid provider evidence stay `AWAITING_LIVE_CREDENTIAL`.
+>
+> Penglai 0.5.3 remains the current public release for Apple Silicon, Intel Mac, and Windows x64. All three native jobs built, installed, launched, and exercised packages from source `afc75b2...`. The immutable 0.5.2 files remain available with their correction notice.
 
 <a id="english"></a>
 

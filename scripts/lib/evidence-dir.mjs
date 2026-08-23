@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync, appendFileSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, writeFileSync, appendFileSync, readFileSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
 import { ROOT, gitState } from "./repo.mjs";
 import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_TAG } from "./product.mjs";
 
@@ -60,10 +60,15 @@ export function recordCommand(run, rec) {
 
 export function recordArtifact(run, path, mime = "application/octet-stream") {
   if (!existsSync(path)) return;
-  const st = statSync(path);
+  const st = lstatSync(path);
+  if (!st.isFile() || st.isSymbolicLink()) return;
+  const digest = sha256File(path);
+  const dest = join(run.dir, "artifacts", `${digest.slice(0, 16)}-${basename(path)}`);
+  copyFileSync(path, dest);
+  if (sha256File(dest) !== digest) throw new Error("evidence artifact copy hash mismatch");
   const row = {
-    path,
-    sha256: sha256File(path),
+    path: dest.slice(run.dir.length + 1).replaceAll("\\", "/"),
+    sha256: digest,
     bytes: st.size,
     mime,
   };
