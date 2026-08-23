@@ -9,23 +9,24 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 只允许 app 内签入并离线验证的包：
 
 - `@penglai/plugin-center`
+- `@penglai/office`（required-builtin，fresh active）
+- `@penglai/memory`（required-builtin，fresh active）
 - `@penglai/im`
 - `@penglai/asr`
 - `@penglai/moss-tts`
-- `@penglai/context`
-- `@penglai/memory`
-- `@penglai/budget`
 - `@penglai/companion`
+- `@penglai/context`（Memory 内部基础设施与旧数据迁移，不显示独立产品卡）
+- `@penglai/budget`（内部策略能力，不显示独立产品卡）
 - `@penglai/plugin-reference`（默认 disabled，仅用于 platform proof）
 - `@penglai/plugin-smoke`（测试 profile only，不进入用户 catalog）
 
-`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。ASR/MOSS-TTS只有真实host/client、model manager、当前发布 target engine 与验收存在时才显示；Context/Memory/Budget/Companion也必须满足`docs/PENGLAI_NATIVE_PLUGINS.md`完整合同，不得先做空卡。
+`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为六张：蓬莱手机消息、蓬莱办公、蓬莱语音识别、蓬莱语音生成、蓬莱记忆、蓬莱主动陪伴。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示；Office/Memory/Companion 也必须满足 `docs/PENGLAI_NATIVE_PLUGINS.md` 完整合同，不得先做空卡。
 
 ## 2.1 生态来源与未来扩展
 
 - `official-core`：DSH 核心插件，Center 可显示只读来源/版本/健康，但不冒充 Penglai package，也不随意卸载核心依赖。
-- `penglai-builtin`：Center 是发行管理组件并随 fresh profile active；IM 虽随 app 离线携带，但与其他扩展一样 fresh 默认未安装、未加载。
-- `penglai-first-party`：0.5真实交付ASR/MOSS-TTS/Context/Memory/Budget/Companion；以后蓬莱原生能力也只有完整实现和验收后才进入 catalog。
+- `penglai-builtin`：Center、Office 与 Memory 随 fresh profile 安装并 active；Context 仅作为 Memory 内部基础设施加载，不显示独立产品卡。IM/ASR/TTS/Companion 随 app 离线携带，但 fresh 默认未安装、未加载。
+- `penglai-first-party`：蓬莱维护并完成兼容审核的扩展；以后蓬莱原生能力也只有完整实现和验收后才进入 catalog。
 - `community-reviewed`：未来优质社区插件，必须经过来源与许可证审核、作者/package identity、签名或受信 checksum、权限、DSH range、平台/ABI、sandbox、安全测试、migration 和 rollback。
 
 内置 catalog 不接受任意 npm/Git/URL，也不展示空卡。语音模型下载是已签入插件的固定数据资产管理，不等于远程安装插件代码。
@@ -34,9 +35,9 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-0.5.5 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。当前远程不可变目录仍是 `plugin-catalog-v1.000004`。其中 `@penglai/office-reader` 0.1.2 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行，并使用 DSH 0.1.1-rc.1 要求的结构化输入与输出 contract。它不是完整 Office 编辑套件，公式只报告不计算，布局、图表和图片不冒充已还原。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.3 会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。
+0.5.5 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。当前远程不可变目录是 [`plugin-catalog-v1.000005`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000005)。其中 `@penglai/office-reader` 0.1.3 只读提取 DOCX/XLSX/PPTX，声明 `workspace.read`，无网络、原生代码、安装脚本或宏执行，并使用 DSH 0.1.1-rc.2 要求的结构化输入与输出 contract。它是验证远程热插拔发行链的轻量阅读扩展，不替代安装包内 required-builtin 的完整蓬莱办公。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.5 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
-安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展，不代表它们已安装。完成 BYOK 后 official DSH 必须独立可用；fresh profile 只安装 Center，其他扩展在用户点击“安装并启用”后才校验、写入、加载。任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
+安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center、Office 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH、Office 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
 ## 3. manifest
 
@@ -108,7 +109,7 @@ UI 主状态必须来自 `actual`。desired 与 actual 不一致时显示 `apply
 
 ## 7. UI
 
-每张卡显示 id、version、source、license、permissions、DSH compatibility、actual status、last error、update/rollback availability。危险操作需要清楚影响和确认；状态变化从 Remote/event refresh 获取。
+普通用户的每张卡只给一个主动作：未安装时“安装并启用”，已启用时“停用”，已停用时“启用”，并提供明确的“卸载”。版本、来源、权限、DSH compatibility、校验、更新、回滚和诊断放入折叠的高级信息，不把 download/install/enable/disable/update/rollback 同时铺成一排。危险操作需要清楚影响和确认；状态变化从 Remote/event refresh 获取，不能用按钮点击成功冒充 actual active。
 
 Center 是“蓬莱”一级设置项；已启用的 Penglai 插件作为其嵌套子菜单出现，不能在内容区再造第三列，也不能把全部能力平铺成拥挤的一级菜单。ASR/TTS 卡片与各自设置页必须显示真实模型下载 `completedBytes/totalBytes`、百分比和采样速度；暂停、继续、取消复用同一 operation id，不能生成新任务冒充控制原任务。
 

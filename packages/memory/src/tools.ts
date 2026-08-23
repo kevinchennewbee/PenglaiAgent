@@ -4,6 +4,7 @@ import type { MnemonMemoryService } from "./engine/service.js";
 interface CordisTools {
   tools?: { register(definition: Record<string, unknown>): unknown };
   workspaceRegistry?: { list(): Array<{ id: string; title?: string; sessionIds?: readonly string[] }> };
+  on?(event: string, listener: (...args: unknown[]) => unknown): unknown;
 }
 
 function boundWorkspaceId(ctx: CordisTools, exec: unknown): string | undefined {
@@ -26,10 +27,33 @@ function jsonOutput(description: string) {
 
 export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryService): void {
   if (!ctx.tools?.register) return;
+  ctx.on?.("tools/pre-execute", async (...args: unknown[]) => {
+    const exec = args[0] as { name?: string };
+    const next = args[1] as () => Promise<{ kind: string }>;
+    if (
+      exec.name === "penglai_memory_remember" ||
+      exec.name === "penglai_memory_correct" ||
+      exec.name === "penglai_memory_forget"
+    ) {
+      return {
+        kind: "ask",
+        reason: "Memory write requires Owner confirmation of the exact fact, scope, or memory id.",
+      };
+    }
+    return next();
+  });
   const failOpen = async (run: () => Promise<unknown>) => {
     try {
       return await run();
     } catch (error) {
+      if (
+        error instanceof PenglaiError &&
+        (error.errorClass === "UNAUTHORIZED" ||
+          error.errorClass === "SECURITY_POLICY" ||
+          error.errorClass === "INVALID_INPUT")
+      ) {
+        throw error;
+      }
       return {
         unavailable: true,
         message: "蓬莱记忆暂时不可用，对话可以继续。",

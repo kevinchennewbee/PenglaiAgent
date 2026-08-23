@@ -26,11 +26,12 @@ const dir = mkdtempSync(join(tmpdir(), "penglai-office-real-"));
 const docx = await createDocument("docx", "Penglai Office DOCX probe 世界");
 const xlsx = await createDocument("xlsx", "Penglai Office XLSX probe");
 const pptx = await createDocument("pptx", "Penglai Office PPTX probe");
-const pdf = await createDocument("pdf", "Penglai Office PDF probe 世界");
+const arbitraryChinese = "陈克文喜欢蓬莱办公编辑修改模板中文字体完整测试，标点：你好！数字 2026。";
+const pdf = await createDocument("pdf", arbitraryChinese);
 const editedXlsx = await edit(xlsx.bytes, { kind: "xlsx.setCell", cell: "B1", value: "typed-cell" });
 const editedDocx = await edit(docx.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "typed-paragraph" });
 const editedPptx = await edit(pptx.bytes, { kind: "pptx.replaceSlideText", slideIndex: 0, text: "typed-slide" });
-const editedPdf = await edit(pdf.bytes, { kind: "pdf.watermark", text: "水印" });
+const editedPdf = await edit(pdf.bytes, { kind: "pdf.watermark", text: "蓬莱水印" });
 
 const paths = {
   docx: join(dir, "docx-probe.docx"),
@@ -47,8 +48,8 @@ for (const [name, path] of Object.entries(paths)) {
 }
 
 const seenPdf = await inspect(editedPdf.bytes);
-if (seenPdf.format !== "pdf" || !/水印|世界|Penglai Office PDF probe/.test(seenPdf.text)) {
-  const manifest = finishEvidenceRun(run, "FAIL", "created PDF did not inspect with CJK watermark");
+if (seenPdf.format !== "pdf" || !seenPdf.text.includes(arbitraryChinese)) {
+  const manifest = finishEvidenceRun(run, "FAIL", "created PDF metadata did not retain source text");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
@@ -73,7 +74,8 @@ if (pdfinfo.status === 0 && pdftotext.status === 0) {
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
   const extracted = readFileSync(textPath, "utf8");
-  if (!/Penglai Office PDF probe|世界|水印/.test(extracted)) {
+  const normalizedExtracted = extracted.replace(/\s+/g, " ").trim();
+  if (!normalizedExtracted.includes(arbitraryChinese) || !normalizedExtracted.includes("蓬莱水印")) {
     const manifest = finishEvidenceRun(run, "FAIL", "pdftotext did not read CJK PDF text", { extracted });
     console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
     process.exit(EXIT_BY_VERDICT.FAIL);

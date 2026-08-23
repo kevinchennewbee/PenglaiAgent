@@ -58,6 +58,15 @@
       "id": "pdf-lib",
       "npm": "pdf-lib@1.17.1",
       "license": "MIT"
+    },
+    {
+      "id": "noto-sans-sc",
+      "repo": "https://github.com/notofonts/noto-cjk",
+      "commit": "f8d157532fbfaeda587e826d4cd5b21a49186f7c",
+      "file": "Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf",
+      "sha256": "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964",
+      "license": "OFL-1.1",
+      "use": "unmodified full Simplified Chinese PDF font"
     }
   ]
 }

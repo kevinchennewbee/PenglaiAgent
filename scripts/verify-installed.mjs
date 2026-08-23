@@ -215,10 +215,10 @@ identity.recordAssertion({
   details: { safe: "installed walk recorded official workspace after models nonce Turn" },
 });
 const settingsWalked = first.settingsWalk?.walked ?? [];
-if (!["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
-  finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, update, or uninstall was not observed" });
+if (!["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
+  finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, Office, Memory, update, or uninstall was not observed" });
 }
-if (["ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion"].some((id) => settingsWalked.includes(id))) {
+if (["ui-im", "ui-asr", "ui-tts", "ui-companion"].some((id) => settingsWalked.includes(id))) {
   finish("FAIL", { command: "verify:installed", reason: "fresh BrowserWindow exposed an optional plugin settings page" });
 }
 identity.recordAssertion({
@@ -226,8 +226,8 @@ identity.recordAssertion({
   acceptanceId: "R50-E2E-003",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "settings-center-optional-off-update-uninstall",
-  details: { safe: "fresh BrowserWindow showed Center update uninstall while optional plugin pages stayed absent" },
+  assertionId: "settings-required-builtins-optional-off-update-uninstall",
+  details: { safe: "fresh BrowserWindow showed Center Office Memory update uninstall while optional plugin pages stayed absent" },
 });
 identity.recordAssertion({
   ...common,

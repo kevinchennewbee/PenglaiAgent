@@ -805,3 +805,29 @@ test("R50-VOICE-014 Weixin adapter durably claims SILK, enters one Turn, and sen
   adapter.stopReceive();
   h.store.close();
 });
+
+test("Weixin office return reuses the authenticated encrypted FILE transport", async () => {
+  const h = voicePlane();
+  const vault = new MemoryVault();
+  const sent: Array<{ to: string; data: Buffer; filename: string; clientId: string }> = [];
+  const transport: WeixinTransport = {
+    async getQr() { return { qrRef: "qr-file", expiresAt: Date.now() + 60_000 }; },
+    async pollQr() { return { status: "connected", tokenRef: "opaque-file-token", scannerUserId: "wx-owner" }; },
+    async getUpdates(buf) { return { buf, messages: [] }; },
+    async send() { return { ok: true }; },
+    async sendAudioFile(to, input) {
+      sent.push({ to, data: Buffer.from(input.data), filename: input.filename, clientId: input.clientId });
+      return { ok: true };
+    },
+  };
+  await vault.write(WEIXIN_TOKEN_CREDENTIAL_REF, "opaque-file-token");
+  const adapter = new WeixinAdapter(h.plane, transport, vault);
+  const bytes = Buffer.from("office-file-bytes");
+  assert.deepEqual(await adapter.sendFile("wx-owner", bytes, "report.docx", "office-digest-id"), { ok: true });
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.to, "wx-owner");
+  assert.equal(sent[0]?.filename, "report.docx");
+  assert.equal(sent[0]?.clientId, "office-digest-id");
+  assert.equal(sent[0]?.data.equals(bytes), true);
+  h.store.close();
+});

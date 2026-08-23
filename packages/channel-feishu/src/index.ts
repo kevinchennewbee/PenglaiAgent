@@ -473,6 +473,31 @@ export class FeishuAdapter {
     }
   }
 
+  async sendFile(receiveId: string, data: Buffer, filename: string): Promise<{ ok: true } | { error: string }> {
+    if (!this.client) return { error: "not connected" };
+    if (!data.length || data.length > 30 * 1024 * 1024) return { error: "file size rejected" };
+    try {
+      const uploaded = await this.client.im.file.create({
+        data: { file_type: "stream", file_name: filename, file: data },
+      });
+      if (!uploaded?.file_key) return { error: "file upload missing key" };
+      await this.client.im.message.create({
+        params: { receive_id_type: "open_id" },
+        data: {
+          receive_id: receiveId,
+          content: JSON.stringify({ file_key: uploaded.file_key }),
+          msg_type: "file",
+        },
+      });
+      return { ok: true };
+    } catch (err) {
+      const klass = classifyTransportError(err);
+      if (klass === "auth") return { error: "auth" };
+      if (klass === "rate") return { error: "429" };
+      return { error: "transient" };
+    }
+  }
+
   async ingest(raw: Parameters<typeof parseFeishuEvent>[0]) {
     const parsed = parseFeishuEvent(raw);
     if ("reject" in parsed) return { kind: "rejected" as const, text: parsed.reject };

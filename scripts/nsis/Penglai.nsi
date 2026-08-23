@@ -1,13 +1,13 @@
-; Penglai 0.5.3 current-user NSIS Setup.
+; Penglai 0.5.5 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
 ; for install identity, bilingual UI, default-preserve userData, and
 ; capability-bound complete delete. Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.3"
+  !define PENGLAI_VERSION "0.5.5"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.3_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.5_windows_x64_setup.exe"
 !endif
 
 Unicode true
@@ -57,12 +57,16 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
-LangString DESC_Desktop ${LANG_SIMPCHINESE} "桌面快捷方式"
-LangString DESC_Desktop ${LANG_ENGLISH} "Desktop shortcut"
+LangString NAME_Desktop ${LANG_SIMPCHINESE} "桌面快捷方式"
+LangString NAME_Desktop ${LANG_ENGLISH} "Desktop shortcut"
+LangString DESC_App ${LANG_SIMPCHINESE} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"
+LangString DESC_App ${LANG_ENGLISH} "Install Penglai Desktop, the official DSH core, and bundled plugins."
+LangString DESC_Desktop ${LANG_SIMPCHINESE} "在桌面创建蓬莱快捷方式。"
+LangString DESC_Desktop ${LANG_ENGLISH} "Create a Penglai shortcut on the desktop."
 
 Function .onInit
   ${IfNot} ${RunningX64}
-    MessageBox MB_ICONSTOP "Penglai 0.5.3 requires 64-bit Windows."
+    MessageBox MB_ICONSTOP "Penglai ${PENGLAI_VERSION} requires 64-bit Windows."
     Abort
   ${EndIf}
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayVersion"
@@ -96,9 +100,14 @@ Section "Penglai" SecApp
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 SectionEnd
 
-Section /o "$(DESC_Desktop)" SecDesktop
+Section /o "$(NAME_Desktop)" SecDesktop
   CreateShortCut "$DESKTOP\Penglai.lnk" "$INSTDIR\Penglai.exe"
 SectionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecApp} "$(DESC_App)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "$(DESC_Desktop)"
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Section "un.Penglai" SectionUninstall
   ; Default uninstall: app, shortcuts, uninstall registry, update cache.

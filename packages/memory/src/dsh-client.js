@@ -4,6 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
+    const ContextModule = require("@penglai/context");
     const inject = ["remote"];
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
@@ -87,7 +88,7 @@ window.__ModuleLoader__.load({
     };
     const COPY = {
       zh: {
-        title: "分层记忆",
+        title: "蓬莱记忆",
         hint: "候选记忆、工作区记忆与全局 L1 分层保存。模型不能直接写全局记忆；全局写入和删除均需你确认。",
         scope: "范围",
         global: "全局 L1",
@@ -116,7 +117,7 @@ window.__ModuleLoader__.load({
         importConfirm: "确认迁移旧记忆",
       },
       en: {
-        title: "Layered Memory",
+        title: "Penglai Memory",
         hint: "Session candidates, Workspace memory, and global L1 remain separate. Models cannot write global memory; global writes and deletion require your confirmation.",
         scope: "Scope",
         global: "Global L1",
@@ -615,16 +616,24 @@ window.__ModuleLoader__.load({
       return jsx.jsx("div", {
         className: "penglai-settings-page",
         "data-penglai-settings": "memory",
-        children: jsx.jsx(MemoryTab, props),
+        children: jsx.jsxs(React.Fragment, {
+          children: [
+            jsx.jsx(MemoryTab, props),
+            ContextModule?.ContextTab
+              ? jsx.jsx(ContextModule.ContextTab, props)
+              : null,
+          ],
+        }),
       });
     }
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiMemorySettings"],
+        ["slots", "remote.penglaiMemorySettings", "remote.penglaiContextSettings"],
         (viewCtx) => {
           const pageRemote = {
             penglaiMemorySettings: viewCtx.remote.penglaiMemorySettings,
+            penglaiContextSettings: viewCtx.remote.penglaiContextSettings,
           };
           viewCtx.slots.inject("settings.section", () =>
             viewCtx.slots.register(

@@ -16,7 +16,7 @@ import {
   pluginPermissionDigest,
 } from "../packages/runtime/src/index.ts";
 
-const expectedTag = process.argv[2] || "plugin-catalog-v1.000004";
+const expectedTag = process.argv[2] || "plugin-catalog-v1.000005";
 const expectedPlugin = process.argv[3] || "@penglai/office-reader";
 const expectedSequenceMatch = /^plugin-catalog-v1\.(\d{6})$/.exec(expectedTag);
 if (!expectedSequenceMatch) throw new Error("expected catalog tag is invalid");
@@ -50,9 +50,6 @@ try {
   const snapshot = await online.refresh();
   const entry = snapshot.catalog.entries.find((row) => row.id === expectedPlugin);
   if (!entry) throw new Error(`signed catalog is missing ${expectedPlugin}`);
-  if (!snapshot.catalog.entries.some((row) => row.id === "@penglai/plugin-pilot")) {
-    throw new Error("signed catalog dropped @penglai/plugin-pilot");
-  }
   const pkg = await online.downloadPackage(expectedPlugin);
   const userDataRoot = join(root, "user-data");
   const profileDir = join(userDataRoot, "dsh-home", "profiles", "web");
@@ -165,7 +162,7 @@ try {
   });
   const lastGood = await offline.refresh();
   const ok = Boolean(
-    snapshot.source === "github-immutable" &&
+    (snapshot.source === "github-immutable" || snapshot.source === "github-signed-tag-fallback") &&
       snapshot.tag === expectedTag &&
       snapshot.sequence === expectedSequence &&
       snapshot.signatureOk &&

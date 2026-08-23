@@ -112,6 +112,82 @@ export function appListUrl(): string {
   return `${GITHUB_API_ORIGIN}/repos/${GITHUB_OWNER}/${APP_REPO}/releases`;
 }
 
+export function taggedReleaseAssetUrl(
+  owner: string,
+  repo: string,
+  tag: string,
+  asset: string,
+): string {
+  for (const [value, label] of [
+    [owner, "owner"],
+    [repo, "repo"],
+    [tag, "tag"],
+    [asset, "asset"],
+  ] as const) {
+    if (!value || value.includes("/") || value.includes("\\") || value.includes("..")) {
+      throw new PenglaiError("SECURITY_POLICY", `invalid GitHub release ${label}`);
+    }
+  }
+  return `https://github.com/${owner}/${repo}/releases/download/${tag}/${asset}`;
+}
+
+/**
+ * GitHub's anonymous REST quota is shared by an IP and can return 403 even for
+ * public repositories. The Atom feed is only a discovery hint: callers must
+ * still download a tag-specific manifest and verify its embedded signature,
+ * monotonic sequence, exact tag, hashes, and target before trusting anything.
+ */
+export async function fetchGithubReleaseTags(input: {
+  owner: string;
+  repo: string;
+  fetchImpl: typeof fetch;
+  timeoutMs?: number;
+  maxBytes?: number;
+}): Promise<string[]> {
+  if (!/^[A-Za-z0-9_.-]+$/.test(input.owner) || !/^[A-Za-z0-9_.-]+$/.test(input.repo)) {
+    throw new PenglaiError("SECURITY_POLICY", "invalid GitHub Atom repository");
+  }
+  const url = `https://github.com/${input.owner}/${input.repo}/releases.atom`;
+  const response = await input.fetchImpl(url, {
+    redirect: "manual",
+    headers: { accept: "application/atom+xml", "user-agent": "penglai-release-discovery" },
+    signal: AbortSignal.timeout(input.timeoutMs ?? 15_000),
+  });
+  if (response.status !== 200 || response.redirected) {
+    throw new PenglaiError("DELIVERY_TRANSIENT", `GitHub releases feed refused: ${response.status}`);
+  }
+  const maxBytes = input.maxBytes ?? 512 * 1024;
+  const declared = response.headers.get("content-length");
+  if (declared !== null && Number(declared) > maxBytes) {
+    throw new PenglaiError("SECURITY_POLICY", "GitHub releases feed exceeded size bound");
+  }
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > maxBytes) {
+    throw new PenglaiError("SECURITY_POLICY", "GitHub releases feed exceeded size bound");
+  }
+  const prefix = `href="https://github.com/${input.owner}/${input.repo}/releases/tag/`;
+  const tags: string[] = [];
+  let offset = 0;
+  while (tags.length < 100) {
+    const start = text.indexOf(prefix, offset);
+    if (start < 0) break;
+    const valueStart = start + prefix.length;
+    const end = text.indexOf('"', valueStart);
+    if (end < 0) throw new PenglaiError("INVALID_INPUT", "GitHub releases feed link is truncated");
+    const encoded = text.slice(valueStart, end);
+    let tag: string;
+    try {
+      tag = decodeURIComponent(encoded);
+    } catch {
+      throw new PenglaiError("INVALID_INPUT", "GitHub releases feed tag encoding");
+    }
+    if (tag && !tag.includes("/") && !tag.includes("\\") && !tags.includes(tag)) tags.push(tag);
+    offset = end + 1;
+  }
+  if (!tags.length) throw new PenglaiError("DELIVERY_TRANSIENT", "GitHub releases feed has no tags");
+  return tags;
+}
+
 function nextLink(header: string | null): string | undefined {
   if (!header) return undefined;
   for (const part of header.split(",")) {

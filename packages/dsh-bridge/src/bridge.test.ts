@@ -157,6 +157,36 @@ test("bridge followup submits official DSH image blocks instead of media caption
   assert.equal(sent.some((row) => row.type === "text" && String(row.text).includes("penglai-media")), false);
 });
 
+test("bridge supplies the session-bound opaque office handle to the official DSH turn", async () => {
+  const sent: Array<{ type: string; text?: string }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent: (id) => ({
+      id,
+      followup(message) { sent.push(...message.content); },
+      steer() {},
+      cancel() {},
+      inbox: { remove() { return true; } },
+    }),
+    async describeSessionModels() {
+      return { current: { provider: "deepseek", model: "deepseek-chat" }, routable: true, groups: [] };
+    },
+    listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+  });
+  await bridge.followup({
+    sessionId: "s",
+    inboundId: "in-office",
+    routeId: "r",
+    text: "用户发送了一份文档。请检查附件。",
+    officeHandle: "obj-0123456789abcdef01234567",
+    source: { kind: "user", schema: 1, routeId: "r", inboundId: "in-office", adapter: "feishu" },
+    mode: "followup",
+  });
+  const context = sent.find((part) => part.type === "text" && part.text?.includes("office_handle="));
+  assert.match(context?.text ?? "", /office_handle=obj-0123456789abcdef01234567/);
+  assert.doesNotMatch(context?.text ?? "", /[/\\](Users|Volumes|home|tmp)[/\\]/);
+});
+
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({

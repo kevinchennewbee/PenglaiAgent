@@ -13,7 +13,6 @@ import {
 } from "./index.js";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi } from "./remote.js";
-import { createTestMnemonBinary } from "./engine/test-binary.js";
 
 test("shipped memory remembers, isolates workspaces, and forgets", () => {
   const svc = createMemoryService();
@@ -101,7 +100,15 @@ test("R50-CTXMEM: production apply() wires the durable store under PENGLAI_USER_
   const previous = process.env.PENGLAI_USER_DATA;
   const previousBin = process.env.PENGLAI_MNEMON_BINARY;
   process.env.PENGLAI_USER_DATA = dir;
-  process.env.PENGLAI_MNEMON_BINARY = createTestMnemonBinary();
+  const target = process.platform === "win32" ? "win32-x86_64" : process.arch === "arm64" ? "darwin-aarch64" : "darwin-x86_64";
+  process.env.PENGLAI_MNEMON_BINARY = join(
+    process.cwd(),
+    "third_party",
+    "mnemon",
+    "bin",
+    target,
+    process.platform === "win32" ? "mnemon.exe" : "mnemon",
+  );
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },

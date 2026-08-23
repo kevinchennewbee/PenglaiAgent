@@ -42,6 +42,10 @@ test("catalog v3 marks six user-visible products and office+memory as required-b
   assert.equal(memory?.defaultEnabled, true);
   assert.equal(office?.provenanceClass, "penglai-builtin");
   assert.equal(memory?.provenanceClass, "penglai-builtin");
+  const context = FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/context");
+  assert.equal(context?.defaultEnabled, true);
+  assert.equal(context?.userVisible, false);
+  assert.equal(context?.installClass, "infrastructure");
   assert.equal(
     FIRST_PARTY_PLUGIN_METADATA.find((entry) => entry.id === "@penglai/plugin-reference")
       ?.userVisible,

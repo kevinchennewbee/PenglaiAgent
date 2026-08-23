@@ -28,7 +28,9 @@ import {
 import {
   catalogListUrl,
   fetchGithubReleasePages,
+  fetchGithubReleaseTags,
   selectHighestCatalogRelease,
+  taggedReleaseAssetUrl,
   type DiscoveredRelease,
 } from "./release-discovery.js";
 import { assertInstallAllowed, shouldDisableOnBoot } from "./revocation.js";
@@ -57,7 +59,7 @@ export interface RegistryHostConfig {
 }
 
 export interface RegistrySnapshot {
-  source: "github-immutable" | "last-good-offline";
+  source: "github-immutable" | "github-signed-tag-fallback" | "last-good-offline";
   tag: string;
   sequence: number;
   digest: string;
@@ -97,6 +99,14 @@ function assetNamed(release: DiscoveredRelease, name: string) {
   return asset;
 }
 
+function discoveryFallbackAllowed(error: unknown): boolean {
+  if (error instanceof PenglaiError) return error.errorClass === "DELIVERY_TRANSIENT";
+  return (
+    error instanceof TypeError ||
+    (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))
+  );
+}
+
 export class PluginDistributionClient {
   readonly #config: RegistryHostConfig;
   #snapshot: RegistrySnapshot | undefined;
@@ -119,32 +129,48 @@ export class PluginDistributionClient {
     const now = this.#config.nowMs?.() ?? Date.now();
     const fetchImpl = this.#config.fetchImpl ?? fetch;
     try {
-      const listed = await fetchGithubReleasePages({
-        url: catalogListUrl(),
-        fetchImpl,
-        timeoutMs: 15_000,
-        maxPages: 5,
-        maxBytes: MAX_CATALOG_BYTES,
-      });
-      const release = selectHighestCatalogRelease(listed.releases);
-      const jsonAsset = assetNamed(release, CATALOG_JSON_ASSET);
-      const sigAsset = assetNamed(release, CATALOG_SIG_ASSET);
+      let release: DiscoveredRelease;
+      let atomFallback = false;
+      try {
+        const listed = await fetchGithubReleasePages({
+          url: catalogListUrl(),
+          fetchImpl,
+          timeoutMs: 15_000,
+          maxPages: 5,
+          maxBytes: MAX_CATALOG_BYTES,
+        });
+        release = selectHighestCatalogRelease(listed.releases);
+      } catch (error) {
+        if (!discoveryFallbackAllowed(error)) throw error;
+        const tags = await fetchGithubReleaseTags({
+          owner: "kevinchennewbee",
+          repo: "PenglaiPluginRegistry",
+          fetchImpl,
+          maxBytes: MAX_CATALOG_BYTES,
+        });
+        release = selectHighestCatalogRelease(
+          tags.map((tag) => ({ tag_name: tag, immutable: true, assets: [] })),
+        );
+        atomFallback = true;
+      }
+      const jsonAsset = atomFallback ? undefined : assetNamed(release, CATALOG_JSON_ASSET);
+      const sigAsset = atomFallback ? undefined : assetNamed(release, CATALOG_SIG_ASSET);
       const jsonBytes = await downloadVerifiedBytes({
-        url: jsonAsset.url,
-        sha256: jsonAsset.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
-        size: jsonAsset.size,
+        url: jsonAsset?.url ?? taggedReleaseAssetUrl("kevinchennewbee", "PenglaiPluginRegistry", release.tag, CATALOG_JSON_ASSET),
+        sha256: jsonAsset?.digest ? jsonAsset.digest.replace(/^sha256:/, "") : "pending",
+        size: jsonAsset?.size ?? 1,
         maxBytes: MAX_CATALOG_BYTES,
-        assetId: jsonAsset.id,
+        ...(jsonAsset ? { assetId: jsonAsset.id } : {}),
         fetchImpl,
-        skipHash: !jsonAsset.digest,
+        skipHash: !jsonAsset?.digest,
       });
-      if (jsonAsset.digest) githubDigestToSha256(jsonAsset.digest, createHash("sha256").update(jsonBytes).digest("hex"));
+      if (jsonAsset?.digest) githubDigestToSha256(jsonAsset.digest, createHash("sha256").update(jsonBytes).digest("hex"));
       const sigBytes = await downloadVerifiedBytes({
-        url: sigAsset.url,
+        url: sigAsset?.url ?? taggedReleaseAssetUrl("kevinchennewbee", "PenglaiPluginRegistry", release.tag, CATALOG_SIG_ASSET),
         sha256: "pending",
-        size: sigAsset.size,
+        size: sigAsset?.size ?? 1,
         maxBytes: 256,
-        assetId: sigAsset.id,
+        ...(sigAsset ? { assetId: sigAsset.id } : {}),
         fetchImpl,
         skipHash: true,
       });
@@ -152,6 +178,10 @@ export class PluginDistributionClient {
       const digest = createHash("sha256").update(canonicalizeBytes(json)).digest("hex");
       verifyBytes(canonicalizeBytes(json), decodeDetachedSignature(sigBytes), EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.publicKeyHex);
       const catalog = parseSignedPluginCatalog(json, now);
+      const catalogTag = `plugin-catalog-v1.${String(catalog.sequence).padStart(6, "0")}`;
+      if (release.tag !== catalogTag) {
+        throw new PenglaiError("SECURITY_POLICY", "catalog sequence does not match release tag");
+      }
       if (catalog.signingKeyId !== EMBEDDED_PLUGIN_CATALOG_PUBLIC_KEY.keyId) {
         throw new PenglaiError("SECURITY_POLICY", "catalog signingKeyId is not the embedded plugin key");
       }
@@ -164,7 +194,7 @@ export class PluginDistributionClient {
         tag: release.tag,
       });
       const snapshot: RegistrySnapshot = {
-        source: "github-immutable",
+        source: atomFallback ? "github-signed-tag-fallback" : "github-immutable",
         tag: release.tag,
         sequence: catalog.sequence,
         digest,

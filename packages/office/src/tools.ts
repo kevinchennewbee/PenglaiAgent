@@ -144,9 +144,13 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       const op = parseOfficeOperation(input.operation);
       if (input.handle) {
         const attached = await svc.inspectAttached(input.handle, ws.sessionId);
+        const attachedRecord = svc.job(attached.id);
         const edited = await svc.edit(attached.bytes, op);
-        svc.job(edited.id).workspaceId = ws.id;
-        svc.job(edited.id).sessionId = ws.sessionId;
+        const editedRecord = svc.job(edited.id);
+        editedRecord.workspaceId = ws.id;
+        editedRecord.sessionId = ws.sessionId;
+        if (attachedRecord.attachmentHandle) editedRecord.attachmentHandle = attachedRecord.attachmentHandle;
+        if (attachedRecord.routeId) editedRecord.routeId = attachedRecord.routeId;
         return publicJob(edited);
       }
       if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
@@ -196,8 +200,9 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       if (job.state !== "PREVIEW_READY" && job.state !== "OWNER_APPROVED") {
         throw new PenglaiError("SECURITY_POLICY", "office commit requires preview then Owner confirmation");
       }
-      const receipt = job.receipt ?? svc.approve(jobId);
-      const committed = svc.commitToPath(jobId, receipt, join(ws.path, filename), ws.path);
+      const dest = join(ws.path, filename);
+      const receipt = svc.approve(jobId, "commit-to-path", dest);
+      const committed = svc.commitToPath(jobId, receipt, dest, ws.path);
       return { dest: committed.dest, digest: committed.digest, backup: committed.backup ? "retained" : undefined };
     },
   });
@@ -214,8 +219,7 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       boundWorkspace(ctx, exec);
       const jobId = String((args as { job_id?: string }).job_id);
-      const receipt = svc.job(jobId).receipt;
-      if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office undo requires the original owner receipt");
+      const receipt = svc.approve(jobId, "undo");
       return { bytes: svc.undo(jobId, receipt).length, undone: true };
     },
   });
@@ -232,9 +236,8 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
     async execute(args: unknown, exec?: unknown) {
       boundWorkspace(ctx, exec);
       const jobId = String((args as { job_id?: string }).job_id);
-      const receipt = svc.job(jobId).receipt ?? svc.approve(jobId);
-      const exported = await svc.export(jobId, svc.job(jobId).format, receipt);
-      return { filename: exported.filename, digest: exported.digest, bytes: exported.bytes.length };
+      const receipt = svc.approve(jobId, "return-to-channel");
+      return svc.returnToChannel(jobId, receipt);
     },
   });
 }

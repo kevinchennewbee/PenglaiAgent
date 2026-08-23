@@ -12,7 +12,6 @@
       disabled: true
     - id: penglai-context
       name: "@penglai/context"
-      disabled: true
     - id: penglai-memory
       name: "@penglai/memory"
     - id: penglai-office

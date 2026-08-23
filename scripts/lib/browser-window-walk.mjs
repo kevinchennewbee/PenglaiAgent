@@ -45,9 +45,10 @@ export const SNAPSHOT_JS = `(() => {
     im: Boolean(document.querySelector("[data-penglai-im]")),
     penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
     asr: Boolean(document.querySelector("[data-penglai-asr]")),
-    tts: Boolean(document.querySelector("[data-penglai-tts]")),
-    context: Boolean(document.querySelector("[data-penglai-context]")),
-    memory: Boolean(document.querySelector("[data-penglai-memory]")),
+      tts: Boolean(document.querySelector("[data-penglai-tts]")),
+      context: Boolean(document.querySelector("[data-penglai-context]")),
+      office: Boolean(document.querySelector("[data-penglai-office]")),
+      memory: Boolean(document.querySelector("[data-penglai-memory]")),
     budget: Boolean(document.querySelector("[data-penglai-budget]")),
     companion: Boolean(document.querySelector("[data-penglai-companion]")),
     pluginCards: Array.from(document.querySelectorAll("[data-penglai-plugin-card]")).map((card) => ({
@@ -160,9 +161,6 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/im",
   "@penglai/asr",
   "@penglai/moss-tts",
-  "@penglai/context",
-  "@penglai/memory",
-  "@penglai/budget",
   "@penglai/companion",
 ];
 
@@ -522,9 +520,8 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-im", patterns: ["^消息连接$", "^Messages$", "^Penglai IM$"], flag: "im" },
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
-    { id: "ui-context", patterns: ["^个人上下文$", "^Personal Context$", "^Personal context$"], flag: "context" },
-    { id: "ui-memory", patterns: ["^分层记忆$", "^Layered Memory$", "^Layered memory$"], flag: "memory" },
-    { id: "ui-budget", patterns: ["^Token 预算$", "^Token Budget$", "^Usage budget$"], flag: "budget" },
+    { id: "ui-office", patterns: ["^蓬莱办公$", "^Penglai Office$"], flag: "office" },
+    { id: "ui-memory", patterns: ["^蓬莱记忆$", "^Penglai Memory$"], flag: "memory" },
     { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$", "^Companion$"], flag: "companion" },
     { id: "ui-update", patterns: ["^更新$", "^Updates$"], flag: "update" },
     { id: "ui-uninstall", patterns: ["^存储与卸载$", "^Storage and uninstall$"], flag: "uninstall" },
@@ -546,8 +543,8 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   const last = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
   const blocked = [];
   const requiredSettings = opts.requireOptionalPlugins
-    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion", "ui-update", "ui-uninstall"]
-    : ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"];
+    ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-office", "ui-memory", "ui-companion", "ui-update", "ui-uninstall"]
+    : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
   for (const id of requiredSettings) {
     if (!settingsWalked.includes(id)) blocked.push(id);
   }

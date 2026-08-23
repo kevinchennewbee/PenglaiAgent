@@ -21,7 +21,14 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-E2E-003 separates fresh settings from explicit full composition", () => {
-  assert.deepEqual([...REQUIRED_FRESH_SETTINGS_WALK], ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"]);
+  assert.deepEqual([...REQUIRED_FRESH_SETTINGS_WALK], [
+    "ui-penglai",
+    "ui-center",
+    "ui-office",
+    "ui-memory",
+    "ui-update",
+    "ui-uninstall",
+  ]);
   assert.deepEqual([...REQUIRED_FULL_SETTINGS_WALK], [...REQUIRED_SETTINGS_WALK]);
   assert.equal(settingsWalkComplete(["ui-update", "ui-center"], "fresh"), false);
   assert.equal(settingsWalkComplete([...REQUIRED_FRESH_SETTINGS_WALK], "fresh"), true);
@@ -121,6 +128,19 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(bundled, /penglai_office_commit/);
   assert.doesNotMatch(bundled, /join\(ROOT, "third_party"/);
   assert.doesNotMatch(compat, /PENGLAI_ALLOW_TEST_HARNESS/);
+});
+
+test("Windows NSIS compiles UTF-8 source and exposes bilingual component copy", () => {
+  const packager = readFileSync(join(root, "scripts/package-windows-nsis.mjs"), "utf8");
+  const installer = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
+  const license = readFileSync(join(root, "scripts/nsis/license.rtf"), "utf8");
+  assert.match(packager, /\/INPUTCHARSET=UTF8/);
+  assert.match(installer, /Unicode true/);
+  assert.match(installer, /LangString NAME_Desktop \$\{LANG_SIMPCHINESE\} "桌面快捷方式"/);
+  assert.match(installer, /LangString DESC_App \$\{LANG_SIMPCHINESE\} "安装蓬莱桌面客户端、官方 DSH 核心和内置插件。"/);
+  assert.match(installer, /MUI_DESCRIPTION_TEXT \$\{SecDesktop\} "\$\(DESC_Desktop\)"/);
+  assert.doesNotMatch(installer, /0\.5\.3/);
+  assert.doesNotMatch(license, /0\.5\.3/);
 });
 
 test("plugin transport observation does not wait for the post-wizard DOM", async () => {

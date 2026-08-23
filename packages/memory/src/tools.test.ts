@@ -26,6 +26,7 @@ test("memory conversation tools declare DSH output and wrap search as an object"
       execute: (args: unknown, exec?: unknown) => Promise<unknown>;
     }
   >();
+  let preExecute: ((...args: unknown[]) => unknown) | undefined;
   const ctx = {
     tools: {
       register(def: Record<string, unknown>) {
@@ -35,6 +36,9 @@ test("memory conversation tools declare DSH output and wrap search as an object"
     },
     workspaceRegistry: {
       list: () => [{ id: "ws1", sessionIds: ["sess-1"] }],
+    },
+    on(event: string, listener: (...args: unknown[]) => unknown) {
+      if (event === "tools/pre-execute") preExecute = listener;
     },
   };
   const engine = {
@@ -77,6 +81,15 @@ test("memory conversation tools declare DSH output and wrap search as an object"
     () => registered.get("penglai_memory_search")!.execute({ query: "x", workspace_id: "evil" }, exec),
     /workspace_id/,
   );
-  const unavailable = await registered.get("penglai_memory_why")!.execute({ id: "missing-id" }, { agent: { id: "unbound" } });
-  assert.equal((unavailable as { unavailable: boolean }).unavailable, true);
+  await assert.rejects(
+    () => registered.get("penglai_memory_why")!.execute({ id: "missing-id" }, { agent: { id: "unbound" } }),
+    /official Workspace/,
+  );
+  assert.ok(preExecute);
+  for (const name of ["penglai_memory_remember", "penglai_memory_correct", "penglai_memory_forget"]) {
+    const decision = await preExecute!({ name }, async () => ({ kind: "continue" }));
+    assert.equal((decision as { kind: string }).kind, "ask");
+  }
+  const readDecision = await preExecute!({ name: "penglai_memory_search" }, async () => ({ kind: "continue" }));
+  assert.equal((readDecision as { kind: string }).kind, "continue");
 });

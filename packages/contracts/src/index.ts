@@ -1,5 +1,16 @@
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 export * from "./i18n.js";
 export * from "./typert.js";
@@ -330,6 +341,13 @@ export class ObjectStore {
   constructor(private readonly root?: string) {
     if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
   }
+  private writeMetadata(handle: string, value: Record<string, unknown>): void {
+    if (!this.root) return;
+    const target = join(this.root, `${handle}.json`);
+    const temp = join(this.root, `.${handle}.${process.pid}.${randomUUID()}.tmp`);
+    writeFileSync(temp, JSON.stringify(value), { mode: 0o600, flag: "wx" });
+    renameSync(temp, target);
+  }
   private assertHandle(handle: string): string {
     if (!/^obj-[0-9a-f]{24}$/.test(handle)) {
       throw new PenglaiError("INVALID_INPUT", "object handle rejected");
@@ -342,12 +360,15 @@ export class ObjectStore {
     this.mem.set(handle, { bytes: Buffer.from(bytes), kind: meta.kind, mime: meta.mime, sha256 });
     if (this.root) {
       const bin = join(this.root, `${handle}.bin`);
-      const json = join(this.root, `${handle}.json`);
-      if (!existsSync(bin)) writeFileSync(bin, bytes, { mode: 0o600, flag: "wx" });
-      else if (createHash("sha256").update(readFileSync(bin)).digest("hex") !== sha256) {
-        throw new PenglaiError("SECURITY_POLICY", "object store hash collision");
+      try {
+        writeFileSync(bin, bytes, { mode: 0o600, flag: "wx" });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        if (createHash("sha256").update(readExactRegularFile(bin)).digest("hex") !== sha256) {
+          throw new PenglaiError("SECURITY_POLICY", "object store hash collision");
+        }
       }
-      writeFileSync(json, JSON.stringify({ handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length }), { mode: 0o600 });
+      this.writeMetadata(handle, { handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length });
     }
     return { handle, sha256 };
   }
@@ -356,11 +377,14 @@ export class ObjectStore {
     row.bind = { ...bind };
     this.mem.set(handle, row);
     if (this.root) {
-      writeFileSync(
-        join(this.root, `${handle}.json`),
-        JSON.stringify({ handle, sha256: row.sha256, kind: row.kind, mime: row.mime, size: row.bytes.length, bind }),
-        { mode: 0o600 },
-      );
+      this.writeMetadata(handle, {
+        handle,
+        sha256: row.sha256,
+        kind: row.kind,
+        mime: row.mime,
+        size: row.bytes.length,
+        bind,
+      });
     }
   }
   get(handle: string, sessionId: string): Buffer {
@@ -371,27 +395,67 @@ export class ObjectStore {
     return Buffer.from(row.bytes);
   }
   peek(handle: string): { kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
-    const row = this.lookup(handle);
+    const row = this.lookup(this.assertHandle(handle));
     return { kind: row.kind, mime: row.mime, sha256: row.sha256, ...(row.bind ? { bind: row.bind } : {}) };
   }
   private lookup(handle: string): { bytes: Buffer; kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
+    this.assertHandle(handle);
     const hit = this.mem.get(handle);
     if (hit) return hit;
-    if (this.root && existsSync(join(this.root, `${handle}.bin`))) {
-      const bytes = readFileSync(join(this.root, `${handle}.bin`));
-      const meta = existsSync(join(this.root, `${handle}.json`))
-        ? (JSON.parse(readFileSync(join(this.root, `${handle}.json`), "utf8")) as {
-            kind: MediaKind;
-            mime: string;
-            sha256: string;
-            bind?: ObjectBind;
-          })
-        : { kind: "file" as const, mime: "application/octet-stream", sha256: createHash("sha256").update(bytes).digest("hex") };
-      const row = { bytes, ...meta };
+    if (this.root) {
+      const bin = join(this.root, `${handle}.bin`);
+      const json = join(this.root, `${handle}.json`);
+      let bytes: Buffer;
+      try {
+        bytes = readExactRegularFile(bin);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          throw new PenglaiError("INVALID_INPUT", "object handle missing");
+        }
+        throw error;
+      }
+      const actualSha256 = createHash("sha256").update(bytes).digest("hex");
+      if (`obj-${actualSha256.slice(0, 24)}` !== handle) {
+        throw new PenglaiError("STORE_CORRUPT", "object store content identity mismatch");
+      }
+      let meta: { handle?: string; kind?: MediaKind; mime?: string; sha256?: string; size?: number; bind?: ObjectBind };
+      try {
+        meta = JSON.parse(readExactRegularFile(json).toString("utf8")) as typeof meta;
+      } catch {
+        throw new PenglaiError("STORE_CORRUPT", "object store metadata invalid");
+      }
+      if (
+        meta.handle !== handle ||
+        meta.sha256 !== actualSha256 ||
+        meta.size !== bytes.length ||
+        !["image", "audio", "office", "pdf", "file"].includes(String(meta.kind)) ||
+        typeof meta.mime !== "string"
+      ) {
+        throw new PenglaiError("STORE_CORRUPT", "object store metadata mismatch");
+      }
+      const row = { bytes, kind: meta.kind!, mime: meta.mime, sha256: actualSha256, ...(meta.bind ? { bind: meta.bind } : {}) };
       this.mem.set(handle, row);
       return row;
     }
     throw new PenglaiError("INVALID_INPUT", "object handle missing");
+  }
+}
+
+function readExactRegularFile(path: string): Buffer {
+  let fd: number | undefined;
+  try {
+    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+    fd = openSync(path, constants.O_RDONLY | noFollow);
+    const before = fstatSync(fd);
+    if (!before.isFile()) throw new PenglaiError("STORE_CORRUPT", "object store entry is not a regular file");
+    const bytes = readFileSync(fd);
+    const after = fstatSync(fd);
+    if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || bytes.length !== after.size) {
+      throw new PenglaiError("STORE_CORRUPT", "object store entry changed while open");
+    }
+    return bytes;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
@@ -648,9 +712,34 @@ export function backoffMs(attempt: number, klass: TransportErrorClass, jitter = 
   return Math.floor(exp * (0.5 + safeJitter * 0.5));
 }
 
+function redactPrivateKeyBlocks(text: string): string {
+  const beginPrefix = "-----BEGIN ";
+  let cursor = 0;
+  let out = "";
+  while (cursor < text.length) {
+    const begin = text.indexOf(beginPrefix, cursor);
+    if (begin < 0) return out + text.slice(cursor);
+    out += text.slice(cursor, begin);
+    const labelEnd = text.indexOf("-----", begin + beginPrefix.length);
+    if (labelEnd < 0 || labelEnd - begin > 96) return out + text.slice(begin);
+    const label = text.slice(begin + beginPrefix.length, labelEnd);
+    const validLabel = label.endsWith("PRIVATE KEY") && [...label].every((char) => char === " " || (char >= "A" && char <= "Z"));
+    if (!validLabel) {
+      out += beginPrefix;
+      cursor = begin + beginPrefix.length;
+      continue;
+    }
+    const endMarker = `-----END ${label}-----`;
+    const end = text.indexOf(endMarker, labelEnd + 5);
+    if (end < 0) return out + text.slice(begin);
+    out += "[redacted-key]";
+    cursor = end + endMarker.length;
+  }
+  return out;
+}
+
 export function redactEvidenceText(text: string): string {
-  return text
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[redacted-key]")
+  return redactPrivateKeyBlocks(text)
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
     .replace(/\bwxp_[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
     .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, "[redacted-b64]")

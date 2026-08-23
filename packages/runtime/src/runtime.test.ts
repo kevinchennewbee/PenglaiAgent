@@ -300,6 +300,7 @@ test("fresh profile installs Center plus required builtins and links official @d
   );
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "office", "dist", "index.js")), true);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "memory", "dist", "index.js")), true);
+  assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context", "dist", "index.js")), true);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(linked).isSymbolicLink(), true);
@@ -307,7 +308,7 @@ test("fresh profile installs Center plus required builtins and links official @d
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
-  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory"]);
+  const required = new Set(["@penglai/plugin-center", "@penglai/office", "@penglai/memory", "@penglai/context"]);
   const optional = FIRST_PARTY_PLUGIN_METADATA.filter((entry) => !required.has(entry.id));
   assert.ok(optional.length > 0);
   assert.equal(optional.every((entry) => entry.defaultEnabled === false), true);

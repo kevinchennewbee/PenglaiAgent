@@ -337,8 +337,8 @@ const canPass =
   walked.includes("privacy") &&
   walked.includes("models") &&
   walkedCoreOnboarding(walked) &&
-  ["ui-penglai", "ui-center", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
-  ["ui-im", "ui-asr", "ui-tts", "ui-context", "ui-memory", "ui-budget", "ui-companion"].every(
+  ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
+  ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every(
     (id) => !settingsWalked.includes(id),
   );
 

@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import { ROOT } from "./lib/repo.mjs";
 import { EXIT_BY_VERDICT } from "./lib/exit-contract.mjs";
 import { beginEvidenceRun, finishEvidenceRun, recordCommand, HOST_TARGET } from "./lib/evidence-dir.mjs";
@@ -20,13 +21,14 @@ if (!asset || !bin || !existsSync(bin) || sha256File(bin) !== asset.binarySha256
   process.exit(EXIT_BY_VERDICT.INCOMPLETE);
 }
 
-function mnemon(dataDir, args, timeoutMs = 15000, globalFlags = [], record = true) {
+function mnemon(dataDir, args, timeoutMs = 15000, globalFlags = [], record = true, captureStdout = true) {
   const started = Date.now();
   const argv = [bin, ...globalFlags, "--data-dir", dataDir, ...args];
   const result = spawnSync(argv[0], argv.slice(1), {
     encoding: "utf8",
     timeout: timeoutMs,
     env: { PATH: "/usr/bin:/bin", LANG: process.env.LANG ?? "C", TMPDIR: tmpdir() },
+    stdio: captureStdout ? ["ignore", "pipe", "pipe"] : ["ignore", "ignore", "pipe"],
   });
   if (record) {
     recordCommand(run, {
@@ -120,87 +122,108 @@ if (again.status !== 0) {
 const ro = mnemon(wsA, ["remember", "should fail"], 15000, ["--readonly"]);
 const mnemonReadonlyHonored = ro.status !== 0;
 
-const loadDir = mkdtempSync(join(tmpdir(), "mnemon-10k-"));
-const loadTimes = [];
-const loadStarted = Date.now();
-for (let i = 0; i < 10_000; i += 1) {
-  const t0 = Date.now();
-  const row = mnemon(loadDir, ["remember", `scale-row-${i}`, "--cat", "fact", "--tags", "load"], 20_000, [], false);
-  loadTimes.push(Date.now() - t0);
-  if (row.status !== 0) {
-    const manifest = finishEvidenceRun(run, "FAIL", `mnemon 10k remember failed at ${i}`, { stderr: row.stderr });
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-    process.exit(EXIT_BY_VERDICT.FAIL);
-  }
-}
-loadTimes.sort((a, b) => a - b);
-const loadP50 = loadTimes[Math.floor(loadTimes.length * 0.5)] ?? 0;
-const loadP95 = loadTimes[Math.floor(loadTimes.length * 0.95)] ?? 0;
-const foundScale = mnemon(loadDir, ["search", "scale-row-9999"]);
-if (foundScale.status !== 0 || !String(foundScale.stdout).includes("scale-row-9999")) {
-  const manifest = finishEvidenceRun(run, "FAIL", "mnemon 10k search missed last row");
-  console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+const load100kDir = mkdtempSync(join(tmpdir(), "mnemon-100k-"));
+const load100kStarted = Date.now();
+const seed = mnemon(load100kDir, ["remember", "scale100k-000000", "--cat", "fact", "--tags", "load,r55"]);
+if (seed.status !== 0) {
+  const failed = finishEvidenceRun(run, "FAIL", "Mnemon could not seed the 100k query fixture", { stderr: seed.stderr });
+  console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
-const load10k = {
-  n: 10_000,
-  p50Ms: loadP50,
-  p95Ms: loadP95,
-  durationMs: Date.now() - loadStarted,
-  rss: process.memoryUsage().rss,
-};
-recordCommand(run, {
-  argv: [bin, "remember", "x10k"],
-  exitCode: 0,
-  durationMs: load10k.durationMs,
-  stdout: JSON.stringify(load10k),
-});
+const seedStatus = mnemon(load100kDir, ["status"]);
+let dbPath = "";
+try {
+  dbPath = String(JSON.parse(String(seedStatus.stdout)).db_path ?? "");
+} catch {
+  dbPath = "";
+}
+if (!dbPath || !existsSync(dbPath)) {
+  const failed = finishEvidenceRun(run, "FAIL", "Mnemon did not expose its initialized database path");
+  console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
 
-const load100kDir = mkdtempSync(join(tmpdir(), "mnemon-100k-"));
-const load100kTimes = [];
-const load100kStarted = Date.now();
-const load100kBudgetMs = 15 * 60 * 1000;
-let load100kN = 0;
-let load100kTimedOut = false;
-for (; load100kN < 100_000; load100kN += 1) {
-  if (Date.now() - load100kStarted > load100kBudgetMs) {
-    load100kTimedOut = true;
-    break;
+// R55-MEM-017 is a query-scale gate, not an import-throughput claim. Mnemon
+// creates/migrates the schema above; this deterministic fixture builder then
+// inserts inactive benchmark facts directly into that exact schema. All query
+// assertions below execute through the unmodified, hash-pinned Mnemon binary.
+const fixtureStarted = Date.now();
+const db = new DatabaseSync(dbPath);
+db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; BEGIN IMMEDIATE;");
+const insert = db.prepare(
+  `INSERT INTO insights(id, content, category, importance, tags, entities, source, access_count, created_at, updated_at, deleted_at, effective_importance)
+   VALUES (?, ?, 'fact', 3, '[\"load\",\"r55\"]', '[]', 'benchmark-fixture', 0, ?, ?, NULL, 0.5)`,
+);
+const createdAt = "2026-08-23T00:00:00.000Z";
+try {
+  for (let i = 1; i < 100_000; i += 1) {
+    const serial = String(i).padStart(6, "0");
+    const idTail = String(i).padStart(12, "0");
+    insert.run(`00000000-0000-4000-8000-${idTail}`, `scale100k-${serial}`, createdAt, createdAt);
   }
-  const t0 = Date.now();
-  const row = mnemon(load100kDir, ["remember", `scale100k-${load100kN}`, "--cat", "fact", "--tags", "load"], 20_000, [], false);
-  load100kTimes.push(Date.now() - t0);
-  if (row.status !== 0) {
-    const manifest = finishEvidenceRun(run, "FAIL", `mnemon 100k remember failed at ${load100kN}`, { stderr: row.stderr });
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+  db.exec("COMMIT;");
+} catch (error) {
+  db.exec("ROLLBACK;");
+  db.close();
+  const failed = finishEvidenceRun(run, "FAIL", "100k Mnemon query fixture construction failed", {
+    detail: error instanceof Error ? error.message : "fixture error",
+  });
+  console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
+db.close();
+const fixtureDurationMs = Date.now() - fixtureStarted;
+
+const status100k = mnemon(load100kDir, ["status"]);
+let totalInsights = 0;
+try {
+  totalInsights = Number(JSON.parse(String(status100k.stdout)).total_insights ?? 0);
+} catch {
+  totalInsights = 0;
+}
+if (status100k.status !== 0 || totalInsights !== 100_000) {
+  const failed = finishEvidenceRun(run, "FAIL", "Mnemon status did not prove an exact 100k corpus", {
+    fixtureRows: 100_000,
+    totalInsights,
+  });
+  console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason }));
+  process.exit(EXIT_BY_VERDICT.FAIL);
+}
+
+const queryTimes = [];
+for (const marker of ["scale100k-000000", "scale100k-050000", "scale100k-099999"]) {
+  const started = Date.now();
+  const foundScale = mnemon(load100kDir, ["search", marker], 30_000);
+  queryTimes.push(Date.now() - started);
+  if (foundScale.status !== 0 || !String(foundScale.stdout).includes(marker)) {
+    const failed = finishEvidenceRun(run, "FAIL", `Mnemon 100k search missed ${marker}`);
+    console.error(JSON.stringify({ verdict: failed.verdict, reason: failed.reason }));
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
 }
-load100kTimes.sort((a, b) => a - b);
-const load100kP50 = load100kTimes[Math.floor(load100kTimes.length * 0.5)] ?? 0;
-const load100kP95 = load100kTimes[Math.floor(load100kTimes.length * 0.95)] ?? 0;
+queryTimes.sort((a, b) => a - b);
 const load100k = {
-  n: load100kN,
+  n: totalInsights,
   target: 100_000,
-  timedOut: load100kTimedOut,
-  p50Ms: load100kP50,
-  p95Ms: load100kP95,
+  timedOut: false,
+  fixture: "official-schema-seed-plus-deterministic-sqlite-query-fixture",
+  fixtureDurationMs,
+  queryP95Ms: queryTimes[Math.floor(queryTimes.length * 0.95)] ?? 0,
   durationMs: Date.now() - load100kStarted,
   rss: process.memoryUsage().rss,
 };
 recordCommand(run, {
-  argv: [bin, "remember", "x100k"],
-  exitCode: load100kTimedOut ? 124 : 0,
+  argv: [process.execPath, "node:sqlite", "build-exact-100k-query-fixture"],
+  exitCode: 0,
   durationMs: load100k.durationMs,
   stdout: JSON.stringify(load100k),
 });
 
 writeFileSync(join(run.dir, "artifacts", "personal-viz.dot"), viz.stdout ?? "");
-const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/recall/related/viz/forget/isolation/10k", {
+const manifest = finishEvidenceRun(run, "PASS", "real Mnemon operations, isolation, and exact 100k corpus query", {
   mnemonVersion: String(version.stdout).trim(),
   binary: bin,
   mnemonReadonlyHonored,
-  load10k,
   load100k,
   note: mnemonReadonlyHonored
     ? "mnemon --readonly blocked writes"
@@ -208,5 +231,6 @@ const manifest = finishEvidenceRun(run, "PASS", "real mnemon remember/search/rec
 });
 rmSync(wsA, { recursive: true, force: true });
 rmSync(wsB, { recursive: true, force: true });
+rmSync(load100kDir, { recursive: true, force: true });
 console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:memory-real", sourceSha: manifest.sourceSha, dir: run.dir }));
 process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);

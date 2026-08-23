@@ -160,12 +160,17 @@ test("Context settings consumes one opaque picker capability and exposes no raw-
   }
 });
 
-test("Context client registers a real official settings tab", () => {
+test("Context client mounts one remote for Penglai Memory without a standalone settings tab", () => {
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
-  assert.match(source, /settings\.section/);
   assert.match(source, /data-penglai-context/);
   assert.match(source, /penglaiContextSettings/);
   assert.match(source, /pickContextFolder/);
+  assert.match(source, /module\.exports = \{ apply, inject, ContextTab \}/);
+  assert.doesNotMatch(source, /slots\.register/);
+  const memory = readFileSync(new URL("../../memory/src/dsh-client.js", import.meta.url), "utf8");
+  assert.match(memory, /require\("@penglai\/context"\)/);
+  assert.match(memory, /ContextModule\.ContextTab/);
+  assert.match(memory, /remote\.penglaiContextSettings/);
   assert.doesNotMatch(source, /type: "text"[^\n]+requestedPath/);
 });
 

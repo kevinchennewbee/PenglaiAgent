@@ -129,7 +129,19 @@ export function assertParityLedger(parityMd: string): void {
 }
 
 export function assertNoLatestDownloads(text: string): void {
-  if (/https?:\/\/[^\s]+latest/i.test(text) && !/拒绝|禁止|must not|不得/.test(text)) {
+  const lower = text.toLowerCase();
+  let unsafeLatestUrl = false;
+  for (let cursor = lower.indexOf("latest"); cursor >= 0; cursor = lower.indexOf("latest", cursor + 6)) {
+    let start = cursor;
+    while (start > 0 && !/\s/.test(lower[start - 1] ?? "")) start -= 1;
+    const token = lower.slice(start, cursor + 6);
+    if (token.startsWith("http://") || token.startsWith("https://")) {
+      unsafeLatestUrl = true;
+      break;
+    }
+  }
+  const documentedRefusal = ["拒绝", "禁止", "must not", "不得"].some((token) => lower.includes(token));
+  if (unsafeLatestUrl && !documentedRefusal) {
     throw new PenglaiError("SECURITY_POLICY", "unqualified latest download URL");
   }
 }

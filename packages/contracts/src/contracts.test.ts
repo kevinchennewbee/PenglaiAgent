@@ -31,7 +31,8 @@ test("R50-UI-002/003 Penglai catalog has complete zh and en", () => {
   assert.equal(t("zh", "centerTitle"), "蓬莱插件中心");
   assert.equal(t("en", "centerTitle"), "Penglai Plugin Center");
   assert.equal(t("zh", "asrTitle"), "蓬莱语音识别");
-  assert.equal(t("en", "ttsTitle"), "Penglai Speech Synthesis");
+  assert.equal(t("zh", "imTitle"), "蓬莱手机消息");
+  assert.equal(t("en", "ttsTitle"), "Penglai Voice Generation");
   assert.equal(Object.keys(PENGLAI_I18N.zh).length, Object.keys(PENGLAI_I18N.en).length);
 });
 
@@ -54,8 +55,13 @@ test("transport errors classify and auth does not retry", () => {
 });
 
 test("evidence redaction covers key url base64 and unicode shreds", () => {
-  const raw = "sk-abcdefghijklmnop https://evil.example/x " + "A".repeat(48) + "\u200Bsecret";
+  const raw =
+    "-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- " +
+    "sk-abcdefghijklmnop https://evil.example/x " +
+    "A".repeat(48) +
+    "\u200Bsecret";
   const out = redactEvidenceText(raw);
+  assert.equal(out.includes("private-material"), false);
   assert.equal(out.includes("sk-abcdefghijklmnop"), false);
   assert.equal(out.includes("https://evil.example"), false);
   assert.equal(out.includes("\u200B"), false);

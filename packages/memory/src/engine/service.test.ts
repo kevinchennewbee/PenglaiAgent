@@ -10,12 +10,12 @@ import { createTestMnemonBinary } from "./test-binary.js";
 const binaryPath = createTestMnemonBinary();
 
 function svc(dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-svc-"))) {
-  return new MnemonMemoryService(dir, { binaryPath });
+  return new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
 }
 
 test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mnemon-iso-"));
-  const memory = new MnemonMemoryService(dir, { binaryPath });
+  const memory = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
   const personal = await memory.remember({ text: "我叫陈克文", tags: "identity" });
   await memory.remember({ text: "Penglai only ships 0.5.5", workspaceId: "ws-a", tags: "project" });
   await memory.remember({ text: "workspace B secret fact", workspaceId: "ws-b", tags: "project" });
@@ -32,6 +32,29 @@ test("mnemon service remembers, isolates workspaces, and forgets", async () => {
   assert.notEqual(workspaceDataDir(dir, "ws-a"), workspaceDataDir(dir, "ws-b"));
   const graph = await memory.graph("ws-a");
   assert.equal(Array.isArray(graph.nodes), true);
+  memory.close();
+});
+
+test("production service rejects an explicit unpinned Mnemon executable", () => {
+  assert.throws(
+    () => new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-pin-")), { binaryPath }),
+    /hash mismatch/,
+  );
+});
+
+test("known-id operations resolve personal scope and reject cross-workspace ids", async () => {
+  const memory = svc();
+  const personal = await memory.remember({ text: "personal-known-id" });
+  const project = await memory.remember({ text: "workspace-known-id", workspaceId: "ws-a" });
+
+  assert.equal((await memory.why(personal.id, "ws-a")).scope, "personal");
+  const corrected = await memory.correct(personal.id, "personal-corrected", "ws-a");
+  assert.equal((await memory.search("personal-corrected")).some((row) => row.id === corrected.id), true);
+  await assert.rejects(() => memory.why(project.id, "ws-b"), /outside the current official Workspace/);
+  await assert.rejects(() => memory.forget(project.id, "ws-b"), /outside the current official Workspace/);
+  assert.equal((await memory.search("workspace-known-id", "ws-a")).some((row) => row.id === project.id), true);
+  await memory.forget(project.id, "ws-a");
+  assert.equal((await memory.search("workspace-known-id", "ws-a")).some((row) => row.id === project.id), false);
   memory.close();
 });
 
@@ -61,7 +84,11 @@ test("bounded load writes stay searchable via journal", async () => {
 });
 
 test("mnemon runner refuses write commands when readonly", async () => {
-  const memory = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-ro-")), { readonly: true, binaryPath });
+  const memory = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "penglai-mnemon-ro-")), {
+    readonly: true,
+    binaryPath,
+    allowUnpinnedTestBinary: true,
+  });
   await assert.rejects(() => memory.remember({ text: "nope" }), /read-only/);
   memory.close();
 });

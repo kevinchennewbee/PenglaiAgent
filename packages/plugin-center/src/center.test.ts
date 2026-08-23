@@ -118,7 +118,11 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
     "@penglai/memory",
     "@penglai/companion",
   ]);
-  assert.match(client, /const cardIds = FIRST_PARTY_CARDS\.map\(\(card\) => card\.id\)/);
+  assert.match(client, /const remoteCardIds = state\.remote/);
+  assert.match(client, /\.\.\.remoteCardIds/);
+  assert.match(client, /all\.indexOf\(id\) === index/);
+  assert.match(client, /entry\.incompatible \|\| entry\.dshCompatible === false/);
+  assert.match(client, /centerStatusIncompatible/);
   assert.doesNotMatch(client, /\[\.\.\.state\.remote, \.\.\.state\.catalog, \.\.\.FIRST_PARTY_CARDS\]/);
   assert.match(client, /data-penglai-plugin-diagnostics/);
   const diagnostics = client.slice(client.indexOf("data-penglai-plugin-diagnostics"));
@@ -356,11 +360,6 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
       "penglaiMossTtsSettings",
     ],
     [
-      "../../context/src/dsh-client.js",
-      "@penglai/context",
-      "penglaiContextSettings",
-    ],
-    [
       "../../memory/src/dsh-client.js",
       "@penglai/memory",
       "penglaiMemorySettings",
@@ -397,6 +396,18 @@ test("each independent Penglai client owns only its typed Remote lifecycle", () 
     assert.match(source, /mode: "strict"/);
     assert.match(source, /rejects unsafe fields/);
   }
+  const context = readFileSync(
+    new URL("../../context/src/dsh-client.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(context, /package: "@penglai\/context"/);
+  assert.match(context, /namespace: "penglaiContextSettings"/);
+  assert.match(context, /await ctx\.remote\.\$mount\(REMOTE\)/);
+  assert.match(context, /module\.exports = \{ apply, inject, ContextTab \}/);
+  assert.doesNotMatch(context, /slots\.register/);
+  assert.doesNotMatch(context, /viewFiber/);
+  assert.match(context, /mode: "strict"/);
+  assert.match(context, /rejects unsafe fields/);
 });
 
 test("R2I-CENTER-013 catalog has real first-party plugins and no historical cards", () => {

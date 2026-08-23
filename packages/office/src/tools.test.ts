@@ -50,7 +50,7 @@ function registered(names: string[]) {
 test("office conversation tools inspect, plan, preview, commit, undo without model paths", async () => {
   const names: string[] = [];
   const { tools, dir, ctx } = registered(names);
-  const svc = createOfficeService();
+  const svc = createOfficeService({ userData: dir });
   registerOfficeTools(ctx, svc);
   assert.equal(names.includes("penglai_office_inspect"), true);
   assert.equal(names.includes("penglai_office_commit"), true);
@@ -91,6 +91,45 @@ test("office attached handle is session-bound", async () => {
   await assert.rejects(() => svc.inspectAttached(handle, "sess-other"), /bound|UNAUTHORIZED/i);
 });
 
+test("office return sends bytes only to the route captured on the attached handle", async () => {
+  const userData = mkdtempSync(join(tmpdir(), "penglai-office-outbound-"));
+  const objects = new ObjectStore(join(userData, "objects"));
+  let delivered: {
+    routeId: string;
+    sessionId: string;
+    workspaceId?: string;
+    filename: string;
+    bytes: Buffer;
+    digest: string;
+  } | undefined;
+  const svc = createOfficeService({
+    userData,
+    objects,
+    outbound: () => ({
+      async sendFileToBoundRoute(input) {
+        delivered = input;
+        return { channel: "feishu", delivered: true };
+      },
+    }),
+  });
+  const created = await svc.create("docx", "route-bound-office");
+  const { handle } = objects.put(created.bytes, { kind: "office", mime: "application/vnd.openxmlformats-officedocument" });
+  objects.bind(handle, { sessionId: "sess-1", workspaceId: "ws-1", routeId: "route-feishu-1" });
+  const attached = await svc.inspectAttached(handle, "sess-1");
+  const receipt = svc.approve(attached.id, "return-to-channel");
+  const returned = await svc.returnToChannel(attached.id, receipt);
+  assert.deepEqual(
+    { routeId: delivered?.routeId, sessionId: delivered?.sessionId, workspaceId: delivered?.workspaceId },
+    { routeId: "route-feishu-1", sessionId: "sess-1", workspaceId: "ws-1" },
+  );
+  assert.equal(delivered?.bytes.equals(created.bytes), true);
+  assert.equal(returned.channel, "feishu");
+  assert.equal(returned.delivered, true);
+
+  const local = await svc.create("pdf", "local-only");
+  assert.throws(() => svc.approve(local.id, "return-to-channel"), /no original IM route/);
+});
+
 test("atomic commit refuses parent symlink and destination symlink", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-office-toctou-"));
   const outside = mkdtempSync(join(tmpdir(), "penglai-office-escape-"));
@@ -108,5 +147,5 @@ test("bundled CJK OFL font is hashed and embeddable", () => {
   const font = loadPenglaiCjkFont();
   assert.equal(PENGLAI_CJK_FONT_LICENSE, "OFL-1.1");
   assert.equal(PENGLAI_CJK_FONT_SHA256.length, 64);
-  assert.ok(font.length > 1000);
+  assert.ok(font.length > 10_000_000);
 });

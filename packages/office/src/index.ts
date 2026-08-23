@@ -1,6 +1,6 @@
 import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
-import { createOfficeService } from "./service.js";
+import { createOfficeService, type OfficeOutbound } from "./service.js";
 import { PenglaiOfficeRemote } from "./remote.js";
 import { registerOfficeTools } from "./tools.js";
 
@@ -21,6 +21,7 @@ interface OfficeContext {
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
   on?: (event: string, listener: (...args: unknown[]) => unknown) => unknown;
+  get?: (name: string, strict?: boolean) => unknown;
 }
 
 function requireUserData(): string {
@@ -33,7 +34,10 @@ export function apply(ctx: OfficeContext): ReturnType<typeof createOfficeService
   const userData = requireUserData();
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for office");
   if (!ctx.workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for office");
-  const svc = createOfficeService({ userData });
+  const svc = createOfficeService({
+    userData,
+    outbound: () => ctx.get?.("penglaiImCore", true) as OfficeOutbound | undefined,
+  });
   registerOfficeTools(ctx, svc);
   ctx.provide("penglaiOffice", svc);
   ctx.effect?.(() => () => undefined);

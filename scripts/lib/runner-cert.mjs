@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -17,7 +17,9 @@ import {
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 function writeJson(path, value) {
-  writeFileSync(path, `${JSON.stringify(value)}\n`);
+  const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(value)}\n`, { flag: "wx", mode: 0o600 });
+  renameSync(temp, path);
 }
 
 function acceptKey(key) {
@@ -116,8 +118,7 @@ export async function runFailClosedCertification(opts = {}) {
     });
   }
 
-  const userData = join(tmpdir(), `penglai-runner-cert-${process.pid}-${started}`);
-  mkdirSync(userData, { recursive: true });
+  const userData = mkdtempSync(join(tmpdir(), "penglai-runner-cert-"));
   const healthFile = join(userData, "soak-health.json");
   const fixture = await startCertFixtureServer();
   let target = spawnCertTarget(userData);

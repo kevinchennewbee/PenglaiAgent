@@ -682,6 +682,19 @@ export class WeixinAdapter {
     }
   }
 
+  async sendFile(to: string, data: Buffer, filename: string, clientId: string): Promise<{ ok: true } | { error: string }> {
+    const token = await this.vault.read(this.tokenRef);
+    if (!token || !this.transport.sendAudioFile) return { error: token ? "unsupported" : "auth" };
+    if (this.transport instanceof ILinkTransport) this.transport.lastToken = token;
+    const contextToken = this.contextByPeer.get(to) ?? await this.vault.read(WEIXIN_CONTEXT_CREDENTIAL_REF);
+    return this.transport.sendAudioFile(to, {
+      data,
+      filename,
+      clientId,
+      ...(contextToken ? { contextToken } : {}),
+    });
+  }
+
   private scheduleVoiceClaim(claim: VoiceInboundClaim, ref: WeixinVoiceMediaRef): void {
     if (this.activeVoiceJobs.has(claim.inboundId)) return;
     const task = this.processVoiceClaim(claim, ref).finally(() => {

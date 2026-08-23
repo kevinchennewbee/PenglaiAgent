@@ -157,19 +157,22 @@ test("R55-OFFICE-022 preview then HMAC owner approval", async () => {
 });
 
 test("R55-OFFICE-023 atomic commit/undo", async () => {
-  const svc = createOfficeService();
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-tx-"));
+  const svc = createOfficeService({ userData: join(dir, "user-data") });
   const dest = join(dir, "note.docx");
   const created = await svc.create("docx", "original-docx");
   writeFileSync(dest, created.bytes);
   const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" });
-  const receipt = svc.approve(edited.id);
+  const receipt = svc.approve(edited.id, "commit-to-path", dest);
+  const wrongAction = svc.approve(edited.id, "commit");
+  assert.throws(() => svc.commitToPath(edited.id, wrongAction, dest, dir), /receipt binding mismatch/);
   svc.commitToPath(edited.id, receipt, dest, dir);
   assert.match(readFileSync(dest).toString("utf8") === "" ? "x" : (await inspect(readFileSync(dest))).text, /revised-docx/);
-  svc.undo(edited.id, receipt);
+  const undoReceipt = svc.approve(edited.id, "undo");
+  svc.undo(edited.id, undoReceipt);
   assert.match((await inspect(readFileSync(dest))).text, /original-docx/);
   const disposable = await svc.create("docx", "discard-me");
-  const discardReceipt = svc.approve(disposable.id);
+  const discardReceipt = svc.approve(disposable.id, "discard");
   await svc.discard(disposable.id, discardReceipt);
   await assert.rejects(() => svc.preview(disposable.id), /not found/);
 });
@@ -177,7 +180,7 @@ test("R55-OFFICE-023 atomic commit/undo", async () => {
 test("R55-OFFICE-024 IM file return path", async () => {
   const svc = createOfficeService();
   const created = await svc.create("docx", "im-return");
-  const receipt = svc.approve(created.id);
+  const receipt = svc.approve(created.id, "export", "docx");
   const exported = await svc.export(created.id, "docx", receipt);
   assert.match(exported.filename, /\.docx$/);
   assert.equal(exported.digest, createHash("sha256").update(exported.bytes).digest("hex"));

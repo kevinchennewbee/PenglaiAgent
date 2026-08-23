@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -33,6 +33,21 @@ test("object store binds handles to a session", () => {
   assert.throws(() => store.get(handle, "sess-2"), /bound|UNAUTHORIZED/i);
   assert.throws(() => store.bind("../escape", { sessionId: "sess-1" }), /handle rejected/i);
   assert.throws(() => store.get("obj-not-a-real-handle000000", "sess-1"), /handle rejected|missing/i);
+});
+
+test("object store rejects persisted byte or metadata tampering", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-objects-tamper-"));
+  const original = new ObjectStore(dir);
+  const { handle } = original.put(Buffer.from("trusted-office"), { kind: "office", mime: "application/test" });
+  original.bind(handle, { sessionId: "sess-1", routeId: "route-1" });
+  writeFileSync(join(dir, `${handle}.bin`), "tampered-office");
+  assert.throws(() => new ObjectStore(dir).get(handle, "sess-1"), /identity mismatch|STORE_CORRUPT/i);
+
+  const restored = Buffer.from("trusted-office");
+  writeFileSync(join(dir, `${handle}.bin`), restored);
+  const meta = JSON.parse(readFileSync(join(dir, `${handle}.json`), "utf8")) as Record<string, unknown>;
+  writeFileSync(join(dir, `${handle}.json`), JSON.stringify({ ...meta, size: 1 }));
+  assert.throws(() => new ObjectStore(dir).get(handle, "sess-1"), /metadata mismatch|STORE_CORRUPT/i);
 });
 
 test("attachDownloadedMedia requires saveImage for images", async () => {

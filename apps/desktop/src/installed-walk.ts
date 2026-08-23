@@ -1,6 +1,8 @@
 export const REQUIRED_FRESH_SETTINGS_WALK = [
   "ui-penglai",
   "ui-center",
+  "ui-office",
+  "ui-memory",
   "ui-update",
   "ui-uninstall",
 ] as const;
@@ -10,9 +12,8 @@ export const REQUIRED_FULL_SETTINGS_WALK = [
   "ui-im",
   "ui-asr",
   "ui-tts",
-  "ui-context",
+  "ui-office",
   "ui-memory",
-  "ui-budget",
   "ui-companion",
   "ui-update",
   "ui-uninstall",

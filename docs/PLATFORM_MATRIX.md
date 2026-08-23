@@ -1,16 +1,16 @@
-# Penglai 0.5.3 三端平台矩阵
+# Penglai 0.5.5 三端平台矩阵
 
 ## 1. 固定矩阵
 
-0.5.3 声明三个 desktop target。每个 target 的“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。缺 runner 时该行是 `BLOCKED`，不是 PASS。
+0.5.5 声明三个 desktop target。每个 target 的“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。缺 runner 时该行是 `BLOCKED`，不是 PASS。
 
 | key | OS/arch | 用户安装包 | embedded Node | Electron | final runner |
 | --- | --- | --- | --- | --- | --- |
-| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.3_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
-| `darwin-x86_64` | macOS 13+ / Intel | `Penglai_0.5.3_macos_x64.dmg` | `node-v22.22.2-darwin-x64` | pinned darwin-x64 | Intel Mac（Rosetta 不能替代） |
-| `win32-x86_64` | Windows 10+ / x64 | `Penglai_0.5.3_windows_x64_setup.exe` | `node-v22.22.2-win-x64` | pinned win32-x64 | Windows x64 native runner |
+| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.5_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
+| `darwin-x86_64` | macOS 13+ / Intel | `Penglai_0.5.5_macos_x64.dmg` | `node-v22.22.2-darwin-x64` | pinned darwin-x64 | Intel Mac（Rosetta 不能替代） |
+| `win32-x86_64` | Windows 10+ / x64 | `Penglai_0.5.5_windows_x64_setup.exe` | `node-v22.22.2-win-x64` | pinned win32-x64 | Windows x64 native runner |
 
-0.5.0 已发布资产仍只有 Apple Silicon DMG。0.5.3 不得把 ARM Electron 改名成 x64，也不得把 Windows 预检写成 native PASS。
+0.5.0 已发布资产仍只有 Apple Silicon DMG。0.5.5 不得把 ARM Electron 改名成 x64，也不得把 Windows 预检写成 native PASS。
 
 `release-info.json` / `MINIMUM_MACOS` / Info.plist `LSMinimumSystemVersion` 一律 `13.0`。打包脚本会把 Electron 默认的 `14.0` 改写为 `13.0`，不得再分叉。
 
@@ -24,24 +24,24 @@ Grok 必须新增单一 `release-contract.json`（具体路径由实现固定）
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.5.3",
+  "version": "0.5.5",
   "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "electronVersion": "43.4.0",
   "nodeVersion": "22.22.2",
-  "dshVersion": "0.1.1-rc.1",
+  "dshVersion": "0.1.1-rc.2",
   "targets": [
     {
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.3_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.5_macos_aarch64.dmg"
     }
   ]
 }
 ```
 
-实际 0.5.0 contract 还必须钉死 Apple Silicon 输入的 canonical URL、SHA-256、archive type、expected executable、Electron download、Node download、DSH/profile/plugin closure hash、sherpa/ONNX Runtime/SILK/Opus closure、voice model manifest、installer maker/version、updater channel、embedded public key id 和 artifact exact-set。
+实际 0.5.5 contract 还必须钉死三端输入的 canonical URL、SHA-256、archive type、expected executable、Electron download、Node download、DSH/profile/plugin closure hash、sherpa/ONNX Runtime/SILK/Opus closure、voice model manifest、installer maker/version、updater channel、embedded public key id 和 artifact exact-set。
 
 `verify:versions` 必须比较 root/workspace packages、desktop metadata、runtime manifest、installer metadata、release manifest、updater manifest 与 contract。版本不一致直接失败，不能自动改写后继续。
 
@@ -70,7 +70,7 @@ staging/<build-id>/<target>/
 - target staging 只允许 contract 中的 OS/arch 输入；darwin-arm64 Node 进入 x64 包、或 win32 Electron 进入 darwin 包都必须在 pre-package 阶段失败。
 - DSH/npm closure 由 lockfile 和 packlist 构建，不复制开发仓 `node_modules`；production dependencies 与 optional native modules 需按 target 验证。
 - 第一方插件使用已打包 tarball + checksum，不让 app 首启执行 `pnpm install`。
-- 八个Penglai first-party plugins的code随包；sherpa-onnx、ONNX Runtime、SILK/Opus和document extraction/SQLite等native closure按target固定并随包；SenseVoice/MOSS模型权重不随安装器，只发布signed/pinned manifest。
+- release contract 中的 Penglai first-party plugins 随包；sherpa-onnx、ONNX Runtime、SILK/Opus 和 document extraction/SQLite 等 native closure 按 target 固定并随包；SenseVoice/MOSS 模型权重不随安装器，只发布 signed/pinned manifest。
 - voice verifier 必须实际加载 target native engine 并完成 deterministic fixture round-trip；只检查文件名、package.json 或用开发机全局 Python/ffmpeg 运行不算。
 - bundle 内不放测试 fixture、evidence、源码仓 `.git`、owner 配置、私钥、真实日志或旧 artifact。
 
@@ -134,14 +134,14 @@ Windows 必须用 job object 或等价受测进程树监管，不能只 kill 父
 
 ## 7. 打包器选择门
 
-0.5.3 使用三端受控 pipeline；每个平台仍必须遵守：
+0.5.5 使用三端受控 pipeline；每个平台仍必须遵守：
 
 - Windows后续格式预定为current-user NSIS；Squirrel只可作为官方更新机制研究，不能静默替换用户确认的NSIS Setup。
 - 可以采用electron-builder/NSIS、Forge packager加受控NSIS maker，或继续受控自研pipeline，但必须解释为何更适合，并钉死依赖、下载、checksum、license、hook和安全面。
 - 不允许同时维持两套 canonical maker；旧 `package-mac.mjs` 若保留只能作为被新 contract 调用的实现细节或 historical tool。
 - 选择不得改变 Electron + DSH 产品架构，也不得为了打包迁移回 Tauri 0.4.1。
 
-0.5.3 必须分别在 Apple Silicon、Intel Mac 与 Windows x64 原生 runner 真实生成并验收对应安装包；staging、交叉编译与 Rosetta 不能升级为本版支持声明。
+0.5.5 必须分别在 Apple Silicon、Intel Mac 与 Windows x64 原生 runner 真实生成并验收对应安装包；staging、交叉编译与 Rosetta 不能升级为本版支持声明。
 
 ## 8. 本地 runner 协议
 
@@ -164,7 +164,7 @@ evidence bundle 是内容寻址 tar/zip，包含 runner JSON/JUnit、artifact ha
 每个 target 必须从该平台 exact installer 开始；以下清单三端适用，平台差异单独记录：
 
 1. 在干净 OS user/profile 安装。
-2. 验 product name、publisher/trust tier 声明、安装位置、快捷方式/Applications link。
+2. 验 product name、publisher/trust tier 声明、安装位置、快捷方式/Applications link；Windows 还必须从最终 Setup 截图或 UI automation 证明 NSIS 组件名与描述按 UTF-8 正确显示，不得有乱码。
 3. 启动并完成真实 UI 引导 fixture：zh 默认、主题、provider/model、credential descriptor、API test、Workspace、official Turn、IM offer。
 4. 重启验证 onboarding、locale/theme、Workspace、loader inventory、IM config 持久化。
 5. 测试 DSH crash、Electron crash、端口冲突、sleep/wake、offline/reconnect。
@@ -177,7 +177,7 @@ evidence bundle 是内容寻址 tar/zip，包含 runner JSON/JUnit、artifact ha
 12. 执行默认卸载与完整数据删除两条路径，确认 Workspace、授权源目录、legacy data 与未选 local voices/memory 不动。
 13. 只有 feature freeze、短门和 exact artifact 均通过后才开始 offline/sleep/wake/crash/restart/2h soak。
 
-`darwin-aarch64` 在当前机器全量执行。Rosetta 的 x64 结果仍只能标记 `translated=true`，Windows ARM emulation 只能标记 `emulated=true`；二者都不能反向改写 0.5.3 支持矩阵。
+`darwin-aarch64` 在当前机器全量执行。Rosetta 的 x64 结果仍只能标记 `translated=true`，Windows ARM emulation 只能标记 `emulated=true`；二者都不能反向改写 0.5.5 支持矩阵。
 
 ## 10. 平台出错即停的条件
 

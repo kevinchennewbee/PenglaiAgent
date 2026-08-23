@@ -20,4 +20,4 @@ Status: `UNFROZEN`
 
 The intended Release set is those three installers plus `update-manifest-v1.json`, `update-manifest-v1.json.sig`, `release-manifest.json`, `SBOM.cdx.json`, `THIRD_PARTY_NOTICES.txt`, `SHA256SUMS`, and `public-export-manifest.json`.
 
-This working tree must not create the GitHub tag or Release. Local development and tests freeze identity only.
+Owner authorized this manifest to progress from `UNFROZEN` to a merged source SHA and immutable Release only after the required local and GitHub gates pass. Until then, `NONE` and `UNFROZEN` remain honest placeholders and must not be replaced with predicted values.

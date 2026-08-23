@@ -226,22 +226,47 @@ export interface CordisPatchPlugin {
   disabled?: boolean;
 }
 
+function stripYamlComment(line: string): string {
+  let quote = "";
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i] ?? "";
+    if ((char === '"' || char === "'") && (i === 0 || line[i - 1] !== "\\")) {
+      quote = quote === char ? "" : quote ? quote : char;
+      continue;
+    }
+    if (!quote && char === "#" && (i === 0 || /\s/.test(line[i - 1] ?? ""))) return line.slice(0, i);
+  }
+  return line;
+}
+
+function yamlField(text: string): { key: "id" | "name" | "disabled"; value: string } | undefined {
+  const colon = text.indexOf(":");
+  if (colon < 1) return undefined;
+  const key = text.slice(0, colon).trim();
+  if (key !== "id" && key !== "name" && key !== "disabled") return undefined;
+  const value = text.slice(colon + 1).trim();
+  if (!value) return undefined;
+  return { key, value };
+}
+
 export function parseCordisPatchPlugins(text: string): CordisPatchPlugin[] {
   const plugins: CordisPatchPlugin[] = [];
   let current: CordisPatchPlugin | undefined;
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/(^|\s)#.*$/, "");
-    const item = line.match(/^\s*-\s+(id|name):\s*(.+)$/);
-    if (item) {
-      current = { [item[1] === "id" ? "id" : "name"]: unquoteYaml(item[2] ?? "") };
+    const line = stripYamlComment(rawLine);
+    const trimmed = line.trimStart();
+    const item = trimmed.startsWith("- ") ? yamlField(trimmed.slice(2).trimStart()) : undefined;
+    if (item && item.key !== "disabled") {
+      current = { [item.key]: unquoteYaml(item.value) };
       plugins.push(current);
       continue;
     }
     if (!current) continue;
-    const named = line.match(/^\s+(id|name|disabled):\s*(.+)$/);
+    if (line.length === trimmed.length) continue;
+    const named = yamlField(trimmed);
     if (!named) continue;
-    const key = named[1];
-    const value = unquoteYaml(named[2] ?? "");
+    const key = named.key;
+    const value = unquoteYaml(named.value);
     if (key === "disabled") current.disabled = value.toLowerCase() === "true";
     else if (key === "id") current.id = value;
     else current.name = value;

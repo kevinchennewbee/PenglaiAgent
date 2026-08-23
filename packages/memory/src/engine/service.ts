@@ -39,12 +39,19 @@ export class MnemonMemoryService {
 
   constructor(
     private readonly root: string,
-    opts: { readonly?: boolean; enabled?: boolean; binaryPath?: string; appRoot?: string } = {},
+    opts: {
+      readonly?: boolean;
+      enabled?: boolean;
+      binaryPath?: string;
+      appRoot?: string;
+      /** Test-only escape hatch for the deterministic fake Mnemon executable. */
+      allowUnpinnedTestBinary?: boolean;
+    } = {},
   ) {
     const binary = resolveMnemonBinary({
       ...(opts.binaryPath ? { explicitPath: opts.binaryPath } : {}),
       ...(opts.appRoot ? { appRoot: opts.appRoot } : {}),
-      verifyHash: false,
+      verifyHash: opts.allowUnpinnedTestBinary !== true,
     });
     this.enabled = opts.enabled !== false;
     this.journal = new MemoryJournal(join(root, "memory", "journal.sqlite3"));
@@ -73,6 +80,21 @@ export class MnemonMemoryService {
       throw new PenglaiError("DSH_UNAVAILABLE", this.degradeReason ?? "mnemon binary missing");
     }
     return this.personal;
+  }
+
+  private adapterForKnownId(id: string, currentWorkspaceId?: string): {
+    adapter: MnemonAdapter;
+    scope: "personal" | "workspace";
+    workspaceId?: string;
+  } {
+    const personal = this.requireEnabled();
+    const row = this.journal.get(id);
+    if (!row) throw new PenglaiError("UNAUTHORIZED", "memory id is not present in the Penglai journal");
+    if (row.scope === "personal") return { adapter: personal, scope: "personal" };
+    if (!row.workspaceId || row.workspaceId !== currentWorkspaceId) {
+      throw new PenglaiError("UNAUTHORIZED", "memory id is outside the current official Workspace");
+    }
+    return { adapter: this.workspace(row.workspaceId), scope: "workspace", workspaceId: row.workspaceId };
   }
 
   async remember(input: { text: string; workspaceId?: string; cat?: string; tags?: string }) {
@@ -120,25 +142,24 @@ export class MnemonMemoryService {
   }
 
   async related(id: string, workspaceId?: string) {
-    const personal = this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
+    const { adapter } = this.adapterForKnownId(id, workspaceId);
     return adapter.related(id);
   }
 
   async why(id: string, workspaceId?: string) {
-    this.requireEnabled();
-    const related = await this.related(id, workspaceId);
-    const indexed = this.journal.get(id);
+    const located = this.adapterForKnownId(id, workspaceId);
+    const related = await located.adapter.related(id);
+    const indexed = this.journal.get(id)!;
     return {
       id,
-      content: indexed?.content ?? "",
-      scope: indexed?.scope ?? (workspaceId ? "workspace" : "personal"),
+      content: indexed.content,
+      scope: indexed.scope,
       related,
-      source: indexed?.source ?? "mnemon",
-      contentDigest: indexed?.contentDigest,
-      status: indexed?.status,
-      recalledBecause: indexed ? "journal" : "related-lookup",
-      ...(workspaceId ? { workspaceId } : {}),
+      source: indexed.source,
+      contentDigest: indexed.contentDigest,
+      status: indexed.status,
+      recalledBecause: "journal",
+      ...(located.workspaceId ? { workspaceId: located.workspaceId } : {}),
     };
   }
 
@@ -167,24 +188,21 @@ export class MnemonMemoryService {
   }
 
   async correct(oldId: string, text: string, workspaceId?: string) {
-    this.requireEnabled();
+    const located = this.adapterForKnownId(oldId, workspaceId);
     const next = await this.remember({
       text,
       tags: `supersedes:${oldId}`,
-      ...(workspaceId ? { workspaceId } : {}),
+      ...(located.workspaceId ? { workspaceId: located.workspaceId } : {}),
     });
-    const personal = this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
-    await adapter.link(next.id, oldId);
+    await located.adapter.link(next.id, oldId);
     this.journal.mark(oldId, "superseded", next.id);
-    await adapter.forget(oldId);
+    await located.adapter.forget(oldId);
     this.journal.mark(oldId, "forgotten", next.id);
     return next;
   }
 
   async forget(id: string, workspaceId?: string) {
-    const personal = this.requireEnabled();
-    const adapter = workspaceId ? this.workspace(workspaceId) : personal;
+    const { adapter } = this.adapterForKnownId(id, workspaceId);
     const result = await adapter.forget(id);
     this.journal.mark(id, "forgotten");
     return result;

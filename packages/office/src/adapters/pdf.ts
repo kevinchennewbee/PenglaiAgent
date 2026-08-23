@@ -6,7 +6,9 @@ import { loadPenglaiCjkFont } from "../cjk-font.js";
 
 async function embedPenglaiFont(pdf: PDFDocument) {
   pdf.registerFontkit(fontkit as never);
-  return pdf.embedFont(loadPenglaiCjkFont());
+  // Keep the complete upstream font available offline, but embed only glyphs
+  // actually used by this PDF so ordinary documents stay within Office limits.
+  return pdf.embedFont(loadPenglaiCjkFont(), { subset: true });
 }
 
 function decodePdfText(raw: string): string {

@@ -10,6 +10,7 @@ import {
   assertWindowsJobHonest,
   deletionInspectionOptionsForPlatform,
   parseWindowsHostReport,
+  quoteWindowsCommandArg,
   refusePosixModeAsWindowsAcl,
   requireWindowsNativeHost,
   resolveWindowsHostExecutable,
@@ -171,6 +172,12 @@ test("owned DSH spawn on Windows requires the native job supervisor", () => {
   assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: false, error: "reparse" })), /reparse/);
 });
 
+test("Windows CreateProcess arguments preserve quotes and trailing backslashes", () => {
+  assert.equal(quoteWindowsCommandArg("C:\\Program Files\\Penglai\\"), '"C:\\Program Files\\Penglai\\\\"');
+  assert.equal(quoteWindowsCommandArg('a"b'), '"a\\"b"');
+  assert.equal(quoteWindowsCommandArg(""), '""');
+});
+
 test("NSIS script default-preserves user data and only deletes via capability handoff", () => {
   const script = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
   assertWindowsNsisScript(script);
@@ -186,7 +193,8 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   // optional desktop shortcut with matching uninstall cleanup.
   assert.match(script, /\$\{VersionCompare\}/);
   assert.doesNotMatch(script, /\$\{If\}\s+\$0\s+S>\s*"\$\{PENGLAI_VERSION\}"/);
-  assert.match(script, /Section\s+\/o\s+"\$\(DESC_Desktop\)"/);
+  assert.match(script, /Section\s+\/o\s+"\$\(NAME_Desktop\)"/);
+  assert.match(script, /LangString\s+NAME_Desktop\s+\$\{LANG_SIMPCHINESE\}\s+"桌面快捷方式"/);
   assert.match(script, /CreateShortCut\s+"\$DESKTOP\\Penglai\.lnk"/);
   assert.match(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
   // The recursive app-tree delete must be guarded to the default install dir.
@@ -195,6 +203,7 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.equal(contract.posixModeImpersonation, false);
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
   const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
+  assert.match(packager, /\/INPUTCHARSET=UTF8/);
   assert.match(payload, /public-export\.json/);
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);

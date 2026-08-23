@@ -12,7 +12,10 @@ import { MemoryStore } from "./store.js";
 import { importLegacy } from "./migration/legacy-053.js";
 
 function tmpSvc() {
-  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-mnemon-")), { binaryPath });
+  return new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-mnemon-")), {
+    binaryPath,
+    allowUnpinnedTestBinary: true,
+  });
 }
 
 test("R55-MEM-001 explicit remember writes active personal memory", async () => {
@@ -61,7 +64,7 @@ test("R55-MEM-006 secrets are refused", async () => {
 
 test("R55-MEM-007 personal store is physically separate", async () => {
   const dir = mkdtempSync(join(tmpdir(), "r55-mem-phys-"));
-  const svc = new MnemonMemoryService(dir, { binaryPath });
+  const svc = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
   await svc.remember({ text: "personal" });
   await svc.remember({ text: "project", workspaceId: "w1" });
   assert.equal(existsSync(personalDataDir(dir)), true);
@@ -113,7 +116,11 @@ test("R55-MEM-013 AutoPrune is off by default", async () => {
 });
 
 test("R55-MEM-014 read-only is host-enforced", async () => {
-  const svc = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-ro-")), { readonly: true, binaryPath });
+  const svc = new MnemonMemoryService(mkdtempSync(join(tmpdir(), "r55-ro-")), {
+    readonly: true,
+    binaryPath,
+    allowUnpinnedTestBinary: true,
+  });
   await assert.rejects(() => svc.remember({ text: "nope" }), /read-only/);
   svc.close();
 });
@@ -130,13 +137,13 @@ test("R55-MEM-016 legacy 0.5.3 memory/context migrates with preview", async () =
   const store = new MemoryStore(join(dir, "memory", "memory.sqlite3"));
   store.write({ scope: "global", text: "legacy-row", ownerConfirmed: true, visibleDiff: "+ l" }, "old");
   store.close();
-  const svc = new MnemonMemoryService(dir, { binaryPath });
+  const svc = new MnemonMemoryService(dir, { binaryPath, allowUnpinnedTestBinary: true });
   await importLegacy(dir, svc);
   assert.equal((await svc.search("legacy-row")).length, 1);
   svc.close();
 });
 
-test("R55-MEM-017 query remains bounded (source cap, not a 100k run)", async () => {
+test("R55-MEM-017 query API remains bounded; verify:memory-real owns the exact 100k corpus gate", async () => {
   const svc = tmpSvc();
   await svc.remember({ text: "scale-0" });
   assert.equal((await svc.search("scale")).length <= 200, true);

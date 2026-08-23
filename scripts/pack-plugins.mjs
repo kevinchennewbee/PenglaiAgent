@@ -909,19 +909,19 @@ for (const p of packs) {
     }
   }
   if (p.id === "@penglai/office") {
-    const fontSrc = join(ROOT, "packages/office/fonts/PenglaiCjkOfl.ttf");
+    const fontSrc = join(ROOT, "packages/office/fonts/NotoSansSC-VF.ttf");
     const fontNotice = join(ROOT, "packages/office/fonts/OFL.txt");
     if (!existsSync(fontSrc) || !existsSync(fontNotice)) {
       console.error("office CJK OFL font missing");
       process.exit(1);
     }
-    const destFont = join(stage, "resources", "fonts", "PenglaiCjkOfl.ttf");
+    const destFont = join(stage, "resources", "fonts", "NotoSansSC-VF.ttf");
     mkdirSync(dirname(destFont), { recursive: true });
     cpSync(fontSrc, destFont);
     cpSync(fontNotice, join(stage, "resources", "fonts", "OFL.txt"));
     cpSync(join(ROOT, "packages/office/fonts/NOTICE"), join(stage, "resources", "fonts", "NOTICE"));
     const fontHash = sha256(destFont);
-    if (fontHash !== "8b925746dd6c4a4a6b79b41101cebb2d13002ea82c0018b8cb0658127371f214") {
+    if (fontHash !== "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964") {
       console.error("packed office CJK font hash mismatch", fontHash);
       process.exit(1);
     }

@@ -463,38 +463,11 @@ window.__ModuleLoader__.load({
     }
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
-      const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiContextSettings"],
-        (viewCtx) => {
-          const pageRemote = {
-            penglaiContextSettings: viewCtx.remote.penglaiContextSettings,
-          };
-          viewCtx.slots.inject("settings.section", () =>
-            viewCtx.slots.register(
-              {
-                name: "settings.section",
-                id: "penglai-context",
-                order: 18.4,
-                label: () => copy().title,
-                inject: () => ({ remote: pageRemote }),
-              },
-              ContextSettingsSection,
-            ),
-          );
-        },
-      );
-      try {
-        await viewFiber;
-      } catch (error) {
-        await disposeRemote();
-        throw error;
-      }
       return async () => {
-        await viewFiber.dispose();
         await disposeRemote();
       };
     }
-    module.exports = { apply, inject };
+    module.exports = { apply, inject, ContextTab };
     return module.exports;
   },
 });

@@ -279,6 +279,38 @@ export class PenglaiImHost {
     return { outboxIds: queued.outboxIds, duplicate: queued.duplicate };
   }
 
+  async sendFileToBoundRoute(input: {
+    routeId: string;
+    sessionId: string;
+    workspaceId?: string;
+    filename: string;
+    bytes: Buffer;
+    digest: string;
+  }): Promise<{ channel: "weixin" | "feishu"; delivered: true }> {
+    const binding = this.store.activeBinding(input.routeId);
+    if (
+      !binding ||
+      binding.sessionId !== input.sessionId ||
+      (input.workspaceId !== undefined && binding.workspaceIdentity !== input.workspaceId)
+    ) {
+      throw new PenglaiError("BINDING_STALE", "office outbound route binding changed");
+    }
+    const route = this.store.getRoute(input.routeId);
+    if (!route || route.status !== "active") throw new PenglaiError("BINDING_STALE", "office outbound route unavailable");
+    const target = this.plane.requireVendorTarget(input.routeId);
+    const clientId = `penglai-office-${input.digest.slice(0, 24)}`;
+    const sent = route.adapter === "feishu"
+      ? await this.feishu.sendFile(target, input.bytes, input.filename)
+      : await this.weixin.sendFile(target, input.bytes, input.filename, clientId);
+    if (!("ok" in sent && sent.ok)) {
+      throw new PenglaiError(
+        "error" in sent && sent.error === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT",
+        "office outbound file was not accepted by the channel",
+      );
+    }
+    return { channel: route.adapter === "feishu" ? "feishu" : "weixin", delivered: true };
+  }
+
   cancelProactive(input: { bindingId: string; triggerIds: string[] }): number {
     if (!this.listBindings().some((row) => row.id === input.bindingId))
       return 0;

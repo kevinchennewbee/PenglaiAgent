@@ -284,8 +284,15 @@ window.__ModuleLoader__.load({
         const id = String(row.id ?? "");
         if (id) live.set(id, { ...(live.get(id) ?? {}), ...row });
       }
-      const cardIds = FIRST_PARTY_CARDS.map((card) => card.id).filter(
-        (id) => !HIDDEN_PRODUCT_CARDS.has(id),
+      const remoteCardIds = state.remote
+        .map((entry) => String(entry.id ?? ""))
+        .filter((id) => id && !HIDDEN_PRODUCT_CARDS.has(id));
+      const cardIds = [
+        ...FIRST_PARTY_CARDS.map((card) => card.id),
+        ...remoteCardIds,
+      ].filter(
+        (id, index, all) =>
+          !HIDDEN_PRODUCT_CARDS.has(id) && all.indexOf(id) === index,
       );
       const firstParty = new Map(FIRST_PARTY_CARDS.map((card) => [card.id, card]));
       const cards = cardIds.map((id) => {
@@ -299,6 +306,9 @@ window.__ModuleLoader__.load({
         const notInstalled = installed === "not-installed" || installed === "unknown";
         const healthy = Boolean(entry.healthy ?? false);
         const revoked = Boolean(entry.revoked);
+        const incompatible = Boolean(
+          entry.incompatible || entry.dshCompatible === false,
+        );
         const title =
           entry.title?.["zh-CN"] ||
           entry.title?.en ||
@@ -312,7 +322,9 @@ window.__ModuleLoader__.load({
           kind: "idle",
           message: "",
         };
-        const statusCopy = revoked
+        const statusCopy = incompatible
+          ? t.centerStatusIncompatible
+          : revoked
           ? t.centerStatusRevoked
           : notInstalled
             ? t.centerStatusNotInstalled
@@ -377,7 +389,7 @@ window.__ModuleLoader__.load({
                         ? jsx.jsx("button", {
                             type: "button",
                             "data-penglai-plugin-action": "installEnable",
-                            disabled: actionState.busy || revoked,
+                            disabled: actionState.busy || revoked || incompatible,
                             onClick: () => act(id, "installEnable"),
                             children: t.centerInstallEnable,
                           })
@@ -397,6 +409,7 @@ window.__ModuleLoader__.load({
                               disabled:
                                 actionState.busy ||
                                 revoked ||
+                                incompatible ||
                                 id === "@penglai/plugin-center",
                               onClick: () => act(id, "enable"),
                               children: t.centerEnable,
@@ -479,21 +492,25 @@ window.__ModuleLoader__.load({
                           jsx.jsx("button", {
                             type: "button",
                             "data-penglai-plugin-action": "download",
-                            disabled: actionState.busy || revoked,
+                            disabled: actionState.busy || revoked || incompatible,
                             onClick: () => act(id, "download"),
                             children: t.centerDownload,
                           }),
                           jsx.jsx("button", {
                             type: "button",
                             "data-penglai-plugin-action": "installDisabled",
-                            disabled: actionState.busy || revoked,
+                            disabled: actionState.busy || revoked || incompatible,
                             onClick: () => act(id, "installDisabled"),
                             children: t.centerInstallDisabled,
                           }),
                           jsx.jsx("button", {
                             type: "button",
                             "data-penglai-plugin-action": "update",
-                            disabled: actionState.busy || notInstalled || revoked,
+                            disabled:
+                              actionState.busy ||
+                              notInstalled ||
+                              revoked ||
+                              incompatible,
                             onClick: () => act(id, "update"),
                             children: t.centerVerifyUpdate,
                           }),
@@ -566,7 +583,7 @@ window.__ModuleLoader__.load({
         penglaiSettingsTitle: "蓬莱",
         penglaiSettingsEyebrow: "PENGLAI FOR DSH",
         penglaiSettingsHint:
-          "DSH 核心可以独立使用。需要时再从本机已审核目录安装并组合蓬莱扩展；未安装的扩展不会加载、联网或占用设置页面。",
+          "DSH 核心、蓬莱办公与蓬莱记忆（含明确授权的本地资料）默认可用；手机消息、语音识别、语音生成和主动陪伴按需启用。",
         groupOverview: "概览",
         groupConnections: "连接",
         groupVoice: "语音",
@@ -629,13 +646,13 @@ window.__ModuleLoader__.load({
           "local-voices": "本地声音参考",
           "voice-temp": "语音临时数据",
           "context-indexes": "Context 授权与派生索引",
-          memory: "分层 Memory 与 official Skills",
+          memory: "蓬莱记忆与 official Skills",
           budget: "预算 ledger 与限制",
           companion: "主动陪伴计划与审计",
         },
         centerTitle: "蓬莱插件中心",
         centerHint:
-          "默认只运行 DSH 核心与本中心。远程目录来自 GitHub 不可变 Release；下载后先安装为停用，再经权限确认启用。",
+          "全新安装默认运行 DSH 核心、蓬莱插件中心、蓬莱办公和蓬莱记忆。其他插件按需安装启用；远程目录来自 GitHub 不可变 Release。",
         centerRefresh: "刷新已签名目录",
         centerRegistry: "目录来源",
         centerOffline: "离线使用上次已验证目录",
@@ -653,6 +670,7 @@ window.__ModuleLoader__.load({
         centerAdvanced: "高级/诊断",
         centerInstallDisabled: "安装（停用）",
         centerStatusRevoked: "已撤销",
+        centerStatusIncompatible: "不兼容当前版本或平台",
         centerActionDownloaded: "下载成功。",
         centerActionInstalled: "已安装为停用。",
         centerActionRefreshed: "目录已刷新。",
@@ -660,21 +678,21 @@ window.__ModuleLoader__.load({
         centerError: "official 插件清单暂时不可用。",
         cardCenter: "蓬莱插件中心",
         cardCenterHint: "管理本机已签入插件的实际状态。",
-        cardIm: "蓬莱消息",
-        cardImHint: "微信与飞书私聊文本和语音。",
-        cardAsr: "语音识别",
+        cardIm: "蓬莱手机消息",
+        cardImHint: "微信与飞书私聊的文字、图片、文件和语音。",
+        cardAsr: "蓬莱语音识别",
         cardAsrHint: "本地 SenseVoice。到「蓬莱语音识别」页下载模型并试转写。",
-        cardTts: "语音合成",
+        cardTts: "蓬莱语音生成",
         cardTtsHint: "本地 MOSS-TTS。到「蓬莱语音合成」页下载模型并试听。",
         cardContext: "个人上下文",
         cardContextHint: "只索引你明确授权的本地目录。",
-        cardMemory: "分层记忆",
-        cardMemoryHint: "长期记忆与 SOP 需要可见确认。",
+        cardMemory: "蓬莱记忆",
+        cardMemoryHint: "本机分层记忆、项目隔离、授权资料、来源追溯与可视化；写入和遗忘需要可见确认。",
         cardOffice: "蓬莱办公",
         cardOfficeHint: "读取、创建和编辑 DOCX、XLSX、PPTX 与 PDF。",
         cardBudget: "用量预算",
         cardBudgetHint: "到达硬上限会阻止新的对话。",
-        cardCompanion: "主动陪伴",
+        cardCompanion: "蓬莱主动陪伴",
         cardCompanionHint: "默认关闭，只走已绑定的消息渠道。",
         centerActual: "实际",
         centerDesired: "期望",
@@ -704,7 +722,7 @@ window.__ModuleLoader__.load({
         penglaiSettingsTitle: "Penglai",
         penglaiSettingsEyebrow: "PENGLAI FOR DSH",
         penglaiSettingsHint:
-          "DSH core works on its own. Install audited Penglai extensions from the local catalog only when needed; absent extensions do not load, connect, or occupy settings pages.",
+          "DSH core, Penglai Office, and Penglai Memory (including explicitly authorized local sources) are ready by default. Mobile messaging, speech recognition, voice generation, and Companion are opt-in.",
         groupOverview: "Overview",
         groupConnections: "Connections",
         groupVoice: "Voice",
@@ -772,13 +790,13 @@ window.__ModuleLoader__.load({
           "local-voices": "Local voice references",
           "voice-temp": "Voice temporary data",
           "context-indexes": "Context grants and derived indexes",
-          memory: "Layered Memory and official Skills",
+          memory: "Penglai Memory and official Skills",
           budget: "Budget ledger and limits",
           companion: "Companion schedules and audit",
         },
         centerTitle: "Penglai Plugin Center",
         centerHint:
-          "Only DSH core and this Center run by default. The remote catalog comes from immutable GitHub Releases; packages install disabled until permission confirm.",
+          "A fresh install runs DSH core, Penglai Plugin Center, Penglai Office, and Penglai Memory by default. Other plugins are opt-in; the remote catalog comes from immutable GitHub Releases.",
         centerRefresh: "Refresh signed catalog",
         centerRegistry: "Catalog source",
         centerOffline: "offline last-good catalog",
@@ -796,6 +814,7 @@ window.__ModuleLoader__.load({
         centerAdvanced: "Advanced / diagnostics",
         centerInstallDisabled: "Install disabled",
         centerStatusRevoked: "Revoked",
+        centerStatusIncompatible: "Incompatible version or platform",
         centerActionDownloaded: "Downloaded.",
         centerActionInstalled: "Installed disabled.",
         centerActionRefreshed: "Catalog refreshed.",
@@ -803,24 +822,24 @@ window.__ModuleLoader__.load({
         centerError: "Official plugin inventory is temporarily unavailable.",
         cardCenter: "Penglai Plugin Center",
         cardCenterHint: "Manage actual state of signed local plugins.",
-        cardIm: "Penglai Messages",
-        cardImHint: "Private Weixin and Feishu text and voice.",
-        cardAsr: "Speech recognition",
+        cardIm: "Penglai Mobile Messaging",
+        cardImHint: "Private Weixin and Feishu text, images, files, and voice.",
+        cardAsr: "Penglai Speech Recognition",
         cardAsrHint:
           "Local SenseVoice. Open Penglai Speech Recognition to download the model and test transcription.",
-        cardTts: "Speech synthesis",
+        cardTts: "Penglai Voice Generation",
         cardTtsHint:
           "Local MOSS-TTS. Open Penglai Speech Synthesis to download the model and preview a voice.",
         cardContext: "Personal context",
         cardContextHint: "Indexes only directories you explicitly authorize.",
-        cardMemory: "Layered memory",
+        cardMemory: "Penglai Memory",
         cardMemoryHint:
-          "Long-term memory and SOPs need a visible confirmation.",
+          "Local layered memory with project isolation, authorized sources, provenance, and visualization. Remember and forget require visible confirmation.",
         cardOffice: "Penglai Office",
         cardOfficeHint: "Inspect, create, and edit DOCX, XLSX, PPTX, and PDF.",
         cardBudget: "Usage budget",
         cardBudgetHint: "A hard limit blocks new conversations.",
-        cardCompanion: "Companion",
+        cardCompanion: "Penglai Companion",
         cardCompanionHint:
           "Off by default. Sends only through bound IM routes.",
         centerActual: "actual",

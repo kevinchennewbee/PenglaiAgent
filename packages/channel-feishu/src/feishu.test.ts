@@ -430,6 +430,47 @@ test("R50-VOICE-015 Feishu resource reaches one Turn and exact final sends nativ
   h.store.close();
 });
 
+test("Feishu office return uploads and sends the exact file bytes", async () => {
+  const uploads: Array<Record<string, unknown>> = [];
+  const messages: Array<Record<string, unknown>> = [];
+  class FakeClient {
+    im = {
+      file: {
+        create: async (request: Record<string, unknown>) => {
+          uploads.push(request);
+          return { file_key: "office-file-key" };
+        },
+      },
+      message: {
+        create: async (request: Record<string, unknown>) => { messages.push(request); return {}; },
+        reply: async () => ({}),
+      },
+    };
+  }
+  class FakeDispatcher { register() { return this; } }
+  class FakeWS { async start() {} close() {} }
+  const routing = plane();
+  const adapter = new FeishuAdapter(routing, "cli_office", {
+    Client: FakeClient as never,
+    WSClient: FakeWS as never,
+    EventDispatcher: FakeDispatcher as never,
+  });
+  await adapter.connect("cli_office", "fixture-secret");
+  const bytes = Buffer.from("office-file-bytes");
+  assert.deepEqual(await adapter.sendFile("ou_owner", bytes, "report.xlsx"), { ok: true });
+  assert.equal(uploads.length, 1);
+  const uploadData = uploads[0]?.data as Record<string, unknown>;
+  assert.equal(uploadData.file_type, "stream");
+  assert.equal(uploadData.file_name, "report.xlsx");
+  assert.equal(Buffer.from(uploadData.file as Buffer).equals(bytes), true);
+  assert.equal(messages.length, 1);
+  const messageData = messages[0]?.data as Record<string, unknown>;
+  assert.equal(messageData.receive_id, "ou_owner");
+  assert.equal(messageData.msg_type, "file");
+  assert.equal(String(messageData.content).includes("office-file-key"), true);
+  adapter.stop();
+});
+
 test("Feishu scanner identity is the unique allowlist and first DMs do not become owner", async () => {
   const h = voicePlane();
   const notices: string[] = [];

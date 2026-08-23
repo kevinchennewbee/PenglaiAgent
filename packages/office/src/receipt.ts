@@ -1,10 +1,21 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
 
+export type OfficeReceiptAction =
+  | "commit"
+  | "commit-to-path"
+  | "undo"
+  | "discard"
+  | "export"
+  | "return-to-channel";
+
 export interface OfficeReceiptClaims {
   jobId: string;
   sourceDigest: string;
   opsDigest: string;
+  resultDigest: string;
+  action: OfficeReceiptAction;
+  authorityDigest: string;
   workspaceId?: string;
   exp: number;
 }
@@ -37,7 +48,14 @@ export function verifyOfficeReceipt(secret: Buffer, receipt: string, expected: O
   } catch {
     throw new PenglaiError("SECURITY_POLICY", "office receipt payload rejected");
   }
-  if (claims.jobId !== expected.jobId || claims.sourceDigest !== expected.sourceDigest || claims.opsDigest !== expected.opsDigest) {
+  if (
+    claims.jobId !== expected.jobId ||
+    claims.sourceDigest !== expected.sourceDigest ||
+    claims.opsDigest !== expected.opsDigest ||
+    claims.resultDigest !== expected.resultDigest ||
+    claims.action !== expected.action ||
+    claims.authorityDigest !== expected.authorityDigest
+  ) {
     throw new PenglaiError("SECURITY_POLICY", "office receipt binding mismatch");
   }
   if ((claims.workspaceId ?? "") !== (expected.workspaceId ?? "")) {

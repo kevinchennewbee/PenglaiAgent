@@ -66,7 +66,6 @@ export function bundledMnemonBinary(
     ...(root ? { appRoot: root } : {}),
     platform,
     arch,
-    verifyHash: false,
   });
 }
 
