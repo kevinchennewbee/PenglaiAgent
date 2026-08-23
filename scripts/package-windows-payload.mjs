@@ -4,6 +4,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeF
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 import { writeRequiredFuses } from "./lib/electron-fuses.mjs";
@@ -12,18 +13,19 @@ const staging = stagingForTarget(ROOT, "win32-x86_64");
 const payload = join(staging, "payload");
 const native = process.platform === "win32" && process.arch === "x64";
 const git = gitState();
+const source = requireCleanCandidateSource();
 const publicExportPath = join(ROOT, "evidence", "generated", "public-export.json");
 const publicExport = existsSync(publicExportPath) ? JSON.parse(readFileSync(publicExportPath, "utf8")) : null;
 if (
   native &&
-  (git.branch !== "main" || git.head !== git.originMain || git.dirty ||
+  (!source.ok ||
     publicExport?.privateCandidateSourceSha !== git.head ||
     publicExport?.treeDirty !== false ||
     !/^[0-9a-f]{64}$/.test(String(publicExport?.publicExportTreeSha256 ?? "")))
 ) {
   finish("STALE", {
     command: "package:windows-payload",
-    reason: "native Windows payload requires clean main at origin/main and current public export evidence",
+    reason: "native Windows payload requires a clean candidate and current public export evidence",
   });
 }
 

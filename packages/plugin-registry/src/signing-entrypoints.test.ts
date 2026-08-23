@@ -29,7 +29,7 @@ test("release signing entrypoints resolve from a source checkout", () => {
       writeFileSync(input, item.bytes);
       const result = spawnSync(process.execPath, ["--import", "tsx", item.script, input], {
         cwd: root,
-        env: { ...process.env, HOME: home },
+        env: { ...process.env, HOME: home, USERPROFILE: home },
         encoding: "utf8",
       });
       assert.equal(result.status, 0, `${item.script}: ${result.stderr}`);

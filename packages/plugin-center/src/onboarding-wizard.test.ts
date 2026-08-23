@@ -106,6 +106,7 @@ test("wizard catalog matches official Models merge on a real LlmRuntime", () => 
 test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version", async () => {
   const { createRequire } = await import("node:module");
   const { join } = await import("node:path");
+  const { pathToFileURL } = await import("node:url");
   const resolveFrom = (from: string, id: string): string | undefined => {
     try {
       return createRequire(from).resolve(id);
@@ -129,7 +130,7 @@ test("official DSH ships Pi adapter and DeepSeek adapter at the pinned version",
   assert.equal(deepseekManifest.name, "@deepseek-ai/dsh-llm-deepseek");
   assert.equal(piManifest.version, "0.1.1-rc.2");
   assert.equal(deepseekManifest.version, "0.1.1-rc.2");
-  const piMod = await import(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!);
+  const piMod = await import(pathToFileURL(resolveFrom(piPkg, "@deepseek-ai/dsh-llm-pi-ai")!).href);
   assert.equal(piMod.name, "llm-pi-ai");
   assert.equal(typeof piMod.apply, "function");
   assert.doesNotMatch(readFileSync(new URL("./onboarding.ts", import.meta.url), "utf8"), /PENGLAI_PROVIDER_CATALOG|staticProviders\s*=/);

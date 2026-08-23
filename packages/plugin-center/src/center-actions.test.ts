@@ -55,7 +55,7 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   assert.match(client, /centerActionInstalledEnabled/);
   const main = readFileSync(new URL("../../../apps/desktop/src/electron-main.ts", import.meta.url), "utf8");
   assert.match(main, /installEnable:\s*"plugin-enable"/);
-  const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8");
+  const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
   const end = remotes.indexOf("disable(id: string) {\n      return transact(id, \"disable\")");
   const installEnable = remotes.slice(start, end);

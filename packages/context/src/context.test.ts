@@ -65,7 +65,7 @@ test("Context ingest rejects a symlink escaping the grant root", async () => {
     assert.equal(svc.search("never").length, 0);
     svc.close();
   } finally {
-    rmSync(base, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
   }
 });
 
@@ -88,7 +88,8 @@ test("R50-CTXMEM: ingest walks a granted directory and never rewrites source", a
   assert.deepEqual(svc.revokeRoot(root), { deletedDerived: true, sourceUntouched: true });
   assert.equal(svc.search("Penglai").length, 0);
   assert.equal(Buffer.compare(before, readFileSync(note)), 0);
-  rmSync(root, { recursive: true, force: true });
+  svc.close();
+  rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
 });
 
 test("R50-CTXMEM-001/005/015 production apply uses durable userData, typed Cordis service, and official tools", async () => {
@@ -156,7 +157,7 @@ test("Context settings consumes one opaque picker capability and exposes no raw-
     assert.equal("ingestPath" in api, false);
     service.close();
   } finally {
-    rmSync(userData, { recursive: true, force: true });
+    rmSync(userData, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
   }
 });
 

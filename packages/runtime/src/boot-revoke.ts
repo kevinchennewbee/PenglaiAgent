@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PluginDistributionClient, selectCatalogArtifact } from "@penglai/plugin-registry";
+import type { SignedPluginCatalog } from "@penglai/plugin-registry";
 import { PINNED_PLUGIN_DSH, runtimePluginTarget } from "./plugin-catalog.js";
 
 export interface BootRevokeResult {
@@ -58,6 +59,39 @@ function upsertDisabled(patchText: string, pluginId: string): string {
   return endsWithNl && !joined.endsWith("\n") ? `${joined}\n` : joined;
 }
 
+export function shouldQuarantineInstalledPlugin(
+  catalog: SignedPluginCatalog,
+  id: string,
+  version: string,
+  target = runtimePluginTarget(),
+): boolean {
+  const critical = catalog.revocations.filter(
+    (row) =>
+      row.id === id &&
+      row.version === version &&
+      row.severity === "critical",
+  );
+  if (!critical.length) return false;
+
+  const current = catalog.entries.find(
+    (row) => row.id === id && row.version === version,
+  );
+  if (current?.artifacts.length) {
+    try {
+      const currentSha = selectCatalogArtifact(current.artifacts, target).sha256;
+      return critical.some((row) => row.sha256 === currentSha);
+    } catch {
+      // A signed critical revocation must fail closed when this host cannot
+      // establish a distinct, currently approved artifact for the install.
+    }
+  }
+
+  // Extracted historical packages do not contain their original archive hash.
+  // When a signed catalog removes an entry and critically revokes its exact
+  // id/version, keeping unknown bytes active would defeat the revocation.
+  return true;
+}
+
 /**
  * Scan installed profile packages against the last-good signed catalog and
  * disable/quarantine revoked versions before DSH loader starts.
@@ -82,7 +116,10 @@ export function quarantineRevokedPlugins(opts: {
   if (!snap) return { scanned: 0, quarantined: [], catalogLoaded: false };
   const quarantined: string[] = [];
   const nodeModules = join(opts.profileDir, "node_modules");
-  const ids = new Set(snap.catalog.entries.map((entry) => entry.id));
+  const ids = new Set([
+    ...snap.catalog.entries.map((entry) => entry.id),
+    ...snap.catalog.revocations.map((entry) => entry.id),
+  ]);
   if (existsSync(nodeModules)) {
     for (const scope of readdirSync(nodeModules)) {
       const scoped = join(nodeModules, scope);
@@ -104,15 +141,7 @@ export function quarantineRevokedPlugins(opts: {
     } catch {
       continue;
     }
-    const entry = snap.catalog.entries.find((row) => row.id === id && row.version === version);
-    let sha256 = "";
-    try {
-      if (entry?.artifacts.length) sha256 = selectCatalogArtifact(entry.artifacts, runtimePluginTarget()).sha256;
-    } catch {
-      sha256 = "";
-    }
-    if (!sha256) continue;
-    if (client.revokedOnBoot(id, version, sha256)) {
+    if (shouldQuarantineInstalledPlugin(snap.catalog, id, version)) {
       patchDisable(opts.profileDir, id);
       quarantined.push(`${id}@${version}`);
     }

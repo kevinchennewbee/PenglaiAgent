@@ -104,6 +104,10 @@ rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 const onboardingDir = join(userData, "onboarding");
 mkdirSync(onboardingDir, { recursive: true, mode: 0o700 });
+const fixtureWorkspaceId = "installed-ui-fixture-workspace";
+const fixtureApiSessionId = "installed-ui-fixture-api";
+const fixtureFirstSessionId = "installed-ui-fixture-first";
+const fixtureNonceDigest = "a".repeat(64);
 writeFileSync(
   join(onboardingDir, "onboarding.json"),
   `${JSON.stringify(
@@ -127,6 +131,30 @@ writeFileSync(
   )}\n`,
   { mode: 0o600 },
 );
+writeFileSync(
+  join(onboardingDir, "onboarding-facts.json"),
+  `${JSON.stringify(
+    {
+      selection: { provider: "deepseek-official", model: "deepseek-chat" },
+      credentialRef: "PENGLAI_INSTALLED_UI_FIXTURE",
+      workspaceId: fixtureWorkspaceId,
+      apiTest: {
+        nonceDigest: fixtureNonceDigest,
+        finalDigest: "b".repeat(64),
+        sessionId: fixtureApiSessionId,
+      },
+      firstConversation: {
+        sessionId: fixtureFirstSessionId,
+        messageDigest: "c".repeat(64),
+        finalDigest: "d".repeat(64),
+      },
+    },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
+writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
 
 function pluginRows(snapshot) {
   const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];

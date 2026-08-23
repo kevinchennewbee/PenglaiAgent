@@ -318,7 +318,7 @@ test("fresh catalog and profile keep every optional Penglai plugin disabled", ()
     ),
     true,
   );
-  const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8");
+  const patch = readFileSync(new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   for (const entry of optional) {
     const short = entry.id.replace("@penglai/", "penglai-");
     assert.match(

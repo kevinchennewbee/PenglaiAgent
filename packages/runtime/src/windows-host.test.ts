@@ -229,7 +229,7 @@ test("Windows inventory helper is not implied by a darwin inspect", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-win-inv-"));
   mkdirSync(join(root, "cache"), { recursive: true });
   writeFileSync(join(root, "cache", "a"), "1");
-  const inventory = inspectStorageInventory({ userData: root, cacheRoot: join(root, "cache") }, [], []);
+  const inventory = inspectStorageInventory({ userData: root, cacheRoot: join(root, "cache") }, [], [], { platform: "darwin" });
   assert.equal(inventory.categories.length, 13);
   assert.equal(resolve(inventory.categories.find((row) => row.category === "cache")?.targets[0]?.path ?? ""), resolve(join(root, "cache")));
 });

@@ -144,7 +144,7 @@ test("R50-UN-010 complete delete then empty generation stays under userData", ()
     userData: root,
     confirmCredentials: false,
   });
-  const out = executeDeletionPlan(plan, root, [], []);
+  const out = executeDeletionPlan(plan, root, [], [], { platform: "darwin" });
   assert.equal(out.deleted.length, 1);
   assert.equal(existsSync(join(root, "keep.txt")), true);
 });

@@ -101,16 +101,15 @@ export function createTestMnemonBinary(dir = join(tmpdir(), `penglai-fake-mnemon
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const jsPath = join(dir, "mnemon.js");
   writeFileSync(jsPath, SCRIPT.replace(/^#!.*\n/, ""), { encoding: "utf8", mode: 0o644 });
-  const path = join(dir, process.platform === "win32" ? "mnemon.cmd" : "mnemon");
   if (process.platform === "win32") {
-    writeFileSync(path, `@echo off\r\n"${process.execPath}" "${jsPath}" %*\r\n`, { encoding: "utf8" });
-  } else {
-    writeFileSync(
-      path,
-      `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(jsPath)} "$@"\n`,
-      { encoding: "utf8", mode: 0o755 },
-    );
-    chmodSync(path, 0o755);
+    return jsPath;
   }
+  const path = join(dir, "mnemon");
+  writeFileSync(
+    path,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(jsPath)} "$@"\n`,
+    { encoding: "utf8", mode: 0o755 },
+  );
+  chmodSync(path, 0o755);
   return path;
 }

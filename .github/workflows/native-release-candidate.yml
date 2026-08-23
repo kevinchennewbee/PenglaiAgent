@@ -67,6 +67,7 @@ jobs:
       - name: Build source from the clean checkout
         run: pnpm build
       - name: Source and onboarding regression gates
+        shell: bash
         run: |
           pnpm test:unit
           pnpm test:contract

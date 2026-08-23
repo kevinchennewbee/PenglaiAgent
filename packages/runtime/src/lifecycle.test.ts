@@ -5,6 +5,9 @@ import { PenglaiError } from "@penglai/contracts";
 import { assertUpdateManifest, compareSemver, nextUpdateState, verifyPayload } from "./update.js";
 import { assertSafeDeletePath, buildDeletionPlan } from "./uninstall.js";
 
+const POSIX_INSPECTION = { platform: "darwin" as const };
+const portable = (path: string) => path.replace(/\\/g, "/");
+
 test("R50-UPD-001/002/004 assisted update rejects mutable latest URL downgrade and unsigned payload", () => {
   assert.throws(
     () =>
@@ -89,7 +92,7 @@ test("R50-UN-002/009 legacy detector is read-only and locked delete stops", asyn
     userData: root,
     confirmCredentials: false,
   });
-  const out = executeDeletionPlan(plan, root, [], []);
+  const out = executeDeletionPlan(plan, root, [], [], POSIX_INSPECTION);
   assert.equal(out.deleted.length, 1);
   const { symlinkSync, rmSync } = await import("node:fs");
   const link = join(root, "im");
@@ -100,7 +103,7 @@ test("R50-UN-002/009 legacy detector is read-only and locked delete stops", asyn
     userData: root,
     confirmCredentials: false,
   });
-  assert.throws(() => executeDeletionPlan(imPlan, root, [], []), /symlink|locked or permission/);
+  assert.throws(() => executeDeletionPlan(imPlan, root, [], [], POSIX_INSPECTION), /symlink|locked or permission/);
   rmSync(link, { force: true });
 });
 
@@ -116,7 +119,7 @@ test("R50-UN-005/007/008 deletion plan is exact and refuses escapes", () => {
     confirmCredentials: false,
   });
   assert.equal(plan.paths.length, 2);
-  assert.ok(plan.paths.every((p) => p.startsWith("/tmp/Penglai/0.5/")));
+  assert.ok(plan.paths.every((p) => portable(p).includes("/tmp/Penglai/0.5/")));
   assert.throws(() => assertSafeDeletePath("/", "/tmp/Penglai/0.5", [], []), /root|home|drive/);
   assert.throws(
     () => assertSafeDeletePath("/tmp/ws-project", "/tmp/Penglai/0.5", ["/tmp/ws-project"], []),
@@ -137,9 +140,9 @@ test("R50-UN: voice/memory/budget/companion categories never resolve to whole us
     confirmSensitive: true,
   });
   assert.equal(plan.paths.length, 8);
-  assert.ok(plan.paths.every((p) => p.startsWith("/tmp/Penglai/0.5/") && p !== "/tmp/Penglai/0.5"));
-  assert.ok(plan.paths.some((p) => p.endsWith("/voice/models/asr")));
-  assert.ok(plan.paths.some((p) => p.endsWith("/memory")));
+  assert.ok(plan.paths.every((p) => portable(p).includes("/tmp/Penglai/0.5/") && !portable(p).endsWith("/tmp/Penglai/0.5")));
+  assert.ok(plan.paths.some((p) => portable(p).endsWith("/voice/models/asr")));
+  assert.ok(plan.paths.some((p) => portable(p).endsWith("/memory")));
   assert.throws(
     () =>
       buildDeletionPlan({
@@ -163,7 +166,7 @@ test("deletion plan refuses workspace legacy symlink and unconfirmed credentials
     userData: "/tmp/Penglai/0.5",
     confirmCredentials: false,
   });
-  assert.ok(plan.paths[0]?.includes("/cache"));
+  assert.ok(portable(plan.paths[0] ?? "").includes("/cache"));
   assert.throws(
     () => assertSafeDeletePath("/tmp/ws-project", "/tmp/Penglai/0.5", ["/tmp/ws-project"], []),
     /workspace/,
@@ -190,11 +193,11 @@ test("R50-UN-006/007 deletion capability binds type count owner and tree digest"
     userData: root,
     confirmCredentials: false,
   });
-  const preview = previewDeletionPlan(plan, root, [], []);
+  const preview = previewDeletionPlan(plan, root, [], [], POSIX_INSPECTION);
   assert.equal(preview.targets[0]?.type, "directory");
   assert.equal(preview.targets[0]?.entryCount, 2);
   assert.match(preview.targets[0]?.treeSha256 ?? "", /^[a-f0-9]{64}$/);
-  const auth = new DeletionAuthorizer(root, [], [], journal);
+  const auth = new DeletionAuthorizer(root, [], [], journal, POSIX_INSPECTION);
   auth.prepare(plan);
   writeFileSync(join(cache, "two.txt"), "two");
   assert.throws(() => auth.execute(plan.operationId), /changed after confirmation/);
@@ -218,7 +221,7 @@ test("nested symlinks and overlapping category plans are rejected before deletio
     userData: root,
     confirmCredentials: false,
   });
-  assert.throws(() => previewDeletionPlan(plan, root, [], []), /symlink|reparse/);
+  assert.throws(() => previewDeletionPlan(plan, root, [], [], POSIX_INSPECTION), /symlink|reparse/);
   assert.throws(
     () => buildDeletionPlan({
       operationId: "delete-overlap",
@@ -259,7 +262,7 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   assert.equal(plan.paths.includes(join(root, "dsh-home", "skills")), true);
   assert.equal(plan.paths.includes(cacheRoot), true);
   assert.equal(plan.paths.includes(logsRoot), true);
-  const preview = previewDeletionPlan(plan, root, [], [], { dataLayout });
+  const preview = previewDeletionPlan(plan, root, [], [], { ...POSIX_INSPECTION, dataLayout });
   assert.equal(preview.targets.length, plan.paths.length);
   assert.equal(preview.targets.every((target) => target.category.length > 0), true);
   const inventory = inspectStorageInventory(dataLayout, [], []);
@@ -268,7 +271,7 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
 
   const workspaceInsideDsh = join(root, "dsh-home", "storages", "workspace-source");
   assert.throws(
-    () => previewDeletionPlan(plan, root, [workspaceInsideDsh], [], { dataLayout }),
+    () => previewDeletionPlan(plan, root, [workspaceInsideDsh], [], { ...POSIX_INSPECTION, dataLayout }),
     /workspace never deleted/,
   );
 });

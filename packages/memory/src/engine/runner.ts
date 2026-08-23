@@ -39,6 +39,7 @@ export class MnemonRunner {
   constructor(
     private readonly binaryPath: string,
     private readonly readonly = false,
+    private readonly allowTestScriptWrapper = false,
   ) {
     if (!binaryPath || binaryPath.includes("..") || !existsSync(binaryPath)) {
       throw new PenglaiError("DSH_UNAVAILABLE", "mnemon binary missing");
@@ -72,7 +73,8 @@ export class MnemonRunner {
       args.push(positional);
     }
     return await new Promise((resolve, reject) => {
-      const child = spawn(this.binaryPath, args, {
+      const wrapped = this.allowTestScriptWrapper && process.platform === "win32" && this.binaryPath.endsWith(".js");
+      const child = spawn(wrapped ? process.execPath : this.binaryPath, wrapped ? [this.binaryPath, ...args] : args, {
         env: {
           PATH: "/usr/bin:/bin",
           LANG: process.env.LANG ?? "C",
@@ -107,7 +109,8 @@ export class MnemonRunner {
 
   async version(): Promise<string> {
     const result = await new Promise<MnemonRunResult>((resolve, reject) => {
-      const child = spawn(this.binaryPath, ["--version"], {
+      const wrapped = this.allowTestScriptWrapper && process.platform === "win32" && this.binaryPath.endsWith(".js");
+      const child = spawn(wrapped ? process.execPath : this.binaryPath, wrapped ? [this.binaryPath, "--version"] : ["--version"], {
         env: { PATH: "/usr/bin:/bin", LANG: process.env.LANG ?? "C", TMPDIR: tmpdir() },
         stdio: ["ignore", "pipe", "pipe"],
       });

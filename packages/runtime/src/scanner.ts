@@ -55,7 +55,7 @@ function isBinaryArtifact(rel: string, buf: Buffer): boolean {
 
 export function scanBundleBytes(rel: string, buf: Buffer, packagerHome = homedir()): string[] {
   if (!isBinaryArtifact(rel, buf)) return scanBundleText(rel, buf.toString("utf8"));
-  const text = buf.toString("latin1");
+  const text = buf.toString("latin1").replaceAll("\\", "/");
   const pinnedUpstreamBuilderPrefixes = [
     ["", "Users", "cloudtest", "vss", "_work", ""].join("/"),
     ["", "Users", "runner", "work", "1", ""].join("/"),

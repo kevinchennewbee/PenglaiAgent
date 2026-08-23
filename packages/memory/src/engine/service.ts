@@ -61,7 +61,11 @@ export class MnemonMemoryService {
       return;
     }
     this.degraded = false;
-    this.runner = new MnemonRunner(binary.path, opts.readonly === true);
+    this.runner = new MnemonRunner(
+      binary.path,
+      opts.readonly === true,
+      opts.allowUnpinnedTestBinary === true,
+    );
     this.personal = new MnemonAdapter(this.runner, personalDataDir(root));
   }
 

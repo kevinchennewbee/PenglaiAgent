@@ -40,7 +40,8 @@ const SENSITIVE = [
   /\/Library\/Keychains\b/,
   /(^|\/)etc\//,
   /(^|[\/\\])credentials([\/\\]|$)/i,
-  /\\AppData\\/i,
+  /\\AppData\\(?:Local|Roaming)\\Penglai(?:\\|$)/i,
+  /\\AppData\\Roaming\\Microsoft\\Credentials(?:\\|$)/i,
 ];
 
 export function assertGrant(grant: ContextGrant): void {

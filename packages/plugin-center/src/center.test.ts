@@ -497,7 +497,7 @@ test("center disable keeps official seed patch YAML indented", async () => {
   const src = readFileSync(
     new URL("../../../profile-seed/web/cordis.patch.yml", import.meta.url),
     "utf8",
-  );
+  ).replace(/\r\n/g, "\n");
   const off = setPatchDisabled(src, "@penglai/plugin-reference", true);
   assert.match(
     off,
