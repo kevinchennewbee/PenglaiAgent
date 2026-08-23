@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classifyMedia, MediaStore, mediaCaption } from "@penglai/contracts";
+import { classifyMedia, MediaStore, mediaCaption, imageMediaTypeFromBytes, attachDownloadedMedia } from "@penglai/contracts";
 import { parseOfficialInbound, parseInbound } from "@penglai/channel-weixin";
 import { parseFeishuEvent, parseOfficialReceiveWithMedia } from "@penglai/channel-feishu";
 
@@ -109,4 +109,37 @@ test("media store classifies the shared fixture matrix", () => {
     assert.match(mediaCaption(env), /penglai-media/);
     assert.doesNotMatch(mediaCaption(env), /\[image\]|\[file\]/);
   }
+});
+
+test("PNG bytes admit through official saveImage and never become model captions", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-media-"));
+  const store = new MediaStore(dir);
+  const env = await attachDownloadedMedia({
+    store,
+    bytes: PNG,
+    base: {
+      kind: "image",
+      source: "weixin",
+      sourceMessageId: "m1",
+      sourceResourceId: "r1",
+      mime: "image/png",
+      filename: "a.png",
+    },
+    imageAdmission: {
+      async saveImage(input) {
+        return {
+          attachmentId: "att-admit",
+          mediaType: input.mediaType,
+          bytes: input.data.byteLength,
+          width: 1,
+          height: 1,
+          name: input.name,
+        };
+      },
+    },
+  });
+  assert.equal(imageMediaTypeFromBytes(PNG), "image/png");
+  assert.equal(env.officialImage?.attachmentId, "att-admit");
+  assert.equal(env.officialImage?.bytes, PNG.length);
+  assert.doesNotMatch(env.officialImage?.attachmentId ?? "", /[/\\]/);
 });

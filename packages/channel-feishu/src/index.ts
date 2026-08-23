@@ -6,7 +6,9 @@ import {
   classifyTransportError,
   classifyMedia,
   MediaStore,
-  mediaCaption,
+  attachDownloadedMedia,
+  type ImageAdmission,
+  type ObjectStore,
   type InboundEnvelope,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -173,6 +175,8 @@ export class FeishuAdapter {
   readonly mediaStore = new MediaStore(
     ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "feishu")] : []),
   );
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
 
   constructor(
     private readonly plane: RoutingControlPlane,
@@ -540,20 +544,32 @@ export class FeishuAdapter {
 
   private async ingestFile(parsed: InboundEnvelope, ref: FeishuFileMediaRef) {
     const bytes = await this.downloadMessageResource(ref.messageId, ref.fileKey, ref.messageType === "image" ? "image" : "file", this.voiceAbort.signal);
-    const kind = classifyMedia({
-      bytes,
-      ...(ref.filename ? { filename: ref.filename } : {}),
-      ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
-    });
-    parsed.media = this.mediaStore.put(bytes, {
-      kind,
-      source: "feishu",
-      sourceMessageId: ref.messageId,
-      sourceResourceId: ref.fileKey,
-      mime: kind === "image" ? "image/png" : kind === "pdf" ? "application/pdf" : kind === "office" ? "application/vnd.openxmlformats-officedocument" : "application/octet-stream",
-      ...(ref.filename ? { filename: ref.filename } : {}),
-    });
-    parsed.text = parsed.text || mediaCaption(parsed.media);
+    try {
+      parsed.media = await attachDownloadedMedia({
+        store: this.mediaStore,
+        bytes,
+        base: {
+          kind: classifyMedia({
+            bytes,
+            ...(ref.filename ? { filename: ref.filename } : {}),
+            ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
+          }),
+          source: "feishu",
+          sourceMessageId: ref.messageId,
+          sourceResourceId: ref.fileKey,
+          mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
+          ...(ref.filename ? { filename: ref.filename } : {}),
+        },
+        ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+        ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+      });
+    } catch (error) {
+      return {
+        kind: "rejected" as const,
+        text: error instanceof PenglaiError ? error.message : "media admission failed",
+      };
+    }
+    delete parsed.text;
     return this.plane.submitInbound(parsed);
   }
 

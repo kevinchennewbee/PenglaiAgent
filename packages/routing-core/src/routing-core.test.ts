@@ -70,6 +70,13 @@ test("R1-AUTH-001 owner private text auto-binds official default without a pairi
 test("image and file inbound are accepted into the bound session", async () => {
   const h = harness();
   await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
+  const officialImage = {
+    attachmentId: "att-img",
+    mediaType: "image/png" as const,
+    bytes: 67,
+    width: 1,
+    height: 1,
+  };
   const image = await h.plane.submitInbound(
     env({
       adapterMessageKey: "img",
@@ -84,12 +91,58 @@ test("image and file inbound are accepted into the bound session", async () => {
         size: 67,
         sha256: "a".repeat(64),
         opaqueHandle: "media-img",
+        officialImage,
       },
     }),
   );
   assert.equal(image.kind, "accepted");
-  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), true);
+  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
   assert.equal(h.inputs.at(-1)?.text.includes("[image]"), false);
+  assert.deepEqual(h.inputs.at(-1)?.images, [officialImage]);
+  const office = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "doc",
+      bodyKind: "media",
+      text: "",
+      media: {
+        kind: "office",
+        source: "weixin",
+        sourceMessageId: "doc",
+        sourceResourceId: "cdn-2",
+        mime: "application/vnd.openxmlformats-officedocument",
+        size: 32,
+        sha256: "b".repeat(64),
+        opaqueHandle: "media-doc",
+        officeHandle: "obj-officehandle00000001",
+      },
+    }),
+  );
+  assert.equal(office.kind, "accepted");
+  assert.equal(h.inputs.at(-1)?.officeHandle, "obj-officehandle00000001");
+  assert.equal(h.inputs.at(-1)?.text.includes("penglai-media"), false);
+});
+
+test("image inbound without official DSH attachment is rejected", async () => {
+  const h = harness();
+  await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
+  const image = await h.plane.submitInbound(
+    env({
+      adapterMessageKey: "img-no-att",
+      bodyKind: "media",
+      text: "[penglai-media kind=image mime=image/png sha256=aaaaaaaa handle=media-x]",
+      media: {
+        kind: "image",
+        source: "weixin",
+        sourceMessageId: "img-no-att",
+        sourceResourceId: "cdn-1",
+        mime: "image/png",
+        size: 67,
+        sha256: "a".repeat(64),
+        opaqueHandle: "media-x",
+      },
+    }),
+  );
+  assert.equal(image.kind, "rejected");
 });
 
 test("IM project menu lists every official workspace in numbered groups", async () => {

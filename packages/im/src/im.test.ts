@@ -70,8 +70,8 @@ test("im runtime wires single control plane", async () => {
   rt.store.close();
 });
 
-test("IM requires only DSH core services; ASR and TTS stay optional", () => {
-  assert.deepEqual(inject, ["agents", "workspaceRegistry", "credentials", "apiProxy"]);
+test("IM requires DSH core services including official attachments; ASR and TTS stay optional", () => {
+  assert.deepEqual(inject, ["agents", "workspaceRegistry", "credentials", "apiProxy", "attachments"]);
 });
 
 test("optional voice capabilities resolve dynamically across hot plug and unload", () => {

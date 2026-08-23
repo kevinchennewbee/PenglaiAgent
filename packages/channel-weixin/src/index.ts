@@ -6,7 +6,9 @@ import {
   classifyTransportError,
   classifyMedia,
   MediaStore,
-  mediaCaption,
+  attachDownloadedMedia,
+  type ImageAdmission,
+  type ObjectStore,
   type InboundEnvelope,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -282,6 +284,8 @@ export class WeixinAdapter {
   readonly mediaStore = new MediaStore(
     ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "weixin")] : []),
   );
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
   constructor(
     private readonly plane: RoutingControlPlane,
     private readonly transport: WeixinTransport,
@@ -579,20 +583,32 @@ export class WeixinAdapter {
       const downloader = this.transport.downloadCdn
         ?? ((item: WeixinCdnMedia, signal?: AbortSignal) => downloadAndDecryptWeixinCdn(item, ILINK_CDN_BASE, fetch, signal));
       const bytes = await downloader(cdn);
-      const kind = classifyMedia({
-        bytes,
-        ...(raw.file?.file_name ?? media.filename ? { filename: raw.file?.file_name ?? media.filename } : {}),
-        ...(media.mime ? { mime: media.mime } : {}),
-      });
-      parsed.media = this.mediaStore.put(bytes, {
-        kind,
-        source: "weixin",
-        sourceMessageId: parsed.adapterMessageKey,
-        sourceResourceId: media.sourceResourceId,
-        mime: kind === "image" ? "image/png" : kind === "pdf" ? "application/pdf" : kind === "office" ? "application/vnd.openxmlformats-officedocument" : "application/octet-stream",
-        ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
-      });
-      parsed.text = parsed.text || mediaCaption(parsed.media);
+      try {
+        parsed.media = await attachDownloadedMedia({
+          store: this.mediaStore,
+          bytes,
+          base: {
+            kind: classifyMedia({
+              bytes,
+              ...(raw.file?.file_name ?? media.filename ? { filename: raw.file?.file_name ?? media.filename } : {}),
+              ...(media.mime ? { mime: media.mime } : {}),
+            }),
+            source: "weixin",
+            sourceMessageId: parsed.adapterMessageKey,
+            sourceResourceId: media.sourceResourceId,
+            mime: media.mime || "application/octet-stream",
+            ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
+          },
+          ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+          ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+        });
+      } catch (error) {
+        return {
+          kind: "rejected" as const,
+          text: error instanceof PenglaiError ? error.message : "media admission failed",
+        };
+      }
+      delete parsed.text;
       return this.plane.submitInbound(parsed);
     }
     if (parsed.bodyKind === "voice") {

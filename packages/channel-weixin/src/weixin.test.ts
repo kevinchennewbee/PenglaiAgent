@@ -77,6 +77,17 @@ test("weixin image ingest downloads real bytes into a media envelope", async () 
     async downloadCdn() { return png; },
   };
   const ad = new WeixinAdapter(plane, transport, new MemoryVault());
+  ad.imageAdmission = {
+    async saveImage(input) {
+      return {
+        attachmentId: "att-wx-png",
+        mediaType: input.mediaType,
+        bytes: input.data.byteLength,
+        width: 1,
+        height: 1,
+      };
+    },
+  };
   await ad.startQr();
   await ad.poll("qr");
   const accepted = await ad.ingest({

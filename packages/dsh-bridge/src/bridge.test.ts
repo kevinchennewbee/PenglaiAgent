@@ -115,6 +115,48 @@ test("bridge followup uses host agent only", async () => {
   assert.deepEqual(calls, ["models:s", "in1"]);
 });
 
+test("bridge followup submits official DSH image blocks instead of media captions", async () => {
+  const sent: Array<{ type: string; text?: string; attachment?: { attachmentId: string } }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent: (id) => ({
+      id,
+      followup(m) {
+        sent.push(...m.content);
+      },
+      steer() {},
+      cancel() {},
+      inbox: { remove() { return true; } },
+    }),
+    async describeSessionModels() {
+      return {
+        current: { provider: "deepseek", model: "deepseek-v4-flash-vision-exp" },
+        routable: true,
+        groups: [],
+      };
+    },
+    listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+  });
+  const attachment = {
+    attachmentId: "att-1",
+    mediaType: "image/png" as const,
+    bytes: 67,
+    width: 1,
+    height: 1,
+  };
+  await bridge.followup({
+    sessionId: "s",
+    inboundId: "in-img",
+    routeId: "r",
+    text: "用户发送了一张图片。",
+    images: [attachment],
+    source: { kind: "user", schema: 1, routeId: "r", inboundId: "in-img", adapter: "weixin" },
+    mode: "followup",
+  });
+  assert.equal(sent.some((row) => row.type === "image" && row.attachment?.attachmentId === "att-1"), true);
+  assert.equal(sent.some((row) => row.type === "text" && String(row.text).includes("penglai-media")), false);
+});
+
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({

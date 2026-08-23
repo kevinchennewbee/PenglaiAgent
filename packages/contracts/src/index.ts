@@ -184,6 +184,33 @@ export interface PenglaiImSource {
 
 export type MediaKind = "image" | "audio" | "office" | "pdf" | "file";
 
+/** Official DSH rc.2 image attachment media types. */
+export type OfficialImageMediaType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+/** Durable official DSH `ImageAttachmentRef` fields. Never a filesystem path. */
+export interface OfficialImageRef {
+  attachmentId: string;
+  mediaType: OfficialImageMediaType;
+  bytes: number;
+  width: number;
+  height: number;
+  name?: string;
+}
+
+export interface ImageAdmission {
+  saveImage(input: {
+    data: Uint8Array;
+    mediaType: OfficialImageMediaType;
+    name?: string;
+  }): Promise<OfficialImageRef>;
+}
+
+export interface ObjectBind {
+  sessionId: string;
+  workspaceId?: string;
+  routeId?: string;
+}
+
 export interface MediaEnvelope {
   kind: MediaKind;
   source: "weixin" | "feishu";
@@ -195,6 +222,9 @@ export interface MediaEnvelope {
   sha256: string;
   opaqueHandle: string;
   durationMs?: number;
+  officialImage?: OfficialImageRef;
+  officeHandle?: string;
+  audioHandle?: string;
 }
 
 export class MediaStore {
@@ -253,6 +283,142 @@ export function mediaCaption(media: MediaEnvelope): string {
   return `[penglai-media kind=${media.kind} mime=${media.mime} sha256=${media.sha256.slice(0, 16)} handle=${media.opaqueHandle}]`;
 }
 
+export function isDiagnosticMediaCaption(text: string): boolean {
+  return text.startsWith("[penglai-media ");
+}
+
+export function imageMediaTypeFromBytes(bytes: Buffer): OfficialImageMediaType | undefined {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") {
+    return "image/webp";
+  }
+  const gif = bytes.subarray(0, 6).toString("latin1");
+  if (gif === "GIF87a" || gif === "GIF89a") return "image/gif";
+  return undefined;
+}
+
+export function userFacingMediaPrompt(media: MediaEnvelope): string {
+  if (media.kind === "image") {
+    return media.officialImage
+      ? "用户发送了一张图片。"
+      : "图片已收到，但未能提交到官方 DSH 附件服务。";
+  }
+  if (media.kind === "office" || media.kind === "pdf") {
+    return "用户发送了一份文档。请使用 penglai_office_inspect_attached 查看当前会话已绑定的附件。";
+  }
+  if (media.kind === "audio") return "用户发送了一条语音。";
+  return "用户发送了一个文件。";
+}
+
+function mimeForKind(kind: MediaKind, bytes: Buffer, declared?: string): string {
+  if (kind === "image") return imageMediaTypeFromBytes(bytes) ?? "application/octet-stream";
+  if (kind === "pdf") return "application/pdf";
+  if (kind === "office") return declared && declared !== "application/octet-stream" ? declared : "application/vnd.openxmlformats-officedocument";
+  if (kind === "audio") return declared && declared.startsWith("audio/") ? declared : "application/octet-stream";
+  return declared ?? "application/octet-stream";
+}
+
+/**
+ * App-private content-addressed object store for Office/audio handles.
+ * Handles are opaque; bytes are never exposed as host paths to the model.
+ */
+export class ObjectStore {
+  private readonly mem = new Map<string, { bytes: Buffer; kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind }>();
+  constructor(private readonly root?: string) {
+    if (root) mkdirSync(root, { recursive: true, mode: 0o700 });
+  }
+  put(bytes: Buffer, meta: { kind: MediaKind; mime: string }): { handle: string; sha256: string } {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const handle = `obj-${sha256.slice(0, 24)}`;
+    this.mem.set(handle, { bytes: Buffer.from(bytes), kind: meta.kind, mime: meta.mime, sha256 });
+    if (this.root) {
+      writeFileSync(join(this.root, `${handle}.bin`), bytes, { mode: 0o600 });
+      writeFileSync(
+        join(this.root, `${handle}.json`),
+        JSON.stringify({ handle, sha256, kind: meta.kind, mime: meta.mime, size: bytes.length }),
+        { mode: 0o600 },
+      );
+    }
+    return { handle, sha256 };
+  }
+  bind(handle: string, bind: ObjectBind): void {
+    const row = this.mem.get(handle);
+    if (row) row.bind = { ...bind };
+    if (this.root && existsSync(join(this.root, `${handle}.json`))) {
+      const raw = JSON.parse(readFileSync(join(this.root, `${handle}.json`), "utf8")) as Record<string, unknown>;
+      writeFileSync(join(this.root, `${handle}.json`), JSON.stringify({ ...raw, bind }), { mode: 0o600 });
+    }
+  }
+  get(handle: string, sessionId: string): Buffer {
+    const row = this.lookup(handle);
+    if (!row.bind || row.bind.sessionId !== sessionId) {
+      throw new PenglaiError("UNAUTHORIZED", "office/audio handle is not bound to this Session");
+    }
+    return Buffer.from(row.bytes);
+  }
+  peek(handle: string): { kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
+    const row = this.lookup(handle);
+    return { kind: row.kind, mime: row.mime, sha256: row.sha256, ...(row.bind ? { bind: row.bind } : {}) };
+  }
+  private lookup(handle: string): { bytes: Buffer; kind: MediaKind; mime: string; sha256: string; bind?: ObjectBind } {
+    const hit = this.mem.get(handle);
+    if (hit) return hit;
+    if (this.root && existsSync(join(this.root, `${handle}.bin`))) {
+      const bytes = readFileSync(join(this.root, `${handle}.bin`));
+      const meta = existsSync(join(this.root, `${handle}.json`))
+        ? (JSON.parse(readFileSync(join(this.root, `${handle}.json`), "utf8")) as {
+            kind: MediaKind;
+            mime: string;
+            sha256: string;
+            bind?: ObjectBind;
+          })
+        : { kind: "file" as const, mime: "application/octet-stream", sha256: createHash("sha256").update(bytes).digest("hex") };
+      const row = { bytes, ...meta };
+      this.mem.set(handle, row);
+      return row;
+    }
+    throw new PenglaiError("INVALID_INPUT", "object handle missing");
+  }
+}
+
+export async function attachDownloadedMedia(opts: {
+  store: MediaStore;
+  bytes: Buffer;
+  base: Omit<MediaEnvelope, "size" | "sha256" | "opaqueHandle" | "officialImage" | "officeHandle" | "audioHandle">;
+  imageAdmission?: ImageAdmission;
+  objectStore?: ObjectStore;
+}): Promise<MediaEnvelope> {
+  const kind = classifyMedia({
+    bytes: opts.bytes,
+    ...(opts.base.filename ? { filename: opts.base.filename } : {}),
+    ...(opts.base.mime ? { mime: opts.base.mime } : {}),
+  });
+  const mime = mimeForKind(kind, opts.bytes, opts.base.mime);
+  const env = opts.store.put(opts.bytes, { ...opts.base, kind, mime });
+  if (kind === "image") {
+    const mediaType = imageMediaTypeFromBytes(opts.bytes);
+    if (!mediaType) throw new PenglaiError("INVALID_INPUT", "image magic rejected");
+    if (!opts.imageAdmission) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "official DSH attachments.saveImage is required for images");
+    }
+    env.officialImage = await opts.imageAdmission.saveImage({
+      data: opts.bytes,
+      mediaType,
+      ...(opts.base.filename ? { name: opts.base.filename.replace(/^.*[/\\]/, "").slice(0, 80) } : {}),
+    });
+  }
+  if ((kind === "office" || kind === "pdf") && opts.objectStore) {
+    env.officeHandle = opts.objectStore.put(opts.bytes, { kind, mime }).handle;
+  }
+  if (kind === "audio" && opts.objectStore) {
+    env.audioHandle = opts.objectStore.put(opts.bytes, { kind, mime }).handle;
+  }
+  return env;
+}
+
 export interface InboundEnvelope {
   adapter: AdapterName;
   adapterMessageKey: string;
@@ -274,6 +440,9 @@ export interface ModelInput {
   source: PenglaiImSource;
   mode: "followup" | "steer";
   recovery?: true;
+  images?: OfficialImageRef[];
+  officeHandle?: string;
+  audioHandle?: string;
 }
 
 export interface ClaimedFact {

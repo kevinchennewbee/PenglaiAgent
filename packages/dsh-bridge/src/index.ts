@@ -7,6 +7,7 @@ import {
   type PenglaiAsrEmotion,
   type PenglaiAsrLanguage,
   type PenglaiImSource,
+  type OfficialImageRef,
 } from "@penglai/contracts";
 import type { AgentPort, DirectoryPort } from "@penglai/routing-core";
 
@@ -64,8 +65,18 @@ export interface DshAgentLike {
       data?: { inserted?: ReadonlyArray<{ id?: string }> };
     }>;
   };
-  followup(message: { id?: string; role: "user"; content: { type: "text"; text: string }[]; source: PenglaiImSource }): void;
-  steer(message: { id?: string; role: "user"; content: { type: "text"; text: string }[]; source: PenglaiImSource }): void;
+  followup(message: {
+    id?: string;
+    role: "user";
+    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    source: PenglaiImSource;
+  }): void;
+  steer(message: {
+    id?: string;
+    role: "user";
+    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
+    source: PenglaiImSource;
+  }): void;
   cancel(cause: string, opts?: { keepInbox?: boolean }): void;
   inbox: { remove(id: string): boolean };
 }
@@ -192,6 +203,18 @@ export function textFromAssistantMessage(message: { content?: { type?: string; t
 
 export { unwrapAgent, isAgentHandle, finalAssistantText, DURABLE_SESSION_EVENT, type OfficialAgentHandle as AgentHandle } from "./contracts.js";
 
+function officialUserContent(
+  input: ModelInput,
+): Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> {
+  const blocks: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }> = [];
+  if (input.text.trim()) blocks.push({ type: "text", text: input.text });
+  for (const attachment of input.images ?? []) {
+    blocks.push({ type: "image", attachment });
+  }
+  if (blocks.length === 0) blocks.push({ type: "text", text: "" });
+  return blocks;
+}
+
 export class DshBridge implements AgentPort, DirectoryPort {
   constructor(
     private readonly host: DshHost,
@@ -269,7 +292,7 @@ export class DshBridge implements AgentPort, DirectoryPort {
     a.followup({
       id,
       role: "user",
-      content: [{ type: "text", text: input.text }],
+      content: officialUserContent(input),
       source: extractPenglaiSource(input.source) ?? input.source,
     });
     return { dshMessageId: id };
@@ -282,7 +305,7 @@ export class DshBridge implements AgentPort, DirectoryPort {
     a.steer({
       id: input.inboundId,
       role: "user",
-      content: [{ type: "text", text: input.text }],
+      content: officialUserContent(input),
       source: extractPenglaiSource(input.source) ?? input.source,
     });
     return { dshMessageId: input.inboundId };
