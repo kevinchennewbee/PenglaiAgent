@@ -20,6 +20,18 @@ This document is the UNFROZEN source contract. It does not claim a published Git
 
 All paths preserve the `Penglai/0.5` data generation and external Workspaces. The updater verifies the Penglai Ed25519 signature and exact installer hash.
 
+## Locally proven on Apple Silicon (unpublished)
+
+These items have local evidence on `darwin-aarch64`. They are not a published Release claim.
+
+- Official DSH `0.1.1-rc.2` boots from the exact `Penglai_0.5.5_macos_aarch64.dmg`. Fresh inventory has Office and Memory `active`; IM/ASR/TTS/Companion stay default-off and can be enabled then disabled without dropping the builtins.
+- Bundled Mnemon 0.2.4 is the arm64 binary in app resources. Archive hash and binary hash are separate fields. `remember` / `search` / `forget` run from that binary, not from the repo checkout.
+- Memory conversation tools declare official DSH `output.{schema,render}`. Search is scoped to personal + current Workspace. Missing Mnemon must not take down DSH HTTP.
+- Office conversation tools inspect/create/plan/preview/commit/undo without model-supplied paths. Packed CJK uses hashed OFL `PenglaiCjkOfl.ttf`.
+- IM images use official `ctx.attachments.saveImage`. Office files and audio stay Penglai handles.
+
+Still awaiting: Intel Mac native, Windows native, live WeChat/Feishu, paid provider nonce Turn, GitHub CodeQL on this branch, and final signing keys.
+
 ## Trust and platform limits
 
 This remains a `community-verified` candidate. macOS packages are ad-hoc signed and not notarized; Windows is not Authenticode signed. Gatekeeper or SmartScreen may warn. Do not disable system security.

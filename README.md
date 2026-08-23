@@ -39,6 +39,20 @@
 
 # English
 
+## 0.5.5 candidate (unpublished)
+
+This branch is a local 0.5.5 candidate on official DSH `0.1.1-rc.2`. It is not a GitHub Release.
+
+A fresh profile loads official DSH plus two required-builtin plugins: Penglai Office and Penglai Memory. IM, SenseVoice ASR, MOSS-TTS, and Companion stay installable and default-off. Closing those optional plugins must not block DSH, Office, or Memory.
+
+Memory uses Mnemon 0.2.4 as the only recall engine. Default search combines personal facts with the current official Workspace only. Workspace A cannot read Workspace B. Model-inferred candidates are not auto-injected. Global/SOP writes still need a visible diff and Owner confirm.
+
+Office inspect/create/edit is a closed typed-operation set for DOCX, XLSX, PPTX, and PDF. PDF Chinese text uses a bundled OFL CJK font. LibreOffice is an external verifier, not a runtime dependency. The honest matrix is in [docs/0.5.5/OFFICE_CAPABILITY_MATRIX.md](docs/0.5.5/OFFICE_CAPABILITY_MATRIX.md).
+
+IM Weixin and Feishu share one adapter registry. Images go through official DSH `saveImage`. Office files and audio use Penglai opaque handles, not fake image attachments. Live WeChat/Feishu accounts are still `AWAITING_LIVE_CREDENTIAL`.
+
+macOS packages are ad-hoc signed and not notarized. Windows has no Authenticode. Users bring their own model keys.
+
 ## What Penglai is
 
 Penglai is a desktop distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It packages a fixed DSH build, Node, Electron, the official DSH Web interface, a first-run setup flow, and a set of reviewed DSH plugins into an application that can be installed without preparing a development environment.
@@ -210,6 +224,20 @@ Thank you to every upstream maintainer and contributor. Each dependency keeps it
 <a id="中文"></a>
 
 # 中文
+
+## 0.5.5 候选（尚未发布）
+
+本分支是本地 0.5.5 候选，核心是官方 DSH `0.1.1-rc.2`。现在没有 `v0.5.5` tag，也没有 GitHub Release。
+
+全新 profile 会加载 official DSH，以及两个 required-builtin 插件：蓬莱办公和蓬莱记忆。手机消息、语音识别、语音生成、主动陪伴可安装且默认关闭。关掉这些可选插件不能阻断 DSH、办公或记忆。
+
+记忆只用 Mnemon 0.2.4 做召回。默认搜索只组合个人层和当前 official Workspace。Workspace A 看不到 Workspace B。模型推断的 candidate 不会自动注入。global/SOP 仍要可见 diff 和 Owner 确认。
+
+办公是封闭 typed operation，覆盖 DOCX、XLSX、PPTX、PDF。PDF 中文使用随包 OFL CJK 字体。LibreOffice 只作独立验证器，不是运行依赖。真实能力见 [docs/0.5.5/OFFICE_CAPABILITY_MATRIX.md](docs/0.5.5/OFFICE_CAPABILITY_MATRIX.md)。
+
+微信和飞书同属一个 IM 插件。图片走官方 `saveImage`。办公文件和音频用蓬莱 opaque handle，不伪装成图片。真实微信/飞书账号仍是 `AWAITING_LIVE_CREDENTIAL`。
+
+macOS 仍是 ad-hoc、未公证；Windows 无 Authenticode。用户自备模型密钥。
 
 ## 蓬莱是什么
 
