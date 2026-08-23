@@ -86,6 +86,7 @@ window.__ModuleLoader__.load({
     const COPY = {
       zh: {
         title: "个人上下文",
+        sourceTitle: "本地资料来源",
         hint: "只索引你通过系统文件夹选择器明确授权的目录。源文件始终只读；撤销只删除派生索引。",
         add: "授权并索引文件夹",
         scope: "范围",
@@ -106,6 +107,7 @@ window.__ModuleLoader__.load({
       },
       en: {
         title: "Personal Context",
+        sourceTitle: "Local sources",
         hint: "Only folders explicitly authorized through the system picker are indexed. Source files stay read-only; revoke deletes derived indexes only.",
         add: "Authorize and index folder",
         scope: "Scope",
@@ -149,7 +151,7 @@ window.__ModuleLoader__.load({
       return Promise.resolve(api.pickContextFolder());
     };
 
-    function ContextTab({ remote }) {
+    function ContextTab({ remote, embedded = false }) {
       const t = copy();
       const api = remote?.penglaiContextSettings;
       const [view, setView] = React.useState({
@@ -302,7 +304,9 @@ window.__ModuleLoader__.load({
         role: "region",
         "aria-label": t.title,
         children: [
-          jsx.jsx("h3", { children: t.title }),
+          jsx.jsx(embedded ? "h4" : "h3", {
+            children: embedded ? t.sourceTitle : t.title,
+          }),
           jsx.jsx("p", { children: t.hint }),
           jsx.jsxs("label", {
             children: [

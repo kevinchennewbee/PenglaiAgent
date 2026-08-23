@@ -44,6 +44,7 @@ export class MnemonMemoryService {
       enabled?: boolean;
       binaryPath?: string;
       appRoot?: string;
+      packageRoot?: string;
       /** Test-only escape hatch for the deterministic fake Mnemon executable. */
       allowUnpinnedTestBinary?: boolean;
     } = {},
@@ -51,6 +52,7 @@ export class MnemonMemoryService {
     const binary = resolveMnemonBinary({
       ...(opts.binaryPath ? { explicitPath: opts.binaryPath } : {}),
       ...(opts.appRoot ? { appRoot: opts.appRoot } : {}),
+      ...(opts.packageRoot ? { packageRoot: opts.packageRoot } : {}),
       verifyHash: opts.allowUnpinnedTestBinary !== true,
     });
     this.enabled = opts.enabled !== false;

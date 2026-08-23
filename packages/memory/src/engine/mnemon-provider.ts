@@ -27,6 +27,7 @@ export function hostMnemonTarget(
 export function resolveMnemonBinary(opts: {
   explicitPath?: string;
   appRoot?: string;
+  packageRoot?: string;
   verifyHash?: boolean;
   platform?: NodeJS.Platform;
   arch?: string;
@@ -38,6 +39,11 @@ export function resolveMnemonBinary(opts: {
   if (process.env.PENGLAI_MNEMON_BINARY) candidates.push(process.env.PENGLAI_MNEMON_BINARY);
   const resourceRoot = bundledMnemonRoot(opts.appRoot);
   if (resourceRoot) candidates.push(join(resourceRoot, asset.binaryFilename));
+  if (opts.packageRoot && isAbsolute(opts.packageRoot)) {
+    candidates.push(
+      join(opts.packageRoot, "resources", "mnemon", asset.binaryFilename),
+    );
+  }
   for (const raw of candidates) {
     if (!raw || !isAbsolute(raw) || raw.includes("..") || raw.includes("\0")) continue;
     if (!existsSync(raw)) continue;

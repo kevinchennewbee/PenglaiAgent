@@ -175,6 +175,9 @@ test("Memory client registers the official settings slot without a second skill 
   const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(source, /settings\.section/);
   assert.match(source, /data-penglai-memory/);
+  assert.match(source, /data-penglai-memory-sources/);
+  assert.match(source, /embedded: true/);
+  assert.match(source, /记忆来源/);
   assert.match(source, /penglaiMemorySettings/);
   assert.match(source, /official-dsh-skills/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);

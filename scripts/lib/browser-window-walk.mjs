@@ -51,6 +51,7 @@ export const SNAPSHOT_JS = `(() => {
       context: Boolean(document.querySelector("[data-penglai-context]")),
       office: Boolean(document.querySelector("[data-penglai-office]")),
       memory: Boolean(document.querySelector("[data-penglai-memory]")),
+      memoryStatus: document.querySelector("[data-penglai-memory]")?.getAttribute("data-penglai-memory-status") || "",
     budget: Boolean(document.querySelector("[data-penglai-budget]")),
     companion: Boolean(document.querySelector("[data-penglai-companion]")),
     pluginCards: Array.from(document.querySelectorAll("[data-penglai-plugin-card]")).map((card) => ({
@@ -252,6 +253,7 @@ function slim(snap) {
     tts: snap.tts,
     context: snap.context,
     memory: snap.memory,
+    memoryStatus: snap.memoryStatus,
     budget: snap.budget,
     companion: snap.companion,
     pluginCards: snap.pluginCards,
@@ -568,6 +570,10 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
   for (const id of requiredSettings) {
     if (!settingsWalked.includes(id)) blocked.push(id);
+  }
+  const memoryStep = steps.find((step) => step.id === "ui-memory");
+  if (memoryStep?.snap?.memoryStatus !== "ready") {
+    blocked.push("ui-memory-engine-not-ready");
   }
   if (opts.installOptionalPlugins && !OPTIONAL_PLUGIN_IDS.every((id) => installResults.some((row) => row.id === id && row.ok))) {
     blocked.push("install-optional-plugins");

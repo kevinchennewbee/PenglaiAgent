@@ -115,6 +115,8 @@ window.__ModuleLoader__.load({
         forget: "忘记",
         importPreview: "预览 0.5.3 迁移",
         importConfirm: "确认迁移旧记忆",
+        sources: "记忆来源",
+        sourcesHint: "可选：授权本地资料，让蓬莱在对应范围内建立只读索引。",
       },
       en: {
         title: "Penglai Memory",
@@ -144,6 +146,8 @@ window.__ModuleLoader__.load({
         forget: "Forget",
         importPreview: "Preview 0.5.3 migration",
         importConfirm: "Import legacy memory",
+        sources: "Memory sources",
+        sourcesHint: "Optional: authorize local material for read-only indexing in the selected scope.",
       },
     };
     const copy = () =>
@@ -620,7 +624,22 @@ window.__ModuleLoader__.load({
           children: [
             jsx.jsx(MemoryTab, props),
             ContextModule?.ContextTab
-              ? jsx.jsx(ContextModule.ContextTab, props)
+              ? jsx.jsxs("details", {
+                  "data-penglai-memory-sources": "1",
+                  children: [
+                    jsx.jsxs("summary", {
+                      children: [
+                        jsx.jsx("strong", { children: copy().sources }),
+                        " · ",
+                        copy().sourcesHint,
+                      ],
+                    }),
+                    jsx.jsx(ContextModule.ContextTab, {
+                      ...props,
+                      embedded: true,
+                    }),
+                  ],
+                })
               : null,
           ],
         }),

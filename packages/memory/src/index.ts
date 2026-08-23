@@ -8,7 +8,8 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
@@ -21,6 +22,7 @@ import { registerMemoryTools } from "./tools.js";
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry", "tools"];
 export const version = RELEASE;
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 interface OfficialSkillSummary {
   name: string;
@@ -108,6 +110,7 @@ export function createDurableMemoryService(opts: {
   const engine = new MnemonMemoryService(opts.userData, {
     ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
     ...(process.env.PENGLAI_APP_ROOT ? { appRoot: process.env.PENGLAI_APP_ROOT } : {}),
+    packageRoot: PACKAGE_ROOT,
   });
   const skillsRoot = officialSkillsRoot(opts.userData);
   let closed = false;
