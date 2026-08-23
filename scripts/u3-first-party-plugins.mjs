@@ -36,6 +36,13 @@ const OPTIONAL_PLUGINS = [
   "@penglai/companion",
 ];
 const TRACKED_PLUGINS = [...REQUIRED_BUILTIN, ...OPTIONAL_PLUGINS];
+const LEGACY_PLUGIN_IDS = ["@penglai/context"];
+const HIDDEN_INTERNAL_CARD_IDS = [
+  "@penglai/context",
+  "@penglai/plugin-reference",
+  "@penglai/plugin-pilot",
+  "@penglai/budget",
+];
 
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
@@ -172,6 +179,11 @@ function pluginRows(snapshot) {
   });
 }
 
+function inventoryHasLegacyPlugin(snapshot) {
+  const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];
+  return entries.some((row) => LEGACY_PLUGIN_IDS.includes(row?.moduleName));
+}
+
 function requiredRowOk(row) {
   return Boolean(row?.present && row.enabled && row.phase === "active");
 }
@@ -306,9 +318,18 @@ async function runPhase(name, expectedEnabled) {
             memoryReady:
               productWalk?.steps?.find((step) => step.id === "ui-memory")
                 ?.snap?.memoryStatus === "ready",
+            authorizedSourcesEmbedded:
+              productWalk?.steps?.find((step) => step.id === "ui-memory")
+                ?.snap?.memorySources === true,
+            hiddenInternalCardsAbsent: !(
+              productWalk?.steps
+                ?.find((step) => step.id === "ui-center")
+                ?.snap?.pluginCards ?? []
+            ).some((row) => HIDDEN_INTERNAL_CARD_IDS.includes(row?.id)),
             settingsBlocked: productWalk?.blocked ?? ["settings-walk-missing"],
           }
         : undefined,
+    legacyPluginPresent: inventoryHasLegacyPlugin(inventory),
     rows: pluginRows(inventory),
     packages: installedPackages(),
     processTree: {
@@ -354,10 +375,13 @@ const commonOk = phases.every(
     phase.official.mounted &&
     phase.processTree.ownedAbsolute &&
     phase.processTree.dshPid > 0 &&
-    phase.processTree.leftovers === 0,
+    phase.processTree.leftovers === 0 &&
+    phase.legacyPluginPresent === false,
 );
 const requiredCapabilitiesOk =
   phases[0]?.requiredCapabilities?.memoryReady === true &&
+  phases[0]?.requiredCapabilities?.authorizedSourcesEmbedded === true &&
+  phases[0]?.requiredCapabilities?.hiddenInternalCardsAbsent === true &&
   phases[0]?.requiredCapabilities?.settingsBlocked?.length === 0;
 const activeOk = activePhases.every(
   (phase) =>
@@ -381,6 +405,8 @@ const rec = {
   dsh: packaged.release.dsh,
   plugins: TRACKED_PLUGINS,
   requiredBuiltin: REQUIRED_BUILTIN,
+  rejectedLegacyPlugins: LEGACY_PLUGIN_IDS,
+  hiddenInternalCards: HIDDEN_INTERNAL_CARD_IDS,
   optionalPlugins: OPTIONAL_PLUGINS,
   method:
     "exact installed profile with a local secret-free COMPLETE onboarding fixture; mounted official DSH product UI plus HTTP/WebSocket, capability-ready Memory settings, and loader inventory; Office+Memory stay required-builtin active; enable optional plugins; restart; disable optional plugins; restart",
