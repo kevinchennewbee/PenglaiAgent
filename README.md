@@ -86,10 +86,11 @@ Penglai 0.5.3 was released on 22 August 2026. It keeps official DSH `0.1.1-rc.1`
 The source tree passes its format, type, build, unit, contract, integration, desktop E2E, dependency, license, and secret gates. [Native run 32560185691](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32560185691) separately built, installed, launched, and checked all three packages on matching native hosts. Source checks and installed evidence remain separate claims. GitHub CodeQL still lists an open baseline of local file-race, regular-expression, build-script, and vendored-code findings; the release does not claim a zero-alert scan.
 
 <p align="center">
-  <img src=".github/assets/0.5.3/plugin-center-office-0.1.2.jpeg" width="32%" alt="Penglai Plugin Center showing the signed Office Reader 0.1.2 package healthy">
-  <img src=".github/assets/0.5.3/office-reader-real-e2e.jpeg" width="32%" alt="Office Reader extracting DOCX, XLSX, and PPTX through a real DeepSeek session">
-  <img src=".github/assets/0.5.3/update-051-to-053-committed.jpeg" width="32%" alt="A public Penglai 0.5.1 updater handoff completed as Penglai 0.5.3">
+  <img src=".github/assets/0.5.3/plugin-center-office-0.1.2.jpeg" width="32%" alt="Historical Penglai 0.5.3 Plugin Center showing signed Office Reader 0.1.2">
+  <img src=".github/assets/0.5.3/office-reader-real-e2e.jpeg" width="32%" alt="Historical 0.5.3 Office Reader extracting DOCX, XLSX, and PPTX">
+  <img src=".github/assets/0.5.3/update-051-to-053-committed.jpeg" width="32%" alt="Historical public 0.5.1 updater handoff completed as 0.5.3">
 </p>
+<p align="center"><sub>Published 0.5.3 evidence. The unpublished 0.5.5 candidate wizard shots are at the top of this page.</sub></p>
 
 ## One DSH core, optional Penglai plugins
 
