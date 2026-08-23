@@ -29,6 +29,5 @@ apps/desktop/tsconfig.tsbuildinfo
 packages/*/tsconfig.tsbuildinfo
 packages/*/*/tsconfig.tsbuildinfo
 STATE.md
-AGENTS.md
 docs/GROK_HANDOFF.md
 docs/PLAN.md

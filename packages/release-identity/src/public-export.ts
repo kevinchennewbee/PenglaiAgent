@@ -55,6 +55,7 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/adr",
   "LICENSE",
   "README.md",
+  "AGENTS.md",
   "SECURITY.md",
   "CONTRIBUTING.md",
   ".npmrc",
@@ -80,7 +81,6 @@ export const PUBLIC_EXPORT_DENY = [
   ".tmp-installed-from-dmg",
   ".tmp-installed-e2e",
   "STATE.md",
-  "AGENTS.md",
   "docs/GROK_HANDOFF.md",
   "docs/PLAN.md",
   "packages/credentials-keychain",
@@ -99,6 +99,7 @@ export const PUBLIC_EXPORT_DENY = [
 export const REQUIRED_PUBLIC_DOCS = [
   "LICENSE",
   "README.md",
+  "AGENTS.md",
   "SECURITY.md",
   "CONTRIBUTING.md",
   ".npmrc",
