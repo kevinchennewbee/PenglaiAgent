@@ -18,7 +18,7 @@ import {
   type PluginCatalogEntry as CatalogEntry,
   type PluginCatalogMetadata,
   type PluginProvenanceClass as ProvenanceClass,
-} from "@penglai/runtime";
+} from "@penglai/runtime/plugin-host";
 import { PluginDistributionClient } from "@penglai/plugin-registry";
 import { createCenterRemote, PenglaiCenterRemote } from "./remotes.js";
 import {

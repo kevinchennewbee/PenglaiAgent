@@ -7,6 +7,18 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./owner-broker": {
+      "types": "./src/owner-broker.ts",
+      "default": "./dist/owner-broker.js"
+    },
+    "./owner-dialog": {
+      "types": "./src/owner-dialog.ts",
+      "default": "./dist/owner-dialog.js"
+    },
+    "./plugin-host": {
+      "types": "./src/plugin-host.ts",
+      "default": "./dist/plugin-host.js"
     }
   },
   "dependencies": {

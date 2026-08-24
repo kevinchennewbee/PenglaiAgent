@@ -21,7 +21,7 @@ import {
   inspectTarGz,
   sha256File,
   type PluginCatalogEntry,
-} from "@penglai/runtime";
+} from "@penglai/runtime/plugin-host";
 import {
   assertManifestMatchesCatalog,
   inspectPluginEntries,

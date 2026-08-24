@@ -34,7 +34,7 @@ import {
   type PluginCatalogEntry,
   type PluginOwnerAction,
   type ProductPluginTarget,
-} from "@penglai/runtime";
+} from "@penglai/runtime/plugin-host";
 
 const PLUGIN_BROKER_ACTION = {
   "plugin-enable": "plugin.enable",

@@ -18,7 +18,8 @@ import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
 import { ArtifactService } from "@penglai/artifacts";
-import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
+import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
+import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 import { PenglaiImHost } from "./host.js";
 import { PenglaiImRemote } from "./remote.js";
 

@@ -222,6 +222,8 @@ test("R50-IM-001 weixin and feishu share the single @penglai/im host", () => {
   assert.match(src, /FeishuAdapter/);
   assert.match(src, /PenglaiImHost/);
   assert.equal(src.includes("beginDeviceFlow"), false);
+  assert.match(src, /from "@penglai\/runtime\/owner-broker"/);
+  assert.doesNotMatch(src, /from "@penglai\/runtime["']/);
 });
 
 test("R50-FS-002 Feishu App ID persists and secret stays a credential ref", async () => {

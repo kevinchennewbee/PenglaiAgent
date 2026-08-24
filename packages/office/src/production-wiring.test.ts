@@ -17,6 +17,8 @@ test("office production apply wires broker and artifacts and refuses HMAC self-r
   assert.match(applySource, /new OwnerApprovalBroker/);
   assert.match(applySource, /new ArtifactService/);
   assert.match(applySource, /createHostOwnerDialog/);
+  assert.match(applySource, /from "@penglai\/runtime\/owner-broker"/);
+  assert.doesNotMatch(applySource, /from "@penglai\/runtime["']/);
   const serviceSource = readFileSync(new URL("./service.ts", import.meta.url), "utf8");
   assert.match(serviceSource, /office broker receipt required/);
   assert.doesNotMatch(serviceSource, /verifyOfficeReceipt/);

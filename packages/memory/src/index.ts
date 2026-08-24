@@ -25,7 +25,8 @@ import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { consumeMemoryOwnerProof, proposeMemoryAction, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
 import { ingestOfficialTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
-import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
+import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
+import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry", "tools"];

@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createDurableMemoryService } from "./index.js";
 import { createMemorySettingsApi } from "./remote.js";
+
+test("memory production apply imports the plugin-safe owner broker", () => {
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(src, /from "@penglai\/runtime\/owner-broker"/);
+  assert.doesNotMatch(src, /from "@penglai\/runtime["']/);
+});
 
 test("memory accept/forget cannot be satisfied by a UUID or ownerConfirmed boolean", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-mem-prod-"));
