@@ -9,7 +9,7 @@ import {
   activatePrivateProfile,
   ensurePrivateHome,
   installFirstPartyPlugins,
-  matchesPlugin,
+  exactPluginId,
   processesMatching,
   resolveRuntimeLayout,
   resolveUserLayout,
@@ -76,8 +76,8 @@ function configurePluginMode(profileWeb, mode) {
   writeFileSync(patchPath, patch, { mode: 0o600 });
 }
 
-function loaded(proof, names) {
-  return proof.entries.some((entry) => matchesPlugin(entry, names) && rowIsLoaded(entry));
+function loaded(proof, id) {
+  return proof.entries.some((entry) => exactPluginId(entry, id) && rowIsLoaded(entry));
 }
 
 const modeRecords = [];
@@ -96,14 +96,14 @@ for (const mode of modes) {
       throw new Error("supervisor not healthy after HTTP+inventory wait");
     }
     const proof = supervisor.health.inventory;
-    if (!proof.ok || !proof.credentials || !proof.pluginCenter || !proof.smokeDisabled) {
+    if (!proof.ok || !proof.credentials || !proof.pluginCenter || !proof.office || !proof.memory || !proof.smokeDisabled) {
       throw new Error(`inventory not acceptable ${JSON.stringify(proof)}`);
     }
-    const im = loaded(proof, ["@penglai/im", "penglai-im"]);
-    const asr = loaded(proof, ["@penglai/asr", "penglai-asr"]);
-    const tts = loaded(proof, ["@penglai/moss-tts", "penglai-moss-tts"]);
-    const office = loaded(proof, ["@penglai/office", "penglai-office"]);
-    const memory = loaded(proof, ["@penglai/memory", "penglai-memory"]);
+    const im = loaded(proof, "@penglai/im");
+    const asr = loaded(proof, "@penglai/asr");
+    const tts = loaded(proof, "@penglai/moss-tts");
+    const office = proof.office;
+    const memory = proof.memory;
     const expectedAsr = mode === "full" || mode === "im-asr";
     const expectedTts = mode === "full" || mode === "im-tts";
     const expectedIm = mode !== "fresh";

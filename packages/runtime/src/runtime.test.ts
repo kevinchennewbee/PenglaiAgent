@@ -277,14 +277,20 @@ test("distribution inventory requires core services but keeps optional IM absent
     entries: [
       { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active" },
+      { moduleName: "@penglai/office", enabled: true, fiberPhase: "active" },
+      { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active" },
       { moduleName: "@penglai/plugin-smoke", enabled: false, fiberPhase: null },
     ],
   });
   assert.equal(proof.ok, true);
+  assert.equal(proof.office, true);
+  assert.equal(proof.memory, true);
   assert.equal(proof.im, false);
   assert.equal(proof.smokeDisabled, true);
   const empty = evaluateInventory({});
   assert.equal(empty.ok, false);
+  assert.equal(empty.office, false);
+  assert.equal(empty.memory, false);
 });
 
 test("R2I-DIST-007 refuses to install historical keychain tarball into profile", () => {

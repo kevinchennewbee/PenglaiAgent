@@ -38,6 +38,7 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
+import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -811,68 +812,8 @@ export async function waitHttp200(url: string, timeoutMs: number): Promise<{ sta
   throw new PenglaiError("DSH_UNAVAILABLE", `official web HTTP ${last} is not a 200 official DSH document`);
 }
 
-export interface InventoryEntry {
-  entryId?: string;
-  moduleName?: string;
-  name?: string;
-  id?: string;
-  enabled?: boolean;
-  disabled?: boolean;
-  fiberPhase?: string | null;
-}
-
-export interface InventorySnapshot {
-  at?: string;
-  entries: InventoryEntry[];
-}
-
-export interface InventoryProof {
-  ok: boolean;
-  credentials: boolean;
-  pluginCenter: boolean;
-  im: boolean;
-  smokeDisabled: boolean;
-  entries: InventoryEntry[];
-}
-
 export function inventorySnapshotPath(user: UserLayout): string {
   return join(user.root, "plugins", "inventory-snapshot.json");
-}
-
-export function matchesPlugin(row: InventoryEntry, needles: string[]): boolean {
-  const hay = `${row.moduleName ?? ""} ${row.name ?? ""} ${row.id ?? ""} ${row.entryId ?? ""}`;
-  return needles.some((n) => hay.includes(n));
-}
-
-export function rowIsLoaded(row: InventoryEntry): boolean {
-  if (row.disabled === true || row.enabled === false) return false;
-  return row.fiberPhase === "active";
-}
-
-export function evaluateInventory(raw: unknown): InventoryProof {
-  const entries = normalizeInventory(raw);
-  const credentials = entries.some((e) => matchesPlugin(e, ["dsh-credentials-local", "credentials-local", "@deepseek-ai/dsh-credentials-local"]) && rowIsLoaded(e));
-  const pluginCenter = entries.some((e) => matchesPlugin(e, ["plugin-center", "@penglai/plugin-center"]) && rowIsLoaded(e));
-  const im = entries.some((e) => matchesPlugin(e, ["@penglai/im", "penglai-im"]) && rowIsLoaded(e));
-  const smokeLoaded = entries.some((e) => matchesPlugin(e, ["plugin-smoke", "@penglai/plugin-smoke"]) && rowIsLoaded(e));
-  const keychainLoaded = entries.some((e) => matchesPlugin(e, ["credentials-keychain", "@penglai/credentials-keychain"]) && rowIsLoaded(e));
-  return {
-    ok: credentials && pluginCenter && !smokeLoaded && !keychainLoaded,
-    credentials,
-    pluginCenter,
-    im,
-    smokeDisabled: !smokeLoaded,
-    entries,
-  };
-}
-
-export function normalizeInventory(raw: unknown): InventoryEntry[] {
-  if (Array.isArray(raw)) return raw as InventoryEntry[];
-  if (raw && typeof raw === "object" && "entries" in raw) {
-    const entries = (raw as { entries?: InventoryEntry[] }).entries;
-    return Array.isArray(entries) ? entries : [];
-  }
-  return [];
 }
 
 export function readInventorySnapshot(user: UserLayout): InventoryProof | undefined {
@@ -895,7 +836,7 @@ export async function waitInventory(user: UserLayout, timeoutMs: number): Promis
   }
   throw new PenglaiError(
     "DSH_UNAVAILABLE",
-    `distribution inventory not ready credentials=${String(last?.credentials)} center=${String(last?.pluginCenter)} optionalIm=${String(last?.im)} smokeDisabled=${String(last?.smokeDisabled)}`,
+    `distribution inventory not ready credentials=${String(last?.credentials)} center=${String(last?.pluginCenter)} office=${String(last?.office)} memory=${String(last?.memory)} optionalIm=${String(last?.im)} smokeDisabled=${String(last?.smokeDisabled)}`,
   );
 }
 
@@ -938,6 +879,7 @@ export * from "./safe-tar.js";
 export * from "./plugin-owner.js";
 export * from "./generation-migrate.js";
 export * from "./boot-revoke.js";
+export * from "./inventory-proof.js";
 
 export function processesMatching(marker: string): Array<{ pid: number; command: string }> {
   if (!marker || marker.length < 8) return [];

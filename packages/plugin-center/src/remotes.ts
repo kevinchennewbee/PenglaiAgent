@@ -25,6 +25,7 @@ import {
 } from "@penglai/plugin-registry";
 import {
   PINNED_PLUGIN_DSH,
+  evaluateInventory,
   consumePluginOwnerGrant,
   pluginPermissionDigest,
   runtimePluginTarget,
@@ -427,6 +428,7 @@ export function createCenterRemote(opts: {
           rollbackAvailable: existsSync(join(opts.txDir, "last-good")),
         };
       });
+      const proof = evaluateInventory({ entries: rows });
       return {
         inventory: raw,
         catalog,
@@ -445,18 +447,12 @@ export function createCenterRemote(opts: {
           : {}),
         degraded: inventoryFailed || reconcileFailed,
         required: {
-          credentials: rows.some(
-            (entry) =>
-              rowMatches(entry, "@deepseek-ai/dsh-credentials-local") &&
-              rowLoaded(entry),
-          ),
-          "plugin-center": rows.some(
-            (entry) =>
-              rowMatches(entry, "@penglai/plugin-center") && rowLoaded(entry),
-          ),
-          im: rows.some(
-            (entry) => rowMatches(entry, "@penglai/im") && rowLoaded(entry),
-          ),
+          credentials: proof.credentials,
+          "plugin-center": proof.pluginCenter,
+          office: proof.office,
+          memory: proof.memory,
+          im: proof.im,
+          smokeDisabled: proof.smokeDisabled,
         },
       };
     },

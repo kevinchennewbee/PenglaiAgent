@@ -11,6 +11,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
+  inventorySnapshotDocument,
   loadPluginCatalog,
   PINNED_PLUGIN_DSH,
   runtimePluginTarget,
@@ -612,33 +613,10 @@ export function apply(ctx: {
     host.setDesired(recovered.id, recovered.previousEnabled);
   }
   const writeSnap = (): void => {
-    const entries = normalizeInventory(inventory.list());
+    const document = inventorySnapshotDocument(normalizeInventory(inventory.list()));
     writeFileSync(
       join(dir, "inventory-snapshot.json"),
-      JSON.stringify(
-        {
-          at: new Date().toISOString(),
-          entries,
-          required: {
-            credentials: entries.some(
-              (e) =>
-                rowMatches(e, "@deepseek-ai/dsh-credentials-local") &&
-                rowLoaded(e),
-            ),
-            "plugin-center": entries.some(
-              (e) => rowMatches(e, "@penglai/plugin-center") && rowLoaded(e),
-            ),
-            im: entries.some(
-              (e) => rowMatches(e, "@penglai/im") && rowLoaded(e),
-            ),
-            smokeDisabled: !entries.some(
-              (e) => rowMatches(e, "@penglai/plugin-smoke") && rowLoaded(e),
-            ),
-          },
-        },
-        null,
-        2,
-      ),
+      JSON.stringify(document, null, 2),
       { mode: 0o600 },
     );
     const registry = officialService<

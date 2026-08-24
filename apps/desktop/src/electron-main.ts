@@ -14,6 +14,7 @@ import {
   createSchemaBackup,
   doctor,
   ensurePrivateHome,
+  EMPTY_INVENTORY_PROOF,
   evaluateInventory,
   inspectStorageInventory,
   issuePluginOwnerGrant,
@@ -877,7 +878,7 @@ async function main(): Promise<void> {
     const inventory =
       live.health?.inventory ??
       readInventorySnapshot(user) ??
-      (existsSync(snapFile) ? evaluateInventory(JSON.parse(readFileSync(snapFile, "utf8"))) : { ok: false, credentials: false, pluginCenter: false, im: false, smokeDisabled: false, entries: [] });
+      (existsSync(snapFile) ? evaluateInventory(JSON.parse(readFileSync(snapFile, "utf8"))) : EMPTY_INVENTORY_PROOF);
     if (!inventory.ok) throw new Error("first-party inventory not loaded");
     const processTree = {
       electronPid: process.pid,

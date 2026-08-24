@@ -38,8 +38,8 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 |---|---|---|---|---|
 | R56-CORE-001 | not-started | official DSH remains only core | existing R55 DSH tests | I |
 | R56-CORE-002 | source-pass | `packages/release-identity/src/pins.ts` | `packages/dsh-bridge/src/capability-baseline.test.ts` | P |
-| R56-CORE-003 | not-started | runtime InventoryProof | | S,C,I |
-| R56-CORE-004 | not-started | InventoryProof substring match | | S,C |
+| R56-CORE-003 | source-pass | `packages/runtime/src/inventory-proof.ts` | `inventory-proof.test.ts` | I |
+| R56-CORE-004 | source-pass | exactPluginId; no substring includes | `inventory-proof.test.ts` | I |
 | R56-CORE-005 | not-started | plugin-center disable | | C,I |
 | R56-CORE-006 | not-started | desktop splash | | N,I |
 | R56-CORE-007 | not-started | dsh supervisor | | C,N,I |
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Phase 1 first capability: secret-free generation backup and historical credential cleanup (R56-SEC-001 / R56-SEC-002).
+Phase 1 next capability: bounded HTTP (`R56-SEC-005`) after Inventory exact identity. POSIX mode / remote bytecode / secret scanner remain in the same P0 lane. Do not start Owner Approval Broker until the current security class is done.
