@@ -28,7 +28,6 @@ import {
   FIRST_PARTY_PLUGIN_METADATA,
   PLUGIN_CATALOG_SCHEMA,
 } from "../packages/runtime/src/plugin-catalog.ts";
-import { scanBundleText } from "../packages/runtime/src/scanner.ts";
 
 const dest = join(ROOT, "dist/runtime-staging/plugins");
 rmSync(dest, { recursive: true, force: true });
@@ -937,17 +936,12 @@ for (const p of packs) {
     console.error(p.id, "host bundle still imports src");
     process.exit(1);
   }
-  const pathHits = scanBundleText("dist/index.js", hostJs);
-  if (pathHits.length) {
-    console.error("production bundle forbidden", pathHits.join(","), p.id);
-    process.exit(1);
-  }
   if (
-    /\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
+    /\/Users\/[A-Za-z0-9._-]+\/|\/Volumes\/KevinSSD|C:\\\\Users\\\\[A-Za-z0-9._-]+\\\\|\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
       hostJs,
     )
   ) {
-    console.error("production bundle forbidden dist/index.js:build-path", p.id);
+    console.error("production bundle forbidden dist/index.js:owner volume", p.id);
     process.exit(1);
   }
   if (!hostJs.includes("__penglaiCreateRequire")) {
