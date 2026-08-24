@@ -64,8 +64,7 @@ export function createContextSettingsApi(
         realPath: grant.root,
       });
     },
-    revoke(input: { root: string; ownerConfirmed: boolean }) {
-      if (!input.ownerConfirmed) throw new PenglaiError("SECURITY_POLICY", "context revoke requires Owner confirmation");
+    revoke(input: { root: string }) {
       if (!service.exportMetadata().grants.some((row) => row.root === input.root)) {
         throw new PenglaiError("UNAUTHORIZED", "context grant is not active");
       }

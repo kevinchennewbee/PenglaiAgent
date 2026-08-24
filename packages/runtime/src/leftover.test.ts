@@ -200,6 +200,11 @@ test("R50-DIST: packaged identity is Penglai 0.5.6 and Windows NSIS stays curren
     <key>CFBundleIconFile</key><string>electron.icns</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSMicrophoneUsageDescription</key><string>This app needs access to the microphone</string>
+    <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+    <key>NSAudioCaptureUsageDescription</key><string>This app needs access to audio capture</string>
+    <key>NSBluetoothAlwaysUsageDescription</key><string>This app needs access to Bluetooth</string>
+    <key>NSBluetoothPeripheralUsageDescription</key><string>This app needs access to Bluetooth</string>
+    <key>NSCameraUsageDescription</key><string>This app needs access to the camera</string>
   `);
   const facts = parseInfoPlistIdentity(rewritten);
   assertPenglaiAppIdentity(facts);
@@ -211,6 +216,7 @@ test("R50-DIST: packaged identity is Penglai 0.5.6 and Windows NSIS stays curren
   assert.match(rewritten, /only when you start voice input/);
   assert.match(rewritten, /仅在你主动开始语音输入时使用麦克风/);
   assert.doesNotMatch(rewritten, /This app needs access to the microphone/);
+  assert.doesNotMatch(rewritten, /NSAllowsArbitraryLoads|NSAudioCaptureUsageDescription|NSBluetooth|NSCameraUsageDescription/);
   assertWindowsNsisContract({
     currentUser: true,
     languages: [...WINDOWS_NSIS_CONTRACT.bilingual],

@@ -182,6 +182,7 @@ export function createDurableMemoryService(opts: {
   onClose?: () => void;
   owner?: MemoryOwnerBrokerPort;
   curator?: (summary: string, context: CuratorContext) => Promise<string>;
+  sources?: ReturnType<typeof createContextSettingsApi>;
 }) {
   const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
   const engine = new MnemonMemoryService(opts.userData, {
@@ -276,6 +277,12 @@ export function createDurableMemoryService(opts: {
     }
     if (input.action === MEMORY_OWNER_ACTIONS.personalize || input.action === MEMORY_OWNER_ACTIONS.promoteSop) {
       if (!input.sourceText?.trim()) throw new PenglaiError("INVALID_INPUT", "memory Owner source missing");
+      return sha256(input.sourceText.trim());
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.sourcesRevoke) {
+      if (input.objectId !== "source-grant" || !input.sourceText?.trim()) {
+        throw new PenglaiError("INVALID_INPUT", "memory source grant missing");
+      }
       return sha256(input.sourceText.trim());
     }
     throw new PenglaiError("SECURITY_POLICY", "MEMORY_OWNER_ACTION");
@@ -548,6 +555,28 @@ export function createDurableMemoryService(opts: {
       reservation.complete(digest);
       return { personal: imported.personal, workspace: imported.workspace, candidate: imported.candidate };
     },
+    async revokeSource(root: string, proof?: { actionId: string; receipt: string }) {
+      if (!proof?.actionId || !proof.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      }
+      if (!opts.sources) throw new PenglaiError("DSH_UNAVAILABLE", "memory sources unavailable");
+      const normalizedRoot = root.trim();
+      const active = (opts.sources.status() as { grants?: Array<{ root?: string }> }).grants?.some(
+        (grant) => grant.root === normalizedRoot,
+      );
+      if (!active) throw new PenglaiError("UNAUTHORIZED", "context grant is not active");
+      const sourceDigest = sha256(normalizedRoot);
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.sourcesRevoke,
+        actionId: proof.actionId,
+        receipt: proof.receipt,
+        objectId: "source-grant",
+        sourceDigest,
+      });
+      const result = opts.sources.revoke({ root: normalizedRoot });
+      reservation.complete(resultDigest({ sourceDigest, ...result }));
+      return result;
+    },
     close() {
       if (closed) return;
       closed = true;
@@ -581,6 +610,7 @@ export function apply(ctx: CordisContextLike) {
   const agents = ctx.agents;
   if (!agents?.get || !agents.create) throw new PenglaiError("DSH_UNAVAILABLE", "official Agents registry required for memory");
   const sources = applyEmbeddedMemorySources(ctx);
+  const sourcesApi = createContextSettingsApi(sources, userData, workspaceRegistry);
   const owner = new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) });
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
@@ -588,6 +618,7 @@ export function apply(ctx: CordisContextLike) {
       userData,
       skills: ctx.skills,
       owner,
+      sources: sourcesApi,
       curator: async (summary, context) => {
         const source = agents.get(context.sessionId);
         const provider = source?.options.provider;
@@ -711,7 +742,6 @@ export function apply(ctx: CordisContextLike) {
     registerMemoryTools(ctx, activeService.engine);
     ctx.provide("penglaiMemory", activeService);
     if (ctx instanceof Context) {
-      const sourcesApi = createContextSettingsApi(sources, userData, workspaceRegistry);
       new PenglaiMemoryRemote(ctx, createMemorySettingsApi(activeService, workspaceRegistry, sourcesApi));
     }
     ctx.effect?.(() => () => activeService.close?.());

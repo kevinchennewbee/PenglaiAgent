@@ -197,7 +197,17 @@ export function createOfficeService(opts?: {
     if (action === "export") return requested || job.format;
     return requested;
   }
-  function consumeReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, receipt: string, _target = "") {
+  function receiptResultDigest(job: OfficeJobRecord, action: OfficeReceiptAction): string {
+    return action === "undo" ? job.sourceDigest : job.digest;
+  }
+  function receiptDestinationLabel(job: OfficeJobRecord, action: OfficeReceiptAction, requested = ""): string {
+    if (action === "commit-to-path") return basename(receiptTarget(job, action, requested)).replace(/[\\/]/g, "");
+    if (action === "export") return receiptTarget(job, action, requested);
+    if (action === "return-to-channel") return "original IM conversation";
+    if (action === "undo" && job.destPath) return basename(job.destPath).replace(/[\\/]/g, "");
+    return "";
+  }
+  function consumeReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, receipt: string, target = "") {
     if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
     if (!isOwnerBrokerReceipt(receipt)) {
       throw new PenglaiError("SECURITY_POLICY", "office broker receipt required");
@@ -210,12 +220,17 @@ export function createOfficeService(opts?: {
       jobId: job.id,
       sourceDigest: job.sourceDigest,
       ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+      ...(job.sessionId ? { sessionId: job.sessionId } : {}),
+      resultDigest: receiptResultDigest(job, action),
+      ...(receiptDestinationLabel(job, action, target)
+        ? { destinationLabel: receiptDestinationLabel(job, action, target) }
+        : {}),
     });
     return () =>
       opts.owner?.completeApproval({
         actionId,
         reservationId: reserved.reservationId,
-        resultDigest: job.resultDigest ?? job.digest,
+        resultDigest: receiptResultDigest(job, action),
       });
   }
   function ingestJobBytes(job: OfficeJobRecord, name: string, source: "office" | "generated" = "office") {
@@ -305,8 +320,8 @@ export function createOfficeService(opts?: {
       }
       if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
       receiptTarget(job, action, target);
-      const destName = target ? basename(target).replace(/[\\/]/g, "") : "";
-      if (target && destName !== basename(target)) {
+      const destName = receiptDestinationLabel(job, action, target);
+      if (target && action === "commit-to-path" && destName !== basename(target)) {
         throw new PenglaiError("SECURITY_POLICY", "office destination label escaped");
       }
       const proposed = proposeOfficeAction(opts.owner, {
@@ -315,7 +330,7 @@ export function createOfficeService(opts?: {
         sourceDigest: job.sourceDigest,
         ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
         ...(job.sessionId ? { sessionId: job.sessionId } : {}),
-        resultDigest: job.digest,
+        resultDigest: receiptResultDigest(job, action),
         ...(destName ? { destinationLabel: destName } : {}),
       });
       const decided = await opts.owner.requestOwnerApproval(proposed.actionId);

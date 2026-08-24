@@ -72,7 +72,8 @@ test("R56-FILE-003 ArtifactRef never includes a filesystem path", () => {
     turnId: "turn-1",
   });
   assert.equal(ref.schema, 1);
-  assert.match(ref.id, /^sha256:[0-9a-f]{64}$/);
+  assert.match(ref.id, /^artifact:[0-9a-f-]{36}$/);
+  assert.match(ref.sha256, /^sha256:[0-9a-f]{64}$/);
   assert.equal(ref.name, "note.txt");
   assert.equal("path" in ref, false);
   assert.doesNotMatch(JSON.stringify(ref), /\/Users\/|\/tmp\/|cas\//);
@@ -137,6 +138,20 @@ test("R56-FILE-011/012 persist needs an owner action and GC removes CAS plus ind
     turnId: "turn-1",
   });
   assert.throws(() => artifacts.persist(ref.id, "workspace", { actionId: "not-a-uuid" }), /RECEIPT/);
+  const { artifacts: unbrokered } = service(clock);
+  const unbrokeredRef = unbrokered.ingestBytes(Buffer.from("do not persist\n"), {
+    name: "unbrokered.txt",
+    source: "memory",
+    workspaceId: "ws-a",
+  });
+  assert.throws(
+    () =>
+      unbrokered.persist(unbrokeredRef.id, "workspace", {
+        actionId: "11111111-1111-4111-8111-111111111111",
+      }),
+    /PERSIST_BROKER/,
+  );
+  unbrokered.close();
   allowed = "11111111-1111-4111-8111-111111111111";
   const persisted = artifacts.persist(ref.id, "workspace", { actionId: allowed });
   assert.equal(persisted.scope, "workspace");
@@ -179,6 +194,31 @@ test("deleting a workspace recycles its artifacts and CAS without touching anoth
   artifacts.gc();
   artifacts.close();
   void root;
+});
+
+test("identical bytes keep distinct opaque bindings across Workspaces", () => {
+  const { artifacts } = service();
+  const bytes = Buffer.from("shared bytes, different authorization\n");
+  const a = artifacts.ingestBytes(bytes, {
+    name: "a.txt",
+    source: "im",
+    workspaceId: "ws-a",
+    sessionId: "sess-a",
+    turnId: "turn-a",
+  });
+  const b = artifacts.ingestBytes(bytes, {
+    name: "b.txt",
+    source: "im",
+    workspaceId: "ws-b",
+    sessionId: "sess-b",
+    turnId: "turn-b",
+  });
+  assert.notEqual(a.id, b.id);
+  assert.equal(a.sha256, b.sha256);
+  assert.equal(artifacts.ref(a.id).workspaceId, "ws-a");
+  assert.equal(artifacts.ref(b.id).workspaceId, "ws-b");
+  assert.throws(() => artifacts.readControlled(a.sha256, { workspaceId: "ws-a", sessionId: "sess-a" }), /AMBIGUOUS/);
+  artifacts.close();
 });
 
 test("R56-FILE-013 workspace or session drift cannot read the handle", () => {

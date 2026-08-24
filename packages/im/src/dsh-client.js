@@ -156,12 +156,12 @@ window.__ModuleLoader__.load({
         guidedConnect: "连接",
         noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
         whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。",
-        notLive: "尚未完成真实账号验收，不能标为可用。",
+        notLive: "0.5.6 暂未开放；仅列入后续计划，不会创建假连接。",
         statusDisconnected: "未连接",
         statusConnecting: "正在连接",
         statusConnected: "已连接",
         statusNeedsAction: "需要处理",
-        statusUnavailable: "暂不可用",
+        statusUnavailable: "0.5.6 未开放",
         advanced: "高级诊断",
         openConsole: "打开飞书开发者后台",
         openLongDoc: "打开长连接说明",
@@ -257,12 +257,12 @@ window.__ModuleLoader__.load({
         guidedConnect: "Connect",
         noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
         whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk.",
-        notLive: "Not marked available until live-account evidence exists.",
+        notLive: "Not available in 0.5.6. Listed as roadmap only; Penglai will not create a fake connection.",
         statusDisconnected: "Not connected",
         statusConnecting: "Connecting",
         statusConnected: "Connected",
         statusNeedsAction: "Needs attention",
-        statusUnavailable: "Unavailable",
+        statusUnavailable: "Not available in 0.5.6",
         advanced: "Advanced diagnostics",
         openConsole: "Open Feishu developer console",
         openLongDoc: "Open long-connection help",
@@ -1355,37 +1355,25 @@ window.__ModuleLoader__.load({
                             " ",
                             jsx.jsx("span", { children: status }),
                             " ",
-                            jsx.jsx("button", {
-                              type: "button",
-                              "data-penglai-im-connect": c.channel,
-                              onClick: () => {
-                                if (c.channel === "weixin") {
-                                  setTab("weixin");
-                                  setWeixinKick((n) => n + 1);
-                                  return;
-                                }
-                                if (c.channel === "feishu") {
-                                  setTab("feishu");
-                                  setFeishuKick((n) => n + 1);
-                                  return;
-                                }
-                                Promise.resolve(
-                                  remote?.penglaiIm?.beginGuidedConnection({
-                                    channel: c.channel,
-                                    method: (c.connectionMethods || ["token"])[0],
-                                    riskAck: c.channel === "whatsapp",
-                                  }),
-                                ).catch(() => undefined);
-                              },
-                              children: t.guidedConnect,
-                            }),
-                            (c.connectionMethods || []).includes("qr")
-                              ? null
-                              : jsx.jsx("span", { children: t.noQr }),
-                            c.channel === "whatsapp"
-                              ? jsx.jsx("p", { "data-penglai-im-whatsapp-risk": "1", children: t.whatsappRisk })
-                              : null,
-                            c.live ? null : jsx.jsx("span", { children: t.notLive }),
+                            c.live
+                              ? jsx.jsx("button", {
+                                  type: "button",
+                                  "data-penglai-im-connect": c.channel,
+                                  onClick: () => {
+                                    if (c.channel === "weixin") {
+                                      setTab("weixin");
+                                      setWeixinKick((n) => n + 1);
+                                    } else {
+                                      setTab("feishu");
+                                      setFeishuKick((n) => n + 1);
+                                    }
+                                  },
+                                  children: t.guidedConnect,
+                                })
+                              : jsx.jsx("span", {
+                                  "data-penglai-im-planned": c.channel,
+                                  children: t.notLive,
+                                }),
                           ],
                         },
                         c.channel,

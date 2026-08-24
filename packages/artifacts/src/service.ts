@@ -29,7 +29,8 @@ import {
 
 export interface ArtifactRefV1 {
   schema: 1;
-  id: `sha256:${string}`;
+  /** Opaque binding identity. Content identity remains in sha256. */
+  id: `artifact:${string}`;
   kind: ArtifactKind;
   name: string;
   mediaType: string;
@@ -68,6 +69,7 @@ function sha256Hex(bytes: Buffer): string {
 }
 
 function toRef(row: {
+  bindId: string;
   sha256: string;
   kind: string;
   name: string;
@@ -83,7 +85,7 @@ function toRef(row: {
 }): ArtifactRefV1 {
   return {
     schema: 1,
-    id: `sha256:${row.sha256}`,
+    id: `artifact:${row.bindId}`,
     kind: parseClosedEnum(row.kind, ARTIFACT_KINDS, "ARTIFACT_KIND", "SECURITY_POLICY"),
     name: row.name,
     mediaType: row.mediaType,
@@ -223,7 +225,8 @@ export class ArtifactService {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(proof.actionId)) {
       fail("ARTIFACT_PERSIST_RECEIPT");
     }
-    this.assertPersist?.(proof.actionId);
+    if (!this.assertPersist) fail("ARTIFACT_PERSIST_BROKER");
+    this.assertPersist(proof.actionId);
     const row = this.lookup(id);
     if (!row.workspaceId) fail("ARTIFACT_WORKSPACE");
     this.db.prepare(
@@ -309,6 +312,7 @@ export class ArtifactService {
       expiresAt ?? null,
     );
     return toRef({
+      bindId,
       sha256: input.sha256,
       kind: input.kind,
       name: input.name,
@@ -325,9 +329,24 @@ export class ArtifactService {
   }
 
   private lookup(id: string) {
-    const digest = id.replace(/^sha256:/, "").toLowerCase();
-    if (!/^[0-9a-f]{64}$/.test(digest)) fail("ARTIFACT_ID");
-    const row = this.db.prepare(`SELECT * FROM artifacts WHERE sha256 = ? ORDER BY created_at DESC LIMIT 1`).get(digest) as
+    let row: Record<string, string | number | null> | undefined;
+    if (/^artifact:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      row = this.db.prepare(`SELECT * FROM artifacts WHERE bind_id = ?`).get(id.slice("artifact:".length)) as
+        | Record<string, string | number | null>
+        | undefined;
+    } else {
+      // One local 0.5.6 development build exposed digest-shaped ids. Accept
+      // them only when they resolve to exactly one binding; never guess across
+      // Workspace/Session boundaries.
+      const digest = id.replace(/^sha256:/, "").toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(digest)) fail("ARTIFACT_ID");
+      const rows = this.db.prepare(`SELECT * FROM artifacts WHERE sha256 = ?`).all(digest) as Array<
+        Record<string, string | number | null>
+      >;
+      if (rows.length > 1) fail("ARTIFACT_AMBIGUOUS_LEGACY_ID");
+      row = rows[0];
+    }
+    const typed = row as
       | {
           bind_id: string;
           sha256: string;
@@ -344,21 +363,21 @@ export class ArtifactService {
           expires_at: number | null;
         }
       | undefined;
-    if (!row) fail("ARTIFACT_MISSING");
+    if (!typed) fail("ARTIFACT_MISSING");
     return {
-      bindId: row.bind_id,
-      sha256: row.sha256,
-      kind: row.kind,
-      name: row.name,
-      mediaType: row.media_type,
-      bytes: row.bytes,
-      source: row.source,
-      scope: row.scope,
-      workspaceId: row.workspace_id,
-      sessionId: row.session_id,
-      turnId: row.turn_id,
-      createdAt: row.created_at,
-      expiresAt: row.expires_at,
+      bindId: typed.bind_id,
+      sha256: typed.sha256,
+      kind: typed.kind,
+      name: typed.name,
+      mediaType: typed.media_type,
+      bytes: typed.bytes,
+      source: typed.source,
+      scope: typed.scope,
+      workspaceId: typed.workspace_id,
+      sessionId: typed.session_id,
+      turnId: typed.turn_id,
+      createdAt: typed.created_at,
+      expiresAt: typed.expires_at,
     };
   }
 

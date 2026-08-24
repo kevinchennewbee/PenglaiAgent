@@ -289,7 +289,16 @@ export class WeixinAdapter {
   );
   imageAdmission?: ImageAdmission;
   objectStore?: ObjectStore;
-  onAdmittedBytes?: (input: { bytes: Buffer; filename?: string; mime?: string }) => void;
+  onAdmittedBytes?: (input: {
+    bytes: Buffer;
+    filename?: string;
+    mime?: string;
+    routeId: string;
+    workspaceId: string;
+    sessionId: string;
+    turnId: string;
+    objectHandle?: string;
+  }) => void;
   constructor(
     private readonly plane: RoutingControlPlane,
     private readonly transport: WeixinTransport,
@@ -625,11 +634,6 @@ export class WeixinAdapter {
           ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
           ...(this.objectStore ? { objectStore: this.objectStore } : {}),
         });
-        this.onAdmittedBytes?.({
-          bytes,
-          mime: parsed.media.mime,
-          ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
-        });
       } catch (error) {
         return {
           kind: "rejected" as const,
@@ -637,7 +641,29 @@ export class WeixinAdapter {
         };
       }
       delete parsed.text;
-      return this.plane.submitInbound(parsed);
+      const submitted = await this.plane.submitInbound(parsed);
+      if (submitted.kind === "accepted" && submitted.text === "queued") {
+        const routeId = this.plane.ensureRoute(parsed);
+        const binding = this.plane.store.activeBinding(routeId);
+        if (binding) {
+          try {
+            this.onAdmittedBytes?.({
+              bytes,
+              mime: parsed.media.mime,
+              routeId,
+              workspaceId: binding.workspaceIdentity,
+              sessionId: binding.sessionId,
+              turnId: parsed.adapterMessageKey,
+              ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
+              ...(parsed.media.officeHandle ? { objectHandle: parsed.media.officeHandle } : {}),
+            });
+          } catch {
+            // The official Turn is already queued. Artifact indexing is an
+            // optional, fail-open enhancement and must not duplicate the Turn.
+          }
+        }
+      }
+      return submitted;
     }
     if (parsed.bodyKind === "voice") {
       if (!raw.voice) return { kind: "rejected" as const, text: "voice media missing" };

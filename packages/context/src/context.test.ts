@@ -150,7 +150,7 @@ test("Context settings consumes one opaque picker capability and exposes no raw-
     const api = createContextSettingsApi(service, userData, { list: () => [{ id: "w1", title: "Workspace" }] });
     assert.equal(api.ingestCapability({ capabilityRef: next.capabilityRef, scope: "workspace", workspaceId: "w1" }).indexed, 1);
     assert.equal(api.status().grants[0]?.documents, 1);
-    assert.deepEqual(api.revoke({ root: realpathSync(source), ownerConfirmed: true }), {
+    assert.deepEqual(api.revoke({ root: realpathSync(source) }), {
       deletedDerived: true,
       sourceUntouched: true,
     });

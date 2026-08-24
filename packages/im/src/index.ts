@@ -175,19 +175,32 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
-  const admitInbound = (input: { bytes: Buffer; filename?: string; mime?: string }) => {
+  const admitInbound = (input: {
+    bytes: Buffer;
+    filename?: string;
+    mime?: string;
+    routeId: string;
+    workspaceId: string;
+    sessionId: string;
+    turnId: string;
+    objectHandle?: string;
+  }) => {
     const name = input.filename && /\.(docx|xlsx|pptx|pdf|txt|md|csv)$/i.test(input.filename)
       ? input.filename
       : undefined;
     if (!name) return;
     try {
-      artifacts.ingestBytes(input.bytes, {
+      return artifacts.ingestBytes(input.bytes, {
         name,
         source: "im",
         scope: "turn",
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+        turnId: input.turnId,
       });
     } catch {
       /* images/audio stay on MediaStore and official attachments */
+      return undefined;
     }
   };
   weixin.onAdmittedBytes = admitInbound;

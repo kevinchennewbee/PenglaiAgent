@@ -39,6 +39,14 @@ export function assertPenglaiAppIdentity(facts: AppIdentityFacts): void {
 export const MICROPHONE_USAGE_DESCRIPTION =
   "Penglai uses the microphone only when you start voice input. It does not record in the background. 蓬莱仅在你主动开始语音输入时使用麦克风，不会在后台录音。";
 
+export const FORBIDDEN_MAC_PLIST_KEYS = [
+  "NSAllowsArbitraryLoads",
+  "NSAudioCaptureUsageDescription",
+  "NSBluetoothAlwaysUsageDescription",
+  "NSBluetoothPeripheralUsageDescription",
+  "NSCameraUsageDescription",
+] as const;
+
 export function rewriteElectronPlist(plist: string): string {
   let next = plist
     .replace(/<key>CFBundleDisplayName<\/key>\s*<string>[^<]*<\/string>/, "<key>CFBundleDisplayName</key>\n\t<string>Penglai</string>")
@@ -73,6 +81,13 @@ export function rewriteElectronPlist(plist: string): string {
     } else {
       next += microphone;
     }
+  }
+  next = next.replace(
+    /\s*<key>NSAppTransportSecurity<\/key>\s*<dict>\s*<key>NSAllowsArbitraryLoads<\/key>\s*<(?:true|false)\s*\/>\s*<\/dict>/g,
+    "",
+  );
+  for (const key of FORBIDDEN_MAC_PLIST_KEYS.filter((candidate) => candidate !== "NSAllowsArbitraryLoads")) {
+    next = next.replace(new RegExp(`\\s*<key>${key}<\\/key>\\s*<string>[^<]*<\\/string>`, "g"), "");
   }
   return next;
 }

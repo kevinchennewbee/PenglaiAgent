@@ -107,6 +107,7 @@ window.__ModuleLoader__.load({
         preview: "试听所选声音",
         playing: "正在播放试听…",
         readOriginal: "朗读原文",
+        stopPlayback: "停止朗读",
         retry: "重试",
         openSettings: "打开语音合成设置",
         loading: "正在读取语音合成状态…",
@@ -129,6 +130,7 @@ window.__ModuleLoader__.load({
         preview: "Preview selected voice",
         playing: "Playing preview…",
         readOriginal: "Read original text",
+        stopPlayback: "Stop reading",
         retry: "Retry",
         openSettings: "Open speech settings",
         loading: "Reading speech synthesis status…",
@@ -319,6 +321,16 @@ window.__ModuleLoader__.load({
         const timer = setInterval(refresh, 2000);
         return () => clearInterval(timer);
       }, [refresh]);
+      React.useEffect(
+        () =>
+          playback.subscribe((state) => {
+            setView((current) => ({
+              ...current,
+              playing: state === "playing",
+            }));
+          }),
+        [],
+      );
       const run = (method, input) => {
         if (!api?.[method]) return;
         setView((current) => ({ ...current, busy: true, error: "" }));
@@ -540,7 +552,14 @@ window.__ModuleLoader__.load({
       const api = props.remote?.penglaiMossTtsSettings;
       const t = localeCopy();
       const [busy, setBusy] = React.useState(false);
+      const [playing, setPlaying] = React.useState(
+        playback.getState() === "playing",
+      );
       const [error, setError] = React.useState("");
+      React.useEffect(
+        () => playback.subscribe((state) => setPlaying(state === "playing")),
+        [],
+      );
       const play = () => {
         const text = String(props.text ?? "").trim();
         if (!api?.readAloud || !text) return;
@@ -572,12 +591,14 @@ window.__ModuleLoader__.load({
       return jsx.jsx("button", {
         type: "button",
         "data-penglai-tts-read": "1",
+        "data-penglai-tts-read-state": playing ? "playing" : "idle",
         "data-penglai-tts-read-error": error,
-        title: t.readOriginal,
-        "aria-label": t.readOriginal,
+        title: playing ? t.stopPlayback : t.readOriginal,
+        "aria-label": playing ? t.stopPlayback : t.readOriginal,
+        "aria-pressed": playing,
         disabled: busy,
         onClick: play,
-        children: error ? t.retry : "read",
+        children: error ? t.retry : playing ? "stop" : "read",
       });
     }
 

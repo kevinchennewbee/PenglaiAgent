@@ -153,6 +153,41 @@ function createPenglaiMemorySourcesClient(require) {
             })),
           );
       };
+      const ownerRun = (root) => {
+        if (!api?.revoke || !memory?.proposeAction) return Promise.resolve();
+        setView((current) => ({ ...current, busy: true, error: "", notice: "" }));
+        return Promise.resolve(
+          memory.proposeAction({
+            action: "memory.sources-revoke",
+            objectId: "source-grant",
+            sourceText: root,
+          }),
+        )
+          .then(unwrap)
+          .then((proposed) => {
+            const approve = window.penglai && window.penglai.requestOwnerApproval;
+            if (!approve || !proposed?.actionId) throw new Error("owner approval required");
+            return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+              if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+              return api.revoke({ root, actionId: proposed.actionId, receipt: decided.receipt });
+            });
+          })
+          .then(unwrap)
+          .then((result) => {
+            setView((current) => ({
+              ...current,
+              busy: false,
+              notice: result?.sourceUntouched ? t.sourceUntouched : "",
+              revokeRoot: "",
+            }));
+            refresh();
+            return result;
+          })
+          .catch((error) => {
+            setView((current) => ({ ...current, busy: false, error: errorText(error) }));
+            return undefined;
+          });
+      };
       const add = () => {
         setView((current) => ({
           ...current,
@@ -320,12 +355,7 @@ function createPenglaiMemorySourcesClient(require) {
                         jsx.jsx("button", {
                           type: "button",
                           disabled: view.busy || view.revokeRoot !== grant.root,
-                          onClick: () =>
-                            run(
-                              "revoke",
-                              { root: grant.root, ownerConfirmed: true },
-                              t.sourceUntouched,
-                            ),
+                          onClick: () => ownerRun(grant.root),
                           children: t.revoke,
                         }),
                       ],

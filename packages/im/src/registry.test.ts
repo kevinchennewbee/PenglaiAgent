@@ -94,15 +94,14 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   rt.store.close();
 });
 
-test("R56-IM-008 IM client lists nine platforms and does not invent Slack/Telegram/Discord QR", () => {
+test("R56-IM-008 IM client lists nine platforms and exposes connect only for live channels", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /data-penglai-im-platforms/);
   assert.match(client, /data-penglai-im-platform/);
-  assert.match(client, /guidedConnect/);
-  assert.match(client, /This platform has no QR shortcut/);
-  assert.match(client, /该平台没有二维码捷径/);
-  assert.match(client, /data-penglai-im-whatsapp-risk/);
-  assert.match(client, /beginGuidedConnection/);
+  assert.match(client, /data-penglai-im-planned/);
+  assert.match(client, /roadmap only/);
+  assert.match(client, /仅列入后续计划/);
+  assert.doesNotMatch(client, /remote\?\.penglaiIm\?\.beginGuidedConnection/);
   assert.doesNotMatch(client, /slackQr|telegramQr|discordQr|beginSlackQr|beginTelegramQr/);
   assert.match(client, /data-penglai-im-goto-weixin/);
   assert.match(client, /data-penglai-im-goto-feishu/);

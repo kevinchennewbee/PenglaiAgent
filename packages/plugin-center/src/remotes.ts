@@ -334,17 +334,21 @@ export function createCenterRemote(opts: {
   userDataRoot: string;
   registry?: PluginDistributionClient;
   target?: ProductPluginTarget;
+  /** Test/integration seam; production creates the window-bound broker below. */
+  ownerBroker?: OwnerApprovalBroker;
 }): CenterRemote {
   const hostTarget = (): ProductPluginTarget =>
     opts.target ?? runtimePluginTarget();
-  const owner = new OwnerApprovalBroker(opts.userDataRoot, {
-    dialog: createHostOwnerDialog(opts.userDataRoot),
-  });
+  const owner =
+    opts.ownerBroker ??
+    new OwnerApprovalBroker(opts.userDataRoot, {
+      dialog: createHostOwnerDialog(opts.userDataRoot),
+    });
   const requireOwner = (
     id: string,
     action: PluginOwnerAction,
     proof: CenterOwnerProof | string | undefined,
-  ): void => {
+  ): (() => void) => {
     if (!proof || typeof proof === "string")
       throw new PenglaiError(
         "SECURITY_POLICY",
@@ -366,21 +370,22 @@ export function createCenterRemote(opts: {
       inspected.pluginId !== id ||
       inspected.action !== expectedAction ||
       inspected.objectId !== id ||
-      inspected.sourceDigest !== `sha256:${entry.sha256.replace(/^sha256:/, "")}`
+      inspected.sourceDigest !== `sha256:${entry.sha256.replace(/^sha256:/, "")}` ||
+      inspected.permissionDigest !== `sha256:${permissionDigest}`
     ) {
       throw new PenglaiError("SECURITY_POLICY", "plugin broker intent mismatch");
     }
-    void permissionDigest;
     const reserved = owner.consumeApproval({
       receipt: proof.receipt,
       intentDigest: inspected.intentDigest,
       actionId: proof.actionId,
     });
-    owner.completeApproval({
-      actionId: proof.actionId,
-      reservationId: reserved.reservationId,
-      resultDigest: entry.sha256.replace(/^sha256:/, ""),
-    });
+    return () =>
+      owner.completeApproval({
+        actionId: proof.actionId,
+        reservationId: reserved.reservationId,
+        resultDigest: entry.sha256.replace(/^sha256:/, ""),
+      });
   };
   const transact = async (
     id: string,
@@ -481,11 +486,14 @@ export function createCenterRemote(opts: {
       };
     },
     enable(id: string, proof?: CenterOwnerProof | string) {
-      requireOwner(id, "plugin-enable", proof);
-      return transact(id, "enable");
+      const finishOwnerAction = requireOwner(id, "plugin-enable", proof);
+      return transact(id, "enable").then((result) => {
+        finishOwnerAction();
+        return result;
+      });
     },
     async installEnable(id: string, proof?: CenterOwnerProof | string) {
-      requireOwner(id, "plugin-enable", proof);
+      const finishOwnerAction = requireOwner(id, "plugin-enable", proof);
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       if (entry.source === "penglai-plugin-registry") {
         if (!opts.registry)
@@ -503,15 +511,20 @@ export function createCenterRemote(opts: {
             : {}),
         });
       }
-      return transact(id, "enable");
+      const result = await transact(id, "enable");
+      finishOwnerAction();
+      return result;
     },
     disable(id: string, proof?: CenterOwnerProof | string) {
       refuseRequiredPluginDisable(id);
-      requireOwner(id, "plugin-disable", proof);
-      return transact(id, "disable");
+      const finishOwnerAction = requireOwner(id, "plugin-disable", proof);
+      return transact(id, "disable").then((result) => {
+        finishOwnerAction();
+        return result;
+      });
     },
     async update(id: string, proof?: CenterOwnerProof | string) {
-      requireOwner(id, "plugin-update", proof);
+      const finishOwnerAction = requireOwner(id, "plugin-update", proof);
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       if (entry.source === "penglai-plugin-registry") {
         if (!opts.registry)
@@ -529,7 +542,9 @@ export function createCenterRemote(opts: {
             : {}),
         });
       }
-      return transact(id, "update");
+      const result = await transact(id, "update");
+      finishOwnerAction();
+      return result;
     },
     async refreshRegistry() {
       if (arguments.length > 0) {
@@ -571,7 +586,7 @@ export function createCenterRemote(opts: {
           "INVALID_INPUT",
           "remote plugin registry is not configured",
         );
-      requireOwner(id, "plugin-install", proof);
+      const finishOwnerAction = requireOwner(id, "plugin-install", proof);
       const pkg = await opts.registry.downloadPackage(id, hostTarget());
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       stageRegistryPackage({
@@ -584,6 +599,7 @@ export function createCenterRemote(opts: {
       });
       const installed = await transact(id, "install");
       await waitForInventory(opts.inventory, id, false);
+      finishOwnerAction();
       return {
         id,
         version: pkg.version,
@@ -594,7 +610,7 @@ export function createCenterRemote(opts: {
       };
     },
     async rollback(id: string, proof?: CenterOwnerProof | string) {
-      requireOwner(id, "plugin-rollback", proof);
+      const finishOwnerAction = requireOwner(id, "plugin-rollback", proof);
       catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       const previous = previousStateFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
@@ -616,6 +632,7 @@ export function createCenterRemote(opts: {
         previous.present,
       );
       opts.host.setDesired(id, previous.enabled);
+      finishOwnerAction();
       return out;
     },
   };

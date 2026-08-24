@@ -456,7 +456,7 @@ export class PenglaiImHost {
     }
     const objectId = imBindingObjectId(input);
     const existing = this.store.findRoute(input.channel, input.accountId, input.peerId);
-    consumeImOwnerProof(this.owner, {
+    const finishOwnerAction = consumeImOwnerProof(this.owner, {
       action: existing ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
       actionId: input.ownerActionId,
       objectId,
@@ -494,6 +494,7 @@ export class PenglaiImHost {
       updatedAt: now,
     });
     this.revision += 1;
+    finishOwnerAction();
     return this.listBindings().find((b) => b.id === routeId)!;
   }
 
@@ -501,7 +502,7 @@ export class PenglaiImHost {
     if (input.expectedRevision !== undefined && input.expectedRevision !== this.revision) {
       throw new PenglaiError("BINDING_STALE", "revision mismatch");
     }
-    consumeImOwnerProof(this.owner, {
+    const finishOwnerAction = consumeImOwnerProof(this.owner, {
       action: IM_OWNER_ACTIONS.remove,
       actionId: input.ownerActionId,
       objectId: input.id,
@@ -510,6 +511,7 @@ export class PenglaiImHost {
     });
     this.store.revokeBinding(input.id, new Date().toISOString());
     this.revision += 1;
+    finishOwnerAction();
     return { deleted: true };
   }
 

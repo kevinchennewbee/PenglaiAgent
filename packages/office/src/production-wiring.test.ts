@@ -75,7 +75,7 @@ test("office workspace intake stores an ArtifactRef and refuses cross-workspace 
   writeFileSync(dest, created.bytes);
   const inspected = await svc.inspectWorkspaceFile(dest, root, "ws-a");
   const job = svc.job(inspected.id);
-  assert.match(String(job.artifactId), /^sha256:[0-9a-f]{64}$/);
+  assert.match(String(job.artifactId), /^artifact:[0-9a-f-]{36}$/);
   const ref = artifacts.ref(job.artifactId!);
   assert.equal(JSON.stringify(ref).includes(root), false);
   assert.throws(() => artifacts.readControlled(job.artifactId!, { workspaceId: "ws-b" }), /WORKSPACE/);

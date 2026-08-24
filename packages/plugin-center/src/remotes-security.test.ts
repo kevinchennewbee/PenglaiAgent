@@ -13,7 +13,7 @@ import test from "node:test";
 import { join } from "node:path";
 import { createCenterRemote, stageRegistryPackage } from "./remotes.js";
 import { R2_CATALOG } from "./index.js";
-import type { PluginCatalogEntry } from "@penglai/runtime";
+import { OwnerApprovalBroker, pluginPermissionDigest, type PluginCatalogEntry } from "@penglai/runtime";
 
 const TEST_CATALOG: PluginCatalogEntry[] = R2_CATALOG.map((entry) => ({
   ...entry,
@@ -116,6 +116,72 @@ test("R56-OWN-003 optional plugin disable and rollback require a native owner gr
     () => (remote.rollback as (pluginId: string) => Promise<unknown>)("@penglai/im"),
     /native owner capability is required/,
   );
+});
+
+test("R56-OWN-003 plugin approval binds permissions and commits only after the transaction", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-center-owner-state-"));
+  const owner = new OwnerApprovalBroker(root, { dialog: async () => "approved" });
+  const entry = TEST_CATALOG.find((candidate) => candidate.id === "@penglai/im")!;
+  const remote = createCenterRemote({
+    host: {
+      reconcile: () => [],
+      desired: () => ({ [entry.id]: false }),
+      setDesired: () => undefined,
+      entries: () => TEST_CATALOG,
+    },
+    inventory: { list: () => [] },
+    catalog: TEST_CATALOG,
+    lifecycle: { apply: async () => undefined },
+    resourceProbe: () => undefined,
+    profileDir: join(root, "missing-profile"),
+    txDir: join(root, "transactions"),
+    pluginsDir: join(root, "plugins"),
+    userDataRoot: root,
+    ownerBroker: owner,
+  });
+  const wrong = owner.createProposal({
+    action: "plugin.enable",
+    pluginId: entry.id,
+    objectId: entry.id,
+    sourceDigest: entry.sha256,
+    permissionDigest: "c".repeat(64),
+  });
+  const wrongDecision = await owner.requestOwnerApproval(wrong.actionId);
+  assert.equal(wrongDecision.decision, "approved");
+  assert.throws(
+    () =>
+      remote.enable(entry.id, {
+        actionId: wrong.actionId,
+        receipt: wrongDecision.decision === "approved" ? wrongDecision.receipt : "",
+      }),
+    /intent mismatch/,
+  );
+  assert.equal(owner.inspect(wrong.actionId).state, "approved");
+
+  const permissionDigest = pluginPermissionDigest({
+    permissions: entry.permissions,
+    ...(entry.networkOrigins ? { networkOrigins: entry.networkOrigins } : {}),
+    ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
+    nativeCode: entry.nativeCode === true,
+  });
+  const proposal = owner.createProposal({
+    action: "plugin.enable",
+    pluginId: entry.id,
+    objectId: entry.id,
+    sourceDigest: entry.sha256,
+    permissionDigest,
+  });
+  const decision = await owner.requestOwnerApproval(proposal.actionId);
+  assert.equal(decision.decision, "approved");
+  await assert.rejects(
+    () =>
+      remote.enable(entry.id, {
+        actionId: proposal.actionId,
+        receipt: decision.decision === "approved" ? decision.receipt : "",
+      }),
+    /profile directory missing/,
+  );
+  assert.equal(owner.inspect(proposal.actionId).state, "reserved");
 });
 
 test("R56-CORE-005 Center remotes refuse disable of every required inventory id", () => {

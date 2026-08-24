@@ -25,6 +25,7 @@ export interface ImOwnerBrokerPort {
     objectId: string;
     sourceDigest: string;
     workspaceId?: string;
+    sessionId?: string;
     pluginId: string;
     intentDigest: string;
   };
@@ -69,9 +70,9 @@ export function consumeImOwnerProof(
     sessionId?: string;
     resultDigest: string;
   },
-): void {
+): () => void {
   const actionId = requireImActionId(input.actionId);
-  if (!owner) return;
+  if (!owner) return () => undefined;
   if (!input.receipt) throw new PenglaiError("SECURITY_POLICY", "IM_OWNER_RECEIPT");
   const inspected = owner.inspect(actionId);
   if (
@@ -84,7 +85,8 @@ export function consumeImOwnerProof(
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     })}` ||
-    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "")
+    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "") ||
+    (inspected.sessionId ?? "") !== (input.sessionId ?? "")
   ) {
     throw new PenglaiError("SECURITY_POLICY", "IM_OWNER_INTENT");
   }
@@ -93,9 +95,10 @@ export function consumeImOwnerProof(
     intentDigest: inspected.intentDigest,
     actionId,
   });
-  owner.completeApproval({
-    actionId,
-    reservationId: reserved.reservationId,
-    resultDigest: input.resultDigest.startsWith("sha256:") ? input.resultDigest : `sha256:${input.resultDigest}`,
-  });
+  return () =>
+    owner.completeApproval({
+      actionId,
+      reservationId: reserved.reservationId,
+      resultDigest: input.resultDigest.startsWith("sha256:") ? input.resultDigest : `sha256:${input.resultDigest}`,
+    });
 }

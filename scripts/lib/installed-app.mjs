@@ -134,6 +134,17 @@ export function assertInstalledPenglaiIdentity(app, target) {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };
+  if (target !== "win32-x86_64" && !existsSync(join(app, "Penglai.exe"))) {
+    const plist = readFileSync(join(app, "Contents", "Info.plist"), "utf8");
+    const forbidden = [
+      "NSAllowsArbitraryLoads",
+      "NSAudioCaptureUsageDescription",
+      "NSBluetoothAlwaysUsageDescription",
+      "NSBluetoothPeripheralUsageDescription",
+      "NSCameraUsageDescription",
+    ].find((key) => plist.includes(`<key>${key}</key>`));
+    if (forbidden) return { ok: false, reason: `unexpected macOS permission ${forbidden}` };
+  }
   if (!exeInside(app, target)) return { ok: false, reason: "Penglai executable missing" };
   return { ok: true, facts };
 }

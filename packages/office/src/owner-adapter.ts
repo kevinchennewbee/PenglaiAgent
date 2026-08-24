@@ -31,6 +31,9 @@ export interface OfficeOwnerBrokerPort {
     objectId: string;
     sourceDigest: string;
     workspaceId?: string;
+    sessionId?: string;
+    resultDigest?: string;
+    destinationLabel?: string;
     pluginId: string;
   };
 }
@@ -108,6 +111,9 @@ export function consumeOfficeBrokerReceipt(
     jobId: string;
     sourceDigest: string;
     workspaceId?: string;
+    sessionId?: string;
+    resultDigest: string;
+    destinationLabel?: string;
   },
 ): { reservationId: string; intentDigest: string } {
   const inspected = broker.inspect(input.actionId);
@@ -116,7 +122,10 @@ export function consumeOfficeBrokerReceipt(
     inspected.action !== officeOwnerAction(input.action) ||
     inspected.objectId !== input.jobId ||
     inspected.sourceDigest !== `sha256:${input.sourceDigest.replace(/^sha256:/, "")}` ||
-    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "")
+    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "") ||
+    (inspected.sessionId ?? "") !== (input.sessionId ?? "") ||
+    (inspected.resultDigest ?? "") !== `sha256:${input.resultDigest.replace(/^sha256:/, "")}` ||
+    (inspected.destinationLabel ?? "") !== (input.destinationLabel ?? "")
   ) {
     throw new PenglaiError("SECURITY_POLICY", "office broker intent mismatch");
   }

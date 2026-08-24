@@ -33,7 +33,7 @@ test("R56-OWN-004 IM bind/remove consume a one-time owner receipt", async () => 
   });
   const decided = await owner.requestOwnerApproval(proposal.actionId);
   assert.equal(decided.decision, "approved");
-  consumeImOwnerProof(owner, {
+  const finish = consumeImOwnerProof(owner, {
     action: IM_OWNER_ACTIONS.bind,
     actionId: proposal.actionId,
     receipt: decided.decision === "approved" ? decided.receipt : "",
@@ -42,6 +42,9 @@ test("R56-OWN-004 IM bind/remove consume a one-time owner receipt", async () => 
     sessionId: "s1",
     resultDigest: sourceDigest,
   });
+  assert.equal(owner.inspect(proposal.actionId).state, "reserved");
+  finish();
+  assert.equal(owner.inspect(proposal.actionId).state, "committed");
   assert.throws(
     () =>
       consumeImOwnerProof(owner, {

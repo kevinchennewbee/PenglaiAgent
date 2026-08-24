@@ -196,7 +196,7 @@ test("Memory settings enforces Broker-gated personal writes and live Workspace s
   await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /broker receipt/);
 });
 
-test("Memory exposes authorized sources through its one settings Remote", () => {
+test("Memory exposes authorized sources through its one settings Remote", async () => {
   const calls: string[] = [];
   const sources = {
     status() { calls.push("status"); return { grants: [], workspaces: [] }; },
@@ -205,11 +205,20 @@ test("Memory exposes authorized sources through its one settings Remote", () => 
     revoke() { calls.push("revoke"); return { sourceUntouched: true }; },
     search() { calls.push("search"); return []; },
   };
-  const api = createMemorySettingsApi(createMemoryService() as never, { list: () => [{ id: "w1", title: "Workspace" }] }, sources);
+  const service = {
+    ...createMemoryService(),
+    async revokeSource(root: string, proof: { actionId: string; receipt: string }) {
+      assert.equal(root, "/authorized");
+      assert.deepEqual(proof, { actionId: "action", receipt: "receipt" });
+      return sources.revoke();
+    },
+  };
+  const api = createMemorySettingsApi(service as never, { list: () => [{ id: "w1", title: "Workspace" }] }, sources);
   assert.deepEqual(api.sourcesStatus(), { grants: [], workspaces: [] });
   assert.deepEqual(api.sourcesIngestCapability({ capabilityRef: "opaque", scope: "global" }), { indexed: 1 });
   assert.deepEqual(api.sourcesReindex({ root: "/authorized" }), { indexed: 1 });
-  assert.deepEqual(api.sourcesRevoke({ root: "/authorized", ownerConfirmed: true }), { sourceUntouched: true });
+  await assert.rejects(() => api.sourcesRevoke({ root: "/authorized" }), /broker receipt/);
+  assert.deepEqual(await api.sourcesRevoke({ root: "/authorized", actionId: "action", receipt: "receipt" }), { sourceUntouched: true });
   assert.deepEqual(api.sourcesSearch({ query: "hello" }), []);
   assert.deepEqual(calls, ["status", "ingest", "reindex", "revoke", "search"]);
 });

@@ -25,6 +25,7 @@ interface MemorySettingsHost {
   deleteKnown?(workspaceId: string | undefined, proof: { actionId: string; receipt: string }): Promise<{ removed: number }>;
   deleteScope?(scope: MemoryScope, workspaceId?: string): number;
   promoteSop(input: SopPromotion): Promise<SopReceipt>;
+  revokeSource?(root: string, proof: { actionId: string; receipt: string }): Promise<unknown>;
 }
 
 interface WorkspaceRegistryLike {
@@ -35,7 +36,7 @@ interface MemorySourcesSettingsApi {
   status(): unknown;
   ingestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }): unknown;
   reindex(input: { root: string }): unknown;
-  revoke(input: { root: string; ownerConfirmed: boolean }): unknown;
+  revoke(input: { root: string }): unknown;
   search(input: { query: string; workspaceId?: string }): unknown;
 }
 
@@ -172,7 +173,12 @@ export function createMemorySettingsApi(
       return requireSources().ingestCapability(input);
     },
     sourcesReindex(input: { root: string }) { return requireSources().reindex(input); },
-    sourcesRevoke(input: { root: string; ownerConfirmed: boolean }) { return requireSources().revoke(input); },
+    async sourcesRevoke(input: { root: string; actionId?: string; receipt?: string }) {
+      requireSources();
+      if (!input.actionId || !input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      if (!service.revokeSource) throw new PenglaiError("DSH_UNAVAILABLE", "memory source Owner path unavailable");
+      return service.revokeSource(input.root, { actionId: input.actionId, receipt: input.receipt });
+    },
     sourcesSearch(input: { query: string; workspaceId?: string }) { return requireSources().search(input); },
   };
 }
@@ -197,7 +203,7 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
   @Remote sourcesStatus() { return this.api.sourcesStatus(); }
   @Remote sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) { return this.api.sourcesIngestCapability(input); }
   @Remote sourcesReindex(input: { root: string }) { return this.api.sourcesReindex(input); }
-  @Remote sourcesRevoke(input: { root: string; ownerConfirmed: boolean }) { return this.api.sourcesRevoke(input); }
+  @Remote sourcesRevoke(input: { root: string; actionId?: string; receipt?: string }) { return this.api.sourcesRevoke(input); }
   @Remote sourcesSearch(input: { query: string; workspaceId?: string }) { return this.api.sourcesSearch(input); }
 }
 

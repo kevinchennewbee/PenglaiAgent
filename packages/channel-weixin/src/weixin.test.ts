@@ -68,7 +68,7 @@ test("weixin image ingest downloads real bytes into a media envelope", async () 
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
     "base64",
   );
-  const { plane } = voicePlane();
+  const { plane, store, inputs } = voicePlane();
   const transport: WeixinTransport = {
     async getQr() { return { qrRef: "qr", expiresAt: 1 }; },
     async pollQr() { return { status: "connected", tokenRef: "t", scannerUserId: "u" }; },
@@ -77,6 +77,28 @@ test("weixin image ingest downloads real bytes into a media envelope", async () 
     async downloadCdn() { return png; },
   };
   const ad = new WeixinAdapter(plane, transport, new MemoryVault());
+  const routeId = plane.ensureRoute({
+    adapter: "weixin",
+    adapterMessageKey: "seed",
+    accountRef: "acct",
+    peerRef: "u",
+    chatKind: "private",
+    bodyKind: "media",
+    receivedAt: 1,
+  });
+  store.putBinding({
+    routeId,
+    workspaceIdentity: "ws",
+    sessionId: "sess",
+    revision: 1,
+    status: "active",
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  });
+  const admitted: Array<Record<string, unknown>> = [];
+  ad.onAdmittedBytes = (input) => {
+    admitted.push(input);
+  };
   ad.imageAdmission = {
     async saveImage(input) {
       return {
@@ -98,8 +120,32 @@ test("weixin image ingest downloads real bytes into a media envelope", async () 
     image: { encrypt_query_param: "imgq", aes_key: Buffer.alloc(16).toString("base64") },
   });
   assert.equal(accepted.kind, "accepted");
+  assert.equal(inputs.length, 1);
+  assert.equal(admitted.length, 1);
+  assert.deepEqual(
+    {
+      routeId: admitted[0]?.routeId,
+      workspaceId: admitted[0]?.workspaceId,
+      sessionId: admitted[0]?.sessionId,
+      turnId: admitted[0]?.turnId,
+    },
+    { routeId: inputs[0]?.routeId, workspaceId: "ws", sessionId: "sess", turnId: "img-bytes" },
+  );
   const handle = `media-${createHash("sha256").update(png).digest("hex").slice(0, 24)}`;
   assert.equal(ad.mediaStore.get(handle).equals(png), true);
+  ad.onAdmittedBytes = () => {
+    throw new Error("artifact index unavailable");
+  };
+  const failOpen = await ad.ingest({
+    messageId: "img-fail-open",
+    fromUserId: "u",
+    chatType: "private",
+    itemType: "image",
+    image: { encrypt_query_param: "imgq2", aes_key: Buffer.alloc(16).toString("base64") },
+  });
+  assert.equal(failOpen.kind, "accepted");
+  assert.equal(inputs.length, 2);
+  store.close();
 });
 
 test("private voice is classified for ASR and images enter as media", () => {

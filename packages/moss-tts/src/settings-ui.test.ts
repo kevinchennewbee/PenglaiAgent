@@ -24,6 +24,7 @@ test("MOSS-TTS settings client loopback registers the official tab and decodes p
   const wav = Buffer.from("RIFF____WAVEfmt ");
   const played: string[] = [];
   const blobs: Array<{ type?: string; size: number }> = [];
+  const audios: Array<{ onended: (() => void) | null }> = [];
   const hooks: unknown[] = [];
   let hookIndex = 0;
   const effects: Array<() => unknown> = [];
@@ -162,6 +163,7 @@ test("MOSS-TTS settings client loopback registers the official tab and decodes p
       onended: (() => void) | null = null;
       constructor(src: string) {
         this.src = src;
+        audios.push(this);
       }
       play() {
         played.push(this.src);
@@ -213,6 +215,13 @@ test("MOSS-TTS settings client loopback registers the official tab and decodes p
   assert.deepEqual(played, ["blob:penglai-tts-preview"]);
   assert.equal(blobs[0]?.type, "audio/wav");
   assert.equal(blobs[0]?.size, wav.length);
+  audios[0]?.onended?.();
+  const endedTree = render();
+  let stillPlaying = false;
+  walk(endedTree, (node) => {
+    if (node.props.children === "正在播放试听…") stillPlaying = true;
+  });
+  assert.equal(stillPlaying, false);
 });
 
 test("TTS assistant read-aloud plays shipped synthesize audio for the message text", async () => {
@@ -233,6 +242,9 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
             typeof next === "function" ? (next as (v: unknown) => unknown)(hooks[i]) : next;
         },
       ];
+    },
+    useEffect(fn: () => unknown) {
+      fn();
     },
   };
   function el(type: unknown, props: Record<string, unknown> | null) {
@@ -367,4 +379,6 @@ test("TTS preview and read-aloud share one playback controller", () => {
   assert.equal((client.match(/new media\.Audio\(/g) ?? []).length, 1);
   assert.match(client, /onstalled/);
   assert.match(client, /onabort/);
+  assert.match(client, /playback\.subscribe/);
+  assert.match(client, /data-penglai-tts-read-state/);
 });
