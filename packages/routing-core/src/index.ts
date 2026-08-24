@@ -63,11 +63,18 @@ export interface DirectoryPort {
   ): Promise<{ provider: string; model: string; reasoningEffort?: string }>;
 }
 
+export interface AgentCallOptions {
+  signal?: AbortSignal;
+  deadlineMs?: number;
+  generation?: number;
+  operationId?: string;
+}
+
 export interface AgentPort {
-  followup(input: ModelInput): Promise<{ dshMessageId: string }>;
-  steer(input: ModelInput): Promise<{ dshMessageId: string }>;
-  cancelCurrent(sessionId: string): Promise<void>;
-  removeInbox(sessionId: string, dshMessageId: string): Promise<void>;
+  followup(input: ModelInput, options?: AgentCallOptions): Promise<{ dshMessageId: string }>;
+  steer(input: ModelInput, options?: AgentCallOptions): Promise<{ dshMessageId: string }>;
+  cancelCurrent(sessionId: string, options?: AgentCallOptions): Promise<void>;
+  removeInbox(sessionId: string, dshMessageId: string, options?: AgentCallOptions): Promise<void>;
 }
 
 export interface ObjectBinder {
@@ -204,9 +211,28 @@ export class RoutingControlPlane {
     return { sendingRecovered, uncertainQueued: uncertain.length };
   }
 
-  async recoverQueuedInbounds(): Promise<{ dispatched: number; observed: number; rejected: number; failed: number }> {
+  async recoverQueuedInbounds(options?: AgentCallOptions & { maxParallelSessions?: number }): Promise<{
+    dispatched: number;
+    observed: number;
+    rejected: number;
+    failed: number;
+  }> {
     const result = { dispatched: 0, observed: 0, rejected: 0, failed: 0 };
-    for (const inbound of this.store.queuedWithoutDshId()) {
+    const pending = this.store.queuedWithoutDshId();
+    const bySession = new Map<string, typeof pending>();
+    for (const inbound of pending) {
+      const sessionId = this.store.activeBinding(inbound.routeId)?.sessionId ?? inbound.routeId;
+      const rows = bySession.get(sessionId) ?? [];
+      rows.push(inbound);
+      bySession.set(sessionId, rows);
+    }
+    const sessions = [...bySession.keys()];
+    const maxParallel = Math.max(1, options?.maxParallelSessions ?? 4);
+    const recoverOne = async (inbound: (typeof pending)[number]): Promise<void> => {
+      if (options?.signal?.aborted) {
+        result.failed += 1;
+        return;
+      }
       const route = this.store.getRoute(inbound.routeId);
       const binding = this.store.activeBinding(inbound.routeId);
       const text = this.store.getInboundPayloadText(inbound.inboundId);
@@ -225,7 +251,7 @@ export class RoutingControlPlane {
           this.clock.now(),
         );
         result.rejected += 1;
-        continue;
+        return;
       }
       let recoveredVoice: PenglaiVoiceMetadata | undefined;
       try {
@@ -240,7 +266,7 @@ export class RoutingControlPlane {
           this.clock.now(),
         );
         result.rejected += 1;
-        continue;
+        return;
       }
       const source: PenglaiImSource = {
         kind: "user",
@@ -251,7 +277,8 @@ export class RoutingControlPlane {
         ...(recoveredVoice ? { voice: recoveredVoice } : {}),
       };
       try {
-        const dispatched = await (inbound.dispatchMode === "steer" ? this.agent.steer : this.agent.followup).call(
+        const call = inbound.dispatchMode === "steer" ? this.agent.steer : this.agent.followup;
+        const dispatched = await call.call(
           this.agent,
           {
             sessionId: binding.sessionId,
@@ -261,6 +288,12 @@ export class RoutingControlPlane {
             source,
             mode: inbound.dispatchMode === "steer" ? "steer" : "followup",
             recovery: true,
+          },
+          {
+            operationId: inbound.inboundId,
+            ...(options?.signal ? { signal: options.signal } : {}),
+            ...(options?.deadlineMs !== undefined ? { deadlineMs: options.deadlineMs } : {}),
+            ...(options?.generation !== undefined ? { generation: options.generation } : {}),
           },
         );
         const current = this.store.getInbound(inbound.inboundId);
@@ -283,6 +316,16 @@ export class RoutingControlPlane {
         );
         result.failed += 1;
       }
+    };
+    for (let i = 0; i < sessions.length; i += maxParallel) {
+      const batch = sessions.slice(i, i + maxParallel);
+      await Promise.all(
+        batch.map(async (sessionId) => {
+          for (const inbound of bySession.get(sessionId) ?? []) {
+            await recoverOne(inbound);
+          }
+        }),
+      );
     }
     return result;
   }

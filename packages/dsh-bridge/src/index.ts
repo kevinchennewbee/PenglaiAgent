@@ -9,7 +9,8 @@ import {
   type PenglaiImSource,
   type OfficialImageRef,
 } from "@penglai/contracts";
-import type { AgentPort, DirectoryPort } from "@penglai/routing-core";
+import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routing-core";
+import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
 
 export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_DSH_COMMIT = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
@@ -202,6 +203,7 @@ export function textFromAssistantMessage(message: { content?: { type?: string; t
 }
 
 export { unwrapAgent, isAgentHandle, finalAssistantText, DURABLE_SESSION_EVENT, type OfficialAgentHandle as AgentHandle } from "./contracts.js";
+export { BridgeOperationGate, BRIDGE_DEFAULT_DEADLINE_MS, type BridgeCallOptions } from "./operations.js";
 
 function officialUserContent(
   input: ModelInput,
@@ -222,6 +224,8 @@ function officialUserContent(
 }
 
 export class DshBridge implements AgentPort, DirectoryPort {
+  private readonly ops = new BridgeOperationGate();
+
   constructor(
     private readonly host: DshHost,
     private readonly budget?: BudgetGate,
@@ -229,39 +233,61 @@ export class DshBridge implements AgentPort, DirectoryPort {
     assertDshVersion(host.version);
   }
 
+  invalidateGeneration(): number {
+    return this.ops.bumpGeneration();
+  }
+
+  currentGeneration(): number {
+    return this.ops.currentGeneration();
+  }
+
   async listWorkspaces() {
-    return this.host.listWorkspaces().map((w) => ({
-      id: w.id,
-      title: w.title,
-      sessionIds: [...w.sessionIds],
-      ...(w.group ? { group: w.group } : {}),
-    }));
+    return this.ops.run(undefined, () =>
+      this.host.listWorkspaces().map((w) => ({
+        id: w.id,
+        title: w.title,
+        sessionIds: [...w.sessionIds],
+        ...(w.group ? { group: w.group } : {}),
+      })),
+    );
   }
 
   async listSessions(workspaceIdentity: string) {
-    const ws = this.host.listWorkspaces().find((w) => w.id === workspaceIdentity);
-    return (ws?.sessionIds ?? []).map((id) => ({ id }));
+    return this.ops.run(undefined, () => {
+      const ws = this.host.listWorkspaces().find((w) => w.id === workspaceIdentity);
+      return (ws?.sessionIds ?? []).map((id) => ({ id }));
+    });
   }
 
   async createSession(workspaceIdentity: string): Promise<{ id: string }> {
-    if (!this.host.createSession) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "official session.create unavailable");
-    }
-    return this.host.createSession(workspaceIdentity);
+    return this.ops.run(undefined, async () => {
+      if (!this.host.createSession) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official session.create unavailable");
+      }
+      return this.host.createSession(workspaceIdentity);
+    });
   }
 
-  async describeSessionModels(sessionId: string) {
-    if (!this.host.describeSessionModels) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "official session.models unavailable");
-    }
-    return this.host.describeSessionModels(sessionId);
+  async describeSessionModels(sessionId: string, options?: BridgeCallOptions) {
+    return this.ops.run(options, async () => {
+      if (!this.host.describeSessionModels) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official session.models unavailable");
+      }
+      return this.host.describeSessionModels(sessionId);
+    });
   }
 
-  async selectSessionModel(sessionId: string, selection: { provider: string; model: string; reasoningEffort?: string }) {
-    if (!this.host.selectSessionModel) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "official session.selectModel unavailable");
-    }
-    return this.host.selectSessionModel(sessionId, selection);
+  async selectSessionModel(
+    sessionId: string,
+    selection: { provider: string; model: string; reasoningEffort?: string },
+    options?: BridgeCallOptions,
+  ) {
+    return this.ops.run(options, async () => {
+      if (!this.host.selectSessionModel) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "official session.selectModel unavailable");
+      }
+      return this.host.selectSessionModel(sessionId, selection);
+    });
   }
 
   private async agent(sessionId: string): Promise<DshAgentLike> {
@@ -289,41 +315,49 @@ export class DshBridge implements AgentPort, DirectoryPort {
     }
   }
 
-  async followup(input: ModelInput) {
-    await this.ensureSessionModelRoute(input.sessionId);
-    const a = await this.agent(input.sessionId);
-    const id = input.inboundId;
-    if (input.recovery && hasDurableMessage(a, id)) return { dshMessageId: id };
-    this.budget?.reserve({ tokens: 1, priceTrusted: false });
-    a.followup({
-      id,
-      role: "user",
-      content: officialUserContent(input),
-      source: extractPenglaiSource(input.source) ?? input.source,
+  async followup(input: ModelInput, options?: AgentCallOptions) {
+    return this.ops.run({ ...options, operationId: options?.operationId ?? input.inboundId }, async () => {
+      await this.ensureSessionModelRoute(input.sessionId);
+      const a = await this.agent(input.sessionId);
+      const id = input.inboundId;
+      if (input.recovery && hasDurableMessage(a, id)) return { dshMessageId: id };
+      this.budget?.reserve({ tokens: 1, priceTrusted: false });
+      a.followup({
+        id,
+        role: "user",
+        content: officialUserContent(input),
+        source: extractPenglaiSource(input.source) ?? input.source,
+      });
+      return { dshMessageId: id };
     });
-    return { dshMessageId: id };
   }
 
-  async steer(input: ModelInput) {
-    await this.ensureSessionModelRoute(input.sessionId);
-    const a = await this.agent(input.sessionId);
-    if (input.recovery && hasDurableMessage(a, input.inboundId)) return { dshMessageId: input.inboundId };
-    a.steer({
-      id: input.inboundId,
-      role: "user",
-      content: officialUserContent(input),
-      source: extractPenglaiSource(input.source) ?? input.source,
+  async steer(input: ModelInput, options?: AgentCallOptions) {
+    return this.ops.run({ ...options, operationId: options?.operationId ?? input.inboundId }, async () => {
+      await this.ensureSessionModelRoute(input.sessionId);
+      const a = await this.agent(input.sessionId);
+      if (input.recovery && hasDurableMessage(a, input.inboundId)) return { dshMessageId: input.inboundId };
+      a.steer({
+        id: input.inboundId,
+        role: "user",
+        content: officialUserContent(input),
+        source: extractPenglaiSource(input.source) ?? input.source,
+      });
+      return { dshMessageId: input.inboundId };
     });
-    return { dshMessageId: input.inboundId };
   }
 
-  async cancelCurrent(sessionId: string) {
-    const a = await this.agent(sessionId);
-    a.cancel("penglai-stop-current", { keepInbox: true });
+  async cancelCurrent(sessionId: string, options?: AgentCallOptions) {
+    return this.ops.run(options, async () => {
+      const a = await this.agent(sessionId);
+      a.cancel("penglai-stop-current", { keepInbox: true });
+    });
   }
 
-  async removeInbox(sessionId: string, dshMessageId: string) {
-    const a = await this.agent(sessionId);
-    a.inbox.remove(dshMessageId);
+  async removeInbox(sessionId: string, dshMessageId: string, options?: AgentCallOptions) {
+    return this.ops.run(options, async () => {
+      const a = await this.agent(sessionId);
+      a.inbox.remove(dshMessageId);
+    });
   }
 }
