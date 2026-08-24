@@ -26,6 +26,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          # Pull-request jobs otherwise test GitHub's synthetic merge commit,
+          # which cannot serve as the immutable release candidate identity.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Prepare authoritative main identity
         run: |
           git fetch --no-tags origin main:refs/remotes/origin/main
