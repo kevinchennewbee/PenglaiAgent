@@ -39,6 +39,7 @@ import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
+import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
 export * from "./permissions.js";
 export * from "./arch-guard.js";
@@ -138,6 +139,7 @@ export function ensurePrivateHome(user: UserLayout, appRoot?: string): void {
   for (const p of [user.root, user.dshHome, user.profileWeb, user.transactions, user.snapshots, dirname(user.imDb), user.logs]) {
     mkdirSync(p, { recursive: true, mode: 0o700 });
   }
+  convergePrivatePosixModes(user);
   if (process.platform === "win32") {
     if (!appRoot) throw new PenglaiError("SECURITY_POLICY", "Windows private home requires the packaged app root");
     applyWindowsCredentialAcl(user.dshHome, { platform: "win32", appRoot });
@@ -880,6 +882,7 @@ export * from "./plugin-owner.js";
 export * from "./generation-migrate.js";
 export * from "./boot-revoke.js";
 export * from "./inventory-proof.js";
+export * from "./private-mode.js";
 
 export function processesMatching(marker: string): Array<{ pid: number; command: string }> {
   if (!marker || marker.length < 8) return [];
