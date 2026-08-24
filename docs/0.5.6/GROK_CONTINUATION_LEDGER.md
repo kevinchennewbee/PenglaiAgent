@@ -58,7 +58,7 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 | D1-ONE-PLAYER | SOURCE_PASS | packed JS is tested against the TS state machine tokens | still two copies; generation gate in `bundled-playback.test.ts` |
 | D2-STATE | SOURCE_PASS | ended/error/stalled/abort/latest-wins | I/L |
 | D3-PACKED | SOURCE_PASS | `bundled-playback.test.ts` | I asar digest later |
-| D4-MIC | SOURCE_PASS | `rewriteElectronPlist` `NSMicrophoneUsageDescription` | I installed plist |
+| D4-MIC | INSTALLED_PASS | installed ARM64 `Info.plist` overwrites Electron's default string with bilingual Penglai copy | device permission click later |
 | D5-DEVICE | TODO | installed ASR/TTS | physical user later |
 
 ## E — Memory 2.0 automatic
@@ -89,19 +89,19 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 
 | ID | Status | Remaining |
 |---|---|---|
-| G1-START | TODO | installed splash/recovery |
-| G2-CENTER | TODO | honest installed/health |
-| G3-COPY | TODO | no false “nine platforms live” |
+| G1-START | INSTALLED_PASS | isolated from-DMG wizard: welcome → privacy → models → key; welcome ack persisted; recovery not shown; splash already gone at first CDP snapshot |
+| G2-CENTER | INSTALLED_PASS | installed inventory: Office+Memory+Center ready, IM/ASR/TTS off | health UI click later |
+| G3-COPY | INSTALLED_PASS | wizard did not claim nine live platforms; IM stayed off | |
 | H1-CI | SOURCE_PASS | `.github/workflows/source-ci.yml` now runs integration/E2E/chaos/deps/licenses/build/pack/clean-clone | GitHub not triggered (no push) |
-| H2-EVIDENCE | TODO | installed ≠ source |
-| I1-IDENTITY | SOURCE_PASS | product/package/plugin/welcome/overlay/installer pins are 0.5.6; phase still UNFROZEN until clean SHA + profile/closure |
-| I2-ASSETS | TODO | 10-asset contract |
-| I3-PROFILE | TODO | profile/closure STALE |
-| J1-DMG | TODO | ARM64 DMG |
-| J2-ISOLATED | TODO | do not touch user 0.5.5 |
-| J3-KEY | OWNER_ACTION_REQUIRED | no-echo TTY only |
-| J4-MATRIX | TODO | installed live matrix |
-| J5-USER | OWNER_ACTION_REQUIRED | key / listen / speak / optional QR |
+| H2-EVIDENCE | INSTALLED_PASS | `test:e2e:installed` from exact ARM64 DMG; identity PASS; verdict INCOMPLETE at API key | live Turn later |
+| I1-IDENTITY | SOURCE_PASS | product/package/plugin/welcome/overlay/installer pins are 0.5.6; phase still UNFROZEN | |
+| I2-ASSETS | TODO | local ARM64 DMG only; Intel/Windows + remaining metadata assets not built here | |
+| I3-PROFILE | SOURCE_PASS | `verify:closure` and `verify:profile` PASS on darwin-aarch64 bound to the DMG source SHA | |
+| J1-DMG | INSTALLED_PASS | `dist/Penglai_0.5.6_macos_aarch64.dmg` ad-hoc, not notarized; this Mac is Apple Silicon only | Intel/Windows OWNER_ACTION |
+| J2-ISOLATED | INSTALLED_PASS | e2e used `.tmp-installed-e2e`; `dist/Penglai_0.5.5_macos_aarch64.dmg` left untouched | |
+| J3-KEY | OWNER_ACTION_REQUIRED | no-echo TTY only; never paste into chat | |
+| J4-MATRIX | INCOMPLETE | keyless wizard honest-stop at credential-v1; no nonce Turn | |
+| J5-USER | OWNER_ACTION_REQUIRED | key / listen / speak / optional QR | |
 
 ## Honest downgrade of Cursor ledger (A2)
 
