@@ -30,7 +30,7 @@ test("R56-CORE-006/007/008 supervisor restart budget and boot phases are explici
 
 test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
   const redacted = redactSupervisorDiagnostic({
-    appVersion: "0.5.5",
+    appVersion: "0.5.6",
     sourceSha: "a".repeat(40),
     platform: "darwin",
     arch: "arm64",

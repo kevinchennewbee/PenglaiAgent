@@ -94,7 +94,7 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 | G3-COPY | TODO | no false “nine platforms live” |
 | H1-CI | SOURCE_PASS | `.github/workflows/source-ci.yml` now runs integration/E2E/chaos/deps/licenses/build/pack/clean-clone | GitHub not triggered (no push) |
 | H2-EVIDENCE | TODO | installed ≠ source |
-| I1-IDENTITY | TODO | still 0.5.5 UNFROZEN |
+| I1-IDENTITY | SOURCE_PASS | product/package/plugin/welcome/overlay/installer pins are 0.5.6; phase still UNFROZEN until clean SHA + profile/closure |
 | I2-ASSETS | TODO | 10-asset contract |
 | I3-PROFILE | TODO | profile/closure STALE |
 | J1-DMG | TODO | ARM64 DMG |

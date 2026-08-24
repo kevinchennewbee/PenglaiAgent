@@ -103,7 +103,7 @@ if (
   pkg.pnpm?.overrides?.["pptxgenjs>image-size"] !== "workspace:*" ||
   pkg.pnpm?.overrides?.["@liustack/pptfast>sharp"] !== "0.35.3" ||
   pkg.pnpm?.overrides?.["exceljs>uuid"] !== "11.1.1" ||
-  imageSize.metadata.version !== "0.5.5" ||
+  imageSize.metadata.version !== "0.5.6" ||
   imageSize.metadata.license !== "MIT" ||
   sharp.metadata.version !== "0.35.3" ||
   uuid.metadata.version !== "11.1.1" ||

@@ -18,8 +18,8 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("R55-TRUTH-001 all product/package/release versions exact 0.5.5", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.5");
+test("R55-TRUTH-001 all product/package/release versions exact 0.5.6", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.6");
 });
 
 test("R55-TRUTH-002 DSH exact rc.2 commit/integrity/shasum", () => {
@@ -36,8 +36,8 @@ test("R55-TRUTH-003 only three exact target installers", () => {
   );
 });
 
-test("R55-TRUTH-004 no 0.5.4/0.5.6/tag/release drift", () => {
-  assert.equal(PRODUCT_VERSION.includes("0.5.4") || PRODUCT_VERSION.includes("0.5.6"), false);
+test("R55-TRUTH-004 no 0.5.5/0.5.7/tag/release drift", () => {
+  assert.equal(PRODUCT_VERSION.includes("0.5.5") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
 test("bundled Mnemon uses its actual Apache-2.0 license", () => {

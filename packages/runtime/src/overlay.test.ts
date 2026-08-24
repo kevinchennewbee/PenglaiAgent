@@ -72,12 +72,12 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     /penglai-brand\/title\.js/,
   );
   const welcomeSource = readFileSync(join(dir, welcomeRel), "utf8");
-  assert.match(welcomeSource, /penglai-0\.5\.5\.0/);
-  assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.5/);
-  assert.match(welcomeSource, /Welcome to Penglai 0\.5\.5/);
+  assert.match(welcomeSource, /penglai-0\.5\.6\.0/);
+  assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.6/);
+  assert.match(welcomeSource, /Welcome to Penglai 0\.5\.6/);
   assert.doesNotMatch(
     welcomeSource,
-    /欢迎使用蓬莱 0\.5\.[123]|Welcome to Penglai 0\.5\.[123]/,
+    /欢迎使用蓬莱 0\.5\.[1235]|Welcome to Penglai 0\.5\.[1235]/,
   );
   const hero = readFileSync(join(dir, heroRel), "utf8");
   assert.doesNotThrow(() => new Script(hero));
@@ -138,7 +138,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   const welcome = readFileSync(join(dir, welcomeRel), "utf8");
   assert.match(welcome, /欢迎使用蓬莱/);
   assert.match(welcome, /Welcome to Penglai/);
-  assert.match(welcome, /penglai-0\.5\.5\.0/);
+  assert.match(welcome, /penglai-0\.5\.6\.0/);
   assert.match(welcome, /YAML/);
   assert.doesNotMatch(welcome, /内测声明/);
   assert.doesNotMatch(welcome, /official DSH Web/);

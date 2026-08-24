@@ -22,7 +22,7 @@
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
       "upstreamSha256": "c3b9a2d2d074c600c10553a4b15e294082f5851dd4a834d06ddb268b310d18de",
       "upstream": "upstream/dsh-client-ui-settings-models.client.js",
-      "patchedSha256": "aaf6cf2f4027a77ae6a5b7e91190b718777479cc7b9c24d76aa35dd61738496b",
+      "patchedSha256": "841b64938ef2076bb6765764ed10ef1dd897df6e9560676f2a96705551577332",
       "patched": "patched/dsh-client-ui-settings-models.client.js"
     },
     {

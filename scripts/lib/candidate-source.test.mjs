@@ -3,7 +3,7 @@ import test from "node:test";
 import { requireCleanCandidateSource } from "./candidate-source.mjs";
 import { gitState } from "./repo.mjs";
 
-test("clean unfrozen 0.5.5 branches are local candidates; dirty trees are not", () => {
+test("clean unfrozen 0.5.6 branches are local candidates; dirty trees are not", () => {
   const git = gitState();
   const source = requireCleanCandidateSource();
   if (git.dirty) {

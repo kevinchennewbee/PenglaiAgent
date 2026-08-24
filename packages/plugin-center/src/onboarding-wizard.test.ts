@@ -308,7 +308,7 @@ test("completeWelcome writes penglai welcomeNoticeVersion then advances welcome-
   assert.deepEqual(ops, [
     { ns: "ui-onboarding", path: ["welcomeNoticeVersion"], value: PENGLAI_WELCOME_NOTICE_VERSION },
   ]);
-  assert.equal(PENGLAI_WELCOME_NOTICE_VERSION, "penglai-0.5.5.0");
+  assert.equal(PENGLAI_WELCOME_NOTICE_VERSION, "penglai-0.5.6.0");
   const again = await impl.completeWelcome();
   assert.equal(again.current, "appearance-locale-v1");
   assert.equal(ops.length, 2);

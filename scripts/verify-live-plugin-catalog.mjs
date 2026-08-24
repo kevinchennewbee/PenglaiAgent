@@ -44,7 +44,7 @@ const shared = {
   cacheRoot: join(root, "cas"),
   trustPath: join(root, "trust-state.json"),
   lastGoodPath: join(root, "last-good-catalog.json"),
-  penglaiVersion: "0.5.5",
+  penglaiVersion: "0.5.6",
   dshExact: "0.1.1-rc.2",
   target: "darwin-aarch64",
   fetchImpl: authenticatedGithubApiFetch,

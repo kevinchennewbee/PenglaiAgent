@@ -128,7 +128,7 @@ if (native) {
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.5",
+      productVersion: "0.5.6",
       buildNumber: 0,
       candidateOrdinal: 0,
       candidateKind: "public-community-release",

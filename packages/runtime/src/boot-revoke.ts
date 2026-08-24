@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { readExactRegularFile } from "@penglai/contracts";
+import { readExactRegularFile, RELEASE } from "@penglai/contracts";
 import { PluginDistributionClient, selectCatalogArtifact } from "@penglai/plugin-registry";
 import type { SignedPluginCatalog } from "@penglai/plugin-registry";
 import { PINNED_PLUGIN_DSH, runtimePluginTarget } from "./plugin-catalog.js";
@@ -126,7 +126,7 @@ export function quarantineRevokedPlugins(opts: {
     cacheRoot: join(opts.userDataRoot, "plugins", "cas"),
     trustPath,
     lastGoodPath,
-    penglaiVersion: "0.5.5",
+    penglaiVersion: RELEASE,
     dshExact: PINNED_PLUGIN_DSH,
   });
   const snap = client.snapshot();

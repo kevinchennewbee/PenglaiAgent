@@ -347,7 +347,7 @@ test("ilink client maps endpoints and never logs token", async () => {
   assert.ok(seen.every((s) => s.clientVersion === "132102"));
   for (const request of seen.filter((s) => s.body)) {
     const body = JSON.parse(request.body!) as { base_info?: { channel_version?: string; bot_agent?: string } };
-    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.5" });
+    assert.deepEqual(body.base_info, { channel_version: "2.4.6", bot_agent: "Penglai/0.5.6" });
     assert.match(Buffer.from(request.wechatUin!, "base64").toString("utf8"), /^\d+$/);
   }
 });

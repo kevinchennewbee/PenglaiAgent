@@ -68,7 +68,7 @@ if (remembered.status !== 0) {
   process.exit(EXIT_BY_VERDICT.FAIL);
 }
 const added = JSON.parse(remembered.stdout);
-mnemon(wsA, ["remember", "Penglai only ships 0.5.5", "--cat", "fact", "--tags", "project"]);
+mnemon(wsA, ["remember", "Penglai only ships 0.5.6", "--cat", "fact", "--tags", "project"]);
 mnemon(wsB, ["remember", "workspace B secret fact", "--cat", "fact", "--tags", "project"]);
 
 const found = mnemon(personal, ["search", "测试用户"]);
