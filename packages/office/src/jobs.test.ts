@@ -101,6 +101,7 @@ test("R56-OFF-005 commit/export refuse bytes that no longer match the preview di
     () => svc.commit(created.id, receipt),
     (error: unknown) => error instanceof PenglaiError && error.message === "office preview digest mismatch",
   );
+  assert.equal(job.receipt, undefined);
   assert.throws(() => assertPreviewMatchesResult(job), /mismatch/);
 });
 

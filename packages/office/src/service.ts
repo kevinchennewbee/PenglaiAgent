@@ -226,6 +226,10 @@ export function createOfficeService(opts?: {
         ? { destinationLabel: receiptDestinationLabel(job, action, target) }
         : {}),
     });
+    // A broker receipt is one-shot once reserved, regardless of whether the
+    // following filesystem or delivery action succeeds. Never leave it on the
+    // job where a later action (for example Undo after Commit) could reuse it.
+    delete job.receipt;
     return () =>
       opts.owner?.completeApproval({
         actionId,
