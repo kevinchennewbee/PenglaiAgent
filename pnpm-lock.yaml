@@ -319,6 +319,9 @@ importers:
       '@penglai/routing-core':
         specifier: workspace:*
         version: link:../routing-core
+      '@penglai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
   packages/image-size-disabled: {}
 

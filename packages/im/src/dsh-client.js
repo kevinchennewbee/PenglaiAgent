@@ -72,8 +72,10 @@ window.__ModuleLoader__.load({
       result: remoteCodec("result"),
     });
     const INPUT_METHODS = new Set([
+      "proposeBinding",
       "createBinding",
       "deleteBinding",
+      "enableGroup",
       "pollWeixinQr",
       "submitWeixinVerification",
       "pollFeishuQr",
@@ -96,8 +98,10 @@ window.__ModuleLoader__.load({
         "getOverview",
         "getOnboardingReadiness",
         "listWorkspacesAndSessions",
+        "proposeBinding",
         "createBinding",
         "deleteBinding",
+        "enableGroup",
         "listBindings",
         "getVoiceOptions",
         "probeWeixinText",
@@ -456,15 +460,31 @@ window.__ModuleLoader__.load({
           (r) => `${r.channel}:${r.accountId}:${r.peerId}` === peerKey,
         );
         if (!peer) return;
-        Promise.resolve(
-          imCall(remote, connection, "createBinding", {
-            channel: peer.channel,
-            accountId: peer.accountId,
-            peerId: peer.peerId,
-            workspaceId,
-            sessionId,
-          }),
-        )
+        const objectId = `${peer.channel}:${peer.accountId}:${peer.peerId}`;
+        Promise.resolve(imCall(remote, connection, "proposeBinding", {
+          action: "im.bind",
+          objectId,
+          workspaceId,
+          sessionId,
+        }))
+          .then((proposed) => {
+            const approve = window.penglai && window.penglai.requestOwnerApproval;
+            if (!approve || !proposed || !proposed.actionId) {
+              throw new Error("owner approval required");
+            }
+            return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+              if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+              return imCall(remote, connection, "createBinding", {
+                channel: peer.channel,
+                accountId: peer.accountId,
+                peerId: peer.peerId,
+                workspaceId,
+                sessionId,
+                ownerActionId: proposed.actionId,
+                receipt: decided.receipt,
+              });
+            });
+          })
           .then(refresh)
           .catch(() => undefined);
       };

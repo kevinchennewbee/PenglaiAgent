@@ -17,6 +17,7 @@ import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
+import { OwnerApprovalBroker } from "@penglai/runtime";
 import { PenglaiImHost } from "./host.js";
 import { PenglaiImRemote } from "./remote.js";
 
@@ -170,6 +171,11 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     }
   });
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
+  host.attachOwner(
+    new OwnerApprovalBroker(userData, {
+      dialog: async () => "denied",
+    }),
+  );
   void rt.plane.recoverQueuedInbounds();
   void supervisor.start();
   void host
@@ -204,3 +210,4 @@ export { CHANNEL_IDS, CHANNEL_MANIFESTS, getChannelManifest, listChannelManifest
 export { ImBotStore, ensureImV2Tables } from "./bots.js";
 export { beginGuidedConnection } from "./guided.js";
 export { TYPERT_REMOTE } from "./remote.js";
+export { IM_OWNER_ACTIONS, requireImActionId } from "./owner.js";

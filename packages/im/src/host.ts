@@ -23,6 +23,14 @@ import {
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
+import {
+  IM_OWNER_ACTIONS,
+  consumeImOwnerProof,
+  imBindingObjectId,
+  imSourceDigest,
+  requireImActionId,
+  type ImOwnerBrokerPort,
+} from "./owner.js";
 
 export type ChannelName = "weixin" | "feishu";
 
@@ -68,6 +76,7 @@ export class PenglaiImHost {
   private qrActive = false;
   private feishuQrId = "";
   private feishuAppId = "";
+  private owner: ImOwnerBrokerPort | undefined;
   readonly bots: ImBotStore;
 
   constructor(
@@ -97,6 +106,35 @@ export class PenglaiImHost {
     }
     this.store.redactExpiredPayloads(this.plane.clock.now());
     this.bots = new ImBotStore(this.store.db);
+  }
+
+  attachOwner(owner: ImOwnerBrokerPort): void {
+    this.owner = owner;
+  }
+
+  proposeBinding(input: {
+    action: "im.bind" | "im.rebind" | "im.remove" | "im.enableGroup";
+    objectId: string;
+    workspaceId?: string;
+    sessionId?: string;
+  }): { actionId: string; action: string } {
+    if (!this.owner) throw new PenglaiError("DSH_UNAVAILABLE", "owner broker required");
+    const action = input.action;
+    const sourceDigest = imSourceDigest({
+      action,
+      objectId: input.objectId,
+      ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    });
+    const proposal = this.owner.createProposal({
+      action,
+      pluginId: "@penglai/im",
+      objectId: input.objectId,
+      sourceDigest,
+      ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    });
+    return { actionId: proposal.actionId, action };
   }
 
   async getOverview(): Promise<{
@@ -351,6 +389,8 @@ export class PenglaiImHost {
     workspaceId: string;
     sessionId: string;
     expectedRevision?: number;
+    ownerActionId: string;
+    receipt?: string;
   }): BindingDto {
     if (!isLiveChannel(input.channel)) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE");
@@ -372,8 +412,23 @@ export class PenglaiImHost {
     if (!ws.sessionIds.includes(input.sessionId) && !this.dsh.getAgent(input.sessionId)) {
       throw new PenglaiError("INVALID_INPUT", "session not in official workspace");
     }
+    const objectId = imBindingObjectId(input);
+    const existing = this.store.findRoute(input.channel, input.accountId, input.peerId);
+    consumeImOwnerProof(this.owner, {
+      action: existing ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
+      actionId: input.ownerActionId,
+      objectId,
+      workspaceId: input.workspaceId,
+      sessionId: input.sessionId,
+      resultDigest: imSourceDigest({
+        action: existing ? IM_OWNER_ACTIONS.rebind : IM_OWNER_ACTIONS.bind,
+        objectId,
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+      }),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
     const adapter = input.channel;
-    const existing = this.store.findRoute(adapter, input.accountId, input.peerId);
     const routeId = existing?.routeId ?? `route:${adapter}:${input.accountId}:${input.peerId}`;
     if (!existing) {
       this.store.upsertRoute({
@@ -400,13 +455,25 @@ export class PenglaiImHost {
     return this.listBindings().find((b) => b.id === routeId)!;
   }
 
-  deleteBinding(input: { id: string; expectedRevision?: number }): { deleted: true } {
+  deleteBinding(input: { id: string; expectedRevision?: number; ownerActionId: string; receipt?: string }): { deleted: true } {
     if (input.expectedRevision !== undefined && input.expectedRevision !== this.revision) {
       throw new PenglaiError("BINDING_STALE", "revision mismatch");
     }
+    consumeImOwnerProof(this.owner, {
+      action: IM_OWNER_ACTIONS.remove,
+      actionId: input.ownerActionId,
+      objectId: input.id,
+      resultDigest: imSourceDigest({ action: IM_OWNER_ACTIONS.remove, objectId: input.id }),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
     this.store.revokeBinding(input.id, new Date().toISOString());
     this.revision += 1;
     return { deleted: true };
+  }
+
+  enableGroup(input: { routeId: string; groupId: string; ownerActionId: string }): never {
+    requireImActionId(input.ownerActionId);
+    throw new PenglaiError("SECURITY_POLICY", "IM_GROUP_NOT_LIVE");
   }
 
   async beginWeixinQr(): Promise<{ challengeId: string; ttlMs: number; status: "wait"; qrImageRef: string }> {

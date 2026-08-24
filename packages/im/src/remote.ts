@@ -26,8 +26,18 @@ export class PenglaiImRemote extends TypertRemoteService {
   }
 
   @Remote
+  proposeBinding(input: Parameters<PenglaiImHost["proposeBinding"]>[0]) {
+    return this.host.proposeBinding(input);
+  }
+
+  @Remote
   createBinding(input: Parameters<PenglaiImHost["createBinding"]>[0]) {
     return this.host.createBinding(input);
+  }
+
+  @Remote
+  enableGroup(input: Parameters<PenglaiImHost["enableGroup"]>[0]) {
+    return this.host.enableGroup(input);
   }
 
   @Remote
@@ -187,8 +197,10 @@ export const TYPERT_REMOTE = {
     "getOverview",
     "getOnboardingReadiness",
     "listWorkspacesAndSessions",
+    "proposeBinding",
     "createBinding",
     "deleteBinding",
+    "enableGroup",
     "listBindings",
     "getVoiceOptions",
     "probeWeixinText",

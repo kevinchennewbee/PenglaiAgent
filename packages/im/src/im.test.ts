@@ -19,6 +19,8 @@ import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
 import { contribute } from "./client.js";
 
+const OWNER_BIND = "11111111-1111-4111-8111-111111111111";
+
 async function runTestOnlyCausalRoute(
   host: PenglaiImHost,
   input: { workspaceId: string; sessionId: string },
@@ -29,6 +31,7 @@ async function runTestOnlyCausalRoute(
     peerId: "test-peer",
     workspaceId: input.workspaceId,
     sessionId: input.sessionId,
+    ownerActionId: OWNER_BIND,
   });
   const accepted = await host.plane.submitInbound({
     adapter: "weixin",
@@ -184,6 +187,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
         workspaceId: "w",
         sessionId: "s1",
         expectedRevision: 99,
+        ownerActionId: OWNER_BIND,
       }),
     /revision mismatch|BINDING_STALE/,
   );
@@ -194,6 +198,7 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
     workspaceId: "w",
     sessionId: "s1",
     expectedRevision: host.revision,
+    ownerActionId: OWNER_BIND,
   });
   assert.equal(binding.workspaceId, "w");
   const voice = host.updateBindingVoicePolicy({
@@ -282,6 +287,8 @@ test("R50-ROUTE-001 IM client bindings pane uses official workspace/session list
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /listWorkspacesAndSessions/);
   assert.match(client, /createBinding/);
+  assert.match(client, /proposeBinding/);
+  assert.match(client, /requestOwnerApproval/);
   assert.match(client, /data-penglai-im-binding/);
   assert.match(client, /首次消息会收到欢迎和 \/帮助 \/项目 菜单/);
   assert.equal(client.includes("已连接不等于已绑定"), false);
@@ -355,6 +362,7 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   assert.ok(methods.includes("configureFeishu"));
   assert.ok(methods.includes("setFeishuOwner"));
   assert.ok(methods.includes("beginFeishuQr"));
+  assert.ok(methods.includes("proposeBinding"));
   assert.equal(methods.includes("proveCausalRoute"), false);
   assert.equal(methods.includes("beginDeviceFlow"), false);
   rt.store.close();
@@ -444,8 +452,21 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
         peerId: "p",
         workspaceId: "missing",
         sessionId: "s1",
+        ownerActionId: OWNER_BIND,
       }),
     PenglaiError,
+  );
+  assert.throws(
+    () =>
+      host.createBinding({
+        channel: "weixin",
+        accountId: "a",
+        peerId: "p",
+        workspaceId: "w",
+        sessionId: "s1",
+        ownerActionId: "not-a-uuid",
+      }),
+    /IM_OWNER_ACTION/,
   );
   const binding = host.createBinding({
     channel: "weixin",
@@ -453,7 +474,12 @@ test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
     peerId: "p",
     workspaceId: "w",
     sessionId: "s1",
+    ownerActionId: OWNER_BIND,
   });
+  assert.throws(
+    () => host.enableGroup({ routeId: binding.id, groupId: "g1", ownerActionId: OWNER_BIND }),
+    /IM_GROUP_NOT_LIVE/,
+  );
   assert.equal(binding.sessionId, "s1");
   assert.equal(host.listBindings().length, 1);
   rt.store.close();
