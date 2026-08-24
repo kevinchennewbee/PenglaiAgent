@@ -149,6 +149,36 @@ export class PenglaiImRemote extends TypertRemoteService {
   getDiagnostics() {
     return this.host.getDiagnostics();
   }
+
+  @Remote
+  listChannelManifests() {
+    return this.host.listChannelManifests();
+  }
+
+  @Remote
+  beginGuidedConnection(input: Parameters<PenglaiImHost["beginGuidedConnection"]>[0]) {
+    return this.host.beginGuidedConnection(input);
+  }
+
+  @Remote
+  createBot(input: Parameters<PenglaiImHost["createBot"]>[0]) {
+    return this.host.createBot(input);
+  }
+
+  @Remote
+  listBots(input: Parameters<PenglaiImHost["listBots"]>[0]) {
+    return this.host.listBots(input);
+  }
+
+  @Remote
+  acknowledgeChannelRisk(input: Parameters<PenglaiImHost["acknowledgeChannelRisk"]>[0]) {
+    return this.host.acknowledgeChannelRisk(input);
+  }
+
+  @Remote
+  removeBot(input: Parameters<PenglaiImHost["removeBot"]>[0]) {
+    return this.host.removeBot(input);
+  }
 }
 
 export const TYPERT_REMOTE = {
@@ -182,6 +212,12 @@ export const TYPERT_REMOTE = {
     "disconnectFeishu",
     "logoutFeishu",
     "getDiagnostics",
+    "listChannelManifests",
+    "beginGuidedConnection",
+    "createBot",
+    "listBots",
+    "acknowledgeChannelRisk",
+    "removeBot",
   ].map((method) => ({
     id: `@penglai/im#penglaiIm/${method}`,
     service: "penglaiIm",

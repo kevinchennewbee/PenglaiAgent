@@ -13,6 +13,16 @@ import type { Store } from "@penglai/persistence";
 import type { DshHost } from "@penglai/dsh-bridge";
 import { FEISHU_SECRET_REF, WEIXIN_TOKEN_REF, type CredentialsServiceVault } from "./credentials-vault.js";
 import type { AdapterSupervisor } from "./supervisor.js";
+import { ImBotStore } from "./bots.js";
+import { beginGuidedConnection, type GuidedConnectionState } from "./guided.js";
+import {
+  CHANNEL_IDS,
+  getChannelManifest,
+  isLiveChannel,
+  listChannelManifests,
+  type ChannelId,
+  type ChannelManifestV1,
+} from "./registry.js";
 
 export type ChannelName = "weixin" | "feishu";
 
@@ -28,13 +38,16 @@ export type ConnectionState =
   | "failed";
 
 export interface ChannelState {
-  channel: ChannelName;
+  channel: ChannelId;
   configured: boolean;
   connection: ConnectionState;
   boundRoutes: number;
   pendingInbox: number;
   pendingOutbox: number;
   revision: number;
+  live: boolean;
+  risk: ChannelManifestV1["risk"];
+  connectionMethods: ChannelManifestV1["connectionMethods"];
   error?: { code: string; action: string };
 }
 
@@ -55,6 +68,7 @@ export class PenglaiImHost {
   private qrActive = false;
   private feishuQrId = "";
   private feishuAppId = "";
+  readonly bots: ImBotStore;
 
   constructor(
     readonly store: Store,
@@ -82,18 +96,25 @@ export class PenglaiImHost {
       }
     }
     this.store.redactExpiredPayloads(this.plane.clock.now());
+    this.bots = new ImBotStore(this.store.db);
   }
 
   async getOverview(): Promise<{
     plugin: "active";
     channels: ChannelState[];
+    manifests: ChannelManifestV1[];
     feishuAppId: string;
     feishuOwnerKnown: boolean;
     revision: number;
   }> {
+    const channels: ChannelState[] = [];
+    for (const id of CHANNEL_IDS) {
+      channels.push(isLiveChannel(id) ? await this.channelState(id) : this.guidedChannelState(id));
+    }
     return {
       plugin: "active",
-      channels: [await this.channelState("weixin"), await this.channelState("feishu")],
+      channels,
+      manifests: listChannelManifests(),
       feishuAppId: this.feishuAppId,
       feishuOwnerKnown: this.feishuOwnerKnown(),
       revision: this.revision,
@@ -119,21 +140,23 @@ export class PenglaiImHost {
   }
 
   listBindings(): BindingDto[] {
-    return this.store.listActiveBindings().map((b) => {
+    const out: BindingDto[] = [];
+    for (const b of this.store.listActiveBindings()) {
       const route = this.store.getRoute(b.routeId);
-      const channel: ChannelName = route?.adapter === "feishu" ? "feishu" : "weixin";
-      return {
+      if (route?.adapter !== "weixin" && route?.adapter !== "feishu") continue;
+      out.push({
         id: b.routeId,
-        channel,
-        accountId: route?.accountRef ?? "",
-        peerId: route?.peerRef ?? "",
+        channel: route.adapter,
+        accountId: route.accountRef,
+        peerId: route.peerRef,
         workspaceId: b.workspaceIdentity,
         sessionId: b.sessionId,
         revision: b.revision,
         state: "active",
         voice: this.plane.getBindingVoicePolicy(b.routeId),
-      };
-    });
+      });
+    }
+    return out;
   }
 
   getVoiceOptions(): {
@@ -215,8 +238,9 @@ export class PenglaiImHost {
       if (bound.has(route.routeId)) continue;
       const target = this.store.getVendorReplyTarget(route.routeId);
       if (!target || target === route.peerRef) continue;
+      if (route.adapter !== "weixin" && route.adapter !== "feishu") continue;
       out.push({
-        channel: route.adapter === "feishu" ? "feishu" : "weixin",
+        channel: route.adapter,
         accountId: route.accountRef,
         peerId: route.peerRef,
       });
@@ -328,6 +352,9 @@ export class PenglaiImHost {
     sessionId: string;
     expectedRevision?: number;
   }): BindingDto {
+    if (!isLiveChannel(input.channel)) {
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE");
+    }
     if (input.expectedRevision !== undefined && input.expectedRevision !== this.revision) {
       throw new PenglaiError("BINDING_STALE", "revision mismatch");
     }
@@ -345,7 +372,7 @@ export class PenglaiImHost {
     if (!ws.sessionIds.includes(input.sessionId) && !this.dsh.getAgent(input.sessionId)) {
       throw new PenglaiError("INVALID_INPUT", "session not in official workspace");
     }
-    const adapter = input.channel === "feishu" ? "feishu" : "weixin";
+    const adapter = input.channel;
     const existing = this.store.findRoute(adapter, input.accountId, input.peerId);
     const routeId = existing?.routeId ?? `route:${adapter}:${input.accountId}:${input.peerId}`;
     if (!existing) {
@@ -641,6 +668,7 @@ export class PenglaiImHost {
       else if (feishuStatus === "failed") connection = "failed";
       else connection = configured ? (this.feishu.setupRequired ? "blocked" : "ready") : "not_configured";
     }
+    const manifest = getChannelManifest(channel);
     return {
       channel,
       configured,
@@ -649,6 +677,67 @@ export class PenglaiImHost {
       pendingInbox,
       pendingOutbox,
       revision: this.revision,
+      live: true,
+      risk: manifest.risk,
+      connectionMethods: manifest.connectionMethods,
     };
+  }
+
+  private guidedChannelState(channel: ChannelId): ChannelState {
+    const manifest = getChannelManifest(channel);
+    const bots = this.bots.list(channel);
+    const connection: ConnectionState =
+      manifest.risk === "community-protocol" && bots.every((bot) => !bot.riskAckAt)
+        ? "disabled"
+        : bots.some((bot) => bot.state === "online")
+          ? "ready"
+          : bots.length
+            ? "not_configured"
+            : "disabled";
+    return {
+      channel,
+      configured: bots.length > 0,
+      connection,
+      boundRoutes: 0,
+      pendingInbox: 0,
+      pendingOutbox: 0,
+      revision: this.revision,
+      live: false,
+      risk: manifest.risk,
+      connectionMethods: manifest.connectionMethods,
+    };
+  }
+
+  listChannelManifests(): ChannelManifestV1[] {
+    return listChannelManifests();
+  }
+
+  beginGuidedConnection(input: { channel: string; method: string; riskAck?: boolean }): GuidedConnectionState {
+    return beginGuidedConnection({
+      channel: input.channel,
+      method: input.method,
+      ...(input.riskAck ? { riskAck: true } : {}),
+    });
+  }
+
+  createBot(input: { channelId: string; displayName: string; riskAck?: boolean }) {
+    return this.bots.create({
+      channelId: input.channelId,
+      displayName: input.displayName,
+      ...(input.riskAck ? { riskAck: true } : {}),
+    });
+  }
+
+  listBots(input: { channelId?: string } = {}) {
+    return this.bots.list(input.channelId);
+  }
+
+  acknowledgeChannelRisk(input: { botId: string }) {
+    return this.bots.acknowledgeRisk(input.botId);
+  }
+
+  removeBot(input: { botId: string }) {
+    this.bots.remove(input.botId);
+    return { removed: true };
   }
 }

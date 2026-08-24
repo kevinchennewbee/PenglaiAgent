@@ -10,10 +10,8 @@
     }
   },
   "dependencies": {
-    "@penglai/asr": "workspace:*",
     "@penglai/audio-codecs": "workspace:*",
     "@penglai/contracts": "workspace:*",
-    "@penglai/moss-tts": "workspace:*",
     "@penglai/routing-core": "workspace:*",
     "qrcode": "1.5.4"
   },

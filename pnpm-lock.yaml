@@ -130,18 +130,12 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: 1.73.0
         version: 1.73.0
-      '@penglai/asr':
-        specifier: workspace:*
-        version: link:../asr
       '@penglai/audio-codecs':
         specifier: workspace:*
         version: link:../audio-codecs
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@penglai/moss-tts':
-        specifier: workspace:*
-        version: link:../moss-tts
       '@penglai/routing-core':
         specifier: workspace:*
         version: link:../routing-core
@@ -177,18 +171,12 @@ importers:
 
   packages/channel-weixin:
     dependencies:
-      '@penglai/asr':
-        specifier: workspace:*
-        version: link:../asr
       '@penglai/audio-codecs':
         specifier: workspace:*
         version: link:../audio-codecs
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@penglai/moss-tts':
-        specifier: workspace:*
-        version: link:../moss-tts
       '@penglai/routing-core':
         specifier: workspace:*
         version: link:../routing-core

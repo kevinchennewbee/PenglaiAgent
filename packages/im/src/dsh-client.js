@@ -84,6 +84,11 @@ window.__ModuleLoader__.load({
       "probeWeixinNativeVoice",
       "confirmWeixinNativeVoice",
       "disableWeixinNativeVoice",
+      "beginGuidedConnection",
+      "createBot",
+      "listBots",
+      "acknowledgeChannelRisk",
+      "removeBot",
     ]);
     const REMOTE = {
       package: "@penglai/im",
@@ -116,6 +121,12 @@ window.__ModuleLoader__.load({
         "disconnectFeishu",
         "logoutFeishu",
         "getDiagnostics",
+        "listChannelManifests",
+        "beginGuidedConnection",
+        "createBot",
+        "listBots",
+        "acknowledgeChannelRisk",
+        "removeBot",
       ].map((method) => remoteDescriptor(method, INPUT_METHODS.has(method))),
     };
 
@@ -138,6 +149,10 @@ window.__ModuleLoader__.load({
         connectWeixin: "连接微信",
         configureFeishu: "连接飞书",
         connectFeishu: "连接飞书",
+        guidedConnect: "连接",
+        noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
+        whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。",
+        notLive: "尚未完成真实账号验收，不能标为可用。",
         openConsole: "打开飞书开发者后台",
         openLongDoc: "打开长连接说明",
         copyScopes: "复制最小权限",
@@ -229,6 +244,10 @@ window.__ModuleLoader__.load({
         connectWeixin: "Connect Weixin",
         configureFeishu: "Connect Feishu",
         connectFeishu: "Connect Feishu",
+        guidedConnect: "Connect",
+        noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
+        whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk.",
+        notLive: "Not marked available until live-account evidence exists.",
         openConsole: "Open Feishu developer console",
         openLongDoc: "Open long-connection help",
         copyScopes: "Copy minimum scopes",
@@ -1272,6 +1291,46 @@ window.__ModuleLoader__.load({
                       setFeishuKick((n) => n + 1);
                     },
                     children: t.connectFeishu,
+                  }),
+                  jsx.jsx("ul", {
+                    "data-penglai-im-platforms": "1",
+                    children: channels.map((c) =>
+                      jsx.jsxs(
+                        "li",
+                        {
+                          "data-penglai-im-platform": c.channel,
+                          "data-penglai-im-live": String(c.live === true),
+                          "data-penglai-im-connect-methods": (c.connectionMethods || []).join(","),
+                          children: [
+                            String(c.channel),
+                            " ",
+                            c.live
+                              ? null
+                              : jsx.jsx("button", {
+                                  type: "button",
+                                  "data-penglai-im-connect": c.channel,
+                                  onClick: () =>
+                                    Promise.resolve(
+                                      remote?.penglaiIm?.beginGuidedConnection({
+                                        channel: c.channel,
+                                        method: (c.connectionMethods || ["token"])[0],
+                                        riskAck: c.channel === "whatsapp",
+                                      }),
+                                    ).catch(() => undefined),
+                                  children: t.guidedConnect,
+                                }),
+                            (c.connectionMethods || []).includes("qr")
+                              ? null
+                              : jsx.jsx("span", { children: t.noQr }),
+                            c.channel === "whatsapp"
+                              ? jsx.jsx("p", { "data-penglai-im-whatsapp-risk": "1", children: t.whatsappRisk })
+                              : null,
+                            c.live ? null : jsx.jsx("span", { children: t.notLive }),
+                          ],
+                        },
+                        c.channel,
+                      ),
+                    ),
                   }),
                 ],
               })

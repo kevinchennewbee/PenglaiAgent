@@ -146,16 +146,26 @@ FILE-003..015 may proceed for Office/IM ArtifactRef. Composer send stays blocked
 
 | ID | Status | Missing evidence |
 |---|---|---|
-| R56-IM-001 .. 020 | not-started | S/C now; I/L later |
-| R56-CH-WX | not-started | L |
-| R56-CH-FS | not-started | L |
-| R56-CH-DT | not-started | L |
-| R56-CH-WC | not-started | L |
-| R56-CH-QQ | not-started | L |
-| R56-CH-SL | not-started | L |
-| R56-CH-TG | not-started | L |
-| R56-CH-DC | not-started | L |
-| R56-CH-WA | not-started | L; default off |
+| R56-IM-001 | source-pass | `CHANNEL_IDS` + `ChannelManifestV1` | `registry.test.ts` | I/L |
+| R56-IM-002 | source-pass | Weixin/Feishu remain the only `live` adapters | `registry.test.ts`; `im.test.ts` | L |
+| R56-IM-003 | source-pass | Slack/Telegram/Discord refuse QR | `registry.test.ts` | L |
+| R56-IM-004 | source-pass | guided token/oauth/manifest steps | `guided.ts` | I |
+| R56-IM-005 | source-pass | overview lists nine platforms | `dsh-client.js` | I |
+| R56-IM-006 | source-pass | channel packages drop ASR/TTS package deps | `channel-*/package.json` | |
+| R56-IM-007 | source-pass | `im_v2_bots` sidecar; schema stays 11 | `registry.test.ts` | I |
+| R56-IM-008 | source-pass | unknown route adapters are not Weixin | `host.ts` listBindings | |
+| R56-IM-009 .. 018 | in-progress | live connect/outbox/group matrix | | I/L |
+| R56-IM-019 | source-pass | WhatsApp default off + risk ack | `registry.test.ts` | L |
+| R56-IM-020 | source-pass | non-live bind/send refused | `host.createBinding` | L |
+| R56-CH-WX | source-pass | existing adapter kept | `weixin.test.ts` | L |
+| R56-CH-FS | source-pass | existing adapter kept | `feishu.test.ts` | L |
+| R56-CH-DT | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-WC | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-QQ | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-SL | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-TG | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-DC | source-pass | manifest + guided connect only | `registry.ts` | L |
+| R56-CH-WA | source-pass | community-protocol; default off | `registry.test.ts` | L; default off |
 | R56-UPD-001 | not-started | S,C |
 | R56-UPD-002 | not-started | S,C |
 | R56-UPD-003 | not-started | I,L |
@@ -182,4 +192,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Memory 2.0 list/candidates/governance/recall/migrate are source-pass. Turn-side N-used indicator and live curator Agent remain I/L. Next local capability: IM 2.0 registry/multi-bot. Do not bump product version. Do not publish.
+IM 2.0 registry, guided connect, sidecar multi-bot, and nine-platform UI are source-pass. Weixin/Feishu stay the only live adapters. Next local capability: supervisor/recovery, plugin links, update-manifest identity. Do not bump product version. Do not publish.
