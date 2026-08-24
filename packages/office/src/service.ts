@@ -5,11 +5,14 @@ import { readZip } from "./zip.js";
 import type { OfficeFormat } from "./formats.js";
 import { assertAuthorizedBytes, assertWorkspace } from "./authorization.js";
 import {
+  assertPreviewMatchesResult,
   cancelJob,
   createJob,
   digestBytes,
   discardJob,
+  freezePreviewDigest,
   getJob,
+  nextOfficeBackupName,
   setJobState,
   type OfficeJobRecord,
 } from "./jobs.js";
@@ -158,6 +161,7 @@ export async function edit(bytes: Buffer, op: OfficeOperation): Promise<OfficeJo
   job.bytes = next;
   job.digest = digestBytes(next);
   job.stagedBytes = Buffer.from(next);
+  freezePreviewDigest(job);
   setJobState(job.id, "PLAN_READY", before.text.slice(0, 80));
   setJobState(job.id, "PREVIEW_READY", op.kind);
   return toPublic(job);
@@ -296,6 +300,7 @@ export function createOfficeService(opts?: {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
       const record = getJob(job);
       verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "commit"));
+      assertPreviewMatchesResult(record);
       record.stagedBytes = Buffer.from(record.bytes);
       setJobState(job, "STAGED", "bytes");
       record.resultDigest = digestBytes(record.bytes);
@@ -308,6 +313,10 @@ export function createOfficeService(opts?: {
       const record = getJob(jobId);
       const dest = assertPathInWorkspace(destPath, workspaceRoot);
       verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "commit-to-path", dest));
+      assertPreviewMatchesResult(record);
+      if (record.destPath && record.destPath !== dest) {
+        throw new PenglaiError("SECURITY_POLICY", "office path is not the bound proposal");
+      }
       const backupRoot = process.env.PENGLAI_USER_DATA
         ? join(process.env.PENGLAI_USER_DATA, "office", "backups")
         : opts?.userData
@@ -315,7 +324,7 @@ export function createOfficeService(opts?: {
           : undefined;
       if (!backupRoot) throw new PenglaiError("DSH_UNAVAILABLE", "app-private office backup root unavailable");
       mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
-      const backup = join(backupRoot, `penglai-office-${record.id}.bak`);
+      const backup = join(backupRoot, nextOfficeBackupName(record, "bak"));
       setJobState(jobId, "STAGED", dest);
       const result = atomicCommitFile(dest, record.bytes, backup);
       record.destPath = dest;
@@ -345,7 +354,7 @@ export function createOfficeService(opts?: {
               : undefined;
           if (!backupRoot) throw new PenglaiError("DSH_UNAVAILABLE", "app-private office undo root unavailable");
           mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
-          const backup = join(backupRoot, `penglai-office-${record.id}.undo`);
+          const backup = join(backupRoot, nextOfficeBackupName(record, "undo"));
           atomicCommitFile(record.destPath, record.backupBytes, backup);
         }
       }
@@ -368,6 +377,7 @@ export function createOfficeService(opts?: {
       const job = getJob(jobId);
       if (target !== job.format) throw new PenglaiError("INVALID_INPUT", "office format conversion is not implemented");
       verifyOfficeReceipt(secret, receipt, expectedReceipt(job, "export", target));
+      assertPreviewMatchesResult(job);
       return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest };
     },
     async returnToChannel(jobId: string, receipt: string) {
@@ -376,6 +386,7 @@ export function createOfficeService(opts?: {
         throw new PenglaiError("INVALID_INPUT", "office job has no original IM route");
       }
       verifyOfficeReceipt(secret, receipt, expectedReceipt(job, "return-to-channel"));
+      assertPreviewMatchesResult(job);
       const outbound = opts?.outbound?.();
       if (!outbound) throw new PenglaiError("DSH_UNAVAILABLE", "Penglai IM is disabled or unavailable");
       const exported = { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest };

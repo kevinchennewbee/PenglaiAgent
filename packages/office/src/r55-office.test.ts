@@ -133,7 +133,7 @@ test("R55-OFFICE-019 TOCTOU reject", async () => {
 
 test("R55-OFFICE-020 malicious documents fail closed", async () => {
   const bomb = writeZip([{ name: "../etc/passwd", data: Buffer.from("x") }]);
-  assert.throws(() => assertAuthorizedBytes(bomb), /traversal|bomb|office/);
+  assert.throws(() => assertAuthorizedBytes(bomb), /traversal|bomb|office|OFFICE_ZIP/i);
 });
 
 test("R55-OFFICE-021 templates and OFL fonts only", () => {
