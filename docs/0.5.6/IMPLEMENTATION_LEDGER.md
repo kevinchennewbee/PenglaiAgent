@@ -6,6 +6,10 @@ Status values: `not-started` / `in-progress` / `source-pass` / `native-pass` / `
 
 Baseline HEAD: `d1f61ef61eb3d86f33a4d7e1c05a2137b36c7b22` (`main` / `v0.5.5`). Working branch: `feat/0.5.6` local only.
 
+## Grok continuation reaudit (2026-08-24)
+
+Continuation branch `grok/0.5.6-continuation` started at `a818b860d7b2b674dfb6e0625437f6a6159ebe54`. Rows below that said `source-pass` while production still used HMAC self-receipts, UUID-shaped Memory actionIds, Plugin Center `owncap_` grants, or isolated Artifact classes are **overclaimed**. See `docs/0.5.6/GROK_CONTINUATION_LEDGER.md` for the close/reopen table. Historical rows are kept.
+
 ## Owner decisions
 
 | ID | Decision | Status |
