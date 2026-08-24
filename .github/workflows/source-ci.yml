@@ -37,6 +37,8 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.14.0 --activate
           pnpm install --frozen-lockfile
+      - name: Fetch and verify the pinned native Mnemon binary
+        run: pnpm fetch:mnemon-assets
       - name: Source, contract, and evidence-class gates
         run: |
           pnpm format:check
