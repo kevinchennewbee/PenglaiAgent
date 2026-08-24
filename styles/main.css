@@ -282,6 +282,11 @@ figcaption {
 .download-grid a:hover { border-color: var(--green); transform: translateY(-2px); }
 .download-grid strong { font-size: 18px; }
 .download-grid span { margin-top: 4px; color: var(--muted); font-size: 14px; }
+.download-grid-mirror {
+  margin-top: 8px;
+  margin-bottom: 28px;
+}
+.download-grid-mirror a { background: rgba(255, 253, 248, .42); }
 .centered { justify-content: center; }
 
 footer {
