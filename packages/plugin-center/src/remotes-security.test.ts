@@ -91,7 +91,7 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
   ]);
   const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
-  const end = remotes.indexOf("disable(id: string) {\n      return transact(id, \"disable\")");
+  const end = remotes.indexOf("disable(id: string, capabilityId?: string) {\n      refuseRequiredPluginDisable(id);");
   const installEnable = remotes.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.match(installEnable, /requireOwner\(id, "plugin-enable"/);
@@ -106,7 +106,19 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
   );
 });
 
-test("R56-CORE-005 Center remotes refuse disable of every required inventory id", async () => {
+test("R56-OWN-003 optional plugin disable and rollback require a native owner grant", async () => {
+  const remote = remoteFor("/tmp/penglai-center-optional-owner");
+  assert.throws(
+    () => (remote.disable as (pluginId: string) => unknown)("@penglai/im"),
+    /native owner capability is required/,
+  );
+  await assert.rejects(
+    () => (remote.rollback as (pluginId: string) => Promise<unknown>)("@penglai/im"),
+    /native owner capability is required/,
+  );
+});
+
+test("R56-CORE-005 Center remotes refuse disable of every required inventory id", () => {
   const remote = remoteFor("/tmp/penglai-center-required-disable");
   for (const id of [
     "@penglai/plugin-center",
@@ -116,8 +128,8 @@ test("R56-CORE-005 Center remotes refuse disable of every required inventory id"
     "@deepseek-ai/dsh-credentials-local",
     "dsh-credentials-local",
   ]) {
-    await assert.rejects(
-      () => (remote.disable as (pluginId: string) => Promise<unknown>)(id),
+    assert.throws(
+      () => (remote.disable as (pluginId: string) => unknown)(id),
       /required plugin cannot be disabled/,
     );
   }

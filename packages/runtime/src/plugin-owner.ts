@@ -3,7 +3,13 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { dirname, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 
-export const PLUGIN_OWNER_ACTIONS = ["plugin-enable", "plugin-update", "plugin-install"] as const;
+export const PLUGIN_OWNER_ACTIONS = [
+  "plugin-enable",
+  "plugin-update",
+  "plugin-install",
+  "plugin-disable",
+  "plugin-rollback",
+] as const;
 export type PluginOwnerAction = (typeof PLUGIN_OWNER_ACTIONS)[number];
 
 export interface PluginOwnerGrant {

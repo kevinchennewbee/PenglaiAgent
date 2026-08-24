@@ -11,6 +11,32 @@ import {
 import { migrateRc8UserData, readMigrationMarker } from "./generation-migrate.js";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 
+test("plugin disable and rollback grants cannot be reused as enable", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-owncap-disable-"));
+  const digest = pluginPermissionDigest({ permissions: ["profile-write"], nativeCode: false });
+  const grant = issuePluginOwnerGrant({
+    userDataRoot: root,
+    action: "plugin-disable",
+    pluginId: "@penglai/im",
+    version: "0.5.5",
+    sha256: "a".repeat(64),
+    permissionDigest: digest,
+  });
+  assert.throws(
+    () =>
+      consumePluginOwnerGrant({
+        userDataRoot: root,
+        capabilityId: grant.capabilityId,
+        action: "plugin-enable",
+        pluginId: "@penglai/im",
+        version: "0.5.5",
+        sha256: "a".repeat(64),
+        permissionDigest: digest,
+      }),
+    /invalid|expired|already used/,
+  );
+});
+
 test("plugin owner grant is one-shot and bound to identity", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-owncap-"));
   const digest = pluginPermissionDigest({ permissions: ["profile-write"], nativeCode: false });

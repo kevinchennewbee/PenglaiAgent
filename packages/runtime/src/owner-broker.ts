@@ -324,13 +324,26 @@ export class OwnerApprovalBroker {
     this.log(row, "committed");
   }
 
-  inspect(actionId: string): { actionId: string; action: OwnerAction; state: OwnerProposalState; intentDigest: string } {
+  inspect(actionId: string): {
+    actionId: string;
+    action: OwnerAction;
+    state: OwnerProposalState;
+    intentDigest: string;
+    objectId: string;
+    sourceDigest: string;
+    workspaceId?: string;
+    pluginId: string;
+  } {
     const row = this.load(actionId);
     return {
       actionId: row.intent.actionId,
       action: row.intent.action,
       state: row.state,
       intentDigest: row.intentDigest,
+      objectId: row.intent.objectId,
+      sourceDigest: row.intent.sourceDigest,
+      pluginId: row.intent.pluginId,
+      ...(row.intent.workspaceId ? { workspaceId: row.intent.workspaceId } : {}),
     };
   }
 }

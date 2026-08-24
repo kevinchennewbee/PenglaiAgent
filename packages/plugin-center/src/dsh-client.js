@@ -1056,7 +1056,14 @@ window.__ModuleLoader__.load({
         };
         const mutate = async (id, action) => {
           if (!centerRemote) throw new Error("penglaiCenter remote missing");
-          if (action === "enable" || action === "update" || action === "installDisabled" || action === "installEnable") {
+          if (
+            action === "enable" ||
+            action === "update" ||
+            action === "installDisabled" ||
+            action === "installEnable" ||
+            action === "disable" ||
+            action === "rollback"
+          ) {
             const api = window.penglai;
             if (!api || typeof api.confirmPluginAction !== "function") {
               throw new Error("native owner capability is required");
@@ -1087,14 +1094,16 @@ window.__ModuleLoader__.load({
               }
               return result;
             }
+            if (action === "disable")
+              return unwrapRemote(await centerRemote.disable({ id, capabilityId: cap.capabilityId }));
+            if (action === "rollback")
+              return unwrapRemote(
+                await centerRemote.rollback({ id, capabilityId: cap.capabilityId }),
+              );
             return unwrapRemote(
               await centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }),
             );
           }
-          if (action === "disable")
-            return unwrapRemote(await centerRemote.disable({ id }));
-          if (action === "rollback")
-            return unwrapRemote(await centerRemote.rollback({ id }));
           if (action === "download")
             return unwrapRemote(await centerRemote.download({ id }));
           if (action === "refreshRegistry")

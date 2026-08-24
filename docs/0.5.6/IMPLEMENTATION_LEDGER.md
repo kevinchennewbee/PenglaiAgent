@@ -46,13 +46,13 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-CORE-008 | not-started | supervisor intent | | C,N |
 | R56-CORE-009 | not-started | recovery page | | N,I |
 | R56-CORE-010 | not-started | dsh-bridge cancel | | S,C,N |
-| R56-OWN-001 | source-pass | `packages/runtime/src/owner-broker.ts` | `owner-broker.test.ts` | I; native dialog N |
+| R56-OWN-001 | source-pass | broker + office HMAC/broker adapter | `owner-broker.test.ts`; `owner-adapter.test.ts`; `tools.test.ts` | I; native dialog N |
 | R56-OWN-002 | not-started | Memory accept/personal/correct/forget | | C,I |
-| R56-OWN-003 | not-started | plugin-center disable/rollback grants | | C,I |
+| R56-OWN-003 | source-pass | disable/rollback grants; Center client uses `confirmPluginAction` | `plugin-owner.test.ts`; `remotes-security.test.ts` | I |
 | R56-OWN-004 | not-started | IM bind | | C,I,L |
-| R56-OWN-005 | source-pass | deny/expiry/replay/mutation/workspace drift | `owner-broker.test.ts` | I |
+| R56-OWN-005 | source-pass | deny/expiry/replay/mutation/workspace drift | `owner-broker.test.ts`; `owner-adapter.test.ts` | I |
 | R56-OWN-006 | source-pass | broker dialog port never calls DSH `ask` | `owner-broker.test.ts` | I; policy=never installed |
-| R56-OWN-007 | source-pass | `requestOwnerApproval(actionId)` + Main HMAC | `owner-broker.test.ts` | N Electron dialog |
+| R56-OWN-007 | source-pass | Main `requestOwnerApproval` IPC + HMAC | `owner-broker.test.ts`; `electron-main.ts` | N dialog click |
 | R56-OWN-008 | source-pass | destination labels refuse paths/secrets; honest notice | `owner-broker.test.ts` | I,D user docs |
 
 ### Security / Office
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Owner Broker store and required-plugin disable are source-pass. Next local capability: Office/Plugin Center thin adapters onto the broker, then Artifact Service (`@penglai/artifacts`, ADR 0035). Native Electron dialog and installed policy=`never` remain N/I. Do not bump product version. Do not publish.
+Owner Broker, Office adapter, and Plugin Center disable/rollback grants are source-pass. Next local capability: Artifact Service (`@penglai/artifacts`, ADR 0035). Native dialog clicks and installed policy=`never` remain N/I. Do not bump product version. Do not publish.

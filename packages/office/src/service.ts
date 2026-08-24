@@ -31,6 +31,12 @@ import {
   type OfficeReceiptAction,
 } from "./receipt.js";
 import { assertPathInWorkspace, atomicCommitFile } from "./transaction.js";
+import {
+  consumeOfficeBrokerReceipt,
+  isOwnerBrokerReceipt,
+  ownerBrokerActionId,
+  type OfficeOwnerBrokerPort,
+} from "./owner-adapter.js";
 
 export type { OfficeFormat } from "./formats.js";
 export type { OfficeOperation } from "./operations.js";
@@ -175,6 +181,7 @@ export function createOfficeService(opts?: {
   userData?: string;
   objects?: ObjectStore;
   outbound?: () => OfficeOutbound | undefined;
+  owner?: OfficeOwnerBrokerPort;
 }) {
   const secret = createReceiptSecret();
   const objects =
@@ -212,6 +219,28 @@ export function createOfficeService(opts?: {
       authorityDigest: authorityDigest(job, action, target),
       ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
     };
+  }
+  function consumeReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, receipt: string, target = "") {
+    if (isOwnerBrokerReceipt(receipt)) {
+      if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
+      const actionId = ownerBrokerActionId(receipt);
+      const reserved = consumeOfficeBrokerReceipt(opts.owner, {
+        receipt,
+        actionId,
+        action,
+        jobId: job.id,
+        sourceDigest: job.sourceDigest,
+        ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+      });
+      return () =>
+        opts.owner?.completeApproval({
+          actionId,
+          reservationId: reserved.reservationId,
+          resultDigest: job.resultDigest ?? job.digest,
+        });
+    }
+    verifyOfficeReceipt(secret, receipt, expectedReceipt(job, action, target));
+    return () => undefined;
   }
   return {
     name: "@penglai/office",
@@ -299,7 +328,7 @@ export function createOfficeService(opts?: {
       if (typeof job !== "string") return Buffer.from(job.bytes);
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office commit requires owner receipt");
       const record = getJob(job);
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "commit"));
+      const finish = consumeReceipt(record, "commit", receipt);
       assertPreviewMatchesResult(record);
       record.stagedBytes = Buffer.from(record.bytes);
       setJobState(job, "STAGED", "bytes");
@@ -307,12 +336,13 @@ export function createOfficeService(opts?: {
       record.backupBytes = Buffer.from(record.sourceBytes);
       setJobState(job, "COMMITTED", "in-memory");
       setJobState(job, "UNDO_READY", "backup retained");
+      finish();
       return Buffer.from(record.bytes);
     },
     commitToPath(jobId: string, receipt: string, destPath: string, workspaceRoot: string) {
       const record = getJob(jobId);
       const dest = assertPathInWorkspace(destPath, workspaceRoot);
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "commit-to-path", dest));
+      const finish = consumeReceipt(record, "commit-to-path", receipt, dest);
       assertPreviewMatchesResult(record);
       if (record.destPath && record.destPath !== dest) {
         throw new PenglaiError("SECURITY_POLICY", "office path is not the bound proposal");
@@ -332,11 +362,12 @@ export function createOfficeService(opts?: {
       record.backupBytes = existsSync(backup) ? readFileSync(backup) : Buffer.from(record.sourceBytes);
       setJobState(jobId, "COMMITTED", result.destDigest);
       setJobState(jobId, "UNDO_READY", backup);
+      finish();
       return { dest, digest: result.destDigest, backup };
     },
     undo(jobId: string, receipt: string) {
       const record = getJob(jobId);
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "undo"));
+      const finish = consumeReceipt(record, "undo", receipt);
       if (record.state !== "UNDO_READY" && record.state !== "COMMITTED") {
         throw new PenglaiError("SECURITY_POLICY", "office job is not undoable");
       }
@@ -361,13 +392,15 @@ export function createOfficeService(opts?: {
       record.bytes = Buffer.from(record.sourceBytes);
       record.digest = record.sourceDigest;
       setJobState(jobId, "UNDONE", "restored source digest");
+      finish();
       return Buffer.from(record.bytes);
     },
     async discard(jobId: string, receipt: string) {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office discard requires owner receipt");
       const record = getJob(jobId);
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(record, "discard"));
+      const finish = consumeReceipt(record, "discard", receipt);
       discardJob(jobId);
+      finish();
     },
     bindHandle(handle: string, bind: { sessionId: string; workspaceId?: string; routeId?: string }) {
       objects.bind(handle, bind);
@@ -376,8 +409,9 @@ export function createOfficeService(opts?: {
       if (!receipt) throw new PenglaiError("SECURITY_POLICY", "office export requires owner receipt");
       const job = getJob(jobId);
       if (target !== job.format) throw new PenglaiError("INVALID_INPUT", "office format conversion is not implemented");
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(job, "export", target));
+      const finish = consumeReceipt(job, "export", receipt, target);
       assertPreviewMatchesResult(job);
+      finish();
       return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest };
     },
     async returnToChannel(jobId: string, receipt: string) {
@@ -385,7 +419,7 @@ export function createOfficeService(opts?: {
       if (!job.routeId || !job.sessionId) {
         throw new PenglaiError("INVALID_INPUT", "office job has no original IM route");
       }
-      verifyOfficeReceipt(secret, receipt, expectedReceipt(job, "return-to-channel"));
+      const finish = consumeReceipt(job, "return-to-channel", receipt);
       assertPreviewMatchesResult(job);
       const outbound = opts?.outbound?.();
       if (!outbound) throw new PenglaiError("DSH_UNAVAILABLE", "Penglai IM is disabled or unavailable");
@@ -398,6 +432,7 @@ export function createOfficeService(opts?: {
         bytes: exported.bytes,
         digest: exported.digest,
       });
+      finish();
       return { ...result, filename: exported.filename, digest: exported.digest, bytes: exported.bytes.length };
     },
     async cancel(jobId: string) {

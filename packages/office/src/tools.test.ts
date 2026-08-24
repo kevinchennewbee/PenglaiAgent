@@ -68,8 +68,15 @@ test("office conversation tools inspect, plan, preview, commit, undo without mod
     /path|SECURITY/i,
   );
   assert.equal("bytes" in (planned as object), false);
+  await assert.rejects(
+    () => tools.get("penglai_office_commit")?.execute({ job_id: jobId, filename: "note.docx" }, exec),
+    /owner receipt/,
+  );
+  const dest = join(dir, "note.docx");
+  svc.approve(jobId, "commit-to-path", dest);
   const committed = await tools.get("penglai_office_commit")?.execute({ job_id: jobId, filename: "note.docx" }, exec) as { dest: string };
   assert.match((await svc.inspect(readFileSync(committed.dest))).text, /revised-tools/);
+  svc.approve(jobId, "undo");
   await tools.get("penglai_office_undo")?.execute({ job_id: jobId }, exec);
   await assert.rejects(
     () => tools.get("penglai_office_plan")?.execute({

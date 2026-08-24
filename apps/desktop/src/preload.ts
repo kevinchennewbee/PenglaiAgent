@@ -18,6 +18,7 @@ export const PRELOAD_API = [
   "wizardPickFolder",
   "pickContextFolder",
   "confirmPluginAction",
+  "requestOwnerApproval",
   "restartPluginRuntime",
 ] as const;
 

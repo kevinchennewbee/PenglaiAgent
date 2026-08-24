@@ -85,9 +85,9 @@ export interface CenterRemote {
   };
   enable(id: string, capabilityId?: string): Promise<unknown>;
   installEnable(id: string, capabilityId?: string): Promise<unknown>;
-  disable(id: string): Promise<unknown>;
+  disable(id: string, capabilityId?: string): Promise<unknown>;
   update(id: string, capabilityId?: string): Promise<unknown>;
-  rollback(id: string): Promise<unknown>;
+  rollback(id: string, capabilityId?: string): Promise<unknown>;
   refreshRegistry(): Promise<unknown>;
   download(id: string): Promise<unknown>;
   installDisabled(id: string, capabilityId?: string): Promise<unknown>;
@@ -477,7 +477,9 @@ export function createCenterRemote(opts: {
       }
       return transact(id, "enable");
     },
-    disable(id: string) {
+    disable(id: string, capabilityId?: string) {
+      refuseRequiredPluginDisable(id);
+      requireOwner(id, "plugin-disable", capabilityId);
       return transact(id, "disable");
     },
     async update(id: string, capabilityId?: string) {
@@ -563,7 +565,8 @@ export function createCenterRemote(opts: {
         phase: installed.phase,
       };
     },
-    async rollback(id: string) {
+    async rollback(id: string, capabilityId?: string) {
+      requireOwner(id, "plugin-rollback", capabilityId);
       catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       const previous = previousStateFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
@@ -614,8 +617,8 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  disable(input: { id: string }) {
-    return this.impl.disable(input.id);
+  disable(input: { id: string; capabilityId?: string }) {
+    return this.impl.disable(input.id, input.capabilityId);
   }
 
   @Remote
@@ -624,8 +627,8 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  rollback(input: { id: string }) {
-    return this.impl.rollback(input.id);
+  rollback(input: { id: string; capabilityId?: string }) {
+    return this.impl.rollback(input.id, input.capabilityId);
   }
 
   @Remote

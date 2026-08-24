@@ -77,6 +77,9 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /wizardPickFolder/);
   assert.match(main, /confirmPluginAction/);
   assert.match(main, /installEnable:\s*"plugin-enable"/);
+  assert.match(main, /disable:\s*"plugin-disable"/);
+  assert.match(main, /rollback:\s*"plugin-rollback"/);
+  assert.match(main, /requestOwnerApprovalArgs/);
   assert.match(main, /onboardingLedgerComplete/);
   assert.match(main, /officialVendorConsoleDecision/);
   assert.match(main, /shell\.openExternal/);

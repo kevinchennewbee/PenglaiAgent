@@ -16,6 +16,8 @@ import {
   ensurePrivateHome,
   EMPTY_INVENTORY_PROOF,
   evaluateInventory,
+  OwnerApprovalBroker,
+  requestOwnerApprovalArgs,
   inspectStorageInventory,
   issuePluginOwnerGrant,
   macOsUninstallGuide,
@@ -716,6 +718,26 @@ async function main(): Promise<void> {
             }
           });
         }
+        if (name === "requestOwnerApproval") {
+          if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one owner action payload is required");
+          const actionId = requestOwnerApprovalArgs(args[0]);
+          const broker = new OwnerApprovalBroker(user.root, {
+            dialog: async (req) => {
+              const picked = await dialog.showMessageBox(win, {
+                type: "warning",
+                buttons: ["Cancel", "Allow once"],
+                defaultId: 0,
+                cancelId: 0,
+                message: req.noticeEn,
+                detail: [req.noticeZh, req.action, req.pluginId, req.destinationLabel, req.workspaceLabel]
+                  .filter((row): row is string => typeof row === "string" && row.length > 0)
+                  .join("\n"),
+              });
+              return picked.response === 1 ? "approved" : "denied";
+            },
+          });
+          return broker.requestOwnerApproval(actionId);
+        }
         if (name === "confirmPluginAction") {
           if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one plugin action payload is required");
           const rec = args[0] as { id?: unknown; action?: unknown };
@@ -727,6 +749,8 @@ async function main(): Promise<void> {
             installEnable: "plugin-enable",
             update: "plugin-update",
             installDisabled: "plugin-install",
+            disable: "plugin-disable",
+            rollback: "plugin-rollback",
           };
           const ownerAction = typeof rec.action === "string" ? mapped[rec.action] : undefined;
           if (!ownerAction) throw new PenglaiError("INVALID_INPUT", "plugin action required");
