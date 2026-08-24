@@ -15,7 +15,11 @@ concurrency:
 jobs:
   source:
     name: Full source gates
-    runs-on: ubuntu-latest
+    # The product ships only native macOS/Windows targets. Several source gates
+    # execute the pinned Mnemon helper and target-bound plugin catalog, so run
+    # the aggregate suite on a real supported host; the separate native release
+    # workflow independently covers Intel macOS and Windows.
+    runs-on: macos-15
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
