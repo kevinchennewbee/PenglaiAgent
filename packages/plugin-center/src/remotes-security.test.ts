@@ -106,6 +106,23 @@ test("DSH Center remote cannot open installers or plan filesystem deletion", asy
   );
 });
 
+test("R56-CORE-005 Center remotes refuse disable of every required inventory id", async () => {
+  const remote = remoteFor("/tmp/penglai-center-required-disable");
+  for (const id of [
+    "@penglai/plugin-center",
+    "@penglai/office",
+    "penglai-office",
+    "@penglai/memory",
+    "@deepseek-ai/dsh-credentials-local",
+    "dsh-credentials-local",
+  ]) {
+    await assert.rejects(
+      () => (remote.disable as (pluginId: string) => Promise<unknown>)(id),
+      /required plugin cannot be disabled/,
+    );
+  }
+});
+
 test("signed remote package stages only in the app-private registry root", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-registry-stage-"));
   const cached = join(root, "cache.tgz");

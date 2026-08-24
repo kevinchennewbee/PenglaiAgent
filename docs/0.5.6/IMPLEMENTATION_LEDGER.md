@@ -40,20 +40,20 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-CORE-002 | source-pass | `packages/release-identity/src/pins.ts` | `packages/dsh-bridge/src/capability-baseline.test.ts` | P |
 | R56-CORE-003 | source-pass | `packages/runtime/src/inventory-proof.ts` | `inventory-proof.test.ts` | I |
 | R56-CORE-004 | source-pass | exactPluginId; no substring includes | `inventory-proof.test.ts` | I |
-| R56-CORE-005 | not-started | plugin-center disable | | C,I |
+| R56-CORE-005 | source-pass | `refuseRequiredPluginDisable`; remotes disable before catalog lookup | `inventory-proof.test.ts`; `remotes-security.test.ts` | I |
 | R56-CORE-006 | not-started | desktop splash | | N,I |
 | R56-CORE-007 | not-started | dsh supervisor | | C,N,I |
 | R56-CORE-008 | not-started | supervisor intent | | C,N |
 | R56-CORE-009 | not-started | recovery page | | N,I |
 | R56-CORE-010 | not-started | dsh-bridge cancel | | S,C,N |
-| R56-OWN-001 | not-started | ADR 0034 | | C,I |
-| R56-OWN-002 | not-started | ADR 0034 / 0036 | | C,I |
-| R56-OWN-003 | not-started | plugin-center grants | | C,I |
+| R56-OWN-001 | source-pass | `packages/runtime/src/owner-broker.ts` | `owner-broker.test.ts` | I; native dialog N |
+| R56-OWN-002 | not-started | Memory accept/personal/correct/forget | | C,I |
+| R56-OWN-003 | not-started | plugin-center disable/rollback grants | | C,I |
 | R56-OWN-004 | not-started | IM bind | | C,I,L |
-| R56-OWN-005 | not-started | broker tests | | S,C,I |
-| R56-OWN-006 | not-started | policy=never | | C,I |
-| R56-OWN-007 | not-started | Main HMAC | | S,C |
-| R56-OWN-008 | not-started | docs/UI copy | | I,D |
+| R56-OWN-005 | source-pass | deny/expiry/replay/mutation/workspace drift | `owner-broker.test.ts` | I |
+| R56-OWN-006 | source-pass | broker dialog port never calls DSH `ask` | `owner-broker.test.ts` | I; policy=never installed |
+| R56-OWN-007 | source-pass | `requestOwnerApproval(actionId)` + Main HMAC | `owner-broker.test.ts` | N Electron dialog |
+| R56-OWN-008 | source-pass | destination labels refuse paths/secrets; honest notice | `owner-broker.test.ts` | I,D user docs |
 
 ### Security / Office
 
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Phase 1 P0 office/security source class is source-pass except Windows ACL (`R56-SEC-004`, N/I only). Next local capability: Owner Approval Broker (`R56-OWN-*`, ADR 0034). Do not bump product version. Do not publish.
+Owner Broker store and required-plugin disable are source-pass. Next local capability: Office/Plugin Center thin adapters onto the broker, then Artifact Service (`@penglai/artifacts`, ADR 0035). Native Electron dialog and installed policy=`never` remain N/I. Do not bump product version. Do not publish.

@@ -26,6 +26,7 @@ import {
 import {
   PINNED_PLUGIN_DSH,
   evaluateInventory,
+  refuseRequiredPluginDisable,
   consumePluginOwnerGrant,
   pluginPermissionDigest,
   runtimePluginTarget,
@@ -357,13 +358,8 @@ export function createCenterRemote(opts: {
     id: string,
     action: "enable" | "disable" | "update" | "install",
   ) => {
+    if (action === "disable") refuseRequiredPluginDisable(id);
     const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
-    if (action === "disable" && id === "@penglai/plugin-center") {
-      throw new PenglaiError(
-        "SECURITY_POLICY",
-        "required plugin cannot be disabled",
-      );
-    }
     const previousEnabled = Boolean(opts.host.desired()[id]);
     const previousPresent = normalizeInventory(opts.inventory.list()).some(
       (row) => rowMatches(row, id),

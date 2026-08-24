@@ -1,3 +1,4 @@
+import { PenglaiError } from "@penglai/contracts";
 import { FIRST_PARTY_PLUGIN_METADATA, PINNED_PLUGIN_DSH } from "./plugin-catalog.js";
 
 export const REQUIRED_INVENTORY_IDS = [
@@ -107,6 +108,13 @@ function officialAliases(id: string): string[] {
 function fieldEqualsId(field: string | undefined, id: string): boolean {
   if (typeof field !== "string" || field.length === 0) return false;
   return officialAliases(id).includes(field);
+}
+
+export function refuseRequiredPluginDisable(pluginId: string): void {
+  const row = { id: pluginId, moduleName: pluginId, name: pluginId };
+  if (REQUIRED_INVENTORY_IDS.some((id) => exactPluginId(row, id))) {
+    throw new PenglaiError("SECURITY_POLICY", "required plugin cannot be disabled");
+  }
 }
 
 export function exactPluginId(row: InventoryEntry, id: string): boolean {

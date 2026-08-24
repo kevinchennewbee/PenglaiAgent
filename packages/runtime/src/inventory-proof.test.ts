@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { PenglaiError } from "@penglai/contracts";
 import {
   EMPTY_INVENTORY_PROOF,
   evaluateInventory,
   exactPluginId,
   inventorySnapshotDocument,
   matchesPlugin,
+  refuseRequiredPluginDisable,
   REQUIRED_INVENTORY_IDS,
 } from "./inventory-proof.js";
 
@@ -164,4 +166,16 @@ test("inventory snapshot document records Office and Memory without requiring IM
   assert.equal(document.requiredProofs?.every((row) => row.id !== "@penglai/im"), true);
   assert.equal(EMPTY_INVENTORY_PROOF.ok, false);
   assert.equal(EMPTY_INVENTORY_PROOF.office, false);
+});
+
+test("R56-CORE-005 required inventory ids cannot be disabled by alias", () => {
+  for (const id of REQUIRED_INVENTORY_IDS) {
+    assert.throws(
+      () => refuseRequiredPluginDisable(id),
+      (error: unknown) => error instanceof PenglaiError && error.message === "required plugin cannot be disabled",
+    );
+  }
+  assert.throws(() => refuseRequiredPluginDisable("penglai-office"));
+  assert.throws(() => refuseRequiredPluginDisable("@penglai/plugin-center"));
+  refuseRequiredPluginDisable("@penglai/im");
 });

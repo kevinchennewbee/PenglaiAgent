@@ -883,6 +883,7 @@ export * from "./generation-migrate.js";
 export * from "./boot-revoke.js";
 export * from "./inventory-proof.js";
 export * from "./private-mode.js";
+export * from "./owner-broker.js";
 
 export function processesMatching(marker: string): Array<{ pid: number; command: string }> {
   if (!marker || marker.length < 8) return [];
