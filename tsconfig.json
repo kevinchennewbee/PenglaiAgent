@@ -10,6 +10,7 @@
     { "path": "packages/channel-mock" },
     { "path": "packages/channel-weixin" },
     { "path": "packages/channel-feishu" },
+    { "path": "packages/channel-dingtalk" },
     { "path": "packages/dsh-bridge" },
     { "path": "packages/local-control" },
     { "path": "packages/runtime" },

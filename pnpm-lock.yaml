@@ -125,6 +125,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/channel-dingtalk:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      dingtalk-stream:
+        specifier: 2.1.4
+        version: 2.1.4
+
   packages/channel-feishu:
     dependencies:
       '@larksuiteoapi/node-sdk':
@@ -304,6 +313,9 @@ importers:
       '@penglai/artifacts':
         specifier: workspace:*
         version: link:../artifacts
+      '@penglai/channel-dingtalk':
+        specifier: workspace:*
+        version: link:../channel-dingtalk
       '@penglai/channel-feishu':
         specifier: workspace:*
         version: link:../channel-feishu
@@ -3691,6 +3703,9 @@ packages:
 
   dijkstrajs@1.0.3:
     resolution: {integrity: sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==}
+
+  dingtalk-stream@2.1.4:
+    resolution: {integrity: sha512-rgQbXLGWfASuB9onFcqXTnRSj4ZotimhBOnzrB4kS19AaU9lshXiuofs1GAYcKh5uzPWCAuEs3tMtiadTQWP4A==}
 
   docx@9.7.1:
     resolution: {integrity: sha512-ilXFf9Moz47ABjFpDiA5s1w9lpb4EFSp7+5iiJSbfyYDM+bpZdAgLlSr7fW4aXhVe/E+F6QCv0EvRVFEd5CsWg==}
@@ -8670,7 +8685,7 @@ snapshots:
 
   '@larksuiteoapi/node-sdk@1.73.0':
     dependencies:
-      axios: 1.19.0
+      axios: 1.19.0(debug@4.4.3)
       lodash.identity: 3.0.0
       lodash.merge: 4.6.2
       lodash.pickby: 4.6.0
@@ -9123,9 +9138,9 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.19.0:
+  axios@1.19.0(debug@4.4.3):
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.6
       https-proxy-agent: 5.0.1
       proxy-from-env: 2.1.0
@@ -9369,6 +9384,16 @@ snapshots:
 
   dijkstrajs@1.0.3: {}
 
+  dingtalk-stream@2.1.4:
+    dependencies:
+      axios: 1.19.0(debug@4.4.3)
+      debug: 4.4.3
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   docx@9.7.1:
     dependencies:
       '@types/node': 25.9.5
@@ -9601,7 +9626,9 @@ snapshots:
       locate-path: 5.0.0
       path-exists: 4.0.0
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3):
+    optionalDependencies:
+      debug: 4.4.3
 
   form-data@4.0.6:
     dependencies:

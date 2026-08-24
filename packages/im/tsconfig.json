@@ -9,6 +9,7 @@
     { "path": "../dsh-bridge" },
     { "path": "../channel-weixin" },
     { "path": "../channel-feishu" },
+    { "path": "../channel-dingtalk" },
     { "path": "../runtime" }
   ],
   "include": ["src/**/*.ts"],
