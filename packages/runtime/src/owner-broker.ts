@@ -5,6 +5,7 @@ import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
 
 export const OWNER_ACTIONS = [
   "office.commit",
+  "office.commit-path",
   "office.export",
   "office.return",
   "office.undo",
@@ -14,12 +15,15 @@ export const OWNER_ACTIONS = [
   "memory.personalize",
   "memory.correct",
   "memory.forget",
+  "memory.import",
+  "memory.delete",
   "artifact.persist",
   "plugin.install",
   "plugin.update",
   "plugin.enable",
   "plugin.disable",
   "plugin.rollback",
+  "plugin.uninstall",
   "im.bind",
   "im.rebind",
   "im.remove",

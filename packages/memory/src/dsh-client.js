@@ -85,9 +85,9 @@ window.__ModuleLoader__.load({
         "importPreview",
         "importConfirm",
         "setMode",
+        "proposeAction",
         "acceptCandidate",
         "rejectCandidate",
-        "ingestCurator",
         "sourcesStatus",
         "sourcesIngestCapability",
         "sourcesReindex",
@@ -369,11 +369,33 @@ window.__ModuleLoader__.load({
                           ? jsx.jsx("button", {
                               type: "button",
                               "data-penglai-memory-accept": String(r.id),
-                              onClick: () =>
-                                run("acceptCandidate", {
-                                  candidateId: String(r.id),
-                                  actionId: String(v.ownerActionId || ""),
-                                }),
+                              onClick: () => {
+                                Promise.resolve(
+                                  run("proposeAction", {
+                                    action: "memory.accept",
+                                    objectId: String(r.id),
+                                    ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                                  }),
+                                ).then((proposed) => {
+                                  const approve =
+                                    window.penglai && window.penglai.requestOwnerApproval;
+                                  if (!approve || !proposed || !proposed.actionId) {
+                                    throw new Error("owner approval required");
+                                  }
+                                  return Promise.resolve(
+                                    approve({ actionId: proposed.actionId }),
+                                  ).then((decided) => {
+                                    if (!decided || decided.decision !== "approved") {
+                                      throw new Error("owner denied");
+                                    }
+                                    return run("acceptCandidate", {
+                                      candidateId: String(r.id),
+                                      actionId: proposed.actionId,
+                                      receipt: decided.receipt,
+                                    });
+                                  });
+                                });
+                              },
                               children: t.accept,
                             })
                           : null,
@@ -389,12 +411,34 @@ window.__ModuleLoader__.load({
                         jsx.jsx("button", {
                           type: "button",
                           "data-penglai-memory-forget": String(r.id),
-                          onClick: () =>
-                            run("forget", {
-                              id: String(r.id),
-                              ownerConfirmed: true,
-                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                            }),
+                          onClick: () => {
+                            Promise.resolve(
+                              run("proposeAction", {
+                                action: "memory.forget",
+                                objectId: String(r.id),
+                                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                              }),
+                            ).then((proposed) => {
+                              const approve =
+                                window.penglai && window.penglai.requestOwnerApproval;
+                              if (!approve || !proposed || !proposed.actionId) {
+                                throw new Error("owner approval required");
+                              }
+                              return Promise.resolve(
+                                approve({ actionId: proposed.actionId }),
+                              ).then((decided) => {
+                                if (!decided || decided.decision !== "approved") {
+                                  throw new Error("owner denied");
+                                }
+                                return run("forget", {
+                                  id: String(r.id),
+                                  actionId: proposed.actionId,
+                                  receipt: decided.receipt,
+                                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                                });
+                              });
+                            });
+                          },
                           children: t.forget,
                         }),
                       ],
@@ -530,7 +574,23 @@ window.__ModuleLoader__.load({
           jsx.jsx("button", {
             type: "button",
             "data-penglai-memory-import-confirm": "1",
-            onClick: () => run("importConfirm", { ownerConfirmed: true }),
+            onClick: () => {
+              Promise.resolve(
+                run("proposeAction", { action: "memory.import", objectId: "legacy-import" }),
+              ).then((proposed) => {
+                const approve = window.penglai && window.penglai.requestOwnerApproval;
+                if (!approve || !proposed || !proposed.actionId) {
+                  throw new Error("owner approval required");
+                }
+                return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+                  if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+                  return run("importConfirm", {
+                    actionId: proposed.actionId,
+                    receipt: decided.receipt,
+                  });
+                });
+              });
+            },
             children: t.importConfirm,
           }),
           v.importNote ? jsx.jsx("pre", { children: v.importNote }) : null,

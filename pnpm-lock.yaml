@@ -301,6 +301,9 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: 0.1.1-rc.2
         version: 0.1.1-rc.2(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.1-rc.2(@deepseek-ai/cordis@4.0.1))
+      '@penglai/artifacts':
+        specifier: workspace:*
+        version: link:../artifacts
       '@penglai/channel-feishu':
         specifier: workspace:*
         version: link:../channel-feishu
@@ -358,6 +361,9 @@ importers:
       '@penglai/release-identity':
         specifier: workspace:*
         version: link:../release-identity
+      '@penglai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
   packages/moss-tts:
     dependencies:
@@ -391,9 +397,15 @@ importers:
       '@pdf-lib/fontkit':
         specifier: 1.1.1
         version: 1.1.1
+      '@penglai/artifacts':
+        specifier: workspace:*
+        version: link:../artifacts
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       docx:
         specifier: 9.7.1
         version: 9.7.1

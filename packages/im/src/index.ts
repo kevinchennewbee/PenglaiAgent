@@ -17,7 +17,8 @@ import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
-import { OwnerApprovalBroker } from "@penglai/runtime";
+import { ArtifactService } from "@penglai/artifacts";
+import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
 import { PenglaiImHost } from "./host.js";
 import { PenglaiImRemote } from "./remote.js";
 
@@ -171,9 +172,11 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     }
   });
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
+  const artifacts = new ArtifactService(join(userData, "artifacts"));
+  host.attachArtifacts(artifacts);
   host.attachOwner(
     new OwnerApprovalBroker(userData, {
-      dialog: async () => "denied",
+      dialog: createHostOwnerDialog(userData),
     }),
   );
   void rt.plane.recoverQueuedInbounds();
@@ -191,6 +194,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
   const effect = (ctx as CordisLike & { effect?: (fn: () => () => void) => void }).effect;
   effect?.(() => () => {
     host.releaseAll();
+    artifacts.close();
   });
   if (ctx instanceof Context) {
     new PenglaiImRemote(ctx, host);

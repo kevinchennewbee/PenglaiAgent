@@ -22,7 +22,10 @@ import { registerMemoryTools } from "./tools.js";
 import { MemoryV2Store } from "./v2/candidates.js";
 import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
-import { requireMemoryActionId } from "./v2/owner.js";
+import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
+import { consumeMemoryOwnerProof, proposeMemoryAction, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
+import { ingestOfficialTurn, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry", "tools"];
@@ -37,9 +40,10 @@ interface CordisContextLike {
   skills?: {
     snapshot(options?: { cwd?: string }): Promise<{ skills: OfficialSkillSummary[]; complete: boolean }>;
   };
-  workspaceRegistry?: { list(): Array<{ id: string; title?: string }> };
+  workspaceRegistry?: { list(): Array<{ id: string; title?: string; sessionIds?: readonly string[] }> };
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
+  on?: (event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>) => unknown;
 }
 
 export interface SopPromotion {
@@ -112,6 +116,8 @@ export function createDurableMemoryService(opts: {
   userData: string;
   skills: NonNullable<CordisContextLike["skills"]>;
   onClose?: () => void;
+  owner?: MemoryOwnerBrokerPort;
+  curator?: (summary: string) => Promise<string>;
 }) {
   const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
   const engine = new MnemonMemoryService(opts.userData, {
@@ -142,16 +148,53 @@ export function createDurableMemoryService(opts: {
     async correct(oldId: string, text: string, workspaceId?: string) {
       return engine.correct(oldId, text, workspaceId);
     },
-    async forget(id: string, workspaceId?: string) {
+    async forget(id: string, workspaceId?: string, proof?: { actionId: string; receipt: string }) {
+      if (!proof?.actionId || !proof.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      }
+      const digest = createHash("sha256").update(`forget:${id}`).digest("hex");
+      consumeMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.forget,
+        actionId: proof.actionId,
+        receipt: proof.receipt,
+        objectId: id,
+        ...(workspaceId ? { workspaceId } : {}),
+        resultDigest: digest,
+      });
       const prior = engine.journal.get(id);
       const result = await engine.forget(id, workspaceId);
       if (prior) v2.recordTombstone(id, prior.contentDigest);
       return result;
     },
-    acceptCandidate(input: { candidateId: string; actionId: string; personal?: boolean }) {
-      const actionId = requireMemoryActionId(input.actionId, input.personal ? "MEMORY_PERSONAL_RECEIPT" : "MEMORY_OWNER_ACTION");
+    proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string }) {
+      if (!opts.owner) throw new PenglaiError("DSH_UNAVAILABLE", "owner broker required");
+      const action = input.action as (typeof MEMORY_OWNER_ACTIONS)[keyof typeof MEMORY_OWNER_ACTIONS];
+      if (!Object.values(MEMORY_OWNER_ACTIONS).includes(action)) {
+        throw new PenglaiError("SECURITY_POLICY", "MEMORY_OWNER_ACTION");
+      }
+      const sourceDigest = createHash("sha256").update(`${action}:${input.objectId}`).digest("hex");
+      return proposeMemoryAction(opts.owner, {
+        action,
+        objectId: input.objectId,
+        sourceDigest,
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      });
+    },
+    acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) {
+      if (!input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      const hit = v2.getCandidate(input.candidateId);
+      const digest = createHash("sha256").update(input.candidateId).digest("hex");
+      consumeMemoryOwnerProof(opts.owner, {
+        action: input.personal ? MEMORY_OWNER_ACTIONS.personal : MEMORY_OWNER_ACTIONS.accept,
+        actionId: input.actionId,
+        receipt: input.receipt,
+        objectId: input.candidateId,
+        ...(hit?.workspaceId ? { workspaceId: hit.workspaceId } : {}),
+        resultDigest: digest,
+      });
       return v2.decide(input.candidateId, "accepted", {
-        actionId,
+        actionId: input.actionId,
         ...(input.personal ? { personal: true } : {}),
       });
     },
@@ -270,14 +313,69 @@ export function apply(ctx: CordisContextLike) {
   const workspaceRegistry = ctx.workspaceRegistry;
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
   const sources = applyEmbeddedMemorySources(ctx);
+  const owner = new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) });
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
     service = createDurableMemoryService({
       userData,
       skills: ctx.skills,
+      owner,
       onClose: () => sources.close(),
     });
     const activeService = service;
+    const turns = new Map<string, { user?: string; assistant?: string }>();
+    ctx.on?.("session/event", (...args: unknown[]) => {
+      const parts = sessionEventParts(args);
+      if (!parts.sessionId || typeof parts.turn !== "number") return;
+      const key = `${parts.sessionId}:${parts.turn}`;
+      const prev = turns.get(key) ?? {};
+      if (parts.type === "user/message" && parts.text) prev.user = parts.text;
+      if (parts.type === "assistant/message" && parts.text) prev.assistant = parts.text;
+      turns.set(key, prev);
+      if (parts.type !== "turn/end") return;
+      const workspaceId = workspaceIdForSession(workspaceRegistry.list(), parts.sessionId);
+      if (!workspaceId || activeService.memoryV2.mode() === "off") {
+        turns.delete(key);
+        return;
+      }
+      const summary = turnSummary(prev);
+      turns.delete(key);
+      void Promise.resolve()
+        .then(async () => {
+          const raw = JSON.stringify({ candidates: [] });
+          ingestOfficialTurn({
+            store: activeService.memoryV2,
+            workspaceId,
+            sessionId: parts.sessionId!,
+            turnId: String(parts.turn),
+            raw,
+            summary,
+          });
+        })
+        .catch(() => undefined);
+    });
+    ctx.on?.(
+      "agent/pre-step",
+      async (payload: unknown, next: unknown) => {
+        const decision = typeof next === "function" ? await (next as () => unknown)() : next;
+        const row = decision && typeof decision === "object" ? (decision as { kind?: string; messages?: Array<{ content?: unknown[] }> }) : undefined;
+        if (row?.kind !== "enter" || !Array.isArray(row.messages)) return decision;
+        const sessionId = String((payload as { agent?: { id?: string } } | undefined)?.agent?.id ?? "");
+        const workspaceId = workspaceIdForSession(workspaceRegistry.list(), sessionId);
+        if (!workspaceId || activeService.memoryV2.mode() === "off") return decision;
+        const confirmed = activeService.engine
+          .listConfirmed({ scope: "workspace", workspaceId })
+          .map((item) => ({
+            id: item.id,
+            scope: "workspace" as const,
+            text: item.content,
+            sourceDigest: item.contentDigest ?? "a".repeat(64),
+          }));
+        const recall = activeService.memoryV2.recallSet({ workspaceId, confirmed });
+        return { ...row, messages: withMemoryRecall(row.messages, recall), penglaiMemoryUsed: recall.used };
+      },
+      { global: true, prepend: true },
+    );
     registerMemoryTools(ctx, activeService.engine);
     ctx.provide("penglaiMemory", activeService);
     if (ctx instanceof Context) {

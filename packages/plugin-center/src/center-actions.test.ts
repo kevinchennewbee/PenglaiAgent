@@ -56,8 +56,8 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   const main = readFileSync(new URL("../../../apps/desktop/src/electron-main.ts", import.meta.url), "utf8");
   assert.match(main, /installEnable:\s*"plugin-enable"/);
   const remotes = readFileSync(new URL("./remotes.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const start = remotes.indexOf("async installEnable(id: string, capabilityId?: string) {");
-  const end = remotes.indexOf("disable(id: string, capabilityId?: string) {\n      refuseRequiredPluginDisable(id);");
+  const start = remotes.indexOf("async installEnable(id: string, proof?: CenterOwnerProof | string) {");
+  const end = remotes.indexOf("disable(id: string, proof?: CenterOwnerProof | string) {\n      refuseRequiredPluginDisable(id);");
   const installEnable = remotes.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.match(installEnable, /plugin-enable/);

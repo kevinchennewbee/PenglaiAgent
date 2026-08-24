@@ -3,6 +3,7 @@
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
   "references": [
     { "path": "../contracts" },
+    { "path": "../artifacts" },
     { "path": "../persistence" },
     { "path": "../routing-core" },
     { "path": "../dsh-bridge" },

@@ -24,17 +24,15 @@ import { OFFICE_TEMPLATES, templateById } from "./templates/catalog.js";
 import { previewJob } from "./preview.js";
 import { diffJob } from "./diff.js";
 import { assertOperationForFormat, OFFICE_LIMITS, type OfficeOperation } from "./operations.js";
-import {
-  createReceiptSecret,
-  issueOfficeReceipt,
-  verifyOfficeReceipt,
-  type OfficeReceiptAction,
-} from "./receipt.js";
+import { type OfficeReceiptAction } from "./receipt.js";
 import { assertPathInWorkspace, atomicCommitFile } from "./transaction.js";
+import type { ArtifactService } from "@penglai/artifacts";
 import {
   consumeOfficeBrokerReceipt,
   isOwnerBrokerReceipt,
+  officeOwnerAction,
   ownerBrokerActionId,
+  proposeOfficeAction,
   type OfficeOwnerBrokerPort,
 } from "./owner-adapter.js";
 
@@ -70,7 +68,6 @@ export interface OfficeOutbound {
 }
 
 const SECRET = /api[_-]?key|password|private key/i;
-const RECEIPT_TTL_MS = 15 * 60 * 1000;
 
 function requireSafe(text: string): void {
   if (SECRET.test(text)) throw new PenglaiError("SECURITY_POLICY", "office secret rejection");
@@ -182,8 +179,8 @@ export function createOfficeService(opts?: {
   objects?: ObjectStore;
   outbound?: () => OfficeOutbound | undefined;
   owner?: OfficeOwnerBrokerPort;
+  artifacts?: ArtifactService;
 }) {
-  const secret = createReceiptSecret();
   const objects =
     opts?.objects ??
     new ObjectStore(opts?.userData ? join(opts.userData, "objects") : process.env.PENGLAI_USER_DATA ? join(process.env.PENGLAI_USER_DATA, "objects") : undefined);
@@ -200,47 +197,37 @@ export function createOfficeService(opts?: {
     if (action === "export") return requested || job.format;
     return requested;
   }
-  function authorityDigest(job: OfficeJobRecord, action: OfficeReceiptAction, target = ""): string {
-    return digestBytes(Buffer.from(JSON.stringify({
+  function consumeReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, receipt: string, _target = "") {
+    if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
+    if (!isOwnerBrokerReceipt(receipt)) {
+      throw new PenglaiError("SECURITY_POLICY", "office broker receipt required");
+    }
+    const actionId = ownerBrokerActionId(receipt);
+    const reserved = consumeOfficeBrokerReceipt(opts.owner, {
+      receipt,
+      actionId,
       action,
-      target: receiptTarget(job, action, target),
-      workspaceId: job.workspaceId ?? "",
-      sessionId: job.sessionId ?? "",
-      routeId: job.routeId ?? "",
-    }), "utf8"));
-  }
-  function expectedReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, target = "") {
-    return {
       jobId: job.id,
       sourceDigest: job.sourceDigest,
-      opsDigest: job.opsDigest,
-      resultDigest: job.digest,
-      action,
-      authorityDigest: authorityDigest(job, action, target),
       ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
-    };
-  }
-  function consumeReceipt(job: OfficeJobRecord, action: OfficeReceiptAction, receipt: string, target = "") {
-    if (isOwnerBrokerReceipt(receipt)) {
-      if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
-      const actionId = ownerBrokerActionId(receipt);
-      const reserved = consumeOfficeBrokerReceipt(opts.owner, {
-        receipt,
+    });
+    return () =>
+      opts.owner?.completeApproval({
         actionId,
-        action,
-        jobId: job.id,
-        sourceDigest: job.sourceDigest,
-        ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+        reservationId: reserved.reservationId,
+        resultDigest: job.resultDigest ?? job.digest,
       });
-      return () =>
-        opts.owner?.completeApproval({
-          actionId,
-          reservationId: reserved.reservationId,
-          resultDigest: job.resultDigest ?? job.digest,
-        });
-    }
-    verifyOfficeReceipt(secret, receipt, expectedReceipt(job, action, target));
-    return () => undefined;
+  }
+  function ingestJobBytes(job: OfficeJobRecord, name: string, source: "office" | "generated" = "office") {
+    if (!opts?.artifacts) return;
+    const ref = opts.artifacts.ingestBytes(Buffer.from(job.bytes), {
+      name,
+      source,
+      scope: job.workspaceId ? "workspace" : "turn",
+      ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+      ...(job.sessionId ? { sessionId: job.sessionId } : {}),
+    });
+    job.artifactId = ref.id;
   }
   return {
     name: "@penglai/office",
@@ -266,6 +253,7 @@ export function createOfficeService(opts?: {
         ...(binding?.workspaceId ? { workspaceId: binding.workspaceId } : {}),
         ...(binding?.routeId ? { routeId: binding.routeId } : {}),
       });
+      ingestJobBytes(job, `attached.${seen.format}`);
       return { ...toPublic(job), handle };
     },
     async inspectWorkspaceFile(absPath: string, workspaceRoot: string, workspaceId: string) {
@@ -284,6 +272,15 @@ export function createOfficeService(opts?: {
         workspaceId,
         sourcePath: dest,
       });
+      if (opts?.artifacts) {
+        const ref = opts.artifacts.ingestPath(dest, {
+          name: basename(dest),
+          source: "office",
+          scope: "workspace",
+          workspaceId,
+        });
+        job.artifactId = ref.id;
+      }
       return toPublic(job);
     },
     async createFromTemplate(id: string, workspaceId?: string) {
@@ -301,22 +298,38 @@ export function createOfficeService(opts?: {
     async diff(jobId: string) {
       return diffJob(getJob(jobId));
     },
-    approve(jobId: string, action: OfficeReceiptAction = "commit", target = "") {
+    async approve(jobId: string, action: OfficeReceiptAction = "commit", target = "") {
       const job = getJob(jobId);
       if (!["PREVIEW_READY", "PLAN_READY", "INSPECTED", "OWNER_APPROVED", "COMMITTED", "UNDO_READY"].includes(job.state)) {
         throw new PenglaiError("SECURITY_POLICY", "office job is not ready for approval");
       }
-      const receipt = issueOfficeReceipt(secret, {
-        ...expectedReceipt(job, action, target),
-        exp: Date.now() + RECEIPT_TTL_MS,
-      });
-      job.receipt = receipt;
-      if (job.state === "PREVIEW_READY" || job.state === "PLAN_READY" || job.state === "INSPECTED") {
-        setJobState(jobId, "OWNER_APPROVED", `hmac:${action}`);
-      } else {
-        job.events.push({ at: Date.now(), state: job.state, note: `hmac:${action}` });
+      if (!opts?.owner) throw new PenglaiError("SECURITY_POLICY", "office broker is not configured");
+      receiptTarget(job, action, target);
+      const destName = target ? basename(target).replace(/[\\/]/g, "") : "";
+      if (target && destName !== basename(target)) {
+        throw new PenglaiError("SECURITY_POLICY", "office destination label escaped");
       }
-      return receipt;
+      const proposed = proposeOfficeAction(opts.owner, {
+        action,
+        jobId,
+        sourceDigest: job.sourceDigest,
+        ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+        ...(job.sessionId ? { sessionId: job.sessionId } : {}),
+        resultDigest: job.digest,
+        ...(destName ? { destinationLabel: destName } : {}),
+      });
+      const decided = await opts.owner.requestOwnerApproval(proposed.actionId);
+      if (decided.decision !== "approved") {
+        throw new PenglaiError("SECURITY_POLICY", "owner denied office action");
+      }
+      job.receipt = decided.receipt;
+      if (action === "commit-to-path" && target && !job.destPath) job.destPath = target;
+      if (job.state === "PREVIEW_READY" || job.state === "PLAN_READY" || job.state === "INSPECTED") {
+        setJobState(jobId, "OWNER_APPROVED", `${officeOwnerAction(action)}`);
+      } else {
+        job.events.push({ at: Date.now(), state: job.state, note: officeOwnerAction(action) });
+      }
+      return decided.receipt;
     },
     async verify(jobId: string) {
       const job = getJob(jobId);
@@ -411,8 +424,9 @@ export function createOfficeService(opts?: {
       if (target !== job.format) throw new PenglaiError("INVALID_INPUT", "office format conversion is not implemented");
       const finish = consumeReceipt(job, "export", receipt, target);
       assertPreviewMatchesResult(job);
+      ingestJobBytes(job, `penglai.${job.format}`, "generated");
       finish();
-      return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest };
+      return { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest, ...(job.artifactId ? { artifactId: job.artifactId } : {}) };
     },
     async returnToChannel(jobId: string, receipt: string) {
       const job = getJob(jobId);
@@ -423,7 +437,16 @@ export function createOfficeService(opts?: {
       assertPreviewMatchesResult(job);
       const outbound = opts?.outbound?.();
       if (!outbound) throw new PenglaiError("DSH_UNAVAILABLE", "Penglai IM is disabled or unavailable");
-      const exported = { bytes: Buffer.from(job.bytes), format: job.format, filename: `penglai.${job.format}`, digest: job.digest };
+      let bytes = Buffer.from(job.bytes);
+      if (opts?.artifacts && job.artifactId) {
+        bytes = Buffer.from(opts.artifacts.readControlled(job.artifactId, {
+          ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+          ...(job.sessionId ? { sessionId: job.sessionId } : {}),
+        }).bytes);
+      } else {
+        ingestJobBytes(job, `penglai.${job.format}`, "generated");
+      }
+      const exported = { bytes, format: job.format, filename: `penglai.${job.format}`, digest: job.digest };
       const result = await outbound.sendFileToBoundRoute({
         routeId: job.routeId,
         sessionId: job.sessionId,

@@ -141,7 +141,12 @@ window.__ModuleLoader__.load({
       },
     };
 
-    function createAudioPlaybackController() {
+    function createAudioPlaybackController(io) {
+      const media = io || {
+        Audio,
+        createObjectURL: (blob) => URL.createObjectURL(blob),
+        revokeObjectURL: (url) => URL.revokeObjectURL(url),
+      };
       let generation = 0;
       let state = "idle";
       let current;
@@ -157,15 +162,17 @@ window.__ModuleLoader__.load({
         try {
           held.audio.onended = null;
           held.audio.onerror = null;
+          held.audio.onstalled = null;
+          held.audio.onabort = null;
           held.audio.pause();
         } catch {
           /* player already closed */
         }
-        URL.revokeObjectURL(held.url);
+        media.revokeObjectURL(held.url);
       };
       const finish = (token, next, url) => {
         if (token !== generation) return;
-        if (url) URL.revokeObjectURL(url);
+        if (url) media.revokeObjectURL(url);
         current = undefined;
         emit(next);
         if (next === "completed" || next === "failed") emit("idle");
@@ -181,15 +188,18 @@ window.__ModuleLoader__.load({
           if (used !== generation) return { state, generation };
           release();
           emit("buffering");
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
+          const url = media.createObjectURL(blob);
+          const audio = new media.Audio(url);
           current = { url, audio, generation: used };
           audio.onended = () => finish(used, "completed", url);
           audio.onerror = () => finish(used, "failed", url);
+          audio.onstalled = () => finish(used, "failed", url);
+          audio.onabort = () => finish(used, "failed", url);
           try {
             emit("playing");
             await audio.play();
-            return { state: used === generation ? "playing" : state, generation: used };
+            if (used !== generation) return { state, generation };
+            return { state: "playing", generation: used };
           } catch {
             finish(used, "failed", url);
             return { state: "failed", generation: used, errorCode: "TTS_PLAY_REJECTED" };
@@ -203,6 +213,9 @@ window.__ModuleLoader__.load({
         },
         getState() {
           return state;
+        },
+        getGeneration() {
+          return generation;
         },
         subscribe(fn) {
           listeners.add(fn);

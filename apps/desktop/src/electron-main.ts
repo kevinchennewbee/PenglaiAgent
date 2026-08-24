@@ -19,6 +19,7 @@ import {
   EMPTY_INVENTORY_PROOF,
   evaluateInventory,
   OwnerApprovalBroker,
+  drainOwnerDialogRequests,
   requestOwnerApprovalArgs,
   inspectStorageInventory,
   issuePluginOwnerGrant,
@@ -64,6 +65,36 @@ import {
 } from "./plugin-runtime-restart.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+const ownerBrokers = new Map<string, OwnerApprovalBroker>();
+
+function nativeOwnerDialog(win: BrowserWindow): ConstructorParameters<typeof OwnerApprovalBroker>[1]["dialog"] {
+  return async (req) => {
+    const picked = await dialog.showMessageBox(win, {
+      type: "warning",
+      buttons: ["Cancel", "Allow once"],
+      defaultId: 0,
+      cancelId: 0,
+      message: req.noticeEn,
+      detail: [req.noticeZh, req.action, req.pluginId, req.destinationLabel, req.workspaceLabel]
+        .filter((row): row is string => typeof row === "string" && row.length > 0)
+        .join("\n"),
+    });
+    return picked.response === 1 ? "approved" : "denied";
+  };
+}
+
+function ownerBrokerForWindow(userRoot: string, win: BrowserWindow): OwnerApprovalBroker {
+  const existing = ownerBrokers.get(userRoot);
+  if (existing) return existing;
+  const broker = new OwnerApprovalBroker(userRoot, { dialog: nativeOwnerDialog(win) });
+  ownerBrokers.set(userRoot, broker);
+  const timer = setInterval(() => {
+    void drainOwnerDialogRequests(userRoot, nativeOwnerDialog(win)).catch(() => undefined);
+  }, 250);
+  timer.unref?.();
+  return broker;
+}
 
 function describePluginForOwner(userRoot: string, id: string): {
   id: string;
@@ -310,6 +341,7 @@ async function main(): Promise<void> {
   });
   session.defaultSession.on("will-download", (event) => event.preventDefault());
   const user = { ...resolveUserLayout(desktopData.userData), logs: desktopData.logs };
+  ownerBrokerForWindow(user.root, win);
   const live = new DshSupervisor();
   let proxy: LocalProxy | undefined;
   let allowedOrigin = "http://127.0.0.1:1/";
@@ -756,22 +788,7 @@ async function main(): Promise<void> {
         if (name === "requestOwnerApproval") {
           if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one owner action payload is required");
           const actionId = requestOwnerApprovalArgs(args[0]);
-          const broker = new OwnerApprovalBroker(user.root, {
-            dialog: async (req) => {
-              const picked = await dialog.showMessageBox(win, {
-                type: "warning",
-                buttons: ["Cancel", "Allow once"],
-                defaultId: 0,
-                cancelId: 0,
-                message: req.noticeEn,
-                detail: [req.noticeZh, req.action, req.pluginId, req.destinationLabel, req.workspaceLabel]
-                  .filter((row): row is string => typeof row === "string" && row.length > 0)
-                  .join("\n"),
-              });
-              return picked.response === 1 ? "approved" : "denied";
-            },
-          });
-          return broker.requestOwnerApproval(actionId);
+          return ownerBrokerForWindow(user.root, win).requestOwnerApproval(actionId);
         }
         if (name === "confirmPluginAction") {
           if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one plugin action payload is required");
@@ -787,33 +804,22 @@ async function main(): Promise<void> {
             disable: "plugin-disable",
             rollback: "plugin-rollback",
           };
+          const brokerMapped = {
+            "plugin-enable": "plugin.enable",
+            "plugin-update": "plugin.update",
+            "plugin-install": "plugin.install",
+            "plugin-disable": "plugin.disable",
+            "plugin-rollback": "plugin.rollback",
+          } as const;
           const ownerAction = typeof rec.action === "string" ? mapped[rec.action] : undefined;
           if (!ownerAction) throw new PenglaiError("INVALID_INPUT", "plugin action required");
           const described = describePluginForOwner(user.root, rec.id);
-          const summary = [
-            `${ownerAction} ${described.id} ${described.version}`,
-            `Publisher: ${described.publisher}`,
-            `SHA-256: ${described.sha256}`,
-            `Permissions: ${described.permissions.join(", ") || "(none)"}`,
-            `Network origins: ${described.networkOrigins.join(", ") || "(none)"}`,
-            `Data paths: ${described.dataPaths.join(", ") || "(none)"}`,
-            `Native code: ${described.nativeCode ? "yes" : "no"}`,
-          ].join("\n");
-          const picked = await dialog.showMessageBox(win, {
-            type: "warning",
-            buttons: ["Cancel", "Allow once"],
-            defaultId: 1,
-            cancelId: 0,
-            message: "Penglai plugin permission",
-            detail: summary,
-          });
-          if (picked.response !== 1) throw new PenglaiError("SECURITY_POLICY", "owner cancelled plugin action");
-          const grant = issuePluginOwnerGrant({
-            userDataRoot: user.root,
-            action: ownerAction,
+          const broker = ownerBrokerForWindow(user.root, win);
+          const proposal = broker.createProposal({
+            action: brokerMapped[ownerAction],
             pluginId: described.id,
-            version: described.version,
-            sha256: described.sha256,
+            objectId: described.id,
+            sourceDigest: described.sha256,
             permissionDigest: pluginPermissionDigest({
               permissions: described.permissions,
               networkOrigins: described.networkOrigins,
@@ -821,6 +827,13 @@ async function main(): Promise<void> {
               nativeCode: described.nativeCode,
             }),
           });
+          const decided = await broker.requestOwnerApproval(proposal.actionId);
+          if (decided.decision !== "approved") throw new PenglaiError("SECURITY_POLICY", "owner cancelled plugin action");
+          const grant = {
+            actionId: proposal.actionId,
+            receipt: decided.receipt,
+            capabilityId: undefined,
+          };
           if (ownerAction === "plugin-update") {
             pendingPluginRuntimeRestart = issuePluginRuntimeRestart({
               id: described.id,
@@ -828,7 +841,7 @@ async function main(): Promise<void> {
               sha256: described.sha256,
             });
           }
-          return { capabilityId: grant.capabilityId };
+          return { actionId: grant.actionId, receipt: grant.receipt };
         }
         if (name === "restartPluginRuntime") {
           if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one plugin restart payload is required");

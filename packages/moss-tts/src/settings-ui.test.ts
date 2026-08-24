@@ -364,5 +364,7 @@ test("TTS preview and read-aloud share one playback controller", () => {
   assert.match(client, /await audio\.play\(\)/);
   assert.match(client, /TTS_PLAY_REJECTED/);
   assert.match(client, /readOriginal/);
-  assert.equal((client.match(/new Audio\(/g) ?? []).length, 1);
+  assert.equal((client.match(/new media\.Audio\(/g) ?? []).length, 1);
+  assert.match(client, /onstalled/);
+  assert.match(client, /onabort/);
 });

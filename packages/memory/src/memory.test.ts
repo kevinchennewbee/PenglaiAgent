@@ -169,7 +169,7 @@ test("Memory settings enforces layered writes, visible diff, and live Workspace 
   const workspace = await api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" });
   assert.equal(workspace.id, 2);
   await assert.rejects(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
-  await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /Owner confirmation/);
+  await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /broker receipt/);
 });
 
 test("Memory exposes authorized sources through its one settings Remote", () => {

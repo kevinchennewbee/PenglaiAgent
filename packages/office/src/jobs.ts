@@ -48,6 +48,7 @@ export interface OfficeJobRecord {
   sessionId?: string;
   routeId?: string;
   attachmentHandle?: string;
+  artifactId?: string;
   sourcePath?: string;
   destPath?: string;
   digest: string;

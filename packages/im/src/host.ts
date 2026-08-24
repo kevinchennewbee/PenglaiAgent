@@ -6,6 +6,7 @@ import {
   type PenglaiMossTtsClient,
   type VoiceReplyMode,
 } from "@penglai/contracts";
+import type { ArtifactService } from "@penglai/artifacts";
 import type { WeixinAdapter } from "@penglai/channel-weixin";
 import type { FeishuAdapter } from "@penglai/channel-feishu";
 import type { RoutingControlPlane } from "@penglai/routing-core";
@@ -77,6 +78,7 @@ export class PenglaiImHost {
   private feishuQrId = "";
   private feishuAppId = "";
   private owner: ImOwnerBrokerPort | undefined;
+  private artifacts: ArtifactService | undefined;
   readonly bots: ImBotStore;
 
   constructor(
@@ -110,6 +112,10 @@ export class PenglaiImHost {
 
   attachOwner(owner: ImOwnerBrokerPort): void {
     this.owner = owner;
+  }
+
+  attachArtifacts(artifacts: ArtifactService): void {
+    this.artifacts = artifacts;
   }
 
   proposeBinding(input: {
@@ -362,11 +368,28 @@ export class PenglaiImHost {
     const route = this.store.getRoute(input.routeId);
     if (!route || route.status !== "active") throw new PenglaiError("BINDING_STALE", "office outbound route unavailable");
     const target = this.plane.requireVendorTarget(input.routeId);
-    assertSha256(input.bytes, input.digest);
-    const clientId = `penglai-office-${input.digest.replace(/^sha256:/, "").slice(0, 24)}`;
+    let bytes = input.bytes;
+    let digest = input.digest;
+    if (this.artifacts) {
+      const ref = this.artifacts.ingestBytes(input.bytes, {
+        name: input.filename,
+        source: "im",
+        scope: "turn",
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        sessionId: input.sessionId,
+      });
+      const read = this.artifacts.readControlled(ref.id, {
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        sessionId: input.sessionId,
+      });
+      bytes = read.bytes;
+      digest = ref.sha256.replace(/^sha256:/, "");
+    }
+    assertSha256(bytes, digest);
+    const clientId = `penglai-office-${digest.replace(/^sha256:/, "").slice(0, 24)}`;
     const sent = route.adapter === "feishu"
-      ? await this.feishu.sendFile(target, input.bytes, input.filename)
-      : await this.weixin.sendFile(target, input.bytes, input.filename, clientId);
+      ? await this.feishu.sendFile(target, bytes, input.filename)
+      : await this.weixin.sendFile(target, bytes, input.filename, clientId);
     if (!("ok" in sent && sent.ok)) {
       throw new PenglaiError(
         "error" in sent && sent.error === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT",

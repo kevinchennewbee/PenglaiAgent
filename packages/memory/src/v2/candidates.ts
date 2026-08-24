@@ -211,6 +211,14 @@ export class MemoryV2Store {
     return rows.map((row) => this.map(row));
   }
 
+  getCandidate(candidateId: string): MemoryCandidateV1 | undefined {
+    this.expire();
+    const raw = this.db.prepare(`SELECT * FROM candidates WHERE candidate_id = ?`).get(candidateId) as
+      | Record<string, string | number>
+      | undefined;
+    return raw ? this.map(raw) : undefined;
+  }
+
   decide(
     candidateId: string,
     status: "accepted" | "rejected",

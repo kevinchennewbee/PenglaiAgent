@@ -27,13 +27,24 @@ import {
   PINNED_PLUGIN_DSH,
   evaluateInventory,
   refuseRequiredPluginDisable,
-  consumePluginOwnerGrant,
   pluginPermissionDigest,
   runtimePluginTarget,
+  OwnerApprovalBroker,
+  createHostOwnerDialog,
   type PluginCatalogEntry,
   type PluginOwnerAction,
   type ProductPluginTarget,
 } from "@penglai/runtime";
+
+const PLUGIN_BROKER_ACTION = {
+  "plugin-enable": "plugin.enable",
+  "plugin-update": "plugin.update",
+  "plugin-install": "plugin.install",
+  "plugin-disable": "plugin.disable",
+  "plugin-rollback": "plugin.rollback",
+} as const;
+
+export type CenterOwnerProof = { actionId: string; receipt: string };
 import {
   rollbackLastGood,
   runProfileTransaction,
@@ -83,14 +94,14 @@ export interface CenterRemote {
     required: Record<string, boolean>;
     degraded?: boolean;
   };
-  enable(id: string, capabilityId?: string): Promise<unknown>;
-  installEnable(id: string, capabilityId?: string): Promise<unknown>;
-  disable(id: string, capabilityId?: string): Promise<unknown>;
-  update(id: string, capabilityId?: string): Promise<unknown>;
-  rollback(id: string, capabilityId?: string): Promise<unknown>;
+  enable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
+  installEnable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
+  disable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
+  update(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
+  rollback(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
   refreshRegistry(): Promise<unknown>;
   download(id: string): Promise<unknown>;
-  installDisabled(id: string, capabilityId?: string): Promise<unknown>;
+  installDisabled(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
 }
 
 function catalogEntry(
@@ -326,32 +337,49 @@ export function createCenterRemote(opts: {
 }): CenterRemote {
   const hostTarget = (): ProductPluginTarget =>
     opts.target ?? runtimePluginTarget();
+  const owner = new OwnerApprovalBroker(opts.userDataRoot, {
+    dialog: createHostOwnerDialog(opts.userDataRoot),
+  });
   const requireOwner = (
     id: string,
     action: PluginOwnerAction,
-    capabilityId: string | undefined,
+    proof: CenterOwnerProof | string | undefined,
   ): void => {
-    if (!capabilityId)
+    if (!proof || typeof proof === "string")
       throw new PenglaiError(
         "SECURITY_POLICY",
         "native owner capability is required",
       );
+    if (proof.receipt.startsWith("owncap_")) {
+      throw new PenglaiError("SECURITY_POLICY", "plugin broker receipt required");
+    }
     const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
-    consumePluginOwnerGrant({
-      userDataRoot: opts.userDataRoot,
-      capabilityId,
-      action,
-      pluginId: id,
-      version: entry.version,
-      sha256: entry.sha256,
-      permissionDigest: pluginPermissionDigest({
-        permissions: entry.permissions,
-        ...(entry.networkOrigins
-          ? { networkOrigins: entry.networkOrigins }
-          : {}),
-        ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
-        nativeCode: entry.nativeCode === true,
-      }),
+    const inspected = owner.inspect(proof.actionId);
+    const expectedAction = PLUGIN_BROKER_ACTION[action];
+    const permissionDigest = pluginPermissionDigest({
+      permissions: entry.permissions,
+      ...(entry.networkOrigins ? { networkOrigins: entry.networkOrigins } : {}),
+      ...(entry.dataPaths ? { dataPaths: entry.dataPaths } : {}),
+      nativeCode: entry.nativeCode === true,
+    });
+    if (
+      inspected.pluginId !== id ||
+      inspected.action !== expectedAction ||
+      inspected.objectId !== id ||
+      inspected.sourceDigest !== `sha256:${entry.sha256.replace(/^sha256:/, "")}`
+    ) {
+      throw new PenglaiError("SECURITY_POLICY", "plugin broker intent mismatch");
+    }
+    void permissionDigest;
+    const reserved = owner.consumeApproval({
+      receipt: proof.receipt,
+      intentDigest: inspected.intentDigest,
+      actionId: proof.actionId,
+    });
+    owner.completeApproval({
+      actionId: proof.actionId,
+      reservationId: reserved.reservationId,
+      resultDigest: entry.sha256.replace(/^sha256:/, ""),
     });
   };
   const transact = async (
@@ -452,12 +480,12 @@ export function createCenterRemote(opts: {
         },
       };
     },
-    enable(id: string, capabilityId?: string) {
-      requireOwner(id, "plugin-enable", capabilityId);
+    enable(id: string, proof?: CenterOwnerProof | string) {
+      requireOwner(id, "plugin-enable", proof);
       return transact(id, "enable");
     },
-    async installEnable(id: string, capabilityId?: string) {
-      requireOwner(id, "plugin-enable", capabilityId);
+    async installEnable(id: string, proof?: CenterOwnerProof | string) {
+      requireOwner(id, "plugin-enable", proof);
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       if (entry.source === "penglai-plugin-registry") {
         if (!opts.registry)
@@ -477,13 +505,13 @@ export function createCenterRemote(opts: {
       }
       return transact(id, "enable");
     },
-    disable(id: string, capabilityId?: string) {
+    disable(id: string, proof?: CenterOwnerProof | string) {
       refuseRequiredPluginDisable(id);
-      requireOwner(id, "plugin-disable", capabilityId);
+      requireOwner(id, "plugin-disable", proof);
       return transact(id, "disable");
     },
-    async update(id: string, capabilityId?: string) {
-      requireOwner(id, "plugin-update", capabilityId);
+    async update(id: string, proof?: CenterOwnerProof | string) {
+      requireOwner(id, "plugin-update", proof);
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       if (entry.source === "penglai-plugin-registry") {
         if (!opts.registry)
@@ -537,13 +565,13 @@ export function createCenterRemote(opts: {
         );
       return opts.registry.downloadPackage(id);
     },
-    async installDisabled(id: string, capabilityId?: string) {
+    async installDisabled(id: string, proof?: CenterOwnerProof | string) {
       if (!opts.registry)
         throw new PenglaiError(
           "INVALID_INPUT",
           "remote plugin registry is not configured",
         );
-      requireOwner(id, "plugin-install", capabilityId);
+      requireOwner(id, "plugin-install", proof);
       const pkg = await opts.registry.downloadPackage(id, hostTarget());
       const entry = catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       stageRegistryPackage({
@@ -565,8 +593,8 @@ export function createCenterRemote(opts: {
         phase: installed.phase,
       };
     },
-    async rollback(id: string, capabilityId?: string) {
-      requireOwner(id, "plugin-rollback", capabilityId);
+    async rollback(id: string, proof?: CenterOwnerProof | string) {
+      requireOwner(id, "plugin-rollback", proof);
       catalogEntry(opts.catalog, id, opts.registry, hostTarget());
       const previous = previousStateFromJournal(opts.txDir, id);
       const out = await rollbackLastGood({
@@ -607,28 +635,28 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  enable(input: { id: string; capabilityId?: string }) {
-    return this.impl.enable(input.id, input.capabilityId);
+  enable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.enable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
   @Remote
-  installEnable(input: { id: string; capabilityId?: string }) {
-    return this.impl.installEnable(input.id, input.capabilityId);
+  installEnable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.installEnable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
   @Remote
-  disable(input: { id: string; capabilityId?: string }) {
-    return this.impl.disable(input.id, input.capabilityId);
+  disable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.disable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
   @Remote
-  update(input: { id: string; capabilityId?: string }) {
-    return this.impl.update(input.id, input.capabilityId);
+  update(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.update(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
   @Remote
-  rollback(input: { id: string; capabilityId?: string }) {
-    return this.impl.rollback(input.id, input.capabilityId);
+  rollback(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.rollback(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
   @Remote
@@ -642,7 +670,7 @@ export class PenglaiCenterRemote extends TypertRemoteService {
   }
 
   @Remote
-  installDisabled(input: { id: string; capabilityId?: string }) {
-    return this.impl.installDisabled(input.id, input.capabilityId);
+  installDisabled(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
+    return this.impl.installDisabled(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 }

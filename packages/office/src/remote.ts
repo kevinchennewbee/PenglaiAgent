@@ -62,8 +62,8 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
     async preview(input: { jobId: string }) {
       return impl.preview(input.jobId);
     },
-    approve(input: { jobId: string }) {
-      return { receipt: impl.approve(input.jobId) };
+    async approve(input: { jobId: string }) {
+      return { receipt: await impl.approve(input.jobId) };
     },
     commit(input: { jobId: string; receipt: string }) {
       const bytes = impl.commit(input.jobId, input.receipt);

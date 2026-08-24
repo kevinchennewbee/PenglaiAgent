@@ -1,5 +1,8 @@
 import { Context } from "@deepseek-ai/cordis";
+import { join } from "node:path";
+import { ArtifactService } from "@penglai/artifacts";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
 import { createOfficeService, type OfficeOutbound } from "./service.js";
 import { PenglaiOfficeRemote } from "./remote.js";
 import { registerOfficeTools } from "./tools.js";
@@ -34,13 +37,21 @@ export function apply(ctx: OfficeContext): ReturnType<typeof createOfficeService
   const userData = requireUserData();
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for office");
   if (!ctx.workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for office");
+  const artifacts = new ArtifactService(join(userData, "artifacts"));
+  const owner = new OwnerApprovalBroker(userData, {
+    dialog: createHostOwnerDialog(userData),
+  });
   const svc = createOfficeService({
     userData,
+    owner,
+    artifacts,
     outbound: () => ctx.get?.("penglaiImCore", true) as OfficeOutbound | undefined,
   });
   registerOfficeTools(ctx, svc);
   ctx.provide("penglaiOffice", svc);
-  ctx.effect?.(() => () => undefined);
+  ctx.effect?.(() => () => {
+    artifacts.close();
+  });
   if (ctx instanceof Context) new PenglaiOfficeRemote(ctx as Context, svc);
   return svc;
 }

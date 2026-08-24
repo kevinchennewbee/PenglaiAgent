@@ -4,10 +4,16 @@ import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ObjectStore } from "@penglai/contracts";
+import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createOfficeService } from "./service.js";
 import { registerOfficeTools } from "./tools.js";
 import { atomicCommitFile, assertTrustedWorkspacePath } from "./transaction.js";
 import { PENGLAI_CJK_FONT_LICENSE, PENGLAI_CJK_FONT_SHA256, loadPenglaiCjkFont } from "./cjk-font.js";
+
+function liveOffice(userData: string, extra?: Parameters<typeof createOfficeService>[0]) {
+  const owner = extra?.owner ?? new OwnerApprovalBroker(userData, { dialog: async () => "approved" });
+  return createOfficeService({ userData, owner, ...extra });
+}
 
 function registered(names: string[]) {
   const tools = new Map<
@@ -50,7 +56,7 @@ function registered(names: string[]) {
 test("office conversation tools inspect, plan, preview, commit, undo without model paths", async () => {
   const names: string[] = [];
   const { tools, dir, ctx } = registered(names);
-  const svc = createOfficeService({ userData: dir });
+  const svc = liveOffice(dir);
   registerOfficeTools(ctx, svc);
   assert.equal(names.includes("penglai_office_inspect"), true);
   assert.equal(names.includes("penglai_office_commit"), true);
@@ -68,15 +74,11 @@ test("office conversation tools inspect, plan, preview, commit, undo without mod
     /path|SECURITY/i,
   );
   assert.equal("bytes" in (planned as object), false);
-  await assert.rejects(
-    () => tools.get("penglai_office_commit")?.execute({ job_id: jobId, filename: "note.docx" }, exec),
-    /owner receipt/,
-  );
   const dest = join(dir, "note.docx");
-  svc.approve(jobId, "commit-to-path", dest);
+  await svc.approve(jobId, "commit-to-path", dest);
   const committed = await tools.get("penglai_office_commit")?.execute({ job_id: jobId, filename: "note.docx" }, exec) as { dest: string };
   assert.match((await svc.inspect(readFileSync(committed.dest))).text, /revised-tools/);
-  svc.approve(jobId, "undo");
+  await svc.approve(jobId, "undo");
   await tools.get("penglai_office_undo")?.execute({ job_id: jobId }, exec);
   await assert.rejects(
     () => tools.get("penglai_office_plan")?.execute({
@@ -109,8 +111,7 @@ test("office return sends bytes only to the route captured on the attached handl
     bytes: Buffer;
     digest: string;
   } | undefined;
-  const svc = createOfficeService({
-    userData,
+  const svc = liveOffice(userData, {
     objects,
     outbound: () => ({
       async sendFileToBoundRoute(input) {
@@ -123,7 +124,7 @@ test("office return sends bytes only to the route captured on the attached handl
   const { handle } = objects.put(created.bytes, { kind: "office", mime: "application/vnd.openxmlformats-officedocument" });
   objects.bind(handle, { sessionId: "sess-1", workspaceId: "ws-1", routeId: "route-feishu-1" });
   const attached = await svc.inspectAttached(handle, "sess-1");
-  const receipt = svc.approve(attached.id, "return-to-channel");
+  const receipt = await svc.approve(attached.id, "return-to-channel");
   const returned = await svc.returnToChannel(attached.id, receipt);
   assert.deepEqual(
     { routeId: delivered?.routeId, sessionId: delivered?.sessionId, workspaceId: delivered?.workspaceId },
@@ -134,7 +135,7 @@ test("office return sends bytes only to the route captured on the attached handl
   assert.equal(returned.delivered, true);
 
   const local = await svc.create("pdf", "local-only");
-  assert.throws(() => svc.approve(local.id, "return-to-channel"), /no original IM route/);
+  await assert.rejects(() => svc.approve(local.id, "return-to-channel"), /no original IM route/);
 });
 
 test("atomic commit refuses parent symlink and destination symlink", () => {

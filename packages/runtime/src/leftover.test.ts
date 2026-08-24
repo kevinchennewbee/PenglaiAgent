@@ -206,6 +206,9 @@ test("R50-DIST: packaged identity is Penglai 0.5.5 and Windows NSIS stays curren
   assert.equal(facts.shortVersion, "0.5.5");
   assert.match(rewritten, /penglai\.icns/);
   assert.match(rewritten, /<string>13\.0<\/string>/);
+  assert.match(rewritten, /NSMicrophoneUsageDescription/);
+  assert.match(rewritten, /only when you start voice input/);
+  assert.match(rewritten, /仅在你主动开始语音输入时使用麦克风/);
   assertWindowsNsisContract({
     currentUser: true,
     languages: [...WINDOWS_NSIS_CONTRACT.bilingual],

@@ -19,7 +19,7 @@ function broker(root: string, decide: "approved" | "denied" = "approved") {
 }
 
 test("R56-OWN-001 office adapter maps actions and consumes broker receipts once", async () => {
-  assert.equal(officeOwnerAction("commit-to-path"), "office.commit");
+  assert.equal(officeOwnerAction("commit-to-path"), "office.commit-path");
   assert.equal(officeOwnerAction("return-to-channel"), "office.return");
   const root = mkdtempSync(join(tmpdir(), "penglai-office-broker-"));
   const owner = broker(root);

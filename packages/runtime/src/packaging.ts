@@ -36,6 +36,9 @@ export function assertPenglaiAppIdentity(facts: AppIdentityFacts): void {
   }
 }
 
+export const MICROPHONE_USAGE_DESCRIPTION =
+  "Penglai uses the microphone only when you start voice input. It does not record in the background. 蓬莱仅在你主动开始语音输入时使用麦克风，不会在后台录音。";
+
 export function rewriteElectronPlist(plist: string): string {
   let next = plist
     .replace(/<key>CFBundleDisplayName<\/key>\s*<string>[^<]*<\/string>/, "<key>CFBundleDisplayName</key>\n\t<string>Penglai</string>")
@@ -57,6 +60,15 @@ export function rewriteElectronPlist(plist: string): string {
       /<\/dict>\s*<\/plist>\s*$/,
       "\t<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>\n</dict>\n</plist>\n",
     );
+  }
+  if (!/<key>NSMicrophoneUsageDescription<\/key>/.test(next)) {
+    const microphone =
+      `\t<key>NSMicrophoneUsageDescription</key>\n\t<string>${MICROPHONE_USAGE_DESCRIPTION}</string>\n`;
+    if (/<\/dict>\s*<\/plist>\s*$/.test(next)) {
+      next = next.replace(/<\/dict>\s*<\/plist>\s*$/, `${microphone}</dict>\n</plist>\n`);
+    } else {
+      next += microphone;
+    }
   }
   return next;
 }

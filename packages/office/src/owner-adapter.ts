@@ -3,7 +3,7 @@ import type { OfficeReceiptAction } from "./receipt.js";
 
 export const OFFICE_TO_OWNER_ACTION = {
   commit: "office.commit",
-  "commit-to-path": "office.commit",
+  "commit-to-path": "office.commit-path",
   undo: "office.undo",
   discard: "office.discard",
   export: "office.export",

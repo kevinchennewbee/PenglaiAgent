@@ -1110,22 +1110,23 @@ window.__ModuleLoader__.load({
               throw new Error("native owner capability is required");
             }
             const cap = await api.confirmPluginAction({ id, action });
-            if (!cap || typeof cap.capabilityId !== "string") {
+            if (!cap || typeof cap.actionId !== "string" || typeof cap.receipt !== "string") {
               throw new Error("native owner capability is required");
             }
+            const proof = { id, actionId: cap.actionId, receipt: cap.receipt };
             if (action === "enable")
-              return unwrapRemote(await centerRemote.enable({ id, capabilityId: cap.capabilityId }));
+              return unwrapRemote(await centerRemote.enable(proof));
             if (action === "installEnable") {
               if (typeof centerRemote.installEnable !== "function") {
                 throw new Error("installEnable remote missing");
               }
               return unwrapRemote(
-                await centerRemote.installEnable({ id, capabilityId: cap.capabilityId }),
+                await centerRemote.installEnable(proof),
               );
             }
             if (action === "update") {
               const result = unwrapRemote(
-                await centerRemote.update({ id, capabilityId: cap.capabilityId }),
+                await centerRemote.update(proof),
               );
               if (result?.restartRequired === true) {
                 if (typeof api.restartPluginRuntime !== "function") {
@@ -1136,13 +1137,13 @@ window.__ModuleLoader__.load({
               return result;
             }
             if (action === "disable")
-              return unwrapRemote(await centerRemote.disable({ id, capabilityId: cap.capabilityId }));
+              return unwrapRemote(await centerRemote.disable(proof));
             if (action === "rollback")
               return unwrapRemote(
-                await centerRemote.rollback({ id, capabilityId: cap.capabilityId }),
+                await centerRemote.rollback(proof),
               );
             return unwrapRemote(
-              await centerRemote.installDisabled({ id, capabilityId: cap.capabilityId }),
+              await centerRemote.installDisabled(proof),
             );
           }
           if (action === "download")

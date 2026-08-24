@@ -12,9 +12,15 @@ import {
   edit,
   inspect,
 } from "./index.js";
+import { OwnerApprovalBroker } from "@penglai/runtime";
 import { OFFICE_TEMPLATES } from "./templates/catalog.js";
 import { writeZip } from "./zip.js";
 import { mergePdf, rotatePdf } from "./adapters/pdf.js";
+
+function liveOffice(userData: string) {
+  const owner = new OwnerApprovalBroker(userData, { dialog: async () => "approved" });
+  return createOfficeService({ userData, owner });
+}
 
 test("R55-OFFICE-001 DOCX inspect", async () => {
   const created = await createDocument("docx", "hello docx");
@@ -121,13 +127,14 @@ test("R55-OFFICE-018 workspace isolation", async () => {
 });
 
 test("R55-OFFICE-019 TOCTOU reject", async () => {
-  const svc = createOfficeService();
+  const dir = mkdtempSync(join(tmpdir(), "penglai-office-toctou-"));
+  const svc = liveOffice(join(dir, "user-data"));
   const created = await svc.create("docx", "toctou");
   const first = digestOf(created.bytes);
   const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "changed" });
   assert.notEqual(digestOf(edited.bytes), first);
-  const receipt = svc.approve(edited.id);
-  assert.throws(() => svc.commit(edited.id, "owner-1"), /receipt/);
+  const receipt = await svc.approve(edited.id);
+  assert.throws(() => svc.commit(edited.id, "owner-1"), /broker receipt/);
   assert.ok(svc.commit(edited.id, receipt).length > 0);
 });
 
@@ -144,43 +151,45 @@ test("R55-OFFICE-021 templates and OFL fonts only", () => {
   );
 });
 
-test("R55-OFFICE-022 preview then HMAC owner approval", async () => {
-  const svc = createOfficeService();
+test("R55-OFFICE-022 preview then Main broker owner approval", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-office-hmac-"));
+  const svc = liveOffice(join(dir, "user-data"));
   const created = await svc.create("docx", "preview-me");
   const preview = await svc.preview(created.id);
   assert.equal(preview[0]?.kind, "inventory");
   assert.throws(() => svc.commit(created.id), /receipt/);
-  assert.throws(() => svc.commit(created.id, "owner-1"), /receipt/);
-  const receipt = svc.approve(created.id);
+  assert.throws(() => svc.commit(created.id, "owner-1"), /broker receipt/);
+  const receipt = await svc.approve(created.id);
   const bytes = svc.commit(created.id, receipt);
   assert.ok(bytes.length > 0);
 });
 
 test("R55-OFFICE-023 atomic commit/undo", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-office-tx-"));
-  const svc = createOfficeService({ userData: join(dir, "user-data") });
+  const svc = liveOffice(join(dir, "user-data"));
   const dest = join(dir, "note.docx");
   const created = await svc.create("docx", "original-docx");
   writeFileSync(dest, created.bytes);
   const edited = await svc.edit(created.bytes, { kind: "docx.replaceParagraph", paragraphIndex: 0, text: "revised-docx" });
-  const receipt = svc.approve(edited.id, "commit-to-path", dest);
-  const wrongAction = svc.approve(edited.id, "commit");
-  assert.throws(() => svc.commitToPath(edited.id, wrongAction, dest, dir), /receipt binding mismatch/);
+  const receipt = await svc.approve(edited.id, "commit-to-path", dest);
+  const wrongAction = await svc.approve(edited.id, "commit");
+  assert.throws(() => svc.commitToPath(edited.id, wrongAction, dest, dir), /intent mismatch|broker/);
   svc.commitToPath(edited.id, receipt, dest, dir);
   assert.match(readFileSync(dest).toString("utf8") === "" ? "x" : (await inspect(readFileSync(dest))).text, /revised-docx/);
-  const undoReceipt = svc.approve(edited.id, "undo");
+  const undoReceipt = await svc.approve(edited.id, "undo");
   svc.undo(edited.id, undoReceipt);
   assert.match((await inspect(readFileSync(dest))).text, /original-docx/);
   const disposable = await svc.create("docx", "discard-me");
-  const discardReceipt = svc.approve(disposable.id, "discard");
+  const discardReceipt = await svc.approve(disposable.id, "discard");
   await svc.discard(disposable.id, discardReceipt);
   await assert.rejects(() => svc.preview(disposable.id), /not found/);
 });
 
 test("R55-OFFICE-024 IM file return path", async () => {
-  const svc = createOfficeService();
+  const dir = mkdtempSync(join(tmpdir(), "penglai-office-export-"));
+  const svc = liveOffice(join(dir, "user-data"));
   const created = await svc.create("docx", "im-return");
-  const receipt = svc.approve(created.id, "export", "docx");
+  const receipt = await svc.approve(created.id, "export", "docx");
   const exported = await svc.export(created.id, "docx", receipt);
   assert.match(exported.filename, /\.docx$/);
   assert.equal(exported.digest, createHash("sha256").update(exported.bytes).digest("hex"));

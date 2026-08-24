@@ -24,6 +24,7 @@
     }
   },
   "dependencies": {
+    "@penglai/artifacts": "workspace:*",
     "@penglai/channel-feishu": "workspace:*",
     "@penglai/channel-weixin": "workspace:*",
     "@penglai/contracts": "workspace:*",
