@@ -38,7 +38,7 @@ export function readAppearance(settingsPath: string): { locale: string; theme: s
 
 export function exportDiagnosticsPreview(input: Record<string, unknown>): { preview: string; redacted: true } {
   const raw = JSON.stringify(input);
-  if (/\/Users\/[^/\s]+|\/Volumes\/KevinSSD|C:\\Users\\/i.test(raw)) {
+  if (/\/Users\/[^/\s]+|\/Volumes\/[^/\s]+|C:\\Users\\/i.test(raw)) {
     throw new PenglaiError("SECURITY_POLICY", "diagnostics preview contains owner path");
   }
   return { preview: redactEvidenceText(raw), redacted: true };

@@ -17,7 +17,7 @@ const FORBIDDEN = [
   { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/, reason: "private key" },
   { re: /sk-[A-Za-z0-9]{16,}/, reason: "api key" },
   { re: /\/Users\/[A-Za-z0-9._-]+\//, reason: "owner path" },
-  { re: /\/Volumes\/KevinSSD/, reason: "owner volume" },
+  { re: /\/Volumes\/[^/\s]+/, reason: "owner volume" },
   { re: /transcript["']?\s*[:=]\s*["'][^"']{12,}/i, reason: "transcript body" },
   { re: /local-voices\/[A-Za-z0-9._-]+\.(wav|pcm|onnx)/i, reason: "voice reference" },
   { re: /grantedPath["']?\s*[:=]\s*["']\/(?:Users|home)\//, reason: "context grant path" },

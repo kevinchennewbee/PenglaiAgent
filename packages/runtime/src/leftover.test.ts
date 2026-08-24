@@ -58,6 +58,7 @@ test("R50-SEC-011/012 diagnostics preview and no open Critical", () => {
   const out = exportDiagnosticsPreview({ status: "ok", path: "Penglai/0.5" });
   assert.equal(out.redacted, true);
   assert.throws(() => exportDiagnosticsPreview({ home: "/Users/owner/secret" }), PenglaiError);
+  assert.throws(() => exportDiagnosticsPreview({ home: "/Volumes/private-owner/project" }), PenglaiError);
 });
 
 test("R50-REL-008/009 budgets are finite", () => {

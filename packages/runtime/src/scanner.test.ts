@@ -105,4 +105,8 @@ test("R50-SEC: production scanner rejects transcript, voice reference, and grant
     () => assertProductionBundleClean({ "memory.json": 'memoryCandidate: "keep this long private note"' }),
     /memory candidate body/,
   );
+  assert.throws(
+    () => assertProductionBundleClean({ "diag.json": 'path: "/Volumes/private-owner/project"' }),
+    /owner volume/,
+  );
 });
