@@ -16,6 +16,7 @@ if (state.dirty) {
 }
 
 const head = git(["rev-parse", "HEAD"]);
+const authoritativeMain = git(["rev-parse", "--verify", "origin/main^{commit}"]);
 const dest = mkdtempSync(join(tmpdir(), "penglai-clean-clone-"));
 const clone = spawnSync(
   "git",
@@ -40,6 +41,19 @@ if (checkout.status !== 0) {
     command: "verify:clean-clone",
     reason: "clone checkout of HEAD failed",
     detail: String(checkout.stderr || checkout.stdout || "").slice(-800),
+  });
+}
+const seedMain = spawnSync(
+  "git",
+  ["update-ref", "refs/remotes/origin/main", authoritativeMain],
+  { cwd: dest, encoding: "utf8" },
+);
+if (seedMain.status !== 0) {
+  rmSync(dest, { recursive: true, force: true });
+  finish("FAIL", {
+    command: "verify:clean-clone",
+    reason: "clone could not bind the authoritative origin/main ref",
+    detail: String(seedMain.stderr || seedMain.stdout || "").slice(-800),
   });
 }
 const clonedHead = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dest, encoding: "utf8" });
@@ -98,6 +112,7 @@ if (failed) {
     reason: `${failed.label} failed in cloned tree`,
     productVersion: PRODUCT_VERSION,
     head,
+    authoritativeMain,
     steps: steps.map((step) => ({ label: step.label, status: step.status })),
     diagnostics: failed.diagnostics,
     tail: failed.tail,
@@ -107,6 +122,7 @@ finish("PASS", {
   command: "verify:clean-clone",
   productVersion: PRODUCT_VERSION,
   head,
+  authoritativeMain,
   method: "git-clone-local-detach",
   steps: steps.map((step) => ({ label: step.label, status: step.status })),
 });
