@@ -211,6 +211,8 @@ Object.assign(apply, { inject });
 export default { name, inject, apply };
 export { PINNED_DSH, PenglaiImHost, PenglaiImRemote, AdapterSupervisor, CredentialsServiceVault, WorkerLease };
 export { CHANNEL_IDS, CHANNEL_MANIFESTS, getChannelManifest, listChannelManifests, refuseFakeQr } from "./registry.js";
+export { assertLiveSend, guidedAdapter, requireAdapter } from "./channel-adapter.js";
+export type { ChannelAdapter, ChannelHealth } from "./channel-adapter.js";
 export { ImBotStore, ensureImV2Tables } from "./bots.js";
 export { beginGuidedConnection } from "./guided.js";
 export { TYPERT_REMOTE } from "./remote.js";
