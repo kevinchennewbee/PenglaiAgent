@@ -12,6 +12,7 @@ import { beginEvidenceRun, finishEvidenceRun, recordCommand, HOST_TARGET } from 
 import { MnemonMemoryService } from "../packages/memory/src/engine/service.ts";
 import {
   EmbeddedDshSupervisor,
+  OwnerApprovalBroker,
   activatePrivateProfile,
   ensurePrivateHome,
   installFirstPartyPlugins,
@@ -118,7 +119,8 @@ const ctx = {
   workspaceRegistry: { list: () => [{ id: "ws-bundled", path: workspace, sessionIds: ["sess-bundled"] }] },
 };
 process.env.PENGLAI_USER_DATA = officeUser.root;
-const svc = officeMod.createOfficeService({ userData: officeUser.root });
+const owner = new OwnerApprovalBroker(officeUser.root, { dialog: async () => "approved" });
+const svc = officeMod.createOfficeService({ userData: officeUser.root, owner });
 officeMod.registerOfficeTools(ctx, svc);
 const exec = { agent: { id: "sess-bundled" } };
 const created = await tools.get("penglai_office_create").execute({ format: "pdf", text: "蓬莱办公中文" }, exec);
