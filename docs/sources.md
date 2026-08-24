@@ -1,5 +1,10 @@
 # 上游来源与固定版本
 
+> **Historical research ledger through the 0.5.0/rc.8 period.** The current
+> runtime pin is official DSH `0.1.1-rc.2`; see
+> `docs/compatibility/DSH_011_RC2.md` and `release-contract.json`. Older source
+> observations below remain provenance, not current dependency truth.
+
 > 核对时间：2026-08-20。实现必须以 lockfile、下载 integrity 和本地可运行 probe 再验证；本文不是跳过现场检查的理由。
 
 ## 1. DeepSeek Harness

@@ -2,7 +2,7 @@
 
 function disabledImageSize() {
   throw new Error(
-    "Penglai Office disables pptxgenjs image probing; 0.5.5 accepts text-only PPTX creation",
+    "Penglai Office disables pptxgenjs image probing; 0.5.6 accepts text-only PPTX creation",
   );
 }
 

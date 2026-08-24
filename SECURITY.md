@@ -1,19 +1,20 @@
 # Security Policy
 
-Penglai 0.5.0 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.5.6 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.5.0 publication candidate | Supported for this generation |
-| 0.4.1 and earlier | Unsupported; 0.5.0 does not migrate, import, or delete old secrets or databases |
+| 0.5.6 | Current supported release after immutable publication |
+| 0.5.0–0.5.5 | Supported only for upgrading to the current 0.5 generation; 0.5.0 requires a manual overlay |
+| 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
 ## Trust tier
 
 - macOS: ad-hoc sealed, **not notarized**, no Developer ID.
 - Windows: **no Authenticode**.
-- Independent minisign/Ed25519 signatures protect installer and updater integrity. They are **not** Apple or Microsoft publisher trust.
+- Penglai Ed25519 signatures protect installer and updater integrity. They are **not** Apple or Microsoft publisher trust.
 - First launch may show an OS reputation warning. Penglai will not tell users to turn off Gatekeeper or SmartScreen.
 - There is **no silent auto-update**. Later 0.5.x upgrades are signed assisted upgrades that the user must confirm.
 
@@ -27,11 +28,11 @@ On macOS the credentials directory/file use 0700/0600. On Windows they use a cur
 
 ## Instant messaging risk
 
-`@penglai/im` is the only IM plugin. Weixin and Feishu adapters cannot call the Agent directly.
+`@penglai/im` is the only IM plugin. Weixin and Feishu are the only live adapters in 0.5.6 and cannot call a parallel Agent directly. DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp are roadmap-only and cannot connect, bind, or send.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the user must create and publish their own enterprise self-built app. There is no Penglai-hosted Feishu QR and no fake “scan to finish”.
-- Both channels accept private text and voice only. Other message types are rejected before they reach the model.
+- Both channels accept private text, supported images, files, and audio. Images use the official DSH image path; non-image bytes use Workspace/Session-scoped opaque artifacts. Group chat, video, and unsupported rich content are rejected before they reach the model.
 - Route binding is explicit Workspace/Session. Focus, recency, or “any agent” guesses are not used.
 
 QR payloads, chat bodies, and identities must never appear in Git, logs, diagnostics, evidence, or screenshots.

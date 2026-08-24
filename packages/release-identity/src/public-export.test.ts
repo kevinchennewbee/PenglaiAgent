@@ -71,18 +71,18 @@ test("tracked plugin package.json paths are exportable and FINDINGS has no owner
   assert.equal(pathAllowed("packages/plugin-pilot/package.json"), true);
   const findings = readFileSync(join(root, "docs/0.5.1/FINDINGS.md"), "utf8");
   assert.doesNotMatch(findings, /\/Users\/[A-Za-z0-9._-]+\//);
-  assert.doesNotMatch(findings, /\/Volumes\/KevinSSD/i);
+  assert.doesNotMatch(findings, /\/Volumes\/[^/\s]+\//i);
   assert.doesNotThrow(() => scanExportText("docs/0.5.1/FINDINGS.md", findings));
 });
 
 test("R50-PREP-002 export scan rejects secret and owner path", () => {
   assert.throws(() => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"), PenglaiError); // penglai-test-fixture
-  assert.throws(() => scanExportText("README.md", "path /Volumes/KevinSSD-in/x"), PenglaiError);
+  assert.throws(() => scanExportText("README.md", "path /Volumes/private-owner-drive/x"), PenglaiError);
   assert.throws(() => scanExportText("README.md", "notes /Users/alice/secret"), PenglaiError);
   assert.doesNotThrow(() => scanExportText("README.md", "community-verified ad-hoc"));
   assert.doesNotThrow(() => scanExportText("docs/SECURITY.md", "飞书App Secret write-only"));
   assert.doesNotThrow(() => scanExportText("layout.ts", 'home: "/Users/测 试"'));
-  assert.doesNotThrow(() => scanExportText("public-export.test.ts", "path /Volumes/KevinSSD-in/x"));
+  assert.doesNotThrow(() => scanExportText("public-export.test.ts", "path /Volumes/private-owner-drive/x"));
   recordAssertion({
     acceptanceId: "R50-PREP-002",
     runnerId: "export",
@@ -141,6 +141,11 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/PUBLICATION_0.5.5.md",
       "docs/PUBLICATION_MANIFEST_0.5.5.md",
       "docs/RELEASE_NOTES_0.5.5.md",
+      "docs/PUBLICATION_0.5.6.md",
+      "docs/PUBLICATION_MANIFEST_0.5.6.md",
+      "docs/RELEASE_NOTES_0.5.6.md",
+      "docs/0.5.6/RELEASE_RUNBOOK.md",
+      "docs/0.5.6/ACCEPTANCE_DELTA.md",
     ]),
   );
   recordAssertion({

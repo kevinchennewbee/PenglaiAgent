@@ -4,8 +4,8 @@
 
 本合同覆盖：
 
-- 0.5.5 在 Apple Silicon、Intel Mac 与 Windows x64 的 fresh install、首次启动与恢复。
-- 公开版 0.5.1 / 0.5.2 / 0.5.3 → 0.5.5 的更新发现、签名验证、用户确认和 assisted install；0.5.0 只支持同平台手动覆盖。
+- 0.5.6 在 Apple Silicon、Intel Mac 与 Windows x64 的 fresh install、首次启动与恢复。
+- 公开版 0.5.1–0.5.5 → 0.5.6 的更新发现、签名验证、用户确认和 assisted install；0.5.0 只支持同平台手动覆盖。
 - profile/plugin/IM schema 的事务迁移与失败恢复。
 - Windows 原生卸载器和 macOS 应用内卸载准备/数据管理。
 - 0.4.1 旧架构的只读检测与 clean-generation 提示。
@@ -77,31 +77,44 @@ NOT_STARTED
 
 ### 5.1 channel
 
-- 稳定通道固定为未来公开仓库的 `desktop-v0.5` metadata release；0.5 client 不读取 0.4 channel。
+- 稳定通道固定为公开仓库不可变 Release 上的 `desktop-v0.5` metadata；0.5 client 不读取 0.4 channel。
 - manifest URL 使用 canonical GitHub HTTPS；payload URL 指向不可变 `releases/download/vX.Y.Z/<asset>`，禁止 `releases/latest`、短链、第三方镜像或 HTTP fallback。
 - 未公开前，test profile 只连接 loopback fixture server；production build 不能通过隐藏参数切到任意 URL。
 
 ### 5.2 manifest
 
-`latest.json` 至少包含：
+不可变 Release 的 `update-manifest-v1.json` 至少包含：
 
 ```json
 {
-  "schemaVersion": 1,
-  "channel": "desktop-v0.5",
-  "version": "0.5.5",
-  "publishedAt": "...",
-  "minimumVersion": "0.5.0",
+  "schema": "penglai.app-update.v1",
+  "sequence": 5,
+  "version": "0.5.6",
+  "channel": "stable",
+  "releaseTag": "v0.5.6",
+  "issuedAt": "...",
+  "expiresAt": "...",
+  "signingKeyId": "...",
+  "minimumSourceVersion": "0.5.1",
   "notesUrl": "...",
+  "candidateSourceSha": "sha256-of-source-identity",
+  "publicExportTreeSha256": "...",
+  "releaseManifestSha256": "...",
   "platforms": {
     "darwin-aarch64": {
+      "assetId": 1,
       "url": "...",
       "sha256": "...",
       "signature": "...",
       "size": 0
     }
   },
-  "signatureKeyId": "..."
+  "migration": {
+    "fromSchema": 3,
+    "toSchema": 3,
+    "backupRequired": true,
+    "rollbackCompatible": true
+  }
 }
 ```
 
@@ -138,7 +151,7 @@ AVAILABLE
 
 ## 6. community trust tier 的 assisted upgrade
 
-Electron官方说明macOS autoUpdater需要已签名app。当前0.5 community candidate只有ad-hoc seal、没有稳定Developer ID publisher identity，也未在quarantine/替换/回滚下证明Squirrel.Mac可靠。因而0.5.0的产品承诺是：
+Electron官方说明macOS autoUpdater需要已签名app。当前0.5 community build只有ad-hoc seal、没有稳定Developer ID publisher identity，也未在quarantine/替换/回滚下证明Squirrel.Mac可靠。因而0.5.6及后续同信任层的产品承诺是：
 
 1. 应用检查 canonical manifest。
 2. 下载当前 platform/arch 的 exact installer。
@@ -157,7 +170,7 @@ Electron官方说明macOS autoUpdater需要已签名app。当前0.5 community ca
 
 - loopback-only update server。
 - ephemeral test signing key；private fixture key 只在测试临时目录生成，不提交。
-- `0.5.5-test.N` payload，包含可识别版本但不含产品 secret。
+- `0.5.6-test.N` payload，包含可识别版本但不含产品 secret。
 - valid、tampered payload、wrong key、wrong arch、rollback、same version、truncated download、disconnect/resume、disk full、installer cancel、crash between every journal transition。
 
 fixture 不能通过 `/penglai/usable-fixture` 暴露给 production renderer。test-only entry 必须在 build-time test target 中编译隔离，release bundle scanner 证明不存在。

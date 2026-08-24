@@ -9,7 +9,7 @@
 <p align="center"><strong>DeepSeek Harness, ready to live on a personal computer.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5"><img src="https://img.shields.io/badge/release-0.5.5-0f766e?style=flat-square" alt="Penglai 0.5.5"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6"><img src="https://img.shields.io/badge/release-0.5.6-0f766e?style=flat-square" alt="Penglai 0.5.6"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.2-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.2"></a>
   <img src="https://img.shields.io/badge/targets-Apple%20Silicon%20%7C%20Intel%20Mac%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Apple Silicon, Intel Mac, and Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
@@ -19,24 +19,22 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5">Current download</a> ·
-  <a href="docs/RELEASE_NOTES_0.5.5.md">0.5.5 notes</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6">Current download</a> ·
+  <a href="docs/RELEASE_NOTES_0.5.6.md">0.5.6 notes</a> ·
   <a href="AGENTS.md">For AI contributors</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.5 is available for Apple Silicon, Intel Mac, and Windows x64.
-> All three installers came from one merged source commit and passed native
-> installed-product tests. The ten-asset Release is immutable and its public
-> bytes, hashes, updater signatures, and source identity were downloaded and
-> verified again after publication. macOS remains ad-hoc signed and not
-> notarized; Windows does not have Authenticode.
+> Penglai 0.5.6 targets Apple Silicon, Intel Mac, and Windows x64. This source
+> candidate is not called released until all three native jobs and immutable
+> ten-asset public readback pass. macOS remains ad-hoc signed and not notarized;
+> Windows does not have Authenticode.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
   <img src=".github/assets/0.5.5/memory.png" width="49%" alt="Penglai Memory in the installed DSH settings">
 </p>
-<p align="center"><sub>Real screenshots from the installed 0.5.5 application, not design mockups.</sub></p>
+<p align="center"><sub>Installed 0.5.5 screenshots retained as product references; 0.5.6 evidence is recorded separately, never inferred from these images.</sub></p>
 
 <a id="english"></a>
 
@@ -57,18 +55,19 @@ actually usable: packaging, process supervision, onboarding, local paths,
 upgrades, uninstall, product identity, and plugin distribution. There is no
 second Penglai agent hiding beside DSH and no replacement chat page.
 
-Version 0.5.5 moves two everyday capabilities into the fresh installation:
-Penglai Office and Penglai Memory. Mobile messaging, local speech recognition,
-local voice generation, and proactive companionship are included too, but wait
-for the user to enable them.
+Version 0.5.6 makes those everyday capabilities complete their real actions.
+Workspace memory can be curated and recalled automatically, high-impact writes
+use one action-bound Owner broker, Office and IM files use scoped opaque artifact
+references, TTS buttons follow real playback state, and messaging no longer
+pretends that roadmap platforms are connectable.
 
-## What ships in 0.5.5
+## What ships in 0.5.6
 
 | Product surface | Fresh install | What it does |
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF |
-| Penglai Memory | On | Local layered memory, Workspace isolation, authorised sources, provenance, and a knowledge graph |
-| Mobile Messaging | Off | Private Weixin and Feishu text, image, file, and voice routed into an official DSH Session |
+| Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
+| Mobile Messaging | Off | Live Weixin and Feishu only; seven other platforms are clearly roadmap-only |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
@@ -126,10 +125,17 @@ for it. The exact capability matrix and remaining format limits live in
 ## Memory that knows which project it belongs to
 
 Penglai Memory is local and enabled by default. Mnemon 0.2.4 is its only recall
-engine. Personal facts can be shared deliberately, while project work stays in
-the current official Workspace. Workspace A cannot recall Workspace B. A
-model-inferred candidate is not silently promoted to long-term memory, and
-global memory or reusable SOP changes require a visible confirmation.
+engine. The fresh mode intelligently organizes safe project facts inside the
+current official Workspace. A separate no-tools official Agent uses the current
+provider/model after a Turn; the host validates a closed output schema and skips
+secrets, sensitive content, injection-like text, and malformed output. Before a
+later model step, confirmed current-Workspace records and explicitly accepted
+personal facts can be recalled. Workspace A cannot recall Workspace B.
+
+Users can turn memory off or review candidates first. Personal/global memory,
+forgetting, correction, source revocation, import, and reusable SOP changes keep
+a visible action-specific Owner confirmation. The model cannot promote itself
+to personal memory merely by assigning a high confidence score.
 
 Explicitly authorised folders are indexed as sources without changing the
 original files. Search results retain provenance. Revoking a source removes the
@@ -143,12 +149,17 @@ records and links, not a second database and not a cloud account.
 
 ## Messaging and local voice
 
-Weixin and Feishu use one adapter contract, so text, images, files, and voice
-arrive in the same DSH attachment and Session pipeline. Images use the official
-DSH image store. Office files and audio use opaque Penglai handles instead of
-pretending every attachment is an image. Real external accounts are still a
-separate acceptance boundary; a mocked webhook is never reported as live
-Weixin or Feishu evidence.
+Weixin and Feishu are the only live adapters in 0.5.6. They use one adapter
+contract, so text and supported images, files, and voice arrive in the bound
+official DSH Session. Images use the official DSH image store. Office files and
+audio use scoped opaque `artifact:<uuid>` references instead of pretending every
+attachment is an image. Real external accounts are still a separate acceptance
+boundary; a mocked webhook is never reported as live evidence.
+
+DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp appear only as honest
+roadmap context. They have no Connect action and cannot bind or send. Penglai does
+not manufacture a QR shortcut for a platform that does not provide the required
+flow; WhatsApp is explicitly default-off and labelled community-protocol risk.
 
 SenseVoice and MOSS-TTS stay off until requested because their model files are
 large. Once Speech Recognition is enabled and its model is installed, Penglai
@@ -171,6 +182,10 @@ fail-closed: arbitrary npm names, Git repositories, and download URLs are not
 accepted. A DSH plugin shares the local DSH process permissions; the permission
 list explains review and consent, but it is not an operating-system sandbox.
 
+Reviewed plugin cards may expose signed HTTPS repository, documentation, and
+issue links. Electron Main validates the destination, shows it to the user, and
+opens it externally only after confirmation.
+
 ## First run, installation, and updates
 
 The seven-step guide covers language, privacy, the official model catalog,
@@ -179,21 +194,22 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The immutable 0.5.5 Release contains exactly three native installers built from
-source commit [`2136ff69`](https://github.com/kevinchennewbee/PenglaiAgent/commit/2136ff691afa8bdbefa3079236426a72a3851237):
+The 0.5.6 release contract names exactly three native installers. Exact source,
+workflow, byte-size, and digest values are added here only after the matching
+native run and immutable public readback pass:
 
 | Platform | Release asset | Native installed evidence |
 | --- | --- | --- |
-| Apple Silicon, macOS 13+ | [`Penglai_0.5.5_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg) | U3 PASS on native runner |
-| Intel Mac | [`Penglai_0.5.5_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_x64.dmg) | U3 PASS on native runner |
-| Windows x64 | [`Penglai_0.5.5_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_windows_x64_setup.exe) | U3 PASS plus native Simplified Chinese installer screenshot |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | Pending exact native/public evidence |
+| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | Pending exact native/public evidence |
+| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | Pending exact native/public evidence plus Simplified Chinese installer screenshot |
 
-The matching [native workflow](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
-passed for all three targets. A post-publication read-back downloaded all ten
-Release assets and rechecked the exact set, byte sizes, SHA-256 values, source
-tag, public-export tree, update manifest, and detached Ed25519 signatures.
+The release closes only after the matching native workflow passes all three
+targets and a post-publication readback downloads all ten Release assets to
+recheck the exact set, byte sizes, SHA-256 values, source tag, public-export
+tree, update manifest, and detached Ed25519 signatures.
 
-Penglai 0.5.1, 0.5.2, and 0.5.3 can check the signed 0.5 line from **Settings →
+Penglai 0.5.1 through 0.5.5 can check the signed 0.5 line from **Settings →
 Penglai → Updates**, or use a same-platform manual overlay. There is no silent
 update. Version 0.5.0 needs a manual overlay because it predates the production
 update trust path. External Workspaces and the `Penglai/0.5` data generation are
@@ -299,16 +315,17 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 事情：打包、进程监管、安装引导、本地目录、升级、卸载、产品身份和插件分发。这里
 没有藏着第二套蓬莱 Agent，也没有另做一张聊天页替代 DSH。
 
-0.5.5 把两个每天都用得上的能力放进了全新安装：蓬莱办公和蓬莱记忆。手机消息、
-本地语音识别、本地语音生成和主动陪伴也都随安装包提供，但要由用户自己启用。
+0.5.6 让这些能力真正完成用户点击的动作：Workspace 记忆可以自动整理和召回，
+高影响动作统一经过与动作绑定的 Owner Broker，办公与 IM 文件使用 scope 隔离的
+不透明 artifact，TTS 按钮跟随真实播放状态，IM 也不再把路线图平台伪装成可连接。
 
-## 0.5.5 带来了什么
+## 0.5.6 带来了什么
 
 | 产品功能 | 全新安装 | 能做什么 |
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览和保存 DOCX、XLSX、PPTX、PDF |
-| 蓬莱记忆 | 默认启用 | 本地分层记忆、Workspace 隔离、授权资料、来源追溯和知识图谱 |
-| 蓬莱手机消息 | 默认关闭 | 微信、飞书私聊的文字、图片、文件和语音进入 official DSH Session |
+| 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
+| 蓬莱手机消息 | 默认关闭 | 只有微信、飞书 live；其余七个平台明确为路线图 |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
@@ -358,10 +375,15 @@ typed operation：检查和创建文件、生成可见修改计划、预览、�
 
 ## 蓬莱记忆知道自己属于哪个项目
 
-蓬莱记忆完全在本机运行，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。个人事实可以
-在用户愿意时复用，项目工作只留在当前 official Workspace。Workspace A 不能召回
-Workspace B。模型推测出的 candidate 不会悄悄升级为长期记忆；全局记忆和可复用
-SOP 的改变必须经过可见确认。
+蓬莱记忆完全在本机运行，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。全新 profile
+会智能整理当前 official Workspace 的安全项目事实：Turn 结束后，一个禁用全部工具的
+official Agent 沿用当前供应商和模型，Host 再用封闭格式与本地策略过滤密钥、敏感内容、
+类似提示词注入和错误输出。后续步骤只召回当前 Workspace 已确认记录和用户明确保存的
+个人记忆；Workspace A 不能召回 Workspace B。
+
+用户可以关闭记忆，或者改成先看候选。个人/全局记忆、遗忘、更正、资料源撤销、导入
+和 SOP 仍需与动作绑定的可见 Owner 确认；模型不能靠自己给一个高置信度就升级为个人
+长期记忆。
 
 用户明确授权的文件夹会被索引为资料来源，原文件不会被修改。搜索结果保留来源，
 撤销授权只删除派生索引，不碰源文件。知识图谱只是这些记忆和关系的直观视图，不是
@@ -374,10 +396,14 @@ SOP 的改变必须经过可见确认。
 
 ## 手机消息和本地语音
 
-微信与飞书共用一套 adapter contract，所以文字、图片、文件和语音会进入相同的 DSH
-附件与 Session 流程。图片使用 official DSH 图片存储；办公文件和音频使用不透明的
-蓬莱句柄，不再把所有附件假装成图片。真实外部账号仍是独立验收边界，mock webhook
-永远不能冒充真实微信或飞书证据。
+0.5.6 只有微信、飞书属于 live adapter。两者共用一套 contract，文字和受支持的图片、
+文件、语音进入绑定的 official DSH Session。图片使用 official DSH 图片存储；办公文件
+和音频使用带 scope 的不透明 `artifact:<uuid>`，不再把所有附件假装成图片。真实外部
+账号仍是独立验收边界，mock webhook 永远不能冒充 live 证据。
+
+钉钉、企业微信、QQ、Slack、Telegram、Discord、WhatsApp 只作为诚实路线图展示，
+没有连接按钮，也不能绑定或发送。平台没有真实扫码路径时，蓬莱不会伪造二维码；
+WhatsApp 明确默认关闭，并标注社区协议和账号风险。
 
 SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识别启用并下载模型后，
 电脑会话可以出现麦克风输入；语音生成可以在本机试听，也只会向真正支持音频的渠道
@@ -395,27 +421,29 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 不会被接受。DSH 插件与本地 DSH 进程共享权限，权限列表用于审核和确认，不是操作
 系统沙箱。
 
+经过审核的插件卡可以显示签名 HTTPS 仓库、文档和 Issues 链接。Electron Main 校验
+目标、向用户展示地址，并且只有确认后才在外部打开。
+
 ## 安装引导与升级
 
 七步引导覆盖语言、隐私、official 模型目录、密钥实测、official Workspace 和第一条
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-不可变的 0.5.5 Release 已由同一个合并后的源码提交
-[`2136ff69`](https://github.com/kevinchennewbee/PenglaiAgent/commit/2136ff691afa8bdbefa3079236426a72a3851237)
-在对应原生 runner 上生成三个包：
+0.5.6 发布契约固定三个原生安装包。只有对应 native workflow 与不可变公网回读通过后，
+这里才会填写精确源码、工作流、字节大小和摘要：
 
 | 平台 | 正式文件 | 原生安装证据 |
 | --- | --- | --- |
-| Apple Silicon，macOS 13+ | [`Penglai_0.5.5_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_aarch64.dmg) | 原生 runner U3 PASS |
-| Intel Mac | [`Penglai_0.5.5_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_macos_x64.dmg) | 原生 runner U3 PASS |
-| Windows x64 | [`Penglai_0.5.5_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.5/Penglai_0.5.5_windows_x64_setup.exe) | U3 PASS，并有原生简体中文安装器截图 |
+| Apple Silicon，macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | 等待精确原生/公网证据 |
+| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | 等待精确原生/公网证据 |
+| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | 等待精确原生/公网证据和简体中文安装器截图 |
 
-对应的[三端原生工作流](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32656584336)
-全部通过。发布后又从公网下载十个 Release 资产，重新核对了精确文件集、大小、SHA-256、
-源码 tag、公开源码树、升级 manifest 和 Ed25519 分离签名。
+只有三端原生工作流全部通过，并且发布后从公网下载十个 Release 资产，重新核对精确
+文件集、大小、SHA-256、源码 tag、公开源码树、升级 manifest 和 Ed25519 分离签名，
+本版本才会关闭发布状态。
 
-0.5.1、0.5.2、0.5.3 可以从 **设置 → 蓬莱 → 更新** 检查 0.5 系列签名版本，
+0.5.1 到 0.5.5 可以从 **设置 → 蓬莱 → 更新** 检查 0.5 系列签名版本，
 也可以用同平台安装包手动覆盖。它不会静默升级。0.5.0 没有生产升级信任链，只能
 手动覆盖。外部 Workspace 与 `Penglai/0.5` 数据代际会保留。
 

@@ -1,5 +1,10 @@
 # BYOK 与凭据合同
 
+> **Historical 0.5.0 design record.** Current 0.5.6 product truth and release
+> acceptance live in `docs/PRODUCT.md`, `docs/ACCEPTANCE.md`, and
+> `docs/0.5.6/ACCEPTANCE_DELTA.md`. Lower-level safety rules below apply only
+> where they are not superseded by those current contracts.
+
 ## 1. 原则
 
 BYOK 不是 Penglai 自建 LLM 模块。DSH 已通过 `dsh-llm-pi-ai` 提供多供应商模型目录、Models settings、model discovery、default-model 与 credentials service。Penglai 只编排首次完成条件、发行路径和隐私说明。

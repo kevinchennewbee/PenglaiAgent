@@ -642,7 +642,7 @@ export class FeishuAdapter {
       });
     } catch (err) {
       const klass = classifyTransportError(err);
-      throw new PenglaiError(klass === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT", "Feishu audio resource download failed");
+      throw new PenglaiError(klass === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT", "Feishu media resource download failed");
     }
     const stream = response.getReadableStream();
     const chunks: Buffer[] = [];
@@ -655,7 +655,7 @@ export class FeishuAdapter {
         bytes += buf.length;
         if (bytes > 8 * 1024 * 1024) {
           stream.destroy();
-          throw new PenglaiError("INVALID_INPUT", "Feishu audio resource size rejected");
+          throw new PenglaiError("INVALID_INPUT", "Feishu media resource size rejected");
         }
         chunks.push(buf);
       }

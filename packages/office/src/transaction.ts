@@ -18,7 +18,7 @@ import { digestBytes } from "./jobs.js";
 /**
  * Office commits follow the official `@deepseek-ai/dsh-atomic-write` protocol
  * (exclusive-create random-suffix sibling + rename) and add parent nofollow /
- * fsync required by the Penglai 0.5.5 file-transaction contract.
+ * fsync required by the Penglai 0.5.6 file-transaction contract.
  */
 export function assertTrustedWorkspacePath(path: string, workspaceRoot: string): string {
   if (!isAbsolute(path) || !isAbsolute(workspaceRoot)) {

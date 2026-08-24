@@ -84,7 +84,7 @@ const SECRETISH = [
   /App Secret[:\s]+[A-Za-z0-9]/i,
 ];
 
-const OWNER_PATH = /\/Users\/[^/\s]+|\/Volumes\/KevinSSD|C:\\Users\\[^\\\s]+/i;
+const OWNER_PATH = /\/Users\/[^/\s]+|\/Volumes\/[^/\s]+|C:\\Users\\[^\\\s]+/i;
 
 export function assertEvidenceTextClean(text: string, label = "evidence"): void {
   for (const re of SECRETISH) {

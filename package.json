@@ -1,5 +1,5 @@
 {
-  "name": "penglai-v2",
+  "name": "penglaiagent",
   "version": "0.5.6",
   "private": true,
   "type": "module",
@@ -37,7 +37,7 @@
     "format:check": "node scripts/format-check.mjs",
     "lint": "tsc -b --pretty false --force",
     "typecheck": "tsc -b --pretty false --force",
-    "test:unit": "node --import tsx --test packages/contracts/src/*.test.ts packages/artifacts/src/*.test.ts packages/audio-codecs/src/*.test.ts packages/routing-core/src/*.test.ts packages/persistence/src/*.test.ts packages/testkit/src/*.test.ts packages/local-control/src/*.test.ts packages/runtime/src/*.test.ts packages/plugin-registry/src/*.test.ts packages/plugin-center/src/*.test.ts packages/plugin-reference/src/*.test.ts packages/plugin-pilot/src/*.test.ts packages/release-identity/src/*.test.ts packages/asr/src/*.test.ts packages/moss-tts/src/*.test.ts packages/context/src/*.test.ts packages/memory/src/*.test.ts packages/memory/src/engine/*.test.ts packages/memory/src/v2/*.test.ts packages/im/src/registry.test.ts packages/office/src/*.test.ts packages/budget/src/*.test.ts packages/companion/src/*.test.ts scripts/lib/evidence-dir.test.mjs scripts/lib/mnemon-fetch.test.mjs scripts/lib/candidate-source.test.mjs scripts/lib/secret-scan.test.mjs",
+    "test:unit": "node --import tsx --test packages/contracts/src/*.test.ts packages/artifacts/src/*.test.ts packages/audio-codecs/src/*.test.ts packages/routing-core/src/*.test.ts packages/persistence/src/*.test.ts packages/testkit/src/*.test.ts packages/local-control/src/*.test.ts packages/runtime/src/*.test.ts packages/plugin-registry/src/*.test.ts packages/plugin-center/src/*.test.ts packages/plugin-reference/src/*.test.ts packages/plugin-pilot/src/*.test.ts packages/release-identity/src/*.test.ts packages/asr/src/*.test.ts packages/moss-tts/src/*.test.ts packages/context/src/*.test.ts packages/memory/src/*.test.ts packages/memory/src/engine/*.test.ts packages/memory/src/v2/*.test.ts packages/im/src/registry.test.ts packages/office/src/*.test.ts packages/budget/src/*.test.ts packages/companion/src/*.test.ts scripts/lib/evidence-dir.test.mjs scripts/lib/mnemon-fetch.test.mjs scripts/lib/candidate-source.test.mjs scripts/lib/secret-scan.test.mjs scripts/lib/assemble-release.test.mjs",
     "test:contract": "node --import tsx --test packages/dsh-bridge/src/*.test.ts packages/channel-weixin/src/*.test.ts packages/channel-mock/src/*.test.ts packages/channel-feishu/src/*.test.ts packages/channel-dingtalk/src/*.test.ts packages/channel-wecom/src/*.test.ts packages/channel-qq/src/*.test.ts",
     "test:integration": "node --import tsx --test packages/im/src/*.test.ts packages/im/src/adapters/*.test.ts",
     "test:e2e": "node --import tsx --test apps/desktop/src/*.test.ts",
@@ -93,6 +93,7 @@
     "sign:catalog": "node --import tsx scripts/sign-catalog.mjs",
     "sign:plugin-artifact": "node --import tsx scripts/sign-plugin-artifact.mjs",
     "sign:update-manifest": "node --import tsx scripts/sign-update-manifest.mjs",
+    "assemble:release": "node --import tsx scripts/assemble-release.mjs",
     "readback:release": "node --import tsx scripts/readback-release.mjs",
     "rotate:release-keys": "node scripts/rotate-release-keys.mjs",
     "verify:soak": "node --import tsx scripts/verify-soak.mjs",

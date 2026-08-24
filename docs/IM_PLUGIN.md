@@ -1,5 +1,10 @@
 # `@penglai/im` 完整产品与协议合同
 
+> 0.5.6 可用性事实：只有微信和飞书属于 `LIVE_CHANNEL_IDS`。钉钉、企业微信、
+> QQ、Slack、Telegram、Discord、WhatsApp 只能显示“0.5.6 不可用/路线图”，
+> 没有 Connect 动作，也不能绑定或发送。没有真实协议时禁止生成假二维码；WhatsApp
+> 继续默认关闭并显示社区协议与账号风险。下文微信/飞书合同不授权其他平台变成 live。
+
 ## 1. 定位
 
 `@penglai/im` 是一个同时包含 DSH host 与 client module 的第一方插件。微信和飞书是内部 adapter，共享配置、binding、commands、causal routing、SQLite、outbox、supervisor 和 diagnostics。私聊语音通过`@penglai/asr`/`@penglai/moss-tts`的typed services处理；Context/Memory/Budget/Companion通过各自typed services与official Turn组合，adapter不拥有这些引擎。
@@ -8,18 +13,18 @@
 
 ## 2. 默认行为
 
-- fresh 0.5.0 profile 中 `@penglai/im` **默认 not-installed + disabled + absent from loader**；安装包只离线携带其已校验 tarball。
+- fresh 0.5.6 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
 - 用户在 Center 明确选择“安装并启用”后，package transaction 才写入 profile、启用 loader，并验证 actual active/healthy；此后未配置 adapter 时不联网、不启动 auth poll。
 - 未配置 adapter 时不联网、不启动 auth poll，但 Remote/UI/diagnostics 可用。
 - official Models API key 测试、default model 和 Workspace 就绪后，onboarding 自动进入“连接消息渠道”步骤。
 - 用户可选“连接微信”“连接飞书”“稍后”；稍后不阻止 DSH 使用，设置入口与非打扰 badge 保留。
 - 一键扫码成功后，扫码者/创建者的第一条私聊自动绑定 official 默认 Workspace/Session（引导时创建的那一个），直接对话。不必再发 `/绑定 <token>`。
 - 绑定页与 `/绑定` 只用于换官方会话或额外对端；不得按焦点或最近活动猜测。
-- fresh binding默认接收text+voice，reply mode为mirror-input；ASR/TTS model未就绪时显示确定性安装指引并text降级。
+- fresh binding 默认接收 private text、受支持图片/文件和 audio，reply mode 为 mirror-input；ASR/TTS model 未就绪时显示确定性安装指引并 text 降级。
 
 ## 3. UI 结构
 
-UI 位于 official DSH Web 的“设置 → 蓬莱 → 消息连接”嵌套子菜单，不是另一个窗口或内容区第三列。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；rc.8 没有父子 section schema且会丢弃未知 option，因此 exact-hash settings renderer overlay 只按该 id 命名空间渲染嵌套组，不改变 DSH settings/Agent/runtime。卸载 IM 只移除该页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次安装并启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页提供真实扫码入口。
+UI 位于 official DSH Web 的“设置 → 蓬莱 → 消息连接”嵌套子菜单，不是另一个窗口或内容区第三列。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH rc.2 没有父子 section schema且会丢弃未知 option，因此 exact-hash settings renderer overlay 只按该 id 命名空间渲染嵌套组，不改变 DSH settings/Agent/runtime。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
 
 “绑定”页必须为每个真实 binding 提供可视化 `inputMode`、`replyMode` 与 MOSS `voiceId` 控件；它们与 `/语音`、`/声音` 写入同一个 IM core 持久策略。ASR/TTS 未安装或模型未 ready 时显示实际能力状态并安全降级，不能显示假开关。微信原生语音必须先从该页发送 live probe，再由用户确认客户端里确实出现可播放气泡；仅 API 成功不自动启用。
 
@@ -130,7 +135,7 @@ DISCONNECTED
 - app sleep/wake 后重建 request，避免多个 poller。
 - send使用受控保存的original vendor route/context；hashed peerRef绝不能作为发送地址；保存receipt/classification，uncertain result不盲重发。
 - logout 先停 intake/worker，处理 outbox，撤销/清除 credential，清理 account/binding 按用户选择执行。
-- private VOICE item在auth/allowlist/dedupe/claim后下载解密SILK并交ASR；图片/普通文件/视频仍拒绝。
+- private VOICE item 在 auth/allowlist/dedupe/claim 后下载解密 SILK 并交 ASR；图片进入 official DSH image store，普通文件进入 exact Workspace/Session 的 Artifact Service；视频仍拒绝。
 - TTS回复至少以可见可播放audio FILE attachment发送；native VOICE bubble只有current Tencent live capability通过才启用，API返回成功但客户端不可见仍算失败。
 
 ## 7. 飞书官方应用状态机
@@ -165,10 +170,10 @@ NOT_CONFIGURED
 
 ### event handling
 
-- 验证 schema、tenant/app/bot、chat type=p2p、message type=text|audio、size/duration limit。
+- 验证 schema、tenant/app/bot、chat type=p2p、message type=text|image|file|audio、size/duration limit。
 - event/message id durable dedupe。
 - handler 在 3 秒内 durable enqueue/return，不等待 Agent；重复推送只复用 inbox result。
-- p2p audio在durable enqueue后用message id+file key异步下载并交ASR；group/image/file/video/card明确拒绝，不下载、不调用模型。
+- p2p image/file/audio 在 durable enqueue 后用 message id+file key 异步下载；image 进入 official image store，file 进入 scoped Artifact Service，audio 交 ASR。group/video/unsupported card 明确拒绝，不下载、不调用模型。
 - sender/open ids不进普通日志；DB为回复最小保存真实vendor target并用文件权限/ACL、字段访问和retention保护，UI/导出/evidence只使用HMAC/hash peerRef。
 
 ### send/reconnect/logout
@@ -230,10 +235,10 @@ parser 处理 Unicode whitespace、全角斜杠策略、未知命令、空参数
 普通 inbound：
 
 ```text
-vendor text/audio message/event
+vendor text/image/file/audio message/event
  → authenticated adapter route
  → durable inbox/media claim + dedupe
- → optional ASR exact audio digest
+ → official image store | scoped Artifact Service | optional ASR exact audio digest
  → explicit Binding
  → claimed official DSH Turn
  → correlation(messageId, turnId, route, revision)
@@ -285,13 +290,13 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 
 ## 14. 自动测试层
 
-- protocol fixtures：腾讯全部 QR/status/redirect/verify/text/SILK/audio-send/errors；飞书 SDK text/audio resource/upload/send/reconnect/errors。
+- protocol fixtures：腾讯全部 QR/status/redirect/verify/text/image/file/SILK/audio-send/errors；飞书 SDK text/image/file/audio resource/upload/send/reconnect/errors。
 - contract：headers、timeouts、schemas、credential refs、SDK pins。
 - integration：两个 adapters + real Router + fake official DSH AgentHandle + SQLite。
 - installed browser：真实 packaged app、中文 Penglai UI、Remote 操作、mock HTTP/WS workers。
 - chaos：crash every transaction boundary、offline、sleep/wake、duplicate、out-of-order、uncertain send。
-- live：exact artifact 上微信扫码/private text+voice与飞书 app/private text+audio，仅保存 nonce/audio/text digest/opaque ids。
+- live：exact installer 上微信扫码/private text/image/file/audio 与飞书 app/private text/image/file/audio；只保存 nonce、字节/文本 digest 和 opaque ids。
 
 ## 15. 明确非目标
 
-群聊、图片、普通文件、视频、富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.0。私聊语音是本版目标，但不能扩张成任意媒体进入模型。
+群聊、视频、未审核富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.6。图片必须走 official image store；普通文件必须走 scope-checked Artifact Service，不能把任意媒体伪装成文本或图片进入模型。

@@ -937,7 +937,7 @@ for (const p of packs) {
     process.exit(1);
   }
   if (
-    /\/Users\/[A-Za-z0-9._-]+\/|\/Volumes\/KevinSSD|C:\\\\Users\\\\[A-Za-z0-9._-]+\\\\|\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
+    /\/Users\/[A-Za-z0-9._-]+\/|\/Volumes\/[^/\s]+\/|C:\\\\Users\\\\[A-Za-z0-9._-]+\\\\|\/\/[#@] sourceMappingURL=|\/var\/folders\/|\\\\Temp\\\\|sk-penglai-fixture/.test(
       hostJs,
     )
   ) {

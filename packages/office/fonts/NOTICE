@@ -1,7 +1,7 @@
 NotoSansSC-VF.ttf is the unmodified Simplified Chinese variable-font subset
 published by Adobe and Google in https://github.com/notofonts/noto-cjk.
 
-Penglai 0.5.5 bundles the complete upstream SC font instead of a fixture-only
+Penglai 0.5.6 bundles the complete upstream SC font instead of a fixture-only
 glyph subset, so arbitrary Simplified Chinese text is available offline.
 
 Upstream file: Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf

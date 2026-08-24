@@ -1,171 +1,247 @@
-# Penglai v2 产品规格 — v0.5.0 Apple Silicon 首发版
+# Penglai 0.5.6 product contract
 
-## 1. 产品承诺
+## English
 
-Penglai 0.5.0 让 Apple Silicon Mac 用户安装一个自包含桌面应用，经过中文优先的 pre-DSH `/wizard` 前置引导（ADR 0030）填入自己的模型 API key，进入完整 official DSH Web，并在同一界面管理 Penglai 插件、扫码连接微信或配置飞书。Intel macOS 与 Windows 客户端保留为后续路线，不属于 0.5.0 首发支持范围。
+### 1. Product promise
 
-它不是重新实现 DSH。DSH 的 Agent、Workspace、Session、Turn、工具、审批、模型和 Web UI 是产品核心；Penglai 负责发行、引导、品牌、进程、升级、卸载、插件中心和可靠的第一方插件。
+Penglai is an installable desktop distribution of official DeepSeek Harness
+(DSH). DSH is the only agent core and owns agents, models, tools, approvals,
+Workspaces, Sessions, Turns, and the conversation UI. Penglai owns packaging,
+first run, process supervision, local data boundaries, assisted updates,
+uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
+provider gateway, session store, or chat page.
 
-默认安装的基础产品就是一个完成 BYOK 后可独立使用的完整 DSH 发行版。审核过的 Penglai 插件随包离线预装并在 Center 中可见，但不是使用 DSH 的前提；用户可从纯 DSH、IM text、IM+ASR、IM+TTS、完整语音链以及 Context/Memory/Budget/Companion 中自行组合。未配置的插件不得产生联网、索引、推理、拦截或主动外发副作用。
+Version 0.5.6 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+`0.1.1-rc.2`. A fresh user brings a provider credential, selects an official
+model and Workspace, receives a real first DSH reply, and then uses the official
+DSH Web interface.
 
-## 2. 目标用户
+### 2. Supported platforms
 
-- 不想安装 Node/pnpm/dsh 的普通桌面用户。
-- 想使用自己的模型 API key、在本机保存配置的个人用户。
-- 希望从微信/飞书私聊文字或语音调度同一 DSH Workspace/Session 的用户。
-- 希望在本机完成麦克风转写与回复朗读、音频不交给云 ASR/TTS 的用户。
-- 希望授权本地资料后获得可核对来源、分 Workspace 记忆、预算护栏和可选主动陪伴的用户。
-- 想保留 DSH 完整能力，同时获得中文默认、安装器和插件中心的开发者。
-
-## 3. 支持平台与安装包
-
-| 用户设备 | 安装包 |
+| Device | Exact installer |
 | --- | --- |
-| Apple Silicon Mac | `Penglai_0.5.0_macos_aarch64.dmg` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.6_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.6_windows_x64_setup.exe` |
 
-该 DMG 自带目标架构的 Electron、Node、DSH 和第一方插件。Intel macOS、Windows、Linux、Mac App Store、Microsoft Store 不在0.5.0范围。
+The app contains its target Electron, Node, DSH closure, profile seed, bundled
+plugins, licenses, and integrity metadata. It never falls back to a system Node,
+pnpm, Python, ffmpeg, or DSH installation. Every support claim requires a build
+and installed test on the matching native platform.
 
-## 4. 核心用户旅程
+### 3. Fresh-install capability set
 
-### 4.1 安装与首次使用
-
-1. 用户选择正确平台安装包并完成OS原生安装。
-2. Penglai创建隔离的0.5数据根，检测但不读取/迁移0.4.1数据。
-3. 用户选择语言/主题并理解本地数据与YAML credential边界。
-4. 用户从official provider/model列表选择API，输入key并真实测试。
-5. 用户选择Workspace，经official DSH创建Session/Turn并得到首轮回复。
-6. 主窗口进入Penglai品牌化official DSH Web。
-7. 此时完整DSH已经可用；用户可以完全不启用Penglai增强，或从Center自行组合已预装插件。
-8. 用户现在可以连接IM或稍后从Settings处理；也可选择安装本地语音模型、授权资料目录、了解分层记忆，预算与主动陪伴保持默认未配置/关闭。
-
-### 4.2 微信一键扫码
-
-1. 设置→Penglai IM→微信→连接微信。
-2. 界面显示真实二维码、倒计时和完整状态。
-3. 扫码者确认后成为默认允许身份，并自动绑定引导时创建的 official 默认 Workspace/Session。
-4. 用户直接发「你好」即可对话；绑定页只用于换官方会话。
-5. 私聊文本或语音进入同一DSH因果链；语音由本地SenseVoice转写，最终文本/可听MOSS音频只回原微信路由。
-6. 重启、睡眠、断网后自动恢复；用户可注销并清理credential。
-
-### 4.3 飞书一键扫码并连接
-
-1. 设置→Penglai IM→飞书点“连接飞书”，显示官方 app/registration 二维码。
-2. 用户用飞书扫码创建 PersonalAgent；host 把官方返回的 App ID/Secret 写入 credentials，renderer 不读明文。
-3. official SDK 长连接建立后，创建者的第一条私聊自动绑定同一 official 默认 Workspace/Session，直接发「你好」即可。
-4. 私聊文本或 audio 走同一 DSH 因果链；audio 本地转写，MOSS 回复经 official Opus/audio API 回原飞书路由。
-5. 扫码不可用时才使用手动 App ID/Secret 后备。
-
-### 4.4 本地语音
-
-1. Center真实显示并管理`@penglai/asr`与`@penglai/moss-tts`。
-2. 用户明确操作后下载/导入固定hash的SenseVoice/MOSS权重；DSH core不等待模型。
-3. DSH composer录音→本地转写→可编辑确认→official Turn；assistant final可手动/按Session朗读。
-4. 用户可选择内置声音、试听、导出；本地声音参考只在明确许可后创建并可独立删除。
-5. 微信原生voice bubble若厂商当前live不稳定，以可播放audio attachment可靠降级；飞书native audio是Hard。
-
-### 4.5 升级
-
-- 0.4.1→0.5.0必须fresh install，不迁移旧数据。
-- 0.5.0开始，应用检查签名manifest，下载并验签当前平台安装器，让用户确认原生安装，迁移0.5内部schema并失败回滚。
-- community trust版不宣称macOS silent auto-update。
-
-### 4.6 蓬莱记忆、预算与陪伴
-
-1. 用户显式授权 global 或 Workspace 本地资料目录；Penglai只在本机建立可删除派生索引，原文件不改。
-2. Agent在official DSH Turn中调用蓬莱记忆提供的资料检索工具，回答显示host验证的current/stale/revoked/unavailable来源卡。
-3. global L1与Workspace memory严格分层；长期global记忆和SOP写入必须展示diff并由Owner确认，SOP复用official DSH Skills。
-4. budget读取official TokenMeter，按global/Workspace/provider限制新Turn；未知价格只报token。
-5. companion默认关闭；启用后按quiet hours/频率/预算，用official Schedule和dedicated DSH Turn发送绑定渠道的text或voice，不执行无人值守工具。
-
-### 4.7 卸载
-
-- macOS在设置中先管理数据，然后将app移到废纸篓。
-- 默认保留0.5用户数据；完整删除按类别选择，credential二次确认。
-- Workspace和0.4.1 legacy永不被0.5卸载器删除。
-
-## 5. official DSH Web 信息架构
-
-Penglai增加：
-
-- 首次引导编排。
-- official Settings 左栏用一个连续、视觉缩进的蓬莱分组承载第一方页面：“蓬莱”概览为组首，只有已启用能力才出现对应子项；不把多个能力横向挤入 official Plugins tabs，也不在内容区增加第三列导航。
-- Settings→蓬莱→概览：真实loader驱动的插件中心与六张用户产品卡。
-- Settings→蓬莱→连接→消息连接：IM 总览、微信、飞书、绑定、命令、诊断。
-- Settings→蓬莱→语音：ASR/TTS 模型、试转写、试听、声音与数据管理。
-- Settings→蓬莱→蓬莱记忆：授权资料/索引/来源/撤销，以及global/Workspace/candidates、图谱、审计与删除；不出现独立“个人上下文”插件。
-- Settings→蓬莱→控制与陪伴：TokenMeter 预算护栏与默认关闭的主动陪伴。
-- Settings→蓬莱→系统：更新、存储与卸载。
-- Center 和各能力插件分别通过 official `settings.section` 独立注册/卸载，并用连续 order 聚合在蓬莱组内；Center 改变 client roster 后只触发一次应用内 reload。这个组合不形成第二套 plugin runtime、settings shell 或强依赖组合。
-- About中的Penglai/DSH/target/trust/data/license信息。
-
-DSH原有能力必须完整保留：
-
-- light/dark/system与系统动态变化。
-- 中文/English。
-- Models与默认模型。
-- Workspace、Session、conversation。
-- tools、approvals、permissions。
-- settings、help、project等导航/命令。
-
-## 6. 0.5.0 范围
-
-### 必须完成
-
-- Apple Silicon 自包含安装包与 native installed evidence。
-- Penglai品牌、完整zh/en、主题parity。
-- 真实BYOK/Workspace/first Turn引导。
-- 真实loader驱动的Penglai Center。
-- 由用户在 Center 按需安装、启用的统一IM插件。
-- 微信/飞书私聊text+voice闭环、binding、commands、strict causal route。
-- SenseVoice ASR与MOSS-TTS-Nano两个真实DSH插件、按需模型、Apple Silicon native engine。
-- 蓬莱记忆（含授权资料、source cards、分层记忆与图谱）、预算、主动陪伴三个真实DSH插件，并复用official Skills/Schedule/TokenMeter。
-- crash/offline/sleep/worker/DB恢复与两小时soak。
-- 从0.5开始的signed assisted update与rollback。
-- macOS卸载与精确数据管理。
-- deterministic public-export与公开发布。
-
-### 明确不做
-
-- 0.4.1 state migration/updater bridge。
-- 群聊、图片、普通文件、视频、富卡片。
-- 云账户/同步/遥测、browser/CUA和无人值守高权限陪伴。
-- 远程插件市场与任意代码安装。
-- OS publisher signing/notarization（community trust候选）。
-- Intel macOS与Windows 0.5.0安装包。
-
-## 7. 插件生态
-
-Center分层：
-
-1. official DSH core：原样保留，不由Penglai伪装重实现。
-2. Penglai built-in/first-party：0.5内置Center、IM、ASR、MOSS-TTS、Context、Memory、Budget与Companion，真实manifest/permissions/migration/rollback。
-3. future reviewed community：只有来源、license、signature、compatibility、isolation、migration、安全审核齐备后加入。
-
-0.5不显示尚未实现的插件卡，也不开放npm/Git/URL输入。
-
-“随包预装”不等于“强制使用”：Center/IM作为发行基础能力可保持active，ASR/TTS在无模型时不推理，Context在无grant时不索引，Memory不自动写global/SOP，Budget在无策略时不阻断，Companion默认不调度、不外发。用户禁用任一可选插件后，official DSH与其余插件必须继续正常工作。
-
-## 8. 数据与隐私承诺
-
-- 无Penglai云账户、遥测或跨设备同步。
-- API/微信/飞书secret保存在本机app-private official YAML credentials。
-- renderer读不回明文；但同OS用户的高权限本地进程可能读取文件，不能宣传成Keychain级隔离。
-- IM只保留完成因果路由所需的受控状态；日志/evidence不含secret、QR、正文或真实identity。
-- 麦克风/IM原始语音与TTS临时输出按任务及时删除；本地声音参考是独立敏感数据类别，不进入日志/evidence，也不会从联系人语音自动创建。
-- 蓬莱记忆的资料源层只索引用户授权的realpath目录，撤销只删派生索引；记忆/预算/陪伴数据均app-private、可查看、可分项删除，不进入诊断或evidence正文。
-- 卸载默认保留数据，完整删除由用户明确选择。
-
-## 9. 状态语言
-
-| 状态 | 可以说 | 不能说 |
+| Surface | Fresh state | Product behavior |
 | --- | --- | --- |
-| implementing | 正在实现0.5 | 已完成/已发布 |
-| target built | Apple Silicon安装包已生成 | 已公开/已公证 |
-| awaiting external | 只剩精确native/live/key项 | 基本完成可发布 |
-| ready for Codex | exact private候选待独立验收 | Codex已通过 |
-| Codex PASS | 私有候选验收通过 | 已公开0.5.0 |
-| public release | Owner授权且公开main/tag/Release/asset/site核验完成 | 未核验就宣布 |
+| Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
+| Penglai Office | Active | Inspect, create, plan edits, preview, commit, export/return, and undo DOCX/XLSX/PPTX/PDF |
+| Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
+| Mobile Messaging | Disabled | Live Weixin and Feishu adapters only |
+| Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
+| Voice Generation | Disabled | Local MOSS-TTS preview, conversation Read, and supported channel audio |
+| Companion | Disabled | Opt-in scheduled contact with quiet hours, budget, and an exact IM route |
 
-## 10. 成功标准
+Optional plugins must remain inert when disabled, unconfigured, offline, or
+missing model weights. Their failure cannot block ordinary DSH conversation.
 
-Apple Silicon 用户可以从 exact DMG fresh install，不安装开发工具，通过真实UI完成BYOK和Workspace/Turn，进入完整DSH Web，按需安装本地ASR/TTS，在一个蓬莱记忆插件里使用授权资料源、来源卡、分层记忆与图谱，按需启用陪伴，并连接微信/飞书私聊text+voice，安全升级后续版本，并清楚可控地卸载。所有结论有exact source/export/artifact/native/live evidence支持。
+### 4. First run
+
+The pre-DSH wizard is a temporary bootstrap surface, not a second product UI. It
+covers language, privacy, the official provider/model catalog, a real credential
+test, an official Workspace, and the first official DSH Turn. It supports Back,
+retry after a failed credential, restart/resume, and rejection of application or
+data directories as Workspaces. Completion means the provider returned a real
+first reply.
+
+Credentials are stored through the official DSH credentials-local seam in an
+app-private YAML file. The renderer cannot read values back. File permissions or
+the current-user Windows ACL reduce accidental exposure but are not Keychain,
+hardware-backed storage, or protection from another process running as the same
+OS user.
+
+### 5. Penglai Memory
+
+The fresh mode is smart automatic Workspace memory. On official `turn/end`, a
+separate official Agent uses the current provider/model with all tools denied.
+Its output is parsed by a closed host schema and local risk policy. Safe project
+facts may be persisted in the exact current Workspace. Secrets, sensitive text,
+instruction-injection patterns, malformed output, and personal/global promotion
+are skipped without failing the user Turn.
+
+Before a later official model step, confirmed records from the current Workspace
+and explicitly accepted personal records can be recalled within fixed item/token
+limits. Another Workspace is never searched or selected implicitly. Users can
+choose Off, Review first, or Smart Workspace organization.
+
+Personal memory, forgetting, correction, import, authorised-source revoke, and
+SOP promotion use action-specific Owner approval. Source indexing never modifies
+the original files; revoke removes the derived index and leaves the source
+untouched. Mnemon 0.2.4 is the only recall engine and is bundled per target.
+
+### 6. Office and artifacts
+
+Office exposes a closed typed operation set. A model cannot invent a host path,
+run macros, or silently write. Input/output values are host-issued opaque
+`artifact:<uuid>` references bound to Workspace and Session scope. Intake checks
+magic/type, size, symlink/device/directory escape, encrypted or macro-bearing
+content, executables, nested archives, and quota. Identical bytes in two
+Workspaces remain two bindings.
+
+Write, export, return, and undo approval binds the exact job, source/result
+digest, destination, Workspace, Session, and revision. Approval completes only
+after the mutation or delivery succeeds.
+
+Official DSH rc.2 conversation Turns support text and images, not generic file
+blocks. Penglai therefore does not claim ordinary composer DOCX/XLSX/PPTX/PDF
+attachments. Official images continue through the official image store. Files
+received through live IM or selected through Office use the scoped artifact
+service without DOM injection or a second conversation engine.
+
+### 7. Messaging
+
+`@penglai/im` is the only messaging plugin. It owns bindings, deterministic
+commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
+Adapters cannot call a parallel agent or guess the current Workspace/Session.
+
+Weixin and Feishu are the only live adapters in 0.5.6. Text, supported images,
+files, and audio enter the bound official DSH Session. Inbound bytes are attached
+only after official Turn acceptance; callback failure does not duplicate a Turn.
+Binding/rebinding/removal requires an Owner approval bound to the exact channel,
+account, peer, Workspace, and Session.
+
+DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp are roadmap entries
+only. They have no Connect action and cannot bind or send. Penglai does not fake
+QR availability. WhatsApp is explicitly community-protocol, account-risk, and
+default-off.
+
+### 8. Local voice
+
+ASR and TTS code ships in every installer; large pinned weights download only
+after explicit user action. The desktop requests audio input only after a current
+gesture. Camera, video, Bluetooth, and unrelated capture permissions are denied
+or absent from packaged metadata.
+
+Settings preview and conversation Read use one playback controller. Play, stop,
+ended, error, stalled, cancellation, latest-wins, and temporary URL cleanup are
+observable states. Read speaks the original assistant response; translation is
+outside this feature.
+
+### 9. Plugin Center and Owner authority
+
+Plugin Center trusts only immutable signed catalog assets whose identity,
+archive digest, DSH compatibility, platform, permissions, migration, and
+rollback checks pass. UI state is never proof of installation or health; the
+official loader inventory is authoritative.
+
+Repository, documentation, and issue links are signed HTTPS catalog values.
+Electron Main validates and opens them only after user confirmation. Arbitrary
+npm names, Git repositories, local paths, and download URLs are not accepted.
+
+One Main-process Owner broker serves Office, Memory, IM, Plugin Center, and
+persistent artifacts. Renderer booleans, model text, or UUID-shaped strings are
+not authority. Approval binds the action and relevant object/scope/digest and is
+consumed only after the real operation succeeds.
+
+### 10. Data, updates, and uninstall
+
+Penglai has no account, telemetry service, cloud memory sync, or cloud ASR/TTS.
+Model calls still send the context required for a task to the provider selected
+by the user. Diagnostics and evidence exclude secrets, QR data, chat bodies,
+account identities, private paths, memory bodies, transcripts, and private media.
+
+Versions 0.5.1 and later use a signed assisted update: discover an immutable
+Release, verify identity/hash/signature/target, download after user action, and
+hand off to the OS installer. Updates are not silent. Version 0.5.0 requires a
+manual overlay. External Workspaces and the `Penglai/0.5` data generation are
+preserved.
+
+Default uninstall removes the application and cache while preserving user data.
+Complete delete uses an exact category plan and a one-shot capability. It must
+never recursively delete a Workspace, authorised source, home/root, legacy
+generation, symlink, junction, or reparse escape.
+
+### 11. Trust tier and success condition
+
+macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
+Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
+and plugin bytes but do not provide Apple or Microsoft publisher identity.
+
+0.5.6 succeeds only when one clean source SHA produces all three native
+installers, source/security/privacy gates pass, installed evidence exists on
+each matching runner, the Apple Silicon provider path receives a real first
+Turn, and the immutable ten-asset Release passes public byte-for-byte readback.
+
+## 中文
+
+### 1. 产品承诺
+
+蓬莱是官方 DeepSeek Harness（DSH）的桌面发行版。DSH 是唯一 Agent 核心，拥有
+Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬莱负责安装包、
+首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
+Agent、模型网关、Session 存储或聊天页。
+
+0.5.6 固定 DSH `0.1.1-rc.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
+用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
+official DSH Web。
+
+### 2. 全新安装
+
+插件中心、蓬莱办公和蓬莱记忆默认 active；手机消息、语音识别、语音生成、主动陪伴
+随包但默认关闭。可选插件在 disabled、未配置、离线或缺少模型时必须保持惰性，不能
+阻塞普通 DSH 会话。
+
+首次向导只负责语言、隐私、official 模型、真实密钥测试、Workspace 和第一条 official
+Turn。它支持返回、重试、重启续接和非法 Workspace 拒绝；完成条件是模型真实回复，
+不是健康接口返回。
+
+### 3. 记忆
+
+全新 profile 默认“智能整理 Workspace”。official Turn 结束后，一个禁用全部工具的
+official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。安全项目事实可以自动
+写入 exact Workspace；密钥、敏感内容、类似提示词注入、错误格式和个人/全局提升全部
+跳过，不影响用户 Turn。
+
+后续步骤只召回当前 Workspace 已确认记录和用户明确保存的个人记忆，绝不跨 Workspace。
+用户可选关闭、先审阅或智能整理。个人记忆、遗忘、更正、导入、资料源撤销和 SOP 都
+需要对应 Owner 确认。资料索引不修改源文件；撤销只删派生索引。
+
+### 4. 办公、附件与确认
+
+办公只提供封闭 typed operation。模型不能编造主机路径、运行宏或静默写入。文档和
+音频使用绑定 Workspace/Session 的不透明 `artifact:<uuid>`；magic/type、大小、
+symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
+
+写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
+只有真实动作成功后才完成。official DSH rc.2 会话 Turn 只支持文字和图片，因此 0.5.6
+不宣称输入框能直接发普通 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或
+蓬莱办公选择的 Workspace 文件走 artifact service，不做 DOM hack 或第二会话引擎。
+
+### 5. IM 与语音
+
+`@penglai/im` 是唯一消息插件。0.5.6 只有微信、飞书是 live adapter。钉钉、企业微信、
+QQ、Slack、Telegram、Discord、WhatsApp 只显示路线图，没有连接按钮，也不能绑定或
+发送；没有真实扫码协议时不会伪造二维码。WhatsApp 明确标注社区协议和账号风险。
+
+ASR/TTS 代码随包，大模型权重只在用户明确操作后下载。麦克风必须由当前用户手势触发，
+只申请 audio；相机、视频、蓝牙和无关 capture 权限不进入产品声明。设置页试听与会话
+Read 共用播放状态机，正确处理播放、停止、结束、错误、卡住和资源释放；Read 朗读原文，
+不是翻译功能。
+
+### 6. 插件中心、隐私与升级
+
+插件中心只接受不可变签名目录，逐项验证包身份、摘要、DSH 兼容、平台、权限、迁移和
+回滚。official loader inventory 才是 installed/active 的事实。仓库、文档、问题链接
+只能来自签名 HTTPS 值，用户确认后由 Electron Main 外部打开。
+
+办公、记忆、IM、插件中心和持久附件共用 Main Owner Broker。renderer 布尔值、模型
+文字或长得像 UUID 的字符串都不是授权；确认与具体动作、对象、scope、摘要绑定，并在
+真实操作成功后才消费。
+
+蓬莱没有账号、遥测、云记忆同步或云 ASR/TTS。诊断和证据不含密钥、二维码、聊天正文、
+账号身份、私有路径、记忆正文、转写和私有媒体。0.5.1 以后使用签名辅助升级，不静默；
+0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
+Workspace、授权源、home/root、旧代数据或越界链接。
+
+macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.6 只有在同一干净
+源码 SHA 的三端原生包、三端安装证据、真实模型 Turn、隐私门禁和不可变十资产公网
+回读全部成立时，才算发布完成。

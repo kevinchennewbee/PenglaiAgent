@@ -1,5 +1,9 @@
 # DSH 0.1.1-rc.1 compatibility report
 
+> **Historical 0.5.1 report.** It no longer defines the current product pin.
+> Penglai 0.5.6 uses official DSH `0.1.1-rc.2`; see `DSH_011_RC2.md` and
+> `release-contract.json`.
+
 Freeze: `@deepseek-ai/dsh@0.1.1-rc.1`, GitHub tag `dsh-v0.1.1-rc.1`, commit `528c682e061696f5a160f363f236ecbf53cbd006`, npm integrity `sha512-HVauMT0F7MWUctkxzBcu5PMFc8j0lm0kX+4IbcUsA7Oh+/xv7xhigEDP0SaSOM/kR48U/BldHbZru116DcZz0w==`.
 
 This is the 0.5.1 kernel report. It replaces ADR 0031 as the current pin, not as historical evidence.

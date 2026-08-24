@@ -358,6 +358,18 @@
 - 决定：`@penglai/memory`是fresh profile、catalog、loader inventory与用户界面中唯一的记忆插件。授权资料、FTS5索引、来源卡、分层记忆、图谱、纠错/遗忘与official Skill沉淀编译进同一host/client包。旧`@penglai/context`只作为0.5.3升级输入被移除，其派生索引保留并由Memory接管。
 - 后果：隐藏旧卡片或改标题不算融合；fresh/upgrade/installed证据必须反证独立Context package、profile项和inventory行。
 
+### D-058 — 0.5.6 自动 Workspace 记忆、统一 Owner Broker 与 Artifact Service
+
+- 状态：ACCEPTED（Owner 2026-08-24 要求真实使用反馈必须落实到生产动作，而不是只修设置页）
+- 决定：fresh Memory 默认“智能整理 Workspace”。curator 必须是同一 official DSH 环境中的 no-tools Agent，Host 负责封闭格式、secret/敏感/注入风险校验；只允许自动保存 exact Workspace 的安全项目事实，personal/global/SOP 仍需 Owner。Office、Memory、IM、Plugin Center 和持久 Artifact 统一消费 Main Owner Broker，receipt 绑定 action/object/scope/digest/destination/revision，真实动作成功后才 complete。Office/IM 文档与音频使用 `artifact:<uuid>`；official DSH rc.2 没有 generic file Turn 时不做 DOM hack 或第二会话引擎。
+- 后果：记忆无需用户说“记住”才能产生当前项目记忆，但不能跨 Workspace 或自动变成个人记忆。renderer boolean/UUID 不是授权。相同字节跨 Workspace 仍是不同 binding。会话输入框只诚实声明 official text/image 能力；D-041 的 IM text+voice 限制被本决议取代，微信/飞书私聊图片走 official image store、文件走 Artifact Service，群聊/视频仍拒绝。
+
+### D-059 — 0.5.6 IM 可用性与公开发布授权
+
+- 状态：ACCEPTED（Owner 2026-08-24 明确授权完成开发、真实测试、PR、合并、三端构建、Release、README 与官网）
+- 决定：0.5.6 只有微信、飞书进入 `LIVE_CHANNEL_IDS`。钉钉、企业微信、QQ、Slack、Telegram、Discord、WhatsApp 只显示不可用/路线图，不能 Connect、bind、send，也不能伪造 QR；WhatsApp 标注社区协议和账号风险。发布必须按 `docs/0.5.6/RELEASE_RUNBOOK.md` 从一个 clean SHA 取得三端原生安装证据和不可变十资产公网回读。
+- 后果：授权不覆盖失败门禁，也不允许上传临时 API key、账号身份、二维码、聊天正文、私有路径、profile、日志、私有媒体或签名私钥。源码、打包、native、installed、live、public 证据分别报告。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。
@@ -371,11 +383,11 @@
 
 ## Deferred
 
-- 微信/飞书群聊、图片、普通文件、视频、富卡片。
+- 微信/飞书群聊、视频与未通过 live 验收的富卡片；普通会话输入框的通用文档 Turn 等待 official DSH file block。
+- 钉钉、企业微信、QQ、Slack、Telegram、Discord、WhatsApp live adapter；0.5.6 只保留诚实路线图。
 - browser/CUA、Companion无人值守高权限工具。
 - 任意第三方在线插件市场和远程代码下载。
 - silent auto-update、Mac App Store、Microsoft Store、Developer ID/notarization、Windows Authenticode。
-- Intel macOS 与 Windows 客户端公开发布；等待后续 native runner、installed evidence 与独立版本决策。
 - Linux与Windows ARM。
 - 云账户、遥测、跨设备同步、Penglai 托管飞书应用。
 - 飞书 user OAuth/Device Flow，直到出现明确 user-scope 功能。

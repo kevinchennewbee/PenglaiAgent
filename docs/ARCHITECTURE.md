@@ -1,153 +1,103 @@
-# Penglai v2 架构 — 0.5.0 跨平台发行版
+# Penglai 0.5.6 architecture
 
-## 1. 总体组合
+## English
+
+### 1. Composition and authority
 
 ```text
-Penglai desktop (Penglai.app / Penglai.exe, zh-CN first)
+Penglai.app / Penglai.exe
 ├─ Electron distribution shell
-│  ├─ bootstrap / recovery / process supervisor / secure local proxy
-│  ├─ embedded Node + pinned official DSH
-│  └─ app-private DSH_HOME + Penglai data root
-└─ official DSH host + official DSH Web implementation
-   ├─ DSH Agent / Workspace / Session / Turn / tools / approvals
-   ├─ Pi providers / Models / credentials-local / default model
-   ├─ Penglai composition client
-   │  ├─ product brand + zh-CN preference + versioned onboarding
-   │  ├─ Plugin Center client
-   │  ├─ Penglai IM/voice clients
-   │  └─ Context/Memory/Budget/Companion clients
-   ├─ @penglai/plugin-center host
-   ├─ @penglai/asr + @penglai/moss-tts hosts
-   ├─ @penglai/memory host（分层记忆 + 授权资料 + 来源卡 + 图谱）
-   ├─ @penglai/budget + @penglai/companion hosts
-   └─ @penglai/im host
-      ├─ Typert Remote service
-      ├─ adapter supervisor
-      ├─ binding / commands / causal router
-      ├─ SQLite / inbox / correlation / outbox
-      ├─ Weixin iLink adapter
-      └─ Feishu official SDK adapter
+│  ├─ bootstrap, recovery, secure loopback proxy, process supervision
+│  ├─ Owner approval broker, OS permission broker, updater, uninstall
+│  └─ embedded target Node + pinned official DSH closure
+└─ official DSH host + official DSH Web
+   ├─ Agent / model / tool / approval / Workspace / Session / Turn
+   ├─ credentials-local / settings / loader / inventory / client modules
+   └─ Penglai DSH plugins
+      ├─ plugin-center
+      ├─ office ───────────────┐
+      ├─ memory + Mnemon       ├─ scoped Artifact Service / Owner Broker
+      ├─ im ─ Weixin / Feishu ┘
+      ├─ asr / moss-tts
+      └─ companion / hidden budget control / hidden conformance fixture
 ```
 
-“界面叫蓬莱”与“DSH 是核心”不冲突：Penglai 是产品品牌和发行 composition，official DSH Web 仍提供所有 Agent/会话/工作区/基础交互。品牌层不得复制或替换 DSH runtime。
+Official DSH is the single runtime authority. Penglai does not own a second
+provider registry, agent loop, Workspace/Session store, tool executor, approval
+system, or conversation renderer. The bootstrap wizard disappears after
+completion; the long-lived main window is official DSH Web with DSH client
+modules and settings sections.
 
-## 2. 产品品牌与中文层
+### 2. Process and trust boundaries
 
-### 2.1 用户可见身份
+#### Electron Main
 
-- macOS/Windows app name、bundle/display name、window title、HTML product suffix、菜单、About、首次欢迎页、sidebar wordmark、shortcut 和设置中的产品名统一为“蓬莱 / Penglai”。
-- official DSH 归属、版本、许可证和“Powered by DeepSeek Harness”保留在 About、诊断和开源许可证，不占据主产品品牌。
-- 运行健康判断不能继续依赖 `document.title === "DeepSeek Harness"`；改用 pinned asset manifest、root marker、host handshake 和 authenticated health proof。
+- resolves read-only bundle resources and the platform-specific app-private data
+  root;
+- starts embedded Node with an absolute official DSH entrypoint and no system
+  PATH fallback;
+- owns the DSH process tree, restart budget, shutdown, orphan cleanup, splash,
+  recovery, and authenticated loopback proxy;
+- owns OS dialogs, external-link opening, microphone permission, updater launch,
+  uninstall, and the Owner approval broker; and
+- enforces `contextIsolation`, sandboxing, disabled Node integration, narrow
+  navigation/window-open policy, Electron fuse policy, and target/architecture
+  identity.
 
-### 2.2 实现优先级
+#### Official DSH host
 
-1. 使用 DSH 可配置 HTML title、locale service、slots 和 client modules。
-2. 用 `locale.preference=zh` 作为 fresh profile 默认值，允许用户在设置切换中文/English。
-3. Penglai-owned 文案全部注册 zh/en dictionary；0.5.0 核心旅程的默认界面必须中文。
-4. rc.8 的 sidebar/hero brand 使用 official slots；其余没有公开 seam 的 document title、首次披露、hero copy/background 允许一个 exact `@deepseek-ai/dsh@0.1.0-rc.8` 的最小 UI overlay：不改 Agent/runtime/network；记录原文件 checksum、patch checksum、适用版本、反向补丁和 DOM regression。
-5. overlay 版本不匹配立即 fail closed，不能模糊 patch `node_modules`。
+- owns agents, models, tools, approval semantics, Workspaces, Sessions, Turns,
+  credentials, settings, loader inventory, and client module composition;
+- loads Penglai first-party plugins through official DSH/Cordis contracts; and
+- provides the official events used by Memory (`turn/end`, `agent/pre-step`), IM
+  Turn submission, Office tools, and settings surfaces.
 
-### 2.3 中文质量门
+#### Renderer
 
-- 欢迎、隐私、Models onboarding、provider 选择、API 测试、Workspace、IM、错误恢复、删除数据完整中文。
-- provider/model 官方名称、API、URL、App ID 等专有词可保留英文。
-- diagnostics 可显示技术 id/code，但操作说明必须中文。
-- 关键页面不得出现无解释的英文按钮、DSH/Harness 主品牌或中英混杂占位符。
+- receives only narrow preload methods and typed DSH Remote services;
+- cannot read filesystem paths, environment, credential values, signing keys,
+  raw databases, arbitrary IPC, or OS permissions; and
+- can propose an Owner action but cannot approve or fabricate authority.
 
-### 2.4 DSH capability parity
+#### External systems
 
-Penglai composition 是加法：
+Provider APIs, GitHub Releases, Weixin, Feishu, downloaded models, plugin
+archives, office documents, memory source documents, and all inbound messages
+are untrusted inputs. They pass scheme/host, size, type, signature, identity,
+scope, dedupe, and retention checks before use.
 
-- 完整保留 official appearance service 和设置中的 light/dark/system 三态；system 通过官方 media/host 行为动态响应，不另造主题状态。
-- 完整保留 locale zh/en，fresh seed 只把 preference 设为 zh，不移除 English dictionary/selector。
-- 完整保留 Models、Workspace/Session、conversation、tools、approvals、permissions、plugins、general settings 的 client/host modules 与 slots。
-- Penglai Center 与每个已启用的第一方插件都直接使用 rc8 official `settings.section` 注册页面，按连续 order 排在“蓬莱”概览之后；这让页面进入 official Settings 左栏，避免在内容区制造第三列。未安装/未启用插件不注册页面，单插件卸载只撤销自己的 official entry 与 host 资源。Center 事务成功后应用内 reload 一次以让 official client loader 重新计算模块闭包；不得打开系统浏览器或复制第二套 settings runtime。
-- overlay manifest 同时列 `changed surfaces` 与 `must-remain-official packages`；后者 hash/behavior 漂移即失败。
-- 每次 DSH pin/overlay 更新运行 upstream capability matrix 与 installed parity suite。
+### 3. App-private data layout
 
-## 3. 进程与网络边界
-
-### Electron main
-
-- 解析只读 bundle resources 和 app-private data root。
-- 用绝对路径 spawn embedded Node + official DSH entry。
-- 监管启动、ready、unexpected exit、shutdown、orphan cleanup。
-- 创建随机 loopback proxy capability；BrowserWindow 不直接暴露 host secret。
-- production BrowserWindow：`contextIsolation=true`、`sandbox=true`、`nodeIntegration=false`、窄 navigation/window-open policy。
-- macOS 通过 owned process group 监管 DSH；Windows 通过 Job Object 或等价受测机制监管完整 process tree。
-- target、Electron arch、embedded Node arch、runtime manifest 不一致时 fail closed，不回退系统运行时。
-
-### DSH host
-
-- 唯一 Agent runtime 与 plugin host。
-- 持有 credentials service、WorkspaceRegistry、AgentHandle、settings、loader inventory。
-- 运行 Plugin Center 与全部Penglai first-party hosts；adapter/Context/Memory/Budget/Companion不跨进程另建Agent/Session/Skill/Schedule/TokenMeter service。
-
-### DSH Web renderer
-
-- 运行 official DSH client composition。
-- 通过 Typert generated Remote 调用 host。
-- 不读取 filesystem、environment、credential value 或任意 IPC。
-
-### 外部厂商
-
-- Weixin adapter 仅连接 pinned iLink HTTPS endpoints。
-- Feishu adapter 仅通过 official SDK 连接开放平台 token/message/WebSocket endpoints。
-- 厂商 inbound 是不可信输入；先 schema/size/type/auth/dedupe，再进入持久队列。
-
-## 4. app-private 数据布局
-
-0.5 使用新的 generation root，与 0.4.1 完全隔离。逻辑 root 由 platform resolver 基于 Electron `app.getPath()` 生成：macOS 为 `~/Library/Application Support/Penglai/0.5/`，Windows 为 `%LOCALAPPDATA%\Penglai\0.5\`。
+The logical data generation is `Penglai/0.5`, resolved from Electron's platform
+paths rather than a hard-coded home directory.
 
 ```text
-<Penglai 0.5 userData>/
-├─ release/
-│  ├─ current.json
-│  ├─ update-ledger.json
-│  └─ journals/
-├─ dsh-home/
-│  ├─ cordis.yml
-│  ├─ cordis.patch.yml
-│  ├─ settings.yaml
-│  ├─ .credentials.yaml
-│  ├─ onboarding/
-│  └─ plugins/
-├─ im/
-│  ├─ im.sqlite3
-│  └─ migrations/
-├─ voice/
-│  ├─ models/
-│  ├─ local-voices/
-│  └─ temp/
-├─ context/
-│  ├─ grants.json
-│  ├─ indexes/
-│  └─ cache/
-├─ memory/
-│  ├─ global/
-│  ├─ workspaces/
-│  └─ candidates/
-├─ budget/
-│  └─ ledger.sqlite3
-├─ companion/
-│  ├─ schedules.json
-│  └─ audit.sqlite3
-├─ diagnostics/
+<Penglai 0.5 user data>/
+├─ release/             updater ledger, journals, current identity
+├─ dsh-home/            official settings, profile, credentials, plugins
+├─ owner/               approval broker state and completed-action ledger
+├─ artifacts/           scoped CAS, bindings, staging, retention index
+├─ im/                  SQLite, adapter state, inbox/outbox, bindings
+├─ memory/              candidates, confirmed records, Mnemon indexes, sources
+├─ office/              jobs, previews, backups, exports
+├─ voice/               installed models and short-lived media
+├─ companion/           schedules and bounded audit metadata
+├─ diagnostics/         redacted structured diagnostics
 ├─ cache/
-└─ uninstall/
+└─ uninstall/           exact deletion capabilities and journals
 ```
 
-- bundle resources 只读；运行态不得写入 `.app`。
-- 不默认读取或修改用户 `~/.dsh`。
-- 0.4.1 legacy detector 只能读取已知路径的存在、版本和大小；不打开旧 DB/credential，不迁移或删除。
-- `.credentials.yaml` 包含 secret；其他 profile/DB 只保存 ref 和非秘密描述。
-- IM DB 可以短期保存执行所需 inbound/outbound 文本，但必须有 retention、完成后清理和“清除消息记录”功能；evidence/diagnostics 不复制正文。
-- 蓬莱记忆的资料源层只保存授权descriptor与派生index，外部source不归app管理；Memory/voice/Companion内容按独立retention和删除合同，Budget不保存prompt/response正文。
-- macOS 对 root/credential 实施 0700/0600；Windows 实施当前用户专用 DACL，拒绝 junction/reparse escape。
+The bundle is read-only. Runtime files never write into the application. The
+official credentials YAML contains secrets; other stores keep credential refs
+or non-secret descriptors. Diagnostics and evidence exclude bodies, secrets,
+QR payloads, account identity, full local paths, filenames from private sources,
+memory text, transcripts, and private media.
 
-## 5. 首次引导状态机
+macOS uses 0700/0600 for relevant directories/files. Windows applies a
+current-user ACL and rejects junction/reparse escape. These are filesystem
+controls, not hardware-backed secret isolation.
 
-引导是 **pre-DSH 前置向导**（ADR 0030）：ledger 未 COMPLETE 时主窗口加载经认证代理同源提供的 `/wizard` plain HTML/JS/CSS，不再在 DSH Web 内渲染全屏遮罩或注册 `settings.onboarding`。`penglaiOnboarding` Typert Remote 只编排 official `llm` / `credentials` / `settings` / `agents` / `workspaceRegistry` seam。状态机仍是：
+### 4. Bootstrap state machine
 
 ```text
 WELCOME
@@ -159,203 +109,183 @@ WELCOME
   → DEFAULT_MODEL_SET
   → WORKSPACE_READY
   → CORE_READY
-  → IM_OFFERED
+  → FIRST_OFFICIAL_TURN
   → COMPLETE
 ```
 
-ledger `current === "COMPLETE"` 后 `wizardFinished` 先验证 official DSH Web 面，成功才下线 `/wizard`（410）并切换；失败则回滚保留向导可达。向导是临时 bootstrap 面，不是长期第二 UI，不提供第二聊天面/模型网关/Session store。
+The state ledger is app-private and resumable. Back/retry changes only the
+allowed suffix. Credential failure cannot strand the user. Workspace validation
+rejects application/data roots and unsafe aliases. `COMPLETE` is written only
+after a real official DSH reply and a successful switch to official DSH Web.
 
-### 状态事实源
+### 5. Profile composition
 
-- welcome/privacy：versioned durable completion record。
-- provider/credential：official settings + credentials.describe。
-- model test：official DSH temporary test Turn 的 nonce digest/result，不是 UI flag。
-- default model：official agent-default-model。
-- Workspace：official WorkspaceRegistry。
-- IM offered：versioned onboarding record；adapter actual state 仍来自 supervisor。
+Fresh profile invariants:
 
-### 多 API 选择
+- official DSH `0.1.1-rc.2` is pinned with exact npm integrity and source tag;
+- Plugin Center, Office, and Memory are installed and active;
+- IM, ASR, MOSS-TTS, and Companion are present in the installer but disabled;
+- the reference fixture and budget control are internal/hidden; and
+- old `@penglai/context` is not loaded; migration may import only its authorised
+  data after preview and schema checks.
 
-- provider cards 从 `llm.providers` live directory 动态生成，不在 Penglai 复制静态目录。
-- 优先展示官方 catalog 中可配置 providers；支持 official custom OpenAI-compatible route 的 display name、base URL、protocol、model list。
-- key 写入 official credentials service；不显示环境变量名或明文回读。
-- “测试连接”先用 official provider/model discovery（若支持），最终必须通过 official DSH AgentHandle 创建低 token、无工具的临时 nonce Turn。
-- 测试失败保留草稿并显示 provider/network/auth/model 稳定错误；不得标记 core ready。
-- 测试通过、默认模型和 Workspace 就绪后，official DSH core、Office与Memory可用；IM/ASR/MOSS-TTS/Budget/Companion仍为可选并默认未安装、未加载。
+Plugin Center updates use a lock, staging directory, exact catalog/package
+identity, signature/digest/permission/compatibility checks, versioned profile
+patch, atomic switch, official loader inventory readback, and rollback. Required
+plugins cannot be disabled. Optional plugin failure cannot block DSH.
 
-## 6. DSH profile composition
+### 6. Owner approval broker
 
-fresh profile 至少包含：
+Renderer or plugin code first proposes a closed action. Electron Main displays
+the human-readable action/object/scope/destination. An approval receipt is
+short-lived and bound to:
 
-- official credentials-local、settings、locale、Pi provider、default-model、Workspace/Session/Agent/Web 全套。
-- `@penglai/plugin-center` enabled。
-- `@penglai/im` bundled catalog only；fresh `not-installed/disabled`，用户安装后两个 adapter 初始 `not_configured`。
-- `@penglai/asr` bundled catalog only；fresh `not-installed/disabled`，安装后 model 初始 `not_installed`。
-- `@penglai/moss-tts` bundled catalog only；fresh `not-installed/disabled`，安装后 model 初始 `not_installed`。
-- `@penglai/memory` required-builtin；fresh安装并active，初始记忆与授权来源均为空。旧`@penglai/context`不进入catalog/profile/inventory，其索引数据仅由0.5.5迁移接管。
-- `@penglai/budget` bundled catalog only；fresh `not-installed/disabled`，安装后初始 `unlimited`。
-- `@penglai/companion` bundled catalog only；fresh `not-installed/disabled`，安装后 product state 仍为 `disabled_by_user`。
-- `@penglai/plugin-reference` bundled catalog only and disabled。
-- 不包含 `@penglai/credentials-keychain`、smoke plugin或旧Host/Skill/MCP/Memory runtime。
+- plugin and action enum;
+- object/job/binding/artifact identity;
+- Workspace and Session where applicable;
+- source/result/destination/permission digest and expected revision; and
+- expiry and one-time reservation state.
 
-### 6.1 插件来源模型
+The host revalidates the receipt before mutation. A reservation prevents replay
+while work is in flight. Completion is recorded only after the actual write,
+send, profile transaction, rollback, revoke, or delete succeeds. Denial, expiry,
+mutation, scope drift, failed operation, and replay fail closed.
 
-- `official-core`：DSH 随 pin 提供，Penglai 保持 capability parity，不由 Center 假装重新拥有。
-- `penglai-builtin`：随 app 离线签入的 Center/IM，Penglai 负责 manifest、迁移、权限、健康和回滚。
-- `penglai-first-party`：0.5包含完整ASR/MOSS-TTS/Context/Memory/Budget/Companion；以后新增能力也只有完成同等合同后由Center受控交付。
-- `community-reviewed`：未来经过审核、签名/完整性、license、permission、compatibility、sandbox、migration/rollback 的社区包。
+### 7. Artifact Service and Office
 
-0.5.0 schema/UX 要能表达四种来源，但 catalog 不能借此显示未实现或未审核包，也不能接受任意 URL。
+Artifact intake accepts bytes or a user/host-selected path and returns an opaque
+`ArtifactRefV1` whose ID is `artifact:<uuid>`. The binding row contains exact
+Workspace/Session/Turn scope, media type, size, content SHA-256, original label,
+retention, and CAS identity. The ID itself is not a filesystem path or content
+hash. Identical CAS bytes can back multiple isolated bindings.
 
-profile seed/upgrade 使用 revision、journal、staging、atomic rename 和 loader inventory 验证。现有 profile 每次升级只应用 versioned migration，不能整文件覆盖用户设置。
+Path intake uses no-follow semantics and refuses directories, devices, unsafe
+links, type/magic mismatch, macro/encrypted/executable content, nested archives,
+and quota violations. Read revalidates scope. Persistence requires Owner
+approval; expiry/GC removes bindings and unreferenced CAS bytes.
 
-## 7. Typert IM Remote
+Office jobs freeze source/result digests and preview revision. Commit, export,
+return, and undo use the Owner broker. Destination becomes immutable after the
+first commit. Backup identity includes operation, revision, and source digest.
+The approval is completed after the output mutation or IM return, never before.
 
-host service：
+Official DSH rc.2 has text/image prompt parts only. Generic composer files are
+therefore an explicit upstream boundary. Penglai uses official image storage for
+images and the Artifact Service for Office/IM consumers without adding a second
+Turn representation.
 
-```text
-PenglaiImRemote extends TypertRemoteService
-├─ getOverview()
-├─ getOnboardingReadiness()
-├─ listWorkspacesAndSessions()
-├─ createBinding(input)
-├─ deleteBinding(input)
-├─ listBindings()
-├─ beginWeixinQr()
-├─ submitWeixinVerification(input)
-├─ cancelWeixinQr()
-├─ reconnectWeixin()
-├─ logoutWeixin(input)
-├─ configureFeishu(input: appId + writeOnlySecret?)
-├─ verifyAndConnectFeishu()
-├─ disconnectFeishu()
-├─ logoutFeishu(input)
-├─ getDiagnostics()
-└─ subscribe/status revision mechanism
-```
-
-约束：
-
-- 方法用 `@Remote` 和生成的 `./typert`、`./remote`；client 用 `TYPERT_REMOTE` mount。
-- input/output 都过 closed schema；unknown fields 拒绝。
-- output 不含 secret、raw token、QR payload、verification code、真实聊天正文或完整身份。
-- mutating method 有 operation id、revision、timeout、rate limit 和 stable error code。
-- QR 图像优先由 client 根据短期非可复用 display payload 本地生成；若必须传 binary，使用单次 capability/no-store/same-origin endpoint，并写 ADR。
-
-## 8. IM host lifecycle
-
-`@penglai/im.apply(ctx, config)` 必须：
-
-1. 注入 official credentials、agents、workspaceRegistry、settings、inventory。
-2. 打开并迁移 SQLite；失败不启动 intake。
-3. 注册 Remote service 与 client module。
-4. 构造统一 Router/CommandEngine/Correlation/Outbox。
-5. 构造 Weixin/Feishu adapters，secret 只以 CredentialRef 传入。
-6. 启动唯一 Supervisor；对 enabled+configured adapter 自动连接。
-7. 恢复 inbox/correlation/outbox，再接受新消息。
-8. `ctx.effect` cleanup 时先停 intake、abort workers、关闭 SDK/socket/timer、标记 uncertain send、close DB、unregister Remote。
-
-Supervisor 状态与 transition 持久化非敏感摘要，支持 crash、network、sleep/wake、credential rotation 和 plugin reload。
-
-## 9. 微信 adapter
+### 8. Memory pipeline
 
 ```text
-UI begin
- → get_bot_qrcode(bot_type=3, local_token_list)
- → render short-lived QR
- → long-poll status (wait / scaned / confirmed / expired / redirects / verify)
- → credentials.set(long-lived token)
- → persist bot/account/scanner descriptors
- → getUpdates(cursor, suggested timeout)
- → inbox → binding → command/Turn
- → outbox → sendmessage
+official turn/end
+  → no-tools official curator Agent (same provider/model context)
+  → closed JSON parse + local risk/sensitivity/injection policy
+  → candidate store
+  → safe current-Workspace auto-save OR visible review
+
+official agent/pre-step
+  → current Workspace confirmed records
+  + explicitly accepted personal records
+  → bounded recall block
 ```
 
-协议要点：
+Curator failure is fail-open for the user's Turn and creates no partial accepted
+memory. The model's confidence does not override local policy. Candidates never
+enter recall before acceptance/auto-save. Personal/global scope is not inferred.
+Conflict, rejection negatives, tombstones, correction, provenance, export/import,
+and source revocation are durable and scope checked.
 
-- 固定 QR origin；confirmed/redirect 返回的 base URL 必须真正应用于后续 transport。
-- 每请求 `X-WECHAT-UIN` 为 base64 random uint32，不使用常量 `0`。
-- QR TTL、35s status poll、最多刷新次数、cancel/AbortController、验证码状态与安全错误分类可测试。
-- cursor 原子持久；auth failure 停止重试并进入 expired；transient error 指数退避+jitter+budget。
-- scanner identity 初始化单 owner allowlist；未知 sender 在 Agent 前拒绝。
+Mnemon is the only recall index engine. Authorised sources store descriptors and
+derived indexes only. Source revoke is proposed in the renderer, approved by
+Main, revalidated by the host against a hashed root, then removes derived indexes
+without touching source files.
 
-## 10. 飞书 adapter
+### 9. IM architecture
 
-```text
-UI official app/registration QR
- → poll client_id/client_secret
- → credentials.set(App Secret) + store App ID
- → Lark.Client credential/bot probe
- → Lark.EventDispatcher.register(im.message.receive_v1)
- → Lark.WSClient.start(dispatcher)
- → p2p text event → durable inbox within 3s
- → binding → command/Turn
- → outbox → Lark.Client.im.message.reply/create
-```
+`@penglai/im` owns one adapter registry, durable inbox/outbox, bindings,
+deterministic commands, correlation, causal routing, recovery, and diagnostics.
+Only `weixin` and `feishu` are members of `LIVE_CHANNEL_IDS` in 0.5.6.
 
-- official SDK pin：`@larksuiteoapi/node-sdk@1.73.0`。
-- 默认一键扫码：`accounts.feishu.cn/oauth/v1/app/registration`，把 `verification_uri_complete` 画成 PNG。
-- 用户 OAuth Device Flow 不在基础路径；手动 App ID/Secret 只作后备。
-- event id/message id dedupe；只接受 p2p text 和配置租户/bot identity。
-- 事件 handler 先 durable enqueue 并快速返回，不能等待模型完成。
-- SDK reconnect 有 single client owner；credential/config revision 变化时原子替换。
+Inbound sequence:
 
-## 11. Binding、命令与因果路由
+1. validate channel/account/peer identity, schema, type, size, allowlist, and
+   message/event dedupe;
+2. persist durable inbox state;
+3. resolve an explicit binding to exact Workspace/Session;
+4. consume deterministic commands before the model;
+5. submit one official DSH Turn;
+6. after acceptance, admit supported file/audio bytes with the exact route and
+   Turn scope; callback failure is recorded but never resubmits the Turn;
+7. correlate the durable final and enqueue outbound to the original route.
 
-binding key 至少包含 channel、account/tenant、peer、WorkspaceId、SessionId、revision。一个 route 同时只有一个 owner binding；删除/变更需 revision CAS。
+Binding/rebinding/removal uses Owner reservations completed after the mutation.
+Group enable is refused. Seven non-live manifests may describe future official
+methods and limits but cannot connect, bind, or send. Guided roadmap steps never
+return a live state or fake QR.
 
-Inbound 流程：
+### 10. Voice and OS permissions
 
-1. schema/type/size/auth/allowlist。
-2. message/event id 去重并 durable insert。
-3. 查显式 binding；无 binding 返回确定性帮助，不调用模型。
-4. slash command 先消费。
-5. 普通文本 claim 一个 DSH Turn，保存 messageId/turnId/route。
-6. 监听该 Turn 的 durable final；stream partial、desktop output、unknown turn 不发送。
-7. enqueue outbox；adapter 发送后保存 receipt/delivery classification。
+ASR obtains a short-lived microphone nonce from Main immediately before
+`getUserMedia({audio:true})`. Main denies camera/video/unknown media requests.
+Packaged macOS metadata contains the bilingual microphone purpose and strips
+Electron's unrelated default camera, Bluetooth, and capture permissions.
 
-命令：`/帮助 /绑定 /解绑 /项目 /会话 /新建 /状态 /插话 /停止 /清空队列 /语音 /资料 /记忆 /预算 /陪伴`。命令 parser 独立于模型，严格参数/权限/状态机；长期记忆写入和首次陪伴启用必须回DSH Web确认。
+MOSS-TTS preview and conversation Read share one controller with a monotonically
+increasing generation token. A newer request cancels the older playback. The
+controller awaits `play()`, publishes playing/stopped/ended/error/stalled state,
+aborts model/download work, and revokes temporary URLs. TTS failure never blocks
+text conversation or forces an IM audio send.
 
-## 12. 持久化与恢复
+### 11. Update and release identity
 
-核心表：schema_migrations、accounts、adapter_configs、bindings、inbox、claims、turn_correlations、outbox、vendor_reply_targets、cursors、dedupe、command_audit、worker_state。所有 id/token/body 以最小需要保存；secret 永不入 DB。`peerRef` 是隐私索引，不能替代真正发送所需的受控 vendor target。
+The updater runs in Electron Main. It discovers immutable versioned GitHub
+Releases, verifies the embedded updater key ID, manifest signature, monotonically
+increasing sequence, minimum/current version, target, GitHub asset ID, size,
+SHA-256, detached installer signature, release-manifest digest, and public-export
+tree. Update-manifest and release-manifest identities must be distinct. Renderer
+cannot select a feed or execute a payload. The OS installer runs only after user
+confirmation.
 
-恢复顺序：DB integrity/migration → credentials descriptors → bindings → incomplete inbox/claims → uncertain outbox policy → adapters connect → accept new inbound。
+Every release uses one source SHA and one deterministic public-export tree. The
+native workflow builds each target on a matching host and embeds source/target
+identity. The release assembler accepts only a draft containing the exact three
+installers, validates GitHub digests, signs metadata with the offline key that
+matches the embedded public identity, and emits exactly ten assets. Public
+readback downloads and verifies the immutable bytes again.
 
-exactly-once 不做不真实承诺；目标是 durable at-least-once intake + idempotent claim + dedupe + fail-closed uncertain send。厂商未提供幂等 key 时，uncertain send 不盲重发，显示人工恢复。
+### 12. Forbidden architecture
 
-## 13. 安装、升级与卸载架构
+- a Penglai chat page, agent loop, provider gateway, Workspace/Session store, or
+  tool/approval engine beside DSH;
+- renderer filesystem, secret, signing-key, raw database, or arbitrary IPC access;
+- model-provided paths or booleans treated as Owner approval;
+- DOM injection or image masquerading to invent generic DSH file Turns;
+- an adapter calling a parallel agent or guessing scope from the focused window;
+- non-live IM manifests presented as connected, or fake QR shortcuts;
+- optional plugins blocking core startup or required plugins being disabled;
+- system PATH/runtime fallback, mutable “latest” assets, unsigned catalogs, or
+  rebuilt bytes substituted after acceptance; and
+- release claims that confuse source, package, native, installed, live, and
+  public evidence.
 
-- 0.5.0 的 Apple Silicon target 使用 machine-readable release contract 与 target-specific Electron/Node/DSH closure；Intel/Windows 保留为后续 target。
-- 0.4.1 → 0.5.0 是 clean-generation install；旧 data 不进入 migration graph。
-- 0.5 updater 在 Electron main 中检查 canonical signed manifest；renderer 只显示状态并请求用户操作，不能指定 feed 或执行 payload。
-- community trust macOS 的后续版本使用 assisted upgrade：下载/验签后打开 DMG。安装前 drain owned DSH/IM/voice/indexer/distiller/budget subscriptions/companion schedules、写 update journal；新版本启动后 verify/commit/rollback。0.5.0 本身不发布 updater channel。
-- Windows uninstaller 默认删 app/shortcuts/cache、保留 userData；macOS 设置页提供数据清理和移入废纸篓向导。
-- complete delete 由 exact deletion plan 控制，拒绝 root/home/Workspace/legacy/symlink/junction/reparse point。
-- Context source directories永不删除；Context indexes、Memory、Budget、Companion与voice data分项预览/确认。
+## 中文摘要
 
-详细状态机见 `docs/UPDATE_UNINSTALL.md`，平台闭包见 `docs/PLATFORM_MATRIX.md`。
+0.5.6 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
+窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
-## 14. Public-export 与来源同一性
+办公、IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
+对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
+official DSH rc.2 没有通用 file Turn，0.5.6 不做 DOM hack 或第二会话表示。
 
-private source 先通过 allowlist 产生 deterministic public-export tree。0.5.0 Apple Silicon artifact 绑定 `candidateSourceSha` 与 `publicExportTreeSha256`；开源 commit 可以有不同 Git SHA，但产品树必须与已验收 export tree 内容等价。公开资产不能在验收后重新构建偷换。
+记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
+本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
+Workspace 与明确个人记忆，绝不跨 Workspace。资料撤销删派生索引，不动源文件。
 
-## 15. Overlay 与上游升级
+IM 只有微信、飞书属于 live adapter；其余七个平台不能连接、绑定或发送，也不伪造
+二维码。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
+状态机，Read 朗读原文。
 
-每个 overlay manifest 记录：DSH npm version/integrity、upstream commit、target file hash、patch hash、reason、owned visual delta、reverse patch、DOM/behavior tests。升级 DSH 时先在隔离 runtime 应用；hash 不匹配立即阻止 build。不得手改安装后的 bundle。
-
-## 16. 不允许的架构
-
-- Electron 内自制主聊天或 IM 主窗口。
-- Penglai 模型 gateway/provider registry/session store。
-- adapter 直接 create/followup Agent，绕过统一 Router。
-- Context/Memory/Budget/Companion复制official Workspace/Session/Turn/Skill/Schedule/TokenMeter，或按最近窗口猜scope。
-- Companion默认启用、无人值守使用工具，或未经exact binding/quiet-hours/budget从IM外发。
-- renderer 读取 credentials value、filesystem 或任意 Keychain。
-- env flag 决定 production worker 是否启动。
-- 飞书用户 Device Flow 或假二维码冒充 bot 基础认证。
-- 运行时 patch 用户 `node_modules`，或版本不匹配仍继续。
-- 为了“蓬莱化”而删除主题模式、English 或任何 official DSH core setting/module。
-- 自造无签名 updater、没有 Developer ID 却宣称 silent auto-update，或让 renderer 直接执行安装包。
-- 0.5 自动导入/删除 0.4.1 数据，或卸载器递归用户 Workspace。
-- 用同一错误 arch closure 改名生成两个 DMG，或用 translated/emulated evidence 冒充 native。
+三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
+升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；
+正式发布后再从公网下载十个资产逐字节回读。

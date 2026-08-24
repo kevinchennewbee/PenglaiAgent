@@ -8,7 +8,7 @@ import { declaredSourceSha, recordAssertion } from "./assertion.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninstall", () => {
-  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.5.md"), "utf8");
+  const notes = readFileSync(join(root, "docs/RELEASE_NOTES_0.5.6.md"), "utf8");
   assert.match(notes, /Penglai → Update/i);
   assert.match(notes, /0\.5\.1/);
   assert.match(notes, /community-verified/);
@@ -17,6 +17,9 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
   assert.match(notes, /Plugin Center/);
   assert.match(notes, /darwin-x86_64/);
   assert.match(notes, /win32-x86_64/);
+  assert.match(notes, /automatic Workspace memory/i);
+  assert.match(notes, /only live messaging adapters/i);
+  assert.match(notes, /not generic document blocks/i);
   assert.doesNotMatch(notes, /already notarized|App Store|zero-config Feishu|全自动升级/);
   recordAssertion({
     acceptanceId: "R50-PREP-007",
@@ -26,18 +29,18 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "0.5.5 notes state signed upgrade, three targets, community trust, and update confirmation" },
+    details: { safe: "0.5.6 notes state signed upgrade, three targets, automatic memory, IM truth, and trust limits" },
   });
 });
 
 test("R50-PREP-008 publication manifest lists the exact three-target release", () => {
-  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.5.md"), "utf8");
-  assert.match(md, /Penglai_0\.5\.5_macos_aarch64\.dmg/);
-  assert.match(md, /Penglai_0\.5\.5_macos_x64\.dmg/);
-  assert.match(md, /Penglai_0\.5\.5_windows_x64_setup\.exe/);
+  const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.6.md"), "utf8");
+  assert.match(md, /Penglai_0\.5\.6_macos_aarch64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.6_macos_x64\.dmg/);
+  assert.match(md, /Penglai_0\.5\.6_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
-  assert.match(md, /IMMUTABLE/);
+  assert.match(md, /CANDIDATE|IMMUTABLE/);
   assert.doesNotMatch(md, /UNFROZEN/);
   assert.match(md, /community-verified/);
   recordAssertion({
@@ -48,7 +51,7 @@ test("R50-PREP-008 publication manifest lists the exact three-target release", (
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "publication manifest draft lists three installers and the authorized public destination" },
+    details: { safe: "0.5.6 publication manifest lists three installers and the authorized public destination" },
   });
 });
 

@@ -1,4 +1,4 @@
-# Penglai 0.5.0 安全与隐私合同
+# Penglai 0.5.6 安全与隐私合同
 
 ## 1. 信任目标
 
@@ -100,7 +100,7 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 ## 10.1 Context、Memory、Budget 与 Companion
 
 - Context grant由用户gesture产生并绑定scope/revision；indexer拒绝link escape、宏/active content、外链、超限archive/page/cell/text。检索结果是untrusted data，source status只由host按文件digest验证。
-- Memory注入有行/字节上限并标记来源/时间/scope；模型无global write接口。global/SOP变更必须Owner确认，SOP只走official Skill service。
+- Memory 注入有行/字节上限并标记来源/时间/scope；自动 curator 使用同供应商/模型的 official no-tools Agent，并由 Host 进行封闭格式、secret、敏感内容和注入风险校验。它只能自动写 exact Workspace；personal/global/SOP 变更必须 Owner 确认，SOP 只走 official Skill service。
 - Budget gate位于official model invocation前，ledger使用actual usage；并发reserve/settle原子。clock rollback不重置额度，价格缺失不计算伪费用。
 - Companion fresh off；启用配置必须exact binding。所有trigger先过quiet-hours/budget/rate/recent-stop，Turn权限封顶plan/no-tools；IM authorization/send前再次核验。
 - 四插件的Remote不返回资料正文、memory body、usage prompt、情绪原文或vendor target；client只取必要摘要和用户主动打开的受控preview。
@@ -175,5 +175,13 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - uninstall malicious plan/root/Workspace/legacy/locked/partial delete。
 - secret/body/QR/owner-path scan覆盖repo/public-export/app/DMG/Setup/log/DB/diagnostics/evidence。
 - Context grant escape/document bomb/source-delete、Memory scope/global-consent、Budget concurrency/clock/IM bypass、Companion quiet-hours/no-tools/dedupe/route/resource-zero。
+
+## 18. 0.5.6 权限与附件增量
+
+- Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Office、Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
+- Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
+- official DSH rc.2 只有 text/image Turn parts。0.5.6 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
+- macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
+- 0.5.6 只有微信、飞书属于 live IM adapter；其余七个平台不能 connect/bind/send，也不能用假 QR 造成已连接错觉。
 
 任一Critical/High或可复用secret泄漏都使候选FAIL。若真实凭据可能泄漏，立即停止、通知用户轮换、作废相关artifact/evidence；不得为了保住READY删日志掩盖。

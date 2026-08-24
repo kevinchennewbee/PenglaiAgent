@@ -1,5 +1,10 @@
 # Penglai 0.5.0 Apple Silicon 发行合同
 
+> **Historical contract.** This file records the already-published 0.5.0
+> Apple Silicon boundary. It is not the current release plan. Penglai 0.5.6
+> uses the three-target contract in `release-contract.json` and
+> `docs/0.5.6/RELEASE_RUNBOOK.md`.
+
 ## 1. 候选定位
 
 0.5.0 先在私有库完成 exact candidate，再把 deterministic public-export 和同一 Apple Silicon DMG 同步到开源 `PenglaiAgent`。Owner 已明确授权本轮公开发布。

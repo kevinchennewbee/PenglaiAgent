@@ -55,7 +55,7 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 }
 
 const licenses = [
-  { name: "penglai-v2", license: "MIT" },
+  { name: "penglaiagent", license: "MIT" },
   { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.1-rc.2" },
   { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.1-rc.2" },
   { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.1-rc.2" },

@@ -52,7 +52,7 @@ function voicePlane() {
   return { clock, store, plane: routing, inputs };
 }
 
-test("R2I-FS-011 group and media rejected", () => {
+test("R2I-FS-011 group and unsupported media reject while image/audio are admitted", () => {
   assert.deepEqual(parseFeishuEvent({ chatType: "group", messageId: "1", text: "x" }), { reject: "group" });
   const image = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2", openId: "o" });
   assert.equal("reject" in image, false);
@@ -573,4 +573,3 @@ test("R56-SEC-010 missing or unknown chatType and sender fail closed without a r
   assert.deepEqual(parseFeishuEvent({ chatType: "p2p", messageId: "3", text: "x" }), { reject: "sender" });
   assert.deepEqual(parseOfficialReceive({ event: { message: { message_id: "4", message_type: "text" } } }), { reject: "chatType" });
 });
-

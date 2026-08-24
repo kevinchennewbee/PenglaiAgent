@@ -133,7 +133,7 @@ test("R56-OWN-008 destination labels cannot carry paths or secrets", () => {
         pluginId: "@penglai/office",
         objectId: "job",
         sourceDigest: "a".repeat(64),
-        destinationLabel: "/Users/agent/secret.docx",
+        destinationLabel: "/Users/test-owner/secret.docx",
       }),
     (error: unknown) => error instanceof PenglaiError && error.message === "OWNER_DESTINATION_LABEL",
   );
