@@ -181,6 +181,7 @@ export class FeishuAdapter {
   );
   imageAdmission?: ImageAdmission;
   objectStore?: ObjectStore;
+  onAdmittedBytes?: (input: { bytes: Buffer; filename?: string; mime?: string }) => void;
 
   constructor(
     private readonly plane: RoutingControlPlane,
@@ -584,6 +585,11 @@ export class FeishuAdapter {
         },
         ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
         ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+      });
+      this.onAdmittedBytes?.({
+        bytes,
+        mime: parsed.media.mime,
+        ...(ref.filename ? { filename: ref.filename } : {}),
       });
     } catch (error) {
       return {

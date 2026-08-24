@@ -289,6 +289,7 @@ export class WeixinAdapter {
   );
   imageAdmission?: ImageAdmission;
   objectStore?: ObjectStore;
+  onAdmittedBytes?: (input: { bytes: Buffer; filename?: string; mime?: string }) => void;
   constructor(
     private readonly plane: RoutingControlPlane,
     private readonly transport: WeixinTransport,
@@ -623,6 +624,11 @@ export class WeixinAdapter {
           },
           ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
           ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+        });
+        this.onAdmittedBytes?.({
+          bytes,
+          mime: parsed.media.mime,
+          ...(raw.file?.file_name ? { filename: raw.file.file_name } : {}),
         });
       } catch (error) {
         return {

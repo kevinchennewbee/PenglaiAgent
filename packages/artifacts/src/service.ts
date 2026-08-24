@@ -236,6 +236,18 @@ export class ArtifactService {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "DSH_NO_GENERIC_FILE_TURN_API");
   }
 
+  deleteWorkspace(workspaceId: string): { removed: number; casRemoved: number } {
+    if (!workspaceId) fail("ARTIFACT_WORKSPACE");
+    const rows = this.db
+      .prepare(`SELECT bind_id FROM artifacts WHERE workspace_id = ?`)
+      .all(workspaceId) as Array<{ bind_id: string }>;
+    for (const row of rows) {
+      this.db.prepare(`DELETE FROM artifacts WHERE bind_id = ?`).run(row.bind_id);
+    }
+    const cleaned = this.gc();
+    return { removed: rows.length, casRemoved: cleaned.casRemoved };
+  }
+
   gc(now = this.now()): { removed: number; casRemoved: number } {
     const expired = this.db
       .prepare(`SELECT bind_id, sha256 FROM artifacts WHERE expires_at IS NOT NULL AND expires_at <= ?`)

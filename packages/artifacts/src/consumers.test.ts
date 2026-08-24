@@ -19,4 +19,6 @@ test("Office and IM production packages consume @penglai/artifacts", () => {
   assert.match(officeService, /opts\?\.artifacts/);
   assert.match(imApply, /new ArtifactService/);
   assert.match(imHost, /attachArtifacts/);
+  assert.match(imApply, /onAdmittedBytes/);
+  assert.match(imApply, /source: "im"/);
 });

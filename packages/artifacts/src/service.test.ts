@@ -158,6 +158,29 @@ test("R56-FILE-011/012 persist needs an owner action and GC removes CAS plus ind
   artifacts.close();
 });
 
+test("deleting a workspace recycles its artifacts and CAS without touching another workspace", () => {
+  const { artifacts, root } = service();
+  const a = artifacts.ingestBytes(Buffer.from("workspace-a-only\n"), {
+    name: "a.txt",
+    source: "office",
+    workspaceId: "ws-a",
+    scope: "workspace",
+  });
+  const b = artifacts.ingestBytes(Buffer.from("workspace-b-only\n"), {
+    name: "b.txt",
+    source: "office",
+    workspaceId: "ws-b",
+    scope: "workspace",
+  });
+  const cleaned = artifacts.deleteWorkspace("ws-a");
+  assert.equal(cleaned.removed >= 1, true);
+  assert.throws(() => artifacts.ref(a.id), /MISSING/);
+  assert.equal(artifacts.ref(b.id).workspaceId, "ws-b");
+  artifacts.gc();
+  artifacts.close();
+  void root;
+});
+
 test("R56-FILE-013 workspace or session drift cannot read the handle", () => {
   const { artifacts } = service();
   const docx = storedZip([
