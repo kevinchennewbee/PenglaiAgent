@@ -20,7 +20,6 @@ export const inject = [
   "workspaceRegistry",
   "tools",
   "sessionPersistence",
-  "penglaiImCore",
   "penglaiBudget",
 ];
 export const version = RELEASE;
@@ -121,6 +120,7 @@ interface CordisContextLike {
   };
   penglaiImCore?: ImServiceLike;
   penglaiBudget?: BudgetServiceLike;
+  get?: (name: string, strict?: boolean) => unknown;
   on?: (
     event: string,
     listener: (...args: unknown[]) => unknown,
@@ -223,6 +223,14 @@ function fixedPrompt(
   return `[PENGLAI COMPANION v1]\npolicy_revision=${config.revision}\ntrigger_class=${triggerClass}\nopaque_signal=${opaqueDigest}\n${intent}`;
 }
 
+function resolveIm(ctx: CordisContextLike): ImServiceLike | undefined {
+  if (typeof ctx.get === "function") {
+    const found = ctx.get("penglaiImCore", true);
+    if (found) return found as ImServiceLike;
+  }
+  return ctx.penglaiImCore;
+}
+
 function scheduleMarker(triggerClass: CompanionSignal, opaqueId: string): string {
   const opaqueDigest = createHash("sha256").update(opaqueId).digest("hex");
   return `[PENGLAI COMPANION TRIGGER v1]\ntrigger_class=${triggerClass}\nopaque_signal=${opaqueDigest}`;
@@ -278,15 +286,15 @@ export class ProductionCompanionService {
         "official Workspace registry required for companion",
       );
     }
+    const im = resolveIm(ctx);
     if (
-      !ctx.penglaiImCore?.listBindings ||
-      !ctx.penglaiImCore?.requireCompanionBinding ||
-      !ctx.penglaiImCore.sendProactive
+      !im?.listBindings ||
+      !im.requireCompanionBinding ||
+      !im.sendProactive
     ) {
-      throw new PenglaiError(
-        "DSH_UNAVAILABLE",
-        "@penglai/im typed outbound required for companion",
-      );
+      this.runtimeError = "connect a messaging platform first";
+    } else {
+      this.ctx.penglaiImCore = im;
     }
     if (!ctx.on)
       throw new PenglaiError(
@@ -462,9 +470,13 @@ export class ProductionCompanionService {
   }
 
   private assertDispatchAllowed(config: CompanionConfig): void {
-    const recent = this.ctx.penglaiImCore!.recentUserActivity(config.bindingId!);
+    const im = resolveIm(this.ctx);
+    if (!im) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "connect a messaging platform first");
+    }
+    const recent = im.recentUserActivity(config.bindingId!);
     mayDispatch(config, this.now(), this.store.sentOn(this.now()), recent);
-    this.ctx.penglaiImCore!.requireCompanionBinding({
+    im.requireCompanionBinding({
       bindingId: config.bindingId!,
       workspaceId: config.workspaceId!,
       sessionId: config.boundSessionId!,
@@ -530,7 +542,7 @@ export class ProductionCompanionService {
       this.assertDispatchAllowed(config);
       if (dispatch.policyRevision !== config.revision)
         throw new PenglaiError("SECURITY_POLICY", "companion policy stale");
-      const result = this.ctx.penglaiImCore!.sendProactive({
+      const result = resolveIm(this.ctx)!.sendProactive({
         bindingId: config.bindingId!,
         workspaceId: config.workspaceId!,
         boundSessionId: config.boundSessionId!,
@@ -739,7 +751,14 @@ export class ProductionCompanionService {
     validateEnableInput(input);
     if (this.store.config().enabled)
       throw new PenglaiError("INVALID_INPUT", "companion already enabled");
-    const binding = this.ctx.penglaiImCore!.requireCompanionBinding({
+    const im = resolveIm(this.ctx);
+    if (!im?.requireCompanionBinding) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "connect a messaging platform first");
+    }
+    if (!im.listBindings().some((row) => row.state === "active")) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "connect a messaging platform first");
+    }
+    const binding = im.requireCompanionBinding({
       bindingId: input.bindingId,
       workspaceId: input.workspaceId,
       sessionId: input.sessionId,
@@ -885,7 +904,7 @@ export class ProductionCompanionService {
       .filter((row) => row.state === "outbox_queued")
       .map((row) => row.triggerId);
     if (before.bindingId && triggerIds.length) {
-      this.ctx.penglaiImCore!.cancelProactive?.({
+      resolveIm(this.ctx)?.cancelProactive?.({
         bindingId: before.bindingId,
         triggerIds,
       });
@@ -945,7 +964,7 @@ export class ProductionCompanionService {
       }),
     }));
     return {
-      bindings: this.ctx.penglaiImCore!.listBindings()
+      bindings: (resolveIm(this.ctx)?.listBindings() ?? [])
         .filter((binding) => binding.state === "active")
         .map(({ id, channel, workspaceId, sessionId }) => ({ id, channel, workspaceId, sessionId })),
       workspaces,

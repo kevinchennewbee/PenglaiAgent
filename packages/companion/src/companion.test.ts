@@ -394,7 +394,34 @@ test("Companion client registers official settings UI and keeps the no-tools bou
   assert.match(source, /data-penglai-companion/);
   assert.match(source, /penglaiCompanionSettings/);
   assert.match(source, /plan\/no-unattended-tools/);
+  assert.match(source, /Connect a messaging platform first/);
+  assert.match(source, /请先连接消息平台/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
+});
+
+test("Companion apply stays up when penglaiImCore is missing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-companion-noim-"));
+  const previous = process.env.PENGLAI_USER_DATA;
+  process.env.PENGLAI_USER_DATA = dir;
+  try {
+    const service = apply({
+      agents: {
+        get: () => undefined,
+        create: async () => ({ agent: {}, dispose: async () => undefined }),
+        resume: async () => ({ agent: {}, dispose: async () => undefined }),
+      },
+      workspaceRegistry: { get: () => undefined, list: () => [] },
+      on() {},
+      provide() {},
+      effect() {},
+    } as never);
+    assert.match(String(service.status().runtimeError ?? ""), /messaging platform/);
+    assert.equal(service.configurationOptions().bindings.length, 0);
+  } finally {
+    if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
+    else process.env.PENGLAI_USER_DATA = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("production Companion apply refuses in-memory fallback", () => {

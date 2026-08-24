@@ -111,7 +111,7 @@ window.__ModuleLoader__.load({
         disable: "停用",
         unavailable: "主动陪伴服务暂时不可用。",
         busy: "处理中…",
-        noBinding: "请先在 IM 中完成私聊绑定。",
+        noBinding: "请先连接消息平台。",
       },
       en: {
         title: "Proactive Companion",
@@ -144,7 +144,7 @@ window.__ModuleLoader__.load({
         disable: "Disable",
         unavailable: "Companion service is temporarily unavailable.",
         busy: "Working…",
-        noBinding: "Create a private-chat IM binding first.",
+        noBinding: "Connect a messaging platform first.",
       },
     };
     const copy = () =>
@@ -295,7 +295,7 @@ window.__ModuleLoader__.load({
                           }),
                         ],
                       })
-                    : jsx.jsx("p", { children: t.noBinding }),
+                    : jsx.jsx("p", { "data-penglai-companion-need-im": "1", children: t.noBinding }),
                   jsx.jsxs("label", {
                     children: [
                       t.quiet,
