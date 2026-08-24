@@ -325,6 +325,10 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(soak, /evaluateLiveSample/);
   assert.match(soak, /PENGLAI_SOAK_ALLOW_LONG/);
   assert.match(soak, /installOptionalPlugins:\s*true/);
+  assert.match(soak, /installed-soak-fixture/);
+  assert.match(soak, /evaluate\(session, HTTP_JS\)/);
+  assert.match(soak, /evaluate\(session, WS_JS\)/);
+  assert.doesNotMatch(soak, /probeLiveHttpWs/);
   for (const sample of ["im", "offline", "sleep", "update", "uninstall"]) {
     assert.match(soak, new RegExp(`"${sample}"`));
   }

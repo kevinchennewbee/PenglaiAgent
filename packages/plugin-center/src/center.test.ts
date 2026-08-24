@@ -105,10 +105,23 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /data-penglai-plugin-links/);
   assert.match(client, /data-penglai-plugin-link/);
   assert.match(client, /openPluginLink/);
-  assert.equal(
-    client.includes("https://github.com/kevinchennewbee/PenglaiAgent"),
-    true,
+  const productLinksBlock = client.match(
+    /const PRODUCT_LINKS = (\{[\s\S]*?\});/,
   );
+  assert.ok(productLinksBlock);
+  const productLinks = vm.runInNewContext(`(${productLinksBlock[1]})`) as {
+    repository?: unknown;
+    homepage?: unknown;
+    documentation?: unknown;
+    issues?: unknown;
+  };
+  assert.deepEqual(JSON.parse(JSON.stringify(productLinks)), {
+    repository: "https://github.com/kevinchennewbee/PenglaiAgent",
+    homepage: "https://github.com/kevinchennewbee/PenglaiAgent",
+    documentation:
+      "https://github.com/kevinchennewbee/PenglaiAgent/blob/main/README.md",
+    issues: "https://github.com/kevinchennewbee/PenglaiAgent/issues",
+  });
   assert.match(client, /window\.location\.reload\(\)/);
   assert.match(client, /unwrapRemote\(await centerRemote\.enable/);
   assert.match(client, /centerRemote\.refreshRegistry/);

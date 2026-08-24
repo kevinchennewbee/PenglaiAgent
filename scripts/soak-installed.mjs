@@ -4,7 +4,7 @@ import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
-import { HTTP_JS, SNAPSHOT_JS, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
+import { HTTP_JS, SNAPSHOT_JS, WS_JS, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
   exeInside,
   installFromExactInstaller,
@@ -27,7 +27,6 @@ import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import {
   FAIL_CLOSED_DEADLINE_MS,
   evaluateLiveSample,
-  probeLiveHttpWs,
   readProcessIdentity,
 } from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
@@ -113,6 +112,56 @@ if (!harnessApp) {
 const userData = join(ROOT, ".tmp-installed-soak");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
+const onboardingDir = join(userData, "onboarding");
+mkdirSync(onboardingDir, { recursive: true, mode: 0o700 });
+const fixtureNonceDigest = "a".repeat(64);
+writeFileSync(
+  join(onboardingDir, "onboarding.json"),
+  `${JSON.stringify(
+    {
+      schema: 2,
+      completed: [
+        "welcome-v1",
+        "appearance-locale-v1",
+        "privacy-v1",
+        "model-provider-v1",
+        "credential-v1",
+        "model-test-v1",
+        "workspace-v1",
+        "first-turn-v1",
+      ],
+      current: "COMPLETE",
+      advanceToken: "installed-soak-fixture",
+    },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
+writeFileSync(
+  join(onboardingDir, "onboarding-facts.json"),
+  `${JSON.stringify(
+    {
+      selection: { provider: "deepseek-official", model: "deepseek-chat" },
+      credentialRef: "PENGLAI_INSTALLED_SOAK_FIXTURE",
+      workspaceId: "installed-soak-fixture-workspace",
+      apiTest: {
+        nonceDigest: fixtureNonceDigest,
+        finalDigest: "b".repeat(64),
+        sessionId: "installed-soak-fixture-api",
+      },
+      firstConversation: {
+        sessionId: "installed-soak-fixture-first",
+        messageDigest: "c".repeat(64),
+        finalDigest: "d".repeat(64),
+      },
+    },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
+writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
 const healthFile = join(userData, "soak-health.json");
 const installedNode = join(resources, expectedTarget === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const installedDsh = join(resources, "runtime/dsh/lib/bin.js");
@@ -160,6 +209,7 @@ const failClosed = async (reason, extra = {}) => {
   });
 };
 
+let session = null;
 const liveSample = async () => {
   const sampleStarted = Date.now();
   if (launched.child.exitCode !== null && launched.child.exitCode !== undefined) {
@@ -167,8 +217,22 @@ const liveSample = async () => {
   }
   const health = existsSync(healthFile) ? JSON.parse(readFileSync(healthFile, "utf8")) : null;
   const observed = readProcessIdentity(launched.child.pid);
-  const origin = health?.url ? new URL(health.url).origin : first.url ? new URL(first.url).origin : "";
-  const live = origin ? await probeLiveHttpWs(origin, 2_000) : { httpOfficial: false, wsOpened: false };
+  let live = { httpOfficial: false, httpStatus: 0, wsOpened: false };
+  if (session) {
+    try {
+      const [http, websocket] = await Promise.all([
+        evaluate(session, HTTP_JS),
+        evaluate(session, WS_JS),
+      ]);
+      live = {
+        httpOfficial: http?.official === true,
+        httpStatus: Number(http?.status ?? 0),
+        wsOpened: websocket?.opened === true,
+      };
+    } catch {
+      live = { httpOfficial: false, httpStatus: 0, wsOpened: false };
+    }
+  }
   const judged = evaluateLiveSample({
     now: Date.now(),
     health,
@@ -197,7 +261,6 @@ const mark = (name, rec) => {
   if (rec.ok === true && !samplesCovered.includes(name)) samplesCovered.push(name);
 };
 
-let session = null;
 try {
   const attached = await attachPage(debugPort, 60_000);
   session = attached.session;
@@ -243,24 +306,29 @@ try {
 async function sampleOffline() {
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
   const dshPid = first.dshPid || tree.dshPid;
-  const port = first.url ? Number(new URL(first.url).port) : 0;
-  if (!dshPid || !port) return mark("offline", { ok: false, reason: "no dsh pid/port" });
+  if (!dshPid || !session) return mark("offline", { ok: false, reason: "no dsh pid/authenticated renderer" });
+  const before = await evaluate(session, HTTP_JS);
   const stopped = signalPid(dshPid, "SIGSTOP", windowsHelper);
   await delay(1_500);
-  let down = false;
+  let during = { status: 0, ok: false, official: false };
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(2500) });
-    down = !res.ok;
+    during = await evaluate(
+      session,
+      `fetch(location.origin + "/", { credentials: "same-origin", signal: AbortSignal.timeout(2500) })
+        .then(async (res) => ({ status: res.status, ok: res.ok, official: (await res.text()).includes('id="root"') }))
+        .catch(() => ({ status: 0, ok: false, official: false }))`,
+    );
   } catch {
-    down = true;
+    during = { status: 0, ok: false, official: false };
   }
   const continued = signalPid(dshPid, "SIGCONT", windowsHelper);
   const recovered = await waitHealth(60_000);
   const live = await liveSample();
   mark("offline", {
-    ok: Boolean(stopped && down && continued && recovered?.dshPid && live.ok),
+    ok: Boolean(before?.official && stopped && !during?.official && continued && recovered?.dshPid && live.ok),
+    before,
     stopped,
-    down,
+    during,
     continued,
     recoveredPid: recovered?.dshPid ?? 0,
     live,

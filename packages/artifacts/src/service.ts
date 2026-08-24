@@ -1,20 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  closeSync,
-  constants,
-  existsSync,
-  fstatSync,
-  mkdirSync,
-  openSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
+import { PenglaiError, parseClosedEnum, readExactRegularFile } from "@penglai/contracts";
 import {
   ARTIFACT_KINDS,
   ARTIFACT_LIMITS,
@@ -176,32 +164,17 @@ export class ArtifactService {
 
   ingestPath(absPath: string, input: ArtifactIntake): ArtifactRefV1 {
     if (!absPath || absPath.includes("\0")) fail("ARTIFACT_PATH");
-    let fd: number | undefined;
     try {
-      fd = openSync(absPath, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const st = fstatSync(fd);
-      if (
-        !st.isFile() ||
-        st.isSymbolicLink() ||
-        st.isDirectory() ||
-        st.isSocket() ||
-        st.isFIFO() ||
-        st.isBlockDevice() ||
-        st.isCharacterDevice()
-      ) {
-        fail("ARTIFACT_HANDLE");
-      }
-      if (st.size > ARTIFACT_LIMITS.maxFileBytes) fail("ARTIFACT_SIZE");
-      const bytes = readFileSync(fd);
-      if (bytes.length !== st.size) fail("ARTIFACT_TOCTOU");
+      const bytes = readExactRegularFile(absPath, ARTIFACT_LIMITS.maxFileBytes);
       return this.ingestBytes(bytes, input);
     } catch (error) {
-      if (error instanceof PenglaiError) throw error;
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ELOOP" || code === "EPERM") fail("ARTIFACT_SYMLINK");
+      if (error instanceof PenglaiError) {
+        if (/symlink source/i.test(error.message)) fail("ARTIFACT_SYMLINK");
+        if (/byte limit/i.test(error.message)) fail("ARTIFACT_SIZE");
+        if (/regular file/i.test(error.message)) fail("ARTIFACT_HANDLE");
+        if (/changed/i.test(error.message)) fail("ARTIFACT_TOCTOU");
+      }
       throw error;
-    } finally {
-      if (fd !== undefined) closeSync(fd);
     }
   }
 

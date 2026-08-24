@@ -58,14 +58,12 @@ test("exact regular-file reader bounds bytes and rejects symlinks", () => {
   assert.equal(readExactRegularFile(file, 7).toString("utf8"), "trusted");
   assert.throws(() => readExactRegularFile(file, 6), /byte limit|SECURITY_POLICY/i);
 
-  if (process.platform !== "win32") {
-    const link = join(dir, "entry-link.json");
-    symlinkSync(file, link);
-    assert.throws(
-      () => readExactRegularFile(link, 7),
-      /ELOOP|regular file|symlink source|STORE_CORRUPT|SECURITY_POLICY/i,
-    );
-  }
+  const link = join(dir, "entry-link.json");
+  symlinkSync(file, link);
+  assert.throws(
+    () => readExactRegularFile(link, 7),
+    /ELOOP|regular file|symlink source|STORE_CORRUPT|SECURITY_POLICY/i,
+  );
 });
 
 test("attachDownloadedMedia requires saveImage for images", async () => {

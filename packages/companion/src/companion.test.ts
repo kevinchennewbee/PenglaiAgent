@@ -399,10 +399,11 @@ test("Companion client registers official settings UI and keeps the no-tools bou
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });
 
-test("Companion apply stays up when penglaiImCore is missing", () => {
+test("Companion apply stays up when penglaiImCore is missing", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-companion-noim-"));
   const previous = process.env.PENGLAI_USER_DATA;
   process.env.PENGLAI_USER_DATA = dir;
+  let service: ReturnType<typeof apply> | undefined;
   try {
     const ctx = {
       agents: {
@@ -421,10 +422,11 @@ test("Companion apply stays up when penglaiImCore is missing", () => {
         throw new Error('cannot get property "penglaiImCore" without inject');
       },
     });
-    const service = apply(ctx as never);
+    service = apply(ctx as never);
     assert.match(String(service.status().runtimeError ?? ""), /messaging platform/);
     assert.equal(service.configurationOptions().bindings.length, 0);
   } finally {
+    await service?.close();
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
     rmSync(dir, { recursive: true, force: true });

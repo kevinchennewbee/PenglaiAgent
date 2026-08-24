@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
-  constants,
   existsSync,
   fstatSync,
   lstatSync,
@@ -430,9 +429,11 @@ export class ObjectStore {
 export function readExactRegularFile(path: string, maxBytes = Number.POSITIVE_INFINITY): Buffer {
   let fd: number | undefined;
   try {
-    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
     try {
-      fd = openSync(path, constants.O_RDONLY | noFollow);
+      // Open read-only, then bind the descriptor to the current path with
+      // lstat/fstat below. This rejects links on Windows too, where O_NOFOLLOW
+      // is unavailable, without ever creating or replacing the source file.
+      fd = openSync(path, "r");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ELOOP") {
         throw new PenglaiError("SECURITY_POLICY", "file is a symlink source");
