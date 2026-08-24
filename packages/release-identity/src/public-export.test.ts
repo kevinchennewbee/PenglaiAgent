@@ -76,7 +76,7 @@ test("tracked plugin package.json paths are exportable and FINDINGS has no owner
 });
 
 test("R50-PREP-002 export scan rejects secret and owner path", () => {
-  assert.throws(() => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"), PenglaiError);
+  assert.throws(() => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"), PenglaiError); // penglai-test-fixture
   assert.throws(() => scanExportText("README.md", "path /Volumes/KevinSSD-in/x"), PenglaiError);
   assert.throws(() => scanExportText("README.md", "notes /Users/alice/secret"), PenglaiError);
   assert.doesNotThrow(() => scanExportText("README.md", "community-verified ad-hoc"));

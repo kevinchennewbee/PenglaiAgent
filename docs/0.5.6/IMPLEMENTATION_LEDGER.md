@@ -65,8 +65,8 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-SEC-004 | not-started | Windows ACL | | N,I |
 | R56-SEC-005 | source-pass | `packages/contracts/src/bounded-http.ts` | `bounded-http.test.ts`; IM/registry reuse | I |
 | R56-SEC-006 | source-pass | `packages/plugin-registry/src/archive-policy.ts` | `registry.test.ts` | I |
-| R56-SEC-007 | not-started | `scripts/audit-secrets.mjs` | | S,C |
-| R56-SEC-008 | not-started | scanner redaction | | S,C |
+| R56-SEC-007 | source-pass | `scripts/lib/secret-scan.mjs` | `secret-scan.test.mjs` | I |
+| R56-SEC-008 | source-pass | report is rule/file/line/category only | `secret-scan.test.mjs` | I |
 | R56-SEC-009 | not-started | enum decoders | | S,C |
 | R56-SEC-010 | not-started | channel-feishu chatType | | C,L |
 | R56-SEC-011 | not-started | channel-weixin receive loop | | C,L |
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Phase 1 next capability: Secret Scanner fixture allowlist (`R56-SEC-007` / `R56-SEC-008`). Windows ACL (`R56-SEC-004`) stays Windows-only. Then Office ZIP, enum decoders, IM digest/retention, catalog sequence. Do not start Owner Approval Broker until the current P0 security class is done.
+Phase 1 next capability: Office bounded ZIP (`R56-OFF-001` / `R56-OFF-002`). Enum decoders, IM digest/retention, catalog sequence, and Windows ACL remain in the P0 lane. Do not start Owner Approval Broker until this security class is done.

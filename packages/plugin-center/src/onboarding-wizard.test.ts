@@ -18,7 +18,7 @@ import {
 import { createPenglaiOnboardingRemoteImpl } from "./onboarding-remote.js";
 import { readFileSync as readSource } from "node:fs";
 
-const SECRET = "sk-live-test-value-never-persist";
+const SECRET = "sk-live-test-value-never-persist"; // penglai-test-fixture
 
 function userTree() {
   const userDataRoot = mkdtempSync(join(tmpdir(), "penglai-ud-"));

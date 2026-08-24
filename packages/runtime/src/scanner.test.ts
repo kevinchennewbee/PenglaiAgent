@@ -90,11 +90,11 @@ test("native dependency scan accepts upstream builder paths but rejects local pa
 
 test("R50-SEC: production scanner rejects transcript, voice reference, and grant paths", () => {
   assert.throws(
-    () => assertProductionBundleClean({ "diag.json": 'transcript: "user said a long private sentence"' }),
+    () => assertProductionBundleClean({ "diag.json": 'transcript: "user said a long private sentence"' }), // penglai-test-fixture
     /transcript body/,
   );
   assert.throws(
-    () => assertProductionBundleClean({ "cache.txt": "local-voices/owner-ref.wav" }),
+    () => assertProductionBundleClean({ "cache.txt": "local-voices/owner-ref.wav" }), // penglai-test-fixture
     /voice reference/,
   );
   assert.throws(

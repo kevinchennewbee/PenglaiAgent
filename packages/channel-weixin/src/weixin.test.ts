@@ -315,7 +315,7 @@ test("ilink client maps endpoints and never logs token", async () => {
       return { ok: true, status: 200, async text() { return JSON.stringify({ qrcode: "ref", qrcode_img_content: "https://example.invalid/q" }); } };
     }
     if (url.includes("get_qrcode_status")) {
-      return { ok: true, status: 200, async text() { return JSON.stringify({ status: "confirmed", bot_token: "secret-token", ilink_bot_id: "bot1" }); } };
+      return { ok: true, status: 200, async text() { return JSON.stringify({ status: "confirmed", bot_token: "secret-token", ilink_bot_id: "bot1" }); } }; // penglai-test-fixture
     }
     if (url.includes("getupdates")) {
       return {

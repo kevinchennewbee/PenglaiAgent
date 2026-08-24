@@ -68,9 +68,9 @@ test("preload API includes wizardFinished and wizardPickFolder", () => {
 });
 
 test("startup failure text redacts secret-shaped fragments", () => {
-  const raw = "credentials.set failed: api_key=sk-abcdefghijklmnopqrstuvwxyz012345 token=wx-secret leftover sk-zzzzzzzzzzzzzzzz";
+  const raw = "credentials.set failed: api_key=sk-abcdefghijklmnopqrstuvwxyz012345 token=wx-secret leftover sk-zzzzzzzzzzzzzzzz"; // penglai-test-fixture
   const safe = sanitizeStartupReason(raw);
-  assert.equal(safe.includes("sk-abcdefghijklmnopqrstuvwxyz012345"), false);
+  assert.equal(safe.includes("sk-abcdefghijklmnopqrstuvwxyz012345"), false); // penglai-test-fixture
   assert.equal(safe.includes("wx-secret"), false);
   assert.match(safe, /sk-\[redacted\]/);
   assert.match(safe, /api_key=\[redacted\]/);
