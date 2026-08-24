@@ -48,7 +48,11 @@ export function rewriteElectronPlist(plist: string): string {
     .replace(/<key>CFBundleVersion<\/key>\s*<string>[^<]*<\/string>/, `<key>CFBundleVersion</key>\n\t<string>${PRODUCT_VERSION}</string>`)
     .replace(/<string>com\.github\.Electron<\/string>/g, `<string>${PRODUCT_BUNDLE_ID}</string>`)
     .replace(/<key>CFBundleIconFile<\/key>\s*<string>[^<]*<\/string>/, "<key>CFBundleIconFile</key>\n\t<string>penglai.icns</string>")
-    .replace(/<key>LSMinimumSystemVersion<\/key>\s*<string>[^<]*<\/string>/, "<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>");
+    .replace(/<key>LSMinimumSystemVersion<\/key>\s*<string>[^<]*<\/string>/, "<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>")
+    .replace(
+      /<key>NSMicrophoneUsageDescription<\/key>\s*<string>[^<]*<\/string>/,
+      `<key>NSMicrophoneUsageDescription</key>\n\t<string>${MICROPHONE_USAGE_DESCRIPTION}</string>`,
+    );
   if (!/<key>CFBundleIconFile<\/key>/.test(next)) {
     next = next.replace(
       /<\/dict>\s*<\/plist>\s*$/,
