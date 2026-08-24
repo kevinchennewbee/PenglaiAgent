@@ -6,6 +6,7 @@ import test from "node:test";
 import { MemoryV2Store } from "./v2/candidates.js";
 import {
   ingestOfficialTurn,
+  resolveSessionTurn,
   runHostCurator,
   sessionEventParts,
   withMemoryRecall,
@@ -96,6 +97,30 @@ test("recall injects a host memory block into official pre-step messages", async
     },
   });
   assert.equal(failed, "not-json");
+});
+
+test("official DSH user/message inherits its turn and data.content is curated", () => {
+  const activeTurns = new Map<string, number>();
+  const start = sessionEventParts([{ id: "s1" }, { type: "turn/start", data: { turn: 7 } }]);
+  assert.equal(resolveSessionTurn(start, activeTurns), 7);
+
+  const user = sessionEventParts([
+    { id: "s1" },
+    {
+      type: "user/message",
+      data: {
+        role: "user",
+        content: [{ type: "text", text: "The project codename is Lotus." }],
+      },
+    },
+  ]);
+  assert.equal(user.turn, undefined);
+  assert.equal(user.text, "The project codename is Lotus.");
+  assert.equal(resolveSessionTurn(user, activeTurns), 7);
+
+  const end = sessionEventParts([{ id: "s1" }, { type: "turn/end", data: { turn: 7 } }]);
+  assert.equal(resolveSessionTurn(end, activeTurns), 7);
+  assert.equal(activeTurns.has("s1"), false);
 });
 
 test("memory apply source subscribes to official turn/end and pre-step and does not expose ingestCurator", async () => {

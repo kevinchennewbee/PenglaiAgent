@@ -140,7 +140,13 @@ export function sessionEventParts(args: unknown[]): {
   const event = asRecord(args[1]) ?? asRecord(args[0]);
   const data = asRecord(event?.data);
   const message = asRecord(data?.message) ?? asRecord(event?.message);
-  const content = Array.isArray(message?.content) ? message.content : [];
+  // Official DSH emits assistant content under data.message.content, while
+  // user/message uses data.content and inherits its turn from turn/start.
+  const content = Array.isArray(message?.content)
+    ? message.content
+    : Array.isArray(data?.content)
+      ? data.content
+      : [];
   const text = content
     .map((row) => asRecord(row))
     .filter((row) => row?.type === "text" && typeof row.text === "string")
@@ -153,4 +159,18 @@ export function sessionEventParts(args: unknown[]): {
     ...(typeof turn === "number" ? { turn } : {}),
     ...(text ? { text } : {}),
   };
+}
+
+/** Resolve DSH events that inherit their turn number from turn/start. */
+export function resolveSessionTurn(
+  parts: ReturnType<typeof sessionEventParts>,
+  activeTurns: Map<string, number>,
+): number | undefined {
+  if (!parts.sessionId) return undefined;
+  if (parts.type === "turn/start" && typeof parts.turn === "number") {
+    activeTurns.set(parts.sessionId, parts.turn);
+  }
+  const turn = parts.turn ?? activeTurns.get(parts.sessionId);
+  if (parts.type === "turn/end") activeTurns.delete(parts.sessionId);
+  return turn;
 }

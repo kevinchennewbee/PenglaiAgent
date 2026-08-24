@@ -24,7 +24,7 @@ import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
-import { ingestOfficialTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { ingestOfficialTurn, resolveSessionTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
@@ -671,10 +671,13 @@ export function apply(ctx: CordisContextLike) {
     });
     const activeService = service;
     const turns = new Map<string, { user?: string; assistant?: string }>();
+    const activeTurns = new Map<string, number>();
     ctx.on?.("session/event", (...args: unknown[]) => {
       const parts = sessionEventParts(args);
-      if (!parts.sessionId || typeof parts.turn !== "number") return;
-      const key = `${parts.sessionId}:${parts.turn}`;
+      if (!parts.sessionId) return;
+      const turn = resolveSessionTurn(parts, activeTurns);
+      if (typeof turn !== "number") return;
+      const key = `${parts.sessionId}:${turn}`;
       const prev = turns.get(key) ?? {};
       if (parts.type === "user/message" && parts.text) prev.user = parts.text;
       if (parts.type === "assistant/message" && parts.text) prev.assistant = parts.text;
@@ -700,7 +703,7 @@ export function apply(ctx: CordisContextLike) {
             store: activeService.memoryV2,
             workspaceId,
             sessionId: parts.sessionId!,
-            turnId: String(parts.turn),
+            turnId: String(turn),
             raw,
             summary,
             persist: (candidate) => activeService.materializeCandidate(candidate),
