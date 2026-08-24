@@ -102,6 +102,10 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /penglai-capability-grid/);
   assert.match(client, /data-penglai-plugin-action-status/);
   assert.match(client, /data-penglai-plugin-action-busy/);
+  assert.match(client, /data-penglai-plugin-links/);
+  assert.match(client, /data-penglai-plugin-link/);
+  assert.match(client, /openPluginLink/);
+  assert.match(client, /https:\/\/github.com\/kevinchennewbee\/PenglaiAgent/);
   assert.match(client, /window\.location\.reload\(\)/);
   assert.match(client, /unwrapRemote\(await centerRemote\.enable/);
   assert.match(client, /centerRemote\.refreshRegistry/);

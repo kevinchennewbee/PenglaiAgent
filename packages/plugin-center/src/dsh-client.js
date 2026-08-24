@@ -117,6 +117,12 @@ window.__ModuleLoader__.load({
       "@penglai/plugin-pilot",
       "@penglai/budget",
     ]);
+    const PRODUCT_LINKS = {
+      repository: "https://github.com/kevinchennewbee/PenglaiAgent",
+      homepage: "https://github.com/kevinchennewbee/PenglaiAgent",
+      documentation: "https://github.com/kevinchennewbee/PenglaiAgent/blob/main/README.md",
+      issues: "https://github.com/kevinchennewbee/PenglaiAgent/issues",
+    };
     const FIRST_PARTY_CARDS = [
       { id: "@penglai/im", key: "cardIm" },
       { id: "@penglai/office", key: "cardOffice" },
@@ -363,6 +369,33 @@ window.__ModuleLoader__.load({
                 ],
               }),
               hint ? jsx.jsx("p", { children: hint }) : null,
+              jsx.jsx("nav", {
+                "data-penglai-plugin-links": "1",
+                children: [
+                  ["repository", t.linkRepo],
+                  ["homepage", t.linkHome],
+                  ["documentation", t.linkDocs],
+                  ["issues", t.linkIssues],
+                ]
+                  .map(([key, label]) => {
+                    const href = (entry.links && entry.links[key]) || PRODUCT_LINKS[key];
+                    if (!href) return null;
+                    return jsx.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        "data-penglai-plugin-link": key,
+                        onClick: () => {
+                          const open = window.penglai && window.penglai.openPluginLink;
+                          if (typeof open === "function") Promise.resolve(open(href)).catch(() => undefined);
+                        },
+                        children: label,
+                      },
+                      key,
+                    );
+                  })
+                  .filter(Boolean),
+              }),
               jsx.jsxs("p", {
                 className: "penglai-plugin-permissions",
                 children: [
@@ -658,6 +691,10 @@ window.__ModuleLoader__.load({
         centerVersion: "版本",
         centerDsh: "DSH",
         centerPermissions: "权限",
+        linkRepo: "源代码",
+        linkHome: "官网",
+        linkDocs: "使用文档",
+        linkIssues: "反馈问题",
         centerNoPermissions: "无额外权限",
         centerSignature: "签名",
         centerSignatureOk: "已验证",
@@ -800,6 +837,10 @@ window.__ModuleLoader__.load({
         centerVersion: "version",
         centerDsh: "DSH",
         centerPermissions: "permissions",
+        linkRepo: "Source",
+        linkHome: "Website",
+        linkDocs: "Docs",
+        linkIssues: "Issues",
         centerNoPermissions: "no extra permissions",
         centerSignature: "signature",
         centerSignatureOk: "verified",

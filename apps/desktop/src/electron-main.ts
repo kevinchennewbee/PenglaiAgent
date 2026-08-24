@@ -1,14 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from "electron";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, assertSafeHttpsUrl } from "@penglai/contracts";
 import { startDshProxy, type LocalProxy } from "@penglai/local-control";
 import {
   AssistedUpdateCoordinator,
   DeletionAuthorizer,
   PINNED_DSH,
+  PENGLAI_VERSION,
+  redactSupervisorDiagnostic,
   activatePrivateProfile,
   buildDeletionPlan,
   createSchemaBackup,
@@ -850,6 +852,58 @@ async function main(): Promise<void> {
             id: authorized.id,
             version: authorized.version,
           };
+        }
+        if (name === "openPluginLink") {
+          if (args.length !== 1 || typeof args[0] !== "string") {
+            throw new PenglaiError("INVALID_INPUT", "one plugin link is required");
+          }
+          const parsed = assertSafeHttpsUrl(args[0], "plugin link");
+          const picked = await dialog.showMessageBox(win, {
+            type: "question",
+            buttons: ["Open / 打开", "Cancel / 取消"],
+            defaultId: 1,
+            cancelId: 1,
+            message: "Open this link in your system browser?\n要在系统浏览器中打开此链接吗？",
+            detail: parsed.toString(),
+          });
+          if (picked.response !== 0) return { opened: false };
+          await shell.openExternal(parsed.toString());
+          return { opened: true };
+        }
+        if (name === "recoveryRetry") {
+          requireNoArguments(args);
+          app.relaunch();
+          app.quit();
+          return { retry: true };
+        }
+        if (name === "recoveryQuit") {
+          requireNoArguments(args);
+          app.quit();
+          return { quit: true };
+        }
+        if (name === "recoveryOpenLogs") {
+          requireNoArguments(args);
+          return { opened: await shell.openPath(user.logs) };
+        }
+        if (name === "recoveryOpenData") {
+          requireNoArguments(args);
+          return { opened: await shell.openPath(user.root) };
+        }
+        if (name === "recoveryCopyDiagnostics") {
+          requireNoArguments(args);
+          const diagnostic = redactSupervisorDiagnostic({
+            appVersion: PENGLAI_VERSION,
+            sourceSha: String(process.env.PENGLAI_SOURCE_SHA ?? "unspecified"),
+            platform: process.platform,
+            arch: process.arch,
+            dsh: PINNED_DSH,
+            phase: live.state,
+            phaseMs: 0,
+            requiredPlugins: [],
+            errorCodes: report ? [String((report as { errorClass?: string }).errorClass ?? "STARTUP")] : ["STARTUP"],
+          });
+          clipboard.writeText(JSON.stringify(diagnostic));
+          return { copied: true };
         }
         if (name === "wizardPickFolder") {
           requireNoArguments(args);

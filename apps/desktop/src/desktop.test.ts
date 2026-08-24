@@ -84,6 +84,9 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /officialVendorConsoleDecision/);
   assert.match(main, /shell\.openExternal/);
   assert.match(main, /setWindowOpenHandler\(\(\{ url \}\) =>/);
+  assert.match(main, /openPluginLink/);
+  assert.match(main, /assertSafeHttpsUrl/);
+  assert.match(main, /recoveryCopyDiagnostics/);
 });
 
 test("startup failure tears down owned services before rendering recovery", () => {
@@ -98,6 +101,10 @@ test("control shell documents the community trust boundary", async () => {
   const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
   assert.match(html, /ad-hoc|unsigned|not notarized/i);
   assert.match(html, /data-penglai-recovery/);
+  assert.match(html, /data-penglai-recovery-en/);
+  assert.match(html, /data-penglai-recovery-zh/);
+  assert.match(html, /Official DeepSeek Harness did not become healthy/);
+  assert.match(html, /data-penglai-recovery-retry/);
   assert.match(html, /Powered by DeepSeek Harness/);
   assert.match(html, /Content-Security-Policy/);
 });

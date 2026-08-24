@@ -21,6 +21,12 @@ export const PRELOAD_API = [
   "requestOwnerApproval",
   "beginMicrophoneRequest",
   "restartPluginRuntime",
+  "openPluginLink",
+  "recoveryRetry",
+  "recoveryCopyDiagnostics",
+  "recoveryOpenLogs",
+  "recoveryOpenData",
+  "recoveryQuit",
 ] as const;
 
 export type PreloadApiName = (typeof PRELOAD_API)[number];

@@ -1,13 +1,37 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
-    <title>蓬莱未能启动</title>
+    <title>Penglai could not start / 蓬莱未能启动</title>
   </head>
   <body data-penglai-recovery="1">
-    <h1>蓬莱</h1>
-    <p>官方 DeepSeek Harness Web 未能健康启动。此恢复页不是产品主界面。</p>
+    <h1>Penglai / 蓬莱</h1>
+    <p data-penglai-recovery-en="1">Official DeepSeek Harness did not become healthy. This recovery page is not the product UI.</p>
+    <p data-penglai-recovery-zh="1">官方 DeepSeek Harness 未能健康启动。此恢复页不是产品主界面。</p>
+    <p class="warn">Ad-hoc local candidate, not notarized. The system may say the developer is unidentified. Do not turn off macOS Gatekeeper. Powered by DeepSeek Harness.</p>
     <p class="warn">本机 ad-hoc 本地候选，未公证。系统可能提示来自未识别开发者。不要关闭 macOS Gatekeeper。Powered by DeepSeek Harness。</p>
+    <nav data-penglai-recovery-actions="1">
+      <button type="button" data-penglai-recovery-retry="1">Retry / 重试</button>
+      <button type="button" data-penglai-recovery-copy="1">Copy diagnostics / 复制脱敏诊断</button>
+      <button type="button" data-penglai-recovery-logs="1">Open logs / 打开日志目录</button>
+      <button type="button" data-penglai-recovery-data="1">Open data / 打开数据目录</button>
+      <button type="button" data-penglai-recovery-quit="1">Quit / 退出</button>
+    </nav>
+    <script>
+      const api = window.penglai || {};
+      const click = (sel, name) => {
+        const el = document.querySelector(sel);
+        if (!el || typeof api[name] !== "function") return;
+        el.addEventListener("click", () => {
+          Promise.resolve(api[name]()).catch(() => undefined);
+        });
+      };
+      click("[data-penglai-recovery-retry]", "recoveryRetry");
+      click("[data-penglai-recovery-copy]", "recoveryCopyDiagnostics");
+      click("[data-penglai-recovery-logs]", "recoveryOpenLogs");
+      click("[data-penglai-recovery-data]", "recoveryOpenData");
+      click("[data-penglai-recovery-quit]", "recoveryQuit");
+    </script>
   </body>
 </html>

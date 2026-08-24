@@ -47,6 +47,7 @@ export * from "./scanner.js";
 export * from "./update.js";
 export * from "./update-flow.js";
 export * from "./update-coordinator.js";
+export * from "./supervisor-policy.js";
 export * from "./update-backup.js";
 export * from "./uninstall.js";
 export * from "./windows-host.js";
@@ -1080,11 +1081,14 @@ export class EmbeddedDshSupervisor {
     this.child.on("exit", () => {
       if (this.state === "stopping" || this.state === "starting") return;
       this.state = "crashed";
+      this.restarts += 1;
     });
     try {
       await waitPort(this.port, 25_000);
-      const http = await waitHttp200(`http://127.0.0.1:${this.port}/`, 25_000);
-      const inventory = await waitInventory(user, 30_000);
+      const [http, inventory] = await Promise.all([
+        waitHttp200(`http://127.0.0.1:${this.port}/`, 25_000),
+        waitInventory(user, 30_000),
+      ]);
       this.health = { http: http.status, inventory };
       this.state = "healthy";
     } catch (err) {
