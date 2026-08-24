@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { extractTapFailureDiagnostics } from "./lib/tap-diagnostics.mjs";
 
 const state = gitState();
 if (state.dirty) {
@@ -63,11 +64,13 @@ function run(command, args, label) {
     env: { ...process.env, CI: "1" },
     timeout: 30 * 60 * 1000,
   });
+  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
   return {
     label,
     status: result.status,
     signal: result.signal,
-    tail: `${result.stdout || ""}\n${result.stderr || ""}`.slice(-2000),
+    diagnostics: result.status === 0 ? "" : extractTapFailureDiagnostics(output),
+    tail: output.slice(-2000),
   };
 }
 
@@ -96,6 +99,7 @@ if (failed) {
     productVersion: PRODUCT_VERSION,
     head,
     steps: steps.map((step) => ({ label: step.label, status: step.status })),
+    diagnostics: failed.diagnostics,
     tail: failed.tail,
   });
 }
