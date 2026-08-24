@@ -1,0 +1,23 @@
+# ADR 0038 — Update manifest identity
+
+- Status: Accepted
+- Date: 2026-08-24
+- Version: Penglai 0.5.6 implementation
+- Requirements: R56-UPD-001 .. R56-UPD-007, R56-DIST-005
+
+## Context
+
+0.5.5 Update Coordinator stores the signed update-manifest digest in the `releaseManifestSha256` field. Those are three different identities: update manifest, release manifest, and installer asset.
+
+## Decision
+
+1. Keep schema id `penglai.app-update.v1` and current asset names so 0.5.1-0.5.5 clients can discover 0.5.6.
+2. The signed update JSON gains a required real `releaseManifestSha256`.
+3. Coordinator stores three fields separately: `updateManifestSha256`, `releaseManifestSha256`, and the target asset sha256, plus the source commit.
+4. Build order: installers, SBOM, Notices, public export, evidence summary -> `release-manifest.json` -> hash it -> write that hash into `update-manifest-v1.json` -> sign the update manifest -> write `SHA256SUMS` over every asset except itself.
+5. Mutation tests must swap the two manifest digests, replace the release manifest, replace an installer, and prove old clients ignore the new field.
+
+## Consequences
+
+- 0.5.6 exact public assets become 12 items, including signed evidence summary. That change lands in Phase 11, not in this ADR commit's `release-contract.json`.
+- A single digest must never fill two identity fields.
