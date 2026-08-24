@@ -24,6 +24,8 @@ import {
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
+import { guidedAdapter, type ChannelAdapter } from "./channel-adapter.js";
+import { refuseUnliveSend } from "./guided.js";
 import {
   IM_OWNER_ACTIONS,
   consumeImOwnerProof,
@@ -79,6 +81,7 @@ export class PenglaiImHost {
   private feishuAppId = "";
   private owner: ImOwnerBrokerPort | undefined;
   private artifacts: ArtifactService | undefined;
+  private readonly adapters = new Map<ChannelId, ChannelAdapter>();
   readonly bots: ImBotStore;
 
   constructor(
@@ -108,6 +111,9 @@ export class PenglaiImHost {
     }
     this.store.redactExpiredPayloads(this.plane.clock.now());
     this.bots = new ImBotStore(this.store.db);
+    for (const id of CHANNEL_IDS) {
+      if (!isLiveChannel(id)) this.adapters.set(id, guidedAdapter(id));
+    }
   }
 
   attachOwner(owner: ImOwnerBrokerPort): void {
@@ -116,6 +122,19 @@ export class PenglaiImHost {
 
   attachArtifacts(artifacts: ArtifactService): void {
     this.artifacts = artifacts;
+  }
+
+  attachChannelAdapter(adapter: ChannelAdapter): void {
+    this.adapters.set(adapter.id, adapter);
+  }
+
+  async sendOutboundText(input: { channel: ChannelId; text: string }): Promise<{ delivered: true }> {
+    if (!isLiveChannel(input.channel)) {
+      const adapter = this.adapters.get(input.channel);
+      if (adapter) return adapter.sendText({ text: input.text });
+      refuseUnliveSend(input.channel);
+    }
+    throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_OUTBOX");
   }
 
   proposeBinding(input: {

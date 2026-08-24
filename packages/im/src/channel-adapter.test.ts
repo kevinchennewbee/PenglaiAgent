@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CHANNEL_IDS, LIVE_CHANNEL_IDS, refuseFakeQr } from "./registry.js";
 import { assertLiveSend, guidedAdapter } from "./channel-adapter.js";
+import { createRuntime } from "./index.js";
+import { PenglaiImHost } from "./host.js";
+import { CredentialsServiceVault } from "./credentials-vault.js";
 
 test("non-live channels refuse send and never mint a fake QR", async () => {
   for (const id of CHANNEL_IDS) {
@@ -20,4 +23,25 @@ test("non-live channels refuse send and never mint a fake QR", async () => {
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("telegram", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("discord", "qr"), /CHANNEL_NO_QR/);
+});
+
+test("IM host registers guided adapters and refuses non-live outbound text", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
+    { status: "idle", setupRequired: true } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  );
+  await assert.rejects(() => host.sendOutboundText({ channel: "dingtalk", text: "hi" }), /CHANNEL_NOT_LIVE/);
+  await assert.rejects(() => host.sendOutboundText({ channel: "wecom", text: "hi" }), /CHANNEL_NOT_LIVE/);
+  await assert.rejects(() => host.sendOutboundText({ channel: "qq", text: "hi" }), /CHANNEL_NOT_LIVE/);
+  await assert.rejects(() => host.sendOutboundText({ channel: "weixin", text: "hi" }), /LIVE_CHANNEL_USES_NATIVE_OUTBOX/);
+  rt.store.close();
 });
