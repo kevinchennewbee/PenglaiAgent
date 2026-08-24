@@ -1,4 +1,4 @@
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, parsePluginLinks, type PluginLinksV1 } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_V1 = "penglai.plugin-catalog.v1" as const;
 export const PINNED_DSH = "0.1.1-rc.2" as const;
@@ -53,6 +53,7 @@ export interface CatalogEntry {
   artifacts: CatalogArtifact[];
   migration: string;
   rollback: string;
+  links?: PluginLinksV1;
 }
 
 export interface CatalogRevocation {
@@ -197,6 +198,10 @@ function parseEntry(raw: unknown, seen: Set<string>): CatalogEntry {
     artifacts,
     migration: requireString(raw.migration, "migration"),
     rollback: requireString(raw.rollback, "rollback"),
+    ...((): { links?: PluginLinksV1 } => {
+      const links = parsePluginLinks(raw.links);
+      return links ? { links } : {};
+    })(),
   };
 }
 

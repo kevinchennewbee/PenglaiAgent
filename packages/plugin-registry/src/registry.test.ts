@@ -15,6 +15,8 @@ import {
   fetchGithubReleaseTags,
   inspectPluginEntries,
   parseAppUpdateManifest,
+  assertDistinctManifestIdentities,
+  resolveReleaseManifestSha256,
   parseSignedPluginCatalog,
   publicKeyHexFromKey,
   readTrustState,
@@ -154,6 +156,80 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+test("R56-UPD-001 update and release manifest identities stay distinct", () => {
+  const now = Date.parse("2026-09-02T00:00:00.000Z");
+  const raw = {
+    schema: "penglai.app-update.v1",
+    sequence: 2,
+    version: "0.5.6",
+    channel: "stable",
+    releaseTag: "v0.5.6",
+    issuedAt: "2026-09-01T00:00:00.000Z",
+    expiresAt: "2026-10-01T00:00:00.000Z",
+    signingKeyId: "k",
+    minimumSourceVersion: "0.5.1",
+    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6",
+    candidateSourceSha: "a".repeat(64),
+    publicExportTreeSha256: "b".repeat(64),
+    releaseManifestSha256: "c".repeat(64),
+    platforms: {
+      "darwin-aarch64": {
+        assetId: 1,
+        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.6/Penglai_0.5.6_macos_aarch64.dmg",
+        size: 10,
+        sha256: "d".repeat(64),
+        signature: "c2ln",
+      },
+    },
+    migration: { fromSchema: 5, toSchema: 6, backupRequired: true, rollbackCompatible: true },
+  };
+  const parsed = parseAppUpdateManifest(raw, now);
+  assert.equal(parsed.releaseManifestSha256, "c".repeat(64));
+  const digest = createHash("sha256").update(JSON.stringify(raw)).digest("hex");
+  assert.notEqual(parsed.releaseManifestSha256, digest);
+  assert.throws(() => assertDistinctManifestIdentities(digest, digest), /different identities/);
+  assert.throws(
+    () =>
+      resolveReleaseManifestSha256({
+        updateManifestSha256: digest,
+        applying: true,
+        version: "0.5.6",
+        candidateSourceSha: "a".repeat(64),
+      }),
+    /required/,
+  );
+});
+
+test("UF-04 signed catalog accepts https plugin links and rejects unsafe ones", () => {
+  const now = Date.parse("2026-08-22T00:00:00.000Z");
+  const base = catalogJson();
+  const parsed = parseSignedPluginCatalog(
+    catalogJson({
+      entries: [
+        {
+          ...base.entries[0],
+          links: {
+            repository: "https://github.com/kevinchennewbee/PenglaiAgent",
+            documentation: "https://github.com/kevinchennewbee/PenglaiAgent/blob/main/README.md",
+          },
+        },
+      ],
+    }),
+    now,
+  );
+  assert.equal(parsed.entries[0]?.links?.repository?.startsWith("https://github.com/"), true);
+  assert.throws(
+    () =>
+      parseSignedPluginCatalog(
+        catalogJson({
+          entries: [{ ...base.entries[0], links: { homepage: "http://example.com" } }],
+        }),
+        now,
+      ),
+    /https/,
+  );
+});
 
 test("P51-UPDATE-001 PUDP identity refuses zero SHA placeholders", () => {
   assert.throws(

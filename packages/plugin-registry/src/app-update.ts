@@ -40,6 +40,7 @@ export interface AppUpdateManifest {
   candidateSourceSha: string;
   publicExportTreeSha256: string;
   platforms: Record<string, AppUpdatePlatform>;
+  releaseManifestSha256?: string;
   migration: {
     fromSchema: number;
     toSchema: number;
@@ -66,6 +67,30 @@ function requireIdentitySha(value: unknown, label: string): string {
     throw new PenglaiError("SECURITY_POLICY", `${label} sha256 must be a real digest`);
   }
   return value;
+}
+
+export function assertDistinctManifestIdentities(updateManifestSha256: string, releaseManifestSha256?: string): void {
+  if (!releaseManifestSha256) return;
+  if (updateManifestSha256 === releaseManifestSha256) {
+    throw new PenglaiError("SECURITY_POLICY", "update and release manifests must be different identities");
+  }
+}
+
+export function resolveReleaseManifestSha256(input: {
+  updateManifestSha256: string;
+  releaseManifestSha256?: string;
+  version: string;
+  candidateSourceSha: string;
+  applying: boolean;
+}): string {
+  assertDistinctManifestIdentities(input.updateManifestSha256, input.releaseManifestSha256);
+  if (input.applying && !input.releaseManifestSha256) {
+    throw new PenglaiError("SECURITY_POLICY", "release manifest identity required to apply an update");
+  }
+  if (input.releaseManifestSha256) return input.releaseManifestSha256;
+  return createHash("sha256")
+    .update(`unspecified-release:${input.version}:${input.candidateSourceSha}`)
+    .digest("hex");
 }
 
 export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpdateManifest {
@@ -119,6 +144,9 @@ export function parseAppUpdateManifest(raw: unknown, nowMs = Date.now()): AppUpd
     notesUrl,
     candidateSourceSha: requireIdentitySha(raw.candidateSourceSha, "candidate source"),
     publicExportTreeSha256: requireIdentitySha(raw.publicExportTreeSha256, "public export tree"),
+    ...(raw.releaseManifestSha256 !== undefined
+      ? { releaseManifestSha256: requireIdentitySha(raw.releaseManifestSha256, "release manifest") }
+      : {}),
     platforms,
     migration: {
       fromSchema,
@@ -260,6 +288,7 @@ export async function discoverSignedAppUpdate(input: {
     throw new PenglaiError("SECURITY_POLICY", "update manifest tag drifted from the discovered immutable release");
   }
   const digest = createHash("sha256").update(canonicalizeBytes(json)).digest("hex");
+  assertDistinctManifestIdentities(digest, manifest.releaseManifestSha256);
   if (input.trustPath) {
     acceptMonotonic({
       path: input.trustPath,

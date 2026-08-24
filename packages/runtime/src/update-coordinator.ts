@@ -24,6 +24,7 @@ import {
   appListUrl,
   discoverSignedAppUpdate,
   EMBEDDED_UPDATER_PUBLIC_KEY,
+  resolveReleaseManifestSha256,
 } from "@penglai/plugin-registry";
 
 export interface OwnedServiceState {
@@ -274,6 +275,15 @@ export class AssistedUpdateCoordinator {
         digest = found.digest;
         signatureKeyId = found.manifest.signingKeyId;
         this.#manifestDigest = digest;
+        const releaseManifestSha256 = resolveReleaseManifestSha256({
+          updateManifestSha256: digest,
+          version,
+          candidateSourceSha: found.manifest.candidateSourceSha,
+          applying: compareSemver(version, this.#config.currentVersion) !== 0,
+          ...(found.manifest.releaseManifestSha256
+            ? { releaseManifestSha256: found.manifest.releaseManifestSha256 }
+            : {}),
+        });
         this.#asset = {
           target: this.#config.target,
           kind: this.#config.target.startsWith("darwin-") ? "dmg" : "setup",
@@ -285,7 +295,7 @@ export class AssistedUpdateCoordinator {
           minimumOsVersion: "13.0",
           candidateSourceSha: found.manifest.candidateSourceSha,
           publicExportTreeSha256: found.manifest.publicExportTreeSha256,
-          releaseManifestSha256: digest,
+          releaseManifestSha256,
         };
         this.#manifest = {
           schemaVersion: 1,
@@ -297,7 +307,7 @@ export class AssistedUpdateCoordinator {
           signatureKeyId,
           candidateSourceSha: found.manifest.candidateSourceSha,
           publicExportTreeSha256: found.manifest.publicExportTreeSha256,
-          releaseManifestSha256: digest,
+          releaseManifestSha256,
           migration: {
             generation: "0.5",
             fromVersion: found.manifest.minimumSourceVersion,
