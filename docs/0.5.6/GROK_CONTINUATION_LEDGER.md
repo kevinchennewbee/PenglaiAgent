@@ -75,15 +75,15 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 
 | ID | Status | Remaining |
 |---|---|---|
-| F1-PROVENANCE | SOURCE_PASS | `docs/0.5.6/provenance/dsh-im-v2.1.0.md` archive SHA-256 `cd468f108a52f503df1dfeb4cbf90ff4565fa836db32f0fb616d43ff799791b6`; MIT; unsigned tag | adapters not yet ported |
-| F2-WX-FS | TODO | no regression |
-| F3-CONTRACT | TODO | ChannelAdapter |
-| F4-BATCH1 | TODO | DingTalk / WeCom / QQ |
-| F4-BATCH2 | TODO | Slack / Telegram / Discord |
-| F4-BATCH3 | TODO | WhatsApp experimental |
-| F5-CONNECT | TODO | one Connect button; no fake QR |
-| F6-UI | TODO | user cards |
-| F8-LIVE | LIVE_NOT_RUN | no platform accounts |
+| F1-PROVENANCE | SOURCE_PASS | `docs/0.5.6/provenance/dsh-im-v2.1.0.md` archive SHA-256 `cd468f108a52f503df1dfeb4cbf90ff4565fa836db32f0fb616d43ff799791b6`; MIT; unsigned tag | |
+| F2-WX-FS | SOURCE_PASS | existing weixin/feishu tests still pass; not replaced | L |
+| F3-CONTRACT | SOURCE_PASS | `packages/im/src/channel-adapter.ts` | |
+| F4-BATCH1 | SOURCE_PASS | `@penglai/channel-dingtalk` / `wecom` / `qq`; send refused; not in LIVE_CHANNEL_IDS | inbound/outbox protocol still incomplete |
+| F4-BATCH2 | SOURCE_PASS | token adapters; no fake QR | LIVE_NOT_RUN |
+| F4-BATCH3 | SOURCE_PASS | WhatsApp experimental, risk ack, no Baileys | LIVE_NOT_RUN |
+| F5-CONNECT | SOURCE_PASS | Connect / guided; QR only where protocol has QR | I |
+| F6-UI | TODO | user cards still mixed with engineering fields | I |
+| F8-LIVE | LIVE_NOT_RUN | weixin/feishu need `OWNER_GO_PLATFORM_LIVE_*`; others no accounts | |
 
 ## G / H / I / J
 
