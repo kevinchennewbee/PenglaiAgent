@@ -133,6 +133,42 @@ test("collapsed official DSH settings trigger opens through its dialog semantics
   assert.equal(clicked, true);
 });
 
+test("installed soak samples bundled IM without bypassing native owner approval", async () => {
+  const { bundledOptionalPluginDefaultOffSample } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  const sha256 = "a".repeat(64);
+  const sample = bundledOptionalPluginDefaultOffSample({
+    id: "@penglai/im",
+    catalogEntry: {
+      id: "@penglai/im",
+      source: "bundled-first-party",
+      builtIn: true,
+      installClass: "optional-first-party",
+      defaultEnabled: false,
+      sha256,
+    },
+    packageSha256: sha256,
+    desiredEnabled: false,
+    inventoryEntry: { moduleName: "@penglai/im", enabled: false, fiberPhase: null },
+    centerCard: { id: "@penglai/im", installed: "not-installed", loaded: false, actions: ["installEnable"] },
+  });
+  assert.equal(sample.ok, true);
+  assert.equal(sample.catalogBound, true);
+  assert.equal(sample.loaderDefaultOff, true);
+  assert.equal(sample.centerOffersOwnerGatedEnable, true);
+  assert.equal(
+    bundledOptionalPluginDefaultOffSample({
+      ...sample,
+      id: "@penglai/im",
+      catalogEntry: { id: "@penglai/im", sha256 },
+      packageSha256: sha256,
+      desiredEnabled: false,
+      inventoryEntry: { moduleName: "@penglai/im", enabled: false, fiberPhase: null },
+      centerCard: { id: "@penglai/im", loaded: false, actions: ["installEnable"] },
+    }).ok,
+    false,
+  );
+});
+
 test("live installed evidence captures public screenshots only after model selection and completed onboarding", () => {
   const live = readFileSync(new URL("../../../scripts/e2e-installed-live.mjs", import.meta.url), "utf8");
   assert.match(live, /PENGLAI_CAPTURE_PUBLIC_SHOTS/);
@@ -324,7 +360,9 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(soak, /samplesCovered/);
   assert.match(soak, /evaluateLiveSample/);
   assert.match(soak, /PENGLAI_SOAK_ALLOW_LONG/);
-  assert.match(soak, /installOptionalPlugins:\s*true/);
+  assert.match(soak, /bundledOptionalPluginDefaultOffSample/);
+  assert.match(soak, /bundled-default-off/);
+  assert.doesNotMatch(soak, /installOptionalPlugins:\s*true/);
   assert.match(soak, /installed-soak-fixture/);
   assert.match(soak, /evaluate\(session, HTTP_JS\)/);
   assert.match(soak, /evaluate\(session, WS_JS\)/);

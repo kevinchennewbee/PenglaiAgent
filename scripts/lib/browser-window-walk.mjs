@@ -58,6 +58,9 @@ export const SNAPSHOT_JS = `(() => {
       id: card.getAttribute("data-penglai-plugin-card") || "",
       installed: card.getAttribute("data-penglai-plugin-installed") || "",
       loaded: card.getAttribute("data-penglai-plugin-loaded") === "true",
+      actions: Array.from(card.querySelectorAll("[data-penglai-plugin-action]"))
+        .map((node) => node.getAttribute("data-penglai-plugin-action") || "")
+        .filter(Boolean),
       actionStatus: card.querySelector("[data-penglai-plugin-action-status]")?.getAttribute("data-penglai-plugin-action-status") || "",
       actionBusy: card.querySelector("[data-penglai-plugin-action-status]")?.getAttribute("data-penglai-plugin-action-busy") === "true",
       text: text(card).slice(0, 400),
@@ -187,6 +190,45 @@ const OPTIONAL_PLUGIN_IDS = [
   "@penglai/moss-tts",
   "@penglai/companion",
 ];
+
+export function bundledOptionalPluginDefaultOffSample(input) {
+  const id = String(input?.id ?? "");
+  const catalog = input?.catalogEntry;
+  const inventory = input?.inventoryEntry;
+  const card = input?.centerCard;
+  const packageSha256 = String(input?.packageSha256 ?? "");
+  const catalogBound = Boolean(
+    id &&
+      catalog?.id === id &&
+      catalog?.source === "bundled-first-party" &&
+      catalog?.builtIn === true &&
+      catalog?.installClass === "optional-first-party" &&
+      catalog?.defaultEnabled === false &&
+      /^[a-f0-9]{64}$/.test(String(catalog?.sha256 ?? "")) &&
+      packageSha256 === catalog.sha256,
+  );
+  const loaderDefaultOff = Boolean(
+    input?.desiredEnabled === false &&
+      inventory?.moduleName === id &&
+      inventory?.enabled === false &&
+      !inventory?.fiberPhase,
+  );
+  const centerOffersOwnerGatedEnable = Boolean(
+    card?.id === id &&
+      card?.loaded === false &&
+      Array.isArray(card?.actions) &&
+      card.actions.includes("installEnable"),
+  );
+  return {
+    ok: catalogBound && loaderDefaultOff && centerOffersOwnerGatedEnable,
+    catalogBound,
+    loaderDefaultOff,
+    centerOffersOwnerGatedEnable,
+    packageSha256,
+    catalogSha256: typeof catalog?.sha256 === "string" ? catalog.sha256 : "",
+    centerState: typeof card?.installed === "string" ? card.installed : "",
+  };
+}
 
 async function installOptionalPlugins(session) {
   const results = [];

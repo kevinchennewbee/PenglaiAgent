@@ -1,10 +1,17 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
-import { HTTP_JS, SNAPSHOT_JS, WS_JS, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
+import {
+  HTTP_JS,
+  SNAPSHOT_JS,
+  WS_JS,
+  bundledOptionalPluginDefaultOffSample,
+  walkInstalledBrowserWindow,
+} from "./lib/browser-window-walk.mjs";
 import {
   exeInside,
   installFromExactInstaller,
@@ -264,17 +271,42 @@ const mark = (name, rec) => {
 try {
   const attached = await attachPage(debugPort, 60_000);
   session = attached.session;
-  const walk = await walkInstalledBrowserWindow(session, {
-    installOptionalPlugins: true,
-    requireOptionalPlugins: true,
-  });
+  const walk = await walkInstalledBrowserWindow(session);
   const inventoryFile = join(userData, "plugins", "inventory-snapshot.json");
   const inventory = existsSync(inventoryFile) ? JSON.parse(readFileSync(inventoryFile, "utf8")) : null;
-  const imInventory = Boolean(inventory?.required?.im ?? inventory?.im);
+  const desiredFile = join(userData, "plugins", "desired.json");
+  const desired = existsSync(desiredFile) ? JSON.parse(readFileSync(desiredFile, "utf8")) : null;
+  const catalogFile = join(resources, "plugins", "catalog.json");
+  const catalog = existsSync(catalogFile) ? JSON.parse(readFileSync(catalogFile, "utf8")) : null;
+  const imCatalog = Array.isArray(catalog?.entries)
+    ? catalog.entries.find((entry) => entry?.id === "@penglai/im")
+    : null;
+  const imPackageFile =
+    typeof imCatalog?.packageFile === "string" && /^[A-Za-z0-9._-]+\.tgz$/.test(imCatalog.packageFile)
+      ? join(resources, "plugins", imCatalog.packageFile)
+      : "";
+  const imPackageStat = imPackageFile && existsSync(imPackageFile) ? lstatSync(imPackageFile) : null;
+  const imPackageSha256 =
+    imPackageStat?.isFile() && !imPackageStat.isSymbolicLink() && imPackageStat.size <= 64 * 1024 * 1024
+      ? createHash("sha256").update(readFileSync(imPackageFile)).digest("hex")
+      : "";
+  const imInventory = Array.isArray(inventory?.entries)
+    ? inventory.entries.find((entry) => entry?.moduleName === "@penglai/im")
+    : null;
+  const centerStep = walk.steps.find((step) => step.id === "ui-center");
+  const imCard = centerStep?.snap?.pluginCards?.find((card) => card.id === "@penglai/im");
+  const imSample = bundledOptionalPluginDefaultOffSample({
+    id: "@penglai/im",
+    catalogEntry: imCatalog,
+    packageSha256: imPackageSha256,
+    desiredEnabled: desired?.["@penglai/im"],
+    inventoryEntry: imInventory,
+    centerCard: imCard,
+  });
   mark("im", {
-    ok: Boolean(imInventory || walk.last?.im || walk.settingsWalked.includes("ui-im")),
-    inventoryIm: imInventory,
-    ui: Boolean(walk.last?.im),
+    ...imSample,
+    mode: "bundled-default-off",
+    uiActive: Boolean(walk.last?.im),
     qrBegin: Boolean(walk.last?.qrBegin),
   });
   if (walk.settingsWalked.includes("ui-update") || walk.last?.update) {
