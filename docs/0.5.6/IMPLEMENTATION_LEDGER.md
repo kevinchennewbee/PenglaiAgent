@@ -59,8 +59,8 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 
 | ID | Status | Source | Tests | Missing evidence |
 |---|---|---|---|---|
-| R56-SEC-001 | not-started | `packages/runtime/src/generation-migrate.ts` | | S,C,I |
-| R56-SEC-002 | not-started | generation backup cleanup | | C,I |
+| R56-SEC-001 | source-pass | `packages/runtime/src/generation-migrate.ts` | `generation-migrate.test.ts` | I |
+| R56-SEC-002 | source-pass | historical backup secret cleanup | `generation-migrate.test.ts` | I; Owner restore not auto-applied |
 | R56-SEC-003 | not-started | POSIX mode convergence | | S,C,N |
 | R56-SEC-004 | not-started | Windows ACL | | N,I |
 | R56-SEC-005 | not-started | bounded HTTP | | S,C |

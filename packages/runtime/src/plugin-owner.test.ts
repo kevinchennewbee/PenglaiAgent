@@ -52,7 +52,10 @@ test("rc.8 user-data migrate is idempotent and writes a marker", () => {
   writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "DEEPSEEK_API_KEY: x\n", { mode: 0o600 });
   const first = migrateRc8UserData(root);
   assert.equal(first.migrated, true);
+  assert.equal(first.credentialsCopied, false);
   assert.equal(existsSync(first.backup ?? ""), true);
+  assert.equal(existsSync(join(first.backup ?? "", "dsh-home", ".credentials.yaml")), false);
+  assert.equal(existsSync(join(root, "dsh-home", ".credentials.yaml")), true);
   const second = migrateRc8UserData(root);
   assert.equal(second.already, true);
   assert.equal(readMigrationMarker(root)?.id, "penglai-0.5.1-rc8-to-rc1");
