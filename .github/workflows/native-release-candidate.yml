@@ -1,6 +1,9 @@
 name: Native 0.5.6 release candidate
 
 on:
+  push:
+    branches:
+      - codex/0.5.6-release
   workflow_dispatch:
     inputs:
       mode:
@@ -44,7 +47,7 @@ jobs:
 
   macos:
     name: macOS ${{ matrix.target }}
-    if: ${{ inputs.mode == 'native' }}
+    if: ${{ github.event_name == 'push' || inputs.mode == 'native' }}
     strategy:
       fail-fast: false
       matrix:
@@ -118,7 +121,7 @@ jobs:
 
   windows:
     name: Windows win32-x86_64
-    if: ${{ inputs.mode == 'native' }}
+    if: ${{ github.event_name == 'push' || inputs.mode == 'native' }}
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
