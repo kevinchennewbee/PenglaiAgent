@@ -8,7 +8,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { finish } from "./lib/exit-contract.mjs";
-import { PluginDistributionClient } from "../packages/plugin-registry/src/index.ts";
+import {
+  PluginDistributionClient,
+  pluginDistributionStatePaths,
+} from "../packages/plugin-registry/src/index.ts";
 import { quarantineRevokedPlugins } from "../packages/runtime/src/index.ts";
 
 const expectedTag = process.argv[2] || "plugin-catalog-v1.000006";
@@ -22,6 +25,7 @@ const expectedSequenceMatch = /^plugin-catalog-v1\.(\d{6})$/.exec(expectedTag);
 if (!expectedSequenceMatch) throw new Error("expected catalog tag is invalid");
 const expectedSequence = Number(expectedSequenceMatch[1]);
 const root = mkdtempSync(join(tmpdir(), "penglai-live-plugin-catalog-"));
+const userDataRoot = join(root, "user-data");
 const githubToken = process.env.GITHUB_TOKEN?.trim();
 const authenticatedGithubApiFetch = async (input, init = {}) => {
   const requestUrl = new URL(
@@ -41,9 +45,7 @@ const authenticatedGithubApiFetch = async (input, init = {}) => {
   return fetch(input, { ...init, headers });
 };
 const shared = {
-  cacheRoot: join(root, "cas"),
-  trustPath: join(root, "trust-state.json"),
-  lastGoodPath: join(root, "last-good-catalog.json"),
+  ...pluginDistributionStatePaths(userDataRoot),
   penglaiVersion: "0.5.6",
   dshExact: "0.1.1-rc.2",
   target: "darwin-aarch64",
@@ -64,7 +66,6 @@ try {
     (row) => row.id === retiredPlugin,
   );
 
-  const userDataRoot = join(root, "user-data");
   const profileDir = join(userDataRoot, "dsh-home", "profiles", "web");
   const packageDir = join(
     profileDir,

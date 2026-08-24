@@ -19,7 +19,10 @@ import {
   type PluginCatalogMetadata,
   type PluginProvenanceClass as ProvenanceClass,
 } from "@penglai/runtime/plugin-host";
-import { PluginDistributionClient } from "@penglai/plugin-registry";
+import {
+  PluginDistributionClient,
+  pluginDistributionStatePaths,
+} from "@penglai/plugin-registry";
 import { createCenterRemote, PenglaiCenterRemote } from "./remotes.js";
 import {
   createPenglaiOnboardingRemoteImpl,
@@ -579,9 +582,7 @@ export function apply(ctx: {
   installPenglaiProductIdentity(ctx);
   const catalog = loadPluginCatalog(pluginsDir, runtimePluginTarget(), true);
   const registry = new PluginDistributionClient({
-    cacheRoot: join(userData, "plugins", "cas"),
-    trustPath: join(userData, "plugins", "trust-state.json"),
-    lastGoodPath: join(userData, "plugins", "last-good-catalog.json"),
+    ...pluginDistributionStatePaths(userData),
     penglaiVersion: RELEASE,
     dshExact: PINNED_PLUGIN_DSH,
     target: runtimePluginTarget(),

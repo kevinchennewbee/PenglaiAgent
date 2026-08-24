@@ -18,6 +18,7 @@ import {
   assertDistinctManifestIdentities,
   resolveReleaseManifestSha256,
   parseSignedPluginCatalog,
+  pluginDistributionStatePaths,
   publicKeyHexFromKey,
   readTrustState,
   selectHighestAppRelease,
@@ -25,6 +26,14 @@ import {
   signBytes,
   verifySignedCatalog,
 } from "./index.js";
+
+test("Plugin Center state paths stay under one app-private plugins root", () => {
+  assert.deepEqual(pluginDistributionStatePaths("/app-data"), {
+    cacheRoot: join("/app-data", "plugins", "cas"),
+    trustPath: join("/app-data", "plugins", "trust-state.json"),
+    lastGoodPath: join("/app-data", "plugins", "last-good-catalog.json"),
+  });
+});
 
 test("version comparison uses a linear numeric-prefix parser", () => {
   assert.equal(compareSemver("0.5.1", "0.5.0"), 1);

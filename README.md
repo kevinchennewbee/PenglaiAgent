@@ -124,13 +124,15 @@ for it. The exact capability matrix and remaining format limits live in
 
 ## Memory that knows which project it belongs to
 
-Penglai Memory is local and enabled by default. Mnemon 0.2.4 is its only recall
-engine. The fresh mode intelligently organizes safe project facts inside the
-current official Workspace. A separate no-tools official Agent uses the current
-provider/model after a Turn; the host validates a closed output schema and skips
-secrets, sensitive content, injection-like text, and malformed output. Before a
-later model step, confirmed current-Workspace records and explicitly accepted
-personal facts can be recalled. Workspace A cannot recall Workspace B.
+Penglai Memory stores and recalls records locally and is enabled by default.
+Mnemon 0.2.4 is its only recall engine. The fresh mode intelligently organizes
+safe project facts inside the current official Workspace. A separate no-tools
+official Agent uses the current provider/model after a Turn, so that curation
+request is a model call to the provider rather than an offline-only step. The
+host validates a closed output schema and skips secrets, sensitive content,
+injection-like text, and malformed output. Before a later model step, confirmed
+current-Workspace records and explicitly accepted personal facts can be
+recalled. Workspace A cannot recall Workspace B.
 
 Users can turn memory off or review candidates first. Personal/global memory,
 forgetting, correction, source revocation, import, and reusable SOP changes keep
@@ -217,7 +219,10 @@ preserved.
 
 ## Trust boundaries worth reading
 
-- There is no Penglai account, telemetry service, or cloud memory sync.
+- There is no Penglai account, Penglai-operated telemetry backend, or cloud
+  memory sync. Official DSH's bundled session-telemetry adapter stays in its
+  default `DISABLED` mode: without an exporter endpoint it constructs no upload
+  pipeline.
 - Users bring their own model provider credentials. Official DSH writes them to
   app-private YAML; this is not Keychain or hardware isolation.
 - macOS packages are ad-hoc signed and not notarized. Windows packages do not
@@ -375,11 +380,12 @@ typed operation：检查和创建文件、生成可见修改计划、预览、�
 
 ## 蓬莱记忆知道自己属于哪个项目
 
-蓬莱记忆完全在本机运行，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。全新 profile
-会智能整理当前 official Workspace 的安全项目事实：Turn 结束后，一个禁用全部工具的
-official Agent 沿用当前供应商和模型，Host 再用封闭格式与本地策略过滤密钥、敏感内容、
-类似提示词注入和错误输出。后续步骤只召回当前 Workspace 已确认记录和用户明确保存的
-个人记忆；Workspace A 不能召回 Workspace B。
+蓬莱记忆在本机保存和召回记录，并且默认启用。Mnemon 0.2.4 是唯一召回引擎。全新
+profile 会智能整理当前 official Workspace 的安全项目事实：Turn 结束后，一个禁用全部
+工具的 official Agent 沿用当前供应商和模型，因此“整理候选”本身会调用模型供应商，
+不是完全离线步骤。Host 再用封闭格式与本地策略过滤密钥、敏感内容、类似提示词注入和
+错误输出。后续步骤只召回当前 Workspace 已确认记录和用户明确保存的个人记忆；
+Workspace A 不能召回 Workspace B。
 
 用户可以关闭记忆，或者改成先看候选。个人/全局记忆、遗忘、更正、资料源撤销、导入
 和 SOP 仍需与动作绑定的可见 Owner 确认；模型不能靠自己给一个高置信度就升级为个人
@@ -449,7 +455,9 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 
 ## 需要读清楚的信任边界
 
-- 没有蓬莱账号、遥测服务或云端记忆同步。
+- 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。official DSH 自带的
+  session-telemetry adapter 保持默认 `DISABLED`；没有 exporter 地址时不会构造
+  上传管线。
 - 用户自备模型供应商密钥。official DSH 把密钥写入 app-private YAML；这不是
   Keychain 或硬件隔离。
 - macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode，Gatekeeper 或

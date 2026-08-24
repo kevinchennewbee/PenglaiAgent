@@ -11,6 +11,7 @@ export * from "./app-update.js";
 export * from "./embedded-keys.js";
 export * from "./host.js";
 export * from "./tar.js";
+export * from "./state-paths.js";
 
 import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";

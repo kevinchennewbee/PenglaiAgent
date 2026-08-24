@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readExactRegularFile, RELEASE } from "@penglai/contracts";
-import { PluginDistributionClient, selectCatalogArtifact } from "@penglai/plugin-registry";
+import {
+  PluginDistributionClient,
+  pluginDistributionStatePaths,
+  selectCatalogArtifact,
+} from "@penglai/plugin-registry";
 import type { SignedPluginCatalog } from "@penglai/plugin-registry";
 import { PINNED_PLUGIN_DSH, runtimePluginTarget } from "./plugin-catalog.js";
 
@@ -117,15 +121,13 @@ export function quarantineRevokedPlugins(opts: {
   userDataRoot: string;
   profileDir: string;
 }): BootRevokeResult {
-  const lastGoodPath = join(opts.userDataRoot, "plugins", "last-good-catalog.json");
-  const trustPath = join(opts.userDataRoot, "plugins", "trust-state.json");
+  const state = pluginDistributionStatePaths(opts.userDataRoot);
+  const { lastGoodPath } = state;
   if (!existsSync(lastGoodPath)) {
     return { scanned: 0, quarantined: [], catalogLoaded: false };
   }
   const client = new PluginDistributionClient({
-    cacheRoot: join(opts.userDataRoot, "plugins", "cas"),
-    trustPath,
-    lastGoodPath,
+    ...state,
     penglaiVersion: RELEASE,
     dshExact: PINNED_PLUGIN_DSH,
   });
