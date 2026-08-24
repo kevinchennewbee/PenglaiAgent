@@ -6,6 +6,7 @@ import test from "node:test";
 import { MemoryV2Store } from "./v2/candidates.js";
 import {
   ingestOfficialTurn,
+  runHostCurator,
   sessionEventParts,
   withMemoryRecall,
   workspaceIdForSession,
@@ -49,7 +50,7 @@ test("official turn/end ingest is host-only and fail-open on bad curator JSON", 
   store.close();
 });
 
-test("recall injects a host memory block into official pre-step messages", () => {
+test("recall injects a host memory block into official pre-step messages", async () => {
   const messages = withMemoryRecall(
     [{ content: [{ type: "text", text: "hello" }] }],
     {
@@ -63,6 +64,32 @@ test("recall injects a host memory block into official pre-step messages", () =>
   assert.match(String(first.text), /prefer zh/);
   assert.equal(workspaceIdForSession([{ id: "ws-a", sessionIds: ["s1"] }], "s1"), "ws-a");
   assert.equal(sessionEventParts([{ id: "s1" }, { type: "turn/end", data: { turn: 3 } }]).turn, 3);
+  const empty = await runHostCurator({ summary: "user:\nhi" });
+  assert.equal(JSON.parse(empty).candidates.length, 0);
+  const generated = await runHostCurator({
+    summary: "user:\nprefer zh",
+    generate: async () =>
+      JSON.stringify({
+        candidates: [
+          {
+            kind: "preference",
+            text: "prefer zh",
+            rationale: "user",
+            sensitivity: "normal",
+            confidence: 0.9,
+            suggestedScope: "workspace",
+          },
+        ],
+      }),
+  });
+  assert.equal(JSON.parse(generated).candidates[0].text, "prefer zh");
+  const failed = await runHostCurator({
+    summary: "x",
+    generate: async () => {
+      throw new Error("rate limit");
+    },
+  });
+  assert.equal(failed, "not-json");
 });
 
 test("memory apply source subscribes to official turn/end and pre-step and does not expose ingestCurator", async () => {

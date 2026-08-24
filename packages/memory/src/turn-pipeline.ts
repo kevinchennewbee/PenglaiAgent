@@ -23,6 +23,22 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+export const CURATOR_PROMPT =
+  "Extract at most 8 closed JSON candidates for Penglai Memory. Return only {\"candidates\":[...]} with keys kind,text,rationale,sensitivity,confidence,suggestedScope. Do not invent secrets. Input:\n";
+
+export async function runHostCurator(input: {
+  summary: string;
+  generate?: (prompt: string) => Promise<string>;
+}): Promise<string> {
+  if (!input.generate) return JSON.stringify({ candidates: [] });
+  try {
+    const raw = await input.generate(`${CURATOR_PROMPT}${input.summary}`);
+    return typeof raw === "string" && raw.trim() ? raw : JSON.stringify({ candidates: [] });
+  } catch {
+    return "not-json";
+  }
+}
+
 export function turnSummary(text: MemoryTurnText): string {
   const user = String(text.user ?? "").slice(0, 1200);
   const assistant = String(text.assistant ?? "").slice(0, 1200);

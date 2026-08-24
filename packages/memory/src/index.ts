@@ -24,7 +24,7 @@ import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { consumeMemoryOwnerProof, proposeMemoryAction, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
-import { ingestOfficialTurn, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { ingestOfficialTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker, createHostOwnerDialog } from "@penglai/runtime";
 
 export const name = "@penglai/memory";
@@ -214,6 +214,14 @@ export function createDurableMemoryService(opts: {
         return { failOpen: true, enqueued: 0, skipped: 0, code: "CURATOR_SCHEMA_INVALID" as const };
       }
     },
+    async runCurator(summary: string) {
+      if (!opts.curator) return JSON.stringify({ candidates: [] });
+      try {
+        return await opts.curator(summary);
+      } catch {
+        return "not-json";
+      }
+    },
     async deleteKnown(workspaceId?: string) {
       return engine.deleteScope(workspaceId);
     },
@@ -320,6 +328,32 @@ export function apply(ctx: CordisContextLike) {
       userData,
       skills: ctx.skills,
       owner,
+      curator: async (summary) => {
+        const create = (ctx as { agents?: { create?: (opts: unknown) => Promise<unknown> } }).agents?.create;
+        if (typeof create !== "function") return JSON.stringify({ candidates: [] });
+        return runHostCurator({
+          summary,
+          generate: async (prompt) => {
+            let handle: {
+              agent?: { generate?: (opts: { prompt: string }) => Promise<{ text?: string } | string> };
+              dispose?: () => Promise<void>;
+            } | undefined;
+            try {
+              handle = (await create({
+                setup: (agentCtx: { tools?: { guard?: (fn: () => string) => unknown } }) => {
+                  agentCtx.tools?.guard?.(() => "penglai-memory-curator/no-tools");
+                },
+              })) as typeof handle;
+              const result = await handle?.agent?.generate?.({ prompt });
+              if (typeof result === "string") return result;
+              if (result && typeof result === "object" && typeof result.text === "string") return result.text;
+              return JSON.stringify({ candidates: [] });
+            } finally {
+              await handle?.dispose?.().catch(() => undefined);
+            }
+          },
+        });
+      },
       onClose: () => sources.close(),
     });
     const activeService = service;
@@ -342,7 +376,7 @@ export function apply(ctx: CordisContextLike) {
       turns.delete(key);
       void Promise.resolve()
         .then(async () => {
-          const raw = JSON.stringify({ candidates: [] });
+          const raw = await activeService.runCurator(summary);
           ingestOfficialTurn({
             store: activeService.memoryV2,
             workspaceId,
