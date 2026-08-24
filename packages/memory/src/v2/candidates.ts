@@ -255,7 +255,9 @@ export class MemoryV2Store {
     if (this.mode() !== "auto-workspace") return [];
     const accepted: MemoryCandidateV1[] = [];
     for (const row of this.listCandidates(workspaceId)) {
-      if (row.sensitivity !== "normal" || row.confidence < 0.8 || cannotAutoPersonalize(row.text)) continue;
+      if (classifyMemoryText(row.text) !== "normal") continue;
+      if (row.sensitivity !== "normal") continue;
+      if (cannotAutoPersonalize(row.text) || isEphemeralFact(row.text)) continue;
       accepted.push(this.decide(row.candidateId, "accepted"));
     }
     return accepted;

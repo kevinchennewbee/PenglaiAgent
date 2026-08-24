@@ -145,7 +145,19 @@ export function createDurableMemoryService(opts: {
     async why(id: string, workspaceId?: string) {
       return engine.why(id, workspaceId);
     },
-    async correct(oldId: string, text: string, workspaceId?: string) {
+    async correct(oldId: string, text: string, workspaceId?: string, proof?: { actionId: string; receipt: string }) {
+      if (!proof?.actionId || !proof.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      }
+      const digest = createHash("sha256").update(`correct:${oldId}:${text}`).digest("hex");
+      consumeMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.correct,
+        actionId: proof.actionId,
+        receipt: proof.receipt,
+        objectId: oldId,
+        ...(workspaceId ? { workspaceId } : {}),
+        resultDigest: digest,
+      });
       return engine.correct(oldId, text, workspaceId);
     },
     async forget(id: string, workspaceId?: string, proof?: { actionId: string; receipt: string }) {

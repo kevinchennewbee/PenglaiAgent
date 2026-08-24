@@ -206,6 +206,11 @@ test("Memory client registers the official settings slot without a second skill 
   assert.match(source, /data-penglai-memory-mode/);
   assert.match(source, /Candidates do not affect answers/);
   assert.match(source, /候选不会影响回答/);
+  assert.match(source, /Ask me first/);
+  assert.match(source, /先询问我/);
+  assert.match(source, /Smart organize \(recommended\)/);
+  assert.match(source, /智能整理（推荐）/);
+  assert.match(source, /memory.correct/);
   assert.match(source, /acceptCandidate/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });

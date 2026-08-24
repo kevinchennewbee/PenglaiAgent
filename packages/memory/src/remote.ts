@@ -11,7 +11,7 @@ interface MemorySettingsHost {
   forget?(id: string, workspaceId?: string, proof?: { actionId: string; receipt: string }): Promise<unknown>;
   deleteKnown?(workspaceId?: string): Promise<{ removed: number }>;
   why?(id: string, workspaceId?: string): Promise<unknown>;
-  correct?(oldId: string, text: string, workspaceId?: string): Promise<unknown>;
+  correct?(oldId: string, text: string, workspaceId?: string, proof?: { actionId: string; receipt: string }): Promise<unknown>;
   graph?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
   export?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
   importPreview?(): Promise<unknown>;
@@ -131,10 +131,11 @@ export function createMemorySettingsApi(
       if (!service.why) throw new PenglaiError("DSH_UNAVAILABLE", "memory why unavailable");
       return service.why(input.id, input.workspaceId);
     },
-    async correct(input: { id: string; text: string; workspaceId?: string }) {
+    async correct(input: { id: string; text: string; workspaceId?: string; actionId?: string; receipt?: string }) {
       if (!service.correct) throw new PenglaiError("DSH_UNAVAILABLE", "memory correct unavailable");
       if (!input.text.trim()) throw new PenglaiError("INVALID_INPUT", "memory text required");
-      return service.correct(input.id, input.text.trim(), input.workspaceId);
+      if (!input.actionId || !input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      return service.correct(input.id, input.text.trim(), input.workspaceId, { actionId: input.actionId, receipt: input.receipt });
     },
     async forget(input: { id: string; workspaceId?: string; ownerConfirmed?: boolean; actionId?: string; receipt?: string }) {
       if (!input.actionId || !input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
@@ -180,7 +181,7 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
   @Remote deleteScope(input: { scope: MemoryScope; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.deleteScope(input); }
   @Remote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
   @Remote why(input: { id: string; workspaceId?: string }) { return this.api.why(input); }
-  @Remote correct(input: { id: string; text: string; workspaceId?: string }) { return this.api.correct(input); }
+  @Remote correct(input: { id: string; text: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.correct(input); }
   @Remote forget(input: { id: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.forget(input); }
   @Remote graph(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.graph(input); }
   @Remote export(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.export(input); }

@@ -218,6 +218,37 @@ test("R56-MEM-014/015/018 conflicts, negatives, and tombstones stay out of recal
   v2.close();
 });
 
+test("auto-workspace uses local risk policy and ignores model confidence", () => {
+  const v2 = store();
+  v2.setMode("auto-workspace");
+  const low = v2.enqueue({
+    workspaceId: "ws-a",
+    sessionId: "s1",
+    turnId: "t-low",
+    kind: "preference",
+    text: "Prefer concise commit titles",
+    rationale: "style",
+    confidence: 0.2,
+    sourceDigest: digest,
+  });
+  assert.equal("candidateId" in low, true);
+  const secret = v2.enqueue({
+    workspaceId: "ws-a",
+    sessionId: "s1",
+    turnId: "t-secret",
+    kind: "constraint",
+    text: "sk-test-not-a-real-key-aaaaaaaa",
+    rationale: "leak",
+    confidence: 0.99,
+    sourceDigest: "d".repeat(64),
+  });
+  assert.deepEqual(secret, { skipped: true, reason: "MEMORY_CANDIDATE_PROHIBITED" });
+  const accepted = v2.autoAcceptEligible("ws-a");
+  assert.equal(accepted.length, 1);
+  assert.equal(accepted[0]?.text, "Prefer concise commit titles");
+  v2.close();
+});
+
 test("R56-MEM-012 recall set stays within 20 items and 2048 tokens", () => {
   const v2 = store();
   const confirmed = Array.from({ length: 40 }, (_, i) => ({

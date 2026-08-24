@@ -98,11 +98,11 @@ window.__ModuleLoader__.load({
     const COPY = {
       zh: {
         title: "蓬莱记忆",
-        hint: "默认建议记忆。候选不会影响回答。工作区记忆可自动确认；个人记忆必须单独确认。模型不能直接写全局记忆。",
+        hint: "不必说「记住」。智能整理会在当前工作区自动保存低风险内容，可随时撤销。先询问我则只生成候选。个人记忆和跨项目提升必须单独确认。",
         mode: "记忆模式",
         modeOff: "关闭",
-        modeSuggest: "建议",
-        modeAuto: "自动当前工作区",
+        modeSuggest: "先询问我",
+        modeAuto: "智能整理（推荐）",
         candidateHint: "候选不会影响回答。接受本工作区，或单独确认后升级为个人记忆。",
         accept: "接受本工作区",
         personalize: "升级为个人记忆",
@@ -138,11 +138,11 @@ window.__ModuleLoader__.load({
       },
       en: {
         title: "Penglai Memory",
-        hint: "Suggest mode is the default. Candidates never affect answers. Workspace memory may auto-confirm; personal memory always needs a separate confirmation. Models cannot write global memory.",
+        hint: "You do not need to say “remember”. Smart organize auto-saves low-risk facts in this Workspace and you can undo them. Ask me first only creates candidates. Personal memory and promoting across projects always need a separate confirmation.",
         mode: "Memory mode",
         modeOff: "Off",
-        modeSuggest: "Suggest",
-        modeAuto: "Auto current workspace",
+        modeSuggest: "Ask me first",
+        modeAuto: "Smart organize (recommended)",
         candidateHint: "Candidates do not affect answers. Accept for this Workspace, or confirm again to upgrade to personal memory.",
         accept: "Accept for Workspace",
         personalize: "Upgrade to personal",
@@ -548,12 +548,30 @@ window.__ModuleLoader__.load({
           jsx.jsx("button", {
             type: "button",
             disabled: !v.selectedId || !v.correctText.trim(),
-            onClick: () =>
-              run("correct", {
-                id: v.selectedId,
-                text: v.correctText,
-                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-              }),
+            onClick: () => {
+              Promise.resolve(
+                run("proposeAction", {
+                  action: "memory.correct",
+                  objectId: String(v.selectedId || ""),
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                }),
+              ).then((proposed) => {
+                const approve = window.penglai && window.penglai.requestOwnerApproval;
+                if (!approve || !proposed || !proposed.actionId) {
+                  throw new Error("owner approval required");
+                }
+                return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+                  if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+                  return run("correct", {
+                    id: v.selectedId,
+                    text: v.correctText,
+                    actionId: proposed.actionId,
+                    receipt: decided.receipt,
+                    ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                  });
+                });
+              });
+            },
             children: t.correct,
           }),
           jsx.jsx("button", {

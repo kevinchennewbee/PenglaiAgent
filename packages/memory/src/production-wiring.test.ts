@@ -55,5 +55,9 @@ test("memory accept/forget cannot be satisfied by a UUID or ownerConfirmed boole
     () => api.forget({ id: "missing", workspaceId: "ws-a", ownerConfirmed: true }),
     /broker receipt/,
   );
+  await assert.rejects(
+    () => api.correct({ id: "missing", text: "revised", workspaceId: "ws-a" }),
+    /broker receipt/,
+  );
   svc.close();
 });
