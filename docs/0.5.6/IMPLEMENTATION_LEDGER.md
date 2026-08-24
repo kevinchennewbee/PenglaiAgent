@@ -47,7 +47,7 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-CORE-009 | not-started | recovery page | | N,I |
 | R56-CORE-010 | not-started | dsh-bridge cancel | | S,C,N |
 | R56-OWN-001 | source-pass | broker + office HMAC/broker adapter | `owner-broker.test.ts`; `owner-adapter.test.ts`; `tools.test.ts` | I; native dialog N |
-| R56-OWN-002 | not-started | Memory accept/personal/correct/forget | | C,I |
+| R56-OWN-002 | source-pass | memory.accept/personalize require UUID actionId; forget/correct keep ownerConfirmed | `v2/owner.ts`; `v2/candidates.test.ts` | I; native dialog N |
 | R56-OWN-003 | source-pass | disable/rollback grants; Center client uses `confirmPluginAction` | `plugin-owner.test.ts`; `remotes-security.test.ts` | I |
 | R56-OWN-004 | not-started | IM bind | | C,I,L |
 | R56-OWN-005 | source-pass | deny/expiry/replay/mutation/workspace drift | `owner-broker.test.ts`; `owner-adapter.test.ts` | I |
@@ -98,26 +98,26 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 
 | ID | Status | Source | Tests | Missing evidence |
 |---|---|---|---|---|
-| R56-MEM-001 | not-started | memory UI | | I |
-| R56-MEM-002 | not-started | modes | | S,C,I |
-| R56-MEM-003 | not-started | personal receipt | | C,I |
-| R56-MEM-004 | not-started | turn queue | | S,C,L |
+| R56-MEM-001 | source-pass | settings mode/candidate/list UI in `dsh-client.js` | `memory.test.ts` | I turn inbox |
+| R56-MEM-002 | source-pass | `off` / `suggest` / `auto-workspace`; default suggest | `v2/candidates.test.ts` | I |
+| R56-MEM-003 | source-pass | personal accept needs UUID actionId; never inferred | `v2/candidates.test.ts` | I |
+| R56-MEM-004 | source-pass | turn idempotency + multi-draft curator ingest | `v2/candidates.test.ts` | L official turn/end |
 | R56-MEM-005 | source-pass | `packages/dsh-bridge/src/r56-memory-curator-spike.ts` | `r56-memory-curator-spike.test.ts` | C live Agent, L |
-| R56-MEM-006 | not-started | fail open | spike failOpen helper only | C,I,L |
-| R56-MEM-007 | not-started | governance | | S,C |
-| R56-MEM-008 | not-started | injection | | S,C |
-| R56-MEM-009 | not-started | candidate isolation | | S,C,L |
-| R56-MEM-010 | not-started | workspace isolation | existing R55 tests | L |
-| R56-MEM-011 | not-started | recall set | | S,C,L |
-| R56-MEM-012 | not-started | 20/2048 | | S,C |
-| R56-MEM-013 | not-started | N-used UI | | I,L |
-| R56-MEM-014 | not-started | conflict | | S,C,L |
-| R56-MEM-015 | not-started | negative ledger | | S,C |
-| R56-MEM-016 | not-started | real list/count | `memory/src/index.ts` list() currently throws | S,C,I |
-| R56-MEM-017 | not-started | 0.5.5 migrate | | C,I |
-| R56-MEM-018 | not-started | forget GC | | S,C,I |
-| R56-MEM-019 | not-started | four object kinds | | S,C |
-| R56-MEM-020 | not-started | fail open turn | | C,I,L |
+| R56-MEM-006 | source-pass | `ingestCuratorOutput` fail-open; no throw into Turn | `v2/candidates.test.ts` | I,L |
+| R56-MEM-007 | source-pass | `v2/governance.ts` secret/sensitive/normal | `v2/governance.test.ts` | |
+| R56-MEM-008 | source-pass | injection strings skipped | `v2/governance.test.ts` | |
+| R56-MEM-009 | source-pass | candidates never enter `recallSet` | `v2/candidates.test.ts` | L |
+| R56-MEM-010 | source-pass | workspace list/enqueue isolation | R55 + `v2/candidates.test.ts` | L |
+| R56-MEM-011 | source-pass | confirmed-only recall set | `v2/candidates.test.ts` | L pre-step |
+| R56-MEM-012 | source-pass | 20 items / 2048 tokens | `v2/candidates.test.ts` | |
+| R56-MEM-013 | in-progress | copy for N-used; not wired to official Turn UI | `dsh-client.js` | I,L |
+| R56-MEM-014 | source-pass | same-kind pending pairs marked conflict | `v2/candidates.test.ts` | L |
+| R56-MEM-015 | source-pass | reject writes 14-day negatives | `v2/candidates.test.ts` | |
+| R56-MEM-016 | source-pass | durable `list`/`count`; settings status uses `list` | `memory.test.ts`; `remote.ts` | I |
+| R56-MEM-017 | source-pass | journal stays confirmed; unscoped store rows pending | `v2/migrate.test.ts` | I |
+| R56-MEM-018 | source-pass | forget tombstones journal body and blocks recall | `journal.ts`; `v2/candidates.test.ts` | I |
+| R56-MEM-019 | source-pass | candidate / confirmed / tombstone / recall tables | `v2/candidates.ts` | |
+| R56-MEM-020 | source-pass | curator fail-open does not enqueue | `v2/candidates.test.ts` | I,L |
 
 ### File / Artifact
 
@@ -182,4 +182,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Voice 2.0 playback controller and microphone nonce are source-pass. Live three-target audio remains I/L. Next local capability: Memory 2.0 list/candidates/governance. Do not bump product version. Do not publish.
+Memory 2.0 list/candidates/governance/recall/migrate are source-pass. Turn-side N-used indicator and live curator Agent remain I/L. Next local capability: IM 2.0 registry/multi-bot. Do not bump product version. Do not publish.

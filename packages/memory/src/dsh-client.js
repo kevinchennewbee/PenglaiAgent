@@ -84,6 +84,10 @@ window.__ModuleLoader__.load({
         "export",
         "importPreview",
         "importConfirm",
+        "setMode",
+        "acceptCandidate",
+        "rejectCandidate",
+        "ingestCurator",
         "sourcesStatus",
         "sourcesIngestCapability",
         "sourcesReindex",
@@ -94,7 +98,16 @@ window.__ModuleLoader__.load({
     const COPY = {
       zh: {
         title: "蓬莱记忆",
-        hint: "候选记忆、工作区记忆与全局 L1 分层保存。模型不能直接写全局记忆；全局写入和删除均需你确认。",
+        hint: "默认建议记忆。候选不会影响回答。工作区记忆可自动确认；个人记忆必须单独确认。模型不能直接写全局记忆。",
+        mode: "记忆模式",
+        modeOff: "关闭",
+        modeSuggest: "建议",
+        modeAuto: "自动当前工作区",
+        candidateHint: "候选不会影响回答。接受本工作区，或单独确认后升级为个人记忆。",
+        accept: "接受本工作区",
+        personalize: "升级为个人记忆",
+        reject: "拒绝",
+        usedN: "本轮使用了 N 条记忆",
         scope: "范围",
         global: "全局 L1",
         workspace: "工作区",
@@ -125,7 +138,16 @@ window.__ModuleLoader__.load({
       },
       en: {
         title: "Penglai Memory",
-        hint: "Session candidates, Workspace memory, and global L1 remain separate. Models cannot write global memory; global writes and deletion require your confirmation.",
+        hint: "Suggest mode is the default. Candidates never affect answers. Workspace memory may auto-confirm; personal memory always needs a separate confirmation. Models cannot write global memory.",
+        mode: "Memory mode",
+        modeOff: "Off",
+        modeSuggest: "Suggest",
+        modeAuto: "Auto current workspace",
+        candidateHint: "Candidates do not affect answers. Accept for this Workspace, or confirm again to upgrade to personal memory.",
+        accept: "Accept for Workspace",
+        personalize: "Upgrade to personal",
+        reject: "Reject",
+        usedN: "This turn used N memories",
         scope: "Scope",
         global: "Global L1",
         workspace: "Workspace",
@@ -188,6 +210,7 @@ window.__ModuleLoader__.load({
         error: "",
         notice: "",
         graph: { nodes: [], edges: [] },
+        counts: { workspace: 0, personal: 0, pending: 0, mode: "suggest" },
         includePersonal: false,
         selectedId: "",
         whyText: "",
@@ -202,7 +225,7 @@ window.__ModuleLoader__.load({
         Promise.resolve(
           api.status({
             scope: v.scope,
-            ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+            ...(v.scope === "workspace" || v.scope === "candidate" ? { workspaceId: v.workspaceId } : {}),
           }),
         )
           .then((raw) => {
@@ -211,6 +234,7 @@ window.__ModuleLoader__.load({
               ...s,
               phase: "ready",
               rows: x.rows || [],
+              counts: x.counts || s.counts,
               workspaces: x.workspaces || [],
               workspaceId: s.workspaceId || x.workspaces?.[0]?.id || "",
               error: "",
@@ -260,6 +284,28 @@ window.__ModuleLoader__.load({
           jsx.jsx("p", { children: t.hint }),
           jsx.jsxs("label", {
             children: [
+              t.mode,
+              " ",
+              jsx.jsxs("select", {
+                "data-penglai-memory-mode": "1",
+                value: v.counts?.mode || "suggest",
+                onChange: (e) => run("setMode", { mode: String(e.target.value) }),
+                children: [
+                  jsx.jsx("option", { value: "off", children: t.modeOff }),
+                  jsx.jsx("option", { value: "suggest", children: t.modeSuggest }),
+                  jsx.jsx("option", { value: "auto-workspace", children: t.modeAuto }),
+                ],
+              }),
+            ],
+          }),
+          v.counts?.pending
+            ? jsx.jsxs("p", {
+                "data-penglai-memory-pending": String(v.counts.pending),
+                children: [t.candidate, ": ", String(v.counts.pending)],
+              })
+            : null,
+          jsx.jsxs("label", {
+            children: [
               t.scope,
               " ",
               jsx.jsxs("select", {
@@ -285,7 +331,10 @@ window.__ModuleLoader__.load({
               }),
             ],
           }),
-          v.scope === "workspace"
+          v.scope === "candidate"
+            ? jsx.jsx("p", { "data-penglai-memory-candidate-hint": "1", children: t.candidateHint })
+            : null,
+          v.scope === "workspace" || v.scope === "candidate"
             ? jsx.jsx("select", {
                 value: v.workspaceId,
                 onChange: (e) =>
@@ -316,6 +365,27 @@ window.__ModuleLoader__.load({
                           },
                           children: t.why,
                         }),
+                        v.scope === "candidate"
+                          ? jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-memory-accept": String(r.id),
+                              onClick: () =>
+                                run("acceptCandidate", {
+                                  candidateId: String(r.id),
+                                  actionId: String(v.ownerActionId || ""),
+                                }),
+                              children: t.accept,
+                            })
+                          : null,
+                        v.scope === "candidate"
+                          ? jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-memory-reject": String(r.id),
+                              onClick: () =>
+                                run("rejectCandidate", { candidateId: String(r.id) }),
+                              children: t.reject,
+                            })
+                          : null,
                         jsx.jsx("button", {
                           type: "button",
                           "data-penglai-memory-forget": String(r.id),

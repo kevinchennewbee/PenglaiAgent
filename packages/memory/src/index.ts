@@ -19,6 +19,10 @@ import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
 import { MnemonMemoryService } from "./engine/service.js";
 import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
 import { registerMemoryTools } from "./tools.js";
+import { MemoryV2Store } from "./v2/candidates.js";
+import { ingestCuratorOutput } from "./v2/curator.js";
+import { migrateJournalToV2 } from "./v2/migrate.js";
+import { requireMemoryActionId } from "./v2/owner.js";
 
 export const name = "@penglai/memory";
 export const inject = ["skills", "workspaceRegistry", "tools"];
@@ -109,12 +113,14 @@ export function createDurableMemoryService(opts: {
   skills: NonNullable<CordisContextLike["skills"]>;
   onClose?: () => void;
 }) {
+  const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
   const engine = new MnemonMemoryService(opts.userData, {
     ...(process.env.PENGLAI_MNEMON_BINARY ? { binaryPath: process.env.PENGLAI_MNEMON_BINARY } : {}),
     ...(process.env.PENGLAI_APP_ROOT ? { appRoot: process.env.PENGLAI_APP_ROOT } : {}),
     packageRoot: PACKAGE_ROOT,
   });
   const skillsRoot = officialSkillsRoot(opts.userData);
+  migrateJournalToV2(engine.journal, v2, { userData: opts.userData });
   let closed = false;
   return {
     engine,
@@ -137,7 +143,33 @@ export function createDurableMemoryService(opts: {
       return engine.correct(oldId, text, workspaceId);
     },
     async forget(id: string, workspaceId?: string) {
-      return engine.forget(id, workspaceId);
+      const prior = engine.journal.get(id);
+      const result = await engine.forget(id, workspaceId);
+      if (prior) v2.recordTombstone(id, prior.contentDigest);
+      return result;
+    },
+    acceptCandidate(input: { candidateId: string; actionId: string; personal?: boolean }) {
+      const actionId = requireMemoryActionId(input.actionId, input.personal ? "MEMORY_PERSONAL_RECEIPT" : "MEMORY_OWNER_ACTION");
+      return v2.decide(input.candidateId, "accepted", {
+        actionId,
+        ...(input.personal ? { personal: true } : {}),
+      });
+    },
+    rejectCandidate(input: { candidateId: string }) {
+      return v2.decide(input.candidateId, "rejected");
+    },
+    setMemoryMode(mode: string) {
+      return v2.setMode(mode);
+    },
+    ingestCurator(
+      raw: string,
+      ctx: { workspaceId: string; sessionId: string; turnId: string; sourceDigest: string },
+    ) {
+      try {
+        return ingestCuratorOutput(v2, raw, ctx);
+      } catch {
+        return { failOpen: true, enqueued: 0, skipped: 0, code: "CURATOR_SCHEMA_INVALID" as const };
+      }
     },
     async deleteKnown(workspaceId?: string) {
       return engine.deleteScope(workspaceId);
@@ -148,9 +180,30 @@ export function createDurableMemoryService(opts: {
     write(input: MemoryWrite) {
       throw new PenglaiError("SECURITY_POLICY", "runtime memory writes go through remember()");
     },
-    list() {
-      throw new PenglaiError("SECURITY_POLICY", "runtime memory lists go through search()");
+    list(scope?: string, workspaceId?: string) {
+      if (scope === "candidate") {
+        return v2.listCandidates(workspaceId ?? "").map((row) => ({
+          id: row.candidateId,
+          text: row.text,
+          workspaceId: row.workspaceId,
+        }));
+      }
+      return engine
+        .listConfirmed({
+          scope: scope === "workspace" ? "workspace" : "personal",
+          ...(workspaceId ? { workspaceId } : {}),
+        })
+        .map((row) => ({ id: row.id, text: row.content, workspaceId: row.workspaceId }));
     },
+    count(workspaceId?: string) {
+      const confirmed = engine.countConfirmed(workspaceId ? { workspaceId } : {});
+      return {
+        ...confirmed,
+        pending: workspaceId ? v2.listCandidates(workspaceId).length : 0,
+        mode: v2.mode(),
+      };
+    },
+    memoryV2: v2,
     deleteScope() {
       throw new PenglaiError("SECURITY_POLICY", "runtime memory delete goes through forget()");
     },
@@ -191,6 +244,7 @@ export function createDurableMemoryService(opts: {
       closed = true;
       try {
         engine.close();
+        v2.close();
       } finally {
         opts.onClose?.();
       }
@@ -247,6 +301,9 @@ export { MnemonMemoryService, IsolatedMemoryEngine } from "./engine/service.js";
 export { bundledMnemonBinary, MNEMON_ASSETS } from "./engine/mnemon-provider.js";
 export { importLegacy, previewLegacy } from "./migration/legacy-053.js";
 export { projectGraph } from "./graph/projection.js";
+export { MemoryV2Store } from "./v2/candidates.js";
+export { ingestCuratorOutput } from "./v2/curator.js";
+export { migrateJournalToV2 } from "./v2/migrate.js";
 export type { MemoryWrite };
 export { modelCannotWriteGlobal, assertReadable };
 export type { MemoryWrite as WriteInput };

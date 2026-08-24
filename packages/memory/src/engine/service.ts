@@ -169,6 +169,33 @@ export class MnemonMemoryService {
     };
   }
 
+  listConfirmed(input: {
+    scope?: "personal" | "workspace";
+    workspaceId?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    const limit = input.limit ?? 50;
+    const offset = input.offset ?? 0;
+    if (input.scope === "workspace") {
+      return this.journal.listPage("workspace", input.workspaceId, limit, offset);
+    }
+    if (input.scope === "personal") {
+      return this.journal.listPage("personal", undefined, limit, offset);
+    }
+    return [
+      ...this.journal.listPage("workspace", input.workspaceId, limit, offset),
+      ...this.journal.listPage("personal", undefined, limit, offset),
+    ];
+  }
+
+  countConfirmed(input: { workspaceId?: string } = {}) {
+    return {
+      workspace: input.workspaceId ? this.journal.countActive("workspace", input.workspaceId) : 0,
+      personal: this.journal.countActive("personal"),
+    };
+  }
+
   async export(workspaceId?: string, includePersonal = false) {
     this.requireEnabled();
     const workspaceRows = workspaceId ? this.journal.listActive("workspace", workspaceId) : [];
@@ -203,14 +230,14 @@ export class MnemonMemoryService {
     await located.adapter.link(next.id, oldId);
     this.journal.mark(oldId, "superseded", next.id);
     await located.adapter.forget(oldId);
-    this.journal.mark(oldId, "forgotten", next.id);
+    this.journal.forgetTombstone(oldId, next.id);
     return next;
   }
 
   async forget(id: string, workspaceId?: string) {
     const { adapter } = this.adapterForKnownId(id, workspaceId);
     const result = await adapter.forget(id);
-    this.journal.mark(id, "forgotten");
+    this.journal.forgetTombstone(id);
     return result;
   }
 

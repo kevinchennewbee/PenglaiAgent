@@ -203,7 +203,20 @@ test("Memory client registers the official settings slot without a second skill 
   assert.doesNotMatch(source, /penglaiMemorySourcesSettings/);
   assert.doesNotMatch(source, /@penglai\/context|个人上下文|Personal Context/);
   assert.match(source, /official-dsh-skills/);
+  assert.match(source, /data-penglai-memory-mode/);
+  assert.match(source, /Candidates do not affect answers/);
+  assert.match(source, /候选不会影响回答/);
+  assert.match(source, /acceptCandidate/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
+});
+
+test("R56-MEM-016 settings status lists real rows and does not invent search words", async () => {
+  const svc = createMemoryService();
+  svc.write({ scope: "workspace", workspaceId: "w1", text: "official DSH remains the only core" });
+  const api = createMemorySettingsApi(svc as never, { list: () => [{ id: "w1", title: "Workspace" }] });
+  const status = await api.status({ scope: "workspace", workspaceId: "w1" });
+  assert.equal(status.rows.some((row) => String(row.text).includes("official DSH")), true);
+  assert.equal(status.rows.some((row) => String(row.text) === "project" || String(row.text) === "identity"), false);
 });
 
 test("production Memory apply refuses in-memory fallback and missing official Skills", () => {

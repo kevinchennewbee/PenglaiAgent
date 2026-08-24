@@ -76,6 +76,24 @@ export class MemoryJournal {
     return row ? this.map(row) : undefined;
   }
 
+  countActive(scope: "personal" | "workspace", workspaceId?: string): number {
+    return this.listActive(scope, workspaceId).length;
+  }
+
+  countCommitted(): number {
+    return (this.db.prepare("SELECT COUNT(*) AS n FROM memory_journal WHERE status = 'committed'").get() as { n: number }).n;
+  }
+
+  listPage(
+    scope: "personal" | "workspace",
+    workspaceId?: string,
+    limit = 50,
+    offset = 0,
+  ): JournalRow[] {
+    const rows = this.listActive(scope, workspaceId);
+    return rows.slice(Math.max(0, offset), Math.max(0, offset) + Math.min(200, Math.max(1, limit)));
+  }
+
   listActive(scope: "personal" | "workspace", workspaceId?: string): JournalRow[] {
     if (scope === "personal") {
       return (this.db.prepare("SELECT * FROM memory_journal WHERE scope = 'personal' AND status = 'committed'").all() as Record<string, string | null>[]).map((row) => this.map(row));
@@ -89,6 +107,14 @@ export class MemoryJournal {
 
   mark(id: string, status: JournalStatus, supersededBy?: string): void {
     this.db.prepare("UPDATE memory_journal SET status = ?, superseded_by = COALESCE(?, superseded_by) WHERE id = ?").run(status, supersededBy ?? null, id);
+  }
+
+  forgetTombstone(id: string, supersededBy?: string): void {
+    this.db
+      .prepare(
+        "UPDATE memory_journal SET status = 'forgotten', content = '', tags = '', superseded_by = COALESCE(?, superseded_by) WHERE id = ?",
+      )
+      .run(supersededBy ?? null, id);
   }
 
   close(): void {

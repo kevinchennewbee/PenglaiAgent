@@ -16,7 +16,15 @@ interface MemorySettingsHost {
   export?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
   importPreview?(): Promise<unknown>;
   importConfirm?(): Promise<unknown>;
-  list?(scope: MemoryScope, workspaceId?: string): Array<{ id: number; text: string; workspaceId?: string | null }>;
+  list?(scope: MemoryScope, workspaceId?: string): Array<{ id: string | number; text: string; workspaceId?: string | null }>;
+  count?(workspaceId?: string): { workspace: number; personal: number; pending: number; mode: string };
+  acceptCandidate?(input: { candidateId: string; actionId: string; personal?: boolean }): unknown;
+  rejectCandidate?(input: { candidateId: string }): unknown;
+  setMemoryMode?(mode: string): unknown;
+  ingestCurator?(
+    raw: string,
+    ctx: { workspaceId: string; sessionId: string; turnId: string; sourceDigest: string },
+  ): { failOpen: boolean; enqueued: number; skipped: number };
   deleteScope?(scope: MemoryScope, workspaceId?: string): number;
   promoteSop(input: SopPromotion): Promise<SopReceipt>;
 }
@@ -55,18 +63,51 @@ export function createMemorySettingsApi(
   return {
     async status(input: { scope: MemoryScope; workspaceId?: string }) {
       requireScope(input.scope);
-      if (input.scope === "workspace") requireWorkspace(input.workspaceId);
-      const rows =
-        service.list && !service.remember
-          ? service.list(input.scope, input.workspaceId)
-          : service.search
-            ? await service.search(input.scope === "workspace" ? "project" : "identity", input.workspaceId)
-            : [];
+      if (input.scope === "workspace" || input.scope === "candidate") requireWorkspace(input.workspaceId);
+      const rows = service.list ? await Promise.resolve(service.list(input.scope, input.workspaceId)) : [];
+      const counts = service.count?.(input.workspaceId);
       return {
         scope: input.scope,
         rows,
         workspaces: workspaceRegistry.list().map((row) => ({ id: row.id, title: row.title ?? row.id })),
+        ...(counts ? { counts } : {}),
       };
+    },
+    async setMode(input: { mode: string }) {
+      if (!service.setMemoryMode) throw new PenglaiError("DSH_UNAVAILABLE", "memory mode unavailable");
+      return { mode: service.setMemoryMode(input.mode) };
+    },
+    async acceptCandidate(input: { candidateId: string; actionId: string; personal?: boolean }) {
+      if (!service.acceptCandidate) throw new PenglaiError("DSH_UNAVAILABLE", "memory candidates unavailable");
+      return service.acceptCandidate({
+        candidateId: input.candidateId,
+        actionId: input.actionId,
+        ...(input.personal ? { personal: true } : {}),
+      });
+    },
+    async rejectCandidate(input: { candidateId: string }) {
+      if (!service.rejectCandidate) throw new PenglaiError("DSH_UNAVAILABLE", "memory candidates unavailable");
+      return service.rejectCandidate({ candidateId: input.candidateId });
+    },
+    ingestCurator(input: {
+      raw: string;
+      workspaceId: string;
+      sessionId: string;
+      turnId: string;
+      sourceDigest: string;
+    }) {
+      if (!service.ingestCurator) throw new PenglaiError("DSH_UNAVAILABLE", "memory curator unavailable");
+      requireWorkspace(input.workspaceId);
+      try {
+        return service.ingestCurator(input.raw, {
+          workspaceId: input.workspaceId,
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          sourceDigest: input.sourceDigest,
+        });
+      } catch {
+        return { failOpen: true, enqueued: 0, skipped: 0 };
+      }
     },
     async write(input: MemoryWrite) {
       requireScope(input.scope);
@@ -145,6 +186,12 @@ export function createMemorySettingsApi(
 export class PenglaiMemoryRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createMemorySettingsApi>) { super(ctx, "penglaiMemorySettings"); }
   @Remote status(input: { scope: MemoryScope; workspaceId?: string }) { return this.api.status(input); }
+  @Remote setMode(input: { mode: string }) { return this.api.setMode(input); }
+  @Remote acceptCandidate(input: { candidateId: string; actionId: string; personal?: boolean }) { return this.api.acceptCandidate(input); }
+  @Remote rejectCandidate(input: { candidateId: string }) { return this.api.rejectCandidate(input); }
+  @Remote ingestCurator(input: { raw: string; workspaceId: string; sessionId: string; turnId: string; sourceDigest: string }) {
+    return this.api.ingestCurator(input);
+  }
   @Remote write(input: MemoryWrite) { return this.api.write(input); }
   @Remote deleteScope(input: { scope: MemoryScope; workspaceId?: string; ownerConfirmed: boolean }) { return this.api.deleteScope(input); }
   @Remote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
@@ -166,7 +213,8 @@ export const TYPERT_REMOTE = {
   package: "@penglai/memory",
   descriptors: [
     "status", "write", "deleteScope", "promoteSop", "why", "correct", "forget", "graph", "export",
-    "importPreview", "importConfirm", "sourcesStatus", "sourcesIngestCapability", "sourcesReindex",
+    "importPreview", "importConfirm", "setMode", "acceptCandidate", "rejectCandidate", "ingestCurator",
+    "sourcesStatus", "sourcesIngestCapability", "sourcesReindex",
     "sourcesRevoke", "sourcesSearch",
   ],
 };
