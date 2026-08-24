@@ -73,11 +73,14 @@ export function navigationDecision(
   url: string,
   allowedOrigin: string,
   recoveryUrl?: string,
-  opts?: { wizardComplete?: boolean },
+  opts?: { wizardComplete?: boolean; extraFileUrls?: readonly string[] },
 ): "allow" | "deny" {
   try {
     const got = new URL(url);
     if (recoveryUrl && sameNavigationTarget(got, new URL(recoveryUrl))) return "allow";
+    for (const extra of opts?.extraFileUrls ?? []) {
+      if (sameNavigationTarget(got, new URL(extra))) return "allow";
+    }
     const expect = new URL(allowedOrigin);
     if (!sameNavigationTarget(got, expect)) return "deny";
     if (opts?.wizardComplete && (got.pathname === "/wizard" || got.pathname.startsWith("/wizard/"))) {

@@ -41,15 +41,15 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-CORE-003 | source-pass | `packages/runtime/src/inventory-proof.ts` | `inventory-proof.test.ts` | I |
 | R56-CORE-004 | source-pass | exactPluginId; no substring includes | `inventory-proof.test.ts` | I |
 | R56-CORE-005 | source-pass | `refuseRequiredPluginDisable`; remotes disable before catalog lookup | `inventory-proof.test.ts`; `remotes-security.test.ts` | I |
-| R56-CORE-006 | not-started | desktop splash | | N,I |
-| R56-CORE-007 | not-started | dsh supervisor | | C,N,I |
-| R56-CORE-008 | not-started | supervisor intent | | C,N |
-| R56-CORE-009 | not-started | recovery page | | N,I |
-| R56-CORE-010 | not-started | dsh-bridge cancel | | S,C,N |
+| R56-CORE-006 | source-pass | `apps/desktop/static/splash.html` loads before DSH | `desktop.test.ts`; `security.test.ts` | N,I |
+| R56-CORE-007 | source-pass | restart budget 3/5min; `restarts` increments on unexpected exit | `supervisor-policy.test.ts` | N,I auto-restart |
+| R56-CORE-008 | source-pass | intentional/stopping/starting do not restart | `supervisor-policy.test.ts` | N |
+| R56-CORE-009 | source-pass | bilingual recovery + redacted diagnostics IPC | `supervisor-policy.test.ts`; `desktop.test.ts` | N,I |
+| R56-CORE-010 | source-pass | `BridgeOperationGate` + recover serial/session cancel | `operations.test.ts`; `recover-cancel.test.ts` | N |
 | R56-OWN-001 | source-pass | broker + office HMAC/broker adapter | `owner-broker.test.ts`; `owner-adapter.test.ts`; `tools.test.ts` | I; native dialog N |
 | R56-OWN-002 | source-pass | memory.accept/personalize require UUID actionId; forget/correct keep ownerConfirmed | `v2/owner.ts`; `v2/candidates.test.ts` | I; native dialog N |
 | R56-OWN-003 | source-pass | disable/rollback grants; Center client uses `confirmPluginAction` | `plugin-owner.test.ts`; `remotes-security.test.ts` | I |
-| R56-OWN-004 | not-started | IM bind | | C,I,L |
+| R56-OWN-004 | source-pass | bind/rebind/remove require owner UUID; UI propose+receipt; group enable refused | `owner.test.ts`; `im.test.ts` | I,L; native dialog N |
 | R56-OWN-005 | source-pass | deny/expiry/replay/mutation/workspace drift | `owner-broker.test.ts`; `owner-adapter.test.ts` | I |
 | R56-OWN-006 | source-pass | broker dialog port never calls DSH `ask` | `owner-broker.test.ts` | I; policy=never installed |
 | R56-OWN-007 | source-pass | Main `requestOwnerApproval` IPC + HMAC | `owner-broker.test.ts`; `electron-main.ts` | N dialog click |
@@ -166,13 +166,13 @@ FILE-003..015 may proceed for Office/IM ArtifactRef. Composer send stays blocked
 | R56-CH-TG | source-pass | manifest + guided connect only | `registry.ts` | L |
 | R56-CH-DC | source-pass | manifest + guided connect only | `registry.ts` | L |
 | R56-CH-WA | source-pass | community-protocol; default off | `registry.test.ts` | L; default off |
-| R56-UPD-001 | not-started | S,C |
-| R56-UPD-002 | not-started | S,C |
+| R56-UPD-001 | source-pass | update vs release digest; apply requires distinct release identity | `registry.test.ts` | I,L public 0.5.6 |
+| R56-UPD-002 | source-pass | equal update/release digest and missing apply identity fail closed | `registry.test.ts`; existing R50 tamper tests | I,L |
 | R56-UPD-003 | not-started | I,L |
 | R56-UPD-004 | not-started | I,L |
 | R56-UPD-005 | not-started | N,I |
 | R56-UPD-006 | not-started | I |
-| R56-UPD-007 | not-started | I |
+| R56-UPD-007 | source-pass | signed `links` https-only; Main `openPluginLink` | `safe-https.test.ts`; `center.test.ts` | I |
 | R56-DIST-001 | not-started | N,P |
 | R56-DIST-002 | not-started | I,L Apple Silicon |
 | R56-DIST-003 | not-started | I,L Intel |
@@ -192,4 +192,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-IM 2.0 registry, guided connect, sidecar multi-bot, and nine-platform UI are source-pass. Weixin/Feishu stay the only live adapters. Next local capability: supervisor/recovery, plugin links, update-manifest identity. Do not bump product version. Do not publish.
+Local Must Ship S/C for 0.5.6 is implemented on `feat/0.5.6`. Remaining work is Owner/red-line blocked unless later authorized: three-target native artifacts, nine-platform live IM, public update chain, Windows ACL, composer files (`OD-FILE`), and product version bump. Do not publish.

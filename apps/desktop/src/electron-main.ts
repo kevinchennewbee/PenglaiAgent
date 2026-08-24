@@ -315,6 +315,8 @@ async function main(): Promise<void> {
   let allowedOrigin = "http://127.0.0.1:1/";
   const recoveryPage = join(here, "static", "index.html");
   const recoveryUrl = pathToFileURL(recoveryPage).href;
+  const splashPage = join(here, "static", "splash.html");
+  const splashUrl = pathToFileURL(splashPage).href;
   let stopping = false;
   let lifecycleBusy = false;
   let pendingDeletion: {
@@ -330,7 +332,7 @@ async function main(): Promise<void> {
       event.preventDefault();
       return;
     }
-    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root) }) === "deny") {
+    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) === "deny") {
       event.preventDefault();
     }
   });
@@ -339,7 +341,7 @@ async function main(): Promise<void> {
       event.preventDefault();
       return;
     }
-    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root) }) === "deny") {
+    if (navigationDecision(next, allowedOrigin, recoveryUrl, { wizardComplete: onboardingLedgerComplete(user.root), extraFileUrls: [splashUrl] }) === "deny") {
       event.preventDefault();
     }
   });
@@ -417,6 +419,11 @@ async function main(): Promise<void> {
     if (soakMode || win.isDestroyed() || win.isVisible()) return;
     win.show();
   };
+
+  if (existsSync(splashPage)) {
+    await win.loadFile(splashPage);
+    revealWindow();
+  }
 
   const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
     const safe = sanitizeStartupReason(reason);

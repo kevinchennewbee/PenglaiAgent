@@ -87,6 +87,8 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /openPluginLink/);
   assert.match(main, /assertSafeHttpsUrl/);
   assert.match(main, /recoveryCopyDiagnostics/);
+  assert.match(main, /splash\.html/);
+  assert.match(main, /extraFileUrls/);
 });
 
 test("startup failure tears down owned services before rendering recovery", () => {
@@ -107,4 +109,15 @@ test("control shell documents the community trust boundary", async () => {
   assert.match(html, /data-penglai-recovery-retry/);
   assert.match(html, /Powered by DeepSeek Harness/);
   assert.match(html, /Content-Security-Policy/);
+});
+
+test("R56-CORE-006 splash names boot phases without claiming the official chat", async () => {
+  const html = readFileSync(new URL("../static/splash.html", import.meta.url), "utf8");
+  assert.match(html, /data-penglai-splash/);
+  assert.match(html, /data-penglai-splash-en/);
+  assert.match(html, /data-penglai-splash-zh/);
+  assert.match(html, /Starting official DeepSeek Harness/);
+  assert.match(html, /starting-dsh/);
+  assert.match(html, /verifying-required-plugins/);
+  assert.doesNotMatch(html, /data-penglai-recovery/);
 });

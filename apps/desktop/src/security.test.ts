@@ -37,6 +37,12 @@ test("navigation and window-open stay on the authenticated origin", () => {
     navigationDecision("file:///tmp/evil.html", "http://127.0.0.1:9/", "file:///app/static/index.html"),
     "deny",
   );
+  assert.equal(
+    navigationDecision("file:///app/static/splash.html", "http://127.0.0.1:9/", "file:///app/static/index.html", {
+      extraFileUrls: ["file:///app/static/splash.html"],
+    }),
+    "allow",
+  );
 });
 
 test("renderer lifecycle surface has no arbitrary installer URL path or delete path primitive", () => {
