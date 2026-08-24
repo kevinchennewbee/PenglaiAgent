@@ -272,6 +272,49 @@ test("P51-SUPPLY-001 trust ledger refuses downgrade and same-sequence digest cha
   );
 });
 
+test("R56-SEC-006 remote plugins reject wasm bytecode nested archives and magic disguise", () => {
+  const wasm = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/helper.wasm", kind: "file", data: Buffer.from("x") }]),
+    /bytecode is not a remote plugin/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/helper.wat", kind: "file", data: Buffer.from("(module)") }]),
+    /bytecode/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/bitcode.bc", kind: "file", data: Buffer.from("x") }]),
+    /bytecode/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "lib/payload.jar", kind: "file", data: Buffer.from("x") }]),
+    /nested archive/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "vendor/extra.tgz", kind: "file", data: Buffer.from("x") }]),
+    /nested archive/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/module.wasm.js", kind: "file", data: Buffer.from("export default 1") }]),
+    /bytecode/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/addon.so.1", kind: "file", data: Buffer.from("x") }]),
+    /native/,
+  );
+  assert.throws(
+    () => inspectPluginEntries([{ path: "dist/innocent.js", kind: "file", data: wasm }]),
+    /bytecode is not a remote plugin/,
+  );
+  assert.throws(
+    () =>
+      inspectPluginEntries([
+        { path: "dist/data.json", kind: "file", data: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]) },
+      ]),
+    /plugin payload magic mismatch/,
+  );
+});
+
 test("P51-SUPPLY-001 archive policy rejects native code, scripts, and permission drift", () => {
   assert.throws(
     () =>

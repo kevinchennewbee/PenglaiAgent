@@ -1,7 +1,62 @@
 import { PenglaiError } from "@penglai/contracts";
 
-const FORBIDDEN_SUFFIX = [".node", ".dylib", ".so", ".dll", ".exe", ".bin"];
+const NATIVE_SUFFIX = [".node", ".dylib", ".dll", ".exe", ".bin", ".so"];
+const BYTECODE_SUFFIX = [".wasm", ".wat", ".bc", ".class"];
+const ARCHIVE_SUFFIX = [".jar", ".zip", ".7z", ".rar", ".tgz", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"];
 const FORBIDDEN_NAMES = new Set(["preinstall", "postinstall", "prepare", "install"]);
+
+const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]);
+const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+const PE_MAGIC = Buffer.from([0x4d, 0x5a]);
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
+const LLVM_BC = Buffer.from([0x42, 0x43, 0xc0, 0xde]);
+const MACHO_MAGICS = [
+  Buffer.from([0xfe, 0xed, 0xfa, 0xce]),
+  Buffer.from([0xce, 0xfa, 0xed, 0xfe]),
+  Buffer.from([0xfe, 0xed, 0xfa, 0xcf]),
+  Buffer.from([0xcf, 0xfa, 0xed, 0xfe]),
+  Buffer.from([0xca, 0xfe, 0xba, 0xbe]),
+];
+
+function hasPrefix(data: Buffer, magic: Buffer): boolean {
+  return data.length >= magic.length && data.subarray(0, magic.length).equals(magic);
+}
+
+function suffixMatch(lower: string, suffix: string): boolean {
+  if (lower.endsWith(suffix)) return true;
+  return lower.includes(`${suffix}.`);
+}
+
+function soVersioned(lower: string): boolean {
+  return /\.so(?:\.\d+)+$/.test(lower) || lower.includes(".so.");
+}
+
+export function forbiddenRemotePluginKind(path: string): "native" | "bytecode" | "archive" | undefined {
+  const lower = path.replace(/\\/g, "/").toLowerCase();
+  if (NATIVE_SUFFIX.some((suffix) => suffixMatch(lower, suffix)) || soVersioned(lower)) return "native";
+  if (BYTECODE_SUFFIX.some((suffix) => suffixMatch(lower, suffix))) return "bytecode";
+  if (ARCHIVE_SUFFIX.some((suffix) => suffixMatch(lower, suffix))) return "archive";
+  return undefined;
+}
+
+export function remotePluginMagicKind(data: Buffer): "native" | "bytecode" | "archive" | undefined {
+  if (hasPrefix(data, ELF_MAGIC) || hasPrefix(data, PE_MAGIC) || MACHO_MAGICS.some((magic) => hasPrefix(data, magic))) {
+    return "native";
+  }
+  if (hasPrefix(data, WASM_MAGIC) || hasPrefix(data, LLVM_BC)) return "bytecode";
+  if (hasPrefix(data, ZIP_MAGIC) || hasPrefix(data, GZIP_MAGIC)) return "archive";
+  return undefined;
+}
+
+function rejectKind(kind: "native" | "bytecode" | "archive", cause: "name" | "magic"): never {
+  if (kind === "native") throw new PenglaiError("SECURITY_POLICY", "native code is not a remote plugin");
+  if (kind === "bytecode") throw new PenglaiError("SECURITY_POLICY", "bytecode is not a remote plugin");
+  throw new PenglaiError(
+    "SECURITY_POLICY",
+    cause === "magic" ? "plugin payload magic mismatch" : "nested archive is not a remote plugin",
+  );
+}
 
 export interface ArchiveFile {
   path: string;
@@ -33,15 +88,19 @@ export function inspectPluginEntries(entries: readonly ArchiveFile[]): {
 } {
   const names = entries.map((entry) => entry.path.replace(/\\/g, "/"));
   const folded = new Set<string>();
-  for (const name of names) {
+  for (const entry of entries) {
+    const name = entry.path.replace(/\\/g, "/");
     if (!name || name.includes("..") || name.startsWith("/") || name.includes("\0")) {
       throw new PenglaiError("SECURITY_POLICY", "archive path escape");
     }
     const lower = name.toLowerCase();
     if (folded.has(lower)) throw new PenglaiError("SECURITY_POLICY", "archive case collision");
     folded.add(lower);
-    if (FORBIDDEN_SUFFIX.some((suffix) => lower.endsWith(suffix))) {
-      throw new PenglaiError("SECURITY_POLICY", "native code is not a remote plugin");
+    const named = forbiddenRemotePluginKind(name);
+    if (named) rejectKind(named, "name");
+    if (entry.kind === "file") {
+      const magic = remotePluginMagicKind(entry.data);
+      if (magic) rejectKind(magic, "magic");
     }
   }
   const pkgEntry = entries.find((entry) => /(^|\/)package\.json$/.test(entry.path) && entry.kind === "file");
