@@ -55,6 +55,17 @@ function fakeIo(play: () => Promise<void> = async () => undefined) {
   return { io, audios, revoked };
 }
 
+test("packed dsh-client.js playback is the same state machine as the TypeScript controller", () => {
+  const packed = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  const source = readFileSync(new URL("./playback-controller.ts", import.meta.url), "utf8");
+  for (const token of ["onstalled", "onabort", "TTS_PLAY_REJECTED", "beginSynthesize", "revokeObjectURL"]) {
+    assert.match(packed, new RegExp(token));
+    assert.match(source, new RegExp(token.replace("revokeObjectURL", "revokeObjectURL|io\\.revokeObjectURL")));
+  }
+  assert.match(source, /io\.revokeObjectURL/);
+  assert.equal((packed.match(/function createAudioPlaybackController/g) ?? []).length, 1);
+});
+
 test("packed dsh-client.js playback handles ended, error, stalled, and latest-wins", async () => {
   const create = loadBundledController();
   const { io, audios, revoked } = fakeIo();

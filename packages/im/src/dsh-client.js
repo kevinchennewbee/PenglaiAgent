@@ -157,6 +157,12 @@ window.__ModuleLoader__.load({
         noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
         whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。",
         notLive: "尚未完成真实账号验收，不能标为可用。",
+        statusDisconnected: "未连接",
+        statusConnecting: "正在连接",
+        statusConnected: "已连接",
+        statusNeedsAction: "需要处理",
+        statusUnavailable: "暂不可用",
+        advanced: "高级诊断",
         openConsole: "打开飞书开发者后台",
         openLongDoc: "打开长连接说明",
         copyScopes: "复制最小权限",
@@ -252,6 +258,12 @@ window.__ModuleLoader__.load({
         noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
         whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk.",
         notLive: "Not marked available until live-account evidence exists.",
+        statusDisconnected: "Not connected",
+        statusConnecting: "Connecting",
+        statusConnected: "Connected",
+        statusNeedsAction: "Needs attention",
+        statusUnavailable: "Unavailable",
+        advanced: "Advanced diagnostics",
         openConsole: "Open Feishu developer console",
         openLongDoc: "Open long-connection help",
         copyScopes: "Copy minimum scopes",
@@ -1314,31 +1326,59 @@ window.__ModuleLoader__.load({
                   }),
                   jsx.jsx("ul", {
                     "data-penglai-im-platforms": "1",
-                    children: channels.map((c) =>
-                      jsx.jsxs(
+                    children: channels.map((c) => {
+                      const manifest = (snap.overview?.manifests || []).find((row) => row.id === c.channel) || {};
+                      const names = manifest.displayName || {};
+                      const title = String(
+                        (document.documentElement.lang || "zh").startsWith("en")
+                          ? names.en || c.channel
+                          : names.zh || c.channel,
+                      );
+                      const status = c.live
+                        ? c.connection === "connected"
+                          ? t.statusConnected
+                          : c.connection === "connecting"
+                            ? t.statusConnecting
+                            : c.connection === "failed" || c.connection === "degraded" || c.connection === "expired" || c.connection === "blocked"
+                              ? t.statusNeedsAction
+                              : t.statusDisconnected
+                        : t.statusUnavailable;
+                      return jsx.jsxs(
                         "li",
                         {
                           "data-penglai-im-platform": c.channel,
                           "data-penglai-im-live": String(c.live === true),
                           "data-penglai-im-connect-methods": (c.connectionMethods || []).join(","),
+                          "data-penglai-im-status": status,
                           children: [
-                            String(c.channel),
+                            jsx.jsx("strong", { children: title }),
                             " ",
-                            c.live
-                              ? null
-                              : jsx.jsx("button", {
-                                  type: "button",
-                                  "data-penglai-im-connect": c.channel,
-                                  onClick: () =>
-                                    Promise.resolve(
-                                      remote?.penglaiIm?.beginGuidedConnection({
-                                        channel: c.channel,
-                                        method: (c.connectionMethods || ["token"])[0],
-                                        riskAck: c.channel === "whatsapp",
-                                      }),
-                                    ).catch(() => undefined),
-                                  children: t.guidedConnect,
-                                }),
+                            jsx.jsx("span", { children: status }),
+                            " ",
+                            jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-im-connect": c.channel,
+                              onClick: () => {
+                                if (c.channel === "weixin") {
+                                  setTab("weixin");
+                                  setWeixinKick((n) => n + 1);
+                                  return;
+                                }
+                                if (c.channel === "feishu") {
+                                  setTab("feishu");
+                                  setFeishuKick((n) => n + 1);
+                                  return;
+                                }
+                                Promise.resolve(
+                                  remote?.penglaiIm?.beginGuidedConnection({
+                                    channel: c.channel,
+                                    method: (c.connectionMethods || ["token"])[0],
+                                    riskAck: c.channel === "whatsapp",
+                                  }),
+                                ).catch(() => undefined);
+                              },
+                              children: t.guidedConnect,
+                            }),
                             (c.connectionMethods || []).includes("qr")
                               ? null
                               : jsx.jsx("span", { children: t.noQr }),
@@ -1349,8 +1389,8 @@ window.__ModuleLoader__.load({
                           ],
                         },
                         c.channel,
-                      ),
-                    ),
+                      );
+                    }),
                   }),
                 ],
               })
@@ -1380,7 +1420,13 @@ window.__ModuleLoader__.load({
             ? jsx.jsx("p", { children: t.commandsHint })
             : null,
           tab === "diagnostics"
-            ? jsx.jsx("p", { children: t.diagnosticsHint })
+            ? jsx.jsxs("details", {
+                "data-penglai-im-advanced": "1",
+                children: [
+                  jsx.jsx("summary", { children: t.advanced }),
+                  jsx.jsx("p", { children: t.diagnosticsHint }),
+                ],
+              })
             : null,
         ],
       });

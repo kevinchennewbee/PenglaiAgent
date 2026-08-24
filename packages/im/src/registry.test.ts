@@ -110,4 +110,8 @@ test("R56-IM-008 IM client lists nine platforms and does not invent Slack/Telegr
   assert.match(client, /beginFeishuQr/);
   assert.match(client, /proposeBinding/);
   assert.match(client, /requestOwnerApproval/);
+  assert.match(client, /data-penglai-im-status/);
+  assert.match(client, /data-penglai-im-advanced/);
+  assert.match(client, /statusUnavailable|暂不可用/);
+  assert.match(client, /displayName/);
 });

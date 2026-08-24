@@ -28,7 +28,7 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 | A1-TTS | SOURCE_PASS | packed `packages/moss-tts/src/dsh-client.js` | `packages/moss-tts/src/bundled-playback.test.ts` | S | I/L listen later |
 | A1-MEM-TURN | SOURCE_PASS | Memory `apply()` `session/event` `turn/end` | `packages/memory/src/turn-pipeline.test.ts` | S | live curator generate still empty without Agent; E2 continues |
 | A1-MEM-RECALL | SOURCE_PASS | Memory `agent/pre-step` | `packages/memory/src/turn-pipeline.test.ts` | S | I/L later |
-| A1-IM-LIVE | TODO | `LIVE_CHANNEL_IDS`; `PenglaiImHost` send/bind | existing `registry.test.ts` plus production send | none yet | seven platforms not live |
+| A1-IM-LIVE | SOURCE_PASS | `LIVE_CHANNEL_IDS` weixin+feishu; `sendOutboundText` / bind refuse others | `channel-adapter.test.ts`; `registry.test.ts` | S | LIVE_NOT_RUN |
 | A2-LEDGER | SOURCE_PASS | `docs/0.5.6/IMPLEMENTATION_LEDGER.md` | this file | reaudit recorded | |
 
 ## B — one Main Owner Broker
@@ -37,7 +37,7 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 |---|---|---|---|
 | B1-AUTHORITY | SOURCE_PASS | `packages/runtime/src/owner-broker.ts`; `owner-dialog.ts`; `apps/desktop/src/electron-main.ts` | I native dialog click |
 | B2-OFFICE | SOURCE_PASS | Office apply/commit/export/return | HMAC sealed |
-| B2-MEMORY | SOURCE_PASS | accept/forget/import/delete/personalize | correct still needs follow-up |
+| B2-MEMORY | SOURCE_PASS | accept/forget/import/delete/personalize/correct | I later |
 | B2-IM | SOURCE_PASS | bind/rebind/remove + host dialog | I, L |
 | B2-CENTER | SOURCE_PASS | Plugin Center consumes broker receipt | I |
 
@@ -47,15 +47,15 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 |---|---|---|---|
 | C1-REF | SOURCE_PASS | `ArtifactRefV1` only; no renderer paths | I later |
 | C2-OFFICE | SOURCE_PASS | inspect/commit/export/return ingest ArtifactRef | I later |
-| C3-IM | SOURCE_PASS | outbound `sendFileToBoundRoute` ingest | inbound follow-up |
-| C4-GC | TODO | workspace delete / TTL | |
+| C3-IM | SOURCE_PASS | outbound `sendFileToBoundRoute`; inbound office/pdf/text via `onAdmittedBytes` | images stay official saveImage |
+| C4-GC | SOURCE_PASS | `deleteWorkspace` + `gc` WAL checkpoint | I later |
 | C5-COMPOSER | DEFERRED_UPSTREAM | official chat file Turn | DSH rc.2 has image-only Turn; draft only in `UPSTREAM_ISSUE_DRAFTS.md` |
 
 ## D — TTS / ASR
 
 | ID | Status | Production entry | Remaining |
 |---|---|---|---|
-| D1-ONE-PLAYER | SOURCE_PASS | packed `dsh-client.js` controller now matches TS state machine | still two copies; tests execute packed JS |
+| D1-ONE-PLAYER | SOURCE_PASS | packed JS is tested against the TS state machine tokens | still two copies; generation gate in `bundled-playback.test.ts` |
 | D2-STATE | SOURCE_PASS | ended/error/stalled/abort/latest-wins | I/L |
 | D3-PACKED | SOURCE_PASS | `bundled-playback.test.ts` | I asar digest later |
 | D4-MIC | SOURCE_PASS | `rewriteElectronPlist` `NSMicrophoneUsageDescription` | I installed plist |
@@ -65,9 +65,9 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 
 | ID | Status | Production entry | Remaining |
 |---|---|---|---|
-| E1-MODE | TODO | off / suggest / auto-workspace | product copy |
+| E1-MODE | SOURCE_PASS | off / 先询问我 / 智能整理（推荐） | I later |
 | E2-INGEST | SOURCE_PASS | Host `turn/end` + `ingestOfficialTurn`; Remote `ingestCurator` sealed | production generate via official Agent still empty when `agents.create` missing |
-| E3-RISK | TODO | local policy, not model confidence alone | |
+| E3-RISK | SOURCE_PASS | auto-save uses local classifyMemoryText, ignores model confidence | |
 | E4-RECALL | SOURCE_PASS | official `agent/pre-step` | I/L |
 | E5-LIVE | TODO | installed DeepSeek | needs no-echo key |
 
@@ -82,7 +82,7 @@ Evidence classes: S source, C contract, N native, I installed, L live, P public.
 | F4-BATCH2 | SOURCE_PASS | token adapters; no fake QR | LIVE_NOT_RUN |
 | F4-BATCH3 | SOURCE_PASS | WhatsApp experimental, risk ack, no Baileys | LIVE_NOT_RUN |
 | F5-CONNECT | SOURCE_PASS | Connect / guided; QR only where protocol has QR | I |
-| F6-UI | TODO | user cards still mixed with engineering fields | I |
+| F6-UI | SOURCE_PASS | platform cards: display name, user status, Connect; diagnostics folded | I |
 | F8-LIVE | LIVE_NOT_RUN | weixin/feishu need `OWNER_GO_PLATFORM_LIVE_*`; others no accounts | |
 
 ## G / H / I / J
