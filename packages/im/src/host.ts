@@ -1,5 +1,6 @@
 import {
   PenglaiError,
+  assertSha256,
   type BindingVoicePolicy,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
@@ -80,6 +81,7 @@ export class PenglaiImHost {
         /* ignore corrupt adapter config */
       }
     }
+    this.store.redactExpiredPayloads(this.plane.clock.now());
   }
 
   async getOverview(): Promise<{
@@ -298,7 +300,8 @@ export class PenglaiImHost {
     const route = this.store.getRoute(input.routeId);
     if (!route || route.status !== "active") throw new PenglaiError("BINDING_STALE", "office outbound route unavailable");
     const target = this.plane.requireVendorTarget(input.routeId);
-    const clientId = `penglai-office-${input.digest.slice(0, 24)}`;
+    assertSha256(input.bytes, input.digest);
+    const clientId = `penglai-office-${input.digest.replace(/^sha256:/, "").slice(0, 24)}`;
     const sent = route.adapter === "feishu"
       ? await this.feishu.sendFile(target, input.bytes, input.filename)
       : await this.weixin.sendFile(target, input.bytes, input.filename, clientId);

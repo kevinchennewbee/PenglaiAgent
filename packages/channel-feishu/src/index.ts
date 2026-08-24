@@ -66,8 +66,12 @@ export function parseFeishuEvent(raw: {
   messageId: string;
   openId?: string;
   text?: string;
-}): InboundEnvelope | { reject: "group" | "media" } {
-  if (raw.chatType && raw.chatType !== "p2p" && raw.chatType !== "private") return { reject: "group" };
+}): InboundEnvelope | { reject: "group" | "media" | "chatType" | "sender" } {
+  if (!raw.chatType) return { reject: "chatType" };
+  if (raw.chatType !== "p2p" && raw.chatType !== "private") {
+    return { reject: raw.chatType === "group" ? "group" : "chatType" };
+  }
+  if (!raw.openId) return { reject: "sender" };
   if (
     raw.messageType &&
     raw.messageType !== "text" &&
@@ -81,7 +85,7 @@ export function parseFeishuEvent(raw: {
     adapter: "feishu",
     adapterMessageKey: raw.messageId,
     accountRef: "feishu",
-    peerRef: createHash("sha256").update(raw.openId ?? "unknown").digest("hex").slice(0, 24),
+    peerRef: createHash("sha256").update(raw.openId).digest("hex").slice(0, 24),
     chatKind: "private",
     bodyKind: raw.messageType === "audio" ? "voice" : raw.messageType === "image" || raw.messageType === "file" ? "media" : "text",
     ...(raw.text ? { text: raw.text } : {}),
@@ -266,13 +270,7 @@ export class FeishuAdapter {
     this.ownerStore?.audit?.("feishu.owner", { source, ownerDigest: feishuOwnerDigest(this.ownerOpenId ?? "") }, Date.now());
   }
 
-  private noticeAllowlist(openId?: string): void {
-    if (!openId || !this.client) return;
-    void this.sendText(openId, FEISHU_ALLOWLIST_NOTICE);
-  }
-
-  private rejectAllowlist(openId?: string): { kind: "rejected"; text: "allowlist" } {
-    this.noticeAllowlist(openId);
+  private rejectAllowlist(_openId?: string): { kind: "rejected"; text: "allowlist" } {
     return { kind: "rejected", text: "allowlist" };
   }
 
@@ -360,7 +358,6 @@ export class FeishuAdapter {
     if ("reject" in parsed) return { reject: parsed.reject };
     const fromOpenId = parsed.vendorTarget ?? "";
     if (this.assertAllowlisted(fromOpenId) === "allowlist") {
-      this.noticeAllowlist(fromOpenId);
       return { reject: "allowlist" };
     }
     if (parsed.bodyKind === "media") {

@@ -35,7 +35,7 @@ test("weixin and feishu parse image/file without placeholder text", () => {
     assert.equal(wxFile.media?.kind, "office");
     assert.notEqual(wxFile.text, "[file]");
   }
-  const fsImage = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2" });
+  const fsImage = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2", openId: "ou_1" });
   assert.equal("reject" in fsImage, false);
   if (!("reject" in fsImage)) {
     assert.equal(fsImage.bodyKind, "media");

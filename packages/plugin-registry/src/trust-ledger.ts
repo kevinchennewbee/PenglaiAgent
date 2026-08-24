@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
+import { CATALOG_SEQUENCE_FLOOR } from "./catalog-schema.js";
 
 export interface TrustState {
   schema: 1;
@@ -47,6 +48,9 @@ export function acceptMonotonic(input: {
   if (!/^[0-9a-f]{64}$/.test(input.digest)) throw new PenglaiError("SECURITY_POLICY", "trust digest");
   if (!Number.isSafeInteger(input.sequence) || input.sequence < 1) {
     throw new PenglaiError("SECURITY_POLICY", "trust sequence");
+  }
+  if (input.kind === "plugin-catalog" && input.sequence < CATALOG_SEQUENCE_FLOOR) {
+    throw new PenglaiError("SECURITY_POLICY", "catalog sequence");
   }
   const prior = readTrustState(input.path);
   if (prior && prior.kind !== input.kind) throw new PenglaiError("SECURITY_POLICY", "trust kind mismatch");

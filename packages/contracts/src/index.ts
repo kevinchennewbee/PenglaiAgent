@@ -18,6 +18,7 @@ export * from "./i18n.js";
 export * from "./typert.js";
 export * from "./errors.js";
 export * from "./bounded-http.js";
+export * from "./closed-enum.js";
 
 export const SCHEMA_VERSION = 11;
 export const RELEASE = "0.5.5";
@@ -38,6 +39,7 @@ export const CONFIG = Object.freeze({
   soakMinRoutes: 100,
   soakMinRounds: 20,
   lockoutMs: 15 * 60_000,
+  imBodyRetentionMs: 24 * 60 * 60_000,
 });
 
 export type AdapterName = "mock" | "weixin" | "feishu";

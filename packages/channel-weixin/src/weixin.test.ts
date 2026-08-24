@@ -832,6 +832,43 @@ test("Weixin office return reuses the authenticated encrypted FILE transport", a
   h.store.close();
 });
 
+test("R56-SEC-010 missing chatType or sender is not treated as private", () => {
+  assert.deepEqual(
+    parseInbound({ messageId: "1", fromUserId: "u", chatType: "unknown" as never, itemType: "text", text: "x" }, "a"),
+    { reject: "chatType" },
+  );
+  assert.deepEqual(
+    parseInbound({ messageId: "2", fromUserId: "", chatType: "private", itemType: "text", text: "x" }, "a"),
+    { reject: "sender" },
+  );
+});
+
+test("R56-SEC-011 missing Weixin token degrades the receive loop instead of escaping", async () => {
+  const vault = new MemoryVault();
+  const adapter = new WeixinAdapter(
+    new RoutingControlPlane(
+      new Store(":memory:"),
+      new VirtualClock(),
+      new SeqIds(),
+      { async listWorkspaces() { return []; }, async listSessions() { return []; } },
+      { async followup() { return { dshMessageId: "d" }; }, async steer() { return { dshMessageId: "d" }; }, async cancelCurrent() {}, async removeInbox() {} },
+    ),
+    {
+      async getQr() { return { qrRef: "qr", expiresAt: 1 }; },
+      async pollQr() { return { status: "connected" }; },
+      async getUpdates() { throw new Error("getUpdates must not run without a token"); },
+      async send() { return { ok: true }; },
+    },
+    vault,
+  );
+  adapter.authState = "connected";
+  await adapter.startReceive();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(adapter.receiveHealth, "degraded-missing-credential");
+  assert.equal(adapter.authState, "expired");
+  adapter.stopReceive();
+});
+
 test("R56-SEC-005 ilink JSON is bound before parse", async () => {
   const client = new ILinkClient(async () => ({
     ok: true,

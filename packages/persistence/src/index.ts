@@ -3,9 +3,11 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
+  CONFIG,
   DEFAULT_BINDING_VOICE_POLICY,
   PenglaiError,
   SCHEMA_VERSION,
+  parseClosedEnum,
   type Binding,
   type BindingVoicePolicy,
   type Inbound,
@@ -15,6 +17,29 @@ import {
   type Route,
   type TurnCorrelation,
 } from "@penglai/contracts";
+
+const ROUTE_ADAPTERS = ["mock", "weixin", "feishu"] as const;
+const ROUTE_STATUSES = ["pending", "active", "revoked"] as const;
+const INBOUND_STATES = [
+  "received",
+  "rejected",
+  "control_handled",
+  "queued",
+  "claimed",
+  "running",
+  "finished",
+  "cancelled",
+  "no_delivery",
+  "outbox_pending",
+  "delivered",
+  "dead",
+] as const;
+const OUTBOX_STATES = ["pending", "claimed", "sending", "retryable", "uncertain", "delivered", "dead"] as const;
+const BODY_KINDS = ["text", "voice", "control"] as const;
+const PAYLOAD_KINDS = ["text", "voice", "text-and-voice"] as const;
+const DISPATCH_MODES = ["followup", "steer"] as const;
+const VOICE_ADAPTERS = ["weixin", "feishu"] as const;
+const VOICE_JOB_STATES = ["claimed", "processing", "transcribed", "retryable", "failed"] as const;
 
 const MIGRATIONS: string[] = [
   `
@@ -588,25 +613,13 @@ export class Store {
       .prepare("SELECT * FROM routes WHERE adapter=? AND account_ref=? AND peer_ref=?")
       .get(adapter, accountRef, peerRef) as Record<string, string> | undefined;
     if (!row) return undefined;
-    return {
-      routeId: String(row.route_id ?? ""),
-      adapter: (row.adapter ?? "mock") as Route["adapter"],
-      accountRef: String(row.account_ref ?? ""),
-      peerRef: String(row.peer_ref ?? ""),
-      status: (row.status ?? "pending") as Route["status"],
-    };
+    return this.mapRoute(row);
   }
 
   getRoute(routeId: string): Route | undefined {
     const row = this.db.prepare("SELECT * FROM routes WHERE route_id=?").get(routeId) as Record<string, string> | undefined;
     if (!row) return undefined;
-    return {
-      routeId: String(row.route_id ?? ""),
-      adapter: (row.adapter ?? "mock") as Route["adapter"],
-      accountRef: String(row.account_ref ?? ""),
-      peerRef: String(row.peer_ref ?? ""),
-      status: (row.status ?? "pending") as Route["status"],
-    };
+    return this.mapRoute(row);
   }
 
   activeBinding(routeId: string): Binding | undefined {
@@ -1018,13 +1031,7 @@ export class Store {
 
   listRoutes(): Route[] {
     const rows = this.db.prepare("SELECT * FROM routes").all() as Record<string, string>[];
-    return rows.map((row) => ({
-      routeId: String(row.route_id ?? ""),
-      adapter: (row.adapter ?? "mock") as Route["adapter"],
-      accountRef: String(row.account_ref ?? ""),
-      peerRef: String(row.peer_ref ?? ""),
-      status: (row.status ?? "pending") as Route["status"],
-    }));
+    return rows.map((row) => this.mapRoute(row));
   }
 
   listActiveBindings(): Binding[] {
@@ -1057,17 +1064,53 @@ export class Store {
     return String(row[key] ?? "");
   }
 
+  redactExpiredPayloads(now = Date.now(), ttlMs = CONFIG.imBodyRetentionMs): { inbounds: number; outbox: number } {
+    if (!Number.isSafeInteger(now) || !Number.isSafeInteger(ttlMs) || ttlMs < 0) {
+      throw new PenglaiError("INVALID_INPUT", "retention window");
+    }
+    const cutoff = now - ttlMs;
+    const inbound = this.db
+      .prepare(
+        `UPDATE inbounds SET payload_text=NULL
+         WHERE created_at < ? AND payload_text IS NOT NULL AND payload_text != ''`,
+      )
+      .run(cutoff);
+    const outbox = this.db
+      .prepare(
+        `UPDATE outbox SET payload_text=''
+         WHERE payload_text != ''
+           AND inbound_id IN (SELECT inbound_id FROM inbounds WHERE created_at < ?)`,
+      )
+      .run(cutoff);
+    try {
+      this.db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+    } catch {
+      /* :memory: and some volumes have no WAL to truncate */
+    }
+    return { inbounds: Number(inbound.changes ?? 0), outbox: Number(outbox.changes ?? 0) };
+  }
+
+  private mapRoute(row: Record<string, string>): Route {
+    return {
+      routeId: String(row.route_id ?? ""),
+      adapter: parseClosedEnum(row.adapter, ROUTE_ADAPTERS, "ROUTE_ADAPTER"),
+      accountRef: String(row.account_ref ?? ""),
+      peerRef: String(row.peer_ref ?? ""),
+      status: parseClosedEnum(row.status, ROUTE_STATUSES, "ROUTE_STATUS"),
+    };
+  }
+
   private mapInbound(row: Record<string, string | number | null>): Inbound {
     return {
       inboundId: this.str(row, "inbound_id"),
       adapterMessageKey: this.str(row, "adapter_message_key"),
       routeId: this.str(row, "route_id"),
       bindingRevision: Number(row.binding_revision ?? 0),
-      bodyKind: this.str(row, "body_kind") as Inbound["bodyKind"],
+      bodyKind: parseClosedEnum(this.str(row, "body_kind"), BODY_KINDS, "BODY_KIND"),
       redactedDigest: this.str(row, "redacted_digest"),
-      state: this.str(row, "state") as InboundState,
+      state: parseClosedEnum(this.str(row, "state"), INBOUND_STATES, "INBOUND_STATE"),
       ...(row.dsh_message_id ? { dshMessageId: String(row.dsh_message_id) } : {}),
-      dispatchMode: row.dispatch_mode === "steer" ? "steer" : "followup",
+      dispatchMode: parseClosedEnum(row.dispatch_mode ?? "followup", DISPATCH_MODES, "DISPATCH_MODE"),
     };
   }
 
@@ -1083,20 +1126,16 @@ export class Store {
   }
 
   private mapOutbox(row: Record<string, string | number>): OutboxItem {
-    const payloadKind = String(row.payload_kind);
-    if (!["text", "voice", "text-and-voice"].includes(payloadKind)) {
-      throw new PenglaiError("STORE_CORRUPT", "outbox payload kind invalid");
-    }
     return {
       outboxId: String(row.outbox_id),
       routeId: String(row.route_id),
       inboundId: String(row.inbound_id),
       turnId: String(row.turn_id),
       sequence: Number(row.sequence),
-      payloadKind: payloadKind as OutboxItem["payloadKind"],
+      payloadKind: parseClosedEnum(row.payload_kind, PAYLOAD_KINDS, "OUTBOX_PAYLOAD_KIND"),
       payloadRef: String(row.payload_ref),
       payloadText: String(row.payload_text),
-      state: row.state as OutboxState,
+      state: parseClosedEnum(row.state, OUTBOX_STATES, "OUTBOX_STATE"),
       attempts: Number(row.attempts),
       nextAttemptAt: Number(row.next_attempt_at),
       ...(row.worker_id ? { workerId: String(row.worker_id) } : {}),
@@ -1111,11 +1150,11 @@ export class Store {
   private mapVoiceJob(row: Record<string, string | number | null>): VoiceJob {
     return {
       inboundId: this.str(row, "inbound_id"),
-      adapter: this.str(row, "adapter") as VoiceJob["adapter"],
+      adapter: parseClosedEnum(this.str(row, "adapter"), VOICE_ADAPTERS, "VOICE_ADAPTER"),
       mediaRefJson: this.str(row, "media_ref_json"),
       durationMs: Number(row.duration_ms),
       ...(row.expected_bytes === null ? {} : { expectedBytes: Number(row.expected_bytes) }),
-      state: this.str(row, "state") as VoiceJobState,
+      state: parseClosedEnum(this.str(row, "state"), VOICE_JOB_STATES, "VOICE_JOB_STATE"),
       ...(row.audio_digest ? { audioDigest: String(row.audio_digest) } : {}),
       ...(row.error_class ? { errorClass: String(row.error_class) } : {}),
       ...(row.asr_language ? { asrLanguage: String(row.asr_language) } : {}),

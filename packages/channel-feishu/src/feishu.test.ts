@@ -54,7 +54,7 @@ function voicePlane() {
 
 test("R2I-FS-011 group and media rejected", () => {
   assert.deepEqual(parseFeishuEvent({ chatType: "group", messageId: "1", text: "x" }), { reject: "group" });
-  const image = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2" });
+  const image = parseFeishuEvent({ chatType: "p2p", messageType: "image", messageId: "2", openId: "o" });
   assert.equal("reject" in image, false);
   if (!("reject" in image)) {
     assert.equal(image.bodyKind, "media");
@@ -521,7 +521,7 @@ test("Feishu scanner identity is the unique allowlist and first DMs do not becom
   assert.equal(adapter.ownerKnown, false);
   assert.equal(h.inputs.length, 0);
   await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.ok(notices.some((row) => row.startsWith("ou_stranger:") && row.includes("Penglai only replies")));
+  assert.equal(notices.some((row) => row.includes("Penglai only replies") || row.includes("只回复")), false);
   assert.match(FEISHU_ALLOWLIST_NOTICE, /扫码确认/);
 
   adapter.setOwner("ou_owner", "registration");
@@ -566,3 +566,11 @@ test("Feishu scanner identity is the unique allowlist and first DMs do not becom
   adapter.stop();
   h.store.close();
 });
+
+test("R56-SEC-010 missing or unknown chatType and sender fail closed without a reply", () => {
+  assert.deepEqual(parseFeishuEvent({ messageId: "1", text: "x", openId: "o" }), { reject: "chatType" });
+  assert.deepEqual(parseFeishuEvent({ chatType: "meeting", messageId: "2", text: "x", openId: "o" }), { reject: "chatType" });
+  assert.deepEqual(parseFeishuEvent({ chatType: "p2p", messageId: "3", text: "x" }), { reject: "sender" });
+  assert.deepEqual(parseOfficialReceive({ event: { message: { message_id: "4", message_type: "text" } } }), { reject: "chatType" });
+});
+

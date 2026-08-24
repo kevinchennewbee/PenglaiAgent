@@ -110,7 +110,9 @@ export class MemoryVault implements CredentialVault {
 }
 
 export function parseInbound(raw: WeixinRaw, accountRef: string): InboundEnvelope | { reject: string } {
+  if (raw.chatType !== "private" && raw.chatType !== "group") return { reject: "chatType" };
   if (raw.chatType !== "private") return { reject: "group" };
+  if (!raw.fromUserId) return { reject: "sender" };
   if (!["text", "voice", "image", "file", "audio"].includes(String(raw.itemType))) return { reject: "media" };
   const n = Number(raw.messageId);
   const official: OfficialWeixinMessage = {
@@ -278,6 +280,7 @@ export class WeixinAdapter {
   private pendingNativeVoiceProbeId: string | undefined;
   private lastNativeVoiceDiagnostic: string | undefined;
   private receiveAttempts = 0;
+  receiveHealth: "ok" | "degraded-missing-credential" = "ok";
   private cursorBlocked = false;
   private voiceAbort = new AbortController();
   private readonly activeVoiceJobs = new Map<string, Promise<void>>();
@@ -498,45 +501,64 @@ export class WeixinAdapter {
     this.receiveStopped = false;
     if (this.voiceAbort.signal.aborted) this.voiceAbort = new AbortController();
     void this.resumePendingVoiceClaims();
+    const sleep = async (ms: number) => {
+      await new Promise<void>((resolve) => {
+        this.receiveTimer = setTimeout(resolve, ms);
+        this.receiveTimer.unref?.();
+      });
+    };
     const loop = async () => {
       while (!this.receiveStopped && !signal?.aborted) {
-        const token = await this.vault.read(this.tokenRef);
-        if (!token) throw new PenglaiError("AUTH_EXPIRED", "weixin credential missing");
-        if (this.transport instanceof ILinkTransport) this.transport.lastToken = token;
         try {
-          const out = await this.transport.getUpdates(this.buf, token, signal);
-          this.receiveAttempts = 0;
-          this.cursorBlocked = false;
-          for (const raw of out.messages) {
-            if (onRaw) await onRaw(raw);
-            else await this.ingest(raw);
+          let token: string | undefined;
+          try {
+            token = await this.vault.read(this.tokenRef);
+          } catch {
+            token = undefined;
           }
-          this.buf = out.buf;
-          if (!this.cursorBlocked) {
-            this.cursors?.putCursor(this.accountRef, "weixin", this.buf);
+          if (!token) {
+            this.receiveHealth = "degraded-missing-credential";
+            if (this.authState === "connected") this.authState = "expired";
+            await sleep(5_000);
+            continue;
           }
-        } catch (err) {
-          const klass = classifyTransportError(err);
-          if (klass === "auth") {
-            this.authState = "error";
-            this.receiveStopped = true;
-            return;
+          this.receiveHealth = "ok";
+          if (this.transport instanceof ILinkTransport) this.transport.lastToken = token;
+          try {
+            const out = await this.transport.getUpdates(this.buf, token, signal);
+            this.receiveAttempts = 0;
+            this.cursorBlocked = false;
+            for (const raw of out.messages) {
+              if (onRaw) await onRaw(raw);
+              else await this.ingest(raw);
+            }
+            this.buf = out.buf;
+            if (!this.cursorBlocked) {
+              this.cursors?.putCursor(this.accountRef, "weixin", this.buf);
+            }
+          } catch (err) {
+            const klass = classifyTransportError(err);
+            if (klass === "auth") {
+              this.authState = "error";
+              this.receiveHealth = "degraded-missing-credential";
+              this.receiveStopped = true;
+              return;
+            }
+            const wait = backoffMs(this.receiveAttempts, klass);
+            this.receiveAttempts += 1;
+            await sleep(Number.isFinite(wait) ? wait : 60_000);
+            continue;
           }
-          const wait = backoffMs(this.receiveAttempts, klass);
-          this.receiveAttempts += 1;
-          await new Promise((resolve) => {
-            this.receiveTimer = setTimeout(resolve, Number.isFinite(wait) ? wait : 60_000);
-            this.receiveTimer.unref?.();
-          });
-          continue;
+          await sleep(1500);
+        } catch {
+          this.receiveHealth = "degraded-missing-credential";
+          await sleep(5_000);
         }
-        await new Promise((resolve) => {
-          this.receiveTimer = setTimeout(resolve, 1500);
-          this.receiveTimer.unref?.();
-        });
       }
     };
-    void loop();
+    void loop().catch(() => {
+      this.receiveHealth = "degraded-missing-credential";
+    });
   }
 
   stopReceive(): void {

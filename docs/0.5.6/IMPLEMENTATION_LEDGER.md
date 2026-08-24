@@ -67,19 +67,19 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-SEC-006 | source-pass | `packages/plugin-registry/src/archive-policy.ts` | `registry.test.ts` | I |
 | R56-SEC-007 | source-pass | `scripts/lib/secret-scan.mjs` | `secret-scan.test.mjs` | I |
 | R56-SEC-008 | source-pass | report is rule/file/line/category only | `secret-scan.test.mjs` | I |
-| R56-SEC-009 | not-started | enum decoders | | S,C |
-| R56-SEC-010 | not-started | channel-feishu chatType | | C,L |
-| R56-SEC-011 | not-started | channel-weixin receive loop | | C,L |
-| R56-SEC-012 | not-started | IM retention | | C,N,I |
-| R56-SEC-013 | not-started | ADR 0035 send hash | | S,C |
-| R56-SEC-014 | not-started | catalog sequence floor 6 | | S,C,I |
-| R56-SEC-015 | not-started | shared-process copy | | I,D |
-| R56-OFF-001 | not-started | office ZIP | | S,C,F |
-| R56-OFF-002 | not-started | office inflate limits | | S,C,F |
-| R56-OFF-003 | not-started | office job store | | S,C,N |
-| R56-OFF-004 | not-started | office backup names | | S,C,I |
-| R56-OFF-005 | not-started | office preview digest | | C,I |
-| R56-OFF-006 | not-started | office path policy | | S,C |
+| R56-SEC-009 | source-pass | `packages/contracts/src/closed-enum.ts`; persistence maps | `closed-enum.test.ts`; `persistence.test.ts` | I |
+| R56-SEC-010 | source-pass | `packages/channel-feishu/src/index.ts` | `feishu.test.ts` | L |
+| R56-SEC-011 | source-pass | Weixin receive loop degrades without throwing | `weixin.test.ts` | L |
+| R56-SEC-012 | source-pass | `Store.redactExpiredPayloads`; IM host on construct | `persistence.test.ts` | N,I; WAL/backup historical copies remain |
+| R56-SEC-013 | source-pass | `assertSha256` in `sendFileToBoundRoute` | `closed-enum.test.ts`; `im.test.ts` | I |
+| R56-SEC-014 | source-pass | catalog sequence floor 6; revocation severity already closed | `registry.test.ts` | I |
+| R56-SEC-015 | source-pass | `assertHonestTrustCopy` refuses isolated-plugin claims | `contracts.test.ts` | I |
+| R56-OFF-001 | source-pass | `packages/office/src/zip.ts` EOCD/central first | `zip.test.ts` | F |
+| R56-OFF-002 | source-pass | stream inflate caps, CRC/size/ratio fail closed | `zip.test.ts` | F |
+| R56-OFF-003 | source-pass | `OfficeJobStore` concurrent/retain/TTL/wipe | `jobs.test.ts` | N |
+| R56-OFF-004 | source-pass | backup name = operation+revision+digest | `jobs.test.ts` | I |
+| R56-OFF-005 | source-pass | preview digest frozen; commit/export check | `jobs.test.ts` | I |
+| R56-OFF-006 | source-pass | dest bound after first commit; tools refuse model paths | `jobs.test.ts`; `tools.test.ts` | |
 
 ### Voice
 
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Phase 1 next capability: Office bounded ZIP (`R56-OFF-001` / `R56-OFF-002`). Enum decoders, IM digest/retention, catalog sequence, and Windows ACL remain in the P0 lane. Do not start Owner Approval Broker until this security class is done.
+Phase 1 P0 office/security source class is source-pass except Windows ACL (`R56-SEC-004`, N/I only). Next local capability: Owner Approval Broker (`R56-OWN-*`, ADR 0034). Do not bump product version. Do not publish.

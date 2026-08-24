@@ -3,6 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 export const PLUGIN_CATALOG_V1 = "penglai.plugin-catalog.v1" as const;
 export const PINNED_DSH = "0.1.1-rc.2" as const;
 export const CENTER_PROTOCOL = 1 as const;
+export const CATALOG_SEQUENCE_FLOOR = 6 as const;
 export const GITHUB_OWNER = "kevinchennewbee";
 export const PLUGIN_REGISTRY_REPO = "PenglaiPluginRegistry";
 export const APP_REPO = "PenglaiAgent";
@@ -118,7 +119,7 @@ export function parseSignedPluginCatalog(raw: unknown, nowMs = Date.now()): Sign
   if (!isRecord(raw)) throw new PenglaiError("INVALID_INPUT", "catalog");
   if (raw.schema !== PLUGIN_CATALOG_V1) throw new PenglaiError("INVALID_INPUT", "catalog schema");
   if (raw.centerProtocol !== CENTER_PROTOCOL) throw new PenglaiError("SECURITY_POLICY", "center protocol");
-  if (!Number.isSafeInteger(raw.sequence) || Number(raw.sequence) < 1) {
+  if (!Number.isSafeInteger(raw.sequence) || Number(raw.sequence) < CATALOG_SEQUENCE_FLOOR) {
     throw new PenglaiError("SECURITY_POLICY", "catalog sequence");
   }
   const issuedAt = Date.parse(requireString(raw.issuedAt, "issuedAt"));

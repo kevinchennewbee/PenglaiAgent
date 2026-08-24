@@ -111,7 +111,7 @@ function catalogJson(overrides: Record<string, unknown> = {}) {
   return {
     schema: "penglai.plugin-catalog.v1",
     catalogId: "stable",
-    sequence: 2,
+    sequence: 6,
     issuedAt: "2026-08-21T00:00:00.000Z",
     expiresAt: "2026-09-21T00:00:00.000Z",
     centerProtocol: 1,
@@ -198,7 +198,7 @@ test("P51-SUPPLY-001 signed catalog verifies canonical bytes and rejects tamper"
     signingKeyId: identity.signingKeyId,
     nowMs: Date.parse("2026-08-22T00:00:00.000Z"),
   });
-  assert.equal(verified.catalog.sequence, 2);
+  assert.equal(verified.catalog.sequence, 6);
   const tampered = { ...json, sequence: 3 };
   assert.throws(
     () =>
@@ -256,18 +256,24 @@ test("P51-SUPPLY-001 rejects latest.json, expired, defaultEnabled, and DSH drift
       ),
     /DSH/,
   );
+  assert.throws(() => parseSignedPluginCatalog(catalogJson({ sequence: 5 })), /catalog sequence/);
 });
 
 test("P51-SUPPLY-001 trust ledger refuses downgrade and same-sequence digest change", () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-trust-"));
   const path = join(dir, "trust-state.json");
-  acceptMonotonic({ path, kind: "plugin-catalog", sequence: 2, keyEpoch: 1, digest: "a".repeat(64) });
+  acceptMonotonic({ path, kind: "plugin-catalog", sequence: 6, keyEpoch: 1, digest: "a".repeat(64) });
   assert.throws(
-    () => acceptMonotonic({ path, kind: "plugin-catalog", sequence: 1, keyEpoch: 1, digest: "b".repeat(64) }),
+    () => acceptMonotonic({ path, kind: "plugin-catalog", sequence: 5, keyEpoch: 1, digest: "b".repeat(64) }),
+    /catalog sequence/,
+  );
+  acceptMonotonic({ path, kind: "plugin-catalog", sequence: 7, keyEpoch: 1, digest: "b".repeat(64) });
+  assert.throws(
+    () => acceptMonotonic({ path, kind: "plugin-catalog", sequence: 6, keyEpoch: 1, digest: "a".repeat(64) }),
     /rollback/,
   );
   assert.throws(
-    () => acceptMonotonic({ path, kind: "plugin-catalog", sequence: 2, keyEpoch: 1, digest: "c".repeat(64) }),
+    () => acceptMonotonic({ path, kind: "plugin-catalog", sequence: 7, keyEpoch: 1, digest: "c".repeat(64) }),
     /different digest/,
   );
 });

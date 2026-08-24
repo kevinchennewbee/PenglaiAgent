@@ -195,3 +195,83 @@ test("P51-IM-001 outbox claim is exclusive", () => {
   assert.equal(store.getOutbox("out1")?.state, "claimed");
   store.close();
 });
+
+test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
+  const store = new Store(":memory:");
+  store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
+  store.db.prepare("UPDATE routes SET adapter='slack', status='enabled' WHERE route_id='r1'").run();
+  assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_ADAPTER/);
+  store.db.prepare("UPDATE routes SET adapter='mock', status='enabled' WHERE route_id='r1'").run();
+  assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_STATUS/);
+  store.insertInbound(
+    {
+      inboundId: "in-bad",
+      adapterMessageKey: "k-bad",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "text",
+      redactedDigest: "d",
+      state: "queued",
+    },
+    "secret-body",
+    1,
+  );
+  store.db.prepare("UPDATE inbounds SET state='success', dispatch_mode='private' WHERE inbound_id='in-bad'").run();
+  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_INBOUND_STATE|UNKNOWN_DISPATCH_MODE/);
+  store.close();
+});
+
+test("R56-SEC-012 IM body older than 24h is redacted from inbound and outbox", () => {
+  const store = new Store(":memory:");
+  store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
+  const now = 2_000_000_000_000;
+  store.insertInbound(
+    {
+      inboundId: "old",
+      adapterMessageKey: "old-key",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "text",
+      redactedDigest: "d",
+      state: "delivered",
+    },
+    "old-secret-body",
+    now - 25 * 60 * 60 * 1000,
+  );
+  store.insertInbound(
+    {
+      inboundId: "fresh",
+      adapterMessageKey: "fresh-key",
+      routeId: "r1",
+      bindingRevision: 1,
+      bodyKind: "text",
+      redactedDigest: "d",
+      state: "queued",
+    },
+    "fresh-body",
+    now - 60 * 1000,
+  );
+  store.insertOutbox({
+    outboxId: "out-old",
+    routeId: "r1",
+    inboundId: "old",
+    turnId: "t-old",
+    sequence: 1,
+    payloadKind: "text",
+    payloadRef: "r",
+    payloadText: "old-secret-reply",
+    state: "delivered",
+    attempts: 1,
+    nextAttemptAt: now,
+    fragmentIndex: 0,
+    fragmentCount: 1,
+  });
+  const cleaned = store.redactExpiredPayloads(now);
+  assert.equal(cleaned.inbounds, 1);
+  assert.equal(cleaned.outbox, 1);
+  assert.equal(store.getInboundPayloadText("old"), undefined);
+  assert.equal(store.getInboundPayloadText("fresh"), "fresh-body");
+  assert.equal(store.getOutbox("out-old")?.payloadText, "");
+  store.close();
+});
+

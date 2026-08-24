@@ -39,7 +39,10 @@ test("R50-UI-002/003 Penglai catalog has complete zh and en", () => {
 test("R50-UI-008 about/trust copy does not claim notarized or silent update", () => {
   assertHonestTrustCopy(PENGLAI_I18N.zh.aboutTrust);
   assertHonestTrustCopy(PENGLAI_I18N.en.aboutTrust);
+  assertHonestTrustCopy(PENGLAI_I18N.zh.pluginSharedProcess);
+  assertHonestTrustCopy(PENGLAI_I18N.en.pluginSharedProcess);
   assert.throws(() => assertHonestTrustCopy("This build is notarized and offers silent auto-update"));
+  assert.throws(() => assertHonestTrustCopy("Plugins run in an isolated plugin process"));
 });
 
 test("transport errors classify and auth does not retry", () => {

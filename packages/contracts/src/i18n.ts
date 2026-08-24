@@ -103,9 +103,13 @@ export function assertCatalogComplete(): void {
 }
 
 const LIE = /notarized|Authenticode signed|silent auto-update|已公证|静默自动升级/i;
+const PROCESS_LIE = /isolated plugin process|plugin sandbox|独立插件进程|插件沙箱/i;
 
 export function assertHonestTrustCopy(text: string): void {
   if (LIE.test(text) && !/not notarized|no Authenticode|不是静默|not silent/i.test(text)) {
     throw new Error("trust copy claims OS publisher trust or silent auto-update");
+  }
+  if (PROCESS_LIE.test(text) && !/share|共享/i.test(text)) {
+    throw new Error("trust copy claims a plugin process boundary that Penglai does not have");
   }
 }

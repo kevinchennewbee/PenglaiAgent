@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import { remoteMethods } from "@deepseek-ai/dsh-typert-protocol";
+import { createHash } from "node:crypto";
 import { PenglaiError } from "@penglai/contracts";
 import {
   addVoiceContextAtOfficialPreStep,
@@ -631,3 +632,59 @@ test("Feishu owner is required for inbound and persists without appearing in ove
   assert.equal(source, "registration");
   rt.store.close();
 });
+
+test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller digest", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: {
+      version: "0.1.1-rc.2",
+      getAgent: () => undefined,
+      listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+    },
+  });
+  rt.store.upsertRoute({ routeId: "r-send", adapter: "weixin", accountRef: "a", peerRef: "p", status: "active" });
+  rt.store.putBinding({
+    routeId: "r-send",
+    workspaceIdentity: "w",
+    sessionId: "s",
+    revision: 1,
+    status: "active",
+    createdAt: "2026-08-24T00:00:00.000Z",
+    updatedAt: "2026-08-24T00:00:00.000Z",
+  });
+  rt.store.putVendorReplyTarget("r-send", "wx-owner");
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { sendFile: async () => ({ ok: true }) } as never,
+    { sendFile: async () => ({ ok: true }) } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+  );
+  const bytes = Buffer.from("office-bytes");
+  await assert.rejects(
+    () =>
+      host.sendFileToBoundRoute({
+        routeId: "r-send",
+        sessionId: "s",
+        workspaceId: "w",
+        filename: "note.docx",
+        bytes,
+        digest: "a".repeat(64),
+      }),
+    /SEND_ARTIFACT_DIGEST_MISMATCH/,
+  );
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const sent = await host.sendFileToBoundRoute({
+    routeId: "r-send",
+    sessionId: "s",
+    workspaceId: "w",
+    filename: "note.docx",
+    bytes,
+    digest,
+  });
+  assert.equal(sent.delivered, true);
+  rt.store.close();
+});
+
