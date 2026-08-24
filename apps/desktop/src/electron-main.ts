@@ -50,6 +50,7 @@ import {
   readWorkspaceProtection,
   releaseTarget,
 } from "./lifecycle.js";
+import { allowMicrophoneMedia, issueMicrophoneNonce, type MicrophoneNonce } from "./microphone-grant.js";
 import { productionDebuggerForbidden } from "./production-flags.js";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
 import { createContextGrantReceipt } from "./context-grant.js";
@@ -287,7 +288,24 @@ async function main(): Promise<void> {
     openOfficialConsole(url);
     return { action: "deny" };
   });
-  session.defaultSession.setPermissionRequestHandler((_w, _p, cb) => cb(false));
+  let pendingMicrophone: MicrophoneNonce | undefined;
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb, details) => {
+    if (permission !== "media") {
+      cb(false);
+      return;
+    }
+    const raw = details as { requestingUrl?: string; mediaTypes?: string[] } | undefined;
+    const decision = allowMicrophoneMedia({
+      pending: pendingMicrophone,
+      webContentsId: wc.id,
+      details: {
+        ...(raw?.requestingUrl ? { requestingUrl: raw.requestingUrl } : {}),
+        ...(raw?.mediaTypes ? { mediaTypes: raw.mediaTypes } : {}),
+      },
+    });
+    if (decision.allow) pendingMicrophone = undefined;
+    cb(decision.allow);
+  });
   session.defaultSession.on("will-download", (event) => event.preventDefault());
   const user = { ...resolveUserLayout(desktopData.userData), logs: desktopData.logs };
   const live = new DshSupervisor();
@@ -717,6 +735,14 @@ async function main(): Promise<void> {
               throw error;
             }
           });
+        }
+        if (name === "beginMicrophoneRequest") {
+          requireNoArguments(args);
+          pendingMicrophone = issueMicrophoneNonce({
+            webContentsId: win.webContents.id,
+            origin: allowedOrigin,
+          });
+          return { expiresAt: pendingMicrophone.expiresAt };
         }
         if (name === "requestOwnerApproval") {
           if (args.length !== 1) throw new PenglaiError("INVALID_INPUT", "one owner action payload is required");

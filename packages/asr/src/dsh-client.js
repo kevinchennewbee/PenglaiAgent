@@ -724,8 +724,16 @@ window.__ModuleLoader__.load({
           }));
           return;
         }
-        navigator.mediaDevices
-          .getUserMedia({ audio: true })
+        const native = window.penglai;
+        if (!native || typeof native.beginMicrophoneRequest !== "function") {
+          setView((current) => ({
+            ...current,
+            error: "microphone permission is unavailable",
+          }));
+          return;
+        }
+        Promise.resolve(native.beginMicrophoneRequest())
+          .then(() => navigator.mediaDevices.getUserMedia({ audio: true }))
           .then((stream) => {
             const recorder = new MediaRecorder(stream);
             chunksRef.current = [];

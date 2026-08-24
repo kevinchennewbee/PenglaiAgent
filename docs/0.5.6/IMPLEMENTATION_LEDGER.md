@@ -83,9 +83,16 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 
 ### Voice
 
-| ID | Status | Missing evidence |
-|---|---|---|
-| R56-VOICE-001 .. 014 | not-started | I/L three-target audio for 001/002/010/011; S/C for controller and permission |
+| ID | Status | Source | Tests | Missing evidence |
+|---|---|---|---|---|
+| R56-VOICE-001 | source-pass | shared `createAudioPlaybackController` | `playback-controller.test.ts`; `settings-ui.test.ts` | I/L three-target audio |
+| R56-VOICE-002 | source-pass | preview and read use the same controller | `dsh-client.js`; `settings-ui.test.ts` | I/L |
+| R56-VOICE-003 | source-pass | await `audio.play()`, generation, revoke on end/error | `playback-controller.ts` | I |
+| R56-VOICE-004 | source-pass | `beginMicrophoneRequest` nonce; audio-only media | `microphone-grant.ts` | I/L system permission |
+| R56-VOICE-005 | source-pass | ASR calls nonce before `getUserMedia({ audio: true })` | `settings-ui.test.ts` | I |
+| R56-VOICE-006 | source-pass | camera/video/unknown mediaTypes denied | `microphone-grant.test.ts` | N Electron details |
+| R56-VOICE-007 | source-pass | read button says original text, not translation | `dsh-client.js` | I |
+| R56-VOICE-008 .. 014 | not-started | installed/live audio matrix | | I/L |
 
 ### Memory
 
@@ -175,4 +182,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Artifact Service CAS/intake/scope/GC is source-pass. Composer file Turn binding stays blocked. Next local capability: Voice 2.0 playback controller and microphone permission nonce (S/C only). Do not bump product version. Do not publish.
+Voice 2.0 playback controller and microphone nonce are source-pass. Live three-target audio remains I/L. Next local capability: Memory 2.0 list/candidates/governance. Do not bump product version. Do not publish.

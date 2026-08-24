@@ -100,6 +100,9 @@ function loadAsrClient(remote: Record<string, unknown>) {
     JSON,
     Error,
     window: {
+      penglai: {
+        beginMicrophoneRequest: async () => ({ nonce: "mic_test" }),
+      },
       AudioContext: class {
         decodeAudioData(buf: ArrayBuffer) {
           const header = Buffer.from(buf).subarray(0, 4);
@@ -321,9 +324,10 @@ test("ASR conversation microphone records to the composer draft via shipped tran
   assert.equal(button.props["data-penglai-asr-mic"], "1");
   assert.equal(typeof button.props.onClick, "function");
   (button.props.onClick as () => void)();
-  await Promise.resolve();
-  await Promise.resolve();
-  button = renderMic();
+  for (let i = 0; i < 12 && button.props["data-penglai-asr-mic"] !== "recording"; i += 1) {
+    await Promise.resolve();
+    button = renderMic();
+  }
   assert.equal(button.props["data-penglai-asr-mic"], "recording");
   (button.props.onClick as () => void)();
   for (let i = 0; i < 30 && drafts.length === 0; i += 1) {
@@ -332,6 +336,13 @@ test("ASR conversation microphone records to the composer draft via shipped tran
   assert.deepEqual(drafts, ["你好蓬莱"]);
   button = renderMic();
   assert.equal(button.props["data-penglai-asr-draft"], "你好蓬莱");
+});
+
+test("ASR microphone click requires a native permission nonce before getUserMedia", () => {
+  const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  assert.match(client, /beginMicrophoneRequest/);
+  assert.match(client, /getUserMedia\(\{ audio: true \}\)/);
+  assert.ok(client.indexOf("beginMicrophoneRequest") < client.indexOf("getUserMedia({ audio: true })"));
 });
 
 test("ASR settings testTranscribe rejects audio above 2MiB", async () => {

@@ -106,6 +106,9 @@ window.__ModuleLoader__.load({
         cancel: "取消下载",
         preview: "试听所选声音",
         playing: "正在播放试听…",
+        readOriginal: "朗读原文",
+        retry: "重试",
+        openSettings: "打开语音合成设置",
         loading: "正在读取语音合成状态…",
         unavailable: "语音合成服务暂时不可用。插件仍可通过 Center 查看。",
         busy: "处理中…",
@@ -125,6 +128,9 @@ window.__ModuleLoader__.load({
         cancel: "Cancel download",
         preview: "Preview selected voice",
         playing: "Playing preview…",
+        readOriginal: "Read original text",
+        retry: "Retry",
+        openSettings: "Open speech settings",
         loading: "Reading speech synthesis status…",
         unavailable:
           "Speech synthesis is temporarily unavailable. The plugin is still listed in Center.",
@@ -134,6 +140,83 @@ window.__ModuleLoader__.load({
         downloaded: "Downloaded",
       },
     };
+
+    function createAudioPlaybackController() {
+      let generation = 0;
+      let state = "idle";
+      let current;
+      const listeners = new Set();
+      const emit = (next) => {
+        state = next;
+        listeners.forEach((fn) => fn(state));
+      };
+      const release = () => {
+        const held = current;
+        current = undefined;
+        if (!held) return;
+        try {
+          held.audio.onended = null;
+          held.audio.onerror = null;
+          held.audio.pause();
+        } catch {
+          /* player already closed */
+        }
+        URL.revokeObjectURL(held.url);
+      };
+      const finish = (token, next, url) => {
+        if (token !== generation) return;
+        if (url) URL.revokeObjectURL(url);
+        current = undefined;
+        emit(next);
+        if (next === "completed" || next === "failed") emit("idle");
+      };
+      return {
+        beginSynthesize() {
+          generation += 1;
+          emit("synthesizing");
+          return generation;
+        },
+        async play(blob, token) {
+          const used = token ?? generation;
+          if (used !== generation) return { state, generation };
+          release();
+          emit("buffering");
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          current = { url, audio, generation: used };
+          audio.onended = () => finish(used, "completed", url);
+          audio.onerror = () => finish(used, "failed", url);
+          try {
+            emit("playing");
+            await audio.play();
+            return { state: used === generation ? "playing" : state, generation: used };
+          } catch {
+            finish(used, "failed", url);
+            return { state: "failed", generation: used, errorCode: "TTS_PLAY_REJECTED" };
+          }
+        },
+        async stop() {
+          generation += 1;
+          emit("stopping");
+          release();
+          emit("idle");
+        },
+        getState() {
+          return state;
+        },
+        subscribe(fn) {
+          listeners.add(fn);
+          return () => listeners.delete(fn);
+        },
+      };
+    }
+    const playback = createAudioPlaybackController();
+    function wavBlob(wavBase64) {
+      const binary = atob(String(wavBase64 ?? ""));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: "audio/wav" });
+    }
 
     function localeCopy() {
       const id = String(document.documentElement.lang ?? "zh");
@@ -247,9 +330,15 @@ window.__ModuleLoader__.load({
       };
       const preview = () => {
         if (!api?.previewVoice) return;
+        if (playback.getState() === "playing") {
+          void playback.stop();
+          setView((current) => ({ ...current, playing: false, busy: false }));
+          return;
+        }
         const voice = (view.voices || []).find(
           (row) => row.id === view.voiceId,
         );
+        const token = playback.beginSynthesize();
         setView((current) => ({
           ...current,
           busy: true,
@@ -266,24 +355,21 @@ window.__ModuleLoader__.load({
             operationId: operationId("ttsprev"),
           }),
         )
-          .then((value) => {
+          .then(async (value) => {
             const out = unwrapRemote(value);
-            const binary = atob(String(out.wavBase64 ?? ""));
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i += 1)
-              bytes[i] = binary.charCodeAt(i);
-            const url = URL.createObjectURL(
-              new Blob([bytes], { type: "audio/wav" }),
-            );
-            const audio = new Audio(url);
-            audio.onended = () => {
-              URL.revokeObjectURL(url);
-              setView((current) => ({ ...current, playing: false }));
-            };
-            setView((current) => ({ ...current, busy: false, playing: true }));
-            void audio.play();
+            const result = await playback.play(wavBlob(out.wavBase64), token);
+            setView((current) => ({
+              ...current,
+              busy: false,
+              playing: result.state === "playing",
+              error:
+                result.state === "failed"
+                  ? result.errorCode || "TTS_PLAY_REJECTED"
+                  : "",
+            }));
           })
           .catch((error) => {
+            void playback.stop();
             setView((current) => ({
               ...current,
               busy: false,
@@ -439,38 +525,46 @@ window.__ModuleLoader__.load({
 
     function TtsReadButton(props) {
       const api = props.remote?.penglaiMossTtsSettings;
+      const t = localeCopy();
       const [busy, setBusy] = React.useState(false);
+      const [error, setError] = React.useState("");
       const play = () => {
         const text = String(props.text ?? "").trim();
         if (!api?.readAloud || !text) return;
+        if (playback.getState() === "playing") {
+          void playback.stop();
+          setBusy(false);
+          return;
+        }
+        const token = playback.beginSynthesize();
         setBusy(true);
+        setError("");
         Promise.resolve(
           api.readAloud({
             text,
             operationId: operationId("ttsread"),
           }),
         )
-          .then((value) => {
+          .then(async (value) => {
             const out = unwrapRemote(value);
-            const binary = atob(String(out.wavBase64 ?? ""));
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i += 1)
-              bytes[i] = binary.charCodeAt(i);
-            const url = URL.createObjectURL(
-              new Blob([bytes], { type: "audio/wav" }),
-            );
-            const audio = new Audio(url);
-            audio.onended = () => URL.revokeObjectURL(url);
-            void audio.play();
+            const result = await playback.play(wavBlob(out.wavBase64), token);
+            if (result.state === "failed") setError(result.errorCode || "TTS_PLAY_REJECTED");
+          })
+          .catch((err) => {
+            void playback.stop();
+            setError(String(err && err.message ? err.message : err));
           })
           .finally(() => setBusy(false));
       };
       return jsx.jsx("button", {
         type: "button",
         "data-penglai-tts-read": "1",
+        "data-penglai-tts-read-error": error,
+        title: t.readOriginal,
+        "aria-label": t.readOriginal,
         disabled: busy,
         onClick: play,
-        children: "read",
+        children: error ? t.retry : "read",
       });
     }
 

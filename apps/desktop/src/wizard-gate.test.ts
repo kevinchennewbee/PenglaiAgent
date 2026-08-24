@@ -66,6 +66,7 @@ test("preload API includes wizardFinished and wizardPickFolder", () => {
   assert.ok(PRELOAD_API.includes("wizardPickFolder"));
   assert.ok(PRELOAD_API.includes("confirmPluginAction"));
   assert.ok(PRELOAD_API.includes("requestOwnerApproval"));
+  assert.ok(PRELOAD_API.includes("beginMicrophoneRequest"));
 });
 
 test("startup failure text redacts secret-shaped fragments", () => {

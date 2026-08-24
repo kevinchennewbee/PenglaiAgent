@@ -51,6 +51,8 @@ test("renderer lifecycle surface has no arbitrary installer URL path or delete p
   assert.match(main, /native owner confirmation is required for deletion/);
   assert.match(main, /confirmPluginAction/);
   assert.match(main, /requestOwnerApprovalArgs/);
+  assert.match(main, /beginMicrophoneRequest/);
+  assert.match(main, /allowMicrophoneMedia/);
   assert.match(main, /issuePluginOwnerGrant/);
   assert.match(main, /buildDeletionPlan\(\{/);
   assert.match(main, /operationId: `del_/);

@@ -19,6 +19,7 @@ export const PRELOAD_API = [
   "pickContextFolder",
   "confirmPluginAction",
   "requestOwnerApproval",
+  "beginMicrophoneRequest",
   "restartPluginRuntime",
 ] as const;
 

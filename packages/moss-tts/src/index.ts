@@ -71,3 +71,4 @@ export * from "./models.js";
 export * from "./engine.js";
 export * from "./output-registry.js";
 export * from "./synth.js";
+export * from "./playback-controller.js";

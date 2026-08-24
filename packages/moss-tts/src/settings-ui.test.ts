@@ -209,6 +209,7 @@ test("MOSS-TTS settings client loopback registers the official tab and decodes p
   (preview!.props.onClick as () => void)();
   await Promise.resolve();
   await Promise.resolve();
+  for (let i = 0; i < 8 && played.length === 0; i += 1) await Promise.resolve();
   assert.deepEqual(played, ["blob:penglai-tts-preview"]);
   assert.equal(blobs[0]?.type, "audio/wav");
   assert.equal(blobs[0]?.size, wav.length);
@@ -351,6 +352,17 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
   (button.props.onClick as () => void)();
   await Promise.resolve();
   await Promise.resolve();
+  for (let i = 0; i < 8 && played.length === 0; i += 1) await Promise.resolve();
   assert.deepEqual(read, ["助手已经记住了"]);
   assert.deepEqual(played, ["blob:penglai-tts-read"]);
+});
+
+test("TTS preview and read-aloud share one playback controller", () => {
+  const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  assert.match(client, /function createAudioPlaybackController/);
+  assert.match(client, /const playback = createAudioPlaybackController\(\)/);
+  assert.match(client, /await audio\.play\(\)/);
+  assert.match(client, /TTS_PLAY_REJECTED/);
+  assert.match(client, /readOriginal/);
+  assert.equal((client.match(/new Audio\(/g) ?? []).length, 1);
 });
