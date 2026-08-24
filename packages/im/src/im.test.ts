@@ -715,4 +715,3 @@ test("R56-SEC-013 sendFileToBoundRoute rehashes bytes and ignores the caller dig
   assert.equal(sent.delivered, true);
   rt.store.close();
 });
-

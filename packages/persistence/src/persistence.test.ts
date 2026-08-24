@@ -274,4 +274,3 @@ test("R56-SEC-012 IM body older than 24h is redacted from inbound and outbox", (
   assert.equal(store.getOutbox("out-old")?.payloadText, "");
   store.close();
 });
-
