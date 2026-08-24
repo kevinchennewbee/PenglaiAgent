@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/contracts" },
+    { "path": "packages/artifacts" },
     { "path": "packages/audio-codecs" },
     { "path": "packages/testkit" },
     { "path": "packages/persistence" },

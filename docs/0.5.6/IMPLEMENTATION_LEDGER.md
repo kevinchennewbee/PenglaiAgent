@@ -118,9 +118,20 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 |---|---|---|---|---|
 | R56-FILE-001 | blocked | no official file Turn API | `r56-file-intake-spike.test.ts` | I blocked |
 | R56-FILE-002 | blocked | same | same | I,L |
-| R56-FILE-003 | not-started | ArtifactRef (Phase 3) | | S,C |
-| R56-FILE-004 .. 015 | not-started | Artifact Service after Phase 3 | | S/C/I as specified |
-| R56-FILE-016 | blocked | spike GO/BLOCKED | `r56-file-intake-spike.ts` | A complete; composer GO false |
+| R56-FILE-003 | source-pass | `@penglai/artifacts` ArtifactRef, no path | `packages/artifacts/src/service.test.ts` | I |
+| R56-FILE-004 | source-pass | bytes/path intake → hash/magic/admit/CAS | `service.test.ts` | I picker/drag-drop |
+| R56-FILE-005 | source-pass | O_NOFOLLOW; refuse symlink/device/dir | `service.test.ts` | |
+| R56-FILE-006 | source-pass | extension/magic mismatch | `service.test.ts` | |
+| R56-FILE-007 | source-pass | 8 MiB / 5 files / 24 MiB turn caps | `service.test.ts` | I |
+| R56-FILE-008 | source-pass | macro/encrypt/exe/nested archive | `service.test.ts` | I |
+| R56-FILE-009 | not-started | installed controlled read of admit list | | I,L |
+| R56-FILE-010 | not-started | DSH native images unchanged | | C,I |
+| R56-FILE-011 | source-pass | turn TTL 24h; GC CAS/index/staging | `service.test.ts` | I |
+| R56-FILE-012 | source-pass | persist workspace/memory-source needs actionId | `service.test.ts` | I |
+| R56-FILE-013 | source-pass | workspace/session mismatch cannot read | `service.test.ts` | I |
+| R56-FILE-014 | not-started | disabled Office still shows old Turn refs | | C,I |
+| R56-FILE-015 | not-started | filename/type/size/scope UI | | I |
+| R56-FILE-016 | blocked | `bindComposerTurn` throws `DSH_NO_GENERIC_FILE_TURN_API` | spike + `service.test.ts` | A complete; composer GO false |
 
 FILE-003..015 may proceed for Office/IM ArtifactRef. Composer send stays blocked.
 
@@ -164,4 +175,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Owner Broker, Office adapter, and Plugin Center disable/rollback grants are source-pass. Next local capability: Artifact Service (`@penglai/artifacts`, ADR 0035). Native dialog clicks and installed policy=`never` remain N/I. Do not bump product version. Do not publish.
+Artifact Service CAS/intake/scope/GC is source-pass. Composer file Turn binding stays blocked. Next local capability: Voice 2.0 playback controller and microphone permission nonce (S/C only). Do not bump product version. Do not publish.

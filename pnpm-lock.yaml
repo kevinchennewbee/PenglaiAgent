@@ -80,6 +80,12 @@ importers:
         specifier: 43.4.0
         version: 43.4.0
 
+  packages/artifacts:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/asr:
     dependencies:
       '@deepseek-ai/cordis':
