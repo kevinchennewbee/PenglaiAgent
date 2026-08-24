@@ -26,6 +26,13 @@ On macOS the credentials directory/file use 0700/0600. On Windows they use a cur
 
 0.4.1 credentials and databases are not read, imported, or deleted.
 
+Official DSH rc.2 bundles a session-telemetry adapter and a configured DeepSeek
+OTLP endpoint. Penglai does not operate that backend and does not rely only on
+the adapter's default mode: the owned DSH child receives
+`DSH_TELEMETRY_DISABLED=1` from a closed environment allowlist. DSH applies that
+disable after profile patches and constructs no telemetry SDK provider or upload
+pipeline.
+
 ## Instant messaging risk
 
 `@penglai/im` is the only IM plugin. Weixin and Feishu are the only live adapters in 0.5.6 and cannot call a parallel Agent directly. DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp are roadmap-only and cannot connect, bind, or send.

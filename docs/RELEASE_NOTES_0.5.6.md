@@ -87,10 +87,11 @@ preserved.
   Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
   and plugin bytes but are not Apple or Microsoft publisher identity.
 - Penglai has no account, Penglai-operated telemetry backend, cloud memory
-  sync, or cloud ASR/TTS. Official DSH's bundled session-telemetry adapter stays
-  in its default `DISABLED` mode; with no exporter endpoint it constructs no
-  upload pipeline. Model calls still send the task context to the provider
-  selected by the user.
+  sync, or cloud ASR/TTS. Official DSH bundles a session-telemetry adapter and a
+  dormant DeepSeek OTLP endpoint. Penglai hard-disables that row after profile
+  patches, so the owned DSH process constructs no SDK provider or upload
+  pipeline. Model calls still send the task context to the provider selected by
+  the user.
 
 ## 中文
 
@@ -157,5 +158,6 @@ Discord、WhatsApp 只作为路线图展示，没有“连接”按钮，也不�
   SmartScreen 可能提示。蓬莱 Ed25519 签名保护升级和插件字节，不代表 Apple 或
   Microsoft 发布者身份。
 - 蓬莱没有账号、蓬莱运营的遥测后端、云记忆同步或云 ASR/TTS。official DSH 自带的
-  session-telemetry adapter 保持默认 `DISABLED`，没有 exporter 地址时不会构造上传
-  管线。模型调用仍会把完成任务所需上下文发给用户选择的供应商。
+  session-telemetry adapter 也包含一个休眠的 DeepSeek OTLP 地址。蓬莱会在所有
+  profile patch 之后硬性禁用该行，因此 owned DSH 不会创建 SDK provider 或上传管线。
+  模型调用仍会把完成任务所需上下文发给用户选择的供应商。

@@ -931,7 +931,7 @@ export function killStaleSupervisor(layout: RuntimeLayout, user: UserLayout): vo
 }
 
 /**
- * Build the official rc.8 Web invocation used by every embedded supervisor.
+ * Build the official rc.2 Web invocation used by every embedded supervisor.
  * DSH Web intentionally opens the operating-system browser unless --no-open
  * is present; Penglai owns its BrowserWindow, so an external handoff would
  * leak the authenticated loopback surface and create one Safari tab per boot.
@@ -1005,6 +1005,10 @@ export class EmbeddedDshSupervisor {
       DSH_HOME: user.dshHome,
       PENGLAI_USER_DATA: user.root,
       PENGLAI_DSH_PIN: PINNED_DSH,
+      // Penglai does not operate a telemetry backend. Apply DSH's hard-disable
+      // switch after every profile patch so a local profile cannot activate the
+      // bundled OTel exporter or its dormant vendor endpoint.
+      DSH_TELEMETRY_DISABLED: "1",
       LANG: env.LANG ?? "en_US.UTF-8",
       ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
       ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),

@@ -60,6 +60,12 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - 同OS用户高权限本地进程可能读取文件，UI/文档必须诚实。
 - permission/ACL invalid、corrupt、write denied、resolve failed全部fail closed；无env/MemoryVault/SQLite/Keychain fallback。
 - 0.4.1 credential不读取、迁移或删除。
+- official DSH rc.2 内含 session-telemetry adapter 和预配置的 DeepSeek OTLP 地址。
+  蓬莱不运营该后端；owned DSH 的封闭环境白名单固定注入
+  `DSH_TELEMETRY_DISABLED=1`，且不转发 `DSH_TELEMETRY_MODE` 或
+  `DSH_TELEMETRY_OTLP_URL`。DSH 会在 profile patch 之后禁用该行，不创建 telemetry
+  SDK provider 或上传管线。未来若产品要提供 opt-in，必须另行设计可见 Owner 同意和
+  数据披露，不能靠 profile 或父进程环境静默打开。
 
 ## 7. Onboarding与API测试
 

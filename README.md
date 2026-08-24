@@ -220,8 +220,9 @@ preserved.
 ## Trust boundaries worth reading
 
 - There is no Penglai account, Penglai-operated telemetry backend, or cloud
-  memory sync. Official DSH's bundled session-telemetry adapter stays in its
-  default `DISABLED` mode: without an exporter endpoint it constructs no upload
+  memory sync. Official DSH bundles a session-telemetry adapter and a dormant
+  DeepSeek OTLP endpoint, but Penglai's owned DSH process hard-disables the row
+  after profile patches. In that state DSH constructs no SDK provider or upload
   pipeline.
 - Users bring their own model provider credentials. Official DSH writes them to
   app-private YAML; this is not Keychain or hardware isolation.
@@ -456,8 +457,9 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 ## 需要读清楚的信任边界
 
 - 没有蓬莱账号、蓬莱运营的遥测后端或云端记忆同步。official DSH 自带的
-  session-telemetry adapter 保持默认 `DISABLED`；没有 exporter 地址时不会构造
-  上传管线。
+  session-telemetry adapter 也包含一个休眠的 DeepSeek OTLP 地址，但蓬莱启动的
+  DSH 会在所有 profile patch 之后硬性禁用该行；此状态下不会创建 SDK provider
+  或上传管线。
 - 用户自备模型供应商密钥。official DSH 把密钥写入 app-private YAML；这不是
   Keychain 或硬件隔离。
 - macOS 是 ad-hoc 签名、未公证；Windows 没有 Authenticode，Gatekeeper 或

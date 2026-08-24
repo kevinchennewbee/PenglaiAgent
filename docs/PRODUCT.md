@@ -145,9 +145,9 @@ consumed only after the real operation succeeds.
 ### 10. Data, updates, and uninstall
 
 Penglai has no account, Penglai-operated telemetry backend, cloud memory sync,
-or cloud ASR/TTS. Official DSH's bundled session-telemetry adapter remains in
-its default `DISABLED` mode; with no exporter endpoint it constructs no upload
-pipeline.
+or cloud ASR/TTS. Official DSH bundles a session-telemetry adapter and a dormant
+DeepSeek OTLP endpoint. Penglai hard-disables that row after all profile patches,
+so DSH constructs no SDK provider or upload pipeline in the owned desktop process.
 Model calls still send the context required for a task to the provider selected
 by the user. Diagnostics and evidence exclude secrets, QR data, chat bodies,
 account identities, private paths, memory bodies, transcripts, and private media.
@@ -241,9 +241,10 @@ Read 共用播放状态机，正确处理播放、停止、结束、错误、卡
 真实操作成功后才消费。
 
 蓬莱没有账号、蓬莱运营的遥测后端、云记忆同步或云 ASR/TTS。official DSH 自带的
-session-telemetry adapter 保持默认 `DISABLED`，没有 exporter 地址时不会构造上传
-管线。诊断和证据不含密钥、二维码、聊天正文、账号身份、私有路径、记忆正文、转写和
-私有媒体。0.5.1 以后使用签名辅助升级，不静默；
+session-telemetry adapter 也包含一个休眠的 DeepSeek OTLP 地址。蓬莱会在所有 profile
+patch 之后硬性禁用该行，因此 owned DSH 进程不会创建 SDK provider 或上传管线。诊断和
+证据不含密钥、二维码、聊天正文、账号身份、私有路径、记忆正文、转写和私有媒体。
+0.5.1 以后使用签名辅助升级，不静默；
 0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
 Workspace、授权源、home/root、旧代数据或越界链接。
 
