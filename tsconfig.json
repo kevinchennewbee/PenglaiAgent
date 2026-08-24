@@ -11,6 +11,8 @@
     { "path": "packages/channel-weixin" },
     { "path": "packages/channel-feishu" },
     { "path": "packages/channel-dingtalk" },
+    { "path": "packages/channel-wecom" },
+    { "path": "packages/channel-qq" },
     { "path": "packages/dsh-bridge" },
     { "path": "packages/local-control" },
     { "path": "packages/runtime" },

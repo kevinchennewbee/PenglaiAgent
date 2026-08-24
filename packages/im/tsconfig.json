@@ -10,6 +10,8 @@
     { "path": "../channel-weixin" },
     { "path": "../channel-feishu" },
     { "path": "../channel-dingtalk" },
+    { "path": "../channel-wecom" },
+    { "path": "../channel-qq" },
     { "path": "../runtime" }
   ],
   "include": ["src/**/*.ts"],

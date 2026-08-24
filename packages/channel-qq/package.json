@@ -1,0 +1,16 @@
+{
+  "name": "@penglai/channel-qq",
+  "version": "0.5.5",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@penglai/contracts": "workspace:*",
+    "@tencent-connect/qqbot-nodejs": "1.0.4"
+  }
+}

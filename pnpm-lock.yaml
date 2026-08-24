@@ -178,6 +178,24 @@ importers:
         specifier: workspace:*
         version: link:../testkit
 
+  packages/channel-qq:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@tencent-connect/qqbot-nodejs':
+        specifier: 1.0.4
+        version: 1.0.4(silk-wasm@3.7.1)
+
+  packages/channel-wecom:
+    dependencies:
+      '@penglai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@wecom/aibot-node-sdk':
+        specifier: 1.0.7
+        version: 1.0.7
+
   packages/channel-weixin:
     dependencies:
       '@penglai/audio-codecs':
@@ -319,6 +337,12 @@ importers:
       '@penglai/channel-feishu':
         specifier: workspace:*
         version: link:../channel-feishu
+      '@penglai/channel-qq':
+        specifier: workspace:*
+        version: link:../channel-qq
+      '@penglai/channel-wecom':
+        specifier: workspace:*
+        version: link:../channel-wecom
       '@penglai/channel-weixin':
         specifier: workspace:*
         version: link:../channel-weixin
@@ -3267,6 +3291,18 @@ packages:
   '@tanstack/virtual-core@3.17.8':
     resolution: {integrity: sha512-BfEvehNpOT75r5Ksc5xW6NZuXujTfb7nlSEyVu4XHG3gdxNg1KqXruWbDewXOUaUYIo4oRbSfkjIajz4MAT8tA==}
 
+  '@tencent-connect/qqbot-nodejs@1.0.4':
+    resolution: {integrity: sha512-gU5HySLplczZXMUjM7NtiUACY7YfX9YlI/R9PKzCLMgLmHvwsX9L2sitsrYPMentGUr9b8NLfSaSTsndF77NBA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      mpg123-decoder: ^1.0.3
+      silk-wasm: ^3.7.1
+    peerDependenciesMeta:
+      mpg123-decoder:
+        optional: true
+      silk-wasm:
+        optional: true
+
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
@@ -3368,6 +3404,9 @@ packages:
 
   '@vscode/ripgrep@1.18.0':
     resolution: {integrity: sha512-ns5lWe44tSfbTMbVUsyB+I1819PVSw4AdpgK0RNkzfWfwy6+3IUNSxwSrfTno1/oWaS/hERNz+XLWVyga2aJBQ==}
+
+  '@wecom/aibot-node-sdk@1.0.7':
+    resolution: {integrity: sha512-51w+sTqunry6GD3HFvmuh0gArMSJDFE418vyvR1wMJHj1N6DaFuGD3HuaY2fazZs3mb9FWeQFX3+vU5t0Qhwmw==}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -3822,6 +3861,9 @@ packages:
   etag@1.8.1:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
+
+  eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
   eventsource-parser@3.1.1:
     resolution: {integrity: sha512-EKN1vKAMcZ8MlYMpaNuxN6R9yakzH6uajHcHVTqWJzvu5pWw9DyhbP35HH8MVBQ+dZjAfDxk+A8NiR9KWaXiyQ==}
@@ -8969,6 +9011,15 @@ snapshots:
 
   '@tanstack/virtual-core@3.17.8': {}
 
+  '@tencent-connect/qqbot-nodejs@1.0.4(silk-wasm@3.7.1)':
+    dependencies:
+      ws: 8.21.3
+    optionalDependencies:
+      silk-wasm: 3.7.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@types/debug@4.1.13':
     dependencies:
       '@types/ms': 2.1.0
@@ -9059,6 +9110,17 @@ snapshots:
       '@vscode/ripgrep-win32-arm64': 1.18.0
       '@vscode/ripgrep-win32-ia32': 1.18.0
       '@vscode/ripgrep-win32-x64': 1.18.0
+
+  '@wecom/aibot-node-sdk@1.0.7':
+    dependencies:
+      axios: 1.19.0(debug@4.4.3)
+      eventemitter3: 5.0.4
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
 
   accepts@2.0.0:
     dependencies:
@@ -9532,6 +9594,8 @@ snapshots:
   escape-string-regexp@5.0.0: {}
 
   etag@1.8.1: {}
+
+  eventemitter3@5.0.4: {}
 
   eventsource-parser@3.1.1: {}
 
