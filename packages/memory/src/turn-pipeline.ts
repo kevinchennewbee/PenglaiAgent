@@ -174,3 +174,20 @@ export function resolveSessionTurn(
   if (parts.type === "turn/end") activeTurns.delete(parts.sessionId);
   return turn;
 }
+
+export function officialSessionTurnEnded(session: { events?: readonly unknown[] }): boolean {
+  return (session.events ?? []).some((event) => sessionEventParts([event]).type === "turn/end");
+}
+
+/** Wait for DSH's durable turn/end instead of trusting an early idle signal. */
+export async function waitForOfficialSessionTurn(
+  session: { events?: readonly unknown[] },
+  timeoutMs = 45_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (officialSessionTurnEnded(session)) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("official session turn timeout");
+}

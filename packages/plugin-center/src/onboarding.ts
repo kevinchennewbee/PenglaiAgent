@@ -999,7 +999,13 @@ async function runOfficialTurn(
     });
     const idle = typeof handle.agent.whenIdle === "function" ? handle.agent.whenIdle() : done;
     await Promise.race([idle, done]);
-    const durable = durableFinalFromOfficialSession(handle.agent.session);
+    let durable = durableFinalFromOfficialSession(handle.agent.session);
+    // DSH may report idle before the durable turn/end event has reached the
+    // session log. Do not dispose a successful Turn during that short race.
+    if (!turnCompleted && !durable.turnCompleted) {
+      await done;
+      durable = durableFinalFromOfficialSession(handle.agent.session);
+    }
     if (durable.final) final = durable.final;
     if (durable.turnCompleted) {
       turnCompleted = true;

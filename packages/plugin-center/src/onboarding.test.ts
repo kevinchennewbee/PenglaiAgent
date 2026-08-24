@@ -20,6 +20,7 @@ import {
   supportsOfficialOpenAiCompatible,
   onboardingApiTestCwd,
   releaseOnboardingTestWorkspaces,
+  runOfficialNonceTurn,
 } from "./onboarding.js";
 import { contribute } from "./client.js";
 import { assertOnboardingRemoteHasNoSecretSurface } from "./onboarding-remote.js";
@@ -739,6 +740,50 @@ test("official nonce Turn reads whenIdle + durable session log without a firehos
   assert.equal((result as { passed?: boolean }).passed, true);
   assert.equal(impl.status().current, "workspace-v1");
   assert.equal(Date.now() - started < 2000, true);
+});
+
+test("official nonce Turn survives whenIdle resolving before turn/end", async () => {
+  const nonce = "idle-race";
+  const session: { events: unknown[] } = { events: [] };
+  let listener: ((...args: unknown[]) => void) | undefined;
+  const result = await runOfficialNonceTurn(
+    {
+      agents: {
+        async create(input: { sessionId: string }) {
+          return {
+            agent: {
+              session,
+              followup() {
+                setTimeout(() => {
+                  const message = {
+                    type: "assistant/message",
+                    data: {
+                      turn: 1,
+                      message: { role: "assistant", content: [{ type: "text", text: `PENGLAI_OK_${nonce}` }] },
+                    },
+                  };
+                  const end = { type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } };
+                  session.events.push(message, end);
+                  listener?.({ id: input.sessionId }, message);
+                  listener?.({ id: input.sessionId }, end);
+                }, 10);
+              },
+              async whenIdle() {},
+            },
+            async dispose() {},
+          };
+        },
+      },
+      on(event: string, fn: (...args: unknown[]) => void) {
+        if (event === "session/event") listener = fn;
+        return () => {
+          if (listener === fn) listener = undefined;
+        };
+      },
+    } as never,
+    { nonce, provider: "deepseek-official", model: "deepseek-v4-flash", cwd: process.cwd() },
+  );
+  assert.equal(result.passed, true);
 });
 
 test("stale derived ref without resolve fails closed as auth and does not start a Turn", async () => {

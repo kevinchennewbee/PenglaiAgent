@@ -9,6 +9,7 @@ import {
   resolveSessionTurn,
   runHostCurator,
   sessionEventParts,
+  waitForOfficialSessionTurn,
   withMemoryRecall,
   workspaceIdForSession,
 } from "./turn-pipeline.js";
@@ -121,6 +122,14 @@ test("official DSH user/message inherits its turn and data.content is curated", 
   const end = sessionEventParts([{ id: "s1" }, { type: "turn/end", data: { turn: 7 } }]);
   assert.equal(resolveSessionTurn(end, activeTurns), 7);
   assert.equal(activeTurns.has("s1"), false);
+});
+
+test("memory curator waits for durable turn/end after an early idle signal", async () => {
+  const session: { events: unknown[] } = { events: [] };
+  setTimeout(() => {
+    session.events.push({ type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } });
+  }, 10);
+  await waitForOfficialSessionTurn(session, 500);
 });
 
 test("memory apply source subscribes to official turn/end and pre-step and does not expose ingestCurator", async () => {

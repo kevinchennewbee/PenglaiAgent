@@ -24,7 +24,7 @@ import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
-import { ingestOfficialTurn, resolveSessionTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { ingestOfficialTurn, resolveSessionTurn, runHostCurator, sessionEventParts, turnSummary, waitForOfficialSessionTurn, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
@@ -654,7 +654,7 @@ export function apply(ctx: CordisContextLike) {
                 source: { kind: "penglai-memory-curator" },
               });
               await Promise.race([
-                handle.agent.whenIdle(),
+                waitForOfficialSessionTurn(handle.agent.session),
                 new Promise<never>((_, reject) => {
                   timer = setTimeout(() => reject(new PenglaiError("DSH_UNAVAILABLE", "memory curator timeout")), 45_000);
                 }),
