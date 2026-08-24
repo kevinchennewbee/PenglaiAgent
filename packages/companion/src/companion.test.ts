@@ -404,17 +404,24 @@ test("Companion apply stays up when penglaiImCore is missing", () => {
   const previous = process.env.PENGLAI_USER_DATA;
   process.env.PENGLAI_USER_DATA = dir;
   try {
-    const service = apply({
+    const ctx = {
       agents: {
         get: () => undefined,
         create: async () => ({ agent: {}, dispose: async () => undefined }),
         resume: async () => ({ agent: {}, dispose: async () => undefined }),
       },
       workspaceRegistry: { get: () => undefined, list: () => [] },
+      get: () => undefined,
       on() {},
       provide() {},
       effect() {},
-    } as never);
+    };
+    Object.defineProperty(ctx, "penglaiImCore", {
+      get() {
+        throw new Error('cannot get property "penglaiImCore" without inject');
+      },
+    });
+    const service = apply(ctx as never);
     assert.match(String(service.status().runtimeError ?? ""), /messaging platform/);
     assert.equal(service.configurationOptions().bindings.length, 0);
   } finally {

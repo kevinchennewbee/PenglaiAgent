@@ -225,8 +225,10 @@ function fixedPrompt(
 
 function resolveIm(ctx: CordisContextLike): ImServiceLike | undefined {
   if (typeof ctx.get === "function") {
-    const found = ctx.get("penglaiImCore", true);
-    if (found) return found as ImServiceLike;
+    // Cordis Context.get() is the supported optional-service lookup. Falling
+    // through to the proxy property when it returns undefined would trigger
+    // Cordis' mandatory-inject guard and crash Companion when IM is disabled.
+    return ctx.get("penglaiImCore", true) as ImServiceLike | undefined;
   }
   return ctx.penglaiImCore;
 }
@@ -293,8 +295,6 @@ export class ProductionCompanionService {
       !im.sendProactive
     ) {
       this.runtimeError = "connect a messaging platform first";
-    } else {
-      this.ctx.penglaiImCore = im;
     }
     if (!ctx.on)
       throw new PenglaiError(
