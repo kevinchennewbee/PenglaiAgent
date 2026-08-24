@@ -6,13 +6,22 @@ import { join } from "node:path";
 import {
   apply,
   assertReadable,
+  createDurableMemoryService,
   createMemoryService,
   modelCannotWriteGlobal,
   GLOBAL_L1_MAX_BYTES,
   GLOBAL_L1_MAX_ROWS,
 } from "./index.js";
+import { OwnerApprovalBroker } from "@penglai/runtime";
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi } from "./remote.js";
+
+const inertAgents = {
+  get: () => undefined,
+  create: async () => {
+    throw new Error("not used by this test");
+  },
+};
 
 test("shipped memory remembers, isolates workspaces, and forgets", () => {
   const svc = createMemoryService();
@@ -104,6 +113,7 @@ test("R50-CTXMEM: production apply() wires app-private state and fails closed wi
   const ctx = {
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
+    agents: inertAgents,
     tools: { register() {} },
     provide() {},
   };
@@ -123,27 +133,39 @@ test("R50-CTXMEM: production apply() wires app-private state and fails closed wi
   }
 });
 
-test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and returns a registry receipt", async () => {
+test("R50-CTXMEM-012 SOP promotion requires Broker approval and writes the official DSH Skills root", async () => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-mem-sop-"));
   const previousUserData = process.env.PENGLAI_USER_DATA;
   const previousDshHome = process.env.DSH_HOME;
   process.env.PENGLAI_USER_DATA = dir;
   process.env.DSH_HOME = join(dir, "dsh-home");
   try {
-    const svc = apply({
+    const owner = new OwnerApprovalBroker(dir, { dialog: async () => "approved" });
+    const svc = createDurableMemoryService({
+      userData: dir,
       skills: {
         snapshot: async () => ({ skills: [{ name: "release-check" }], complete: true }),
       },
-      workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
-      tools: { register() {} },
-      provide() {},
+      owner,
     });
+    const description = "Verify a candidate release";
+    const body = "Run the project release verifier and report exact failures.";
+    const proposal = svc.proposeAction({
+      action: "memory.promote-sop",
+      objectId: "skill:release-check",
+      sourceText: JSON.stringify({ name: "release-check", description, body }),
+    });
+    const approved = await owner.requestOwnerApproval(proposal.actionId);
+    assert.equal(approved.decision, "approved");
+    if (approved.decision !== "approved") throw new Error("expected approval");
     const receipt = await svc.promoteSop({
       name: "release-check",
-      description: "Verify a candidate release",
-      body: "Run the project release verifier and report exact failures.",
+      description,
+      body,
       visibleDiff: "+ release-check",
       ownerConfirmed: true,
+      actionId: proposal.actionId,
+      receipt: approved.receipt,
     });
     assert.equal(receipt.registry, "official-dsh-skills");
     assert.equal(receipt.observed, true);
@@ -159,15 +181,17 @@ test("R50-CTXMEM-012 SOP promotion writes the official DSH Skills root and retur
   }
 });
 
-test("Memory settings enforces layered writes, visible diff, and live Workspace scope", async () => {
+test("Memory settings enforces Broker-gated personal writes and live Workspace scope", async () => {
   const svc = createMemoryService();
   const api = createMemorySettingsApi(svc as never, { list: () => [{ id: "w1", title: "Workspace" }] });
   await assert.rejects(() => api.write({ scope: "candidate", text: "model candidate" }), /pipeline/);
-  await assert.rejects(() => api.write({ scope: "global", text: "global" }), /Owner confirm/);
-  const global = await api.write({ scope: "global", text: "global", ownerConfirmed: true, visibleDiff: "+ global" });
-  assert.equal(global.id, 1);
+  await assert.rejects(() => api.write({ scope: "global", text: "global" }), /broker receipt/);
+  await assert.rejects(
+    () => api.write({ scope: "global", text: "global", actionId: "a", receipt: "b.c" }),
+    /Owner path unavailable/,
+  );
   const workspace = await api.write({ scope: "workspace", workspaceId: "w1", text: "workspace" });
-  assert.equal(workspace.id, 2);
+  assert.equal(workspace.id, 1);
   await assert.rejects(() => api.write({ scope: "workspace", workspaceId: "missing", text: "x" }), /not live/);
   await assert.rejects(() => api.deleteScope({ scope: "workspace", workspaceId: "w1", ownerConfirmed: false }), /broker receipt/);
 });

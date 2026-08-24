@@ -103,13 +103,13 @@ export class MnemonMemoryService {
     return { adapter: this.workspace(row.workspaceId), scope: "workspace", workspaceId: row.workspaceId };
   }
 
-  async remember(input: { text: string; workspaceId?: string; cat?: string; tags?: string }) {
+  async remember(input: { text: string; workspaceId?: string; cat?: string; tags?: string; source?: string }) {
     const personal = this.requireEnabled();
     assertNotSecret(input.text);
     const adapter = input.workspaceId ? this.workspace(input.workspaceId) : personal;
     const remembered = await adapter.remember(input.text, {
       cat: input.cat ?? "fact",
-      source: "user",
+      source: input.source ?? "user",
       ...(input.tags ? { tags: input.tags } : {}),
     });
     this.journal.upsert({
@@ -119,7 +119,7 @@ export class MnemonMemoryService {
       content: input.text,
       contentDigest: digestContent(input.text),
       status: "committed",
-      source: "user",
+      source: input.source ?? "user",
       tags: input.tags ?? "",
       createdAt: new Date().toISOString(),
       supersededBy: null,

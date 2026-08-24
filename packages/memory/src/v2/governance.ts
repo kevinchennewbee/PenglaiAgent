@@ -4,7 +4,10 @@ import { assertNotSecret } from "../trust/governance.js";
 
 export const MEMORY_MODES = ["off", "suggest", "auto-workspace"] as const;
 export type MemoryMode = (typeof MEMORY_MODES)[number];
-export const DEFAULT_MEMORY_MODE: MemoryMode = "suggest";
+// 0.5.6 makes useful, Workspace-scoped memory the fresh-profile default.
+// Personal/global memory is still never inferred automatically and always
+// requires an Owner-broker confirmation.
+export const DEFAULT_MEMORY_MODE: MemoryMode = "auto-workspace";
 
 export const CANDIDATE_KINDS = ["preference", "project_fact", "decision", "constraint", "person_fact"] as const;
 export const CANDIDATE_SENSITIVITIES = ["normal", "sensitive", "prohibited"] as const;

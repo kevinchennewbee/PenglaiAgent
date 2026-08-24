@@ -6,6 +6,10 @@ export const MEMORY_OWNER_ACTIONS = {
   personalize: "memory.personalize",
   correct: "memory.correct",
   forget: "memory.forget",
+  import: "memory.import",
+  delete: "memory.delete",
+  promoteSop: "memory.promote-sop",
+  sourcesRevoke: "memory.sources-revoke",
 } as const;
 
 export function requireMemoryActionId(actionId: string | undefined, label = "MEMORY_OWNER_ACTION"): string {

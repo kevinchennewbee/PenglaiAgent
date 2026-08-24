@@ -17,6 +17,8 @@ export const OWNER_ACTIONS = [
   "memory.forget",
   "memory.import",
   "memory.delete",
+  "memory.promote-sop",
+  "memory.sources-revoke",
   "artifact.persist",
   "plugin.install",
   "plugin.update",
@@ -322,7 +324,11 @@ export class OwnerApprovalBroker {
   completeApproval(input: { actionId: string; reservationId: string; resultDigest: string }): void {
     const row = this.load(input.actionId);
     if (row.state !== "reserved" || row.reservationId !== input.reservationId) fail("OWNER_PROPOSAL_STATE");
-    assertDigest(input.resultDigest, "result");
+    const resultDigest = assertDigest(input.resultDigest, "result");
+    if (row.intent.resultDigest && row.intent.resultDigest !== resultDigest) {
+      this.log(row, "mismatch");
+      fail("OWNER_RESULT_MISMATCH");
+    }
     row.state = "committed";
     this.save(row);
     this.log(row, "committed");
@@ -336,6 +342,10 @@ export class OwnerApprovalBroker {
     objectId: string;
     sourceDigest: string;
     workspaceId?: string;
+    sessionId?: string;
+    resultDigest?: string;
+    destinationLabel?: string;
+    permissionDigest?: string;
     pluginId: string;
   } {
     const row = this.load(actionId);
@@ -348,6 +358,10 @@ export class OwnerApprovalBroker {
       sourceDigest: row.intent.sourceDigest,
       pluginId: row.intent.pluginId,
       ...(row.intent.workspaceId ? { workspaceId: row.intent.workspaceId } : {}),
+      ...(row.intent.sessionId ? { sessionId: row.intent.sessionId } : {}),
+      ...(row.intent.resultDigest ? { resultDigest: row.intent.resultDigest } : {}),
+      ...(row.intent.destinationLabel ? { destinationLabel: row.intent.destinationLabel } : {}),
+      ...(row.intent.permissionDigest ? { permissionDigest: row.intent.permissionDigest } : {}),
     };
   }
 }

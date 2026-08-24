@@ -18,11 +18,22 @@ export interface MemoryOwnerBrokerPort {
     objectId: string;
     sourceDigest: string;
     workspaceId?: string;
+    sessionId?: string;
     pluginId: string;
   };
 }
 
-export function consumeMemoryOwnerProof(
+export interface MemoryOwnerReservation {
+  complete(resultDigest: string): void;
+}
+
+/**
+ * Reserve a one-time Owner approval after revalidating the exact action,
+ * object, scope and source bytes. The caller must perform the mutation and
+ * only then call complete(); a failed mutation must never be logged as a
+ * committed Owner action.
+ */
+export function reserveMemoryOwnerProof(
   owner: MemoryOwnerBrokerPort | undefined,
   input: {
     action: (typeof MEMORY_OWNER_ACTIONS)[keyof typeof MEMORY_OWNER_ACTIONS];
@@ -30,9 +41,10 @@ export function consumeMemoryOwnerProof(
     receipt: string;
     objectId: string;
     workspaceId?: string;
-    resultDigest: string;
+    sessionId?: string;
+    sourceDigest: string;
   },
-): void {
+): MemoryOwnerReservation {
   if (!owner) throw new PenglaiError("DSH_UNAVAILABLE", "owner broker required");
   if (typeof input.receipt !== "string" || !input.receipt.includes(".")) {
     throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
@@ -42,7 +54,9 @@ export function consumeMemoryOwnerProof(
     inspected.pluginId !== "@penglai/memory" ||
     inspected.action !== input.action ||
     inspected.objectId !== input.objectId ||
-    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "")
+    (inspected.workspaceId ?? "") !== (input.workspaceId ?? "") ||
+    (inspected.sessionId ?? "") !== (input.sessionId ?? "") ||
+    inspected.sourceDigest !== normalizeDigest(input.sourceDigest)
   ) {
     throw new PenglaiError("SECURITY_POLICY", "memory broker intent mismatch");
   }
@@ -51,11 +65,23 @@ export function consumeMemoryOwnerProof(
     intentDigest: inspected.intentDigest,
     actionId: input.actionId,
   });
-  owner.completeApproval({
-    actionId: input.actionId,
-    reservationId: reserved.reservationId,
-    resultDigest: input.resultDigest,
-  });
+  return {
+    complete(resultDigest: string) {
+      owner.completeApproval({
+        actionId: input.actionId,
+        reservationId: reserved.reservationId,
+        resultDigest,
+      });
+    },
+  };
+}
+
+function normalizeDigest(value: string): string {
+  const hex = value.replace(/^sha256:/, "").toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(hex)) {
+    throw new PenglaiError("SECURITY_POLICY", "memory source digest required");
+  }
+  return `sha256:${hex}`;
 }
 
 export function proposeMemoryAction(

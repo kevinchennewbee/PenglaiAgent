@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { ingestCuratorOutput } from "./v2/curator.js";
-import type { MemoryV2Store } from "./v2/candidates.js";
+import type { MemoryCandidateV1, MemoryV2Store } from "./v2/candidates.js";
 
 const MEMORY_CONTEXT_PREFIX =
   "[PENGLAI TRUSTED MEMORY CONTEXT - NOT USER-AUTHORED]";
@@ -51,14 +51,15 @@ export function turnSourceDigest(input: { workspaceId: string; sessionId: string
     .digest("hex");
 }
 
-export function ingestOfficialTurn(input: {
+export async function ingestOfficialTurn(input: {
   store: MemoryV2Store;
   workspaceId: string;
   sessionId: string;
   turnId: string;
   raw: string;
   summary: string;
-}): { failOpen: boolean; enqueued: number; autoAccepted: number } {
+  persist?: (candidate: MemoryCandidateV1) => Promise<unknown>;
+}): Promise<{ failOpen: boolean; enqueued: number; autoAccepted: number }> {
   const sourceDigest = turnSourceDigest({
     workspaceId: input.workspaceId,
     sessionId: input.sessionId,
@@ -74,7 +75,23 @@ export function ingestOfficialTurn(input: {
   if (ingested.failOpen) {
     return { failOpen: true, enqueued: 0, autoAccepted: 0 };
   }
-  const autoAccepted = input.store.autoAcceptEligible(input.workspaceId).length;
+  let autoAccepted = 0;
+  if (input.persist) {
+    for (const candidate of input.store.listAutoAcceptEligible(input.workspaceId)) {
+      try {
+        // The confirmed engine is the recall source of truth. Commit there
+        // before changing the candidate state so a renderer badge can never
+        // claim a memory is accepted while the next Turn cannot recall it.
+        await input.persist(candidate);
+        input.store.decide(candidate.candidateId, "accepted");
+        autoAccepted += 1;
+      } catch {
+        // Memory enrichment is fail-open for the conversation. The candidate
+        // remains pending and can be retried on a later Turn or accepted by the
+        // Owner; no false accepted state is recorded.
+      }
+    }
+  }
   return { failOpen: false, enqueued: ingested.enqueued, autoAccepted };
 }
 

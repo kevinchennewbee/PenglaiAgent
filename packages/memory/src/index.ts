@@ -17,19 +17,19 @@ import { assertReadable, createMemoryService, modelCannotWriteGlobal, type Memor
 import { MemoryStore } from "./store.js";
 import { createMemorySettingsApi, PenglaiMemoryRemote } from "./remote.js";
 import { MnemonMemoryService } from "./engine/service.js";
-import { discoverLegacy, importLegacy } from "./migration/legacy-053.js";
+import { importLegacy, previewLegacy } from "./migration/legacy-053.js";
 import { registerMemoryTools } from "./tools.js";
-import { MemoryV2Store } from "./v2/candidates.js";
+import { MemoryV2Store, type MemoryCandidateV1 } from "./v2/candidates.js";
 import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
-import { consumeMemoryOwnerProof, proposeMemoryAction, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
+import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
 import { ingestOfficialTurn, runHostCurator, sessionEventParts, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
 export const name = "@penglai/memory";
-export const inject = ["skills", "workspaceRegistry", "tools"];
+export const inject = ["skills", "workspaceRegistry", "tools", "agents"];
 export const version = RELEASE;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,11 +37,45 @@ interface OfficialSkillSummary {
   name: string;
 }
 
+interface OfficialAgentLike {
+  id: string;
+  options: { provider?: string; model?: string; maxTokens?: number };
+  session: { events?: readonly unknown[] };
+  followup(input: {
+    id: string;
+    role: "user";
+    content: Array<{ type: "text"; text: string }>;
+    source: { kind: string };
+  }): void;
+  whenIdle(): Promise<void>;
+  cancel?(cause: string): void;
+}
+
+interface OfficialAgentHandleLike {
+  agent: OfficialAgentLike;
+  dispose(): Promise<void>;
+}
+
+interface OfficialAgentContextLike {
+  tools?: { guard(guard: (execution: unknown) => string | undefined): unknown };
+}
+
 interface CordisContextLike {
   skills?: {
     snapshot(options?: { cwd?: string }): Promise<{ skills: OfficialSkillSummary[]; complete: boolean }>;
   };
-  workspaceRegistry?: { list(): Array<{ id: string; title?: string; sessionIds?: readonly string[] }> };
+  workspaceRegistry?: {
+    list(): Array<{ id: string; title?: string; path?: string; sessionIds?: readonly string[] }>;
+  };
+  agents?: {
+    get(id: string): OfficialAgentLike | undefined;
+    create(options: {
+      sessionId: string;
+      meta: { cwd: string; parentSession?: string; origin?: "subagent" };
+      agentOptions: { provider: string; model: string; maxTokens?: number };
+      setup: (agentCtx: OfficialAgentContextLike) => void;
+    }): Promise<OfficialAgentHandleLike>;
+  };
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
   on?: (event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>) => unknown;
@@ -53,6 +87,35 @@ export interface SopPromotion {
   body: string;
   visibleDiff: string;
   ownerConfirmed: boolean;
+  actionId?: string;
+  receipt?: string;
+}
+
+interface CuratorContext {
+  workspaceId: string;
+  workspacePath: string;
+  sessionId: string;
+}
+
+function sha256(value: string | Buffer): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function resultDigest(value: unknown): string {
+  return sha256(JSON.stringify(value));
+}
+
+function finalCuratorText(session: { events?: readonly unknown[] }): string | undefined {
+  const byTurn = new Map<number, string>();
+  const closed = new Set<number>();
+  for (const event of session.events ?? []) {
+    const parts = sessionEventParts([{ id: "penglai-memory-curator" }, event]);
+    if (typeof parts.turn !== "number") continue;
+    if (parts.type === "assistant/message" && parts.text) byTurn.set(parts.turn, parts.text);
+    if (parts.type === "turn/end") closed.add(parts.turn);
+  }
+  const latest = [...closed].sort((left, right) => right - left).find((turn) => byTurn.has(turn));
+  return latest === undefined ? undefined : byTurn.get(latest);
 }
 
 export interface SopReceipt {
@@ -118,7 +181,7 @@ export function createDurableMemoryService(opts: {
   skills: NonNullable<CordisContextLike["skills"]>;
   onClose?: () => void;
   owner?: MemoryOwnerBrokerPort;
-  curator?: (summary: string) => Promise<string>;
+  curator?: (summary: string, context: CuratorContext) => Promise<string>;
 }) {
   const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
   const engine = new MnemonMemoryService(opts.userData, {
@@ -129,6 +192,94 @@ export function createDurableMemoryService(opts: {
   const skillsRoot = officialSkillsRoot(opts.userData);
   migrateJournalToV2(engine.journal, v2, { userData: opts.userData });
   let closed = false;
+
+  const candidateDigest = (candidate: MemoryCandidateV1): string =>
+    resultDigest({
+      candidateId: candidate.candidateId,
+      workspaceId: candidate.workspaceId,
+      sessionId: candidate.sessionId,
+      turnId: candidate.turnId,
+      kind: candidate.kind,
+      text: candidate.text,
+      sourceDigest: candidate.sourceDigest,
+    });
+
+  const scopeDigest = (workspaceId?: string): string => {
+    const rows = engine.journal
+      .listActive(workspaceId ? "workspace" : "personal", workspaceId)
+      .map((row) => ({ id: row.id, digest: row.contentDigest }))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    return resultDigest({ scope: workspaceId ? "workspace" : "personal", workspaceId: workspaceId ?? null, rows });
+  };
+
+  const materializeCandidate = async (candidate: MemoryCandidateV1, personal = false) => {
+    const workspaceId = personal ? undefined : candidate.workspaceId;
+    const scope = personal ? "personal" : "workspace";
+    const existing = engine
+      .listConfirmed({ scope, ...(workspaceId ? { workspaceId } : {}), limit: 200 })
+      .find((row) => row.content === candidate.text);
+    if (existing) {
+      v2.setMeta(`materialized:${candidate.candidateId}`, existing.id);
+      return { id: existing.id, reused: true as const };
+    }
+    const remembered = await engine.remember({
+      text: candidate.text,
+      ...(workspaceId ? { workspaceId } : {}),
+      cat: candidate.kind,
+      tags: `candidate:${candidate.candidateId}`,
+      source: personal ? "owner-accepted-curator" : "auto-curator",
+    });
+    v2.setMeta(`materialized:${candidate.candidateId}`, remembered.id);
+    return { id: remembered.id, reused: false as const };
+  };
+
+  const actionSourceDigest = (input: {
+    action: (typeof MEMORY_OWNER_ACTIONS)[keyof typeof MEMORY_OWNER_ACTIONS];
+    objectId: string;
+    workspaceId?: string;
+    sourceText?: string;
+  }): string => {
+    if (input.action === MEMORY_OWNER_ACTIONS.accept || input.action === MEMORY_OWNER_ACTIONS.personal) {
+      const candidate = v2.getCandidate(input.objectId);
+      if (!candidate || candidate.status !== "pending") {
+        throw new PenglaiError("INVALID_INPUT", "MEMORY_CANDIDATE_MISSING");
+      }
+      if ((input.workspaceId ?? "") !== candidate.workspaceId) {
+        throw new PenglaiError("SECURITY_POLICY", "memory candidate Workspace mismatch");
+      }
+      return candidateDigest(candidate);
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.correct) {
+      const prior = engine.journal.get(input.objectId);
+      if (!prior || !input.sourceText?.trim()) throw new PenglaiError("INVALID_INPUT", "memory correction source missing");
+      if ((prior.workspaceId ?? "") !== (input.workspaceId ?? "")) {
+        throw new PenglaiError("SECURITY_POLICY", "memory correction Workspace mismatch");
+      }
+      return resultDigest({ id: prior.id, contentDigest: prior.contentDigest, replacement: input.sourceText.trim() });
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.forget) {
+      const prior = engine.journal.get(input.objectId);
+      if (!prior) throw new PenglaiError("INVALID_INPUT", "memory id missing");
+      if ((prior.workspaceId ?? "") !== (input.workspaceId ?? "")) {
+        throw new PenglaiError("SECURITY_POLICY", "memory forget Workspace mismatch");
+      }
+      return resultDigest({ id: prior.id, contentDigest: prior.contentDigest });
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.delete) {
+      const expectedObject = input.workspaceId ? `scope:workspace:${input.workspaceId}` : "scope:personal";
+      if (input.objectId !== expectedObject) throw new PenglaiError("SECURITY_POLICY", "memory delete scope mismatch");
+      return scopeDigest(input.workspaceId);
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.import) {
+      if (input.objectId !== "legacy-import") throw new PenglaiError("SECURITY_POLICY", "memory import identity mismatch");
+      return resultDigest(previewLegacy(opts.userData) ?? null);
+    }
+    if (input.action === MEMORY_OWNER_ACTIONS.personalize || input.action === MEMORY_OWNER_ACTIONS.promoteSop) {
+      if (!input.sourceText?.trim()) throw new PenglaiError("INVALID_INPUT", "memory Owner source missing");
+      return sha256(input.sourceText.trim());
+    }
+    throw new PenglaiError("SECURITY_POLICY", "MEMORY_OWNER_ACTION");
+  };
   return {
     engine,
     async remember(input: { text: string; workspaceId?: string }) {
@@ -150,42 +301,59 @@ export function createDurableMemoryService(opts: {
       if (!proof?.actionId || !proof.receipt) {
         throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       }
-      const digest = createHash("sha256").update(`correct:${oldId}:${text}`).digest("hex");
-      consumeMemoryOwnerProof(opts.owner, {
+      const sourceDigest = actionSourceDigest({
+        action: MEMORY_OWNER_ACTIONS.correct,
+        objectId: oldId,
+        ...(workspaceId ? { workspaceId } : {}),
+        sourceText: text,
+      });
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
         action: MEMORY_OWNER_ACTIONS.correct,
         actionId: proof.actionId,
         receipt: proof.receipt,
         objectId: oldId,
         ...(workspaceId ? { workspaceId } : {}),
-        resultDigest: digest,
+        sourceDigest,
       });
-      return engine.correct(oldId, text, workspaceId);
+      const corrected = await engine.correct(oldId, text, workspaceId);
+      reservation.complete(resultDigest({ oldId, newId: corrected.id, replacement: sha256(text) }));
+      return corrected;
     },
     async forget(id: string, workspaceId?: string, proof?: { actionId: string; receipt: string }) {
       if (!proof?.actionId || !proof.receipt) {
         throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       }
-      const digest = createHash("sha256").update(`forget:${id}`).digest("hex");
-      consumeMemoryOwnerProof(opts.owner, {
+      const sourceDigest = actionSourceDigest({
+        action: MEMORY_OWNER_ACTIONS.forget,
+        objectId: id,
+        ...(workspaceId ? { workspaceId } : {}),
+      });
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
         action: MEMORY_OWNER_ACTIONS.forget,
         actionId: proof.actionId,
         receipt: proof.receipt,
         objectId: id,
         ...(workspaceId ? { workspaceId } : {}),
-        resultDigest: digest,
+        sourceDigest,
       });
       const prior = engine.journal.get(id);
       const result = await engine.forget(id, workspaceId);
       if (prior) v2.recordTombstone(id, prior.contentDigest);
+      reservation.complete(resultDigest({ id, forgotten: true, sourceDigest }));
       return result;
     },
-    proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string }) {
+    proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) {
       if (!opts.owner) throw new PenglaiError("DSH_UNAVAILABLE", "owner broker required");
       const action = input.action as (typeof MEMORY_OWNER_ACTIONS)[keyof typeof MEMORY_OWNER_ACTIONS];
       if (!Object.values(MEMORY_OWNER_ACTIONS).includes(action)) {
         throw new PenglaiError("SECURITY_POLICY", "MEMORY_OWNER_ACTION");
       }
-      const sourceDigest = createHash("sha256").update(`${action}:${input.objectId}`).digest("hex");
+      const sourceDigest = actionSourceDigest({
+        action,
+        objectId: input.objectId,
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        ...(input.sourceText ? { sourceText: input.sourceText } : {}),
+      });
       return proposeMemoryAction(opts.owner, {
         action,
         objectId: input.objectId,
@@ -194,22 +362,31 @@ export function createDurableMemoryService(opts: {
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       });
     },
-    acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) {
+    async acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) {
       if (!input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       const hit = v2.getCandidate(input.candidateId);
-      const digest = createHash("sha256").update(input.candidateId).digest("hex");
-      consumeMemoryOwnerProof(opts.owner, {
+      if (!hit || hit.status !== "pending") throw new PenglaiError("INVALID_INPUT", "MEMORY_CANDIDATE_MISSING");
+      const sourceDigest = candidateDigest(hit);
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
         action: input.personal ? MEMORY_OWNER_ACTIONS.personal : MEMORY_OWNER_ACTIONS.accept,
         actionId: input.actionId,
         receipt: input.receipt,
         objectId: input.candidateId,
-        ...(hit?.workspaceId ? { workspaceId: hit.workspaceId } : {}),
-        resultDigest: digest,
+        workspaceId: hit.workspaceId,
+        sourceDigest,
       });
-      return v2.decide(input.candidateId, "accepted", {
+      const remembered = await materializeCandidate(hit, input.personal === true);
+      const candidate = v2.decide(input.candidateId, "accepted", {
         actionId: input.actionId,
         ...(input.personal ? { personal: true } : {}),
       });
+      reservation.complete(resultDigest({
+        candidateId: candidate.candidateId,
+        memoryId: remembered.id,
+        scope: input.personal ? "personal" : "workspace",
+        sourceDigest,
+      }));
+      return { ...candidate, memoryId: remembered.id };
     },
     rejectCandidate(input: { candidateId: string }) {
       return v2.decide(input.candidateId, "rejected");
@@ -227,16 +404,32 @@ export function createDurableMemoryService(opts: {
         return { failOpen: true, enqueued: 0, skipped: 0, code: "CURATOR_SCHEMA_INVALID" as const };
       }
     },
-    async runCurator(summary: string) {
+    async materializeCandidate(candidate: MemoryCandidateV1) {
+      return materializeCandidate(candidate, false);
+    },
+    async runCurator(summary: string, context: CuratorContext) {
       if (!opts.curator) return JSON.stringify({ candidates: [] });
       try {
-        return await opts.curator(summary);
+        return await opts.curator(summary, context);
       } catch {
         return "not-json";
       }
     },
-    async deleteKnown(workspaceId?: string) {
-      return engine.deleteScope(workspaceId);
+    async deleteKnown(workspaceId: string | undefined, proof?: { actionId: string; receipt: string }) {
+      if (!proof?.actionId || !proof.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      const objectId = workspaceId ? `scope:workspace:${workspaceId}` : "scope:personal";
+      const sourceDigest = scopeDigest(workspaceId);
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.delete,
+        actionId: proof.actionId,
+        receipt: proof.receipt,
+        objectId,
+        ...(workspaceId ? { workspaceId } : {}),
+        sourceDigest,
+      });
+      const result = await engine.deleteScope(workspaceId);
+      reservation.complete(resultDigest({ objectId, removed: result.removed, sourceDigest }));
+      return result;
     },
     async graph(workspaceId?: string, includePersonal = false) {
       return engine.graph(workspaceId, includePersonal);
@@ -273,6 +466,22 @@ export function createDurableMemoryService(opts: {
     },
     async promoteSop(input: SopPromotion): Promise<SopReceipt> {
       const markdown = skillMarkdown(input);
+      if (!input.actionId || !input.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      }
+      const objectId = `skill:${input.name}`;
+      const sourceDigest = sha256(JSON.stringify({
+        name: input.name,
+        description: input.description,
+        body: input.body,
+      }));
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.promoteSop,
+        actionId: input.actionId,
+        receipt: input.receipt,
+        objectId,
+        sourceDigest,
+      });
       mkdirSync(skillsRoot, { recursive: true, mode: 0o700 });
       assertNoSymlink(skillsRoot);
       const canonicalRoot = realpathSync(skillsRoot);
@@ -290,18 +499,54 @@ export function createDurableMemoryService(opts: {
       writeFileSync(temp, markdown, { encoding: "utf8", mode: 0o600, flag: "wx" });
       renameSync(temp, target);
       await waitForOfficialSkill(opts.skills, input.name, opts.userData);
-      const sha256 = createHash("sha256").update(readFileSync(target)).digest("hex");
-      return { registry: "official-dsh-skills", name: input.name, sha256, observed: true };
+      const fileSha256 = createHash("sha256").update(readFileSync(target)).digest("hex");
+      reservation.complete(resultDigest({ registry: "official-dsh-skills", name: input.name, sha256: fileSha256 }));
+      return { registry: "official-dsh-skills", name: input.name, sha256: fileSha256, observed: true };
     },
     async rememberExplicit(input: { text: string; workspaceId?: string }) {
       const row = await engine.remember(input);
       return { ok: true as const, id: row.id };
     },
-    async importPreview() {
-      return discoverLegacy(opts.userData);
+    async rememberPersonal(input: { text: string; actionId: string; receipt: string }) {
+      const text = input.text.trim();
+      if (!text) throw new PenglaiError("INVALID_INPUT", "memory text required");
+      const sourceDigest = sha256(text);
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.personalize,
+        actionId: input.actionId,
+        receipt: input.receipt,
+        objectId: "personal-memory",
+        sourceDigest,
+      });
+      const row = await engine.remember({ text, source: "owner-explicit" });
+      reservation.complete(resultDigest({ id: row.id, sourceDigest }));
+      return { ok: true as const, id: row.id };
     },
-    async importConfirm() {
-      return importLegacy(opts.userData, engine);
+    async importPreview() {
+      const preview = previewLegacy(opts.userData);
+      return preview
+        ? { personal: preview.personal, workspace: preview.workspace, candidate: preview.candidate }
+        : undefined;
+    },
+    async importConfirm(proof?: { actionId: string; receipt: string }) {
+      if (!proof?.actionId || !proof.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
+      const preview = previewLegacy(opts.userData);
+      const sourceDigest = resultDigest(preview ?? null);
+      const reservation = reserveMemoryOwnerProof(opts.owner, {
+        action: MEMORY_OWNER_ACTIONS.import,
+        actionId: proof.actionId,
+        receipt: proof.receipt,
+        objectId: "legacy-import",
+        sourceDigest,
+      });
+      if (v2.meta("legacy-import-complete")) {
+        throw new PenglaiError("SECURITY_POLICY", "legacy memory was already imported");
+      }
+      const imported = await importLegacy(opts.userData, engine);
+      const digest = resultDigest({ personal: imported.personal, workspace: imported.workspace, candidate: imported.candidate });
+      v2.setMeta("legacy-import-complete", digest);
+      reservation.complete(digest);
+      return { personal: imported.personal, workspace: imported.workspace, candidate: imported.candidate };
     },
     close() {
       if (closed) return;
@@ -333,6 +578,8 @@ export function apply(ctx: CordisContextLike) {
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for memory");
   const workspaceRegistry = ctx.workspaceRegistry;
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
+  const agents = ctx.agents;
+  if (!agents?.get || !agents.create) throw new PenglaiError("DSH_UNAVAILABLE", "official Agents registry required for memory");
   const sources = applyEmbeddedMemorySources(ctx);
   const owner = new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) });
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
@@ -341,28 +588,50 @@ export function apply(ctx: CordisContextLike) {
       userData,
       skills: ctx.skills,
       owner,
-      curator: async (summary) => {
-        const create = (ctx as { agents?: { create?: (opts: unknown) => Promise<unknown> } }).agents?.create;
-        if (typeof create !== "function") return JSON.stringify({ candidates: [] });
+      curator: async (summary, context) => {
+        const source = agents.get(context.sessionId);
+        const provider = source?.options.provider;
+        const model = source?.options.model;
+        if (!provider || !model || !isAbsolute(context.workspacePath)) {
+          return JSON.stringify({ candidates: [] });
+        }
         return runHostCurator({
           summary,
           generate: async (prompt) => {
-            let handle: {
-              agent?: { generate?: (opts: { prompt: string }) => Promise<{ text?: string } | string> };
-              dispose?: () => Promise<void>;
-            } | undefined;
+            let handle: OfficialAgentHandleLike | undefined;
+            let timer: ReturnType<typeof setTimeout> | undefined;
             try {
-              handle = (await create({
-                setup: (agentCtx: { tools?: { guard?: (fn: () => string) => unknown } }) => {
-                  agentCtx.tools?.guard?.(() => "penglai-memory-curator/no-tools");
+              handle = await agents.create({
+                sessionId: `penglai-memory-curator-${randomUUID()}`,
+                meta: {
+                  cwd: context.workspacePath,
+                  parentSession: context.sessionId,
+                  origin: "subagent",
                 },
-              })) as typeof handle;
-              const result = await handle?.agent?.generate?.({ prompt });
-              if (typeof result === "string") return result;
-              if (result && typeof result === "object" && typeof result.text === "string") return result.text;
-              return JSON.stringify({ candidates: [] });
+                agentOptions: { provider, model, maxTokens: 1200 },
+                setup: (agentCtx) => {
+                  if (!agentCtx.tools?.guard) {
+                    throw new PenglaiError("DSH_UNAVAILABLE", "official Tools guard required for memory curator");
+                  }
+                  agentCtx.tools.guard(() => "penglai-memory-curator/no-tools");
+                },
+              });
+              handle.agent.followup({
+                id: randomUUID(),
+                role: "user",
+                content: [{ type: "text", text: prompt }],
+                source: { kind: "penglai-memory-curator" },
+              });
+              await Promise.race([
+                handle.agent.whenIdle(),
+                new Promise<never>((_, reject) => {
+                  timer = setTimeout(() => reject(new PenglaiError("DSH_UNAVAILABLE", "memory curator timeout")), 45_000);
+                }),
+              ]);
+              return finalCuratorText(handle.agent.session) ?? JSON.stringify({ candidates: [] });
             } finally {
-              await handle?.dispose?.().catch(() => undefined);
+              if (timer) clearTimeout(timer);
+              await handle?.dispose().catch(() => undefined);
             }
           },
         });
@@ -386,17 +655,24 @@ export function apply(ctx: CordisContextLike) {
         return;
       }
       const summary = turnSummary(prev);
+      const workspace = workspaceRegistry.list().find((row) => row.id === workspaceId);
       turns.delete(key);
+      if (!workspace?.path || !isAbsolute(workspace.path)) return;
       void Promise.resolve()
         .then(async () => {
-          const raw = await activeService.runCurator(summary);
-          ingestOfficialTurn({
+          const raw = await activeService.runCurator(summary, {
+            workspaceId,
+            workspacePath: workspace.path!,
+            sessionId: parts.sessionId!,
+          });
+          await ingestOfficialTurn({
             store: activeService.memoryV2,
             workspaceId,
             sessionId: parts.sessionId!,
             turnId: String(parts.turn),
             raw,
             summary,
+            persist: (candidate) => activeService.materializeCandidate(candidate),
           });
         })
         .catch(() => undefined);
@@ -410,7 +686,7 @@ export function apply(ctx: CordisContextLike) {
         const sessionId = String((payload as { agent?: { id?: string } } | undefined)?.agent?.id ?? "");
         const workspaceId = workspaceIdForSession(workspaceRegistry.list(), sessionId);
         if (!workspaceId || activeService.memoryV2.mode() === "off") return decision;
-        const confirmed = activeService.engine
+        const workspaceConfirmed = activeService.engine
           .listConfirmed({ scope: "workspace", workspaceId })
           .map((item) => ({
             id: item.id,
@@ -418,6 +694,15 @@ export function apply(ctx: CordisContextLike) {
             text: item.content,
             sourceDigest: item.contentDigest ?? "a".repeat(64),
           }));
+        const personalConfirmed = activeService.engine
+          .listConfirmed({ scope: "personal" })
+          .map((item) => ({
+            id: item.id,
+            scope: "personal" as const,
+            text: item.content,
+            sourceDigest: item.contentDigest ?? "a".repeat(64),
+          }));
+        const confirmed = [...workspaceConfirmed, ...personalConfirmed];
         const recall = activeService.memoryV2.recallSet({ workspaceId, confirmed });
         return { ...row, messages: withMemoryRecall(row.messages, recall), penglaiMemoryUsed: recall.used };
       },

@@ -34,7 +34,7 @@ test("memory accept/forget cannot be satisfied by a UUID or ownerConfirmed boole
   });
   assert.equal("candidateId" in enqueued, true);
   if (!("candidateId" in enqueued)) throw new Error("expected candidate");
-  assert.throws(
+  await assert.rejects(
     () =>
       svc.acceptCandidate({
         candidateId: enqueued.candidateId,
@@ -51,11 +51,16 @@ test("memory accept/forget cannot be satisfied by a UUID or ownerConfirmed boole
   const decided = await owner.requestOwnerApproval(proposed.actionId);
   assert.equal(decided.decision, "approved");
   if (decided.decision !== "approved") throw new Error("expected receipt");
-  svc.acceptCandidate({
-    candidateId: enqueued.candidateId,
-    actionId: proposed.actionId,
-    receipt: decided.receipt,
-  });
+  await assert.rejects(
+    () => svc.acceptCandidate({
+      candidateId: enqueued.candidateId,
+      actionId: proposed.actionId,
+      receipt: decided.receipt,
+    }),
+    /mnemon binary missing/,
+  );
+  assert.equal(svc.memoryV2.getCandidate(enqueued.candidateId)?.status, "pending");
+  assert.equal(owner.inspect(proposed.actionId).state, "reserved", "failed persistence must not be recorded committed");
   const api = createMemorySettingsApi(svc as never, { list: () => [{ id: "ws-a", title: "A" }] });
   await assert.rejects(
     () => api.forget({ id: "missing", workspaceId: "ws-a", ownerConfirmed: true }),

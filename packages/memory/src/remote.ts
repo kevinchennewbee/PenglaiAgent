@@ -9,19 +9,20 @@ interface MemorySettingsHost {
   remember?(input: { text: string; workspaceId?: string }): Promise<{ id: string }>;
   search?(query: string, workspaceId?: string): Promise<Array<{ id: string; content?: string; text?: string }>>;
   forget?(id: string, workspaceId?: string, proof?: { actionId: string; receipt: string }): Promise<unknown>;
-  deleteKnown?(workspaceId?: string): Promise<{ removed: number }>;
   why?(id: string, workspaceId?: string): Promise<unknown>;
   correct?(oldId: string, text: string, workspaceId?: string, proof?: { actionId: string; receipt: string }): Promise<unknown>;
   graph?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
   export?(workspaceId?: string, includePersonal?: boolean): Promise<unknown>;
   importPreview?(): Promise<unknown>;
-  importConfirm?(): Promise<unknown>;
+  importConfirm?(proof: { actionId: string; receipt: string }): Promise<unknown>;
   list?(scope: MemoryScope, workspaceId?: string): Array<{ id: string | number; text: string; workspaceId?: string | null }>;
   count?(workspaceId?: string): { workspace: number; personal: number; pending: number; mode: string };
   acceptCandidate?(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }): unknown;
   rejectCandidate?(input: { candidateId: string }): unknown;
   setMemoryMode?(mode: string): unknown;
-  proposeAction?(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string }): { actionId: string; action: string };
+  proposeAction?(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }): { actionId: string; action: string };
+  rememberPersonal?(input: { text: string; actionId: string; receipt: string }): Promise<{ ok: true; id: string }>;
+  deleteKnown?(workspaceId: string | undefined, proof: { actionId: string; receipt: string }): Promise<{ removed: number }>;
   deleteScope?(scope: MemoryScope, workspaceId?: string): number;
   promoteSop(input: SopPromotion): Promise<SopReceipt>;
 }
@@ -74,7 +75,7 @@ export function createMemorySettingsApi(
       if (!service.setMemoryMode) throw new PenglaiError("DSH_UNAVAILABLE", "memory mode unavailable");
       return { mode: service.setMemoryMode(input.mode) };
     },
-    async proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string }) {
+    async proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) {
       if (!service.proposeAction) throw new PenglaiError("DSH_UNAVAILABLE", "memory owner broker unavailable");
       return service.proposeAction(input);
     },
@@ -95,14 +96,18 @@ export function createMemorySettingsApi(
     ingestCurator() {
       throw new PenglaiError("SECURITY_POLICY", "memory curator is host-only");
     },
-    async write(input: MemoryWrite) {
+    async write(input: MemoryWrite & { actionId?: string; receipt?: string }) {
       requireScope(input.scope);
       if (input.scope === "candidate") throw new PenglaiError("SECURITY_POLICY", "session candidates are written by the memory pipeline");
       if (typeof input.text !== "string" || !input.text.trim()) throw new PenglaiError("INVALID_INPUT", "memory text required");
-      if (input.scope === "global" && (!input.ownerConfirmed || !input.visibleDiff)) {
-        throw new PenglaiError("SECURITY_POLICY", "global/SOP write requires visible diff and Owner confirm");
+      if (input.scope === "global" && (!input.actionId || !input.receipt)) {
+        throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       }
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
+      if (input.scope === "global") {
+        if (!service.rememberPersonal) throw new PenglaiError("DSH_UNAVAILABLE", "personal memory Owner path unavailable");
+        return service.rememberPersonal({ text: input.text.trim(), actionId: input.actionId!, receipt: input.receipt! });
+      }
       if (service.remember) {
         return service.remember({
           text: input.text.trim(),
@@ -114,7 +119,6 @@ export function createMemorySettingsApi(
         scope: input.scope,
         text: input.text.trim(),
         ...(input.scope === "workspace" ? { workspaceId: input.workspaceId } : {}),
-        ...(input.scope === "global" ? { ownerConfirmed: input.ownerConfirmed, visibleDiff: input.visibleDiff } : {}),
       }, "owner-settings");
     },
     async deleteScope(input: { scope: MemoryScope; workspaceId?: string; ownerConfirmed?: boolean; actionId?: string; receipt?: string }) {
@@ -122,7 +126,10 @@ export function createMemorySettingsApi(
       if (!input.actionId || !input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       if (input.scope === "workspace") requireWorkspace(input.workspaceId);
       if (service.deleteKnown) {
-        return service.deleteKnown(input.scope === "workspace" ? input.workspaceId : undefined);
+        return service.deleteKnown(
+          input.scope === "workspace" ? input.workspaceId : undefined,
+          { actionId: input.actionId, receipt: input.receipt },
+        );
       }
       return { removed: service.deleteScope?.(input.scope, input.workspaceId) ?? 0 };
     },
@@ -158,7 +165,7 @@ export function createMemorySettingsApi(
     async importConfirm(input: { ownerConfirmed?: boolean; actionId?: string; receipt?: string }) {
       if (!input.actionId || !input.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       if (!service.importConfirm) throw new PenglaiError("DSH_UNAVAILABLE", "memory import unavailable");
-      return service.importConfirm();
+      return service.importConfirm({ actionId: input.actionId, receipt: input.receipt });
     },
     sourcesStatus() { return requireSources().status(); },
     sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) {
@@ -174,10 +181,10 @@ export class PenglaiMemoryRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createMemorySettingsApi>) { super(ctx, "penglaiMemorySettings"); }
   @Remote status(input: { scope: MemoryScope; workspaceId?: string }) { return this.api.status(input); }
   @Remote setMode(input: { mode: string }) { return this.api.setMode(input); }
-  @Remote proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string }) { return this.api.proposeAction(input); }
+  @Remote proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) { return this.api.proposeAction(input); }
   @Remote acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) { return this.api.acceptCandidate(input); }
   @Remote rejectCandidate(input: { candidateId: string }) { return this.api.rejectCandidate(input); }
-  @Remote write(input: MemoryWrite) { return this.api.write(input); }
+  @Remote write(input: MemoryWrite & { actionId?: string; receipt?: string }) { return this.api.write(input); }
   @Remote deleteScope(input: { scope: MemoryScope; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.deleteScope(input); }
   @Remote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
   @Remote why(input: { id: string; workspaceId?: string }) { return this.api.why(input); }

@@ -14,9 +14,10 @@ function store(now = { t: 1_700_000_000_000 }) {
 
 const digest = "a".repeat(64);
 
-test("R56-MEM-002 default mode is suggest and off skips extraction", () => {
+test("R56-MEM-002 fresh profiles default to safe Workspace auto-memory and off skips extraction", () => {
   const v2 = store();
-  assert.equal(v2.mode(), DEFAULT_MEMORY_MODE);
+  assert.equal(DEFAULT_MEMORY_MODE, "auto-workspace");
+  assert.equal(v2.mode(), "auto-workspace");
   v2.setMode("off");
   const skipped = v2.enqueue({
     workspaceId: "ws-a",

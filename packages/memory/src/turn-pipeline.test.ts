@@ -12,11 +12,11 @@ import {
   workspaceIdForSession,
 } from "./turn-pipeline.js";
 
-test("official turn/end ingest is host-only and fail-open on bad curator JSON", () => {
+test("official turn/end ingest persists before accepted state and fails open on bad curator JSON", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-mem-turn-"));
   const store = new MemoryV2Store(join(root, "v2.sqlite3"));
   store.setMode("auto-workspace");
-  const bad = ingestOfficialTurn({
+  const bad = await ingestOfficialTurn({
     store,
     workspaceId: "ws-a",
     sessionId: "s1",
@@ -26,7 +26,8 @@ test("official turn/end ingest is host-only and fail-open on bad curator JSON", 
   });
   assert.equal(bad.failOpen, true);
   assert.equal(store.listCandidates("ws-a").length, 0);
-  const ok = ingestOfficialTurn({
+  const persisted: string[] = [];
+  const ok = await ingestOfficialTurn({
     store,
     workspaceId: "ws-a",
     sessionId: "s1",
@@ -44,9 +45,14 @@ test("official turn/end ingest is host-only and fail-open on bad curator JSON", 
       ],
     }),
     summary: "user:\nI like Simplified Chinese here\nassistant:\nok",
+    persist: async (candidate) => {
+      persisted.push(candidate.text);
+    },
   });
   assert.equal(ok.failOpen, false);
-  assert.equal(ok.enqueued + ok.autoAccepted >= 1, true);
+  assert.equal(ok.autoAccepted, 1);
+  assert.deepEqual(persisted, ["Use Simplified Chinese in this project"]);
+  assert.equal(store.listCandidates("ws-a").length, 0);
   store.close();
 });
 

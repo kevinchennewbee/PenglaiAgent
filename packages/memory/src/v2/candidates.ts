@@ -252,13 +252,27 @@ export class MemoryV2Store {
   }
 
   autoAcceptEligible(workspaceId: string): MemoryCandidateV1[] {
+    const accepted: MemoryCandidateV1[] = [];
+    for (const row of this.listAutoAcceptEligible(workspaceId)) {
+      accepted.push(this.decide(row.candidateId, "accepted"));
+    }
+    return accepted;
+  }
+
+  /**
+   * Return safe automatic candidates without mutating their state. Production
+   * must first persist each row into the confirmed Mnemon store and only then
+   * mark the candidate accepted. Keeping selection and commit separate avoids
+   * the old "accepted in UI but never recalled" split-brain.
+   */
+  listAutoAcceptEligible(workspaceId: string): MemoryCandidateV1[] {
     if (this.mode() !== "auto-workspace") return [];
     const accepted: MemoryCandidateV1[] = [];
     for (const row of this.listCandidates(workspaceId)) {
       if (classifyMemoryText(row.text) !== "normal") continue;
       if (row.sensitivity !== "normal") continue;
       if (cannotAutoPersonalize(row.text) || isEphemeralFact(row.text)) continue;
-      accepted.push(this.decide(row.candidateId, "accepted"));
+      accepted.push(row);
     }
     return accepted;
   }

@@ -210,7 +210,7 @@ window.__ModuleLoader__.load({
         error: "",
         notice: "",
         graph: { nodes: [], edges: [] },
-        counts: { workspace: 0, personal: 0, pending: 0, mode: "suggest" },
+        counts: { workspace: 0, personal: 0, pending: 0, mode: "auto-workspace" },
         includePersonal: false,
         selectedId: "",
         whyText: "",
@@ -249,7 +249,7 @@ window.__ModuleLoader__.load({
       }, [refresh]);
       const run = (method, input, done) => {
         set((x) => ({ ...x, busy: true, error: "", notice: "" }));
-        Promise.resolve(api[method](input))
+        return Promise.resolve(api[method](input))
           .then(unwrap)
           .then((result) => {
             set((x) => ({
@@ -264,6 +264,44 @@ window.__ModuleLoader__.load({
             return result;
           })
           .catch((e) => set((x) => ({ ...x, busy: false, error: message(e) })));
+      };
+      const ownerRun = (proposal, method, input, done) => {
+        set((x) => ({ ...x, busy: true, error: "", notice: "" }));
+        return Promise.resolve(api.proposeAction(proposal))
+          .then(unwrap)
+          .then((proposed) => {
+            const approve = window.penglai && window.penglai.requestOwnerApproval;
+            if (!approve || !proposed || !proposed.actionId)
+              throw new Error("owner approval required");
+            return Promise.resolve(approve({ actionId: proposed.actionId })).then(
+              (decided) => {
+                if (!decided || decided.decision !== "approved")
+                  throw new Error("owner denied");
+                return api[method]({
+                  ...input,
+                  actionId: proposed.actionId,
+                  receipt: decided.receipt,
+                });
+              },
+            );
+          })
+          .then(unwrap)
+          .then((result) => {
+            set((x) => ({
+              ...x,
+              busy: false,
+              notice: done || "✓",
+              text: method === "write" ? "" : x.text,
+              confirmed: false,
+              deleteConfirmed: false,
+            }));
+            refresh();
+            return result;
+          })
+          .catch((e) => {
+            set((x) => ({ ...x, busy: false, error: message(e) }));
+            return undefined;
+          });
       };
       if (v.phase === "loading")
         return jsx.jsx("section", {
@@ -353,7 +391,7 @@ window.__ModuleLoader__.load({
                       children: [
                         String(r.content || r.text || r.id),
                         " ",
-                        jsx.jsx("button", {
+                        v.scope !== "candidate" ? jsx.jsx("button", {
                           type: "button",
                           "data-penglai-memory-why": String(r.id),
                           onClick: () => {
@@ -364,39 +402,39 @@ window.__ModuleLoader__.load({
                             });
                           },
                           children: t.why,
-                        }),
+                        }) : null,
                         v.scope === "candidate"
                           ? jsx.jsx("button", {
                               type: "button",
                               "data-penglai-memory-accept": String(r.id),
-                              onClick: () => {
-                                Promise.resolve(
-                                  run("proposeAction", {
+                              onClick: () =>
+                                ownerRun(
+                                  {
                                     action: "memory.accept",
                                     objectId: String(r.id),
-                                    ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                                  }),
-                                ).then((proposed) => {
-                                  const approve =
-                                    window.penglai && window.penglai.requestOwnerApproval;
-                                  if (!approve || !proposed || !proposed.actionId) {
-                                    throw new Error("owner approval required");
-                                  }
-                                  return Promise.resolve(
-                                    approve({ actionId: proposed.actionId }),
-                                  ).then((decided) => {
-                                    if (!decided || decided.decision !== "approved") {
-                                      throw new Error("owner denied");
-                                    }
-                                    return run("acceptCandidate", {
-                                      candidateId: String(r.id),
-                                      actionId: proposed.actionId,
-                                      receipt: decided.receipt,
-                                    });
-                                  });
-                                });
-                              },
+                                    workspaceId: v.workspaceId,
+                                  },
+                                  "acceptCandidate",
+                                  { candidateId: String(r.id) },
+                                ),
                               children: t.accept,
+                            })
+                          : null,
+                        v.scope === "candidate"
+                          ? jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-memory-personalize": String(r.id),
+                              onClick: () =>
+                                ownerRun(
+                                  {
+                                    action: "memory.personal",
+                                    objectId: String(r.id),
+                                    workspaceId: v.workspaceId,
+                                  },
+                                  "acceptCandidate",
+                                  { candidateId: String(r.id), personal: true },
+                                ),
+                              children: t.personalize,
                             })
                           : null,
                         v.scope === "candidate"
@@ -408,39 +446,24 @@ window.__ModuleLoader__.load({
                               children: t.reject,
                             })
                           : null,
-                        jsx.jsx("button", {
+                        v.scope !== "candidate" ? jsx.jsx("button", {
                           type: "button",
                           "data-penglai-memory-forget": String(r.id),
-                          onClick: () => {
-                            Promise.resolve(
-                              run("proposeAction", {
+                          onClick: () =>
+                            ownerRun(
+                              {
                                 action: "memory.forget",
                                 objectId: String(r.id),
                                 ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                              }),
-                            ).then((proposed) => {
-                              const approve =
-                                window.penglai && window.penglai.requestOwnerApproval;
-                              if (!approve || !proposed || !proposed.actionId) {
-                                throw new Error("owner approval required");
-                              }
-                              return Promise.resolve(
-                                approve({ actionId: proposed.actionId }),
-                              ).then((decided) => {
-                                if (!decided || decided.decision !== "approved") {
-                                  throw new Error("owner denied");
-                                }
-                                return run("forget", {
-                                  id: String(r.id),
-                                  actionId: proposed.actionId,
-                                  receipt: decided.receipt,
-                                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                                });
-                              });
-                            });
-                          },
+                              },
+                              "forget",
+                              {
+                                id: String(r.id),
+                                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                              },
+                            ),
                           children: t.forget,
-                        }),
+                        }) : null,
                       ],
                     },
                     r.id,
@@ -448,7 +471,7 @@ window.__ModuleLoader__.load({
                 )
               : jsx.jsx("li", { children: t.empty }),
           }),
-          jsx.jsxs("label", {
+          v.scope !== "candidate" ? jsx.jsxs("label", {
             children: [
               jsx.jsx("input", {
                 type: "checkbox",
@@ -458,8 +481,8 @@ window.__ModuleLoader__.load({
               }),
               t.includePersonal,
             ],
-          }),
-          jsx.jsx("button", {
+          }) : null,
+          v.scope !== "candidate" ? jsx.jsx("button", {
             type: "button",
             "data-penglai-memory-graph": "1",
             onClick: () =>
@@ -473,7 +496,7 @@ window.__ModuleLoader__.load({
                 .then((graph) => set((x) => ({ ...x, graph: graph || { nodes: [], edges: [] } })))
                 .catch((e) => set((x) => ({ ...x, error: message(e) }))),
             children: t.graph,
-          }),
+          }) : null,
           jsx.jsxs("div", {
             "data-penglai-memory-graph-wrap": "1",
             children: [
@@ -539,41 +562,32 @@ window.__ModuleLoader__.load({
               }),
             ],
           }),
-          jsx.jsx("input", {
+          v.scope !== "candidate" ? jsx.jsx("input", {
             "data-penglai-memory-correct": "1",
             value: v.correctText,
             placeholder: t.correct,
             onChange: (e) => set((x) => ({ ...x, correctText: String(e.target.value) })),
-          }),
-          jsx.jsx("button", {
+          }) : null,
+          v.scope !== "candidate" ? jsx.jsx("button", {
             type: "button",
             disabled: !v.selectedId || !v.correctText.trim(),
-            onClick: () => {
-              Promise.resolve(
-                run("proposeAction", {
+            onClick: () =>
+              ownerRun(
+                {
                   action: "memory.correct",
                   objectId: String(v.selectedId || ""),
+                  sourceText: v.correctText,
                   ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                }),
-              ).then((proposed) => {
-                const approve = window.penglai && window.penglai.requestOwnerApproval;
-                if (!approve || !proposed || !proposed.actionId) {
-                  throw new Error("owner approval required");
-                }
-                return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
-                  if (!decided || decided.decision !== "approved") throw new Error("owner denied");
-                  return run("correct", {
-                    id: v.selectedId,
-                    text: v.correctText,
-                    actionId: proposed.actionId,
-                    receipt: decided.receipt,
-                    ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                  });
-                });
-              });
-            },
+                },
+                "correct",
+                {
+                  id: v.selectedId,
+                  text: v.correctText,
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                },
+              ),
             children: t.correct,
-          }),
+          }) : null,
           jsx.jsx("button", {
             type: "button",
             "data-penglai-memory-import-preview": "1",
@@ -592,23 +606,12 @@ window.__ModuleLoader__.load({
           jsx.jsx("button", {
             type: "button",
             "data-penglai-memory-import-confirm": "1",
-            onClick: () => {
-              Promise.resolve(
-                run("proposeAction", { action: "memory.import", objectId: "legacy-import" }),
-              ).then((proposed) => {
-                const approve = window.penglai && window.penglai.requestOwnerApproval;
-                if (!approve || !proposed || !proposed.actionId) {
-                  throw new Error("owner approval required");
-                }
-                return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
-                  if (!decided || decided.decision !== "approved") throw new Error("owner denied");
-                  return run("importConfirm", {
-                    actionId: proposed.actionId,
-                    receipt: decided.receipt,
-                  });
-                });
-              });
-            },
+            onClick: () =>
+              ownerRun(
+                { action: "memory.import", objectId: "legacy-import" },
+                "importConfirm",
+                {},
+              ),
             children: t.importConfirm,
           }),
           v.importNote ? jsx.jsx("pre", { children: v.importNote }) : null,
@@ -654,22 +657,27 @@ window.__ModuleLoader__.load({
                       (v.scope === "global" && !v.confirmed) ||
                       (v.scope === "workspace" && !v.workspaceId),
                     onClick: () =>
-                      run("write", {
-                        scope: v.scope,
-                        text: v.text,
-                        ...(v.scope === "workspace"
-                          ? { workspaceId: v.workspaceId }
-                          : {}),
-                        ...(v.scope === "global"
-                          ? { ownerConfirmed: true, visibleDiff: diff }
-                          : {}),
-                      }),
+                      v.scope === "global"
+                        ? ownerRun(
+                            {
+                              action: "memory.personalize",
+                              objectId: "personal-memory",
+                              sourceText: v.text,
+                            },
+                            "write",
+                            { scope: "global", text: v.text, visibleDiff: diff },
+                          )
+                        : run("write", {
+                            scope: v.scope,
+                            text: v.text,
+                            workspaceId: v.workspaceId,
+                          }),
                     children: t.add,
                   }),
                 ],
               })
             : null,
-          jsx.jsxs("label", {
+          v.scope !== "candidate" ? jsx.jsxs("label", {
             children: [
               jsx.jsx("input", {
                 type: "checkbox",
@@ -679,21 +687,31 @@ window.__ModuleLoader__.load({
               }),
               t.delConfirm,
             ],
-          }),
-          jsx.jsx("button", {
+          }) : null,
+          v.scope !== "candidate" ? jsx.jsx("button", {
             type: "button",
             disabled:
               v.busy ||
               !v.deleteConfirmed ||
               (v.scope === "workspace" && !v.workspaceId),
             onClick: () =>
-              run("deleteScope", {
-                scope: v.scope,
-                workspaceId: v.workspaceId,
-                ownerConfirmed: true,
-              }),
+              ownerRun(
+                {
+                  action: "memory.delete",
+                  objectId:
+                    v.scope === "workspace"
+                      ? `scope:workspace:${v.workspaceId}`
+                      : "scope:personal",
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                },
+                "deleteScope",
+                {
+                  scope: v.scope,
+                  ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+                },
+              ),
             children: t.del,
-          }),
+          }) : null,
           jsx.jsx("h4", { children: t.sop }),
           jsx.jsx("input", {
             value: v.skillName,
@@ -748,7 +766,16 @@ window.__ModuleLoader__.load({
               !v.skillDescription ||
               !v.skillBody,
             onClick: () =>
-              run(
+              ownerRun(
+                {
+                  action: "memory.promote-sop",
+                  objectId: `skill:${v.skillName}`,
+                  sourceText: JSON.stringify({
+                    name: v.skillName,
+                    description: v.skillDescription,
+                    body: v.skillBody,
+                  }),
+                },
                 "promoteSop",
                 {
                   name: v.skillName,
