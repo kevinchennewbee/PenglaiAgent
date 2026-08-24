@@ -1,7 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   chmodSync,
-  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -13,7 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { writeFileAtomic } from "./permissions.js";
 
 export const RC8_TO_RC1_MIGRATION_ID = "penglai-0.5.1-rc8-to-rc1";
@@ -23,6 +22,7 @@ export const BACKUP_SECRET_CLEANUP_MARKER = ".penglai-backup-secret-cleanup.json
 const BACKUP_SOURCES = ["dsh-home", "onboarding", "plugins/desired.json", "im"] as const;
 const MAX_BACKUP_WALK = 10_000;
 const MAX_SECRET_BYTES = 1024 * 1024;
+const MAX_BACKUP_FILE_BYTES = 64 * 1024 * 1024;
 
 export type SecretBackupCategory = "credentials-yaml" | "env-file" | "key-material";
 
@@ -52,8 +52,11 @@ function cleanupMarkerPath(userRoot: string): string {
 }
 
 function atomicJson(path: string, value: unknown): void {
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, {
+    mode: 0o600,
+    flag: "wx",
+  });
   renameSync(tmp, path);
   chmodSync(path, 0o600);
 }
@@ -108,10 +111,10 @@ function copyNonSecretTree(
   if (!stat.isFile()) {
     throw new PenglaiError("SECURITY_POLICY", "generation backup refuses special filesystem object");
   }
+  const bytes = readExactRegularFile(source, MAX_BACKUP_FILE_BYTES);
   mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
-  copyFileSync(source, destination);
+  writeFileSync(destination, bytes, { mode: 0o600, flag: "wx" });
   chmodSync(destination, 0o600);
-  const bytes = readFileSync(destination);
   files.push({
     path: relative(userRoot, source).replaceAll("\\", "/"),
     sha256: createHash("sha256").update(bytes).digest("hex"),
@@ -133,12 +136,17 @@ function persistCleanup(userRoot: string, cleanup: BackupSecretCleanup, excluded
 function readCanonicalSecret(userRoot: string): { path: string; digest: string } | undefined {
   for (const rel of ["dsh-home/.credentials.yaml", ".credentials.yaml"]) {
     const path = join(userRoot, rel);
-    if (!existsSync(path)) continue;
-    const stat = lstatSync(path);
-    if (stat.isSymbolicLink() || !stat.isFile() || stat.size <= 0 || stat.size > MAX_SECRET_BYTES) {
+    let bytes: Buffer;
+    try {
+      bytes = readExactRegularFile(path, MAX_SECRET_BYTES);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    if (bytes.length === 0) {
       throw new PenglaiError("SECURITY_POLICY", "canonical credential is not a bounded regular file");
     }
-    return { path, digest: createHash("sha256").update(readFileSync(path)).digest("hex") };
+    return { path, digest: createHash("sha256").update(bytes).digest("hex") };
   }
   return undefined;
 }
@@ -175,11 +183,19 @@ function walkBackupSecrets(userRoot: string): Array<{ path: string; relative: st
     }
     if (!stat.isFile()) continue;
     const category = secretBackupCategory(basename(current));
-    if (!category || stat.size <= 0 || stat.size > MAX_SECRET_BYTES) continue;
+    if (!category) continue;
+    let bytes: Buffer;
+    try {
+      bytes = readExactRegularFile(current, MAX_SECRET_BYTES);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    if (bytes.length === 0) continue;
     found.push({
       path: current,
       relative: relative(userRoot, current).replaceAll("\\", "/"),
-      digest: createHash("sha256").update(readFileSync(current)).digest("hex"),
+      digest: createHash("sha256").update(bytes).digest("hex"),
     });
   }
   return found;
@@ -237,13 +253,13 @@ export function restoreCanonicalCredentialFromBackup(input: { userRoot: string; 
   if (!inside(join(input.userRoot, ".penglai-backup"), source)) {
     throw new PenglaiError("SECURITY_POLICY", "credential restore escaped backup root");
   }
-  const stat = lstatSync(source);
-  if (stat.isSymbolicLink() || !stat.isFile() || stat.size <= 0 || stat.size > MAX_SECRET_BYTES) {
+  const bytes = readExactRegularFile(source, MAX_SECRET_BYTES);
+  if (bytes.length === 0) {
     throw new PenglaiError("SECURITY_POLICY", "backup credential is not a bounded regular file");
   }
   const dest = join(input.userRoot, "dsh-home", ".credentials.yaml");
   mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
-  writeFileAtomic(dest, readFileSync(source), 0o600);
+  writeFileAtomic(dest, bytes, 0o600);
   unlinkSync(source);
 }
 

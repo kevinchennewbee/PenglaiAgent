@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -7,6 +7,7 @@ import { PenglaiError } from "@penglai/contracts";
 import {
   OWNER_RECEIPT_TTL_MS,
   OwnerApprovalBroker,
+  createOwnerHmacKey,
   requestOwnerApprovalArgs,
 } from "./owner-broker.js";
 
@@ -138,3 +139,22 @@ test("R56-OWN-008 destination labels cannot carry paths or secrets", () => {
     (error: unknown) => error instanceof PenglaiError && error.message === "OWNER_DESTINATION_LABEL",
   );
 });
+
+test(
+  "R56-OWN-005 owner HMAC key creation refuses a symlink race target",
+  { skip: process.platform === "win32" },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), "penglai-broker-key-link-"));
+    const keyDir = join(root, "owner-broker");
+    mkdirSync(keyDir, { recursive: true, mode: 0o700 });
+    const outside = join(root, "outside-key");
+    const fixture = Buffer.alloc(32, 7);
+    writeFileSync(outside, fixture, { mode: 0o600 });
+    symlinkSync(outside, join(keyDir, "hmac.key"));
+    assert.throws(
+      () => createOwnerHmacKey(root),
+      /ELOOP|symlink source|SECURITY_POLICY/i,
+    );
+    assert.deepEqual(readFileSync(outside), fixture);
+  },
+);

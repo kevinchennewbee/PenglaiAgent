@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
+import { PenglaiError, parseClosedEnum, readExactRegularFile } from "@penglai/contracts";
 
 export const OWNER_ACTIONS = [
   "office.commit",
@@ -139,17 +139,27 @@ function writeJsonAtomic(path: string, value: unknown): void {
   renameSync(tmp, path);
 }
 
+function writeJsonExclusive(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  writeFileSync(path, `${JSON.stringify(value)}\n`, {
+    mode: 0o600,
+    flag: "wx",
+  });
+}
+
 function readJson(path: string): unknown {
-  return JSON.parse(readFileSync(path, "utf8"));
+  return JSON.parse(readExactRegularFile(path, 256 * 1024).toString("utf8"));
 }
 
 export function createOwnerHmacKey(root: string): Buffer {
   const path = join(root, "owner-broker", "hmac.key");
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  if (!existsSync(path)) {
+  try {
     writeFileSync(path, randomBytes(32), { mode: 0o600, flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
-  const key = readFileSync(path);
+  const key = readExactRegularFile(path, 32);
   if (key.length !== 32) fail("OWNER_HMAC_KEY");
   return key;
 }
@@ -181,8 +191,13 @@ export class OwnerApprovalBroker {
 
   private load(actionId: string): StoredProposal {
     const path = this.proposalPath(actionId);
-    if (!existsSync(path)) fail("OWNER_PROPOSAL_MISSING");
-    const raw = readJson(path) as StoredProposal;
+    let raw: StoredProposal;
+    try {
+      raw = readJson(path) as StoredProposal;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") fail("OWNER_PROPOSAL_MISSING");
+      throw error;
+    }
     if (!raw?.intent || digestIntent(raw.intent) !== raw.intentDigest) fail("OWNER_PROPOSAL_TAMPER");
     return raw;
   }
@@ -302,7 +317,14 @@ export class OwnerApprovalBroker {
     if (claims.schema !== 1 || claims.decision !== "approved" || claims.actionId !== input.actionId) fail("OWNER_RECEIPT");
     if (Date.parse(claims.expiresAt) <= this.now()) fail("OWNER_RECEIPT_EXPIRED");
     const nonceFile = this.noncePath(claims.nonce);
-    if (existsSync(nonceFile)) {
+    try {
+      writeJsonExclusive(nonceFile, {
+        nonce: claims.nonce,
+        actionId: claims.actionId,
+        usedAt: new Date(this.now()).toISOString(),
+      });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       this.log(this.load(input.actionId), "replay");
       fail("OWNER_RECEIPT_REPLAY");
     }
@@ -313,7 +335,6 @@ export class OwnerApprovalBroker {
       fail("OWNER_INTENT_MISMATCH");
     }
     const reservationId = randomUUID();
-    writeJsonAtomic(nonceFile, { nonce: claims.nonce, actionId: claims.actionId, usedAt: new Date(this.now()).toISOString() });
     row.state = "reserved";
     row.reservationId = reservationId;
     this.save(row);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -98,3 +98,37 @@ test("R56-SEC-002 multiple distinct backup secrets are not auto-chosen", () => {
   assert.equal(existsSync(join(root, ".penglai-backup", "hist-a", "dsh-home", ".credentials.yaml")), true);
   assert.equal(existsSync(join(root, ".penglai-backup", "hist-b", "dsh-home", ".credentials.yaml")), true);
 });
+
+test(
+  "R56-SEC-002 credential cleanup and restore refuse symlink sources",
+  { skip: process.platform === "win32" },
+  () => {
+    const canonicalRoot = mkdtempSync(join(tmpdir(), "penglai-gen-link-canonical-"));
+    mkdirSync(join(canonicalRoot, "dsh-home"), { recursive: true, mode: 0o700 });
+    const outsideCanonical = join(canonicalRoot, "outside-canonical.yaml");
+    writeFileSync(outsideCanonical, `DEEPSEEK_API_KEY: ${FIXTURE_KEY}\n`, { mode: 0o600 });
+    symlinkSync(outsideCanonical, join(canonicalRoot, "dsh-home", ".credentials.yaml"));
+    writeBackupSecret(canonicalRoot, "hist-link", `DEEPSEEK_API_KEY: ${FIXTURE_KEY}\n`);
+    assert.throws(
+      () => cleanupHistoricalBackupSecrets(canonicalRoot),
+      /ELOOP|symlink source|SECURITY_POLICY/i,
+    );
+
+    const restoreRoot = mkdtempSync(join(tmpdir(), "penglai-gen-link-restore-"));
+    mkdirSync(join(restoreRoot, "dsh-home"), { recursive: true, mode: 0o700 });
+    const backupDir = join(restoreRoot, ".penglai-backup", "hist-link", "dsh-home");
+    mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+    const outsideBackup = join(restoreRoot, "outside-backup.yaml");
+    writeFileSync(outsideBackup, `DEEPSEEK_API_KEY: ${FIXTURE_KEY}\n`, { mode: 0o600 });
+    symlinkSync(outsideBackup, join(backupDir, ".credentials.yaml"));
+    assert.throws(
+      () =>
+        restoreCanonicalCredentialFromBackup({
+          userRoot: restoreRoot,
+          backupRelative: ".penglai-backup/hist-link/dsh-home/.credentials.yaml",
+        }),
+      /ELOOP|symlink source|SECURITY_POLICY/i,
+    );
+    assert.equal(existsSync(join(restoreRoot, "dsh-home", ".credentials.yaml")), false);
+  },
+);
