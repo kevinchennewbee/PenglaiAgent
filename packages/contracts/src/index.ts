@@ -13,8 +13,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { PenglaiError } from "./errors.js";
 export * from "./i18n.js";
 export * from "./typert.js";
+export * from "./errors.js";
+export * from "./bounded-http.js";
 
 export const SCHEMA_VERSION = 11;
 export const RELEASE = "0.5.5";
@@ -36,27 +39,6 @@ export const CONFIG = Object.freeze({
   soakMinRounds: 20,
   lockoutMs: 15 * 60_000,
 });
-
-export type ErrorClass =
-  | "INVALID_INPUT"
-  | "UNAUTHORIZED"
-  | "BINDING_STALE"
-  | "DSH_UNAVAILABLE"
-  | "DSH_CONTRACT_DRIFT"
-  | "DELIVERY_TRANSIENT"
-  | "DELIVERY_PERMANENT"
-  | "AUTH_EXPIRED"
-  | "STORE_CORRUPT"
-  | "SECURITY_POLICY";
-
-export class PenglaiError extends Error {
-  readonly errorClass: ErrorClass;
-  constructor(errorClass: ErrorClass, message: string) {
-    super(message);
-    this.name = "PenglaiError";
-    this.errorClass = errorClass;
-  }
-}
 
 export type AdapterName = "mock" | "weixin" | "feishu";
 

@@ -63,7 +63,7 @@ Missing evidence for Phase 0: N/I/L/P = NOT RUN. A/S/C for the two spikes = sour
 | R56-SEC-002 | source-pass | historical backup secret cleanup | `generation-migrate.test.ts` | I; Owner restore not auto-applied |
 | R56-SEC-003 | not-started | POSIX mode convergence | | S,C,N |
 | R56-SEC-004 | not-started | Windows ACL | | N,I |
-| R56-SEC-005 | not-started | bounded HTTP | | S,C |
+| R56-SEC-005 | source-pass | `packages/contracts/src/bounded-http.ts` | `bounded-http.test.ts`; IM/registry reuse | I |
 | R56-SEC-006 | not-started | remote plugin bytecode | | S,C |
 | R56-SEC-007 | not-started | `scripts/audit-secrets.mjs` | | S,C |
 | R56-SEC-008 | not-started | scanner redaction | | S,C |
@@ -164,4 +164,4 @@ None in Phase 0. Schema work starts with Phase 1 backups and Phase 2 broker stor
 
 ## Next
 
-Phase 1 next capability: bounded HTTP (`R56-SEC-005`) after Inventory exact identity. POSIX mode / remote bytecode / secret scanner remain in the same P0 lane. Do not start Owner Approval Broker until the current security class is done.
+Phase 1 next capability: POSIX mode convergence + symlink fail-closed (`R56-SEC-003`). Windows ACL stays Windows-only (`R56-SEC-004`). Then remote plugin bytecode, secret scanner, Office ZIP, IM digest/retention, catalog sequence. Do not start Owner Approval Broker until the current security class is done.

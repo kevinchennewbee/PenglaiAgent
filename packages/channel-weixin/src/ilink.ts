@@ -1,4 +1,10 @@
-import { PenglaiError, isRecord } from "@penglai/contracts";
+import {
+  BOUNDED_HTTP_MAX_BYTES,
+  PenglaiError,
+  isRecord,
+  jsonMimeAllowed,
+  readBoundedResponse,
+} from "@penglai/contracts";
 import {
   DEFAULT_ILINK_BOT_TYPE,
   ILINK_APP_ID,
@@ -29,6 +35,8 @@ export interface ILinkFetch {
   (url: string, init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal }): Promise<{
     ok: boolean;
     status: number;
+    headers?: { get(name: string): string | null };
+    body?: ReadableStream<Uint8Array> | null;
     text(): Promise<string>;
   }>;
 }
@@ -288,7 +296,21 @@ export class ILinkClient {
     } catch {
       throw new PenglaiError("DELIVERY_TRANSIENT", "ilink network");
     }
-    const text = await res.text();
+    let text: string;
+    try {
+      const bounded = await readBoundedResponse({
+        response: res,
+        maxBytes: BOUNDED_HTTP_MAX_BYTES.weixinIlink,
+        category: "weixin-ilink",
+        timeoutMs: 30_000,
+        mimeAllowed: jsonMimeAllowed,
+        ...(init.signal ? { signal: init.signal } : {}),
+      });
+      text = bounded.bytes.toString("utf8");
+    } catch (error) {
+      if (error instanceof PenglaiError) throw error;
+      throw new PenglaiError("DELIVERY_TRANSIENT", "ilink network");
+    }
     if (res.status === 401 || res.status === 403) throw new PenglaiError("AUTH_EXPIRED", "ilink auth");
     if (!res.ok) throw new PenglaiError("DELIVERY_TRANSIENT", `ilink http ${res.status}`);
     try {

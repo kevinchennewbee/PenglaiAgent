@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { PenglaiError } from "@penglai/contracts";
+import { BOUNDED_HTTP_MAX_BYTES, PenglaiError } from "@penglai/contracts";
 import { ALLOWED_ASSET_HOSTS, APP_REPO, GITHUB_OWNER, compareSemver } from "./catalog-schema.js";
 import { canonicalizeBytes } from "./canonical-json.js";
 import { downloadVerifiedBytes } from "./download.js";
@@ -195,7 +195,7 @@ export async function discoverSignedAppUpdate(input: {
       fetchImpl,
       timeoutMs: 15_000,
       maxPages: 5,
-      maxBytes: 2 * 1024 * 1024,
+      maxBytes: BOUNDED_HTTP_MAX_BYTES.registryMetadata,
     });
     release = selectHighestAppRelease(listed.releases, input.currentVersion);
   } catch (error) {
@@ -208,7 +208,7 @@ export async function discoverSignedAppUpdate(input: {
       owner: GITHUB_OWNER,
       repo: APP_REPO,
       fetchImpl,
-      maxBytes: 2 * 1024 * 1024,
+      maxBytes: BOUNDED_HTTP_MAX_BYTES.registryMetadata,
     });
     release = selectHighestAppRelease(
       tags.map((tag) => ({ tag_name: tag, immutable: true, assets: [] })),

@@ -87,3 +87,15 @@ test("confirmed Feishu registration yields credentials only through takeConfirme
   assert.equal(client.takeConfirmed(started.challengeId), undefined);
   assert.ok(polls >= 1);
 });
+
+test("R56-SEC-005 Feishu registration JSON is bound before parse", async () => {
+  const client = new FeishuAppRegistration(async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => (name.toLowerCase() === "content-length" ? String(2 * 1024 * 1024) : null) },
+    async text() {
+      return "{}";
+    },
+  }));
+  await assert.rejects(() => client.begin(), /BOUNDED_HTTP_DECLARED_LENGTH/);
+});

@@ -1,4 +1,4 @@
-import { PenglaiError } from "@penglai/contracts";
+import { BOUNDED_HTTP_MAX_BYTES, PenglaiError, readBoundedResponse } from "@penglai/contracts";
 import { APP_REPO, GITHUB_API_ORIGIN, GITHUB_OWNER, PLUGIN_REGISTRY_REPO } from "./catalog-schema.js";
 
 export const CATALOG_TAG = /^plugin-catalog-v1\.(\d{6})$/;
@@ -156,15 +156,15 @@ export async function fetchGithubReleaseTags(input: {
   if (response.status !== 200 || response.redirected) {
     throw new PenglaiError("DELIVERY_TRANSIENT", `GitHub releases feed refused: ${response.status}`);
   }
-  const maxBytes = input.maxBytes ?? 512 * 1024;
-  const declared = response.headers.get("content-length");
-  if (declared !== null && Number(declared) > maxBytes) {
-    throw new PenglaiError("SECURITY_POLICY", "GitHub releases feed exceeded size bound");
-  }
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > maxBytes) {
-    throw new PenglaiError("SECURITY_POLICY", "GitHub releases feed exceeded size bound");
-  }
+  const maxBytes = input.maxBytes ?? BOUNDED_HTTP_MAX_BYTES.registryMetadata;
+  const text = (
+    await readBoundedResponse({
+      response,
+      maxBytes,
+      category: "registry-metadata",
+      timeoutMs: input.timeoutMs ?? 15_000,
+    })
+  ).bytes.toString("utf8");
   const prefix = `href="https://github.com/${input.owner}/${input.repo}/releases/tag/`;
   const tags: string[] = [];
   let offset = 0;
@@ -207,7 +207,7 @@ export async function fetchGithubReleasePages(input: {
 }): Promise<{ releases: GitHubReleaseLike[]; etag?: string; notModified?: boolean }> {
   const maxPages = input.maxPages ?? 5;
   const timeoutMs = input.timeoutMs ?? 15_000;
-  const maxBytes = input.maxBytes ?? 2 * 1024 * 1024;
+  const maxBytes = input.maxBytes ?? BOUNDED_HTTP_MAX_BYTES.registryMetadata;
   const releases: GitHubReleaseLike[] = [];
   let url = input.url.includes("?") ? input.url : `${input.url}?per_page=100`;
   let etag = input.etag;
@@ -239,12 +239,14 @@ export async function fetchGithubReleasePages(input: {
       const nextEtag = response.headers.get("etag");
       if (nextEtag) etag = nextEtag;
     }
-    const declared = response.headers.get("content-length");
-    if (declared !== null && Number(declared) > maxBytes) {
-      throw new PenglaiError("SECURITY_POLICY", "GitHub releases list exceeded size bound");
-    }
-    const text = await response.text();
-    if (text.length > maxBytes) throw new PenglaiError("SECURITY_POLICY", "GitHub releases list exceeded size bound");
+    const text = (
+      await readBoundedResponse({
+        response,
+        maxBytes,
+        category: "registry-metadata",
+        timeoutMs,
+      })
+    ).bytes.toString("utf8");
     const raw = JSON.parse(text) as unknown;
     if (!Array.isArray(raw)) throw new PenglaiError("INVALID_INPUT", "GitHub releases list");
     releases.push(...(raw as GitHubReleaseLike[]));

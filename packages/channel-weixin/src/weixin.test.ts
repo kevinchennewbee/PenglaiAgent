@@ -831,3 +831,15 @@ test("Weixin office return reuses the authenticated encrypted FILE transport", a
   assert.equal(sent[0]?.data.equals(bytes), true);
   h.store.close();
 });
+
+test("R56-SEC-005 ilink JSON is bound before parse", async () => {
+  const client = new ILinkClient(async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => (name.toLowerCase() === "content-length" ? String(5 * 1024 * 1024) : null) },
+    async text() {
+      return "{}";
+    },
+  }));
+  await assert.rejects(() => client.getQr(), /BOUNDED_HTTP_DECLARED_LENGTH/);
+});

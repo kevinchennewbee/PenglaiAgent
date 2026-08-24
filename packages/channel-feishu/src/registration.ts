@@ -1,5 +1,11 @@
 import { gzipSync } from "node:zlib";
-import { PenglaiError, isRecord } from "@penglai/contracts";
+import {
+  BOUNDED_HTTP_MAX_BYTES,
+  PenglaiError,
+  isRecord,
+  jsonMimeAllowed,
+  readBoundedResponse,
+} from "@penglai/contracts";
 import { FEISHU_MIN_SCOPES, FEISHU_RECEIVE_EVENT } from "./official.js";
 import { renderQrPngDataUrl } from "./qr-image.js";
 
@@ -13,6 +19,8 @@ export interface FeishuRegistrationFetch {
   (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }): Promise<{
     ok: boolean;
     status: number;
+    headers?: { get(name: string): string | null };
+    body?: ReadableStream<Uint8Array> | null;
     text(): Promise<string>;
   }>;
 }
@@ -188,7 +196,20 @@ export class FeishuAppRegistration {
     } catch {
       throw new PenglaiError("DELIVERY_TRANSIENT", "feishu registration network");
     }
-    const text = await res.text();
+    let text: string;
+    try {
+      const bounded = await readBoundedResponse({
+        response: res,
+        maxBytes: BOUNDED_HTTP_MAX_BYTES.feishuRegistration,
+        category: "feishu-registration",
+        timeoutMs: 15_000,
+        mimeAllowed: jsonMimeAllowed,
+      });
+      text = bounded.bytes.toString("utf8");
+    } catch (error) {
+      if (error instanceof PenglaiError) throw error;
+      throw new PenglaiError("DELIVERY_TRANSIENT", "feishu registration network");
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
