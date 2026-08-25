@@ -1,0 +1,11 @@
+body {
+  margin: 0 auto;
+  max-width: 42rem;
+  padding: 1.5rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+header p:first-child {
+  font-size: 1.4rem;
+  font-weight: 650;
+}

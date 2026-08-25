@@ -19,6 +19,7 @@ export const PUBLIC_EXPORT_ALLOW = [
   "overlays",
   "third_party",
   "packaging",
+  "website",
   "docs/PRODUCT.md",
   "docs/ARCHITECTURE.md",
   "docs/SECURITY.md",

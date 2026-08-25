@@ -157,7 +157,10 @@ test("Budget settings uses only live Workspace and model route keys and never in
     assert.equal(api.status().money, null);
     assert.deepEqual(api.status().options.models, [{ provider: "deepseek", model: "chat", key: "deepseek/chat" }]);
     assert.throws(() => api.setPolicy({ scope: "workspace", key: "missing", hardTokens: 1, ownerConfirmed: true }), /not live/);
-    assert.equal(api.setPolicy({ scope: "global", key: "renderer-choice", hardTokens: 100, ownerConfirmed: true }).key, "*");
+    assert.throws(
+      () => api.setPolicy({ scope: "global", key: "renderer-choice", hardTokens: 100, ownerConfirmed: true }),
+      /Owner confirmation/,
+    );
   } finally { ledger.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -9,12 +9,32 @@ for (const line of lock.split("\n")) {
   const m = /^ {6}([^:]+@[^:]+):$/.exec(line) || /^ {2}([^:]+@[^:]+):$/.exec(line);
   if (m) names.add(m[1]);
 }
-const components = [...names].sort().slice(0, 800).map((id) => ({
+const sorted = [...names].sort();
+const seenRefs = new Set();
+const components = sorted.map((id) => {
+  const bomRef = `pkg:npm/${id}`;
+  if (seenRefs.has(bomRef)) throw new Error(`duplicate bom-ref ${bomRef}`);
+  seenRefs.add(bomRef);
+  return {
+    type: "library",
+    name: id.split("@").slice(0, -1).join("@") || id,
+    version: id.split("@").at(-1),
+    "bom-ref": bomRef,
+    purl: bomRef,
+  };
+});
+components.push({
   type: "library",
-  name: id.split("@").slice(0, -1).join("@") || id,
-  version: id.split("@").at(-1),
-  purl: `pkg:npm/${id}`,
-}));
+  name: "dsh-im",
+  version: "2.4.0",
+  "bom-ref": "pkg:github/xmanrui/dsh-im@7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
+  licenses: [{ license: { id: "MIT" } }],
+  properties: [
+    { name: "penglai:use", value: "selective-rewrite-not-installed" },
+    { name: "penglai:tag", value: "v2.4.0" },
+    { name: "penglai:unsigned-tag", value: "true" },
+  ],
+});
 const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
 components.push({
   type: "file",

@@ -24,7 +24,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !define PRODUCT_PUBLISHER "Penglai"
 !define USERDATA "$LOCALAPPDATA\Penglai\0.5"
 !define UPDATE_CACHE "$LOCALAPPDATA\Penglai\0.5\cache\updates"
-!define HELPER "$INSTDIR\runtime\helpers\penglai-windows-host.exe"
+!define HELPER "$INSTDIR\resources\runtime\helpers\penglai-windows-host.exe"
 !define CAPABILITY "${USERDATA}\uninstall\deletion-capability.json"
 
 !ifdef PENGLAI_ICON

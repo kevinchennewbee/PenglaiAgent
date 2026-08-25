@@ -205,7 +205,7 @@ window.__ModuleLoader__.load({
             key: v.key,
             hardTokens: v.unlimited ? null : Number(v.hard),
             warnRatio: Number(v.warn),
-            ownerConfirmed: true,
+            ownerConfirmed: false,
           }),
         )
           .then(unwrap)

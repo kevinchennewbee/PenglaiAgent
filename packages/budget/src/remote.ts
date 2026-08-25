@@ -38,7 +38,7 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
       if (input.scope === "workspace" && !available.workspaces.some((row) => row.id === key)) throw new PenglaiError("INVALID_INPUT", "budget Workspace is not live");
       if (input.scope === "provider" && !available.providers.includes(key)) throw new PenglaiError("INVALID_INPUT", "budget provider is not live");
       if (input.scope === "model" && !available.models.some((row) => row.key === key)) throw new PenglaiError("INVALID_INPUT", "budget model route is not live");
-      return service.setPolicy({ ...input, key });
+      return service.setPolicy({ ...input, key, ownerConfirmed: false });
     },
   };
 }

@@ -445,8 +445,12 @@ export async function runProfileTransaction(opts: {
   try {
     rmSync(staging, { recursive: true, force: true });
     rmSync(packageStage, { recursive: true, force: true });
-    rmSync(lastGood, { recursive: true, force: true });
-    copyDir(opts.profileDir, lastGood);
+    const lastGoodNext = join(opts.txDir, `last-good-next-${operationId}`);
+    rmSync(lastGoodNext, { recursive: true, force: true });
+    copyDir(opts.profileDir, lastGoodNext);
+    if (!existsSync(lastGood)) {
+      renameSync(lastGoodNext, lastGood);
+    }
     atomicJournal(journalPath, journal);
     copyDir(opts.profileDir, staging);
     const patchPath = join(staging, "cordis.patch.yml");
@@ -533,6 +537,13 @@ export async function runProfileTransaction(opts: {
     journal.phase = "committed";
     atomicJournal(journalPath, journal);
     rmSync(backup, { recursive: true, force: true });
+    const lastGoodNext = join(opts.txDir, `last-good-next-${operationId}`);
+    if (existsSync(lastGoodNext)) {
+      const lastGoodPrev = join(opts.txDir, `last-good-prev-${operationId}`);
+      if (existsSync(lastGood)) renameSync(lastGood, lastGoodPrev);
+      renameSync(lastGoodNext, lastGood);
+      rmSync(lastGoodPrev, { recursive: true, force: true });
+    }
     return {
       phase: "committed",
       id: opts.entry.id,
