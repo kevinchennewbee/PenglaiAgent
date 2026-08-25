@@ -125,27 +125,7 @@ export class DingTalkAdapter {
   }
 
   private async createOfficialClient(creds: DingTalkCredentials): Promise<DingTalkStreamClient> {
-    const mod = (await import("dingtalk-stream")) as unknown as {
-      DWClient?: new (opts: { clientId: string; clientSecret: string }) => {
-        connect(): Promise<void> | void;
-        disconnect(): Promise<void> | void;
-      };
-    };
-    if (typeof mod.DWClient !== "function") {
-      throw new PenglaiError("DSH_UNAVAILABLE", "dingtalk-stream DWClient missing");
-    }
-    const raw = new mod.DWClient({ clientId: creds.clientId, clientSecret: creds.clientSecret });
-    const client: DingTalkStreamClient = {
-      connected: false,
-      async connect() {
-        await raw.connect();
-        client.connected = true;
-      },
-      async disconnect() {
-        await raw.disconnect();
-        client.connected = false;
-      },
-    };
-    return client;
+    const { createDingTalkStreamClient } = await import("./stream-client.js");
+    return createDingTalkStreamClient(creds);
   }
 }
