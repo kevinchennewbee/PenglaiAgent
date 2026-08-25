@@ -94,13 +94,12 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     { running: false, start: async () => undefined, stop: () => undefined } as never,
     { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
   );
+  const slackCreds: Record<string, { botToken: string; appToken?: string }> = {};
+  host.attachSecretHydrator((id, serialized) => {
+    if (id === "slack") slackCreds["PENGLAI_SLACK_BOT"] = JSON.parse(serialized) as { botToken: string; appToken?: string };
+  });
   const slack = new (await import("@penglai/channel-slack")).SlackAdapter(
-    {
-      resolve: () => {
-        const raw = memory.get("PENGLAI_SLACK_BOT");
-        return raw ? (JSON.parse(raw) as { botToken: string; appToken?: string }) : undefined;
-      },
-    },
+    { resolve: (ref) => slackCreds[ref] },
     async (url) => {
       if (String(url).includes("apps.connections.open")) {
         return new Response(JSON.stringify({ ok: true, url: "wss://wss-primary.slack.com/link" }));
@@ -110,7 +109,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     { open: () => ({ close() {} }) },
   );
   const { slackChannelAdapter } = await import("./adapters/channel-bridge.js");
-  host.attachChannelAdapter(slackChannelAdapter(slack));
+  host.attachChannelAdapter(slackChannelAdapter(slack, { hashPeer: (senderId) => senderId }));
   await assert.rejects(() => host.beginChannelConnection({ channel: "slack", method: "qr" }), /CHANNEL_NO_QR/);
   const begun = await host.beginChannelConnection({
     channel: "slack",
@@ -168,6 +167,8 @@ test("R57-IM-002 IM client lists nine platforms with a real connect action", () 
   assert.match(client, /data-penglai-im-platform/);
   assert.match(client, /beginChannelConnection/);
   assert.match(client, /data-penglai-im-connect-submit/);
+  assert.match(client, /data-penglai-im-scan-image/);
+  assert.doesNotMatch(client, /data-penglai-im-scan-host/);
   assert.doesNotMatch(client, /roadmap only/);
   assert.doesNotMatch(client, /仅列入后续计划/);
   assert.doesNotMatch(client, /data-penglai-im-planned/);
