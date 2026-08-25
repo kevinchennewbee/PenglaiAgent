@@ -38,6 +38,7 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
+import { shouldRestartAfterExit } from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -971,6 +972,7 @@ export class EmbeddedDshSupervisor {
   port = 0;
   child: ChildProcess | undefined;
   restarts = 0;
+  restartStamps: number[] = [];
   logs = "";
   identity: ProcessIdentity | undefined;
   private lastUser: UserLayout | undefined;
@@ -1084,9 +1086,22 @@ export class EmbeddedDshSupervisor {
       this.logs += String(d);
     });
     this.child.on("exit", () => {
-      if (this.state === "stopping" || this.state === "starting") return;
-      this.state = "crashed";
+      const intentional = this.state === "stopping";
+      if (
+        !shouldRestartAfterExit({
+          intentional,
+          state: this.state,
+          stamps: this.restartStamps,
+        })
+      ) {
+        if (!intentional) this.state = "crashed";
+        return;
+      }
+      this.restartStamps.push(Date.now());
       this.restarts += 1;
+      this.state = "crashed";
+      const user = this.lastUser;
+      if (user) void this.start(user);
     });
     try {
       await waitPort(this.port, 25_000);
