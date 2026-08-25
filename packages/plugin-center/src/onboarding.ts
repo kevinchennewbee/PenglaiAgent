@@ -38,7 +38,10 @@ export interface OfficialUsableCtx {
     create: (opts: {
       sessionId: string;
       meta?: { cwd?: string };
-      agentOptions?: { provider?: string; model?: string };
+      agentOptions?: { provider?: string; model?: string; maxTokens?: number };
+      setup?: (agentCtx: {
+        tools?: { restrict: (filter: { allow?: readonly string[]; deny?: readonly string[] }) => unknown };
+      }) => void | Promise<void>;
     }) => Promise<{
       agent: {
         followup: (m: unknown) => void;
@@ -991,7 +994,14 @@ async function runOfficialTurn(
     handle = await ctx.agents.create({
       sessionId,
       meta: { cwd: opts.cwd },
-      agentOptions: { provider: opts.provider, model: opts.model, tools: false, maxTokens: opts.maxTokens } as never,
+      agentOptions: { provider: opts.provider, model: opts.model, maxTokens: opts.maxTokens },
+      setup(agentCtx) {
+        if (!agentCtx.tools) throw new PenglaiError("DSH_UNAVAILABLE", "official tools service missing");
+        // The setup wizard has no conversation approval surface. Compose this
+        // one probe Session with the official per-agent restriction so an LLM
+        // cannot strand onboarding by choosing an approval-gated tool.
+        agentCtx.tools.restrict({ allow: [] });
+      },
     });
     handle.agent.followup({
       id: randomUUID(),

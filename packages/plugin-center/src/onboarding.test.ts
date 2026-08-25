@@ -746,10 +746,15 @@ test("official nonce Turn survives whenIdle resolving before turn/end", async ()
   const nonce = "idle-race";
   const session: { events: unknown[] } = { events: [] };
   let listener: ((...args: unknown[]) => void) | undefined;
+  const restrictions: unknown[] = [];
   const result = await runOfficialNonceTurn(
     {
       agents: {
-        async create(input: { sessionId: string }) {
+        async create(input: {
+          sessionId: string;
+          setup?: (ctx: { tools: { restrict: (filter: unknown) => void } }) => void | Promise<void>;
+        }) {
+          await input.setup?.({ tools: { restrict: (filter) => restrictions.push(filter) } });
           return {
             agent: {
               session,
@@ -784,6 +789,7 @@ test("official nonce Turn survives whenIdle resolving before turn/end", async ()
     { nonce, provider: "deepseek-official", model: "deepseek-v4-flash", cwd: process.cwd() },
   );
   assert.equal(result.passed, true);
+  assert.deepEqual(restrictions, [{ allow: [] }]);
 });
 
 test("official Turn timeout stays below the wizard wait and above the old 45 second cutoff", () => {
