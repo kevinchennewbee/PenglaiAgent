@@ -32,8 +32,9 @@ export type DingTalkConnection = "not_configured" | "connecting" | "connected" |
 export class DingTalkAdapter {
   connection: DingTalkConnection = "not_configured";
   private client: DingTalkStreamClient | undefined;
-  private qr?: { operationId: string; deviceCode: string; verificationUrl: string; expiresAt: number };
+  private qr: { operationId: string; deviceCode: string; verificationUrl: string; expiresAt: number } | undefined;
   readonly inbound: DingTalkInbound[] = [];
+  private inboundHandler?: (msg: DingTalkInbound) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined; put?(ref: string, creds: DingTalkCredentials): void },
@@ -90,6 +91,10 @@ export class DingTalkAdapter {
     return { delivered: true };
   }
 
+  onInbound(handler: (msg: DingTalkInbound) => void): void {
+    this.inboundHandler = handler;
+  }
+
   async disconnect(): Promise<void> {
     await this.client?.disconnect();
     this.client = undefined;
@@ -106,7 +111,10 @@ export class DingTalkAdapter {
     this.connection = "connecting";
     try {
       this.client = this.factory ? this.factory(creds) : await this.createOfficialClient(creds);
-      this.client.onMessage?.((msg) => this.inbound.push(msg));
+      this.client.onMessage?.((msg) => {
+        this.inbound.push(msg);
+        this.inboundHandler?.(msg);
+      });
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";
     } catch {

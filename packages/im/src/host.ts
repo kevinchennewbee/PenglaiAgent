@@ -12,7 +12,13 @@ import type { FeishuAdapter } from "@penglai/channel-feishu";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import type { Store } from "@penglai/persistence";
 import type { DshHost } from "@penglai/dsh-bridge";
-import { FEISHU_SECRET_REF, WEIXIN_TOKEN_REF, type CredentialsServiceVault } from "./credentials-vault.js";
+import {
+  CHANNEL_CREDENTIAL_REFS,
+  FEISHU_SECRET_REF,
+  WEIXIN_TOKEN_REF,
+  assertOfficialCredentialRef,
+  type CredentialsServiceVault,
+} from "./credentials-vault.js";
 import type { AdapterSupervisor } from "./supervisor.js";
 import { ImBotStore } from "./bots.js";
 import { beginGuidedConnection, type GuidedConnectionState } from "./guided.js";
@@ -21,10 +27,11 @@ import {
   getChannelManifest,
   isLiveChannel,
   listChannelManifests,
+  requireChannelId,
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
-import { guidedAdapter, type ChannelAdapter, type ConnectionState } from "./channel-adapter.js";
+import { guidedAdapter, requireAdapter, type ChannelAdapter, type ConnectionResult, type ConnectionState, type InboundChannelEvent } from "./channel-adapter.js";
 import { refuseUnliveSend } from "./guided.js";
 import {
   IM_OWNER_ACTIONS,
@@ -35,7 +42,7 @@ import {
   type ImOwnerBrokerPort,
 } from "./owner.js";
 
-export type ChannelName = "weixin" | "feishu";
+export type ChannelName = ChannelId;
 export type { ConnectionState };
 
 export interface ChannelState {
@@ -118,6 +125,7 @@ export class PenglaiImHost {
 
   attachChannelAdapter(adapter: ChannelAdapter): void {
     this.adapters.set(adapter.id, adapter);
+    this.attachInboundFanIn(adapter);
   }
 
   async sendOutboundText(input: { channel: ChannelId; text: string }): Promise<{ delivered: true }> {
@@ -164,7 +172,7 @@ export class PenglaiImHost {
   }> {
     const channels: ChannelState[] = [];
     for (const id of CHANNEL_IDS) {
-      channels.push(isLiveChannel(id) ? await this.channelState(id) : this.guidedChannelState(id));
+      channels.push(isLiveChannel(id) ? await this.channelState(id) : await this.guidedChannelState(id));
     }
     return {
       plugin: "active",
@@ -198,10 +206,10 @@ export class PenglaiImHost {
     const out: BindingDto[] = [];
     for (const b of this.store.listActiveBindings()) {
       const route = this.store.getRoute(b.routeId);
-      if (route?.adapter !== "weixin" && route?.adapter !== "feishu") continue;
+      if (!route || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) continue;
       out.push({
         id: b.routeId,
-        channel: route.adapter,
+        channel: route.adapter as ChannelId,
         accountId: route.accountRef,
         peerId: route.peerRef,
         workspaceId: b.workspaceIdentity,
@@ -634,6 +642,9 @@ export class PenglaiImHost {
     this.supervisor.stop();
     this.weixin.stopReceive();
     this.feishu.stop();
+    for (const adapter of this.adapters.values()) {
+      void adapter.disconnect().catch(() => undefined);
+    }
     this.store.close();
     return this.resourceSnapshot();
   }
@@ -788,23 +799,16 @@ export class PenglaiImHost {
     };
   }
 
-  private guidedChannelState(channel: ChannelId): ChannelState {
+  private async guidedChannelState(channel: ChannelId): Promise<ChannelState> {
     const manifest = getChannelManifest(channel);
-    const bots = this.bots.list(channel);
-    const connection: ConnectionState =
-      manifest.risk === "community-protocol" && bots.every((bot) => !bot.riskAckAt)
-        ? "disabled"
-        : bots.some((bot) => bot.state === "online")
-          ? "connected"
-          : bots.length
-            ? "not_configured"
-            : "disabled";
+    const adapter = this.adapters.get(channel);
+    const health = adapter ? await adapter.health() : { enabled: false, connection: "disabled" as ConnectionState };
     return {
       channel,
-      enabled: bots.length > 0,
-      configured: bots.length > 0,
-      connection,
-      boundRoutes: 0,
+      enabled: health.enabled,
+      configured: health.connection !== "disabled" && health.connection !== "not_configured",
+      connection: health.connection,
+      boundRoutes: this.listBindings().filter((row) => row.channel === channel).length,
       pendingInbox: 0,
       pendingOutbox: 0,
       revision: this.revision,
@@ -847,4 +851,206 @@ export class PenglaiImHost {
     this.bots.remove(input.botId);
     return { removed: true };
   }
+
+  attachInboundFanIn(adapter: ChannelAdapter): void {
+    adapter.onInbound((event) => {
+      void this.handleChannelInbound(event);
+    });
+  }
+
+  async storeChannelSecret(input: { channel: string; secret: string }): Promise<{ stored: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    const secret = input.secret.trim();
+    if (!secret || secret.length > 8_192) throw new PenglaiError("INVALID_INPUT", "CHANNEL_SECRET");
+    const ref = CHANNEL_CREDENTIAL_REFS[id];
+    assertOfficialCredentialRef(ref);
+    await this.vault.write(ref, serializeChannelSecret(id, secret));
+    this.revision += 1;
+    return { stored: true };
+  }
+
+  async beginChannelConnection(input: {
+    channel: string;
+    method: string;
+    riskAck?: boolean;
+    secret?: string;
+  }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string; verificationUrl?: string }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (input.secret) await this.storeChannelSecret({ channel: id, secret: input.secret });
+    const guided = beginGuidedConnection({
+      channel: id,
+      method: input.method,
+      ...(input.riskAck ? { riskAck: true } : {}),
+    });
+    const adapter = requireAdapter(this.adapters, id);
+    const result = await adapter.beginConnection({
+      method: input.method,
+      credentialRef: CHANNEL_CREDENTIAL_REFS[id],
+      ...(input.riskAck ? { riskAck: true } : {}),
+    });
+    this.persistChannelFlag(id, true);
+    this.revision += 1;
+    const peeked = adapter.peekQr?.(result.operationId);
+    return {
+      ...result,
+      steps: guided.steps,
+      docsUrl: guided.docsUrl,
+      ...(peeked?.verificationUrl ? { verificationUrl: peeked.verificationUrl } : {}),
+    };
+  }
+
+  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; verificationUrl?: string }> {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    const polled = await adapter.pollConnection(input.operationId);
+    const peeked = adapter.peekQr?.(input.operationId);
+    this.revision += 1;
+    return {
+      status: polled.status,
+      ...(peeked?.verificationUrl ? { verificationUrl: peeked.verificationUrl } : {}),
+    };
+  }
+
+  async cancelChannelConnection(input: { channel: string; operationId?: string }): Promise<{ cancelled: true }> {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    await adapter.cancelConnection(input.operationId ?? `${id}:cancel`);
+    this.revision += 1;
+    return { cancelled: true };
+  }
+
+  peekChannelQr(input: { channel: string; operationId: string }): { verificationUrl?: string; expiresAt?: number } {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    return adapter.peekQr?.(input.operationId) ?? {};
+  }
+
+  async disconnectChannel(input: { channel: string }): Promise<{ disconnected: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    await requireAdapter(this.adapters, id).disconnect();
+    this.persistChannelFlag(id, true);
+    this.revision += 1;
+    return { disconnected: true };
+  }
+
+  async logoutChannel(input: { channel: string }): Promise<{ loggedOut: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    const adapter = requireAdapter(this.adapters, id);
+    await adapter.logout();
+    await adapter.deleteCredentials();
+    await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
+    this.persistChannelFlag(id, false);
+    this.revision += 1;
+    return { loggedOut: true };
+  }
+
+  async restoreChannelAdapters(): Promise<void> {
+    for (const id of CHANNEL_IDS) {
+      if (isLiveChannel(id)) continue;
+      const adapter = this.adapters.get(id);
+      if (!adapter) continue;
+      this.attachInboundFanIn(adapter);
+      const raw = this.store.getAdapterConfig(`${id}-default`);
+      let enabled = false;
+      try {
+        enabled = Boolean(raw && (JSON.parse(raw) as { enabled?: boolean }).enabled);
+      } catch {
+        enabled = false;
+      }
+      const configured = (await this.vault.describe(CHANNEL_CREDENTIAL_REFS[id])).configured;
+      if (!enabled && !configured) continue;
+      try {
+        await adapter.beginConnection({
+          method: restoreMethod(id),
+          credentialRef: CHANNEL_CREDENTIAL_REFS[id],
+          riskAck: true,
+        });
+      } catch {
+        /* stay disconnected until the owner reconnects */
+      }
+    }
+  }
+
+  async pumpChannelOutbox(routeId: string): Promise<void> {
+    const route = this.store.getRoute(routeId);
+    if (!route || isLiveChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
+    const adapter = this.adapters.get(route.adapter as ChannelId);
+    if (!adapter) return;
+    const target = this.plane.requireVendorTarget(routeId);
+    for (const item of this.plane.dueOutbox(routeId)) {
+      const claimToken = this.plane.markSending(item.outboxId, route.adapter);
+      if (!claimToken) continue;
+      const delivery = this.plane.resolveVoiceDelivery(item.outboxId);
+      try {
+        await adapter.sendText({
+          text: delivery.finalText,
+          peerRef: delivery.vendorTarget || target,
+        });
+        this.plane.markDelivered(item.outboxId, claimToken);
+      } catch {
+        this.plane.markSendResult(item.outboxId, "transient", claimToken);
+      }
+    }
+  }
+
+  private persistChannelFlag(channel: ChannelId, enabled: boolean): void {
+    this.store.putAdapterConfig(`${channel}-default`, channel, JSON.stringify({ enabled }));
+  }
+
+  private async handleChannelInbound(event: InboundChannelEvent): Promise<void> {
+    if (event.chatType !== "private" || !event.text?.trim()) return;
+    const routeId = this.plane.ensureRoute({
+      adapter: event.channel,
+      adapterMessageKey: event.vendorMessageId,
+      accountRef: event.botId,
+      peerRef: event.peerRef,
+      vendorTarget: event.vendorTarget,
+      chatKind: "private",
+      bodyKind: "text",
+      text: event.text,
+      receivedAt: Date.now(),
+    });
+    const vendorMessageKey = `${event.channel}:${event.vendorMessageId}`;
+    const claim = this.store.claimInboundOperation({
+      operationId: `op:${vendorMessageKey}`,
+      vendorMessageKey,
+      routeId,
+    });
+    if (!claim.created && claim.turnId) return;
+    await this.plane.submitInbound({
+      adapter: event.channel,
+      adapterMessageKey: event.vendorMessageId,
+      accountRef: event.botId,
+      peerRef: event.peerRef,
+      vendorTarget: event.vendorTarget,
+      chatKind: "private",
+      bodyKind: "text",
+      text: event.text,
+      receivedAt: Date.now(),
+    });
+  }
+}
+
+function restoreMethod(id: ChannelId): string {
+  const methods = getChannelManifest(id).connectionMethods;
+  if (methods.includes("token")) return "token";
+  if (methods.includes("oauth")) return "oauth";
+  if (methods.includes("manifest")) return "manifest";
+  if (methods.includes("device-link")) return "device-link";
+  return methods[0] ?? "token";
+}
+
+function serializeChannelSecret(id: ChannelId, secret: string): string {
+  if (secret.startsWith("{")) return secret;
+  if (id === "slack") return JSON.stringify({ botToken: secret });
+  if (id === "telegram" || id === "discord") return JSON.stringify({ token: secret });
+  const [first, second] = secret.split(/\n+/);
+  if (id === "dingtalk") return JSON.stringify({ clientId: first, clientSecret: second ?? "" });
+  if (id === "wecom") return JSON.stringify({ botId: first, secret: second ?? "" });
+  if (id === "qq") return JSON.stringify({ appId: first, clientSecret: second ?? "" });
+  return secret;
 }

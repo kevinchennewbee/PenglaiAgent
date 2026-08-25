@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
+import { CHANNEL_CREDENTIAL_REFS } from "./credentials-vault.js";
 import { CHANNEL_IDS, getChannelManifest, type ChannelId } from "./registry.js";
 
 export const IM_BOT_STATES = [
@@ -75,7 +76,7 @@ export class ImBotStore {
       botId: randomUUID(),
       channelId,
       displayName: input.displayName.trim() || manifest.displayName.en,
-      credentialRef: `penglai-im/${channelId}/${randomUUID()}/token`,
+      credentialRef: CHANNEL_CREDENTIAL_REFS[channelId],
       state: manifest.defaultEnabled ? "connecting" : "disabled",
       riskAckAt: input.riskAck === true ? now : null,
       createdAt: now,

@@ -6,13 +6,21 @@ export interface DiscordCredentials {
   token: string;
 }
 
+export interface DiscordInbound {
+  messageId: string;
+  senderId: string;
+  channelId: string;
+  text: string;
+}
+
 export type DiscordConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
-/** Official Discord Bot REST. Never a QR shortcut. Gateway reconnect is a later host duty. */
+/** Official Discord Bot REST. Never a QR shortcut. */
 export class DiscordAdapter {
   connection: DiscordConnection = "not_configured";
-  private token?: string;
+  private token: string | undefined;
   intentsHint = "Enable Message Content Intent in the Discord Developer Portal.";
+  private inboundHandler?: (msg: DiscordInbound) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): DiscordCredentials | undefined },
@@ -39,6 +47,30 @@ export class DiscordAdapter {
     this.token = creds.token;
     this.connection = "connected";
     return { kind: "token", live: false, operationId: "discord:token" };
+  }
+
+  async pollConnection(): Promise<{ status: DiscordConnection }> {
+    return { status: this.connection };
+  }
+
+  onInbound(handler: (msg: DiscordInbound) => void): void {
+    this.inboundHandler = handler;
+  }
+
+  ingestMessage(event: {
+    id?: string;
+    content?: string;
+    channel_id?: string;
+    author?: { id?: string; bot?: boolean };
+    guild_id?: string;
+  }): void {
+    if (event.guild_id || event.author?.bot || !event.content) return;
+    this.inboundHandler?.({
+      messageId: String(event.id ?? Date.now()),
+      senderId: String(event.author?.id ?? "unknown"),
+      channelId: String(event.channel_id ?? ""),
+      text: event.content,
+    });
   }
 
   health() {

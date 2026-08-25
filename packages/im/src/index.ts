@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
@@ -18,8 +19,20 @@ import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { DingTalkAdapter } from "@penglai/channel-dingtalk";
 import { WeComAdapter } from "@penglai/channel-wecom";
 import { QqAdapter } from "@penglai/channel-qq";
-import { dingtalkChannelAdapter, qqChannelAdapter, wecomChannelAdapter } from "./adapters/channel-bridge.js";
-import { CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
+import { SlackAdapter } from "@penglai/channel-slack";
+import { TelegramAdapter } from "@penglai/channel-telegram";
+import { DiscordAdapter } from "@penglai/channel-discord";
+import { EncryptedWhatsAppSessionStore, WhatsAppDeviceAdapter } from "@penglai/channel-whatsapp";
+import {
+  dingtalkChannelAdapter,
+  discordChannelAdapter,
+  qqChannelAdapter,
+  slackChannelAdapter,
+  telegramChannelAdapter,
+  wecomChannelAdapter,
+  whatsappChannelAdapter,
+} from "./adapters/channel-bridge.js";
+import { CHANNEL_CREDENTIAL_REFS, CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
 import { ArtifactService } from "@penglai/artifacts";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
@@ -162,6 +175,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     });
   });
   let lastInboundRecoveryAt = 0;
+  let imHost: PenglaiImHost | undefined;
   const supervisor = new AdapterSupervisor(weixin, feishu, vault, async () => {
     const now = Date.now();
     if (now - lastInboundRecoveryAt >= 5_000) {
@@ -174,12 +188,26 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       const target = rt.plane.requireVendorTarget(route.routeId);
       if (route.adapter === "weixin") await weixin.pumpOutbox(route.routeId, target);
       if (route.adapter === "feishu") await feishu.pumpOutbox(route.routeId, target);
+      await imHost?.pumpChannelOutbox(route.routeId);
     }
   });
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
+  imHost = host;
   const dingtalkCreds: Record<string, { clientId: string; clientSecret: string }> = {};
   const wecomCreds: Record<string, { botId: string; secret: string }> = {};
   const qqCreds: Record<string, { appId: string; clientSecret: string }> = {};
+  const slackCreds: Record<string, { botToken: string; appToken?: string }> = {};
+  const telegramCreds: Record<string, { token: string }> = {};
+  const discordCreds: Record<string, { token: string }> = {};
+  const parseVault = async <T>(ref: string, cache: Record<string, T>, wrap: (raw: string) => T): Promise<void> => {
+    const raw = await vault.read(ref);
+    if (!raw) return;
+    try {
+      cache[ref] = JSON.parse(raw) as T;
+    } catch {
+      cache[ref] = wrap(raw);
+    }
+  };
   host.attachChannelAdapter(
     dingtalkChannelAdapter(
       new DingTalkAdapter({
@@ -213,6 +241,51 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       }),
     ),
   );
+  host.attachChannelAdapter(
+    slackChannelAdapter(
+      new SlackAdapter({
+        resolve: (ref) => slackCreds[ref],
+      }),
+    ),
+  );
+  host.attachChannelAdapter(
+    telegramChannelAdapter(
+      new TelegramAdapter({
+        resolve: (ref) => telegramCreds[ref],
+      }),
+    ),
+  );
+  host.attachChannelAdapter(
+    discordChannelAdapter(
+      new DiscordAdapter({
+        resolve: (ref) => discordCreds[ref],
+      }),
+    ),
+  );
+  host.attachChannelAdapter(
+    whatsappChannelAdapter(
+      new WhatsAppDeviceAdapter(
+        new EncryptedWhatsAppSessionStore(
+          join(userData, "im", "whatsapp.session"),
+          createHash("sha256").update(`penglai-wa:${userData}`).digest(),
+        ),
+        async () => {
+          throw new PenglaiError("DSH_UNAVAILABLE", "WHATSAPP_BAILEYS_MISSING");
+        },
+      ),
+    ),
+  );
+  void Promise.all([
+    parseVault(CHANNEL_CREDENTIAL_REFS.dingtalk, dingtalkCreds, (raw) => ({ clientId: raw, clientSecret: "" })),
+    parseVault(CHANNEL_CREDENTIAL_REFS.wecom, wecomCreds, (raw) => ({ botId: raw, secret: "" })),
+    parseVault(CHANNEL_CREDENTIAL_REFS.qq, qqCreds, (raw) => ({ appId: raw, clientSecret: "" })),
+    parseVault(CHANNEL_CREDENTIAL_REFS.slack, slackCreds, (raw) => ({ botToken: raw })),
+    parseVault(CHANNEL_CREDENTIAL_REFS.telegram, telegramCreds, (raw) => ({ token: raw })),
+    parseVault(CHANNEL_CREDENTIAL_REFS.discord, discordCreds, (raw) => ({ token: raw })),
+  ]).then(() => {
+    if (host.store.isClosed()) return;
+    return host.restoreChannelAdapters();
+  });
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
   const admitInbound = (input: {

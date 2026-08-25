@@ -17,3 +17,12 @@ test("Slack validates a bot token without QR and can send", async () => {
   assert.equal(begun.live, false);
   await adapter.sendText({ text: "hi", peerRef: "D123" });
 });
+
+test("Slack ingest only accepts private IM events", async () => {
+  const received: string[] = [];
+  const adapter = new SlackAdapter({ resolve: () => ({ botToken: "xoxb-test" }) }, async () => new Response(JSON.stringify({ ok: true })));
+  adapter.onInbound((msg) => received.push(msg.text));
+  adapter.ingestEvent({ type: "message", channel: "D1", text: "hi", user: "U1", ts: "1.0" });
+  adapter.ingestEvent({ type: "message", channel: "C1", text: "channel", user: "U1", ts: "2.0" });
+  assert.deepEqual(received, ["hi"]);
+});

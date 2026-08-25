@@ -21,7 +21,8 @@ export type QqConnection = "not_configured" | "connecting" | "connected" | "fail
 export class QqAdapter {
   connection: QqConnection = "not_configured";
   private client: QqClient | undefined;
-  private qr?: { operationId: string; cancel(): void };
+  private qr: { operationId: string; cancel(): void } | undefined;
+  private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): QqCredentials | undefined; put?(ref: string, creds: QqCredentials): void },
@@ -36,7 +37,7 @@ export class QqAdapter {
     if (input.method === "qr" || !input.credentialRef) {
       this.connection = "connecting";
       const operationId = `qq:qr:${Date.now()}`;
-      this.qr = this.auth.start({
+      const started = this.auth.start({
         onSuccess: (creds) => {
           this.vault.put?.("PENGLAI_QQ_BOT", creds);
           void this.connectWithRef("PENGLAI_QQ_BOT");
@@ -45,7 +46,7 @@ export class QqAdapter {
           this.connection = "failed";
         },
       });
-      this.qr = { operationId, cancel: this.qr.cancel };
+      this.qr = { operationId, cancel: started.cancel };
       return { kind: "qr", live: false, operationId, connection: this.connection };
     }
     return this.connectWithRef(input.credentialRef);
@@ -54,6 +55,14 @@ export class QqAdapter {
   async pollConnection(operationId: string): Promise<{ status: QqConnection }> {
     void operationId;
     return { status: this.connection };
+  }
+
+  onInbound(handler: (msg: { messageId: string; senderId: string; text: string }) => void): void {
+    this.inboundHandler = handler;
+  }
+
+  ingestMessage(msg: { messageId: string; senderId: string; text: string }): void {
+    this.inboundHandler?.(msg);
   }
 
   health() {

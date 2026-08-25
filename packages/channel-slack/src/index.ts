@@ -7,12 +7,20 @@ export interface SlackCredentials {
   appToken?: string;
 }
 
+export interface SlackInbound {
+  messageId: string;
+  senderId: string;
+  channelId: string;
+  text: string;
+}
+
 export type SlackConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
-/** Official Slack token/manifest/Socket Mode. Never a QR shortcut. */
+/** Official Slack token/manifest. Never a QR shortcut. */
 export class SlackAdapter {
   connection: SlackConnection = "not_configured";
-  private creds?: SlackCredentials;
+  private creds: SlackCredentials | undefined;
+  private inboundHandler?: (msg: SlackInbound) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): SlackCredentials | undefined },
@@ -41,6 +49,35 @@ export class SlackAdapter {
     this.creds = creds;
     this.connection = "connected";
     return { kind: input.method === "manifest" ? "manifest" : "token", live: false, operationId: "slack:token" };
+  }
+
+  async pollConnection(): Promise<{ status: SlackConnection }> {
+    return { status: this.connection };
+  }
+
+  onInbound(handler: (msg: SlackInbound) => void): void {
+    this.inboundHandler = handler;
+  }
+
+  ingestEvent(event: {
+    type?: string;
+    user?: string;
+    text?: string;
+    channel?: string;
+    ts?: string;
+    channel_type?: string;
+    bot_id?: string;
+  }): void {
+    if (event.bot_id || (event.type && event.type !== "message") || !event.text) return;
+    const channel = String(event.channel ?? "");
+    const privateChat = event.channel_type === "im" || channel.startsWith("D");
+    if (!privateChat) return;
+    this.inboundHandler?.({
+      messageId: String(event.ts ?? `${Date.now()}`),
+      senderId: String(event.user ?? "unknown"),
+      channelId: channel,
+      text: event.text,
+    });
   }
 
   health() {

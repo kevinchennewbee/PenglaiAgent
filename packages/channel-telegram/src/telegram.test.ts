@@ -18,3 +18,18 @@ test("Telegram validates a bot token, flags webhook conflict, and refuses QR", a
   assert.equal(adapter.health().webhookConflict, true);
   await adapter.sendText({ text: "hi", peerRef: "1" });
 });
+
+test("Telegram ingest only accepts private text", async () => {
+  const received: string[] = [];
+  const adapter = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => new Response("{}", { status: 404 }));
+  adapter.onInbound((msg) => received.push(msg.text));
+  adapter.ingestUpdate({
+    update_id: 2,
+    message: { message_id: 9, text: "hello", chat: { id: 11, type: "private" }, from: { id: 11 } },
+  });
+  adapter.ingestUpdate({
+    update_id: 3,
+    message: { message_id: 10, text: "group", chat: { id: -1, type: "group" }, from: { id: 11 } },
+  });
+  assert.deepEqual(received, ["hello"]);
+});

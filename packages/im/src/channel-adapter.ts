@@ -75,6 +75,7 @@ export interface ChannelAdapter {
   deleteCredentials(): Promise<void>;
   onInbound(handler: (event: InboundChannelEvent) => void): void;
   capabilities(): ChannelManifestV1["capabilities"];
+  peekQr?(operationId: string): { verificationUrl?: string; expiresAt?: number } | undefined;
 }
 
 export function assertLiveSend(channel: ChannelId): void {

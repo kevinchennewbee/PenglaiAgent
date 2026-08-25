@@ -6,13 +6,23 @@ export interface TelegramCredentials {
   token: string;
 }
 
+export interface TelegramInbound {
+  messageId: string;
+  senderId: string;
+  chatId: string;
+  text: string;
+}
+
 export type TelegramConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
 /** Official Telegram Bot HTTP API long polling. Never a QR shortcut. */
 export class TelegramAdapter {
   connection: TelegramConnection = "not_configured";
-  private token?: string;
+  private token: string | undefined;
   webhookConflict = false;
+  private offset = 0;
+  private pollTimer: ReturnType<typeof setInterval> | undefined;
+  private inboundHandler?: (msg: TelegramInbound) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): TelegramCredentials | undefined },
@@ -44,7 +54,31 @@ export class TelegramAdapter {
     this.webhookConflict = Boolean(hookBody.result?.url);
     this.token = creds.token;
     this.connection = "connected";
+    this.startReceive();
     return { kind: "token", live: false, operationId: "telegram:token" };
+  }
+
+  async pollConnection(): Promise<{ status: TelegramConnection }> {
+    return { status: this.connection };
+  }
+
+  onInbound(handler: (msg: TelegramInbound) => void): void {
+    this.inboundHandler = handler;
+  }
+
+  ingestUpdate(update: {
+    update_id?: number;
+    message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
+  }): void {
+    if (update.update_id !== undefined) this.offset = Math.max(this.offset, update.update_id + 1);
+    const msg = update.message;
+    if (!msg?.text || msg.chat?.type !== "private") return;
+    this.inboundHandler?.({
+      messageId: String(msg.message_id ?? Date.now()),
+      senderId: String(msg.from?.id ?? "unknown"),
+      chatId: String(msg.chat?.id ?? ""),
+      text: msg.text,
+    });
   }
 
   health() {
@@ -73,7 +107,34 @@ export class TelegramAdapter {
   }
 
   async disconnect(): Promise<void> {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
     this.token = undefined;
     this.connection = "disabled";
+  }
+
+  private startReceive(): void {
+    if (this.pollTimer || !this.token) return;
+    this.pollTimer = setInterval(() => {
+      void this.pollOnce().catch(() => undefined);
+    }, 2_500);
+    this.pollTimer.unref?.();
+  }
+
+  private async pollOnce(): Promise<void> {
+    if (!this.token) return;
+    const response = await this.fetchImpl(
+      `https://api.telegram.org/bot${this.token}/getUpdates?timeout=0&offset=${this.offset}`,
+      { redirect: "error", signal: AbortSignal.timeout(10_000) },
+    );
+    const body = (await response.json()) as {
+      ok?: boolean;
+      result?: Array<{
+        update_id?: number;
+        message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
+      }>;
+    };
+    if (!body.ok || !Array.isArray(body.result)) return;
+    for (const update of body.result) this.ingestUpdate(update);
   }
 }

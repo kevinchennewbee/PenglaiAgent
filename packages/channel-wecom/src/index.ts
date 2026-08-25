@@ -21,7 +21,8 @@ export type WeComConnection = "not_configured" | "connecting" | "connected" | "f
 export class WeComAdapter {
   connection: WeComConnection = "not_configured";
   private client: WeComClient | undefined;
-  private qr?: { operationId: string; scode: string; verificationUrl: string; expiresAt: number };
+  private qr: { operationId: string; scode: string; verificationUrl: string; expiresAt: number } | undefined;
+  private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): WeComCredentials | undefined; put?(ref: string, creds: WeComCredentials): void },
@@ -60,6 +61,14 @@ export class WeComAdapter {
   peekQr(operationId: string): { verificationUrl: string; expiresAt: number } | undefined {
     if (!this.qr || this.qr.operationId !== operationId) return undefined;
     return { verificationUrl: this.qr.verificationUrl, expiresAt: this.qr.expiresAt };
+  }
+
+  onInbound(handler: (msg: { messageId: string; senderId: string; text: string }) => void): void {
+    this.inboundHandler = handler;
+  }
+
+  ingestMessage(msg: { messageId: string; senderId: string; text: string }): void {
+    this.inboundHandler?.(msg);
   }
 
   health() {
