@@ -365,6 +365,8 @@ test("R2I-IMCORE-002 PenglaiImRemote uses Typert @Remote methods", () => {
   assert.ok(methods.includes("setFeishuOwner"));
   assert.ok(methods.includes("beginFeishuQr"));
   assert.ok(methods.includes("proposeBinding"));
+  assert.ok(methods.includes("beginChannelConnection"));
+  assert.ok(methods.includes("storeChannelSecret"));
   assert.equal(methods.includes("proveCausalRoute"), false);
   assert.equal(methods.includes("beginDeviceFlow"), false);
   rt.store.close();
@@ -529,14 +531,16 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
 test("R2I-UI-001 client registers Messaging page sections", () => {
   const c = contribute();
   assert.equal(c.slot, "settings.section");
-  assert.deepEqual(c.sections, ["总览", "微信", "飞书", "绑定", "命令", "诊断"]);
+  assert.equal(c.title, "消息连接");
+  assert.deepEqual(c.sections, ["微信", "飞书", "钉钉", "企业微信", "QQ", "Slack", "Telegram", "Discord", "WhatsApp", "高级"]);
 });
 
 test("R2I-CRED-007 IM credential refs are official POSIX identifiers and vault rejects invalid refs", async () => {
-  const { WEIXIN_TOKEN_REF, FEISHU_SECRET_REF } = await import("./credentials-vault.js");
+  const { WEIXIN_TOKEN_REF, FEISHU_SECRET_REF, CHANNEL_CREDENTIAL_REFS } = await import("./credentials-vault.js");
   const official = /^[A-Za-z_][A-Za-z0-9_]*$/;
   assert.match(WEIXIN_TOKEN_REF, official);
   assert.match(FEISHU_SECRET_REF, official);
+  for (const ref of Object.values(CHANNEL_CREDENTIAL_REFS)) assert.match(ref, official);
   const store = new Map<string, string>();
   const credentials = {
     async set(ref: string, value: string) { store.set(ref, value); },

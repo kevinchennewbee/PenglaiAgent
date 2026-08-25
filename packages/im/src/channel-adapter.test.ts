@@ -11,8 +11,9 @@ test("non-live channels refuse send and never mint a fake QR", async () => {
     if ((LIVE_CHANNEL_IDS as readonly string[]).includes(id)) continue;
     const adapter = guidedAdapter(id);
     assert.equal(adapter.id, id);
-    const begun = await adapter.beginConnection({ method: "token" });
-    assert.equal(begun.kind, "token");
+    const method = adapter.manifest().connectionMethods.find((row) => row !== "qr") ?? adapter.manifest().connectionMethods[0]!;
+    const begun = await adapter.beginConnection({ method, riskAck: true });
+    assert.equal(begun.kind, method === "manual-fallback" ? "manual-fallback" : method);
     assert.equal(begun.live, false);
     const health = await adapter.health();
     assert.equal(health.live, false);

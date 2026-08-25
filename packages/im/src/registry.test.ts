@@ -60,6 +60,60 @@ test("R56-IM-019 WhatsApp stays disabled until an explicit risk acknowledgement"
   store.close();
 });
 
+test("R57-IM-002 host begins a real Slack token connection without QR", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-im-connect-"));
+  const rt = createRuntime({
+    dbPath: join(dir, "im.sqlite"),
+    host: {
+      version: "0.1.1-rc.2",
+      getAgent: () => undefined,
+      listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
+    },
+  });
+  const memory = new Map<string, string>();
+  const vault = new CredentialsServiceVault({
+    async set(ref, value) {
+      memory.set(ref, value);
+    },
+    async describe(ref) {
+      return { configured: memory.has(ref), writable: true };
+    },
+    async resolve(ref) {
+      return memory.has(ref) ? { value: memory.get(ref) as string } : undefined;
+    },
+    async unset(ref) {
+      memory.delete(ref);
+    },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
+    { status: "idle", setupRequired: true } as never,
+    vault,
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  );
+  const slack = new (await import("@penglai/channel-slack")).SlackAdapter(
+    {
+      resolve: () => {
+        const raw = memory.get("PENGLAI_SLACK_BOT");
+        return raw ? (JSON.parse(raw) as { botToken: string }) : undefined;
+      },
+    },
+    async () => new Response(JSON.stringify({ ok: true })),
+  );
+  const { slackChannelAdapter } = await import("./adapters/channel-bridge.js");
+  host.attachChannelAdapter(slackChannelAdapter(slack));
+  await assert.rejects(() => host.beginChannelConnection({ channel: "slack", method: "qr" }), /CHANNEL_NO_QR/);
+  const begun = await host.beginChannelConnection({ channel: "slack", method: "token", secret: "xoxb-test" });
+  assert.equal(begun.kind, "token");
+  assert.equal(begun.live, false);
+  assert.equal((await host.getOverview()).channels.find((row) => row.channel === "slack")?.connection, "connected");
+  assert.equal(JSON.stringify(begun).includes("xoxb-test"), false);
+  rt.store.close();
+});
+
 test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as Weixin", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
@@ -98,14 +152,15 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   rt.store.close();
 });
 
-test("R56-IM-008 IM client lists nine platforms and exposes connect only for live channels", () => {
+test("R57-IM-002 IM client lists nine platforms with a real connect action", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /data-penglai-im-platforms/);
   assert.match(client, /data-penglai-im-platform/);
-  assert.match(client, /data-penglai-im-planned/);
-  assert.match(client, /roadmap only/);
-  assert.match(client, /仅列入后续计划/);
-  assert.doesNotMatch(client, /remote\?\.penglaiIm\?\.beginGuidedConnection/);
+  assert.match(client, /beginChannelConnection/);
+  assert.match(client, /data-penglai-im-connect-submit/);
+  assert.doesNotMatch(client, /roadmap only/);
+  assert.doesNotMatch(client, /仅列入后续计划/);
+  assert.doesNotMatch(client, /data-penglai-im-planned/);
   assert.doesNotMatch(client, /slackQr|telegramQr|discordQr|beginSlackQr|beginTelegramQr/);
   assert.match(client, /data-penglai-im-goto-weixin/);
   assert.match(client, /data-penglai-im-goto-feishu/);
@@ -115,6 +170,5 @@ test("R56-IM-008 IM client lists nine platforms and exposes connect only for liv
   assert.match(client, /requestOwnerApproval/);
   assert.match(client, /data-penglai-im-status/);
   assert.match(client, /data-penglai-im-advanced/);
-  assert.match(client, /statusUnavailable|暂不可用/);
   assert.match(client, /displayName/);
 });
