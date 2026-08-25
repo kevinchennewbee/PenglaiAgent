@@ -38,7 +38,7 @@
   "dsh": "0.1.1-rc.2",
   "profileSchema": 3,
   "catalogSchema": 3,
-  "imSchema": 3,
+  "imSchema": 4,
   "signed": false,
   "notarized": false,
   "authenticode": false,

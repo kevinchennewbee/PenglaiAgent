@@ -32,6 +32,10 @@ test("R56-IM-001/002 registry lists nine platforms and keeps Weixin/Feishu as th
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.whatsapp.defaultEnabled, false);
   assert.equal(CHANNEL_MANIFESTS.whatsapp.risk, "community-protocol");
+  assert.equal(CHANNEL_MANIFESTS.whatsapp.supportLevel, "experimental");
+  assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
+  assert.equal(CHANNEL_MANIFESTS.wecom.connectionMethods.includes("qr"), true);
+  assert.equal(CHANNEL_MANIFESTS.qq.connectionMethods.includes("qr"), true);
 });
 
 test("R56-IM-003 Slack/Telegram/Discord refuse a fake QR connection", () => {
@@ -78,7 +82,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   const overview = await host.getOverview();
   assert.equal(overview.channels.length, 9);
   assert.equal(overview.manifests.length, 9);
-  assert.equal(rt.store.schemaVersion(), 11);
+  assert.equal(rt.store.schemaVersion(), 12);
   assert.equal(host.listBindings().some((row) => row.channel === "weixin" && row.accountId === "docs"), false);
   assert.throws(
     () =>

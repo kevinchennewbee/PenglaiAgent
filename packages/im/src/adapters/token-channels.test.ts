@@ -9,7 +9,7 @@ test("Slack Telegram Discord connect without QR and refuse send", async () => {
     });
     await assert.rejects(() => adapter.beginConnection({ method: "qr" }), /CHANNEL_NO_QR/);
     const begun = await adapter.beginConnection({ method: "token", credentialRef: "tok" });
-    assert.equal(begun.qr, false);
+    assert.equal(begun.kind, "token");
     assert.equal(begun.live, false);
     assert.equal((await adapter.health()).live, false);
     await assert.rejects(() => adapter.sendText({ text: "hi" }), new RegExp(`CHANNEL_NOT_LIVE:${id}`));

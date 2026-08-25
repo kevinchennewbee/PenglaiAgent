@@ -20,7 +20,7 @@ export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 export const RELEASE = "0.5.7";
 
 export const CONFIG = Object.freeze({

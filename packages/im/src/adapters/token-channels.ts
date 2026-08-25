@@ -1,7 +1,12 @@
 import { PenglaiError } from "@penglai/contracts";
-import type { ChannelId } from "../registry.js";
-import { refuseFakeQr } from "../registry.js";
-import type { ChannelAdapter, ChannelHealth } from "../channel-adapter.js";
+import { getChannelManifest, refuseFakeQr, type ChannelId } from "../registry.js";
+import {
+  connectionResultForMethod,
+  type ChannelAdapter,
+  type ChannelHealth,
+  type ConnectionState,
+  type InboundChannelEvent,
+} from "../channel-adapter.js";
 
 export type TokenChannelId = "slack" | "telegram" | "discord";
 
@@ -15,7 +20,9 @@ export interface TokenVault {
  */
 export class TokenChannelAdapter implements ChannelAdapter {
   readonly id: ChannelId;
-  private connected = false;
+  private enabled = false;
+  private connection: ConnectionState = "disabled";
+  private inbound: ((event: InboundChannelEvent) => void) | undefined;
 
   constructor(
     id: TokenChannelId,
@@ -24,21 +31,53 @@ export class TokenChannelAdapter implements ChannelAdapter {
     this.id = id;
   }
 
+  manifest() {
+    return getChannelManifest(this.id);
+  }
+
+  async enable() {
+    this.enabled = true;
+    if (this.connection === "disabled") this.connection = "not_configured";
+  }
+
+  async disable() {
+    this.enabled = false;
+    this.connection = "disabled";
+  }
+
   async beginConnection(input: { method: string; credentialRef?: string; riskAck?: boolean }) {
     refuseFakeQr(this.id, input.method);
     if (input.method !== "token" && input.method !== "oauth" && input.method !== "manifest") {
       throw new PenglaiError("INVALID_INPUT", "unsupported connection method");
     }
+    await this.enable();
     const token = input.credentialRef ? this.vault.resolve(input.credentialRef) : undefined;
-    this.connected = Boolean(token);
-    return { qr: false as const, live: false as const };
+    this.connection = token ? "connected" : "not_configured";
+    return connectionResultForMethod(this.id, input.method);
+  }
+
+  async pollConnection() {
+    return { status: this.connection };
+  }
+
+  async cancelConnection() {
+    this.connection = this.enabled ? "not_configured" : "disabled";
+  }
+
+  async start() {
+    if (!this.enabled) throw new PenglaiError("SECURITY_POLICY", "CHANNEL_DISABLED");
+  }
+
+  async stop() {
+    this.connection = this.enabled ? "not_configured" : "disabled";
   }
 
   async health(): Promise<ChannelHealth> {
     return {
       channel: this.id,
       live: false,
-      connection: this.connected ? "connected" : "not_configured",
+      enabled: this.enabled,
+      connection: this.connection,
     };
   }
 
@@ -48,5 +87,26 @@ export class TokenChannelAdapter implements ChannelAdapter {
 
   async sendArtifact(): Promise<never> {
     throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${this.id}`);
+  }
+
+  async disconnect() {
+    this.connection = this.enabled ? "not_configured" : "disabled";
+  }
+
+  async logout() {
+    await this.disconnect();
+  }
+
+  async deleteCredentials() {
+    await this.logout();
+  }
+
+  onInbound(handler: (event: InboundChannelEvent) => void) {
+    this.inbound = handler;
+    void this.inbound;
+  }
+
+  capabilities() {
+    return this.manifest().capabilities;
   }
 }

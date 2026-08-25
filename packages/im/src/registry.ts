@@ -15,8 +15,10 @@ export const CHANNEL_IDS = [
 export type ChannelId = (typeof CHANNEL_IDS)[number];
 export const LIVE_CHANNEL_IDS = ["weixin", "feishu"] as const;
 export type LiveChannelId = (typeof LIVE_CHANNEL_IDS)[number];
-export const CONNECTION_METHODS = ["qr", "oauth", "manifest", "token", "device-link"] as const;
+export const CONNECTION_METHODS = ["qr", "oauth", "manifest", "token", "device-link", "manual-fallback"] as const;
 export type ConnectionMethod = (typeof CONNECTION_METHODS)[number];
+export const SUPPORT_LEVELS = ["ga", "experimental"] as const;
+export type SupportLevel = (typeof SUPPORT_LEVELS)[number];
 
 export interface ChannelManifestV1 {
   id: ChannelId;
@@ -34,6 +36,7 @@ export interface ChannelManifestV1 {
   };
   limits: { textChars: number; fileBytes: number; requestsPerMinute: number };
   risk: "official" | "community-protocol";
+  supportLevel: SupportLevel;
   defaultEnabled: boolean;
   live: boolean;
   docsUrl: string;
@@ -62,6 +65,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: true,
     docsUrl: "https://developers.weixin.qq.com/",
@@ -73,6 +77,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true, markdown: true },
     limits: { textChars: 8000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: true,
     docsUrl: "https://open.feishu.cn/app",
@@ -80,10 +85,11 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
   dingtalk: manifest({
     id: "dingtalk",
     displayName: { en: "DingTalk", zh: "钉钉" },
-    connectionMethods: ["oauth", "manifest"],
+    connectionMethods: ["qr", "oauth", "manifest"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://open.dingtalk.com/",
@@ -91,10 +97,11 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
   wecom: manifest({
     id: "wecom",
     displayName: { en: "WeCom", zh: "企业微信" },
-    connectionMethods: ["oauth", "manifest"],
+    connectionMethods: ["qr", "oauth", "manifest"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://developer.work.weixin.qq.com/",
@@ -102,10 +109,11 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
   qq: manifest({
     id: "qq",
     displayName: { en: "QQ", zh: "QQ" },
-    connectionMethods: ["oauth", "token"],
+    connectionMethods: ["qr", "oauth", "token"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://bot.q.qq.com/",
@@ -117,6 +125,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: { ...TEXT_ONLY, markdown: true, threads: true },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://api.slack.com/authentication/oauth-v2",
@@ -128,6 +137,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://core.telegram.org/bots/tutorial",
@@ -139,6 +149,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: { ...TEXT_ONLY, markdown: true },
     limits: { textChars: 2000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
+    supportLevel: "ga",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://discord.com/developers/docs/quick-start/getting-started",
@@ -150,6 +161,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 10 },
     risk: "community-protocol",
+    supportLevel: "experimental",
     defaultEnabled: false,
     live: false,
     docsUrl: "https://developers.facebook.com/docs/whatsapp",
@@ -187,16 +199,19 @@ export const GUIDED_STEPS: Record<ChannelId, { en: string[]; zh: string[] }> = {
   weixin: { en: ["Scan the official Weixin QR."], zh: ["扫描官方微信二维码。"] },
   feishu: { en: ["Create the Feishu app, then scan or paste the app credentials."], zh: ["创建飞书应用，然后扫码或粘贴应用凭据。"] },
   dingtalk: {
-    en: ["Open the DingTalk open platform.", "Create an app and grant the minimum bot scopes.", "Paste the client id and secret into Vault. Do not scan a fake QR."],
-    zh: ["打开钉钉开放平台。", "创建应用并授予最小机器人权限。", "把 client id 和 secret 写入保险库。不要使用假二维码。"],
+    en: [
+      "Scan the official DingTalk device QR, or paste Client ID and Secret.",
+      "Penglai stores credentials in Vault, not a second config store.",
+    ],
+    zh: ["扫描官方钉钉设备二维码，或粘贴 Client ID 和 Secret。", "凭据进入蓬莱保险库，不使用第二套配置存储。"],
   },
   wecom: {
-    en: ["Open the WeCom admin console.", "Create a bot application for the exact corp.", "Paste the corp id and secret into Vault."],
-    zh: ["打开企业微信管理后台。", "为确定的企业创建机器人应用。", "把 corp id 和 secret 写入保险库。"],
+    en: ["Scan the official WeCom intelligent-bot QR, or paste Bot ID and Secret."],
+    zh: ["扫描官方企业微信智能机器人二维码，或粘贴 Bot ID 和 Secret。"],
   },
   qq: {
-    en: ["Open the QQ Bot platform.", "Create a bot, not a personal QQ login.", "Paste the app id and token into Vault."],
-    zh: ["打开 QQ 机器人平台。", "创建机器人，不要模拟个人号登录。", "把 app id 和 token 写入保险库。"],
+    en: ["Scan with mobile QQ to create an official bot. Do not simulate a personal QQ login."],
+    zh: ["用手机 QQ 扫码创建官方机器人。不要模拟个人号登录。"],
   },
   slack: {
     en: ["Create a Slack app from the official manifest.", "Install it with OAuth to one workspace.", "Paste the bot token into Vault. There is no QR shortcut."],

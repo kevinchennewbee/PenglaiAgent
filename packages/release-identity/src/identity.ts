@@ -192,6 +192,9 @@ export function assertReleaseIdentity(raw: unknown): ReleaseIdentity {
   if (o.productVersion !== PRODUCT_VERSION) {
     throw new PenglaiError("INVALID_INPUT", `productVersion must be ${PRODUCT_VERSION}`);
   }
+  if (Number(o.imSchema) !== IM_SCHEMA) {
+    throw new PenglaiError("INVALID_INPUT", `imSchema must be ${IM_SCHEMA}`);
+  }
   if (o.candidateKind !== CANDIDATE_KIND) {
     throw new PenglaiError("INVALID_INPUT", `candidateKind must be ${CANDIDATE_KIND}`);
   }

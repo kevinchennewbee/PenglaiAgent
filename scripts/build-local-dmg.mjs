@@ -227,7 +227,7 @@ const info = {
   dsh: "0.1.1-rc.2",
   profileSchema: 3,
   catalogSchema: 3,
-  imSchema: 3,
+  imSchema: 4,
   schemaVersion: 2,
   signed: false,
   notarized: false,

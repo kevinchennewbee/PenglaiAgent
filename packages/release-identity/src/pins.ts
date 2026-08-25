@@ -79,7 +79,7 @@ export const PINNED_PPTFAST = "0.20.0";
 export const PINNED_PPTFAST_COMMIT = "7482c83436531530b46003ccdab62b1fa8c97969";
 export const PROFILE_SCHEMA = 3;
 export const CATALOG_SCHEMA = 3;
-export const IM_SCHEMA = 3;
+export const IM_SCHEMA = 4;
 export const ACCEPTANCE_DOC = "docs/ACCEPTANCE.md";
 export const HARD_ID_RE = /\| `(R5[05]-[A-Z0-9]+-\d+)` \|/g;
 /** Previous registry generation. Never a completion map. */

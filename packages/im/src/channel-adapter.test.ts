@@ -12,10 +12,12 @@ test("non-live channels refuse send and never mint a fake QR", async () => {
     const adapter = guidedAdapter(id);
     assert.equal(adapter.id, id);
     const begun = await adapter.beginConnection({ method: "token" });
-    assert.equal(begun.qr, false);
+    assert.equal(begun.kind, "token");
     assert.equal(begun.live, false);
     const health = await adapter.health();
     assert.equal(health.live, false);
+    assert.equal(health.enabled, true);
+    assert.equal(adapter.manifest().id, id);
     await assert.rejects(() => adapter.sendText({ text: "hi" }), /CHANNEL_NOT_LIVE/);
     await assert.rejects(() => adapter.sendArtifact({ artifactId: "sha256:" + "a".repeat(64) }), /CHANNEL_NOT_LIVE/);
     assert.throws(() => assertLiveSend(id), /CHANNEL_NOT_LIVE/);
@@ -23,6 +25,13 @@ test("non-live channels refuse send and never mint a fake QR", async () => {
   assert.throws(() => refuseFakeQr("slack", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("telegram", "qr"), /CHANNEL_NO_QR/);
   assert.throws(() => refuseFakeQr("discord", "qr"), /CHANNEL_NO_QR/);
+  const dingtalk = guidedAdapter("dingtalk");
+  const qr = await dingtalk.beginConnection({ method: "qr" });
+  assert.equal(qr.kind, "qr");
+  await dingtalk.logout();
+  await dingtalk.deleteCredentials();
+  const health = await dingtalk.health();
+  assert.equal(health.connection === "disabled" || health.connection === "not_configured", true);
 });
 
 test("IM host registers guided adapters and refuses non-live outbound text", async () => {

@@ -24,7 +24,7 @@ import {
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
-import { guidedAdapter, type ChannelAdapter } from "./channel-adapter.js";
+import { guidedAdapter, type ChannelAdapter, type ConnectionState } from "./channel-adapter.js";
 import { refuseUnliveSend } from "./guided.js";
 import {
   IM_OWNER_ACTIONS,
@@ -36,20 +36,11 @@ import {
 } from "./owner.js";
 
 export type ChannelName = "weixin" | "feishu";
-
-export type ConnectionState =
-  | "not_configured"
-  | "ready"
-  | "connecting"
-  | "connected"
-  | "degraded"
-  | "expired"
-  | "blocked"
-  | "disabled"
-  | "failed";
+export type { ConnectionState };
 
 export interface ChannelState {
   channel: ChannelId;
+  enabled: boolean;
   configured: boolean;
   connection: ConnectionState;
   boundRoutes: number;
@@ -58,6 +49,7 @@ export interface ChannelState {
   revision: number;
   live: boolean;
   risk: ChannelManifestV1["risk"];
+  supportLevel: ChannelManifestV1["supportLevel"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
   error?: { code: string; action: string };
 }
@@ -771,17 +763,18 @@ export class PenglaiImHost {
       else if (auth === "connected") connection = "connected";
       else if (auth === "expired") connection = "expired";
       else if (auth === "error") connection = "failed";
-      else connection = configured ? "ready" : "not_configured";
+      else connection = configured ? "not_configured" : "not_configured";
     } else {
       const feishuStatus = this.feishu.status;
       if (feishuStatus === "connected") connection = "connected";
       else if (feishuStatus === "connecting" || feishuStatus === "reconnecting") connection = "connecting";
       else if (feishuStatus === "failed") connection = "failed";
-      else connection = configured ? (this.feishu.setupRequired ? "blocked" : "ready") : "not_configured";
+      else connection = configured ? (this.feishu.setupRequired ? "blocked" : "not_configured") : "not_configured";
     }
     const manifest = getChannelManifest(channel);
     return {
       channel,
+      enabled: configured,
       configured,
       connection,
       boundRoutes: this.listBindings().filter((b) => b.channel === channel).length,
@@ -790,6 +783,7 @@ export class PenglaiImHost {
       revision: this.revision,
       live: true,
       risk: manifest.risk,
+      supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
     };
   }
@@ -801,12 +795,13 @@ export class PenglaiImHost {
       manifest.risk === "community-protocol" && bots.every((bot) => !bot.riskAckAt)
         ? "disabled"
         : bots.some((bot) => bot.state === "online")
-          ? "ready"
+          ? "connected"
           : bots.length
             ? "not_configured"
             : "disabled";
     return {
       channel,
+      enabled: bots.length > 0,
       configured: bots.length > 0,
       connection,
       boundRoutes: 0,
@@ -815,6 +810,7 @@ export class PenglaiImHost {
       revision: this.revision,
       live: false,
       risk: manifest.risk,
+      supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
     };
   }
