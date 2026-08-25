@@ -9,17 +9,19 @@ chat bodies, phone numbers, or WhatsApp session keys.
 
 | Channel | Connection | Private text in | Official Turn | Private text out | Restart restore | Logout/unbind | Images | Files | Audio | Markdown | Threads | Groups | Live status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Weixin | QR (iLink) | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | pending re-verify | pending re-verify | pending re-verify | false | false | false | `LIVE_NOT_RUN` on 0.5.7 bits |
-| Feishu | official app QR / credentials | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | pending re-verify | pending re-verify | pending re-verify | pending re-verify | false | false | `LIVE_NOT_RUN` on 0.5.7 bits |
-| DingTalk | QR device-auth + Stream | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| WeCom | QR intelligent bot | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| QQ | official QQ Bot QR | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| Slack | App Manifest + tokens, no QR | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| Telegram | Bot token long-poll, no QR | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| Discord | Bot token Gateway, no QR | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
-| WhatsApp | device-link, opt-in | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | `LIVE_NOT_RUN` | false | false | false | false | false | false | `LIVE_NOT_RUN` |
+| Weixin | QR (iLink) | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | pending re-verify | pending re-verify | pending re-verify | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` on 0.5.7 bits |
+| Feishu | official app QR / credentials | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | inherited 0.5.6 | pending re-verify | pending re-verify | pending re-verify | pending re-verify | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` on 0.5.7 bits |
+| DingTalk | QR device-auth + Stream | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WeCom | QR intelligent bot | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| QQ | official QQ Bot QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Slack | App Manifest + tokens, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Telegram | Bot token long-poll, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Discord | Bot token Gateway, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WhatsApp | device-link, opt-in | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 
-WhatsApp extra gates, all `LIVE_NOT_RUN` until proven: risk acknowledgement
+Owner action required for live rows: scan once (Weixin/Feishu/DingTalk/WeCom/QQ/WhatsApp) or paste a bot token on this machine (Slack/Telegram/Discord). Grok Build does not hold those accounts.
+
+WhatsApp extra gates, all blocked until proven: risk acknowledgement
 version/time, encrypted private session store, self-echo dedupe, reserved
 outbound message IDs, complete logout wipe.
 

@@ -35,8 +35,8 @@ per-Session no-tools scope.
 
 Users see one page titled Messaging / 消息连接, not “Penglai IM”. Nine
 platforms have a connect/enable card: Weixin, Feishu, DingTalk, WeCom, QQ,
-Slack, Telegram, Discord, and WhatsApp. They are no longer described as a
-roadmap list.
+Slack, Telegram, Discord, and WhatsApp. Support claims follow
+`LIVE_IM_MATRIX.md` only.
 
 A platform is supported only with live evidence: real connect or authorize,
 inbound private text, the bound official Workspace/Session, outbound reply,

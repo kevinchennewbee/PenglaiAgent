@@ -154,12 +154,12 @@ records and links, not a second database and not a cloud account.
 ## Messaging and local voice
 
 One Messaging plugin exposes nine connection entries: Weixin, Feishu, DingTalk,
-WeCom, QQ, Slack, Telegram, Discord, and WhatsApp. They are not a roadmap list.
-Text and supported images, files, and voice for a live adapter arrive in the
-bound official DSH Session. Images use the official DSH image store. Office files
-and audio use scoped opaque `artifact:<uuid>` references. Real external accounts
-are a separate acceptance boundary; a mocked webhook is never live evidence.
-See [`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md).
+WeCom, QQ, Slack, Telegram, Discord, and WhatsApp. Support status is only
+[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md); rows without live evidence
+are not fully supported. Text and supported images, files, and voice for a live
+adapter arrive in the bound official DSH Session. Images use the official DSH
+image store. Office files and audio use scoped opaque `artifact:<uuid>`
+references. A mocked webhook is never live evidence.
 
 Slack, Telegram, and Discord use official token or manifest flows and do not
 fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is experimental,
@@ -403,11 +403,11 @@ Workspace A 不能召回 Workspace B。
 
 ## 手机消息和本地语音
 
-唯一的「消息连接」插件提供九个平台的真实连接入口：微信、飞书、钉钉、企业微信、
-QQ、Slack、Telegram、Discord、WhatsApp。它们不再是路线图列表。文字和受支持的
-图片、文件、语音进入绑定的 official DSH Session。图片走 official 图片存储；文件
-和音频走 `artifact:<uuid>`。真实账号是独立验收边界，见
-[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md)。
+唯一的「消息连接」插件提供九个平台的连接入口：微信、飞书、钉钉、企业微信、
+QQ、Slack、Telegram、Discord、WhatsApp。支持状态只以
+[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md) 为准；没有 live 证据的平台
+不得称为已支持。文字和受支持的图片、文件、语音进入绑定的 official DSH Session。
+图片走 official 图片存储；文件和音频走 `artifact:<uuid>`。
 
 Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。QQ 只做官方
 Bot 扫码，不模拟个人号。WhatsApp 为实验性社区协议，默认关闭，启用前必须明确
