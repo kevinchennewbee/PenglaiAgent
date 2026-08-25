@@ -10,6 +10,7 @@ test("Discord validates a bot token without QR", async () => {
       if (String(url).includes("/messages") && init?.method === "POST") return new Response(JSON.stringify({ id: "m1" }), { status: 200 });
       return new Response("{}", { status: 404 });
     },
+    { connect: () => ({ close() {} }) },
   );
   await assert.rejects(() => adapter.beginConnection({ method: "qr", credentialRef: "PENGLAI_DISCORD_TOKEN" }), /CHANNEL_NO_QR/);
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_DISCORD_TOKEN" });
