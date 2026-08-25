@@ -5,7 +5,7 @@ import type { BudgetPolicy, BudgetScope } from "./ledger.js";
 
 interface BudgetSettingsHost {
   status(): { day: string; tokens: number; reservedTokens: number; priceTrusted: false; money: null; policies: BudgetPolicy[] };
-  setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean }): BudgetPolicy;
+  setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }): BudgetPolicy;
 }
 
 interface BudgetHostContext {
@@ -29,7 +29,7 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
   };
   return {
     status() { return { ...service.status(), options: options() }; },
-    setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean }) {
+    setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }) {
       if (!(["global", "workspace", "provider", "model"] as string[]).includes(input.scope)) {
         throw new PenglaiError("INVALID_INPUT", "invalid budget scope");
       }
@@ -38,7 +38,10 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
       if (input.scope === "workspace" && !available.workspaces.some((row) => row.id === key)) throw new PenglaiError("INVALID_INPUT", "budget Workspace is not live");
       if (input.scope === "provider" && !available.providers.includes(key)) throw new PenglaiError("INVALID_INPUT", "budget provider is not live");
       if (input.scope === "model" && !available.models.some((row) => row.key === key)) throw new PenglaiError("INVALID_INPUT", "budget model route is not live");
-      return service.setPolicy({ ...input, key, ownerConfirmed: false });
+      if (!input.actionId || !input.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "budget change requires Owner confirmation");
+      }
+      return service.setPolicy({ ...input, key, ownerConfirmed: true, actionId: input.actionId, receipt: input.receipt });
     },
   };
 }
