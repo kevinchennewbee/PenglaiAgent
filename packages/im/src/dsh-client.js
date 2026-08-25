@@ -1384,6 +1384,23 @@ window.__ModuleLoader__.load({
                     value: secret,
                     onChange: (ev) => setSecret(ev.target.value),
                   }),
+                  channel.channel === "slack"
+                    ? jsx.jsxs("p", {
+                        children: [
+                          jsx.jsx("label", { htmlFor: "penglai-im-secret-slack-app", children: "App Token" }),
+                          jsx.jsx("input", {
+                            id: "penglai-im-secret-slack-app",
+                            type: "password",
+                            autoComplete: "off",
+                            "data-penglai-im-secret-app": "slack",
+                            onChange: (ev) => {
+                              const bot = secret.split("\n")[0] || secret;
+                              setSecret(`${bot}\n${ev.target.value}`);
+                            },
+                          }),
+                        ],
+                      })
+                    : null,
                 ],
               })
             : null,
