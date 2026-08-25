@@ -18,7 +18,7 @@ branch `0.5.7`. Historical 0.5.6 documents stay unchanged.
 | npm `latest` | `0.1.1-rc.2` |
 | npm `next` | `0.1.1-rc.2` |
 | DSH default branch vs tag | not ahead of `dsh-v0.1.1-rc.2` at freeze |
-| DSH-IM audit pin | `v2.4.0` / peeled `7211534aeff01dba4ab78c79a5fa31cb9fa9510f` / unsigned annotated tag |
+| DSH-IM audit pin | `v2.5.0` / tag object `d910373e1aa77e830bbb4a32544ace972492e79e` / peeled `aa8fd71b936a0378604bd0f8f277059833ddb8f7` / unsigned annotated tag |
 | Remote `0.5.7` at freeze | absent |
 
 Re-verify DSH GitHub tags, npm dist-tags, and Penglai lockfile/overlay consistency before merge.

@@ -26,13 +26,15 @@ const components = sorted.map((id) => {
 components.push({
   type: "library",
   name: "dsh-im",
-  version: "2.4.0",
-  "bom-ref": "pkg:github/xmanrui/dsh-im@7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
+  version: "2.5.0",
+  "bom-ref": "pkg:github/xmanrui/dsh-im@aa8fd71b936a0378604bd0f8f277059833ddb8f7",
   licenses: [{ license: { id: "MIT" } }],
   properties: [
     { name: "penglai:use", value: "selective-rewrite-not-installed" },
-    { name: "penglai:tag", value: "v2.4.0" },
+    { name: "penglai:tag", value: "v2.5.0" },
+    { name: "penglai:tag-object", value: "d910373e1aa77e830bbb4a32544ace972492e79e" },
     { name: "penglai:unsigned-tag", value: "true" },
+    { name: "penglai:archive.sha256", value: "19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758" },
   ],
 });
 const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));

@@ -1,4 +1,8 @@
-# dsh-im v2.4.0 supply-chain record
+# dsh-im v2.4.0 supply-chain record (historical)
+
+**Superseded for Penglai 0.5.7** by
+[`dsh-im-v2.5.0.md`](dsh-im-v2.5.0.md) / ADR 0044. Keep this file only as the
+audit trail of the earlier pin. Do not treat v2.4.0 as a second current pin.
 
 Penglai does **not** install this package as a second Agent core or copy its
 generated `lib/`. This file records the audited upstream bytes that may be

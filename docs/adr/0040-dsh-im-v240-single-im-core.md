@@ -1,6 +1,6 @@
 # ADR 0040 — DSH-IM v2.4.0 selective port into one IM Core
 
-- Status: Accepted
+- Status: Superseded by ADR 0044 for the current 0.5.7 DSH-IM pin
 - Date: 2026-08-25
 - Related: ADR 0037 (IM registry / multi-bot)
 

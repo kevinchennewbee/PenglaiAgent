@@ -62,17 +62,19 @@
     {
       "id": "dsh-im",
       "repo": "https://github.com/xmanrui/dsh-im",
-      "release": "v2.4.0",
-      "tagObject": "65a05750cda1ec376bbe764c5d1dec20c8a664bc",
-      "commit": "7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
+      "release": "v2.5.0",
+      "tagObject": "d910373e1aa77e830bbb4a32544ace972492e79e",
+      "commit": "aa8fd71b936a0378604bd0f8f277059833ddb8f7",
       "tagSigned": false,
-      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
-      "sha256": "54e9de330461538b9035b521e86da3b001880cd2e1cbe2e8a6e657b662c29766",
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/aa8fd71b936a0378604bd0f8f277059833ddb8f7",
+      "sha256": "19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758",
       "fetched": "2026-08-25",
       "license": "MIT",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
+      "supersedes": "v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
       "notice": "third_party/NOTICE-dsh-im.txt",
-      "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md"
+      "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md",
+      "provenance": "docs/0.5.7/provenance/dsh-im-v2.5.0.md"
     },
     {
       "id": "noto-sans-sc",

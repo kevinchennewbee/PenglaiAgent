@@ -5,12 +5,13 @@ Penglai 0.5.7 does not install dsh-im as a runtime and does not copy generated
 lib/ or bin/. Selected channel authentication and transport ideas may be
 rewritten into @penglai/im under the MIT license below.
 
-Pinned identity:
-  tag: v2.4.0 (unsigned annotated tag object 65a05750cda1ec376bbe764c5d1dec20c8a664bc)
-  commit: 7211534aeff01dba4ab78c79a5fa31cb9fa9510f
-  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/7211534aeff01dba4ab78c79a5fa31cb9fa9510f
-  sha256: 54e9de330461538b9035b521e86da3b001880cd2e1cbe2e8a6e657b662c29766
+Pinned identity (current 0.5.7):
+  tag: v2.5.0 (unsigned annotated tag object d910373e1aa77e830bbb4a32544ace972492e79e)
+  commit: aa8fd71b936a0378604bd0f8f277059833ddb8f7
+  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/aa8fd71b936a0378604bd0f8f277059833ddb8f7
+  sha256: 19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758
   fetched: 2026-08-25
+  superseded: v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f is historical only
 
 MIT License
 

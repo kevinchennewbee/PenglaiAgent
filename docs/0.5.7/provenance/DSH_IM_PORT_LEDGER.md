@@ -1,7 +1,9 @@
-# DSH-IM v2.4.0 port ledger
+# DSH-IM v2.5.0 port ledger
 
-Upstream: `https://github.com/xmanrui/dsh-im` @
-`7211534aeff01dba4ab78c79a5fa31cb9fa9510f` (`v2.4.0`, MIT, unsigned tag).
+Current 0.5.7 pin: `https://github.com/xmanrui/dsh-im` @
+`aa8fd71b936a0378604bd0f8f277059833ddb8f7` (`v2.5.0`, MIT, unsigned tag object
+`d910373e1aa77e830bbb4a32544ace972492e79e`). The v2.4.0 ledger identity is
+historical only.
 Use: design/reference or rewrite into Penglai IM Core. Never vendor generated
 `lib/` or start the DSH-IM runtime.
 
@@ -27,7 +29,15 @@ Penglai Vault, Owner Broker, Artifact Service, routing-core, persistence;
 | `src/channels/whatsapp/whatsapp-web-session.mjs` | `packages/channel-whatsapp` | rewrite | Baileys device-link; no plaintext auth dir |
 | `src/channels/whatsapp/whatsapp-runtime.mjs` | `packages/channel-whatsapp` | rewrite | self-echo dedupe, reserved outbound IDs, logout wipe |
 | `plugin-src/client/*` cards | `packages/im/src/dsh-client.js` | reference | UX for platform cards only |
+| `src/channels/shared/message-failure.mjs` | `@penglai/im` message-failure | rewrite | stable code + reference id + user-actionable copy; MIT if source is adapted |
+| `plugin-src/client/last-message-error.js` | Messaging card error row | reference | last failure on the platform card |
+| `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | reference | optional typing; never replace iLink |
 | Weixin 1800-char segmentation idea | `packages/channel-weixin` | reference | keep Penglai iLink; adopt length splitting if needed |
+| `src/channels/dingtalk/dingtalk-controller.mjs` | `packages/channel-dingtalk` | rewrite | Stream supervisor, ACK, reconnect |
+| `src/channels/wecom/wecom-controller.mjs` | `packages/channel-wecom` | rewrite | WSClient authenticated/message/reconnect |
+| `src/channels/qq/qq-controller.mjs` | `packages/channel-qq` | rewrite | startQrConnect + QQBot gateway |
+| `src/channels/slack/slack-controller.mjs` | `packages/channel-slack` | rewrite | Socket Mode envelope ACK |
+| `src/channels/whatsapp/whatsapp-controller.mjs` | `packages/channel-whatsapp` | rewrite | Baileys session, QR, logout wipe |
 
 ## Shared upstream files (reference only)
 
