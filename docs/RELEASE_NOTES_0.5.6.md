@@ -3,11 +3,28 @@
 Trust tier: `community-verified`. Official DeepSeek Harness `0.1.1-rc.2`
 remains the only agent core. This release is not silent auto-update.
 
+## Exact candidate / 精确候选
+
+- Source / 源码: `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
+- Public export / 公开源码树: `2a5b725aaaab1af7b651dbbe5b2d5558bb3c9ab15bde53c24d077896e37cdd79` (735 files)
+- Native run / 三端原生任务: [32795706687](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32795706687)
+- Apple Silicon: 467,566,184 bytes · `2a9097c791a183fb705d24e9f359a5a6dc2b09d98507a8bc785e763a05abffb3`
+- Intel Mac: 396,796,619 bytes · `b37f1eab02244c2c06b0d6dc220f899ed866463143f3315a99f8d408b2bffea3`
+- Windows x64: 355,959,044 bytes · `b56b163b38f63337f760fd0d2fade3fd36f9a2cb72e00a2932154a693c74c989`
+
+The exact ten public assets are immutable and the post-publication readback
+passed. / 十个精确公网资产已经不可变，发布后回读已通过。
+
 ## English
 
 Penglai 0.5.6 focuses on the places where a feature could appear present in a
 settings page without completing the real user action: automatic memory,
 owner-approved writes, file handoff, speech playback, and messaging availability.
+
+The first-run model test and first conversation now wait for the official
+durable `turn/end`, use a bounded first-reply budget, and run in an official
+per-Session no-tools scope. A model can no longer strand the setup wizard by
+choosing an approval-gated tool that the wizard cannot present.
 
 ### Memory now works without a magic phrase
 

@@ -1,6 +1,6 @@
 # PenglaiAgent 0.5.6 publication contract
 
-Status: `CANDIDATE` until immutable public readback succeeds.
+Status: `PUBLIC_READBACK_PASS`.
 
 Owner authorized source changes, real testing, push, PR, merge, three-target
 native builds, tag, GitHub Release, README, website, and bilingual public copy
@@ -20,7 +20,12 @@ declared by `release-contract.json`, and no others. The signed update manifest
 uses sequence `5`, binds GitHub asset IDs, installer sizes/hashes/signatures,
 the release-manifest digest, and the deterministic public-export tree.
 
-Publication is complete only when GitHub reports an immutable stable `v0.5.6`
-Release and `pnpm readback:release v0.5.6` downloads and verifies all ten public
-assets. README, website, and publication evidence may say “released” only after
-that result exists.
+The exact candidate source is
+`75bbd591c61b757dfe015e54e40ad21ccf9ab94b`, with public-export tree
+`2a5b725aaaab1af7b651dbbe5b2d5558bb3c9ab15bde53c24d077896e37cdd79`
+(735 files). Native run
+[`32795706687`](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32795706687)
+passed on Apple Silicon, Intel Mac, and Windows x64. The immutable stable
+[`v0.5.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6)
+Release is public, and `pnpm readback:release v0.5.6` passed for all ten public
+assets, tag-to-source identity, updater metadata, and detached signatures.
