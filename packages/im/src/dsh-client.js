@@ -237,6 +237,7 @@ window.__ModuleLoader__.load({
           "诊断只显示稳定错误码、队列计数和恢复动作，不含密钥或正文。",
         loading: "正在读取实际连接状态…",
         loadError: "无法读取 IM 状态",
+        pageTitle: "消息连接",
         stepCreateApp: "创建企业自建应用",
         stepBot: "启用机器人能力",
         stepScopes: "授予最小私聊权限",
@@ -337,6 +338,7 @@ window.__ModuleLoader__.load({
         diagnosticsHint:
           "Diagnostics show stable error codes, queue counts, and recovery actions only. No secrets or bodies.",
         loading: "Reading live IM status…",
+        pageTitle: "Messaging",
         loadError: "Unable to read IM status",
         stepCreateApp: "Create a self-built enterprise app",
         stepBot: "Enable bot capability",
@@ -1257,7 +1259,7 @@ window.__ModuleLoader__.load({
       return jsx.jsxs("section", {
         "data-penglai-im": "1",
         children: [
-          jsx.jsx("h3", { children: "Penglai IM" }),
+          jsx.jsx("h3", { children: t.pageTitle }),
           jsx.jsx("nav", {
             children: TABS.map((id) =>
               jsx.jsx(

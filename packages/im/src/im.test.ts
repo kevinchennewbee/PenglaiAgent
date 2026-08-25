@@ -526,7 +526,7 @@ test("R2I-ROUTE packaged causal Message→Turn→route stays on original route",
   rt.store.close();
 });
 
-test("R2I-UI-001 client registers Penglai IM page sections", () => {
+test("R2I-UI-001 client registers Messaging page sections", () => {
   const c = contribute();
   assert.equal(c.slot, "settings.section");
   assert.deepEqual(c.sections, ["总览", "微信", "飞书", "绑定", "命令", "诊断"]);
