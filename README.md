@@ -25,10 +25,10 @@
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.6 targets Apple Silicon, Intel Mac, and Windows x64. This source
-> candidate is not called released until all three native jobs and immutable
-> ten-asset public readback pass. macOS remains ad-hoc signed and not notarized;
-> Windows does not have Authenticode.
+> Penglai 0.5.6 targets Apple Silicon, Intel Mac, and Windows x64. The exact
+> source is `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`; all three rebuilt native jobs
+> and the immutable ten-asset public readback passed.
+> macOS remains ad-hoc signed and not notarized; Windows has no Authenticode.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
@@ -196,20 +196,20 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The 0.5.6 release contract names exactly three native installers. Exact source,
-workflow, byte-size, and digest values are added here only after the matching
-native run and immutable public readback pass:
+The 0.5.6 release contract contains exactly three native installers from source
+`75bbd591c61b757dfe015e54e40ad21ccf9ab94b`. Rebuilt native run
+[`32795706687`](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32795706687)
+passed; the immutable public readback also passed:
 
 | Platform | Release asset | Native installed evidence |
 | --- | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | Pending exact native/public evidence |
-| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | Pending exact native/public evidence |
-| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | Pending exact native/public evidence plus Simplified Chinese installer screenshot |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | 467,566,184 bytes · `2a9097c791a183fb705d24e9f359a5a6dc2b09d98507a8bc785e763a05abffb3` |
+| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | 396,796,619 bytes · `b37f1eab02244c2c06b0d6dc220f899ed866463143f3315a99f8d408b2bffea3` |
+| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | 355,959,044 bytes · `b56b163b38f63337f760fd0d2fade3fd36f9a2cb72e00a2932154a693c74c989` · Simplified Chinese native UI PASS |
 
-The release closes only after the matching native workflow passes all three
-targets and a post-publication readback downloads all ten Release assets to
-recheck the exact set, byte sizes, SHA-256 values, source tag, public-export
-tree, update manifest, and detached Ed25519 signatures.
+The post-publication readback downloaded all ten Release assets and rechecked
+the exact set, byte sizes, SHA-256 values, source tag, public-export tree,
+update manifest, and detached Ed25519 signatures.
 
 Penglai 0.5.1 through 0.5.5 can check the signed 0.5 line from **Settings →
 Penglai → Updates**, or use a same-platform manual overlay. There is no silent
@@ -437,18 +437,19 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-0.5.6 发布契约固定三个原生安装包。只有对应 native workflow 与不可变公网回读通过后，
-这里才会填写精确源码、工作流、字节大小和摘要：
+0.5.6 发布契约固定从源码 `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
+生成三个原生安装包。原生任务
+[`32795706687`](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/32795706687)
+已经通过；不可变公网回读也已通过：
 
 | 平台 | 正式文件 | 原生安装证据 |
 | --- | --- | --- |
-| Apple Silicon，macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | 等待精确原生/公网证据 |
-| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | 等待精确原生/公网证据 |
-| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | 等待精确原生/公网证据和简体中文安装器截图 |
+| Apple Silicon，macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` | 467,566,184 字节 · `2a9097c791a183fb705d24e9f359a5a6dc2b09d98507a8bc785e763a05abffb3` |
+| Intel Mac | `Penglai_0.5.6_macos_x64.dmg` | 396,796,619 字节 · `b37f1eab02244c2c06b0d6dc220f899ed866463143f3315a99f8d408b2bffea3` |
+| Windows x64 | `Penglai_0.5.6_windows_x64_setup.exe` | 355,959,044 字节 · `b56b163b38f63337f760fd0d2fade3fd36f9a2cb72e00a2932154a693c74c989` · 原生简体中文界面 PASS |
 
-只有三端原生工作流全部通过，并且发布后从公网下载十个 Release 资产，重新核对精确
-文件集、大小、SHA-256、源码 tag、公开源码树、升级 manifest 和 Ed25519 分离签名，
-本版本才会关闭发布状态。
+发布后回读已从公网下载十个 Release 资产，并重新核对精确文件集、大小、SHA-256、
+源码 tag、公开源码树、升级 manifest 和 Ed25519 分离签名。
 
 0.5.1 到 0.5.5 可以从 **设置 → 蓬莱 → 更新** 检查 0.5 系列签名版本，
 也可以用同平台安装包手动覆盖。它不会静默升级。0.5.0 没有生产升级信任链，只能
