@@ -786,6 +786,12 @@ test("official nonce Turn survives whenIdle resolving before turn/end", async ()
   assert.equal(result.passed, true);
 });
 
+test("official Turn timeout stays below the wizard wait and above the old 45 second cutoff", () => {
+  const source = readFileSync(new URL("./onboarding.ts", import.meta.url), "utf8");
+  assert.match(source, /setTimeout\(\(\) => resolve\(\), 120_000\)/);
+  assert.doesNotMatch(source, /setTimeout\(\(\) => resolve\(\), 45_000\)/);
+});
+
 test("stale derived ref without resolve fails closed as auth and does not start a Turn", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
   const created: number[] = [];

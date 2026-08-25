@@ -981,7 +981,9 @@ async function runOfficialTurn(
   };
   const done = new Promise<void>((resolve) => {
     resolveWait = resolve;
-    timer = setTimeout(() => resolve(), 45_000);
+    // The wizard allows 180 seconds. Keep a bounded margin for UI recovery,
+    // while allowing official reasoning models to produce a durable first Turn.
+    timer = setTimeout(() => resolve(), 120_000);
   });
   const disposeEvent = ctx.on?.("session/event", onEvent);
   let handle: Awaited<ReturnType<NonNullable<OfficialUsableCtx["agents"]>["create"]>> | undefined;
