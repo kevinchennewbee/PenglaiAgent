@@ -21,7 +21,6 @@ export class TelegramAdapter {
   private token: string | undefined;
   webhookConflict = false;
   private offset = 0;
-  private pollTimer: ReturnType<typeof setInterval> | undefined;
   private inboundHandler?: (msg: TelegramInbound) => void;
 
   constructor(
@@ -52,6 +51,10 @@ export class TelegramAdapter {
     });
     const hookBody = (await webhook.json()) as { ok?: boolean; result?: { url?: string } };
     this.webhookConflict = Boolean(hookBody.result?.url);
+    if (this.webhookConflict) {
+      this.connection = "failed";
+      throw new PenglaiError("SECURITY_POLICY", "TELEGRAM_WEBHOOK_CONFLICT");
+    }
     this.token = creds.token;
     this.connection = "connected";
     this.startReceive();
@@ -95,6 +98,7 @@ export class TelegramAdapter {
     if (this.connection !== "connected" || !this.token) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:telegram");
     }
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "TELEGRAM_REPLY_TARGET");
     const response = await this.fetchImpl(`https://api.telegram.org/bot${this.token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -107,25 +111,36 @@ export class TelegramAdapter {
   }
 
   async disconnect(): Promise<void> {
-    if (this.pollTimer) clearInterval(this.pollTimer);
-    this.pollTimer = undefined;
+    this.pollAbort?.abort();
+    this.pollAbort = undefined;
     this.token = undefined;
     this.connection = "disabled";
   }
 
+  private pollAbort: AbortController | undefined;
+
   private startReceive(): void {
-    if (this.pollTimer || !this.token) return;
-    this.pollTimer = setInterval(() => {
-      void this.pollOnce().catch(() => undefined);
-    }, 2_500);
-    this.pollTimer.unref?.();
+    if (this.pollAbort || !this.token) return;
+    this.pollAbort = new AbortController();
+    const signal = this.pollAbort.signal;
+    const loop = async () => {
+      while (!signal.aborted && this.token) {
+        try {
+          await this.pollOnce(signal);
+        } catch {
+          if (signal.aborted) return;
+          await new Promise((resolve) => setTimeout(resolve, 2_000 + Math.floor(Math.random() * 1_000)));
+        }
+      }
+    };
+    void loop();
   }
 
-  private async pollOnce(): Promise<void> {
+  private async pollOnce(signal: AbortSignal): Promise<void> {
     if (!this.token) return;
     const response = await this.fetchImpl(
-      `https://api.telegram.org/bot${this.token}/getUpdates?timeout=0&offset=${this.offset}`,
-      { redirect: "error", signal: AbortSignal.timeout(10_000) },
+      `https://api.telegram.org/bot${this.token}/getUpdates?timeout=25&offset=${this.offset}&allowed_updates=${encodeURIComponent('["message"]')}`,
+      { redirect: "error", signal },
     );
     const body = (await response.json()) as {
       ok?: boolean;

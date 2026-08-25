@@ -14,9 +14,25 @@ test("Telegram validates a bot token, flags webhook conflict, and refuses QR", a
     },
   );
   await assert.rejects(() => adapter.beginConnection({ method: "qr", credentialRef: "PENGLAI_TELEGRAM_TOKEN" }), /CHANNEL_NO_QR/);
-  await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_TELEGRAM_TOKEN" });
+  await assert.rejects(() => adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_TELEGRAM_TOKEN" }), /TELEGRAM_WEBHOOK_CONFLICT/);
   assert.equal(adapter.health().webhookConflict, true);
+});
+
+test("Telegram long-polls after getMe when no webhook is set", async () => {
+  const adapter = new TelegramAdapter(
+    { resolve: () => ({ token: "123:abc" }) },
+    async (url) => {
+      const href = String(url);
+      if (href.includes("/getMe")) return new Response(JSON.stringify({ ok: true, result: { id: 1 } }));
+      if (href.includes("/getWebhookInfo")) return new Response(JSON.stringify({ ok: true, result: { url: "" } }));
+      if (href.includes("/sendMessage")) return new Response(JSON.stringify({ ok: true }));
+      if (href.includes("/getUpdates")) return new Response(JSON.stringify({ ok: true, result: [] }));
+      return new Response("{}", { status: 404 });
+    },
+  );
+  await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_TELEGRAM_TOKEN" });
   await adapter.sendText({ text: "hi", peerRef: "1" });
+  await adapter.disconnect();
 });
 
 test("Telegram ingest only accepts private text", async () => {
