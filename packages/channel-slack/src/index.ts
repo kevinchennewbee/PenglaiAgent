@@ -22,9 +22,14 @@ export class SlackAdapter {
   private creds: SlackCredentials | undefined;
   private inboundHandler?: (msg: SlackInbound) => void;
 
+  private socket: { close(): void } | undefined;
+
   constructor(
     private readonly vault: { resolve(ref: string): SlackCredentials | undefined },
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
+    private readonly sockets?: {
+      open(url: string, onEvent: (event: Record<string, unknown>) => void): { close(): void };
+    },
   ) {}
 
   async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token" | "manifest"; live: false; operationId: string }> {
@@ -47,6 +52,11 @@ export class SlackAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "SLACK_TOKEN_INVALID");
     }
     this.creds = creds;
+    if (!creds.appToken) {
+      this.connection = "not_configured";
+      throw new PenglaiError("INVALID_INPUT", "SLACK_APP_TOKEN_REQUIRED");
+    }
+    await this.openSocket(creds.appToken);
     this.connection = "connected";
     return { kind: input.method === "manifest" ? "manifest" : "token", live: false, operationId: "slack:token" };
   }
@@ -103,7 +113,58 @@ export class SlackAdapter {
   }
 
   async disconnect(): Promise<void> {
+    this.socket?.close();
+    this.socket = undefined;
     this.creds = undefined;
     this.connection = "disabled";
+  }
+
+  private async openSocket(appToken: string): Promise<void> {
+    const response = await this.fetchImpl("https://slack.com/api/apps.connections.open", {
+      method: "POST",
+      headers: { authorization: `Bearer ${appToken}`, accept: "application/json" },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await response.json()) as { ok?: boolean; url?: string };
+    if (!body.ok || !body.url || !body.url.startsWith("wss://")) {
+      throw new PenglaiError("AUTH_EXPIRED", "SLACK_SOCKET_OPEN");
+    }
+    const onEvent = (event: Record<string, unknown>) => {
+      if (event.type === "events_api") {
+        const inner = (event.payload ?? event) as {
+          event?: { type?: string; user?: string; text?: string; channel?: string; ts?: string; channel_type?: string; bot_id?: string };
+        };
+        if (inner.event) this.ingestEvent(inner.event);
+      }
+    };
+    if (this.sockets) {
+      this.socket = this.sockets.open(body.url, onEvent);
+      return;
+    }
+    const ws = new WebSocket(body.url);
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_TIMEOUT")), 15_000);
+      ws.addEventListener("open", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      ws.addEventListener("error", () => {
+        clearTimeout(timer);
+        reject(new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_ERROR"));
+      });
+    });
+    ws.addEventListener("message", (ev) => {
+      try {
+        const parsed = JSON.parse(String((ev as MessageEvent).data)) as Record<string, unknown>;
+        if (parsed.envelope_id) {
+          ws.send(JSON.stringify({ envelope_id: parsed.envelope_id }));
+        }
+        onEvent(parsed);
+      } catch {
+        /* ignore malformed */
+      }
+    });
+    this.socket = { close: () => ws.close() };
   }
 }

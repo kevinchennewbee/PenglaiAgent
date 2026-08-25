@@ -98,15 +98,25 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     {
       resolve: () => {
         const raw = memory.get("PENGLAI_SLACK_BOT");
-        return raw ? (JSON.parse(raw) as { botToken: string }) : undefined;
+        return raw ? (JSON.parse(raw) as { botToken: string; appToken?: string }) : undefined;
       },
     },
-    async () => new Response(JSON.stringify({ ok: true })),
+    async (url) => {
+      if (String(url).includes("apps.connections.open")) {
+        return new Response(JSON.stringify({ ok: true, url: "wss://wss-primary.slack.com/link" }));
+      }
+      return new Response(JSON.stringify({ ok: true }));
+    },
+    { open: () => ({ close() {} }) },
   );
   const { slackChannelAdapter } = await import("./adapters/channel-bridge.js");
   host.attachChannelAdapter(slackChannelAdapter(slack));
   await assert.rejects(() => host.beginChannelConnection({ channel: "slack", method: "qr" }), /CHANNEL_NO_QR/);
-  const begun = await host.beginChannelConnection({ channel: "slack", method: "token", secret: "xoxb-test" });
+  const begun = await host.beginChannelConnection({
+    channel: "slack",
+    method: "token",
+    secret: JSON.stringify({ botToken: "xoxb-test", appToken: "xapp-test" }),
+  });
   assert.equal(begun.kind, "token");
   assert.equal(begun.live, false);
   assert.equal((await host.getOverview()).channels.find((row) => row.channel === "slack")?.connection, "connected");

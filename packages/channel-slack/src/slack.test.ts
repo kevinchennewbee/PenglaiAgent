@@ -7,9 +7,11 @@ test("Slack validates a bot token without QR and can send", async () => {
     { resolve: () => ({ botToken: "xoxb-test", appToken: "xapp-test" }) },
     async (url) => {
       if (String(url).includes("auth.test")) return new Response(JSON.stringify({ ok: true }));
+      if (String(url).includes("apps.connections.open")) return new Response(JSON.stringify({ ok: true, url: "wss://wss-primary.slack.com/link" }));
       if (String(url).includes("chat.postMessage")) return new Response(JSON.stringify({ ok: true }));
       return new Response("{}", { status: 404 });
     },
+    { open: () => ({ close() {} }) },
   );
   await assert.rejects(() => adapter.beginConnection({ method: "qr", credentialRef: "PENGLAI_SLACK_BOT" }), /CHANNEL_NO_QR/);
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_SLACK_BOT" });
