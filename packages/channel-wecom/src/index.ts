@@ -1,5 +1,6 @@
 import { PenglaiError } from "@penglai/contracts";
 import { WeComQrAuth } from "./qr-auth.js";
+import { createWeComWsClient } from "./ws-client.js";
 
 export const name = "wecom";
 export { WeComQrAuth } from "./qr-auth.js";
@@ -79,7 +80,8 @@ export class WeComAdapter {
     if (this.connection !== "connected" || !this.client?.send) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:wecom");
     }
-    await this.client.send(input.peerRef ?? "peer", input.text);
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "WECOM_REPLY_TARGET");
+    await this.client.send(input.peerRef, input.text);
     return { delivered: true };
   }
 
@@ -98,18 +100,7 @@ export class WeComAdapter {
     }
     this.connection = "connecting";
     try {
-      this.client = this.factory
-        ? this.factory(creds)
-        : {
-            connected: false,
-            async connect() {
-              await import("@wecom/aibot-node-sdk");
-              this.connected = true;
-            },
-            async disconnect() {
-              this.connected = false;
-            },
-          };
+      this.client = this.factory ? this.factory(creds) : await createWeComWsClient(creds, (msg) => this.inboundHandler?.(msg));
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";
     } catch {
