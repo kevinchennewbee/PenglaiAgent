@@ -1,11 +1,11 @@
-﻿# Penglai 0.5.7 Draft for Codex review
+# Penglai 0.5.7 Draft for Codex review
 
 Grok Build stop line: this PR is **draft**. Do not merge, do not create `v0.5.7`, do not publish a GitHub Release, do not deploy production `gh-pages`.
 
 ## Identity
 
 - Base SHA: `3102135c6821a044fe4f9b50638c91ce9f5e9cd1` (`main`)
-- Head SHA: `829c85f1b230dc5f95a43147f2d5dd56b14ad058`
+- Head SHA: `f9e20b43998fef909aab1fdabcdb2e777ea6f290`
 - Base tag: `v0.5.6` at `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
 - Official DSH: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - npm `latest` and `next` at freeze: `0.1.1-rc.2`
@@ -14,7 +14,7 @@ Grok Build stop line: this PR is **draft**. Do not merge, do not create `v0.5.7`
 
 Committed `release-info.json` remains a template: `phase=UNFROZEN`, `sourceSha=NONE`.
 
-## v2.4.0 鈫?v2.5.0 audit
+## v2.4.0 to v2.5.0 audit
 
 Six commits: structured message-failure reporting, Weixin typing, actionable channel errors, brand hover version, merge, release. Penglai rewrote failure codes into `@penglai/im`. Weixin/Feishu replacements remain forbidden. `lib/` / `bin/` / `cordis.patch.yml` are not vendored.
 
@@ -38,7 +38,7 @@ Owner action for live rows: scan once or paste a bot token on this machine. Grok
 
 ## This round (source, after previous Head `b405319`)
 
-- Lockfile now records `@penglai/budget` 鈫?`@penglai/runtime` and importers for `channel-slack` / `channel-telegram` / `channel-discord` / `channel-whatsapp` (including Baileys).
+- Lockfile now records `@penglai/budget` workspace `@penglai/runtime` and importers for `channel-slack` / `channel-telegram` / `channel-discord` / `channel-whatsapp` (including Baileys).
 - Channel lifecycle is fail-closed: incomplete inbound dropped, Slack requires bot+app tokens, leftover token adapters never become `connected`, vault maps hydrate only from valid serialized secrets, HMAC `peerRef` is not the vendor id.
 - QR is rendered to a PNG data URL (`data-penglai-im-scan-image`); WhatsApp/QQ peek QR payload rather than a raw scan host URL.
 - Budget `setPolicy` consumes a Main owner-broker receipt (`budget.set-policy`); forged UUID/receipt and replay fail closed.
