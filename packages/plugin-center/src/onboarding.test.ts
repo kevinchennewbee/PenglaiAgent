@@ -792,10 +792,9 @@ test("official Turn timeout stays below the wizard wait and above the old 45 sec
   assert.doesNotMatch(source, /setTimeout\(\(\) => resolve\(\), 45_000\)/);
 });
 
-test("onboarding model probes disable reasoning without changing normal Sessions", () => {
+test("onboarding first Turn uses the bounded probe output budget", () => {
   const source = readFileSync(new URL("./onboarding.ts", import.meta.url), "utf8");
-  assert.match(source, /agent\/request/);
-  assert.match(source, /reasoningEffort:\s*"off"/);
+  assert.match(source, /sourceKind:\s*"penglai-onboarding-first-conversation"[\s\S]*maxTokens:\s*256/);
 });
 
 test("stale derived ref without resolve fails closed as auth and does not start a Turn", async () => {

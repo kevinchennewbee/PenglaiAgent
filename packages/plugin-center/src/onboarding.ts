@@ -39,9 +39,6 @@ export interface OfficialUsableCtx {
       sessionId: string;
       meta?: { cwd?: string };
       agentOptions?: { provider?: string; model?: string };
-      setup?: (agentCtx: {
-        on?: (event: string, listener: (payload: unknown, next: unknown) => unknown) => unknown;
-      }) => void;
     }) => Promise<{
       agent: {
         followup: (m: unknown) => void;
@@ -995,14 +992,6 @@ async function runOfficialTurn(
       sessionId,
       meta: { cwd: opts.cwd },
       agentOptions: { provider: opts.provider, model: opts.model, tools: false, maxTokens: opts.maxTokens } as never,
-      setup: (agentCtx) => {
-        if (!agentCtx.on) throw new PenglaiError("DSH_UNAVAILABLE", "official Agent request hook required");
-        agentCtx.on("agent/request", async (_payload, next) => {
-          const resolved = typeof next === "function" ? await (next as () => unknown)() : next;
-          if (!resolved || typeof resolved !== "object") return resolved;
-          return { ...(resolved as Record<string, unknown>), reasoningEffort: "off" };
-        });
-      },
     });
     handle.agent.followup({
       id: randomUUID(),
@@ -1088,7 +1077,7 @@ export async function runOfficialFirstConversation(
     cwd: opts.cwd,
     prompt: message,
     sourceKind: "penglai-onboarding-first-conversation",
-    maxTokens: 1024,
+    maxTokens: 256,
     attachWorkspaceId: opts.workspaceId,
   });
   const finalDigest = result.final ? createHash("sha256").update(result.final, "utf8").digest("hex") : undefined;

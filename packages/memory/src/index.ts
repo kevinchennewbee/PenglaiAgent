@@ -58,7 +58,6 @@ interface OfficialAgentHandleLike {
 
 interface OfficialAgentContextLike {
   tools?: { guard(guard: (execution: unknown) => string | undefined): unknown };
-  on?: (event: string, listener: (payload: unknown, next: unknown) => unknown) => unknown;
 }
 
 interface CordisContextLike {
@@ -646,14 +645,6 @@ export function apply(ctx: CordisContextLike) {
                     throw new PenglaiError("DSH_UNAVAILABLE", "official Tools guard required for memory curator");
                   }
                   agentCtx.tools.guard(() => "penglai-memory-curator/no-tools");
-                  if (!agentCtx.on) {
-                    throw new PenglaiError("DSH_UNAVAILABLE", "official Agent request hook required for memory curator");
-                  }
-                  agentCtx.on("agent/request", async (_payload, next) => {
-                    const resolved = typeof next === "function" ? await (next as () => unknown)() : next;
-                    if (!resolved || typeof resolved !== "object") return resolved;
-                    return { ...(resolved as Record<string, unknown>), reasoningEffort: "off" };
-                  });
                 },
               });
               handle.agent.followup({
