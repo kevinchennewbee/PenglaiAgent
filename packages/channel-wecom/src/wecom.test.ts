@@ -19,7 +19,8 @@ test("WeCom token path connects and can send through an injected client", async 
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_WECOM_BOT" });
   assert.equal(begun.kind, "token");
   assert.equal(begun.live, false);
-  await adapter.sendText({ text: "hi" });
+  await assert.rejects(() => adapter.sendText({ text: "hi" }), /WECOM_REPLY_TARGET/);
+  await adapter.sendText({ text: "hi", peerRef: "user-1" });
   assert.equal(sent, "hi");
 });
 

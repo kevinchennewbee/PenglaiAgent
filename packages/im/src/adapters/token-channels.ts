@@ -51,8 +51,8 @@ export class TokenChannelAdapter implements ChannelAdapter {
       throw new PenglaiError("INVALID_INPUT", "unsupported connection method");
     }
     await this.enable();
-    const token = input.credentialRef ? this.vault.resolve(input.credentialRef) : undefined;
-    this.connection = token ? "connected" : "not_configured";
+    void (input.credentialRef ? this.vault.resolve(input.credentialRef) : undefined);
+    this.connection = "not_configured";
     return connectionResultForMethod(this.id, input.method);
   }
 

@@ -13,7 +13,7 @@ export async function createWeComWsClient(
   creds: WeComCredentials,
   onMessage?: (msg: { messageId: string; senderId: string; text: string }) => void,
 ): Promise<WeComClient> {
-  const mod = (await import("@wecom/aibot-node-sdk")) as {
+  const mod = (await import("@wecom/aibot-node-sdk")) as unknown as {
     WSClient?: new (opts: { botid?: string; botId?: string; secret: string }) => {
       on(event: string, handler: (...args: unknown[]) => void): void;
       connect(): Promise<void> | void;

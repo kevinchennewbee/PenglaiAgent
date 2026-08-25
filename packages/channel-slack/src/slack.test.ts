@@ -26,5 +26,6 @@ test("Slack ingest only accepts private IM events", async () => {
   adapter.onInbound((msg) => received.push(msg.text));
   adapter.ingestEvent({ type: "message", channel: "D1", text: "hi", user: "U1", ts: "1.0" });
   adapter.ingestEvent({ type: "message", channel: "C1", text: "channel", user: "U1", ts: "2.0" });
+  adapter.ingestEvent({ type: "message", channel: "D2", text: "missing-id", user: "U1" });
   assert.deepEqual(received, ["hi"]);
 });

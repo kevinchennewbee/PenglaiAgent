@@ -76,10 +76,11 @@ export class TelegramAdapter {
     if (update.update_id !== undefined) this.offset = Math.max(this.offset, update.update_id + 1);
     const msg = update.message;
     if (!msg?.text || msg.chat?.type !== "private") return;
+    if (msg.message_id == null || msg.from?.id == null || msg.chat?.id == null) return;
     this.inboundHandler?.({
-      messageId: String(msg.message_id ?? Date.now()),
-      senderId: String(msg.from?.id ?? "unknown"),
-      chatId: String(msg.chat?.id ?? ""),
+      messageId: String(msg.message_id),
+      senderId: String(msg.from.id),
+      chatId: String(msg.chat.id),
       text: msg.text,
     });
   }

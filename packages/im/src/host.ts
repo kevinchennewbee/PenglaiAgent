@@ -7,8 +7,9 @@ import {
   type VoiceReplyMode,
 } from "@penglai/contracts";
 import type { ArtifactService } from "@penglai/artifacts";
-import type { WeixinAdapter } from "@penglai/channel-weixin";
+import { renderQrPngDataUrl, type WeixinAdapter } from "@penglai/channel-weixin";
 import type { FeishuAdapter } from "@penglai/channel-feishu";
+import { WHATSAPP_RISK_ACK_VERSION } from "@penglai/channel-whatsapp";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import type { Store } from "@penglai/persistence";
 import type { DshHost } from "@penglai/dsh-bridge";
@@ -16,9 +17,11 @@ import {
   CHANNEL_CREDENTIAL_REFS,
   FEISHU_SECRET_REF,
   WEIXIN_TOKEN_REF,
+  WHATSAPP_DATAKEY_REF,
   assertOfficialCredentialRef,
   type CredentialsServiceVault,
 } from "./credentials-vault.js";
+import { serializeChannelSecret } from "./channel-secrets.js";
 import type { AdapterSupervisor } from "./supervisor.js";
 import { ImBotStore } from "./bots.js";
 import { beginGuidedConnection, type GuidedConnectionState } from "./guided.js";
@@ -80,6 +83,7 @@ export class PenglaiImHost {
   private feishuAppId = "";
   private owner: ImOwnerBrokerPort | undefined;
   private artifacts: ArtifactService | undefined;
+  private secretHydrator?: (id: ChannelId, serialized: string) => void;
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
   readonly bots: ImBotStore;
 
@@ -117,6 +121,10 @@ export class PenglaiImHost {
 
   attachOwner(owner: ImOwnerBrokerPort): void {
     this.owner = owner;
+  }
+
+  attachSecretHydrator(hydrate: (id: ChannelId, serialized: string) => void): void {
+    this.secretHydrator = hydrate;
   }
 
   attachArtifacts(artifacts: ArtifactService): void {
@@ -865,7 +873,9 @@ export class PenglaiImHost {
     if (!secret || secret.length > 8_192) throw new PenglaiError("INVALID_INPUT", "CHANNEL_SECRET");
     const ref = CHANNEL_CREDENTIAL_REFS[id];
     assertOfficialCredentialRef(ref);
-    await this.vault.write(ref, serializeChannelSecret(id, secret));
+    const serialized = serializeChannelSecret(id, secret);
+    await this.vault.write(ref, serialized);
+    this.secretHydrator?.(id, serialized);
     this.revision += 1;
     return { stored: true };
   }
@@ -875,7 +885,7 @@ export class PenglaiImHost {
     method: string;
     riskAck?: boolean;
     secret?: string;
-  }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string; verificationUrl?: string }> {
+  }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
     if (input.secret) await this.storeChannelSecret({ channel: id, secret: input.secret });
@@ -890,26 +900,29 @@ export class PenglaiImHost {
       credentialRef: CHANNEL_CREDENTIAL_REFS[id],
       ...(input.riskAck ? { riskAck: true } : {}),
     });
-    this.persistChannelFlag(id, true);
+    this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
+      riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
+      riskAckAt: Date.now(),
+    } : undefined);
     this.revision += 1;
-    const peeked = adapter.peekQr?.(result.operationId);
+    const qrImageRef = await encodePeekedQr(adapter.peekQr?.(result.operationId));
     return {
       ...result,
       steps: guided.steps,
       docsUrl: guided.docsUrl,
-      ...(peeked?.verificationUrl ? { verificationUrl: peeked.verificationUrl } : {}),
+      ...(qrImageRef ? { qrImageRef } : {}),
     };
   }
 
-  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; verificationUrl?: string }> {
+  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     const adapter = requireAdapter(this.adapters, id);
     const polled = await adapter.pollConnection(input.operationId);
-    const peeked = adapter.peekQr?.(input.operationId);
+    const qrImageRef = await encodePeekedQr(adapter.peekQr?.(input.operationId));
     this.revision += 1;
     return {
       status: polled.status,
-      ...(peeked?.verificationUrl ? { verificationUrl: peeked.verificationUrl } : {}),
+      ...(qrImageRef ? { qrImageRef } : {}),
     };
   }
 
@@ -921,10 +934,15 @@ export class PenglaiImHost {
     return { cancelled: true };
   }
 
-  peekChannelQr(input: { channel: string; operationId: string }): { verificationUrl?: string; expiresAt?: number } {
+  async peekChannelQr(input: { channel: string; operationId: string }): Promise<{ qrImageRef?: string; expiresAt?: number }> {
     const id = requireChannelId(input.channel);
     const adapter = requireAdapter(this.adapters, id);
-    return adapter.peekQr?.(input.operationId) ?? {};
+    const peeked = adapter.peekQr?.(input.operationId);
+    const qrImageRef = await encodePeekedQr(peeked);
+    return {
+      ...(qrImageRef ? { qrImageRef } : {}),
+      ...(peeked?.expiresAt ? { expiresAt: peeked.expiresAt } : {}),
+    };
   }
 
   async disconnectChannel(input: { channel: string }): Promise<{ disconnected: true }> {
@@ -943,6 +961,7 @@ export class PenglaiImHost {
     await adapter.logout();
     await adapter.deleteCredentials();
     await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
+    if (id === "whatsapp") await this.vault.delete(WHATSAPP_DATAKEY_REF);
     this.persistChannelFlag(id, false);
     this.revision += 1;
     return { loggedOut: true };
@@ -955,19 +974,19 @@ export class PenglaiImHost {
       if (!adapter) continue;
       this.attachInboundFanIn(adapter);
       const raw = this.store.getAdapterConfig(`${id}-default`);
-      let enabled = false;
+      let parsed: { enabled?: boolean; riskAckVersion?: string } = {};
       try {
-        enabled = Boolean(raw && (JSON.parse(raw) as { enabled?: boolean }).enabled);
+        parsed = raw ? (JSON.parse(raw) as { enabled?: boolean; riskAckVersion?: string }) : {};
       } catch {
-        enabled = false;
+        parsed = {};
       }
-      const configured = (await this.vault.describe(CHANNEL_CREDENTIAL_REFS[id])).configured;
-      if (!enabled && !configured) continue;
+      if (!parsed.enabled) continue;
+      if (id === "whatsapp" && parsed.riskAckVersion !== WHATSAPP_RISK_ACK_VERSION) continue;
       try {
         await adapter.beginConnection({
           method: restoreMethod(id),
           credentialRef: CHANNEL_CREDENTIAL_REFS[id],
-          riskAck: true,
+          ...(id === "whatsapp" ? { riskAck: true } : {}),
         });
       } catch {
         /* stay disconnected until the owner reconnects */
@@ -997,12 +1016,28 @@ export class PenglaiImHost {
     }
   }
 
-  private persistChannelFlag(channel: ChannelId, enabled: boolean): void {
-    this.store.putAdapterConfig(`${channel}-default`, channel, JSON.stringify({ enabled }));
+  private persistChannelFlag(channel: ChannelId, enabled: boolean, extra?: Record<string, unknown>): void {
+    let previous: Record<string, unknown> = {};
+    try {
+      const raw = this.store.getAdapterConfig(`${channel}-default`);
+      if (raw) previous = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      previous = {};
+    }
+    this.store.putAdapterConfig(`${channel}-default`, channel, JSON.stringify({ ...previous, enabled, ...extra }));
   }
 
   private async handleChannelInbound(event: InboundChannelEvent): Promise<void> {
-    if (event.chatType !== "private" || !event.text?.trim()) return;
+    if (
+      event.chatType !== "private" ||
+      !event.text?.trim() ||
+      !event.vendorMessageId ||
+      !event.peerRef ||
+      !event.vendorTarget ||
+      !event.botId
+    ) {
+      return;
+    }
     const routeId = this.plane.ensureRoute({
       adapter: event.channel,
       adapterMessageKey: event.vendorMessageId,
@@ -1044,13 +1079,14 @@ function restoreMethod(id: ChannelId): string {
   return methods[0] ?? "token";
 }
 
-function serializeChannelSecret(id: ChannelId, secret: string): string {
-  if (secret.startsWith("{")) return secret;
-  if (id === "slack") return JSON.stringify({ botToken: secret });
-  if (id === "telegram" || id === "discord") return JSON.stringify({ token: secret });
-  const [first, second] = secret.split(/\n+/);
-  if (id === "dingtalk") return JSON.stringify({ clientId: first, clientSecret: second ?? "" });
-  if (id === "wecom") return JSON.stringify({ botId: first, secret: second ?? "" });
-  if (id === "qq") return JSON.stringify({ appId: first, clientSecret: second ?? "" });
-  return secret;
+async function encodePeekedQr(
+  peeked: { verificationUrl?: string; qrPayload?: string; qrImageRef?: string } | undefined,
+): Promise<string | undefined> {
+  const payload = peeked?.qrImageRef || peeked?.verificationUrl || peeked?.qrPayload;
+  if (!payload) return undefined;
+  try {
+    return await renderQrPngDataUrl(payload);
+  } catch {
+    return undefined;
+  }
 }

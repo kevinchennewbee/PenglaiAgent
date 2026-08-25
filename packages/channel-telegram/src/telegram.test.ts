@@ -47,5 +47,9 @@ test("Telegram ingest only accepts private text", async () => {
     update_id: 3,
     message: { message_id: 10, text: "group", chat: { id: -1, type: "group" }, from: { id: 11 } },
   });
+  adapter.ingestUpdate({
+    update_id: 4,
+    message: { text: "noid", chat: { id: 11, type: "private" }, from: { id: 11 } },
+  });
   assert.deepEqual(received, ["hello"]);
 });

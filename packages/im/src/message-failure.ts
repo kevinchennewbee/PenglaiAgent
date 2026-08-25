@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-/**
- * Rewrite of DSH-IM v2.5.0 `src/channels/shared/message-failure.mjs`
- * (MIT, xmanrui). Stable codes + reference id + user-actionable copy.
- * Never includes secrets, stacks, or raw SDK objects.
- */
+/** Public failure objects never include secrets, stacks, or raw SDK objects. */
 export const MESSAGE_FAILURE_CODES = [
   "CHANNEL_PERMISSION",
   "CHANNEL_RATE_LIMIT",

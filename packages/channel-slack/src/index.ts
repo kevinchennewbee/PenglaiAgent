@@ -79,12 +79,14 @@ export class SlackAdapter {
     bot_id?: string;
   }): void {
     if (event.bot_id || (event.type && event.type !== "message") || !event.text) return;
-    const channel = String(event.channel ?? "");
+    const channel = String(event.channel ?? "").trim();
+    const messageId = String(event.ts ?? "").trim();
+    const senderId = String(event.user ?? "").trim();
     const privateChat = event.channel_type === "im" || channel.startsWith("D");
-    if (!privateChat) return;
+    if (!privateChat || !channel || !messageId || !senderId) return;
     this.inboundHandler?.({
-      messageId: String(event.ts ?? `${Date.now()}`),
-      senderId: String(event.user ?? "unknown"),
+      messageId,
+      senderId,
       channelId: channel,
       text: event.text,
     });

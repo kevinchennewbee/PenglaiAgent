@@ -32,7 +32,10 @@ import {
   wecomChannelAdapter,
   whatsappChannelAdapter,
 } from "./adapters/channel-bridge.js";
-import { CHANNEL_CREDENTIAL_REFS, CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
+import { CHANNEL_CREDENTIAL_REFS, CredentialsServiceVault, WHATSAPP_DATAKEY_REF, type CredentialsLike } from "./credentials-vault.js";
+import { parseSlackSecret } from "./channel-secrets.js";
+import { hmacPeerRef, loadOrCreatePeerHmacKey } from "./peer-privacy.js";
+import type { ChannelId } from "./registry.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
 import { ArtifactService } from "@penglai/artifacts";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
@@ -193,6 +196,10 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
   });
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
   imHost = host;
+  const peerKey = loadOrCreatePeerHmacKey(join(userData, "im", "peer.hmac"));
+  const wrapOpts = (id: ChannelId) => ({
+    hashPeer: (senderId: string) => hmacPeerRef(peerKey, id, `${id}-default`, senderId),
+  });
   const dingtalkCreds: Record<string, { clientId: string; clientSecret: string }> = {};
   const wecomCreds: Record<string, { botId: string; secret: string }> = {};
   const qqCreds: Record<string, { appId: string; clientSecret: string }> = {};
@@ -205,18 +212,37 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     try {
       cache[ref] = JSON.parse(raw) as T;
     } catch {
-      cache[ref] = wrap(raw);
+      try {
+        cache[ref] = wrap(raw);
+      } catch {
+        /* leave unconfigured until the owner pastes valid credentials */
+      }
     }
   };
+  host.attachSecretHydrator((id, serialized) => {
+    const ref = CHANNEL_CREDENTIAL_REFS[id];
+    try {
+      const parsed = JSON.parse(serialized) as Record<string, string>;
+      if (id === "dingtalk") dingtalkCreds[ref] = parsed as { clientId: string; clientSecret: string };
+      if (id === "wecom") wecomCreds[ref] = parsed as { botId: string; secret: string };
+      if (id === "qq") qqCreds[ref] = parsed as { appId: string; clientSecret: string };
+      if (id === "slack") slackCreds[ref] = parsed as { botToken: string; appToken?: string };
+      if (id === "telegram") telegramCreds[ref] = parsed as { token: string };
+      if (id === "discord") discordCreds[ref] = parsed as { token: string };
+    } catch {
+      /* invalid serialized secret stays out of the live maps */
+    }
+  });
   host.attachChannelAdapter(
     dingtalkChannelAdapter(
       new DingTalkAdapter({
         resolve: (ref) => dingtalkCreds[ref],
         put: (ref, creds) => {
           dingtalkCreds[ref] = creds;
-          void vault.write(ref, JSON.stringify(creds));
+          return vault.write(ref, JSON.stringify(creds));
         },
       }),
+      wrapOpts("dingtalk"),
     ),
   );
   host.attachChannelAdapter(
@@ -225,9 +251,10 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
         resolve: (ref) => wecomCreds[ref],
         put: (ref, creds) => {
           wecomCreds[ref] = creds;
-          void vault.write(ref, JSON.stringify(creds));
+          return vault.write(ref, JSON.stringify(creds));
         },
       }),
+      wrapOpts("wecom"),
     ),
   );
   host.attachChannelAdapter(
@@ -236,9 +263,10 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
         resolve: (ref) => qqCreds[ref],
         put: (ref, creds) => {
           qqCreds[ref] = creds;
-          void vault.write(ref, JSON.stringify(creds));
+          return vault.write(ref, JSON.stringify(creds));
         },
       }),
+      wrapOpts("qq"),
     ),
   );
   host.attachChannelAdapter(
@@ -246,6 +274,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       new SlackAdapter({
         resolve: (ref) => slackCreds[ref],
       }),
+      wrapOpts("slack"),
     ),
   );
   host.attachChannelAdapter(
@@ -253,6 +282,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       new TelegramAdapter({
         resolve: (ref) => telegramCreds[ref],
       }),
+      wrapOpts("telegram"),
     ),
   );
   host.attachChannelAdapter(
@@ -260,6 +290,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       new DiscordAdapter({
         resolve: (ref) => discordCreds[ref],
       }),
+      wrapOpts("discord"),
     ),
   );
   void (async () => {
@@ -267,23 +298,24 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       parseVault(CHANNEL_CREDENTIAL_REFS.dingtalk, dingtalkCreds, (raw) => ({ clientId: raw, clientSecret: "" })),
       parseVault(CHANNEL_CREDENTIAL_REFS.wecom, wecomCreds, (raw) => ({ botId: raw, secret: "" })),
       parseVault(CHANNEL_CREDENTIAL_REFS.qq, qqCreds, (raw) => ({ appId: raw, clientSecret: "" })),
-      parseVault(CHANNEL_CREDENTIAL_REFS.slack, slackCreds, (raw) => ({ botToken: raw })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.slack, slackCreds, (raw) => parseSlackSecret(raw)),
       parseVault(CHANNEL_CREDENTIAL_REFS.telegram, telegramCreds, (raw) => ({ token: raw })),
       parseVault(CHANNEL_CREDENTIAL_REFS.discord, discordCreds, (raw) => ({ token: raw })),
     ]);
-    const existingWa = await vault.read(CHANNEL_CREDENTIAL_REFS.whatsapp);
+    const existingWa = await vault.read(WHATSAPP_DATAKEY_REF);
     const waKey =
       existingWa && Buffer.from(existingWa, "base64").length === 32
         ? Buffer.from(existingWa, "base64")
         : randomBytes(32);
     if (!existingWa || Buffer.from(existingWa, "base64").length !== 32) {
-      await vault.write(CHANNEL_CREDENTIAL_REFS.whatsapp, waKey.toString("base64"));
+      await vault.write(WHATSAPP_DATAKEY_REF, waKey.toString("base64"));
     }
     const waStore = new EncryptedWhatsAppSessionStore(join(userData, "im", "whatsapp.session"), waKey);
     const { startBaileysLink } = await import("@penglai/channel-whatsapp");
     host.attachChannelAdapter(
       whatsappChannelAdapter(
         new WhatsAppDeviceAdapter(waStore, (opts) => startBaileysLink(waStore, opts)),
+        wrapOpts("whatsapp"),
       ),
     );
     if (!host.store.isClosed()) await host.restoreChannelAdapters();

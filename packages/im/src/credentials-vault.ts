@@ -14,6 +14,7 @@ export const CHANNEL_CREDENTIAL_REFS = {
   discord: "PENGLAI_DISCORD_TOKEN",
   whatsapp: "PENGLAI_WHATSAPP_SESSION",
 } as const;
+export const WHATSAPP_DATAKEY_REF = "PENGLAI_WHATSAPP_DATAKEY";
 
 // Mirrors the official dsh-credentials REF_PATTERN; kept local so an invalid
 // ref is rejected before it can poison the whole .credentials.yaml document.

@@ -9,9 +9,8 @@ import {
 } from "../channel-adapter.js";
 
 /**
- * WhatsApp stays experimental. Penglai does not vendor Baileys in this
- * adapter until the later device-link commit. Enable only after an explicit
- * risk acknowledgement.
+ * Leftover adapter. Production registers WhatsAppDeviceAdapter instead.
+ * Do not treat a stored token as connected.
  */
 export class WhatsAppAdapter implements ChannelAdapter {
   readonly id = "whatsapp" as const;

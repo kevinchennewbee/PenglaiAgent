@@ -37,7 +37,7 @@ export class DingTalkAdapter {
   private inboundHandler?: (msg: DingTalkInbound) => void;
 
   constructor(
-    private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined; put?(ref: string, creds: DingTalkCredentials): void },
+    private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined; put?(ref: string, creds: DingTalkCredentials): void | Promise<void> },
     private readonly factory?: DingTalkStreamFactory,
     private readonly auth = new DingTalkDeviceAuth(),
   ) {}
@@ -62,7 +62,7 @@ export class DingTalkAdapter {
     }
     const poll = await this.auth.poll(this.qr.deviceCode);
     if (poll.status === "SUCCESS" && poll.clientId && poll.clientSecret) {
-      this.vault.put?.("PENGLAI_DINGTALK_CLIENT", { clientId: poll.clientId, clientSecret: poll.clientSecret });
+      await this.vault.put?.("PENGLAI_DINGTALK_CLIENT", { clientId: poll.clientId, clientSecret: poll.clientSecret });
       this.qr = undefined;
       await this.connectWithRef("PENGLAI_DINGTALK_CLIENT");
       return { status: this.connection };
@@ -87,7 +87,8 @@ export class DingTalkAdapter {
     if (this.connection !== "connected" || !this.client?.send) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:dingtalk");
     }
-    await this.client.send(input.peerRef ?? "peer", input.text);
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "DINGTALK_REPLY_TARGET");
+    await this.client.send(input.peerRef, input.text);
     return { delivered: true };
   }
 

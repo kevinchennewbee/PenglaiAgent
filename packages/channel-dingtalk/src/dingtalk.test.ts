@@ -59,7 +59,8 @@ test("DingTalk QR does not return secrets and stores credentials on success", as
   const polled = await adapter.pollConnection(begun.operationId);
   assert.equal(polled.status, "connected");
   assert.equal(stored.PENGLAI_DINGTALK_CLIENT?.clientId, "cli");
-  const delivered = await adapter.sendText({ text: "hello" });
+  await assert.rejects(() => adapter.sendText({ text: "hello" }), /DINGTALK_REPLY_TARGET/);
+  const delivered = await adapter.sendText({ text: "hello", peerRef: "staff-1" });
   assert.equal(delivered.delivered, true);
   assert.equal(sent, "hello");
   await adapter.disconnect();

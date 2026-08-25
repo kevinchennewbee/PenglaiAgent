@@ -17,7 +17,13 @@ import {
 
 export interface QrPeek {
   verificationUrl?: string;
+  qrPayload?: string;
+  qrImageRef?: string;
   expiresAt?: number;
+}
+
+export interface NativeWrapOpts {
+  hashPeer: (senderId: string) => string;
 }
 
 type NativeLike = {
@@ -36,26 +42,38 @@ type NativeLike = {
   onInbound?(handler: (msg: Record<string, string>) => void): void;
 };
 
-function mapInbound(id: ChannelId, msg: Record<string, string>): InboundChannelEvent {
-  const vendorTarget = msg.channelId || msg.chatId || msg.senderId || "peer";
-  const peerRef = msg.senderId || msg.peerRef || vendorTarget;
+function mapInbound(
+  id: ChannelId,
+  msg: Record<string, string>,
+  hashPeer: (senderId: string) => string,
+): InboundChannelEvent | undefined {
+  const vendorMessageId = String(msg.messageId ?? "").trim();
+  const senderId = String(msg.senderId ?? "").trim();
+  const vendorTarget = String(msg.channelId || msg.chatId || msg.vendorTarget || senderId || "").trim();
+  if (!vendorMessageId || !senderId || !vendorTarget) return undefined;
+  const provenPrivate = msg.chatType ? msg.chatType === "private" : true;
+  if (!provenPrivate) return undefined;
   return {
     channel: id,
     botId: `${id}-default`,
-    vendorMessageId: msg.messageId || `${Date.now()}`,
+    vendorMessageId,
     vendorTarget,
-    peerRef,
+    peerRef: hashPeer(senderId),
     ...(msg.text ? { text: msg.text } : {}),
     chatType: "private",
   };
 }
 
-export function wrapNative(id: ChannelId, adapter: NativeLike): ChannelAdapter & { peekQr(operationId: string): QrPeek | undefined } {
+export function wrapNative(
+  id: ChannelId,
+  adapter: NativeLike,
+  opts: NativeWrapOpts,
+): ChannelAdapter & { peekQr(operationId: string): QrPeek | undefined } {
   const manifest = getChannelManifest(id);
   let inbound: ((event: InboundChannelEvent) => void) | undefined;
   adapter.onInbound?.((msg) => {
-    const event = mapInbound(id, msg);
-    if (event.chatType !== "private") return;
+    const event = mapInbound(id, msg, opts.hashPeer);
+    if (!event || event.chatType !== "private") return;
     inbound?.(event);
   });
   return {
@@ -111,30 +129,30 @@ export function wrapNative(id: ChannelId, adapter: NativeLike): ChannelAdapter &
   };
 }
 
-export function dingtalkChannelAdapter(adapter: DingTalkAdapter): ChannelAdapter {
-  return wrapNative("dingtalk", adapter as unknown as NativeLike);
+export function dingtalkChannelAdapter(adapter: DingTalkAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("dingtalk", adapter as unknown as NativeLike, opts);
 }
 
-export function wecomChannelAdapter(adapter: WeComAdapter): ChannelAdapter {
-  return wrapNative("wecom", adapter as unknown as NativeLike);
+export function wecomChannelAdapter(adapter: WeComAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("wecom", adapter as unknown as NativeLike, opts);
 }
 
-export function qqChannelAdapter(adapter: QqAdapter): ChannelAdapter {
-  return wrapNative("qq", adapter as unknown as NativeLike);
+export function qqChannelAdapter(adapter: QqAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("qq", adapter as unknown as NativeLike, opts);
 }
 
-export function slackChannelAdapter(adapter: SlackAdapter): ChannelAdapter {
-  return wrapNative("slack", adapter as unknown as NativeLike);
+export function slackChannelAdapter(adapter: SlackAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("slack", adapter as unknown as NativeLike, opts);
 }
 
-export function telegramChannelAdapter(adapter: TelegramAdapter): ChannelAdapter {
-  return wrapNative("telegram", adapter as unknown as NativeLike);
+export function telegramChannelAdapter(adapter: TelegramAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("telegram", adapter as unknown as NativeLike, opts);
 }
 
-export function discordChannelAdapter(adapter: DiscordAdapter): ChannelAdapter {
-  return wrapNative("discord", adapter as unknown as NativeLike);
+export function discordChannelAdapter(adapter: DiscordAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("discord", adapter as unknown as NativeLike, opts);
 }
 
-export function whatsappChannelAdapter(adapter: WhatsAppDeviceAdapter): ChannelAdapter {
-  return wrapNative("whatsapp", adapter as unknown as NativeLike);
+export function whatsappChannelAdapter(adapter: WhatsAppDeviceAdapter, opts: NativeWrapOpts): ChannelAdapter {
+  return wrapNative("whatsapp", adapter as unknown as NativeLike, opts);
 }

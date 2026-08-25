@@ -26,7 +26,7 @@ export class WeComAdapter {
   private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
 
   constructor(
-    private readonly vault: { resolve(ref: string): WeComCredentials | undefined; put?(ref: string, creds: WeComCredentials): void },
+    private readonly vault: { resolve(ref: string): WeComCredentials | undefined; put?(ref: string, creds: WeComCredentials): void | Promise<void> },
     private readonly factory?: (creds: WeComCredentials) => WeComClient,
     private readonly auth = new WeComQrAuth(),
   ) {}
@@ -49,7 +49,7 @@ export class WeComAdapter {
     if (!this.qr || this.qr.operationId !== operationId) return { status: this.connection };
     const poll = await this.auth.poll(this.qr.scode);
     if (poll.status === "success" && poll.botId && poll.secret) {
-      this.vault.put?.("PENGLAI_WECOM_BOT", { botId: poll.botId, secret: poll.secret });
+      await this.vault.put?.("PENGLAI_WECOM_BOT", { botId: poll.botId, secret: poll.secret });
       this.qr = undefined;
       await this.connectWithRef("PENGLAI_WECOM_BOT");
     } else if (poll.status === "expired" || poll.status === "failed") {

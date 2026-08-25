@@ -5,7 +5,7 @@ export async function createQqBotClient(
   creds: QqCredentials,
   onMessage?: (msg: { messageId: string; senderId: string; text: string }) => void,
 ): Promise<QqClient> {
-  const mod = (await import("@tencent-connect/qqbot-nodejs")) as {
+  const mod = (await import("@tencent-connect/qqbot-nodejs")) as unknown as {
     QQBot?: new (opts: { appID?: string; appId?: string; secret?: string; clientSecret?: string }) => {
       on(event: string, handler: (...args: unknown[]) => void): void;
       start?(): Promise<void> | void;
