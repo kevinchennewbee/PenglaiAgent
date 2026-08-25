@@ -16,7 +16,8 @@ test("QQ token path is official bot credentials, not personal login", async () =
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_QQ_BOT" });
   assert.equal(begun.kind, "token");
   assert.equal(begun.live, false);
-  await adapter.sendText({ text: "hi" });
+  await assert.rejects(() => adapter.sendText({ text: "hi" }), /QQ_REPLY_TARGET/);
+  await adapter.sendText({ text: "hi", peerRef: "user-1" });
 });
 
 test("QQ QR uses injected official connector and never logs QR to console", async () => {

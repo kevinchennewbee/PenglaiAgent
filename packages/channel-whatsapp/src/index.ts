@@ -11,6 +11,7 @@ export type WhatsAppConnection = "not_configured" | "connecting" | "connected" |
 export interface WhatsAppLinkSocket {
   send(jid: string, text: string, id: string): Promise<void>;
   logout(): Promise<void>;
+  close?(): Promise<void>;
 }
 
 export interface WhatsAppInbound {
@@ -71,9 +72,9 @@ export class WhatsAppDeviceAdapter {
     return { status: this.connection };
   }
 
-  peekQr(): { verificationUrl: string } | undefined {
+  peekQr(): { qrPayload: string } | undefined {
     if (!this.lastQr || this.connection !== "connecting") return undefined;
-    return { verificationUrl: this.lastQr };
+    return { qrPayload: this.lastQr };
   }
 
   onInbound(handler: (msg: WhatsAppInbound) => void): void {
@@ -112,6 +113,7 @@ export class WhatsAppDeviceAdapter {
   }
 
   async disconnect(): Promise<void> {
+    await this.socket?.close?.().catch(() => undefined);
     this.socket = undefined;
     this.lastQr = undefined;
     this.connection = this.riskAckAt ? "not_configured" : "disabled";

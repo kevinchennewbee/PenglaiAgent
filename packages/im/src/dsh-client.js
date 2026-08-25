@@ -1267,24 +1267,12 @@ window.__ModuleLoader__.load({
       return t.statusDisconnected;
     }
 
-    function allowlistedScanUrl(raw) {
-      try {
-        const url = new URL(String(raw || ""));
-        if (url.protocol !== "https:") return "";
-        const host = url.hostname;
-        if (
-          host === "login.dingtalk.com" ||
-          host === "oapi.dingtalk.com" ||
-          host === "work.weixin.qq.com" ||
-          host === "open.dingtalk.com" ||
-          host.endsWith(".dingtalk.com")
-        ) {
-          return url.href;
-        }
-      } catch {
-        /* ignore */
-      }
-      return "";
+    function dualSecretLabels(channelId) {
+      if (channelId === "slack") return ["Bot Token", "App Token"];
+      if (channelId === "dingtalk") return ["Client ID", "Client Secret"];
+      if (channelId === "wecom") return ["Bot ID", "Secret"];
+      if (channelId === "qq") return ["App ID", "Client Secret"];
+      return null;
     }
 
     function defaultMethod(channel) {
@@ -1302,26 +1290,30 @@ window.__ModuleLoader__.load({
       const usesQr = methods.includes("qr") || methods.includes("device-link");
       const usesToken = methods.includes("token") || methods.includes("oauth") || methods.includes("manifest");
       const [secret, setSecret] = React.useState("");
+      const [secretB, setSecretB] = React.useState("");
       const [riskAck, setRiskAck] = React.useState(false);
       const [error, setError] = React.useState("");
       const [steps, setSteps] = React.useState([]);
-      const [scanUrl, setScanUrl] = React.useState("");
+      const [scanImage, setScanImage] = React.useState("");
       const [operationId, setOperationId] = React.useState("");
+      const dual = dualSecretLabels(channel.channel);
       const lang = String(document.documentElement.lang || "zh").startsWith("en") ? "en" : "zh";
       const begin = (method) => {
         setError("");
+        const combined = dual ? [secret, secretB].filter(Boolean).join("\n") : secret;
         const args = {
           channel: channel.channel,
           method,
           ...(channel.risk === "community-protocol" ? { riskAck } : {}),
-          ...(secret ? { secret } : {}),
+          ...(combined ? { secret: combined } : {}),
         };
         setSecret("");
+        setSecretB("");
         imCall(remote, connection, "beginChannelConnection", args)
           .then((started) => {
             setOperationId(started.operationId || "");
             setSteps((started.steps && started.steps[lang]) || []);
-            setScanUrl(allowlistedScanUrl(started.verificationUrl));
+            setScanImage(qrSrc(started.qrImageRef));
             load();
           })
           .catch((err) => setError(String(err && err.message ? err.message : err)));
@@ -1334,7 +1326,8 @@ window.__ModuleLoader__.load({
             operationId,
           })
             .then((next) => {
-              setScanUrl(allowlistedScanUrl(next.verificationUrl) || scanUrl);
+              const image = qrSrc(next.qrImageRef);
+              if (image) setScanImage(image);
               if (next.status === "connected" || next.status === "failed" || next.status === "expired") load();
             })
             .catch(() => undefined);
@@ -1375,7 +1368,10 @@ window.__ModuleLoader__.load({
           usesToken
             ? jsx.jsxs("div", {
                 children: [
-                  jsx.jsx("label", { htmlFor: `penglai-im-secret-${channel.channel}`, children: t.pasteToken }),
+                  jsx.jsx("label", {
+                    htmlFor: `penglai-im-secret-${channel.channel}`,
+                    children: dual ? dual[0] : t.pasteToken,
+                  }),
                   jsx.jsx("input", {
                     id: `penglai-im-secret-${channel.channel}`,
                     type: "password",
@@ -1384,19 +1380,20 @@ window.__ModuleLoader__.load({
                     value: secret,
                     onChange: (ev) => setSecret(ev.target.value),
                   }),
-                  channel.channel === "slack"
+                  dual
                     ? jsx.jsxs("p", {
                         children: [
-                          jsx.jsx("label", { htmlFor: "penglai-im-secret-slack-app", children: "App Token" }),
+                          jsx.jsx("label", {
+                            htmlFor: `penglai-im-secret-b-${channel.channel}`,
+                            children: dual[1],
+                          }),
                           jsx.jsx("input", {
-                            id: "penglai-im-secret-slack-app",
+                            id: `penglai-im-secret-b-${channel.channel}`,
                             type: "password",
                             autoComplete: "off",
-                            "data-penglai-im-secret-app": "slack",
-                            onChange: (ev) => {
-                              const bot = secret.split("\n")[0] || secret;
-                              setSecret(`${bot}\n${ev.target.value}`);
-                            },
+                            "data-penglai-im-secret-app": channel.channel,
+                            value: secretB,
+                            onChange: (ev) => setSecretB(ev.target.value),
                           }),
                         ],
                       })
@@ -1407,10 +1404,13 @@ window.__ModuleLoader__.load({
           jsx.jsx("ol", {
             children: steps.map((step, index) => jsx.jsx("li", { children: step }, index)),
           }),
-          scanUrl
-            ? jsx.jsx("p", {
-                "data-penglai-im-scan-host": "1",
-                children: scanUrl,
+          scanImage
+            ? jsx.jsx("img", {
+                alt: t.scanOfficial,
+                "data-penglai-im-scan-image": "1",
+                src: scanImage,
+                width: 192,
+                height: 192,
               })
             : null,
           error

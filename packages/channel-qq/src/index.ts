@@ -23,10 +23,11 @@ export class QqAdapter {
   connection: QqConnection = "not_configured";
   private client: QqClient | undefined;
   private qr: { operationId: string; cancel(): void } | undefined;
+  private lastQr: { operationId: string; image: string; expiresAt: number } | undefined;
   private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
 
   constructor(
-    private readonly vault: { resolve(ref: string): QqCredentials | undefined; put?(ref: string, creds: QqCredentials): void },
+    private readonly vault: { resolve(ref: string): QqCredentials | undefined; put?(ref: string, creds: QqCredentials): void | Promise<void> },
     private readonly factory?: (creds: QqCredentials) => QqClient,
     private readonly auth = new QqQrAuth(),
   ) {}
@@ -39,12 +40,16 @@ export class QqAdapter {
       this.connection = "connecting";
       const operationId = `qq:qr:${Date.now()}`;
       const started = this.auth.start({
+        onQr: (image) => {
+          this.lastQr = { operationId, image, expiresAt: Date.now() + 120_000 };
+        },
         onSuccess: (creds) => {
-          this.vault.put?.("PENGLAI_QQ_BOT", creds);
-          void this.connectWithRef("PENGLAI_QQ_BOT");
+          void Promise.resolve(this.vault.put?.("PENGLAI_QQ_BOT", creds)).then(() => this.connectWithRef("PENGLAI_QQ_BOT"));
+          this.lastQr = undefined;
         },
         onFailure: () => {
           this.connection = "failed";
+          this.lastQr = undefined;
         },
       });
       this.qr = { operationId, cancel: started.cancel };
@@ -56,6 +61,11 @@ export class QqAdapter {
   async pollConnection(operationId: string): Promise<{ status: QqConnection }> {
     void operationId;
     return { status: this.connection };
+  }
+
+  peekQr(operationId: string): { qrPayload: string; expiresAt: number } | undefined {
+    if (!this.lastQr || this.lastQr.operationId !== operationId) return undefined;
+    return { qrPayload: this.lastQr.image, expiresAt: this.lastQr.expiresAt };
   }
 
   onInbound(handler: (msg: { messageId: string; senderId: string; text: string }) => void): void {
@@ -84,6 +94,7 @@ export class QqAdapter {
     await this.client?.disconnect();
     this.client = undefined;
     this.qr = undefined;
+    this.lastQr = undefined;
     this.connection = "disabled";
   }
 

@@ -23,6 +23,11 @@ export class DiscordAdapter {
   private inboundHandler?: (msg: DiscordInbound) => void;
 
   private gateway: { close(): void } | undefined;
+  private heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconnectAttempt = 0;
+  private sequence: number | null = null;
+  private stopped = false;
 
   constructor(
     private readonly vault: { resolve(ref: string): DiscordCredentials | undefined },
@@ -50,6 +55,8 @@ export class DiscordAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "DISCORD_TOKEN_INVALID");
     }
     this.token = creds.token;
+    this.stopped = false;
+    this.reconnectAttempt = 0;
     if (this.gateways) {
       this.gateway = this.gateways.connect(creds.token, (event) => this.ingestMessage(event));
     } else {
@@ -75,10 +82,14 @@ export class DiscordAdapter {
     guild_id?: string;
   }): void {
     if (event.guild_id || event.author?.bot || !event.content) return;
+    const messageId = String(event.id ?? "").trim();
+    const senderId = String(event.author?.id ?? "").trim();
+    const channelId = String(event.channel_id ?? "").trim();
+    if (!messageId || !senderId || !channelId) return;
     this.inboundHandler?.({
-      messageId: String(event.id ?? Date.now()),
-      senderId: String(event.author?.id ?? "unknown"),
-      channelId: String(event.channel_id ?? ""),
+      messageId,
+      senderId,
+      channelId,
       text: event.content,
     });
   }
@@ -111,10 +122,42 @@ export class DiscordAdapter {
   }
 
   async disconnect(): Promise<void> {
+    this.stopped = true;
+    this.clearHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     this.gateway?.close();
     this.gateway = undefined;
     this.token = undefined;
     this.connection = "disabled";
+  }
+
+  private clearHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
+  }
+
+  private scheduleReconnect(token: string): void {
+    if (this.stopped || this.reconnectTimer) return;
+    const delay = [1_000, 3_000, 10_000][Math.min(this.reconnectAttempt, 2)] ?? 10_000;
+    this.reconnectAttempt += 1;
+    this.connection = "connecting";
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      void this.connectGateway(token)
+        .then(() => {
+          this.reconnectAttempt = 0;
+          if (!this.stopped) this.connection = "connected";
+        })
+        .catch(() => {
+          this.connection = "failed";
+          this.scheduleReconnect(token);
+        });
+    }, delay);
   }
 
   private async connectGateway(token: string): Promise<void> {
@@ -126,13 +169,32 @@ export class DiscordAdapter {
     const body = (await hello.json()) as { url?: string };
     if (!body.url?.startsWith("wss://")) throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_URL");
     const ws = new WebSocket(`${body.url}?v=10&encoding=json`);
+    this.sequence = null;
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_TIMEOUT")), 15_000);
       let identified = false;
       ws.addEventListener("message", (ev) => {
         try {
-          const parsed = JSON.parse(String((ev as MessageEvent).data)) as { op?: number; t?: string; d?: Record<string, unknown>; s?: number };
+          const parsed = JSON.parse(String((ev as MessageEvent).data)) as {
+            op?: number;
+            t?: string;
+            d?: Record<string, unknown>;
+            s?: number | null;
+          };
+          if (typeof parsed.s === "number") this.sequence = parsed.s;
           if (parsed.op === 10) {
+            const interval = Number((parsed.d as { heartbeat_interval?: number } | undefined)?.heartbeat_interval);
+            if (!Number.isFinite(interval) || interval <= 0) {
+              clearTimeout(timer);
+              reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_HELLO"));
+              return;
+            }
+            this.clearHeartbeat();
+            this.heartbeatTimer = setInterval(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ op: 1, d: this.sequence }));
+              }
+            }, interval);
             ws.send(JSON.stringify({
               op: 2,
               d: {
@@ -153,10 +215,29 @@ export class DiscordAdapter {
         }
       });
       ws.addEventListener("error", () => {
-        clearTimeout(timer);
-        reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_ERROR"));
+        this.clearHeartbeat();
+        if (!identified) {
+          clearTimeout(timer);
+          reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_ERROR"));
+        } else if (!this.stopped) {
+          this.connection = "failed";
+        }
+      });
+      ws.addEventListener("close", () => {
+        this.clearHeartbeat();
+        if (this.stopped) return;
+        if (this.connection === "connected" || identified) this.scheduleReconnect(token);
+        else if (!identified) {
+          clearTimeout(timer);
+          reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_CLOSED"));
+        }
       });
     });
-    this.gateway = { close: () => ws.close() };
+    this.gateway = {
+      close: () => {
+        this.clearHeartbeat();
+        ws.close();
+      },
+    };
   }
 }

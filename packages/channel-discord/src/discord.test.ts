@@ -17,3 +17,15 @@ test("Discord validates a bot token without QR", async () => {
   assert.equal(begun.kind, "token");
   await adapter.sendText({ text: "hi", peerRef: "c1" });
 });
+
+test("Discord ingest drops guild, bots, and incomplete identities", async () => {
+  const adapter = new DiscordAdapter({ resolve: () => ({ token: "bot-token" }) });
+  const seen: unknown[] = [];
+  adapter.onInbound((msg) => seen.push(msg));
+  adapter.ingestMessage({ id: "1", content: "hi", author: { id: "u1" } });
+  adapter.ingestMessage({ content: "hi", channel_id: "c1", author: { id: "u1" } });
+  adapter.ingestMessage({ id: "2", content: "hi", channel_id: "c1", author: { id: "u1", bot: true } });
+  adapter.ingestMessage({ id: "3", content: "hi", channel_id: "c1", author: { id: "u1" }, guild_id: "g1" });
+  adapter.ingestMessage({ id: "4", content: "hi", channel_id: "c1", author: { id: "u1" } });
+  assert.equal(seen.length, 1);
+});
