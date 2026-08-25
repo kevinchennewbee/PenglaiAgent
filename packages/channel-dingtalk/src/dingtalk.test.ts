@@ -1,34 +1,72 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DingTalkAdapter } from "./index.js";
+import { DingTalkDeviceAuth } from "./device-auth.js";
 
-test("DingTalk adapter connects without QR and refuses send because it is not live", async () => {
-  let connected = false;
+test("DingTalk QR does not return secrets and stores credentials on success", async () => {
+  const stored: Record<string, { clientId: string; clientSecret: string }> = {};
+  const posts: string[] = [];
+  const auth = new DingTalkDeviceAuth(async (url, init) => {
+    posts.push(String(url));
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, string>;
+    if (String(url).endsWith("/init")) {
+      return new Response(JSON.stringify({ errcode: 0, nonce: "n1" }));
+    }
+    if (String(url).endsWith("/begin")) {
+      assert.equal(body.nonce, "n1");
+      return new Response(
+        JSON.stringify({
+          errcode: 0,
+          device_code: "dev-1",
+          verification_uri_complete: "https://login.dingtalk.com/oauth2/auth",
+          expires_in: 120,
+          interval: 1,
+        }),
+      );
+    }
+    return new Response(
+      JSON.stringify({ errcode: 0, status: "SUCCESS", client_id: "cli", client_secret: "sec" }),
+    );
+  });
+  let sent = "";
   const adapter = new DingTalkAdapter(
-    { resolve: () => ({ clientId: "cli", clientSecret: "sec" }) },
+    {
+      resolve: (ref) => stored[ref],
+      put: (ref, creds) => {
+        stored[ref] = creds;
+      },
+    },
     () => ({
       connected: true,
       async connect() {
-        connected = true;
+        /* connected */
       },
       async disconnect() {
-        connected = false;
+        /* closed */
+      },
+      async send(_peer, text) {
+        sent = text;
       },
     }),
+    auth,
   );
-  const begun = await adapter.beginConnection({ credentialRef: "dingtalk-bot" });
-  assert.equal(begun.qr, false);
+  const begun = await adapter.beginConnection({ method: "qr" });
+  assert.equal(begun.kind, "qr");
   assert.equal(begun.live, false);
-  assert.equal(begun.connection, "connected");
-  assert.equal(connected, true);
-  assert.equal(adapter.health().live, false);
-  await assert.rejects(() => adapter.sendText({ text: "hi" }), /CHANNEL_NOT_LIVE:dingtalk/);
+  assert.equal("clientSecret" in begun, false);
+  const peeked = adapter.peekQr(begun.operationId);
+  assert.match(peeked?.verificationUrl ?? "", /^https:\/\/login\.dingtalk\.com\//);
+  const polled = await adapter.pollConnection(begun.operationId);
+  assert.equal(polled.status, "connected");
+  assert.equal(stored.PENGLAI_DINGTALK_CLIENT?.clientId, "cli");
+  const delivered = await adapter.sendText({ text: "hello" });
+  assert.equal(delivered.delivered, true);
+  assert.equal(sent, "hello");
   await adapter.disconnect();
-  assert.equal(adapter.health().connection, "disabled");
 });
 
 test("DingTalk adapter fails closed without credentials", async () => {
   const adapter = new DingTalkAdapter({ resolve: () => undefined });
-  await assert.rejects(() => adapter.beginConnection({ credentialRef: "missing" }), /credentials missing/);
+  await assert.rejects(() => adapter.beginConnection({ method: "token", credentialRef: "missing" }), /credentials missing/);
   assert.equal(adapter.health().connection, "not_configured");
 });

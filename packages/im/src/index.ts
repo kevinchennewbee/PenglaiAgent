@@ -15,6 +15,10 @@ import { DshBridge, PINNED_DSH, withPenglaiVoiceContext, type DshHost } from "@p
 import { hostFromCordis, listenOfficialEvents, type CordisLike } from "@penglai/dsh-bridge/plugin";
 import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
+import { DingTalkAdapter } from "@penglai/channel-dingtalk";
+import { WeComAdapter } from "@penglai/channel-wecom";
+import { QqAdapter } from "@penglai/channel-qq";
+import { dingtalkChannelAdapter, qqChannelAdapter, wecomChannelAdapter } from "./adapters/channel-bridge.js";
 import { CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { AdapterSupervisor, WorkerLease } from "./supervisor.js";
 import { ArtifactService } from "@penglai/artifacts";
@@ -173,6 +177,42 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     }
   });
   const host = new PenglaiImHost(rt.store, rt.plane, weixin, feishu, vault, supervisor, dsh, voice);
+  const dingtalkCreds: Record<string, { clientId: string; clientSecret: string }> = {};
+  const wecomCreds: Record<string, { botId: string; secret: string }> = {};
+  const qqCreds: Record<string, { appId: string; clientSecret: string }> = {};
+  host.attachChannelAdapter(
+    dingtalkChannelAdapter(
+      new DingTalkAdapter({
+        resolve: (ref) => dingtalkCreds[ref],
+        put: (ref, creds) => {
+          dingtalkCreds[ref] = creds;
+          void vault.write(ref, JSON.stringify(creds));
+        },
+      }),
+    ),
+  );
+  host.attachChannelAdapter(
+    wecomChannelAdapter(
+      new WeComAdapter({
+        resolve: (ref) => wecomCreds[ref],
+        put: (ref, creds) => {
+          wecomCreds[ref] = creds;
+          void vault.write(ref, JSON.stringify(creds));
+        },
+      }),
+    ),
+  );
+  host.attachChannelAdapter(
+    qqChannelAdapter(
+      new QqAdapter({
+        resolve: (ref) => qqCreds[ref],
+        put: (ref, creds) => {
+          qqCreds[ref] = creds;
+          void vault.write(ref, JSON.stringify(creds));
+        },
+      }),
+    ),
+  );
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
   const admitInbound = (input: {
