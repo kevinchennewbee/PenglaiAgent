@@ -31,7 +31,8 @@ test("R50-UI-002/003 Penglai catalog has complete zh and en", () => {
   assert.equal(t("zh", "centerTitle"), "蓬莱插件中心");
   assert.equal(t("en", "centerTitle"), "Penglai Plugin Center");
   assert.equal(t("zh", "asrTitle"), "蓬莱语音识别");
-  assert.equal(t("zh", "imTitle"), "蓬莱手机消息");
+  assert.equal(t("zh", "imTitle"), "消息连接");
+  assert.equal(t("en", "imTitle"), "Messaging");
   assert.equal(t("en", "ttsTitle"), "Penglai Voice Generation");
   assert.equal(Object.keys(PENGLAI_I18N.zh).length, Object.keys(PENGLAI_I18N.en).length);
 });

@@ -19,7 +19,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 - `@penglai/plugin-reference`（默认 disabled，仅用于 platform proof）
 - `@penglai/plugin-smoke`（测试 profile only，不进入用户 catalog）
 
-`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为六张：蓬莱手机消息、蓬莱办公、蓬莱语音识别、蓬莱语音生成、蓬莱记忆、蓬莱主动陪伴。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示；Office/Memory/Companion 也必须满足 `docs/PENGLAI_NATIVE_PLUGINS.md` 完整合同，不得先做空卡。
+`@penglai/credentials-keychain` 不进入默认 profile、打包清单或 catalog。未审核社区插件不显示为可用。面向用户的产品卡固定为六张：消息连接、蓬莱办公、蓬莱语音识别、蓬莱语音生成、蓬莱记忆、蓬莱主动陪伴。ASR/MOSS-TTS 只有真实 host/client、model manager、当前发布 target engine 与验收存在时才显示；Office/Memory/Companion 也必须满足 `docs/PENGLAI_NATIVE_PLUGINS.md` 完整合同，不得先做空卡。
 
 ## 2.1 生态来源与未来扩展
 

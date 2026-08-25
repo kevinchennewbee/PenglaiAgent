@@ -6,6 +6,7 @@ import {
   CONFIG,
   DEFAULT_BINDING_VOICE_POLICY,
   PenglaiError,
+  ADAPTER_NAMES,
   SCHEMA_VERSION,
   parseClosedEnum,
   type Binding,
@@ -18,18 +19,7 @@ import {
   type TurnCorrelation,
 } from "@penglai/contracts";
 
-const ROUTE_ADAPTERS = [
-  "mock",
-  "weixin",
-  "feishu",
-  "dingtalk",
-  "wecom",
-  "qq",
-  "slack",
-  "telegram",
-  "discord",
-  "whatsapp",
-] as const;
+const ROUTE_ADAPTERS = ADAPTER_NAMES;
 const ROUTE_STATUSES = ["pending", "active", "revoked"] as const;
 const INBOUND_STATES = [
   "received",

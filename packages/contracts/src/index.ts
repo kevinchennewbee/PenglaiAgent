@@ -42,7 +42,19 @@ export const CONFIG = Object.freeze({
   imBodyRetentionMs: 24 * 60 * 60_000,
 });
 
-export type AdapterName = "mock" | "weixin" | "feishu";
+export const ADAPTER_NAMES = [
+  "mock",
+  "weixin",
+  "feishu",
+  "dingtalk",
+  "wecom",
+  "qq",
+  "slack",
+  "telegram",
+  "discord",
+  "whatsapp",
+] as const;
+export type AdapterName = (typeof ADAPTER_NAMES)[number];
 
 export type PenglaiAsrLanguage = "zh" | "en" | "ja" | "ko" | "yue" | "auto";
 export type PenglaiAsrEmotion = "HAPPY" | "SAD" | "ANGRY" | "NEUTRAL" | "FEARFUL" | "DISGUSTED" | "SURPRISED";

@@ -6,6 +6,7 @@ import {
   digestText,
   splitFragments,
   utf8Bytes,
+  ADAPTER_NAMES,
   type AdapterName,
   type AssistantFinal,
   type Binding,
@@ -1221,7 +1222,7 @@ export class RoutingControlPlane {
         !claimedSource.routeId ||
         typeof claimedSource.inboundId !== "string" ||
         !claimedSource.inboundId ||
-        !["mock", "weixin", "feishu"].includes(String(claimedSource.adapter))
+        !(ADAPTER_NAMES as readonly string[]).includes(String(claimedSource.adapter))
       ) {
         this.store.audit("claimed_ignored_source", { dshMessageId: fact.dshMessageId }, this.clock.now());
         return;

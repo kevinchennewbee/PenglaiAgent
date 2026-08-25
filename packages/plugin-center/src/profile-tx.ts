@@ -537,7 +537,6 @@ export async function runProfileTransaction(opts: {
     journal.phase = "committed";
     atomicJournal(journalPath, journal);
     rmSync(backup, { recursive: true, force: true });
-    const lastGoodNext = join(opts.txDir, `last-good-next-${operationId}`);
     if (existsSync(lastGoodNext)) {
       const lastGoodPrev = join(opts.txDir, `last-good-prev-${operationId}`);
       if (existsSync(lastGood)) renameSync(lastGood, lastGoodPrev);
