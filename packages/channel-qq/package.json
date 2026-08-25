@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@penglai/contracts": "workspace:*",
+    "@tencent-connect/qqbot-connector": "1.2.0",
     "@tencent-connect/qqbot-nodejs": "1.0.4"
   }
 }

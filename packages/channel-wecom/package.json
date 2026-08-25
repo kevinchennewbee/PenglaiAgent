@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@penglai/contracts": "workspace:*",
-    "@wecom/aibot-node-sdk": "1.0.7"
+    "@wecom/aibot-node-sdk": "1.0.7",
+    "qrcode": "1.5.4"
   }
 }
