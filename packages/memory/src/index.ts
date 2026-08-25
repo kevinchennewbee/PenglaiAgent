@@ -39,7 +39,7 @@ interface OfficialSkillSummary {
 
 interface OfficialAgentLike {
   id: string;
-  options: { provider?: string; model?: string; maxTokens?: number };
+  options: { provider?: string; model?: string; maxTokens?: number; reasoningEffort?: "off" | "low" | "high" | "max" };
   session: { events?: readonly unknown[] };
   followup(input: {
     id: string;
@@ -72,7 +72,7 @@ interface CordisContextLike {
     create(options: {
       sessionId: string;
       meta: { cwd: string; parentSession?: string; origin?: "subagent" };
-      agentOptions: { provider: string; model: string; maxTokens?: number };
+      agentOptions: { provider: string; model: string; maxTokens?: number; reasoningEffort?: "off" | "low" | "high" | "max" };
       setup: (agentCtx: OfficialAgentContextLike) => void;
     }): Promise<OfficialAgentHandleLike>;
   };
@@ -639,7 +639,7 @@ export function apply(ctx: CordisContextLike) {
                   parentSession: context.sessionId,
                   origin: "subagent",
                 },
-                agentOptions: { provider, model, maxTokens: 1200 },
+                agentOptions: { provider, model, maxTokens: 1200, reasoningEffort: "off" },
                 setup: (agentCtx) => {
                   if (!agentCtx.tools?.guard) {
                     throw new PenglaiError("DSH_UNAVAILABLE", "official Tools guard required for memory curator");

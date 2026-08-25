@@ -792,6 +792,11 @@ test("official Turn timeout stays below the wizard wait and above the old 45 sec
   assert.doesNotMatch(source, /setTimeout\(\(\) => resolve\(\), 45_000\)/);
 });
 
+test("onboarding model probes disable reasoning without changing normal Sessions", () => {
+  const source = readFileSync(new URL("./onboarding.ts", import.meta.url), "utf8");
+  assert.match(source, /reasoningEffort:\s*"off"/);
+});
+
 test("stale derived ref without resolve fails closed as auth and does not start a Turn", async () => {
   const { createPenglaiOnboardingRemoteImpl } = await import("./onboarding-remote.js");
   const created: number[] = [];

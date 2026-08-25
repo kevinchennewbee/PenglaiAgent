@@ -991,7 +991,13 @@ async function runOfficialTurn(
     handle = await ctx.agents.create({
       sessionId,
       meta: { cwd: opts.cwd },
-      agentOptions: { provider: opts.provider, model: opts.model, tools: false, maxTokens: opts.maxTokens } as never,
+      agentOptions: {
+        provider: opts.provider,
+        model: opts.model,
+        tools: false,
+        maxTokens: opts.maxTokens,
+        reasoningEffort: "off",
+      } as never,
     });
     handle.agent.followup({
       id: randomUUID(),

@@ -141,6 +141,7 @@ test("memory apply source subscribes to official turn/end and pre-step and does 
   assert.match(index, /turn\/end/);
   assert.match(index, /agent\/pre-step/);
   assert.match(index, /ingestOfficialTurn/);
+  assert.match(index, /maxTokens:\s*1200, reasoningEffort:\s*"off"/);
   assert.match(index, /withMemoryRecall/);
   assert.match(remote, /memory curator is host-only/);
   assert.doesNotMatch(remote, /ingestCurator,/);
