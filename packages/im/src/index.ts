@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
@@ -262,30 +262,32 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       }),
     ),
   );
-  host.attachChannelAdapter(
-    whatsappChannelAdapter(
-      new WhatsAppDeviceAdapter(
-        new EncryptedWhatsAppSessionStore(
-          join(userData, "im", "whatsapp.session"),
-          createHash("sha256").update(`penglai-wa:${userData}`).digest(),
-        ),
-        async () => {
-          throw new PenglaiError("DSH_UNAVAILABLE", "WHATSAPP_BAILEYS_MISSING");
-        },
+  void (async () => {
+    await Promise.all([
+      parseVault(CHANNEL_CREDENTIAL_REFS.dingtalk, dingtalkCreds, (raw) => ({ clientId: raw, clientSecret: "" })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.wecom, wecomCreds, (raw) => ({ botId: raw, secret: "" })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.qq, qqCreds, (raw) => ({ appId: raw, clientSecret: "" })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.slack, slackCreds, (raw) => ({ botToken: raw })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.telegram, telegramCreds, (raw) => ({ token: raw })),
+      parseVault(CHANNEL_CREDENTIAL_REFS.discord, discordCreds, (raw) => ({ token: raw })),
+    ]);
+    const existingWa = await vault.read(CHANNEL_CREDENTIAL_REFS.whatsapp);
+    const waKey =
+      existingWa && Buffer.from(existingWa, "base64").length === 32
+        ? Buffer.from(existingWa, "base64")
+        : randomBytes(32);
+    if (!existingWa || Buffer.from(existingWa, "base64").length !== 32) {
+      await vault.write(CHANNEL_CREDENTIAL_REFS.whatsapp, waKey.toString("base64"));
+    }
+    const waStore = new EncryptedWhatsAppSessionStore(join(userData, "im", "whatsapp.session"), waKey);
+    const { startBaileysLink } = await import("@penglai/channel-whatsapp");
+    host.attachChannelAdapter(
+      whatsappChannelAdapter(
+        new WhatsAppDeviceAdapter(waStore, (opts) => startBaileysLink(waStore, opts)),
       ),
-    ),
-  );
-  void Promise.all([
-    parseVault(CHANNEL_CREDENTIAL_REFS.dingtalk, dingtalkCreds, (raw) => ({ clientId: raw, clientSecret: "" })),
-    parseVault(CHANNEL_CREDENTIAL_REFS.wecom, wecomCreds, (raw) => ({ botId: raw, secret: "" })),
-    parseVault(CHANNEL_CREDENTIAL_REFS.qq, qqCreds, (raw) => ({ appId: raw, clientSecret: "" })),
-    parseVault(CHANNEL_CREDENTIAL_REFS.slack, slackCreds, (raw) => ({ botToken: raw })),
-    parseVault(CHANNEL_CREDENTIAL_REFS.telegram, telegramCreds, (raw) => ({ token: raw })),
-    parseVault(CHANNEL_CREDENTIAL_REFS.discord, discordCreds, (raw) => ({ token: raw })),
-  ]).then(() => {
-    if (host.store.isClosed()) return;
-    return host.restoreChannelAdapters();
-  });
+    );
+    if (!host.store.isClosed()) await host.restoreChannelAdapters();
+  })().catch(() => undefined);
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
   const admitInbound = (input: {
@@ -370,5 +372,6 @@ export type {
 } from "./channel-adapter.js";
 export { ImBotStore, ensureImV2Tables } from "./bots.js";
 export { beginGuidedConnection } from "./guided.js";
+export { classifyMessageFailure, publicMessageFailure } from "./message-failure.js";
 export { TYPERT_REMOTE } from "./remote.js";
 export { IM_OWNER_ACTIONS, requireImActionId } from "./owner.js";
