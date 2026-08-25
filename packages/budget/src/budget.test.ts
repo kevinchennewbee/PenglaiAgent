@@ -170,6 +170,7 @@ test("Budget client registers a real official settings tab and labels untrusted 
   assert.match(source, /settings\.section/);
   assert.match(source, /data-penglai-budget/);
   assert.match(source, /penglaiBudgetSettings/);
+  assert.match(source, /proposePolicy/);
   assert.match(source, /无可信价格|trusted pricing/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });

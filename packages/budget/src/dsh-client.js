@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/budget",
-      descriptors: [descriptor("status", false), descriptor("setPolicy", true)],
+      descriptors: [descriptor("status", false), descriptor("proposePolicy", true), descriptor("setPolicy", true)],
     };
     const COPY = {
       zh: {

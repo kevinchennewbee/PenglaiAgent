@@ -31,6 +31,7 @@ export const OWNER_ACTIONS = [
   "im.remove",
   "im.enableGroup",
   "companion.enable",
+  "budget.set-policy",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];
