@@ -1,5 +1,6 @@
 import { PenglaiError } from "@penglai/contracts";
 import { QqQrAuth } from "./qr-auth.js";
+import { createQqBotClient } from "./bot-client.js";
 
 export const name = "qq";
 export { QqQrAuth } from "./qr-auth.js";
@@ -73,7 +74,8 @@ export class QqAdapter {
     if (this.connection !== "connected" || !this.client?.send) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:qq");
     }
-    await this.client.send(input.peerRef ?? "peer", input.text);
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "QQ_REPLY_TARGET");
+    await this.client.send(input.peerRef, input.text);
     return { delivered: true };
   }
 
@@ -93,18 +95,7 @@ export class QqAdapter {
     }
     this.connection = "connecting";
     try {
-      this.client = this.factory
-        ? this.factory(creds)
-        : {
-            connected: false,
-            async connect() {
-              await import("@tencent-connect/qqbot-nodejs");
-              this.connected = true;
-            },
-            async disconnect() {
-              this.connected = false;
-            },
-          };
+      this.client = this.factory ? this.factory(creds) : await createQqBotClient(creds, (msg) => this.inboundHandler?.(msg));
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";
     } catch {
