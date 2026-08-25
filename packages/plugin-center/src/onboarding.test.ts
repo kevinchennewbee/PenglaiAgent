@@ -794,6 +794,7 @@ test("official Turn timeout stays below the wizard wait and above the old 45 sec
 
 test("onboarding model probes disable reasoning without changing normal Sessions", () => {
   const source = readFileSync(new URL("./onboarding.ts", import.meta.url), "utf8");
+  assert.match(source, /agent\/request/);
   assert.match(source, /reasoningEffort:\s*"off"/);
 });
 
