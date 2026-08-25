@@ -56,7 +56,7 @@ const sourceSha = option("--source-sha");
 if (!/^[0-9a-f]{40}$/.test(sourceSha)) fail("--source-sha must be a full commit SHA");
 const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
 if (head !== sourceSha) fail(`source SHA ${sourceSha} does not match HEAD ${head}`);
-if (tag !== `v${version}` || version !== "0.5.6") fail("release contract version/tag mismatch");
+if (tag !== `v${version}` || version !== "0.5.7") fail("release contract version/tag mismatch");
 
 const installers = Array.isArray(contract.targets)
   ? contract.targets.map((row) => ({ target: String(row.key), name: String(row.installer) }))

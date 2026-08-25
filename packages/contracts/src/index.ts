@@ -21,7 +21,7 @@ export * from "./closed-enum.js";
 export * from "./safe-https.js";
 
 export const SCHEMA_VERSION = 11;
-export const RELEASE = "0.5.6";
+export const RELEASE = "0.5.7";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,

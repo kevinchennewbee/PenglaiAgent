@@ -308,7 +308,7 @@ export class ArtifactService {
         | Record<string, string | number | null>
         | undefined;
     } else {
-      // One local 0.5.6 development build exposed digest-shaped ids. Accept
+      // One local 0.5.7 development build exposed digest-shaped ids. Accept
       // them only when they resolve to exactly one binding; never guess across
       // Workspace/Session boundaries.
       const digest = id.replace(/^sha256:/, "").toLowerCase();

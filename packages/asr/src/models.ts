@@ -603,7 +603,7 @@ export class AsrModelManager {
       }
       let existing = opened.size;
       const headers: Record<string, string> = {
-        "User-Agent": "Penglai/0.5.6 model-manager",
+        "User-Agent": "Penglai/0.5.7 model-manager",
       };
       if (existing) headers.Range = `bytes=${existing}-`;
       const response = await this.fetchPinned(file.url, headers, signal);

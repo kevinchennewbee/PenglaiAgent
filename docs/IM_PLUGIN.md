@@ -1,9 +1,12 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.6 可用性事实：只有微信和飞书属于 `LIVE_CHANNEL_IDS`。钉钉、企业微信、
-> QQ、Slack、Telegram、Discord、WhatsApp 只能显示“0.5.6 不可用/路线图”，
-> 没有 Connect 动作，也不能绑定或发送。没有真实协议时禁止生成假二维码；WhatsApp
-> 继续默认关闭并显示社区协议与账号风险。下文微信/飞书合同不授权其他平台变成 live。
+> 0.5.7 用户只看到一个「消息连接」插件。九个平台都有真实连接入口，不再把后七个
+> 显示为路线图。`live` 表示代码能力已通过发布验收，不表示当前用户已启用。没有
+> 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
+> 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。Slack、Telegram、
+> Discord 禁止伪装扫码。WhatsApp 默认关闭，并明确社区协议与账号风险。下文微信/
+> 飞书合同继续约束已有 live 路径；新渠道只有通过 adapter、health、send-reject
+> 和 live evidence 后才能进入 `LIVE_CHANNEL_IDS`。
 
 ## 1. 定位
 
@@ -13,7 +16,7 @@
 
 ## 2. 默认行为
 
-- fresh 0.5.6 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
+- fresh 0.5.7 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
 - 用户在 Center 明确选择“安装并启用”后，package transaction 才写入 profile、启用 loader，并验证 actual active/healthy；此后未配置 adapter 时不联网、不启动 auth poll。
 - 未配置 adapter 时不联网、不启动 auth poll，但 Remote/UI/diagnostics 可用。
 - official Models API key 测试、default model 和 Workspace 就绪后，onboarding 自动进入“连接消息渠道”步骤。
@@ -299,4 +302,4 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 
 ## 15. 明确非目标
 
-群聊、视频、未审核富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.6。图片必须走 official image store；普通文件必须走 scope-checked Artifact Service，不能把任意媒体伪装成文本或图片进入模型。
+群聊、视频、未审核富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.7。图片必须走 official image store；普通文件必须走 scope-checked Artifact Service，不能把任意媒体伪装成文本或图片进入模型。

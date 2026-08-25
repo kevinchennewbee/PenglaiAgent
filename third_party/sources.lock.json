@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "product": "0.5.6",
+  "product": "0.5.7",
   "sources": [
     {
       "id": "dsh-mnemon",
@@ -58,6 +58,21 @@
       "id": "pdf-lib",
       "npm": "pdf-lib@1.17.1",
       "license": "MIT"
+    },
+    {
+      "id": "dsh-im",
+      "repo": "https://github.com/xmanrui/dsh-im",
+      "release": "v2.4.0",
+      "tagObject": "65a05750cda1ec376bbe764c5d1dec20c8a664bc",
+      "commit": "7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
+      "tagSigned": false,
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/7211534aeff01dba4ab78c79a5fa31cb9fa9510f",
+      "sha256": "54e9de330461538b9035b521e86da3b001880cd2e1cbe2e8a6e657b662c29766",
+      "fetched": "2026-08-25",
+      "license": "MIT",
+      "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
+      "notice": "third_party/NOTICE-dsh-im.txt",
+      "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md"
     },
     {
       "id": "noto-sans-sc",

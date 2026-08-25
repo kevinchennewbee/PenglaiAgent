@@ -6,7 +6,7 @@ export const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 export const ILINK_CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const DEFAULT_ILINK_BOT_TYPE = "3";
 export const ILINK_APP_ID = "bot";
-export const ILINK_BOT_AGENT = "Penglai/0.5.6";
+export const ILINK_BOT_AGENT = "Penglai/0.5.7";
 /** Exact Tencent channel package pinned by docs/compatibility/WEIXIN_R2.md. */
 export const ILINK_CHANNEL_VERSION = "2.4.6";
 /** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.6"). */

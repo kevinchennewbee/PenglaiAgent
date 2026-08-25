@@ -445,7 +445,7 @@ async function vendorPptfast(stage) {
         namespace: "penglai-office-disabled-image",
       }));
       context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
-        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.6 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.7 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
         loader: "js",
       }));
     },
@@ -1157,7 +1157,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.6" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.7" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

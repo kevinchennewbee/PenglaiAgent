@@ -46,7 +46,7 @@ const authenticatedGithubApiFetch = async (input, init = {}) => {
 };
 const shared = {
   ...pluginDistributionStatePaths(userDataRoot),
-  penglaiVersion: "0.5.6",
+  penglaiVersion: "0.5.7",
   dshExact: "0.1.1-rc.2",
   target: "darwin-aarch64",
   fetchImpl: authenticatedGithubApiFetch,

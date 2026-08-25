@@ -1,8 +1,8 @@
 # BYOK 与凭据合同
 
-> **Historical 0.5.0 design record.** Current 0.5.6 product truth and release
+> **Historical 0.5.0 design record.** Current 0.5.7 product truth and release
 > acceptance live in `docs/PRODUCT.md`, `docs/ACCEPTANCE.md`, and
-> `docs/0.5.6/ACCEPTANCE_DELTA.md`. Lower-level safety rules below apply only
+> `docs/0.5.7/ACCEPTANCE_DELTA.md`. Lower-level safety rules below apply only
 > where they are not superseded by those current contracts.
 
 ## 1. 原则

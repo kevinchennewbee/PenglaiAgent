@@ -366,9 +366,15 @@
 
 ### D-059 — 0.5.6 IM 可用性与公开发布授权
 
-- 状态：ACCEPTED（Owner 2026-08-24 明确授权完成开发、真实测试、PR、合并、三端构建、Release、README 与官网）
+- 状态：SUPERSEDED by D-060 for 0.5.7 channel availability; the 0.5.6 publication authorization remains historical fact
 - 决定：0.5.6 只有微信、飞书进入 `LIVE_CHANNEL_IDS`。钉钉、企业微信、QQ、Slack、Telegram、Discord、WhatsApp 只显示不可用/路线图，不能 Connect、bind、send，也不能伪造 QR；WhatsApp 标注社区协议和账号风险。发布必须按 `docs/0.5.6/RELEASE_RUNBOOK.md` 从一个 clean SHA 取得三端原生安装证据和不可变十资产公网回读。
 - 后果：授权不覆盖失败门禁，也不允许上传临时 API key、账号身份、二维码、聊天正文、私有路径、profile、日志、私有媒体或签名私钥。源码、打包、native、installed、live、public 证据分别报告。
+
+### D-060 — 0.5.7 九渠道连接入口、单一 IM Core、官网进 main
+
+- 状态：ACCEPTED（Owner 2026-08-25 要求 0.5.7 作为 0.5.6 之后的开发/验收/发布合同）
+- 决定：用户只看到一个「消息连接」插件 `@penglai/im`。九个平台都有真实连接入口，不再把后七个显示为路线图。`live` 只表示代码能力已通过发布验收，不表示用户已启用。没有 live evidence 不得在 README、官网或 Release 中声称九平台全部支持。DSH 继续固定 `0.1.1-rc.2`。DSH-IM 只参考 `v2.4.0` / `7211534aeff01dba4ab78c79a5fa31cb9fa9510f`，禁止安装整包、复制 `lib/`/`bin/`/`cordis.patch.yml`。Slack/Telegram/Discord 禁止伪装扫码。WhatsApp 默认关闭，`supportLevel: experimental`，`risk: community-protocol`。官网源文件进入 `main` 的 `website/`，`gh-pages` 只保存审核后的部署产物。提交身份文件保持 `phase=UNFROZEN` 且 `sourceSha=NONE`，这是模板状态；候选 evidence 由构建绑定真实 Git SHA，源文件不得伪造无法自引用的 commit。
+- 后果：渠道适配器只做认证、收发、状态和媒体转换。所有高影响操作继续走 Main Owner Broker。Grok Build 终点是远端 `0.5.7` 分支和指向 `main` 的 Draft PR；不合并、不打 `v0.5.7`、不发 Release、不部署生产官网。
 
 ## Superseded
 
@@ -384,7 +390,7 @@
 ## Deferred
 
 - 微信/飞书群聊、视频与未通过 live 验收的富卡片；普通会话输入框的通用文档 Turn 等待 official DSH file block。
-- 钉钉、企业微信、QQ、Slack、Telegram、Discord、WhatsApp live adapter；0.5.6 只保留诚实路线图。
+- 任一平台在缺少对应 live evidence 时的公开“全部支持”声明；图片/文件/音频/Markdown/线程/群聊能力在没有证据前保持 `false`。
 - browser/CUA、Companion无人值守高权限工具。
 - 任意第三方在线插件市场和远程代码下载。
 - silent auto-update、Mac App Store、Microsoft Store、Developer ID/notarization、Windows Authenticode。

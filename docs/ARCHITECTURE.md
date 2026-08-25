@@ -1,4 +1,4 @@
-# Penglai 0.5.6 architecture
+# Penglai 0.5.7 architecture
 
 ## English
 
@@ -204,7 +204,10 @@ without touching source files.
 
 `@penglai/im` owns one adapter registry, durable inbox/outbox, bindings,
 deterministic commands, correlation, causal routing, recovery, and diagnostics.
-Only `weixin` and `feishu` are members of `LIVE_CHANNEL_IDS` in 0.5.6.
+`LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu remain live from 0.5.6.
+The other seven platforms receive adapters in 0.5.7 and join `LIVE_CHANNEL_IDS`
+only after the corresponding live evidence exists. The user-facing surface still
+exposes nine connection cards.
 
 Inbound sequence:
 
@@ -219,9 +222,10 @@ Inbound sequence:
 7. correlate the durable final and enqueue outbound to the original route.
 
 Binding/rebinding/removal uses Owner reservations completed after the mutation.
-Group enable is refused. Seven non-live manifests may describe future official
-methods and limits but cannot connect, bind, or send. Guided roadmap steps never
-return a live state or fake QR.
+Group enable stays Owner-gated and allowlisted. Connection methods are a closed
+union (QR, OAuth, Manifest, Token, Device Link, Manual fallback). Slack,
+Telegram, and Discord must not return QR. Guided steps never return a live state
+or fake QR. WhatsApp remains default-off with an explicit risk acknowledgement.
 
 ### 10. Voice and OS permissions
 
@@ -270,13 +274,13 @@ readback downloads and verifies the immutable bytes again.
 
 ## 中文摘要
 
-0.5.6 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+0.5.7 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
 核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
 窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
 办公、IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
 对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
-official DSH rc.2 没有通用 file Turn，0.5.6 不做 DOM hack 或第二会话表示。
+official DSH rc.2 没有通用 file Turn，0.5.7 不做 DOM hack 或第二会话表示。
 
 记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前

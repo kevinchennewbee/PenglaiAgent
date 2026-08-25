@@ -34,7 +34,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 
 0.5.1 起，Center 只从公开仓库 `kevinchennewbee/PenglaiPluginRegistry` 的不可变 GitHub Release 发现远程插件。目录 JSON 与每个 tar 包分别使用内置 Ed25519 信任根验签；sequence 只能前进，断网时只读已验签的 last-good。远程包默认关闭，用户确认权限后才安装；包先写入用户私有的 `Penglai/0.5/plugins/packages`，不得修改应用内置插件目录。
 
-0.5.6 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.6 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
+0.5.7 将 `@penglai/office` 与 `@penglai/memory` 作为 fresh-install required-builtin。远程不可变目录 [`plugin-catalog-v1.000006`](https://github.com/kevinchennewbee/PenglaiPluginRegistry/releases/tag/plugin-catalog-v1.000006) 不列下载插件，并用精确 id/version/SHA 撤销已被完整蓬莱办公替代的 `@penglai/office-reader` 0.1.3。已安装的旧 Reader 会在 DSH loader 启动前停用；历史 000005 Release 保持不可变。以后发布兼容的新目录 sequence 不需要重做 Penglai 客户端；插件包更新成功后，0.5.7 只会在已授权且事务身份完全匹配时重启内置 DSH，以免 Node 模块缓存继续运行旧代码。GitHub REST 的匿名限流只允许回退到版本化 Release Atom 发现；最终信任仍来自精确 tag、目录签名、package 签名、asset id、size 与 SHA-256，绝不信任 mutable `latest`。
 
 安装包离线携带这些 tarball 是为了让普通用户无需联网取代码即可选择扩展。fresh profile 安装 Center、Office 与 Memory；其余可选插件仅在用户点击“安装并启用”后才校验、写入、加载。完成 BYOK 后 official DSH、Office 与 Memory 必须独立可用；任一可选插件 absent/disabled/unconfigured 都不得阻断 DSH core、已安装 IM 的 text 链或无关插件。
 
@@ -45,7 +45,7 @@ Plugin Center 是 official DSH Web 的 host/client plugin，UI 注册在 `settin
 ```json
 {
   "id": "@penglai/im",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "dshRange": "exact-tested-range",
   "platforms": ["darwin-arm64", "darwin-x64", "win32-x64"],
   "capabilities": ["settings-ui", "im-weixin", "im-feishu"],
@@ -108,7 +108,7 @@ UI 主状态必须来自 `actual`。desired 与 actual 不一致时显示 `apply
 
 ## 7. UI
 
-0.5.6 的普通卡片可显示经过签名目录审核的 GitHub 仓库、文档与 Issues 链接。链接必须是 HTTPS、经过 Main 侧安全 URL 校验，并在向用户展示目标后由系统外部浏览器打开；renderer 不能自行打开任意 URL。普通启停路径不显示 loader 内部术语，摘要、权限、阶段、诊断和回滚折叠在高级区域。
+0.5.7 的普通卡片可显示经过签名目录审核的 GitHub 仓库、文档与 Issues 链接。链接必须是 HTTPS、经过 Main 侧安全 URL 校验，并在向用户展示目标后由系统外部浏览器打开；renderer 不能自行打开任意 URL。普通启停路径不显示 loader 内部术语，摘要、权限、阶段、诊断和回滚折叠在高级区域。
 
 普通用户的每张卡只给一个主动作：未安装时“安装并启用”，已启用时“停用”，已停用时“启用”，并提供明确的“卸载”。版本、来源、权限、DSH compatibility、校验、更新、回滚和诊断放入折叠的高级信息，不把 download/install/enable/disable/update/rollback 同时铺成一排。危险操作需要清楚影响和确认；状态变化从 Remote/event refresh 获取，不能用按钮点击成功冒充 actual active。
 

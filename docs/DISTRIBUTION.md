@@ -1,9 +1,9 @@
 # Penglai 0.5.0 Apple Silicon 发行合同
 
 > **Historical contract.** This file records the already-published 0.5.0
-> Apple Silicon boundary. It is not the current release plan. Penglai 0.5.6
+> Apple Silicon boundary. It is not the current release plan. Penglai 0.5.7
 > uses the three-target contract in `release-contract.json` and
-> `docs/0.5.6/RELEASE_RUNBOOK.md`.
+> `docs/0.5.7/RELEASE_RUNBOOK.md`.
 
 ## 1. 候选定位
 

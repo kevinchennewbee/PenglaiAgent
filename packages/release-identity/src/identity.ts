@@ -126,7 +126,7 @@ function publicationOk(raw: unknown): PublicationBoundary {
 
 function assertTargets(raw: unknown): ReleaseTarget[] {
   if (!Array.isArray(raw) || raw.length !== RELEASE_TARGETS.length) {
-    throw new PenglaiError("INVALID_INPUT", "identity must declare the exact 0.5.6 release targets");
+    throw new PenglaiError("INVALID_INPUT", "identity must declare the exact 0.5.7 release targets");
   }
   const got = raw as ReleaseTarget[];
   for (let i = 0; i < RELEASE_TARGETS.length; i += 1) {

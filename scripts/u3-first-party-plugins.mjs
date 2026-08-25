@@ -263,7 +263,7 @@ function installedPackages() {
 function requiredPackagesOk(packages) {
   return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.6";
+    return pkg?.present && pkg.version === "0.5.7";
   });
 }
 
@@ -271,7 +271,7 @@ function optionalPackagesOk(packages, enabled) {
   if (!enabled) return true;
   return OPTIONAL_PLUGINS.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.6";
+    return pkg?.present && pkg.version === "0.5.7";
   });
 }
 

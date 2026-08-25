@@ -40,7 +40,7 @@ const pluginMatch =
 if (!updaterMatch || !pluginMatch) {
   finish("FAIL", {
     command: "verify:release-keys",
-    reason: "on-disk public keys do not match embedded 0.5.6 trust roots",
+    reason: "on-disk public keys do not match embedded 0.5.7 trust roots",
     updaterMatch,
     pluginMatch,
   });
