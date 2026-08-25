@@ -38,7 +38,7 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
-import { shouldRestartAfterExit } from "./supervisor-policy.js";
+import { shouldRestartAfterExit, supervisorBackoffMs } from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -1101,7 +1101,13 @@ export class EmbeddedDshSupervisor {
       this.restarts += 1;
       this.state = "crashed";
       const user = this.lastUser;
-      if (user) void this.start(user);
+      if (!user) return;
+      const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
+      setTimeout(() => {
+        void this.start(user).catch(() => {
+          this.state = "crashed";
+        });
+      }, delay);
     });
     try {
       await waitPort(this.port, 25_000);

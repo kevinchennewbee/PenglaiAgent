@@ -7,6 +7,7 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -52,6 +53,7 @@ interface TransactionJournal {
   schema: 2;
   operationId: string;
   phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
+  lastGoodPhase?: "snapshot" | "snapshot-ready" | "promote-prev" | "promote-next" | "promote-done";
   id: string;
   action: ProfileTxResult["action"];
   previousEnabled: boolean;
@@ -447,7 +449,11 @@ export async function runProfileTransaction(opts: {
     rmSync(packageStage, { recursive: true, force: true });
     const lastGoodNext = join(opts.txDir, `last-good-next-${operationId}`);
     rmSync(lastGoodNext, { recursive: true, force: true });
+    journal.lastGoodPhase = "snapshot";
+    atomicJournal(journalPath, journal);
     copyDir(opts.profileDir, lastGoodNext);
+    journal.lastGoodPhase = "snapshot-ready";
+    atomicJournal(journalPath, journal);
     if (!existsSync(lastGood)) {
       renameSync(lastGoodNext, lastGood);
     }
@@ -539,9 +545,15 @@ export async function runProfileTransaction(opts: {
     rmSync(backup, { recursive: true, force: true });
     if (existsSync(lastGoodNext)) {
       const lastGoodPrev = join(opts.txDir, `last-good-prev-${operationId}`);
+      journal.lastGoodPhase = "promote-prev";
+      atomicJournal(journalPath, journal);
       if (existsSync(lastGood)) renameSync(lastGood, lastGoodPrev);
+      journal.lastGoodPhase = "promote-next";
+      atomicJournal(journalPath, journal);
       renameSync(lastGoodNext, lastGood);
-      rmSync(lastGoodPrev, { recursive: true, force: true });
+      journal.lastGoodPhase = "promote-done";
+      atomicJournal(journalPath, journal);
+      if (existsSync(lastGood)) rmSync(lastGoodPrev, { recursive: true, force: true });
     }
     return {
       phase: "committed",
@@ -590,6 +602,29 @@ export async function runProfileTransaction(opts: {
   }
 }
 
+function listPrefixedDirs(txDir: string, prefix: string): string[] {
+  if (!existsSync(txDir)) return [];
+  return readdirSync(txDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix))
+    .map((entry) => join(txDir, entry.name));
+}
+
+export function healLastGoodArtifacts(txDir: string): string | undefined {
+  const lastGood = join(txDir, "last-good");
+  if (existsSync(lastGood)) return lastGood;
+  const next = listPrefixedDirs(txDir, "last-good-next-")[0];
+  if (next) {
+    renameSync(next, lastGood);
+    return lastGood;
+  }
+  const prev = listPrefixedDirs(txDir, "last-good-prev-")[0];
+  if (prev) {
+    renameSync(prev, lastGood);
+    return lastGood;
+  }
+  return undefined;
+}
+
 export function recoverInterruptedTransaction(opts: {
   userDataRoot: string;
   profileDir: string;
@@ -597,6 +632,7 @@ export function recoverInterruptedTransaction(opts: {
   id?: string;
 }): ProfileTxResult | { phase: "idle" | "committed" } {
   assertTransactionPaths(opts);
+  healLastGoodArtifacts(opts.txDir);
   const journalPath = join(opts.txDir, "journal.json");
   const lockPath = join(opts.txDir, "active.lock");
   if (!existsSync(journalPath)) {
@@ -635,7 +671,7 @@ export function rollbackLastGood(opts: {
   id: string;
 }): ProfileTxResult {
   assertTransactionPaths(opts);
-  const lastGood = join(opts.txDir, "last-good");
+  const lastGood = healLastGoodArtifacts(opts.txDir) ?? join(opts.txDir, "last-good");
   if (!existsSync(lastGood)) {
     throw new PenglaiError("STORE_CORRUPT", "last-good missing");
   }
