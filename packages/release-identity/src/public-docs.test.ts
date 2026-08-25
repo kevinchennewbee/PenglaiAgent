@@ -40,7 +40,7 @@ test("R50-PREP-008 publication manifest lists the exact three-target release", (
   assert.match(md, /Penglai_0\.5\.6_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
-  assert.match(md, /CANDIDATE|IMMUTABLE/);
+  assert.match(md, /CANDIDATE|IMMUTABLE|PUBLIC_READBACK_PASS/);
   assert.doesNotMatch(md, /UNFROZEN/);
   assert.match(md, /community-verified/);
   recordAssertion({
