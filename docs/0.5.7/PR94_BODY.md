@@ -86,9 +86,10 @@ re-enter the exact pnpm CLI instead of resolving an unrelated global pnpm.
 - Complete redacted live-account rows. A visible QR or successful SDK init is
   not a live support claim; the full private message → official Turn → original
   route reply → restart restore → logout cleanup loop must pass.
-- Independently verify Office artifacts with Poppler plus LibreOffice/Microsoft
-  Office. Current host has `pdfinfo` but lacks `pdftotext` and `soffice`, so that
-  gate remains INCOMPLETE rather than being waived.
+- Independently verify Office artifacts with Poppler/PyPDF plus
+  LibreOffice/Microsoft Office. This Windows host uses real Microsoft
+  Word/Excel/PowerPoint COM plus `pdfinfo`, PyPDF text extraction, and
+  `pdftoppm` rendering; a clean-tree rerun is still required for official PASS.
 - Rerun Memory-real on the clean candidate; the real 100k Mnemon corpus/query
   completed, but official PASS is correctly forbidden while the tree is dirty.
 - Obtain native Apple Silicon and Intel macOS artifacts from matching runners,

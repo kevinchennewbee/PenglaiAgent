@@ -8,12 +8,18 @@ import { beginEvidenceRun, finishEvidenceRun, recordCommand, recordArtifact, HOS
 import { createDocument, edit, inspect } from "../packages/office/src/service.ts";
 
 const run = beginEvidenceRun({ command: "verify:office-real", target: HOST_TARGET });
-const soffice = spawnSync("which", ["soffice"], { encoding: "utf8" });
-const pdftotext = spawnSync("which", ["pdftotext"], { encoding: "utf8" });
-const pdfinfo = spawnSync("which", ["pdfinfo"], { encoding: "utf8" });
-recordCommand(run, { argv: ["which", "soffice"], exitCode: soffice.status, stdout: soffice.stdout, stderr: soffice.stderr });
-recordCommand(run, { argv: ["which", "pdftotext"], exitCode: pdftotext.status, stdout: pdftotext.stdout, stderr: pdftotext.stderr });
-recordCommand(run, { argv: ["which", "pdfinfo"], exitCode: pdfinfo.status, stdout: pdfinfo.stdout, stderr: pdfinfo.stderr });
+function locate(name) {
+  const command = process.platform === "win32" ? "where.exe" : "which";
+  return spawnSync(command, [name], { encoding: "utf8" });
+}
+const soffice = locate("soffice");
+const pdftotext = locate("pdftotext");
+const pdfinfo = locate("pdfinfo");
+const pdftoppm = locate("pdftoppm");
+const python = locate(process.platform === "win32" ? "python.exe" : "python3");
+for (const [name, found] of Object.entries({ soffice, pdftotext, pdfinfo, pdftoppm, python })) {
+  recordCommand(run, { argv: ["locate", name], exitCode: found.status, stdout: found.stdout, stderr: found.stderr });
+}
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "packages/office/package.json"), "utf8"));
 if (/univerjs-pro|dsh-univer-office/.test(JSON.stringify(pkg))) {
@@ -55,9 +61,9 @@ if (seenPdf.format !== "pdf" || !seenPdf.text.includes(arbitraryChinese)) {
 }
 
 let poppler = "NOT_RUN";
-if (pdfinfo.status === 0 && pdftotext.status === 0) {
+let pdfTextVerifier = "NOT_RUN";
+if (pdfinfo.status === 0) {
   const infoBin = pdfinfo.stdout.trim();
-  const textBin = pdftotext.stdout.trim();
   const info = spawnSync(infoBin, [paths.pdf], { encoding: "utf8" });
   recordCommand(run, { argv: [infoBin, paths.pdf], exitCode: info.status, stdout: info.stdout, stderr: info.stderr });
   if (info.status !== 0) {
@@ -65,26 +71,112 @@ if (pdfinfo.status === 0 && pdftotext.status === 0) {
     console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
     process.exit(EXIT_BY_VERDICT.FAIL);
   }
-  const textPath = join(dir, "pdf-probe.txt");
-  const text = spawnSync(textBin, [paths.pdf, textPath], { encoding: "utf8" });
-  recordCommand(run, { argv: [textBin, paths.pdf, textPath], exitCode: text.status, stdout: text.stdout, stderr: text.stderr });
-  if (text.status !== 0) {
-    const manifest = finishEvidenceRun(run, "FAIL", "pdftotext rejected office PDF");
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-    process.exit(EXIT_BY_VERDICT.FAIL);
+  if (pdftotext.status === 0) {
+    const textBin = pdftotext.stdout.trim();
+    const textPath = join(dir, "pdf-probe.txt");
+    const text = spawnSync(textBin, [paths.pdf, textPath], { encoding: "utf8" });
+    recordCommand(run, { argv: [textBin, paths.pdf, textPath], exitCode: text.status, stdout: text.stdout, stderr: text.stderr });
+    const extracted = text.status === 0 ? readFileSync(textPath, "utf8") : "";
+    const normalizedExtracted = extracted.replace(/\s+/g, " ").trim();
+    if (text.status !== 0 || !normalizedExtracted.includes(arbitraryChinese) || !normalizedExtracted.includes("蓬莱水印")) {
+      const manifest = finishEvidenceRun(run, "FAIL", "pdftotext did not independently read the CJK PDF");
+      console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+      process.exit(EXIT_BY_VERDICT.FAIL);
+    }
+    pdfTextVerifier = "pdftotext";
+  } else if (python.status === 0) {
+    const pythonBin = python.stdout.trim().split(/\r?\n/)[0];
+    const assertion = [
+      "import sys",
+      "from pypdf import PdfReader",
+      "t=''.join(p.extract_text() or '' for p in PdfReader(sys.argv[1]).pages)",
+      `sys.exit(0 if ${JSON.stringify(arbitraryChinese)} in t and ${JSON.stringify("蓬莱水印")} in t else 7)`,
+    ].join("; ");
+    const text = spawnSync(pythonBin, ["-c", assertion, paths.pdf], { encoding: "utf8" });
+    recordCommand(run, {
+      argv: ["python", "-c", "pypdf exact CJK assertion", paths.pdf],
+      exitCode: text.status,
+      stdout: "",
+      stderr: text.stderr,
+    });
+    if (text.status !== 0) {
+      const manifest = finishEvidenceRun(run, "FAIL", "pypdf did not independently read the CJK PDF");
+      console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+      process.exit(EXIT_BY_VERDICT.FAIL);
+    }
+    pdfTextVerifier = "pypdf";
+  } else {
+    const manifest = finishEvidenceRun(run, "INCOMPLETE", "PDF text verifier missing after pdfinfo PASS");
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason, dir: run.dir }));
+    process.exit(EXIT_BY_VERDICT.INCOMPLETE);
   }
-  const extracted = readFileSync(textPath, "utf8");
-  const normalizedExtracted = extracted.replace(/\s+/g, " ").trim();
-  if (!normalizedExtracted.includes(arbitraryChinese) || !normalizedExtracted.includes("蓬莱水印")) {
-    const manifest = finishEvidenceRun(run, "FAIL", "pdftotext did not read CJK PDF text", { extracted });
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-    process.exit(EXIT_BY_VERDICT.FAIL);
+  if (pdftoppm.status === 0) {
+    const renderBin = pdftoppm.stdout.trim();
+    const renderBase = join(dir, "pdf-render");
+    const render = spawnSync(renderBin, ["-f", "1", "-singlefile", "-png", "-r", "100", paths.pdf, renderBase], { encoding: "utf8" });
+    recordCommand(run, { argv: [renderBin, "render-page-1", paths.pdf], exitCode: render.status, stdout: render.stdout, stderr: render.stderr });
+    if (render.status !== 0 || !existsSync(`${renderBase}.png`)) {
+      const manifest = finishEvidenceRun(run, "FAIL", "pdftoppm did not render office PDF");
+      console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+      process.exit(EXIT_BY_VERDICT.FAIL);
+    }
+    recordArtifact(run, `${renderBase}.png`, "image/png");
   }
   poppler = "PASS";
 } else {
-  const manifest = finishEvidenceRun(run, "INCOMPLETE", "Poppler pdfinfo/pdftotext missing; cannot independently verify PDF");
+  const manifest = finishEvidenceRun(run, "INCOMPLETE", "Poppler pdfinfo missing; cannot independently verify PDF");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason, dir: run.dir }));
   process.exit(EXIT_BY_VERDICT.INCOMPLETE);
+}
+
+if (soffice.status !== 0 && process.platform === "win32") {
+  const powershell = locate("powershell.exe");
+  if (powershell.status === 0) {
+    const powershellBin = powershell.stdout.trim().split(/\r?\n/)[0];
+    const microsoft = spawnSync(
+      powershellBin,
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        join(ROOT, "scripts/verify-office-microsoft.ps1"),
+        "-Docx",
+        paths.docx,
+        "-Xlsx",
+        paths.xlsx,
+        "-Pptx",
+        paths.pptx,
+      ],
+      { encoding: "utf8", timeout: 120000, windowsHide: true },
+    );
+    recordCommand(run, {
+      argv: ["powershell", "verify-office-microsoft.ps1", "DOCX", "XLSX", "PPTX"],
+      exitCode: microsoft.status,
+      stdout: microsoft.stdout,
+      stderr: microsoft.stderr,
+    });
+    let result;
+    try {
+      result = JSON.parse(String(microsoft.stdout).trim().split(/\r?\n/).at(-1));
+    } catch {
+      result = null;
+    }
+    if (microsoft.status === 0 && result?.word === true && result?.excel === true && result?.powerpoint === true) {
+      const manifest = finishEvidenceRun(run, "PASS", "Microsoft Office and independent PDF tools accepted office artifacts", {
+        poppler,
+        pdfTextVerifier,
+        microsoftOffice: "PASS",
+        fixtureOrigin: "penglai-office-engine",
+      });
+      console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:office-real", dir: run.dir }));
+      process.exit(EXIT_BY_VERDICT.PASS);
+    }
+    const manifest = finishEvidenceRun(run, "FAIL", "Microsoft Office rejected an OOXML artifact");
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+    process.exit(EXIT_BY_VERDICT.FAIL);
+  }
 }
 
 if (soffice.status !== 0) {
@@ -129,6 +221,7 @@ for (const pdfPath of loPdfs) {
 
 const manifest = finishEvidenceRun(run, "PASS", "LibreOffice and Poppler accepted office artifacts", {
   poppler,
+  pdfTextVerifier,
   libreoffice: "PASS",
   fixtureOrigin: "penglai-office-engine",
 });
