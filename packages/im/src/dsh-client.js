@@ -248,7 +248,7 @@ window.__ModuleLoader__.load({
         feishuOwnerMissing:
           "尚未指定允许身份：飞书私聊会全部拒绝，直到扫码确认或在此填写。",
         feishuOwnerSave: "保存允许身份",
-        saveSecret: "保存并写入 credential ref",
+        saveSecret: "保存凭据",
         verifyConnect: "校验并连接",
         overviewHint:
           "连接平台后，在私聊里发任意消息。首次消息会收到欢迎和 /帮助 /项目 菜单，直接说「你好」也能对话。",
@@ -368,7 +368,7 @@ window.__ModuleLoader__.load({
         feishuOwnerMissing:
           "No allowed identity yet: Feishu private chats are rejected until you scan or enter it here.",
         feishuOwnerSave: "Save allowed identity",
-        saveSecret: "Save and write credential ref",
+        saveSecret: "Save credentials",
         verifyConnect: "Verify and connect",
         overviewHint:
           "After you connect, send any private message. The first message gets a welcome plus /help and /project. Saying 你好 also starts the conversation.",
@@ -394,6 +394,21 @@ window.__ModuleLoader__.load({
     function localeCopy() {
       const id = String(document.documentElement.lang ?? "zh");
       return COPY[id.startsWith("en") ? "en" : "zh"];
+    }
+
+    function ownerApprove(remote, connection, action, objectId) {
+      return Promise.resolve(
+        imCall(remote, connection, "proposeBinding", { action, objectId }),
+      ).then((proposed) => {
+        const approve = window.penglai && window.penglai.requestOwnerApproval;
+        if (!approve || !proposed || !proposed.actionId) {
+          throw new Error("owner approval required");
+        }
+        return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+          if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+          return { ownerActionId: proposed.actionId, receipt: decided.receipt };
+        });
+      });
     }
 
     const QR_LABEL = (t) => ({
@@ -1329,7 +1344,25 @@ window.__ModuleLoader__.load({
         };
         setSecret("");
         setSecretB("");
-        imCall(remote, connection, "beginChannelConnection", args)
+        const proofs = [];
+        if (combined) {
+          proofs.push(
+            ownerApprove(remote, connection, "im.saveCredentials", channel.channel).then((proof) => {
+              args.ownerActionId = proof.ownerActionId;
+              args.receipt = proof.receipt;
+            }),
+          );
+        }
+        if (channel.risk === "community-protocol") {
+          proofs.push(
+            ownerApprove(remote, connection, "im.acknowledgeRisk", channel.channel).then((proof) => {
+              args.riskOwnerActionId = proof.ownerActionId;
+              args.riskReceipt = proof.receipt;
+            }),
+          );
+        }
+        Promise.all(proofs)
+          .then(() => imCall(remote, connection, "beginChannelConnection", args))
           .then((started) => {
             setOperationId(started.operationId || "");
             setSteps((started.steps && started.steps[lang]) || []);
@@ -1455,12 +1488,19 @@ window.__ModuleLoader__.load({
           jsx.jsx("button", {
             type: "button",
             onClick: () =>
-              imCall(remote, connection, "logoutChannel", { channel: channel.channel })
+              ownerApprove(remote, connection, "im.logout", channel.channel)
+                .then((proof) =>
+                  imCall(remote, connection, "logoutChannel", {
+                    channel: channel.channel,
+                    ownerActionId: proof.ownerActionId,
+                    receipt: proof.receipt,
+                  }),
+                )
                 .then(() => {
                   onClose();
                   load();
                 })
-                .catch(() => undefined),
+                .catch((err) => setError(String(err && err.message ? err.message : err))),
             children: t.logout,
           }),
           jsx.jsx("button", { type: "button", onClick: onClose, children: t.close }),
@@ -1532,6 +1572,9 @@ window.__ModuleLoader__.load({
                           "data-penglai-im-status": status,
                           style: {
                             padding: "14px",
+                            minWidth: 0,
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
                             border: "1px solid var(--dsw-alias-border-l2)",
                             borderRadius: "12px",
                             background: "var(--dsw-alias-bg-module-platform)",

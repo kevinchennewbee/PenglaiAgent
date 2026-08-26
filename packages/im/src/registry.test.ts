@@ -8,6 +8,7 @@ import { Store } from "@penglai/persistence";
 import { ImBotStore } from "./bots.js";
 import { beginGuidedConnection } from "./guided.js";
 import { CHANNEL_IDS, CHANNEL_MANIFESTS, refuseFakeQr } from "./registry.js";
+import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
@@ -123,6 +124,30 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
   rt.store.close();
 });
 
+test("sidecar credential writes require an owner receipt when the broker is attached", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
+    { status: "idle", setupRequired: true } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  );
+  const root = mkdtempSync(join(tmpdir(), "penglai-im-secret-owner-"));
+  host.attachOwner(new OwnerApprovalBroker(root, { dialog: async () => "approved" }));
+  await assert.rejects(
+    () => host.storeChannelSecret({ channel: "telegram", secret: "tok-test" }),
+    /IM_OWNER_ACTION/,
+  );
+  await assert.rejects(() => host.logoutChannel({ channel: "telegram" }), /IM_OWNER_ACTION/);
+  rt.store.close();
+});
+
 test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as Weixin", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
@@ -179,6 +204,11 @@ test("R57-IM-002 IM client lists nine platforms with a real connect action", () 
   assert.match(client, /beginFeishuQr/);
   assert.match(client, /proposeBinding/);
   assert.match(client, /requestOwnerApproval/);
+  assert.match(client, /im.saveCredentials/);
+  assert.match(client, /im.acknowledgeRisk/);
+  assert.match(client, /im.logout/);
+  assert.doesNotMatch(client, /credential ref/);
+  assert.match(client, /overflowWrap/);
   assert.match(client, /data-penglai-im-status/);
   assert.match(client, /data-penglai-im-advanced/);
   assert.match(client, /displayName/);
