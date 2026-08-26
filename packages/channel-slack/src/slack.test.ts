@@ -6,7 +6,7 @@ test("Slack validates a bot token without QR and can send", async () => {
   const adapter = new SlackAdapter(
     { resolve: () => ({ botToken: "xoxb-test", appToken: "xapp-test" }) },
     async (url) => {
-      if (String(url).includes("auth.test")) return new Response(JSON.stringify({ ok: true }));
+      if (String(url).includes("auth.test")) return new Response(JSON.stringify({ ok: true, user_id: "U0", bot_id: "B1" }));
       if (String(url).includes("apps.connections.open")) return new Response(JSON.stringify({ ok: true, url: "wss://wss-primary.slack.com/link" }));
       if (String(url).includes("chat.postMessage")) return new Response(JSON.stringify({ ok: true }));
       return new Response("{}", { status: 404 });
@@ -23,9 +23,12 @@ test("Slack validates a bot token without QR and can send", async () => {
 test("Slack ingest only accepts private IM events", async () => {
   const received: string[] = [];
   const adapter = new SlackAdapter({ resolve: () => ({ botToken: "xoxb-test" }) }, async () => new Response(JSON.stringify({ ok: true })));
+  adapter.accountRef = "B1";
   adapter.onInbound((msg) => received.push(msg.text));
-  adapter.ingestEvent({ type: "message", channel: "D1", text: "hi", user: "U1", ts: "1.0" });
-  adapter.ingestEvent({ type: "message", channel: "C1", text: "channel", user: "U1", ts: "2.0" });
-  adapter.ingestEvent({ type: "message", channel: "D2", text: "missing-id", user: "U1" });
+  adapter.ingestEvent({ type: "message", channel: "D1", channel_type: "im", text: "hi", user: "U1", ts: "1.0" });
+  adapter.ingestEvent({ type: "message", channel: "D1", text: "no-type", user: "U1", ts: "1.1" });
+  adapter.ingestEvent({ type: "message", channel: "C1", channel_type: "channel", text: "channel", user: "U1", ts: "2.0" });
+  adapter.ingestEvent({ type: "message", channel: "D2", channel_type: "im", text: "missing-id", user: "U1" });
+  adapter.ingestEvent({ type: "message", channel: "D3", channel_type: "im", text: "thread", user: "U1", ts: "3.0", thread_ts: "1.0" });
   assert.deepEqual(received, ["hi"]);
 });

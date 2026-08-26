@@ -26,15 +26,16 @@ const components = sorted.map((id) => {
 components.push({
   type: "library",
   name: "dsh-im",
-  version: "2.5.0",
-  "bom-ref": "pkg:github/xmanrui/dsh-im@aa8fd71b936a0378604bd0f8f277059833ddb8f7",
+  version: "3.0.0",
+  "bom-ref": "pkg:github/xmanrui/dsh-im@40b5a46516b44e30fa90e084400a8c3d578214e9",
   licenses: [{ license: { id: "MIT" } }],
   properties: [
     { name: "penglai:use", value: "selective-rewrite-not-installed" },
-    { name: "penglai:tag", value: "v2.5.0" },
-    { name: "penglai:tag-object", value: "d910373e1aa77e830bbb4a32544ace972492e79e" },
+    { name: "penglai:tag", value: "v3.0.0" },
+    { name: "penglai:tag-object", value: "881491704e7bddecc1ce937d53071865489df3f7" },
     { name: "penglai:unsigned-tag", value: "true" },
-    { name: "penglai:archive.sha256", value: "19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758" },
+    { name: "penglai:archive.sha256", value: "791c2d7335cb524fb48b6e2939837709214842746be96df503dd5ca40f491c5b" },
+    { name: "penglai:post-tag-audit", value: "ea5176be93cf0a5959397bd15d3ef614811a2a67" },
   ],
 });
 const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));

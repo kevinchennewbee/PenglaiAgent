@@ -5,8 +5,8 @@ import { wrapNative } from "./channel-bridge.js";
 
 test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async () => {
   const key = randomBytes(32);
-  const hashPeer = (senderId: string) =>
-    createHmac("sha256", key).update(`slack\0slack-default\0${senderId}`).digest("hex");
+  const hashPeer = (senderId: string, accountRef: string) =>
+    createHmac("sha256", key).update(`slack\0${accountRef}\0${senderId}`).digest("hex");
   const seen: unknown[] = [];
   let inbound: ((msg: Record<string, string>) => void) | undefined;
   const native = {
@@ -31,11 +31,31 @@ test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async ()
   adapter.onInbound((event) => seen.push(event));
   inbound?.({ text: "hi" });
   inbound?.({ messageId: "1", senderId: "U1", channelId: "D1", text: "hello" });
+  inbound?.({ messageId: "2", senderId: "U1", channelId: "D1", chatType: "private", text: "no-account" });
+  inbound?.({
+    messageId: "3",
+    senderId: "U1",
+    channelId: "D1",
+    chatType: "private",
+    botId: "B1",
+    text: "hello",
+  });
   assert.equal(seen.length, 1);
-  const event = seen[0] as { peerRef: string; vendorTarget: string; vendorMessageId: string };
-  assert.equal(event.vendorMessageId, "1");
+  const event = seen[0] as {
+    peerRef: string;
+    vendorTarget: string;
+    vendorMessageId: string;
+    accountRef: string;
+    provenPrivate: true;
+    idempotencyKey: string;
+  };
+  assert.equal(event.vendorMessageId, "3");
   assert.equal(event.vendorTarget, "D1");
-  assert.equal(event.peerRef, hashPeer("U1"));
+  assert.equal(event.accountRef, "B1");
+  assert.equal(event.provenPrivate, true);
+  assert.equal(event.idempotencyKey, "slack:B1:3");
+  assert.equal(event.peerRef, hashPeer("U1", "B1"));
+  assert.notEqual(event.peerRef, hashPeer("U1", "B2"));
   assert.notEqual(event.peerRef, "U1");
   assert.equal(event.peerRef.length, 64);
 });

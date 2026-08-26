@@ -5,82 +5,70 @@ Grok Build stop line: this PR is **draft**. Do not merge, do not create `v0.5.7`
 ## Identity
 
 - Base SHA: `3102135c6821a044fe4f9b50638c91ce9f5e9cd1` (`main`)
-- Head SHA: `f9e20b43998fef909aab1fdabcdb2e777ea6f290`
+- Head SHA: see branch tip after the Grok Build round-2 commits on `0.5.7`
 - Base tag: `v0.5.6` at `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
 - Official DSH: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - npm `latest` and `next` at freeze: `0.1.1-rc.2`
-- DSH-IM current pin: unsigned `v2.5.0` / tag object `d910373e1aa77e830bbb4a32544ace972492e79e` / peeled `aa8fd71b936a0378604bd0f8f277059833ddb8f7` / tarball SHA-256 `19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758`
-- v2.4.0 is historical only (ADR 0044)
+- DSH-IM current pin: unsigned `v3.0.0` / tag object `881491704e7bddecc1ce937d53071865489df3f7` / peeled `40b5a46516b44e30fa90e084400a8c3d578214e9` / tarball SHA-256 `791c2d7335cb524fb48b6e2939837709214842746be96df503dd5ca40f491c5b` (9 434 947 bytes)
+- Tag verification: unsigned (`verified=false`)
+- License: MIT
+- Post-tag audit (not v3.0.0 content): `ea5176be93cf0a5959397bd15d3ef614811a2a67`
+- v2.4.0 and v2.5.0 are historical only (ADR 0044)
 
 Committed `release-info.json` remains a template: `phase=UNFROZEN`, `sourceSha=NONE`.
 
-## v2.4.0 to v2.5.0 audit
+## This round (source, after audit Head `6e1d5166b44814b1a0c02c9fe439271fe391b70a`)
 
-Six commits: structured message-failure reporting, Weixin typing, actionable channel errors, brand hover version, merge, release. Penglai rewrote failure codes into `@penglai/im`. Weixin/Feishu replacements remain forbidden. `lib/` / `bin/` / `cordis.patch.yml` are not vendored.
+- R56-SEC-009: unknown adapters use sentinel `unknown-adapter`; adapter, route status, inbound state, and dispatch mode are asserted independently. `parseClosedEnum` stays fail-closed.
+- R50-PREP-008: source template requires `phase=UNFROZEN` / `sourceSha=NONE`. Candidate bind must become `TARGET_BUILT`. Observed SHA/size/digest require readback PASS.
+- Sidecar inbound envelope rejects missing/unknown `chatType`, missing `accountRef/botId`, `${channel}-default` as runtime identity, group/thread, and extra tenant/server/thread fields. Proven private is explicit. Idempotency and HMAC are `channel + account + vendorMessageId`.
+- Legacy `${channel}-default` adapter_configs migrate transactionally to `cfg:${channel}`.
+- IM restore records classified, redacted channel/account failures instead of `.catch(() => undefined)`. Uncertain sends are not auto-retried.
+- `/version` is a local IM control command: Penglai, DSH, and DSH-IM pins; no Session, no model, no Harness.
+- Weixin typing uses existing iLink `getconfig` + `sendtyping`; failure never blocks the reply.
+- Reaction helper is serialized, idempotent, short-timeout; Slack manifest adds `reactions:write`.
+- Feishu single-paragraph post extracts text; richer posts stay rejected.
+- QQ markdown rewrite from post-tag `ea5176be` (not v3.0.0): fences, GFM tables, unique seq, deterministic plain fallback.
 
-## Nine-platform implementation
+## Nine-platform Code / Installed / Live
 
-| Channel | Implementation | Live evidence |
-|---|---|---|
-| Weixin | existing iLink | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| Feishu | existing official SDK | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| DingTalk | device QR + `dingtalk-stream` DWClient TOPIC_ROBOT ACK + sessionWebhook send | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| WeCom | intelligent-bot QR + WSClient authenticated/message | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| QQ | `startQrConnect` + QQBot; not personal QQ | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| Slack | `auth.test` then Socket Mode `apps.connections.open` + envelope ACK; bot+app token | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| Telegram | getMe, webhook conflict fail-closed, abortable long poll timeout=25 | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| Discord | REST `@me` then Gateway Identify/READY, heartbeat op=1, reconnect backoff 1s/3s/10s; DM only | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| WhatsApp | Baileys production import, Vault AES-256-GCM data key, persisted creds+Signal keys, risk ack, logout wipe | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Channel | Code | Installed | Live |
+|---|---|---|---|
+| Weixin | source-tested iLink + typing | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Feishu | source-tested official SDK + post text | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| DingTalk | QR + stream ACK; missing conversationType rejected | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WeCom | QR + WSClient authenticated; chattype not defaulted | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| QQ | QR + QQBot; C2C markdown rewrite | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Slack | auth.test bot+app token; DM `channel_type=im` required | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Telegram | getMe, offset, 429 backoff, webhook conflict | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| Discord | REST `@me` + Gateway; DM explicit; guild rejected | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WhatsApp | Baileys, encrypted keys, extra text payloads | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 
-`LIVE_CHANNEL_IDS` remains Weixin + Feishu. README/website say connection entries exist; support follows the matrix only.
-
-Owner action for live rows: scan once or paste a bot token on this machine. Grok Build does not hold those accounts.
-
-## This round (source, after previous Head `b405319`)
-
-- Lockfile now records `@penglai/budget` workspace `@penglai/runtime` and importers for `channel-slack` / `channel-telegram` / `channel-discord` / `channel-whatsapp` (including Baileys).
-- Channel lifecycle is fail-closed: incomplete inbound dropped, Slack requires bot+app tokens, leftover token adapters never become `connected`, vault maps hydrate only from valid serialized secrets, HMAC `peerRef` is not the vendor id.
-- QR is rendered to a PNG data URL (`data-penglai-im-scan-image`); WhatsApp/QQ peek QR payload rather than a raw scan host URL.
-- Budget `setPolicy` consumes a Main owner-broker receipt (`budget.set-policy`); forged UUID/receipt and replay fail closed.
-- Plugin Center last-good promotes `next` then `prev` after a crash window; DSH supervisor restart uses 1s/3s/10s backoff.
+`LIVE_CHANNEL_IDS` remains Weixin + Feishu. No real owner accounts were used in this round.
 
 ## Tests / CI
 
-- Source tests on this Windows host (Node 22.22.2, `node --import tsx --test`):
-  - Channel packages (dingtalk, wecom, qq, slack, telegram, discord, whatsapp): **15/15 PASS**
-  - IM unit/adapter/registry/owner/message-failure/media: **18/18 PASS**
-  - `packages/im/src/im.test.ts`: **22/22 PASS**
-  - Budget including owner-receipt: **10/10 PASS** (after `tsc -b` so runtime `dist` includes `budget.set-policy`)
-  - `supervisor-policy.test.ts` and `last-good.test.ts`: **PASS**
-  - Plugin-center extra suite: **61/63**; the two failures are pre-existing Windows `EPERM` symlink cases in onboarding-wizard / remotes-security, not introduced here
-- Native CI (macOS ARM / Intel / Windows x64): **NOT_RUN** on this host.
-- Installed tests: **NOT_RUN**.
-- `pnpm install --frozen-lockfile` on this Windows host after regenerating the lockfile: **PASS** (Node 22.22.2 + pnpm 10.14.0 + `node-linker=hoisted` + `package-import-method=copy`). Previous EISDIR on `@deepseek-ai/cordis` was not reproduced on this run.
+- Node 22.22.2 + pnpm 10.14.0 on this Windows host.
+- `pnpm install --frozen-lockfile`: PASS
+- `format:check` + `tsc -b`: PASS
+- Targeted R56-SEC-009 / R50-PREP-008 / inbound envelope: PASS
+- `test:contract` 96/96 PASS
+- `test:integration` 43/43 PASS
+- `test:security` 15/15 PASS
+- `test:chaos` 5/5 PASS
+- `test:unit` 666 pass / 14 fail: all 14 are Windows `EPERM` symlink cases (pre-existing host privilege), not the R56/R50 failures
+- `audit:secrets` PASS; `sbom` PASS
+- Native three-target / installed / live account: NOT_RUN
+- This round did not merge main, tag `v0.5.7`, publish a Release, or deploy production gh-pages
 
 ## Remaining (do not hide)
 
-- Frozen lockfile install is **PASS** on this Windows host after the lockfile regeneration in `917fe00`. It is still not evidence for other machines or a clean clone from GitHub Actions.
-- Native three-target builders and installed evidence are **NOT_RUN**.
-- Live account evidence is `LIVE_BLOCKED_OWNER_ACCOUNT`.
-- Source tests are not a substitute for installed, notarized, Authenticode, or public-release evidence.
-
-## High-risk files
-
-- `packages/im/src/index.ts`
-- `packages/im/src/host.ts`
-- `packages/channel-dingtalk/src/stream-client.ts`
-- `packages/channel-wecom/src/ws-client.ts`
-- `packages/channel-qq/src/qr-auth.ts`
-- `packages/channel-slack/src/index.ts`
-- `packages/channel-discord/src/index.ts`
-- `packages/channel-whatsapp/src/baileys-link.ts`
-- `packages/budget/src/remote.ts`
-- `packages/budget/src/owner.ts`
-- `packages/plugin-center/src/profile-tx.ts`
-- `pnpm-lock.yaml`
-- `third_party/sources.lock.json`
-- `docs/0.5.7/provenance/dsh-im-v2.5.0.md`
+- Full source CI on GitHub Actions still needs a green run on this new Head.
+- Windows unit symlink tests need Developer Mode / SeCreateSymbolicLink on this machine; they are not source-gate proof.
+- Six-platform live reactions, Telegram offset restore through host persist, Discord Gateway reconnect, DingTalk QR legal source, and Windows Setup install of final `Penglai.exe` are not complete live evidence.
+- Native macOS arm64 / Intel and Windows x64 installers are NOT_RUN.
+- Live account evidence remains `LIVE_BLOCKED_OWNER_ACCOUNT`.
 
 ## Reviewer
 
-Codex: re-run source/contract/security on Node 22.22.2, compare transports against DSH-IM `aa8fd71b936a0378604bd0f8f277059833ddb8f7`, and do not approve live-support copy until `LIVE_IM_MATRIX.md` has real rows or explicit OWNER_ACCOUNT blocks (already explicit).
+Codex: re-run source/contract/security on Node 22.22.2, compare transports against DSH-IM `40b5a46516b44e30fa90e084400a8c3d578214e9`, treat `ea5176be` as a separate QQ markdown patch, and do not approve live-support copy until `LIVE_IM_MATRIX.md` has real rows or explicit OWNER_ACCOUNT blocks (already explicit).

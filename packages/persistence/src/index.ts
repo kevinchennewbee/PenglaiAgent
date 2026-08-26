@@ -431,6 +431,27 @@ export class Store {
     return row?.json;
   }
 
+  migrateLegacyAdapterAccount(channel: string, nextAccountId: string): boolean {
+    if (!channel || !nextAccountId) throw new PenglaiError("INVALID_INPUT", "account migration ids");
+    if (nextAccountId === `${channel}-default`) {
+      throw new PenglaiError("INVALID_INPUT", "LEGACY_DEFAULT_ACCOUNT");
+    }
+    return this.tx(() => {
+      const legacyId = `${channel}-default`;
+      const raw = this.getAdapterConfig(legacyId);
+      if (!raw) return false;
+      if (this.getAdapterConfig(nextAccountId)) {
+        throw new PenglaiError("STORE_CORRUPT", "LEGACY_ACCOUNT_COLLISION");
+      }
+      this.putAdapterConfig(nextAccountId, channel, raw);
+      this.db.prepare("DELETE FROM adapter_configs WHERE account_id=?").run(legacyId);
+      if (this.getAdapterConfig(legacyId) || this.getAdapterConfig(nextAccountId) !== raw) {
+        throw new PenglaiError("STORE_CORRUPT", "LEGACY_ACCOUNT_MIGRATION");
+      }
+      return true;
+    });
+  }
+
   putPendingMenu(routeId: string, menu: StoredPendingMenu): void {
     this.db
       .prepare(

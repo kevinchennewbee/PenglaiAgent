@@ -11,6 +11,8 @@ export interface TelegramInbound {
   senderId: string;
   chatId: string;
   text: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 export type TelegramConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
@@ -18,6 +20,7 @@ export type TelegramConnection = "not_configured" | "connecting" | "connected" |
 /** Official Telegram Bot HTTP API long polling. Never a QR shortcut. */
 export class TelegramAdapter {
   connection: TelegramConnection = "not_configured";
+  accountRef: string | undefined;
   private token: string | undefined;
   webhookConflict = false;
   private offset = 0;
@@ -40,11 +43,12 @@ export class TelegramAdapter {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const meBody = (await me.json()) as { ok?: boolean };
+    const meBody = (await me.json()) as { ok?: boolean; result?: { id?: number } };
     if (!meBody.ok) {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "TELEGRAM_TOKEN_INVALID");
     }
+    this.accountRef = meBody.result?.id != null ? String(meBody.result.id) : undefined;
     const webhook = await this.fetchImpl(`https://api.telegram.org/bot${creds.token}/getWebhookInfo`, {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
@@ -76,13 +80,24 @@ export class TelegramAdapter {
     if (update.update_id !== undefined) this.offset = Math.max(this.offset, update.update_id + 1);
     const msg = update.message;
     if (!msg?.text || msg.chat?.type !== "private") return;
-    if (msg.message_id == null || msg.from?.id == null || msg.chat?.id == null) return;
+    if (msg.message_id == null || msg.from?.id == null || msg.chat?.id == null || !this.accountRef) return;
     this.inboundHandler?.({
       messageId: String(msg.message_id),
       senderId: String(msg.from.id),
       chatId: String(msg.chat.id),
       text: msg.text,
+      chatType: "private",
+      accountRef: this.accountRef,
     });
+  }
+
+  getUpdateOffset(): number {
+    return this.offset;
+  }
+
+  restoreUpdateOffset(offset: number): void {
+    if (!Number.isSafeInteger(offset) || offset < 0) return;
+    this.offset = offset;
   }
 
   health() {
@@ -92,6 +107,9 @@ export class TelegramAdapter {
       enabled: this.connection !== "disabled",
       connection: this.connection,
       webhookConflict: this.webhookConflict,
+      updateOffset: this.offset,
+      proxyConfigured: Boolean(process.env.HTTPS_PROXY || process.env.HTTP_PROXY),
+      noProxyConfigured: Boolean(process.env.NO_PROXY),
     };
   }
 
@@ -128,9 +146,10 @@ export class TelegramAdapter {
       while (!signal.aborted && this.token) {
         try {
           await this.pollOnce(signal);
-        } catch {
+        } catch (error) {
           if (signal.aborted) return;
-          await new Promise((resolve) => setTimeout(resolve, 2_000 + Math.floor(Math.random() * 1_000)));
+          const retryAfter = retryAfterMs(error);
+          await new Promise((resolve) => setTimeout(resolve, retryAfter ?? 2_000 + Math.floor(Math.random() * 1_000)));
         }
       }
     };
@@ -143,6 +162,12 @@ export class TelegramAdapter {
       `https://api.telegram.org/bot${this.token}/getUpdates?timeout=25&offset=${this.offset}&allowed_updates=${encodeURIComponent('["message"]')}`,
       { redirect: "error", signal },
     );
+    if (response.status === 429) {
+      const wait = Number(response.headers.get("retry-after") ?? "1");
+      throw Object.assign(new Error("TELEGRAM_RATE_LIMIT"), {
+        retryAfterMs: Math.min(60_000, Math.max(1_000, wait * 1000)),
+      });
+    }
     const body = (await response.json()) as {
       ok?: boolean;
       result?: Array<{
@@ -153,4 +178,12 @@ export class TelegramAdapter {
     if (!body.ok || !Array.isArray(body.result)) return;
     for (const update of body.result) this.ingestUpdate(update);
   }
+}
+
+function retryAfterMs(error: unknown): number | undefined {
+  if (error && typeof error === "object" && "retryAfterMs" in error) {
+    const value = Number((error as { retryAfterMs?: unknown }).retryAfterMs);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return undefined;
 }

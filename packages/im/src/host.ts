@@ -36,6 +36,14 @@ import {
 } from "./registry.js";
 import { guidedAdapter, requireAdapter, type ChannelAdapter, type ConnectionResult, type ConnectionState, type InboundChannelEvent } from "./channel-adapter.js";
 import { refuseUnliveSend } from "./guided.js";
+import { channelConfigAccountId, isForbiddenDefaultAccount, legacyDefaultAccountId } from "./inbound-envelope.js";
+import {
+  classifyMessageFailure,
+  classifySendOutcome,
+  publicMessageFailure,
+  RECOVERY_ACTION_BY_CODE,
+  type MessageFailure,
+} from "./message-failure.js";
 import {
   IM_OWNER_ACTIONS,
   consumeImOwnerProof,
@@ -61,7 +69,15 @@ export interface ChannelState {
   risk: ChannelManifestV1["risk"];
   supportLevel: ChannelManifestV1["supportLevel"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
-  error?: { code: string; action: string };
+  error?: {
+    code: string;
+    action: string;
+    message: { zh: string; en: string };
+    referenceId: string;
+    at: number;
+  };
+  accountRedacted?: string;
+  lastCheckAt?: number;
 }
 
 export interface BindingDto {
@@ -85,6 +101,7 @@ export class PenglaiImHost {
   private artifacts: ArtifactService | undefined;
   private secretHydrator?: (id: ChannelId, serialized: string) => void;
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
+  startupFailure: MessageFailure | undefined;
   readonly bots: ImBotStore;
 
   constructor(
@@ -811,6 +828,7 @@ export class PenglaiImHost {
     const manifest = getChannelManifest(channel);
     const adapter = this.adapters.get(channel);
     const health = adapter ? await adapter.health() : { enabled: false, connection: "disabled" as ConnectionState };
+    const failure = this.bots.getChannelFailure(channel, channelConfigAccountId(channel));
     return {
       channel,
       enabled: health.enabled,
@@ -824,6 +842,17 @@ export class PenglaiImHost {
       risk: manifest.risk,
       supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
+      ...(failure
+        ? {
+            error: {
+              code: failure.code,
+              action: failure.action,
+              message: { zh: failure.messageZh, en: failure.messageEn },
+              referenceId: failure.referenceId,
+              at: failure.at,
+            },
+          }
+        : {}),
     };
   }
 
@@ -862,7 +891,9 @@ export class PenglaiImHost {
 
   attachInboundFanIn(adapter: ChannelAdapter): void {
     adapter.onInbound((event) => {
-      void this.handleChannelInbound(event);
+      void this.handleChannelInbound(event).catch((error) => {
+        this.recordChannelFailure(event.channel, event.accountRef, error);
+      });
     });
   }
 
@@ -895,11 +926,17 @@ export class PenglaiImHost {
       ...(input.riskAck ? { riskAck: true } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
-    const result = await adapter.beginConnection({
-      method: input.method,
-      credentialRef: CHANNEL_CREDENTIAL_REFS[id],
-      ...(input.riskAck ? { riskAck: true } : {}),
-    });
+    let result: ConnectionResult;
+    try {
+      result = await adapter.beginConnection({
+        method: input.method,
+        credentialRef: CHANNEL_CREDENTIAL_REFS[id],
+        ...(input.riskAck ? { riskAck: true } : {}),
+      });
+    } catch (error) {
+      this.recordChannelFailure(id, channelConfigAccountId(id), error);
+      throw error;
+    }
     this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
       riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
       riskAckAt: Date.now(),
@@ -917,7 +954,13 @@ export class PenglaiImHost {
   async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     const adapter = requireAdapter(this.adapters, id);
-    const polled = await adapter.pollConnection(input.operationId);
+    let polled: { status: ConnectionState; accountRedacted?: string };
+    try {
+      polled = await adapter.pollConnection(input.operationId);
+    } catch (error) {
+      this.recordChannelFailure(id, channelConfigAccountId(id), error);
+      throw error;
+    }
     const qrImageRef = await encodePeekedQr(adapter.peekQr?.(input.operationId));
     this.revision += 1;
     return {
@@ -967,17 +1010,43 @@ export class PenglaiImHost {
     return { loggedOut: true };
   }
 
+  noteStartupFailure(error: unknown): void {
+    this.startupFailure = publicMessageFailure(classifyMessageFailure(error));
+  }
+
+  recordChannelFailure(channel: ChannelId, accountRef: string, error: unknown): void {
+    const failure = publicMessageFailure(classifyMessageFailure(error));
+    this.bots.putChannelFailure({
+      channelId: channel,
+      accountRef,
+      code: failure.code,
+      messageZh: failure.message.zh,
+      messageEn: failure.message.en,
+      referenceId: failure.referenceId,
+      action: RECOVERY_ACTION_BY_CODE[failure.code],
+      at: failure.at,
+    });
+  }
+
   async restoreChannelAdapters(): Promise<void> {
     for (const id of CHANNEL_IDS) {
       if (isLiveChannel(id)) continue;
       const adapter = this.adapters.get(id);
       if (!adapter) continue;
       this.attachInboundFanIn(adapter);
-      const raw = this.store.getAdapterConfig(`${id}-default`);
+      const accountId = channelConfigAccountId(id);
+      try {
+        this.store.migrateLegacyAdapterAccount(id, accountId);
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
+        continue;
+      }
+      const raw = this.store.getAdapterConfig(accountId) ?? this.store.getAdapterConfig(legacyDefaultAccountId(id));
       let parsed: { enabled?: boolean; riskAckVersion?: string } = {};
       try {
         parsed = raw ? (JSON.parse(raw) as { enabled?: boolean; riskAckVersion?: string }) : {};
-      } catch {
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
         parsed = {};
       }
       if (!parsed.enabled) continue;
@@ -988,8 +1057,8 @@ export class PenglaiImHost {
           credentialRef: CHANNEL_CREDENTIAL_REFS[id],
           ...(id === "whatsapp" ? { riskAck: true } : {}),
         });
-      } catch {
-        /* stay disconnected until the owner reconnects */
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
       }
     }
   }
@@ -1010,63 +1079,85 @@ export class PenglaiImHost {
           peerRef: delivery.vendorTarget || target,
         });
         this.plane.markDelivered(item.outboxId, claimToken);
-      } catch {
-        this.plane.markSendResult(item.outboxId, "transient", claimToken);
+      } catch (error) {
+        this.recordChannelFailure(route.adapter as ChannelId, route.accountRef, error);
+        const failure = classifyMessageFailure(error);
+        if (classifySendOutcome(error) === "uncertain" || failure.code === "CHANNEL_DELIVERY_UNCERTAIN") {
+          this.plane.markSendResult(item.outboxId, "uncertain", claimToken);
+        } else if (failure.code === "CHANNEL_AUTH") {
+          this.plane.markSendResult(item.outboxId, "auth", claimToken);
+        } else if (failure.code === "CHANNEL_RATE_LIMIT") {
+          this.plane.markSendResult(item.outboxId, "transient", claimToken);
+        } else {
+          this.plane.markSendResult(item.outboxId, "permanent", claimToken);
+        }
       }
     }
   }
 
   private persistChannelFlag(channel: ChannelId, enabled: boolean, extra?: Record<string, unknown>): void {
+    const accountId = channelConfigAccountId(channel);
+    try {
+      this.store.migrateLegacyAdapterAccount(channel, accountId);
+    } catch {
+      /* keep writing the canonical key; restore still fails closed on leftover legacy rows */
+    }
     let previous: Record<string, unknown> = {};
     try {
-      const raw = this.store.getAdapterConfig(`${channel}-default`);
+      const raw = this.store.getAdapterConfig(accountId) ?? this.store.getAdapterConfig(legacyDefaultAccountId(channel));
       if (raw) previous = JSON.parse(raw) as Record<string, unknown>;
     } catch {
       previous = {};
     }
-    this.store.putAdapterConfig(`${channel}-default`, channel, JSON.stringify({ ...previous, enabled, ...extra }));
+    this.store.putAdapterConfig(accountId, channel, JSON.stringify({ ...previous, enabled, ...extra }));
   }
 
   private async handleChannelInbound(event: InboundChannelEvent): Promise<void> {
     if (
       event.chatType !== "private" ||
+      event.provenPrivate !== true ||
       !event.text?.trim() ||
       !event.vendorMessageId ||
       !event.peerRef ||
       !event.vendorTarget ||
-      !event.botId
+      !event.accountRef ||
+      isForbiddenDefaultAccount(event.channel, event.accountRef)
     ) {
       return;
     }
+    const receivedAt = event.vendorTime ?? Date.now();
     const routeId = this.plane.ensureRoute({
       adapter: event.channel,
-      adapterMessageKey: event.vendorMessageId,
-      accountRef: event.botId,
+      adapterMessageKey: event.idempotencyKey,
+      accountRef: event.accountRef,
       peerRef: event.peerRef,
       vendorTarget: event.vendorTarget,
       chatKind: "private",
       bodyKind: "text",
       text: event.text,
-      receivedAt: Date.now(),
+      receivedAt,
     });
-    const vendorMessageKey = `${event.channel}:${event.vendorMessageId}`;
     const claim = this.store.claimInboundOperation({
-      operationId: `op:${vendorMessageKey}`,
-      vendorMessageKey,
+      operationId: `op:${event.idempotencyKey}`,
+      vendorMessageKey: event.idempotencyKey,
       routeId,
     });
     if (!claim.created && claim.turnId) return;
-    await this.plane.submitInbound({
-      adapter: event.channel,
-      adapterMessageKey: event.vendorMessageId,
-      accountRef: event.botId,
-      peerRef: event.peerRef,
-      vendorTarget: event.vendorTarget,
-      chatKind: "private",
-      bodyKind: "text",
-      text: event.text,
-      receivedAt: Date.now(),
-    });
+    try {
+      await this.plane.submitInbound({
+        adapter: event.channel,
+        adapterMessageKey: event.idempotencyKey,
+        accountRef: event.accountRef,
+        peerRef: event.peerRef,
+        vendorTarget: event.vendorTarget,
+        chatKind: "private",
+        bodyKind: "text",
+        text: event.text,
+        receivedAt,
+      });
+    } catch (error) {
+      this.recordChannelFailure(event.channel, event.accountRef, error);
+    }
   }
 }
 

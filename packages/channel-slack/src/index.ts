@@ -12,6 +12,8 @@ export interface SlackInbound {
   senderId: string;
   channelId: string;
   text: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 export type SlackConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
@@ -19,6 +21,7 @@ export type SlackConnection = "not_configured" | "connecting" | "connected" | "f
 /** Official Slack token/manifest. Never a QR shortcut. */
 export class SlackAdapter {
   connection: SlackConnection = "not_configured";
+  accountRef: string | undefined;
   private creds: SlackCredentials | undefined;
   private inboundHandler?: (msg: SlackInbound) => void;
 
@@ -46,11 +49,12 @@ export class SlackAdapter {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const body = (await response.json()) as { ok?: boolean };
+    const body = (await response.json()) as { ok?: boolean; user_id?: string; bot_id?: string };
     if (!body.ok) {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "SLACK_TOKEN_INVALID");
     }
+    this.accountRef = String(body.bot_id || body.user_id || "").trim() || undefined;
     this.creds = creds;
     if (!creds.appToken) {
       this.connection = "not_configured";
@@ -76,19 +80,23 @@ export class SlackAdapter {
     channel?: string;
     ts?: string;
     channel_type?: string;
+    thread_ts?: string;
     bot_id?: string;
   }): void {
     if (event.bot_id || (event.type && event.type !== "message") || !event.text) return;
+    if (event.thread_ts) return;
+    if (event.channel_type !== "im") return;
     const channel = String(event.channel ?? "").trim();
     const messageId = String(event.ts ?? "").trim();
     const senderId = String(event.user ?? "").trim();
-    const privateChat = event.channel_type === "im" || channel.startsWith("D");
-    if (!privateChat || !channel || !messageId || !senderId) return;
+    if (!this.accountRef || !channel || !messageId || !senderId) return;
     this.inboundHandler?.({
       messageId,
       senderId,
       channelId: channel,
       text: event.text,
+      chatType: "private",
+      accountRef: this.accountRef,
     });
   }
 

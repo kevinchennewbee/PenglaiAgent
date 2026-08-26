@@ -567,6 +567,36 @@ test("Feishu scanner identity is the unique allowlist and first DMs do not becom
   h.store.close();
 });
 
+test("Feishu single-paragraph post extracts text and rejects richer posts", () => {
+  const simple = parseOfficialReceive({
+    event: {
+      message: {
+        message_id: "p1",
+        message_type: "post",
+        chat_type: "p2p",
+        content: JSON.stringify({ zh_cn: { content: [[{ tag: "text", text: "/help" }]] } }),
+      },
+      sender: { sender_id: { open_id: "ou_1" } },
+    },
+  });
+  assert.equal("reject" in simple, false);
+  if (!("reject" in simple)) assert.equal(simple.text, "/help");
+  const rich = parseOfficialReceive({
+    event: {
+      message: {
+        message_id: "p2",
+        message_type: "post",
+        chat_type: "p2p",
+        content: JSON.stringify({
+          zh_cn: { content: [[{ tag: "text", text: "a" }], [{ tag: "text", text: "b" }]] },
+        }),
+      },
+      sender: { sender_id: { open_id: "ou_1" } },
+    },
+  });
+  assert.deepEqual(rich, { reject: "media" });
+});
+
 test("R56-SEC-010 missing or unknown chatType and sender fail closed without a reply", () => {
   assert.deepEqual(parseFeishuEvent({ messageId: "1", text: "x", openId: "o" }), { reject: "chatType" });
   assert.deepEqual(parseFeishuEvent({ chatType: "meeting", messageId: "2", text: "x", openId: "o" }), { reject: "chatType" });

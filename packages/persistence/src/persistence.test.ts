@@ -226,10 +226,14 @@ test("P51-IM-001 outbox claim is exclusive", () => {
 test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
   const store = new Store(":memory:");
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
-  store.db.prepare("UPDATE routes SET adapter='slack', status='enabled' WHERE route_id='r1'").run();
+
+  store.db.prepare("UPDATE routes SET adapter='unknown-adapter' WHERE route_id='r1'").run();
   assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_ADAPTER/);
+
   store.db.prepare("UPDATE routes SET adapter='mock', status='enabled' WHERE route_id='r1'").run();
   assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_STATUS/);
+
+  store.db.prepare("UPDATE routes SET status='active' WHERE route_id='r1'").run();
   store.insertInbound(
     {
       inboundId: "in-bad",
@@ -243,8 +247,26 @@ test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
     "secret-body",
     1,
   );
-  store.db.prepare("UPDATE inbounds SET state='success', dispatch_mode='private' WHERE inbound_id='in-bad'").run();
-  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_INBOUND_STATE|UNKNOWN_DISPATCH_MODE/);
+
+  store.db.prepare("UPDATE inbounds SET state='success' WHERE inbound_id='in-bad'").run();
+  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_INBOUND_STATE/);
+
+  store.db.prepare("UPDATE inbounds SET state='queued', dispatch_mode='private' WHERE inbound_id='in-bad'").run();
+  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_DISPATCH_MODE/);
+  store.close();
+});
+
+test("legacy ${channel}-default adapter config migrates transactionally", () => {
+  const store = new Store(":memory:");
+  store.putAdapterConfig("slack-default", "slack", JSON.stringify({ enabled: true }));
+  assert.equal(store.migrateLegacyAdapterAccount("slack", "cfg:slack"), true);
+  assert.equal(store.getAdapterConfig("slack-default"), undefined);
+  assert.equal(JSON.parse(store.getAdapterConfig("cfg:slack") ?? "{}").enabled, true);
+  assert.equal(store.migrateLegacyAdapterAccount("telegram", "cfg:telegram"), false);
+  store.putAdapterConfig("qq-default", "qq", JSON.stringify({ enabled: true }));
+  store.putAdapterConfig("cfg:qq", "qq", JSON.stringify({ enabled: false }));
+  assert.throws(() => store.migrateLegacyAdapterAccount("qq", "cfg:qq"), /LEGACY_ACCOUNT_COLLISION/);
+  assert.equal(JSON.parse(store.getAdapterConfig("qq-default") ?? "{}").enabled, true);
   store.close();
 });
 

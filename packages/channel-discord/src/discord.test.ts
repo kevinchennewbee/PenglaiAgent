@@ -21,6 +21,7 @@ test("Discord validates a bot token without QR", async () => {
 test("Discord ingest drops guild, bots, and incomplete identities", async () => {
   const adapter = new DiscordAdapter({ resolve: () => ({ token: "bot-token" }) });
   const seen: unknown[] = [];
+  adapter.accountRef = "bot-1";
   adapter.onInbound((msg) => seen.push(msg));
   adapter.ingestMessage({ id: "1", content: "hi", author: { id: "u1" } });
   adapter.ingestMessage({ content: "hi", channel_id: "c1", author: { id: "u1" } });

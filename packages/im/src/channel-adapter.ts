@@ -34,11 +34,16 @@ export interface ChannelHealth {
 export interface InboundChannelEvent {
   channel: ChannelId;
   botId: string;
+  accountRef: string;
   vendorMessageId: string;
   vendorTarget: string;
+  senderId: string;
   peerRef: string;
   text?: string;
-  chatType: "private" | "group" | "unknown";
+  chatType: "private";
+  provenPrivate: true;
+  idempotencyKey: string;
+  vendorTime?: number;
 }
 
 /**

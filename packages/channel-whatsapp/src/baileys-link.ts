@@ -108,15 +108,40 @@ export async function startBaileysLink(
   });
   sock.ev.on("messages.upsert", (bundle) => {
     const rec = (bundle ?? {}) as {
-      messages?: Array<{ key?: { id?: string; fromMe?: boolean; remoteJid?: string }; message?: { conversation?: string } }>;
+      messages?: Array<{
+        key?: { id?: string; fromMe?: boolean; remoteJid?: string };
+        message?: {
+          conversation?: string;
+          extendedTextMessage?: { text?: string };
+          imageMessage?: { caption?: string };
+          documentMessage?: { caption?: string };
+          videoMessage?: { caption?: string };
+        };
+      }>;
     };
     for (const message of rec.messages ?? []) {
       if (message.key?.fromMe) continue;
-      const text = String(message.message?.conversation ?? "").trim();
+      const payload = message.message;
+      const text = String(
+        payload?.conversation ||
+          payload?.extendedTextMessage?.text ||
+          payload?.imageMessage?.caption ||
+          payload?.documentMessage?.caption ||
+          payload?.videoMessage?.caption ||
+          "",
+      ).trim();
       const id = String(message.key?.id ?? "").trim();
       const from = String(message.key?.remoteJid ?? "").trim();
       if (!text || !id || !from) continue;
-      opts.onMessage({ messageId: id, senderId: from, text });
+      const accountRef = String((asRecord(creds)?.me as { id?: string } | undefined)?.id ?? from).trim();
+      opts.onMessage({
+        messageId: id,
+        senderId: from,
+        text,
+        vendorTarget: from,
+        chatType: "private",
+        accountRef,
+      });
     }
   });
   return {

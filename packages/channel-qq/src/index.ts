@@ -24,7 +24,15 @@ export class QqAdapter {
   private client: QqClient | undefined;
   private qr: { operationId: string; cancel(): void } | undefined;
   private lastQr: { operationId: string; image: string; expiresAt: number } | undefined;
-  private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
+  accountRef: string | undefined;
+  private inboundHandler?: (msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget: string;
+    chatType: "private";
+    accountRef: string;
+  }) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): QqCredentials | undefined; put?(ref: string, creds: QqCredentials): void | Promise<void> },
@@ -68,12 +76,34 @@ export class QqAdapter {
     return { qrPayload: this.lastQr.image, expiresAt: this.lastQr.expiresAt };
   }
 
-  onInbound(handler: (msg: { messageId: string; senderId: string; text: string }) => void): void {
+  onInbound(handler: (msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget: string;
+    chatType: "private";
+    accountRef: string;
+  }) => void): void {
     this.inboundHandler = handler;
   }
 
-  ingestMessage(msg: { messageId: string; senderId: string; text: string }): void {
-    this.inboundHandler?.(msg);
+  ingestMessage(msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget?: string;
+    chatType?: "private";
+    accountRef?: string;
+  }): void {
+    if (!this.accountRef) return;
+    this.inboundHandler?.({
+      messageId: msg.messageId,
+      senderId: msg.senderId,
+      text: msg.text,
+      vendorTarget: msg.vendorTarget || msg.senderId,
+      chatType: "private",
+      accountRef: msg.accountRef || this.accountRef,
+    });
   }
 
   health() {
@@ -105,6 +135,7 @@ export class QqAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "qq credentials missing");
     }
     this.connection = "connecting";
+    this.accountRef = creds.appId;
     try {
       this.client = this.factory ? this.factory(creds) : await createQqBotClient(creds, (msg) => this.inboundHandler?.(msg));
       await this.client.connect();

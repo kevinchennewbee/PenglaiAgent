@@ -1,9 +1,10 @@
-# DSH-IM v2.5.0 port ledger
+# DSH-IM v3.0.0 port ledger
 
 Current 0.5.7 pin: `https://github.com/xmanrui/dsh-im` @
-`aa8fd71b936a0378604bd0f8f277059833ddb8f7` (`v2.5.0`, MIT, unsigned tag object
-`d910373e1aa77e830bbb4a32544ace972492e79e`). The v2.4.0 ledger identity is
-historical only.
+`40b5a46516b44e30fa90e084400a8c3d578214e9` (`v3.0.0`, MIT, unsigned tag object
+`881491704e7bddecc1ce937d53071865489df3f7`). v2.4.0 and v2.5.0 identities are
+historical only. Post-tag `ea5176be93cf0a5959397bd15d3ef614811a2a67` is a
+separate audit in `dsh-im-post-v3.0.0.md` and is not v3.0.0 content.
 Use: design/reference or rewrite into Penglai IM Core. Never vendor generated
 `lib/` or start the DSH-IM runtime.
 
@@ -31,7 +32,9 @@ Penglai Vault, Owner Broker, Artifact Service, routing-core, persistence;
 | `plugin-src/client/*` cards | `packages/im/src/dsh-client.js` | reference | UX for platform cards only |
 | `src/channels/shared/message-failure.mjs` | `@penglai/im` message-failure | rewrite | stable code + reference id + user-actionable copy; MIT if source is adapted |
 | `plugin-src/client/last-message-error.js` | Messaging card error row | reference | last failure on the platform card |
-| `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | reference | optional typing; never replace iLink |
+| `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | rewrite | iLink `getconfig` + `sendtyping`; best-effort; never replace iLink |
+| `src/channels/qq/markdown-reply.mjs` @ `ea5176be` | `packages/channel-qq/src/markdown-reply.ts` | rewrite | post-tag hardening; not v3.0.0 content |
+| `src/channels/shared` reactions idea | `packages/im/src/reactions.ts` | rewrite | short timeout, serialized, idempotent; failure never blocks reply |
 | Weixin 1800-char segmentation idea | `packages/channel-weixin` | reference | keep Penglai iLink; adopt length splitting if needed |
 | `src/channels/dingtalk/dingtalk-controller.mjs` | `packages/channel-dingtalk` | rewrite | Stream supervisor, ACK, reconnect |
 | `src/channels/wecom/wecom-controller.mjs` | `packages/channel-wecom` | rewrite | WSClient authenticated/message/reconnect |

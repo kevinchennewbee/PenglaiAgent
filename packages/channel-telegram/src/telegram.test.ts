@@ -38,6 +38,7 @@ test("Telegram long-polls after getMe when no webhook is set", async () => {
 test("Telegram ingest only accepts private text", async () => {
   const received: string[] = [];
   const adapter = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => new Response("{}", { status: 404 }));
+  adapter.accountRef = "1";
   adapter.onInbound((msg) => received.push(msg.text));
   adapter.ingestUpdate({
     update_id: 2,

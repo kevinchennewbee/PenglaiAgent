@@ -106,3 +106,24 @@ export function publicMessageFailure(failure: MessageFailure): MessageFailure {
     at: failure.at,
   };
 }
+
+export const RECOVERY_ACTION_BY_CODE: Record<MessageFailureCode, string> = {
+  CHANNEL_PERMISSION: "check_permissions",
+  CHANNEL_RATE_LIMIT: "wait_retry",
+  CHANNEL_DELIVERY: "retry",
+  CHANNEL_DELIVERY_UNCERTAIN: "confirm_manually",
+  CHANNEL_AUTH: "reconnect",
+  CHANNEL_NO_QR: "use_official_token",
+  CHANNEL_RISK_ACK: "acknowledge_risk",
+  INPUT_INVALID: "fix_input",
+  INTERNAL_UNKNOWN: "retry",
+};
+
+export type SendOutcome = "delivered" | "failed" | "uncertain";
+
+export function classifySendOutcome(error: unknown): SendOutcome {
+  const failure = classifyMessageFailure(error);
+  if (failure.code === "CHANNEL_DELIVERY_UNCERTAIN") return "uncertain";
+  if (failure.code === "CHANNEL_RATE_LIMIT") return "failed";
+  return "failed";
+}

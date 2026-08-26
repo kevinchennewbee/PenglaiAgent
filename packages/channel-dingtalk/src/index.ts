@@ -13,6 +13,9 @@ export interface DingTalkInbound {
   messageId: string;
   senderId: string;
   text: string;
+  vendorTarget: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 export interface DingTalkStreamClient {
@@ -31,6 +34,7 @@ export type DingTalkConnection = "not_configured" | "connecting" | "connected" |
 
 export class DingTalkAdapter {
   connection: DingTalkConnection = "not_configured";
+  accountRef: string | undefined;
   private client: DingTalkStreamClient | undefined;
   private qr: { operationId: string; deviceCode: string; verificationUrl: string; expiresAt: number } | undefined;
   readonly inbound: DingTalkInbound[] = [];
@@ -110,11 +114,18 @@ export class DingTalkAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "dingtalk credentials missing");
     }
     this.connection = "connecting";
+    this.accountRef = creds.clientId;
     try {
       this.client = this.factory ? this.factory(creds) : await this.createOfficialClient(creds);
       this.client.onMessage?.((msg) => {
-        this.inbound.push(msg);
-        this.inboundHandler?.(msg);
+        const event = {
+          ...msg,
+          accountRef: msg.accountRef || creds.clientId,
+          chatType: "private" as const,
+          vendorTarget: msg.vendorTarget || msg.senderId,
+        };
+        this.inbound.push(event);
+        this.inboundHandler?.(event);
       });
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";

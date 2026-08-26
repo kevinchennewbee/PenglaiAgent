@@ -653,7 +653,8 @@ export type ControlCommand =
   | { type: "companion_status" }
   | { type: "voice_status" }
   | { type: "voice_reply_mode"; mode: VoiceReplyMode }
-  | { type: "voice_id"; voiceId?: string };
+  | { type: "voice_id"; voiceId?: string }
+  | { type: "version" };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

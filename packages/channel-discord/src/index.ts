@@ -11,6 +11,8 @@ export interface DiscordInbound {
   senderId: string;
   channelId: string;
   text: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 export type DiscordConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
@@ -18,6 +20,7 @@ export type DiscordConnection = "not_configured" | "connecting" | "connected" | 
 /** Official Discord Bot REST. Never a QR shortcut. */
 export class DiscordAdapter {
   connection: DiscordConnection = "not_configured";
+  accountRef: string | undefined;
   private token: string | undefined;
   intentsHint = "Enable Message Content Intent in the Discord Developer Portal.";
   private inboundHandler?: (msg: DiscordInbound) => void;
@@ -54,6 +57,8 @@ export class DiscordAdapter {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "DISCORD_TOKEN_INVALID");
     }
+    const me = (await response.json()) as { id?: string };
+    this.accountRef = String(me.id ?? "").trim() || undefined;
     this.token = creds.token;
     this.stopped = false;
     this.reconnectAttempt = 0;
@@ -85,12 +90,14 @@ export class DiscordAdapter {
     const messageId = String(event.id ?? "").trim();
     const senderId = String(event.author?.id ?? "").trim();
     const channelId = String(event.channel_id ?? "").trim();
-    if (!messageId || !senderId || !channelId) return;
+    if (!this.accountRef || !messageId || !senderId || !channelId) return;
     this.inboundHandler?.({
       messageId,
       senderId,
       channelId,
       text: event.content,
+      chatType: "private",
+      accountRef: this.accountRef,
     });
   }
 

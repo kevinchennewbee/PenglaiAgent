@@ -75,12 +75,14 @@ export function parseFeishuEvent(raw: {
   if (
     raw.messageType &&
     raw.messageType !== "text" &&
+    raw.messageType !== "post" &&
     raw.messageType !== "audio" &&
     raw.messageType !== "image" &&
     raw.messageType !== "file"
   ) {
     return { reject: "media" };
   }
+  if (raw.messageType === "post" && !raw.text) return { reject: "media" };
   return {
     adapter: "feishu",
     adapterMessageKey: raw.messageId,
@@ -92,6 +94,23 @@ export function parseFeishuEvent(raw: {
     receivedAt: Date.now(),
     ...(raw.openId ? { vendorTarget: raw.openId } : {}),
   };
+}
+
+export function extractFeishuPostText(content: unknown): string | undefined {
+  const rec = content && typeof content === "object" ? (content as Record<string, unknown>) : {};
+  const post = rec.post && typeof rec.post === "object" ? (rec.post as Record<string, unknown>) : rec;
+  const locale =
+    (post.zh_cn && typeof post.zh_cn === "object" ? (post.zh_cn as Record<string, unknown>) : undefined) ??
+    (post.en_us && typeof post.en_us === "object" ? (post.en_us as Record<string, unknown>) : undefined);
+  if (!locale || !Array.isArray(locale.content) || locale.content.length !== 1) return undefined;
+  const paragraph = locale.content[0];
+  if (!Array.isArray(paragraph) || paragraph.length !== 1) return undefined;
+  const run = paragraph[0];
+  if (!run || typeof run !== "object") return undefined;
+  const item = run as Record<string, unknown>;
+  if (item.tag !== "text" || typeof item.text !== "string" || item.style) return undefined;
+  const text = item.text.trim();
+  return text || undefined;
 }
 
 export function parseOfficialReceiveWithMedia(data: unknown): {
@@ -117,7 +136,7 @@ export function parseOfficialReceiveWithMedia(data: unknown): {
         file_name?: string;
         duration?: number | string;
       };
-      text = content.text ?? "";
+      text = content.text ?? extractFeishuPostText(content) ?? "";
       fileKey = typeof content.file_key === "string" ? content.file_key : typeof content.image_key === "string" ? content.image_key : "";
       durationMs = Number(content.duration ?? 0);
       filename = typeof content.file_name === "string" ? content.file_name : "";

@@ -18,6 +18,9 @@ export interface WhatsAppInbound {
   messageId: string;
   senderId: string;
   text: string;
+  vendorTarget: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 /**
@@ -26,6 +29,7 @@ export interface WhatsAppInbound {
  */
 export class WhatsAppDeviceAdapter {
   connection: WhatsAppConnection = "disabled";
+  accountRef: string | undefined;
   riskAckAt: number | null = null;
   riskAckVersion: string | null = null;
   lastQr: string | undefined;

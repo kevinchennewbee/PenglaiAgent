@@ -21,6 +21,8 @@ export const QR_ENDPOINT = "/ilink/bot/get_bot_qrcode";
 export const QR_STATUS_ENDPOINT = "/ilink/bot/get_qrcode_status";
 export const GET_UPDATES_ENDPOINT = "/ilink/bot/getupdates";
 export const SEND_ENDPOINT = "/ilink/bot/sendmessage";
+export const GET_CONFIG_ENDPOINT = "/ilink/bot/getconfig";
+export const SEND_TYPING_ENDPOINT = "/ilink/bot/sendtyping";
 export const ALLOWED_REDIRECT_HOSTS = ["ilinkai.weixin.qq.com"] as const;
 
 export function randomWechatUin(randomBytes: (n: number) => Uint8Array = (n) => {

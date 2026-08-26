@@ -198,7 +198,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
   imHost = host;
   const peerKey = loadOrCreatePeerHmacKey(join(userData, "im", "peer.hmac"));
   const wrapOpts = (id: ChannelId) => ({
-    hashPeer: (senderId: string) => hmacPeerRef(peerKey, id, `${id}-default`, senderId),
+    hashPeer: (senderId: string, accountRef: string) => hmacPeerRef(peerKey, id, accountRef, senderId),
   });
   const dingtalkCreds: Record<string, { clientId: string; clientSecret: string }> = {};
   const wecomCreds: Record<string, { botId: string; secret: string }> = {};
@@ -319,7 +319,9 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       ),
     );
     if (!host.store.isClosed()) await host.restoreChannelAdapters();
-  })().catch(() => undefined);
+  })().catch((error) => {
+    host.noteStartupFailure(error);
+  });
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
   const admitInbound = (input: {
@@ -405,5 +407,11 @@ export type {
 export { ImBotStore, ensureImV2Tables } from "./bots.js";
 export { beginGuidedConnection } from "./guided.js";
 export { classifyMessageFailure, publicMessageFailure } from "./message-failure.js";
+export {
+  inboundIdempotencyKey,
+  parseInboundEnvelope,
+  tryParseInboundEnvelope,
+} from "./inbound-envelope.js";
+export { runReaction } from "./reactions.js";
 export { TYPERT_REMOTE } from "./remote.js";
 export { IM_OWNER_ACTIONS, requireImActionId } from "./owner.js";

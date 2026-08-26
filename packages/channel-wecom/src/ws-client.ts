@@ -11,7 +11,14 @@ type WeComMessage = {
 
 export async function createWeComWsClient(
   creds: WeComCredentials,
-  onMessage?: (msg: { messageId: string; senderId: string; text: string }) => void,
+  onMessage?: (msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget: string;
+    chatType: "private";
+    accountRef: string;
+  }) => void,
 ): Promise<WeComClient> {
   const mod = (await import("@wecom/aibot-node-sdk")) as unknown as {
     WSClient?: new (opts: { botid?: string; botId?: string; secret: string }) => {
@@ -48,9 +55,17 @@ export async function createWeComWsClient(
           const messageId = String(payload.msgid ?? "").trim();
           const senderId = String(payload.from?.userid ?? "").trim();
           const text = String(payload.text?.content ?? "").trim();
-          const chattype = String(payload.chattype ?? "single");
-          if (!messageId || !senderId || !text || (chattype && chattype !== "single" && chattype !== "p2p")) return;
-          onMessage?.({ messageId, senderId, text });
+          const chattype = String(payload.chattype ?? "").trim();
+          if (!messageId || !senderId || !text) return;
+          if (chattype !== "single" && chattype !== "p2p") return;
+          onMessage?.({
+            messageId,
+            senderId,
+            text,
+            vendorTarget: senderId,
+            chatType: "private",
+            accountRef: creds.botId,
+          });
         });
         void raw.connect();
       });

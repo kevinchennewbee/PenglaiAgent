@@ -1,7 +1,7 @@
 # dsh-im v2.5.0 supply-chain record
 
-This is the **current** 0.5.7 DSH-IM audit pin. The earlier v2.4.0 record is
-historical only and is not a second current pin.
+This is a **historical** 0.5.7 DSH-IM audit pin. The current reference baseline
+is unsigned `v3.0.0`. The earlier v2.4.0 record is also historical only.
 
 Penglai does **not** install this package as a second Agent core or copy its
 generated `lib/`. Selected channel authentication, transport, and structured

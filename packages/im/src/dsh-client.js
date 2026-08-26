@@ -177,6 +177,15 @@ window.__ModuleLoader__.load({
         statusConnecting: "正在连接",
         statusConnected: "已连接",
         statusNeedsAction: "需要处理",
+        statusDisabled: "已关闭",
+        statusNotConfigured: "未配置",
+        statusDegraded: "降级",
+        statusExpired: "已过期",
+        statusFailed: "失败",
+        lastError: "最近错误",
+        referenceId: "参考号",
+        reconnect: "重连",
+        testSend: "测试",
         advanced: "高级设置",
         openConsole: "打开飞书开发者后台",
         openLongDoc: "打开长连接说明",
@@ -288,6 +297,15 @@ window.__ModuleLoader__.load({
         statusConnecting: "Connecting",
         statusConnected: "Connected",
         statusNeedsAction: "Needs attention",
+        statusDisabled: "Disabled",
+        statusNotConfigured: "Not configured",
+        statusDegraded: "Degraded",
+        statusExpired: "Expired",
+        statusFailed: "Failed",
+        lastError: "Last error",
+        referenceId: "Reference",
+        reconnect: "Reconnect",
+        testSend: "Test",
         advanced: "Advanced settings",
         openConsole: "Open Feishu developer console",
         openLongDoc: "Open long-connection help",
@@ -1261,9 +1279,11 @@ window.__ModuleLoader__.load({
       const connection = String(channel.connection || "");
       if (connection === "connected") return t.statusConnected;
       if (connection === "connecting") return t.statusConnecting;
-      if (connection === "failed" || connection === "degraded" || connection === "expired" || connection === "blocked") {
-        return t.statusNeedsAction;
-      }
+      if (connection === "disabled") return t.statusDisabled;
+      if (connection === "not_configured") return t.statusNotConfigured;
+      if (connection === "degraded") return t.statusDegraded;
+      if (connection === "expired") return t.statusExpired;
+      if (connection === "failed" || connection === "blocked") return t.statusFailed;
       return t.statusDisconnected;
     }
 
@@ -1330,7 +1350,7 @@ window.__ModuleLoader__.load({
               if (image) setScanImage(image);
               if (next.status === "connected" || next.status === "failed" || next.status === "expired") load();
             })
-            .catch(() => undefined);
+            .catch((err) => setError(String(err && err.message ? err.message : err)));
         }, 3000);
         return () => clearInterval(timer);
       }, [operationId, channel.channel, remote, connection, load]);
@@ -1522,6 +1542,25 @@ window.__ModuleLoader__.load({
                               ? jsx.jsx("span", { children: ` · ${t.experimental}` })
                               : null,
                             jsx.jsx("p", { "aria-live": "polite", children: status }),
+                            c.live === true
+                              ? jsx.jsx("p", { "data-penglai-im-release-live": "1", children: "live" })
+                              : null,
+                            c.error
+                              ? jsx.jsxs("p", {
+                                  role: "alert",
+                                  "data-penglai-im-last-error": c.channel,
+                                  children: [
+                                    t.lastError,
+                                    ": ",
+                                    c.error.code,
+                                    " — ",
+                                    (document.documentElement.lang || "zh").startsWith("en")
+                                      ? c.error.message?.en
+                                      : c.error.message?.zh,
+                                    c.error.referenceId ? ` (${t.referenceId} ${c.error.referenceId})` : "",
+                                  ],
+                                })
+                              : null,
                             jsx.jsx("button", {
                               type: "button",
                               "data-penglai-im-connect": c.channel,

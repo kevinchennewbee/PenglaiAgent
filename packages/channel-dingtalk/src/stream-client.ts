@@ -52,11 +52,19 @@ export async function createDingTalkStreamClient(
         const senderId = String(payload.senderStaffId || payload.senderId || "").trim();
         const text = String(payload.text?.content ?? "").trim();
         const webhook = String(payload.sessionWebhook ?? "").trim();
-        const chatType = String(payload.conversationType ?? "");
+        const conversationType = String(payload.conversationType ?? "").trim();
+        const vendorTarget = String(payload.conversationId ?? "").trim();
         if (!messageId || !senderId || !text) return { status: "SUCCESS" };
-        if (chatType && chatType !== "1") return { status: "SUCCESS" };
-        if (webhook) webhooks.set(senderId, webhook);
-        inbound?.({ messageId, senderId, text });
+        if (conversationType !== "1" || !vendorTarget) return { status: "SUCCESS" };
+        if (webhook) webhooks.set(vendorTarget, webhook);
+        inbound?.({
+          messageId,
+          senderId,
+          text,
+          vendorTarget,
+          chatType: "private",
+          accountRef: creds.clientId,
+        });
         return { status: "SUCCESS" };
       });
       await raw.connect();

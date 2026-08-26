@@ -12,10 +12,12 @@ public bytes/site (P) are not interchangeable.
   `packages/release-identity/src/pins.ts`.
 - `R57-TRUTH-003` — committed identity is a template (`UNFROZEN` + `sourceSha=NONE`);
   candidate evidence binds a real Git SHA; public docs do not invent hashes.
-- `R57-DSHIM-001` — DSH-IM pin is unsigned `v2.5.0` / tag object
-  `d910373e1aa77e830bbb4a32544ace972492e79e` / peeled
-  `aa8fd71b936a0378604bd0f8f277059833ddb8f7` with tarball SHA-256 recorded.
-  v2.4.0 is historical only.
+- `R57-DSHIM-001` — DSH-IM pin is unsigned `v3.0.0` / tag object
+  `881491704e7bddecc1ce937d53071865489df3f7` / peeled
+  `40b5a46516b44e30fa90e084400a8c3d578214e9` with tarball SHA-256 recorded.
+  v2.4.0 and v2.5.0 are historical only. Post-tag
+  `ea5176be93cf0a5959397bd15d3ef614811a2a67` is a separate audit, not v3.0.0
+  content.
 - `R57-DSHIM-002` — `lib/`, `bin/`, `cordis.patch.yml`, harness client, independent
   config store, and DSH-IM Office are absent from Penglai.
 

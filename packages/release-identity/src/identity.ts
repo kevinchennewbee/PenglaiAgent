@@ -140,6 +140,57 @@ function assertTargets(raw: unknown): ReleaseTarget[] {
   return got;
 }
 
+export function assertCommittedTemplateIdentity(identity: ReleaseIdentity): void {
+  if (identity.phase !== IDENTITY_PHASE_UNFROZEN) {
+    throw new PenglaiError("INVALID_INPUT", "committed identity template must be UNFROZEN");
+  }
+  if (identity.sourceSha !== CANDIDATE_SOURCE_SHA_NONE) {
+    throw new PenglaiError("INVALID_INPUT", "committed identity template must use sourceSha=NONE");
+  }
+  assertUnfrozenClean(identity);
+}
+
+export function bindCandidateIdentity(template: ReleaseIdentity, sourceSha: string): ReleaseIdentity {
+  assertCommittedTemplateIdentity(template);
+  if (!isHex40(sourceSha)) {
+    throw new PenglaiError("INVALID_INPUT", "candidate sourceSha must be 40-char hex");
+  }
+  const bound = assertReleaseIdentity({
+    ...template,
+    phase: "TARGET_BUILT",
+    sourceSha,
+  });
+  if (bound.phase === IDENTITY_PHASE_UNFROZEN) {
+    throw new PenglaiError("INVALID_INPUT", "candidate identity must not remain UNFROZEN");
+  }
+  if (bound.sourceSha === CANDIDATE_SOURCE_SHA_NONE) {
+    throw new PenglaiError("INVALID_INPUT", "candidate identity must not remain sourceSha=NONE");
+  }
+  return bound;
+}
+
+export type ReadbackStatus = "PASS" | "FAIL" | "INCOMPLETE" | "NOT_RUN";
+
+const HEX64 = /^[0-9a-f]{64}$/i;
+
+export function assertObservedReleaseFacts(opts: {
+  readbackStatus: ReadbackStatus;
+  sha?: string;
+  bytes?: number | string;
+  digest?: string;
+}): void {
+  const numericBytes =
+    typeof opts.bytes === "number"
+      ? Number.isFinite(opts.bytes) && opts.bytes > 0
+      : typeof opts.bytes === "string" && /^\d+$/.test(opts.bytes) && Number(opts.bytes) > 0;
+  const hasSha = typeof opts.sha === "string" && HEX64.test(opts.sha);
+  const digest = typeof opts.digest === "string" ? opts.digest.replace(/^sha256:/i, "") : "";
+  const hasDigest = digest.length > 0 && HEX64.test(digest);
+  if (opts.readbackStatus !== "PASS" && (hasSha || hasDigest || numericBytes)) {
+    throw new PenglaiError("SECURITY_POLICY", "observed public SHA/size/digest require readback PASS");
+  }
+}
+
 export function assertUnfrozenClean(identity: ReleaseIdentity): void {
   if (identity.phase !== "UNFROZEN") return;
   if (typeof identity.artifactSha256 === "string" && identity.artifactSha256.length > 0) {

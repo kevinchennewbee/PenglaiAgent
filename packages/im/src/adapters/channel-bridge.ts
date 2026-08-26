@@ -14,6 +14,7 @@ import {
   type ConnectionState,
   type InboundChannelEvent,
 } from "../channel-adapter.js";
+import { tryParseInboundEnvelope } from "../inbound-envelope.js";
 
 export interface QrPeek {
   verificationUrl?: string;
@@ -23,7 +24,7 @@ export interface QrPeek {
 }
 
 export interface NativeWrapOpts {
-  hashPeer: (senderId: string) => string;
+  hashPeer: (senderId: string, accountRef: string) => string;
 }
 
 type NativeLike = {
@@ -39,29 +40,18 @@ type NativeLike = {
   disconnect(): Promise<void>;
   logout?(): Promise<void>;
   peekQr?(operationId?: string): QrPeek | undefined;
-  onInbound?(handler: (msg: Record<string, string>) => void): void;
+  onInbound?(handler: (msg: Record<string, unknown>) => void): void;
 };
 
 function mapInbound(
   id: ChannelId,
-  msg: Record<string, string>,
-  hashPeer: (senderId: string) => string,
+  msg: Record<string, unknown>,
+  hashPeer: (senderId: string, accountRef: string) => string,
 ): InboundChannelEvent | undefined {
-  const vendorMessageId = String(msg.messageId ?? "").trim();
-  const senderId = String(msg.senderId ?? "").trim();
-  const vendorTarget = String(msg.channelId || msg.chatId || msg.vendorTarget || senderId || "").trim();
-  if (!vendorMessageId || !senderId || !vendorTarget) return undefined;
-  const provenPrivate = msg.chatType ? msg.chatType === "private" : true;
-  if (!provenPrivate) return undefined;
-  return {
-    channel: id,
-    botId: `${id}-default`,
-    vendorMessageId,
-    vendorTarget,
-    peerRef: hashPeer(senderId),
-    ...(msg.text ? { text: msg.text } : {}),
-    chatType: "private",
-  };
+  const parsed = tryParseInboundEnvelope(id, msg, hashPeer);
+  if ("reject" in parsed) return undefined;
+  if (!parsed.provenPrivate || parsed.chatType !== "private") return undefined;
+  return parsed;
 }
 
 export function wrapNative(
@@ -72,8 +62,8 @@ export function wrapNative(
   const manifest = getChannelManifest(id);
   let inbound: ((event: InboundChannelEvent) => void) | undefined;
   adapter.onInbound?.((msg) => {
-    const event = mapInbound(id, msg, opts.hashPeer);
-    if (!event || event.chatType !== "private") return;
+    const event = mapInbound(id, msg as Record<string, unknown>, opts.hashPeer);
+    if (!event || event.chatType !== "private" || !event.provenPrivate) return;
     inbound?.(event);
   });
   return {

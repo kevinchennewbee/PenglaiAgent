@@ -4,6 +4,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { declaredSourceSha, recordAssertion } from "./assertion.js";
+import {
+  assertCommittedTemplateIdentity,
+  assertObservedReleaseFacts,
+  assertReleaseIdentity,
+} from "./identity.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -36,14 +41,27 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
 
 test("R50-PREP-008 publication manifest lists the exact three-target release", () => {
   const md = readFileSync(join(root, "docs/PUBLICATION_MANIFEST_0.5.7.md"), "utf8");
+  const committed = assertReleaseIdentity(JSON.parse(readFileSync(join(root, "release-info.json"), "utf8")));
+  assertCommittedTemplateIdentity(committed);
   assert.match(md, /Penglai_0\.5\.7_macos_aarch64\.dmg/);
   assert.match(md, /Penglai_0\.5\.7_macos_x64\.dmg/);
   assert.match(md, /Penglai_0\.5\.7_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
   assert.match(md, /CANDIDATE|IMMUTABLE|PUBLIC_READBACK_PASS/);
-  assert.doesNotMatch(md, /UNFROZEN/);
+  assert.match(md, /phase=UNFROZEN/);
+  assert.match(md, /sourceSha=NONE/);
   assert.match(md, /community-verified/);
+  assert.match(md, /pending public readback/);
+  const observedCells = [...md.matchAll(/\| `Penglai_0\.5\.7_[^`]+` \| ([^|]+) \| ([^|]+) \|/g)];
+  assert.equal(observedCells.length, 3);
+  for (const cell of observedCells) {
+    assertObservedReleaseFacts({
+      readbackStatus: "NOT_RUN",
+      bytes: cell[1]?.trim(),
+      sha: cell[2]?.replace(/`/g, "").trim(),
+    });
+  }
   recordAssertion({
     acceptanceId: "R50-PREP-008",
     runnerId: "manifest",

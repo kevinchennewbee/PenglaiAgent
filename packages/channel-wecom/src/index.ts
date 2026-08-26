@@ -23,7 +23,15 @@ export class WeComAdapter {
   connection: WeComConnection = "not_configured";
   private client: WeComClient | undefined;
   private qr: { operationId: string; scode: string; verificationUrl: string; expiresAt: number } | undefined;
-  private inboundHandler?: (msg: { messageId: string; senderId: string; text: string }) => void;
+  accountRef: string | undefined;
+  private inboundHandler?: (msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget: string;
+    chatType: "private";
+    accountRef: string;
+  }) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): WeComCredentials | undefined; put?(ref: string, creds: WeComCredentials): void | Promise<void> },
@@ -64,12 +72,34 @@ export class WeComAdapter {
     return { verificationUrl: this.qr.verificationUrl, expiresAt: this.qr.expiresAt };
   }
 
-  onInbound(handler: (msg: { messageId: string; senderId: string; text: string }) => void): void {
+  onInbound(handler: (msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget: string;
+    chatType: "private";
+    accountRef: string;
+  }) => void): void {
     this.inboundHandler = handler;
   }
 
-  ingestMessage(msg: { messageId: string; senderId: string; text: string }): void {
-    this.inboundHandler?.(msg);
+  ingestMessage(msg: {
+    messageId: string;
+    senderId: string;
+    text: string;
+    vendorTarget?: string;
+    chatType?: "private";
+    accountRef?: string;
+  }): void {
+    if (!this.accountRef) return;
+    this.inboundHandler?.({
+      messageId: msg.messageId,
+      senderId: msg.senderId,
+      text: msg.text,
+      vendorTarget: msg.vendorTarget || msg.senderId,
+      chatType: "private",
+      accountRef: msg.accountRef || this.accountRef,
+    });
   }
 
   health() {
@@ -99,6 +129,7 @@ export class WeComAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "wecom credentials missing");
     }
     this.connection = "connecting";
+    this.accountRef = creds.botId;
     try {
       this.client = this.factory ? this.factory(creds) : await createWeComWsClient(creds, (msg) => this.inboundHandler?.(msg));
       await this.client.connect();

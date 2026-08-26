@@ -3,14 +3,18 @@ import test from "node:test";
 import { PenglaiError } from "@penglai/contracts";
 import { recordAssertion } from "./assertion.js";
 import {
+  assertCommittedTemplateIdentity,
   assertIdentityMatchesGit,
+  assertObservedReleaseFacts,
   assertReleaseIdentity,
   assertTamperedHashRejected,
   assertUnfrozenClean,
+  bindCandidateIdentity,
   emptyIdentity,
 } from "./identity.js";
 import {
   CANDIDATE_KIND,
+  CANDIDATE_SOURCE_SHA_NONE,
   GENERATION_ID,
   PRODUCT_VERSION,
   RELEASE_TARGETS,
@@ -155,6 +159,58 @@ test("R50-TRUTH-008 publication fields match the owner-authorized public target"
     status: "PASS",
     candidateSourceSha: "e".repeat(40),
     exitCode: 0,
+  });
+});
+
+test("R50-PREP-008 committed template requires UNFROZEN and sourceSha=NONE", () => {
+  const template = emptyIdentity(CANDIDATE_SOURCE_SHA_NONE, false);
+  assertCommittedTemplateIdentity(template);
+  assert.equal(template.phase, "UNFROZEN");
+  assert.equal(template.sourceSha, "NONE");
+  assert.throws(
+    () => assertCommittedTemplateIdentity(emptyIdentity("a".repeat(40), false)),
+    /sourceSha=NONE/,
+  );
+  assert.throws(
+    () =>
+      assertCommittedTemplateIdentity({
+        ...emptyIdentity(CANDIDATE_SOURCE_SHA_NONE, false),
+        phase: "TARGET_BUILT",
+      }),
+    /UNFROZEN/,
+  );
+});
+
+test("R50-PREP-008 generated candidate identity must not remain UNFROZEN", () => {
+  const template = emptyIdentity(CANDIDATE_SOURCE_SHA_NONE, false);
+  const bound = bindCandidateIdentity(template, "a".repeat(40));
+  assert.equal(bound.phase, "TARGET_BUILT");
+  assert.notEqual(bound.phase, "UNFROZEN");
+  assert.equal(bound.sourceSha, "a".repeat(40));
+  assert.notEqual(bound.sourceSha, CANDIDATE_SOURCE_SHA_NONE);
+  assert.throws(() => bindCandidateIdentity(bound, "b".repeat(40)), /UNFROZEN/);
+});
+
+test("R50-PREP-008 observed public SHA bytes and digest require readback PASS", () => {
+  assertObservedReleaseFacts({ readbackStatus: "NOT_RUN" });
+  assertObservedReleaseFacts({ readbackStatus: "INCOMPLETE", sha: "pending public readback", bytes: "pending" });
+  assert.throws(
+    () => assertObservedReleaseFacts({ readbackStatus: "NOT_RUN", sha: "ab".repeat(32), bytes: 12 }),
+    /readback PASS/,
+  );
+  assert.throws(
+    () =>
+      assertObservedReleaseFacts({
+        readbackStatus: "FAIL",
+        digest: `sha256:${"cd".repeat(32)}`,
+      }),
+    /readback PASS/,
+  );
+  assertObservedReleaseFacts({
+    readbackStatus: "PASS",
+    sha: "ab".repeat(32),
+    bytes: 12,
+    digest: `sha256:${"cd".repeat(32)}`,
   });
 });
 
