@@ -5,7 +5,7 @@ Grok Build stop line: this PR is **draft**. Do not merge, do not create `v0.5.7`
 ## Identity
 
 - Base SHA: `3102135c6821a044fe4f9b50638c91ce9f5e9cd1` (`main`)
-- Head SHA: see branch tip after the Grok Build round-2 commits on `0.5.7`
+- Head SHA: `e55f22d2a66acb14267150e930fc38e1c8dd2bc5`
 - Base tag: `v0.5.6` at `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
 - Official DSH: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - npm `latest` and `next` at freeze: `0.1.1-rc.2`
