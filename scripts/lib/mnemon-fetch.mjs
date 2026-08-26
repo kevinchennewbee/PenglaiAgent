@@ -123,12 +123,54 @@ export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 4
   throw new Error("too many redirects");
 }
 
+function listZipEntries(archive) {
+  try {
+    return execFileSync("unzip", ["-Z", "-1", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch {
+    /* unzip is not on PATH on stock Windows GitHub images either; tar and Expand-Archive are */
+  }
+  try {
+    return execFileSync("tar", ["-tf", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch {
+    /* fall through */
+  }
+  if (process.platform === "win32") {
+    const listed = execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::OpenRead('${archive.replace(/'/g, "''")}').Entries.FullName`,
+      ],
+      { encoding: "utf8" },
+    );
+    return listed.split(/\r?\n/).filter(Boolean);
+  }
+  throw new Error("unzip missing for zip mnemon archive");
+}
+
 export function extractArchive(archive, extractDir, asset) {
   mkdirSync(extractDir, { recursive: true, mode: 0o700 });
   if (asset.archiveFilename.endsWith(".zip")) {
-    const names = execFileSync("unzip", ["-Z", "-1", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const names = listZipEntries(archive);
     for (const name of names) assertSafeArchiveEntry(name);
-    execFileSync("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
+    try {
+      execFileSync("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
+    } catch {
+      if (process.platform === "win32") {
+        execFileSync(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            `Expand-Archive -Force -Path '${archive.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}'`,
+          ],
+          { stdio: "ignore" },
+        );
+      } else {
+        execFileSync("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
+      }
+    }
   } else {
     const names = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const name of names) assertSafeArchiveEntry(name);
