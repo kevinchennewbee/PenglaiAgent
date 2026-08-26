@@ -33,7 +33,7 @@ Penglai Vault, Owner Broker, Artifact Service, routing-core, persistence;
 | `src/channels/shared/message-failure.mjs` | `@penglai/im` message-failure | rewrite | stable code + reference id + user-actionable copy; MIT if source is adapted |
 | `plugin-src/client/last-message-error.js` | Messaging card error row | reference | last failure on the platform card |
 | `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | rewrite | iLink `getconfig` + `sendtyping`; best-effort; never replace iLink |
-| `src/channels/qq/markdown-reply.mjs` @ v3.0.1 | `packages/channel-qq/src/markdown-reply.ts` | rewrite | C2C markdown hardening now inside v3.0.1 |
+| `src/channels/qq/markdown-reply.mjs` @ v3.0.1 | `packages/channel-qq/src/markdown-reply.ts` | rewrite | C2C markdown hardening now inside v3.0.1; fences, GFM tables, unique seq, Unicode-safe split, C2C passive quota of 4, fallback only on markdown rejection |
 | `src/channels/shared` reactions idea | `packages/im/src/reactions.ts` | rewrite | short timeout, serialized, idempotent; failure never blocks reply |
 | `src/channels/shared/status-reaction.mjs` | `@penglai/im` host + adapters | rewrite | processing/success/error wired through Slack/Telegram/Discord/WhatsApp/Feishu |
 | Slack Socket Mode reconnect | `packages/channel-slack` | rewrite | hello/disconnect ACK, backoff reconnect |

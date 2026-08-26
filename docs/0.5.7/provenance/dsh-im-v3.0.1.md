@@ -53,7 +53,7 @@ Changed source (not generated `lib/`):
 
 | Upstream | Penglai decision |
 |---|---|
-| `src/channels/qq/markdown-reply.mjs` | rewrite already in `packages/channel-qq/src/markdown-reply.ts` (fences, GFM tables, unique seq, fallback only on markdown rejection) |
+| `src/channels/qq/markdown-reply.mjs` | rewrite already in `packages/channel-qq/src/markdown-reply.ts` (fences, GFM tables, unique seq, Unicode-safe split, C2C passive quota of 4 plus continue notice, fallback only on markdown rejection) |
 | `src/channels/qq/qq-runtime.mjs` / `qq-bridge.mjs` | rewrite send path already uses markdown helper; harness-client remains forbidden |
 | `plugin-src/client/channels/telegram/styles.js` | **narrow principle only**: Messaging cards must not overflow; do not copy DSH-IM Web Host |
 | `plugin-src/client/styles.js` / `i18n.js` | **narrow principle only**: English copy on Penglai cards; do not copy DSH-IM UI |
