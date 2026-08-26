@@ -79,6 +79,11 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.match(src, /CREATE_SUSPENDED/);
   assert.match(src, /FILE_ATTRIBUTE_REPARSE_POINT/);
   assert.match(src, /SetEntriesInAclW\(3,/);
+  assert.match(src, /EqualSid\(existing_owner, user->User\.Sid\)/);
+  assert.match(
+    src,
+    /SetNamedSecurityInfoW\(\(LPWSTR\)path, SE_FILE_OBJECT,\s*DACL_SECURITY_INFORMATION \| PROTECTED_DACL_SECURITY_INFORMATION,\s*NULL, NULL, dacl, NULL\)/,
+  );
   assert.doesNotMatch(src, /grfAccessMode\s*=\s*DENY_ACCESS/);
 });
 

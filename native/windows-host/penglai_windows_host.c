@@ -152,21 +152,43 @@ static int path_under(const wchar_t *root, const wchar_t *candidate) {
   return b[la] == 0 || b[la] == L'\\';
 }
 
-static int apply_current_user_acl(const wchar_t *path) {
+static DWORD apply_current_user_acl(const wchar_t *path) {
   HANDLE token = NULL;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return 0;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return GetLastError();
   DWORD needed = 0;
   GetTokenInformation(token, TokenUser, NULL, 0, &needed);
   TOKEN_USER *user = (TOKEN_USER *)calloc(1, needed ? needed : 1);
-  int ok = 0;
+  DWORD result = ERROR_SUCCESS;
   EXPLICIT_ACCESS_W ea[3];
   PSID system = NULL;
   PSID admins = NULL;
+  PSID existing_owner = NULL;
+  PSECURITY_DESCRIPTOR owner_sd = NULL;
   PACL dacl = NULL;
   SID_IDENTIFIER_AUTHORITY nt = SECURITY_NT_AUTHORITY;
-  if (!user || !GetTokenInformation(token, TokenUser, user, needed, &needed)) goto done;
-  if (!AllocateAndInitializeSid(&nt, 1, SECURITY_LOCAL_SYSTEM_RID, 0, 0, 0, 0, 0, 0, 0, &system)) goto done;
-  if (!AllocateAndInitializeSid(&nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &admins)) goto done;
+  if (!user) {
+    result = ERROR_NOT_ENOUGH_MEMORY;
+    goto done;
+  }
+  if (!GetTokenInformation(token, TokenUser, user, needed, &needed)) {
+    result = GetLastError();
+    goto done;
+  }
+  result = GetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION,
+                                 &existing_owner, NULL, NULL, NULL, &owner_sd);
+  if (result != ERROR_SUCCESS) goto done;
+  if (!existing_owner || !EqualSid(existing_owner, user->User.Sid)) {
+    result = ERROR_INVALID_OWNER;
+    goto done;
+  }
+  if (!AllocateAndInitializeSid(&nt, 1, SECURITY_LOCAL_SYSTEM_RID, 0, 0, 0, 0, 0, 0, 0, &system)) {
+    result = GetLastError();
+    goto done;
+  }
+  if (!AllocateAndInitializeSid(&nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &admins)) {
+    result = GetLastError();
+    goto done;
+  }
   ZeroMemory(ea, sizeof(ea));
   ea[0].grfAccessPermissions = GENERIC_ALL;
   ea[0].grfAccessMode = SET_ACCESS;
@@ -189,20 +211,22 @@ static int apply_current_user_acl(const wchar_t *path) {
   /* A protected DACL containing only these three allow ACEs denies every
      omitted principal. Explicit DENY_ACCESS ACEs for Users or Everyone would
      also deny the current user because that user belongs to both groups. */
-  if (SetEntriesInAclW(3, ea, NULL, &dacl) != ERROR_SUCCESS) goto done;
-  if (SetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT,
-                            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-                            user->User.Sid, NULL, dacl, NULL) != ERROR_SUCCESS) {
+  result = SetEntriesInAclW(3, ea, NULL, &dacl);
+  if (result != ERROR_SUCCESS) goto done;
+  result = SetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT,
+                                 DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                                 NULL, NULL, dacl, NULL);
+  if (result != ERROR_SUCCESS) {
     goto done;
   }
-  ok = 1;
 done:
   if (dacl) LocalFree(dacl);
   if (system) FreeSid(system);
   if (admins) FreeSid(admins);
+  if (owner_sd) LocalFree(owner_sd);
   free(user);
   if (token) CloseHandle(token);
-  return ok;
+  return result;
 }
 
 static ULONGLONG filetime_ms(const FILETIME *ft) {
@@ -297,7 +321,11 @@ static int cmd_acl_apply(const char *path_utf8) {
   wchar_t *path = utf8_to_wide(path_utf8);
   if (!path) fail("utf16");
   if (has_reparse(path) == 1) fail("reparse");
-  if (!apply_current_user_acl(path)) win_fail("SetNamedSecurityInfoW");
+  DWORD acl_result = apply_current_user_acl(path);
+  if (acl_result != ERROR_SUCCESS) {
+    SetLastError(acl_result);
+    win_fail("SetNamedSecurityInfoW");
+  }
   char *owner = owner_sid_for_path(path);
   fputs("{\"ok\":true,\"command\":\"acl-apply\",\"applied\":true,\"owner\":", stdout);
   json_escape(stdout, owner ? owner : "");
