@@ -6,6 +6,10 @@ export const IM_OWNER_ACTIONS = {
   rebind: "im.rebind",
   remove: "im.remove",
   enableGroup: "im.enableGroup",
+  saveCredentials: "im.saveCredentials",
+  deleteCredentials: "im.deleteCredentials",
+  logout: "im.logout",
+  acknowledgeRisk: "im.acknowledgeRisk",
 } as const;
 
 export type ImOwnerAction = (typeof IM_OWNER_ACTIONS)[keyof typeof IM_OWNER_ACTIONS];

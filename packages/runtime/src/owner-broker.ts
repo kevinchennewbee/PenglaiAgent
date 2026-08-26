@@ -30,6 +30,10 @@ export const OWNER_ACTIONS = [
   "im.rebind",
   "im.remove",
   "im.enableGroup",
+  "im.saveCredentials",
+  "im.deleteCredentials",
+  "im.logout",
+  "im.acknowledgeRisk",
   "companion.enable",
   "budget.set-policy",
 ] as const;

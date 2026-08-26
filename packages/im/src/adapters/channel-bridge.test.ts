@@ -59,3 +59,30 @@ test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async ()
   assert.notEqual(event.peerRef, "U1");
   assert.equal(event.peerRef.length, 64);
 });
+
+test("wrapNative keeps enable separate from transport connected", async () => {
+  const native = {
+    async beginConnection() {
+      return { kind: "token" as const, live: false as const, operationId: "op" };
+    },
+    async pollConnection() {
+      return { status: "connected" };
+    },
+    health() {
+      return { channel: "slack" as const, live: false, enabled: true, connection: "connected" };
+    },
+    async sendText() {
+      return { delivered: true as const };
+    },
+    async disconnect() {},
+  };
+  const adapter = wrapNative("slack", native, { hashPeer: (senderId) => senderId });
+  assert.equal((await adapter.health()).enabled, false);
+  assert.equal((await adapter.health()).connection, "disabled");
+  await adapter.enable();
+  assert.equal((await adapter.health()).enabled, true);
+  assert.equal((await adapter.health()).connection, "connected");
+  await adapter.disable();
+  assert.equal((await adapter.health()).enabled, false);
+  assert.equal((await adapter.health()).connection, "disabled");
+});

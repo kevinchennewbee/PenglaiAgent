@@ -51,6 +51,7 @@ import {
   imBindingObjectId,
   imSourceDigest,
   requireImActionId,
+  type ImOwnerAction,
   type ImOwnerBrokerPort,
 } from "./owner.js";
 
@@ -166,7 +167,7 @@ export class PenglaiImHost {
   }
 
   proposeBinding(input: {
-    action: "im.bind" | "im.rebind" | "im.remove" | "im.enableGroup";
+    action: ImOwnerAction;
     objectId: string;
     workspaceId?: string;
     sessionId?: string;
@@ -900,17 +901,29 @@ export class PenglaiImHost {
     });
   }
 
-  async storeChannelSecret(input: { channel: string; secret: string }): Promise<{ stored: true }> {
+  async storeChannelSecret(input: {
+    channel: string;
+    secret: string;
+    ownerActionId?: string;
+    receipt?: string;
+  }): Promise<{ stored: true }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
     const secret = input.secret.trim();
     if (!secret || secret.length > 8_192) throw new PenglaiError("INVALID_INPUT", "CHANNEL_SECRET");
+    const finishOwnerAction = this.consumeChannelOwner({
+      action: IM_OWNER_ACTIONS.saveCredentials,
+      channel: id,
+      ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
     const ref = CHANNEL_CREDENTIAL_REFS[id];
     assertOfficialCredentialRef(ref);
     const serialized = serializeChannelSecret(id, secret);
     await this.vault.write(ref, serialized);
     this.secretHydrator?.(id, serialized);
     this.revision += 1;
+    finishOwnerAction();
     return { stored: true };
   }
 
@@ -919,10 +932,21 @@ export class PenglaiImHost {
     method: string;
     riskAck?: boolean;
     secret?: string;
+    ownerActionId?: string;
+    receipt?: string;
+    riskOwnerActionId?: string;
+    riskReceipt?: string;
   }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
-    if (input.secret) await this.storeChannelSecret({ channel: id, secret: input.secret });
+    if (input.secret) {
+      await this.storeChannelSecret({
+        channel: id,
+        secret: input.secret,
+        ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+        ...(input.receipt ? { receipt: input.receipt } : {}),
+      });
+    }
     const guided = beginGuidedConnection({
       channel: id,
       method: input.method,
@@ -940,11 +964,20 @@ export class PenglaiImHost {
       this.recordChannelFailure(id, channelConfigAccountId(id), error);
       throw error;
     }
+    const finishRisk = id === "whatsapp" && input.riskAck
+      ? this.consumeChannelOwner({
+          action: IM_OWNER_ACTIONS.acknowledgeRisk,
+          channel: id,
+          ...(input.riskOwnerActionId ? { ownerActionId: input.riskOwnerActionId } : {}),
+          ...(input.riskReceipt ? { receipt: input.riskReceipt } : {}),
+        })
+      : () => undefined;
     this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
       riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
       riskAckAt: Date.now(),
     } : undefined);
     this.revision += 1;
+    finishRisk();
     const qrImageRef = await encodePeekedQr(adapter.peekQr?.(result.operationId));
     return {
       ...result,
@@ -1007,9 +1040,19 @@ export class PenglaiImHost {
     return { disconnected: true };
   }
 
-  async logoutChannel(input: { channel: string }): Promise<{ loggedOut: true }> {
+  async logoutChannel(input: {
+    channel: string;
+    ownerActionId?: string;
+    receipt?: string;
+  }): Promise<{ loggedOut: true }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    const finishOwnerAction = this.consumeChannelOwner({
+      action: IM_OWNER_ACTIONS.logout,
+      channel: id,
+      ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
     const adapter = requireAdapter(this.adapters, id);
     await adapter.logout();
     await adapter.deleteCredentials();
@@ -1017,6 +1060,7 @@ export class PenglaiImHost {
     if (id === "whatsapp") await this.vault.delete(WHATSAPP_DATAKEY_REF);
     this.persistChannelFlag(id, false);
     this.revision += 1;
+    finishOwnerAction();
     return { loggedOut: true };
   }
 
@@ -1164,6 +1208,23 @@ export class PenglaiImHost {
     if (kind === "success") handle.success();
     else handle.error();
     this.statusReactions.delete(inbound.adapterMessageKey);
+  }
+
+  private consumeChannelOwner(input: {
+    action: ImOwnerAction;
+    channel: ChannelId;
+    ownerActionId?: string;
+    receipt?: string;
+  }): () => void {
+    if (!this.owner) return () => undefined;
+    if (!input.ownerActionId) throw new PenglaiError("SECURITY_POLICY", "IM_OWNER_ACTION");
+    return consumeImOwnerProof(this.owner, {
+      action: input.action,
+      actionId: input.ownerActionId,
+      objectId: input.channel,
+      resultDigest: imSourceDigest({ action: input.action, objectId: input.channel }),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
   }
 
   private persistChannelFlag(channel: ChannelId, enabled: boolean, extra?: Record<string, unknown>): void {

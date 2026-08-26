@@ -4,6 +4,10 @@ const DEFAULT_LIMIT = 4_500;
 const MARKDOWN_REJECTION_CODES = new Set([40_034_090]);
 const CODE_FENCE_OPEN = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const GFM_TABLE_LINE = /^\|.+\|$/;
+/** DSH-IM v3.0.1 C2C passive-reply quota. Penglai is private-only, so no group quota. */
+export const QQ_C2C_PASSIVE_REPLY_LIMIT = 4;
+export const QQ_PARTIAL_REPLY_NOTICE =
+  "回答较长，后续内容未能通过 QQ 完整发送，请回复“继续”。";
 
 export interface MarkdownChunk {
   markdown: string;
@@ -35,6 +39,27 @@ function closesFence(line: string, opening: { delimiter: string }): boolean {
   );
 }
 
+export function safeSliceIndex(value: string, limit: number): number {
+  let index = Math.min(limit, value.length);
+  const before = value.charCodeAt(index - 1);
+  const after = value.charCodeAt(index);
+  if (before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff) {
+    index -= 1;
+  }
+  return Math.max(1, index);
+}
+
+export function applyC2cPassiveQuota(
+  chunks: string[],
+  limit = QQ_C2C_PASSIVE_REPLY_LIMIT,
+): { chunks: string[]; truncated: boolean } {
+  if (chunks.length <= limit) return { chunks, truncated: false };
+  return {
+    chunks: [...chunks.slice(0, Math.max(0, limit - 1)), QQ_PARTIAL_REPLY_NOTICE],
+    truncated: true,
+  };
+}
+
 export function chunkMarkdownText(text: string, limit = DEFAULT_LIMIT): string[] {
   if (text.length <= limit) return [text];
   const lines = text.split("\n");
@@ -64,13 +89,30 @@ export function chunkMarkdownText(text: string, limit = DEFAULT_LIMIT): string[]
     else if (table && line.trim() === "") table = false;
     if (!current || candidate.length <= limit || fence || table) {
       pushLine(line);
+      if (!fence && !table) {
+        while (current.length > limit) {
+          const index = safeSliceIndex(current, limit);
+          chunks.push(current.slice(0, index));
+          current = current.slice(index);
+        }
+      }
       continue;
     }
     flush();
+    if (line.length > limit) {
+      let remaining = line;
+      while (remaining.length > limit) {
+        const index = safeSliceIndex(remaining, limit);
+        chunks.push(remaining.slice(0, index));
+        remaining = remaining.slice(index);
+      }
+      current = remaining;
+      continue;
+    }
     pushLine(line);
   }
   flush();
-  return chunks.length ? chunks : [text.slice(0, limit)];
+  return chunks.length ? chunks : [text.slice(0, safeSliceIndex(text, limit))];
 }
 
 export function nextMessageSeq(previous: number): number {

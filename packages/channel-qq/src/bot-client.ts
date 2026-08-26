@@ -1,6 +1,13 @@
 import { PenglaiError } from "@penglai/contracts";
 import type { QqClient, QqCredentials } from "./index.js";
-import { chunkMarkdownText, isMarkdownRejection, markdownPayload, nextMessageSeq, plainPayload } from "./markdown-reply.js";
+import {
+  applyC2cPassiveQuota,
+  chunkMarkdownText,
+  isMarkdownRejection,
+  markdownPayload,
+  nextMessageSeq,
+  plainPayload,
+} from "./markdown-reply.js";
 
 export async function createQqBotClient(
   creds: QqCredentials,
@@ -71,7 +78,8 @@ export async function createQqBotClient(
         throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:qq");
       }
       let deliveredMarkdown = false;
-      for (const chunk of chunkMarkdownText(text)) {
+      const quota = applyC2cPassiveQuota(chunkMarkdownText(text));
+      for (const chunk of quota.chunks) {
         const seq = nextMessageSeq(lastSeq);
         lastSeq = seq;
         const markdown = { ...markdownPayload(chunk, seq), target: peer };

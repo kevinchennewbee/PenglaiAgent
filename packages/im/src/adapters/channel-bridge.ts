@@ -75,14 +75,19 @@ export function wrapNative(
     if (!event || event.chatType !== "private" || !event.provenPrivate) return;
     inbound?.(event);
   });
+  let enabled = false;
   return {
     id,
     manifest: () => manifest,
-    async enable() {},
+    async enable() {
+      enabled = true;
+    },
     async disable() {
+      enabled = false;
       await adapter.disconnect();
     },
     async beginConnection(input) {
+      enabled = true;
       const begun = await adapter.beginConnection(input);
       if (begun.kind === "qr") {
         return { kind: "qr", live: false, operationId: begun.operationId, expiresAt: begun.expiresAt ?? Date.now() + 120_000 };
@@ -98,7 +103,9 @@ export function wrapNative(
     async cancelConnection() {
       await adapter.disconnect();
     },
-    async start() {},
+    async start() {
+      if (!enabled) throw new PenglaiError("SECURITY_POLICY", "CHANNEL_DISABLED");
+    },
     async stop() {
       await adapter.disconnect();
     },
@@ -107,8 +114,8 @@ export function wrapNative(
       return {
         channel: id,
         live: false,
-        enabled: row.enabled ?? row.connection !== "disabled",
-        connection: row.connection as ConnectionState,
+        enabled,
+        connection: enabled ? (row.connection as ConnectionState) : "disabled",
       };
     },
     sendText: (input) => adapter.sendText(input),
