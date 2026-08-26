@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -23,7 +23,7 @@ test("resolvePackageMetadata reads exports-only packages from workspace node_mod
   const found = resolvePackageMetadata("exports-only-pkg", resolver, join(root, "packages", "unused"), root);
   assert.equal(found.metadata.name, "exports-only-pkg");
   assert.equal(found.metadata.version, "1.2.3");
-  assert.equal(found.root, pkgDir);
+  assert.equal(found.root, realpathSync(pkgDir));
 });
 
 test("resolvePackageMetadata finds workspace packages that are not hoisted", () => {
@@ -37,5 +37,5 @@ test("resolvePackageMetadata finds workspace packages that are not hoisted", () 
   const found = resolvePackageMetadata("image-size", { resolve() { throw new Error("no resolve"); } }, join(root, "missing"), root);
   assert.equal(found.metadata.name, "image-size");
   assert.equal(found.metadata.version, "0.5.7");
-  assert.equal(found.root, pkgDir);
+  assert.equal(found.root, realpathSync(pkgDir));
 });
