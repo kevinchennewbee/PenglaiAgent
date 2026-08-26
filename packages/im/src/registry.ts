@@ -91,7 +91,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://open.dingtalk.com/",
   }),
   wecom: manifest({
@@ -103,7 +103,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://developer.work.weixin.qq.com/",
   }),
   qq: manifest({
@@ -115,7 +115,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://bot.q.qq.com/",
   }),
   slack: manifest({
@@ -127,7 +127,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://api.slack.com/authentication/oauth-v2",
   }),
   telegram: manifest({
@@ -139,7 +139,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://core.telegram.org/bots/tutorial",
   }),
   discord: manifest({
@@ -151,7 +151,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://discord.com/developers/docs/quick-start/getting-started",
   }),
   whatsapp: manifest({
@@ -163,7 +163,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     risk: "community-protocol",
     supportLevel: "experimental",
     defaultEnabled: false,
-    live: false,
+    live: true,
     docsUrl: "https://developers.facebook.com/docs/whatsapp",
   }),
 };

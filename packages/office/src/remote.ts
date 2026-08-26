@@ -29,6 +29,9 @@ export function createOfficeRemoteApi(impl: ReturnType<typeof createOfficeServic
     health() {
       return { name: impl.name, version: impl.version, healthy: true, ...impl.status() };
     },
+    templates() {
+      return impl.templates();
+    },
     async inspect(input: { bytesBase64: string }) {
       const seen = await impl.inspect(bytesFromBase64(input.bytesBase64));
       return { format: seen.format, text: seen.text, parts: seen.parts, warnings: seen.warnings };
@@ -86,6 +89,11 @@ export class PenglaiOfficeRemote extends TypertRemoteService {
   }
 
   @Remote
+  templates() {
+    return createOfficeRemoteApi(this.impl).templates();
+  }
+
+  @Remote
   inspect(input: { bytesBase64: string }) {
     return createOfficeRemoteApi(this.impl).inspect(input);
   }
@@ -118,5 +126,5 @@ export class PenglaiOfficeRemote extends TypertRemoteService {
 
 export const TYPERT_REMOTE = {
   package: "@penglai/office",
-  descriptors: ["health", "inspect", "create", "edit", "preview", "approve", "commit"],
+  descriptors: ["health", "templates", "inspect", "create", "edit", "preview", "approve", "commit"],
 };

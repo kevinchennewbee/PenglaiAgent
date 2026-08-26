@@ -78,7 +78,7 @@ export interface ChannelAdapter {
   disconnect(): Promise<void>;
   logout(): Promise<void>;
   deleteCredentials(): Promise<void>;
-  onInbound(handler: (event: InboundChannelEvent) => void): void;
+  onInbound(handler: (event: InboundChannelEvent) => void | Promise<void>): void;
   capabilities(): ChannelManifestV1["capabilities"];
   peekQr?(operationId: string): { verificationUrl?: string; qrPayload?: string; qrImageRef?: string; expiresAt?: number } | undefined;
   react?(input: {
@@ -114,7 +114,7 @@ export function connectionResultForMethod(id: ChannelId, method: string): Connec
 export function guidedAdapter(id: ChannelId): ChannelAdapter {
   let enabled = false;
   let connection: ConnectionState = "disabled";
-  let inbound: ((event: InboundChannelEvent) => void) | undefined;
+  let inbound: ((event: InboundChannelEvent) => void | Promise<void>) | undefined;
   const manifest = CHANNEL_MANIFESTS[id];
   return {
     id,

@@ -35,6 +35,8 @@ export const OWNER_ACTIONS = [
   "im.logout",
   "im.acknowledgeRisk",
   "companion.enable",
+  "companion.disable",
+  "companion.schedule-reminder",
   "budget.set-policy",
 ] as const;
 

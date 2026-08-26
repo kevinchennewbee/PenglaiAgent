@@ -24,7 +24,7 @@ export class TelegramAdapter {
   private token: string | undefined;
   webhookConflict = false;
   private offset = 0;
-  private inboundHandler?: (msg: TelegramInbound) => void;
+  private inboundHandler?: (msg: TelegramInbound) => void | Promise<void>;
   private offsetPersist?: (offset: number) => void;
 
   constructor(
@@ -40,21 +40,25 @@ export class TelegramAdapter {
       throw new PenglaiError("AUTH_EXPIRED", "telegram credentials missing");
     }
     this.connection = "connecting";
-    const me = await this.fetchImpl(`https://api.telegram.org/bot${creds.token}/getMe`, {
+    const me = await this.fetchApi(creds.token, "getMe", {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const meBody = (await me.json()) as { ok?: boolean; result?: { id?: number } };
-    if (!meBody.ok) {
+    const meBody = await readTelegramJson<{ ok?: boolean; result?: { id?: number } }>(me);
+    if (!me.ok || !meBody.ok) {
       this.connection = "failed";
       throw new PenglaiError("AUTH_EXPIRED", "TELEGRAM_TOKEN_INVALID");
     }
     this.accountRef = meBody.result?.id != null ? String(meBody.result.id) : undefined;
-    const webhook = await this.fetchImpl(`https://api.telegram.org/bot${creds.token}/getWebhookInfo`, {
+    const webhook = await this.fetchApi(creds.token, "getWebhookInfo", {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    const hookBody = (await webhook.json()) as { ok?: boolean; result?: { url?: string } };
+    const hookBody = await readTelegramJson<{ ok?: boolean; result?: { url?: string } }>(webhook);
+    if (!webhook.ok || !hookBody.ok) {
+      this.connection = "failed";
+      throw new PenglaiError("AUTH_EXPIRED", "TELEGRAM_WEBHOOK_INFO_FAILED");
+    }
     this.webhookConflict = Boolean(hookBody.result?.url);
     if (this.webhookConflict) {
       this.connection = "failed";
@@ -70,7 +74,7 @@ export class TelegramAdapter {
     return { status: this.connection };
   }
 
-  onInbound(handler: (msg: TelegramInbound) => void): void {
+  onInbound(handler: (msg: TelegramInbound) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
@@ -78,25 +82,30 @@ export class TelegramAdapter {
     this.offsetPersist = handler;
   }
 
-  ingestUpdate(update: {
+  async ingestUpdate(update: {
     update_id?: number;
     message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
-  }): void {
-    if (update.update_id !== undefined) {
-      this.offset = Math.max(this.offset, update.update_id + 1);
+  }): Promise<void> {
+    const nextOffset = update.update_id === undefined
+      ? this.offset
+      : Math.max(this.offset, update.update_id + 1);
+    const msg = update.message;
+    if (msg?.text && msg.chat?.type === "private" && msg.message_id != null && msg.from?.id != null && msg.chat?.id != null && this.accountRef) {
+      await this.inboundHandler?.({
+        messageId: String(msg.message_id),
+        senderId: String(msg.from.id),
+        chatId: String(msg.chat.id),
+        text: msg.text,
+        chatType: "private",
+        accountRef: this.accountRef,
+      });
+    }
+    // Telegram's offset is its delivery acknowledgement. Advance it only after
+    // Penglai's inbound path has durably accepted a private message.
+    if (nextOffset !== this.offset) {
+      this.offset = nextOffset;
       this.offsetPersist?.(this.offset);
     }
-    const msg = update.message;
-    if (!msg?.text || msg.chat?.type !== "private") return;
-    if (msg.message_id == null || msg.from?.id == null || msg.chat?.id == null || !this.accountRef) return;
-    this.inboundHandler?.({
-      messageId: String(msg.message_id),
-      senderId: String(msg.from.id),
-      chatId: String(msg.chat.id),
-      text: msg.text,
-      chatType: "private",
-      accountRef: this.accountRef,
-    });
   }
 
   getUpdateOffset(): number {
@@ -134,14 +143,14 @@ export class TelegramAdapter {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:telegram");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "TELEGRAM_REPLY_TARGET");
-    const response = await this.fetchImpl(`https://api.telegram.org/bot${this.token}/sendMessage`, {
+    const response = await this.fetchApi(this.token, "sendMessage", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ chat_id: input.peerRef, text: input.text }),
       redirect: "error",
     });
-    const body = (await response.json()) as { ok?: boolean };
-    if (!body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_SEND_FAILED");
+    const body = await readTelegramJson<{ ok?: boolean }>(response);
+    if (!response.ok || !body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_SEND_FAILED");
     return { delivered: true };
   }
 
@@ -155,7 +164,7 @@ export class TelegramAdapter {
     if (!this.token || !input.vendorTarget || !input.vendorMessageId) return;
     const messageId = Number(input.vendorMessageId);
     if (!Number.isSafeInteger(messageId)) return;
-    await this.fetchImpl(`https://api.telegram.org/bot${this.token}/setMessageReaction`, {
+    const response = await this.fetchApi(this.token, "setMessageReaction", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -166,6 +175,8 @@ export class TelegramAdapter {
       redirect: "error",
       signal: input.signal,
     });
+    const body = await readTelegramJson<{ ok?: boolean }>(response);
+    if (!response.ok || !body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_REACTION_FAILED");
   }
 
   async disconnect(): Promise<void> {
@@ -182,13 +193,18 @@ export class TelegramAdapter {
     this.pollAbort = new AbortController();
     const signal = this.pollAbort.signal;
     const loop = async () => {
+      let consecutiveFailures = 0;
       while (!signal.aborted && this.token) {
         try {
           await this.pollOnce(signal);
+          consecutiveFailures = 0;
+          this.connection = "connected";
         } catch (error) {
           if (signal.aborted) return;
+          consecutiveFailures += 1;
+          if (consecutiveFailures >= 3) this.connection = "failed";
           const retryAfter = retryAfterMs(error);
-          await new Promise((resolve) => setTimeout(resolve, retryAfter ?? 2_000 + Math.floor(Math.random() * 1_000)));
+          await abortableDelay(retryAfter ?? 2_000 + Math.floor(Math.random() * 1_000), signal);
         }
       }
     };
@@ -197,9 +213,11 @@ export class TelegramAdapter {
 
   private async pollOnce(signal: AbortSignal): Promise<void> {
     if (!this.token) return;
-    const response = await this.fetchImpl(
-      `https://api.telegram.org/bot${this.token}/getUpdates?timeout=25&offset=${this.offset}&allowed_updates=${encodeURIComponent('["message"]')}`,
+    const response = await this.fetchApi(
+      this.token,
+      "getUpdates",
       { redirect: "error", signal },
+      new URLSearchParams({ timeout: "25", offset: String(this.offset), allowed_updates: '["message"]' }),
     );
     if (response.status === 429) {
       const wait = Number(response.headers.get("retry-after") ?? "1");
@@ -207,16 +225,63 @@ export class TelegramAdapter {
         retryAfterMs: Math.min(60_000, Math.max(1_000, wait * 1000)),
       });
     }
-    const body = (await response.json()) as {
+    const body = await readTelegramJson<{
       ok?: boolean;
       result?: Array<{
         update_id?: number;
         message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
       }>;
-    };
-    if (!body.ok || !Array.isArray(body.result)) return;
-    for (const update of body.result) this.ingestUpdate(update);
+    }>(response);
+    if (!response.ok || !body.ok || !Array.isArray(body.result)) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_POLL_FAILED");
+    }
+    for (const update of body.result) await this.ingestUpdate(update);
   }
+
+  private async fetchApi(
+    token: string,
+    method: string,
+    init: RequestInit,
+    query?: URLSearchParams,
+  ): Promise<Response> {
+    const suffix = query ? `?${query.toString()}` : "";
+    try {
+      return await this.fetchImpl(`https://api.telegram.org/bot${token}/${method}${suffix}`, init);
+    } catch (error) {
+      if (init.signal?.aborted) throw error;
+      // Never propagate a fetch implementation error that may contain the URL
+      // because Telegram embeds the bot token in the request path.
+      throw new PenglaiError("DELIVERY_TRANSIENT", `TELEGRAM_${method.toUpperCase()}_NETWORK`);
+    }
+  }
+}
+
+async function readTelegramJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > 1024 * 1024) {
+    throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_RESPONSE_TOO_LARGE");
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_RESPONSE_INVALID");
+  }
+}
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done() {
+      signal.removeEventListener("abort", aborted);
+      resolve();
+    }
+    function aborted() {
+      clearTimeout(timer);
+      done();
+    }
+    signal.addEventListener("abort", aborted, { once: true });
+  });
 }
 
 function retryAfterMs(error: unknown): number | undefined {

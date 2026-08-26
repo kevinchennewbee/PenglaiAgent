@@ -137,11 +137,19 @@ test("office return sends bytes only to the route captured on the attached handl
   await assert.rejects(() => svc.approve(local.id, "return-to-channel"), /no original IM route/);
 });
 
-test("atomic commit refuses parent symlink and destination symlink", () => {
+test("atomic commit refuses parent symlink and destination symlink", (t) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-office-toctou-"));
   const outside = mkdtempSync(join(tmpdir(), "penglai-office-escape-"));
   const parentLink = join(root, "linked");
-  symlinkSync(outside, parentLink);
+  try {
+    symlinkSync(outside, parentLink);
+  } catch (error) {
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+      t.skip("Windows account cannot create symlinks without Developer Mode or elevated privilege");
+      return;
+    }
+    throw error;
+  }
   assert.throws(() => assertTrustedWorkspacePath(join(parentLink, "a.docx"), root), /symlink/i);
   const dest = join(root, "note.docx");
   writeFileSync(dest, "x");

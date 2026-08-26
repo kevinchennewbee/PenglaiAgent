@@ -25,7 +25,7 @@ export class SlackAdapter {
   connection: SlackConnection = "not_configured";
   accountRef: string | undefined;
   private creds: SlackCredentials | undefined;
-  private inboundHandler?: (msg: SlackInbound) => void;
+  private inboundHandler?: (msg: SlackInbound) => void | Promise<void>;
 
   private socket: { close(): void } | undefined;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -37,7 +37,7 @@ export class SlackAdapter {
     private readonly vault: { resolve(ref: string): SlackCredentials | undefined },
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
     private readonly sockets?: {
-      open(url: string, onEvent: (event: Record<string, unknown>) => void): { close(): void };
+      open(url: string, onEvent: (event: Record<string, unknown>) => void): { close(): void; send?(data: string): void; readyState?: number };
     },
   ) {}
 
@@ -55,6 +55,10 @@ export class SlackAdapter {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
+    if (!response.ok) {
+      this.connection = "failed";
+      throw new PenglaiError("AUTH_EXPIRED", "SLACK_TOKEN_INVALID");
+    }
     const body = (await response.json()) as { ok?: boolean; user_id?: string; bot_id?: string };
     if (!body.ok) {
       this.connection = "failed";
@@ -80,11 +84,11 @@ export class SlackAdapter {
     return { status: this.connection };
   }
 
-  onInbound(handler: (msg: SlackInbound) => void): void {
+  onInbound(handler: (msg: SlackInbound) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
-  ingestEvent(event: {
+  async ingestEvent(event: {
     type?: string;
     user?: string;
     text?: string;
@@ -93,7 +97,7 @@ export class SlackAdapter {
     channel_type?: string;
     thread_ts?: string;
     bot_id?: string;
-  }): void {
+  }): Promise<void> {
     if (event.bot_id || (event.type && event.type !== "message") || !event.text) return;
     if (event.thread_ts) return;
     if (event.channel_type !== "im") return;
@@ -101,7 +105,7 @@ export class SlackAdapter {
     const messageId = String(event.ts ?? "").trim();
     const senderId = String(event.user ?? "").trim();
     if (!this.accountRef || !channel || !messageId || !senderId) return;
-    this.inboundHandler?.({
+    await this.inboundHandler?.({
       messageId,
       senderId,
       channelId: channel,
@@ -119,6 +123,7 @@ export class SlackAdapter {
     if (this.connection !== "connected" || !this.creds) {
       throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:slack");
     }
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "SLACK_REPLY_TARGET");
     const response = await this.fetchImpl("https://slack.com/api/chat.postMessage", {
       method: "POST",
       headers: {
@@ -129,7 +134,7 @@ export class SlackAdapter {
       redirect: "error",
     });
     const body = (await response.json()) as { ok?: boolean };
-    if (!body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SEND_FAILED");
+    if (!response.ok || !body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SEND_FAILED");
     return { delivered: true };
   }
 
@@ -142,7 +147,7 @@ export class SlackAdapter {
   }): Promise<void> {
     if (!this.creds?.botToken || !input.vendorTarget || !input.vendorMessageId || !input.emoji) return;
     const endpoint = input.action === "add" ? "reactions.add" : "reactions.remove";
-    await this.fetchImpl(`https://slack.com/api/${endpoint}`, {
+    const response = await this.fetchImpl(`https://slack.com/api/${endpoint}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${this.creds.botToken}`,
@@ -152,6 +157,9 @@ export class SlackAdapter {
       redirect: "error",
       signal: input.signal,
     });
+    if (!response.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_REACTION_FAILED");
+    const body = (await response.json()) as { ok?: boolean };
+    if (!body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_REACTION_FAILED");
   }
 
   async disconnect(): Promise<void> {
@@ -186,10 +194,10 @@ export class SlackAdapter {
       signal: AbortSignal.timeout(10_000),
     });
     const body = (await response.json()) as { ok?: boolean; url?: string };
-    if (!body.ok || !body.url || !body.url.startsWith("wss://")) {
+    if (!body.ok || !body.url || !validSlackSocketUrl(body.url)) {
       throw new PenglaiError("AUTH_EXPIRED", "SLACK_SOCKET_OPEN");
     }
-    const onEvent = (event: Record<string, unknown>, socket?: { send(data: string): void; close(): void; readyState?: number }) => {
+    const onEvent = async (event: Record<string, unknown>, socket?: { send?(data: string): void; close(): void; readyState?: number }) => {
       if (event.type === "hello") {
         this.reconnectAttempt = 0;
         this.helloSeen = true;
@@ -200,18 +208,24 @@ export class SlackAdapter {
         socket?.close();
         return;
       }
-      if (event.envelope_id && socket && (socket.readyState === undefined || socket.readyState === 1)) {
-        socket.send(JSON.stringify({ envelope_id: event.envelope_id }));
-      }
       if (event.type === "events_api") {
         const inner = (event.payload ?? event) as {
           event?: { type?: string; user?: string; text?: string; channel?: string; ts?: string; channel_type?: string; bot_id?: string };
         };
-        if (inner.event) this.ingestEvent(inner.event);
+        if (inner.event) await this.ingestEvent(inner.event);
+      }
+      // Socket Mode ACK is a delivery acknowledgement. Send it only after the
+      // message has crossed Penglai's durable inbound boundary.
+      if (event.envelope_id && socket?.send && (socket.readyState === undefined || socket.readyState === 1)) {
+        socket.send(JSON.stringify({ envelope_id: event.envelope_id }));
       }
     };
     if (this.sockets) {
-      this.socket = this.sockets.open(body.url, (event) => onEvent(event));
+      let opened: { close(): void; send?(data: string): void; readyState?: number } | undefined;
+      opened = this.sockets.open(body.url, (event) => {
+        void onEvent(event, opened).catch(() => undefined);
+      });
+      this.socket = opened;
       return;
     }
     const ws = new WebSocket(body.url);
@@ -228,7 +242,7 @@ export class SlackAdapter {
       ws.addEventListener("message", (ev) => {
         try {
           const parsed = JSON.parse(String((ev as MessageEvent).data)) as Record<string, unknown>;
-          onEvent(parsed, ws);
+          void onEvent(parsed, ws).catch(() => undefined);
           if (parsed.type === "hello") finish();
         } catch {
           /* ignore malformed */
@@ -261,5 +275,20 @@ export class SlackAdapter {
         });
     }, delay);
     this.reconnectTimer.unref?.();
+  }
+}
+
+function validSlackSocketUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === "wss:" &&
+      url.username === "" &&
+      url.password === "" &&
+      (url.port === "" || url.port === "443") &&
+      (url.hostname === "slack.com" || url.hostname.endsWith(".slack.com"))
+    );
+  } catch {
+    return false;
   }
 }

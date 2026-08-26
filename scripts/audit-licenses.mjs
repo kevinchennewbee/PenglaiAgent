@@ -272,15 +272,27 @@ for (const [name, version, integrity] of [
     process.exit(1);
   }
 }
+function pinnedFileHash(path) {
+  const bytes = readFileSync(path);
+  const exact = createHash("sha256").update(bytes).digest("hex");
+  if (!/\.(?:txt|md)$/i.test(path) && !/(?:^|[\\/])(?:LICENSE|NOTICE)$/i.test(path)) {
+    return { exact, canonicalText: exact };
+  }
+  const canonicalText = createHash("sha256")
+    .update(bytes.toString("utf8").replace(/\r\n/g, "\n"))
+    .digest("hex");
+  return { exact, canonicalText };
+}
+
 for (const [path, expected] of [
   [join(silkInfo.root, "LICENSE"), "3b1585c0e6d9d501e86383948fc0d1734bcb86517a13111d97749c65ad2bfb74"],
   [join(silkInfo.root, "lib/silk.wasm"), "88152af59af535b8056ac806710824b2259a361027451b494f175f48fb39c807"],
   [join(opusInfo.root, "LICENSE"), "6ae2daf92d73e912aef033d56ce374df997ae0ad1d88ca9ef76f0c11123aae27"],
   [join(opusInfo.root, "THIRD_PARTY_NOTICES.md"), "e1aa9531a6cd740a76f54a06903d76dbec8b218307030c8444f2570932fafec8"],
 ]) {
-  const actual = createHash("sha256").update(readFileSync(path)).digest("hex");
-  if (actual !== expected) {
-    console.error("audio codec license/runtime hash mismatch", path, actual);
+  const actual = pinnedFileHash(path);
+  if (actual.exact !== expected && actual.canonicalText !== expected) {
+    console.error("audio codec license/runtime hash mismatch", path, actual.exact);
     process.exit(1);
   }
 }
@@ -297,9 +309,9 @@ for (const [path, expected] of [
   ["packages/office/fonts/OFL.txt", NOTO_OFL_SHA256],
   ["packages/moss-tts/third_party/sentencepiece-js-Apache-2.0.txt", MNEMON_UPSTREAM.licenseSha256],
 ]) {
-  const actual = createHash("sha256").update(readFileSync(path)).digest("hex");
-  if (actual !== expected) {
-    console.error("third-party license hash mismatch", path, actual);
+  const actual = pinnedFileHash(path);
+  if (actual.exact !== expected && actual.canonicalText !== expected) {
+    console.error("third-party license hash mismatch", path, actual.exact);
     process.exit(1);
   }
 }

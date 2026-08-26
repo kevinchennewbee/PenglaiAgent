@@ -80,12 +80,21 @@ test("R56-FILE-003 ArtifactRef never includes a filesystem path", () => {
   artifacts.close();
 });
 
-test("R56-FILE-005/006/008 reject symlink, magic mismatch, macros, and executables", () => {
+test("R56-FILE-005/006/008 reject symlink, magic mismatch, macros, and executables", (t) => {
   const { artifacts, root } = service();
   const file = join(root, "ok.txt");
   writeFileSync(file, "plain\n");
   const linked = join(root, "alias.txt");
-  symlinkSync(file, linked);
+  try {
+    symlinkSync(file, linked);
+  } catch (error) {
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+      artifacts.close();
+      t.skip("Windows account cannot create symlinks without Developer Mode or elevated privilege");
+      return;
+    }
+    throw error;
+  }
   assert.throws(() => artifacts.ingestPath(linked, { name: "alias.txt", source: "im" }), /SYMLINK|HANDLE/);
   assert.throws(
     () => artifacts.ingestBytes(Buffer.from("MZ\x90\x00not-an-office"), { name: "note.docx", source: "office" }),
@@ -259,5 +268,48 @@ test("R56-FILE-016 composer Turn binding stays blocked on rc.2", () => {
   assert.throws(() => artifacts.bindComposerTurn(), (error: unknown) => {
     return error instanceof PenglaiError && error.errorClass === "DSH_CONTRACT_DRIFT";
   });
+  artifacts.close();
+});
+
+test("0.5.7 Artifact lineage is immutable and cannot cross Workspace or Session scope", () => {
+  const { artifacts } = service();
+  const parent = artifacts.ingestBytes(Buffer.from("parent\n"), {
+    name: "parent.txt", source: "office", scope: "workspace", workspaceId: "ws-a", sessionId: "sess-a",
+  });
+  const digest = "a".repeat(64);
+  const child = artifacts.ingestBytes(Buffer.from("child\n"), {
+    name: "child.txt", source: "generated", workspaceId: "ws-a", sessionId: "sess-a",
+    parentArtifactId: parent.id, operationDigest: digest,
+  });
+  assert.equal(child.parentArtifactId, parent.id);
+  assert.equal(child.operationDigest, `sha256:${digest}`);
+  assert.throws(() => artifacts.ingestBytes(Buffer.from("escape\n"), {
+    name: "escape.txt", source: "generated", workspaceId: "ws-b", sessionId: "sess-a",
+    parentArtifactId: parent.id, operationDigest: digest,
+  }), /PARENT_SCOPE/);
+  assert.throws(() => artifacts.ingestBytes(Buffer.from("escape\n"), {
+    name: "escape.txt", source: "generated", workspaceId: "ws-a", sessionId: "sess-b",
+    parentArtifactId: parent.id, operationDigest: digest,
+  }), /PARENT_SCOPE/);
+  artifacts.close();
+});
+
+test("0.5.7 bounded Artifact GC respects per-run limits and makes forward progress", () => {
+  const clock = { t: 1_700_000_000_000 };
+  const { artifacts } = service(clock);
+  const ids = Array.from({ length: 3 }, (_, index) => artifacts.ingestBytes(Buffer.from(`stale-${index}\n`), {
+    name: `stale-${index}.txt`, source: "office", workspaceId: "ws-a", turnId: `turn-${index}`,
+  }).id);
+  clock.t += ARTIFACT_LIMITS.turnTtlMs + 1;
+  const first = artifacts.gcBounded({ now: clock.t, maxBindings: 1, maxCas: 0, maxStaging: 0, budgetMs: 1_000 });
+  assert.deepEqual({ removed: first.removed, casRemoved: first.casRemoved, stagingRemoved: first.stagingRemoved, skipped: first.skipped }, {
+    removed: 1, casRemoved: 0, stagingRemoved: 0, skipped: false,
+  });
+  assert.equal(ids.filter((id) => {
+    try { artifacts.ref(id); return true; } catch { return false; }
+  }).length, 2);
+  const rest = artifacts.gcBounded({ now: clock.t, maxBindings: 8, maxCas: 8, maxStaging: 0, budgetMs: 1_000 });
+  assert.equal(rest.removed, 2);
+  assert.equal(rest.casRemoved, 3);
   artifacts.close();
 });

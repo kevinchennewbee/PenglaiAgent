@@ -27,13 +27,14 @@ test("Discord ingest drops guild, bots, and incomplete identities", async () => 
   adapter.ingestMessage({ content: "hi", channel_id: "c1", author: { id: "u1" } });
   adapter.ingestMessage({ id: "2", content: "hi", channel_id: "c1", author: { id: "u1", bot: true } });
   adapter.ingestMessage({ id: "3", content: "hi", channel_id: "c1", author: { id: "u1" }, guild_id: "g1" });
-  adapter.ingestMessage({ id: "4", content: "hi", channel_id: "c1", author: { id: "u1" } });
+  adapter.ingestMessage({ id: "4", content: "unknown", channel_id: "unknown", author: { id: "u1" } });
+  adapter.ingestMessage({ id: "4", content: "hi", channel_id: "c1", channel_type: 1, author: { id: "u1" } });
   adapter.ingestMessage({ id: "5", content: "gdm", channel_id: "gdm1", author: { id: "u1" }, channel_type: 3 });
   assert.equal(seen.length, 1);
 });
 
-test("Discord Gateway identifies with Message Content Intent and handles resume opcodes", async () => {
-  assert.equal((DISCORD_GATEWAY_INTENTS & 32768) !== 0, true);
+test("Discord Gateway requests DM-only intent and handles resume opcodes", async () => {
+  assert.equal(DISCORD_GATEWAY_INTENTS, 1 << 12);
   const sockets: FakeSocket[] = [];
   class FakeSocket {
     readyState = 1;
@@ -63,6 +64,8 @@ test("Discord Gateway identifies with Message Content Intent and handles resume 
     async (url) => {
       if (String(url).endsWith("/users/@me")) return new Response(JSON.stringify({ id: "bot-1" }));
       if (String(url).includes("/gateway")) return new Response(JSON.stringify({ url: "wss://gateway.discord.gg" }));
+      if (String(url).endsWith("/channels/dm1")) return new Response(JSON.stringify({ id: "dm1", type: 1 }));
+      if (String(url).endsWith("/channels/gdm1")) return new Response(JSON.stringify({ id: "gdm1", type: 3 }));
       if (String(url).includes("/reactions/")) return new Response(null, { status: 204 });
       return new Response("{}", { status: 404 });
     },
@@ -77,6 +80,12 @@ test("Discord Gateway identifies with Message Content Intent and handles resume 
   assert.equal(identify?.d?.intents, DISCORD_GATEWAY_INTENTS);
   ws.emit("message", { data: JSON.stringify({ op: 0, t: "READY", d: { session_id: "s1", resume_gateway_url: "wss://resume.discord.gg" }, s: 1 }) });
   await pending;
+  const inbound: unknown[] = [];
+  adapter.onInbound((message) => inbound.push(message));
+  ws.emit("message", { data: JSON.stringify({ op: 0, t: "MESSAGE_CREATE", d: { id: "m1", channel_id: "dm1", content: "private", author: { id: "u1" } }, s: 2 }) });
+  ws.emit("message", { data: JSON.stringify({ op: 0, t: "MESSAGE_CREATE", d: { id: "m2", channel_id: "gdm1", content: "group", author: { id: "u1" } }, s: 3 }) });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(inbound.length, 1);
   ws.emit("message", { data: JSON.stringify({ op: 1 }) });
   assert.equal(ws.sent.some((row) => (row as { op?: number }).op === 1), true);
   ws.emit("message", { data: JSON.stringify({ op: 11 }) });

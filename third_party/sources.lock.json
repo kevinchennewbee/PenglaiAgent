@@ -62,25 +62,39 @@
     {
       "id": "dsh-im",
       "repo": "https://github.com/xmanrui/dsh-im",
-      "release": "v3.0.1",
-      "tagObject": "36c099299557ed053517018c0f6ac2762e6961e2",
-      "commit": "fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
+      "release": "v3.0.5",
+      "tagObject": "63bdfc72be1289097e3c73acb95ba9260531091d",
+      "commit": "64587b3b6162fa34f1c3ddb335a254d4154c9175",
       "tagSigned": false,
-      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
-      "sha256": "7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf",
-      "bytes": 9833777,
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/64587b3b6162fa34f1c3ddb335a254d4154c9175",
+      "sha256": "ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
+      "bytes": 9835773,
       "fetched": "2026-08-26",
       "license": "MIT",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
-      "supersedes": "v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9",
+      "supersedes": "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
       "historical": [
+        "v3.0.4 / 50d55090b9e44ea937a496042db89e5162a5aa58",
+        "v3.0.3 / a9bb0ed3baf40fe9e82da4ac062b57855ce4b866",
+        "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
+        "v3.0.1 / fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
         "v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9",
         "v2.5.0 / aa8fd71b936a0378604bd0f8f277059833ddb8f7",
         "v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f"
       ],
       "notice": "third_party/NOTICE-dsh-im.txt",
       "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md",
-      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.1.md"
+      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.5.md"
+    },
+    {
+      "id": "qqbot-agent-sdk-onboard",
+      "repo": "https://github.com/tencent-connect/qqbot-agent-sdk",
+      "commit": "6163b5dc979a2f12379b1916805009075008c3c3",
+      "license": "MIT",
+      "licenseSha256": "3e8bf593e605a1fd2ea6ec37acbe1ee7d84ed689d7c5466463e6dbd60e461e65",
+      "licenseFile": "third_party/LICENSE-qqbot-agent-sdk.txt",
+      "use": "selective TypeScript rewrite of official QQ bot scan onboarding; upstream Python runtime is not shipped",
+      "provenance": "docs/0.5.7/provenance/qqbot-agent-sdk-onboard.md"
     },
     {
       "id": "noto-sans-sc",

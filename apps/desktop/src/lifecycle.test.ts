@@ -33,7 +33,10 @@ test("desktop paths isolate Electron session/cache and keep one 0.5 generation",
   });
   assert.equal(paths.get("userData"), layout.userData);
   assert.equal(paths.get("sessionData"), join(layout.cache, "chromium-session"));
-  assert.equal(layout.updateBackups.startsWith(`${layout.userData}/`), true);
+  assert.equal(
+    layout.updateBackups.replace(/\\/g, "/").startsWith(`${layout.userData.replace(/\\/g, "/")}/`),
+    true,
+  );
   assert.equal(layout.managedData.cacheRoot, layout.cache);
 });
 
@@ -108,5 +111,8 @@ test("macOS uninstall guide resolves the containing app bundle", () => {
     installedApplicationPath("/Applications/Penglai.app/Contents/MacOS/Penglai", "darwin"),
     "/Applications/Penglai.app",
   );
-  assert.equal(installedApplicationPath("/Program Files/Penglai/Penglai.exe", "win32"), "/Program Files/Penglai/Penglai.exe");
+  assert.equal(
+    installedApplicationPath("C:\\Program Files\\Penglai\\Penglai.exe", "win32"),
+    "C:\\Program Files\\Penglai\\Penglai.exe",
+  );
 });

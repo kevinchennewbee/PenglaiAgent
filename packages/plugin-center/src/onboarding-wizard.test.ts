@@ -520,7 +520,7 @@ test("listModels maps official NO_ADAPTER to a closed PenglaiError", async () =>
   await assert.rejects(() => impl.listModels({ provider: "opencode-go" }), /no adapter registered/);
 });
 
-test("createWorkspace uses official registry after path jail and never guesses list()[0]", async () => {
+test("createWorkspace uses official registry after path jail and never guesses list()[0]", async (context) => {
   const { userDataRoot, dir } = userTree();
   const installRoot = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const allowed = mkdtempSync(join(tmpdir(), "penglai-ws-ok-"));
@@ -571,8 +571,13 @@ test("createWorkspace uses official registry after path jail and never guesses l
   await assert.rejects(() => impl.createWorkspace({ path: nestedInstall, title: "X" }), /SECURITY_POLICY|install/);
 
   const link = join(mkdtempSync(join(tmpdir(), "penglai-link-")), "alias");
-  symlinkSync(userDataRoot, link);
-  await assert.rejects(() => impl.createWorkspace({ path: link, title: "X" }), /SECURITY_POLICY|userData/);
+  try {
+    symlinkSync(userDataRoot, link, process.platform === "win32" ? "junction" : undefined);
+    await assert.rejects(() => impl.createWorkspace({ path: link, title: "X" }), /SECURITY_POLICY|userData/);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.diagnostic("Windows account cannot create a directory link without Developer Mode or elevation");
+  }
 
   const created = await impl.createWorkspace({ path: allowed, title: "Docs" });
   assert.equal(created.current, "first-turn-v1");

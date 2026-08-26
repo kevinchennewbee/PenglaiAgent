@@ -2,8 +2,8 @@ import { PenglaiError } from "@penglai/contracts";
 
 export const name = "discord";
 
-/** GUILDS | GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT */
-export const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 9) | (1 << 12) | (1 << 15);
+/** DIRECT_MESSAGES only. Discord exposes content in DMs without the privileged MESSAGE_CONTENT intent. */
+export const DISCORD_GATEWAY_INTENTS = 1 << 12;
 
 export const DISCORD_RECONNECT_DELAYS_MS = Object.freeze([1_000, 3_000, 5_000, 10_000, 30_000]);
 
@@ -34,8 +34,8 @@ export class DiscordAdapter {
   connection: DiscordConnection = "not_configured";
   accountRef: string | undefined;
   private token: string | undefined;
-  intentsHint = "Enable Message Content Intent in the Discord Developer Portal.";
-  private inboundHandler?: (msg: DiscordInbound) => void;
+  intentsHint = "Private direct messages only; no privileged Message Content intent required.";
+  private inboundHandler?: (msg: DiscordInbound) => void | Promise<void>;
 
   private gateway: { close(): void } | undefined;
   private heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
@@ -98,25 +98,26 @@ export class DiscordAdapter {
     return { status: this.connection };
   }
 
-  onInbound(handler: (msg: DiscordInbound) => void): void {
+  onInbound(handler: (msg: DiscordInbound) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
-  ingestMessage(event: {
+  async ingestMessage(event: {
     id?: string;
     content?: string;
     channel_id?: string;
     author?: { id?: string; bot?: boolean };
     guild_id?: string;
     channel_type?: number;
-  }): void {
+  }): Promise<void> {
     if (event.guild_id || event.author?.bot || !event.content) return;
     const messageId = String(event.id ?? "").trim();
     const senderId = String(event.author?.id ?? "").trim();
     const channelId = String(event.channel_id ?? "").trim();
     if (!this.accountRef || !messageId || !senderId || !channelId) return;
     if (event.channel_type === 3 || this.groupDmChannelIds.has(channelId)) return;
-    this.inboundHandler?.({
+    if (event.channel_type !== 1 && !this.dmChannelIds.has(channelId)) return;
+    await this.inboundHandler?.({
       messageId,
       senderId,
       channelId,
@@ -357,7 +358,7 @@ export class DiscordAdapter {
     } else if (parsed.t === "RESUMED") {
       markReady();
     } else if (parsed.t === "MESSAGE_CREATE" && parsed.d && typeof parsed.d === "object") {
-      this.ingestMessage(parsed.d);
+      void this.ingestGatewayMessage(parsed.d);
     }
   }
 
@@ -382,7 +383,7 @@ export class DiscordAdapter {
     this.heartbeatAcked = true;
     const schedule = (delay: number) => {
       this.heartbeatTimer = setTimeout(() => {
-        if (this.stopped || this.gateway === undefined) return;
+        if (this.stopped || ws.readyState !== 1) return;
         if (!this.heartbeatAcked) {
           ws.close(4000, "Heartbeat was not acknowledged");
           return;
@@ -398,5 +399,34 @@ export class DiscordAdapter {
   private heartbeat(ws: DiscordSocket): void {
     this.heartbeatAcked = false;
     this.sendGateway(ws, { op: 1, d: this.sequence });
+  }
+
+  private async ingestGatewayMessage(event: Record<string, unknown>): Promise<void> {
+    const message = event as Parameters<DiscordAdapter["ingestMessage"]>[0];
+    if (message.guild_id || message.author?.bot) return;
+    const channelId = String(message.channel_id ?? "").trim();
+    if (!channelId || !this.token) return;
+    if (this.groupDmChannelIds.has(channelId)) return;
+    if (!this.dmChannelIds.has(channelId)) {
+      try {
+        const response = await this.fetchImpl(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}`, {
+          headers: { authorization: `Bot ${this.token}`, accept: "application/json" },
+          redirect: "error",
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok) return;
+        const channel = (await response.json()) as { id?: unknown; type?: unknown };
+        const type = Number(channel.type);
+        if (type === 3) {
+          this.groupDmChannelIds.add(channelId);
+          return;
+        }
+        if (type !== 1 || String(channel.id ?? "") !== channelId) return;
+        this.dmChannelIds.add(channelId);
+      } catch {
+        return;
+      }
+    }
+    await this.ingestMessage({ ...message, channel_type: 1 });
   }
 }

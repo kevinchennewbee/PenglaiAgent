@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 import { readZip, writeZip } from "../zip.js";
 import { assertAuthorizedBytes } from "../authorization.js";
+import type { PptxCreateSpec } from "../specs.js";
 
 const require = createRequire(import.meta.url);
 
@@ -63,6 +64,24 @@ export async function createPptx(text: string): Promise<Buffer> {
   }
 }
 
+export async function createPptxFromSpec(spec: PptxCreateSpec): Promise<Buffer> {
+  const generatePptx = pptfastGenerate();
+  if (!generatePptx) throw new PenglaiError("DSH_UNAVAILABLE", "pptx create requires @liustack/pptfast");
+  const slides = spec.slides.map((slide) => slide.kind === "content"
+    ? {
+        type: "content",
+        heading: slide.heading,
+        components: slide.bullets?.length ? [{ type: "bullets", items: slide.bullets }] : [],
+        ...(slide.notes ? { notes: slide.notes } : {}),
+      }
+    : { type: slide.kind, heading: slide.heading, ...(slide.subheading ? { subheading: slide.subheading } : {}), ...(slide.notes ? { notes: slide.notes } : {}) });
+  return Buffer.from(await generatePptx({
+    filename: "penglai.pptx",
+    theme: { id: spec.theme ?? "consulting" },
+    slides,
+  }));
+}
+
 export async function inspectPptx(bytes: Buffer): Promise<{ text: string; parts: string[]; slides: string[] }> {
   assertAuthorizedBytes(bytes);
   const entries = readZip(bytes);
@@ -77,7 +96,7 @@ export async function inspectPptx(bytes: Buffer): Promise<{ text: string; parts:
   };
 }
 
-export function editPptx(bytes: Buffer, op: { slideIndex: number; text: string }): Buffer {
+export function editPptx(bytes: Buffer, op: { slideIndex: number; runIndex?: number; text: string }): Buffer {
   assertAuthorizedBytes(bytes);
   const escaped = op.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const entries = readZip(bytes);
@@ -91,13 +110,16 @@ export function editPptx(bytes: Buffer, op: { slideIndex: number; text: string }
   const next = entries.map((entry) => {
     if (entry.name !== target) return { name: entry.name, data: Buffer.from(entry.data) };
     const xml = entry.data.toString("utf8");
-    if (!/<a:t[\s>]/.test(xml)) {
+    const runs = xml.match(/<a:t(?:\s[^>]*)?>[\s\S]*?<\/a:t>/g) ?? [];
+    const runIndex = op.runIndex ?? 0;
+    if (!runs[runIndex]) {
       throw new PenglaiError("INVALID_INPUT", "pptx slide has no text run; complex edit is not supported in 0.5.7");
     }
     patched = true;
+    let index = 0;
     return {
       name: entry.name,
-      data: Buffer.from(xml.replace(/<a:t(?:\s[^>]*)?>[\s\S]*?<\/a:t>/, `<a:t>${escaped}</a:t>`), "utf8"),
+      data: Buffer.from(xml.replace(/<a:t(?:\s[^>]*)?>[\s\S]*?<\/a:t>/g, (run) => index++ === runIndex ? `<a:t>${escaped}</a:t>` : run), "utf8"),
     };
   });
   if (!patched) throw new PenglaiError("INVALID_INPUT", "pptx slide missing");

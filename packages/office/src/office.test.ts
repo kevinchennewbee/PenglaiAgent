@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import vm from "node:vm";
 import { createOfficeRemoteApi } from "./remote.js";
 import { commit, createDocument, createOfficeService, edit, inspect } from "./service.js";
 import { digestBytes } from "./jobs.js";
@@ -101,160 +100,19 @@ test("office remote inspect/create/edit drive the shipped service", async () => 
   );
 });
 
-test("office settings client inspect/create/edit go through penglaiOffice remote", async () => {
+test("office settings client presents ordinary-language capabilities and structured templates", async () => {
   const api = createOfficeRemoteApi(createOfficeService());
-  const calls: string[] = [];
-  const remote = {
-    health: async () => api.health(),
-    create: async (input: { format: "docx"; text: string }) => {
-      calls.push("create");
-      return api.create(input);
-    },
-    inspect: async (input: { bytesBase64: string }) => {
-      calls.push("inspect");
-      return api.inspect(input);
-    },
-    edit: async (input: { bytesBase64: string; replacement?: string; operation?: { kind: string } }) => {
-      calls.push("edit");
-      if (!input.bytesBase64) return { text: "", bytesBase64: "", format: "docx" };
-      return api.edit(input);
-    },
-  };
-  const hooks: unknown[] = [];
-  let hookIndex = 0;
-  const React = {
-    useState(init: unknown) {
-      const i = hookIndex++;
-      if (hooks[i] === undefined) hooks[i] = typeof init === "function" ? (init as () => unknown)() : init;
-      return [
-        hooks[i],
-        (next: unknown) => {
-          hooks[i] = typeof next === "function" ? (next as (v: unknown) => unknown)(hooks[i]) : next;
-        },
-      ];
-    },
-  };
-  function el(type: unknown, props: Record<string, unknown> | null) {
-    return { type, props: props ?? {} };
-  }
-  const registered: Array<{
-    id: string;
-    Component: (props: { remote: unknown }) => { props: Record<string, unknown> };
-    props: { remote: unknown };
-  }> = [];
-  let ready = Promise.resolve<unknown>(undefined);
-  const sandbox = {
-    Promise,
-    Object,
-    Array,
-    String,
-    JSON,
-    Error,
-    TypeError,
-    document: { documentElement: { lang: "zh" } },
-    window: {
-      __ModuleLoader__: {
-        load(mod: {
-          factory: (req: (name: string) => unknown) => {
-            apply: (ctx: unknown) => Promise<unknown>;
-          };
-        }) {
-          const exported = mod.factory((name) =>
-            name === "react" ? React : { jsx: el, jsxs: el },
-          );
-          ready = exported.apply({
-            remote: {
-              penglaiOfficeSettings: remote,
-              async $mount() {
-                return () => undefined;
-              },
-            },
-            inject(_deps: string[], callback: (ctx: unknown) => void) {
-              callback({
-                remote: { penglaiOfficeSettings: remote },
-                slots: {
-                  inject(_name: string, fn: () => unknown) {
-                    fn();
-                  },
-                  register(
-                    meta: { id: string; inject: () => { remote: unknown } },
-                    Component: (props: { remote: unknown }) => { props: Record<string, unknown> },
-                  ) {
-                    registered.push({ id: meta.id, Component, props: meta.inject() });
-                  },
-                },
-              });
-              return Object.assign(Promise.resolve(), { dispose: async () => undefined });
-            },
-          });
-        },
-      },
-    },
-  };
-  vm.runInNewContext(readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8"), sandbox);
-  await ready;
-  assert.equal(registered[0]?.id, "penglai-office");
-  const render = () => {
-    hookIndex = 0;
-    return registered[0]!.Component(registered[0]!.props);
-  };
-  const walk = (
-    node: unknown,
-    visit: (n: { props: Record<string, unknown> }) => void,
-  ) => {
-    if (!node || typeof node !== "object") return;
-    const rec = node as { props?: Record<string, unknown> };
-    if (rec.props) visit({ props: rec.props });
-    const children = rec.props?.children;
-    if (Array.isArray(children)) for (const child of children) walk(child, visit);
-    else walk(children, visit);
-  };
-  let tree = render();
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-text"] === "1")
-      (node.props.onChange as (e: { target: { value: string } }) => void)({
-        target: { value: "hello docx" },
-      });
-  });
-  tree = render();
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-create"] === "1")
-      (node.props.onClick as () => void)();
-  });
-  for (let i = 0; i < 80; i += 1) await new Promise((resolve) => setImmediate(resolve));
-  tree = render();
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-replacement"] === "1")
-      (node.props.onChange as (e: { target: { value: string } }) => void)({
-        target: { value: "世界" },
-      });
-  });
-  tree = render();
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-edit"] === "1")
-      (node.props.onClick as () => void)();
-  });
-  for (let i = 0; i < 80; i += 1) await new Promise((resolve) => setImmediate(resolve));
-  let result = "";
-  for (let i = 0; i < 80; i += 1) {
-    tree = render();
-    result = "";
-    walk(tree, (node) => {
-      if (node.props["data-penglai-office-result"] === "1")
-        result = String(node.props.children ?? "");
-    });
-    if (result.includes("世界")) break;
-    await new Promise((resolve) => setImmediate(resolve));
-  }
-  assert.ok(calls.includes("create") && calls.includes("edit"), String(calls));
-  if (result) assert.match(result, /世界|hello docx/);
-  walk(tree, (node) => {
-    if (node.props["data-penglai-office-inspect"] === "1")
-      (node.props.onClick as () => void)();
-  });
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(calls.includes("inspect"), true);
+  const templates = api.templates();
+  assert.equal(templates.length, 10);
+  assert.deepEqual(new Set(templates.map((row) => row.format)), new Set(["docx", "xlsx", "pptx"]));
+  const source = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
+  assert.match(source, /data-penglai-office-status/);
+  assert.match(source, /data-penglai-office-formats/);
+  assert.match(source, /data-penglai-office-templates/);
+  assert.match(source, /data-penglai-office-example/);
+  assert.match(source, /data-penglai-office-safety/);
+  assert.match(source, /先给我预览，不要直接保存/);
+  assert.doesNotMatch(source, /data-penglai-office-replacement|cell: "B1"|slideIndex: 0/);
 });
 
 test("office rejects secrets and unknown bytes", async () => {

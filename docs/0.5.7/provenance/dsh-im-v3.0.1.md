@@ -1,7 +1,7 @@
 # dsh-im v3.0.1 supply-chain record
 
-This is the **current** 0.5.7 DSH-IM provenance baseline. v3.0.0, v2.5.0, and
-v2.4.0 remain historical. Penglai does **not** install this package as a second
+This is a **historical** 0.5.7 DSH-IM provenance baseline, superseded by
+`dsh-im-v3.0.2.md`. Penglai does **not** install this package as a second
 Agent core or copy generated `lib/`.
 
 Selected channel authentication, transport, typing, reaction, markdown, and

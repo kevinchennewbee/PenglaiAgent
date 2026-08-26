@@ -302,6 +302,15 @@ The project stands on the work of
 [Mnemon](https://github.com/mnemon-dev/mnemon),
 [Lark Node SDK](https://github.com/larksuite/node-sdk), and
 [Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin).
+Special thanks also go to [DSH-IM](https://github.com/xmanrui/dsh-im) for
+channel transport and messaging-UX references, and to
+[qqbot-agent-sdk](https://github.com/tencent-connect/qqbot-agent-sdk) for the
+official QQ Bot onboarding reference. Penglai selectively rewrites those ideas
+inside its own IM control plane; neither upstream runtime is bundled. Office
+generation builds on [PPTFast](https://github.com/liustack/pptfast),
+[ExcelJS](https://github.com/exceljs/exceljs),
+[pdf-lib](https://github.com/Hopding/pdf-lib), and
+[Noto CJK](https://github.com/notofonts/noto-cjk).
 Every dependency keeps its own license. Release packages include the exact SBOM
 and third-party notices.
 
@@ -525,4 +534,12 @@ Kimi Work、Grok Build、Cursor Agent、Claude Code 和 OpenAI Codex 都参与�
 [Mnemon](https://github.com/mnemon-dev/mnemon)、
 [Lark Node SDK](https://github.com/larksuite/node-sdk) 和
 [Tencent openclaw-weixin](https://github.com/Tencent/openclaw-weixin)。
+也特别感谢 [DSH-IM](https://github.com/xmanrui/dsh-im) 提供多渠道传输和消息
+交互参考，以及 [qqbot-agent-sdk](https://github.com/tencent-connect/qqbot-agent-sdk)
+提供官方 QQ Bot 扫码接入参考。蓬莱只在自己的 IM 控制平面内选择性重写这些思路，
+不会打包这两个上游运行时。蓬莱办公的生成能力也建立在
+[PPTFast](https://github.com/liustack/pptfast)、
+[ExcelJS](https://github.com/exceljs/exceljs)、
+[pdf-lib](https://github.com/Hopding/pdf-lib) 和
+[Noto CJK](https://github.com/notofonts/noto-cjk) 之上。
 每个依赖保留自己的许可证；Release 会附上精确 SBOM 和第三方声明。

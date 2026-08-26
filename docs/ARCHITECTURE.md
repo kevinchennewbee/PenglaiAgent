@@ -286,9 +286,12 @@ official DSH rc.2 没有通用 file Turn，0.5.7 不做 DOM hack 或第二会话
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
 Workspace 与明确个人记忆，绝不跨 Workspace。资料撤销删派生索引，不动源文件。
 
-IM 只有微信、飞书属于 live adapter；其余七个平台不能连接、绑定或发送，也不伪造
-二维码。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
-状态机，Read 朗读原文。
+IM 始终只有一个 `@penglai/im` 控制平面，内部提供九个平台 adapter。微信、飞书、
+钉钉、企业微信、QQ 和 WhatsApp 只在供应商协议真实提供时显示 QR/device-link；
+Slack、Telegram、Discord 使用官方 Manifest/Token，不伪造二维码。源码能力、当前
+连接状态和脱敏 live 证据是三个独立事实；公开支持声明只服从
+`docs/0.5.7/LIVE_IM_MATRIX.md`。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和
+Read 共用一个可观测播放状态机，Read 朗读原文。
 
 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；

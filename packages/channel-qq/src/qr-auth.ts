@@ -5,7 +5,7 @@ export interface QqQrCallbacks {
 }
 
 /**
- * Official QQ Bot QR via `@tencent-connect/qqbot-connector`. Personal QQ
+ * Official QQ Bot QR via Penglai's audited MIT selective rewrite. Personal QQ
  * login is not simulated. Tests inject startFn so they never hit the network.
  */
 export class QqQrAuth {
@@ -13,7 +13,7 @@ export class QqQrAuth {
     private readonly startFn: (
       callbacks: QqQrCallbacks,
       opts: { displayQrCodeToConsole: false; source: string },
-    ) => { cancel(): void } = officialStartQr,
+    ) => { cancel(): void } = penglaiStartQr,
   ) {}
 
   start(callbacks: QqQrCallbacks): { cancel(): void } {
@@ -21,41 +21,36 @@ export class QqQrAuth {
   }
 }
 
-function officialStartQr(
+function penglaiStartQr(
   callbacks: QqQrCallbacks,
   opts: { displayQrCodeToConsole: false; source: string },
 ): { cancel(): void } {
+  void opts.displayQrCodeToConsole;
   let cancelled = false;
-  void import("@tencent-connect/qqbot-connector")
-    .then((mod) => {
-      const start = (mod as { startQrConnect?: Function }).startQrConnect;
-      if (typeof start !== "function") throw new Error("QQ_QR_CONNECTOR_MISSING");
-      return start({
-        displayQrCodeToConsole: opts.displayQrCodeToConsole,
-        source: opts.source,
-        onQRCode: (qr: unknown) => {
-          if (cancelled) return;
-          const image = typeof qr === "string" ? qr : String((qr as { url?: string; image?: string })?.image ?? (qr as { url?: string })?.url ?? "");
-          if (image) callbacks.onQr?.(image);
+  let stop: () => void = () => undefined;
+  void import("./qq-onboard.js").then(({ startQqOnboard }) => {
+    if (cancelled) return;
+    stop = startQqOnboard(
+      {
+        onQrReady: (url) => {
+          if (!cancelled) callbacks.onQr?.(url);
         },
-        onSuccess: (creds: { appId?: string; appid?: string; clientSecret?: string; secret?: string }) => {
-          if (cancelled) return;
-          callbacks.onSuccess({
-            appId: String(creds.appId ?? creds.appid ?? ""),
-            clientSecret: String(creds.clientSecret ?? creds.secret ?? ""),
-          });
+        onSuccess: (creds) => {
+          if (!cancelled) callbacks.onSuccess({ appId: creds.appId, clientSecret: creds.clientSecret });
         },
-        onError: (err: unknown) => {
-          if (!cancelled) callbacks.onFailure(err);
+        onFailure: (error) => {
+          if (!cancelled) callbacks.onFailure(error);
         },
-      });
-    })
-    .catch((err) => {
-      if (!cancelled) callbacks.onFailure(err);
-    });
+      },
+      { source: opts.source },
+    );
+  }).catch((error) => {
+    if (!cancelled) callbacks.onFailure(error);
+  });
   return {
     cancel() {
       cancelled = true;
+      stop();
     },
   };
 }

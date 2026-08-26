@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export interface WhatsAppSessionStore {
@@ -23,6 +23,9 @@ export class EncryptedWhatsAppSessionStore implements WhatsAppSessionStore {
   }
 
   async read(): Promise<Uint8Array | undefined> {
+    const backup = `${this.filePath}.bak`;
+    if (!existsSync(this.filePath) && existsSync(backup)) renameSync(backup, this.filePath);
+    if (existsSync(this.filePath) && existsSync(backup)) rmSync(backup, { force: true });
     let raw: Buffer;
     try {
       raw = readFileSync(this.filePath);
@@ -45,12 +48,31 @@ export class EncryptedWhatsAppSessionStore implements WhatsAppSessionStore {
     const cipher = createCipheriv("aes-256-gcm", this.key, iv);
     const encrypted = Buffer.concat([cipher.update(bytes), cipher.final()]);
     const tag = cipher.getAuthTag();
-    writeFileSync(this.filePath, Buffer.concat([MAGIC, iv, encrypted, tag]), { mode: 0o600 });
+    const next = `${this.filePath}.next`;
+    const backup = `${this.filePath}.bak`;
+    rmSync(next, { force: true });
+    writeFileSync(next, Buffer.concat([MAGIC, iv, encrypted, tag]), { mode: 0o600, flag: "wx" });
+    let moved = false;
+    try {
+      rmSync(backup, { force: true });
+      if (existsSync(this.filePath)) {
+        renameSync(this.filePath, backup);
+        moved = true;
+      }
+      renameSync(next, this.filePath);
+      if (moved) rmSync(backup, { force: true });
+    } catch (error) {
+      rmSync(next, { force: true });
+      if (!existsSync(this.filePath) && moved && existsSync(backup)) renameSync(backup, this.filePath);
+      throw error;
+    }
   }
 
   async wipe(): Promise<void> {
     try {
       rmSync(this.filePath, { force: true });
+      rmSync(`${this.filePath}.next`, { force: true });
+      rmSync(`${this.filePath}.bak`, { force: true });
     } catch {
       /* already gone */
     }

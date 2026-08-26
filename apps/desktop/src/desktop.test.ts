@@ -35,9 +35,13 @@ test("findResourcesRoot prefers a real runtime over isPackaged guesses", async (
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const resources = mkdtempSync(join(tmpdir(), "penglai-res-"));
-  mkdirSync(join(resources, "runtime", "node", "bin"), { recursive: true });
+  const nodePath =
+    process.platform === "win32"
+      ? join(resources, "runtime", "node", "node.exe")
+      : join(resources, "runtime", "node", "bin", "node");
+  mkdirSync(join(nodePath, ".."), { recursive: true });
   mkdirSync(join(resources, "runtime", "dsh", "lib"), { recursive: true });
-  writeFileSync(join(resources, "runtime", "node", "bin", "node"), "");
+  writeFileSync(nodePath, "");
   writeFileSync(join(resources, "runtime", "dsh", "lib", "bin.js"), "");
   const appDir = join(resources, "app");
   mkdirSync(appDir, { recursive: true });

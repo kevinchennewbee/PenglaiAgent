@@ -75,8 +75,11 @@ window.__ModuleLoader__.load({
       package: "@penglai/companion",
       descriptors: [
         descriptor("status", false),
+        descriptor("proposeEnable", true),
         descriptor("enable", true),
+        descriptor("proposeDisable", false),
         descriptor("disable", true),
+        descriptor("proposeReminder", true),
         descriptor("scheduleReminder", true),
       ],
     };
@@ -209,9 +212,28 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         refresh();
       }, [refresh]);
-      const run = (method, input) => {
+      const run = (proposalMethod, method, input) => {
         set((x) => ({ ...x, busy: true, error: "", notice: "" }));
-        Promise.resolve(api[method](input))
+        const approve = window.penglai && window.penglai.requestOwnerApproval;
+        Promise.resolve(
+          proposalMethod === "proposeDisable"
+            ? api[proposalMethod]()
+            : api[proposalMethod](input),
+        )
+          .then(unwrap)
+          .then((proposed) => {
+            if (!approve || !proposed || !proposed.actionId) {
+              throw new Error("owner approval required");
+            }
+            return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+              if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+              return api[method]({
+                ...(input || {}),
+                actionId: proposed.actionId,
+                receipt: decided.receipt,
+              });
+            });
+          })
           .then(unwrap)
           .then(() => {
             set((x) => ({
@@ -485,7 +507,7 @@ window.__ModuleLoader__.load({
                     disabled:
                       v.busy || !v.confirmed || !selected || !v.signals.length,
                     onClick: () =>
-                      run("enable", {
+                      run("proposeEnable", "enable", {
                         bindingId: selected.id,
                         workspaceId: selected.workspaceId,
                         sessionId: selected.sessionId,
@@ -497,7 +519,6 @@ window.__ModuleLoader__.load({
                         deliveryMode: v.deliveryMode,
                         locale: v.locale,
                         signals: v.signals,
-                        ownerConfirmed: true,
                       }),
                     children: t.enable,
                   }),
@@ -523,7 +544,7 @@ window.__ModuleLoader__.load({
                   jsx.jsx("button", {
                     type: "button",
                     disabled: v.busy || !v.disableConfirmed,
-                    onClick: () => run("disable", { ownerConfirmed: true }),
+                    onClick: () => run("proposeDisable", "disable", {}),
                     children: t.disable,
                   }),
                 ],

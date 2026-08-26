@@ -1,10 +1,10 @@
-/** Rewrite of DSH-IM `src/channels/qq/markdown-reply.mjs` now inside v3.0.1. MIT ideas only. */
+/** Selective MIT-licensed DSH-IM idea rewrite; reviewed through v3.0.5. */
 
 const DEFAULT_LIMIT = 4_500;
 const MARKDOWN_REJECTION_CODES = new Set([40_034_090]);
 const CODE_FENCE_OPEN = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const GFM_TABLE_LINE = /^\|.+\|$/;
-/** DSH-IM v3.0.1 C2C passive-reply quota. Penglai is private-only, so no group quota. */
+/** QQ C2C passive-reply quota. Penglai is private-only, so no group quota. */
 export const QQ_C2C_PASSIVE_REPLY_LIMIT = 4;
 export const QQ_PARTIAL_REPLY_NOTICE =
   "回答较长，后续内容未能通过 QQ 完整发送，请回复“继续”。";

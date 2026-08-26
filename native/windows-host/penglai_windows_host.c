@@ -345,6 +345,41 @@ static int cmd_identity(DWORD pid) {
   return 0;
 }
 
+static int cmd_reap_supervisors(const char *exe_utf8, DWORD keep_pid) {
+  wchar_t *expected = utf8_to_wide(exe_utf8);
+  if (!expected) fail("utf16");
+  HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snapshot == INVALID_HANDLE_VALUE) win_fail("CreateToolhelp32Snapshot");
+  PROCESSENTRY32W entry;
+  ZeroMemory(&entry, sizeof(entry));
+  entry.dwSize = sizeof(entry);
+  DWORD killed[256];
+  size_t count = 0;
+  if (Process32FirstW(snapshot, &entry)) {
+    do {
+      DWORD pid = entry.th32ProcessID;
+      if (!pid || pid == GetCurrentProcessId() || pid == keep_pid) continue;
+      HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
+      if (!process) continue;
+      wchar_t image[MAX_PATH * 4];
+      DWORD image_len = MAX_PATH * 4;
+      if (QueryFullProcessImageNameW(process, 0, image, &image_len) && _wcsicmp(image, expected) == 0) {
+        if (TerminateProcess(process, 1) && count < 256) killed[count++] = pid;
+      }
+      CloseHandle(process);
+    } while (Process32NextW(snapshot, &entry));
+  }
+  CloseHandle(snapshot);
+  fputs("{\"ok\":true,\"command\":\"process-reap-supervisors\",\"pids\":[", stdout);
+  for (size_t i = 0; i < count; i++) {
+    if (i) fputc(',', stdout);
+    fprintf(stdout, "%lu", (unsigned long)killed[i]);
+  }
+  fprintf(stdout, "],\"deleted\":%lu}\n", (unsigned long)count);
+  free(expected);
+  return 0;
+}
+
 static int cmd_process_suspend_resume(DWORD pid, int suspend) {
   if (!pid) fail("pid");
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -538,6 +573,12 @@ int main(int argc, char **argv) {
     const char *pid = opt(argc, argv, "--pid");
     if (!pid) fail("pid");
     return cmd_identity((DWORD)strtoul(pid, NULL, 10));
+  }
+  if (strcmp(cmd, "process-reap-supervisors") == 0) {
+    const char *exe = opt(argc, argv, "--exe");
+    const char *keep = opt(argc, argv, "--keep-pid");
+    if (!exe) fail("exe");
+    return cmd_reap_supervisors(exe, keep ? (DWORD)strtoul(keep, NULL, 10) : 0);
   }
   if (strcmp(cmd, "process-suspend") == 0 || strcmp(cmd, "process-resume") == 0) {
     const char *pid = opt(argc, argv, "--pid");

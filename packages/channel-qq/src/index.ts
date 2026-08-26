@@ -33,7 +33,7 @@ export class QqAdapter {
     vendorTarget: string;
     chatType: "private";
     accountRef: string;
-  }) => void;
+  }) => void | Promise<void>;
 
   constructor(
     private readonly vault: { resolve(ref: string): QqCredentials | undefined; put?(ref: string, creds: QqCredentials): void | Promise<void> },
@@ -90,21 +90,21 @@ export class QqAdapter {
     vendorTarget: string;
     chatType: "private";
     accountRef: string;
-  }) => void): void {
+  }) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
-  ingestMessage(msg: {
+  async ingestMessage(msg: {
     messageId: string;
     senderId: string;
     text: string;
     vendorTarget?: string;
     chatType?: "private";
     accountRef?: string;
-  }): void {
+  }): Promise<void> {
     if (!this.accountRef) return;
     if (msg.chatType !== "private") return;
-    this.inboundHandler?.({
+    await this.inboundHandler?.({
       messageId: msg.messageId,
       senderId: msg.senderId,
       text: msg.text,

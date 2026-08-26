@@ -43,7 +43,7 @@ test("Context FTS queries are quoted literals and grant roots cannot wildcard", 
   idx.close();
 });
 
-test("Context ingest rejects a symlink escaping the grant root", async () => {
+test("Context ingest rejects a symlink escaping the grant root", async (context) => {
   const { mkdtempSync, writeFileSync, mkdirSync, rmSync, symlinkSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -56,7 +56,14 @@ test("Context ingest rejects a symlink escaping the grant root", async () => {
   mkdirSync(outside);
   writeFileSync(join(grantRoot, "inside.md"), "inside grant root");
   writeFileSync(join(outside, "secret.md"), "this must never be indexed");
-  symlinkSync(join(outside, "secret.md"), join(grantRoot, "leak.md"));
+  try {
+    symlinkSync(join(outside, "secret.md"), join(grantRoot, "leak.md"));
+  } catch (error) {
+    rmSync(base, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+    return;
+  }
   try {
     const svc = createContextService(join(base, "index.sqlite"));
     const report = svc.ingest({ scope: "global", requestedPath: grantRoot, realPath: grantRoot });

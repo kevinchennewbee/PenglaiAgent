@@ -3,6 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { PenglaiError } from "@penglai/contracts";
 import { assertAuthorizedBytes } from "../authorization.js";
 import { loadPenglaiCjkFont } from "../cjk-font.js";
+import type { PdfCreateSpec } from "../specs.js";
 
 async function embedPenglaiFont(pdf: PDFDocument) {
   pdf.registerFontkit(fontkit as never);
@@ -25,6 +26,35 @@ export async function createPdf(text: string): Promise<Buffer> {
   const font = await embedPenglaiFont(pdf);
   page.drawText(text.slice(0, 180), { x: 72, y: 720, size: 12, font, color: rgb(0, 0, 0) });
   return Buffer.from(await pdf.save());
+}
+
+export async function createPdfFromSpec(spec: PdfCreateSpec): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  if (spec.title) pdf.setTitle(spec.title);
+  const font = await embedPenglaiFont(pdf);
+  let page = pdf.addPage([612, 792]);
+  let y = 720;
+  for (const paragraph of spec.paragraphs) {
+    for (const line of wrapText(paragraph, 68)) {
+      if (y < 72) {
+        page = pdf.addPage([612, 792]);
+        y = 720;
+      }
+      page.drawText(line, { x: 72, y, size: 11, font, color: rgb(0, 0, 0) });
+      y -= 18;
+    }
+    y -= 8;
+  }
+  return Buffer.from(await pdf.save());
+}
+
+function wrapText(value: string, chars: number): string[] {
+  const out: string[] = [];
+  for (const source of value.split(/\r?\n/)) {
+    if (!source) out.push("");
+    for (let i = 0; i < source.length; i += chars) out.push(source.slice(i, i + chars));
+  }
+  return out;
 }
 
 export async function inspectPdf(bytes: Buffer): Promise<{ text: string; parts: string[]; pages: number }> {

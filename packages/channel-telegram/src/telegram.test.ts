@@ -40,15 +40,15 @@ test("Telegram ingest only accepts private text", async () => {
   const adapter = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => new Response("{}", { status: 404 }));
   adapter.accountRef = "1";
   adapter.onInbound((msg) => received.push(msg.text));
-  adapter.ingestUpdate({
+  await adapter.ingestUpdate({
     update_id: 2,
     message: { message_id: 9, text: "hello", chat: { id: 11, type: "private" }, from: { id: 11 } },
   });
-  adapter.ingestUpdate({
+  await adapter.ingestUpdate({
     update_id: 3,
     message: { message_id: 10, text: "group", chat: { id: -1, type: "group" }, from: { id: 11 } },
   });
-  adapter.ingestUpdate({
+  await adapter.ingestUpdate({
     update_id: 4,
     message: { text: "noid", chat: { id: 11, type: "private" }, from: { id: 11 } },
   });
@@ -56,7 +56,7 @@ test("Telegram ingest only accepts private text", async () => {
   assert.equal(adapter.getUpdateOffset(), 5);
   const persisted: number[] = [];
   adapter.setOffsetPersist((offset) => persisted.push(offset));
-  adapter.ingestUpdate({
+  await adapter.ingestUpdate({
     update_id: 9,
     message: { message_id: 11, text: "group-again", chat: { id: -1, type: "group" }, from: { id: 11 } },
   });
@@ -64,4 +64,21 @@ test("Telegram ingest only accepts private text", async () => {
   const restored = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => new Response("{}", { status: 404 }));
   restored.restorePersistedState(adapter.exportPersistedState());
   assert.equal(restored.getUpdateOffset(), 10);
+});
+
+test("Telegram does not acknowledge an update before durable inbound accepts it", async () => {
+  const adapter = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) });
+  adapter.accountRef = "1";
+  adapter.restoreUpdateOffset(7);
+  adapter.onInbound(async () => {
+    throw new Error("durable store unavailable");
+  });
+  await assert.rejects(
+    () => adapter.ingestUpdate({
+      update_id: 7,
+      message: { message_id: 9, text: "retry me", chat: { id: 11, type: "private" }, from: { id: 11 } },
+    }),
+    /durable store unavailable/,
+  );
+  assert.equal(adapter.getUpdateOffset(), 7);
 });

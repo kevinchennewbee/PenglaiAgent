@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, posix, resolve, win32 } from "node:path";
 import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import {
   DATA_CATEGORIES,
@@ -277,8 +277,9 @@ export function parseOperationRequest(value: unknown, requireConfirmed = false):
 }
 
 export function installedApplicationPath(execPath: string, platform: NodeJS.Platform): string {
-  if (!isAbsolute(execPath)) throw new PenglaiError("SECURITY_POLICY", "application path must be absolute");
-  const normalized = resolve(execPath);
+  const pathApi = platform === "win32" ? win32 : platform === "darwin" ? posix : { isAbsolute, resolve };
+  if (!pathApi.isAbsolute(execPath)) throw new PenglaiError("SECURITY_POLICY", "application path must be absolute");
+  const normalized = pathApi.resolve(execPath);
   if (platform !== "darwin") return normalized;
   const marker = ".app/Contents/MacOS/";
   const index = normalized.indexOf(marker);

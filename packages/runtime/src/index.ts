@@ -220,10 +220,12 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   const dest = join(destParent, "@deepseek-ai");
   if (existsSync(dest) || isSymlink(dest)) {
     const current = isSymlink(dest) ? readlinkSync(dest) : "";
-    if (current === layout.officialDeepseek) return;
+    if (current && resolve(current) === resolve(layout.officialDeepseek)) return;
     rmSync(dest, { recursive: true, force: true });
   }
-  symlinkSync(layout.officialDeepseek, dest, "dir");
+  // Windows directory junctions work for ordinary installed-app users without
+  // Developer Mode or elevated symlink privileges. POSIX keeps a normal dir link.
+  symlinkSync(layout.officialDeepseek, dest, process.platform === "win32" ? "junction" : "dir");
 }
 
 function isSymlink(path: string): boolean {
@@ -536,16 +538,32 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
-    const staging = join(user.transactions, "staging-web");
-    writeJournal(user, { id: "seed", phase: "staging", lastGood: user.profileWeb });
+    const id = `seed-${randomUUID()}`;
+    const staging = join(user.transactions, `${id}.staging-web`);
+    const backup = join(user.transactions, `${id}.pre-activation`);
+    writeJournal(user, { id, phase: "staging", staging, backup });
     rmSync(staging, { recursive: true, force: true });
+    rmSync(backup, { recursive: true, force: true });
     seedWebProfile(layout.profileSeed, staging);
     installFirstPartyPlugins(layout, staging, user.transactions);
-    writeJournal(user, { id: "seed", phase: "activating", lastGood: user.profileWeb });
-    rmSync(user.profileWeb, { recursive: true, force: true });
-    copyDir(staging, user.profileWeb);
-    rmSync(staging, { recursive: true, force: true });
-    writeJournal(user, { id: "seed", phase: "committed", lastGood: user.profileWeb });
+    linkOfficialDeepseek(layout, staging);
+    writeJournal(user, { id, phase: "activating", staging, backup });
+    let movedCurrent = false;
+    try {
+      if (existsSync(user.profileWeb)) {
+        renameSync(user.profileWeb, backup);
+        movedCurrent = true;
+      }
+      renameSync(staging, user.profileWeb);
+      writeJournal(user, { id, phase: "committed" });
+      if (movedCurrent) rmSync(backup, { recursive: true, force: true });
+    } catch (error) {
+      if (existsSync(user.profileWeb)) rmSync(user.profileWeb, { recursive: true, force: true });
+      if (movedCurrent && existsSync(backup)) renameSync(backup, user.profileWeb);
+      rmSync(staging, { recursive: true, force: true });
+      writeJournal(user, { id, phase: "rolled_back" });
+      throw error;
+    }
   } else {
     mergeLegacyContextIntoMemory(user);
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
@@ -577,6 +595,8 @@ export interface Journal {
   id: string;
   phase: "idle" | "staging" | "activating" | "committed" | "rolled_back";
   lastGood?: string;
+  staging?: string;
+  backup?: string;
 }
 
 export function writeJournal(user: UserLayout, journal: Journal): void {
@@ -712,13 +732,29 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
 export function recoverProfile(user: UserLayout): Journal {
   recoverCenterProfileTransaction(user);
   const j = readJournal(user);
-  if (j.phase === "staging" || j.phase === "activating") {
-    if (j.lastGood && existsSync(j.lastGood)) {
-      const staging = join(user.transactions, "staging");
+  if (j.phase === "staging") {
+    const staging = j.staging ?? join(user.transactions, "staging");
+    rmSync(staging, { recursive: true, force: true });
+    j.phase = "rolled_back";
+    writeJournal(user, j);
+  } else if (j.phase === "activating") {
+    const staging = j.staging ?? join(user.transactions, "staging");
+    const marker = join(user.profileWeb, "package.json");
+    if (j.backup && existsSync(j.backup)) {
+      rmSync(user.profileWeb, { recursive: true, force: true });
+      renameSync(j.backup, user.profileWeb);
       rmSync(staging, { recursive: true, force: true });
       j.phase = "rolled_back";
-      writeJournal(user, j);
+    } else if (existsSync(marker)) {
+      rmSync(staging, { recursive: true, force: true });
+      j.phase = "committed";
+      delete j.staging;
+      delete j.backup;
+    } else {
+      rmSync(staging, { recursive: true, force: true });
+      j.phase = "rolled_back";
     }
+    writeJournal(user, j);
   }
   return j;
 }

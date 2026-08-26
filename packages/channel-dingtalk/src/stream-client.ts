@@ -20,17 +20,7 @@ export async function createDingTalkStreamClient(
   creds: DingTalkCredentials,
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<DingTalkStreamClient> {
-  const mod = (await import("dingtalk-stream")) as {
-    DWClient?: new (opts: { clientId: string; clientSecret: string; autoReconnect?: boolean }) => {
-      connected?: boolean;
-      registered?: boolean;
-      reconnecting?: boolean;
-      registerCallbackListener?(topic: string, handler: (res: { data?: string }) => Promise<unknown> | unknown): void;
-      connect(): Promise<void> | void;
-      disconnect(): Promise<void> | void;
-    };
-    TOPIC_ROBOT?: string;
-  };
+  const mod = await import("dingtalk-stream");
   if (typeof mod.DWClient !== "function") {
     throw new PenglaiError("DSH_UNAVAILABLE", "dingtalk-stream DWClient missing");
   }
@@ -38,9 +28,8 @@ export async function createDingTalkStreamClient(
   const raw = new mod.DWClient({
     clientId: creds.clientId,
     clientSecret: creds.clientSecret,
-    autoReconnect: true,
   });
-  let inbound: ((msg: DingTalkInbound) => void) | undefined;
+  let inbound: ((msg: DingTalkInbound) => void | Promise<void>) | undefined;
   let healthTimer: ReturnType<typeof setInterval> | undefined;
   const webhooks = new Map<string, string>();
   const syncConnected = (clientRef: DingTalkStreamClient) => {
@@ -52,31 +41,39 @@ export async function createDingTalkStreamClient(
       inbound = handler;
     },
     async connect() {
-      raw.registerCallbackListener?.(topic, async (res) => {
-        let payload: RobotPayload = {};
-        try {
-          payload = JSON.parse(String(res.data ?? "{}")) as RobotPayload;
-        } catch {
-          return { status: "SUCCESS" };
-        }
-        const messageId = String(payload.msgId ?? "").trim();
-        const senderId = String(payload.senderStaffId || payload.senderId || "").trim();
-        const text = String(payload.text?.content ?? "").trim();
-        const webhook = String(payload.sessionWebhook ?? "").trim();
-        const conversationType = String(payload.conversationType ?? "").trim();
-        const vendorTarget = String(payload.conversationId ?? "").trim();
-        if (!messageId || !senderId || !text) return { status: "SUCCESS" };
-        if (conversationType !== "1" || !vendorTarget) return { status: "SUCCESS" };
-        if (webhook) webhooks.set(vendorTarget, webhook);
-        inbound?.({
-          messageId,
-          senderId,
-          text,
-          vendorTarget,
-          chatType: "private",
-          accountRef: creds.clientId,
-        });
-        return { status: "SUCCESS" };
+      raw.registerCallbackListener(topic, (res) => {
+        void (async () => {
+          let payload: RobotPayload;
+          try {
+            payload = JSON.parse(String(res.data ?? "{}")) as RobotPayload;
+          } catch {
+            // Malformed input cannot become durable on retry. ACK it without
+            // exposing vendor payload data in logs or diagnostics.
+            raw.socketCallBackResponse(res.headers.messageId, { status: "SUCCESS" });
+            return;
+          }
+          const messageId = String(payload.msgId ?? "").trim();
+          const senderId = String(payload.senderStaffId || payload.senderId || "").trim();
+          const text = String(payload.text?.content ?? "").trim();
+          const webhook = String(payload.sessionWebhook ?? "").trim();
+          const conversationType = String(payload.conversationType ?? "").trim();
+          const vendorTarget = String(payload.conversationId ?? "").trim();
+          if (messageId && senderId && text && conversationType === "1" && vendorTarget) {
+            if (validSessionWebhook(webhook)) webhooks.set(vendorTarget, webhook);
+            await inbound?.({
+              messageId,
+              senderId,
+              text,
+              vendorTarget,
+              chatType: "private",
+              accountRef: creds.clientId,
+            });
+          }
+          // The SDK ignores callback return values. ACK malformed, unsupported,
+          // or durably accepted messages; a durable-path rejection deliberately
+          // leaves the callback unacknowledged so DingTalk retries it.
+          raw.socketCallBackResponse(res.headers.messageId, { status: "SUCCESS" });
+        })().catch(() => undefined);
       });
       await raw.connect();
       const deadline = Date.now() + 20_000;
@@ -96,13 +93,13 @@ export async function createDingTalkStreamClient(
         clearInterval(healthTimer);
         healthTimer = undefined;
       }
-      await raw.disconnect();
+      raw.disconnect();
       client.connected = false;
       webhooks.clear();
     },
     async send(peer, text) {
       const webhook = webhooks.get(peer);
-      if (!webhook || !/^https:\/\/[a-z0-9.-]*dingtalk\.com\//i.test(webhook)) {
+      if (!webhook || !validSessionWebhook(webhook)) {
         throw new PenglaiError("INVALID_INPUT", "DINGTALK_REPLY_TARGET");
       }
       const response = await fetchImpl(webhook, {
@@ -113,7 +110,25 @@ export async function createDingTalkStreamClient(
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "DINGTALK_SEND_FAILED");
+      const body = (await response.json()) as { errcode?: unknown };
+      if (Number(body.errcode) !== 0) throw new PenglaiError("DELIVERY_TRANSIENT", "DINGTALK_SEND_FAILED");
     },
   };
   return client;
+}
+
+function validSessionWebhook(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === "https:" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.port === "" &&
+      url.hostname === "oapi.dingtalk.com" &&
+      url.pathname === "/robot/sendBySession"
+    );
+  } catch {
+    return false;
+  }
 }

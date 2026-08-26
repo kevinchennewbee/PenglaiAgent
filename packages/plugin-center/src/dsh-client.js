@@ -401,8 +401,8 @@ window.__ModuleLoader__.load({
                 children: [
                   t.centerPermissions,
                   ": ",
-                  Array.isArray(entry.permissions)
-                    ? entry.permissions.join(", ") || t.centerNoPermissions
+                  Array.isArray(entry.permissions) && entry.permissions.length > 0
+                    ? t.centerLocalPermissions
                     : t.centerNoPermissions,
                 ],
               }),
@@ -475,6 +475,16 @@ window.__ModuleLoader__.load({
                                   jsx.jsx("dt", { children: t.centerDsh }),
                                   jsx.jsx("dd", {
                                     children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.1-rc.2"),
+                                  }),
+                                ],
+                              }),
+                              jsx.jsxs("div", {
+                                children: [
+                                  jsx.jsx("dt", { children: t.centerPermissions }),
+                                  jsx.jsx("dd", {
+                                    children: Array.isArray(entry.permissions)
+                                      ? entry.permissions.join(", ") || t.centerNoPermissions
+                                      : t.centerNoPermissions,
                                   }),
                                 ],
                               }),
@@ -696,6 +706,7 @@ window.__ModuleLoader__.load({
         linkDocs: "使用文档",
         linkIssues: "反馈问题",
         centerNoPermissions: "无额外权限",
+        centerLocalPermissions: "使用本机所需功能（详情见高级/诊断）",
         centerSignature: "签名",
         centerSignatureOk: "已验证",
         centerSignatureBad: "失败",
@@ -842,6 +853,7 @@ window.__ModuleLoader__.load({
         linkDocs: "Docs",
         linkIssues: "Issues",
         centerNoPermissions: "no extra permissions",
+        centerLocalPermissions: "uses required on-device features (see Advanced / diagnostics)",
         centerSignature: "signature",
         centerSignatureOk: "verified",
         centerSignatureBad: "failed",

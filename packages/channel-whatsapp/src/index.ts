@@ -8,7 +8,7 @@ export {
   type WhatsAppLinkSocket,
 } from "./device-adapter.js";
 export { EncryptedWhatsAppSessionStore, type WhatsAppSessionStore } from "./session-store.js";
-export { startBaileysLink } from "./baileys-link.js";
+export { SerializedWhatsAppAuthWriter, startBaileysLink } from "./baileys-link.js";
 export {
   LID_PRIVATE_SUPPORTED,
   PINNED_BAILEYS,

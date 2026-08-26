@@ -33,17 +33,24 @@ export class WhatsAppDeviceAdapter {
   lastQr: string | undefined;
   private echoIds = new Set<string>();
   private socket: WhatsAppLinkSocket | undefined;
-  private inboundHandler?: (msg: WhatsAppInbound) => void;
+  private inboundHandler?: (msg: WhatsAppInbound) => void | Promise<void>;
   private operationId = "whatsapp:device-link";
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconnectAttempt = 0;
+  private stopped = true;
+  private generation = 0;
 
   constructor(
     private readonly sessions: WhatsAppSessionStore,
     private readonly startLink: (opts: {
       onQr: (ref: string) => void;
       onOpen: () => void;
-      onMessage: (msg: WhatsAppInbound) => void;
+      onMessage: (msg: WhatsAppInbound) => void | Promise<void>;
       isEcho: (id: string) => boolean;
+      onError?: (code: string) => void;
+      onClose?: () => void;
     }) => Promise<WhatsAppLinkSocket>,
+    private readonly reconnectDelaysMs: readonly number[] = [1_000, 3_000, 5_000, 10_000, 30_000],
   ) {}
 
   async beginConnection(input: { method: string; riskAck?: boolean }): Promise<{ kind: "device-link"; live: false; operationId: string }> {
@@ -55,21 +62,64 @@ export class WhatsAppDeviceAdapter {
     this.riskAckVersion = WHATSAPP_RISK_ACK_VERSION;
     this.connection = "connecting";
     this.operationId = `whatsapp:device-link:${Date.now()}`;
-    this.socket = await this.startLink({
+    this.stopped = false;
+    this.reconnectAttempt = 0;
+    const generation = ++this.generation;
+    await this.openLink(generation);
+    return { kind: "device-link", live: false, operationId: this.operationId };
+  }
+
+  private async openLink(generation: number): Promise<void> {
+    const socket = await this.startLink({
       onQr: (ref) => {
+        if (this.stopped || generation !== this.generation) return;
         this.lastQr = ref;
+        this.connection = "connecting";
       },
       onOpen: () => {
+        if (this.stopped || generation !== this.generation) return;
         this.connection = "connected";
         this.lastQr = undefined;
+        this.reconnectAttempt = 0;
       },
-      onMessage: (msg) => {
+      onMessage: async (msg) => {
+        if (this.stopped || generation !== this.generation) return;
         if (this.isEcho(msg.messageId)) return;
-        this.inboundHandler?.(msg);
+        await this.inboundHandler?.(msg);
       },
       isEcho: (id) => this.isEcho(id),
+      onError: () => {
+        if (this.stopped || generation !== this.generation) return;
+        this.connection = "failed";
+      },
+      onClose: () => {
+        if (this.stopped || generation !== this.generation) return;
+        this.socket = undefined;
+        this.connection = "connecting";
+        this.scheduleReconnect(generation);
+      },
     });
-    return { kind: "device-link", live: false, operationId: this.operationId };
+    if (this.stopped || generation !== this.generation) {
+      await socket.close?.();
+      return;
+    }
+    this.socket = socket;
+  }
+
+  private scheduleReconnect(generation: number): void {
+    if (this.stopped || generation !== this.generation || this.reconnectTimer) return;
+    const delay = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 30_000;
+    this.reconnectAttempt += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.stopped || generation !== this.generation) return;
+      void this.openLink(generation).catch(() => {
+        if (this.stopped || generation !== this.generation) return;
+        this.connection = "failed";
+        this.scheduleReconnect(generation);
+      });
+    }, delay);
+    this.reconnectTimer.unref?.();
   }
 
   async pollConnection(): Promise<{ status: WhatsAppConnection }> {
@@ -81,7 +131,7 @@ export class WhatsAppDeviceAdapter {
     return { qrPayload: this.lastQr };
   }
 
-  onInbound(handler: (msg: WhatsAppInbound) => void): void {
+  onInbound(handler: (msg: WhatsAppInbound) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
@@ -142,14 +192,22 @@ export class WhatsAppDeviceAdapter {
   }
 
   async disconnect(): Promise<void> {
-    await this.socket?.close?.().catch(() => undefined);
+    this.stopped = true;
+    this.generation += 1;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    await this.socket?.close?.();
     this.socket = undefined;
     this.lastQr = undefined;
     this.connection = this.riskAckAt ? "not_configured" : "disabled";
   }
 
   async logout(): Promise<void> {
-    await this.socket?.logout().catch(() => undefined);
+    this.stopped = true;
+    this.generation += 1;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    await this.socket?.logout();
     await this.sessions.wipe();
     this.socket = undefined;
     this.echoIds.clear();

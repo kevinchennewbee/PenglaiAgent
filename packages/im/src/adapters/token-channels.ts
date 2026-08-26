@@ -22,7 +22,7 @@ export class TokenChannelAdapter implements ChannelAdapter {
   readonly id: ChannelId;
   private enabled = false;
   private connection: ConnectionState = "disabled";
-  private inbound: ((event: InboundChannelEvent) => void) | undefined;
+  private inbound: ((event: InboundChannelEvent) => void | Promise<void>) | undefined;
 
   constructor(
     id: TokenChannelId,
@@ -101,7 +101,7 @@ export class TokenChannelAdapter implements ChannelAdapter {
     await this.logout();
   }
 
-  onInbound(handler: (event: InboundChannelEvent) => void) {
+  onInbound(handler: (event: InboundChannelEvent) => void | Promise<void>) {
     this.inbound = handler;
     void this.inbound;
   }

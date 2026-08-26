@@ -12,12 +12,14 @@ public bytes/site (P) are not interchangeable.
   `packages/release-identity/src/pins.ts`.
 - `R57-TRUTH-003` — committed identity is a template (`UNFROZEN` + `sourceSha=NONE`);
   candidate evidence binds a real Git SHA; public docs do not invent hashes.
-- `R57-DSHIM-001` — DSH-IM pin is unsigned `v3.0.1` / tag object
-  `36c099299557ed053517018c0f6ac2762e6961e2` / peeled
-  `fb8a9df652ed6eaa4b99a9338cab15db1b626b1c` with tarball SHA-256
-  `7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf`
-  (9 833 777 bytes). v3.0.0, v2.5.0, and v2.4.0 are historical only. QQ C2C
-  markdown from former post-tag `ea5176be` is inside v3.0.1.
+- `R57-DSHIM-001` — DSH-IM pin is unsigned `v3.0.5` / tag object
+  `63bdfc72be1289097e3c73acb95ba9260531091d` / peeled
+  `64587b3b6162fa34f1c3ddb335a254d4154c9175` with tarball SHA-256
+  `ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7`
+  (9,835,773 bytes). v3.0.4 and earlier are historical only. The v3.0.3
+  WhatsApp group change is rejected and upstream-reverted; the exact
+  `ilinkai.wechat.com` host and responsive card-status principle are the only
+  v3.0.2-to-v3.0.5 additions adopted by Penglai.
 - `R57-DSHIM-002` — `lib/`, `bin/`, `cordis.patch.yml`, harness client, independent
   config store, and DSH-IM Office are absent from Penglai.
 

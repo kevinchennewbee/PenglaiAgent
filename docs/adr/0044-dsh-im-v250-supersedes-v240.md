@@ -1,8 +1,8 @@
 # ADR 0044 — DSH-IM v2.5.0 supersedes the 0.5.7 v2.4.0 pin
 
-- Status: Accepted
+- Status: Superseded by ADR 0045 for the current 0.5.7 review baseline
 - Date: 2026-08-25
-- Supersedes: ADR 0040 for the **current** 0.5.7 DSH-IM pin only
+- Supersedes: ADR 0040 for its historical 0.5.7 DSH-IM review baseline
 - Related: ADR 0037, ADR 0041
 
 ## Context
@@ -16,9 +16,10 @@ copy. Penglai still must not install the DSH-IM runtime.
 
 ## Decision
 
-1. The only current 0.5.7 DSH-IM pin is unsigned `v2.5.0`, peeled
+1. At the time of this decision, the 0.5.7 DSH-IM review baseline was unsigned `v2.5.0`, peeled
    `aa8fd71b936a0378604bd0f8f277059833ddb8f7`, with tarball SHA-256 in
-   `docs/0.5.7/provenance/dsh-im-v2.5.0.md`. ADR 0040 remains historical.
+   `docs/0.5.7/provenance/dsh-im-v2.5.0.md`. ADR 0045 now defines the current
+   baseline; ADR 0040 and this ADR remain historical.
 2. Users still see one Messaging plugin. Internal `channel-*` packages are not
    user plugins.
 3. Port by rewrite only. Absorb structured failure codes/reference ids and

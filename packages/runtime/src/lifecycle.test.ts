@@ -73,7 +73,7 @@ test("R50-UPD-005/007/011 staging is not executable and journal drains before ha
   assert.throws(() => assertProductionHasNoFixtureKey("PENGLAI_FIXTURE_UPDATER_PRIVATE=abc"), /fixture updater/);
 });
 
-test("R50-UN-002/009 legacy detector is read-only and locked delete stops", async () => {
+test("R50-UN-002/009 legacy detector is read-only and locked delete stops", async (context) => {
   const { mkdirSync, writeFileSync, mkdtempSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -96,7 +96,13 @@ test("R50-UN-002/009 legacy detector is read-only and locked delete stops", asyn
   assert.equal(out.deleted.length, 1);
   const { symlinkSync, rmSync } = await import("node:fs");
   const link = join(root, "im");
-  symlinkSync(cache, link);
+  try {
+    symlinkSync(cache, link, process.platform === "win32" ? "junction" : undefined);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create a directory link without Developer Mode or elevation");
+    return;
+  }
   const imPlan = buildDeletionPlan({
     operationId: "del-2",
     categories: ["im"],
@@ -206,7 +212,7 @@ test("R50-UN-006/007 deletion capability binds type count owner and tree digest"
   assert.equal(stopped.state, "stopped");
 });
 
-test("nested symlinks and overlapping category plans are rejected before deletion", async () => {
+test("nested symlinks and overlapping category plans are rejected before deletion", async (context) => {
   const { mkdirSync, mkdtempSync, symlinkSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -214,14 +220,23 @@ test("nested symlinks and overlapping category plans are rejected before deletio
   const root = mkdtempSync(join(tmpdir(), "penglai-delete-link-"));
   const cache = join(root, "cache");
   mkdirSync(cache);
-  symlinkSync(root, join(cache, "escape"));
+  let symlinkAvailable = true;
+  try {
+    symlinkSync(root, join(cache, "escape"), process.platform === "win32" ? "junction" : undefined);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    symlinkAvailable = false;
+    context.diagnostic("Windows account cannot create a directory link without Developer Mode or elevation");
+  }
   const plan = buildDeletionPlan({
     operationId: "delete-nested-link",
     categories: ["cache"],
     userData: root,
     confirmCredentials: false,
   });
-  assert.throws(() => previewDeletionPlan(plan, root, [], [], POSIX_INSPECTION), /symlink|reparse/);
+  if (symlinkAvailable) {
+    assert.throws(() => previewDeletionPlan(plan, root, [], [], POSIX_INSPECTION), /symlink|reparse/);
+  }
   assert.throws(
     () => buildDeletionPlan({
       operationId: "delete-overlap",

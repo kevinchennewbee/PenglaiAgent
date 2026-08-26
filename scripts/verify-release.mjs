@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { finish, parseReportFlag } from "./lib/exit-contract.mjs";
+import { pnpmProcess } from "./lib/pnpm-process.mjs";
 
 const argv = process.argv.slice(2);
 const dryRun = argv.includes("--dry-run");
@@ -41,7 +42,8 @@ function runGate(name) {
     });
     return { name, exit: resolved.exit, verdict: resolved.verdict, jsonVerdict: json?.verdict ?? null };
   }
-  const r = spawnSync("pnpm", ["run", name], { cwd: ROOT, encoding: "utf8" });
+  const child = pnpmProcess(["run", name]);
+  const r = spawnSync(child.command, child.args, { cwd: ROOT, encoding: "utf8" });
   const processExit = r.status ?? 1;
   let processVerdict = "FAIL";
   if (processExit === 0) processVerdict = "PASS";

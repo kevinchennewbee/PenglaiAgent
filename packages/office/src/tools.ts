@@ -110,13 +110,24 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
         format: { type: "string", enum: ["docx", "xlsx", "pptx", "pdf"] },
         text: { type: "string", minLength: 1, maxLength: 4000 },
         template_id: { type: "string", minLength: 2, maxLength: 40 },
+        spec: { type: "object", additionalProperties: true },
       },
     },
     output: jsonOutput("office create"),
     async execute(args: unknown, exec?: unknown) {
-      const input = args as { format?: string; text?: string; template_id?: string };
+      const input = args as { format?: string; text?: string; template_id?: string; spec?: unknown };
       const ws = boundWorkspace(ctx, exec);
-      if (input.template_id) return publicJob(await svc.createFromTemplate(input.template_id, ws.id));
+      if (input.template_id) {
+        const created = await svc.createFromTemplate(input.template_id, ws.id);
+        svc.job(created.id).sessionId = ws.sessionId;
+        return publicJob(created);
+      }
+      if (input.spec) {
+        const created = await svc.createStructured(input.spec);
+        svc.job(created.id).workspaceId = ws.id;
+        svc.job(created.id).sessionId = ws.sessionId;
+        return publicJob(created);
+      }
       if (!input.format || !input.text) throw new PenglaiError("INVALID_INPUT", "office create requires format and text or template_id");
       const created = await svc.create(asFormat(input.format), input.text);
       svc.job(created.id).workspaceId = ws.id;
@@ -151,12 +162,16 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
         editedRecord.sessionId = ws.sessionId;
         if (attachedRecord.attachmentHandle) editedRecord.attachmentHandle = attachedRecord.attachmentHandle;
         if (attachedRecord.routeId) editedRecord.routeId = attachedRecord.routeId;
+        if (attachedRecord.artifactId) editedRecord.parentArtifactId = attachedRecord.artifactId;
         return publicJob(edited);
       }
       if (!input.job_id) throw new PenglaiError("INVALID_INPUT", "office plan requires job_id or handle");
-      const edited = await svc.edit(svc.job(input.job_id).bytes, op);
+      const source = svc.job(input.job_id);
+      const edited = await svc.edit(source.bytes, op);
       svc.job(edited.id).workspaceId = ws.id;
       svc.job(edited.id).sessionId = ws.sessionId;
+      if (source.artifactId) svc.job(edited.id).parentArtifactId = source.artifactId;
+      else if (source.resultArtifactId) svc.job(edited.id).parentArtifactId = source.resultArtifactId;
       return publicJob(edited);
     },
   });
@@ -175,6 +190,56 @@ export function registerOfficeTools(ctx: CordisTools, svc: OfficeService): void 
       const jobId = String((args as { job_id?: string }).job_id);
       const [preview, diff] = await Promise.all([svc.preview(jobId), svc.diff(jobId)]);
       return { preview, diff };
+    },
+  });
+  ctx.tools.register({
+    name: "penglai_office_accept",
+    description: "Accept a previewed office result as a new immutable Artifact. Saving it to a Workspace path is a separate Owner-approved action.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["job_id"],
+      properties: { job_id: { type: "string", minLength: 8, maxLength: 80 } },
+    },
+    output: jsonOutput("office accept"),
+    execute(args: unknown, exec?: unknown) {
+      boundWorkspace(ctx, exec);
+      return svc.accept(String((args as { job_id?: string }).job_id));
+    },
+  });
+  ctx.tools.register({
+    name: "penglai_office_merge_pdf",
+    description: "Merge two PDFs already bound to the current official Session. Raw bytes and filesystem paths are never accepted.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["left_handle", "right_handle"],
+      properties: {
+        left_handle: { type: "string", minLength: 8, maxLength: 80 },
+        right_handle: { type: "string", minLength: 8, maxLength: 80 },
+      },
+    },
+    output: jsonOutput("office PDF merge"),
+    async execute(args: unknown, exec?: unknown) {
+      const input = args as { left_handle?: string; right_handle?: string; bytes?: unknown; path?: unknown };
+      if (input.bytes || input.path) throw new PenglaiError("SECURITY_POLICY", "office PDF merge refuses model bytes and paths");
+      const ws = boundWorkspace(ctx, exec);
+      return publicJob(await svc.mergeAttached(String(input.left_handle), String(input.right_handle), ws.sessionId, ws.id));
+    },
+  });
+  ctx.tools.register({
+    name: "penglai_office_discard",
+    description: "Discard a pending office job and wipe its temporary bytes.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["job_id"],
+      properties: { job_id: { type: "string", minLength: 8, maxLength: 80 } },
+    },
+    output: jsonOutput("office discard"),
+    execute(args: unknown, exec?: unknown) {
+      boundWorkspace(ctx, exec);
+      return Promise.resolve(svc.cancel(String((args as { job_id?: string }).job_id))).then(() => ({ discarded: true as const }));
     },
   });
   ctx.tools.register({

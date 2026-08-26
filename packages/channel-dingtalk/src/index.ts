@@ -22,7 +22,7 @@ export interface DingTalkStreamClient {
   connect(): Promise<void> | void;
   disconnect(): Promise<void> | void;
   send?(peer: string, text: string): Promise<void>;
-  onMessage?(handler: (msg: DingTalkInbound) => void): void;
+  onMessage?(handler: (msg: DingTalkInbound) => void | Promise<void>): void;
   connected?: boolean;
 }
 
@@ -38,7 +38,7 @@ export class DingTalkAdapter {
   private client: DingTalkStreamClient | undefined;
   private qr: { operationId: string; deviceCode: string; verificationUrl: string; expiresAt: number } | undefined;
   readonly inbound: DingTalkInbound[] = [];
-  private inboundHandler?: (msg: DingTalkInbound) => void;
+  private inboundHandler?: (msg: DingTalkInbound) => void | Promise<void>;
 
   constructor(
     private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined; put?(ref: string, creds: DingTalkCredentials): void | Promise<void> },
@@ -99,7 +99,7 @@ export class DingTalkAdapter {
     return { delivered: true };
   }
 
-  onInbound(handler: (msg: DingTalkInbound) => void): void {
+  onInbound(handler: (msg: DingTalkInbound) => void | Promise<void>): void {
     this.inboundHandler = handler;
   }
 
@@ -120,7 +120,7 @@ export class DingTalkAdapter {
     this.accountRef = creds.clientId;
     try {
       this.client = this.factory ? this.factory(creds) : await this.createOfficialClient(creds);
-      this.client.onMessage?.((msg) => {
+      this.client.onMessage?.(async (msg) => {
         const event = {
           ...msg,
           accountRef: msg.accountRef || creds.clientId,
@@ -128,7 +128,7 @@ export class DingTalkAdapter {
           vendorTarget: msg.vendorTarget || msg.senderId,
         };
         this.inbound.push(event);
-        this.inboundHandler?.(event);
+        await this.inboundHandler?.(event);
       });
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";

@@ -74,26 +74,40 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/office",
-      descriptors: ["health", "inspect", "create", "edit", "preview", "approve", "commit"].map((method) =>
-        remoteDescriptor(method, method !== "health"),
+      descriptors: ["health", "templates", "inspect", "create", "edit", "preview", "approve", "commit"].map((method) =>
+        remoteDescriptor(method, method !== "health" && method !== "templates"),
       ),
     };
     const COPY = {
       zh: {
         title: "蓬莱办公",
-        hint: "对话里使用官方办公工具检查、预览、批准并保存。设置页只是诊断入口。PDF 使用内置 OFL 中文字体。提交需要 Owner 确认。",
-        create: "创建",
-        inspect: "查看",
-        edit: "目标修改",
-        result: "结果",
+        hint: "直接在对话里告诉蓬莱你要创建或修改什么。蓬莱会先给你预览，只有你确认后才保存或发回消息平台。",
+        ready: "办公能力已就绪",
+        unavailable: "办公能力暂时不可用",
+        formats: "支持的文件",
+        templates: "内置模板",
+        examples: "可以这样对蓬莱说",
+        safety: "文档默认留在本机；宏、嵌入程序、外部链接和加密文档会被拒绝。原文件不会被静默覆盖。",
+        copied: "已复制到剪贴板",
+        docx: "Word 文档",
+        xlsx: "Excel 表格",
+        pptx: "PowerPoint 演示",
+        pdf: "PDF 文档",
       },
       en: {
         title: "Penglai Office",
-        hint: "Use the official conversation tools to inspect, preview, approve, and save. This settings page is a diagnostic surface. PDF embeds CJK with the bundled OFL font. Writes require Owner confirmation.",
-        create: "Create",
-        inspect: "Inspect",
-        edit: "Targeted edit",
-        result: "Result",
+        hint: "Tell Penglai what you want to create or change in chat. Penglai shows a preview first and saves or returns the file only after you confirm.",
+        ready: "Office tools are ready",
+        unavailable: "Office tools are temporarily unavailable",
+        formats: "Supported files",
+        templates: "Built-in templates",
+        examples: "Try saying this to Penglai",
+        safety: "Documents stay local by default. Macros, embedded programs, external links, and encrypted documents are refused. Original files are never silently overwritten.",
+        copied: "Copied to clipboard",
+        docx: "Word document",
+        xlsx: "Excel workbook",
+        pptx: "PowerPoint deck",
+        pdf: "PDF document",
       },
     };
     function localeCopy() {
@@ -112,98 +126,98 @@ window.__ModuleLoader__.load({
     function OfficeSection({ remote }) {
       const t = localeCopy();
       const api = remote?.penglaiOfficeSettings;
-      const [view, setView] = React.useState({
-        format: "docx",
-        text: "",
-        replacement: "",
-        bytesBase64: "",
-        result: "",
-        error: "",
-      });
-      const run = (method, input) => {
-        if (!api?.[method]) return;
-        setView((current) => ({ ...current, error: "" }));
-        Promise.resolve(api[method](input))
-          .then((value) => {
-            const out = unwrapRemote(value);
-            setView((current) => ({
-              ...current,
-              bytesBase64: String(out.bytesBase64 ?? current.bytesBase64),
-              result: String(out.text ?? JSON.stringify(out)),
-            }));
+      const [view, setView] = React.useState({ status: "loading", templates: [], error: "", copied: "" });
+      React.useEffect(() => {
+        if (!api?.health || !api?.templates) {
+          setView({ status: "error", templates: [], error: t.unavailable, copied: "" });
+          return;
+        }
+        Promise.all([api.health(), api.templates()])
+          .then(([health, templates]) => {
+            const seen = unwrapRemote(health) || {};
+            const rows = unwrapRemote(templates);
+            setView({
+              status: seen.state === "active" || seen.healthy === true ? "ready" : "error",
+              templates: Array.isArray(rows) ? rows : [],
+              error: "",
+              copied: "",
+            });
           })
-          .catch((error) => {
-            setView((current) => ({
-              ...current,
-              error: String(error && error.message ? error.message : error),
-            }));
-          });
+          .catch((error) => setView({
+            status: "error",
+            templates: [],
+            error: String(error && error.message ? error.message : error),
+            copied: "",
+          }));
+      }, [api]);
+      const examples = String(document.documentElement.lang || "zh").startsWith("en")
+        ? [
+            "Create a project report in Word with a summary, progress, risks, and action table.",
+            "Turn the attached data into a two-sheet Excel workbook and add a SUM formula.",
+            "Create a five-slide product launch deck, show me the preview, and do not save yet.",
+            "Merge the two attached PDFs and let me review the page count before saving.",
+          ]
+        : [
+            "帮我创建一份项目周报 Word，包含摘要、进展、风险和行动项表格。",
+            "把附件数据整理成两个工作表的 Excel，并添加合计公式。",
+            "做一份 5 页产品发布 PPT，先给我预览，不要直接保存。",
+            "合并这两个 PDF，先告诉我总页数，确认后再保存。",
+          ];
+      const copyExample = (text) => {
+        const clipboard = typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+        if (!clipboard?.writeText) return;
+        Promise.resolve(clipboard.writeText(text))
+          .then(() => setView((current) => ({ ...current, copied: text })))
+          .catch(() => undefined);
       };
       return jsx.jsxs("section", {
         className: "penglai-settings-page",
         "data-penglai-office": "1",
         "data-penglai-settings": "office",
+        "data-penglai-office-status": view.status,
         children: [
+          jsx.jsx("h3", { children: t.title }),
           jsx.jsx("p", { children: t.hint }),
-          jsx.jsx("select", {
-            "data-penglai-office-format": "1",
-            value: view.format,
-            onChange: (event) =>
-              setView((current) => ({ ...current, format: event.target.value })),
+          jsx.jsx("p", {
+            role: "status",
+            "aria-live": "polite",
+            children: view.status === "ready" ? t.ready : view.status === "loading" ? "…" : `${t.unavailable}${view.error ? `: ${view.error}` : ""}`,
+          }),
+          jsx.jsx("h4", { children: t.formats }),
+          jsx.jsx("ul", {
+            "data-penglai-office-formats": "1",
+            className: "penglai-capability-grid",
             children: ["docx", "xlsx", "pptx", "pdf"].map((format) =>
-              jsx.jsx("option", { value: format, children: format }, format),
+              jsx.jsxs("li", {
+                "data-penglai-office-format": format,
+                children: [jsx.jsx("strong", { children: t[format] }), jsx.jsx("span", { children: ` .${format}` })],
+              }, format),
             ),
           }),
-          jsx.jsx("textarea", {
-            "data-penglai-office-text": "1",
-            value: view.text,
-            onChange: (event) =>
-              setView((current) => ({ ...current, text: event.target.value })),
+          jsx.jsx("h4", { children: t.templates }),
+          jsx.jsx("ul", {
+            "data-penglai-office-templates": String(view.templates.length),
+            children: view.templates.map((template) => jsx.jsx("li", {
+              children: String(
+                String(document.documentElement.lang || "zh").startsWith("en")
+                  ? template.title?.en || template.id
+                  : template.title?.["zh-CN"] || template.id,
+              ),
+            }, template.id)),
           }),
-          jsx.jsx("button", {
-            type: "button",
-            "data-penglai-office-create": "1",
-            onClick: () => run("create", { format: view.format, text: view.text }),
-            children: t.create,
-          }),
-          jsx.jsx("button", {
-            type: "button",
-            "data-penglai-office-inspect": "1",
-            onClick: () => run("inspect", { bytesBase64: view.bytesBase64 }),
-            children: t.inspect,
-          }),
-          jsx.jsx("input", {
-            "data-penglai-office-replacement": "1",
-            value: view.replacement,
-            onChange: (event) =>
-              setView((current) => ({
-                ...current,
-                replacement: event.target.value,
-              })),
-          }),
-          jsx.jsx("button", {
-            type: "button",
-            "data-penglai-office-edit": "1",
-            onClick: () =>
-              run("edit", {
-                bytesBase64: view.bytesBase64,
-                format: view.format,
-                replacement: view.replacement,
-                operation:
-                  view.format === "xlsx"
-                    ? { kind: "xlsx.setCell", cell: "B1", value: view.replacement }
-                    : view.format === "pptx"
-                      ? { kind: "pptx.replaceSlideText", slideIndex: 0, text: view.replacement }
-                      : view.format === "pdf"
-                        ? { kind: "pdf.watermark", text: view.replacement }
-                        : { kind: "docx.replaceParagraph", paragraphIndex: 0, text: view.replacement },
+          jsx.jsx("h4", { children: t.examples }),
+          jsx.jsx("ul", {
+            children: examples.map((example, index) => jsx.jsx("li", {
+              children: jsx.jsx("button", {
+                type: "button",
+                "data-penglai-office-example": String(index + 1),
+                onClick: () => copyExample(example),
+                children: example,
               }),
-            children: t.edit,
+            }, example)),
           }),
-          jsx.jsx("pre", {
-            "data-penglai-office-result": "1",
-            children: view.error || view.result,
-          }),
+          view.copied ? jsx.jsx("p", { role: "status", children: t.copied }) : null,
+          jsx.jsx("p", { "data-penglai-office-safety": "1", children: t.safety }),
         ],
       });
     }

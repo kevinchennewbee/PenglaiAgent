@@ -6,6 +6,20 @@ export type CompanionLocale = "zh" | "en";
 export type CompanionSignal = "periodic" | "reminder" | "idle" | "emotion";
 export type CompanionPhase = "disabled" | "enabling" | "enabled" | "failed";
 
+export interface CompanionEnableInput {
+  bindingId: string;
+  workspaceId: string;
+  sessionId: string;
+  quietStartHour: number;
+  quietEndHour: number;
+  dailyCap: number;
+  recentInteractionMinutes: number;
+  intensity: CompanionIntensity;
+  deliveryMode: CompanionDeliveryMode;
+  locale: CompanionLocale;
+  signals: CompanionSignal[];
+}
+
 export interface CompanionConfig {
   revision: number;
   phase: CompanionPhase;
@@ -59,25 +73,7 @@ export function inQuietHours(
   return hour >= start || hour < end;
 }
 
-export function validateEnableInput(input: {
-  bindingId: string;
-  workspaceId: string;
-  sessionId: string;
-  quietStartHour: number;
-  quietEndHour: number;
-  dailyCap: number;
-  recentInteractionMinutes: number;
-  intensity: CompanionIntensity;
-  deliveryMode: CompanionDeliveryMode;
-  locale: CompanionLocale;
-  signals: CompanionSignal[];
-  ownerConfirmed: boolean;
-}): void {
-  if (!input.ownerConfirmed)
-    throw new PenglaiError(
-      "SECURITY_POLICY",
-      "companion enable requires Owner confirmation",
-    );
+export function validateEnableInput(input: CompanionEnableInput): void {
   if (!input.bindingId || !input.workspaceId || !input.sessionId) {
     throw new PenglaiError(
       "INVALID_INPUT",

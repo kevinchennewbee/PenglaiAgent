@@ -11,9 +11,11 @@ import { registerOfficeTools } from "./tools.js";
 export const name = "@penglai/office";
 export const inject: string[] = ["tools", "workspaceRegistry"];
 export const version = RELEASE;
-export { createOfficeService, inspect, createDocument, edit, commit, detect } from "./service.js";
+export { createOfficeService, inspect, createDocument, createStructuredDocument, edit, commit, detect } from "./service.js";
 export type { OfficeFormat, DocumentInventory, OfficeJob, OfficeOperation } from "./service.js";
 export { OFFICE_LIMITS, parseOfficeOperation } from "./operations.js";
+export { parseOfficeCreateSpec } from "./specs.js";
+export type { OfficeCreateSpec } from "./specs.js";
 export { OFFICE_TEMPLATES } from "./templates/catalog.js";
 export { assertAuthorizedBytes } from "./authorization.js";
 export { registerOfficeTools } from "./tools.js";
@@ -39,6 +41,7 @@ export function apply(ctx: OfficeContext): ReturnType<typeof createOfficeService
   if (!ctx.provide) throw new PenglaiError("DSH_UNAVAILABLE", "Cordis provide service required for office");
   if (!ctx.workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for office");
   const artifacts = new ArtifactService(join(userData, "artifacts"));
+  artifacts.startMaintenance();
   const owner = new OwnerApprovalBroker(userData, {
     dialog: createHostOwnerDialog(userData),
   });

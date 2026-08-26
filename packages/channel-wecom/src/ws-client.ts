@@ -1,14 +1,6 @@
 import { PenglaiError } from "@penglai/contracts";
 import type { WeComClient, WeComCredentials } from "./index.js";
 
-type WeComMessage = {
-  msgid?: string;
-  msgtype?: string;
-  text?: { content?: string };
-  from?: { userid?: string };
-  chattype?: string;
-};
-
 export async function createWeComWsClient(
   creds: WeComCredentials,
   onMessage?: (msg: {
@@ -18,22 +10,13 @@ export async function createWeComWsClient(
     vendorTarget: string;
     chatType: "private";
     accountRef: string;
-  }) => void,
+  }) => void | Promise<void>,
 ): Promise<WeComClient> {
-  const mod = (await import("@wecom/aibot-node-sdk")) as unknown as {
-    WSClient?: new (opts: { botid?: string; botId?: string; secret: string; maxReconnectAttempts?: number }) => {
-      on(event: string, handler: (...args: unknown[]) => void): void;
-      connect(): Promise<void> | void;
-      disconnect?(): Promise<void> | void;
-      close?(): Promise<void> | void;
-      sendMessage?(payload: unknown): Promise<unknown>;
-    };
-  };
+  const mod = await import("@wecom/aibot-node-sdk");
   if (typeof mod.WSClient !== "function") {
     throw new PenglaiError("DSH_UNAVAILABLE", "WECOM_WSCLIENT_MISSING");
   }
   const raw = new mod.WSClient({
-    botid: creds.botId,
     botId: creds.botId,
     secret: creds.secret,
     maxReconnectAttempts: 10,
@@ -58,35 +41,38 @@ export async function createWeComWsClient(
         raw.on("reconnecting", () => {
           client.connected = false;
         });
-        raw.on("message", (event) => {
-          const payload = (event ?? {}) as WeComMessage;
+        raw.on("message.text", (frame) => {
+          const payload = frame.body;
+          if (!payload) return;
           const messageId = String(payload.msgid ?? "").trim();
           const senderId = String(payload.from?.userid ?? "").trim();
           const text = String(payload.text?.content ?? "").trim();
           const chattype = String(payload.chattype ?? "").trim();
           if (!messageId || !senderId || !text) return;
-          if (chattype !== "single" && chattype !== "p2p") return;
-          onMessage?.({
+          if (chattype !== "single") return;
+          void Promise.resolve(onMessage?.({
             messageId,
             senderId,
             text,
             vendorTarget: senderId,
             chatType: "private",
             accountRef: creds.botId,
+          })).catch(() => {
+            client.connected = false;
           });
         });
-        void raw.connect();
+        raw.connect();
       });
     },
     async disconnect() {
-      await (raw.disconnect ?? raw.close)?.();
+      raw.disconnect();
       client.connected = false;
     },
     async send(peer, text) {
-      if (!client.connected || typeof raw.sendMessage !== "function") {
+      if (!client.connected) {
         throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:wecom");
       }
-      await raw.sendMessage({ touser: peer, msgtype: "text", text: { content: text } });
+      await raw.sendMessage(peer, { msgtype: "markdown", markdown: { content: text } });
     },
   };
   return client;

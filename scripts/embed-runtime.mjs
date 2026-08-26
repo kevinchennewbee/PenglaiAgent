@@ -87,6 +87,12 @@ if (nodeInput.archive === "zip") {
     const names = execFileSync("unzip", ["-Z", "-1", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const n of names) assertSafeName(n);
     execFileSync("unzip", ["-q", archivePath, "-d", extractDir], { stdio: "inherit" });
+  } else if (process.platform === "win32" && spawnSync("tar", ["-tf", archivePath], { encoding: "utf8" }).status === 0) {
+    // Current Windows ships bsdtar, which reads ZIP archives without requiring
+    // an optional PowerShell.Archive module.
+    const names = execFileSync("tar", ["-tf", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+    for (const n of names) assertSafeName(n);
+    execFileSync("tar", ["-xf", archivePath, "-C", extractDir], { stdio: "inherit" });
   } else if (process.platform === "win32") {
     const expanded = spawnSync(
       "powershell",
@@ -231,6 +237,18 @@ if (mnemonAsset.executable) {
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
+
+// A native Windows build must carry its ACL/job/uninstall helper inside the
+// hashed runtime manifest. Cross-staging may omit it and remains structurally
+// incomplete until the matching Windows runner compiles the helper.
+if (target === "win32-x86_64") {
+  const helper = join(ROOT, "dist", "native-win32-x86_64", "penglai-windows-host.exe");
+  if (existsSync(helper)) {
+    const helperDir = join(staging, "runtime", "helpers");
+    mkdirSync(helperDir, { recursive: true });
+    cpSync(helper, join(helperDir, "penglai-windows-host.exe"));
+  }
+}
 
 const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))

@@ -99,6 +99,7 @@ export interface WindowsNativeHostSourceFacts {
   jobSupervise: boolean;
   deletePlan: boolean;
   processSuspendResume: boolean;
+  processReapSupervisors: boolean;
 }
 
 export function windowsNativeHostSourcePath(): string {
@@ -130,6 +131,10 @@ export function windowsNativeHostSourceFacts(): WindowsNativeHostSourceFacts {
       text.includes("process-resume") &&
       text.includes("CreateToolhelp32Snapshot") &&
       text.includes("SuspendThread"),
+    processReapSupervisors:
+      text.includes("process-reap-supervisors") &&
+      text.includes("TH32CS_SNAPPROCESS") &&
+      text.includes("TerminateProcess"),
   };
 }
 
@@ -213,6 +218,7 @@ export interface WindowsHostReport {
   applied?: boolean;
   reparse?: boolean;
   deleted?: number;
+  pids?: number[];
 }
 
 export function parseWindowsHostReport(raw: string): WindowsHostReport {
@@ -248,6 +254,9 @@ export function parseWindowsHostReport(raw: string): WindowsHostReport {
     ...(typeof value.applied === "boolean" ? { applied: value.applied } : {}),
     ...(typeof value.reparse === "boolean" ? { reparse: value.reparse } : {}),
     ...(typeof value.deleted === "number" ? { deleted: value.deleted } : {}),
+    ...(Array.isArray(value.pids) && value.pids.every((pid) => typeof pid === "number" && Number.isInteger(pid) && pid > 0)
+      ? { pids: value.pids as number[] }
+      : {}),
   };
 }
 

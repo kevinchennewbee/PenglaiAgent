@@ -136,7 +136,7 @@ test("wizard screens are 7 numbered steps including workspace and first turn", (
 });
 
 test("wizard API-test classifier distinguishes auth, rate, model, timeout, network, and adapter", () => {
-  const match = js.match(/function classifyApiTestError\(err\) \{[\s\S]*?return "unknown";\n  \}/);
+  const match = js.match(/function classifyApiTestError\(err\) \{[\s\S]*?return "unknown";\r?\n  \}/);
   assert.ok(match);
   const classify = Function(`${match[0]}; return classifyApiTestError;`)() as (err: unknown) => string;
   assert.equal(classify(new Error("401 unauthorized invalid key")), "auth");

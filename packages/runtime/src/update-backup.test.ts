@@ -33,11 +33,17 @@ test("R50-UPD-007 schema backup is app-private bounded and excludes credentials/
   assert.equal(existsSync(join(result.path, "im", "penglai-im.sqlite")), true);
 });
 
-test("schema backup refuses a symlink anywhere in a selected state tree", () => {
+test("schema backup refuses a symlink anywhere in a selected state tree", (context) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-schema-backup-link-"));
   const outside = mkdtempSync(join(tmpdir(), "penglai-schema-outside-"));
   mkdirSync(join(root, "im"), { recursive: true });
-  symlinkSync(outside, join(root, "im", "escape"));
+  try {
+    symlinkSync(outside, join(root, "im", "escape"), process.platform === "win32" ? "junction" : undefined);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create a directory link without Developer Mode or elevation");
+    return;
+  }
   assert.throws(
     () => createSchemaBackup({
       userData: root,

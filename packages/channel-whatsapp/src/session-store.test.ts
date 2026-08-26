@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -13,6 +13,10 @@ test("WhatsApp session store encrypts on disk and wipes", async () => {
   await store.write(payload);
   const read = await store.read();
   assert.deepEqual(read && [...read], [1, 2, 3, 4]);
+  const file = join(dir, "whatsapp.session");
+  renameSync(file, `${file}.bak`);
+  assert.deepEqual([...(await store.read())!], [1, 2, 3, 4]);
+  assert.equal(existsSync(`${file}.bak`), false);
   await store.wipe();
   assert.equal(await store.read(), undefined);
 });

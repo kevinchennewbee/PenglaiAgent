@@ -71,6 +71,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.jobSupervise, true);
   assert.equal(facts.deletePlan, true);
   assert.equal(facts.processSuspendResume, true);
+  assert.equal(facts.processReapSupervisors, true);
   assert.match(facts.source, /penglai_windows_host\.c$/);
   const src = readFileSync(facts.source, "utf8");
   assert.doesNotMatch(src, /applied:\s*true/);

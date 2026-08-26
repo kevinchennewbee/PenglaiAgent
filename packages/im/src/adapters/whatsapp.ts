@@ -17,7 +17,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
   private enabled = false;
   private connection: ConnectionState = "disabled";
   private riskAckAt: number | null = null;
-  private inbound: ((event: InboundChannelEvent) => void) | undefined;
+  private inbound: ((event: InboundChannelEvent) => void | Promise<void>) | undefined;
 
   manifest() {
     return getChannelManifest(this.id);
@@ -96,7 +96,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
     await this.logout();
   }
 
-  onInbound(handler: (event: InboundChannelEvent) => void) {
+  onInbound(handler: (event: InboundChannelEvent) => void | Promise<void>) {
     this.inbound = handler;
     void this.inbound;
   }

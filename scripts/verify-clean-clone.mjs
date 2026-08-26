@@ -6,6 +6,7 @@ import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 import { extractTapFailureDiagnostics } from "./lib/tap-diagnostics.mjs";
+import { pnpmProcess } from "./lib/pnpm-process.mjs";
 
 const state = gitState();
 if (state.dirty) {
@@ -89,9 +90,12 @@ function run(command, args, label) {
 }
 
 const steps = [];
-steps.push(run("pnpm", ["install", "--frozen-lockfile"], "frozen-install"));
-if (steps.at(-1).status === 0) steps.push(run("pnpm", ["typecheck"], "typecheck"));
-if (steps.at(-1).status === 0) steps.push(run("pnpm", ["build"], "build"));
+const install = pnpmProcess(["install", "--frozen-lockfile"]);
+steps.push(run(install.command, install.args, "frozen-install"));
+const typecheck = pnpmProcess(["typecheck"]);
+if (steps.at(-1).status === 0) steps.push(run(typecheck.command, typecheck.args, "typecheck"));
+const build = pnpmProcess(["build"]);
+if (steps.at(-1).status === 0) steps.push(run(build.command, build.args, "build"));
 if (steps.at(-1).status === 0) steps.push(run("git", ["status", "--porcelain"], "post-build-status"));
 if (steps.at(-1).status === 0 && String(steps.at(-1).tail).trim()) {
   rmSync(dest, { recursive: true, force: true });
@@ -102,7 +106,8 @@ if (steps.at(-1).status === 0 && String(steps.at(-1).tail).trim()) {
     dirty: steps.at(-1).tail,
   });
 }
-if (steps.at(-1).status === 0) steps.push(run("pnpm", ["test:unit"], "test:unit"));
+const unit = pnpmProcess(["test:unit"]);
+if (steps.at(-1).status === 0) steps.push(run(unit.command, unit.args, "test:unit"));
 
 const failed = steps.find((step) => step.status !== 0);
 rmSync(dest, { recursive: true, force: true });

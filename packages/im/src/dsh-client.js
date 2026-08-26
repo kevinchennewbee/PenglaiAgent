@@ -168,6 +168,10 @@ window.__ModuleLoader__.load({
         pasteToken: "粘贴官方 Token",
         pasteCreds: "粘贴凭据",
         saveConnect: "保存并连接",
+        showQr: "显示二维码",
+        refreshQr: "重新生成二维码",
+        cancelConnect: "取消本次连接",
+        scanWaiting: "二维码已生成，等待扫码",
         riskAck: "我已了解账号风险，仍要启用 WhatsApp",
         noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
         whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。这不是官方 Cloud API。",
@@ -288,6 +292,10 @@ window.__ModuleLoader__.load({
         pasteToken: "Paste the official token",
         pasteCreds: "Paste credentials",
         saveConnect: "Save and connect",
+        showQr: "Show QR code",
+        refreshQr: "Generate a new QR code",
+        cancelConnect: "Cancel this connection",
+        scanWaiting: "QR code ready; waiting for scan",
         riskAck: "I understand the account risk and still want to enable WhatsApp",
         noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
         whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk. This is not the official Cloud API.",
@@ -1331,10 +1339,13 @@ window.__ModuleLoader__.load({
       const [steps, setSteps] = React.useState([]);
       const [scanImage, setScanImage] = React.useState("");
       const [operationId, setOperationId] = React.useState("");
+      const [connectionStatus, setConnectionStatus] = React.useState("");
+      const [autoStarted, setAutoStarted] = React.useState(false);
       const dual = dualSecretLabels(channel.channel);
       const lang = String(document.documentElement.lang || "zh").startsWith("en") ? "en" : "zh";
       const begin = (method) => {
         setError("");
+        setConnectionStatus("starting");
         const combined = dual ? [secret, secretB].filter(Boolean).join("\n") : secret;
         const args = {
           channel: channel.channel,
@@ -1367,10 +1378,19 @@ window.__ModuleLoader__.load({
             setOperationId(started.operationId || "");
             setSteps((started.steps && started.steps[lang]) || []);
             setScanImage(qrSrc(started.qrImageRef));
+            setConnectionStatus(started.kind === "qr" || started.kind === "device-link" ? "waiting" : "connecting");
             load();
           })
-          .catch((err) => setError(String(err && err.message ? err.message : err)));
+          .catch((err) => {
+            setConnectionStatus("failed");
+            setError(String(err && err.message ? err.message : err));
+          });
       };
+      React.useEffect(() => {
+        if (!usesQr || autoStarted || channel.risk === "community-protocol") return;
+        setAutoStarted(true);
+        begin(defaultMethod(channel));
+      }, [channel.channel, usesQr, autoStarted]);
       React.useEffect(() => {
         if (!operationId) return undefined;
         const timer = setInterval(() => {
@@ -1381,7 +1401,11 @@ window.__ModuleLoader__.load({
             .then((next) => {
               const image = qrSrc(next.qrImageRef);
               if (image) setScanImage(image);
-              if (next.status === "connected" || next.status === "failed" || next.status === "expired") load();
+              setConnectionStatus(String(next.status || "connecting"));
+              if (next.status === "connected" || next.status === "failed" || next.status === "expired") {
+                setOperationId("");
+                load();
+              }
             })
             .catch((err) => setError(String(err && err.message ? err.message : err)));
         }, 3000);
@@ -1466,15 +1490,50 @@ window.__ModuleLoader__.load({
                 height: 192,
               })
             : null,
+          connectionStatus
+            ? jsx.jsx("p", {
+                role: "status",
+                "aria-live": "polite",
+                "data-penglai-im-connect-status": connectionStatus,
+                children:
+                  connectionStatus === "waiting"
+                    ? t.scanWaiting
+                    : connectionStatus === "connected"
+                      ? t.statusConnected
+                      : connectionStatus === "failed"
+                        ? t.statusFailed
+                        : t.statusConnecting,
+              })
+            : null,
           error
             ? jsx.jsx("p", { role: "alert", "data-penglai-im-connect-error": "1", children: error })
             : null,
           jsx.jsx("button", {
             type: "button",
             "data-penglai-im-connect-submit": channel.channel,
+            disabled:
+              connectionStatus === "starting" ||
+              Boolean(operationId) ||
+              (channel.risk === "community-protocol" && !riskAck),
             onClick: () => begin(defaultMethod(channel)),
-            children: t.saveConnect,
+            children: usesQr ? (operationId ? t.scanWaiting : t.showQr) : t.saveConnect,
           }),
+          operationId
+            ? jsx.jsx("button", {
+                type: "button",
+                "data-penglai-im-connect-cancel": channel.channel,
+                onClick: () =>
+                  imCall(remote, connection, "cancelChannelConnection", { channel: channel.channel, operationId })
+                    .then(() => {
+                      setOperationId("");
+                      setScanImage("");
+                      setConnectionStatus("");
+                      load();
+                    })
+                    .catch((err) => setError(String(err && err.message ? err.message : err))),
+                children: t.cancelConnect,
+              })
+            : null,
           channel.connection === "connected" || channel.connection === "connecting"
             ? jsx.jsx("button", {
                 type: "button",
@@ -1537,7 +1596,16 @@ window.__ModuleLoader__.load({
       return jsx.jsxs("section", {
         "data-penglai-im": "1",
         children: [
-          jsx.jsx("h3", { children: t.pageTitle }),
+          jsx.jsxs("h3", {
+            children: [
+              t.pageTitle,
+              jsx.jsx("span", {
+                "data-penglai-im-version": "0.5.7",
+                style: { marginInlineStart: "8px", fontSize: "0.78em", opacity: 0.72 },
+                children: "Penglai IM 0.5.7",
+              }),
+            ],
+          }),
           snap.status === "loading" ? jsx.jsx("p", { children: t.loading }) : null,
           snap.status === "error" ? jsx.jsx("p", { children: snap.error }) : null,
           snap.status === "ready"
@@ -1580,13 +1648,40 @@ window.__ModuleLoader__.load({
                             background: "var(--dsw-alias-bg-module-platform)",
                           },
                           children: [
-                            jsx.jsx("strong", { children: title }),
-                            c.supportLevel === "experimental"
-                              ? jsx.jsx("span", { children: ` · ${t.experimental}` })
-                              : null,
-                            jsx.jsx("p", { "aria-live": "polite", children: status }),
+                            jsx.jsxs("div", {
+                              "data-penglai-im-card-header": "1",
+                              style: {
+                                display: "flex",
+                                alignItems: "flex-start",
+                                justifyContent: "space-between",
+                                gap: "10px",
+                              },
+                              children: [
+                                jsx.jsxs("span", {
+                                  style: { minWidth: 0 },
+                                  children: [
+                                    jsx.jsx("strong", { children: title }),
+                                    c.supportLevel === "experimental"
+                                      ? jsx.jsx("span", { children: ` · ${t.experimental}` })
+                                      : null,
+                                  ],
+                                }),
+                                jsx.jsx("span", {
+                                  role: "status",
+                                  "aria-live": "polite",
+                                  style: { flex: "none", textAlign: "right" },
+                                  children: status,
+                                }),
+                              ],
+                            }),
                             c.live === true
-                              ? jsx.jsx("p", { "data-penglai-im-release-live": "1", children: "live" })
+                              ? jsx.jsx("p", {
+                                  "data-penglai-im-implemented": "1",
+                                  children:
+                                    t.statusConnected === "已连接"
+                                      ? "0.5.7 已提供连接器；真实支持以连接与验证结果为准"
+                                      : "Adapter included in 0.5.7; connection and validation decide support",
+                                })
                               : null,
                             c.error
                               ? jsx.jsxs("p", {

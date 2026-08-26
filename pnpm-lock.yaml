@@ -195,9 +195,6 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@tencent-connect/qqbot-connector':
-        specifier: 1.2.0
-        version: 1.2.0
       '@tencent-connect/qqbot-nodejs':
         specifier: 1.0.4
         version: 1.0.4(silk-wasm@3.7.1)
@@ -274,6 +271,9 @@ importers:
       '@penglai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@penglai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
   packages/context:
     dependencies:
@@ -3361,10 +3361,6 @@ packages:
   '@tanstack/virtual-core@3.17.8':
     resolution: {integrity: sha512-BfEvehNpOT75r5Ksc5xW6NZuXujTfb7nlSEyVu4XHG3gdxNg1KqXruWbDewXOUaUYIo4oRbSfkjIajz4MAT8tA==}
 
-  '@tencent-connect/qqbot-connector@1.2.0':
-    resolution: {integrity: sha512-FAOUCvgxP4M9UiYbHrtVgJ7BavSlh1CHJPjeEQuTAkP9MZ91lX4yATqv6I/lB9yp15nVq+G2DaGSSJwQTSoSsA==}
-    engines: {node: '>=18.0.0'}
-
   '@tencent-connect/qqbot-nodejs@1.0.4':
     resolution: {integrity: sha512-gU5HySLplczZXMUjM7NtiUACY7YfX9YlI/R9PKzCLMgLmHvwsX9L2sitsrYPMentGUr9b8NLfSaSTsndF77NBA==}
     engines: {node: '>=18'}
@@ -4835,10 +4831,6 @@ packages:
   qified@0.10.1:
     resolution: {integrity: sha512-+Owyggi9IxT1ePKGafcI87ubSmxol6smwJ+RAHDQlx9+9cPwFWDiKFFCPuWhr9ignlGpZ9vDQLw67N4dcTVFEA==}
     engines: {node: '>=20'}
-
-  qrcode-terminal@0.12.0:
-    resolution: {integrity: sha512-EXtzRZmC+YGmGlDFbXKxQiMZNwCLEO6BANKXG4iCtSIM0yqc/pappSx3RIKr4r0uh5JsBckOXeKrB3Iz7mdQpQ==}
-    hasBin: true
 
   qrcode@1.5.4:
     resolution: {integrity: sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==}
@@ -9259,10 +9251,6 @@ snapshots:
 
   '@tanstack/virtual-core@3.17.8': {}
 
-  '@tencent-connect/qqbot-connector@1.2.0':
-    dependencies:
-      qrcode-terminal: 0.12.0
-
   '@tencent-connect/qqbot-nodejs@1.0.4(silk-wasm@3.7.1)':
     dependencies:
       ws: 8.21.3
@@ -11008,8 +10996,6 @@ snapshots:
   qified@0.10.1:
     dependencies:
       hookified: 2.2.0
-
-  qrcode-terminal@0.12.0: {}
 
   qrcode@1.5.4:
     dependencies:

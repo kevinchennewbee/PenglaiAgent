@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   activatePrivateProfile,
   assertAbsoluteExecutable,
@@ -384,7 +384,7 @@ test("fresh profile installs Center plus required builtins and links official @d
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
   assert.equal(lstatSync(linked).isSymbolicLink(), true);
-  assert.equal(readlinkSync(linked), layout.officialDeepseek);
+  assert.equal(resolve(readlinkSync(linked)), resolve(layout.officialDeepseek));
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {
@@ -461,7 +461,10 @@ test("0.5.5 merges the legacy Context profile plugin into Memory without deletin
   assert.equal(existsSync(join(user.root, "migrations", "context-merged-0.5.5.json")), true);
 });
 
-test("legacy Context migration refuses a swapped symlink manifest", () => {
+test(
+  "legacy Context migration refuses a swapped symlink manifest",
+  { skip: process.platform === "win32" ? "ordinary Windows users cannot create file symlinks" : false },
+  () => {
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-context-symlink-")));
   mkdirSync(user.profileWeb, { recursive: true });
   const outside = join(user.root, "outside.json");
@@ -469,7 +472,8 @@ test("legacy Context migration refuses a swapped symlink manifest", () => {
   symlinkSync(outside, join(user.profileWeb, "package.json"));
   assert.throws(() => mergeLegacyContextIntoMemory(user), /symlink source/i);
   assert.match(readFileSync(outside, "utf8"), /@penglai\/context/);
-});
+  },
+);
 
 test("R2-DIST-012 interrupted staging rolls back", () => {
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
@@ -479,6 +483,44 @@ test("R2-DIST-012 interrupted staging rolls back", () => {
   mkdirSync(join(user.transactions, "staging"), { recursive: true });
   const j = recoverProfile(user);
   assert.equal(j.phase, "rolled_back");
+});
+
+test("fresh profile activation uses an atomic directory switch and leaves no staging tree", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-app-atomic-seed-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-atomic-seed-")));
+  mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
+  writeFileSync(join(app, "profile-seed", "web", "package.json"), '{"name":"web"}\n');
+  writeTrustedPluginSet(app);
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  writeFileSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai", ".keep"), "official\n");
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  activatePrivateProfile(resolveRuntimeLayout(app), user);
+  const journal = JSON.parse(readFileSync(join(user.transactions, "journal.json"), "utf8")) as {
+    phase: string;
+    staging?: string;
+    backup?: string;
+  };
+  assert.equal(journal.phase, "committed");
+  assert.equal(journal.staging, undefined);
+  assert.equal(journal.backup, undefined);
+  assert.equal(existsSync(join(user.profileWeb, "package.json")), true);
+});
+
+test("interrupted atomic activation restores the pre-activation directory", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-atomic-rollback-")));
+  const staging = join(user.transactions, "seed.staging-web");
+  const backup = join(user.transactions, "seed.pre-activation");
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(staging, { recursive: true });
+  mkdirSync(backup, { recursive: true });
+  writeFileSync(join(user.profileWeb, "package.json"), '{"name":"new"}\n');
+  writeFileSync(join(backup, "old.txt"), "preserved\n");
+  writeJournal(user, { id: "seed", phase: "activating", staging, backup });
+  const journal = recoverProfile(user);
+  assert.equal(journal.phase, "rolled_back");
+  assert.equal(readFileSync(join(user.profileWeb, "old.txt"), "utf8"), "preserved\n");
+  assert.equal(existsSync(staging), false);
 });
 
 test("Center transaction is restored before DSH profile activation", () => {

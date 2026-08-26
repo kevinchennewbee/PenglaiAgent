@@ -1,7 +1,8 @@
 # `@penglai/im` 完整产品与协议合同
 
 > 0.5.7 用户只看到一个「消息连接」插件。九个平台都有真实连接入口，不再把后七个
-> 显示为路线图。`live` 表示代码能力已通过发布验收，不表示当前用户已启用。没有
+> 显示为路线图。manifest 的 `live` 是历史兼容字段，表示 0.5.7 包含真实 adapter
+> 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
 > 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。Slack、Telegram、
 > Discord 禁止伪装扫码。WhatsApp 默认关闭，并明确社区协议与账号风险。下文微信/

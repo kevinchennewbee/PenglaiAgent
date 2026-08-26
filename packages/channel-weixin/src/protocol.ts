@@ -23,7 +23,7 @@ export const GET_UPDATES_ENDPOINT = "/ilink/bot/getupdates";
 export const SEND_ENDPOINT = "/ilink/bot/sendmessage";
 export const GET_CONFIG_ENDPOINT = "/ilink/bot/getconfig";
 export const SEND_TYPING_ENDPOINT = "/ilink/bot/sendtyping";
-export const ALLOWED_REDIRECT_HOSTS = ["ilinkai.weixin.qq.com"] as const;
+export const ALLOWED_REDIRECT_HOSTS = ["ilinkai.weixin.qq.com", "ilinkai.wechat.com"] as const;
 
 export function randomWechatUin(randomBytes: (n: number) => Uint8Array = (n) => {
   const out = new Uint8Array(n);

@@ -847,7 +847,7 @@ export class PenglaiImHost {
       pendingInbox: 0,
       pendingOutbox: 0,
       revision: this.revision,
-      live: false,
+      live: manifest.live,
       risk: manifest.risk,
       supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
@@ -899,10 +899,13 @@ export class PenglaiImHost {
   }
 
   attachInboundFanIn(adapter: ChannelAdapter): void {
-    adapter.onInbound((event) => {
-      void this.handleChannelInbound(event).catch((error) => {
+    adapter.onInbound(async (event) => {
+      try {
+        await this.handleChannelInbound(event);
+      } catch (error) {
         this.recordChannelFailure(event.channel, event.accountRef, error);
-      });
+        throw error;
+      }
     });
   }
 
@@ -958,6 +961,17 @@ export class PenglaiImHost {
       ...(input.riskAck ? { riskAck: true } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
+    // Risk acknowledgement is authority for the first external side effect:
+    // creating a WhatsApp device-link and revealing its QR. Reserve it before
+    // the adapter starts, not after the QR/network operation has already run.
+    const finishRisk = id === "whatsapp" && input.riskAck
+      ? this.consumeChannelOwner({
+          action: IM_OWNER_ACTIONS.acknowledgeRisk,
+          channel: id,
+          ...(input.riskOwnerActionId ? { ownerActionId: input.riskOwnerActionId } : {}),
+          ...(input.riskReceipt ? { receipt: input.riskReceipt } : {}),
+        })
+      : () => undefined;
     let result: ConnectionResult;
     try {
       result = await adapter.beginConnection({
@@ -969,14 +983,6 @@ export class PenglaiImHost {
       this.recordChannelFailure(id, channelConfigAccountId(id), error);
       throw error;
     }
-    const finishRisk = id === "whatsapp" && input.riskAck
-      ? this.consumeChannelOwner({
-          action: IM_OWNER_ACTIONS.acknowledgeRisk,
-          channel: id,
-          ...(input.riskOwnerActionId ? { ownerActionId: input.riskOwnerActionId } : {}),
-          ...(input.riskReceipt ? { receipt: input.riskReceipt } : {}),
-        })
-      : () => undefined;
     this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
       riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
       riskAckAt: Date.now(),
@@ -1059,7 +1065,8 @@ export class PenglaiImHost {
       ...(input.receipt ? { receipt: input.receipt } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
-    await adapter.logout();
+    // deleteCredentials owns the adapter-specific logout/wipe operation. Do
+    // not call logout twice (WhatsApp otherwise races two session wipes).
     await adapter.deleteCredentials();
     await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
     if (id === "whatsapp") await this.vault.delete(WHATSAPP_DATAKEY_REF);

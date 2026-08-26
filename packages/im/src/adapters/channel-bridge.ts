@@ -40,7 +40,7 @@ type NativeLike = {
   disconnect(): Promise<void>;
   logout?(): Promise<void>;
   peekQr?(operationId?: string): QrPeek | undefined;
-  onInbound?(handler: (msg: Record<string, unknown>) => void): void;
+  onInbound?(handler: (msg: Record<string, unknown>) => void | Promise<void>): void;
   react?(input: {
     vendorTarget: string;
     vendorMessageId: string;
@@ -69,11 +69,11 @@ export function wrapNative(
   opts: NativeWrapOpts,
 ): ChannelAdapter & { peekQr(operationId: string): QrPeek | undefined } {
   const manifest = getChannelManifest(id);
-  let inbound: ((event: InboundChannelEvent) => void) | undefined;
-  adapter.onInbound?.((msg) => {
+  let inbound: ((event: InboundChannelEvent) => void | Promise<void>) | undefined;
+  adapter.onInbound?.(async (msg) => {
     const event = mapInbound(id, msg as Record<string, unknown>, opts.hashPeer);
     if (!event || event.chatType !== "private" || !event.provenPrivate) return;
-    inbound?.(event);
+    await inbound?.(event);
   });
   let enabled = false;
   return {
@@ -113,7 +113,7 @@ export function wrapNative(
       const row = adapter.health();
       return {
         channel: id,
-        live: false,
+        live: manifest.live,
         enabled,
         connection: enabled ? (row.connection as ConnectionState) : "disabled",
       };

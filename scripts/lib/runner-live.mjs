@@ -34,6 +34,27 @@ export function parseProcessIdentityLine(line) {
 export function readProcessIdentity(pid) {
   const n = Number(pid);
   if (!Number.isFinite(n) || n <= 0) return null;
+  if (process.platform === "win32") {
+    const command = [
+      `$p=Get-CimInstance Win32_Process -Filter 'ProcessId = ${Math.trunc(n)}' -ErrorAction SilentlyContinue`,
+      "if ($null -ne $p) {",
+      "[pscustomobject]@{pid=[int]$p.ProcessId;startedAt=$p.CreationDate.ToUniversalTime().ToString('o');command=[string]$p.CommandLine} | ConvertTo-Json -Compress",
+      "}",
+    ].join("; ");
+    const r = spawnSync(
+      "powershell.exe",
+      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+      { encoding: "utf8", windowsHide: true, timeout: 5_000 },
+    );
+    if (r.status !== 0 || !String(r.stdout ?? "").trim()) return null;
+    try {
+      const parsed = JSON.parse(String(r.stdout).trim());
+      if (Number(parsed.pid) !== Math.trunc(n) || !parsed.startedAt) return null;
+      return { pid: Number(parsed.pid), startedAt: String(parsed.startedAt), command: String(parsed.command ?? "") };
+    } catch {
+      return null;
+    }
+  }
   const r = spawnSync("/bin/ps", ["-p", String(n), "-o", "pid=,lstart=,command="], { encoding: "utf8" });
   if (r.status !== 0) return null;
   return parseProcessIdentityLine(r.stdout);

@@ -169,9 +169,22 @@ export function killIdentity(id: ProcessIdentity, signal: NodeJS.Signals): boole
 export function reapDshOrphans(layout: RuntimeLayout, keep?: ProcessIdentity): Array<{ pid: number; ppid: number }> {
   const platform = keep?.platform ?? process.platform;
   if (platform === "win32") {
-    if (keep?.supervisorPid) return [];
-    if (!windowsNativeHostStatus("win32", layout.appRoot).available) return [];
-    return [];
+    const status = windowsNativeHostStatus("win32", layout.appRoot);
+    if (!status.available || !status.executable) return [];
+    try {
+      const report = invokeWindowsHost(
+        [
+          "process-reap-supervisors",
+          "--exe",
+          status.executable,
+          ...(keep?.supervisorPid ? ["--keep-pid", String(keep.supervisorPid)] : []),
+        ],
+        { platform: "win32", appRoot: layout.appRoot },
+      );
+      return (report.pids ?? []).map((pid) => ({ pid, ppid: 0 }));
+    } catch {
+      return [];
+    }
   }
   const killed: Array<{ pid: number; ppid: number }> = [];
   for (const row of listDshCandidates(layout, "darwin")) {

@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
+import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 import { CompanionStore, type CompanionDispatchRow } from "./scheduler.js";
 import {
   FRESH_COMPANION,
@@ -10,9 +12,19 @@ import {
   mayDispatch,
   validateEnableInput,
   type CompanionConfig,
+  type CompanionEnableInput,
   type CompanionSignal,
 } from "./service.js";
 import { PenglaiCompanionRemote } from "./remote.js";
+import {
+  COMPANION_OWNER_ACTIONS,
+  companionDisableDigest,
+  companionEnableDigest,
+  companionReminderDigest,
+  consumeCompanionOwnerProof,
+  type CompanionOwnerBrokerPort,
+  type CompanionOwnerProof,
+} from "./owner.js";
 
 export const name = "@penglai/companion";
 export const inject = [
@@ -275,6 +287,7 @@ export class ProductionCompanionService {
     private readonly ctx: CordisContextLike,
     readonly store: CompanionStore,
     private readonly now: () => number = Date.now,
+    private readonly owner?: CompanionOwnerBrokerPort,
   ) {
     if (!ctx.agents?.get || !ctx.agents.create || !ctx.agents.resume) {
       throw new PenglaiError(
@@ -744,8 +757,21 @@ export class ProductionCompanionService {
     return officialId;
   }
 
+  proposeEnable(input: CompanionEnableInput): { actionId: string } {
+    validateEnableInput(input);
+    if (!this.owner) throw new PenglaiError("DSH_UNAVAILABLE", "companion owner broker required");
+    return this.owner.createProposal({
+      action: COMPANION_OWNER_ACTIONS.enable,
+      pluginId: name,
+      objectId: input.bindingId,
+      sourceDigest: companionEnableDigest(input),
+      workspaceId: input.workspaceId,
+      sessionId: input.sessionId,
+    });
+  }
+
   async enable(
-    input: Parameters<typeof validateEnableInput>[0],
+    input: CompanionEnableInput & CompanionOwnerProof,
   ): Promise<CompanionConfig> {
     await this.ready;
     validateEnableInput(input);
@@ -777,6 +803,15 @@ export class ProductionCompanionService {
         "DSH_UNAVAILABLE",
         "selected Session model route missing",
       );
+    const complete = consumeCompanionOwnerProof(this.owner, {
+      actionId: input.actionId,
+      receipt: input.receipt,
+      action: COMPANION_OWNER_ACTIONS.enable,
+      objectId: input.bindingId,
+      sourceDigest: companionEnableDigest(input),
+      workspaceId: input.workspaceId,
+      sessionId: input.sessionId,
+    });
     const companionSessionId = `penglai-companion-${randomUUID()}`;
     const enabling = this.store.beginEnable(
       {
@@ -814,7 +849,9 @@ export class ProductionCompanionService {
         );
       }
       this.runtimeError = undefined;
-      return this.store.commitEnable(this.now());
+      const committed = this.store.commitEnable(this.now());
+      complete({ enabled: committed.enabled, revision: committed.revision });
+      return committed;
     } catch (error) {
       this.store.failEnable(stableOutcome(error), this.now());
       await this.handle?.dispose().catch(() => undefined);
@@ -853,33 +890,53 @@ export class ProductionCompanionService {
     };
   }
 
+  proposeReminder(input: {
+    at: unknown;
+    opaqueReminderId: string;
+  }): { actionId: string } {
+    const config = this.store.config();
+    if (!config.enabled || !config.signals.includes("reminder")) {
+      throw new PenglaiError("SECURITY_POLICY", "companion reminder not enabled");
+    }
+    if (!/^[A-Za-z0-9_.:-]{8,160}$/.test(input.opaqueReminderId)) {
+      throw new PenglaiError("INVALID_INPUT", "opaque companion reminder id invalid");
+    }
+    if (!this.owner) throw new PenglaiError("DSH_UNAVAILABLE", "companion owner broker required");
+    return this.owner.createProposal({
+      action: COMPANION_OWNER_ACTIONS.scheduleReminder,
+      pluginId: name,
+      objectId: input.opaqueReminderId,
+      sourceDigest: companionReminderDigest({ ...input, configRevision: config.revision }),
+      ...(config.workspaceId ? { workspaceId: config.workspaceId } : {}),
+      ...(config.boundSessionId ? { sessionId: config.boundSessionId } : {}),
+    });
+  }
+
   async scheduleReminder(input: {
     at: unknown;
     opaqueReminderId: string;
-    ownerConfirmed: boolean;
-  }): Promise<{ officialId: string }> {
+  } & CompanionOwnerProof): Promise<{ officialId: string }> {
     await this.ready;
     const config = this.store.config();
-    if (
-      !input.ownerConfirmed ||
-      !config.enabled ||
-      !config.signals.includes("reminder")
-    ) {
-      throw new PenglaiError(
-        "SECURITY_POLICY",
-        "companion reminder not authorized",
-      );
+    if (!config.enabled || !config.signals.includes("reminder")) {
+      throw new PenglaiError("SECURITY_POLICY", "companion reminder not authorized");
     }
     if (!/^[A-Za-z0-9_.:-]{8,160}$/.test(input.opaqueReminderId)) {
-      throw new PenglaiError(
-        "INVALID_INPUT",
-        "opaque companion reminder id invalid",
-      );
+      throw new PenglaiError("INVALID_INPUT", "opaque companion reminder id invalid");
     }
     const agent = this.handle?.agent;
     if (!agent)
       throw new PenglaiError("DSH_UNAVAILABLE", "companion Agent unavailable");
-    return {
+    const complete = consumeCompanionOwnerProof(this.owner, {
+      actionId: input.actionId,
+      receipt: input.receipt,
+      action: COMPANION_OWNER_ACTIONS.scheduleReminder,
+      objectId: input.opaqueReminderId,
+      sourceDigest: companionReminderDigest({ ...input, configRevision: config.revision }),
+      ...(config.workspaceId ? { workspaceId: config.workspaceId } : {}),
+      ...(config.boundSessionId ? { sessionId: config.boundSessionId } : {}),
+    });
+    const result = {
       officialId: await this.addOfficialSchedule(
         agent,
         config,
@@ -888,16 +945,38 @@ export class ProductionCompanionService {
         { at: input.at },
       ),
     };
+    complete(result);
+    return result;
   }
 
-  async disable(input: { ownerConfirmed: boolean }): Promise<CompanionConfig> {
+  proposeDisable(): { actionId: string } {
+    const config = this.store.config();
+    if (!config.enabled) throw new PenglaiError("INVALID_INPUT", "companion already disabled");
+    if (!this.owner) throw new PenglaiError("DSH_UNAVAILABLE", "companion owner broker required");
+    return this.owner.createProposal({
+      action: COMPANION_OWNER_ACTIONS.disable,
+      pluginId: name,
+      objectId: config.bindingId ?? "companion",
+      sourceDigest: companionDisableDigest(config),
+      ...(config.workspaceId ? { workspaceId: config.workspaceId } : {}),
+      ...(config.boundSessionId ? { sessionId: config.boundSessionId } : {}),
+    });
+  }
+
+  async disable(input: CompanionOwnerProof): Promise<CompanionConfig> {
     await this.ready;
-    if (!input.ownerConfirmed)
-      throw new PenglaiError(
-        "SECURITY_POLICY",
-        "companion disable requires Owner confirmation",
-      );
     const before = this.store.config();
+    if (!before.enabled)
+      throw new PenglaiError("INVALID_INPUT", "companion already disabled");
+    const complete = consumeCompanionOwnerProof(this.owner, {
+      actionId: input.actionId,
+      receipt: input.receipt,
+      action: COMPANION_OWNER_ACTIONS.disable,
+      objectId: before.bindingId ?? "companion",
+      sourceDigest: companionDisableDigest(before),
+      ...(before.workspaceId ? { workspaceId: before.workspaceId } : {}),
+      ...(before.boundSessionId ? { sessionId: before.boundSessionId } : {}),
+    });
     const disabled = this.store.disable(this.now());
     const triggerIds = this.store
       .dispatches()
@@ -927,6 +1006,7 @@ export class ProductionCompanionService {
     this.handle = undefined;
     this.detachListeners();
     await Promise.allSettled([...this.inflight]);
+    complete({ enabled: disabled.enabled, revision: disabled.revision });
     return disabled;
   }
 
@@ -1020,7 +1100,10 @@ export function apply(ctx: CordisContextLike) {
     join(userData, "companion", "companion.sqlite3"),
   );
   try {
-    const service = new ProductionCompanionService(ctx, store);
+    const owner = new OwnerApprovalBroker(userData, {
+      dialog: createHostOwnerDialog(userData),
+    });
+    const service = new ProductionCompanionService(ctx, store, Date.now, owner);
     ctx.provide("penglaiCompanion", service);
     if (ctx instanceof Context) new PenglaiCompanionRemote(ctx, service);
     ctx.effect(() => () => service.close());

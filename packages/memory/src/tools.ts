@@ -1,5 +1,16 @@
 import { PenglaiError } from "@penglai/contracts";
-import type { MnemonMemoryService } from "./engine/service.js";
+
+interface MemoryToolService {
+  search(query: string, workspaceId?: string): Promise<unknown[]>;
+  why(id: string, workspaceId?: string): Promise<unknown>;
+  queueToolCandidate(input: {
+    text: string;
+    suggestedScope: "personal" | "workspace";
+    workspaceId: string;
+    sessionId: string;
+    turnId: string;
+  }): unknown;
+}
 
 interface CordisTools {
   tools?: { register(definition: Record<string, unknown>): unknown };
@@ -7,7 +18,11 @@ interface CordisTools {
   on?(event: string, listener: (...args: unknown[]) => unknown): unknown;
 }
 
-function boundWorkspaceId(ctx: CordisTools, exec: unknown): string | undefined {
+function boundToolContext(ctx: CordisTools, exec: unknown): {
+  workspaceId: string;
+  sessionId: string;
+  turnId: string;
+} {
   const bag = exec && typeof exec === "object" ? (exec as Record<string, unknown>) : {};
   const agent = bag.agent && typeof bag.agent === "object" ? (bag.agent as { id?: unknown }) : undefined;
   const agentId = typeof agent?.id === "string" && agent.id ? agent.id : undefined;
@@ -15,7 +30,9 @@ function boundWorkspaceId(ctx: CordisTools, exec: unknown): string | undefined {
   const workspaces = ctx.workspaceRegistry?.list() ?? [];
   const hit = workspaces.find((row) => row.sessionIds?.includes(agentId) || row.id === agentId);
   if (!hit) throw new PenglaiError("UNAUTHORIZED", "agent is not bound to an official Workspace");
-  return hit.id;
+  const turn = typeof bag.turn === "number" && Number.isSafeInteger(bag.turn) && bag.turn >= 0 ? bag.turn : undefined;
+  if (turn === undefined) throw new PenglaiError("UNAUTHORIZED", "memory tools require ToolRunContext exec.turn");
+  return { workspaceId: hit.id, sessionId: agentId, turnId: String(turn) };
 }
 
 function jsonOutput(description: string) {
@@ -25,7 +42,7 @@ function jsonOutput(description: string) {
   };
 }
 
-export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryService): void {
+export function registerMemoryTools(ctx: CordisTools, service: MemoryToolService): void {
   if (!ctx.tools?.register) return;
   ctx.on?.("tools/pre-execute", async (...args: unknown[]) => {
     const exec = args[0] as { name?: string };
@@ -77,9 +94,9 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
         throw new PenglaiError("SECURITY_POLICY", "workspace_id is not a model-controlled argument");
       }
       return failOpen(async () => {
-        const workspaceId = boundWorkspaceId(ctx, exec);
-        const workspace = workspaceId ? await engine.search(query, workspaceId, false) : [];
-        const personal = await engine.search(query, undefined, true);
+        const { workspaceId } = boundToolContext(ctx, exec);
+        const workspace = await service.search(query, workspaceId);
+        const personal = await service.search(query, undefined);
         return { results: [...workspace, ...personal].slice(0, 20) };
       });
     },
@@ -96,12 +113,15 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
     output: jsonOutput("memory why"),
     async execute(args: unknown, exec?: unknown) {
       const id = String((args as { id?: unknown }).id ?? "");
-      return failOpen(async () => engine.why(id, boundWorkspaceId(ctx, exec)));
+      return failOpen(async () => {
+        const { workspaceId } = boundToolContext(ctx, exec);
+        return service.why(id, workspaceId);
+      });
     },
   });
   ctx.tools.register({
     name: "penglai_memory_remember",
-    description: "Explicitly remember a user-confirmed fact in the current Workspace or personal scope.",
+    description: "Create a pending memory candidate for Owner review. This tool never writes confirmed memory directly.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -116,17 +136,19 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
       const input = args as { text?: string; scope?: string };
       if (!input.text) throw new PenglaiError("INVALID_INPUT", "memory text required");
       return failOpen(async () => {
-        const workspaceId = input.scope === "workspace" ? boundWorkspaceId(ctx, exec) : undefined;
-        return engine.remember({
+        const context = boundToolContext(ctx, exec);
+        const candidate = service.queueToolCandidate({
           text: input.text!,
-          ...(workspaceId ? { workspaceId } : {}),
+          suggestedScope: input.scope === "personal" ? "personal" : "workspace",
+          ...context,
         });
+        return { pendingOwnerReview: true, candidate };
       });
     },
   });
   ctx.tools.register({
     name: "penglai_memory_correct",
-    description: "Supersede an existing memory id with corrected text. The old id is forgotten.",
+    description: "Request an Owner-reviewed correction. This tool never changes confirmed memory directly; correction is completed in Memory settings.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -139,12 +161,20 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
     output: jsonOutput("memory correct"),
     async execute(args: unknown, exec?: unknown) {
       const input = args as { id?: string; text?: string };
-      return failOpen(async () => engine.correct(String(input.id), String(input.text), boundWorkspaceId(ctx, exec)));
+      const { workspaceId } = boundToolContext(ctx, exec);
+      return {
+        pendingOwnerReview: true,
+        action: "memory.correct",
+        memoryId: String(input.id),
+        replacement: String(input.text),
+        workspaceId,
+        next: "Open Memory settings, select this memory, review the replacement, and approve it.",
+      };
     },
   });
   ctx.tools.register({
     name: "penglai_memory_forget",
-    description: "Forget a memory id in the current official Workspace or personal store.",
+    description: "Request Owner-reviewed forgetting. This tool never deletes confirmed memory directly; deletion is completed in Memory settings.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -153,7 +183,14 @@ export function registerMemoryTools(ctx: CordisTools, engine: MnemonMemoryServic
     },
     output: jsonOutput("memory forget"),
     async execute(args: unknown, exec?: unknown) {
-      return failOpen(async () => engine.forget(String((args as { id?: string }).id), boundWorkspaceId(ctx, exec)));
+      const { workspaceId } = boundToolContext(ctx, exec);
+      return {
+        pendingOwnerReview: true,
+        action: "memory.forget",
+        memoryId: String((args as { id?: string }).id),
+        workspaceId,
+        next: "Open Memory settings, select this memory, review it, and approve forgetting it.",
+      };
     },
   });
 }

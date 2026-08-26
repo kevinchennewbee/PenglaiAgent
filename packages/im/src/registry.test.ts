@@ -13,7 +13,7 @@ import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
 
-test("R56-IM-001/002 registry lists nine platforms and keeps Weixin/Feishu as the only live channels", () => {
+test("R57-IM-001/002 registry lists nine implemented platforms", () => {
   assert.deepEqual([...CHANNEL_IDS], [
     "weixin",
     "feishu",
@@ -28,7 +28,7 @@ test("R56-IM-001/002 registry lists nine platforms and keeps Weixin/Feishu as th
   assert.equal(CHANNEL_MANIFESTS.weixin.live, true);
   assert.equal(CHANNEL_MANIFESTS.feishu.live, true);
   assert.equal(CHANNEL_MANIFESTS.weixin.connectionMethods.includes("qr"), true);
-  assert.equal(CHANNEL_MANIFESTS.slack.live, false);
+  for (const row of Object.values(CHANNEL_MANIFESTS)) assert.equal(row.live, true);
   assert.equal(CHANNEL_MANIFESTS.telegram.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.whatsapp.defaultEnabled, false);
@@ -198,6 +198,11 @@ test("R57-IM-002 IM client lists nine platforms with a real connect action", () 
   assert.match(client, /data-penglai-im-platform/);
   assert.match(client, /beginChannelConnection/);
   assert.match(client, /data-penglai-im-connect-submit/);
+  assert.match(client, /Boolean\(operationId\)/);
+  assert.match(client, /data-penglai-im-connect-cancel/);
+  assert.match(client, /data-penglai-im-connect-status/);
+  assert.match(client, /channel\.risk === "community-protocol" && !riskAck/);
+  assert.match(client, /if \(!usesQr \|\| autoStarted \|\| channel\.risk === "community-protocol"\) return/);
   assert.match(client, /data-penglai-im-scan-image/);
   assert.doesNotMatch(client, /data-penglai-im-scan-host/);
   assert.doesNotMatch(client, /roadmap only/);
@@ -210,12 +215,16 @@ test("R57-IM-002 IM client lists nine platforms with a real connect action", () 
   assert.match(client, /beginFeishuQr/);
   assert.match(client, /proposeBinding/);
   assert.match(client, /requestOwnerApproval/);
+  assert.match(client, /data-penglai-im-version/);
   assert.match(client, /im.saveCredentials/);
   assert.match(client, /im.acknowledgeRisk/);
   assert.match(client, /im.logout/);
   assert.doesNotMatch(client, /credential ref/);
   assert.match(client, /overflowWrap/);
   assert.match(client, /data-penglai-im-status/);
+  assert.match(client, /data-penglai-im-card-header/);
+  assert.match(client, /data-penglai-im-implemented/);
+  assert.doesNotMatch(client, /0\.5\.7 可用|Available in 0\.5\.7/);
   assert.match(client, /data-penglai-im-advanced/);
   assert.match(client, /displayName/);
 });
