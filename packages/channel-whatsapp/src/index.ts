@@ -4,6 +4,14 @@ export const name = "whatsapp";
 export const WHATSAPP_RISK_ACK_VERSION = "0.5.7-wa-1";
 export { EncryptedWhatsAppSessionStore, type WhatsAppSessionStore } from "./session-store.js";
 export { startBaileysLink } from "./baileys-link.js";
+export {
+  LID_PRIVATE_SUPPORTED,
+  PINNED_BAILEYS,
+  classifyWhatsAppPeerJid,
+  extractWhatsAppInbound,
+  ingestBaileysUpsert,
+  selfAccountJid,
+} from "./inbound-jid.js";
 import type { WhatsAppSessionStore } from "./session-store.js";
 
 export type WhatsAppConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";

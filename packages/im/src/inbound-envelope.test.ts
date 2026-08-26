@@ -76,6 +76,20 @@ test("inbound envelope HMAC and idempotency are isolated by channel plus account
   assert.notEqual(a.idempotencyKey, b.idempotencyKey);
   assert.notEqual(a.peerRef, b.peerRef);
   assert.equal(a.peerRef, hashPeer("U1", "bot-a"));
+  const waOnce = parseInboundEnvelope(
+    "whatsapp",
+    { messageId: "wamid-1", senderId: "15557654321@s.whatsapp.net", chatId: "15557654321@s.whatsapp.net", chatType: "private", accountRef: "15551234567@s.whatsapp.net", text: "hi" },
+    hashPeer,
+  );
+  assert.equal(waOnce.idempotencyKey, inboundIdempotencyKey("whatsapp", "15551234567@s.whatsapp.net", "wamid-1"));
+  assert.equal(
+    parseInboundEnvelope(
+      "whatsapp",
+      { messageId: "wamid-1", senderId: "15557654321@s.whatsapp.net", chatId: "15557654321@s.whatsapp.net", chatType: "private", accountRef: "15551234567@s.whatsapp.net", text: "hi" },
+      hashPeer,
+    ).idempotencyKey,
+    waOnce.idempotencyKey,
+  );
   assert.throws(
     () => parseInboundEnvelope("slack", { ...base, accountRef: "bot-a", thread: "123.4" }, hashPeer),
     (error: unknown) => error instanceof PenglaiError && error.message === "CHAT_SCOPE_UNSUPPORTED",
