@@ -2,7 +2,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { DingTalkDeviceAuth } from "./device-auth.js";
 
 export const name = "dingtalk";
-export { DingTalkDeviceAuth } from "./device-auth.js";
+export { DingTalkDeviceAuth, DINGTALK_REGISTRATION_SOURCE } from "./device-auth.js";
 
 export interface DingTalkCredentials {
   clientId: string;

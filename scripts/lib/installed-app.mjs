@@ -224,6 +224,11 @@ export function resolveInstalledUiHarness() {
   } catch {
     /* desktop electron is optional for source-only gates */
   }
+  const hoisted =
+    process.platform === "darwin"
+      ? join(ROOT, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron")
+      : join(ROOT, "node_modules", "electron", "dist", "electron.exe");
+  if (existsSync(hoisted)) return hoisted;
   return undefined;
 }
 

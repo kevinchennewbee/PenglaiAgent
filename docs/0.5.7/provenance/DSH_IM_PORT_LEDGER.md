@@ -35,6 +35,13 @@ Penglai Vault, Owner Broker, Artifact Service, routing-core, persistence;
 | `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | rewrite | iLink `getconfig` + `sendtyping`; best-effort; never replace iLink |
 | `src/channels/qq/markdown-reply.mjs` @ `ea5176be` | `packages/channel-qq/src/markdown-reply.ts` | rewrite | post-tag hardening; not v3.0.0 content |
 | `src/channels/shared` reactions idea | `packages/im/src/reactions.ts` | rewrite | short timeout, serialized, idempotent; failure never blocks reply |
+| `src/channels/shared/status-reaction.mjs` | `@penglai/im` host + adapters | rewrite | processing/success/error wired through Slack/Telegram/Discord/WhatsApp/Feishu |
+| Slack Socket Mode reconnect | `packages/channel-slack` | rewrite | hello/disconnect ACK, backoff reconnect |
+| Discord Gateway op 1/6/7/9/10/11 | `packages/channel-discord` | rewrite | Message Content intent, heartbeat ACK, resume, invalid session |
+| Telegram cursor persist | `packages/channel-telegram` + IM host | rewrite | offset restored from adapter_config before long-poll |
+| WeCom `maxReconnectAttempts` | `packages/channel-wecom` | rewrite | WSClient reconnecting/disconnected |
+| QQ QR `onSuccess` async failure | `packages/channel-qq` | rewrite | vault/connect errors fail-closed |
+| DingTalk registration `source` | `packages/channel-dingtalk` | rewrite | `DING_DWS_CLAW` (DingTalk QR API source token) |
 | Weixin 1800-char segmentation idea | `packages/channel-weixin` | reference | keep Penglai iLink; adopt length splitting if needed |
 | `src/channels/dingtalk/dingtalk-controller.mjs` | `packages/channel-dingtalk` | rewrite | Stream supervisor, ACK, reconnect |
 | `src/channels/wecom/wecom-controller.mjs` | `packages/channel-wecom` | rewrite | WSClient authenticated/message/reconnect |

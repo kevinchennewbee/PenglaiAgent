@@ -293,6 +293,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       wrapOpts("discord"),
     ),
   );
+  host.deferSidecarOutbox();
   void (async () => {
     await Promise.all([
       parseVault(CHANNEL_CREDENTIAL_REFS.dingtalk, dingtalkCreds, (raw) => ({ clientId: raw, clientSecret: "" })),
@@ -319,9 +320,13 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       ),
     );
     if (!host.store.isClosed()) await host.restoreChannelAdapters();
-  })().catch((error) => {
-    host.noteStartupFailure(error);
-  });
+  })()
+    .catch((error) => {
+      host.noteStartupFailure(error);
+    })
+    .finally(() => {
+      host.markSidecarReady();
+    });
   const artifacts = new ArtifactService(join(userData, "artifacts"));
   host.attachArtifacts(artifacts);
   const admitInbound = (input: {
@@ -412,6 +417,6 @@ export {
   parseInboundEnvelope,
   tryParseInboundEnvelope,
 } from "./inbound-envelope.js";
-export { runReaction } from "./reactions.js";
+export { beginStatusReaction, CHANNEL_STATUS_REACTIONS, runReaction } from "./reactions.js";
 export { TYPERT_REMOTE } from "./remote.js";
 export { IM_OWNER_ACTIONS, requireImActionId } from "./owner.js";

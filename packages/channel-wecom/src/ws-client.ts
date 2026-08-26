@@ -21,7 +21,7 @@ export async function createWeComWsClient(
   }) => void,
 ): Promise<WeComClient> {
   const mod = (await import("@wecom/aibot-node-sdk")) as unknown as {
-    WSClient?: new (opts: { botid?: string; botId?: string; secret: string }) => {
+    WSClient?: new (opts: { botid?: string; botId?: string; secret: string; maxReconnectAttempts?: number }) => {
       on(event: string, handler: (...args: unknown[]) => void): void;
       connect(): Promise<void> | void;
       disconnect?(): Promise<void> | void;
@@ -32,7 +32,12 @@ export async function createWeComWsClient(
   if (typeof mod.WSClient !== "function") {
     throw new PenglaiError("DSH_UNAVAILABLE", "WECOM_WSCLIENT_MISSING");
   }
-  const raw = new mod.WSClient({ botid: creds.botId, botId: creds.botId, secret: creds.secret });
+  const raw = new mod.WSClient({
+    botid: creds.botId,
+    botId: creds.botId,
+    secret: creds.secret,
+    maxReconnectAttempts: 10,
+  });
   const client: WeComClient = {
     connected: false,
     async connect() {
@@ -48,6 +53,9 @@ export async function createWeComWsClient(
           reject(err instanceof Error ? err : new Error(String(err)));
         });
         raw.on("disconnected", () => {
+          client.connected = false;
+        });
+        raw.on("reconnecting", () => {
           client.connected = false;
         });
         raw.on("message", (event) => {

@@ -2,6 +2,11 @@ import { PenglaiError } from "@penglai/contracts";
 
 export const name = "discord";
 
+/** GUILDS | GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT */
+export const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 9) | (1 << 12) | (1 << 15);
+
+export const DISCORD_RECONNECT_DELAYS_MS = Object.freeze([1_000, 3_000, 5_000, 10_000, 30_000]);
+
 export interface DiscordCredentials {
   token: string;
 }
@@ -17,6 +22,13 @@ export interface DiscordInbound {
 
 export type DiscordConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
+export interface DiscordSocket {
+  readyState: number;
+  addEventListener(type: string, listener: (ev: { data?: unknown; code?: number }) => void): void;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+}
+
 /** Official Discord Bot REST. Never a QR shortcut. */
 export class DiscordAdapter {
   connection: DiscordConnection = "not_configured";
@@ -26,17 +38,23 @@ export class DiscordAdapter {
   private inboundHandler?: (msg: DiscordInbound) => void;
 
   private gateway: { close(): void } | undefined;
-  private heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  private heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private reconnectAttempt = 0;
   private sequence: number | null = null;
+  private sessionId: string | null = null;
+  private resumeUrl: string | null = null;
+  private gatewayUrl: string | null = null;
+  private heartbeatAcked = true;
+  private generation = 0;
   private stopped = false;
 
   constructor(
     private readonly vault: { resolve(ref: string): DiscordCredentials | undefined },
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
-    private readonly gateways?: {
-      connect(token: string, onMessage: (event: Parameters<DiscordAdapter["ingestMessage"]>[0]) => void): { close(): void };
+    private readonly transport?: {
+      connect?(token: string, onMessage: (event: Parameters<DiscordAdapter["ingestMessage"]>[0]) => void): { close(): void };
+      createWebSocket?(url: string): DiscordSocket;
     },
   ) {}
 
@@ -62,10 +80,13 @@ export class DiscordAdapter {
     this.token = creds.token;
     this.stopped = false;
     this.reconnectAttempt = 0;
-    if (this.gateways) {
-      this.gateway = this.gateways.connect(creds.token, (event) => this.ingestMessage(event));
+    this.sessionId = null;
+    this.resumeUrl = null;
+    this.sequence = null;
+    if (this.transport?.connect) {
+      this.gateway = this.transport.connect(creds.token, (event) => this.ingestMessage(event));
     } else {
-      await this.connectGateway(creds.token);
+      await this.connectGateway(false);
     }
     this.connection = "connected";
     return { kind: "token", live: false, operationId: "discord:token" };
@@ -108,6 +129,7 @@ export class DiscordAdapter {
       enabled: this.connection !== "disabled",
       connection: this.connection,
       intentsHint: this.intentsHint,
+      intents: DISCORD_GATEWAY_INTENTS,
     };
   }
 
@@ -128,8 +150,27 @@ export class DiscordAdapter {
     return { delivered: true };
   }
 
+  async react(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void> {
+    if (!this.token || !input.vendorTarget || !input.vendorMessageId || !input.emoji) return;
+    const encoded = encodeURIComponent(input.emoji);
+    const url = `https://discord.com/api/v10/channels/${input.vendorTarget}/messages/${input.vendorMessageId}/reactions/${encoded}/@me`;
+    await this.fetchImpl(url, {
+      method: input.action === "add" ? "PUT" : "DELETE",
+      headers: { authorization: `Bot ${this.token}` },
+      redirect: "error",
+      signal: input.signal,
+    });
+  }
+
   async disconnect(): Promise<void> {
     this.stopped = true;
+    this.generation += 1;
     this.clearHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -138,36 +179,40 @@ export class DiscordAdapter {
     this.gateway?.close();
     this.gateway = undefined;
     this.token = undefined;
+    this.sessionId = null;
+    this.resumeUrl = null;
     this.connection = "disabled";
   }
 
   private clearHeartbeat(): void {
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
+      clearTimeout(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
     }
+    this.heartbeatAcked = true;
   }
 
-  private scheduleReconnect(token: string): void {
-    if (this.stopped || this.reconnectTimer) return;
-    const delay = [1_000, 3_000, 10_000][Math.min(this.reconnectAttempt, 2)] ?? 10_000;
+  private scheduleReconnect(): void {
+    if (this.stopped || this.reconnectTimer || !this.token) return;
+    const delay = DISCORD_RECONNECT_DELAYS_MS[Math.min(this.reconnectAttempt, DISCORD_RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
     this.reconnectAttempt += 1;
     this.connection = "connecting";
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined;
-      void this.connectGateway(token)
+      void this.connectGateway(Boolean(this.sessionId))
         .then(() => {
           this.reconnectAttempt = 0;
           if (!this.stopped) this.connection = "connected";
         })
         .catch(() => {
           this.connection = "failed";
-          this.scheduleReconnect(token);
+          this.scheduleReconnect();
         });
     }, delay);
+    this.reconnectTimer.unref?.();
   }
 
-  private async connectGateway(token: string): Promise<void> {
+  private async connectGateway(resume: boolean): Promise<void> {
     const hello = await this.fetchImpl("https://discord.com/api/v10/gateway", {
       headers: { accept: "application/json" },
       redirect: "error",
@@ -175,50 +220,38 @@ export class DiscordAdapter {
     });
     const body = (await hello.json()) as { url?: string };
     if (!body.url?.startsWith("wss://")) throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_URL");
-    const ws = new WebSocket(`${body.url}?v=10&encoding=json`);
-    this.sequence = null;
+    this.gatewayUrl = body.url;
+    const url = new URL(resume && this.resumeUrl ? this.resumeUrl : body.url);
+    url.searchParams.set("v", "10");
+    url.searchParams.set("encoding", "json");
+    const create = this.transport?.createWebSocket ?? ((href: string) => new WebSocket(href) as unknown as DiscordSocket);
+    const ws = create(url.href);
+    const generation = ++this.generation;
+    if (!resume) this.sequence = null;
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_TIMEOUT")), 15_000);
       let identified = false;
+      const markReady = () => {
+        if (identified) return;
+        identified = true;
+        clearTimeout(timer);
+        resolve();
+      };
       ws.addEventListener("message", (ev) => {
+        if (generation !== this.generation || this.stopped) return;
         try {
-          const parsed = JSON.parse(String((ev as MessageEvent).data)) as {
+          const parsed = JSON.parse(String(ev.data ?? "")) as {
             op?: number;
             t?: string;
-            d?: Record<string, unknown>;
+            d?: Record<string, unknown> | boolean;
             s?: number | null;
           };
-          if (typeof parsed.s === "number") this.sequence = parsed.s;
-          if (parsed.op === 10) {
-            const interval = Number((parsed.d as { heartbeat_interval?: number } | undefined)?.heartbeat_interval);
-            if (!Number.isFinite(interval) || interval <= 0) {
-              clearTimeout(timer);
-              reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_HELLO"));
-              return;
-            }
-            this.clearHeartbeat();
-            this.heartbeatTimer = setInterval(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ op: 1, d: this.sequence }));
-              }
-            }, interval);
-            ws.send(JSON.stringify({
-              op: 2,
-              d: {
-                token,
-                intents: 4096 | 512,
-                properties: { os: "penglai", browser: "penglai", device: "penglai" },
-              },
-            }));
-          }
-          if (parsed.t === "READY" && !identified) {
-            identified = true;
+          this.handleGatewayPacket(parsed, ws, resume, markReady, () => {
             clearTimeout(timer);
-            resolve();
-          }
-          if (parsed.t === "MESSAGE_CREATE" && parsed.d) this.ingestMessage(parsed.d);
+            reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_HELLO"));
+          });
         } catch {
-          /* ignore */
+          /* ignore malformed */
         }
       });
       ws.addEventListener("error", () => {
@@ -230,10 +263,19 @@ export class DiscordAdapter {
           this.connection = "failed";
         }
       });
-      ws.addEventListener("close", () => {
+      ws.addEventListener("close", (event) => {
         this.clearHeartbeat();
         if (this.stopped) return;
-        if (this.connection === "connected" || identified) this.scheduleReconnect(token);
+        const code = Number(event.code) || 0;
+        if (code === 4004 || code === 4013 || code === 4014) {
+          this.connection = "failed";
+          if (!identified) {
+            clearTimeout(timer);
+            reject(new PenglaiError("AUTH_EXPIRED", code === 4004 ? "DISCORD_TOKEN_INVALID" : "DISCORD_INTENTS"));
+          }
+          return;
+        }
+        if (this.connection === "connected" || identified) this.scheduleReconnect();
         else if (!identified) {
           clearTimeout(timer);
           reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_CLOSED"));
@@ -246,5 +288,99 @@ export class DiscordAdapter {
         ws.close();
       },
     };
+  }
+
+  handleGatewayPacket(
+    parsed: { op?: number; t?: string; d?: Record<string, unknown> | boolean; s?: number | null },
+    ws: DiscordSocket,
+    resume: boolean,
+    markReady: () => void,
+    onBadHello: () => void,
+  ): void {
+    if (typeof parsed.s === "number") this.sequence = parsed.s;
+    if (parsed.op === 10) {
+      const hello = parsed.d && typeof parsed.d === "object" ? parsed.d : undefined;
+      const interval = Number(hello?.heartbeat_interval);
+      if (!Number.isFinite(interval) || interval < 1_000) {
+        onBadHello();
+        return;
+      }
+      this.startHeartbeat(interval, ws);
+      if (resume && this.sessionId && this.token) {
+        this.sendGateway(ws, {
+          op: 6,
+          d: { token: this.token, session_id: this.sessionId, seq: this.sequence },
+        });
+      } else if (this.token) {
+        this.sendGateway(ws, {
+          op: 2,
+          d: {
+            token: this.token,
+            intents: DISCORD_GATEWAY_INTENTS,
+            properties: { os: "penglai", browser: "penglai", device: "penglai" },
+          },
+        });
+      }
+      return;
+    }
+    if (parsed.op === 11) {
+      this.heartbeatAcked = true;
+      return;
+    }
+    if (parsed.op === 1) {
+      this.heartbeat(ws);
+      return;
+    }
+    if (parsed.op === 7) {
+      ws.close(4000, "Reconnect requested");
+      return;
+    }
+    if (parsed.op === 9) {
+      if (parsed.d !== true) {
+        this.sessionId = null;
+        this.resumeUrl = null;
+        this.sequence = null;
+      }
+      ws.close(4000, "Invalid session");
+      return;
+    }
+    if (parsed.op !== 0) return;
+    if (parsed.t === "READY" && parsed.d && typeof parsed.d === "object") {
+      this.sessionId = typeof parsed.d.session_id === "string" ? parsed.d.session_id : null;
+      this.resumeUrl = typeof parsed.d.resume_gateway_url === "string" ? parsed.d.resume_gateway_url : null;
+      markReady();
+    } else if (parsed.t === "RESUMED") {
+      markReady();
+    } else if (parsed.t === "MESSAGE_CREATE" && parsed.d && typeof parsed.d === "object") {
+      this.ingestMessage(parsed.d);
+    }
+  }
+
+  private sendGateway(ws: DiscordSocket, payload: unknown): void {
+    if (ws.readyState !== 1) return;
+    ws.send(JSON.stringify(payload));
+  }
+
+  private startHeartbeat(interval: number, ws: DiscordSocket): void {
+    this.clearHeartbeat();
+    this.heartbeatAcked = true;
+    const schedule = (delay: number) => {
+      this.heartbeatTimer = setTimeout(() => {
+        if (this.stopped || this.gateway === undefined) return;
+        if (!this.heartbeatAcked) {
+          ws.close(4000, "Heartbeat was not acknowledged");
+          return;
+        }
+        this.heartbeat(ws);
+        schedule(interval);
+      }, delay);
+      this.heartbeatTimer?.unref?.();
+    };
+    schedule(Math.floor(interval * Math.random()));
+  }
+
+  private heartbeat(ws: DiscordSocket): void {
+    this.heartbeatAcked = false;
+    this.sendGateway(ws, { op: 1, d: this.sequence });
   }
 }

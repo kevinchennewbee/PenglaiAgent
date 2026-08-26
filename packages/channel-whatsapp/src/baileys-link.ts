@@ -92,7 +92,7 @@ export async function startBaileysLink(
     printQRInTerminal: false,
   }) as {
     ev: { on(event: string, handler: (value: unknown) => void): void };
-    sendMessage(jid: string, content: { text: string }, extra?: { messageId?: string }): Promise<unknown>;
+    sendMessage(jid: string, content: { text?: string; react?: { text: string; key: { id: string; remoteJid: string } } }, extra?: { messageId?: string }): Promise<unknown>;
     logout(): Promise<void>;
     end?: (error: unknown) => void;
     ws?: { close(): void };
@@ -147,6 +147,13 @@ export async function startBaileysLink(
   return {
     async send(jid, text, id) {
       await sock.sendMessage(jid, { text }, { messageId: id });
+    },
+    async react(jid, messageId, emoji, outboundId) {
+      await sock.sendMessage(
+        jid,
+        { react: { text: emoji, key: { id: messageId, remoteJid: jid } } },
+        { messageId: outboundId },
+      );
     },
     async logout() {
       await sock.logout();

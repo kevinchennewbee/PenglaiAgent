@@ -81,6 +81,15 @@ export interface ChannelAdapter {
   onInbound(handler: (event: InboundChannelEvent) => void): void;
   capabilities(): ChannelManifestV1["capabilities"];
   peekQr?(operationId: string): { verificationUrl?: string; qrPayload?: string; qrImageRef?: string; expiresAt?: number } | undefined;
+  react?(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void>;
+  exportPersistedState?(): Record<string, unknown>;
+  restorePersistedState?(state: Record<string, unknown>): void;
 }
 
 export function assertLiveSend(channel: ChannelId): void {

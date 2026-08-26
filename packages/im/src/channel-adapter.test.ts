@@ -55,3 +55,27 @@ test("IM host registers guided adapters and refuses non-live outbound text", asy
   await assert.rejects(() => host.sendOutboundText({ channel: "weixin", text: "hi" }), /LIVE_CHANNEL_USES_NATIVE_OUTBOX/);
   rt.store.close();
 });
+
+test("restore applies persisted Telegram offset before reconnect", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
+    { status: "idle", setupRequired: true } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  );
+  const { TelegramAdapter } = await import("@penglai/channel-telegram");
+  const { telegramChannelAdapter } = await import("./adapters/channel-bridge.js");
+  const telegram = new TelegramAdapter({ resolve: () => undefined });
+  host.attachChannelAdapter(telegramChannelAdapter(telegram, { hashPeer: (senderId) => senderId }));
+  rt.store.putAdapterConfig("cfg:telegram", "telegram", JSON.stringify({ enabled: true, updateOffset: 42 }));
+  await host.restoreChannelAdapters();
+  assert.equal(telegram.getUpdateOffset(), 42);
+  rt.store.close();
+});

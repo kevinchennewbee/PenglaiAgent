@@ -41,6 +41,15 @@ type NativeLike = {
   logout?(): Promise<void>;
   peekQr?(operationId?: string): QrPeek | undefined;
   onInbound?(handler: (msg: Record<string, unknown>) => void): void;
+  react?(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void>;
+  exportPersistedState?(): Record<string, unknown>;
+  restorePersistedState?(state: Record<string, unknown>): void;
 };
 
 function mapInbound(
@@ -116,6 +125,23 @@ export function wrapNative(
     peekQr(operationId: string) {
       return adapter.peekQr?.(operationId);
     },
+    ...(adapter.react
+      ? {
+          react: (input: {
+            vendorTarget: string;
+            vendorMessageId: string;
+            emoji: string;
+            action: "add" | "remove";
+            signal: AbortSignal;
+          }) => adapter.react!(input),
+        }
+      : {}),
+    ...(adapter.exportPersistedState
+      ? { exportPersistedState: () => adapter.exportPersistedState!() }
+      : {}),
+    ...(adapter.restorePersistedState
+      ? { restorePersistedState: (state: Record<string, unknown>) => adapter.restorePersistedState!(state) }
+      : {}),
   };
 }
 

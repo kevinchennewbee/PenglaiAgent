@@ -47,3 +47,27 @@ test("QQ QR uses injected official connector and never logs QR to console", asyn
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(stored.PENGLAI_QQ_BOT?.appId, "app");
 });
+
+test("QQ QR onSuccess records failure when vault write or connect throws", async () => {
+  const auth = new QqQrAuth((callbacks) => {
+    queueMicrotask(() => callbacks.onSuccess({ appId: "app", clientSecret: "sec" }));
+    return { cancel() {} };
+  });
+  const adapter = new QqAdapter(
+    {
+      resolve: () => undefined,
+      put: () => {
+        throw new Error("vault write failed");
+      },
+    },
+    () => ({
+      connected: true,
+      async connect() {},
+      async disconnect() {},
+    }),
+    auth,
+  );
+  await adapter.beginConnection({ method: "qr" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(adapter.health().connection, "failed");
+});

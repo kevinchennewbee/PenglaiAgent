@@ -32,3 +32,33 @@ test("Slack ingest only accepts private IM events", async () => {
   adapter.ingestEvent({ type: "message", channel: "D3", channel_type: "im", text: "thread", user: "U1", ts: "3.0", thread_ts: "1.0" });
   assert.deepEqual(received, ["hi"]);
 });
+
+test("Slack Socket Mode reconnects after a transport close", async () => {
+  let opened = 0;
+  const adapter = new SlackAdapter(
+    { resolve: () => ({ botToken: "xoxb-test", appToken: "xapp-test" }) },
+    async (url) => {
+      if (String(url).includes("auth.test")) return new Response(JSON.stringify({ ok: true, bot_id: "B1" }));
+      if (String(url).includes("apps.connections.open")) {
+        opened += 1;
+        return new Response(JSON.stringify({ ok: true, url: "wss://wss-primary.slack.com/link" }));
+      }
+      if (String(url).includes("reactions.add")) return new Response(JSON.stringify({ ok: true }));
+      return new Response("{}", { status: 404 });
+    },
+    { open: () => ({ close() {} }) },
+  );
+  await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_SLACK_BOT" });
+  assert.equal(opened, 1);
+  adapter.notifySocketClosed();
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  assert.equal(opened >= 2, true);
+  await adapter.react({
+    vendorTarget: "D1",
+    vendorMessageId: "1.0",
+    emoji: "eyes",
+    action: "add",
+    signal: AbortSignal.timeout(1_000),
+  });
+  await adapter.disconnect();
+});

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync, realpathSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
+import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
 const req = createRequire(`${process.cwd()}/package.json`);
@@ -31,23 +32,8 @@ function packageInfoFor(
   resolver = mossReq,
   fromDir = join(process.cwd(), "packages/moss-tts"),
 ) {
-  const linked = join(fromDir, "node_modules", ...packageName.split("/"));
-  if (existsSync(join(linked, "package.json"))) {
-    const root = dirname(realpathSync(join(linked, "package.json")));
-    return { root, pkg: JSON.parse(readFileSync(join(root, "package.json"), "utf8")) };
-  }
-  let cursor = dirname(resolver.resolve(packageName));
-  for (let depth = 0; depth < 10; depth += 1) {
-    const candidate = join(cursor, "package.json");
-    if (existsSync(candidate)) {
-      const pkg = JSON.parse(readFileSync(candidate, "utf8"));
-      if (pkg.name === packageName) return { root: cursor, pkg };
-    }
-    const parent = dirname(cursor);
-    if (parent === cursor) break;
-    cursor = parent;
-  }
-  throw new Error(`cannot resolve package metadata for ${packageName}`);
+  const found = resolvePackageMetadata(packageName, resolver, fromDir, process.cwd());
+  return { root: found.root, pkg: found.metadata };
 }
 
 function packageJsonFor(packageName, resolver = mossReq, fromDir) {

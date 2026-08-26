@@ -10,6 +10,7 @@ export type WhatsAppConnection = "not_configured" | "connecting" | "connected" |
 
 export interface WhatsAppLinkSocket {
   send(jid: string, text: string, id: string): Promise<void>;
+  react?(jid: string, messageId: string, emoji: string, outboundId: string): Promise<void>;
   logout(): Promise<void>;
   close?(): Promise<void>;
 }
@@ -114,6 +115,31 @@ export class WhatsAppDeviceAdapter {
 
   isEcho(id: string): boolean {
     return this.echoIds.has(id);
+  }
+
+  exportPersistedState(): Record<string, unknown> {
+    return { echoIds: [...this.echoIds].slice(-256) };
+  }
+
+  restorePersistedState(state: Record<string, unknown>): void {
+    if (!Array.isArray(state.echoIds)) return;
+    for (const id of state.echoIds) {
+      if (typeof id === "string" && id) this.echoIds.add(id);
+    }
+  }
+
+  async react(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void> {
+    if (this.connection !== "connected" || !this.socket || !input.vendorTarget || !input.vendorMessageId) return;
+    if (typeof this.socket.react !== "function") return;
+    input.signal.throwIfAborted();
+    const id = this.reserveOutboundId();
+    await this.socket.react(input.vendorTarget, input.vendorMessageId, input.action === "add" ? input.emoji : "", id);
   }
 
   async disconnect(): Promise<void> {

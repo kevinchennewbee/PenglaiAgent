@@ -23,6 +23,12 @@ export const FEISHU_ACCOUNT_REF = "feishu-default";
 export const FEISHU_ALLOWLIST_NOTICE =
   "蓬莱只回复扫码确认的飞书账号。请用该账号发消息，或在设置里显式指定允许身份。\nPenglai only replies to the Feishu account that confirmed the scan. Message from that account, or set the allowed identity explicitly in settings.";
 
+export const FEISHU_STATUS_REACTIONS = {
+  processing: "ONIT",
+  success: "OK",
+  error: "Disappointed",
+} as const;
+
 export type FeishuOwnerSource = "registration" | "explicit";
 
 /** Persistence seam for the Feishu registration/owner identity (the unique allowlist). */
@@ -427,6 +433,7 @@ export class FeishuAdapter {
       this.seen.add(parsed.adapterMessageKey);
     }
     this.lastEnqueue = this.plane.submitInbound(parsed);
+    this.fireReaction(parsed.adapterMessageKey, "processing");
     if (Date.now() - started > 3000) {
       throw new PenglaiError("DELIVERY_TRANSIENT", "feishu handler exceeded 3s");
     }
@@ -448,6 +455,7 @@ export class FeishuAdapter {
         const textResult = await this.sendText(currentTarget, delivery.finalText);
         if (!("ok" in textResult && textResult.ok)) {
           this.plane.markSendResult(item.outboxId, this.mapSendError(textResult), claimToken);
+          this.fireReaction(this.plane.store.getInbound(item.inboundId)?.adapterMessageKey, "error");
           continue;
         }
         receipt = this.plane.store.markVoiceDeliveryPart(item.outboxId, "text", this.plane.clock.now());
@@ -471,8 +479,29 @@ export class FeishuAdapter {
       const complete = delivery.mode === "text"
         ? receipt.textSent
         : receipt.audioSent || (receipt.fallbackUsed && receipt.textSent);
-      if (complete) this.plane.markDelivered(item.outboxId, claimToken);
+      if (complete) {
+        this.plane.markDelivered(item.outboxId, claimToken);
+        this.fireReaction(this.plane.store.getInbound(item.inboundId)?.adapterMessageKey, "success");
+      }
     }
+  }
+
+  async react(input: { vendorMessageId: string; kind: keyof typeof FEISHU_STATUS_REACTIONS }): Promise<void> {
+    const emoji = FEISHU_STATUS_REACTIONS[input.kind];
+    const api = this.client as
+      | { im?: { messageReaction?: { create?: (opts: unknown) => Promise<unknown> } } }
+      | undefined;
+    const create = api?.im?.messageReaction?.create;
+    if (typeof create !== "function" || !input.vendorMessageId) return;
+    await create({
+      path: { message_id: input.vendorMessageId },
+      data: { reaction_type: { emoji_type: emoji } },
+    });
+  }
+
+  private fireReaction(messageId: string | undefined, kind: keyof typeof FEISHU_STATUS_REACTIONS): void {
+    if (!messageId) return;
+    void this.react({ vendorMessageId: messageId, kind }).catch(() => undefined);
   }
 
   async sendText(receiveId: string, text: string, replyTo?: string): Promise<{ ok: true } | { error: string }> {

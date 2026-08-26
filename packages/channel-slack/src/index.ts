@@ -18,6 +18,8 @@ export interface SlackInbound {
 
 export type SlackConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
+export const SLACK_RECONNECT_DELAYS_MS = Object.freeze([1_000, 3_000, 5_000, 10_000, 30_000]);
+
 /** Official Slack token/manifest. Never a QR shortcut. */
 export class SlackAdapter {
   connection: SlackConnection = "not_configured";
@@ -26,6 +28,9 @@ export class SlackAdapter {
   private inboundHandler?: (msg: SlackInbound) => void;
 
   private socket: { close(): void } | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconnectAttempt = 0;
+  private stopped = false;
 
   constructor(
     private readonly vault: { resolve(ref: string): SlackCredentials | undefined },
@@ -56,6 +61,8 @@ export class SlackAdapter {
     }
     this.accountRef = String(body.bot_id || body.user_id || "").trim() || undefined;
     this.creds = creds;
+    this.stopped = false;
+    this.reconnectAttempt = 0;
     if (!creds.appToken) {
       this.connection = "not_configured";
       throw new PenglaiError("INVALID_INPUT", "SLACK_APP_TOKEN_REQUIRED");
@@ -122,11 +129,44 @@ export class SlackAdapter {
     return { delivered: true };
   }
 
+  async react(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void> {
+    if (!this.creds?.botToken || !input.vendorTarget || !input.vendorMessageId || !input.emoji) return;
+    const endpoint = input.action === "add" ? "reactions.add" : "reactions.remove";
+    await this.fetchImpl(`https://slack.com/api/${endpoint}`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.creds.botToken}`,
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({ channel: input.vendorTarget, timestamp: input.vendorMessageId, name: input.emoji }),
+      redirect: "error",
+      signal: input.signal,
+    });
+  }
+
   async disconnect(): Promise<void> {
+    this.stopped = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     this.socket?.close();
     this.socket = undefined;
     this.creds = undefined;
     this.connection = "disabled";
+  }
+
+  /** Test seam: Socket Mode transport closed unexpectedly. */
+  notifySocketClosed(): void {
+    if (this.stopped) return;
+    this.connection = "connecting";
+    this.scheduleReconnect();
   }
 
   private async openSocket(appToken: string): Promise<void> {
@@ -140,7 +180,19 @@ export class SlackAdapter {
     if (!body.ok || !body.url || !body.url.startsWith("wss://")) {
       throw new PenglaiError("AUTH_EXPIRED", "SLACK_SOCKET_OPEN");
     }
-    const onEvent = (event: Record<string, unknown>) => {
+    const onEvent = (event: Record<string, unknown>, socket?: { send(data: string): void; close(): void; readyState?: number }) => {
+      if (event.type === "hello") {
+        this.reconnectAttempt = 0;
+        this.connection = "connected";
+        return;
+      }
+      if (event.type === "disconnect") {
+        socket?.close();
+        return;
+      }
+      if (event.envelope_id && socket && (socket.readyState === undefined || socket.readyState === 1)) {
+        socket.send(JSON.stringify({ envelope_id: event.envelope_id }));
+      }
       if (event.type === "events_api") {
         const inner = (event.payload ?? event) as {
           event?: { type?: string; user?: string; text?: string; channel?: string; ts?: string; channel_type?: string; bot_id?: string };
@@ -149,7 +201,7 @@ export class SlackAdapter {
       }
     };
     if (this.sockets) {
-      this.socket = this.sockets.open(body.url, onEvent);
+      this.socket = this.sockets.open(body.url, (event) => onEvent(event));
       return;
     }
     const ws = new WebSocket(body.url);
@@ -167,14 +219,37 @@ export class SlackAdapter {
     ws.addEventListener("message", (ev) => {
       try {
         const parsed = JSON.parse(String((ev as MessageEvent).data)) as Record<string, unknown>;
-        if (parsed.envelope_id) {
-          ws.send(JSON.stringify({ envelope_id: parsed.envelope_id }));
-        }
-        onEvent(parsed);
+        onEvent(parsed, ws);
       } catch {
         /* ignore malformed */
       }
     });
+    ws.addEventListener("close", () => {
+      if (this.stopped) return;
+      this.connection = "connecting";
+      this.scheduleReconnect();
+    });
     this.socket = { close: () => ws.close() };
+  }
+
+  private scheduleReconnect(): void {
+    if (this.stopped || this.reconnectTimer || !this.creds?.appToken) return;
+    const delay = SLACK_RECONNECT_DELAYS_MS[Math.min(this.reconnectAttempt, SLACK_RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
+    this.reconnectAttempt += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      const token = this.creds?.appToken;
+      if (!token || this.stopped) return;
+      void this.openSocket(token)
+        .then(() => {
+          this.reconnectAttempt = 0;
+          if (!this.stopped) this.connection = "connected";
+        })
+        .catch(() => {
+          this.connection = "failed";
+          this.scheduleReconnect();
+        });
+    }, delay);
+    this.reconnectTimer.unref?.();
   }
 }

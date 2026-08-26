@@ -1,7 +1,8 @@
 import { PenglaiError } from "@penglai/contracts";
 
 const DEFAULT_BASE = "https://oapi.dingtalk.com";
-const SOURCE = "PENGLAI_IM";
+/** DingTalk device-registration source token for this QR API. */
+export const DINGTALK_REGISTRATION_SOURCE = "DING_DWS_CLAW";
 
 export interface DingTalkQrSession {
   deviceCode: string;
@@ -42,7 +43,7 @@ export class DingTalkDeviceAuth {
 
   async start(signal?: AbortSignal): Promise<DingTalkQrSession> {
     const base = httpsDingtalk(this.baseUrl);
-    const initialized = await this.post(`${base}/app/registration/init`, { source: SOURCE }, signal);
+    const initialized = await this.post(`${base}/app/registration/init`, { source: DINGTALK_REGISTRATION_SOURCE }, signal);
     const nonce = String(initialized.nonce ?? "").trim();
     if (!nonce) throw new PenglaiError("DELIVERY_TRANSIENT", "DINGTALK_QR_NONCE");
     const begun = await this.post(`${base}/app/registration/begin`, { nonce }, signal);

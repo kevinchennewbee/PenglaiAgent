@@ -52,8 +52,14 @@ export class QqAdapter {
           this.lastQr = { operationId, image, expiresAt: Date.now() + 120_000 };
         },
         onSuccess: (creds) => {
-          void Promise.resolve(this.vault.put?.("PENGLAI_QQ_BOT", creds)).then(() => this.connectWithRef("PENGLAI_QQ_BOT"));
           this.lastQr = undefined;
+          void Promise.resolve()
+            .then(() => this.vault.put?.("PENGLAI_QQ_BOT", creds))
+            .then(() => this.connectWithRef("PENGLAI_QQ_BOT"))
+            .catch(() => {
+              this.connection = "failed";
+              this.lastQr = undefined;
+            });
         },
         onFailure: () => {
           this.connection = "failed";

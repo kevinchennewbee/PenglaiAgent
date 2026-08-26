@@ -100,6 +100,14 @@ export class TelegramAdapter {
     this.offset = offset;
   }
 
+  exportPersistedState(): Record<string, unknown> {
+    return { updateOffset: this.offset };
+  }
+
+  restorePersistedState(state: Record<string, unknown>): void {
+    if (typeof state.updateOffset === "number") this.restoreUpdateOffset(state.updateOffset);
+  }
+
   health() {
     return {
       channel: "telegram" as const,
@@ -127,6 +135,29 @@ export class TelegramAdapter {
     const body = (await response.json()) as { ok?: boolean };
     if (!body.ok) throw new PenglaiError("DELIVERY_TRANSIENT", "TELEGRAM_SEND_FAILED");
     return { delivered: true };
+  }
+
+  async react(input: {
+    vendorTarget: string;
+    vendorMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    signal: AbortSignal;
+  }): Promise<void> {
+    if (!this.token || !input.vendorTarget || !input.vendorMessageId) return;
+    const messageId = Number(input.vendorMessageId);
+    if (!Number.isSafeInteger(messageId)) return;
+    await this.fetchImpl(`https://api.telegram.org/bot${this.token}/setMessageReaction`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: input.vendorTarget,
+        message_id: messageId,
+        reaction: input.action === "add" ? [{ type: "emoji", emoji: input.emoji }] : [],
+      }),
+      redirect: "error",
+      signal: input.signal,
+    });
   }
 
   async disconnect(): Promise<void> {

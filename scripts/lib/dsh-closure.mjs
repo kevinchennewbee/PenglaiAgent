@@ -30,6 +30,37 @@ export const NODE_PTY_PREBUILD_BY_TARGET = {
 
 const ROOT_CANDIDATE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
+/**
+ * Locate the pinned DSH install under either isolated `.pnpm` virtual store
+ * or hoisted `node_modules/@deepseek-ai/dsh` (node-linker=hoisted).
+ */
+export function locateWorkspaceDsh({ root, pinnedVersion, resolvedPackageDir }) {
+  const pnpmDir = join(root, "node_modules", ".pnpm");
+  if (existsSync(pnpmDir)) {
+    const prefix = `@deepseek-ai+dsh@${pinnedVersion}_`;
+    const pnpmDshRoot = readdirSync(pnpmDir)
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => join(pnpmDir, name))
+      .find((candidate) => existsSync(join(candidate, "node_modules", "@deepseek-ai", "dsh")));
+    if (pnpmDshRoot) {
+      return {
+        layout: "isolated",
+        dshPackageDir: join(pnpmDshRoot, "node_modules", "@deepseek-ai", "dsh"),
+        dshPackageRoot: pnpmDshRoot,
+      };
+    }
+  }
+  const hoisted = resolvedPackageDir || join(root, "node_modules", "@deepseek-ai", "dsh");
+  if (existsSync(join(hoisted, "package.json")) && existsSync(join(root, "node_modules"))) {
+    return {
+      layout: "hoisted",
+      dshPackageDir: hoisted,
+      dshPackageRoot: root,
+    };
+  }
+  return undefined;
+}
+
 export function packageDirFromAnchor(anchor, packageName) {
   try {
     const paths = createRequire(anchor).resolve.paths(packageName) ?? [];

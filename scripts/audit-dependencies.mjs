@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const npmrc = readFileSync(".npmrc", "utf8");
@@ -13,23 +14,7 @@ const audioReq = createRequire(`${process.cwd()}/packages/audio-codecs/package.j
 const officeReq = createRequire(`${process.cwd()}/packages/office/package.json`);
 
 function packageRoot(name, resolver = mossReq, fromDir = join(process.cwd(), "packages/moss-tts")) {
-  const linked = join(fromDir, "node_modules", ...name.split("/"));
-  if (existsSync(join(linked, "package.json"))) {
-    const root = dirname(realpathSync(join(linked, "package.json")));
-    return { root, metadata: JSON.parse(readFileSync(join(root, "package.json"), "utf8")) };
-  }
-  let cursor = dirname(resolver.resolve(name));
-  for (let depth = 0; depth < 10; depth += 1) {
-    const candidate = join(cursor, "package.json");
-    if (existsSync(candidate)) {
-      const metadata = JSON.parse(readFileSync(candidate, "utf8"));
-      if (metadata.name === name) return { root: cursor, metadata };
-    }
-    const parent = dirname(cursor);
-    if (parent === cursor) break;
-    cursor = parent;
-  }
-  throw new Error(`cannot resolve ${name}`);
+  return resolvePackageMetadata(name, resolver, fromDir, process.cwd());
 }
 
 const allowed = ["scripts/ensure-electron.mjs", "onnxruntime-node packaged CPU binaries"];

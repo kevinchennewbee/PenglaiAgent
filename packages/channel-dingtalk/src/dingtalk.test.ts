@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DingTalkAdapter } from "./index.js";
-import { DingTalkDeviceAuth } from "./device-auth.js";
+import { DingTalkDeviceAuth, DINGTALK_REGISTRATION_SOURCE } from "./device-auth.js";
 
 test("DingTalk QR does not return secrets and stores credentials on success", async () => {
   const stored: Record<string, { clientId: string; clientSecret: string }> = {};
@@ -10,6 +10,7 @@ test("DingTalk QR does not return secrets and stores credentials on success", as
     posts.push(String(url));
     const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, string>;
     if (String(url).endsWith("/init")) {
+      assert.equal(body.source, DINGTALK_REGISTRATION_SOURCE);
       return new Response(JSON.stringify({ errcode: 0, nonce: "n1" }));
     }
     if (String(url).endsWith("/begin")) {

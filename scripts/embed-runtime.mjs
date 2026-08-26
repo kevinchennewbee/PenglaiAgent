@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
-import { materializeDshClosure } from "./lib/dsh-closure.mjs";
+import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
 import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
 
@@ -130,12 +130,13 @@ const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "
     console.error("pnpm-lock.yaml is missing the pinned DSH integrity");
     process.exit(1);
   }
-const pnpmDshRoot = readdirSync(join(ROOT, "node_modules", ".pnpm"))
-  .filter((name) => name.startsWith(`@deepseek-ai+dsh@${PINNED_DSH}_`))
-  .map((name) => join(ROOT, "node_modules", ".pnpm", name))
-  .find((candidate) => existsSync(join(candidate, "node_modules", "@deepseek-ai", "dsh")));
-const dshPackageDir = pnpmDshRoot ? join(pnpmDshRoot, "node_modules", "@deepseek-ai", "dsh") : "";
-const dshPackageRoot = pnpmDshRoot ?? "";
+const locatedDsh = locateWorkspaceDsh({
+  root: ROOT,
+  pinnedVersion: PINNED_DSH,
+  resolvedPackageDir: workspaceDsh,
+});
+const dshPackageDir = locatedDsh?.dshPackageDir ?? "";
+const dshPackageRoot = locatedDsh?.dshPackageRoot ?? "";
 if (!existsSync(dshPackageDir) || !existsSync(join(dshPackageRoot, "node_modules"))) {
   console.error("workspace DSH pnpm closure missing");
   process.exit(1);

@@ -37,6 +37,7 @@ import {
 import { guidedAdapter, requireAdapter, type ChannelAdapter, type ConnectionResult, type ConnectionState, type InboundChannelEvent } from "./channel-adapter.js";
 import { refuseUnliveSend } from "./guided.js";
 import { channelConfigAccountId, isForbiddenDefaultAccount, legacyDefaultAccountId } from "./inbound-envelope.js";
+import { beginStatusReaction, CHANNEL_STATUS_REACTIONS, type StatusReactionHandle } from "./reactions.js";
 import {
   classifyMessageFailure,
   classifySendOutcome,
@@ -102,6 +103,8 @@ export class PenglaiImHost {
   private secretHydrator?: (id: ChannelId, serialized: string) => void;
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
   startupFailure: MessageFailure | undefined;
+  private sidecarReady = true;
+  private readonly statusReactions = new Map<string, StatusReactionHandle>();
   readonly bots: ImBotStore;
 
   constructor(
@@ -961,6 +964,13 @@ export class PenglaiImHost {
       this.recordChannelFailure(id, channelConfigAccountId(id), error);
       throw error;
     }
+    if (polled.status === "failed") {
+      this.recordChannelFailure(
+        id,
+        channelConfigAccountId(id),
+        new PenglaiError("DELIVERY_TRANSIENT", `${id} connection failed`),
+      );
+    }
     const qrImageRef = await encodePeekedQr(adapter.peekQr?.(input.operationId));
     this.revision += 1;
     return {
@@ -1014,6 +1024,14 @@ export class PenglaiImHost {
     this.startupFailure = publicMessageFailure(classifyMessageFailure(error));
   }
 
+  deferSidecarOutbox(): void {
+    this.sidecarReady = false;
+  }
+
+  markSidecarReady(): void {
+    this.sidecarReady = true;
+  }
+
   recordChannelFailure(channel: ChannelId, accountRef: string, error: unknown): void {
     const failure = publicMessageFailure(classifyMessageFailure(error));
     this.bots.putChannelFailure({
@@ -1052,6 +1070,7 @@ export class PenglaiImHost {
       if (!parsed.enabled) continue;
       if (id === "whatsapp" && parsed.riskAckVersion !== WHATSAPP_RISK_ACK_VERSION) continue;
       try {
+        adapter.restorePersistedState?.(parsed);
         await adapter.beginConnection({
           method: restoreMethod(id),
           credentialRef: CHANNEL_CREDENTIAL_REFS[id],
@@ -1064,6 +1083,7 @@ export class PenglaiImHost {
   }
 
   async pumpChannelOutbox(routeId: string): Promise<void> {
+    if (!this.sidecarReady) return;
     const route = this.store.getRoute(routeId);
     if (!route || isLiveChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
     const adapter = this.adapters.get(route.adapter as ChannelId);
@@ -1079,8 +1099,11 @@ export class PenglaiImHost {
           peerRef: delivery.vendorTarget || target,
         });
         this.plane.markDelivered(item.outboxId, claimToken);
+        this.finishStatusReaction(route.adapter, route.accountRef, item.inboundId, "success");
+        this.persistAdapterState(route.adapter as ChannelId, adapter);
       } catch (error) {
         this.recordChannelFailure(route.adapter as ChannelId, route.accountRef, error);
+        this.finishStatusReaction(route.adapter, route.accountRef, item.inboundId, "error");
         const failure = classifyMessageFailure(error);
         if (classifySendOutcome(error) === "uncertain" || failure.code === "CHANNEL_DELIVERY_UNCERTAIN") {
           this.plane.markSendResult(item.outboxId, "uncertain", claimToken);
@@ -1093,6 +1116,54 @@ export class PenglaiImHost {
         }
       }
     }
+  }
+
+  private persistAdapterState(channel: ChannelId, adapter: ChannelAdapter): void {
+    if (!adapter.exportPersistedState) return;
+    this.persistChannelFlag(channel, true, adapter.exportPersistedState());
+  }
+
+  private startStatusReaction(adapter: ChannelAdapter, event: InboundChannelEvent): void {
+    if (typeof adapter.react !== "function") return;
+    const emojis = CHANNEL_STATUS_REACTIONS[event.channel];
+    if (!emojis) return;
+    const existing = this.statusReactions.get(event.idempotencyKey);
+    if (existing) return;
+    const handle = beginStatusReaction({
+      key: event.idempotencyKey,
+      emojis,
+      add: (emoji, signal) =>
+        adapter.react!({
+          vendorTarget: event.vendorTarget,
+          vendorMessageId: event.vendorMessageId,
+          emoji,
+          action: "add",
+          signal,
+        }),
+      remove: (emoji, signal) =>
+        adapter.react!({
+          vendorTarget: event.vendorTarget,
+          vendorMessageId: event.vendorMessageId,
+          emoji,
+          action: "remove",
+          signal,
+        }),
+    });
+    this.statusReactions.set(event.idempotencyKey, handle);
+    if (this.statusReactions.size > 256) {
+      const first = this.statusReactions.keys().next().value;
+      if (first) this.statusReactions.delete(first);
+    }
+  }
+
+  private finishStatusReaction(_adapter: string, _accountRef: string, inboundId: string, kind: "success" | "error"): void {
+    const inbound = this.store.getInbound(inboundId);
+    if (!inbound) return;
+    const handle = this.statusReactions.get(inbound.adapterMessageKey);
+    if (!handle) return;
+    if (kind === "success") handle.success();
+    else handle.error();
+    this.statusReactions.delete(inbound.adapterMessageKey);
   }
 
   private persistChannelFlag(channel: ChannelId, enabled: boolean, extra?: Record<string, unknown>): void {
@@ -1143,6 +1214,8 @@ export class PenglaiImHost {
       routeId,
     });
     if (!claim.created && claim.turnId) return;
+    const adapter = this.adapters.get(event.channel);
+    if (adapter) this.startStatusReaction(adapter, event);
     try {
       await this.plane.submitInbound({
         adapter: event.channel,
@@ -1155,7 +1228,10 @@ export class PenglaiImHost {
         text: event.text,
         receivedAt,
       });
+      if (adapter) this.persistAdapterState(event.channel, adapter);
     } catch (error) {
+      this.statusReactions.get(event.idempotencyKey)?.error();
+      this.statusReactions.delete(event.idempotencyKey);
       this.recordChannelFailure(event.channel, event.accountRef, error);
     }
   }

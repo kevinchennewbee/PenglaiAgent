@@ -27,6 +27,21 @@ test("WhatsApp requires risk ack, reserves outbound ids, and wipes on logout", a
   assert.equal(adapter.health().riskAckVersion, WHATSAPP_RISK_ACK_VERSION);
   const id = adapter.reserveOutboundId();
   assert.equal(adapter.isEcho(id), true);
+  const restored = new WhatsAppDeviceAdapter(
+    {
+      async read() {
+        return undefined;
+      },
+      async write() {},
+      async wipe() {},
+    },
+    async ({ onOpen }) => {
+      onOpen();
+      return { async send() {}, async logout() {} };
+    },
+  );
+  restored.restorePersistedState(adapter.exportPersistedState());
+  assert.equal(restored.isEcho(id), true);
   await adapter.logout();
   assert.equal(wiped, true);
   assert.equal(adapter.health().connection, "disabled");

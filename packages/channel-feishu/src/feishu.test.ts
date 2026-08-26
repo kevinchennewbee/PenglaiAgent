@@ -9,6 +9,7 @@ import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import {
   FEISHU_ALLOWLIST_NOTICE,
+  FEISHU_STATUS_REACTIONS,
   FeishuAdapter,
   parseFeishuEvent,
   parseOfficialReceive,
@@ -602,4 +603,10 @@ test("R56-SEC-010 missing or unknown chatType and sender fail closed without a r
   assert.deepEqual(parseFeishuEvent({ chatType: "meeting", messageId: "2", text: "x", openId: "o" }), { reject: "chatType" });
   assert.deepEqual(parseFeishuEvent({ chatType: "p2p", messageId: "3", text: "x" }), { reject: "sender" });
   assert.deepEqual(parseOfficialReceive({ event: { message: { message_id: "4", message_type: "text" } } }), { reject: "chatType" });
+});
+
+test("Feishu status reactions are official emoji types and no-op when disconnected", async () => {
+  assert.equal(FEISHU_STATUS_REACTIONS.processing, "ONIT");
+  const adapter = new FeishuAdapter(plane());
+  await adapter.react({ vendorMessageId: "om_1", kind: "processing" });
 });
