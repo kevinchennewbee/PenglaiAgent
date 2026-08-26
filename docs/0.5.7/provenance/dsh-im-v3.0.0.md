@@ -1,8 +1,8 @@
 # dsh-im v3.0.0 supply-chain record
 
-This is the **current** 0.5.7 DSH-IM provenance baseline. v2.4.0 and v2.5.0
-remain historical. Penglai does **not** install this package as a second Agent
-core or copy generated `lib/`.
+This is a **historical** 0.5.7 DSH-IM provenance baseline. The current pin is
+unsigned `v3.0.1`. v2.4.0 and v2.5.0 remain historical. Penglai does **not**
+install this package as a second Agent core or copy generated `lib/`.
 
 Selected channel authentication, transport, typing, reaction, markdown, and
 structured failure ideas may be rewritten into `@penglai/im`. The post-tag

@@ -62,22 +62,25 @@
     {
       "id": "dsh-im",
       "repo": "https://github.com/xmanrui/dsh-im",
-      "release": "v3.0.0",
-      "tagObject": "881491704e7bddecc1ce937d53071865489df3f7",
-      "commit": "40b5a46516b44e30fa90e084400a8c3d578214e9",
+      "release": "v3.0.1",
+      "tagObject": "36c099299557ed053517018c0f6ac2762e6961e2",
+      "commit": "fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
       "tagSigned": false,
-      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/40b5a46516b44e30fa90e084400a8c3d578214e9",
-      "sha256": "791c2d7335cb524fb48b6e2939837709214842746be96df503dd5ca40f491c5b",
-      "bytes": 9434947,
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
+      "sha256": "7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf",
+      "bytes": 9833777,
       "fetched": "2026-08-26",
       "license": "MIT",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
-      "supersedes": "v2.5.0 / aa8fd71b936a0378604bd0f8f277059833ddb8f7",
-      "postTagAudit": "ea5176be93cf0a5959397bd15d3ef614811a2a67",
-      "postTagAuditNote": "not v3.0.0 content; see docs/0.5.7/provenance/dsh-im-post-v3.0.0.md",
+      "supersedes": "v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9",
+      "historical": [
+        "v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9",
+        "v2.5.0 / aa8fd71b936a0378604bd0f8f277059833ddb8f7",
+        "v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f"
+      ],
       "notice": "third_party/NOTICE-dsh-im.txt",
       "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md",
-      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.0.md"
+      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.1.md"
     },
     {
       "id": "noto-sans-sc",

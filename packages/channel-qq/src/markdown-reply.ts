@@ -1,4 +1,4 @@
-/** Rewrite of DSH-IM `src/channels/qq/markdown-reply.mjs` at ea5176be (not v3.0.0). MIT ideas only. */
+/** Rewrite of DSH-IM `src/channels/qq/markdown-reply.mjs` now inside v3.0.1. MIT ideas only. */
 
 const DEFAULT_LIMIT = 4_500;
 const MARKDOWN_REJECTION_CODES = new Set([40_034_090]);

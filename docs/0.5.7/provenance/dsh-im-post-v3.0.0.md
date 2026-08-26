@@ -1,10 +1,13 @@
 # dsh-im post-v3.0.0 audit (not v3.0.0)
 
-This record is **not** the v3.0.0 baseline. It audits peeled v3.0.0
+This record is **not** a current pin. The seven commits from peeled v3.0.0
 `40b5a46516b44e30fa90e084400a8c3d578214e9` through
-`ea5176be93cf0a5959397bd15d3ef614811a2a67` (7 commits, unsigned moving HEAD).
+`ea5176be93cf0a5959397bd15d3ef614811a2a67` are now inside unsigned `v3.0.1`
+(`fb8a9df652ed6eaa4b99a9338cab15db1b626b1c`). Keep this file as the
+historical file-level audit of that range.
 
-Do not call this range "v3.0.0 content".
+Do not call this range "v3.0.0 content". Do not treat `ea5176be` as a second
+current pin.
 
 ## Commits
 

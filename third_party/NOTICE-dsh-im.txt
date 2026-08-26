@@ -6,12 +6,13 @@ lib/ or bin/. Selected channel authentication and transport ideas may be
 rewritten into @penglai/im under the MIT license below.
 
 Pinned identity (current 0.5.7):
-  tag: v2.5.0 (unsigned annotated tag object d910373e1aa77e830bbb4a32544ace972492e79e)
-  commit: aa8fd71b936a0378604bd0f8f277059833ddb8f7
-  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/aa8fd71b936a0378604bd0f8f277059833ddb8f7
-  sha256: 19e99f85001b5546e77a6c3d4163ea2bef59edd0554036421369e0621e908758
-  fetched: 2026-08-25
-  superseded: v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f is historical only
+  tag: v3.0.1 (unsigned annotated tag object 36c099299557ed053517018c0f6ac2762e6961e2)
+  commit: fb8a9df652ed6eaa4b99a9338cab15db1b626b1c
+  tarball: https://codeload.github.com/xmanrui/dsh-im/tar.gz/fb8a9df652ed6eaa4b99a9338cab15db1b626b1c
+  sha256: 7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf
+  bytes: 9833777
+  fetched: 2026-08-26
+  superseded: v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9 is historical only
 
 MIT License
 

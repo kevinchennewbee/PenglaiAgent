@@ -69,8 +69,8 @@ test("/version is a local control command and does not mention a second host", (
   assert.match(text, /Penglai 0\.5\.7/);
   assert.match(text, /DSH 0\.1\.1-rc\.2/);
   assert.match(text, /b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/);
-  assert.match(text, /DSH-IM reference v3\.0\.0/);
-  assert.match(text, /40b5a46516b44e30fa90e084400a8c3d578214e9/);
+  assert.match(text, /DSH-IM reference v3\.0\.1/);
+  assert.match(text, /fb8a9df652ed6eaa4b99a9338cab15db1b626b1c/);
   assert.doesNotMatch(text, /ea5176be93cf0a5959397bd15d3ef614811a2a67/);
 });
 

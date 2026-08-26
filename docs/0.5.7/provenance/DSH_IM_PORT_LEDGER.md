@@ -1,10 +1,10 @@
-# DSH-IM v3.0.0 port ledger
+# DSH-IM v3.0.1 port ledger
 
 Current 0.5.7 pin: `https://github.com/xmanrui/dsh-im` @
-`40b5a46516b44e30fa90e084400a8c3d578214e9` (`v3.0.0`, MIT, unsigned tag object
-`881491704e7bddecc1ce937d53071865489df3f7`). v2.4.0 and v2.5.0 identities are
-historical only. Post-tag `ea5176be93cf0a5959397bd15d3ef614811a2a67` is a
-separate audit in `dsh-im-post-v3.0.0.md` and is not v3.0.0 content.
+`fb8a9df652ed6eaa4b99a9338cab15db1b626b1c` (`v3.0.1`, MIT, unsigned tag object
+`36c099299557ed053517018c0f6ac2762e6961e2`). v3.0.0, v2.5.0, and v2.4.0
+identities are historical only. QQ C2C markdown hardening from `ea5176be` is
+inside v3.0.1; see `dsh-im-v3.0.1.md`.
 Use: design/reference or rewrite into Penglai IM Core. Never vendor generated
 `lib/` or start the DSH-IM runtime.
 
@@ -33,7 +33,7 @@ Penglai Vault, Owner Broker, Artifact Service, routing-core, persistence;
 | `src/channels/shared/message-failure.mjs` | `@penglai/im` message-failure | rewrite | stable code + reference id + user-actionable copy; MIT if source is adapted |
 | `plugin-src/client/last-message-error.js` | Messaging card error row | reference | last failure on the platform card |
 | `src/channels/weixin/weixin-runtime.mjs` typing | `packages/channel-weixin` | rewrite | iLink `getconfig` + `sendtyping`; best-effort; never replace iLink |
-| `src/channels/qq/markdown-reply.mjs` @ `ea5176be` | `packages/channel-qq/src/markdown-reply.ts` | rewrite | post-tag hardening; not v3.0.0 content |
+| `src/channels/qq/markdown-reply.mjs` @ v3.0.1 | `packages/channel-qq/src/markdown-reply.ts` | rewrite | C2C markdown hardening now inside v3.0.1 |
 | `src/channels/shared` reactions idea | `packages/im/src/reactions.ts` | rewrite | short timeout, serialized, idempotent; failure never blocks reply |
 | `src/channels/shared/status-reaction.mjs` | `@penglai/im` host + adapters | rewrite | processing/success/error wired through Slack/Telegram/Discord/WhatsApp/Feishu |
 | Slack Socket Mode reconnect | `packages/channel-slack` | rewrite | hello/disconnect ACK, backoff reconnect |

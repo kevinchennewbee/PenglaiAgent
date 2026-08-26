@@ -144,6 +144,6 @@ export function versionText(): string {
   return [
     "Penglai 0.5.7",
     "DSH 0.1.1-rc.2 dsh-v0.1.1-rc.2 b150a551b8d465e31e418e1b2eaf5e79bbb7d28e",
-    "DSH-IM reference v3.0.0 unsigned tag 881491704e7bddecc1ce937d53071865489df3f7 peeled 40b5a46516b44e30fa90e084400a8c3d578214e9",
+    "DSH-IM reference v3.0.1 unsigned tag 36c099299557ed053517018c0f6ac2762e6961e2 peeled fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
   ].join("\n");
 }
