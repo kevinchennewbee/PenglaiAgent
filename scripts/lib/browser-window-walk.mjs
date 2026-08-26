@@ -129,9 +129,10 @@ function clickSelector(sel) {
   })()`;
 }
 
-function clickButtonText(patterns) {
+function clickButtonText(patterns, deferred = false) {
   return `(() => {
     const patterns = ${JSON.stringify(patterns)};
+    const deferred = ${JSON.stringify(deferred)};
     const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
     const texts = buttons.map((n) => (n.textContent || "").replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 24);
     for (const src of patterns) {
@@ -139,16 +140,18 @@ function clickButtonText(patterns) {
       const btn = buttons.find((n) => re.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
       if (btn) {
         if (btn.disabled) return { ok: false, reason: "disabled", text: (btn.textContent || "").replace(/\\s+/g, " ").trim(), texts };
-        btn.click();
-        return { ok: true, text: (btn.textContent || "").replace(/\\s+/g, " ").trim() };
+        if (deferred) setTimeout(() => btn.click(), 0);
+        else btn.click();
+        return { ok: true, deferred, text: (btn.textContent || "").replace(/\\s+/g, " ").trim() };
       }
     }
     return { ok: false, reason: "missing", texts };
   })()`;
 }
 
-export function settingsTriggerClickScript() {
+export function settingsTriggerClickScript(deferred = false) {
   return `(() => {
+    const deferred = ${JSON.stringify(deferred)};
     const normalized = (value) => String(value || "").replace(/\\s+/g, " ").trim();
     const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
     const byText = buttons.find((node) =>
@@ -159,9 +162,11 @@ export function settingsTriggerClickScript() {
     const button = byText || document.querySelector('button[aria-haspopup="dialog"][aria-expanded]');
     if (!button) return { ok: false, reason: "missing", semanticFallback: false };
     if (button.disabled) return { ok: false, reason: "disabled", semanticFallback: button !== byText };
-    button.click();
+    if (deferred) setTimeout(() => button.click(), 0);
+    else button.click();
     return {
       ok: true,
+      deferred,
       semanticFallback: button !== byText,
       text: normalized(button.textContent) || normalized(button.getAttribute("aria-label")) || normalized(button.getAttribute("title")),
     };
@@ -672,7 +677,7 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   for (const target of settingsTargets) {
     const click = await evaluate(
       session,
-      target.id === "ui-settings-open" ? settingsTriggerClickScript() : clickButtonText(target.patterns),
+      target.id === "ui-settings-open" ? settingsTriggerClickScript(true) : clickButtonText(target.patterns, true),
     );
     await delay(700);
     const after = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);

@@ -133,6 +133,34 @@ test("collapsed official DSH settings trigger opens through its dialog semantics
   assert.equal(clicked, true);
 });
 
+test("installed settings walk defers expensive renderer click work outside the CDP request", async () => {
+  const { settingsTriggerClickScript } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  let clicked = false;
+  let scheduled: (() => void) | undefined;
+  const button = {
+    disabled: false,
+    textContent: "Settings",
+    getAttribute: () => null,
+    click() { clicked = true; },
+  };
+  const document = {
+    querySelectorAll: () => [button],
+    querySelector: () => null,
+  };
+  const result = runInNewContext(settingsTriggerClickScript(true), {
+    document,
+    setTimeout(callback: () => void) {
+      scheduled = callback;
+      return 1;
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.deferred, true);
+  assert.equal(clicked, false);
+  scheduled?.();
+  assert.equal(clicked, true);
+});
+
 test("installed soak samples bundled IM without bypassing native owner approval", async () => {
   const { bundledOptionalPluginDefaultOffSample } = await import("../../../scripts/lib/browser-window-walk.mjs");
   const sha256 = "a".repeat(64);
@@ -378,7 +406,7 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
   assert.match(windowsPayload, /build-windows-host\.mjs/);
   assert.match(windowsPayload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
-  assert.match(windowsPayload, /join\(staging, "runtime", "helpers"\)/);
+  assert.match(windowsPayload, /join\(staging, "runtime", "helpers", "penglai-windows-host\.exe"\)/);
   assert.match(windowsPayload, /stamp-windows-exe\.mjs/);
   assert.match(windowsPayload, /release-info\.json/);
   const embedRuntime = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");
