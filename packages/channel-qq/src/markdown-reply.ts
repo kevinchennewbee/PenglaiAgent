@@ -120,6 +120,13 @@ export function nextMessageSeq(previous: number): number {
   return previous + 1;
 }
 
+/** Unique across process restarts: max(previous+1, unix seconds). Fits uint32. */
+export function nextRestartSafeSeq(previous: number, nowMs = Date.now()): number {
+  const unix = Math.floor(nowMs / 1000);
+  const base = Number.isSafeInteger(previous) && previous > 0 ? previous : 0;
+  return Math.max(base + 1, unix);
+}
+
 export function markdownPayload(content: string, seq: number): { msgType: 2; markdown: { content: string }; extra: { msg_seq: number } } {
   return { msgType: 2, markdown: { content }, extra: { msg_seq: seq } };
 }

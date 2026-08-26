@@ -25,6 +25,7 @@ export class TelegramAdapter {
   webhookConflict = false;
   private offset = 0;
   private inboundHandler?: (msg: TelegramInbound) => void;
+  private offsetPersist?: (offset: number) => void;
 
   constructor(
     private readonly vault: { resolve(ref: string): TelegramCredentials | undefined },
@@ -73,11 +74,18 @@ export class TelegramAdapter {
     this.inboundHandler = handler;
   }
 
+  setOffsetPersist(handler: (offset: number) => void): void {
+    this.offsetPersist = handler;
+  }
+
   ingestUpdate(update: {
     update_id?: number;
     message?: { message_id?: number; text?: string; chat?: { id?: number; type?: string }; from?: { id?: number } };
   }): void {
-    if (update.update_id !== undefined) this.offset = Math.max(this.offset, update.update_id + 1);
+    if (update.update_id !== undefined) {
+      this.offset = Math.max(this.offset, update.update_id + 1);
+      this.offsetPersist?.(this.offset);
+    }
     const msg = update.message;
     if (!msg?.text || msg.chat?.type !== "private") return;
     if (msg.message_id == null || msg.from?.id == null || msg.chat?.id == null || !this.accountRef) return;

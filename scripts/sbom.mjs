@@ -26,16 +26,17 @@ const components = sorted.map((id) => {
 components.push({
   type: "library",
   name: "dsh-im",
-  version: "3.0.0",
-  "bom-ref": "pkg:github/xmanrui/dsh-im@40b5a46516b44e30fa90e084400a8c3d578214e9",
+  version: "3.0.1",
+  "bom-ref": "pkg:github/xmanrui/dsh-im@fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
   licenses: [{ license: { id: "MIT" } }],
   properties: [
     { name: "penglai:use", value: "selective-rewrite-not-installed" },
-    { name: "penglai:tag", value: "v3.0.0" },
-    { name: "penglai:tag-object", value: "881491704e7bddecc1ce937d53071865489df3f7" },
+    { name: "penglai:tag", value: "v3.0.1" },
+    { name: "penglai:tag-object", value: "36c099299557ed053517018c0f6ac2762e6961e2" },
     { name: "penglai:unsigned-tag", value: "true" },
-    { name: "penglai:archive.sha256", value: "791c2d7335cb524fb48b6e2939837709214842746be96df503dd5ca40f491c5b" },
-    { name: "penglai:post-tag-audit", value: "ea5176be93cf0a5959397bd15d3ef614811a2a67" },
+    { name: "penglai:archive.sha256", value: "7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf" },
+    { name: "penglai:archive.bytes", value: "9833777" },
+    { name: "penglai:historical-v3.0.0", value: "40b5a46516b44e30fa90e084400a8c3d578214e9" },
   ],
 });
 const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));

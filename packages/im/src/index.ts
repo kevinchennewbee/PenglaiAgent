@@ -277,14 +277,11 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       wrapOpts("slack"),
     ),
   );
-  host.attachChannelAdapter(
-    telegramChannelAdapter(
-      new TelegramAdapter({
-        resolve: (ref) => telegramCreds[ref],
-      }),
-      wrapOpts("telegram"),
-    ),
-  );
+  const telegramNative = new TelegramAdapter({
+    resolve: (ref) => telegramCreds[ref],
+  });
+  host.attachChannelAdapter(telegramChannelAdapter(telegramNative, wrapOpts("telegram")));
+  telegramNative.setOffsetPersist(() => host.snapshotAdapter("telegram"));
   host.attachChannelAdapter(
     discordChannelAdapter(
       new DiscordAdapter({

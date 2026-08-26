@@ -42,6 +42,7 @@ export class WhatsAppDeviceAdapter {
       onQr: (ref: string) => void;
       onOpen: () => void;
       onMessage: (msg: WhatsAppInbound) => void;
+      isEcho: (id: string) => boolean;
     }) => Promise<WhatsAppLinkSocket>,
   ) {}
 
@@ -66,6 +67,7 @@ export class WhatsAppDeviceAdapter {
         if (this.isEcho(msg.messageId)) return;
         this.inboundHandler?.(msg);
       },
+      isEcho: (id) => this.isEcho(id),
     });
     return { kind: "device-link", live: false, operationId: this.operationId };
   }

@@ -86,3 +86,37 @@ test("wrapNative keeps enable separate from transport connected", async () => {
   assert.equal((await adapter.health()).enabled, false);
   assert.equal((await adapter.health()).connection, "disabled");
 });
+
+test("wrapNative stop keeps enabled while logout disables", async () => {
+  let disconnected = 0;
+  let loggedOut = 0;
+  const native = {
+    async beginConnection() {
+      return { kind: "token" as const, live: false as const, operationId: "op" };
+    },
+    async pollConnection() {
+      return { status: "connected" };
+    },
+    health() {
+      return { channel: "slack" as const, live: false, connection: "connected" };
+    },
+    async sendText() {
+      return { delivered: true as const };
+    },
+    async disconnect() {
+      disconnected += 1;
+    },
+    async logout() {
+      loggedOut += 1;
+    },
+  };
+  const adapter = wrapNative("slack", native, { hashPeer: (senderId) => senderId });
+  await adapter.enable();
+  await adapter.stop();
+  assert.equal((await adapter.health()).enabled, true);
+  assert.equal(disconnected, 1);
+  assert.equal(loggedOut, 0);
+  await adapter.logout();
+  assert.equal((await adapter.health()).enabled, false);
+  assert.equal(loggedOut, 1);
+});

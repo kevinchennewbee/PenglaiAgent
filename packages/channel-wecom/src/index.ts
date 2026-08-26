@@ -92,6 +92,7 @@ export class WeComAdapter {
     accountRef?: string;
   }): void {
     if (!this.accountRef) return;
+    if (msg.chatType !== "private") return;
     this.inboundHandler?.({
       messageId: msg.messageId,
       senderId: msg.senderId,
@@ -103,7 +104,10 @@ export class WeComAdapter {
   }
 
   health() {
-    return { channel: "wecom" as const, live: false, enabled: this.connection !== "disabled", connection: this.connection };
+    const transport = this.client?.connected;
+    const connection =
+      this.connection === "connected" && transport === false ? "connecting" : this.connection;
+    return { channel: "wecom" as const, live: false, enabled: this.connection !== "disabled", connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {

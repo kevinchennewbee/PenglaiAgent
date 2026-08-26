@@ -31,6 +31,7 @@ export class SlackAdapter {
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private reconnectAttempt = 0;
   private stopped = false;
+  private helloSeen = false;
 
   constructor(
     private readonly vault: { resolve(ref: string): SlackCredentials | undefined },
@@ -63,12 +64,15 @@ export class SlackAdapter {
     this.creds = creds;
     this.stopped = false;
     this.reconnectAttempt = 0;
+    this.helloSeen = false;
     if (!creds.appToken) {
       this.connection = "not_configured";
       throw new PenglaiError("INVALID_INPUT", "SLACK_APP_TOKEN_REQUIRED");
     }
     await this.openSocket(creds.appToken);
-    this.connection = "connected";
+    if (!this.helloSeen) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_HELLO");
+    }
     return { kind: input.method === "manifest" ? "manifest" : "token", live: false, operationId: "slack:token" };
   }
 
@@ -158,8 +162,13 @@ export class SlackAdapter {
     }
     this.socket?.close();
     this.socket = undefined;
-    this.creds = undefined;
     this.connection = "disabled";
+  }
+
+  async logout(): Promise<void> {
+    await this.disconnect();
+    this.creds = undefined;
+    this.accountRef = undefined;
   }
 
   /** Test seam: Socket Mode transport closed unexpectedly. */
@@ -183,6 +192,7 @@ export class SlackAdapter {
     const onEvent = (event: Record<string, unknown>, socket?: { send(data: string): void; close(): void; readyState?: number }) => {
       if (event.type === "hello") {
         this.reconnectAttempt = 0;
+        this.helloSeen = true;
         this.connection = "connected";
         return;
       }
@@ -207,22 +217,23 @@ export class SlackAdapter {
     const ws = new WebSocket(body.url);
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_TIMEOUT")), 15_000);
-      ws.addEventListener("open", () => {
+      const finish = (error?: Error) => {
         clearTimeout(timer);
-        resolve();
-      });
+        if (error) reject(error);
+        else resolve();
+      };
       ws.addEventListener("error", () => {
-        clearTimeout(timer);
-        reject(new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_ERROR"));
+        finish(new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_ERROR"));
       });
-    });
-    ws.addEventListener("message", (ev) => {
-      try {
-        const parsed = JSON.parse(String((ev as MessageEvent).data)) as Record<string, unknown>;
-        onEvent(parsed, ws);
-      } catch {
-        /* ignore malformed */
-      }
+      ws.addEventListener("message", (ev) => {
+        try {
+          const parsed = JSON.parse(String((ev as MessageEvent).data)) as Record<string, unknown>;
+          onEvent(parsed, ws);
+          if (parsed.type === "hello") finish();
+        } catch {
+          /* ignore malformed */
+        }
+      });
     });
     ws.addEventListener("close", () => {
       if (this.stopped) return;
@@ -243,7 +254,6 @@ export class SlackAdapter {
       void this.openSocket(token)
         .then(() => {
           this.reconnectAttempt = 0;
-          if (!this.stopped) this.connection = "connected";
         })
         .catch(() => {
           this.connection = "failed";

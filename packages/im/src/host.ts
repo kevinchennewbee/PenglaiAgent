@@ -157,6 +157,11 @@ export class PenglaiImHost {
     this.attachInboundFanIn(adapter);
   }
 
+  snapshotAdapter(channel: ChannelId): void {
+    const adapter = this.adapters.get(channel);
+    if (adapter) this.persistAdapterState(channel, adapter);
+  }
+
   async sendOutboundText(input: { channel: ChannelId; text: string }): Promise<{ delivered: true }> {
     if (!isLiveChannel(input.channel)) {
       const adapter = this.adapters.get(input.channel);

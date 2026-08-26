@@ -84,7 +84,10 @@ export class DingTalkAdapter {
   }
 
   health() {
-    return { channel: "dingtalk" as const, live: false, enabled: this.connection !== "disabled", connection: this.connection };
+    const transport = this.client?.connected;
+    const connection =
+      this.connection === "connected" && transport === false ? "connecting" : this.connection;
+    return { channel: "dingtalk" as const, live: false, enabled: this.connection !== "disabled", connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {

@@ -123,8 +123,14 @@ export function wrapNative(
       throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${id}`);
     },
     disconnect: () => adapter.disconnect(),
-    logout: () => (adapter.logout ? adapter.logout() : adapter.disconnect()),
-    deleteCredentials: () => (adapter.logout ? adapter.logout() : adapter.disconnect()),
+    async logout() {
+      enabled = false;
+      await (adapter.logout ? adapter.logout() : adapter.disconnect());
+    },
+    async deleteCredentials() {
+      enabled = false;
+      await (adapter.logout ? adapter.logout() : adapter.disconnect());
+    },
     onInbound(handler) {
       inbound = handler;
     },

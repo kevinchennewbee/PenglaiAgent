@@ -48,6 +48,8 @@ export class DiscordAdapter {
   private heartbeatAcked = true;
   private generation = 0;
   private stopped = false;
+  private dmChannelIds = new Set<string>();
+  private groupDmChannelIds = new Set<string>();
 
   constructor(
     private readonly vault: { resolve(ref: string): DiscordCredentials | undefined },
@@ -106,12 +108,14 @@ export class DiscordAdapter {
     channel_id?: string;
     author?: { id?: string; bot?: boolean };
     guild_id?: string;
+    channel_type?: number;
   }): void {
     if (event.guild_id || event.author?.bot || !event.content) return;
     const messageId = String(event.id ?? "").trim();
     const senderId = String(event.author?.id ?? "").trim();
     const channelId = String(event.channel_id ?? "").trim();
     if (!this.accountRef || !messageId || !senderId || !channelId) return;
+    if (event.channel_type === 3 || this.groupDmChannelIds.has(channelId)) return;
     this.inboundHandler?.({
       messageId,
       senderId,
@@ -348,11 +352,23 @@ export class DiscordAdapter {
     if (parsed.t === "READY" && parsed.d && typeof parsed.d === "object") {
       this.sessionId = typeof parsed.d.session_id === "string" ? parsed.d.session_id : null;
       this.resumeUrl = typeof parsed.d.resume_gateway_url === "string" ? parsed.d.resume_gateway_url : null;
+      this.rememberPrivateChannels(parsed.d.private_channels);
       markReady();
     } else if (parsed.t === "RESUMED") {
       markReady();
     } else if (parsed.t === "MESSAGE_CREATE" && parsed.d && typeof parsed.d === "object") {
       this.ingestMessage(parsed.d);
+    }
+  }
+
+  private rememberPrivateChannels(channels: unknown): void {
+    if (!Array.isArray(channels)) return;
+    for (const row of channels) {
+      const rec = row as { id?: string; type?: number };
+      const id = String(rec.id ?? "").trim();
+      if (!id) continue;
+      if (rec.type === 1) this.dmChannelIds.add(id);
+      if (rec.type === 3) this.groupDmChannelIds.add(id);
     }
   }
 

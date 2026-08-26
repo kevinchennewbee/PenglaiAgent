@@ -54,7 +54,14 @@ test("Telegram ingest only accepts private text", async () => {
   });
   assert.deepEqual(received, ["hello"]);
   assert.equal(adapter.getUpdateOffset(), 5);
+  const persisted: number[] = [];
+  adapter.setOffsetPersist((offset) => persisted.push(offset));
+  adapter.ingestUpdate({
+    update_id: 9,
+    message: { message_id: 11, text: "group-again", chat: { id: -1, type: "group" }, from: { id: 11 } },
+  });
+  assert.deepEqual(persisted, [10]);
   const restored = new TelegramAdapter({ resolve: () => ({ token: "123:abc" }) }, async () => new Response("{}", { status: 404 }));
   restored.restorePersistedState(adapter.exportPersistedState());
-  assert.equal(restored.getUpdateOffset(), 5);
+  assert.equal(restored.getUpdateOffset(), 10);
 });

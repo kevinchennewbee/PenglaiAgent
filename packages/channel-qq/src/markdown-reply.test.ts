@@ -6,6 +6,7 @@ import {
   isMarkdownRejection,
   markdownPayload,
   nextMessageSeq,
+  nextRestartSafeSeq,
   plainPayload,
   QQ_C2C_PASSIVE_REPLY_LIMIT,
   QQ_PARTIAL_REPLY_NOTICE,
@@ -26,6 +27,8 @@ test("QQ markdown chunks keep fences and GFM tables intact", () => {
 test("QQ markdown uses unique seq and falls back only on platform rejection", () => {
   assert.equal(nextMessageSeq(0), 1);
   assert.equal(nextMessageSeq(7), 8);
+  assert.equal(nextRestartSafeSeq(0, 1_800_000_000_000), 1_800_000_000);
+  assert.equal(nextRestartSafeSeq(1_800_000_010, 1_800_000_000_000), 1_800_000_011);
   const first = markdownPayload("hello", 1);
   const second = markdownPayload("hello", 2);
   assert.equal(first.msgType, 2);

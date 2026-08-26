@@ -122,7 +122,7 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     id: "slack",
     displayName: { en: "Slack", zh: "Slack" },
     connectionMethods: ["oauth", "manifest", "token"],
-    capabilities: { ...TEXT_ONLY, markdown: true, threads: true },
+    capabilities: { ...TEXT_ONLY, markdown: true, threads: false },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
     risk: "official",
     supportLevel: "ga",

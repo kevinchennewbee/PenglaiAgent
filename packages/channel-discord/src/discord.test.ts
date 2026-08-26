@@ -28,6 +28,7 @@ test("Discord ingest drops guild, bots, and incomplete identities", async () => 
   adapter.ingestMessage({ id: "2", content: "hi", channel_id: "c1", author: { id: "u1", bot: true } });
   adapter.ingestMessage({ id: "3", content: "hi", channel_id: "c1", author: { id: "u1" }, guild_id: "g1" });
   adapter.ingestMessage({ id: "4", content: "hi", channel_id: "c1", author: { id: "u1" } });
+  adapter.ingestMessage({ id: "5", content: "gdm", channel_id: "gdm1", author: { id: "u1" }, channel_type: 3 });
   assert.equal(seen.length, 1);
 });
 

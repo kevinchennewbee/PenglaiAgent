@@ -11,10 +11,16 @@ test("Slack validates a bot token without QR and can send", async () => {
       if (String(url).includes("chat.postMessage")) return new Response(JSON.stringify({ ok: true }));
       return new Response("{}", { status: 404 });
     },
-    { open: () => ({ close() {} }) },
+    {
+      open: (_url, onEvent) => {
+        onEvent({ type: "hello" });
+        return { close() {} };
+      },
+    },
   );
   await assert.rejects(() => adapter.beginConnection({ method: "qr", credentialRef: "PENGLAI_SLACK_BOT" }), /CHANNEL_NO_QR/);
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_SLACK_BOT" });
+  assert.equal(adapter.health().connection, "connected");
   assert.equal(begun.kind, "token");
   assert.equal(begun.live, false);
   await adapter.sendText({ text: "hi", peerRef: "D123" });
@@ -46,7 +52,12 @@ test("Slack Socket Mode reconnects after a transport close", async () => {
       if (String(url).includes("reactions.add")) return new Response(JSON.stringify({ ok: true }));
       return new Response("{}", { status: 404 });
     },
-    { open: () => ({ close() {} }) },
+    {
+      open: (_url, onEvent) => {
+        onEvent({ type: "hello" });
+        return { close() {} };
+      },
+    },
   );
   await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_SLACK_BOT" });
   assert.equal(opened, 1);

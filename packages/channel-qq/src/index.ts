@@ -25,6 +25,7 @@ export class QqAdapter {
   private qr: { operationId: string; cancel(): void } | undefined;
   private lastQr: { operationId: string; image: string; expiresAt: number } | undefined;
   accountRef: string | undefined;
+  private messageSeq = 0;
   private inboundHandler?: (msg: {
     messageId: string;
     senderId: string;
@@ -102,6 +103,7 @@ export class QqAdapter {
     accountRef?: string;
   }): void {
     if (!this.accountRef) return;
+    if (msg.chatType !== "private") return;
     this.inboundHandler?.({
       messageId: msg.messageId,
       senderId: msg.senderId,
@@ -110,6 +112,16 @@ export class QqAdapter {
       chatType: "private",
       accountRef: msg.accountRef || this.accountRef,
     });
+  }
+
+  exportPersistedState(): Record<string, unknown> {
+    return { messageSeq: this.messageSeq };
+  }
+
+  restorePersistedState(state: Record<string, unknown>): void {
+    if (typeof state.messageSeq === "number" && Number.isSafeInteger(state.messageSeq) && state.messageSeq > 0) {
+      this.messageSeq = state.messageSeq;
+    }
   }
 
   health() {
@@ -143,7 +155,18 @@ export class QqAdapter {
     this.connection = "connecting";
     this.accountRef = creds.appId;
     try {
-      this.client = this.factory ? this.factory(creds) : await createQqBotClient(creds, (msg) => this.inboundHandler?.(msg));
+      this.client = this.factory
+        ? this.factory(creds)
+        : await createQqBotClient(
+            creds,
+            (msg) => this.inboundHandler?.(msg),
+            {
+              value: this.messageSeq,
+              persist: (next) => {
+                this.messageSeq = next;
+              },
+            },
+          );
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";
     } catch {

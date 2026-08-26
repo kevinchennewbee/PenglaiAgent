@@ -5,7 +5,7 @@ import {
   chunkMarkdownText,
   isMarkdownRejection,
   markdownPayload,
-  nextMessageSeq,
+  nextRestartSafeSeq,
   plainPayload,
 } from "./markdown-reply.js";
 
@@ -19,6 +19,7 @@ export async function createQqBotClient(
     chatType: "private";
     accountRef: string;
   }) => void,
+  seq?: { value: number; persist(next: number): void },
 ): Promise<QqClient> {
   const mod = (await import("@tencent-connect/qqbot-nodejs")) as unknown as {
     QQBot?: new (opts: { appID?: string; appId?: string; secret?: string; clientSecret?: string }) => {
@@ -40,7 +41,7 @@ export async function createQqBotClient(
     secret: creds.clientSecret,
     clientSecret: creds.clientSecret,
   });
-  let lastSeq = 0;
+  let lastSeq = seq?.value ?? 0;
   const client: QqClient = {
     connected: false,
     async connect() {
@@ -80,9 +81,10 @@ export async function createQqBotClient(
       let deliveredMarkdown = false;
       const quota = applyC2cPassiveQuota(chunkMarkdownText(text));
       for (const chunk of quota.chunks) {
-        const seq = nextMessageSeq(lastSeq);
-        lastSeq = seq;
-        const markdown = { ...markdownPayload(chunk, seq), target: peer };
+        const nextSeq = nextRestartSafeSeq(lastSeq);
+        lastSeq = nextSeq;
+        seq?.persist(nextSeq);
+        const markdown = { ...markdownPayload(chunk, nextSeq), target: peer };
         try {
           if (typeof raw.send === "function") await raw.send(markdown);
           else await raw.sendMessage?.(peer, markdown);
@@ -92,8 +94,8 @@ export async function createQqBotClient(
             throw new PenglaiError("DELIVERY_TRANSIENT", "QQ_MARKDOWN_PARTIAL");
           }
           if (!isMarkdownRejection(error)) throw error;
-          if (typeof raw.send === "function") await raw.send({ ...plainPayload(chunk, seq), target: peer });
-          else await raw.sendMessage?.(peer, plainPayload(chunk, seq));
+          if (typeof raw.send === "function") await raw.send({ ...plainPayload(chunk, nextSeq), target: peer });
+          else await raw.sendMessage?.(peer, plainPayload(chunk, nextSeq));
         }
       }
     },

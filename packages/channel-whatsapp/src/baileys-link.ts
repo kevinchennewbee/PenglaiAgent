@@ -24,6 +24,7 @@ export async function startBaileysLink(
     onQr: (ref: string) => void;
     onOpen: () => void;
     onMessage: (msg: WhatsAppInbound) => void;
+    isEcho?: (id: string) => boolean;
   },
 ): Promise<WhatsAppLinkSocket> {
   let baileys: {
@@ -111,7 +112,7 @@ export async function startBaileysLink(
   sock.ev.on("messages.upsert", (bundle) => {
     ingestBaileysUpsert(bundle as { messages?: Array<{ key?: { id?: string; fromMe?: boolean; remoteJid?: string }; message?: { conversation?: string } }> }, {
       accountJid: selfAccountJid(creds),
-      isEcho: (id) => false,
+      isEcho: opts.isEcho ?? ((id) => false),
       onMessage: opts.onMessage,
     });
   });

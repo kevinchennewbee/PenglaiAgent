@@ -21,7 +21,10 @@ export async function createDingTalkStreamClient(
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<DingTalkStreamClient> {
   const mod = (await import("dingtalk-stream")) as {
-    DWClient?: new (opts: { clientId: string; clientSecret: string }) => {
+    DWClient?: new (opts: { clientId: string; clientSecret: string; autoReconnect?: boolean }) => {
+      connected?: boolean;
+      registered?: boolean;
+      reconnecting?: boolean;
       registerCallbackListener?(topic: string, handler: (res: { data?: string }) => Promise<unknown> | unknown): void;
       connect(): Promise<void> | void;
       disconnect(): Promise<void> | void;
@@ -32,9 +35,17 @@ export async function createDingTalkStreamClient(
     throw new PenglaiError("DSH_UNAVAILABLE", "dingtalk-stream DWClient missing");
   }
   const topic = mod.TOPIC_ROBOT ?? "/v1.0/im/bot/messages/get";
-  const raw = new mod.DWClient({ clientId: creds.clientId, clientSecret: creds.clientSecret });
+  const raw = new mod.DWClient({
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
+    autoReconnect: true,
+  });
   let inbound: ((msg: DingTalkInbound) => void) | undefined;
+  let healthTimer: ReturnType<typeof setInterval> | undefined;
   const webhooks = new Map<string, string>();
+  const syncConnected = (clientRef: DingTalkStreamClient) => {
+    clientRef.connected = Boolean(raw.registered && raw.connected && !raw.reconnecting);
+  };
   const client: DingTalkStreamClient = {
     connected: false,
     onMessage(handler) {
@@ -68,9 +79,23 @@ export async function createDingTalkStreamClient(
         return { status: "SUCCESS" };
       });
       await raw.connect();
-      client.connected = true;
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline) {
+        if (raw.registered) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      if (!raw.registered) {
+        throw new PenglaiError("DELIVERY_TRANSIENT", "DINGTALK_STREAM_HANDSHAKE");
+      }
+      syncConnected(client);
+      healthTimer ??= setInterval(() => syncConnected(client), 500);
+      healthTimer.unref?.();
     },
     async disconnect() {
+      if (healthTimer) {
+        clearInterval(healthTimer);
+        healthTimer = undefined;
+      }
       await raw.disconnect();
       client.connected = false;
       webhooks.clear();
