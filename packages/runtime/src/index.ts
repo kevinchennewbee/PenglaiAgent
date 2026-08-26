@@ -201,8 +201,13 @@ export function assertPluginJsClosure(pkgDir: string, id: string): void {
   if (js.includes("from \"../src/") || js.includes("from '../src/") || js.includes("from \"./src/") || js.includes("from './src/")) {
     throw new PenglaiError("STORE_CORRUPT", `${id} host still imports src`);
   }
-  if (id === "@penglai/im" && (js.includes("Dynamic require of") || js.includes("form-data/lib/form_data"))) {
-    throw new PenglaiError("STORE_CORRUPT", `${id} host inlines Lark/axios CJS`);
+  if (id === "@penglai/im") {
+    // Match quoted module specs only. The esbuild ESM helper is
+    // `Dynamic require of "' + x + '"`, which is not an inlined CJS require.
+    const specs = [...js.matchAll(/Dynamic require of ["']([^"']+)["']/g)].map((row) => row[1]);
+    if (specs.length > 0 || js.includes("form-data/lib/form_data")) {
+      throw new PenglaiError("STORE_CORRUPT", `${id} host inlines Lark/axios CJS`);
+    }
   }
 }
 

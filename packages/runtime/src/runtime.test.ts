@@ -145,7 +145,42 @@ test("IM host that inlines Lark/axios CJS is rejected", () => {
     join(dir, "package.json"),
     JSON.stringify({ name: "@penglai/im", main: "dist/index.js", exports: { ".": "./dist/index.js" } }),
   );
-  writeFileSync(join(dir, "dist", "index.js"), 'var util = __require("util");\nthrow new Error("Dynamic require of \\"util\\" is not supported");\n');
+  writeFileSync(
+    join(dir, "dist", "index.js"),
+    'var util = __require("util");\nthrow new Error(\'Dynamic require of "axios" is not supported\');\n',
+  );
+  assert.throws(() => assertPluginJsClosure(dir, "@penglai/im"), /inlines Lark\/axios CJS/);
+});
+
+test("IM host esbuild createRequire helper is not treated as an inlined CJS require", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-im-helper-"));
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "@penglai/im", main: "dist/index.js", exports: { ".": "./dist/index.js" } }),
+  );
+  writeFileSync(
+    join(dir, "dist", "index.js"),
+    [
+      'import { createRequire as __penglaiCreateRequire } from "node:module";',
+      "const require = __penglaiCreateRequire(import.meta.url);",
+      "var __require = /* @__PURE__ */ ((x) => typeof require !== \"undefined\" ? require : x)(function(x) {",
+      "  if (typeof require !== \"undefined\") return require.apply(this, arguments);",
+      "  throw Error('Dynamic require of \"' + x + '\" is not supported');",
+      "});",
+    ].join("\n"),
+  );
+  assert.doesNotThrow(() => assertPluginJsClosure(dir, "@penglai/im"));
+});
+
+test("IM host that inlines form-data CJS is rejected", () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-im-formdata-"));
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "@penglai/im", main: "dist/index.js", exports: { ".": "./dist/index.js" } }),
+  );
+  writeFileSync(join(dir, "dist", "index.js"), 'import "./form-data/lib/form_data";\n');
   assert.throws(() => assertPluginJsClosure(dir, "@penglai/im"), /inlines Lark\/axios CJS/);
 });
 
