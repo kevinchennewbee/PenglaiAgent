@@ -149,16 +149,15 @@ function listZipEntries(archive) {
   throw new Error("unzip missing for zip mnemon archive");
 }
 
-export function extractArchive(archive, extractDir, asset) {
-  mkdirSync(extractDir, { recursive: true, mode: 0o700 });
-  if (asset.archiveFilename.endsWith(".zip")) {
-    const names = listZipEntries(archive);
-    for (const name of names) assertSafeArchiveEntry(name);
-    try {
-      execFileSync("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
-    } catch {
-      if (process.platform === "win32") {
-        execFileSync(
+export function extractZipContents(archive, extractDir, platform = process.platform, run = execFileSync) {
+  try {
+    run("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
+  } catch {
+    if (platform === "win32") {
+      try {
+        run("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
+      } catch {
+        run(
           "powershell",
           [
             "-NoProfile",
@@ -167,10 +166,19 @@ export function extractArchive(archive, extractDir, asset) {
           ],
           { stdio: "ignore" },
         );
-      } else {
-        execFileSync("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
       }
+    } else {
+      run("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
     }
+  }
+}
+
+export function extractArchive(archive, extractDir, asset) {
+  mkdirSync(extractDir, { recursive: true, mode: 0o700 });
+  if (asset.archiveFilename.endsWith(".zip")) {
+    const names = listZipEntries(archive);
+    for (const name of names) assertSafeArchiveEntry(name);
+    extractZipContents(archive, extractDir);
   } else {
     const names = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const name of names) assertSafeArchiveEntry(name);
