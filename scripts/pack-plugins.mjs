@@ -328,6 +328,7 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
       if (src === pkgRoot) return true;
       if (relative(pkgRoot, src).split(/[\\/]/).includes("node_modules"))
         return false;
+      if (src.endsWith(".map")) return false;
       const filter = filters.get(name);
       return filter ? filter(pkgRoot, src) : true;
     },
@@ -341,7 +342,16 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
 function vendorBaileys(stage) {
   const fromDir = join(ROOT, "packages/channel-whatsapp");
   const destNm = join(stage, "node_modules");
-  vendorNpmPackage(fromDir, BAILEYS, destNm, new Set());
+  vendorNpmPackage(fromDir, BAILEYS, destNm, new Set(), new Map([
+    [
+      BAILEYS,
+      (_pkgRoot, src) =>
+        !src.endsWith(".map") &&
+        !src.endsWith(".md") &&
+        !src.includes(`${sep}test${sep}`) &&
+        !src.includes(`${sep}docs${sep}`),
+    ],
+  ]));
   const vendored = JSON.parse(
     readFileSync(join(destNm, BAILEYS, "package.json"), "utf8"),
   );

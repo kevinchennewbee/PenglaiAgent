@@ -1,5 +1,6 @@
 import { PenglaiError } from "@penglai/contracts";
-import type { WhatsAppInbound, WhatsAppLinkSocket, WhatsAppSessionStore } from "./index.js";
+import type { WhatsAppInbound, WhatsAppLinkSocket } from "./device-adapter.js";
+import type { WhatsAppSessionStore } from "./session-store.js";
 import { ingestBaileysUpsert, selfAccountJid } from "./inbound-jid.js";
 
 type SignalKeyBag = Record<string, Record<string, unknown>>;

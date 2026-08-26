@@ -12,7 +12,7 @@ import {
   jidDecode,
   jidNormalizedUser,
 } from "@whiskeysockets/baileys";
-import type { WhatsAppInbound } from "./index.js";
+import type { WhatsAppInbound } from "./device-adapter.js";
 
 /** Pinned Baileys documents LID private users via `isLidUser` (`@lid`). */
 export const PINNED_BAILEYS = "7.0.0-rc14";
