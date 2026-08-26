@@ -5,19 +5,27 @@ Grok Build stop line: this PR is **draft**. Do not merge, do not create `v0.5.7`
 ## Identity
 
 - Base SHA: `3102135c6821a044fe4f9b50638c91ce9f5e9cd1` (`main`)
-- Head SHA: `e46ec8ed8c555bc12d273d73793e8718e75af32a`
+- Code Head SHA: `b8b99d2` (see git; docs commit may follow)
 - Base tag: `v0.5.6` at `75bbd591c61b757dfe015e54e40ad21ccf9ab94b`
-- Official DSH: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
-- npm `latest` and `next` at freeze: `0.1.1-rc.2`
-- DSH-IM current pin: unsigned `v3.0.0` / tag object `881491704e7bddecc1ce937d53071865489df3f7` / peeled `40b5a46516b44e30fa90e084400a8c3d578214e9` / tarball SHA-256 `791c2d7335cb524fb48b6e2939837709214842746be96df503dd5ca40f491c5b` (9 434 947 bytes)
+- Official DSH: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` (npm `latest`/`next` re-checked 2026-08-26)
+- DSH-IM current pin: unsigned `v3.0.1` / tag object `36c099299557ed053517018c0f6ac2762e6961e2` / peeled `fb8a9df652ed6eaa4b99a9338cab15db1b626b1c` / tarball SHA-256 `7db84c13cdb434b2c13690aace527ff8a7dbdf6bfc947c2e6c661dcc28bbffaf` (9 833 777 bytes)
 - Tag verification: unsigned (`verified=false`)
 - License: MIT
-- Post-tag audit (not v3.0.0 content): `ea5176be93cf0a5959397bd15d3ef614811a2a67`
-- v2.4.0 and v2.5.0 are historical only (ADR 0044)
+- v3.0.0 / v2.5.0 / v2.4.0 are historical only
 
 Committed `release-info.json` remains a template: `phase=UNFROZEN`, `sourceSha=NONE`.
 
-## This round (source, after Head `3e1719d60022bcd9febe2c97ddc13f3fade04cd3`)
+## This round (true-machine closeout, after Head `1b4f921eadd3b29ce76414295eeb6a3f88285119`)
+
+- Re-measured official DSH: still `0.1.1-rc.2` / `b150a551`. No silent upgrade.
+- DSH-IM pin moved to measured v3.0.1 tarball. QQ C2C markdown already rewritten; Telegram/English UI absorbed as overflow/copy principles only; Weixin files unchanged v3.0.0→v3.0.1; iLink kept.
+- P0 WhatsApp: production `messages.upsert` uses Baileys `jidDecode`/`isPnUser`/`isLidUser`/`isJidGroup`/`isJidBroadcast`/`isJidStatusBroadcast`/`isJidNewsletter`. Group/broadcast/status/newsletter/unknown rejected. `accountRef` is only connected self identity.
+- P0 macOS package-metadata tests compare `realpathSync` on both sides.
+- P0 IM host pack: esbuild metafile names the real dynamic-require chain; axios/form-data and Baileys stay external and vendored; `pnpm pack:plugins` PASS on this Windows host.
+- Native workflow display name is already `Native 0.5.7 release candidate`.
+- Local Windows Setup is `BLOCKED_TOOLCHAIN` (no VS2022 `cl` / NSIS `makensis` on this machine).
+
+## Previous round (source, after Head `3e1719d60022bcd9febe2c97ddc13f3fade04cd3`)
 
 - Source CI `audit:dependencies` resolves exports-only packages from workspace `node_modules` before Node `resolve()` (`libopus-wasm` has no `main`).
 - Native embed-runtime locates pinned DSH under hoisted `node_modules/@deepseek-ai/dsh` when `.pnpm` has no virtual-store entry (`node-linker=hoisted`).
@@ -52,7 +60,7 @@ Committed `release-info.json` remains a template: `phase=UNFROZEN`, `sourceSha=N
 | Slack | auth.test bot+app token; Socket Mode reconnect; DM `channel_type=im` required | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 | Telegram | getMe, offset persist/restore, 429 backoff, webhook conflict | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 | Discord | REST `@me` + Gateway intents/opcodes/resume; DM explicit; guild rejected | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| WhatsApp | Baileys, encrypted keys, extra text payloads, persisted echo IDs | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WhatsApp | Baileys JID gate, encrypted keys, captions, persisted echo IDs | NOT_RUN | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 
 `LIVE_CHANNEL_IDS` remains Weixin + Feishu. No real owner accounts were used in this round.
 
@@ -81,4 +89,4 @@ Committed `release-info.json` remains a template: `phase=UNFROZEN`, `sourceSha=N
 
 ## Reviewer
 
-Codex: re-run source/contract/security on Node 22.22.2, compare transports against DSH-IM `40b5a46516b44e30fa90e084400a8c3d578214e9`, treat `ea5176be` as a separate QQ markdown patch, and do not approve live-support copy until `LIVE_IM_MATRIX.md` has real rows or explicit OWNER_ACCOUNT blocks (already explicit).
+Codex: re-run source/contract/security on Node 22.22.2, compare transports against DSH-IM `fb8a9df652ed6eaa4b99a9338cab15db1b626b1c`, and do not approve live-support copy until `LIVE_IM_MATRIX.md` has real rows or explicit OWNER_ACCOUNT blocks (already explicit).

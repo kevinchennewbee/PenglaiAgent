@@ -15,8 +15,8 @@ Release, readback, README observed values, and website deploy.
    historical `penglai-v2`, or `GenericAgent`.
 2. Confirm every package, profile seed, installer, workflow, `release-info.json`,
    and `release-contract.json` says `0.5.7`. Official DSH `0.1.1-rc.2` remains
-   the only agent core. DSH-IM remains unsigned `v3.0.0` /
-   `40b5a46516b44e30fa90e084400a8c3d578214e9`.
+   the only agent core. DSH-IM remains unsigned `v3.0.1` /
+   `fb8a9df652ed6eaa4b99a9338cab15db1b626b1c`.
 3. Re-verify GitHub DSH tags, npm `latest`/`next`, and Penglai lockfile/overlay
    pins. Do not follow a newer unpublished DSH or DSH-IM unless Owner re-pins
    for a security fix that affects ported code.

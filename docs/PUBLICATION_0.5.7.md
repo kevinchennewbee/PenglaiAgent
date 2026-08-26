@@ -22,6 +22,6 @@ All three must come from one reviewed, clean source SHA on matching native
 runners. The Release contains those three bytes plus the seven metadata assets
 declared by `release-contract.json`, and no others.
 
-Official DSH remains `0.1.1-rc.2`. DSH-IM v3.0.0 is a selective rewrite pin,
+Official DSH remains `0.1.1-rc.2`. DSH-IM v3.0.1 is a selective rewrite pin,
 not an installed second runtime. Nine messaging platforms have connection
 entries; live support claims follow `docs/0.5.7/LIVE_IM_MATRIX.md`.

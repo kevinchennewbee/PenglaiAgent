@@ -373,7 +373,7 @@
 ### D-060 — 0.5.7 九渠道连接入口、单一 IM Core、官网进 main
 
 - 状态：ACCEPTED（Owner 2026-08-25 要求 0.5.7 作为 0.5.6 之后的开发/验收/发布合同）
-- 决定：用户只看到一个「消息连接」插件 `@penglai/im`。九个平台都有真实连接入口，不再把后七个显示为路线图。`live` 只表示代码能力已通过发布验收，不表示用户已启用。没有 live evidence 不得在 README、官网或 Release 中声称九平台全部支持。DSH 继续固定 `0.1.1-rc.2`。DSH-IM 只参考 `v3.0.0` / `40b5a46516b44e30fa90e084400a8c3d578214e9`（ADR 0044；v2.4.0 与 v2.5.0 为历史 pin），禁止安装整包、复制 `lib/`/`bin/`/`cordis.patch.yml`。Slack/Telegram/Discord 禁止伪装扫码。WhatsApp 默认关闭，`supportLevel: experimental`，`risk: community-protocol`。官网源文件进入 `main` 的 `website/`，`gh-pages` 只保存审核后的部署产物。提交身份文件保持 `phase=UNFROZEN` 且 `sourceSha=NONE`，这是模板状态；候选 evidence 由构建绑定真实 Git SHA，源文件不得伪造无法自引用的 commit。
+- 决定：用户只看到一个「消息连接」插件 `@penglai/im`。九个平台都有真实连接入口，不再把后七个显示为路线图。`live` 只表示代码能力已通过发布验收，不表示用户已启用。没有 live evidence 不得在 README、官网或 Release 中声称九平台全部支持。DSH 继续固定 `0.1.1-rc.2`。DSH-IM 只参考 `v3.0.1` / `fb8a9df652ed6eaa4b99a9338cab15db1b626b1c`（ADR 0044；v3.0.0、v2.4.0 与 v2.5.0 为历史 pin），禁止安装整包、复制 `lib/`/`bin/`/`cordis.patch.yml`。Slack/Telegram/Discord 禁止伪装扫码。WhatsApp 默认关闭，`supportLevel: experimental`，`risk: community-protocol`。官网源文件进入 `main` 的 `website/`，`gh-pages` 只保存审核后的部署产物。提交身份文件保持 `phase=UNFROZEN` 且 `sourceSha=NONE`，这是模板状态；候选 evidence 由构建绑定真实 Git SHA，源文件不得伪造无法自引用的 commit。
 - 后果：渠道适配器只做认证、收发、状态和媒体转换。所有高影响操作继续走 Main Owner Broker。Grok Build 终点是远端 `0.5.7` 分支和指向 `main` 的 Draft PR；不合并、不打 `v0.5.7`、不发 Release、不部署生产官网。
 
 ## Superseded

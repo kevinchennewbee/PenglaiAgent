@@ -19,7 +19,20 @@ chat bodies, phone numbers, or WhatsApp session keys.
 | Discord | Bot token Gateway, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 | WhatsApp | device-link, opt-in | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 
-Owner action required for live rows: scan once (Weixin/Feishu/DingTalk/WeCom/QQ/WhatsApp) or paste a bot token on this machine (Slack/Telegram/Discord). Grok Build does not hold those accounts.
+Owner action required for live rows (none completed this candidate):
+
+- Weixin: scan once in the installed 0.5.7 app.
+- Feishu: official app scan or local credential entry.
+- DingTalk: device-registration scan once.
+- WeCom: intelligent-bot scan once.
+- QQ: official QQ Bot scan once.
+- Slack: paste bot token + app token; re-authorize `reactions:write` if needed.
+- Telegram: paste bot token.
+- Discord: paste bot token and enable Message Content Intent.
+- WhatsApp: risk acknowledgement Owner receipt + device scan.
+
+Grok Build does not hold those accounts. 0.5.6 inherited Weixin/Feishu live is
+not 0.5.7 live.
 
 WhatsApp extra gates, all blocked until proven: risk acknowledgement
 version/time, encrypted private session store, self-echo dedupe, reserved
