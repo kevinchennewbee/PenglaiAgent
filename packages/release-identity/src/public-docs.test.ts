@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { declaredSourceSha, recordAssertion } from "./assertion.js";
@@ -85,4 +85,39 @@ test("fuse policy disables RunAsNode and inspect and forbids dryRun green", () =
   const verify = readFileSync(join(root, "scripts/verify-fuses.mjs"), "utf8");
   assert.match(verify, /inspectBinary/);
   assert.match(verify, /packaged-electron-framework-bytes/);
+});
+
+test("website keeps the full bilingual visual site and exact 0.5.7 downloads", () => {
+  const zh = readFileSync(join(root, "website/index.html"), "utf8");
+  const en = readFileSync(join(root, "website/en/index.html"), "utf8");
+  const css = readFileSync(join(root, "website/styles/main.css"), "utf8");
+  const requiredAssets = [
+    "website/favicon.svg",
+    "website/shots/banner-v1.png",
+    "website/shots/0.5.5/plugin-center.png",
+    "website/shots/0.5.5/office.png",
+    "website/shots/0.5.5/memory.png",
+    "website/shots/0.5.5/mobile-messaging.png",
+    "website/shots/0.5.5/welcome.png",
+  ];
+
+  for (const rel of requiredAssets) {
+    const path = join(root, rel);
+    assert.equal(existsSync(path), true, `${rel} missing`);
+    assert.ok(statSync(path).size > 100, `${rel} is unexpectedly small`);
+  }
+  for (const html of [zh, en]) {
+    assert.match(html, /shots\/banner-v1\.png/);
+    assert.match(html, /shots\/0\.5\.5\/plugin-center\.png/);
+    assert.match(html, /Penglai_0\.5\.7_macos_aarch64\.dmg/);
+    assert.match(html, /Penglai_0\.5\.7_macos_x64\.dmg/);
+    assert.match(html, /Penglai_0\.5\.7_windows_x64_setup\.exe/);
+    assert.match(html, /bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8/);
+    assert.match(html, /ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e/);
+    assert.match(html, /cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a/);
+    assert.doesNotMatch(html, /releases\/download\/v0\.5\.6/);
+  }
+  assert.match(css, /\.hero-art/);
+  assert.match(css, /\.gallery/);
+  assert.ok(css.length > 5000, "website stylesheet is unexpectedly reduced");
 });
