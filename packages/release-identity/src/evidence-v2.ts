@@ -417,6 +417,7 @@ export const SUBGATE_JSON_FILES: Record<string, string> = {
   "verify:evidence": "evidence/generated/evidence-summary.json",
   "verify:closure": "evidence/generated/verify-closure.json",
   "verify:installed": "evidence/generated/verify-installed.json",
+  "verify:live": "evidence/generated/verify-live.json",
   "verify:soak": "evidence/generated/verify-soak.json",
   "verify:public-export": "evidence/generated/verify-public-export.json",
   "verify:profile": "evidence/generated/verify-profile.json",

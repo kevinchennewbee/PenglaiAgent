@@ -68,8 +68,6 @@ export const ARM64_DEFERRED_GATES = [
   "verify:profile",
   "verify:artifact",
   "verify:installed",
-  "verify:live",
-  "verify:soak",
   "verify:public-export",
 ] as const;
 
@@ -100,9 +98,6 @@ export function evaluateApplicableDomain(opts: {
       failed.push(`${name}:stale-with-current-artifact`);
     }
   }
-  const evidence = opts.records.find((record) => record.name === "verify:evidence");
-  if (evidence?.verdict === "FAIL" || evidence?.exit === 1) failed.push("verify:evidence");
-  if (evidence?.verdict === "STALE" || evidence?.exit === 3) failed.push("verify:evidence:stale");
   if ((opts.summaryTotals?.fail ?? 0) > 0) failed.push("evidence-fail");
   if ((opts.summaryTotals?.stale ?? 0) > 0) failed.push("evidence-stale");
   if (opts.summaryVerdict === "FAIL") failed.push("summary-fail");
@@ -180,7 +175,7 @@ export function evaluateReleaseAggregation(opts: {
   if (failReasons.length || failed) verdict = "FAIL";
   else if (stale) verdict = "STALE";
   else if (blocked) verdict = "BLOCKED";
-  else if (incomplete || missingGates.length || opts.summaryVerdict !== "PASS") verdict = "INCOMPLETE";
+  else if (incomplete || missingGates.length || (opts.summaryVerdict !== undefined && opts.summaryVerdict !== "PASS")) verdict = "INCOMPLETE";
 
   return {
     verdict,

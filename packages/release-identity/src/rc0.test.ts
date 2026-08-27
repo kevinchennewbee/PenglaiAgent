@@ -28,6 +28,7 @@ import {
   HARD_SUBGATES,
   PRODUCT_VERSION,
   REQUIRED_SUBGATE_KINDS,
+  SUPPLEMENTAL_ACCEPTANCE_SUBGATES,
 } from "./pins.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -104,7 +105,20 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.ok(listedSubgateNames().includes("verify:fuses"));
   assert.ok(listedSubgateNames().includes("verify:installed"));
   assert.ok(listedSubgateNames().includes("audit:secrets"));
+  assert.equal(listedSubgateNames().includes("verify:live"), false);
+  assert.equal(listedSubgateNames().includes("verify:soak"), false);
+  assert.equal(listedSubgateNames().includes("verify:evidence"), false);
+  assert.deepEqual(
+    SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
+    ["verify:live", "verify:soak", "verify:evidence"],
+  );
   assert.equal(HARD_SUBGATES.length >= 18, true);
+
+  const completeHardRelease = evaluateReleaseAggregation({
+    records: HARD_SUBGATES.map((gate) => ({ name: gate.name, exit: 0, verdict: "PASS" })),
+  });
+  assert.equal(completeHardRelease.verdict, "PASS");
+  assert.equal(completeHardRelease.exitCode, 0);
 
   const incomplete = evaluateReleaseAggregation({
     records: HARD_SUBGATES.map((g) => ({
@@ -146,9 +160,8 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
     summaryVerdict: "INCOMPLETE",
     summaryTotals: { fail: 0, stale: 0 },
   });
-  // The arm64 domain can PASS while deferred gates are incomplete, but the
-  // release verdict must still be INCOMPLETE (a domain PASS never masks
-  // incomplete deferred gates into a release PASS).
+  // The arm64 domain can PASS while native/public-export gates are incomplete,
+  // but a domain PASS never masks an incomplete hard release gate.
   assert.equal(applicable.verdict, "PASS");
   assert.ok(applicable.deferred.includes("verify:installed"));
   const masked = releaseVerdictFrom(applicable, {
