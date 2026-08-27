@@ -1,15 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
+import { collectLockPackageIds } from "./lib/sbom-lock.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
-const names = new Set();
-for (const line of lock.split("\n")) {
-  const m = /^ {6}([^:]+@[^:]+):$/.exec(line) || /^ {2}([^:]+@[^:]+):$/.exec(line);
-  if (m) names.add(m[1]);
-}
-const sorted = [...names].sort();
+// Git may materialize the lockfile with CRLF on Windows. Parse logical lines,
+// not host-specific bytes, so Windows release assembly cannot silently emit a
+// six-component SBOM while the same source emits the full closure on macOS.
+const sorted = collectLockPackageIds(lock);
 const seenRefs = new Set();
 const components = sorted.map((id) => {
   const bomRef = `pkg:npm/${id}`;
