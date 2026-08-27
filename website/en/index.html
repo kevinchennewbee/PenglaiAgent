@@ -14,7 +14,7 @@
     <main>
       <p>Penglai is a desktop distribution of official DeepSeek Harness. The last public download remains <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6">v0.5.6</a>. 0.5.7 is a development candidate; installer hashes are filled after public readback.</p>
       <h2>Messaging</h2>
-      <p>The 0.5.7 candidate offers nine connection entries under one Messaging plugin. Public “supported” claims follow the live evidence matrix only; platforms without a live row are not fully supported.</p>
+      <p>0.5.7 offers eight platform connection entries under one Messaging plugin.</p>
       <ul class="platform-cards">
         <li><strong>Weixin</strong> — official iLink QR</li>
         <li><strong>Feishu</strong> — official app QR / credentials</li>
@@ -24,10 +24,10 @@
         <li><strong>Slack</strong> — bot token + app token, no official QR</li>
         <li><strong>Telegram</strong> — bot token long-poll, no official QR</li>
         <li><strong>Discord</strong> — bot token + Gateway, no official QR</li>
-        <li><strong>WhatsApp</strong> — experimental community protocol, default off</li>
+        <li><strong>WhatsApp</strong> — community runtime not bundled in 0.5.7</li>
       </ul>
-      <h2>Not nine fake QR codes</h2>
-      <p>Users see one Messaging plugin. Weixin, Feishu, DingTalk, WeCom, QQ, and WhatsApp start a real vendor QR or device-link flow where that protocol actually exists. Slack, Telegram, and Discord honestly use their official manifest or token paths. A visible QR is not a support claim: connection confirmation, private binding, restart recovery, and logout cleanup must still pass.</p>
+      <h2>Real connection methods</h2>
+      <p>Users see one Messaging plugin. Weixin, Feishu, DingTalk, WeCom, and QQ use their real QR or device-registration flows; Slack, Telegram, and Discord use official manifest or token paths. WhatsApp has no connection action in this release.</p>
       <h2>More than Messaging</h2>
       <p>0.5.7 also completes Office document workflows, Memory candidates and permissions, Companion, plugin install and rollback, Windows lifecycle behavior, and privacy gates. It is not an IM reskin.</p>
       <h2>Acknowledgements and sources</h2>

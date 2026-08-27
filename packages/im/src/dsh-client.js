@@ -165,6 +165,8 @@ window.__ModuleLoader__.load({
         manage: "管理",
         close: "关闭",
         experimental: "实验性",
+        runtimeNotBundled: "0.5.7 未捆绑 WhatsApp runtime；本版本不提供设备绑定。",
+        unavailable: "本版本不可用",
         pasteToken: "粘贴官方 Token",
         pasteCreds: "粘贴凭据",
         saveConnect: "保存并连接",
@@ -289,6 +291,8 @@ window.__ModuleLoader__.load({
         manage: "Manage",
         close: "Close",
         experimental: "Experimental",
+        runtimeNotBundled: "The WhatsApp runtime is not bundled in 0.5.7; device linking is unavailable.",
+        unavailable: "Unavailable in this release",
         pasteToken: "Paste the official token",
         pasteCreds: "Paste credentials",
         saveConnect: "Save and connect",
@@ -1699,14 +1703,30 @@ window.__ModuleLoader__.load({
                                   ],
                                 })
                               : null,
-                            jsx.jsx("button", {
-                              type: "button",
-                              "data-penglai-im-connect": c.channel,
-                              ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
-                              ...(c.channel === "feishu" ? { "data-penglai-im-goto-feishu": "1" } : {}),
-                              onClick: () => openChannel(c.channel),
-                              children: t.guidedConnect,
-                            }),
+                            (c.connectionMethods || []).length === 0
+                              ? jsx.jsxs(React.Fragment, {
+                                  children: [
+                                    jsx.jsx("p", {
+                                      "data-penglai-im-runtime-not-bundled": c.channel,
+                                      children: t.runtimeNotBundled,
+                                    }),
+                                    jsx.jsx("button", {
+                                      type: "button",
+                                      disabled: true,
+                                      "aria-disabled": "true",
+                                      "data-penglai-im-unavailable": c.channel,
+                                      children: t.unavailable,
+                                    }),
+                                  ],
+                                })
+                              : jsx.jsx("button", {
+                                  type: "button",
+                                  "data-penglai-im-connect": c.channel,
+                                  ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
+                                  ...(c.channel === "feishu" ? { "data-penglai-im-goto-feishu": "1" } : {}),
+                                  onClick: () => openChannel(c.channel),
+                                  children: t.guidedConnect,
+                                }),
                           ],
                         },
                         c.channel,

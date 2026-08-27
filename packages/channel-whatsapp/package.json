@@ -10,8 +10,9 @@
     }
   },
   "dependencies": {
-    "@penglai/contracts": "workspace:*",
-    "@whiskeysockets/baileys": "7.0.0-rc14",
-    "qrcode": "1.5.4"
+    "@penglai/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14"
   }
 }

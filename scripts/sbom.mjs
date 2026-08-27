@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
-import { collectLockPackageIds } from "./lib/sbom-lock.mjs";
+import { collectLockPackageIds, splitLockPackageId } from "./lib/sbom-lock.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
@@ -9,17 +9,40 @@ const lock = readFileSync("pnpm-lock.yaml", "utf8");
 // not host-specific bytes, so Windows release assembly cannot silently emit a
 // six-component SBOM while the same source emits the full closure on macOS.
 const sorted = collectLockPackageIds(lock);
+const licenseEvidence = JSON.parse(readFileSync("evidence/generated/licenses.json", "utf8"));
+if (licenseEvidence.schema !== 2 || !Array.isArray(licenseEvidence.completeInstalled)) {
+  throw new Error("run pnpm audit:licenses before pnpm sbom");
+}
+const licenseByPackage = new Map();
+for (const row of [...licenseEvidence.completeInstalled, ...licenseEvidence.production]) {
+  licenseByPackage.set(`${row.name}@${row.version}`, row);
+}
 const seenRefs = new Set();
 const components = sorted.map((id) => {
-  const bomRef = `pkg:npm/${id}`;
+  const identity = splitLockPackageId(id);
+  const license = licenseByPackage.get(`${identity.name}@${identity.version}`);
+  const bomRef = `pkg:npm/${identity.name}@${identity.version}?pnpm_id=${encodeURIComponent(id)}`;
   if (seenRefs.has(bomRef)) throw new Error(`duplicate bom-ref ${bomRef}`);
   seenRefs.add(bomRef);
   return {
     type: "library",
-    name: id.split("@").slice(0, -1).join("@") || id,
-    version: id.split("@").at(-1),
+    name: identity.name,
+    version: identity.version,
     "bom-ref": bomRef,
     purl: bomRef,
+    licenses: license
+      ? [{ license: { id: license.effectiveLicense } }]
+      : [{ license: { name: "NOASSERTION" } }],
+    properties: license
+      ? [
+          { name: "penglai:license.disposition", value: license.disposition },
+          { name: "penglai:license.source", value: license.source },
+          { name: "penglai:lock.integrity", value: license.integrity },
+        ]
+      : [
+          { name: "penglai:license.disposition", value: "not-materialized-on-audited-host" },
+          { name: "penglai:license.review", value: "NOASSERTION disclosed; never silently accepted as production" },
+        ],
   };
 });
 components.push({

@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
@@ -22,7 +21,6 @@ import { QqAdapter } from "@penglai/channel-qq";
 import { SlackAdapter } from "@penglai/channel-slack";
 import { TelegramAdapter } from "@penglai/channel-telegram";
 import { DiscordAdapter } from "@penglai/channel-discord";
-import { EncryptedWhatsAppSessionStore, WhatsAppDeviceAdapter } from "@penglai/channel-whatsapp";
 import {
   dingtalkChannelAdapter,
   discordChannelAdapter,
@@ -30,9 +28,8 @@ import {
   slackChannelAdapter,
   telegramChannelAdapter,
   wecomChannelAdapter,
-  whatsappChannelAdapter,
 } from "./adapters/channel-bridge.js";
-import { CHANNEL_CREDENTIAL_REFS, CredentialsServiceVault, WHATSAPP_DATAKEY_REF, type CredentialsLike } from "./credentials-vault.js";
+import { CHANNEL_CREDENTIAL_REFS, CredentialsServiceVault, type CredentialsLike } from "./credentials-vault.js";
 import { parseSlackSecret } from "./channel-secrets.js";
 import { hmacPeerRef, loadOrCreatePeerHmacKey } from "./peer-privacy.js";
 import type { ChannelId } from "./registry.js";
@@ -300,22 +297,6 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       parseVault(CHANNEL_CREDENTIAL_REFS.telegram, telegramCreds, (raw) => ({ token: raw })),
       parseVault(CHANNEL_CREDENTIAL_REFS.discord, discordCreds, (raw) => ({ token: raw })),
     ]);
-    const existingWa = await vault.read(WHATSAPP_DATAKEY_REF);
-    const waKey =
-      existingWa && Buffer.from(existingWa, "base64").length === 32
-        ? Buffer.from(existingWa, "base64")
-        : randomBytes(32);
-    if (!existingWa || Buffer.from(existingWa, "base64").length !== 32) {
-      await vault.write(WHATSAPP_DATAKEY_REF, waKey.toString("base64"));
-    }
-    const waStore = new EncryptedWhatsAppSessionStore(join(userData, "im", "whatsapp.session"), waKey);
-    const { startBaileysLink } = await import("@penglai/channel-whatsapp");
-    host.attachChannelAdapter(
-      whatsappChannelAdapter(
-        new WhatsAppDeviceAdapter(waStore, (opts) => startBaileysLink(waStore, opts)),
-        wrapOpts("whatsapp"),
-      ),
-    );
     if (!host.store.isClosed()) await host.restoreChannelAdapters();
   })()
     .catch((error) => {

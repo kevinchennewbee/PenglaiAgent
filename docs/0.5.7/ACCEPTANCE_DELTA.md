@@ -26,8 +26,9 @@ public bytes/site (P) are not interchangeable.
 ## Messaging
 
 - `R57-IM-001` — the user-visible plugin remains one `@penglai/im`.
-- `R57-IM-002` — nine platforms expose a real connect/enable surface: weixin,
-  feishu, dingtalk, wecom, qq, slack, telegram, discord, whatsapp.
+- `R57-IM-002` — eight platforms expose a connect/enable surface: weixin,
+  feishu, dingtalk, wecom, qq, slack, telegram, discord. WhatsApp remains a
+  disabled compatibility card and its community runtime is not bundled.
 - `R57-IM-003` — ChannelAdapter V2 is a closed contract: enable/disable,
   begin/poll/cancel connection, start/stop, health, sendText, sendArtifact,
   disconnect, logout/delete credentials, inbound callback, capability discovery.
@@ -36,8 +37,8 @@ public bytes/site (P) are not interchangeable.
   secrets, filesystem paths, generic execute, or arbitrary fetch.
 - `R57-IM-005` — enabled and connected are separate. States are disabled,
   not_configured, connecting, connected, degraded, expired, blocked, failed.
-- `R57-IM-006` — Slack/Telegram/Discord do not present QR. WhatsApp is
-  experimental, community-protocol, default-off, and requires risk acknowledgement.
+- `R57-IM-006` — Slack/Telegram/Discord do not present QR. WhatsApp has no
+  connection method or QR in 0.5.7 because its runtime is not bundled.
 - `R57-IM-007` — routes include channel, bot/account, vendor target, redacted
   peerRef, Workspace, Session, and binding revision. No first-item / focus /
   recent-session guessing.
@@ -51,8 +52,8 @@ public bytes/site (P) are not interchangeable.
 ## UI
 
 - `R57-UI-001` — the page title is “消息连接” / “Messaging”, not “Penglai IM”.
-- `R57-UI-002` — ordinary users see nine platform cards: icon, name, enable,
-  plain-language status, connect/scan, redacted account, disconnect/manage.
+- `R57-UI-002` — ordinary users see eight connector cards plus one disabled
+  WhatsApp compatibility card that explains the runtime is unavailable.
 - `R57-UI-003` — ordinary users do not see `not_configured`, raw binding counts,
   operation IDs, credential refs, stacks, “open config file”, or raw SDK state.
 - `R57-UI-004` — advanced settings stay collapsed: binding, commands, voice

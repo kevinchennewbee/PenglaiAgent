@@ -1,9 +1,16 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
 import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
+import {
+  classifyLicense,
+  collectLockIntegrities,
+  integrityForPackage,
+  normalizeRepository,
+} from "./lib/license-inventory.mjs";
 
 mkdirSync("evidence/generated", { recursive: true });
 const req = createRequire(`${process.cwd()}/package.json`);
@@ -315,5 +322,121 @@ for (const [path, expected] of [
     process.exit(1);
   }
 }
-writeFileSync("evidence/generated/licenses.json", JSON.stringify(licenses, null, 2));
-console.log("audit:licenses ok");
+function pnpmLicenseInventory(prod) {
+  const executable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const args = ["licenses", "list", ...(prod ? ["--prod"] : []), "--json"];
+  return JSON.parse(
+    execFileSync(executable, args, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    }),
+  );
+}
+
+function packageMetadataForInventory(item, version) {
+  for (const root of item.paths ?? []) {
+    try {
+      const metadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+      if (metadata.name === item.name && metadata.version === version) return metadata;
+    } catch {
+      // pnpm can report a path for an optional package not materialized on this host.
+    }
+  }
+  return {};
+}
+
+function flattenInventory(raw, { production }) {
+  const lockRows = collectLockIntegrities(lock);
+  const rows = [];
+  for (const [declaredLicense, items] of Object.entries(raw)) {
+    for (const item of items) {
+      for (const version of item.versions ?? []) {
+        const metadata = packageMetadataForInventory(item, version);
+        const integrity = integrityForPackage(lockRows, item.name, version);
+        const decision = production
+          ? classifyLicense(item.name, declaredLicense)
+          : {
+              effectiveLicense: declaredLicense || "NOASSERTION",
+              disposition: "development-or-optional-lock-closure",
+              rationale: "not part of the audited production dependency closure",
+            };
+        if (production && !integrity) {
+          throw new Error(`production dependency integrity missing from lockfile: ${item.name}@${version}`);
+        }
+        rows.push({
+          name: item.name,
+          version,
+          declaredLicense,
+          effectiveLicense: decision.effectiveLicense,
+          disposition: decision.disposition,
+          rationale: decision.rationale,
+          source: normalizeRepository(metadata.repository, metadata.homepage ?? item.homepage),
+          integrity: integrity ?? "NOASSERTION",
+        });
+      }
+    }
+  }
+  return rows.sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
+}
+
+const productionInventory = flattenInventory(pnpmLicenseInventory(true), { production: true });
+const completeInstalledInventory = flattenInventory(pnpmLicenseInventory(false), { production: false });
+const whatsappPackage = JSON.parse(readFileSync("packages/channel-whatsapp/package.json", "utf8"));
+const imPackage = JSON.parse(readFileSync("packages/im/package.json", "utf8"));
+const packScript = readFileSync("scripts/pack-plugins.mjs", "utf8");
+if (
+  whatsappPackage.dependencies?.["@whiskeysockets/baileys"] ||
+  whatsappPackage.dependencies?.libsignal ||
+  imPackage.dependencies?.["@penglai/channel-whatsapp"] ||
+  !packScript.includes("must not bundle the WhatsApp community runtime in 0.5.7") ||
+  !packScript.includes("staging contains the forbidden WhatsApp community runtime")
+) {
+  throw new Error("WhatsApp runtime distribution boundary drift");
+}
+if (productionInventory.some((row) => row.name === "libsignal" || row.name === "@whiskeysockets/baileys")) {
+  throw new Error("WhatsApp GPL runtime entered the production dependency inventory");
+}
+const sharpRows = productionInventory.filter((row) => /^@img\/sharp-libvips-/.test(row.name));
+if (
+  sharpRows.length === 0 ||
+  sharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  !packScript.includes("penglai-office-disabled-image") ||
+  !packScript.includes('runtime.includes(\'require("sharp")\')')
+) {
+  throw new Error("sharp/libvips exclusion boundary drift");
+}
+
+const result = {
+  schema: 2,
+  command: "pnpm licenses list --prod --json",
+  productionComponentCount: productionInventory.length,
+  production: productionInventory,
+  completeInstalled: completeInstalledInventory,
+  policyDecisions: [
+    {
+      component: "@whiskeysockets/baileys@7.0.0-rc14 -> libsignal@6.0.0",
+      source: "https://github.com/WhiskeySockets/Baileys",
+      license: "MIT -> GPL-3.0",
+      integrity: "sha512-WK+X8ju8TPGxvWIsP8hrY6JB6FltYuFe+vsqKfjOYX25JObij9qLf2c3ZGdl1Q+vhFwbnT+AZmWAB5pTvzmSiQ== -> sha512-d/5V3YFtDljbFMufz4ncyUYGYhJl+vzAe+c2EFFBQ6bz1h8Q3IOMEGXYMzlibU60I+e8GagMMpji18iez3P1hA==",
+      use: "source-only development reference; not a production dependency and not bundled in 0.5.7",
+    },
+    {
+      component: "sharp@0.35.3 and platform libvips packages",
+      source: "https://github.com/lovell/sharp",
+      license: "Apache-2.0 and LGPL-3.0-or-later",
+      integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
+      use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin",
+    },
+    {
+      component: "dsh-im@3.0.5",
+      source: "https://github.com/xmanrui/dsh-im",
+      license: "MIT",
+      integrity: "sha256-ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
+      use: "selective implementation reference only; @penglai/im remains the sole IM runtime",
+    },
+  ],
+  declaredArtifacts: licenses,
+};
+writeFileSync("evidence/generated/licenses.json", JSON.stringify(result, null, 2));
+console.log("audit:licenses ok", productionInventory.length, "production components");

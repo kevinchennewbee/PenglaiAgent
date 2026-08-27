@@ -5,7 +5,6 @@ import { QqAdapter } from "@penglai/channel-qq";
 import { SlackAdapter } from "@penglai/channel-slack";
 import { TelegramAdapter } from "@penglai/channel-telegram";
 import { DiscordAdapter } from "@penglai/channel-discord";
-import { WhatsAppDeviceAdapter } from "@penglai/channel-whatsapp";
 import { getChannelManifest, type ChannelId } from "../registry.js";
 import {
   type ChannelAdapter,
@@ -180,8 +179,4 @@ export function telegramChannelAdapter(adapter: TelegramAdapter, opts: NativeWra
 
 export function discordChannelAdapter(adapter: DiscordAdapter, opts: NativeWrapOpts): ChannelAdapter {
   return wrapNative("discord", adapter as unknown as NativeLike, opts);
-}
-
-export function whatsappChannelAdapter(adapter: WhatsAppDeviceAdapter, opts: NativeWrapOpts): ChannelAdapter {
-  return wrapNative("whatsapp", adapter as unknown as NativeLike, opts);
 }

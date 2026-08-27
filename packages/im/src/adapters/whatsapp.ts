@@ -1,16 +1,16 @@
 import { PenglaiError } from "@penglai/contracts";
 import { getChannelManifest } from "../registry.js";
 import {
-  connectionResultForMethod,
   type ChannelAdapter,
   type ChannelHealth,
+  type ConnectionResult,
   type ConnectionState,
   type InboundChannelEvent,
 } from "../channel-adapter.js";
 
 /**
- * Leftover adapter. Production registers WhatsAppDeviceAdapter instead.
- * Do not treat a stored token as connected.
+ * Source-only compatibility shell. Penglai 0.5.7 does not bundle a WhatsApp
+ * runtime, so every connection attempt fails before any external side effect.
  */
 export class WhatsAppAdapter implements ChannelAdapter {
   readonly id = "whatsapp" as const;
@@ -36,17 +36,9 @@ export class WhatsAppAdapter implements ChannelAdapter {
     this.connection = "disabled";
   }
 
-  async beginConnection(input: { method: string; riskAck?: boolean }) {
-    if (input.riskAck !== true && this.riskAckAt == null) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_RISK_ACK");
-    }
-    if (input.riskAck === true) this.riskAckAt = Date.now();
-    if (input.method !== "device-link") {
-      throw new PenglaiError("INVALID_INPUT", "unsupported connection method");
-    }
-    await this.enable();
-    this.connection = "connecting";
-    return connectionResultForMethod(this.id, input.method);
+  async beginConnection(input: { method: string; riskAck?: boolean }): Promise<ConnectionResult> {
+    void input;
+    throw new PenglaiError("DSH_UNAVAILABLE", "CHANNEL_RUNTIME_NOT_BUNDLED:whatsapp");
   }
 
   async pollConnection() {

@@ -22,7 +22,7 @@ Release.
 ## English
 
 Penglai 0.5.7 continues the 0.5.6 work of making visible settings complete a
-real action, and adds nine-platform **connection entries** under one Messaging
+real action, and adds eight platform connectors under one Messaging
 plugin. Automatic Workspace memory, the Main-process Owner broker, Plugin
 Center, and opaque `artifact:<uuid>` file handoff remain. Official DSH rc.2
 conversation Turns still support text and images, not generic document blocks.
@@ -33,19 +33,17 @@ per-Session no-tools scope.
 
 ### Messaging
 
-Users see one page titled Messaging / 消息连接, not “Penglai IM”. Nine
+Users see one page titled Messaging / 消息连接, not “Penglai IM”. Eight
 platforms have a connect/enable card: Weixin, Feishu, DingTalk, WeCom, QQ,
-Slack, Telegram, Discord, and WhatsApp. Support claims follow
-`LIVE_IM_MATRIX.md` only.
+Slack, Telegram, and Discord.
 
 A platform is supported only with live evidence: real connect or authorize,
 inbound private text, the bound official Workspace/Session, outbound reply,
 restart restore, and safe logout/unbind/delete credentials. Image, file,
 audio, Markdown, thread, and group flags stay false until that evidence
 exists. Slack, Telegram, and Discord use official token or manifest flows and
-do not fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is
-experimental, community-protocol, default-off, and requires an explicit risk
-acknowledgement. It is not WhatsApp Cloud API.
+do not fake QR. QQ is official Bot QR, not personal QQ login. The WhatsApp
+community runtime is not bundled in 0.5.7.
 
 Weixin keeps Penglai iLink. Feishu keeps the official Lark SDK. Groups stay
 Owner-gated and allowlisted.
@@ -88,12 +86,11 @@ and the `Penglai/0.5` data generation are preserved.
 ## 中文
 
 蓬莱 0.5.7 继续让设置页里的动作真正完成，并在唯一的「消息连接」插件下提供
-九个平台的真实连接入口。不再把钉钉、企业微信、QQ、Slack、Telegram、Discord、
-WhatsApp 写成路线图。公开“支持”声明只以 live 证据矩阵为准。
+八个平台的连接入口：微信、飞书、钉钉、企业微信、QQ、Slack、Telegram、Discord。
 
 官方 DeepSeek Harness `0.1.1-rc.2` 仍是唯一 Agent 核心。办公与记忆默认启用；
-消息、语音识别、语音生成、主动陪伴随包但默认关闭。WhatsApp 为实验性社区协议，
-默认关闭，启用前必须明确风险确认。
+消息、语音识别、语音生成、主动陪伴随包但默认关闭。0.5.7 不捆绑 WhatsApp
+社区协议 runtime。
 
 升级入口仍是 **设置 → 蓬莱 → 更新**。不会静默自动升级。macOS 为 ad-hoc 且未公证；
 Windows 没有 Authenticode。

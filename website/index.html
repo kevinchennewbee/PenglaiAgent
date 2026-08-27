@@ -14,7 +14,7 @@
     <main>
       <p>蓬莱是官方 DeepSeek Harness 的桌面发行版。当前公开下载仍是 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6">v0.5.6</a>。0.5.7 是开发候选，安装包哈希在公网回读后填写。</p>
       <h2>消息连接</h2>
-      <p>0.5.7 候选在唯一的消息连接插件下提供九个连接入口。公开“已支持”只以 live 证据矩阵为准，当前各平台为账号阻塞或未跑 live。</p>
+      <p>0.5.7 在唯一的消息连接插件下提供八个平台连接入口。</p>
       <ul class="platform-cards">
         <li><strong>微信</strong> — 官方 iLink 扫码</li>
         <li><strong>飞书</strong> — 官方应用扫码 / 凭据</li>
@@ -24,10 +24,10 @@
         <li><strong>Slack</strong> — Bot Token + App Token，无官方扫码</li>
         <li><strong>Telegram</strong> — Bot Token 长轮询，无官方扫码</li>
         <li><strong>Discord</strong> — Bot Token + Gateway，无官方扫码</li>
-        <li><strong>WhatsApp</strong> — 实验性社区协议，默认关闭</li>
+        <li><strong>WhatsApp</strong> — 0.5.7 不捆绑社区协议 runtime</li>
       </ul>
-      <h2>不是九张假二维码</h2>
-      <p>用户只看到一个「消息连接」插件。微信、飞书、钉钉、企业微信、QQ 与 WhatsApp 在各自官方协议确实提供时，一键开始真实扫码或设备绑定；Slack、Telegram、Discord 如实使用官方 Manifest 或 Token。完成扫码仍要经过连接确认、私聊绑定、重启恢复和退出清理，界面出现二维码不等于已经支持。</p>
+      <h2>真实连接方式</h2>
+      <p>用户只看到一个「消息连接」插件。微信、飞书、钉钉、企业微信与 QQ 使用各自真实的扫码或设备注册流程；Slack、Telegram、Discord 使用官方 Manifest 或 Token。WhatsApp 在本版本中没有连接动作。</p>
       <h2>0.5.7 同时补全</h2>
       <p>本轮还补全办公文档工作流、记忆候选与权限、主动陪伴、插件安装与回滚、Windows 生命周期和隐私门禁，不把 0.5.7 缩成一个 IM 换皮版本。</p>
       <h2>致谢与来源</h2>

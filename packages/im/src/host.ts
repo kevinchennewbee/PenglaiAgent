@@ -9,7 +9,6 @@ import {
 import type { ArtifactService } from "@penglai/artifacts";
 import { renderQrPngDataUrl, type WeixinAdapter } from "@penglai/channel-weixin";
 import type { FeishuAdapter } from "@penglai/channel-feishu";
-import { WHATSAPP_RISK_ACK_VERSION } from "@penglai/channel-whatsapp";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import type { Store } from "@penglai/persistence";
 import type { DshHost } from "@penglai/dsh-bridge";
@@ -57,6 +56,8 @@ import {
 
 export type ChannelName = ChannelId;
 export type { ConnectionState };
+
+const WHATSAPP_RISK_ACK_VERSION = "0.5.7-runtime-not-bundled";
 
 export interface ChannelState {
   channel: ChannelId;
@@ -880,8 +881,12 @@ export class PenglaiImHost {
   }
 
   createBot(input: { channelId: string; displayName: string; riskAck?: boolean }) {
+    const id = requireChannelId(input.channelId);
+    if (!getChannelManifest(id).live) {
+      throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
+    }
     return this.bots.create({
-      channelId: input.channelId,
+      channelId: id,
       displayName: input.displayName,
       ...(input.riskAck ? { riskAck: true } : {}),
     });
@@ -919,6 +924,9 @@ export class PenglaiImHost {
   }): Promise<{ stored: true }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (!getChannelManifest(id).live) {
+      throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
+    }
     const secret = input.secret.trim();
     if (!secret || secret.length > 8_192) throw new PenglaiError("INVALID_INPUT", "CHANNEL_SECRET");
     const finishOwnerAction = this.consumeChannelOwner({
@@ -949,6 +957,9 @@ export class PenglaiImHost {
   }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (!getChannelManifest(id).live) {
+      throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
+    }
     await this.waitForSidecars();
     if (input.secret) {
       await this.storeChannelSecret({
