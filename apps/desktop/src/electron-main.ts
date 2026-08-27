@@ -459,16 +459,16 @@ async function main(): Promise<void> {
     windowRevealed = true;
     win.show();
     if (platform !== "win32") return;
-    await win.webContents.executeJavaScript(
-      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
-      true,
-    );
     await delay(120);
     if (!win.isDestroyed()) win.setOpacity(1);
   };
 
   if (existsSync(splashPage)) {
     await win.loadFile(splashPage);
+    await win.webContents.executeJavaScript(
+      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+      true,
+    );
     await revealWindow();
   }
 

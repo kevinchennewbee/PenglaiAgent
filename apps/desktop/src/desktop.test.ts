@@ -78,8 +78,8 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(main, /await delay\(120\)/);
   assert.match(main, /win\.setOpacity\(1\)/);
-  assert.ok(main.indexOf('win.show();') < main.indexOf('requestAnimationFrame(resolve)'));
-  assert.ok(main.indexOf('requestAnimationFrame(resolve)') < main.indexOf('win.setOpacity(1)'));
+  assert.ok(main.indexOf('requestAnimationFrame(resolve)') < main.indexOf('await revealWindow();'));
+  assert.ok(main.indexOf('win.show();') < main.indexOf('win.setOpacity(1)'));
   assert.match(main, /revealWindow\(\)/);
   assert.match(main, /win\.loadFile\(recovery\)/);
   assert.match(main, /wizard:\s*\{\s*root:\s*wizardRoot/);
