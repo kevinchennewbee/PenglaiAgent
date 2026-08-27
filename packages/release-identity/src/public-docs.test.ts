@@ -115,7 +115,11 @@ test("website keeps the full bilingual visual site and exact 0.5.7 downloads", (
     assert.match(html, /bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8/);
     assert.match(html, /ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e/);
     assert.match(html, /cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.5\.7\/Penglai_0\.5\.7_macos_aarch64\.dmg/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.5\.7\/Penglai_0\.5\.7_macos_x64\.dmg/);
+    assert.match(html, /https:\/\/82\.156\.107\.151\/releases\/v0\.5\.7\/Penglai_0\.5\.7_windows_x64_setup\.exe/);
     assert.doesNotMatch(html, /releases\/download\/v0\.5\.6/);
+    assert.doesNotMatch(html, /releases\/v0\.5\.5/);
   }
   assert.match(css, /\.hero-art/);
   assert.match(css, /\.gallery/);
