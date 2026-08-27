@@ -143,11 +143,12 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   assert.match(welcome, /欢迎使用蓬莱/);
   assert.match(welcome, /Welcome to Penglai/);
   assert.match(welcome, /penglai-0\.5\.7\.0/);
-  assert.match(welcome, /YAML/);
+  assert.match(welcome, /凭据只保存在这台电脑/);
+  assert.match(welcome, /system may ask you to confirm where it came from/);
   assert.doesNotMatch(welcome, /内测声明/);
   assert.doesNotMatch(welcome, /official DSH Web/);
-  assert.match(welcome, /community-verified/);
-  assert.match(welcome, /not notarized/);
+  assert.doesNotMatch(welcome, /本版属于 community-verified|This build is community-verified/);
+  assert.doesNotMatch(welcome, /macOS is ad-hoc/);
   const again = applyOverlayToRoot(dir);
   assert.equal(
     again.applied.every((r) => r.status === "already-applied"),

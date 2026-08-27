@@ -81,10 +81,10 @@ test("wizard zh and en copy share the same keys", () => {
 
 test("wizard user-facing copy is Penglai product language", () => {
   const copy = extractObject("COPY", "\\{[\\s\\S]*?\\n  \\};") as { zh: Record<string, string>; en: Record<string, string> };
-  assert.match(copy.zh.privacyBody, /YAML/);
-  assert.match(copy.en.privacyBody, /YAML/);
-  assert.match(copy.zh.privacyBody, /微信/);
-  assert.match(copy.en.privacyBody, /Weixin/);
+  assert.doesNotMatch(copy.zh.privacyBody, /YAML|钥匙串|硬件隔离/);
+  assert.doesNotMatch(copy.en.privacyBody, /YAML|Keychain|hardware isolation/i);
+  assert.match(copy.zh.privacyBody, /这台电脑/);
+  assert.match(copy.en.privacyBody, /this computer/i);
   assert.match(copy.zh.languageTitle, /蓬莱/);
   assert.match(copy.en.languageTitle, /Penglai/);
   for (const table of [copy.zh, copy.en]) {

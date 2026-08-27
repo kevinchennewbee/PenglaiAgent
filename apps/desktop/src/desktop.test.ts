@@ -102,25 +102,28 @@ test("startup failure tears down owned services before rendering recovery", () =
   assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recovery)"));
 });
 
-test("control shell documents the community trust boundary", async () => {
+test("recovery screen uses plain user-facing language", async () => {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
-  assert.match(html, /ad-hoc|unsigned|not notarized/i);
+  assert.doesNotMatch(html, /ad-hoc|notarized|Gatekeeper|community-verified|DeepSeek Harness/i);
+  assert.match(html, /蓬莱未能正常启动/);
+  assert.match(html, /keep security protections enabled/i);
   assert.match(html, /data-penglai-recovery/);
   assert.match(html, /data-penglai-recovery-en/);
   assert.match(html, /data-penglai-recovery-zh/);
-  assert.match(html, /Official DeepSeek Harness did not become healthy/);
+  assert.match(html, /Penglai could not start normally/);
   assert.match(html, /data-penglai-recovery-retry/);
-  assert.match(html, /Powered by DeepSeek Harness/);
   assert.match(html, /Content-Security-Policy/);
 });
 
-test("R56-CORE-006 splash names boot phases without claiming the official chat", async () => {
+test("R56-CORE-006 splash names boot phases in plain user-facing language", async () => {
   const html = readFileSync(new URL("../static/splash.html", import.meta.url), "utf8");
   assert.match(html, /data-penglai-splash/);
   assert.match(html, /data-penglai-splash-en/);
   assert.match(html, /data-penglai-splash-zh/);
-  assert.match(html, /Starting official DeepSeek Harness/);
+  assert.match(html, /Penglai is getting ready/);
+  assert.match(html, /正在启动核心功能/);
+  assert.doesNotMatch(html, /DeepSeek Harness|HTTP health|Runtime \/|Required plugins/);
   assert.match(html, /starting-dsh/);
   assert.match(html, /verifying-required-plugins/);
   assert.doesNotMatch(html, /data-penglai-recovery/);

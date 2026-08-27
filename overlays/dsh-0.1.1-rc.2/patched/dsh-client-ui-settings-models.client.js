@@ -2348,12 +2348,12 @@ window.__ModuleLoader__.load({
 		const WELCOME_NOTICE_COPY = {
 			zh: {
 				title: "欢迎使用蓬莱",
-				body: "欢迎使用蓬莱 0.5.7。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和即时通讯凭据只保存在本机私有 YAML 文件，不会上传到蓬莱云。本版属于 community-verified：macOS 使用 ad-hoc 签名且未公证；请不要关闭系统安全提示。关于页保留引擎版本和开源归属。",
+				body: "欢迎使用蓬莱 0.5.7。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和消息平台凭据只保存在这台电脑上，不会上传到蓬莱云。首次打开时，系统可能会请你确认应用来源；请按系统提示操作，不要关闭安全保护。",
 				continueLabel: "开始使用"
 			},
 			en: {
 				title: "Welcome to Penglai",
-				body: "Welcome to Penglai 0.5.7. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay in an app-private local YAML file on this computer and are not uploaded to a Penglai cloud. This build is community-verified: macOS is ad-hoc signed and not notarized. Do not turn off system security warnings. About preserves engine version and open-source attribution.",
+				body: "Welcome to Penglai 0.5.7. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay on this computer and are not uploaded to a Penglai cloud. The first time you open the app, your system may ask you to confirm where it came from. Follow the system prompt and keep its security protections enabled.",
 				continueLabel: "Get started"
 			}
 		};

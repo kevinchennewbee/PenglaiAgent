@@ -656,8 +656,14 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
       session,
       target.id === "ui-settings-open" ? settingsTriggerClickScript(true) : clickButtonText(target.patterns, true),
     );
-    await delay(700);
-    const after = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
+    const after = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      target.flag
+        ? (snapshot) => Boolean(snapshot?.[target.flag])
+        : (snapshot) => Boolean(snapshot?.navLabels?.length),
+      target.flag ? 15_000 : 5_000,
+    );
     if (target.flag && after?.[target.flag] && !settingsWalked.includes(target.id)) settingsWalked.push(target.id);
     steps.push({ id: target.id, click, observed: Boolean(target.flag && after?.[target.flag]), snap: slim(after) });
     await shot(target.id);
