@@ -458,11 +458,11 @@ async function main(): Promise<void> {
   };
 
   if (existsSync(splashPage)) {
-    const firstPaint = new Promise<void>((resolve) => {
-      win.once("ready-to-show", resolve);
-    });
     await win.loadFile(splashPage);
-    await firstPaint;
+    await win.webContents.executeJavaScript(
+      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+      true,
+    );
     revealWindow();
   }
 

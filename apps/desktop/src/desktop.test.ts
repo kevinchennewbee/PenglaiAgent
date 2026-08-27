@@ -74,8 +74,8 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /isOwnedRuntimePath\(layout\.appRoot, layout\.nodeBin\)/);
   assert.match(main, /show:\s*false/);
   assert.match(main, /backgroundColor:\s*"#f8f4ee"/);
-  assert.match(main, /win\.once\("ready-to-show", resolve\)/);
-  assert.ok(main.indexOf('await firstPaint') < main.indexOf('revealWindow();'));
+  assert.match(main, /requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)/);
+  assert.ok(main.indexOf('requestAnimationFrame(resolve)') < main.indexOf('revealWindow();'));
   assert.match(main, /revealWindow\(\)/);
   assert.match(main, /win\.loadFile\(recovery\)/);
   assert.match(main, /wizard:\s*\{\s*root:\s*wizardRoot/);
