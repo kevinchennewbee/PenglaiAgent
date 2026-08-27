@@ -22,8 +22,8 @@ Release, readback, README observed values, and website deploy.
    for a security fix that affects ported code.
 4. Keep Office and Memory required and active on a fresh profile. Keep Mobile
    Messaging, ASR, TTS, and Companion bundled but disabled by default.
-5. Confirm `LIVE_IM_MATRIX.md` matches actual adapters. Do not claim nine-platform
-   support without live rows.
+5. Confirm `LIVE_IM_MATRIX.md` matches actual adapters. WhatsApp must remain
+   runtime-not-bundled in every 0.5.7 production artifact.
 6. Commit before collecting candidate evidence. Any later source change creates
    a new candidate SHA and invalidates previous package evidence.
 

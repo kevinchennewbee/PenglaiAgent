@@ -205,9 +205,9 @@ without touching source files.
 `@penglai/im` owns one adapter registry, durable inbox/outbox, bindings,
 deterministic commands, correlation, causal routing, recovery, and diagnostics.
 `LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu remain live from 0.5.6.
-The other seven platforms receive adapters in 0.5.7 and join `LIVE_CHANNEL_IDS`
-only after the corresponding live evidence exists. The user-facing surface still
-exposes nine connection cards.
+The other six distributed platforms receive adapters in 0.5.7 and join
+`LIVE_CHANNEL_IDS` only after acceptance. The user-facing surface exposes eight
+connection actions plus a disabled WhatsApp compatibility card.
 
 Inbound sequence:
 
@@ -225,7 +225,7 @@ Binding/rebinding/removal uses Owner reservations completed after the mutation.
 Group enable stays Owner-gated and allowlisted. Connection methods are a closed
 union (QR, OAuth, Manifest, Token, Device Link, Manual fallback). Slack,
 Telegram, and Discord must not return QR. Guided steps never return a live state
-or fake QR. WhatsApp remains default-off with an explicit risk acknowledgement.
+or fake QR. WhatsApp has no connection method because its runtime is not bundled.
 
 ### 10. Voice and OS permissions
 
@@ -286,12 +286,11 @@ official DSH rc.2 没有通用 file Turn，0.5.7 不做 DOM hack 或第二会话
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
 Workspace 与明确个人记忆，绝不跨 Workspace。资料撤销删派生索引，不动源文件。
 
-IM 始终只有一个 `@penglai/im` 控制平面，内部提供九个平台 adapter。微信、飞书、
-钉钉、企业微信、QQ 和 WhatsApp 只在供应商协议真实提供时显示 QR/device-link；
-Slack、Telegram、Discord 使用官方 Manifest/Token，不伪造二维码。源码能力、当前
-连接状态和脱敏 live 证据是三个独立事实；公开支持声明只服从
-`docs/0.5.7/LIVE_IM_MATRIX.md`。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和
-Read 共用一个可观测播放状态机，Read 朗读原文。
+IM 始终只有一个 `@penglai/im` 控制平面。微信、飞书、钉钉、企业微信和 QQ 只在
+供应商协议真实提供时显示 QR/device-link；Slack、Telegram、Discord 使用官方
+Manifest/Token，不伪造二维码。WhatsApp runtime 不随 0.5.7 分发，说明卡没有连接
+动作。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
+状态机，Read 朗读原文。
 
 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；

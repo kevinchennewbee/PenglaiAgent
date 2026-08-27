@@ -56,8 +56,8 @@ actually usable: packaging, process supervision, onboarding, local paths,
 upgrades, uninstall, product identity, and plugin distribution. There is no
 second Penglai agent hiding beside DSH and no replacement chat page.
 
-Version 0.5.7 keeps those completed actions and adds nine-platform connection
-entries under one Messaging plugin. Workspace memory can be curated and recalled
+Version 0.5.7 keeps those completed actions and adds eight platform connectors
+under one Messaging plugin. Workspace memory can be curated and recalled
 automatically, high-impact writes use one action-bound Owner broker, Office and
 IM files use scoped opaque artifact references, and TTS buttons follow real
 playback state. Live support claims follow
@@ -69,7 +69,7 @@ playback state. Live support claims follow
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF |
 | Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
-| Mobile Messaging | Off | Nine connection entries; live claims are evidence-gated; WhatsApp experimental and default-off |
+| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp runtime is not bundled |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
@@ -153,18 +153,15 @@ records and links, not a second database and not a cloud account.
 
 ## Messaging and local voice
 
-One Messaging plugin exposes nine connection entries: Weixin, Feishu, DingTalk,
-WeCom, QQ, Slack, Telegram, Discord, and WhatsApp. Support status is only
-[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md); rows without live evidence
-are not fully supported. Text and supported images, files, and voice for a live
+One Messaging plugin exposes eight connection entries: Weixin, Feishu, DingTalk,
+WeCom, QQ, Slack, Telegram, and Discord. Text and supported images, files, and voice for a live
 adapter arrive in the bound official DSH Session. Images use the official DSH
 image store. Office files and audio use scoped opaque `artifact:<uuid>`
 references. A mocked webhook is never live evidence.
 
 Slack, Telegram, and Discord use official token or manifest flows and do not
-fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is experimental,
-community-protocol, default-off, and requires an explicit risk acknowledgement.
-It is not WhatsApp Cloud API.
+fake QR. QQ is official Bot QR, not personal QQ login. The WhatsApp community
+runtime is not bundled in 0.5.7.
 
 SenseVoice and MOSS-TTS stay off until requested because their model files are
 large. Once Speech Recognition is enabled and its model is installed, Penglai
@@ -329,8 +326,8 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 事情：打包、进程监管、安装引导、本地目录、升级、卸载、产品身份和插件分发。这里
 没有藏着第二套蓬莱 Agent，也没有另做一张聊天页替代 DSH。
 
-0.5.7 继续让这些动作真正完成，并在唯一的「消息连接」插件下提供九个平台的
-真实连接入口。Workspace 记忆可以自动整理和召回，高影响动作统一经过 Owner
+0.5.7 继续让这些动作真正完成，并在唯一的「消息连接」插件下提供八个平台的
+连接入口。Workspace 记忆可以自动整理和召回，高影响动作统一经过 Owner
 Broker，办公与 IM 文件使用不透明 artifact。公开“支持”声明只以
 [`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md) 为准。
 
@@ -340,7 +337,7 @@ Broker，办公与 IM 文件使用不透明 artifact。公开“支持”声明�
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览和保存 DOCX、XLSX、PPTX、PDF |
 | 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
-| 消息连接 | 默认关闭 | 九个平台都有连接入口；公开支持以 live 证据为准；WhatsApp 实验性且默认关闭 |
+| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.7 不捆绑 WhatsApp runtime |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
@@ -412,15 +409,12 @@ Workspace A 不能召回 Workspace B。
 
 ## 手机消息和本地语音
 
-唯一的「消息连接」插件提供九个平台的连接入口：微信、飞书、钉钉、企业微信、
-QQ、Slack、Telegram、Discord、WhatsApp。支持状态只以
-[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md) 为准；没有 live 证据的平台
-不得称为已支持。文字和受支持的图片、文件、语音进入绑定的 official DSH Session。
+唯一的「消息连接」插件提供八个平台的连接入口：微信、飞书、钉钉、企业微信、
+QQ、Slack、Telegram、Discord。文字和受支持的图片、文件、语音进入绑定的 official DSH Session。
 图片走 official 图片存储；文件和音频走 `artifact:<uuid>`。
 
 Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。QQ 只做官方
-Bot 扫码，不模拟个人号。WhatsApp 为实验性社区协议，默认关闭，启用前必须明确
-风险确认，也不是官方 WhatsApp Cloud API。
+Bot 扫码，不模拟个人号。0.5.7 不捆绑 WhatsApp 社区协议 runtime。
 
 SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识别启用并下载模型后，
 电脑会话可以出现麦克风输入；语音生成可以在本机试听，也只会向真正支持音频的渠道

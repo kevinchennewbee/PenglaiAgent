@@ -103,16 +103,12 @@ service without DOM injection or a second conversation engine.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Nine platforms have real connection entry points in 0.5.7. They are no longer
-roadmap-only. `docs/0.5.7/LIVE_IM_MATRIX.md` is the only public live-status
-table: a platform is “supported” only after connect, inbound private text,
-correct official Workspace/Session, outbound reply, restart restore, and
-safe logout/unbind/delete credentials. Image, file, audio, Markdown, thread,
-and group flags stay `false` until that evidence exists. Slack, Telegram, and
-Discord use official token/manifest flows and must not fake QR. WhatsApp is
-experimental, community-protocol, default-off, and requires an explicit risk
-acknowledgement. Binding/rebinding/removal requires an Owner approval bound to
-the exact channel, account, peer, Workspace, and Session.
+Eight platforms have connection entry points in 0.5.7. Slack, Telegram, and
+Discord use official token/manifest flows and must not fake QR. The WhatsApp
+community runtime and its GPL transitive dependency are not distributed in
+0.5.7; its compatibility card has no connection action. Binding, rebinding,
+and removal require an Owner approval bound to the exact channel, account,
+peer, Workspace, and Session.
 
 ### 8. Local voice
 
@@ -221,10 +217,9 @@ symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.5.7 九个平台都有真实连接入口，不再把后七个显示为
-路线图。公开“支持”声明只以 `docs/0.5.7/LIVE_IM_MATRIX.md` 为准。Slack、Telegram、
-Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 默认关闭，实验性社区协议，
-启用前必须明确风险确认。
+`@penglai/im` 是唯一消息插件。0.5.7 提供八个平台连接入口。Slack、Telegram、
+Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 社区协议 runtime 及其 GPL
+传递依赖不随 0.5.7 分发；兼容性说明卡没有连接动作。
 
 ASR/TTS 代码随包，大模型权重只在用户明确操作后下载。麦克风必须由当前用户手势触发，
 只申请 audio；相机、视频、蓝牙和无关 capture 权限不进入产品声明。设置页试听与会话

@@ -16,6 +16,13 @@ test("non-live channels refuse send and never mint a fake QR", async () => {
     if ((LIVE_CHANNEL_IDS as readonly string[]).includes(id)) continue;
     const adapter = guidedAdapter(id);
     assert.equal(adapter.id, id);
+    if (adapter.manifest().connectionMethods.length === 0) {
+      await assert.rejects(
+        () => adapter.beginConnection({ method: "device-link", riskAck: true }),
+        /CHANNEL_METHOD_UNSUPPORTED/,
+      );
+      continue;
+    }
     const method = adapter.manifest().connectionMethods.find((row) => row !== "qr") ?? adapter.manifest().connectionMethods[0]!;
     const begun = await adapter.beginConnection({ method, riskAck: true });
     assert.equal(begun.kind, method === "manual-fallback" ? "manual-fallback" : method);
@@ -117,7 +124,7 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
   rt.store.close();
 });
 
-test("WhatsApp owner risk approval is consumed before device-link and logout wipes once", async () => {
+test("WhatsApp API fails closed before owner approval because runtime is not bundled", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
@@ -134,73 +141,21 @@ test("WhatsApp owner risk approval is consumed before device-link and logout wip
     { running: false, start: async () => undefined, stop: () => undefined } as never,
     { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
   );
-  let beginCalls = 0;
-  let credentialWipes = 0;
-  let rawLogoutCalls = 0;
-  host.attachChannelAdapter({
-    id: "whatsapp",
-    manifest: () => guidedAdapter("whatsapp").manifest(),
-    enable: async () => undefined,
-    disable: async () => undefined,
-    beginConnection: async () => {
-      beginCalls += 1;
-      return { kind: "device-link", live: false, operationId: "wa:device-link" };
-    },
-    pollConnection: async () => ({ status: "connecting" }),
-    cancelConnection: async () => undefined,
-    start: async () => undefined,
-    stop: async () => undefined,
-    health: async () => ({ channel: "whatsapp", live: false, enabled: true, connection: "connecting" }),
-    sendText: async () => ({ delivered: true }),
-    sendArtifact: async () => ({ delivered: true }),
-    disconnect: async () => undefined,
-    logout: async () => {
-      rawLogoutCalls += 1;
-    },
-    deleteCredentials: async () => {
-      credentialWipes += 1;
-    },
-    onInbound: () => undefined,
-    capabilities: () => guidedAdapter("whatsapp").capabilities(),
-  });
   host.attachOwner(owner);
 
   const risk = host.proposeBinding({ action: IM_OWNER_ACTIONS.acknowledgeRisk, objectId: "whatsapp" });
   const approvedRisk = await owner.requestOwnerApproval(risk.actionId);
   assert.equal(approvedRisk.decision, "approved");
   await assert.rejects(
-    () =>
-      host.beginChannelConnection({
-        channel: "whatsapp",
-        method: "device-link",
-        riskAck: true,
-        riskOwnerActionId: risk.actionId,
-        riskReceipt: "forged.receipt",
-      }),
-    /OWNER_RECEIPT/,
+    () => host.beginChannelConnection({
+      channel: "whatsapp",
+      method: "device-link",
+      riskAck: true,
+      riskOwnerActionId: risk.actionId,
+      riskReceipt: approvedRisk.decision === "approved" ? approvedRisk.receipt : "",
+    }),
+    /CHANNEL_RUNTIME_NOT_BUNDLED:whatsapp/,
   );
-  assert.equal(beginCalls, 0, "forged owner proof must not start the device-link SDK");
-
-  await host.beginChannelConnection({
-    channel: "whatsapp",
-    method: "device-link",
-    riskAck: true,
-    riskOwnerActionId: risk.actionId,
-    riskReceipt: approvedRisk.decision === "approved" ? approvedRisk.receipt : "",
-  });
-  assert.equal(beginCalls, 1);
-  assert.equal(owner.inspect(risk.actionId).state, "committed");
-
-  const logout = host.proposeBinding({ action: IM_OWNER_ACTIONS.logout, objectId: "whatsapp" });
-  const approvedLogout = await owner.requestOwnerApproval(logout.actionId);
-  assert.equal(approvedLogout.decision, "approved");
-  await host.logoutChannel({
-    channel: "whatsapp",
-    ownerActionId: logout.actionId,
-    receipt: approvedLogout.decision === "approved" ? approvedLogout.receipt : "",
-  });
-  assert.equal(credentialWipes, 1);
-  assert.equal(rawLogoutCalls, 0, "deleteCredentials owns the adapter logout/wipe sequence");
-  assert.equal(owner.inspect(logout.actionId).state, "committed");
+  assert.equal(owner.inspect(risk.actionId).state, "approved");
   rt.store.close();
 });

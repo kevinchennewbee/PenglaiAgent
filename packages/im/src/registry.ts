@@ -157,13 +157,13 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
   whatsapp: manifest({
     id: "whatsapp",
     displayName: { en: "WhatsApp", zh: "WhatsApp" },
-    connectionMethods: ["device-link"],
-    capabilities: TEXT_ONLY,
+    connectionMethods: [],
+    capabilities: { ...TEXT_ONLY, text: false },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 10 },
     risk: "community-protocol",
     supportLevel: "experimental",
     defaultEnabled: false,
-    live: true,
+    live: false,
     docsUrl: "https://developers.facebook.com/docs/whatsapp",
   }),
 };
@@ -226,7 +226,7 @@ export const GUIDED_STEPS: Record<ChannelId, { en: string[]; zh: string[] }> = {
     zh: ["打开 Discord Developer Portal。", "用最小 intents 创建 Bot。", "把 Bot Token 写入保险库。没有二维码捷径。"],
   },
   whatsapp: {
-    en: ["WhatsApp uses a community protocol and stays off by default.", "Read the account-risk notice.", "Only then begin a device-link. This is not an official WhatsApp API claim."],
-    zh: ["WhatsApp 使用社区协议，默认关闭。", "先阅读账号风险说明。", "确认后才允许设备连接。这不是官方 WhatsApp API 声明。"],
+    en: ["The WhatsApp community runtime is not bundled in Penglai 0.5.7.", "No device link or QR is available in this release."],
+    zh: ["蓬莱 0.5.7 不捆绑 WhatsApp 社区协议 runtime。", "本版本不提供设备绑定或二维码。"],
   },
 };

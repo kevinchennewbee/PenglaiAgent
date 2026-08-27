@@ -14,6 +14,10 @@ const office = JSON.parse(readFileSync("packages/office/package.json", "utf8"));
 const feishu = JSON.parse(readFileSync("packages/channel-feishu/package.json", "utf8"));
 const font = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
 const penglaiLicense = readFileSync("LICENSE", "utf8").trim();
+const licenseEvidence = JSON.parse(readFileSync("evidence/generated/licenses.json", "utf8"));
+if (licenseEvidence.schema !== 2 || !Array.isArray(licenseEvidence.production)) {
+  throw new Error("run pnpm audit:licenses before pnpm notices");
+}
 
 const dependency = (manifest, name) => {
   const version = manifest.dependencies?.[name];
@@ -55,6 +59,10 @@ Messaging protocol and SDK references
 - Lark Node SDK ${dependency(feishu, "@larksuiteoapi/node-sdk")} - MIT; commit
   f54b49f3566c52b54c598194b7ed3015e3e24224:
   https://github.com/larksuite/node-sdk
+- WhatsApp community runtime distribution decision: Penglai 0.5.7 does not
+  bundle @whiskeysockets/baileys 7.0.0-rc14 or its GPL-3.0 libsignal 6.0.0
+  dependency. The source-only development reference is excluded from the
+  production dependency inventory and every packaged IM artifact.
 
 Penglai Office
 --------------
@@ -130,6 +138,22 @@ Penglai Office and Penglai Memory are first-party bundled plugins in 0.5.7.
 The former remote @penglai/office-reader package is not part of this desktop
 Release. Historical immutable catalog Releases remain available for audit;
 catalog 000006 revokes that obsolete exact artifact after 0.5.5 is public.
+
+Complete production dependency inventory
+----------------------------------------
+
+Generated from \`pnpm licenses list --prod --json\`. Each row records the
+exact version, selected/effective license, source, lockfile integrity, and
+distribution disposition. \`excluded-from-release\` means the dependency is
+present in the source production closure but is mechanically excluded from
+the installer/plugin bytes.
+
+${licenseEvidence.production
+  .map(
+    (row) =>
+      `- ${row.name} ${row.version} - ${row.effectiveLicense}; ${row.disposition}; source ${row.source}; integrity ${row.integrity}`,
+  )
+  .join("\n")}
 
 Penglai license
 ---------------

@@ -1,6 +1,6 @@
 # 蓬莱产品宪法
 
-> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-25 Owner 授权在同一 DSH `0.1.1-rc.2` 固定下开发 **Penglai 0.5.7**（九渠道连接入口、消息连接 UI、蓬莱自身安全/恢复修复），经 Codex 审核后再合并和发布。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
+> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
 
 ## 一句话定义
 
@@ -18,7 +18,7 @@
 4. **0.5 使用官方 YAML credentials。** API key、微信 token、飞书 App Secret 等都通过官方 `credentials.set/describe/resolve/unset` seam 管理，由 `@deepseek-ai/dsh-credentials-local` 写入 app-private `DSH_HOME/.credentials.yaml`；renderer 永远不能读回明文。Keychain 不是 0.5 产品路径。macOS 用目录/文件 mode 收紧，Windows 用当前用户 ACL 收紧。
 5. **增强能力都是可独立组合的 DSH 插件。** Host 能力和 Web 界面通过 DSH/Cordis 插件、client module、slot、settings/onboarding 扩展点接入。任一可选插件缺失、disabled、未配置或升级失败，都不能阻断 DSH core 或无关插件；组合能力只通过标准类型化 service 形成。上游确无扩展点时，只能做有版本门、checksum、ADR 和回归测试的最小 overlay。
 6. **IM 是一个第一方插件。** `@penglai/im` 内含统一绑定、命令、因果路由、持久化、恢复和 adapter registry；微信、飞书只是 adapter，不能各自直接调用 Agent。ASR/TTS/Context/Memory/Budget/Companion 都是独立 DSH 服务插件，IM 只能通过类型化能力接口调用，不能把这些引擎复制进 adapter。
-7. **IM 连接必须诚实。** 0.5.7 九个平台都有真实连接入口，用户只看到一个「消息连接」插件。`live` 表示代码能力已通过发布验收，不表示用户已启用。没有 live evidence 不得在 README/官网/Release 声称该平台已支持。微信使用真实 iLink QR，飞书只使用官方应用注册/凭据路径。Slack、Telegram、Discord 禁止伪装扫码。QQ 只做官方 Bot 路径。WhatsApp 默认关闭，实验性社区协议，启用前必须明确风险确认，不得写成官方 Cloud API。扫码或配置成功后仍需绑定 exact official Workspace/Session；不得按最近窗口猜 scope。
+7. **IM 连接必须诚实。** 0.5.7 提供八个平台的连接入口，用户只看到一个「消息连接」插件；WhatsApp 仅保留不可操作的兼容性说明卡，不分发 runtime、设备绑定或二维码。微信使用真实 iLink QR，飞书只使用官方应用注册/凭据路径。Slack、Telegram、Discord 禁止伪装扫码。QQ 只做官方 Bot 路径。扫码或配置成功后仍需绑定 exact official Workspace/Session；不得按最近窗口猜 scope。
 8. **插件中心属于 DSH Web。** 蓬莱插件中心嵌入 DSH Plugins settings，并以真实 loader/profile inventory 为唯一事实源；desired/config 写入不能冒充 installed/active。0.5 可把审核过的插件代码离线预装进安装包，但用户仍可在 DSH 内自行组合；未下载模型、未授权目录、未设策略或未同意主动外发时，插件必须保持真实惰性状态。
 9. **安装包必须自带可运行产品。** 干净 Mac/Windows 不应预装 Node、pnpm、Python、系统 ffmpeg 或 `dsh`。包内固定目标平台运行时、完整 DSH 闭包、profile seed、第一方插件（含语音 native/WASM engines）、许可证、SBOM 与完整性清单；生产禁止静默回退系统 PATH。大型 ASR/TTS 权重可在用户明确操作后按 immutable manifest/hash 按需下载，不得成为 DSH 启动依赖。
 10. **二次开发不得删减 DSH。** Penglai 可以替换产品名、字标、欢迎/引导文案和默认组合，并增加 Center/IM；但 official DSH 的浅色、深色、跟随系统动态主题、中英文切换、Models、Workspace、Session、工具、审批和设置能力必须保留。中文是 fresh install 默认值，不是删除 English。

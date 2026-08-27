@@ -13,7 +13,7 @@ import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
 
-test("R57-IM-001/002 registry lists nine implemented platforms", () => {
+test("R57-IM-001/002 registry lists eight bundled connectors and one unavailable WhatsApp card", () => {
   assert.deepEqual([...CHANNEL_IDS], [
     "weixin",
     "feishu",
@@ -28,12 +28,16 @@ test("R57-IM-001/002 registry lists nine implemented platforms", () => {
   assert.equal(CHANNEL_MANIFESTS.weixin.live, true);
   assert.equal(CHANNEL_MANIFESTS.feishu.live, true);
   assert.equal(CHANNEL_MANIFESTS.weixin.connectionMethods.includes("qr"), true);
-  for (const row of Object.values(CHANNEL_MANIFESTS)) assert.equal(row.live, true);
+  for (const row of Object.values(CHANNEL_MANIFESTS)) {
+    assert.equal(row.live, row.id !== "whatsapp");
+  }
   assert.equal(CHANNEL_MANIFESTS.telegram.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.whatsapp.defaultEnabled, false);
   assert.equal(CHANNEL_MANIFESTS.whatsapp.risk, "community-protocol");
   assert.equal(CHANNEL_MANIFESTS.whatsapp.supportLevel, "experimental");
+  assert.deepEqual(CHANNEL_MANIFESTS.whatsapp.connectionMethods, []);
+  assert.equal(CHANNEL_MANIFESTS.whatsapp.capabilities.text, false);
   assert.equal(CHANNEL_MANIFESTS.slack.capabilities.threads, false);
   assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
   assert.equal(CHANNEL_MANIFESTS.wecom.connectionMethods.includes("qr"), true);
@@ -49,15 +53,15 @@ test("R56-IM-003 Slack/Telegram/Discord refuse a fake QR connection", () => {
   assert.equal(slack.live, false);
 });
 
-test("R56-IM-019 WhatsApp stays disabled until an explicit risk acknowledgement", () => {
-  assert.throws(() => beginGuidedConnection({ channel: "whatsapp", method: "device-link" }), /CHANNEL_RISK_ACK/);
+test("R57-LIC-001 WhatsApp runtime is not bundled and cannot begin a device link", () => {
+  assert.throws(
+    () => beginGuidedConnection({ channel: "whatsapp", method: "device-link", riskAck: true }),
+    /CHANNEL_METHOD_UNSUPPORTED/,
+  );
   const dir = mkdtempSync(join(tmpdir(), "penglai-im-bots-"));
   const store = new Store(join(dir, "im.sqlite"));
   const bots = new ImBotStore(store.db);
   assert.throws(() => bots.create({ channelId: "whatsapp", displayName: "WA" }), /CHANNEL_RISK_ACK/);
-  const row = bots.create({ channelId: "whatsapp", displayName: "WA", riskAck: true });
-  assert.equal(row.state, "disabled");
-  assert.ok(row.riskAckAt);
   assert.equal(store.schemaVersion(), SCHEMA_VERSION);
   store.close();
 });
@@ -192,12 +196,14 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   rt.store.close();
 });
 
-test("R57-IM-002 IM client lists nine platforms with a real connect action", () => {
+test("R57-IM-002 IM client lists eight connect actions and an unavailable WhatsApp card", () => {
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /data-penglai-im-platforms/);
   assert.match(client, /data-penglai-im-platform/);
   assert.match(client, /beginChannelConnection/);
   assert.match(client, /data-penglai-im-connect-submit/);
+  assert.match(client, /data-penglai-im-runtime-not-bundled/);
+  assert.match(client, /data-penglai-im-unavailable/);
   assert.match(client, /Boolean\(operationId\)/);
   assert.match(client, /data-penglai-im-connect-cancel/);
   assert.match(client, /data-penglai-im-connect-status/);

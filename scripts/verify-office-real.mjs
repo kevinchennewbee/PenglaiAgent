@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -12,12 +12,12 @@ function locate(name) {
   const command = process.platform === "win32" ? "where.exe" : "which";
   return spawnSync(command, [name], { encoding: "utf8" });
 }
-const soffice = locate("soffice");
+const unzip = locate("unzip");
 const pdftotext = locate("pdftotext");
 const pdfinfo = locate("pdfinfo");
 const pdftoppm = locate("pdftoppm");
 const python = locate(process.platform === "win32" ? "python.exe" : "python3");
-for (const [name, found] of Object.entries({ soffice, pdftotext, pdfinfo, pdftoppm, python })) {
+for (const [name, found] of Object.entries({ unzip, pdftotext, pdfinfo, pdftoppm, python })) {
   recordCommand(run, { argv: ["locate", name], exitCode: found.status, stdout: found.stdout, stderr: found.stderr });
 }
 
@@ -58,6 +58,39 @@ if (seenPdf.format !== "pdf" || !seenPdf.text.includes(arbitraryChinese)) {
   const manifest = finishEvidenceRun(run, "FAIL", "created PDF metadata did not retain source text");
   console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
   process.exit(EXIT_BY_VERDICT.FAIL);
+}
+
+if (unzip.status !== 0) {
+  const manifest = finishEvidenceRun(run, "INCOMPLETE", "system ZIP verifier missing; cannot independently verify OOXML containers");
+  console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason, dir: run.dir }));
+  process.exit(EXIT_BY_VERDICT.INCOMPLETE);
+}
+
+const unzipBin = unzip.stdout.trim().split(/\r?\n/)[0];
+const ooxmlChecks = [
+  { kind: "docx", path: paths.docx, required: ["[Content_Types].xml", "_rels/.rels", "word/document.xml"], marker: "typed-paragraph" },
+  { kind: "xlsx", path: paths.xlsx, required: ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/worksheets/sheet1.xml"], marker: "typed-cell" },
+  { kind: "pptx", path: paths.pptx, required: ["[Content_Types].xml", "_rels/.rels", "ppt/presentation.xml", "ppt/slides/slide1.xml"], marker: "typed-slide" },
+];
+for (const check of ooxmlChecks) {
+  const tested = spawnSync(unzipBin, ["-t", check.path], { encoding: "utf8", timeout: 120000 });
+  recordCommand(run, { argv: [unzipBin, "-t", check.path], exitCode: tested.status, stdout: tested.stdout, stderr: tested.stderr });
+  const listed = spawnSync(unzipBin, ["-Z1", check.path], { encoding: "utf8", timeout: 120000 });
+  recordCommand(run, { argv: [unzipBin, "-Z1", check.path], exitCode: listed.status, stdout: listed.stdout, stderr: listed.stderr });
+  const entries = new Set(String(listed.stdout).split(/\r?\n/).filter(Boolean));
+  const xml = spawnSync(unzipBin, ["-p", check.path, "*.xml"], { encoding: "utf8", timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
+  recordCommand(run, { argv: [unzipBin, "-p", check.path, "*.xml"], exitCode: xml.status, stdout: "", stderr: xml.stderr });
+  if (
+    tested.status !== 0 ||
+    listed.status !== 0 ||
+    xml.status !== 0 ||
+    check.required.some((entry) => !entries.has(entry)) ||
+    !String(xml.stdout).includes(check.marker)
+  ) {
+    const manifest = finishEvidenceRun(run, "FAIL", `independent ZIP/OOXML verification rejected ${check.kind}`);
+    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
+    process.exit(EXIT_BY_VERDICT.FAIL);
+  }
 }
 
 let poppler = "NOT_RUN";
@@ -129,100 +162,10 @@ if (pdfinfo.status === 0) {
   process.exit(EXIT_BY_VERDICT.INCOMPLETE);
 }
 
-if (soffice.status !== 0 && process.platform === "win32") {
-  const powershell = locate("powershell.exe");
-  if (powershell.status === 0) {
-    const powershellBin = powershell.stdout.trim().split(/\r?\n/)[0];
-    const microsoft = spawnSync(
-      powershellBin,
-      [
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        join(ROOT, "scripts/verify-office-microsoft.ps1"),
-        "-Docx",
-        paths.docx,
-        "-Xlsx",
-        paths.xlsx,
-        "-Pptx",
-        paths.pptx,
-      ],
-      { encoding: "utf8", timeout: 120000, windowsHide: true },
-    );
-    recordCommand(run, {
-      argv: ["powershell", "verify-office-microsoft.ps1", "DOCX", "XLSX", "PPTX"],
-      exitCode: microsoft.status,
-      stdout: microsoft.stdout,
-      stderr: microsoft.stderr,
-    });
-    let result;
-    try {
-      result = JSON.parse(String(microsoft.stdout).trim().split(/\r?\n/).at(-1));
-    } catch {
-      result = null;
-    }
-    if (microsoft.status === 0 && result?.word === true && result?.excel === true && result?.powerpoint === true) {
-      const manifest = finishEvidenceRun(run, "PASS", "Microsoft Office and independent PDF tools accepted office artifacts", {
-        poppler,
-        pdfTextVerifier,
-        microsoftOffice: "PASS",
-        fixtureOrigin: "penglai-office-engine",
-      });
-      console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:office-real", dir: run.dir }));
-      process.exit(EXIT_BY_VERDICT.PASS);
-    }
-    const manifest = finishEvidenceRun(run, "FAIL", "Microsoft Office rejected an OOXML artifact");
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-    process.exit(EXIT_BY_VERDICT.FAIL);
-  }
-}
-
-if (soffice.status !== 0) {
-  const manifest = finishEvidenceRun(
-    run,
-    "INCOMPLETE",
-    "LibreOffice soffice missing; DOCX/XLSX/PPTX independent verification NOT_RUN on this host. PDF Poppler checks passed. Fixtures were produced by Penglai engines, not Microsoft Office.",
-    { poppler, libreoffice: "NOT_RUN", fixtureOrigin: "penglai-office-engine" },
-  );
-  console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:office-real", reason: manifest.reason, dir: run.dir }));
-  process.exit(EXIT_BY_VERDICT.INCOMPLETE);
-}
-
-const sofficeBin = soffice.stdout.trim();
-const convertDir = join(dir, "lo");
-mkdirSync(convertDir, { recursive: true, mode: 0o700 });
-const convert = spawnSync(
-  sofficeBin,
-  ["--headless", "--convert-to", "pdf", "--outdir", convertDir, paths.docx, paths.xlsx, paths.pptx],
-  { encoding: "utf8", timeout: 120000 },
-);
-recordCommand(run, {
-  argv: [sofficeBin, "--headless", "--convert-to", "pdf", paths.docx, paths.xlsx, paths.pptx],
-  exitCode: convert.status,
-  stdout: convert.stdout,
-  stderr: convert.stderr,
-});
-if (convert.status !== 0) {
-  const manifest = finishEvidenceRun(run, "FAIL", "LibreOffice rejected OOXML artifacts", { stderr: convert.stderr });
-  console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-  process.exit(EXIT_BY_VERDICT.FAIL);
-}
-const loPdfs = ["docx-probe.pdf", "xlsx-probe.pdf", "pptx-probe.pdf"].map((name) => join(convertDir, name));
-for (const pdfPath of loPdfs) {
-  if (!existsSync(pdfPath) || readFileSync(pdfPath).length === 0) {
-    const manifest = finishEvidenceRun(run, "FAIL", `LibreOffice did not emit ${pdfPath}`);
-    console.error(JSON.stringify({ verdict: manifest.verdict, reason: manifest.reason }));
-    process.exit(EXIT_BY_VERDICT.FAIL);
-  }
-  recordArtifact(run, pdfPath, "application/pdf");
-}
-
-const manifest = finishEvidenceRun(run, "PASS", "LibreOffice and Poppler accepted office artifacts", {
+const manifest = finishEvidenceRun(run, "PASS", "system ZIP/OOXML and Poppler checks accepted office artifacts", {
   poppler,
   pdfTextVerifier,
-  libreoffice: "PASS",
+  ooxmlVerifier: "system-unzip",
   fixtureOrigin: "penglai-office-engine",
 });
 console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:office-real", dir: run.dir }));

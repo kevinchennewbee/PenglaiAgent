@@ -304,10 +304,11 @@ const PINNED_LIBOPUS_WASM = "0.2.0";
 const LIBOPUS_WASM = "libopus-wasm";
 const PINNED_PPTFAST = "0.20.0";
 const PPTFAST = "@liustack/pptfast";
-const PINNED_BAILEYS = "7.0.0-rc14";
 const BAILEYS = "@whiskeysockets/baileys";
+const LIBSIGNAL = "libsignal";
 const AXIOS = "axios";
 const FORM_DATA = "form-data";
+const AWS_S3_CLIENT = "@aws-sdk/client-s3";
 
 function resolvePackageRoot(fromDir, name) {
   const req = createRequire(join(fromDir, "package.json"));
@@ -336,28 +337,6 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
   const pkg = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf8"));
   for (const dep of Object.keys(pkg.dependencies ?? {})) {
     vendorNpmPackage(pkgRoot, dep, destNm, seen, filters);
-  }
-}
-
-function vendorBaileys(stage) {
-  const fromDir = join(ROOT, "packages/channel-whatsapp");
-  const destNm = join(stage, "node_modules");
-  vendorNpmPackage(fromDir, BAILEYS, destNm, new Set(), new Map([
-    [
-      BAILEYS,
-      (_pkgRoot, src) =>
-        !src.endsWith(".map") &&
-        !src.endsWith(".md") &&
-        !src.includes(`${sep}test${sep}`) &&
-        !src.includes(`${sep}docs${sep}`),
-    ],
-  ]));
-  const vendored = JSON.parse(
-    readFileSync(join(destNm, BAILEYS, "package.json"), "utf8"),
-  );
-  if (vendored.version !== PINNED_BAILEYS) {
-    console.error("vendored Baileys is", vendored.version, "expected", PINNED_BAILEYS);
-    process.exit(1);
   }
 }
 
@@ -922,10 +901,23 @@ for (const p of packs) {
   const vendorLark = p.id === "@penglai/im";
   const vendorQr = p.id === "@penglai/im";
   const vendorAudio = p.id === "@penglai/im";
-  const vendorBaileysSdk = p.id === "@penglai/im";
   const vendorSherpa = p.id === "@penglai/asr";
   const vendorMoss = p.id === "@penglai/moss-tts";
   const vendorOfficePptfast = p.id === "@penglai/office";
+  const disableOfficeCloudZip = p.id === "@penglai/office";
+  const disabledOfficeCloudZipModule = {
+    name: "penglai-office-no-cloud-zip",
+    setup(context) {
+      context.onResolve({ filter: /^@aws-sdk\/client-s3$/ }, (args) => ({
+        path: args.path,
+        namespace: "penglai-office-disabled-cloud-zip",
+      }));
+      context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-cloud-zip" }, () => ({
+        contents: `class DisabledCloudArchive { constructor() { throw new Error("Penglai Office reads local archives only; S3 ZIP access is unavailable"); } }\nexport { DisabledCloudArchive as GetObjectCommand, DisabledCloudArchive as HeadObjectCommand };`,
+        loader: "js",
+      }));
+    },
+  };
   const built = await build({
     absWorkingDir: ROOT,
     entryPoints: [join(ROOT, p.dir, p.host)],
@@ -945,7 +937,6 @@ for (const p of packs) {
       ...(vendorLark ? [LARK_SDK] : []),
       ...(vendorQr ? [QRCODE] : []),
       ...(vendorAudio ? [SILK_WASM, LIBOPUS_WASM] : []),
-      ...(vendorBaileysSdk ? [BAILEYS] : []),
       ...(vendorLark ? [AXIOS, FORM_DATA] : []),
       ...(vendorSherpa ? [SHERPA_ONNX] : []),
       ...(vendorMoss ? [ONNX_RUNTIME_NODE, SENTENCEPIECE_JS] : []),
@@ -958,6 +949,7 @@ for (const p of packs) {
     banner: {
       js: 'import { createRequire as __penglaiCreateRequire } from "node:module";\nconst require = __penglaiCreateRequire(import.meta.url);\n',
     },
+    plugins: disableOfficeCloudZip ? [disabledOfficeCloudZipModule] : [],
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
   const metafile = built.metafile;
@@ -981,6 +973,13 @@ for (const p of packs) {
     console.error(p.id, "host bundle missing Node createRequire banner");
     process.exit(1);
   }
+  if (
+    disableOfficeCloudZip &&
+    new RegExp(`require\\(["']${AWS_S3_CLIENT.replace("/", "\\/")}["']\\)`).test(hostJs)
+  ) {
+    console.error(p.id, "must fail closed for unzipper's unused S3 helper without bundling the AWS SDK");
+    process.exit(1);
+  }
   if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
   if (existsSync(join(stage, "src"))) {
     console.error(p.id, "staged package must not include src");
@@ -994,13 +993,9 @@ for (const p of packs) {
     if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
     vendorLarkSdk(stage);
   }
-  if (vendorBaileysSdk) {
-    if (!hostJs.includes(BAILEYS)) {
-      console.error(p.id, "host bundle dropped the Baileys import");
-      process.exit(1);
-    }
-    if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
-    vendorBaileys(stage);
+  if (p.id === "@penglai/im" && (hostJs.includes(BAILEYS) || hostJs.includes(LIBSIGNAL))) {
+    console.error(p.id, "must not bundle the WhatsApp community runtime in 0.5.7");
+    process.exit(1);
   }
   if (vendorQr) {
     if (!hostJs.includes(QRCODE)) {
@@ -1127,6 +1122,14 @@ for (const p of packs) {
       cpSync(clientSrc, join(stage, "dist/client.js"));
     }
   }
+  if (
+    p.id === "@penglai/im" &&
+    (existsSync(join(stage, "node_modules", ...BAILEYS.split("/"))) ||
+      existsSync(join(stage, "node_modules", LIBSIGNAL)))
+  ) {
+    console.error(p.id, "staging contains the forbidden WhatsApp community runtime");
+    process.exit(1);
+  }
   const pkg = {
     name: p.id,
     version: p.version ?? PRODUCT_VERSION,
@@ -1161,7 +1164,6 @@ for (const p of packs) {
             [QRCODE]: PINNED_QRCODE,
             [SILK_WASM]: PINNED_SILK_WASM,
             [LIBOPUS_WASM]: PINNED_LIBOPUS_WASM,
-            [BAILEYS]: PINNED_BAILEYS,
           },
         }
       : {}),

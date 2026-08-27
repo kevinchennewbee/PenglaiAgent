@@ -17,7 +17,7 @@ chat bodies, phone numbers, or WhatsApp session keys.
 | Slack | App Manifest + tokens, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 | Telegram | Bot token long-poll, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
 | Discord | Bot token Gateway, no QR | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
-| WhatsApp | device-link, opt-in | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | `LIVE_BLOCKED_OWNER_ACCOUNT` | false | false | false | false | false | false | `LIVE_BLOCKED_OWNER_ACCOUNT` |
+| WhatsApp | not bundled | false | false | false | false | false | false | false | false | false | false | false | `RUNTIME_NOT_BUNDLED` |
 
 Owner action required for live rows (none completed this candidate):
 
@@ -29,14 +29,12 @@ Owner action required for live rows (none completed this candidate):
 - Slack: paste bot token + app token; re-authorize `reactions:write` if needed.
 - Telegram: paste bot token.
 - Discord: paste bot token and enable Message Content Intent.
-- WhatsApp: risk acknowledgement Owner receipt + device scan.
 
 Grok Build does not hold those accounts. 0.5.6 inherited Weixin/Feishu live is
 not 0.5.7 live.
 
-WhatsApp extra gates, all blocked until proven: risk acknowledgement
-version/time, encrypted private session store, self-echo dedupe, reserved
-outbound message IDs, complete logout wipe.
+WhatsApp compatibility source remains available for future licensing review,
+but its community runtime and device-link path are excluded from 0.5.7 artifacts.
 
 A platform without a live row must not be described as fully supported in
 README, the website, or a GitHub Release.
