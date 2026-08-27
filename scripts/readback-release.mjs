@@ -12,7 +12,12 @@ import {
 const repo = "kevinchennewbee/PenglaiAgent";
 const tag = process.argv[2] || `v${PRODUCT_VERSION}`;
 const api = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
-const githubHeaders = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10" };
+const githubToken = process.env.GITHUB_TOKEN?.trim();
+const githubHeaders = {
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2026-03-10",
+  ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
+};
 const response = await fetch(api, {
   redirect: "manual",
   headers: githubHeaders,

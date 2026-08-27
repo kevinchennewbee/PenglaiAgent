@@ -3,21 +3,17 @@
 Trust tier: `community-verified`. Official DeepSeek Harness `0.1.1-rc.2`
 remains the only agent core. This release is not silent auto-update.
 
-## Exact candidate / 精确候选
+## Exact release / 精确发布
 
-This file is a **CANDIDATE** template. Observed source SHA, native run, installer
-bytes, and SHA-256 are filled only after public readback of an immutable
-`v0.5.7` Release. Do not invent those values.
+The immutable [`v0.5.7` Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7)
+was built from one reviewed source SHA and passed public byte and signature
+readback.
 
-- Source / 源码: `NONE` (committed identity is a template)
-- Public export / 公开源码树: pending clean-room export of the candidate SHA
-- Native run / 三端原生任务: `NOT_RUN`
-- Apple Silicon / Intel Mac / Windows x64: pending matching native builders
-
-Live messaging evidence is tracked only in
-[`docs/0.5.7/LIVE_IM_MATRIX.md`](0.5.7/LIVE_IM_MATRIX.md). Rows currently
-`LIVE_NOT_RUN` are not claimed as supported in README, the website, or a
-Release.
+- Source / 源码: `ce01d4dea59af72422071e357760a040f19b8e3d`
+- Public export / 公开源码树: `8e0d6f27d54bef459e26c812453a968d19ab23c0c86b28dc2b8f1b5c947b3d67`
+- Native run / 三端原生任务: [33067739020](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33067739020)
+- Public readback / 公网回读: [33071811058](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33071811058)
+- Release set / 发布文件: exactly 10 immutable assets, including a 1,212-component SBOM
 
 ## English
 
@@ -62,9 +58,11 @@ and an independent immutable snapshot. A crash must not boot a half profile.
 
 ### Installation and upgrades
 
-- `Penglai_0.5.7_macos_aarch64.dmg` — Apple Silicon, macOS 13+ (`darwin-aarch64`)
-- `Penglai_0.5.7_macos_x64.dmg` — Intel Mac (`darwin-x86_64`)
-- `Penglai_0.5.7_windows_x64_setup.exe` — Windows x64 (`win32-x86_64`)
+| Target | Installer | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.7_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg) | 474,383,101 | `bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8` |
+| Intel Mac | [`Penglai_0.5.7_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_x64.dmg) | 401,056,681 | `ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e` |
+| Windows x64 | [`Penglai_0.5.7_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_windows_x64_setup.exe) | 355,918,104 | `cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a` |
 
 Versions 0.5.1 through 0.5.6 can discover a later signed 0.5 line under
 **Settings → Penglai → Updates** after `v0.5.7` is public. There is no silent
@@ -75,9 +73,6 @@ and the `Penglai/0.5` data generation are preserved.
 
 - Official DSH rc.2 conversation Turns support text and images, not generic
   document blocks.
-- Live IM accounts, physical microphone/speaker behavior, and provider replies
-  are separate live evidence and require the user's own credentials or device
-  permission.
 - macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
   Gatekeeper or SmartScreen may warn.
 - Penglai has no account, Penglai-operated telemetry backend, cloud memory

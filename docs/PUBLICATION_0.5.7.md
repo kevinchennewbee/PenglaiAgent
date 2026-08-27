@@ -1,13 +1,11 @@
 # PenglaiAgent 0.5.7 publication contract
 
-Status: `CANDIDATE`.
+Status: `PUBLIC_READBACK_PASS`.
 
-Owner authorized 0.5.7 development, real testing, a Draft PR to `main`, Codex
-review, merge, three-target native rebuilds, tag, GitHub Release, README,
-website, and bilingual public copy **only after required gates pass**.
-Authorization does not permit publication with a failed required gate or
-disclosure of credentials, private keys, local paths, QR data, chat bodies,
-account identities, profiles, logs, or private media.
+The immutable `v0.5.7` Release was published from source
+`ce01d4dea59af72422071e357760a040f19b8e3d` after review, three-target native
+rebuilds, and required gates. Public readback verified the exact GitHub bytes,
+SHA-256 values, signed update manifest, and three installer signatures.
 
 Grok Build stops at a Draft PR. It does not merge, create `v0.5.7`, publish a
 Release, or deploy production `gh-pages`.
@@ -23,5 +21,5 @@ runners. The Release contains those three bytes plus the seven metadata assets
 declared by `release-contract.json`, and no others.
 
 Official DSH remains `0.1.1-rc.2`. DSH-IM v3.0.5 is a selective rewrite pin,
-not an installed second runtime. Nine messaging platforms have connection
-entries; live support claims follow `docs/0.5.7/LIVE_IM_MATRIX.md`.
+not an installed second runtime. Eight platforms have connection entries under
+`@penglai/im`; the WhatsApp community runtime is not bundled in 0.5.7.

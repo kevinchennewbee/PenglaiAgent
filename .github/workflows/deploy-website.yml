@@ -7,6 +7,11 @@ on:
         description: Immutable Release tag that must already exist (example v0.5.7)
         required: true
         type: string
+      deploy_site:
+        description: Push the verified website to the gh-pages branch
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -30,6 +35,24 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.14.0 --activate
           pnpm install --frozen-lockfile
+          pnpm build
           pnpm readback:release v0.5.7
-      - name: This workflow must not run from Grok Build
-        run: echo "Manual production deploy only after Codex merge and public readback."
+      - name: Deploy verified website
+        if: ${{ inputs.deploy_site }}
+        env:
+          DEPLOY_TAG: ${{ inputs.tag }}
+        run: |
+          site_dir="${RUNNER_TEMP}/penglai-gh-pages"
+          git fetch origin gh-pages
+          git worktree add --detach "$site_dir" origin/gh-pages
+          rsync -a --delete --exclude .git website/ "$site_dir/"
+          touch "$site_dir/.nojekyll"
+          git -C "$site_dir" config user.name "github-actions[bot]"
+          git -C "$site_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$site_dir" add -A
+          if git -C "$site_dir" diff --cached --quiet; then
+            echo "Website is already current for ${DEPLOY_TAG}."
+          else
+            git -C "$site_dir" commit -m "website: deploy ${DEPLOY_TAG} from ${GITHUB_SHA}"
+            git -C "$site_dir" push origin HEAD:gh-pages
+          fi
