@@ -42,6 +42,14 @@ jobs:
         env:
           DEPLOY_TAG: ${{ inputs.tag }}
         run: |
+          test -s website/favicon.svg
+          test -s website/shots/banner-v1.png
+          test -s website/shots/0.5.5/plugin-center.png
+          test -s website/shots/0.5.5/office.png
+          test -s website/shots/0.5.5/memory.png
+          test -s website/shots/0.5.5/mobile-messaging.png
+          test -s website/shots/0.5.5/welcome.png
+          test "$(find website -type f | wc -l | tr -d ' ')" -ge 25
           site_dir="${RUNNER_TEMP}/penglai-gh-pages"
           git fetch origin gh-pages
           git worktree add --detach "$site_dir" origin/gh-pages
