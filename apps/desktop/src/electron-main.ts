@@ -302,6 +302,7 @@ async function main(): Promise<void> {
     width: 1280,
     height: 840,
     show: false,
+    backgroundColor: "#f8f4ee",
     title: "蓬莱 Penglai",
     webPreferences: {
       preload: join(here, "preload-bridge.cjs"),
@@ -457,7 +458,11 @@ async function main(): Promise<void> {
   };
 
   if (existsSync(splashPage)) {
+    const firstPaint = new Promise<void>((resolve) => {
+      win.once("ready-to-show", resolve);
+    });
     await win.loadFile(splashPage);
+    await firstPaint;
     revealWindow();
   }
 
