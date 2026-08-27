@@ -1,7 +1,7 @@
 # Penglai 0.5.7 release-candidate development
 
-This PR remains **Draft** while installed/native release evidence is being
-completed. The Owner has authorized completion through merge, public
+This PR remains **Draft** until the last matching native job and review closeout
+complete. The Owner has authorized completion through merge, public
 `v0.5.7` Release, download switch, and website deployment; that authorization
 does not waive any source, security, native, installed, or public-readback gate.
 
@@ -64,44 +64,56 @@ does not waive any source, security, native, installed, or public-readback gate.
 Executed with embedded Node `22.22.2` and pnpm `10.14.0`:
 
 - format and typecheck: PASS
-- core unit: 706 total, 691 pass, 15 Windows privilege skips, 0 fail
-- channel contract: 118/118 PASS
-- IM integration: 51/51 PASS
-- desktop E2E/fault paths: 78 total, 77 pass, 1 Windows privilege skip, 0 fail
+- core unit matrix: PASS, with only explicit Windows privilege/symlink skips
+- channel contract: 119/119 PASS
+- IM integration: 52/52 PASS
+- desktop E2E/fault paths: 79 total, 78 pass, 1 Windows symlink skip, 0 fail
 - security 15/15, chaos 5/5, source soak 1/1: PASS
 - dependency, license, secret, SBOM (1,220 components), notices: PASS
 - Windows native helper: MSVC x64 build and PE architecture PASS
 - embedded DSH closure: 435 packages, exact Windows native payloads, PASS
-- local NSIS 3.12 packaging and silent reinstall completed on the previous
-  candidate SHA; the final SHA is rebuilt after every source change
+- local NSIS 3.12 packaging, silent reinstall, Simplified Chinese installer UI,
+  embedded identity, fuses, profile, and DSH closure: PASS
 - fresh private profile: official DSH HTTP 200, required Office/Memory inventory,
   Plugin Center, shutdown, and zero leftovers PASS
+- exact installed welcome: official Penglai UI, privacy-step transition, owned
+  DSH process, and zero leftovers PASS
+- exact installed plugin lifecycle: required Office/Memory active by default;
+  Messaging/ASR/TTS/Budget/Companion enable, survive restart, disable, and
+  survive restart PASS; all ordinary settings surfaces are reachable
+- Office-real and Memory-real: PASS on a clean candidate
+- official DeepSeek live onboarding: model directory, preferred-model select,
+  no-echo credential test, first real Turn, final digests, and process ownership
+  PASS; no credential or conversation content is written to public evidence
 
 The Windows runtime rebuild now hashes the native helper in the runtime
 manifest. The ZIP extractor also uses Windows bsdtar when `unzip` and the
 optional PowerShell.Archive module are unavailable. Recursive release scripts
 re-enter the exact pnpm CLI instead of resolving an unrelated global pnpm.
 
-## Evidence still required before Ready/merge/release
+## Deliberate evidence boundary
 
-- Commit a clean candidate and regenerate clean-source/public-export evidence.
-- Complete installed Windows Setup walk: welcome, optional plugins, all nine
-  Messaging cards, restart, update/uninstall, privacy scan, and soak.
-- Complete the real DeepSeek onboarding/conversation flow through the installed
-  app using a no-echo local credential channel.
-- Complete redacted live-account rows. A visible QR or successful SDK init is
-  not a live support claim; the full private message → official Turn → original
-  route reply → restart restore → logout cleanup loop must pass.
-- Independently verify Office artifacts with Poppler/PyPDF plus
-  LibreOffice/Microsoft Office. This Windows host uses real Microsoft
-  Word/Excel/PowerPoint COM plus `pdfinfo`, PyPDF text extraction, and
-  `pdftoppm` rendering; a clean-tree rerun is still required for official PASS.
-- Rerun Memory-real on the clean candidate; the real 100k Mnemon corpus/query
-  completed, but official PASS is correctly forbidden while the tree is dirty.
-- Obtain native Apple Silicon and Intel macOS artifacts from matching runners,
-  then run installed, signing/trust, upgrade, and readback gates.
-- Push this exact branch, wait for GitHub CI/CodeQL/native checks, resolve any
-  failure, and only then move the Draft PR toward review.
+- The live-account matrix remains redacted and marked
+  `LIVE_BLOCKED_OWNER_ACCOUNT` for all nine platforms on 0.5.7 bits. A visible
+  QR, SDK initialization, or inherited 0.5.6 result is not promoted to a live
+  support claim. This is an explicit release boundary, not a fabricated PASS.
+- Weixin/Feishu/DingTalk/WeCom/QQ/WhatsApp expose real vendor QR/device-link
+  paths. Slack/Telegram/Discord accurately expose their official non-QR
+  credential paths; the product does not invent QR login for them.
+- macOS is ad-hoc signed and not notarized, and Windows is not Authenticode
+  signed. The ordinary UI explains the user action in plain language while the
+  README and Release retain the exact trust disclosure.
 
-No merge, tag, public Release, site deployment, or public support claim is made
-by this document.
+## Remaining publication sequence
+
+1. Finish the matching Intel macOS native/installed job and close the reviewed
+   PR threads.
+2. Mark PR #94 Ready and merge only while Source CI, CodeQL, and all three
+   native jobs are green.
+3. Rebuild all three targets from the resulting immutable `main` SHA, assemble
+   the exact release contract, and publish tag/Release `v0.5.7`.
+4. Read back every public asset and signed update manifest before changing the
+   README and website downloads from v0.5.6 to v0.5.7.
+
+Until those steps finish, no tag, public Release, site deployment, or broad live
+platform support claim is made by this document.
