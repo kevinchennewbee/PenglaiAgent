@@ -9,7 +9,7 @@
 <p align="center"><strong>DeepSeek Harness, ready to live on a personal computer.</strong></p>
 
 <p align="center">
-  <a href="docs/RELEASE_NOTES_0.5.7.md"><img src="https://img.shields.io/badge/candidate-0.5.7-0f766e?style=flat-square" alt="Penglai 0.5.7 candidate"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7"><img src="https://img.shields.io/badge/release-0.5.7-0f766e?style=flat-square" alt="Penglai 0.5.7 release"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.1--rc.2-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.1-rc.2"></a>
   <img src="https://img.shields.io/badge/targets-Apple%20Silicon%20%7C%20Intel%20Mac%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Apple Silicon, Intel Mac, and Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
@@ -19,17 +19,16 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6">Last public download (0.5.6)</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7">Download 0.5.7</a> ·
   <a href="docs/RELEASE_NOTES_0.5.7.md">0.5.7 notes</a> ·
   <a href="AGENTS.md">For AI contributors</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.7 is a development candidate on branch `0.5.7`. Official DSH
-> remains `0.1.1-rc.2`. Installer sizes and SHA-256 are filled only after the
-> public `v0.5.7` readback. The last immutable public Release is
-> [`v0.5.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6).
-> macOS remains ad-hoc signed and not notarized; Windows has no Authenticode.
+> Penglai 0.5.7 is an immutable public Release built from
+> `ce01d4dea59af72422071e357760a040f19b8e3d`. Public byte, SHA-256, and updater
+> signature readback passed. Official DSH remains `0.1.1-rc.2`. macOS remains
+> ad-hoc signed and not notarized; Windows has no Authenticode.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
@@ -56,12 +55,11 @@ actually usable: packaging, process supervision, onboarding, local paths,
 upgrades, uninstall, product identity, and plugin distribution. There is no
 second Penglai agent hiding beside DSH and no replacement chat page.
 
-Version 0.5.7 keeps those completed actions and adds eight platform connectors
+Version 0.5.7 keeps those completed actions and adds eight platform connection entries
 under one Messaging plugin. Workspace memory can be curated and recalled
 automatically, high-impact writes use one action-bound Owner broker, Office and
 IM files use scoped opaque artifact references, and TTS buttons follow real
-playback state. Live support claims follow
-[`docs/0.5.7/LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md).
+playback state.
 
 ## What ships in 0.5.7
 
@@ -107,8 +105,7 @@ are copied from those verified bundled bytes when the user enables them. The
 large SenseVoice and MOSS-TTS model weights are the exception: they download
 only after an explicit action, from pinned revisions with size and SHA-256
 checks. Mnemon and the Office Chinese font are already bundled. LibreOffice is
-used by maintainers as an independent Office verifier; it is not required on a
-user's machine.
+neither a product runtime dependency nor a release-gate dependency.
 
 ## Office that can do work, not just read files
 
@@ -196,16 +193,19 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The 0.5.7 release contract contains exactly three native installers. Bytes and
-SHA-256 are filled only after public readback of immutable `v0.5.7`:
+The immutable [0.5.7 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7)
+contains exactly three native installers. All were built from the same source SHA
+and passed [native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33067739020)
+and [public readback](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33071811058):
 
-| Platform | Release asset | Native installed evidence |
-| --- | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.7_macos_aarch64.dmg` | pending public readback |
-| Intel Mac | `Penglai_0.5.7_macos_x64.dmg` | pending public readback |
-| Windows x64 | `Penglai_0.5.7_windows_x64_setup.exe` | pending public readback |
+| Platform | Release asset | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.7_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg) | 474,383,101 | `bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8` |
+| Intel Mac | [`Penglai_0.5.7_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_x64.dmg) | 401,056,681 | `ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e` |
+| Windows x64 | [`Penglai_0.5.7_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_windows_x64_setup.exe) | 355,918,104 | `cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a` |
 
-The last immutable public set remains [`v0.5.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6).
+The exact ten-file Release also includes signed update metadata, SHA-256 sums,
+the 1,212-component SBOM, third-party notices, and the public-export manifest.
 
 Penglai 0.5.1 through 0.5.6 can check the signed 0.5 line from **Settings →
 Penglai → Updates** after `v0.5.7` is public, or use a same-platform manual
@@ -328,8 +328,7 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 
 0.5.7 继续让这些动作真正完成，并在唯一的「消息连接」插件下提供八个平台的
 连接入口。Workspace 记忆可以自动整理和召回，高影响动作统一经过 Owner
-Broker，办公与 IM 文件使用不透明 artifact。公开“支持”声明只以
-[`LIVE_IM_MATRIX.md`](docs/0.5.7/LIVE_IM_MATRIX.md) 为准。
+Broker，办公与 IM 文件使用不透明 artifact。
 
 ## 0.5.7 带来了什么
 
@@ -371,7 +370,7 @@ Broker，办公与 IM 文件使用不透明 artifact。公开“支持”声明�
 用户启用可选插件时，客户端从安装包内经过验证的字节安装到 app-private DSH profile。
 唯一需要另行下载的是体积较大的 SenseVoice 和 MOSS-TTS 模型，而且必须由用户主动
 点击，下载时校验固定 revision、大小和 SHA-256。Mnemon 与办公中文字体已经随包。
-LibreOffice 只是维护者用来交叉验证办公文件的工具，不是用户依赖。
+LibreOffice 既不是产品运行依赖，也不是正式发布门禁依赖。
 
 ## 蓬莱办公不是只读阅读器
 
@@ -441,16 +440,19 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-0.5.7 发布契约固定三个原生安装包。大小和 SHA-256 只在公网回读 `v0.5.7` 之后
-填写：
+不可变的 [0.5.7 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7)
+固定三个原生安装包。它们来自同一源码提交，并已通过
+[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33067739020)
+和[公网回读](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33071811058)：
 
-| 平台 | 正式文件 | 原生安装证据 |
-| --- | --- | --- |
-| Apple Silicon，macOS 13+ | `Penglai_0.5.7_macos_aarch64.dmg` | 待公网回读 |
-| Intel Mac | `Penglai_0.5.7_macos_x64.dmg` | 待公网回读 |
-| Windows x64 | `Penglai_0.5.7_windows_x64_setup.exe` | 待公网回读 |
+| 平台 | 正式文件 | 字节数 | SHA-256 |
+| --- | --- | ---: | --- |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.7_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg) | 474,383,101 | `bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8` |
+| Intel Mac | [`Penglai_0.5.7_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_x64.dmg) | 401,056,681 | `ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e` |
+| Windows x64 | [`Penglai_0.5.7_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_windows_x64_setup.exe) | 355,918,104 | `cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a` |
 
-上一份不可变公网资产仍是 [`v0.5.6`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6)。
+准确的十文件 Release 还包含签名更新元数据、SHA-256 清单、1212 组件 SBOM、
+第三方声明和公开导出清单。
 
 0.5.1 到 0.5.6 可以在 `v0.5.7` 公开发布后从 **设置 → 蓬莱 → 更新** 检查 0.5
 系列签名版本，也可以用同平台安装包手动覆盖。它不会静默升级。0.5.0 没有生产

@@ -9,15 +9,21 @@ header p:first-child {
   font-size: 1.4rem;
   font-weight: 650;
 }
-.platform-cards {
+.platform-cards,
+.download-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   gap: 0.75rem;
   padding: 0;
   list-style: none;
 }
-.platform-cards li {
+.platform-cards li,
+.download-cards li {
   border: 1px solid #d4d4d8;
   border-radius: 12px;
   padding: 0.85rem 1rem;
+}
+.download-cards code {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
 }
