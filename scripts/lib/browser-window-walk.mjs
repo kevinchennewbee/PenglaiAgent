@@ -129,15 +129,21 @@ function clickSelector(sel) {
   })()`;
 }
 
-function clickButtonText(patterns, deferred = false) {
+export function clickButtonText(patterns, deferred = false) {
   return `(() => {
     const patterns = ${JSON.stringify(patterns)};
     const deferred = ${JSON.stringify(deferred)};
     const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
-    const texts = buttons.map((n) => (n.textContent || "").replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 24);
+    const visible = (node) => {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    };
+    const visibleButtons = buttons.filter(visible);
+    const texts = visibleButtons.map((n) => (n.textContent || "").replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 24);
     for (const src of patterns) {
       const re = new RegExp(src);
-      const btn = buttons.find((n) => re.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
+      const btn = visibleButtons.find((n) => re.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
       if (btn) {
         if (btn.disabled) return { ok: false, reason: "disabled", text: (btn.textContent || "").replace(/\\s+/g, " ").trim(), texts };
         if (deferred) setTimeout(() => btn.click(), 0);

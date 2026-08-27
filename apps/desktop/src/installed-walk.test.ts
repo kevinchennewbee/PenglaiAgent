@@ -105,6 +105,7 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /snapshot\?\.\[target\.flag\]/);
   assert.match(walk, /snapshot\?\.\[target\.readyFlag\] === target\.readyValue/);
   assert.match(walk, /\^软件更新\$/);
+  assert.match(walk, /const visibleButtons = buttons\.filter\(visible\)/);
   assert.doesNotMatch(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(walk, /button\[aria-haspopup=\\?"dialog\\?"\]\[aria-expanded\]/);
@@ -163,6 +164,31 @@ test("installed settings walk defers expensive renderer click work outside the C
   assert.equal(clicked, false);
   scheduled?.();
   assert.equal(clicked, true);
+});
+
+test("installed settings walk ignores hidden duplicate navigation buttons", async () => {
+  const { clickButtonText } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  let hiddenClicked = false;
+  let visibleClicked = false;
+  const hidden = {
+    disabled: false,
+    textContent: "Storage and uninstall",
+    getBoundingClientRect: () => ({ width: 0, height: 0 }),
+    click() { hiddenClicked = true; },
+  };
+  const visible = {
+    disabled: false,
+    textContent: "Storage and uninstall",
+    getBoundingClientRect: () => ({ width: 120, height: 30 }),
+    click() { visibleClicked = true; },
+  };
+  const result = runInNewContext(clickButtonText(["^Storage and uninstall$"]), {
+    document: { querySelectorAll: () => [hidden, visible] },
+    getComputedStyle: () => ({ visibility: "visible", display: "block" }),
+  });
+  assert.equal(result.ok, true);
+  assert.equal(hiddenClicked, false);
+  assert.equal(visibleClicked, true);
 });
 
 test("installed soak samples bundled IM without bypassing native owner approval", async () => {
