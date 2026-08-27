@@ -11,7 +11,9 @@ const root = join(here, "../../..");
 
 test("R2-ARCH-004 electron main loads official web URL after health", () => {
   const src = readFileSync(join(here, "electron-main.ts"), "utf8");
-  assert.match(src, /loadURL/);
+  const navigation = readFileSync(join(here, "navigation-retry.ts"), "utf8");
+  assert.match(src, /loadWindowUrl/);
+  assert.match(navigation, /win\.loadURL\(target\)/);
   assert.match(src, /startDshProxy/);
   assert.doesNotMatch(src, /getAgent:\s*\(\)\s*=>\s*undefined/);
 });

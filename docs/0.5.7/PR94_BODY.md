@@ -67,7 +67,7 @@ Executed with embedded Node `22.22.2` and pnpm `10.14.0`:
 - core unit matrix: PASS, with only explicit Windows privilege/symlink skips
 - channel contract: 119/119 PASS
 - IM integration: 52/52 PASS
-- desktop E2E/fault paths: 79 total, 78 pass, 1 Windows symlink skip, 0 fail
+- desktop E2E/fault paths: 81 total, 80 pass, 1 Windows symlink skip, 0 fail
 - security 15/15, chaos 5/5, source soak 1/1: PASS
 - dependency, license, secret, SBOM (1,220 components), notices: PASS
 - Windows native helper: MSVC x64 build and PE architecture PASS

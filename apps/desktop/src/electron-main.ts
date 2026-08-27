@@ -63,6 +63,7 @@ import {
   type PendingPluginRuntimeRestart,
   type PluginUpdateJournalEvidence,
 } from "./plugin-runtime-restart.js";
+import { loadWindowUrl } from "./navigation-retry.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -474,15 +475,17 @@ async function main(): Promise<void> {
 
   const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
     const safe = sanitizeStartupReason(reason);
+    if (stopping || win.isDestroyed()) return;
     try {
       await stopOwnedServices();
     } catch {
       /* recovery UI must still render after best-effort ownership teardown */
     }
+    if (stopping || win.isDestroyed()) return;
     const recovery = recoveryPage;
     if (existsSync(recovery)) {
       await win.loadFile(recovery);
-      try {
+      if (!win.webContents.isDestroyed()) try {
         await win.webContents.executeJavaScript(
           `(() => { const p = document.createElement("pre"); p.dataset.penglaiError = "1"; p.textContent = ${JSON.stringify(safe)}; document.body.appendChild(p); document.title = "Penglai · DeepSeek Harness failed to start"; })()`,
         );
@@ -565,12 +568,7 @@ async function main(): Promise<void> {
       writeFileSync(join(user.root, "gateway.port"), String(proxy.port), { mode: 0o600 });
       if (loadRenderer && !win.isDestroyed()) {
         const target = onboardingLedgerComplete(user.root) ? url : wizardUrlForOrigin(url);
-        await Promise.race([
-          win.loadURL(target),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("loadURL timeout")), 20_000);
-          }),
-        ]);
+        await loadWindowUrl(win, target, () => stopping);
       }
       return url;
     };
@@ -969,12 +967,7 @@ async function main(): Promise<void> {
           // if the switch fails we must restore the wizard so the user is not
           // stranded on a dead /wizard while the official DSH Web is unreachable.
           try {
-            await Promise.race([
-              win.loadURL(officialUrl),
-              new Promise((_, reject) => {
-                setTimeout(() => reject(new Error("loadURL timeout")), 20_000);
-              }),
-            ]);
+            await loadWindowUrl(win, officialUrl, () => stopping);
             const switched = await verifyOfficialSurfaces(officialUrl);
             proxy.setWizardDisabled(true);
             return { switched: true, ...switched };

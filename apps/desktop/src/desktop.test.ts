@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
+import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
 
 test("community release notice keeps platform trust limits without candidate wording", () => {
@@ -107,6 +108,46 @@ test("startup failure tears down owned services before rendering recovery", () =
   const failProbe = source.slice(source.indexOf("const failProbe"), source.indexOf("const failProbe") + 900);
   assert.match(failProbe, /await stopOwnedServices\(\)/);
   assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recovery)"));
+  assert.match(failProbe, /if \(stopping \|\| win\.isDestroyed\(\)\) return/);
+});
+
+test("desktop navigation retries one transient Electron abort", async () => {
+  let calls = 0;
+  let current = "file:///splash.html";
+  const win = {
+    isDestroyed: () => false,
+    webContents: { isDestroyed: () => false, getURL: () => current },
+    loadURL: async (target: string) => {
+      calls += 1;
+      if (calls === 1) throw new Error("ERR_ABORTED (-3) loading URL");
+      current = target;
+    },
+  };
+  await loadWindowUrl(win, "http://127.0.0.1:1234/", () => false, {
+    retryDelayMs: 0,
+    timeoutMs: 100,
+  });
+  assert.equal(calls, 2);
+  assert.equal(current, "http://127.0.0.1:1234/");
+});
+
+test("desktop navigation does not load into a closed window", async () => {
+  let calls = 0;
+  const win = {
+    isDestroyed: () => true,
+    webContents: { isDestroyed: () => true, getURL: () => "" },
+    loadURL: async () => {
+      calls += 1;
+    },
+  };
+  await assert.rejects(
+    loadWindowUrl(win, "http://127.0.0.1:1234/", () => false, {
+      retryDelayMs: 0,
+      timeoutMs: 100,
+    }),
+    /window closed during navigation/,
+  );
+  assert.equal(calls, 0);
 });
 
 test("recovery screen uses plain user-facing language", async () => {
