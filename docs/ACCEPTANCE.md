@@ -11,15 +11,15 @@
 
 允许结论：
 
-- `PASS`：所有 Hard PASS，exact set冻结。
-- `AWAITING_<EXTERNAL>`：所有可自动化Hard PASS，仅精确列出的native runner/真实账户/final key未发生。
-- `FAIL`：任一Hard FAIL、STALE、MISSING、伪造或产品偏航。
+- `PASS`：所有适用的自动化、native、installed 与 public-release Hard PASS，exact set冻结。
+- `OWNER_ACCEPTANCE_PENDING`：需要所有者账号或长时间运行的补充验收尚未发生；不得冒充 PASS，也不覆盖已完成的自动化/native/public 证据。
+- `FAIL`：任一适用发布 Hard FAIL、STALE、MISSING、伪造或产品偏航；已执行的补充验收若发现真实失败，也必须单独处置。
 
 `SKIP`、`BLOCKED`、`NOT_RUN`、`WAIVED`、`UNKNOWN`、`INCOMPLETE`都不是PASS。本版没有条件豁免。community trust tier中的`notarized=false`是候选定义的受验事实，不是被豁免的OS信任门。
 
 ## 2. Evidence 规则
 
-以下每一行都是 Hard。registry 继续保留 R50/R55 的机器可解析 ID，并由 0.5.7 delta 增加本轮产品门；基础表预期共 **330** 个唯一 Hard ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
+以下每一行都是对应证据类别内的 Hard assertion。registry 继续保留 R50/R55 的机器可解析 ID，并由 0.5.7 delta 增加本轮产品门；基础表预期共 **330** 个唯一 ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。需要所有者账号或长时间运行的 live/soak assertion 属补充验收：缺失不能冒充 PASS，也不作为自动化发布聚合的永久阻塞项。
 
 平台标记：
 
@@ -40,7 +40,7 @@
 | `R50-TRUTH-004` | UNFROZEN identity不得携带artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | release branch/PR 可审计且不 force；合并前不创建公开 tag，合并后 main 必须保持 exact candidate source | git/aggregate |
 | `R50-TRUTH-006` | candidate freeze 时 HEAD 已推送、dirty=false；公开 freeze 时 `origin/main` 必须等于同一 source SHA | git/aggregate |
-| `R50-TRUTH-007` | 任一子门FAIL/INCOMPLETE/STALE都使verify:release non-zero | fault/all |
+| `R50-TRUTH-007` | 任一适用发布硬子门FAIL/INCOMPLETE/STALE都使verify:release non-zero；补充验收另列 | fault/all |
 | `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.7`，且发布前 updater Release 不得冒充已公开 | manifest/aggregate |
 
 ### B. DSH唯一核心与 capability parity（8）

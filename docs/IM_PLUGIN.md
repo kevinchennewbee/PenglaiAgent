@@ -1,11 +1,12 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.7 用户只看到一个「消息连接」插件。九个平台都有真实连接入口，不再把后七个
+> 0.5.7 用户只看到一个「消息连接」插件。八个平台都有真实连接入口，不再把新增渠道
 > 显示为路线图。manifest 的 `live` 是历史兼容字段，表示 0.5.7 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
 > 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。Slack、Telegram、
-> Discord 禁止伪装扫码。WhatsApp 默认关闭，并明确社区协议与账号风险。下文微信/
+> Discord 禁止伪装扫码。WhatsApp 社区 runtime 不随 0.5.7 分发，兼容性说明卡没有
+> 连接动作。下文微信/
 > 飞书合同继续约束已有 live 路径；新渠道只有通过 adapter、health、send-reject
 > 和 live evidence 后才能进入 `LIVE_CHANNEL_IDS`。
 
@@ -268,7 +269,7 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 - inbound/outbound body 仅为执行/重试短期保存，默认完成后 24 小时内清理；用户可设更短，不能无限保留。
 - secret、QR、verification code 不入 DB。
 - 微信最新 `context_token` 视为厂商会话凭据，只通过 official credentials seam 保存；重启后可恢复 original-route reply/native voice probe，logout/revoke 必须与 bot token 一并删除，renderer/diagnostics/evidence 不可读取明文。
-- raw audio/TTS temp不作为长期DB blob；只存短期AudioHandle/digest/state并按`docs/VOICE_PLUGINS.md`清理。
+- raw audio/TTS temp不作为长期DB blob；只存短期AudioHandle/digest/state并按`docs/compatibility/VOICE_R3.md`清理。
 - message/peer/vendor target只保存路由所需最小值；真实target与display peerRef分列并限制访问，diagnostics/evidence只使用digest。
 - WAL/backup/rollback 与主 DB 同样受 retention/secret scan。
 

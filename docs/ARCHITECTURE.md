@@ -204,7 +204,9 @@ without touching source files.
 
 `@penglai/im` owns one adapter registry, durable inbox/outbox, bindings,
 deterministic commands, correlation, causal routing, recovery, and diagnostics.
-`LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu remain live from 0.5.6.
+`LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu retain their distributed
+adapter and migration paths from 0.5.6; that source/runtime continuity is not a
+substitute for evidence bound to a later installed release.
 The other six distributed platforms receive adapters in 0.5.7 and join
 `LIVE_CHANNEL_IDS` only after acceptance. The user-facing surface exposes eight
 connection actions plus a disabled WhatsApp compatibility card.

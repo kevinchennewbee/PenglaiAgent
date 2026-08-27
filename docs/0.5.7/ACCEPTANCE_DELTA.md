@@ -85,6 +85,11 @@ public bytes/site (P) are not interchangeable.
 
 ## Live and public
 
+Live-account and long-running installed checks are supplemental Owner
+acceptance. Missing evidence remains explicit and must never become a synthetic
+PASS, but it does not invalidate an otherwise complete automated/native/public
+release aggregate. A real failure, once observed, remains actionable evidence.
+
 - `R57-LIVE-001` — each platform has a redacted live evidence row or an explicit
   `LIVE_NOT_RUN` / `LIVE_BLOCKED` reason. Mocks do not substitute.
 - `R57-PUBLIC-001` — README, notes, and website do not claim nine-platform

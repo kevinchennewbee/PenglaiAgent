@@ -131,7 +131,8 @@ Grok Build 的职责是把源码开发完成并推送到 `0.5.7`。Codex 保留�
 
 ### 3.4 社区采用四级账本
 
-Grok 新建 `docs/0.5.7/provenance/COMMUNITY_RESEARCH_LEDGER.md`，每个被提及项目必须标一种模式：
+社区研究结果记录到现有的 `docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md` 及对应的
+逐项目 provenance 文件；每个被提及项目必须标一种模式：
 
 1. `survey-only`：只看过，不形成产品设计；README 不宣称基于它。
 2. `principle-reference`：借鉴通用思想，独立实现；记录 repo、commit、许可证、借鉴点和未复制代码声明。

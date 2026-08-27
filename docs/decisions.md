@@ -285,16 +285,6 @@
 ### D-047 — 前置 pre-DSH 向导取代 DSH Web 内引导遮罩
 
 - 状态：ACCEPTED
-- 决定：未完成引导时主窗口加载同源 `/wizard`；ledger COMPLETE 后切入 official DSH Web。
-- 后果：不是 DSH Web 内第二套引导，也不是长期自制主 UI。
-
-### D-048 — IM 渠道默认官方一键扫码
-
-- 状态：ACCEPTED
-- 决定：微信、飞书和以后的渠道默认官方一键扫码。微信把 iLink `qrcode_img_content` 画成 PNG。飞书走 `accounts.feishu.cn/oauth/v1/app/registration` 创建 PersonalAgent，再把凭据写入 official credentials 并长连接。
-- 后果：禁止假二维码和用户 OAuth Device Flow。手动 App ID/Secret 只作后备。
-
-- 状态：ACCEPTED
 - 决定：首次引导不再在 DSH Web 内渲染全屏遮罩或注册`settings.onboarding`。未完成引导时主窗口加载经认证代理同源提供的 `/wizard` plain HTML/JS/CSS 前置页；ledger `current === "COMPLETE"` 后切入 official DSH Web。见 ADR 0030。
 - 后果：onboarding 不再依赖 DSH Web 先启动；`wizardFinished` 在 official 面加载成功后才下线 `/wizard`，失败则回滚；ledger 是唯一事实源，按非 symlink app-private 文件校验。DSH 的 theme/locale/Models/Workspace/Session/tools/approvals/settings 不变。
 
@@ -372,9 +362,15 @@
 
 ### D-060 — 0.5.7 九渠道连接入口、单一 IM Core、官网进 main
 
-- 状态：ACCEPTED（Owner 2026-08-25 要求 0.5.7 作为 0.5.6 之后的开发/验收/发布合同）
+- 状态：SUPERSEDED by D-061；本条保留 2026-08-25 候选阶段的历史决策
 - 决定：用户只看到一个「消息连接」插件 `@penglai/im`。九个平台都有真实连接入口，不再把后七个显示为路线图。manifest 的 `live` 是历史兼容字段，只表示 0.5.7 包含真实 adapter 实现，不表示用户已启用或 live-account 已验收。没有 live evidence 不得在 README、官网或 Release 中声称九平台全部支持。DSH 继续固定 `0.1.1-rc.2`。DSH-IM 只参考 unsigned `v3.0.5` / `64587b3b6162fa34f1c3ddb335a254d4154c9175`（更早版本为历史 pin），禁止安装整包、复制 `lib/`/`bin/`/`cordis.patch.yml`。v3.0.3 的 WhatsApp 群聊改动与蓬莱 private-only 规则冲突且已由上游回滚；0.5.7 只新增 exact `ilinkai.wechat.com` 和卡片状态布局原则。Slack/Telegram/Discord 禁止伪装扫码。WhatsApp 默认关闭，`supportLevel: experimental`，`risk: community-protocol`。官网源文件进入 `main` 的 `website/`，`gh-pages` 只保存审核后的部署产物。提交身份文件保持 `phase=UNFROZEN` 且 `sourceSha=NONE`，这是模板状态；候选 evidence 由构建绑定真实 Git SHA，源文件不得伪造无法自引用的 commit。
 - 后果：渠道适配器只做认证、收发、状态和媒体转换。所有高影响操作继续走 Main Owner Broker。Grok Build 终点是远端 `0.5.7` 分支和指向 `main` 的 Draft PR；不合并、不打 `v0.5.7`、不发 Release、不部署生产官网。
+
+### D-061 — 0.5.7 最终八渠道发行边界与发布后验收分层
+
+- 状态：ACCEPTED（Owner 2026-08-27 最终发行决策）
+- 决定：0.5.7 只分发微信、飞书、钉钉、企业微信、QQ、Slack、Telegram、Discord 八个平台连接入口；`@penglai/im` 仍是唯一 IM runtime。WhatsApp 社区 runtime、Baileys 及 GPL-3.0 libsignal 不进入生产依赖、插件包或安装包，兼容性说明卡没有连接动作。已公开 `v0.5.7` tag、十个附件、源码 SHA 与签名/摘要保持不可变。自动化发布门禁与需要所有者账号或长时间运行的补充验收分开记录；补充验收缺失不得伪造 PASS，也不反向改写已经完成的自动化和公开字节证据。
+- 后果：当前 README、官网、Release 与现行安全/架构文档统一使用八渠道发行口径。真实账号验收可在发布后由 Owner 独立补做。官网继续保留现有水墨视觉、中文根页与 `/en/` 英文页，不以发布后文档修正重做视觉站点。
 
 ## Superseded
 

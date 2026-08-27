@@ -6,8 +6,8 @@ Penglai 0.5.7 is a **community-verified** desktop distribution of official DeepS
 
 | Version | Status |
 | --- | --- |
-| 0.5.7 | Current candidate; public support starts after immutable `v0.5.7` publication |
-| 0.5.6 | Last immutable public release |
+| 0.5.7 | Current immutable public release |
+| 0.5.6 | Previous immutable public release; supported for upgrade to 0.5.7 |
 | 0.5.0–0.5.5 | Supported only for upgrading to the current 0.5 generation; 0.5.0 requires a manual overlay |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
@@ -36,11 +36,11 @@ pipeline.
 
 ## Instant messaging risk
 
-`@penglai/im` is the only IM plugin. Nine platforms have connection entries.
+`@penglai/im` is the only IM plugin. Eight platforms have connection entries.
 Adapters cannot call a parallel Agent. Live support is evidence-gated in
 `docs/0.5.7/LIVE_IM_MATRIX.md`. Slack, Telegram, and Discord do not fake QR.
-WhatsApp is experimental, community-protocol, default-off, and requires an
-explicit risk acknowledgement.
+The WhatsApp community runtime is not bundled in 0.5.7; its compatibility card
+has no connection action.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the user must create and publish their own enterprise self-built app. There is no Penglai-hosted Feishu QR and no fake “scan to finish”.
@@ -51,7 +51,10 @@ QR payloads, chat bodies, and identities must never appear in Git, logs, diagnos
 
 ## Reporting a vulnerability
 
-Email the repository owner privately. Do not open a public issue that contains secrets, QR images, chat text, owner paths, or updater private keys.
+Use GitHub's private
+[`Report a vulnerability`](https://github.com/kevinchennewbee/PenglaiAgent/security/advisories/new)
+flow. Do not open a public issue that contains secrets, QR images, chat text,
+owner paths, or updater private keys.
 
 Please include:
 

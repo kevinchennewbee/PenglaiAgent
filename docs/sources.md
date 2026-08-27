@@ -13,7 +13,8 @@
 - 核对 commit：`141eb6fef83422698aef7a981029e843e8161534`（tag `dsh-v0.1.0-rc.8`，2026-08-19）。
 - npm：`@deepseek-ai/dsh@0.1.0-rc.8`；现场 dist-tags 为 `latest=0.1.0-rc.7`、`next=0.1.0-rc.8`，不能把 rc.8 叙述为 stable。
 - npm integrity：`sha512-VQU5NlomrKLRgcXuOf+sxWFvqxPA8q9vMhrKPlPPXiOJEhGlGlAdiyxZvZxkCVI+v0zbhe21cY3/luLyxpSzzA==`。
-- 历史 pin：rc.6 见 ADR 0006，rc.7 见 ADR 0029；当前产品 pin 以 ADR 0031 与 `docs/compatibility/DSH_010_RC8.md` 为准。
+- 历史 pin：rc.6 见 ADR 0006，rc.7 见 ADR 0029；当前产品 pin 以 ADR 0031、
+  `docs/compatibility/DSH_011_RC2.md` 与 `release-contract.json` 为准。
 
 本地 installed packages 已核对：
 
@@ -29,7 +30,7 @@
 - Typert：host `TypertRemoteService`/`@Remote`，client mount generated `TYPERT_REMOTE`。
 - `dsh-credentials-local`：app-private `.credentials.yaml`、permission/atomic file 语义。
 
-结论：Penglai 通过 official locale/Models/settings/Remote 与 rc.8 brand slots 完成主要 composition；无 slot 的 document title、首次披露与 hero copy/background 仅使用 exact-version、exact-hash UI-only overlay，不能 fork runtime。当前审计见 `docs/compatibility/DSH_010_RC8.md`；rc.7 文档只保留历史过程。
+结论：Penglai 通过 official locale/Models/settings/Remote 与当时 rc.8 brand slots 完成主要 composition；无 slot 的 document title、首次披露与 hero copy/background 仅使用 exact-version、exact-hash UI-only overlay，不能 fork runtime。当前 rc.2 审计见 `docs/compatibility/DSH_011_RC2.md`；本节 rc.7/rc.8 内容只保留历史过程。
 
 ## 2. 腾讯微信 iLink
 
@@ -118,7 +119,7 @@ Forge是Electron官方教程推荐的统一打包方向，但具体DMG/Windows m
 ## 6.1 0.4.1 原生优势与 current DSH capability 归属
 
 - `PenglaiAgent` tag `v0.4.1` / commit `4f24d0bb84c385ed474e70cfdf89db32b4c49f33` 的 README 与源码已现场核对。
-- 真实差异化源码包括：`packages/host/src/voice/*`、`packages/host/src/context/*`、`packages/host/src/memory.ts`、`packages/host/src/distill/*`、`packages/host/src/budget.ts`、`packages/host/src/services.ts`及对应context/budget/memory/distill/quiet-hours tests。迁移矩阵见`docs/compatibility/PENGLAI_041_PARITY_R3.md`。
+- 真实差异化源码包括：`packages/host/src/voice/*`、`packages/host/src/context/*`、`packages/host/src/memory.ts`、`packages/host/src/distill/*`、`packages/host/src/budget.ts`、`packages/host/src/services.ts`及对应context/budget/memory/distill/quiet-hours tests。当前归属与迁移边界见`docs/PRODUCT.md`和`docs/ARCHITECTURE.md`。
 - 当前 `@deepseek-ai/dsh@0.1.0-rc.8` 依赖闭包已现场确认含 Goal、Plan、Todo、Skill/Skill filesystem/client UI、MCP client、Web、Attachment、Schedule、TokenMeter、Workspace、Session 与 presentation。
 - 因此Goal/Todo/Skills/MCP/Web/Attachments/Schedule/TokenMeter归official DSH复用；Voice/Context/Memory/Budget/Companion迁为Penglai plugins。package name存在不是最终seam证据，Grok仍须用actual profile/inventory/Service/Slot probe确认。
 - 0.4.1 source只作算法、数据合同、测试与许可证参考；不得打包旧Tauri/Host/EpisodeRunner、读取旧用户数据或建立第二核心。
