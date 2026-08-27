@@ -5,6 +5,9 @@ Status: `PUBLIC_READBACK_PASS`
 The immutable public Release was assembled from the clean export of the exact
 source SHA below. GitHub-hosted bytes, SHA-256 values, update-manifest signature,
 and all three installer signatures were downloaded and verified after publication.
+The committed `release-info.json` remains a non-self-referential template with
+`phase=UNFROZEN` and `sourceSha=NONE`; generated build and public manifests bind
+the observed release identity instead.
 
 | Field | Value |
 | --- | --- |

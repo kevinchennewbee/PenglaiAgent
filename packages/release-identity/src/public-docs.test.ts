@@ -20,17 +20,17 @@ test("R50-PREP-007 release notes state fresh install, trust, upgrade and uninsta
   assert.match(notes, /not notarized/);
   assert.match(notes, /silent auto-update/i);
   assert.match(notes, /Plugin Center/);
-  assert.match(notes, /darwin-x86_64/);
-  assert.match(notes, /win32-x86_64/);
+  assert.match(notes, /Penglai_0\.5\.7_macos_x64\.dmg/);
+  assert.match(notes, /Penglai_0\.5\.7_windows_x64_setup\.exe/);
   assert.match(notes, /automatic Workspace memory/i);
-  assert.match(notes, /live messaging/i);
-  assert.match(notes, /LIVE_IM_MATRIX/);
+  assert.match(notes, /eight platform connectors/i);
+  assert.match(notes, /WhatsApp\s+community runtime is not bundled/i);
   assert.match(notes, /not generic document blocks/i);
   assert.doesNotMatch(notes, /already notarized|App Store|zero-config Feishu|全自动升级/);
   recordAssertion({
     acceptanceId: "R50-PREP-007",
     runnerId: "docs",
-    testId: "release-notes-draft",
+    testId: "release-notes-public",
     assertionId: "fresh-install-trust-upgrade-uninstall",
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
@@ -48,24 +48,26 @@ test("R50-PREP-008 publication manifest lists the exact three-target release", (
   assert.match(md, /Penglai_0\.5\.7_windows_x64_setup\.exe/);
   assert.match(md, /public-export-manifest\.json/);
   assert.match(md, /kevinchennewbee\/PenglaiAgent/);
-  assert.match(md, /CANDIDATE|IMMUTABLE|PUBLIC_READBACK_PASS/);
+  assert.match(md, /PUBLIC_READBACK_PASS/);
   assert.match(md, /phase=UNFROZEN/);
   assert.match(md, /sourceSha=NONE/);
   assert.match(md, /community-verified/);
-  assert.match(md, /pending public readback/);
-  const observedCells = [...md.matchAll(/\| `Penglai_0\.5\.7_[^`]+` \| ([^|]+) \| ([^|]+) \|/g)];
+  assert.doesNotMatch(md, /pending public readback/i);
+  const observedCells = [
+    ...md.matchAll(/\| [^|\n]*`Penglai_0\.5\.7_[^`]+`[^|\n]*\| ([0-9,]+) \| `([0-9a-f]{64})` \|/g),
+  ];
   assert.equal(observedCells.length, 3);
   for (const cell of observedCells) {
     assertObservedReleaseFacts({
-      readbackStatus: "NOT_RUN",
-      bytes: cell[1]?.trim(),
+      readbackStatus: "PASS",
+      bytes: cell[1]?.replace(/,/g, "").trim(),
       sha: cell[2]?.replace(/`/g, "").trim(),
     });
   }
   recordAssertion({
     acceptanceId: "R50-PREP-008",
     runnerId: "manifest",
-    testId: "publication-manifest-draft",
+    testId: "publication-manifest-public",
     assertionId: "exact-three-target-assets",
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
