@@ -101,8 +101,10 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /welcome-dismiss/);
   assert.match(walk, /duplicate-dsh-onboarding/);
   assert.match(walk, /upstream-window-title/);
-  assert.match(walk, /target\.flag \? 15_000 : 5_000/);
+  assert.match(walk, /target\.readyFlag \? 30_000 : target\.flag \? 15_000 : 5_000/);
   assert.match(walk, /snapshot\?\.\[target\.flag\]/);
+  assert.match(walk, /snapshot\?\.\[target\.readyFlag\] === target\.readyValue/);
+  assert.match(walk, /\^软件更新\$/);
   assert.doesNotMatch(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(walk, /button\[aria-haspopup=\\?"dialog\\?"\]\[aria-expanded\]/);

@@ -645,9 +645,19 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
     { id: "ui-office", patterns: ["^蓬莱办公$", "^Penglai Office$"], flag: "office" },
-    { id: "ui-memory", patterns: ["^蓬莱记忆$", "^Penglai Memory$"], flag: "memory" },
+    {
+      id: "ui-memory",
+      patterns: ["^蓬莱记忆$", "^Penglai Memory$"],
+      flag: "memory",
+      readyFlag: "memoryStatus",
+      readyValue: "ready",
+    },
     { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$", "^Companion$"], flag: "companion" },
-    { id: "ui-update", patterns: ["^更新$", "^Updates$"], flag: "update" },
+    {
+      id: "ui-update",
+      patterns: ["^软件更新$", "^更新$", "^Software updates$", "^Updates$"],
+      flag: "update",
+    },
     { id: "ui-uninstall", patterns: ["^存储与卸载$", "^Storage and uninstall$"], flag: "uninstall" },
   ];
   const installResults = [];
@@ -660,9 +670,13 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
       session,
       SNAPSHOT_JS,
       target.flag
-        ? (snapshot) => Boolean(snapshot?.[target.flag])
+        ? (snapshot) =>
+            Boolean(
+              snapshot?.[target.flag] &&
+                (!target.readyFlag || snapshot?.[target.readyFlag] === target.readyValue),
+            )
         : (snapshot) => Boolean(snapshot?.navLabels?.length),
-      target.flag ? 15_000 : 5_000,
+      target.readyFlag ? 30_000 : target.flag ? 15_000 : 5_000,
     );
     if (target.flag && after?.[target.flag] && !settingsWalked.includes(target.id)) settingsWalked.push(target.id);
     steps.push({ id: target.id, click, observed: Boolean(target.flag && after?.[target.flag]), snap: slim(after) });
