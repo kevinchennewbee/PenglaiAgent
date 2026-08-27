@@ -75,6 +75,7 @@ test("Discord Gateway requests DM-only intent and handles resume opcodes", async
   for (let i = 0; i < 50 && !sockets[0]; i += 1) await Promise.resolve();
   const ws = sockets[0];
   assert.ok(ws);
+  assert.equal(ws.url, "wss://gateway.discord.gg/?v=10&encoding=json");
   ws.emit("message", { data: JSON.stringify({ op: 10, d: { heartbeat_interval: 45_000 } }) });
   const identify = ws.sent.find((row) => (row as { op?: number }).op === 2) as { d?: { intents?: number } };
   assert.equal(identify?.d?.intents, DISCORD_GATEWAY_INTENTS);

@@ -43,8 +43,6 @@ export class DiscordAdapter {
   private reconnectAttempt = 0;
   private sequence: number | null = null;
   private sessionId: string | null = null;
-  private resumeUrl: string | null = null;
-  private gatewayUrl: string | null = null;
   private heartbeatAcked = true;
   private generation = 0;
   private stopped = false;
@@ -83,7 +81,6 @@ export class DiscordAdapter {
     this.stopped = false;
     this.reconnectAttempt = 0;
     this.sessionId = null;
-    this.resumeUrl = null;
     this.sequence = null;
     if (this.transport?.connect) {
       this.gateway = this.transport.connect(creds.token, (event) => this.ingestMessage(event));
@@ -185,7 +182,6 @@ export class DiscordAdapter {
     this.gateway = undefined;
     this.token = undefined;
     this.sessionId = null;
-    this.resumeUrl = null;
     this.connection = "disabled";
   }
 
@@ -225,8 +221,10 @@ export class DiscordAdapter {
     });
     const body = (await hello.json()) as { url?: string };
     if (!body.url?.startsWith("wss://")) throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_URL");
-    this.gatewayUrl = body.url;
-    const url = new URL(resume && this.resumeUrl ? this.resumeUrl : body.url);
+    // Discord documents a single public Gateway origin. Do not allow a URL
+    // returned by the API or a Gateway event to become an arbitrary socket
+    // destination in the desktop process.
+    const url = new URL("wss://gateway.discord.gg");
     url.searchParams.set("v", "10");
     url.searchParams.set("encoding", "json");
     const create = this.transport?.createWebSocket ?? ((href: string) => new WebSocket(href) as unknown as DiscordSocket);
@@ -310,7 +308,7 @@ export class DiscordAdapter {
         onBadHello();
         return;
       }
-      this.startHeartbeat(interval, ws);
+      this.startHeartbeat(Math.min(interval, 60_000), ws);
       if (resume && this.sessionId && this.token) {
         this.sendGateway(ws, {
           op: 6,
@@ -343,7 +341,6 @@ export class DiscordAdapter {
     if (parsed.op === 9) {
       if (parsed.d !== true) {
         this.sessionId = null;
-        this.resumeUrl = null;
         this.sequence = null;
       }
       ws.close(4000, "Invalid session");
@@ -352,7 +349,6 @@ export class DiscordAdapter {
     if (parsed.op !== 0) return;
     if (parsed.t === "READY" && parsed.d && typeof parsed.d === "object") {
       this.sessionId = typeof parsed.d.session_id === "string" ? parsed.d.session_id : null;
-      this.resumeUrl = typeof parsed.d.resume_gateway_url === "string" ? parsed.d.resume_gateway_url : null;
       this.rememberPrivateChannels(parsed.d.private_channels);
       markReady();
     } else if (parsed.t === "RESUMED") {

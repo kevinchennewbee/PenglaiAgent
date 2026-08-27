@@ -59,7 +59,7 @@ test("0.5.7 closed Office edits cover paragraphs, tables, ranges, rows, formulas
   const rows = await edit(range.bytes, { kind: "xlsx.appendRows", sheet: "表一", values: [["D", 4]] });
   const formula = await edit(rows.bytes, { kind: "xlsx.setCell", sheet: "表一", cell: "C1", value: "SUM(B1:B4)", formula: true });
   const sheetText = (await inspect(formula.bytes)).text;
-  for (const expected of ["B", "2", "C", "3", "D", "4", "=SUM(B1:B4)"]) assert.match(sheetText, new RegExp(expected.replace(/[()]/g, "\\$&")));
+  for (const expected of ["B", "2", "C", "3", "D", "4", "=SUM(B1:B4)"]) assert.ok(sheetText.includes(expected));
 
   const pptx = await createStructuredDocument({ format: "pptx", slides: [{ kind: "cover", heading: "原标题", subheading: "原副标题" }] });
   const changed = await edit(pptx.bytes, { kind: "pptx.replaceSlideText", slideIndex: 0, runIndex: 1, text: "新副标题" });
