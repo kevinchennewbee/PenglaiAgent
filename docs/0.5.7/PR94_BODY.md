@@ -1,9 +1,9 @@
 # Penglai 0.5.7 release-candidate development
 
-This PR remains **Draft** while installed/live/native release evidence is being
-completed. Development, testing, merge preparation, and packaging are
-authorized. Creating the public `v0.5.7` tag/Release, switching downloads, and
-deploying the site require the Owner's final explicit approval.
+This PR remains **Draft** while installed/native release evidence is being
+completed. The Owner has authorized completion through merge, public
+`v0.5.7` Release, download switch, and website deployment; that authorization
+does not waive any source, security, native, installed, or public-readback gate.
 
 ## Product boundary
 
@@ -27,6 +27,10 @@ deploying the site require the Owner's final explicit approval.
 - v3.0.3 responsive status placement and the exact international iLink host
   were selectively rewritten. WeCom intermediate thinking/tool output and
   WhatsApp groups were rejected; the group change was also reverted upstream.
+- The later unsigned `v3.0.6` release was reviewed on 2026-08-27 without
+  re-pinning. Its DSH-IM workspace picker is not shipped by Penglai, and
+  Penglai already has bounded Weixin delivery diagnostics. Exact identity,
+  archive hash, and decisions are in `dsh-im-v3.0.6.md`.
 
 ## What changed
 
@@ -60,14 +64,16 @@ deploying the site require the Owner's final explicit approval.
 Executed with embedded Node `22.22.2` and pnpm `10.14.0`:
 
 - format and typecheck: PASS
-- core unit: 705 total, 690 pass, 15 Windows privilege skips, 0 fail
+- core unit: 706 total, 691 pass, 15 Windows privilege skips, 0 fail
 - channel contract: 118/118 PASS
 - IM integration: 51/51 PASS
-- desktop E2E/fault paths: 77 total, 76 pass, 1 Windows privilege skip, 0 fail
+- desktop E2E/fault paths: 78 total, 77 pass, 1 Windows privilege skip, 0 fail
 - security 15/15, chaos 5/5, source soak 1/1: PASS
 - dependency, license, secret, SBOM (1,220 components), notices: PASS
 - Windows native helper: MSVC x64 build and PE architecture PASS
 - embedded DSH closure: 435 packages, exact Windows native payloads, PASS
+- local NSIS 3.12 packaging and silent reinstall completed on the previous
+  candidate SHA; the final SHA is rebuilt after every source change
 - fresh private profile: official DSH HTTP 200, required Office/Memory inventory,
   Plugin Center, shutdown, and zero leftovers PASS
 
