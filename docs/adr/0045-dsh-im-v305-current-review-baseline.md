@@ -30,6 +30,10 @@ worker, or Harness client.
 5. WeCom intermediate thinking/tool output is not sent to external channels.
    WhatsApp groups remain unsupported and private-only, matching Penglai policy
    and the upstream v3.0.4 revert.
+6. The later unsigned `v3.0.6` delta was reviewed on 2026-08-27 but does not
+   replace this pin. Its workspace path-entry UI is not applicable to Penglai's
+   native picker, and Penglai already has bounded Weixin delivery diagnostics.
+   See `docs/0.5.7/provenance/dsh-im-v3.0.6.md`.
 
 ## Consequences
 

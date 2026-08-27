@@ -73,6 +73,16 @@
       "license": "MIT",
       "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
       "supersedes": "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
+      "reviewedAfterPin": [
+        {
+          "release": "v3.0.6",
+          "tagObject": "1351e80da911bcdb8b768995fcc1302ee514e4c9",
+          "commit": "c93f42f1cc1cdc8292f9803c378dc0fa520be4d2",
+          "archiveSha256": "d190fe26b467cc4f1596865bc6e7b2cfc758b744b22619fb25d3f29f08523718",
+          "fetched": "2026-08-27",
+          "decision": "reviewed, no re-pin: native workspace picker is not applicable and Penglai already has bounded Weixin delivery diagnostics"
+        }
+      ],
       "historical": [
         "v3.0.4 / 50d55090b9e44ea937a496042db89e5162a5aa58",
         "v3.0.3 / a9bb0ed3baf40fe9e82da4ac062b57855ce4b866",

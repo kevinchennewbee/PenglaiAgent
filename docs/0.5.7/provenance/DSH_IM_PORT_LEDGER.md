@@ -5,6 +5,8 @@ Current 0.5.7 pin: `https://github.com/xmanrui/dsh-im` @
 `63bdfc72be1289097e3c73acb95ba9260531091d`). Earlier identities are
 historical only. See `dsh-im-v3.0.5.md` for the eight-commit review from
 v3.0.2 and the explicit adopted/rejected decisions.
+The later `v3.0.6` delta was reviewed on 2026-08-27 and did not change the
+pin; see `dsh-im-v3.0.6.md` for the exact identity and decisions.
 Use: design/reference or rewrite into Penglai IM Core. Never vendor generated
 `lib/` or start the DSH-IM runtime.
 
