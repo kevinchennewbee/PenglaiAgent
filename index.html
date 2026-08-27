@@ -1,44 +1,127 @@
 <!doctype html>
-<html lang="zh">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>蓬莱 Penglai 0.5.7</title>
-    <link rel="stylesheet" href="./styles/main.css" />
-  </head>
-  <body>
-    <header>
-      <p>会发消息，就能找到自己的助理。</p>
-      <p><a href="./en/index.html">English</a></p>
-    </header>
-    <main>
-      <p>蓬莱是官方 DeepSeek Harness 的桌面发行版。不可变的 <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7">v0.5.7</a> 已正式发布，三个安装包来自同一源码提交，并已通过公网哈希与签名回读。</p>
-      <h2>下载 0.5.7</h2>
-      <ul class="download-cards">
-        <li><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg"><strong>Apple Silicon Mac</strong></a><br />452.4 MiB · <code>bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8</code></li>
-        <li><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_x64.dmg"><strong>Intel Mac</strong></a><br />382.5 MiB · <code>ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e</code></li>
-        <li><a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_windows_x64_setup.exe"><strong>Windows x64</strong></a><br />339.4 MiB · <code>cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a</code></li>
-      </ul>
-      <h2>消息连接</h2>
-      <p>0.5.7 在唯一的消息连接插件下提供八个平台连接入口。</p>
-      <ul class="platform-cards">
-        <li><strong>微信</strong> — 官方 iLink 扫码</li>
-        <li><strong>飞书</strong> — 官方应用扫码 / 凭据</li>
-        <li><strong>钉钉</strong> — 设备注册扫码 + Stream</li>
-        <li><strong>企业微信</strong> — 智能机器人扫码</li>
-        <li><strong>QQ</strong> — 官方机器人扫码，不是个人号</li>
-        <li><strong>Slack</strong> — Bot Token + App Token，无官方扫码</li>
-        <li><strong>Telegram</strong> — Bot Token 长轮询，无官方扫码</li>
-        <li><strong>Discord</strong> — Bot Token + Gateway，无官方扫码</li>
-        <li><strong>WhatsApp</strong> — 0.5.7 不捆绑社区协议 runtime</li>
-      </ul>
-      <h2>真实连接方式</h2>
-      <p>用户只看到一个「消息连接」插件。微信、飞书、钉钉、企业微信与 QQ 使用各自真实的扫码或设备注册流程；Slack、Telegram、Discord 使用官方 Manifest 或 Token。WhatsApp 在本版本中没有连接动作。</p>
-      <h2>0.5.7 同时补全</h2>
-      <p>本轮还补全办公文档工作流、记忆候选与权限、主动陪伴、插件安装与回滚、Windows 生命周期和隐私门禁，不把 0.5.7 缩成一个 IM 换皮版本。</p>
-      <h2>致谢与来源</h2>
-      <p>感谢 <a href="https://github.com/xmanrui/dsh-im">DSH-IM</a> 社区提供多通道工程思路，并感谢 <a href="https://github.com/tencent-connect/botpy">qqbot-agent-sdk</a> 的 QQ 官方机器人接入参考。蓬莱在自己的 IM 控制平面内选择性重写这些思路，不捆绑两者的运行时。完整版本、许可证、取舍与来源见仓库的第三方清单和 provenance 记录。</p>
-      <p>发布源码：<a href="https://github.com/kevinchennewbee/PenglaiAgent/commit/ce01d4dea59af72422071e357760a040f19b8e3d"><code>ce01d4dea59af72422071e357760a040f19b8e3d</code></a>。macOS ad-hoc 未公证；Windows 无 Authenticode。</p>
-    </main>
-  </body>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>蓬莱 0.5.7 | 把 DeepSeek Harness 装进你的电脑</title>
+  <meta name="description" content="蓬莱是 DeepSeek Harness 的本地优先桌面发行版。0.5.7 带来更完整的办公、记忆、消息连接、插件生命周期与三端桌面发行。">
+  <meta property="og:title" content="蓬莱 0.5.7">
+  <meta property="og:description" content="DeepSeek Harness，装好就能用。办公、记忆、手机消息和本地语音都在一个桌面发行版里。">
+  <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/0.5.5/plugin-center.png">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="alternate" hreflang="en" href="./en/">
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="seal">蓬</span><span>蓬莱 <small>PENGLAI</small></span></a>
+    <nav aria-label="主导航">
+      <a href="#new">0.5.7</a>
+      <a href="#inside">内置能力</a>
+      <a href="#story">缘起</a>
+      <a href="#download">下载</a>
+      <a href="./en/" hreflang="en">EN</a>
+      <a class="github" href="https://github.com/kevinchennewbee/PenglaiAgent">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <img class="hero-art" src="./shots/banner-v1.png" alt="云海中的蓬莱仙山">
+      <div class="hero-shade"></div>
+      <div class="hero-copy">
+        <p class="eyebrow">Penglai 0.5.7 · DeepSeek Harness 0.1.1-rc.2</p>
+        <h1>不是另一个 Agent。<br>是把好用的开源 Agent，真正装进电脑。</h1>
+        <p class="lead">蓬莱把官方 DeepSeek Harness、Node、Electron、首次引导、更新、卸载和一组实用 DSH 插件放进一个桌面客户端。你不用先学终端，也不用把日常交给一个新的云账号。</p>
+        <div class="actions">
+          <a class="button primary" href="#download">下载 0.5.7</a>
+          <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent">查看源代码</a>
+        </div>
+        <p class="quiet">MIT 开源 · 本地优先 · Apple Silicon / Intel Mac / Windows x64</p>
+      </div>
+    </section>
+
+    <section class="intro" id="new">
+      <div>
+        <p class="eyebrow">这次真正变了什么</p>
+        <h2>DSH 还是唯一核心，蓬莱把它变成了一个完整产品。</h2>
+      </div>
+      <p>模型、工具、Workspace、Session、Turn 和会话界面都归官方 DSH。蓬莱负责那些不起眼却决定“能不能交给普通人”的部分：安装、首次配置、本地路径、进程守护、插件启停、升级与数据清理。0.5.7 继续补齐办公、记忆、消息连接和 Windows 生命周期，并把三端安装包、依赖清单与更新签名锁定到同一份发布源码。</p>
+    </section>
+
+    <figure class="feature-shot wide-shot">
+      <img src="./shots/0.5.5/plugin-center.png" alt="真实安装的蓬莱 0.5.5 插件中心">
+      <figcaption>0.5.5 安装版截图作为界面参考；0.5.7 的原生安装与公开字节证据记录在发布清单中。</figcaption>
+    </figure>
+
+    <section class="section" id="inside">
+      <p class="eyebrow">安装包里已经有</p>
+      <h2>办公和记忆默认启用，其余能力需要时再开。</h2>
+      <div class="cards">
+        <article><span class="state on">默认启用</span><h3>蓬莱办公</h3><p>读取、创建、修改、预览和保存 DOCX、XLSX、PPTX 与 PDF。写入前有计划和确认，PDF 自带中文字体，不要求用户安装 LibreOffice。</p></article>
+        <article><span class="state on">默认启用</span><h3>蓬莱记忆</h3><p>安全的项目事实会自动整理到当前 Workspace；整理候选会调用你选择的模型供应商，记录与召回留在本机。个人事实仍需明确保存，记忆绝不会跨 Workspace 召回。</p></article>
+        <article><span class="state">按需启用</span><h3>蓬莱消息连接</h3><p>微信、飞书、钉钉、企业微信、QQ、Slack、Telegram 与 Discord 统一进入 <code>@penglai/im</code>，按平台使用扫码、设备注册或官方 Token。0.5.7 不捆绑 WhatsApp 社区协议运行时。</p></article>
+        <article><span class="state">按需启用</span><h3>本地语音</h3><p>SenseVoice 负责语音识别，MOSS-TTS 负责语音生成。会话 Read 朗读原文，不负责翻译；试听与 Read 都可再次点击停止。插件代码随包，较大的模型权重会在启用时说明后再下载。</p></article>
+        <article><span class="state">按需启用</span><h3>主动陪伴</h3><p>只有你主动开启后才会定时联系，并受安静时间、每日次数和指定消息渠道约束。默认不会擅自运行。</p></article>
+        <article><span class="state">持续更新</span><h3>签名插件中心</h3><p>插件列表来自不可变 GitHub Release。兼容的新插件可以通过签名目录加入，不必只为更新一张列表重发桌面版本。</p></article>
+      </div>
+    </section>
+
+    <section class="gallery" aria-label="0.5.5 安装版界面参考">
+      <figure><img src="./shots/0.5.5/office.png" alt="蓬莱办公设置页"><figcaption>蓬莱办公：创建、查看和有确认的修改流程</figcaption></figure>
+      <figure><img src="./shots/0.5.5/memory.png" alt="蓬莱记忆设置页"><figcaption>蓬莱记忆：Workspace 隔离、图谱、更正和迁移</figcaption></figure>
+      <figure><img src="./shots/0.5.5/mobile-messaging.png" alt="蓬莱手机消息设置页"><figcaption>手机消息：微信与飞书共用一个 IM 插件</figcaption></figure>
+      <figure><img src="./shots/0.5.5/speech-recognition.png" alt="蓬莱语音识别设置页"><figcaption>语音识别：模型安装后，电脑会话出现麦克风</figcaption></figure>
+    </section>
+
+    <section class="section first-run">
+      <div class="copy">
+        <p class="eyebrow">第一次打开，不该是一道坎</p>
+        <h2>七步引导，走到第一条真实回复才算完成。</h2>
+        <p>选语言和外观，了解本地数据边界，从官方模型列表选择供应商和模型，测试自己的 API Key，选一个真正的 Workspace，然后发送第一条 DSH 消息。可以返回、重试和重启续接；失败不会被伪装成成功。</p>
+      </div>
+      <img src="./shots/0.5.5/welcome.png" alt="蓬莱 0.5.5 首次引导欢迎页">
+    </section>
+
+    <section class="story section" id="story">
+      <p class="eyebrow">为什么叫蓬莱</p>
+      <blockquote>我做了十多年网络、安全和运维，却不是软件开发者。蓬莱一开始就想证明一件事：AI 时代，普通人也能为自己造工具。</blockquote>
+      <p>从命令行到窗口，再到每个人口袋里的手机，计算机一直在降低使用门槛。Agent 也应该走同一条路。会发消息，就应该能找到自己的助手；它替你做了什么、能看什么、花了多少，也应该讲得清楚。</p>
+      <p>蓬莱已经重做过不止一次。0.5 最重要的决定，是停止再造一个 Agent，转而站在 DeepSeek Harness 这个开源核心上，把安装、办公、记忆、手机消息和本地语音一件件做好。旧版本留在 Git 历史里讲这段路，但不会和新的 DSH 核心混在一起。</p>
+      <p class="signature">陈克文 / Kevin Chen</p>
+    </section>
+
+    <section class="trust section">
+      <p class="eyebrow">边界说在前面</p>
+      <h2>社区发行版，不把“签名”说成操作系统背书。</h2>
+      <div class="trust-grid">
+        <p><strong>没有蓬莱账号或蓬莱运营的遥测后端。</strong>official DSH 自带 session-telemetry adapter 和一个休眠的 DeepSeek OTLP 地址。蓬莱会在所有 profile patch 之后硬性禁用该行，因此 owned DSH 不会创建 SDK provider 或上传管线。没有云端记忆同步；模型调用仍会把本次任务需要的内容发给你选择的模型供应商。</p>
+        <p><strong>macOS 未公证。</strong>安装包是 ad-hoc 签名；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。</p>
+        <p><strong>插件不是沙箱。</strong>签名、哈希、权限清单和回滚保护的是分发链路，但 DSH 插件仍与本地 DSH 共享进程权限。</p>
+        <p><strong>会话附件仍有限制。</strong>官方 DSH rc.2 的输入框支持文字和图片，不宣称直接发送普通办公文档；微信/飞书文件与蓬莱办公选择的 Workspace 文件走受限 artifact 管线。</p>
+      </div>
+    </section>
+
+    <section class="download section" id="download">
+      <p class="eyebrow">Penglai 0.5.7</p>
+      <h2>选择你的电脑。</h2>
+      <div class="download-grid">
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg"><strong>macOS · Apple 芯片</strong><span>452.4 MiB · M1 / M2 / M3 / M4 / M5</span><code>bfbaec4b9f4b627abd41e793abae6b68246d0f00d8e9c5ca003d079e1e3667c8</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_x64.dmg"><strong>macOS · Intel</strong><span>382.5 MiB · x86_64 Mac</span><code>ab696fc92a2b1af538eed6008c8389ddc945d9dce39d85b16053cf60d8e2655e</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_windows_x64_setup.exe"><strong>Windows · x64</strong><span>339.4 MiB · 64 位安装器</span><code>cb4687e621d951d6d8ba4cf8428f4723f35c9827fa70ac542d4d3d928d5d882a</code></a>
+      </div>
+      <p class="quiet">0.5.7 当前以不可变 GitHub Release 为公开下载源，三个安装包来自源码 <code>ce01d4dea59af72422071e357760a040f19b8e3d</code>。完整 SHA256SUMS、SBOM、第三方声明与签名元数据同页提供；更新不会静默执行。</p>
+      <div class="actions centered">
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7">中英文发布说明</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Penglai 由 <a href="https://github.com/kevinchennewbee">陈克文 / Kevin Chen</a> 发起并维护，基于 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>，MIT 开源。</p>
+    <p>多通道工程参考来自 <a href="https://github.com/xmanrui/dsh-im">DSH-IM</a> 社区；QQ 官方机器人接入参考来自 <a href="https://github.com/tencent-connect/botpy">qqbot-agent-sdk</a>。两者均未作为运行时整体捆绑。</p>
+    <p>感谢 Electron、Node.js、TypeScript、pnpm、SenseVoice、sherpa-onnx、MOSS-TTS-Nano、Mnemon、Lark SDK、openclaw-weixin 以及所有贡献者。</p>
+  </footer>
+</body>
 </html>
