@@ -435,6 +435,9 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(installedHelper, /process-resume/);
   const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
   assert.match(windowsPayload, /build-windows-host\.mjs/);
+  assert.match(windowsPayload, /scripts\/bundle-desktop\.mjs/);
+  assert.doesNotMatch(windowsPayload, /if \(!existsSync\(join\(ROOT, "dist", "desktop-bundle", "electron-main\.js"\)\)\)/);
+  assert.match(windowsPayload, /desktop bundle is missing or does not match the current startup page/);
   assert.match(windowsPayload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.match(windowsPayload, /join\(staging, "runtime", "helpers", "penglai-windows-host\.exe"\)/);
   assert.match(windowsPayload, /stamp-windows-exe\.mjs/);

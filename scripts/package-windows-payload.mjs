@@ -34,9 +34,22 @@ function run(cmd, args, extra = {}) {
   return result.status ?? 1;
 }
 
-if (!existsSync(join(ROOT, "dist", "desktop-bundle", "electron-main.js"))) {
-  const bundled = run(process.execPath, ["scripts/bundle-desktop.mjs"]);
-  if (bundled !== 0) finish("FAIL", { command: "package:windows-payload", reason: "desktop bundle failed" });
+// Never reuse a prior desktop bundle. Release identity is stamped from the
+// current Git commit, so the BrowserWindow code and static pages must be
+// rebuilt from that same checkout on every packaging invocation.
+const bundled = run(process.execPath, ["scripts/bundle-desktop.mjs"]);
+if (bundled !== 0) finish("FAIL", { command: "package:windows-payload", reason: "desktop bundle failed" });
+const sourceSplash = join(ROOT, "apps", "desktop", "static", "splash.html");
+const bundledSplash = join(ROOT, "dist", "desktop-bundle", "static", "splash.html");
+if (
+  !existsSync(join(ROOT, "dist", "desktop-bundle", "electron-main.js")) ||
+  !existsSync(bundledSplash) ||
+  readFileSync(bundledSplash, "utf8") !== readFileSync(sourceSplash, "utf8")
+) {
+  finish("FAIL", {
+    command: "package:windows-payload",
+    reason: "desktop bundle is missing or does not match the current startup page",
+  });
 }
 
 if (native) {

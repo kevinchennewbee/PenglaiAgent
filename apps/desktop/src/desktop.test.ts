@@ -121,9 +121,12 @@ test("R56-CORE-006 splash names boot phases in plain user-facing language", asyn
   assert.match(html, /data-penglai-splash/);
   assert.match(html, /data-penglai-splash-en/);
   assert.match(html, /data-penglai-splash-zh/);
-  assert.match(html, /Penglai is getting ready/);
-  assert.match(html, /正在启动核心功能/);
-  assert.doesNotMatch(html, /DeepSeek Harness|HTTP health|Runtime \/|Required plugins/);
+  assert.match(html, /正在准备你的个人 AI 助手/);
+  assert.match(html, /Getting your personal AI assistant ready/);
+  assert.match(html, /首次启动可能需要几秒/);
+  assert.match(html, /role="progressbar"/);
+  assert.doesNotMatch(html, /DeepSeek Harness|HTTP health|Runtime \/|Required plugins|official DSH/i);
+  assert.doesNotMatch(html, /<ol|<li/);
   assert.match(html, /starting-dsh/);
   assert.match(html, /verifying-required-plugins/);
   assert.doesNotMatch(html, /data-penglai-recovery/);
