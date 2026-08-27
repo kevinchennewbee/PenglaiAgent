@@ -68,7 +68,7 @@ Penglai Office
   https://github.com/liustack/pptfast
   Penglai bundles a deterministic Node runtime generated from that exact
   package, plus the license text for every npm package included in the bundle.
-  Image probing is deliberately unavailable in 0.5.6: PPTX creation is text
+  Image probing is deliberately unavailable in 0.5.7: PPTX creation is text
   only, so vulnerable optional image-size and Sharp paths are not shipped.
 - pdf-lib ${dependency(office, "pdf-lib")} and @pdf-lib/fontkit
   ${dependency(office, "@pdf-lib/fontkit")} - MIT:
@@ -126,7 +126,7 @@ Audio codecs
 Plugin Center transition
 ------------------------
 
-Penglai Office and Penglai Memory are first-party bundled plugins in 0.5.6.
+Penglai Office and Penglai Memory are first-party bundled plugins in 0.5.7.
 The former remote @penglai/office-reader package is not part of this desktop
 Release. Historical immutable catalog Releases remain available for audit;
 catalog 000006 revokes that obsolete exact artifact after 0.5.5 is public.

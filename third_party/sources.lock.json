@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "product": "0.5.6",
+  "product": "0.5.7",
   "sources": [
     {
       "id": "dsh-mnemon",
@@ -58,6 +58,53 @@
       "id": "pdf-lib",
       "npm": "pdf-lib@1.17.1",
       "license": "MIT"
+    },
+    {
+      "id": "dsh-im",
+      "repo": "https://github.com/xmanrui/dsh-im",
+      "release": "v3.0.5",
+      "tagObject": "63bdfc72be1289097e3c73acb95ba9260531091d",
+      "commit": "64587b3b6162fa34f1c3ddb335a254d4154c9175",
+      "tagSigned": false,
+      "archive": "https://codeload.github.com/xmanrui/dsh-im/tar.gz/64587b3b6162fa34f1c3ddb335a254d4154c9175",
+      "sha256": "ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7",
+      "bytes": 9835773,
+      "fetched": "2026-08-26",
+      "license": "MIT",
+      "use": "selective rewrite into @penglai/im; do not install runtime; do not copy lib/, bin/, or cordis.patch.yml",
+      "supersedes": "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
+      "reviewedAfterPin": [
+        {
+          "release": "v3.0.6",
+          "tagObject": "1351e80da911bcdb8b768995fcc1302ee514e4c9",
+          "commit": "c93f42f1cc1cdc8292f9803c378dc0fa520be4d2",
+          "archiveSha256": "d190fe26b467cc4f1596865bc6e7b2cfc758b744b22619fb25d3f29f08523718",
+          "fetched": "2026-08-27",
+          "decision": "reviewed, no re-pin: native workspace picker is not applicable and Penglai already has bounded Weixin delivery diagnostics"
+        }
+      ],
+      "historical": [
+        "v3.0.4 / 50d55090b9e44ea937a496042db89e5162a5aa58",
+        "v3.0.3 / a9bb0ed3baf40fe9e82da4ac062b57855ce4b866",
+        "v3.0.2 / 54468bbe1e93b30ae5778941cd65e725877dae74",
+        "v3.0.1 / fb8a9df652ed6eaa4b99a9338cab15db1b626b1c",
+        "v3.0.0 / 40b5a46516b44e30fa90e084400a8c3d578214e9",
+        "v2.5.0 / aa8fd71b936a0378604bd0f8f277059833ddb8f7",
+        "v2.4.0 / 7211534aeff01dba4ab78c79a5fa31cb9fa9510f"
+      ],
+      "notice": "third_party/NOTICE-dsh-im.txt",
+      "ledger": "docs/0.5.7/provenance/DSH_IM_PORT_LEDGER.md",
+      "provenance": "docs/0.5.7/provenance/dsh-im-v3.0.5.md"
+    },
+    {
+      "id": "qqbot-agent-sdk-onboard",
+      "repo": "https://github.com/tencent-connect/qqbot-agent-sdk",
+      "commit": "6163b5dc979a2f12379b1916805009075008c3c3",
+      "license": "MIT",
+      "licenseSha256": "3e8bf593e605a1fd2ea6ec37acbe1ee7d84ed689d7c5466463e6dbd60e461e65",
+      "licenseFile": "third_party/LICENSE-qqbot-agent-sdk.txt",
+      "use": "selective TypeScript rewrite of official QQ bot scan onboarding; upstream Python runtime is not shipped",
+      "provenance": "docs/0.5.7/provenance/qqbot-agent-sdk-onboard.md"
     },
     {
       "id": "noto-sans-sc",

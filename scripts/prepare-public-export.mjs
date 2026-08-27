@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { pnpmProcess } from "./lib/pnpm-process.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
 const contractsBuild = spawnSync(
@@ -133,16 +134,8 @@ if (wantCleanRoom) {
       detail: String(extract.stderr || "").slice(-800),
     });
   }
-  const corepackCli = process.env.COREPACK_ROOT
-    ? join(process.env.COREPACK_ROOT, "dist", "corepack.js")
-    : "";
-  if (!corepackCli || !existsSync(corepackCli)) {
-    finish("FAIL", {
-      command: "prepare:public-export",
-      reason: "clean-room requires the Corepack CLI that launched the pinned pnpm",
-    });
-  }
-  const install = spawnSync(process.execPath, [corepackCli, "pnpm", "install", "--frozen-lockfile", "--ignore-scripts"], {
+  const pinnedPnpm = pnpmProcess(["install", "--frozen-lockfile", "--ignore-scripts"]);
+  const install = spawnSync(pinnedPnpm.command, pinnedPnpm.args, {
     cwd: dest,
     encoding: "utf8",
     env: { ...process.env },

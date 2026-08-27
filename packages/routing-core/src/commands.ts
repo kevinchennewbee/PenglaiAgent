@@ -36,6 +36,8 @@ const COMMANDS = [
   "companion",
   "voice",
   "voiceid",
+  "version",
+  "版本",
 ] as const;
 
 export function parseCommand(text: string): ControlCommand | undefined {
@@ -110,6 +112,9 @@ export function parseCommand(text: string): ControlCommand | undefined {
       if (mode === "同时" || mode === "both") return { type: "voice_reply_mode", mode: "text-and-voice" };
       throw new PenglaiError("INVALID_INPUT", "voice mode must be text, voice, mirror, or both");
     }
+    case "版本":
+    case "version":
+      return { type: "version" };
     case "声音":
     case "voiceid":
       if (!rest) return { type: "voice_id" };
@@ -134,3 +139,11 @@ export function welcomeMenuText(locale: MenuLocale = "zh"): string {
 }
 
 export const KNOWN_COMMANDS: readonly string[] = COMMANDS;
+
+export function versionText(): string {
+  return [
+    "Penglai 0.5.7",
+    "DSH 0.1.1-rc.2 dsh-v0.1.1-rc.2 b150a551b8d465e31e418e1b2eaf5e79bbb7d28e",
+    "DSH-IM reference v3.0.5 unsigned tag 63bdfc72be1289097e3c73acb95ba9260531091d peeled 64587b3b6162fa34f1c3ddb335a254d4154c9175",
+  ].join("\n");
+}

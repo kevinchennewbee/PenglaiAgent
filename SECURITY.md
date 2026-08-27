@@ -1,12 +1,13 @@
 # Security Policy
 
-Penglai 0.5.6 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.5.7 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.5.6 | Current supported release after immutable publication |
+| 0.5.7 | Current candidate; public support starts after immutable `v0.5.7` publication |
+| 0.5.6 | Last immutable public release |
 | 0.5.0–0.5.5 | Supported only for upgrading to the current 0.5 generation; 0.5.0 requires a manual overlay |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
@@ -35,7 +36,11 @@ pipeline.
 
 ## Instant messaging risk
 
-`@penglai/im` is the only IM plugin. Weixin and Feishu are the only live adapters in 0.5.6 and cannot call a parallel Agent directly. DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp are roadmap-only and cannot connect, bind, or send.
+`@penglai/im` is the only IM plugin. Nine platforms have connection entries.
+Adapters cannot call a parallel Agent. Live support is evidence-gated in
+`docs/0.5.7/LIVE_IM_MATRIX.md`. Slack, Telegram, and Discord do not fake QR.
+WhatsApp is experimental, community-protocol, default-off, and requires an
+explicit risk acknowledgement.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the user must create and publish their own enterprise self-built app. There is no Penglai-hosted Feishu QR and no fake “scan to finish”.

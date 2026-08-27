@@ -188,12 +188,17 @@ for (const script of [soak, e2e]) {
 }
 
 test("soak runner refuses a dirty candidate before evaluating ALLOW_LONG", () => {
+  const nativeTarget = process.platform === "win32"
+    ? "win32-x86_64"
+    : process.arch === "arm64"
+      ? "darwin-aarch64"
+      : "darwin-x86_64";
   const started = Date.now();
   const result = spawnSync(process.execPath, [soak], {
     cwd: root,
     encoding: "utf8",
     timeout: 15_000,
-    env: { ...process.env },
+    env: { ...process.env, PENGLAI_TARGET: nativeTarget },
   });
   assert.ok(Date.now() - started < 15_000);
   assert.notEqual(result.status, 0);

@@ -131,10 +131,14 @@ const outDir = join(electronRoot, "dist", `penglai-${spec.platform}-${spec.arch}
 const hostApp = join(electronRoot, "dist", spec.appName);
 if (hostMatches) {
   if (!existsSync(hostApp)) {
-    const install = join(electronRoot, "install.js");
-    console.log("downloading pinned electron binary via official install.js");
-    const r = spawnSync(process.execPath, [install], { stdio: "inherit", env: { ...process.env } });
-    if (r.status !== 0) process.exit(r.status ?? 1);
+    const zipPath = cacheDirs.map((dir) => join(dir, spec.zip)).find((p) => existsSync(p));
+    const unpacked = zipPath ? extractZip(zipPath, join(electronRoot, "dist")) : null;
+    if (!unpacked || unpacked.status !== 0) {
+      const install = join(electronRoot, "install.js");
+      console.log("extracting the pinned Electron zip failed; falling back to official install.js");
+      const r = spawnSync(process.execPath, [install], { stdio: "inherit", env: { ...process.env } });
+      if (r.status !== 0) process.exit(r.status ?? 1);
+    }
   }
   if (!existsSync(hostApp)) {
     console.error("Electron binary still missing after install");
@@ -152,6 +156,8 @@ if (!zipPath) {
 mkdirSync(outDir, { recursive: true });
 function extractZip(archive, dest) {
   if (process.platform === "win32") {
+    const tar = spawnSync("tar", ["-xf", archive, "-C", dest], { stdio: "inherit" });
+    if (tar.status === 0) return tar;
     return spawnSync(
       "powershell",
       ["-NoProfile", "-Command", `Expand-Archive -Force -Path '${archive}' -DestinationPath '${dest}'`],

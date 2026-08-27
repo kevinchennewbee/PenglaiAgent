@@ -38,6 +38,7 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
+import { shouldRestartAfterExit, supervisorBackoffMs } from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -54,7 +55,7 @@ export * from "./windows-host.js";
 export * from "./packaging.js";
 export * from "./fuses.js";
 
-export const PENGLAI_VERSION = "0.5.6";
+export const PENGLAI_VERSION = "0.5.7";
 export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";
@@ -200,8 +201,13 @@ export function assertPluginJsClosure(pkgDir: string, id: string): void {
   if (js.includes("from \"../src/") || js.includes("from '../src/") || js.includes("from \"./src/") || js.includes("from './src/")) {
     throw new PenglaiError("STORE_CORRUPT", `${id} host still imports src`);
   }
-  if (id === "@penglai/im" && (js.includes("Dynamic require of") || js.includes("form-data/lib/form_data"))) {
-    throw new PenglaiError("STORE_CORRUPT", `${id} host inlines Lark/axios CJS`);
+  if (id === "@penglai/im") {
+    // Match quoted module specs only. The esbuild ESM helper is
+    // `Dynamic require of "' + x + '"`, which is not an inlined CJS require.
+    const specs = [...js.matchAll(/Dynamic require of ["']([^"']+)["']/g)].map((row) => row[1]);
+    if (specs.length > 0 || js.includes("form-data/lib/form_data")) {
+      throw new PenglaiError("STORE_CORRUPT", `${id} host inlines Lark/axios CJS`);
+    }
   }
 }
 
@@ -214,10 +220,12 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   const dest = join(destParent, "@deepseek-ai");
   if (existsSync(dest) || isSymlink(dest)) {
     const current = isSymlink(dest) ? readlinkSync(dest) : "";
-    if (current === layout.officialDeepseek) return;
+    if (current && resolve(current) === resolve(layout.officialDeepseek)) return;
     rmSync(dest, { recursive: true, force: true });
   }
-  symlinkSync(layout.officialDeepseek, dest, "dir");
+  // Windows directory junctions work for ordinary installed-app users without
+  // Developer Mode or elevated symlink privileges. POSIX keeps a normal dir link.
+  symlinkSync(layout.officialDeepseek, dest, process.platform === "win32" ? "junction" : "dir");
 }
 
 function isSymlink(path: string): boolean {
@@ -530,16 +538,32 @@ export function mergeLegacyContextIntoMemory(user: UserLayout): {
 export function activatePrivateProfile(layout: RuntimeLayout, user: UserLayout): void {
   const marker = join(user.profileWeb, "package.json");
   if (!existsSync(marker)) {
-    const staging = join(user.transactions, "staging-web");
-    writeJournal(user, { id: "seed", phase: "staging", lastGood: user.profileWeb });
+    const id = `seed-${randomUUID()}`;
+    const staging = join(user.transactions, `${id}.staging-web`);
+    const backup = join(user.transactions, `${id}.pre-activation`);
+    writeJournal(user, { id, phase: "staging", staging, backup });
     rmSync(staging, { recursive: true, force: true });
+    rmSync(backup, { recursive: true, force: true });
     seedWebProfile(layout.profileSeed, staging);
     installFirstPartyPlugins(layout, staging, user.transactions);
-    writeJournal(user, { id: "seed", phase: "activating", lastGood: user.profileWeb });
-    rmSync(user.profileWeb, { recursive: true, force: true });
-    copyDir(staging, user.profileWeb);
-    rmSync(staging, { recursive: true, force: true });
-    writeJournal(user, { id: "seed", phase: "committed", lastGood: user.profileWeb });
+    linkOfficialDeepseek(layout, staging);
+    writeJournal(user, { id, phase: "activating", staging, backup });
+    let movedCurrent = false;
+    try {
+      if (existsSync(user.profileWeb)) {
+        renameSync(user.profileWeb, backup);
+        movedCurrent = true;
+      }
+      renameSync(staging, user.profileWeb);
+      writeJournal(user, { id, phase: "committed" });
+      if (movedCurrent) rmSync(backup, { recursive: true, force: true });
+    } catch (error) {
+      if (existsSync(user.profileWeb)) rmSync(user.profileWeb, { recursive: true, force: true });
+      if (movedCurrent && existsSync(backup)) renameSync(backup, user.profileWeb);
+      rmSync(staging, { recursive: true, force: true });
+      writeJournal(user, { id, phase: "rolled_back" });
+      throw error;
+    }
   } else {
     mergeLegacyContextIntoMemory(user);
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions);
@@ -571,6 +595,8 @@ export interface Journal {
   id: string;
   phase: "idle" | "staging" | "activating" | "committed" | "rolled_back";
   lastGood?: string;
+  staging?: string;
+  backup?: string;
 }
 
 export function writeJournal(user: UserLayout, journal: Journal): void {
@@ -618,6 +644,7 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   const activationBackup = `${user.profileWeb}.center-backup`;
   assertOwnedCenterPath(user, txDir, "Center transaction directory");
   assertOwnedCenterPath(user, user.profileWeb, "Center profile");
+  healCenterLastGoodArtifacts(txDir);
   if (!existsSync(journalPath)) {
     rmSync(lockPath, { force: true });
     return { phase: "idle" };
@@ -703,16 +730,61 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   };
 }
 
+function healCenterLastGoodArtifacts(txDir: string): string | undefined {
+  const lastGood = join(txDir, "last-good");
+  if (existsSync(lastGood)) {
+    if (lstatSync(lastGood).isSymbolicLink() || !lstatSync(lastGood).isDirectory()) {
+      throw new PenglaiError("STORE_CORRUPT", "Center last-good profile invalid");
+    }
+    return lastGood;
+  }
+  if (!existsSync(txDir)) return undefined;
+  const candidates = readdirSync(txDir, { withFileTypes: true }).filter(
+    (entry) =>
+      entry.isDirectory() &&
+      (entry.name.startsWith("last-good-next-") || entry.name.startsWith("last-good-prev-")),
+  );
+  const next = candidates.filter((entry) => entry.name.startsWith("last-good-next-"));
+  const previous = candidates.filter((entry) => entry.name.startsWith("last-good-prev-"));
+  if (next.length > 1 || previous.length > 1) {
+    throw new PenglaiError("STORE_CORRUPT", "Center last-good recovery is ambiguous");
+  }
+  const selected = next[0] ?? previous[0];
+  if (!selected) return undefined;
+  const source = join(txDir, selected.name);
+  if (lstatSync(source).isSymbolicLink()) {
+    throw new PenglaiError("SECURITY_POLICY", "Center last-good recovery must not follow a symlink");
+  }
+  renameSync(source, lastGood);
+  return lastGood;
+}
+
 export function recoverProfile(user: UserLayout): Journal {
   recoverCenterProfileTransaction(user);
   const j = readJournal(user);
-  if (j.phase === "staging" || j.phase === "activating") {
-    if (j.lastGood && existsSync(j.lastGood)) {
-      const staging = join(user.transactions, "staging");
+  if (j.phase === "staging") {
+    const staging = j.staging ?? join(user.transactions, "staging");
+    rmSync(staging, { recursive: true, force: true });
+    j.phase = "rolled_back";
+    writeJournal(user, j);
+  } else if (j.phase === "activating") {
+    const staging = j.staging ?? join(user.transactions, "staging");
+    const marker = join(user.profileWeb, "package.json");
+    if (j.backup && existsSync(j.backup)) {
+      rmSync(user.profileWeb, { recursive: true, force: true });
+      renameSync(j.backup, user.profileWeb);
       rmSync(staging, { recursive: true, force: true });
       j.phase = "rolled_back";
-      writeJournal(user, j);
+    } else if (existsSync(marker)) {
+      rmSync(staging, { recursive: true, force: true });
+      j.phase = "committed";
+      delete j.staging;
+      delete j.backup;
+    } else {
+      rmSync(staging, { recursive: true, force: true });
+      j.phase = "rolled_back";
     }
+    writeJournal(user, j);
   }
   return j;
 }
@@ -971,9 +1043,12 @@ export class EmbeddedDshSupervisor {
   port = 0;
   child: ChildProcess | undefined;
   restarts = 0;
+  restartStamps: number[] = [];
   logs = "";
   identity: ProcessIdentity | undefined;
   private lastUser: UserLayout | undefined;
+  private lastStartEnv: NodeJS.ProcessEnv = {};
+  private restartTimer: ReturnType<typeof setTimeout> | undefined;
   health:
     | {
         http: number;
@@ -985,12 +1060,22 @@ export class EmbeddedDshSupervisor {
 
   async start(user: UserLayout, env: NodeJS.ProcessEnv = {}): Promise<{ port: number }> {
     if (this.state === "healthy" || this.state === "starting") return { port: this.port };
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
     assertAbsoluteExecutable(this.layout.nodeBin, "embedded node");
     assertAbsoluteExecutable(this.layout.dshEntry, "embedded dsh");
     // A supervisor must not launch a runtime whose integrity manifest is
     // absent or does not cover the embedded tree.
     verifyRuntimeManifest(this.layout);
     this.lastUser = user;
+    this.lastStartEnv = {
+      ...(env.LANG ? { LANG: env.LANG } : {}),
+      ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
+      ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
+      ...(env.PENGLAI_MNEMON_BINARY ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY } : {}),
+    };
     migrateUserSchema(user);
     killStaleSupervisor(this.layout, user);
     this.state = "starting";
@@ -1084,9 +1169,32 @@ export class EmbeddedDshSupervisor {
       this.logs += String(d);
     });
     this.child.on("exit", () => {
-      if (this.state === "stopping" || this.state === "starting") return;
-      this.state = "crashed";
+      const intentional = this.state === "stopping";
+      if (
+        !shouldRestartAfterExit({
+          intentional,
+          state: this.state,
+          stamps: this.restartStamps,
+        })
+      ) {
+        if (!intentional) this.state = "crashed";
+        return;
+      }
+      this.restartStamps.push(Date.now());
       this.restarts += 1;
+      this.state = "crashed";
+      const user = this.lastUser;
+      if (!user) return;
+      const restartEnv = { ...this.lastStartEnv };
+      const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
+      this.restartTimer = setTimeout(() => {
+        this.restartTimer = undefined;
+        if (this.state === "stopping" || this.state === "stopped") return;
+        void this.start(user, restartEnv).catch(() => {
+          this.state = "crashed";
+        });
+      }, delay);
+      this.restartTimer.unref?.();
     });
     try {
       await waitPort(this.port, 25_000);
@@ -1106,6 +1214,10 @@ export class EmbeddedDshSupervisor {
   }
 
   async stop(): Promise<void> {
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
     this.state = "stopping";
     const child = this.child;
     if (this.identity) killIdentity(this.identity, "SIGTERM");

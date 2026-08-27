@@ -23,6 +23,33 @@ test("route unique by adapter+peer", () => {
   store.close();
 });
 
+test("schema 12 keeps Weixin/Feishu routes and refuses duplicate vendor messages", () => {
+  const store = new Store(":memory:");
+  assert.equal(store.schemaVersion(), 12);
+  store.upsertRoute({ routeId: "wx1", adapter: "weixin", accountRef: "a", peerRef: "p", status: "active" });
+  const first = store.claimInboundOperation({
+    operationId: "op-1",
+    vendorMessageKey: "vendor-1",
+    routeId: "wx1",
+  });
+  const again = store.claimInboundOperation({
+    operationId: "op-2",
+    vendorMessageKey: "vendor-1",
+    routeId: "wx1",
+  });
+  assert.equal(first.created, true);
+  assert.equal(again.created, false);
+  assert.equal(again.operationId, "op-1");
+  store.upsertRoute({
+    routeId: "slack1",
+    adapter: "slack",
+    accountRef: "bot",
+    peerRef: "user",
+    status: "active",
+  });
+  store.close();
+});
+
 test("R1-STATE-016 refuses newer schema", () => {
   const store = new Store(":memory:");
   store.db.prepare("UPDATE schema_meta SET version=99").run();
@@ -50,7 +77,7 @@ test("cursor persist and event dedupe refuse tenant mismatch", () => {
 
 test("schema 6 exposes guards, sending recovery, and durable dispatch mode", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 11);
+  assert.equal(store.schemaVersion(), 12);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putGuard("r1", { pairingAttempts: 2, pairingLockedUntil: 9, rateWindowStart: 1, rateCount: 3 });
   assert.equal(store.getGuard("r1").pairingAttempts, 2);
@@ -108,7 +135,7 @@ test("schema 5 persists binding voice policy and resumable opaque voice jobs", (
 
 test("schema 8 persists pending IM menus and expires them", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 11);
+  assert.equal(store.schemaVersion(), 12);
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
   store.putPendingMenu("r1", {
     kind: "projects",
@@ -126,7 +153,7 @@ test("schema 8 persists pending IM menus and expires them", () => {
 
 test("schema 7 lets WeChat and Feishu share one official default session", () => {
   const store = new Store(":memory:");
-  assert.equal(store.schemaVersion(), 11);
+  assert.equal(store.schemaVersion(), 12);
   const unique = store.db
     .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='bindings_active_session'")
     .get() as { name?: string } | undefined;
@@ -199,10 +226,14 @@ test("P51-IM-001 outbox claim is exclusive", () => {
 test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
   const store = new Store(":memory:");
   store.upsertRoute({ routeId: "r1", adapter: "mock", accountRef: "a", peerRef: "p", status: "active" });
-  store.db.prepare("UPDATE routes SET adapter='slack', status='enabled' WHERE route_id='r1'").run();
+
+  store.db.prepare("UPDATE routes SET adapter='unknown-adapter' WHERE route_id='r1'").run();
   assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_ADAPTER/);
+
   store.db.prepare("UPDATE routes SET adapter='mock', status='enabled' WHERE route_id='r1'").run();
   assert.throws(() => store.getRoute("r1"), /UNKNOWN_ROUTE_STATUS/);
+
+  store.db.prepare("UPDATE routes SET status='active' WHERE route_id='r1'").run();
   store.insertInbound(
     {
       inboundId: "in-bad",
@@ -216,8 +247,26 @@ test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
     "secret-body",
     1,
   );
-  store.db.prepare("UPDATE inbounds SET state='success', dispatch_mode='private' WHERE inbound_id='in-bad'").run();
-  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_INBOUND_STATE|UNKNOWN_DISPATCH_MODE/);
+
+  store.db.prepare("UPDATE inbounds SET state='success' WHERE inbound_id='in-bad'").run();
+  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_INBOUND_STATE/);
+
+  store.db.prepare("UPDATE inbounds SET state='queued', dispatch_mode='private' WHERE inbound_id='in-bad'").run();
+  assert.throws(() => store.getInbound("in-bad"), /UNKNOWN_DISPATCH_MODE/);
+  store.close();
+});
+
+test("legacy ${channel}-default adapter config migrates transactionally", () => {
+  const store = new Store(":memory:");
+  store.putAdapterConfig("slack-default", "slack", JSON.stringify({ enabled: true }));
+  assert.equal(store.migrateLegacyAdapterAccount("slack", "cfg:slack"), true);
+  assert.equal(store.getAdapterConfig("slack-default"), undefined);
+  assert.equal(JSON.parse(store.getAdapterConfig("cfg:slack") ?? "{}").enabled, true);
+  assert.equal(store.migrateLegacyAdapterAccount("telegram", "cfg:telegram"), false);
+  store.putAdapterConfig("qq-default", "qq", JSON.stringify({ enabled: true }));
+  store.putAdapterConfig("cfg:qq", "qq", JSON.stringify({ enabled: false }));
+  assert.throws(() => store.migrateLegacyAdapterAccount("qq", "cfg:qq"), /LEGACY_ACCOUNT_COLLISION/);
+  assert.equal(JSON.parse(store.getAdapterConfig("qq-default") ?? "{}").enabled, true);
   store.close();
 });
 

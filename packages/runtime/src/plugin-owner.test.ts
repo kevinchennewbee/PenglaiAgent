@@ -18,7 +18,7 @@ test("plugin disable and rollback grants cannot be reused as enable", () => {
     userDataRoot: root,
     action: "plugin-disable",
     pluginId: "@penglai/im",
-    version: "0.5.6",
+    version: "0.5.7",
     sha256: "a".repeat(64),
     permissionDigest: digest,
   });
@@ -29,7 +29,7 @@ test("plugin disable and rollback grants cannot be reused as enable", () => {
         capabilityId: grant.capabilityId,
         action: "plugin-enable",
         pluginId: "@penglai/im",
-        version: "0.5.6",
+        version: "0.5.7",
         sha256: "a".repeat(64),
         permissionDigest: digest,
       }),

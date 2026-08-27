@@ -1,4 +1,4 @@
-# Penglai 0.5.6 安全与隐私合同
+# Penglai 0.5.7 安全与隐私合同
 
 ## 1. 信任目标
 
@@ -182,12 +182,16 @@ TCB包括Electron main/preload、embedded target Node、pinned DSH、profile/Cen
 - secret/body/QR/owner-path scan覆盖repo/public-export/app/DMG/Setup/log/DB/diagnostics/evidence。
 - Context grant escape/document bomb/source-delete、Memory scope/global-consent、Budget concurrency/clock/IM bypass、Companion quiet-hours/no-tools/dedupe/route/resource-zero。
 
-## 18. 0.5.6 权限与附件增量
+## 18. 0.5.7 权限与附件增量
 
 - Renderer 的 `ownerConfirmed`、布尔值、UUID 外形或模型文本都不是权限。Office、Memory、IM、Plugin Center 和 artifact persistence 统一消费 Main Owner Broker receipt；receipt 绑定 action/object/Workspace/Session/digest/destination/revision，真实动作成功后才 complete。
 - Artifact ID 是不透明 `artifact:<uuid>`，不是 filesystem path 或 content hash。相同字节跨 Workspace 仍为不同 binding；legacy digest 只有唯一时才可解析。
-- official DSH rc.2 只有 text/image Turn parts。0.5.6 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
+- official DSH rc.2 只有 text/image Turn parts。0.5.7 不用 DOM hack、假 image 或第二会话引擎制造普通文件附件；Office/IM 文件走 scope-checked Artifact Service。
 - macOS 包只声明双语麦克风用途，并剥离 Electron 默认 camera、Bluetooth 与无关 capture permission。Main 只允许由当前用户手势触发的 audio 请求。
-- 0.5.6 只有微信、飞书属于 live IM adapter；其余七个平台不能 connect/bind/send，也不能用假 QR 造成已连接错觉。
+- 0.5.7 的唯一「消息连接」插件提供九个平台的真实连接 adapter；公开“已支持”只以
+  `docs/0.5.7/LIVE_IM_MATRIX.md` 的脱敏真机证据为准。微信、飞书、钉钉、企业微信、
+  QQ 只显示供应商真实 QR/注册 challenge；WhatsApp 只显示真实设备绑定 challenge，且
+  默认关闭并要求风险确认。Slack、Telegram、Discord 没有对应的官方扫码流程，必须
+  如实使用官方 Manifest/Token，不得生成假 QR 或把 UI 状态冒充已连接。
 
 任一Critical/High或可复用secret泄漏都使候选FAIL。若真实凭据可能泄漏，立即停止、通知用户轮换、作废相关artifact/evidence；不得为了保住READY删日志掩盖。

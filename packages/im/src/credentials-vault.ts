@@ -3,6 +3,18 @@ import type { CredentialVault } from "@penglai/channel-weixin";
 
 export const WEIXIN_TOKEN_REF = "PENGLAI_WEIXIN_TOKEN";
 export const FEISHU_SECRET_REF = "PENGLAI_FEISHU_APP_SECRET";
+export const CHANNEL_CREDENTIAL_REFS = {
+  weixin: WEIXIN_TOKEN_REF,
+  feishu: FEISHU_SECRET_REF,
+  dingtalk: "PENGLAI_DINGTALK_CLIENT",
+  wecom: "PENGLAI_WECOM_BOT",
+  qq: "PENGLAI_QQ_BOT",
+  slack: "PENGLAI_SLACK_BOT",
+  telegram: "PENGLAI_TELEGRAM_TOKEN",
+  discord: "PENGLAI_DISCORD_TOKEN",
+  whatsapp: "PENGLAI_WHATSAPP_SESSION",
+} as const;
+export const WHATSAPP_DATAKEY_REF = "PENGLAI_WHATSAPP_DATAKEY";
 
 // Mirrors the official dsh-credentials REF_PATTERN; kept local so an invalid
 // ref is rejected before it can poison the whole .credentials.yaml document.

@@ -1,4 +1,4 @@
-# Penglai 0.5.6 architecture
+# Penglai 0.5.7 architecture
 
 ## English
 
@@ -204,7 +204,10 @@ without touching source files.
 
 `@penglai/im` owns one adapter registry, durable inbox/outbox, bindings,
 deterministic commands, correlation, causal routing, recovery, and diagnostics.
-Only `weixin` and `feishu` are members of `LIVE_CHANNEL_IDS` in 0.5.6.
+`LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu remain live from 0.5.6.
+The other seven platforms receive adapters in 0.5.7 and join `LIVE_CHANNEL_IDS`
+only after the corresponding live evidence exists. The user-facing surface still
+exposes nine connection cards.
 
 Inbound sequence:
 
@@ -219,9 +222,10 @@ Inbound sequence:
 7. correlate the durable final and enqueue outbound to the original route.
 
 Binding/rebinding/removal uses Owner reservations completed after the mutation.
-Group enable is refused. Seven non-live manifests may describe future official
-methods and limits but cannot connect, bind, or send. Guided roadmap steps never
-return a live state or fake QR.
+Group enable stays Owner-gated and allowlisted. Connection methods are a closed
+union (QR, OAuth, Manifest, Token, Device Link, Manual fallback). Slack,
+Telegram, and Discord must not return QR. Guided steps never return a live state
+or fake QR. WhatsApp remains default-off with an explicit risk acknowledgement.
 
 ### 10. Voice and OS permissions
 
@@ -270,21 +274,24 @@ readback downloads and verifies the immutable bytes again.
 
 ## 中文摘要
 
-0.5.6 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+0.5.7 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
 核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
 窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
 办公、IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
 对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
-official DSH rc.2 没有通用 file Turn，0.5.6 不做 DOM hack 或第二会话表示。
+official DSH rc.2 没有通用 file Turn，0.5.7 不做 DOM hack 或第二会话表示。
 
 记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
 Workspace 与明确个人记忆，绝不跨 Workspace。资料撤销删派生索引，不动源文件。
 
-IM 只有微信、飞书属于 live adapter；其余七个平台不能连接、绑定或发送，也不伪造
-二维码。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
-状态机，Read 朗读原文。
+IM 始终只有一个 `@penglai/im` 控制平面，内部提供九个平台 adapter。微信、飞书、
+钉钉、企业微信、QQ 和 WhatsApp 只在供应商协议真实提供时显示 QR/device-link；
+Slack、Telegram、Discord 使用官方 Manifest/Token，不伪造二维码。源码能力、当前
+连接状态和脱敏 live 证据是三个独立事实；公开支持声明只服从
+`docs/0.5.7/LIVE_IM_MATRIX.md`。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和
+Read 共用一个可观测播放状态机，Read 朗读原文。
 
 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。
 升级 manifest、release manifest、GitHub asset ID、大小、哈希和三端签名相互绑定；

@@ -1,13 +1,13 @@
-; Penglai 0.5.6 current-user NSIS Setup.
+; Penglai 0.5.7 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
 ; for install identity, bilingual UI, default-preserve userData, and
 ; capability-bound complete delete. Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.6"
+  !define PENGLAI_VERSION "0.5.7"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.6_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.7_windows_x64_setup.exe"
 !endif
 
 Unicode true
@@ -24,7 +24,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !define PRODUCT_PUBLISHER "Penglai"
 !define USERDATA "$LOCALAPPDATA\Penglai\0.5"
 !define UPDATE_CACHE "$LOCALAPPDATA\Penglai\0.5\cache\updates"
-!define HELPER "$INSTDIR\runtime\helpers\penglai-windows-host.exe"
+!define HELPER "$INSTDIR\resources\runtime\helpers\penglai-windows-host.exe"
 !define CAPABILITY "${USERDATA}\uninstall\deletion-capability.json"
 
 !ifdef PENGLAI_ICON

@@ -30,7 +30,14 @@ export const OWNER_ACTIONS = [
   "im.rebind",
   "im.remove",
   "im.enableGroup",
+  "im.saveCredentials",
+  "im.deleteCredentials",
+  "im.logout",
+  "im.acknowledgeRisk",
   "companion.enable",
+  "companion.disable",
+  "companion.schedule-reminder",
+  "budget.set-policy",
 ] as const;
 
 export type OwnerAction = (typeof OWNER_ACTIONS)[number];

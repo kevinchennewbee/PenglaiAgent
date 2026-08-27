@@ -1,16 +1,16 @@
-# Penglai 0.5.6 三端平台矩阵
+# Penglai 0.5.7 三端平台矩阵
 
 ## 1. 固定矩阵
 
-0.5.6 声明三个 desktop target。每个 target 的“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。缺 runner 时该行是 `BLOCKED`，不是 PASS。
+0.5.7 声明三个 desktop target。每个 target 的“支持”必须同时包含正确 closure、可安装产物、installed E2E 和 native smoke。缺 runner 时该行是 `BLOCKED`，不是 PASS。
 
 | key | OS/arch | 用户安装包 | embedded Node | Electron | final runner |
 | --- | --- | --- | --- | --- | --- |
-| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.6_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
-| `darwin-x86_64` | macOS 13+ / Intel | `Penglai_0.5.6_macos_x64.dmg` | `node-v22.22.2-darwin-x64` | pinned darwin-x64 | Intel Mac（Rosetta 不能替代） |
-| `win32-x86_64` | Windows 10+ / x64 | `Penglai_0.5.6_windows_x64_setup.exe` | `node-v22.22.2-win-x64` | pinned win32-x64 | Windows x64 native runner |
+| `darwin-aarch64` | macOS 13+ / Apple Silicon | `Penglai_0.5.7_macos_aarch64.dmg` | `node-v22.22.2-darwin-arm64` | pinned darwin-arm64 | Apple Silicon Mac |
+| `darwin-x86_64` | macOS 13+ / Intel | `Penglai_0.5.7_macos_x64.dmg` | `node-v22.22.2-darwin-x64` | pinned darwin-x64 | Intel Mac（Rosetta 不能替代） |
+| `win32-x86_64` | Windows 10+ / x64 | `Penglai_0.5.7_windows_x64_setup.exe` | `node-v22.22.2-win-x64` | pinned win32-x64 | Windows x64 native runner |
 
-0.5.0 历史发布资产仍只有 Apple Silicon DMG。0.5.6 不得把 ARM Electron 改名成 x64，也不得把 Windows 预检写成 native PASS。
+0.5.0 历史发布资产仍只有 Apple Silicon DMG。0.5.7 不得把 ARM Electron 改名成 x64，也不得把 Windows 预检写成 native PASS。
 
 `release-info.json` / `MINIMUM_MACOS` / Info.plist `LSMinimumSystemVersion` 一律 `13.0`。打包脚本会把 Electron 默认的 `14.0` 改写为 `13.0`，不得再分叉。
 
@@ -24,7 +24,7 @@ Grok 必须新增单一 `release-contract.json`（具体路径由实现固定）
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "electronVersion": "43.4.0",
@@ -35,13 +35,13 @@ Grok 必须新增单一 `release-contract.json`（具体路径由实现固定）
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.6_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.7_macos_aarch64.dmg"
     }
   ]
 }
 ```
 
-实际 0.5.6 contract 还必须钉死三端输入的 canonical URL、SHA-256、archive type、expected executable、Electron download、Node download、DSH/profile/plugin closure hash、sherpa/ONNX Runtime/SILK/Opus closure、voice model manifest、installer maker/version、updater channel、embedded public key id 和 artifact exact-set。
+实际 0.5.7 contract 还必须钉死三端输入的 canonical URL、SHA-256、archive type、expected executable、Electron download、Node download、DSH/profile/plugin closure hash、sherpa/ONNX Runtime/SILK/Opus closure、voice model manifest、installer maker/version、updater channel、embedded public key id 和 artifact exact-set。
 
 `verify:versions` 必须比较 root/workspace packages、desktop metadata、runtime manifest、installer metadata、release manifest、updater manifest 与 contract。版本不一致直接失败，不能自动改写后继续。
 
@@ -134,14 +134,14 @@ Windows 必须用 job object 或等价受测进程树监管，不能只 kill 父
 
 ## 7. 打包器选择门
 
-0.5.6 使用三端受控 pipeline；每个平台仍必须遵守：
+0.5.7 使用三端受控 pipeline；每个平台仍必须遵守：
 
 - Windows后续格式预定为current-user NSIS；Squirrel只可作为官方更新机制研究，不能静默替换用户确认的NSIS Setup。
 - 可以采用electron-builder/NSIS、Forge packager加受控NSIS maker，或继续受控自研pipeline，但必须解释为何更适合，并钉死依赖、下载、checksum、license、hook和安全面。
 - 不允许同时维持两套 canonical maker；旧 `package-mac.mjs` 若保留只能作为被新 contract 调用的实现细节或 historical tool。
 - 选择不得改变 Electron + DSH 产品架构，也不得为了打包迁移回 Tauri 0.4.1。
 
-0.5.6 必须分别在 Apple Silicon、Intel Mac 与 Windows x64 原生 runner 真实生成并验收对应安装包；staging、交叉编译与 Rosetta 不能升级为本版支持声明。
+0.5.7 必须分别在 Apple Silicon、Intel Mac 与 Windows x64 原生 runner 真实生成并验收对应安装包；staging、交叉编译与 Rosetta 不能升级为本版支持声明。
 
 ## 8. 本地 runner 协议
 
@@ -177,7 +177,7 @@ evidence bundle 是内容寻址 tar/zip，包含 runner JSON/JUnit、artifact ha
 12. 执行默认卸载与完整数据删除两条路径，确认 Workspace、授权源目录、legacy data 与未选 local voices/memory 不动。
 13. 只有 feature freeze、短门和 exact artifact 均通过后才开始 offline/sleep/wake/crash/restart/2h soak。
 
-`darwin-aarch64` 可在 Apple Silicon 机器全量执行。Rosetta 的 x64 结果仍只能标记 `translated=true`，Windows ARM emulation 只能标记 `emulated=true`；二者都不能反向改写 0.5.6 支持矩阵。
+`darwin-aarch64` 可在 Apple Silicon 机器全量执行。Rosetta 的 x64 结果仍只能标记 `translated=true`，Windows ARM emulation 只能标记 `emulated=true`；二者都不能反向改写 0.5.7 支持矩阵。
 
 ## 10. 平台出错即停的条件
 

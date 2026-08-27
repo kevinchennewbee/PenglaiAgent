@@ -51,7 +51,7 @@ test("object store rejects persisted byte or metadata tampering", () => {
   assert.throws(() => new ObjectStore(dir).get(handle, "sess-1"), /metadata mismatch|STORE_CORRUPT/i);
 });
 
-test("exact regular-file reader bounds bytes and rejects symlinks", () => {
+test("exact regular-file reader bounds bytes and rejects symlinks", (context) => {
   const dir = mkdtempSync(join(tmpdir(), "penglai-exact-file-"));
   const file = join(dir, "entry.json");
   writeFileSync(file, "trusted");
@@ -59,7 +59,13 @@ test("exact regular-file reader bounds bytes and rejects symlinks", () => {
   assert.throws(() => readExactRegularFile(file, 6), /byte limit|SECURITY_POLICY/i);
 
   const link = join(dir, "entry-link.json");
-  symlinkSync(file, link);
+  try {
+    symlinkSync(file, link);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+    return;
+  }
   assert.throws(
     () => readExactRegularFile(link, 7),
     /ELOOP|regular file|symlink source|STORE_CORRUPT|SECURITY_POLICY/i,

@@ -2,7 +2,7 @@
 
 > **Historical 0.5.0 migration record.** It does not define the current plugin
 > roster or platform matrix. Use `docs/PRODUCT.md`, `docs/PLUGIN_CENTER.md`, and
-> `release-contract.json` for Penglai 0.5.6.
+> `release-contract.json` for Penglai 0.5.7.
 
 所有增强能力都必须以DSH插件进入；0.5.0 未达到“host + client + lifecycle + migration + security + Apple Silicon installed/live evidence”完整标准前，不进入catalog或用户UI。Intel/Windows parity 是后续发布门。
 

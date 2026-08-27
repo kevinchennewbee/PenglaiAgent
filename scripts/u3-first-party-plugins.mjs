@@ -263,7 +263,7 @@ function installedPackages() {
 function requiredPackagesOk(packages) {
   return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.6";
+    return pkg?.present && pkg.version === "0.5.7";
   });
 }
 
@@ -271,7 +271,7 @@ function optionalPackagesOk(packages, enabled) {
   if (!enabled) return true;
   return OPTIONAL_PLUGINS.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.6";
+    return pkg?.present && pkg.version === "0.5.7";
   });
 }
 
@@ -328,6 +328,20 @@ async function runPhase(name, expectedEnabled) {
       bootOverlay: official?.snap?.bootOverlay === true,
       bootFailure: official?.snap?.bootFailure || undefined,
     },
+    settingsNavigation: productWalk?.steps
+      ?.filter((step) => String(step?.id || "").startsWith("ui-"))
+      .map((step) => ({
+        id: step.id,
+        click: step.click
+          ? {
+              ok: step.click.ok === true,
+              reason: step.click.reason || undefined,
+              text: step.click.text || undefined,
+            }
+          : undefined,
+        observed: step.observed === true,
+        navLabels: step.snap?.navLabels ?? [],
+      })),
     requiredCapabilities:
       name === "fresh-default-disabled"
         ? {

@@ -28,7 +28,7 @@ function fixture(
   writeFileSync(join(resources, "runtime/node/bin/node"), "node");
   writeFileSync(join(resources, "runtime/dsh/lib/bin.js"), "dsh");
   const manifest = {
-    release: "0.5.6",
+    release: "0.5.7",
     target: overrides.manifestTarget ?? "darwin-aarch64",
     dsh: "0.1.1-rc.2",
     files: [
@@ -45,7 +45,7 @@ function fixture(
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.6",
+      productVersion: "0.5.7",
       generationId: "penglai-dsh-v0.5",
       trustTier: "community-verified",
       sourceSha: overrides.sourceSha ?? sourceSha,

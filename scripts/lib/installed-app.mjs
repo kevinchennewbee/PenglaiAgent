@@ -7,8 +7,8 @@ import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 import { installerForTarget } from "./release-targets.mjs";
 
-export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.6_macos_aarch64.dmg");
-export const ARM64_INSTALLER = "Penglai_0.5.6_macos_aarch64.dmg";
+export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.7_macos_aarch64.dmg");
+export const ARM64_INSTALLER = "Penglai_0.5.7_macos_aarch64.dmg";
 
 export function leftoversByCommand(needle) {
   if (process.platform === "win32") {
@@ -130,7 +130,7 @@ export function readInstalledAppIdentity(app, target) {
 export function assertInstalledPenglaiIdentity(app, target) {
   const facts = readInstalledAppIdentity(app, target);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.6" || facts.version !== "0.5.6") {
+  if (facts.shortVersion !== "0.5.7" || facts.version !== "0.5.7") {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };
@@ -224,6 +224,11 @@ export function resolveInstalledUiHarness() {
   } catch {
     /* desktop electron is optional for source-only gates */
   }
+  const hoisted =
+    process.platform === "darwin"
+      ? join(ROOT, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron")
+      : join(ROOT, "node_modules", "electron", "dist", "electron.exe");
+  if (existsSync(hoisted)) return hoisted;
   return undefined;
 }
 

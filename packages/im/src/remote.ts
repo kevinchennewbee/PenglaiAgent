@@ -189,6 +189,41 @@ export class PenglaiImRemote extends TypertRemoteService {
   removeBot(input: Parameters<PenglaiImHost["removeBot"]>[0]) {
     return this.host.removeBot(input);
   }
+
+  @Remote
+  storeChannelSecret(input: Parameters<PenglaiImHost["storeChannelSecret"]>[0]) {
+    return this.host.storeChannelSecret(input);
+  }
+
+  @Remote
+  beginChannelConnection(input: Parameters<PenglaiImHost["beginChannelConnection"]>[0]) {
+    return this.host.beginChannelConnection(input);
+  }
+
+  @Remote
+  pollChannelConnection(input: Parameters<PenglaiImHost["pollChannelConnection"]>[0]) {
+    return this.host.pollChannelConnection(input);
+  }
+
+  @Remote
+  cancelChannelConnection(input: Parameters<PenglaiImHost["cancelChannelConnection"]>[0]) {
+    return this.host.cancelChannelConnection(input);
+  }
+
+  @Remote
+  peekChannelQr(input: Parameters<PenglaiImHost["peekChannelQr"]>[0]) {
+    return this.host.peekChannelQr(input);
+  }
+
+  @Remote
+  disconnectChannel(input: Parameters<PenglaiImHost["disconnectChannel"]>[0]) {
+    return this.host.disconnectChannel(input);
+  }
+
+  @Remote
+  logoutChannel(input: Parameters<PenglaiImHost["logoutChannel"]>[0]) {
+    return this.host.logoutChannel(input);
+  }
 }
 
 export const TYPERT_REMOTE = {
@@ -230,6 +265,13 @@ export const TYPERT_REMOTE = {
     "listBots",
     "acknowledgeChannelRisk",
     "removeBot",
+    "storeChannelSecret",
+    "beginChannelConnection",
+    "pollChannelConnection",
+    "cancelChannelConnection",
+    "peekChannelQr",
+    "disconnectChannel",
+    "logoutChannel",
   ].map((method) => ({
     id: `@penglai/im#penglaiIm/${method}`,
     service: "penglaiIm",

@@ -41,26 +41,22 @@ test("memory conversation tools declare DSH output and wrap search as an object"
       if (event === "tools/pre-execute") preExecute = listener;
     },
   };
-  const engine = {
-    async search(query: string, workspaceId?: string, includePersonal?: boolean) {
+  let directWrites = 0;
+  const service = {
+    async search(query: string, workspaceId?: string) {
       if (workspaceId === "ws1") return [{ id: "m1", content: "workspace fact", scope: "workspace", workspaceId }];
-      if (includePersonal) return [{ id: "p1", content: query, scope: "personal" }];
+      if (workspaceId === undefined) return [{ id: "p1", content: query, scope: "personal" }];
       return [];
     },
     async why(id: string) {
       return { id, source: "journal" };
     },
-    async remember(input: { text: string }) {
-      return { id: "n1", content: input.text };
-    },
-    async correct(id: string, text: string) {
-      return { id: "n2", content: text, superseded: id };
-    },
-    async forget(id: string) {
-      return { id, forgotten: true };
+    queueToolCandidate(input: { text: string; workspaceId: string; sessionId: string; turnId: string }) {
+      directWrites += 0;
+      return { candidateId: "candidate-1", status: "pending", ...input };
     },
   };
-  registerMemoryTools(ctx, engine as never);
+  registerMemoryTools(ctx, service);
   assert.deepEqual(
     [...registered.keys()],
     [
@@ -71,7 +67,7 @@ test("memory conversation tools declare DSH output and wrap search as an object"
       "penglai_memory_forget",
     ],
   );
-  const exec = { agent: { id: "sess-1" } };
+  const exec = { agent: { id: "sess-1" }, turn: 7, step: 1 };
   const search = await registered.get("penglai_memory_search")!.execute({ query: "fact" }, exec);
   assert.equal(Array.isArray(search), false);
   assert.deepEqual((search as { results: Array<{ id: string }> }).results.map((row) => row.id), ["m1", "p1"]);
@@ -92,4 +88,25 @@ test("memory conversation tools declare DSH output and wrap search as an object"
   }
   const readDecision = await preExecute!({ name: "penglai_memory_search" }, async () => ({ kind: "continue" }));
   assert.equal((readDecision as { kind: string }).kind, "continue");
+  const proposed = await registered
+    .get("penglai_memory_remember")!
+    .execute({ text: "remember this", scope: "workspace" }, exec);
+  assert.equal((proposed as { pendingOwnerReview: boolean }).pendingOwnerReview, true);
+  assert.equal(
+    ((proposed as { candidate: { candidateId: string } }).candidate).candidateId,
+    "candidate-1",
+  );
+  const correction = await registered
+    .get("penglai_memory_correct")!
+    .execute({ id: "memory-123", text: "replacement" }, exec);
+  const forgetting = await registered
+    .get("penglai_memory_forget")!
+    .execute({ id: "memory-123" }, exec);
+  assert.equal((correction as { pendingOwnerReview: boolean }).pendingOwnerReview, true);
+  assert.equal((forgetting as { pendingOwnerReview: boolean }).pendingOwnerReview, true);
+  assert.equal(directWrites, 0, "model tools must never directly mutate confirmed memory");
+  await assert.rejects(
+    () => registered.get("penglai_memory_remember")!.execute({ text: "x", scope: "workspace" }, { agent: { id: "sess-1" } }),
+    /exec\.turn/,
+  );
 });

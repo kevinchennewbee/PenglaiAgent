@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
+import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
 
 test("community release notice keeps platform trust limits without candidate wording", () => {
@@ -35,9 +36,13 @@ test("findResourcesRoot prefers a real runtime over isPackaged guesses", async (
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const resources = mkdtempSync(join(tmpdir(), "penglai-res-"));
-  mkdirSync(join(resources, "runtime", "node", "bin"), { recursive: true });
+  const nodePath =
+    process.platform === "win32"
+      ? join(resources, "runtime", "node", "node.exe")
+      : join(resources, "runtime", "node", "bin", "node");
+  mkdirSync(join(nodePath, ".."), { recursive: true });
   mkdirSync(join(resources, "runtime", "dsh", "lib"), { recursive: true });
-  writeFileSync(join(resources, "runtime", "node", "bin", "node"), "");
+  writeFileSync(nodePath, "");
   writeFileSync(join(resources, "runtime", "dsh", "lib", "bin.js"), "");
   const appDir = join(resources, "app");
   mkdirSync(appDir, { recursive: true });
@@ -69,6 +74,13 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /navigationDecision\(next, allowedOrigin, recoveryUrl, \{ wizardComplete/);
   assert.match(main, /isOwnedRuntimePath\(layout\.appRoot, layout\.nodeBin\)/);
   assert.match(main, /show:\s*false/);
+  assert.match(main, /opacity:\s*platform === "win32" \? 0 : 1/);
+  assert.match(main, /backgroundColor:\s*"#f8f4ee"/);
+  assert.match(main, /requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)/);
+  assert.match(main, /await delay\(120\)/);
+  assert.match(main, /win\.setOpacity\(1\)/);
+  assert.ok(main.indexOf('requestAnimationFrame(resolve)') < main.indexOf('await revealWindow();'));
+  assert.ok(main.indexOf('win.show();') < main.indexOf('win.setOpacity(1)'));
   assert.match(main, /revealWindow\(\)/);
   assert.match(main, /win\.loadFile\(recovery\)/);
   assert.match(main, /wizard:\s*\{\s*root:\s*wizardRoot/);
@@ -96,27 +108,73 @@ test("startup failure tears down owned services before rendering recovery", () =
   const failProbe = source.slice(source.indexOf("const failProbe"), source.indexOf("const failProbe") + 900);
   assert.match(failProbe, /await stopOwnedServices\(\)/);
   assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recovery)"));
+  assert.match(failProbe, /if \(stopping \|\| win\.isDestroyed\(\)\) return/);
 });
 
-test("control shell documents the community trust boundary", async () => {
+test("desktop navigation retries one transient Electron abort", async () => {
+  let calls = 0;
+  let current = "file:///splash.html";
+  const win = {
+    isDestroyed: () => false,
+    webContents: { isDestroyed: () => false, getURL: () => current },
+    loadURL: async (target: string) => {
+      calls += 1;
+      if (calls === 1) throw new Error("ERR_ABORTED (-3) loading URL");
+      current = target;
+    },
+  };
+  await loadWindowUrl(win, "http://127.0.0.1:1234/", () => false, {
+    retryDelayMs: 0,
+    timeoutMs: 100,
+  });
+  assert.equal(calls, 2);
+  assert.equal(current, "http://127.0.0.1:1234/");
+});
+
+test("desktop navigation does not load into a closed window", async () => {
+  let calls = 0;
+  const win = {
+    isDestroyed: () => true,
+    webContents: { isDestroyed: () => true, getURL: () => "" },
+    loadURL: async () => {
+      calls += 1;
+    },
+  };
+  await assert.rejects(
+    loadWindowUrl(win, "http://127.0.0.1:1234/", () => false, {
+      retryDelayMs: 0,
+      timeoutMs: 100,
+    }),
+    /window closed during navigation/,
+  );
+  assert.equal(calls, 0);
+});
+
+test("recovery screen uses plain user-facing language", async () => {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
-  assert.match(html, /ad-hoc|unsigned|not notarized/i);
+  assert.doesNotMatch(html, /ad-hoc|notarized|Gatekeeper|community-verified|DeepSeek Harness/i);
+  assert.match(html, /蓬莱未能正常启动/);
+  assert.match(html, /keep security protections enabled/i);
   assert.match(html, /data-penglai-recovery/);
   assert.match(html, /data-penglai-recovery-en/);
   assert.match(html, /data-penglai-recovery-zh/);
-  assert.match(html, /Official DeepSeek Harness did not become healthy/);
+  assert.match(html, /Penglai could not start normally/);
   assert.match(html, /data-penglai-recovery-retry/);
-  assert.match(html, /Powered by DeepSeek Harness/);
   assert.match(html, /Content-Security-Policy/);
 });
 
-test("R56-CORE-006 splash names boot phases without claiming the official chat", async () => {
+test("R56-CORE-006 splash names boot phases in plain user-facing language", async () => {
   const html = readFileSync(new URL("../static/splash.html", import.meta.url), "utf8");
   assert.match(html, /data-penglai-splash/);
   assert.match(html, /data-penglai-splash-en/);
   assert.match(html, /data-penglai-splash-zh/);
-  assert.match(html, /Starting official DeepSeek Harness/);
+  assert.match(html, /正在准备你的个人 AI 助手/);
+  assert.match(html, /Getting your personal AI assistant ready/);
+  assert.match(html, /首次启动可能需要几秒/);
+  assert.match(html, /role="progressbar"/);
+  assert.doesNotMatch(html, /DeepSeek Harness|HTTP health|Runtime \/|Required plugins|official DSH/i);
+  assert.doesNotMatch(html, /<ol|<li/);
   assert.match(html, /starting-dsh/);
   assert.match(html, /verifying-required-plugins/);
   assert.doesNotMatch(html, /data-penglai-recovery/);

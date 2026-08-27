@@ -4,6 +4,9 @@ import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { BudgetLedger, type BudgetIdentity, type BudgetScope } from "./ledger.js";
 import { BudgetGate, type BudgetLimit, type TokenMeterFact } from "./service.js";
 import { createBudgetSettingsApi, PenglaiBudgetRemote } from "./remote.js";
+import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
+import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
+import { BUDGET_OWNER_ACTION, budgetPolicyObjectId, budgetSourceDigest, type BudgetOwnerBrokerPort } from "./owner.js";
 
 export const name = "@penglai/budget";
 export const inject = ["tokenMeter", "agents", "workspaceRegistry"];
@@ -174,10 +177,28 @@ export function createProductionBudgetService(ctx: CordisContextLike, ledger: Bu
   });
 
   let closed = false;
+  let owner: BudgetOwnerBrokerPort | undefined;
   return {
     name,
     version,
     source: "official-token-meter" as const,
+    get owner() {
+      return owner;
+    },
+    attachOwner(next: BudgetOwnerBrokerPort) {
+      owner = next;
+    },
+    proposePolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }) {
+      if (!owner) throw new PenglaiError("DSH_UNAVAILABLE", "owner broker required");
+      const objectId = budgetPolicyObjectId({ scope: input.scope, key: input.key });
+      const sourceDigest = budgetSourceDigest(input);
+      return owner.createProposal({
+        action: BUDGET_OWNER_ACTION,
+        pluginId: "@penglai/budget",
+        objectId,
+        sourceDigest,
+      });
+    },
     setPolicy(input: {
       scope: BudgetScope;
       key: string;
@@ -234,6 +255,7 @@ export function apply(ctx: CordisContextLike) {
   const ledger = new BudgetLedger(join(userData, "budget", "budget.sqlite3"));
   try {
     const service = createProductionBudgetService(ctx, ledger);
+    service.attachOwner(new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) }));
     ctx.provide("penglaiBudget", service);
     if (ctx instanceof Context) new PenglaiBudgetRemote(ctx, createBudgetSettingsApi(service, ctx));
     ctx.effect(() => () => service.close());

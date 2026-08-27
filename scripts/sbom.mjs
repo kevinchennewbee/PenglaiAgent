@@ -9,12 +9,36 @@ for (const line of lock.split("\n")) {
   const m = /^ {6}([^:]+@[^:]+):$/.exec(line) || /^ {2}([^:]+@[^:]+):$/.exec(line);
   if (m) names.add(m[1]);
 }
-const components = [...names].sort().slice(0, 800).map((id) => ({
+const sorted = [...names].sort();
+const seenRefs = new Set();
+const components = sorted.map((id) => {
+  const bomRef = `pkg:npm/${id}`;
+  if (seenRefs.has(bomRef)) throw new Error(`duplicate bom-ref ${bomRef}`);
+  seenRefs.add(bomRef);
+  return {
+    type: "library",
+    name: id.split("@").slice(0, -1).join("@") || id,
+    version: id.split("@").at(-1),
+    "bom-ref": bomRef,
+    purl: bomRef,
+  };
+});
+components.push({
   type: "library",
-  name: id.split("@").slice(0, -1).join("@") || id,
-  version: id.split("@").at(-1),
-  purl: `pkg:npm/${id}`,
-}));
+  name: "dsh-im",
+  version: "3.0.5",
+  "bom-ref": "pkg:github/xmanrui/dsh-im@64587b3b6162fa34f1c3ddb335a254d4154c9175",
+  licenses: [{ license: { id: "MIT" } }],
+  properties: [
+    { name: "penglai:use", value: "selective-rewrite-not-installed" },
+    { name: "penglai:tag", value: "v3.0.5" },
+    { name: "penglai:tag-object", value: "63bdfc72be1289097e3c73acb95ba9260531091d" },
+    { name: "penglai:unsigned-tag", value: "true" },
+    { name: "penglai:archive.sha256", value: "ae4a9727627f55d5a90bff929caf27dc092153c80b8b79fca9cf18a3fa4125f7" },
+    { name: "penglai:archive.bytes", value: "9835773" },
+    { name: "penglai:historical-v3.0.2", value: "54468bbe1e93b30ae5778941cd65e725877dae74" },
+  ],
+});
 const fontSource = JSON.parse(readFileSync("packages/office/fonts/SOURCE.json", "utf8"));
 components.push({
   type: "file",
@@ -112,10 +136,10 @@ const sbom = {
   specVersion: "1.5",
   version: 1,
   metadata: {
-    component: { type: "application", name: "Penglai", version: "0.5.6" },
-    tools: [{ name: "penglai-sbom", version: "0.5.6" }],
+    component: { type: "application", name: "Penglai", version: "0.5.7" },
+    tools: [{ name: "penglai-sbom", version: "0.5.7" }],
   },
-  release: "0.5.6",
+  release: "0.5.7",
   lockfileSha256: createHash("sha256").update(lock).digest("hex"),
   componentCount: components.length,
   components,

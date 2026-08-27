@@ -7,12 +7,21 @@ import {
   type VoiceReplyMode,
 } from "@penglai/contracts";
 import type { ArtifactService } from "@penglai/artifacts";
-import type { WeixinAdapter } from "@penglai/channel-weixin";
+import { renderQrPngDataUrl, type WeixinAdapter } from "@penglai/channel-weixin";
 import type { FeishuAdapter } from "@penglai/channel-feishu";
+import { WHATSAPP_RISK_ACK_VERSION } from "@penglai/channel-whatsapp";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import type { Store } from "@penglai/persistence";
 import type { DshHost } from "@penglai/dsh-bridge";
-import { FEISHU_SECRET_REF, WEIXIN_TOKEN_REF, type CredentialsServiceVault } from "./credentials-vault.js";
+import {
+  CHANNEL_CREDENTIAL_REFS,
+  FEISHU_SECRET_REF,
+  WEIXIN_TOKEN_REF,
+  WHATSAPP_DATAKEY_REF,
+  assertOfficialCredentialRef,
+  type CredentialsServiceVault,
+} from "./credentials-vault.js";
+import { serializeChannelSecret } from "./channel-secrets.js";
 import type { AdapterSupervisor } from "./supervisor.js";
 import { ImBotStore } from "./bots.js";
 import { beginGuidedConnection, type GuidedConnectionState } from "./guided.js";
@@ -21,35 +30,37 @@ import {
   getChannelManifest,
   isLiveChannel,
   listChannelManifests,
+  requireChannelId,
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
-import { guidedAdapter, type ChannelAdapter } from "./channel-adapter.js";
+import { guidedAdapter, requireAdapter, type ChannelAdapter, type ConnectionResult, type ConnectionState, type InboundChannelEvent } from "./channel-adapter.js";
 import { refuseUnliveSend } from "./guided.js";
+import { channelConfigAccountId, isForbiddenDefaultAccount, legacyDefaultAccountId } from "./inbound-envelope.js";
+import { beginStatusReaction, CHANNEL_STATUS_REACTIONS, type StatusReactionHandle } from "./reactions.js";
+import {
+  classifyMessageFailure,
+  classifySendOutcome,
+  publicMessageFailure,
+  RECOVERY_ACTION_BY_CODE,
+  type MessageFailure,
+} from "./message-failure.js";
 import {
   IM_OWNER_ACTIONS,
   consumeImOwnerProof,
   imBindingObjectId,
   imSourceDigest,
   requireImActionId,
+  type ImOwnerAction,
   type ImOwnerBrokerPort,
 } from "./owner.js";
 
-export type ChannelName = "weixin" | "feishu";
-
-export type ConnectionState =
-  | "not_configured"
-  | "ready"
-  | "connecting"
-  | "connected"
-  | "degraded"
-  | "expired"
-  | "blocked"
-  | "disabled"
-  | "failed";
+export type ChannelName = ChannelId;
+export type { ConnectionState };
 
 export interface ChannelState {
   channel: ChannelId;
+  enabled: boolean;
   configured: boolean;
   connection: ConnectionState;
   boundRoutes: number;
@@ -58,8 +69,17 @@ export interface ChannelState {
   revision: number;
   live: boolean;
   risk: ChannelManifestV1["risk"];
+  supportLevel: ChannelManifestV1["supportLevel"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
-  error?: { code: string; action: string };
+  error?: {
+    code: string;
+    action: string;
+    message: { zh: string; en: string };
+    referenceId: string;
+    at: number;
+  };
+  accountRedacted?: string;
+  lastCheckAt?: number;
 }
 
 export interface BindingDto {
@@ -81,7 +101,13 @@ export class PenglaiImHost {
   private feishuAppId = "";
   private owner: ImOwnerBrokerPort | undefined;
   private artifacts: ArtifactService | undefined;
+  private secretHydrator?: (id: ChannelId, serialized: string) => void;
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
+  startupFailure: MessageFailure | undefined;
+  private sidecarReady = true;
+  private sidecarReadyWait: Promise<void> = Promise.resolve();
+  private resolveSidecarReady: (() => void) | undefined;
+  private readonly statusReactions = new Map<string, StatusReactionHandle>();
   readonly bots: ImBotStore;
 
   constructor(
@@ -120,12 +146,22 @@ export class PenglaiImHost {
     this.owner = owner;
   }
 
+  attachSecretHydrator(hydrate: (id: ChannelId, serialized: string) => void): void {
+    this.secretHydrator = hydrate;
+  }
+
   attachArtifacts(artifacts: ArtifactService): void {
     this.artifacts = artifacts;
   }
 
   attachChannelAdapter(adapter: ChannelAdapter): void {
     this.adapters.set(adapter.id, adapter);
+    this.attachInboundFanIn(adapter);
+  }
+
+  snapshotAdapter(channel: ChannelId): void {
+    const adapter = this.adapters.get(channel);
+    if (adapter) this.persistAdapterState(channel, adapter);
   }
 
   async sendOutboundText(input: { channel: ChannelId; text: string }): Promise<{ delivered: true }> {
@@ -138,7 +174,7 @@ export class PenglaiImHost {
   }
 
   proposeBinding(input: {
-    action: "im.bind" | "im.rebind" | "im.remove" | "im.enableGroup";
+    action: ImOwnerAction;
     objectId: string;
     workspaceId?: string;
     sessionId?: string;
@@ -172,7 +208,7 @@ export class PenglaiImHost {
   }> {
     const channels: ChannelState[] = [];
     for (const id of CHANNEL_IDS) {
-      channels.push(isLiveChannel(id) ? await this.channelState(id) : this.guidedChannelState(id));
+      channels.push(isLiveChannel(id) ? await this.channelState(id) : await this.guidedChannelState(id));
     }
     return {
       plugin: "active",
@@ -206,10 +242,10 @@ export class PenglaiImHost {
     const out: BindingDto[] = [];
     for (const b of this.store.listActiveBindings()) {
       const route = this.store.getRoute(b.routeId);
-      if (route?.adapter !== "weixin" && route?.adapter !== "feishu") continue;
+      if (!route || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) continue;
       out.push({
         id: b.routeId,
-        channel: route.adapter,
+        channel: route.adapter as ChannelId,
         accountId: route.accountRef,
         peerId: route.peerRef,
         workspaceId: b.workspaceIdentity,
@@ -642,6 +678,9 @@ export class PenglaiImHost {
     this.supervisor.stop();
     this.weixin.stopReceive();
     this.feishu.stop();
+    for (const adapter of this.adapters.values()) {
+      void adapter.disconnect().catch(() => undefined);
+    }
     this.store.close();
     return this.resourceSnapshot();
   }
@@ -771,17 +810,18 @@ export class PenglaiImHost {
       else if (auth === "connected") connection = "connected";
       else if (auth === "expired") connection = "expired";
       else if (auth === "error") connection = "failed";
-      else connection = configured ? "ready" : "not_configured";
+      else connection = configured ? "not_configured" : "not_configured";
     } else {
       const feishuStatus = this.feishu.status;
       if (feishuStatus === "connected") connection = "connected";
       else if (feishuStatus === "connecting" || feishuStatus === "reconnecting") connection = "connecting";
       else if (feishuStatus === "failed") connection = "failed";
-      else connection = configured ? (this.feishu.setupRequired ? "blocked" : "ready") : "not_configured";
+      else connection = configured ? (this.feishu.setupRequired ? "blocked" : "not_configured") : "not_configured";
     }
     const manifest = getChannelManifest(channel);
     return {
       channel,
+      enabled: configured,
       configured,
       connection,
       boundRoutes: this.listBindings().filter((b) => b.channel === channel).length,
@@ -790,32 +830,40 @@ export class PenglaiImHost {
       revision: this.revision,
       live: true,
       risk: manifest.risk,
+      supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
     };
   }
 
-  private guidedChannelState(channel: ChannelId): ChannelState {
+  private async guidedChannelState(channel: ChannelId): Promise<ChannelState> {
     const manifest = getChannelManifest(channel);
-    const bots = this.bots.list(channel);
-    const connection: ConnectionState =
-      manifest.risk === "community-protocol" && bots.every((bot) => !bot.riskAckAt)
-        ? "disabled"
-        : bots.some((bot) => bot.state === "online")
-          ? "ready"
-          : bots.length
-            ? "not_configured"
-            : "disabled";
+    const adapter = this.adapters.get(channel);
+    const health = adapter ? await adapter.health() : { enabled: false, connection: "disabled" as ConnectionState };
+    const failure = this.bots.getChannelFailure(channel, channelConfigAccountId(channel));
     return {
       channel,
-      configured: bots.length > 0,
-      connection,
-      boundRoutes: 0,
+      enabled: health.enabled,
+      configured: health.connection !== "disabled" && health.connection !== "not_configured",
+      connection: health.connection,
+      boundRoutes: this.listBindings().filter((row) => row.channel === channel).length,
       pendingInbox: 0,
       pendingOutbox: 0,
       revision: this.revision,
-      live: false,
+      live: manifest.live,
       risk: manifest.risk,
+      supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
+      ...(failure
+        ? {
+            error: {
+              code: failure.code,
+              action: failure.action,
+              message: { zh: failure.messageZh, en: failure.messageEn },
+              referenceId: failure.referenceId,
+              at: failure.at,
+            },
+          }
+        : {}),
     };
   }
 
@@ -850,5 +898,451 @@ export class PenglaiImHost {
   removeBot(input: { botId: string }) {
     this.bots.remove(input.botId);
     return { removed: true };
+  }
+
+  attachInboundFanIn(adapter: ChannelAdapter): void {
+    adapter.onInbound(async (event) => {
+      try {
+        await this.handleChannelInbound(event);
+      } catch (error) {
+        this.recordChannelFailure(event.channel, event.accountRef, error);
+        throw error;
+      }
+    });
+  }
+
+  async storeChannelSecret(input: {
+    channel: string;
+    secret: string;
+    ownerActionId?: string;
+    receipt?: string;
+  }): Promise<{ stored: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    const secret = input.secret.trim();
+    if (!secret || secret.length > 8_192) throw new PenglaiError("INVALID_INPUT", "CHANNEL_SECRET");
+    const finishOwnerAction = this.consumeChannelOwner({
+      action: IM_OWNER_ACTIONS.saveCredentials,
+      channel: id,
+      ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
+    const ref = CHANNEL_CREDENTIAL_REFS[id];
+    assertOfficialCredentialRef(ref);
+    const serialized = serializeChannelSecret(id, secret);
+    await this.vault.write(ref, serialized);
+    this.secretHydrator?.(id, serialized);
+    this.revision += 1;
+    finishOwnerAction();
+    return { stored: true };
+  }
+
+  async beginChannelConnection(input: {
+    channel: string;
+    method: string;
+    riskAck?: boolean;
+    secret?: string;
+    ownerActionId?: string;
+    receipt?: string;
+    riskOwnerActionId?: string;
+    riskReceipt?: string;
+  }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    await this.waitForSidecars();
+    if (input.secret) {
+      await this.storeChannelSecret({
+        channel: id,
+        secret: input.secret,
+        ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+        ...(input.receipt ? { receipt: input.receipt } : {}),
+      });
+    }
+    const guided = beginGuidedConnection({
+      channel: id,
+      method: input.method,
+      ...(input.riskAck ? { riskAck: true } : {}),
+    });
+    const adapter = requireAdapter(this.adapters, id);
+    // Risk acknowledgement is authority for the first external side effect:
+    // creating a WhatsApp device-link and revealing its QR. Reserve it before
+    // the adapter starts, not after the QR/network operation has already run.
+    const finishRisk = id === "whatsapp" && input.riskAck
+      ? this.consumeChannelOwner({
+          action: IM_OWNER_ACTIONS.acknowledgeRisk,
+          channel: id,
+          ...(input.riskOwnerActionId ? { ownerActionId: input.riskOwnerActionId } : {}),
+          ...(input.riskReceipt ? { receipt: input.riskReceipt } : {}),
+        })
+      : () => undefined;
+    let result: ConnectionResult;
+    try {
+      result = await adapter.beginConnection({
+        method: input.method,
+        credentialRef: CHANNEL_CREDENTIAL_REFS[id],
+        ...(input.riskAck ? { riskAck: true } : {}),
+      });
+    } catch (error) {
+      this.recordChannelFailure(id, channelConfigAccountId(id), error);
+      throw error;
+    }
+    this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
+      riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
+      riskAckAt: Date.now(),
+    } : undefined);
+    this.revision += 1;
+    finishRisk();
+    const qrImageRef = await encodePeekedQr(adapter.peekQr?.(result.operationId));
+    return {
+      ...result,
+      steps: guided.steps,
+      docsUrl: guided.docsUrl,
+      ...(qrImageRef ? { qrImageRef } : {}),
+    };
+  }
+
+  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; qrImageRef?: string }> {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    let polled: { status: ConnectionState; accountRedacted?: string };
+    try {
+      polled = await adapter.pollConnection(input.operationId);
+    } catch (error) {
+      this.recordChannelFailure(id, channelConfigAccountId(id), error);
+      throw error;
+    }
+    if (polled.status === "failed") {
+      this.recordChannelFailure(
+        id,
+        channelConfigAccountId(id),
+        new PenglaiError("DELIVERY_TRANSIENT", `${id} connection failed`),
+      );
+    }
+    const qrImageRef = await encodePeekedQr(adapter.peekQr?.(input.operationId));
+    this.revision += 1;
+    return {
+      status: polled.status,
+      ...(qrImageRef ? { qrImageRef } : {}),
+    };
+  }
+
+  async cancelChannelConnection(input: { channel: string; operationId?: string }): Promise<{ cancelled: true }> {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    await adapter.cancelConnection(input.operationId ?? `${id}:cancel`);
+    this.revision += 1;
+    return { cancelled: true };
+  }
+
+  async peekChannelQr(input: { channel: string; operationId: string }): Promise<{ qrImageRef?: string; expiresAt?: number }> {
+    const id = requireChannelId(input.channel);
+    const adapter = requireAdapter(this.adapters, id);
+    const peeked = adapter.peekQr?.(input.operationId);
+    const qrImageRef = await encodePeekedQr(peeked);
+    return {
+      ...(qrImageRef ? { qrImageRef } : {}),
+      ...(peeked?.expiresAt ? { expiresAt: peeked.expiresAt } : {}),
+    };
+  }
+
+  async disconnectChannel(input: { channel: string }): Promise<{ disconnected: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    await requireAdapter(this.adapters, id).disconnect();
+    this.persistChannelFlag(id, true);
+    this.revision += 1;
+    return { disconnected: true };
+  }
+
+  async logoutChannel(input: {
+    channel: string;
+    ownerActionId?: string;
+    receipt?: string;
+  }): Promise<{ loggedOut: true }> {
+    const id = requireChannelId(input.channel);
+    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    const finishOwnerAction = this.consumeChannelOwner({
+      action: IM_OWNER_ACTIONS.logout,
+      channel: id,
+      ...(input.ownerActionId ? { ownerActionId: input.ownerActionId } : {}),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
+    const adapter = requireAdapter(this.adapters, id);
+    // deleteCredentials owns the adapter-specific logout/wipe operation. Do
+    // not call logout twice (WhatsApp otherwise races two session wipes).
+    await adapter.deleteCredentials();
+    await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
+    if (id === "whatsapp") await this.vault.delete(WHATSAPP_DATAKEY_REF);
+    this.persistChannelFlag(id, false);
+    this.revision += 1;
+    finishOwnerAction();
+    return { loggedOut: true };
+  }
+
+  noteStartupFailure(error: unknown): void {
+    this.startupFailure = publicMessageFailure(classifyMessageFailure(error));
+  }
+
+  deferSidecarOutbox(): void {
+    if (!this.sidecarReady) return;
+    this.sidecarReady = false;
+    this.sidecarReadyWait = new Promise<void>((resolveReady) => {
+      this.resolveSidecarReady = resolveReady;
+    });
+  }
+
+  markSidecarReady(): void {
+    this.sidecarReady = true;
+    this.resolveSidecarReady?.();
+    this.resolveSidecarReady = undefined;
+  }
+
+  private async waitForSidecars(): Promise<void> {
+    await this.sidecarReadyWait;
+    if (this.startupFailure) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "Messaging connections could not be prepared");
+    }
+  }
+
+  recordChannelFailure(channel: ChannelId, accountRef: string, error: unknown): void {
+    const failure = publicMessageFailure(classifyMessageFailure(error));
+    this.bots.putChannelFailure({
+      channelId: channel,
+      accountRef,
+      code: failure.code,
+      messageZh: failure.message.zh,
+      messageEn: failure.message.en,
+      referenceId: failure.referenceId,
+      action: RECOVERY_ACTION_BY_CODE[failure.code],
+      at: failure.at,
+    });
+  }
+
+  async restoreChannelAdapters(): Promise<void> {
+    for (const id of CHANNEL_IDS) {
+      if (isLiveChannel(id)) continue;
+      const adapter = this.adapters.get(id);
+      if (!adapter) continue;
+      this.attachInboundFanIn(adapter);
+      const accountId = channelConfigAccountId(id);
+      try {
+        this.store.migrateLegacyAdapterAccount(id, accountId);
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
+        continue;
+      }
+      const raw = this.store.getAdapterConfig(accountId) ?? this.store.getAdapterConfig(legacyDefaultAccountId(id));
+      let parsed: { enabled?: boolean; riskAckVersion?: string } = {};
+      try {
+        parsed = raw ? (JSON.parse(raw) as { enabled?: boolean; riskAckVersion?: string }) : {};
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
+        parsed = {};
+      }
+      if (!parsed.enabled) continue;
+      if (id === "whatsapp" && parsed.riskAckVersion !== WHATSAPP_RISK_ACK_VERSION) continue;
+      try {
+        adapter.restorePersistedState?.(parsed);
+        await adapter.beginConnection({
+          method: restoreMethod(id),
+          credentialRef: CHANNEL_CREDENTIAL_REFS[id],
+          ...(id === "whatsapp" ? { riskAck: true } : {}),
+        });
+      } catch (error) {
+        this.recordChannelFailure(id, accountId, error);
+      }
+    }
+  }
+
+  async pumpChannelOutbox(routeId: string): Promise<void> {
+    if (!this.sidecarReady) return;
+    const route = this.store.getRoute(routeId);
+    if (!route || isLiveChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
+    const adapter = this.adapters.get(route.adapter as ChannelId);
+    if (!adapter) return;
+    const target = this.plane.requireVendorTarget(routeId);
+    for (const item of this.plane.dueOutbox(routeId)) {
+      const claimToken = this.plane.markSending(item.outboxId, route.adapter);
+      if (!claimToken) continue;
+      const delivery = this.plane.resolveVoiceDelivery(item.outboxId);
+      try {
+        await adapter.sendText({
+          text: delivery.finalText,
+          peerRef: delivery.vendorTarget || target,
+        });
+        this.plane.markDelivered(item.outboxId, claimToken);
+        this.finishStatusReaction(route.adapter, route.accountRef, item.inboundId, "success");
+        this.persistAdapterState(route.adapter as ChannelId, adapter);
+      } catch (error) {
+        this.recordChannelFailure(route.adapter as ChannelId, route.accountRef, error);
+        this.finishStatusReaction(route.adapter, route.accountRef, item.inboundId, "error");
+        const failure = classifyMessageFailure(error);
+        if (classifySendOutcome(error) === "uncertain" || failure.code === "CHANNEL_DELIVERY_UNCERTAIN") {
+          this.plane.markSendResult(item.outboxId, "uncertain", claimToken);
+        } else if (failure.code === "CHANNEL_AUTH") {
+          this.plane.markSendResult(item.outboxId, "auth", claimToken);
+        } else if (failure.code === "CHANNEL_RATE_LIMIT") {
+          this.plane.markSendResult(item.outboxId, "transient", claimToken);
+        } else {
+          this.plane.markSendResult(item.outboxId, "permanent", claimToken);
+        }
+      }
+    }
+  }
+
+  private persistAdapterState(channel: ChannelId, adapter: ChannelAdapter): void {
+    if (!adapter.exportPersistedState) return;
+    this.persistChannelFlag(channel, true, adapter.exportPersistedState());
+  }
+
+  private startStatusReaction(adapter: ChannelAdapter, event: InboundChannelEvent): void {
+    if (typeof adapter.react !== "function") return;
+    const emojis = CHANNEL_STATUS_REACTIONS[event.channel];
+    if (!emojis) return;
+    const existing = this.statusReactions.get(event.idempotencyKey);
+    if (existing) return;
+    const handle = beginStatusReaction({
+      key: event.idempotencyKey,
+      emojis,
+      add: (emoji, signal) =>
+        adapter.react!({
+          vendorTarget: event.vendorTarget,
+          vendorMessageId: event.vendorMessageId,
+          emoji,
+          action: "add",
+          signal,
+        }),
+      remove: (emoji, signal) =>
+        adapter.react!({
+          vendorTarget: event.vendorTarget,
+          vendorMessageId: event.vendorMessageId,
+          emoji,
+          action: "remove",
+          signal,
+        }),
+    });
+    this.statusReactions.set(event.idempotencyKey, handle);
+    if (this.statusReactions.size > 256) {
+      const first = this.statusReactions.keys().next().value;
+      if (first) this.statusReactions.delete(first);
+    }
+  }
+
+  private finishStatusReaction(_adapter: string, _accountRef: string, inboundId: string, kind: "success" | "error"): void {
+    const inbound = this.store.getInbound(inboundId);
+    if (!inbound) return;
+    const handle = this.statusReactions.get(inbound.adapterMessageKey);
+    if (!handle) return;
+    if (kind === "success") handle.success();
+    else handle.error();
+    this.statusReactions.delete(inbound.adapterMessageKey);
+  }
+
+  private consumeChannelOwner(input: {
+    action: ImOwnerAction;
+    channel: ChannelId;
+    ownerActionId?: string;
+    receipt?: string;
+  }): () => void {
+    if (!this.owner) return () => undefined;
+    if (!input.ownerActionId) throw new PenglaiError("SECURITY_POLICY", "IM_OWNER_ACTION");
+    return consumeImOwnerProof(this.owner, {
+      action: input.action,
+      actionId: input.ownerActionId,
+      objectId: input.channel,
+      resultDigest: imSourceDigest({ action: input.action, objectId: input.channel }),
+      ...(input.receipt ? { receipt: input.receipt } : {}),
+    });
+  }
+
+  private persistChannelFlag(channel: ChannelId, enabled: boolean, extra?: Record<string, unknown>): void {
+    const accountId = channelConfigAccountId(channel);
+    try {
+      this.store.migrateLegacyAdapterAccount(channel, accountId);
+    } catch {
+      /* keep writing the canonical key; restore still fails closed on leftover legacy rows */
+    }
+    let previous: Record<string, unknown> = {};
+    try {
+      const raw = this.store.getAdapterConfig(accountId) ?? this.store.getAdapterConfig(legacyDefaultAccountId(channel));
+      if (raw) previous = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      previous = {};
+    }
+    this.store.putAdapterConfig(accountId, channel, JSON.stringify({ ...previous, enabled, ...extra }));
+  }
+
+  private async handleChannelInbound(event: InboundChannelEvent): Promise<void> {
+    if (
+      event.chatType !== "private" ||
+      event.provenPrivate !== true ||
+      !event.text?.trim() ||
+      !event.vendorMessageId ||
+      !event.peerRef ||
+      !event.vendorTarget ||
+      !event.accountRef ||
+      isForbiddenDefaultAccount(event.channel, event.accountRef)
+    ) {
+      return;
+    }
+    const receivedAt = event.vendorTime ?? Date.now();
+    const routeId = this.plane.ensureRoute({
+      adapter: event.channel,
+      adapterMessageKey: event.idempotencyKey,
+      accountRef: event.accountRef,
+      peerRef: event.peerRef,
+      vendorTarget: event.vendorTarget,
+      chatKind: "private",
+      bodyKind: "text",
+      text: event.text,
+      receivedAt,
+    });
+    const claim = this.store.claimInboundOperation({
+      operationId: `op:${event.idempotencyKey}`,
+      vendorMessageKey: event.idempotencyKey,
+      routeId,
+    });
+    if (!claim.created && claim.turnId) return;
+    const adapter = this.adapters.get(event.channel);
+    if (adapter) this.startStatusReaction(adapter, event);
+    try {
+      await this.plane.submitInbound({
+        adapter: event.channel,
+        adapterMessageKey: event.idempotencyKey,
+        accountRef: event.accountRef,
+        peerRef: event.peerRef,
+        vendorTarget: event.vendorTarget,
+        chatKind: "private",
+        bodyKind: "text",
+        text: event.text,
+        receivedAt,
+      });
+      if (adapter) this.persistAdapterState(event.channel, adapter);
+    } catch (error) {
+      this.statusReactions.get(event.idempotencyKey)?.error();
+      this.statusReactions.delete(event.idempotencyKey);
+      this.recordChannelFailure(event.channel, event.accountRef, error);
+    }
+  }
+}
+
+function restoreMethod(id: ChannelId): string {
+  const methods = getChannelManifest(id).connectionMethods;
+  if (methods.includes("token")) return "token";
+  if (methods.includes("oauth")) return "oauth";
+  if (methods.includes("manifest")) return "manifest";
+  if (methods.includes("device-link")) return "device-link";
+  return methods[0] ?? "token";
+}
+
+async function encodePeekedQr(
+  peeked: { verificationUrl?: string; qrPayload?: string; qrImageRef?: string } | undefined,
+): Promise<string | undefined> {
+  const payload = peeked?.qrImageRef || peeked?.verificationUrl || peeked?.qrPayload;
+  if (!payload) return undefined;
+  try {
+    return await renderQrPngDataUrl(payload);
+  } catch {
+    return undefined;
   }
 }

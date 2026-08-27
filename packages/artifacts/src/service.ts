@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { PenglaiError, parseClosedEnum, readExactRegularFile } from "@penglai/contracts";
@@ -29,6 +29,8 @@ export interface ArtifactRefV1 {
   workspaceId?: string;
   sessionId?: string;
   turnId?: string;
+  parentArtifactId?: `artifact:${string}`;
+  operationDigest?: `sha256:${string}`;
   createdAt: string;
   expiresAt?: string;
 }
@@ -40,6 +42,8 @@ export interface ArtifactIntake {
   workspaceId?: string;
   sessionId?: string;
   turnId?: string;
+  parentArtifactId?: string;
+  operationDigest?: string;
 }
 
 export interface ArtifactReadScope {
@@ -68,6 +72,8 @@ function toRef(row: {
   workspaceId?: string | null;
   sessionId?: string | null;
   turnId?: string | null;
+  parentArtifactId?: string | null;
+  operationDigest?: string | null;
   createdAt: number;
   expiresAt?: number | null;
 }): ArtifactRefV1 {
@@ -84,6 +90,8 @@ function toRef(row: {
     ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
     ...(row.sessionId ? { sessionId: row.sessionId } : {}),
     ...(row.turnId ? { turnId: row.turnId } : {}),
+    ...(row.parentArtifactId ? { parentArtifactId: row.parentArtifactId as `artifact:${string}` } : {}),
+    ...(row.operationDigest ? { operationDigest: `sha256:${row.operationDigest.replace(/^sha256:/, "")}` as `sha256:${string}` } : {}),
     createdAt: new Date(row.createdAt).toISOString(),
     ...(row.expiresAt ? { expiresAt: new Date(row.expiresAt).toISOString() } : {}),
   };
@@ -101,6 +109,8 @@ export class ArtifactService {
   private readonly db: DatabaseSync;
   private readonly now: () => number;
   private readonly assertPersist?: (actionId: string) => void;
+  private gcRunning = false;
+  private maintenanceTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(
     private readonly root: string,
@@ -125,18 +135,40 @@ export class ArtifactService {
         turn_id TEXT,
         created_at INTEGER NOT NULL,
         expires_at INTEGER,
-        persist_action_id TEXT
+        persist_action_id TEXT,
+        parent_artifact_id TEXT,
+        operation_digest TEXT
       );
       CREATE INDEX IF NOT EXISTS artifacts_sha ON artifacts(sha256);
       CREATE INDEX IF NOT EXISTS artifacts_turn ON artifacts(turn_id);
       CREATE INDEX IF NOT EXISTS artifacts_exp ON artifacts(expires_at);
     `);
+    this.ensureColumn("parent_artifact_id", "TEXT");
+    this.ensureColumn("operation_digest", "TEXT");
     this.now = opts?.now ?? Date.now;
     if (opts?.assertPersist) this.assertPersist = opts.assertPersist;
   }
 
   close(): void {
+    if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
+    this.maintenanceTimer = undefined;
     this.db.close();
+  }
+
+  startMaintenance(intervalMs = 15 * 60_000): () => void {
+    if (!this.maintenanceTimer) {
+      const run = () => {
+        try { this.gcBounded(); } catch { /* maintenance never blocks product startup */ }
+      };
+      const initial = setTimeout(run, 0);
+      initial.unref?.();
+      this.maintenanceTimer = setInterval(run, Math.max(60_000, intervalMs));
+      this.maintenanceTimer.unref?.();
+    }
+    return () => {
+      if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
+      this.maintenanceTimer = undefined;
+    };
   }
 
   ingestBytes(bytes: Buffer, input: ArtifactIntake): ArtifactRefV1 {
@@ -145,6 +177,16 @@ export class ArtifactService {
     const scope = parseClosedEnum(input.scope ?? "turn", ARTIFACT_SCOPES, "ARTIFACT_SCOPE", "SECURITY_POLICY");
     if (scope !== "turn" && !input.workspaceId) fail("ARTIFACT_WORKSPACE");
     const classified = classifyArtifact(name, bytes);
+    let parentArtifactId: `artifact:${string}` | undefined;
+    if (input.parentArtifactId) {
+      const parent = this.ref(input.parentArtifactId);
+      if ((parent.workspaceId ?? "") !== (input.workspaceId ?? "") || (parent.sessionId ?? "") !== (input.sessionId ?? "")) {
+        fail("ARTIFACT_PARENT_SCOPE");
+      }
+      parentArtifactId = parent.id;
+    }
+    const operationDigest = input.operationDigest?.replace(/^sha256:/, "").toLowerCase();
+    if (operationDigest !== undefined && !/^[0-9a-f]{64}$/.test(operationDigest)) fail("ARTIFACT_OPERATION_DIGEST");
     const digest = sha256Hex(bytes);
     this.assertTurnBudget(input.turnId, bytes.length);
     this.writeCas(digest, bytes);
@@ -159,6 +201,8 @@ export class ArtifactService {
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       ...(input.turnId ? { turnId: input.turnId } : {}),
+      ...(parentArtifactId ? { parentArtifactId } : {}),
+      ...(operationDigest ? { operationDigest } : {}),
     }));
   }
 
@@ -225,11 +269,26 @@ export class ArtifactService {
   }
 
   gc(now = this.now()): { removed: number; casRemoved: number } {
+    return this.gcBounded({ now, maxBindings: 1_000_000, maxCas: 1_000_000, maxStaging: 1_000_000, budgetMs: 60_000 });
+  }
+
+  gcBounded(opts?: { now?: number; maxBindings?: number; maxCas?: number; maxStaging?: number; budgetMs?: number }): { removed: number; casRemoved: number; stagingRemoved: number; skipped: boolean } {
+    if (this.gcRunning) return { removed: 0, casRemoved: 0, stagingRemoved: 0, skipped: true };
+    this.gcRunning = true;
+    const now = opts?.now ?? this.now();
+    const deadline = Date.now() + (opts?.budgetMs ?? 50);
+    const maxBindings = opts?.maxBindings ?? 128;
+    const maxCas = opts?.maxCas ?? 128;
+    const maxStaging = opts?.maxStaging ?? 64;
+    try {
     const expired = this.db
-      .prepare(`SELECT bind_id, sha256 FROM artifacts WHERE expires_at IS NOT NULL AND expires_at <= ?`)
-      .all(now) as Array<{ bind_id: string; sha256: string }>;
+      .prepare(`SELECT bind_id, sha256 FROM artifacts WHERE expires_at IS NOT NULL AND expires_at <= ? LIMIT ?`)
+      .all(now, maxBindings) as Array<{ bind_id: string; sha256: string }>;
+    let removed = 0;
     for (const row of expired) {
+      if (Date.now() > deadline) break;
       this.db.prepare(`DELETE FROM artifacts WHERE bind_id = ?`).run(row.bind_id);
+      removed += 1;
     }
     let casRemoved = 0;
     const leftovers = this.db.prepare(`SELECT DISTINCT sha256 FROM artifacts`).all() as Array<{ sha256: string }>;
@@ -237,16 +296,31 @@ export class ArtifactService {
     const casRoot = join(this.root, "cas");
     if (existsSync(casRoot)) {
       for (const digest of this.listCasDigests()) {
+        if (casRemoved >= maxCas || Date.now() > deadline) break;
         if (!live.has(digest)) {
           rmSync(this.casPath(digest), { force: true });
           casRemoved += 1;
         }
       }
     }
-    rmSync(join(this.root, "staging"), { recursive: true, force: true });
-    mkdirSync(join(this.root, "staging"), { recursive: true, mode: 0o700 });
-    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
-    return { removed: expired.length, casRemoved };
+    let stagingRemoved = 0;
+    const stagingRoot = join(this.root, "staging");
+    if (existsSync(stagingRoot)) {
+      for (const entry of readdirSync(stagingRoot, { withFileTypes: true })) {
+        if (stagingRemoved >= maxStaging || Date.now() > deadline) break;
+        if (!entry.isFile()) continue;
+        const target = join(stagingRoot, entry.name);
+        try {
+          if (now - statSync(target).mtimeMs < 60 * 60_000) continue;
+          rmSync(target, { force: true });
+          stagingRemoved += 1;
+        } catch { /* a concurrent writer owns this path */ }
+      }
+    }
+    return { removed, casRemoved, stagingRemoved, skipped: false };
+    } finally {
+      this.gcRunning = false;
+    }
   }
 
   private insertBinding(input: {
@@ -260,6 +334,8 @@ export class ArtifactService {
     workspaceId?: string;
     sessionId?: string;
     turnId?: string;
+    parentArtifactId?: `artifact:${string}`;
+    operationDigest?: string;
   }): ArtifactRefV1 {
     const createdAt = this.now();
     const expiresAt = input.scope === "turn" ? createdAt + ARTIFACT_LIMITS.turnTtlMs : undefined;
@@ -267,8 +343,9 @@ export class ArtifactService {
     this.db.prepare(
       `INSERT INTO artifacts(
         bind_id, sha256, kind, name, media_type, bytes, source, scope,
-        workspace_id, session_id, turn_id, created_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        workspace_id, session_id, turn_id, created_at, expires_at,
+        parent_artifact_id, operation_digest
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       bindId,
       input.sha256,
@@ -283,6 +360,8 @@ export class ArtifactService {
       input.turnId ?? null,
       createdAt,
       expiresAt ?? null,
+      input.parentArtifactId ?? null,
+      input.operationDigest ?? null,
     );
     return toRef({
       bindId,
@@ -296,6 +375,8 @@ export class ArtifactService {
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
       ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       ...(input.turnId ? { turnId: input.turnId } : {}),
+      ...(input.parentArtifactId ? { parentArtifactId: input.parentArtifactId } : {}),
+      ...(input.operationDigest ? { operationDigest: input.operationDigest } : {}),
       createdAt,
       ...(expiresAt ? { expiresAt } : {}),
     });
@@ -308,7 +389,7 @@ export class ArtifactService {
         | Record<string, string | number | null>
         | undefined;
     } else {
-      // One local 0.5.6 development build exposed digest-shaped ids. Accept
+      // One local 0.5.7 development build exposed digest-shaped ids. Accept
       // them only when they resolve to exactly one binding; never guess across
       // Workspace/Session boundaries.
       const digest = id.replace(/^sha256:/, "").toLowerCase();
@@ -334,6 +415,8 @@ export class ArtifactService {
           turn_id: string | null;
           created_at: number;
           expires_at: number | null;
+          parent_artifact_id: string | null;
+          operation_digest: string | null;
         }
       | undefined;
     if (!typed) fail("ARTIFACT_MISSING");
@@ -351,7 +434,14 @@ export class ArtifactService {
       turnId: typed.turn_id,
       createdAt: typed.created_at,
       expiresAt: typed.expires_at,
+      parentArtifactId: typed.parent_artifact_id,
+      operationDigest: typed.operation_digest,
     };
+  }
+
+  private ensureColumn(name: "parent_artifact_id" | "operation_digest", type: "TEXT"): void {
+    const columns = this.db.prepare(`PRAGMA table_info(artifacts)`).all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === name)) this.db.exec(`ALTER TABLE artifacts ADD COLUMN ${name} ${type}`);
   }
 
   private assertTurnBudget(turnId: string | undefined, extraBytes: number): void {

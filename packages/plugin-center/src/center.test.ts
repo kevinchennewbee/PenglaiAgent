@@ -542,7 +542,10 @@ test("R50-UPD-006/R50-UN-001 settings client registers update and uninstall cate
   assert.match(client, /data-penglai-data-category/);
   assert.match(client, /workspace/);
   assert.match(client, /legacy/);
-  assert.match(client, /silent auto-update|静默自动更新/);
+  assert.match(client, /不会在后台自动安装更新|never installs updates in the background/);
+  assert.doesNotMatch(client, /children:\s*"desktop-v0\.5"/);
+  assert.doesNotMatch(client, /updateTrust|Trust tier|信任等级/);
+  assert.match(client, /安装包会在打开前自动校验|installer is verified before it opens/);
   assert.match(client, /id: "penglai-update",\s*order: 18\.8/);
   assert.match(client, /id: "penglai-uninstall",\s*order: 18\.9/);
 });
@@ -760,7 +763,7 @@ test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {
   const host = hostWith({ list: () => [] });
   host.setDesired("@penglai/im", true);
   const im = host.reconcile().find((r) => r.id === "@penglai/im");
-  assert.equal(im?.desired, "0.5.6");
+  assert.equal(im?.desired, "0.5.7");
   assert.equal(im?.loaded, false);
   assert.equal(im?.actual, "failed");
   assert.equal(im?.healthy, false);

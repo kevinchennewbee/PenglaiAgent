@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
 import { PRELOAD_API, navigationDecision } from "./preload.js";
 
-test("onboarding completion is durable after the evidence-gated first run", () => {
+test("onboarding completion is durable after the evidence-gated first run", (context) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-ledger-"));
   assert.equal(onboardingLedgerComplete(root), false);
   mkdirSync(join(root, "onboarding"), { mode: 0o700 });
@@ -43,7 +43,13 @@ test("onboarding completion is durable after the evidence-gated first run", () =
 
   writeFileSync(join(root, "onboarding", "onboarding-facts-real.json"), JSON.stringify(facts));
   rmSync(join(root, "onboarding", "onboarding-facts.json"));
-  symlinkSync(join(root, "onboarding", "onboarding-facts-real.json"), join(root, "onboarding", "onboarding-facts.json"));
+  try {
+    symlinkSync(join(root, "onboarding", "onboarding-facts-real.json"), join(root, "onboarding", "onboarding-facts.json"));
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+    return;
+  }
   assert.equal(onboardingLedgerComplete(root), false, "completion facts cannot be a symlink");
 });
 

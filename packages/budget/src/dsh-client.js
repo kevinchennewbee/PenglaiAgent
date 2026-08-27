@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({
     });
     const REMOTE = {
       package: "@penglai/budget",
-      descriptors: [descriptor("status", false), descriptor("setPolicy", true)],
+      descriptors: [descriptor("status", false), descriptor("proposePolicy", true), descriptor("setPolicy", true)],
     };
     const COPY = {
       zh: {
@@ -199,15 +199,31 @@ window.__ModuleLoader__.load({
         }));
       const save = () => {
         set((x) => ({ ...x, busy: true, error: "", notice: "" }));
+        const payload = {
+          scope: v.scope,
+          key: v.key,
+          hardTokens: v.unlimited ? null : Number(v.hard),
+          warnRatio: Number(v.warn),
+        };
+        const approve = window.penglai && window.penglai.requestOwnerApproval;
         Promise.resolve(
-          api.setPolicy({
-            scope: v.scope,
-            key: v.key,
-            hardTokens: v.unlimited ? null : Number(v.hard),
-            warnRatio: Number(v.warn),
-            ownerConfirmed: true,
-          }),
+          api.proposePolicy
+            ? api.proposePolicy(payload)
+            : { actionId: undefined },
         )
+          .then((proposed) => {
+            if (!approve || !proposed || !proposed.actionId) {
+              throw new Error("owner approval required");
+            }
+            return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+              if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+              return api.setPolicy({
+                ...payload,
+                actionId: proposed.actionId,
+                receipt: decided.receipt,
+              });
+            });
+          })
           .then(unwrap)
           .then(() => {
             set((x) => ({ ...x, busy: false, confirmed: false, notice: "✓" }));

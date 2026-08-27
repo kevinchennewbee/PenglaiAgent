@@ -8,6 +8,7 @@ import {
   parseMenuPick,
   pickFromMenu,
 } from "./menu.js";
+import { parseCommand, versionText } from "./commands.js";
 
 test("project menu numbers every workspace under 未分组", () => {
   const { text, menu } = formatProjectMenu(
@@ -57,6 +58,20 @@ test("help stays numbered and Penglai-branded", () => {
   assert.doesNotMatch(en, /\/帮助|\/项目/);
   assert.equal(commandLocale("/projects"), "en");
   assert.equal(commandLocale("/项目"), "zh");
+  assert.match(text, /11\. \/版本/);
+  assert.match(en, /11\. \/version/);
+});
+
+test("/version is a local control command and does not mention a second host", () => {
+  assert.deepEqual(parseCommand("/version"), { type: "version" });
+  assert.deepEqual(parseCommand("/版本"), { type: "version" });
+  const text = versionText();
+  assert.match(text, /Penglai 0\.5\.7/);
+  assert.match(text, /DSH 0\.1\.1-rc\.2/);
+  assert.match(text, /b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/);
+  assert.match(text, /DSH-IM reference v3\.0\.5/);
+  assert.match(text, /64587b3b6162fa34f1c3ddb335a254d4154c9175/);
+  assert.doesNotMatch(text, /ea5176be93cf0a5959397bd15d3ef614811a2a67/);
 });
 
 test("English project menu uses Ungrouped and keeps choice ids", () => {

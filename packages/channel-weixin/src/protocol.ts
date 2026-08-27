@@ -6,7 +6,7 @@ export const ILINK_BASE = "https://ilinkai.weixin.qq.com";
 export const ILINK_CDN_BASE = "https://novac2c.cdn.weixin.qq.com/c2c";
 export const DEFAULT_ILINK_BOT_TYPE = "3";
 export const ILINK_APP_ID = "bot";
-export const ILINK_BOT_AGENT = "Penglai/0.5.6";
+export const ILINK_BOT_AGENT = "Penglai/0.5.7";
 /** Exact Tencent channel package pinned by docs/compatibility/WEIXIN_R2.md. */
 export const ILINK_CHANNEL_VERSION = "2.4.6";
 /** 0x00MMNNPP, matching Tencent's buildClientVersion("2.4.6"). */
@@ -21,7 +21,9 @@ export const QR_ENDPOINT = "/ilink/bot/get_bot_qrcode";
 export const QR_STATUS_ENDPOINT = "/ilink/bot/get_qrcode_status";
 export const GET_UPDATES_ENDPOINT = "/ilink/bot/getupdates";
 export const SEND_ENDPOINT = "/ilink/bot/sendmessage";
-export const ALLOWED_REDIRECT_HOSTS = ["ilinkai.weixin.qq.com"] as const;
+export const GET_CONFIG_ENDPOINT = "/ilink/bot/getconfig";
+export const SEND_TYPING_ENDPOINT = "/ilink/bot/sendtyping";
+export const ALLOWED_REDIRECT_HOSTS = ["ilinkai.weixin.qq.com", "ilinkai.wechat.com"] as const;
 
 export function randomWechatUin(randomBytes: (n: number) => Uint8Array = (n) => {
   const out = new Uint8Array(n);

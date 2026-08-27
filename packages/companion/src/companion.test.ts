@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import {
   CompanionStore,
   FRESH_COMPANION,
@@ -55,7 +56,7 @@ test("R50-COMP-001/002/005 fresh state is off and explicit policy gates quiet, r
     () => mayDispatch(FRESH_COMPANION, Date.now(), 0),
     /default-off/,
   );
-  assert.throws(
+  assert.doesNotThrow(
     () =>
       validateEnableInput({
         bindingId: "b1",
@@ -69,9 +70,7 @@ test("R50-COMP-001/002/005 fresh state is off and explicit policy gates quiet, r
         deliveryMode: "text",
         locale: "zh",
         signals: ["periodic"],
-        ownerConfirmed: false,
       }),
-    /Owner confirmation/,
   );
   const enabled = {
     ...FRESH_COMPANION,
@@ -272,8 +271,9 @@ test("R50-COMP-003..007 production uses official Schedule/Session/Turn, no-tools
   const previous = process.env.PENGLAI_USER_DATA;
   process.env.PENGLAI_USER_DATA = dir;
   const rt = fakeRuntime();
+  let service: ReturnType<typeof apply> | undefined;
   try {
-    const service = apply(rt.ctx as never);
+    service = apply(rt.ctx as never);
     await service.ready;
     assert.equal(rt.provided, service);
     assert.equal(service.status().config.enabled, false);
@@ -284,7 +284,7 @@ test("R50-COMP-003..007 production uses official Schedule/Session/Turn, no-tools
       inflight: 0,
     });
 
-    const config = await service.enable({
+    const enableInput = {
       bindingId: "route-1",
       workspaceId: "workspace-1",
       sessionId: "source-session",
@@ -296,8 +296,25 @@ test("R50-COMP-003..007 production uses official Schedule/Session/Turn, no-tools
       deliveryMode: "text",
       locale: "zh",
       signals: ["periodic", "emotion"],
-      ownerConfirmed: true,
-    });
+    } as const;
+    await assert.rejects(
+      () => service.enable({ ...enableInput, ownerConfirmed: true } as never),
+      /broker receipt required|approval receipt invalid/,
+    );
+    const owner = new OwnerApprovalBroker(dir, { dialog: async () => "approved" });
+    const enableProposal = service.proposeEnable(enableInput);
+    const enableDecision = await owner.requestOwnerApproval(enableProposal.actionId);
+    assert.equal(enableDecision.decision, "approved");
+    const enableProof = {
+      ...enableInput,
+      actionId: enableProposal.actionId,
+      receipt: enableDecision.receipt!,
+    };
+    const config = await service.enable(enableProof);
+    await assert.rejects(
+      () => service.enable(enableProof),
+      /already enabled|approval receipt replayed/,
+    );
     assert.equal(config.enabled, true);
     assert.match(rt.attached, /^penglai-companion-/);
     assert.equal(rt.toolCalls[0]?.name, "schedule_create");
@@ -373,14 +390,20 @@ test("R50-COMP-003..007 production uses official Schedule/Session/Turn, no-tools
       "replayed trigger must not create a second outbound",
     );
 
-    const disabled = await service.disable({ ownerConfirmed: true });
+    const disableProposal = service.proposeDisable();
+    const disableDecision = await owner.requestOwnerApproval(disableProposal.actionId);
+    assert.equal(disableDecision.decision, "approved");
+    const disabled = await service.disable({
+      actionId: disableProposal.actionId,
+      receipt: disableDecision.receipt!,
+    });
     assert.equal(disabled.enabled, false);
     assert.equal(rt.disposed, 1);
     assert.equal(service.status().resources.agent, 0);
     assert.equal(service.status().resources.listeners, 0);
     assert.equal(rt.cancelled.length, 1);
-    await service.close();
   } finally {
+    await service?.close();
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
     rmSync(dir, { recursive: true, force: true });
@@ -396,6 +419,10 @@ test("Companion client registers official settings UI and keeps the no-tools bou
   assert.match(source, /plan\/no-unattended-tools/);
   assert.match(source, /Connect a messaging platform first/);
   assert.match(source, /请先连接消息平台/);
+  assert.match(source, /proposeEnable/);
+  assert.match(source, /proposeDisable/);
+  assert.match(source, /requestOwnerApproval/);
+  assert.doesNotMatch(source, /ownerConfirmed:\s*true/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });
 

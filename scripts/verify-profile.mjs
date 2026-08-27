@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { ROOT, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { hostTarget, inspectClosureCredential, stagingForTarget } from "./lib/closure-credential.mjs";
@@ -31,7 +31,7 @@ if (closure.verdict !== "PASS") {
 }
 
 const layout = resolveRuntimeLayout(staging);
-if (!layout.nodeBin.startsWith("/") || !layout.dshEntry.startsWith("/")) {
+if (!isAbsolute(layout.nodeBin) || !isAbsolute(layout.dshEntry)) {
   finish("FAIL", { command: "verify:profile", target, reason: "embedded paths are not absolute" });
 }
 if (!existsSync(layout.nodeBin) || !existsSync(layout.dshEntry)) {
@@ -87,7 +87,7 @@ for (const mode of modes) {
   const user = resolveUserLayout(userRoot);
   const supervisor = new EmbeddedDshSupervisor(layout);
   try {
-    ensurePrivateHome(user);
+    ensurePrivateHome(user, layout.appRoot);
     activatePrivateProfile(layout, user);
     configurePluginMode(user.profileWeb, mode);
     installFirstPartyPlugins(layout, user.profileWeb, user.transactions, selectedPlugins(mode));

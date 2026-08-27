@@ -101,7 +101,7 @@ export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 4
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || !HOST_ALLOW.has(parsed.hostname)) {
       throw new Error(`mnemon download host rejected ${parsed.hostname}`);
     }
-    const response = await fetchImpl(current, { redirect: "manual", headers: { "User-Agent": "Penglai/0.5.6 mnemon-fetch" } });
+    const response = await fetchImpl(current, { redirect: "manual", headers: { "User-Agent": "Penglai/0.5.7 mnemon-fetch" } });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
       await response.body?.cancel?.().catch(() => undefined);
@@ -123,12 +123,62 @@ export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 4
   throw new Error("too many redirects");
 }
 
+function listZipEntries(archive) {
+  try {
+    return execFileSync("unzip", ["-Z", "-1", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch {
+    /* unzip is not on PATH on stock Windows GitHub images either; tar and Expand-Archive are */
+  }
+  try {
+    return execFileSync("tar", ["-tf", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch {
+    /* fall through */
+  }
+  if (process.platform === "win32") {
+    const listed = execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::OpenRead('${archive.replace(/'/g, "''")}').Entries.FullName`,
+      ],
+      { encoding: "utf8" },
+    );
+    return listed.split(/\r?\n/).filter(Boolean);
+  }
+  throw new Error("unzip missing for zip mnemon archive");
+}
+
+export function extractZipContents(archive, extractDir, platform = process.platform, run = execFileSync) {
+  try {
+    run("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
+  } catch {
+    if (platform === "win32") {
+      try {
+        run("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
+      } catch {
+        run(
+          "powershell",
+          [
+            "-NoProfile",
+            "-Command",
+            `Expand-Archive -Force -Path '${archive.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}'`,
+          ],
+          { stdio: "ignore" },
+        );
+      }
+    } else {
+      run("tar", ["-xf", archive, "-C", extractDir], { stdio: "ignore" });
+    }
+  }
+}
+
 export function extractArchive(archive, extractDir, asset) {
   mkdirSync(extractDir, { recursive: true, mode: 0o700 });
   if (asset.archiveFilename.endsWith(".zip")) {
-    const names = execFileSync("unzip", ["-Z", "-1", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const names = listZipEntries(archive);
     for (const name of names) assertSafeArchiveEntry(name);
-    execFileSync("unzip", ["-q", "-o", archive, "-d", extractDir], { stdio: "ignore" });
+    extractZipContents(archive, extractDir);
   } else {
     const names = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const name of names) assertSafeArchiveEntry(name);

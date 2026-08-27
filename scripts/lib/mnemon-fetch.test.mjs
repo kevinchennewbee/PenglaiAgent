@@ -4,7 +4,13 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assertSafeArchiveEntry, parseFetchArgs, publishArchive, selectAssets } from "./mnemon-fetch.mjs";
+import {
+  assertSafeArchiveEntry,
+  extractZipContents,
+  parseFetchArgs,
+  publishArchive,
+  selectAssets,
+} from "./mnemon-fetch.mjs";
 
 test("fetch-mnemon rejects unknown arguments", () => {
   assert.throws(() => parseFetchArgs(["--weird"]), /unknown fetch-mnemon argument/);
@@ -29,6 +35,16 @@ test("unit tests do not require a pre-downloaded mnemon binary", () => {
   mkdirSync(join(dir, "bin"), { recursive: true });
   writeFileSync(join(dir, "bin", "placeholder"), "not-mnemon");
   assert.equal(parseFetchArgs(["--all"]).all, true);
+});
+
+test("Windows zip extraction falls back to built-in tar before PowerShell", () => {
+  const commands = [];
+  const run = (command) => {
+    commands.push(command);
+    if (command === "unzip") throw new Error("unzip unavailable");
+  };
+  extractZipContents("mnemon.zip", "out", "win32", run);
+  assert.deepEqual(commands, ["unzip", "tar"]);
 });
 
 test("verified archives publish through a destination-local atomic rename", () => {

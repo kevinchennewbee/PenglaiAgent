@@ -1,21 +1,30 @@
 import { PenglaiError } from "@penglai/contracts";
+import { DingTalkDeviceAuth } from "./device-auth.js";
 
 export const name = "dingtalk";
+export { DingTalkDeviceAuth, DINGTALK_REGISTRATION_SOURCE } from "./device-auth.js";
 
 export interface DingTalkCredentials {
   clientId: string;
   clientSecret: string;
+  sessionWebhooks?: Record<string, string>;
 }
 
 export interface DingTalkInbound {
   messageId: string;
   senderId: string;
   text: string;
+  vendorTarget: string;
+  chatType: "private";
+  accountRef: string;
 }
 
 export interface DingTalkStreamClient {
   connect(): Promise<void> | void;
   disconnect(): Promise<void> | void;
+  send?(peer: string, text: string): Promise<void>;
+  onMessage?(handler: (msg: DingTalkInbound) => void | Promise<void>): void;
+  onReplyTarget?(handler: (vendorTarget: string, sessionWebhook: string) => void | Promise<void>): void;
   connected?: boolean;
 }
 
@@ -25,79 +34,124 @@ export interface DingTalkStreamFactory {
 
 export type DingTalkConnection = "not_configured" | "connecting" | "connected" | "failed" | "disabled";
 
-/**
- * Penglai DingTalk adapter. Uses the official dingtalk-stream SDK when a
- * factory is not injected. It is not a second Agent core and is not live
- * until LIVE_CHANNEL_IDS includes dingtalk after health and send proofs.
- */
 export class DingTalkAdapter {
   connection: DingTalkConnection = "not_configured";
+  accountRef: string | undefined;
   private client: DingTalkStreamClient | undefined;
+  private qr: { operationId: string; deviceCode: string; verificationUrl: string; expiresAt: number } | undefined;
   readonly inbound: DingTalkInbound[] = [];
+  private inboundHandler?: (msg: DingTalkInbound) => void | Promise<void>;
 
   constructor(
-    private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined },
+    private readonly vault: { resolve(ref: string): DingTalkCredentials | undefined; put?(ref: string, creds: DingTalkCredentials): void | Promise<void> },
     private readonly factory?: DingTalkStreamFactory,
+    private readonly auth = new DingTalkDeviceAuth(),
   ) {}
 
-  async beginConnection(input: { credentialRef: string }): Promise<{ qr: false; live: false; connection: DingTalkConnection }> {
-    const creds = this.vault.resolve(input.credentialRef);
+  async beginConnection(input: {
+    method?: string;
+    credentialRef?: string;
+  }): Promise<{ kind: "qr" | "token"; live: false; operationId: string; expiresAt?: number; connection: DingTalkConnection }> {
+    if (input.method === "qr" || !input.credentialRef) {
+      this.connection = "connecting";
+      const session = await this.auth.start();
+      const operationId = `dingtalk:qr:${session.deviceCode.slice(0, 8)}`;
+      this.qr = { operationId, deviceCode: session.deviceCode, verificationUrl: session.verificationUrl, expiresAt: session.expiresAt };
+      return { kind: "qr", live: false, operationId, expiresAt: session.expiresAt, connection: this.connection };
+    }
+    return this.connectWithRef(input.credentialRef);
+  }
+
+  async pollConnection(operationId: string): Promise<{ status: DingTalkConnection }> {
+    if (!this.qr || this.qr.operationId !== operationId) {
+      return { status: this.connection };
+    }
+    const poll = await this.auth.poll(this.qr.deviceCode);
+    if (poll.status === "SUCCESS" && poll.clientId && poll.clientSecret) {
+      await this.vault.put?.("PENGLAI_DINGTALK_CLIENT", { clientId: poll.clientId, clientSecret: poll.clientSecret });
+      this.qr = undefined;
+      await this.connectWithRef("PENGLAI_DINGTALK_CLIENT");
+      return { status: this.connection };
+    }
+    if (poll.status === "EXPIRED" || poll.status === "FAIL") {
+      this.connection = poll.status === "EXPIRED" ? "failed" : "failed";
+      this.qr = undefined;
+    }
+    return { status: this.connection };
+  }
+
+  peekQr(operationId: string): { verificationUrl: string; expiresAt: number } | undefined {
+    if (!this.qr || this.qr.operationId !== operationId) return undefined;
+    return { verificationUrl: this.qr.verificationUrl, expiresAt: this.qr.expiresAt };
+  }
+
+  health() {
+    const transport = this.client?.connected;
+    const connection =
+      this.connection === "connected" && transport === false ? "connecting" : this.connection;
+    return { channel: "dingtalk" as const, live: false, enabled: this.connection !== "disabled", connection };
+  }
+
+  async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
+    if (this.connection !== "connected" || !this.client?.send) {
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:dingtalk");
+    }
+    if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "DINGTALK_REPLY_TARGET");
+    await this.client.send(input.peerRef, input.text);
+    return { delivered: true };
+  }
+
+  onInbound(handler: (msg: DingTalkInbound) => void | Promise<void>): void {
+    this.inboundHandler = handler;
+  }
+
+  async disconnect(): Promise<void> {
+    await this.client?.disconnect();
+    this.client = undefined;
+    this.qr = undefined;
+    this.connection = "disabled";
+  }
+
+  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; live: false; operationId: string; connection: DingTalkConnection }> {
+    const creds = this.vault.resolve(credentialRef);
     if (!creds?.clientId || !creds.clientSecret) {
       this.connection = "not_configured";
       throw new PenglaiError("AUTH_EXPIRED", "dingtalk credentials missing");
     }
     this.connection = "connecting";
+    this.accountRef = creds.clientId;
     try {
       this.client = this.factory ? this.factory(creds) : await this.createOfficialClient(creds);
+      this.client.onReplyTarget?.(async (vendorTarget, sessionWebhook) => {
+        if (creds.sessionWebhooks?.[vendorTarget] === sessionWebhook) return;
+        const targets = { ...(creds.sessionWebhooks ?? {}) };
+        delete targets[vendorTarget];
+        targets[vendorTarget] = sessionWebhook;
+        const entries = Object.entries(targets);
+        creds.sessionWebhooks = Object.fromEntries(entries.slice(Math.max(0, entries.length - 100)));
+        await this.vault.put?.(credentialRef, creds);
+      });
+      this.client.onMessage?.(async (msg) => {
+        const event = {
+          ...msg,
+          accountRef: msg.accountRef || creds.clientId,
+          chatType: "private" as const,
+          vendorTarget: msg.vendorTarget || msg.senderId,
+        };
+        this.inbound.push(event);
+        await this.inboundHandler?.(event);
+      });
       await this.client.connect();
       this.connection = this.client.connected === false ? "failed" : "connected";
     } catch {
       this.connection = "failed";
       throw new PenglaiError("DELIVERY_TRANSIENT", "dingtalk stream connect failed");
     }
-    return { qr: false, live: false, connection: this.connection };
-  }
-
-  health() {
-    return {
-      channel: "dingtalk" as const,
-      live: false,
-      connection: this.connection,
-    };
-  }
-
-  async sendText(_input: { text: string }): Promise<never> {
-    throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:dingtalk");
-  }
-
-  async disconnect(): Promise<void> {
-    await this.client?.disconnect();
-    this.client = undefined;
-    this.connection = "disabled";
+    return { kind: "token", live: false, operationId: `dingtalk:token:${credentialRef}`, connection: this.connection };
   }
 
   private async createOfficialClient(creds: DingTalkCredentials): Promise<DingTalkStreamClient> {
-    const mod = (await import("dingtalk-stream")) as unknown as {
-      DWClient?: new (opts: { clientId: string; clientSecret: string }) => {
-        connect(): Promise<void> | void;
-        disconnect(): Promise<void> | void;
-      };
-    };
-    if (typeof mod.DWClient !== "function") {
-      throw new PenglaiError("DSH_UNAVAILABLE", "dingtalk-stream DWClient missing");
-    }
-    const raw = new mod.DWClient({ clientId: creds.clientId, clientSecret: creds.clientSecret });
-    const client: DingTalkStreamClient = {
-      connected: false,
-      async connect() {
-        await raw.connect();
-        client.connected = true;
-      },
-      async disconnect() {
-        await raw.disconnect();
-        client.connected = false;
-      },
-    };
-    return client;
+    const { createDingTalkStreamClient } = await import("./stream-client.js");
+    return createDingTalkStreamClient(creds);
   }
 }

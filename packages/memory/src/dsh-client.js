@@ -98,20 +98,20 @@ window.__ModuleLoader__.load({
     const COPY = {
       zh: {
         title: "蓬莱记忆",
-        hint: "不必说「记住」。智能整理会在当前工作区自动保存低风险内容，可随时撤销。先询问我则只生成候选。个人记忆和跨项目提升必须单独确认。",
+        hint: "蓬莱只在你选择的范围内使用记忆。当前项目的低风险内容可以自动整理；跨项目使用、修改和删除都会再次请你确认。",
         mode: "记忆模式",
         modeOff: "关闭",
         modeSuggest: "先询问我",
         modeAuto: "智能整理（推荐）",
-        candidateHint: "候选不会影响回答。接受本工作区，或单独确认后升级为个人记忆。",
-        accept: "接受本工作区",
-        personalize: "升级为个人记忆",
-        reject: "拒绝",
+        candidateHint: "这些内容还没有进入记忆，也不会影响回答。你可以保存到当前项目、保存为个人记忆，或忽略。",
+        accept: "保存到当前项目",
+        personalize: "保存为个人记忆",
+        reject: "忽略",
         usedN: "本轮使用了 N 条记忆",
         scope: "范围",
-        global: "全局 L1",
-        workspace: "工作区",
-        candidate: "会话候选",
+        global: "个人记忆（所有项目）",
+        workspace: "当前项目记忆",
+        candidate: "待我确认",
         add: "保存记忆",
         text: "记忆内容",
         confirm: "我已检查下方变更并确认",
@@ -126,13 +126,13 @@ window.__ModuleLoader__.load({
         promote: "确认提升",
         unavailable: "记忆服务暂时不可用。",
         busy: "处理中…",
-        graph: "知识图谱",
-        includePersonal: "叠加个人记忆",
-        why: "解释",
+        graph: "查看记忆关系",
+        includePersonal: "同时显示个人记忆",
+        why: "查看来源",
         correct: "更正",
         forget: "忘记",
-        importPreview: "预览 0.5.3 迁移",
-        importConfirm: "确认迁移旧记忆",
+        importPreview: "检查旧版记忆",
+        importConfirm: "导入检查过的旧版记忆",
         sources: "记忆来源",
         sourcesHint: "可选：授权本地资料，让蓬莱在对应范围内建立只读索引。",
       },
@@ -149,9 +149,9 @@ window.__ModuleLoader__.load({
         reject: "Reject",
         usedN: "This turn used N memories",
         scope: "Scope",
-        global: "Global L1",
-        workspace: "Workspace",
-        candidate: "Session candidates",
+        global: "Personal memory (all projects)",
+        workspace: "Current project memory",
+        candidate: "Needs my review",
         add: "Save memory",
         text: "Memory text",
         confirm: "I reviewed the visible diff and confirm",
@@ -166,7 +166,7 @@ window.__ModuleLoader__.load({
         promote: "Confirm promotion",
         unavailable: "Memory service is temporarily unavailable.",
         busy: "Working…",
-        graph: "Knowledge graph",
+        graph: "View memory relationships",
         includePersonal: "Overlay personal memory",
         why: "Why",
         correct: "Correct",
@@ -216,6 +216,7 @@ window.__ModuleLoader__.load({
         whyText: "",
         correctText: "",
         importNote: "",
+        skillConfirmed: false,
       });
       const refresh = React.useCallback(() => {
         if (!api?.status) {
@@ -257,6 +258,7 @@ window.__ModuleLoader__.load({
               busy: false,
               notice: done || "✓",
               text: method === "write" ? "" : x.text,
+              correctText: method === "correct" ? "" : x.correctText,
               confirmed: false,
               deleteConfirmed: false,
             }));
@@ -292,6 +294,7 @@ window.__ModuleLoader__.load({
               busy: false,
               notice: done || "✓",
               text: method === "write" ? "" : x.text,
+              correctText: method === "correct" ? "" : x.correctText,
               confirmed: false,
               deleteConfirmed: false,
             }));
@@ -302,6 +305,23 @@ window.__ModuleLoader__.load({
             set((x) => ({ ...x, busy: false, error: message(e) }));
             return undefined;
           });
+      };
+      const showWhy = (id) => {
+        set((x) => ({ ...x, selectedId: String(id), whyText: "", error: "" }));
+        return Promise.resolve(api.why({
+          id: String(id),
+          ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
+        }))
+          .then(unwrap)
+          .then((result) => set((x) => ({
+            ...x,
+            whyText:
+              result?.reason ||
+              result?.source ||
+              result?.provenance ||
+              JSON.stringify(result || {}),
+          })))
+          .catch((e) => set((x) => ({ ...x, error: message(e) })));
       };
       if (v.phase === "loading")
         return jsx.jsx("section", {
@@ -390,17 +410,17 @@ window.__ModuleLoader__.load({
                     {
                       children: [
                         String(r.content || r.text || r.id),
+                        v.scope === "candidate" && r.rationale
+                          ? jsx.jsx("small", {
+                              style: { display: "block", opacity: 0.75 },
+                              children: String(r.rationale),
+                            })
+                          : null,
                         " ",
                         v.scope !== "candidate" ? jsx.jsx("button", {
                           type: "button",
                           "data-penglai-memory-why": String(r.id),
-                          onClick: () => {
-                            set((x) => ({ ...x, selectedId: String(r.id) }));
-                            run("why", {
-                              id: String(r.id),
-                              ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                            });
-                          },
+                          onClick: () => showWhy(r.id),
                           children: t.why,
                         }) : null,
                         v.scope === "candidate"
@@ -544,13 +564,7 @@ window.__ModuleLoader__.load({
                             cy: 24 + Math.floor(index / 8) * 52,
                             r: 8,
                             fill: node.scope === "personal" ? "#5b8" : "#58b",
-                            onClick: () => {
-                              set((x) => ({ ...x, selectedId: String(node.id) }));
-                              run("why", {
-                                id: String(node.id),
-                                ...(v.scope === "workspace" ? { workspaceId: v.workspaceId } : {}),
-                              });
-                            },
+                            onClick: () => showWhy(node.id),
                           }),
                           jsx.jsx("title", { children: String(node.summary || node.id) }),
                         ],
@@ -562,6 +576,13 @@ window.__ModuleLoader__.load({
               }),
             ],
           }),
+          v.whyText
+            ? jsx.jsx("p", {
+                "data-penglai-memory-provenance": "1",
+                role: "status",
+                children: v.whyText,
+              })
+            : null,
           v.scope !== "candidate" ? jsx.jsx("input", {
             "data-penglai-memory-correct": "1",
             value: v.correctText,
@@ -720,7 +741,7 @@ window.__ModuleLoader__.load({
               set((x) => ({
                 ...x,
                 skillName: String(e.target.value),
-                confirmed: false,
+                skillConfirmed: false,
               })),
           }),
           jsx.jsx("input", {
@@ -730,7 +751,7 @@ window.__ModuleLoader__.load({
               set((x) => ({
                 ...x,
                 skillDescription: String(e.target.value),
-                confirmed: false,
+                skillConfirmed: false,
               })),
           }),
           jsx.jsx("textarea", {
@@ -740,7 +761,7 @@ window.__ModuleLoader__.load({
               set((x) => ({
                 ...x,
                 skillBody: String(e.target.value),
-                confirmed: false,
+                skillConfirmed: false,
               })),
           }),
           jsx.jsxs("pre", {
@@ -750,9 +771,9 @@ window.__ModuleLoader__.load({
             children: [
               jsx.jsx("input", {
                 type: "checkbox",
-                checked: v.confirmed,
+                checked: v.skillConfirmed,
                 onChange: (e) =>
-                  set((x) => ({ ...x, confirmed: e.target.checked })),
+                  set((x) => ({ ...x, skillConfirmed: e.target.checked })),
               }),
               t.confirm,
             ],
@@ -761,7 +782,7 @@ window.__ModuleLoader__.load({
             type: "button",
             disabled:
               v.busy ||
-              !v.confirmed ||
+              !v.skillConfirmed ||
               !v.skillName ||
               !v.skillDescription ||
               !v.skillBody,
@@ -782,7 +803,6 @@ window.__ModuleLoader__.load({
                   description: v.skillDescription,
                   body: v.skillBody,
                   visibleDiff: `+ skills/${v.skillName}/SKILL.md`,
-                  ownerConfirmed: true,
                 },
                 "official-dsh-skills",
               ),

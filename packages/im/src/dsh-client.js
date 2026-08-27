@@ -91,6 +91,13 @@ window.__ModuleLoader__.load({
       "listBots",
       "acknowledgeChannelRisk",
       "removeBot",
+      "storeChannelSecret",
+      "beginChannelConnection",
+      "pollChannelConnection",
+      "cancelChannelConnection",
+      "peekChannelQr",
+      "disconnectChannel",
+      "logoutChannel",
     ]);
     const REMOTE = {
       package: "@penglai/im",
@@ -131,17 +138,16 @@ window.__ModuleLoader__.load({
         "listBots",
         "acknowledgeChannelRisk",
         "removeBot",
+        "storeChannelSecret",
+        "beginChannelConnection",
+        "pollChannelConnection",
+        "cancelChannelConnection",
+        "peekChannelQr",
+        "disconnectChannel",
+        "logoutChannel",
       ].map((method) => remoteDescriptor(method, INPUT_METHODS.has(method))),
     };
 
-    const TABS = [
-      "overview",
-      "weixin",
-      "feishu",
-      "bindings",
-      "commands",
-      "diagnostics",
-    ];
     const COPY = {
       zh: {
         overview: "总览",
@@ -154,15 +160,37 @@ window.__ModuleLoader__.load({
         configureFeishu: "连接飞书",
         connectFeishu: "连接飞书",
         guidedConnect: "连接",
+        disconnect: "断开",
+        logout: "退出并删除凭据",
+        manage: "管理",
+        close: "关闭",
+        experimental: "实验性",
+        pasteToken: "粘贴官方 Token",
+        pasteCreds: "粘贴凭据",
+        saveConnect: "保存并连接",
+        showQr: "显示二维码",
+        refreshQr: "重新生成二维码",
+        cancelConnect: "取消本次连接",
+        scanWaiting: "二维码已生成，等待扫码",
+        riskAck: "我已了解账号风险，仍要启用 WhatsApp",
         noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
-        whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。",
-        notLive: "0.5.6 暂未开放；仅列入后续计划，不会创建假连接。",
+        whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。这不是官方 Cloud API。",
+        tokenHint: "凭据只写入本机保险库，界面不会回显。",
+        scanOfficial: "请用官方应用扫码。",
         statusDisconnected: "未连接",
         statusConnecting: "正在连接",
         statusConnected: "已连接",
         statusNeedsAction: "需要处理",
-        statusUnavailable: "0.5.6 未开放",
-        advanced: "高级诊断",
+        statusDisabled: "已关闭",
+        statusNotConfigured: "未配置",
+        statusDegraded: "降级",
+        statusExpired: "已过期",
+        statusFailed: "失败",
+        lastError: "最近错误",
+        referenceId: "参考号",
+        reconnect: "重连",
+        testSend: "测试",
+        advanced: "高级设置",
         openConsole: "打开飞书开发者后台",
         openLongDoc: "打开长连接说明",
         copyScopes: "复制最小权限",
@@ -224,10 +252,10 @@ window.__ModuleLoader__.load({
         feishuOwnerMissing:
           "尚未指定允许身份：飞书私聊会全部拒绝，直到扫码确认或在此填写。",
         feishuOwnerSave: "保存允许身份",
-        saveSecret: "保存并写入 credential ref",
+        saveSecret: "保存凭据",
         verifyConnect: "校验并连接",
         overviewHint:
-          "扫码后请在微信或飞书里发任意消息。首次消息会收到欢迎和 /帮助 /项目 菜单，直接说「你好」也能对话。",
+          "连接平台后，在私聊里发任意消息。首次消息会收到欢迎和 /帮助 /项目 菜单，直接说「你好」也能对话。",
         weixinLine: "微信",
         feishuLine: "飞书",
         bound: "绑定",
@@ -237,6 +265,7 @@ window.__ModuleLoader__.load({
           "诊断只显示稳定错误码、队列计数和恢复动作，不含密钥或正文。",
         loading: "正在读取实际连接状态…",
         loadError: "无法读取 IM 状态",
+        pageTitle: "消息连接",
         stepCreateApp: "创建企业自建应用",
         stepBot: "启用机器人能力",
         stepScopes: "授予最小私聊权限",
@@ -255,15 +284,37 @@ window.__ModuleLoader__.load({
         configureFeishu: "Connect Feishu",
         connectFeishu: "Connect Feishu",
         guidedConnect: "Connect",
+        disconnect: "Disconnect",
+        logout: "Log out and delete credentials",
+        manage: "Manage",
+        close: "Close",
+        experimental: "Experimental",
+        pasteToken: "Paste the official token",
+        pasteCreds: "Paste credentials",
+        saveConnect: "Save and connect",
+        showQr: "Show QR code",
+        refreshQr: "Generate a new QR code",
+        cancelConnect: "Cancel this connection",
+        scanWaiting: "QR code ready; waiting for scan",
+        riskAck: "I understand the account risk and still want to enable WhatsApp",
         noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
-        whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk.",
-        notLive: "Not available in 0.5.6. Listed as roadmap only; Penglai will not create a fake connection.",
+        whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk. This is not the official Cloud API.",
+        tokenHint: "Credentials are written only to the local vault and are never echoed.",
+        scanOfficial: "Scan with the official app.",
         statusDisconnected: "Not connected",
         statusConnecting: "Connecting",
         statusConnected: "Connected",
         statusNeedsAction: "Needs attention",
-        statusUnavailable: "Not available in 0.5.6",
-        advanced: "Advanced diagnostics",
+        statusDisabled: "Disabled",
+        statusNotConfigured: "Not configured",
+        statusDegraded: "Degraded",
+        statusExpired: "Expired",
+        statusFailed: "Failed",
+        lastError: "Last error",
+        referenceId: "Reference",
+        reconnect: "Reconnect",
+        testSend: "Test",
+        advanced: "Advanced settings",
         openConsole: "Open Feishu developer console",
         openLongDoc: "Open long-connection help",
         copyScopes: "Copy minimum scopes",
@@ -325,10 +376,10 @@ window.__ModuleLoader__.load({
         feishuOwnerMissing:
           "No allowed identity yet: Feishu private chats are rejected until you scan or enter it here.",
         feishuOwnerSave: "Save allowed identity",
-        saveSecret: "Save and write credential ref",
+        saveSecret: "Save credentials",
         verifyConnect: "Verify and connect",
         overviewHint:
-          "After you scan, send any message in Weixin or Feishu. The first message gets a welcome plus /help and /project. Saying 你好 also starts the conversation.",
+          "After you connect, send any private message. The first message gets a welcome plus /help and /project. Saying 你好 also starts the conversation.",
         weixinLine: "Weixin",
         feishuLine: "Feishu",
         bound: "bound",
@@ -337,6 +388,7 @@ window.__ModuleLoader__.load({
         diagnosticsHint:
           "Diagnostics show stable error codes, queue counts, and recovery actions only. No secrets or bodies.",
         loading: "Reading live IM status…",
+        pageTitle: "Messaging",
         loadError: "Unable to read IM status",
         stepCreateApp: "Create a self-built enterprise app",
         stepBot: "Enable bot capability",
@@ -350,6 +402,21 @@ window.__ModuleLoader__.load({
     function localeCopy() {
       const id = String(document.documentElement.lang ?? "zh");
       return COPY[id.startsWith("en") ? "en" : "zh"];
+    }
+
+    function ownerApprove(remote, connection, action, objectId) {
+      return Promise.resolve(
+        imCall(remote, connection, "proposeBinding", { action, objectId }),
+      ).then((proposed) => {
+        const approve = window.penglai && window.penglai.requestOwnerApproval;
+        if (!approve || !proposed || !proposed.actionId) {
+          throw new Error("owner approval required");
+        }
+        return Promise.resolve(approve({ actionId: proposed.actionId })).then((decided) => {
+          if (!decided || decided.decision !== "approved") throw new Error("owner denied");
+          return { ownerActionId: proposed.actionId, receipt: decided.receipt };
+        });
+      });
     }
 
     const QR_LABEL = (t) => ({
@@ -1231,9 +1298,278 @@ window.__ModuleLoader__.load({
       });
     }
 
+    function plainStatus(channel, t) {
+      const connection = String(channel.connection || "");
+      if (connection === "connected") return t.statusConnected;
+      if (connection === "connecting") return t.statusConnecting;
+      if (connection === "disabled") return t.statusDisabled;
+      if (connection === "not_configured") return t.statusNotConfigured;
+      if (connection === "degraded") return t.statusDegraded;
+      if (connection === "expired") return t.statusExpired;
+      if (connection === "failed" || connection === "blocked") return t.statusFailed;
+      return t.statusDisconnected;
+    }
+
+    function dualSecretLabels(channelId) {
+      if (channelId === "slack") return ["Bot Token", "App Token"];
+      if (channelId === "dingtalk") return ["Client ID", "Client Secret"];
+      if (channelId === "wecom") return ["Bot ID", "Secret"];
+      if (channelId === "qq") return ["App ID", "Client Secret"];
+      return null;
+    }
+
+    function defaultMethod(channel) {
+      const methods = channel.connectionMethods || [];
+      if (methods.includes("qr")) return "qr";
+      if (methods.includes("device-link")) return "device-link";
+      if (methods.includes("token")) return "token";
+      if (methods.includes("oauth")) return "oauth";
+      return methods[0] || "token";
+    }
+
+    function ChannelConnectPane({ remote, connection, channel, manifest, load, onClose }) {
+      const t = localeCopy();
+      const methods = channel.connectionMethods || [];
+      const usesQr = methods.includes("qr") || methods.includes("device-link");
+      const usesToken = methods.includes("token") || methods.includes("oauth") || methods.includes("manifest");
+      const [secret, setSecret] = React.useState("");
+      const [secretB, setSecretB] = React.useState("");
+      const [riskAck, setRiskAck] = React.useState(false);
+      const [error, setError] = React.useState("");
+      const [steps, setSteps] = React.useState([]);
+      const [scanImage, setScanImage] = React.useState("");
+      const [operationId, setOperationId] = React.useState("");
+      const [connectionStatus, setConnectionStatus] = React.useState("");
+      const [autoStarted, setAutoStarted] = React.useState(false);
+      const dual = dualSecretLabels(channel.channel);
+      const lang = String(document.documentElement.lang || "zh").startsWith("en") ? "en" : "zh";
+      const begin = (method) => {
+        setError("");
+        setConnectionStatus("starting");
+        const combined = dual ? [secret, secretB].filter(Boolean).join("\n") : secret;
+        const args = {
+          channel: channel.channel,
+          method,
+          ...(channel.risk === "community-protocol" ? { riskAck } : {}),
+          ...(combined ? { secret: combined } : {}),
+        };
+        setSecret("");
+        setSecretB("");
+        const proofs = [];
+        if (combined) {
+          proofs.push(
+            ownerApprove(remote, connection, "im.saveCredentials", channel.channel).then((proof) => {
+              args.ownerActionId = proof.ownerActionId;
+              args.receipt = proof.receipt;
+            }),
+          );
+        }
+        if (channel.risk === "community-protocol") {
+          proofs.push(
+            ownerApprove(remote, connection, "im.acknowledgeRisk", channel.channel).then((proof) => {
+              args.riskOwnerActionId = proof.ownerActionId;
+              args.riskReceipt = proof.receipt;
+            }),
+          );
+        }
+        Promise.all(proofs)
+          .then(() => imCall(remote, connection, "beginChannelConnection", args))
+          .then((started) => {
+            setOperationId(started.operationId || "");
+            setSteps((started.steps && started.steps[lang]) || []);
+            setScanImage(qrSrc(started.qrImageRef));
+            setConnectionStatus(started.kind === "qr" || started.kind === "device-link" ? "waiting" : "connecting");
+            load();
+          })
+          .catch((err) => {
+            setConnectionStatus("failed");
+            setError(String(err && err.message ? err.message : err));
+          });
+      };
+      React.useEffect(() => {
+        if (!usesQr || autoStarted || channel.risk === "community-protocol") return;
+        setAutoStarted(true);
+        begin(defaultMethod(channel));
+      }, [channel.channel, usesQr, autoStarted]);
+      React.useEffect(() => {
+        if (!operationId) return undefined;
+        const timer = setInterval(() => {
+          imCall(remote, connection, "pollChannelConnection", {
+            channel: channel.channel,
+            operationId,
+          })
+            .then((next) => {
+              const image = qrSrc(next.qrImageRef);
+              if (image) setScanImage(image);
+              setConnectionStatus(String(next.status || "connecting"));
+              if (next.status === "connected" || next.status === "failed" || next.status === "expired") {
+                setOperationId("");
+                load();
+              }
+            })
+            .catch((err) => setError(String(err && err.message ? err.message : err)));
+        }, 3000);
+        return () => clearInterval(timer);
+      }, [operationId, channel.channel, remote, connection, load]);
+      return jsx.jsxs("div", {
+        role: "dialog",
+        "aria-modal": "true",
+        "data-penglai-im-connect-dialog": channel.channel,
+        style: {
+          marginTop: "12px",
+          padding: "14px",
+          border: "1px solid var(--dsw-alias-border-l2)",
+          borderRadius: "12px",
+          background: "var(--dsw-alias-bg-module-platform)",
+        },
+        children: [
+          jsx.jsx("p", { children: t.tokenHint }),
+          channel.risk === "community-protocol"
+            ? jsx.jsxs("label", {
+                children: [
+                  jsx.jsx("input", {
+                    type: "checkbox",
+                    "data-penglai-im-risk-ack": "1",
+                    checked: riskAck,
+                    onChange: (ev) => setRiskAck(ev.target.checked),
+                  }),
+                  " ",
+                  t.riskAck,
+                ],
+              })
+            : null,
+          channel.risk === "community-protocol" ? jsx.jsx("p", { children: t.whatsappRisk }) : null,
+          usesQr
+            ? jsx.jsx("p", { children: t.scanOfficial })
+            : jsx.jsx("p", { children: t.noQr }),
+          usesToken
+            ? jsx.jsxs("div", {
+                children: [
+                  jsx.jsx("label", {
+                    htmlFor: `penglai-im-secret-${channel.channel}`,
+                    children: dual ? dual[0] : t.pasteToken,
+                  }),
+                  jsx.jsx("input", {
+                    id: `penglai-im-secret-${channel.channel}`,
+                    type: "password",
+                    autoComplete: "off",
+                    "data-penglai-im-secret": channel.channel,
+                    value: secret,
+                    onChange: (ev) => setSecret(ev.target.value),
+                  }),
+                  dual
+                    ? jsx.jsxs("p", {
+                        children: [
+                          jsx.jsx("label", {
+                            htmlFor: `penglai-im-secret-b-${channel.channel}`,
+                            children: dual[1],
+                          }),
+                          jsx.jsx("input", {
+                            id: `penglai-im-secret-b-${channel.channel}`,
+                            type: "password",
+                            autoComplete: "off",
+                            "data-penglai-im-secret-app": channel.channel,
+                            value: secretB,
+                            onChange: (ev) => setSecretB(ev.target.value),
+                          }),
+                        ],
+                      })
+                    : null,
+                ],
+              })
+            : null,
+          jsx.jsx("ol", {
+            children: steps.map((step, index) => jsx.jsx("li", { children: step }, index)),
+          }),
+          scanImage
+            ? jsx.jsx("img", {
+                alt: t.scanOfficial,
+                "data-penglai-im-scan-image": "1",
+                src: scanImage,
+                width: 192,
+                height: 192,
+              })
+            : null,
+          connectionStatus
+            ? jsx.jsx("p", {
+                role: "status",
+                "aria-live": "polite",
+                "data-penglai-im-connect-status": connectionStatus,
+                children:
+                  connectionStatus === "waiting"
+                    ? t.scanWaiting
+                    : connectionStatus === "connected"
+                      ? t.statusConnected
+                      : connectionStatus === "failed"
+                        ? t.statusFailed
+                        : t.statusConnecting,
+              })
+            : null,
+          error
+            ? jsx.jsx("p", { role: "alert", "data-penglai-im-connect-error": "1", children: error })
+            : null,
+          jsx.jsx("button", {
+            type: "button",
+            "data-penglai-im-connect-submit": channel.channel,
+            disabled:
+              connectionStatus === "starting" ||
+              Boolean(operationId) ||
+              (channel.risk === "community-protocol" && !riskAck),
+            onClick: () => begin(defaultMethod(channel)),
+            children: usesQr ? (operationId ? t.scanWaiting : t.showQr) : t.saveConnect,
+          }),
+          operationId
+            ? jsx.jsx("button", {
+                type: "button",
+                "data-penglai-im-connect-cancel": channel.channel,
+                onClick: () =>
+                  imCall(remote, connection, "cancelChannelConnection", { channel: channel.channel, operationId })
+                    .then(() => {
+                      setOperationId("");
+                      setScanImage("");
+                      setConnectionStatus("");
+                      load();
+                    })
+                    .catch((err) => setError(String(err && err.message ? err.message : err))),
+                children: t.cancelConnect,
+              })
+            : null,
+          channel.connection === "connected" || channel.connection === "connecting"
+            ? jsx.jsx("button", {
+                type: "button",
+                onClick: () =>
+                  imCall(remote, connection, "disconnectChannel", { channel: channel.channel })
+                    .then(load)
+                    .catch(() => undefined),
+                children: t.disconnect,
+              })
+            : null,
+          jsx.jsx("button", {
+            type: "button",
+            onClick: () =>
+              ownerApprove(remote, connection, "im.logout", channel.channel)
+                .then((proof) =>
+                  imCall(remote, connection, "logoutChannel", {
+                    channel: channel.channel,
+                    ownerActionId: proof.ownerActionId,
+                    receipt: proof.receipt,
+                  }),
+                )
+                .then(() => {
+                  onClose();
+                  load();
+                })
+                .catch((err) => setError(String(err && err.message ? err.message : err))),
+            children: t.logout,
+          }),
+          jsx.jsx("button", { type: "button", onClick: onClose, children: t.close }),
+        ],
+      });
+    }
+
     function ImTab({ remote, connection }) {
       const t = localeCopy();
-      const [tab, setTab] = React.useState("overview");
+      const [selected, setSelected] = React.useState("");
       const [weixinKick, setWeixinKick] = React.useState(0);
       const [feishuKick, setFeishuKick] = React.useState(0);
       const [snap, setSnap] = React.useState({
@@ -1252,80 +1588,40 @@ window.__ModuleLoader__.load({
         load();
       }, [load]);
       const channels = snap.overview?.channels ?? [];
-      const wx = channels.find((c) => c.channel === "weixin") ?? {};
-      const fs = channels.find((c) => c.channel === "feishu") ?? {};
+      const openChannel = (id) => {
+        setSelected(id);
+        if (id === "weixin") setWeixinKick((n) => n + 1);
+        if (id === "feishu") setFeishuKick((n) => n + 1);
+      };
       return jsx.jsxs("section", {
         "data-penglai-im": "1",
         children: [
-          jsx.jsx("h3", { children: "Penglai IM" }),
-          jsx.jsx("nav", {
-            children: TABS.map((id) =>
-              jsx.jsx(
-                "button",
-                {
-                  type: "button",
-                  "data-tab": id,
-                  "aria-pressed": tab === id,
-                  onClick: () => setTab(id),
-                  children: t[id],
-                },
-                id,
-              ),
-            ),
+          jsx.jsxs("h3", {
+            children: [
+              t.pageTitle,
+              jsx.jsx("span", {
+                "data-penglai-im-version": "0.5.7",
+                style: { marginInlineStart: "8px", fontSize: "0.78em", opacity: 0.72 },
+                children: "Penglai IM 0.5.7",
+              }),
+            ],
           }),
-          snap.status === "loading"
-            ? jsx.jsx("p", { children: t.loading })
-            : null,
-          snap.status === "error"
-            ? jsx.jsx("p", { children: snap.error })
-            : null,
-          tab === "overview" && snap.status === "ready"
+          snap.status === "loading" ? jsx.jsx("p", { children: t.loading }) : null,
+          snap.status === "error" ? jsx.jsx("p", { children: snap.error }) : null,
+          snap.status === "ready"
             ? jsx.jsxs("div", {
                 "data-section": "overview",
                 children: [
                   jsx.jsx("p", { children: t.overviewHint }),
-                  jsx.jsxs("p", {
-                    children: [
-                      t.weixinLine,
-                      "：",
-                      String(wx.connection ?? "not_configured"),
-                      " · ",
-                      t.bound,
-                      " ",
-                      String(wx.boundRoutes ?? 0),
-                    ],
-                  }),
-                  jsx.jsxs("p", {
-                    children: [
-                      t.feishuLine,
-                      "：",
-                      String(fs.connection ?? "not_configured"),
-                      " · ",
-                      t.bound,
-                      " ",
-                      String(fs.boundRoutes ?? 0),
-                    ],
-                  }),
-                  jsx.jsx("button", {
-                    type: "button",
-                    "data-penglai-im-goto-weixin": "1",
-                    onClick: () => {
-                      setTab("weixin");
-                      setWeixinKick((n) => n + 1);
-                    },
-                    children: t.connectWeixin,
-                  }),
-                  jsx.jsx("button", {
-                    type: "button",
-                    "data-penglai-im-goto-feishu": "1",
-                    onClick: () => {
-                      setTab("feishu");
-                      setFeishuKick((n) => n + 1);
-                    },
-                    children: t.connectFeishu,
-                  }),
                   jsx.jsx("ul", {
                     "data-penglai-im-platforms": "1",
+                    style: {
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                      gap: "12px",
+                      listStyle: "none",
+                      padding: 0,
+                    },
                     children: channels.map((c) => {
                       const manifest = (snap.overview?.manifests || []).find((row) => row.id === c.channel) || {};
                       const names = manifest.displayName || {};
@@ -1334,15 +1630,7 @@ window.__ModuleLoader__.load({
                           ? names.en || c.channel
                           : names.zh || c.channel,
                       );
-                      const status = c.live
-                        ? c.connection === "connected"
-                          ? t.statusConnected
-                          : c.connection === "connecting"
-                            ? t.statusConnecting
-                            : c.connection === "failed" || c.connection === "degraded" || c.connection === "expired" || c.connection === "blocked"
-                              ? t.statusNeedsAction
-                              : t.statusDisconnected
-                        : t.statusUnavailable;
+                      const status = plainStatus(c, t);
                       return jsx.jsxs(
                         "li",
                         {
@@ -1350,30 +1638,75 @@ window.__ModuleLoader__.load({
                           "data-penglai-im-live": String(c.live === true),
                           "data-penglai-im-connect-methods": (c.connectionMethods || []).join(","),
                           "data-penglai-im-status": status,
+                          style: {
+                            padding: "14px",
+                            minWidth: 0,
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
+                            border: "1px solid var(--dsw-alias-border-l2)",
+                            borderRadius: "12px",
+                            background: "var(--dsw-alias-bg-module-platform)",
+                          },
                           children: [
-                            jsx.jsx("strong", { children: title }),
-                            " ",
-                            jsx.jsx("span", { children: status }),
-                            " ",
-                            c.live
-                              ? jsx.jsx("button", {
-                                  type: "button",
-                                  "data-penglai-im-connect": c.channel,
-                                  onClick: () => {
-                                    if (c.channel === "weixin") {
-                                      setTab("weixin");
-                                      setWeixinKick((n) => n + 1);
-                                    } else {
-                                      setTab("feishu");
-                                      setFeishuKick((n) => n + 1);
-                                    }
-                                  },
-                                  children: t.guidedConnect,
-                                })
-                              : jsx.jsx("span", {
-                                  "data-penglai-im-planned": c.channel,
-                                  children: t.notLive,
+                            jsx.jsxs("div", {
+                              "data-penglai-im-card-header": "1",
+                              style: {
+                                display: "flex",
+                                alignItems: "flex-start",
+                                justifyContent: "space-between",
+                                gap: "10px",
+                              },
+                              children: [
+                                jsx.jsxs("span", {
+                                  style: { minWidth: 0 },
+                                  children: [
+                                    jsx.jsx("strong", { children: title }),
+                                    c.supportLevel === "experimental"
+                                      ? jsx.jsx("span", { children: ` · ${t.experimental}` })
+                                      : null,
+                                  ],
                                 }),
+                                jsx.jsx("span", {
+                                  role: "status",
+                                  "aria-live": "polite",
+                                  style: { flex: "none", textAlign: "right" },
+                                  children: status,
+                                }),
+                              ],
+                            }),
+                            c.live === true
+                              ? jsx.jsx("p", {
+                                  "data-penglai-im-implemented": "1",
+                                  children:
+                                    t.statusConnected === "已连接"
+                                      ? "0.5.7 已提供连接器；真实支持以连接与验证结果为准"
+                                      : "Adapter included in 0.5.7; connection and validation decide support",
+                                })
+                              : null,
+                            c.error
+                              ? jsx.jsxs("p", {
+                                  role: "alert",
+                                  "data-penglai-im-last-error": c.channel,
+                                  children: [
+                                    t.lastError,
+                                    ": ",
+                                    c.error.code,
+                                    " — ",
+                                    (document.documentElement.lang || "zh").startsWith("en")
+                                      ? c.error.message?.en
+                                      : c.error.message?.zh,
+                                    c.error.referenceId ? ` (${t.referenceId} ${c.error.referenceId})` : "",
+                                  ],
+                                })
+                              : null,
+                            jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-im-connect": c.channel,
+                              ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
+                              ...(c.channel === "feishu" ? { "data-penglai-im-goto-feishu": "1" } : {}),
+                              onClick: () => openChannel(c.channel),
+                              children: t.guidedConnect,
+                            }),
                           ],
                         },
                         c.channel,
@@ -1383,7 +1716,7 @@ window.__ModuleLoader__.load({
                 ],
               })
             : null,
-          tab === "weixin"
+          selected === "weixin"
             ? jsx.jsx(WeixinPane, {
                 remote,
                 connection,
@@ -1391,7 +1724,7 @@ window.__ModuleLoader__.load({
                 kick: weixinKick,
               })
             : null,
-          tab === "feishu"
+          selected === "feishu"
             ? jsx.jsx(FeishuPane, {
                 remote,
                 connection,
@@ -1401,21 +1734,24 @@ window.__ModuleLoader__.load({
                 kick: feishuKick,
               })
             : null,
-          tab === "bindings"
-            ? jsx.jsx(BindingsPane, { remote, connection })
-            : null,
-          tab === "commands"
-            ? jsx.jsx("p", { children: t.commandsHint })
-            : null,
-          tab === "diagnostics"
-            ? jsx.jsxs("details", {
-                "data-penglai-im-advanced": "1",
-                children: [
-                  jsx.jsx("summary", { children: t.advanced }),
-                  jsx.jsx("p", { children: t.diagnosticsHint }),
-                ],
+          selected && selected !== "weixin" && selected !== "feishu"
+            ? jsx.jsx(ChannelConnectPane, {
+                remote,
+                connection,
+                channel: channels.find((row) => row.channel === selected) || { channel: selected, connectionMethods: [] },
+                load,
+                onClose: () => setSelected(""),
               })
             : null,
+          jsx.jsxs("details", {
+            "data-penglai-im-advanced": "1",
+            children: [
+              jsx.jsx("summary", { children: t.advanced }),
+              jsx.jsx(BindingsPane, { remote, connection }),
+              jsx.jsx("p", { children: t.commandsHint }),
+              jsx.jsx("p", { children: t.diagnosticsHint }),
+            ],
+          }),
         ],
       });
     }

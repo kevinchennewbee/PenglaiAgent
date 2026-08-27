@@ -1,6 +1,6 @@
 {
   "name": "@penglai/budget",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "private": true,
   "type": "module",
   "exports": {
@@ -26,6 +26,7 @@
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.2",
-    "@penglai/contracts": "workspace:*"
+    "@penglai/contracts": "workspace:*",
+    "@penglai/runtime": "workspace:*"
   }
 }

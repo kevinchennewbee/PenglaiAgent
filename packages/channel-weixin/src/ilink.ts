@@ -261,6 +261,33 @@ export class ILinkClient {
     }
   }
 
+  async getTypingTicket(token: string, toUserId: string, contextToken?: string): Promise<string | undefined> {
+    try {
+      const raw = await this.post(`${this.base}/ilink/bot/getconfig`, {
+        ilink_user_id: toUserId,
+        ...(contextToken ? { context_token: contextToken } : {}),
+      }, token, AbortSignal.timeout(8_000));
+      const ticket = typeof raw.typing_ticket === "string" ? raw.typing_ticket.trim() : "";
+      return ticket || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async sendTyping(token: string, toUserId: string, typingTicket: string, status: 1 | 2): Promise<boolean> {
+    try {
+      const raw = await this.post(`${this.base}/ilink/bot/sendtyping`, {
+        ilink_user_id: toUserId,
+        typing_ticket: typingTicket,
+        status,
+      }, token, AbortSignal.timeout(8_000));
+      const code = typeof raw.ret === "number" ? raw.ret : 0;
+      return code === 0;
+    } catch {
+      return false;
+    }
+  }
+
   private async get(url: string): Promise<Record<string, unknown>> {
     return this.request(url, { method: "GET", headers: headers() });
   }

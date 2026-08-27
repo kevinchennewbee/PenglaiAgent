@@ -1,22 +1,100 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
-    <title>Penglai is starting / 蓬莱正在启动</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>蓬莱正在启动</title>
+    <style>
+      :root {
+        font-family: Inter, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+        color: #241d17;
+        background: #f7f2eb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 35%, rgba(213, 157, 91, 0.2), transparent 36%),
+          linear-gradient(145deg, #fbf8f3, #f1e9df);
+      }
+      main {
+        width: min(440px, calc(100vw - 48px));
+        padding: 46px 42px 40px;
+        text-align: center;
+        border: 1px solid rgba(104, 75, 48, 0.12);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.76);
+        box-shadow: 0 24px 70px rgba(70, 48, 31, 0.12);
+      }
+      .mark {
+        width: 68px;
+        height: 68px;
+        margin: 0 auto 20px;
+        display: grid;
+        place-items: center;
+        border-radius: 22px;
+        color: #fffaf4;
+        background: linear-gradient(145deg, #c77b36, #8d4f22);
+        box-shadow: 0 12px 28px rgba(142, 80, 34, 0.28);
+        font: 700 29px/1 Georgia, "Microsoft YaHei UI", serif;
+      }
+      h1 { margin: 0; font-size: 30px; letter-spacing: 0.08em; }
+      .lead { margin: 16px 0 5px; font-size: 17px; font-weight: 600; }
+      .lead-en { margin: 0; color: #776a5d; font-size: 13px; }
+      .progress {
+        height: 6px;
+        margin: 30px 0 18px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(131, 91, 55, 0.13);
+      }
+      .progress::after {
+        content: "";
+        display: block;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #d99a5e, #9d5b2e);
+        animation: loading 1.35s ease-in-out infinite alternate;
+      }
+      .note { margin: 0; color: #85766a; font-size: 13px; }
+      @keyframes loading {
+        from { transform: translateX(-12%); }
+        to { transform: translateX(150%); }
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { color: #f7eee5; background: #18130f; }
+        body { background: radial-gradient(circle at 50% 35%, #3a281c, #17120f 52%); }
+        main { background: rgba(39, 30, 24, 0.9); border-color: rgba(255, 255, 255, 0.08); }
+        .lead-en, .note { color: #bbaa9c; }
+        .progress { background: rgba(255, 255, 255, 0.1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .progress::after { animation-duration: 3s; }
+      }
+    </style>
   </head>
   <body data-penglai-splash="1">
-    <h1>Penglai / 蓬莱</h1>
-    <p data-penglai-splash-en="1">Starting official DeepSeek Harness. This is not the product chat.</p>
-    <p data-penglai-splash-zh="1">正在启动官方 DeepSeek Harness。这不是产品会话界面。</p>
-    <ol data-penglai-splash-phases="1">
-      <li data-phase="boot">Boot / 启动</li>
-      <li data-phase="checking-private-data">Private data / 私有数据</li>
-      <li data-phase="verifying-runtime">Runtime / 运行时</li>
-      <li data-phase="starting-dsh">Starting DSH / 启动 DSH</li>
-      <li data-phase="waiting-http">HTTP health / HTTP 健康</li>
-      <li data-phase="verifying-required-plugins">Required plugins / 必装插件</li>
-      <li data-phase="ready">Ready / 就绪</li>
-    </ol>
+    <main>
+      <div class="mark" aria-hidden="true">蓬</div>
+      <h1>蓬莱</h1>
+      <p class="lead" data-penglai-splash-zh="1">正在准备你的个人 AI 助手</p>
+      <p class="lead-en" data-penglai-splash-en="1" lang="en">Getting your personal AI assistant ready</p>
+      <div class="progress" role="progressbar" aria-label="蓬莱正在启动"></div>
+      <p class="note">首次启动可能需要几秒，之后会更快</p>
+      <div data-penglai-splash-phases="1" hidden aria-hidden="true">
+        <span data-phase="boot"></span>
+        <span data-phase="checking-private-data"></span>
+        <span data-phase="verifying-runtime"></span>
+        <span data-phase="starting-dsh"></span>
+        <span data-phase="waiting-http"></span>
+        <span data-phase="verifying-required-plugins"></span>
+        <span data-phase="ready"></span>
+      </div>
+    </main>
   </body>
 </html>

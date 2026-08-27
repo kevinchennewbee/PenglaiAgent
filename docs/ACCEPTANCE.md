@@ -1,13 +1,13 @@
 # Penglai 0.5.x 三端基础验收合同
 
-> 当前 0.5.6 在本合同的 R50/R55 能力类别基础上增加
-> `docs/0.5.6/ACCEPTANCE_DELTA.md`。本文保留历史机器可解析 Hard ID，精确版本、
+> 当前 0.5.7 在本合同的 R50/R55 能力类别基础上增加
+> `docs/0.5.7/ACCEPTANCE_DELTA.md`。本文保留历史机器可解析 Hard ID，精确版本、
 > 文件名与公开目标以 `release-contract.json` 为准；任何旧版本字样都不能覆盖当前
-> 0.5.6 机器身份。
+> 0.5.7 机器身份。
 
 ## 1. 判定对象与结论
 
-当前唯一验收对象是一个 exact `Penglai 0.5.6` release set：同一 clean source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。0.5.6 的自动记忆、Owner Broker、Artifact、IM 可用性、TTS 与隐私增量必须同时通过 delta 合同。
+当前唯一验收对象是一个 exact `Penglai 0.5.7` release set：同一 clean source、同一 deterministic public-export tree、Apple Silicon DMG、Intel Mac DMG、Windows x64 Setup、配套 manifests/SBOM/notices。三个安装包必须来自同一 source SHA；交叉构建只能作为预检，不能替代对应原生 runner。0.5.7 的自动记忆、Owner Broker、Artifact、IM 可用性、TTS 与隐私增量必须同时通过 delta 合同。
 
 允许结论：
 
@@ -19,12 +19,12 @@
 
 ## 2. Evidence 规则
 
-以下每一行都是 Hard。registry 继续保留 R50/R55 的机器可解析 ID，并由 0.5.6 delta 增加本轮产品门；基础表预期共 **330** 个唯一 Hard ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
+以下每一行都是 Hard。registry 继续保留 R50/R55 的机器可解析 ID，并由 0.5.7 delta 增加本轮产品门；基础表预期共 **330** 个唯一 Hard ID。实现必须动态解析，不能把计数写成散落的完成映射。每个ID必须指向真实runner的具体assertion，包含candidate/source/export/target/artifact/runner native/时间/exit/result digest。不能通过文件名、字符串存在或一个smoke扇出PASS。
 
 平台标记：
 
 - `all`：平台类门禁展开为全部三个目标；非平台类门禁只执行一次源码/聚合检查。
-- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.6 PASS。
+- `mac-arm`、`mac-x64`、`win-x64`：分别绑定三个 exact native artifact，均参与 0.5.7 PASS。
 - `live`：真实账户最后集中执行。
 - `aggregate`：release-set/public-export聚合。
 
@@ -34,14 +34,14 @@
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为当前 `release-contract.json` 的 0.5.6 | contract/all |
+| `R50-TRUTH-001` | root/workspace/desktop/profile/plugin/release contract版本全部为当前 `release-contract.json` 的 0.5.7 | contract/all |
 | `R50-TRUTH-002` | candidateKind、trustTier、generation、三个target与三个exact filename一致 | contract/all |
 | `R50-TRUTH-003` | 旧alpha artifact/evidence/READY全部STALE并被verifier拒绝 | failure/all |
 | `R50-TRUTH-004` | UNFROZEN identity不得携带artifact/signature/live/READY | unit/all |
 | `R50-TRUTH-005` | release branch/PR 可审计且不 force；合并前不创建公开 tag，合并后 main 必须保持 exact candidate source | git/aggregate |
 | `R50-TRUTH-006` | candidate freeze 时 HEAD 已推送、dirty=false；公开 freeze 时 `origin/main` 必须等于同一 source SHA | git/aggregate |
 | `R50-TRUTH-007` | 任一子门FAIL/INCOMPLETE/STALE都使verify:release non-zero | fault/all |
-| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.6`，且发布前 updater Release 不得冒充已公开 | manifest/aggregate |
+| `R50-TRUTH-008` | repo=`kevinchennewbee/PenglaiAgent`、tag/release=`v0.5.7`，且发布前 updater Release 不得冒充已公开 | manifest/aggregate |
 
 ### B. DSH唯一核心与 capability parity（8）
 
@@ -66,7 +66,7 @@
 | `R50-UI-004` |light/dark/system三态覆盖全部Penglai UI | visual/all |
 | `R50-UI-005` |system主题运行时变化即时响应并持久 | installed/all |
 | `R50-UI-006` |品牌overlay不阻断DSH导航、Models、Workspace、Session、设置 | parity/all |
-| `R50-UI-007` | About 显示 0.5.6、DSH/target/trust/data/license 准确 | installed/all |
+| `R50-UI-007` | About 显示 0.5.7、DSH/target/trust/data/license 准确 | installed/all |
 | `R50-UI-008` |UI/README不出现已公证、Authenticode或silent auto-update误述 | content/aggregate |
 
 ### D. 首次引导、多API、Workspace与Turn（12）
@@ -240,7 +240,7 @@
 | `R50-UPD-009` |新版本 post-verify 只要求核心 runtime/profile/required-plugin/DSH 健康；IM 等可选插件保持默认停用也必须 commit。失败则 rollback/recovery；只有真实安装了更高版本才可把旧 `RECOVERY_REQUIRED` 账本纠正为 current，且不得伪造签名升级 ledger | chaos+installed/all |
 | `R50-UPD-010` |每个update state crash可重放，inbox/outbox不丢不双发 | chaos/all |
 | `R50-UPD-011` |fixture key/server/test payload不进入production artifact | artifact/all |
-| `R50-UPD-012` |三个 native target 的 0.5.6→test-next valid/failure suites PASS，且 Apple Silicon 受支持旧版→公开版 0.5.6 实装升级 PASS | installed/all |
+| `R50-UPD-012` |三个 native target 的 0.5.7→test-next valid/failure suites PASS，且 Apple Silicon 受支持旧版→公开版 0.5.7 实装升级 PASS | installed/all |
 
 ### O. 卸载、数据管理与legacy隔离（10）
 
@@ -406,13 +406,13 @@
 | `R50-COMP-007` |trigger claim/Turn/outbox/delivery durable，sleep/wake/restart/clock jump不重复，disable/logout资源为零 | chaos+installed/all |
 | `R50-COMP-008` |三个exact installed target完成virtual-clock text/voice/quiet-hours/disable suite，live只留opaque trigger证据 | installed+live/all |
 
-### R55. 0.5.5 产品增量（作为 0.5.6 基础继续执行）
+### R55. 0.5.5 产品增量（作为 0.5.7 基础继续执行）
 
 #### Truth / DSH（8）
 
 | ID | 要求 | Runner |
 | --- | --- | --- |
-| `R55-TRUTH-001` | all product/package/release versions exact current 0.5.6 | contract/all |
+| `R55-TRUTH-001` | all product/package/release versions exact current 0.5.7 | contract/all |
 | `R55-TRUTH-002` | DSH exact rc.2 commit/integrity/shasum | contract/all |
 | `R55-TRUTH-003` | only three exact target installers | contract/all |
 | `R55-TRUTH-004` | no package/tag/release drift from the current release contract | contract/all |
@@ -536,4 +536,4 @@
 - 任一平台使用cross/translated/emulated结果冒充native，或Release缺少/多出未验收的三端安装包。
 - verifier INCOMPLETE却exit 0、Hard ID硬编码PASS、旧SHA/evidence复用。
 - ad-hoc候选被称为已公证、Developer ID或系统信任。
-- 未经 Owner 明确授权修改开源仓库或发布；0.5.6 已获授权，但任一必需门禁失败仍一票否决。
+- 未经 Owner 明确授权修改开源仓库或发布；0.5.7 已获授权，但任一必需门禁失败仍一票否决。

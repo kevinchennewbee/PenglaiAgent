@@ -6,6 +6,7 @@ import {
   digestText,
   splitFragments,
   utf8Bytes,
+  ADAPTER_NAMES,
   type AdapterName,
   type AssistantFinal,
   type Binding,
@@ -25,7 +26,7 @@ import {
   userFacingMediaPrompt,
 } from "@penglai/contracts";
 import { PENDING_MENU_TTL_MS, Store, type StoredPendingMenu, type VoiceJob } from "@penglai/persistence";
-import { helpText, parseCommand, welcomeMenuText } from "./commands.js";
+import { helpText, parseCommand, versionText, welcomeMenuText } from "./commands.js";
 import {
   commandLocale,
   formatProjectMenu,
@@ -695,7 +696,7 @@ export class RoutingControlPlane {
     }
     // Exclusive /绑定 tokens must not auto-attach the official default first;
     // that would collide with consumeToken replay/owner checks.
-    const ensured = command?.type === "bind" ? undefined : await this.ensureOfficialBinding(routeId);
+    const ensured = command?.type === "bind" || command?.type === "version" ? undefined : await this.ensureOfficialBinding(routeId);
     const binding = command?.type === "bind" ? this.store.activeBinding(routeId) : ensured?.binding;
     if (command) {
       const reply = await this.handleCommand(routeId, env, binding, command);
@@ -784,6 +785,10 @@ export class RoutingControlPlane {
     if (command.type === "help") {
       this.clearMenu(routeId);
       return { kind: "control", text: helpText(Boolean(binding), commandLocale(env.text ?? "")) };
+    }
+    if (command.type === "version") {
+      this.clearMenu(routeId);
+      return { kind: "control", text: versionText() };
     }
     if (command.type === "bind") {
       return this.consumeToken(routeId, env.adapter, command.token);
@@ -1221,7 +1226,7 @@ export class RoutingControlPlane {
         !claimedSource.routeId ||
         typeof claimedSource.inboundId !== "string" ||
         !claimedSource.inboundId ||
-        !["mock", "weixin", "feishu"].includes(String(claimedSource.adapter))
+        !(ADAPTER_NAMES as readonly string[]).includes(String(claimedSource.adapter))
       ) {
         this.store.audit("claimed_ignored_source", { dshMessageId: fact.dshMessageId }, this.clock.now());
         return;
@@ -1521,7 +1526,7 @@ export class RoutingControlPlane {
     }
   }
 
-  markSendResult(outboxId: string, result: "delivered" | "transient" | "permanent" | "auth", claimToken?: string): void {
+  markSendResult(outboxId: string, result: "delivered" | "transient" | "permanent" | "auth" | "uncertain", claimToken?: string): void {
     const item = this.store.getOutbox(outboxId);
     if (!item) return;
     const token = claimToken ?? item.claimToken;
@@ -1533,6 +1538,13 @@ export class RoutingControlPlane {
     if (result === "auth") {
       this.store.setOutboxState(outboxId, "retryable", item.attempts, this.clock.now() + 86_400_000, {
         expectedStates: ["pending", "claimed", "sending", "uncertain"],
+        ...(token ? { claimToken: token } : {}),
+      });
+      return;
+    }
+    if (result === "uncertain") {
+      this.store.setOutboxState(outboxId, "uncertain", item.attempts, this.clock.now(), {
+        expectedStates: ["claimed", "sending"],
         ...(token ? { claimToken: token } : {}),
       });
       return;
@@ -1555,7 +1567,7 @@ export class RoutingControlPlane {
       return;
     }
     const backoff = CONFIG.outboxBaseBackoffMs * 2 ** (attempts - 1);
-    this.store.setOutboxState(outboxId, "uncertain", attempts, this.clock.now() + backoff, {
+    this.store.setOutboxState(outboxId, "retryable", attempts, this.clock.now() + backoff, {
       expectedStates: ["claimed", "sending"],
       ...(token ? { claimToken: token } : {}),
     });
@@ -1563,6 +1575,7 @@ export class RoutingControlPlane {
 
   dueOutbox(routeId: string): ReturnType<Store["pendingOutbox"]> {
     return this.store.pendingOutbox(routeId).filter((i: { nextAttemptAt: number; state: string; leaseUntil?: number }) => {
+      if (i.state === "uncertain") return false;
       if (i.state === "sending" && (i.leaseUntil ?? 0) > this.clock.now()) return false;
       if (i.state === "claimed" && (i.leaseUntil ?? 0) > this.clock.now()) return false;
       return i.nextAttemptAt <= this.clock.now();
@@ -1684,4 +1697,4 @@ export class RoutingControlPlane {
   }
 }
 
-export { parseCommand, helpText, welcomeMenuText } from "./commands.js";
+export { parseCommand, helpText, versionText, welcomeMenuText } from "./commands.js";

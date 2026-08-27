@@ -16,14 +16,15 @@ import {
   setJobState,
   type OfficeJobRecord,
 } from "./jobs.js";
-import { createDocx, editDocx, inspectDocx } from "./adapters/docx.js";
-import { createXlsx, editXlsx, inspectXlsx, verifyXlsx } from "./adapters/xlsx.js";
-import { createPptx, editPptx, inspectPptx } from "./adapters/pptx.js";
-import { createPdf, editPdf, inspectPdf, mergePdf, rotatePdf } from "./adapters/pdf.js";
+import { createDocx, createDocxFromSpec, editDocx, inspectDocx } from "./adapters/docx.js";
+import { createXlsx, createXlsxFromSpec, editXlsx, inspectXlsx, verifyXlsx } from "./adapters/xlsx.js";
+import { createPptx, createPptxFromSpec, editPptx, inspectPptx } from "./adapters/pptx.js";
+import { createPdf, createPdfFromSpec, editPdf, inspectPdf, mergePdf, rotatePdf } from "./adapters/pdf.js";
 import { OFFICE_TEMPLATES, templateById } from "./templates/catalog.js";
 import { previewJob } from "./preview.js";
 import { diffJob } from "./diff.js";
 import { assertOperationForFormat, OFFICE_LIMITS, type OfficeOperation } from "./operations.js";
+import { parseOfficeCreateSpec, type OfficeCreateSpec } from "./specs.js";
 import { type OfficeReceiptAction } from "./receipt.js";
 import { assertPathInWorkspace, atomicCommitFile } from "./transaction.js";
 import type { ArtifactService } from "@penglai/artifacts";
@@ -38,6 +39,7 @@ import {
 
 export type { OfficeFormat } from "./formats.js";
 export type { OfficeOperation } from "./operations.js";
+export type { OfficeCreateSpec } from "./specs.js";
 
 export interface DocumentInventory {
   format: OfficeFormat;
@@ -117,11 +119,12 @@ async function inspectRaw(bytes: Buffer): Promise<DocumentInventory> {
 
 async function applyOperation(bytes: Buffer, format: OfficeFormat, op: OfficeOperation): Promise<Buffer> {
   assertOperationForFormat(format, op);
-  if (op.kind === "docx.replaceParagraph") return editDocx(bytes, op);
-  if (op.kind === "xlsx.setCell") return editXlsx(bytes, op);
+  if (op.kind.startsWith("docx.")) return editDocx(bytes, op as Extract<OfficeOperation, { kind: `docx.${string}` }>);
+  if (op.kind.startsWith("xlsx.")) return editXlsx(bytes, op as Extract<OfficeOperation, { kind: `xlsx.${string}` }>);
   if (op.kind === "pptx.replaceSlideText") return editPptx(bytes, op);
   if (op.kind === "pdf.watermark") return editPdf(bytes, { text: op.text });
-  return rotatePdf(bytes, op.degrees);
+  if (op.kind === "pdf.rotate") return rotatePdf(bytes, op.degrees);
+  throw new PenglaiError("INVALID_INPUT", "unsupported office operation");
 }
 
 export async function inspect(bytes: Buffer): Promise<DocumentInventory> {
@@ -141,6 +144,20 @@ export async function createDocument(format: OfficeFormat, text: string): Promis
   const seen = await inspectRaw(bytes);
   const job = createJob({ format, bytes, text: seen.text, parts: seen.parts, warnings: seen.warnings });
   return toPublic(job);
+}
+
+export async function createStructuredDocument(input: unknown): Promise<OfficeJob> {
+  const spec = parseOfficeCreateSpec(input);
+  requireSafe(JSON.stringify(spec));
+  const bytes = spec.format === "docx"
+    ? await createDocxFromSpec(spec)
+    : spec.format === "xlsx"
+      ? await createXlsxFromSpec(spec)
+      : spec.format === "pptx"
+        ? await createPptxFromSpec(spec)
+        : await createPdfFromSpec(spec);
+  const seen = await inspectRaw(bytes);
+  return toPublic(createJob({ format: spec.format, bytes, text: seen.text, parts: seen.parts, warnings: seen.warnings }));
 }
 
 export async function edit(bytes: Buffer, op: OfficeOperation): Promise<OfficeJob> {
@@ -257,6 +274,7 @@ export function createOfficeService(opts?: {
       return getJob(jobId);
     },
     create: createDocument,
+    createStructured: createStructuredDocument,
     async inspectAttached(handle: string, sessionId: string) {
       const bytes = objects.get(handle, sessionId);
       const binding = objects.peek(handle).bind;
@@ -304,7 +322,7 @@ export function createOfficeService(opts?: {
     },
     async createFromTemplate(id: string, workspaceId?: string) {
       const template = templateById(id);
-      const created = await createDocument(template.format, template.body);
+      const created = await createStructuredDocument(template.spec);
       if (workspaceId) getJob(created.id).workspaceId = workspaceId;
       return created;
     },
@@ -316,6 +334,24 @@ export function createOfficeService(opts?: {
     },
     async diff(jobId: string) {
       return diffJob(getJob(jobId));
+    },
+    accept(jobId: string) {
+      const job = getJob(jobId);
+      assertPreviewMatchesResult(job);
+      if (!opts?.artifacts) throw new PenglaiError("DSH_UNAVAILABLE", "office Artifact service is not configured");
+      if (job.resultArtifactId) return opts.artifacts.ref(job.resultArtifactId);
+      const ref = opts.artifacts.ingestBytes(Buffer.from(job.bytes), {
+        name: `penglai-office-${job.id.slice("office-".length, "office-".length + 8)}.${job.format}`,
+        source: "generated",
+        scope: "turn",
+        ...(job.workspaceId ? { workspaceId: job.workspaceId } : {}),
+        ...(job.sessionId ? { sessionId: job.sessionId } : {}),
+        ...(job.parentArtifactId ? { parentArtifactId: job.parentArtifactId } : {}),
+        operationDigest: `sha256:${job.opsDigest}`,
+      });
+      job.resultArtifactId = ref.id;
+      setJobState(jobId, "VERIFIED", "artifact accepted");
+      return ref;
     },
     async approve(jobId: string, action: OfficeReceiptAction = "commit", target = "") {
       const job = getJob(jobId);
@@ -485,6 +521,35 @@ export function createOfficeService(opts?: {
     },
     async merge(left: Buffer, right: Buffer) {
       return mergePdf(left, right);
+    },
+    async mergeAttached(leftHandle: string, rightHandle: string, sessionId: string, workspaceId?: string) {
+      if (leftHandle === rightHandle) throw new PenglaiError("INVALID_INPUT", "office PDF merge requires two different handles");
+      const left = objects.get(leftHandle, sessionId);
+      const right = objects.get(rightHandle, sessionId);
+      if (detect(left) !== "pdf" || detect(right) !== "pdf") {
+        throw new PenglaiError("INVALID_INPUT", "office PDF merge accepts PDF handles only");
+      }
+      const bytes = await mergePdf(left, right);
+      const seen = await inspectRaw(bytes);
+      const job = createJob({
+        format: "pdf",
+        bytes,
+        text: seen.text,
+        parts: seen.parts,
+        warnings: [...seen.warnings, "Merged from two session-bound PDF handles"],
+        sessionId,
+        ...(workspaceId ? { workspaceId } : {}),
+      });
+      job.sourceDigest = digestBytes(Buffer.concat([left, right]));
+      job.opsDigest = digestBytes(Buffer.from(JSON.stringify({
+        kind: "pdf.merge",
+        left: digestBytes(left),
+        right: digestBytes(right),
+      })));
+      freezePreviewDigest(job);
+      setJobState(job.id, "PLAN_READY", "pdf.merge");
+      setJobState(job.id, "PREVIEW_READY", "pdf.merge");
+      return toPublic(job);
     },
     templates() {
       return OFFICE_TEMPLATES.map((row) => ({ id: row.id, format: row.format, title: row.title, license: row.license }));

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
+import { CHANNEL_CREDENTIAL_REFS } from "./credentials-vault.js";
 import { CHANNEL_IDS, getChannelManifest, type ChannelId } from "./registry.js";
 
 export const IM_BOT_STATES = [
@@ -46,6 +47,17 @@ const SIDECAR_SQL = `
     created_at INTEGER NOT NULL,
     FOREIGN KEY(bot_id) REFERENCES im_v2_bots(bot_id)
   );
+  CREATE TABLE IF NOT EXISTS im_v2_channel_failures (
+    channel_id TEXT NOT NULL,
+    account_ref TEXT NOT NULL,
+    code TEXT NOT NULL,
+    message_zh TEXT NOT NULL,
+    message_en TEXT NOT NULL,
+    reference_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, account_ref)
+  );
 `;
 
 export function ensureImV2Tables(db: DatabaseSync): void {
@@ -75,7 +87,7 @@ export class ImBotStore {
       botId: randomUUID(),
       channelId,
       displayName: input.displayName.trim() || manifest.displayName.en,
-      credentialRef: `penglai-im/${channelId}/${randomUUID()}/token`,
+      credentialRef: CHANNEL_CREDENTIAL_REFS[channelId],
       state: manifest.defaultEnabled ? "connecting" : "disabled",
       riskAckAt: input.riskAck === true ? now : null,
       createdAt: now,
@@ -109,6 +121,66 @@ export class ImBotStore {
     this.require(botId);
     this.db.prepare(`DELETE FROM im_v2_bindings WHERE bot_id = ?`).run(botId);
     this.db.prepare(`DELETE FROM im_v2_bots WHERE bot_id = ?`).run(botId);
+  }
+
+  putChannelFailure(input: {
+    channelId: ChannelId;
+    accountRef: string;
+    code: string;
+    messageZh: string;
+    messageEn: string;
+    referenceId: string;
+    action: string;
+    at: number;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO im_v2_channel_failures(channel_id, account_ref, code, message_zh, message_en, reference_id, action, at)
+         VALUES (?,?,?,?,?,?,?,?)
+         ON CONFLICT(channel_id, account_ref) DO UPDATE SET
+           code=excluded.code,
+           message_zh=excluded.message_zh,
+           message_en=excluded.message_en,
+           reference_id=excluded.reference_id,
+           action=excluded.action,
+           at=excluded.at`,
+      )
+      .run(
+        input.channelId,
+        input.accountRef,
+        input.code,
+        input.messageZh,
+        input.messageEn,
+        input.referenceId,
+        input.action,
+        input.at,
+      );
+  }
+
+  getChannelFailure(channelId: ChannelId, accountRef: string): {
+    channelId: ChannelId;
+    accountRef: string;
+    code: string;
+    messageZh: string;
+    messageEn: string;
+    referenceId: string;
+    action: string;
+    at: number;
+  } | undefined {
+    const row = this.db
+      .prepare(`SELECT * FROM im_v2_channel_failures WHERE channel_id = ? AND account_ref = ?`)
+      .get(channelId, accountRef) as Record<string, string | number> | undefined;
+    if (!row) return undefined;
+    return {
+      channelId: parseClosedEnum(String(row.channel_id), CHANNEL_IDS, "CHANNEL_ID", "SECURITY_POLICY"),
+      accountRef: String(row.account_ref),
+      code: String(row.code),
+      messageZh: String(row.message_zh),
+      messageEn: String(row.message_en),
+      referenceId: String(row.reference_id),
+      action: String(row.action),
+      at: Number(row.at),
+    };
   }
 
   private require(botId: string): ImBotRow {

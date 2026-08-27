@@ -20,14 +20,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.6-arm64",
-    zip: "dist/Penglai-v0.5.6-arm64.zip",
+    out: "dist/Penglai-v0.5.7-arm64",
+    zip: "dist/Penglai-v0.5.7-arm64.zip",
     triple: "darwin-arm64",
     runtimeTarget: "darwin-aarch64",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.6-x64",
-    zip: "dist/Penglai-v0.5.6-x64.zip",
+    out: "dist/Penglai-v0.5.7-x64",
+    zip: "dist/Penglai-v0.5.7-x64.zip",
     triple: "darwin-x64",
     runtimeTarget: "darwin-x86_64",
   },
@@ -207,12 +207,12 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.6 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
+  "Penglai 0.5.7 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.6",
+  productVersion: "0.5.7",
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
@@ -230,7 +230,7 @@ const info = {
   dsh: "0.1.1-rc.2",
   profileSchema: 3,
   catalogSchema: 3,
-  imSchema: 3,
+  imSchema: 4,
   schemaVersion: 2,
   signed: false,
   notarized: false,

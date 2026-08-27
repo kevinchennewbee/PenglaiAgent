@@ -2,10 +2,13 @@ import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError } from "@penglai/contracts";
 import type { BudgetPolicy, BudgetScope } from "./ledger.js";
+import { consumeBudgetOwnerProof, type BudgetOwnerBrokerPort } from "./owner.js";
 
 interface BudgetSettingsHost {
   status(): { day: string; tokens: number; reservedTokens: number; priceTrusted: false; money: null; policies: BudgetPolicy[] };
   setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean }): BudgetPolicy;
+  proposePolicy?(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }): { actionId: string };
+  owner?: BudgetOwnerBrokerPort | undefined;
 }
 
 interface BudgetHostContext {
@@ -27,18 +30,49 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
       models: uniqueRoutes,
     };
   };
+  const liveKey = (scope: BudgetScope, key: string) => {
+    const available = options();
+    const resolved = scope === "global" ? "*" : key;
+    if (scope === "workspace" && !available.workspaces.some((row) => row.id === resolved)) {
+      throw new PenglaiError("INVALID_INPUT", "budget Workspace is not live");
+    }
+    if (scope === "provider" && !available.providers.includes(resolved)) {
+      throw new PenglaiError("INVALID_INPUT", "budget provider is not live");
+    }
+    if (scope === "model" && !available.models.some((row) => row.key === resolved)) {
+      throw new PenglaiError("INVALID_INPUT", "budget model route is not live");
+    }
+    return resolved;
+  };
   return {
     status() { return { ...service.status(), options: options() }; },
-    setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean }) {
+    proposePolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }) {
       if (!(["global", "workspace", "provider", "model"] as string[]).includes(input.scope)) {
         throw new PenglaiError("INVALID_INPUT", "invalid budget scope");
       }
-      const available = options();
-      const key = input.scope === "global" ? "*" : input.key;
-      if (input.scope === "workspace" && !available.workspaces.some((row) => row.id === key)) throw new PenglaiError("INVALID_INPUT", "budget Workspace is not live");
-      if (input.scope === "provider" && !available.providers.includes(key)) throw new PenglaiError("INVALID_INPUT", "budget provider is not live");
-      if (input.scope === "model" && !available.models.some((row) => row.key === key)) throw new PenglaiError("INVALID_INPUT", "budget model route is not live");
-      return service.setPolicy({ ...input, key });
+      if (!service.proposePolicy) throw new PenglaiError("DSH_UNAVAILABLE", "budget owner broker unavailable");
+      const key = liveKey(input.scope, input.key);
+      return service.proposePolicy({ ...input, key });
+    },
+    setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }) {
+      if (!(["global", "workspace", "provider", "model"] as string[]).includes(input.scope)) {
+        throw new PenglaiError("INVALID_INPUT", "invalid budget scope");
+      }
+      const key = liveKey(input.scope, input.key);
+      if (!input.actionId || !input.receipt) {
+        throw new PenglaiError("SECURITY_POLICY", "budget change requires Owner confirmation");
+      }
+      const complete = consumeBudgetOwnerProof(service.owner, {
+        actionId: input.actionId,
+        receipt: input.receipt,
+        scope: input.scope,
+        key,
+        hardTokens: input.hardTokens,
+        ...(input.warnRatio !== undefined ? { warnRatio: input.warnRatio } : {}),
+      });
+      const policy = service.setPolicy({ ...input, key, ownerConfirmed: true });
+      complete();
+      return policy;
     },
   };
 }
@@ -46,7 +80,8 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
 export class PenglaiBudgetRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createBudgetSettingsApi>) { super(ctx, "penglaiBudgetSettings"); }
   @Remote status() { return this.api.status(); }
-  @Remote setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean }) { return this.api.setPolicy(input); }
+  @Remote proposePolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }) { return this.api.proposePolicy(input); }
+  @Remote setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }) { return this.api.setPolicy(input); }
 }
 
-export const TYPERT_REMOTE = { package: "@penglai/budget", descriptors: ["status", "setPolicy"] };
+export const TYPERT_REMOTE = { package: "@penglai/budget", descriptors: ["status", "proposePolicy", "setPolicy"] };

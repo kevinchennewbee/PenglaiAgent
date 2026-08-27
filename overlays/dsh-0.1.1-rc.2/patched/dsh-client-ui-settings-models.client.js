@@ -2343,17 +2343,17 @@ window.__ModuleLoader__.load({
 		* Bump only when the notice changes materially and every user should see it
 		* again. The acknowledgement is compared for exact equality.
 		*/
-		const WELCOME_NOTICE_VERSION = "penglai-0.5.6.0";
+		const WELCOME_NOTICE_VERSION = "penglai-0.5.7.0";
 		/** The complete editable internal-testing notice in both supported GUI locales. */
 		const WELCOME_NOTICE_COPY = {
 			zh: {
 				title: "欢迎使用蓬莱",
-				body: "欢迎使用蓬莱 0.5.6。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和即时通讯凭据只保存在本机私有 YAML 文件，不会上传到蓬莱云。本版属于 community-verified：macOS 使用 ad-hoc 签名且未公证；请不要关闭系统安全提示。关于页保留引擎版本和开源归属。",
+				body: "欢迎使用蓬莱 0.5.7。对话、工作区、模型和插件都在这一个窗口里完成。\n\nAPI 密钥和消息平台凭据只保存在这台电脑上，不会上传到蓬莱云。首次打开时，系统可能会请你确认应用来源；请按系统提示操作，不要关闭安全保护。",
 				continueLabel: "开始使用"
 			},
 			en: {
 				title: "Welcome to Penglai",
-				body: "Welcome to Penglai 0.5.6. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay in an app-private local YAML file on this computer and are not uploaded to a Penglai cloud. This build is community-verified: macOS is ad-hoc signed and not notarized. Do not turn off system security warnings. About preserves engine version and open-source attribution.",
+				body: "Welcome to Penglai 0.5.7. Chat, workspaces, models, and plugins all live in this window.\n\nAPI keys and messaging credentials stay on this computer and are not uploaded to a Penglai cloud. The first time you open the app, your system may ask you to confirm where it came from. Follow the system prompt and keep its security protections enabled.",
 				continueLabel: "Get started"
 			}
 		};
@@ -2788,18 +2788,9 @@ window.__ModuleLoader__.load({
 				label: () => t("nav"),
 				inject: injected
 			}, ModelsSection));
-			ctx.slots.inject("settings.onboarding", () => ctx.slots.register({
-				name: "settings.onboarding",
-				id: "welcome-notice",
-				order: -100,
-				inject: welcomeInjected
-			}, WelcomeNotice));
-			ctx.slots.inject("settings.onboarding", () => ctx.slots.register({
-				name: "settings.onboarding",
-				id: "deepseek-official",
-				order: 0,
-				inject: deepSeekOnboardingInjected
-			}, DeepSeekOnboardingDialog));
+			// Penglai's pre-DSH wizard is the sole first-run authority. Keep the
+			// official Models settings page, but do not stack DSH's welcome/BYOK
+			// modals over a completed Penglai onboarding flow.
 		}
 		//#endregion
 		exports.apply = apply;

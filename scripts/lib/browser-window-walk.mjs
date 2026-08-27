@@ -129,26 +129,35 @@ function clickSelector(sel) {
   })()`;
 }
 
-function clickButtonText(patterns) {
+export function clickButtonText(patterns, deferred = false) {
   return `(() => {
     const patterns = ${JSON.stringify(patterns)};
+    const deferred = ${JSON.stringify(deferred)};
     const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
-    const texts = buttons.map((n) => (n.textContent || "").replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 24);
+    const visible = (node) => {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    };
+    const visibleButtons = buttons.filter(visible);
+    const texts = visibleButtons.map((n) => (n.textContent || "").replace(/\\s+/g, " ").trim()).filter(Boolean).slice(0, 24);
     for (const src of patterns) {
       const re = new RegExp(src);
-      const btn = buttons.find((n) => re.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
+      const btn = visibleButtons.find((n) => re.test((n.textContent || "").replace(/\\s+/g, " ").trim()));
       if (btn) {
         if (btn.disabled) return { ok: false, reason: "disabled", text: (btn.textContent || "").replace(/\\s+/g, " ").trim(), texts };
-        btn.click();
-        return { ok: true, text: (btn.textContent || "").replace(/\\s+/g, " ").trim() };
+        if (deferred) setTimeout(() => btn.click(), 0);
+        else btn.click();
+        return { ok: true, deferred, text: (btn.textContent || "").replace(/\\s+/g, " ").trim() };
       }
     }
     return { ok: false, reason: "missing", texts };
   })()`;
 }
 
-export function settingsTriggerClickScript() {
+export function settingsTriggerClickScript(deferred = false) {
   return `(() => {
+    const deferred = ${JSON.stringify(deferred)};
     const normalized = (value) => String(value || "").replace(/\\s+/g, " ").trim();
     const buttons = Array.from(document.querySelectorAll("button, [role=button]"));
     const byText = buttons.find((node) =>
@@ -159,9 +168,11 @@ export function settingsTriggerClickScript() {
     const button = byText || document.querySelector('button[aria-haspopup="dialog"][aria-expanded]');
     if (!button) return { ok: false, reason: "missing", semanticFallback: false };
     if (button.disabled) return { ok: false, reason: "disabled", semanticFallback: button !== byText };
-    button.click();
+    if (deferred) setTimeout(() => button.click(), 0);
+    else button.click();
     return {
       ok: true,
+      deferred,
       semanticFallback: button !== byText,
       text: normalized(button.textContent) || normalized(button.getAttribute("aria-label")) || normalized(button.getAttribute("title")),
     };
@@ -627,33 +638,10 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     await shot("welcome-dismissed");
   }
 
-  // A secret-free COMPLETE fixture intentionally has no provider credential.
-  // Official DSH may therefore show its own BYOK prompt after the durable
-  // welcome has been dismissed.  This runner is walking product surfaces, not
-  // claiming that a key was configured, so use only the prompt's explicit
-  // non-destructive deferral action and prove that the overlay went away.
-  let byokDismissed = false;
+  // Penglai owns first-run. A second DSH welcome/BYOK modal is a product defect,
+  // even in the secret-free COMPLETE fixture; never dismiss it inside evidence.
   const afterWelcome = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
-  const byokLaterVisible =
-    afterWelcome?.officialByok &&
-    afterWelcome?.buttons?.some(
-      (button) => button.visible && /^(稍后配置|Later)$/.test(button.text),
-    );
-  if (byokLaterVisible) {
-    const click = await evaluate(
-      session,
-      clickButtonText(["^稍后配置$", "^Later$"]),
-    );
-    const after = await waitEval(
-      session,
-      SNAPSHOT_JS,
-      (snapshot) => Boolean(snapshot?.hasDshBoot && snapshot?.hasRoot && !snapshot?.officialByok),
-      15_000,
-    );
-    byokDismissed = click?.ok === true && after?.officialByok === false;
-    steps.push({ id: "official-byok-dismiss", click, observed: byokDismissed, snap: slim(after) });
-    await shot("official-byok-dismissed");
-  }
+  steps.push({ id: "single-onboarding-authority", observed: afterWelcome?.officialByok !== true, snap: slim(afterWelcome) });
 
   const settingsTargets = [
     { id: "ui-settings-open", patterns: ["^设置$", "^Settings$"], flag: null },
@@ -663,19 +651,39 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     { id: "ui-asr", patterns: ["^蓬莱语音识别$", "^Speech recognition$"], flag: "asr" },
     { id: "ui-tts", patterns: ["^蓬莱语音合成$", "^Speech synthesis$"], flag: "tts" },
     { id: "ui-office", patterns: ["^蓬莱办公$", "^Penglai Office$"], flag: "office" },
-    { id: "ui-memory", patterns: ["^蓬莱记忆$", "^Penglai Memory$"], flag: "memory" },
+    {
+      id: "ui-memory",
+      patterns: ["^蓬莱记忆$", "^Penglai Memory$"],
+      flag: "memory",
+      readyFlag: "memoryStatus",
+      readyValue: "ready",
+    },
     { id: "ui-companion", patterns: ["^主动陪伴$", "^Proactive Companion$", "^Companion$"], flag: "companion" },
-    { id: "ui-update", patterns: ["^更新$", "^Updates$"], flag: "update" },
+    {
+      id: "ui-update",
+      patterns: ["^软件更新$", "^更新$", "^Software updates$", "^Updates$"],
+      flag: "update",
+    },
     { id: "ui-uninstall", patterns: ["^存储与卸载$", "^Storage and uninstall$"], flag: "uninstall" },
   ];
   const installResults = [];
   for (const target of settingsTargets) {
     const click = await evaluate(
       session,
-      target.id === "ui-settings-open" ? settingsTriggerClickScript() : clickButtonText(target.patterns),
+      target.id === "ui-settings-open" ? settingsTriggerClickScript(true) : clickButtonText(target.patterns, true),
     );
-    await delay(700);
-    const after = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
+    const after = await waitEval(
+      session,
+      SNAPSHOT_JS,
+      target.flag
+        ? (snapshot) =>
+            Boolean(
+              snapshot?.[target.flag] &&
+                (!target.readyFlag || snapshot?.[target.readyFlag] === target.readyValue),
+            )
+        : (snapshot) => Boolean(snapshot?.navLabels?.length),
+      target.readyFlag ? 30_000 : target.flag ? 15_000 : 5_000,
+    );
     if (target.flag && after?.[target.flag] && !settingsWalked.includes(target.id)) settingsWalked.push(target.id);
     steps.push({ id: target.id, click, observed: Boolean(target.flag && after?.[target.flag]), snap: slim(after) });
     await shot(target.id);
@@ -687,6 +695,12 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   }
   const last = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
   const blocked = [];
+  if (steps.some((step) => step.snap?.officialByok === true)) {
+    blocked.push("duplicate-dsh-onboarding");
+  }
+  if (steps.some((step) => /DeepSeek Harness/i.test(String(step.snap?.title ?? "")))) {
+    blocked.push("upstream-window-title");
+  }
   const requiredSettings = opts.requireOptionalPlugins
     ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-office", "ui-memory", "ui-companion", "ui-update", "ui-uninstall"]
     : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
@@ -707,7 +721,7 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     last: slim(last),
     official,
     welcome: { clicked: welcomeClicked },
-    officialByok: { deferred: byokDismissed },
+    officialByok: { absent: !steps.some((step) => step.snap?.officialByok === true) },
     blocked,
     deadEnds: [],
     wizardKeyless: { ok: false, honestStop: "", reason: "already-complete" },

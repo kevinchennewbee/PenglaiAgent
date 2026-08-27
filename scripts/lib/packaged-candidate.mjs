@@ -7,18 +7,18 @@ import { CLOSURE_CREDENTIAL_SCHEMA } from "./closure-credential.mjs";
 export const PACKAGED_TARGETS = Object.freeze({
   "darwin-aarch64": Object.freeze({
     buildTarget: "darwin-arm64",
-    appRelative: "dist/Penglai-v0.5.6-arm64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.6_macos_aarch64.dmg",
+    appRelative: "dist/Penglai-v0.5.7-arm64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.7_macos_aarch64.dmg",
   }),
   "darwin-x86_64": Object.freeze({
     buildTarget: "darwin-x64",
-    appRelative: "dist/Penglai-v0.5.6-x64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.6_macos_x64.dmg",
+    appRelative: "dist/Penglai-v0.5.7-x64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.7_macos_x64.dmg",
   }),
   "win32-x86_64": Object.freeze({
     buildTarget: "win32-x64",
-    appRelative: "dist/Penglai-v0.5.6-win32-x64/Penglai",
-    dmgRelative: "dist/Penglai_0.5.6_windows_x64_setup.exe",
+    appRelative: "dist/Penglai-v0.5.7-win32-x64/Penglai",
+    dmgRelative: "dist/Penglai_0.5.7_windows_x64_setup.exe",
   }),
 });
 
@@ -107,7 +107,7 @@ export function inspectPackagedCandidate({
   }
   if (
     release.productName !== "Penglai" ||
-    release.productVersion !== "0.5.6" ||
+    release.productVersion !== "0.5.7" ||
     release.generationId !== "penglai-dsh-v0.5" ||
     release.trustTier !== "community-verified" ||
     release.targetPlatform !== spec.buildTarget
@@ -137,7 +137,7 @@ export function inspectPackagedCandidate({
     };
   }
   if (
-    manifest.release !== "0.5.6" ||
+    manifest.release !== "0.5.7" ||
     manifest.target !== expectedTarget ||
     manifest.dsh !== release.dsh ||
     !Array.isArray(manifest.files) ||

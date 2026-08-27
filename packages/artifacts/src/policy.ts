@@ -68,7 +68,8 @@ const REJECT_EXT = [
   ".tgz",
 ];
 
-const MACRO_NAMES = /vba(project|data)|macrosheets|xl\/activeX/i;
+const MACRO_NAMES = /vba(project|data)|macrosheets|(^|\/)activeX\//i;
+const EMBEDDED_NAMES = /(^|\/)(embeddings|externalLinks)\//i;
 const ENCRYPT_NAMES = /encryptioninfo|encryptedpackage|strongencryption/i;
 const NESTED_ARCHIVE = /\.(zip|7z|rar|tar|tgz|gz|jar)$/i;
 
@@ -175,6 +176,7 @@ function listZipNames(buf: Buffer): string[] {
     if (folded.has(lower)) throw new PenglaiError("SECURITY_POLICY", "ARTIFACT_ZIP");
     folded.add(lower);
     if (MACRO_NAMES.test(name)) throw new PenglaiError("SECURITY_POLICY", "ARTIFACT_MACRO");
+    if (EMBEDDED_NAMES.test(name) && !name.endsWith("/")) throw new PenglaiError("SECURITY_POLICY", "ARTIFACT_EMBEDDED_OBJECT");
     if (ENCRYPT_NAMES.test(name)) throw new PenglaiError("SECURITY_POLICY", "ARTIFACT_ENCRYPTED");
     if (NESTED_ARCHIVE.test(name)) throw new PenglaiError("SECURITY_POLICY", "ARTIFACT_NESTED_ARCHIVE");
     names.push(name);

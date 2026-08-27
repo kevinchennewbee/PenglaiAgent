@@ -99,9 +99,14 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /\^开始使用\$/);
   assert.match(walk, /\^Get started\$/);
   assert.match(walk, /welcome-dismiss/);
-  assert.match(walk, /\^稍后配置\$/);
-  assert.match(walk, /\^Later\$/);
-  assert.match(walk, /official-byok-dismiss/);
+  assert.match(walk, /duplicate-dsh-onboarding/);
+  assert.match(walk, /upstream-window-title/);
+  assert.match(walk, /target\.readyFlag \? 30_000 : target\.flag \? 15_000 : 5_000/);
+  assert.match(walk, /snapshot\?\.\[target\.flag\]/);
+  assert.match(walk, /snapshot\?\.\[target\.readyFlag\] === target\.readyValue/);
+  assert.match(walk, /\^软件更新\$/);
+  assert.match(walk, /const visibleButtons = buttons\.filter\(visible\)/);
+  assert.doesNotMatch(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(walk, /button\[aria-haspopup=\\?"dialog\\?"\]\[aria-expanded\]/);
   assert.match(walk, /semanticFallback/);
@@ -131,6 +136,59 @@ test("collapsed official DSH settings trigger opens through its dialog semantics
   assert.equal(result.ok, true);
   assert.equal(result.semanticFallback, true);
   assert.equal(clicked, true);
+});
+
+test("installed settings walk defers expensive renderer click work outside the CDP request", async () => {
+  const { settingsTriggerClickScript } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  let clicked = false;
+  let scheduled: (() => void) | undefined;
+  const button = {
+    disabled: false,
+    textContent: "Settings",
+    getAttribute: () => null,
+    click() { clicked = true; },
+  };
+  const document = {
+    querySelectorAll: () => [button],
+    querySelector: () => null,
+  };
+  const result = runInNewContext(settingsTriggerClickScript(true), {
+    document,
+    setTimeout(callback: () => void) {
+      scheduled = callback;
+      return 1;
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.deferred, true);
+  assert.equal(clicked, false);
+  scheduled?.();
+  assert.equal(clicked, true);
+});
+
+test("installed settings walk ignores hidden duplicate navigation buttons", async () => {
+  const { clickButtonText } = await import("../../../scripts/lib/browser-window-walk.mjs");
+  let hiddenClicked = false;
+  let visibleClicked = false;
+  const hidden = {
+    disabled: false,
+    textContent: "Storage and uninstall",
+    getBoundingClientRect: () => ({ width: 0, height: 0 }),
+    click() { hiddenClicked = true; },
+  };
+  const visible = {
+    disabled: false,
+    textContent: "Storage and uninstall",
+    getBoundingClientRect: () => ({ width: 120, height: 30 }),
+    click() { visibleClicked = true; },
+  };
+  const result = runInNewContext(clickButtonText(["^Storage and uninstall$"]), {
+    document: { querySelectorAll: () => [hidden, visible] },
+    getComputedStyle: () => ({ visibility: "visible", display: "block" }),
+  });
+  assert.equal(result.ok, true);
+  assert.equal(hiddenClicked, false);
+  assert.equal(visibleClicked, true);
 });
 
 test("installed soak samples bundled IM without bypassing native owner approval", async () => {
@@ -377,8 +435,11 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(installedHelper, /process-resume/);
   const windowsPayload = readFileSync(join(root, "scripts/package-windows-payload.mjs"), "utf8");
   assert.match(windowsPayload, /build-windows-host\.mjs/);
+  assert.match(windowsPayload, /scripts\/bundle-desktop\.mjs/);
+  assert.doesNotMatch(windowsPayload, /if \(!existsSync\(join\(ROOT, "dist", "desktop-bundle", "electron-main\.js"\)\)\)/);
+  assert.match(windowsPayload, /desktop bundle is missing or does not match the current startup page/);
   assert.match(windowsPayload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
-  assert.match(windowsPayload, /join\(staging, "runtime", "helpers"\)/);
+  assert.match(windowsPayload, /join\(staging, "runtime", "helpers", "penglai-windows-host\.exe"\)/);
   assert.match(windowsPayload, /stamp-windows-exe\.mjs/);
   assert.match(windowsPayload, /release-info\.json/);
   const embedRuntime = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");

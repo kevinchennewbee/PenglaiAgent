@@ -5,9 +5,10 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
-import { materializeDshClosure } from "./lib/dsh-closure.mjs";
+import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
 import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
+import { applyOverlayToRoot } from "./apply-overlay.mjs";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -87,6 +88,12 @@ if (nodeInput.archive === "zip") {
     const names = execFileSync("unzip", ["-Z", "-1", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
     for (const n of names) assertSafeName(n);
     execFileSync("unzip", ["-q", archivePath, "-d", extractDir], { stdio: "inherit" });
+  } else if (process.platform === "win32" && spawnSync("tar", ["-tf", archivePath], { encoding: "utf8" }).status === 0) {
+    // Current Windows ships bsdtar, which reads ZIP archives without requiring
+    // an optional PowerShell.Archive module.
+    const names = execFileSync("tar", ["-tf", archivePath], { encoding: "utf8" }).split("\n").filter(Boolean);
+    for (const n of names) assertSafeName(n);
+    execFileSync("tar", ["-xf", archivePath, "-C", extractDir], { stdio: "inherit" });
   } else if (process.platform === "win32") {
     const expanded = spawnSync(
       "powershell",
@@ -130,12 +137,13 @@ const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "
     console.error("pnpm-lock.yaml is missing the pinned DSH integrity");
     process.exit(1);
   }
-const pnpmDshRoot = readdirSync(join(ROOT, "node_modules", ".pnpm"))
-  .filter((name) => name.startsWith(`@deepseek-ai+dsh@${PINNED_DSH}_`))
-  .map((name) => join(ROOT, "node_modules", ".pnpm", name))
-  .find((candidate) => existsSync(join(candidate, "node_modules", "@deepseek-ai", "dsh")));
-const dshPackageDir = pnpmDshRoot ? join(pnpmDshRoot, "node_modules", "@deepseek-ai", "dsh") : "";
-const dshPackageRoot = pnpmDshRoot ?? "";
+const locatedDsh = locateWorkspaceDsh({
+  root: ROOT,
+  pinnedVersion: PINNED_DSH,
+  resolvedPackageDir: workspaceDsh,
+});
+const dshPackageDir = locatedDsh?.dshPackageDir ?? "";
+const dshPackageRoot = locatedDsh?.dshPackageRoot ?? "";
 if (!existsSync(dshPackageDir) || !existsSync(join(dshPackageRoot, "node_modules"))) {
   console.error("workspace DSH pnpm closure missing");
   process.exit(1);
@@ -169,16 +177,10 @@ if (existsSync(nodeBin) && target !== "win32-x86_64") {
   dshVersionProbe = String(versionProbe.stdout).trim();
 }
 
-const overlay = spawnSync(process.execPath, [join(ROOT, "scripts/apply-overlay.mjs"), dshDest], {
-  cwd: ROOT,
-  encoding: "utf8",
-});
-if (overlay.status !== 0) {
-  process.stderr.write(overlay.stdout || "");
-  process.stderr.write(overlay.stderr || "");
-  process.exit(overlay.status ?? 1);
-}
-if (overlay.stdout) process.stdout.write(overlay.stdout);
+// Apply in-process so Windows path-to-file URL differences cannot turn the
+// overlay command into a silent no-op. Any hash drift fails the native build.
+const overlay = applyOverlayToRoot(dshDest);
+console.log(JSON.stringify(overlay));
 
 const pluginTarget = target === "darwin-aarch64"
   ? "darwin-arm64"
@@ -230,6 +232,18 @@ if (mnemonAsset.executable) {
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
+
+// A native Windows build must carry its ACL/job/uninstall helper inside the
+// hashed runtime manifest. Cross-staging may omit it and remains structurally
+// incomplete until the matching Windows runner compiles the helper.
+if (target === "win32-x86_64") {
+  const helper = join(ROOT, "dist", "native-win32-x86_64", "penglai-windows-host.exe");
+  if (existsSync(helper)) {
+    const helperDir = join(staging, "runtime", "helpers");
+    mkdirSync(helperDir, { recursive: true });
+    cpSync(helper, join(helperDir, "penglai-windows-host.exe"));
+  }
+}
 
 const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))

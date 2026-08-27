@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.6";
+export const PRODUCT_VERSION = "0.5.7";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -30,7 +30,7 @@ export const PINNED_DSH_TAG = "dsh-v0.1.1-rc.2";
 export const PINNED_DSH_INTEGRITY =
   "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg==";
 export const PINNED_DSH_SHASUM = "1a5112369f1c46b13a6e6f21de8af5e6afd45074";
-export const PINNED_DSH_NPM_LATEST = "0.1.0-rc.7";
+export const PINNED_DSH_NPM_LATEST = "0.1.1-rc.2";
 export const PINNED_DSH_NPM_NEXT = "0.1.1-rc.2";
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
@@ -79,7 +79,7 @@ export const PINNED_PPTFAST = "0.20.0";
 export const PINNED_PPTFAST_COMMIT = "7482c83436531530b46003ccdab62b1fa8c97969";
 export const PROFILE_SCHEMA = 3;
 export const CATALOG_SCHEMA = 3;
-export const IM_SCHEMA = 3;
+export const IM_SCHEMA = 4;
 export const ACCEPTANCE_DOC = "docs/ACCEPTANCE.md";
 export const HARD_ID_RE = /\| `(R5[05]-[A-Z0-9]+-\d+)` \|/g;
 /** Previous registry generation. Never a completion map. */
@@ -103,9 +103,9 @@ export const UPDATER_CHANNEL = "desktop-v0.5";
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.6",
-  release: "v0.5.6",
-  channel: "stable-v0.5.6",
+  tag: "v0.5.7",
+  release: "v0.5.7",
+  channel: "stable-v0.5.7",
 });
 
 export const RELEASE_TARGETS = [
@@ -113,19 +113,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.6_macos_aarch64.dmg",
+    installer: "Penglai_0.5.7_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.6_macos_x64.dmg",
+    installer: "Penglai_0.5.7_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.6_windows_x64_setup.exe",
+    installer: "Penglai_0.5.7_windows_x64_setup.exe",
   },
 ] as const;
 

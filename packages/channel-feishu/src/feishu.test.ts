@@ -9,6 +9,7 @@ import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import {
   FEISHU_ALLOWLIST_NOTICE,
+  FEISHU_STATUS_REACTIONS,
   FeishuAdapter,
   parseFeishuEvent,
   parseOfficialReceive,
@@ -567,9 +568,45 @@ test("Feishu scanner identity is the unique allowlist and first DMs do not becom
   h.store.close();
 });
 
+test("Feishu single-paragraph post extracts text and rejects richer posts", () => {
+  const simple = parseOfficialReceive({
+    event: {
+      message: {
+        message_id: "p1",
+        message_type: "post",
+        chat_type: "p2p",
+        content: JSON.stringify({ zh_cn: { content: [[{ tag: "text", text: "/help" }]] } }),
+      },
+      sender: { sender_id: { open_id: "ou_1" } },
+    },
+  });
+  assert.equal("reject" in simple, false);
+  if (!("reject" in simple)) assert.equal(simple.text, "/help");
+  const rich = parseOfficialReceive({
+    event: {
+      message: {
+        message_id: "p2",
+        message_type: "post",
+        chat_type: "p2p",
+        content: JSON.stringify({
+          zh_cn: { content: [[{ tag: "text", text: "a" }], [{ tag: "text", text: "b" }]] },
+        }),
+      },
+      sender: { sender_id: { open_id: "ou_1" } },
+    },
+  });
+  assert.deepEqual(rich, { reject: "media" });
+});
+
 test("R56-SEC-010 missing or unknown chatType and sender fail closed without a reply", () => {
   assert.deepEqual(parseFeishuEvent({ messageId: "1", text: "x", openId: "o" }), { reject: "chatType" });
   assert.deepEqual(parseFeishuEvent({ chatType: "meeting", messageId: "2", text: "x", openId: "o" }), { reject: "chatType" });
   assert.deepEqual(parseFeishuEvent({ chatType: "p2p", messageId: "3", text: "x" }), { reject: "sender" });
   assert.deepEqual(parseOfficialReceive({ event: { message: { message_id: "4", message_type: "text" } } }), { reject: "chatType" });
+});
+
+test("Feishu status reactions are official emoji types and no-op when disconnected", async () => {
+  assert.equal(FEISHU_STATUS_REACTIONS.processing, "ONIT");
+  const adapter = new FeishuAdapter(plane());
+  await adapter.react({ vendorMessageId: "om_1", kind: "processing" });
 });

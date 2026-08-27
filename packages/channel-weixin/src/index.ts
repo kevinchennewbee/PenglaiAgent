@@ -16,6 +16,7 @@ import {
 import type { RoutingControlPlane, VoiceInboundClaim } from "@penglai/routing-core";
 import { encodeWavToWeixinSilk } from "@penglai/audio-codecs";
 import { ILinkClient, type ILinkFetch } from "./ilink.js";
+import { WeixinTypingSession } from "./typing.js";
 import type { WeixinVoiceMediaRef } from "./cdn.js";
 import { downloadAndDecryptWeixinCdn } from "./cdn.js";
 import type { WeixinCdnMedia } from "./protocol.js";
@@ -284,6 +285,7 @@ export class WeixinAdapter {
   private cursorBlocked = false;
   private voiceAbort = new AbortController();
   private readonly activeVoiceJobs = new Map<string, Promise<void>>();
+  private readonly typing = new Map<string, WeixinTypingSession>();
   readonly mediaStore = new MediaStore(
     ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "weixin")] : []),
   );
@@ -641,7 +643,11 @@ export class WeixinAdapter {
         };
       }
       delete parsed.text;
+      await this.startTyping(parsed.vendorTarget);
       const submitted = await this.plane.submitInbound(parsed);
+      if (submitted.kind !== "accepted" || submitted.text !== "queued") {
+        await this.stopTyping(parsed.vendorTarget);
+      }
       if (submitted.kind === "accepted" && submitted.text === "queued") {
         const routeId = this.plane.ensureRoute(parsed);
         const binding = this.plane.store.activeBinding(routeId);
@@ -679,10 +685,16 @@ export class WeixinAdapter {
       this.scheduleVoiceClaim(claim, raw.voice);
       return { kind: "accepted" as const, text: "voice claimed" };
     }
-    return this.plane.submitInbound(parsed);
+    await this.startTyping(parsed.vendorTarget);
+    const submitted = await this.plane.submitInbound(parsed);
+    if (submitted.kind !== "accepted" || submitted.text !== "queued") {
+      await this.stopTyping(parsed.vendorTarget);
+    }
+    return submitted;
   }
 
   async pumpOutbox(routeId: string, to: string, contextToken?: string): Promise<void> {
+    await this.stopTyping(to);
     const token = await this.vault.read(this.tokenRef);
     if (this.transport instanceof ILinkTransport) this.transport.lastToken = token;
     for (const item of this.plane.dueOutbox(routeId)) {
@@ -866,6 +878,36 @@ export class WeixinAdapter {
     const authState = this.authState === "idle" && this.ownerUserId ? "connected" : this.authState;
     return { authState, hasCredential: authState === "connected" || Boolean(this.ownerUserId) };
   }
+
+  private async startTyping(toUserId: string | undefined): Promise<void> {
+    if (!toUserId || !(this.transport instanceof ILinkTransport)) return;
+    try {
+      await this.stopTyping(toUserId);
+      const token = await this.vault.read(this.tokenRef);
+      if (!token) return;
+      const session = new WeixinTypingSession(
+        this.transport.client,
+        token,
+        toUserId,
+        this.contextByPeer.get(toUserId),
+      );
+      this.typing.set(toUserId, session);
+      await session.start();
+    } catch {
+      /* typing is optional and must not affect the official reply */
+    }
+  }
+
+  private async stopTyping(toUserId: string | undefined): Promise<void> {
+    if (!toUserId) return;
+    const session = this.typing.get(toUserId);
+    this.typing.delete(toUserId);
+    try {
+      await session?.stop();
+    } catch {
+      /* typing is optional */
+    }
+  }
 }
 
 export {
@@ -877,6 +919,7 @@ export {
   randomWechatUin,
 } from "./protocol.js";
 export { ILinkClient } from "./ilink.js";
+export { WeixinTypingSession } from "./typing.js";
 export { isPngDataUrl, renderQrPngDataUrl, renderWeixinQrImage, WEIXIN_QR_PNG_PREFIX } from "./qr-image.js";
 export * from "./media.js";
 export const ILINK_PATHS = {

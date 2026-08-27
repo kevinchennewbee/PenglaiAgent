@@ -2,7 +2,7 @@ import { gitState } from "./repo.mjs";
 
 /**
  * Public freeze still requires clean main at origin/main.
- * 0.5.6 local candidate packaging may run on a clean feature branch; it must
+ * 0.5.7 local candidate packaging may run on a clean feature branch; it must
  * never claim a frozen public source.
  */
 export function requireCleanCandidateSource() {

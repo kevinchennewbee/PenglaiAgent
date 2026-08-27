@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { pnpmProcess } from "./lib/pnpm-process.mjs";
 
 const steps = [
   "format:check",
@@ -22,9 +23,11 @@ const steps = [
 
 for (const s of steps) {
   console.log("::verify:r2", s);
-  const r = spawnSync("pnpm", ["run", s], { stdio: "inherit" });
+  const child = pnpmProcess(["run", s]);
+  const r = spawnSync(child.command, child.args, { stdio: "inherit" });
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
-const ev = spawnSync("pnpm", ["run", "evidence:r2"], { stdio: "inherit" });
+const evidence = pnpmProcess(["run", "evidence:r2"]);
+const ev = spawnSync(evidence.command, evidence.args, { stdio: "inherit" });
 if (ev.status !== 0) process.exit(ev.status ?? 1);
 console.log("verify:r2 ok");

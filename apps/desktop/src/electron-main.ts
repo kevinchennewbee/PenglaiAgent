@@ -63,6 +63,7 @@ import {
   type PendingPluginRuntimeRestart,
   type PluginUpdateJournalEvidence,
 } from "./plugin-runtime-restart.js";
+import { loadWindowUrl } from "./navigation-retry.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -302,6 +303,8 @@ async function main(): Promise<void> {
     width: 1280,
     height: 840,
     show: false,
+    opacity: platform === "win32" ? 0 : 1,
+    backgroundColor: "#f8f4ee",
     title: "蓬莱 Penglai",
     webPreferences: {
       preload: join(here, "preload-bridge.cjs"),
@@ -310,6 +313,10 @@ async function main(): Promise<void> {
       sandbox: true,
       webSecurity: true,
     },
+  });
+  win.on("page-title-updated", (event) => {
+    event.preventDefault();
+    if (!win.isDestroyed()) win.setTitle("蓬莱 Penglai");
   });
   const allowed = new Set<number>([win.webContents.id]);
   const openOfficialConsole = (url: string): boolean => {
@@ -447,27 +454,38 @@ async function main(): Promise<void> {
     void shutdown().finally(() => app.quit());
   });
 
-  const revealWindow = (): void => {
-    if (soakMode || win.isDestroyed() || win.isVisible()) return;
+  let windowRevealed = false;
+  const revealWindow = async (): Promise<void> => {
+    if (soakMode || win.isDestroyed() || windowRevealed) return;
+    windowRevealed = true;
     win.show();
+    if (platform !== "win32") return;
+    await delay(120);
+    if (!win.isDestroyed()) win.setOpacity(1);
   };
 
   if (existsSync(splashPage)) {
     await win.loadFile(splashPage);
-    revealWindow();
+    await win.webContents.executeJavaScript(
+      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+      true,
+    );
+    await revealWindow();
   }
 
   const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
     const safe = sanitizeStartupReason(reason);
+    if (stopping || win.isDestroyed()) return;
     try {
       await stopOwnedServices();
     } catch {
       /* recovery UI must still render after best-effort ownership teardown */
     }
+    if (stopping || win.isDestroyed()) return;
     const recovery = recoveryPage;
     if (existsSync(recovery)) {
       await win.loadFile(recovery);
-      try {
+      if (!win.webContents.isDestroyed()) try {
         await win.webContents.executeJavaScript(
           `(() => { const p = document.createElement("pre"); p.dataset.penglaiError = "1"; p.textContent = ${JSON.stringify(safe)}; document.body.appendChild(p); document.title = "Penglai · DeepSeek Harness failed to start"; })()`,
         );
@@ -475,7 +493,7 @@ async function main(): Promise<void> {
         /* page still useful without the extra line */
       }
     }
-    revealWindow();
+    await revealWindow();
     try {
       mkdirSync(user.logs, { recursive: true, mode: 0o700 });
       writeFileSync(join(user.logs, "startup.error.log"), `${new Date().toISOString()}\n${safe}\n`, { mode: 0o600 });
@@ -550,12 +568,7 @@ async function main(): Promise<void> {
       writeFileSync(join(user.root, "gateway.port"), String(proxy.port), { mode: 0o600 });
       if (loadRenderer && !win.isDestroyed()) {
         const target = onboardingLedgerComplete(user.root) ? url : wizardUrlForOrigin(url);
-        await Promise.race([
-          win.loadURL(target),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("loadURL timeout")), 20_000);
-          }),
-        ]);
+        await loadWindowUrl(win, target, () => stopping);
       }
       return url;
     };
@@ -954,12 +967,7 @@ async function main(): Promise<void> {
           // if the switch fails we must restore the wizard so the user is not
           // stranded on a dead /wizard while the official DSH Web is unreachable.
           try {
-            await Promise.race([
-              win.loadURL(officialUrl),
-              new Promise((_, reject) => {
-                setTimeout(() => reject(new Error("loadURL timeout")), 20_000);
-              }),
-            ]);
+            await loadWindowUrl(win, officialUrl, () => stopping);
             const switched = await verifyOfficialSurfaces(officialUrl);
             proxy.setWizardDisabled(true);
             return { switched: true, ...switched };
@@ -1026,7 +1034,7 @@ async function main(): Promise<void> {
         installerCancelled: pendingUpdate.version !== releaseContract.version,
       });
     }
-    revealWindow();
+    await revealWindow();
     if (soakMode) {
       const healthFile = join(user.root, "soak-health.json");
       const writeHealth = (): void => {

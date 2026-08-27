@@ -60,14 +60,14 @@ const path = existsSync(join(evidenceDir, evidenceName("installed-e2e", target))
     ? join(evidenceDir, "installed-e2e.json")
     : join(evidenceDir, evidenceName("installed-e2e", target));
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.6 installed evidence for ${target}`, target });
+  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.7 installed evidence for ${target}`, target });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
 const blob = JSON.stringify(rec);
 if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob)) {
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
-if (rec.productVersion !== "0.5.6" || rec.verdict !== "PASS") {
+if (rec.productVersion !== "0.5.7" || rec.verdict !== "PASS") {
   finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
 }
 const expectedInstaller = installerForTarget(target);

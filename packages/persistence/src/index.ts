@@ -6,6 +6,7 @@ import {
   CONFIG,
   DEFAULT_BINDING_VOICE_POLICY,
   PenglaiError,
+  ADAPTER_NAMES,
   SCHEMA_VERSION,
   parseClosedEnum,
   type Binding,
@@ -18,7 +19,7 @@ import {
   type TurnCorrelation,
 } from "@penglai/contracts";
 
-const ROUTE_ADAPTERS = ["mock", "weixin", "feishu"] as const;
+const ROUTE_ADAPTERS = ADAPTER_NAMES;
 const ROUTE_STATUSES = ["pending", "active", "revoked"] as const;
 const INBOUND_STATES = [
   "received",
@@ -234,6 +235,31 @@ const MIGRATIONS: string[] = [
   ALTER TABLE outbox ADD COLUMN claim_token TEXT;
   UPDATE schema_meta SET version = 11;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS inbound_operations (
+    operation_id TEXT PRIMARY KEY,
+    vendor_message_key TEXT NOT NULL,
+    route_id TEXT NOT NULL,
+    inbound_id TEXT,
+    turn_id TEXT,
+    created_at INTEGER NOT NULL,
+    UNIQUE(vendor_message_key, route_id)
+  );
+  CREATE TABLE IF NOT EXISTS im_migration_journal (
+    step TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS im_last_good (
+    snapshot_id TEXT PRIMARY KEY,
+    created_at INTEGER NOT NULL,
+    schema_version INTEGER NOT NULL,
+    note TEXT NOT NULL
+  );
+  INSERT OR IGNORE INTO im_last_good(snapshot_id, created_at, schema_version, note)
+    VALUES ('v11-weixin-feishu', 0, 11, '0.5.6 weixin/feishu last-good marker');
+  UPDATE schema_meta SET version = 12;
+  `,
 ];
 
 export const PENDING_MENU_TTL_MS = 24 * 60 * 60 * 1000;
@@ -338,6 +364,40 @@ export class Store {
     }
   }
 
+  /**
+   * One vendor message maps to at most one operation/Turn. Returns false when
+   * the pair already exists so crash recovery can reuse the existing claim.
+   */
+  claimInboundOperation(input: {
+    operationId: string;
+    vendorMessageKey: string;
+    routeId: string;
+  }): { created: boolean; operationId: string; inboundId?: string; turnId?: string } {
+    const existing = this.db
+      .prepare(
+        `SELECT operation_id, inbound_id, turn_id FROM inbound_operations
+         WHERE vendor_message_key = ? AND route_id = ?`,
+      )
+      .get(input.vendorMessageKey, input.routeId) as
+      | { operation_id: string; inbound_id?: string | null; turn_id?: string | null }
+      | undefined;
+    if (existing) {
+      return {
+        created: false,
+        operationId: existing.operation_id,
+        ...(existing.inbound_id ? { inboundId: existing.inbound_id } : {}),
+        ...(existing.turn_id ? { turnId: existing.turn_id } : {}),
+      };
+    }
+    this.db
+      .prepare(
+        `INSERT INTO inbound_operations(operation_id, vendor_message_key, route_id, created_at)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(input.operationId, input.vendorMessageKey, input.routeId, Date.now());
+    return { created: true, operationId: input.operationId };
+  }
+
   putVendorReplyTarget(routeId: string, vendorTarget: string): void {
     this.db
       .prepare(
@@ -369,6 +429,27 @@ export class Store {
       | { json?: string }
       | undefined;
     return row?.json;
+  }
+
+  migrateLegacyAdapterAccount(channel: string, nextAccountId: string): boolean {
+    if (!channel || !nextAccountId) throw new PenglaiError("INVALID_INPUT", "account migration ids");
+    if (nextAccountId === `${channel}-default`) {
+      throw new PenglaiError("INVALID_INPUT", "LEGACY_DEFAULT_ACCOUNT");
+    }
+    return this.tx(() => {
+      const legacyId = `${channel}-default`;
+      const raw = this.getAdapterConfig(legacyId);
+      if (!raw) return false;
+      if (this.getAdapterConfig(nextAccountId)) {
+        throw new PenglaiError("STORE_CORRUPT", "LEGACY_ACCOUNT_COLLISION");
+      }
+      this.putAdapterConfig(nextAccountId, channel, raw);
+      this.db.prepare("DELETE FROM adapter_configs WHERE account_id=?").run(legacyId);
+      if (this.getAdapterConfig(legacyId) || this.getAdapterConfig(nextAccountId) !== raw) {
+        throw new PenglaiError("STORE_CORRUPT", "LEGACY_ACCOUNT_MIGRATION");
+      }
+      return true;
+    });
   }
 
   putPendingMenu(routeId: string, menu: StoredPendingMenu): void {

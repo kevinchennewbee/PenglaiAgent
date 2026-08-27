@@ -157,7 +157,10 @@ test("Budget settings uses only live Workspace and model route keys and never in
     assert.equal(api.status().money, null);
     assert.deepEqual(api.status().options.models, [{ provider: "deepseek", model: "chat", key: "deepseek/chat" }]);
     assert.throws(() => api.setPolicy({ scope: "workspace", key: "missing", hardTokens: 1, ownerConfirmed: true }), /not live/);
-    assert.equal(api.setPolicy({ scope: "global", key: "renderer-choice", hardTokens: 100, ownerConfirmed: true }).key, "*");
+    assert.throws(
+      () => api.setPolicy({ scope: "global", key: "renderer-choice", hardTokens: 100, ownerConfirmed: true }),
+      /Owner confirmation/,
+    );
   } finally { ledger.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -167,6 +170,7 @@ test("Budget client registers a real official settings tab and labels untrusted 
   assert.match(source, /settings\.section/);
   assert.match(source, /data-penglai-budget/);
   assert.match(source, /penglaiBudgetSettings/);
+  assert.match(source, /proposePolicy/);
   assert.match(source, /无可信价格|trusted pricing/);
   assert.doesNotMatch(source, /localStorage|indexedDB/);
 });

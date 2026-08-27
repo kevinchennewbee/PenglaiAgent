@@ -411,6 +411,41 @@ export function createDurableMemoryService(opts: {
         return { failOpen: true, enqueued: 0, skipped: 0, code: "CURATOR_SCHEMA_INVALID" as const };
       }
     },
+    queueToolCandidate(input: {
+      text: string;
+      suggestedScope: "personal" | "workspace";
+      workspaceId: string;
+      sessionId: string;
+      turnId: string;
+    }) {
+      const text = input.text.trim();
+      if (!text) throw new PenglaiError("INVALID_INPUT", "memory text required");
+      const sourceDigest = resultDigest({
+        source: "penglai-memory-remember-tool",
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+        turnId: input.turnId,
+        suggestedScope: input.suggestedScope,
+        text,
+      });
+      const candidate = v2.enqueue({
+        workspaceId: input.workspaceId,
+        sessionId: input.sessionId,
+        turnId: `tool:${input.turnId}`,
+        kind: "project_fact",
+        text,
+        rationale:
+          input.suggestedScope === "personal"
+            ? "The conversation requested a personal memory; Owner must explicitly upgrade it."
+            : "The conversation requested a Workspace memory; Owner must review it.",
+        confidence: 1,
+        sourceDigest,
+      });
+      return {
+        ...candidate,
+        suggestedScope: input.suggestedScope,
+      };
+    },
     async materializeCandidate(candidate: MemoryCandidateV1) {
       return materializeCandidate(candidate, false);
     },
@@ -742,7 +777,7 @@ export function apply(ctx: CordisContextLike) {
       },
       { global: true, prepend: true },
     );
-    registerMemoryTools(ctx, activeService.engine);
+    registerMemoryTools(ctx, activeService);
     ctx.provide("penglaiMemory", activeService);
     if (ctx instanceof Context) {
       new PenglaiMemoryRemote(ctx, createMemorySettingsApi(activeService, workspaceRegistry, sourcesApi));

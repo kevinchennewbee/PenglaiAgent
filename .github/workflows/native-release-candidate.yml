@@ -1,9 +1,9 @@
-name: Native 0.5.6 release candidate
+name: Native 0.5.7 release candidate
 
 on:
   push:
     branches:
-      - codex/0.5.6-release
+      - 0.5.7
   workflow_dispatch:
     inputs:
       mode:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.6-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.5.7-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -57,11 +57,11 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.6_macos_aarch64.dmg
+            installer: Penglai_0.5.7_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.6_macos_x64.dmg
+            installer: Penglai_0.5.7_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -100,18 +100,18 @@ jobs:
       - name: Installed welcome and process smoke
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/.pnpm/electron@43.4.0/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
         run: pnpm test:u3:welcome
       - name: Installed first-party plugin compatibility
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/.pnpm/electron@43.4.0/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
         run: pnpm test:u3:plugins
       - name: Upload installer and target evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.6-${{ matrix.target }}
+          name: penglai-0.5.7-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -169,29 +169,29 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.5.6_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.5.7_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Installed welcome and process smoke
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\.pnpm\electron@43.4.0\node_modules\electron\dist\electron.exe
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: pnpm test:u3:welcome
       - name: Installed first-party plugin compatibility
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\.pnpm\electron@43.4.0\node_modules\electron\dist\electron.exe
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: pnpm test:u3:plugins
       - name: Upload installer and target evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.6-win32-x86_64
+          name: penglai-0.5.7-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.6_windows_x64_setup.exe
+            dist/Penglai_0.5.7_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json

@@ -5,6 +5,7 @@ import {
   refuseFakeQr,
   type ChannelId,
   type ConnectionMethod,
+  isLiveChannel,
 } from "./registry.js";
 
 export interface GuidedConnectionState {
@@ -27,7 +28,7 @@ export function beginGuidedConnection(input: {
   if (manifest.risk === "community-protocol" && input.riskAck !== true) {
     throw new PenglaiError("SECURITY_POLICY", "CHANNEL_RISK_ACK");
   }
-  if (manifest.live) {
+  if (isLiveChannel(manifest.id)) {
     throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
   }
   return {

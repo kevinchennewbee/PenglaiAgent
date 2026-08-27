@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { isAbsolute, join, resolve, win32 } from "node:path";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PenglaiError } from "@penglai/contracts";
 import {
@@ -60,6 +60,8 @@ export interface WindowsHostInvokeOptions {
   platform?: NodeJS.Platform;
   hostPath?: string;
   appRoot?: string;
+  timeoutMs?: number;
+  input?: string;
 }
 
 export function applyWindowsCredentialAcl(
@@ -99,6 +101,8 @@ export interface WindowsNativeHostSourceFacts {
   jobSupervise: boolean;
   deletePlan: boolean;
   processSuspendResume: boolean;
+  processReapSupervisors: boolean;
+  pathBatchProbe: boolean;
 }
 
 export function windowsNativeHostSourcePath(): string {
@@ -130,6 +134,14 @@ export function windowsNativeHostSourceFacts(): WindowsNativeHostSourceFacts {
       text.includes("process-resume") &&
       text.includes("CreateToolhelp32Snapshot") &&
       text.includes("SuspendThread"),
+    processReapSupervisors:
+      text.includes("process-reap-supervisors") &&
+      text.includes("TH32CS_SNAPPROCESS") &&
+      text.includes("TerminateProcess"),
+    pathBatchProbe:
+      text.includes("path-batch-probe") &&
+      text.includes("probe-path-escape") &&
+      text.includes("owner-mismatch"),
   };
 }
 
@@ -213,6 +225,8 @@ export interface WindowsHostReport {
   applied?: boolean;
   reparse?: boolean;
   deleted?: number;
+  count?: number;
+  pids?: number[];
 }
 
 export function parseWindowsHostReport(raw: string): WindowsHostReport {
@@ -248,6 +262,12 @@ export function parseWindowsHostReport(raw: string): WindowsHostReport {
     ...(typeof value.applied === "boolean" ? { applied: value.applied } : {}),
     ...(typeof value.reparse === "boolean" ? { reparse: value.reparse } : {}),
     ...(typeof value.deleted === "number" ? { deleted: value.deleted } : {}),
+    ...(typeof value.count === "number" && Number.isInteger(value.count) && value.count >= 0
+      ? { count: value.count }
+      : {}),
+    ...(Array.isArray(value.pids) && value.pids.every((pid) => typeof pid === "number" && Number.isInteger(pid) && pid > 0)
+      ? { pids: value.pids as number[] }
+      : {}),
   };
 }
 
@@ -256,7 +276,12 @@ export function invokeWindowsHost(args: string[], options: WindowsHostInvokeOpti
   const host = options.hostPath ?? requireWindowsNativeHost(platform, options.appRoot);
   let stdout = "";
   try {
-    stdout = execFileSync(host, args, { encoding: "utf8", timeout: 8_000, windowsHide: true });
+    stdout = execFileSync(host, args, {
+      encoding: "utf8",
+      input: options.input,
+      timeout: options.timeoutMs ?? 8_000,
+      windowsHide: true,
+    });
   } catch (error) {
     const err = error as { stdout?: string; stderr?: string; message?: string };
     const raw = String(err.stdout ?? err.stderr ?? err.message ?? "native-host");
@@ -286,6 +311,42 @@ export function windowsReparseProbe(path: string, options: WindowsHostInvokeOpti
   return report.reparse;
 }
 
+export function windowsBatchTreeProbe(
+  root: string,
+  paths: readonly string[],
+  options: WindowsHostInvokeOptions = {},
+): string {
+  const resolvedRoot = resolve(root);
+  if (!paths.length) throw new PenglaiError("SECURITY_POLICY", "Windows batch probe requires paths");
+  const normalized = paths.map((path) => {
+    const value = resolve(path);
+    const rel = relative(resolvedRoot, value);
+    if (rel.startsWith("..") || isAbsolute(rel) || /[\r\n\0]/.test(value)) {
+      throw new PenglaiError("SECURITY_POLICY", "Windows batch probe path outside root");
+    }
+    return value;
+  });
+  if (normalized[0] !== resolvedRoot) {
+    throw new PenglaiError("SECURITY_POLICY", "Windows batch probe root must be first");
+  }
+  const report = invokeWindowsHost(
+    ["path-batch-probe", "--root", resolvedRoot],
+    {
+      ...options,
+      input: `${normalized.join("\n")}\n`,
+      timeoutMs: options.timeoutMs ?? 30_000,
+    },
+  );
+  if (
+    report.command !== "path-batch-probe" ||
+    !report.owner?.startsWith("sid:") ||
+    report.count !== normalized.length
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "native Windows batch probe returned an invalid report");
+  }
+  return report.owner;
+}
+
 export function deletionInspectionOptionsForPlatform(
   platform: NodeJS.Platform,
   override?: Partial<DeletionInspectionOptions> & { available?: boolean; appRoot?: string },
@@ -303,6 +364,11 @@ export function deletionInspectionOptionsForPlatform(
       windowsOwnerProbe(path, { platform: "win32", ...(override?.appRoot ? { appRoot: override.appRoot } : {}) }),
     reparseProbe: (path) =>
       windowsReparseProbe(path, { platform: "win32", ...(override?.appRoot ? { appRoot: override.appRoot } : {}) }),
+    batchTreeProbe: (root, paths) =>
+      windowsBatchTreeProbe(root, paths, {
+        platform: "win32",
+        ...(override?.appRoot ? { appRoot: override.appRoot } : {}),
+      }),
     ...override,
   };
 }

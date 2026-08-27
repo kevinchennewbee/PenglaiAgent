@@ -34,9 +34,29 @@ function run(cmd, args, extra = {}) {
   return result.status ?? 1;
 }
 
-if (!existsSync(join(ROOT, "dist", "desktop-bundle", "electron-main.js"))) {
-  const bundled = run(process.execPath, ["scripts/bundle-desktop.mjs"]);
-  if (bundled !== 0) finish("FAIL", { command: "package:windows-payload", reason: "desktop bundle failed" });
+// Never reuse a prior desktop bundle. Release identity is stamped from the
+// current Git commit, so the BrowserWindow code and static pages must be
+// rebuilt from that same checkout on every packaging invocation.
+const bundled = run(process.execPath, ["scripts/bundle-desktop.mjs"]);
+if (bundled !== 0) finish("FAIL", { command: "package:windows-payload", reason: "desktop bundle failed" });
+const sourceSplash = join(ROOT, "apps", "desktop", "static", "splash.html");
+const bundledSplash = join(ROOT, "dist", "desktop-bundle", "static", "splash.html");
+if (
+  !existsSync(join(ROOT, "dist", "desktop-bundle", "electron-main.js")) ||
+  !existsSync(bundledSplash) ||
+  readFileSync(bundledSplash, "utf8") !== readFileSync(sourceSplash, "utf8")
+) {
+  finish("FAIL", {
+    command: "package:windows-payload",
+    reason: "desktop bundle is missing or does not match the current startup page",
+  });
+}
+
+if (native) {
+  const helperBuild = run(process.execPath, ["scripts/build-windows-host.mjs"]);
+  if (helperBuild !== 0) {
+    finish("FAIL", { command: "package:windows-payload", reason: "native Windows helper build failed" });
+  }
 }
 
 const embed = run(process.execPath, ["scripts/embed-runtime.mjs", "--target", "win32-x86_64"]);
@@ -49,17 +69,13 @@ if (embed !== 0) {
 }
 
 if (native) {
-  const helperBuild = run(process.execPath, ["scripts/build-windows-host.mjs"]);
-  if (helperBuild !== 0) {
-    finish("FAIL", { command: "package:windows-payload", reason: "native Windows helper build failed" });
-  }
   const helper = join(ROOT, "dist", "native-win32-x86_64", "penglai-windows-host.exe");
-  const helperDir = join(staging, "runtime", "helpers");
   if (!existsSync(helper)) {
     finish("FAIL", { command: "package:windows-payload", reason: "compiled Windows helper missing" });
   }
-  mkdirSync(helperDir, { recursive: true });
-  cpSync(helper, join(helperDir, "penglai-windows-host.exe"));
+  if (!existsSync(join(staging, "runtime", "helpers", "penglai-windows-host.exe"))) {
+    finish("FAIL", { command: "package:windows-payload", reason: "embedded runtime is missing the compiled Windows helper" });
+  }
 }
 
 const ensure = spawnSync(process.execPath, ["scripts/ensure-electron.mjs", "--target", "win32-x64"], {
@@ -128,7 +144,7 @@ if (native) {
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.6",
+      productVersion: "0.5.7",
       buildNumber: 0,
       candidateOrdinal: 0,
       candidateKind: "public-community-release",
@@ -144,7 +160,7 @@ if (native) {
       dsh: "0.1.1-rc.2",
       profileSchema: 3,
       catalogSchema: 3,
-      imSchema: 3,
+      imSchema: 4,
       schemaVersion: 2,
       signed: false,
       notarized: false,

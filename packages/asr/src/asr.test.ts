@@ -186,7 +186,7 @@ test("R50-VOICE: verified model import is exact, opaque, atomic, and path-redact
   }
 });
 
-test("R50-VOICE: model manager rejects symlink import and hash mismatch", async () => {
+test("R50-VOICE: model manager rejects symlink import and hash mismatch", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-asr-model-bad-"));
   const source = join(root, "source");
   const link = join(root, "source-link");
@@ -196,7 +196,14 @@ test("R50-VOICE: model manager rejects symlink import and hash mismatch", async 
   const tokens = Buffer.from("tokens");
   writeFileSync(join(source, "model.int8.onnx"), Buffer.from("wrong"));
   writeFileSync(join(source, "tokens.txt"), tokens);
-  symlinkSync(source, link);
+  let symlinkAvailable = true;
+  try {
+    symlinkSync(source, link, process.platform === "win32" ? "junction" : undefined);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    symlinkAvailable = false;
+    context.diagnostic("Windows account cannot create a directory link without Developer Mode or elevation");
+  }
   const manifest = fixtureManifest(model, tokens);
   const { AsrModelManager } = await import("./models.js");
   const manager = new AsrModelManager(join(root, "models"), manifest, {
@@ -205,10 +212,12 @@ test("R50-VOICE: model manager rejects symlink import and hash mismatch", async 
     },
   });
   try {
-    await assert.rejects(
-      manager.importVerifiedModel("import_bad_1", "capability_symlink"),
-      /real directory/,
-    );
+    if (symlinkAvailable) {
+      await assert.rejects(
+        manager.importVerifiedModel("import_bad_1", "capability_symlink"),
+        /real directory/,
+      );
+    }
     await assert.rejects(
       manager.importVerifiedModel("import_bad_2", "capability_hash"),
       /size mismatch|hash mismatch/,

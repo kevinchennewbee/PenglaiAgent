@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { ROOT } from "./lib/repo.mjs";
+import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 import {
   MNEMON_UPSTREAM,
@@ -303,30 +304,14 @@ const PINNED_LIBOPUS_WASM = "0.2.0";
 const LIBOPUS_WASM = "libopus-wasm";
 const PINNED_PPTFAST = "0.20.0";
 const PPTFAST = "@liustack/pptfast";
+const PINNED_BAILEYS = "7.0.0-rc14";
+const BAILEYS = "@whiskeysockets/baileys";
+const AXIOS = "axios";
+const FORM_DATA = "form-data";
 
 function resolvePackageRoot(fromDir, name) {
-  const linked = join(fromDir, "node_modules", ...name.split("/"));
-  if (existsSync(join(linked, "package.json"))) {
-    return dirname(realpathSync(join(linked, "package.json")));
-  }
   const req = createRequire(join(fromDir, "package.json"));
-  try {
-    return dirname(realpathSync(req.resolve(`${name}/package.json`)));
-  } catch {
-    const entry = realpathSync(req.resolve(name));
-    let dir = dirname(entry);
-    for (let i = 0; i < 10; i++) {
-      const cand = join(dir, "package.json");
-      if (existsSync(cand)) {
-        const pkg = JSON.parse(readFileSync(cand, "utf8"));
-        if (pkg.name === name) return dir;
-      }
-      const parent = dirname(dir);
-      if (parent === dir) break;
-      dir = parent;
-    }
-    throw new Error(`cannot resolve package root for ${name} from ${fromDir}`);
-  }
+  return resolvePackageMetadata(name, req, fromDir, ROOT).root;
 }
 
 function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
@@ -343,6 +328,7 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
       if (src === pkgRoot) return true;
       if (relative(pkgRoot, src).split(/[\\/]/).includes("node_modules"))
         return false;
+      if (src.endsWith(".map")) return false;
       const filter = filters.get(name);
       return filter ? filter(pkgRoot, src) : true;
     },
@@ -351,6 +337,48 @@ function vendorNpmPackage(fromDir, name, destNm, seen, filters = new Map()) {
   for (const dep of Object.keys(pkg.dependencies ?? {})) {
     vendorNpmPackage(pkgRoot, dep, destNm, seen, filters);
   }
+}
+
+function vendorBaileys(stage) {
+  const fromDir = join(ROOT, "packages/channel-whatsapp");
+  const destNm = join(stage, "node_modules");
+  vendorNpmPackage(fromDir, BAILEYS, destNm, new Set(), new Map([
+    [
+      BAILEYS,
+      (_pkgRoot, src) =>
+        !src.endsWith(".map") &&
+        !src.endsWith(".md") &&
+        !src.includes(`${sep}test${sep}`) &&
+        !src.includes(`${sep}docs${sep}`),
+    ],
+  ]));
+  const vendored = JSON.parse(
+    readFileSync(join(destNm, BAILEYS, "package.json"), "utf8"),
+  );
+  if (vendored.version !== PINNED_BAILEYS) {
+    console.error("vendored Baileys is", vendored.version, "expected", PINNED_BAILEYS);
+    process.exit(1);
+  }
+}
+
+function reportUnexecutableDynamicRequire(pluginId, hostJs, metafile) {
+  const specs = [...hostJs.matchAll(/Dynamic require of ["']([^"']+)["']/g)].map((row) => row[1]);
+  const formData = hostJs.includes("form-data/lib/form_data");
+  if (specs.length === 0 && !formData) return false;
+  const chain = [];
+  for (const [file, info] of Object.entries(metafile?.inputs ?? {})) {
+    const imports = (info.imports ?? []).map((row) => String(row.path ?? row.original ?? ""));
+    const hit =
+      specs.some((spec) => file.includes(spec) || imports.some((imp) => imp.includes(spec))) ||
+      (formData && (file.includes("form-data") || imports.some((imp) => imp.includes("form-data"))));
+    if (hit) chain.push(file.replace(/\\/g, "/"));
+  }
+  console.error(pluginId, "host bundle has unexecutable dynamic require", {
+    specs,
+    formData,
+    importChain: chain.slice(0, 24),
+  });
+  return true;
 }
 
 function vendorLarkSdk(stage) {
@@ -445,7 +473,7 @@ async function vendorPptfast(stage) {
         namespace: "penglai-office-disabled-image",
       }));
       context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
-        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.6 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.7 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
         loader: "js",
       }));
     },
@@ -894,10 +922,11 @@ for (const p of packs) {
   const vendorLark = p.id === "@penglai/im";
   const vendorQr = p.id === "@penglai/im";
   const vendorAudio = p.id === "@penglai/im";
+  const vendorBaileysSdk = p.id === "@penglai/im";
   const vendorSherpa = p.id === "@penglai/asr";
   const vendorMoss = p.id === "@penglai/moss-tts";
   const vendorOfficePptfast = p.id === "@penglai/office";
-  await build({
+  const built = await build({
     absWorkingDir: ROOT,
     entryPoints: [join(ROOT, p.dir, p.host)],
     bundle: true,
@@ -916,6 +945,8 @@ for (const p of packs) {
       ...(vendorLark ? [LARK_SDK] : []),
       ...(vendorQr ? [QRCODE] : []),
       ...(vendorAudio ? [SILK_WASM, LIBOPUS_WASM] : []),
+      ...(vendorBaileysSdk ? [BAILEYS] : []),
+      ...(vendorLark ? [AXIOS, FORM_DATA] : []),
       ...(vendorSherpa ? [SHERPA_ONNX] : []),
       ...(vendorMoss ? [ONNX_RUNTIME_NODE, SENTENCEPIECE_JS] : []),
       ...(vendorOfficePptfast ? [PPTFAST] : []),
@@ -923,11 +954,13 @@ for (const p of packs) {
     sourcemap: false,
     legalComments: "none",
     logLevel: "silent",
+    metafile: true,
     banner: {
       js: 'import { createRequire as __penglaiCreateRequire } from "node:module";\nconst require = __penglaiCreateRequire(import.meta.url);\n',
     },
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
+  const metafile = built.metafile;
   if (
     hostJs.includes('from "../src/') ||
     hostJs.includes("from './src/") ||
@@ -948,6 +981,7 @@ for (const p of packs) {
     console.error(p.id, "host bundle missing Node createRequire banner");
     process.exit(1);
   }
+  if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
   if (existsSync(join(stage, "src"))) {
     console.error(p.id, "staged package must not include src");
     process.exit(1);
@@ -957,24 +991,23 @@ for (const p of packs) {
       console.error(p.id, "host bundle dropped the official Lark SDK import");
       process.exit(1);
     }
-    if (
-      hostJs.includes("Dynamic require of") ||
-      hostJs.includes("form-data/lib/form_data")
-    ) {
-      console.error(p.id, "host bundle still inlines Lark/axios CJS");
+    if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
+    vendorLarkSdk(stage);
+  }
+  if (vendorBaileysSdk) {
+    if (!hostJs.includes(BAILEYS)) {
+      console.error(p.id, "host bundle dropped the Baileys import");
       process.exit(1);
     }
-    vendorLarkSdk(stage);
+    if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
+    vendorBaileys(stage);
   }
   if (vendorQr) {
     if (!hostJs.includes(QRCODE)) {
       console.error(p.id, "host bundle dropped the qrcode import");
       process.exit(1);
     }
-    if (hostJs.includes("Dynamic require of")) {
-      console.error(p.id, "host bundle still inlines qrcode CJS");
-      process.exit(1);
-    }
+    if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
     vendorQrcode(stage);
   }
   if (vendorAudio) {
@@ -1128,6 +1161,7 @@ for (const p of packs) {
             [QRCODE]: PINNED_QRCODE,
             [SILK_WASM]: PINNED_SILK_WASM,
             [LIBOPUS_WASM]: PINNED_LIBOPUS_WASM,
+            [BAILEYS]: PINNED_BAILEYS,
           },
         }
       : {}),
@@ -1157,7 +1191,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.6" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.7" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

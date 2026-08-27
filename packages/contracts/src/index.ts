@@ -20,8 +20,8 @@ export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
 
-export const SCHEMA_VERSION = 11;
-export const RELEASE = "0.5.6";
+export const SCHEMA_VERSION = 12;
+export const RELEASE = "0.5.7";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,
@@ -42,7 +42,19 @@ export const CONFIG = Object.freeze({
   imBodyRetentionMs: 24 * 60 * 60_000,
 });
 
-export type AdapterName = "mock" | "weixin" | "feishu";
+export const ADAPTER_NAMES = [
+  "mock",
+  "weixin",
+  "feishu",
+  "dingtalk",
+  "wecom",
+  "qq",
+  "slack",
+  "telegram",
+  "discord",
+  "whatsapp",
+] as const;
+export type AdapterName = (typeof ADAPTER_NAMES)[number];
 
 export type PenglaiAsrLanguage = "zh" | "en" | "ja" | "ko" | "yue" | "auto";
 export type PenglaiAsrEmotion = "HAPPY" | "SAD" | "ANGRY" | "NEUTRAL" | "FEARFUL" | "DISGUSTED" | "SURPRISED";
@@ -641,7 +653,8 @@ export type ControlCommand =
   | { type: "companion_status" }
   | { type: "voice_status" }
   | { type: "voice_reply_mode"; mode: VoiceReplyMode }
-  | { type: "voice_id"; voiceId?: string };
+  | { type: "voice_id"; voiceId?: string }
+  | { type: "version" };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

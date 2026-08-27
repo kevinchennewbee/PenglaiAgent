@@ -42,9 +42,11 @@ test("R2I-WX-006 X-WECHAT-UIN is base64 of a random uint32 and not constant 0", 
 
 test("R2I-WX-005 redirect base must be https allowlisted and is applied", async () => {
   assert.equal(assertRedirectBase("https://ilinkai.weixin.qq.com/v2"), "https://ilinkai.weixin.qq.com");
+  assert.equal(assertRedirectBase("https://ilinkai.wechat.com/v2"), "https://ilinkai.wechat.com");
   assert.throws(() => assertRedirectBase("http://ilinkai.weixin.qq.com"));
+  assert.throws(() => assertRedirectBase("https://ilinkai.wechat.com.attacker.test"));
   assert.throws(() => assertRedirectBase("https://evil.example"));
-  assert.deepEqual(ALLOWED_REDIRECT_HOSTS, ["ilinkai.weixin.qq.com"]);
+  assert.deepEqual(ALLOWED_REDIRECT_HOSTS, ["ilinkai.weixin.qq.com", "ilinkai.wechat.com"]);
   const seen: string[] = [];
   const client = new ILinkClient(async (url) => {
     seen.push(url);

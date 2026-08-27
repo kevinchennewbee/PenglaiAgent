@@ -1,4 +1,4 @@
-# Penglai 0.5.6 product contract
+# Penglai 0.5.7 product contract
 
 ## English
 
@@ -11,7 +11,7 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.6 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+Version 0.5.7 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
 `0.1.1-rc.2`. A fresh user brings a provider credential, selects an official
 model and Workspace, receives a real first DSH reply, and then uses the official
 DSH Web interface.
@@ -20,9 +20,9 @@ DSH Web interface.
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.6_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.6_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.6_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.7_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.7_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.7_windows_x64_setup.exe` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -103,16 +103,16 @@ service without DOM injection or a second conversation engine.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Weixin and Feishu are the only live adapters in 0.5.6. Text, supported images,
-files, and audio enter the bound official DSH Session. Inbound bytes are attached
-only after official Turn acceptance; callback failure does not duplicate a Turn.
-Binding/rebinding/removal requires an Owner approval bound to the exact channel,
-account, peer, Workspace, and Session.
-
-DingTalk, WeCom, QQ, Slack, Telegram, Discord, and WhatsApp are roadmap entries
-only. They have no Connect action and cannot bind or send. Penglai does not fake
-QR availability. WhatsApp is explicitly community-protocol, account-risk, and
-default-off.
+Nine platforms have real connection entry points in 0.5.7. They are no longer
+roadmap-only. `docs/0.5.7/LIVE_IM_MATRIX.md` is the only public live-status
+table: a platform is “supported” only after connect, inbound private text,
+correct official Workspace/Session, outbound reply, restart restore, and
+safe logout/unbind/delete credentials. Image, file, audio, Markdown, thread,
+and group flags stay `false` until that evidence exists. Slack, Telegram, and
+Discord use official token/manifest flows and must not fake QR. WhatsApp is
+experimental, community-protocol, default-off, and requires an explicit risk
+acknowledgement. Binding/rebinding/removal requires an Owner approval bound to
+the exact channel, account, peer, Workspace, and Session.
 
 ### 8. Local voice
 
@@ -169,7 +169,7 @@ macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
 Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
 and plugin bytes but do not provide Apple or Microsoft publisher identity.
 
-0.5.6 succeeds only when one clean source SHA produces all three native
+0.5.7 succeeds only when one clean source SHA produces all three native
 installers, source/security/privacy gates pass, installed evidence exists on
 each matching runner, the Apple Silicon provider path receives a real first
 Turn, and the immutable ten-asset Release passes public byte-for-byte readback.
@@ -183,7 +183,7 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.6 固定 DSH `0.1.1-rc.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
+0.5.7 固定 DSH `0.1.1-rc.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
 用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
 official DSH Web。
 
@@ -215,15 +215,16 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH rc.2 会话 Turn 只支持文字和图片，因此 0.5.6
+只有真实动作成功后才完成。official DSH rc.2 会话 Turn 只支持文字和图片，因此 0.5.7
 不宣称输入框能直接发普通 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或
 蓬莱办公选择的 Workspace 文件走 artifact service，不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.5.6 只有微信、飞书是 live adapter。钉钉、企业微信、
-QQ、Slack、Telegram、Discord、WhatsApp 只显示路线图，没有连接按钮，也不能绑定或
-发送；没有真实扫码协议时不会伪造二维码。WhatsApp 明确标注社区协议和账号风险。
+`@penglai/im` 是唯一消息插件。0.5.7 九个平台都有真实连接入口，不再把后七个显示为
+路线图。公开“支持”声明只以 `docs/0.5.7/LIVE_IM_MATRIX.md` 为准。Slack、Telegram、
+Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 默认关闭，实验性社区协议，
+启用前必须明确风险确认。
 
 ASR/TTS 代码随包，大模型权重只在用户明确操作后下载。麦克风必须由当前用户手势触发，
 只申请 audio；相机、视频、蓝牙和无关 capture 权限不进入产品声明。设置页试听与会话
@@ -248,6 +249,6 @@ patch 之后硬性禁用该行，因此 owned DSH 进程不会创建 SDK provide
 0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
 Workspace、授权源、home/root、旧代数据或越界链接。
 
-macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.6 只有在同一干净
+macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.7 只有在同一干净
 源码 SHA 的三端原生包、三端安装证据、真实模型 Turn、隐私门禁和不可变十资产公网
 回读全部成立时，才算发布完成。

@@ -201,7 +201,7 @@ test("R56-CORE-005 Center remotes refuse disable of every required inventory id"
   }
 });
 
-test("signed remote package stages only in the app-private registry root", () => {
+test("signed remote package stages only in the app-private registry root", (context) => {
   const root = mkdtempSync(join(tmpdir(), "penglai-registry-stage-"));
   const cached = join(root, "cache.tgz");
   const bytes = Buffer.from("signed-registry-package");
@@ -233,7 +233,13 @@ test("signed remote package stages only in the app-private registry root", () =>
     false,
   );
   const linkedPackage = join(root, "linked-package.tgz");
-  symlinkSync(cached, linkedPackage);
+  try {
+    symlinkSync(cached, linkedPackage);
+  } catch (error) {
+    if (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    context.skip("Windows account cannot create file symlinks without Developer Mode or elevation");
+    return;
+  }
   assert.throws(
     () =>
       stageRegistryPackage({

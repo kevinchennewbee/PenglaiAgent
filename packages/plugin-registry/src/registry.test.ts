@@ -45,14 +45,14 @@ test("GitHub Atom fallback extracts only exact release-tag links", async () => {
   const feed = `<?xml version="1.0"?><feed>
     <link href="https://github.com/kevinchennewbee/PenglaiAgent/releases"/>
     <entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.5"/></entry>
-    <entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6"/></entry>
+    <entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7"/></entry>
   </feed>`;
   const tags = await fetchGithubReleaseTags({
     owner: "kevinchennewbee",
     repo: "PenglaiAgent",
     fetchImpl: (async () => new Response(feed, { status: 200 })) as typeof fetch,
   });
-  assert.deepEqual(tags, ["v0.5.5", "v0.5.6"]);
+  assert.deepEqual(tags, ["v0.5.5", "v0.5.7"]);
 });
 
 test("app update falls back from REST 403 to a tag-specific signed manifest", async () => {
@@ -60,20 +60,20 @@ test("app update falls back from REST 403 to a tag-specific signed manifest", as
   const manifest = {
     schema: "penglai.app-update.v1",
     sequence: 6,
-    version: "0.5.6",
+    version: "0.5.7",
     channel: "stable",
-    releaseTag: "v0.5.6",
+    releaseTag: "v0.5.7",
     issuedAt: "2026-08-23T00:00:00.000Z",
     expiresAt: "2027-08-23T00:00:00.000Z",
     signingKeyId: identity.signingKeyId,
     minimumSourceVersion: "0.5.1",
-    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6",
+    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7",
     candidateSourceSha: "a".repeat(64),
     publicExportTreeSha256: "b".repeat(64),
     platforms: {
       "darwin-aarch64": {
         assetId: 606,
-        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.6/Penglai_0.5.6_macos_aarch64.dmg",
+        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg",
         size: 123,
         sha256: "c".repeat(64),
         signature: "c2ln",
@@ -90,7 +90,7 @@ test("app update falls back from REST 403 to a tag-specific signed manifest", as
     if (url.startsWith("https://api.github.com/")) return new Response("rate limited", { status: 403 });
     if (url.endsWith("/releases.atom")) {
       return new Response(
-        '<feed><entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6"/></entry></feed>',
+        '<feed><entry><link rel="alternate" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7"/></entry></feed>',
         { status: 200 },
       );
     }
@@ -105,11 +105,11 @@ test("app update falls back from REST 403 to a tag-specific signed manifest", as
     signingKeyId: identity.signingKeyId,
     nowMs: Date.parse("2026-08-24T00:00:00.000Z"),
   });
-  assert.equal(found?.tag, "v0.5.6");
-  assert.equal(found?.manifest.version, "0.5.6");
-  assert.deepEqual(found?.assets.map((asset) => asset.name), ["Penglai_0.5.6_macos_aarch64.dmg"]);
+  assert.equal(found?.tag, "v0.5.7");
+  assert.equal(found?.manifest.version, "0.5.7");
+  assert.deepEqual(found?.assets.map((asset) => asset.name), ["Penglai_0.5.7_macos_aarch64.dmg"]);
   assert.equal(hops.some((url) => url.endsWith("/releases.atom")), true);
-  assert.equal(hops.some((url) => url.includes("/releases/download/v0.5.6/update-manifest-v1.json")), true);
+  assert.equal(hops.some((url) => url.includes("/releases/download/v0.5.7/update-manifest-v1.json")), true);
 });
 
 function keys() {
@@ -171,21 +171,21 @@ test("R56-UPD-001 update and release manifest identities stay distinct", () => {
   const raw = {
     schema: "penglai.app-update.v1",
     sequence: 2,
-    version: "0.5.6",
+    version: "0.5.7",
     channel: "stable",
-    releaseTag: "v0.5.6",
+    releaseTag: "v0.5.7",
     issuedAt: "2026-09-01T00:00:00.000Z",
     expiresAt: "2026-10-01T00:00:00.000Z",
     signingKeyId: "k",
     minimumSourceVersion: "0.5.1",
-    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.6",
+    notesUrl: "https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.7",
     candidateSourceSha: "a".repeat(64),
     publicExportTreeSha256: "b".repeat(64),
     releaseManifestSha256: "c".repeat(64),
     platforms: {
       "darwin-aarch64": {
         assetId: 1,
-        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.6/Penglai_0.5.6_macos_aarch64.dmg",
+        url: "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/Penglai_0.5.7_macos_aarch64.dmg",
         size: 10,
         sha256: "d".repeat(64),
         signature: "c2ln",
@@ -203,7 +203,7 @@ test("R56-UPD-001 update and release manifest identities stay distinct", () => {
       resolveReleaseManifestSha256({
         updateManifestSha256: digest,
         applying: true,
-        version: "0.5.6",
+        version: "0.5.7",
         candidateSourceSha: "a".repeat(64),
       }),
     /required/,
