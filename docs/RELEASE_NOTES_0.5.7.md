@@ -89,3 +89,8 @@ and the `Penglai/0.5` data generation are preserved.
 
 升级入口仍是 **设置 → 蓬莱 → 更新**。不会静默自动升级。macOS 为 ad-hoc 且未公证；
 Windows 没有 Authenticode。
+
+### 已知限制
+
+- 官方 DSH rc.2 会话 Turn 支持文字和图片，不支持通用文档块。
+- 蓬莱不提供账号体系、蓬莱运营的遥测后端、云端记忆同步或云端 ASR/TTS。

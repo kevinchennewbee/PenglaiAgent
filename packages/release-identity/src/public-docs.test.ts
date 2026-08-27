@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { declaredSourceSha, recordAssertion } from "./assertion.js";
@@ -120,4 +120,47 @@ test("website keeps the full bilingual visual site and exact 0.5.7 downloads", (
   assert.match(css, /\.hero-art/);
   assert.match(css, /\.gallery/);
   assert.ok(css.length > 5000, "website stylesheet is unexpectedly reduced");
+});
+
+test("current security and IM documents match the immutable eight-entry release", () => {
+  const publicSecurity = readFileSync(join(root, "SECURITY.md"), "utf8");
+  const securityContract = readFileSync(join(root, "docs/SECURITY.md"), "utf8");
+  const imContract = readFileSync(join(root, "docs/IM_PLUGIN.md"), "utf8");
+  assert.match(publicSecurity, /0\.5\.7 \| Current immutable public release/);
+  assert.match(publicSecurity, /Eight platforms have connection entries/);
+  assert.match(publicSecurity, /security\/advisories\/new/);
+  assert.match(securityContract, /提供八个平台的真实连接 adapter/);
+  assert.match(imContract, /八个平台都有真实连接入口/);
+  assert.match(publicSecurity, /WhatsApp community runtime is not bundled/);
+  assert.match(securityContract, /WhatsApp 社区\s+runtime 不随 0\.5\.7 分发/);
+  assert.match(imContract, /WhatsApp 社区 runtime 不随 0\.5\.7 分发/);
+  for (const current of [publicSecurity, securityContract, imContract]) {
+    assert.doesNotMatch(current, /Nine platforms have connection entries|九个平台都有真实连接入口/);
+  }
+});
+
+test("decision identifiers are unique and the final distribution decision supersedes D-060", () => {
+  const decisions = readFileSync(join(root, "docs/decisions.md"), "utf8");
+  const ids = [...decisions.matchAll(/^### (D-\d+)\b/gm)].map((match) => match[1]);
+  assert.equal(new Set(ids).size, ids.length, "docs/decisions.md contains a duplicate decision ID");
+  assert.match(decisions, /D-060[\s\S]*?SUPERSEDED by D-061/);
+  assert.match(decisions, /D-061[\s\S]*?八个平台连接入口/);
+});
+
+test("backticked repository documentation references resolve to tracked files", () => {
+  function markdownFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return markdownFiles(path);
+      return entry.isFile() && entry.name.endsWith(".md") ? [path] : [];
+    });
+  }
+
+  const files = [...markdownFiles(join(root, "docs")), join(root, "README.md"), join(root, "SECURITY.md")];
+  for (const file of files) {
+    const markdown = readFileSync(file, "utf8");
+    for (const match of markdown.matchAll(/`(docs\/[A-Za-z0-9_./-]+\.md)`/g)) {
+      assert.equal(existsSync(join(root, match[1]!)), true, `${match[1]} referenced by ${file} does not exist`);
+    }
+  }
 });

@@ -23,3 +23,4 @@ export * from "./public-export.js";
 export * from "./evidence-v2.js";
 export * from "./evidence-v3.js";
 export * from "./freeze.js";
+export * from "./live-evidence.js";

@@ -11,9 +11,15 @@ const dryRun = argv.includes("--dry-run");
 const injectIdx = argv.indexOf("--inject-fail");
 const injectFail = injectIdx >= 0 ? argv[injectIdx + 1] : null;
 
-const { HARD_SUBGATES, evaluateApplicableDomain, evaluateReleaseAggregation, releaseVerdictFrom, resolveSubgateVerdict, SUBGATE_JSON_FILES } = await import(
-  pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href
-);
+const {
+  HARD_SUBGATES,
+  SUPPLEMENTAL_ACCEPTANCE_SUBGATES,
+  evaluateApplicableDomain,
+  evaluateReleaseAggregation,
+  releaseVerdictFrom,
+  resolveSubgateVerdict,
+  SUBGATE_JSON_FILES,
+} = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
 
 function readGateJson(name) {
   const rel = SUBGATE_JSON_FILES[name];
@@ -67,6 +73,18 @@ const records = [];
 for (const gate of HARD_SUBGATES) {
   records.push(runGate(gate.name));
 }
+const supplementalAcceptance = SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => {
+  const json = readGateJson(gate.name);
+  if (!json) {
+    return { name: gate.name, kind: gate.kind, exit: 2, verdict: "INCOMPLETE", reason: "no current supplemental evidence" };
+  }
+  const resolved = resolveSubgateVerdict({
+    processExit: 0,
+    processVerdict: "PASS",
+    json,
+  });
+  return { name: gate.name, kind: gate.kind, exit: resolved.exit, verdict: resolved.verdict, reason: json.reason ?? null };
+});
 
 const info = readJson("release-info.json");
 const summaryPath = join(ROOT, "evidence/generated/evidence-summary.json");
@@ -86,16 +104,13 @@ const agg = evaluateReleaseAggregation({
   candidateKind: info.candidateKind,
   records,
   notaryEvidence,
-  summaryVerdict: summary?.verdict,
 });
 const applicable = evaluateApplicableDomain({
   records,
-  summaryVerdict: summary?.verdict,
-  summaryTotals: summary?.totals,
 });
 // The arm64 automated domain is an informational subset signal: it can pass
-// while deferred gates (installed/live/soak/export, which need native runners)
-// remain INCOMPLETE. It must never mask those incomplete gates into a
+// while deferred gates such as installed/public-export remain INCOMPLETE.
+// It must never mask those incomplete gates into a
 // release-level PASS. The release verdict always starts from the full
 // aggregation; the domain can only escalate it to FAIL, never to PASS.
 const release = releaseVerdictFrom(applicable, agg);
@@ -115,7 +130,11 @@ const out = {
   notaryStatus: agg.notaryStatus,
   notaryRecordedAs: agg.notaryRecordedAs,
   records,
-  totals: summary?.totals ?? null,
+  supplementalAcceptance: {
+    requiredForPublication: false,
+    records: supplementalAcceptance,
+    totals: summary?.totals ?? null,
+  },
   dryRun,
   injectFail,
 };

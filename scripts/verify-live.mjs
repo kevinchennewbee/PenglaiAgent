@@ -1,14 +1,21 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 
 const path = join(ROOT, "evidence/generated/live.json");
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:live", reason: "no 0.5 live evidence" });
+  finish("INCOMPLETE", { command: "verify:live", reason: "no owner live-account evidence" });
 }
-const rec = JSON.parse(readFileSync(path, "utf8"));
-if (rec.productVersion !== "0.5.7") {
-  finish("STALE", { command: "verify:live", reason: "live evidence is not 0.5.7" });
+let rec;
+try {
+  rec = JSON.parse(readFileSync(path, "utf8"));
+} catch (error) {
+  finish("FAIL", { command: "verify:live", reason: `invalid live evidence JSON: ${String(error)}` });
 }
-finish("INCOMPLETE", { command: "verify:live", reason: "final live is reserved for RC15" });
+const { evaluateLiveEvidence } = await import(
+  pathToFileURL(join(ROOT, "packages/release-identity/src/live-evidence.ts")).href
+);
+const result = evaluateLiveEvidence(rec, "0.5.7");
+finish(result.verdict, { command: "verify:live", reason: result.reason, acceptedPlatforms: result.acceptedPlatforms });

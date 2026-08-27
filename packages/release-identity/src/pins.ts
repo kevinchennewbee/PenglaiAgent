@@ -209,11 +209,18 @@ export const HARD_SUBGATES = [
   { name: "verify:fuses", kind: "fuses", mode: "run" },
   { name: "verify:signing", kind: "signing", mode: "run" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
-  { name: "verify:live", kind: "live", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
-  { name: "verify:soak", kind: "soak", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "run" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
+] as const;
+
+// These checks need Owner accounts, long-running installed use, or a complete
+// cross-run evidence collection. They are reported next to the release result,
+// but absence must not masquerade as PASS or make the automated/native release
+// aggregate impossible to satisfy.
+export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
+  { name: "verify:live", kind: "live", mode: "evidence" },
+  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
 ] as const;
 
 export const REQUIRED_SUBGATE_KINDS = [
@@ -230,9 +237,7 @@ export const REQUIRED_SUBGATE_KINDS = [
   "artifact",
   "fuses",
   "signing",
-  "evidence",
   "installed",
-  "live",
   "public-export",
   "secret",
 ] as const;

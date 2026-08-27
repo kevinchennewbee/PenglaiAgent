@@ -82,6 +82,12 @@ Fill `LIVE_IM_MATRIX.md` with redacted evidence or explicit `LIVE_NOT_RUN` /
 `LIVE_BLOCKED`. Do not store QR, tokens, user IDs, group names, chat bodies,
 phone numbers, or WhatsApp session keys.
 
+This is supplemental Owner acceptance and may be completed after publication.
+Missing live-account evidence is never a PASS, but it does not invalidate the
+separate automated, native, installed, signed-asset, and public-readback result.
+`verify:release` reports `verify:live`, long installed soak, and the complete
+evidence registry separately under `supplementalAcceptance`.
+
 ## 5. Merge, rebuild, draft Release
 
 Codex merges only after review. Rebuild all three native installers from the

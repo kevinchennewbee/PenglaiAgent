@@ -1,5 +1,11 @@
 # Penglai 0.5.7 release-candidate development
 
+> Publication correction: this file preserves the PR #94 candidate record.
+> The final immutable 0.5.7 Release exposes eight Messaging connection entries,
+> does not bundle the WhatsApp community runtime, and publishes a 1,212-component
+> SBOM. Current release truth lives in `docs/RELEASE_NOTES_0.5.7.md` and
+> `docs/PUBLICATION_MANIFEST_0.5.7.md`.
+
 This PR remains **Draft** until the last matching native job and review closeout
 complete. The Owner has authorized completion through merge, public
 `v0.5.7` Release, download switch, and website deployment; that authorization

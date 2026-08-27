@@ -86,7 +86,7 @@
     "verify:evidence": "node --import tsx scripts/verify-evidence.mjs",
     "verify:release": "node --import tsx scripts/verify-release.mjs",
     "verify:installed": "node --import tsx scripts/verify-installed.mjs",
-    "verify:live": "node scripts/verify-live.mjs",
+    "verify:live": "node --import tsx scripts/verify-live.mjs",
     "verify:live-plugin-catalog": "node --import tsx scripts/verify-live-plugin-catalog.mjs",
     "verify:public-export": "node --import tsx scripts/verify-public-export.mjs",
     "prepare:public-export": "node --import tsx scripts/prepare-public-export.mjs",
