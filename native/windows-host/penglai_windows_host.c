@@ -158,6 +158,9 @@ static DWORD apply_current_user_acl(const wchar_t *path) {
   DWORD needed = 0;
   GetTokenInformation(token, TokenUser, NULL, 0, &needed);
   TOKEN_USER *user = (TOKEN_USER *)calloc(1, needed ? needed : 1);
+  DWORD owner_needed = 0;
+  GetTokenInformation(token, TokenOwner, NULL, 0, &owner_needed);
+  TOKEN_OWNER *token_owner = (TOKEN_OWNER *)calloc(1, owner_needed ? owner_needed : 1);
   DWORD result = ERROR_SUCCESS;
   EXPLICIT_ACCESS_W ea[3];
   PSID system = NULL;
@@ -166,7 +169,7 @@ static DWORD apply_current_user_acl(const wchar_t *path) {
   PSECURITY_DESCRIPTOR owner_sd = NULL;
   PACL dacl = NULL;
   SID_IDENTIFIER_AUTHORITY nt = SECURITY_NT_AUTHORITY;
-  if (!user) {
+  if (!user || !token_owner) {
     result = ERROR_NOT_ENOUGH_MEMORY;
     goto done;
   }
@@ -174,10 +177,20 @@ static DWORD apply_current_user_acl(const wchar_t *path) {
     result = GetLastError();
     goto done;
   }
+  if (!GetTokenInformation(token, TokenOwner, token_owner, owner_needed, &owner_needed)) {
+    result = GetLastError();
+    goto done;
+  }
   result = GetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION,
                                  &existing_owner, NULL, NULL, NULL, &owner_sd);
   if (result != ERROR_SUCCESS) goto done;
-  if (!existing_owner || !EqualSid(existing_owner, user->User.Sid)) {
+  /* An elevated or hosted-runner token may legitimately create a directory
+     owned by its TokenOwner (commonly BUILTIN\\Administrators) rather than
+     TokenUser. Accept only those two token-bound identities; arbitrary owners
+     still fail closed before the DACL is replaced. */
+  if (!existing_owner ||
+      (!EqualSid(existing_owner, user->User.Sid) &&
+       !EqualSid(existing_owner, token_owner->Owner))) {
     result = ERROR_INVALID_OWNER;
     goto done;
   }
@@ -225,6 +238,7 @@ done:
   if (admins) FreeSid(admins);
   if (owner_sd) LocalFree(owner_sd);
   free(user);
+  free(token_owner);
   if (token) CloseHandle(token);
   return result;
 }
