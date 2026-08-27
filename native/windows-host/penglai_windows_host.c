@@ -372,6 +372,105 @@ static int cmd_reparse(const char *path_utf8) {
   return 0;
 }
 
+static int cmd_path_batch_probe(const char *file_utf8, const char *root_utf8) {
+  FILE *file = fopen(file_utf8, "rb");
+  if (!file) fail("probe-file-unreadable");
+  wchar_t *root = utf8_to_wide(root_utf8);
+  if (!root) {
+    fclose(file);
+    fail("utf16");
+  }
+  char line[131072];
+  char *expected_owner = NULL;
+  unsigned long long count = 0;
+  while (fgets(line, sizeof(line), file)) {
+    size_t n = strlen(line);
+    int complete = n > 0 && (line[n - 1] == '\n' || feof(file));
+    if (!complete) {
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      fail("probe-path-too-long");
+    }
+    while (n > 0 && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = 0;
+    if (!n) continue;
+    wchar_t *path = utf8_to_wide(line);
+    if (!path) {
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      fail("utf16");
+    }
+    if (!path_under(root, path)) {
+      free(path);
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      fail("probe-path-escape");
+    }
+    if (count == 0 && !path_under(path, root)) {
+      free(path);
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      fail("probe-root-mismatch");
+    }
+    int reparse = has_reparse(path);
+    if (reparse < 0) {
+      free(path);
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      win_fail("GetFileAttributesW");
+    }
+    if (reparse) {
+      free(path);
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      fail("reparse");
+    }
+    char *owner = owner_sid_for_path(path);
+    free(path);
+    if (!owner) {
+      free(expected_owner);
+      free(root);
+      fclose(file);
+      win_fail("GetNamedSecurityInfoW");
+    }
+    if (!expected_owner) {
+      expected_owner = owner;
+    } else {
+      if (strcmp(owner, expected_owner) != 0) {
+        free(owner);
+        free(expected_owner);
+        free(root);
+        fclose(file);
+        fail("owner-mismatch");
+      }
+      free(owner);
+    }
+    count++;
+  }
+  if (ferror(file)) {
+    free(expected_owner);
+    free(root);
+    fclose(file);
+    fail("probe-file-read");
+  }
+  fclose(file);
+  free(root);
+  if (!count || !expected_owner) {
+    free(expected_owner);
+    fail("probe-empty");
+  }
+  fputs("{\"ok\":true,\"command\":\"path-batch-probe\",\"owner\":", stdout);
+  json_escape(stdout, expected_owner);
+  printf(",\"count\":%llu}\n", count);
+  free(expected_owner);
+  return 0;
+}
+
 static int cmd_identity(DWORD pid) {
   ULONGLONG startMs = 0;
   if (!process_start_ms(pid, &startMs)) win_fail("GetProcessTimes");
@@ -610,6 +709,12 @@ int main(int argc, char **argv) {
     const char *path = opt(argc, argv, "--path");
     if (!path) fail("path");
     return cmd_reparse(path);
+  }
+  if (strcmp(cmd, "path-batch-probe") == 0) {
+    const char *file = opt(argc, argv, "--file");
+    const char *root = opt(argc, argv, "--root");
+    if (!file || !root) fail("path-batch-probe-args");
+    return cmd_path_batch_probe(file, root);
   }
   if (strcmp(cmd, "process-identity") == 0) {
     const char *pid = opt(argc, argv, "--pid");

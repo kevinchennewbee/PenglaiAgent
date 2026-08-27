@@ -76,6 +76,7 @@ export interface DeletionInspectionOptions {
   now?: () => number;
   reparseProbe?: (path: string) => boolean;
   ownerProbe?: (path: string, stat: Stats) => string;
+  batchTreeProbe?: (root: string, paths: readonly string[]) => string;
   dataLayout?: ManagedDataLayout;
 }
 
@@ -329,9 +330,17 @@ function inspectTarget(
     );
   }
   const ownerProbe = opts.ownerProbe ?? defaultOwner;
-  const expectedOwner = ownerProbe(target, root);
+  const expectedOwner = opts.batchTreeProbe ? "" : ownerProbe(target, root);
   const rootDevice = String(root.dev);
-  const rows: string[] = [];
+  const facts: Array<{
+    current: string;
+    rel: string;
+    type: string;
+    size: number;
+    dev: string;
+    ino: string;
+    mtimeMs: number;
+  }> = [];
   let totalBytes = 0;
   const walk = (current: string, rel: string): void => {
     let stat: Stats;
@@ -343,28 +352,30 @@ function inspectTarget(
         `delete tree changed during inspection: ${(error as NodeJS.ErrnoException).code ?? "UNKNOWN"}`,
       );
     }
-    if (stat.isSymbolicLink() || opts.reparseProbe?.(current)) {
+    if (stat.isSymbolicLink() || (!opts.batchTreeProbe && opts.reparseProbe?.(current))) {
       throw new PenglaiError("SECURITY_POLICY", "symlink/junction/reparse point refused");
     }
     if (String(stat.dev) !== rootDevice) {
       throw new PenglaiError("SECURITY_POLICY", "mounted filesystem boundary refused");
     }
-    const owner = ownerProbe(current, stat);
-    if (!owner || owner !== expectedOwner) {
-      throw new PenglaiError("SECURITY_POLICY", "delete tree owner mismatch");
+    if (!opts.batchTreeProbe) {
+      const owner = ownerProbe(current, stat);
+      if (!owner || owner !== expectedOwner) {
+        throw new PenglaiError("SECURITY_POLICY", "delete tree owner mismatch");
+      }
     }
     const type = stat.isDirectory() ? "directory" : stat.isFile() ? "file" : "other";
     if (type === "other") throw new PenglaiError("SECURITY_POLICY", "special filesystem object refused");
     totalBytes += stat.isFile() ? stat.size : 0;
-    rows.push([
+    facts.push({
+      current,
       rel,
       type,
-      stat.size,
-      String(stat.dev),
-      String(stat.ino),
-      Math.trunc(stat.mtimeMs),
-      owner,
-    ].join("\u0000"));
+      size: stat.size,
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+      mtimeMs: Math.trunc(stat.mtimeMs),
+    });
     if (stat.isDirectory()) {
       for (const name of readdirSync(current).sort()) {
         walk(resolve(current, name), rel ? `${rel}/${name}` : name);
@@ -372,6 +383,21 @@ function inspectTarget(
     }
   };
   walk(target, "");
+  const verifiedOwner = opts.batchTreeProbe
+    ? opts.batchTreeProbe(target, facts.map((fact) => fact.current))
+    : expectedOwner;
+  if (!verifiedOwner) {
+    throw new PenglaiError("SECURITY_POLICY", "delete tree owner missing");
+  }
+  const rows = facts.map((fact) => [
+    fact.rel,
+    fact.type,
+    fact.size,
+    fact.dev,
+    fact.ino,
+    fact.mtimeMs,
+    verifiedOwner,
+  ].join("\u0000"));
   return {
     category,
     path: target,
@@ -379,7 +405,7 @@ function inspectTarget(
     type: root.isDirectory() ? "directory" : "file",
     entryCount: rows.length,
     totalBytes,
-    owner: expectedOwner,
+    owner: verifiedOwner,
     device: String(root.dev),
     inode: String(root.ino),
     treeSha256: createHash("sha256").update(rows.join("\n"), "utf8").digest("hex"),

@@ -72,6 +72,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.deletePlan, true);
   assert.equal(facts.processSuspendResume, true);
   assert.equal(facts.processReapSupervisors, true);
+  assert.equal(facts.pathBatchProbe, true);
   assert.match(facts.source, /penglai_windows_host\.c$/);
   const src = readFileSync(facts.source, "utf8");
   assert.doesNotMatch(src, /applied:\s*true/);
@@ -113,6 +114,7 @@ test("installed Windows helper resolves only through the exact packaged app root
   assert.equal(inspection.platform, "win32");
   assert.equal(typeof inspection.ownerProbe, "function");
   assert.equal(typeof inspection.reparseProbe, "function");
+  assert.equal(typeof inspection.batchTreeProbe, "function");
 });
 
 test("Windows deletion inspection refuses missing owner and reparse probes", () => {
@@ -146,6 +148,36 @@ test("Windows deletion inspection refuses missing owner and reparse probes", () 
       }),
     /reparse/,
   );
+});
+
+test("batch tree inspection verifies a complete target with one probe", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-win-batch-"));
+  const cache = join(root, "cache");
+  mkdirSync(join(cache, "nested"), { recursive: true });
+  writeFileSync(join(cache, "nested", "one.txt"), "one");
+  const plan = buildDeletionPlan({
+    operationId: "win-batch",
+    categories: ["cache"],
+    userData: root,
+    confirmCredentials: false,
+  });
+  const calls: string[][] = [];
+  const preview = previewDeletionPlan(plan, root, [], [], {
+    platform: "win32",
+    ownerProbe: () => "sid:unused",
+    reparseProbe: () => {
+      throw new Error("per-path reparse probe must not run");
+    },
+    batchTreeProbe: (target, paths) => {
+      assert.equal(target, cache);
+      calls.push([...paths]);
+      return "sid:S-1-5-21-batch";
+    },
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.length, 3);
+  assert.equal(calls[0]?.[0], cache);
+  assert.equal(preview.targets[0]?.owner, "sid:S-1-5-21-batch");
 });
 
 test("owned DSH spawn on Windows requires the native job supervisor", () => {
