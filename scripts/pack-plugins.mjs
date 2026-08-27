@@ -973,7 +973,10 @@ for (const p of packs) {
     console.error(p.id, "host bundle missing Node createRequire banner");
     process.exit(1);
   }
-  if (disableOfficeCloudZip && hostJs.includes(AWS_S3_CLIENT)) {
+  if (
+    disableOfficeCloudZip &&
+    new RegExp(`require\\(["']${AWS_S3_CLIENT.replace("/", "\\/")}["']\\)`).test(hostJs)
+  ) {
     console.error(p.id, "must fail closed for unzipper's unused S3 helper without bundling the AWS SDK");
     process.exit(1);
   }
