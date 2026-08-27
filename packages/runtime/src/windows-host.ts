@@ -1,6 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PenglaiError } from "@penglai/contracts";
@@ -62,6 +61,7 @@ export interface WindowsHostInvokeOptions {
   hostPath?: string;
   appRoot?: string;
   timeoutMs?: number;
+  input?: string;
 }
 
 export function applyWindowsCredentialAcl(
@@ -278,6 +278,7 @@ export function invokeWindowsHost(args: string[], options: WindowsHostInvokeOpti
   try {
     stdout = execFileSync(host, args, {
       encoding: "utf8",
+      input: options.input,
       timeout: options.timeoutMs ?? 8_000,
       windowsHide: true,
     });
@@ -328,25 +329,22 @@ export function windowsBatchTreeProbe(
   if (normalized[0] !== resolvedRoot) {
     throw new PenglaiError("SECURITY_POLICY", "Windows batch probe root must be first");
   }
-  const tempRoot = mkdtempSync(join(tmpdir(), "penglai-path-probe-"));
-  const manifest = join(tempRoot, "paths.txt");
-  try {
-    writeFileSync(manifest, `${normalized.join("\n")}\n`, { encoding: "utf8", mode: 0o600 });
-    const report = invokeWindowsHost(
-      ["path-batch-probe", "--file", manifest, "--root", resolvedRoot],
-      { ...options, timeoutMs: options.timeoutMs ?? 30_000 },
-    );
-    if (
-      report.command !== "path-batch-probe" ||
-      !report.owner?.startsWith("sid:") ||
-      report.count !== normalized.length
-    ) {
-      throw new PenglaiError("SECURITY_POLICY", "native Windows batch probe returned an invalid report");
-    }
-    return report.owner;
-  } finally {
-    rmSync(tempRoot, { recursive: true, force: true });
+  const report = invokeWindowsHost(
+    ["path-batch-probe", "--root", resolvedRoot],
+    {
+      ...options,
+      input: `${normalized.join("\n")}\n`,
+      timeoutMs: options.timeoutMs ?? 30_000,
+    },
+  );
+  if (
+    report.command !== "path-batch-probe" ||
+    !report.owner?.startsWith("sid:") ||
+    report.count !== normalized.length
+  ) {
+    throw new PenglaiError("SECURITY_POLICY", "native Windows batch probe returned an invalid report");
   }
+  return report.owner;
 }
 
 export function deletionInspectionOptionsForPlatform(

@@ -372,9 +372,10 @@ static int cmd_reparse(const char *path_utf8) {
   return 0;
 }
 
-static int cmd_path_batch_probe(const char *file_utf8, const char *root_utf8) {
-  FILE *file = fopen(file_utf8, "rb");
-  if (!file) fail("probe-file-unreadable");
+static int cmd_path_batch_probe(const char *root_utf8) {
+  /* Read the path manifest from the already-open standard input stream. The
+   * helper must never turn an arbitrary command-line path into a file read. */
+  FILE *file = stdin;
   wchar_t *root = utf8_to_wide(root_utf8);
   if (!root) {
     fclose(file);
@@ -711,10 +712,9 @@ int main(int argc, char **argv) {
     return cmd_reparse(path);
   }
   if (strcmp(cmd, "path-batch-probe") == 0) {
-    const char *file = opt(argc, argv, "--file");
     const char *root = opt(argc, argv, "--root");
-    if (!file || !root) fail("path-batch-probe-args");
-    return cmd_path_batch_probe(file, root);
+    if (!root) fail("path-batch-probe-args");
+    return cmd_path_batch_probe(root);
   }
   if (strcmp(cmd, "process-identity") == 0) {
     const char *pid = opt(argc, argv, "--pid");

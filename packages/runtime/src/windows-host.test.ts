@@ -83,6 +83,8 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.match(src, /GetTokenInformation\(token, TokenOwner/);
   assert.match(src, /EqualSid\(existing_owner, user->User\.Sid\)/);
   assert.match(src, /EqualSid\(existing_owner, token_owner->Owner\)/);
+  assert.match(src, /cmd_path_batch_probe\(const char \*root_utf8\)[\s\S]*FILE \*file = stdin/);
+  assert.doesNotMatch(src, /path-batch-probe[\s\S]{0,300}opt\(argc, argv, "--file"\)/);
   assert.match(
     src,
     /SetNamedSecurityInfoW\(\(LPWSTR\)path, SE_FILE_OBJECT,\s*DACL_SECURITY_INFORMATION \| PROTECTED_DACL_SECURITY_INFORMATION,\s*NULL, NULL, dacl, NULL\)/,
