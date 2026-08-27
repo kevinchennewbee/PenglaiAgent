@@ -308,6 +308,7 @@ const BAILEYS = "@whiskeysockets/baileys";
 const LIBSIGNAL = "libsignal";
 const AXIOS = "axios";
 const FORM_DATA = "form-data";
+const AWS_S3_CLIENT = "@aws-sdk/client-s3";
 
 function resolvePackageRoot(fromDir, name) {
   const req = createRequire(join(fromDir, "package.json"));
@@ -903,6 +904,20 @@ for (const p of packs) {
   const vendorSherpa = p.id === "@penglai/asr";
   const vendorMoss = p.id === "@penglai/moss-tts";
   const vendorOfficePptfast = p.id === "@penglai/office";
+  const disableOfficeCloudZip = p.id === "@penglai/office";
+  const disabledOfficeCloudZipModule = {
+    name: "penglai-office-no-cloud-zip",
+    setup(context) {
+      context.onResolve({ filter: /^@aws-sdk\/client-s3$/ }, (args) => ({
+        path: args.path,
+        namespace: "penglai-office-disabled-cloud-zip",
+      }));
+      context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-cloud-zip" }, () => ({
+        contents: `class DisabledCloudArchive { constructor() { throw new Error("Penglai Office reads local archives only; S3 ZIP access is unavailable"); } }\nexport { DisabledCloudArchive as GetObjectCommand, DisabledCloudArchive as HeadObjectCommand };`,
+        loader: "js",
+      }));
+    },
+  };
   const built = await build({
     absWorkingDir: ROOT,
     entryPoints: [join(ROOT, p.dir, p.host)],
@@ -934,6 +949,7 @@ for (const p of packs) {
     banner: {
       js: 'import { createRequire as __penglaiCreateRequire } from "node:module";\nconst require = __penglaiCreateRequire(import.meta.url);\n',
     },
+    plugins: disableOfficeCloudZip ? [disabledOfficeCloudZipModule] : [],
   });
   const hostJs = readFileSync(join(stage, "dist/index.js"), "utf8");
   const metafile = built.metafile;
@@ -955,6 +971,10 @@ for (const p of packs) {
   }
   if (!hostJs.includes("__penglaiCreateRequire")) {
     console.error(p.id, "host bundle missing Node createRequire banner");
+    process.exit(1);
+  }
+  if (disableOfficeCloudZip && hostJs.includes(AWS_S3_CLIENT)) {
+    console.error(p.id, "must fail closed for unzipper's unused S3 helper without bundling the AWS SDK");
     process.exit(1);
   }
   if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);

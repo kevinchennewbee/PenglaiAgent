@@ -402,7 +402,8 @@ if (
   sharpRows.length === 0 ||
   sharpRows.some((row) => row.disposition !== "excluded-from-release") ||
   !packScript.includes("penglai-office-disabled-image") ||
-  !packScript.includes('runtime.includes(\'require("sharp")\')')
+  !packScript.includes('runtime.includes(\'require("sharp")\')') ||
+  !packScript.includes("penglai-office-disabled-cloud-zip")
 ) {
   throw new Error("sharp/libvips exclusion boundary drift");
 }
