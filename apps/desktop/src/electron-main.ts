@@ -302,6 +302,7 @@ async function main(): Promise<void> {
     width: 1280,
     height: 840,
     show: false,
+    opacity: platform === "win32" ? 0 : 1,
     backgroundColor: "#f8f4ee",
     title: "蓬莱 Penglai",
     webPreferences: {
@@ -452,18 +453,23 @@ async function main(): Promise<void> {
     void shutdown().finally(() => app.quit());
   });
 
-  const revealWindow = (): void => {
-    if (soakMode || win.isDestroyed() || win.isVisible()) return;
+  let windowRevealed = false;
+  const revealWindow = async (): Promise<void> => {
+    if (soakMode || win.isDestroyed() || windowRevealed) return;
+    windowRevealed = true;
     win.show();
-  };
-
-  if (existsSync(splashPage)) {
-    await win.loadFile(splashPage);
+    if (platform !== "win32") return;
     await win.webContents.executeJavaScript(
       "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
       true,
     );
-    revealWindow();
+    await delay(120);
+    if (!win.isDestroyed()) win.setOpacity(1);
+  };
+
+  if (existsSync(splashPage)) {
+    await win.loadFile(splashPage);
+    await revealWindow();
   }
 
   const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
@@ -484,7 +490,7 @@ async function main(): Promise<void> {
         /* page still useful without the extra line */
       }
     }
-    revealWindow();
+    await revealWindow();
     try {
       mkdirSync(user.logs, { recursive: true, mode: 0o700 });
       writeFileSync(join(user.logs, "startup.error.log"), `${new Date().toISOString()}\n${safe}\n`, { mode: 0o600 });
@@ -1035,7 +1041,7 @@ async function main(): Promise<void> {
         installerCancelled: pendingUpdate.version !== releaseContract.version,
       });
     }
-    revealWindow();
+    await revealWindow();
     if (soakMode) {
       const healthFile = join(user.root, "soak-health.json");
       const writeHealth = (): void => {
