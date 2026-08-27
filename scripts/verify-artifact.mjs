@@ -5,6 +5,7 @@ import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-c
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
+import { verifyAppliedOverlay } from "./apply-overlay.mjs";
 
 const expectedTarget = parseTargetArg();
 const source = requireCleanCandidateSource();
@@ -46,6 +47,15 @@ if (blocked) {
     command: "verify:artifact",
     ...blocked,
     reason: "cross-built or foreign-host inspect is not native artifact PASS",
+  });
+}
+
+try {
+  verifyAppliedOverlay(`${packaged.resources}/runtime/dsh`);
+} catch (error) {
+  finish("FAIL", {
+    command: "verify:artifact",
+    reason: error instanceof Error ? error.message : String(error),
   });
 }
 

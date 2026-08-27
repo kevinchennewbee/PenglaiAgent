@@ -311,6 +311,10 @@ async function main(): Promise<void> {
       webSecurity: true,
     },
   });
+  win.on("page-title-updated", (event) => {
+    event.preventDefault();
+    if (!win.isDestroyed()) win.setTitle("蓬莱 Penglai");
+  });
   const allowed = new Set<number>([win.webContents.id]);
   const openOfficialConsole = (url: string): boolean => {
     if (officialVendorConsoleDecision(url) !== "allow") return false;

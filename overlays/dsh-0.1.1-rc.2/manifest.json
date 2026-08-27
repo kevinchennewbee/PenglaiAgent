@@ -1,7 +1,7 @@
 {
   "dsh": "0.1.1-rc.2",
   "kind": "ui-only",
-  "reason": "Penglai product title, first-run disclosure, hero copy/ink-wash background, visible IM voice rows, and a nested Penglai settings group. rc.1 official brand slots remain authoritative; the settings hierarchy is an exact-hash UI-only extension because settings.section has no parent field; no Agent/runtime/network changes",
+  "reason": "Penglai product title, sole-authority first-run flow, hero copy/ink-wash background, visible IM voice rows, and a nested Penglai settings group. The official Models page remains available, while DSH welcome/BYOK onboarding slots are omitted because Penglai completes disclosure, provider, credential, live model test, workspace, and first Turn before loading DSH Web. rc.1 official brand slots remain authoritative; the settings hierarchy is an exact-hash UI-only extension because settings.section has no parent field; no Agent/runtime/network changes",
   "mustRemainOfficial": [
     "@deepseek-ai/dsh-agent",
     "@deepseek-ai/dsh-session",
@@ -22,7 +22,7 @@
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
       "upstreamSha256": "c3b9a2d2d074c600c10553a4b15e294082f5851dd4a834d06ddb268b310d18de",
       "upstream": "upstream/dsh-client-ui-settings-models.client.js",
-      "patchedSha256": "d433774b7831d1656319532d13eb2bc6a544b34ce6ef096d0eb4c6ba41e5c363",
+      "patchedSha256": "b11f20bcd0056d18c5e78863ee4fd3cef8bd005b57125d650fe074c7905b36a8",
       "patched": "patched/dsh-client-ui-settings-models.client.js"
     },
     {

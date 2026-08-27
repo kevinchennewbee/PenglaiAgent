@@ -632,33 +632,10 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     await shot("welcome-dismissed");
   }
 
-  // A secret-free COMPLETE fixture intentionally has no provider credential.
-  // Official DSH may therefore show its own BYOK prompt after the durable
-  // welcome has been dismissed.  This runner is walking product surfaces, not
-  // claiming that a key was configured, so use only the prompt's explicit
-  // non-destructive deferral action and prove that the overlay went away.
-  let byokDismissed = false;
+  // Penglai owns first-run. A second DSH welcome/BYOK modal is a product defect,
+  // even in the secret-free COMPLETE fixture; never dismiss it inside evidence.
   const afterWelcome = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
-  const byokLaterVisible =
-    afterWelcome?.officialByok &&
-    afterWelcome?.buttons?.some(
-      (button) => button.visible && /^(稍后配置|Later)$/.test(button.text),
-    );
-  if (byokLaterVisible) {
-    const click = await evaluate(
-      session,
-      clickButtonText(["^稍后配置$", "^Later$"]),
-    );
-    const after = await waitEval(
-      session,
-      SNAPSHOT_JS,
-      (snapshot) => Boolean(snapshot?.hasDshBoot && snapshot?.hasRoot && !snapshot?.officialByok),
-      15_000,
-    );
-    byokDismissed = click?.ok === true && after?.officialByok === false;
-    steps.push({ id: "official-byok-dismiss", click, observed: byokDismissed, snap: slim(after) });
-    await shot("official-byok-dismissed");
-  }
+  steps.push({ id: "single-onboarding-authority", observed: afterWelcome?.officialByok !== true, snap: slim(afterWelcome) });
 
   const settingsTargets = [
     { id: "ui-settings-open", patterns: ["^设置$", "^Settings$"], flag: null },
@@ -692,6 +669,12 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   }
   const last = await waitEval(session, SNAPSHOT_JS, () => true, 1_000);
   const blocked = [];
+  if (steps.some((step) => step.snap?.officialByok === true)) {
+    blocked.push("duplicate-dsh-onboarding");
+  }
+  if (steps.some((step) => /DeepSeek Harness/i.test(String(step.snap?.title ?? "")))) {
+    blocked.push("upstream-window-title");
+  }
   const requiredSettings = opts.requireOptionalPlugins
     ? ["ui-penglai", "ui-center", "ui-im", "ui-asr", "ui-tts", "ui-office", "ui-memory", "ui-companion", "ui-update", "ui-uninstall"]
     : ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"];
@@ -712,7 +695,7 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
     last: slim(last),
     official,
     welcome: { clicked: welcomeClicked },
-    officialByok: { deferred: byokDismissed },
+    officialByok: { absent: !steps.some((step) => step.snap?.officialByok === true) },
     blocked,
     deadEnds: [],
     wizardKeyless: { ok: false, honestStop: "", reason: "already-complete" },

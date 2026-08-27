@@ -8,7 +8,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 
 export function sha256(buf) {
@@ -135,10 +136,32 @@ export function applyOverlayToRoot(dshRoot) {
     }
     applied.push({ id: file.id, status: "applied" });
   }
+  verifyAppliedOverlay(dshRoot);
   return { dsh: manifest.dsh, applied };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function verifyAppliedOverlay(dshRoot) {
+  const { manifest } = loadOverlayManifest();
+  for (const file of manifest.files) {
+    const target = join(dshRoot, file.relative);
+    if (!existsSync(target) || sha256(readFileSync(target)) !== file.patchedSha256) {
+      throw new Error(`overlay sealed output mismatch ${file.id}`);
+    }
+  }
+  const brandRoot = join(
+    dshRoot,
+    "node_modules/@deepseek-ai/dsh-web-frontend/dist/penglai-brand",
+  );
+  for (const row of manifest.brand ?? []) {
+    const target = join(brandRoot, row.name);
+    if (!existsSync(target) || sha256(readFileSync(target)) !== row.sha256) {
+      throw new Error(`overlay sealed brand mismatch ${row.name}`);
+    }
+  }
+  return { dsh: manifest.dsh, verified: true };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const root = process.argv[2];
   if (!root) {
     console.error("usage: apply-overlay <dsh-root>");

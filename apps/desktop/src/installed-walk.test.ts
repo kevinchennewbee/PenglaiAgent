@@ -99,9 +99,9 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /\^开始使用\$/);
   assert.match(walk, /\^Get started\$/);
   assert.match(walk, /welcome-dismiss/);
-  assert.match(walk, /\^稍后配置\$/);
-  assert.match(walk, /\^Later\$/);
-  assert.match(walk, /official-byok-dismiss/);
+  assert.match(walk, /duplicate-dsh-onboarding/);
+  assert.match(walk, /upstream-window-title/);
+  assert.doesNotMatch(walk, /official-byok-dismiss/);
   assert.match(walk, /clickButtonText\(\["\^蓬莱\$", "\^Penglai\$"\]\)/);
   assert.match(walk, /button\[aria-haspopup=\\?"dialog\\?"\]\[aria-expanded\]/);
   assert.match(walk, /semanticFallback/);

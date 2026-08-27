@@ -8,6 +8,7 @@ import { sha256File as closureSha256File, writeClosureCredential } from "./lib/c
 import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
 import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
 import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
+import { applyOverlayToRoot } from "./apply-overlay.mjs";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -176,16 +177,10 @@ if (existsSync(nodeBin) && target !== "win32-x86_64") {
   dshVersionProbe = String(versionProbe.stdout).trim();
 }
 
-const overlay = spawnSync(process.execPath, [join(ROOT, "scripts/apply-overlay.mjs"), dshDest], {
-  cwd: ROOT,
-  encoding: "utf8",
-});
-if (overlay.status !== 0) {
-  process.stderr.write(overlay.stdout || "");
-  process.stderr.write(overlay.stderr || "");
-  process.exit(overlay.status ?? 1);
-}
-if (overlay.stdout) process.stdout.write(overlay.stdout);
+// Apply in-process so Windows path-to-file URL differences cannot turn the
+// overlay command into a silent no-op. Any hash drift fails the native build.
+const overlay = applyOverlayToRoot(dshDest);
+console.log(JSON.stringify(overlay));
 
 const pluginTarget = target === "darwin-aarch64"
   ? "darwin-arm64"

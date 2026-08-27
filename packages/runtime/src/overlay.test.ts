@@ -17,7 +17,7 @@ import { runInNewContext, Script } from "node:vm";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () => {
-  const { applyOverlayToRoot } = await import(
+  const { applyOverlayToRoot, verifyAppliedOverlay } = await import(
     pathToFileURL(join(root, "scripts/apply-overlay.mjs")).href
   );
   const dir = mkdtempSync(join(tmpdir(), "penglai-overlay-"));
@@ -76,6 +76,8 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   assert.match(welcomeSource, /欢迎使用蓬莱 0\.5\.7/);
   assert.match(welcomeSource, /Welcome to Penglai 0\.5\.7/);
   assert.doesNotMatch(welcomeSource, /penglai-0\.5\.6\.0/);
+  assert.doesNotMatch(welcomeSource, /id: "deepseek-official"/);
+  assert.doesNotMatch(welcomeSource, /id: "welcome-notice"/);
   assert.doesNotMatch(
     welcomeSource,
     /欢迎使用蓬莱 0\.5\.[12356]|Welcome to Penglai 0\.5\.[12356]/,
@@ -136,6 +138,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
   document.title = "Fixture session — DeepSeek Harness";
   syncTitle();
   assert.equal(document.title, "Fixture session — 蓬莱 Penglai");
+  assert.deepEqual(verifyAppliedOverlay(dir), { dsh: "0.1.1-rc.2", verified: true });
   const welcome = readFileSync(join(dir, welcomeRel), "utf8");
   assert.match(welcome, /欢迎使用蓬莱/);
   assert.match(welcome, /Welcome to Penglai/);
@@ -151,6 +154,7 @@ test("R2I-BRAND-010/011 overlay applies only on exact upstream hash", async () =
     true,
   );
   writeFileSync(join(dir, htmlRel), "<html>mutated</html>");
+  assert.throws(() => verifyAppliedOverlay(dir), /sealed output mismatch web-frontend-index/);
   assert.throws(() => applyOverlayToRoot(dir), /hash mismatch/);
 });
 

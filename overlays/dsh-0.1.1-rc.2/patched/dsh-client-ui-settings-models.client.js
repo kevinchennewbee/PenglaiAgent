@@ -2788,18 +2788,9 @@ window.__ModuleLoader__.load({
 				label: () => t("nav"),
 				inject: injected
 			}, ModelsSection));
-			ctx.slots.inject("settings.onboarding", () => ctx.slots.register({
-				name: "settings.onboarding",
-				id: "welcome-notice",
-				order: -100,
-				inject: welcomeInjected
-			}, WelcomeNotice));
-			ctx.slots.inject("settings.onboarding", () => ctx.slots.register({
-				name: "settings.onboarding",
-				id: "deepseek-official",
-				order: 0,
-				inject: deepSeekOnboardingInjected
-			}, DeepSeekOnboardingDialog));
+			// Penglai's pre-DSH wizard is the sole first-run authority. Keep the
+			// official Models settings page, but do not stack DSH's welcome/BYOK
+			// modals over a completed Penglai onboarding flow.
 		}
 		//#endregion
 		exports.apply = apply;
