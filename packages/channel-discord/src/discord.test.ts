@@ -101,3 +101,31 @@ test("Discord Gateway requests DM-only intent and handles resume opcodes", async
   assert.equal(ws.readyState, 3);
   await adapter.disconnect();
 });
+
+test("Discord rejects an out-of-contract Gateway heartbeat interval", async () => {
+  class FakeSocket {
+    readyState = 1;
+    private readonly listeners = new Map<string, Array<(ev: { data?: unknown; code?: number }) => void>>();
+    addEventListener(type: string, listener: (ev: { data?: unknown; code?: number }) => void) {
+      this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+    }
+    send() {}
+    close() {}
+    emit(type: string, ev: { data?: unknown; code?: number }) {
+      for (const listener of this.listeners.get(type) ?? []) listener(ev);
+    }
+  }
+  const socket = new FakeSocket();
+  const adapter = new DiscordAdapter(
+    { resolve: () => ({ token: "bot-token" }) },
+    async (url) => {
+      if (String(url).endsWith("/users/@me")) return new Response(JSON.stringify({ id: "bot-1" }));
+      return new Response(JSON.stringify({ url: "wss://gateway.discord.gg" }));
+    },
+    { createWebSocket: () => socket },
+  );
+  const pending = adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_DISCORD_TOKEN" });
+  for (let i = 0; i < 50; i += 1) await Promise.resolve();
+  socket.emit("message", { data: JSON.stringify({ op: 10, d: { heartbeat_interval: 60_001 } }) });
+  await assert.rejects(pending, /DISCORD_GATEWAY_HELLO/);
+});

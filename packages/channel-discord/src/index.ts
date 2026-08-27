@@ -304,11 +304,11 @@ export class DiscordAdapter {
     if (parsed.op === 10) {
       const hello = parsed.d && typeof parsed.d === "object" ? parsed.d : undefined;
       const interval = Number(hello?.heartbeat_interval);
-      if (!Number.isFinite(interval) || interval < 1_000) {
+      if (!Number.isFinite(interval) || interval < 1_000 || interval > 60_000) {
         onBadHello();
         return;
       }
-      this.startHeartbeat(Math.min(interval, 60_000), ws);
+      this.startHeartbeat(interval, ws);
       if (resume && this.sessionId && this.token) {
         this.sendGateway(ws, {
           op: 6,
@@ -375,9 +375,13 @@ export class DiscordAdapter {
   }
 
   private startHeartbeat(interval: number, ws: DiscordSocket): void {
+    if (!Number.isFinite(interval) || interval < 1_000 || interval > 60_000) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_HEARTBEAT_INTERVAL");
+    }
     this.clearHeartbeat();
     this.heartbeatAcked = true;
     const schedule = (delay: number) => {
+      const boundedDelay = Math.min(60_000, Math.max(0, Math.trunc(delay)));
       this.heartbeatTimer = setTimeout(() => {
         if (this.stopped || ws.readyState !== 1) return;
         if (!this.heartbeatAcked) {
@@ -386,7 +390,7 @@ export class DiscordAdapter {
         }
         this.heartbeat(ws);
         schedule(interval);
-      }, delay);
+      }, boundedDelay);
       this.heartbeatTimer?.unref?.();
     };
     schedule(Math.floor(interval * Math.random()));
