@@ -129,3 +129,35 @@ test("Discord rejects an out-of-contract Gateway heartbeat interval", async () =
   socket.emit("message", { data: JSON.stringify({ op: 10, d: { heartbeat_interval: 60_001 } }) });
   await assert.rejects(pending, /DISCORD_GATEWAY_HELLO/);
 });
+
+test("Discord disconnect closes an in-flight Gateway handshake", async () => {
+  class PendingSocket {
+    readyState = 1;
+    closed = false;
+    private readonly listeners = new Map<string, Array<(ev: { data?: unknown; code?: number }) => void>>();
+    addEventListener(type: string, listener: (ev: { data?: unknown; code?: number }) => void) {
+      this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+    }
+    send() {}
+    close() {
+      this.closed = true;
+      this.readyState = 3;
+      for (const listener of this.listeners.get("close") ?? []) listener({ code: 1000 });
+    }
+  }
+  const socket = new PendingSocket();
+  const adapter = new DiscordAdapter(
+    { resolve: () => ({ token: "bot-token" }) },
+    async (url) =>
+      String(url).endsWith("/users/@me")
+        ? new Response(JSON.stringify({ id: "bot-1" }))
+        : new Response(JSON.stringify({ url: "wss://gateway.discord.gg" })),
+    { createWebSocket: () => socket },
+  );
+  const pending = adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_DISCORD_TOKEN" });
+  for (let i = 0; i < 50 && !socket.closed; i += 1) await Promise.resolve();
+  await adapter.disconnect();
+  await assert.rejects(pending, /DISCORD_GATEWAY_CANCELLED/);
+  assert.equal(socket.closed, true);
+  assert.equal(adapter.connection, "disabled");
+});

@@ -105,6 +105,8 @@ export class PenglaiImHost {
   private readonly adapters = new Map<ChannelId, ChannelAdapter>();
   startupFailure: MessageFailure | undefined;
   private sidecarReady = true;
+  private sidecarReadyWait: Promise<void> = Promise.resolve();
+  private resolveSidecarReady: (() => void) | undefined;
   private readonly statusReactions = new Map<string, StatusReactionHandle>();
   readonly bots: ImBotStore;
 
@@ -947,6 +949,7 @@ export class PenglaiImHost {
   }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    await this.waitForSidecars();
     if (input.secret) {
       await this.storeChannelSecret({
         channel: id,
@@ -1081,11 +1084,24 @@ export class PenglaiImHost {
   }
 
   deferSidecarOutbox(): void {
+    if (!this.sidecarReady) return;
     this.sidecarReady = false;
+    this.sidecarReadyWait = new Promise<void>((resolveReady) => {
+      this.resolveSidecarReady = resolveReady;
+    });
   }
 
   markSidecarReady(): void {
     this.sidecarReady = true;
+    this.resolveSidecarReady?.();
+    this.resolveSidecarReady = undefined;
+  }
+
+  private async waitForSidecars(): Promise<void> {
+    await this.sidecarReadyWait;
+    if (this.startupFailure) {
+      throw new PenglaiError("DSH_UNAVAILABLE", "Messaging connections could not be prepared");
+    }
   }
 
   recordChannelFailure(channel: ChannelId, accountRef: string, error: unknown): void {

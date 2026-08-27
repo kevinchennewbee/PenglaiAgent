@@ -644,6 +644,7 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
   const activationBackup = `${user.profileWeb}.center-backup`;
   assertOwnedCenterPath(user, txDir, "Center transaction directory");
   assertOwnedCenterPath(user, user.profileWeb, "Center profile");
+  healCenterLastGoodArtifacts(txDir);
   if (!existsSync(journalPath)) {
     rmSync(lockPath, { force: true });
     return { phase: "idle" };
@@ -727,6 +728,35 @@ export function recoverCenterProfileTransaction(user: UserLayout): CenterPreboot
     id: raw.id,
     previousEnabled: raw.previousEnabled,
   };
+}
+
+function healCenterLastGoodArtifacts(txDir: string): string | undefined {
+  const lastGood = join(txDir, "last-good");
+  if (existsSync(lastGood)) {
+    if (lstatSync(lastGood).isSymbolicLink() || !lstatSync(lastGood).isDirectory()) {
+      throw new PenglaiError("STORE_CORRUPT", "Center last-good profile invalid");
+    }
+    return lastGood;
+  }
+  if (!existsSync(txDir)) return undefined;
+  const candidates = readdirSync(txDir, { withFileTypes: true }).filter(
+    (entry) =>
+      entry.isDirectory() &&
+      (entry.name.startsWith("last-good-next-") || entry.name.startsWith("last-good-prev-")),
+  );
+  const next = candidates.filter((entry) => entry.name.startsWith("last-good-next-"));
+  const previous = candidates.filter((entry) => entry.name.startsWith("last-good-prev-"));
+  if (next.length > 1 || previous.length > 1) {
+    throw new PenglaiError("STORE_CORRUPT", "Center last-good recovery is ambiguous");
+  }
+  const selected = next[0] ?? previous[0];
+  if (!selected) return undefined;
+  const source = join(txDir, selected.name);
+  if (lstatSync(source).isSymbolicLink()) {
+    throw new PenglaiError("SECURITY_POLICY", "Center last-good recovery must not follow a symlink");
+  }
+  renameSync(source, lastGood);
+  return lastGood;
 }
 
 export function recoverProfile(user: UserLayout): Journal {
@@ -1017,6 +1047,8 @@ export class EmbeddedDshSupervisor {
   logs = "";
   identity: ProcessIdentity | undefined;
   private lastUser: UserLayout | undefined;
+  private lastStartEnv: NodeJS.ProcessEnv = {};
+  private restartTimer: ReturnType<typeof setTimeout> | undefined;
   health:
     | {
         http: number;
@@ -1028,12 +1060,22 @@ export class EmbeddedDshSupervisor {
 
   async start(user: UserLayout, env: NodeJS.ProcessEnv = {}): Promise<{ port: number }> {
     if (this.state === "healthy" || this.state === "starting") return { port: this.port };
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
     assertAbsoluteExecutable(this.layout.nodeBin, "embedded node");
     assertAbsoluteExecutable(this.layout.dshEntry, "embedded dsh");
     // A supervisor must not launch a runtime whose integrity manifest is
     // absent or does not cover the embedded tree.
     verifyRuntimeManifest(this.layout);
     this.lastUser = user;
+    this.lastStartEnv = {
+      ...(env.LANG ? { LANG: env.LANG } : {}),
+      ...(env.PENGLAI_PLUGINS_DIR ? { PENGLAI_PLUGINS_DIR: env.PENGLAI_PLUGINS_DIR } : {}),
+      ...(env.PENGLAI_APP_ROOT ? { PENGLAI_APP_ROOT: env.PENGLAI_APP_ROOT } : {}),
+      ...(env.PENGLAI_MNEMON_BINARY ? { PENGLAI_MNEMON_BINARY: env.PENGLAI_MNEMON_BINARY } : {}),
+    };
     migrateUserSchema(user);
     killStaleSupervisor(this.layout, user);
     this.state = "starting";
@@ -1143,12 +1185,16 @@ export class EmbeddedDshSupervisor {
       this.state = "crashed";
       const user = this.lastUser;
       if (!user) return;
+      const restartEnv = { ...this.lastStartEnv };
       const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
-      setTimeout(() => {
-        void this.start(user).catch(() => {
+      this.restartTimer = setTimeout(() => {
+        this.restartTimer = undefined;
+        if (this.state === "stopping" || this.state === "stopped") return;
+        void this.start(user, restartEnv).catch(() => {
           this.state = "crashed";
         });
       }, delay);
+      this.restartTimer.unref?.();
     });
     try {
       await waitPort(this.port, 25_000);
@@ -1168,6 +1214,10 @@ export class EmbeddedDshSupervisor {
   }
 
   async stop(): Promise<void> {
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = undefined;
+    }
     this.state = "stopping";
     const child = this.child;
     if (this.identity) killIdentity(this.identity, "SIGTERM");

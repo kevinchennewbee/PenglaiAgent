@@ -555,6 +555,31 @@ test("Center transaction is restored before DSH profile activation", () => {
   assert.equal(journal.phase, "rolled_back");
 });
 
+test("Center preboot heals the last-good promotion crash window", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-center-preboot-next-")));
+  const txDir = join(user.root, "profiles", "center-tx");
+  mkdirSync(user.profileWeb, { recursive: true });
+  mkdirSync(join(txDir, "last-good-next-op"), { recursive: true });
+  mkdirSync(join(user.root, "plugins"), { recursive: true });
+  mkdirSync(user.transactions, { recursive: true });
+  writeFileSync(join(user.profileWeb, "cordis.patch.yml"), "failed: true\n");
+  writeFileSync(join(txDir, "last-good-next-op", "cordis.patch.yml"), "healed: true\n");
+  writeFileSync(join(user.root, "plugins", "desired.json"), JSON.stringify({ "@penglai/im": false }));
+  writeFileSync(
+    join(txDir, "journal.json"),
+    JSON.stringify({
+      schema: 2,
+      operationId: "24e69732-d08b-4f05-a628-ddf0bcf99a51",
+      phase: "verifying",
+      id: "@penglai/im",
+      previousEnabled: true,
+    }),
+  );
+  recoverProfile(user);
+  assert.match(readFileSync(join(user.profileWeb, "cordis.patch.yml"), "utf8"), /healed: true/);
+  assert.equal(existsSync(join(txDir, "last-good")), true);
+});
+
 test("owned DSH spawn pins cwd to DSH_HOME so repo .env cannot be a secret layer", () => {
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(src, /cwd:\s*user\.dshHome/);

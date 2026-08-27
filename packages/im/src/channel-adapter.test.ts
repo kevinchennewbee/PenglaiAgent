@@ -61,6 +61,38 @@ test("IM host registers guided adapters and refuses non-live outbound text", asy
   rt.store.close();
 });
 
+test("IM connection waits until real sidecar adapters finish bootstrap", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
+    { status: "idle", setupRequired: true } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
+  );
+  let starts = 0;
+  host.attachChannelAdapter({
+    ...guidedAdapter("dingtalk"),
+    beginConnection: async () => {
+      starts += 1;
+      return { kind: "qr", live: false, operationId: "dingtalk:qr" };
+    },
+  });
+  host.deferSidecarOutbox();
+  const pending = host.beginChannelConnection({ channel: "dingtalk", method: "qr" });
+  await Promise.resolve();
+  assert.equal(starts, 0);
+  host.markSidecarReady();
+  await pending;
+  assert.equal(starts, 1);
+  rt.store.close();
+});
+
 test("restore applies persisted Telegram offset before reconnect", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",

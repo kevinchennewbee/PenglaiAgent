@@ -30,8 +30,14 @@ export async function createDingTalkStreamClient(
     clientSecret: creds.clientSecret,
   });
   let inbound: ((msg: DingTalkInbound) => void | Promise<void>) | undefined;
+  let replyTarget: ((vendorTarget: string, sessionWebhook: string) => void | Promise<void>) | undefined;
   let healthTimer: ReturnType<typeof setInterval> | undefined;
-  const webhooks = new Map<string, string>();
+  const webhooks = new Map(
+    Object.entries(creds.sessionWebhooks ?? {}).filter(
+      (entry): entry is [string, string] =>
+        entry[0].length > 0 && entry[0].length <= 256 && validSessionWebhook(entry[1]),
+    ),
+  );
   const syncConnected = (clientRef: DingTalkStreamClient) => {
     clientRef.connected = Boolean(raw.registered && raw.connected && !raw.reconnecting);
   };
@@ -39,6 +45,9 @@ export async function createDingTalkStreamClient(
     connected: false,
     onMessage(handler) {
       inbound = handler;
+    },
+    onReplyTarget(handler) {
+      replyTarget = handler;
     },
     async connect() {
       raw.registerCallbackListener(topic, (res) => {
@@ -59,15 +68,18 @@ export async function createDingTalkStreamClient(
           const conversationType = String(payload.conversationType ?? "").trim();
           const vendorTarget = String(payload.conversationId ?? "").trim();
           if (messageId && senderId && text && conversationType === "1" && vendorTarget) {
-            if (validSessionWebhook(webhook)) webhooks.set(vendorTarget, webhook);
-            await inbound?.({
-              messageId,
-              senderId,
-              text,
-              vendorTarget,
-              chatType: "private",
-              accountRef: creds.clientId,
-            });
+            if (validSessionWebhook(webhook)) {
+              webhooks.set(vendorTarget, webhook);
+              await replyTarget?.(vendorTarget, webhook);
+              await inbound?.({
+                messageId,
+                senderId,
+                text,
+                vendorTarget,
+                chatType: "private",
+                accountRef: creds.clientId,
+              });
+            }
           }
           // The SDK ignores callback return values. ACK malformed, unsupported,
           // or durably accepted messages; a durable-path rejection deliberately

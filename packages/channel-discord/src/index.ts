@@ -214,6 +214,9 @@ export class DiscordAdapter {
   }
 
   private async connectGateway(resume: boolean): Promise<void> {
+    const generation = ++this.generation;
+    this.gateway?.close();
+    this.gateway = undefined;
     const hello = await this.fetchImpl("https://discord.com/api/v10/gateway", {
       headers: { accept: "application/json" },
       redirect: "error",
@@ -228,8 +231,17 @@ export class DiscordAdapter {
     url.searchParams.set("v", "10");
     url.searchParams.set("encoding", "json");
     const create = this.transport?.createWebSocket ?? ((href: string) => new WebSocket(href) as unknown as DiscordSocket);
+    if (this.stopped || generation !== this.generation) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_CANCELLED");
+    }
     const ws = create(url.href);
-    const generation = ++this.generation;
+    const activeGateway = {
+      close: () => {
+        this.clearHeartbeat();
+        ws.close();
+      },
+    };
+    this.gateway = activeGateway;
     if (!resume) this.sequence = null;
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_TIMEOUT")), 15_000);
@@ -268,7 +280,11 @@ export class DiscordAdapter {
       });
       ws.addEventListener("close", (event) => {
         this.clearHeartbeat();
-        if (this.stopped) return;
+        if (this.stopped || generation !== this.generation) {
+          clearTimeout(timer);
+          if (!identified) reject(new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_CANCELLED"));
+          return;
+        }
         const code = Number(event.code) || 0;
         if (code === 4004 || code === 4013 || code === 4014) {
           this.connection = "failed";
@@ -285,12 +301,10 @@ export class DiscordAdapter {
         }
       });
     });
-    this.gateway = {
-      close: () => {
-        this.clearHeartbeat();
-        ws.close();
-      },
-    };
+    if (this.stopped || generation !== this.generation) {
+      activeGateway.close();
+      throw new PenglaiError("DELIVERY_TRANSIENT", "DISCORD_GATEWAY_CANCELLED");
+    }
   }
 
   handleGatewayPacket(

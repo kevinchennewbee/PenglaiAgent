@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   BOOT_PHASES,
   redactSupervisorDiagnostic,
@@ -50,4 +51,12 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
   assert.equal(text.includes("/app/runtime/node"), false);
   assert.equal(redacted.phase, "waiting-http");
   assert.equal(redacted.dsh, "0.1.1-rc.2");
+});
+
+test("supervisor restart preserves required child paths and stop cancels restart", () => {
+  const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  assert.match(src, /private lastStartEnv: NodeJS\.ProcessEnv/);
+  assert.match(src, /this\.start\(user, restartEnv\)/);
+  assert.match(src, /if \(this\.state === "stopping" \|\| this\.state === "stopped"\) return/);
+  assert.match(src, /async stop\(\): Promise<void> \{[\s\S]*clearTimeout\(this\.restartTimer\)/);
 });

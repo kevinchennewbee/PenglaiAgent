@@ -72,3 +72,32 @@ test("DingTalk adapter fails closed without credentials", async () => {
   await assert.rejects(() => adapter.beginConnection({ method: "token", credentialRef: "missing" }), /credentials missing/);
   assert.equal(adapter.health().connection, "not_configured");
 });
+
+test("DingTalk persists private-session reply targets in the credential vault", async () => {
+  const stored: Record<string, { clientId: string; clientSecret: string; sessionWebhooks?: Record<string, string> }> = {
+    PENGLAI_DINGTALK_CLIENT: { clientId: "cli", clientSecret: "sec" },
+  };
+  let capture: ((vendorTarget: string, sessionWebhook: string) => void | Promise<void>) | undefined;
+  const adapter = new DingTalkAdapter(
+    {
+      resolve: (ref) => stored[ref],
+      put: (ref, creds) => {
+        stored[ref] = creds;
+      },
+    },
+    () => ({
+      connected: true,
+      connect() {},
+      disconnect() {},
+      onReplyTarget(handler) {
+        capture = handler;
+      },
+    }),
+  );
+  await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_DINGTALK_CLIENT" });
+  await capture?.("conversation-1", "https://oapi.dingtalk.com/robot/sendBySession?session=opaque");
+  assert.equal(
+    stored.PENGLAI_DINGTALK_CLIENT?.sessionWebhooks?.["conversation-1"],
+    "https://oapi.dingtalk.com/robot/sendBySession?session=opaque",
+  );
+});

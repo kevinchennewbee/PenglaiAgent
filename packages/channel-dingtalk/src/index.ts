@@ -7,6 +7,7 @@ export { DingTalkDeviceAuth, DINGTALK_REGISTRATION_SOURCE } from "./device-auth.
 export interface DingTalkCredentials {
   clientId: string;
   clientSecret: string;
+  sessionWebhooks?: Record<string, string>;
 }
 
 export interface DingTalkInbound {
@@ -23,6 +24,7 @@ export interface DingTalkStreamClient {
   disconnect(): Promise<void> | void;
   send?(peer: string, text: string): Promise<void>;
   onMessage?(handler: (msg: DingTalkInbound) => void | Promise<void>): void;
+  onReplyTarget?(handler: (vendorTarget: string, sessionWebhook: string) => void | Promise<void>): void;
   connected?: boolean;
 }
 
@@ -120,6 +122,15 @@ export class DingTalkAdapter {
     this.accountRef = creds.clientId;
     try {
       this.client = this.factory ? this.factory(creds) : await this.createOfficialClient(creds);
+      this.client.onReplyTarget?.(async (vendorTarget, sessionWebhook) => {
+        if (creds.sessionWebhooks?.[vendorTarget] === sessionWebhook) return;
+        const targets = { ...(creds.sessionWebhooks ?? {}) };
+        delete targets[vendorTarget];
+        targets[vendorTarget] = sessionWebhook;
+        const entries = Object.entries(targets);
+        creds.sessionWebhooks = Object.fromEntries(entries.slice(Math.max(0, entries.length - 100)));
+        await this.vault.put?.(credentialRef, creds);
+      });
       this.client.onMessage?.(async (msg) => {
         const event = {
           ...msg,
