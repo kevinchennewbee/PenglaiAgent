@@ -403,6 +403,39 @@ supervisor blind spot remain separate high-priority paths.
 - prove one plugin/job failure cannot terminate the host; and
 - retain the first fatal diagnostic so later 502 noise cannot overwrite cause.
 
+### P0-07: IM support truth has conflicting machine sources
+
+**Observed symptom**
+
+The settings surface can describe a connector as included or available while
+its runtime is guided-only, health is false, send is rejected, no account is
+connected, or no live release evidence exists. In 0.5.7 WhatsApp was shown as an
+unavailable compatibility card even though its runtime was intentionally
+excluded; the Owner has now permanently rejected WhatsApp from 0.5.8 onward.
+
+**Confirmed source cause**
+
+The current live-channel registry admits only Weixin and Feishu, while most
+channel manifests set `live: true`. Host and bridge APIs expose that manifest
+field and the settings client consumes it for connector copy. One boolean is
+therefore overloaded across product entry, adapter implementation, bundled
+runtime, account connection, capability validation, and release evidence.
+
+**0.5.8 action**
+
+- define one authoritative closed model with `entryAvailable`, `adapterMode`,
+  `runtimeBundled`, `connectionState`, and `releaseEvidence` rather than one
+  ambiguous `live` flag;
+- describe authentication, inbound/outbound text, image, voice, reconnect, and
+  exit capability evidence independently where necessary;
+- derive registry, Remote payload, settings UI, acceptance matrix, README, site,
+  and release notes from that same source;
+- remove WhatsApp from active manifests, channel IDs, cards, routes,
+  adapters/runtimes, dependencies, packaging, tests, and roadmap claims while
+  preserving immutable 0.5.7 release history; and
+- reject a release if any user-facing support statement is stronger than its
+  installed and live evidence.
+
 ## 4. Implementation phases and gates
 
 ### Gate 0: wait for a consumable DSH release
@@ -414,7 +447,11 @@ Exit criteria:
 - generated Remote/client artifacts are present;
 - clean frozen-lockfile installation is reproducible;
 - source/package license and provenance closure is reviewed; and
-- this issue mapping is refreshed against the exact tag.
+- this issue mapping is refreshed against the exact tag;
+- active and historical scripts, overlays, evidence schemas, fixtures, and
+  compatibility wrappers have an owner and classification; and
+- the permanent WhatsApp-removal and single-source identity gates are accepted
+  as part of the migration, not postponed as release cleanup.
 
 Allowed before exit: 0.5.7 reproduction, redacted diagnostic collection, test
 design, and document updates. Not allowed: final dependency freeze or old-seam
@@ -433,6 +470,8 @@ Work:
 - map old ApiProxy calls to owner Remotes;
 - map every first-party client module to the new package/injection graph;
 - inventory old overlays against official slots;
+- classify release gates, operator tools, native verifiers, migrations,
+  fixtures, compatibility wrappers, and historical records before removal;
 - activate minimum Office and Memory skeletons; and
 - perform basic native startup on Windows, Apple Silicon, and Intel macOS.
 
@@ -460,8 +499,16 @@ Workstreams:
    controls through official slots; remove obsolete overlays.
 5. Attachment migration: official image admission/projection and scoped channel
    adapter handoff.
-6. Identity/build migration: version pins, lockfile, closure, catalog, SBOM,
-   notices, evidence scripts, contract tests, package builders.
+6. Identity/build migration: make release identity the single authoritative
+   source for product, DSH, Node, and Electron pins; generate or verify required
+   manifest/contract copies; migrate lockfile, closure, catalog, SBOM, notices,
+   evidence scripts, contract tests, and package builders.
+7. IM truth migration: replace the overloaded `live` flag with the closed
+   channel state/capability model and permanently remove WhatsApp from active
+   product, source, dependency, packaging, test, and roadmap surfaces.
+8. Bounded decomposition: extract process supervisor/health ownership while
+   repairing P0-01 and split profile/migration seams when they are migrated;
+   avoid an unrelated broad refactor based only on file length.
 
 Exit criteria:
 
@@ -469,6 +516,10 @@ Exit criteria:
 - no `dsh-client-runtime` injection;
 - no obsolete `dsh-host-apiproxy` closure dependency;
 - no unjustified rc.2 built-file overlay;
+- one authoritative pin source passes cross-package equality checks;
+- no ambiguous IM `live` support flag remains;
+- no WhatsApp identity, card, route, adapter/runtime, dependency, lockfile
+  entry, bundle content, or current-product claim remains;
 - Office and Memory are truly active in official inventory;
 - IM, ASR, TTS, and Companion remain optional/default off; and
 - official text Turn, title projection, image attachment, and cancellation
@@ -533,6 +584,8 @@ Required installed walks include:
 - Memory real curate/recall/correct/forget/source revoke and isolation;
 - IM bind/rebind/remove, text, title chooser, image, voice, reconnect, expiry,
   duplicate delivery, outbound retry, exit;
+- absence checks proving WhatsApp has no UI entry, manifest/channel identity,
+  runtime/dependency, package bytes, support claim, or roadmap placeholder;
 - ASR install/download/permission/record/no-speech/cancel/retry/restart;
 - TTS download/prewarm/Read/stop/stall/error/concurrent request/resource cleanup;
 - Companion install/enable/binding/quiet hours/budget/cancel/rollback;
@@ -551,8 +604,9 @@ To identify ownership instead of debugging the whole product at once:
    Workspace, first Turn, restart, update, uninstall.
 3. **Required plugins:** Office and Memory activation, scope, real operations,
    restart, curator semantics.
-4. **Optional plugins one at a time:** IM, Feishu text, Feishu image, Feishu
-   voice+ASR, desktop ASR, TTS, Companion.
+4. **Optional plugins one at a time:** IM and each supported adapter, Feishu
+   text, Feishu image, Feishu voice+ASR, desktop ASR, TTS, Companion. WhatsApp is
+   an absence gate, not an adapter test target.
 5. **Combined stress:** multi-agent, Memory jobs, media, cancellation, network
    loss, optional-plugin crash, host recovery.
 
@@ -573,6 +627,7 @@ Reject the candidate if any statement below is used as sole proof:
 - “channel connected” therefore media permissions exist;
 - “TypeScript/build passed” therefore the client bundle reached `ACTIVE`;
 - “GitHub tag builds from source” therefore npm closure is reproducible; or
+- “the WhatsApp card is disabled” therefore WhatsApp has been removed; or
 - “the error disappeared after restart” therefore its lifecycle cause is fixed.
 
 ## 7. Test and evidence design
@@ -595,6 +650,16 @@ Diagnostics may contain bounded codes, phases, durations, counts, and hashes.
 They must not contain API secrets, QR payloads, private chat bodies, account
 identity, local personal paths, filenames from private sources, raw media,
 transcripts, or memory contents.
+
+### Repository asset classification
+
+Before deleting or relocating a low-reference script, overlay, evidence schema,
+fixture, or compatibility wrapper, record its category, owner, actual invocation
+path, supported versions, replacement, and retirement condition. Zero ordinary
+imports are a review trigger, not deletion proof. Release and native verifiers
+may be external entry points; schema versions may form a compatibility chain.
+Active WhatsApp product/runtime code is the opposite case: Git preserves its
+history, so it must not remain wired into 0.5.8 merely for provenance.
 
 ## 8. Estimated effort and scheduling truth
 
@@ -625,7 +690,10 @@ DSH baseline.
 
 **Done in source** means all migration and issue acceptance tests pass in a
 clean tree, with no forbidden architecture and no unassigned high-severity
-finding.
+finding. Product/DSH/Node/Electron identity has one authoritative source, IM
+support truth is unambiguous, and the WhatsApp absence gate passes across source,
+dependencies, lockfile, catalog, package closure, SBOM, installer, UI, and
+current documentation.
 
 **Release candidate** means exact packages from one source commit pass all three
 native installed walks and required live paths with privacy-safe evidence.

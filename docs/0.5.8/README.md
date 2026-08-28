@@ -13,7 +13,7 @@
 - Base commit: `143482bf799b98734a70f74d38acb8932ed7864f`
 - Created: 2026-08-28
 - Product-code changes in this baseline: none
-- Remote publication in this baseline: none
+- Remote branch: `origin/0.5.8-preview` (published; no pull request opened)
 
 This branch preserves the results of the owner-led 0.5.7 installed-product
 walkthrough and the adversarial review of the next official DeepSeek Harness
@@ -42,6 +42,9 @@ The governing principles are:
    screenshots, input strings, or timing coincidences.
 6. No release claim is made without native installed evidence on Apple Silicon,
    Intel macOS, and Windows x64 from one clean source commit.
+7. WhatsApp is permanently outside the Penglai product boundary. It is not a
+   disabled, experimental, compatibility, or roadmap platform for 0.5.8 or any
+   later release unless a future explicit Owner decision supersedes this rule.
 
 ## What is frozen and what is not
 
@@ -52,7 +55,11 @@ The following may be frozen now:
 - the no-parallel-core boundary;
 - the migration-first implementation order;
 - the differential and adversarial acceptance strategy; and
-- the rule that 0.5.8 consumes the latest complete official DSH package set.
+- the rule that 0.5.8 consumes the latest complete official DSH package set;
+  and
+- the permanent removal of WhatsApp from active product, source, dependency,
+  packaging, test-matrix, and roadmap surfaces while preserving immutable 0.5.7
+  release history.
 
 The following must not be frozen yet:
 
@@ -104,4 +111,6 @@ hotfix.
 - no product-code change;
 - no build, release, tag, or deployment;
 - no claim that an upstream capability automatically fixes Penglai integration;
+- no WhatsApp compatibility card, experimental adapter, runtime, dependency,
+  packaging path, support claim, or future-roadmap placeholder; and
 - no GitHub push or pull request without separate owner approval.
