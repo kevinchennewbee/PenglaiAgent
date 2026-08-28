@@ -1,6 +1,6 @@
 # 蓬莱产品宪法
 
-> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
+> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。2026-08-28 Owner 进一步决定：**Penglai 永久不再支持、接入、展示、实验或规划 WhatsApp**。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
 
 ## 一句话定义
 
@@ -18,7 +18,7 @@
 4. **0.5 使用官方 YAML credentials。** API key、微信 token、飞书 App Secret 等都通过官方 `credentials.set/describe/resolve/unset` seam 管理，由 `@deepseek-ai/dsh-credentials-local` 写入 app-private `DSH_HOME/.credentials.yaml`；renderer 永远不能读回明文。Keychain 不是 0.5 产品路径。macOS 用目录/文件 mode 收紧，Windows 用当前用户 ACL 收紧。
 5. **增强能力都是可独立组合的 DSH 插件。** Host 能力和 Web 界面通过 DSH/Cordis 插件、client module、slot、settings/onboarding 扩展点接入。任一可选插件缺失、disabled、未配置或升级失败，都不能阻断 DSH core 或无关插件；组合能力只通过标准类型化 service 形成。上游确无扩展点时，只能做有版本门、checksum、ADR 和回归测试的最小 overlay。
 6. **IM 是一个第一方插件。** `@penglai/im` 内含统一绑定、命令、因果路由、持久化、恢复和 adapter registry；微信、飞书只是 adapter，不能各自直接调用 Agent。ASR/TTS/Context/Memory/Budget/Companion 都是独立 DSH 服务插件，IM 只能通过类型化能力接口调用，不能把这些引擎复制进 adapter。
-7. **IM 连接必须诚实。** 0.5.7 提供八个平台的连接入口，用户只看到一个「消息连接」插件；WhatsApp 仅保留不可操作的兼容性说明卡，不分发 runtime、设备绑定或二维码。微信使用真实 iLink QR，飞书只使用官方应用注册/凭据路径。Slack、Telegram、Discord 禁止伪装扫码。QQ 只做官方 Bot 路径。扫码或配置成功后仍需绑定 exact official Workspace/Session；不得按最近窗口猜 scope。
+7. **IM 连接必须诚实。** 0.5.7 的历史发行边界为八个平台连接入口，WhatsApp 当时仅保留不可操作的兼容性说明卡且未分发 runtime、设备绑定或二维码。从 0.5.8 起，现行产品面、catalog、manifest、路由、adapter/runtime、依赖、安装包、测试矩阵和路线图都不得再出现 WhatsApp；它不是延期、实验或未来能力。微信使用真实 iLink QR，飞书只使用官方应用注册/凭据路径。Slack、Telegram、Discord 禁止伪装扫码。QQ 只做官方 Bot 路径。扫码或配置成功后仍需绑定 exact official Workspace/Session；不得按最近窗口猜 scope。
 8. **插件中心属于 DSH Web。** 蓬莱插件中心嵌入 DSH Plugins settings，并以真实 loader/profile inventory 为唯一事实源；desired/config 写入不能冒充 installed/active。0.5 可把审核过的插件代码离线预装进安装包，但用户仍可在 DSH 内自行组合；未下载模型、未授权目录、未设策略或未同意主动外发时，插件必须保持真实惰性状态。
 9. **安装包必须自带可运行产品。** 干净 Mac/Windows 不应预装 Node、pnpm、Python、系统 ffmpeg 或 `dsh`。包内固定目标平台运行时、完整 DSH 闭包、profile seed、第一方插件（含语音 native/WASM engines）、许可证、SBOM 与完整性清单；生产禁止静默回退系统 PATH。大型 ASR/TTS 权重可在用户明确操作后按 immutable manifest/hash 按需下载，不得成为 DSH 启动依赖。
 10. **二次开发不得删减 DSH。** Penglai 可以替换产品名、字标、欢迎/引导文案和默认组合，并增加 Center/IM；但 official DSH 的浅色、深色、跟随系统动态主题、中英文切换、Models、Workspace、Session、工具、审批和设置能力必须保留。中文是 fresh install 默认值，不是删除 English。
@@ -51,6 +51,8 @@
 - 默认“智能整理 Workspace”：自动 curator 必须走 official Agent、禁用工具、Host 封闭校验，只能把安全项目事实写入 exact Workspace；个人/全局记忆仍需 Owner 确认，召回不得跨 Workspace。
 - Owner 已授权 0.5.7 开发与 Draft PR；合并、三端原生构建、`v0.5.7` Release、README 观察值和官网部署必须在 Codex 审核与必需门禁通过之后。仍不得把临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥上传到 GitHub、写入 evidence 或安装包。
 
+0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
+
 ## 反偏航自检
 
 任何提交若对以下任一问题回答“是”，必须停止并纠正：
@@ -69,6 +71,7 @@
 - 语音是否依赖系统 ffmpeg/Python/PATH、未固定模型下载，或把原始音频/转写/声音参考泄漏到日志/evidence？
 - 任一 renderer、日志、数据库、evidence 或截图是否能读到真实 secret、二维码或聊天正文？
 - 飞书是否用假二维码或用户 OAuth Device Flow 冒充一键扫码，或把官方 `app/registration` 落地页 URL 直接当图片地址？
+- 是否重新引入、展示或规划了 WhatsApp，或保留了其可操作入口、channel identity、adapter/runtime、设备绑定、二维码、Baileys/libsignal 依赖或打包路径？
 - 品牌或中文 overlay 是否隐藏、破坏了 DSH 原有主题、语言、模型、会话、工作区、工具、审批或设置能力？
 - 升级/卸载是否可能静默迁移或删除 0.4.1 数据、用户 Workspace 或未选择的数据类别？
 - 是否把 ad-hoc 安装包写成已公证，或把缺少原生 runner 的 Intel/Windows 写成 0.5.7 已支持？

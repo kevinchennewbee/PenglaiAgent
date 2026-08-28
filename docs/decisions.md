@@ -372,6 +372,12 @@
 - 决定：0.5.7 只分发微信、飞书、钉钉、企业微信、QQ、Slack、Telegram、Discord 八个平台连接入口；`@penglai/im` 仍是唯一 IM runtime。WhatsApp 社区 runtime、Baileys 及 GPL-3.0 libsignal 不进入生产依赖、插件包或安装包，兼容性说明卡没有连接动作。已公开 `v0.5.7` tag、十个附件、源码 SHA 与签名/摘要保持不可变。自动化发布门禁与需要所有者账号或长时间运行的补充验收分开记录；补充验收缺失不得伪造 PASS，也不反向改写已经完成的自动化和公开字节证据。
 - 后果：当前 README、官网、Release 与现行安全/架构文档统一使用八渠道发行口径。真实账号验收可在发布后由 Owner 独立补做。官网继续保留现有水墨视觉、中文根页与 `/en/` 英文页，不以发布后文档修正重做视觉站点。
 
+### D-062 — 永久移除 WhatsApp 平台
+
+- 状态：ACCEPTED（Owner 2026-08-28 明确决定）
+- 决定：从 0.5.8 起，Penglai 不再支持、接入、展示、实验或规划 WhatsApp。现行产品面的兼容性卡、manifest/channel identity 暴露、guided/device-link/QR 路径、adapter/runtime 源码接线、Baileys/libsignal 依赖以及打包、测试和文档入口均须移除；不得以 community、experimental、disabled 或 future roadmap 形式重新引入。已经公开的 0.5.7 tag、Release、附件与历史文档保持不可变，历史事实和来源审计继续由 Git 历史保存。
+- 后果：0.5.8 迁移必须证明现行产品、runtime、catalog、安装包、依赖闭包、lockfile、SBOM、许可证和公开能力矩阵中均不存在 WhatsApp。历史发行审计可以保留在明确的历史语境中，但不能继续作为现行产品入口或活跃实现。未来若要重新引入，必须由 Owner 作出新的明确决定并取代本决策。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

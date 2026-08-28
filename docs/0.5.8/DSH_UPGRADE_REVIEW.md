@@ -68,6 +68,13 @@ The 0.5.8 migration must make these dependencies explicit and remove obsolete
 seams; it must not mechanically replace version strings until the new package
 graph and product behavior are proven.
 
+The review also found that product, DSH, Node, and Electron identity values are
+copied from the release-identity pins into runtime, bridge, registry, package,
+and contract surfaces. Package manifests and the release contract still need
+machine-readable values, but hand-maintained runtime copies are drift hazards.
+0.5.8 must generate or import derived values from one authoritative pin source
+and fail a cross-package equality gate when any required copy diverges.
+
 ## 4. Upstream architectural changes and Penglai consequences
 
 ### 4.1 ApiProxy removal and Remote ownership
@@ -251,6 +258,50 @@ Penglai consequence:
   state rather than unrelated 502 messages; and
 - test orphan-free shutdown and crash loops on native Windows.
 
+### 4.13 IM capability truth is not one boolean
+
+The 0.5.7 tree has conflicting machine meanings for channel availability. Its
+live-channel registry admits only Weixin and Feishu, while most channel
+manifests expose `live: true`; guided adapters can still report runtime health
+as false and reject send. The current settings client consumes the manifest
+boolean when describing connector availability. That ambiguity can make an
+entry card, bundled adapter, configured account, active connection, tested
+capability, and release claim look like the same fact.
+
+Penglai consequence:
+
+- replace the overloaded `live` flag with a closed truth model covering entry
+  availability, adapter mode (`native`, `guided`, or `unavailable`), bundled
+  runtime, connection state, and release-evidence state;
+- record capabilities such as authentication, inbound text, outbound text,
+  image, voice, reconnect, and exit separately where they differ;
+- derive UI and public support claims from the same authoritative state rather
+  than a permissive manifest default; and
+- permanently remove WhatsApp instead of representing it as unavailable,
+  experimental, disabled, guided, community, or future roadmap.
+
+### 4.14 Repository history is not active product scope
+
+Several scripts, evidence schemas, overlays, and compatibility wrappers have
+few or no ordinary imports. That fact alone does not prove they are dead: some
+are release hard gates, native/operator verifiers, package entry points,
+migration adapters, fixtures, or historical provenance. Conversely, keeping an
+active product adapter merely “for history” is unnecessary because Git already
+preserves history.
+
+Penglai consequence:
+
+- classify each candidate as release gate, operator tool, native verifier,
+  migration compatibility, fixture, active product code, or historical record
+  before retaining, relocating, or removing it;
+- require an owner, invocation path, supported versions, and retirement rule for
+  retained compatibility/evidence assets;
+- do not mass-delete on zero-reference search results and do not keep forbidden
+  WhatsApp product/runtime code solely as historical evidence; and
+- extract supervisor/health boundaries while repairing P0 lifecycle ownership,
+  and split profile/migration boundaries when those seams are migrated, without
+  a broad line-count refactor that mixes behavior change with architecture work.
+
 ## 5. Ownership classification for observed 0.5.7 findings
 
 ### A. Use the new official capability; do not duplicate it
@@ -282,6 +333,7 @@ Penglai consequence:
 - Memory curator lifecycle and scope isolation;
 - Companion install/enable transaction diagnosis;
 - user-facing error translation and one coherent degraded state; and
+- exact channel capability truth and permanent WhatsApp absence; and
 - native packaging, upgrade, uninstall, privacy, and three-target evidence.
 
 ### D. Reproduce after migration before deciding the fix
@@ -307,7 +359,13 @@ Penglai consequence:
 - a hidden second Agent/session system for Memory, Companion, or IM;
 - a rule that treats timeout, missing plugin UI, or disappeared errors as PASS;
 - a source-tag dependency presented as a reproducible npm release; or
-- a rebase of old exact-hash overlays before checking official new slots.
+- a rebase of old exact-hash overlays before checking official new slots;
+- an overloaded `live` boolean used as entry, runtime, connection, evidence, and
+  public-support truth;
+- a mass deletion justified only by zero in-repository references;
+- a broad refactor justified only by file length; or
+- any WhatsApp card, channel identity, adapter/runtime, dependency, packaging
+  path, test-matrix entry, support statement, or roadmap placeholder.
 
 ## 7. Dependency freeze checklist
 
@@ -320,6 +378,10 @@ Before changing `package.json` or `pnpm-lock.yaml`, record and verify:
 - fresh `pnpm install --frozen-lockfile` from a clean clone;
 - package licenses and notices;
 - source/package provenance and closure graph;
+- one authoritative product/DSH/Node/Electron pin source plus a cross-package
+  equality gate for every required generated or manifest copy;
+- absence of WhatsApp from the active dependency graph, lockfile, catalog,
+  package closure, SBOM, notices, and installer contents;
 - Node/Electron/platform constraints; and
 - a rollback path to the 0.5.7 pin for development only, not as silent runtime
   fallback.
