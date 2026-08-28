@@ -8,7 +8,7 @@
 
 ## Branch purpose
 
-- Branch: `codex/0.5.8-planning`
+- Branch: `0.5.8-preview`
 - Base: public `kevinchennewbee/PenglaiAgent` `main`
 - Base commit: `143482bf799b98734a70f74d38acb8932ed7864f`
 - Created: 2026-08-28
