@@ -36,6 +36,7 @@ function trackedCodeFiles() {
     .filter((path) => /^(?:apps|packages|scripts)\//.test(path))
     .filter((path) => /\.(?:c?js|mjs|json|tsx?)$/.test(path))
     .filter((path) => path !== "scripts/verify-058-migration-inventory.mjs")
+    .filter((path) => path !== "scripts/verify-dsh-alpha-owner-remotes.mjs")
     .filter((path) => existsSync(join(ROOT, path)));
 }
 
@@ -109,9 +110,17 @@ for (const path of expectedManifestConsumers) {
   }
 }
 
-const bridge = read("packages/dsh-bridge/src/plugin.ts");
+const bridge = read("packages/dsh-bridge/src/rc2-owner-adapter.ts");
 for (const operation of ["sessions?.create", "sessions?.models", "sessions?.selectModel"]) {
-  if (!bridge.includes(operation)) fail(`bridge no longer contains inventoried ApiProxy operation ${operation}`);
+  if (!bridge.includes(operation)) fail(`rc.2 owner adapter no longer contains inventoried ApiProxy operation ${operation}`);
+}
+const ownerPorts = read("packages/dsh-bridge/src/owner-ports.ts");
+for (const owner of ["DshAgentOwner", "DshWorkspaceOwner", "DshSessionOwner"]) {
+  if (!ownerPorts.includes(`interface ${owner}`)) fail(`bridge owner port is missing ${owner}`);
+}
+const bridgePlugin = read("packages/dsh-bridge/src/plugin.ts");
+if (bridgePlugin.includes("apiProxy?:") || bridgePlugin.includes("sessions?.create")) {
+  fail("composition plugin reabsorbed the historical rc.2 ApiProxy contract");
 }
 for (const path of [
   ...(inventory.desktopSupervisor?.sourceFiles ?? []),

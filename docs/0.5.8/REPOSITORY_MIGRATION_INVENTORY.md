@@ -22,8 +22,8 @@
 | Asset or pattern | Current class | Invocation/consumer | 0.5.8 disposition | Package gate |
 | --- | --- | --- | --- | --- |
 | `apps/desktop/package.json` `@deepseek-ai/dsh` | Active product | desktop packaged closure | Keep rc.2 until official reconciliation; then exact fixed-set update | Yes |
-| `packages/dsh-bridge/src/plugin.ts` `ctx.apiProxy.sessions.*` | Active product | IM/bridge Session creation and model routing | Replace with owner Session Remote; no compatibility ApiProxy | Yes |
-| `packages/dsh-bridge/src/index.ts` ApiProxy commentary/route check | Active product | inbound IM Agent calls | Rewrite around official Session Controller and model projection | Yes |
+| `packages/dsh-bridge/src/rc2-owner-adapter.ts` `ctx.apiProxy.sessions.*` | Active rc.2 compatibility | IM/bridge Session creation and model routing before package reconciliation | Confined to version-named adapter; retire when published owner Remote adapter passes | Yes |
+| `packages/dsh-bridge/src/owner-ports.ts` and `index.ts` | Active product | inbound IM Agent and directory calls | Agent/Workspace/Session owners split; bind to generated alpha clients after npm reconciliation | Yes |
 | `@deepseek-ai/dsh-host-apiproxy` closure assumptions | Release gate/active closure | closure/profile scripts | Remove only with new controller packages and clean closure proof | Yes |
 | `dsh.client.inject` `@deepseek-ai/dsh-client-runtime` | Active product | ASR, Budget, Companion, IM, Memory, TTS, Office, Center | Replace per-plugin with minimum narrow official graph | Yes |
 | `packages/*/src/dsh-client.js` generated/bundled clients | Active product/generated input | plugin packaging and DSH client fibers | Regenerate from source entry and verify exact fiber activation | Yes |
@@ -57,7 +57,7 @@ new caller in an already-known file cannot bypass review.
 
 | Legacy seam | Current observed surface | Fixed-source owner | Current decision |
 | --- | --- | --- | --- |
-| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 9 source, test, commentary, closure, and probe files | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Reference and caller map complete; implementation remains npm-blocked |
+| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 10 source, test, commentary, closure, and probe files; the active request shape is confined to one rc.2 adapter | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Penglai owner ports and rc.2 containment complete; generated alpha adapter remains npm-blocked |
 | `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; exact inject replacement remains npm-blocked |
 | `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate only with published generated clients |
 | direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
@@ -69,6 +69,12 @@ The alpha.1 source confirms `sessions.create -> session.create`,
 `sessions.selectModel -> session.selectModel`. This is a source mapping, not an
 authorization to imitate generated Remote declarations or copy upstream build
 artifacts.
+
+The source checkpoint also verifies this mapping directly with
+`scripts/verify-dsh-alpha-owner-remotes.mjs` against the exact clean alpha
+commit. Local bridge tests prove Workspace-owned order plus Session-owned title
+projection and title forwarding at the creation boundary. They do not substitute
+for the unpublished generated Remote client or package/native evidence.
 
 ## WhatsApp retirement boundary
 

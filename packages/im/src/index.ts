@@ -12,7 +12,7 @@ import { CryptoIds, SystemClock } from "./runtime-ids.js";
 import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import { DshBridge, PINNED_DSH, withPenglaiVoiceContext, type DshHost } from "@penglai/dsh-bridge";
-import { hostFromCordis, listenOfficialEvents, type CordisLike } from "@penglai/dsh-bridge/plugin";
+import { hostFromRc2Cordis, listenOfficialEvents, type CordisLike } from "@penglai/dsh-bridge/plugin";
 import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { DingTalkAdapter } from "@penglai/channel-dingtalk";
@@ -114,7 +114,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
     throw new PenglaiError("DSH_UNAVAILABLE", "PENGLAI_USER_DATA required for @penglai/im");
   }
   mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
-  const dsh = hostFromCordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
+  const dsh = hostFromRc2Cordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
   const objects = new ObjectStore(join(userData, "objects"));
   const attachments = (ctx as CordisLike & { attachments?: ImageAdmission }).attachments;
   const rt = createRuntime({

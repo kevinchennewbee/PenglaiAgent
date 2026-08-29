@@ -11,6 +11,7 @@ import {
 } from "@penglai/contracts";
 import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routing-core";
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
+import type { DshAgentLike, DshHost } from "./owner-ports.js";
 
 export const PINNED_DSH = "0.1.1-rc.2";
 export const PINNED_DSH_COMMIT = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
@@ -58,46 +59,17 @@ export function probePinnedPackages(): { dsh?: string; agent?: string; llm?: str
   return { ...(dsh ? { dsh } : {}), ...(agent ? { agent } : {}), ...(llm ? { llm } : {}), ...(workspace ? { workspace } : {}) };
 }
 
-export interface DshAgentLike {
-  id: string;
-  session?: {
-    events?: ReadonlyArray<{
-      type?: string;
-      data?: { inserted?: ReadonlyArray<{ id?: string }> };
-    }>;
-  };
-  followup(message: {
-    id?: string;
-    role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
-    source: PenglaiImSource;
-  }): void;
-  steer(message: {
-    id?: string;
-    role: "user";
-    content: Array<{ type: "text"; text: string } | { type: "image"; attachment: OfficialImageRef }>;
-    source: PenglaiImSource;
-  }): void;
-  cancel(cause: string, opts?: { keepInbox?: boolean }): void;
-  inbox: { remove(id: string): boolean };
-}
-
-export interface DshHost {
-  version: string;
-  getAgent(sessionId: string): DshAgentLike | undefined;
-  resumeAgent?(sessionId: string): Promise<DshAgentLike>;
-  listWorkspaces(): { id: string; title: string; sessionIds: string[]; group?: string }[];
-  createSession?(workspaceIdentity: string): Promise<{ id: string }>;
-  describeSessionModels?(sessionId: string): Promise<{
-    current: { provider: string; model: string; reasoningEffort?: string };
-    routable: boolean;
-    groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>;
-  }>;
-  selectSessionModel?(
-    sessionId: string,
-    selection: { provider: string; model: string; reasoningEffort?: string },
-  ): Promise<{ provider: string; model: string; reasoningEffort?: string }>;
-}
+export type {
+  DshAgentLike,
+  DshAgentOwner,
+  DshHost,
+  DshModelSelection,
+  DshSessionModelDirectory,
+  DshSessionOwner,
+  DshSessionView,
+  DshWorkspaceOwner,
+  DshWorkspaceView,
+} from "./owner-ports.js";
 
 function hasDurableMessage(agent: DshAgentLike, messageId: string): boolean {
   return (agent.session?.events ?? []).some((event) =>
@@ -242,8 +214,8 @@ export class DshBridge implements AgentPort, DirectoryPort {
   }
 
   async listWorkspaces() {
-    return this.ops.run(undefined, () =>
-      this.host.listWorkspaces().map((w) => ({
+    return this.ops.run(undefined, async () =>
+      (await this.host.listWorkspaces()).map((w) => ({
         id: w.id,
         title: w.title,
         sessionIds: [...w.sessionIds],
@@ -253,18 +225,21 @@ export class DshBridge implements AgentPort, DirectoryPort {
   }
 
   async listSessions(workspaceIdentity: string) {
-    return this.ops.run(undefined, () => {
-      const ws = this.host.listWorkspaces().find((w) => w.id === workspaceIdentity);
-      return (ws?.sessionIds ?? []).map((id) => ({ id }));
+    return this.ops.run(undefined, async () => {
+      const ws = (await this.host.listWorkspaces()).find((w) => w.id === workspaceIdentity);
+      const sessionIds = ws?.sessionIds ?? [];
+      if (!this.host.listSessions) return sessionIds.map((id) => ({ id }));
+      const summaries = new Map((await this.host.listSessions()).map((session) => [session.id, session]));
+      return sessionIds.map((id) => summaries.get(id) ?? { id });
     });
   }
 
-  async createSession(workspaceIdentity: string): Promise<{ id: string }> {
+  async createSession(workspaceIdentity: string, title: string): Promise<{ id: string }> {
     return this.ops.run(undefined, async () => {
       if (!this.host.createSession) {
         throw new PenglaiError("DSH_UNAVAILABLE", "official session.create unavailable");
       }
-      return this.host.createSession(workspaceIdentity);
+      return this.host.createSession(workspaceIdentity, title);
     });
   }
 
@@ -298,11 +273,10 @@ export class DshBridge implements AgentPort, DirectoryPort {
   }
 
   /**
-   * Enter through the official ApiProxy session-model seam before waking an
-   * Agent. Besides validating that the selected route is still available,
-   * rc8 uses this call to install the session-local `agent/request` model
-   * waterfall on cold/resumed agents. Calling `agents.resume` alone does not
-   * establish that entry-point-owned selection.
+   * Enter through the official Session owner's model seam before waking an
+   * Agent. The active rc.2 adapter uses ApiProxy; alpha uses Session Controller
+   * model catalog and durable selection projection. Calling Agent resume alone
+   * does not establish that entry-point-owned selection.
    */
   private async ensureSessionModelRoute(sessionId: string): Promise<void> {
     if (!this.host.describeSessionModels) return;
