@@ -24,11 +24,11 @@
 | P058-005 | Split source and package gates | Governance | DONE | source work open; DSH dependency integration remains blocked |
 | P058-006 | Upstream-to-Penglai migration matrix | Source/design | DONE | direct consumers and acceptance gates assigned; refine during implementation |
 | P058-007 | Repository asset classification | Source/design | IN_PROGRESS | primary DSH, release, WhatsApp, and independent-fix assets classified |
-| P058-008 | Preview invariant verifier | Source/CI | IN_PROGRESS | protect release/public surfaces and DSH pins; run locally and in preview CI |
-| P058-009 | Enable Source CI on preview branch | Source/CI | IN_PROGRESS | workflow change must remain preview-only until separately reviewed for main |
+| P058-008 | Preview invariant verifier | Source/CI | DONE | local and remote preview gate PASS; protects release/public surfaces and DSH pins |
+| P058-009 | Enable Source CI on preview branch | Source/CI | DONE | first preview Source CI PASS on `602f684b`; no main workflow run or release action |
 | P058-010 | Remove WhatsApp active source and identity | Source | READY | D-062 authorizes removal; preserve 0.5.7 historical docs/assets |
 | P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | READY | regenerate lockfile without changing DSH pins; absence tests required |
-| P058-012 | Contain Feishu asynchronous media callback failures | Source | READY | terminal handler plus regression test; no npm dependency |
+| P058-012 | Contain Feishu asynchronous media callback failures | Source | DONE | callback stays bounded; rejection resolves to redacted durable terminal state; focused tests PASS |
 | P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | IN_PROGRESS | bridge Session create/models/select identified; closure assumptions remain |
 | P058-014 | Implement owner Remote migration | Package/source | BLOCKED_NPM | exact published declarations/generated clients required |
 | P058-015 | Map all `dsh-client-runtime` consumers | Source/design | IN_PROGRESS | eight first-party client bundles identified; exact inject graph pending |
@@ -60,6 +60,12 @@ Push a checkpoint to `origin/0.5.8-preview` only when it is internally coherent,
 has focused tests, passes the preview invariant, and does not include unrelated
 owner work. Record the commit and CI result here after remote readback. Do not
 use a partial broken push merely to create activity.
+
+## Published checkpoints
+
+| Commit | Scope | Remote verification |
+| --- | --- | --- |
+| `602f684b399e7ad7d0b11b3ccb1bf74342ff6832` | fixed DSH source baseline, migration/inventory ledgers, preview invariant and CI | branch readback PASS; [Source CI 33239599306](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33239599306) PASS |
 
 ## Publication reconciliation placeholder
 
