@@ -39,13 +39,19 @@ import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
 import {
+  IDLE_SUPERVISOR_RECOVERY,
   nextSupervisorHealthDecision,
+  redactSupervisorLog,
   reusableSupervisorPort,
   shouldRestartAfterExit,
   supervisorBackoffMs,
   SUPERVISOR_HEALTH_INTERVAL_MS,
   SUPERVISOR_HEALTH_TIMEOUT_MS,
+  SUPERVISOR_RESTART_MAX,
+  SUPERVISOR_RESTART_WINDOW_MS,
   SUPERVISOR_UNHEALTHY_KILL_GRACE_MS,
+  type SupervisorFailureTrigger,
+  type SupervisorRecoverySnapshot,
 } from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
@@ -1078,16 +1084,25 @@ export interface EmbeddedDshSupervisorOptions {
   healthIntervalMs?: number;
   healthTimeoutMs?: number;
   unhealthyKillGraceMs?: number;
+  startupHttpTimeoutMs?: number;
+  inventoryTimeoutMs?: number;
+  restartBackoffMs?: number;
+  onRecoveryStateChange?: (snapshot: Readonly<SupervisorRecoverySnapshot>) => void;
 }
 
+export type EmbeddedDshSupervisorState = "stopped" | "starting" | "healthy" | "degraded" | "crashed" | "stopping";
+
 export class EmbeddedDshSupervisor {
-  state: "stopped" | "starting" | "healthy" | "degraded" | "crashed" | "stopping" = "stopped";
+  state: EmbeddedDshSupervisorState = "stopped";
   port = 0;
   child: ChildProcess | undefined;
   restarts = 0;
   restartStamps: number[] = [];
   logs = "";
   identity: ProcessIdentity | undefined;
+  recovery: SupervisorRecoverySnapshot = { ...IDLE_SUPERVISOR_RECOVERY };
+  private stateChangedAt = Date.now();
+  private pendingFailure: SupervisorFailureTrigger | undefined;
   private lastUser: UserLayout | undefined;
   private lastStartEnv: NodeJS.ProcessEnv = {};
   private restartTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1108,6 +1123,39 @@ export class EmbeddedDshSupervisor {
     private readonly layout: RuntimeLayout,
     private readonly options: EmbeddedDshSupervisorOptions = {},
   ) {}
+
+  get phaseMs(): number {
+    return Math.max(0, Date.now() - this.stateChangedAt);
+  }
+
+  private setState(state: EmbeddedDshSupervisorState): void {
+    if (this.state === state) return;
+    this.state = state;
+    this.stateChangedAt = Date.now();
+  }
+
+  private setRecovery(recovery: SupervisorRecoverySnapshot): void {
+    if (
+      this.recovery.status === recovery.status &&
+      this.recovery.reason === recovery.reason &&
+      this.recovery.attempt === recovery.attempt &&
+      this.recovery.maxAttempts === recovery.maxAttempts &&
+      this.recovery.exitCode === recovery.exitCode &&
+      this.recovery.trigger === recovery.trigger &&
+      this.recovery.lastFailure === recovery.lastFailure
+    ) return;
+    this.recovery = { ...recovery };
+    try {
+      this.options.onRecoveryStateChange?.({ ...this.recovery });
+    } catch {
+      // Recovery observers are UI hints. They must never destabilize the owner.
+    }
+  }
+
+  private recentRestartCount(now = Date.now()): number {
+    this.restartStamps = this.restartStamps.filter((stamp) => now - stamp < SUPERVISOR_RESTART_WINDOW_MS);
+    return this.restartStamps.length;
+  }
 
   private boundedOption(value: number | undefined, fallback: number): number {
     return Number.isFinite(value) ? Math.max(1, Math.floor(value!)) : fallback;
@@ -1154,7 +1202,7 @@ export class EmbeddedDshSupervisor {
     if (generation !== this.lifecycleGeneration || controller.signal.aborted) return;
     const decision = nextSupervisorHealthDecision(this.healthFailures, healthy);
     this.healthFailures = decision.consecutiveFailures;
-    this.state = decision.state;
+    this.setState(decision.state);
     if (healthy && this.lastHealthyInventory) {
       this.health = { http: 200, inventory: this.lastHealthyInventory };
     } else if (!healthy) {
@@ -1164,6 +1212,16 @@ export class EmbeddedDshSupervisor {
       this.scheduleHealthProbe(user, generation);
       return;
     }
+    this.pendingFailure = "health-check-failed";
+    this.setRecovery({
+      status: "recovering",
+      reason: "health-check-failed",
+      attempt: this.recentRestartCount() + 1,
+      maxAttempts: SUPERVISOR_RESTART_MAX,
+      exitCode: null,
+      trigger: "health-check-failed",
+      lastFailure: "health-check-failed",
+    });
     this.terminateUnhealthyChild(generation);
   }
 
@@ -1174,7 +1232,7 @@ export class EmbeddedDshSupervisor {
     if (identity) killIdentity(identity, "SIGTERM");
     else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
     else {
-      this.scheduleRestartAfterExit(false);
+      this.scheduleRestartAfterExit(false, "health-check-failed", null);
       return;
     }
     this.unhealthyKillTimer = setTimeout(() => {
@@ -1186,38 +1244,107 @@ export class EmbeddedDshSupervisor {
     this.unhealthyKillTimer.unref?.();
   }
 
-  private scheduleRestartAfterExit(intentional: boolean): void {
-    if (
-      !shouldRestartAfterExit({
-        intentional,
-        state: this.state,
-        stamps: this.restartStamps,
-      })
-    ) {
-      if (!intentional) this.state = "crashed";
+  private scheduleRestartAfterExit(intentional: boolean, failure: SupervisorFailureTrigger, exitCode: number | null): void {
+    this.pendingFailure = undefined;
+    const recoveryExitCode = exitCode ?? this.recovery.exitCode;
+    const now = Date.now();
+    const attempts = this.recentRestartCount(now);
+    const trigger = this.recovery.status === "recovering" && this.recovery.trigger !== "none"
+      ? this.recovery.trigger
+      : failure;
+    if (intentional || this.state === "stopping" || this.state === "stopped") return;
+    if (this.state === "starting") {
+      // start() owns readiness failures. Its automatic-restart caller consumes
+      // the next budget slot after cleanup; initial boot reports only once.
+      this.setState("crashed");
       return;
     }
-    this.restartStamps.push(Date.now());
+    if (
+      !shouldRestartAfterExit({
+        intentional: false,
+        state: this.state,
+        stamps: this.restartStamps,
+        now,
+      })
+    ) {
+      this.setState("crashed");
+      this.setRecovery({
+        status: "manual-action-required",
+        reason: "restart-budget-exhausted",
+        attempt: attempts,
+        maxAttempts: SUPERVISOR_RESTART_MAX,
+        exitCode: recoveryExitCode,
+        trigger,
+        lastFailure: failure,
+      });
+      return;
+    }
+    this.restartStamps.push(now);
     this.restarts += 1;
-    this.state = "crashed";
+    this.setState("crashed");
+    this.setRecovery({
+      status: "recovering",
+      reason: failure,
+      attempt: attempts + 1,
+      maxAttempts: SUPERVISOR_RESTART_MAX,
+      exitCode: recoveryExitCode,
+      trigger,
+      lastFailure: failure,
+    });
     const user = this.lastUser;
-    if (!user) return;
+    if (!user) {
+      this.setRecovery({
+        status: "manual-action-required",
+        reason: "restart-start-failed",
+        attempt: attempts + 1,
+        maxAttempts: SUPERVISOR_RESTART_MAX,
+        exitCode: recoveryExitCode,
+        trigger,
+        lastFailure: failure,
+      });
+      return;
+    }
     const restartEnv = { ...this.lastStartEnv };
     const restartPort = this.port;
-    const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
+    const delay = this.options.restartBackoffMs === undefined
+      ? supervisorBackoffMs(attempts, Math.random())
+      : this.boundedOption(this.options.restartBackoffMs, supervisorBackoffMs(attempts, 0));
     this.restartTimer = setTimeout(() => {
       this.restartTimer = undefined;
       if (this.state === "stopping" || this.state === "stopped") return;
       void this.start(user, restartEnv, restartPort).catch(() => {
-        this.state = "crashed";
+        if (this.state === "stopping" || this.state === "stopped") return;
+        this.setState("crashed");
+        this.scheduleRestartAfterExit(false, "restart-start-failed", null);
       });
     }, delay);
     this.restartTimer.unref?.();
   }
 
+  private async terminateOwnedChild(user: UserLayout | undefined): Promise<void> {
+    const child = this.child;
+    const identity = this.identity;
+    if (identity) killIdentity(identity, "SIGTERM");
+    else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
+    if (child) await waitChildExit(child, 3000);
+    if (identity) killIdentity(identity, "SIGKILL");
+    else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
+    if (child) await waitChildExit(child, 1000);
+    reapDshOrphans(this.layout);
+    if (user) clearIdentity(user);
+    this.child = undefined;
+    this.identity = undefined;
+  }
+
   async start(user: UserLayout, env: NodeJS.ProcessEnv = {}, preferredPort?: number): Promise<{ port: number }> {
     if (this.state === "healthy" || this.state === "starting" || this.state === "degraded") {
       return { port: this.port };
+    }
+    const automaticRecovery = this.recovery.status === "recovering";
+    if (!automaticRecovery) {
+      this.restartStamps = [];
+      this.restarts = 0;
+      this.setRecovery({ ...IDLE_SUPERVISOR_RECOVERY });
     }
     this.clearHealthMonitoring();
     if (this.restartTimer) {
@@ -1239,7 +1366,7 @@ export class EmbeddedDshSupervisor {
     };
     migrateUserSchema(user);
     killStaleSupervisor(this.layout, user);
-    this.state = "starting";
+    this.setState("starting");
     this.logs = "";
     this.health = undefined;
     this.identity = undefined;
@@ -1325,32 +1452,49 @@ export class EmbeddedDshSupervisor {
       }
     }
     this.child.stdout?.on("data", (d: Buffer) => {
-      this.logs += String(d);
+      this.logs = `${this.logs}${String(d)}`.slice(-40_000);
     });
     this.child.stderr?.on("data", (d: Buffer) => {
-      this.logs += String(d);
+      this.logs = `${this.logs}${String(d)}`.slice(-40_000);
     });
-    this.child.on("exit", () => {
+    this.child.on("exit", (code) => {
       if (generation !== this.lifecycleGeneration) return;
       const intentional = this.state === "stopping";
+      const failure = this.pendingFailure ?? "process-exit";
+      this.pendingFailure = undefined;
       this.clearHealthMonitoring();
       this.health = undefined;
-      this.scheduleRestartAfterExit(intentional);
+      this.scheduleRestartAfterExit(intentional, failure, code);
     });
     try {
       await waitPort(this.port, 25_000);
       const [http, inventory] = await Promise.all([
-        waitHttp200(`http://127.0.0.1:${this.port}/`, 25_000),
-        waitInventory(user, 30_000),
+        waitHttp200(`http://127.0.0.1:${this.port}/`, this.boundedOption(this.options.startupHttpTimeoutMs, 25_000)),
+        waitInventory(user, this.boundedOption(this.options.inventoryTimeoutMs, 30_000)),
       ]);
       this.health = { http: http.status, inventory };
       this.lastHealthyInventory = inventory;
-      this.state = "healthy";
+      this.setState("healthy");
+      if (automaticRecovery) this.setRecovery({ ...this.recovery, status: "recovered" });
       this.scheduleHealthProbe(user, generation);
     } catch (err) {
-      this.state = "crashed";
-      writeFileSync(join(user.logs, "dsh.stderr.log"), this.logs.slice(-20_000), { mode: 0o600 });
-      await this.stop();
+      if (generation === this.lifecycleGeneration) {
+        this.lifecycleGeneration += 1;
+        this.clearHealthMonitoring();
+        this.setState("crashed");
+        try {
+          mkdirSync(user.logs, { recursive: true, mode: 0o700 });
+          writeFileSync(
+            join(user.logs, "dsh.stderr.log"),
+            redactSupervisorLog(this.logs, [user.root, user.dshHome, userInfo().homedir, this.layout.appRoot]),
+            { mode: 0o600 },
+          );
+        } catch {
+          // Structured recovery remains available if the local excerpt cannot be persisted.
+        }
+        await this.terminateOwnedChild(user);
+        this.setState("crashed");
+      }
       throw err;
     }
     return { port: this.port };
@@ -1358,23 +1502,17 @@ export class EmbeddedDshSupervisor {
 
   async stop(): Promise<void> {
     this.lifecycleGeneration += 1;
+    this.pendingFailure = undefined;
     this.clearHealthMonitoring();
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = undefined;
     }
-    this.state = "stopping";
-    const child = this.child;
-    if (this.identity) killIdentity(this.identity, "SIGTERM");
-    else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
-    if (child) await waitChildExit(child, 3000);
-    if (this.identity) killIdentity(this.identity, "SIGKILL");
-    else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
-    if (child) await waitChildExit(child, 1000);
-    reapDshOrphans(this.layout);
-    if (this.lastUser) clearIdentity(this.lastUser);
-    this.child = undefined;
-    this.identity = undefined;
-    this.state = "stopped";
+    this.setState("stopping");
+    await this.terminateOwnedChild(this.lastUser);
+    this.setState("stopped");
+    if (this.recovery.status !== "manual-action-required") {
+      this.setRecovery({ ...IDLE_SUPERVISOR_RECOVERY });
+    }
   }
 }

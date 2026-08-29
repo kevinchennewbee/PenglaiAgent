@@ -108,6 +108,29 @@ Alpha.1's authenticated browser boot may require a different steady-state probe
 route once its official packages exist; redacted terminal diagnostics, restart
 exhaustion UX, and native orphan proof also remain open.
 
+**Terminal recovery source checkpoint, 2026-08-29**
+
+The restart budget now covers failed restart readiness, not only the first
+child exit. Three attempts inside the five-minute window end in the closed
+`manual-action-required` state with both the initiating trigger, the last safe
+failure class, and exit code;
+an explicit owner retry starts a new budget. Recovery transitions are emitted
+through the live desktop facade, and the desktop moves to its bilingual
+recovery surface after exhaustion instead of leaving the official page on
+repeated 502s. Retry, Quit, Open Logs/Data, and Copy Diagnostics handlers are
+registered before runtime startup and accept calls only from that recovery
+page, so an early startup failure cannot strand the user.
+
+Clipboard and startup diagnostics now contain only bounded structured fields:
+app/source identity, platform, DSH pin, phase duration, restart count, closed
+recovery state, required-plugin booleans, exit code, and closed error codes.
+Raw exception text is no longer inserted into the DOM or startup log. The
+bounded DSH stderr excerpt redacts private roots and credential-shaped values.
+A real child-process test proves transient recovery, restart failure, exactly
+three attempts, owned-child cleanup, and the final manual state. This closes
+the source-level diagnostic and exhaustion-UX items; alpha.1 authenticated
+probe reconciliation and three-target installed/native proof remain open.
+
 **Overlay source checkpoint, 2026-08-29**
 
 The rc.2 Web/Models/Conversation/Settings overlay is now decomposed into 12

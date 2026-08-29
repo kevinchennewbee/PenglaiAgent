@@ -18,6 +18,44 @@ export const SUPERVISOR_HEALTH_TIMEOUT_MS = 2_000;
 export const SUPERVISOR_HEALTH_FAILURE_THRESHOLD = 3;
 export const SUPERVISOR_UNHEALTHY_KILL_GRACE_MS = 2_000;
 
+export const SUPERVISOR_RECOVERY_STATUSES = [
+  "idle",
+  "recovering",
+  "recovered",
+  "manual-action-required",
+] as const;
+export type SupervisorRecoveryStatus = (typeof SUPERVISOR_RECOVERY_STATUSES)[number];
+
+export const SUPERVISOR_RECOVERY_REASONS = [
+  "none",
+  "process-exit",
+  "health-check-failed",
+  "restart-start-failed",
+  "restart-budget-exhausted",
+] as const;
+export type SupervisorRecoveryReason = (typeof SUPERVISOR_RECOVERY_REASONS)[number];
+export type SupervisorFailureTrigger = Exclude<SupervisorRecoveryReason, "none" | "restart-budget-exhausted">;
+
+export interface SupervisorRecoverySnapshot {
+  status: SupervisorRecoveryStatus;
+  reason: SupervisorRecoveryReason;
+  attempt: number;
+  maxAttempts: number;
+  exitCode: number | null;
+  trigger: SupervisorFailureTrigger | "none";
+  lastFailure: SupervisorFailureTrigger | "none";
+}
+
+export const IDLE_SUPERVISOR_RECOVERY: Readonly<SupervisorRecoverySnapshot> = Object.freeze({
+  status: "idle",
+  reason: "none",
+  attempt: 0,
+  maxAttempts: SUPERVISOR_RESTART_MAX,
+  exitCode: null,
+  trigger: "none",
+  lastFailure: "none",
+});
+
 export interface SupervisorHealthDecision {
   consecutiveFailures: number;
   state: "healthy" | "degraded";
@@ -73,6 +111,8 @@ export interface RedactedSupervisorDiagnostic {
   phase: BootPhase | string;
   phaseMs: number;
   exitCode: number | null;
+  restartCount: number;
+  recovery: SupervisorRecoverySnapshot;
   requiredPlugins: Array<{ id: string; ok: boolean }>;
   errorCodes: string[];
 }
@@ -85,7 +125,9 @@ export function redactSupervisorDiagnostic(input: {
   dsh: string;
   phase: string;
   phaseMs: number;
-  exitCode?: number;
+  exitCode?: number | null;
+  restartCount?: number;
+  recovery?: SupervisorRecoverySnapshot;
   requiredPlugins: Array<{ id: string; ok: boolean }>;
   errorCodes: string[];
   home?: string;
@@ -104,7 +146,46 @@ export function redactSupervisorDiagnostic(input: {
     phase: input.phase,
     phaseMs: input.phaseMs,
     exitCode: input.exitCode ?? null,
-    requiredPlugins: input.requiredPlugins,
-    errorCodes: input.errorCodes.slice(0, 8),
+    restartCount: Math.max(0, Math.floor(input.restartCount ?? 0)),
+    recovery: { ...(input.recovery ?? IDLE_SUPERVISOR_RECOVERY) },
+    requiredPlugins: input.requiredPlugins.slice(0, 16).map((row) => ({ id: row.id, ok: row.ok })),
+    errorCodes: input.errorCodes.filter((code) => /^[A-Z][A-Z0-9_]{0,47}$/.test(code)).slice(0, 8),
   };
+}
+
+function recoveryReasonErrorCode(reason: SupervisorRecoveryReason): string | undefined {
+  switch (reason) {
+    case "process-exit": return "DSH_PROCESS_EXIT";
+    case "health-check-failed": return "DSH_HEALTH_CHECK_FAILED";
+    case "restart-start-failed": return "DSH_RESTART_START_FAILED";
+    case "restart-budget-exhausted": return "DSH_RESTART_BUDGET_EXHAUSTED";
+    case "none": return undefined;
+  }
+}
+
+export function supervisorRecoveryErrorCodes(snapshot: SupervisorRecoverySnapshot): string[] {
+  const codes = [
+    recoveryReasonErrorCode(snapshot.reason),
+    recoveryReasonErrorCode(snapshot.trigger),
+    recoveryReasonErrorCode(snapshot.lastFailure),
+  ]
+    .filter((code): code is string => Boolean(code));
+  return [...new Set(codes)];
+}
+
+export function redactSupervisorLog(
+  text: string,
+  privatePaths: readonly string[] = [],
+  maxCharacters = 20_000,
+): string {
+  let redacted = text;
+  for (const path of privatePaths.filter(Boolean).sort((left, right) => right.length - left.length)) {
+    redacted = redacted.split(path).join("[private-path]");
+  }
+  redacted = redacted
+    .replace(/sk-[A-Za-z0-9_-]{8,}/g, "sk-[redacted]")
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/-]{8,}=*/gi, "$1 [redacted]")
+    .replace(/\b(api[_-]?key|secret|token|password)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+    .replace(/([?&](?:api[_-]?key|secret|token|password)=)[^&\s]+/gi, "$1[redacted]");
+  return redacted.slice(-Math.max(0, Math.floor(maxCharacters)));
 }

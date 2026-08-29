@@ -5,7 +5,7 @@ import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
 import { DshSupervisor, type DshSupervisorInner } from "./supervisor.js";
-import { EMPTY_INVENTORY_PROOF, type RuntimeLayout, type UserLayout } from "@penglai/runtime";
+import { EMPTY_INVENTORY_PROOF, type RuntimeLayout, type SupervisorRecoverySnapshot, type UserLayout } from "@penglai/runtime";
 
 test("community release notice keeps platform trust limits without candidate wording", () => {
   assert.match(UNSIGNED_NOTICE, /ad-hoc|unsigned|not notarized/i);
@@ -45,6 +45,8 @@ test("desktop supervisor reflects one inner lifecycle instead of stale copied st
   };
   let factoryCalls = 0;
   let startCalls = 0;
+  let emitRecovery: ((snapshot: Readonly<SupervisorRecoverySnapshot>) => void) | undefined;
+  const observedRecovery: string[] = [];
   const inner: DshSupervisorInner = {
     state: "stopped",
     port: 0,
@@ -63,15 +65,30 @@ test("desktop supervisor reflects one inner lifecycle instead of stale copied st
       this.health = undefined;
     },
   };
-  const supervisor = new DshSupervisor(layout, () => {
+  const supervisor = new DshSupervisor(layout, (_layout, options) => {
     factoryCalls += 1;
+    emitRecovery = options.onRecoveryStateChange;
     return inner;
   });
+  supervisor.onRecoveryStateChange((snapshot) => observedRecovery.push(snapshot.status));
 
   await supervisor.start(user);
   assert.equal(supervisor.state, "healthy");
   assert.equal(supervisor.port, 41_234);
   assert.equal(supervisor.childPid, 4242);
+  assert.equal(supervisor.recovery.status, "idle");
+  inner.recovery = {
+    status: "manual-action-required",
+    reason: "restart-budget-exhausted",
+    attempt: 3,
+    maxAttempts: 3,
+    exitCode: 1,
+    trigger: "process-exit",
+    lastFailure: "process-exit",
+  };
+  emitRecovery?.(inner.recovery);
+  assert.deepEqual(observedRecovery, ["manual-action-required"]);
+  assert.equal(supervisor.recovery.attempt, 3);
   inner.state = "crashed";
   inner.restarts = 1;
   inner.health = undefined;
@@ -143,10 +160,11 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(main, /await delay\(120\)/);
   assert.match(main, /win\.setOpacity\(1\)/);
-  assert.ok(main.indexOf('requestAnimationFrame(resolve)') < main.indexOf('await revealWindow();'));
+  const splashBlock = main.slice(main.indexOf("if (existsSync(splashPage))"), main.indexOf("if (existsSync(splashPage))") + 500);
+  assert.ok(splashBlock.indexOf('requestAnimationFrame(resolve)') < splashBlock.indexOf('await revealWindow();'));
   assert.ok(main.indexOf('win.show();') < main.indexOf('win.setOpacity(1)'));
   assert.match(main, /revealWindow\(\)/);
-  assert.match(main, /win\.loadFile\(recovery\)/);
+  assert.match(main, /win\.loadFile\(recoveryPage\)/);
   assert.match(main, /wizard:\s*\{\s*root:\s*wizardRoot/);
   assert.match(main, /wizardUrlForOrigin/);
   assert.match(main, /wizardFinished/);
@@ -163,15 +181,22 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /openPluginLink/);
   assert.match(main, /assertSafeHttpsUrl/);
   assert.match(main, /recoveryCopyDiagnostics/);
+  assert.match(main, /onRecoveryStateChange/);
+  assert.match(main, /manual-action-required/);
+  assert.match(main, /lastRecoveryDiagnostic/);
+  assert.match(main, /if \(recoveryIpcNames\.has\(name\)\) continue/);
+  assert.match(main, /event\.sender\.getURL\(\) !== recoveryUrl/);
+  assert.ok(main.indexOf("for (const name of recoveryIpcNames)") < main.indexOf("const resources = resourcesRoot()"));
+  assert.doesNotMatch(main, /p\.dataset\.penglaiError|p\.textContent/);
   assert.match(main, /splash\.html/);
   assert.match(main, /extraFileUrls/);
 });
 
 test("startup failure tears down owned services before rendering recovery", () => {
   const source = readFileSync(new URL("./electron-main.ts", import.meta.url), "utf8");
-  const failProbe = source.slice(source.indexOf("const failProbe"), source.indexOf("const failProbe") + 900);
+  const failProbe = source.slice(source.indexOf("const failProbe"), source.indexOf("const failProbe") + 2_000);
   assert.match(failProbe, /await stopOwnedServices\(\)/);
-  assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recovery)"));
+  assert.ok(failProbe.indexOf("await stopOwnedServices()") < failProbe.indexOf("win.loadFile(recoveryPage)"));
   assert.match(failProbe, /if \(stopping \|\| win\.isDestroyed\(\)\) return/);
 });
 
@@ -225,6 +250,9 @@ test("recovery screen uses plain user-facing language", async () => {
   assert.match(html, /data-penglai-recovery-zh/);
   assert.match(html, /Penglai could not start normally/);
   assert.match(html, /data-penglai-recovery-retry/);
+  assert.match(html, /Automatic recovery stopped after three attempts/);
+  assert.match(html, /自动恢复已尝试三次并停止/);
+  assert.match(html, /data-penglai-recovery-exhausted/);
   assert.match(html, /Content-Security-Policy/);
 });
 

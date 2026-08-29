@@ -363,6 +363,7 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
   }));
   writeFileSync(modePath, "healthy\n");
   ensurePrivateHome(user, app);
+  const recoveryStates: string[] = [];
   const supervisor = new EmbeddedDshSupervisor({
     appRoot: app,
     nodeBin: process.execPath,
@@ -375,6 +376,10 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     healthIntervalMs: 50,
     healthTimeoutMs: 100,
     unhealthyKillGraceMs: 30,
+    startupHttpTimeoutMs: 500,
+    inventoryTimeoutMs: 500,
+    restartBackoffMs: 10,
+    onRecoveryStateChange: (snapshot) => recoveryStates.push(snapshot.status),
   });
   const waitUntil = async (predicate: () => boolean, timeoutMs: number): Promise<void> => {
     const deadline = Date.now() + timeoutMs;
@@ -410,6 +415,27 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     await new Promise((resolveWait) => setTimeout(resolveWait, 100));
     assert.equal(supervisor.state, "stopped");
     assert.equal(supervisor.restarts, restartsBeforeStop, "Stop must cancel health-triggered restart");
+
+    writeFileSync(modePath, "healthy\n");
+    await supervisor.start(user);
+    assert.equal(supervisor.restarts, 0, "an explicit start begins a new recovery budget");
+    writeFileSync(modePath, "hang\n");
+    await waitUntil(() => supervisor.recovery.status === "manual-action-required", 8_000);
+    assert.equal(supervisor.state, "crashed");
+    assert.equal(supervisor.restarts, 3);
+    assert.deepEqual(supervisor.recovery, {
+      status: "manual-action-required",
+      reason: "restart-budget-exhausted",
+      attempt: 3,
+      maxAttempts: 3,
+      exitCode: 0,
+      trigger: "health-check-failed",
+      lastFailure: "restart-start-failed",
+    });
+    assert.equal(supervisor.child, undefined);
+    assert.ok(recoveryStates.includes("recovering"));
+    assert.ok(recoveryStates.includes("recovered"));
+    assert.equal(recoveryStates.at(-1), "manual-action-required");
   } finally {
     writeFileSync(modePath, "healthy\n");
     await supervisor.stop();

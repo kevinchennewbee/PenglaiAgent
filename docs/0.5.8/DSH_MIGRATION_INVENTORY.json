@@ -166,9 +166,11 @@
     "packages/plugin-center/package.json"
   ],
   "desktopSupervisor": {
-    "state": "SOURCE_CHILD_EXIT_RESTART_AND_HTTP_HEALTH_FIXED",
+    "state": "SOURCE_TERMINAL_RECOVERY_FIXED",
     "sourceFiles": [
+      "apps/desktop/src/electron-main.ts",
       "apps/desktop/src/supervisor.ts",
+      "apps/desktop/static/index.html",
       "packages/runtime/src/index.ts",
       "packages/runtime/src/process.ts",
       "packages/runtime/src/supervisor-policy.ts",
@@ -177,6 +179,7 @@
     "testFiles": [
       "apps/desktop/src/arch.test.ts",
       "apps/desktop/src/desktop.test.ts",
+      "apps/desktop/src/security.test.ts",
       "packages/runtime/src/runtime.test.ts",
       "packages/runtime/src/supervisor-policy.test.ts",
       "packages/runtime/src/windows-host.test.ts"
@@ -193,6 +196,13 @@
       "startup and continuous official-document HTTP probes have bounded timeouts",
       "transient HTTP failure enters degraded state and a good probe recovers without restart",
       "three consecutive HTTP failures terminate the owned tree through SIGTERM then SIGKILL escalation",
+      "failed automatic restart readiness consumes the next slot in the same bounded budget",
+      "three failed attempts end in a closed manual-action-required state",
+      "terminal recovery retains both the initiating trigger and last failure class",
+      "explicit owner retry starts a fresh recovery budget",
+      "desktop exhaustion actions are registered before startup and restricted to the recovery page",
+      "clipboard and startup diagnostics contain only bounded structured fields and closed error codes",
+      "bounded stderr excerpts redact private roots and credential-shaped values",
       "a degraded probe cannot create a second process owner",
       "stop and process exit cancel pending or in-flight health probes",
       "identity-checked stale-process cleanup",
@@ -201,7 +211,6 @@
     "remainingEvidence": [
       "native Windows child-exit execution proof",
       "one-time-token-compatible alpha.1 health route after official package publication",
-      "bounded redacted terminal diagnostics and restart-exhaustion UX",
       "Windows x64 native process-tree proof",
       "macOS arm64 and x64 installed process-tree proof"
     ]

@@ -11,6 +11,7 @@ import {
   PINNED_DSH,
   PENGLAI_VERSION,
   redactSupervisorDiagnostic,
+  supervisorRecoveryErrorCodes,
   activatePrivateProfile,
   buildDeletionPlan,
   createSchemaBackup,
@@ -37,6 +38,8 @@ import {
   clearWindowsDeletionCapability,
   type DeletionPreview,
   type PluginOwnerAction,
+  type RedactedSupervisorDiagnostic,
+  type SupervisorRecoverySnapshot,
 } from "@penglai/runtime";
 import { DshSupervisor, findResourcesRoot, isOwnedRuntimePath, layoutFromResources } from "./supervisor.js";
 import { assertIpcName, navigationDecision, officialVendorConsoleDecision, PRELOAD_API } from "./preload.js";
@@ -55,7 +58,7 @@ import {
 } from "./lifecycle.js";
 import { allowMicrophoneMedia, issueMicrophoneNonce, type MicrophoneNonce } from "./microphone-grant.js";
 import { productionDebuggerForbidden } from "./production-flags.js";
-import { onboardingLedgerComplete, sanitizeStartupReason, wizardUrlForOrigin } from "./wizard-gate.js";
+import { onboardingLedgerComplete, wizardUrlForOrigin } from "./wizard-gate.js";
 import { createContextGrantReceipt } from "./context-grant.js";
 import {
   issuePluginRuntimeRestart,
@@ -445,6 +448,18 @@ async function main(): Promise<void> {
     }
   };
 
+  const requireNoArguments = (args: unknown[]): void => {
+    if (args.length !== 0) throw new PenglaiError("INVALID_INPUT", "IPC method accepts no arguments");
+  };
+
+  const recoveryIpcNames = new Set([
+    "recoveryRetry",
+    "recoveryQuit",
+    "recoveryOpenLogs",
+    "recoveryOpenData",
+    "recoveryCopyDiagnostics",
+  ]);
+
   app.on("before-quit", (event) => {
     if (stopping) return;
     event.preventDefault();
@@ -464,17 +479,42 @@ async function main(): Promise<void> {
     if (!win.isDestroyed()) win.setOpacity(1);
   };
 
-  if (existsSync(splashPage)) {
-    await win.loadFile(splashPage);
-    await win.webContents.executeJavaScript(
-      "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
-      true,
-    );
-    await revealWindow();
-  }
+  let lastRecoveryDiagnostic: RedactedSupervisorDiagnostic | undefined;
+  let terminalRecoveryShown = false;
 
-  const failProbe = async (reason: string, extra: Record<string, unknown> = {}): Promise<void> => {
-    const safe = sanitizeStartupReason(reason);
+  const currentSupervisorDiagnostic = (
+    errorCodes: string[],
+    recovery: SupervisorRecoverySnapshot = live.recovery,
+  ): RedactedSupervisorDiagnostic => redactSupervisorDiagnostic({
+    appVersion: PENGLAI_VERSION,
+    sourceSha: String(process.env.PENGLAI_SOURCE_SHA ?? "unspecified"),
+    platform: process.platform,
+    arch: process.arch,
+    dsh: PINNED_DSH,
+    phase: recovery.status === "manual-action-required" ? recovery.status : live.state,
+    phaseMs: live.phaseMs,
+    exitCode: recovery.exitCode,
+    restartCount: live.restarts,
+    recovery,
+    requiredPlugins: (live.health?.inventory.required ?? []).map((row) => ({
+      id: row.id,
+      ok: row.enabled && row.active && row.health === "ready",
+    })),
+    errorCodes: [...supervisorRecoveryErrorCodes(recovery), ...errorCodes],
+  });
+
+  const failProbe = async (
+    error: unknown,
+    extra: { recovery?: SupervisorRecoverySnapshot } = {},
+  ): Promise<void> => {
+    const errorCode = error instanceof PenglaiError
+      ? error.errorClass
+      : live.state === "crashed"
+        ? "DSH_UNAVAILABLE"
+        : "STARTUP_FAILURE";
+    const recovery = extra.recovery ?? live.recovery;
+    const diagnostic = currentSupervisorDiagnostic([errorCode], recovery);
+    lastRecoveryDiagnostic = diagnostic;
     if (stopping || win.isDestroyed()) return;
     try {
       await stopOwnedServices();
@@ -482,12 +522,11 @@ async function main(): Promise<void> {
       /* recovery UI must still render after best-effort ownership teardown */
     }
     if (stopping || win.isDestroyed()) return;
-    const recovery = recoveryPage;
-    if (existsSync(recovery)) {
-      await win.loadFile(recovery);
+    if (existsSync(recoveryPage)) {
+      await win.loadFile(recoveryPage);
       if (!win.webContents.isDestroyed()) try {
         await win.webContents.executeJavaScript(
-          `(() => { const p = document.createElement("pre"); p.dataset.penglaiError = "1"; p.textContent = ${JSON.stringify(safe)}; document.body.appendChild(p); document.title = "Penglai · DeepSeek Harness failed to start"; })()`,
+          `(() => { document.body.dataset.penglaiRecoveryState = ${JSON.stringify(diagnostic.recovery.status)}; const rows = document.querySelectorAll("[data-penglai-recovery-exhausted]"); for (const row of rows) row.hidden = ${diagnostic.recovery.status === "manual-action-required" ? "false" : "true"}; })()`,
         );
       } catch {
         /* page still useful without the extra line */
@@ -496,14 +535,49 @@ async function main(): Promise<void> {
     await revealWindow();
     try {
       mkdirSync(user.logs, { recursive: true, mode: 0o700 });
-      writeFileSync(join(user.logs, "startup.error.log"), `${new Date().toISOString()}\n${safe}\n`, { mode: 0o600 });
+      writeFileSync(join(user.logs, "startup.error.log"), `${JSON.stringify(diagnostic)}\n`, { mode: 0o600 });
     } catch {
       /* diagnostics are best-effort */
     }
-    void extra;
   };
 
+  live.onRecoveryStateChange((recovery) => {
+    if (recovery.status !== "manual-action-required" || terminalRecoveryShown || stopping) return;
+    terminalRecoveryShown = true;
+    void failProbe(new PenglaiError("DSH_UNAVAILABLE", "automatic recovery exhausted"), { recovery });
+  });
+
+  for (const name of recoveryIpcNames) {
+    ipcMain.handle(name, async (event, ...args: unknown[]) => {
+      if (!assertIpcName(name) || !allowed.has(event.sender.id)) throw new Error("ipc");
+      if (event.sender.getURL() !== recoveryUrl) throw new PenglaiError("UNAUTHORIZED", "recovery action requires recovery page");
+      requireNoArguments(args);
+      if (name === "recoveryRetry") {
+        app.relaunch();
+        app.quit();
+        return { retry: true };
+      }
+      if (name === "recoveryQuit") {
+        app.quit();
+        return { quit: true };
+      }
+      if (name === "recoveryOpenLogs") return { opened: await shell.openPath(user.logs) };
+      if (name === "recoveryOpenData") return { opened: await shell.openPath(user.root) };
+      const diagnostic = lastRecoveryDiagnostic ?? currentSupervisorDiagnostic(["RECOVERY_REQUESTED"]);
+      clipboard.writeText(JSON.stringify(diagnostic));
+      return { copied: true };
+    });
+  }
+
   try {
+    if (existsSync(splashPage)) {
+      await win.loadFile(splashPage);
+      await win.webContents.executeJavaScript(
+        "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+        true,
+      );
+      await revealWindow();
+    }
     const resources = resourcesRoot();
     const layout = layoutFromResources(resources);
     ensurePrivateHome(user, layout.appRoot);
@@ -578,10 +652,6 @@ async function main(): Promise<void> {
       await connectGateway(true);
     };
 
-    const requireNoArguments = (args: unknown[]): void => {
-      if (args.length !== 0) throw new PenglaiError("INVALID_INPUT", "IPC method accepts no arguments");
-    };
-
     const verifyOfficialSurfaces = async (officialUrl: string) => {
       const dom = await observeOfficialDom(win, 20_000);
       if (dom.recovery || dom.protocol === "file:" || !dom.hasDshBoot || !dom.hasRoot) {
@@ -601,11 +671,19 @@ async function main(): Promise<void> {
     };
 
     for (const name of PRELOAD_API) {
+      if (recoveryIpcNames.has(name)) continue;
       ipcMain.handle(name, async (event, ...args: unknown[]) => {
         if (!assertIpcName(name) || !allowed.has(event.sender.id)) throw new Error("ipc");
         if (name === "getHealth") {
           requireNoArguments(args);
-          return { notice: UNSIGNED_NOTICE, doctor: report, dsh: live.state, pin: PINNED_DSH };
+          return {
+            notice: UNSIGNED_NOTICE,
+            doctor: report,
+            dsh: live.state,
+            recovery: live.recovery,
+            restarts: live.restarts,
+            pin: PINNED_DSH,
+          };
         }
         if (name === "exportPreview") {
           requireNoArguments(args);
@@ -877,7 +955,7 @@ async function main(): Promise<void> {
             void exclusive(async () => {
               await stopOwnedServices();
               await restartOwnedServices();
-            }).catch((error) => failProbe(error instanceof Error ? error.message : String(error)));
+            }).catch((error) => failProbe(error));
           }, 100);
           timer.unref?.();
           return {
@@ -902,41 +980,6 @@ async function main(): Promise<void> {
           if (picked.response !== 0) return { opened: false };
           await shell.openExternal(parsed.toString());
           return { opened: true };
-        }
-        if (name === "recoveryRetry") {
-          requireNoArguments(args);
-          app.relaunch();
-          app.quit();
-          return { retry: true };
-        }
-        if (name === "recoveryQuit") {
-          requireNoArguments(args);
-          app.quit();
-          return { quit: true };
-        }
-        if (name === "recoveryOpenLogs") {
-          requireNoArguments(args);
-          return { opened: await shell.openPath(user.logs) };
-        }
-        if (name === "recoveryOpenData") {
-          requireNoArguments(args);
-          return { opened: await shell.openPath(user.root) };
-        }
-        if (name === "recoveryCopyDiagnostics") {
-          requireNoArguments(args);
-          const diagnostic = redactSupervisorDiagnostic({
-            appVersion: PENGLAI_VERSION,
-            sourceSha: String(process.env.PENGLAI_SOURCE_SHA ?? "unspecified"),
-            platform: process.platform,
-            arch: process.arch,
-            dsh: PINNED_DSH,
-            phase: live.state,
-            phaseMs: 0,
-            requiredPlugins: [],
-            errorCodes: report ? [String((report as { errorClass?: string }).errorClass ?? "STARTUP")] : ["STARTUP"],
-          });
-          clipboard.writeText(JSON.stringify(diagnostic));
-          return { copied: true };
         }
         if (name === "wizardPickFolder") {
           requireNoArguments(args);
@@ -1057,7 +1100,7 @@ async function main(): Promise<void> {
       timer.unref?.();
     }
   } catch (err) {
-    await failProbe(err instanceof Error ? err.message : String(err));
+    await failProbe(err);
   }
 }
 
