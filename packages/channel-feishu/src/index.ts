@@ -18,10 +18,18 @@ import {
 import type {
   InboundFailureDiagnostic,
   InboundFailurePhase,
+  InboundFailureReason,
   RoutingControlPlane,
   VoiceInboundClaim,
 } from "@penglai/routing-core";
-import { doctorFeishu, FEISHU_RECEIVE_EVENT, type FeishuDoctorInput } from "./official.js";
+import {
+  doctorFeishu,
+  FEISHU_CAPABILITY_CHECKLIST,
+  FEISHU_MESSAGE_RESOURCE_API,
+  FEISHU_MESSAGE_RESOURCE_DOC,
+  FEISHU_RECEIVE_EVENT,
+  type FeishuDoctorInput,
+} from "./official.js";
 import { FeishuMediaFailure, inboundFeishuAudioToText, outboundFeishuNativeAudio } from "./media.js";
 import { FeishuAppRegistration } from "./registration.js";
 
@@ -58,7 +66,21 @@ export function feishuOwnerDigest(openId: string): string {
   return createHash("sha256").update(openId).digest("hex").slice(0, 16);
 }
 
-export type FeishuConnection = "idle" | "connecting" | "connected" | "reconnecting" | "failed";
+export type FeishuConnection = "idle" | "connecting" | "connected" | "degraded" | "reconnecting" | "failed";
+export type FeishuMediaCapability =
+  | { state: "unknown" }
+  | { state: "available" }
+  | { state: "degraded"; reason: InboundFailureReason };
+
+const FEISHU_MEDIA_DEGRADED_REASONS = [
+  "client-unavailable",
+  "credential-invalid",
+  "permission-missing",
+  "rate-limited",
+  "network",
+  "server",
+  "unknown",
+] as const satisfies readonly InboundFailureReason[];
 
 export interface FeishuAudioMediaRef {
   messageId: string;
@@ -271,6 +293,7 @@ export class FeishuAdapter {
   private readonly registration = new FeishuAppRegistration();
   private readonly ownerStore: FeishuOwnerStore | undefined;
   private ownerOpenId: string | undefined;
+  private mediaCapabilityState: FeishuMediaCapability = { state: "unknown" };
   seen = new Set<string>();
   readonly mediaStore = new MediaStore(
     ...(process.env.PENGLAI_USER_DATA ? [join(process.env.PENGLAI_USER_DATA, "media", "feishu")] : []),
@@ -315,6 +338,10 @@ export class FeishuAdapter {
     return this.ownerOpenId;
   }
 
+  mediaCapability(): FeishuMediaCapability {
+    return { ...this.mediaCapabilityState };
+  }
+
   assertAllowlisted(fromOpenId: string): "ok" | "allowlist" {
     if (!fromOpenId || !this.ownerOpenId) return "allowlist";
     return this.ownerOpenId === fromOpenId ? "ok" : "allowlist";
@@ -332,7 +359,9 @@ export class FeishuAdapter {
   }
 
   setAppId(appId: string): void {
-    this.appId = appId.trim() || undefined;
+    const next = appId.trim() || undefined;
+    if (this.appId !== next) this.mediaCapabilityState = { state: "unknown" };
+    this.appId = next;
     this.setupRequired = !this.appId;
     this.persistIdentity();
   }
@@ -340,6 +369,7 @@ export class FeishuAdapter {
   clearIdentity(): void {
     this.appId = undefined;
     this.ownerOpenId = undefined;
+    this.mediaCapabilityState = { state: "unknown" };
     this.setupRequired = true;
     this.persistIdentity();
   }
@@ -348,13 +378,28 @@ export class FeishuAdapter {
     const raw = this.ownerStore?.getAdapterConfig(FEISHU_ACCOUNT_REF);
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw) as { appId?: string; ownerOpenId?: string };
+      const parsed = JSON.parse(raw) as {
+        appId?: string;
+        ownerOpenId?: string;
+        mediaCapability?: { state?: string; reason?: string };
+      };
       if (typeof parsed.appId === "string" && parsed.appId.trim()) {
         this.appId = parsed.appId.trim();
         this.setupRequired = false;
       }
       if (typeof parsed.ownerOpenId === "string" && parsed.ownerOpenId.trim()) {
         this.ownerOpenId = parsed.ownerOpenId.trim();
+      }
+      if (parsed.mediaCapability?.state === "available") {
+        this.mediaCapabilityState = { state: "available" };
+      } else if (
+        parsed.mediaCapability?.state === "degraded" &&
+        (FEISHU_MEDIA_DEGRADED_REASONS as readonly string[]).includes(parsed.mediaCapability.reason ?? "")
+      ) {
+        this.mediaCapabilityState = {
+          state: "degraded",
+          reason: parsed.mediaCapability.reason as (typeof FEISHU_MEDIA_DEGRADED_REASONS)[number],
+        };
       }
     } catch {
       /* ignore corrupt adapter config */
@@ -368,8 +413,38 @@ export class FeishuAdapter {
       JSON.stringify({
         ...(this.appId ? { appId: this.appId } : {}),
         ...(this.ownerOpenId ? { ownerOpenId: this.ownerOpenId } : {}),
+        mediaCapability: this.mediaCapabilityState,
       }),
     );
+  }
+
+  private observeMediaCapability(next: FeishuMediaCapability): void {
+    if (
+      this.mediaCapabilityState.state === next.state &&
+      (this.mediaCapabilityState.state !== "degraded" ||
+        (next.state === "degraded" && this.mediaCapabilityState.reason === next.reason))
+    ) {
+      return;
+    }
+    this.mediaCapabilityState = next;
+    if (this.status === "connected" || this.status === "degraded") {
+      this.status = next.state === "degraded" ? "degraded" : "connected";
+    }
+    this.persistIdentity();
+    this.ownerStore?.audit?.(
+      "feishu.media_capability",
+      {
+        state: next.state,
+        ...(next.state === "degraded" ? { reason: next.reason } : {}),
+      },
+      Date.now(),
+    );
+  }
+
+  private observeMediaFailure(diagnostic: InboundFailureDiagnostic): void {
+    if ((FEISHU_MEDIA_DEGRADED_REASONS as readonly string[]).includes(diagnostic.reason)) {
+      this.observeMediaCapability({ state: "degraded", reason: diagnostic.reason });
+    }
   }
 
   private auditOwner(source: FeishuOwnerSource): void {
@@ -384,15 +459,20 @@ export class FeishuAdapter {
     return [
       "Create a Feishu enterprise self-built app",
       "Enable bot capability",
-      "Grant p2p receive and send-as-bot scopes",
+      "Grant exact scopes: im:message.p2p_msg:readonly and im:message:send_as_bot",
       "Select long connection",
       "Subscribe im.message.receive_v1",
+      `Verify media with ${FEISHU_MESSAGE_RESOURCE_API}`,
+      "For media, the bot and original message must be in the same conversation",
       "Create and publish an app version if the official scan page requires it",
     ];
   }
 
-  doctor(input: FeishuDoctorInput) {
-    return doctorFeishu(input);
+  doctor(input: Omit<FeishuDoctorInput, "mediaResourceOk">) {
+    return doctorFeishu({
+      ...input,
+      mediaResourceOk: this.mediaCapabilityState.state === "available",
+    });
   }
 
   startQr() {
@@ -413,6 +493,7 @@ export class FeishuAdapter {
 
   async connect(appId: string, appSecret: string): Promise<void> {
     if (!appId || !appSecret) throw new PenglaiError("UNAUTHORIZED", "app credentials required");
+    if (this.appId !== appId) this.mediaCapabilityState = { state: "unknown" };
     this.appId = appId;
     this.setupRequired = false;
     this.status = "connecting";
@@ -428,7 +509,7 @@ export class FeishuAdapter {
     this.client = client;
     this.ws = next;
     this.revision += 1;
-    this.status = "connected";
+    this.status = this.mediaCapabilityState.state === "degraded" ? "degraded" : "connected";
     prev?.close({ force: true });
     void this.resumePendingVoiceClaims();
   }
@@ -803,13 +884,17 @@ export class FeishuAdapter {
         path: { message_id: messageId, file_key: fileKey },
       });
     } catch (err) {
-      throw resourceRequestFailure(err);
+      const failure = resourceRequestFailure(err);
+      this.observeMediaFailure(failure.diagnostic);
+      throw failure;
     }
     let stream: ReturnType<typeof response.getReadableStream>;
     try {
       stream = response.getReadableStream();
     } catch (error) {
-      throw resourceRequestFailure(error);
+      const failure = resourceRequestFailure(error);
+      this.observeMediaFailure(failure.diagnostic);
+      throw failure;
     }
     const chunks: Buffer[] = [];
     let bytes = 0;
@@ -838,10 +923,12 @@ export class FeishuAdapter {
           });
         }
         const transport = classifyTransportError(error);
-        throw new FeishuMediaFailure("DELIVERY_TRANSIENT", {
+        const failure = new FeishuMediaFailure("DELIVERY_TRANSIENT", {
           phase: "resource-stream",
           reason: transport === "network" ? "network" : transport === "server" ? "server" : "unknown",
         });
+        this.observeMediaFailure(failure.diagnostic);
+        throw failure;
       }
     } finally {
       signal.removeEventListener("abort", onAbort);
@@ -858,6 +945,7 @@ export class FeishuAdapter {
         reason: "empty",
       });
     }
+    this.observeMediaCapability({ state: "available" });
     return Buffer.concat(chunks);
   }
 
@@ -912,6 +1000,14 @@ export class FeishuAdapter {
   }
 }
 
-export { doctorFeishu, FEISHU_RECEIVE_EVENT, isForbiddenBaseAuth, isOfficialAppRegistrationQr } from "./official.js";
+export {
+  doctorFeishu,
+  FEISHU_CAPABILITY_CHECKLIST,
+  FEISHU_MESSAGE_RESOURCE_API,
+  FEISHU_MESSAGE_RESOURCE_DOC,
+  FEISHU_RECEIVE_EVENT,
+  isForbiddenBaseAuth,
+  isOfficialAppRegistrationQr,
+} from "./official.js";
 export { FeishuAppRegistration, decorateFeishuQrUrl, penglaiFeishuAddons } from "./registration.js";
 export * from "./media.js";

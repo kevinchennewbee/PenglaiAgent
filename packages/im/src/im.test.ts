@@ -17,9 +17,20 @@ import {
 } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
 import { PenglaiImHost } from "./host.js";
+import { AdapterSupervisor } from "./supervisor.js";
 import { contribute } from "./client.js";
 
 const OWNER_BIND = "11111111-1111-4111-8111-111111111111";
+
+test("Feishu media degradation keeps the healthy text socket owned", () => {
+  const supervisor = new AdapterSupervisor(
+    { health: () => ({ authState: "idle" }) } as never,
+    { status: "degraded" } as never,
+    {} as never,
+    async () => undefined,
+  );
+  assert.equal(supervisor.resources().sockets, 1);
+});
 
 async function runTestOnlyCausalRoute(
   host: PenglaiImHost,
@@ -423,6 +434,9 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   assert.equal(receives, 1);
   const overview = await host.getOverview();
   assert.equal(overview.channels.find((c) => c.channel === "feishu")?.connection, "connected");
+  (host.feishu as unknown as { status: string }).status = "degraded";
+  const degraded = await host.getOverview();
+  assert.equal(degraded.channels.find((c) => c.channel === "feishu")?.connection, "degraded");
   rt.store.close();
 });
 

@@ -204,10 +204,14 @@ not complete their media path.
 **Evidence and current root-cause hypothesis**
 
 The configured app demonstrated message receive/send capability, but media
-requires a separate official resource-download API and permission set. The
-adapter currently collapses the detailed vendor failure into a generic transient
-delivery class, so the user cannot distinguish missing scope, wrong resource
-identity, expired credential, network failure, or size/type rejection.
+requires the separate official message-resource download API. Re-review of the
+official pinned SDK and current documentation does not establish another named
+media scope: the documented preconditions are bot capability plus the bot and
+original message being in the same conversation. The exact original
+`message_id`, `file_key`, and resource `type` are then required. The adapter
+previously collapsed detailed vendor failure into a generic transient delivery
+class, so the user could not distinguish missing scope, wrong resource identity,
+expired credential, network failure, or size/type rejection.
 
 **0.5.8 action**
 
@@ -236,6 +240,25 @@ any out-of-vocabulary phase/reason instead of writing arbitrary caller text to
 the audit ledger. The preview gate and focused fixtures freeze this behavior.
 This improves diagnosis and retry correctness only; it does not claim that the
 Owner app has the required permission or that any real media download passed.
+
+**Capability verification and degradation checkpoint, 2026-08-29**
+
+The connection checklist now publishes the two exact text scopes, the exact
+message event, the official message-resource route, and its same-conversation
+precondition. Doctor results fail closed when any fact is absent; a configured
+or text-connected app is no longer treated as media-capable merely because no
+check was supplied.
+
+A failed resource request or stream now durably records a closed media
+capability state. While the WebSocket/text connection remains healthy, the IM
+overview reports `degraded` for credential, permission, rate, network, server,
+client, or otherwise unclassified resource failure. Resource identity/not-found
+and local content rejection do not downgrade the whole capability. Only a real,
+non-empty `message.resource.get` stream changes the state to `available` and
+restores `connected`; source fixtures cannot promote release evidence beyond
+`source-only`. Stored state and audit contain only the closed state/reason, never
+message IDs, file keys, URLs, response bodies, or credentials. Owner-live media
+proof remains open.
 
 ### P0-04: Feishu voice never reaches ASR
 

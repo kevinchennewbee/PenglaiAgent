@@ -8,12 +8,15 @@ import { SeqIds, VirtualClock } from "@penglai/testkit";
 import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import {
+  FEISHU_CAPABILITY_CHECKLIST,
   FEISHU_ALLOWLIST_NOTICE,
+  FEISHU_MESSAGE_RESOURCE_API,
   FEISHU_STATUS_REACTIONS,
   FeishuAdapter,
   classifyFeishuResourceError,
   classifyFeishuVoiceFailurePhase,
   classifyMediaFailure,
+  doctorFeishu,
   parseFeishuEvent,
   parseOfficialReceive,
 } from "./index.js";
@@ -367,6 +370,11 @@ test("R2I-FS-005 Device Flow is not on the adapter", () => {
   assert.equal(typeof ad.startQr, "function");
   assert.equal(isForbiddenBaseAuth("device_flow"), true);
   assert.doesNotMatch(ad.checklist().join(" "), /not zero-config/);
+  assert.match(ad.checklist().join(" "), /im:message\.p2p_msg:readonly/);
+  assert.match(ad.checklist().join(" "), /messages\/:message_id\/resources\/:file_key/);
+  assert.equal(FEISHU_CAPABILITY_CHECKLIST.find((row) => row.requirement === "ownership")?.value,
+    "bot-and-message-in-same-conversation");
+  assert.match(FEISHU_MESSAGE_RESOURCE_API, /type=:type/);
 });
 
 test("R2I-FS-007/009 official SDK WS start and 3s enqueue", async () => {
@@ -527,6 +535,52 @@ test("Feishu resource diagnostics classify closed causes without retaining vendo
   }
 });
 
+test("Feishu exposes text-only degradation until a real message resource succeeds", async () => {
+  let permissionMissing = true;
+  const h = await boundMediaAdapter(async () => {
+    if (permissionMissing) throw { response: { status: 403 }, message: "private-scope-and-resource" };
+    return { getReadableStream: () => Readable.from([Buffer.from("downloaded-but-not-an-image")]) };
+  });
+  const event = (messageId: string, imageKey: string) => ({
+    header: { app_id: "cli_media_matrix" },
+    event: {
+      message: {
+        message_id: messageId,
+        chat_type: "p2p",
+        message_type: "image",
+        content: JSON.stringify({ image_key: imageKey }),
+      },
+      sender: { sender_id: { open_id: "ou_media_owner" } },
+    },
+  });
+
+  h.adapter.enqueueReceive(event("om_media_denied", "private_denied_key"));
+  await h.adapter.lastEnqueue;
+  assert.equal(h.adapter.status, "degraded");
+  assert.deepEqual(h.adapter.mediaCapability(), {
+    state: "degraded",
+    reason: "permission-missing",
+  });
+
+  permissionMissing = false;
+  h.adapter.enqueueReceive(event("om_media_available", "private_available_key"));
+  await h.adapter.lastEnqueue;
+  assert.equal(h.adapter.status, "connected");
+  assert.deepEqual(h.adapter.mediaCapability(), { state: "available" });
+
+  const capabilityAudit = h.store.listAudit().filter((row) => row.event === "feishu.media_capability");
+  assert.deepEqual(capabilityAudit.map((row) => row.payload), [
+    { state: "degraded", reason: "permission-missing" },
+    { state: "available" },
+  ]);
+  const persisted = h.store.getAdapterConfig("feishu-default") ?? "";
+  assert.doesNotMatch(persisted, /private|denied_key|available_key|scope-and-resource/);
+  h.adapter.stop();
+  const restored = new FeishuAdapter(h.plane, undefined, undefined, h.store);
+  assert.deepEqual(restored.mediaCapability(), { state: "available" });
+  h.store.close();
+});
+
 test("Feishu media stream and validation failures keep exact closed phases", async () => {
   const cases: Array<{
     stream: () => Readable;
@@ -624,12 +678,14 @@ test("R50-FS-003 doctor classifies credential bot permission event publish tenan
   const ad = new FeishuAdapter(plane(), "cli_test");
   const missing = ad.doctor({ hasAppId: false, hasSecret: false });
   assert.equal(missing.find((r) => r.class === "credential")?.ok, false);
-  const ok = ad.doctor({
+  assert.ok(missing.every((r) => !r.ok));
+  const ok = doctorFeishu({
     hasAppId: true,
     hasSecret: true,
     botEnabled: true,
     scopes: ["im:message.p2p_msg:readonly", "im:message:send_as_bot"],
     event: "im.message.receive_v1",
+    mediaResourceOk: true,
     published: true,
     tenantOk: true,
     networkOk: true,
@@ -637,8 +693,9 @@ test("R50-FS-003 doctor classifies credential bot permission event publish tenan
   assert.ok(ok.every((r) => r.ok));
   assert.deepEqual(
     ok.map((r) => r.class),
-    ["credential", "bot", "permission", "event", "publish", "tenant", "network"],
+    ["credential", "bot", "permission", "event", "media-resource", "publish", "tenant", "network"],
   );
+  assert.equal(ad.doctor({ hasAppId: true, hasSecret: true }).find((r) => r.class === "media-resource")?.ok, false);
 });
 
 test("R50-VOICE-015 Feishu resource reaches one Turn and exact final sends native Opus once", async () => {
