@@ -106,7 +106,9 @@ Allowed work now includes:
 - retirement of active WhatsApp product/runtime/dependency surfaces; and
 - Penglai-owned fixes whose contracts do not depend on the unpublished package
   graph, including asynchronous channel failure containment, desktop process
-  recovery, and the Memory curator's internal no-Session lifecycle.
+  recovery, the Memory curator's internal no-Session lifecycle, and the IM
+  support-truth model that separates bundled source from connection and live
+  release evidence.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

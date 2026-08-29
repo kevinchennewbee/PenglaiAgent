@@ -41,7 +41,7 @@ export class SlackAdapter {
     },
   ) {}
 
-  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token" | "manifest"; live: false; operationId: string }> {
+  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token" | "manifest"; connection: SlackConnection; operationId: string }> {
     if (input.method === "qr") throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NO_QR");
     const creds = this.vault.resolve(input.credentialRef);
     if (!creds?.botToken) {
@@ -77,7 +77,7 @@ export class SlackAdapter {
     if (!this.helloSeen) {
       throw new PenglaiError("DELIVERY_TRANSIENT", "SLACK_SOCKET_HELLO");
     }
-    return { kind: input.method === "manifest" ? "manifest" : "token", live: false, operationId: "slack:token" };
+    return { kind: input.method === "manifest" ? "manifest" : "token", connection: this.connection, operationId: "slack:token" };
   }
 
   async pollConnection(): Promise<{ status: SlackConnection }> {
@@ -116,12 +116,12 @@ export class SlackAdapter {
   }
 
   health() {
-    return { channel: "slack" as const, live: false, enabled: this.connection !== "disabled", connection: this.connection };
+    return { channel: "slack" as const, runtimeBundled: true as const, enabled: this.connection !== "disabled", connection: this.connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.creds) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:slack");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:slack");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "SLACK_REPLY_TARGET");
     const response = await this.fetchImpl("https://slack.com/api/chat.postMessage", {

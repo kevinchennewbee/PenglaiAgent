@@ -94,7 +94,7 @@ export async function createQqBotClient(
     },
     async send(peer, text) {
       if (!client.connected) {
-        throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:qq");
+        throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TRANSPORT_UNAVAILABLE:qq");
       }
       let deliveredMarkdown = false;
       const quota = applyC2cPassiveQuota(chunkMarkdownText(text));

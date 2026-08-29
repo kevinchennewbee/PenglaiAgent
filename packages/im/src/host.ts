@@ -26,14 +26,14 @@ import { beginGuidedConnection, type GuidedConnectionState } from "./guided.js";
 import {
   CHANNEL_IDS,
   getChannelManifest,
-  isLiveChannel,
+  isNativeChannel,
   listChannelManifests,
   requireChannelId,
   type ChannelId,
   type ChannelManifestV1,
 } from "./registry.js";
 import { guidedAdapter, requireAdapter, type ChannelAdapter, type ConnectionResult, type ConnectionState, type InboundChannelEvent } from "./channel-adapter.js";
-import { refuseUnliveSend } from "./guided.js";
+import { refuseUnavailableSend } from "./guided.js";
 import { channelConfigAccountId, isForbiddenDefaultAccount, legacyDefaultAccountId } from "./inbound-envelope.js";
 import { beginStatusReaction, CHANNEL_STATUS_REACTIONS, type StatusReactionHandle } from "./reactions.js";
 import {
@@ -65,8 +65,11 @@ export interface ChannelState {
   pendingInbox: number;
   pendingOutbox: number;
   revision: number;
-  live: boolean;
-  supportLevel: ChannelManifestV1["supportLevel"];
+  entryAvailable: true;
+  adapterMode: ChannelManifestV1["adapterMode"];
+  runtimeBundled: true;
+  releaseEvidence: ChannelManifestV1["releaseEvidence"];
+  capabilityEvidence: ChannelManifestV1["capabilityEvidence"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
   error?: {
     code: string;
@@ -135,7 +138,7 @@ export class PenglaiImHost {
     this.store.redactExpiredPayloads(this.plane.clock.now());
     this.bots = new ImBotStore(this.store.db);
     for (const id of CHANNEL_IDS) {
-      if (!isLiveChannel(id)) this.adapters.set(id, guidedAdapter(id));
+      if (!isNativeChannel(id)) this.adapters.set(id, guidedAdapter(id));
     }
   }
 
@@ -162,12 +165,12 @@ export class PenglaiImHost {
   }
 
   async sendOutboundText(input: { channel: ChannelId; text: string }): Promise<{ delivered: true }> {
-    if (!isLiveChannel(input.channel)) {
+    if (!isNativeChannel(input.channel)) {
       const adapter = this.adapters.get(input.channel);
       if (adapter) return adapter.sendText({ text: input.text });
-      refuseUnliveSend(input.channel);
+      refuseUnavailableSend(input.channel);
     }
-    throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_OUTBOX");
+    throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_OUTBOX");
   }
 
   proposeBinding(input: {
@@ -205,7 +208,7 @@ export class PenglaiImHost {
   }> {
     const channels: ChannelState[] = [];
     for (const id of CHANNEL_IDS) {
-      channels.push(isLiveChannel(id) ? await this.channelState(id) : await this.guidedChannelState(id));
+      channels.push(isNativeChannel(id) ? await this.channelState(id) : await this.guidedChannelState(id));
     }
     return {
       plugin: "active",
@@ -467,8 +470,8 @@ export class PenglaiImHost {
     ownerActionId: string;
     receipt?: string;
   }): BindingDto {
-    if (!isLiveChannel(input.channel)) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE");
+    if (!isNativeChannel(input.channel)) {
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_BINDING_UNAVAILABLE");
     }
     if (input.expectedRevision !== undefined && input.expectedRevision !== this.revision) {
       throw new PenglaiError("BINDING_STALE", "revision mismatch");
@@ -825,8 +828,11 @@ export class PenglaiImHost {
       pendingInbox,
       pendingOutbox,
       revision: this.revision,
-      live: true,
-      supportLevel: manifest.supportLevel,
+      entryAvailable: manifest.entryAvailable,
+      adapterMode: manifest.adapterMode,
+      runtimeBundled: manifest.runtimeBundled,
+      releaseEvidence: manifest.releaseEvidence,
+      capabilityEvidence: manifest.capabilityEvidence,
       connectionMethods: manifest.connectionMethods,
     };
   }
@@ -845,8 +851,11 @@ export class PenglaiImHost {
       pendingInbox: 0,
       pendingOutbox: 0,
       revision: this.revision,
-      live: manifest.live,
-      supportLevel: manifest.supportLevel,
+      entryAvailable: manifest.entryAvailable,
+      adapterMode: manifest.adapterMode,
+      runtimeBundled: manifest.runtimeBundled,
+      releaseEvidence: manifest.releaseEvidence,
+      capabilityEvidence: manifest.capabilityEvidence,
       connectionMethods: manifest.connectionMethods,
       ...(failure
         ? {
@@ -875,7 +884,7 @@ export class PenglaiImHost {
 
   createBot(input: { channelId: string; displayName: string }) {
     const id = requireChannelId(input.channelId);
-    if (!getChannelManifest(id).live) {
+    if (!getChannelManifest(id).runtimeBundled) {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
     }
     return this.bots.create({
@@ -911,8 +920,8 @@ export class PenglaiImHost {
     receipt?: string;
   }): Promise<{ stored: true }> {
     const id = requireChannelId(input.channel);
-    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
-    if (!getChannelManifest(id).live) {
+    if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (!getChannelManifest(id).runtimeBundled) {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
     }
     const secret = input.secret.trim();
@@ -941,8 +950,8 @@ export class PenglaiImHost {
     receipt?: string;
   }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
-    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
-    if (!getChannelManifest(id).live) {
+    if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (!getChannelManifest(id).runtimeBundled) {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
     }
     await this.waitForSidecars();
@@ -1026,7 +1035,7 @@ export class PenglaiImHost {
 
   async disconnectChannel(input: { channel: string }): Promise<{ disconnected: true }> {
     const id = requireChannelId(input.channel);
-    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
     await requireAdapter(this.adapters, id).disconnect();
     this.persistChannelFlag(id, true);
     this.revision += 1;
@@ -1039,7 +1048,7 @@ export class PenglaiImHost {
     receipt?: string;
   }): Promise<{ loggedOut: true }> {
     const id = requireChannelId(input.channel);
-    if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+    if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
     const finishOwnerAction = this.consumeChannelOwner({
       action: IM_OWNER_ACTIONS.logout,
       channel: id,
@@ -1097,7 +1106,7 @@ export class PenglaiImHost {
 
   async restoreChannelAdapters(): Promise<void> {
     for (const id of CHANNEL_IDS) {
-      if (isLiveChannel(id)) continue;
+      if (isNativeChannel(id)) continue;
       const adapter = this.adapters.get(id);
       if (!adapter) continue;
       this.attachInboundFanIn(adapter);
@@ -1132,7 +1141,7 @@ export class PenglaiImHost {
   async pumpChannelOutbox(routeId: string): Promise<void> {
     if (!this.sidecarReady) return;
     const route = this.store.getRoute(routeId);
-    if (!route || isLiveChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
+    if (!route || isNativeChannel(route.adapter) || !(CHANNEL_IDS as readonly string[]).includes(route.adapter)) return;
     const adapter = this.adapters.get(route.adapter as ChannelId);
     if (!adapter) return;
     const target = this.plane.requireVendorTarget(routeId);

@@ -541,9 +541,9 @@ excluded; the Owner has now permanently rejected WhatsApp from 0.5.8 onward.
 
 **Confirmed source cause**
 
-The current live-channel registry admits only Weixin and Feishu, while most
-channel manifests set `live: true`. Host and bridge APIs expose that manifest
-field and the settings client consumes it for connector copy. One boolean is
+The 0.5.7 live-channel registry admitted only Weixin and Feishu, while most
+channel manifests set `live: true`. Host and bridge APIs exposed that manifest
+field and the settings client consumed it for connector copy. One boolean was
 therefore overloaded across product entry, adapter implementation, bundled
 runtime, account connection, capability validation, and release evidence.
 
@@ -561,6 +561,24 @@ runtime, account connection, capability validation, and release evidence.
   preserving immutable 0.5.7 release history; and
 - reject a release if any user-facing support statement is stronger than its
   installed and live evidence.
+
+**Source checkpoint, 2026-08-29**
+
+The active eight-channel registry, channel adapters, IM Host Remote, and
+settings client now use separate closed facts: `entryAvailable`,
+`adapterMode`, `runtimeBundled`, dynamic `connection`, `releaseEvidence`, and
+per-capability evidence. Every current registry row is deliberately
+`source-only`; capability rows can say only `source-tested`, `not-proven`, or
+`not-supported`. The settings client shows those distinctions and no longer
+turns packaging or a visible entry into an installed/live support claim.
+
+The old `live` property has also been removed from the six bundled sidecar
+adapter contracts rather than hidden at the IM bridge. Their connection result
+and health report connection and runtime packaging separately, while
+unavailable operations use capability-specific closed failures. The composed
+preview verifier rejects reintroduction of the ambiguous property or UI data
+attribute. This is source evidence only: packaged, installed, Owner-live, and
+public-release proof remain open and may not be inferred from this checkpoint.
 
 ## 4. Implementation phases and gates
 

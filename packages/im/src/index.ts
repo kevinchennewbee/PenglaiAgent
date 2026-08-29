@@ -373,9 +373,19 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
 Object.assign(apply, { inject });
 export default { name, inject, apply };
 export { PINNED_DSH, PenglaiImHost, PenglaiImRemote, AdapterSupervisor, CredentialsServiceVault, WorkerLease };
-export { CHANNEL_IDS, CHANNEL_MANIFESTS, getChannelManifest, listChannelManifests, refuseFakeQr } from "./registry.js";
 export {
-  assertLiveSend,
+  CHANNEL_ADAPTER_MODES,
+  CHANNEL_CAPABILITY_EVIDENCE,
+  CHANNEL_IDS,
+  CHANNEL_MANIFESTS,
+  CHANNEL_RELEASE_EVIDENCE,
+  NATIVE_CHANNEL_IDS,
+  getChannelManifest,
+  listChannelManifests,
+  refuseFakeQr,
+} from "./registry.js";
+export {
+  assertNativeSend,
   connectionResultForMethod,
   guidedAdapter,
   requireAdapter,

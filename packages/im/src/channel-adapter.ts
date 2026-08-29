@@ -3,13 +3,13 @@ import {
   CHANNEL_MANIFESTS,
   CONNECTION_METHODS,
   getChannelManifest,
-  isLiveChannel,
+  isNativeChannel,
   refuseFakeQr,
   type ChannelId,
   type ChannelManifestV1,
   type ConnectionMethod,
 } from "./registry.js";
-import { refuseUnliveSend } from "./guided.js";
+import { refuseUnavailableSend } from "./guided.js";
 
 export const CONNECTION_STATES = [
   "disabled",
@@ -26,7 +26,7 @@ export type ConnectionState = (typeof CONNECTION_STATES)[number];
 
 export interface ChannelHealth {
   channel: ChannelId;
-  live: boolean;
+  runtimeBundled: boolean;
   enabled: boolean;
   connection: ConnectionState;
 }
@@ -51,12 +51,12 @@ export interface InboundChannelEvent {
  * paths, generic execute, or arbitrary fetch capability.
  */
 export type ConnectionResult =
-  | { kind: "qr"; live: false; operationId: string; expiresAt: number }
-  | { kind: "oauth"; live: false; operationId: string }
-  | { kind: "manifest"; live: false; operationId: string }
-  | { kind: "token"; live: false; operationId: string }
-  | { kind: "device-link"; live: false; operationId: string }
-  | { kind: "manual-fallback"; live: false; operationId: string };
+  | { kind: "qr"; connection: "connecting"; operationId: string; expiresAt: number }
+  | { kind: "oauth"; connection: "connecting"; operationId: string }
+  | { kind: "manifest"; connection: "connecting"; operationId: string }
+  | { kind: "token"; connection: "connecting"; operationId: string }
+  | { kind: "device-link"; connection: "connecting"; operationId: string }
+  | { kind: "manual-fallback"; connection: "connecting"; operationId: string };
 
 export interface ChannelAdapter {
   readonly id: ChannelId;
@@ -78,7 +78,7 @@ export interface ChannelAdapter {
   logout(): Promise<void>;
   deleteCredentials(): Promise<void>;
   onInbound(handler: (event: InboundChannelEvent) => void | Promise<void>): void;
-  capabilities(): ChannelManifestV1["capabilities"];
+  capabilityEvidence(): ChannelManifestV1["capabilityEvidence"];
   peekQr?(operationId: string): { verificationUrl?: string; qrPayload?: string; qrImageRef?: string; expiresAt?: number } | undefined;
   react?(input: {
     vendorTarget: string;
@@ -91,8 +91,8 @@ export interface ChannelAdapter {
   restorePersistedState?(state: Record<string, unknown>): void;
 }
 
-export function assertLiveSend(channel: ChannelId): void {
-  if (!isLiveChannel(channel)) refuseUnliveSend(channel);
+export function assertNativeSend(channel: ChannelId): void {
+  if (!isNativeChannel(channel)) refuseUnavailableSend(channel);
 }
 
 export function connectionResultForMethod(id: ChannelId, method: string): ConnectionResult {
@@ -102,12 +102,12 @@ export function connectionResultForMethod(id: ChannelId, method: string): Connec
     throw new PenglaiError("INVALID_INPUT", "CHANNEL_METHOD_UNSUPPORTED");
   }
   const operationId = `${id}:${wanted}`;
-  if (wanted === "qr") return { kind: "qr", live: false, operationId, expiresAt: Date.now() + 120_000 };
-  if (wanted === "oauth") return { kind: "oauth", live: false, operationId };
-  if (wanted === "manifest") return { kind: "manifest", live: false, operationId };
-  if (wanted === "token") return { kind: "token", live: false, operationId };
-  if (wanted === "device-link") return { kind: "device-link", live: false, operationId };
-  return { kind: "manual-fallback", live: false, operationId };
+  if (wanted === "qr") return { kind: "qr", connection: "connecting", operationId, expiresAt: Date.now() + 120_000 };
+  if (wanted === "oauth") return { kind: "oauth", connection: "connecting", operationId };
+  if (wanted === "manifest") return { kind: "manifest", connection: "connecting", operationId };
+  if (wanted === "token") return { kind: "token", connection: "connecting", operationId };
+  if (wanted === "device-link") return { kind: "device-link", connection: "connecting", operationId };
+  return { kind: "manual-fallback", connection: "connecting", operationId };
 }
 
 export function guidedAdapter(id: ChannelId): ChannelAdapter {
@@ -146,13 +146,13 @@ export function guidedAdapter(id: ChannelId): ChannelAdapter {
       connection = enabled ? "not_configured" : "disabled";
     },
     async health() {
-      return { channel: id, live: false, enabled, connection };
+      return { channel: id, runtimeBundled: manifest.runtimeBundled, enabled, connection };
     },
     async sendText() {
-      refuseUnliveSend(id);
+      refuseUnavailableSend(id);
     },
     async sendArtifact() {
-      refuseUnliveSend(id);
+      refuseUnavailableSend(id);
     },
     async disconnect() {
       connection = enabled ? "not_configured" : "disabled";
@@ -167,14 +167,14 @@ export function guidedAdapter(id: ChannelId): ChannelAdapter {
       inbound = handler;
       void inbound;
     },
-    capabilities() {
-      return manifest.capabilities;
+    capabilityEvidence() {
+      return manifest.capabilityEvidence;
     },
   };
 }
 
 export function requireAdapter(adapters: ReadonlyMap<ChannelId, ChannelAdapter>, channel: ChannelId): ChannelAdapter {
   const adapter = adapters.get(channel);
-  if (!adapter) throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${channel}`);
+  if (!adapter) throw new PenglaiError("SECURITY_POLICY", `CHANNEL_ADAPTER_UNAVAILABLE:${channel}`);
   return adapter;
 }

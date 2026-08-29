@@ -12,6 +12,7 @@ const RELEASE_DSH = "0.1.1-rc.2";
 const RETIRED_CHANNEL_GATE = join(ROOT, "scripts/verify-retired-channel-absence.mjs");
 const MIGRATION_INVENTORY_GATE = join(ROOT, "scripts/verify-058-migration-inventory.mjs");
 const OVERLAY_MAP_GATE = join(ROOT, "scripts/verify-058-overlay-map.mjs");
+const IM_SUPPORT_TRUTH_GATE = join(ROOT, "scripts/verify-im-support-truth.mjs");
 
 const failures = [];
 
@@ -154,6 +155,19 @@ try {
     ? String(error.stderr).trim()
     : "no diagnostic output";
   fail(`overlay map gate failed: ${detail}`);
+}
+
+try {
+  execFileSync(process.execPath, [IM_SUPPORT_TRUTH_GATE], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+} catch (error) {
+  const detail = error && typeof error === "object" && "stderr" in error
+    ? String(error.stderr).trim()
+    : "no diagnostic output";
+  fail(`IM support truth gate failed: ${detail}`);
 }
 
 if (failures.length > 0) {

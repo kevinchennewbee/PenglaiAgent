@@ -53,7 +53,7 @@ test("DingTalk QR does not return secrets and stores credentials on success", as
   );
   const begun = await adapter.beginConnection({ method: "qr" });
   assert.equal(begun.kind, "qr");
-  assert.equal(begun.live, false);
+  assert.equal(begun.connection, "connecting");
   assert.equal("clientSecret" in begun, false);
   const peeked = adapter.peekQr(begun.operationId);
   assert.match(peeked?.verificationUrl ?? "", /^https:\/\/login\.dingtalk\.com\//);

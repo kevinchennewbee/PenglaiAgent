@@ -16,7 +16,7 @@ export interface TokenVault {
 
 /**
  * Token/OAuth channels. The product action is "Connect", never a forged QR.
- * They stay out of LIVE_CHANNEL_IDS until a real bidirectional proof exists.
+ * They stay out of NATIVE_CHANNEL_IDS and never inherit connection or release evidence from bundling.
  */
 export class TokenChannelAdapter implements ChannelAdapter {
   readonly id: ChannelId;
@@ -75,18 +75,18 @@ export class TokenChannelAdapter implements ChannelAdapter {
   async health(): Promise<ChannelHealth> {
     return {
       channel: this.id,
-      live: false,
+      runtimeBundled: this.manifest().runtimeBundled,
       enabled: this.enabled,
       connection: this.connection,
     };
   }
 
   async sendText(): Promise<never> {
-    throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${this.id}`);
+    throw new PenglaiError("SECURITY_POLICY", `CHANNEL_TEXT_SEND_UNAVAILABLE:${this.id}`);
   }
 
   async sendArtifact(): Promise<never> {
-    throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${this.id}`);
+    throw new PenglaiError("SECURITY_POLICY", `CHANNEL_ARTIFACT_SEND_UNAVAILABLE:${this.id}`);
   }
 
   async disconnect() {
@@ -106,7 +106,7 @@ export class TokenChannelAdapter implements ChannelAdapter {
     void this.inbound;
   }
 
-  capabilities() {
-    return this.manifest().capabilities;
+  capabilityEvidence() {
+    return this.manifest().capabilityEvidence;
   }
 }

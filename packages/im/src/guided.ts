@@ -5,7 +5,7 @@ import {
   refuseFakeQr,
   type ChannelId,
   type ConnectionMethod,
-  isLiveChannel,
+  isNativeChannel,
 } from "./registry.js";
 
 export interface GuidedConnectionState {
@@ -13,7 +13,7 @@ export interface GuidedConnectionState {
   channel: ChannelId;
   method: ConnectionMethod;
   qr: false;
-  live: false;
+  connection: "not_configured";
   steps: { en: string[]; zh: string[] };
   docsUrl: string;
 }
@@ -24,20 +24,20 @@ export function beginGuidedConnection(input: {
 }): GuidedConnectionState {
   const manifest = getChannelManifest(input.channel);
   refuseFakeQr(manifest.id, input.method);
-  if (isLiveChannel(manifest.id)) {
-    throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
+  if (isNativeChannel(manifest.id)) {
+    throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
   }
   return {
     id: `${manifest.id}:${input.method}`,
     channel: manifest.id,
     method: input.method as ConnectionMethod,
     qr: false,
-    live: false,
+    connection: "not_configured",
     steps: GUIDED_STEPS[manifest.id],
     docsUrl: manifest.docsUrl,
   };
 }
 
-export function refuseUnliveSend(channel: string): never {
-  throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${channel}`);
+export function refuseUnavailableSend(channel: string): never {
+  throw new PenglaiError("SECURITY_POLICY", `CHANNEL_TEXT_SEND_UNAVAILABLE:${channel}`);
 }

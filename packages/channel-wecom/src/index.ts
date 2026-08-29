@@ -42,13 +42,13 @@ export class WeComAdapter {
   async beginConnection(input: {
     method?: string;
     credentialRef?: string;
-  }): Promise<{ kind: "qr" | "token"; live: false; operationId: string; expiresAt?: number; connection: WeComConnection }> {
+  }): Promise<{ kind: "qr" | "token"; operationId: string; expiresAt?: number; connection: WeComConnection }> {
     if (input.method === "qr" || !input.credentialRef) {
       this.connection = "connecting";
       const session = await this.auth.start();
       const operationId = `wecom:qr:${session.scode.slice(0, 8)}`;
       this.qr = { operationId, scode: session.scode, verificationUrl: session.verificationUrl, expiresAt: session.expiresAt };
-      return { kind: "qr", live: false, operationId, expiresAt: session.expiresAt, connection: this.connection };
+      return { kind: "qr", operationId, expiresAt: session.expiresAt, connection: this.connection };
     }
     return this.connectWithRef(input.credentialRef);
   }
@@ -107,12 +107,12 @@ export class WeComAdapter {
     const transport = this.client?.connected;
     const connection =
       this.connection === "connected" && transport === false ? "connecting" : this.connection;
-    return { channel: "wecom" as const, live: false, enabled: this.connection !== "disabled", connection };
+    return { channel: "wecom" as const, runtimeBundled: true as const, enabled: this.connection !== "disabled", connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.client?.send) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:wecom");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:wecom");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "WECOM_REPLY_TARGET");
     await this.client.send(input.peerRef, input.text);
@@ -126,7 +126,7 @@ export class WeComAdapter {
     this.connection = "disabled";
   }
 
-  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; live: false; operationId: string; connection: WeComConnection }> {
+  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; operationId: string; connection: WeComConnection }> {
     const creds = this.vault.resolve(credentialRef);
     if (!creds?.botId || !creds.secret) {
       this.connection = "not_configured";
@@ -142,6 +142,6 @@ export class WeComAdapter {
       this.connection = "failed";
       throw new PenglaiError("DELIVERY_TRANSIENT", "wecom connect failed");
     }
-    return { kind: "token", live: false, operationId: `wecom:token:${credentialRef}`, connection: this.connection };
+    return { kind: "token", operationId: `wecom:token:${credentialRef}`, connection: this.connection };
   }
 }

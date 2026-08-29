@@ -29,12 +29,12 @@ export interface NativeWrapOpts {
 type NativeLike = {
   beginConnection(input: { method?: string; credentialRef?: string }): Promise<{
     kind: "qr" | "token" | "manifest" | "device-link";
-    live: false;
+    connection: string;
     operationId: string;
     expiresAt?: number;
   }>;
   pollConnection(operationId?: string): Promise<{ status: string }>;
-  health(): { channel: ChannelId; live: boolean; enabled?: boolean; connection: string };
+  health(): { channel: ChannelId; runtimeBundled: true; enabled?: boolean; connection: string };
   sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }>;
   disconnect(): Promise<void>;
   logout?(): Promise<void>;
@@ -89,11 +89,11 @@ export function wrapNative(
       enabled = true;
       const begun = await adapter.beginConnection(input);
       if (begun.kind === "qr") {
-        return { kind: "qr", live: false, operationId: begun.operationId, expiresAt: begun.expiresAt ?? Date.now() + 120_000 };
+        return { kind: "qr", connection: "connecting", operationId: begun.operationId, expiresAt: begun.expiresAt ?? Date.now() + 120_000 };
       }
-      if (begun.kind === "device-link") return { kind: "device-link", live: false, operationId: begun.operationId };
-      if (begun.kind === "manifest") return { kind: "manifest", live: false, operationId: begun.operationId };
-      return { kind: "token", live: false, operationId: begun.operationId };
+      if (begun.kind === "device-link") return { kind: "device-link", connection: "connecting", operationId: begun.operationId };
+      if (begun.kind === "manifest") return { kind: "manifest", connection: "connecting", operationId: begun.operationId };
+      return { kind: "token", connection: "connecting", operationId: begun.operationId };
     },
     async pollConnection(operationId) {
       const polled = await adapter.pollConnection(operationId);
@@ -112,14 +112,14 @@ export function wrapNative(
       const row = adapter.health();
       return {
         channel: id,
-        live: manifest.live,
+        runtimeBundled: manifest.runtimeBundled,
         enabled,
         connection: enabled ? (row.connection as ConnectionState) : "disabled",
       };
     },
     sendText: (input) => adapter.sendText(input),
     async sendArtifact() {
-      throw new PenglaiError("SECURITY_POLICY", `CHANNEL_NOT_LIVE:${id}`);
+      throw new PenglaiError("SECURITY_POLICY", `CHANNEL_ARTIFACT_SEND_UNAVAILABLE:${id}`);
     },
     disconnect: () => adapter.disconnect(),
     async logout() {
@@ -133,7 +133,7 @@ export function wrapNative(
     onInbound(handler) {
       inbound = handler;
     },
-    capabilities: () => manifest.capabilities,
+    capabilityEvidence: () => manifest.capabilityEvidence,
     peekQr(operationId: string) {
       return adapter.peekQr?.(operationId);
     },

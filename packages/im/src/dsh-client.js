@@ -1597,11 +1597,39 @@ window.__ModuleLoader__.load({
                           : names.zh || c.channel,
                       );
                       const status = plainStatus(c, t);
+                      const evidence = c.capabilityEvidence || {};
+                      const evidenceLabels = (document.documentElement.lang || "zh").startsWith("en")
+                        ? {
+                            authentication: "authentication",
+                            inboundText: "inbound text",
+                            outboundText: "outbound text",
+                            image: "image",
+                            audio: "audio",
+                            reconnect: "reconnect",
+                            exit: "disconnect/logout",
+                          }
+                        : {
+                            authentication: "认证",
+                            inboundText: "接收文本",
+                            outboundText: "发送文本",
+                            image: "图片",
+                            audio: "语音",
+                            reconnect: "重连",
+                            exit: "断开/退出",
+                          };
+                      const evidenceNames = (level) =>
+                        Object.entries(evidence)
+                          .filter(([, value]) => value === level)
+                          .map(([key]) => evidenceLabels[key] || key)
+                          .join("、");
                       return jsx.jsxs(
                         "li",
                         {
                           "data-penglai-im-platform": c.channel,
-                          "data-penglai-im-live": String(c.live === true),
+                          "data-penglai-im-entry": String(c.entryAvailable === true),
+                          "data-penglai-im-adapter-mode": String(c.adapterMode || ""),
+                          "data-penglai-im-runtime-bundled": String(c.runtimeBundled === true),
+                          "data-penglai-im-release-evidence": String(c.releaseEvidence || ""),
                           "data-penglai-im-connect-methods": (c.connectionMethods || []).join(","),
                           "data-penglai-im-status": status,
                           style: {
@@ -1627,9 +1655,6 @@ window.__ModuleLoader__.load({
                                   style: { minWidth: 0 },
                                   children: [
                                     jsx.jsx("strong", { children: title }),
-                                    c.supportLevel === "experimental"
-                                      ? jsx.jsx("span", { children: ` · ${t.experimental}` })
-                                      : null,
                                   ],
                                 }),
                                 jsx.jsx("span", {
@@ -1640,15 +1665,28 @@ window.__ModuleLoader__.load({
                                 }),
                               ],
                             }),
-                            c.live === true
+                            c.runtimeBundled === true
                               ? jsx.jsx("p", {
-                                  "data-penglai-im-implemented": "1",
+                                  "data-penglai-im-evidence": c.releaseEvidence,
                                   children:
                                     t.statusConnected === "已连接"
-                                      ? "0.5.7 已提供连接器；真实支持以连接与验证结果为准"
-                                      : "Adapter included in 0.5.7; connection and validation decide support",
+                                      ? c.releaseEvidence === "source-only"
+                                        ? "运行时已打包；当前只有源码证据，账号连接与各项能力需分别验证"
+                                        : `运行时已打包；发行证据：${c.releaseEvidence}`
+                                      : c.releaseEvidence === "source-only"
+                                        ? "Runtime bundled; source evidence only. Account connection and each capability require separate proof"
+                                        : `Runtime bundled; release evidence: ${c.releaseEvidence}`,
                                 })
                               : null,
+                            jsx.jsx("p", {
+                              "data-penglai-im-capability-evidence": c.channel,
+                              "data-source-tested": evidenceNames("source-tested"),
+                              "data-not-proven": evidenceNames("not-proven"),
+                              "data-not-supported": evidenceNames("not-supported"),
+                              children: (document.documentElement.lang || "zh").startsWith("en")
+                                ? `Source-tested: ${evidenceNames("source-tested") || "none"}; not proven live: ${evidenceNames("not-proven") || "none"}; not supported: ${evidenceNames("not-supported") || "none"}`
+                                : `源码已测：${evidenceNames("source-tested") || "无"}；尚无真实验证：${evidenceNames("not-proven") || "无"}；不支持：${evidenceNames("not-supported") || "无"}`,
+                            }),
                             c.error
                               ? jsx.jsxs("p", {
                                   role: "alert",

@@ -32,7 +32,7 @@ export class TelegramAdapter {
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
   ) {}
 
-  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token"; live: false; operationId: string }> {
+  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token"; connection: TelegramConnection; operationId: string }> {
     if (input.method === "qr") throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NO_QR");
     const creds = this.vault.resolve(input.credentialRef);
     if (!creds?.token) {
@@ -67,7 +67,7 @@ export class TelegramAdapter {
     this.token = creds.token;
     this.connection = "connected";
     this.startReceive();
-    return { kind: "token", live: false, operationId: "telegram:token" };
+    return { kind: "token", connection: this.connection, operationId: "telegram:token" };
   }
 
   async pollConnection(): Promise<{ status: TelegramConnection }> {
@@ -128,7 +128,7 @@ export class TelegramAdapter {
   health() {
     return {
       channel: "telegram" as const,
-      live: false,
+      runtimeBundled: true as const,
       enabled: this.connection !== "disabled",
       connection: this.connection,
       webhookConflict: this.webhookConflict,
@@ -140,7 +140,7 @@ export class TelegramAdapter {
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.token) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:telegram");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:telegram");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "TELEGRAM_REPLY_TARGET");
     const response = await this.fetchApi(this.token, "sendMessage", {

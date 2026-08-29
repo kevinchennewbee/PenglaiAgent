@@ -22,6 +22,7 @@
 | Plugin inventory | Desired profile plus official rc.2 inventory and polling | Host plugin inventory with pending/loading/active/failed/unloading phases | Preserve signed transaction journal and characterize convergence | Adapt exact inventory Remote/client payloads | Desired, effective, client-fiber, rollback, and terminal state agree |
 | Image intake | Channel download plus current image store assumptions | Attachment service, local provider, Session attachment admission/projection | Fix callback containment and resource diagnostics | Hand validated bytes to official Attachment path | Model-visible durable image fact, replay, compaction, and real model proof |
 | Audio intake | Penglai ASR before a text Turn | No general DSH audio/video Turn support | Keep audio pipeline in ASR plugin; improve phase/error state | Rebind produced text through migrated Session path | Real Feishu voice becomes one official text Turn; no disguised attachment |
+| IM support truth | One `live` boolean mixed visible entry, implementation, bundle, connection, validation, and release proof | DSH owns Agent/session and typed plugin composition; Penglai owns its channel adapters and evidence | Closed registry/Remote/UI model now separates entry, adapter mode, runtime bundle, dynamic connection, release evidence, and per-capability evidence; current rows are source-only | Reconcile package graph and gather installed/Owner-live/public evidence without strengthening source facts | One machine source drives UI and acceptance; no support claim exceeds its evidence class |
 | Session/subagent projection | Memory curator used user-visible `origin: subagent` semantics | Official descriptor/projection plus one-shot `ctx.llm.stream`; alpha.1 Jobs are also owner/user-visible | Replaced curator Agent/Session creation with a bounded Memory-owned queue and direct official LLM request; optional Budget accounting, one transient retry, and digest-only audit are source-complete and executable | Reconcile published LLM declarations/runtime exports; do not move maintenance into visible Jobs; prove packaged restart/live isolation | Genuine subagents remain; one Turn creates at most one scoped curator call; no hierarchy pollution or orphan work |
 | Locale | Penglai client strings plus built overlay assumptions | Third-party locale registration and typed client locale | Inventory raw `mic`, `stop`, `read` and plugin copy | Register through exact published locale package | Fresh Chinese, English, runtime switch, accessible labels |
 | Browser authentication | Secure loopback proxy around existing DSH Web | One-time browser token and changed profile boot | Model token lifecycle and leakage tests | Adapt first navigation/refresh/deep-link to published behavior | Token absent from logs/evidence/renderer and restart recovers |
@@ -66,6 +67,10 @@ published-package reconciliation.
    bounded Memory-owned queue; preserve that lifecycle through npm
    reconciliation.
 7. Do not use source build success to alter the release identity or lockfile.
+8. Do not derive IM connection, installed support, Owner-live proof, or public
+   support from a bundled runtime or visible settings entry. The closed registry
+   remains `source-only` until each stronger evidence plane is independently
+   completed.
 
 ## Executable seam census
 
@@ -89,7 +94,9 @@ The current census contains:
   supervision evidence; and
 - seven Memory-curator/Budget source files and seven focused test files whose gate
   requires a direct official no-tools LLM request and forbids Agent/Session
-  creation.
+  creation; and
+- the authoritative IM registry, Host Remote, client projection, bridge, and
+  six sidecar adapter contracts whose gate rejects the old `live` support flag.
 
 The census proves that the migration surface is enumerated. It does not prove
 that unpublished package exports exist or that a native process tree has been
