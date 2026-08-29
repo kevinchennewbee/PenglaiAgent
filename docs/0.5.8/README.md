@@ -150,6 +150,10 @@ Allowed work now includes:
   activation/rollback readbacks. The Plugin Center turns only six closed
   failure codes into bilingual recovery guidance; arbitrary loader errors stay
   private. Exact alpha event/client-fiber integration remains blocked on npm.
+- Release identity verification now reads the sole `pins.ts` authority instead
+  of declaring another expected version, then checks workspace manifests and
+  the complete high-risk `release-info` product/toolchain/DSH/schema/publication
+  and three-target copies. This is source consistency, not artifact evidence.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

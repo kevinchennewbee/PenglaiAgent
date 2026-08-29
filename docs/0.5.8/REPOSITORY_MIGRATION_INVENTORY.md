@@ -34,7 +34,7 @@
 | `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | 12 dispositions now cover all files/assets; retire official-route/non-semantic patches and retain only proven narrow gaps after npm readback | Yes |
 | `scripts/verify-bundled-runtime.mjs` | Native/package verifier | packaged DSH closure | Extend for new launcher/profile/auth and exact package graph | Yes |
 | `scripts/e2e-installed*.mjs` | Native installed verifier | installed application | Preserve; update behavior only after packaged skeleton exists | Yes |
-| `packages/release-identity/src/pins.ts` | Authoritative identity source | manifests, runtime, release gates | Keep authority; reduce hand-maintained derived copies | Yes |
+| `packages/release-identity/src/pins.ts` | Authoritative identity source | manifests, runtime, release gates | Keep authority; the source version verifier now strictly reads it and checks workspace manifests plus release-info product/toolchain/DSH/schema/publication/three-target copies | Yes |
 | `release-contract.json` | Current release truth | formal 0.5.7 release | Protected and byte-identical during preview preparation | Later only |
 
 ## Independent work inventory
@@ -162,7 +162,6 @@ before altering it.
   after the matching published exports can be inspected.
 - Turn the inventoried Session envelope and reconnect expectations into focused
   migration tests when the generated Remote clients are published.
-- Trace every release identity copy back to the authoritative pin source.
 - Map every active/native/operator verifier to a script and workflow invocation.
 - Record the exact packaged process tree on Windows and both macOS targets.
 - Design auxiliary model-call accounting against the optional Budget plugin
@@ -175,3 +174,19 @@ The overlay inventory itself is complete in `OVERLAY_TO_SLOT_MAP.json` and is
 enforced by `scripts/verify-058-overlay-map.mjs`. It identifies four source
 gaps rather than assuming every new alpha slot is sufficient: IM voice-row
 projection, hero copy, hero background, and durable TTS message resolution.
+
+## Release identity copy checkpoint
+
+`scripts/verify-versions.mjs` no longer declares a second expected product
+version. A strict source reader resolves product, toolchain, DSH, schema,
+publication, and three-target installer facts from the sole authority at
+`packages/release-identity/src/pins.ts`. The verifier compares those facts with
+every workspace manifest, the profile seed, `.nvmrc`, and the complete
+high-risk `release-info.json` copy. Missing or duplicate source declarations,
+or a changed publication/target structure, fail closed instead of allowing the
+checker and an incorrect derived copy to drift together.
+
+This is source identity consistency only. It does not prove that an installer,
+installation, live account, Release asset, or public byte exists. Mapping every
+native/operator verifier to its exact invocation and evidence plane remains the
+open part of P058-007.
