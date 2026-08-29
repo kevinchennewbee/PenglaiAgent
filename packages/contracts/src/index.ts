@@ -42,6 +42,37 @@ export const CONFIG = Object.freeze({
   imBodyRetentionMs: 24 * 60 * 60_000,
 });
 
+export interface PenglaiResourceJobBudget {
+  activeJobs: number;
+  queuedJobs: number;
+  totalJobs: number;
+}
+
+export type PenglaiResourceBudgetOwner =
+  | "@penglai/asr"
+  | "@penglai/memory"
+  | "@penglai/moss-tts";
+
+export const PENGLAI_RESOURCE_JOB_BUDGETS: Readonly<
+  Record<PenglaiResourceBudgetOwner, Readonly<PenglaiResourceJobBudget>>
+> = Object.freeze({
+  "@penglai/asr": Object.freeze({
+    activeJobs: 1,
+    queuedJobs: 7,
+    totalJobs: 8,
+  }),
+  "@penglai/memory": Object.freeze({
+    activeJobs: 1,
+    queuedJobs: 7,
+    totalJobs: 8,
+  }),
+  "@penglai/moss-tts": Object.freeze({
+    activeJobs: 1,
+    queuedJobs: 3,
+    totalJobs: 4,
+  }),
+});
+
 export const ADAPTER_NAMES = [
   "mock",
   "weixin",

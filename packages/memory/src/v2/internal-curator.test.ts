@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { PENGLAI_RESOURCE_JOB_BUDGETS } from "@penglai/contracts";
 import { InternalCuratorQueue, internalCuratorJobKey } from "./internal-curator.js";
 
 test("internal curator is single-flight, deduplicated, and bounded", async () => {
@@ -46,6 +47,42 @@ test("internal curator is single-flight, deduplicated, and bounded", async () =>
   assert.equal(maxActive, 1);
   assert.deepEqual(queue.enqueue(job("turn-1")), { accepted: false, reason: "duplicate" });
   assert.equal(queue.snapshot().completed, 2);
+  queue.close();
+});
+
+test("internal curator production budget admits exactly one active and seven queued jobs", async () => {
+  const queue = new InternalCuratorQueue({ timeoutMs: 1_000 });
+  let releaseFirst = (): void => undefined;
+  const firstGate = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const outcomes = Array.from(
+    { length: PENGLAI_RESOURCE_JOB_BUDGETS["@penglai/memory"].totalJobs + 1 },
+    (_, index) =>
+      queue.enqueue({
+        key: `budget-${index}`,
+        async execute() {
+          if (index === 0) await firstGate;
+          return String(index);
+        },
+        commit() {},
+      }),
+  );
+  assert.deepEqual(queue.snapshot(), {
+    closed: false,
+    active: 1,
+    queued: 7,
+    timers: 1,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+    retried: 0,
+    dropped: 1,
+  });
+  assert.equal(outcomes.filter((result) => result.accepted).length, 8);
+  assert.deepEqual(outcomes.at(-1), { accepted: false, reason: "capacity" });
+  releaseFirst();
+  await queue.whenIdle();
   queue.close();
 });
 

@@ -28,6 +28,7 @@ test("resource pressure separates active and queued work from legacy workers", (
   assert.deepEqual(snapshot.plugins[0], {
     id: "@penglai/memory",
     measured: true,
+    jobBudget: { activeJobs: 1, queuedJobs: 7, totalJobs: 8 },
     evidence: "service-resource-snapshot",
     activeJobs: 1,
     queuedJobs: 7,
@@ -67,11 +68,32 @@ test("resource pressure keeps unavailable and failed probes distinct from zero",
   assert.equal(snapshot.plugins[1]?.evidence, "runtime-evidence-unavailable");
   for (const row of snapshot.plugins) {
     assert.equal(row.measured, false);
+    assert.equal(row.jobBudget, null);
     assert.equal(row.activeJobs, null);
     assert.equal(row.queuedJobs, null);
     assert.equal(row.remoteRequests, null);
   }
   assert.doesNotMatch(JSON.stringify(snapshot), /private diagnostic/);
+});
+
+test("resource pressure keeps a known budget when live measurement is unavailable", () => {
+  const snapshot = buildResourcePressure(["@penglai/moss-tts"], () => undefined);
+  assert.deepEqual(snapshot.plugins[0], {
+    id: "@penglai/moss-tts",
+    measured: false,
+    jobBudget: { activeJobs: 1, queuedJobs: 3, totalJobs: 4 },
+    evidence: "runtime-evidence-unavailable",
+    activeJobs: null,
+    queuedJobs: null,
+    remoteRequests: null,
+    workerThreads: null,
+    childProcesses: null,
+    openFiles: null,
+    timers: null,
+    sockets: null,
+    modelSessions: null,
+    audioHandles: null,
+  });
 });
 
 test("resource pressure rejects invalid counters instead of normalizing them to zero", () => {

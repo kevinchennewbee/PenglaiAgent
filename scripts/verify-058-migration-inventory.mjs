@@ -150,6 +150,9 @@ const memoryIndex = read("packages/memory/src/index.ts");
 const memoryPipeline = read("packages/memory/src/turn-pipeline.ts");
 const memoryQueue = read("packages/memory/src/v2/internal-curator.ts");
 const memoryCandidates = read("packages/memory/src/v2/candidates.ts");
+const resourceBudgets = read("packages/contracts/src/index.ts");
+const asrService = read("packages/asr/src/index.ts");
+const ttsService = read("packages/moss-tts/src/service.ts");
 const budgetIndex = read("packages/budget/src/index.ts");
 const budgetLedger = read("packages/budget/src/ledger.ts");
 const memoryManifest = readJson("packages/memory/package.json");
@@ -180,7 +183,7 @@ for (const contract of [
   if (!memoryPipeline.includes(contract)) fail(`memory curator official LLM path lost ${contract}`);
 }
 for (const contract of [
-  "INTERNAL_CURATOR_MAX_JOBS = 8",
+  'PENGLAI_RESOURCE_JOB_BUDGETS["@penglai/memory"].totalJobs',
   "INTERNAL_CURATOR_TIMEOUT_MS = 45_000",
   "INTERNAL_CURATOR_MAX_ATTEMPTS = 2",
   "controller.abort()",
@@ -190,6 +193,22 @@ for (const contract of [
   "cancelledByClose",
 ]) {
   if (!memoryQueue.includes(contract)) fail(`memory curator queue lost ${contract}`);
+}
+for (const budget of [
+  { owner: "@penglai/asr", active: 1, queued: 7, total: 8, source: asrService },
+  { owner: "@penglai/memory", active: 1, queued: 7, total: 8, source: memoryQueue },
+  { owner: "@penglai/moss-tts", active: 1, queued: 3, total: 4, source: ttsService },
+]) {
+  const escapedOwner = budget.owner.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const declaration = new RegExp(
+    `"${escapedOwner}"\\s*:\\s*Object\\.freeze\\(\\{\\s*activeJobs:\\s*${budget.active},\\s*queuedJobs:\\s*${budget.queued},\\s*totalJobs:\\s*${budget.total}`,
+  );
+  if (!declaration.test(resourceBudgets)) {
+    fail(`${budget.owner} shared job budget drifted from ${budget.active}+${budget.queued}=${budget.total}`);
+  }
+  if (!budget.source.includes(`PENGLAI_RESOURCE_JOB_BUDGETS["${budget.owner}"].totalJobs`)) {
+    fail(`${budget.owner} service no longer consumes the shared job budget`);
+  }
 }
 for (const contract of ["CURATOR_AUDIT_MAX_ROWS = 256", "recordCuratorAudit", "operationDigest"]) {
   if (!memoryCandidates.includes(contract)) fail(`memory curator audit lost ${contract}`);

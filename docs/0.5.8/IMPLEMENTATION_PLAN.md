@@ -766,6 +766,20 @@ This source checkpoint does not turn a generic HTTP error into a root cause and
 does not claim native Windows/macOS crash evidence. Cross-process timestamped
 correlation and installed reproduction remain open.
 
+**Executable Penglai job-budget checkpoint, 2026-08-29**
+
+The exact Penglai-owned job ceilings are now one shared executable contract,
+consumed by the owning services and surfaced by Plugin Center diagnostics:
+ASR admits one active plus seven queued transcriptions, TTS admits one active
+plus three queued syntheses, and Memory admits one active plus seven queued
+curator jobs. The service admission check rejects the next job, so the matrix
+cannot silently drift from the code that applies backpressure.
+
+These are Penglai plugin job budgets only. They do not represent a DSH core
+subagent, tool-call, Remote-request, worker-thread, child-process, or open-file
+limit. Those DSH dimensions remain unavailable until the fixed alpha runtime
+provides verifiable evidence. Native pressure and crash stress remain open.
+
 ### P0-07: IM support truth has conflicting machine sources
 
 **Observed symptom**

@@ -407,6 +407,58 @@ test("typed service binds exact durable final to engine PCM and an opaque output
   }
 });
 
+test("TTS shared budget admits one active and three queued syntheses", async () => {
+  const root = workspace();
+  let releaseEngine = (): void => undefined;
+  const engineGate = new Promise<void>((resolve) => {
+    releaseEngine = resolve;
+  });
+  try {
+    const engine: TtsEngine = {
+      async synthesize(_text, voiceId) {
+        await engineGate;
+        return {
+          pcm: new Int16Array(4_800 * TTS_CHANNELS),
+          sampleRate: TTS_SAMPLE_RATE,
+          channels: TTS_CHANNELS,
+          voiceId,
+          textChunks: 1,
+        };
+      },
+    };
+    const service = await readyService(root, engine);
+    try {
+      const pending: Array<ReturnType<typeof service.synthesize>> = [];
+      for (let index = 0; index < 5; index += 1) {
+        const finalText = `资源预算测试 ${index}`;
+        const synthesis = service.synthesize({
+          operationId: `tts_budget_${index}`,
+          sourceFinalId: `final:budget:${index}`,
+          finalText,
+          finalDigest: digestFinal(finalText),
+          voiceId: "moss-zh-default",
+          locale: "zh",
+        });
+        if (index < 4) pending.push(synthesis);
+        else await assert.rejects(synthesis, /backpressure/);
+      }
+      assert.equal(service.describeCapability().activeSyntheses, 1);
+      assert.equal(service.describeCapability().queueDepth, 3);
+      releaseEngine();
+      const completed = await Promise.all(pending);
+      await Promise.all(
+        completed.map(({ handle }) => service.releaseOutput(handle.id)),
+      );
+    } finally {
+      releaseEngine();
+      await service.dispose();
+    }
+  } finally {
+    releaseEngine();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("active synthesis cancellation reaches the engine and leaves no output handle", async () => {
   const root = workspace();
   try {

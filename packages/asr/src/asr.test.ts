@@ -497,6 +497,75 @@ test("R50-VOICE: opaque AudioHandle runs one confirmed-safe draft and is deleted
   }
 });
 
+test("ASR shared budget admits one active and seven queued transcriptions", async () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-asr-budget-"));
+  const source = join(root, "source");
+  const { mkdirSync } = await import("node:fs");
+  mkdirSync(source);
+  const model = Buffer.from("model-fixture");
+  const tokens = Buffer.from("token-fixture");
+  writeFileSync(join(source, "model.int8.onnx"), model);
+  writeFileSync(join(source, "tokens.txt"), tokens);
+  let releaseEngine = (): void => undefined;
+  const engineGate = new Promise<void>((resolve) => {
+    releaseEngine = resolve;
+  });
+  const engine: TranscribeEngine = {
+    async transcribe() {
+      await engineGate;
+      return { text: "budget transcript", confirmed: false, language: "en" };
+    },
+  };
+  const service = createAsrService({
+    modelsDir: join(root, "models"),
+    tempDir: join(root, "temp"),
+    manifest: fixtureManifest(model, tokens),
+    async resolveCapability() {
+      return source;
+    },
+    engineFactory() {
+      return engine;
+    },
+  });
+  try {
+    await service.ready;
+    await service.importVerifiedModel("import_budget_1", "capability_budget_1");
+    const pending: Array<ReturnType<typeof service.transcribe>> = [];
+    for (let index = 0; index < 9; index += 1) {
+      const operationId = `asr_budget_${index}`;
+      const handle = await service.stageAudio(toneWav(16_000, 200), {
+        source: "attachment",
+        ownerOperation: operationId,
+      });
+      const transcription = service.transcribe(
+        handle,
+        { authorized: true, claimed: true, privateChat: true },
+        operationId,
+      );
+      if (index < 8) {
+        pending.push(transcription);
+        void transcription.catch(() => undefined);
+        await Promise.resolve();
+      }
+      else {
+        await assert.rejects(
+          transcription,
+          (error: unknown) =>
+            error instanceof PenglaiAsrError && error.reason === "backpressure",
+        );
+      }
+    }
+    assert.equal(service.describeCapability().activeTranscriptions, 1);
+    assert.equal(service.describeCapability().queueDepth, 7);
+    releaseEngine();
+    await Promise.all(pending);
+  } finally {
+    releaseEngine();
+    await service.dispose();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("ASR model readiness race emits a closed typed failure", async () => {
   assert.deepEqual(PENGLAI_ASR_FAILURE_REASONS, [
     "backpressure",
