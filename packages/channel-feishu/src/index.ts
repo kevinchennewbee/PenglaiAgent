@@ -10,10 +10,16 @@ import {
   type ImageAdmission,
   type ObjectStore,
   type InboundEnvelope,
+  type ErrorClass,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
 } from "@penglai/contracts";
-import type { RoutingControlPlane, VoiceInboundClaim } from "@penglai/routing-core";
+import type {
+  InboundFailureDiagnostic,
+  InboundFailurePhase,
+  RoutingControlPlane,
+  VoiceInboundClaim,
+} from "@penglai/routing-core";
 import { doctorFeishu, FEISHU_RECEIVE_EVENT, type FeishuDoctorInput } from "./official.js";
 import { inboundFeishuAudioToText, outboundFeishuNativeAudio } from "./media.js";
 import { FeishuAppRegistration } from "./registration.js";
@@ -64,6 +70,65 @@ export interface FeishuFileMediaRef {
   fileKey: string;
   messageType: "image" | "file";
   filename?: string;
+}
+
+class FeishuMediaFailure extends PenglaiError {
+  constructor(
+    errorClass: ErrorClass,
+    readonly diagnostic: InboundFailureDiagnostic,
+  ) {
+    super(errorClass, `FEISHU_MEDIA_${diagnostic.phase.toUpperCase().replaceAll("-", "_")}_${diagnostic.reason.toUpperCase().replaceAll("-", "_")}`);
+  }
+}
+
+function errorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const row = error as { status?: unknown; response?: { status?: unknown } };
+  const value = row.status ?? row.response?.status;
+  const status = Number(value);
+  return Number.isSafeInteger(status) && status >= 100 && status <= 599 ? status : undefined;
+}
+
+export function classifyFeishuResourceError(error: unknown): {
+  errorClass: ErrorClass;
+  diagnostic: InboundFailureDiagnostic;
+} {
+  const status = errorStatus(error);
+  if (status === 400) return { errorClass: "INVALID_INPUT", diagnostic: { phase: "resource-request", reason: "resource-identity-rejected" } };
+  if (status === 401) return { errorClass: "AUTH_EXPIRED", diagnostic: { phase: "resource-request", reason: "credential-invalid" } };
+  if (status === 403) return { errorClass: "AUTH_EXPIRED", diagnostic: { phase: "resource-request", reason: "permission-missing" } };
+  if (status === 404) return { errorClass: "INVALID_INPUT", diagnostic: { phase: "resource-request", reason: "resource-not-found" } };
+  if (status === 429) return { errorClass: "DELIVERY_TRANSIENT", diagnostic: { phase: "resource-request", reason: "rate-limited" } };
+  const transport = classifyTransportError(error);
+  if (transport === "auth") return { errorClass: "AUTH_EXPIRED", diagnostic: { phase: "resource-request", reason: "credential-invalid" } };
+  if (transport === "network") return { errorClass: "DELIVERY_TRANSIENT", diagnostic: { phase: "resource-request", reason: "network" } };
+  if (transport === "server") return { errorClass: "DELIVERY_TRANSIENT", diagnostic: { phase: "resource-request", reason: "server" } };
+  if (transport === "rate") return { errorClass: "DELIVERY_TRANSIENT", diagnostic: { phase: "resource-request", reason: "rate-limited" } };
+  return { errorClass: "DELIVERY_TRANSIENT", diagnostic: { phase: "resource-request", reason: "unknown" } };
+}
+
+function resourceRequestFailure(error: unknown): FeishuMediaFailure {
+  const failure = classifyFeishuResourceError(error);
+  return new FeishuMediaFailure(failure.errorClass, failure.diagnostic);
+}
+
+function classifyMediaFailure(
+  error: unknown,
+  fallbackPhase: InboundFailurePhase,
+): { errorClass: ErrorClass; diagnostic: InboundFailureDiagnostic } {
+  if (error instanceof FeishuMediaFailure) {
+    return { errorClass: error.errorClass, diagnostic: error.diagnostic };
+  }
+  const errorClass = error instanceof PenglaiError ? error.errorClass : "DELIVERY_TRANSIENT";
+  const reason =
+    errorClass === "AUTH_EXPIRED" || errorClass === "UNAUTHORIZED"
+      ? "credential-invalid"
+      : errorClass === "INVALID_INPUT" || errorClass === "SECURITY_POLICY"
+        ? "type-rejected"
+        : errorClass === "DSH_UNAVAILABLE"
+          ? "client-unavailable"
+          : "unknown";
+  return { errorClass, diagnostic: { phase: fallbackPhase, reason } };
 }
 
 export function parseFeishuEvent(raw: {
@@ -444,10 +509,14 @@ export class FeishuAdapter {
 
   private trackInboundTask(parsed: InboundEnvelope, task: Promise<unknown>): void {
     this.lastEnqueue = task.catch((error: unknown) => {
-      const errorClass = error instanceof PenglaiError ? error.errorClass : "DELIVERY_TRANSIENT";
+      const failure = classifyMediaFailure(error, "media-admission");
+      const diagnostic =
+        error instanceof FeishuMediaFailure || parsed.bodyKind === "media"
+          ? failure.diagnostic
+          : undefined;
       this.fireReaction(parsed.adapterMessageKey, "error");
       try {
-        return this.plane.recordInboundFailure(parsed, errorClass);
+        return this.plane.recordInboundFailure(parsed, failure.errorClass, diagnostic);
       } catch {
         // A broken persistence layer must not turn an already-acknowledged
         // vendor callback into an unhandled process-level rejection.
@@ -632,9 +701,9 @@ export class FeishuAdapter {
         this.plane.failVoiceInbound(claim, result.errorClass ?? "INVALID_INPUT", false);
       }
     } catch (err) {
-      const errorClass = err instanceof PenglaiError ? err.errorClass : "DELIVERY_TRANSIENT";
-      const retryable = errorClass === "DELIVERY_TRANSIENT" || errorClass === "DSH_UNAVAILABLE";
-      this.plane.failVoiceInbound(claim, errorClass, retryable);
+      const failure = classifyMediaFailure(err, "transcription");
+      const retryable = failure.errorClass === "DELIVERY_TRANSIENT" || failure.errorClass === "DSH_UNAVAILABLE";
+      this.plane.failVoiceInbound(claim, failure.errorClass, retryable, failure.diagnostic);
     } finally {
       this.voiceAbort.signal.removeEventListener("abort", cancel);
     }
@@ -642,29 +711,38 @@ export class FeishuAdapter {
 
   private async ingestFile(parsed: InboundEnvelope, ref: FeishuFileMediaRef) {
     const bytes = await this.downloadMessageResource(ref.messageId, ref.fileKey, ref.messageType === "image" ? "image" : "file", this.voiceAbort.signal);
-    parsed.media = await attachDownloadedMedia({
-      store: this.mediaStore,
-      bytes,
-      base: {
-        kind: classifyMedia({
-          bytes,
+    try {
+      parsed.media = await attachDownloadedMedia({
+        store: this.mediaStore,
+        bytes,
+        base: {
+          kind: classifyMedia({
+            bytes,
+            ...(ref.filename ? { filename: ref.filename } : {}),
+            ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
+          }),
+          source: "feishu",
+          sourceMessageId: ref.messageId,
+          sourceResourceId: ref.fileKey,
+          mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
           ...(ref.filename ? { filename: ref.filename } : {}),
-          ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
-        }),
-        source: "feishu",
-        sourceMessageId: ref.messageId,
-        sourceResourceId: ref.fileKey,
-        mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
-        ...(ref.filename ? { filename: ref.filename } : {}),
-      },
-      ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
-      ...(this.objectStore ? { objectStore: this.objectStore } : {}),
-    });
+        },
+        ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+        ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+      });
+    } catch (error) {
+      const failure = classifyMediaFailure(error, "media-admission");
+      throw new FeishuMediaFailure(failure.errorClass, failure.diagnostic);
+    }
     delete parsed.text;
     const submitted = await this.plane.submitInbound(parsed);
     if (submitted.kind === "rejected") {
       const errorClass = submitted.errorClass ?? "INVALID_INPUT";
-      return this.plane.recordInboundFailure(parsed, errorClass);
+      const failure = classifyMediaFailure(
+        new PenglaiError(errorClass, "Feishu media admission rejected"),
+        "media-admission",
+      );
+      return this.plane.recordInboundFailure(parsed, failure.errorClass, failure.diagnostic);
     }
     if (submitted.kind === "accepted" && submitted.text === "queued") {
       const routeId = this.plane.ensureRoute(parsed);
@@ -696,7 +774,12 @@ export class FeishuAdapter {
 
   private async downloadMessageResource(messageId: string, fileKey: string, type: "file" | "image", signal: AbortSignal): Promise<Buffer> {
     const client = this.client;
-    if (!client) throw new PenglaiError("AUTH_EXPIRED", "Feishu client unavailable");
+    if (!client) {
+      throw new FeishuMediaFailure("AUTH_EXPIRED", {
+        phase: "resource-request",
+        reason: "client-unavailable",
+      });
+    }
     let response: Awaited<ReturnType<typeof client.im.messageResource.get>>;
     try {
       response = await client.im.messageResource.get({
@@ -704,29 +787,61 @@ export class FeishuAdapter {
         path: { message_id: messageId, file_key: fileKey },
       });
     } catch (err) {
-      const klass = classifyTransportError(err);
-      throw new PenglaiError(klass === "auth" ? "AUTH_EXPIRED" : "DELIVERY_TRANSIENT", "Feishu media resource download failed");
+      throw resourceRequestFailure(err);
     }
-    const stream = response.getReadableStream();
+    let stream: ReturnType<typeof response.getReadableStream>;
+    try {
+      stream = response.getReadableStream();
+    } catch (error) {
+      throw resourceRequestFailure(error);
+    }
     const chunks: Buffer[] = [];
     let bytes = 0;
     const onAbort = () => stream.destroy(new Error("aborted"));
     signal.addEventListener("abort", onAbort, { once: true });
     try {
-      for await (const chunk of stream) {
-        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
-        bytes += buf.length;
-        if (bytes > 8 * 1024 * 1024) {
-          stream.destroy();
-          throw new PenglaiError("INVALID_INPUT", "Feishu media resource size rejected");
+      try {
+        for await (const chunk of stream) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+          bytes += buf.length;
+          if (bytes > 8 * 1024 * 1024) {
+            stream.destroy();
+            throw new FeishuMediaFailure("INVALID_INPUT", {
+              phase: "resource-validation",
+              reason: "too-large",
+            });
+          }
+          chunks.push(buf);
         }
-        chunks.push(buf);
+      } catch (error) {
+        if (error instanceof FeishuMediaFailure) throw error;
+        if (signal.aborted) {
+          throw new FeishuMediaFailure("DELIVERY_TRANSIENT", {
+            phase: "resource-stream",
+            reason: "cancelled",
+          });
+        }
+        const transport = classifyTransportError(error);
+        throw new FeishuMediaFailure("DELIVERY_TRANSIENT", {
+          phase: "resource-stream",
+          reason: transport === "network" ? "network" : transport === "server" ? "server" : "unknown",
+        });
       }
     } finally {
       signal.removeEventListener("abort", onAbort);
     }
-    if (signal.aborted) throw new PenglaiError("DELIVERY_TRANSIENT", "Feishu audio download cancelled");
-    if (!bytes) throw new PenglaiError("INVALID_INPUT", "Feishu audio resource empty");
+    if (signal.aborted) {
+      throw new FeishuMediaFailure("DELIVERY_TRANSIENT", {
+        phase: "resource-stream",
+        reason: "cancelled",
+      });
+    }
+    if (!bytes) {
+      throw new FeishuMediaFailure("INVALID_INPUT", {
+        phase: "resource-validation",
+        reason: "empty",
+      });
+    }
     return Buffer.concat(chunks);
   }
 

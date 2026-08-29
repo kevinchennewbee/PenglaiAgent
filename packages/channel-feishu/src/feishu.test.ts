@@ -11,6 +11,7 @@ import {
   FEISHU_ALLOWLIST_NOTICE,
   FEISHU_STATUS_REACTIONS,
   FeishuAdapter,
+  classifyFeishuResourceError,
   parseFeishuEvent,
   parseOfficialReceive,
 } from "./index.js";
@@ -51,6 +52,60 @@ function voicePlane() {
     },
   );
   return { clock, store, plane: routing, inputs };
+}
+
+async function boundMediaAdapter(
+  getResource: () => Promise<{ getReadableStream(): Readable }>,
+) {
+  const h = voicePlane();
+  class FakeClient {
+    im = {
+      messageResource: { get: getResource },
+      message: {
+        reply: async () => ({}),
+        create: async () => ({}),
+      },
+    };
+  }
+  class FakeDispatcher {
+    register() { return this; }
+  }
+  class FakeWS {
+    async start() {}
+    close() {}
+  }
+  const adapter = new FeishuAdapter(
+    h.plane,
+    "cli_media_matrix",
+    {
+      Client: FakeClient as never,
+      WSClient: FakeWS as never,
+      EventDispatcher: FakeDispatcher as never,
+    },
+    h.store,
+    { appId: "cli_media_matrix" },
+  );
+  await adapter.connect("cli_media_matrix", "fixture-secret");
+  adapter.setOwner("ou_media_owner", "explicit");
+  const { token } = h.plane.createPairing({
+    workspaceIdentity: "ws",
+    sessionId: "sess",
+    adapter: "feishu",
+  });
+  adapter.enqueueReceive({
+    header: { app_id: "cli_media_matrix" },
+    event: {
+      message: {
+        message_id: "om_media_bind",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: `/绑定 ${token}` }),
+      },
+      sender: { sender_id: { open_id: "ou_media_owner" } },
+    },
+  });
+  await adapter.lastEnqueue;
+  return { ...h, adapter };
 }
 
 test("R2I-FS-011 group and unsupported media reject while image/audio are admitted", () => {
@@ -288,6 +343,8 @@ test("Feishu media callback contains download rejection and persists a redacted 
   assert.equal(failure.payload.bodyKind, "media");
   assert.equal(failure.payload.errorClass, "DELIVERY_TRANSIENT");
   assert.equal(failure.payload.retryable, true);
+  assert.equal(failure.payload.phase, "resource-request");
+  assert.equal(failure.payload.reason, "unknown");
   const inbound = h.store.getInbound(String(failure.payload.inboundId));
   assert.equal(inbound?.state, "rejected");
   const auditJson = JSON.stringify(failure);
@@ -296,6 +353,71 @@ test("Feishu media callback contains download rejection and persists a redacted 
 
   adapter.stop();
   h.store.close();
+});
+
+test("Feishu resource diagnostics classify closed causes without retaining vendor detail", () => {
+  const cases = [
+    [{ status: 400, message: "private-message-id" }, "INVALID_INPUT", "resource-identity-rejected"],
+    [{ status: 401, message: "private-token" }, "AUTH_EXPIRED", "credential-invalid"],
+    [{ response: { status: 403 }, message: "private-scope" }, "AUTH_EXPIRED", "permission-missing"],
+    [{ status: 404, message: "private-file-key" }, "INVALID_INPUT", "resource-not-found"],
+    [{ status: 429, message: "private-rate-body" }, "DELIVERY_TRANSIENT", "rate-limited"],
+    [new Error("ETIMEDOUT private-host"), "DELIVERY_TRANSIENT", "network"],
+    [{ status: 503, message: "private-server-body" }, "DELIVERY_TRANSIENT", "server"],
+  ] as const;
+  for (const [error, errorClass, reason] of cases) {
+    const result = classifyFeishuResourceError(error);
+    assert.deepEqual(result, {
+      errorClass,
+      diagnostic: { phase: "resource-request", reason },
+    });
+    const json = JSON.stringify(result);
+    assert.doesNotMatch(json, /private|token|scope|file-key|host|server-body/);
+  }
+});
+
+test("Feishu media stream and validation failures keep exact closed phases", async () => {
+  const cases: Array<{
+    stream: () => Readable;
+    phase: string;
+    reason: string;
+  }> = [
+    { stream: () => Readable.from([]), phase: "resource-validation", reason: "empty" },
+    {
+      stream: () => Readable.from([Buffer.alloc(8 * 1024 * 1024 + 1)]),
+      phase: "resource-validation",
+      reason: "too-large",
+    },
+    {
+      stream: () => Readable.from((async function* () {
+        throw new Error("ETIMEDOUT private-stream-detail");
+      })()),
+      phase: "resource-stream",
+      reason: "network",
+    },
+  ];
+  for (const [index, item] of cases.entries()) {
+    const h = await boundMediaAdapter(async () => ({ getReadableStream: item.stream }));
+    h.adapter.enqueueReceive({
+      header: { app_id: "cli_media_matrix" },
+      event: {
+        message: {
+          message_id: `om_media_${index}`,
+          chat_type: "p2p",
+          message_type: "image",
+          content: JSON.stringify({ image_key: `private_resource_${index}` }),
+        },
+        sender: { sender_id: { open_id: "ou_media_owner" } },
+      },
+    });
+    await h.adapter.lastEnqueue;
+    const failure = h.store.listAudit().find((row) => row.event === "inbound_processing_failed");
+    assert.equal(failure?.payload.phase, item.phase);
+    assert.equal(failure?.payload.reason, item.reason);
+    assert.doesNotMatch(JSON.stringify(failure), /private-stream|private_resource/);
+    h.adapter.stop();
+    h.store.close();
+  }
 });
 
 test("crash after Feishu event dedupe but before durable inbound is recoverable", async () => {

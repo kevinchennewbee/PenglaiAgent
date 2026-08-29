@@ -44,6 +44,7 @@
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
 | P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle, optional Budget accounting, one closed-transient retry, and bounded digest-only audit are fixed in source; npm reconciliation and installed/live proof remain |
 | P058-030 | IM support truth model | Source/UI/package/live | IN_PROGRESS | one closed registry now separates entry, adapter mode, bundled runtime, dynamic connection, release evidence, and per-capability evidence; all current rows are source-only; packaged/installed/Owner-live/public reconciliation remains |
+| P058-031 | Feishu media failure diagnostics | Source/live | IN_PROGRESS | request, stream, validation, admission, and transcription now persist closed redacted causes with retry class; Owner permission/download and end-to-end image/voice proof remain |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -85,6 +86,7 @@ use a partial broken push merely to create activity.
 | `386f368555f64684154e8f38491822541ea227c4` | split bridge composition into Agent, Workspace, and Session owner ports with an rc.2 adapter boundary | branch readback PASS; [Source CI 33246964498](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246964498) PASS |
 | `65a90a7f48429381021cddebda8846d6ee099e2f` | complete Memory Budget reservation/settlement/release and bounded digest-only curator audit, then correct checkpoint identity | branch readback PASS; [Source CI 33247879601](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33247879601) PASS |
 | `6d593bc60a827ff9382b6792ffd8ab04cb8347af` | replace ambiguous IM support booleans with separate entry, adapter, bundle, connection, release, and capability evidence across all eight channels | branch readback PASS; [Source CI 33248585975](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33248585975) PASS |
+| `1605e58080ff86392111e52cdf00571cbd2f8b84` | record the verified IM support-truth checkpoint in the preview work ledger | branch readback PASS; [Source CI 33248718019](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33248718019) PASS |
 
 ## Publication reconciliation placeholder
 
