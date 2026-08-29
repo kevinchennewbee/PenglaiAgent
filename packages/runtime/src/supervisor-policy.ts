@@ -117,6 +117,17 @@ export interface RedactedSupervisorDiagnostic {
   errorCodes: string[];
 }
 
+export function retainPrimarySupervisorDiagnostic(
+  current: RedactedSupervisorDiagnostic | undefined,
+  candidate: RedactedSupervisorDiagnostic,
+): RedactedSupervisorDiagnostic {
+  if (!current) return candidate;
+  const currentHasCause = current.recovery.trigger !== "none";
+  const candidateHasCause = candidate.recovery.trigger !== "none";
+  if (!currentHasCause && candidateHasCause) return candidate;
+  return current;
+}
+
 export function redactSupervisorDiagnostic(input: {
   appVersion: string;
   sourceSha: string;

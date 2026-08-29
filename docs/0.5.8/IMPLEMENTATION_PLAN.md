@@ -752,6 +752,20 @@ plugin loader state. Native process/file-descriptor evidence, cancellation and
 crash stress across the complete matrix, and retention of the first fatal
 runtime diagnostic remain open.
 
+**First-cause retention source checkpoint, 2026-08-29**
+
+The desktop recovery boundary now retains the first supervisor diagnostic with
+a classified causal trigger. An earlier unclassified startup failure may be
+upgraded once by a later process-exit or health-check trigger, but subsequent
+gateway/startup noise cannot replace that causal diagnostic in the recovery UI,
+clipboard export, or bounded local startup log. The existing supervisor restart
+test continues to prove process crash, hung HTTP recovery, exact three-attempt
+budget exhaustion, same-port restart, and stop-cancels-restart behavior.
+
+This source checkpoint does not turn a generic HTTP error into a root cause and
+does not claim native Windows/macOS crash evidence. Cross-process timestamped
+correlation and installed reproduction remain open.
+
 ### P0-07: IM support truth has conflicting machine sources
 
 **Observed symptom**

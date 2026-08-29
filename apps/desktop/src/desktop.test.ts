@@ -185,6 +185,7 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /onRecoveryStateChange/);
   assert.match(main, /manual-action-required/);
   assert.match(main, /lastRecoveryDiagnostic/);
+  assert.match(main, /retainPrimarySupervisorDiagnostic/);
   assert.match(main, /if \(recoveryIpcNames\.has\(name\)\) continue/);
   assert.match(main, /event\.sender\.getURL\(\) !== recoveryUrl/);
   assert.ok(main.indexOf("for (const name of recoveryIpcNames)") < main.indexOf("const resources = resourcesRoot()"));

@@ -11,6 +11,7 @@ import {
   PINNED_DSH,
   PENGLAI_VERSION,
   redactSupervisorDiagnostic,
+  retainPrimarySupervisorDiagnostic,
   supervisorRecoveryErrorCodes,
   activatePrivateProfile,
   buildDeletionPlan,
@@ -513,8 +514,12 @@ async function main(): Promise<void> {
         ? "DSH_UNAVAILABLE"
         : "STARTUP_FAILURE";
     const recovery = extra.recovery ?? live.recovery;
-    const diagnostic = currentSupervisorDiagnostic([errorCode], recovery);
-    lastRecoveryDiagnostic = diagnostic;
+    const candidateDiagnostic = currentSupervisorDiagnostic([errorCode], recovery);
+    lastRecoveryDiagnostic = retainPrimarySupervisorDiagnostic(
+      lastRecoveryDiagnostic,
+      candidateDiagnostic,
+    );
+    const diagnostic = lastRecoveryDiagnostic;
     if (stopping || win.isDestroyed()) return;
     try {
       await stopOwnedServices();

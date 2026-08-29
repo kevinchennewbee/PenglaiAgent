@@ -138,6 +138,9 @@ Allowed work now includes:
   plugin work. Missing DSH core subagent, tool, Remote-request, and
   open-file evidence remains visibly unavailable instead of being reported as
   zero; native pressure/crash evidence remains open.
+- Desktop recovery now keeps the first classified process or health failure as
+  the primary diagnostic so later generic startup/gateway errors cannot replace
+  the cause shown, copied, or written to the bounded local startup log.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact
