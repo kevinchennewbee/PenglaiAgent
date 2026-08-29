@@ -166,7 +166,7 @@
     "packages/plugin-center/package.json"
   ],
   "desktopSupervisor": {
-    "state": "SOURCE_CHILD_EXIT_AND_RESTART_ROUTE_FIXED",
+    "state": "SOURCE_CHILD_EXIT_RESTART_AND_HTTP_HEALTH_FIXED",
     "sourceFiles": [
       "apps/desktop/src/supervisor.ts",
       "packages/runtime/src/index.ts",
@@ -190,12 +190,18 @@
       "helper observes both the DSH root exit and desktop-owner stop",
       "desktop facade reads live inner state instead of copied snapshots",
       "automatic restart retains the proxy-facing inner port",
+      "startup and continuous official-document HTTP probes have bounded timeouts",
+      "transient HTTP failure enters degraded state and a good probe recovers without restart",
+      "three consecutive HTTP failures terminate the owned tree through SIGTERM then SIGKILL escalation",
+      "a degraded probe cannot create a second process owner",
+      "stop and process exit cancel pending or in-flight health probes",
       "identity-checked stale-process cleanup",
       "HTTP and required-plugin inventory readiness"
     ],
     "remainingEvidence": [
       "native Windows child-exit execution proof",
-      "hang and port-loss characterization",
+      "one-time-token-compatible alpha.1 health route after official package publication",
+      "bounded redacted terminal diagnostics and restart-exhaustion UX",
       "Windows x64 native process-tree proof",
       "macOS arm64 and x64 installed process-tree proof"
     ]

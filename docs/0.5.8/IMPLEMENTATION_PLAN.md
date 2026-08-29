@@ -88,13 +88,25 @@ that cannot prove both. The desktop facade now reads live state, health, port,
 PID, and restart count from one reused inner supervisor rather than retaining a
 one-time snapshot or creating a competing supervisor. Automatic restarts retain
 the existing proxy-facing inner port so the loopback proxy does not remain
-bound to a dead target. Local typecheck, the full 722-test unit suite, and the
-full 82-test desktop E2E suite pass.
+bound to a dead target.
 
-This closes the source-level one-sided-wait defect only. The helper has not been
-compiled or executed on Windows in this checkpoint, and hang/port-loss health
-monitoring, redacted terminal diagnostics, restart exhaustion UX, and native
-orphan proof remain open.
+A bounded continuous HTTP probe now detects both a lost listener and a server
+that accepts a connection but never returns the official DSH document. The
+first failure clears stale green health and exposes `degraded`; a good probe
+recovers without restart, while three consecutive failures terminate the owned
+tree with bounded escalation and reuse the existing restart budget and port.
+Stop/process exit cancel the timer and any in-flight request, and Start during a
+degraded interval cannot create a second owner. A real local child-process test
+proves transient recovery, sustained-hang restart, a new PID, and the same
+proxy-facing port. Local typecheck, all 34 focused runtime/supervisor tests, the
+full 725-test unit suite, the full 82-test desktop E2E suite, and the composed
+0.5.8 preview gate pass.
+
+This closes the source-level one-sided-wait, hang, and port-loss detection paths.
+The helper has not been compiled or executed on Windows in this checkpoint.
+Alpha.1's authenticated browser boot may require a different steady-state probe
+route once its official packages exist; redacted terminal diagnostics, restart
+exhaustion UX, and native orphan proof also remain open.
 
 **Overlay source checkpoint, 2026-08-29**
 

@@ -13,6 +13,30 @@ export type BootPhase = (typeof BOOT_PHASES)[number];
 export const SUPERVISOR_RESTART_WINDOW_MS = 5 * 60_000;
 export const SUPERVISOR_RESTART_MAX = 3;
 export const SUPERVISOR_BACKOFF_MS = [1_000, 3_000, 10_000] as const;
+export const SUPERVISOR_HEALTH_INTERVAL_MS = 5_000;
+export const SUPERVISOR_HEALTH_TIMEOUT_MS = 2_000;
+export const SUPERVISOR_HEALTH_FAILURE_THRESHOLD = 3;
+export const SUPERVISOR_UNHEALTHY_KILL_GRACE_MS = 2_000;
+
+export interface SupervisorHealthDecision {
+  consecutiveFailures: number;
+  state: "healthy" | "degraded";
+  restart: boolean;
+}
+
+export function nextSupervisorHealthDecision(
+  consecutiveFailures: number,
+  healthy: boolean,
+  threshold = SUPERVISOR_HEALTH_FAILURE_THRESHOLD,
+): SupervisorHealthDecision {
+  if (healthy) return { consecutiveFailures: 0, state: "healthy", restart: false };
+  const failures = Math.max(0, Math.floor(consecutiveFailures)) + 1;
+  return {
+    consecutiveFailures: failures,
+    state: "degraded",
+    restart: failures >= Math.max(1, Math.floor(threshold)),
+  };
+}
 
 export function reusableSupervisorPort(port: number | undefined): number | undefined {
   return Number.isInteger(port) && port !== undefined && port > 0 && port <= 65_535

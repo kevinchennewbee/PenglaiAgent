@@ -42,7 +42,7 @@
 | Asset | Current class | Finding/decision | Immediate action | Acceptance |
 | --- | --- | --- | --- | --- |
 | `packages/channel-feishu/src/index.ts` callback boundary | Active product | P0-02 | Attach terminal rejection handling before returning accepted | Rejected download/admission cannot become unhandled rejection; durable terminal state is inspectable |
-| `apps/desktop/src/supervisor.ts` and Windows helper | Active product | P0-01 | Dual lifetime wait, fail-closed helper handshake, live facade state, single-owner reuse, and stable restart port implemented; health/diagnostic work continues | Child exit/hang/port loss detected; bounded recovery; no orphan |
+| `apps/desktop/src/supervisor.ts` and Windows helper | Active product | P0-01 | Dual lifetime wait, fail-closed helper handshake, live facade state, single-owner reuse, stable restart port, and bounded continuous HTTP recovery implemented; diagnostic/native work continues | Child exit/hang/port loss detected; bounded recovery; no orphan |
 | Memory curator runner/session creation | Active product | P0-05 | Map current lifecycle and design internal-job replacement | No false subagent, no cross-Workspace state, no Turn blocking |
 | IM channel manifest `live` boolean | Active product | capability-truth finding | Replace with separate entry/runtime/connection/evidence/capability facts | UI and public claim derive from same closed model |
 | Active WhatsApp package, adapter, identity, lock entries | Forbidden active surface | D-062 | Removed in preview checkpoint | Source, lock, dependencies, catalog, UI, packaging, tests show absence |
@@ -61,7 +61,7 @@ new caller in an already-known file cannot bypass review.
 | `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; exact inject replacement remains npm-blocked |
 | `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate only with published generated clients |
 | direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
-| packaged DSH process ownership | 5 source files and 5 test files | Penglai desktop/runtime policy, using platform-native ownership | Child-exit and restart-routing defects fixed in source; native child-exit, port-loss, and process-tree evidence remains |
+| packaged DSH process ownership | 5 source files and 5 test files | Penglai desktop/runtime policy, using platform-native ownership | Child-exit, continuous HTTP health, and same-port restart routes fixed in source; authenticated alpha.1 probe reconciliation, diagnostics, and native process-tree evidence remain |
 
 The alpha.1 source confirms `sessions.create -> session.create`,
 `sessions.models -> session.modelCatalog`, and

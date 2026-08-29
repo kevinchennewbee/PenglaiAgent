@@ -36,7 +36,7 @@
 | P058-026 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
 | P058-017 | Overlay-to-slot map | Source/design/CI | DONE | 12 mapped dispositions cover all 4 patched files and 5 brand assets; 4 narrow upstream gaps remain; executable gate PASS |
 | P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |
-| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | helper observes DSH/owner lifetimes; facade is live and single-owner; restart keeps proxy target; port-loss/diagnostics and native proof remain |
+| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes plus bounded hang/port-loss recovery pass 725 unit and 82 desktop E2E tests; alpha.1 auth-route reconciliation, diagnostics, exhaustion UX, and native proof remain |
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
@@ -73,6 +73,7 @@ use a partial broken push merely to create activity.
 | `54cf32ccc0e497318d26699a75afd8a0d3af7e6a` | machine-readable DSH migration seam census and preview drift gate | branch readback PASS; [Source CI 33240938258](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33240938258) PASS |
 | `8d7b2585f5c8ff357f2ef20ca54b66749ddb21b2` | make the Windows helper observe DSH child exit as well as desktop-owner stop | branch readback PASS; [Source CI 33241174183](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33241174183) PASS |
 | `9da7e7677461ce118f29f72420c2b498a4b5abcc` | keep one live desktop supervisor and preserve its proxy-facing port across automatic restart | branch readback PASS; [Source CI 33241435767](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33241435767) PASS |
+| `24f5854480afd7d7317e2d72b5f4e44008100c66` | gate the complete rc.2 overlay-to-alpha.1 slot disposition map and four explicit source gaps | branch readback PASS; [Source CI 33241802491](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33241802491) PASS |
 
 ## Publication reconciliation placeholder
 

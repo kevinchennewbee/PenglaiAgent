@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
+import { createServer } from "node:http";
 import {
   chmodSync,
   existsSync,
@@ -21,12 +22,15 @@ import {
   dshWebArgs,
   doctor,
   doctorExitCode,
+  EmbeddedDshSupervisor,
+  ensurePrivateHome,
   evaluateInventory,
   extractedPackageRoot,
   assertPluginJsClosure,
   isOfficialDshHtml,
   isPenglaiProductTitle,
   mergeLegacyContextIntoMemory,
+  probeOfficialDsh,
   recoverProfile,
   resolveRuntimeLayout,
   resolveUserLayout,
@@ -289,6 +293,128 @@ test("official DSH HTML identity does not depend on DeepSeek Harness title", () 
   );
   assert.equal(isPenglaiProductTitle("蓬莱 Penglai"), true);
   assert.equal(isPenglaiProductTitle("Penglai · DeepSeek Harness failed to start"), false);
+});
+
+test("official DSH HTTP probe validates identity and aborts a hanging response", async () => {
+  const server = createServer((req, res) => {
+    if (req.url === "/hang") return;
+    res.writeHead(200, { "content-type": "text/html" });
+    res.end(req.url === "/official"
+      ? '<!doctype html><div id="root"></div><script src="/assets/index.js"></script>'
+      : "not-dsh");
+  });
+  await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const origin = `http://127.0.0.1:${address.port}`;
+    assert.equal((await probeOfficialDsh(`${origin}/official`, 500)).official, true);
+    assert.equal((await probeOfficialDsh(`${origin}/other`, 500)).official, false);
+    const started = Date.now();
+    await assert.rejects(() => probeOfficialDsh(`${origin}/hang`, 40));
+    assert.ok(Date.now() - started < 1_000, "hanging probe must be bounded");
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+  }
+});
+
+test("embedded supervisor restarts a live process whose official HTTP route hangs", async () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-health-app-"));
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-health-user-")));
+  const dshEntry = join(app, "runtime", "dsh", "lib", "bin.js");
+  const manifestPath = join(app, "runtime-manifest.json");
+  const modePath = join(user.root, "health-mode.txt");
+  mkdirSync(join(app, "runtime", "dsh", "lib"), { recursive: true });
+  mkdirSync(join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"), { recursive: true });
+  const fakeDsh = [
+    'const { createServer } = require("node:http");',
+    'const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");',
+    'const { join } = require("node:path");',
+    'const at = process.argv.indexOf("--port");',
+    'const port = Number(process.argv[at + 1]);',
+    'const root = process.env.PENGLAI_USER_DATA;',
+    'const plugins = join(root, "plugins");',
+    'mkdirSync(plugins, { recursive: true });',
+    'writeFileSync(join(plugins, "inventory-snapshot.json"), JSON.stringify({ entries: [',
+    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.1-rc.2" },',
+    '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.7" },',
+    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.7" },',
+    '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.7" }',
+    '] }));',
+    'const modePath = join(root, "health-mode.txt");',
+    'const server = createServer((_req, res) => {',
+    '  const mode = existsSync(modePath) ? readFileSync(modePath, "utf8").trim() : "healthy";',
+    '  if (mode === "hang") return;',
+    '  res.writeHead(200, { "content-type": "text/html" });',
+    '  res.end("<!doctype html><div id=\\"root\\"></div><script src=\\"/assets/index.js\\"></script>");',
+    '});',
+    'server.listen(port, "127.0.0.1");',
+    'process.on("SIGTERM", () => {',
+    '  server.closeAllConnections?.();',
+    '  server.close(() => process.exit(0));',
+    '  setTimeout(() => process.exit(0), 50).unref();',
+    '});',
+  ].join("\n");
+  writeFileSync(dshEntry, fakeDsh, { mode: 0o700 });
+  const digest = createHash("sha256").update(fakeDsh).digest("hex");
+  writeFileSync(manifestPath, JSON.stringify({
+    files: [{ path: "runtime/dsh/lib/bin.js", sha256: digest, size: Buffer.byteLength(fakeDsh) }],
+  }));
+  writeFileSync(modePath, "healthy\n");
+  ensurePrivateHome(user, app);
+  const supervisor = new EmbeddedDshSupervisor({
+    appRoot: app,
+    nodeBin: process.execPath,
+    dshEntry,
+    profileSeed: join(app, "profile-seed", "web"),
+    pluginsDir: join(app, "plugins"),
+    manifestPath,
+    officialDeepseek: join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"),
+  }, {
+    healthIntervalMs: 50,
+    healthTimeoutMs: 100,
+    unhealthyKillGraceMs: 30,
+  });
+  const waitUntil = async (predicate: () => boolean, timeoutMs: number): Promise<void> => {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate() && Date.now() < deadline) await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    assert.equal(predicate(), true, "supervisor transition timed out");
+  };
+  try {
+    const first = await supervisor.start(user);
+    const firstPid = supervisor.child?.pid;
+    assert.equal(supervisor.state, "healthy");
+    assert.ok(firstPid);
+    writeFileSync(modePath, "hang\n");
+    await waitUntil(() => supervisor.state === "degraded", 1_000);
+    const degraded = await supervisor.start(user);
+    assert.equal(degraded.port, first.port);
+    assert.equal(supervisor.child?.pid, firstPid, "a degraded probe must not create a second owner");
+    writeFileSync(modePath, "healthy\n");
+    await waitUntil(() => supervisor.state === "healthy", 1_000);
+    assert.equal(supervisor.restarts, 0);
+    writeFileSync(modePath, "hang\n");
+    await waitUntil(() => supervisor.restarts === 1, 3_000);
+    writeFileSync(modePath, "healthy\n");
+    await waitUntil(
+      () => supervisor.state === "healthy" && supervisor.child?.pid !== firstPid,
+      5_000,
+    );
+    assert.equal(supervisor.port, first.port);
+    assert.equal(supervisor.health?.http, 200);
+    writeFileSync(modePath, "hang\n");
+    await waitUntil(() => supervisor.state === "degraded", 1_000);
+    const restartsBeforeStop = supervisor.restarts;
+    await supervisor.stop();
+    await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+    assert.equal(supervisor.state, "stopped");
+    assert.equal(supervisor.restarts, restartsBeforeStop, "Stop must cancel health-triggered restart");
+  } finally {
+    writeFileSync(modePath, "healthy\n");
+    await supervisor.stop();
+  }
+  assert.equal(supervisor.state, "stopped");
 });
 
 test("R2I-BRAND-005 fresh settings seed locale zh without overwriting", () => {
