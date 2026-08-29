@@ -186,6 +186,8 @@ export class PenglaiMossTtsService {
       db: 0,
       modelSessions: this.engine ? 1 : 0,
       audioHandles: capability.outputHandles,
+      activeJobs: capability.activeSyntheses,
+      queuedJobs: capability.queueDepth,
     };
   }
 

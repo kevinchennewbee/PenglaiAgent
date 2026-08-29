@@ -616,6 +616,8 @@ export function createDurableMemoryService(opts: {
         db: closed ? 0 : engine.resourceSnapshot().db,
         modelSessions: 0,
         audioHandles: 0,
+        activeJobs: curator.active,
+        queuedJobs: curator.queued,
       };
     },
   };

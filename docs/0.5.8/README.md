@@ -134,6 +134,10 @@ Allowed work now includes:
   and recovery copy are bilingual, and Plugin Center now states the exact
   eight-channel registry. Full typed-reference/outage deduplication and official
   DSH permission-label localization remain open.
+- Plugin Center resource diagnostics now separate measured active and queued
+  plugin work. Missing DSH core subagent, tool, Remote-request, and
+  open-file evidence remains visibly unavailable instead of being reported as
+  zero; native pressure/crash evidence remains open.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

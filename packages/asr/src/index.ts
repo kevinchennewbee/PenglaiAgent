@@ -153,6 +153,8 @@ export class PenglaiAsrService {
       db: 0,
       modelSessions: this.engine ? 1 : 0,
       audioHandles: capability.audioHandles,
+      activeJobs: capability.activeTranscriptions,
+      queuedJobs: capability.queueDepth,
     };
   }
 

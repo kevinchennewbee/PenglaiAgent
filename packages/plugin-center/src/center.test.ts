@@ -102,6 +102,11 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /penglai-capability-grid/);
   assert.match(client, /data-penglai-plugin-action-status/);
   assert.match(client, /data-penglai-plugin-action-busy/);
+  assert.match(client, /data-penglai-resource-pressure/);
+  assert.match(client, /DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED/);
+  assert.match(client, /row\.activeJobs/);
+  assert.match(client, /row\.queuedJobs/);
+  assert.match(client, /row\.remoteRequests/);
   assert.match(client, /data-penglai-plugin-links/);
   assert.match(client, /data-penglai-plugin-link/);
   assert.match(client, /openPluginLink/);

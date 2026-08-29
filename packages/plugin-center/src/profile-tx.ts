@@ -47,6 +47,12 @@ export interface ResourceCounts {
   db: number;
   modelSessions: number;
   audioHandles: number;
+  activeJobs?: number;
+  queuedJobs?: number;
+  remoteRequests?: number;
+  workerThreads?: number;
+  childProcesses?: number;
+  openFiles?: number;
 }
 
 interface TransactionJournal {

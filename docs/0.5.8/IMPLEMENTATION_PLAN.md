@@ -735,6 +735,23 @@ supervisor blind spot remain separate high-priority paths.
 - prove one plugin/job failure cannot terminate the host; and
 - retain the first fatal diagnostic so later 502 noise cannot overwrite cause.
 
+**Truthful pressure source checkpoint, 2026-08-29**
+
+The Plugin Center now reports plugin resource pressure without treating the
+legacy teardown `workers` counter as concurrency. ASR, TTS, and Memory expose
+separately measured active and queued work only where the owning service has an
+exact counter. A missing
+or failed resource probe stays unavailable rather than becoming zero, and one
+probe failure cannot remove the catalog or expose its internal exception text.
+
+The current DSH package/runtime does not provide verifiable counts for true
+subagents, active tool calls, plugin/core Remote requests, worker threads, child
+processes, or open files. Those dimensions are therefore explicitly `null`
+with `DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED`, not inferred from source objects or
+plugin loader state. Native process/file-descriptor evidence, cancellation and
+crash stress across the complete matrix, and retention of the first fatal
+runtime diagnostic remain open.
+
 ### P0-07: IM support truth has conflicting machine sources
 
 **Observed symptom**
