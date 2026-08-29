@@ -125,11 +125,25 @@ test("schema 5 persists binding voice policy and resumable opaque voice jobs", (
     updatedAt: 1,
   });
   assert.equal(store.pendingVoiceJobs("weixin").length, 1);
-  store.setVoiceJobState("in-voice", "retryable", 2, { errorClass: "DELIVERY_TRANSIENT" });
+  for (const [index, state] of ([
+    "processing",
+    "downloading",
+    "validating",
+    "transcoding",
+    "transcribing",
+    "retryable",
+  ] as const).entries()) {
+    store.setVoiceJobState("in-voice", state, index + 2);
+    assert.equal(store.pendingVoiceJobs("weixin")[0]?.state, state);
+  }
+  store.setVoiceJobState("in-voice", "retryable", 8, { errorClass: "DELIVERY_TRANSIENT" });
   assert.equal(store.getVoiceJob("in-voice")?.errorClass, "DELIVERY_TRANSIENT");
-  store.setVoiceJobState("in-voice", "transcribed", 3, { asrLanguage: "zh", asrEmotion: "HAPPY" });
+  store.setVoiceJobState("in-voice", "transcribed", 9, { asrLanguage: "zh", asrEmotion: "HAPPY" });
+  assert.equal(store.pendingVoiceJobs("weixin").length, 0);
   assert.equal(store.getVoiceJob("in-voice")?.asrLanguage, "zh");
   assert.equal(store.getVoiceJob("in-voice")?.asrEmotion, "HAPPY");
+  store.setVoiceJobState("in-voice", "queued", 10);
+  assert.equal(store.pendingVoiceJobs("weixin").length, 0);
   store.close();
 });
 

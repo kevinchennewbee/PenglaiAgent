@@ -124,6 +124,7 @@ test("R2I-FS-011 group and unsupported media reject while image/audio are admitt
 test("R50-VOICE: feishu inbound wav transcribes and outbound is native audio, not a file card", async () => {
   const { inboundFeishuAudioToText, outboundFeishuNativeAudio } = await import("./media.js");
   const wav = toneWav();
+  const phases: string[] = [];
   const text = await inboundFeishuAudioToText(wav, {
     async stageAudio(data, input) {
       return {
@@ -149,7 +150,9 @@ test("R50-VOICE: feishu inbound wav transcribes and outbound is native audio, no
     claimed: true,
     privateChat: true,
     operationId: "asr_feishu_fixture_1",
+    onPhase: (phase) => phases.push(phase),
   });
+  assert.deepEqual(phases, ["validating", "transcoding", "transcribing"]);
   assert.ok(text.text.length > 0);
   assert.equal(text.language, "zh");
   assert.equal(text.emotion, "SAD");
@@ -619,6 +622,13 @@ test("R50-VOICE-015 Feishu resource reaches one Turn and exact final sends nativ
   assert.equal(h.inputs[0]?.text, "飞书语音指令");
   assert.deepEqual(h.inputs[0]?.source.voice, { language: "zh", emotion: "SAD", durationMs: 1_000 });
   const input = h.inputs[0]!;
+  assert.equal(h.store.getVoiceJob(input.inboundId)?.state, "queued");
+  assert.deepEqual(
+    h.store.listAudit()
+      .filter((row) => row.event === "voice_processing_phase")
+      .map((row) => row.payload.phase),
+    ["downloading", "validating", "transcoding", "transcribing"],
+  );
   h.plane.onClaimed({
     dshMessageId: `dsh_${input.inboundId}`,
     turnId: "fs-turn-1",

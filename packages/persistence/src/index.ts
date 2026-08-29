@@ -40,7 +40,18 @@ const BODY_KINDS = ["text", "voice", "control"] as const;
 const PAYLOAD_KINDS = ["text", "voice", "text-and-voice"] as const;
 const DISPATCH_MODES = ["followup", "steer"] as const;
 const VOICE_ADAPTERS = ["weixin", "feishu"] as const;
-const VOICE_JOB_STATES = ["claimed", "processing", "transcribed", "retryable", "failed"] as const;
+export const VOICE_JOB_STATES = [
+  "claimed",
+  "processing",
+  "downloading",
+  "validating",
+  "transcoding",
+  "transcribing",
+  "transcribed",
+  "queued",
+  "retryable",
+  "failed",
+] as const;
 
 const MIGRATIONS: string[] = [
   `
@@ -271,7 +282,7 @@ export interface StoredPendingMenu {
   createdAt: number;
 }
 
-export type VoiceJobState = "claimed" | "processing" | "transcribed" | "retryable" | "failed";
+export type VoiceJobState = (typeof VOICE_JOB_STATES)[number];
 
 export interface VoiceJob {
   inboundId: string;
@@ -620,7 +631,9 @@ export class Store {
 
   pendingVoiceJobs(adapter: "weixin" | "feishu"): VoiceJob[] {
     const rows = this.db
-      .prepare("SELECT * FROM voice_jobs WHERE adapter=? AND state IN ('claimed','processing','retryable') ORDER BY updated_at ASC")
+      .prepare(
+        "SELECT * FROM voice_jobs WHERE adapter=? AND state IN ('claimed','processing','downloading','validating','transcoding','transcribing','retryable') ORDER BY updated_at ASC",
+      )
       .all(adapter) as Record<string, string | number | null>[];
     return rows.map((row) => this.mapVoiceJob(row));
   }

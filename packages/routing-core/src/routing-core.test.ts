@@ -457,13 +457,23 @@ test("R50-VOICE-014/015 durable voice claim reaches one exact Turn and mirror po
   const duplicate = await h.plane.claimVoiceInbound(voiceEnv, { mediaRefJson, durationMs: 1_000, expectedBytes: 512 });
   assert.equal(duplicate.kind, "voice_claim");
   if (duplicate.kind === "voice_claim") assert.equal(duplicate.duplicate, true);
-  h.plane.markVoiceProcessing(claimed);
+  for (const phase of ["downloading", "validating", "transcoding", "transcribing"] as const) {
+    h.plane.markVoicePhase(claimed, phase);
+    assert.equal(h.store.getVoiceJob(claimed.inboundId)?.state, phase);
+  }
   const completed = await h.plane.completeVoiceInbound(
     claimed,
     { text: "语音转写", language: "zh", emotion: "HAPPY" },
     "a".repeat(64),
   );
   assert.equal(completed.kind, "accepted");
+  assert.equal(h.store.getVoiceJob(claimed.inboundId)?.state, "queued");
+  assert.deepEqual(
+    h.store.listAudit()
+      .filter((row) => row.event === "voice_processing_phase")
+      .map((row) => row.payload.phase),
+    ["downloading", "validating", "transcoding", "transcribing"],
+  );
   assert.equal(h.inputs.length, 1);
   assert.equal(h.inputs[0]?.text, "语音转写");
   assert.deepEqual(h.inputs[0]?.source.voice, { language: "zh", emotion: "HAPPY", durationMs: 1_000 });
@@ -481,6 +491,26 @@ test("R50-VOICE-014/015 durable voice claim reaches one exact Turn and mirror po
   assert.equal(delivery.finalText, "最终回答");
   assert.equal(delivery.failureFallback, "text");
   assert.match(delivery.operationId, /^tts_[a-f0-9]{32}$/);
+});
+
+test("voice processing phases reject skipped and open runtime values", async () => {
+  const h = harness();
+  const claimed = await h.plane.claimVoiceInbound(env({
+    adapter: "weixin",
+    peerRef: "peer-wx",
+    vendorTarget: "wx-owner",
+    bodyKind: "voice",
+    text: "",
+    adapterMessageKey: "voice-invalid-phase",
+  }), { mediaRefJson: JSON.stringify({ kind: "silk", ref: "opaque-invalid" }), durationMs: 1_000 });
+  assert.equal(claimed.kind, "voice_claim");
+  if (claimed.kind !== "voice_claim") return;
+  assert.throws(() => h.plane.markVoicePhase(claimed, "transcribing"), /VOICE_PHASE_TRANSITION/);
+  assert.throws(
+    () => h.plane.markVoicePhase(claimed, "arbitrary" as never),
+    /VOICE_PROCESSING_PHASE/,
+  );
+  assert.equal(h.store.getVoiceJob(claimed.inboundId)?.state, "claimed");
 });
 
 test("voice replay with changed media reference and stale binding fail closed", async () => {
