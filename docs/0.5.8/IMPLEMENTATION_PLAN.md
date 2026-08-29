@@ -96,6 +96,17 @@ compiled or executed on Windows in this checkpoint, and hang/port-loss health
 monitoring, redacted terminal diagnostics, restart exhaustion UX, and native
 orphan proof remain open.
 
+**Overlay source checkpoint, 2026-08-29**
+
+The rc.2 Web/Models/Conversation/Settings overlay is now decomposed into 12
+machine-checked dispositions covering all four patched files and all five
+brand assets. Title, brand, onboarding suppression, and a Penglai-owned
+settings composite have alpha source routes; serializer-only differences and
+the redundant patched welcome copy are marked for deletion. IM voice-row
+projection, hero copy, hero background, and identity-safe TTS text resolution
+remain explicit upstream gaps. No alpha build output or speculative overlay
+rebase entered the product closure, and the active DSH pin remains rc.2.
+
 ### P0-02: Feishu image callback can destabilize the DSH host
 
 **Observed symptom**

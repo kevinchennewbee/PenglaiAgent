@@ -18,7 +18,7 @@
 | Settings | Plugin-specific `@Remote` plus repeated client reads | Settings Controller, typed settings, shared mirror | Inventory every plugin reader and stale-state symptom | Mount through published mirror/client graph | One authoritative state; reconnect and locale changes converge |
 | Remote transport | Penglai plugins already use Typert `@Remote`; old host BFF assumptions remain | API Gateway, API Remotes, owner `TypertRemoteService` controllers | Preserve plugin-owned Remotes; locate ApiProxy-only callers | Regenerate/validate exact client bundles and event allowlist | Typed failures, cancellation, reconnect, no compatibility ApiProxy |
 | Client composition | Eight first-party plugins inject removed `dsh-client-runtime` | Session/Workspace controllers, Client Store, narrow UI packages, and typed slots | Freeze all eight manifests and eight packaging rows; keep source-owner mapping distinct from the unresolved published inject graph | Replace manifests after published package exports are known | Every expected client fiber reaches `ACTIVE`; absent/pending is failure |
-| Branding/layout | Exact-hash Web/General/Conversation overlay | Brand, layout, conversation, settings, composer/message slots | Map each overlay hunk to an official slot or explicit gap | Remove or rebase only after published bytes are known | No hidden official theme/locale/models/settings behavior |
+| Branding/layout | Exact-hash Web/General/Conversation overlay | Brand, layout, conversation, settings, composer/message slots | 12-item executable map covers every patched file/asset; four narrow gaps are explicit | Prove official routes, then remove obsolete patches or authorize only residual gap overlays | No hidden official theme/locale/models/settings behavior |
 | Plugin inventory | Desired profile plus official rc.2 inventory and polling | Host plugin inventory with pending/loading/active/failed/unloading phases | Preserve signed transaction journal and characterize convergence | Adapt exact inventory Remote/client payloads | Desired, effective, client-fiber, rollback, and terminal state agree |
 | Image intake | Channel download plus current image store assumptions | Attachment service, local provider, Session attachment admission/projection | Fix callback containment and resource diagnostics | Hand validated bytes to official Attachment path | Model-visible durable image fact, replay, compaction, and real model proof |
 | Audio intake | Penglai ASR before a text Turn | No general DSH audio/video Turn support | Keep audio pipeline in ASR plugin; improve phase/error state | Rebind produced text through migrated Session path | Real Feishu voice becomes one official text Turn; no disguised attachment |
@@ -89,6 +89,11 @@ The census proves that the migration surface is enumerated. It does not prove
 that unpublished package exports exist or that a native process tree has been
 tested.
 
+`OVERLAY_TO_SLOT_MAP.json` and `scripts/verify-058-overlay-map.mjs` provide the
+same drift protection for the rc.2 UI overlay. The gate binds all four overlay
+file ids and all five brand assets to 12 reviewed dispositions and fails if a
+legacy anchor or coverage row changes without review.
+
 ## Published-package reconciliation rows
 
 These rows remain deliberately unresolved until official npm publication:
@@ -107,7 +112,8 @@ These rows remain deliberately unresolved until official npm publication:
 - Source identity: **FIXED**
 - Upstream clean source install/build: **PASS**
 - ApiProxy/client-runtime/Workspace seam census: **FIXED AND GATED**
-- Remaining repository/overlay/release inventory: **IN PROGRESS**
+- Overlay-to-slot inventory: **FIXED AND GATED; FOUR SOURCE GAPS OPEN**
+- Remaining repository/release inventory: **IN PROGRESS**
 - Independent Penglai fixes: **AUTHORIZED ON PREVIEW**
 - Official npm closure: **BLOCKED — NOT PUBLISHED**
 - DSH dependency change: **NOT STARTED**
