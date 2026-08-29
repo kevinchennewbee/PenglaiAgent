@@ -329,6 +329,8 @@ test("R50-WX-002/R50-FS-001/012 IM client has Weixin and Feishu official QR", ()
   assert.match(client, /https:\/\/open\.feishu\.cn\/app/);
   assert.match(client, /data-penglai-im-goto-weixin/);
   assert.match(client, /data-penglai-im-goto-feishu/);
+  assert.match(client, /ConnectionModal/);
+  assert.match(client, /data-penglai-im-connect-dialog/);
   assert.match(client, /configureFeishu/);
   assert.match(client, /setFeishuOwner/);
   assert.match(client, /data-penglai-feishu-owner-id/);

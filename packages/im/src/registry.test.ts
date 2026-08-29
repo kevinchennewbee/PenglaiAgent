@@ -219,6 +219,17 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.match(client, /Boolean\(operationId\)/);
   assert.match(client, /data-penglai-im-connect-cancel/);
   assert.match(client, /data-penglai-im-connect-status/);
+  assert.match(client, /function ConnectionModal/);
+  assert.match(client, /data-penglai-im-connect-backdrop/);
+  assert.match(client, /data-penglai-im-connect-dialog/);
+  assert.match(client, /data-penglai-im-connect-close/);
+  assert.match(client, /"aria-modal": "true"/);
+  assert.match(client, /"aria-labelledby": headingId/);
+  assert.match(client, /event\.key === "Escape"/);
+  assert.match(client, /position: "fixed"/);
+  assert.match(client, /maxHeight: "min\(760px, calc\(100vh - 48px\)\)"/);
+  assert.match(client, /data-penglai-im-connect-pane/);
+  assert.equal((client.match(/role: "dialog"/g) ?? []).length, 1);
   assert.match(client, /if \(!usesQr \|\| autoStarted\) return/);
   assert.match(client, /data-penglai-im-scan-image/);
   assert.doesNotMatch(client, /data-penglai-im-scan-host/);

@@ -567,6 +567,23 @@ body caused the failure.
   or environment; and
 - close/update the modal only after official channel state readback.
 
+**Shared connection surface source checkpoint, 2026-08-29**
+
+All eight connector cards now open their existing platform-owned connection
+flow inside one page-level modal rather than appending the result below the
+entire card grid. Weixin and Feishu retain their official QR operations;
+DingTalk, WeCom, QQ, Slack, Telegram, and Discord retain their declared QR,
+device-link, token, OAuth, or manifest methods. The wrapper supplies one
+labelled dialog, an immediate focus target, Escape and explicit Close actions,
+and bounded internal scrolling, while status, QR, expiry, verification,
+cancel, retry, credential, and disconnect controls stay adjacent to the action.
+
+The modal deliberately remains open across connection readback instead of
+equating a click with success. Source tests prove one shared dialog contract and
+the absence of nested dialog semantics. Native focus trapping/restoration,
+screen-reader traversal, real QR expiry/retry, and the separate redacted Weixin
+MIME diagnostic/reference work remain open.
+
 ### P1-05: IM session chooser exposes UUIDs instead of names
 
 **Observed symptom**

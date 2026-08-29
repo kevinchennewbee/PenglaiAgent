@@ -120,7 +120,9 @@ Allowed work now includes:
   TTS preview and Read now share cancellable synthesis/playback ownership,
   expose localized lifecycle feedback, and record source-level engine,
   complete-WAV, and playback-start timing boundaries without claiming native
-  first-sound performance.
+  first-sound performance. All eight IM connection flows also open in one
+  focused page-level modal while preserving each platform's real connection
+  method and keeping native accessibility plus live QR evidence open.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact
