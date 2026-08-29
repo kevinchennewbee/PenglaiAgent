@@ -14,6 +14,7 @@ const MIGRATION_INVENTORY_GATE = join(ROOT, "scripts/verify-058-migration-invent
 const OVERLAY_MAP_GATE = join(ROOT, "scripts/verify-058-overlay-map.mjs");
 const IM_SUPPORT_TRUTH_GATE = join(ROOT, "scripts/verify-im-support-truth.mjs");
 const FEISHU_MEDIA_DIAGNOSTICS_GATE = join(ROOT, "scripts/verify-feishu-media-diagnostics.mjs");
+const EVIDENCE_MAP_GATE = join(ROOT, "scripts/verify-058-evidence-map.mjs");
 
 const failures = [];
 
@@ -182,6 +183,19 @@ try {
     ? String(error.stderr).trim()
     : "no diagnostic output";
   fail(`Feishu media diagnostics gate failed: ${detail}`);
+}
+
+try {
+  execFileSync(process.execPath, [EVIDENCE_MAP_GATE], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+} catch (error) {
+  const detail = error && typeof error === "object" && "stderr" in error
+    ? String(error.stderr).trim()
+    : "no diagnostic output";
+  fail(`verifier evidence map gate failed: ${detail}`);
 }
 
 if (failures.length > 0) {

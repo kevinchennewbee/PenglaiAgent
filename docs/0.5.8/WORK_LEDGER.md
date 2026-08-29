@@ -23,7 +23,7 @@
 | P058-004 | Full upstream source build | Source | DONE | Host, Client, CLI, and Web build PASS |
 | P058-005 | Split source and package gates | Governance | DONE | source work open; DSH dependency integration remains blocked |
 | P058-006 | Upstream-to-Penglai migration matrix | Source/design | DONE | direct consumers and acceptance gates assigned; refine during implementation |
-| P058-007 | Repository asset classification | Source/design | IN_PROGRESS | primary DSH, release, WhatsApp, independent-fix assets, and high-risk release identity copies classified; executable verifier/evidence-plane invocation map remains |
+| P058-007 | Repository asset classification | Source/design/CI | DONE | primary DSH, release, WhatsApp, independent-fix assets, high-risk identity copies, and all 59 verifier/operator scripts have executable classifications and invocation ownership |
 | P058-008 | Preview invariant verifier | Source/CI | DONE | local and remote preview gate PASS; protects release/public surfaces and DSH pins |
 | P058-009 | Enable Source CI on preview branch | Source/CI | DONE | first preview Source CI PASS on `602f684b`; no main workflow run or release action |
 | P058-010 | Remove WhatsApp active source and identity | Source | DONE | package, adapter, channel/route identity, credential, risk-owner Remote, UI card/copy, tests, and workspace references removed; historical 0.5.7 surfaces preserved |
@@ -58,6 +58,7 @@
 | P058-042 | First causal supervisor diagnostic retention | Source/native | IN_PROGRESS | desktop recovery keeps the first classified process/health trigger over later startup/gateway noise; installed/native crash correlation remains |
 | P058-043 | Closed plugin activation diagnostics | Source/UI/package/native | IN_PROGRESS | transaction journal retains bounded closed inventory transitions plus activation/rollback readback and six localized failure causes; alpha event subscription, client-fiber/loader fields, packaged Companion and native proof remain |
 | P058-044 | Authoritative release identity copy verification | Source/CI | DONE | version verifier reads the sole `pins.ts` authority and checks all workspace manifests plus release-info product/toolchain/DSH/schema/publication/three-target copies; duplicate authorities fail closed |
+| P058-045 | Executable verifier evidence-plane map | Source/design/CI | DONE | 59 source/package/native/installed/Owner-live/public/aggregate/historical scripts are exhaustively mapped to invocation and preview policy; census drift and evidence-plane promotion fail the preview gate |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -118,6 +119,7 @@ use a partial broken push merely to create activity.
 | `3d4e59119784dee47d8a82f89760a1198cf257b9` | enforce one shared ASR/TTS/Memory job-budget matrix in service admission and truthful Plugin Center diagnostics | branch readback PASS; [Source CI 33255578522](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33255578522) PASS |
 | `ce79b77047757222c8ea8c1e4eb5a51bfe5d3681` | retain bounded closed plugin activation/rollback diagnostics and bilingual recovery guidance without exposing raw loader failures | branch readback PASS; [Source CI 33256221327](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33256221327) PASS |
 | `6eca4378d2d5495e7175c38f785551d40e556d0f` | classify measured plugin job pressure as within, at, over, unbudgeted, or unavailable and alert on a real contract breach | branch readback PASS; [Source CI 33256561898](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33256561898) PASS |
+| `a778f707277043361a248383824810c7fdbd3c47` | derive high-risk workspace and release-info identity verification from the sole release pin authority | branch readback PASS; [Source CI 33256880803](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33256880803) PASS |
 
 ## Publication reconciliation placeholder
 

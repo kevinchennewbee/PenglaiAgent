@@ -154,6 +154,11 @@ Allowed work now includes:
   of declaring another expected version, then checks workspace manifests and
   the complete high-risk `release-info` product/toolchain/DSH/schema/publication
   and three-target copies. This is source consistency, not artifact evidence.
+- The complete 59-script verifier/operator census is now executable and split
+  across source, package, native, installed, Owner-live, public-byte, aggregate,
+  and historical evidence planes. New or stale scripts, broken invocation
+  ownership, and promotion of higher evidence into source PASS fail the preview
+  invariant.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact
