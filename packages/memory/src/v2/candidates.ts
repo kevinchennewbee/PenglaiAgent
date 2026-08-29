@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -22,6 +22,34 @@ import {
 export const CANDIDATE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 export const RECALL_MAX_ITEMS = 20;
 export const RECALL_MAX_TOKENS = 2048;
+export const CURATOR_AUDIT_MAX_ROWS = 256;
+
+export const CURATOR_AUDIT_OUTCOMES = ["completed", "retrying", "failed", "cancelled", "dropped"] as const;
+export const CURATOR_AUDIT_CODES = [
+  "OK",
+  "RATE_LIMIT",
+  "SERVER",
+  "TIMEOUT",
+  "TRANSPORT",
+  "EMPTY_RESPONSE",
+  "OUTPUT_INVALID",
+  "PROTOCOL",
+  "BUDGET_BLOCKED",
+  "BUDGET_ACCOUNTING",
+  "WORKSPACE_CHANGED",
+  "CANCELLED",
+  "CAPACITY",
+  "PROVIDER_TERMINAL",
+  "UNKNOWN",
+] as const;
+
+export interface CuratorAuditRow {
+  operationDigest: string;
+  outcome: (typeof CURATOR_AUDIT_OUTCOMES)[number];
+  code: (typeof CURATOR_AUDIT_CODES)[number];
+  attempt: number;
+  at: string;
+}
 
 export interface MemoryCandidateV1 {
   schema: 1;
@@ -103,6 +131,15 @@ export class MemoryV2Store {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS curator_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        operation_digest TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        code TEXT NOT NULL,
+        attempt INTEGER NOT NULL,
+        at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS curator_audit_at ON curator_audit(at);
     `);
     this.now = opts?.now ?? Date.now;
   }
@@ -334,6 +371,52 @@ export class MemoryV2Store {
 
   setMeta(key: string, value: string): void {
     this.db.prepare(`INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)`).run(key, value);
+  }
+
+  recordCuratorAudit(input: {
+    operationKey: string;
+    outcome: string;
+    code: string;
+    attempt: number;
+  }): CuratorAuditRow {
+    if (!input.operationKey || !Number.isSafeInteger(input.attempt) || input.attempt < 0 || input.attempt > 2) {
+      throw new PenglaiError("INVALID_INPUT", "MEMORY_CURATOR_AUDIT");
+    }
+    const outcome = parseClosedEnum(
+      input.outcome,
+      CURATOR_AUDIT_OUTCOMES,
+      "MEMORY_CURATOR_OUTCOME",
+      "SECURITY_POLICY",
+    );
+    const code = parseClosedEnum(
+      input.code,
+      CURATOR_AUDIT_CODES,
+      "MEMORY_CURATOR_CODE",
+      "SECURITY_POLICY",
+    );
+    const operationDigest = `sha256:${createHash("sha256").update(input.operationKey).digest("hex")}`;
+    const at = this.now();
+    this.db.prepare(
+      `INSERT INTO curator_audit(operation_digest,outcome,code,attempt,at) VALUES (?,?,?,?,?)`,
+    ).run(operationDigest, outcome, code, input.attempt, at);
+    this.db.prepare(
+      `DELETE FROM curator_audit WHERE id NOT IN (SELECT id FROM curator_audit ORDER BY id DESC LIMIT ?)`,
+    ).run(CURATOR_AUDIT_MAX_ROWS);
+    return { operationDigest, outcome, code, attempt: input.attempt, at: new Date(at).toISOString() };
+  }
+
+  listCuratorAudit(limit = 50): CuratorAuditRow[] {
+    const bounded = Math.max(1, Math.min(CURATOR_AUDIT_MAX_ROWS, Math.floor(limit)));
+    const rows = this.db.prepare(
+      `SELECT operation_digest AS operationDigest,outcome,code,attempt,at FROM curator_audit ORDER BY id DESC LIMIT ?`,
+    ).all(bounded) as Array<Record<string, string | number>>;
+    return rows.map((row) => ({
+      operationDigest: String(row.operationDigest),
+      outcome: parseClosedEnum(row.outcome, CURATOR_AUDIT_OUTCOMES, "MEMORY_CURATOR_OUTCOME", "STORE_CORRUPT"),
+      code: parseClosedEnum(row.code, CURATOR_AUDIT_CODES, "MEMORY_CURATOR_CODE", "STORE_CORRUPT"),
+      attempt: Number(row.attempt),
+      at: new Date(Number(row.at)).toISOString(),
+    }));
   }
 
   turnAlreadyProcessed(sessionId: string, turnId: string, sourceDigest: string): boolean {

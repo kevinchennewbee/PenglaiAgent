@@ -297,11 +297,19 @@ that creates one Workspace candidate and suppresses a duplicate Turn. Static
 and executable inventory gates refuse reintroduction of `agents.create`,
 `origin: "subagent"`, or the old curator-session prefix.
 
-This closes the source-level false-subagent lifecycle. It does not yet close
-P0-05 as a packaged capability: optional Budget accounting for this auxiliary
-model call, bounded redacted failure/retry diagnostics, published alpha.1
-declaration/runtime reconciliation, installed restart cleanup, and live
-privacy-safe Workspace isolation evidence remain open.
+The optional Budget service now reserves 4,000 tokens before each auxiliary
+call, settles the exact official usage event, and durably releases an unsettled
+reservation. Only closed transient provider failures and the queue deadline can
+retry, with a global two-attempt cap and a fresh abort signal. Output/schema,
+protocol, Workspace, Budget, and terminal-provider failures do not retry.
+Memory keeps at most 256 audit rows containing only a SHA-256 operation digest,
+closed outcome/code, attempt, and timestamp; prompt text, candidate content,
+provider messages, and raw exceptions are never stored there.
+
+This closes the source-level false-subagent, Budget, bounded-retry, and redacted
+audit work. P0-05 remains open as a packaged capability until published
+alpha.1 declarations/runtime exports are reconciled and installed restart,
+hierarchy, live-provider, and privacy-safe Workspace-isolation evidence exists.
 
 ### P0-06: Companion install/enable stops at `pending`
 

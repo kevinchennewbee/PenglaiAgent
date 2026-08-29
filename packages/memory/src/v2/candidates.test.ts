@@ -173,6 +173,27 @@ test("R56-MEM-006/020 curator parse failures fail open and do not enqueue", () =
   v2.close();
 });
 
+test("curator audit persists only a digest and closed failure metadata", () => {
+  const v2 = store();
+  const privateOperation = JSON.stringify(["private-workspace", "private-session", "private-turn"]);
+  const row = v2.recordCuratorAudit({
+    operationKey: privateOperation,
+    outcome: "retrying",
+    code: "RATE_LIMIT",
+    attempt: 1,
+  });
+  assert.match(row.operationDigest, /^sha256:[0-9a-f]{64}$/);
+  assert.doesNotMatch(row.operationDigest, /private/);
+  assert.deepEqual(v2.listCuratorAudit(1), [row]);
+  const persisted = JSON.stringify(v2.listCuratorAudit(1));
+  assert.doesNotMatch(persisted, /private-workspace|private-session|private-turn/);
+  assert.throws(
+    () => v2.recordCuratorAudit({ operationKey: privateOperation, outcome: "failed", code: "provider raw error", attempt: 1 }),
+    /MEMORY_CURATOR_CODE/,
+  );
+  v2.close();
+});
+
 test("R56-MEM-014/015/018 conflicts, negatives, and tombstones stay out of recall", () => {
   const v2 = store();
   const first = v2.enqueue({

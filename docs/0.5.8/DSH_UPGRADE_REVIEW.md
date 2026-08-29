@@ -243,9 +243,11 @@ Workspace/Session/Turn identity, bounded capacity, timeout, deduplication, and
 teardown cancellation. Alpha.1 Jobs were not selected: the official contract
 makes owned jobs visible to their Agent and unowned jobs visible to every
 caller, so they are not a hidden plugin-maintenance primitive. The active
-product dependency remains rc.2; alpha.1 npm export reconciliation, optional
-Budget accounting, redacted curator diagnostics, and installed cleanup proof
-remain required.
+product dependency remains rc.2. The source path now optionally reserves and
+settles exact usage through Penglai Budget, releases failed reservations, gives
+only closed transient failures one retry, and stores a bounded digest-only
+Memory audit. Alpha.1 npm export reconciliation plus packaged restart,
+hierarchy, live-provider, and privacy-safe isolation proof remain required.
 
 ### 4.9 Plugin inventory and lifecycle
 

@@ -42,7 +42,7 @@
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | bridge now preserves Workspace order and consumes Session-owner titles with ID fallback; official generated list/projection Remote still required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
-| P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle replaced by a bounded internal queue and official no-tools LLM request; Budget accounting, redacted audit/retry, npm reconciliation, and installed/live proof remain |
+| P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle, optional Budget accounting, one closed-transient retry, and bounded digest-only audit are fixed in source; npm reconciliation and installed/live proof remain |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -80,6 +80,8 @@ use a partial broken push merely to create activity.
 | `6ef566ace20fd9610a742287227aaec4c3fe49e2` | move Memory curator maintenance off false Agent/Session/subagent lifecycle into a bounded internal queue | branch readback PASS; [Source CI 33243163029](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33243163029) PASS |
 | `4e8dc373b1fb49f2ba0c1ca9914d403f6c5eb808` | bound restart failure accounting and expose a non-stranding terminal recovery surface with redacted diagnostics | branch readback PASS; [Source CI 33244301234](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33244301234) PASS |
 | `dd0afd9def6371abe5119867cc253a8ae5c6ff5d` | authenticate alpha-style DSH startup privately while preserving the rc.2 open-root path | branch readback PASS; [Source CI 33245579034](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33245579034) PASS |
+| `3663d293f79e661890b9a9a1f0ba49d64cb33b9e` | isolate rc.2-to-alpha.1 DSH Home generation, validation, activation, rejection, and rollback | branch readback PASS; [Source CI 33246379795](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246379795) PASS |
+| `386f368555f64684154e8f38491822541ea227c4` | split bridge composition into Agent, Workspace, and Session owner ports with an rc.2 adapter boundary | branch readback PASS; [Source CI 33246964498](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246964498) PASS |
 
 ## Publication reconciliation placeholder
 

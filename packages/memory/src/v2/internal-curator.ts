@@ -1,11 +1,26 @@
 export const INTERNAL_CURATOR_MAX_JOBS = 8;
 export const INTERNAL_CURATOR_TIMEOUT_MS = 45_000;
 export const INTERNAL_CURATOR_SEEN_KEYS = 2_048;
+export const INTERNAL_CURATOR_MAX_ATTEMPTS = 2;
+
+export interface InternalCuratorFailure {
+  code: string;
+  retry: boolean;
+}
+
+export interface InternalCuratorQueueEvent {
+  key: string;
+  outcome: "completed" | "retrying" | "failed" | "cancelled" | "dropped";
+  attempt: number;
+  code: string;
+}
 
 export interface InternalCuratorJob {
   key: string;
-  execute(signal: AbortSignal): Promise<string>;
+  execute(signal: AbortSignal, attempt: number): Promise<string>;
   commit(raw: string): Promise<void> | void;
+  maxAttempts?: number;
+  classifyFailure?(error: unknown): InternalCuratorFailure;
 }
 
 export type InternalCuratorEnqueueResult =
@@ -20,12 +35,18 @@ export interface InternalCuratorQueueSnapshot {
   completed: number;
   failed: number;
   cancelled: number;
+  retried: number;
   dropped: number;
 }
 
-interface ActiveJob {
+interface PendingJob {
   job: InternalCuratorJob;
+  attempt: number;
+}
+
+interface ActiveJob extends PendingJob {
   controller: AbortController;
+  cancelledByClose?: boolean;
 }
 
 /**
@@ -34,7 +55,7 @@ interface ActiveJob {
  * collapse, overload fails open, and plugin teardown aborts the active call.
  */
 export class InternalCuratorQueue {
-  private readonly pending: InternalCuratorJob[] = [];
+  private readonly pending: PendingJob[] = [];
   private readonly liveKeys = new Set<string>();
   private readonly seenKeys = new Set<string>();
   private readonly idleWaiters = new Set<() => void>();
@@ -43,6 +64,7 @@ export class InternalCuratorQueue {
   private completed = 0;
   private failed = 0;
   private cancelled = 0;
+  private retried = 0;
   private dropped = 0;
 
   constructor(
@@ -50,6 +72,7 @@ export class InternalCuratorQueue {
       maxJobs?: number;
       timeoutMs?: number;
       maxSeenKeys?: number;
+      observe?: (event: InternalCuratorQueueEvent) => void;
     } = {},
   ) {}
 
@@ -62,10 +85,11 @@ export class InternalCuratorQueue {
     const maxJobs = this.bounded(this.options.maxJobs, INTERNAL_CURATOR_MAX_JOBS);
     if (this.liveKeys.size >= maxJobs) {
       this.dropped += 1;
+      this.observe({ key: job.key, outcome: "dropped", attempt: 0, code: "CAPACITY" });
       return { accepted: false, reason: "capacity" };
     }
     this.liveKeys.add(job.key);
-    this.pending.push(job);
+    this.pending.push({ job, attempt: 1 });
     this.pump();
     return { accepted: true };
   }
@@ -79,6 +103,7 @@ export class InternalCuratorQueue {
       completed: this.completed,
       failed: this.failed,
       cancelled: this.cancelled,
+      retried: this.retried,
       dropped: this.dropped,
     };
   }
@@ -91,8 +116,17 @@ export class InternalCuratorQueue {
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    for (const job of this.pending.splice(0)) this.liveKeys.delete(job.key);
-    this.active?.controller.abort();
+    for (const pending of this.pending.splice(0)) {
+      this.liveKeys.delete(pending.job.key);
+      this.cancelled += 1;
+      this.observe({ key: pending.job.key, outcome: "cancelled", attempt: pending.attempt, code: "CANCELLED" });
+    }
+    if (this.active) {
+      this.active.cancelledByClose = true;
+      this.cancelled += 1;
+      this.observe({ key: this.active.job.key, outcome: "cancelled", attempt: this.active.attempt, code: "CANCELLED" });
+      this.active.controller.abort();
+    }
     this.resolveIdleIfNeeded();
   }
 
@@ -116,18 +150,41 @@ export class InternalCuratorQueue {
     this.idleWaiters.clear();
   }
 
+  private observe(event: InternalCuratorQueueEvent): void {
+    try {
+      this.options.observe?.(event);
+    } catch {
+      // Diagnostics are subordinate to queue isolation and never change work.
+    }
+  }
+
+  private failureFor(job: InternalCuratorJob, error: unknown): InternalCuratorFailure {
+    try {
+      const classified = job.classifyFailure?.(error);
+      if (classified && /^[A-Z][A-Z0-9_]{0,63}$/.test(classified.code)) return classified;
+    } catch {
+      // A broken classifier is contained as an unknown terminal failure.
+    }
+    return { code: "UNKNOWN", retry: false };
+  }
+
   private pump(): void {
     if (this.closed || this.active) return;
-    const job = this.pending.shift();
-    if (!job) {
+    const pending = this.pending.shift();
+    if (!pending) {
       this.resolveIdleIfNeeded();
       return;
     }
     const controller = new AbortController();
-    const active = { job, controller };
+    const active: ActiveJob = { ...pending, controller };
+    const { job, attempt } = active;
     this.active = active;
     const timeoutMs = this.bounded(this.options.timeoutMs, INTERNAL_CURATOR_TIMEOUT_MS);
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
     timer.unref?.();
     let removeAbort = (): void => undefined;
     const aborted = new Promise<never>((_, reject) => {
@@ -135,23 +192,42 @@ export class InternalCuratorQueue {
       controller.signal.addEventListener("abort", onAbort, { once: true });
       removeAbort = () => controller.signal.removeEventListener("abort", onAbort);
     });
-    const execution = Promise.resolve().then(() => job.execute(controller.signal));
+    const execution = Promise.resolve().then(() => job.execute(controller.signal, attempt));
     void Promise.race([execution, aborted])
       .then(async (raw) => {
         if (this.closed || controller.signal.aborted) return;
         await job.commit(raw);
         this.completed += 1;
+        this.observe({ key: job.key, outcome: "completed", attempt, code: "OK" });
       })
-      .catch(() => {
-        if (controller.signal.aborted) this.cancelled += 1;
-        else this.failed += 1;
+      .catch((error: unknown) => {
+        if (controller.signal.aborted && !timedOut) {
+          if (!active.cancelledByClose) {
+            this.cancelled += 1;
+            this.observe({ key: job.key, outcome: "cancelled", attempt, code: "CANCELLED" });
+          }
+          return;
+        }
+        const failure = timedOut ? { code: "TIMEOUT", retry: true } : this.failureFor(job, error);
+        const maxAttempts = this.bounded(job.maxAttempts, 1);
+        if (!this.closed && failure.retry && attempt < Math.min(maxAttempts, INTERNAL_CURATOR_MAX_ATTEMPTS)) {
+          this.retried += 1;
+          this.pending.push({ job, attempt: attempt + 1 });
+          this.observe({ key: job.key, outcome: "retrying", attempt, code: failure.code });
+          return;
+        }
+        this.failed += 1;
+        this.observe({ key: job.key, outcome: "failed", attempt, code: failure.code });
       })
       .finally(() => {
         clearTimeout(timer);
         removeAbort();
-        this.liveKeys.delete(job.key);
-        this.remember(job.key);
         if (this.active === active) this.active = undefined;
+        const retryPending = this.pending.some((entry) => entry.job.key === job.key);
+        if (!retryPending) {
+          this.liveKeys.delete(job.key);
+          this.remember(job.key);
+        }
         this.pump();
         this.resolveIdleIfNeeded();
       });

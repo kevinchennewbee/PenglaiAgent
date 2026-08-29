@@ -149,14 +149,24 @@ for (const path of [
 const memoryIndex = read("packages/memory/src/index.ts");
 const memoryPipeline = read("packages/memory/src/turn-pipeline.ts");
 const memoryQueue = read("packages/memory/src/v2/internal-curator.ts");
+const memoryCandidates = read("packages/memory/src/v2/candidates.ts");
+const budgetIndex = read("packages/budget/src/index.ts");
+const budgetLedger = read("packages/budget/src/ledger.ts");
 const memoryManifest = readJson("packages/memory/package.json");
 for (const contract of [
   "InternalCuratorQueue",
   "internalCuratorJobKey",
   "runOfficialLlmCurator",
   "turnAlreadyProcessed",
+  "reserveAuxiliary",
+  "settleAuxiliary",
+  "releaseAuxiliary",
+  'MemoryCuratorFailure("OUTPUT_INVALID", false)',
 ]) {
   if (!memoryIndex.includes(contract)) fail(`memory curator source lost ${contract}`);
+}
+if (memoryIndex.indexOf("opts.onClose?.();") > memoryIndex.indexOf("v2.close();")) {
+  fail("memory curator teardown must publish cancellation audit before closing its store");
 }
 for (const contract of [
   "createUserMessage",
@@ -164,16 +174,31 @@ for (const contract of [
   "tools: []",
   "maxTokens: 1200",
   "signal: input.signal",
+  "curatorUsageTokens",
+  "usageSeen",
 ]) {
   if (!memoryPipeline.includes(contract)) fail(`memory curator official LLM path lost ${contract}`);
 }
 for (const contract of [
   "INTERNAL_CURATOR_MAX_JOBS = 8",
   "INTERNAL_CURATOR_TIMEOUT_MS = 45_000",
+  "INTERNAL_CURATOR_MAX_ATTEMPTS = 2",
   "controller.abort()",
   "this.seenKeys",
+  'code: "TIMEOUT", retry: true',
+  "this.options.observe",
+  "cancelledByClose",
 ]) {
   if (!memoryQueue.includes(contract)) fail(`memory curator queue lost ${contract}`);
+}
+for (const contract of ["CURATOR_AUDIT_MAX_ROWS = 256", "recordCuratorAudit", "operationDigest"]) {
+  if (!memoryCandidates.includes(contract)) fail(`memory curator audit lost ${contract}`);
+}
+for (const contract of ["reserveAuxiliary", "settleAuxiliary", "releaseAuxiliary"]) {
+  if (!budgetIndex.includes(contract)) fail(`budget auxiliary service lost ${contract}`);
+}
+for (const contract of ["releaseReservation", "budget_releases"]) {
+  if (!budgetLedger.includes(contract)) fail(`budget auxiliary ledger lost ${contract}`);
 }
 for (const forbidden of ["agents.create", 'origin: "subagent"', "penglai-memory-curator-"]) {
   if (memoryIndex.includes(forbidden)) fail(`memory curator reintroduced user-visible lifecycle: ${forbidden}`);
