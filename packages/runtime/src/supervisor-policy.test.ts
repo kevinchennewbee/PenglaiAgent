@@ -6,6 +6,7 @@ import {
   nextSupervisorHealthDecision,
   redactSupervisorLog,
   redactSupervisorDiagnostic,
+  retainPrimarySupervisorDiagnostic,
   reusableSupervisorPort,
   shouldRestartAfterExit,
   supervisorBackoffMs,
@@ -89,6 +90,52 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
     "DSH_HEALTH_CHECK_FAILED",
     "DSH_RESTART_START_FAILED",
   ]);
+});
+
+test("supervisor diagnostics retain the first causal failure over later gateway noise", () => {
+  const diagnostic = (
+    trigger: "none" | "process-exit" | "health-check-failed",
+    errorCode: string,
+  ) => redactSupervisorDiagnostic({
+    appVersion: "0.5.7",
+    sourceSha: "a".repeat(40),
+    platform: "darwin",
+    arch: "arm64",
+    dsh: "0.1.1-rc.2",
+    phase: "crashed",
+    phaseMs: 100,
+    recovery: {
+      status: trigger === "none" ? "idle" : "recovering",
+      reason: trigger,
+      attempt: trigger === "none" ? 0 : 1,
+      maxAttempts: 3,
+      exitCode: trigger === "process-exit" ? 1 : null,
+      trigger,
+      lastFailure: trigger,
+    },
+    requiredPlugins: [],
+    errorCodes: [errorCode],
+  });
+  const processExit = diagnostic("process-exit", "DSH_PROCESS_EXIT");
+  const laterGateway = diagnostic("none", "DSH_UNAVAILABLE");
+  assert.equal(
+    retainPrimarySupervisorDiagnostic(processExit, laterGateway),
+    processExit,
+  );
+
+  const earlyGeneric = diagnostic("none", "STARTUP_FAILURE");
+  const classifiedHealth = diagnostic(
+    "health-check-failed",
+    "DSH_HEALTH_CHECK_FAILED",
+  );
+  assert.equal(
+    retainPrimarySupervisorDiagnostic(earlyGeneric, classifiedHealth),
+    classifiedHealth,
+  );
+  assert.equal(
+    retainPrimarySupervisorDiagnostic(earlyGeneric, laterGateway),
+    earlyGeneric,
+  );
 });
 
 test("supervisor stderr excerpts are bounded and redact credentials and private paths", () => {
