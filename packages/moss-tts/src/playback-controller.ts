@@ -5,6 +5,7 @@ export const PLAYBACK_STATES = [
   "playing",
   "completed",
   "failed",
+  "stalled",
   "stopping",
 ] as const;
 
@@ -62,16 +63,16 @@ export function createAudioPlaybackController(io: PlaybackIo) {
   };
 
   const finish = (token: number, next: PlaybackState, url?: string): void => {
-    if (token !== generation) return;
+    if (token !== generation || current?.generation !== token) return;
     if (url) io.revokeObjectURL(url);
     current = undefined;
     emit(next);
-    if (next === "completed" || next === "failed") emit("idle");
   };
 
   return {
     beginSynthesize(): number {
       generation += 1;
+      release("replaced");
       emit("synthesizing");
       return generation;
     },
@@ -84,12 +85,14 @@ export function createAudioPlaybackController(io: PlaybackIo) {
       current = { url, audio, generation: token };
       audio.onended = () => finish(token, "completed", url);
       audio.onerror = () => finish(token, "failed", url);
-      audio.onstalled = () => finish(token, "failed", url);
+      audio.onstalled = () => finish(token, "stalled", url);
       audio.onabort = () => finish(token, "failed", url);
       try {
-        emit("playing");
         await audio.play();
-        if (token !== generation) return { state, generation };
+        if (token !== generation || current?.generation !== token) {
+          return { state, generation };
+        }
+        emit("playing");
         return { state: "playing", generation: token };
       } catch {
         finish(token, "failed", url);

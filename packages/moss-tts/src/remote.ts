@@ -54,6 +54,10 @@ export function createMossTtsSettingsApi(service: PenglaiMossTtsService) {
       assertOperationId(operationId);
       return service.getOperation(operationId);
     },
+    cancelSynthesis(operationId: string) {
+      assertOperationId(operationId);
+      return service.cancelSynthesis(operationId);
+    },
     async readAloud(input: {
       text: string;
       voiceId?: string;
@@ -82,6 +86,8 @@ export function createMossTtsSettingsApi(service: PenglaiMossTtsService) {
         digest: result.operation.outputDigest,
         bytes: wav.length,
         durationMs: result.operation.durationMs,
+        firstChunkLatencyMs: result.operation.firstChunkLatencyMs,
+        synthesisElapsedMs: result.operation.elapsedMs,
         wavBase64: wav.toString("base64"),
       };
     },
@@ -106,6 +112,8 @@ export function createMossTtsSettingsApi(service: PenglaiMossTtsService) {
         digest: result.operation.outputDigest,
         bytes: wav.length,
         durationMs: result.operation.durationMs,
+        firstChunkLatencyMs: result.operation.firstChunkLatencyMs,
+        synthesisElapsedMs: result.operation.elapsedMs,
         wavBase64: wav.toString("base64"),
       };
     },
@@ -161,6 +169,11 @@ export class PenglaiMossTtsRemote extends TypertRemoteService {
   }
 
   @Remote
+  cancelSynthesis(input: { operationId: string }) {
+    return this.api.cancelSynthesis(input.operationId);
+  }
+
+  @Remote
   previewVoice(input: { voiceId: string; locale: "zh" | "en" | "ja"; operationId: string }) {
     return this.api.previewVoice(input);
   }
@@ -187,6 +200,7 @@ export const TYPERT_REMOTE = {
     "resumeDownload",
     "cancelDownload",
     "getOperation",
+    "cancelSynthesis",
     "previewVoice",
     "readAloud",
   ],

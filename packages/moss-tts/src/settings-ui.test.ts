@@ -228,6 +228,8 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
   const wav = Buffer.from("RIFF____WAVEfmt ");
   const played: string[] = [];
   const read: string[] = [];
+  const cancelled: string[] = [];
+  let firstRead = true;
   const hooks: unknown[] = [];
   let hookIndex = 0;
   const React = {
@@ -242,6 +244,11 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
             typeof next === "function" ? (next as (v: unknown) => unknown)(hooks[i]) : next;
         },
       ];
+    },
+    useRef(init: unknown) {
+      const i = hookIndex++;
+      if (hooks[i] === undefined) hooks[i] = { current: init };
+      return hooks[i];
     },
     useEffect(fn: () => unknown) {
       fn();
@@ -264,7 +271,16 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
     readAloud: async (input: { text: string; operationId: string }) => {
       read.push(input.text);
       assert.match(input.operationId, /^ttsread_/);
+      if (firstRead) {
+        firstRead = false;
+        return new Promise<never>(() => undefined);
+      }
       return { wavBase64: wav.toString("base64"), bytes: wav.length };
+    },
+    getOperation: async () => ({ category: "synthesis", state: "running" }),
+    cancelSynthesis: async (input: { operationId: string }) => {
+      cancelled.push(input.operationId);
+      return { state: "cancelled" };
     },
   };
   let ready = Promise.resolve<unknown>(undefined);
@@ -358,15 +374,37 @@ test("TTS assistant read-aloud plays shipped synthesize audio for the message te
   const action = registered.find((row) => row.id === "penglai-moss-tts-read");
   assert.ok(action);
   assert.equal(action?.name, "conversation.chat.assistant-actions");
-  hookIndex = 0;
-  const button = action!.Component({ ...action!.props, text: "助手已经记住了" });
+  const renderRead = () => {
+    hookIndex = 0;
+    return action!.Component({ ...action!.props, text: "助手已经记住了" });
+  };
+  let button = renderRead();
+  assert.equal(button.props["data-penglai-tts-read-state"], "idle");
+  assert.equal(button.props["aria-label"], "朗读原文");
   assert.equal(typeof button.props.onClick, "function");
+  (button.props.onClick as () => void)();
+  button = renderRead();
+  assert.equal(button.props["data-penglai-tts-read-state"], "queued");
+  assert.equal(button.props.disabled, false);
+  assert.match(String(button.props["aria-label"]), /停止朗读/);
+  (button.props.onClick as () => void)();
+  await Promise.resolve();
+  assert.equal(cancelled.length, 1);
+  button = renderRead();
+  assert.equal(button.props["data-penglai-tts-read-state"], "stopped");
   (button.props.onClick as () => void)();
   await Promise.resolve();
   await Promise.resolve();
   for (let i = 0; i < 8 && played.length === 0; i += 1) await Promise.resolve();
-  assert.deepEqual(read, ["助手已经记住了"]);
+  assert.deepEqual(read, ["助手已经记住了", "助手已经记住了"]);
   assert.deepEqual(played, ["blob:penglai-tts-read"]);
+  for (let i = 0; i < 8; i += 1) {
+    await Promise.resolve();
+    button = renderRead();
+    if (button.props["data-penglai-tts-read-state"] === "playing") break;
+  }
+  assert.equal(button.props["data-penglai-tts-read-state"], "playing");
+  assert.equal(button.props["aria-label"], "停止朗读");
 });
 
 test("TTS preview and read-aloud share one playback controller", () => {
@@ -381,4 +419,7 @@ test("TTS preview and read-aloud share one playback controller", () => {
   assert.match(client, /onabort/);
   assert.match(client, /playback\.subscribe/);
   assert.match(client, /data-penglai-tts-read-state/);
+  assert.match(client, /cancelSynthesis/);
+  assert.match(client, /claimSynthesis/);
+  assert.doesNotMatch(client, /playing \? "stop" : "read"/);
 });

@@ -38,10 +38,11 @@ test("R56-VOICE preview and read share one controller generation", async () => {
   await player.play(new Blob(["a"]), first);
   assert.equal(player.getState(), "playing");
   const second = player.beginSynthesize();
+  assert.equal(player.getState(), "synthesizing");
+  assert.equal(revoked.length, 1);
   await player.play(new Blob(["b"]), second);
-  assert.equal(revoked.length >= 1, true);
   audios.at(-1)?.onended?.(undefined);
-  assert.equal(player.getState(), "idle");
+  assert.equal(player.getState(), "completed");
 });
 
 test("R56-VOICE play rejection becomes failed and revokes the object URL", async () => {
@@ -54,7 +55,7 @@ test("R56-VOICE play rejection becomes failed and revokes the object URL", async
   assert.equal(result.state, "failed");
   assert.equal(result.errorCode, "TTS_PLAY_REJECTED");
   assert.deepEqual(revoked, ["blob:penglai-tts"]);
-  assert.equal(player.getState(), "idle");
+  assert.equal(player.getState(), "failed");
 });
 
 test("R56-VOICE stale ended events cannot overwrite a newer generation", async () => {
@@ -67,4 +68,25 @@ test("R56-VOICE stale ended events cannot overwrite a newer generation", async (
   await player.play(new Blob(["b"]), second);
   stale?.onended?.(undefined);
   assert.equal(player.getState(), "playing");
+});
+
+test("R58-VOICE playback stays buffering until play starts and exposes stalled", async () => {
+  let releasePlay!: () => void;
+  const { io, audios, revoked } = fakeIo(
+    () => new Promise<void>((resolve) => {
+      releasePlay = resolve;
+    }),
+  );
+  const player = createAudioPlaybackController(io);
+  const token = player.beginSynthesize();
+  const pending = player.play(new Blob(["a"]), token);
+  assert.equal(player.getState(), "buffering");
+  releasePlay();
+  await pending;
+  assert.equal(player.getState(), "playing");
+  audios[0]?.onstalled?.(undefined);
+  assert.equal(player.getState(), "stalled");
+  audios[0]?.onabort?.(undefined);
+  assert.equal(player.getState(), "stalled");
+  assert.deepEqual(revoked, ["blob:penglai-tts"]);
 });

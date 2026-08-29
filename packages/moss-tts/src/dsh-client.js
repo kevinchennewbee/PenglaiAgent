@@ -83,6 +83,7 @@ window.__ModuleLoader__.load({
         "resumeDownload",
         "cancelDownload",
         "getOperation",
+        "cancelSynthesis",
         "previewVoice",
         "readAloud",
       ].map((method) =>
@@ -108,6 +109,13 @@ window.__ModuleLoader__.load({
         playing: "正在播放试听…",
         readOriginal: "朗读原文",
         stopPlayback: "停止朗读",
+        queuedPlayback: "等待语音合成",
+        synthesizingPlayback: "正在生成语音",
+        bufferingPlayback: "语音已生成，正在准备播放",
+        endedPlayback: "朗读完成",
+        stoppedPlayback: "朗读已停止",
+        failedPlayback: "朗读失败",
+        stalledPlayback: "播放停滞，请重试",
         retry: "重试",
         openSettings: "打开语音合成设置",
         loading: "正在读取语音合成状态…",
@@ -131,6 +139,13 @@ window.__ModuleLoader__.load({
         playing: "Playing preview…",
         readOriginal: "Read original text",
         stopPlayback: "Stop reading",
+        queuedPlayback: "Waiting for speech synthesis",
+        synthesizingPlayback: "Generating speech",
+        bufferingPlayback: "Speech is ready; preparing playback",
+        endedPlayback: "Reading complete",
+        stoppedPlayback: "Reading stopped",
+        failedPlayback: "Reading failed",
+        stalledPlayback: "Playback stalled; retry",
         retry: "Retry",
         openSettings: "Open speech settings",
         loading: "Reading speech synthesis status…",
@@ -173,15 +188,15 @@ window.__ModuleLoader__.load({
         media.revokeObjectURL(held.url);
       };
       const finish = (token, next, url) => {
-        if (token !== generation) return;
+        if (token !== generation || current?.generation !== token) return;
         if (url) media.revokeObjectURL(url);
         current = undefined;
         emit(next);
-        if (next === "completed" || next === "failed") emit("idle");
       };
       return {
         beginSynthesize() {
           generation += 1;
+          release();
           emit("synthesizing");
           return generation;
         },
@@ -195,12 +210,13 @@ window.__ModuleLoader__.load({
           current = { url, audio, generation: used };
           audio.onended = () => finish(used, "completed", url);
           audio.onerror = () => finish(used, "failed", url);
-          audio.onstalled = () => finish(used, "failed", url);
+          audio.onstalled = () => finish(used, "stalled", url);
           audio.onabort = () => finish(used, "failed", url);
           try {
-            emit("playing");
             await audio.play();
-            if (used !== generation) return { state, generation };
+            if (used !== generation || current?.generation !== used)
+              return { state, generation };
+            emit("playing");
             return { state: "playing", generation: used };
           } catch {
             finish(used, "failed", url);
@@ -226,6 +242,32 @@ window.__ModuleLoader__.load({
       };
     }
     const playback = createAudioPlaybackController();
+    let activeSynthesis = null;
+    function claimSynthesis(api, operationId) {
+      const previous = activeSynthesis;
+      activeSynthesis = { api, operationId };
+      if (
+        previous &&
+        previous.operationId !== operationId &&
+        previous.api?.cancelSynthesis
+      ) {
+        void Promise.resolve(
+          previous.api.cancelSynthesis({
+            operationId: previous.operationId,
+          }),
+        ).catch(() => undefined);
+      }
+    }
+    function releaseSynthesis(operationId) {
+      if (activeSynthesis?.operationId === operationId) activeSynthesis = null;
+    }
+    function cancelSynthesis(api, operationId) {
+      releaseSynthesis(operationId);
+      if (!operationId || !api?.cancelSynthesis) return;
+      void Promise.resolve(api.cancelSynthesis({ operationId })).catch(
+        () => undefined,
+      );
+    }
     function wavBlob(wavBase64) {
       const binary = atob(String(wavBase64 ?? ""));
       const bytes = new Uint8Array(binary.length);
@@ -272,6 +314,8 @@ window.__ModuleLoader__.load({
         playing: false,
         error: "",
         operationId: "",
+        synthesisOperationId: "",
+        playbackGeneration: 0,
         bytesPerSecond: 0,
         progressSample: null,
       });
@@ -324,10 +368,23 @@ window.__ModuleLoader__.load({
       React.useEffect(
         () =>
           playback.subscribe((state) => {
-            setView((current) => ({
-              ...current,
-              playing: state === "playing",
-            }));
+            setView((current) => {
+              const owns =
+                current.playbackGeneration > 0 &&
+                current.playbackGeneration === playback.getGeneration();
+              if (!owns) {
+                return current.synthesisOperationId || current.playing
+                  ? {
+                      ...current,
+                      synthesisOperationId: "",
+                      playbackGeneration: 0,
+                      playing: false,
+                      busy: false,
+                    }
+                  : current;
+              }
+              return { ...current, playing: state === "playing" };
+            });
           }),
         [],
       );
@@ -355,17 +412,31 @@ window.__ModuleLoader__.load({
       };
       const preview = () => {
         if (!api?.previewVoice) return;
-        if (playback.getState() === "playing") {
+        if (
+          view.synthesisOperationId ||
+          ["buffering", "playing"].includes(playback.getState())
+        ) {
+          cancelSynthesis(api, view.synthesisOperationId);
           void playback.stop();
-          setView((current) => ({ ...current, playing: false, busy: false }));
+          setView((current) => ({
+            ...current,
+            synthesisOperationId: "",
+            playbackGeneration: 0,
+            playing: false,
+            busy: false,
+          }));
           return;
         }
         const voice = (view.voices || []).find(
           (row) => row.id === view.voiceId,
         );
+        const id = operationId("ttsprev");
+        claimSynthesis(api, id);
         const token = playback.beginSynthesize();
         setView((current) => ({
           ...current,
+          synthesisOperationId: id,
+          playbackGeneration: token,
           busy: true,
           playing: false,
           error: "",
@@ -377,14 +448,18 @@ window.__ModuleLoader__.load({
               voice?.locale === "en" || voice?.locale === "ja"
                 ? voice.locale
                 : "zh",
-            operationId: operationId("ttsprev"),
+            operationId: id,
           }),
         )
           .then(async (value) => {
+            releaseSynthesis(id);
+            if (playback.getGeneration() !== token) return;
             const out = unwrapRemote(value);
             const result = await playback.play(wavBlob(out.wavBase64), token);
+            if (playback.getGeneration() !== token) return;
             setView((current) => ({
               ...current,
+              synthesisOperationId: "",
               busy: false,
               playing: result.state === "playing",
               error:
@@ -394,9 +469,13 @@ window.__ModuleLoader__.load({
             }));
           })
           .catch((error) => {
+            releaseSynthesis(id);
+            if (playback.getGeneration() !== token) return;
             void playback.stop();
             setView((current) => ({
               ...current,
+              synthesisOperationId: "",
+              playbackGeneration: 0,
               busy: false,
               playing: false,
               error: String(error && error.message ? error.message : error),
@@ -523,9 +602,12 @@ window.__ModuleLoader__.load({
           }),
           jsx.jsx("button", {
             type: "button",
-            disabled: !ready || view.busy,
+            disabled: !ready || (view.busy && !view.synthesisOperationId),
             onClick: preview,
-            children: t.preview,
+            children:
+              view.synthesisOperationId || view.playing
+                ? t.stopPlayback
+                : t.preview,
           }),
           view.busy ? jsx.jsx("p", { children: t.busy }) : null,
           view.playing ? jsx.jsx("p", { children: t.playing }) : null,
@@ -551,54 +633,253 @@ window.__ModuleLoader__.load({
     function TtsReadButton(props) {
       const api = props.remote?.penglaiMossTtsSettings;
       const t = localeCopy();
-      const [busy, setBusy] = React.useState(false);
-      const [playing, setPlaying] = React.useState(
-        playback.getState() === "playing",
-      );
-      const [error, setError] = React.useState("");
-      React.useEffect(
-        () => playback.subscribe((state) => setPlaying(state === "playing")),
-        [],
-      );
+      const [view, setView] = React.useState({
+        phase: "idle",
+        error: "",
+        operationId: "",
+        requestedAt: 0,
+        responseAt: 0,
+        playbackStartedAt: 0,
+        firstChunkLatencyMs: 0,
+        synthesisElapsedMs: 0,
+      });
+      const generationRef = React.useRef(0);
+      const operationRef = React.useRef("");
+      const phaseRef = React.useRef("idle");
+      const pollTimerRef = React.useRef(null);
+      const disposedRef = React.useRef(false);
+      phaseRef.current = view.phase;
+      const clearOperationPoll = () => {
+        if (pollTimerRef.current !== null) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      };
+      const ownsPlayback = () =>
+        generationRef.current > 0 &&
+        playback.getGeneration() === generationRef.current;
+      React.useEffect(() => {
+        disposedRef.current = false;
+        const unsubscribe = playback.subscribe((state) => {
+          if (!ownsPlayback()) {
+            setView((current) =>
+              ["queued", "synthesizing", "buffering", "playing"].includes(
+                current.phase,
+              )
+                ? { ...current, phase: "stopped", error: "" }
+                : current,
+            );
+            return;
+          }
+          setView((current) => {
+            if (state === "buffering")
+              return { ...current, phase: "buffering", error: "" };
+            if (state === "playing")
+              return {
+                ...current,
+                phase: "playing",
+                error: "",
+                playbackStartedAt: Date.now(),
+              };
+            if (state === "completed")
+              return { ...current, phase: "ended", error: "" };
+            if (state === "stalled")
+              return {
+                ...current,
+                phase: "stalled",
+                error: t.stalledPlayback,
+              };
+            if (state === "failed")
+              return {
+                ...current,
+                phase: "error",
+                error: t.failedPlayback,
+              };
+            return current;
+          });
+        });
+        return () => {
+          disposedRef.current = true;
+          clearOperationPoll();
+          const operationId = operationRef.current;
+          if (
+            operationId &&
+            ["queued", "synthesizing"].includes(phaseRef.current)
+          ) {
+            cancelSynthesis(api, operationId);
+          }
+          if (ownsPlayback()) void playback.stop();
+          unsubscribe();
+        };
+      }, [api, t]);
+      const stop = () => {
+        const operationId = operationRef.current;
+        clearOperationPoll();
+        generationRef.current = 0;
+        operationRef.current = "";
+        setView((current) => ({ ...current, phase: "stopped", error: "" }));
+        void playback.stop();
+        if (
+          operationId &&
+          ["queued", "synthesizing"].includes(phaseRef.current)
+        ) {
+          cancelSynthesis(api, operationId);
+        }
+      };
       const play = () => {
         const text = String(props.text ?? "").trim();
         if (!api?.readAloud || !text) return;
-        if (playback.getState() === "playing") {
-          void playback.stop();
-          setBusy(false);
+        if (
+          ["queued", "synthesizing", "buffering", "playing"].includes(
+            phaseRef.current,
+          )
+        ) {
+          stop();
           return;
         }
+        const id = operationId("ttsread");
+        claimSynthesis(api, id);
         const token = playback.beginSynthesize();
-        setBusy(true);
-        setError("");
+        generationRef.current = token;
+        operationRef.current = id;
+        const requestedAt = Date.now();
+        setView({
+          phase: "queued",
+          error: "",
+          operationId: id,
+          requestedAt,
+          responseAt: 0,
+          playbackStartedAt: 0,
+          firstChunkLatencyMs: 0,
+          synthesisElapsedMs: 0,
+        });
+        if (api.getOperation) {
+          const refreshOperation = () => {
+            Promise.resolve(api.getOperation({ operationId: id }))
+              .then((value) => {
+                if (
+                  disposedRef.current ||
+                  generationRef.current !== token ||
+                  operationRef.current !== id
+                )
+                  return;
+                const operation = unwrapRemote(value);
+                if (operation?.state === "running") {
+                  setView((current) => ({
+                    ...current,
+                    phase: "synthesizing",
+                  }));
+                }
+              })
+              .catch(() => undefined);
+          };
+          refreshOperation();
+          pollTimerRef.current = setInterval(refreshOperation, 250);
+        }
         Promise.resolve(
           api.readAloud({
             text,
-            operationId: operationId("ttsread"),
+            operationId: id,
           }),
         )
           .then(async (value) => {
+            releaseSynthesis(id);
+            if (
+              disposedRef.current ||
+              generationRef.current !== token ||
+              operationRef.current !== id
+            )
+              return;
+            clearOperationPoll();
             const out = unwrapRemote(value);
+            setView((current) => ({
+              ...current,
+              phase: "buffering",
+              responseAt: Date.now(),
+              firstChunkLatencyMs: Number(out.firstChunkLatencyMs) || 0,
+              synthesisElapsedMs: Number(out.synthesisElapsedMs) || 0,
+            }));
             const result = await playback.play(wavBlob(out.wavBase64), token);
-            if (result.state === "failed") setError(result.errorCode || "TTS_PLAY_REJECTED");
+            if (
+              disposedRef.current ||
+              generationRef.current !== token ||
+              operationRef.current !== id
+            )
+              return;
+            if (result.state === "failed") {
+              setView((current) => ({
+                ...current,
+                phase: "error",
+                error: t.failedPlayback,
+              }));
+            }
           })
-          .catch((err) => {
+          .catch(() => {
+            releaseSynthesis(id);
+            if (
+              disposedRef.current ||
+              generationRef.current !== token ||
+              operationRef.current !== id
+            )
+              return;
+            clearOperationPoll();
             void playback.stop();
-            setError(String(err && err.message ? err.message : err));
-          })
-          .finally(() => setBusy(false));
+            setView((current) => ({
+              ...current,
+              phase: "error",
+              error: t.failedPlayback,
+            }));
+          });
       };
-      return jsx.jsx("button", {
+      const active = ["queued", "synthesizing", "buffering", "playing"].includes(
+        view.phase,
+      );
+      const label = view.phase === "queued"
+        ? t.queuedPlayback
+        : view.phase === "synthesizing"
+          ? t.synthesizingPlayback
+          : view.phase === "buffering"
+            ? t.bufferingPlayback
+            : view.phase === "playing"
+              ? t.stopPlayback
+              : view.phase === "ended"
+                ? t.endedPlayback
+                : view.phase === "stopped"
+                  ? t.stoppedPlayback
+                  : view.phase === "stalled"
+                    ? t.stalledPlayback
+                    : view.phase === "error"
+                      ? `${t.failedPlayback} · ${t.retry}`
+                      : t.readOriginal;
+      const accessibleLabel =
+        active && view.phase !== "playing"
+          ? `${label} · ${t.stopPlayback}`
+          : label;
+      return jsx.jsxs("button", {
         type: "button",
         "data-penglai-tts-read": "1",
-        "data-penglai-tts-read-state": playing ? "playing" : "idle",
-        "data-penglai-tts-read-error": error,
-        title: playing ? t.stopPlayback : t.readOriginal,
-        "aria-label": playing ? t.stopPlayback : t.readOriginal,
-        "aria-pressed": playing,
-        disabled: busy,
-        onClick: play,
-        children: error ? t.retry : playing ? "stop" : "read",
+        "data-penglai-tts-read-state": view.phase,
+        "data-penglai-tts-read-error": view.error,
+        "data-penglai-tts-operation": view.operationId,
+        "data-penglai-tts-requested-at": view.requestedAt,
+        "data-penglai-tts-response-at": view.responseAt,
+        "data-penglai-tts-playback-started-at": view.playbackStartedAt,
+        "data-penglai-tts-first-chunk-ms": view.firstChunkLatencyMs,
+        "data-penglai-tts-synthesis-ms": view.synthesisElapsedMs,
+        title: active ? t.stopPlayback : label,
+        "aria-label": accessibleLabel,
+        "aria-live": "polite",
+        "aria-pressed": view.phase === "playing",
+        disabled: !String(props.text ?? "").trim(),
+        onClick: active ? stop : play,
+        children: [
+          jsx.jsx("span", {
+            "aria-hidden": "true",
+            children: active ? "■" : "▶",
+          }),
+          " ",
+          label,
+        ],
       });
     }
 
@@ -628,7 +909,7 @@ window.__ModuleLoader__.load({
                 name: "conversation.chat.assistant-actions",
                 id: "penglai-moss-tts-read",
                 order: 1,
-                label: () => "read-aloud",
+                label: () => localeCopy().readOriginal,
                 inject: () => ({ remote: pageRemote }),
               },
               TtsReadButton,

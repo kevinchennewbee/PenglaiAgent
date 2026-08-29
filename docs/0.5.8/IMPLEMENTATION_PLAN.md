@@ -516,6 +516,29 @@ queue, model load, synthesis, decode, and playback latency.
 - share one cancellation/resource controller between preview and Read; and
 - set and test a product first-sound latency budget on supported native devices.
 
+**TTS control and measurement source checkpoint, 2026-08-29**
+
+The existing service-owned synthesis cancellation is now exposed through the
+typed plugin Remote and is consumed by both settings preview and assistant
+Read. A second synthesis releases the prior audio immediately, and Read remains
+actionable during queueing, synthesis, buffering, and playback so Stop can
+cancel the active operation rather than waiting for the complete WAV response.
+Component teardown also cancels only its owned active generation.
+
+The shared playback controller now retains closed synthesizing, buffering,
+playing, completed, failed, stalled, stopping, and idle states instead of
+collapsing terminal events immediately to idle. It marks playing only after the
+browser playback promise resolves, revokes each object URL once, and ignores
+stale generation events. Localized accessible labels replace the assistant
+action's raw `read`/`stop` text.
+
+Source-visible measurements now separate click/request time, complete-WAV
+response time, engine first-chunk latency, total synthesis time, and accepted
+playback-start time. They are diagnostic boundaries, not proof of the first
+audible sample. The current Remote still waits for complete synthesis and WAV
+readback, so segmentation/streaming, safe prewarm, a native-device latency
+budget, and installed first-sound measurements remain open.
+
 ### P1-04: connection actions hide the result and lack immediate feedback
 
 **Observed symptom**
