@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   BOOT_PHASES,
   redactSupervisorDiagnostic,
+  reusableSupervisorPort,
   shouldRestartAfterExit,
   supervisorBackoffMs,
   supervisorRestartAllowed,
@@ -25,6 +26,10 @@ test("R56-CORE-006/007/008 supervisor restart budget and boot phases are explici
   assert.equal(supervisorRestartAllowed([now - 6 * 60_000, now - 1000], now), true);
   assert.equal(supervisorBackoffMs(0, 0), 1000);
   assert.equal(supervisorBackoffMs(2, 0), 10_000);
+  assert.equal(reusableSupervisorPort(41_234), 41_234);
+  assert.equal(reusableSupervisorPort(0), undefined);
+  assert.equal(reusableSupervisorPort(65_536), undefined);
+  assert.equal(reusableSupervisorPort(12.5), undefined);
   assert.equal(shouldRestartAfterExit({ intentional: true, state: "healthy", stamps: [] }), false);
   assert.equal(shouldRestartAfterExit({ intentional: false, state: "healthy", stamps: [] }), true);
 });
@@ -56,7 +61,9 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
 test("supervisor restart preserves required child paths and stop cancels restart", () => {
   const src = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
   assert.match(src, /private lastStartEnv: NodeJS\.ProcessEnv/);
-  assert.match(src, /this\.start\(user, restartEnv\)/);
+  assert.match(src, /const restartPort = this\.port/);
+  assert.match(src, /this\.start\(user, restartEnv, restartPort\)/);
+  assert.match(src, /reusableSupervisorPort\(preferredPort\) \?\? await freePort\(\)/);
   assert.match(src, /if \(this\.state === "stopping" \|\| this\.state === "stopped"\) return/);
   assert.match(src, /async stop\(\): Promise<void> \{[\s\S]*clearTimeout\(this\.restartTimer\)/);
 });

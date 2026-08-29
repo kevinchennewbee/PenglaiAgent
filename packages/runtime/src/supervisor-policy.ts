@@ -14,6 +14,12 @@ export const SUPERVISOR_RESTART_WINDOW_MS = 5 * 60_000;
 export const SUPERVISOR_RESTART_MAX = 3;
 export const SUPERVISOR_BACKOFF_MS = [1_000, 3_000, 10_000] as const;
 
+export function reusableSupervisorPort(port: number | undefined): number | undefined {
+  return Number.isInteger(port) && port !== undefined && port > 0 && port <= 65_535
+    ? port
+    : undefined;
+}
+
 export function supervisorRestartAllowed(
   stamps: readonly number[],
   now = Date.now(),

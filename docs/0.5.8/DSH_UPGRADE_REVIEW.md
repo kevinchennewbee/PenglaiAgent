@@ -275,10 +275,12 @@ Penglai consequence:
 
 Preview source work now makes the helper wait on both the DSH process handle
 and desktop-owner stdin, with a fail-closed startup handshake for both
-monitoring obligations. This is Penglai-owned supervision work and does not
-depend on DSH npm publication. It remains source evidence until the helper is
-compiled and exercised on native Windows; port-loss/hang detection is still
-open.
+monitoring obligations. The desktop facade also follows the same inner
+supervisor's live state and keeps its proxy-facing port across an automatic
+restart instead of snapshotting stale health or creating a second owner. This
+is Penglai-owned supervision work and does not depend on DSH npm publication.
+It remains source evidence until the helper is compiled and exercised on native
+Windows; port-loss/hang detection is still open.
 
 ### 4.13 IM capability truth is not one boolean
 

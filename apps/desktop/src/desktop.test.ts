@@ -4,6 +4,8 @@ import test from "node:test";
 import { UNSIGNED_NOTICE, createDesktopRuntime } from "./main.js";
 import { loadWindowUrl } from "./navigation-retry.js";
 import { assertIpcName } from "./preload.js";
+import { DshSupervisor, type DshSupervisorInner } from "./supervisor.js";
+import { EMPTY_INVENTORY_PROOF, type RuntimeLayout, type UserLayout } from "@penglai/runtime";
 
 test("community release notice keeps platform trust limits without candidate wording", () => {
   assert.match(UNSIGNED_NOTICE, /ad-hoc|unsigned|not notarized/i);
@@ -20,6 +22,68 @@ test("IPC allowlist rejects unknown", () => {
 test("supervisor starts stopped", () => {
   const rt = createDesktopRuntime();
   assert.equal(rt.supervisor.state, "stopped");
+});
+
+test("desktop supervisor reflects one inner lifecycle instead of stale copied state", async () => {
+  const layout: RuntimeLayout = {
+    appRoot: "/fixture/app",
+    nodeBin: "/fixture/app/runtime/node/bin/node",
+    dshEntry: "/fixture/app/runtime/dsh/lib/bin.js",
+    profileSeed: "/fixture/app/profile-seed/web",
+    pluginsDir: "/fixture/app/plugins",
+    manifestPath: "/fixture/app/runtime-manifest.json",
+    officialDeepseek: "/fixture/app/runtime/dsh/node_modules/@deepseek-ai",
+  };
+  const user: UserLayout = {
+    root: "/fixture/user",
+    dshHome: "/fixture/user/dsh-home",
+    profileWeb: "/fixture/user/dsh-home/profiles/web",
+    transactions: "/fixture/user/profiles/transactions",
+    snapshots: "/fixture/user/profiles/snapshots",
+    imDb: "/fixture/user/im/penglai-im.sqlite",
+    logs: "/fixture/user/logs",
+  };
+  let factoryCalls = 0;
+  let startCalls = 0;
+  const inner: DshSupervisorInner = {
+    state: "stopped",
+    port: 0,
+    restarts: 0,
+    health: undefined,
+    child: { pid: 4242 },
+    async start() {
+      startCalls += 1;
+      this.state = "healthy";
+      this.port = 41_234;
+      this.health = { http: 200, inventory: EMPTY_INVENTORY_PROOF };
+      return { port: this.port };
+    },
+    async stop() {
+      this.state = "stopped";
+      this.health = undefined;
+    },
+  };
+  const supervisor = new DshSupervisor(layout, () => {
+    factoryCalls += 1;
+    return inner;
+  });
+
+  await supervisor.start(user);
+  assert.equal(supervisor.state, "healthy");
+  assert.equal(supervisor.port, 41_234);
+  assert.equal(supervisor.childPid, 4242);
+  inner.state = "crashed";
+  inner.restarts = 1;
+  inner.health = undefined;
+  assert.equal(supervisor.state, "crashed");
+  assert.equal(supervisor.restarts, 1);
+  assert.equal(supervisor.health, undefined);
+
+  await supervisor.start(user);
+  assert.equal(factoryCalls, 1);
+  assert.equal(startCalls, 2);
+  await supervisor.stop();
+  assert.equal(supervisor.state, "stopped");
 });
 
 test("R2-DIST-003 layout refuses missing embedded runtime", async () => {

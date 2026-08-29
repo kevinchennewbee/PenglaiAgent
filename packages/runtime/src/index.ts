@@ -38,7 +38,7 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
-import { shouldRestartAfterExit, supervisorBackoffMs } from "./supervisor-policy.js";
+import { reusableSupervisorPort, shouldRestartAfterExit, supervisorBackoffMs } from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -1058,7 +1058,7 @@ export class EmbeddedDshSupervisor {
 
   constructor(private readonly layout: RuntimeLayout) {}
 
-  async start(user: UserLayout, env: NodeJS.ProcessEnv = {}): Promise<{ port: number }> {
+  async start(user: UserLayout, env: NodeJS.ProcessEnv = {}, preferredPort?: number): Promise<{ port: number }> {
     if (this.state === "healthy" || this.state === "starting") return { port: this.port };
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
@@ -1082,7 +1082,7 @@ export class EmbeddedDshSupervisor {
     this.logs = "";
     this.health = undefined;
     this.identity = undefined;
-    this.port = await freePort();
+    this.port = reusableSupervisorPort(preferredPort) ?? await freePort();
     const childEnv: NodeJS.ProcessEnv = {
       PATH: "/usr/bin:/bin",
       HOME: user.root,
@@ -1186,11 +1186,12 @@ export class EmbeddedDshSupervisor {
       const user = this.lastUser;
       if (!user) return;
       const restartEnv = { ...this.lastStartEnv };
+      const restartPort = this.port;
       const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
       this.restartTimer = setTimeout(() => {
         this.restartTimer = undefined;
         if (this.state === "stopping" || this.state === "stopped") return;
-        void this.start(user, restartEnv).catch(() => {
+        void this.start(user, restartEnv, restartPort).catch(() => {
           this.state = "crashed";
         });
       }, delay);
