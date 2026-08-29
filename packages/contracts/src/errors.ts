@@ -18,3 +18,23 @@ export class PenglaiError extends Error {
     this.errorClass = errorClass;
   }
 }
+
+export const PENGLAI_ASR_FAILURE_REASONS = [
+  "backpressure",
+  "cancelled",
+  "deadline",
+  "engine-unavailable",
+  "model-not-ready",
+] as const;
+
+export type PenglaiAsrFailureReason = (typeof PENGLAI_ASR_FAILURE_REASONS)[number];
+
+export class PenglaiAsrError extends PenglaiError {
+  constructor(
+    errorClass: ErrorClass,
+    readonly reason: PenglaiAsrFailureReason,
+  ) {
+    super(errorClass, `ASR_${reason.toUpperCase().replaceAll("-", "_")}`);
+    this.name = "PenglaiAsrError";
+  }
+}

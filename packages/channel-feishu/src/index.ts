@@ -3,6 +3,7 @@ import { join } from "node:path";
 import * as Lark from "@larksuiteoapi/node-sdk";
 import {
   PenglaiError,
+  PenglaiAsrError,
   classifyTransportError,
   classifyMedia,
   MediaStore,
@@ -109,6 +110,12 @@ export function classifyMediaFailure(
 ): { errorClass: ErrorClass; diagnostic: InboundFailureDiagnostic } {
   if (error instanceof FeishuMediaFailure) {
     return { errorClass: error.errorClass, diagnostic: error.diagnostic };
+  }
+  if (error instanceof PenglaiAsrError) {
+    return {
+      errorClass: error.errorClass,
+      diagnostic: { phase: "transcription", reason: error.reason },
+    };
   }
   const errorClass = error instanceof PenglaiError ? error.errorClass : "DELIVERY_TRANSIENT";
   const reason =
@@ -465,8 +472,16 @@ export class FeishuAdapter {
       return { accepted: true };
     }
     if (parsed.bodyKind === "voice") {
-      if (!received.audio || received.audio.durationMs <= 0 || received.audio.durationMs > 180_000) {
+      if (!received.audio) {
         return { reject: "audio" };
+      }
+      if (received.audio.durationMs <= 0 || received.audio.durationMs > 180_000) {
+        this.trackInboundTask(parsed, Promise.resolve(this.plane.recordInboundFailure(
+          parsed,
+          "INVALID_INPUT",
+          { phase: "media-admission", reason: "duration-rejected" },
+        )));
+        return { accepted: true };
       }
       this.trackInboundTask(parsed, Promise.resolve(
         this.plane.claimVoiceInbound(parsed, {

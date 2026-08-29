@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { Worker } from "node:worker_threads";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiAsrError, PenglaiError } from "@penglai/contracts";
 import type { AudioHandle, AudioSource } from "./audio-registry.js";
 import type { ResolvedSenseVoiceModel } from "./models.js";
 import {
@@ -326,12 +326,12 @@ export class SherpaSenseVoiceEngine implements TranscribeEngine {
     signal?: AbortSignal,
   ): Promise<TranscriptDraft> {
     if (this.disposed) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "ASR engine disposed");
+      throw new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable");
     }
     if (this.busy) {
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ASR engine concurrency exceeded");
+      throw new PenglaiAsrError("DELIVERY_TRANSIENT", "backpressure");
     }
-    if (signal?.aborted) throw new PenglaiError("DELIVERY_TRANSIENT", "ASR cancelled");
+    if (signal?.aborted) throw new PenglaiAsrError("DELIVERY_TRANSIENT", "cancelled");
     const pcm = resamplePcm16Mono(pcmMono, sampleRate);
     if (!pcm.length || rootMeanSquare(pcm) < 30) {
       return { text: "", confirmed: false, noSpeech: true };
@@ -355,7 +355,7 @@ export class SherpaSenseVoiceEngine implements TranscribeEngine {
       };
       const abort = () => {
         void this.resetWorker(false);
-        settleReject(new PenglaiError("DELIVERY_TRANSIENT", "ASR cancelled"));
+        settleReject(new PenglaiAsrError("DELIVERY_TRANSIENT", "cancelled"));
       };
       const message = (value: unknown) => {
         const result = value as WorkerResult;
@@ -367,7 +367,7 @@ export class SherpaSenseVoiceEngine implements TranscribeEngine {
         this.pendingReject = undefined;
         signal?.removeEventListener("abort", abort);
         if (!result.ok) {
-          rejectPromise(new PenglaiError("DSH_UNAVAILABLE", "ASR engine inference failed"));
+          rejectPromise(new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"));
           return;
         }
         const parsed = parseSenseVoiceResult(
@@ -395,7 +395,7 @@ export class SherpaSenseVoiceEngine implements TranscribeEngine {
     if (this.disposed) return;
     this.disposed = true;
     this.pendingReject?.(
-      new PenglaiError("DSH_UNAVAILABLE", "ASR engine disposed"),
+      new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"),
     );
     await this.resetWorker(true);
   }
@@ -412,14 +412,14 @@ export class SherpaSenseVoiceEngine implements TranscribeEngine {
     worker.on("error", () => {
       this.worker = undefined;
       this.pendingReject?.(
-        new PenglaiError("DSH_UNAVAILABLE", "ASR engine worker failed"),
+        new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"),
       );
     });
     worker.on("exit", (code) => {
       if (this.worker === worker) this.worker = undefined;
       if (code !== 0 && this.busy) {
         this.pendingReject?.(
-          new PenglaiError("DSH_UNAVAILABLE", "ASR engine worker exited"),
+          new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"),
         );
       }
     });

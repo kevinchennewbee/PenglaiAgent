@@ -138,6 +138,10 @@ export const INBOUND_FAILURE_REASONS = [
   "unsupported-codec",
   "no-speech",
   "model-not-ready",
+  "backpressure",
+  "deadline",
+  "engine-unavailable",
+  "duration-rejected",
   "unknown",
 ] as const;
 

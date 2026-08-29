@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, RELEASE, type ErrorClass } from "@penglai/contracts";
+import { PenglaiAsrError, PenglaiError, RELEASE, type ErrorClass } from "@penglai/contracts";
 import { createAsrSettingsApi, PenglaiAsrRemote } from "./remote.js";
 import {
   AudioHandleRegistry,
@@ -230,7 +230,7 @@ export class PenglaiAsrService {
       throw new PenglaiError("UNAUTHORIZED", "ASR audio owner operation mismatch");
     }
     if (this.queue.length + (this.active ? 1 : 0) >= MAX_TRANSCRIPTION_QUEUE) {
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ASR transcription backpressure");
+      throw new PenglaiAsrError("DELIVERY_TRANSIENT", "backpressure");
     }
     const deadline = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
     if (!Number.isSafeInteger(deadline) || deadline <= 0 || deadline > MAX_DEADLINE_MS) {
@@ -286,7 +286,7 @@ export class PenglaiAsrService {
         clearTimeout(queued.queueTimer);
         queued.controller.abort("cancelled");
         await this.audio.release(queued.handle.id).catch(() => undefined);
-        queued.reject(new PenglaiError("DELIVERY_TRANSIENT", "ASR cancelled"));
+        queued.reject(new PenglaiAsrError("DELIVERY_TRANSIENT", "cancelled"));
       }
     }
     if (this.active?.operation.operationId === operationId) {
@@ -353,7 +353,7 @@ export class PenglaiAsrService {
       item.operation.state = "cancelled";
       item.operation.updatedAt = nowIso();
       await this.audio.release(item.handle.id).catch(() => undefined);
-      item.reject(new PenglaiError("DSH_UNAVAILABLE", "ASR service disposed"));
+      item.reject(new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"));
     }
     await this.activeTask?.catch(() => undefined);
     const results = await Promise.allSettled([
@@ -376,7 +376,7 @@ export class PenglaiAsrService {
       item.operation.state = "cancelled";
       item.operation.updatedAt = nowIso();
       void this.audio.release(item.handle.id).finally(() => {
-        item.reject(new PenglaiError("DELIVERY_TRANSIENT", "ASR cancelled"));
+        item.reject(new PenglaiAsrError("DELIVERY_TRANSIENT", "cancelled"));
         this.pump();
       });
       return;
@@ -441,7 +441,7 @@ export class PenglaiAsrService {
         item.controller.signal,
       );
       if (item.controller.signal.aborted) {
-        throw new PenglaiError("DELIVERY_TRANSIENT", "ASR cancelled");
+        throw new PenglaiAsrError("DELIVERY_TRANSIENT", "cancelled");
       }
       item.operation.state = "completed";
       item.operation.updatedAt = nowIso();
@@ -459,7 +459,7 @@ export class PenglaiAsrService {
       failure =
         error instanceof Error
           ? error
-          : new PenglaiError("DSH_UNAVAILABLE", "ASR transcription failed");
+          : new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable");
       item.operation.state = item.controller.signal.aborted ? "cancelled" : "failed";
       item.operation.updatedAt = nowIso();
       item.operation.errorClass = item.controller.signal.aborted
@@ -473,7 +473,7 @@ export class PenglaiAsrService {
     else
       item.reject(
         failure ??
-          new PenglaiError("DSH_UNAVAILABLE", "ASR transcription failed"),
+          new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable"),
       );
   }
 
@@ -497,7 +497,7 @@ export class PenglaiAsrService {
     item.operation.updatedAt = nowIso();
     item.operation.errorClass = "DELIVERY_TRANSIENT";
     void this.audio.release(item.handle.id).finally(() => {
-      item.reject(new PenglaiError("DELIVERY_TRANSIENT", "ASR deadline exceeded"));
+      item.reject(new PenglaiAsrError("DELIVERY_TRANSIENT", "deadline"));
       this.pump();
     });
   }
@@ -510,7 +510,7 @@ export class PenglaiAsrService {
       if (this.operations.size < 384) break;
     }
     if (this.operations.size >= 512) {
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ASR operation history backpressure");
+      throw new PenglaiAsrError("DELIVERY_TRANSIENT", "backpressure");
     }
   }
 
@@ -529,7 +529,7 @@ export class PenglaiAsrService {
 
   private assertUsable(): void {
     if (this.disposed) {
-      throw new PenglaiError("DSH_UNAVAILABLE", "ASR service disposed");
+      throw new PenglaiAsrError("DSH_UNAVAILABLE", "engine-unavailable");
     }
   }
 }
