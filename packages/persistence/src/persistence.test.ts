@@ -256,6 +256,35 @@ test("R56-SEC-009 unknown route adapter or inbound state fail closed", () => {
   store.close();
 });
 
+test("startup quarantines an unsupported legacy route without deleting its audit row", () => {
+  const path = tmpDb();
+  let store = new Store(path);
+  store.db
+    .prepare("INSERT INTO routes(route_id, adapter, account_ref, peer_ref, status) VALUES (?,?,?,?,?)")
+    .run("legacy-route", "retired-channel", "legacy-account", "legacy-peer", "active");
+  store.db
+    .prepare(
+      "INSERT INTO bindings(route_id, workspace_identity, session_id, revision, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+    )
+    .run("legacy-route", "legacy-workspace", "legacy-session", 1, "active", "2026-08-29T00:00:00.000Z", "2026-08-29T00:00:00.000Z");
+  store.close();
+
+  store = new Store(path);
+  assert.deepEqual(store.listRoutes(), []);
+  assert.equal(store.ownerOfSession("legacy-session"), undefined);
+  const route = store.db.prepare("SELECT adapter, status FROM routes WHERE route_id=?").get("legacy-route") as {
+    adapter: string;
+    status: string;
+  };
+  const binding = store.db.prepare("SELECT status FROM bindings WHERE route_id=?").get("legacy-route") as {
+    status: string;
+  };
+  assert.equal(route.adapter, "retired-channel");
+  assert.equal(route.status, "revoked");
+  assert.equal(binding.status, "revoked");
+  store.close();
+});
+
 test("legacy ${channel}-default adapter config migrates transactionally", () => {
   const store = new Store(":memory:");
   store.putAdapterConfig("slack-default", "slack", JSON.stringify({ enabled: true }));

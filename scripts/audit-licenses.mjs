@@ -382,20 +382,20 @@ function flattenInventory(raw, { production }) {
 
 const productionInventory = flattenInventory(pnpmLicenseInventory(true), { production: true });
 const completeInstalledInventory = flattenInventory(pnpmLicenseInventory(false), { production: false });
-const whatsappPackage = JSON.parse(readFileSync("packages/channel-whatsapp/package.json", "utf8"));
-const imPackage = JSON.parse(readFileSync("packages/im/package.json", "utf8"));
 const packScript = readFileSync("scripts/pack-plugins.mjs", "utf8");
+const retiredRuntimePackages = new Set([
+  "@penglai/channel-whatsapp",
+  "@whiskeysockets/baileys",
+  "libsignal",
+  "whatsapp-rust-bridge",
+]);
 if (
-  whatsappPackage.dependencies?.["@whiskeysockets/baileys"] ||
-  whatsappPackage.dependencies?.libsignal ||
-  imPackage.dependencies?.["@penglai/channel-whatsapp"] ||
-  !packScript.includes("must not bundle the WhatsApp community runtime in 0.5.7") ||
-  !packScript.includes("staging contains the forbidden WhatsApp community runtime")
+  existsSync("packages/channel-whatsapp/package.json") ||
+  [...productionInventory, ...completeInstalledInventory].some((row) => retiredRuntimePackages.has(row.name)) ||
+  !packScript.includes("must not bundle a retired channel runtime") ||
+  !packScript.includes("staging contains a retired channel runtime")
 ) {
-  throw new Error("WhatsApp runtime distribution boundary drift");
-}
-if (productionInventory.some((row) => row.name === "libsignal" || row.name === "@whiskeysockets/baileys")) {
-  throw new Error("WhatsApp GPL runtime entered the production dependency inventory");
+  throw new Error("retired channel runtime absence boundary drift");
 }
 const sharpRows = productionInventory.filter((row) => /^@img\/sharp-libvips-/.test(row.name));
 if (
@@ -415,13 +415,6 @@ const result = {
   production: productionInventory,
   completeInstalled: completeInstalledInventory,
   policyDecisions: [
-    {
-      component: "@whiskeysockets/baileys@7.0.0-rc14 -> libsignal@6.0.0",
-      source: "https://github.com/WhiskeySockets/Baileys",
-      license: "MIT -> GPL-3.0",
-      integrity: "sha512-WK+X8ju8TPGxvWIsP8hrY6JB6FltYuFe+vsqKfjOYX25JObij9qLf2c3ZGdl1Q+vhFwbnT+AZmWAB5pTvzmSiQ== -> sha512-d/5V3YFtDljbFMufz4ncyUYGYhJl+vzAe+c2EFFBQ6bz1h8Q3IOMEGXYMzlibU60I+e8GagMMpji18iez3P1hA==",
-      use: "source-only development reference; not a production dependency and not bundled in 0.5.7",
-    },
     {
       component: "sharp@0.35.3 and platform libvips packages",
       source: "https://github.com/lovell/sharp",

@@ -8,7 +8,6 @@ export const MESSAGE_FAILURE_CODES = [
   "CHANNEL_DELIVERY_UNCERTAIN",
   "CHANNEL_AUTH",
   "CHANNEL_NO_QR",
-  "CHANNEL_RISK_ACK",
   "INPUT_INVALID",
   "INTERNAL_UNKNOWN",
 ] as const;
@@ -48,10 +47,6 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
     zh: "这个平台没有官方扫码捷径。请按官方 Token / Manifest 步骤连接。",
     en: "This platform has no official QR shortcut. Use the official token or manifest steps.",
   },
-  CHANNEL_RISK_ACK: {
-    zh: "WhatsApp 使用社区协议。请先阅读风险说明并确认。",
-    en: "WhatsApp uses a community protocol. Read the risk notice and acknowledge first.",
-  },
   INPUT_INVALID: {
     zh: "这条消息缺少必要字段，已被拒绝。",
     en: "This message is missing required fields and was rejected.",
@@ -70,21 +65,19 @@ export function classifyMessageFailure(error: unknown): MessageFailure {
   const text = error instanceof Error ? `${error.name}:${error.message}` : String(error ?? "");
   const code: MessageFailureCode = /CHANNEL_NO_QR/.test(text)
     ? "CHANNEL_NO_QR"
-    : /CHANNEL_RISK_ACK/.test(text)
-      ? "CHANNEL_RISK_ACK"
-      : /AUTH_EXPIRED|TOKEN_INVALID|credentials missing/.test(text)
-        ? "CHANNEL_AUTH"
-        : /429|RATE_LIMIT/.test(text)
-          ? "CHANNEL_RATE_LIMIT"
-          : /403|401|PERMISSION/.test(text)
-            ? "CHANNEL_PERMISSION"
-            : /UNCERTAIN/.test(text)
-              ? "CHANNEL_DELIVERY_UNCERTAIN"
-              : /DELIVERY|SEND_FAILED/.test(text)
-                ? "CHANNEL_DELIVERY"
-                : /INVALID_INPUT|missing/.test(text)
-                  ? "INPUT_INVALID"
-                  : "INTERNAL_UNKNOWN";
+    : /AUTH_EXPIRED|TOKEN_INVALID|credentials missing/.test(text)
+      ? "CHANNEL_AUTH"
+      : /429|RATE_LIMIT/.test(text)
+        ? "CHANNEL_RATE_LIMIT"
+        : /403|401|PERMISSION/.test(text)
+          ? "CHANNEL_PERMISSION"
+          : /UNCERTAIN/.test(text)
+            ? "CHANNEL_DELIVERY_UNCERTAIN"
+            : /DELIVERY|SEND_FAILED/.test(text)
+              ? "CHANNEL_DELIVERY"
+              : /INVALID_INPUT|missing/.test(text)
+                ? "INPUT_INVALID"
+                : "INTERNAL_UNKNOWN";
   return {
     code,
     reason: code,
@@ -114,7 +107,6 @@ export const RECOVERY_ACTION_BY_CODE: Record<MessageFailureCode, string> = {
   CHANNEL_DELIVERY_UNCERTAIN: "confirm_manually",
   CHANNEL_AUTH: "reconnect",
   CHANNEL_NO_QR: "use_official_token",
-  CHANNEL_RISK_ACK: "acknowledge_risk",
   INPUT_INVALID: "fix_input",
   INTERNAL_UNKNOWN: "retry",
 };

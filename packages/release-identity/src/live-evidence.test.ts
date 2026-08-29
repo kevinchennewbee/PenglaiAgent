@@ -46,6 +46,6 @@ test("stale, duplicate, unknown, or sensitive live evidence is rejected", () => 
   duplicate.cases.push({ ...duplicate.cases[0]! });
   assert.equal(evaluateLiveEvidence(duplicate, "0.5.7").verdict, "FAIL");
   const unknown = validEvidence();
-  unknown.cases[0]!.platform = "whatsapp";
+  unknown.cases[0]!.platform = "unknown-platform";
   assert.equal(evaluateLiveEvidence(unknown, "0.5.7").verdict, "FAIL");
 });

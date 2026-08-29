@@ -60,13 +60,12 @@ test("R56-OWN-004 IM bind/remove consume a one-time owner receipt", async () => 
   );
 });
 
-test("IM credential save, logout, and WhatsApp risk consume one-time owner receipts", async () => {
+test("IM credential save and logout consume one-time owner receipts", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-im-owner-cred-"));
   const owner = new OwnerApprovalBroker(root, { dialog: async () => "approved" });
   for (const action of [
     IM_OWNER_ACTIONS.saveCredentials,
     IM_OWNER_ACTIONS.logout,
-    IM_OWNER_ACTIONS.acknowledgeRisk,
   ] as const) {
     const objectId = "telegram";
     const sourceDigest = imSourceDigest({ action, objectId });

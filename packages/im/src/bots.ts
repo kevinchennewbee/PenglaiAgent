@@ -22,7 +22,6 @@ export interface ImBotRow {
   displayName: string;
   credentialRef: string;
   state: ImBotState;
-  riskAckAt: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -34,7 +33,6 @@ const SIDECAR_SQL = `
     display_name TEXT NOT NULL,
     credential_ref TEXT NOT NULL,
     state TEXT NOT NULL,
-    risk_ack_at INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -70,18 +68,20 @@ export class ImBotStore {
   }
 
   list(channelId?: string): ImBotRow[] {
-    const rows = channelId
-      ? (this.db.prepare(`SELECT * FROM im_v2_bots WHERE channel_id = ?`).all(channelId) as Array<Record<string, string | number | null>>)
+    const supportedChannel = channelId
+      ? parseClosedEnum(channelId, CHANNEL_IDS, "CHANNEL_ID", "INVALID_INPUT")
+      : undefined;
+    const rows = supportedChannel
+      ? (this.db.prepare(`SELECT * FROM im_v2_bots WHERE channel_id = ?`).all(supportedChannel) as Array<Record<string, string | number | null>>)
       : (this.db.prepare(`SELECT * FROM im_v2_bots`).all() as Array<Record<string, string | number | null>>);
-    return rows.map((row) => this.map(row));
+    return rows
+      .filter((row) => (CHANNEL_IDS as readonly string[]).includes(String(row.channel_id)))
+      .map((row) => this.map(row));
   }
 
-  create(input: { channelId: string; displayName: string; riskAck?: boolean }): ImBotRow {
+  create(input: { channelId: string; displayName: string }): ImBotRow {
     const channelId = parseClosedEnum(input.channelId, CHANNEL_IDS, "CHANNEL_ID", "INVALID_INPUT");
     const manifest = getChannelManifest(channelId);
-    if (manifest.risk === "community-protocol" && input.riskAck !== true) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_RISK_ACK");
-    }
     const now = Date.now();
     const row: ImBotRow = {
       botId: randomUUID(),
@@ -89,24 +89,16 @@ export class ImBotStore {
       displayName: input.displayName.trim() || manifest.displayName.en,
       credentialRef: CHANNEL_CREDENTIAL_REFS[channelId],
       state: manifest.defaultEnabled ? "connecting" : "disabled",
-      riskAckAt: input.riskAck === true ? now : null,
       createdAt: now,
       updatedAt: now,
     };
     this.db
       .prepare(
-        `INSERT INTO im_v2_bots(bot_id, channel_id, display_name, credential_ref, state, risk_ack_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO im_v2_bots(bot_id, channel_id, display_name, credential_ref, state, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(row.botId, row.channelId, row.displayName, row.credentialRef, row.state, row.riskAckAt, row.createdAt, row.updatedAt);
+      .run(row.botId, row.channelId, row.displayName, row.credentialRef, row.state, row.createdAt, row.updatedAt);
     return row;
-  }
-
-  acknowledgeRisk(botId: string): ImBotRow {
-    const row = this.require(botId);
-    const now = Date.now();
-    this.db.prepare(`UPDATE im_v2_bots SET risk_ack_at = ?, updated_at = ? WHERE bot_id = ?`).run(now, now, botId);
-    return { ...row, riskAckAt: now, updatedAt: now };
   }
 
   setState(botId: string, state: string): ImBotRow {
@@ -196,7 +188,6 @@ export class ImBotStore {
       displayName: String(row.display_name),
       credentialRef: String(row.credential_ref),
       state: parseClosedEnum(String(row.state), IM_BOT_STATES, "IM_BOT_STATE", "SECURITY_POLICY"),
-      riskAckAt: row.risk_ack_at == null ? null : Number(row.risk_ack_at),
       createdAt: Number(row.created_at),
       updatedAt: Number(row.updated_at),
     };

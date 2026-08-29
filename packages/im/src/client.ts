@@ -7,8 +7,8 @@ export function contribute(locale: PenglaiLocale = "zh"): { slot: "settings.sect
     slot: "settings.section",
     title: t(locale, "imTitle"),
     sections: locale === "en"
-      ? ["Weixin", "Feishu", "DingTalk", "WeCom", "QQ", "Slack", "Telegram", "Discord", "WhatsApp", "Advanced"]
-      : ["微信", "飞书", "钉钉", "企业微信", "QQ", "Slack", "Telegram", "Discord", "WhatsApp", "高级"],
+      ? ["Weixin", "Feishu", "DingTalk", "WeCom", "QQ", "Slack", "Telegram", "Discord", "Advanced"]
+      : ["微信", "飞书", "钉钉", "企业微信", "QQ", "Slack", "Telegram", "Discord", "高级"],
   };
 }
 

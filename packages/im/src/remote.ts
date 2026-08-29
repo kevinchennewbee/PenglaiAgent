@@ -181,11 +181,6 @@ export class PenglaiImRemote extends TypertRemoteService {
   }
 
   @Remote
-  acknowledgeChannelRisk(input: Parameters<PenglaiImHost["acknowledgeChannelRisk"]>[0]) {
-    return this.host.acknowledgeChannelRisk(input);
-  }
-
-  @Remote
   removeBot(input: Parameters<PenglaiImHost["removeBot"]>[0]) {
     return this.host.removeBot(input);
   }
@@ -263,7 +258,6 @@ export const TYPERT_REMOTE = {
     "beginGuidedConnection",
     "createBot",
     "listBots",
-    "acknowledgeChannelRisk",
     "removeBot",
     "storeChannelSecret",
     "beginChannelConnection",

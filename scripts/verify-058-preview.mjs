@@ -9,6 +9,7 @@ const SOURCE_TAG = "dsh-v0.1.2-alpha.1";
 const SOURCE_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
 const SOURCE_TREE = "a712eec535b48badc4fefb4df5176a7002e4280b";
 const RELEASE_DSH = "0.1.1-rc.2";
+const RETIRED_CHANNEL_GATE = join(ROOT, "scripts/verify-retired-channel-absence.mjs");
 
 const failures = [];
 
@@ -51,9 +52,18 @@ const protectedPaths = [
   ".github/workflows/deploy-website.yml",
   ".github/workflows/native-release-candidate.yml",
   "README.md",
+  "SECURITY.md",
   "docs/0.5.7",
+  "docs/ARCHITECTURE.md",
+  "docs/IM_PLUGIN.md",
+  "docs/PRODUCT.md",
+  "docs/PUBLICATION_0.5.7.md",
+  "docs/PUBLICATION_MANIFEST_0.5.7.md",
+  "docs/RELEASE_NOTES_0.5.7.md",
+  "docs/SECURITY.md",
   "packages/release-identity/src/pins.ts",
   "release-contract.json",
+  "release-info.json",
   "website",
 ];
 
@@ -103,6 +113,19 @@ for (const fixed of [SOURCE_TAG, SOURCE_COMMIT, SOURCE_TREE]) {
 const decisionLog = readFileSync(join(ROOT, "docs/decisions.md"), "utf8");
 if (!decisionLog.includes("D-063") || !decisionLog.includes(SOURCE_COMMIT)) {
   fail("D-063 does not bind the fixed DSH source commit");
+}
+
+try {
+  execFileSync(process.execPath, [RETIRED_CHANNEL_GATE], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+} catch (error) {
+  const detail = error && typeof error === "object" && "stderr" in error
+    ? String(error.stderr).trim()
+    : "no diagnostic output";
+  fail(`retired channel absence gate failed: ${detail}`);
 }
 
 if (failures.length > 0) {

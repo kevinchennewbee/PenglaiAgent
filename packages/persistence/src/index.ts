@@ -306,6 +306,7 @@ export class Store {
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec("PRAGMA busy_timeout = 3000;");
     this.migrate();
+    this.quarantineUnsupportedRoutes();
   }
 
   migrate(): void {
@@ -336,6 +337,20 @@ export class Store {
         throw new PenglaiError("STORE_CORRUPT", `migration failed: ${String(err)}`);
       }
     }
+  }
+
+  private quarantineUnsupportedRoutes(): void {
+    const placeholders = ROUTE_ADAPTERS.map(() => "?").join(",");
+    const routeIds = `SELECT route_id FROM routes WHERE adapter NOT IN (${placeholders})`;
+    const updatedAt = new Date().toISOString();
+    this.tx(() => {
+      this.db
+        .prepare(`UPDATE bindings SET status='revoked', updated_at=? WHERE status='active' AND route_id IN (${routeIds})`)
+        .run(updatedAt, ...ROUTE_ADAPTERS);
+      this.db
+        .prepare(`UPDATE routes SET status='revoked' WHERE status!='revoked' AND adapter NOT IN (${placeholders})`)
+        .run(...ROUTE_ADAPTERS);
+    });
   }
 
   close(): void {
@@ -1112,7 +1127,9 @@ export class Store {
 
   listRoutes(): Route[] {
     const rows = this.db.prepare("SELECT * FROM routes").all() as Record<string, string>[];
-    return rows.map((row) => this.mapRoute(row));
+    return rows
+      .filter((row) => (ROUTE_ADAPTERS as readonly string[]).includes(String(row.adapter)))
+      .map((row) => this.mapRoute(row));
   }
 
   listActiveBindings(): Binding[] {

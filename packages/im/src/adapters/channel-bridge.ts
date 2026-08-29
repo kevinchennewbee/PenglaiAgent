@@ -27,7 +27,7 @@ export interface NativeWrapOpts {
 }
 
 type NativeLike = {
-  beginConnection(input: { method?: string; credentialRef?: string; riskAck?: boolean }): Promise<{
+  beginConnection(input: { method?: string; credentialRef?: string }): Promise<{
     kind: "qr" | "token" | "manifest" | "device-link";
     live: false;
     operationId: string;

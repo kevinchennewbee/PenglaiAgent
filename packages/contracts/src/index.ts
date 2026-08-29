@@ -52,7 +52,6 @@ export const ADAPTER_NAMES = [
   "slack",
   "telegram",
   "discord",
-  "whatsapp",
 ] as const;
 export type AdapterName = (typeof ADAPTER_NAMES)[number];
 

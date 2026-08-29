@@ -76,19 +76,19 @@ test("inbound envelope HMAC and idempotency are isolated by channel plus account
   assert.notEqual(a.idempotencyKey, b.idempotencyKey);
   assert.notEqual(a.peerRef, b.peerRef);
   assert.equal(a.peerRef, hashPeer("U1", "bot-a"));
-  const waOnce = parseInboundEnvelope(
-    "whatsapp",
-    { messageId: "wamid-1", senderId: "15557654321@s.whatsapp.net", chatId: "15557654321@s.whatsapp.net", chatType: "private", accountRef: "15551234567@s.whatsapp.net", text: "hi" },
+  const telegramOnce = parseInboundEnvelope(
+    "telegram",
+    { messageId: "update-1", senderId: "user-1", chatId: "chat-1", chatType: "private", accountRef: "bot-1", text: "hi" },
     hashPeer,
   );
-  assert.equal(waOnce.idempotencyKey, inboundIdempotencyKey("whatsapp", "15551234567@s.whatsapp.net", "wamid-1"));
+  assert.equal(telegramOnce.idempotencyKey, inboundIdempotencyKey("telegram", "bot-1", "update-1"));
   assert.equal(
     parseInboundEnvelope(
-      "whatsapp",
-      { messageId: "wamid-1", senderId: "15557654321@s.whatsapp.net", chatId: "15557654321@s.whatsapp.net", chatType: "private", accountRef: "15551234567@s.whatsapp.net", text: "hi" },
+      "telegram",
+      { messageId: "update-1", senderId: "user-1", chatId: "chat-1", chatType: "private", accountRef: "bot-1", text: "hi" },
       hashPeer,
     ).idempotencyKey,
-    waOnce.idempotencyKey,
+    telegramOnce.idempotencyKey,
   );
   assert.throws(
     () => parseInboundEnvelope("slack", { ...base, accountRef: "bot-a", thread: "123.4" }, hashPeer),
