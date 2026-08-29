@@ -17,6 +17,7 @@ const routing = read("packages/routing-core/src/index.ts");
 const feishu = read("packages/channel-feishu/src/index.ts");
 const media = read("packages/channel-feishu/src/media.ts");
 const persistence = read("packages/persistence/src/index.ts");
+const contracts = read("packages/contracts/src/index.ts");
 const tests = read("packages/channel-feishu/src/feishu.test.ts");
 
 requireTokens("routing", routing, [
@@ -28,6 +29,9 @@ requireTokens("routing", routing, [
   '"permission-missing"',
   '"resource-not-found"',
   '"resource-identity-rejected"',
+  '"unsupported-codec"',
+  '"no-speech"',
+  '"model-not-ready"',
   "closedInboundFailureDiagnostic",
   "phase: safeDiagnostic.phase",
   "reason: safeDiagnostic.reason",
@@ -47,8 +51,20 @@ requireTokens("feishu", feishu, [
   'reason: "empty"',
   "failure.diagnostic",
   'markVoicePhase(claim, "downloading")',
+  "classifyFeishuVoiceFailurePhase",
 ]);
-requireTokens("media", media, ["onPhase", 'onPhase?.("validating")', 'onPhase?.("transcoding")', 'onPhase?.("transcribing")']);
+requireTokens("media", media, [
+  "PENGLAI_ASR_MODEL_STATES",
+  "FeishuMediaFailure",
+  "onPhase",
+  'onPhase?.("validating")',
+  'onPhase?.("transcoding")',
+  'onPhase?.("transcribing")',
+  'reason: "unsupported-codec"',
+  'reason: "no-speech"',
+  'reason: "model-not-ready"',
+]);
+requireTokens("contracts", contracts, ["PENGLAI_ASR_MODEL_STATES", "PenglaiAsrModelState"]);
 requireTokens("persistence", persistence, [
   "VOICE_JOB_STATES",
   '"downloading"',
@@ -62,6 +78,7 @@ requireTokens("tests", tests, [
   "private-scope",
   "assert.doesNotMatch",
   '["downloading", "validating", "transcoding", "transcribing"]',
+  "Feishu voice failures retain closed codec, no-speech, and model readiness causes",
 ]);
 
 if (failures.length > 0) {
@@ -75,7 +92,7 @@ console.log(JSON.stringify({
   result: "PASS",
   evidenceClass: "source-only",
   phases: 5,
-  reasons: 13,
+  reasons: 16,
   redaction: "closed-values-only",
   durableVoicePhases: 4,
 }, null, 2));

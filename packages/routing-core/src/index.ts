@@ -135,6 +135,9 @@ export const INBOUND_FAILURE_REASONS = [
   "too-large",
   "empty",
   "type-rejected",
+  "unsupported-codec",
+  "no-speech",
+  "model-not-ready",
   "unknown",
 ] as const;
 
