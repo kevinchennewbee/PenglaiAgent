@@ -32,6 +32,9 @@ test("voice settings localize closed model states and recovery copy", () => {
     assert.match(source, /not_installed: "未安装"/);
     assert.match(source, /not_installed: "Not installed"/);
     assert.match(source, /operationFailed/);
+    assert.match(source, /diagnosticReference: "诊断参考号"/);
+    assert.match(source, /diagnosticReference: "Diagnostic reference"/);
+    assert.match(source, /data-penglai-(?:asr|tts)-reference/);
     assert.doesNotMatch(source, /children: \[t\.state, ": ", String\(model\)\]/);
     assert.doesNotMatch(source, /String\(row\.state/);
   }

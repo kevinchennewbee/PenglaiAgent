@@ -334,11 +334,12 @@ test("R50-VOICE: downloader never follows a swapped partial-file path", async (c
 
 test("R50-VOICE: downloader rejects an unallowlisted redirect before writing a model", async () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-asr-redirect-"));
+  const models = join(root, "models");
   const model = Buffer.from("model");
   const tokens = Buffer.from("tokens");
   const manifest = fixtureManifest(model, tokens);
   const { AsrModelManager } = await import("./models.js");
-  const manager = new AsrModelManager(join(root, "models"), manifest, {
+  const manager = new AsrModelManager(models, manifest, {
     async fetchImpl() {
       return new Response(null, {
         status: 302,
@@ -349,8 +350,22 @@ test("R50-VOICE: downloader rejects an unallowlisted redirect before writing a m
   try {
     await assert.rejects(manager.prepareModel("redirect_op_1"), /redirect host/);
     assert.equal(manager.describeCapability().model, "failed");
+    const failed = manager.getOperation("redirect_op_1");
+    assert.equal(failed?.state, "failed");
+    assert.equal(failed?.errorClass, "SECURITY_POLICY");
+    assert.match(failed?.referenceId ?? "", /^ASR-[A-F0-9]{12}$/);
+    assert.doesNotMatch(JSON.stringify(failed), /example\.invalid/);
+    const referenceId = failed?.referenceId;
+    await manager.dispose();
+    const restored = new AsrModelManager(models, manifest);
+    try {
+      await restored.initialize();
+      assert.equal(restored.getOperation("redirect_op_1")?.referenceId, referenceId);
+    } finally {
+      await restored.dispose();
+    }
     assert.equal(
-      existsSync(join(root, "models", manifest.revision, "model.int8.onnx")),
+      existsSync(join(models, manifest.revision, "model.int8.onnx")),
       false,
     );
   } finally {

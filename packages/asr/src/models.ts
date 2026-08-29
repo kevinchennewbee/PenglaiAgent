@@ -21,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { PenglaiAsrError, PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
+import { isErrorClass, PenglaiAsrError, PenglaiError, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
 import type { AsrModelState } from "./service.js";
 
 export const SENSEVOICE_MODEL_ID = "sensevoice-int8";
@@ -112,6 +112,7 @@ export interface ModelOperation {
   totalBytes: number;
   currentFile?: string;
   errorClass?: ErrorClass;
+  referenceId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -440,7 +441,11 @@ export class AsrModelManager {
       const errorClass = stableErrorClass(error);
       this.state = "failed";
       this.errorClass = errorClass;
-      this.updateOperation(op, { state: "failed", errorClass });
+      this.updateOperation(op, {
+        state: "failed",
+        errorClass,
+        referenceId: redactedDiagnosticReference("ASR", op.operationId, errorClass),
+      });
       throw error;
     } finally {
       this.modelOwner = undefined;
@@ -533,7 +538,11 @@ export class AsrModelManager {
     this.modelOwner = op.operationId;
     const controller = new AbortController();
     this.controllers.set(op.operationId, controller);
-    this.updateOperation(op, { state: "running", errorClass: undefined });
+    this.updateOperation(op, {
+      state: "running",
+      errorClass: undefined,
+      referenceId: undefined,
+    });
     this.state = "downloading";
     this.errorClass = undefined;
     const promise = this.runDownload(op, controller.signal).finally(() => {
@@ -578,7 +587,11 @@ export class AsrModelManager {
       const errorClass = stableErrorClass(error);
       this.state = "failed";
       this.errorClass = errorClass;
-      this.updateOperation(op, { state: "failed", errorClass });
+      this.updateOperation(op, {
+        state: "failed",
+        errorClass,
+        referenceId: redactedDiagnosticReference("ASR", op.operationId, errorClass),
+      });
       throw error;
     }
   }
@@ -864,11 +877,13 @@ export class AsrModelManager {
       totalBytes?: number;
       currentFile?: string | undefined;
       errorClass?: ErrorClass | undefined;
+      referenceId?: string | undefined;
     },
   ): void {
     Object.assign(op, patch, { updatedAt: nowIso() });
     if (patch.currentFile === undefined && "currentFile" in patch) delete op.currentFile;
     if (patch.errorClass === undefined && "errorClass" in patch) delete op.errorClass;
+    if (patch.referenceId === undefined && "referenceId" in patch) delete op.referenceId;
     this.persistOperations();
   }
 
@@ -920,19 +935,9 @@ export class AsrModelManager {
       typeof op.updatedAt === "string" &&
       (op.currentFile === undefined ||
         this.manifest.files.some((file) => file.filename === op.currentFile)) &&
-      (op.errorClass === undefined ||
-        [
-          "INVALID_INPUT",
-          "UNAUTHORIZED",
-          "BINDING_STALE",
-          "DSH_UNAVAILABLE",
-          "DSH_CONTRACT_DRIFT",
-          "DELIVERY_TRANSIENT",
-          "DELIVERY_PERMANENT",
-          "AUTH_EXPIRED",
-          "STORE_CORRUPT",
-          "SECURITY_POLICY",
-        ].includes(op.errorClass))
+      (op.errorClass === undefined || isErrorClass(op.errorClass)) &&
+      (op.referenceId === undefined ||
+        (op.errorClass !== undefined && /^ASR-[A-F0-9]{12}$/.test(op.referenceId)))
     );
   }
 
