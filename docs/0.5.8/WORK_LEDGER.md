@@ -80,7 +80,7 @@ use a partial broken push merely to create activity.
 | `6ef566ace20fd9610a742287227aaec4c3fe49e2` | move Memory curator maintenance off false Agent/Session/subagent lifecycle into a bounded internal queue | branch readback PASS; [Source CI 33243163029](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33243163029) PASS |
 | `4e8dc373b1fb49f2ba0c1ca9914d403f6c5eb808` | bound restart failure accounting and expose a non-stranding terminal recovery surface with redacted diagnostics | branch readback PASS; [Source CI 33244301234](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33244301234) PASS |
 | `dd0afd9def6371abe5119867cc253a8ae5c6ff5d` | authenticate alpha-style DSH startup privately while preserving the rc.2 open-root path | branch readback PASS; [Source CI 33245579034](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33245579034) PASS |
-| `3663d293f79e661890b9a9a1f0ba49d64cb33b9e` | isolate rc.2-to-alpha.1 DSH Home generation, validation, activation, rejection, and rollback | branch readback PASS; [Source CI 33246379795](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246379795) PASS |
+| `3663d2935a6ee653f68901d1df8ff20359613c50` | isolate rc.2-to-alpha.1 DSH Home generation, validation, activation, rejection, and rollback | branch readback PASS; [Source CI 33246379795](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246379795) PASS |
 | `386f368555f64684154e8f38491822541ea227c4` | split bridge composition into Agent, Workspace, and Session owner ports with an rc.2 adapter boundary | branch readback PASS; [Source CI 33246964498](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246964498) PASS |
 
 ## Publication reconciliation placeholder
