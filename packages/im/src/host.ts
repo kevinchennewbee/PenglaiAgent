@@ -814,6 +814,7 @@ export class PenglaiImHost {
     } else {
       const feishuStatus = this.feishu.status;
       if (feishuStatus === "connected") connection = "connected";
+      else if (feishuStatus === "degraded") connection = "degraded";
       else if (feishuStatus === "connecting" || feishuStatus === "reconnecting") connection = "connecting";
       else if (feishuStatus === "failed") connection = "failed";
       else connection = configured ? (this.feishu.setupRequired ? "blocked" : "not_configured") : "not_configured";

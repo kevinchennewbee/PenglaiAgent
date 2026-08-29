@@ -101,7 +101,12 @@ export class AdapterSupervisor {
     return {
       running: this.running,
       timers: this.pumpTimer ? 1 : 0,
-      sockets: this.weixin.health?.().authState === "connected" || this.feishu.status === "connected" ? 1 : 0,
+      sockets:
+        this.weixin.health?.().authState === "connected" ||
+        this.feishu.status === "connected" ||
+        this.feishu.status === "degraded"
+          ? 1
+          : 0,
     };
   }
 

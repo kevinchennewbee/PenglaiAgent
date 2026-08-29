@@ -109,7 +109,8 @@ Allowed work now includes:
   recovery, the Memory curator's internal no-Session lifecycle, and the IM
   support-truth model that separates bundled source from connection and live
   release evidence; Feishu media failures also retain a closed redacted phase
-  and cause, while voice jobs durably expose downloading, validation,
+  and cause, with an exact resource checklist and durable text-only degraded
+  state until a real non-empty resource stream succeeds, while voice jobs durably expose downloading, validation,
   transcoding, transcription, queued handoff, and typed codec/no-speech/model
   readiness/duration/ASR operational causes without claiming Owner-live
   download or ASR success.
