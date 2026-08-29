@@ -227,6 +227,37 @@ curator semantics.
 - prove no cross-Workspace recall, duplicate curator, subagent-count pollution,
   or orphan job after restart.
 
+**Preview source checkpoint, 2026-08-29**
+
+The fixed alpha.1 source and the still-active rc.2 declarations both expose a
+hand-built `ctx.llm.stream` request and the official immutable user-message
+factory. Memory now uses that one-shot path directly, with an empty tool list,
+a 1,200-output-token cap, host-side closed JSON validation, and no Agent or
+Session creation. Alpha.1's `purpose` union still contains only compaction and
+session-title, so this checkpoint does not invent a private purpose value.
+
+The alpha.1 Jobs service was reviewed and deliberately rejected for this
+maintenance path. Its owned jobs are Agent-visible and its unowned jobs are
+visible to every caller; moving the curator there would relocate, not remove,
+the product pollution. Penglai instead owns a single-flight internal queue with
+an eight-job active-plus-pending limit, a 45-second abort deadline, bounded
+duplicate history, overload fail-open behavior, and teardown cancellation.
+Every key binds Workspace, Session, and Turn; Workspace ownership is rechecked
+before both execution and commit.
+
+Focused tests prove queue capacity, deduplication, timeout advance, teardown
+cancellation, one official LLM request with no tools or Session identity, and a
+real `turn/start -> user/message -> assistant/message -> turn/end` source path
+that creates one Workspace candidate and suppresses a duplicate Turn. Static
+and executable inventory gates refuse reintroduction of `agents.create`,
+`origin: "subagent"`, or the old curator-session prefix.
+
+This closes the source-level false-subagent lifecycle. It does not yet close
+P0-05 as a packaged capability: optional Budget accounting for this auxiliary
+model call, bounded redacted failure/retry diagnostics, published alpha.1
+declaration/runtime reconciliation, installed restart cleanup, and live
+privacy-safe Workspace isolation evidence remain open.
+
 ### P0-06: Companion install/enable stops at `pending`
 
 **Observed symptom**

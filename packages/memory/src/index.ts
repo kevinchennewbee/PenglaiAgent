@@ -11,6 +11,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Context } from "@deepseek-ai/cordis";
+import type { LlmRuntime } from "@deepseek-ai/dsh-llm";
 import { PenglaiError, RELEASE } from "@penglai/contracts";
 import { applyEmbeddedMemorySources, createContextSettingsApi } from "@penglai/memory-sources";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
@@ -24,12 +25,13 @@ import { ingestCuratorOutput } from "./v2/curator.js";
 import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
-import { ingestOfficialTurn, resolveSessionTurn, runHostCurator, sessionEventParts, turnSummary, waitForOfficialSessionTurn, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { InternalCuratorQueue, internalCuratorJobKey } from "./v2/internal-curator.js";
+import { ingestOfficialTurn, resolveSessionTurn, runOfficialLlmCurator, sessionEventParts, turnSourceDigest, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
 export const name = "@penglai/memory";
-export const inject = ["skills", "workspaceRegistry", "tools", "agents"];
+export const inject = ["skills", "workspaceRegistry", "tools", "agents", "llm"];
 export const version = RELEASE;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -38,26 +40,7 @@ interface OfficialSkillSummary {
 }
 
 interface OfficialAgentLike {
-  id: string;
   options: { provider?: string; model?: string; maxTokens?: number };
-  session: { events?: readonly unknown[] };
-  followup(input: {
-    id: string;
-    role: "user";
-    content: Array<{ type: "text"; text: string }>;
-    source: { kind: string };
-  }): void;
-  whenIdle(): Promise<void>;
-  cancel?(cause: string): void;
-}
-
-interface OfficialAgentHandleLike {
-  agent: OfficialAgentLike;
-  dispose(): Promise<void>;
-}
-
-interface OfficialAgentContextLike {
-  tools?: { guard(guard: (execution: unknown) => string | undefined): unknown };
 }
 
 interface CordisContextLike {
@@ -69,13 +52,8 @@ interface CordisContextLike {
   };
   agents?: {
     get(id: string): OfficialAgentLike | undefined;
-    create(options: {
-      sessionId: string;
-      meta: { cwd: string; parentSession?: string; origin?: "subagent" };
-      agentOptions: { provider: string; model: string; maxTokens?: number };
-      setup: (agentCtx: OfficialAgentContextLike) => void;
-    }): Promise<OfficialAgentHandleLike>;
   };
+  llm?: Pick<LlmRuntime, "stream">;
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
   on?: (event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>) => unknown;
@@ -91,31 +69,12 @@ export interface SopPromotion {
   receipt?: string;
 }
 
-interface CuratorContext {
-  workspaceId: string;
-  workspacePath: string;
-  sessionId: string;
-}
-
 function sha256(value: string | Buffer): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
 function resultDigest(value: unknown): string {
   return sha256(JSON.stringify(value));
-}
-
-function finalCuratorText(session: { events?: readonly unknown[] }): string | undefined {
-  const byTurn = new Map<number, string>();
-  const closed = new Set<number>();
-  for (const event of session.events ?? []) {
-    const parts = sessionEventParts([{ id: "penglai-memory-curator" }, event]);
-    if (typeof parts.turn !== "number") continue;
-    if (parts.type === "assistant/message" && parts.text) byTurn.set(parts.turn, parts.text);
-    if (parts.type === "turn/end") closed.add(parts.turn);
-  }
-  const latest = [...closed].sort((left, right) => right - left).find((turn) => byTurn.has(turn));
-  return latest === undefined ? undefined : byTurn.get(latest);
 }
 
 export interface SopReceipt {
@@ -181,7 +140,7 @@ export function createDurableMemoryService(opts: {
   skills: NonNullable<CordisContextLike["skills"]>;
   onClose?: () => void;
   owner?: MemoryOwnerBrokerPort;
-  curator?: (summary: string, context: CuratorContext) => Promise<string>;
+  internalCuratorSnapshot?: () => { active: number; queued: number; timers: number };
   sources?: ReturnType<typeof createContextSettingsApi>;
 }) {
   const v2 = new MemoryV2Store(join(opts.userData, "memory", "v2.sqlite3"));
@@ -449,14 +408,6 @@ export function createDurableMemoryService(opts: {
     async materializeCandidate(candidate: MemoryCandidateV1) {
       return materializeCandidate(candidate, false);
     },
-    async runCurator(summary: string, context: CuratorContext) {
-      if (!opts.curator) return JSON.stringify({ candidates: [] });
-      try {
-        return await opts.curator(summary, context);
-      } catch {
-        return "not-json";
-      }
-    },
     async deleteKnown(workspaceId: string | undefined, proof?: { actionId: string; receipt: string }) {
       if (!proof?.actionId || !proof.receipt) throw new PenglaiError("SECURITY_POLICY", "memory broker receipt required");
       const objectId = workspaceId ? `scope:workspace:${workspaceId}` : "scope:personal";
@@ -623,10 +574,11 @@ export function createDurableMemoryService(opts: {
       }
     },
     resourceSnapshot() {
+      const curator = opts.internalCuratorSnapshot?.() ?? { active: 0, queued: 0, timers: 0 };
       return {
-        workers: 0,
+        workers: curator.active + curator.queued,
         sockets: 0,
-        timers: 0,
+        timers: curator.timers,
         remotes: 0,
         db: closed ? 0 : engine.resourceSnapshot().db,
         modelSessions: 0,
@@ -643,10 +595,13 @@ export function apply(ctx: CordisContextLike) {
   const workspaceRegistry = ctx.workspaceRegistry;
   if (!workspaceRegistry?.list) throw new PenglaiError("DSH_UNAVAILABLE", "official Workspace registry required for memory");
   const agents = ctx.agents;
-  if (!agents?.get || !agents.create) throw new PenglaiError("DSH_UNAVAILABLE", "official Agents registry required for memory");
+  if (!agents?.get) throw new PenglaiError("DSH_UNAVAILABLE", "official Agents registry required for memory");
+  const llm = ctx.llm;
+  if (!llm?.stream) throw new PenglaiError("DSH_UNAVAILABLE", "official DSH LLM runtime required for memory");
   const sources = applyEmbeddedMemorySources(ctx);
   const sourcesApi = createContextSettingsApi(sources, userData, workspaceRegistry);
   const owner = new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) });
+  const curatorQueue = new InternalCuratorQueue();
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
   try {
     service = createDurableMemoryService({
@@ -654,55 +609,11 @@ export function apply(ctx: CordisContextLike) {
       skills: ctx.skills,
       owner,
       sources: sourcesApi,
-      curator: async (summary, context) => {
-        const source = agents.get(context.sessionId);
-        const provider = source?.options.provider;
-        const model = source?.options.model;
-        if (!provider || !model || !isAbsolute(context.workspacePath)) {
-          return JSON.stringify({ candidates: [] });
-        }
-        return runHostCurator({
-          summary,
-          generate: async (prompt) => {
-            let handle: OfficialAgentHandleLike | undefined;
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            try {
-              handle = await agents.create({
-                sessionId: `penglai-memory-curator-${randomUUID()}`,
-                meta: {
-                  cwd: context.workspacePath,
-                  parentSession: context.sessionId,
-                  origin: "subagent",
-                },
-                agentOptions: { provider, model, maxTokens: 1200 },
-                setup: (agentCtx) => {
-                  if (!agentCtx.tools?.guard) {
-                    throw new PenglaiError("DSH_UNAVAILABLE", "official Tools guard required for memory curator");
-                  }
-                  agentCtx.tools.guard(() => "penglai-memory-curator/no-tools");
-                },
-              });
-              handle.agent.followup({
-                id: randomUUID(),
-                role: "user",
-                content: [{ type: "text", text: prompt }],
-                source: { kind: "penglai-memory-curator" },
-              });
-              await Promise.race([
-                waitForOfficialSessionTurn(handle.agent.session),
-                new Promise<never>((_, reject) => {
-                  timer = setTimeout(() => reject(new PenglaiError("DSH_UNAVAILABLE", "memory curator timeout")), 45_000);
-                }),
-              ]);
-              return finalCuratorText(handle.agent.session) ?? JSON.stringify({ candidates: [] });
-            } finally {
-              if (timer) clearTimeout(timer);
-              await handle?.dispose().catch(() => undefined);
-            }
-          },
-        });
+      internalCuratorSnapshot: () => curatorQueue.snapshot(),
+      onClose: () => {
+        curatorQueue.close();
+        sources.close();
       },
-      onClose: () => sources.close(),
     });
     const activeService = service;
     const turns = new Map<string, { user?: string; assistant?: string }>();
@@ -724,27 +635,39 @@ export function apply(ctx: CordisContextLike) {
         return;
       }
       const summary = turnSummary(prev);
-      const workspace = workspaceRegistry.list().find((row) => row.id === workspaceId);
       turns.delete(key);
-      if (!workspace?.path || !isAbsolute(workspace.path)) return;
-      void Promise.resolve()
-        .then(async () => {
-          const raw = await activeService.runCurator(summary, {
-            workspaceId,
-            workspacePath: workspace.path!,
-            sessionId: parts.sessionId!,
+      const turnId = String(turn);
+      const sourceDigest = turnSourceDigest({ workspaceId, sessionId: parts.sessionId, turnId, summary });
+      if (activeService.memoryV2.turnAlreadyProcessed(parts.sessionId, turnId, sourceDigest)) return;
+      const route = agents.get(parts.sessionId)?.options;
+      if (!route?.provider || !route.model) return;
+      curatorQueue.enqueue({
+        key: internalCuratorJobKey({ workspaceId, sessionId: parts.sessionId, turnId }),
+        execute: (signal) => {
+          if (workspaceIdForSession(workspaceRegistry.list(), parts.sessionId!) !== workspaceId) {
+            throw new PenglaiError("SECURITY_POLICY", "memory curator Workspace changed before execution");
+          }
+          return runOfficialLlmCurator({
+            llm,
+            provider: route.provider!,
+            model: route.model!,
+            summary,
+            signal,
           });
+        },
+        commit: async (raw) => {
+          if (workspaceIdForSession(workspaceRegistry.list(), parts.sessionId!) !== workspaceId) return;
           await ingestOfficialTurn({
             store: activeService.memoryV2,
             workspaceId,
             sessionId: parts.sessionId!,
-            turnId: String(turn),
+            turnId,
             raw,
             summary,
             persist: (candidate) => activeService.materializeCandidate(candidate),
           });
-        })
-        .catch(() => undefined);
+        },
+      });
     });
     ctx.on?.(
       "agent/pre-step",
@@ -784,6 +707,7 @@ export function apply(ctx: CordisContextLike) {
     }
     ctx.effect?.(() => () => activeService.close?.());
   } catch (error) {
+    curatorQueue.close();
     if (service) service.close();
     else sources.close();
     throw error;

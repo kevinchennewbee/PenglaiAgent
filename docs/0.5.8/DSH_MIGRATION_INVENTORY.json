@@ -129,8 +129,8 @@
         "packages/dsh-bridge/src/plugin.ts": 2,
         "packages/im/src/im.test.ts": 1,
         "packages/im/src/index.ts": 1,
-        "packages/memory/src/index.ts": 10,
-        "packages/memory/src/memory.test.ts": 1,
+        "packages/memory/src/index.ts": 11,
+        "packages/memory/src/memory.test.ts": 2,
         "packages/memory/src/remote.ts": 3,
         "packages/memory/src/tools.test.ts": 1,
         "packages/memory/src/tools.ts": 2,
@@ -204,6 +204,51 @@
       "bounded redacted terminal diagnostics and restart-exhaustion UX",
       "Windows x64 native process-tree proof",
       "macOS arm64 and x64 installed process-tree proof"
+    ]
+  },
+  "memoryCurator": {
+    "state": "SOURCE_INTERNAL_QUEUE_AND_DIRECT_OFFICIAL_LLM_FIXED",
+    "sourceFiles": [
+      "packages/memory/src/index.ts",
+      "packages/memory/src/turn-pipeline.ts",
+      "packages/memory/src/v2/internal-curator.ts",
+      "packages/dsh-bridge/src/r56-memory-curator-spike.ts"
+    ],
+    "testFiles": [
+      "packages/memory/src/memory.test.ts",
+      "packages/memory/src/turn-pipeline.test.ts",
+      "packages/memory/src/v2/internal-curator.test.ts",
+      "packages/dsh-bridge/src/r56-memory-curator-spike.test.ts"
+    ],
+    "fixedAlphaSourceEvidence": {
+      "llm": [
+        "packages/llm/llm/src/index.ts",
+        "packages/llm/llm/src/types.ts",
+        "packages/llm/llm/src/message.ts"
+      ],
+      "jobsRejectedForInternalMaintenance": [
+        "packages/jobs/jobs/src/index.ts",
+        "packages/jobs/jobs/src/types.ts",
+        "packages/jobs/jobs-local/src/index.ts"
+      ]
+    },
+    "contracts": [
+      "one official ctx.llm.stream request without creating an Agent or Session",
+      "empty tool schema list and host-validated closed JSON output",
+      "exact Workspace, Session, and Turn identity in every internal job key",
+      "single-flight execution with at most eight active plus queued jobs",
+      "duplicate Turns collapse and overload fails open",
+      "45 second abort deadline and plugin teardown cancellation",
+      "Workspace ownership is rechecked before model execution and before commit",
+      "curator failure never blocks or changes the official user Turn",
+      "alpha.1 Jobs are rejected because owned and unowned jobs are user or model visible"
+    ],
+    "remainingEvidence": [
+      "reconcile official alpha.1 npm declarations and runtime exports against the fixed source",
+      "account auxiliary curator usage when the optional Penglai Budget plugin is active",
+      "persist bounded redacted curator failure and retry diagnostics",
+      "prove restart cleanup and zero hierarchy pollution in a packaged installed build",
+      "prove live provider success and Workspace isolation without retaining private content"
     ]
   }
 }

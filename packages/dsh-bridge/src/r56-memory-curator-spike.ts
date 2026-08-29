@@ -5,8 +5,6 @@ import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH } from "./index.js";
 
 export const MEMORY_CURATOR_SPIKE_ID = "R56-MEM-005";
-export const MEMORY_CURATOR_PRESET_ID = "penglai-memory-curator";
-export const MEMORY_CURATOR_NO_TOOLS_REASON = "penglai-memory-curator/no-tools";
 export const CURATOR_MAX_CANDIDATES = 8;
 export const CURATOR_TEXT_MAX = 2000;
 export const CURATOR_RATIONALE_MAX = 500;
@@ -45,11 +43,15 @@ export interface MemoryCuratorSpikeReport {
   requirement: typeof MEMORY_CURATOR_SPIKE_ID;
   dsh: string;
   verdict: MemoryCuratorSpikeVerdict;
-  officialAgentCreate: boolean;
-  officialAgentOptionsKeys: string[];
+  officialLlmStream: boolean;
+  officialCreateUserMessage: boolean;
   generateOptionKeys: string[];
   providerJsonSchema: boolean;
-  toolsDisabledBy: "tools.guard";
+  purposeSupportsCurator: boolean;
+  createsAgent: false;
+  createsSession: false;
+  toolsDisabledBy: "empty-tools-list";
+  alphaJobsDecision: "REJECT_USER_VISIBLE";
   hostJsonSchema: boolean;
   notes: string[];
 }
@@ -130,11 +132,6 @@ export function parseCuratorOutput(raw: string): CuratorParseResult {
   return { ok: true, candidates };
 }
 
-/** Official tools.guard deny-all for model-initiated tool execution. */
-export function denyAllModelTools(_execution: unknown): string {
-  return MEMORY_CURATOR_NO_TOOLS_REASON;
-}
-
 export function failOpenCuratorParse(raw: string): CuratorParseOk | { ok: false; failOpen: true; code: CuratorParseFail["code"] } {
   const parsed = parseCuratorOutput(raw);
   if (parsed.ok) return parsed;
@@ -142,51 +139,50 @@ export function failOpenCuratorParse(raw: string): CuratorParseOk | { ok: false;
 }
 
 export function probeOfficialMemoryCurator(): MemoryCuratorSpikeReport {
-  const agentOptions = captureGroup(
-    readOfficial("@deepseek-ai/dsh-agent", "lib/types/runtime-types.d.ts"),
-    /export interface AgentOptions \{([\s\S]*?)\n\}/,
-    "AgentOptions",
-  );
-  const createAgent = readOfficial("@deepseek-ai/dsh-agent", "lib/types/index.d.ts");
+  const llmRuntime = readOfficial("@deepseek-ai/dsh-llm", "lib/types/index.d.ts");
+  const messages = readOfficial("@deepseek-ai/dsh-llm", "lib/types/message.d.ts");
   const generateOptions = captureGroup(
     readOfficial("@deepseek-ai/dsh-llm", "lib/types/types.d.ts"),
     /export interface GenerateOptions \{([\s\S]*?)\n\}/,
     "GenerateOptions",
   );
-  const officialAgentOptionsKeys = interfaceKeys(agentOptions);
   const generateOptionKeys = interfaceKeys(generateOptions);
   const providerJsonSchema =
     /\bresponseFormat\b/.test(generateOptions) ||
     /\bjson_schema\b/.test(generateOptions) ||
     /\boutputSchema\b/.test(generateOptions);
-  if (officialAgentOptionsKeys.join(",") !== "provider,model,maxTokens") {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "AgentOptions keys changed; re-review R56-MEM-005");
+  if (!llmRuntime.includes("stream(options: GenerateOptions): AsyncIterable<StreamChunk>")) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "official LLM stream missing");
   }
-  if (!createAgent.includes("create(options: CreateAgentOptions)") || !createAgent.includes("setup?: AgentSetup")) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "agents.create/setup missing");
+  if (!messages.includes("function createUserMessage")) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "official user-message factory missing");
   }
   if (providerJsonSchema) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "GenerateOptions gained structured output; upgrade curator spike");
   }
-  if (!generateOptionKeys.includes("tools") || !generateOptionKeys.includes("maxTokens") || !generateOptionKeys.includes("purpose")) {
+  if (!generateOptionKeys.includes("messages") || !generateOptionKeys.includes("tools") || !generateOptionKeys.includes("signal") || !generateOptionKeys.includes("maxTokens")) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "GenerateOptions contract changed");
   }
 
   return {
     requirement: MEMORY_CURATOR_SPIKE_ID,
     dsh: PINNED_DSH,
-    verdict: "PARTIAL",
-    officialAgentCreate: true,
-    officialAgentOptionsKeys,
+    verdict: "GO",
+    officialLlmStream: true,
+    officialCreateUserMessage: true,
     generateOptionKeys,
     providerJsonSchema: false,
-    toolsDisabledBy: "tools.guard",
+    purposeSupportsCurator: /purpose\?:\s*['"][^\n]*memory/.test(generateOptions),
+    createsAgent: false,
+    createsSession: false,
+    toolsDisabledBy: "empty-tools-list",
+    alphaJobsDecision: "REJECT_USER_VISIBLE",
     hostJsonSchema: true,
     notes: [
-      "ctx.agents.create/resume with setup is the official dedicated Agent path.",
-      "AgentOptions has provider/model/maxTokens only. tools:false is not an official field.",
-      "tools.guard is the official deny-all for model tool execution, as used by Companion.",
+      "Use one hand-built ctx.llm.stream request; do not create an Agent or Session.",
+      "Pass an empty tools list and a bounded AbortSignal; no model tool can execute.",
       "GenerateOptions has no responseFormat/json_schema. Host parseCuratorOutput is the schema gate.",
+      "The alpha.1 Jobs service is owner-visible background work and is not an internal Memory queue.",
       "Do not call another model SDK or endpoint. Fail Open on parse/provider errors.",
     ],
   };

@@ -3,6 +3,7 @@ import test from "node:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { GenerateOptions } from "@deepseek-ai/dsh-llm";
 import {
   apply,
   assertReadable,
@@ -18,9 +19,12 @@ import { createMemorySettingsApi } from "./remote.js";
 
 const inertAgents = {
   get: () => undefined,
-  create: async () => {
-    throw new Error("not used by this test");
-  },
+};
+
+const inertLlm = {
+  stream: () => (async function* () {
+    yield { type: "finish" as const, reason: { kind: "stop" as const } };
+  })(),
 };
 
 test("shipped memory remembers, isolates workspaces, and forgets", () => {
@@ -114,6 +118,7 @@ test("R50-CTXMEM: production apply() wires app-private state and fails closed wi
     skills: { snapshot: async () => ({ skills: [], complete: true }) },
     workspaceRegistry: { list: () => [{ id: "w1", title: "Workspace" }] },
     agents: inertAgents,
+    llm: inertLlm,
     tools: { register() {} },
     provide() {},
   };
@@ -127,6 +132,95 @@ test("R50-CTXMEM: production apply() wires app-private state and fails closed wi
   } finally {
     if (previous === undefined) delete process.env.PENGLAI_USER_DATA;
     else process.env.PENGLAI_USER_DATA = previous;
+    if (previousBin === undefined) delete process.env.PENGLAI_MNEMON_BINARY;
+    else process.env.PENGLAI_MNEMON_BINARY = previousBin;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Memory apply curates one official Turn internally without creating a Session", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-mem-internal-curator-"));
+  const previousUserData = process.env.PENGLAI_USER_DATA;
+  const previousBin = process.env.PENGLAI_MNEMON_BINARY;
+  process.env.PENGLAI_USER_DATA = dir;
+  delete process.env.PENGLAI_MNEMON_BINARY;
+  const listeners = new Map<string, (...args: unknown[]) => unknown>();
+  const llmCalls: GenerateOptions[] = [];
+  const ctx = {
+    skills: { snapshot: async () => ({ skills: [], complete: true }) },
+    workspaceRegistry: {
+      list: () => [{ id: "w1", title: "Workspace", path: join(dir, "workspace"), sessionIds: ["s1"] }],
+    },
+    agents: {
+      get: (id: string) => id === "s1"
+        ? { options: { provider: "deepseek-official", model: "deepseek-chat" } }
+        : undefined,
+    },
+    llm: {
+      stream(options: GenerateOptions) {
+        llmCalls.push(options);
+        return (async function* () {
+          yield {
+            type: "text-delta" as const,
+            index: 0,
+            text: JSON.stringify({
+              candidates: [{
+                kind: "project_fact",
+                text: "This Workspace uses pnpm",
+                rationale: "The user stated the project package manager",
+                sensitivity: "normal",
+                confidence: 0.96,
+                suggestedScope: "workspace",
+              }],
+            }),
+          };
+          yield { type: "finish" as const, reason: { kind: "stop" as const } };
+        })();
+      },
+    },
+    tools: { register() {} },
+    provide() {},
+    on(event: string, listener: (...args: unknown[]) => unknown) {
+      listeners.set(event, listener);
+    },
+  };
+  let svc: ReturnType<typeof apply> | undefined;
+  try {
+    svc = apply(ctx);
+    const emit = listeners.get("session/event");
+    assert.ok(emit);
+    emit({ id: "s1" }, { type: "turn/start", data: { turn: 7 } });
+    emit({ id: "s1" }, {
+      type: "user/message",
+      data: { content: [{ type: "text", text: "This Workspace uses pnpm." }] },
+    });
+    emit({ id: "s1" }, {
+      type: "assistant/message",
+      data: { message: { content: [{ type: "text", text: "Understood." }] } },
+    });
+    emit({ id: "s1" }, { type: "turn/end", data: { turn: 7 } });
+
+    const deadline = Date.now() + 2_000;
+    while (
+      Date.now() < deadline &&
+      (llmCalls.length !== 1 || svc.resourceSnapshot().workers !== 0 || svc.memoryV2.listCandidates("w1").length !== 1)
+    ) {
+      await new Promise<void>((resolveWait) => setTimeout(resolveWait, 5));
+    }
+    assert.equal(llmCalls.length, 1);
+    assert.equal(svc.resourceSnapshot().workers, 0);
+    assert.equal(svc.resourceSnapshot().modelSessions, 0);
+    assert.equal(llmCalls[0]?.sessionId, undefined);
+    assert.deepEqual(llmCalls[0]?.tools, []);
+    assert.equal(svc.memoryV2.listCandidates("w1")[0]?.text, "This Workspace uses pnpm");
+
+    emit({ id: "s1" }, { type: "turn/end", data: { turn: 7 } });
+    await new Promise<void>((resolveWait) => setTimeout(resolveWait, 20));
+    assert.equal(llmCalls.length, 1, "duplicate official Turn must not create a second curator call");
+  } finally {
+    svc?.close?.();
+    if (previousUserData === undefined) delete process.env.PENGLAI_USER_DATA;
+    else process.env.PENGLAI_USER_DATA = previousUserData;
     if (previousBin === undefined) delete process.env.PENGLAI_MNEMON_BINARY;
     else process.env.PENGLAI_MNEMON_BINARY = previousBin;
     rmSync(dir, { recursive: true, force: true });

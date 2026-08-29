@@ -3,13 +3,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { CallId } from "@deepseek-ai/dsh-llm";
 import { MemoryV2Store } from "./v2/candidates.js";
 import {
   ingestOfficialTurn,
   resolveSessionTurn,
   runHostCurator,
+  runOfficialLlmCurator,
   sessionEventParts,
-  waitForOfficialSessionTurn,
   withMemoryRecall,
   workspaceIdForSession,
 } from "./turn-pipeline.js";
@@ -124,24 +125,87 @@ test("official DSH user/message inherits its turn and data.content is curated", 
   assert.equal(activeTurns.has("s1"), false);
 });
 
-test("memory curator waits for durable turn/end after an early idle signal", async () => {
-  const session: { events: unknown[] } = { events: [] };
-  setTimeout(() => {
-    session.events.push({ type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } });
-  }, 10);
-  await waitForOfficialSessionTurn(session, 500);
+test("memory curator uses one official LLM request without Session or tools", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const raw = await runOfficialLlmCurator({
+    llm: {
+      stream(options) {
+        calls.push(options as unknown as Record<string, unknown>);
+        return (async function* () {
+          yield { type: "text-delta" as const, index: 0, text: '{"candidates":[]}' };
+          yield { type: "finish" as const, reason: { kind: "stop" as const } };
+        })();
+      },
+    },
+    provider: "deepseek-official",
+    model: "deepseek-chat",
+    summary: "user:\nhello\nassistant:\nhi",
+    signal: new AbortController().signal,
+  });
+  assert.deepEqual(JSON.parse(raw), { candidates: [] });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.sessionId, undefined);
+  assert.deepEqual(calls[0]?.tools, []);
+  const message = (calls[0]?.messages as Array<{ source?: unknown }>)[0];
+  assert.deepEqual(message?.source, { kind: "plugin", plugin: "@penglai/memory" });
 });
 
-test("memory apply source subscribes to official turn/end and pre-step and does not expose ingestCurator", async () => {
+test("memory curator rejects late tool blocks and an already-aborted request", async () => {
+  const toolBlock = await runOfficialLlmCurator({
+    llm: {
+      stream() {
+        return (async function* () {
+          yield {
+            type: "block-end" as const,
+            index: 0,
+            block: { type: "tool-call" as const, id: CallId("call-1"), name: "bash", arguments: "{}" },
+          };
+          yield { type: "finish" as const, reason: { kind: "stop" as const } };
+        })();
+      },
+    },
+    provider: "deepseek-official",
+    model: "deepseek-chat",
+    summary: "user:\nhello\nassistant:\nhi",
+    signal: new AbortController().signal,
+  });
+  assert.equal(toolBlock, "not-json");
+
+  const controller = new AbortController();
+  controller.abort();
+  let entered = false;
+  const aborted = await runOfficialLlmCurator({
+    llm: {
+      stream() {
+        entered = true;
+        return (async function* () {
+          yield { type: "finish" as const, reason: { kind: "stop" as const } };
+        })();
+      },
+    },
+    provider: "deepseek-official",
+    model: "deepseek-chat",
+    summary: "user:\nhello\nassistant:\nhi",
+    signal: controller.signal,
+  });
+  assert.equal(aborted, "not-json");
+  assert.equal(entered, false);
+});
+
+test("memory apply subscribes to turn/end without creating curator Agents or Sessions", async () => {
   const { readFileSync } = await import("node:fs");
   const index = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+  const pipeline = readFileSync(new URL("./turn-pipeline.ts", import.meta.url), "utf8");
   const remote = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(index, /session\/event/);
   assert.match(index, /turn\/end/);
   assert.match(index, /agent\/pre-step/);
   assert.match(index, /ingestOfficialTurn/);
+  assert.match(index, /InternalCuratorQueue/);
   assert.match(index, /withMemoryRecall/);
+  assert.match(pipeline, /input\.llm\.stream/);
+  assert.doesNotMatch(index, /agents\.create|origin:\s*["']subagent|penglai-memory-curator-/);
   assert.match(remote, /memory curator is host-only/);
   assert.doesNotMatch(remote, /ingestCurator,/);
   assert.doesNotMatch(client, /"ingestCurator"/);

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createUserMessage, type LlmRuntime } from "@deepseek-ai/dsh-llm";
 import { ingestCuratorOutput } from "./v2/curator.js";
 import type { MemoryCandidateV1, MemoryV2Store } from "./v2/candidates.js";
 
@@ -25,6 +26,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 
 export const CURATOR_PROMPT =
   "Extract at most 8 closed JSON candidates for Penglai Memory. Return only {\"candidates\":[...]} with keys kind,text,rationale,sensitivity,confidence,suggestedScope. Do not invent secrets. Input:\n";
+export const CURATOR_OUTPUT_MAX_BYTES = 32_768;
 
 export async function runHostCurator(input: {
   summary: string;
@@ -37,6 +39,56 @@ export async function runHostCurator(input: {
   } catch {
     return "not-json";
   }
+}
+
+/** One auxiliary official DSH LLM call with no Agent, Session, tools, or durable projection. */
+export async function runOfficialLlmCurator(input: {
+  llm: Pick<LlmRuntime, "stream">;
+  provider: string;
+  model: string;
+  summary: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  return runHostCurator({
+    summary: input.summary,
+    generate: async (prompt) => {
+      input.signal.throwIfAborted();
+      let raw = "";
+      let finished = false;
+      for await (const chunk of input.llm.stream({
+        provider: input.provider,
+        model: input.model,
+        messages: [
+          createUserMessage({
+            content: [{ type: "text", text: prompt }],
+            source: { kind: "plugin", plugin: "@penglai/memory" },
+          }),
+        ],
+        tools: [],
+        temperature: 0,
+        maxTokens: 1200,
+        signal: input.signal,
+      })) {
+        if (finished) throw new Error("memory curator emitted data after finish");
+        if (chunk.type === "tool-call-delta") throw new Error("memory curator emitted a tool call");
+        if (chunk.type === "block-end" && chunk.block.type === "tool-call") {
+          throw new Error("memory curator emitted a tool call block");
+        }
+        if (chunk.type === "text-delta") {
+          raw += chunk.text;
+          if (Buffer.byteLength(raw, "utf8") > CURATOR_OUTPUT_MAX_BYTES) {
+            throw new Error("memory curator output exceeded limit");
+          }
+        }
+        if (chunk.type === "finish") {
+          if (chunk.reason.kind !== "stop") throw new Error(`memory curator finish ${chunk.reason.kind}`);
+          finished = true;
+        }
+      }
+      if (!finished) throw new Error("memory curator stream ended without finish");
+      return raw;
+    },
+  });
 }
 
 export function turnSummary(text: MemoryTurnText): string {
@@ -173,21 +225,4 @@ export function resolveSessionTurn(
   const turn = parts.turn ?? activeTurns.get(parts.sessionId);
   if (parts.type === "turn/end") activeTurns.delete(parts.sessionId);
   return turn;
-}
-
-export function officialSessionTurnEnded(session: { events?: readonly unknown[] }): boolean {
-  return (session.events ?? []).some((event) => sessionEventParts([event]).type === "turn/end");
-}
-
-/** Wait for DSH's durable turn/end instead of trusting an early idle signal. */
-export async function waitForOfficialSessionTurn(
-  session: { events?: readonly unknown[] },
-  timeoutMs = 45_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (officialSessionTurnEnded(session)) return;
-    await new Promise<void>((resolve) => setTimeout(resolve, 20));
-  }
-  throw new Error("official session turn timeout");
 }

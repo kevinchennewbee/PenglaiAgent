@@ -43,7 +43,7 @@
 | --- | --- | --- | --- | --- |
 | `packages/channel-feishu/src/index.ts` callback boundary | Active product | P0-02 | Attach terminal rejection handling before returning accepted | Rejected download/admission cannot become unhandled rejection; durable terminal state is inspectable |
 | `apps/desktop/src/supervisor.ts` and Windows helper | Active product | P0-01 | Dual lifetime wait, fail-closed helper handshake, live facade state, single-owner reuse, stable restart port, and bounded continuous HTTP recovery implemented; diagnostic/native work continues | Child exit/hang/port loss detected; bounded recovery; no orphan |
-| Memory curator runner/session creation | Active product | P0-05 | Map current lifecycle and design internal-job replacement | No false subagent, no cross-Workspace state, no Turn blocking |
+| Memory curator runner/session creation | Active product | P0-05 | Source replacement implemented: bounded Memory-owned queue plus one direct official no-tools LLM request; alpha.1 Jobs rejected as visible | No false subagent/Job, no duplicate or cross-Workspace commit, no Turn blocking; package/Budget/installed proof remains |
 | IM channel manifest `live` boolean | Active product | capability-truth finding | Replace with separate entry/runtime/connection/evidence/capability facts | UI and public claim derive from same closed model |
 | Active WhatsApp package, adapter, identity, lock entries | Forbidden active surface | D-062 | Removed in preview checkpoint | Source, lock, dependencies, catalog, UI, packaging, tests show absence |
 
@@ -62,6 +62,7 @@ new caller in an already-known file cannot bypass review.
 | `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate only with published generated clients |
 | direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
 | packaged DSH process ownership | 5 source files and 5 test files | Penglai desktop/runtime policy, using platform-native ownership | Child-exit, continuous HTTP health, and same-port restart routes fixed in source; authenticated alpha.1 probe reconciliation, diagnostics, and native process-tree evidence remain |
+| Memory curator lifecycle | 4 source files and 4 focused test files | Official `ctx.llm.stream` for the model call; Penglai Memory for internal scheduling and commit | Agent/Session creation removed; queue bounds, cancellation, exact scope, direct no-tools request, and Jobs rejection are executable; Budget/package/installed proof remains |
 
 The alpha.1 source confirms `sessions.create -> session.create`,
 `sessions.models -> session.modelCatalog`, and
@@ -157,6 +158,8 @@ before altering it.
 - Trace every release identity copy back to the authoritative pin source.
 - Map every active/native/operator verifier to a script and workflow invocation.
 - Record the exact packaged process tree on Windows and both macOS targets.
+- Design auxiliary model-call accounting against the optional Budget plugin
+  without creating an Agent, Session, or visible Job.
 
 These open rows block package migration or release claims where relevant. They
 do not block independent preview work already classified above.
