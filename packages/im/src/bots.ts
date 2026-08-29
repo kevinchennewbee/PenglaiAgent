@@ -6,6 +6,13 @@ import {
 } from "@penglai/channel-weixin";
 import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
 import { CHANNEL_CREDENTIAL_REFS } from "./credentials-vault.js";
+import {
+  isMessageFailureCode,
+  isMessageFailureReference,
+  messageFailureCopy,
+  RECOVERY_ACTION_BY_CODE,
+  type MessageFailureCode,
+} from "./message-failure.js";
 import { CHANNEL_IDS, getChannelManifest, type ChannelId } from "./registry.js";
 
 export const IM_BOT_STATES = [
@@ -141,15 +148,25 @@ export class ImBotStore {
   putChannelFailure(input: {
     channelId: ChannelId;
     accountRef: string;
-    code: string;
-    messageZh: string;
-    messageEn: string;
+    code: MessageFailureCode;
     referenceId: string;
-    action: string;
     at: number;
     transport?: WeixinIlinkResponseObservation;
   }): void {
-    const transport = parseWeixinIlinkResponseObservation(input.transport);
+    if (
+      !isMessageFailureCode(input.code) ||
+      !isMessageFailureReference(input.referenceId) ||
+      !Number.isSafeInteger(input.at) ||
+      input.at < 0
+    ) {
+      throw new PenglaiError("SECURITY_POLICY", "IM_FAILURE_RECORD_INVALID");
+    }
+    const message = messageFailureCopy(input.code);
+    const action = RECOVERY_ACTION_BY_CODE[input.code];
+    const transport =
+      input.channelId === "weixin"
+        ? parseWeixinIlinkResponseObservation(input.transport)
+        : undefined;
     this.db
       .prepare(
         `INSERT INTO im_v2_channel_failures(
@@ -172,10 +189,10 @@ export class ImBotStore {
         input.channelId,
         input.accountRef,
         input.code,
-        input.messageZh,
-        input.messageEn,
+        message.zh,
+        message.en,
         input.referenceId,
-        input.action,
+        action,
         input.at,
         transport?.phase ?? null,
         transport?.httpStatus ?? null,
@@ -198,23 +215,35 @@ export class ImBotStore {
       .prepare(`SELECT * FROM im_v2_channel_failures WHERE channel_id = ? AND account_ref = ?`)
       .get(channelId, accountRef) as Record<string, string | number> | undefined;
     if (!row) return undefined;
-    const phase = String(row.transport_phase ?? "");
-    const httpStatus = Number(row.http_status);
-    const contentType = String(row.content_type ?? "");
-    const transport = parseWeixinIlinkResponseObservation({
-      phase,
-      httpStatus,
-      contentType,
-    });
+    const code = String(row.code);
+    const referenceId = String(row.reference_id);
+    const at = Number(row.at);
+    if (
+      !isMessageFailureCode(code) ||
+      !isMessageFailureReference(referenceId) ||
+      !Number.isSafeInteger(at) ||
+      at < 0
+    ) {
+      return undefined;
+    }
+    const message = messageFailureCopy(code);
+    const transport =
+      channelId === "weixin"
+        ? parseWeixinIlinkResponseObservation({
+            phase: String(row.transport_phase ?? ""),
+            httpStatus: Number(row.http_status),
+            contentType: String(row.content_type ?? ""),
+          })
+        : undefined;
     return {
       channelId: parseClosedEnum(String(row.channel_id), CHANNEL_IDS, "CHANNEL_ID", "SECURITY_POLICY"),
       accountRef: String(row.account_ref),
-      code: String(row.code),
-      messageZh: String(row.message_zh),
-      messageEn: String(row.message_en),
-      referenceId: String(row.reference_id),
-      action: String(row.action),
-      at: Number(row.at),
+      code,
+      messageZh: message.zh,
+      messageEn: message.en,
+      referenceId,
+      action: RECOVERY_ACTION_BY_CODE[code],
+      at,
       ...(transport ? { transport } : {}),
     };
   }

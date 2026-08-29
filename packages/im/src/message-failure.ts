@@ -75,6 +75,20 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
   },
 };
 
+export function isMessageFailureCode(value: unknown): value is MessageFailureCode {
+  return (MESSAGE_FAILURE_CODES as readonly unknown[]).includes(value);
+}
+
+export function messageFailureCopy(
+  code: MessageFailureCode,
+): Readonly<{ zh: string; en: string }> {
+  return COPY[code];
+}
+
+export function isMessageFailureReference(value: unknown): value is string {
+  return typeof value === "string" && /^MF-[A-F0-9]{8}$/.test(value);
+}
+
 export function newReferenceId(): string {
   return `MF-${randomUUID().slice(0, 8).toUpperCase()}`;
 }

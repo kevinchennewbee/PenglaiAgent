@@ -127,8 +127,11 @@ Allowed work now includes:
   protocol failures also retain only the closed request phase, numeric HTTP
   status, and normalized parameter-free media type; the primary failure surface
   remains compact while a default-collapsed Advanced section can read back that
-  safe observation with an explicit non-root-cause label. Native accessibility,
-  live QR, and Owner-live response evidence remain open.
+  safe observation with an explicit non-root-cause label. Restart readback
+  accepts only closed codes and valid public references, reconstructs product
+  copy/actions rather than trusting stored text, and rejects iLink observations
+  on other channels. Native accessibility, live QR, and Owner-live response
+  evidence remain open.
 - IM `/会话` and the desktop binding chooser now share the owner-bound
   Session title projection. Visible missing-title fallbacks are localized and
   ordinal; selection remains bound to immutable IDs. Alpha generated Remote,

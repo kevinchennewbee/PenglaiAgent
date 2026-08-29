@@ -529,10 +529,7 @@ test("legacy IM failure storage migrates and retains only safe transport fields"
       channelId: "weixin",
       accountRef: "weixin-default",
       code: "CHANNEL_PROTOCOL",
-      messageZh: "平台响应异常",
-      messageEn: "Unexpected platform response",
       referenceId: "MF-12345678",
-      action: "check_network_retry",
       at: 1,
       transport: {
         phase: "qr-poll",
@@ -552,10 +549,7 @@ test("legacy IM failure storage migrates and retains only safe transport fields"
       channelId: "weixin",
       accountRef: "weixin-default",
       code: "CHANNEL_PROTOCOL",
-      messageZh: "平台响应异常",
-      messageEn: "Unexpected platform response",
       referenceId: "MF-87654321",
-      action: "check_network_retry",
       at: 2,
       transport: {
         phase: "qr-poll",
@@ -577,6 +571,76 @@ test("legacy IM failure storage migrates and retains only safe transport fields"
       http_status: null,
       content_type: null,
     });
+
+    db.prepare(
+      `UPDATE im_v2_channel_failures
+       SET message_zh = ?, message_en = ?, action = ?
+       WHERE channel_id = ? AND account_ref = ?`,
+    ).run(
+      "private database text",
+      "private database text",
+      "delete_everything",
+      "weixin",
+      "weixin-default",
+    );
+    const reconstructed = bots.getChannelFailure(
+      "weixin",
+      "weixin-default",
+    );
+    assert.equal(reconstructed?.action, "check_network_retry");
+    assert.match(reconstructed?.messageZh ?? "", /平台返回了非预期响应/);
+    assert.match(reconstructed?.messageEn ?? "", /unexpected response/);
+    assert.doesNotMatch(JSON.stringify(reconstructed), /private database text|delete_everything/);
+
+    db.prepare(
+      `UPDATE im_v2_channel_failures
+       SET reference_id = ?
+       WHERE channel_id = ? AND account_ref = ?`,
+    ).run("private-reference", "weixin", "weixin-default");
+    assert.equal(
+      bots.getChannelFailure("weixin", "weixin-default"),
+      undefined,
+    );
+
+    bots.putChannelFailure({
+      channelId: "slack",
+      accountRef: "slack-default",
+      code: "CHANNEL_DELIVERY",
+      referenceId: "MF-ABCDEF12",
+      at: 3,
+      transport: {
+        phase: "send-message",
+        httpStatus: 503,
+        contentType: "text/html",
+      },
+    });
+    assert.equal(
+      bots.getChannelFailure("slack", "slack-default")?.transport,
+      undefined,
+    );
+    const slackRaw = db
+      .prepare(
+        `SELECT transport_phase, http_status, content_type
+         FROM im_v2_channel_failures
+         WHERE channel_id = ? AND account_ref = ?`,
+      )
+      .get("slack", "slack-default") as Record<string, unknown>;
+    assert.deepEqual({ ...slackRaw }, {
+      transport_phase: null,
+      http_status: null,
+      content_type: null,
+    });
+    assert.throws(
+      () =>
+        bots.putChannelFailure({
+          channelId: "slack",
+          accountRef: "slack-default",
+          code: "PRIVATE_FAILURE" as never,
+          referenceId: "MF-1234ABCD",
+          at: 4,
+        }),
+      /IM_FAILURE_RECORD_INVALID/,
+    );
   } finally {
     db.close();
   }

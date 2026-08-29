@@ -654,6 +654,13 @@ observation beside that reference, explicitly labels it as not a root-cause
 claim, and revalidates the closed phase/status/media-type shape in the client
 before rendering it.
 
+Persisted failure readback also treats the local database as untrusted. Only a
+closed product failure code, a valid `MF-XXXXXXXX` reference, and a bounded
+timestamp are accepted; localized copy and recovery action are reconstructed
+from the product mapping instead of the stored text. Corrupt or legacy private
+text therefore cannot re-enter the UI, and only Weixin rows may retain the
+allowlisted iLink observation.
+
 Fixture evidence proves this source boundary and legacy-store migration. A real
 Owner-live failure has not been reproduced, so its actual status/media type and
 whether the cause is platform, proxy, or environment remain open.
