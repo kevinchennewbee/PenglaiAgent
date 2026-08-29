@@ -166,7 +166,7 @@
     "packages/plugin-center/package.json"
   ],
   "desktopSupervisor": {
-    "state": "SOURCE_CHILD_EXIT_CONTRACT_FIXED",
+    "state": "SOURCE_CHILD_EXIT_AND_RESTART_ROUTE_FIXED",
     "sourceFiles": [
       "apps/desktop/src/supervisor.ts",
       "packages/runtime/src/index.ts",
@@ -188,6 +188,8 @@
       "POSIX process-group ownership",
       "Windows Job Object ownership",
       "helper observes both the DSH root exit and desktop-owner stop",
+      "desktop facade reads live inner state instead of copied snapshots",
+      "automatic restart retains the proxy-facing inner port",
       "identity-checked stale-process cleanup",
       "HTTP and required-plugin inventory readiness"
     ],

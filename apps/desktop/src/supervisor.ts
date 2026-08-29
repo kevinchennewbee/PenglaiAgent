@@ -10,42 +10,66 @@ import {
 
 export type SupervisorState = "stopped" | "starting" | "healthy" | "degraded" | "crashed" | "stopping";
 
-export class DshSupervisor {
-  private inner: EmbeddedDshSupervisor | undefined;
-  state: SupervisorState = "stopped";
-  port = 0;
-  restarts = 0;
+export interface DshSupervisorInner {
+  state: SupervisorState;
+  port: number;
+  restarts: number;
   health: { http: number; inventory: InventoryProof } | undefined;
+  child?: { pid?: number | undefined } | undefined;
+  start(user: UserLayout, env?: NodeJS.ProcessEnv): Promise<{ port: number }>;
+  stop(): Promise<void>;
+}
+
+export type DshSupervisorFactory = (layout: RuntimeLayout) => DshSupervisorInner;
+
+export class DshSupervisor {
+  private inner: DshSupervisorInner | undefined;
+
+  get state(): SupervisorState {
+    return this.inner?.state ?? "stopped";
+  }
+
+  get port(): number {
+    return this.inner?.port ?? 0;
+  }
+
+  get restarts(): number {
+    return this.inner?.restarts ?? 0;
+  }
+
+  get health(): { http: number; inventory: InventoryProof } | undefined {
+    return this.inner?.health;
+  }
 
   get childPid(): number | undefined {
     return this.inner?.child?.pid;
   }
 
-  constructor(private layout?: RuntimeLayout) {}
+  constructor(
+    private layout?: RuntimeLayout,
+    private readonly factory: DshSupervisorFactory = (runtimeLayout) => new EmbeddedDshSupervisor(runtimeLayout),
+  ) {}
 
   attach(layout: RuntimeLayout): void {
+    if (this.inner && this.inner.state !== "stopped") {
+      throw new Error("cannot replace embedded runtime layout while DSH is running");
+    }
     this.layout = layout;
+    this.inner = undefined;
   }
 
   async start(user: UserLayout): Promise<{ port: number }> {
     if (!this.layout) throw new Error("embedded runtime layout required");
-    this.inner = new EmbeddedDshSupervisor(this.layout);
+    this.inner ??= this.factory(this.layout);
     const extra: NodeJS.ProcessEnv = {};
     if (process.env.PENGLAI_PLUGINS_DIR) extra.PENGLAI_PLUGINS_DIR = process.env.PENGLAI_PLUGINS_DIR;
     if (process.env.PENGLAI_APP_ROOT) extra.PENGLAI_APP_ROOT = process.env.PENGLAI_APP_ROOT;
     if (process.env.PENGLAI_MNEMON_BINARY) extra.PENGLAI_MNEMON_BINARY = process.env.PENGLAI_MNEMON_BINARY;
-    const out = await this.inner.start(user, extra);
-    this.port = out.port;
-    this.state = this.inner.state === "healthy" ? "healthy" : "crashed";
-    this.restarts = this.inner.restarts;
-    this.health = this.inner.health;
-    return out;
+    return this.inner.start(user, extra);
   }
 
   async stop(): Promise<void> {
     await this.inner?.stop();
-    this.state = "stopped";
-    this.health = undefined;
   }
 }
 

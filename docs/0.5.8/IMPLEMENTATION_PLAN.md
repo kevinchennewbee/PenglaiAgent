@@ -84,7 +84,12 @@ desktop-owner stdin watcher. A DSH exit therefore terminates the helper that
 Electron observes; owner exit/Stop still closes the Job Object and reaps the
 owned tree. The startup report carries explicit `childExitMonitored` and
 `ownerStopMonitored` facts, and the TypeScript boundary rejects an older helper
-that cannot prove both. Local typecheck and the full 722-test unit suite pass.
+that cannot prove both. The desktop facade now reads live state, health, port,
+PID, and restart count from one reused inner supervisor rather than retaining a
+one-time snapshot or creating a competing supervisor. Automatic restarts retain
+the existing proxy-facing inner port so the loopback proxy does not remain
+bound to a dead target. Local typecheck, the full 722-test unit suite, and the
+full 82-test desktop E2E suite pass.
 
 This closes the source-level one-sided-wait defect only. The helper has not been
 compiled or executed on Windows in this checkpoint, and hang/port-loss health
