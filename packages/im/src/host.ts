@@ -82,6 +82,11 @@ export interface ChannelState {
   lastCheckAt?: number;
 }
 
+export interface ConnectionFailureResult {
+  status: "failed";
+  failure: NonNullable<ChannelState["error"]>;
+}
+
 export interface BindingDto {
   id: string;
   channel: ChannelName;
@@ -556,36 +561,52 @@ export class PenglaiImHost {
     throw new PenglaiError("SECURITY_POLICY", "IM_GROUP_NOT_LIVE");
   }
 
-  async beginWeixinQr(): Promise<{ challengeId: string; ttlMs: number; status: "wait"; qrImageRef: string }> {
-    if (this.qrActive) throw new PenglaiError("INVALID_INPUT", "qr challenge already active");
-    const qr = await this.weixin.startQr();
-    if (!qr.qrImageRef?.startsWith("data:image/png;base64,")) {
-      throw new PenglaiError("INVALID_INPUT", "weixin qr image missing");
-    }
-    this.qrActive = true;
-    this.revision += 1;
-    return { challengeId: qr.qrRef, ttlMs: 300_000, status: "wait", qrImageRef: qr.qrImageRef };
-  }
-
-  async pollWeixinQr(input: { challengeId: string }): Promise<{ status: string }> {
-    const status = await this.weixin.poll(input.challengeId);
-    if (status === "connected" || status === "expired" || status === "error") this.qrActive = false;
-    if (status === "connected") await this.startWeixinReceiveAfterScan();
-    this.revision += 1;
-    return { status };
-  }
-
-  async submitWeixinVerification(input: { challengeId: string; code: string }): Promise<{ status: string }> {
-    if (!/^[0-9A-Za-z]{4,12}$/.test(input.code)) {
-      throw new PenglaiError("INVALID_INPUT", "verification schema");
-    }
-    const status = await this.weixin.poll(input.challengeId, input.code);
-    if (status === "connected") {
+  async beginWeixinQr(): Promise<
+    { challengeId: string; ttlMs: number; status: "wait"; qrImageRef: string } | ConnectionFailureResult
+  > {
+    try {
+      if (this.qrActive) throw new PenglaiError("INVALID_INPUT", "qr challenge already active");
+      const qr = await this.weixin.startQr();
+      if (!qr.qrImageRef?.startsWith("data:image/png;base64,")) {
+        throw new PenglaiError("INVALID_INPUT", "weixin qr image missing");
+      }
+      this.qrActive = true;
+      this.revision += 1;
+      return { challengeId: qr.qrRef, ttlMs: 300_000, status: "wait", qrImageRef: qr.qrImageRef };
+    } catch (error) {
       this.qrActive = false;
-      await this.startWeixinReceiveAfterScan();
+      return this.captureConnectionFailure("weixin", error);
     }
-    this.revision += 1;
-    return { status };
+  }
+
+  async pollWeixinQr(input: { challengeId: string }): Promise<{ status: string } | ConnectionFailureResult> {
+    try {
+      const status = await this.weixin.poll(input.challengeId);
+      if (status === "connected" || status === "expired" || status === "error") this.qrActive = false;
+      if (status === "connected") await this.startWeixinReceiveAfterScan();
+      this.revision += 1;
+      return { status };
+    } catch (error) {
+      this.qrActive = false;
+      return this.captureConnectionFailure("weixin", error);
+    }
+  }
+
+  async submitWeixinVerification(input: { challengeId: string; code: string }): Promise<{ status: string } | ConnectionFailureResult> {
+    try {
+      if (!/^[0-9A-Za-z]{4,12}$/.test(input.code)) {
+        throw new PenglaiError("INVALID_INPUT", "verification schema");
+      }
+      const status = await this.weixin.poll(input.challengeId, input.code);
+      if (status === "connected") {
+        this.qrActive = false;
+        await this.startWeixinReceiveAfterScan();
+      }
+      this.revision += 1;
+      return { status };
+    } catch (error) {
+      return this.captureConnectionFailure("weixin", error);
+    }
   }
 
   cancelWeixinQr(): { cancelled: true } {
@@ -601,34 +622,44 @@ export class PenglaiImHost {
     intervalMs: number;
     status: "wait";
     qrImageRef: string;
-  }> {
-    if (this.feishuQrId) this.cancelFeishuQr();
-    const qr = await this.feishu.startQr();
-    if (!qr.qrImageRef?.startsWith("data:image/png;base64,")) {
-      throw new PenglaiError("INVALID_INPUT", "feishu qr image missing");
+  } | ConnectionFailureResult> {
+    try {
+      if (this.feishuQrId) this.cancelFeishuQr();
+      const qr = await this.feishu.startQr();
+      if (!qr.qrImageRef?.startsWith("data:image/png;base64,")) {
+        throw new PenglaiError("INVALID_INPUT", "feishu qr image missing");
+      }
+      this.feishuQrId = qr.challengeId;
+      this.revision += 1;
+      return qr;
+    } catch (error) {
+      this.feishuQrId = "";
+      return this.captureConnectionFailure("feishu", error);
     }
-    this.feishuQrId = qr.challengeId;
-    this.revision += 1;
-    return qr;
   }
 
-  async pollFeishuQr(input: { challengeId: string }): Promise<{ status: string }> {
-    const next = await this.feishu.pollQr(input.challengeId);
-    if (next.status === "confirmed") {
-      const creds = this.feishu.takeQrCredentials(input.challengeId);
-      if (creds) {
-        if (creds.ownerOpenId && typeof this.feishu.setOwner === "function") {
-          this.feishu.setOwner(creds.ownerOpenId, "registration");
+  async pollFeishuQr(input: { challengeId: string }): Promise<{ status: string } | ConnectionFailureResult> {
+    try {
+      const next = await this.feishu.pollQr(input.challengeId);
+      if (next.status === "confirmed") {
+        const creds = this.feishu.takeQrCredentials(input.challengeId);
+        if (creds) {
+          if (creds.ownerOpenId && typeof this.feishu.setOwner === "function") {
+            this.feishu.setOwner(creds.ownerOpenId, "registration");
+          }
+          await this.configureFeishu({ appId: creds.appId, secret: creds.appSecret });
+          await this.verifyAndConnectFeishu();
         }
-        await this.configureFeishu({ appId: creds.appId, secret: creds.appSecret });
-        await this.verifyAndConnectFeishu();
+        this.feishuQrId = "";
+      } else if (next.status === "denied" || next.status === "expired" || next.status === "failed") {
+        this.feishuQrId = "";
       }
+      this.revision += 1;
+      return { status: next.status };
+    } catch (error) {
       this.feishuQrId = "";
-    } else if (next.status === "denied" || next.status === "expired" || next.status === "failed") {
-      this.feishuQrId = "";
+      return this.captureConnectionFailure("feishu", error);
     }
-    this.revision += 1;
-    return { status: next.status };
   }
 
   cancelFeishuQr(): { cancelled: true } {
@@ -820,6 +851,10 @@ export class PenglaiImHost {
       else connection = configured ? (this.feishu.setupRequired ? "blocked" : "not_configured") : "not_configured";
     }
     const manifest = getChannelManifest(channel);
+    const failure = this.bots.getChannelFailure(
+      channel,
+      channelConfigAccountId(channel),
+    );
     return {
       channel,
       enabled: configured,
@@ -835,6 +870,17 @@ export class PenglaiImHost {
       releaseEvidence: manifest.releaseEvidence,
       capabilityEvidence: manifest.capabilityEvidence,
       connectionMethods: manifest.connectionMethods,
+      ...(failure
+        ? {
+            error: {
+              code: failure.code,
+              action: failure.action,
+              message: { zh: failure.messageZh, en: failure.messageEn },
+              referenceId: failure.referenceId,
+              at: failure.at,
+            },
+          }
+        : {}),
     };
   }
 
@@ -949,7 +995,10 @@ export class PenglaiImHost {
     secret?: string;
     ownerActionId?: string;
     receipt?: string;
-  }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
+  }): Promise<
+    | (ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string })
+    | ConnectionFailureResult
+  > {
     const id = requireChannelId(input.channel);
     if (isNativeChannel(id)) throw new PenglaiError("INVALID_INPUT", "NATIVE_CHANNEL_USES_NATIVE_CONNECT");
     if (!getChannelManifest(id).runtimeBundled) {
@@ -976,8 +1025,7 @@ export class PenglaiImHost {
         credentialRef: CHANNEL_CREDENTIAL_REFS[id],
       });
     } catch (error) {
-      this.recordChannelFailure(id, channelConfigAccountId(id), error);
-      throw error;
+      return this.captureConnectionFailure(id, error);
     }
     this.persistChannelFlag(id, true);
     this.revision += 1;
@@ -990,18 +1038,20 @@ export class PenglaiImHost {
     };
   }
 
-  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<{ status: ConnectionState; qrImageRef?: string }> {
+  async pollChannelConnection(input: { channel: string; operationId: string }): Promise<
+    { status: ConnectionState; qrImageRef?: string; failure?: NonNullable<ChannelState["error"]> }
+  > {
     const id = requireChannelId(input.channel);
     const adapter = requireAdapter(this.adapters, id);
     let polled: { status: ConnectionState; accountRedacted?: string };
     try {
       polled = await adapter.pollConnection(input.operationId);
     } catch (error) {
-      this.recordChannelFailure(id, channelConfigAccountId(id), error);
-      throw error;
+      return this.captureConnectionFailure(id, error);
     }
+    let failure: NonNullable<ChannelState["error"]> | undefined;
     if (polled.status === "failed") {
-      this.recordChannelFailure(
+      failure = this.recordChannelFailure(
         id,
         channelConfigAccountId(id),
         new PenglaiError("DELIVERY_TRANSIENT", `${id} connection failed`),
@@ -1011,6 +1061,7 @@ export class PenglaiImHost {
     this.revision += 1;
     return {
       status: polled.status,
+      ...(failure ? { failure } : {}),
       ...(qrImageRef ? { qrImageRef } : {}),
     };
   }
@@ -1091,9 +1142,13 @@ export class PenglaiImHost {
     }
   }
 
-  recordChannelFailure(channel: ChannelId, accountRef: string, error: unknown): void {
+  recordChannelFailure(
+    channel: ChannelId,
+    accountRef: string,
+    error: unknown,
+  ): NonNullable<ChannelState["error"]> {
     const failure = publicMessageFailure(classifyMessageFailure(error));
-    this.bots.putChannelFailure({
+    const recorded = {
       channelId: channel,
       accountRef,
       code: failure.code,
@@ -1102,7 +1157,30 @@ export class PenglaiImHost {
       referenceId: failure.referenceId,
       action: RECOVERY_ACTION_BY_CODE[failure.code],
       at: failure.at,
-    });
+    };
+    this.bots.putChannelFailure(recorded);
+    return {
+      code: recorded.code,
+      action: recorded.action,
+      message: { zh: recorded.messageZh, en: recorded.messageEn },
+      referenceId: recorded.referenceId,
+      at: recorded.at,
+    };
+  }
+
+  private captureConnectionFailure(
+    channel: ChannelId,
+    error: unknown,
+  ): ConnectionFailureResult {
+    this.revision += 1;
+    return {
+      status: "failed",
+      failure: this.recordChannelFailure(
+        channel,
+        channelConfigAccountId(channel),
+        error,
+      ),
+    };
   }
 
   async restoreChannelAdapters(): Promise<void> {

@@ -122,7 +122,9 @@ Allowed work now includes:
   complete-WAV, and playback-start timing boundaries without claiming native
   first-sound performance. All eight IM connection flows also open in one
   focused page-level modal while preserving each platform's real connection
-  method and keeping native accessibility plus live QR evidence open.
+  method; owned begin/poll failures now return durable localized causes and
+  reference IDs without exposing bounded-HTTP implementation codes. Native
+  accessibility, live QR, and real status/Content-Type evidence remain open.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

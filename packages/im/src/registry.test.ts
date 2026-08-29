@@ -230,6 +230,11 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.match(client, /maxHeight: "min\(760px, calc\(100vh - 48px\)\)"/);
   assert.match(client, /data-penglai-im-connect-pane/);
   assert.equal((client.match(/role: "dialog"/g) ?? []).length, 1);
+  assert.match(client, /function connectionFailureText/);
+  assert.match(client, /data-penglai-im-connect-error-code/);
+  assert.match(client, /data-penglai-im-qr-error-reference/);
+  assert.match(client, /data-penglai-feishu-qr-error-reference/);
+  assert.doesNotMatch(client, /String\(err|err\.message|BOUNDED_HTTP_MIME/);
   assert.match(client, /if \(!usesQr \|\| autoStarted\) return/);
   assert.match(client, /data-penglai-im-scan-image/);
   assert.doesNotMatch(client, /data-penglai-im-scan-host/);

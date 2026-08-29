@@ -584,6 +584,23 @@ the absence of nested dialog semantics. Native focus trapping/restoration,
 screen-reader traversal, real QR expiry/retry, and the separate redacted Weixin
 MIME diagnostic/reference work remain open.
 
+**Structured connection failure source checkpoint, 2026-08-29**
+
+Native Weixin/Feishu QR begin and poll operations plus the six guided adapter
+begin/poll operations now capture adapter failures at the IM host boundary.
+The host persists one closed public failure and returns the same code, localized
+message, recovery action, timestamp, and reference ID to the connection modal.
+Native and guided overview readback now project that same durable record, so a
+refresh does not discard or silently replace the diagnostic reference.
+
+Bounded HTTP MIME, JSON, empty-body, size, and declared-length failures map to
+the new `CHANNEL_PROTOCOL` class. The client renders only the localized public
+message and reference ID and no longer renders caught exception strings or the
+`BOUNDED_HTTP_MIME` implementation code. Transport failures that occur outside
+an owned host operation remain generic and do not receive invented references.
+Capturing real redacted HTTP status and Content-Type at the Weixin transport
+boundary, then reproducing the Owner-live failure, remains open.
+
 ### P1-05: IM session chooser exposes UUIDs instead of names
 
 **Observed symptom**
