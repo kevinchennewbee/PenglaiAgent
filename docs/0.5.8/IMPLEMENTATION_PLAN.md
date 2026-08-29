@@ -220,6 +220,23 @@ identity, expired credential, network failure, or size/type rejection.
 - run live text, image, file boundary, voice, reconnect, and credential-expiry
   tests using the official app path.
 
+**Source diagnostics checkpoint, 2026-08-29**
+
+The Feishu media path no longer collapses every request, stream, validation,
+admission, and transcription failure into one undifferentiated transient code.
+A closed diagnostic model now records only a phase and reason: credential,
+permission, resource identity/not-found, rate, network/server, cancellation,
+size/empty/type, unavailable client, or unknown. HTTP-like 400/401/403/404/429
+and network/server classes map to stable product causes; raw vendor messages,
+tokens, resource keys, response bodies, and URLs are never persisted.
+
+Both acknowledged image/file callbacks and durable voice jobs retain the closed
+diagnostic beside the existing retry classification. Runtime validation drops
+any out-of-vocabulary phase/reason instead of writing arbitrary caller text to
+the audit ledger. The preview gate and focused fixtures freeze this behavior.
+This improves diagnosis and retry correctness only; it does not claim that the
+Owner app has the required permission or that any real media download passed.
+
 ### P0-04: Feishu voice never reaches ASR
 
 **Observed symptom**

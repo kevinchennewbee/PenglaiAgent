@@ -106,6 +106,48 @@ export interface CompletedVoiceTranscript {
   emotion?: string;
 }
 
+export const INBOUND_FAILURE_PHASES = [
+  "resource-request",
+  "resource-stream",
+  "resource-validation",
+  "media-admission",
+  "transcription",
+] as const;
+
+export type InboundFailurePhase = (typeof INBOUND_FAILURE_PHASES)[number];
+
+export const INBOUND_FAILURE_REASONS = [
+  "client-unavailable",
+  "credential-invalid",
+  "permission-missing",
+  "resource-not-found",
+  "resource-identity-rejected",
+  "rate-limited",
+  "network",
+  "server",
+  "cancelled",
+  "too-large",
+  "empty",
+  "type-rejected",
+  "unknown",
+] as const;
+
+export type InboundFailureReason = (typeof INBOUND_FAILURE_REASONS)[number];
+
+export interface InboundFailureDiagnostic {
+  phase: InboundFailurePhase;
+  reason: InboundFailureReason;
+}
+
+function closedInboundFailureDiagnostic(
+  value: InboundFailureDiagnostic | undefined,
+): InboundFailureDiagnostic | undefined {
+  if (!value) return undefined;
+  if (!(INBOUND_FAILURE_PHASES as readonly string[]).includes(value.phase)) return undefined;
+  if (!(INBOUND_FAILURE_REASONS as readonly string[]).includes(value.reason)) return undefined;
+  return { phase: value.phase, reason: value.reason };
+}
+
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([
   "HAPPY",
@@ -375,7 +417,12 @@ export class RoutingControlPlane {
    * from escaping the adapter boundary and gives diagnostics one durable,
    * redacted retry classification.
    */
-  recordInboundFailure(env: InboundEnvelope, errorClass: ErrorClass): ControlReply {
+  recordInboundFailure(
+    env: InboundEnvelope,
+    errorClass: ErrorClass,
+    diagnostic?: InboundFailureDiagnostic,
+  ): ControlReply {
+    const safeDiagnostic = closedInboundFailureDiagnostic(diagnostic);
     const routeId = this.ensureRoute(env);
     let inbound = this.store.findInboundByKey(routeId, env.adapterMessageKey);
     if (!inbound) {
@@ -403,6 +450,7 @@ export class RoutingControlPlane {
       bodyKind: env.bodyKind,
       errorClass,
       retryable,
+      ...(safeDiagnostic ? { phase: safeDiagnostic.phase, reason: safeDiagnostic.reason } : {}),
     }, this.clock.now());
     return this.reject(errorClass, "inbound processing failed");
   }
@@ -582,12 +630,21 @@ export class RoutingControlPlane {
     this.store.setVoiceJobState(claim.inboundId, "processing", this.clock.now());
   }
 
-  failVoiceInbound(claim: VoiceInboundClaim, errorClass: string, retryable: boolean): void {
+  failVoiceInbound(
+    claim: VoiceInboundClaim,
+    errorClass: string,
+    retryable: boolean,
+    diagnostic?: InboundFailureDiagnostic,
+  ): void {
+    const safeDiagnostic = closedInboundFailureDiagnostic(diagnostic);
     this.store.setVoiceJobState(
       claim.inboundId,
       retryable ? "retryable" : "failed",
       this.clock.now(),
-      { errorClass },
+      {
+        errorClass,
+        ...(safeDiagnostic ? { phase: safeDiagnostic.phase, reason: safeDiagnostic.reason } : {}),
+      },
     );
     if (!retryable) this.store.setInboundState(claim.inboundId, "rejected");
     this.store.audit("voice_processing_failed", {
@@ -595,6 +652,7 @@ export class RoutingControlPlane {
       routeId: claim.routeId,
       errorClass,
       retryable,
+      ...(safeDiagnostic ? { phase: safeDiagnostic.phase, reason: safeDiagnostic.reason } : {}),
     }, this.clock.now());
   }
 

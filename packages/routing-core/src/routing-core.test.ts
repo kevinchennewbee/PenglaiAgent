@@ -51,6 +51,29 @@ function harness() {
   return { clock, ids, store, plane, inputs, removed };
 }
 
+test("inbound failure diagnostics persist only closed phase and reason values", () => {
+  const valid = harness();
+  valid.plane.recordInboundFailure(
+    env({ adapterMessageKey: "media-valid", bodyKind: "media" }),
+    "AUTH_EXPIRED",
+    { phase: "resource-request", reason: "permission-missing" },
+  );
+  const validAudit = valid.store.listAudit().find((row) => row.event === "inbound_processing_failed");
+  assert.equal(validAudit?.payload.phase, "resource-request");
+  assert.equal(validAudit?.payload.reason, "permission-missing");
+
+  const forged = harness();
+  forged.plane.recordInboundFailure(
+    env({ adapterMessageKey: "media-forged", bodyKind: "media" }),
+    "DELIVERY_TRANSIENT",
+    { phase: "private-phase" as never, reason: "private-detail" as never },
+  );
+  const forgedAudit = forged.store.listAudit().find((row) => row.event === "inbound_processing_failed");
+  assert.equal("phase" in (forgedAudit?.payload ?? {}), false);
+  assert.equal("reason" in (forgedAudit?.payload ?? {}), false);
+  assert.doesNotMatch(JSON.stringify(forgedAudit), /private/);
+});
+
 test("R1-AUTH-001 owner private text auto-binds official default without a pairing token", async () => {
   const h = harness();
   const r = await h.plane.submitInbound(env({ text: "你好", vendorTarget: "owner" }));
