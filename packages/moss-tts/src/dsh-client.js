@@ -124,6 +124,18 @@ window.__ModuleLoader__.load({
         progress: "模型下载进度",
         speed: "速度",
         downloaded: "已下载",
+        operationFailed: "操作未完成。请刷新状态后重试。",
+        modelStates: {
+          ready: "已就绪",
+          not_installed: "未安装",
+          downloading: "正在下载",
+          paused: "已暂停",
+          failed: "需要重试",
+          corrupt: "校验失败",
+          loading: "正在加载",
+          unavailable: "暂不可用",
+          unknown: "等待状态",
+        },
       },
       en: {
         title: "Penglai Speech Synthesis",
@@ -155,6 +167,18 @@ window.__ModuleLoader__.load({
         progress: "Model download progress",
         speed: "Speed",
         downloaded: "Downloaded",
+        operationFailed: "The operation did not complete. Refresh the status and retry.",
+        modelStates: {
+          ready: "Ready",
+          not_installed: "Not installed",
+          downloading: "Downloading",
+          paused: "Paused",
+          failed: "Retry required",
+          corrupt: "Verification failed",
+          loading: "Loading",
+          unavailable: "Unavailable",
+          unknown: "Waiting for status",
+        },
       },
     };
 
@@ -280,6 +304,10 @@ window.__ModuleLoader__.load({
       return COPY[id.startsWith("en") ? "en" : "zh"];
     }
 
+    function modelStateText(value, t) {
+      return t.modelStates[String(value || "unknown")] || t.modelStates.unknown;
+    }
+
     function unwrapRemote(result) {
       if (result && typeof result === "object" && "ok" in result) {
         if (result.ok === false)
@@ -352,11 +380,11 @@ window.__ModuleLoader__.load({
               };
             });
           })
-          .catch((error) => {
+          .catch(() => {
             setView((current) => ({
               ...current,
               status: "unavailable",
-              error: String(error && error.message ? error.message : error),
+              error: "",
             }));
           });
       }, [api]);
@@ -397,11 +425,11 @@ window.__ModuleLoader__.load({
             refresh();
             setView((current) => ({ ...current, busy: false }));
           })
-          .catch((error) => {
+          .catch(() => {
             setView((current) => ({
               ...current,
               busy: false,
-              error: String(error && error.message ? error.message : error),
+              error: t.operationFailed,
             }));
           });
       };
@@ -464,11 +492,11 @@ window.__ModuleLoader__.load({
               playing: result.state === "playing",
               error:
                 result.state === "failed"
-                  ? result.errorCode || "TTS_PLAY_REJECTED"
+                  ? t.failedPlayback
                   : "",
             }));
           })
-          .catch((error) => {
+          .catch(() => {
             releaseSynthesis(id);
             if (playback.getGeneration() !== token) return;
             void playback.stop();
@@ -478,7 +506,7 @@ window.__ModuleLoader__.load({
               playbackGeneration: 0,
               busy: false,
               playing: false,
-              error: String(error && error.message ? error.message : error),
+              error: t.failedPlayback,
             }));
           });
       };
@@ -500,7 +528,7 @@ window.__ModuleLoader__.load({
         return jsx.jsxs("section", {
           "data-penglai-tts": "1",
           "data-penglai-tts-status": "unavailable",
-          children: [t.unavailable, view.error ? ` ${view.error}` : ""],
+          children: t.unavailable,
         });
       }
       return jsx.jsxs("section", {
@@ -511,7 +539,7 @@ window.__ModuleLoader__.load({
         children: [
           jsx.jsx("h3", { children: t.title }),
           jsx.jsx("p", { children: t.hint }),
-          jsx.jsxs("p", { children: [t.state, ": ", String(model)] }),
+          jsx.jsxs("p", { children: [t.state, ": ", modelStateText(model, t)] }),
           (view.models || []).map((row) =>
             jsx.jsxs(
               "p",
@@ -521,7 +549,7 @@ window.__ModuleLoader__.load({
                   ": ",
                   String(row.label ?? row.id ?? ""),
                   " · ",
-                  String(row.state ?? ""),
+                  modelStateText(row.state, t),
                 ],
               },
               String(row.id ?? "model"),

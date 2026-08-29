@@ -662,6 +662,18 @@ Chinese UI.
 - raise an upstream translation/extension proposal if the owner requires fully
   localized official preset labels.
 
+**Penglai-owned settings locale checkpoint, 2026-08-29**
+
+ASR and TTS settings now localize the closed model lifecycle instead of showing
+raw states such as `not_installed`, `downloading`, or `corrupt`. Their operation
+and retry copy is bilingual, and the earlier composer/Read work already removes
+the raw `mic`, `stop`, and `read` controls. The Plugin Center's IM summary now
+also agrees with the closed registry at eight platforms rather than nine.
+
+Official DSH permission-preset labels remain upstream-owned. Alpha locale-slot
+integration, runtime switching, overflow/accessibility, and installed bilingual
+readback remain open; Penglai does not patch the official minified UI.
+
 ### P1-07: settings and operation errors expose unrelated raw internals
 
 **Observed symptom**
@@ -683,6 +695,20 @@ as unrelated component failures.
 - preserve a redacted diagnostic reference and exact structured cause internally;
 - deduplicate one outage into one recovery banner plus component state; and
 - never hide failure or label degraded capability “connected.”
+
+**Penglai-owned settings error-boundary checkpoint, 2026-08-29**
+
+ASR, TTS, IM, Office, Memory Sources, Plugin Center, update, and uninstall
+settings no longer concatenate caught exception messages or catalog-inventory
+error strings into visible copy. Each surface retains an explicit
+failed/unavailable state and gives an operation-specific localized retry or
+fail-closed next step; TTS playback rejection and IM native-probe operation
+codes also stay behind the settings boundary.
+
+This checkpoint does not claim the complete product taxonomy or cross-component
+outage deduplication. Typed diagnostic references across every plugin lifecycle,
+the single recovery banner, alpha locale integration, and native/installed
+readback remain open.
 
 ### P1-08: concurrency amplifies failures but is not proven to be the killer
 

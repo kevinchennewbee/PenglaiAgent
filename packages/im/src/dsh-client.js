@@ -621,10 +621,8 @@ window.__ModuleLoader__.load({
             setActionError("");
             refresh();
           })
-          .catch((error) => {
-            const raw = error && typeof error.message === "string" ? error.message : "";
-            const safe = raw.match(/\((?:getuploadurl|cdn-upload|sendmessage|native-voice)[a-z0-9-]*\)/i)?.[0] || "";
-            setActionError(`${t.nativeFailed}${safe ? ` ${safe}` : ""}`);
+          .catch(() => {
+            setActionError(t.nativeFailed);
             refresh();
           });
       };

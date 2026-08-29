@@ -114,6 +114,19 @@ window.__ModuleLoader__.load({
         progress: "模型下载进度",
         speed: "速度",
         remaining: "已下载",
+        operationFailed: "操作未完成。请刷新状态后重试。",
+        transcriptionFailed: "转写未完成。请确认模型已就绪后重试。",
+        modelStates: {
+          ready: "已就绪",
+          not_installed: "未安装",
+          downloading: "正在下载",
+          paused: "已暂停",
+          failed: "需要重试",
+          corrupt: "校验失败",
+          loading: "正在加载",
+          unavailable: "暂不可用",
+          unknown: "等待状态",
+        },
         micStart: "语音输入",
         micStop: "停止录音",
         micPermission: "等待麦克风权限",
@@ -152,6 +165,19 @@ window.__ModuleLoader__.load({
         progress: "Model download progress",
         speed: "Speed",
         remaining: "Downloaded",
+        operationFailed: "The operation did not complete. Refresh the status and retry.",
+        transcriptionFailed: "Transcription did not complete. Confirm the model is ready and retry.",
+        modelStates: {
+          ready: "Ready",
+          not_installed: "Not installed",
+          downloading: "Downloading",
+          paused: "Paused",
+          failed: "Retry required",
+          corrupt: "Verification failed",
+          loading: "Loading",
+          unavailable: "Unavailable",
+          unknown: "Waiting for status",
+        },
         micStart: "Voice input",
         micStop: "Stop recording",
         micPermission: "Waiting for microphone permission",
@@ -172,6 +198,10 @@ window.__ModuleLoader__.load({
     function localeCopy() {
       const id = String(document.documentElement.lang ?? "zh");
       return COPY[id.startsWith("en") ? "en" : "zh"];
+    }
+
+    function modelStateText(value, t) {
+      return t.modelStates[String(value || "unknown")] || t.modelStates.unknown;
     }
 
     function unwrapRemote(result) {
@@ -238,11 +268,11 @@ window.__ModuleLoader__.load({
               };
             });
           })
-          .catch((error) => {
+          .catch(() => {
             setView((current) => ({
               ...current,
               status: "unavailable",
-              error: String(error && error.message ? error.message : error),
+              error: "",
             }));
           });
       }, [api]);
@@ -260,11 +290,11 @@ window.__ModuleLoader__.load({
             refresh();
             setView((current) => ({ ...current, busy: false }));
           })
-          .catch((error) => {
+          .catch(() => {
             setView((current) => ({
               ...current,
               busy: false,
-              error: String(error && error.message ? error.message : error),
+              error: t.operationFailed,
             }));
           });
       };
@@ -312,11 +342,11 @@ window.__ModuleLoader__.load({
               result: unwrapRemote(value),
             }));
           })
-          .catch((error) => {
+          .catch(() => {
             setView((current) => ({
               ...current,
               busy: false,
-              error: String(error && error.message ? error.message : error),
+              error: t.transcriptionFailed,
             }));
           });
       };
@@ -338,7 +368,7 @@ window.__ModuleLoader__.load({
         return jsx.jsxs("section", {
           "data-penglai-asr": "1",
           "data-penglai-asr-status": "unavailable",
-          children: [t.unavailable, view.error ? ` ${view.error}` : ""],
+          children: t.unavailable,
         });
       }
       return jsx.jsxs("section", {
@@ -349,7 +379,7 @@ window.__ModuleLoader__.load({
         children: [
           jsx.jsx("h3", { children: t.title }),
           jsx.jsx("p", { children: t.hint }),
-          jsx.jsxs("p", { children: [t.state, ": ", String(model)] }),
+          jsx.jsxs("p", { children: [t.state, ": ", modelStateText(model, t)] }),
           (view.models || []).map((row) =>
             jsx.jsxs(
               "p",
@@ -359,7 +389,7 @@ window.__ModuleLoader__.load({
                   ": ",
                   String(row.label ?? row.id ?? ""),
                   " · ",
-                  String(row.state ?? ""),
+                  modelStateText(row.state, t),
                 ],
               },
               String(row.id ?? "model"),
