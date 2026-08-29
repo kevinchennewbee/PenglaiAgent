@@ -36,7 +36,7 @@
 | P058-026 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
 | P058-017 | Overlay-to-slot map | Source/design | NOT_STARTED | inspect every rc.2 overlay hunk against fixed source slots |
 | P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |
-| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | 5 source and 5 test owners inventoried; real child-exit/port-loss characterization is next; Windows proof remains native-blocked |
+| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | Windows helper now observes DSH exit and owner stop with a required handshake; 722 unit tests pass; port-loss/diagnostics and native proof remain |
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
@@ -70,6 +70,7 @@ use a partial broken push merely to create activity.
 | `602f684b399e7ad7d0b11b3ccb1bf74342ff6832` | fixed DSH source baseline, migration/inventory ledgers, preview invariant and CI | branch readback PASS; [Source CI 33239599306](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33239599306) PASS |
 | `759dc64667a5375dd0377e361592ebff3a5d1877` | contain Feishu asynchronous inbound failures with durable redacted terminal state | branch readback PASS; [Source CI 33239795129](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33239795129) PASS |
 | `449d1f95718eea3d4d933cbfac76e66eb52f6e56` | remove WhatsApp active source, identity, dependency closure, and unsupported legacy activation | branch readback PASS; [Source CI 33240554668](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33240554668) PASS |
+| `54cf32ccc0e497318d26699a75afd8a0d3af7e6a` | machine-readable DSH migration seam census and preview drift gate | branch readback PASS; [Source CI 33240938258](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33240938258) PASS |
 
 ## Publication reconciliation placeholder
 

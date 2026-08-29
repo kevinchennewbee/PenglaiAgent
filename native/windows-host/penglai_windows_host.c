@@ -280,6 +280,17 @@ static int configure_job(HANDLE job) {
   return 1;
 }
 
+static DWORD WINAPI wait_for_owner_stop(LPVOID parameter) {
+  HANDLE input = (HANDLE)parameter;
+  char unused[8];
+  DWORD got = 0;
+  if (input && input != INVALID_HANDLE_VALUE) {
+    /* A byte or EOF both mean the owning desktop process released the helper. */
+    ReadFile(input, unused, sizeof(unused), &got, NULL);
+  }
+  return 0;
+}
+
 static int job_supervise(const char *exe_utf8, char *cmdline_utf8) {
   wchar_t *exe = utf8_to_wide(exe_utf8);
   wchar_t *cmd = utf8_to_wide(cmdline_utf8);
@@ -312,23 +323,43 @@ static int job_supervise(const char *exe_utf8, char *cmdline_utf8) {
       (unsigned long)pi.dwProcessId,
       (unsigned long long)startMs);
   json_escape(stdout, owner ? owner : "");
-  fputs(",\"jobAssigned\":true,\"killOnJobClose\":true,\"breakawayOk\":false}\n", stdout);
+  fputs(",\"jobAssigned\":true,\"killOnJobClose\":true,\"breakawayOk\":false,"
+        "\"childExitMonitored\":true,\"ownerStopMonitored\":true}\n", stdout);
   fflush(stdout);
   free(owner);
-  /* Hold the job until stdin closes or a stop byte arrives. Exiting closes the
-   * job handle and KILL_ON_JOB_CLOSE reaps the owned tree. */
-  char unused[8];
+
+  /* The helper is the process Electron observes. Wait for either the owned DSH
+   * root to exit or the desktop owner to close/write stdin. The old one-sided
+   * stdin wait left this helper alive after a DSH crash, hiding the crash from
+   * the restart policy. Closing the Job Object reaps every remaining child. */
   HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
+  HANDLE owner_stop = NULL;
   if (std_in && std_in != INVALID_HANDLE_VALUE) {
-    DWORD got = 0;
-    ReadFile(std_in, unused, sizeof(unused), &got, NULL);
+    owner_stop = CreateThread(NULL, 0, wait_for_owner_stop, std_in, 0, NULL);
+    if (!owner_stop) win_fail("CreateThread");
   }
+  HANDLE waits[2];
+  DWORD wait_count = 1;
+  waits[0] = pi.hProcess;
+  if (owner_stop) waits[wait_count++] = owner_stop;
+  DWORD wake = WaitForMultipleObjects(wait_count, waits, FALSE, INFINITE);
+  if (wake == WAIT_FAILED || wake >= WAIT_OBJECT_0 + wait_count) {
+    win_fail("WaitForMultipleObjects");
+  }
+  int child_exited = wake == WAIT_OBJECT_0;
+  DWORD child_exit_code = 0;
+  if (child_exited && !GetExitCodeProcess(pi.hProcess, &child_exit_code)) {
+    child_exit_code = 1;
+  }
+
+  CloseHandle(job);
+  if (!child_exited) WaitForSingleObject(pi.hProcess, 5000);
+  if (owner_stop) CloseHandle(owner_stop);
   CloseHandle(pi.hThread);
   CloseHandle(pi.hProcess);
-  CloseHandle(job);
   free(exe);
   free(cmd);
-  return 0;
+  return child_exited ? (int)(child_exit_code & 0xff) : 0;
 }
 
 static int cmd_acl_apply(const char *path_utf8) {
