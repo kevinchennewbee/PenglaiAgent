@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import test from "node:test";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +12,7 @@ import {
   deletionInspectionOptionsForPlatform,
   parseWindowsHostReport,
   quoteWindowsCommandArg,
+  readOwnedWindowsJobReport,
   refusePosixModeAsWindowsAcl,
   requireWindowsNativeHost,
   resolveWindowsHostExecutable,
@@ -73,12 +75,17 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.processSuspendResume, true);
   assert.equal(facts.processReapSupervisors, true);
   assert.equal(facts.pathBatchProbe, true);
+  assert.equal(facts.childExitMonitoring, true);
+  assert.equal(facts.ownerStopMonitoring, true);
   assert.match(facts.source, /penglai_windows_host\.c$/);
   const src = readFileSync(facts.source, "utf8");
   assert.doesNotMatch(src, /applied:\s*true/);
   assert.match(src, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
   assert.match(src, /CREATE_SUSPENDED/);
   assert.match(src, /FILE_ATTRIBUTE_REPARSE_POINT/);
+  assert.match(src, /WaitForMultipleObjects\(wait_count, waits, FALSE, INFINITE\)/);
+  assert.match(src, /waits\[0\] = pi\.hProcess/);
+  assert.match(src, /CreateThread\(NULL, 0, wait_for_owner_stop/);
   assert.match(src, /SetEntriesInAclW\(3,/);
   assert.match(src, /GetTokenInformation\(token, TokenOwner/);
   assert.match(src, /EqualSid\(existing_owner, user->User\.Sid\)/);
@@ -205,13 +212,49 @@ test("owned DSH spawn on Windows requires the native job supervisor", () => {
       jobAssigned: true,
       killOnJobClose: true,
       breakawayOk: false,
+      childExitMonitored: true,
+      ownerStopMonitored: true,
     }),
   );
   assert.equal(report.pid, 4242);
   assert.equal(report.jobAssigned, true);
   assert.equal(report.killOnJobClose, true);
+  assert.equal(report.childExitMonitored, true);
+  assert.equal(report.ownerStopMonitored, true);
   assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: true, pid: 1, breakawayOk: true })), /breakaway/);
   assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: false, error: "reparse" })), /reparse/);
+});
+
+test("Windows supervisor handshake refuses helpers that cannot observe both lifetimes", async () => {
+  const report = (extra: Record<string, boolean>) => JSON.stringify({
+    ok: true,
+    command: "job-supervise",
+    pid: 4242,
+    startMs: 1_700_000_000_000,
+    owner: "sid:S-1-5-21-owner",
+    jobAssigned: true,
+    killOnJobClose: true,
+    breakawayOk: false,
+    ...extra,
+  });
+  const launch = (line: string) => spawn(
+    process.execPath,
+    ["-e", `process.stdout.write(${JSON.stringify(`${line}\n`)}); setTimeout(() => {}, 1000)`],
+    { stdio: ["ignore", "pipe", "ignore"] },
+  );
+
+  const legacy = launch(report({}));
+  await assert.rejects(readOwnedWindowsJobReport(legacy, 1000), /report incomplete/);
+  legacy.kill();
+
+  const current = launch(report({ childExitMonitored: true, ownerStopMonitored: true }));
+  try {
+    const accepted = await readOwnedWindowsJobReport(current, 1000);
+    assert.equal(accepted.childExitMonitored, true);
+    assert.equal(accepted.ownerStopMonitored, true);
+  } finally {
+    current.kill();
+  }
 });
 
 test("Windows CreateProcess arguments preserve quotes and trailing backslashes", () => {

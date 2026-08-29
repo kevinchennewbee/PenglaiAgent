@@ -166,7 +166,7 @@
     "packages/plugin-center/package.json"
   ],
   "desktopSupervisor": {
-    "state": "CHARACTERIZED_SOURCE_ONLY",
+    "state": "SOURCE_CHILD_EXIT_CONTRACT_FIXED",
     "sourceFiles": [
       "apps/desktop/src/supervisor.ts",
       "packages/runtime/src/index.ts",
@@ -187,11 +187,13 @@
       "stop cancels pending restart",
       "POSIX process-group ownership",
       "Windows Job Object ownership",
+      "helper observes both the DSH root exit and desktop-owner stop",
       "identity-checked stale-process cleanup",
       "HTTP and required-plugin inventory readiness"
     ],
     "remainingEvidence": [
-      "real child-exit and port-loss characterization",
+      "native Windows child-exit execution proof",
+      "hang and port-loss characterization",
       "Windows x64 native process-tree proof",
       "macOS arm64 and x64 installed process-tree proof"
     ]

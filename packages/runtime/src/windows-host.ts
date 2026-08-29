@@ -103,6 +103,8 @@ export interface WindowsNativeHostSourceFacts {
   processSuspendResume: boolean;
   processReapSupervisors: boolean;
   pathBatchProbe: boolean;
+  childExitMonitoring: boolean;
+  ownerStopMonitoring: boolean;
 }
 
 export function windowsNativeHostSourcePath(): string {
@@ -142,6 +144,14 @@ export function windowsNativeHostSourceFacts(): WindowsNativeHostSourceFacts {
       text.includes("path-batch-probe") &&
       text.includes("probe-path-escape") &&
       text.includes("owner-mismatch"),
+    childExitMonitoring:
+      text.includes("WaitForMultipleObjects") &&
+      text.includes("waits[0] = pi.hProcess") &&
+      text.includes("childExitMonitored"),
+    ownerStopMonitoring:
+      text.includes("CreateThread") &&
+      text.includes("wait_for_owner_stop") &&
+      text.includes("ownerStopMonitored"),
   };
 }
 
@@ -227,6 +237,8 @@ export interface WindowsHostReport {
   deleted?: number;
   count?: number;
   pids?: number[];
+  childExitMonitored?: boolean;
+  ownerStopMonitored?: boolean;
 }
 
 export function parseWindowsHostReport(raw: string): WindowsHostReport {
@@ -264,6 +276,12 @@ export function parseWindowsHostReport(raw: string): WindowsHostReport {
     ...(typeof value.deleted === "number" ? { deleted: value.deleted } : {}),
     ...(typeof value.count === "number" && Number.isInteger(value.count) && value.count >= 0
       ? { count: value.count }
+      : {}),
+    ...(typeof value.childExitMonitored === "boolean"
+      ? { childExitMonitored: value.childExitMonitored }
+      : {}),
+    ...(typeof value.ownerStopMonitored === "boolean"
+      ? { ownerStopMonitored: value.ownerStopMonitored }
       : {}),
     ...(Array.isArray(value.pids) && value.pids.every((pid) => typeof pid === "number" && Number.isInteger(pid) && pid > 0)
       ? { pids: value.pids as number[] }
@@ -559,7 +577,13 @@ export function readOwnedWindowsJobReport(
       cleanup();
       try {
         const report = parseWindowsHostReport(line);
-        if (!report.pid || report.jobAssigned !== true || report.killOnJobClose !== true) {
+        if (
+          !report.pid ||
+          report.jobAssigned !== true ||
+          report.killOnJobClose !== true ||
+          report.childExitMonitored !== true ||
+          report.ownerStopMonitored !== true
+        ) {
           reject(new PenglaiError("SECURITY_POLICY", "native Windows job supervisor report incomplete"));
           return;
         }

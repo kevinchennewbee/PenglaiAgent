@@ -77,6 +77,20 @@ not three independent ASR/IM/Stop bugs.
 **Do not** “fix” each 502 call separately or merely translate it to a friendlier
 string.
 
+**Preview source checkpoint, 2026-08-29**
+
+The Windows native helper now waits on both the real DSH process handle and a
+desktop-owner stdin watcher. A DSH exit therefore terminates the helper that
+Electron observes; owner exit/Stop still closes the Job Object and reaps the
+owned tree. The startup report carries explicit `childExitMonitored` and
+`ownerStopMonitored` facts, and the TypeScript boundary rejects an older helper
+that cannot prove both. Local typecheck and the full 722-test unit suite pass.
+
+This closes the source-level one-sided-wait defect only. The helper has not been
+compiled or executed on Windows in this checkpoint, and hang/port-loss health
+monitoring, redacted terminal diagnostics, restart exhaustion UX, and native
+orphan proof remain open.
+
 ### P0-02: Feishu image callback can destabilize the DSH host
 
 **Observed symptom**

@@ -273,6 +273,13 @@ Penglai consequence:
   state rather than unrelated 502 messages; and
 - test orphan-free shutdown and crash loops on native Windows.
 
+Preview source work now makes the helper wait on both the DSH process handle
+and desktop-owner stdin, with a fail-closed startup handshake for both
+monitoring obligations. This is Penglai-owned supervision work and does not
+depend on DSH npm publication. It remains source evidence until the helper is
+compiled and exercised on native Windows; port-loss/hang detection is still
+open.
+
 ### 4.13 IM capability truth is not one boolean
 
 The 0.5.7 tree has conflicting machine meanings for channel availability. Its
