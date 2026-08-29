@@ -85,7 +85,8 @@
       "files": {
         "packages/dsh-bridge/src/bridge.test.ts": 11,
         "packages/dsh-bridge/src/index.ts": 1,
-        "packages/dsh-bridge/src/plugin.ts": 7,
+        "packages/dsh-bridge/src/owner-ports.ts": 1,
+        "packages/dsh-bridge/src/rc2-owner-adapter.ts": 8,
         "packages/dsh-bridge/src/r56-file-intake-spike.ts": 1,
         "packages/im/src/im.test.ts": 1,
         "packages/im/src/index.ts": 1,
@@ -126,7 +127,7 @@
         "packages/context/src/index.ts": 6,
         "packages/context/src/remote.ts": 3,
         "packages/dsh-bridge/src/bridge.test.ts": 4,
-        "packages/dsh-bridge/src/plugin.ts": 2,
+        "packages/dsh-bridge/src/rc2-owner-adapter.ts": 2,
         "packages/im/src/im.test.ts": 1,
         "packages/im/src/index.ts": 1,
         "packages/memory/src/index.ts": 11,

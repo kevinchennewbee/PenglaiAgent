@@ -13,7 +13,7 @@ import {
   probePinnedPackages,
   withPenglaiVoiceContext,
 } from "./index.js";
-import { hostFromCordis, listenOfficialEvents } from "./plugin.js";
+import { hostFromRc2Cordis, listenOfficialEvents } from "./plugin.js";
 
 test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
@@ -254,9 +254,46 @@ test("bridge treats a durable DSH inbox message id as an idempotent replay", asy
   assert.deepEqual(calls, []);
 });
 
-test("official apiProxy session.create is the only new-session seam", async () => {
+test("bridge joins official Workspace membership to Session-owner titles", async () => {
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent() { return undefined; },
+    listWorkspaces: () => [
+      { id: "workspace-1", title: "One", sessionIds: ["session-2", "session-1"] },
+      { id: "workspace-2", title: "Two", sessionIds: ["session-3"] },
+    ],
+    async listSessions() {
+      return [
+        { id: "session-1", title: "Durable title" },
+        { id: "session-3", title: "Other workspace" },
+        { id: "session-2" },
+      ];
+    },
+  });
+  assert.deepEqual(await bridge.listSessions("workspace-1"), [
+    { id: "session-2" },
+    { id: "session-1", title: "Durable title" },
+  ]);
+});
+
+test("bridge forwards a new-session title only to the Session owner", async () => {
+  const calls: Array<{ workspaceIdentity: string; title?: string }> = [];
+  const bridge = new DshBridge({
+    version: "0.1.1-rc.2",
+    getAgent() { return undefined; },
+    listWorkspaces: () => [],
+    async createSession(workspaceIdentity, title) {
+      calls.push({ workspaceIdentity, ...(title === undefined ? {} : { title }) });
+      return { id: "session-created" };
+    },
+  });
+  assert.deepEqual(await bridge.createSession("workspace-1", "Penglai"), { id: "session-created" });
+  assert.deepEqual(calls, [{ workspaceIdentity: "workspace-1", title: "Penglai" }]);
+});
+
+test("rc.2 adapter contains apiProxy session.create as the historical new-session seam", async () => {
   const requests: Array<{ rpcId: string; payload: { workspaceId: string } }> = [];
-  const host = hostFromCordis({
+  const host = hostFromRc2Cordis({
     on() {},
     agents: { get() { return undefined; } },
     workspaceRegistry: { list: () => [{ id: "workspace-1", title: "W", sessionIds: [] }] },
@@ -286,12 +323,12 @@ test("official apiProxy session.create is the only new-session seam", async () =
       },
     },
   );
-  assert.doesNotThrow(() => hostFromCordis(proxied as never, "0.1.1-rc.2"));
+  assert.doesNotThrow(() => hostFromRc2Cordis(proxied as never, "0.1.1-rc.2"));
 });
 
-test("official apiProxy session.models/selectModel are the only IM model command seams", async () => {
+test("rc.2 adapter contains apiProxy session.models/selectModel as historical IM seams", async () => {
   const calls: string[] = [];
-  const host = hostFromCordis({
+  const host = hostFromRc2Cordis({
     on() {},
     agents: { get() { return undefined; } },
     workspaceRegistry: { list: () => [{ id: "workspace-1", title: "W", sessionIds: ["session-1"] }] },
@@ -323,7 +360,7 @@ test("official apiProxy session.models/selectModel are the only IM model command
   assert.deepEqual(calls, ["models:session-1", "select:session-1:deepseek/deepseek-reasoner"]);
 });
 
-test("official apiProxy is resolved through the live Cordis context proxy", async () => {
+test("rc.2 adapter resolves apiProxy through the live Cordis context proxy", async () => {
   const calls: string[] = [];
   const apiProxy = {
     sessions: {
@@ -351,7 +388,7 @@ test("official apiProxy is resolved through the live Cordis context proxy", asyn
     },
   );
   assert.equal(Object.getOwnPropertyDescriptor(ctx, "apiProxy"), undefined);
-  const host = hostFromCordis(ctx as never, "0.1.1-rc.2");
+  const host = hostFromRc2Cordis(ctx as never, "0.1.1-rc.2");
   const directory = await host.describeSessionModels?.("session-proxy");
   assert.equal(directory?.current.model, "deepseek-chat");
   assert.deepEqual(calls, ["session-proxy"]);

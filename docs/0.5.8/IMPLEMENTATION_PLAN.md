@@ -649,6 +649,20 @@ identity normalization and `todo/write`. Runtime wiring, the complete installed
 0.5.7 corpus, native disk/ACL behavior, and real rollback remain package/native
 gates; this source layer is deliberately dormant while the product pin is rc.2.
 
+The official-ownership preparation now has an executable Penglai boundary as
+well. The bridge composes separate Agent, Workspace, and Session owner ports;
+the historical rc.2 ApiProxy request envelopes are confined to a version-named
+adapter instead of leaking through the bridge or plugin composition layer.
+Workspace remains the authority for membership and manual order, while the
+Session owner enriches those immutable IDs with official projected titles and
+owns create/model operations. A fixed-source verifier proves that alpha.1 owns
+`list`, `create`, `rename`, `modelCatalog`, and `selectModel` under
+`remote.session`, owns
+Workspace mutation/follow under `remote.workspace`, and contains no ApiProxy
+path in its API tree. The active rc.2 adapter and package pins remain unchanged;
+the generated alpha Remote adapter is still correctly blocked on official npm
+artifacts.
+
 ### Gate P0: published-package reconciliation — BLOCKED
 
 Exit criteria:

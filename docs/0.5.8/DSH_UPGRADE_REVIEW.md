@@ -107,6 +107,19 @@ Penglai consequence:
 - do not create a Penglai “compatibility ApiProxy,” because that would become a
   permanent second control plane.
 
+**Preview source checkpoint, 2026-08-29:** Penglai's bridge now exposes narrow
+Agent, Workspace, and Session owner ports. The still-active rc.2 ApiProxy
+envelopes live only in `rc2-owner-adapter.ts`; the composition plugin and bridge
+business logic no longer define or inspect that legacy wire contract. Workspace
+membership/manual order is joined with Session-owner summaries so projected
+titles are preserved without a log scan or parallel title store, and the new
+session title is forwarded to the Session owner composition boundary. A manual
+verifier against exact commit `cd5ef814…` confirms the alpha Session (including
+the separate create/rename title path) and
+Workspace namespaces, methods, projection-bearing list types, client injection
+graph, and zero ApiProxy paths. This is port/source evidence, not the generated
+alpha client implementation; P058-014 remains npm-blocked.
+
 ### 4.2 Client runtime facade removal
 
 The general `@deepseek-ai/dsh-client-runtime` facade is deleted. Session,

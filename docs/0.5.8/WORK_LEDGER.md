@@ -31,6 +31,7 @@
 | P058-012 | Contain Feishu asynchronous media callback failures | Source | DONE | callback stays bounded; rejection resolves to redacted durable terminal state; focused tests PASS |
 | P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | DONE | 9 operational/support references and exact create/modelCatalog/selectModel ownership are frozen by the executable census |
 | P058-014 | Implement owner Remote migration | Package/source | BLOCKED_NPM | exact published declarations/generated clients required |
+| P058-029 | Split Penglai bridge by official owner boundary | Source/design | DONE | Agent/Workspace/Session ports, rc.2 ApiProxy containment, Workspace-order plus Session-title join, create-title forwarding, and exact alpha source verifier pass; generated adapter remains P058-014 |
 | P058-015 | Map all `dsh-client-runtime` consumers | Source/design | DONE | 8 plugin manifests and 8 packager rows are frozen; exact replacement graph remains P058-026 |
 | P058-016 | Quarantine unsupported legacy channel rows | Source/upgrade | DONE | startup revokes unsupported route/binding activity without deleting audit rows; bot lists hide unsupported rows and reject new unknown filters |
 | P058-026 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
@@ -38,7 +39,7 @@
 | P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private exact-authority token exchange, cookie proof, proxy injection, rc.2 compatibility, redaction, and real child fixture pass in source; exact alpha package and native first navigation remain |
 | P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, authenticated alpha-style health, structured diagnostics, exact exhaustion, and non-stranding actions pass locally; three-target native/installed proof remains |
 | P058-028 | Isolated rc.2 → alpha.1 DSH Home generation | Source/package/native | IN_PROGRESS | private bounded copy, one-writer journal, disk/file-type/mode gates, health-bound atomic activation, rejection, rollback, and rc.2 JSONL replay pass in source; installed corpus, SQLite, Windows ACL, runtime wiring, and native rollback remain |
-| P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
+| P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | bridge now preserves Workspace order and consumes Session-owner titles with ID fallback; official generated list/projection Remote still required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
 | P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle replaced by a bounded internal queue and official no-tools LLM request; Budget accounting, redacted audit/retry, npm reconciliation, and installed/live proof remain |
