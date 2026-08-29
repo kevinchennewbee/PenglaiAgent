@@ -648,6 +648,12 @@ never retains the response body, request URL, query, authorization header,
 Content-Type parameters, or arbitrary headers. Typed auth, rate, protocol, and
 delivery classification takes precedence over message parsing.
 
+The primary failure surface still renders only the localized public message and
+reference ID. A default-collapsed Advanced section may read back the same safe
+observation beside that reference, explicitly labels it as not a root-cause
+claim, and revalidates the closed phase/status/media-type shape in the client
+before rendering it.
+
 Fixture evidence proves this source boundary and legacy-store migration. A real
 Owner-live failure has not been reproduced, so its actual status/media type and
 whether the cause is platform, proxy, or environment remain open.

@@ -261,5 +261,11 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.doesNotMatch(client, /data-penglai-im-live|data-penglai-im-implemented/);
   assert.doesNotMatch(client, /0\.5\.7 可用|Available in 0\.5\.7/);
   assert.match(client, /data-penglai-im-advanced/);
+  assert.match(client, /function safeTransportObservation/);
+  assert.match(client, /data-penglai-im-safe-transport/);
+  assert.match(client, /data-penglai-im-safe-transport-reference/);
+  assert.match(client, /Safe response observation \(not a root-cause claim\)/);
+  assert.match(client, /安全响应观测（不代表根因）/);
+  assert.doesNotMatch(client, /transport\.(?:url|headers|body|authorization)/);
   assert.match(client, /displayName/);
 });
