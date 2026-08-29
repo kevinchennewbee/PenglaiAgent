@@ -224,6 +224,37 @@ export function createProductionBudgetService(ctx: CordisContextLike, ledger: Bu
         now(),
       );
     },
+    reserveAuxiliary(input: {
+      operationId: string;
+      provider: string;
+      model: string;
+      workspaceId?: string;
+      estimatedTokens: number;
+    }) {
+      ledger.admit(
+        {
+          reservationKey: `aux:${input.operationId}`,
+          estimatedTokens: input.estimatedTokens,
+          identity: {
+            provider: input.provider,
+            model: input.model,
+            ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+          },
+        },
+        now(),
+      );
+    },
+    settleAuxiliary(input: { operationId: string; tokens: number }) {
+      return ledger.settle(
+        `aux:${input.operationId}`,
+        { tokens: input.tokens, priceTrusted: false },
+        now(),
+        "official-token-meter:auxiliary",
+      );
+    },
+    releaseAuxiliary(input: { operationId: string; reason: string }) {
+      return ledger.releaseReservation(`aux:${input.operationId}`, input.reason);
+    },
     resourceSnapshot() {
       return {
         workers: 0,

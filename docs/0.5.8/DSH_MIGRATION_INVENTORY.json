@@ -116,7 +116,7 @@
         "workspaceRegistry"
       ],
       "files": {
-        "packages/budget/src/budget.test.ts": 3,
+        "packages/budget/src/budget.test.ts": 4,
         "packages/budget/src/index.ts": 4,
         "packages/budget/src/owner-policy.test.ts": 1,
         "packages/budget/src/remote.ts": 2,
@@ -131,7 +131,7 @@
         "packages/im/src/im.test.ts": 1,
         "packages/im/src/index.ts": 1,
         "packages/memory/src/index.ts": 11,
-        "packages/memory/src/memory.test.ts": 2,
+        "packages/memory/src/memory.test.ts": 3,
         "packages/memory/src/remote.ts": 3,
         "packages/memory/src/tools.test.ts": 1,
         "packages/memory/src/tools.ts": 2,
@@ -217,17 +217,23 @@
     ]
   },
   "memoryCurator": {
-    "state": "SOURCE_INTERNAL_QUEUE_AND_DIRECT_OFFICIAL_LLM_FIXED",
+    "state": "SOURCE_INTERNAL_QUEUE_BUDGET_AND_REDACTED_AUDIT_FIXED",
     "sourceFiles": [
       "packages/memory/src/index.ts",
       "packages/memory/src/turn-pipeline.ts",
       "packages/memory/src/v2/internal-curator.ts",
+      "packages/memory/src/v2/candidates.ts",
+      "packages/budget/src/index.ts",
+      "packages/budget/src/ledger.ts",
       "packages/dsh-bridge/src/r56-memory-curator-spike.ts"
     ],
     "testFiles": [
       "packages/memory/src/memory.test.ts",
       "packages/memory/src/turn-pipeline.test.ts",
       "packages/memory/src/v2/internal-curator.test.ts",
+      "packages/memory/src/v2/candidates.test.ts",
+      "packages/budget/src/budget.test.ts",
+      "packages/budget/src/ledger-release.test.ts",
       "packages/dsh-bridge/src/r56-memory-curator-spike.test.ts"
     ],
     "fixedAlphaSourceEvidence": {
@@ -248,15 +254,16 @@
       "exact Workspace, Session, and Turn identity in every internal job key",
       "single-flight execution with at most eight active plus queued jobs",
       "duplicate Turns collapse and overload fails open",
-      "45 second abort deadline and plugin teardown cancellation",
+      "45 second timeout with at most one fresh-signal retry and plugin teardown cancellation",
       "Workspace ownership is rechecked before model execution and before commit",
       "curator failure never blocks or changes the official user Turn",
+      "optional Budget reserves 4000 tokens before each direct call, settles exact official usage, and releases failed reservations",
+      "only closed transient provider or timeout failures retry and the global attempt cap is two",
+      "bounded 256-row audit stores only operation digest, closed outcome, closed code, attempt, and timestamp",
       "alpha.1 Jobs are rejected because owned and unowned jobs are user or model visible"
     ],
     "remainingEvidence": [
       "reconcile official alpha.1 npm declarations and runtime exports against the fixed source",
-      "account auxiliary curator usage when the optional Penglai Budget plugin is active",
-      "persist bounded redacted curator failure and retry diagnostics",
       "prove restart cleanup and zero hierarchy pollution in a packaged installed build",
       "prove live provider success and Workspace isolation without retaining private content"
     ]

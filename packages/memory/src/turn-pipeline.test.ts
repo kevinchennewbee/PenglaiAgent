@@ -6,7 +6,9 @@ import test from "node:test";
 import { CallId } from "@deepseek-ai/dsh-llm";
 import { MemoryV2Store } from "./v2/candidates.js";
 import {
+  curatorUsageTokens,
   ingestOfficialTurn,
+  MemoryCuratorFailure,
   resolveSessionTurn,
   runHostCurator,
   runOfficialLlmCurator,
@@ -127,12 +129,14 @@ test("official DSH user/message inherits its turn and data.content is curated", 
 
 test("memory curator uses one official LLM request without Session or tools", async () => {
   const calls: Array<Record<string, unknown>> = [];
+  const usage: number[] = [];
   const raw = await runOfficialLlmCurator({
     llm: {
       stream(options) {
         calls.push(options as unknown as Record<string, unknown>);
         return (async function* () {
           yield { type: "text-delta" as const, index: 0, text: '{"candidates":[]}' };
+          yield { type: "usage" as const, usage: { inputTokens: 12, outputTokens: 3 } };
           yield { type: "finish" as const, reason: { kind: "stop" as const } };
         })();
       },
@@ -141,55 +145,93 @@ test("memory curator uses one official LLM request without Session or tools", as
     model: "deepseek-chat",
     summary: "user:\nhello\nassistant:\nhi",
     signal: new AbortController().signal,
+    onUsage: (tokens) => usage.push(tokens),
   });
   assert.deepEqual(JSON.parse(raw), { candidates: [] });
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.sessionId, undefined);
   assert.deepEqual(calls[0]?.tools, []);
+  assert.deepEqual(usage, [15]);
   const message = (calls[0]?.messages as Array<{ source?: unknown }>)[0];
   assert.deepEqual(message?.source, { kind: "plugin", plugin: "@penglai/memory" });
 });
 
 test("memory curator rejects late tool blocks and an already-aborted request", async () => {
-  const toolBlock = await runOfficialLlmCurator({
-    llm: {
-      stream() {
-        return (async function* () {
-          yield {
-            type: "block-end" as const,
-            index: 0,
-            block: { type: "tool-call" as const, id: CallId("call-1"), name: "bash", arguments: "{}" },
-          };
-          yield { type: "finish" as const, reason: { kind: "stop" as const } };
-        })();
+  await assert.rejects(
+    () => runOfficialLlmCurator({
+      llm: {
+        stream() {
+          return (async function* () {
+            yield {
+              type: "block-end" as const,
+              index: 0,
+              block: { type: "tool-call" as const, id: CallId("call-1"), name: "bash", arguments: "{}" },
+            };
+            yield { type: "finish" as const, reason: { kind: "stop" as const } };
+          })();
+        },
       },
-    },
-    provider: "deepseek-official",
-    model: "deepseek-chat",
-    summary: "user:\nhello\nassistant:\nhi",
-    signal: new AbortController().signal,
-  });
-  assert.equal(toolBlock, "not-json");
+      provider: "deepseek-official",
+      model: "deepseek-chat",
+      summary: "user:\nhello\nassistant:\nhi",
+      signal: new AbortController().signal,
+    }),
+    (error: unknown) => error instanceof MemoryCuratorFailure && error.code === "PROTOCOL" && !error.retryable,
+  );
 
   const controller = new AbortController();
   controller.abort();
   let entered = false;
-  const aborted = await runOfficialLlmCurator({
-    llm: {
-      stream() {
-        entered = true;
-        return (async function* () {
-          yield { type: "finish" as const, reason: { kind: "stop" as const } };
-        })();
+  await assert.rejects(
+    () => runOfficialLlmCurator({
+      llm: {
+        stream() {
+          entered = true;
+          return (async function* () {
+            yield { type: "finish" as const, reason: { kind: "stop" as const } };
+          })();
+        },
       },
-    },
-    provider: "deepseek-official",
-    model: "deepseek-chat",
-    summary: "user:\nhello\nassistant:\nhi",
-    signal: controller.signal,
-  });
-  assert.equal(aborted, "not-json");
+      provider: "deepseek-official",
+      model: "deepseek-chat",
+      summary: "user:\nhello\nassistant:\nhi",
+      signal: controller.signal,
+    }),
+    (error: unknown) => error instanceof MemoryCuratorFailure && error.code === "CANCELLED" && !error.retryable,
+  );
   assert.equal(entered, false);
+});
+
+test("memory curator exposes only closed transient failures and counts both DSH usage shapes", async () => {
+  assert.equal(curatorUsageTokens({ inputTokens: 10, outputTokens: 4, cacheReadTokens: 3 }), 17);
+  assert.equal(curatorUsageTokens({ inputTokens: 999, outputTokens: 999, totalTokens: 21 }), 21);
+  await assert.rejects(
+    () => runOfficialLlmCurator({
+      llm: {
+        stream() {
+          return (async function* () {
+            yield {
+              type: "finish" as const,
+              reason: {
+                kind: "error" as const,
+                failure: { code: "RATE_LIMIT", message: "private provider detail" },
+              },
+            };
+          })();
+        },
+      },
+      provider: "deepseek-official",
+      model: "deepseek-chat",
+      summary: "private turn text",
+      signal: new AbortController().signal,
+    }),
+    (error: unknown) =>
+      error instanceof MemoryCuratorFailure &&
+      error.code === "RATE_LIMIT" &&
+      error.retryable &&
+      !error.message.includes("private provider detail") &&
+      !error.message.includes("private turn text"),
+  );
 });
 
 test("memory apply subscribes to turn/end without creating curator Agents or Sessions", async () => {

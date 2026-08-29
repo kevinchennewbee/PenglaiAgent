@@ -26,7 +26,7 @@ import { migrateJournalToV2 } from "./v2/migrate.js";
 import { MEMORY_OWNER_ACTIONS } from "./v2/owner.js";
 import { proposeMemoryAction, reserveMemoryOwnerProof, type MemoryOwnerBrokerPort } from "./v2/owner-adapter.js";
 import { InternalCuratorQueue, internalCuratorJobKey } from "./v2/internal-curator.js";
-import { ingestOfficialTurn, resolveSessionTurn, runOfficialLlmCurator, sessionEventParts, turnSourceDigest, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
+import { CURATOR_ESTIMATED_TOKENS, MemoryCuratorFailure, classifyMemoryCuratorFailure, ingestOfficialTurn, resolveSessionTurn, runOfficialLlmCurator, sessionEventParts, turnSourceDigest, turnSummary, withMemoryRecall, workspaceIdForSession } from "./turn-pipeline.js";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 
@@ -54,9 +54,39 @@ interface CordisContextLike {
     get(id: string): OfficialAgentLike | undefined;
   };
   llm?: Pick<LlmRuntime, "stream">;
+  penglaiBudget?: MemoryBudgetServiceLike;
+  get?: (name: string, strict?: boolean) => unknown;
   provide?: (name: string, service: unknown) => unknown;
   effect?: (setup: () => () => void) => unknown;
   on?: (event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>) => unknown;
+}
+
+interface MemoryBudgetServiceLike {
+  reserveAuxiliary(input: {
+    operationId: string;
+    provider: string;
+    model: string;
+    workspaceId?: string;
+    estimatedTokens: number;
+  }): void;
+  settleAuxiliary(input: { operationId: string; tokens: number }): boolean;
+  releaseAuxiliary(input: { operationId: string; reason: string }): boolean;
+}
+
+function optionalBudget(ctx: CordisContextLike): MemoryBudgetServiceLike | undefined {
+  if (typeof ctx.get === "function") {
+    return ctx.get("penglaiBudget", true) as MemoryBudgetServiceLike | undefined;
+  }
+  return ctx.penglaiBudget;
+}
+
+function budgetFailure(error: unknown): MemoryCuratorFailure {
+  return new MemoryCuratorFailure(
+    (error as { code?: unknown } | undefined)?.code === "SECURITY_POLICY"
+      ? "BUDGET_BLOCKED"
+      : "BUDGET_ACCOUNTING",
+    false,
+  );
 }
 
 export interface SopPromotion {
@@ -567,10 +597,13 @@ export function createDurableMemoryService(opts: {
       if (closed) return;
       closed = true;
       try {
-        engine.close();
-        v2.close();
-      } finally {
         opts.onClose?.();
+      } finally {
+        try {
+          engine.close();
+        } finally {
+          v2.close();
+        }
       }
     },
     resourceSnapshot() {
@@ -601,8 +634,17 @@ export function apply(ctx: CordisContextLike) {
   const sources = applyEmbeddedMemorySources(ctx);
   const sourcesApi = createContextSettingsApi(sources, userData, workspaceRegistry);
   const owner = new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) });
-  const curatorQueue = new InternalCuratorQueue();
   let service: ReturnType<typeof createDurableMemoryService> | undefined;
+  const curatorQueue = new InternalCuratorQueue({
+    observe: (event) => {
+      service?.memoryV2.recordCuratorAudit({
+        operationKey: event.key,
+        outcome: event.outcome,
+        code: event.code,
+        attempt: event.attempt,
+      });
+    },
+  });
   try {
     service = createDurableMemoryService({
       userData,
@@ -641,23 +683,68 @@ export function apply(ctx: CordisContextLike) {
       if (activeService.memoryV2.turnAlreadyProcessed(parts.sessionId, turnId, sourceDigest)) return;
       const route = agents.get(parts.sessionId)?.options;
       if (!route?.provider || !route.model) return;
+      const jobKey = internalCuratorJobKey({ workspaceId, sessionId: parts.sessionId, turnId });
+      const operationId = createHash("sha256").update(jobKey).digest("hex");
       curatorQueue.enqueue({
-        key: internalCuratorJobKey({ workspaceId, sessionId: parts.sessionId, turnId }),
-        execute: (signal) => {
+        key: jobKey,
+        maxAttempts: 2,
+        classifyFailure: classifyMemoryCuratorFailure,
+        execute: async (signal, attempt) => {
           if (workspaceIdForSession(workspaceRegistry.list(), parts.sessionId!) !== workspaceId) {
-            throw new PenglaiError("SECURITY_POLICY", "memory curator Workspace changed before execution");
+            throw new MemoryCuratorFailure("WORKSPACE_CHANGED", false);
           }
-          return runOfficialLlmCurator({
-            llm,
-            provider: route.provider!,
-            model: route.model!,
-            summary,
-            signal,
-          });
+          const budget = optionalBudget(ctx);
+          const attemptOperationId = `${operationId}:${attempt}`;
+          let reserved = false;
+          let settled = false;
+          try {
+            if (budget) {
+              try {
+                budget.reserveAuxiliary({
+                  operationId: attemptOperationId,
+                  provider: route.provider!,
+                  model: route.model!,
+                  workspaceId,
+                  estimatedTokens: CURATOR_ESTIMATED_TOKENS,
+                });
+                reserved = true;
+              } catch (error: unknown) {
+                throw budgetFailure(error);
+              }
+            }
+            return await runOfficialLlmCurator({
+              llm,
+              provider: route.provider!,
+              model: route.model!,
+              summary,
+              signal,
+              onUsage: (tokens) => {
+                if (!budget) return;
+                try {
+                  if (!budget.settleAuxiliary({ operationId: attemptOperationId, tokens })) {
+                    throw new Error("missing auxiliary reservation");
+                  }
+                  settled = true;
+                } catch (error: unknown) {
+                  throw budgetFailure(error);
+                }
+              },
+            });
+          } finally {
+            if (budget && reserved && !settled) {
+              try {
+                budget.releaseAuxiliary({ operationId: attemptOperationId, reason: "memory_curator_failed" });
+              } catch {
+                // Queue failure audit remains authoritative; cleanup is best effort.
+              }
+            }
+          }
         },
         commit: async (raw) => {
-          if (workspaceIdForSession(workspaceRegistry.list(), parts.sessionId!) !== workspaceId) return;
-          await ingestOfficialTurn({
+          if (workspaceIdForSession(workspaceRegistry.list(), parts.sessionId!) !== workspaceId) {
+            throw new MemoryCuratorFailure("WORKSPACE_CHANGED", false);
+          }
+          const result = await ingestOfficialTurn({
             store: activeService.memoryV2,
             workspaceId,
             sessionId: parts.sessionId!,
@@ -666,6 +753,7 @@ export function apply(ctx: CordisContextLike) {
             summary,
             persist: (candidate) => activeService.materializeCandidate(candidate),
           });
+          if (result.failOpen) throw new MemoryCuratorFailure("OUTPUT_INVALID", false);
         },
       });
     });

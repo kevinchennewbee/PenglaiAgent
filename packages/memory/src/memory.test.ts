@@ -174,6 +174,7 @@ test("Memory apply curates one official Turn internally without creating a Sessi
               }],
             }),
           };
+          yield { type: "usage" as const, usage: { inputTokens: 20, outputTokens: 8 } };
           yield { type: "finish" as const, reason: { kind: "stop" as const } };
         })();
       },
@@ -217,6 +218,107 @@ test("Memory apply curates one official Turn internally without creating a Sessi
     emit({ id: "s1" }, { type: "turn/end", data: { turn: 7 } });
     await new Promise<void>((resolveWait) => setTimeout(resolveWait, 20));
     assert.equal(llmCalls.length, 1, "duplicate official Turn must not create a second curator call");
+  } finally {
+    svc?.close?.();
+    if (previousUserData === undefined) delete process.env.PENGLAI_USER_DATA;
+    else process.env.PENGLAI_USER_DATA = previousUserData;
+    if (previousBin === undefined) delete process.env.PENGLAI_MNEMON_BINARY;
+    else process.env.PENGLAI_MNEMON_BINARY = previousBin;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Memory curator reserves Budget, retries one closed transient failure, and persists redacted audit", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "penglai-mem-curator-budget-"));
+  const previousUserData = process.env.PENGLAI_USER_DATA;
+  const previousBin = process.env.PENGLAI_MNEMON_BINARY;
+  process.env.PENGLAI_USER_DATA = dir;
+  delete process.env.PENGLAI_MNEMON_BINARY;
+  const listeners = new Map<string, (...args: unknown[]) => unknown>();
+  const budgetCalls: Array<{ kind: string; operationId: string; tokens?: number; reason?: string }> = [];
+  const budget = {
+    reserveAuxiliary(input: { operationId: string; estimatedTokens: number }) {
+      assert.equal(input.estimatedTokens, 4_000);
+      budgetCalls.push({ kind: "reserve", operationId: input.operationId });
+    },
+    settleAuxiliary(input: { operationId: string; tokens: number }) {
+      budgetCalls.push({ kind: "settle", operationId: input.operationId, tokens: input.tokens });
+      return true;
+    },
+    releaseAuxiliary(input: { operationId: string; reason: string }) {
+      budgetCalls.push({ kind: "release", operationId: input.operationId, reason: input.reason });
+      return true;
+    },
+  };
+  let attempts = 0;
+  const ctx = {
+    skills: { snapshot: async () => ({ skills: [], complete: true }) },
+    workspaceRegistry: {
+      list: () => [{ id: "w1", title: "Workspace", path: join(dir, "workspace"), sessionIds: ["s1"] }],
+    },
+    agents: {
+      get: (id: string) => id === "s1"
+        ? { options: { provider: "deepseek-official", model: "deepseek-chat" } }
+        : undefined,
+    },
+    llm: {
+      stream() {
+        attempts += 1;
+        const attempt = attempts;
+        return (async function* () {
+          if (attempt === 1) {
+            yield {
+              type: "finish" as const,
+              reason: {
+                kind: "error" as const,
+                failure: { code: "RATE_LIMIT", message: "private provider trace" },
+              },
+            };
+            return;
+          }
+          yield { type: "text-delta" as const, index: 0, text: '{"candidates":[]}' };
+          yield { type: "usage" as const, usage: { inputTokens: 11, outputTokens: 2 } };
+          yield { type: "finish" as const, reason: { kind: "stop" as const } };
+        })();
+      },
+    },
+    tools: { register() {} },
+    provide() {},
+    get(name: string) {
+      return name === "penglaiBudget" ? budget : undefined;
+    },
+    on(event: string, listener: (...args: unknown[]) => unknown) {
+      listeners.set(event, listener);
+    },
+  };
+  let svc: ReturnType<typeof apply> | undefined;
+  try {
+    svc = apply(ctx);
+    const emit = listeners.get("session/event");
+    assert.ok(emit);
+    emit({ id: "s1" }, { type: "turn/start", data: { turn: 9 } });
+    emit({ id: "s1" }, { type: "user/message", data: { content: [{ type: "text", text: "private turn text" }] } });
+    emit({ id: "s1" }, { type: "turn/end", data: { turn: 9 } });
+
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && (attempts !== 2 || svc.resourceSnapshot().workers !== 0)) {
+      await new Promise<void>((resolveWait) => setTimeout(resolveWait, 5));
+    }
+    assert.equal(attempts, 2);
+    assert.equal(svc.resourceSnapshot().workers, 0);
+    assert.deepEqual(budgetCalls.map((row) => row.kind), ["reserve", "release", "reserve", "settle"]);
+    assert.equal(budgetCalls[0]?.operationId.endsWith(":1"), true);
+    assert.equal(budgetCalls[1]?.operationId, budgetCalls[0]?.operationId);
+    assert.equal(budgetCalls[1]?.reason, "memory_curator_failed");
+    assert.equal(budgetCalls[2]?.operationId.endsWith(":2"), true);
+    assert.equal(budgetCalls[3]?.operationId, budgetCalls[2]?.operationId);
+    assert.equal(budgetCalls[3]?.tokens, 13);
+    const audit = svc.memoryV2.listCuratorAudit();
+    assert.deepEqual(audit.map((row) => [row.outcome, row.code, row.attempt]), [
+      ["completed", "OK", 2],
+      ["retrying", "RATE_LIMIT", 1],
+    ]);
+    assert.doesNotMatch(JSON.stringify(audit), /private provider trace|private turn text|private-session/);
   } finally {
     svc?.close?.();
     if (previousUserData === undefined) delete process.env.PENGLAI_USER_DATA;

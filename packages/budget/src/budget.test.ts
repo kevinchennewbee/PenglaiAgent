@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { apply, BudgetGate } from "./index.js";
+import { apply, BudgetGate, createProductionBudgetService } from "./index.js";
 import { createBudgetSettingsApi } from "./remote.js";
 
 test("Budget blocks new Turns at the hard limit and ignores clock rollback", () => {
@@ -39,6 +39,46 @@ test("R50-BUDGET: durable ledger survives restart and still blocks", async () =>
     ledger.close();
   }
   rmSync(dir, { recursive: true, force: true });
+});
+
+test("production Budget accounts auxiliary model calls without an Agent or Turn", async () => {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { BudgetLedger } = await import("./ledger.js");
+  const dir = mkdtempSync(join(tmpdir(), "penglai-budget-aux-service-"));
+  const ledger = new BudgetLedger(join(dir, "budget.sqlite3"));
+  const listeners = new Map<string, (...args: unknown[]) => unknown>();
+  const service = createProductionBudgetService({
+    tokenMeter: { measure: () => ({ totalTokens: 1 }) },
+    agents: { list: () => [] },
+    workspaceRegistry: { list: () => [] },
+    on: (event: string, listener: (...args: unknown[]) => unknown) => listeners.set(event, listener),
+  }, ledger, () => Date.parse("2026-08-29T00:00:00.000Z"));
+  try {
+    service.reserveAuxiliary({
+      operationId: "digest:1",
+      provider: "deepseek-official",
+      model: "deepseek-chat",
+      workspaceId: "w1",
+      estimatedTokens: 4_000,
+    });
+    assert.equal(service.status().reservedTokens, 4_000);
+    assert.equal(service.settleAuxiliary({ operationId: "digest:1", tokens: 29 }), true);
+    assert.equal(service.status().tokens, 29);
+    assert.equal(service.status().reservedTokens, 0);
+    service.reserveAuxiliary({
+      operationId: "digest:2",
+      provider: "deepseek-official",
+      model: "deepseek-chat",
+      estimatedTokens: 4_000,
+    });
+    assert.equal(service.releaseAuxiliary({ operationId: "digest:2", reason: "memory_curator_failed" }), true);
+    assert.equal(service.status().reservedTokens, 0);
+  } finally {
+    service.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("R50-BUDGET-001..005 production plugin gates the resolved official route and records actual usage", async () => {

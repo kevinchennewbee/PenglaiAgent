@@ -367,6 +367,43 @@ export class BudgetLedger {
     });
   }
 
+  releaseReservation(reservationKey: string, reason: string): boolean {
+    if (!reservationKey.trim() || !/^[a-z0-9:@._-]{1,200}$/i.test(reason)) {
+      throw new PenglaiError("INVALID_INPUT", "budget reservation release identity invalid");
+    }
+    return this.inTransaction(() => {
+      const row = this.db
+        .prepare(
+          `SELECT reservation_key AS reservationKey,day,workspace_id AS workspaceId,provider,model,estimated_tokens AS estimatedTokens
+           FROM budget_reservations WHERE reservation_key=?`,
+        )
+        .get(reservationKey) as {
+        reservationKey: string;
+        day: string;
+        workspaceId: string | null;
+        provider: string;
+        model: string;
+        estimatedTokens: number;
+      } | undefined;
+      if (!row) return false;
+      this.db.prepare(
+        `INSERT OR IGNORE INTO budget_releases(reservation_key,day,workspace_id,provider,model,estimated_tokens,released_at,reason)
+         VALUES (?,?,?,?,?,?,?,?)`,
+      ).run(
+        row.reservationKey,
+        row.day,
+        row.workspaceId,
+        row.provider,
+        row.model,
+        row.estimatedTokens,
+        new Date().toISOString(),
+        reason,
+      );
+      this.db.prepare("DELETE FROM budget_reservations WHERE reservation_key=?").run(reservationKey);
+      return true;
+    });
+  }
+
   releaseTurn(sessionId: string, turn: number, reason = "turn-end"): number {
     const prefix = `${sessionId}:${turn}:`;
     return this.inTransaction(() => {

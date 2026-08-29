@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createUserMessage, type LlmRuntime } from "@deepseek-ai/dsh-llm";
+import { createUserMessage, type LlmRuntime, type TokenUsage } from "@deepseek-ai/dsh-llm";
 import { ingestCuratorOutput } from "./v2/curator.js";
 import type { MemoryCandidateV1, MemoryV2Store } from "./v2/candidates.js";
 
@@ -27,6 +27,56 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 export const CURATOR_PROMPT =
   "Extract at most 8 closed JSON candidates for Penglai Memory. Return only {\"candidates\":[...]} with keys kind,text,rationale,sensitivity,confidence,suggestedScope. Do not invent secrets. Input:\n";
 export const CURATOR_OUTPUT_MAX_BYTES = 32_768;
+export const CURATOR_ESTIMATED_TOKENS = 4_000;
+
+const RETRYABLE_CURATOR_CODES = new Set(["RATE_LIMIT", "SERVER", "TIMEOUT", "TRANSPORT", "EMPTY_RESPONSE"]);
+
+export class MemoryCuratorFailure extends Error {
+  override readonly name = "MemoryCuratorFailure";
+
+  constructor(
+    readonly code:
+      | "RATE_LIMIT"
+      | "SERVER"
+      | "TIMEOUT"
+      | "TRANSPORT"
+      | "EMPTY_RESPONSE"
+      | "OUTPUT_INVALID"
+      | "PROTOCOL"
+      | "BUDGET_BLOCKED"
+      | "BUDGET_ACCOUNTING"
+      | "WORKSPACE_CHANGED"
+      | "CANCELLED"
+      | "PROVIDER_TERMINAL"
+      | "UNKNOWN",
+    readonly retryable: boolean,
+  ) {
+    super(`memory curator ${code.toLowerCase()}`);
+  }
+}
+
+export function classifyMemoryCuratorFailure(error: unknown): { code: string; retry: boolean } {
+  return error instanceof MemoryCuratorFailure
+    ? { code: error.code, retry: error.retryable }
+    : { code: "UNKNOWN", retry: false };
+}
+
+export function curatorUsageTokens(usage: TokenUsage): number {
+  const alphaTotal = (usage as TokenUsage & { totalTokens?: number }).totalTokens;
+  if (alphaTotal !== undefined) {
+    if (!Number.isSafeInteger(alphaTotal) || alphaTotal < 0) throw new MemoryCuratorFailure("PROTOCOL", false);
+    return alphaTotal;
+  }
+  const fields = [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens];
+  let total = 0;
+  for (const field of fields) {
+    if (field === undefined) continue;
+    if (!Number.isSafeInteger(field) || field < 0) throw new MemoryCuratorFailure("PROTOCOL", false);
+    total += field;
+  }
+  if (!Number.isSafeInteger(total)) throw new MemoryCuratorFailure("PROTOCOL", false);
+  return total;
+}
 
 export async function runHostCurator(input: {
   summary: string;
@@ -48,13 +98,14 @@ export async function runOfficialLlmCurator(input: {
   model: string;
   summary: string;
   signal: AbortSignal;
+  onUsage?: (tokens: number) => void;
 }): Promise<string> {
-  return runHostCurator({
-    summary: input.summary,
-    generate: async (prompt) => {
+  const prompt = `${CURATOR_PROMPT}${input.summary}`;
+  try {
       input.signal.throwIfAborted();
       let raw = "";
       let finished = false;
+      let usageSeen = false;
       for await (const chunk of input.llm.stream({
         provider: input.provider,
         model: input.model,
@@ -69,26 +120,44 @@ export async function runOfficialLlmCurator(input: {
         maxTokens: 1200,
         signal: input.signal,
       })) {
-        if (finished) throw new Error("memory curator emitted data after finish");
-        if (chunk.type === "tool-call-delta") throw new Error("memory curator emitted a tool call");
+        if (finished) throw new MemoryCuratorFailure("PROTOCOL", false);
+        if (chunk.type === "tool-call-delta") throw new MemoryCuratorFailure("PROTOCOL", false);
         if (chunk.type === "block-end" && chunk.block.type === "tool-call") {
-          throw new Error("memory curator emitted a tool call block");
+          throw new MemoryCuratorFailure("PROTOCOL", false);
         }
         if (chunk.type === "text-delta") {
           raw += chunk.text;
           if (Buffer.byteLength(raw, "utf8") > CURATOR_OUTPUT_MAX_BYTES) {
-            throw new Error("memory curator output exceeded limit");
+            throw new MemoryCuratorFailure("OUTPUT_INVALID", false);
           }
         }
+        if (chunk.type === "usage") {
+          if (usageSeen) throw new MemoryCuratorFailure("PROTOCOL", false);
+          usageSeen = true;
+          input.onUsage?.(curatorUsageTokens(chunk.usage));
+        }
         if (chunk.type === "finish") {
-          if (chunk.reason.kind !== "stop") throw new Error(`memory curator finish ${chunk.reason.kind}`);
+          if (chunk.reason.kind !== "stop") {
+            if (chunk.reason.kind === "aborted") throw new MemoryCuratorFailure("CANCELLED", false);
+            if (chunk.reason.kind === "error") {
+              const code = String(chunk.reason.failure.code ?? "").toUpperCase();
+              if (RETRYABLE_CURATOR_CODES.has(code)) {
+                throw new MemoryCuratorFailure(code as "RATE_LIMIT" | "SERVER" | "TIMEOUT" | "TRANSPORT" | "EMPTY_RESPONSE", true);
+              }
+            }
+            throw new MemoryCuratorFailure("PROVIDER_TERMINAL", false);
+          }
           finished = true;
         }
       }
-      if (!finished) throw new Error("memory curator stream ended without finish");
+      if (!finished || !usageSeen) throw new MemoryCuratorFailure("PROTOCOL", false);
+      if (!raw.trim()) throw new MemoryCuratorFailure("EMPTY_RESPONSE", true);
       return raw;
-    },
-  });
+  } catch (error: unknown) {
+    if (error instanceof MemoryCuratorFailure) throw error;
+    if (input.signal.aborted) throw new MemoryCuratorFailure("CANCELLED", false);
+    throw new MemoryCuratorFailure("TRANSPORT", true);
+  }
 }
 
 export function turnSummary(text: MemoryTurnText): string {
