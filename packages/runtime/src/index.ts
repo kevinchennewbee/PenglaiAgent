@@ -38,7 +38,15 @@ import {
 import { extractTarGz } from "./safe-tar.js";
 import { applyWindowsCredentialAcl, readOwnedWindowsJobReport, spawnOwnedDshProcess } from "./windows-host.js";
 import { writeFileAtomic } from "./permissions.js";
-import { reusableSupervisorPort, shouldRestartAfterExit, supervisorBackoffMs } from "./supervisor-policy.js";
+import {
+  nextSupervisorHealthDecision,
+  reusableSupervisorPort,
+  shouldRestartAfterExit,
+  supervisorBackoffMs,
+  SUPERVISOR_HEALTH_INTERVAL_MS,
+  SUPERVISOR_HEALTH_TIMEOUT_MS,
+  SUPERVISOR_UNHEALTHY_KILL_GRACE_MS,
+} from "./supervisor-policy.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -869,16 +877,44 @@ export function isPenglaiProductTitle(title: string): boolean {
   return /蓬莱|Penglai/.test(title) && !/failed to start/i.test(title);
 }
 
+export interface OfficialDshProbe {
+  status: number;
+  body: string;
+  official: boolean;
+}
+
+export async function probeOfficialDsh(
+  url: string,
+  timeoutMs: number,
+  externalSignal?: AbortSignal,
+): Promise<OfficialDshProbe> {
+  const controller = new AbortController();
+  const abort = (): void => controller.abort();
+  if (externalSignal?.aborted) controller.abort();
+  else externalSignal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(abort, Math.max(1, Math.floor(timeoutMs)));
+  timer.unref?.();
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const body = await res.text();
+    return { status: res.status, body, official: res.status === 200 && isOfficialDshHtml(body) };
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abort);
+  }
+}
+
 export async function waitHttp200(url: string, timeoutMs: number): Promise<{ status: number; body: string }> {
   const start = Date.now();
   let last = 0;
   let body = "";
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(url);
-      last = res.status;
-      body = await res.text();
-      if (res.status === 200 && isOfficialDshHtml(body)) return { status: 200, body };
+      const remaining = Math.max(1, timeoutMs - (Date.now() - start));
+      const probe = await probeOfficialDsh(url, Math.min(SUPERVISOR_HEALTH_TIMEOUT_MS, remaining));
+      last = probe.status;
+      body = probe.body;
+      if (probe.official) return { status: 200, body };
     } catch {
       /* retry */
     }
@@ -1038,8 +1074,14 @@ export function windowsOwnedProcessEnvironment(
   };
 }
 
+export interface EmbeddedDshSupervisorOptions {
+  healthIntervalMs?: number;
+  healthTimeoutMs?: number;
+  unhealthyKillGraceMs?: number;
+}
+
 export class EmbeddedDshSupervisor {
-  state: "stopped" | "starting" | "healthy" | "crashed" | "stopping" = "stopped";
+  state: "stopped" | "starting" | "healthy" | "degraded" | "crashed" | "stopping" = "stopped";
   port = 0;
   child: ChildProcess | undefined;
   restarts = 0;
@@ -1049,6 +1091,12 @@ export class EmbeddedDshSupervisor {
   private lastUser: UserLayout | undefined;
   private lastStartEnv: NodeJS.ProcessEnv = {};
   private restartTimer: ReturnType<typeof setTimeout> | undefined;
+  private healthTimer: ReturnType<typeof setTimeout> | undefined;
+  private unhealthyKillTimer: ReturnType<typeof setTimeout> | undefined;
+  private healthProbeAbort: AbortController | undefined;
+  private healthFailures = 0;
+  private lifecycleGeneration = 0;
+  private lastHealthyInventory: InventoryProof | undefined;
   health:
     | {
         http: number;
@@ -1056,14 +1104,127 @@ export class EmbeddedDshSupervisor {
       }
     | undefined;
 
-  constructor(private readonly layout: RuntimeLayout) {}
+  constructor(
+    private readonly layout: RuntimeLayout,
+    private readonly options: EmbeddedDshSupervisorOptions = {},
+  ) {}
+
+  private boundedOption(value: number | undefined, fallback: number): number {
+    return Number.isFinite(value) ? Math.max(1, Math.floor(value!)) : fallback;
+  }
+
+  private clearHealthMonitoring(): void {
+    if (this.healthTimer) clearTimeout(this.healthTimer);
+    if (this.unhealthyKillTimer) clearTimeout(this.unhealthyKillTimer);
+    this.healthTimer = undefined;
+    this.unhealthyKillTimer = undefined;
+    this.healthProbeAbort?.abort();
+    this.healthProbeAbort = undefined;
+    this.healthFailures = 0;
+  }
+
+  private scheduleHealthProbe(user: UserLayout, generation: number): void {
+    if (generation !== this.lifecycleGeneration) return;
+    if (this.state !== "healthy" && this.state !== "degraded") return;
+    this.healthTimer = setTimeout(() => {
+      this.healthTimer = undefined;
+      void this.runHealthProbe(user, generation);
+    }, this.boundedOption(this.options.healthIntervalMs, SUPERVISOR_HEALTH_INTERVAL_MS));
+    this.healthTimer.unref?.();
+  }
+
+  private async runHealthProbe(user: UserLayout, generation: number): Promise<void> {
+    if (generation !== this.lifecycleGeneration) return;
+    if (this.state !== "healthy" && this.state !== "degraded") return;
+    const controller = new AbortController();
+    this.healthProbeAbort = controller;
+    let healthy = false;
+    try {
+      const probe = await probeOfficialDsh(
+        `http://127.0.0.1:${this.port}/`,
+        this.boundedOption(this.options.healthTimeoutMs, SUPERVISOR_HEALTH_TIMEOUT_MS),
+        controller.signal,
+      );
+      healthy = probe.official;
+    } catch {
+      healthy = false;
+    } finally {
+      if (this.healthProbeAbort === controller) this.healthProbeAbort = undefined;
+    }
+    if (generation !== this.lifecycleGeneration || controller.signal.aborted) return;
+    const decision = nextSupervisorHealthDecision(this.healthFailures, healthy);
+    this.healthFailures = decision.consecutiveFailures;
+    this.state = decision.state;
+    if (healthy && this.lastHealthyInventory) {
+      this.health = { http: 200, inventory: this.lastHealthyInventory };
+    } else if (!healthy) {
+      this.health = undefined;
+    }
+    if (!decision.restart) {
+      this.scheduleHealthProbe(user, generation);
+      return;
+    }
+    this.terminateUnhealthyChild(generation);
+  }
+
+  private terminateUnhealthyChild(generation: number): void {
+    if (generation !== this.lifecycleGeneration || this.state !== "degraded") return;
+    const child = this.child;
+    const identity = this.identity;
+    if (identity) killIdentity(identity, "SIGTERM");
+    else if (child?.pid) killProcessTree(child.pid, "SIGTERM");
+    else {
+      this.scheduleRestartAfterExit(false);
+      return;
+    }
+    this.unhealthyKillTimer = setTimeout(() => {
+      this.unhealthyKillTimer = undefined;
+      if (generation !== this.lifecycleGeneration || this.state !== "degraded" || this.child !== child) return;
+      if (identity) killIdentity(identity, "SIGKILL");
+      else if (child?.pid) killProcessTree(child.pid, "SIGKILL");
+    }, this.boundedOption(this.options.unhealthyKillGraceMs, SUPERVISOR_UNHEALTHY_KILL_GRACE_MS));
+    this.unhealthyKillTimer.unref?.();
+  }
+
+  private scheduleRestartAfterExit(intentional: boolean): void {
+    if (
+      !shouldRestartAfterExit({
+        intentional,
+        state: this.state,
+        stamps: this.restartStamps,
+      })
+    ) {
+      if (!intentional) this.state = "crashed";
+      return;
+    }
+    this.restartStamps.push(Date.now());
+    this.restarts += 1;
+    this.state = "crashed";
+    const user = this.lastUser;
+    if (!user) return;
+    const restartEnv = { ...this.lastStartEnv };
+    const restartPort = this.port;
+    const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = undefined;
+      if (this.state === "stopping" || this.state === "stopped") return;
+      void this.start(user, restartEnv, restartPort).catch(() => {
+        this.state = "crashed";
+      });
+    }, delay);
+    this.restartTimer.unref?.();
+  }
 
   async start(user: UserLayout, env: NodeJS.ProcessEnv = {}, preferredPort?: number): Promise<{ port: number }> {
-    if (this.state === "healthy" || this.state === "starting") return { port: this.port };
+    if (this.state === "healthy" || this.state === "starting" || this.state === "degraded") {
+      return { port: this.port };
+    }
+    this.clearHealthMonitoring();
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = undefined;
     }
+    const generation = ++this.lifecycleGeneration;
     assertAbsoluteExecutable(this.layout.nodeBin, "embedded node");
     assertAbsoluteExecutable(this.layout.dshEntry, "embedded dsh");
     // A supervisor must not launch a runtime whose integrity manifest is
@@ -1082,6 +1243,7 @@ export class EmbeddedDshSupervisor {
     this.logs = "";
     this.health = undefined;
     this.identity = undefined;
+    this.lastHealthyInventory = undefined;
     this.port = reusableSupervisorPort(preferredPort) ?? await freePort();
     const childEnv: NodeJS.ProcessEnv = {
       PATH: "/usr/bin:/bin",
@@ -1169,33 +1331,11 @@ export class EmbeddedDshSupervisor {
       this.logs += String(d);
     });
     this.child.on("exit", () => {
+      if (generation !== this.lifecycleGeneration) return;
       const intentional = this.state === "stopping";
-      if (
-        !shouldRestartAfterExit({
-          intentional,
-          state: this.state,
-          stamps: this.restartStamps,
-        })
-      ) {
-        if (!intentional) this.state = "crashed";
-        return;
-      }
-      this.restartStamps.push(Date.now());
-      this.restarts += 1;
-      this.state = "crashed";
-      const user = this.lastUser;
-      if (!user) return;
-      const restartEnv = { ...this.lastStartEnv };
-      const restartPort = this.port;
-      const delay = supervisorBackoffMs(this.restarts - 1, Math.random());
-      this.restartTimer = setTimeout(() => {
-        this.restartTimer = undefined;
-        if (this.state === "stopping" || this.state === "stopped") return;
-        void this.start(user, restartEnv, restartPort).catch(() => {
-          this.state = "crashed";
-        });
-      }, delay);
-      this.restartTimer.unref?.();
+      this.clearHealthMonitoring();
+      this.health = undefined;
+      this.scheduleRestartAfterExit(intentional);
     });
     try {
       await waitPort(this.port, 25_000);
@@ -1204,7 +1344,9 @@ export class EmbeddedDshSupervisor {
         waitInventory(user, 30_000),
       ]);
       this.health = { http: http.status, inventory };
+      this.lastHealthyInventory = inventory;
       this.state = "healthy";
+      this.scheduleHealthProbe(user, generation);
     } catch (err) {
       this.state = "crashed";
       writeFileSync(join(user.logs, "dsh.stderr.log"), this.logs.slice(-20_000), { mode: 0o600 });
@@ -1215,6 +1357,8 @@ export class EmbeddedDshSupervisor {
   }
 
   async stop(): Promise<void> {
+    this.lifecycleGeneration += 1;
+    this.clearHealthMonitoring();
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = undefined;

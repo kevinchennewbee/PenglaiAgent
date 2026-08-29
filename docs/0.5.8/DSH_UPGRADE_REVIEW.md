@@ -288,10 +288,21 @@ Preview source work now makes the helper wait on both the DSH process handle
 and desktop-owner stdin, with a fail-closed startup handshake for both
 monitoring obligations. The desktop facade also follows the same inner
 supervisor's live state and keeps its proxy-facing port across an automatic
-restart instead of snapshotting stale health or creating a second owner. This
-is Penglai-owned supervision work and does not depend on DSH npm publication.
-It remains source evidence until the helper is compiled and exercised on native
-Windows; port-loss/hang detection is still open.
+restart instead of snapshotting stale health or creating a second owner. A
+non-overlapping, bounded official-document HTTP probe now changes the live state
+to `degraded` on the first failure, recovers without restart after a good probe,
+and terminates the owned process tree after three consecutive failures so the
+existing bounded same-port restart route can recover a lost listener or hung
+server. Probe cancellation is tied to Stop and process exit, and a call to Start
+while degraded cannot create a second owner. These Penglai-owned supervision
+changes do not depend on DSH npm publication.
+
+The real-child integration test proves transient recovery and sustained-hang
+restart locally on macOS, but this remains source evidence. The helper still
+needs compilation and execution on native Windows, and the final probe route
+must be reconciled with alpha.1's one-time browser-token behavior after official
+packages exist. Bounded redacted terminal diagnostics, restart-exhaustion UX,
+and installed orphan proof remain open.
 
 ### 4.13 IM capability truth is not one boolean
 

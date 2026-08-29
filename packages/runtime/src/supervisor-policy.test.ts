@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
   BOOT_PHASES,
+  nextSupervisorHealthDecision,
   redactSupervisorDiagnostic,
   reusableSupervisorPort,
   shouldRestartAfterExit,
@@ -32,6 +33,18 @@ test("R56-CORE-006/007/008 supervisor restart budget and boot phases are explici
   assert.equal(reusableSupervisorPort(12.5), undefined);
   assert.equal(shouldRestartAfterExit({ intentional: true, state: "healthy", stamps: [] }), false);
   assert.equal(shouldRestartAfterExit({ intentional: false, state: "healthy", stamps: [] }), true);
+});
+
+test("supervisor health requires consecutive failures and recovers on a good probe", () => {
+  const first = nextSupervisorHealthDecision(0, false);
+  assert.deepEqual(first, { consecutiveFailures: 1, state: "degraded", restart: false });
+  const recovered = nextSupervisorHealthDecision(first.consecutiveFailures, true);
+  assert.deepEqual(recovered, { consecutiveFailures: 0, state: "healthy", restart: false });
+  const second = nextSupervisorHealthDecision(1, false);
+  assert.equal(second.restart, false);
+  const third = nextSupervisorHealthDecision(second.consecutiveFailures, false);
+  assert.deepEqual(third, { consecutiveFailures: 3, state: "degraded", restart: true });
+  assert.equal(nextSupervisorHealthDecision(0, false, 1).restart, true);
 });
 
 test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
@@ -64,6 +77,10 @@ test("supervisor restart preserves required child paths and stop cancels restart
   assert.match(src, /const restartPort = this\.port/);
   assert.match(src, /this\.start\(user, restartEnv, restartPort\)/);
   assert.match(src, /reusableSupervisorPort\(preferredPort\) \?\? await freePort\(\)/);
+  assert.match(src, /scheduleHealthProbe\(user, generation\)/);
+  assert.match(src, /nextSupervisorHealthDecision\(this\.healthFailures, healthy\)/);
+  assert.match(src, /terminateUnhealthyChild\(generation\)/);
+  assert.match(src, /healthProbeAbort\?\.abort\(\)/);
   assert.match(src, /if \(this\.state === "stopping" \|\| this\.state === "stopped"\) return/);
   assert.match(src, /async stop\(\): Promise<void> \{[\s\S]*clearTimeout\(this\.restartTimer\)/);
 });
