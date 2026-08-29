@@ -1,0 +1,88 @@
+# DSH 0.1.2-alpha.1 migration matrix
+
+> Source baseline: `dsh-v0.1.2-alpha.1` at
+> `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Status values describe preview
+> work, not release completion.
+
+## Upstream seam mapping
+
+| Area | 0.5.7 coupling | Fixed-source owner in alpha.1 | Penglai action now | Package-gated action | Acceptance |
+| --- | --- | --- | --- | --- | --- |
+| Application launch | Electron launches packaged DSH and applies profile/overlay | `dsh` CLI plus named profile and ordered bundles/patches | Characterize current launch, helper ownership, and profile inputs | Recompose exact official packages without a second launcher | Dumped config, first official Turn, restart, no parallel Host |
+| Session create | `ctx.apiProxy.sessions.create` in `@penglai/dsh-bridge` | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session.create` | Freeze bridge behavior and typed failure expectations | Replace ApiProxy call with official Session Remote | Create/adopt exact Workspace Session; reconnect and duplicate request tests |
+| Model catalog | `ctx.apiProxy.sessions.models` | Session Controller `modelCatalog` plus official model-selection projection | Record existing caller and fallback behavior | Adapt returned catalog/selection types | Cold/resumed Session sees routable current model without local registry |
+| Model select | `ctx.apiProxy.sessions.selectModel` | Session Controller `selectModel` | Characterize owner/error/cancellation semantics | Replace old request envelope | Durable projected selection survives restart |
+| Session list/title | Workspace `sessionIds` mapped to `{ id }` | Session Controller list plus Session projection | Add expected title/fallback test design | Consume official projected title | IM chooser uses immutable ID plus official title; no log scraper |
+| Cancel/Stop | Live Agent handle and old HTTP/API route assumptions | Session Controller `cancel` plus cooperative Agent/tool cancellation | Separate core-death from cancellation failures | Wire desktop and client Stop to official Remote | Text, tool, subagent, recovery, and dead-core cases terminate coherently |
+| Workspace | Direct `workspaceRegistry` reads and old ApiProxy surface | Workspace Controller Remote and workspace registry | Inventory all direct reads and scope assumptions | Migrate client/bridge callers | No current-window guessing or cross-Workspace state |
+| Settings | Plugin-specific `@Remote` plus repeated client reads | Settings Controller, typed settings, shared mirror | Inventory every plugin reader and stale-state symptom | Mount through published mirror/client graph | One authoritative state; reconnect and locale changes converge |
+| Remote transport | Penglai plugins already use Typert `@Remote`; old host BFF assumptions remain | API Gateway, API Remotes, owner `TypertRemoteService` controllers | Preserve plugin-owned Remotes; locate ApiProxy-only callers | Regenerate/validate exact client bundles and event allowlist | Typed failures, cancellation, reconnect, no compatibility ApiProxy |
+| Client composition | Eight first-party plugins inject removed `dsh-client-runtime` | Narrow client modules/store/UI packages and typed slots | Assign each client bundle only its required capabilities | Replace manifests after published package exports are known | Every expected client fiber reaches `ACTIVE`; absent/pending is failure |
+| Branding/layout | Exact-hash Web/General/Conversation overlay | Brand, layout, conversation, settings, composer/message slots | Map each overlay hunk to an official slot or explicit gap | Remove or rebase only after published bytes are known | No hidden official theme/locale/models/settings behavior |
+| Plugin inventory | Desired profile plus official rc.2 inventory and polling | Host plugin inventory with pending/loading/active/failed/unloading phases | Preserve signed transaction journal and characterize convergence | Adapt exact inventory Remote/client payloads | Desired, effective, client-fiber, rollback, and terminal state agree |
+| Image intake | Channel download plus current image store assumptions | Attachment service, local provider, Session attachment admission/projection | Fix callback containment and resource diagnostics | Hand validated bytes to official Attachment path | Model-visible durable image fact, replay, compaction, and real model proof |
+| Audio intake | Penglai ASR before a text Turn | No general DSH audio/video Turn support | Keep audio pipeline in ASR plugin; improve phase/error state | Rebind produced text through migrated Session path | Real Feishu voice becomes one official text Turn; no disguised attachment |
+| Session/subagent projection | Memory curator uses user-visible subagent semantics | Official descriptor and projection lifecycle | Design internal-job replacement and characterization tests | Implement against published subagent/job contracts | Genuine subagents remain; curator never pollutes hierarchy or scope |
+| Locale | Penglai client strings plus built overlay assumptions | Third-party locale registration and typed client locale | Inventory raw `mic`, `stop`, `read` and plugin copy | Register through exact published locale package | Fresh Chinese, English, runtime switch, accessible labels |
+| Browser authentication | Secure loopback proxy around existing DSH Web | One-time browser token and changed profile boot | Model token lifecycle and leakage tests | Adapt first navigation/refresh/deep-link to published behavior | Token absent from logs/evidence/renderer and restart recovers |
+| Windows process tree | Electron supervises helper that can outlive child Node | Upstream has lower-level Windows helpers, not Penglai recovery policy | Extract child-exit/health contract and add class-level tests | Reconcile helper selection after package closure | Child death detected, bounded restart, no orphan, coherent degraded state |
+| Identity/build | Pins copied across manifests, scripts, contracts, and runtime | Upstream package set not yet published | Inventory every copy and design equality generator/gate | Freeze exact npm integrities and closure in one commit | One authoritative source; all copies and public artifacts match |
+
+## Direct Penglai DSH consumers
+
+The current source has these direct package-level couplings:
+
+| Penglai package | Direct official packages | Primary migration risk |
+| --- | --- | --- |
+| `@penglai/desktop` | `@deepseek-ai/dsh` | packaged launcher/profile/auth/runtime closure |
+| `@penglai/dsh-bridge` | DSH CLI, Agent, Session, Workspace, LLM, Credentials, Inventory, Typert, client locale/theme/primitives | ApiProxy removal, Session controller types, package graph |
+| `@penglai/memory-sources` | Agent, Tools, Workspace, Typert | scoped model-visible input and Workspace ownership |
+| `@penglai/im` | Credentials, Typert, Cordis | client-runtime removal, Remote graph, channel state truth |
+| `@penglai/plugin-center` | LLM, Typert, Cordis | inventory transaction state and client composition |
+| `@penglai/asr` | Typert, Cordis | settings mirror, composer slot, cancellation |
+| `@penglai/moss-tts` | Typert, Cordis | message/control slots and cancellation |
+| `@penglai/memory` | Typert, Cordis | curator lifecycle, internal job, Workspace scope |
+| `@penglai/office` | Typert, Cordis | owner confirmation, artifact return, client slot |
+| `@penglai/budget` | Typert, Cordis | settings/state mirror and model accounting |
+| `@penglai/companion` | Typert, Cordis | schedule/job ownership and activation diagnosis |
+
+Cordis `4.0.1` is listed separately because it is a framework dependency, not a
+DSH `0.1.2-alpha.1` version pin. Its final compatibility still belongs to the
+published-package reconciliation.
+
+## Immediate source-level decisions
+
+1. Do not add a compatibility ApiProxy. The only ApiProxy bridge is deleted
+   when official Session/Workspace/Settings/Inventory Remotes are integrated.
+2. Do not replace every `@Remote` in Penglai. Plugin-owned typed Remotes remain a
+   valid extension mechanism; only their BFF/client assembly must migrate.
+3. Do not copy upstream generated clients or build output into this repository.
+4. Do not rebase an rc.2 byte overlay speculatively. First map it to official
+   slots; retain only a proven missing seam with a new digest and ADR.
+5. Do not move audio into DSH Attachment. Images and audio keep different
+   ownership and evidence.
+6. Do not hide invalid Memory curator sessions in UI. Change their lifecycle.
+7. Do not use source build success to alter the release identity or lockfile.
+
+## Published-package reconciliation rows
+
+These rows remain deliberately unresolved until official npm publication:
+
+| Question | Required evidence | Fail-closed condition |
+| --- | --- | --- |
+| Is `@deepseek-ai/dsh@0.1.2-alpha.1` official and immutable? | npm metadata, dist integrity, tarball digest, publish time | absent, republished, deprecated without explanation, or source mismatch |
+| Are all direct official packages published? | complete manifest-derived list and successful exact-version resolution | any missing or mixed-version package |
+| Are generated clients present? | tarball export/file inspection and clean consumer import probe | source-only file, missing export, or stale generated declaration |
+| Is the Remote API identical to the fixed source? | declaration/generated artifact comparison plus focused runtime probe | namespace, method, event, error, or cancellation drift |
+| Is the client graph consumable? | package `dsh.client` metadata, exports, clean build, fiber inventory | missing package, injection cycle failure, pending/absent fiber |
+| Is the closure licensable and reproducible? | lock integrity, license/notice/SBOM, clean-clone build | unknown license, mutable source, Git/path fallback, or non-frozen install |
+
+## Current status summary
+
+- Source identity: **FIXED**
+- Upstream clean source install/build: **PASS**
+- Penglai migration inventory: **IN PROGRESS**
+- Independent Penglai fixes: **AUTHORIZED ON PREVIEW**
+- Official npm closure: **BLOCKED — NOT PUBLISHED**
+- DSH dependency change: **NOT STARTED**
+- Native/installed/live/public 0.5.8 evidence: **NOT RUN**

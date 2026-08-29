@@ -1,0 +1,76 @@
+# Penglai 0.5.8 preview work ledger
+
+> Branch: `0.5.8-preview`. Updated: 2026-08-29. A completed source row is not a
+> package, native, installed, live, or public-release pass.
+
+## State vocabulary
+
+- `DONE`: source work and its stated source checks are complete.
+- `IN_PROGRESS`: implementation has started; no completion claim.
+- `READY`: evidence and ownership permit work now.
+- `BLOCKED_NPM`: requires the matching official npm package closure.
+- `BLOCKED_NATIVE`: requires a target-native package or machine.
+- `BLOCKED_OWNER_LIVE`: requires Owner account/credential interaction.
+- `NOT_STARTED`: within scope but not begun.
+
+## Execution ledger
+
+| ID | Work | Evidence class | State | Current result / next gate |
+| --- | --- | --- | --- | --- |
+| P058-001 | Verify repository identity, branch, base, remote, and clean state | Source | DONE | `0.5.8-preview` tracks its remote; base is main `143482bf…` |
+| P058-002 | Fix DSH source baseline | Source | DONE | alpha.1 tag bound to `cd5ef814…`, tree and archive digest recorded |
+| P058-003 | Clean upstream frozen install | Source | DONE | PASS on macOS arm64 with Node 22.22.2/pnpm 11.7.0 |
+| P058-004 | Full upstream source build | Source | DONE | Host, Client, CLI, and Web build PASS |
+| P058-005 | Split source and package gates | Governance | DONE | source work open; DSH dependency integration remains blocked |
+| P058-006 | Upstream-to-Penglai migration matrix | Source/design | DONE | direct consumers and acceptance gates assigned; refine during implementation |
+| P058-007 | Repository asset classification | Source/design | IN_PROGRESS | primary DSH, release, WhatsApp, and independent-fix assets classified |
+| P058-008 | Preview invariant verifier | Source/CI | IN_PROGRESS | protect release/public surfaces and DSH pins; run locally and in preview CI |
+| P058-009 | Enable Source CI on preview branch | Source/CI | IN_PROGRESS | workflow change must remain preview-only until separately reviewed for main |
+| P058-010 | Remove WhatsApp active source and identity | Source | READY | D-062 authorizes removal; preserve 0.5.7 historical docs/assets |
+| P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | READY | regenerate lockfile without changing DSH pins; absence tests required |
+| P058-012 | Contain Feishu asynchronous media callback failures | Source | READY | terminal handler plus regression test; no npm dependency |
+| P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | IN_PROGRESS | bridge Session create/models/select identified; closure assumptions remain |
+| P058-014 | Implement owner Remote migration | Package/source | BLOCKED_NPM | exact published declarations/generated clients required |
+| P058-015 | Map all `dsh-client-runtime` consumers | Source/design | IN_PROGRESS | eight first-party client bundles identified; exact inject graph pending |
+| P058-016 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
+| P058-017 | Overlay-to-slot map | Source/design | NOT_STARTED | inspect every rc.2 overlay hunk against fixed source slots |
+| P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |
+| P058-019 | Packaged DSH child supervision repair | Source/native | READY | source characterization can start; Windows proof remains native-blocked |
+| P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
+| P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
+| P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
+| P058-023 | Memory curator internal-job lifecycle | Source/package | READY | characterize now; final official job/subagent binding may need packages |
+| P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
+| P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
+
+## Protected facts during preview preparation
+
+- `main` and its public bytes are untouched.
+- `v0.5.7`, its ten assets, and existing release metadata are untouched.
+- `release-contract.json` remains the 0.5.7 contract.
+- all active product DSH dependency pins remain `0.1.1-rc.2`.
+- no source checkout, Git URL, copied upstream build, or private tarball enters
+  the Penglai package graph.
+- no pull request, tag, package publish, Release, or website deployment is
+  authorized by this ledger.
+
+## Checkpoint policy
+
+Push a checkpoint to `origin/0.5.8-preview` only when it is internally coherent,
+has focused tests, passes the preview invariant, and does not include unrelated
+owner work. Record the commit and CI result here after remote readback. Do not
+use a partial broken push merely to create activity.
+
+## Publication reconciliation placeholder
+
+When official packages appear, add one dated reconciliation section containing:
+
+- package inventory and integrities;
+- fixed-source equivalence result;
+- generated artifact result;
+- clean frozen-lock result;
+- license/SBOM result;
+- exact migration delta still required; and
+- explicit decision to open or keep closed Gate P0.
+
+This placeholder is not a monitor and is not evidence that publication occurred.

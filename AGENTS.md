@@ -12,6 +12,9 @@
   `release-contract.json`, and the current source are the release truth. Reports
   from another model are leads, not evidence. Do not cite files that do not
   exist.
+- On `0.5.8-preview`, `docs/0.5.8/` and the current preview source additionally
+  govern development work. They are not release truth and must not modify or
+  weaken the published 0.5.7 contract.
 
 ## Product boundary
 
@@ -20,6 +23,11 @@
 - For 0.5.7, the fixed core is DSH `0.1.1-rc.2`. Office and Memory are required,
   bundled DSH plugins. Mobile Messaging, ASR, TTS, and Companion are bundled but
   optional and default off.
+- For 0.5.8 preview development, the Owner-fixed upstream source baseline is
+  lightweight tag `dsh-v0.1.2-alpha.1`, commit
+  `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Until the matching official npm
+  closure exists and is reconciled, product manifests and the lockfile remain
+  on 0.5.7's `0.1.1-rc.2`; source experiments are not package evidence.
 - Plugin Center may install only signed catalog artifacts with exact identity,
   digest, permission, DSH compatibility, and rollback checks. UI state is never
   proof that a plugin is installed or healthy.
@@ -40,6 +48,9 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
+- Preview work may be committed and pushed only to `0.5.8-preview`. Do not merge
+  it to `main`, change a release tag/asset, publish a package, or deploy a public
+  surface without a new explicit Owner authorization.
 
 ## Verification and release
 
@@ -69,6 +80,8 @@
 - 产品宪法、产品与架构文档、验收清单、0.5.7 发布手册、发布契约和当前源码
   才是发布事实；不要引用不存在的状态或计划文件。其他模型的报告只能作为线索，
   不能作为证据。
+- 在 `0.5.8-preview` 上，`docs/0.5.8/` 与当前预览源码同时约束开发；它们不是
+  发布事实，也不得修改或削弱已经公开的 0.5.7 合同。
 
 ## 产品边界
 
@@ -76,6 +89,11 @@
   运行时或第二套会话引擎。
 - 0.5.7 固定 DSH `0.1.1-rc.2`。蓬莱办公与蓬莱记忆为必装、默认启用的 DSH
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
+- 0.5.8 预览开发的 Owner 固定上游源码基线为轻量 tag
+  `dsh-v0.1.2-alpha.1`、commit
+  `cd5ef8148158c3a752a658978873241fdf8e2bbc`。在对应官方 npm 闭包发布并完成
+  核对前，产品 manifest 与 lockfile 继续保持 0.5.7 的 `0.1.1-rc.2`；源码实验
+  不能冒充 package 证据。
 - 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
   UI 显示不等于真实安装或健康。
 - Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联；办公写入、
@@ -87,6 +105,8 @@
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
+- 预览工作只能提交并推送到 `0.5.8-preview`。未经 Owner 新的明确授权，不得合并
+  `main`、修改发布 tag/附件、发布 package 或部署公开页面。
 - 三端安装引导必须完整验证全新安装、重启续跑、返回/重试、非法目录、凭据失败
   恢复、首条官方消息、升级和卸载；三个安装包必须来自同一个干净 main SHA。
 - 发布严格执行 `docs/0.5.7/RELEASE_RUNBOOK.md`，README、官网、发行说明与用户

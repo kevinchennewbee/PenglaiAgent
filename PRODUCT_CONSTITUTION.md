@@ -1,6 +1,6 @@
 # 蓬莱产品宪法
 
-> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。2026-08-28 Owner 进一步决定：**Penglai 永久不再支持、接入、展示、实验或规划 WhatsApp**。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
+> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。2026-08-28 Owner 进一步决定：**Penglai 永久不再支持、接入、展示、实验或规划 WhatsApp**。2026-08-29 Owner 固定 0.5.8 的 DSH 源码基线为 `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`，并授权只在 `0.5.8-preview` 持续开发和推送。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
 
 ## 一句话定义
 
@@ -52,6 +52,8 @@
 - Owner 已授权 0.5.7 开发与 Draft PR；合并、三端原生构建、`v0.5.7` Release、README 观察值和官网部署必须在 Codex 审核与必需门禁通过之后。仍不得把临时 API key、聊天正文、二维码、账号身份、私有路径、profile、凭据或私钥上传到 GitHub、写入 evidence 或安装包。
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
+
+0.5.8 预览开发以官方 DSH 轻量 tag `dsh-v0.1.2-alpha.1` 的精确 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc` 为源码基线。可以在隔离目录验证该源码、完成迁移盘点、特征测试和不依赖新包的蓬莱自有修复；源码构建通过只证明该 commit 的源码可构建。对应官方 npm 包未发布前，不得把 `package.json`、lockfile、closure 或安装包伪装成 0.1.2 集成。官方包出现后必须人工核对 exact version、integrity、生成产物、依赖闭包、许可与固定源码；不建立自动监控。预览提交只能推送 `0.5.8-preview`，不得因此合并 `main`、改变 0.5.7 公共字节、打 tag、发 Release 或部署官网。
 
 ## 反偏航自检
 
