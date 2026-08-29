@@ -84,6 +84,7 @@ use a partial broken push merely to create activity.
 | `3663d2935a6ee653f68901d1df8ff20359613c50` | isolate rc.2-to-alpha.1 DSH Home generation, validation, activation, rejection, and rollback | branch readback PASS; [Source CI 33246379795](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246379795) PASS |
 | `386f368555f64684154e8f38491822541ea227c4` | split bridge composition into Agent, Workspace, and Session owner ports with an rc.2 adapter boundary | branch readback PASS; [Source CI 33246964498](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33246964498) PASS |
 | `65a90a7f48429381021cddebda8846d6ee099e2f` | complete Memory Budget reservation/settlement/release and bounded digest-only curator audit, then correct checkpoint identity | branch readback PASS; [Source CI 33247879601](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33247879601) PASS |
+| `6d593bc60a827ff9382b6792ffd8ab04cb8347af` | replace ambiguous IM support booleans with separate entry, adapter, bundle, connection, release, and capability evidence across all eight channels | branch readback PASS; [Source CI 33248585975](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33248585975) PASS |
 
 ## Publication reconciliation placeholder
 
