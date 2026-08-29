@@ -768,6 +768,66 @@ window.__ModuleLoader__.load({
     const FEISHU_SCOPES = "im:message.p2p_msg:readonly\nim:message:send_as_bot";
     const FEISHU_EVENT = "im.message.receive_v1";
 
+    function ConnectionModal({ channelId, title, onClose, children }) {
+      const t = localeCopy();
+      const headingId = `penglai-im-connect-title-${channelId}`;
+      return jsx.jsx("div", {
+        "data-penglai-im-connect-backdrop": channelId,
+        role: "presentation",
+        style: {
+          position: "fixed",
+          inset: 0,
+          zIndex: 1000,
+          display: "grid",
+          placeItems: "center",
+          padding: "24px",
+          background: "rgba(0, 0, 0, 0.48)",
+        },
+        children: jsx.jsxs("div", {
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": headingId,
+          "data-penglai-im-connect-dialog": channelId,
+          tabIndex: -1,
+          autoFocus: true,
+          onKeyDown: (event) => {
+            if (event.key === "Escape") onClose();
+          },
+          style: {
+            width: "min(680px, 100%)",
+            maxHeight: "min(760px, calc(100vh - 48px))",
+            overflow: "auto",
+            padding: "18px",
+            border: "1px solid var(--dsw-alias-border-l2)",
+            borderRadius: "14px",
+            background: "var(--dsw-alias-bg-module-platform)",
+            boxShadow: "0 20px 70px rgba(0, 0, 0, 0.32)",
+          },
+          children: [
+            jsx.jsxs("div", {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                marginBottom: "12px",
+              },
+              children: [
+                jsx.jsx("h4", { id: headingId, children: title }),
+                jsx.jsx("button", {
+                  type: "button",
+                  "data-penglai-im-connect-close": channelId,
+                  onClick: onClose,
+                  children: t.close,
+                }),
+              ],
+            }),
+            children,
+          ],
+        }),
+      });
+    }
+
     function WeixinPane({ remote, connection, load, kick }) {
       const t = localeCopy();
       const labels = QR_LABEL(t);
@@ -1396,15 +1456,9 @@ window.__ModuleLoader__.load({
         return () => clearInterval(timer);
       }, [operationId, channel.channel, remote, connection, load]);
       return jsx.jsxs("div", {
-        role: "dialog",
-        "aria-modal": "true",
-        "data-penglai-im-connect-dialog": channel.channel,
+        "data-penglai-im-connect-pane": channel.channel,
         style: {
-          marginTop: "12px",
-          padding: "14px",
-          border: "1px solid var(--dsw-alias-border-l2)",
-          borderRadius: "12px",
-          background: "var(--dsw-alias-bg-module-platform)",
+          minWidth: 0,
         },
         children: [
           jsx.jsx("p", { children: t.tokenHint }),
@@ -1528,7 +1582,6 @@ window.__ModuleLoader__.load({
                 .catch((err) => setError(String(err && err.message ? err.message : err))),
             children: t.logout,
           }),
-          jsx.jsx("button", { type: "button", onClick: onClose, children: t.close }),
         ],
       });
     }
@@ -1559,6 +1612,19 @@ window.__ModuleLoader__.load({
         if (id === "weixin") setWeixinKick((n) => n + 1);
         if (id === "feishu") setFeishuKick((n) => n + 1);
       };
+      const selectedChannel = channels.find((row) => row.channel === selected) || {
+        channel: selected,
+        connectionMethods: [],
+      };
+      const selectedManifest = (snap.overview?.manifests || []).find(
+        (row) => row.id === selected,
+      );
+      const selectedNames = selectedManifest?.displayName || {};
+      const selectedTitle = String(
+        (document.documentElement.lang || "zh").startsWith("en")
+          ? selectedNames.en || selected || t.pageTitle
+          : selectedNames.zh || selected || t.pageTitle,
+      );
       return jsx.jsxs("section", {
         "data-penglai-im": "1",
         children: [
@@ -1720,31 +1786,35 @@ window.__ModuleLoader__.load({
                 ],
               })
             : null,
-          selected === "weixin"
-            ? jsx.jsx(WeixinPane, {
-                remote,
-                connection,
-                load,
-                kick: weixinKick,
-              })
-            : null,
-          selected === "feishu"
-            ? jsx.jsx(FeishuPane, {
-                remote,
-                connection,
-                load,
-                appId: String(snap.overview?.feishuAppId ?? ""),
-                ownerKnown: snap.overview?.feishuOwnerKnown === true,
-                kick: feishuKick,
-              })
-            : null,
-          selected && selected !== "weixin" && selected !== "feishu"
-            ? jsx.jsx(ChannelConnectPane, {
-                remote,
-                connection,
-                channel: channels.find((row) => row.channel === selected) || { channel: selected, connectionMethods: [] },
-                load,
+          selected
+            ? jsx.jsx(ConnectionModal, {
+                channelId: selected,
+                title: selectedTitle,
                 onClose: () => setSelected(""),
+                children:
+                  selected === "weixin"
+                    ? jsx.jsx(WeixinPane, {
+                        remote,
+                        connection,
+                        load,
+                        kick: weixinKick,
+                      })
+                    : selected === "feishu"
+                      ? jsx.jsx(FeishuPane, {
+                          remote,
+                          connection,
+                          load,
+                          appId: String(snap.overview?.feishuAppId ?? ""),
+                          ownerKnown: snap.overview?.feishuOwnerKnown === true,
+                          kick: feishuKick,
+                        })
+                      : jsx.jsx(ChannelConnectPane, {
+                          remote,
+                          connection,
+                          channel: selectedChannel,
+                          load,
+                          onClose: () => setSelected(""),
+                        }),
               })
             : null,
           jsx.jsxs("details", {
