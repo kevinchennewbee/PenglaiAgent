@@ -40,6 +40,56 @@ test("session menu is numbered for reply", () => {
   assert.equal(pickFromMenu(menu, 1)?.sessionId, "s1");
 });
 
+test("session menu never exposes an id as the missing-title fallback", () => {
+  const duplicate = "同名会话";
+  const { text, menu } = formatSessionMenu(
+    "工作区",
+    [
+      { id: "session-uuid-1", title: duplicate },
+      { id: "session-uuid-2", title: duplicate },
+      { id: "session-secret-looking-id" },
+      { id: "session-unicode", title: "研究 🩷 漢字" },
+    ],
+    "session-uuid-2",
+    "workspace-1",
+  );
+  assert.match(text, /1\. 同名会话/);
+  assert.match(text, /2\. 同名会话（当前）/);
+  assert.match(text, /3\. 未命名会话 3/);
+  assert.match(text, /4\. 研究 🩷 漢字/);
+  assert.doesNotMatch(text, /session-(?:uuid|secret|unicode)/);
+  assert.deepEqual(
+    menu.choices.map((choice) => choice.sessionId),
+    ["session-uuid-1", "session-uuid-2", "session-secret-looking-id", "session-unicode"],
+  );
+
+  const english = formatSessionMenu(
+    "Workspace",
+    [{ id: "opaque-session" }],
+    undefined,
+    "workspace-1",
+    "en",
+  );
+  assert.match(english.text, /1\. Untitled session 1/);
+  assert.doesNotMatch(english.text, /opaque-session/);
+});
+
+test("many session choices stay bound to their immutable ids", () => {
+  const sessions = Array.from({ length: 150 }, (_, index) => ({
+    id: `session-${index + 1}`,
+    title: index === 149 ? "第一百五十个会话" : `会话 ${index + 1}`,
+  }));
+  const { text, menu } = formatSessionMenu(
+    "大工作区",
+    sessions,
+    "session-150",
+    "workspace-many",
+  );
+  assert.equal(menu.choices.length, 150);
+  assert.equal(pickFromMenu(menu, 150)?.sessionId, "session-150");
+  assert.match(text, /150\. 第一百五十个会话（当前）/);
+});
+
 test("plain digits select a menu item", () => {
   assert.equal(parseMenuPick("2"), 2);
   assert.equal(parseMenuPick("2."), 2);

@@ -29,6 +29,8 @@ export interface PendingMenu {
   createdAt: number;
 }
 
+const MAX_SESSION_TITLE_CODE_POINTS = 120;
+
 const NUMBER_REPLY = /^\s*(\d+)(?:[.\u3001、)]|\s)?\s*$/u;
 
 const COPY = {
@@ -174,7 +176,12 @@ export function formatSessionMenu(
   const lines: string[] = [copy.sessionsTitle(workspaceTitle)];
   for (const session of sessions) {
     const n = choices.length + 1;
-    const title = session.title?.trim() || session.id;
+    const suppliedTitle = session.title?.trim();
+    const title = suppliedTitle
+      ? Array.from(suppliedTitle).slice(0, MAX_SESSION_TITLE_CODE_POINTS).join("")
+      : locale === "en"
+        ? `Untitled session ${n}`
+        : `未命名会话 ${n}`;
     const currentMark = currentSessionId === session.id ? copy.currentMark : "";
     choices.push({ n, workspaceId, sessionId: session.id, label: title });
     lines.push(`${n}. ${title}${currentMark}`);

@@ -233,12 +233,28 @@ export class PenglaiImHost {
     };
   }
 
-  listWorkspacesAndSessions(): { workspaces: Array<{ id: string; title: string; sessions: string[] }> } {
+  async listWorkspacesAndSessions(): Promise<{
+    workspaces: Array<{
+      id: string;
+      title: string;
+      sessions: Array<{ id: string; title?: string }>;
+    }>;
+  }> {
+    const sessionTitles = new Map<string, string>();
+    if (this.dsh.listSessions) {
+      for (const session of await this.dsh.listSessions()) {
+        const title = session.title?.trim();
+        if (title) sessionTitles.set(session.id, title);
+      }
+    }
     return {
       workspaces: this.dsh.listWorkspaces().map((w) => ({
         id: w.id,
         title: w.title,
-        sessions: [...w.sessionIds],
+        sessions: w.sessionIds.map((id) => {
+          const title = sessionTitles.get(id);
+          return { id, ...(title ? { title } : {}) };
+        }),
       })),
     };
   }

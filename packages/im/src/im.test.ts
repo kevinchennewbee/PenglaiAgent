@@ -161,7 +161,7 @@ test("pure IM starts without ASR/TTS and has no ad-hoc HTTP", async () => {
   rt.store.close();
 });
 
-test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor target", () => {
+test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor target", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
@@ -185,10 +185,11 @@ test("R50-ROUTE-001/002/009 binding is official live list plus CAS and vendor ta
       version: "0.1.1-rc.2",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
+      listSessions: async () => [{ id: "s1", title: "正式会话" }],
     },
   );
-  const listed = host.listWorkspacesAndSessions();
-  assert.deepEqual(listed.workspaces[0]?.sessions, ["s1"]);
+  const listed = await host.listWorkspacesAndSessions();
+  assert.deepEqual(listed.workspaces[0]?.sessions, [{ id: "s1", title: "正式会话" }]);
   assert.throws(
     () =>
       host.createBinding({
@@ -303,6 +304,11 @@ test("R50-ROUTE-001 IM client bindings pane uses official workspace/session list
   assert.match(client, /proposeBinding/);
   assert.match(client, /requestOwnerApproval/);
   assert.match(client, /data-penglai-im-binding/);
+  assert.match(client, /function sessionDisplayTitle/);
+  assert.match(client, /data-penglai-im-binding-session-id/);
+  assert.match(client, /currentBinding\?\.sessionId === id/);
+  assert.doesNotMatch(client, /children: id }, id/);
+  assert.doesNotMatch(client, /`\$\{row\.workspaceId\} \/ \$\{row\.sessionId\}`/);
   assert.match(client, /首次消息会收到欢迎和 \/帮助 \/项目 菜单/);
   assert.equal(client.includes("已连接不等于已绑定"), false);
   assert.match(client, /data-penglai-im-voice-policy/);
