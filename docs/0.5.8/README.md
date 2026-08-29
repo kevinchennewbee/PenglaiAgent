@@ -110,10 +110,13 @@ Allowed work now includes:
   support-truth model that separates bundled source from connection and live
   release evidence; Feishu media failures also retain a closed redacted phase
   and cause, with an exact resource checklist and durable text-only degraded
-  state until a real non-empty resource stream succeeds, while voice jobs durably expose downloading, validation,
-  transcoding, transcription, queued handoff, and typed codec/no-speech/model
+  state until a real non-empty resource stream succeeds, while voice jobs
+  durably expose downloading, validation, transcoding, transcription, queued
+  handoff, and typed codec/no-speech/model
   readiness/duration/ASR operational causes without claiming Owner-live
-  download or ASR success.
+  download or ASR success; the composer microphone also refreshes typed model
+  state and exposes localized permission, recording/timer, transcription,
+  result, no-speech, and error phases with terminal track release.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

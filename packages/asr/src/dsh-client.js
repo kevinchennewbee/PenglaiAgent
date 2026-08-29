@@ -114,6 +114,20 @@ window.__ModuleLoader__.load({
         progress: "模型下载进度",
         speed: "速度",
         remaining: "已下载",
+        micStart: "语音输入",
+        micStop: "停止录音",
+        micPermission: "等待麦克风权限",
+        micRecording: "正在聆听",
+        micTranscribing: "正在转写",
+        micNoSpeech: "没有检测到语音",
+        micUnavailable: "麦克风不可用",
+        micPermissionUnavailable: "无法请求麦克风权限",
+        micFailed: "语音输入失败",
+        micServiceUnavailable: "语音识别服务不可用",
+        micModelDownloading: "语音模型正在准备",
+        micModelFailed: "语音模型校验或加载失败",
+        micModelMissing: "请先安装语音模型",
+        seconds: "秒",
       },
       en: {
         title: "Penglai Speech Recognition",
@@ -138,6 +152,20 @@ window.__ModuleLoader__.load({
         progress: "Model download progress",
         speed: "Speed",
         remaining: "Downloaded",
+        micStart: "Voice input",
+        micStop: "Stop recording",
+        micPermission: "Waiting for microphone permission",
+        micRecording: "Listening",
+        micTranscribing: "Transcribing",
+        micNoSpeech: "No speech detected",
+        micUnavailable: "Microphone unavailable",
+        micPermissionUnavailable: "Microphone permission unavailable",
+        micFailed: "Voice input failed",
+        micServiceUnavailable: "Speech recognition unavailable",
+        micModelDownloading: "Preparing speech model",
+        micModelFailed: "Speech model verification or loading failed",
+        micModelMissing: "Install the speech model first",
+        seconds: "s",
       },
     };
 
@@ -640,87 +668,195 @@ window.__ModuleLoader__.load({
     function AsrMicButton(props) {
       const api = props.remote?.penglaiAsrSettings;
       const [view, setView] = React.useState({
-        recording: false,
+        phase: "idle",
         error: "",
         draft: "",
-        model: "",
+        model: "loading",
+        modelError: "",
+        startedAt: 0,
+        elapsedMs: 0,
       });
-      React.useEffect(() => {
+      const copy = localeCopy();
+      const recorderRef = React.useRef(null);
+      const streamRef = React.useRef(null);
+      const chunksRef = React.useRef([]);
+      const generationRef = React.useRef(0);
+      const disposedRef = React.useRef(false);
+      const stopTracks = (stream) => {
+        if (!stream || typeof stream.getTracks !== "function") return;
+        stream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // Track release is best effort and must not mask the terminal state.
+          }
+        });
+      };
+      const modelMessage = (model) =>
+        model === "ready"
+          ? ""
+          : model === "downloading" || model === "verifying" || model === "loading"
+            ? copy.micModelDownloading
+            : model === "corrupt" || model === "failed"
+              ? copy.micModelFailed
+              : model === "unavailable"
+                ? copy.micServiceUnavailable
+                : copy.micModelMissing;
+      const refresh = React.useCallback(() => {
         if (!api?.describe) {
-          setView((current) => ({ ...current, error: "asr plugin unavailable", model: "unavailable" }));
+          setView((current) => ({
+            ...current,
+            model: "unavailable",
+            modelError: copy.micServiceUnavailable,
+          }));
           return;
         }
         Promise.resolve(api.describe())
           .then((value) => {
+            if (disposedRef.current) return;
             const cap = unwrapRemote(value) || {};
             const model = String(cap.model ?? "not_installed");
             setView((current) => ({
               ...current,
               model,
-              error:
-                model === "ready"
-                  ? ""
-                  : model === "downloading" || model === "verifying"
-                    ? "asr model downloading"
-                    : model === "corrupt" || model === "failed"
-                      ? "asr model failed checksum or load"
-                      : "asr model not installed",
+              modelError: modelMessage(model),
             }));
           })
-          .catch((error) => {
+          .catch(() => {
+            if (disposedRef.current) return;
             setView((current) => ({
               ...current,
               model: "unavailable",
-              error: String(error && error.message ? error.message : error),
+              modelError: copy.micServiceUnavailable,
             }));
           });
-      }, [api]);
-      const recorderRef = React.useRef(null);
-      const chunksRef = React.useRef([]);
+      }, [api, copy]);
+      React.useEffect(() => {
+        refresh();
+        const timer = setInterval(refresh, 2000);
+        return () => clearInterval(timer);
+      }, [refresh]);
+      React.useEffect(() => {
+        if (view.phase !== "recording") return undefined;
+        const timer = setInterval(() => {
+          setView((current) =>
+            current.phase === "recording"
+              ? { ...current, elapsedMs: Math.max(0, Date.now() - current.startedAt) }
+              : current,
+          );
+        }, 250);
+        return () => clearInterval(timer);
+      }, [view.phase]);
+      React.useEffect(
+        () => {
+          disposedRef.current = false;
+          return () => {
+            disposedRef.current = true;
+            generationRef.current += 1;
+            const recorder = recorderRef.current;
+            recorderRef.current = null;
+            if (recorder) {
+              recorder.ondataavailable = null;
+              recorder.onstop = null;
+              recorder.onerror = null;
+              if (recorder.state !== "inactive") {
+                try {
+                  recorder.stop();
+                } catch {
+                  // The track release below is the teardown authority.
+                }
+              }
+            }
+            stopTracks(streamRef.current);
+            streamRef.current = null;
+            chunksRef.current = [];
+          };
+        },
+        [],
+      );
       const stopRecording = () => {
         const recorder = recorderRef.current;
-        recorderRef.current = null;
-        if (recorder && recorder.state !== "inactive") recorder.stop();
+        if (!recorder || recorder.state === "inactive") return;
+        setView((current) => ({ ...current, phase: "transcribing", error: "" }));
+        try {
+          recorder.stop();
+        } catch {
+          stopTracks(streamRef.current);
+          streamRef.current = null;
+          recorderRef.current = null;
+          chunksRef.current = [];
+          setView((current) => ({
+            ...current,
+            phase: "error",
+            error: copy.micFailed,
+            startedAt: 0,
+            elapsedMs: 0,
+          }));
+        }
       };
-      const transcribeBlob = (blob) => {
-        if (!api?.testTranscribe) return;
+      const transcribeBlob = (blob, generation) => {
+        if (!api?.testTranscribe) {
+          setView((current) => ({
+            ...current,
+            phase: "error",
+            error: copy.micServiceUnavailable,
+          }));
+          return;
+        }
         blobToPcm16WavBase64(blob)
-          .then((wavBase64) =>
-            api.testTranscribe({
+          .then((wavBase64) => {
+            if (disposedRef.current || generationRef.current !== generation) return undefined;
+            return api.testTranscribe({
               wavBase64,
               operationId: operationId("asrmic"),
-            }),
-          )
-          .then((value) => {
-            const out = unwrapRemote(value);
-            const text = String(out.text ?? "");
-            writeComposerDraft(text, props);
-            setView({ recording: false, error: "", draft: text });
-          })
-          .catch((error) => {
-            setView({
-              recording: false,
-              error: String(error && error.message ? error.message : error),
-              draft: "",
             });
+          })
+          .then((value) => {
+            if (disposedRef.current || generationRef.current !== generation) return;
+            const out = unwrapRemote(value);
+            const text = String(out.text ?? "").trim();
+            const noSpeech = Boolean(out.noSpeech) || !text;
+            if (!noSpeech) writeComposerDraft(text, props);
+            setView((current) => ({
+              ...current,
+              phase: noSpeech ? "no-speech" : "result",
+              error: "",
+              draft: noSpeech ? "" : text,
+              startedAt: 0,
+              elapsedMs: 0,
+            }));
+          })
+          .catch(() => {
+            if (disposedRef.current || generationRef.current !== generation) return;
+            setView((current) => ({
+              ...current,
+              phase: "error",
+              error: copy.micFailed,
+              draft: "",
+              startedAt: 0,
+              elapsedMs: 0,
+            }));
           });
       };
       const toggle = () => {
-        if (view.recording) {
+        if (view.phase === "recording") {
           stopRecording();
           return;
         }
+        if (view.phase === "permission" || view.phase === "transcribing") return;
         if (view.model && view.model !== "ready") {
           setView((current) => ({
             ...current,
-            error: current.error || "asr model not installed",
+            phase: "error",
+            error: current.modelError || copy.micModelMissing,
           }));
           return;
         }
         if (!navigator?.mediaDevices?.getUserMedia) {
           setView((current) => ({
             ...current,
-            error: "microphone unavailable",
+            phase: "error",
+            error: copy.micUnavailable,
           }));
           return;
         }
@@ -728,47 +864,150 @@ window.__ModuleLoader__.load({
         if (!native || typeof native.beginMicrophoneRequest !== "function") {
           setView((current) => ({
             ...current,
-            error: "microphone permission is unavailable",
+            phase: "error",
+            error: copy.micPermissionUnavailable,
           }));
           return;
         }
+        setView((current) => ({
+          ...current,
+          phase: "permission",
+          error: "",
+          draft: "",
+          elapsedMs: 0,
+        }));
+        const generation = generationRef.current + 1;
+        generationRef.current = generation;
         Promise.resolve(native.beginMicrophoneRequest())
           .then(() => navigator.mediaDevices.getUserMedia({ audio: true }))
           .then((stream) => {
-            const recorder = new MediaRecorder(stream);
-            chunksRef.current = [];
-            recorder.ondataavailable = (event) => {
-              if (event.data && event.data.size > 0)
-                chunksRef.current.push(event.data);
-            };
-            recorder.onstop = () => {
-              stream.getTracks().forEach((track) => track.stop());
-              const blob = new Blob(chunksRef.current, {
-                type: recorder.mimeType || "audio/webm",
-              });
-              transcribeBlob(blob);
-            };
-            recorderRef.current = recorder;
-            recorder.start();
-            setView({ recording: true, error: "", draft: "" });
+            if (disposedRef.current || generationRef.current !== generation) {
+              stopTracks(stream);
+              return;
+            }
+            streamRef.current = stream;
+            try {
+              const recorder = new MediaRecorder(stream);
+              chunksRef.current = [];
+              recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0)
+                  chunksRef.current.push(event.data);
+              };
+              recorder.onerror = () => {
+                recorder.ondataavailable = null;
+                recorder.onstop = null;
+                stopTracks(streamRef.current);
+                streamRef.current = null;
+                recorderRef.current = null;
+                chunksRef.current = [];
+                if (disposedRef.current || generationRef.current !== generation) return;
+                setView((current) => ({
+                  ...current,
+                  phase: "error",
+                  error: copy.micFailed,
+                  startedAt: 0,
+                  elapsedMs: 0,
+                }));
+              };
+              recorder.onstop = () => {
+                stopTracks(streamRef.current);
+                streamRef.current = null;
+                recorderRef.current = null;
+                const chunks = chunksRef.current;
+                chunksRef.current = [];
+                if (disposedRef.current || generationRef.current !== generation) return;
+                try {
+                  const blob = new Blob(chunks, {
+                    type: recorder.mimeType || "audio/webm",
+                  });
+                  setView((current) => ({ ...current, phase: "transcribing", error: "" }));
+                  transcribeBlob(blob, generation);
+                } catch {
+                  setView((current) => ({
+                    ...current,
+                    phase: "error",
+                    error: copy.micFailed,
+                    startedAt: 0,
+                    elapsedMs: 0,
+                  }));
+                }
+              };
+              recorderRef.current = recorder;
+              recorder.start();
+              const startedAt = Date.now();
+              setView((current) => ({
+                ...current,
+                phase: "recording",
+                error: "",
+                draft: "",
+                startedAt,
+                elapsedMs: 0,
+              }));
+            } catch (error) {
+              stopTracks(stream);
+              streamRef.current = null;
+              recorderRef.current = null;
+              throw error;
+            }
           })
           .catch((error) => {
-            setView({
-              recording: false,
-              error: String(error && error.message ? error.message : error),
+            const denied = error && (
+              error.name === "NotAllowedError" ||
+              error.name === "SecurityError"
+            );
+            stopTracks(streamRef.current);
+            streamRef.current = null;
+            recorderRef.current = null;
+            chunksRef.current = [];
+            if (disposedRef.current || generationRef.current !== generation) return;
+            setView((current) => ({
+              ...current,
+              phase: "error",
+              error: denied ? copy.micPermissionUnavailable : copy.micFailed,
               draft: "",
-            });
+              startedAt: 0,
+              elapsedMs: 0,
+            }));
           });
       };
-      return jsx.jsx("button", {
+      const modelBlocked = view.model !== "ready";
+      const busy = view.phase === "permission" || view.phase === "transcribing";
+      const seconds = Math.max(0, Math.floor(view.elapsedMs / 1000));
+      const label = view.phase === "permission"
+        ? copy.micPermission
+        : view.phase === "recording"
+          ? `${copy.micRecording} · ${copy.micStop}`
+          : view.phase === "transcribing"
+            ? copy.micTranscribing
+            : modelBlocked
+              ? view.modelError || modelMessage(view.model)
+              : view.phase === "no-speech"
+                ? copy.micNoSpeech
+                : view.phase === "error"
+                  ? view.error || copy.micFailed
+                  : copy.micStart;
+      return jsx.jsxs("button", {
         type: "button",
-        "data-penglai-asr-mic": view.recording ? "recording" : "1",
+        "data-penglai-asr-mic": view.phase,
         "data-penglai-asr-model": view.model || "unknown",
         "data-penglai-asr-draft": view.draft,
         "data-penglai-asr-mic-error": view.error || "",
-        disabled: Boolean(view.model && view.model !== "ready"),
+        "data-penglai-asr-elapsed-ms": view.elapsedMs,
+        "aria-label": label,
+        "aria-live": "polite",
+        "aria-pressed": view.phase === "recording",
+        title: label,
+        disabled: view.phase === "recording" ? false : modelBlocked || busy,
         onClick: toggle,
-        children: view.error && view.model && view.model !== "ready" ? view.error : view.recording ? "stop" : "mic",
+        children: [
+          jsx.jsx("span", {
+            "aria-hidden": "true",
+            children: view.phase === "recording" ? "■" : "●",
+          }),
+          " ",
+          label,
+          view.phase === "recording" ? ` ${seconds}${copy.seconds}` : "",
+        ],
       });
     }
 
@@ -798,7 +1037,7 @@ window.__ModuleLoader__.load({
                 name: "conversation.input.right",
                 id: "penglai-asr-mic",
                 order: 1,
-                label: () => "mic",
+                label: () => localeCopy().micStart,
                 inject: () => ({ remote: pageRemote }),
               },
               AsrMicButton,

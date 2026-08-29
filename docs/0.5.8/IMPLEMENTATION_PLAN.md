@@ -471,6 +471,27 @@ product locale surface.
 - prove capture resources and temporary media are released on every terminal
   path.
 
+**Composer ASR lifecycle source checkpoint, 2026-08-29**
+
+The conversation microphone now consumes the typed ASR capability description
+on mount and every two seconds, so a new-conversation composer converges after
+model download, verification, load, failure, or core recovery without requiring
+a remount. This is a bounded typed-Remote refresh, not proof of the unpublished
+alpha.1 client event graph or an installed application.
+
+The control exposes closed `idle`, `permission`, `recording`, `transcribing`,
+`result`, `no-speech`, and `error` UI phases. Chinese and English accessible
+labels replace raw `mic`/`stop`; recording shows an elapsed timer based on wall
+time and an explicit Stop action. It deliberately shows no simulated level
+meter because this implementation does not measure input amplitude.
+
+Microphone tracks are released after Stop, recorder error, setup failure, and
+component teardown. Conversion/transcription failure and no-speech are separate
+terminal states, and no-speech never writes an empty composer draft. Source
+fixtures prove phase order, localized accessible labels, draft handoff, and
+track release. Native permission UI, real hardware capture, installed locale
+switching, and model execution remain open acceptance evidence.
+
 ### P1-03: Read/TTS first sound is too slow
 
 **Observed symptom**
