@@ -18,6 +18,7 @@ const feishu = read("packages/channel-feishu/src/index.ts");
 const media = read("packages/channel-feishu/src/media.ts");
 const persistence = read("packages/persistence/src/index.ts");
 const contracts = read("packages/contracts/src/index.ts");
+const errors = read("packages/contracts/src/errors.ts");
 const tests = read("packages/channel-feishu/src/feishu.test.ts");
 
 requireTokens("routing", routing, [
@@ -32,6 +33,10 @@ requireTokens("routing", routing, [
   '"unsupported-codec"',
   '"no-speech"',
   '"model-not-ready"',
+  '"backpressure"',
+  '"deadline"',
+  '"engine-unavailable"',
+  '"duration-rejected"',
   "closedInboundFailureDiagnostic",
   "phase: safeDiagnostic.phase",
   "reason: safeDiagnostic.reason",
@@ -65,6 +70,7 @@ requireTokens("media", media, [
   'reason: "model-not-ready"',
 ]);
 requireTokens("contracts", contracts, ["PENGLAI_ASR_MODEL_STATES", "PenglaiAsrModelState"]);
+requireTokens("contract errors", errors, ["PENGLAI_ASR_FAILURE_REASONS", "PenglaiAsrError"]);
 requireTokens("persistence", persistence, [
   "VOICE_JOB_STATES",
   '"downloading"',
@@ -79,6 +85,7 @@ requireTokens("tests", tests, [
   "assert.doesNotMatch",
   '["downloading", "validating", "transcoding", "transcribing"]',
   "Feishu voice failures retain closed codec, no-speech, and model readiness causes",
+  "Feishu rejects invalid voice duration with a closed durable cause",
 ]);
 
 if (failures.length > 0) {
@@ -92,7 +99,7 @@ console.log(JSON.stringify({
   result: "PASS",
   evidenceClass: "source-only",
   phases: 5,
-  reasons: 16,
+  reasons: 20,
   redaction: "closed-values-only",
   durableVoicePhases: 4,
 }, null, 2));

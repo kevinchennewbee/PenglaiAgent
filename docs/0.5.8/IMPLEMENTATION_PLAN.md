@@ -292,10 +292,21 @@ available capability descriptor whose model state is not `ready` is
 `transcription/model-not-ready`. Other ASR `DSH_UNAVAILABLE` errors remain the
 weaker `client-unavailable` class rather than being guessed from error text.
 
-These values are closed, redacted, and fixture-proven. Duration, cancellation,
-backpressure, and provider-specific distinctions still require equally typed
-signals before they can be strengthened, and no source result substitutes for
-the real Owner voice acceptance case.
+These values are closed, redacted, and fixture-proven. No source result
+substitutes for the real Owner voice acceptance case.
+
+**Typed ASR failure source checkpoint, 2026-08-29**
+
+The ASR service now emits a closed failure reason contract for backpressure,
+cancellation, deadline expiry, engine unavailability, and a model-readiness
+race. Feishu maps that type directly to the transcription diagnostic and never
+parses a provider or worker message. An invalid vendor duration is acknowledged
+but persisted as `media-admission/duration-rejected`, so it no longer disappears
+as an unclassified synchronous callback rejection.
+
+The remaining `unknown` reason is intentional for errors that do not yet carry
+a trustworthy typed cause. Live vendor transport, real model execution, and
+Owner-account cancellation evidence remain open.
 
 ### P0-05: Memory curator pollutes the official subagent list
 

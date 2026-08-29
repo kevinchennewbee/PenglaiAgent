@@ -46,7 +46,8 @@
 | P058-030 | IM support truth model | Source/UI/package/live | IN_PROGRESS | one closed registry now separates entry, adapter mode, bundled runtime, dynamic connection, release evidence, and per-capability evidence; all current rows are source-only; packaged/installed/Owner-live/public reconciliation remains |
 | P058-031 | Feishu media failure diagnostics | Source/live | IN_PROGRESS | request, stream, validation, admission, and transcription now persist closed redacted causes with retry class; Owner permission/download and end-to-end image/voice proof remain |
 | P058-032 | Feishu durable voice phase ledger | Source/live | IN_PROGRESS | downloading, validation, transcoding, transcription, and atomic queued handoff are closed durable source states; legacy-processing and uncertain DSH write recovery pass locally; Owner voice, vendor download, live ASR, and official Turn proof remain |
-| P058-033 | Feishu closed voice failure causes | Source/live | IN_PROGRESS | phase-owned codec, no-speech, and capability-reported model-not-ready causes pass locally without parsing error text; duration/cancel/backpressure typed causes and Owner-live proof remain |
+| P058-033 | Feishu closed voice failure causes | Source/live | IN_PROGRESS | phase-owned codec, no-speech, duration, model readiness, backpressure, cancellation, deadline, and engine-unavailable causes pass locally without parsing error text; Owner-live proof remains |
+| P058-034 | Typed ASR failure contract | Source/live | IN_PROGRESS | ASR service emits five closed operational causes consumed by Feishu; real model/worker/cancel and installed evidence remain |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -92,6 +93,7 @@ use a partial broken push merely to create activity.
 | `28e3483f658fb2233ef40b0c9bf7f01f52801135` | preserve closed redacted Feishu media failure phases and causes with retry classification | branch readback PASS; [Source CI 33249032154](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249032154) PASS |
 | `9e9a471f030ec26925b2bb4655f71d7d63ecfe34` | persist closed Feishu voice phases and preserve atomic queued recovery across uncertain DSH handoff | branch readback PASS; [Source CI 33249500231](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249500231) PASS |
 | `ae16e12c955a3f1631dc0c67c54174e52812127e` | record the verified durable Feishu voice phase checkpoint in the preview work ledger | branch readback PASS; [Source CI 33249619124](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249619124) PASS |
+| `16c746b4dffd8a6273a22cb6237c3429e4de52c5` | classify phase-owned Feishu voice codec, no-speech, and closed ASR model-readiness failures without parsing error text | branch readback PASS; [Source CI 33250043373](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250043373) PASS |
 
 ## Publication reconciliation placeholder
 

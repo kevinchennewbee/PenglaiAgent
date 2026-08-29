@@ -21,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
+import { PenglaiAsrError, PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
 import type { AsrModelState } from "./service.js";
 
 export const SENSEVOICE_MODEL_ID = "sensevoice-int8";
@@ -450,7 +450,7 @@ export class AsrModelManager {
   async requireReady(): Promise<ResolvedSenseVoiceModel> {
     await this.initialize();
     if (this.state !== "ready") {
-      throw new PenglaiError("DSH_UNAVAILABLE", "ASR model not installed");
+      throw new PenglaiAsrError("DSH_UNAVAILABLE", "model-not-ready");
     }
     const model = this.manifest.files.find(
       (file) => file.filename === "model.int8.onnx",

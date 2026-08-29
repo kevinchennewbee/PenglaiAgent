@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { PenglaiError } from "@penglai/contracts";
+import { PENGLAI_ASR_FAILURE_REASONS, PenglaiAsrError, PenglaiError } from "@penglai/contracts";
 import {
   apply,
   createAsrService,
@@ -490,6 +490,45 @@ test("R50-VOICE: opaque AudioHandle runs one confirmed-safe draft and is deleted
           result.draft.text,
         ),
       /confirmation mismatch/,
+    );
+  } finally {
+    await service.dispose();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ASR model readiness race emits a closed typed failure", async () => {
+  assert.deepEqual(PENGLAI_ASR_FAILURE_REASONS, [
+    "backpressure",
+    "cancelled",
+    "deadline",
+    "engine-unavailable",
+    "model-not-ready",
+  ]);
+  const root = mkdtempSync(join(tmpdir(), "penglai-asr-not-ready-"));
+  const service = createAsrService({
+    modelsDir: join(root, "models"),
+    tempDir: join(root, "temp"),
+  });
+  try {
+    await service.ready;
+    const operationId = "transcribe_not_ready_1";
+    const handle = await service.stageAudio(toneWav(16_000, 200), {
+      source: "attachment",
+      ownerOperation: operationId,
+    });
+    await assert.rejects(
+      service.transcribe(
+        handle,
+        { authorized: true, claimed: true, privateChat: true },
+        operationId,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof PenglaiAsrError);
+        assert.equal(error.errorClass, "DSH_UNAVAILABLE");
+        assert.equal(error.reason, "model-not-ready");
+        return true;
+      },
     );
   } finally {
     await service.dispose();

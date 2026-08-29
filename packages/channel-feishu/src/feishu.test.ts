@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { PenglaiError, type ModelInput } from "@penglai/contracts";
+import { PenglaiAsrError, PenglaiError, type ModelInput } from "@penglai/contracts";
 import { encodeFeishuOggOpus } from "@penglai/audio-codecs";
 import { SeqIds, VirtualClock } from "@penglai/testkit";
 import { Store } from "@penglai/persistence";
@@ -300,6 +300,44 @@ test("Feishu voice failures retain closed codec, no-speech, and model readiness 
   assert.equal(classifyFeishuVoiceFailurePhase("transcoding"), "resource-validation");
   assert.equal(classifyFeishuVoiceFailurePhase("transcribing"), "transcription");
   assert.equal(classifyFeishuVoiceFailurePhase("downloading"), "resource-request");
+  for (const [reason, errorClass] of [
+    ["backpressure", "DELIVERY_TRANSIENT"],
+    ["cancelled", "DELIVERY_TRANSIENT"],
+    ["deadline", "DELIVERY_TRANSIENT"],
+    ["engine-unavailable", "DSH_UNAVAILABLE"],
+    ["model-not-ready", "DSH_UNAVAILABLE"],
+  ] as const) {
+    assert.deepEqual(
+      classifyMediaFailure(new PenglaiAsrError(errorClass, reason), "resource-request"),
+      { errorClass, diagnostic: { phase: "transcription", reason } },
+    );
+  }
+});
+
+test("Feishu rejects invalid voice duration with a closed durable cause", async () => {
+  const h = voicePlane();
+  const adapter = new FeishuAdapter(h.plane, "cli_duration");
+  adapter.setOwner("ou_duration_owner", "explicit");
+  const result = adapter.enqueueReceive({
+    header: { app_id: "cli_duration" },
+    event: {
+      message: {
+        message_id: "om_voice_duration",
+        chat_type: "p2p",
+        message_type: "audio",
+        content: JSON.stringify({ file_key: "private_duration_key", duration: 180_001 }),
+      },
+      sender: { sender_id: { open_id: "ou_duration_owner" } },
+    },
+  });
+  assert.deepEqual(result, { accepted: true });
+  await adapter.lastEnqueue;
+  const failure = h.store.listAudit().find((row) => row.event === "inbound_processing_failed");
+  assert.equal(failure?.payload.phase, "media-admission");
+  assert.equal(failure?.payload.reason, "duration-rejected");
+  assert.doesNotMatch(JSON.stringify(failure), /private_duration_key|ou_duration_owner/);
+  assert.equal(h.store.getInbound(String(failure?.payload.inboundId))?.state, "rejected");
+  h.store.close();
 });
 
 function toneWav(): Buffer {
