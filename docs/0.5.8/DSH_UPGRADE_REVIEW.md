@@ -309,11 +309,17 @@ while degraded cannot create a second owner. These Penglai-owned supervision
 changes do not depend on DSH npm publication.
 
 The real-child integration test proves transient recovery and sustained-hang
-restart locally on macOS, but this remains source evidence. The helper still
-needs compilation and execution on native Windows, and the final probe route
-must be reconciled with alpha.1's one-time browser-token behavior after official
-packages exist. Bounded redacted terminal diagnostics, restart-exhaustion UX,
-and installed orphan proof remain open.
+restart locally on macOS. It now also proves failed-restart budget accounting,
+exact three-attempt exhaustion, owned-child cleanup, and a closed
+`manual-action-required` terminal state. The desktop observes that state,
+switches to a bilingual recovery page, and offers early-registered Retry, Quit,
+Open, and Copy actions restricted to the recovery document. Copied/persisted
+diagnostics are bounded structured records; raw exception text no longer enters
+the recovery DOM or startup log, and the bounded stderr excerpt redacts private
+roots and credential-shaped values. This remains source evidence: the helper
+still needs compilation/execution on native Windows, installed orphan proof on
+all targets, and final alpha.1 authenticated-probe reconciliation after the
+official packages exist.
 
 ### 4.13 IM capability truth is not one boolean
 

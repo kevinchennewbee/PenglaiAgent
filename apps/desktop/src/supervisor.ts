@@ -2,28 +2,35 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   EmbeddedDshSupervisor,
+  IDLE_SUPERVISOR_RECOVERY,
   resolveRuntimeLayout,
+  type EmbeddedDshSupervisorOptions,
+  type EmbeddedDshSupervisorState,
   type InventoryProof,
   type RuntimeLayout,
+  type SupervisorRecoverySnapshot,
   type UserLayout,
 } from "@penglai/runtime";
 
-export type SupervisorState = "stopped" | "starting" | "healthy" | "degraded" | "crashed" | "stopping";
+export type SupervisorState = EmbeddedDshSupervisorState;
 
 export interface DshSupervisorInner {
   state: SupervisorState;
   port: number;
   restarts: number;
+  phaseMs?: number;
+  recovery?: SupervisorRecoverySnapshot;
   health: { http: number; inventory: InventoryProof } | undefined;
   child?: { pid?: number | undefined } | undefined;
   start(user: UserLayout, env?: NodeJS.ProcessEnv): Promise<{ port: number }>;
   stop(): Promise<void>;
 }
 
-export type DshSupervisorFactory = (layout: RuntimeLayout) => DshSupervisorInner;
+export type DshSupervisorFactory = (layout: RuntimeLayout, options: EmbeddedDshSupervisorOptions) => DshSupervisorInner;
 
 export class DshSupervisor {
   private inner: DshSupervisorInner | undefined;
+  private readonly recoveryListeners = new Set<(snapshot: Readonly<SupervisorRecoverySnapshot>) => void>();
 
   get state(): SupervisorState {
     return this.inner?.state ?? "stopped";
@@ -37,6 +44,14 @@ export class DshSupervisor {
     return this.inner?.restarts ?? 0;
   }
 
+  get phaseMs(): number {
+    return this.inner?.phaseMs ?? 0;
+  }
+
+  get recovery(): SupervisorRecoverySnapshot {
+    return { ...(this.inner?.recovery ?? IDLE_SUPERVISOR_RECOVERY) };
+  }
+
   get health(): { http: number; inventory: InventoryProof } | undefined {
     return this.inner?.health;
   }
@@ -47,8 +62,23 @@ export class DshSupervisor {
 
   constructor(
     private layout?: RuntimeLayout,
-    private readonly factory: DshSupervisorFactory = (runtimeLayout) => new EmbeddedDshSupervisor(runtimeLayout),
+    private readonly factory: DshSupervisorFactory = (runtimeLayout, options) => new EmbeddedDshSupervisor(runtimeLayout, options),
   ) {}
+
+  onRecoveryStateChange(listener: (snapshot: Readonly<SupervisorRecoverySnapshot>) => void): () => void {
+    this.recoveryListeners.add(listener);
+    return () => this.recoveryListeners.delete(listener);
+  }
+
+  private emitRecoveryState(snapshot: Readonly<SupervisorRecoverySnapshot>): void {
+    for (const listener of this.recoveryListeners) {
+      try {
+        listener({ ...snapshot });
+      } catch {
+        // A desktop observer cannot change supervisor ownership semantics.
+      }
+    }
+  }
 
   attach(layout: RuntimeLayout): void {
     if (this.inner && this.inner.state !== "stopped") {
@@ -60,7 +90,9 @@ export class DshSupervisor {
 
   async start(user: UserLayout): Promise<{ port: number }> {
     if (!this.layout) throw new Error("embedded runtime layout required");
-    this.inner ??= this.factory(this.layout);
+    this.inner ??= this.factory(this.layout, {
+      onRecoveryStateChange: (snapshot) => this.emitRecoveryState(snapshot),
+    });
     const extra: NodeJS.ProcessEnv = {};
     if (process.env.PENGLAI_PLUGINS_DIR) extra.PENGLAI_PLUGINS_DIR = process.env.PENGLAI_PLUGINS_DIR;
     if (process.env.PENGLAI_APP_ROOT) extra.PENGLAI_APP_ROOT = process.env.PENGLAI_APP_ROOT;
