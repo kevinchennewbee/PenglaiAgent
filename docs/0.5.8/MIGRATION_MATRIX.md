@@ -22,7 +22,7 @@
 | Plugin inventory | Desired profile plus official rc.2 inventory and polling | Host plugin inventory with pending/loading/active/failed/unloading phases | Preserve signed transaction journal and characterize convergence | Adapt exact inventory Remote/client payloads | Desired, effective, client-fiber, rollback, and terminal state agree |
 | Image intake | Channel download plus current image store assumptions | Attachment service, local provider, Session attachment admission/projection | Fix callback containment and resource diagnostics | Hand validated bytes to official Attachment path | Model-visible durable image fact, replay, compaction, and real model proof |
 | Audio intake | Penglai ASR before a text Turn | No general DSH audio/video Turn support | Keep audio pipeline in ASR plugin; improve phase/error state | Rebind produced text through migrated Session path | Real Feishu voice becomes one official text Turn; no disguised attachment |
-| Session/subagent projection | Memory curator uses user-visible subagent semantics | Official descriptor and projection lifecycle | Design internal-job replacement and characterization tests | Implement against published subagent/job contracts | Genuine subagents remain; curator never pollutes hierarchy or scope |
+| Session/subagent projection | Memory curator used user-visible `origin: subagent` semantics | Official descriptor/projection plus one-shot `ctx.llm.stream`; alpha.1 Jobs are also owner/user-visible | Replaced curator Agent/Session creation with a bounded Memory-owned queue and direct official LLM request; executable gate rejects regression | Reconcile published LLM declarations/runtime exports and add optional Budget accounting; do not move maintenance into visible Jobs | Genuine subagents remain; one Turn creates at most one scoped curator call; no hierarchy pollution or orphan work |
 | Locale | Penglai client strings plus built overlay assumptions | Third-party locale registration and typed client locale | Inventory raw `mic`, `stop`, `read` and plugin copy | Register through exact published locale package | Fresh Chinese, English, runtime switch, accessible labels |
 | Browser authentication | Secure loopback proxy around existing DSH Web | One-time browser token and changed profile boot | Model token lifecycle and leakage tests | Adapt first navigation/refresh/deep-link to published behavior | Token absent from logs/evidence/renderer and restart recovers |
 | Windows process tree | Electron supervises helper that can outlive child Node | Upstream has lower-level Windows helpers, not Penglai recovery policy | Fixed one-sided helper wait, dual-lifetime handshake, stale facade state, duplicate-owner risk, restart port drift, and bounded lost-listener/hang detection; diagnostics/native proof remain | Reconcile helper and authenticated health route after package closure | Child death detected, bounded restart, no orphan, coherent degraded state |
@@ -61,7 +61,10 @@ published-package reconciliation.
    slots; retain only a proven missing seam with a new digest and ADR.
 5. Do not move audio into DSH Attachment. Images and audio keep different
    ownership and evidence.
-6. Do not hide invalid Memory curator sessions in UI. Change their lifecycle.
+6. Do not hide invalid Memory curator sessions in UI or move them into visible
+   Jobs. The source path now uses one official no-tools LLM request inside a
+   bounded Memory-owned queue; preserve that lifecycle through npm
+   reconciliation.
 7. Do not use source build success to alter the release identity or lockfile.
 
 ## Executable seam census
@@ -83,7 +86,10 @@ The current census contains:
   packaged-runtime verifier; and
 - one direct settings-provider consumer with eight reads/writes; and
 - the five source and five test files that currently own desktop DSH process
-  supervision evidence.
+  supervision evidence; and
+- four Memory-curator source files and four focused test files whose gate
+  requires a direct official no-tools LLM request and forbids Agent/Session
+  creation.
 
 The census proves that the migration surface is enumerated. It does not prove
 that unpublished package exports exist or that a native process tree has been

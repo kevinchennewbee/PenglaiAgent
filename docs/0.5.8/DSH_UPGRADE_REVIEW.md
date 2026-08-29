@@ -223,6 +223,17 @@ Penglai consequence:
 - never “fix” the UI by merely hiding curator sessions after creating them with
   invalid semantics.
 
+The preview source checkpoint takes the approved auxiliary-LLM route. It uses
+the official immutable message factory and `ctx.llm.stream` with no tools, but
+creates no Agent or Session. A Penglai-owned single-flight queue provides exact
+Workspace/Session/Turn identity, bounded capacity, timeout, deduplication, and
+teardown cancellation. Alpha.1 Jobs were not selected: the official contract
+makes owned jobs visible to their Agent and unowned jobs visible to every
+caller, so they are not a hidden plugin-maintenance primitive. The active
+product dependency remains rc.2; alpha.1 npm export reconciliation, optional
+Budget accounting, redacted curator diagnostics, and installed cleanup proof
+remain required.
+
 ### 4.9 Plugin inventory and lifecycle
 
 The candidate inventory exposes entry identity, module, effective enabled state,

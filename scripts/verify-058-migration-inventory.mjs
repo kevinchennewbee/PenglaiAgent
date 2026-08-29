@@ -131,6 +131,51 @@ for (const contract of [
   if (!runtimeSupervisor.includes(contract)) fail(`supervisor source lost characterized contract ${contract}`);
 }
 
+for (const path of [
+  ...(inventory.memoryCurator?.sourceFiles ?? []),
+  ...(inventory.memoryCurator?.testFiles ?? []),
+]) {
+  if (!existsSync(join(ROOT, path))) fail(`memory curator inventory path is missing: ${path}`);
+}
+const memoryIndex = read("packages/memory/src/index.ts");
+const memoryPipeline = read("packages/memory/src/turn-pipeline.ts");
+const memoryQueue = read("packages/memory/src/v2/internal-curator.ts");
+const memoryManifest = readJson("packages/memory/package.json");
+for (const contract of [
+  "InternalCuratorQueue",
+  "internalCuratorJobKey",
+  "runOfficialLlmCurator",
+  "turnAlreadyProcessed",
+]) {
+  if (!memoryIndex.includes(contract)) fail(`memory curator source lost ${contract}`);
+}
+for (const contract of [
+  "createUserMessage",
+  "input.llm.stream",
+  "tools: []",
+  "maxTokens: 1200",
+  "signal: input.signal",
+]) {
+  if (!memoryPipeline.includes(contract)) fail(`memory curator official LLM path lost ${contract}`);
+}
+for (const contract of [
+  "INTERNAL_CURATOR_MAX_JOBS = 8",
+  "INTERNAL_CURATOR_TIMEOUT_MS = 45_000",
+  "controller.abort()",
+  "this.seenKeys",
+]) {
+  if (!memoryQueue.includes(contract)) fail(`memory curator queue lost ${contract}`);
+}
+for (const forbidden of ["agents.create", 'origin: "subagent"', "penglai-memory-curator-"]) {
+  if (memoryIndex.includes(forbidden)) fail(`memory curator reintroduced user-visible lifecycle: ${forbidden}`);
+}
+if (memoryManifest.dependencies?.["@deepseek-ai/dsh-llm"] !== RELEASE_DSH) {
+  fail("memory official LLM dependency must stay on the active rc.2 package pin before reconciliation");
+}
+if (!read("packages/dsh-bridge/src/r56-memory-curator-spike.ts").includes('alphaJobsDecision: "REJECT_USER_VISIBLE"')) {
+  fail("memory curator spike no longer records why alpha.1 Jobs are rejected");
+}
+
 if (failures.length > 0) {
   console.error(JSON.stringify({
     schema: 1,
@@ -152,4 +197,5 @@ console.log(JSON.stringify({
   ),
   clientRuntimePluginManifests: expectedManifestConsumers.length,
   supervisorEvidence: inventory.desktopSupervisor.state,
+  memoryCuratorEvidence: inventory.memoryCurator.state,
 }, null, 2));

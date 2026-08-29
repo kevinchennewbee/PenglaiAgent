@@ -3,29 +3,29 @@ import test from "node:test";
 import { PINNED_DSH } from "./index.js";
 import {
   CURATOR_MAX_CANDIDATES,
-  MEMORY_CURATOR_NO_TOOLS_REASON,
-  MEMORY_CURATOR_PRESET_ID,
   MEMORY_CURATOR_SPIKE_ID,
-  denyAllModelTools,
   failOpenCuratorParse,
   parseCuratorOutput,
   probeOfficialMemoryCurator,
 } from "./r56-memory-curator-spike.js";
 
-test("R56-MEM-005 official curator path is Agent create plus host schema", () => {
+test("R56-MEM-005 official curator path is a one-shot LLM request plus host schema", () => {
   const report = probeOfficialMemoryCurator();
   assert.equal(report.requirement, MEMORY_CURATOR_SPIKE_ID);
   assert.equal(report.dsh, PINNED_DSH);
-  assert.equal(report.verdict, "PARTIAL");
-  assert.equal(report.officialAgentCreate, true);
-  assert.deepEqual(report.officialAgentOptionsKeys, ["provider", "model", "maxTokens"]);
+  assert.equal(report.verdict, "GO");
+  assert.equal(report.officialLlmStream, true);
+  assert.equal(report.officialCreateUserMessage, true);
   assert.equal(report.providerJsonSchema, false);
-  assert.equal(report.toolsDisabledBy, "tools.guard");
+  assert.equal(report.purposeSupportsCurator, false);
+  assert.equal(report.createsAgent, false);
+  assert.equal(report.createsSession, false);
+  assert.equal(report.toolsDisabledBy, "empty-tools-list");
+  assert.equal(report.alphaJobsDecision, "REJECT_USER_VISIBLE");
   assert.equal(report.hostJsonSchema, true);
   assert.ok(report.generateOptionKeys.includes("tools"));
-  assert.ok(report.generateOptionKeys.includes("purpose"));
+  assert.ok(report.generateOptionKeys.includes("signal"));
   assert.equal(report.generateOptionKeys.includes("responseFormat"), false);
-  assert.equal(MEMORY_CURATOR_PRESET_ID, "penglai-memory-curator");
 });
 
 test("R56-MEM-005 host schema accepts a closed candidate object", () => {
@@ -102,13 +102,11 @@ test("R56-MEM-005 host schema rejects extra fields, unknown enums, and oversize 
   );
 });
 
-test("R56-MEM-005 curator failures fail open and tools.guard denies every model tool", () => {
+test("R56-MEM-005 curator failures fail open", () => {
   const failed = failOpenCuratorParse("{");
   assert.equal(failed.ok, false);
   if (!failed.ok) {
     assert.equal(failed.failOpen, true);
     assert.equal(failed.code, "CURATOR_JSON_INVALID");
   }
-  assert.equal(denyAllModelTools({ name: "penglai_memory_remember" }), MEMORY_CURATOR_NO_TOOLS_REASON);
-  assert.equal(denyAllModelTools({ name: "bash" }), MEMORY_CURATOR_NO_TOOLS_REASON);
 });
