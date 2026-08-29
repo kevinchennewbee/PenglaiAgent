@@ -13,6 +13,7 @@ import {
   parseInbound,
   parseOfficialInbound,
   ILinkClient,
+  WeixinIlinkResponseError,
   ILINK_CDN_BASE,
   buildSendBody,
   randomWechatUin,
@@ -925,4 +926,37 @@ test("R56-SEC-005 ilink JSON is bound before parse", async () => {
     },
   }));
   await assert.rejects(() => client.getQr(), /BOUNDED_HTTP_DECLARED_LENGTH/);
+});
+
+test("ilink response failures retain only closed redacted HTTP evidence", async () => {
+  const client = new ILinkClient(async () => ({
+    ok: true,
+    status: 200,
+    headers: {
+      get(name: string) {
+        return name.toLowerCase() === "content-type"
+          ? "text/html; boundary=must-not-persist"
+          : null;
+      },
+    },
+    async text() {
+      return "<html>private upstream body</html>";
+    },
+  }));
+  await assert.rejects(
+    () => client.getQr(),
+    (error) => {
+      assert.equal(error instanceof WeixinIlinkResponseError, true);
+      if (!(error instanceof WeixinIlinkResponseError)) return false;
+      assert.equal(error.failureKind, "protocol");
+      assert.deepEqual(error.observation, {
+        phase: "qr-start",
+        httpStatus: 200,
+        contentType: "text/html",
+      });
+      const visible = JSON.stringify(error.observation);
+      assert.doesNotMatch(visible, /boundary|private upstream|https?:/);
+      return true;
+    },
+  );
 });

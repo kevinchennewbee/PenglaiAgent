@@ -123,8 +123,10 @@ Allowed work now includes:
   first-sound performance. All eight IM connection flows also open in one
   focused page-level modal while preserving each platform's real connection
   method; owned begin/poll failures now return durable localized causes and
-  reference IDs without exposing bounded-HTTP implementation codes. Native
-  accessibility, live QR, and real status/Content-Type evidence remain open.
+  reference IDs without exposing bounded-HTTP implementation codes. Weixin
+  protocol failures also retain only the closed request phase, numeric HTTP
+  status, and normalized parameter-free media type. Native accessibility, live
+  QR, and Owner-live response evidence remain open.
 - IM `/会话` and the desktop binding chooser now share the owner-bound
   Session title projection. Visible missing-title fallbacks are localized and
   ordinal; selection remains bound to immutable IDs. Alpha generated Remote,

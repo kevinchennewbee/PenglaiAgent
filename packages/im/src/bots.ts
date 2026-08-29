@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import {
+  parseWeixinIlinkResponseObservation,
+  type WeixinIlinkResponseObservation,
+} from "@penglai/channel-weixin";
 import { PenglaiError, parseClosedEnum } from "@penglai/contracts";
 import { CHANNEL_CREDENTIAL_REFS } from "./credentials-vault.js";
 import { CHANNEL_IDS, getChannelManifest, type ChannelId } from "./registry.js";
@@ -54,12 +58,31 @@ const SIDECAR_SQL = `
     reference_id TEXT NOT NULL,
     action TEXT NOT NULL,
     at INTEGER NOT NULL,
+    transport_phase TEXT,
+    http_status INTEGER,
+    content_type TEXT,
     PRIMARY KEY (channel_id, account_ref)
   );
 `;
 
 export function ensureImV2Tables(db: DatabaseSync): void {
   db.exec(SIDECAR_SQL);
+  const columns = new Set(
+    (
+      db.prepare("PRAGMA table_info(im_v2_channel_failures)").all() as Array<{
+        name: string;
+      }>
+    ).map((row) => row.name),
+  );
+  for (const [name, declaration] of [
+    ["transport_phase", "TEXT"],
+    ["http_status", "INTEGER"],
+    ["content_type", "TEXT"],
+  ] as const) {
+    if (!columns.has(name)) {
+      db.exec(`ALTER TABLE im_v2_channel_failures ADD COLUMN ${name} ${declaration}`);
+    }
+  }
 }
 
 export class ImBotStore {
@@ -124,18 +147,26 @@ export class ImBotStore {
     referenceId: string;
     action: string;
     at: number;
+    transport?: WeixinIlinkResponseObservation;
   }): void {
+    const transport = parseWeixinIlinkResponseObservation(input.transport);
     this.db
       .prepare(
-        `INSERT INTO im_v2_channel_failures(channel_id, account_ref, code, message_zh, message_en, reference_id, action, at)
-         VALUES (?,?,?,?,?,?,?,?)
+        `INSERT INTO im_v2_channel_failures(
+           channel_id, account_ref, code, message_zh, message_en, reference_id,
+           action, at, transport_phase, http_status, content_type
+         )
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(channel_id, account_ref) DO UPDATE SET
            code=excluded.code,
            message_zh=excluded.message_zh,
            message_en=excluded.message_en,
            reference_id=excluded.reference_id,
            action=excluded.action,
-           at=excluded.at`,
+           at=excluded.at,
+           transport_phase=excluded.transport_phase,
+           http_status=excluded.http_status,
+           content_type=excluded.content_type`,
       )
       .run(
         input.channelId,
@@ -146,6 +177,9 @@ export class ImBotStore {
         input.referenceId,
         input.action,
         input.at,
+        transport?.phase ?? null,
+        transport?.httpStatus ?? null,
+        transport?.contentType ?? null,
       );
   }
 
@@ -158,11 +192,20 @@ export class ImBotStore {
     referenceId: string;
     action: string;
     at: number;
+    transport?: WeixinIlinkResponseObservation;
   } | undefined {
     const row = this.db
       .prepare(`SELECT * FROM im_v2_channel_failures WHERE channel_id = ? AND account_ref = ?`)
       .get(channelId, accountRef) as Record<string, string | number> | undefined;
     if (!row) return undefined;
+    const phase = String(row.transport_phase ?? "");
+    const httpStatus = Number(row.http_status);
+    const contentType = String(row.content_type ?? "");
+    const transport = parseWeixinIlinkResponseObservation({
+      phase,
+      httpStatus,
+      contentType,
+    });
     return {
       channelId: parseClosedEnum(String(row.channel_id), CHANNEL_IDS, "CHANNEL_ID", "SECURITY_POLICY"),
       accountRef: String(row.account_ref),
@@ -172,6 +215,7 @@ export class ImBotStore {
       referenceId: String(row.reference_id),
       action: String(row.action),
       at: Number(row.at),
+      ...(transport ? { transport } : {}),
     };
   }
 

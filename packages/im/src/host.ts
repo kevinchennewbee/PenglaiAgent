@@ -7,7 +7,12 @@ import {
   type VoiceReplyMode,
 } from "@penglai/contracts";
 import type { ArtifactService } from "@penglai/artifacts";
-import { renderQrPngDataUrl, type WeixinAdapter } from "@penglai/channel-weixin";
+import {
+  renderQrPngDataUrl,
+  weixinIlinkResponseObservation,
+  type WeixinAdapter,
+  type WeixinIlinkResponseObservation,
+} from "@penglai/channel-weixin";
 import type { FeishuAdapter } from "@penglai/channel-feishu";
 import type { RoutingControlPlane } from "@penglai/routing-core";
 import type { Store } from "@penglai/persistence";
@@ -77,6 +82,7 @@ export interface ChannelState {
     message: { zh: string; en: string };
     referenceId: string;
     at: number;
+    transport?: WeixinIlinkResponseObservation;
   };
   accountRedacted?: string;
   lastCheckAt?: number;
@@ -894,6 +900,7 @@ export class PenglaiImHost {
               message: { zh: failure.messageZh, en: failure.messageEn },
               referenceId: failure.referenceId,
               at: failure.at,
+              ...(failure.transport ? { transport: failure.transport } : {}),
             },
           }
         : {}),
@@ -928,6 +935,7 @@ export class PenglaiImHost {
               message: { zh: failure.messageZh, en: failure.messageEn },
               referenceId: failure.referenceId,
               at: failure.at,
+              ...(failure.transport ? { transport: failure.transport } : {}),
             },
           }
         : {}),
@@ -1164,6 +1172,7 @@ export class PenglaiImHost {
     error: unknown,
   ): NonNullable<ChannelState["error"]> {
     const failure = publicMessageFailure(classifyMessageFailure(error));
+    const transport = channel === "weixin" ? weixinIlinkResponseObservation(error) : undefined;
     const recorded = {
       channelId: channel,
       accountRef,
@@ -1173,6 +1182,7 @@ export class PenglaiImHost {
       referenceId: failure.referenceId,
       action: RECOVERY_ACTION_BY_CODE[failure.code],
       at: failure.at,
+      ...(transport ? { transport } : {}),
     };
     this.bots.putChannelFailure(recorded);
     return {
@@ -1181,6 +1191,7 @@ export class PenglaiImHost {
       message: { zh: recorded.messageZh, en: recorded.messageEn },
       referenceId: recorded.referenceId,
       at: recorded.at,
+      ...(recorded.transport ? { transport: recorded.transport } : {}),
     };
   }
 
