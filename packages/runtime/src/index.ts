@@ -967,6 +967,7 @@ export { selectCatalogArtifact } from "@penglai/plugin-registry";
 export * from "./safe-tar.js";
 export * from "./plugin-owner.js";
 export * from "./generation-migrate.js";
+export * from "./dsh-home-upgrade.js";
 export * from "./boot-revoke.js";
 export * from "./inventory-proof.js";
 export * from "./private-mode.js";

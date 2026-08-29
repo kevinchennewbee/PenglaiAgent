@@ -292,7 +292,37 @@ HTTP and WebSocket requests. Steady-state health uses the same credential.
 Wrong-authority URLs and malformed or unaccepted credentials fail closed. This
 does not prove that the unpublished alpha package starts inside a native build.
 
-### 4.12 Windows process helpers
+### 4.12 DSH Home data generation and rollback
+
+Both versions stamp session format v0, but that number alone is not a migration
+promise. Alpha.1 explicitly performs only bounded legacy normalization, changes
+the credential document in its own Home, and refuses unknown event vocabulary.
+Running it directly over the only 0.5.7 Home would therefore turn an otherwise
+recoverable package mismatch into user-data risk.
+
+The preview source now provides an explicit rc.2-to-alpha.1 Home generation
+state machine. The legacy `dsh-home` remains the source and rollback authority;
+the alpha working Home lives under a versioned private root. Preparation has
+bounded entry/byte walks, available-space reserve, regular-file and no-symlink
+rules, one writer, exact source/target digests, owner-only modes, and atomic
+staging rename. Credentials are copied only because the target is a real private
+working Home, never an update backup; alpha's credential conversion and new
+browser-session signing record therefore mutate the candidate without touching
+the rc.2 credential file. Activation is impossible until the exact alpha version,
+official document, continuous health, profile, Office, and Memory checks pass.
+The active pointer is committed last. Rejected validation removes only the
+candidate; an activated generation can select the unchanged rc.2 Home again
+without deleting the failed alpha bytes.
+
+The fixed-source replay verifier independently compares the generated known
+event catalogs and finds alpha.1 a strict superset: 48 rc.2 types versus 51
+alpha.1 types. It then makes alpha.1 inspect and load a physical privacy-safe
+rc.2 JSONL log containing a pre-identity user message and `todo/write`; both
+paths pass and the message receives the official legacy identity. This is a
+source/corpus result, not proof for unpublished package bytes, a real installed
+user Home, SQLite variants, Windows ACLs, or native rollback.
+
+### 4.13 Windows process helpers
 
 The candidate includes lower-level Windows process helpers, but it does not
 provide a general Penglai desktop supervisor that owns the packaged Node/DSH
@@ -334,7 +364,7 @@ remains source evidence: the helper still needs compilation/execution on native
 Windows, installed orphan proof on all targets, and reconciliation with the
 exact published alpha.1 process.
 
-### 4.13 IM capability truth is not one boolean
+### 4.14 IM capability truth is not one boolean
 
 The 0.5.7 tree has conflicting machine meanings for channel availability. Its
 live-channel registry admits only Weixin and Feishu, while most channel
@@ -356,7 +386,7 @@ Penglai consequence:
 - permanently remove WhatsApp instead of representing it as unavailable,
   experimental, disabled, guided, community, or future roadmap.
 
-### 4.14 Repository history is not active product scope
+### 4.15 Repository history is not active product scope
 
 Several scripts, evidence schemas, overlays, and compatibility wrappers have
 few or no ordinary imports. That fact alone does not prove they are dead: some
