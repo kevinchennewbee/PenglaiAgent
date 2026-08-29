@@ -43,4 +43,8 @@ test("Plugin Center copy agrees with the eight-channel registry", () => {
   assert.match(source, /connections for eight messaging platforms/);
   assert.doesNotMatch(source, /九个消息平台|nine messaging platforms/);
   assert.match(source, /centerActionRetry/);
+  assert.match(source, /data-penglai-plugin-reference/);
+  assert.match(source, /centerReferenceId: "诊断参考号"/);
+  assert.match(source, /centerReferenceId: "Diagnostic reference"/);
+  assert.doesNotMatch(source, /transaction\.operationId/);
 });

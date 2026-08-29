@@ -153,8 +153,10 @@ Allowed work now includes:
   the cause shown, copied, or written to the bounded local startup log.
 - Plugin activation now journals bounded closed inventory transitions and exact
   activation/rollback readbacks. The Plugin Center turns only six closed
-  failure codes into bilingual recovery guidance; arbitrary loader errors stay
-  private. Exact alpha event/client-fiber integration remains blocked on npm.
+  failure codes into bilingual recovery guidance and shows a stable one-way
+  diagnostic reference without exposing the private transaction identity;
+  arbitrary loader errors stay private. Exact alpha event/client-fiber
+  integration remains blocked on npm.
 - Release identity verification now reads the sole `pins.ts` authority instead
   of declaring another expected version, then checks workspace manifests and
   the complete high-risk `release-info` product/toolchain/DSH/schema/publication
