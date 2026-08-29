@@ -53,6 +53,7 @@
 | P058-037 | TTS cancellable lifecycle and timing boundaries | Source/native/live | IN_PROGRESS | preview and Read share typed synthesis cancellation plus latest-generation playback; localized queued/synthesizing/buffering/playing/ended/stopped/stalled/error states and source timing boundaries pass locally; streaming/prewarm and native first-sound budget remain |
 | P058-038 | Shared IM connection modal | Source/UI/native/live | IN_PROGRESS | all eight platform-owned connection flows render in one labelled page-level modal with focus entry, Escape/Close, internal scrolling, adjacent status/QR/cancel/retry, and no nested dialog; native focus/screen-reader and live QR proof remain |
 | P058-039 | Structured IM connection failures | Source/UI/live | IN_PROGRESS | native QR and guided adapter begin/poll failures persist and return one public code/message/action/reference; bounded response-shape failures map to CHANNEL_PROTOCOL and raw exception text is absent from the client; real redacted HTTP status/Content-Type and Owner-live reproduction remain |
+| P058-040 | Penglai settings locale and error boundary | Source/UI/native | IN_PROGRESS | ASR/TTS model states plus recovery copy are bilingual; ASR, TTS, IM, Office, Memory Sources, Plugin Center, update, and uninstall no longer render caught exception/catalog error text; exact eight-channel copy passes; typed references, outage deduplication, official DSH labels, and installed readback remain |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -106,6 +107,7 @@ use a partial broken push merely to create activity.
 | `cc8e54502d3e803307ea5cba70faaeb49ed5730c` | make TTS preview and Read synthesis cancellable with closed playback states and source timing boundaries | branch readback PASS; [Source CI 33252194016](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33252194016) PASS |
 | `0de7a9e8d4a52608afea31117ed8313951536fd1` | focus all eight platform-owned connection flows in one shared page-level modal | branch readback PASS; [Source CI 33252521644](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33252521644) PASS |
 | `27823d7cbb0111d5bf9a0b7f6e0627fbfb9ef258` | return one durable structured connection failure to the IM modal without exposing transport internals | branch readback PASS; [Source CI 33253126999](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33253126999) PASS |
+| `592b066bd175f7139393a24639f956c9eadbf4dd` | project official Session titles into IM chat and desktop choosers without exposing ID fallbacks | branch readback PASS; [Source CI 33253572361](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33253572361) PASS |
 
 ## Publication reconciliation placeholder
 

@@ -129,6 +129,11 @@ Allowed work now includes:
   Session title projection. Visible missing-title fallbacks are localized and
   ordinal; selection remains bound to immutable IDs. Alpha generated Remote,
   installed UI, and Owner-live command proof remain open.
+- Penglai-owned ASR, TTS, IM, Office, Memory Sources, Plugin Center, update, and
+  uninstall settings no longer render caught exception text. Voice model states
+  and recovery copy are bilingual, and Plugin Center now states the exact
+  eight-channel registry. Full typed-reference/outage deduplication and official
+  DSH permission-label localization remain open.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

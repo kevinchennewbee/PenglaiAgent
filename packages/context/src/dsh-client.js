@@ -22,6 +22,7 @@ function createPenglaiMemorySourcesClient(require) {
         sourceUntouched: "源文件未改动",
         loading: "正在读取授权来源…",
         unavailable: "蓬莱记忆的本地资料服务暂时不可用。",
+        actionFailed: "操作未完成。请刷新状态后重试。",
         busy: "处理中…",
       },
       en: {
@@ -44,6 +45,7 @@ function createPenglaiMemorySourcesClient(require) {
         sourceUntouched: "Source files untouched",
         loading: "Reading authorized sources…",
         unavailable: "Penglai Memory local sources are temporarily unavailable.",
+        actionFailed: "The operation did not complete. Refresh the status and retry.",
         busy: "Working…",
       },
     };
@@ -61,8 +63,7 @@ function createPenglaiMemorySourcesClient(require) {
       }
       return value;
     };
-    const errorText = (error) =>
-      String(error && error.message ? error.message : error);
+    const operationErrorText = () => copy().actionFailed;
     const desktopPick = () => {
       const api = typeof window !== "undefined" ? window.penglai : undefined;
       if (!api || typeof api.pickContextFolder !== "function")
@@ -115,11 +116,11 @@ function createPenglaiMemorySourcesClient(require) {
                 "",
             }));
           })
-          .catch((error) =>
+          .catch(() =>
             setView((current) => ({
               ...current,
               phase: "unavailable",
-              error: errorText(error),
+              error: "",
             })),
           );
       }, [api]);
@@ -145,11 +146,11 @@ function createPenglaiMemorySourcesClient(require) {
             refresh();
             return result;
           })
-          .catch((error) =>
+          .catch(() =>
             setView((current) => ({
               ...current,
               busy: false,
-              error: errorText(error),
+              error: operationErrorText(),
             })),
           );
       };
@@ -183,8 +184,8 @@ function createPenglaiMemorySourcesClient(require) {
             refresh();
             return result;
           })
-          .catch((error) => {
-            setView((current) => ({ ...current, busy: false, error: errorText(error) }));
+          .catch(() => {
+            setView((current) => ({ ...current, busy: false, error: operationErrorText() }));
             return undefined;
           });
       };
@@ -213,11 +214,11 @@ function createPenglaiMemorySourcesClient(require) {
               String(picked.displayName || ""),
             );
           })
-          .catch((error) =>
+          .catch(() =>
             setView((current) => ({
               ...current,
               busy: false,
-              error: errorText(error),
+              error: operationErrorText(),
             })),
           );
       };
@@ -239,11 +240,11 @@ function createPenglaiMemorySourcesClient(require) {
               hits: unwrap(value) || [],
             })),
           )
-          .catch((error) =>
+          .catch(() =>
             setView((current) => ({
               ...current,
               busy: false,
-              error: errorText(error),
+              error: operationErrorText(),
             })),
           );
       };
@@ -257,7 +258,7 @@ function createPenglaiMemorySourcesClient(require) {
         return jsx.jsxs("section", {
           "data-penglai-memory-sources-panel": "1",
           "data-penglai-memory-sources-status": "unavailable",
-          children: [t.unavailable, view.error ? ` ${view.error}` : ""],
+          children: t.unavailable,
         });
       const grants = view.snapshot.grants || [];
       const workspaces = view.snapshot.workspaces || [];

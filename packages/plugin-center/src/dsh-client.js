@@ -255,13 +255,13 @@ window.__ModuleLoader__.load({
           ) {
             window.setTimeout(() => window.location.reload(), 900);
           }
-        } catch (error) {
+        } catch {
           setActions((current) => ({
             ...current,
             [id]: {
               busy: false,
               kind: "error",
-              message: `${localeCopy().centerActionFailed}: ${error instanceof Error ? error.message : String(error)}`,
+              message: `${localeCopy().centerActionFailed}. ${localeCopy().centerActionRetry}`,
             },
           }));
         }
@@ -409,7 +409,7 @@ window.__ModuleLoader__.load({
               entry.error
                 ? jsx.jsxs("p", {
                     role: "alert",
-                    children: [t.centerErrorLabel, ": ", String(entry.error)],
+                    children: [t.centerErrorLabel, ": ", t.centerActionFailed],
                   })
                 : null,
               mutate
@@ -739,7 +739,7 @@ window.__ModuleLoader__.load({
         cardCenter: "蓬莱插件中心",
         cardCenterHint: "管理本机已签入插件的实际状态。",
         cardIm: "消息连接",
-        cardImHint: "在一个入口中管理九个消息平台的私聊连接。",
+        cardImHint: "在一个入口中管理八个消息平台的私聊连接。",
         cardAsr: "蓬莱语音识别",
         cardAsrHint: "本地 SenseVoice。到「蓬莱语音识别」页下载模型并试转写。",
         cardTts: "蓬莱语音生成",
@@ -775,6 +775,7 @@ window.__ModuleLoader__.load({
         centerActionDone: "操作成功。",
         centerActionReloading: "正在应用内重新载入配置页面；随后可从左侧进入对应插件。",
         centerActionFailed: "操作失败",
+        centerActionRetry: "请刷新状态后重试",
       },
       en: {
         penglaiSettingsTitle: "Penglai",
@@ -899,7 +900,7 @@ window.__ModuleLoader__.load({
         cardCenter: "Penglai Plugin Center",
         cardCenterHint: "Manage actual state of signed local plugins.",
         cardIm: "Messaging",
-        cardImHint: "Manage private-chat connections for nine messaging platforms in one place.",
+        cardImHint: "Manage private-chat connections for eight messaging platforms in one place.",
         cardAsr: "Penglai Speech Recognition",
         cardAsrHint:
           "Local SenseVoice. Open Penglai Speech Recognition to download the model and test transcription.",
@@ -939,6 +940,7 @@ window.__ModuleLoader__.load({
         centerActionDone: "Completed.",
         centerActionReloading: "Reloading the in-app settings surface; open the plugin from the left navigation next.",
         centerActionFailed: "Action failed",
+        centerActionRetry: "Refresh the status and retry",
       },
     };
 
@@ -1031,10 +1033,6 @@ window.__ModuleLoader__.load({
         index += 1;
       } while (scaled >= 1024 && index < units.length - 1);
       return `${scaled.toFixed(scaled >= 10 ? 1 : 2)} ${units[index]}`;
-    }
-
-    function errorText(error) {
-      return String(error && error.message ? error.message : error);
     }
 
     function PenglaiBrandMark(props = {}) {
@@ -1206,10 +1204,10 @@ window.__ModuleLoader__.load({
             .then((value) =>
               setView((current) => ({ ...current, value, error: "" })),
             )
-            .catch((error) =>
+            .catch(() =>
               setView((current) => ({
                 ...current,
-                error: errorText(error),
+                error: t.updateError,
               })),
             );
         }, []);
@@ -1227,11 +1225,11 @@ window.__ModuleLoader__.load({
                 error: "",
               })),
             )
-            .catch((error) =>
+            .catch(() =>
               setView((current) => ({
                 ...current,
                 busy: false,
-                error: errorText(error),
+                error: t.updateError,
               })),
             );
         };
@@ -1332,10 +1330,10 @@ window.__ModuleLoader__.load({
               ? jsx.jsx("p", { children: t.updateSystemConfirm })
               : null,
             view.error
-              ? jsx.jsxs("p", {
+              ? jsx.jsx("p", {
                   role: "alert",
                   "data-penglai-update-error": "1",
-                  children: [t.updateError, ": ", view.error],
+                  children: t.updateError,
                 })
               : null,
             jsx.jsxs("div", {
@@ -1438,11 +1436,11 @@ window.__ModuleLoader__.load({
                 exportReady: false,
               }),
             )
-            .catch((error) =>
+            .catch(() =>
               setView((current) => ({
                 ...current,
                 busy: false,
-                error: errorText(error),
+                error: t.deleteError,
               })),
             );
         }, []);
@@ -1485,11 +1483,11 @@ window.__ModuleLoader__.load({
                 error: "",
               }));
             })
-            .catch((error) =>
+            .catch(() =>
               setView((current) => ({
                 ...current,
                 busy: false,
-                error: errorText(error),
+                error: t.deleteError,
               })),
             );
         };
@@ -1508,11 +1506,11 @@ window.__ModuleLoader__.load({
                 error: "",
               }));
             })
-            .catch((error) =>
+            .catch(() =>
               setView((current) => ({
                 ...current,
                 busy: false,
-                error: errorText(error),
+                error: t.deleteError,
               })),
             );
         };
@@ -1522,11 +1520,11 @@ window.__ModuleLoader__.load({
           desktopCall("executeDataDeletion", {
             operationId: preview.operationId,
             confirmed: true,
-          }).catch((error) =>
+          }).catch(() =>
             setView((current) => ({
               ...current,
               busy: false,
-              error: errorText(error),
+              error: t.deleteError,
             })),
           );
         };
@@ -1666,10 +1664,10 @@ window.__ModuleLoader__.load({
                 })
               : null,
             view.error
-              ? jsx.jsxs("p", {
+              ? jsx.jsx("p", {
                   role: "alert",
                   "data-penglai-uninstall-error": "1",
-                  children: [t.deleteError, " ", view.error],
+                  children: t.deleteError,
                 })
               : null,
             !preview
@@ -1699,10 +1697,10 @@ window.__ModuleLoader__.load({
                               exportReady: true,
                             })),
                           )
-                          .catch((error) =>
+                          .catch(() =>
                             setView((current) => ({
                               ...current,
-                              error: errorText(error),
+                              error: t.deleteError,
                             })),
                           ),
                       children: t.exportPreview,

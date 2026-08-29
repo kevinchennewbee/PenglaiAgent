@@ -143,10 +143,10 @@ window.__ModuleLoader__.load({
               copied: "",
             });
           })
-          .catch((error) => setView({
+          .catch(() => setView({
             status: "error",
             templates: [],
-            error: String(error && error.message ? error.message : error),
+            error: t.unavailable,
             copied: "",
           }));
       }, [api]);
@@ -181,7 +181,7 @@ window.__ModuleLoader__.load({
           jsx.jsx("p", {
             role: "status",
             "aria-live": "polite",
-            children: view.status === "ready" ? t.ready : view.status === "loading" ? "…" : `${t.unavailable}${view.error ? `: ${view.error}` : ""}`,
+            children: view.status === "ready" ? t.ready : view.status === "loading" ? "…" : t.unavailable,
           }),
           jsx.jsx("h4", { children: t.formats }),
           jsx.jsx("ul", {
