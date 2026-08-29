@@ -11,13 +11,13 @@ test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async ()
   let inbound: ((msg: Record<string, string>) => void) | undefined;
   const native = {
     async beginConnection() {
-      return { kind: "token" as const, live: false as const, operationId: "op" };
+      return { kind: "token" as const, connection: "connected", operationId: "op" };
     },
     async pollConnection() {
       return { status: "connected" };
     },
     health() {
-      return { channel: "slack" as const, live: false, connection: "connected" };
+      return { channel: "slack" as const, runtimeBundled: true as const, connection: "connected" };
     },
     async sendText() {
       return { delivered: true as const };
@@ -63,13 +63,13 @@ test("channel bridge drops incomplete inbound and HMAC-hashes peerRef", async ()
 test("wrapNative keeps enable separate from transport connected", async () => {
   const native = {
     async beginConnection() {
-      return { kind: "token" as const, live: false as const, operationId: "op" };
+      return { kind: "token" as const, connection: "connected", operationId: "op" };
     },
     async pollConnection() {
       return { status: "connected" };
     },
     health() {
-      return { channel: "slack" as const, live: false, enabled: true, connection: "connected" };
+      return { channel: "slack" as const, runtimeBundled: true as const, enabled: true, connection: "connected" };
     },
     async sendText() {
       return { delivered: true as const };
@@ -92,13 +92,13 @@ test("wrapNative stop keeps enabled while logout disables", async () => {
   let loggedOut = 0;
   const native = {
     async beginConnection() {
-      return { kind: "token" as const, live: false as const, operationId: "op" };
+      return { kind: "token" as const, connection: "connected", operationId: "op" };
     },
     async pollConnection() {
       return { status: "connected" };
     },
     health() {
-      return { channel: "slack" as const, live: false, connection: "connected" };
+      return { channel: "slack" as const, runtimeBundled: true as const, connection: "connected" };
     },
     async sendText() {
       return { delivered: true as const };

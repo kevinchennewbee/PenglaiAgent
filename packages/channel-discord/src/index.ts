@@ -58,7 +58,7 @@ export class DiscordAdapter {
     },
   ) {}
 
-  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token"; live: false; operationId: string }> {
+  async beginConnection(input: { method: string; credentialRef: string }): Promise<{ kind: "token"; connection: DiscordConnection; operationId: string }> {
     if (input.method === "qr") throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NO_QR");
     const creds = this.vault.resolve(input.credentialRef);
     if (!creds?.token) {
@@ -88,7 +88,7 @@ export class DiscordAdapter {
       await this.connectGateway(false);
     }
     this.connection = "connected";
-    return { kind: "token", live: false, operationId: "discord:token" };
+    return { kind: "token", connection: this.connection, operationId: "discord:token" };
   }
 
   async pollConnection(): Promise<{ status: DiscordConnection }> {
@@ -127,7 +127,7 @@ export class DiscordAdapter {
   health() {
     return {
       channel: "discord" as const,
-      live: false,
+      runtimeBundled: true as const,
       enabled: this.connection !== "disabled",
       connection: this.connection,
       intentsHint: this.intentsHint,
@@ -137,7 +137,7 @@ export class DiscordAdapter {
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.token || !input.peerRef) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:discord");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:discord");
     }
     const response = await this.fetchImpl(`https://discord.com/api/v10/channels/${input.peerRef}/messages`, {
       method: "POST",

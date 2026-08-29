@@ -51,13 +51,13 @@ export class DingTalkAdapter {
   async beginConnection(input: {
     method?: string;
     credentialRef?: string;
-  }): Promise<{ kind: "qr" | "token"; live: false; operationId: string; expiresAt?: number; connection: DingTalkConnection }> {
+  }): Promise<{ kind: "qr" | "token"; operationId: string; expiresAt?: number; connection: DingTalkConnection }> {
     if (input.method === "qr" || !input.credentialRef) {
       this.connection = "connecting";
       const session = await this.auth.start();
       const operationId = `dingtalk:qr:${session.deviceCode.slice(0, 8)}`;
       this.qr = { operationId, deviceCode: session.deviceCode, verificationUrl: session.verificationUrl, expiresAt: session.expiresAt };
-      return { kind: "qr", live: false, operationId, expiresAt: session.expiresAt, connection: this.connection };
+      return { kind: "qr", operationId, expiresAt: session.expiresAt, connection: this.connection };
     }
     return this.connectWithRef(input.credentialRef);
   }
@@ -89,12 +89,12 @@ export class DingTalkAdapter {
     const transport = this.client?.connected;
     const connection =
       this.connection === "connected" && transport === false ? "connecting" : this.connection;
-    return { channel: "dingtalk" as const, live: false, enabled: this.connection !== "disabled", connection };
+    return { channel: "dingtalk" as const, runtimeBundled: true as const, enabled: this.connection !== "disabled", connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.client?.send) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:dingtalk");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:dingtalk");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "DINGTALK_REPLY_TARGET");
     await this.client.send(input.peerRef, input.text);
@@ -112,7 +112,7 @@ export class DingTalkAdapter {
     this.connection = "disabled";
   }
 
-  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; live: false; operationId: string; connection: DingTalkConnection }> {
+  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; operationId: string; connection: DingTalkConnection }> {
     const creds = this.vault.resolve(credentialRef);
     if (!creds?.clientId || !creds.clientSecret) {
       this.connection = "not_configured";
@@ -147,7 +147,7 @@ export class DingTalkAdapter {
       this.connection = "failed";
       throw new PenglaiError("DELIVERY_TRANSIENT", "dingtalk stream connect failed");
     }
-    return { kind: "token", live: false, operationId: `dingtalk:token:${credentialRef}`, connection: this.connection };
+    return { kind: "token", operationId: `dingtalk:token:${credentialRef}`, connection: this.connection };
   }
 
   private async createOfficialClient(creds: DingTalkCredentials): Promise<DingTalkStreamClient> {

@@ -44,7 +44,7 @@ export class QqAdapter {
   async beginConnection(input: {
     method?: string;
     credentialRef?: string;
-  }): Promise<{ kind: "qr" | "token"; live: false; operationId: string; connection: QqConnection }> {
+  }): Promise<{ kind: "qr" | "token"; operationId: string; connection: QqConnection }> {
     if (input.method === "qr" || !input.credentialRef) {
       this.connection = "connecting";
       const operationId = `qq:qr:${Date.now()}`;
@@ -68,7 +68,7 @@ export class QqAdapter {
         },
       });
       this.qr = { operationId, cancel: started.cancel };
-      return { kind: "qr", live: false, operationId, connection: this.connection };
+      return { kind: "qr", operationId, connection: this.connection };
     }
     return this.connectWithRef(input.credentialRef);
   }
@@ -125,12 +125,12 @@ export class QqAdapter {
   }
 
   health() {
-    return { channel: "qq" as const, live: false, enabled: this.connection !== "disabled", connection: this.connection };
+    return { channel: "qq" as const, runtimeBundled: true as const, enabled: this.connection !== "disabled", connection: this.connection };
   }
 
   async sendText(input: { text: string; peerRef?: string }): Promise<{ delivered: true }> {
     if (this.connection !== "connected" || !this.client?.send) {
-      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:qq");
+      throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TEXT_SEND_UNAVAILABLE:qq");
     }
     if (!input.peerRef) throw new PenglaiError("INVALID_INPUT", "QQ_REPLY_TARGET");
     await this.client.send(input.peerRef, input.text);
@@ -146,7 +146,7 @@ export class QqAdapter {
     this.connection = "disabled";
   }
 
-  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; live: false; operationId: string; connection: QqConnection }> {
+  private async connectWithRef(credentialRef: string): Promise<{ kind: "token"; operationId: string; connection: QqConnection }> {
     const creds = this.vault.resolve(credentialRef);
     if (!creds?.appId || !creds.clientSecret) {
       this.connection = "not_configured";
@@ -173,6 +173,6 @@ export class QqAdapter {
       this.connection = "failed";
       throw new PenglaiError("DELIVERY_TRANSIENT", "qq connect failed");
     }
-    return { kind: "token", live: false, operationId: `qq:token:${credentialRef}`, connection: this.connection };
+    return { kind: "token", operationId: `qq:token:${credentialRef}`, connection: this.connection };
   }
 }

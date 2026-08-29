@@ -22,7 +22,7 @@ test("Slack validates a bot token without QR and can send", async () => {
   const begun = await adapter.beginConnection({ method: "token", credentialRef: "PENGLAI_SLACK_BOT" });
   assert.equal(adapter.health().connection, "connected");
   assert.equal(begun.kind, "token");
-  assert.equal(begun.live, false);
+  assert.equal(begun.connection, "connected");
   await adapter.sendText({ text: "hi", peerRef: "D123" });
 });
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { beginGuidedConnection } from "./guided.js";
 import { ImBotStore } from "./bots.js";
-import { CHANNEL_IDS, CHANNEL_MANIFESTS, refuseFakeQr } from "./registry.js";
+import { CHANNEL_IDS, CHANNEL_MANIFESTS, NATIVE_CHANNEL_IDS, refuseFakeQr } from "./registry.js";
 import { OwnerApprovalBroker } from "@penglai/runtime";
 import { createRuntime } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
@@ -22,17 +22,24 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
     "telegram",
     "discord",
   ]);
-  assert.equal(CHANNEL_MANIFESTS.weixin.live, true);
-  assert.equal(CHANNEL_MANIFESTS.feishu.live, true);
+  assert.deepEqual([...NATIVE_CHANNEL_IDS], ["weixin", "feishu"]);
+  assert.equal(CHANNEL_MANIFESTS.weixin.adapterMode, "native");
+  assert.equal(CHANNEL_MANIFESTS.feishu.adapterMode, "native");
   assert.equal(CHANNEL_MANIFESTS.weixin.connectionMethods.includes("qr"), true);
   for (const row of Object.values(CHANNEL_MANIFESTS)) {
-    assert.equal(row.live, true);
-    assert.equal(row.supportLevel, "ga");
+    assert.equal(row.entryAvailable, true);
+    assert.equal(row.runtimeBundled, true);
+    assert.equal(row.releaseEvidence, "source-only");
     assert.notEqual(row.connectionMethods.length, 0);
+    assert.equal(Object.isFrozen(row), true);
+    assert.equal("live" in row, false);
+    assert.equal("supportLevel" in row, false);
+    assert.equal("capabilities" in row, false);
   }
   assert.equal(CHANNEL_MANIFESTS.telegram.connectionMethods.includes("qr"), false);
   assert.equal(CHANNEL_MANIFESTS.discord.connectionMethods.includes("qr"), false);
-  assert.equal(CHANNEL_MANIFESTS.slack.capabilities.threads, false);
+  assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.image, "not-supported");
+  assert.equal(CHANNEL_MANIFESTS.slack.capabilityEvidence.reconnect, "source-tested");
   assert.equal(CHANNEL_MANIFESTS.dingtalk.connectionMethods.includes("qr"), true);
   assert.equal(CHANNEL_MANIFESTS.wecom.connectionMethods.includes("qr"), true);
   assert.equal(CHANNEL_MANIFESTS.qq.connectionMethods.includes("qr"), true);
@@ -61,7 +68,7 @@ test("R56-IM-003 Slack/Telegram/Discord refuse a fake QR connection", () => {
   assert.throws(() => beginGuidedConnection({ channel: "discord", method: "qr" }), /CHANNEL_NO_QR/);
   const slack = beginGuidedConnection({ channel: "slack", method: "oauth" });
   assert.equal(slack.qr, false);
-  assert.equal(slack.live, false);
+  assert.equal(slack.connection, "not_configured");
 });
 
 test("R57-IM-002 host begins a real Slack token connection without QR", async () => {
@@ -126,7 +133,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     secret: JSON.stringify({ botToken: "xoxb-test", appToken: "xapp-test" }),
   });
   assert.equal(begun.kind, "token");
-  assert.equal(begun.live, false);
+  assert.equal(begun.connection, "connecting");
   assert.equal((await host.getOverview()).channels.find((row) => row.channel === "slack")?.connection, "connected");
   assert.equal(JSON.stringify(begun).includes("xoxb-test"), false);
   rt.store.close();
@@ -178,6 +185,13 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   const overview = await host.getOverview();
   assert.equal(overview.channels.length, 8);
   assert.equal(overview.manifests.length, 8);
+  for (const state of overview.channels) {
+    assert.equal("live" in state, false);
+    assert.equal(state.entryAvailable, true);
+    assert.equal(state.runtimeBundled, true);
+    assert.equal(state.releaseEvidence, "source-only");
+    assert.equal(typeof state.capabilityEvidence.authentication, "string");
+  }
   assert.equal(rt.store.schemaVersion(), 12);
   assert.equal(host.listBindings().some((row) => row.channel === "weixin" && row.accountId === "docs"), false);
   assert.throws(
@@ -189,7 +203,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
         workspaceId: "w",
         sessionId: "s1",
       }),
-    /CHANNEL_NOT_LIVE/,
+    /CHANNEL_BINDING_UNAVAILABLE/,
   );
   rt.store.close();
 });
@@ -225,7 +239,10 @@ test("R58-IM-002 IM client lists eight connect actions without a compatibility c
   assert.match(client, /overflowWrap/);
   assert.match(client, /data-penglai-im-status/);
   assert.match(client, /data-penglai-im-card-header/);
-  assert.match(client, /data-penglai-im-implemented/);
+  assert.match(client, /data-penglai-im-release-evidence/);
+  assert.match(client, /data-penglai-im-runtime-bundled/);
+  assert.match(client, /source evidence only/);
+  assert.doesNotMatch(client, /data-penglai-im-live|data-penglai-im-implemented/);
   assert.doesNotMatch(client, /0\.5\.7 可用|Available in 0\.5\.7/);
   assert.match(client, /data-penglai-im-advanced/);
   assert.match(client, /displayName/);

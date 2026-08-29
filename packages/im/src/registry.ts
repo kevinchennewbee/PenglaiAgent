@@ -12,47 +12,72 @@ export const CHANNEL_IDS = [
 ] as const;
 
 export type ChannelId = (typeof CHANNEL_IDS)[number];
-export const LIVE_CHANNEL_IDS = ["weixin", "feishu"] as const;
-export type LiveChannelId = (typeof LIVE_CHANNEL_IDS)[number];
+export const NATIVE_CHANNEL_IDS = ["weixin", "feishu"] as const;
+export type NativeChannelId = (typeof NATIVE_CHANNEL_IDS)[number];
 export const CONNECTION_METHODS = ["qr", "oauth", "manifest", "token", "device-link", "manual-fallback"] as const;
 export type ConnectionMethod = (typeof CONNECTION_METHODS)[number];
-export const SUPPORT_LEVELS = ["ga", "experimental"] as const;
-export type SupportLevel = (typeof SUPPORT_LEVELS)[number];
+export const CHANNEL_ADAPTER_MODES = ["native", "bundled-sidecar"] as const;
+export type ChannelAdapterMode = (typeof CHANNEL_ADAPTER_MODES)[number];
+export const CHANNEL_RELEASE_EVIDENCE = ["source-only", "installed", "owner-live", "public-release"] as const;
+export type ChannelReleaseEvidence = (typeof CHANNEL_RELEASE_EVIDENCE)[number];
+export const CHANNEL_CAPABILITY_EVIDENCE = ["source-tested", "not-proven", "not-supported"] as const;
+export type ChannelCapabilityEvidenceLevel = (typeof CHANNEL_CAPABILITY_EVIDENCE)[number];
 
-export interface ChannelManifestV1 {
-  id: ChannelId;
-  displayName: { en: string; zh: string };
-  connectionMethods: ConnectionMethod[];
-  capabilities: {
-    text: boolean;
-    image: boolean;
-    file: boolean;
-    audio: boolean;
-    markdown: boolean;
-    streaming: boolean;
-    threads: boolean;
-    groups: boolean;
-  };
-  limits: { textChars: number; fileBytes: number; requestsPerMinute: number };
-  supportLevel: SupportLevel;
-  defaultEnabled: boolean;
-  live: boolean;
-  docsUrl: string;
+export interface ChannelCapabilityEvidence {
+  authentication: ChannelCapabilityEvidenceLevel;
+  inboundText: ChannelCapabilityEvidenceLevel;
+  outboundText: ChannelCapabilityEvidenceLevel;
+  image: ChannelCapabilityEvidenceLevel;
+  audio: ChannelCapabilityEvidenceLevel;
+  reconnect: ChannelCapabilityEvidenceLevel;
+  exit: ChannelCapabilityEvidenceLevel;
 }
 
-const TEXT_ONLY = {
-  text: true,
-  image: false,
-  file: false,
-  audio: false,
-  markdown: false,
-  streaming: false,
-  threads: false,
-  groups: false,
+export interface ChannelManifestV1 {
+  readonly id: ChannelId;
+  readonly displayName: { readonly en: string; readonly zh: string };
+  readonly connectionMethods: readonly ConnectionMethod[];
+  readonly entryAvailable: true;
+  readonly adapterMode: ChannelAdapterMode;
+  readonly runtimeBundled: true;
+  readonly releaseEvidence: ChannelReleaseEvidence;
+  readonly capabilityEvidence: Readonly<ChannelCapabilityEvidence>;
+  readonly limits: { readonly textChars: number; readonly fileBytes: number; readonly requestsPerMinute: number };
+  readonly defaultEnabled: boolean;
+  readonly docsUrl: string;
+}
+
+const SOURCE_TEXT: ChannelCapabilityEvidence = {
+  authentication: "source-tested",
+  inboundText: "source-tested",
+  outboundText: "source-tested",
+  image: "not-supported",
+  audio: "not-supported",
+  reconnect: "not-proven",
+  exit: "not-proven",
+};
+
+const SOURCE_MEDIA: ChannelCapabilityEvidence = {
+  ...SOURCE_TEXT,
+  image: "source-tested",
+  audio: "source-tested",
 };
 
 function manifest(row: ChannelManifestV1): ChannelManifestV1 {
-  return row;
+  parseClosedEnum(row.adapterMode, CHANNEL_ADAPTER_MODES, "CHANNEL_ADAPTER_MODE", "SECURITY_POLICY");
+  parseClosedEnum(row.releaseEvidence, CHANNEL_RELEASE_EVIDENCE, "CHANNEL_RELEASE_EVIDENCE", "SECURITY_POLICY");
+  for (const [capability, evidence] of Object.entries(row.capabilityEvidence)) {
+    parseClosedEnum(evidence, CHANNEL_CAPABILITY_EVIDENCE, `CHANNEL_CAPABILITY_${capability}`, "SECURITY_POLICY");
+  }
+  const expectedMode = (NATIVE_CHANNEL_IDS as readonly string[]).includes(row.id) ? "native" : "bundled-sidecar";
+  if (row.adapterMode !== expectedMode) throw new PenglaiError("SECURITY_POLICY", "CHANNEL_ADAPTER_MODE_MISMATCH");
+  return Object.freeze({
+    ...row,
+    displayName: Object.freeze({ ...row.displayName }),
+    connectionMethods: Object.freeze([...row.connectionMethods]),
+    capabilityEvidence: Object.freeze({ ...row.capabilityEvidence }),
+    limits: Object.freeze({ ...row.limits }),
+  });
 }
 
 export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
@@ -60,88 +85,104 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     id: "weixin",
     displayName: { en: "Weixin", zh: "微信" },
     connectionMethods: ["qr", "device-link"],
-    capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true },
+    entryAvailable: true,
+    adapterMode: "native",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: { ...SOURCE_MEDIA, exit: "source-tested" },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://developers.weixin.qq.com/",
   }),
   feishu: manifest({
     id: "feishu",
     displayName: { en: "Feishu", zh: "飞书" },
     connectionMethods: ["qr", "manifest"],
-    capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true, markdown: true },
+    entryAvailable: true,
+    adapterMode: "native",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: SOURCE_MEDIA,
     limits: { textChars: 8000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://open.feishu.cn/app",
   }),
   dingtalk: manifest({
     id: "dingtalk",
     displayName: { en: "DingTalk", zh: "钉钉" },
     connectionMethods: ["qr", "oauth", "manifest"],
-    capabilities: TEXT_ONLY,
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: SOURCE_TEXT,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://open.dingtalk.com/",
   }),
   wecom: manifest({
     id: "wecom",
     displayName: { en: "WeCom", zh: "企业微信" },
     connectionMethods: ["qr", "oauth", "manifest"],
-    capabilities: TEXT_ONLY,
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: { ...SOURCE_TEXT, inboundText: "not-proven" },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://developer.work.weixin.qq.com/",
   }),
   qq: manifest({
     id: "qq",
     displayName: { en: "QQ", zh: "QQ" },
     connectionMethods: ["qr", "oauth", "token"],
-    capabilities: TEXT_ONLY,
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: { ...SOURCE_TEXT, inboundText: "not-proven" },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://bot.q.qq.com/",
   }),
   slack: manifest({
     id: "slack",
     displayName: { en: "Slack", zh: "Slack" },
     connectionMethods: ["oauth", "manifest", "token"],
-    capabilities: { ...TEXT_ONLY, markdown: true, threads: false },
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: { ...SOURCE_TEXT, reconnect: "source-tested" },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://api.slack.com/authentication/oauth-v2",
   }),
   telegram: manifest({
     id: "telegram",
     displayName: { en: "Telegram", zh: "Telegram" },
     connectionMethods: ["token"],
-    capabilities: TEXT_ONLY,
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: SOURCE_TEXT,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://core.telegram.org/bots/tutorial",
   }),
   discord: manifest({
     id: "discord",
     displayName: { en: "Discord", zh: "Discord" },
     connectionMethods: ["token"],
-    capabilities: { ...TEXT_ONLY, markdown: true },
+    entryAvailable: true,
+    adapterMode: "bundled-sidecar",
+    runtimeBundled: true,
+    releaseEvidence: "source-only",
+    capabilityEvidence: { ...SOURCE_TEXT, outboundText: "not-proven", exit: "source-tested" },
     limits: { textChars: 2000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    supportLevel: "ga",
     defaultEnabled: false,
-    live: true,
     docsUrl: "https://discord.com/developers/docs/quick-start/getting-started",
   }),
 };
@@ -158,8 +199,8 @@ export function listChannelManifests(): ChannelManifestV1[] {
   return CHANNEL_IDS.map((id) => CHANNEL_MANIFESTS[id]);
 }
 
-export function isLiveChannel(id: string): id is LiveChannelId {
-  return (LIVE_CHANNEL_IDS as readonly string[]).includes(id);
+export function isNativeChannel(id: string): id is NativeChannelId {
+  return (NATIVE_CHANNEL_IDS as readonly string[]).includes(id);
 }
 
 export function refuseFakeQr(id: string, method: string): void {

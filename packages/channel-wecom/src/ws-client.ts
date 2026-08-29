@@ -70,7 +70,7 @@ export async function createWeComWsClient(
     },
     async send(peer, text) {
       if (!client.connected) {
-        throw new PenglaiError("SECURITY_POLICY", "CHANNEL_NOT_LIVE:wecom");
+        throw new PenglaiError("SECURITY_POLICY", "CHANNEL_TRANSPORT_UNAVAILABLE:wecom");
       }
       await raw.sendMessage(peer, { msgtype: "markdown", markdown: { content: text } });
     },
