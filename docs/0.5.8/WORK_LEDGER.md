@@ -29,20 +29,21 @@
 | P058-010 | Remove WhatsApp active source and identity | Source | DONE | package, adapter, channel/route identity, credential, risk-owner Remote, UI card/copy, tests, and workspace references removed; historical 0.5.7 surfaces preserved |
 | P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | DONE | frozen install PASS with 34 workspaces; lock/SBOM/notices/plugin staging contain none of four retired runtime identities; DSH pins unchanged |
 | P058-012 | Contain Feishu asynchronous media callback failures | Source | DONE | callback stays bounded; rejection resolves to redacted durable terminal state; focused tests PASS |
-| P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | IN_PROGRESS | bridge Session create/models/select identified; closure assumptions remain |
+| P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | DONE | 9 operational/support references and exact create/modelCatalog/selectModel ownership are frozen by the executable census |
 | P058-014 | Implement owner Remote migration | Package/source | BLOCKED_NPM | exact published declarations/generated clients required |
-| P058-015 | Map all `dsh-client-runtime` consumers | Source/design | IN_PROGRESS | eight first-party client bundles identified; exact inject graph pending |
+| P058-015 | Map all `dsh-client-runtime` consumers | Source/design | DONE | 8 plugin manifests and 8 packager rows are frozen; exact replacement graph remains P058-026 |
 | P058-016 | Quarantine unsupported legacy channel rows | Source/upgrade | DONE | startup revokes unsupported route/binding activity without deleting audit rows; bot lists hide unsupported rows and reject new unknown filters |
-| P058-016 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
+| P058-026 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
 | P058-017 | Overlay-to-slot map | Source/design | NOT_STARTED | inspect every rc.2 overlay hunk against fixed source slots |
 | P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |
-| P058-019 | Packaged DSH child supervision repair | Source/native | READY | source characterization can start; Windows proof remains native-blocked |
+| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | 5 source and 5 test owners inventoried; real child-exit/port-loss characterization is next; Windows proof remains native-blocked |
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
 | P058-023 | Memory curator internal-job lifecycle | Source/package | READY | characterize now; final official job/subagent binding may need packages |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
+| P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
 
 ## Protected facts during preview preparation
 
@@ -67,6 +68,8 @@ use a partial broken push merely to create activity.
 | Commit | Scope | Remote verification |
 | --- | --- | --- |
 | `602f684b399e7ad7d0b11b3ccb1bf74342ff6832` | fixed DSH source baseline, migration/inventory ledgers, preview invariant and CI | branch readback PASS; [Source CI 33239599306](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33239599306) PASS |
+| `759dc64667a5375dd0377e361592ebff3a5d1877` | contain Feishu asynchronous inbound failures with durable redacted terminal state | branch readback PASS; [Source CI 33239795129](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33239795129) PASS |
+| `449d1f95718eea3d4d933cbfac76e66eb52f6e56` | remove WhatsApp active source, identity, dependency closure, and unsupported legacy activation | branch readback PASS; [Source CI 33240554668](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33240554668) PASS |
 
 ## Publication reconciliation placeholder
 

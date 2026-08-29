@@ -47,6 +47,28 @@
 | IM channel manifest `live` boolean | Active product | capability-truth finding | Replace with separate entry/runtime/connection/evidence/capability facts | UI and public claim derive from same closed model |
 | Active WhatsApp package, adapter, identity, lock entries | Forbidden active surface | D-062 | Removed in preview checkpoint | Source, lock, dependencies, catalog, UI, packaging, tests show absence |
 
+## Executable DSH seam census
+
+The fixed-source migration seam is recorded in
+`docs/0.5.8/DSH_MIGRATION_INVENTORY.json` and checked by
+`scripts/verify-058-migration-inventory.mjs` on every preview gate run. The
+census records literal reference counts rather than only package names, so a
+new caller in an already-known file cannot bypass review.
+
+| Legacy seam | Current observed surface | Fixed-source owner | Current decision |
+| --- | --- | --- | --- |
+| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 9 source, test, commentary, closure, and probe files | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Reference and caller map complete; implementation remains npm-blocked |
+| `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; exact inject replacement remains npm-blocked |
+| `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate only with published generated clients |
+| direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
+| packaged DSH process ownership | 5 source files and 5 test files | Penglai desktop/runtime policy, using platform-native ownership | Source contract mapped; real child-exit, port-loss, and native process-tree evidence remains |
+
+The alpha.1 source confirms `sessions.create -> session.create`,
+`sessions.models -> session.modelCatalog`, and
+`sessions.selectModel -> session.selectModel`. This is a source mapping, not an
+authorization to imitate generated Remote declarations or copy upstream build
+artifacts.
+
 ## WhatsApp retirement boundary
 
 Remove from the 0.5.8 active graph:
@@ -129,8 +151,10 @@ before altering it.
 ## Open inventory work
 
 - Enumerate every overlay patch hunk against the alpha.1 slot catalog.
-- Enumerate every `dsh.client.inject` row and its minimum replacement graph.
-- Enumerate every ApiProxy, old Session envelope, and reconnect assumption.
+- Derive the minimum replacement for every inventoried `dsh.client.inject` row
+  after the matching published exports can be inspected.
+- Turn the inventoried Session envelope and reconnect expectations into focused
+  migration tests when the generated Remote clients are published.
 - Trace every release identity copy back to the authoritative pin source.
 - Map every active/native/operator verifier to a script and workflow invocation.
 - Record the exact packaged process tree on Windows and both macOS targets.

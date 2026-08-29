@@ -75,6 +75,7 @@
     "verify:identity": "node --import tsx scripts/verify-identity.mjs",
     "verify:contracts": "node --import tsx scripts/verify-contracts.mjs",
     "verify:dependencies": "node scripts/verify-dependencies.mjs",
+    "verify:058-migration-inventory": "node scripts/verify-058-migration-inventory.mjs",
     "verify:retired-channel": "node scripts/verify-retired-channel-absence.mjs",
     "verify:closure": "node scripts/verify-closure.mjs",
     "verify:profile": "node --import tsx scripts/verify-profile.mjs",

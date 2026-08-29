@@ -14,10 +14,10 @@
 | Model select | `ctx.apiProxy.sessions.selectModel` | Session Controller `selectModel` | Characterize owner/error/cancellation semantics | Replace old request envelope | Durable projected selection survives restart |
 | Session list/title | Workspace `sessionIds` mapped to `{ id }` | Session Controller list plus Session projection | Add expected title/fallback test design | Consume official projected title | IM chooser uses immutable ID plus official title; no log scraper |
 | Cancel/Stop | Live Agent handle and old HTTP/API route assumptions | Session Controller `cancel` plus cooperative Agent/tool cancellation | Separate core-death from cancellation failures | Wire desktop and client Stop to official Remote | Text, tool, subagent, recovery, and dead-core cases terminate coherently |
-| Workspace | Direct `workspaceRegistry` reads and old ApiProxy surface | Workspace Controller Remote and workspace registry | Inventory all direct reads and scope assumptions | Migrate client/bridge callers | No current-window guessing or cross-Workspace state |
+| Workspace | Direct `workspaceRegistry` reads and old ApiProxy surface | Workspace Controller Remote and workspace registry | Freeze all 29 active/test/gate reference files and scope assumptions in the executable inventory | Migrate client/bridge callers | No current-window guessing or cross-Workspace state |
 | Settings | Plugin-specific `@Remote` plus repeated client reads | Settings Controller, typed settings, shared mirror | Inventory every plugin reader and stale-state symptom | Mount through published mirror/client graph | One authoritative state; reconnect and locale changes converge |
 | Remote transport | Penglai plugins already use Typert `@Remote`; old host BFF assumptions remain | API Gateway, API Remotes, owner `TypertRemoteService` controllers | Preserve plugin-owned Remotes; locate ApiProxy-only callers | Regenerate/validate exact client bundles and event allowlist | Typed failures, cancellation, reconnect, no compatibility ApiProxy |
-| Client composition | Eight first-party plugins inject removed `dsh-client-runtime` | Narrow client modules/store/UI packages and typed slots | Assign each client bundle only its required capabilities | Replace manifests after published package exports are known | Every expected client fiber reaches `ACTIVE`; absent/pending is failure |
+| Client composition | Eight first-party plugins inject removed `dsh-client-runtime` | Session/Workspace controllers, Client Store, narrow UI packages, and typed slots | Freeze all eight manifests and eight packaging rows; keep source-owner mapping distinct from the unresolved published inject graph | Replace manifests after published package exports are known | Every expected client fiber reaches `ACTIVE`; absent/pending is failure |
 | Branding/layout | Exact-hash Web/General/Conversation overlay | Brand, layout, conversation, settings, composer/message slots | Map each overlay hunk to an official slot or explicit gap | Remove or rebase only after published bytes are known | No hidden official theme/locale/models/settings behavior |
 | Plugin inventory | Desired profile plus official rc.2 inventory and polling | Host plugin inventory with pending/loading/active/failed/unloading phases | Preserve signed transaction journal and characterize convergence | Adapt exact inventory Remote/client payloads | Desired, effective, client-fiber, rollback, and terminal state agree |
 | Image intake | Channel download plus current image store assumptions | Attachment service, local provider, Session attachment admission/projection | Fix callback containment and resource diagnostics | Hand validated bytes to official Attachment path | Model-visible durable image fact, replay, compaction, and real model proof |
@@ -64,6 +64,31 @@ published-package reconciliation.
 6. Do not hide invalid Memory curator sessions in UI. Change their lifecycle.
 7. Do not use source build success to alter the release identity or lockfile.
 
+## Executable seam census
+
+`DSH_MIGRATION_INVENTORY.json` is the machine-readable source census for the
+fixed alpha.1 baseline. `scripts/verify-058-migration-inventory.mjs` compares
+the recorded file set and literal reference counts with every tracked or
+unignored code-graph file. The preview gate now fails when an ApiProxy,
+`dsh-client-runtime`, or `workspaceRegistry` reference is added, removed, or
+moved without updating the migration decision.
+
+The current census contains:
+
+- nine ApiProxy/host-apiproxy reference files, including the bridge caller,
+  source commentary, injection expectations, closure probe, and tests;
+- nine client-runtime reference files: eight first-party plugin manifests and
+  the packager's eight generated-manifest rows;
+- 29 Workspace-registry reference files across production, tests, and the
+  packaged-runtime verifier; and
+- one direct settings-provider consumer with eight reads/writes; and
+- the five source and five test files that currently own desktop DSH process
+  supervision evidence.
+
+The census proves that the migration surface is enumerated. It does not prove
+that unpublished package exports exist or that a native process tree has been
+tested.
+
 ## Published-package reconciliation rows
 
 These rows remain deliberately unresolved until official npm publication:
@@ -81,7 +106,8 @@ These rows remain deliberately unresolved until official npm publication:
 
 - Source identity: **FIXED**
 - Upstream clean source install/build: **PASS**
-- Penglai migration inventory: **IN PROGRESS**
+- ApiProxy/client-runtime/Workspace seam census: **FIXED AND GATED**
+- Remaining repository/overlay/release inventory: **IN PROGRESS**
 - Independent Penglai fixes: **AUTHORIZED ON PREVIEW**
 - Official npm closure: **BLOCKED — NOT PUBLISHED**
 - DSH dependency change: **NOT STARTED**
