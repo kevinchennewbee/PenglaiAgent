@@ -37,6 +37,7 @@
 | P058-017 | Overlay-to-slot map | Source/design/CI | DONE | 12 mapped dispositions cover all 4 patched files and 5 brand assets; 4 narrow upstream gaps remain; executable gate PASS |
 | P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private exact-authority token exchange, cookie proof, proxy injection, rc.2 compatibility, redaction, and real child fixture pass in source; exact alpha package and native first navigation remain |
 | P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, authenticated alpha-style health, structured diagnostics, exact exhaustion, and non-stranding actions pass locally; three-target native/installed proof remains |
+| P058-028 | Isolated rc.2 → alpha.1 DSH Home generation | Source/package/native | IN_PROGRESS | private bounded copy, one-writer journal, disk/file-type/mode gates, health-bound atomic activation, rejection, rollback, and rc.2 JSONL replay pass in source; installed corpus, SQLite, Windows ACL, runtime wiring, and native rollback remain |
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
@@ -77,6 +78,7 @@ use a partial broken push merely to create activity.
 | `6d559a2dfb049ed196e98f52b4fc459c4e163088` | detect a lost or hung DSH official-document route and recover through the existing bounded same-port supervisor | branch readback PASS; [Source CI 33242242970](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33242242970) PASS |
 | `6ef566ace20fd9610a742287227aaec4c3fe49e2` | move Memory curator maintenance off false Agent/Session/subagent lifecycle into a bounded internal queue | branch readback PASS; [Source CI 33243163029](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33243163029) PASS |
 | `4e8dc373b1fb49f2ba0c1ca9914d403f6c5eb808` | bound restart failure accounting and expose a non-stranding terminal recovery surface with redacted diagnostics | branch readback PASS; [Source CI 33244301234](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33244301234) PASS |
+| `dd0afd9def6371abe5119867cc253a8ae5c6ff5d` | authenticate alpha-style DSH startup privately while preserving the rc.2 open-root path | branch readback PASS; [Source CI 33245579034](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33245579034) PASS |
 
 ## Publication reconciliation placeholder
 

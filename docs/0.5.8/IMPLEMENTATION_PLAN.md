@@ -631,6 +631,24 @@ one-writer migration, and rollback to the untouched rc.2 home. No dual write and
 no silent runtime fallback are allowed. The new alpha browser-session credential
 must be written only to the staged alpha home until activation succeeds.
 
+The preview source now implements that data-generation primitive without
+changing the active rc.2 runtime path. It hashes and copies the complete stopped
+rc.2 working Home into a private alpha staging generation, preserves owner-only
+permissions, rejects symlinks/special objects/concurrent writers, checks free
+space before copying, and proves that the source did not change during the copy
+or validation window. The target Home may evolve during alpha validation,
+including the official credential-document conversion and browser-session
+record, while the rc.2 Home remains byte-identical. The active pointer is the
+last atomic activation write and requires exact alpha health plus active Office
+and Memory evidence. Failed pre-activation validation deletes only the
+disposable target; post-activation rollback selects the untouched rc.2 Home and
+retains the alpha generation for diagnosis. A manual fixed-source verifier also
+proves that alpha.1 retains all 48 rc.2 known session event types and can inspect
+and load a privacy-safe physical rc.2 JSONL log, including legacy message
+identity normalization and `todo/write`. Runtime wiring, the complete installed
+0.5.7 corpus, native disk/ACL behavior, and real rollback remain package/native
+gates; this source layer is deliberately dormant while the product pin is rc.2.
+
 ### Gate P0: published-package reconciliation — BLOCKED
 
 Exit criteria:
