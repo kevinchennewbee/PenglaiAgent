@@ -131,7 +131,7 @@ disabled or future platform.
 
 | Path family | Class | Owner/invocation | Preview rule |
 | --- | --- | --- | --- |
-| `scripts/verify-*.mjs` | Release/native/operator verifier, per script | package, installed, live, or public gate | Inspect invocation before editing; preserve evidence level |
+| `scripts/verify-*`, probes, evidence writers, native builders, installed runners | Release/native/operator verifier, per script | package, installed, live, public, aggregate, manual, or historical gate | All 59 are exhaustively classified by `VERIFIER_EVIDENCE_MAP.json`; census and invocation drift fail the preview gate |
 | `scripts/evidence-*.mjs`, schemas | Evidence writer/validator | release or operator flow | Keep privacy limits and version chain; do not mass-delete |
 | `scripts/package-*.mjs`, `assemble-release.mjs` | Release builder | authorized release workflow | No 0.5.8 package/release invocation before Gate P0 |
 | `.github/workflows/native-release-candidate.yml` | Native release gate | GitHub Actions | Protected and byte-identical in source-preparation phase |
@@ -162,7 +162,6 @@ before altering it.
   after the matching published exports can be inspected.
 - Turn the inventoried Session envelope and reconnect expectations into focused
   migration tests when the generated Remote clients are published.
-- Map every active/native/operator verifier to a script and workflow invocation.
 - Record the exact packaged process tree on Windows and both macOS targets.
 - Design auxiliary model-call accounting against the optional Budget plugin
   without creating an Agent, Session, or visible Job.
@@ -187,6 +186,21 @@ or a changed publication/target structure, fail closed instead of allowing the
 checker and an incorrect derived copy to drift together.
 
 This is source identity consistency only. It does not prove that an installer,
-installation, live account, Release asset, or public byte exists. Mapping every
-native/operator verifier to its exact invocation and evidence plane remains the
-open part of P058-007.
+installation, live account, Release asset, or public byte exists. The following
+checkpoint separately closes the repository-level verifier classification
+without claiming that any higher evidence plane has run.
+
+## Executable verifier evidence-plane checkpoint
+
+`VERIFIER_EVIDENCE_MAP.json` classifies the complete current 59-script census:
+18 source, 7 package, 15 native, 5 installed, 2 Owner-live, 2 public-byte,
+3 aggregate, and 7 historical scripts. Each row has one package-script,
+composed-script, workflow, internal-script, manual, or historical invocation
+owner and one preview policy.
+
+`scripts/verify-058-evidence-map.mjs` is composed into the preview invariant.
+An added or removed script, duplicate/stale row, unknown class, missing declared
+invocation, active invocation of a historical script, or attempt to treat
+native/installed/live/public evidence as source evidence now fails closed.
+This completes the source repository classification task; target-native process
+trees and actual installed/live/public runs remain separate acceptance work.
