@@ -109,6 +109,13 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /row\.jobBudget\?\.activeJobs/);
   assert.match(client, /row\.jobBudget\?\.queuedJobs/);
   assert.match(client, /row\.remoteRequests/);
+  assert.match(client, /PLUGIN_ACTIVATION_TIMEOUT/);
+  assert.match(client, /centerFailureActivationTimeout/);
+  assert.match(client, /centerFailureRollbackFailed/);
+  assert.match(client, /state\.latestTransaction\?\.id === id/);
+  assert.match(client, /centerActivationReadback/);
+  assert.match(client, /centerRollbackReadback/);
+  assert.doesNotMatch(client, /message:\s*String\(error/);
   assert.match(client, /data-penglai-plugin-links/);
   assert.match(client, /data-penglai-plugin-link/);
   assert.match(client, /openPluginLink/);
@@ -624,7 +631,16 @@ test("R50-CENTER-004/007 first enable installs verified package and rejects a ba
     applyLive: async ({ enabled }) => {
       loaded = enabled;
     },
-    verifyActual: async ({ enabled }) => assert.equal(loaded, enabled),
+    verifyActual: async ({ enabled, present }, observe) => {
+      assert.equal(loaded, enabled);
+      observe({
+        source: "official-inventory",
+        at: "2026-08-29T00:00:00.000Z",
+        present,
+        enabled,
+        phase: enabled ? "active" : "disabled",
+      });
+    },
     commitDesired: (enabled) => {
       desired = enabled;
     },
@@ -634,6 +650,15 @@ test("R50-CENTER-004/007 first enable installs verified package and rejects a ba
   });
   assert.equal(ok.phase, "committed");
   assert.equal(desired, true);
+  const committedJournal = JSON.parse(
+    readFileSync(join(root, "tx", "journal.json"), "utf8"),
+  ) as {
+    schema: number;
+    activation: { outcome: string; finalReadback: { phase: string } };
+  };
+  assert.equal(committedJournal.schema, 3);
+  assert.equal(committedJournal.activation.outcome, "verified");
+  assert.equal(committedJournal.activation.finalReadback.phase, "active");
   assert.equal(
     existsSync(
       join(
@@ -661,7 +686,16 @@ test("R50-CENTER-004/007 first enable installs verified package and rejects a ba
         applyLive: async ({ enabled }) => {
           loaded = enabled;
         },
-        verifyActual: async ({ enabled }) => assert.equal(loaded, enabled),
+        verifyActual: async ({ enabled, present }, observe) => {
+          assert.equal(loaded, enabled);
+          observe({
+            source: "official-inventory",
+            at: "2026-08-29T00:00:00.000Z",
+            present,
+            enabled,
+            phase: enabled ? "active" : "disabled",
+          });
+        },
         commitDesired: (enabled) => {
           desired = enabled;
         },
@@ -735,7 +769,16 @@ test("Center disable rolls back when a measured plugin resource remains open", a
         applyLive: async ({ enabled }) => {
           loaded = enabled;
         },
-        verifyActual: async ({ enabled }) => assert.equal(loaded, enabled),
+        verifyActual: async ({ enabled, present }, observe) => {
+          assert.equal(loaded, enabled);
+          observe({
+            source: "official-inventory",
+            at: "2026-08-29T00:00:00.000Z",
+            present,
+            enabled,
+            phase: enabled ? "active" : "disabled",
+          });
+        },
         readResources: () => ({
           workers: 0,
           sockets: 0,
@@ -762,8 +805,18 @@ test("Center disable rolls back when a measured plugin resource remains open", a
   );
   const journal = JSON.parse(
     readFileSync(join(root, "tx", "journal.json"), "utf8"),
-  ) as { phase: string };
+  ) as {
+    phase: string;
+    failureCode: string;
+    activation: { outcome: string; finalReadback: { phase: string } };
+    rollback: { outcome: string; finalReadback: { phase: string } };
+  };
   assert.equal(journal.phase, "rolled_back");
+  assert.equal(journal.failureCode, "PLUGIN_RUNTIME_UNAVAILABLE");
+  assert.equal(journal.activation.outcome, "verified");
+  assert.equal(journal.activation.finalReadback.phase, "disabled");
+  assert.equal(journal.rollback.outcome, "verified");
+  assert.equal(journal.rollback.finalReadback.phase, "active");
 });
 
 test("R50-CENTER-006 desired enabled cannot impersonate loaded/active", () => {

@@ -143,6 +143,10 @@ Allowed work now includes:
 - Desktop recovery now keeps the first classified process or health failure as
   the primary diagnostic so later generic startup/gateway errors cannot replace
   the cause shown, copied, or written to the bounded local startup log.
+- Plugin activation now journals bounded closed inventory transitions and exact
+  activation/rollback readbacks. The Plugin Center turns only six closed
+  failure codes into bilingual recovery guidance; arbitrary loader errors stay
+  private. Exact alpha event/client-fiber integration remains blocked on npm.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact
