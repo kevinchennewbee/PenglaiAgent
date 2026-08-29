@@ -24,6 +24,7 @@ export interface TtsEngineResult {
 }
 
 export interface TtsEngine {
+  prewarm?(): Promise<void>;
   synthesize(
     text: string,
     voiceId: string,
@@ -51,7 +52,14 @@ interface WorkerDoneMessage {
   error?: string;
 }
 
-type WorkerMessage = WorkerChunkMessage | WorkerDoneMessage;
+interface WorkerReadyMessage {
+  type: "ready";
+  id: string;
+  ok: boolean;
+  error?: string;
+}
+
+type WorkerMessage = WorkerChunkMessage | WorkerDoneMessage | WorkerReadyMessage;
 
 interface PendingSynthesis {
   id: string;
@@ -101,6 +109,7 @@ async function prepare() {
       const next = new mod.BrowserOnnxTtsRuntime({ logger: null });
       await next.configure({ modelPath: workerData.modelRoot, threadCount: workerData.threads });
       await next.ensureManifestLoaded();
+      await next.warmup();
       runtime = next;
       return next;
     })();
@@ -111,6 +120,20 @@ async function prepare() {
 parentPort.on('message', async (message) => {
   if (message && message.type === 'cancel' && typeof message.id === 'string') {
     cancelled.add(message.id);
+    return;
+  }
+  if (message && message.type === 'prewarm' && typeof message.id === 'string') {
+    try {
+      await prepare();
+      parentPort.postMessage({ type: 'ready', id: message.id, ok: true });
+    } catch (error) {
+      parentPort.postMessage({
+        type: 'ready',
+        id: message.id,
+        ok: false,
+        error: error instanceof Error ? error.message : 'MOSS warmup failed',
+      });
+    }
     return;
   }
   if (!message || message.type !== 'synthesize' || typeof message.id !== 'string') return;
@@ -178,6 +201,15 @@ function combineChunks(chunks: readonly Int16Array[], frames: number): Int16Arra
 export class MossWorkerEngine implements TtsEngine {
   private worker: Worker | undefined;
   private pending: PendingSynthesis | undefined;
+  private prewarmPending:
+    | {
+        id: string;
+        promise: Promise<void>;
+        resolve: () => void;
+        reject: (error: Error) => void;
+      }
+    | undefined;
+  private prewarmed = false;
   private disposed = false;
   private sequence = 0;
   private readonly runtimeUrl: string;
@@ -195,6 +227,33 @@ export class MossWorkerEngine implements TtsEngine {
     this.runtimeUrl = new URL("./third_party/moss_tts/runtime.mjs", import.meta.url).href;
   }
 
+  prewarm(): Promise<void> {
+    if (this.disposed) {
+      return Promise.reject(new PenglaiError("DSH_UNAVAILABLE", "MOSS engine disposed"));
+    }
+    if (this.prewarmed) return Promise.resolve();
+    if (this.prewarmPending) return this.prewarmPending.promise;
+    if (this.pending) {
+      return Promise.reject(new PenglaiError("DELIVERY_TRANSIENT", "MOSS engine is busy"));
+    }
+    const worker = this.requireWorker();
+    const id = `warmup-${Date.now()}-${this.sequence += 1}`;
+    let resolvePromise = (): void => {};
+    let rejectPromise = (_error: Error): void => {};
+    const promise = new Promise<void>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+    this.prewarmPending = {
+      id,
+      promise,
+      resolve: resolvePromise,
+      reject: rejectPromise,
+    };
+    worker.postMessage({ type: "prewarm", id });
+    return promise;
+  }
+
   async synthesize(
     text: string,
     voiceId: string,
@@ -206,6 +265,9 @@ export class MossWorkerEngine implements TtsEngine {
     if (!text.trim() || Buffer.byteLength(text, "utf8") > MAX_TTS_TEXT_BYTES) {
       throw new PenglaiError("INVALID_INPUT", "MOSS text size rejected");
     }
+    if (signal?.aborted) throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS synthesis cancelled");
+    await this.awaitPrewarm(signal);
+    if (this.pending) throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS engine is busy");
     if (signal?.aborted) throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS synthesis cancelled");
     const worker = this.requireWorker();
     const id = `tts-${Date.now()}-${this.sequence += 1}`;
@@ -277,7 +339,50 @@ export class MossWorkerEngine implements TtsEngine {
     return worker;
   }
 
+  private async awaitPrewarm(signal?: AbortSignal): Promise<void> {
+    const prewarm = this.prewarm();
+    if (!signal) {
+      await prewarm;
+      return;
+    }
+    if (signal.aborted) {
+      throw new PenglaiError("DELIVERY_TRANSIENT", "MOSS synthesis cancelled");
+    }
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => signal.removeEventListener("abort", onAbort);
+      const onAbort = () => {
+        cleanup();
+        reject(new PenglaiError("DELIVERY_TRANSIENT", "MOSS synthesis cancelled"));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      void prewarm.then(
+        () => {
+          cleanup();
+          resolve();
+        },
+        (error: unknown) => {
+          cleanup();
+          reject(error);
+        },
+      );
+    });
+  }
+
   private onMessage(message: WorkerMessage): void {
+    if (message.type === "ready") {
+      const prewarm = this.prewarmPending;
+      if (!prewarm || message.id !== prewarm.id) return;
+      this.prewarmPending = undefined;
+      if (message.ok) {
+        this.prewarmed = true;
+        prewarm.resolve();
+      } else {
+        const error = new PenglaiError("DSH_UNAVAILABLE", message.error || "MOSS warmup failed");
+        prewarm.reject(error);
+        void this.resetWorker(error);
+      }
+      return;
+    }
     const pending = this.pending;
     if (!pending || message.id !== pending.id) return;
     if (message.type === "chunk") {
@@ -338,9 +443,13 @@ export class MossWorkerEngine implements TtsEngine {
     if (expected && this.worker !== expected) return;
     const worker = this.worker;
     this.worker = undefined;
+    this.prewarmed = false;
+    const prewarm = this.prewarmPending;
+    this.prewarmPending = undefined;
     const pending = this.pending;
     this.pending = undefined;
     pending?.abortCleanup?.();
+    prewarm?.reject(reason);
     pending?.reject(reason);
     pending?.markSettled();
     if (worker) await worker.terminate().catch(() => undefined);

@@ -134,6 +134,11 @@ Allowed work now includes:
   and recovery copy are bilingual, and Plugin Center now states the exact
   eight-channel registry. Full typed-reference/outage deduplication and official
   DSH permission-label localization remain open.
+- MOSS-TTS now invokes the attributed runtime's real one-time model warmup after
+  explicit verified model activation and before first synthesis after a cold
+  restart. Failed warmup discards the engine so a later request retries from a
+  clean instance. This is source lifecycle evidence, not a native first-sound
+  measurement; the client Remote still waits for complete WAV readback.
 - Plugin Center resource diagnostics now separate measured active and queued
   plugin work and read the same exact job-budget contract enforced by each
   service: ASR one active plus seven queued jobs, TTS one plus three, and

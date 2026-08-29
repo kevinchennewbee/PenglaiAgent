@@ -407,6 +407,107 @@ test("typed service binds exact durable final to engine PCM and an opaque output
   }
 });
 
+test("model activation prewarms once before the first synthesis", async () => {
+  const root = workspace();
+  try {
+    const lifecycle: string[] = [];
+    const engine: TtsEngine = {
+      async prewarm() {
+        lifecycle.push("prewarm");
+      },
+      async synthesize(_text, voiceId) {
+        lifecycle.push("synthesize");
+        return {
+          pcm: new Int16Array(4_800 * TTS_CHANNELS),
+          sampleRate: TTS_SAMPLE_RATE,
+          channels: TTS_CHANNELS,
+          voiceId,
+          textChunks: 1,
+        };
+      },
+    };
+    const service = await readyService(root, engine);
+    assert.deepEqual(lifecycle, ["prewarm"]);
+    const text = "模型预热顺序测试。";
+    const result = await service.synthesize({
+      operationId: "prewarm01",
+      sourceFinalId: "final:prewarm:01",
+      finalText: text,
+      finalDigest: digestFinal(text),
+      voiceId: "moss-zh-default",
+      locale: "zh",
+    });
+    assert.deepEqual(lifecycle, ["prewarm", "synthesize"]);
+    await service.releaseOutput(result.handle.id);
+    await service.dispose();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("failed prewarm releases the engine so synthesis can retry cleanly", async () => {
+  const root = workspace();
+  let engines = 0;
+  try {
+    const source = join(root, "source");
+    const { manifest, contents } = makeFixture();
+    writeImport(source, contents);
+    const service = createMossTtsService({
+      modelsDir: join(root, "models"),
+      tempDir: join(root, "outputs"),
+      manifest,
+      resolveCapability: async () => source,
+      engineFactory: async () => {
+        engines += 1;
+        if (engines === 1) {
+          return {
+            async prewarm() {
+              throw new PenglaiError("DSH_UNAVAILABLE", "fixture warmup failed");
+            },
+            async synthesize() {
+              throw new Error("failed engine must not synthesize");
+            },
+          };
+        }
+        return {
+          async prewarm() {},
+          async synthesize(_text, voiceId) {
+            return {
+              pcm: new Int16Array(4_800 * TTS_CHANNELS),
+              sampleRate: TTS_SAMPLE_RATE,
+              channels: TTS_CHANNELS,
+              voiceId,
+              textChunks: 1,
+            };
+          },
+        };
+      },
+    });
+    await service.ready;
+    await assert.rejects(
+      service.importVerifiedModel("prewarm_fail_01", "capability_prewarm_01"),
+      /warmup failed/,
+    );
+    assert.equal(service.describeCapability().model, "ready");
+    assert.equal(service.resourceSnapshot().modelSessions, 0);
+
+    const text = "预热失败后的干净重试。";
+    const result = await service.synthesize({
+      operationId: "prewarm_retry_01",
+      sourceFinalId: "final:prewarm:retry:01",
+      finalText: text,
+      finalDigest: digestFinal(text),
+      voiceId: "moss-zh-default",
+      locale: "zh",
+    });
+    assert.equal(engines, 2);
+    await service.releaseOutput(result.handle.id);
+    await service.dispose();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("TTS shared budget admits one active and three queued syntheses", async () => {
   const root = workspace();
   let releaseEngine = (): void => undefined;
@@ -563,6 +664,10 @@ test("production source contains attributed ONNX pipeline and no tone/system fal
     new URL("./synth.ts", import.meta.url),
     "utf8",
   );
+  const engine = readFileSync(
+    new URL("./engine.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(runtime, /onnxruntime-node/);
   assert.match(runtime, /sessions\.prefill/);
   assert.match(runtime, /codecDecode/);
@@ -571,6 +676,8 @@ test("production source contains attributed ONNX pipeline and no tone/system fal
   assert.match(runtime, /resolveLocalAssetPath\(this\.localPathRoot, tokenizerRelativePath\)/);
   assert.match(runtime, /escaped the verified model root/);
   assert.doesNotMatch(runtime, /fetch\(fileUrl/);
+  assert.match(engine, /await next\.warmup\(\)/);
+  assert.match(engine, /message\.type === 'prewarm'/);
   assert.doesNotMatch(synth, /renderTone|Math\.sin|say\s|Siri/i);
   assert.throws(
     () =>

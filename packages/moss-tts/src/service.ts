@@ -204,8 +204,10 @@ export class PenglaiMossTtsService {
     return BUILTIN_VOICES.map((voice) => ({ ...voice }));
   }
 
-  prepareModel(operationId: string) {
-    return this.manager.prepareModel(operationId);
+  async prepareModel(operationId: string) {
+    const operation = await this.manager.prepareModel(operationId);
+    await this.prewarmReadyModel();
+    return operation;
   }
 
   pauseDownload(operationId: string) {
@@ -220,8 +222,10 @@ export class PenglaiMossTtsService {
     return this.manager.cancelDownload(operationId);
   }
 
-  importVerifiedModel(operationId: string, capabilityRef: string) {
-    return this.manager.importVerifiedModel(operationId, capabilityRef);
+  async importVerifiedModel(operationId: string, capabilityRef: string) {
+    const operation = await this.manager.importVerifiedModel(operationId, capabilityRef);
+    await this.prewarmReadyModel();
+    return operation;
   }
 
   async synthesize(
@@ -436,6 +440,18 @@ export class PenglaiMossTtsService {
       : new MossWorkerEngine(model);
     this.engineRevision = model.revision;
     return this.engine;
+  }
+
+  private async prewarmReadyModel(): Promise<void> {
+    this.assertUsable();
+    if (this.active || this.queue.length) return;
+    const engine = await this.requireEngine();
+    try {
+      await engine.prewarm?.();
+    } catch (error) {
+      await this.releaseEngine();
+      throw error;
+    }
   }
 
   private async releaseEngine(): Promise<void> {
