@@ -628,6 +628,7 @@ async function main(): Promise<void> {
       proxy = await startDshProxy({
         token,
         innerPort: live.port,
+        ...(live.upstreamCookie ? { upstreamCookie: live.upstreamCookie } : {}),
         wizard: { root: wizardRoot, disabled: onboardingLedgerComplete(user.root) },
       });
       const url = `http://127.0.0.1:${proxy.port}/`;

@@ -21,10 +21,19 @@ const PENGLAI_BRAND_TYPES: Record<string, string> = {
 };
 
 function proxiedResponseHeaders(url: string | undefined, headers: IncomingMessage["headers"]): IncomingMessage["headers"] {
+  const safeHeaders = { ...headers };
+  const setCookies = Array.isArray(headers["set-cookie"])
+    ? headers["set-cookie"]
+    : headers["set-cookie"]
+      ? [headers["set-cookie"]]
+      : [];
+  const browserCookies = setCookies.filter((cookie) => !/^\s*dsh-auth-/u.test(cookie));
+  if (browserCookies.length) safeHeaders["set-cookie"] = browserCookies;
+  else delete safeHeaders["set-cookie"];
   const pathname = new URL(url ?? "/", "http://127.0.0.1").pathname;
-  if (!pathname.startsWith("/penglai-brand/")) return headers;
+  if (!pathname.startsWith("/penglai-brand/")) return safeHeaders;
   const type = PENGLAI_BRAND_TYPES[extname(pathname).toLowerCase()];
-  return type ? { ...headers, "content-type": type } : headers;
+  return type ? { ...safeHeaders, "content-type": type } : safeHeaders;
 }
 
 export const WIZARD_CSP =
@@ -99,10 +108,35 @@ function serveWizard(req: IncomingMessage, res: ServerResponse, wizardRoot: stri
   return true;
 }
 
-function innerHeaders(req: IncomingMessage, innerPort: number): IncomingMessage["headers"] {
+function upstreamCookieHeader(raw: string | undefined, upstreamCookie: string | undefined): string | undefined {
+  const forwarded = String(raw ?? "")
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .filter((segment) => {
+      const equals = segment.indexOf("=");
+      if (equals <= 0) return false;
+      const name = segment.slice(0, equals);
+      return name !== "penglai_proxy" && !name.startsWith("dsh-auth-");
+    });
+  if (upstreamCookie) forwarded.push(upstreamCookie);
+  return forwarded.length ? forwarded.join("; ") : undefined;
+}
+
+function innerHeaders(
+  req: IncomingMessage,
+  innerPort: number,
+  upstreamCookie?: string,
+): IncomingMessage["headers"] {
   const headers = { ...req.headers, host: `127.0.0.1:${innerPort}` };
   if (req.headers.origin) headers.origin = `http://127.0.0.1:${innerPort}`;
   if (req.headers.referer) headers.referer = `http://127.0.0.1:${innerPort}/`;
+  const cookie = upstreamCookieHeader(
+    typeof req.headers.cookie === "string" ? req.headers.cookie : undefined,
+    upstreamCookie,
+  );
+  if (cookie) headers.cookie = cookie;
+  else delete headers.cookie;
   return headers;
 }
 
@@ -133,11 +167,15 @@ export interface LocalProxy {
 export async function startDshProxy(opts: {
   token: string;
   innerPort: number;
+  upstreamCookie?: string;
   host?: string;
   wizard?: { root: string; disabled?: boolean };
 }): Promise<LocalProxy> {
   const host = opts.host ?? "127.0.0.1";
   assertSafeListenHost(host);
+  if (opts.upstreamCookie && !/^dsh-auth-[A-Za-z0-9_-]+=[A-Za-z0-9._-]+$/.test(opts.upstreamCookie)) {
+    throw new Error("invalid DSH upstream browser cookie");
+  }
   let wizardDisabled = Boolean(opts.wizard?.disabled);
   const isWizardPath = (url: string | undefined): boolean => {
     const pathOnly = String(url ?? "").split("?")[0] ?? "";
@@ -177,7 +215,7 @@ export async function startDshProxy(opts: {
         port: opts.innerPort,
         path: req.url,
         method: req.method,
-        headers: innerHeaders(req, opts.innerPort),
+        headers: innerHeaders(req, opts.innerPort, opts.upstreamCookie),
       },
       (up) => {
         res.writeHead(up.statusCode ?? 502, proxiedResponseHeaders(req.url, up.headers));
@@ -266,7 +304,7 @@ export async function startDshProxy(opts: {
       port: opts.innerPort,
       path: req.url,
       method: "GET",
-      headers: innerHeaders(req, opts.innerPort),
+      headers: innerHeaders(req, opts.innerPort, opts.upstreamCookie),
     });
     inner.on("upgrade", (upRes, upSocket, head) => {
       track(upSocket);
@@ -278,7 +316,8 @@ export async function startDshProxy(opts: {
         }
       });
       try {
-        socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(upRes.headers).map(([k, v]) => `${k}: ${v}`).join("\r\n")}\r\n\r\n`);
+        const responseHeaders = proxiedResponseHeaders(req.url, upRes.headers);
+        socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(responseHeaders).map(([k, v]) => `${k}: ${v}`).join("\r\n")}\r\n\r\n`);
         if (head.length) socket.write(head);
       } catch {
         socket.destroy();

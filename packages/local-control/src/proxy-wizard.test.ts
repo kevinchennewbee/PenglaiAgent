@@ -128,3 +128,46 @@ test("authenticated proxy gives Penglai brand assets browser-safe MIME types", a
     await new Promise<void>((resolve, reject) => inner.close((error) => error ? reject(error) : resolve()));
   }
 });
+
+test("authenticated proxy keeps its outer token private and injects the trusted DSH browser session", async () => {
+  let observed: { host?: string; cookie?: string } = {};
+  const inner = createServer((req, res) => {
+    observed = { host: req.headers.host, cookie: req.headers.cookie };
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "set-cookie": ["dsh-auth-fixture=must-not-reach-renderer; Path=/; HttpOnly", "ordinary=allowed; Path=/"],
+    }).end(JSON.stringify(observed));
+  });
+  await new Promise<void>((resolve) => inner.listen(0, "127.0.0.1", resolve));
+  const address = inner.address();
+  assert.ok(address && typeof address !== "string");
+  const token = "j".repeat(32);
+  const upstreamCookie = "dsh-auth-fixture=trusted.session.signature";
+  const proxy = await startDshProxy({ token, innerPort: address.port, upstreamCookie });
+  try {
+    const res = await fetch(`http://127.0.0.1:${proxy.port}/`, {
+      headers: {
+        cookie: `penglai_proxy=${token}; harmless=1; dsh-auth-fixture=attacker`,
+      },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(observed.host, `127.0.0.1:${address.port}`);
+    assert.equal(observed.cookie, `harmless=1; ${upstreamCookie}`);
+    assert.equal(observed.cookie?.includes("penglai_proxy"), false);
+    assert.equal(observed.cookie?.includes("attacker"), false);
+    const responseCookies = (res.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.()
+      ?? [res.headers.get("set-cookie") ?? ""];
+    assert.equal(responseCookies.some((value) => value.includes("dsh-auth-")), false);
+    assert.equal(responseCookies.some((value) => value.includes("ordinary=allowed")), true);
+  } finally {
+    await proxy.close();
+    await new Promise<void>((resolve, reject) => inner.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("authenticated proxy rejects malformed upstream credentials before listening", async () => {
+  await assert.rejects(
+    startDshProxy({ token: "k".repeat(32), innerPort: 9, upstreamCookie: "bad\r\nheader=value" }),
+    /invalid DSH upstream browser cookie/,
+  );
+});

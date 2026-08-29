@@ -1,9 +1,9 @@
 # Penglai 0.5.8 complete implementation and acceptance plan
 
-> Planning status only. This plan preserves the owner-led 0.5.7 installed
-> walkthrough and maps it onto the candidate next DSH architecture. It contains
-> no claim that a listed root cause is repaired until the stated post-migration
-> reproduction and acceptance evidence exists.
+> Execution plan. This plan preserves the owner-led 0.5.7 installed walkthrough
+> and maps it onto the fixed DSH `0.1.2-alpha.1` source architecture. Each source
+> checkpoint is identified explicitly; no source result is promoted to package,
+> native, installed, live, or public evidence.
 
 ## 1. Product goal and first-principles test
 
@@ -130,6 +130,28 @@ A real child-process test proves transient recovery, restart failure, exactly
 three attempts, owned-child cleanup, and the final manual state. This closes
 the source-level diagnostic and exhaustion-UX items; alpha.1 authenticated
 probe reconciliation and three-target installed/native proof remain open.
+
+**Authenticated startup source checkpoint, 2026-08-29**
+
+The supervisor now accepts both Web contracts without changing the active rc.2
+package graph. An rc.2 process must still return the official document from its
+open loopback root. For alpha.1, the supervisor accepts only the exact
+`dsh web: http://127.0.0.1:<owned-port>/?token=<base64url>` readiness line,
+withholds incomplete stdout lines so a token split across chunks cannot leak,
+and exchanges the token inside Electron main-process ownership. It accepts only
+a 303 redirect to `/`, an exact DSH browser-session cookie, and a subsequent
+authenticated official document from the same authority.
+
+The renderer never receives the launch token or DSH cookie. The existing outer
+Penglai proxy strips its own `penglai_proxy` credential before forwarding and
+injects the trusted DSH cookie into HTTP and WebSocket requests. Continuous
+health checks use the same private cookie, and restart can reuse it only when the
+same authority still accepts it. Wrong-authority launch URLs, malformed cookies,
+missing cookie exchange, non-official pages, and hanging responses fail closed.
+A real child-process fixture proves alpha-style startup and steady-state health;
+focused proxy tests prove browser-supplied cookie replacement cannot override
+the trusted inner session. This is source compatibility evidence only: the exact
+published alpha.1 process and three native packages remain untested.
 
 **Overlay source checkpoint, 2026-08-29**
 
@@ -574,6 +596,40 @@ Not allowed now:
 - rebasing built-frontend overlays before the published client packages exist;
 - claiming package, native, installed, live, or public 0.1.2 integration; or
 - merging to `main`, tagging, publishing, or deploying.
+
+#### Phase 0 dependency order from first principles
+
+Work before npm publication follows this order. A later stream may start only
+when it does not assume an unproven result from an earlier stream.
+
+1. **Survival plane:** make startup, authentication, process ownership, user-data
+   isolation, upgrade activation, failure rollback, and redacted recovery correct
+   before migrating feature calls. A feature-complete build that cannot start or
+   safely open an existing 0.5.7 home is unusable.
+2. **Official ownership plane:** freeze the exact Session, Workspace, Settings,
+   Credentials, Attachment, inventory, locale, and slot owners from the fixed
+   source. Build Penglai-side ports and fixtures, but do not copy generated
+   clients or create a compatibility ApiProxy.
+3. **Required product plane:** adapt Office and Memory first and prove that base
+   chat plus both required plugins can boot, restart, and preserve Workspace
+   boundaries. They define the minimum usable Penglai product.
+4. **Optional isolation plane:** adapt IM, ASR, TTS, and Companion independently.
+   For every optional plugin, absent, disabled, pending, failed, and degraded
+   states must leave the core and required plugins usable.
+5. **Observed-defect plane:** re-run every 0.5.7 symptom against the migrated
+   architecture. Keep upstream-owned fixes upstream, retain Penglai-owned class
+   fixes, and reject screenshot-specific or old-route patches.
+6. **Package and native plane:** when npm appears, reconcile source and package
+   bytes, switch the dependency graph atomically, then prove clean install,
+   0.5.7 upgrade, rollback, uninstall, and the three native targets from one SHA.
+
+The immediate next survival-plane checkpoint is DSH-home upgrade isolation. The
+alpha process must never be allowed to make the only rc.2 home irreversible.
+Preparation therefore includes a privacy-safe rc.2 corpus replay, disk-space and
+file-type preflight, private copy-on-write staging, an atomic active-home pointer,
+one-writer migration, and rollback to the untouched rc.2 home. No dual write and
+no silent runtime fallback are allowed. The new alpha browser-session credential
+must be written only to the staged alpha home until activation succeeds.
 
 ### Gate P0: published-package reconciliation — BLOCKED
 

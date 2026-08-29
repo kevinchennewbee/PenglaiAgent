@@ -280,6 +280,18 @@ Penglai consequence:
 - test restart without leaking token material into URLs, logs, renderer state,
   evidence, or diagnostics.
 
+The preview source now implements the cross-version startup seam without
+consuming unpublished packages. It recognizes only the fixed-source alpha.1
+loopback launch-line shape and performs the one-time exchange inside the owned
+main process. The raw token is withheld across chunk boundaries and redacted
+before supervisor output is retained. A valid 303 and authority-bound DSH cookie
+must then prove the official root; rc.2 remains compatible through its open-root
+path. The outer Penglai proxy keeps its own cookie out of DSH, prevents a browser
+cookie from overriding the trusted inner session, and injects that session for
+HTTP and WebSocket requests. Steady-state health uses the same credential.
+Wrong-authority URLs and malformed or unaccepted credentials fail closed. This
+does not prove that the unpublished alpha package starts inside a native build.
+
 ### 4.12 Windows process helpers
 
 The candidate includes lower-level Windows process helpers, but it does not
@@ -316,10 +328,11 @@ switches to a bilingual recovery page, and offers early-registered Retry, Quit,
 Open, and Copy actions restricted to the recovery document. Copied/persisted
 diagnostics are bounded structured records; raw exception text no longer enters
 the recovery DOM or startup log, and the bounded stderr excerpt redacts private
-roots and credential-shaped values. This remains source evidence: the helper
-still needs compilation/execution on native Windows, installed orphan proof on
-all targets, and final alpha.1 authenticated-probe reconciliation after the
-official packages exist.
+roots and credential-shaped values. Authenticated alpha-style startup and
+steady-state probing now pass against a real local child-process fixture. This
+remains source evidence: the helper still needs compilation/execution on native
+Windows, installed orphan proof on all targets, and reconciliation with the
+exact published alpha.1 process.
 
 ### 4.13 IM capability truth is not one boolean
 

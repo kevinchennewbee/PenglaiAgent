@@ -21,6 +21,7 @@ export interface DshSupervisorInner {
   phaseMs?: number;
   recovery?: SupervisorRecoverySnapshot;
   health: { http: number; inventory: InventoryProof } | undefined;
+  upstreamCookie: string | undefined;
   child?: { pid?: number | undefined } | undefined;
   start(user: UserLayout, env?: NodeJS.ProcessEnv): Promise<{ port: number }>;
   stop(): Promise<void>;
@@ -54,6 +55,10 @@ export class DshSupervisor {
 
   get health(): { http: number; inventory: InventoryProof } | undefined {
     return this.inner?.health;
+  }
+
+  get upstreamCookie(): string | undefined {
+    return this.inner?.upstreamCookie;
   }
 
   get childPid(): number | undefined {
