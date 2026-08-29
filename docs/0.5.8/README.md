@@ -158,7 +158,10 @@ Allowed work now includes:
   remains open.
 - Desktop recovery now keeps the first classified process or health failure as
   the primary diagnostic so later generic startup/gateway errors cannot replace
-  the cause shown, copied, or written to the bounded local startup log.
+  the cause shown, copied, or written to the bounded local startup log. That
+  retained record has a stable `CORE-XXXXXXXXXXXX` reference; diagnostic
+  metadata is restricted to safe tokens before local logging/clipboard export,
+  and the recovery page shows the reference without claiming a root cause.
 - Plugin activation now journals bounded closed inventory transitions and exact
   activation/rollback readbacks. The Plugin Center turns only six closed
   failure codes into bilingual recovery guidance and shows a stable one-way

@@ -531,7 +531,7 @@ async function main(): Promise<void> {
       await win.loadFile(recoveryPage);
       if (!win.webContents.isDestroyed()) try {
         await win.webContents.executeJavaScript(
-          `(() => { document.body.dataset.penglaiRecoveryState = ${JSON.stringify(diagnostic.recovery.status)}; const rows = document.querySelectorAll("[data-penglai-recovery-exhausted]"); for (const row of rows) row.hidden = ${diagnostic.recovery.status === "manual-action-required" ? "false" : "true"}; })()`,
+          `(() => { document.body.dataset.penglaiRecoveryState = ${JSON.stringify(diagnostic.recovery.status)}; const rows = document.querySelectorAll("[data-penglai-recovery-exhausted]"); for (const row of rows) row.hidden = ${diagnostic.recovery.status === "manual-action-required" ? "false" : "true"}; const reference = document.querySelector("[data-penglai-recovery-reference]"); const referenceRow = document.querySelector("[data-penglai-recovery-reference-row]"); if (reference) reference.textContent = ${JSON.stringify(diagnostic.referenceId)}; if (referenceRow) referenceRow.hidden = false; })()`,
         );
       } catch {
         /* page still useful without the extra line */

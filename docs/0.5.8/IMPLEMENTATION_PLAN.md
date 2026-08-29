@@ -856,6 +856,13 @@ clipboard export, or bounded local startup log. The existing supervisor restart
 test continues to prove process crash, hung HTTP recovery, exact three-attempt
 budget exhaustion, same-port restart, and stop-cancels-restart behavior.
 
+The retained record now carries a stable `CORE-XXXXXXXXXXXX` reference derived
+only from allowlisted diagnostic facts. App/source/runtime/phase metadata is
+revalidated as bounded safe tokens before it can reach the local log or
+clipboard, and the recovery page shows only the reference beside its existing
+plain-language actions. The reference correlates one retained causal record; it
+does not promote a health symptom into a root-cause claim.
+
 This source checkpoint does not turn a generic HTTP error into a root cause and
 does not claim native Windows/macOS crash evidence. Cross-process timestamped
 correlation and installed reproduction remain open.

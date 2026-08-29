@@ -82,6 +82,7 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
   assert.equal(text.includes("/app/runtime/node"), false);
   assert.equal(redacted.phase, "waiting-http");
   assert.equal(redacted.dsh, "0.1.1-rc.2");
+  assert.match(redacted.referenceId, /^CORE-[A-F0-9]{12}$/);
   assert.equal(redacted.restartCount, 3);
   assert.equal(redacted.recovery.status, "manual-action-required");
   assert.deepEqual(redacted.errorCodes, ["DSH_UNAVAILABLE"]);
@@ -90,6 +91,44 @@ test("R56-CORE-009 recovery diagnostics omit home, token, and command", () => {
     "DSH_HEALTH_CHECK_FAILED",
     "DSH_RESTART_START_FAILED",
   ]);
+});
+
+test("recovery diagnostics reject unsafe metadata and keep a stable reference", () => {
+  const input = {
+    appVersion: "0.5.7 private text",
+    sourceSha: "sk-private-source",
+    platform: "darwin/private",
+    arch: "arm64 private",
+    dsh: "0.1.1-rc.2 private",
+    phase: "crashed private",
+    phaseMs: Number.NaN,
+    restartCount: -1,
+    recovery: {
+      status: "recovering" as const,
+      reason: "process-exit" as const,
+      attempt: 1,
+      maxAttempts: 3,
+      exitCode: 9,
+      trigger: "process-exit" as const,
+      lastFailure: "process-exit" as const,
+    },
+    requiredPlugins: [{ id: "@penglai/office private", ok: true }],
+    errorCodes: ["DSH_PROCESS_EXIT", "private error"],
+  };
+  const first = redactSupervisorDiagnostic(input);
+  const second = redactSupervisorDiagnostic(input);
+  assert.equal(first.referenceId, second.referenceId);
+  assert.match(first.referenceId, /^CORE-[A-F0-9]{12}$/);
+  assert.equal(first.appVersion, "unknown");
+  assert.equal(first.sourceSha, "unspecified");
+  assert.equal(first.platform, "unknown");
+  assert.equal(first.arch, "unknown");
+  assert.equal(first.dsh, "unknown");
+  assert.equal(first.phase, "unknown");
+  assert.equal(first.phaseMs, 0);
+  assert.equal(first.restartCount, 0);
+  assert.deepEqual(first.requiredPlugins, []);
+  assert.doesNotMatch(JSON.stringify(first), /private|sk-/);
 });
 
 test("supervisor diagnostics retain the first causal failure over later gateway noise", () => {
