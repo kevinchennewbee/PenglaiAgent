@@ -173,6 +173,7 @@ window.__ModuleLoader__.load({
         catalog: [],
         remote: [],
         registry: null,
+        resourcePressure: null,
         inventory: [],
         degraded: false,
       });
@@ -192,6 +193,7 @@ window.__ModuleLoader__.load({
               catalog,
               remote,
               registry: snapshot?.registry ?? null,
+              resourcePressure: snapshot?.resourcePressure ?? null,
               inventory: Array.isArray(inventory) ? inventory : [],
               degraded: Boolean(snapshot?.degraded),
             });
@@ -202,6 +204,7 @@ window.__ModuleLoader__.load({
               catalog: [],
               remote: [],
               registry: null,
+              resourcePressure: null,
               inventory: [],
               degraded: true,
             }),
@@ -299,6 +302,13 @@ window.__ModuleLoader__.load({
           !HIDDEN_PRODUCT_CARDS.has(id) && all.indexOf(id) === index,
       );
       const firstParty = new Map(FIRST_PARTY_CARDS.map((card) => [card.id, card]));
+      const pressureRows = Array.isArray(state.resourcePressure?.plugins)
+        ? state.resourcePressure.plugins
+        : [];
+      const pressureValue = (value) =>
+        Number.isSafeInteger(value) && value >= 0
+          ? String(value)
+          : t.centerResourceUnavailable;
       const cards = cardIds.map((id) => {
         const entry = live.get(id) ?? {};
         const meta = firstParty.get(id);
@@ -610,6 +620,39 @@ window.__ModuleLoader__.load({
           state.degraded
             ? jsx.jsx("p", { role: "status", children: t.centerError })
             : null,
+          jsx.jsxs("details", {
+            "data-penglai-resource-pressure": "1",
+            children: [
+              jsx.jsx("summary", { children: t.centerResourcePressure }),
+              jsx.jsx("p", {
+                "data-penglai-core-pressure-evidence":
+                  state.resourcePressure?.core?.evidence ??
+                  "DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED",
+                children: t.centerCorePressureUnavailable,
+              }),
+              pressureRows.length
+                ? jsx.jsx("ul", {
+                    "data-penglai-plugin-pressure-list": "1",
+                    children: pressureRows.map((row) =>
+                      jsx.jsxs(
+                        "li",
+                        {
+                          "data-penglai-plugin-pressure": String(row.id ?? ""),
+                          "data-penglai-plugin-pressure-measured": String(row.measured === true),
+                          children: [
+                            jsx.jsx("strong", { children: String(row.id ?? "") }),
+                            jsx.jsx("span", {
+                              children: `${t.centerResourceActive}: ${pressureValue(row.activeJobs)} · ${t.centerResourceQueued}: ${pressureValue(row.queuedJobs)} · ${t.centerResourceRequests}: ${pressureValue(row.remoteRequests)}`,
+                            }),
+                          ],
+                        },
+                        String(row.id ?? ""),
+                      ),
+                    ),
+                  })
+                : jsx.jsx("p", { children: t.centerResourceUnavailable }),
+            ],
+          }),
           jsx.jsx("ul", {
             className: "penglai-capability-grid",
             "aria-live": "polite",
@@ -736,6 +779,13 @@ window.__ModuleLoader__.load({
         centerActionRefreshed: "目录已刷新。",
         centerLoading: "正在读取插件列表…",
         centerError: "插件列表暂时不可用。",
+        centerResourcePressure: "资源压力（诊断）",
+        centerCorePressureUnavailable:
+          "核心子 Agent、工具调用、网络请求和打开文件：等待 DSH alpha 运行时提供可核对证据，当前不显示为零。",
+        centerResourceActive: "正在运行",
+        centerResourceQueued: "排队",
+        centerResourceRequests: "网络请求",
+        centerResourceUnavailable: "暂不可核对",
         cardCenter: "蓬莱插件中心",
         cardCenterHint: "管理本机已签入插件的实际状态。",
         cardIm: "消息连接",
@@ -897,6 +947,13 @@ window.__ModuleLoader__.load({
         centerActionRefreshed: "Catalog refreshed.",
         centerLoading: "Loading the plugin list…",
         centerError: "The plugin list is temporarily unavailable.",
+        centerResourcePressure: "Resource pressure (diagnostics)",
+        centerCorePressureUnavailable:
+          "Core subagents, tool calls, remote requests, and open files await verifiable DSH alpha runtime evidence; they are not shown as zero.",
+        centerResourceActive: "active",
+        centerResourceQueued: "queued",
+        centerResourceRequests: "remote requests",
+        centerResourceUnavailable: "not verifiable yet",
         cardCenter: "Penglai Plugin Center",
         cardCenterHint: "Manage actual state of signed local plugins.",
         cardIm: "Messaging",

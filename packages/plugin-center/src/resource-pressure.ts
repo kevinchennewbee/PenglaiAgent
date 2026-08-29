@@ -1,0 +1,117 @@
+import type { ResourceCounts } from "./profile-tx.js";
+import type { ResourceProbe } from "./remotes.js";
+
+const PRESSURE_FIELDS = [
+  "activeJobs",
+  "queuedJobs",
+  "remoteRequests",
+  "workerThreads",
+  "childProcesses",
+  "openFiles",
+  "timers",
+  "sockets",
+  "modelSessions",
+  "audioHandles",
+] as const;
+
+type PressureField = (typeof PRESSURE_FIELDS)[number];
+type PressureValues = Record<PressureField, number | null>;
+
+export interface PluginResourcePressure extends PressureValues {
+  id: string;
+  measured: boolean;
+  evidence:
+    | "service-resource-snapshot"
+    | "runtime-evidence-unavailable"
+    | "resource-probe-failed";
+}
+
+export interface ResourcePressureSnapshot {
+  schema: 1;
+  core: {
+    evidence: "DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED";
+    trueSubagents: null;
+    activeToolCalls: null;
+    activeRemoteRequests: null;
+    openFiles: null;
+  };
+  plugins: PluginResourcePressure[];
+}
+
+function unavailableValues(): PressureValues {
+  return Object.fromEntries(
+    PRESSURE_FIELDS.map((field) => [field, null]),
+  ) as PressureValues;
+}
+
+function safeCount(value: unknown): number | null {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+    ? Number(value)
+    : null;
+}
+
+function measuredRow(
+  id: string,
+  snapshot: ResourceCounts,
+): PluginResourcePressure {
+  const values = unavailableValues();
+  for (const field of PRESSURE_FIELDS)
+    values[field] = safeCount(snapshot[field]);
+  return {
+    id,
+    measured: true,
+    evidence: "service-resource-snapshot",
+    ...values,
+  };
+}
+
+export function buildResourcePressure(
+  ids: readonly string[],
+  resourceProbe: (id: string) => ResourceProbe | undefined,
+): ResourcePressureSnapshot {
+  const plugins = [...new Set(ids)]
+    .filter(Boolean)
+    .sort()
+    .map((id): PluginResourcePressure => {
+      let probe: ResourceProbe | undefined;
+      try {
+        probe = resourceProbe(id);
+      } catch {
+        return {
+          id,
+          measured: false,
+          evidence: "resource-probe-failed",
+          ...unavailableValues(),
+        };
+      }
+      if (!probe) {
+        return {
+          id,
+          measured: false,
+          evidence: "runtime-evidence-unavailable",
+          ...unavailableValues(),
+        };
+      }
+      try {
+        return measuredRow(id, probe.snapshot());
+      } catch {
+        return {
+          id,
+          measured: false,
+          evidence: "resource-probe-failed",
+          ...unavailableValues(),
+        };
+      }
+    });
+  return {
+    schema: 1,
+    core: {
+      evidence: "DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED",
+      trueSubagents: null,
+      activeToolCalls: null,
+      activeRemoteRequests: null,
+      openFiles: null,
+    },
+    plugins,
+  };
+}

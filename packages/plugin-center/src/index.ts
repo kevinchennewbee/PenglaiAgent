@@ -28,7 +28,7 @@ import {
   createPenglaiOnboardingRemoteImpl,
   PenglaiOnboardingRemote,
 } from "./onboarding-remote.js";
-import { recoverInterruptedTransaction } from "./profile-tx.js";
+import { recoverInterruptedTransaction, type ResourceCounts } from "./profile-tx.js";
 import {
   releaseOnboardingTestWorkspaces,
   wizardProviderCatalog,
@@ -457,10 +457,10 @@ function resourceProbeFrom(
     "@penglai/companion": "penglaiCompanion",
   };
   const serviceName = serviceNames[id];
-  if (!serviceName) return { snapshot: () => ({ ...ZERO_RESOURCES }) };
+  if (!serviceName) return undefined;
   const service = ctx.get?.(serviceName) as
     | {
-        resourceSnapshot?: () => Partial<typeof ZERO_RESOURCES>;
+        resourceSnapshot?: () => Partial<ResourceCounts>;
       }
     | undefined;
   if (!service || typeof service.resourceSnapshot !== "function")
@@ -471,7 +471,7 @@ function resourceProbeFrom(
       const loaded = normalizeInventory(inventory.list()).some(
         (entry) => rowMatches(entry, id) && rowLoaded(entry),
       );
-      return {
+      const snapshot: ResourceCounts = {
         workers: Number(measured.workers ?? 0),
         sockets: Number(measured.sockets ?? 0),
         timers: Number(measured.timers ?? 0),
@@ -480,6 +480,19 @@ function resourceProbeFrom(
         modelSessions: Number(measured.modelSessions ?? 0),
         audioHandles: Number(measured.audioHandles ?? 0),
       };
+      for (const field of [
+        "activeJobs",
+        "queuedJobs",
+        "remoteRequests",
+        "workerThreads",
+        "childProcesses",
+        "openFiles",
+      ] as const) {
+        if (measured[field] !== undefined) {
+          snapshot[field] = typeof measured[field] === "number" ? measured[field] : Number.NaN;
+        }
+      }
+      return snapshot;
     },
   };
 }

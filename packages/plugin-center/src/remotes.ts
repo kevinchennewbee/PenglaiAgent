@@ -51,6 +51,7 @@ import {
   type ResourceCounts,
 } from "./profile-tx.js";
 import { normalizeInventory, rowLoaded, rowMatches } from "./inventory.js";
+import { buildResourcePressure, type ResourcePressureSnapshot } from "./resource-pressure.js";
 
 export interface CenterHostLike {
   reconcile(): Array<{
@@ -93,6 +94,7 @@ export interface CenterRemote {
     };
     required: Record<string, boolean>;
     degraded?: boolean;
+    resourcePressure: ResourcePressureSnapshot;
   };
   enable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
   installEnable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
@@ -458,6 +460,10 @@ export function createCenterRemote(opts: {
         };
       });
       const proof = evaluateInventory({ entries: rows });
+      const pressureIds = [
+        ...opts.catalog.map((entry) => entry.id),
+        ...(opts.registry?.cards() ?? []).map((entry) => String(entry.id)),
+      ];
       return {
         inventory: raw,
         catalog,
@@ -475,6 +481,7 @@ export function createCenterRemote(opts: {
             }
           : {}),
         degraded: inventoryFailed || reconcileFailed,
+        resourcePressure: buildResourcePressure(pressureIds, opts.resourceProbe),
         required: {
           credentials: proof.credentials,
           "plugin-center": proof.pluginCenter,
