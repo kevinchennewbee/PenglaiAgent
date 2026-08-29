@@ -21,7 +21,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { PenglaiError, readExactRegularFile, type ErrorClass } from "@penglai/contracts";
+import { isErrorClass, PenglaiError, readExactRegularFile, redactedDiagnosticReference, type ErrorClass } from "@penglai/contracts";
 
 export type TtsModelState =
   | "not_installed"
@@ -145,6 +145,7 @@ export interface TtsModelOperation {
   currentFile?: string;
   validators?: Record<string, string>;
   errorClass?: ErrorClass;
+  referenceId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -423,7 +424,11 @@ export class TtsModelManager {
       const errorClass = stableErrorClass(error);
       this.state = "failed";
       this.errorClass = errorClass;
-      this.updateOperation(op, { state: "failed", errorClass });
+      this.updateOperation(op, {
+        state: "failed",
+        errorClass,
+        referenceId: redactedDiagnosticReference("TTS", op.operationId, errorClass),
+      });
       throw error;
     } finally {
       this.modelOwner = undefined;
@@ -479,7 +484,11 @@ export class TtsModelManager {
     this.modelOwner = op.operationId;
     const controller = new AbortController();
     this.controllers.set(op.operationId, controller);
-    this.updateOperation(op, { state: "running", errorClass: undefined });
+    this.updateOperation(op, {
+      state: "running",
+      errorClass: undefined,
+      referenceId: undefined,
+    });
     this.state = "downloading";
     this.errorClass = undefined;
     const promise = this.runDownload(op, controller.signal).finally(() => {
@@ -515,7 +524,11 @@ export class TtsModelManager {
       const errorClass = stableErrorClass(error);
       this.state = "failed";
       this.errorClass = errorClass;
-      this.updateOperation(op, { state: "failed", errorClass });
+      this.updateOperation(op, {
+        state: "failed",
+        errorClass,
+        referenceId: redactedDiagnosticReference("TTS", op.operationId, errorClass),
+      });
       throw error;
     }
   }
@@ -784,11 +797,13 @@ export class TtsModelManager {
       currentFile?: string | undefined;
       validators?: Record<string, string> | undefined;
       errorClass?: ErrorClass | undefined;
+      referenceId?: string | undefined;
     },
   ): void {
     Object.assign(op, patch, { updatedAt: nowIso() });
     if (patch.currentFile === undefined && "currentFile" in patch) delete op.currentFile;
     if (patch.errorClass === undefined && "errorClass" in patch) delete op.errorClass;
+    if (patch.referenceId === undefined && "referenceId" in patch) delete op.referenceId;
     this.persistOperations();
   }
 
@@ -830,7 +845,10 @@ export class TtsModelManager {
       (op.validators === undefined || (
         Object.keys(op.validators).every((path) => this.manifest.files.some((file) => file.path === path)) &&
         Object.values(op.validators).every((validator) => typeof validator === "string" && validator.length <= 512)
-      ))
+      )) &&
+      (op.errorClass === undefined || isErrorClass(op.errorClass)) &&
+      (op.referenceId === undefined ||
+        (op.errorClass !== undefined && /^TTS-[A-F0-9]{12}$/.test(op.referenceId)))
     );
   }
 

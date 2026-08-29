@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, PenglaiError, PENGLAI_I18N, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
+import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, isErrorClass, PenglaiError, PENGLAI_I18N, redactedDiagnosticReference, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
 
 test("refuses non-loopback listen hosts", () => {
   assert.throws(() => assertSafeListenHost("0.0.0.0"), PenglaiError);
@@ -24,6 +24,23 @@ test("fragmentation is deterministic and ordered", () => {
 
 test("utf8 size counts bytes", () => {
   assert.equal(utf8Bytes("你"), 3);
+});
+
+test("diagnostic references are stable, namespaced, and one-way", () => {
+  const reference = redactedDiagnosticReference("ASR", "private-operation", "STORE_CORRUPT");
+  assert.match(reference, /^ASR-[A-F0-9]{12}$/);
+  assert.equal(
+    reference,
+    redactedDiagnosticReference("ASR", "private-operation", "STORE_CORRUPT"),
+  );
+  assert.notEqual(
+    reference,
+    redactedDiagnosticReference("TTS", "private-operation", "STORE_CORRUPT"),
+  );
+  assert.equal(reference.includes("private-operation"), false);
+  assert.equal(isErrorClass("STORE_CORRUPT"), true);
+  assert.equal(isErrorClass("PRIVATE_ERROR"), false);
+  assert.throws(() => redactedDiagnosticReference("bad", "operation"), PenglaiError);
 });
 
 test("R50-UI-002/003 Penglai catalog has complete zh and en", () => {

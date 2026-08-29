@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, redactedDiagnosticReference } from "@penglai/contracts";
 import {
   assertPluginPackageManifest,
   extractTarGz,
@@ -236,11 +236,12 @@ export function readPluginTransactionDiagnostic(
     )
       ? (raw.failureCode as NonNullable<TransactionJournal["failureCode"]>)
       : undefined;
-    const referenceId = `PC-${createHash("sha256")
-      .update(`${raw.operationId}\0${raw.id}\0${String(raw.action)}`)
-      .digest("hex")
-      .slice(0, 12)
-      .toUpperCase()}`;
+    const referenceId = redactedDiagnosticReference(
+      "PC",
+      raw.operationId,
+      raw.id,
+      String(raw.action),
+    );
     return {
       schema: 2,
       referenceId,

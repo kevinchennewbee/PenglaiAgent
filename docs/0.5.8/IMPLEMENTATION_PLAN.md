@@ -764,6 +764,22 @@ without parsing an exception or inventing a core outage. Other settings
 lifecycles still need their own typed backend references, and cross-component
 deduplication remains blocked on an authoritative common DSH health signal.
 
+**Voice model operation reference source checkpoint, 2026-08-29**
+
+ASR and TTS model download/import failures now persist a stable namespaced
+`ASR-XXXXXXXXXXXX` or `TTS-XXXXXXXXXXXX` reference derived one-way from the
+private operation identity and closed error class. Restart readback preserves
+the same reference; a resumed operation clears the stale reference before new
+work begins. The settings clients show it only for the failed operation and do
+not receive the source URL, local path, or raw exception in the failure record;
+the reference itself does not embed the operation ID.
+
+The shared reference helper validates its namespace and bounded inputs. Both
+operation ledgers validate closed error classes and reference shape when they
+restore; the TTS ledger now rejects an unknown persisted error class instead of
+accepting it as trusted state. This is source and persistence evidence only, not
+an installed model failure reproduction or a common DSH outage signal.
+
 ### P1-08: concurrency amplifies failures but is not proven to be the killer
 
 **Observed symptom**

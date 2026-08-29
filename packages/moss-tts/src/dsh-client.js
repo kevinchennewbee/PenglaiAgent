@@ -125,6 +125,7 @@ window.__ModuleLoader__.load({
         speed: "速度",
         downloaded: "已下载",
         operationFailed: "操作未完成。请刷新状态后重试。",
+        diagnosticReference: "诊断参考号",
         modelStates: {
           ready: "已就绪",
           not_installed: "未安装",
@@ -168,6 +169,7 @@ window.__ModuleLoader__.load({
         speed: "Speed",
         downloaded: "Downloaded",
         operationFailed: "The operation did not complete. Refresh the status and retry.",
+        diagnosticReference: "Diagnostic reference",
         modelStates: {
           ready: "Ready",
           not_installed: "Not installed",
@@ -604,6 +606,12 @@ window.__ModuleLoader__.load({
                   jsx.jsx("progress", { max: totalBytes, value: completedBytes, style: { width: "100%", marginTop: "8px", accentColor: "var(--dsw-alias-brand-primary)" } }),
                   jsx.jsxs("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px", marginTop: "6px", color: "var(--dsw-alias-label-secondary)", fontSize: "12px" }, children: [jsx.jsx("span", { children: `${t.downloaded} ${formatBytes(completedBytes)} / ${formatBytes(totalBytes)}` }), jsx.jsx("span", { children: `${t.speed} ${formatBytes(view.bytesPerSecond)}/s` })] }),
                 ],
+              })
+            : null,
+          operation?.state === "failed" && operation?.referenceId
+            ? jsx.jsxs("p", {
+                "data-penglai-tts-reference": "1",
+                children: [t.diagnosticReference, ": ", String(operation.referenceId)],
               })
             : null,
           jsx.jsxs("label", {

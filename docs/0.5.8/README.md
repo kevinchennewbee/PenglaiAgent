@@ -131,9 +131,10 @@ Allowed work now includes:
   installed UI, and Owner-live command proof remain open.
 - Penglai-owned ASR, TTS, IM, Office, Memory Sources, Plugin Center, update, and
   uninstall settings no longer render caught exception text. Voice model states
-  and recovery copy are bilingual, and Plugin Center now states the exact
-  eight-channel registry. Full typed-reference/outage deduplication and official
-  DSH permission-label localization remain open.
+  and recovery copy are bilingual; failed ASR and TTS model operations now retain
+  stable redacted diagnostic references across restart, and Plugin Center states
+  the exact eight-channel registry. Full cross-component outage deduplication and
+  official DSH permission-label localization remain open.
 - MOSS-TTS now invokes the attributed runtime's real one-time model warmup after
   explicit verified model activation and before first synthesis after a cold
   restart. Failed warmup discards the engine so a later request retries from a

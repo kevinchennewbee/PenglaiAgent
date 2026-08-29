@@ -248,6 +248,7 @@ test("model downloader never marks a same-size hash mismatch ready", async () =>
   const root = workspace();
   try {
     const { manifest, contents } = makeFixture();
+    const models = join(root, "models");
     let calls = 0;
     const fetchImpl: typeof fetch = async (input) => {
       calls += 1;
@@ -264,7 +265,7 @@ test("model downloader never marks a same-size hash mismatch ready", async () =>
       });
     };
     const manager = new TtsModelManager(
-      join(root, "models"),
+      models,
       manifest,
       { fetchImpl },
     );
@@ -273,7 +274,52 @@ test("model downloader never marks a same-size hash mismatch ready", async () =>
       /hash mismatch/,
     );
     assert.equal(manager.describeModels()[0]?.state, "failed");
+    const failed = manager.getOperation("download02");
+    assert.equal(failed?.state, "failed");
+    assert.equal(failed?.errorClass, "SECURITY_POLICY");
+    assert.match(failed?.referenceId ?? "", /^TTS-[A-F0-9]{12}$/);
+    assert.doesNotMatch(JSON.stringify(failed), /hash mismatch/);
+    const referenceId = failed?.referenceId;
     await manager.dispose();
+    const restored = new TtsModelManager(models, manifest);
+    try {
+      await restored.initialize();
+      assert.equal(restored.getOperation("download02")?.referenceId, referenceId);
+    } finally {
+      await restored.dispose();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("model operation ledger rejects unknown persisted error classes", () => {
+  const root = workspace();
+  try {
+    const { manifest } = makeFixture();
+    const models = join(root, "models");
+    mkdirSync(models, { recursive: true });
+    writeFileSync(
+      join(models, "operations.json"),
+      JSON.stringify([
+        {
+          operationId: "download03",
+          kind: "download",
+          modelId: manifest.id,
+          state: "failed",
+          completedBytes: 0,
+          totalBytes: manifest.files.reduce((sum, file) => sum + file.bytes, 0),
+          errorClass: "INVENTED_FAILURE",
+          createdAt: "2026-08-29T00:00:00.000Z",
+          updatedAt: "2026-08-29T00:00:00.000Z",
+        },
+      ]),
+    );
+    assert.throws(
+      () => new TtsModelManager(models, manifest),
+      (error) =>
+        error instanceof PenglaiError && error.errorClass === "STORE_CORRUPT",
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

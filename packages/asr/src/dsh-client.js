@@ -115,6 +115,7 @@ window.__ModuleLoader__.load({
         speed: "速度",
         remaining: "已下载",
         operationFailed: "操作未完成。请刷新状态后重试。",
+        diagnosticReference: "诊断参考号",
         transcriptionFailed: "转写未完成。请确认模型已就绪后重试。",
         modelStates: {
           ready: "已就绪",
@@ -166,6 +167,7 @@ window.__ModuleLoader__.load({
         speed: "Speed",
         remaining: "Downloaded",
         operationFailed: "The operation did not complete. Refresh the status and retry.",
+        diagnosticReference: "Diagnostic reference",
         transcriptionFailed: "Transcription did not complete. Confirm the model is ready and retry.",
         modelStates: {
           ready: "Ready",
@@ -444,6 +446,12 @@ window.__ModuleLoader__.load({
                   jsx.jsx("progress", { max: totalBytes, value: completedBytes, style: { width: "100%", marginTop: "8px", accentColor: "var(--dsw-alias-brand-primary)" } }),
                   jsx.jsxs("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px", marginTop: "6px", color: "var(--dsw-alias-label-secondary)", fontSize: "12px" }, children: [jsx.jsx("span", { children: `${t.remaining} ${formatBytes(completedBytes)} / ${formatBytes(totalBytes)}` }), jsx.jsx("span", { children: `${t.speed} ${formatBytes(view.bytesPerSecond)}/s` })] }),
                 ],
+              })
+            : null,
+          operation?.state === "failed" && operation?.referenceId
+            ? jsx.jsxs("p", {
+                "data-penglai-asr-reference": "1",
+                children: [t.diagnosticReference, ": ", String(operation.referenceId)],
               })
             : null,
           jsx.jsxs("label", {
