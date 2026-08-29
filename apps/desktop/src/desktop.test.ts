@@ -186,6 +186,8 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.match(main, /manual-action-required/);
   assert.match(main, /lastRecoveryDiagnostic/);
   assert.match(main, /retainPrimarySupervisorDiagnostic/);
+  assert.match(main, /reference\.textContent/);
+  assert.match(main, /diagnostic\.referenceId/);
   assert.match(main, /if \(recoveryIpcNames\.has\(name\)\) continue/);
   assert.match(main, /event\.sender\.getURL\(\) !== recoveryUrl/);
   assert.ok(main.indexOf("for (const name of recoveryIpcNames)") < main.indexOf("const resources = resourcesRoot()"));
@@ -255,6 +257,7 @@ test("recovery screen uses plain user-facing language", async () => {
   assert.match(html, /Automatic recovery stopped after three attempts/);
   assert.match(html, /自动恢复已尝试三次并停止/);
   assert.match(html, /data-penglai-recovery-exhausted/);
+  assert.match(html, /data-penglai-recovery-reference/);
   assert.match(html, /Content-Security-Policy/);
 });
 

@@ -1,3 +1,5 @@
+import { redactedDiagnosticReference } from "@penglai/contracts";
+
 export const BOOT_PHASES = [
   "boot",
   "checking-private-data",
@@ -103,6 +105,7 @@ export function shouldRestartAfterExit(input: { intentional: boolean; state: str
 }
 
 export interface RedactedSupervisorDiagnostic {
+  referenceId: string;
   appVersion: string;
   sourceSha: string;
   platform: string;
@@ -148,19 +151,58 @@ export function redactSupervisorDiagnostic(input: {
   void input.home;
   void input.token;
   void input.command;
+  const safeToken = (value: string, fallback: string, max = 64): string =>
+    value.length <= max && /^[A-Za-z0-9._-]+$/.test(value)
+      ? value
+      : fallback;
+  const safeNonNegativeInteger = (value: unknown): number =>
+    Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : 0;
+  const appVersion = safeToken(input.appVersion, "unknown");
+  const sourceSha = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(input.sourceSha)
+    ? input.sourceSha.toLowerCase()
+    : "unspecified";
+  const platform = safeToken(input.platform, "unknown", 24);
+  const arch = safeToken(input.arch, "unknown", 24);
+  const dsh = safeToken(input.dsh, "unknown");
+  const phase = safeToken(input.phase, "unknown");
+  const exitCode = Number.isSafeInteger(input.exitCode)
+    ? Number(input.exitCode)
+    : null;
+  const recovery = { ...(input.recovery ?? IDLE_SUPERVISOR_RECOVERY) };
+  const errorCodes = input.errorCodes
+    .filter((code) => /^[A-Z][A-Z0-9_]{0,47}$/.test(code))
+    .slice(0, 8);
   return {
-    appVersion: input.appVersion,
-    sourceSha: input.sourceSha,
-    platform: input.platform,
-    arch: input.arch,
-    dsh: input.dsh,
-    phase: input.phase,
-    phaseMs: input.phaseMs,
-    exitCode: input.exitCode ?? null,
-    restartCount: Math.max(0, Math.floor(input.restartCount ?? 0)),
-    recovery: { ...(input.recovery ?? IDLE_SUPERVISOR_RECOVERY) },
-    requiredPlugins: input.requiredPlugins.slice(0, 16).map((row) => ({ id: row.id, ok: row.ok })),
-    errorCodes: input.errorCodes.filter((code) => /^[A-Z][A-Z0-9_]{0,47}$/.test(code)).slice(0, 8),
+    referenceId: redactedDiagnosticReference(
+      "CORE",
+      sourceSha,
+      platform,
+      arch,
+      dsh,
+      recovery.trigger,
+      String(exitCode ?? "none"),
+      errorCodes[0] ?? "UNKNOWN",
+    ),
+    appVersion,
+    sourceSha,
+    platform,
+    arch,
+    dsh,
+    phase,
+    phaseMs: safeNonNegativeInteger(input.phaseMs),
+    exitCode,
+    restartCount: safeNonNegativeInteger(input.restartCount),
+    recovery,
+    requiredPlugins: input.requiredPlugins
+      .filter(
+        (row) =>
+          typeof row.id === "string" &&
+          row.id.length <= 96 &&
+          /^@[a-z0-9-]+\/[a-z0-9-]+$/.test(row.id),
+      )
+      .slice(0, 16)
+      .map((row) => ({ id: row.id, ok: row.ok === true })),
+    errorCodes,
   };
 }
 
