@@ -1,10 +1,10 @@
-# Penglai 0.5.8 planning baseline
+# Penglai 0.5.8 preview development baseline
 
-> Status: planning branch only. This directory records the product intent,
-> upstream migration review, runtime findings, implementation order, and
-> acceptance gates for Penglai 0.5.8. It does not change the current 0.5.7
-> release contract and it is not evidence that 0.5.8 development or release is
-> complete.
+> Status: source-preparation development branch. This directory records the
+> product intent, fixed upstream source baseline, migration review, runtime
+> findings, implementation order, work ledger, and acceptance gates for
+> Penglai 0.5.8. It does not change the current 0.5.7 release contract and it is
+> not package, native, installed, live, or public-release evidence.
 
 ## Branch purpose
 
@@ -12,8 +12,9 @@
 - Base: public `kevinchennewbee/PenglaiAgent` `main`
 - Base commit: `143482bf799b98734a70f74d38acb8932ed7864f`
 - Created: 2026-08-28
-- Product-code changes in this baseline: none
-- Remote branch: `origin/0.5.8-preview` (published; no pull request opened)
+- Development started: 2026-08-29
+- Remote branch: `origin/0.5.8-preview` (continuous preview pushes authorized;
+  no pull request opened)
 
 This branch preserves the results of the owner-led 0.5.7 installed-product
 walkthrough and the adversarial review of the next official DeepSeek Harness
@@ -25,8 +26,8 @@ not depend on chat history or one local note.
 0.5.8 is not a feature-expansion release. Its purpose is to take the functions
 already promised or bundled in 0.5.7, exercise them as a normal user would,
 find the real failures, repair them at their correct ownership boundary, and
-ship a stable Penglai distribution on the latest complete and consumable
-official DSH release.
+ship a stable Penglai distribution whose official package closure matches the
+Owner-fixed DSH `0.1.2-alpha.1` source baseline.
 
 The governing principles are:
 
@@ -55,21 +56,22 @@ The following may be frozen now:
 - the no-parallel-core boundary;
 - the migration-first implementation order;
 - the differential and adversarial acceptance strategy; and
-- the rule that 0.5.8 consumes the latest complete official DSH package set;
-  and
+- the DSH source baseline: lightweight tag `dsh-v0.1.2-alpha.1`, commit
+  `cd5ef8148158c3a752a658978873241fdf8e2bbc`;
+- the rule that the eventual official npm closure must match that exact source;
 - the permanent removal of WhatsApp from active product, source, dependency,
   packaging, test-matrix, and roadmap surfaces while preserving immutable 0.5.7
   release history.
 
-The following must not be frozen yet:
+The following cannot be frozen until official publication:
 
-- the exact new DSH npm version;
-- its lockfile closure and integrity values;
-- the final Remote and client-module package names;
+- the exact npm package set and each package integrity;
+- the Penglai lockfile closure;
+- whether every source-declared Remote/client package is published unchanged;
 - the final compatibility matrix; or
 - release dates and native package claims.
 
-As of the review snapshot on 2026-08-28, `dsh-v0.1.2-alpha.1` exists as an
+As of the verified snapshot on 2026-08-29, `dsh-v0.1.2-alpha.1` exists as an
 official GitHub prerelease and source tag, but `@deepseek-ai/dsh` has not
 published `0.1.2-alpha.1` to npm. Both npm `latest` and `next` still resolve to
 `0.1.1-rc.2`. A source tag alone is not a consumable, reproducible Penglai
@@ -83,34 +85,45 @@ dependency closure.
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) records the installed
   symptoms, evidence-backed root causes, severity, planned remediation,
   implementation phases, gates, and native acceptance plan.
+- [DSH_SOURCE_BASELINE.md](./DSH_SOURCE_BASELINE.md) binds the fixed tag to its
+  commit, tree, clean source install/build result, and evidence limits.
+- [MIGRATION_MATRIX.md](./MIGRATION_MATRIX.md) maps removed and new upstream
+  seams to exact Penglai consumers and migration gates.
+- [REPOSITORY_MIGRATION_INVENTORY.md](./REPOSITORY_MIGRATION_INVENTORY.md)
+  classifies repository assets and assigns their migration or retirement path.
+- [WORK_LEDGER.md](./WORK_LEDGER.md) is the branch-visible execution ledger.
 
-## Start-work gate
+## Split start-work gates
 
-Product implementation may begin only after the owner approves the exact DSH
-baseline and the following read-only checks are complete:
+The source-preparation gate is open. The Owner selected the exact source, the
+tag resolves to the recorded commit, a clean upstream frozen-lock install and
+full source build pass, and the upstream contracts have been re-reviewed.
+Allowed work now includes:
 
-- the official tag resolves to an immutable commit;
-- `@deepseek-ai/dsh` and every required first-party package are published at a
-  mutually compatible exact version;
-- npm dist-tags and versions are not in a partial or retracted state;
-- a clean frozen-lockfile installation succeeds;
-- generated Remote/client artifacts are present in published packages; and
-- the official release notes and source contracts have been re-reviewed against
-  this plan.
+- exact source and package/API inventories;
+- characterization and migration tests;
+- preview-only safety gates and CI;
+- retirement of active WhatsApp product/runtime/dependency surfaces; and
+- Penglai-owned fixes whose contracts do not depend on the unpublished package
+  graph, including asynchronous channel failure containment.
 
-Before that gate, continued 0.5.7 exploratory testing is useful. New findings
-should be added to the ledger with a reproduction and should not trigger an
-old-DSH-specific patch unless the owner explicitly decides to issue a 0.5.7
-hotfix.
+The package-integration gate remains closed until `@deepseek-ai/dsh` and every
+required first-party package are published at a mutually compatible exact
+version, generated artifacts are present, integrity and license closure is
+reviewed, and a clean Penglai frozen-lock installation succeeds. Until then,
+do not change DSH dependency pins or claim a 0.1.2 product build.
 
-## Explicit non-goals for this planning baseline
+## Explicit preview boundaries
 
-- no dependency bump;
+- no DSH dependency bump or source/Git-path dependency;
 - no DSH source modification;
 - no overlay rebase;
-- no product-code change;
-- no build, release, tag, or deployment;
+- product-code changes only when independent of the unpublished DSH package
+  closure and recorded in the work ledger;
+- source builds and tests are allowed; native release builds, package publish,
+  release, tag, and deployment are not;
 - no claim that an upstream capability automatically fixes Penglai integration;
 - no WhatsApp compatibility card, experimental adapter, runtime, dependency,
   packaging path, support claim, or future-roadmap placeholder; and
-- no GitHub push or pull request without separate owner approval.
+- pushes only to `0.5.8-preview`; no pull request, `main` merge, or public release
+  without separate Owner approval.

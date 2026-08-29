@@ -378,6 +378,12 @@
 - 决定：从 0.5.8 起，Penglai 不再支持、接入、展示、实验或规划 WhatsApp。现行产品面的兼容性卡、manifest/channel identity 暴露、guided/device-link/QR 路径、adapter/runtime 源码接线、Baileys/libsignal 依赖以及打包、测试和文档入口均须移除；不得以 community、experimental、disabled 或 future roadmap 形式重新引入。已经公开的 0.5.7 tag、Release、附件与历史文档保持不可变，历史事实和来源审计继续由 Git 历史保存。
 - 后果：0.5.8 迁移必须证明现行产品、runtime、catalog、安装包、依赖闭包、lockfile、SBOM、许可证和公开能力矩阵中均不存在 WhatsApp。历史发行审计可以保留在明确的历史语境中，但不能继续作为现行产品入口或活跃实现。未来若要重新引入，必须由 Owner 作出新的明确决定并取代本决策。
 
+### D-063 — 0.5.8 固定 DSH 源码基线与预览分支开发边界
+
+- 状态：ACCEPTED（Owner 2026-08-29 明确决定）
+- 决定：0.5.8 的上游源码基线固定为官方轻量 tag `dsh-v0.1.2-alpha.1` 对应的精确 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`，不再等待或选择所谓“最新”源码。Owner 授权在 `0.5.8-preview` 持续实现、验证、分批提交和推送，不建立 npm 发布监控。当前允许隔离构建固定上游源码、完成迁移矩阵、仓库盘点、特征测试，以及不依赖新 npm 闭包的蓬莱自有修复。
+- 后果：源码可构建不等于 npm package、Penglai closure、native、installed、live 或 public 证据。在与固定源码匹配的官方 npm 包集发布前，Penglai 的产品 manifest、lockfile 与发布合同继续保持 0.5.7 的 DSH `0.1.1-rc.2`，不得使用源码路径、Git URL、私有 tarball 或兼容 ApiProxy 伪造 0.1.2 产品集成。官方包出现后须人工核对 exact version、integrity、生成 Remote/client 产物、依赖与许可闭包；预览工作不得进入 `main`、改写 `v0.5.7` tag/附件、发布 package/Release 或部署公开页面，除非 Owner 另行明确授权。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

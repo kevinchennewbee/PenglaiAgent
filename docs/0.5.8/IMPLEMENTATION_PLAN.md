@@ -438,24 +438,62 @@ runtime, account connection, capability validation, and release evidence.
 
 ## 4. Implementation phases and gates
 
-### Gate 0: wait for a consumable DSH release
+### Gate S0: fixed-source preparation — OPEN
 
 Exit criteria:
 
-- exact official tag/commit selected by owner;
-- complete synchronized npm package set exists;
-- generated Remote/client artifacts are present;
-- clean frozen-lockfile installation is reproducible;
-- source/package license and provenance closure is reviewed; and
-- this issue mapping is refreshed against the exact tag;
+- exact official tag/commit selected by Owner;
+- tag, commit, tree, and source archive digest recorded;
+- clean upstream frozen-lock installation and full source build pass;
+- source package/API/slot inventory is refreshed against the exact commit;
 - active and historical scripts, overlays, evidence schemas, fixtures, and
   compatibility wrappers have an owner and classification; and
 - the permanent WhatsApp-removal and single-source identity gates are accepted
   as part of the migration, not postponed as release cleanup.
 
-Allowed before exit: 0.5.7 reproduction, redacted diagnostic collection, test
-design, and document updates. Not allowed: final dependency freeze or old-seam
-product fixes that would be thrown away by migration.
+State on 2026-08-29: the Owner fixed `dsh-v0.1.2-alpha.1` at
+`cd5ef8148158c3a752a658978873241fdf8e2bbc`; isolated install and full source
+build pass. Repository classification remains a living ledger rather than a
+reason to keep this gate closed.
+
+### Phase 0: source preparation and independent repairs — IN PROGRESS
+
+Allowed now:
+
+- source-level Remote, client, profile, attachment, inventory, cancellation,
+  subagent, locale, and one-time-token mapping;
+- characterization tests and disposable source-built probes that never enter a
+  product package or release claim;
+- preview branch protection and evidence-class gates;
+- permanent removal of active WhatsApp source, identity, dependencies, package
+  graph, tests, and current-product surfaces; and
+- Penglai-owned fixes that do not depend on the unpublished DSH package graph,
+  beginning with terminal containment of asynchronous channel callbacks.
+
+Not allowed now:
+
+- changing DSH versions in product manifests or `pnpm-lock.yaml`;
+- consuming DSH through a Git URL, source checkout, private tarball, or vendored
+  generated artifacts;
+- rebasing built-frontend overlays before the published client packages exist;
+- claiming package, native, installed, live, or public 0.1.2 integration; or
+- merging to `main`, tagging, publishing, or deploying.
+
+### Gate P0: published-package reconciliation — BLOCKED
+
+Exit criteria:
+
+- a complete synchronized official npm package set exists for the fixed source
+  baseline;
+- every required package version, integrity, dependency, license, and
+  publication time is recorded;
+- generated Remote/client artifacts are present and match the fixed source;
+- npm dist-tags and versions are not partial, retracted, or tag-moved;
+- a clean Penglai frozen-lock installation is reproducible; and
+- the source migration matrix is reconciled against the published tarballs.
+
+This gate is checked manually when the official packages appear. It is not an
+automated monitor.
 
 ### Phase 1: compatibility spike (estimated 3–5 engineering days)
 
@@ -464,7 +502,7 @@ all plugins work.
 
 Work:
 
-- install the exact new closure on a disposable branch/worktree;
+- install the exact reconciled official closure on `0.5.8-preview`;
 - launch official DSH through the Penglai desktop shell;
 - authenticate first navigation with the new one-time token;
 - map old ApiProxy calls to owner Remotes;
@@ -678,15 +716,19 @@ Current planning range:
 | Three-target native/live regression and release closure | 8–13 |
 | **Total planning range** | **33–52** |
 
-For one primary engineer this is roughly 6–10 weeks after the consumable DSH
-baseline exists. Parallel native QA on Windows and both Mac architectures can
-reduce calendar time, but does not reduce the evidence required. The upstream
-npm wait is not included.
+For one primary engineer this is roughly 6–10 weeks of total work at the old
+starting point. Phase 0 now removes source discovery, retirement, test-design,
+and independent-fix work from the post-publication critical path. The estimate
+must be recalibrated after published-package reconciliation; native QA on
+Windows and both Mac architectures does not reduce the evidence required.
 
 ## 9. Definition of ready, done, and released
 
-**Ready to implement** means Gate 0 is satisfied and the owner approves the exact
-DSH baseline.
+**Ready for source preparation** means Gate S0 is satisfied and the Owner has
+approved the exact source baseline. This state is current.
+
+**Ready for DSH dependency integration** means Gate P0 is satisfied. This state
+is not current while the official npm closure is absent.
 
 **Done in source** means all migration and issue acceptance tests pass in a
 clean tree, with no forbidden architecture and no unassigned high-severity
