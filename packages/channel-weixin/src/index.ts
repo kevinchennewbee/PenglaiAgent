@@ -918,7 +918,16 @@ export {
   buildSendBody,
   randomWechatUin,
 } from "./protocol.js";
-export { ILinkClient } from "./ilink.js";
+export {
+  ILinkClient,
+  WEIXIN_ILINK_PHASES,
+  WeixinIlinkResponseError,
+  parseWeixinIlinkResponseObservation,
+  weixinIlinkResponseObservation,
+  type WeixinIlinkFailureKind,
+  type WeixinIlinkPhase,
+  type WeixinIlinkResponseObservation,
+} from "./ilink.js";
 export { WeixinTypingSession } from "./typing.js";
 export { isPngDataUrl, renderQrPngDataUrl, renderWeixinQrImage, WEIXIN_QR_PNG_PREFIX } from "./qr-image.js";
 export * from "./media.js";

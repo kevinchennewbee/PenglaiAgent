@@ -41,6 +41,136 @@ export interface ILinkFetch {
   }>;
 }
 
+export const WEIXIN_ILINK_PHASES = [
+  "qr-start",
+  "qr-poll",
+  "updates",
+  "upload-url",
+  "send-message",
+  "typing-config",
+  "typing-send",
+  "unknown",
+] as const;
+
+export type WeixinIlinkPhase = (typeof WEIXIN_ILINK_PHASES)[number];
+export type WeixinIlinkFailureKind = "auth" | "rate" | "protocol" | "delivery";
+
+export interface WeixinIlinkResponseObservation {
+  phase: WeixinIlinkPhase;
+  httpStatus: number;
+  contentType: string;
+}
+
+export class WeixinIlinkResponseError extends PenglaiError {
+  constructor(
+    readonly failureKind: WeixinIlinkFailureKind,
+    errorClass: "AUTH_EXPIRED" | "DELIVERY_TRANSIENT" | "DELIVERY_PERMANENT" | "SECURITY_POLICY",
+    code: string,
+    readonly observation: WeixinIlinkResponseObservation,
+  ) {
+    super(errorClass, code);
+    this.name = "WeixinIlinkResponseError";
+  }
+}
+
+export function weixinIlinkResponseObservation(
+  error: unknown,
+): WeixinIlinkResponseObservation | undefined {
+  if (!(error instanceof WeixinIlinkResponseError)) return undefined;
+  return parseWeixinIlinkResponseObservation(error.observation);
+}
+
+export function parseWeixinIlinkResponseObservation(
+  value: unknown,
+): WeixinIlinkResponseObservation | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { phase, httpStatus, contentType } = value as Record<string, unknown>;
+  if (
+    typeof phase !== "string" ||
+    !(WEIXIN_ILINK_PHASES as readonly string[]).includes(phase) ||
+    typeof httpStatus !== "number" ||
+    !Number.isSafeInteger(httpStatus) ||
+    httpStatus < 0 ||
+    httpStatus > 599 ||
+    !safeObservedContentType(contentType)
+  ) {
+    return undefined;
+  }
+  return {
+    phase: phase as WeixinIlinkPhase,
+    httpStatus,
+    contentType,
+  };
+}
+
+function ilinkPhase(url: string): WeixinIlinkPhase {
+  let leaf = "";
+  try {
+    leaf = new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "";
+  } catch {
+    return "unknown";
+  }
+  return {
+    get_bot_qrcode: "qr-start",
+    get_qrcode_status: "qr-poll",
+    getupdates: "updates",
+    getuploadurl: "upload-url",
+    sendmessage: "send-message",
+    getconfig: "typing-config",
+    sendtyping: "typing-send",
+  }[leaf] as WeixinIlinkPhase | undefined ?? "unknown";
+}
+
+function safeObservedContentType(value: unknown): value is string {
+  return (
+    value === "missing" ||
+    value === "invalid" ||
+    (typeof value === "string" &&
+      /^[a-z0-9!#$&^_.+-]{1,63}\/[a-z0-9!#$&^_.+-]{1,63}$/.test(value))
+  );
+}
+
+function safeContentType(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "missing";
+  const mediaType = value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return mediaType.length <= 127 &&
+    /^[a-z0-9!#$&^_.+-]{1,63}\/[a-z0-9!#$&^_.+-]{1,63}$/.test(mediaType)
+    ? mediaType
+    : "invalid";
+}
+
+function responseObservation(
+  url: string,
+  response: { status: number; headers?: { get(name: string): string | null } },
+): WeixinIlinkResponseObservation {
+  let contentType: unknown = null;
+  try {
+    contentType = response.headers?.get("content-type") ?? null;
+  } catch {
+    contentType = null;
+  }
+  return {
+    phase: ilinkPhase(url),
+    httpStatus:
+      Number.isSafeInteger(response.status) && response.status >= 100 && response.status <= 599
+        ? response.status
+        : 0,
+    contentType: safeContentType(contentType),
+  };
+}
+
+function boundedFailureKind(code: string): WeixinIlinkFailureKind {
+  return [
+    "BOUNDED_HTTP_MIME",
+    "BOUNDED_HTTP_JSON",
+    "BOUNDED_HTTP_EMPTY",
+    "BOUNDED_HTTP_TOO_LARGE",
+    "BOUNDED_HTTP_DECLARED_LENGTH",
+  ].includes(code)
+    ? "protocol"
+    : "delivery";
+}
+
 export interface QrStart {
   qrRef: string;
   qrImageRef: string;
@@ -323,6 +453,7 @@ export class ILinkClient {
     } catch {
       throw new PenglaiError("DELIVERY_TRANSIENT", "ilink network");
     }
+    const observation = responseObservation(url, res);
     let text: string;
     try {
       const bounded = await readBoundedResponse({
@@ -335,16 +466,58 @@ export class ILinkClient {
       });
       text = bounded.bytes.toString("utf8");
     } catch (error) {
-      if (error instanceof PenglaiError) throw error;
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ilink network");
+      if (error instanceof PenglaiError) {
+        throw new WeixinIlinkResponseError(
+          boundedFailureKind(error.message),
+          error.errorClass === "SECURITY_POLICY" ? "SECURITY_POLICY" : "DELIVERY_TRANSIENT",
+          error.message,
+          observation,
+        );
+      }
+      throw new WeixinIlinkResponseError(
+        "delivery",
+        "DELIVERY_TRANSIENT",
+        "ILINK_RESPONSE_READ",
+        observation,
+      );
     }
-    if (res.status === 401 || res.status === 403) throw new PenglaiError("AUTH_EXPIRED", "ilink auth");
-    if (!res.ok) throw new PenglaiError("DELIVERY_TRANSIENT", `ilink http ${res.status}`);
+    if (res.status === 401 || res.status === 403) {
+      throw new WeixinIlinkResponseError(
+        "auth",
+        "AUTH_EXPIRED",
+        "ILINK_HTTP_AUTH",
+        observation,
+      );
+    }
+    if (!res.ok) {
+      throw new WeixinIlinkResponseError(
+        res.status === 429 ? "rate" : "delivery",
+        res.status === 429 || res.status >= 500
+          ? "DELIVERY_TRANSIENT"
+          : "DELIVERY_PERMANENT",
+        "ILINK_HTTP_STATUS",
+        observation,
+      );
+    }
     try {
       const parsed: unknown = JSON.parse(text);
-      return isRecord(parsed) ? parsed : {};
-    } catch {
-      throw new PenglaiError("DELIVERY_TRANSIENT", "ilink json");
+      if (!isRecord(parsed)) {
+        throw new WeixinIlinkResponseError(
+          "protocol",
+          "DELIVERY_TRANSIENT",
+          "ILINK_JSON_SHAPE",
+          observation,
+        );
+      }
+      return parsed;
+    } catch (error) {
+      if (error instanceof WeixinIlinkResponseError) throw error;
+      throw new WeixinIlinkResponseError(
+        "protocol",
+        "DELIVERY_TRANSIENT",
+        "BOUNDED_HTTP_JSON",
+        observation,
+      );
     }
   }
 }

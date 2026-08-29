@@ -6,7 +6,9 @@ import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import { remoteMethods } from "@deepseek-ai/dsh-typert-protocol";
 import { createHash } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { PenglaiError } from "@penglai/contracts";
+import { WeixinIlinkResponseError } from "@penglai/channel-weixin";
 import {
   addVoiceContextAtOfficialPreStep,
   apply,
@@ -16,6 +18,7 @@ import {
   PenglaiImRemote,
 } from "./index.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
+import { ImBotStore } from "./bots.js";
 import { PenglaiImHost } from "./host.js";
 import { AdapterSupervisor } from "./supervisor.js";
 import { contribute } from "./client.js";
@@ -463,7 +466,16 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
     {
       health: () => ({ authState: "idle", hasCredential: false }),
       startQr: async () => {
-        throw new PenglaiError("DELIVERY_TRANSIENT", "BOUNDED_HTTP_MIME");
+        throw new WeixinIlinkResponseError(
+          "protocol",
+          "SECURITY_POLICY",
+          "BOUNDED_HTTP_MIME",
+          {
+            phase: "qr-start",
+            httpStatus: 200,
+            contentType: "text/html",
+          },
+        );
       },
     } as never,
     { status: "idle", setupRequired: true } as never,
@@ -479,11 +491,95 @@ test("Weixin QR protocol failure returns and persists one redacted public cause"
   assert.equal(result.status, "failed");
   assert.equal("failure" in result && result.failure.code, "CHANNEL_PROTOCOL");
   assert.equal(JSON.stringify(result).includes("BOUNDED_HTTP_MIME"), false);
+  assert.deepEqual("failure" in result ? result.failure.transport : undefined, {
+    phase: "qr-start",
+    httpStatus: 200,
+    contentType: "text/html",
+  });
   const overview = await host.getOverview();
   const failure = overview.channels.find((row) => row.channel === "weixin")?.error;
   assert.equal(failure?.code, "CHANNEL_PROTOCOL");
   assert.equal(failure?.referenceId, "failure" in result ? result.failure.referenceId : "");
+  assert.deepEqual(failure?.transport, {
+    phase: "qr-start",
+    httpStatus: 200,
+    contentType: "text/html",
+  });
   rt.store.close();
+});
+
+test("legacy IM failure storage migrates and retains only safe transport fields", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE im_v2_channel_failures (
+        channel_id TEXT NOT NULL,
+        account_ref TEXT NOT NULL,
+        code TEXT NOT NULL,
+        message_zh TEXT NOT NULL,
+        message_en TEXT NOT NULL,
+        reference_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        at INTEGER NOT NULL,
+        PRIMARY KEY (channel_id, account_ref)
+      )
+    `);
+    const bots = new ImBotStore(db);
+    bots.putChannelFailure({
+      channelId: "weixin",
+      accountRef: "weixin-default",
+      code: "CHANNEL_PROTOCOL",
+      messageZh: "平台响应异常",
+      messageEn: "Unexpected platform response",
+      referenceId: "MF-12345678",
+      action: "check_network_retry",
+      at: 1,
+      transport: {
+        phase: "qr-poll",
+        httpStatus: 502,
+        contentType: "text/html",
+      },
+    });
+    assert.deepEqual(
+      bots.getChannelFailure("weixin", "weixin-default")?.transport,
+      {
+        phase: "qr-poll",
+        httpStatus: 502,
+        contentType: "text/html",
+      },
+    );
+    bots.putChannelFailure({
+      channelId: "weixin",
+      accountRef: "weixin-default",
+      code: "CHANNEL_PROTOCOL",
+      messageZh: "平台响应异常",
+      messageEn: "Unexpected platform response",
+      referenceId: "MF-87654321",
+      action: "check_network_retry",
+      at: 2,
+      transport: {
+        phase: "qr-poll",
+        httpStatus: 502,
+        contentType: "text/html; secret=must-not-persist",
+      },
+    });
+    assert.equal(
+      bots.getChannelFailure("weixin", "weixin-default")?.transport,
+      undefined,
+    );
+    const raw = db
+      .prepare(
+        "SELECT transport_phase, http_status, content_type FROM im_v2_channel_failures",
+      )
+      .get() as Record<string, unknown>;
+    assert.deepEqual({ ...raw }, {
+      transport_phase: null,
+      http_status: null,
+      content_type: null,
+    });
+  } finally {
+    db.close();
+  }
 });
 
 test("R2I-ROUTE-001 binding requires official workspace/session", async () => {

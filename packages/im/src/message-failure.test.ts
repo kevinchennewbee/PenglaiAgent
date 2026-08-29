@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PenglaiError } from "@penglai/contracts";
+import { WeixinIlinkResponseError } from "@penglai/channel-weixin";
 import { classifyMessageFailure, publicMessageFailure } from "./message-failure.js";
 
 test("message failure maps auth and rate limits to stable codes with a reference id", () => {
@@ -23,4 +24,34 @@ test("bounded HTTP response failures become a closed public protocol cause", () 
   assert.equal(failure.reason, "CHANNEL_PROTOCOL");
   assert.match(failure.referenceId, /^MF-[A-Z0-9]{8}$/);
   assert.equal(JSON.stringify(failure).includes("BOUNDED_HTTP_MIME"), false);
+});
+
+test("typed iLink response classes take precedence over error-message parsing", () => {
+  const observation = {
+    phase: "qr-poll" as const,
+    httpStatus: 429,
+    contentType: "application/json",
+  };
+  assert.equal(
+    classifyMessageFailure(
+      new WeixinIlinkResponseError(
+        "rate",
+        "DELIVERY_TRANSIENT",
+        "ILINK_HTTP_STATUS",
+        observation,
+      ),
+    ).code,
+    "CHANNEL_RATE_LIMIT",
+  );
+  assert.equal(
+    classifyMessageFailure(
+      new WeixinIlinkResponseError(
+        "auth",
+        "AUTH_EXPIRED",
+        "ILINK_HTTP_AUTH",
+        { ...observation, httpStatus: 401 },
+      ),
+    ).code,
+    "CHANNEL_AUTH",
+  );
 });

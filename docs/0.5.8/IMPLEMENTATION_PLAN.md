@@ -622,7 +622,7 @@ The modal deliberately remains open across connection readback instead of
 equating a click with success. Source tests prove one shared dialog contract and
 the absence of nested dialog semantics. Native focus trapping/restoration,
 screen-reader traversal, real QR expiry/retry, and the separate redacted Weixin
-MIME diagnostic/reference work remain open.
+transport diagnostic described below were still open at this earlier checkpoint.
 
 **Structured connection failure source checkpoint, 2026-08-29**
 
@@ -638,8 +638,19 @@ the new `CHANNEL_PROTOCOL` class. The client renders only the localized public
 message and reference ID and no longer renders caught exception strings or the
 `BOUNDED_HTTP_MIME` implementation code. Transport failures that occur outside
 an owned host operation remain generic and do not receive invented references.
-Capturing real redacted HTTP status and Content-Type at the Weixin transport
-boundary, then reproducing the Owner-live failure, remains open.
+
+The Weixin iLink transport now attaches a typed closed observation to response
+failures: one allowlisted request phase, a validated numeric HTTP status, and a
+lowercase parameter-free media type (`missing`/`invalid` when it cannot be
+represented safely). The host persists that observation beside the same public
+reference across refresh and migrates existing failure storage in place. It
+never retains the response body, request URL, query, authorization header,
+Content-Type parameters, or arbitrary headers. Typed auth, rate, protocol, and
+delivery classification takes precedence over message parsing.
+
+Fixture evidence proves this source boundary and legacy-store migration. A real
+Owner-live failure has not been reproduced, so its actual status/media type and
+whether the cause is platform, proxy, or environment remain open.
 
 ### P1-05: IM session chooser exposes UUIDs instead of names
 

@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  WeixinIlinkResponseError,
+  type WeixinIlinkFailureKind,
+} from "@penglai/channel-weixin";
 
 /** Public failure objects never include secrets, stacks, or raw SDK objects. */
 export const MESSAGE_FAILURE_CODES = [
@@ -22,6 +26,15 @@ export interface MessageFailure {
   referenceId: string;
   at: number;
 }
+
+const ILINK_FAILURE_CODE_BY_KIND: Readonly<
+  Record<WeixinIlinkFailureKind, MessageFailureCode>
+> = Object.freeze({
+  auth: "CHANNEL_AUTH",
+  rate: "CHANNEL_RATE_LIMIT",
+  protocol: "CHANNEL_PROTOCOL",
+  delivery: "CHANNEL_DELIVERY",
+});
 
 const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
   CHANNEL_PERMISSION: {
@@ -68,7 +81,11 @@ export function newReferenceId(): string {
 
 export function classifyMessageFailure(error: unknown): MessageFailure {
   const text = error instanceof Error ? `${error.name}:${error.message}` : String(error ?? "");
-  const code: MessageFailureCode = /CHANNEL_NO_QR/.test(text)
+  const typedIlinkCode: MessageFailureCode | undefined =
+    error instanceof WeixinIlinkResponseError
+      ? ILINK_FAILURE_CODE_BY_KIND[error.failureKind]
+      : undefined;
+  const code: MessageFailureCode = typedIlinkCode ?? (/CHANNEL_NO_QR/.test(text)
     ? "CHANNEL_NO_QR"
     : /BOUNDED_HTTP_(?:MIME|JSON|EMPTY|TOO_LARGE|DECLARED_LENGTH)/.test(text)
       ? "CHANNEL_PROTOCOL"
@@ -83,8 +100,8 @@ export function classifyMessageFailure(error: unknown): MessageFailure {
             : /DELIVERY|SEND_FAILED/.test(text)
               ? "CHANNEL_DELIVERY"
               : /INVALID_INPUT|missing/.test(text)
-                ? "INPUT_INVALID"
-                : "INTERNAL_UNKNOWN";
+              ? "INPUT_INVALID"
+                : "INTERNAL_UNKNOWN");
   return {
     code,
     reason: code,
