@@ -194,6 +194,7 @@ window.__ModuleLoader__.load({
               remote,
               registry: snapshot?.registry ?? null,
               resourcePressure: snapshot?.resourcePressure ?? null,
+              latestTransaction: snapshot?.latestTransaction ?? null,
               inventory: Array.isArray(inventory) ? inventory : [],
               degraded: Boolean(snapshot?.degraded),
             });
@@ -205,6 +206,7 @@ window.__ModuleLoader__.load({
               remote: [],
               registry: null,
               resourcePressure: null,
+              latestTransaction: null,
               inventory: [],
               degraded: true,
             }),
@@ -258,13 +260,34 @@ window.__ModuleLoader__.load({
           ) {
             window.setTimeout(() => window.location.reload(), 900);
           }
-        } catch {
+        } catch (error) {
+          await refresh();
+          const remoteFailure =
+            error && typeof error === "object"
+              ? Reflect.get(error, "message")
+              : "";
+          const closedFailure =
+            typeof remoteFailure === "string"
+              ? remoteFailure.match(
+                  /PLUGIN_(?:ACTIVATION_TIMEOUT|RUNTIME_UNAVAILABLE|PACKAGE_REJECTED|PROFILE_INVALID|ACTION_REJECTED|ROLLBACK_FAILED)/,
+                )?.[0]
+              : undefined;
+          const failureCopy = {
+            PLUGIN_ACTIVATION_TIMEOUT: localeCopy().centerFailureActivationTimeout,
+            PLUGIN_RUNTIME_UNAVAILABLE: localeCopy().centerFailureRuntimeUnavailable,
+            PLUGIN_PACKAGE_REJECTED: localeCopy().centerFailurePackageRejected,
+            PLUGIN_PROFILE_INVALID: localeCopy().centerFailureProfileInvalid,
+            PLUGIN_ACTION_REJECTED: localeCopy().centerFailureActionRejected,
+            PLUGIN_ROLLBACK_FAILED: localeCopy().centerFailureRollbackFailed,
+          };
           setActions((current) => ({
             ...current,
             [id]: {
               busy: false,
               kind: "error",
-              message: `${localeCopy().centerActionFailed}. ${localeCopy().centerActionRetry}`,
+              message:
+                failureCopy[closedFailure] ??
+                `${localeCopy().centerActionFailed}. ${localeCopy().centerActionRetry}`,
             },
           }));
         }
@@ -315,6 +338,25 @@ window.__ModuleLoader__.load({
           ? `${current} (${t.centerResourceLimit} ${limit})`
           : current;
       };
+      const transactionTrace = (trace) => {
+        if (!trace) return t.centerResourceUnavailable;
+        const outcomes = {
+          pending: t.centerTxPending,
+          verified: t.centerTxVerified,
+          timed_out: t.centerTxTimedOut,
+          failed: t.centerTxFailed,
+        };
+        const phases = {
+          missing: t.centerPhaseMissing,
+          pending: t.centerPhasePending,
+          active: t.centerPhaseActive,
+          disabled: t.centerPhaseDisabled,
+          failed: t.centerPhaseFailed,
+          unknown: t.centerPhaseUnknown,
+        };
+        const phase = trace.finalReadback?.phase;
+        return `${outcomes[trace.outcome] ?? t.centerTxFailed} · ${phases[phase] ?? t.centerPhaseUnknown}`;
+      };
       const cards = cardIds.map((id) => {
         const entry = live.get(id) ?? {};
         const meta = firstParty.get(id);
@@ -342,6 +384,8 @@ window.__ModuleLoader__.load({
           kind: "idle",
           message: "",
         };
+        const transaction =
+          state.latestTransaction?.id === id ? state.latestTransaction : null;
         const statusCopy = incompatible
           ? t.centerStatusIncompatible
           : revoked
@@ -520,6 +564,30 @@ window.__ModuleLoader__.load({
                                   jsx.jsx("dd", { children: String(entry.updatedAt ?? entry.issuedAt ?? "—") }),
                                 ],
                               }),
+                              transaction
+                                ? jsx.jsxs("div", {
+                                    children: [
+                                      jsx.jsx("dt", { children: t.centerActivationReadback }),
+                                      jsx.jsx("dd", { children: transactionTrace(transaction.activation) }),
+                                    ],
+                                  })
+                                : null,
+                              transaction?.rollback
+                                ? jsx.jsxs("div", {
+                                    children: [
+                                      jsx.jsx("dt", { children: t.centerRollbackReadback }),
+                                      jsx.jsx("dd", { children: transactionTrace(transaction.rollback) }),
+                                    ],
+                                  })
+                                : null,
+                              transaction?.failureCode
+                                ? jsx.jsxs("div", {
+                                    children: [
+                                      jsx.jsx("dt", { children: t.centerFailureCode }),
+                                      jsx.jsx("dd", { children: String(transaction.failureCode) }),
+                                    ],
+                                  })
+                                : null,
                               jsx.jsxs("div", {
                                 children: [
                                   jsx.jsx("dt", { children: t.centerActual }),
@@ -833,6 +901,25 @@ window.__ModuleLoader__.load({
         centerActionReloading: "正在应用内重新载入配置页面；随后可从左侧进入对应插件。",
         centerActionFailed: "操作失败",
         centerActionRetry: "请刷新状态后重试",
+        centerFailureActivationTimeout: "插件没有进入运行状态，配置已回滚。请打开“高级/诊断”核对阶段后再重试。",
+        centerFailureRuntimeUnavailable: "核心服务暂不可用，插件变更已回滚。请先恢复蓬莱运行后再重试。",
+        centerFailurePackageRejected: "插件包未通过来源或完整性校验，未启用。请刷新已签名目录。",
+        centerFailureProfileInvalid: "插件配置损坏，变更已停止。请保留诊断并使用上一次可用配置。",
+        centerFailureActionRejected: "当前操作不适用于这个插件，未更改运行状态。请刷新状态。",
+        centerFailureRollbackFailed: "插件变更和自动回滚都未能完成。请不要继续重试，先保留诊断并重启蓬莱。",
+        centerActivationReadback: "最近激活核对",
+        centerRollbackReadback: "最近回滚核对",
+        centerFailureCode: "稳定失败码",
+        centerTxPending: "核对中",
+        centerTxVerified: "已核对",
+        centerTxTimedOut: "核对超时",
+        centerTxFailed: "核对失败",
+        centerPhaseMissing: "未出现",
+        centerPhasePending: "等待激活",
+        centerPhaseActive: "运行中",
+        centerPhaseDisabled: "已停用",
+        centerPhaseFailed: "激活失败",
+        centerPhaseUnknown: "阶段不可核对",
       },
       en: {
         penglaiSettingsTitle: "Penglai",
@@ -1006,6 +1093,25 @@ window.__ModuleLoader__.load({
         centerActionReloading: "Reloading the in-app settings surface; open the plugin from the left navigation next.",
         centerActionFailed: "Action failed",
         centerActionRetry: "Refresh the status and retry",
+        centerFailureActivationTimeout: "The plugin did not become active, so the configuration was rolled back. Open Advanced / diagnostics to check the phase before retrying.",
+        centerFailureRuntimeUnavailable: "The core service is unavailable and the plugin change was rolled back. Restore Penglai, then retry.",
+        centerFailurePackageRejected: "The plugin package failed source or integrity verification and was not enabled. Refresh the signed catalog.",
+        centerFailureProfileInvalid: "The plugin profile is damaged, so the change stopped. Keep the diagnostics and use the last known-good profile.",
+        centerFailureActionRejected: "This action does not apply to the plugin, and its runtime state was not changed. Refresh the status.",
+        centerFailureRollbackFailed: "The plugin change and automatic rollback both failed. Do not keep retrying; preserve diagnostics and restart Penglai first.",
+        centerActivationReadback: "Latest activation readback",
+        centerRollbackReadback: "Latest rollback readback",
+        centerFailureCode: "Stable failure code",
+        centerTxPending: "checking",
+        centerTxVerified: "verified",
+        centerTxTimedOut: "timed out",
+        centerTxFailed: "check failed",
+        centerPhaseMissing: "missing",
+        centerPhasePending: "awaiting activation",
+        centerPhaseActive: "active",
+        centerPhaseDisabled: "disabled",
+        centerPhaseFailed: "activation failed",
+        centerPhaseUnknown: "phase unavailable",
       },
     };
 

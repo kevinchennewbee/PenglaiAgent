@@ -47,7 +47,10 @@ const PLUGIN_BROKER_ACTION = {
 export type CenterOwnerProof = { actionId: string; receipt: string };
 import {
   rollbackLastGood,
+  pluginActionFailureCode,
+  readPluginTransactionDiagnostic,
   runProfileTransaction,
+  type PluginActivationObservation,
   type ResourceCounts,
 } from "./profile-tx.js";
 import { normalizeInventory, rowLoaded, rowMatches } from "./inventory.js";
@@ -95,6 +98,7 @@ export interface CenterRemote {
     required: Record<string, boolean>;
     degraded?: boolean;
     resourcePressure: ResourcePressureSnapshot;
+    latestTransaction: ReturnType<typeof readPluginTransactionDiagnostic>;
   };
   enable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
   installEnable(id: string, proof?: CenterOwnerProof | string): Promise<unknown>;
@@ -160,26 +164,69 @@ function catalogEntry(
   };
 }
 
-async function waitForInventory(
+export function inventoryActivationObservation(
+  inventory: { list(): unknown },
+  id: string,
+  at = new Date().toISOString(),
+): PluginActivationObservation {
+  const row = normalizeInventory(inventory.list()).find((candidate) =>
+    rowMatches(candidate, id),
+  );
+  if (!row) {
+    return {
+      source: "official-inventory",
+      at,
+      present: false,
+      enabled: false,
+      phase: "missing",
+    };
+  }
+  const enabled = rowLoaded(row);
+  const rawPhase = String(row.fiberPhase ?? "").toLowerCase();
+  const phase = enabled
+    ? "active"
+    : row.disabled === true || row.enabled === false
+      ? "disabled"
+      : ["pending", "loading", "starting", "setup", "created"].includes(rawPhase)
+        ? "pending"
+        : ["failed", "error", "disposed", "dead"].includes(rawPhase) ||
+            row.health === "failed"
+          ? "failed"
+          : "unknown";
+  return {
+    source: "official-inventory",
+    at,
+    present: true,
+    enabled,
+    phase,
+  };
+}
+
+export async function waitForInventory(
   inventory: { list(): unknown },
   id: string,
   enabled: boolean,
   present = true,
   timeoutMs = 8_000,
+  observe: (observation: PluginActivationObservation) => void = () => undefined,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  let observed = "missing";
   while (Date.now() <= deadline) {
-    const row = normalizeInventory(inventory.list()).find((candidate) =>
-      rowMatches(candidate, id),
-    );
-    observed = row ? String(row.fiberPhase ?? "disabled") : "missing";
-    if (!present ? !row : Boolean(row) && rowLoaded(row) === enabled) return;
+    const observation = inventoryActivationObservation(inventory, id);
+    observe(observation);
+    if (
+      !present
+        ? !observation.present
+        : observation.present && observation.enabled === enabled
+    ) {
+      return;
+    }
+    if (Date.now() >= deadline) break;
     await new Promise<void>((resolveWait) => setTimeout(resolveWait, 50));
   }
   throw new PenglaiError(
     "DSH_UNAVAILABLE",
-    `${id} loader postcondition expected present=${String(present)} enabled=${String(enabled)} observed=${observed}`,
+    "PLUGIN_ACTIVATION_TIMEOUT",
   );
 }
 
@@ -400,30 +447,39 @@ export function createCenterRemote(opts: {
       (row) => rowMatches(row, id),
     );
     const probe = opts.resourceProbe(id);
-    return runProfileTransaction({
-      userDataRoot: opts.userDataRoot,
-      profileDir: opts.profileDir,
-      txDir: opts.txDir,
-      pluginsDir:
-        entry.source === "penglai-plugin-registry"
-          ? registryPackageRoot(opts.userDataRoot, opts.registryPackagesDir)
-          : opts.pluginsDir,
-      entry,
-      action,
-      previousEnabled,
-      previousPresent,
-      applyLive: (input) => opts.lifecycle.apply(input),
-      verifyActual: (input) =>
-        waitForInventory(
-          opts.inventory,
-          input.id,
-          input.enabled,
-          input.present,
-        ),
-      ...(probe ? { readResources: () => probe.snapshot() } : {}),
-      commitDesired: (enabled) => opts.host.setDesired(id, enabled),
-      rollbackDesired: (enabled) => opts.host.setDesired(id, enabled),
-    });
+    try {
+      return await runProfileTransaction({
+        userDataRoot: opts.userDataRoot,
+        profileDir: opts.profileDir,
+        txDir: opts.txDir,
+        pluginsDir:
+          entry.source === "penglai-plugin-registry"
+            ? registryPackageRoot(opts.userDataRoot, opts.registryPackagesDir)
+            : opts.pluginsDir,
+        entry,
+        action,
+        previousEnabled,
+        previousPresent,
+        applyLive: (input) => opts.lifecycle.apply(input),
+        verifyActual: (input, observe) =>
+          waitForInventory(
+            opts.inventory,
+            input.id,
+            input.enabled,
+            input.present,
+            8_000,
+            observe,
+          ),
+        ...(probe ? { readResources: () => probe.snapshot() } : {}),
+        commitDesired: (enabled) => opts.host.setDesired(id, enabled),
+        rollbackDesired: (enabled) => opts.host.setDesired(id, enabled),
+      });
+    } catch (error) {
+      throw new PenglaiError(
+        error instanceof PenglaiError ? error.errorClass : "DSH_UNAVAILABLE",
+        pluginActionFailureCode(error),
+      );
+    }
   };
   return {
     list() {
@@ -482,6 +538,7 @@ export function createCenterRemote(opts: {
           : {}),
         degraded: inventoryFailed || reconcileFailed,
         resourcePressure: buildResourcePressure(pressureIds, opts.resourceProbe),
+        latestTransaction: readPluginTransactionDiagnostic(opts.txDir),
         required: {
           credentials: proof.credentials,
           "plugin-center": proof.pluginCenter,

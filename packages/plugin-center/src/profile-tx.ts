@@ -55,8 +55,42 @@ export interface ResourceCounts {
   openFiles?: number;
 }
 
+export type PluginActivationPhase =
+  | "missing"
+  | "pending"
+  | "active"
+  | "disabled"
+  | "failed"
+  | "unknown";
+
+export interface PluginActivationObservation {
+  source: "official-inventory";
+  at: string;
+  present: boolean;
+  enabled: boolean;
+  phase: PluginActivationPhase;
+}
+
+interface PluginActivationTrace {
+  expectedPresent: boolean;
+  expectedEnabled: boolean;
+  outcome: "pending" | "verified" | "timed_out" | "failed";
+  observations: PluginActivationObservation[];
+  finalReadback?: PluginActivationObservation;
+}
+
+export interface PluginTransactionDiagnostic {
+  schema: 1;
+  id: string;
+  action: ProfileTxResult["action"];
+  phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
+  failureCode?: TransactionJournal["failureCode"];
+  activation: PluginActivationTrace;
+  rollback?: PluginActivationTrace;
+}
+
 interface TransactionJournal {
-  schema: 2;
+  schema: 3;
   operationId: string;
   phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
   lastGoodPhase?: "snapshot" | "snapshot-ready" | "promote-prev" | "promote-next" | "promote-done";
@@ -67,6 +101,149 @@ interface TransactionJournal {
   version?: string;
   packageSha256?: string;
   errorClass?: string;
+  failureCode?:
+    | "PLUGIN_ACTIVATION_TIMEOUT"
+    | "PLUGIN_RUNTIME_UNAVAILABLE"
+    | "PLUGIN_PACKAGE_REJECTED"
+    | "PLUGIN_PROFILE_INVALID"
+    | "PLUGIN_ACTION_REJECTED"
+    | "PLUGIN_ROLLBACK_FAILED";
+  activation: PluginActivationTrace;
+  rollback?: PluginActivationTrace;
+}
+
+export function pluginActionFailureCode(
+  error: unknown,
+): NonNullable<TransactionJournal["failureCode"]> {
+  if (error instanceof AggregateError) return "PLUGIN_ROLLBACK_FAILED";
+  if (!(error instanceof PenglaiError)) return "PLUGIN_RUNTIME_UNAVAILABLE";
+  if (error.message === "PLUGIN_ACTIVATION_TIMEOUT") {
+    return "PLUGIN_ACTIVATION_TIMEOUT";
+  }
+  if (error.errorClass === "SECURITY_POLICY") return "PLUGIN_PACKAGE_REJECTED";
+  if (error.errorClass === "STORE_CORRUPT") return "PLUGIN_PROFILE_INVALID";
+  if (error.errorClass === "INVALID_INPUT") return "PLUGIN_ACTION_REJECTED";
+  return "PLUGIN_RUNTIME_UNAVAILABLE";
+}
+
+const ACTIVATION_PHASES = new Set<PluginActivationPhase>([
+  "missing",
+  "pending",
+  "active",
+  "disabled",
+  "failed",
+  "unknown",
+]);
+const TRACE_OUTCOMES = new Set<PluginActivationTrace["outcome"]>([
+  "pending",
+  "verified",
+  "timed_out",
+  "failed",
+]);
+const TRANSACTION_PHASES = new Set<PluginTransactionDiagnostic["phase"]>([
+  "staging",
+  "activating",
+  "verifying",
+  "committed",
+  "rolled_back",
+]);
+const TRANSACTION_ACTIONS = new Set<ProfileTxResult["action"]>([
+  "enable",
+  "disable",
+  "update",
+  "rollback",
+  "install",
+]);
+const FAILURE_CODES = new Set<NonNullable<TransactionJournal["failureCode"]>>([
+  "PLUGIN_ACTIVATION_TIMEOUT",
+  "PLUGIN_RUNTIME_UNAVAILABLE",
+  "PLUGIN_PACKAGE_REJECTED",
+  "PLUGIN_PROFILE_INVALID",
+  "PLUGIN_ACTION_REJECTED",
+  "PLUGIN_ROLLBACK_FAILED",
+]);
+
+function safeObservation(value: unknown): PluginActivationObservation | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  if (
+    row.source !== "official-inventory" ||
+    typeof row.at !== "string" ||
+    row.at.length > 64 ||
+    typeof row.present !== "boolean" ||
+    typeof row.enabled !== "boolean" ||
+    !ACTIVATION_PHASES.has(row.phase as PluginActivationPhase)
+  ) {
+    return undefined;
+  }
+  return {
+    source: "official-inventory",
+    at: row.at,
+    present: row.present,
+    enabled: row.enabled,
+    phase: row.phase as PluginActivationPhase,
+  };
+}
+
+function safeTrace(value: unknown): PluginActivationTrace | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  if (
+    typeof row.expectedPresent !== "boolean" ||
+    typeof row.expectedEnabled !== "boolean" ||
+    !TRACE_OUTCOMES.has(row.outcome as PluginActivationTrace["outcome"])
+  ) {
+    return undefined;
+  }
+  const observations = Array.isArray(row.observations)
+    ? row.observations.map(safeObservation).filter(Boolean).slice(-32)
+    : [];
+  const finalReadback = safeObservation(row.finalReadback);
+  return {
+    expectedPresent: row.expectedPresent,
+    expectedEnabled: row.expectedEnabled,
+    outcome: row.outcome as PluginActivationTrace["outcome"],
+    observations: observations as PluginActivationObservation[],
+    ...(finalReadback ? { finalReadback } : {}),
+  };
+}
+
+export function readPluginTransactionDiagnostic(
+  txDir: string,
+): PluginTransactionDiagnostic | null {
+  const path = join(txDir, "journal.json");
+  if (!existsSync(path)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const activation = safeTrace(raw.activation);
+    const rollback = safeTrace(raw.rollback);
+    if (
+      typeof raw.id !== "string" ||
+      !raw.id ||
+      raw.id.length > 160 ||
+      !TRANSACTION_ACTIONS.has(raw.action as ProfileTxResult["action"]) ||
+      !TRANSACTION_PHASES.has(raw.phase as PluginTransactionDiagnostic["phase"]) ||
+      !activation
+    ) {
+      return null;
+    }
+    const failureCode = FAILURE_CODES.has(
+      raw.failureCode as NonNullable<TransactionJournal["failureCode"]>,
+    )
+      ? (raw.failureCode as NonNullable<TransactionJournal["failureCode"]>)
+      : undefined;
+    return {
+      schema: 1,
+      id: raw.id,
+      action: raw.action as ProfileTxResult["action"],
+      phase: raw.phase as PluginTransactionDiagnostic["phase"],
+      ...(failureCode ? { failureCode } : {}),
+      activation,
+      ...(rollback ? { rollback } : {}),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function isUnder(root: string, candidate: string): boolean {
@@ -406,7 +583,7 @@ export async function runProfileTransaction(opts: {
     id: string;
     enabled: boolean;
     present: boolean;
-  }) => Promise<void>;
+  }, observe: (observation: PluginActivationObservation) => void) => Promise<void>;
   readResources?: () => ResourceCounts;
   commitDesired: (enabled: boolean) => void;
   rollbackDesired: (enabled: boolean) => void;
@@ -434,7 +611,7 @@ export async function runProfileTransaction(opts: {
         : opts.previousEnabled;
   const previousPresent = opts.previousPresent ?? true;
   const journal: TransactionJournal = {
-    schema: 2,
+    schema: 3,
     operationId,
     phase: "staging",
     id: opts.entry.id,
@@ -442,11 +619,33 @@ export async function runProfileTransaction(opts: {
     previousEnabled: opts.previousEnabled,
     previousPresent,
     version: opts.entry.version,
+    activation: {
+      expectedPresent: true,
+      expectedEnabled: desiredEnabled,
+      outcome: "pending",
+      observations: [],
+    },
     ...(opts.action === "update" ||
     opts.action === "enable" ||
     opts.action === "install"
       ? { packageSha256: opts.entry.sha256 }
       : {}),
+  };
+  let activeTrace = journal.activation;
+  const observeActual = (observation: PluginActivationObservation): void => {
+    const previous = activeTrace.observations.at(-1);
+    if (
+      previous?.present === observation.present &&
+      previous.enabled === observation.enabled &&
+      previous.phase === observation.phase
+    ) {
+      activeTrace.finalReadback = observation;
+      return;
+    }
+    activeTrace.observations.push(observation);
+    if (activeTrace.observations.length > 32) activeTrace.observations.shift();
+    activeTrace.finalReadback = observation;
+    atomicJournal(journalPath, journal);
   };
   writeFileSync(lock, operationId, { mode: 0o600, flag: "wx" });
   let swapped = false;
@@ -531,11 +730,16 @@ export async function runProfileTransaction(opts: {
     });
     journal.phase = "verifying";
     atomicJournal(journalPath, journal);
-    await opts.verifyActual({
-      id: opts.entry.id,
-      enabled: desiredEnabled,
-      present: true,
-    });
+    await opts.verifyActual(
+      {
+        id: opts.entry.id,
+        enabled: desiredEnabled,
+        present: true,
+      },
+      observeActual,
+    );
+    journal.activation.outcome = "verified";
+    atomicJournal(journalPath, journal);
     if (!desiredEnabled) {
       if (!opts.readResources) {
         throw new PenglaiError(
@@ -570,6 +774,21 @@ export async function runProfileTransaction(opts: {
       restartRequired: opts.action === "update",
     };
   } catch (error) {
+    if (journal.activation.outcome === "pending") {
+      journal.activation.outcome =
+        error instanceof PenglaiError && error.message === "PLUGIN_ACTIVATION_TIMEOUT"
+          ? "timed_out"
+          : "failed";
+    }
+    journal.failureCode = pluginActionFailureCode(error);
+    journal.rollback = {
+      expectedPresent: previousPresent,
+      expectedEnabled: opts.previousEnabled,
+      outcome: "pending",
+      observations: [],
+    };
+    activeTrace = journal.rollback;
+    atomicJournal(journalPath, journal);
     try {
       if (swapped && existsSync(backup)) {
         const failed = `${opts.profileDir}.failed-${operationId}`;
@@ -583,13 +802,19 @@ export async function runProfileTransaction(opts: {
         forceReload: opts.action === "update",
         present: previousPresent,
       });
-      await opts.verifyActual({
-        id: opts.entry.id,
-        enabled: opts.previousEnabled,
-        present: previousPresent,
-      });
+      await opts.verifyActual(
+        {
+          id: opts.entry.id,
+          enabled: opts.previousEnabled,
+          present: previousPresent,
+        },
+        observeActual,
+      );
       opts.rollbackDesired(opts.previousEnabled);
+      journal.rollback.outcome = "verified";
     } catch (rollbackError) {
+      journal.rollback.outcome = "failed";
+      journal.failureCode = "PLUGIN_ROLLBACK_FAILED";
       throw new AggregateError(
         [error, rollbackError],
         `Center transaction and rollback failed for ${opts.entry.id}`,

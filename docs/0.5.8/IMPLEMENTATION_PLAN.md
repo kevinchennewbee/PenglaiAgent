@@ -424,6 +424,27 @@ visibility but no complete Penglai transaction history.
 - keep required and optional plugin failures isolated; and
 - show one owner-facing cause and next action without raw internal protocol text.
 
+**Closed activation-diagnostic source checkpoint, 2026-08-29**
+
+The Plugin Center transaction journal now binds the desired present/enabled
+state to a bounded sequence of closed official-inventory observations:
+`missing`, `pending`, `active`, `disabled`, `failed`, or `unknown`. It retains
+at most 32 state changes plus the final activation and rollback readbacks,
+records whether convergence verified, timed out, or failed, and emits one of
+six closed failure codes. Arbitrary loader phases and exception text are not
+written into this trace or rendered by the settings client.
+
+After a failed operation the settings surface refreshes actual state and shows
+localized cause-specific recovery copy for activation timeout, runtime outage,
+package rejection, damaged profile, rejected action, or rollback failure. A
+timeout still restores the last known-good profile; it never turns `pending`
+into success or extends the deadline to manufacture a pass.
+
+The rc.2 inventory surface has no verified subscription or separate alpha
+client-fiber/loader-error contract, so convergence still uses bounded inventory
+sampling. Exact event-driven alpha activation, generated client-fiber fields,
+and packaged Companion proof remain blocked on the official npm reconciliation.
+
 ### P1-01: new-conversation ASR state is stale and misleading
 
 **Observed symptom**

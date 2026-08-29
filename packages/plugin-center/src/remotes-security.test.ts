@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { join } from "node:path";
+import { PenglaiError } from "@penglai/contracts";
 import { createCenterRemote, stageRegistryPackage } from "./remotes.js";
 import { R2_CATALOG } from "./index.js";
 import { OwnerApprovalBroker, pluginPermissionDigest, type PluginCatalogEntry } from "@penglai/runtime";
@@ -179,7 +180,10 @@ test("R56-OWN-003 plugin approval binds permissions and commits only after the t
         actionId: proposal.actionId,
         receipt: decision.decision === "approved" ? decision.receipt : "",
       }),
-    /profile directory missing/,
+    (error: unknown) =>
+      error instanceof PenglaiError &&
+      error.message === "PLUGIN_PROFILE_INVALID" &&
+      !error.message.includes("profile directory missing"),
   );
   assert.equal(owner.inspect(proposal.actionId).state, "reserved");
 });
