@@ -623,6 +623,21 @@ title to render. This is not caused by the multi-agent scan.
 - test duplicate titles, renamed sessions, deleted sessions, many sessions,
   Unicode, and reconnect.
 
+**Session title source checkpoint, 2026-08-29**
+
+The existing owner-bound bridge now feeds the IM command menu and desktop
+binding chooser from the same Workspace-membership plus Session-title
+projection. Workspace order and immutable Session IDs remain the selection
+authority, while visible labels use bounded official titles or localized
+ordinal fallbacks and never fall back to an opaque Session ID. Duplicate titles
+remain distinct numbered choices; a fresh owner read reflects renames,
+deletions, Unicode titles, large lists, and reconnects.
+
+The desktop binding summary now resolves the same projected names while keeping
+the exact Workspace and Session IDs only as non-visible binding values. The
+generated alpha Session list/projection Remote, installed UI readback, and live
+Feishu `/会话` proof remain part of package/native/Owner-live reconciliation.
+
 ### P1-06: language parity is inconsistent
 
 **Observed symptom**

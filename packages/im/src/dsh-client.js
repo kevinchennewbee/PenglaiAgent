@@ -216,6 +216,9 @@ window.__ModuleLoader__.load({
         bindAction: "改绑到所选官方会话",
         workspace: "工作区",
         session: "会话",
+        untitledSession: "未命名会话",
+        currentSession: "（当前）",
+        unavailableWorkspace: "已不可用的工作区",
         peer: "通道对端",
         voiceCapability: "语音能力",
         asrState: "语音识别",
@@ -339,6 +342,9 @@ window.__ModuleLoader__.load({
         bindAction: "Rebind to the selected official session",
         workspace: "Workspace",
         session: "Session",
+        untitledSession: "Untitled session",
+        currentSession: " (current)",
+        unavailableWorkspace: "Unavailable workspace",
         peer: "Channel peer",
         voiceCapability: "Voice capability",
         asrState: "Speech recognition",
@@ -453,6 +459,12 @@ window.__ModuleLoader__.load({
       }`;
     }
 
+    function sessionDisplayTitle(session, index, t) {
+      const supplied = String(session?.title || "").trim();
+      const bounded = Array.from(supplied).slice(0, 120).join("");
+      return bounded || `${t.untitledSession} ${index + 1}`;
+    }
+
     function unwrapRemote(result) {
       if (result && typeof result === "object" && "ok" in result) {
         if (result.ok === false)
@@ -542,11 +554,20 @@ window.__ModuleLoader__.load({
       const selected =
         workspaces.find((ws) => ws.id === workspaceId) || workspaces[0];
       const sessions = selected && selected.sessions ? selected.sessions : [];
+      const selectedPeer = routes.find(
+        (r) => `${r.channel}:${r.accountId}:${r.peerId}` === peerKey,
+      );
+      const currentBinding = selectedPeer
+        ? rows.find(
+            (row) =>
+              row.channel === selectedPeer.channel &&
+              row.accountId === selectedPeer.accountId &&
+              row.peerId === selectedPeer.peerId,
+          )
+        : undefined;
       const bindSelected = () => {
         if (!workspaceId || !sessionId || !peerKey) return;
-        const peer = routes.find(
-          (r) => `${r.channel}:${r.accountId}:${r.peerId}` === peerKey,
-        );
+        const peer = selectedPeer;
         if (!peer) return;
         const objectId = `${peer.channel}:${peer.accountId}:${peer.peerId}`;
         Promise.resolve(imCall(remote, connection, "proposeBinding", {
@@ -663,9 +684,24 @@ window.__ModuleLoader__.load({
             "data-penglai-im-session": "1",
             value: sessionId,
             onChange: (ev) => setSessionId(ev.target.value),
-            children: sessions.map((sess) => {
+            children: sessions.map((sess, index) => {
               const id = typeof sess === "string" ? sess : sess.id;
-              return jsx.jsx("option", { value: id, children: id }, id);
+              const title = sessionDisplayTitle(
+                typeof sess === "string" ? { id: sess } : sess,
+                index,
+                t,
+              );
+              const current =
+                currentBinding?.workspaceId === workspaceId &&
+                currentBinding?.sessionId === id;
+              return jsx.jsx(
+                "option",
+                {
+                  value: id,
+                  children: `${index + 1}. ${title}${current ? t.currentSession : ""}`,
+                },
+                id,
+              );
             }),
           }),
           jsx.jsx("button", {
@@ -683,7 +719,29 @@ window.__ModuleLoader__.load({
                   style: { listStyle: "none", margin: "12px 0", padding: "14px", border: "1px solid var(--dsw-alias-border-l2)", borderRadius: "12px", background: "var(--dsw-alias-bg-module-platform)" },
                   children: [
                     jsx.jsx("strong", { children: `${row.channel} · ${row.peerId}` }),
-                    jsx.jsx("p", { children: `${row.workspaceId} / ${row.sessionId}` }),
+                    jsx.jsx("p", {
+                      "data-penglai-im-binding-workspace-id": row.workspaceId,
+                      "data-penglai-im-binding-session-id": row.sessionId,
+                      children: (() => {
+                        const workspace = workspaces.find(
+                          (item) => item.id === row.workspaceId,
+                        );
+                        const index = workspace?.sessions?.findIndex((item) =>
+                          (typeof item === "string" ? item : item.id) ===
+                          row.sessionId,
+                        ) ?? -1;
+                        const session =
+                          index >= 0 ? workspace.sessions[index] : undefined;
+                        const sessionTitle = sessionDisplayTitle(
+                          typeof session === "string"
+                            ? { id: session }
+                            : session,
+                          index >= 0 ? index : 0,
+                          t,
+                        );
+                        return `${workspace?.title || t.unavailableWorkspace} / ${sessionTitle}`;
+                      })(),
+                    }),
                     jsx.jsxs("p", { children: [`${t.voiceCapability} · ${t.asrState}: ${voiceOptions.asr} · ${t.ttsState}: ${voiceOptions.tts}`] }),
                     jsx.jsx("p", { style: { color: "var(--dsw-alias-label-secondary)", fontSize: "12px" }, children: t.voiceInstallHint }),
                     jsx.jsxs("label", { children: [t.inputMode, " ", jsx.jsxs("select", {

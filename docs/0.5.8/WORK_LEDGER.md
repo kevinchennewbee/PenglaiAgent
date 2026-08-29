@@ -39,7 +39,7 @@
 | P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private exact-authority token exchange, cookie proof, proxy injection, rc.2 compatibility, redaction, and real child fixture pass in source; exact alpha package and native first navigation remain |
 | P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, authenticated alpha-style health, structured diagnostics, exact exhaustion, and non-stranding actions pass locally; three-target native/installed proof remains |
 | P058-028 | Isolated rc.2 → alpha.1 DSH Home generation | Source/package/native | IN_PROGRESS | private bounded copy, one-writer journal, disk/file-type/mode gates, health-bound atomic activation, rejection, rollback, and rc.2 JSONL replay pass in source; installed corpus, SQLite, Windows ACL, runtime wiring, and native rollback remain |
-| P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | bridge now preserves Workspace order and consumes Session-owner titles with ID fallback; official generated list/projection Remote still required |
+| P058-020 | Session title projection in IM | Package/source/UI/live | IN_PROGRESS | bridge, `/会话`, desktop chooser, and binding summary now share Workspace-order plus Session-owner titles; missing labels use localized ordinals while immutable IDs remain selection keys; generated alpha Remote and installed/Owner-live proof remain |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
 | P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle, optional Budget accounting, one closed-transient retry, and bounded digest-only audit are fixed in source; npm reconciliation and installed/live proof remain |
@@ -105,6 +105,7 @@ use a partial broken push merely to create activity.
 | `e707018d01aa3f46f3fcda0dccbd3cf3cc825278` | expose localized composer ASR phases, typed model convergence, and terminal microphone-track release | branch readback PASS; [Source CI 33251525002](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33251525002) PASS |
 | `cc8e54502d3e803307ea5cba70faaeb49ed5730c` | make TTS preview and Read synthesis cancellable with closed playback states and source timing boundaries | branch readback PASS; [Source CI 33252194016](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33252194016) PASS |
 | `0de7a9e8d4a52608afea31117ed8313951536fd1` | focus all eight platform-owned connection flows in one shared page-level modal | branch readback PASS; [Source CI 33252521644](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33252521644) PASS |
+| `27823d7cbb0111d5bf9a0b7f6e0627fbfb9ef258` | return one durable structured connection failure to the IM modal without exposing transport internals | branch readback PASS; [Source CI 33253126999](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33253126999) PASS |
 
 ## Publication reconciliation placeholder
 

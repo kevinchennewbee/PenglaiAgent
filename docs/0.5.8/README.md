@@ -125,6 +125,10 @@ Allowed work now includes:
   method; owned begin/poll failures now return durable localized causes and
   reference IDs without exposing bounded-HTTP implementation codes. Native
   accessibility, live QR, and real status/Content-Type evidence remain open.
+- IM `/会话` and the desktop binding chooser now share the owner-bound
+  Session title projection. Visible missing-title fallbacks are localized and
+  ordinal; selection remains bound to immutable IDs. Alpha generated Remote,
+  installed UI, and Owner-live command proof remain open.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

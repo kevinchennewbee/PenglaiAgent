@@ -276,6 +276,42 @@ test("bridge joins official Workspace membership to Session-owner titles", async
   ]);
 });
 
+test("session projection refreshes rename, deletion, Unicode, duplicates, and large owner lists", async () => {
+  let workspaceSessionIds = ["session-a", "session-b", "session-c"];
+  let sessionRows: Array<{ id: string; title?: string }> = [
+    { id: "session-a", title: "同名" },
+    { id: "session-b", title: "同名" },
+    { id: "session-c", title: "研究 🩷 漢字" },
+  ];
+  const owner = {
+    version: "0.1.1-rc.2",
+    getAgent() { return undefined; },
+    listWorkspaces: () => [
+      { id: "workspace-1", title: "One", sessionIds: workspaceSessionIds },
+    ],
+    async listSessions() {
+      return sessionRows;
+    },
+  };
+  const bridge = new DshBridge(owner);
+  assert.deepEqual(await bridge.listSessions("workspace-1"), sessionRows);
+
+  workspaceSessionIds = ["session-b", ...Array.from({ length: 150 }, (_, index) => `many-${index}`)];
+  sessionRows = [
+    { id: "session-b", title: "重命名后的会话" },
+    ...Array.from({ length: 150 }, (_, index) => ({
+      id: `many-${index}`,
+      title: `会话 ${index + 1}`,
+    })),
+  ];
+  const afterReconnect = new DshBridge(owner);
+  const refreshed = await afterReconnect.listSessions("workspace-1");
+  assert.equal(refreshed.length, 151);
+  assert.deepEqual(refreshed[0], { id: "session-b", title: "重命名后的会话" });
+  assert.equal(refreshed.some((session) => session.id === "session-a"), false);
+  assert.deepEqual(refreshed.at(-1), { id: "many-149", title: "会话 150" });
+});
+
 test("bridge forwards a new-session title only to the Session owner", async () => {
   const calls: Array<{ workspaceIdentity: string; title?: string }> = [];
   const bridge = new DshBridge({
