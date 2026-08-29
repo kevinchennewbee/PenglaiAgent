@@ -108,6 +108,9 @@ test("R50-E2E-003 Center client marks loading and ready with data-penglai-center
   assert.match(client, /row\.queuedJobs/);
   assert.match(client, /row\.jobBudget\?\.activeJobs/);
   assert.match(client, /row\.jobBudget\?\.queuedJobs/);
+  assert.match(client, /data-penglai-plugin-budget-state/);
+  assert.match(client, /row\.budgetState === "over-budget"/);
+  assert.match(client, /centerResourceOverBudget/);
   assert.match(client, /row\.remoteRequests/);
   assert.match(client, /PLUGIN_ACTIVATION_TIMEOUT/);
   assert.match(client, /centerFailureActivationTimeout/);

@@ -801,6 +801,13 @@ subagent, tool-call, Remote-request, worker-thread, child-process, or open-file
 limit. Those DSH dimensions remain unavailable until the fixed alpha runtime
 provides verifiable evidence. Native pressure and crash stress remain open.
 
+The diagnostic contract also classifies each measured plugin as within budget,
+at a configured dimension or total limit, over budget, unbudgeted, or
+unavailable. The client renders that closed state directly and raises an alert
+when any active, queued, or combined count exceeds its shared contract. It does
+not infer safety from a user comparing two displayed numbers, and an invalid or
+missing counter cannot become a false within-budget result.
+
 ### P0-07: IM support truth has conflicting machine sources
 
 **Observed symptom**

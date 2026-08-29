@@ -338,6 +338,14 @@ window.__ModuleLoader__.load({
           ? `${current} (${t.centerResourceLimit} ${limit})`
           : current;
       };
+      const pressureBudgetLabel = (state) =>
+        ({
+          "within-budget": t.centerResourceWithinBudget,
+          "at-budget": t.centerResourceAtBudget,
+          "over-budget": t.centerResourceOverBudget,
+          unbudgeted: t.centerResourceUnbudgeted,
+          unavailable: t.centerResourceUnavailable,
+        })[state] ?? t.centerResourceUnavailable;
       const transactionTrace = (trace) => {
         if (!trace) return t.centerResourceUnavailable;
         const outcomes = {
@@ -713,8 +721,15 @@ window.__ModuleLoader__.load({
                         {
                           "data-penglai-plugin-pressure": String(row.id ?? ""),
                           "data-penglai-plugin-pressure-measured": String(row.measured === true),
+                          "data-penglai-plugin-budget-state": String(
+                            row.budgetState ?? "unavailable",
+                          ),
                           children: [
                             jsx.jsx("strong", { children: String(row.id ?? "") }),
+                            jsx.jsx("span", {
+                              role: row.budgetState === "over-budget" ? "alert" : "status",
+                              children: pressureBudgetLabel(row.budgetState),
+                            }),
                             jsx.jsx("span", {
                               children: `${t.centerResourceActive}: ${pressureValueWithLimit(row.activeJobs, row.jobBudget?.activeJobs)} · ${t.centerResourceQueued}: ${pressureValueWithLimit(row.queuedJobs, row.jobBudget?.queuedJobs)} · ${t.centerResourceRequests}: ${pressureValue(row.remoteRequests)}`,
                             }),
@@ -860,6 +875,10 @@ window.__ModuleLoader__.load({
         centerResourceQueued: "排队",
         centerResourceRequests: "网络请求",
         centerResourceLimit: "上限",
+        centerResourceWithinBudget: "预算内",
+        centerResourceAtBudget: "已到预算上限",
+        centerResourceOverBudget: "已超过预算，请暂停新任务并检查运行状态",
+        centerResourceUnbudgeted: "没有可核对的任务预算",
         centerResourceUnavailable: "暂不可核对",
         cardCenter: "蓬莱插件中心",
         cardCenterHint: "管理本机已签入插件的实际状态。",
@@ -1048,6 +1067,11 @@ window.__ModuleLoader__.load({
         centerResourceQueued: "queued",
         centerResourceRequests: "remote requests",
         centerResourceLimit: "limit",
+        centerResourceWithinBudget: "within budget",
+        centerResourceAtBudget: "at the budget limit",
+        centerResourceOverBudget:
+          "over budget; pause new jobs and inspect runtime state",
+        centerResourceUnbudgeted: "no verifiable job budget",
         centerResourceUnavailable: "not verifiable yet",
         cardCenter: "Penglai Plugin Center",
         cardCenterHint: "Manage actual state of signed local plugins.",

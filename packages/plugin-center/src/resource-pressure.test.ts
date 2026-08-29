@@ -24,11 +24,13 @@ test("resource pressure separates active and queued work from legacy workers", (
       }),
     }),
   );
+  assert.equal(snapshot.schema, 2);
   assert.equal(snapshot.plugins.length, 1);
   assert.deepEqual(snapshot.plugins[0], {
     id: "@penglai/memory",
     measured: true,
     jobBudget: { activeJobs: 1, queuedJobs: 7, totalJobs: 8 },
+    budgetState: "at-budget",
     evidence: "service-resource-snapshot",
     activeJobs: 1,
     queuedJobs: 7,
@@ -69,6 +71,7 @@ test("resource pressure keeps unavailable and failed probes distinct from zero",
   for (const row of snapshot.plugins) {
     assert.equal(row.measured, false);
     assert.equal(row.jobBudget, null);
+    assert.equal(row.budgetState, "unavailable");
     assert.equal(row.activeJobs, null);
     assert.equal(row.queuedJobs, null);
     assert.equal(row.remoteRequests, null);
@@ -77,11 +80,15 @@ test("resource pressure keeps unavailable and failed probes distinct from zero",
 });
 
 test("resource pressure keeps a known budget when live measurement is unavailable", () => {
-  const snapshot = buildResourcePressure(["@penglai/moss-tts"], () => undefined);
+  const snapshot = buildResourcePressure(
+    ["@penglai/moss-tts"],
+    () => undefined,
+  );
   assert.deepEqual(snapshot.plugins[0], {
     id: "@penglai/moss-tts",
     measured: false,
     jobBudget: { activeJobs: 1, queuedJobs: 3, totalJobs: 4 },
+    budgetState: "unavailable",
     evidence: "runtime-evidence-unavailable",
     activeJobs: null,
     queuedJobs: null,
@@ -108,6 +115,30 @@ test("resource pressure rejects invalid counters instead of normalizing them to 
   assert.equal(snapshot.plugins[0]?.activeJobs, null);
   assert.equal(snapshot.plugins[0]?.queuedJobs, null);
   assert.equal(snapshot.plugins[0]?.remoteRequests, 0);
+  assert.equal(snapshot.plugins[0]?.budgetState, "unavailable");
+});
+
+test("resource pressure classifies capacity without relying on visible arithmetic", () => {
+  const counts = new Map([
+    ["@penglai/asr", { activeJobs: 0, queuedJobs: 2 }],
+    ["@penglai/memory", { activeJobs: 1, queuedJobs: 4 }],
+    ["@penglai/moss-tts", { activeJobs: 2, queuedJobs: 3 }],
+    ["@penglai/unbudgeted", { activeJobs: 99, queuedJobs: 99 }],
+  ]);
+  const snapshot = buildResourcePressure([...counts.keys()], (id) => ({
+    snapshot: () => ({ ...BASE, ...counts.get(id) }),
+  }));
+  assert.deepEqual(
+    Object.fromEntries(
+      snapshot.plugins.map((row) => [row.id, row.budgetState]),
+    ),
+    {
+      "@penglai/asr": "within-budget",
+      "@penglai/memory": "at-budget",
+      "@penglai/moss-tts": "over-budget",
+      "@penglai/unbudgeted": "unbudgeted",
+    },
+  );
 });
 
 test("resource pressure isolates a probe lookup failure", () => {

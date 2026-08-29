@@ -25,6 +25,12 @@ export interface PluginResourcePressure extends PressureValues {
   id: string;
   measured: boolean;
   jobBudget: Readonly<PenglaiResourceJobBudget> | null;
+  budgetState:
+    | "within-budget"
+    | "at-budget"
+    | "over-budget"
+    | "unbudgeted"
+    | "unavailable";
   evidence:
     | "service-resource-snapshot"
     | "runtime-evidence-unavailable"
@@ -32,7 +38,7 @@ export interface PluginResourcePressure extends PressureValues {
 }
 
 export interface ResourcePressureSnapshot {
-  schema: 1;
+  schema: 2;
   core: {
     evidence: "DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED";
     trueSubagents: null;
@@ -57,9 +63,11 @@ function safeCount(value: unknown): number | null {
 
 function jobBudget(id: string): Readonly<PenglaiResourceJobBudget> | null {
   return (
-    (PENGLAI_RESOURCE_JOB_BUDGETS as Readonly<
-      Record<string, Readonly<PenglaiResourceJobBudget>>
-    >)[id] ?? null
+    (
+      PENGLAI_RESOURCE_JOB_BUDGETS as Readonly<
+        Record<string, Readonly<PenglaiResourceJobBudget>>
+      >
+    )[id] ?? null
   );
 }
 
@@ -70,10 +78,34 @@ function measuredRow(
   const values = unavailableValues();
   for (const field of PRESSURE_FIELDS)
     values[field] = safeCount(snapshot[field]);
+  const budget = jobBudget(id);
+  const activeJobs = values.activeJobs;
+  const queuedJobs = values.queuedJobs;
+  let budgetState: PluginResourcePressure["budgetState"] = "unbudgeted";
+  if (budget) {
+    if (activeJobs === null || queuedJobs === null) {
+      budgetState = "unavailable";
+    } else if (
+      activeJobs > budget.activeJobs ||
+      queuedJobs > budget.queuedJobs ||
+      activeJobs + queuedJobs > budget.totalJobs
+    ) {
+      budgetState = "over-budget";
+    } else if (
+      activeJobs === budget.activeJobs ||
+      queuedJobs === budget.queuedJobs ||
+      activeJobs + queuedJobs === budget.totalJobs
+    ) {
+      budgetState = "at-budget";
+    } else {
+      budgetState = "within-budget";
+    }
+  }
   return {
     id,
     measured: true,
-    jobBudget: jobBudget(id),
+    jobBudget: budget,
+    budgetState,
     evidence: "service-resource-snapshot",
     ...values,
   };
@@ -95,6 +127,7 @@ export function buildResourcePressure(
           id,
           measured: false,
           jobBudget: jobBudget(id),
+          budgetState: "unavailable",
           evidence: "resource-probe-failed",
           ...unavailableValues(),
         };
@@ -104,6 +137,7 @@ export function buildResourcePressure(
           id,
           measured: false,
           jobBudget: jobBudget(id),
+          budgetState: "unavailable",
           evidence: "runtime-evidence-unavailable",
           ...unavailableValues(),
         };
@@ -115,13 +149,14 @@ export function buildResourcePressure(
           id,
           measured: false,
           jobBudget: jobBudget(id),
+          budgetState: "unavailable",
           evidence: "resource-probe-failed",
           ...unavailableValues(),
         };
       }
     });
   return {
-    schema: 1,
+    schema: 2,
     core: {
       evidence: "DSH_ALPHA_RUNTIME_EVIDENCE_REQUIRED",
       trueSubagents: null,
