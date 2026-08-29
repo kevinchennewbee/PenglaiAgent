@@ -263,6 +263,10 @@ window.__ModuleLoader__.load({
           "/帮助 /模型 /项目 /会话 /新建 /状态 /插话 /停止 /语音 /声音 由 IM 确定性消费，不进入模型。",
         diagnosticsHint:
           "诊断只显示稳定错误码、队列计数和恢复动作，不含密钥或正文。",
+        safeResponseObservation: "安全响应观测（不代表根因）",
+        requestPhase: "请求阶段",
+        httpStatus: "HTTP 状态",
+        mediaType: "媒体类型",
         loading: "正在读取实际连接状态…",
         loadError: "无法读取 IM 状态",
         pageTitle: "消息连接",
@@ -389,6 +393,10 @@ window.__ModuleLoader__.load({
           "/help /model /projects /sessions /new /status /steer /stop /voice /voiceid are consumed by IM and never enter the model.",
         diagnosticsHint:
           "Diagnostics show stable error codes, queue counts, and recovery actions only. No secrets or bodies.",
+        safeResponseObservation: "Safe response observation (not a root-cause claim)",
+        requestPhase: "Request phase",
+        httpStatus: "HTTP status",
+        mediaType: "Media type",
         loading: "Reading live IM status…",
         pageTitle: "Messaging",
         loadError: "Unable to read IM status",
@@ -457,6 +465,40 @@ window.__ModuleLoader__.load({
       return `${message || t.connectionFailed}${
         reference ? ` (${t.referenceId} ${reference})` : ""
       }`;
+    }
+
+    const ILINK_DIAGNOSTIC_PHASES = new Set([
+      "qr-start",
+      "qr-poll",
+      "updates",
+      "upload-url",
+      "send-message",
+      "typing-config",
+      "typing-send",
+      "unknown",
+    ]);
+
+    function safeTransportObservation(error) {
+      const observation = error?.transport;
+      const phase = String(observation?.phase || "");
+      const httpStatus = Number(observation?.httpStatus);
+      const contentType = String(observation?.contentType || "");
+      if (
+        !ILINK_DIAGNOSTIC_PHASES.has(phase) ||
+        !Number.isSafeInteger(httpStatus) ||
+        httpStatus < 0 ||
+        httpStatus > 599 ||
+        !(
+          contentType === "missing" ||
+          contentType === "invalid" ||
+          /^[a-z0-9!#$&^_.+-]{1,63}\/[a-z0-9!#$&^_.+-]{1,63}$/.test(
+            contentType,
+          )
+        )
+      ) {
+        return null;
+      }
+      return { phase, httpStatus, contentType };
     }
 
     function sessionDisplayTitle(session, index, t) {
@@ -2008,6 +2050,36 @@ window.__ModuleLoader__.load({
               jsx.jsx(BindingsPane, { remote, connection }),
               jsx.jsx("p", { children: t.commandsHint }),
               jsx.jsx("p", { children: t.diagnosticsHint }),
+              channels.some((channel) => safeTransportObservation(channel.error))
+                ? jsx.jsxs("section", {
+                    "data-penglai-im-safe-transport": "1",
+                    children: [
+                      jsx.jsx("h4", { children: t.safeResponseObservation }),
+                      jsx.jsx("ul", {
+                        children: channels.map((channel) => {
+                          const observation = safeTransportObservation(channel.error);
+                          return observation
+                            ? jsx.jsxs(
+                                "li",
+                                {
+                                  "data-penglai-im-safe-transport-channel": channel.channel,
+                                  "data-penglai-im-safe-transport-reference":
+                                    channel.error?.referenceId || "",
+                                  children: [
+                                    `${channel.channel} · ${t.referenceId} ${channel.error?.referenceId || ""} · `,
+                                    `${t.requestPhase} ${observation.phase} · `,
+                                    `${t.httpStatus} ${observation.httpStatus} · `,
+                                    `${t.mediaType} ${observation.contentType}`,
+                                  ],
+                                },
+                                channel.channel,
+                              )
+                            : null;
+                        }),
+                      }),
+                    ],
+                  })
+                : null,
             ],
           }),
         ],
