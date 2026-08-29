@@ -78,7 +78,7 @@ test("packed dsh-client.js playback handles ended, error, stalled, and latest-wi
   audios[0]?.onended?.(undefined);
   assert.equal(player.getState(), "playing");
   audios.at(-1)?.onstalled?.(undefined);
-  assert.equal(player.getState(), "idle");
+  assert.equal(player.getState(), "stalled");
   assert.equal(revoked.length >= 1, true);
 
   const failing = fakeIo(async () => {
@@ -89,5 +89,5 @@ test("packed dsh-client.js playback handles ended, error, stalled, and latest-wi
   const result = await rejected.play(new Blob(["x"]), token);
   assert.equal(result.state, "failed");
   assert.equal(result.errorCode, "TTS_PLAY_REJECTED");
-  assert.equal(rejected.getState(), "idle");
+  assert.equal(rejected.getState(), "failed");
 });

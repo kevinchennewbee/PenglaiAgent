@@ -30,6 +30,7 @@ import {
   type TtsEngine,
   type TtsModelManifest,
 } from "./index.js";
+import { createMossTtsSettingsApi, TYPERT_REMOTE } from "./remote.js";
 
 const TTS_DIR = "MOSS-TTS-Nano-100M-ONNX";
 const CODEC_DIR = "MOSS-Audio-Tokenizer-Nano-ONNX";
@@ -375,6 +376,20 @@ test("typed service binds exact durable final to engine PCM and an opaque output
     await service.releaseOutput(result.handle.id);
     assert.equal(service.describeCapability().outputHandles, 0);
 
+    const remoteResult = await createMossTtsSettingsApi(service).readAloud({
+      text: finalText,
+      voiceId: "moss-zh-default",
+      locale: "zh",
+      operationId: "readapi01",
+    });
+    assert.equal(typeof remoteResult.firstChunkLatencyMs, "number");
+    assert.equal(typeof remoteResult.synthesisElapsedMs, "number");
+    assert.equal(
+      Buffer.from(remoteResult.wavBase64, "base64").subarray(0, 4).toString("ascii"),
+      "RIFF",
+    );
+    assert.equal(service.describeCapability().outputHandles, 0);
+
     await assert.rejects(
       service.synthesize({
         operationId: "synth002",
@@ -423,13 +438,15 @@ test("active synthesis cancellation reaches the engine and leaves no output hand
       locale: "zh",
     });
     await new Promise((resolve) => setImmediate(resolve));
-    await service.cancelSynthesis("cancel001");
+    const api = createMossTtsSettingsApi(service);
+    await api.cancelSynthesis("cancel001");
     await assert.rejects(pending, /cancelled/);
     assert.equal(
       service.getOperation("cancel001")?.state,
       "cancelled",
     );
     assert.equal(service.describeCapability().outputHandles, 0);
+    assert.equal(TYPERT_REMOTE.descriptors.includes("cancelSynthesis"), true);
     await service.dispose();
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -525,9 +542,13 @@ test("MOSS-TTS settings client registers the Penglai page slot and Typert remote
   assert.match(client, /penglaiMossTts/);
   assert.match(client, /previewVoice/);
   assert.match(client, /readAloud/);
+  assert.match(client, /cancelSynthesis/);
+  assert.match(client, /data-penglai-tts-first-chunk-ms/);
   assert.match(client, /conversation\.chat\.assistant-actions/);
   assert.doesNotMatch(client, /fetch\("\/penglai\/tts"/);
   const remote = readFileSync(new URL("./remote.ts", import.meta.url), "utf8");
   assert.match(remote, /TypertRemoteService/);
   assert.match(remote, /settings-preview:/);
+  assert.match(remote, /cancelSynthesis/);
+  assert.match(remote, /firstChunkLatencyMs/);
 });

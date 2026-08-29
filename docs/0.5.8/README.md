@@ -117,6 +117,10 @@ Allowed work now includes:
   download or ASR success; the composer microphone also refreshes typed model
   state and exposes localized permission, recording/timer, transcription,
   result, no-speech, and error phases with terminal track release.
+  TTS preview and Read now share cancellable synthesis/playback ownership,
+  expose localized lifecycle feedback, and record source-level engine,
+  complete-WAV, and playback-start timing boundaries without claiming native
+  first-sound performance.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact
