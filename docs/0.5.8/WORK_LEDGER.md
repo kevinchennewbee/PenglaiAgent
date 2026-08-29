@@ -49,6 +49,7 @@
 | P058-033 | Feishu closed voice failure causes | Source/live | IN_PROGRESS | phase-owned codec, no-speech, duration, model readiness, backpressure, cancellation, deadline, and engine-unavailable causes pass locally without parsing error text; Owner-live proof remains |
 | P058-034 | Typed ASR failure contract | Source/live | IN_PROGRESS | ASR service emits five closed operational causes consumed by Feishu; real model/worker/cancel and installed evidence remain |
 | P058-035 | Feishu capability verification and text-only degradation | Source/live | IN_PROGRESS | exact text scopes/event/resource route/same-conversation checklist fails closed; resource request/stream failure durably degrades connection until a real non-empty download succeeds; Owner-live proof remains |
+| P058-036 | Composer ASR state convergence and recording feedback | Source/native/live | IN_PROGRESS | typed status refresh plus localized permission/recording/timer/transcribing/result/no-speech/error phases and terminal track release pass in source; native microphone, installed locale, and real model proof remain |
 | P058-024 | Three-target installed acceptance | Native/installed | BLOCKED_NATIVE | only after clean candidate from one source SHA |
 | P058-025 | Formal 0.5.8 release/public readback | Public | NOT_STARTED | requires Owner publication authorization after all gates |
 | P058-027 | Executable DSH migration census | Source/CI | DONE | ApiProxy, client-runtime, Workspace, and supervisor owner surfaces are machine-readable and composed into the preview gate |
@@ -96,6 +97,8 @@ use a partial broken push merely to create activity.
 | `ae16e12c955a3f1631dc0c67c54174e52812127e` | record the verified durable Feishu voice phase checkpoint in the preview work ledger | branch readback PASS; [Source CI 33249619124](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249619124) PASS |
 | `16c746b4dffd8a6273a22cb6237c3429e4de52c5` | classify phase-owned Feishu voice codec, no-speech, and closed ASR model-readiness failures without parsing error text | branch readback PASS; [Source CI 33250043373](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250043373) PASS |
 | `307dab5655b52e10a4db2ae0fbc1f2cd22770877` | expose closed ASR operational failures and persist invalid Feishu voice duration without parsing error text | branch readback PASS; [Source CI 33250448312](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250448312) PASS |
+| `3c3894ab66871243a35db124f2ac95d831a81d97` | record the verified typed ASR checkpoint in the preview work ledger | branch readback PASS; [Source CI 33250582236](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250582236) PASS |
+| `b92e84400685a42cda34b8257509a9f2ff451a45` | expose exact Feishu resource capability verification and durable text-only degradation | branch readback PASS; [Source CI 33251000091](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33251000091) PASS |
 
 ## Publication reconciliation placeholder
 
