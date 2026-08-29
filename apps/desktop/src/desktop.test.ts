@@ -52,6 +52,7 @@ test("desktop supervisor reflects one inner lifecycle instead of stale copied st
     port: 0,
     restarts: 0,
     health: undefined,
+    upstreamCookie: undefined,
     child: { pid: 4242 },
     async start() {
       startCalls += 1;

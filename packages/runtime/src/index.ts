@@ -53,6 +53,13 @@ import {
   type SupervisorFailureTrigger,
   type SupervisorRecoverySnapshot,
 } from "./supervisor-policy.js";
+import {
+  DshWebOutputCapture,
+  establishDshWebSession,
+  isOfficialDshHtml,
+  probeOfficialDsh,
+  type DshWebSession,
+} from "./dsh-web-auth.js";
 import { evaluateInventory, type InventoryProof } from "./inventory-proof.js";
 import { convergePrivatePosixModes } from "./private-mode.js";
 export * from "./layout.js";
@@ -68,6 +75,7 @@ export * from "./uninstall.js";
 export * from "./windows-host.js";
 export * from "./packaging.js";
 export * from "./fuses.js";
+export * from "./dsh-web-auth.js";
 
 export const PENGLAI_VERSION = "0.5.7";
 export const PINNED_DSH = "0.1.1-rc.2";
@@ -870,44 +878,8 @@ export function waitPort(port: number, timeoutMs: number): Promise<void> {
   });
 }
 
-export function isOfficialDshHtml(body: string): boolean {
-  if (!body.includes('id="root"')) return false;
-  if (body.includes("data-penglai-recovery")) return false;
-  if (body.includes("This bootstrap page is not the product surface")) return false;
-  const hasBoot = body.includes("__DSH_BOOT__") || body.includes("/assets/") || body.includes("dsh-web");
-  if (!hasBoot) return false;
-  return true;
-}
-
 export function isPenglaiProductTitle(title: string): boolean {
   return /蓬莱|Penglai/.test(title) && !/failed to start/i.test(title);
-}
-
-export interface OfficialDshProbe {
-  status: number;
-  body: string;
-  official: boolean;
-}
-
-export async function probeOfficialDsh(
-  url: string,
-  timeoutMs: number,
-  externalSignal?: AbortSignal,
-): Promise<OfficialDshProbe> {
-  const controller = new AbortController();
-  const abort = (): void => controller.abort();
-  if (externalSignal?.aborted) controller.abort();
-  else externalSignal?.addEventListener("abort", abort, { once: true });
-  const timer = setTimeout(abort, Math.max(1, Math.floor(timeoutMs)));
-  timer.unref?.();
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    const body = await res.text();
-    return { status: res.status, body, official: res.status === 200 && isOfficialDshHtml(body) };
-  } finally {
-    clearTimeout(timer);
-    externalSignal?.removeEventListener("abort", abort);
-  }
 }
 
 export async function waitHttp200(url: string, timeoutMs: number): Promise<{ status: number; body: string }> {
@@ -1112,6 +1084,7 @@ export class EmbeddedDshSupervisor {
   private healthFailures = 0;
   private lifecycleGeneration = 0;
   private lastHealthyInventory: InventoryProof | undefined;
+  #webSession: DshWebSession | undefined;
   health:
     | {
         http: number;
@@ -1123,6 +1096,14 @@ export class EmbeddedDshSupervisor {
     private readonly layout: RuntimeLayout,
     private readonly options: EmbeddedDshSupervisorOptions = {},
   ) {}
+
+  get upstreamCookie(): string | undefined {
+    return this.#webSession?.cookie;
+  }
+
+  get webAuthMode(): DshWebSession["mode"] | undefined {
+    return this.#webSession?.mode;
+  }
 
   get phaseMs(): number {
     return Math.max(0, Date.now() - this.stateChangedAt);
@@ -1192,6 +1173,7 @@ export class EmbeddedDshSupervisor {
         `http://127.0.0.1:${this.port}/`,
         this.boundedOption(this.options.healthTimeoutMs, SUPERVISOR_HEALTH_TIMEOUT_MS),
         controller.signal,
+        this.#webSession?.cookie,
       );
       healthy = probe.official;
     } catch {
@@ -1372,6 +1354,9 @@ export class EmbeddedDshSupervisor {
     this.identity = undefined;
     this.lastHealthyInventory = undefined;
     this.port = reusableSupervisorPort(preferredPort) ?? await freePort();
+    const previousWebCookie = this.#webSession?.cookie;
+    const stdoutCapture = new DshWebOutputCapture(this.port);
+    const stderrCapture = new DshWebOutputCapture(this.port);
     const childEnv: NodeJS.ProcessEnv = {
       PATH: "/usr/bin:/bin",
       HOME: user.root,
@@ -1451,14 +1436,14 @@ export class EmbeddedDshSupervisor {
         writeIdentity(user, this.identity);
       }
     }
-    this.child.stdout?.on("data", (d: Buffer) => {
-      this.logs = `${this.logs}${String(d)}`.slice(-40_000);
-    });
-    this.child.stderr?.on("data", (d: Buffer) => {
-      this.logs = `${this.logs}${String(d)}`.slice(-40_000);
-    });
+    const appendSafeOutput = (capture: DshWebOutputCapture, chunk: Buffer): void => {
+      this.logs = `${this.logs}${capture.push(String(chunk))}`.slice(-40_000);
+    };
+    this.child.stdout?.on("data", (d: Buffer) => appendSafeOutput(stdoutCapture, d));
+    this.child.stderr?.on("data", (d: Buffer) => appendSafeOutput(stderrCapture, d));
     this.child.on("exit", (code) => {
       if (generation !== this.lifecycleGeneration) return;
+      this.logs = `${this.logs}${stdoutCapture.flush()}${stderrCapture.flush()}`.slice(-40_000);
       const intentional = this.state === "stopping";
       const failure = this.pendingFailure ?? "process-exit";
       this.pendingFailure = undefined;
@@ -1468,11 +1453,18 @@ export class EmbeddedDshSupervisor {
     });
     try {
       await waitPort(this.port, 25_000);
-      const [http, inventory] = await Promise.all([
-        waitHttp200(`http://127.0.0.1:${this.port}/`, this.boundedOption(this.options.startupHttpTimeoutMs, 25_000)),
+      const [webSession, inventory] = await Promise.all([
+        establishDshWebSession({
+          origin: `http://127.0.0.1:${this.port}/`,
+          timeoutMs: this.boundedOption(this.options.startupHttpTimeoutMs, 25_000),
+          launchUrl: () => stdoutCapture.launchUrl,
+          ...(previousWebCookie ? { existingCookie: previousWebCookie } : {}),
+        }),
         waitInventory(user, this.boundedOption(this.options.inventoryTimeoutMs, 30_000)),
       ]);
-      this.health = { http: http.status, inventory };
+      stdoutCapture.clearLaunchUrl();
+      this.#webSession = webSession;
+      this.health = { http: 200, inventory };
       this.lastHealthyInventory = inventory;
       this.setState("healthy");
       if (automaticRecovery) this.setRecovery({ ...this.recovery, status: "recovered" });

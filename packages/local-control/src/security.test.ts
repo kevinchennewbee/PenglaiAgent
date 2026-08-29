@@ -47,7 +47,9 @@ test("wrong origin rejected", async () => {
 test("proxy upgrade close does not throw writeAfterFIN", async () => {
   const { createServer } = await import("node:http");
   const inner = createServer();
-  inner.on("upgrade", (_req, socket) => {
+  let observedCookie: string | undefined;
+  inner.on("upgrade", (innerRequest, socket) => {
+    observedCookie = innerRequest.headers.cookie;
     socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
     socket.end();
   });
@@ -56,13 +58,19 @@ test("proxy upgrade close does not throw writeAfterFIN", async () => {
   const innerPort = !addr || typeof addr === "string" ? 0 : addr.port;
   const { startDshProxy } = await import("./proxy.js");
   const token = "e".repeat(32);
-  const proxy = await startDshProxy({ token, innerPort });
+  const upstreamCookie = "dsh-auth-websocket=trusted.session.signature";
+  const proxy = await startDshProxy({ token, innerPort, upstreamCookie });
   const req = await import("node:http").then((h) =>
     h.request({
       host: "127.0.0.1",
       port: proxy.port,
       path: "/api/events.host",
-      headers: { upgrade: "websocket", connection: "upgrade", "x-penglai-token": token },
+      headers: {
+        upgrade: "websocket",
+        connection: "upgrade",
+        "x-penglai-token": token,
+        cookie: "dsh-auth-websocket=attacker; harmless=1",
+      },
     }),
   );
   const done = new Promise<void>((resolve) => {
@@ -75,6 +83,7 @@ test("proxy upgrade close does not throw writeAfterFIN", async () => {
   });
   req.end();
   await Promise.race([done, new Promise((r) => setTimeout(r, 1000))]);
+  assert.equal(observedCookie, `harmless=1; ${upstreamCookie}`);
   await proxy.close();
   await new Promise<void>((resolve) => inner.close(() => resolve()));
 });

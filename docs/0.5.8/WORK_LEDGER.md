@@ -35,8 +35,8 @@
 | P058-016 | Quarantine unsupported legacy channel rows | Source/upgrade | DONE | startup revokes unsupported route/binding activity without deleting audit rows; bot lists hide unsupported rows and reject new unknown filters |
 | P058-026 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
 | P058-017 | Overlay-to-slot map | Source/design/CI | DONE | 12 mapped dispositions cover all 4 patched files and 5 brand assets; 4 narrow upstream gaps remain; executable gate PASS |
-| P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |
-| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, structured redacted diagnostics, real three-attempt exhaustion, and non-stranding recovery actions pass locally; alpha.1 auth-route reconciliation and three-target native/installed proof remain |
+| P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private exact-authority token exchange, cookie proof, proxy injection, rc.2 compatibility, redaction, and real child fixture pass in source; exact alpha package and native first navigation remain |
+| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, authenticated alpha-style health, structured diagnostics, exact exhaustion, and non-stranding actions pass locally; three-target native/installed proof remains |
 | P058-020 | Session title projection in IM | Package/source | BLOCKED_NPM | official Session list/projection Remote required |
 | P058-021 | Official image Attachment handoff | Package/live | BLOCKED_NPM | callback/download safety can proceed; final DSH admission needs packages |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
@@ -75,6 +75,8 @@ use a partial broken push merely to create activity.
 | `9da7e7677461ce118f29f72420c2b498a4b5abcc` | keep one live desktop supervisor and preserve its proxy-facing port across automatic restart | branch readback PASS; [Source CI 33241435767](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33241435767) PASS |
 | `24f5854480afd7d7317e2d72b5f4e44008100c66` | gate the complete rc.2 overlay-to-alpha.1 slot disposition map and four explicit source gaps | branch readback PASS; [Source CI 33241802491](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33241802491) PASS |
 | `6d559a2dfb049ed196e98f52b4fc459c4e163088` | detect a lost or hung DSH official-document route and recover through the existing bounded same-port supervisor | branch readback PASS; [Source CI 33242242970](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33242242970) PASS |
+| `6ef566ace20fd9610a742287227aaec4c3fe49e2` | move Memory curator maintenance off false Agent/Session/subagent lifecycle into a bounded internal queue | branch readback PASS; [Source CI 33243163029](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33243163029) PASS |
+| `4e8dc373b1fb49f2ba0c1ca9914d403f6c5eb808` | bound restart failure accounting and expose a non-stranding terminal recovery surface with redacted diagnostics | branch readback PASS; [Source CI 33244301234](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33244301234) PASS |
 
 ## Publication reconciliation placeholder
 
