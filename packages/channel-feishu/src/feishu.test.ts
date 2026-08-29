@@ -208,6 +208,96 @@ test("R2I-FS-007/009 official SDK WS start and 3s enqueue", async () => {
   assert.equal(parseOfficialReceive(event).adapter, "feishu");
 });
 
+test("Feishu media callback contains download rejection and persists a redacted terminal state", async () => {
+  const h = voicePlane();
+  class FakeClient {
+    im = {
+      messageResource: {
+        get: async () => {
+          throw new Error("private fixture download detail");
+        },
+      },
+      message: {
+        reply: async () => ({}),
+        create: async () => ({}),
+      },
+    };
+  }
+  class FakeDispatcher {
+    register() { return this; }
+  }
+  class FakeWS {
+    async start() {}
+    close() {}
+  }
+  const adapter = new FeishuAdapter(
+    h.plane,
+    "cli_media_failure",
+    {
+      Client: FakeClient as never,
+      WSClient: FakeWS as never,
+      EventDispatcher: FakeDispatcher as never,
+    },
+    h.store,
+    { appId: "cli_media_failure" },
+  );
+  await adapter.connect("cli_media_failure", "fixture-secret");
+  adapter.setOwner("ou_media_owner", "explicit");
+  const { token } = h.plane.createPairing({
+    workspaceIdentity: "ws",
+    sessionId: "sess",
+    adapter: "feishu",
+  });
+  adapter.enqueueReceive({
+    header: { app_id: "cli_media_failure" },
+    event: {
+      message: {
+        message_id: "om_media_bind",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: `/绑定 ${token}` }),
+      },
+      sender: { sender_id: { open_id: "ou_media_owner" } },
+    },
+  });
+  await adapter.lastEnqueue;
+
+  const accepted = adapter.enqueueReceive({
+    header: { app_id: "cli_media_failure" },
+    event: {
+      message: {
+        message_id: "om_media_failure",
+        chat_type: "p2p",
+        message_type: "image",
+        content: JSON.stringify({ image_key: "img_private_failure" }),
+      },
+      sender: { sender_id: { open_id: "ou_media_owner" } },
+    },
+  });
+  assert.deepEqual(accepted, { accepted: true });
+  const terminal = await adapter.lastEnqueue;
+  assert.deepEqual(terminal, {
+    kind: "rejected",
+    text: "inbound processing failed",
+    errorClass: "DELIVERY_TRANSIENT",
+  });
+
+  const failure = h.store.listAudit().find((row) => row.event === "inbound_processing_failed");
+  assert.ok(failure);
+  assert.equal(failure.payload.adapter, "feishu");
+  assert.equal(failure.payload.bodyKind, "media");
+  assert.equal(failure.payload.errorClass, "DELIVERY_TRANSIENT");
+  assert.equal(failure.payload.retryable, true);
+  const inbound = h.store.getInbound(String(failure.payload.inboundId));
+  assert.equal(inbound?.state, "rejected");
+  const auditJson = JSON.stringify(failure);
+  assert.equal(auditJson.includes("private fixture download detail"), false);
+  assert.equal(auditJson.includes("img_private_failure"), false);
+
+  adapter.stop();
+  h.store.close();
+});
+
 test("crash after Feishu event dedupe but before durable inbound is recoverable", async () => {
   const h = voicePlane();
   const adapter = new FeishuAdapter(

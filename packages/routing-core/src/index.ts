@@ -13,6 +13,7 @@ import {
   type BindingVoicePolicy,
   type ClaimedFact,
   type ControlCommand,
+  type ErrorClass,
   type InboundEnvelope,
   type ModelInput,
   type VoiceReplyMode,
@@ -85,7 +86,7 @@ export interface ObjectBinder {
 export interface ControlReply {
   kind: "control" | "accepted" | "rejected";
   text: string;
-  errorClass?: string;
+  errorClass?: ErrorClass;
 }
 
 export interface VoiceInboundClaim {
@@ -366,6 +367,44 @@ export class RoutingControlPlane {
 
   async submitInbound(env: InboundEnvelope): Promise<ControlReply> {
     return this.submitInboundLocked(env);
+  }
+
+  /**
+   * Persist a terminal failure for an asynchronous vendor callback that was
+   * already acknowledged. This prevents a rejected download/admission promise
+   * from escaping the adapter boundary and gives diagnostics one durable,
+   * redacted retry classification.
+   */
+  recordInboundFailure(env: InboundEnvelope, errorClass: ErrorClass): ControlReply {
+    const routeId = this.ensureRoute(env);
+    let inbound = this.store.findInboundByKey(routeId, env.adapterMessageKey);
+    if (!inbound) {
+      const inboundId = this.ids.id("in");
+      this.store.insertInbound(
+        {
+          inboundId,
+          adapterMessageKey: env.adapterMessageKey,
+          routeId,
+          bindingRevision: this.store.activeBinding(routeId)?.revision ?? 0,
+          bodyKind: env.bodyKind === "voice" ? "voice" : "text",
+          redactedDigest: digestText(`${env.adapter}:${env.bodyKind}:failed`),
+          state: "rejected",
+        },
+        "",
+        this.clock.now(),
+      );
+      inbound = this.store.getInbound(inboundId);
+    }
+    const retryable = errorClass === "DELIVERY_TRANSIENT" || errorClass === "DSH_UNAVAILABLE";
+    this.store.audit("inbound_processing_failed", {
+      ...(inbound ? { inboundId: inbound.inboundId } : {}),
+      routeId,
+      adapter: env.adapter,
+      bodyKind: env.bodyKind,
+      errorClass,
+      retryable,
+    }, this.clock.now());
+    return this.reject(errorClass, "inbound processing failed");
   }
 
   async claimVoiceInbound(
@@ -1692,7 +1731,7 @@ export class RoutingControlPlane {
     return true;
   }
 
-  private reject(errorClass: string, text: string): ControlReply {
+  private reject(errorClass: ErrorClass, text: string): ControlReply {
     return { kind: "rejected", text, errorClass };
   }
 }

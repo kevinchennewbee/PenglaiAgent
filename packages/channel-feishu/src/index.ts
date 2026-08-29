@@ -397,14 +397,14 @@ export class FeishuAdapter {
     }
     if (parsed.bodyKind === "media") {
       if (!received.file?.fileKey) return { reject: "media" };
-      this.lastEnqueue = this.ingestFile(parsed, received.file);
+      this.trackInboundTask(parsed, this.ingestFile(parsed, received.file));
       return { accepted: true };
     }
     if (parsed.bodyKind === "voice") {
       if (!received.audio || received.audio.durationMs <= 0 || received.audio.durationMs > 180_000) {
         return { reject: "audio" };
       }
-      this.lastEnqueue = Promise.resolve(
+      this.trackInboundTask(parsed, Promise.resolve(
         this.plane.claimVoiceInbound(parsed, {
           mediaRefJson: JSON.stringify({ schema: 1, ...received.audio }),
           durationMs: received.audio.durationMs,
@@ -415,7 +415,7 @@ export class FeishuAdapter {
           this.scheduleVoiceClaim(claim, received.audio!);
         }
         return { kind: "accepted" as const, text: "voice claimed" };
-      });
+      }));
       if (Date.now() - started > 3000) {
         throw new PenglaiError("DELIVERY_TRANSIENT", "feishu handler exceeded 3s");
       }
@@ -432,7 +432,7 @@ export class FeishuAdapter {
     } else {
       this.seen.add(parsed.adapterMessageKey);
     }
-    this.lastEnqueue = this.plane.submitInbound(parsed);
+    this.trackInboundTask(parsed, this.plane.submitInbound(parsed));
     this.fireReaction(parsed.adapterMessageKey, "processing");
     if (Date.now() - started > 3000) {
       throw new PenglaiError("DELIVERY_TRANSIENT", "feishu handler exceeded 3s");
@@ -441,6 +441,24 @@ export class FeishuAdapter {
   }
 
   lastEnqueue: Promise<unknown> | undefined;
+
+  private trackInboundTask(parsed: InboundEnvelope, task: Promise<unknown>): void {
+    this.lastEnqueue = task.catch((error: unknown) => {
+      const errorClass = error instanceof PenglaiError ? error.errorClass : "DELIVERY_TRANSIENT";
+      this.fireReaction(parsed.adapterMessageKey, "error");
+      try {
+        return this.plane.recordInboundFailure(parsed, errorClass);
+      } catch {
+        // A broken persistence layer must not turn an already-acknowledged
+        // vendor callback into an unhandled process-level rejection.
+        return {
+          kind: "rejected" as const,
+          text: "inbound processing failed",
+          errorClass: "DELIVERY_TRANSIENT",
+        };
+      }
+    });
+  }
 
   async pumpOutbox(routeId: string, to: string): Promise<void> {
     if (!to) throw new PenglaiError("SECURITY_POLICY", "vendor reply target required");
@@ -624,33 +642,30 @@ export class FeishuAdapter {
 
   private async ingestFile(parsed: InboundEnvelope, ref: FeishuFileMediaRef) {
     const bytes = await this.downloadMessageResource(ref.messageId, ref.fileKey, ref.messageType === "image" ? "image" : "file", this.voiceAbort.signal);
-    try {
-      parsed.media = await attachDownloadedMedia({
-        store: this.mediaStore,
-        bytes,
-        base: {
-          kind: classifyMedia({
-            bytes,
-            ...(ref.filename ? { filename: ref.filename } : {}),
-            ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
-          }),
-          source: "feishu",
-          sourceMessageId: ref.messageId,
-          sourceResourceId: ref.fileKey,
-          mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
+    parsed.media = await attachDownloadedMedia({
+      store: this.mediaStore,
+      bytes,
+      base: {
+        kind: classifyMedia({
+          bytes,
           ...(ref.filename ? { filename: ref.filename } : {}),
-        },
-        ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
-        ...(this.objectStore ? { objectStore: this.objectStore } : {}),
-      });
-    } catch (error) {
-      return {
-        kind: "rejected" as const,
-        text: error instanceof PenglaiError ? error.message : "media admission failed",
-      };
-    }
+          ...(ref.messageType === "image" ? { mime: "image/png" } : {}),
+        }),
+        source: "feishu",
+        sourceMessageId: ref.messageId,
+        sourceResourceId: ref.fileKey,
+        mime: ref.messageType === "image" ? "image/png" : "application/octet-stream",
+        ...(ref.filename ? { filename: ref.filename } : {}),
+      },
+      ...(this.imageAdmission ? { imageAdmission: this.imageAdmission } : {}),
+      ...(this.objectStore ? { objectStore: this.objectStore } : {}),
+    });
     delete parsed.text;
     const submitted = await this.plane.submitInbound(parsed);
+    if (submitted.kind === "rejected") {
+      const errorClass = submitted.errorClass ?? "INVALID_INPUT";
+      return this.plane.recordInboundFailure(parsed, errorClass);
+    }
     if (submitted.kind === "accepted" && submitted.text === "queued") {
       const routeId = this.plane.ensureRoute(parsed);
       const binding = this.plane.store.activeBinding(routeId);
