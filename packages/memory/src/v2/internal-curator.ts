@@ -1,4 +1,7 @@
-export const INTERNAL_CURATOR_MAX_JOBS = 8;
+import { PENGLAI_RESOURCE_JOB_BUDGETS } from "@penglai/contracts";
+
+export const INTERNAL_CURATOR_MAX_JOBS =
+  PENGLAI_RESOURCE_JOB_BUDGETS["@penglai/memory"].totalJobs;
 export const INTERNAL_CURATOR_TIMEOUT_MS = 45_000;
 export const INTERNAL_CURATOR_SEEN_KEYS = 2_048;
 export const INTERNAL_CURATOR_MAX_ATTEMPTS = 2;

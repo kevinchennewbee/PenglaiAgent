@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { PenglaiError, type ErrorClass } from "@penglai/contracts";
+import {
+  PENGLAI_RESOURCE_JOB_BUDGETS,
+  PenglaiError,
+  type ErrorClass,
+} from "@penglai/contracts";
 import {
   MAX_TTS_TEXT_BYTES,
   MossWorkerEngine,
@@ -116,7 +120,8 @@ export interface MossTtsServiceOptions {
 const OPERATION_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const SOURCE_FINAL_ID = /^[A-Za-z0-9:_-]{8,160}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const MAX_QUEUE = 4;
+const MAX_QUEUE =
+  PENGLAI_RESOURCE_JOB_BUDGETS["@penglai/moss-tts"].totalJobs;
 const DEFAULT_DEADLINE_MS = 10 * 60_000;
 const MAX_DEADLINE_MS = 15 * 60_000;
 

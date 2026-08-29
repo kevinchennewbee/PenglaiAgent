@@ -1,3 +1,7 @@
+import {
+  PENGLAI_RESOURCE_JOB_BUDGETS,
+  type PenglaiResourceJobBudget,
+} from "@penglai/contracts";
 import type { ResourceCounts } from "./profile-tx.js";
 import type { ResourceProbe } from "./remotes.js";
 
@@ -20,6 +24,7 @@ type PressureValues = Record<PressureField, number | null>;
 export interface PluginResourcePressure extends PressureValues {
   id: string;
   measured: boolean;
+  jobBudget: Readonly<PenglaiResourceJobBudget> | null;
   evidence:
     | "service-resource-snapshot"
     | "runtime-evidence-unavailable"
@@ -50,6 +55,14 @@ function safeCount(value: unknown): number | null {
     : null;
 }
 
+function jobBudget(id: string): Readonly<PenglaiResourceJobBudget> | null {
+  return (
+    (PENGLAI_RESOURCE_JOB_BUDGETS as Readonly<
+      Record<string, Readonly<PenglaiResourceJobBudget>>
+    >)[id] ?? null
+  );
+}
+
 function measuredRow(
   id: string,
   snapshot: ResourceCounts,
@@ -60,6 +73,7 @@ function measuredRow(
   return {
     id,
     measured: true,
+    jobBudget: jobBudget(id),
     evidence: "service-resource-snapshot",
     ...values,
   };
@@ -80,6 +94,7 @@ export function buildResourcePressure(
         return {
           id,
           measured: false,
+          jobBudget: jobBudget(id),
           evidence: "resource-probe-failed",
           ...unavailableValues(),
         };
@@ -88,6 +103,7 @@ export function buildResourcePressure(
         return {
           id,
           measured: false,
+          jobBudget: jobBudget(id),
           evidence: "runtime-evidence-unavailable",
           ...unavailableValues(),
         };
@@ -98,6 +114,7 @@ export function buildResourcePressure(
         return {
           id,
           measured: false,
+          jobBudget: jobBudget(id),
           evidence: "resource-probe-failed",
           ...unavailableValues(),
         };

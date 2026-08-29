@@ -309,6 +309,12 @@ window.__ModuleLoader__.load({
         Number.isSafeInteger(value) && value >= 0
           ? String(value)
           : t.centerResourceUnavailable;
+      const pressureValueWithLimit = (value, limit) => {
+        const current = pressureValue(value);
+        return Number.isSafeInteger(limit) && limit >= 0
+          ? `${current} (${t.centerResourceLimit} ${limit})`
+          : current;
+      };
       const cards = cardIds.map((id) => {
         const entry = live.get(id) ?? {};
         const meta = firstParty.get(id);
@@ -642,7 +648,7 @@ window.__ModuleLoader__.load({
                           children: [
                             jsx.jsx("strong", { children: String(row.id ?? "") }),
                             jsx.jsx("span", {
-                              children: `${t.centerResourceActive}: ${pressureValue(row.activeJobs)} · ${t.centerResourceQueued}: ${pressureValue(row.queuedJobs)} · ${t.centerResourceRequests}: ${pressureValue(row.remoteRequests)}`,
+                              children: `${t.centerResourceActive}: ${pressureValueWithLimit(row.activeJobs, row.jobBudget?.activeJobs)} · ${t.centerResourceQueued}: ${pressureValueWithLimit(row.queuedJobs, row.jobBudget?.queuedJobs)} · ${t.centerResourceRequests}: ${pressureValue(row.remoteRequests)}`,
                             }),
                           ],
                         },
@@ -785,6 +791,7 @@ window.__ModuleLoader__.load({
         centerResourceActive: "正在运行",
         centerResourceQueued: "排队",
         centerResourceRequests: "网络请求",
+        centerResourceLimit: "上限",
         centerResourceUnavailable: "暂不可核对",
         cardCenter: "蓬莱插件中心",
         cardCenterHint: "管理本机已签入插件的实际状态。",
@@ -953,6 +960,7 @@ window.__ModuleLoader__.load({
         centerResourceActive: "active",
         centerResourceQueued: "queued",
         centerResourceRequests: "remote requests",
+        centerResourceLimit: "limit",
         centerResourceUnavailable: "not verifiable yet",
         cardCenter: "Penglai Plugin Center",
         cardCenterHint: "Manage actual state of signed local plugins.",

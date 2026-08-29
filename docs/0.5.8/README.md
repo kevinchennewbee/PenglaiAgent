@@ -135,7 +135,9 @@ Allowed work now includes:
   eight-channel registry. Full typed-reference/outage deduplication and official
   DSH permission-label localization remain open.
 - Plugin Center resource diagnostics now separate measured active and queued
-  plugin work. Missing DSH core subagent, tool, Remote-request, and
+  plugin work and read the same exact job-budget contract enforced by each
+  service: ASR one active plus seven queued jobs, TTS one plus three, and
+  Memory one plus seven. Missing DSH core subagent, tool, Remote-request, and
   open-file evidence remains visibly unavailable instead of being reported as
   zero; native pressure/crash evidence remains open.
 - Desktop recovery now keeps the first classified process or health failure as
