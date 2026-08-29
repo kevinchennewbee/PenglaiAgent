@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "snapshotDate": "2026-08-29",
+  "sourceBaseline": {
+    "tag": "dsh-v0.1.2-alpha.1",
+    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "tree": "a712eec535b48badc4fefb4df5176a7002e4280b"
+  },
+  "packagePlane": {
+    "activeProductPin": "0.1.1-rc.2",
+    "state": "BLOCKED_NPM",
+    "forbiddenBeforeReconciliation": [
+      "0.1.2-alpha.1 dependency specifier",
+      "Git dependency",
+      "path or link dependency",
+      "copied upstream build output"
+    ]
+  },
+  "upstreamOwners": {
+    "apiProxySessions": {
+      "removedPackage": "@deepseek-ai/dsh-host-apiproxy",
+      "ownerPackage": "@deepseek-ai/dsh-api-session-controller",
+      "namespace": "ctx.remote.session",
+      "sourcePath": "packages/api/session-controller/src/index.ts",
+      "operations": {
+        "sessions.create": "create",
+        "sessions.models": "modelCatalog",
+        "sessions.selectModel": "selectModel"
+      }
+    },
+    "workspaceRegistry": {
+      "ownerPackage": "@deepseek-ai/dsh-api-workspace-controller",
+      "namespace": "ctx.remote.workspace",
+      "sourcePath": "packages/api/workspace-controller/src/index.ts",
+      "operations": [
+        "create",
+        "rename",
+        "delete",
+        "insertBefore",
+        "insertSessionBefore",
+        "archiveSession",
+        "follow"
+      ]
+    },
+    "settings": {
+      "ownerPackage": "@deepseek-ai/dsh-api-settings-controller",
+      "namespace": "ctx.remote.settings",
+      "sourcePath": "packages/api/settings-controller/src/index.ts",
+      "operations": [
+        "describe",
+        "update",
+        "replace",
+        "mutate",
+        "openSettingsDocument"
+      ]
+    },
+    "clientRuntime": {
+      "removedPackage": "@deepseek-ai/dsh-client-runtime",
+      "confirmedSourceOwners": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller",
+        "@deepseek-ai/dsh-client-store"
+      ],
+      "compositionPackagesRequiringPublishedExportReview": [
+        "@deepseek-ai/dsh-api-gateway",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-cordis-client-runner",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "sourceEvidence": [
+        "packages/api/session-controller/package.json",
+        "packages/api/workspace-controller/package.json",
+        "packages/client/store/package.json",
+        "packages/extensions/cordis-client-runner/package.json"
+      ]
+    }
+  },
+  "observedReferences": {
+    "apiProxy": {
+      "tokens": [
+        "apiProxy",
+        "ApiProxy",
+        "dsh-host-apiproxy"
+      ],
+      "files": {
+        "packages/dsh-bridge/src/bridge.test.ts": 11,
+        "packages/dsh-bridge/src/index.ts": 1,
+        "packages/dsh-bridge/src/plugin.ts": 7,
+        "packages/dsh-bridge/src/r56-file-intake-spike.ts": 1,
+        "packages/im/src/im.test.ts": 1,
+        "packages/im/src/index.ts": 1,
+        "packages/plugin-center/src/onboarding.ts": 1,
+        "scripts/lib/dsh-closure.mjs": 1,
+        "scripts/probe-dsh-u0.mjs": 1
+      }
+    },
+    "clientRuntime": {
+      "tokens": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "files": {
+        "packages/asr/package.json": 1,
+        "packages/budget/package.json": 1,
+        "packages/companion/package.json": 1,
+        "packages/im/package.json": 1,
+        "packages/memory/package.json": 1,
+        "packages/moss-tts/package.json": 1,
+        "packages/office/package.json": 1,
+        "packages/plugin-center/package.json": 1,
+        "scripts/pack-plugins.mjs": 8
+      }
+    },
+    "workspaceRegistry": {
+      "tokens": [
+        "workspaceRegistry"
+      ],
+      "files": {
+        "packages/budget/src/budget.test.ts": 3,
+        "packages/budget/src/index.ts": 4,
+        "packages/budget/src/owner-policy.test.ts": 1,
+        "packages/budget/src/remote.ts": 2,
+        "packages/companion/src/companion.test.ts": 2,
+        "packages/companion/src/index.ts": 6,
+        "packages/context/src/context-runtime.test.ts": 1,
+        "packages/context/src/context.test.ts": 2,
+        "packages/context/src/index.ts": 6,
+        "packages/context/src/remote.ts": 3,
+        "packages/dsh-bridge/src/bridge.test.ts": 4,
+        "packages/dsh-bridge/src/plugin.ts": 2,
+        "packages/im/src/im.test.ts": 1,
+        "packages/im/src/index.ts": 1,
+        "packages/memory/src/index.ts": 10,
+        "packages/memory/src/memory.test.ts": 1,
+        "packages/memory/src/remote.ts": 3,
+        "packages/memory/src/tools.test.ts": 1,
+        "packages/memory/src/tools.ts": 2,
+        "packages/office/src/index.ts": 3,
+        "packages/office/src/production-wiring.test.ts": 1,
+        "packages/office/src/tools.test.ts": 1,
+        "packages/office/src/tools.ts": 2,
+        "packages/plugin-center/src/index.ts": 9,
+        "packages/plugin-center/src/onboarding-remote.ts": 4,
+        "packages/plugin-center/src/onboarding-wizard.test.ts": 2,
+        "packages/plugin-center/src/onboarding.test.ts": 4,
+        "packages/plugin-center/src/onboarding.ts": 4,
+        "scripts/verify-bundled-runtime.mjs": 1
+      }
+    },
+    "settingsProvider": {
+      "tokens": [
+        "ctx.settings"
+      ],
+      "files": {
+        "packages/plugin-center/src/onboarding.ts": 8
+      }
+    }
+  },
+  "clientRuntimePluginManifests": [
+    "packages/asr/package.json",
+    "packages/budget/package.json",
+    "packages/companion/package.json",
+    "packages/im/package.json",
+    "packages/memory/package.json",
+    "packages/moss-tts/package.json",
+    "packages/office/package.json",
+    "packages/plugin-center/package.json"
+  ],
+  "desktopSupervisor": {
+    "state": "CHARACTERIZED_SOURCE_ONLY",
+    "sourceFiles": [
+      "apps/desktop/src/supervisor.ts",
+      "packages/runtime/src/index.ts",
+      "packages/runtime/src/process.ts",
+      "packages/runtime/src/supervisor-policy.ts",
+      "packages/runtime/src/windows-host.ts"
+    ],
+    "testFiles": [
+      "apps/desktop/src/arch.test.ts",
+      "apps/desktop/src/desktop.test.ts",
+      "packages/runtime/src/runtime.test.ts",
+      "packages/runtime/src/supervisor-policy.test.ts",
+      "packages/runtime/src/windows-host.test.ts"
+    ],
+    "contracts": [
+      "owned embedded executable only",
+      "bounded restart budget and backoff",
+      "stop cancels pending restart",
+      "POSIX process-group ownership",
+      "Windows Job Object ownership",
+      "identity-checked stale-process cleanup",
+      "HTTP and required-plugin inventory readiness"
+    ],
+    "remainingEvidence": [
+      "real child-exit and port-loss characterization",
+      "Windows x64 native process-tree proof",
+      "macOS arm64 and x64 installed process-tree proof"
+    ]
+  }
+}

@@ -10,6 +10,7 @@ const SOURCE_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
 const SOURCE_TREE = "a712eec535b48badc4fefb4df5176a7002e4280b";
 const RELEASE_DSH = "0.1.1-rc.2";
 const RETIRED_CHANNEL_GATE = join(ROOT, "scripts/verify-retired-channel-absence.mjs");
+const MIGRATION_INVENTORY_GATE = join(ROOT, "scripts/verify-058-migration-inventory.mjs");
 
 const failures = [];
 
@@ -126,6 +127,19 @@ try {
     ? String(error.stderr).trim()
     : "no diagnostic output";
   fail(`retired channel absence gate failed: ${detail}`);
+}
+
+try {
+  execFileSync(process.execPath, [MIGRATION_INVENTORY_GATE], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+} catch (error) {
+  const detail = error && typeof error === "object" && "stderr" in error
+    ? String(error.stderr).trim()
+    : "no diagnostic output";
+  fail(`migration inventory gate failed: ${detail}`);
 }
 
 if (failures.length > 0) {
