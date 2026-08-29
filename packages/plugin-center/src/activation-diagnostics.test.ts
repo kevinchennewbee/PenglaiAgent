@@ -159,12 +159,18 @@ test("latest transaction diagnostic strips private journal fields", () => {
       }),
     );
     const diagnostic = readPluginTransactionDiagnostic(root);
+    assert.equal(diagnostic?.schema, 2);
+    assert.match(diagnostic?.referenceId ?? "", /^PC-[A-F0-9]{12}$/);
     assert.equal(diagnostic?.failureCode, "PLUGIN_ACTIVATION_TIMEOUT");
     assert.equal(diagnostic?.activation.observations[0]?.phase, "pending");
     assert.equal(diagnostic?.rollback?.finalReadback?.phase, "disabled");
     assert.doesNotMatch(
       JSON.stringify(diagnostic),
       /operation-id|packageSha256|loader stack|observation detail/,
+    );
+    assert.equal(
+      readPluginTransactionDiagnostic(root)?.referenceId,
+      diagnostic?.referenceId,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

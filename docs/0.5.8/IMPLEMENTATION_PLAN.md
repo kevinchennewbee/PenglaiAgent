@@ -750,6 +750,20 @@ outage deduplication. Typed diagnostic references across every plugin lifecycle,
 the single recovery banner, alpha locale integration, and native/installed
 readback remain open.
 
+**Plugin transaction reference source checkpoint, 2026-08-29**
+
+The existing closed Plugin Center activation/rollback diagnostic now includes a
+stable `PC-XXXXXXXXXXXX` reference derived one-way from the private transaction
+identity, plugin identity, and action. The Remote never returns the private
+operation UUID, package digest, paths, loader exception, or observation detail;
+the advanced UI shows only this reference beside the existing closed failure
+code and bounded activation/rollback readback.
+
+This gives one real plugin lifecycle an operator-correlatable user reference
+without parsing an exception or inventing a core outage. Other settings
+lifecycles still need their own typed backend references, and cross-component
+deduplication remains blocked on an authoritative common DSH health signal.
+
 ### P1-08: concurrency amplifies failures but is not proven to be the killer
 
 **Observed symptom**

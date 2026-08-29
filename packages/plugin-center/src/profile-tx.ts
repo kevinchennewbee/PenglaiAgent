@@ -80,7 +80,8 @@ interface PluginActivationTrace {
 }
 
 export interface PluginTransactionDiagnostic {
-  schema: 1;
+  schema: 2;
+  referenceId: string;
   id: string;
   action: ProfileTxResult["action"];
   phase: "staging" | "activating" | "verifying" | "committed" | "rolled_back";
@@ -218,6 +219,9 @@ export function readPluginTransactionDiagnostic(
     const activation = safeTrace(raw.activation);
     const rollback = safeTrace(raw.rollback);
     if (
+      typeof raw.operationId !== "string" ||
+      !raw.operationId ||
+      raw.operationId.length > 256 ||
       typeof raw.id !== "string" ||
       !raw.id ||
       raw.id.length > 160 ||
@@ -232,8 +236,14 @@ export function readPluginTransactionDiagnostic(
     )
       ? (raw.failureCode as NonNullable<TransactionJournal["failureCode"]>)
       : undefined;
+    const referenceId = `PC-${createHash("sha256")
+      .update(`${raw.operationId}\0${raw.id}\0${String(raw.action)}`)
+      .digest("hex")
+      .slice(0, 12)
+      .toUpperCase()}`;
     return {
-      schema: 1,
+      schema: 2,
+      referenceId,
       id: raw.id,
       action: raw.action as ProfileTxResult["action"],
       phase: raw.phase as PluginTransactionDiagnostic["phase"],

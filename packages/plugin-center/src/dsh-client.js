@@ -596,6 +596,17 @@ window.__ModuleLoader__.load({
                                     ],
                                   })
                                 : null,
+                              transaction?.failureCode && transaction?.referenceId
+                                ? jsx.jsxs("div", {
+                                    children: [
+                                      jsx.jsx("dt", { children: t.centerReferenceId }),
+                                      jsx.jsx("dd", {
+                                        "data-penglai-plugin-reference": "1",
+                                        children: String(transaction.referenceId),
+                                      }),
+                                    ],
+                                  })
+                                : null,
                               jsx.jsxs("div", {
                                 children: [
                                   jsx.jsx("dt", { children: t.centerActual }),
@@ -929,6 +940,7 @@ window.__ModuleLoader__.load({
         centerActivationReadback: "最近激活核对",
         centerRollbackReadback: "最近回滚核对",
         centerFailureCode: "稳定失败码",
+        centerReferenceId: "诊断参考号",
         centerTxPending: "核对中",
         centerTxVerified: "已核对",
         centerTxTimedOut: "核对超时",
@@ -1126,6 +1138,7 @@ window.__ModuleLoader__.load({
         centerActivationReadback: "Latest activation readback",
         centerRollbackReadback: "Latest rollback readback",
         centerFailureCode: "Stable failure code",
+        centerReferenceId: "Diagnostic reference",
         centerTxPending: "checking",
         centerTxVerified: "verified",
         centerTxTimedOut: "timed out",
