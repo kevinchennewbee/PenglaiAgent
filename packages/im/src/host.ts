@@ -1177,18 +1177,15 @@ export class PenglaiImHost {
       channelId: channel,
       accountRef,
       code: failure.code,
-      messageZh: failure.message.zh,
-      messageEn: failure.message.en,
       referenceId: failure.referenceId,
-      action: RECOVERY_ACTION_BY_CODE[failure.code],
       at: failure.at,
       ...(transport ? { transport } : {}),
     };
     this.bots.putChannelFailure(recorded);
     return {
       code: recorded.code,
-      action: recorded.action,
-      message: { zh: recorded.messageZh, en: recorded.messageEn },
+      action: RECOVERY_ACTION_BY_CODE[recorded.code],
+      message: failure.message,
       referenceId: recorded.referenceId,
       at: recorded.at,
       ...(recorded.transport ? { transport: recorded.transport } : {}),
