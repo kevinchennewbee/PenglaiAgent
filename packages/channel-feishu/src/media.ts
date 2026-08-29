@@ -19,11 +19,20 @@ export interface FeishuAudioReply {
 export async function inboundFeishuAudioToText(
   buf: Buffer,
   asr: PenglaiAsrClient,
-  opts: { authorized: boolean; claimed: boolean; privateChat: boolean; operationId: string },
+  opts: {
+    authorized: boolean;
+    claimed: boolean;
+    privateChat: boolean;
+    operationId: string;
+    onPhase?: (phase: "validating" | "transcoding" | "transcribing") => void;
+  },
 ): Promise<{ text: string; digest: string; language?: string; emotion?: string }> {
+  opts.onPhase?.("validating");
+  opts.onPhase?.("transcoding");
   const normalized = buf.subarray(0, 4).toString("ascii") === "OggS"
     ? await decodeFeishuOggOpus(buf)
     : normalizeWavMono(buf, 16_000);
+  opts.onPhase?.("transcribing");
   const handle = await asr.stageAudio(normalized.data, {
     source: "im",
     ownerOperation: opts.operationId,

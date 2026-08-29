@@ -682,7 +682,7 @@ export class FeishuAdapter {
       this.plane.failVoiceInbound(claim, "DSH_UNAVAILABLE", true);
       return;
     }
-    this.plane.markVoiceProcessing(claim);
+    this.plane.markVoicePhase(claim, "downloading");
     const operationId = `asr_${createHash("sha256").update(claim.inboundId).digest("hex").slice(0, 32)}`;
     const cancel = () => {
       void this.voice?.asr?.cancelTranscription?.(operationId).catch(() => undefined);
@@ -695,6 +695,7 @@ export class FeishuAdapter {
         claimed: true,
         privateChat: true,
         operationId,
+        onPhase: (phase) => this.plane.markVoicePhase(claim, phase),
       });
       const result = await this.plane.completeVoiceInbound(claim, transcript, transcript.digest);
       if (result.kind === "rejected") {

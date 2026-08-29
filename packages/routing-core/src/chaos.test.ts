@@ -127,7 +127,10 @@ test("voice crash recovery preserves the exact durable ASR context", async () =>
     { text: "恢复语音", language: "zh", emotion: "SURPRISED" },
     "c".repeat(64),
   );
-  assert.equal(first.errorClass, "DSH_UNAVAILABLE");
+  assert.deepEqual(first, { kind: "accepted", text: "queued for recovery" });
+  assert.equal(store.getVoiceJob(claim.inboundId)?.state, "queued");
+  assert.equal(store.pendingVoiceJobs("weixin").length, 0);
+  assert.equal(store.queuedWithoutDshId().length, 1);
   fail = false;
   const recovered = await plane.recoverQueuedInbounds();
   assert.equal(recovered.dispatched, 1);

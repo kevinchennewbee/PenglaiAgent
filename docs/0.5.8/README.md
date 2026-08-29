@@ -109,7 +109,9 @@ Allowed work now includes:
   recovery, the Memory curator's internal no-Session lifecycle, and the IM
   support-truth model that separates bundled source from connection and live
   release evidence; Feishu media failures also retain a closed redacted phase
-  and cause without claiming Owner-live download success.
+  and cause, while voice jobs durably expose downloading, validation,
+  transcoding, transcription, and queued handoff without claiming Owner-live
+  download or ASR success.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

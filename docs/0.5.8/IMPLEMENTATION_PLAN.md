@@ -261,6 +261,27 @@ audio support, so this remains a Penglai channel-plus-ASR pipeline.
   network errors distinct; and
 - prove one real Feishu voice message becomes a real official DSH text Turn.
 
+**Durable phase source checkpoint, 2026-08-29**
+
+The Feishu voice job now persists each Penglai-owned pre-Turn phase as a closed
+state: `downloading`, `validating`, `transcoding`, and `transcribing`. A
+successful official DSH enqueue terminates the preprocessing job as `queued`;
+all active phases remain restart candidates, and the legacy 0.5.7 `processing`
+state remains readable so an upgrade cannot strand existing rows. Phase changes
+also emit a digest-free closed audit record, and illegal skipped or arbitrary
+runtime phase values fail closed.
+
+The transcript and its voice metadata become a `queued` handoff atomically
+before the DSH call. If the process dies or the result is uncertain after that
+point, channel code no longer rewrites the durable input as a terminal voice
+failure; the existing ID-stable queued-inbound recovery path owns the retry and
+checks the official inbox before replay.
+
+Focused persistence, routing, and Feishu fixtures prove the exact phase order
+and terminal state in source. This checkpoint does not prove Feishu resource
+permission, real vendor download, a live ASR model, or an Owner voice message;
+those remain live acceptance work.
+
 ### P0-05: Memory curator pollutes the official subagent list
 
 **Observed symptom**

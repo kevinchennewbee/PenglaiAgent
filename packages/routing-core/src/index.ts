@@ -26,7 +26,13 @@ import {
   isDiagnosticMediaCaption,
   userFacingMediaPrompt,
 } from "@penglai/contracts";
-import { PENDING_MENU_TTL_MS, Store, type StoredPendingMenu, type VoiceJob } from "@penglai/persistence";
+import {
+  PENDING_MENU_TTL_MS,
+  Store,
+  type StoredPendingMenu,
+  type VoiceJob,
+  type VoiceJobState,
+} from "@penglai/persistence";
 import { helpText, parseCommand, versionText, welcomeMenuText } from "./commands.js";
 import {
   commandLocale,
@@ -97,7 +103,7 @@ export interface VoiceInboundClaim {
   adapter: "weixin" | "feishu";
   adapterMessageKey: string;
   duplicate: boolean;
-  state: "claimed" | "processing" | "transcribed" | "retryable" | "failed";
+  state: VoiceJobState;
 }
 
 export interface CompletedVoiceTranscript {
@@ -133,6 +139,15 @@ export const INBOUND_FAILURE_REASONS = [
 ] as const;
 
 export type InboundFailureReason = (typeof INBOUND_FAILURE_REASONS)[number];
+
+export const VOICE_PROCESSING_PHASES = [
+  "downloading",
+  "validating",
+  "transcoding",
+  "transcribing",
+] as const;
+
+export type VoiceProcessingPhase = (typeof VOICE_PROCESSING_PHASES)[number];
 
 export interface InboundFailureDiagnostic {
   phase: InboundFailurePhase;
@@ -583,7 +598,7 @@ export class RoutingControlPlane {
       return this.reject("BINDING_STALE", "voice binding changed before transcription");
     }
     if (inbound.dshMessageId) return { kind: "accepted", text: "duplicate ignored" };
-    if (!new Set(["claimed", "processing", "retryable"]).has(job.state)) {
+    if (!new Set<VoiceJobState>(["claimed", "processing", "transcribing", "retryable"]).has(job.state)) {
       return this.reject("INVALID_INPUT", "voice job is not completable");
     }
     let voice: PenglaiVoiceMetadata;
@@ -607,6 +622,7 @@ export class RoutingControlPlane {
         asrEmotion: voice.emotion,
       });
       this.store.setInboundPayloadAndState(claim.inboundId, text, digestText(text), "queued");
+      this.store.setVoiceJobState(claim.inboundId, "queued", this.clock.now());
     });
     try {
       const result = await this.agent.followup({
@@ -620,14 +636,47 @@ export class RoutingControlPlane {
       this.store.setInboundPayloadAndState(claim.inboundId, text, digestText(text), "queued", result.dshMessageId);
       this.store.audit("voice_inbound_queued", { inboundId: claim.inboundId, routeId: claim.routeId }, this.clock.now());
       return { kind: "accepted", text: "queued" };
-    } catch (err: unknown) {
+    } catch {
       this.store.audit("voice_inbound_write_uncertain", { inboundId: claim.inboundId, routeId: claim.routeId }, this.clock.now());
-      return this.reject("DSH_UNAVAILABLE", err instanceof Error ? err.message : "dsh voice write failed");
+      return { kind: "accepted", text: "queued for recovery" };
     }
   }
 
   markVoiceProcessing(claim: VoiceInboundClaim): void {
     this.store.setVoiceJobState(claim.inboundId, "processing", this.clock.now());
+  }
+
+  markVoicePhase(
+    claim: VoiceInboundClaim,
+    phase: VoiceProcessingPhase,
+  ): void {
+    if (!(VOICE_PROCESSING_PHASES as readonly string[]).includes(phase)) {
+      throw new PenglaiError("STORE_CORRUPT", "VOICE_PROCESSING_PHASE");
+    }
+    const current = this.store.getVoiceJob(claim.inboundId)?.state;
+    const allowed: Record<typeof phase, readonly VoiceJobState[]> = {
+      downloading: [
+        "claimed",
+        "processing",
+        "downloading",
+        "validating",
+        "transcoding",
+        "transcribing",
+        "retryable",
+      ],
+      validating: ["downloading"],
+      transcoding: ["validating"],
+      transcribing: ["validating", "transcoding"],
+    };
+    if (!current || !allowed[phase].includes(current)) {
+      throw new PenglaiError("STORE_CORRUPT", `VOICE_PHASE_TRANSITION:${current ?? "missing"}:${phase}`);
+    }
+    this.store.setVoiceJobState(claim.inboundId, phase, this.clock.now());
+    this.store.audit("voice_processing_phase", {
+      inboundId: claim.inboundId,
+      routeId: claim.routeId,
+      phase,
+    }, this.clock.now());
   }
 
   failVoiceInbound(
