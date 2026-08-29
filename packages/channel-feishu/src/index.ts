@@ -21,7 +21,7 @@ import type {
   VoiceInboundClaim,
 } from "@penglai/routing-core";
 import { doctorFeishu, FEISHU_RECEIVE_EVENT, type FeishuDoctorInput } from "./official.js";
-import { inboundFeishuAudioToText, outboundFeishuNativeAudio } from "./media.js";
+import { FeishuMediaFailure, inboundFeishuAudioToText, outboundFeishuNativeAudio } from "./media.js";
 import { FeishuAppRegistration } from "./registration.js";
 
 export const name = "feishu";
@@ -72,15 +72,6 @@ export interface FeishuFileMediaRef {
   filename?: string;
 }
 
-class FeishuMediaFailure extends PenglaiError {
-  constructor(
-    errorClass: ErrorClass,
-    readonly diagnostic: InboundFailureDiagnostic,
-  ) {
-    super(errorClass, `FEISHU_MEDIA_${diagnostic.phase.toUpperCase().replaceAll("-", "_")}_${diagnostic.reason.toUpperCase().replaceAll("-", "_")}`);
-  }
-}
-
 function errorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== "object") return undefined;
   const row = error as { status?: unknown; response?: { status?: unknown } };
@@ -112,7 +103,7 @@ function resourceRequestFailure(error: unknown): FeishuMediaFailure {
   return new FeishuMediaFailure(failure.errorClass, failure.diagnostic);
 }
 
-function classifyMediaFailure(
+export function classifyMediaFailure(
   error: unknown,
   fallbackPhase: InboundFailurePhase,
 ): { errorClass: ErrorClass; diagnostic: InboundFailureDiagnostic } {
@@ -129,6 +120,14 @@ function classifyMediaFailure(
           ? "client-unavailable"
           : "unknown";
   return { errorClass, diagnostic: { phase: fallbackPhase, reason } };
+}
+
+export function classifyFeishuVoiceFailurePhase(
+  state: VoiceInboundClaim["state"] | undefined,
+): InboundFailurePhase {
+  if (state === "validating" || state === "transcoding") return "resource-validation";
+  if (state === "transcribing") return "transcription";
+  return "resource-request";
 }
 
 export function parseFeishuEvent(raw: {
@@ -702,7 +701,8 @@ export class FeishuAdapter {
         this.plane.failVoiceInbound(claim, result.errorClass ?? "INVALID_INPUT", false);
       }
     } catch (err) {
-      const failure = classifyMediaFailure(err, "transcription");
+      const state = this.plane.store.getVoiceJob(claim.inboundId)?.state;
+      const failure = classifyMediaFailure(err, classifyFeishuVoiceFailurePhase(state));
       const retryable = failure.errorClass === "DELIVERY_TRANSIENT" || failure.errorClass === "DSH_UNAVAILABLE";
       this.plane.failVoiceInbound(claim, failure.errorClass, retryable, failure.diagnostic);
     } finally {

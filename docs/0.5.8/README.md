@@ -110,8 +110,8 @@ Allowed work now includes:
   support-truth model that separates bundled source from connection and live
   release evidence; Feishu media failures also retain a closed redacted phase
   and cause, while voice jobs durably expose downloading, validation,
-  transcoding, transcription, and queued handoff without claiming Owner-live
-  download or ASR success.
+  transcoding, transcription, queued handoff, and typed codec/no-speech/model
+  readiness causes without claiming Owner-live download or ASR success.
 
 The package-integration gate remains closed until `@deepseek-ai/dsh` and every
 required first-party package are published at a mutually compatible exact

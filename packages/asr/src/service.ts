@@ -1,13 +1,6 @@
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, type PenglaiAsrModelState } from "@penglai/contracts";
 
-export type AsrModelState =
-  | "not_installed"
-  | "verifying"
-  | "downloading"
-  | "paused"
-  | "ready"
-  | "corrupt"
-  | "failed";
+export type AsrModelState = PenglaiAsrModelState;
 
 export const ASR_MAX_BYTES = 8 * 1024 * 1024;
 export const ASR_MAX_DURATION_MS = 180_000;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import test from "node:test";
-import type { ModelInput } from "@penglai/contracts";
+import { PenglaiError, type ModelInput } from "@penglai/contracts";
 import { encodeFeishuOggOpus } from "@penglai/audio-codecs";
 import { SeqIds, VirtualClock } from "@penglai/testkit";
 import { Store } from "@penglai/persistence";
@@ -12,9 +12,12 @@ import {
   FEISHU_STATUS_REACTIONS,
   FeishuAdapter,
   classifyFeishuResourceError,
+  classifyFeishuVoiceFailurePhase,
+  classifyMediaFailure,
   parseFeishuEvent,
   parseOfficialReceive,
 } from "./index.js";
+import { FeishuMediaFailure } from "./media.js";
 import { isForbiddenBaseAuth } from "./official.js";
 
 function plane() {
@@ -190,6 +193,113 @@ test("R50-VOICE: feishu inbound wav transcribes and outbound is native audio, no
   assert.equal(audio.opus.subarray(0, 4).toString("ascii"), "OggS");
   assert.match(audio.filename, /\.opus$/);
   assert.equal(released, true);
+});
+
+test("Feishu voice failures retain closed codec, no-speech, and model readiness causes", async () => {
+  const { inboundFeishuAudioToText } = await import("./media.js");
+  const unreachableAsr = {
+    async stageAudio(): Promise<never> { throw new Error("must not stage invalid codec"); },
+    async transcribe(): Promise<never> { throw new Error("must not transcribe invalid codec"); },
+  };
+  await assert.rejects(
+    inboundFeishuAudioToText(Buffer.from("private-invalid-audio"), unreachableAsr, {
+      authorized: true,
+      claimed: true,
+      privateChat: true,
+      operationId: "asr_feishu_invalid_codec",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof FeishuMediaFailure);
+      assert.deepEqual(error.diagnostic, {
+        phase: "resource-validation",
+        reason: "unsupported-codec",
+      });
+      assert.doesNotMatch(error.message, /private-invalid-audio/);
+      return true;
+    },
+  );
+
+  const wav = toneWav();
+  await assert.rejects(
+    inboundFeishuAudioToText(wav, {
+      describeCapability: () => ({ model: "not_installed" }),
+      async stageAudio(): Promise<never> { throw new Error("must not stage without a model"); },
+      async transcribe(): Promise<never> { throw new Error("must not transcribe without a model"); },
+    }, {
+      authorized: true,
+      claimed: true,
+      privateChat: true,
+      operationId: "asr_feishu_model_not_ready",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof FeishuMediaFailure);
+      assert.deepEqual(error.diagnostic, { phase: "transcription", reason: "model-not-ready" });
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    inboundFeishuAudioToText(wav, {
+      describeCapability: () => ({ model: "private-open-state" as never }),
+      async stageAudio(): Promise<never> { throw new Error("must not stage an open model state"); },
+      async transcribe(): Promise<never> { throw new Error("must not transcribe an open model state"); },
+    }, {
+      authorized: true,
+      claimed: true,
+      privateChat: true,
+      operationId: "asr_feishu_open_model_state",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof FeishuMediaFailure);
+      assert.equal(error.errorClass, "STORE_CORRUPT");
+      assert.deepEqual(error.diagnostic, { phase: "transcription", reason: "client-unavailable" });
+      assert.doesNotMatch(error.message, /private-open-state/);
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    inboundFeishuAudioToText(wav, {
+      async stageAudio(data, input) {
+        return {
+          id: "00000000-0000-4000-8000-000000000041",
+          digest: createHash("sha256").update(data).digest("hex"),
+          mediaType: "audio/wav",
+          bytes: data.length,
+          durationMs: 1_000,
+          source: "im",
+          ownerOperation: input.ownerOperation,
+          expiresAt: Date.now() + 60_000,
+        };
+      },
+      async transcribe(handle) {
+        return {
+          handle,
+          draft: { text: "", confirmed: false, noSpeech: true },
+          draftDigest: createHash("sha256").update("").digest("hex"),
+        };
+      },
+    }, {
+      authorized: true,
+      claimed: true,
+      privateChat: true,
+      operationId: "asr_feishu_no_speech",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof FeishuMediaFailure);
+      assert.deepEqual(error.diagnostic, { phase: "transcription", reason: "no-speech" });
+      return true;
+    },
+  );
+
+  assert.deepEqual(
+    classifyMediaFailure(new PenglaiError("DSH_UNAVAILABLE", "private model detail"), "transcription"),
+    { errorClass: "DSH_UNAVAILABLE", diagnostic: { phase: "transcription", reason: "client-unavailable" } },
+  );
+  assert.equal(classifyFeishuVoiceFailurePhase("validating"), "resource-validation");
+  assert.equal(classifyFeishuVoiceFailurePhase("transcoding"), "resource-validation");
+  assert.equal(classifyFeishuVoiceFailurePhase("transcribing"), "transcription");
+  assert.equal(classifyFeishuVoiceFailurePhase("downloading"), "resource-request");
 });
 
 function toneWav(): Buffer {

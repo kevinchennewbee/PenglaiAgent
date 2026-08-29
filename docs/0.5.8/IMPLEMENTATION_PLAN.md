@@ -282,6 +282,21 @@ and terminal state in source. This checkpoint does not prove Feishu resource
 permission, real vendor download, a live ASR model, or an Owner voice message;
 those remain live acceptance work.
 
+**Closed voice-cause source checkpoint, 2026-08-29**
+
+Voice failures now retain the durable phase that actually owned the operation
+instead of assigning every post-download error to transcription. Codec decode
+or normalization rejection is `resource-validation/unsupported-codec`; an ASR
+result that explicitly reports no speech is `transcription/no-speech`; and an
+available capability descriptor whose model state is not `ready` is
+`transcription/model-not-ready`. Other ASR `DSH_UNAVAILABLE` errors remain the
+weaker `client-unavailable` class rather than being guessed from error text.
+
+These values are closed, redacted, and fixture-proven. Duration, cancellation,
+backpressure, and provider-specific distinctions still require equally typed
+signals before they can be strengthened, and no source result substitutes for
+the real Owner voice acceptance case.
+
 ### P0-05: Memory curator pollutes the official subagent list
 
 **Observed symptom**

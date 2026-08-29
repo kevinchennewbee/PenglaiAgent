@@ -1,11 +1,26 @@
 import { createHash } from "node:crypto";
 import {
+  PENGLAI_ASR_MODEL_STATES,
   PenglaiError,
+  type ErrorClass,
   type PenglaiAsrClient,
   type PenglaiMossTtsClient,
   type PenglaiTtsLocale,
 } from "@penglai/contracts";
 import { decodeFeishuOggOpus, encodeFeishuOggOpus, normalizeWavMono } from "@penglai/audio-codecs";
+import type { InboundFailureDiagnostic } from "@penglai/routing-core";
+
+export class FeishuMediaFailure extends PenglaiError {
+  constructor(
+    errorClass: ErrorClass,
+    readonly diagnostic: InboundFailureDiagnostic,
+  ) {
+    super(
+      errorClass,
+      `FEISHU_MEDIA_${diagnostic.phase.toUpperCase().replaceAll("-", "_")}_${diagnostic.reason.toUpperCase().replaceAll("-", "_")}`,
+    );
+  }
+}
 
 export interface FeishuAudioReply {
   msgType: "audio";
@@ -28,11 +43,33 @@ export async function inboundFeishuAudioToText(
   },
 ): Promise<{ text: string; digest: string; language?: string; emotion?: string }> {
   opts.onPhase?.("validating");
-  opts.onPhase?.("transcoding");
-  const normalized = buf.subarray(0, 4).toString("ascii") === "OggS"
-    ? await decodeFeishuOggOpus(buf)
-    : normalizeWavMono(buf, 16_000);
+  let normalized: { data: Buffer };
+  try {
+    opts.onPhase?.("transcoding");
+    normalized = buf.subarray(0, 4).toString("ascii") === "OggS"
+      ? await decodeFeishuOggOpus(buf)
+      : normalizeWavMono(buf, 16_000);
+  } catch (error) {
+    if (error instanceof FeishuMediaFailure) throw error;
+    throw new FeishuMediaFailure(
+      error instanceof PenglaiError ? error.errorClass : "INVALID_INPUT",
+      { phase: "resource-validation", reason: "unsupported-codec" },
+    );
+  }
   opts.onPhase?.("transcribing");
+  const capability = asr.describeCapability?.();
+  if (capability && !(PENGLAI_ASR_MODEL_STATES as readonly string[]).includes(capability.model)) {
+    throw new FeishuMediaFailure("STORE_CORRUPT", {
+      phase: "transcription",
+      reason: "client-unavailable",
+    });
+  }
+  if (capability?.model !== undefined && capability.model !== "ready") {
+    throw new FeishuMediaFailure("DSH_UNAVAILABLE", {
+      phase: "transcription",
+      reason: "model-not-ready",
+    });
+  }
   const handle = await asr.stageAudio(normalized.data, {
     source: "im",
     ownerOperation: opts.operationId,
@@ -43,8 +80,12 @@ export async function inboundFeishuAudioToText(
     claimed: opts.claimed,
     privateChat: opts.privateChat,
   }, opts.operationId);
-  if (result.draft.noSpeech) throw new PenglaiError("INVALID_INPUT", "asr no-speech");
-  if (!result.draft.text.trim()) throw new PenglaiError("INVALID_INPUT", "asr no-speech");
+  if (result.draft.noSpeech || !result.draft.text.trim()) {
+    throw new FeishuMediaFailure("INVALID_INPUT", {
+      phase: "transcription",
+      reason: "no-speech",
+    });
+  }
   return {
     text: result.draft.text.trim(),
     digest: handle.digest,

@@ -600,8 +600,20 @@ export interface PenglaiAsrAudioHandle {
   expiresAt: number;
 }
 
+export const PENGLAI_ASR_MODEL_STATES = [
+  "not_installed",
+  "verifying",
+  "downloading",
+  "paused",
+  "ready",
+  "corrupt",
+  "failed",
+] as const;
+
+export type PenglaiAsrModelState = (typeof PENGLAI_ASR_MODEL_STATES)[number];
+
 export interface PenglaiAsrClient {
-  describeCapability?(): { model: string };
+  describeCapability?(): { model: PenglaiAsrModelState };
   stageAudio(
     buf: Buffer,
     input: {
