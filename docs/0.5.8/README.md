@@ -137,9 +137,12 @@ Allowed work now includes:
 - Plugin Center resource diagnostics now separate measured active and queued
   plugin work and read the same exact job-budget contract enforced by each
   service: ASR one active plus seven queued jobs, TTS one plus three, and
-  Memory one plus seven. Missing DSH core subagent, tool, Remote-request, and
-  open-file evidence remains visibly unavailable instead of being reported as
-  zero; native pressure/crash evidence remains open.
+  Memory one plus seven. A closed backend result distinguishes within-budget,
+  at-limit, over-budget, and unavailable states, and an actual breach is an
+  explicit alert rather than arithmetic left to the user. Missing DSH core
+  subagent, tool, Remote-request, and open-file evidence remains visibly
+  unavailable instead of being reported as zero; native pressure/crash evidence
+  remains open.
 - Desktop recovery now keeps the first classified process or health failure as
   the primary diagnostic so later generic startup/gateway errors cannot replace
   the cause shown, copied, or written to the bounded local startup log.
