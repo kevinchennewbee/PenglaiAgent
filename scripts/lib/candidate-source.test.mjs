@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import "./release-pins-source.test.mjs";
 import { requireCleanCandidateSource } from "./candidate-source.mjs";
 import { gitState } from "./repo.mjs";
 
