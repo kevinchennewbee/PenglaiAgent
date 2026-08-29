@@ -31,7 +31,7 @@
 | `scripts/probe-dsh-contracts.mjs`, `probe-rc2.mjs` | Operator/contract verifier | manual and source gates | Retain rc.2 probe as historical rollback input; add 0.1.2 probe | Yes |
 | `scripts/embed-runtime.mjs`, closure helpers | Release gate | packaged runtime assembly | Migrate package graph only after tarball reconciliation | Yes |
 | `scripts/verify-profile.mjs` | Release gate | profile composition and plugin state | Update for profiles/bundles and exact client fibers | Yes |
-| `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | Map every hunk to alpha.1 slots; retire obsolete patches | Yes |
+| `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | 12 dispositions now cover all files/assets; retire official-route/non-semantic patches and retain only proven narrow gaps after npm readback | Yes |
 | `scripts/verify-bundled-runtime.mjs` | Native/package verifier | packaged DSH closure | Extend for new launcher/profile/auth and exact package graph | Yes |
 | `scripts/e2e-installed*.mjs` | Native installed verifier | installed application | Preserve; update behavior only after packaged skeleton exists | Yes |
 | `packages/release-identity/src/pins.ts` | Authoritative identity source | manifests, runtime, release gates | Keep authority; reduce hand-maintained derived copies | Yes |
@@ -128,7 +128,7 @@ disabled or future platform.
 | `scripts/package-*.mjs`, `assemble-release.mjs` | Release builder | authorized release workflow | No 0.5.8 package/release invocation before Gate P0 |
 | `.github/workflows/native-release-candidate.yml` | Native release gate | GitHub Actions | Protected and byte-identical in source-preparation phase |
 | `.github/workflows/deploy-website.yml` | Public deployment | GitHub Actions | Protected and byte-identical in preview phase |
-| `.github/workflows/source-ci.yml` | Source gate | branch push/PR | Add preview execution and preview invariant check |
+| `.github/workflows/source-ci.yml` | Source gate | branch push/PR | Preview execution and composed preview invariants are active and passing |
 | `docs/0.5.7/**` | Historical/current release truth | public audit | Preserve unchanged except a separately authorized factual erratum |
 | `docs/0.5.8/**` | Preview development truth | current branch | Update with source evidence and work status; never call it release proof |
 | `evidence/**` and local captures | Evidence inputs | target-specific verifiers | Never commit private live data or use stale evidence for 0.5.8 |
@@ -150,7 +150,6 @@ before altering it.
 
 ## Open inventory work
 
-- Enumerate every overlay patch hunk against the alpha.1 slot catalog.
 - Derive the minimum replacement for every inventoried `dsh.client.inject` row
   after the matching published exports can be inspected.
 - Turn the inventoried Session envelope and reconnect expectations into focused
@@ -161,3 +160,8 @@ before altering it.
 
 These open rows block package migration or release claims where relevant. They
 do not block independent preview work already classified above.
+
+The overlay inventory itself is complete in `OVERLAY_TO_SLOT_MAP.json` and is
+enforced by `scripts/verify-058-overlay-map.mjs`. It identifies four source
+gaps rather than assuming every new alpha slot is sufficient: IM voice-row
+projection, hero copy, hero background, and durable TTS message resolution.

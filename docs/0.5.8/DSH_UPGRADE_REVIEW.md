@@ -138,6 +138,17 @@ Penglai consequence:
 - retain a minimal overlay only if a proven product requirement still lacks an
   upstream seam, with a new ADR, digest gate, and regression evidence.
 
+The executable overlay review now maps all four patched files and all five
+brand assets into 12 explicit dispositions. Browser title, brand occupants,
+onboarding suppression, and a Penglai-owned settings composite have source
+routes. HTML/bundle serialization and the patched welcome copy are not product
+requirements. Four narrow source gaps remain: the IM voice row, replaceable
+hero copy, hero background decoration, and an identity-safe way for TTS to
+resolve finalized assistant text. `conversation.chat.node` is deliberately not
+accepted as the voice solution because replacing the complete official user
+renderer would create a new UI fork. These are source findings only; exact
+published package contracts still require reconciliation.
+
 ### 4.4 Session projections and titles
 
 The candidate makes session projection the owner of title, selected model,

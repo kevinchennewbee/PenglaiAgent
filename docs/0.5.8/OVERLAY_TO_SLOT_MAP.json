@@ -1,0 +1,372 @@
+{
+  "schema": 1,
+  "sourceBaseline": {
+    "tag": "dsh-v0.1.2-alpha.1",
+    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "tree": "a712eec535b48badc4fefb4df5176a7002e4280b"
+  },
+  "legacyOverlay": {
+    "dsh": "0.1.1-rc.2",
+    "manifest": "overlays/dsh-0.1.1-rc.2/manifest.json",
+    "manifestSha256": "2ba11dd377bf127e4d9be6cbd5cc8a069b1a4ee10c64f5c5f067932721e72be3",
+    "fileIds": [
+      "web-frontend-index",
+      "welcome-notice",
+      "conversation-hero",
+      "settings-submenu"
+    ],
+    "brandAssets": [
+      "logo-64.png",
+      "logo-256.png",
+      "ink-wash-light.jpg",
+      "ink-wash-dark.jpg",
+      "title.js"
+    ]
+  },
+  "allowedStates": [
+    "DROP_NON_SEMANTIC",
+    "SOURCE_READY",
+    "SOURCE_ROUTE_FOUND_PACKAGE_BUILD_REQUIRED",
+    "SOURCE_ROUTE_FOUND_PACKAGE_API_REQUIRED",
+    "PENGLAI_COMPOSITE_DESIGN_READY",
+    "UPSTREAM_GAP"
+  ],
+  "items": [
+    {
+      "id": "O058-001",
+      "requirement": "Initial and live document titles use the Penglai product name.",
+      "legacy": {
+        "fileIds": ["web-frontend-index"],
+        "brandAssets": ["title.js"],
+        "patchedContains": [
+          "<title>蓬莱 Penglai</title>",
+          "/penglai-brand/title.js"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "apps/web/vite.config.ts",
+          "sha256": "9ef708a4fd0733ad019b982e17d68ba38da1dcd82d5b14f9c856f6bc7731c30b",
+          "symbols": ["DSH_CLIENT_TITLE", "clientDocumentTitle"]
+        },
+        {
+          "path": "packages/client/ui-layout/src/client/DocumentTitle.tsx",
+          "sha256": "dd234858722b519f4032287a5679a1312b28df955dbfe6a92533b90fe642c62b",
+          "symbols": ["DocumentTitle", "productTitle"]
+        }
+      ],
+      "officialRoute": "Build the client with DSH_CLIENT_TITLE and let DocumentTitle project session-title changes.",
+      "state": "SOURCE_ROUTE_FOUND_PACKAGE_BUILD_REQUIRED",
+      "actionNow": "Retire the MutationObserver design; freeze the required build value and title behavior.",
+      "packageGate": "Prove the published package/build tooling can produce the Penglai client title without modifying shipped bytes.",
+      "carryForward": "Do not carry title.js if the published build route is reproducible; otherwise record a new minimal gap instead of silently rebasing it."
+    },
+    {
+      "id": "O058-002",
+      "requirement": "HTML serializer-only changes are not product behavior.",
+      "legacy": {
+        "fileIds": ["web-frontend-index"],
+        "brandAssets": [],
+        "patchedContains": [
+          "<link rel=\"modulepreload\" crossorigin href=\"/assets/vendor-D22_Mp1f.js\" />"
+        ],
+        "upstreamContains": [
+          "<link rel=\"modulepreload\" crossorigin href=\"/assets/vendor-D22_Mp1f.js\">"
+        ]
+      },
+      "alphaSource": [],
+      "officialRoute": "None; preserve the publisher's serialization.",
+      "state": "DROP_NON_SEMANTIC",
+      "actionNow": "Classify self-closing tag and trailing-newline differences as non-requirements.",
+      "packageGate": "None beyond ordinary published-byte verification.",
+      "carryForward": "Drop."
+    },
+    {
+      "id": "O058-003",
+      "requirement": "Penglai mark and name occupy the sidebar and conversation hero without replacing the shell.",
+      "legacy": {
+        "fileIds": [],
+        "brandAssets": ["logo-64.png", "logo-256.png"]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-brand-official/src/client/index.ts",
+          "sha256": "732afbeaf5e9dfaf8b61606d9ffbeff08db02cc6c51aff6e495fd80ec0d939a4",
+          "symbols": ["sidebar.brand.mark", "sidebar.brand.name", "conversation.hero.brand.mark"]
+        },
+        {
+          "path": "packages/client/ui-brand-official/README.md",
+          "sha256": "d731a80a6ebf1ee8e703796826746b01fc273fc07e232a6f7cd53a3370500bc9",
+          "symbols": ["Replacing the brand"]
+        }
+      ],
+      "officialRoute": "Compose the Penglai client plugin into the three official single slots at an explicit shadowing priority.",
+      "state": "SOURCE_READY",
+      "actionNow": "Keep the existing Penglai slot occupants and asset integrity checks; do not copy the official brand plugin.",
+      "packageGate": "Verify the published slot names, priority semantics, asset serving, and ACTIVE client fiber.",
+      "carryForward": "Keep Penglai-owned assets and slot occupants; no built DSH JavaScript patch."
+    },
+    {
+      "id": "O058-004",
+      "requirement": "The Penglai pre-DSH wizard remains the sole first-run disclosure and welcome authority.",
+      "legacy": {
+        "fileIds": ["welcome-notice"],
+        "brandAssets": [],
+        "patchedContains": [
+          "penglai-0.5.7.0",
+          "欢迎使用蓬莱 0.5.7",
+          "Welcome to Penglai 0.5.7"
+        ],
+        "upstreamContains": ["2026-08-13.1"]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-settings-models/src/client/locales.ts",
+          "sha256": "2725351db3dd61288ef835fe51bff2878ae853ef7e4772fa2730bb4ecd5b0ed8",
+          "symbols": ["welcomeTitle", "welcomeBody", "welcomeContinue"]
+        }
+      ],
+      "officialRoute": "Do not show or relabel the official welcome step after Penglai onboarding; shadow/omit the step through composition.",
+      "state": "SOURCE_ROUTE_FOUND_PACKAGE_API_REQUIRED",
+      "actionNow": "Treat the patched Penglai welcome copy as dead compatibility text, not a 0.5.8 requirement.",
+      "packageGate": "Prove the exact published settings.onboarding shadowing/composition behavior.",
+      "carryForward": "Drop the copy patch when O058-005 is proven."
+    },
+    {
+      "id": "O058-005",
+      "requirement": "A completed Penglai wizard suppresses the official internal-testing welcome step without deleting the Models page.",
+      "legacy": {
+        "fileIds": ["welcome-notice"],
+        "brandAssets": [],
+        "upstreamContains": ["id: \"welcome-notice\""],
+        "patchedOmits": ["id: \"welcome-notice\""]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-settings-models/src/client/index.ts",
+          "sha256": "1d81acb4b0b9200f41719da6acd9a6d42ba0248fc81a68bb1769d4405d7e652d",
+          "symbols": ["settings.onboarding", "welcome-notice"]
+        },
+        {
+          "path": "packages/client/ui-settings/src/client/contract/slots.ts",
+          "sha256": "d024adbeb32954821f69029569c8424caa699b8da72a829513431dc5602f4582",
+          "symbols": ["settings.onboarding", "SettingsOnboardingOwnerProps"]
+        }
+      ],
+      "officialRoute": "Shadow the welcome-notice list cell at a distinct priority with a Penglai completion component, or use an equivalent published composition exclusion.",
+      "state": "SOURCE_ROUTE_FOUND_PACKAGE_API_REQUIRED",
+      "actionNow": "Freeze the no-built-file-patch design and its completion semantics.",
+      "packageGate": "Compile and exercise the exact published slot types, winner ordering, completion, remount, and locale behavior.",
+      "carryForward": "No Models bundle patch after the official route passes."
+    },
+    {
+      "id": "O058-006",
+      "requirement": "A completed Penglai wizard suppresses the official DeepSeek credential onboarding step while retaining Models settings.",
+      "legacy": {
+        "fileIds": ["welcome-notice"],
+        "brandAssets": [],
+        "upstreamContains": ["id: \"deepseek-official\""],
+        "patchedOmits": ["id: \"deepseek-official\""]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-settings-models/src/client/index.ts",
+          "sha256": "1d81acb4b0b9200f41719da6acd9a6d42ba0248fc81a68bb1769d4405d7e652d",
+          "symbols": ["settings.onboarding", "deepseek-official"]
+        },
+        {
+          "path": "packages/client/ui-settings/src/client/contract/slots.ts",
+          "sha256": "d024adbeb32954821f69029569c8424caa699b8da72a829513431dc5602f4582",
+          "symbols": ["settings.onboarding", "complete"]
+        }
+      ],
+      "officialRoute": "Shadow the deepseek-official list cell with the same bounded completion policy as O058-005.",
+      "state": "SOURCE_ROUTE_FOUND_PACKAGE_API_REQUIRED",
+      "actionNow": "Keep credential testing in the server-verified Penglai wizard and retain the official Models page for later edits.",
+      "packageGate": "Same published slot and lifecycle proof as O058-005, plus fresh-install and failed-credential recovery.",
+      "carryForward": "No Models bundle patch after the official route passes."
+    },
+    {
+      "id": "O058-007",
+      "requirement": "An admitted IM voice Turn hides Penglai's non-user-authored ASR metadata and shows a durable visible voice row.",
+      "legacy": {
+        "fileIds": ["conversation-hero"],
+        "brandAssets": [],
+        "patchedContains": [
+          "PENGLAI LOCAL ASR METADATA - NOT USER-AUTHORED",
+          "data-penglai-im-voice",
+          "penglaiVisibleVoiceContent",
+          "source: data.source"
+        ],
+        "upstreamContains": [
+          "function UserStyleBubble({ content, renderMessageImages, actions"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-chat/src/client/chat/MessageItem.tsx",
+          "sha256": "20de6aba14a943548862685fd6b4668df59d47dc010df84bda0ab22e1f9769b5",
+          "symbols": ["UserStyleBubble", "UserMessageNodeView"]
+        },
+        {
+          "path": "packages/client/ui-chat/src/client/contract/slots.ts",
+          "sha256": "ab029b5f4bded4bf9d812b8c050abef2f859657ac69ef81ff909e79852e65f55",
+          "symbols": ["conversation.chat.node", "ChatNodeOwnerProps"]
+        }
+      ],
+      "officialRoute": "The alpha source exposes whole-node replacement, but no narrow user-message decoration/body-projection seat.",
+      "state": "UPSTREAM_GAP",
+      "actionNow": "Specify a narrow source-aware user-message extension instead of copying the complete official renderer.",
+      "packageGate": "Recheck published chat slots and generated types; require replay, locale, accessibility, and metadata-redaction tests.",
+      "carryForward": "Only a new minimal exact-gap overlay or an upstream narrow slot may replace this hunk."
+    },
+    {
+      "id": "O058-008",
+      "requirement": "The empty conversation hero uses Penglai-owned Chinese and English headline/badge copy.",
+      "legacy": {
+        "fileIds": ["conversation-hero"],
+        "brandAssets": [],
+        "patchedContains": [
+          "你好，我是蓬莱",
+          "Hi, I am Penglai",
+          "本地桌面助手",
+          "Local desktop assistant"
+        ],
+        "upstreamContains": [
+          "探索未至之境",
+          "Into the Unknown"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-conversation/src/client/locales.ts",
+          "sha256": "7381538e0cf1b31f90c361fa54abf069626f2556c4127412bc8562da6a25fae4",
+          "symbols": ["hero.headline", "hero.preview"]
+        },
+        {
+          "path": "packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx",
+          "sha256": "f80af94effb03b13b7456a6a9e3cb07ef0ea7344b8f7e537b27471b2dfae09f7",
+          "symbols": ["HeroShell", "conversation.hero.brand.mark"]
+        }
+      ],
+      "officialRoute": "The mark is slotted, but headline and badge copy are owned by the non-overridable conversation locale namespace.",
+      "state": "UPSTREAM_GAP",
+      "actionNow": "Request a product-copy/hero-content slot or an officially replaceable brand-copy seat.",
+      "packageGate": "Recheck the published locale and hero contracts before authorizing any residual overlay.",
+      "carryForward": "Do not misuse third-party language registration to overwrite an occupied official namespace."
+    },
+    {
+      "id": "O058-009",
+      "requirement": "The empty hero uses Penglai's light/dark ink-wash background without altering active conversations.",
+      "legacy": {
+        "fileIds": ["conversation-hero"],
+        "brandAssets": ["ink-wash-light.jpg", "ink-wash-dark.jpg"],
+        "patchedContains": [
+          "background-image:url(/penglai-brand/ink-wash-light.jpg)",
+          "background-image:url(/penglai-brand/ink-wash-dark.jpg)"
+        ],
+        "upstreamContains": [
+          ".wSkVaW_root{background:var(--dsw-alias-bg-base)"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css",
+          "sha256": "3420ce493811ab56168f422df8a661642c94ce55d64dc9c5fa17dd326ce4dfb9",
+          "symbols": ["background", "data-phase"]
+        },
+        {
+          "path": "packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css",
+          "sha256": "f5978323c9dbafa3536eb6e2bd3c8ac19902de702a8a3df49108bb6ad3f68b06",
+          "symbols": ["root", "stack"]
+        }
+      ],
+      "officialRoute": "No source-proven hero background/decor slot exists; the composer chain is not yet proof of full-column background ownership.",
+      "state": "UPSTREAM_GAP",
+      "actionNow": "Define the required geometry and dark/light behavior, then seek a narrow hero-decoration seat.",
+      "packageGate": "Recheck published hero/composer slots and run native browser visual acceptance before retaining any patch.",
+      "carryForward": "Assets may remain Penglai-owned; built Conversation CSS may not be rebased without a gap ADR."
+    },
+    {
+      "id": "O058-010",
+      "requirement": "The TTS assistant action receives enough durable information to read the exact finalized assistant message.",
+      "legacy": {
+        "fileIds": ["conversation-hero"],
+        "brandAssets": [],
+        "patchedContains": [
+          "renderSlot(\"conversation.chat.assistant-actions\", { messageId, text: assistantText(closing.blocks) })"
+        ],
+        "upstreamContains": [
+          "renderSlot(\"conversation.chat.assistant-actions\", { messageId })"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx",
+          "sha256": "27f4e55b63781ad92d33efe03a0415298cbc2c4a533020d8ad6a05e0d4a3cbbc",
+          "symbols": ["TurnTailNodeView", "assistantText", "conversation.chat.assistant-actions"]
+        },
+        {
+          "path": "packages/client/ui-chat/src/client/contract/slots.ts",
+          "sha256": "ab029b5f4bded4bf9d812b8c050abef2f859657ac69ef81ff909e79852e65f55",
+          "symbols": ["AssistantActionOwnerProps", "messageId"]
+        }
+      ],
+      "officialRoute": "The alpha slot deliberately carries messageId only; a published official message lookup may remove the need to pass raw text.",
+      "state": "UPSTREAM_GAP",
+      "actionNow": "Design TTS around durable message identity first; request a bounded read face only if published Session APIs cannot resolve it.",
+      "packageGate": "Inspect the exact published Session/chat read surface and prove text identity, interruption behavior, and no cross-session read.",
+      "carryForward": "Do not widen the slot with raw text until the identity-based route is disproven."
+    },
+    {
+      "id": "O058-011",
+      "requirement": "Penglai settings pages appear under one Penglai-owned parent without patching the official settings shell.",
+      "legacy": {
+        "fileIds": ["settings-submenu"],
+        "brandAssets": [],
+        "patchedContains": [
+          "data-settings-parent",
+          "isPenglaiChild",
+          "navChildren",
+          "navCellChild"
+        ],
+        "upstreamContains": [
+          "children: rows.map((row)"
+        ]
+      },
+      "alphaSource": [
+        {
+          "path": "packages/client/ui-settings/src/client/contract/slots.ts",
+          "sha256": "d024adbeb32954821f69029569c8424caa699b8da72a829513431dc5602f4582",
+          "symbols": ["settings.section", "settings.plugins.tab"]
+        },
+        {
+          "path": "packages/client/ui-settings-general/src/client/SettingsRoot.tsx",
+          "sha256": "7993770762ce673e0252cae04f874e02b511496d509fa8054d41fcb247c975a7",
+          "symbols": ["SettingsPanel", "SettingsSectionRow"]
+        }
+      ],
+      "officialRoute": "Keep one penglai-center settings.section entry and let it declare/render a Penglai-owned child list slot for its pages.",
+      "state": "PENGLAI_COMPOSITE_DESIGN_READY",
+      "actionNow": "Characterize current page ownership and prepare a parent-owned child-slot migration; do not teach the official shell about penglai-* ids.",
+      "packageGate": "Compile the custom child declaration against published slot types and prove optional-plugin mount/unmount, ordering, deep-link, and accessibility behavior.",
+      "carryForward": "Drop the SettingsRoot transform after the Penglai composite passes."
+    },
+    {
+      "id": "O058-012",
+      "requirement": "Generated-bundle final-newline changes carry no product semantics.",
+      "legacy": {
+        "fileIds": ["welcome-notice", "conversation-hero"],
+        "brandAssets": [],
+        "patchedContains": ["//# sourceMappingURL=client.js.map"],
+        "upstreamContains": ["//# sourceMappingURL=client.js.map"]
+      },
+      "alphaSource": [],
+      "officialRoute": "None; accept the publisher's generated serialization.",
+      "state": "DROP_NON_SEMANTIC",
+      "actionNow": "Exclude trailing-newline normalization from the migration requirement set.",
+      "packageGate": "None beyond published-byte integrity.",
+      "carryForward": "Drop."
+    }
+  ]
+}
