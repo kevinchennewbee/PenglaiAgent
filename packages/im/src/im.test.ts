@@ -442,6 +442,44 @@ test("weixin QR connected starts receive so the scanner can talk immediately", a
   rt.store.close();
 });
 
+test("Weixin QR protocol failure returns and persists one redacted public cause", async () => {
+  const rt = createRuntime({
+    dbPath: ":memory:",
+    host: {
+      version: "0.1.1-rc.2",
+      getAgent: () => undefined,
+      listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+    },
+  });
+  const host = new PenglaiImHost(
+    rt.store,
+    rt.plane,
+    {
+      health: () => ({ authState: "idle", hasCredential: false }),
+      startQr: async () => {
+        throw new PenglaiError("DELIVERY_TRANSIENT", "BOUNDED_HTTP_MIME");
+      },
+    } as never,
+    { status: "idle", setupRequired: true } as never,
+    new CredentialsServiceVault(undefined),
+    { running: false, start: async () => undefined, stop: () => undefined } as never,
+    {
+      version: "0.1.1-rc.2",
+      getAgent: () => undefined,
+      listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }],
+    },
+  );
+  const result = await host.beginWeixinQr();
+  assert.equal(result.status, "failed");
+  assert.equal("failure" in result && result.failure.code, "CHANNEL_PROTOCOL");
+  assert.equal(JSON.stringify(result).includes("BOUNDED_HTTP_MIME"), false);
+  const overview = await host.getOverview();
+  const failure = overview.channels.find((row) => row.channel === "weixin")?.error;
+  assert.equal(failure?.code, "CHANNEL_PROTOCOL");
+  assert.equal(failure?.referenceId, "failure" in result ? result.failure.referenceId : "");
+  rt.store.close();
+});
+
 test("R2I-ROUTE-001 binding requires official workspace/session", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",

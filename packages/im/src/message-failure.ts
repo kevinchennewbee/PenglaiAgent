@@ -7,6 +7,7 @@ export const MESSAGE_FAILURE_CODES = [
   "CHANNEL_DELIVERY",
   "CHANNEL_DELIVERY_UNCERTAIN",
   "CHANNEL_AUTH",
+  "CHANNEL_PROTOCOL",
   "CHANNEL_NO_QR",
   "INPUT_INVALID",
   "INTERNAL_UNKNOWN",
@@ -43,6 +44,10 @@ const COPY: Record<MessageFailureCode, { zh: string; en: string }> = {
     zh: "凭据无效或已过期。请重新连接。",
     en: "Credentials are invalid or expired. Connect again.",
   },
+  CHANNEL_PROTOCOL: {
+    zh: "平台返回了非预期响应。请记下参考号后重试；若持续出现，请检查网络或平台状态。",
+    en: "The platform returned an unexpected response. Note the reference id and retry; if it persists, check the network or platform status.",
+  },
   CHANNEL_NO_QR: {
     zh: "这个平台没有官方扫码捷径。请按官方 Token / Manifest 步骤连接。",
     en: "This platform has no official QR shortcut. Use the official token or manifest steps.",
@@ -65,6 +70,8 @@ export function classifyMessageFailure(error: unknown): MessageFailure {
   const text = error instanceof Error ? `${error.name}:${error.message}` : String(error ?? "");
   const code: MessageFailureCode = /CHANNEL_NO_QR/.test(text)
     ? "CHANNEL_NO_QR"
+    : /BOUNDED_HTTP_(?:MIME|JSON|EMPTY|TOO_LARGE|DECLARED_LENGTH)/.test(text)
+      ? "CHANNEL_PROTOCOL"
     : /AUTH_EXPIRED|TOKEN_INVALID|credentials missing/.test(text)
       ? "CHANNEL_AUTH"
       : /429|RATE_LIMIT/.test(text)
@@ -106,6 +113,7 @@ export const RECOVERY_ACTION_BY_CODE: Record<MessageFailureCode, string> = {
   CHANNEL_DELIVERY: "retry",
   CHANNEL_DELIVERY_UNCERTAIN: "confirm_manually",
   CHANNEL_AUTH: "reconnect",
+  CHANNEL_PROTOCOL: "check_network_retry",
   CHANNEL_NO_QR: "use_official_token",
   INPUT_INVALID: "fix_input",
   INTERNAL_UNKNOWN: "retry",

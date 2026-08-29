@@ -182,6 +182,7 @@ window.__ModuleLoader__.load({
         statusDegraded: "降级",
         statusExpired: "已过期",
         statusFailed: "失败",
+        connectionFailed: "连接失败。请刷新状态后重试。",
         lastError: "最近错误",
         referenceId: "参考号",
         reconnect: "重连",
@@ -304,6 +305,7 @@ window.__ModuleLoader__.load({
         statusDegraded: "Degraded",
         statusExpired: "Expired",
         statusFailed: "Failed",
+        connectionFailed: "Connection failed. Refresh the status and retry.",
         lastError: "Last error",
         referenceId: "Reference",
         reconnect: "Reconnect",
@@ -437,6 +439,19 @@ window.__ModuleLoader__.load({
       denied: "cancelled",
       cancelled: "cancelled",
     };
+
+    function connectionFailureText(result, t) {
+      const failure = result?.failure;
+      if (!failure) return t.connectionFailed;
+      const english = String(document.documentElement.lang || "zh").startsWith(
+        "en",
+      );
+      const message = english ? failure.message?.en : failure.message?.zh;
+      const reference = String(failure.referenceId || "").trim();
+      return `${message || t.connectionFailed}${
+        reference ? ` (${t.referenceId} ${reference})` : ""
+      }`;
+    }
 
     function unwrapRemote(result) {
       if (result && typeof result === "object" && "ok" in result) {
@@ -836,6 +851,7 @@ window.__ModuleLoader__.load({
         challengeId: "",
         image: "",
         error: "",
+        failure: null,
       });
       const [code, setCode] = React.useState("");
       const mapped = QR_FROM_HOST[qr.status] || (qr.status ? qr.status : "");
@@ -845,16 +861,29 @@ window.__ModuleLoader__.load({
           challengeId: "",
           image: "",
           error: t.connecting,
+          failure: null,
         });
         imCall(remote, connection, "beginWeixinQr")
           .then((started) => {
+            if (started.failure) {
+              setQr({
+                status: "failed",
+                challengeId: "",
+                image: "",
+                error: connectionFailureText(started, t),
+                failure: started.failure,
+              });
+              load();
+              return;
+            }
             setQr({
               status: started.status || "wait",
               challengeId: started.challengeId || "",
               image: qrSrc(started.qrImageRef || started.image),
               error: qrSrc(started.qrImageRef || started.image)
                 ? ""
-                : "qr image missing",
+                : t.connectionFailed,
+              failure: null,
             });
             load();
           })
@@ -863,7 +892,8 @@ window.__ModuleLoader__.load({
               status: "failed",
               challengeId: "",
               image: "",
-              error: String(err && err.message ? err.message : err),
+              error: connectionFailureText(null, t),
+              failure: null,
             }),
           );
       }, [remote, connection, load, t.connecting]);
@@ -884,10 +914,21 @@ window.__ModuleLoader__.load({
             challengeId: qr.challengeId,
           })
             .then((next) => {
+              if (next.failure) {
+                setQr((prev) => ({
+                  ...prev,
+                  status: "failed",
+                  error: connectionFailureText(next, t),
+                  failure: next.failure,
+                }));
+                load();
+                return;
+              }
               setQr((prev) => ({
                 ...prev,
                 status: next.status || prev.status,
                 image: qrSrc(next.qrImageRef || prev.image),
+                failure: null,
               }));
               if (next.status === "connected") load();
             })
@@ -901,11 +942,22 @@ window.__ModuleLoader__.load({
           challengeId: qr.challengeId,
         })
           .then((next) => {
+            if (next.failure) {
+              setQr((prev) => ({
+                ...prev,
+                status: "failed",
+                error: connectionFailureText(next, t),
+                failure: next.failure,
+              }));
+              load();
+              return;
+            }
             setQr((prev) => ({
               ...prev,
               status: next.status || prev.status,
               image: qrSrc(next.qrImageRef || prev.image),
               error: "",
+              failure: null,
             }));
             if (next.status === "connected") load();
           })
@@ -913,7 +965,8 @@ window.__ModuleLoader__.load({
             setQr((prev) => ({
               ...prev,
               status: "failed",
-              error: String(err && err.message ? err.message : err),
+              error: connectionFailureText(null, t),
+              failure: null,
             })),
           );
       };
@@ -924,17 +977,29 @@ window.__ModuleLoader__.load({
           code,
         })
           .then((next) => {
+            if (next.failure) {
+              setQr((prev) => ({
+                ...prev,
+                status: "failed",
+                error: connectionFailureText(next, t),
+                failure: next.failure,
+              }));
+              load();
+              return;
+            }
             setCode("");
             setQr((prev) => ({
               ...prev,
               status: next.status || prev.status,
               error: "",
+              failure: null,
             }));
           })
           .catch((err) =>
             setQr((prev) => ({
               ...prev,
-              error: String(err && err.message ? err.message : err),
+              error: connectionFailureText(null, t),
+              failure: null,
             })),
           );
       };
@@ -946,6 +1011,7 @@ window.__ModuleLoader__.load({
               challengeId: "",
               image: "",
               error: "",
+              failure: null,
             }),
           )
           .catch(() => undefined);
@@ -988,6 +1054,9 @@ window.__ModuleLoader__.load({
           qr.error
             ? jsx.jsx("p", {
                 "data-penglai-im-qr-error": "1",
+                "data-penglai-im-qr-error-code": qr.failure?.code || "",
+                "data-penglai-im-qr-error-reference":
+                  qr.failure?.referenceId || "",
                 children: qr.error,
               })
             : null,
@@ -1050,6 +1119,7 @@ window.__ModuleLoader__.load({
         challengeId: "",
         image: "",
         error: "",
+        failure: null,
       });
       const [draftId, setDraftId] = React.useState(appId || "");
       const [ownerId, setOwnerId] = React.useState("");
@@ -1066,6 +1136,7 @@ window.__ModuleLoader__.load({
           challengeId: "",
           image: "",
           error: t.connectingFeishu,
+          failure: null,
         });
         withTimeout(
           imCall(remote, connection, "beginFeishuQr"),
@@ -1073,12 +1144,24 @@ window.__ModuleLoader__.load({
           t.connectingFeishu,
         )
           .then((started) => {
+            if (started.failure) {
+              setQr({
+                status: "failed",
+                challengeId: "",
+                image: "",
+                error: connectionFailureText(started, t),
+                failure: started.failure,
+              });
+              load();
+              return;
+            }
             const image = qrSrc(started.qrImageRef || started.image);
             setQr({
               status: image ? started.status || "wait" : "failed",
               challengeId: started.challengeId || "",
               image,
-              error: image ? "" : "qr image missing",
+              error: image ? "" : t.connectionFailed,
+              failure: null,
             });
             if (image) load();
           })
@@ -1087,7 +1170,8 @@ window.__ModuleLoader__.load({
               status: "failed",
               challengeId: "",
               image: "",
-              error: String(err && err.message ? err.message : err),
+              error: connectionFailureText(null, t),
+              failure: null,
             }),
           );
       }, [remote, connection, load, t.connectingFeishu]);
@@ -1108,9 +1192,21 @@ window.__ModuleLoader__.load({
             challengeId: qr.challengeId,
           })
             .then((next) => {
+              if (next.failure) {
+                setQr((prev) => ({
+                  ...prev,
+                  status: "failed",
+                  error: connectionFailureText(next, t),
+                  failure: next.failure,
+                }));
+                load();
+                return;
+              }
               setQr((prev) => ({
                 ...prev,
                 status: next.status || prev.status,
+                error: "",
+                failure: null,
               }));
               if (next.status === "confirmed") load();
             })
@@ -1126,6 +1222,7 @@ window.__ModuleLoader__.load({
               challengeId: "",
               image: "",
               error: "",
+              failure: null,
             }),
           )
           .catch(() => undefined);
@@ -1139,9 +1236,7 @@ window.__ModuleLoader__.load({
           ownerOpenId: ownerId.trim() || undefined,
         })
           .then(() => load())
-          .catch((err) =>
-            setDoctor(String(err && err.message ? err.message : err)),
-          );
+          .catch(() => setDoctor(t.connectionFailed));
       };
       const saveOwner = () => {
         imCall(remote, connection, "setFeishuOwner", { openId: ownerId.trim() })
@@ -1149,17 +1244,13 @@ window.__ModuleLoader__.load({
             setOwnerId("");
             return load();
           })
-          .catch((err) =>
-            setDoctor(String(err && err.message ? err.message : err)),
-          );
+          .catch(() => setDoctor(t.connectionFailed));
       };
       const connect = () => {
         imCall(remote, connection, "verifyAndConnectFeishu")
           .then((next) => setDoctor(String(next.connection || "")))
           .then(load)
-          .catch((err) =>
-            setDoctor(String(err && err.message ? err.message : err)),
-          );
+          .catch(() => setDoctor(t.connectionFailed));
       };
       return jsx.jsxs("div", {
         "data-section": "feishu",
@@ -1203,6 +1294,9 @@ window.__ModuleLoader__.load({
           qr.error && !busy
             ? jsx.jsx("p", {
                 "data-penglai-feishu-qr-error": "1",
+                "data-penglai-feishu-qr-error-code": qr.failure?.code || "",
+                "data-penglai-feishu-qr-error-reference":
+                  qr.failure?.referenceId || "",
                 children: qr.error,
               })
             : null,
@@ -1389,6 +1483,7 @@ window.__ModuleLoader__.load({
       const [secret, setSecret] = React.useState("");
       const [secretB, setSecretB] = React.useState("");
       const [error, setError] = React.useState("");
+      const [failure, setFailure] = React.useState(null);
       const [steps, setSteps] = React.useState([]);
       const [scanImage, setScanImage] = React.useState("");
       const [operationId, setOperationId] = React.useState("");
@@ -1398,6 +1493,7 @@ window.__ModuleLoader__.load({
       const lang = String(document.documentElement.lang || "zh").startsWith("en") ? "en" : "zh";
       const begin = (method) => {
         setError("");
+        setFailure(null);
         setConnectionStatus("starting");
         const combined = dual ? [secret, secretB].filter(Boolean).join("\n") : secret;
         const args = {
@@ -1419,6 +1515,13 @@ window.__ModuleLoader__.load({
         Promise.all(proofs)
           .then(() => imCall(remote, connection, "beginChannelConnection", args))
           .then((started) => {
+            if (started.failure) {
+              setConnectionStatus("failed");
+              setFailure(started.failure);
+              setError(connectionFailureText(started, t));
+              load();
+              return;
+            }
             setOperationId(started.operationId || "");
             setSteps((started.steps && started.steps[lang]) || []);
             setScanImage(qrSrc(started.qrImageRef));
@@ -1427,7 +1530,8 @@ window.__ModuleLoader__.load({
           })
           .catch((err) => {
             setConnectionStatus("failed");
-            setError(String(err && err.message ? err.message : err));
+            setFailure(null);
+            setError(connectionFailureText(null, t));
           });
       };
       React.useEffect(() => {
@@ -1443,6 +1547,14 @@ window.__ModuleLoader__.load({
             operationId,
           })
             .then((next) => {
+              if (next.failure) {
+                setOperationId("");
+                setConnectionStatus("failed");
+                setFailure(next.failure);
+                setError(connectionFailureText(next, t));
+                load();
+                return;
+              }
               const image = qrSrc(next.qrImageRef);
               if (image) setScanImage(image);
               setConnectionStatus(String(next.status || "connecting"));
@@ -1451,7 +1563,10 @@ window.__ModuleLoader__.load({
                 load();
               }
             })
-            .catch((err) => setError(String(err && err.message ? err.message : err)));
+            .catch(() => {
+              setFailure(null);
+              setError(connectionFailureText(null, t));
+            });
         }, 3000);
         return () => clearInterval(timer);
       }, [operationId, channel.channel, remote, connection, load]);
@@ -1529,7 +1644,14 @@ window.__ModuleLoader__.load({
               })
             : null,
           error
-            ? jsx.jsx("p", { role: "alert", "data-penglai-im-connect-error": "1", children: error })
+            ? jsx.jsx("p", {
+                role: "alert",
+                "data-penglai-im-connect-error": "1",
+                "data-penglai-im-connect-error-code": failure?.code || "",
+                "data-penglai-im-connect-error-reference":
+                  failure?.referenceId || "",
+                children: error,
+              })
             : null,
           jsx.jsx("button", {
             type: "button",
@@ -1550,7 +1672,10 @@ window.__ModuleLoader__.load({
                       setConnectionStatus("");
                       load();
                     })
-                    .catch((err) => setError(String(err && err.message ? err.message : err))),
+                    .catch(() => {
+                      setFailure(null);
+                      setError(connectionFailureText(null, t));
+                    }),
                 children: t.cancelConnect,
               })
             : null,
@@ -1579,7 +1704,10 @@ window.__ModuleLoader__.load({
                   onClose();
                   load();
                 })
-                .catch((err) => setError(String(err && err.message ? err.message : err))),
+                .catch(() => {
+                  setFailure(null);
+                  setError(connectionFailureText(null, t));
+                }),
             children: t.logout,
           }),
         ],
