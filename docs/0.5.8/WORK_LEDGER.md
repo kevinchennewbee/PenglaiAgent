@@ -94,6 +94,7 @@ use a partial broken push merely to create activity.
 | `9e9a471f030ec26925b2bb4655f71d7d63ecfe34` | persist closed Feishu voice phases and preserve atomic queued recovery across uncertain DSH handoff | branch readback PASS; [Source CI 33249500231](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249500231) PASS |
 | `ae16e12c955a3f1631dc0c67c54174e52812127e` | record the verified durable Feishu voice phase checkpoint in the preview work ledger | branch readback PASS; [Source CI 33249619124](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249619124) PASS |
 | `16c746b4dffd8a6273a22cb6237c3429e4de52c5` | classify phase-owned Feishu voice codec, no-speech, and closed ASR model-readiness failures without parsing error text | branch readback PASS; [Source CI 33250043373](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250043373) PASS |
+| `307dab5655b52e10a4db2ae0fbc1f2cd22770877` | expose closed ASR operational failures and persist invalid Feishu voice duration without parsing error text | branch readback PASS; [Source CI 33250448312](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33250448312) PASS |
 
 ## Publication reconciliation placeholder
 
