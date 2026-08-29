@@ -89,6 +89,7 @@ use a partial broken push merely to create activity.
 | `6d593bc60a827ff9382b6792ffd8ab04cb8347af` | replace ambiguous IM support booleans with separate entry, adapter, bundle, connection, release, and capability evidence across all eight channels | branch readback PASS; [Source CI 33248585975](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33248585975) PASS |
 | `1605e58080ff86392111e52cdf00571cbd2f8b84` | record the verified IM support-truth checkpoint in the preview work ledger | branch readback PASS; [Source CI 33248718019](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33248718019) PASS |
 | `28e3483f658fb2233ef40b0c9bf7f01f52801135` | preserve closed redacted Feishu media failure phases and causes with retry classification | branch readback PASS; [Source CI 33249032154](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249032154) PASS |
+| `9e9a471f030ec26925b2bb4655f71d7d63ecfe34` | persist closed Feishu voice phases and preserve atomic queued recovery across uncertain DSH handoff | branch readback PASS; [Source CI 33249500231](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33249500231) PASS |
 
 ## Publication reconciliation placeholder
 
