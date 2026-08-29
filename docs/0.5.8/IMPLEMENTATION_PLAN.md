@@ -522,9 +522,11 @@ feedback. The control displays raw `read`/`stop`.
 
 **Evidence and current root-cause hypothesis**
 
-The current path waits for complete synthesis/output read and then begins
-playback. It lacks prewarm/streaming-first-audio behavior and does not separate
-queue, model load, synthesis, decode, and playback latency.
+The prior path waited for complete synthesis/output read and then began
+playback. The shipped MOSS runtime exposed a real `warmup()` lifecycle, but the
+Penglai worker never invoked it, so session creation and warmup were paid only
+after the first user request. The path still does not stream playable audio to
+the renderer or separate every native latency boundary.
 
 **0.5.8 action**
 
@@ -557,8 +559,25 @@ Source-visible measurements now separate click/request time, complete-WAV
 response time, engine first-chunk latency, total synthesis time, and accepted
 playback-start time. They are diagnostic boundaries, not proof of the first
 audible sample. The current Remote still waits for complete synthesis and WAV
-readback, so segmentation/streaming, safe prewarm, a native-device latency
-budget, and installed first-sound measurements remain open.
+readback, so segmentation/streaming, a native-device latency budget, and
+installed first-sound measurements remain open.
+
+**TTS model prewarm source checkpoint, 2026-08-29**
+
+The MOSS worker now calls the attributed runtime's real `warmup()` after its
+verified model manifest and ONNX sessions are configured. Successful explicit
+model download/import awaits that one lifecycle before returning; synthesis
+also awaits it as a cold-start fallback after application restart. Concurrent
+callers share the same worker preparation, and synthesis admission is checked
+again after it completes.
+
+Warmup failure never promotes a half-initialized worker to ready: the engine is
+disposed, the service retains only the independently verified model state, and
+the next synthesis creates a clean engine and retries. Focused source tests
+prove activation-before-synthesis order, one warmup per retained engine, and
+clean retry. This reduces an identified source-owned first-request cost; it is
+not native first-sound latency evidence and does not make the complete-WAV
+Remote a streaming interface.
 
 ### P1-04: connection actions hide the result and lack immediate feedback
 

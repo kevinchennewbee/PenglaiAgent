@@ -163,8 +163,6 @@ before altering it.
 - Turn the inventoried Session envelope and reconnect expectations into focused
   migration tests when the generated Remote clients are published.
 - Record the exact packaged process tree on Windows and both macOS targets.
-- Design auxiliary model-call accounting against the optional Budget plugin
-  without creating an Agent, Session, or visible Job.
 
 These open rows block package migration or release claims where relevant. They
 do not block independent preview work already classified above.
