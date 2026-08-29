@@ -1,30 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { OwnerApprovalBroker } from "@penglai/runtime";
 import { CHANNEL_IDS, LIVE_CHANNEL_IDS, refuseFakeQr } from "./registry.js";
 import { assertLiveSend, guidedAdapter } from "./channel-adapter.js";
 import { createRuntime } from "./index.js";
 import { PenglaiImHost } from "./host.js";
 import { CredentialsServiceVault } from "./credentials-vault.js";
-import { IM_OWNER_ACTIONS } from "./owner.js";
 
 test("non-live channels refuse send and never mint a fake QR", async () => {
   for (const id of CHANNEL_IDS) {
     if ((LIVE_CHANNEL_IDS as readonly string[]).includes(id)) continue;
     const adapter = guidedAdapter(id);
     assert.equal(adapter.id, id);
-    if (adapter.manifest().connectionMethods.length === 0) {
-      await assert.rejects(
-        () => adapter.beginConnection({ method: "device-link", riskAck: true }),
-        /CHANNEL_METHOD_UNSUPPORTED/,
-      );
-      continue;
-    }
     const method = adapter.manifest().connectionMethods.find((row) => row !== "qr") ?? adapter.manifest().connectionMethods[0]!;
-    const begun = await adapter.beginConnection({ method, riskAck: true });
+    const begun = await adapter.beginConnection({ method });
     assert.equal(begun.kind, method === "manual-fallback" ? "manual-fallback" : method);
     assert.equal(begun.live, false);
     const health = await adapter.health();
@@ -121,41 +109,5 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
   rt.store.putAdapterConfig("cfg:telegram", "telegram", JSON.stringify({ enabled: true, updateOffset: 42 }));
   await host.restoreChannelAdapters();
   assert.equal(telegram.getUpdateOffset(), 42);
-  rt.store.close();
-});
-
-test("WhatsApp API fails closed before owner approval because runtime is not bundled", async () => {
-  const rt = createRuntime({
-    dbPath: ":memory:",
-    host: { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
-  });
-  const owner = new OwnerApprovalBroker(mkdtempSync(join(tmpdir(), "penglai-im-whatsapp-owner-")), {
-    dialog: async () => "approved",
-  });
-  const host = new PenglaiImHost(
-    rt.store,
-    rt.plane,
-    { health: () => ({ authState: "idle", hasCredential: false }) } as never,
-    { status: "idle", setupRequired: true } as never,
-    new CredentialsServiceVault(undefined),
-    { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.1-rc.2", getAgent: () => undefined, listWorkspaces: () => [] },
-  );
-  host.attachOwner(owner);
-
-  const risk = host.proposeBinding({ action: IM_OWNER_ACTIONS.acknowledgeRisk, objectId: "whatsapp" });
-  const approvedRisk = await owner.requestOwnerApproval(risk.actionId);
-  assert.equal(approvedRisk.decision, "approved");
-  await assert.rejects(
-    () => host.beginChannelConnection({
-      channel: "whatsapp",
-      method: "device-link",
-      riskAck: true,
-      riskOwnerActionId: risk.actionId,
-      riskReceipt: approvedRisk.decision === "approved" ? approvedRisk.receipt : "",
-    }),
-    /CHANNEL_RUNTIME_NOT_BUNDLED:whatsapp/,
-  );
-  assert.equal(owner.inspect(risk.actionId).state, "approved");
   rt.store.close();
 });

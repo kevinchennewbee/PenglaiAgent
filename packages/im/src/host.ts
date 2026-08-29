@@ -16,7 +16,6 @@ import {
   CHANNEL_CREDENTIAL_REFS,
   FEISHU_SECRET_REF,
   WEIXIN_TOKEN_REF,
-  WHATSAPP_DATAKEY_REF,
   assertOfficialCredentialRef,
   type CredentialsServiceVault,
 } from "./credentials-vault.js";
@@ -57,8 +56,6 @@ import {
 export type ChannelName = ChannelId;
 export type { ConnectionState };
 
-const WHATSAPP_RISK_ACK_VERSION = "0.5.7-runtime-not-bundled";
-
 export interface ChannelState {
   channel: ChannelId;
   enabled: boolean;
@@ -69,7 +66,6 @@ export interface ChannelState {
   pendingOutbox: number;
   revision: number;
   live: boolean;
-  risk: ChannelManifestV1["risk"];
   supportLevel: ChannelManifestV1["supportLevel"];
   connectionMethods: ChannelManifestV1["connectionMethods"];
   error?: {
@@ -830,7 +826,6 @@ export class PenglaiImHost {
       pendingOutbox,
       revision: this.revision,
       live: true,
-      risk: manifest.risk,
       supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
     };
@@ -851,7 +846,6 @@ export class PenglaiImHost {
       pendingOutbox: 0,
       revision: this.revision,
       live: manifest.live,
-      risk: manifest.risk,
       supportLevel: manifest.supportLevel,
       connectionMethods: manifest.connectionMethods,
       ...(failure
@@ -872,15 +866,14 @@ export class PenglaiImHost {
     return listChannelManifests();
   }
 
-  beginGuidedConnection(input: { channel: string; method: string; riskAck?: boolean }): GuidedConnectionState {
+  beginGuidedConnection(input: { channel: string; method: string }): GuidedConnectionState {
     return beginGuidedConnection({
       channel: input.channel,
       method: input.method,
-      ...(input.riskAck ? { riskAck: true } : {}),
     });
   }
 
-  createBot(input: { channelId: string; displayName: string; riskAck?: boolean }) {
+  createBot(input: { channelId: string; displayName: string }) {
     const id = requireChannelId(input.channelId);
     if (!getChannelManifest(id).live) {
       throw new PenglaiError("DSH_UNAVAILABLE", `CHANNEL_RUNTIME_NOT_BUNDLED:${id}`);
@@ -888,16 +881,11 @@ export class PenglaiImHost {
     return this.bots.create({
       channelId: id,
       displayName: input.displayName,
-      ...(input.riskAck ? { riskAck: true } : {}),
     });
   }
 
   listBots(input: { channelId?: string } = {}) {
     return this.bots.list(input.channelId);
-  }
-
-  acknowledgeChannelRisk(input: { botId: string }) {
-    return this.bots.acknowledgeRisk(input.botId);
   }
 
   removeBot(input: { botId: string }) {
@@ -948,12 +936,9 @@ export class PenglaiImHost {
   async beginChannelConnection(input: {
     channel: string;
     method: string;
-    riskAck?: boolean;
     secret?: string;
     ownerActionId?: string;
     receipt?: string;
-    riskOwnerActionId?: string;
-    riskReceipt?: string;
   }): Promise<ConnectionResult & { steps: { en: string[]; zh: string[] }; docsUrl: string; qrImageRef?: string }> {
     const id = requireChannelId(input.channel);
     if (isLiveChannel(id)) throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
@@ -972,37 +957,20 @@ export class PenglaiImHost {
     const guided = beginGuidedConnection({
       channel: id,
       method: input.method,
-      ...(input.riskAck ? { riskAck: true } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
-    // Risk acknowledgement is authority for the first external side effect:
-    // creating a WhatsApp device-link and revealing its QR. Reserve it before
-    // the adapter starts, not after the QR/network operation has already run.
-    const finishRisk = id === "whatsapp" && input.riskAck
-      ? this.consumeChannelOwner({
-          action: IM_OWNER_ACTIONS.acknowledgeRisk,
-          channel: id,
-          ...(input.riskOwnerActionId ? { ownerActionId: input.riskOwnerActionId } : {}),
-          ...(input.riskReceipt ? { receipt: input.riskReceipt } : {}),
-        })
-      : () => undefined;
     let result: ConnectionResult;
     try {
       result = await adapter.beginConnection({
         method: input.method,
         credentialRef: CHANNEL_CREDENTIAL_REFS[id],
-        ...(input.riskAck ? { riskAck: true } : {}),
       });
     } catch (error) {
       this.recordChannelFailure(id, channelConfigAccountId(id), error);
       throw error;
     }
-    this.persistChannelFlag(id, true, id === "whatsapp" && input.riskAck ? {
-      riskAckVersion: WHATSAPP_RISK_ACK_VERSION,
-      riskAckAt: Date.now(),
-    } : undefined);
+    this.persistChannelFlag(id, true);
     this.revision += 1;
-    finishRisk();
     const qrImageRef = await encodePeekedQr(adapter.peekQr?.(result.operationId));
     return {
       ...result,
@@ -1079,11 +1047,9 @@ export class PenglaiImHost {
       ...(input.receipt ? { receipt: input.receipt } : {}),
     });
     const adapter = requireAdapter(this.adapters, id);
-    // deleteCredentials owns the adapter-specific logout/wipe operation. Do
-    // not call logout twice (WhatsApp otherwise races two session wipes).
+    // deleteCredentials owns the adapter-specific logout/wipe operation.
     await adapter.deleteCredentials();
     await this.vault.delete(CHANNEL_CREDENTIAL_REFS[id]);
-    if (id === "whatsapp") await this.vault.delete(WHATSAPP_DATAKEY_REF);
     this.persistChannelFlag(id, false);
     this.revision += 1;
     finishOwnerAction();
@@ -1143,21 +1109,19 @@ export class PenglaiImHost {
         continue;
       }
       const raw = this.store.getAdapterConfig(accountId) ?? this.store.getAdapterConfig(legacyDefaultAccountId(id));
-      let parsed: { enabled?: boolean; riskAckVersion?: string } = {};
+      let parsed: { enabled?: boolean } = {};
       try {
-        parsed = raw ? (JSON.parse(raw) as { enabled?: boolean; riskAckVersion?: string }) : {};
+        parsed = raw ? (JSON.parse(raw) as { enabled?: boolean }) : {};
       } catch (error) {
         this.recordChannelFailure(id, accountId, error);
         parsed = {};
       }
       if (!parsed.enabled) continue;
-      if (id === "whatsapp" && parsed.riskAckVersion !== WHATSAPP_RISK_ACK_VERSION) continue;
       try {
         adapter.restorePersistedState?.(parsed);
         await adapter.beginConnection({
           method: restoreMethod(id),
           credentialRef: CHANNEL_CREDENTIAL_REFS[id],
-          ...(id === "whatsapp" ? { riskAck: true } : {}),
         });
       } catch (error) {
         this.recordChannelFailure(id, accountId, error);

@@ -65,7 +65,6 @@ export interface ChannelAdapter {
   disable(): Promise<void>;
   beginConnection(input: {
     method: string;
-    riskAck?: boolean;
     credentialRef?: string;
   }): Promise<ConnectionResult>;
   pollConnection(operationId: string): Promise<{ status: ConnectionState; accountRedacted?: string }>;
@@ -130,9 +129,6 @@ export function guidedAdapter(id: ChannelId): ChannelAdapter {
       connection = "disabled";
     },
     async beginConnection(input) {
-      if (manifest.risk === "community-protocol" && input.riskAck !== true) {
-        throw new PenglaiError("SECURITY_POLICY", "CHANNEL_RISK_ACK");
-      }
       await this.enable();
       connection = "connecting";
       return connectionResultForMethod(id, input.method);

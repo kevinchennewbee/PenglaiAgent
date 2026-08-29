@@ -304,8 +304,12 @@ const PINNED_LIBOPUS_WASM = "0.2.0";
 const LIBOPUS_WASM = "libopus-wasm";
 const PINNED_PPTFAST = "0.20.0";
 const PPTFAST = "@liustack/pptfast";
-const BAILEYS = "@whiskeysockets/baileys";
-const LIBSIGNAL = "libsignal";
+const RETIRED_RUNTIME_PACKAGES = [
+  "@penglai/channel-whatsapp",
+  "@whiskeysockets/baileys",
+  "libsignal",
+  "whatsapp-rust-bridge",
+];
 const AXIOS = "axios";
 const FORM_DATA = "form-data";
 const AWS_S3_CLIENT = "@aws-sdk/client-s3";
@@ -993,8 +997,8 @@ for (const p of packs) {
     if (reportUnexecutableDynamicRequire(p.id, hostJs, metafile)) process.exit(1);
     vendorLarkSdk(stage);
   }
-  if (p.id === "@penglai/im" && (hostJs.includes(BAILEYS) || hostJs.includes(LIBSIGNAL))) {
-    console.error(p.id, "must not bundle the WhatsApp community runtime in 0.5.7");
+  if (p.id === "@penglai/im" && RETIRED_RUNTIME_PACKAGES.some((name) => hostJs.includes(name))) {
+    console.error(p.id, "must not bundle a retired channel runtime");
     process.exit(1);
   }
   if (vendorQr) {
@@ -1124,10 +1128,9 @@ for (const p of packs) {
   }
   if (
     p.id === "@penglai/im" &&
-    (existsSync(join(stage, "node_modules", ...BAILEYS.split("/"))) ||
-      existsSync(join(stage, "node_modules", LIBSIGNAL)))
+    RETIRED_RUNTIME_PACKAGES.some((name) => existsSync(join(stage, "node_modules", ...name.split("/"))))
   ) {
-    console.error(p.id, "staging contains the forbidden WhatsApp community runtime");
+    console.error(p.id, "staging contains a retired channel runtime");
     process.exit(1);
   }
   const pkg = {

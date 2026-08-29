@@ -9,7 +9,6 @@ export const CHANNEL_IDS = [
   "slack",
   "telegram",
   "discord",
-  "whatsapp",
 ] as const;
 
 export type ChannelId = (typeof CHANNEL_IDS)[number];
@@ -35,7 +34,6 @@ export interface ChannelManifestV1 {
     groups: boolean;
   };
   limits: { textChars: number; fileBytes: number; requestsPerMinute: number };
-  risk: "official" | "community-protocol";
   supportLevel: SupportLevel;
   defaultEnabled: boolean;
   live: boolean;
@@ -64,7 +62,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["qr", "device-link"],
     capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -76,7 +73,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["qr", "manifest"],
     capabilities: { ...TEXT_ONLY, image: true, file: true, audio: true, markdown: true },
     limits: { textChars: 8000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -88,7 +84,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["qr", "oauth", "manifest"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -100,7 +95,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["qr", "oauth", "manifest"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -112,7 +106,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["qr", "oauth", "token"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -124,7 +117,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["oauth", "manifest", "token"],
     capabilities: { ...TEXT_ONLY, markdown: true, threads: false },
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -136,7 +128,6 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["token"],
     capabilities: TEXT_ONLY,
     limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
@@ -148,23 +139,10 @@ export const CHANNEL_MANIFESTS: Record<ChannelId, ChannelManifestV1> = {
     connectionMethods: ["token"],
     capabilities: { ...TEXT_ONLY, markdown: true },
     limits: { textChars: 2000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 20 },
-    risk: "official",
     supportLevel: "ga",
     defaultEnabled: false,
     live: true,
     docsUrl: "https://discord.com/developers/docs/quick-start/getting-started",
-  }),
-  whatsapp: manifest({
-    id: "whatsapp",
-    displayName: { en: "WhatsApp", zh: "WhatsApp" },
-    connectionMethods: [],
-    capabilities: { ...TEXT_ONLY, text: false },
-    limits: { textChars: 4000, fileBytes: 8 * 1024 * 1024, requestsPerMinute: 10 },
-    risk: "community-protocol",
-    supportLevel: "experimental",
-    defaultEnabled: false,
-    live: false,
-    docsUrl: "https://developers.facebook.com/docs/whatsapp",
   }),
 };
 
@@ -224,9 +202,5 @@ export const GUIDED_STEPS: Record<ChannelId, { en: string[]; zh: string[] }> = {
   discord: {
     en: ["Open the Discord Developer Portal.", "Create a bot with the minimum intents.", "Paste the bot token into Vault. There is no QR shortcut."],
     zh: ["打开 Discord Developer Portal。", "用最小 intents 创建 Bot。", "把 Bot Token 写入保险库。没有二维码捷径。"],
-  },
-  whatsapp: {
-    en: ["The WhatsApp community runtime is not bundled in Penglai 0.5.7.", "No device link or QR is available in this release."],
-    zh: ["蓬莱 0.5.7 不捆绑 WhatsApp 社区协议 runtime。", "本版本不提供设备绑定或二维码。"],
   },
 };

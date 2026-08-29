@@ -8,7 +8,6 @@ export const CHANNEL_STATUS_REACTIONS: Record<string, { processing: string; succ
   slack: { processing: "eyes", success: "white_check_mark", error: "x" },
   telegram: { processing: "👀", success: "👍", error: "👎" },
   discord: { processing: "👀", success: "✅", error: "❌" },
-  whatsapp: { processing: "👀", success: "✅", error: "❌" },
   feishu: { processing: "ONIT", success: "OK", error: "Disappointed" },
 };
 

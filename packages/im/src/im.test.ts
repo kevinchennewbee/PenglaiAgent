@@ -532,7 +532,7 @@ test("R2I-UI-001 client registers Messaging page sections", () => {
   const c = contribute();
   assert.equal(c.slot, "settings.section");
   assert.equal(c.title, "消息连接");
-  assert.deepEqual(c.sections, ["微信", "飞书", "钉钉", "企业微信", "QQ", "Slack", "Telegram", "Discord", "WhatsApp", "高级"]);
+  assert.deepEqual(c.sections, ["微信", "飞书", "钉钉", "企业微信", "QQ", "Slack", "Telegram", "Discord", "高级"]);
 });
 
 test("R2I-CRED-007 IM credential refs are official POSIX identifiers and vault rejects invalid refs", async () => {

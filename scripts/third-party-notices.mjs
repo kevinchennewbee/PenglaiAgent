@@ -59,11 +59,6 @@ Messaging protocol and SDK references
 - Lark Node SDK ${dependency(feishu, "@larksuiteoapi/node-sdk")} - MIT; commit
   f54b49f3566c52b54c598194b7ed3015e3e24224:
   https://github.com/larksuite/node-sdk
-- WhatsApp community runtime distribution decision: Penglai 0.5.7 does not
-  bundle @whiskeysockets/baileys 7.0.0-rc14 or its GPL-3.0 libsignal 6.0.0
-  dependency. The source-only development reference is excluded from the
-  production dependency inventory and every packaged IM artifact.
-
 Penglai Office
 --------------
 

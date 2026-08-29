@@ -89,7 +89,6 @@ window.__ModuleLoader__.load({
       "beginGuidedConnection",
       "createBot",
       "listBots",
-      "acknowledgeChannelRisk",
       "removeBot",
       "storeChannelSecret",
       "beginChannelConnection",
@@ -136,7 +135,6 @@ window.__ModuleLoader__.load({
         "beginGuidedConnection",
         "createBot",
         "listBots",
-        "acknowledgeChannelRisk",
         "removeBot",
         "storeChannelSecret",
         "beginChannelConnection",
@@ -165,8 +163,6 @@ window.__ModuleLoader__.load({
         manage: "管理",
         close: "关闭",
         experimental: "实验性",
-        runtimeNotBundled: "0.5.7 未捆绑 WhatsApp runtime；本版本不提供设备绑定。",
-        unavailable: "本版本不可用",
         pasteToken: "粘贴官方 Token",
         pasteCreds: "粘贴凭据",
         saveConnect: "保存并连接",
@@ -174,9 +170,7 @@ window.__ModuleLoader__.load({
         refreshQr: "重新生成二维码",
         cancelConnect: "取消本次连接",
         scanWaiting: "二维码已生成，等待扫码",
-        riskAck: "我已了解账号风险，仍要启用 WhatsApp",
         noQr: "该平台没有二维码捷径。请按官方 Bot / OAuth / Token 步骤连接。",
-        whatsappRisk: "WhatsApp 使用社区协议，默认关闭，存在账号风险。这不是官方 Cloud API。",
         tokenHint: "凭据只写入本机保险库，界面不会回显。",
         scanOfficial: "请用官方应用扫码。",
         statusDisconnected: "未连接",
@@ -291,8 +285,6 @@ window.__ModuleLoader__.load({
         manage: "Manage",
         close: "Close",
         experimental: "Experimental",
-        runtimeNotBundled: "The WhatsApp runtime is not bundled in 0.5.7; device linking is unavailable.",
-        unavailable: "Unavailable in this release",
         pasteToken: "Paste the official token",
         pasteCreds: "Paste credentials",
         saveConnect: "Save and connect",
@@ -300,9 +292,7 @@ window.__ModuleLoader__.load({
         refreshQr: "Generate a new QR code",
         cancelConnect: "Cancel this connection",
         scanWaiting: "QR code ready; waiting for scan",
-        riskAck: "I understand the account risk and still want to enable WhatsApp",
         noQr: "This platform has no QR shortcut. Use the official bot, OAuth, or token steps.",
-        whatsappRisk: "WhatsApp uses a community protocol, stays off by default, and carries account risk. This is not the official Cloud API.",
         tokenHint: "Credentials are written only to the local vault and are never echoed.",
         scanOfficial: "Scan with the official app.",
         statusDisconnected: "Not connected",
@@ -1338,7 +1328,6 @@ window.__ModuleLoader__.load({
       const usesToken = methods.includes("token") || methods.includes("oauth") || methods.includes("manifest");
       const [secret, setSecret] = React.useState("");
       const [secretB, setSecretB] = React.useState("");
-      const [riskAck, setRiskAck] = React.useState(false);
       const [error, setError] = React.useState("");
       const [steps, setSteps] = React.useState([]);
       const [scanImage, setScanImage] = React.useState("");
@@ -1354,7 +1343,6 @@ window.__ModuleLoader__.load({
         const args = {
           channel: channel.channel,
           method,
-          ...(channel.risk === "community-protocol" ? { riskAck } : {}),
           ...(combined ? { secret: combined } : {}),
         };
         setSecret("");
@@ -1365,14 +1353,6 @@ window.__ModuleLoader__.load({
             ownerApprove(remote, connection, "im.saveCredentials", channel.channel).then((proof) => {
               args.ownerActionId = proof.ownerActionId;
               args.receipt = proof.receipt;
-            }),
-          );
-        }
-        if (channel.risk === "community-protocol") {
-          proofs.push(
-            ownerApprove(remote, connection, "im.acknowledgeRisk", channel.channel).then((proof) => {
-              args.riskOwnerActionId = proof.ownerActionId;
-              args.riskReceipt = proof.receipt;
             }),
           );
         }
@@ -1391,7 +1371,7 @@ window.__ModuleLoader__.load({
           });
       };
       React.useEffect(() => {
-        if (!usesQr || autoStarted || channel.risk === "community-protocol") return;
+        if (!usesQr || autoStarted) return;
         setAutoStarted(true);
         begin(defaultMethod(channel));
       }, [channel.channel, usesQr, autoStarted]);
@@ -1428,21 +1408,6 @@ window.__ModuleLoader__.load({
         },
         children: [
           jsx.jsx("p", { children: t.tokenHint }),
-          channel.risk === "community-protocol"
-            ? jsx.jsxs("label", {
-                children: [
-                  jsx.jsx("input", {
-                    type: "checkbox",
-                    "data-penglai-im-risk-ack": "1",
-                    checked: riskAck,
-                    onChange: (ev) => setRiskAck(ev.target.checked),
-                  }),
-                  " ",
-                  t.riskAck,
-                ],
-              })
-            : null,
-          channel.risk === "community-protocol" ? jsx.jsx("p", { children: t.whatsappRisk }) : null,
           usesQr
             ? jsx.jsx("p", { children: t.scanOfficial })
             : jsx.jsx("p", { children: t.noQr }),
@@ -1515,10 +1480,7 @@ window.__ModuleLoader__.load({
           jsx.jsx("button", {
             type: "button",
             "data-penglai-im-connect-submit": channel.channel,
-            disabled:
-              connectionStatus === "starting" ||
-              Boolean(operationId) ||
-              (channel.risk === "community-protocol" && !riskAck),
+            disabled: connectionStatus === "starting" || Boolean(operationId),
             onClick: () => begin(defaultMethod(channel)),
             children: usesQr ? (operationId ? t.scanWaiting : t.showQr) : t.saveConnect,
           }),
@@ -1703,30 +1665,14 @@ window.__ModuleLoader__.load({
                                   ],
                                 })
                               : null,
-                            (c.connectionMethods || []).length === 0
-                              ? jsx.jsxs(React.Fragment, {
-                                  children: [
-                                    jsx.jsx("p", {
-                                      "data-penglai-im-runtime-not-bundled": c.channel,
-                                      children: t.runtimeNotBundled,
-                                    }),
-                                    jsx.jsx("button", {
-                                      type: "button",
-                                      disabled: true,
-                                      "aria-disabled": "true",
-                                      "data-penglai-im-unavailable": c.channel,
-                                      children: t.unavailable,
-                                    }),
-                                  ],
-                                })
-                              : jsx.jsx("button", {
-                                  type: "button",
-                                  "data-penglai-im-connect": c.channel,
-                                  ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
-                                  ...(c.channel === "feishu" ? { "data-penglai-im-goto-feishu": "1" } : {}),
-                                  onClick: () => openChannel(c.channel),
-                                  children: t.guidedConnect,
-                                }),
+                            jsx.jsx("button", {
+                              type: "button",
+                              "data-penglai-im-connect": c.channel,
+                              ...(c.channel === "weixin" ? { "data-penglai-im-goto-weixin": "1" } : {}),
+                              ...(c.channel === "feishu" ? { "data-penglai-im-goto-feishu": "1" } : {}),
+                              onClick: () => openChannel(c.channel),
+                              children: t.guidedConnect,
+                            }),
                           ],
                         },
                         c.channel,

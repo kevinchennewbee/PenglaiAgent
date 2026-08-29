@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
@@ -7,7 +7,8 @@ import { finish } from "./lib/exit-contract.mjs";
 const EXPECT = "0.5.7";
 const pkgs = [join(ROOT, "package.json"), join(ROOT, "apps/desktop/package.json")];
 for (const name of readdirSync(join(ROOT, "packages"))) {
-  pkgs.push(join(ROOT, "packages", name, "package.json"));
+  const manifest = join(ROOT, "packages", name, "package.json");
+  if (existsSync(manifest)) pkgs.push(manifest);
 }
 const bad = [];
 for (const p of pkgs) {

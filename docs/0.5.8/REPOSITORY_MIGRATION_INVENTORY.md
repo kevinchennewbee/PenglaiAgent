@@ -45,7 +45,7 @@
 | `apps/desktop/src/supervisor.ts` and Windows helper | Active product | P0-01 | Specify/characterize real DSH child ownership before package changes | Child exit/hang/port loss detected; bounded recovery; no orphan |
 | Memory curator runner/session creation | Active product | P0-05 | Map current lifecycle and design internal-job replacement | No false subagent, no cross-Workspace state, no Turn blocking |
 | IM channel manifest `live` boolean | Active product | capability-truth finding | Replace with separate entry/runtime/connection/evidence/capability facts | UI and public claim derive from same closed model |
-| Active WhatsApp package, adapter, identity, lock entries | Forbidden active surface | D-062 | Remove now from active graph | Source, lock, dependencies, catalog, UI, packaging, tests show absence |
+| Active WhatsApp package, adapter, identity, lock entries | Forbidden active surface | D-062 | Removed in preview checkpoint | Source, lock, dependencies, catalog, UI, packaging, tests show absence |
 
 ## WhatsApp retirement boundary
 
@@ -66,6 +66,31 @@ Preserve as historical records:
   publication manifests, and provenance ledgers;
 - old ADRs and decisions when clearly labeled historical or superseded; and
 - Git history containing the retired implementation.
+
+### Implemented preview checkpoint (2026-08-29)
+
+- Deleted the complete tracked `packages/channel-whatsapp/` workspace and the
+  `packages/im` compatibility adapter instead of leaving dormant source.
+- Removed the channel from contract/registry identities, credentials, reactions,
+  guided connection, Host and Typert Remote methods, Owner risk actions, client
+  sections/cards/copy, test matrices, and TypeScript/workspace graphs.
+- Regenerated `pnpm-lock.yaml` with the still-published DSH `0.1.1-rc.2` pins.
+  The retired workspace, Baileys, libsignal, and Rust bridge closure are absent.
+- Replaced the former non-bundle license exception with a fail-closed absence
+  policy; generated notices and packaged plugin staging contain no retired
+  runtime identity.
+- Added `scripts/verify-retired-channel-absence.mjs`, composed into the preview
+  invariant gate. It currently checks 405 active source files, 69 dependency
+  graph files, four forbidden package identities, and the removed source paths.
+- Fresh IM bot schemas no longer create a risk-acknowledgement field. On upgrade,
+  unsupported legacy route/bot rows are retained for audit but cannot remain
+  active, occupy a Session binding, or re-enter current product lists.
+
+Local evidence for this checkpoint: frozen install, formatting, typecheck, unit,
+contract, integration, license audit, SBOM/notice generation, plugin packaging,
+and both preview/absence gates pass. Native installers, installed behavior, live
+owner accounts, public release bytes, and DSH `0.1.2-alpha.1` npm integration
+remain deliberately unclaimed.
 
 Current README/site/architecture still describe the immutable 0.5.7 product.
 They stay byte-identical during preview work; future 0.5.8 public copy is written

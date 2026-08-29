@@ -26,12 +26,13 @@
 | P058-007 | Repository asset classification | Source/design | IN_PROGRESS | primary DSH, release, WhatsApp, and independent-fix assets classified |
 | P058-008 | Preview invariant verifier | Source/CI | DONE | local and remote preview gate PASS; protects release/public surfaces and DSH pins |
 | P058-009 | Enable Source CI on preview branch | Source/CI | DONE | first preview Source CI PASS on `602f684b`; no main workflow run or release action |
-| P058-010 | Remove WhatsApp active source and identity | Source | READY | D-062 authorizes removal; preserve 0.5.7 historical docs/assets |
-| P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | READY | regenerate lockfile without changing DSH pins; absence tests required |
+| P058-010 | Remove WhatsApp active source and identity | Source | DONE | package, adapter, channel/route identity, credential, risk-owner Remote, UI card/copy, tests, and workspace references removed; historical 0.5.7 surfaces preserved |
+| P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | DONE | frozen install PASS with 34 workspaces; lock/SBOM/notices/plugin staging contain none of four retired runtime identities; DSH pins unchanged |
 | P058-012 | Contain Feishu asynchronous media callback failures | Source | DONE | callback stays bounded; rejection resolves to redacted durable terminal state; focused tests PASS |
 | P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | IN_PROGRESS | bridge Session create/models/select identified; closure assumptions remain |
 | P058-014 | Implement owner Remote migration | Package/source | BLOCKED_NPM | exact published declarations/generated clients required |
 | P058-015 | Map all `dsh-client-runtime` consumers | Source/design | IN_PROGRESS | eight first-party client bundles identified; exact inject graph pending |
+| P058-016 | Quarantine unsupported legacy channel rows | Source/upgrade | DONE | startup revokes unsupported route/binding activity without deleting audit rows; bot lists hide unsupported rows and reject new unknown filters |
 | P058-016 | Implement narrow client package graph | Package/source | BLOCKED_NPM | published exports and generated artifacts required |
 | P058-017 | Overlay-to-slot map | Source/design | NOT_STARTED | inspect every rc.2 overlay hunk against fixed source slots |
 | P058-018 | One-time browser-token integration | Package/native | BLOCKED_NPM | source behavior known; packaged first-navigation path required |

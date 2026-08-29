@@ -33,7 +33,6 @@ export const OWNER_ACTIONS = [
   "im.saveCredentials",
   "im.deleteCredentials",
   "im.logout",
-  "im.acknowledgeRisk",
   "companion.enable",
   "companion.disable",
   "companion.schedule-reminder",

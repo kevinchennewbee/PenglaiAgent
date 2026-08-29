@@ -45,7 +45,7 @@ export class TokenChannelAdapter implements ChannelAdapter {
     this.connection = "disabled";
   }
 
-  async beginConnection(input: { method: string; credentialRef?: string; riskAck?: boolean }) {
+  async beginConnection(input: { method: string; credentialRef?: string }) {
     refuseFakeQr(this.id, input.method);
     if (input.method !== "token" && input.method !== "oauth" && input.method !== "manifest") {
       throw new PenglaiError("INVALID_INPUT", "unsupported connection method");

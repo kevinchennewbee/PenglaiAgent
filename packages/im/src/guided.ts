@@ -21,13 +21,9 @@ export interface GuidedConnectionState {
 export function beginGuidedConnection(input: {
   channel: string;
   method: string;
-  riskAck?: boolean;
 }): GuidedConnectionState {
   const manifest = getChannelManifest(input.channel);
   refuseFakeQr(manifest.id, input.method);
-  if (manifest.risk === "community-protocol" && input.riskAck !== true) {
-    throw new PenglaiError("SECURITY_POLICY", "CHANNEL_RISK_ACK");
-  }
   if (isLiveChannel(manifest.id)) {
     throw new PenglaiError("INVALID_INPUT", "LIVE_CHANNEL_USES_NATIVE_CONNECT");
   }
