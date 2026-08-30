@@ -105,6 +105,7 @@ export interface WindowsNativeHostSourceFacts {
   pathBatchProbe: boolean;
   childExitMonitoring: boolean;
   ownerStopMonitoring: boolean;
+  restrictedStdioForwarding: boolean;
 }
 
 export function windowsNativeHostSourcePath(): string {
@@ -152,6 +153,11 @@ export function windowsNativeHostSourceFacts(): WindowsNativeHostSourceFacts {
       text.includes("CreateThread") &&
       text.includes("wait_for_owner_stop") &&
       text.includes("ownerStopMonitored"),
+    restrictedStdioForwarding:
+      text.includes("PROC_THREAD_ATTRIBUTE_HANDLE_LIST") &&
+      text.includes("STARTF_USESTDHANDLES") &&
+      text.includes("DuplicateHandle") &&
+      text.includes("stdioForwarded"),
   };
 }
 
@@ -239,6 +245,7 @@ export interface WindowsHostReport {
   pids?: number[];
   childExitMonitored?: boolean;
   ownerStopMonitored?: boolean;
+  stdioForwarded?: boolean;
 }
 
 export function parseWindowsHostReport(raw: string): WindowsHostReport {
@@ -282,6 +289,9 @@ export function parseWindowsHostReport(raw: string): WindowsHostReport {
       : {}),
     ...(typeof value.ownerStopMonitored === "boolean"
       ? { ownerStopMonitored: value.ownerStopMonitored }
+      : {}),
+    ...(typeof value.stdioForwarded === "boolean"
+      ? { stdioForwarded: value.stdioForwarded }
       : {}),
     ...(Array.isArray(value.pids) && value.pids.every((pid) => typeof pid === "number" && Number.isInteger(pid) && pid > 0)
       ? { pids: value.pids as number[] }
@@ -582,7 +592,8 @@ export function readOwnedWindowsJobReport(
           report.jobAssigned !== true ||
           report.killOnJobClose !== true ||
           report.childExitMonitored !== true ||
-          report.ownerStopMonitored !== true
+          report.ownerStopMonitored !== true ||
+          report.stdioForwarded !== true
         ) {
           reject(new PenglaiError("SECURITY_POLICY", "native Windows job supervisor report incomplete"));
           return;

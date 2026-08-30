@@ -77,6 +77,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.pathBatchProbe, true);
   assert.equal(facts.childExitMonitoring, true);
   assert.equal(facts.ownerStopMonitoring, true);
+  assert.equal(facts.restrictedStdioForwarding, true);
   assert.match(facts.source, /penglai_windows_host\.c$/);
   const src = readFileSync(facts.source, "utf8");
   assert.doesNotMatch(src, /applied:\s*true/);
@@ -86,6 +87,12 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.match(src, /WaitForMultipleObjects\(wait_count, waits, FALSE, INFINITE\)/);
   assert.match(src, /waits\[0\] = pi\.hProcess/);
   assert.match(src, /CreateThread\(NULL, 0, wait_for_owner_stop/);
+  assert.match(src, /PROC_THREAD_ATTRIBUTE_HANDLE_LIST/);
+  assert.match(src, /STARTF_USESTDHANDLES/);
+  assert.match(src, /HANDLE inherited\[3\]/);
+  const handshakeAt = src.indexOf("\\\"stdioForwarded\\\":true");
+  const resumeAt = src.indexOf("ResumeThread(pi.hThread)");
+  assert.ok(handshakeAt >= 0 && resumeAt > handshakeAt, "helper must report the secure pipe before DSH can emit");
   assert.match(src, /SetEntriesInAclW\(3,/);
   assert.match(src, /GetTokenInformation\(token, TokenOwner/);
   assert.match(src, /EqualSid\(existing_owner, user->User\.Sid\)/);
@@ -214,6 +221,7 @@ test("owned DSH spawn on Windows requires the native job supervisor", () => {
       breakawayOk: false,
       childExitMonitored: true,
       ownerStopMonitored: true,
+      stdioForwarded: true,
     }),
   );
   assert.equal(report.pid, 4242);
@@ -221,6 +229,7 @@ test("owned DSH spawn on Windows requires the native job supervisor", () => {
   assert.equal(report.killOnJobClose, true);
   assert.equal(report.childExitMonitored, true);
   assert.equal(report.ownerStopMonitored, true);
+  assert.equal(report.stdioForwarded, true);
   assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: true, pid: 1, breakawayOk: true })), /breakaway/);
   assert.throws(() => parseWindowsHostReport(JSON.stringify({ ok: false, error: "reparse" })), /reparse/);
 });
@@ -247,11 +256,16 @@ test("Windows supervisor handshake refuses helpers that cannot observe both life
   await assert.rejects(readOwnedWindowsJobReport(legacy, 1000), /report incomplete/);
   legacy.kill();
 
-  const current = launch(report({ childExitMonitored: true, ownerStopMonitored: true }));
+  const noStdio = launch(report({ childExitMonitored: true, ownerStopMonitored: true }));
+  await assert.rejects(readOwnedWindowsJobReport(noStdio, 1000), /report incomplete/);
+  noStdio.kill();
+
+  const current = launch(report({ childExitMonitored: true, ownerStopMonitored: true, stdioForwarded: true }));
   try {
     const accepted = await readOwnedWindowsJobReport(current, 1000);
     assert.equal(accepted.childExitMonitored, true);
     assert.equal(accepted.ownerStopMonitored, true);
+    assert.equal(accepted.stdioForwarded, true);
   } finally {
     current.kill();
   }
