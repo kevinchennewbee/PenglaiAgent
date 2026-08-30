@@ -44,8 +44,39 @@ test("desktop preload restores the title after upstream updates", () => {
   const dispose = installPenglaiDocumentTitle(documentPort, Observer);
   assert.equal(documentPort.title, "蓬莱 Penglai");
   documentPort.title = "Session — DeepSeek Harness";
+  assert.equal(documentPort.title, "Session — 蓬莱 Penglai");
   mutation?.();
   assert.equal(documentPort.title, "Session — 蓬莱 Penglai");
   dispose();
   assert.equal(disconnected, true);
+});
+
+test("desktop title getter never exposes an upstream mutation before the observer microtask", () => {
+  let rawTitle = "DeepSeek Harness";
+  let mutation: (() => void) | undefined;
+  const prototype = {};
+  Object.defineProperty(prototype, "title", {
+    configurable: true,
+    get: () => rawTitle,
+    set: (value: string) => {
+      rawTitle = value;
+    },
+  });
+  const documentPort = Object.assign(Object.create(prototype), {
+    head: {} as Node,
+    documentElement: {} as Node,
+  }) as { title: string; head: Node; documentElement: Node };
+  class Observer {
+    constructor(callback: () => void) {
+      mutation = callback;
+    }
+    observe() {}
+    disconnect() {}
+  }
+
+  installPenglaiDocumentTitle(documentPort, Observer);
+  rawTitle = "Settings — DeepSeek Harness";
+  assert.equal(documentPort.title, "Settings — 蓬莱 Penglai");
+  mutation?.();
+  assert.equal(rawTitle, "Settings — 蓬莱 Penglai");
 });
