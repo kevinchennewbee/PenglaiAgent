@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, readdirSync, readlinkSync } from "node:fs";
+import { lstatSync, readdirSync, readlinkSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { readDshSourceClosureContract } from "./lib/dsh-source-closure.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { readVerifiedRegularFile } from "./lib/verified-file.mjs";
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -19,8 +20,8 @@ function inventory(root, current = "") {
     if (stat.isDirectory()) rows.push(...inventory(root, path));
     else if (stat.isSymbolicLink()) rows.push({ path, type: "symlink", target: readlinkSync(absolute) });
     else if (stat.isFile()) {
-      const bytes = readFileSync(absolute);
-      rows.push({ path, type: "file", mode: stat.mode & 0o777, size: bytes.length, sha256: sha256(bytes) });
+      const verified = readVerifiedRegularFile(absolute);
+      rows.push({ path, type: "file", mode: Number(verified.stat.mode & 0o777n), size: verified.bytes.length, sha256: sha256(verified.bytes) });
     } else throw new Error(`${absolute} has an unsupported entry type`);
   }
   return rows;

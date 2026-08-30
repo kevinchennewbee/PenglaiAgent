@@ -41,6 +41,13 @@ test("alpha launch URL parsing is exact and output capture never exposes a split
   assert.equal(parseDshWebLaunchUrl(`dsh web: http://127.0.0.1:3081/?token=${token}`, 3080), undefined);
   assert.equal(parseDshWebLaunchUrl(`dsh web: http://localhost:3080/?token=${token}`, 3080), undefined);
   assert.equal(parseDshWebLaunchUrl(`dsh web: http://127.0.0.1:3080/?token=${token}&extra=1`, 3080), undefined);
+  assert.equal(
+    parseDshWebLaunchUrl(
+      `dsh web: http://127.0.0.1:3080/?token=${token}${" \t".repeat(100_000)}(LAN: http://192.168.1.2/)`,
+      3080,
+    ),
+    `http://127.0.0.1:3080/?token=${token}`,
+  );
 });
 
 test("rc.2 open root establishes a session without inventing browser credentials", async () => {

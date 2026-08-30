@@ -68,6 +68,7 @@ import {
   type PluginUpdateJournalEvidence,
 } from "./plugin-runtime-restart.js";
 import { loadWindowUrl } from "./navigation-retry.js";
+import { RECOVERY_DIAGNOSTIC_CHANNEL } from "./recovery-diagnostic.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -529,12 +530,11 @@ async function main(): Promise<void> {
     if (stopping || win.isDestroyed()) return;
     if (existsSync(recoveryPage)) {
       await win.loadFile(recoveryPage);
-      if (!win.webContents.isDestroyed()) try {
-        await win.webContents.executeJavaScript(
-          `(() => { document.body.dataset.penglaiRecoveryState = ${JSON.stringify(diagnostic.recovery.status)}; const rows = document.querySelectorAll("[data-penglai-recovery-exhausted]"); for (const row of rows) row.hidden = ${diagnostic.recovery.status === "manual-action-required" ? "false" : "true"}; const reference = document.querySelector("[data-penglai-recovery-reference]"); const referenceRow = document.querySelector("[data-penglai-recovery-reference-row]"); if (reference) reference.textContent = ${JSON.stringify(diagnostic.referenceId)}; if (referenceRow) referenceRow.hidden = false; })()`,
-        );
-      } catch {
-        /* page still useful without the extra line */
+      if (!win.webContents.isDestroyed()) {
+        win.webContents.send(RECOVERY_DIAGNOSTIC_CHANNEL, {
+          status: diagnostic.recovery.status,
+          referenceId: diagnostic.referenceId,
+        });
       }
     }
     await revealWindow();

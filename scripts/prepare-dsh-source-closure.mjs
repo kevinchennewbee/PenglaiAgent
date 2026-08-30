@@ -23,6 +23,7 @@ import {
 } from "./lib/dsh-source-closure.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { readVerifiedRegularFile } from "./lib/verified-file.mjs";
 
 function capture(command, args, cwd, options = {}) {
   return execFileSync(command, args, {
@@ -67,12 +68,13 @@ function treeInventory(root, current = "") {
     } else if (stat.isSymbolicLink()) {
       rows.push({ path: relativePath, type: "symlink", target: readlinkSync(path) });
     } else if (stat.isFile()) {
+      const verified = readVerifiedRegularFile(path);
       rows.push({
         path: relativePath,
         type: "file",
-        mode: stat.mode & 0o777,
-        size: stat.size,
-        sha256: sha256(readFileSync(path)),
+        mode: Number(verified.stat.mode & 0o777n),
+        size: Number(verified.stat.size),
+        sha256: sha256(verified.bytes),
       });
     } else {
       throw new Error(`${path} has an unsupported archive entry type`);
@@ -167,16 +169,17 @@ function verifySource(source, contract) {
   return { head, tree, origin, archiveSha256 };
 }
 
-function tarballIdentity(path) {
-  const raw = execFileSync("tar", ["-xOf", path, "package/package.json"], {
+function tarballIdentity(bytes, label) {
+  const raw = execFileSync("tar", ["-xOf", "-", "package/package.json"], {
+    input: bytes,
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
   });
   const manifest = JSON.parse(raw);
-  const files = capture("tar", ["-tf", path], ROOT).split("\n");
-  if (!files.includes("package/LICENSE")) throw new Error(`${path} is missing package/LICENSE`);
+  const files = execFileSync("tar", ["-tf", "-"], { input: bytes, encoding: "utf8" }).trim().split("\n");
+  if (!files.includes("package/LICENSE")) throw new Error(`${label} is missing package/LICENSE`);
   if (manifest.license !== "MIT" && manifest.license !== "BSD-3-Clause") {
-    throw new Error(`${path} has unsupported license ${JSON.stringify(manifest.license)}`);
+    throw new Error(`${label} has unsupported license ${JSON.stringify(manifest.license)}`);
   }
   return {
     name: manifest.name,
@@ -193,8 +196,8 @@ function inventoryFamily(directory, expected, publishOrderRequired) {
   }
   const packages = tarballs.map((filename) => {
     const path = join(directory, filename);
-    const bytes = readFileSync(path);
-    return { filename, ...tarballIdentity(path), size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+    const { bytes } = readVerifiedRegularFile(path);
+    return { filename, ...tarballIdentity(bytes, path), size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
   });
   if (new Set(packages.map((row) => row.name)).size !== packages.length) {
     throw new Error(`${directory} contains duplicate package identities`);
@@ -203,7 +206,7 @@ function inventoryFamily(directory, expected, publishOrderRequired) {
   const publishOrderPath = join(directory, "publish-order.txt");
   if (publishOrderRequired) {
     if (!existsSync(publishOrderPath)) throw new Error(`${directory} is missing publish-order.txt`);
-    const bytes = readFileSync(publishOrderPath);
+    const { bytes } = readVerifiedRegularFile(publishOrderPath);
     publishOrder = {
       filename: "publish-order.txt",
       size: bytes.length,

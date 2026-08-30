@@ -1,18 +1,20 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readDshSourceClosureContract, sha256 } from "./lib/dsh-source-closure.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { readVerifiedRegularFile } from "./lib/verified-file.mjs";
 
 function fail(reason) {
   finish("FAIL", { command: "verify:dsh-vendored-closure", reason });
 }
 
-function tarballManifest(path) {
-  const entries = execFileSync("tar", ["-tf", path], { encoding: "utf8" }).trim().split("\n");
-  if (!entries.includes("package/LICENSE")) fail(`${path} is missing package/LICENSE`);
-  const raw = execFileSync("tar", ["-xOf", path, "package/package.json"], {
+function tarballManifest(bytes, label) {
+  const entries = execFileSync("tar", ["-tf", "-"], { input: bytes, encoding: "utf8" }).trim().split("\n");
+  if (!entries.includes("package/LICENSE")) fail(`${label} is missing package/LICENSE`);
+  const raw = execFileSync("tar", ["-xOf", "-", "package/package.json"], {
+    input: bytes,
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
   });
@@ -27,7 +29,7 @@ function tarballManifest(path) {
     );
   };
   if (raw !== `${JSON.stringify(canonicalize(parsed), null, 2)}\n`) {
-    fail(`${path} package.json is not in canonical source-closure form`);
+    fail(`${label} package.json is not in canonical source-closure form`);
   }
   return parsed;
 }
@@ -37,7 +39,7 @@ const closureRoot = resolve(ROOT, contract.transport.promotedRoot);
 const manifestPath = join(closureRoot, "closure-manifest.json");
 if (!existsSync(manifestPath)) fail(`${contract.transport.promotedRoot}/closure-manifest.json is missing`);
 
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+const manifest = JSON.parse(readVerifiedRegularFile(manifestPath).bytes.toString("utf8"));
 const expectedCount = [...contract.build.families, ...contract.build.auxiliaryPackages].reduce(
   (sum, family) => sum + family.expectedTarballs,
   0,
@@ -116,7 +118,7 @@ for (const expectedUnit of expectedUnits) {
   }
   if (expectedUnit.publishOrder) {
     const publishOrderPath = join(directory, "publish-order.txt");
-    const bytes = readFileSync(publishOrderPath);
+    const { bytes } = readVerifiedRegularFile(publishOrderPath);
     if (
       unit.publishOrder?.filename !== "publish-order.txt" ||
       unit.publishOrder?.size !== bytes.length ||
@@ -129,13 +131,11 @@ for (const expectedUnit of expectedUnits) {
   }
   for (const row of unit.packages) {
     const path = join(directory, row.filename);
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.isSymbolicLink()) fail(`${row.filename} must be a regular file`);
-    const bytes = readFileSync(path);
+    const { bytes } = readVerifiedRegularFile(path);
     if (bytes.length !== row.size || sha256(bytes) !== row.sha256) {
       fail(`${row.filename} bytes differ from closure-manifest.json`);
     }
-    const packageManifest = tarballManifest(path);
+    const packageManifest = tarballManifest(bytes, path);
     if (
       packageManifest.name !== row.name ||
       packageManifest.version !== row.version ||
