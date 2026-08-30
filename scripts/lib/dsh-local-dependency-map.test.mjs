@@ -82,7 +82,7 @@ test("pnpm fetcher verifies bytes before delegating to the local tarball fetcher
     },
   );
   assert.equal(result, "verified-local-tarball");
-  assert.match(delegated.spec.tarball, /third_party\/dsh\/0\.1\.2-alpha\.1\/dsh\//);
+  assert.match(delegated.spec.tarball.replaceAll("\\", "/"), /third_party\/dsh\/0\.1\.2-alpha\.1\/dsh\//);
   assert.match(delegated.spec.integrity, /^sha512-/);
 });
 
