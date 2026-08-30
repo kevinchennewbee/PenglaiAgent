@@ -3,7 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
 export const PINNED_DSH_SOURCE_TARBALL_SHA256 =
-  "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06";
+  "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",

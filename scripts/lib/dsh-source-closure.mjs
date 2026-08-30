@@ -106,6 +106,7 @@ export function validateDshSourceClosureContract(contract) {
   if (
     normalization.packageJson !== "recursive-key-sort" ||
     normalization.repack !== "npm-pack-ignore-scripts" ||
+    normalization.compression !== "fflate-gzip-level-9-mtime-zero" ||
     !Number.isSafeInteger(normalization.sourceDateEpoch) ||
     normalization.sourceDateEpoch < 0
   ) {

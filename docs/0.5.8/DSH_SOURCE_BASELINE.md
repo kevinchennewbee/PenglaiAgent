@@ -58,6 +58,13 @@ path-dependent byte drift without patching source or generated artifacts;
 other platforms consume the verified vendored closure rather than rebuilding a
 different client package set.
 
+The npm-compatible tar payload is also normalized independently from the host
+Node binary. `npm pack --ignore-scripts` produces the canonical raw tar, then
+the pinned pure-JavaScript `fflate@0.8.3` implementation writes gzip level 9
+with a zero timestamp. This preserves every unpacked path, mode, and byte while
+preventing host-linked zlib implementations from changing the promoted
+archive digest.
+
 The install reported expected host-platform warnings for Linux-only native
 workspaces and pre-build CLI link warnings that disappeared after the CLI was
 built. They were warnings, not failed checks. The build also reported bundle

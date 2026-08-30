@@ -1,7 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -22,6 +21,7 @@ import {
   sha256,
 } from "./lib/dsh-source-closure.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { canonicalizeGzip } from "./lib/deterministic-gzip.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { readVerifiedRegularFile } from "./lib/verified-file.mjs";
 
@@ -117,7 +117,8 @@ function normalizeTarball(path, contract) {
     if (JSON.stringify(after) !== JSON.stringify(before)) {
       throw new Error(`${path} deterministic repack changed package payload bytes, paths or modes`);
     }
-    copyFileSync(normalized, path);
+    const { bytes: normalizedBytes } = readVerifiedRegularFile(normalized);
+    writeFileSync(path, canonicalizeGzip(normalizedBytes));
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
