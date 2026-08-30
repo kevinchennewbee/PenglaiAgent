@@ -1,14 +1,24 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, cpSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
-import { PINNED_DSH, PINNED_DSH_INTEGRITY, PINNED_ELECTRON, PINNED_NODE, PRODUCT_VERSION } from "./lib/product.mjs";
+import {
+  PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+  PINNED_DSH_TARBALL_SHA256,
+  PINNED_ELECTRON,
+  PINNED_NODE,
+  PRODUCT_VERSION,
+} from "./lib/product.mjs";
+import {
+  buildDshLocalDependencyMap,
+  verifyDshLocalDependencyLock,
+} from "./lib/dsh-local-dependency-map.mjs";
 import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
-import { applyOverlayToRoot } from "./apply-overlay.mjs";
 
 function argValue(name, fallback) {
   const idx = process.argv.indexOf(name);
@@ -125,18 +135,31 @@ if (process.platform === "darwin") {
 }
 rmSync(extractDir, { recursive: true, force: true });
 
-const workspaceRequire = createRequire(join(ROOT, "packages/dsh-bridge/package.json"));
-const workspaceDsh = dirname(workspaceRequire.resolve("@deepseek-ai/dsh/package.json"));
+// Package from the declared hoisted workspace root. Resolving from a child
+// workspace can enter pnpm's virtual-store compatibility links, which do not
+// preserve package-local version conflicts when copied into a standalone app.
+const workspaceDsh = join(ROOT, "node_modules", "@deepseek-ai", "dsh");
 const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "utf8")).version;
   if (dshVersion !== PINNED_DSH) {
     console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
     process.exit(1);
   }
-  const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
-  if (!lock.includes(PINNED_DSH_INTEGRITY)) {
-    console.error("pnpm-lock.yaml is missing the pinned DSH integrity");
-    process.exit(1);
-  }
+const sourceMap = buildDshLocalDependencyMap(ROOT);
+if (
+  sourceMap.source.version !== PINNED_DSH ||
+  sourceMap.source.closureManifestSha256 !== PINNED_DSH_CLOSURE_MANIFEST_SHA256 ||
+  sourceMap.packageCount !== PINNED_DSH_CLOSURE_PACKAGE_COUNT ||
+  sourceMap.packages.find((row) => row.name === "@deepseek-ai/dsh")?.sha256 !== PINNED_DSH_TARBALL_SHA256
+) {
+  console.error("vendored DSH source closure differs from release identity");
+  process.exit(1);
+}
+try {
+  verifyDshLocalDependencyLock(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"), sourceMap);
+} catch (error) {
+  console.error("pnpm lock is not bound to the vendored DSH source closure", error);
+  process.exit(1);
+}
 const locatedDsh = locateWorkspaceDsh({
   root: ROOT,
   pinnedVersion: PINNED_DSH,
@@ -156,7 +179,14 @@ if (!existsSync(join(dshDest, "node_modules", "@deepseek-ai", "dsh-web-frontend"
   process.exit(1);
 }
 rmSync(join(dshDest, "node_modules", ".bin"), { recursive: true, force: true });
-console.log("embed-runtime flattened", flattened.packages.length, "packages native", flattened.native);
+console.log(
+  "embed-runtime flattened",
+  flattened.packages.length,
+  "packages native",
+  flattened.native,
+  "nested conflicts",
+  flattened.nestedConflicts.nestedConflictCount,
+);
 
 const nodeBin =
   target === "win32-x86_64"
@@ -177,10 +207,10 @@ if (existsSync(nodeBin) && target !== "win32-x86_64") {
   dshVersionProbe = String(versionProbe.stdout).trim();
 }
 
-// Apply in-process so Windows path-to-file URL differences cannot turn the
-// overlay command into a silent no-op. Any hash drift fails the native build.
-const overlay = applyOverlayToRoot(dshDest);
-console.log(JSON.stringify(overlay));
+// The 0.5.7 rc.2 overlay remains historical evidence only. Alpha.1 exposes
+// official client slots, so Penglai branding and settings are composed by
+// signed first-party plugins without modifying official DSH bytes.
+console.log(JSON.stringify({ dsh: PINNED_DSH, overlay: "official-slots-no-source-patch" }));
 
 const pluginTarget = target === "darwin-aarch64"
   ? "darwin-arm64"

@@ -5,6 +5,7 @@ import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const npmrc = readFileSync(".npmrc", "utf8");
+const workspace = readFileSync("pnpm-workspace.yaml", "utf8");
 if (!/^ignore-scripts=true$/m.test(npmrc)) {
   console.error("install scripts must stay disabled");
   process.exit(1);
@@ -85,10 +86,10 @@ const excelReq = createRequire(join(exceljs.root, "package.json"));
 const uuid = packageRoot("uuid", excelReq, exceljs.root);
 const lock = readFileSync("pnpm-lock.yaml", "utf8");
 if (
-  pkg.pnpm?.overrides?.["pptxgenjs>image-size"] !== "workspace:*" ||
-  pkg.pnpm?.overrides?.["@liustack/pptfast>sharp"] !== "0.35.3" ||
-  pkg.pnpm?.overrides?.["exceljs>uuid"] !== "11.1.1" ||
-  imageSize.metadata.version !== "0.5.7" ||
+  !workspace.includes("'pptxgenjs>image-size': 'workspace:*'") ||
+  !workspace.includes("'@liustack/pptfast>sharp': '0.35.3'") ||
+  !workspace.includes("'exceljs>uuid': '11.1.1'") ||
+  imageSize.metadata.version !== pkg.version ||
   imageSize.metadata.license !== "MIT" ||
   sharp.metadata.version !== "0.35.3" ||
   uuid.metadata.version !== "11.1.1" ||

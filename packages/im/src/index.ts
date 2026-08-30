@@ -12,7 +12,7 @@ import { CryptoIds, SystemClock } from "./runtime-ids.js";
 import { Store } from "@penglai/persistence";
 import { RoutingControlPlane } from "@penglai/routing-core";
 import { DshBridge, PINNED_DSH, withPenglaiVoiceContext, type DshHost } from "@penglai/dsh-bridge";
-import { hostFromRc2Cordis, listenOfficialEvents, type CordisLike } from "@penglai/dsh-bridge/plugin";
+import { hostFromAlpha1Cordis, listenOfficialEvents, type Alpha1CordisLike } from "@penglai/dsh-bridge/plugin";
 import { FeishuAdapter } from "@penglai/channel-feishu";
 import { ILinkTransport, WeixinAdapter } from "@penglai/channel-weixin";
 import { DingTalkAdapter } from "@penglai/channel-dingtalk";
@@ -45,7 +45,7 @@ export const inject = [
   "agents",
   "workspaceRegistry",
   "credentials",
-  "apiProxy",
+  "sessionController",
   "attachments",
 ];
 
@@ -69,17 +69,17 @@ export function createRuntime(opts: {
   return { store, plane, token: opts.token ?? new CryptoIds().token() };
 }
 
-function credentialsFrom(ctx: CordisLike): CredentialsLike | undefined {
-  const raw = (ctx as CordisLike & { credentials?: CredentialsLike }).credentials;
+function credentialsFrom(ctx: Alpha1CordisLike): CredentialsLike | undefined {
+  const raw = (ctx as Alpha1CordisLike & { credentials?: CredentialsLike }).credentials;
   if (!raw || typeof raw.set !== "function" || typeof raw.describe !== "function") return undefined;
   return raw;
 }
 
-export function optionalVoiceServicesFrom(ctx: CordisLike): {
+export function optionalVoiceServicesFrom(ctx: Alpha1CordisLike): {
   readonly asr?: PenglaiAsrClient | undefined;
   readonly tts?: PenglaiMossTtsClient | undefined;
 } {
-  const services = ctx as CordisLike & {
+  const services = ctx as Alpha1CordisLike & {
     get?: (name: string, strict?: boolean) => unknown;
     penglaiAsr?: PenglaiAsrClient;
     penglaiMossTts?: PenglaiMossTtsClient;
@@ -107,16 +107,16 @@ export async function addVoiceContextAtOfficialPreStep(next: unknown): Promise<u
   return { ...entered, messages: withPenglaiVoiceContext(entered.messages) };
 }
 
-export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { host: PenglaiImHost; supervisor: AdapterSupervisor } {
+export function apply(ctx: Alpha1CordisLike): ReturnType<typeof createRuntime> & { host: PenglaiImHost; supervisor: AdapterSupervisor } {
   const userData = process.env.PENGLAI_USER_DATA;
   const dbPath = process.env.PENGLAI_DB ?? (userData ? join(userData, "im", "penglai-im.sqlite") : "");
   if (!userData || !dbPath) {
     throw new PenglaiError("DSH_UNAVAILABLE", "PENGLAI_USER_DATA required for @penglai/im");
   }
   mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
-  const dsh = hostFromRc2Cordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
+  const dsh = hostFromAlpha1Cordis(ctx, process.env.PENGLAI_DSH_PIN ?? PINNED_DSH);
   const objects = new ObjectStore(join(userData, "objects"));
-  const attachments = (ctx as CordisLike & { attachments?: ImageAdmission }).attachments;
+  const attachments = (ctx as Alpha1CordisLike & { attachments?: ImageAdmission }).attachments;
   const rt = createRuntime({
     dbPath,
     host: dsh,
@@ -354,7 +354,7 @@ export function apply(ctx: CordisLike): ReturnType<typeof createRuntime> & { hos
       }
     })
     .catch(() => undefined);
-  const effect = (ctx as CordisLike & { effect?: (fn: () => () => void) => void }).effect;
+  const effect = (ctx as Alpha1CordisLike & { effect?: (fn: () => () => void) => void }).effect;
   effect?.(() => () => {
     host.releaseAll();
     artifacts.close();

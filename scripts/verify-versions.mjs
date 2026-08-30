@@ -50,6 +50,8 @@ if (!isDeepStrictEqual(info.publication, pins.publication))
   bad.push("release-info publication target drifted from pins.ts");
 if (!isDeepStrictEqual(info.targets, pins.targets))
   bad.push("release-info release targets drifted from pins.ts");
+if (!isDeepStrictEqual(info.dshSource, pins.dshSource))
+  bad.push("release-info DSH source closure drifted from pins.ts");
 const nvm = readFileSync(join(ROOT, ".nvmrc"), "utf8").trim();
 if (nvm !== pins.node) bad.push(`.nvmrc ${nvm}`);
 const node = execFileSync(process.execPath, ["-p", "process.version"], { encoding: "utf8" }).trim();

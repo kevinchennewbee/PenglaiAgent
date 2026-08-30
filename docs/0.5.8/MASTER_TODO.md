@@ -67,9 +67,9 @@
 
 - [x] Audit the fixed source root and all 251 package license declarations and
   embedded license files: 250 MIT and 1 BSD-3-Clause.
-- [ ] Generate deterministic THIRD_PARTY_NOTICES and SBOM inputs from the exact
+- [x] Generate deterministic THIRD_PARTY_NOTICES and SBOM inputs from the exact
   source-built closure.
-- [ ] Confirm GPL/forbidden production identities remain absent.
+- [x] Confirm GPL/forbidden production identities remain absent.
 - [ ] Record native optional packages per target without treating cross-build as
   target-native proof.
 
@@ -89,22 +89,22 @@
 
 ### INT-001 — dependency and identity switch
 
-- [ ] Generate a deterministic local-closure dependency map for every direct and
+- [x] Generate a deterministic local-closure dependency map for every direct and
   transitive `@deepseek-ai/*` package Penglai consumes.
-- [ ] Change all direct DSH dependencies from `0.1.1-rc.2` to the fixed local
+- [x] Change all direct DSH dependencies from `0.1.1-rc.2` to the fixed local
   alpha.1 tarballs in one reviewable commit.
-- [ ] Regenerate `pnpm-lock.yaml` only from the verified closure.
-- [ ] Update the authoritative release pin, profile identity, runtime closure,
+- [x] Regenerate `pnpm-lock.yaml` only from the verified closure.
+- [x] Update the authoritative release pin, profile identity, runtime closure,
   release-info copies, SBOM, notices, and package builders together.
-- [ ] Reject mixed rc.2/alpha.1 runtime packages and registry fallback.
+- [x] Reject mixed rc.2/alpha.1 runtime packages and registry fallback.
 - [ ] Prove a clean Penglai install can be reproduced after deleting all local
   node_modules and generated closure output.
 
 ### INT-002 — DSH process and profile
 
-- [ ] Launch the source-built official CLI, not the source tree or a system PATH
+- [x] Launch the source-built official CLI, not the source tree or a system PATH
   fallback.
-- [ ] Compose the official Web profile with Office, Memory, Plugin Center, and
+- [x] Compose the official Web profile with Office, Memory, Plugin Center, and
   optional plugin bundles through official profile/patch ownership.
 - [ ] Complete one-time browser-token first navigation and cookie/proxy handoff.
 - [ ] Prove startup, health, same-port recovery, restart exhaustion, Stop, quit,
@@ -114,19 +114,19 @@
 
 ### INT-003 — official owner Remotes
 
-- [ ] Remove the active rc.2 ApiProxy adapter.
+- [x] Remove the active rc.2 ApiProxy adapter.
 - [ ] Bind Session list/create/rename/model/prompt/attachment/cancel/follow to
   alpha.1 generated Session Remotes.
 - [ ] Bind Workspace membership/order/mutation/follow to Workspace Remotes.
 - [ ] Bind Settings, Credentials, plugin inventory, and events to their official
   owners.
-- [ ] Preserve immutable IDs and use official projections for visible titles.
+- [x] Preserve immutable IDs and use official projections for visible titles.
 - [ ] Add reconnect, cancellation, timeout, and restart readback tests.
 
 ### INT-004 — client package and UI migration
 
-- [ ] Remove all eight `dsh-client-runtime` injections and packager rows.
-- [ ] Declare the exact narrow client modules, stores, controllers, locale,
+- [x] Remove all eight `dsh-client-runtime` injections and packager rows.
+- [x] Declare the exact narrow client modules, stores, controllers, locale,
   settings, conversation, and typed slots needed by each first-party plugin.
 - [ ] Require every expected client fiber to reach `ACTIVE`; desired/present is
   not sufficient.
@@ -283,7 +283,7 @@ privacy review, and remaining limitation.
 
 ### REL-002 — 0.5.8 release contract and assets
 
-- [ ] Update the authoritative product/DSH/toolchain identity and exact target
+- [x] Update the authoritative product/DSH/toolchain identity and exact target
   filenames for 0.5.8.
 - [ ] Build all three installers from the same final main SHA.
 - [ ] Assemble only the exact contract assets: installers, signed update

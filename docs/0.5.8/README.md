@@ -1,10 +1,10 @@
 # Penglai 0.5.8 preview development baseline
 
-> Status: source-preparation development branch. This directory records the
+> Status: source/package integration development branch. This directory records the
 > product intent, fixed upstream source baseline, migration review, runtime
 > findings, implementation order, work ledger, and acceptance gates for
-> Penglai 0.5.8. It does not change the current 0.5.7 release contract and it is
-> not package, native, installed, live, or public-release evidence.
+> Penglai 0.5.8. It does not rewrite the published 0.5.7 contract and it is not
+> native, installed, Owner-live, or public-release evidence.
 
 ## Branch purpose
 
@@ -64,22 +64,21 @@ The following may be frozen now:
   packaging, test-matrix, and roadmap surfaces while preserving immutable 0.5.7
   release history.
 
-The following cannot be frozen until the executable source closure runs:
+The executable source closure has now frozen:
 
-- every generated package digest and platform-specific closure detail;
-- the Penglai lockfile closure;
-- whether every source-declared Remote/client package packs and installs
-  unchanged;
-- the final compatibility matrix; or
-- release dates and native package claims.
+- all 251 generated package identities and digests;
+- the Penglai local dependency map and lockfile closure;
+- the exact alpha owner/controller and narrow client-package integration roots;
+- the source-built CLI and fresh Web profile package closure.
 
-As of the verified snapshot on 2026-08-29, `dsh-v0.1.2-alpha.1` exists as an
-official GitHub prerelease and source tag, but `@deepseek-ai/dsh` has not
-published `0.1.2-alpha.1` to npm. Both npm `latest` and `next` still resolve to
-`0.1.1-rc.2`. Official npm is not a prerequisite: Penglai now turns the fixed
-source into a complete local tarball set with the upstream build, pack, and
-clean-install verifier. A source tag or copied build output alone is still not a
-consumable Penglai dependency closure.
+Platform-native optional dependency selection, the final installed
+compatibility matrix, release dates, and native/public claims remain unfrozen.
+
+Official npm publication is not a prerequisite. Penglai has turned the exact
+unmodified source into a complete 251-package local tarball closure with the
+upstream build, pack, and clean-install verifier, then bound the product lockfile
+to those audited bytes. Penglai does not publish or impersonate the official
+`@deepseek-ai` scope.
 
 ## Documents
 
@@ -176,8 +175,8 @@ Allowed work now includes:
   activation/rollback readbacks. The Plugin Center turns only six closed
   failure codes into bilingual recovery guidance and shows a stable one-way
   diagnostic reference without exposing the private transaction identity;
-  arbitrary loader errors stay private. Exact alpha event/client-fiber
-  integration remains blocked on npm.
+  arbitrary loader errors stay private. Exact installed alpha event and
+  client-fiber evidence remains part of native acceptance.
 - Release identity verification now reads the sole `pins.ts` authority instead
   of declaring another expected version, then checks workspace manifests and
   the complete high-risk `release-info` product/toolchain/DSH/schema/publication
@@ -188,21 +187,21 @@ Allowed work now includes:
   ownership, and promotion of higher evidence into source PASS fail the preview
   invariant.
 
-The package-integration gate now depends on the executable local source closure,
-not official npm publication. Until the fixed source passes the upstream full
-build, both release-family packs, complete tarball inventory, clean packed
-install, digest/license review, and a clean Penglai integration install, do not
-change DSH dependency pins or claim a 0.1.2 product build. After that gate, the
-manifest, lockfile, runtime, profile, and release identity switch atomically.
+The package-integration gate is now closed PASS: the fixed source passed the
+upstream full build, both release-family packs, the complete 251-tarball
+inventory, clean packed install, digest/license review, frozen Penglai install,
+embedded runtime closure, and fresh profile verification. Manifest, lockfile,
+runtime, profile, plugin injection graph, and release identity have switched
+atomically to the alpha source closure. This remains package evidence, not a
+three-target installed or public-release claim.
 
 ## Explicit preview boundaries
 
-- no DSH dependency bump before the verified tarball closure, and never a
-  source/Git-path runtime dependency;
+- no DSH registry, source-checkout, or Git-path runtime fallback; the active
+  graph resolves only through the verified tarball closure;
 - no DSH source modification;
 - no overlay rebase;
-- product-code changes only when independent of the unpublished DSH package
-  closure and recorded in the work ledger;
+- product-code changes and DSH adaptations remain recorded in the work ledger;
 - source builds and local tarball packs are allowed; publishing into the
   official npm scope is forbidden;
 - no claim that an upstream capability automatically fixes Penglai integration;

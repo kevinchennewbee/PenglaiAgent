@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
+import { PINNED_DSH } from "./lib/product.mjs";
 
 const require = createRequire(join(ROOT, "packages/dsh-bridge/package.json"));
 const outDir = join(ROOT, "evidence/generated");
@@ -11,14 +12,14 @@ mkdirSync(outDir, { recursive: true });
 const dshBin = require.resolve("@deepseek-ai/dsh/lib/bin.js");
 const cred = require.resolve("@deepseek-ai/dsh-credentials/package.json");
 const session = require.resolve("@deepseek-ai/dsh-session/package.json");
-const home = join(ROOT, ".tmp-probe-dsh-home-rc1");
+const home = join(ROOT, ".tmp-probe-dsh-home-alpha1");
 mkdirSync(home, { recursive: true });
 const dump = execFileSync(process.execPath, [dshBin, "--profile", "web", "--dump-default-config"], {
   encoding: "utf8",
   env: { ...process.env, DSH_HOME: home, PATH: process.env.PATH },
 });
 const report = {
-  dsh: "0.1.1-rc.2",
+  dsh: PINNED_DSH,
   credentialsPackage: cred,
   sessionPackage: session,
   hasCredentialsLocal: dump.includes("dsh-credentials-local"),

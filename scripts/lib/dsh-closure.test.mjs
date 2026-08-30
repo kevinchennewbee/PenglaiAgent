@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolve } from "node:path";
 import test from "node:test";
-import { locateWorkspaceDsh } from "./dsh-closure.mjs";
+import {
+  collectDshClosure,
+  DSH_RUNTIME_INTEGRATION_ROOTS,
+  locateWorkspaceDsh,
+  materializeNestedVersionConflicts,
+  REQUIRED_DSH_RUNTIME_PACKAGES,
+} from "./dsh-closure.mjs";
 
 test("locateWorkspaceDsh uses hoisted node_modules when .pnpm has no DSH entry", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-hoist-"));
@@ -36,4 +43,36 @@ test("locateWorkspaceDsh prefers isolated .pnpm virtual store when present", () 
   assert.equal(located?.layout, "isolated");
   assert.equal(located?.dshPackageDir, nested);
   assert.equal(located?.dshPackageRoot, virtual);
+});
+
+test("alpha runtime closure includes every Penglai client injection root", () => {
+  const links = collectDshClosure(resolve("node_modules/@deepseek-ai/dsh/package.json"));
+  for (const name of DSH_RUNTIME_INTEGRATION_ROOTS) assert.equal(links.has(name), true, name);
+  for (const name of REQUIRED_DSH_RUNTIME_PACKAGES) assert.equal(links.has(name), true, name);
+  assert.equal(links.has("@deepseek-ai/dsh-host-apiproxy"), false);
+});
+
+test("flattening preserves a package-local dependency when its version differs", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-conflict-"));
+  const sourceA = join(root, "source", "package-a");
+  const sourceX2 = join(root, "source", "package-x2");
+  const sourceX1 = join(sourceA, "node_modules", "package-x");
+  const modules = join(root, "dest", "node_modules");
+  for (const [dir, manifest] of [
+    [sourceA, { name: "package-a", version: "1.0.0", dependencies: { "package-x": "1.0.0" } }],
+    [sourceX1, { name: "package-x", version: "1.0.0" }],
+    [sourceX2, { name: "package-x", version: "2.0.0" }],
+  ]) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify(manifest));
+  }
+  mkdirSync(join(modules, "package-a"), { recursive: true });
+  writeFileSync(join(modules, "package-a", "package.json"), JSON.stringify({ name: "package-a", version: "1.0.0" }));
+  const result = materializeNestedVersionConflicts(
+    new Map([["package-a", sourceA], ["package-x", sourceX2]]),
+    modules,
+  );
+  assert.equal(result.nestedConflictCount, 1);
+  const nested = JSON.parse(readFileSync(join(modules, "package-a", "node_modules", "package-x", "package.json"), "utf8"));
+  assert.equal(nested.version, "1.0.0");
 });

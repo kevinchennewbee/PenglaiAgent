@@ -1,47 +1,55 @@
 {
   "schemaVersion": 1,
   "product": "Penglai",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "candidateKind": "public-community-release",
   "trustTier": "community-verified",
   "generationId": "penglai-dsh-v0.5",
   "phase": "UNFROZEN",
   "electronVersion": "43.4.0",
   "nodeVersion": "22.22.2",
-  "dshVersion": "0.1.1-rc.2",
+  "dshVersion": "0.1.2-alpha.1",
+  "dshSource": {
+    "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
+    "tag": "dsh-v0.1.2-alpha.1",
+    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "closureManifestSha256": "45568b0f3a09f36b996af1d3a358fe34f1c2e92ea124f077ee7fb43e2bd1cd6e",
+    "cliTarballSha256": "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06",
+    "packageCount": 251
+  },
   "updaterChannel": "desktop-v0.5",
   "updaterPublicKeyId": "penglai-updater-d706d4f5cf1da7a57b74c068",
   "updaterPublicKeyHex": "d706d4f5cf1da7a57b74c068dd9eb4b7d7f655609c8ef097fd86fb22376bf9ee",
-  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/update-manifest-v1.json",
-  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.7/update-manifest-v1.json.sig",
+  "updaterManifestUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/update-manifest-v1.json",
+  "updaterManifestSignatureUrl": "https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/update-manifest-v1.json.sig",
   "updaterAllowedAssetHosts": [
     "github.com"
   ],
   "canonicalMaker": "penglai-controlled-pipeline",
   "publication": {
     "repo": "kevinchennewbee/PenglaiAgent",
-    "tag": "v0.5.7",
-    "release": "v0.5.7",
-    "channel": "stable-v0.5.7"
+    "tag": "v0.5.8",
+    "release": "v0.5.8",
+    "channel": "stable-v0.5.8"
   },
   "targets": [
     {
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.7_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.8_macos_aarch64.dmg"
     },
     {
       "key": "darwin-x86_64",
       "platform": "darwin",
       "arch": "x64",
-      "installer": "Penglai_0.5.7_macos_x64.dmg"
+      "installer": "Penglai_0.5.8_macos_x64.dmg"
     },
     {
       "key": "win32-x86_64",
       "platform": "win32",
       "arch": "x64",
-      "installer": "Penglai_0.5.7_windows_x64_setup.exe"
+      "installer": "Penglai_0.5.8_windows_x64_setup.exe"
     }
   ],
   "runtimeInputs": [
@@ -95,9 +103,9 @@
     }
   ],
   "exactAssets": [
-    "Penglai_0.5.7_macos_aarch64.dmg",
-    "Penglai_0.5.7_macos_x64.dmg",
-    "Penglai_0.5.7_windows_x64_setup.exe",
+    "Penglai_0.5.8_macos_aarch64.dmg",
+    "Penglai_0.5.8_macos_x64.dmg",
+    "Penglai_0.5.8_windows_x64_setup.exe",
     "update-manifest-v1.json",
     "update-manifest-v1.json.sig",
     "release-manifest.json",

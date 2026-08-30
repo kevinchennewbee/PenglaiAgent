@@ -2,7 +2,8 @@ import { PenglaiError } from "@penglai/contracts";
 import {
   PINNED_DSH,
   PINNED_DSH_COMMIT,
-  PINNED_DSH_INTEGRITY,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_TARBALL_SHA256,
   PINNED_ELECTRON,
   PINNED_LARK_COMMIT,
   PINNED_LARK_SDK,
@@ -55,7 +56,8 @@ export function freezePins() {
   return {
     dsh: PINNED_DSH,
     dshCommit: PINNED_DSH_COMMIT,
-    dshIntegrity: PINNED_DSH_INTEGRITY,
+    dshTarballSha256: PINNED_DSH_TARBALL_SHA256,
+    dshClosureManifestSha256: PINNED_DSH_CLOSURE_MANIFEST_SHA256,
     electron: PINNED_ELECTRON,
     node: PINNED_NODE,
     weixinRef: PINNED_WEIXIN_REF,
@@ -91,7 +93,8 @@ export function assertSourcesDocPins(sourcesMd: string, voiceMd: string): void {
   const required = [
     pins.dsh,
     pins.dshCommit,
-    pins.dshIntegrity,
+    pins.dshTarballSha256,
+    pins.dshClosureManifestSha256,
     pins.weixinRef,
     pins.weixinCommit,
     pins.larkSdk,

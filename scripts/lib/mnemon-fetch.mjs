@@ -101,7 +101,7 @@ export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 4
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || !HOST_ALLOW.has(parsed.hostname)) {
       throw new Error(`mnemon download host rejected ${parsed.hostname}`);
     }
-    const response = await fetchImpl(current, { redirect: "manual", headers: { "User-Agent": "Penglai/0.5.7 mnemon-fetch" } });
+    const response = await fetchImpl(current, { redirect: "manual", headers: { "User-Agent": "Penglai/0.5.8 mnemon-fetch" } });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
       await response.body?.cancel?.().catch(() => undefined);

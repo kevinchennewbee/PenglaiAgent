@@ -158,10 +158,10 @@ const sbom = {
   specVersion: "1.5",
   version: 1,
   metadata: {
-    component: { type: "application", name: "Penglai", version: "0.5.7" },
-    tools: [{ name: "penglai-sbom", version: "0.5.7" }],
+    component: { type: "application", name: "Penglai", version: "0.5.8" },
+    tools: [{ name: "penglai-sbom", version: "0.5.8" }],
   },
-  release: "0.5.7",
+  release: "0.5.8",
   lockfileSha256: createHash("sha256").update(lock).digest("hex"),
   componentCount: components.length,
   components,

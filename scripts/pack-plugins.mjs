@@ -67,7 +67,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-general",
       ],
@@ -83,9 +83,8 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-settings-general",
       ],
       platform: "web",
     },
@@ -107,7 +106,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -122,7 +121,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -137,7 +136,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -152,7 +151,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -167,7 +166,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -182,7 +181,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
       platform: "web",
@@ -456,7 +455,7 @@ async function vendorPptfast(stage) {
         namespace: "penglai-office-disabled-image",
       }));
       context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
-        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.7 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.8 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
         loader: "js",
       }));
     },
@@ -888,6 +887,25 @@ function vendorMossRuntime(stage) {
 
 const entries = [];
 for (const p of packs) {
+  const sourceManifest = JSON.parse(readFileSync(join(ROOT, p.dir, "package.json"), "utf8"));
+  const sourceInject = sourceManifest.dsh?.client?.inject;
+  if (p.dshClient && JSON.stringify(sourceInject) !== JSON.stringify(p.dshClient.inject)) {
+    console.error("plugin source and pack descriptor client injection diverged", p.id, {
+      sourceInject,
+      packInject: p.dshClient.inject,
+    });
+    process.exit(1);
+  }
+  if (
+    p.dshClient &&
+    (!p.dshClient.inject.includes("@deepseek-ai/dsh-api-remotes") ||
+      !p.dshClient.inject.includes("@deepseek-ai/dsh-client-ui-slots") ||
+      !p.dshClient.inject.includes("@deepseek-ai/dsh-client-ui-settings") ||
+      p.dshClient.inject.includes("@deepseek-ai/dsh-client-runtime"))
+  ) {
+    console.error("plugin client injection is not the fixed DSH alpha graph", p.id);
+    process.exit(1);
+  }
   const catalogMetadata = FIRST_PARTY_PLUGIN_METADATA.find(
     (entry) => entry.id === p.id,
   );
@@ -1196,7 +1214,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.7" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.8" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

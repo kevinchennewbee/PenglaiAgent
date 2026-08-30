@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { ROOT, readJson } from "./lib/repo.mjs";
-import { PINNED_DSH, PINNED_DSH_COMMIT, PINNED_DSH_INTEGRITY } from "./lib/product.mjs";
+import {
+  PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_COMMIT,
+  PINNED_DSH_TARBALL_SHA256,
+  PRODUCT_VERSION,
+} from "./lib/product.mjs";
 
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
 if (!lock.includes(PINNED_DSH)) {
@@ -15,13 +21,15 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const freeze = readFileSync(join(ROOT, "docs/compatibility/DSH_011_RC2.md"), "utf8");
+const freeze = readFileSync(join(ROOT, "docs/0.5.8/DSH_SOURCE_BASELINE.md"), "utf8");
+const sourceMap = readFileSync(join(ROOT, "docs/0.5.8/DSH_LOCAL_DEPENDENCY_MAP.json"), "utf8");
 if (
   !freeze.includes(PINNED_DSH) ||
   !freeze.includes(PINNED_DSH_COMMIT) ||
-  !freeze.includes(PINNED_DSH_INTEGRITY)
+  !sourceMap.includes(PINNED_DSH_TARBALL_SHA256) ||
+  !sourceMap.includes(PINNED_DSH_CLOSURE_MANIFEST_SHA256)
 ) {
-  console.error("DSH_011_RC2.md missing current pin/commit/integrity");
+  console.error("0.5.8 DSH source baseline/map is missing current pin or digest");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
@@ -48,16 +56,6 @@ if (probe.status !== 0) {
   process.exit(probe.status ?? 1);
 }
 if (probe.stdout) process.stdout.write(probe.stdout);
-const rc1 = spawnSync(process.execPath, ["--import", "tsx", join(ROOT, "scripts/probe-rc2.mjs")], {
-  cwd: ROOT,
-  encoding: "utf8",
-});
-if (rc1.status !== 0) {
-  process.stderr.write(rc1.stdout || "");
-  process.stderr.write(rc1.stderr || "");
-  process.exit(rc1.status ?? 1);
-}
-if (rc1.stdout) process.stdout.write(rc1.stdout);
 const lockText = lock;
 if (!lockText.includes("@larksuiteoapi/node-sdk@1.73.0")) {
   console.error("lock missing pinned Lark SDK");
@@ -136,4 +134,4 @@ if (!ensure.includes("--target") || ensure.includes("this script has no --arch")
   console.error("ensure-electron is still host-only");
   process.exit(1);
 }
-console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", "release-contract 0.5.7");
+console.log("verify:contracts ok", PINNED_DSH, "lark 1.73.0", "audio codecs 3.7.1/0.2.0", `release-contract ${PRODUCT_VERSION}`);

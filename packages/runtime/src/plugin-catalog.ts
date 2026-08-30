@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 
 export const PLUGIN_CATALOG_SCHEMA = 3 as const;
-export const PINNED_PLUGIN_DSH = "0.1.1-rc.2" as const;
+export const PINNED_PLUGIN_DSH = "0.1.2-alpha.1" as const;
 export const PRODUCT_PLUGIN_TARGETS = [
   "darwin-arm64",
   "darwin-x64",
@@ -89,7 +89,7 @@ export interface EmbeddedPluginManifest {
 
 const TARGETS = [...PRODUCT_PLUGIN_TARGETS];
 const common = {
-  version: "0.5.7",
+  version: "0.5.8",
   dsh: { exact: PINNED_PLUGIN_DSH },
   platforms: TARGETS,
   source: "bundled-first-party" as const,
@@ -104,7 +104,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/plugin-center",
-      packageFile: "penglai-plugin-center-0.5.7.tgz",
+      packageFile: "penglai-plugin-center-0.5.8.tgz",
       capabilities: ["settings-ui", "catalog", "profile-transaction"],
       permissions: ["profile-write"],
       defaultEnabled: true,
@@ -117,7 +117,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/im",
-      packageFile: "penglai-im-0.5.7.tgz",
+      packageFile: "penglai-im-0.5.8.tgz",
       capabilities: ["settings-ui", "im-weixin", "im-feishu", "private-voice"],
       permissions: ["credentials-service", "local-database", "outbound-network"],
       defaultEnabled: false,
@@ -130,7 +130,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/plugin-reference",
-      packageFile: "penglai-plugin-reference-0.5.7.tgz",
+      packageFile: "penglai-plugin-reference-0.5.8.tgz",
       capabilities: ["platform-proof"],
       permissions: [],
       defaultEnabled: false,
@@ -143,7 +143,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/asr",
-      packageFile: "penglai-asr-0.5.7.tgz",
+      packageFile: "penglai-asr-0.5.8.tgz",
       capabilities: ["settings-ui", "local-asr", "model-manager"],
       permissions: ["microphone", "local-model"],
       defaultEnabled: false,
@@ -156,7 +156,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/moss-tts",
-      packageFile: "penglai-moss-tts-0.5.7.tgz",
+      packageFile: "penglai-moss-tts-0.5.8.tgz",
       capabilities: ["settings-ui", "local-tts", "model-manager"],
       permissions: ["local-model", "audio-output"],
       defaultEnabled: false,
@@ -169,7 +169,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/memory",
-      packageFile: "penglai-memory-0.5.7.tgz",
+      packageFile: "penglai-memory-0.5.8.tgz",
       capabilities: [
         "layered-memory",
         "knowledge-graph",
@@ -193,7 +193,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/office",
-      packageFile: "penglai-office-0.5.7.tgz",
+      packageFile: "penglai-office-0.5.8.tgz",
       capabilities: ["office-edit", "docx", "xlsx", "pptx", "pdf"],
       permissions: ["workspace-read", "workspace-write"],
       defaultEnabled: true,
@@ -206,7 +206,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/budget",
-      packageFile: "penglai-budget-0.5.7.tgz",
+      packageFile: "penglai-budget-0.5.8.tgz",
       capabilities: ["token-budget", "pre-invocation-gate"],
       permissions: ["token-meter", "model-invocation-gate"],
       defaultEnabled: false,
@@ -219,7 +219,7 @@ export const FIRST_PARTY_PLUGIN_METADATA: readonly PluginCatalogMetadata[] =
     {
       ...common,
       id: "@penglai/companion",
-      packageFile: "penglai-companion-0.5.7.tgz",
+      packageFile: "penglai-companion-0.5.8.tgz",
       capabilities: ["proactive-companion", "schedule-composition"],
       permissions: ["schedule", "dedicated-agent", "im-send"],
       defaultEnabled: false,

@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import {
   CATALOG_SCHEMA,
   PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
   PINNED_DSH_COMMIT,
-  PINNED_DSH_INTEGRITY,
-  PINNED_DSH_SHASUM,
+  PINNED_DSH_TARBALL_SHA256,
   PRODUCT_VERSION,
   RELEASE_TARGETS,
 } from "./pins.js";
@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("R55-TRUTH-001 all product/package/release versions exact 0.5.7", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.7");
+test("release truth pins Penglai 0.5.8", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.8");
 });
 
-test("R55-TRUTH-002 DSH exact rc.2 commit/integrity/shasum", () => {
-  assert.equal(PINNED_DSH, "0.1.1-rc.2");
-  assert.equal(PINNED_DSH_COMMIT, "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e");
-  assert.match(PINNED_DSH_INTEGRITY, /^sha512-UP1UIh6q3Gme/);
-  assert.equal(PINNED_DSH_SHASUM, "1a5112369f1c46b13a6e6f21de8af5e6afd45074");
+test("DSH alpha source commit and closure digests are exact", () => {
+  assert.equal(PINNED_DSH, "0.1.2-alpha.1");
+  assert.equal(PINNED_DSH_COMMIT, "cd5ef8148158c3a752a658978873241fdf8e2bbc");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "45568b0f3a09f36b996af1d3a358fe34f1c2e92ea124f077ee7fb43e2bd1cd6e");
 });
 
 test("R55-TRUTH-003 only three exact target installers", () => {
@@ -36,9 +36,9 @@ test("R55-TRUTH-003 only three exact target installers", () => {
   );
 });
 
-test("R55-TRUTH-004 no 0.5.6/0.5.8/tag/release drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.7");
-  assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.8"), false);
+test("release version has no older tag drift", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.8");
+  assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
 test("bundled Mnemon uses its actual Apache-2.0 license", () => {
@@ -54,17 +54,14 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
   assert.equal(noticesSource.includes("Penglai Memory"), true);
 });
 
-test("R55-DSH-001 official Web/Agent/Session/Workspace unchanged", () => {
-  assert.equal(PINNED_DSH, "0.1.1-rc.2");
+test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
+  assert.equal(PINNED_DSH, "0.1.2-alpha.1");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
-  const overlay = readFileSync(
-    join(root, "overlays/dsh-0.1.1-rc.2/patched/dsh-client-ui-conversation.client.js"),
-    "utf8",
-  );
-  assert.match(overlay, /conversation\.input\.right/);
-  assert.match(overlay, /conversation\.chat\.assistant-actions/);
+  const packer = readFileSync(join(root, "scripts/pack-plugins.mjs"), "utf8");
+  assert.match(packer, /dsh-client-ui-slots/);
+  assert.match(packer, /dsh-api-remotes/);
 });
 
 test("R55-DSH-003 no parallel model/provider/chat runtime", () => {
@@ -95,9 +92,10 @@ test("R55-BUILTIN-003 baseline repair works offline", () => {
   assert.equal(CATALOG_SCHEMA, 3);
 });
 
-test("R55-BUILTIN-004 signed overlay priority and identity", () => {
-  const overlay = readFileSync(join(root, "overlays/dsh-0.1.1-rc.2/manifest.json"), "utf8");
-  assert.match(overlay, /0\.1\.1-rc\.2/);
+test("alpha runtime uses official slots and does not apply the historical rc.2 overlay", () => {
+  const embed = readFileSync(join(root, "scripts/embed-runtime.mjs"), "utf8");
+  assert.doesNotMatch(embed, /applyOverlayToRoot/);
+  assert.match(embed, /official-slots-no-source-patch/);
 });
 
 test("R55-BUILTIN-005 overlay failure returns last-good/baseline", () => {
@@ -132,7 +130,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.1-rc.2");
+  assert.equal(PINNED_DSH, "0.1.2-alpha.1");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

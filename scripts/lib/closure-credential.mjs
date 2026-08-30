@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { PINNED_DSH, PRODUCT_VERSION } from "./product.mjs";
 
 export const CLOSURE_CREDENTIAL_SCHEMA = 1;
 
@@ -61,7 +62,7 @@ export function inspectClosureCredential({ staging, candidateSha, expectedTarget
   } catch {
     return { verdict: "FAIL", reason: "runtime manifest is malformed" };
   }
-  if (manifest.target !== expectedTarget || manifest.release !== "0.5.7" || manifest.dsh !== "0.1.1-rc.2") {
+  if (manifest.target !== expectedTarget || manifest.release !== PRODUCT_VERSION || manifest.dsh !== PINNED_DSH) {
     return { verdict: "FAIL", reason: "runtime manifest identity mismatch" };
   }
   if (!Array.isArray(manifest.files) || manifest.files.length === 0) {

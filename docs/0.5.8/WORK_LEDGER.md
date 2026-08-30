@@ -22,28 +22,28 @@
 | P058-002 | Fix DSH source baseline | Source | DONE | alpha.1 tag bound to `cd5ef814…`, tree and archive digest recorded |
 | P058-003 | Clean upstream frozen install | Source | DONE | PASS on macOS arm64 with Node 22.22.2/pnpm 11.7.0 |
 | P058-004 | Full upstream source build | Source | DONE | Host, Client, CLI, and Web build PASS |
-| P058-005 | Split source and package gates | Governance | DONE | source work open; DSH integration now waits on the executable local source closure, not official npm |
+| P058-005 | Split source and package gates | Governance | DONE | complete local source closure is the package authority; official npm is neither required nor impersonated |
 | P058-006 | Upstream-to-Penglai migration matrix | Source/design | DONE | direct consumers and acceptance gates assigned; refine during implementation |
 | P058-007 | Repository asset classification | Source/design/CI | DONE | primary DSH, release, WhatsApp, independent-fix assets, high-risk identity copies, and all 60 verifier/operator scripts have executable classifications and invocation ownership |
-| P058-008 | Preview invariant verifier | Source/CI | DONE | local and remote preview gate PASS; protects release/public surfaces and DSH pins |
+| P058-008 | Preview invariant verifier | Source/CI | DONE | integrated gate protects immutable 0.5.7 history and requires the exact alpha source dependency closure |
 | P058-009 | Enable Source CI on preview branch | Source/CI | DONE | first preview Source CI PASS on `602f684b`; no main workflow run or release action |
 | P058-010 | Remove WhatsApp active source and identity | Source | DONE | package, adapter, channel/route identity, credential, risk-owner Remote, UI card/copy, tests, and workspace references removed; historical 0.5.7 surfaces preserved |
-| P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | DONE | frozen install PASS with 34 workspaces; lock/SBOM/notices/plugin staging contain none of four retired runtime identities; DSH pins unchanged |
+| P058-011 | Remove WhatsApp dependency/lock/license closure | Package-source | DONE | frozen install PASS with 34 workspaces; lock/SBOM/notices/plugin staging contain none of four retired runtime identities |
 | P058-012 | Contain Feishu asynchronous media callback failures | Source | DONE | callback stays bounded; rejection resolves to redacted durable terminal state; focused tests PASS |
 | P058-013 | Map all ApiProxy callers to owner Remotes | Source/design | DONE | 9 operational/support references and exact create/modelCatalog/selectModel ownership are frozen by the executable census |
-| P058-014 | Implement owner Remote migration | Package/source | READY_SOURCE_CLOSURE | consume the exact declarations/generated clients from the verified local alpha.1 tarballs |
+| P058-014 | Implement owner Remote migration | Package/source | DONE | active bridge uses alpha SessionController, Agent and Workspace owners; rc.2 ApiProxy remains historical-only; focused migration tests PASS |
 | P058-029 | Split Penglai bridge by official owner boundary | Source/design | DONE | Agent/Workspace/Session ports, rc.2 ApiProxy containment, Workspace-order plus Session-title join, create-title forwarding, and exact alpha source verifier pass; generated adapter remains P058-014 |
 | P058-015 | Map all `dsh-client-runtime` consumers | Source/design | DONE | 8 plugin manifests and 8 packager rows are frozen; exact replacement graph remains P058-026 |
 | P058-016 | Quarantine unsupported legacy channel rows | Source/upgrade | DONE | startup revokes unsupported route/binding activity without deleting audit rows; bot lists hide unsupported rows and reject new unknown filters |
-| P058-026 | Implement narrow client package graph | Package/source | READY_SOURCE_CLOSURE | derive exact exports and generated artifacts from the verified local alpha.1 tarballs |
+| P058-026 | Implement narrow client package graph | Package/source | DONE | all eight plugin manifests and packed descriptors use audited alpha Remotes, settings and slot packages; no active client-runtime injection remains |
 | P058-017 | Overlay-to-slot map | Source/design/CI | DONE | 12 mapped dispositions cover all 4 patched files and 5 brand assets; 4 narrow upstream gaps remain; executable gate PASS |
-| P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private exact-authority token exchange, cookie proof, proxy injection, rc.2 compatibility, redaction, and real child fixture pass in source; exact alpha package and native first navigation remain |
-| P058-019 | Packaged DSH child supervision repair | Source/native | IN_PROGRESS | child/owner lifetimes, bounded hang/port-loss recovery, authenticated alpha-style health, structured diagnostics, exact exhaustion, and non-stranding actions pass locally; three-target native/installed proof remains |
+| P058-018 | One-time browser-token integration | Source/package/native | IN_PROGRESS | private token exchange, proxy injection and real alpha profile HTTP 200 pass; exact from-installer first navigation remains native work |
+| P058-019 | Packaged DSH child supervision repair | Source/package/native | IN_PROGRESS | source-built embedded alpha CLI, closure and fresh profile pass after preserving 20 package-local dependency conflicts; three-target native/installed process proof remains |
 | P058-028 | Isolated rc.2 → alpha.1 DSH Home generation | Source/package/native | IN_PROGRESS | private bounded copy, one-writer journal, disk/file-type/mode gates, health-bound atomic activation, rejection, rollback, and rc.2 JSONL replay pass in source; installed corpus, SQLite, Windows ACL, runtime wiring, and native rollback remain |
 | P058-020 | Session title projection in IM | Package/source/UI/live | IN_PROGRESS | bridge, `/会话`, desktop chooser, and binding summary now share Workspace-order plus Session-owner titles; missing labels use localized ordinals while immutable IDs remain selection keys; generated alpha Remote and installed/Owner-live proof remain |
 | P058-021 | Official image Attachment handoff | Package/live | READY_SOURCE_CLOSURE | callback/download safety is source-complete; bind final DSH admission after local alpha.1 closure integration |
 | P058-022 | Feishu real media permission/download proof | Live | BLOCKED_OWNER_LIVE | perform only with privacy-safe Owner account evidence |
-| P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | false Agent/Session lifecycle, optional Budget accounting, one closed-transient retry, and bounded digest-only audit are fixed in source; source-closure integration and installed/live proof remain |
+| P058-023 | Memory curator internal-job lifecycle | Source/package | IN_PROGRESS | alpha source-closure integration, false Agent/Session removal, Budget accounting, retry and digest-only audit pass; installed/live proof remains |
 | P058-030 | IM support truth model | Source/UI/package/live | IN_PROGRESS | one closed registry now separates entry, adapter mode, bundled runtime, dynamic connection, release evidence, and per-capability evidence; all current rows are source-only; packaged/installed/Owner-live/public reconciliation remains |
 | P058-031 | Feishu media failure diagnostics | Source/live | IN_PROGRESS | request, stream, validation, admission, and transcription now persist closed redacted causes with retry class; exact checklist and durable text-only degradation are source-complete; Owner permission/download and end-to-end image/voice proof remain |
 | P058-032 | Feishu durable voice phase ledger | Source/live | IN_PROGRESS | downloading, validation, transcoding, transcription, and atomic queued handoff are closed durable source states; legacy-processing and uncertain DSH write recovery pass locally; Owner voice, vendor download, live ASR, and official Turn proof remain |
@@ -69,8 +69,11 @@
 
 - `main` and its public bytes are untouched.
 - `v0.5.7`, its ten assets, and existing release metadata are untouched.
-- `release-contract.json` remains the 0.5.7 contract.
-- all active product DSH dependency pins remain `0.1.1-rc.2`.
+- `release-contract.json`, `release-info.json`, manifests and lockfile now form
+  the coherent 0.5.8 preview identity; published 0.5.7 contracts and bytes stay
+  immutable in their tag and historical documents.
+- all active product DSH dependency pins are `0.1.2-alpha.1` and resolve only
+  through the audited local source closure.
 - no source checkout, Git URL, copied upstream build, partial tarball set, or
   registry fallback enters the Penglai package graph; only the verified complete
   local source closure may replace rc.2 atomically.
@@ -131,6 +134,7 @@ use a partial broken push merely to create activity.
 | `665dc702bf9a08772529d0724859b7fe708ecf77` | persist closed redacted Weixin iLink response evidence and typed transport classification without retaining response bodies, URLs, headers, or MIME parameters | branch readback PASS; [Source CI 33258909346](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33258909346) PASS |
 | `b9fd937aabea9662999f85cf3224b950c687562b` | expose the persisted safe transport observation only in default-collapsed Advanced diagnostics with client-side closed-shape validation and an explicit non-root-cause label | branch readback PASS; [Source CI 33259192818](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33259192818) PASS |
 | `feec1c32773807d63adf39aa749d9c00633c19cd` | reject malformed persisted IM failure identity, reconstruct fixed copy/actions on readback, and confine iLink observations to Weixin rows | branch readback PASS; [Source CI 33259435231](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33259435231) PASS |
+| `db1efb8e9cb9fc1146052c91c9827257b23b4d01` | vendor the deterministic 251-package DSH alpha source closure without upstream patches or npm impersonation | branch readback PASS; [Source CI 33290409118](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33290409118) PASS |
 
 ## Publication reconciliation placeholder
 
