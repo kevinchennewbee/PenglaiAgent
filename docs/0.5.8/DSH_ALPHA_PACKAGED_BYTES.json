@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "dsh": "0.1.2-alpha.1",
+  "source": {
+    "tag": "dsh-v0.1.2-alpha.1",
+    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "tree": "a712eec535b48badc4fefb4df5176a7002e4280b"
+  },
+  "mode": "official-slots-no-source-patch",
+  "officialBytes": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-web-frontend-0.1.2-alpha.1.tgz",
+      "sourcePath": "package/dist/index.html",
+      "sha256": "0dd16b20a6b1a3a749dea850e6de66296c67e76440e13aaad3136e7c786c8661"
+    },
+    {
+      "id": "settings-models-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-settings-models-0.1.2-alpha.1.tgz",
+      "sourcePath": "package/lib/client.js",
+      "sha256": "28ec8e4452162715d7334fd061461d9752b1d3e9193a577b00c331d7455d8d11"
+    },
+    {
+      "id": "conversation-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-conversation-0.1.2-alpha.1.tgz",
+      "sourcePath": "package/lib/client.js",
+      "sha256": "50f87b4b2d488047d877706db5118485a133b56a85daa0a5b6d08340f1366c60"
+    },
+    {
+      "id": "settings-general-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-settings-general-0.1.2-alpha.1.tgz",
+      "sourcePath": "package/lib/client.js",
+      "sha256": "e26b1ac3a24bcd429fcab57e8069d99ace99b46bb24cf564b4bb71bb31bad94e"
+    }
+  ],
+  "brandAssets": [
+    {
+      "name": "logo-64.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-64.png",
+      "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985"
+    },
+    {
+      "name": "logo-256.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-256.png",
+      "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2"
+    }
+  ]
+}

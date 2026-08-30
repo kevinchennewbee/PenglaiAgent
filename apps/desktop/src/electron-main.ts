@@ -630,11 +630,13 @@ async function main(): Promise<void> {
       }
       await closeProxy();
       const wizardRoot = join(here, "static", "wizard");
+      const brandRoot = join(here, "static", "penglai-brand");
       proxy = await startDshProxy({
         token,
         innerPort: live.port,
         ...(live.upstreamCookie ? { upstreamCookie: live.upstreamCookie } : {}),
         wizard: { root: wizardRoot, disabled: onboardingLedgerComplete(user.root) },
+        brand: { root: brandRoot },
       });
       const url = `http://127.0.0.1:${proxy.port}/`;
       allowedOrigin = url;

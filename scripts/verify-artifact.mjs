@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 import { finish } from "./lib/exit-contract.mjs";
 import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
-import { verifyAppliedOverlay } from "./apply-overlay.mjs";
 
 const expectedTarget = parseTargetArg();
 const source = requireCleanCandidateSource();
@@ -50,13 +52,37 @@ if (blocked) {
   });
 }
 
-try {
-  verifyAppliedOverlay(`${packaged.resources}/runtime/dsh`);
-} catch (error) {
-  finish("FAIL", {
-    command: "verify:artifact",
-    reason: error instanceof Error ? error.message : String(error),
-  });
+const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const packagedBytes = JSON.parse(
+  readFileSync(join(ROOT, "docs/0.5.8/DSH_ALPHA_PACKAGED_BYTES.json"), "utf8"),
+);
+if (packagedBytes.dsh !== packaged.release.dsh || packagedBytes.mode !== "official-slots-no-source-patch") {
+  finish("FAIL", { command: "verify:artifact", reason: "DSH alpha packaged-byte policy identity drift" });
+}
+for (const row of packagedBytes.officialBytes ?? []) {
+  const target = join(packaged.resources, "runtime", "dsh", row.relative);
+  if (!existsSync(target) || sha256(target) !== row.sha256) {
+    finish("FAIL", { command: "verify:artifact", reason: `official DSH byte mismatch ${row.id}` });
+  }
+}
+const legacyBrandRoot = join(
+  packaged.resources,
+  "runtime/dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/penglai-brand",
+);
+if (existsSync(legacyBrandRoot)) {
+  finish("FAIL", { command: "verify:artifact", reason: "historical DSH overlay brand directory remains active" });
+}
+const brandRoot = join(packaged.resources, "app", "static", "penglai-brand");
+const expectedBrand = (packagedBytes.brandAssets ?? []).map((row) => row.name).sort();
+const actualBrand = existsSync(brandRoot) ? readdirSync(brandRoot).sort() : [];
+if (JSON.stringify(actualBrand) !== JSON.stringify(expectedBrand)) {
+  finish("FAIL", { command: "verify:artifact", reason: "Penglai brand asset inventory mismatch" });
+}
+for (const row of packagedBytes.brandAssets ?? []) {
+  const target = join(brandRoot, row.name);
+  if (!existsSync(target) || sha256(target) !== row.sha256) {
+    finish("FAIL", { command: "verify:artifact", reason: `Penglai brand asset mismatch ${row.name}` });
+  }
 }
 
 const nodeVersion = execFileSync(packaged.nodeBin, ["-p", "process.version"], {
@@ -92,4 +118,5 @@ finish("PASS", {
   manifestSha256: packaged.manifestSha256,
   node: nodeVersion,
   dsh: dshVersion,
+  overlay: packagedBytes.mode,
 });

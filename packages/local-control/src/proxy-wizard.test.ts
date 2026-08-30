@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, request as httpRequest } from "node:http";
@@ -104,25 +104,38 @@ test("wizard root missing does not crash the proxy", async () => {
   await proxy.close();
 });
 
-test("authenticated proxy gives Penglai brand assets browser-safe MIME types", async () => {
+test("authenticated proxy serves only packaged Penglai brand assets without asking DSH", async () => {
   const png = Buffer.from("89504e470d0a1a0a", "hex");
-  const inner = createServer((req, res) => {
+  let upstreamRequests = 0;
+  const inner = createServer((_req, res) => {
+    upstreamRequests += 1;
     res.writeHead(200, { "content-type": "application/octet-stream" });
-    res.end(req.url?.endsWith(".png") ? png : "asset");
+    res.end("upstream");
   });
   await new Promise<void>((resolve) => inner.listen(0, "127.0.0.1", resolve));
   const address = inner.address();
   assert.ok(address && typeof address !== "string");
   const token = "b".repeat(32);
-  const proxy = await startDshProxy({ token, innerPort: address.port });
+  const brandRoot = join(mkdtempSync(join(tmpdir(), "penglai-brand-")), "assets");
+  mkdirSync(brandRoot);
+  writeFileSync(join(brandRoot, "logo-64.png"), png);
+  const proxy = await startDshProxy({ token, innerPort: address.port, brand: { root: brandRoot } });
   try {
     const branded = await fetch(`http://127.0.0.1:${proxy.port}/penglai-brand/logo-64.png`, { headers: tokenHeaders(token) });
     assert.equal(branded.status, 200);
     assert.equal(branded.headers.get("content-type"), "image/png");
     assert.deepEqual(Buffer.from(await branded.arrayBuffer()), png);
+    assert.equal(branded.headers.get("x-content-type-options"), "nosniff");
+
+    const missing = await fetch(`http://127.0.0.1:${proxy.port}/penglai-brand/not-owned.png`, {
+      headers: tokenHeaders(token),
+    });
+    assert.equal(missing.status, 404);
+    assert.equal(upstreamRequests, 0);
 
     const ordinary = await fetch(`http://127.0.0.1:${proxy.port}/api/state.json`, { headers: tokenHeaders(token) });
     assert.equal(ordinary.headers.get("content-type"), "application/octet-stream");
+    assert.equal(upstreamRequests, 1);
   } finally {
     await proxy.close();
     await new Promise<void>((resolve, reject) => inner.close((error) => error ? reject(error) : resolve()));
