@@ -13,13 +13,6 @@ const WIZARD_TYPES: Record<string, string> = {
   ".png": "image/png",
 };
 
-const PENGLAI_BRAND_TYPES: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-};
-
 function proxiedResponseHeaders(url: string | undefined, headers: IncomingMessage["headers"]): IncomingMessage["headers"] {
   const safeHeaders = { ...headers };
   const setCookies = Array.isArray(headers["set-cookie"])
@@ -30,10 +23,8 @@ function proxiedResponseHeaders(url: string | undefined, headers: IncomingMessag
   const browserCookies = setCookies.filter((cookie) => !/^\s*dsh-auth-/u.test(cookie));
   if (browserCookies.length) safeHeaders["set-cookie"] = browserCookies;
   else delete safeHeaders["set-cookie"];
-  const pathname = new URL(url ?? "/", "http://127.0.0.1").pathname;
-  if (!pathname.startsWith("/penglai-brand/")) return safeHeaders;
-  const type = PENGLAI_BRAND_TYPES[extname(pathname).toLowerCase()];
-  return type ? { ...safeHeaders, "content-type": type } : safeHeaders;
+  void url;
+  return safeHeaders;
 }
 
 export const WIZARD_CSP =
@@ -108,6 +99,50 @@ function serveWizard(req: IncomingMessage, res: ServerResponse, wizardRoot: stri
   return true;
 }
 
+const PENGLAI_BRAND_ASSETS = new Map([
+  ["logo-64.png", "image/png"],
+  ["logo-256.png", "image/png"],
+]);
+
+function servePenglaiBrand(req: IncomingMessage, res: ServerResponse, brandRoot: string): void {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(405).end("method");
+    return;
+  }
+  const pathOnly = String(req.url ?? "").split("?")[0] ?? "";
+  let name = pathOnly.slice("/penglai-brand/".length);
+  try {
+    name = decodeURIComponent(name);
+  } catch {
+    res.writeHead(400).end("path");
+    return;
+  }
+  const type = PENGLAI_BRAND_ASSETS.get(name);
+  if (!type || !existsSync(brandRoot)) {
+    res.writeHead(404).end("brand");
+    return;
+  }
+  const root = realpathSync(brandRoot);
+  const file = resolve(root, name);
+  if (!isInsideRoot(root, file) || !existsSync(file) || !statSync(file).isFile()) {
+    res.writeHead(404).end("brand");
+    return;
+  }
+  const real = realpathSync(file);
+  if (!isInsideRoot(root, real)) {
+    res.writeHead(403).end("path");
+    return;
+  }
+  const body = readFileSync(real);
+  res.writeHead(200, {
+    "Content-Type": type,
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "public, max-age=31536000, immutable",
+  });
+  if (req.method === "HEAD") res.end();
+  else res.end(body);
+}
+
 function upstreamCookieHeader(raw: string | undefined, upstreamCookie: string | undefined): string | undefined {
   const forwarded = String(raw ?? "")
     .split(";")
@@ -170,6 +205,7 @@ export async function startDshProxy(opts: {
   upstreamCookie?: string;
   host?: string;
   wizard?: { root: string; disabled?: boolean };
+  brand?: { root: string };
 }): Promise<LocalProxy> {
   const host = opts.host ?? "127.0.0.1";
   assertSafeListenHost(host);
@@ -195,6 +231,14 @@ export async function startDshProxy(opts: {
     }
     if (!tokenFrom(req, opts.token)) {
       res.writeHead(401).end("unauthorized");
+      return;
+    }
+    if (String(req.url ?? "").split("?")[0]?.startsWith("/penglai-brand/")) {
+      if (!opts.brand) {
+        res.writeHead(404).end("brand");
+        return;
+      }
+      servePenglaiBrand(req, res, opts.brand.root);
       return;
     }
     if (opts.wizard && isWizardPath(req.url)) {
