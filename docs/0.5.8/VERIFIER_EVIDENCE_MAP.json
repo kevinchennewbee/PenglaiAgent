@@ -35,6 +35,7 @@
     ["scripts/verify-dependencies.mjs", "source", "allowed-source", "package-script", "verify:dependencies"],
     ["scripts/verify-dsh-alpha-owner-remotes.mjs", "source", "allowed-source", "package-script", "verify:dsh-alpha-owner-remotes"],
     ["scripts/verify-dsh-alpha-session-replay.mjs", "source", "allowed-source", "manual", "fixed-alpha-checkout argument required"],
+    ["scripts/verify-dsh-vendored-closure.mjs", "package", "allowed-source", "package-script", "verify:dsh-vendored-closure"],
     ["scripts/verify-evidence.mjs", "aggregate", "blocked-native", "package-script", "verify:evidence"],
     ["scripts/verify-feishu-media-diagnostics.mjs", "source", "allowed-source", "composed-script", "scripts/verify-058-preview.mjs"],
     ["scripts/verify-fuses.mjs", "native", "blocked-native", "package-script", "verify:fuses"],

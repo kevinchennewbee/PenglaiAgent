@@ -25,9 +25,15 @@
   optional and default off.
 - For 0.5.8 preview development, the Owner-fixed upstream source baseline is
   lightweight tag `dsh-v0.1.2-alpha.1`, commit
-  `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Until the matching official npm
-  closure exists and is reconciled, product manifests and the lockfile remain
-  on 0.5.7's `0.1.1-rc.2`; source experiments are not package evidence.
+  `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Official npm publication is not a
+  prerequisite. Penglai builds the unmodified fixed source with its frozen
+  lockfile and upstream release packer, verifies the complete local tarball
+  set, and records package digests, licenses, and packed-install readback. Until
+  that executable source closure passes, product manifests and the lockfile
+  remain on 0.5.7's `0.1.1-rc.2`; an ad-hoc source build is not package evidence.
+  After it passes, the dependency graph, lockfile, runtime closure, profile, and
+  release identity move to alpha.1 atomically. Future official npm artifacts
+  are optional reconciliation evidence, not a development or release blocker.
 - Plugin Center may install only signed catalog artifacts with exact identity,
   digest, permission, DSH compatibility, and rollback checks. UI state is never
   proof that a plugin is installed or healthy.
@@ -91,9 +97,13 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 预览开发的 Owner 固定上游源码基线为轻量 tag
   `dsh-v0.1.2-alpha.1`、commit
-  `cd5ef8148158c3a752a658978873241fdf8e2bbc`。在对应官方 npm 闭包发布并完成
-  核对前，产品 manifest 与 lockfile 继续保持 0.5.7 的 `0.1.1-rc.2`；源码实验
-  不能冒充 package 证据。
+  `cd5ef8148158c3a752a658978873241fdf8e2bbc`。官方 npm 发布不是前置条件。
+  Penglai 使用上游冻结 lockfile 和官方 release packer 构建未经修改的固定源码，
+  验证完整本地 tarball 集合，并记录包摘要、许可证与 packed-install 回读。在这条
+  可执行源码闭包通过前，产品 manifest 与 lockfile 继续保持 0.5.7 的
+  `0.1.1-rc.2`；临时源码构建不能冒充 package 证据。闭包通过后，依赖图、
+  lockfile、runtime closure、profile 与 release identity 必须原子切换到 alpha.1。
+  未来官方 npm 只作为可选核对证据，不阻塞开发或发布。
 - 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
   UI 显示不等于真实安装或健康。
 - Workspace、项目、账号、IM 路由必须隔离。记忆不得跨工作区串联；办公写入、

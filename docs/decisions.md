@@ -380,9 +380,15 @@
 
 ### D-063 — 0.5.8 固定 DSH 源码基线与预览分支开发边界
 
-- 状态：ACCEPTED（Owner 2026-08-29 明确决定）
+- 状态：PARTIALLY SUPERSEDED by D-064（固定源码身份继续有效；npm 前置与发布授权边界已被取代）
 - 决定：0.5.8 的上游源码基线固定为官方轻量 tag `dsh-v0.1.2-alpha.1` 对应的精确 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`，不再等待或选择所谓“最新”源码。Owner 授权在 `0.5.8-preview` 持续实现、验证、分批提交和推送，不建立 npm 发布监控。当前允许隔离构建固定上游源码、完成迁移矩阵、仓库盘点、特征测试，以及不依赖新 npm 闭包的蓬莱自有修复。
 - 后果：源码可构建不等于 npm package、Penglai closure、native、installed、live 或 public 证据。在与固定源码匹配的官方 npm 包集发布前，Penglai 的产品 manifest、lockfile 与发布合同继续保持 0.5.7 的 DSH `0.1.1-rc.2`，不得使用源码路径、Git URL、私有 tarball 或兼容 ApiProxy 伪造 0.1.2 产品集成。官方包出现后须人工核对 exact version、integrity、生成 Remote/client 产物、依赖与许可闭包；预览工作不得进入 `main`、改写 `v0.5.7` tag/附件、发布 package/Release 或部署公开页面，除非 Owner 另行明确授权。
+
+### D-064 — 0.5.8 使用固定官方源码闭包并完成全链路发布
+
+- 状态：ACCEPTED（Owner 2026-08-30 明确取代 D-063 的 npm 前置与发布授权边界）
+- 决定：0.5.8 不等待官方 npm。Penglai 对 D-063 固定的官方 `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc` 使用上游冻结 lockfile、完整 build、官方 `release:pack` 和 `release:verify-packed-install` 建立未经修改、保留官方包名但不公开发布到 `@deepseek-ai` scope 的本地 tarball 闭包。只有 commit、tree、archive、工具链、完整包数、每包摘要、许可、生成产物和外部 clean install 都通过后，Penglai 才把 manifest、lockfile、runtime、profile 与 release identity 原子迁移到 alpha.1。未来官方 npm 只做人工差异核对，不阻塞开发或发布。
+- 后果：Owner 授权在 `0.5.8-preview` 持续开发、提交和推送，完成后创建 PR、通过必需 CI、合并 `main`，从同一最终 main SHA 构建 Apple Silicon、Intel Mac 与 Windows x64 客户端，组装并发布精确 0.5.8 资产且执行公网字节回读。0.5.7 tag、附件和历史叙事不得改写。根 README、双语 `website/`、Release Notes 与仓库元数据只能在 0.5.8 Release readback PASS 后写入观测到的真实 SHA、大小、摘要和下载链接，再部署并回读 `gh-pages`。
 
 ## Superseded
 

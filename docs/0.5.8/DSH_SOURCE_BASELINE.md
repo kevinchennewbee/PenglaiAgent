@@ -97,9 +97,10 @@ Penglai impact include:
 - `packages/util/workspace-path/package.json`
 
 The numerical delta is discovery evidence, not a dependency list. The exact
-published closure must come from official package tarballs.
+product closure comes from tarballs built by the fixed source's official
+release packers and verified by their clean-install reader.
 
-## Current npm boundary
+## Source-closure transport decision
 
 At the evidence date:
 
@@ -108,14 +109,23 @@ At the evidence date:
 - npm `@deepseek-ai/dsh@0.1.2-alpha.1` does not exist; and
 - npm `latest` and `next` still resolve to `0.1.1-rc.2`.
 
-Therefore Penglai keeps all active DSH manifest and lockfile pins at
-`0.1.1-rc.2`. A Git URL, file path, source-built tarball, copied `lib/`, or
-private registry substitute is forbidden as product closure.
+Official npm publication is not a prerequisite for Penglai 0.5.8. Penglai uses
+the unmodified fixed source, its frozen lockfile, its complete build, and its
+official `release:pack` / `release:verify-packed-install` implementation to
+produce and verify a local tarball closure. It does not publish those tarballs
+into the official `@deepseek-ai` npm scope.
 
-## Manual publication reconciliation
+Penglai keeps active DSH manifest and lockfile pins at `0.1.1-rc.2` only during
+the source-closure bootstrap. A Git URL, direct source path, copied `lib/`,
+partial tarball set, or unverified private registry is forbidden. After all
+vendor and DSH tarballs, digests, licenses, generated artifacts, and the clean
+packed install pass, the product dependency graph, lockfile, runtime closure,
+profile, and release identity switch atomically to source-built alpha.1.
 
-No monitor is created. When the official npm set is known to exist, perform one
-manual reconciliation:
+## Optional future official npm reconciliation
+
+No monitor is created and publication does not block 0.5.8. If the official npm
+set later exists, perform one manual reconciliation:
 
 1. Re-resolve the tag and require the fixed commit and tree above.
 2. Enumerate every direct and transitive DSH package required by Penglai.
@@ -126,9 +136,11 @@ manual reconciliation:
    fixed source tree.
 6. Reject missing, partially published, retracted, republished, or mismatched
    packages.
-7. Change Penglai manifests and lockfile in one reviewable commit.
-8. Re-run clean frozen installation, package closure, license, SBOM, source,
-   native, installed, and live gates at their proper evidence levels.
+7. Decide whether switching transport changes any byte, API, dependency,
+   license, or platform behavior; do not switch merely because npm appeared.
+8. If a switch is justified, change Penglai manifests and lockfile atomically
+   and re-run clean install, package closure, license, SBOM, source, native,
+   installed, and live gates at their proper evidence levels.
 
 ## Evidence limits
 

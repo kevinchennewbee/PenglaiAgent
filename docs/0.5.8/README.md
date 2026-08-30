@@ -26,8 +26,8 @@ not depend on chat history or one local note.
 0.5.8 is not a feature-expansion release. Its purpose is to take the functions
 already promised or bundled in 0.5.7, exercise them as a normal user would,
 find the real failures, repair them at their correct ownership boundary, and
-ship a stable Penglai distribution whose official package closure matches the
-Owner-fixed DSH `0.1.2-alpha.1` source baseline.
+ship a stable Penglai distribution whose reproducible source-built package
+closure matches the Owner-fixed DSH `0.1.2-alpha.1` source baseline.
 
 The governing principles are:
 
@@ -58,24 +58,28 @@ The following may be frozen now:
 - the differential and adversarial acceptance strategy; and
 - the DSH source baseline: lightweight tag `dsh-v0.1.2-alpha.1`, commit
   `cd5ef8148158c3a752a658978873241fdf8e2bbc`;
-- the rule that the eventual official npm closure must match that exact source;
+- the rule that the local tarball closure must be produced by the exact
+  unmodified source through the upstream release packer;
 - the permanent removal of WhatsApp from active product, source, dependency,
   packaging, test-matrix, and roadmap surfaces while preserving immutable 0.5.7
   release history.
 
-The following cannot be frozen until official publication:
+The following cannot be frozen until the executable source closure runs:
 
-- the exact npm package set and each package integrity;
+- every generated package digest and platform-specific closure detail;
 - the Penglai lockfile closure;
-- whether every source-declared Remote/client package is published unchanged;
+- whether every source-declared Remote/client package packs and installs
+  unchanged;
 - the final compatibility matrix; or
 - release dates and native package claims.
 
 As of the verified snapshot on 2026-08-29, `dsh-v0.1.2-alpha.1` exists as an
 official GitHub prerelease and source tag, but `@deepseek-ai/dsh` has not
 published `0.1.2-alpha.1` to npm. Both npm `latest` and `next` still resolve to
-`0.1.1-rc.2`. A source tag alone is not a consumable, reproducible Penglai
-dependency closure.
+`0.1.1-rc.2`. Official npm is not a prerequisite: Penglai now turns the fixed
+source into a complete local tarball set with the upstream build, pack, and
+clean-install verifier. A source tag or copied build output alone is still not a
+consumable Penglai dependency closure.
 
 ## Documents
 
@@ -87,6 +91,12 @@ dependency closure.
   implementation phases, gates, and native acceptance plan.
 - [DSH_SOURCE_BASELINE.md](./DSH_SOURCE_BASELINE.md) binds the fixed tag to its
   commit, tree, clean source install/build result, and evidence limits.
+- [DSH_SOURCE_CLOSURE.json](./DSH_SOURCE_CLOSURE.json) is the machine-readable
+  source, toolchain, pack-family, transport, and atomic-switch contract.
+- [MASTER_TODO.md](./MASTER_TODO.md) is the complete development, package,
+  native, PR, release, README, and website checklist.
+- [PUBLICATION_FLOW.md](./PUBLICATION_FLOW.md) fixes the release/readback/public
+  narrative order so README and the website cannot get ahead of public bytes.
 - [MIGRATION_MATRIX.md](./MIGRATION_MATRIX.md) maps removed and new upstream
   seams to exact Penglai consumers and migration gates.
 - [REPOSITORY_MIGRATION_INVENTORY.md](./REPOSITORY_MIGRATION_INVENTORY.md)
@@ -104,7 +114,7 @@ Allowed work now includes:
 - characterization and migration tests;
 - preview-only safety gates and CI;
 - retirement of active WhatsApp product/runtime/dependency surfaces; and
-- Penglai-owned fixes whose contracts do not depend on the unpublished package
+- Penglai-owned fixes whose contracts do not depend on the not-yet-integrated package
   graph, including asynchronous channel failure containment, desktop process
   recovery, the Memory curator's internal no-Session lifecycle, and the IM
   support-truth model that separates bundled source from connection and live
@@ -172,29 +182,32 @@ Allowed work now includes:
   of declaring another expected version, then checks workspace manifests and
   the complete high-risk `release-info` product/toolchain/DSH/schema/publication
   and three-target copies. This is source consistency, not artifact evidence.
-- The complete 59-script verifier/operator census is now executable and split
+- The complete 60-script verifier/operator census is now executable and split
   across source, package, native, installed, Owner-live, public-byte, aggregate,
   and historical evidence planes. New or stale scripts, broken invocation
   ownership, and promotion of higher evidence into source PASS fail the preview
   invariant.
 
-The package-integration gate remains closed until `@deepseek-ai/dsh` and every
-required first-party package are published at a mutually compatible exact
-version, generated artifacts are present, integrity and license closure is
-reviewed, and a clean Penglai frozen-lock installation succeeds. Until then,
-do not change DSH dependency pins or claim a 0.1.2 product build.
+The package-integration gate now depends on the executable local source closure,
+not official npm publication. Until the fixed source passes the upstream full
+build, both release-family packs, complete tarball inventory, clean packed
+install, digest/license review, and a clean Penglai integration install, do not
+change DSH dependency pins or claim a 0.1.2 product build. After that gate, the
+manifest, lockfile, runtime, profile, and release identity switch atomically.
 
 ## Explicit preview boundaries
 
-- no DSH dependency bump or source/Git-path dependency;
+- no DSH dependency bump before the verified tarball closure, and never a
+  source/Git-path runtime dependency;
 - no DSH source modification;
 - no overlay rebase;
 - product-code changes only when independent of the unpublished DSH package
   closure and recorded in the work ledger;
-- source builds and tests are allowed; native release builds, package publish,
-  release, tag, and deployment are not;
+- source builds and local tarball packs are allowed; publishing into the
+  official npm scope is forbidden;
 - no claim that an upstream capability automatically fixes Penglai integration;
 - no WhatsApp compatibility card, experimental adapter, runtime, dependency,
   packaging path, support claim, or future-roadmap placeholder; and
-- pushes only to `0.5.8-preview`; no pull request, `main` merge, or public release
-  without separate Owner approval.
+- checkpoints push to `0.5.8-preview`; the Owner has separately authorized the
+  completed product PR, required-check merge, three-target Release, public
+  readback, and post-readback README/website publication sequence.

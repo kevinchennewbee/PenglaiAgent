@@ -37,13 +37,17 @@ jobs:
         with:
           node-version: 22.22.2
       - name: Verify 0.5.8 preview boundaries
-        if: github.ref == 'refs/heads/0.5.8-preview'
+        if: github.ref == 'refs/heads/0.5.8-preview' || github.head_ref == '0.5.8-preview'
         run: node scripts/verify-058-preview.mjs
+      - name: Verify fixed DSH source identity
+        run: node scripts/prepare-dsh-source-closure.mjs --identity-only
       - name: Install pinned dependencies
         run: |
           corepack enable
           corepack prepare pnpm@10.14.0 --activate
           pnpm install --frozen-lockfile
+      - name: Verify vendored fixed-source DSH package closure
+        run: pnpm verify:dsh-vendored-closure
       - name: Fetch and verify the pinned native Mnemon binary
         run: pnpm fetch:mnemon-assets
       - name: Source, contract, and evidence-class gates

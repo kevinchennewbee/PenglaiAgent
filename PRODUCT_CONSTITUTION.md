@@ -1,6 +1,6 @@
 # 蓬莱产品宪法
 
-> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。2026-08-28 Owner 进一步决定：**Penglai 永久不再支持、接入、展示、实验或规划 WhatsApp**。2026-08-29 Owner 固定 0.5.8 的 DSH 源码基线为 `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`，并授权只在 `0.5.8-preview` 持续开发和推送。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
+> 生效日期：2026-08-16；历次公开边界记录于决策日志。2026-08-24 Owner 授权公开发布 **Penglai 0.5.6**。2026-08-27 Owner 授权发布 **Penglai 0.5.7**，并决定不随包分发 WhatsApp 社区协议 runtime，以避免其 GPL 传递依赖带来的发行风险。2026-08-28 Owner 进一步决定：**Penglai 永久不再支持、接入、展示、实验或规划 WhatsApp**。2026-08-29 Owner 固定 0.5.8 的 DSH 源码基线为 `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`。2026-08-30 Owner 决定 0.5.8 使用该固定官方源码建立可复现本地包闭包，不等待官方 npm，并授权在 `0.5.8-preview` 完成开发、PR、合并、三端发布及发布后 README/官网更新。本文是仓库内最高产品约束。用户最新明确指令高于本文；方向改变时必须先同步本文和决策日志，再开始编码。
 
 ## 一句话定义
 
@@ -53,7 +53,7 @@
 
 0.5.8 的预览方向不改写已经公开的 0.5.7 tag、Release、附件或历史文档。迁移到新 DSH 时必须从现行源代码与产品表面移除 WhatsApp 的说明卡、channel identity、连接路径、adapter/runtime 接线、Baileys/libsignal 依赖以及任何支持或路线图声明；Git 历史与明确标注为历史的发行审计记录继续保留。移除完成后需用 catalog、依赖闭包、lockfile、SBOM、许可证、安装包内容和用户界面反向证明 WhatsApp 不再属于 Penglai。
 
-0.5.8 预览开发以官方 DSH 轻量 tag `dsh-v0.1.2-alpha.1` 的精确 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc` 为源码基线。可以在隔离目录验证该源码、完成迁移盘点、特征测试和不依赖新包的蓬莱自有修复；源码构建通过只证明该 commit 的源码可构建。对应官方 npm 包未发布前，不得把 `package.json`、lockfile、closure 或安装包伪装成 0.1.2 集成。官方包出现后必须人工核对 exact version、integrity、生成产物、依赖闭包、许可与固定源码；不建立自动监控。预览提交只能推送 `0.5.8-preview`，不得因此合并 `main`、改变 0.5.7 公共字节、打 tag、发 Release 或部署官网。
+0.5.8 以官方 DSH 轻量 tag `dsh-v0.1.2-alpha.1` 的精确 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc` 为源码基线。Penglai 使用未经修改的固定源码、上游冻结 lockfile 与官方 release packer 构建本地 tarball 闭包；上游并发打包造成的生成 `package.json` 键序漂移仅允许通过合同固定的递归键排序和无脚本重打包归一化，且归一化前后每个路径、内容、权限与链接必须一致。必须验证 commit/tree/archive、完整包集合、包摘要、许可证、生成产物、连续两次字节复现和 clean packed-install，不能用临时源码目录或复制 `lib/` 冒充产品闭包。官方 npm 不是开发或发布前置条件；未来出现时只做一次人工源码/包差异核对。源码闭包通过后，产品 manifest、lockfile、runtime、profile 与 release identity 原子切换到 alpha.1。Owner 已授权在 `0.5.8-preview` 完成开发与推送，并在全部门禁通过后创建 PR、合并 `main`、从同一最终 SHA 构建并发布三端客户端；0.5.7 公共字节保持不可变，README 与官网只在 0.5.8 Release 公网字节回读通过后更新。
 
 ## 反偏航自检
 

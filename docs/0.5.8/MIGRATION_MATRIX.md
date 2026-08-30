@@ -48,8 +48,8 @@ The current source has these direct package-level couplings:
 | `@penglai/companion` | Typert, Cordis | schedule/job ownership and activation diagnosis |
 
 Cordis `4.0.1` is listed separately because it is a framework dependency, not a
-DSH `0.1.2-alpha.1` version pin. Its final compatibility still belongs to the
-published-package reconciliation.
+DSH `0.1.2-alpha.1` version pin. Its final compatibility belongs to the complete
+source-built vendor/DSH tarball closure and clean-install readback.
 
 ## Immediate source-level decisions
 
@@ -57,16 +57,19 @@ published-package reconciliation.
    when official Session/Workspace/Settings/Inventory Remotes are integrated.
 2. Do not replace every `@Remote` in Penglai. Plugin-owned typed Remotes remain a
    valid extension mechanism; only their BFF/client assembly must migrate.
-3. Do not copy upstream generated clients or build output into this repository.
+3. Do not copy upstream generated clients or loose build output into this
+   repository. Consume only complete tarballs produced by the fixed source's
+   official release packer.
 4. Do not rebase an rc.2 byte overlay speculatively. First map it to official
    slots; retain only a proven missing seam with a new digest and ADR.
 5. Do not move audio into DSH Attachment. Images and audio keep different
    ownership and evidence.
 6. Do not hide invalid Memory curator sessions in UI or move them into visible
    Jobs. The source path now uses one official no-tools LLM request inside a
-   bounded Memory-owned queue; preserve that lifecycle through npm
-   reconciliation.
-7. Do not use source build success to alter the release identity or lockfile.
+   bounded Memory-owned queue; preserve that lifecycle through source-closure
+   integration.
+7. Do not use source build success alone to alter release identity or lockfile;
+   require the complete tarball set and clean packed install first.
 8. Do not derive IM connection, installed support, Owner-live proof, or public
    support from a bundled runtime or visible settings entry. The closed registry
    remains `source-only` until each stronger evidence plane is independently
@@ -99,7 +102,7 @@ The current census contains:
   six sidecar adapter contracts whose gate rejects the old `live` support flag.
 
 The census proves that the migration surface is enumerated. It does not prove
-that unpublished package exports exist or that a native process tree has been
+that the local source closure has run or that a native process tree has been
 tested.
 
 `OVERLAY_TO_SLOT_MAP.json` and `scripts/verify-058-overlay-map.mjs` provide the
@@ -107,18 +110,19 @@ same drift protection for the rc.2 UI overlay. The gate binds all four overlay
 file ids and all five brand assets to 12 reviewed dispositions and fails if a
 legacy anchor or coverage row changes without review.
 
-## Published-package reconciliation rows
+## Fixed-source package closure rows
 
-These rows remain deliberately unresolved until official npm publication:
+These rows are executable from the fixed official source without npm
+publication:
 
 | Question | Required evidence | Fail-closed condition |
 | --- | --- | --- |
-| Is `@deepseek-ai/dsh@0.1.2-alpha.1` official and immutable? | npm metadata, dist integrity, tarball digest, publish time | absent, republished, deprecated without explanation, or source mismatch |
-| Are all direct official packages published? | complete manifest-derived list and successful exact-version resolution | any missing or mixed-version package |
+| Is the DSH input official and immutable? | repository, tag, commit, tree, archive SHA-256, clean source | source mismatch, dirty checkout, tag movement, or unapproved commit |
+| Are all required official packages packed? | upstream vendor and DSH release families plus the required Landlock entry package, exact 251-tarball inventory | any missing, duplicate, mixed-version, partial, or patched package |
 | Are generated clients present? | tarball export/file inspection and clean consumer import probe | source-only file, missing export, or stale generated declaration |
 | Is the Remote API identical to the fixed source? | declaration/generated artifact comparison plus focused runtime probe | namespace, method, event, error, or cancellation drift |
 | Is the client graph consumable? | package `dsh.client` metadata, exports, clean build, fiber inventory | missing package, injection cycle failure, pending/absent fiber |
-| Is the closure licensable and reproducible? | lock integrity, license/notice/SBOM, clean-clone build | unknown license, mutable source, Git/path fallback, or non-frozen install |
+| Is the closure licensable and reproducible? | upstream lock, package digests, license/notice/SBOM, clean packed install and clean Penglai build | unknown license, mutable source, Git/path/registry fallback, or non-frozen install |
 
 ## Current status summary
 
@@ -128,6 +132,7 @@ These rows remain deliberately unresolved until official npm publication:
 - Overlay-to-slot inventory: **FIXED AND GATED; FOUR SOURCE GAPS OPEN**
 - Remaining repository/release inventory: **IN PROGRESS**
 - Independent Penglai fixes: **AUTHORIZED ON PREVIEW**
-- Official npm closure: **BLOCKED — NOT PUBLISHED**
-- DSH dependency change: **NOT STARTED**
+- Local source tarball closure: **PASS — 251 packages, clean install readback**
+- Official npm closure: **OPTIONAL FUTURE RECONCILIATION — NOT A BLOCKER**
+- DSH dependency change: **IN PROGRESS — ATOMIC PRODUCT SWITCH**
 - Native/installed/live/public 0.5.8 evidence: **NOT RUN**
