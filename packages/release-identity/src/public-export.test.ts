@@ -34,15 +34,39 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
   assert.equal(pathAllowed("STATE.md"), false);
   assert.equal(pathAllowed("docs/GROK_HANDOFF.md"), false);
   assert.equal(pathAllowed("docs/PLAN.md"), false);
-  assert.equal(pathAllowed("packages/credentials-keychain/src/index.ts"), false);
-  assert.equal(pathAllowed("packages/plugin-center/src/loopback-llm.ts"), false);
-  assert.equal(pathAllowed("packages/plugin-center/src/loopback-llm.test.ts"), false);
-  assert.equal(pathAllowed("packages/plugin-center/src/loopback-live.test.ts"), false);
-  assert.equal(pathAllowed("packages/plugin-center/src/usable-fixture.test.ts"), false);
+  assert.equal(
+    pathAllowed("packages/credentials-keychain/src/index.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/plugin-center/src/loopback-llm.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/plugin-center/src/loopback-llm.test.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/plugin-center/src/loopback-live.test.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/plugin-center/src/usable-fixture.test.ts"),
+    false,
+  );
   assert.equal(pathAllowed("packages/im/src/test-only-causal.ts"), false);
-  assert.equal(pathAllowed("packages/release-identity/src/freeze.test.ts"), false);
-  assert.equal(pathAllowed("packages/release-identity/src/leftover-gates.test.ts"), false);
-  assert.equal(pathAllowed("packages/release-identity/src/remaining-gates.test.ts"), false);
+  assert.equal(
+    pathAllowed("packages/release-identity/src/freeze.test.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/release-identity/src/leftover-gates.test.ts"),
+    false,
+  );
+  assert.equal(
+    pathAllowed("packages/release-identity/src/remaining-gates.test.ts"),
+    false,
+  );
   assert.equal(pathAllowed("evidence/generated/x.json"), false);
   assert.equal(pathAllowed("dist/Penglai_0.5.0_macos_aarch64.dmg"), false);
   const a = publicExportTreeSha256([
@@ -62,7 +86,9 @@ test("R50-PREP-001 allowlist is deterministic and denies private trees", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "allowlist excludes STATE/evidence/dist and tree hash is order-stable" },
+    details: {
+      safe: "allowlist excludes STATE/evidence/dist and tree hash is order-stable",
+    },
   });
 });
 
@@ -76,13 +102,33 @@ test("tracked plugin package.json paths are exportable and FINDINGS has no owner
 });
 
 test("R50-PREP-002 export scan rejects secret and owner path", () => {
-  assert.throws(() => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"), PenglaiError); // penglai-test-fixture
-  assert.throws(() => scanExportText("README.md", "path /Volumes/private-owner-drive/x"), PenglaiError);
-  assert.throws(() => scanExportText("README.md", "notes /Users/alice/secret"), PenglaiError);
-  assert.doesNotThrow(() => scanExportText("README.md", "community-verified ad-hoc"));
-  assert.doesNotThrow(() => scanExportText("docs/SECURITY.md", "飞书App Secret write-only"));
-  assert.doesNotThrow(() => scanExportText("layout.ts", 'home: "/Users/测 试"'));
-  assert.doesNotThrow(() => scanExportText("public-export.test.ts", "path /Volumes/private-owner-drive/x"));
+  assert.throws(
+    () => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"),
+    PenglaiError,
+  ); // penglai-test-fixture
+  assert.throws(
+    () => scanExportText("README.md", "path /Volumes/private-owner-drive/x"),
+    PenglaiError,
+  );
+  assert.throws(
+    () => scanExportText("README.md", "notes /Users/alice/secret"),
+    PenglaiError,
+  );
+  assert.doesNotThrow(() =>
+    scanExportText("README.md", "community-verified ad-hoc"),
+  );
+  assert.doesNotThrow(() =>
+    scanExportText("docs/SECURITY.md", "飞书App Secret write-only"),
+  );
+  assert.doesNotThrow(() =>
+    scanExportText("layout.ts", 'home: "/Users/测 试"'),
+  );
+  assert.doesNotThrow(() =>
+    scanExportText(
+      "public-export.test.ts",
+      "path /Volumes/private-owner-drive/x",
+    ),
+  );
   recordAssertion({
     acceptanceId: "R50-PREP-002",
     runnerId: "export",
@@ -91,14 +137,22 @@ test("R50-PREP-002 export scan rejects secret and owner path", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "export scanner rejects secret-like tokens and owner paths" },
+    details: {
+      safe: "export scanner rejects secret-like tokens and owner paths",
+    },
   });
 });
 
 test("R50-PREP-003 manifest fields include path mode size hash license", () => {
   assert.equal(classifyLicense("LICENSE"), "MIT");
   assert.equal(classifyLicense("overlays/dsh/note.txt"), "upstream-overlay");
-  const file = { path: "LICENSE", mode: "0644", size: 10, sha256: "ab", license: classifyLicense("LICENSE") };
+  const file = {
+    path: "LICENSE",
+    mode: "0644",
+    size: 10,
+    sha256: "ab",
+    license: classifyLicense("LICENSE"),
+  };
   assert.ok(file.mode && file.size && file.sha256 && file.license);
   recordAssertion({
     acceptanceId: "R50-PREP-003",
@@ -151,6 +205,8 @@ test("R50-PREP-005 required public docs are enumerated", () => {
       "docs/RELEASE_NOTES_0.5.7.md",
       "docs/0.5.7/RELEASE_RUNBOOK.md",
       "docs/0.5.7/ACCEPTANCE_DELTA.md",
+      "docs/0.5.8/RELEASE_RUNBOOK.md",
+      "docs/0.5.8/ACCEPTANCE_DELTA.md",
     ]),
   );
   recordAssertion({
@@ -161,14 +217,23 @@ test("R50-PREP-005 required public docs are enumerated", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "LICENSE README AGENTS SECURITY CONTRIBUTING are required export docs" },
+    details: {
+      safe: "LICENSE README AGENTS SECURITY CONTRIBUTING are required export docs",
+    },
   });
 });
 
 test("R50-PREP-006 export must contain source lock and provenance", () => {
-  assert.throws(() => assertExportHasSourceNotOnlyBinary(["Penglai.app"]), /source/);
+  assert.throws(
+    () => assertExportHasSourceNotOnlyBinary(["Penglai.app"]),
+    /source/,
+  );
   assert.doesNotThrow(() =>
-    assertExportHasSourceNotOnlyBinary(["packages/runtime/src/index.ts", "pnpm-lock.yaml", "release-contract.json"]),
+    assertExportHasSourceNotOnlyBinary([
+      "packages/runtime/src/index.ts",
+      "pnpm-lock.yaml",
+      "release-contract.json",
+    ]),
   );
   recordAssertion({
     acceptanceId: "R50-PREP-006",
@@ -178,12 +243,16 @@ test("R50-PREP-006 export must contain source lock and provenance", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "export requires TypeScript source, lockfile, and release contract" },
+    details: {
+      safe: "export requires TypeScript source, lockfile, and release contract",
+    },
   });
 });
 
 test("public TypeScript project references are all present in the export", () => {
-  const tsconfig = JSON.parse(readFileSync(join(root, "tsconfig.json"), "utf8")) as {
+  const tsconfig = JSON.parse(
+    readFileSync(join(root, "tsconfig.json"), "utf8"),
+  ) as {
     references?: Array<{ path?: string }>;
   };
   const missing = (tsconfig.references ?? [])
@@ -195,7 +264,10 @@ test("public TypeScript project references are all present in the export", () =>
 test("R50-PREP-009 future public assets must equal accepted bytes", () => {
   const sha = "a".repeat(64);
   assert.doesNotThrow(() => futurePublicAssetIdentityGate(sha, sha));
-  assert.throws(() => futurePublicAssetIdentityGate(sha, "b".repeat(64)), /exact accepted bytes/);
+  assert.throws(
+    () => futurePublicAssetIdentityGate(sha, "b".repeat(64)),
+    /exact accepted bytes/,
+  );
   recordAssertion({
     acceptanceId: "R50-PREP-009",
     runnerId: "contract",
@@ -204,15 +276,17 @@ test("R50-PREP-009 future public assets must equal accepted bytes", () => {
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "future public Release upload cannot rebuild or substitute accepted bytes" },
+    details: {
+      safe: "future public Release upload cannot rebuild or substitute accepted bytes",
+    },
   });
 });
 
 test("R50-PREP-010 publication fields match the owner-authorized target", () => {
-  assert.doesNotThrow(() =>
-    assertPublicationTarget({ ...PUBLICATION_TARGET }),
+  assert.doesNotThrow(() => assertPublicationTarget({ ...PUBLICATION_TARGET }));
+  assert.throws(() =>
+    assertPublicationTarget({ ...PUBLICATION_TARGET, repo: "wrong/repo" }),
   );
-  assert.throws(() => assertPublicationTarget({ ...PUBLICATION_TARGET, repo: "wrong/repo" }));
   recordAssertion({
     acceptanceId: "R50-PREP-010",
     runnerId: "audit",
@@ -221,7 +295,9 @@ test("R50-PREP-010 publication fields match the owner-authorized target", () => 
     status: "PASS",
     candidateSourceSha: declaredSourceSha(),
     exitCode: 0,
-    details: { safe: "public repo, v0.5.3 tag and release are exact; updater channel remains unpublished until freeze" },
+    details: {
+      safe: "public repo, v0.5.3 tag and release are exact; updater channel remains unpublished until freeze",
+    },
   });
 });
 
