@@ -24,6 +24,10 @@ test("fixed DSH source closure contract is internally consistent", () => {
   assert.equal(contract.build.packedInstallEnvironment.darwin.LDFLAGS, "-undefined dynamic_lookup");
   assert.equal(contract.transport.artifactNormalization.packageJson, "recursive-key-sort");
   assert.equal(
+    contract.transport.artifactNormalization.compression,
+    "fflate-gzip-level-9-mtime-zero",
+  );
+  assert.equal(
     [...contract.build.families, ...contract.build.auxiliaryPackages].reduce(
       (sum, row) => sum + row.expectedTarballs,
       0,

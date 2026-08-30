@@ -66,6 +66,7 @@
     "artifactNormalization": {
       "packageJson": "recursive-key-sort",
       "repack": "npm-pack-ignore-scripts",
+      "compression": "fflate-gzip-level-9-mtime-zero",
       "sourceDateEpoch": 499162500
     }
   },
