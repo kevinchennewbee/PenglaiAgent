@@ -131,4 +131,3 @@ Only after public readback PASS:
    Search for stale 0.5.7/rc.2 claims and claims stronger than their evidence.
 5. Update repository description, homepage, and topics only when needed, then
    read those values back from GitHub.
-

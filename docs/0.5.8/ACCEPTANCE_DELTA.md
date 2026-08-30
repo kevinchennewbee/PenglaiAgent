@@ -78,4 +78,3 @@ public byte (P), and live site (W) are independent evidence classes.
   limitations.
 - `P058-PUBLIC-003` (W): both live languages and all installer URLs pass HTTP
   readback; no current 0.5.7/rc.2 download claim remains.
-
