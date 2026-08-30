@@ -90,6 +90,26 @@ one-time snapshot or creating a competing supervisor. Automatic restarts retain
 the existing proxy-facing inner port so the loopback proxy does not remain
 bound to a dead target.
 
+The final native candidate exposed one more Windows-only alpha-auth boundary:
+the Job Object helper owned DSH correctly but did not forward DSH's startup
+output, so the `0.1.2-alpha.1` browser-token URL could not be exchanged and the
+official Web surface returned 401. The helper now inherits only a private NUL
+stdin plus duplicated stdout/stderr through an explicit
+`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`, reports `stdioForwarded`, flushes that
+handshake before resuming DSH, and is rejected by TypeScript if the fact is
+missing. The desktop attaches its redacting output capture before awaiting the
+handshake, closing the startup race without exposing the token. Recovery tests
+also retain the native Windows termination code instead of assuming the POSIX
+exit code.
+
+The same native candidate then reached packaging and exposed a separate
+cross-platform supply-chain boundary: Git for Windows converted the pinned
+`closure-manifest.json` from LF to CRLF, so its worktree bytes no longer
+matched `release-contract.json`. The hash comparison remains exact; the
+integrity-bound closure manifest is now explicitly `eol=lf` in
+`.gitattributes`, alongside the already-binary tarballs, with a unit regression
+that prevents the checkout rule from disappearing.
+
 A bounded continuous HTTP probe now detects both a lost listener and a server
 that accepts a connection but never returns the official DSH document. The
 first failure clears stale green health and exposes `degraded`; a good probe

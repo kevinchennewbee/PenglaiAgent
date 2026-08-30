@@ -1358,6 +1358,13 @@ export class EmbeddedDshSupervisor {
     const previousWebCookie = this.#webSession?.cookie;
     const stdoutCapture = new DshWebOutputCapture(this.port);
     const stderrCapture = new DshWebOutputCapture(this.port);
+    const appendSafeOutput = (capture: DshWebOutputCapture, chunk: Buffer): void => {
+      this.logs = `${this.logs}${capture.push(String(chunk))}`.slice(-40_000);
+    };
+    const attachOutputCapture = (child: ChildProcess): void => {
+      child.stdout?.on("data", (d: Buffer) => appendSafeOutput(stdoutCapture, d));
+      child.stderr?.on("data", (d: Buffer) => appendSafeOutput(stderrCapture, d));
+    };
     const childEnv: NodeJS.ProcessEnv = {
       PATH: "/usr/bin:/bin",
       HOME: user.root,
@@ -1390,6 +1397,9 @@ export class EmbeddedDshSupervisor {
         appRoot: this.layout.appRoot,
       });
       this.child = spawned.child;
+      // Attach before awaiting the native helper handshake. DSH alpha may emit
+      // its one-time browser-auth URL immediately after the helper resumes it.
+      attachOutputCapture(spawned.child);
       const report = await readOwnedWindowsJobReport(spawned.child);
       if (!report.pid || !report.owner) {
         throw new PenglaiError("SECURITY_POLICY", "native Windows job supervisor report incomplete");
@@ -1421,6 +1431,7 @@ export class EmbeddedDshSupervisor {
         stdio: ["ignore", "pipe", "pipe"],
         detached: true,
       });
+      attachOutputCapture(this.child);
       const pid = this.child.pid;
       if (pid) {
         const startMs = readProcessStartMs(pid) || Date.now();
@@ -1437,11 +1448,6 @@ export class EmbeddedDshSupervisor {
         writeIdentity(user, this.identity);
       }
     }
-    const appendSafeOutput = (capture: DshWebOutputCapture, chunk: Buffer): void => {
-      this.logs = `${this.logs}${capture.push(String(chunk))}`.slice(-40_000);
-    };
-    this.child.stdout?.on("data", (d: Buffer) => appendSafeOutput(stdoutCapture, d));
-    this.child.stderr?.on("data", (d: Buffer) => appendSafeOutput(stderrCapture, d));
     this.child.on("exit", (code) => {
       if (generation !== this.lifecycleGeneration) return;
       this.logs = `${this.logs}${stdoutCapture.flush()}${stderrCapture.flush()}`.slice(-40_000);

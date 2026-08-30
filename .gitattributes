@@ -16,3 +16,4 @@ overlays/dsh-0.1.1-rc.2/**/*.json text eol=lf
 # Fixed-source DSH package inputs are reviewed by their SHA-256 manifest and
 # must never be line-ending filtered or diffed as text.
 third_party/dsh/**/*.tgz binary
+third_party/dsh/**/closure-manifest.json text eol=lf

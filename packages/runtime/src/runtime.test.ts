@@ -445,7 +445,7 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
       reason: "restart-budget-exhausted",
       attempt: 3,
       maxAttempts: 3,
-      exitCode: 0,
+      exitCode: process.platform === "win32" ? 1 : 0,
       trigger: "health-check-failed",
       lastFailure: "restart-start-failed",
     });

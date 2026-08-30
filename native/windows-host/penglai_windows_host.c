@@ -12,6 +12,9 @@
  * This file is the production source of Windows process/ACL facts.
  * Returning applied=true without executing these APIs is forbidden.
  */
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
@@ -298,22 +301,73 @@ static int job_supervise(const char *exe_utf8, char *cmdline_utf8) {
   HANDLE job = CreateJobObjectW(NULL, NULL);
   if (!job) win_fail("CreateJobObjectW");
   if (!configure_job(job)) win_fail("SetInformationJobObject");
-  STARTUPINFOW si;
+  STARTUPINFOEXW si;
   PROCESS_INFORMATION pi;
   ZeroMemory(&si, sizeof(si));
   ZeroMemory(&pi, sizeof(pi));
-  si.cb = sizeof(si);
-  DWORD flags = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW;
-  if (!CreateProcessW(exe, cmd, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi)) {
+  si.StartupInfo.cb = sizeof(si);
+
+  /* DSH alpha prints its one-time browser-auth URL to stdout. Forward only
+   * the helper's stdout/stderr pipes to the owned process; never broadly
+   * inherit every handle held by the desktop process. The child gets a private
+   * NUL stdin because the helper exclusively owns its stdin as the desktop
+   * lifetime signal. */
+  HANDLE parent_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+  HANDLE parent_stderr = GetStdHandle(STD_ERROR_HANDLE);
+  if (!parent_stdout || parent_stdout == INVALID_HANDLE_VALUE ||
+      !parent_stderr || parent_stderr == INVALID_HANDLE_VALUE) {
+    fail("job-supervise-stdio");
+  }
+  HANDLE child_stdout = NULL;
+  HANDLE child_stderr = NULL;
+  if (!DuplicateHandle(GetCurrentProcess(), parent_stdout, GetCurrentProcess(),
+                       &child_stdout, 0, TRUE, DUPLICATE_SAME_ACCESS) ||
+      !DuplicateHandle(GetCurrentProcess(), parent_stderr, GetCurrentProcess(),
+                       &child_stderr, 0, TRUE, DUPLICATE_SAME_ACCESS)) {
+    win_fail("DuplicateHandle");
+  }
+  SECURITY_ATTRIBUTES sa;
+  ZeroMemory(&sa, sizeof(sa));
+  sa.nLength = sizeof(sa);
+  sa.bInheritHandle = TRUE;
+  HANDLE child_stdin = CreateFileW(L"NUL", GENERIC_READ,
+      FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, NULL);
+  if (!child_stdin || child_stdin == INVALID_HANDLE_VALUE) {
+    win_fail("CreateFileW-NUL");
+  }
+  HANDLE inherited[3] = { child_stdin, child_stdout, child_stderr };
+  SIZE_T attribute_bytes = 0;
+  InitializeProcThreadAttributeList(NULL, 1, 0, &attribute_bytes);
+  si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(
+      GetProcessHeap(), 0, attribute_bytes);
+  if (!si.lpAttributeList ||
+      !InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &attribute_bytes) ||
+      !UpdateProcThreadAttribute(si.lpAttributeList, 0,
+          PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherited, sizeof(inherited), NULL, NULL)) {
+    win_fail("ProcThreadAttributeList");
+  }
+  si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  si.StartupInfo.hStdInput = child_stdin;
+  si.StartupInfo.hStdOutput = child_stdout;
+  si.StartupInfo.hStdError = child_stderr;
+
+  DWORD flags = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT |
+      CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT;
+  BOOL created = CreateProcessW(exe, cmd, NULL, NULL, TRUE, flags, NULL, NULL,
+                                &si.StartupInfo, &pi);
+  DWORD create_error = created ? ERROR_SUCCESS : GetLastError();
+  DeleteProcThreadAttributeList(si.lpAttributeList);
+  HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
+  CloseHandle(child_stdin);
+  CloseHandle(child_stdout);
+  CloseHandle(child_stderr);
+  if (!created) {
+    SetLastError(create_error);
     win_fail("CreateProcessW");
   }
   if (!AssignProcessToJobObject(job, pi.hProcess)) {
     TerminateProcess(pi.hProcess, 1);
     win_fail("AssignProcessToJobObject");
-  }
-  if (ResumeThread(pi.hThread) == (DWORD)-1) {
-    TerminateProcess(pi.hProcess, 1);
-    win_fail("ResumeThread");
   }
   ULONGLONG startMs = 0;
   process_start_ms(pi.dwProcessId, &startMs);
@@ -324,9 +378,16 @@ static int job_supervise(const char *exe_utf8, char *cmdline_utf8) {
       (unsigned long long)startMs);
   json_escape(stdout, owner ? owner : "");
   fputs(",\"jobAssigned\":true,\"killOnJobClose\":true,\"breakawayOk\":false,"
-        "\"childExitMonitored\":true,\"ownerStopMonitored\":true}\n", stdout);
+        "\"childExitMonitored\":true,\"ownerStopMonitored\":true,"
+        "\"stdioForwarded\":true}\n", stdout);
   fflush(stdout);
   free(owner);
+  /* The handshake must be the first stdout line. Only then can the child emit
+   * the alpha launch URL into the same restricted pipe. */
+  if (ResumeThread(pi.hThread) == (DWORD)-1) {
+    TerminateProcess(pi.hProcess, 1);
+    win_fail("ResumeThread");
+  }
 
   /* The helper is the process Electron observes. Wait for either the owned DSH
    * root to exit or the desktop owner to close/write stdin. The old one-sided
