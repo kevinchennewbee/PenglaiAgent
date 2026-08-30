@@ -45,13 +45,18 @@ import {
 } from "./index.js";
 import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
 
-function installBuiltWindowsHost(appRoot: string): void {
-  if (process.platform !== "win32") return;
+function installBuiltWindowsRuntime(appRoot: string): string {
+  if (process.platform !== "win32") return process.execPath;
   const built = fileURLToPath(new URL("../../../dist/native-win32-x86_64/penglai-windows-host.exe", import.meta.url));
   assert.equal(existsSync(built), true, "native Windows regression gates must compile the security helper first");
   const helperDir = join(appRoot, "runtime", "helpers");
   mkdirSync(helperDir, { recursive: true });
   copyFileSync(built, join(helperDir, "penglai-windows-host.exe"));
+  const nodeDir = join(appRoot, "runtime", "node");
+  const nodeBin = join(nodeDir, "node.exe");
+  mkdirSync(nodeDir, { recursive: true });
+  copyFileSync(process.execPath, nodeBin);
+  return nodeBin;
 }
 
 test("embedded DSH Web never opens the operating-system browser", () => {
@@ -373,12 +378,12 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     files: [{ path: "runtime/dsh/lib/bin.js", sha256: digest, size: Buffer.byteLength(fakeDsh) }],
   }));
   writeFileSync(modePath, "healthy\n");
-  installBuiltWindowsHost(app);
+  const nodeBin = installBuiltWindowsRuntime(app);
   ensurePrivateHome(user, app);
   const recoveryStates: string[] = [];
   const supervisor = new EmbeddedDshSupervisor({
     appRoot: app,
-    nodeBin: process.execPath,
+    nodeBin,
     dshEntry,
     profileSeed: join(app, "profile-seed", "web"),
     pluginsDir: join(app, "plugins"),
