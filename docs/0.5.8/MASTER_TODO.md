@@ -19,7 +19,7 @@
   dependency, test, support, and roadmap surfaces.
 - [ ] Every 0.5.7 defect is replayed on the migrated alpha.1 runtime before its
   fix is retained, removed, or adapted.
-- [ ] Office and Memory are active on a fresh install; IM, ASR, TTS, and
+- [x] Office and Memory are active on a fresh install; IM, ASR, TTS, and
   Companion are bundled, optional, and default off.
 
 ## 1. Fixed-source supply chain (`SC-*`)
@@ -80,7 +80,7 @@
 - [x] Revalidate every promoted tarball identity, size, SHA-256, license, and
   regular-file status before use.
 - [x] Add identity-only source and promoted-closure gates to normal Source CI.
-- [ ] Add the full build/pack/clean-install gate to package/native candidate CI.
+- [x] Add the full build/pack/clean-install gate to package/native candidate CI.
 - [x] Keep generated source checkouts, stores, and logs ignored; promote only
   the verified 8.1 MB, version-scoped tarball closure and its bounded manifest
   so frozen CI/install does not depend on an unpublished registry package.
@@ -97,7 +97,7 @@
 - [x] Update the authoritative release pin, profile identity, runtime closure,
   release-info copies, SBOM, notices, and package builders together.
 - [x] Reject mixed rc.2/alpha.1 runtime packages and registry fallback.
-- [ ] Prove a clean Penglai install can be reproduced after deleting all local
+- [x] Prove a clean Penglai install can be reproduced after deleting all local
   node_modules and generated closure output.
 
 ### INT-002 — DSH process and profile
@@ -106,7 +106,7 @@
   fallback.
 - [x] Compose the official Web profile with Office, Memory, Plugin Center, and
   optional plugin bundles through official profile/patch ownership.
-- [ ] Complete one-time browser-token first navigation and cookie/proxy handoff.
+- [x] Complete one-time browser-token first navigation and cookie/proxy handoff.
 - [ ] Prove startup, health, same-port recovery, restart exhaustion, Stop, quit,
   and no-orphan cleanup with the packaged runtime.
 - [ ] Wire isolated rc.2-to-alpha.1 DSH Home migration, activation, rejection,
@@ -146,14 +146,14 @@
 
 ### REQ-002 — Office
 
-- [ ] Loader inventory reports the bundled Office plugin `ACTIVE` on fresh install.
+- [x] Loader inventory reports the bundled Office plugin `ACTIVE` on fresh install.
 - [ ] Inspect/create/edit/preview/save/undo for DOCX, XLSX, PPTX, and PDF.
 - [ ] Every write/export/return has action-bound Owner confirmation.
 - [ ] Workspace/path/artifact scope and restart recovery remain fail-closed.
 
 ### REQ-003 — Memory
 
-- [ ] Loader inventory reports Memory `ACTIVE` on fresh install.
+- [x] Loader inventory reports Memory `ACTIVE` on fresh install.
 - [ ] Curator uses a bounded internal no-tools LLM operation and creates no false
   Agent, Session, subagent, or visible Job.
 - [ ] Curate/recall/correct/forget/source revoke and restart pass.
@@ -239,12 +239,12 @@ privacy review, and remaining limitation.
 
 ### QA-001 — source and package gates
 
-- [ ] format, typecheck, unit, contract, integration, E2E, security, chaos,
+- [x] format, typecheck, unit, contract, integration, E2E, security, chaos,
   versions, identity, contracts, dependencies, licenses, secrets, profile,
   closure, build, plugin pack, and clean clone pass.
-- [ ] source-built DSH identity, tarball, packed install, SBOM, notices, and
+- [x] source-built DSH identity, tarball, packed install, SBOM, notices, and
   no-registry-fallback gates pass.
-- [ ] No generated evidence promotes source results into native/installed/live.
+- [x] No generated evidence promotes source results into native/installed/live.
 
 ### QA-002 — one frozen candidate
 
@@ -275,7 +275,7 @@ privacy review, and remaining limitation.
 
 ### REL-001 — product PR and merge
 
-- [ ] Push coherent checkpoints only to `origin/0.5.8-preview` and read back CI.
+- [x] Push coherent checkpoints only to `origin/0.5.8-preview` and read back CI.
 - [ ] Open the product PR only after source/package and required acceptance gates.
 - [ ] Review the complete diff against `main`, resolve all required checks, and
   merge without bypassing branch protection.
