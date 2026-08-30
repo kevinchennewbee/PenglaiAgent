@@ -75,6 +75,42 @@ export function dependencyVersions(map) {
   return new Map(map.packages.map((row) => [row.name, row.version]));
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function dshLocalPackageId(row) {
+  return `penglai-dsh-source:${row.name}@${row.version}+sha256.${row.sha256.slice(0, 16)}`;
+}
+
+export function resealDshLocalDependencyLock(lockBytes, map) {
+  const rows = new Map(map.packages.map((row) => [row.name, row]));
+  let lock = String(lockBytes);
+  const customResolutionPattern =
+    /resolution: \{name: '?([^,']+)'?, version: ([^, }]+), sha256: ([0-9a-f]{64}), tarballPath: ([^, }]+), type: custom:penglai-dsh-source\}/g;
+  const resolutions = [...lock.matchAll(customResolutionPattern)];
+  if (resolutions.length === 0) throw new Error("pnpm lock contains no Penglai DSH source resolutions to reseal");
+  for (const match of resolutions) {
+    const [, name, version, , tarballPath] = match;
+    const row = rows.get(name);
+    if (!row || row.version !== version || row.file.slice("file:".length) !== tarballPath) {
+      throw new Error(`pnpm lock cannot reseal an unknown DSH source resolution: ${name}`);
+    }
+  }
+  for (const row of rows.values()) {
+    const base = `penglai-dsh-source:${row.name}@${row.version}`;
+    lock = lock.replace(
+      new RegExp(`${escapeRegExp(base)}(?:\\+sha256\\.[0-9a-f]{16})?`, "g"),
+      dshLocalPackageId(row),
+    );
+  }
+  return lock.replace(customResolutionPattern, (whole, name, version, _digest, tarballPath) => {
+    const row = rows.get(name);
+    if (!row || row.version !== version || row.file.slice("file:".length) !== tarballPath) return whole;
+    return `resolution: {name: '${name}', version: ${version}, sha256: ${row.sha256}, tarballPath: ${tarballPath}, type: custom:penglai-dsh-source}`;
+  });
+}
+
 export function verifyDshLocalDependencyLock(lockBytes, map) {
   const lock = String(lockBytes);
   if (/0\.1\.1-rc\.2|registry\.npmjs\.org\/@deepseek-ai|https?:\/\/[^\s]*deepseek-ai/i.test(lock)) {
@@ -98,6 +134,13 @@ export function verifyDshLocalDependencyLock(lockBytes, map) {
       tarballPath !== expected.file.slice("file:".length)
     ) {
       throw new Error(`pnpm lock DSH source resolution differs from the audited closure: ${name}`);
+    }
+    const base = `penglai-dsh-source:${expected.name}@${expected.version}`;
+    if (
+      !lock.includes(dshLocalPackageId(expected)) ||
+      new RegExp(`${escapeRegExp(base)}(?!\\+sha256\\.[0-9a-f]{16})`).test(lock)
+    ) {
+      throw new Error(`pnpm lock DSH source package id is not content-addressed: ${name}`);
     }
     seen.add(name);
   }

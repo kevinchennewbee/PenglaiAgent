@@ -26,7 +26,7 @@ test("DSH alpha source commit and closure digests are exact", () => {
   assert.equal(PINNED_DSH, "0.1.2-alpha.1");
   assert.equal(PINNED_DSH_COMMIT, "cd5ef8148158c3a752a658978873241fdf8e2bbc");
   assert.equal(PINNED_DSH_TARBALL_SHA256, "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "45568b0f3a09f36b996af1d3a358fe34f1c2e92ea124f077ee7fb43e2bd1cd6e");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "25b9b4cc9f62dfaa4f1c868cbde9e78b73c0e9a855fb3302c8be37f53c55aeb2");
 });
 
 test("R55-TRUTH-003 only three exact target installers", () => {

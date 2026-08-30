@@ -15,6 +15,13 @@ test("fixed DSH source closure contract is internally consistent", () => {
   assert.equal(contract.transport.officialNpmRequired, false);
   assert.equal(contract.transport.publicNpmPublication, false);
   assert.equal(contract.toolchain.archivePacker, "npm@10.9.7");
+  assert.equal(contract.officialClientBuild.title, "DeepSeek Harness");
+  assert.equal(contract.build.canonicalHost.platform, "darwin");
+  assert.equal(
+    contract.build.canonicalHost.sourceRoot,
+    "/private/tmp/penglai-dsh-source-closure-cd5ef8148158/source",
+  );
+  assert.equal(contract.build.packedInstallEnvironment.darwin.LDFLAGS, "-undefined dynamic_lookup");
   assert.equal(contract.transport.artifactNormalization.packageJson, "recursive-key-sort");
   assert.equal(
     [...contract.build.families, ...contract.build.auxiliaryPackages].reduce(
@@ -42,6 +49,12 @@ test("contract rejects npm impersonation and upstream patches", () => {
   contract.transport.publicNpmPublication = false;
   contract.transport.upstreamPatchPolicy = "local-patches";
   assert.throws(() => validateDshSourceClosureContract(contract), /must remain unpatched/);
+});
+
+test("contract keeps the official DSH client profile byte-identical", () => {
+  const contract = structuredClone(readDshSourceClosureContract(ROOT));
+  contract.officialClientBuild.title = "蓬莱 Penglai";
+  assert.throws(() => validateDshSourceClosureContract(contract), /must remain unmodified/);
 });
 
 test("repository URL comparison ignores transport spelling only", () => {

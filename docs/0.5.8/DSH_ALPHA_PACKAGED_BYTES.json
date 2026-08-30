@@ -20,21 +20,21 @@
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
       "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-settings-models-0.1.2-alpha.1.tgz",
       "sourcePath": "package/lib/client.js",
-      "sha256": "28ec8e4452162715d7334fd061461d9752b1d3e9193a577b00c331d7455d8d11"
+      "sha256": "609cf6573334f9db45c77ca6f139d22800542702713eed793fa592996994e920"
     },
     {
       "id": "conversation-client",
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
       "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-conversation-0.1.2-alpha.1.tgz",
       "sourcePath": "package/lib/client.js",
-      "sha256": "50f87b4b2d488047d877706db5118485a133b56a85daa0a5b6d08340f1366c60"
+      "sha256": "e5f1a84b181fda33e9755127452f104f7d9f644c233270a869ef9372df679ec4"
     },
     {
       "id": "settings-general-client",
       "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
       "sourceTarball": "third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-settings-general-0.1.2-alpha.1.tgz",
       "sourcePath": "package/lib/client.js",
-      "sha256": "e26b1ac3a24bcd429fcab57e8069d99ace99b46bb24cf564b4bb71bb31bad94e"
+      "sha256": "ccb2d3d9f66afa8e874caddb928a2a491676d4b0d1ff4e73f6f201d0601f3613"
     }
   ],
   "brandAssets": [

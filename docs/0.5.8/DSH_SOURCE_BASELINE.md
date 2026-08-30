@@ -44,6 +44,20 @@ Penglai.
 | Client libraries and generated Remote client | PASS |
 | DSH Web frontend | PASS |
 
+The DSH package closure uses the upstream official build profile exactly. That
+profile deliberately fixes `DSH_CLIENT_TITLE=DeepSeek Harness`, and the upstream
+release packer rejects any other client environment. Penglai therefore keeps
+those official package bytes unchanged and applies its product title only in
+the separately owned desktop shell.
+
+The upstream client CSS module compiler salts class names with the absolute
+source filename. Full closure builds therefore stage the already verified tree
+at the contract-fixed Darwin path
+`/private/tmp/penglai-dsh-source-closure-cd5ef8148158/source`. This closes the
+path-dependent byte drift without patching source or generated artifacts;
+other platforms consume the verified vendored closure rather than rebuilding a
+different client package set.
+
 The install reported expected host-platform warnings for Linux-only native
 workspaces and pre-build CLI link warnings that disappeared after the CLI was
 built. They were warnings, not failed checks. The build also reported bundle
@@ -114,6 +128,20 @@ the unmodified fixed source, its frozen lockfile, its complete build, and its
 official `release:pack` / `release:verify-packed-install` implementation to
 produce and verify a local tarball closure. It does not publish those tarballs
 into the official `@deepseek-ai` npm scope.
+
+The upstream packed-install reader deliberately omits optional dependencies.
+On Darwin that makes Koffi compile its Node addon instead of selecting its
+optional prebuilt package, so the closure contract supplies the standard
+`-undefined dynamic_lookup` linker flag required by a Node addon. This changes
+neither upstream source nor packed bytes; it only makes the upstream clean
+install readback explicit and reproducible on the verified macOS toolchain.
+
+Penglai's custom pnpm resolver binds each local DSH package identity to the
+first 16 hexadecimal characters of the closure SHA-256. The dependency-map
+generator can therefore reseal same-version source tarballs in the existing
+lock without resolving or upgrading unrelated registry dependencies. The lock
+gate rejects either stale tarball digests or a non-content-addressed local DSH
+package ID.
 
 Penglai keeps active DSH manifest and lockfile pins at `0.1.1-rc.2` only during
 the source-closure bootstrap. A Git URL, direct source path, copied `lib/`,

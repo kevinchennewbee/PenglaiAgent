@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   buildDshLocalDependencyMap,
+  resealDshLocalDependencyLock,
   stringifyCanonicalJson,
   verifyDshLocalDependencyLock,
 } from "./lib/dsh-local-dependency-map.mjs";
@@ -46,6 +47,7 @@ const workspaceYaml = [
   "",
 ].join("\n");
 const workspacePath = join(ROOT, "pnpm-workspace.yaml");
+const lockPath = join(ROOT, "pnpm-lock.yaml");
 
 const localRows = new Map(map.packages.map((row) => [row.name, row]));
 const runtimeIntegrationRoots = [
@@ -101,6 +103,7 @@ if (write) {
   writeFileSync(rootPackagePath, stringifyManifest(rootPackage));
   writeFileSync(workspacePath, workspaceYaml);
   for (const manifest of changedManifests) writeFileSync(manifest.path, manifest.bytes);
+  writeFileSync(lockPath, resealDshLocalDependencyLock(readFileSync(lockPath, "utf8"), map));
 }
 
 const actualMap = existsSync(mapPath) ? readFileSync(mapPath, "utf8") : "";
@@ -112,7 +115,7 @@ const manifestsMatch = changedManifests.length === 0 || write;
 let lockResult;
 let lockError;
 try {
-  lockResult = verifyDshLocalDependencyLock(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"), map);
+  lockResult = verifyDshLocalDependencyLock(readFileSync(lockPath, "utf8"), map);
 } catch (error) {
   lockError = error instanceof Error ? error.message : String(error);
 }
