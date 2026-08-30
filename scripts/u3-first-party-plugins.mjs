@@ -171,6 +171,24 @@ writeFileSync(
   { mode: 0o600 },
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
+const dshSourceContract = JSON.parse(
+  readFileSync(join(ROOT, "docs/0.5.8/DSH_SOURCE_CLOSURE.json"), "utf8"),
+);
+const fixtureDshHome = join(userData, "dsh-home");
+mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });
+writeFileSync(
+  join(fixtureDshHome, "settings.yaml"),
+  [
+    "locale:",
+    "  preference: zh",
+    "ui-theme:",
+    "  preference: system",
+    "ui-onboarding:",
+    `  welcomeNoticeVersion: ${dshSourceContract.productClientBuild.welcomeNotice.version}`,
+    "",
+  ].join("\n"),
+  { mode: 0o600 },
+);
 
 function pluginRows(snapshot) {
   const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];

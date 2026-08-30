@@ -7,7 +7,7 @@ import { Context } from "@deepseek-ai/cordis";
 import { LlmRuntime } from "@deepseek-ai/dsh-llm";
 import { PenglaiError } from "@penglai/contracts";
 import {
-  PENGLAI_WELCOME_NOTICE_VERSION,
+  DSH_WELCOME_NOTICE_VERSION,
   deriveOfficialCredentialRef,
   resolveOfficialCredentialRef,
   namedApiKeyEnvFromOfficialSettings,
@@ -286,7 +286,7 @@ test("ensureOfficialProviderRoute refuses empty settingsPath instead of inventin
   assert.deepEqual(ops, []);
 });
 
-test("completeWelcome writes penglai welcomeNoticeVersion then advances welcome-v1", async () => {
+test("completeWelcome writes the fixed DSH welcomeNoticeVersion then advances welcome-v1", async () => {
   const { dir } = userTree();
   const ops: Array<{ ns: string; path: string[]; value?: unknown }> = [];
   const impl = createPenglaiOnboardingRemoteImpl({
@@ -306,9 +306,13 @@ test("completeWelcome writes penglai welcomeNoticeVersion then advances welcome-
   const state = await impl.completeWelcome();
   assert.equal(state.current, "appearance-locale-v1");
   assert.deepEqual(ops, [
-    { ns: "ui-onboarding", path: ["welcomeNoticeVersion"], value: PENGLAI_WELCOME_NOTICE_VERSION },
+    { ns: "ui-onboarding", path: ["welcomeNoticeVersion"], value: DSH_WELCOME_NOTICE_VERSION },
   ]);
-  assert.equal(PENGLAI_WELCOME_NOTICE_VERSION, "penglai-0.5.8.0");
+  assert.equal(DSH_WELCOME_NOTICE_VERSION, "2026-08-13.1");
+  const sourceContract = JSON.parse(
+    readFileSync(new URL("../../../docs/0.5.8/DSH_SOURCE_CLOSURE.json", import.meta.url), "utf8"),
+  );
+  assert.equal(DSH_WELCOME_NOTICE_VERSION, sourceContract.productClientBuild.welcomeNotice.version);
   const again = await impl.completeWelcome();
   assert.equal(again.current, "appearance-locale-v1");
   assert.equal(ops.length, 2);

@@ -1176,8 +1176,8 @@ packages:
       '@deepseek-ai/dsh-client-ui-trajectory': ^0.1.2-alpha.1
       '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.1
 
-  '@deepseek-ai/dsh-client-ui-brand-official@penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.9b39fb6e6f6cd6f4':
-    resolution: {name: '@deepseek-ai/dsh-client-ui-brand-official', version: 0.1.2-alpha.1, sha256: 9b39fb6e6f6cd6f46b078ce10ca7479148afabb5d714720d612b0459fd3d3671, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-brand-official-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
+  '@deepseek-ai/dsh-client-ui-brand-official@penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.870bf4a29729dc1d':
+    resolution: {name: '@deepseek-ai/dsh-client-ui-brand-official', version: 0.1.2-alpha.1, sha256: 870bf4a29729dc1dbaab5106b1dff0d4b2ec7ea27835968f16e3aa90c5d27551, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-brand-official-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
     version: 0.1.2-alpha.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.1
@@ -1358,8 +1358,8 @@ packages:
       '@deepseek-ai/dsh-client-ui-session': ^0.1.2-alpha.1
       '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.1
 
-  '@deepseek-ai/dsh-client-ui-layout@penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b':
-    resolution: {name: '@deepseek-ai/dsh-client-ui-layout', version: 0.1.2-alpha.1, sha256: e8452201029d610b662f1789c02c0ac2bc0ea0ab1b612dc21973c979a95c4fa0, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-layout-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
+  '@deepseek-ai/dsh-client-ui-layout@penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd':
+    resolution: {name: '@deepseek-ai/dsh-client-ui-layout', version: 0.1.2-alpha.1, sha256: e5b8be592c6c99cd52d49ce57bf11fbf9722cbdab3b24349f7c24cc4861811ca, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-client-ui-layout-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
     version: 0.1.2-alpha.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.1
@@ -3191,8 +3191,8 @@ packages:
       '@deepseek-ai/dsh-timeout': ^0.1.2-alpha.1
       '@deepseek-ai/dsh-web': ^0.1.2-alpha.1
 
-  '@deepseek-ai/dsh-web-frontend@penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.d3dfd96a7d4afa52':
-    resolution: {name: '@deepseek-ai/dsh-web-frontend', version: 0.1.2-alpha.1, sha256: d3dfd96a7d4afa523916d0c097a66e2138fa19c1cdf5b96aec5bb40364a841e6, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-web-frontend-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
+  '@deepseek-ai/dsh-web-frontend@penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.a16924efc5a853b4':
+    resolution: {name: '@deepseek-ai/dsh-web-frontend', version: 0.1.2-alpha.1, sha256: a16924efc5a853b47f29c50f47a63486eea7ab440bcc6a30c2b673401205bda8, tarballPath: third_party/dsh/0.1.2-alpha.1/dsh/deepseek-ai-dsh-web-frontend-0.1.2-alpha.1.tgz, type: custom:penglai-dsh-source}
     version: 0.1.2-alpha.1
 
   '@deepseek-ai/dsh-web-search-deepseek@penglai-dsh-source:@deepseek-ai/dsh-web-search-deepseek@0.1.2-alpha.1+sha256.e7084d87d3812d5f':
@@ -6708,7 +6708,7 @@ snapshots:
       '@deepseek-ai/dsh-invariants': penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1)
       clsx: 2.1.1
 
-  '@deepseek-ai/dsh-client-ui-brand-official@penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.9b39fb6e6f6cd6f4(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1)(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-client-ui-sidebar@0.1.2-alpha.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))':
+  '@deepseek-ai/dsh-client-ui-brand-official@penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.870bf4a29729dc1d(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1)(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-client-ui-sidebar@0.1.2-alpha.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))':
     dependencies:
       '@deepseek-ai/cordis': penglai-dsh-source:@deepseek-ai/cordis@4.0.1+sha256.dbdec7cf9f41718c(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
       '@deepseek-ai/dsh-client-ui-conversation': penglai-dsh-source:@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1+sha256.0b46e4022252e238(ca985b84110c2901537325a5ca501119)
@@ -6727,7 +6727,7 @@ snapshots:
       '@deepseek-ai/dsh-client-locale': penglai-dsh-source:@deepseek-ai/dsh-client-locale@0.1.2-alpha.1+sha256.b5b9717f8de72a9b(56d6bba83b58fa938834ecb6e2c88220)
       '@deepseek-ai/dsh-client-ui-approval': penglai-dsh-source:@deepseek-ai/dsh-client-ui-approval@0.1.2-alpha.1+sha256.2f0b109cb91376a2(e59abf2aec577c35bd1a571f3f4b09c8)
       '@deepseek-ai/dsh-client-ui-conversation': penglai-dsh-source:@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1+sha256.0b46e4022252e238(ca985b84110c2901537325a5ca501119)
-      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b(466b59388ba2c2fa30529e3b79b5531f)
+      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd(466b59388ba2c2fa30529e3b79b5531f)
       '@deepseek-ai/dsh-client-ui-renderer': penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8)
       '@deepseek-ai/dsh-client-ui-session': penglai-dsh-source:@deepseek-ai/dsh-client-ui-session@0.1.2-alpha.1+sha256.fbe1293b78dd0a16(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-api-session-controller@penglai-dsh-source:@deepseek-ai/dsh-api-session-controller@0.1.2-alpha.1+sha256.405d6d13c460891c(55d3ebb4087de5672aa2a71ee6688344))(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-session@penglai-dsh-source:@deepseek-ai/dsh-session@0.1.2-alpha.1+sha256.1b1dbab92ec0844f(d69e142f4867513fca4320f23be5d927))
       '@deepseek-ai/dsh-client-ui-settings': penglai-dsh-source:@deepseek-ai/dsh-client-ui-settings@0.1.2-alpha.1+sha256.df3347b9ef5b803f(d3669c4c1c49ba4090e165a97a235bc3)
@@ -6769,7 +6769,7 @@ snapshots:
       '@deepseek-ai/dsh-attachment': penglai-dsh-source:@deepseek-ai/dsh-attachment@0.1.2-alpha.1+sha256.20022f470a5aa9e3(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@penglai-dsh-source:@deepseek-ai/dsh-brand@0.1.2-alpha.1+sha256.2fe9b3a22b177064(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))
       '@deepseek-ai/dsh-brand': penglai-dsh-source:@deepseek-ai/dsh-brand@0.1.2-alpha.1+sha256.2fe9b3a22b177064(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))
       '@deepseek-ai/dsh-client-locale': penglai-dsh-source:@deepseek-ai/dsh-client-locale@0.1.2-alpha.1+sha256.b5b9717f8de72a9b(56d6bba83b58fa938834ecb6e2c88220)
-      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b(466b59388ba2c2fa30529e3b79b5531f)
+      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd(466b59388ba2c2fa30529e3b79b5531f)
       '@deepseek-ai/dsh-client-ui-renderer': penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8)
       '@deepseek-ai/dsh-client-ui-session': penglai-dsh-source:@deepseek-ai/dsh-client-ui-session@0.1.2-alpha.1+sha256.fbe1293b78dd0a16(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-api-session-controller@penglai-dsh-source:@deepseek-ai/dsh-api-session-controller@0.1.2-alpha.1+sha256.405d6d13c460891c(55d3ebb4087de5672aa2a71ee6688344))(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-session@penglai-dsh-source:@deepseek-ai/dsh-session@0.1.2-alpha.1+sha256.1b1dbab92ec0844f(d69e142f4867513fca4320f23be5d927))
       '@deepseek-ai/dsh-client-ui-settings': penglai-dsh-source:@deepseek-ai/dsh-client-ui-settings@0.1.2-alpha.1+sha256.df3347b9ef5b803f(d3669c4c1c49ba4090e165a97a235bc3)
@@ -6881,7 +6881,7 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-session': penglai-dsh-source:@deepseek-ai/dsh-client-ui-session@0.1.2-alpha.1+sha256.fbe1293b78dd0a16(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-api-session-controller@penglai-dsh-source:@deepseek-ai/dsh-api-session-controller@0.1.2-alpha.1+sha256.405d6d13c460891c(55d3ebb4087de5672aa2a71ee6688344))(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-session@penglai-dsh-source:@deepseek-ai/dsh-session@0.1.2-alpha.1+sha256.1b1dbab92ec0844f(d69e142f4867513fca4320f23be5d927))
       '@deepseek-ai/dsh-invariants': penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1)
 
-  '@deepseek-ai/dsh-client-ui-layout@penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b(466b59388ba2c2fa30529e3b79b5531f)':
+  '@deepseek-ai/dsh-client-ui-layout@penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd(466b59388ba2c2fa30529e3b79b5531f)':
     dependencies:
       '@deepseek-ai/cordis': penglai-dsh-source:@deepseek-ai/cordis@4.0.1+sha256.dbdec7cf9f41718c(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
       '@deepseek-ai/dsh-client-locale': penglai-dsh-source:@deepseek-ai/dsh-client-locale@0.1.2-alpha.1+sha256.b5b9717f8de72a9b(56d6bba83b58fa938834ecb6e2c88220)
@@ -7062,7 +7062,7 @@ snapshots:
       '@deepseek-ai/cordis': penglai-dsh-source:@deepseek-ai/cordis@4.0.1+sha256.dbdec7cf9f41718c(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
       '@deepseek-ai/dsh-api-workspace-controller': penglai-dsh-source:@deepseek-ai/dsh-api-workspace-controller@0.1.2-alpha.1+sha256.7f474250b270992a(8a50cb1648e0984b88074b899cd71398)
       '@deepseek-ai/dsh-client-locale': penglai-dsh-source:@deepseek-ai/dsh-client-locale@0.1.2-alpha.1+sha256.b5b9717f8de72a9b(56d6bba83b58fa938834ecb6e2c88220)
-      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b(466b59388ba2c2fa30529e3b79b5531f)
+      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd(466b59388ba2c2fa30529e3b79b5531f)
       '@deepseek-ai/dsh-client-ui-renderer': penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8)
       '@deepseek-ai/dsh-client-ui-session': penglai-dsh-source:@deepseek-ai/dsh-client-ui-session@0.1.2-alpha.1+sha256.fbe1293b78dd0a16(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-api-session-controller@penglai-dsh-source:@deepseek-ai/dsh-api-session-controller@0.1.2-alpha.1+sha256.405d6d13c460891c(55d3ebb4087de5672aa2a71ee6688344))(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-session@penglai-dsh-source:@deepseek-ai/dsh-session@0.1.2-alpha.1+sha256.1b1dbab92ec0844f(d69e142f4867513fca4320f23be5d927))
       '@deepseek-ai/dsh-client-ui-workspace': penglai-dsh-source:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.1+sha256.2f7d68542bced158(55f88ea67c99cafe42fabe0a0efa039d)
@@ -8626,7 +8626,7 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-agent-preset': penglai-dsh-source:@deepseek-ai/dsh-client-ui-agent-preset@0.1.2-alpha.1+sha256.ba91d8cd536ffe8a(d46dfd999885f7e02d27c86efcc99fb9)
       '@deepseek-ai/dsh-client-ui-approval': penglai-dsh-source:@deepseek-ai/dsh-client-ui-approval@0.1.2-alpha.1+sha256.2f0b109cb91376a2(e59abf2aec577c35bd1a571f3f4b09c8)
       '@deepseek-ai/dsh-client-ui-attachment': penglai-dsh-source:@deepseek-ai/dsh-client-ui-attachment@0.1.2-alpha.1+sha256.68c4d4d0065b68ea(6c09a6b7f41e0a0d38a784f504286ccf)
-      '@deepseek-ai/dsh-client-ui-brand-official': penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.9b39fb6e6f6cd6f4(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1)(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-client-ui-sidebar@0.1.2-alpha.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))
+      '@deepseek-ai/dsh-client-ui-brand-official': penglai-dsh-source:@deepseek-ai/dsh-client-ui-brand-official@0.1.2-alpha.1+sha256.870bf4a29729dc1d(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1)(@deepseek-ai/dsh-client-ui-renderer@penglai-dsh-source:@deepseek-ai/dsh-client-ui-renderer@0.1.2-alpha.1+sha256.80574bebff4fce24(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(react@19.2.8))(@deepseek-ai/dsh-client-ui-sidebar@0.1.2-alpha.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))
       '@deepseek-ai/dsh-client-ui-chat': penglai-dsh-source:@deepseek-ai/dsh-client-ui-chat@0.1.2-alpha.1+sha256.bb6553d451ffba07(2460190979b7eb9a58ac25c8dc0cf6d8)
       '@deepseek-ai/dsh-client-ui-commands': penglai-dsh-source:@deepseek-ai/dsh-client-ui-commands@0.1.2-alpha.1+sha256.1871fb8b7859faf8(23e645920bd4fb11c2726b3cd3c0aee7)
       '@deepseek-ai/dsh-client-ui-conversation': penglai-dsh-source:@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.1+sha256.0b46e4022252e238(ca985b84110c2901537325a5ca501119)
@@ -8637,7 +8637,7 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-goal': penglai-dsh-source:@deepseek-ai/dsh-client-ui-goal@0.1.2-alpha.1+sha256.5d3738279dbfe927(d9e50077ca43b8639c1c443a64b2973f)
       '@deepseek-ai/dsh-client-ui-input-trigger': penglai-dsh-source:@deepseek-ai/dsh-client-ui-input-trigger@0.1.2-alpha.1+sha256.4d61e7826cd81997(bece74e430b671fd82bf1a1eb700b9dd)
       '@deepseek-ai/dsh-client-ui-jobs': penglai-dsh-source:@deepseek-ai/dsh-client-ui-jobs@0.1.2-alpha.1+sha256.0bbbb32098635470(aa5179849d2034adbf0f919221cf34fa)
-      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e8452201029d610b(466b59388ba2c2fa30529e3b79b5531f)
+      '@deepseek-ai/dsh-client-ui-layout': penglai-dsh-source:@deepseek-ai/dsh-client-ui-layout@0.1.2-alpha.1+sha256.e5b8be592c6c99cd(466b59388ba2c2fa30529e3b79b5531f)
       '@deepseek-ai/dsh-client-ui-message-feedback': penglai-dsh-source:@deepseek-ai/dsh-client-ui-message-feedback@0.1.2-alpha.1+sha256.49a0aa0dac97d85a(06d496c1a2a07ebcad429caaaff8b6f1)
       '@deepseek-ai/dsh-client-ui-model-selection': penglai-dsh-source:@deepseek-ai/dsh-client-ui-model-selection@0.1.2-alpha.1+sha256.12255dd7fa01d6d5(8a691b4a5a7290dd2a96e4b83579672d)
       '@deepseek-ai/dsh-client-ui-permission-presets': penglai-dsh-source:@deepseek-ai/dsh-client-ui-permission-presets@0.1.2-alpha.1+sha256.ba5b69fca4e914a8(9a3f7afe19549b8f48c54c8e0621cff5)
@@ -8681,7 +8681,7 @@ snapshots:
       '@deepseek-ai/dsh-subprocess': penglai-dsh-source:@deepseek-ai/dsh-subprocess@0.1.2-alpha.1+sha256.6f621dc600e0063d(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))
       '@deepseek-ai/dsh-system-prompt': penglai-dsh-source:@deepseek-ai/dsh-system-prompt@0.1.2-alpha.1+sha256.d8c6d5c8b85e99a0(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-llm@penglai-dsh-source:@deepseek-ai/dsh-llm@0.1.2-alpha.1+sha256.5f8e90f051314703(08a032b681f74616a41c5feb57befd90))(@deepseek-ai/dsh-scope@penglai-dsh-source:@deepseek-ai/dsh-scope@0.1.2-alpha.1+sha256.bae945b0150aaa2e(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@penglai-dsh-source:@deepseek-ai/dsh-invariants@0.1.2-alpha.1+sha256.36106a546711283e(@deepseek-ai/cordis@4.0.1)))
       '@deepseek-ai/dsh-tool-subagent': penglai-dsh-source:@deepseek-ai/dsh-tool-subagent@0.1.2-alpha.1+sha256.da8ec1a08c3de0c7(d860dbf702fd18701cdee16c1e573187)
-      '@deepseek-ai/dsh-web-frontend': penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.d3dfd96a7d4afa52
+      '@deepseek-ai/dsh-web-frontend': penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.a16924efc5a853b4
       '@deepseek-ai/dsh-workspace': penglai-dsh-source:@deepseek-ai/dsh-workspace@0.1.2-alpha.1+sha256.c611e3fa82bd0007(93da56f9b232ba3e840b97955079bf78)
       '@deepseek-ai/schemastery': penglai-dsh-source:@deepseek-ai/schemastery@3.18.1+sha256.b802d33e7a760b5f
       commander: 15.0.0
@@ -8749,7 +8749,7 @@ snapshots:
       ipaddr.js: 2.5.0
       undici: 8.10.0
 
-  '@deepseek-ai/dsh-web-frontend@penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.d3dfd96a7d4afa52': {}
+  '@deepseek-ai/dsh-web-frontend@penglai-dsh-source:@deepseek-ai/dsh-web-frontend@0.1.2-alpha.1+sha256.a16924efc5a853b4': {}
 
   '@deepseek-ai/dsh-web-search-deepseek@penglai-dsh-source:@deepseek-ai/dsh-web-search-deepseek@0.1.2-alpha.1+sha256.e7084d87d3812d5f(89e945ff8e571fe9bc06dbd13367ea4e)':
     dependencies:

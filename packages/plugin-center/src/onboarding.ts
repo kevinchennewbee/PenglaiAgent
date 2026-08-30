@@ -76,7 +76,8 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-export const PENGLAI_WELCOME_NOTICE_VERSION = "penglai-0.5.8.0" as const;
+/** Exact acknowledgement version exported by the fixed DSH 0.1.2-alpha.1 source. */
+export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [
   "welcome-v1",
@@ -364,7 +365,7 @@ export async function persistAppearanceToOfficialSettings(
 export async function persistWelcomeAckToOfficialSettings(ctx: OfficialUsableCtx): Promise<boolean> {
   if (!ctx.settings?.mutate) return false;
   await ctx.settings.mutate(OFFICIAL_WELCOME_SETTINGS_NS, [
-    { op: "set", path: [OFFICIAL_WELCOME_ACK_FIELD], value: PENGLAI_WELCOME_NOTICE_VERSION },
+    { op: "set", path: [OFFICIAL_WELCOME_ACK_FIELD], value: DSH_WELCOME_NOTICE_VERSION },
   ]);
   return true;
 }

@@ -4,7 +4,13 @@
     "head": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
     "tree": "a712eec535b48badc4fefb4df5176a7002e4280b",
     "origin": "https://github.com/deepseek-ai/deepseek-harness.git",
-    "archiveSha256": "1fe7d2380d3e53eac2f6ee92ee5c81850ddc9b735b5910bae132cf1fc12b7211"
+    "archiveSha256": "1fe7d2380d3e53eac2f6ee92ee5c81850ddc9b735b5910bae132cf1fc12b7211",
+    "welcomeNotice": {
+      "settingsNamespace": "ui-onboarding",
+      "ackField": "welcomeNoticeVersion",
+      "version": "2026-08-13.1",
+      "sourcePath": "packages/client/ui-settings-models/src/onboarding-copy.ts"
+    }
   },
   "version": "0.1.2-alpha.1",
   "packageManager": "pnpm@11.7.0",
@@ -28,17 +34,17 @@
     "package": "@deepseek-ai/dsh",
     "version": "0.1.2-alpha.1"
   },
-  "officialClientBuild": {
+  "productClientBuild": {
     "formatVersion": 1,
     "environment": {
-      "DSH_CLIENT_BUILD_PROFILE": "official",
+      "DSH_CLIENT_BUILD_PROFILE": "penglai-distribution",
       "DSH_CLIENT_COMMIT_HASH": "cd5ef81",
-      "DSH_CLIENT_TITLE": "DeepSeek Harness",
+      "DSH_CLIENT_TITLE": "蓬莱 Penglai",
       "DSH_CLIENT_VERSION": "0.1.2-alpha.1"
     },
     "artifacts": {
       "fileCount": 218,
-      "sha256": "efff50405215c6ae93d81a6a74853bdc976cbcc7359267439564578c6b651a57"
+      "sha256": "06c87f2cdf3a6745751b6df0e19b0fa7f3182b09c8f061283f0e23c11bf9d3f4"
     }
   },
   "packageCount": 251,
@@ -638,8 +644,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 6832,
-          "sha256": "9b39fb6e6f6cd6f46b078ce10ca7479148afabb5d714720d612b0459fd3d3671"
+          "size": 6617,
+          "sha256": "870bf4a29729dc1dbaab5106b1dff0d4b2ec7ea27835968f16e3aa90c5d27551"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-chat-0.1.2-alpha.1.tgz",
@@ -781,8 +787,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 18333,
-          "sha256": "e8452201029d610b662f1789c02c0ac2bc0ea0ab1b612dc21973c979a95c4fa0"
+          "size": 18335,
+          "sha256": "e5b8be592c6c99cd52d49ce57bf11fbf9722cbdab3b24349f7c24cc4861811ca"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-message-feedback-0.1.2-alpha.1.tgz",
@@ -3186,8 +3192,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 1432909,
-          "sha256": "d3dfd96a7d4afa523916d0c097a66e2138fa19c1cdf5b96aec5bb40364a841e6"
+          "size": 1432916,
+          "sha256": "a16924efc5a853b47f29c50f47a63486eea7ab440bcc6a30c2b673401205bda8"
         },
         {
           "filename": "deepseek-ai-dsh-web-search-deepseek-0.1.2-alpha.1.tgz",
