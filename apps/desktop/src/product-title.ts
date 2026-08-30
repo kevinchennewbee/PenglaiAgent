@@ -7,14 +7,8 @@ export function penglaiDocumentTitle(current: string): string {
 
 interface ProductTitleDocument {
   title: string;
-  readyState: string;
   head: Node | null;
   documentElement: Node;
-  addEventListener(
-    type: "DOMContentLoaded",
-    listener: () => void,
-    options: { once: true },
-  ): void;
 }
 
 interface ProductTitleObserver {
@@ -45,10 +39,6 @@ export function installPenglaiDocumentTitle(
       characterData: true,
     });
   };
-  if (documentPort.readyState === "loading") {
-    documentPort.addEventListener("DOMContentLoaded", attach, { once: true });
-  } else {
-    attach();
-  }
+  attach();
   return () => observer?.disconnect();
 }

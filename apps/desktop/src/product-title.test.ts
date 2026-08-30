@@ -16,22 +16,13 @@ test("desktop title replaces only the upstream product identity", () => {
 });
 
 test("desktop preload restores the title after upstream updates", () => {
-  let ready: (() => void) | undefined;
   let mutation: (() => void) | undefined;
   let disconnected = false;
   const head = {} as Node;
   const documentPort = {
     title: "DeepSeek Harness",
-    readyState: "loading",
     head,
     documentElement: {} as Node,
-    addEventListener(
-      _type: "DOMContentLoaded",
-      listener: () => void,
-      _options: { once: true },
-    ) {
-      ready = listener;
-    },
   };
   class Observer {
     constructor(callback: () => void) {
@@ -51,8 +42,6 @@ test("desktop preload restores the title after upstream updates", () => {
   }
 
   const dispose = installPenglaiDocumentTitle(documentPort, Observer);
-  assert.equal(documentPort.title, "DeepSeek Harness");
-  ready?.();
   assert.equal(documentPort.title, "蓬莱 Penglai");
   documentPort.title = "Session — DeepSeek Harness";
   mutation?.();
