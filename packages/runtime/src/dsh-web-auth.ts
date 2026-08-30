@@ -37,7 +37,9 @@ export function redactDshLaunchTokens(value: string): string {
 export function parseDshWebLaunchUrl(line: string, expectedPort: number): string | undefined {
   const at = line.indexOf(LAUNCH_PREFIX);
   if (at === -1) return undefined;
-  const candidate = line.slice(at + LAUNCH_PREFIX.length).trim().split(/\s+\(LAN:/u, 1)[0];
+  const emitted = line.slice(at + LAUNCH_PREFIX.length).trim();
+  const lanMarker = emitted.indexOf("(LAN:");
+  const candidate = (lanMarker === -1 ? emitted : emitted.slice(0, lanMarker)).trim();
   if (!candidate) return undefined;
   let url: URL;
   try {
