@@ -1,14 +1,14 @@
 # Security Policy
 
-Penglai 0.5.7 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.5.8 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.5.7 | Current immutable public release |
-| 0.5.6 | Previous immutable public release; supported for upgrade to 0.5.7 |
-| 0.5.0–0.5.5 | Supported only for upgrading to the current 0.5 generation; 0.5.0 requires a manual overlay |
+| 0.5.8 | Current immutable public release |
+| 0.5.7 | Previous immutable public release; supported for upgrade to 0.5.8 |
+| 0.5.0–0.5.6 | Supported only for upgrading to the current 0.5 generation; 0.5.0 requires a manual overlay |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
 ## Trust tier
@@ -27,7 +27,7 @@ On macOS the credentials directory/file use 0700/0600. On Windows they use a cur
 
 0.4.1 credentials and databases are not read, imported, or deleted.
 
-Official DSH rc.2 bundles a session-telemetry adapter and a configured DeepSeek
+Official DSH 0.1.2-alpha.1 source bundles a session-telemetry adapter and a configured DeepSeek
 OTLP endpoint. Penglai does not operate that backend and does not rely only on
 the adapter's default mode: the owned DSH child receives
 `DSH_TELEMETRY_DISABLED=1` from a closed environment allowlist. DSH applies that
@@ -39,8 +39,7 @@ pipeline.
 `@penglai/im` is the only IM plugin. Eight platforms have connection entries.
 Adapters cannot call a parallel Agent. Live support is evidence-gated in
 `docs/0.5.7/LIVE_IM_MATRIX.md`. Slack, Telegram, and Discord do not fake QR.
-The WhatsApp community runtime is not bundled in 0.5.7; its compatibility card
-has no connection action.
+WhatsApp is not displayed, supported, planned, or bundled in 0.5.8.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the user must create and publish their own enterprise self-built app. There is no Penglai-hosted Feishu QR and no fake “scan to finish”.

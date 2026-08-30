@@ -1,12 +1,12 @@
 # `@penglai/im` 完整产品与协议合同
 
-> 0.5.7 用户只看到一个「消息连接」插件。八个平台都有真实连接入口，不再把新增渠道
-> 显示为路线图。manifest 的 `live` 是历史兼容字段，表示 0.5.7 包含真实 adapter
+> 0.5.8 用户只看到一个「消息连接」插件。八个平台都有真实连接入口，不再把新增渠道
+> 显示为路线图。manifest 的 `live` 是历史兼容字段，表示 0.5.8 包含真实 adapter
 > 实现，不表示当前用户已启用或已通过 live-account 验收。没有
 > 对应 live evidence 时，不得把该平台写入 README/官网/Release 的“全部支持”
 > 声明，也不得把图片/文件/音频/Markdown/线程/群聊标为 `true`。Slack、Telegram、
-> Discord 禁止伪装扫码。WhatsApp 社区 runtime 不随 0.5.7 分发，兼容性说明卡没有
-> 连接动作。下文微信/
+> Discord 禁止伪装扫码。WhatsApp 在 0.5.8 中不展示、不支持、不列为规划，也不捆绑
+> 运行时。下文微信/
 > 飞书合同继续约束已有 live 路径；新渠道只有通过 adapter、health、send-reject
 > 和 live evidence 后才能进入 `LIVE_CHANNEL_IDS`。
 
@@ -18,7 +18,7 @@
 
 ## 2. 默认行为
 
-- fresh 0.5.7 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
+- fresh 0.5.8 profile 离线携带并登记 `@penglai/im`，但默认 `disabled`，不会进入 active loader roster，也不会启动 adapter 网络活动。
 - 用户在 Center 明确选择“安装并启用”后，package transaction 才写入 profile、启用 loader，并验证 actual active/healthy；此后未配置 adapter 时不联网、不启动 auth poll。
 - 未配置 adapter 时不联网、不启动 auth poll，但 Remote/UI/diagnostics 可用。
 - official Models API key 测试、default model 和 Workspace 就绪后，onboarding 自动进入“连接消息渠道”步骤。
@@ -29,7 +29,7 @@
 
 ## 3. UI 结构
 
-UI 位于 official DSH Web 的“设置 → 蓬莱 → 消息连接”嵌套子菜单，不是另一个窗口或内容区第三列。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH rc.2 没有父子 section schema且会丢弃未知 option，因此 exact-hash settings renderer overlay 只按该 id 命名空间渲染嵌套组，不改变 DSH settings/Agent/runtime。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
+UI 位于 official DSH Web 的“设置 → 蓬莱 → 消息连接”嵌套子菜单，不是另一个窗口或内容区第三列。`@penglai/im` 使用 official `settings.section` 与保留的 `penglai-*` section id 注册自己的页面；固定的 DSH 0.1.2-alpha.1 源码没有父子 section schema且会丢弃未知 option，因此 exact-hash settings renderer overlay 只按该 id 命名空间渲染嵌套组，不改变 DSH settings/Agent/runtime。停用 IM 只移除 active 页面与相关 host 资源，不影响 DSH 或其他蓬莱插件。首次启用后，Center 明示状态并应用内 reload client roster，随后子菜单出现“消息连接”，其微信/飞书页只提供厂商真实支持的连接流程。
 
 “绑定”页必须为每个真实 binding 提供可视化 `inputMode`、`replyMode` 与 MOSS `voiceId` 控件；它们与 `/语音`、`/声音` 写入同一个 IM core 持久策略。ASR/TTS 未安装或模型未 ready 时显示实际能力状态并安全降级，不能显示假开关。微信原生语音必须先从该页发送 live probe，再由用户确认客户端里确实出现可播放气泡；仅 API 成功不自动启用。
 
@@ -304,4 +304,4 @@ SQLite表：accounts、adapter_configs、bindings、vendor_reply_targets、inbox
 
 ## 15. 明确非目标
 
-群聊、视频、未审核富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.7。图片必须走 official image store；普通文件必须走 scope-checked Artifact Service，不能把任意媒体伪装成文本或图片进入模型。
+群聊、视频、未审核富卡片、飞书 OAuth Device Flow、Penglai 托管应用、云路由、遥测，以及 adapter 独立 Agent runtime 均不在 0.5.8。图片必须走 official image store；普通文件必须走 scope-checked Artifact Service，不能把任意媒体伪装成文本或图片进入模型。
