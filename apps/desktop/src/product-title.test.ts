@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   installPenglaiDocumentTitle,
+  PENGLAI_MAIN_WORLD_TITLE_GUARD,
   penglaiDocumentTitle,
 } from "./product-title.js";
+import vm from "node:vm";
 
 test("desktop title replaces only the upstream product identity", () => {
   assert.equal(penglaiDocumentTitle(""), "蓬莱 Penglai");
@@ -79,4 +81,45 @@ test("desktop title getter never exposes an upstream mutation before the observe
   assert.equal(documentPort.title, "Settings — 蓬莱 Penglai");
   mutation?.();
   assert.equal(rawTitle, "Settings — 蓬莱 Penglai");
+});
+
+test("main-world title guard owns synchronous DSH page writes under context isolation", () => {
+  let rawTitle = "DeepSeek Harness";
+  let mutation: (() => void) | undefined;
+  const prototype = {};
+  Object.defineProperty(prototype, "title", {
+    configurable: true,
+    enumerable: true,
+    get: () => rawTitle,
+    set: (value: string) => {
+      rawTitle = value;
+    },
+  });
+  const documentPort = Object.assign(Object.create(prototype), {
+    head: {},
+    documentElement: {},
+  }) as { title: string; head: object; documentElement: object };
+  class Observer {
+    constructor(callback: () => void) {
+      mutation = callback;
+    }
+    observe() {}
+  }
+
+  vm.runInNewContext(PENGLAI_MAIN_WORLD_TITLE_GUARD, {
+    document: documentPort,
+    MutationObserver: Observer,
+  });
+  vm.runInNewContext(PENGLAI_MAIN_WORLD_TITLE_GUARD, {
+    document: documentPort,
+    MutationObserver: Observer,
+  });
+  assert.equal(documentPort.title, "蓬莱 Penglai");
+  documentPort.title = "Settings — DeepSeek Harness";
+  assert.equal(rawTitle, "Settings — 蓬莱 Penglai");
+  assert.equal(documentPort.title, "Settings — 蓬莱 Penglai");
+  rawTitle = "Plugins — DeepSeek Harness";
+  assert.equal(documentPort.title, "Plugins — 蓬莱 Penglai");
+  mutation?.();
+  assert.equal(rawTitle, "Plugins — 蓬莱 Penglai");
 });
