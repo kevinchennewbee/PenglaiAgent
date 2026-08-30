@@ -8,7 +8,9 @@ import {
   PINNED_DSH_CLOSURE_MANIFEST_SHA256,
   PINNED_DSH_COMMIT,
   PINNED_DSH_TARBALL_SHA256,
+  PINNED_PNPM,
   PRODUCT_VERSION,
+  PUBLICATION_TARGET,
 } from "./lib/product.mjs";
 
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
@@ -94,6 +96,17 @@ try {
 } catch (err) {
   console.error("release-contract invalid", err);
   process.exit(1);
+}
+const deployWorkflow = readFileSync(join(ROOT, ".github/workflows/deploy-website.yml"), "utf8");
+for (const required of [
+  `test "\${{ inputs.tag }}" = "${PUBLICATION_TARGET.tag}"`,
+  `corepack prepare pnpm@${PINNED_PNPM} --activate`,
+  `pnpm readback:release "\${{ inputs.tag }}"`,
+]) {
+  if (!deployWorkflow.includes(required)) {
+    console.error("website deployment workflow is not bound to the current release contract", required);
+    process.exit(1);
+  }
 }
 const makers = spawnSync(process.execPath, ["--import", "tsx", join(ROOT, "scripts/probe-makers.mjs")], {
   cwd: ROOT,

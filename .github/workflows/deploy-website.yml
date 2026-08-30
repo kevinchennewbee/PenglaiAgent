@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Immutable Release tag that must already exist (example v0.5.7)
+        description: Immutable Release tag that must already exist (example v0.5.8)
         required: true
         type: string
       deploy_site:
@@ -27,16 +27,16 @@ jobs:
           node-version: 22.22.2
       - name: Require the requested tag
         run: |
-          test "${{ inputs.tag }}" = "v0.5.7"
+          test "${{ inputs.tag }}" = "v0.5.8"
       - name: Public readback
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           corepack enable
-          corepack prepare pnpm@10.14.0 --activate
+          corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
           pnpm build
-          pnpm readback:release v0.5.7
+          pnpm readback:release "${{ inputs.tag }}"
       - name: Deploy verified website
         if: ${{ inputs.deploy_site }}
         env:
