@@ -160,7 +160,13 @@ try {
     PENGLAI_PLUGINS_DIR: layout.pluginsDir,
     PENGLAI_APP_ROOT: emptyApp,
   });
-  const res = await fetch(`http://127.0.0.1:${started.port}/`);
+  const cookie = supervisor.upstreamCookie;
+  if (supervisor.webAuthMode !== "browser-cookie" || !cookie) {
+    throw new Error("DSH alpha browser session was not established");
+  }
+  const res = await fetch(`http://127.0.0.1:${started.port}/`, {
+    headers: { cookie },
+  });
   const body = await res.text();
   if (res.status !== 200 || !body.includes('id="root"')) {
     throw new Error(`DSH did not stay up without mnemon http=${res.status}`);
@@ -175,7 +181,7 @@ rmSync(failOpenUser.root, { recursive: true, force: true });
 rmSync(emptyApp, { recursive: true, force: true });
 rmSync(workspace, { recursive: true, force: true });
 
-const manifest = finishEvidenceRun(run, "PASS", "bundled mnemon remember/search/forget, packed office tools, memory-missing DSH still HTTP 200", {
+const manifest = finishEvidenceRun(run, "PASS", "bundled mnemon remember/search/forget, packed office tools, authenticated memory-missing DSH still HTTP 200", {
   mnemon: mnemonBin,
   sourceSha: packaged.release.sourceSha,
 });

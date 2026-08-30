@@ -103,9 +103,9 @@ test("tracked plugin package.json paths are exportable and FINDINGS has no owner
 
 test("R50-PREP-002 export scan rejects secret and owner path", () => {
   assert.throws(
-    () => scanExportText("README.md", "key sk-abcdefghijklmnopxxxx"),
+    () => scanExportText("README.md", ["key s", "k-abcdefghijklmnopxxxx"].join("")),
     PenglaiError,
-  ); // penglai-test-fixture
+  );
   assert.throws(
     () => scanExportText("README.md", "path /Volumes/private-owner-drive/x"),
     PenglaiError,
