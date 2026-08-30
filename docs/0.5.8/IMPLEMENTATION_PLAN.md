@@ -102,6 +102,14 @@ handshake, closing the startup race without exposing the token. Recovery tests
 also retain the native Windows termination code instead of assuming the POSIX
 exit code.
 
+The same native candidate then reached packaging and exposed a separate
+cross-platform supply-chain boundary: Git for Windows converted the pinned
+`closure-manifest.json` from LF to CRLF, so its worktree bytes no longer
+matched `release-contract.json`. The hash comparison remains exact; the
+integrity-bound closure manifest is now explicitly `eol=lf` in
+`.gitattributes`, alongside the already-binary tarballs, with a unit regression
+that prevents the checkout rule from disappearing.
+
 A bounded continuous HTTP probe now detects both a lost listener and a server
 that accepts a connection but never returns the official DSH document. The
 first failure clears stale green health and exposes `degraded`; a good probe

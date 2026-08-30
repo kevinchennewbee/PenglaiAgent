@@ -27,6 +27,14 @@ test("fixed DSH source closure produces an exhaustive no-registry dependency map
   assert.match(dependencyOverrides(map)["@deepseek-ai/dsh"], /^file:third_party\/dsh\/0\.1\.2-alpha\.1\/dsh\//);
 });
 
+test("fixed DSH closure manifest keeps release-identity bytes on Windows", () => {
+  const attributes = readFileSync(`${ROOT}/.gitattributes`, "utf8");
+  assert.match(
+    attributes,
+    /^third_party\/dsh\/\*\*\/closure-manifest\.json text eol=lf$/m,
+  );
+});
+
 test("pnpm resolver recognizes every audited package and no unrelated package", () => {
   const map = buildDshLocalDependencyMap(ROOT);
   for (const row of map.packages) {
