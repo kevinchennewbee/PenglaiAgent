@@ -78,7 +78,10 @@ function releaseTargets(source) {
 }
 
 export function readReleaseIdentityPins(root = ROOT) {
-  const source = readFileSync(join(root, RELEASE_PINS_SOURCE), "utf8");
+  const source = readFileSync(join(root, RELEASE_PINS_SOURCE), "utf8").replace(
+    /\r\n?/g,
+    "\n",
+  );
   const publicationBlock = objectBlock(source, "PUBLICATION_TARGET");
   return Object.freeze({
     productName: stringPin(source, "PRODUCT_NAME"),

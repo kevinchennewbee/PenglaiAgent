@@ -177,6 +177,11 @@ jobs:
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
         run: pnpm build
+      - name: Build native Windows security helper for regression gates
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          pnpm build:windows-host
       - name: Source and onboarding regression gates
         shell: bash
         run: |

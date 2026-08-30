@@ -31,6 +31,18 @@ test("release identity copies resolve from the one authoritative pins source", (
   );
 });
 
+test("release identity parsing is invariant across LF and CRLF checkouts", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-release-pins-crlf-"));
+  const target = join(root, RELEASE_PINS_SOURCE);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, readFileForTest().replace(/\n/g, "\r\n"));
+  try {
+    assert.deepEqual(readReleaseIdentityPins(root), readReleaseIdentityPins());
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("version verifier consumes the authority instead of declaring a second expected version", () => {
   const source = readFileSync(
     new URL("../verify-versions.mjs", import.meta.url),

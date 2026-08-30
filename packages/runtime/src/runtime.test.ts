@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdtempSync,
@@ -15,6 +16,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   activatePrivateProfile,
   assertAbsoluteExecutable,
@@ -42,6 +44,15 @@ import {
   windowsOwnedProcessEnvironment,
 } from "./index.js";
 import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
+
+function installBuiltWindowsHost(appRoot: string): void {
+  if (process.platform !== "win32") return;
+  const built = fileURLToPath(new URL("../../../dist/native-win32-x86_64/penglai-windows-host.exe", import.meta.url));
+  assert.equal(existsSync(built), true, "native Windows regression gates must compile the security helper first");
+  const helperDir = join(appRoot, "runtime", "helpers");
+  mkdirSync(helperDir, { recursive: true });
+  copyFileSync(built, join(helperDir, "penglai-windows-host.exe"));
+}
 
 test("embedded DSH Web never opens the operating-system browser", () => {
   assert.deepEqual(dshWebArgs(3080), [
@@ -362,6 +373,7 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     files: [{ path: "runtime/dsh/lib/bin.js", sha256: digest, size: Buffer.byteLength(fakeDsh) }],
   }));
   writeFileSync(modePath, "healthy\n");
+  installBuiltWindowsHost(app);
   ensurePrivateHome(user, app);
   const recoveryStates: string[] = [];
   const supervisor = new EmbeddedDshSupervisor({
