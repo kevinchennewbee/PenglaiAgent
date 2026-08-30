@@ -94,7 +94,7 @@ export async function probeLiveHttpWs(origin, timeoutMs = 2_500) {
   }
   try {
     wsOpened = await new Promise((resolve) => {
-      const url = `${base.replace(/^http/i, "ws")}/api/events.host`;
+      const url = `${base.replace(/^http/i, "ws")}/api/remote.mux`;
       let settled = false;
       const done = (value) => {
         if (settled) return;

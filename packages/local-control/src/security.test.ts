@@ -64,7 +64,7 @@ test("proxy upgrade close does not throw writeAfterFIN", async () => {
     h.request({
       host: "127.0.0.1",
       port: proxy.port,
-      path: "/api/events.host",
+      path: "/api/remote.mux",
       headers: {
         upgrade: "websocket",
         connection: "upgrade",

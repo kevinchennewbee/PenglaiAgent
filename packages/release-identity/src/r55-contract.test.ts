@@ -98,6 +98,18 @@ test("alpha runtime uses official slots and does not apply the historical rc.2 o
   assert.match(embed, /official-slots-no-source-patch/);
 });
 
+test("native and installed probes use the alpha Remote stream mux", () => {
+  for (const relative of [
+    "apps/desktop/src/electron-main.ts",
+    "scripts/lib/browser-window-walk.mjs",
+    "scripts/lib/runner-live.mjs",
+  ]) {
+    const source = readFileSync(join(root, relative), "utf8");
+    assert.match(source, /\/api\/remote\.mux/);
+    assert.doesNotMatch(source, /\/api\/events\.host/);
+  }
+});
+
 test("R55-BUILTIN-005 overlay failure returns last-good/baseline", () => {
   const runtime = readFileSync(join(root, "packages/runtime/src/plugin-catalog.ts"), "utf8");
   assert.match(runtime, /last-good-profile/);
