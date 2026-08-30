@@ -15,9 +15,15 @@
     "packageManager": "pnpm@11.7.0",
     "archivePacker": "npm@10.9.7"
   },
-  "officialClientBuild": {
-    "profile": "official",
-    "title": "DeepSeek Harness"
+  "productClientBuild": {
+    "profile": "penglai-distribution",
+    "title": "蓬莱 Penglai",
+    "welcomeNotice": {
+      "settingsNamespace": "ui-onboarding",
+      "ackField": "welcomeNoticeVersion",
+      "version": "2026-08-13.1",
+      "sourcePath": "packages/client/ui-settings-models/src/onboarding-copy.ts"
+    }
   },
   "build": {
     "canonicalHost": {
@@ -25,7 +31,7 @@
       "sourceRoot": "/private/tmp/penglai-dsh-source-closure-cd5ef8148158/source"
     },
     "install": ["install", "--frozen-lockfile"],
-    "compile": ["run", "build:official"],
+    "compile": ["run", "build"],
     "families": [
       {
         "id": "vendor",

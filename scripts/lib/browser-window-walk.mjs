@@ -42,7 +42,10 @@ export const SNAPSHOT_JS = `(() => {
     wizardProviderCount: document.querySelector("[data-penglai-wizard-provider]") ? Array.from(document.querySelector("[data-penglai-wizard-provider]").options).filter((o) => o.value).length : 0,
     wizardModelCount: document.querySelector("[data-penglai-wizard-model]") ? Array.from(document.querySelector("[data-penglai-wizard-model]").options).filter((o) => o.value).length : 0,
     welcomeTitle: headings.some((h) => /选择语言|Choose language|欢迎使用蓬莱|Welcome to Penglai/.test(h)),
-    officialByok: headings.some((h) => /API Key|API key|API 密钥/.test(h)),
+    officialInternalNotice: /内测声明|Internal Testing Notice/.test(text(document.body)),
+    officialByok: Boolean(document.getElementById("root")?.inert) && headings.some((h) =>
+      /^(Add an API key to get started|添加一个 API Key 开始使用)$/.test(h)
+    ),
     center: Boolean(document.querySelector("[data-penglai-center]")),
     im: Boolean(document.querySelector("[data-penglai-im]")),
     penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
@@ -319,6 +322,7 @@ function slim(snap) {
     wizardModelCount: snap.wizardModelCount,
     headings: snap.headings,
     welcomeTitle: snap.welcomeTitle,
+    officialInternalNotice: snap.officialInternalNotice,
     officialByok: snap.officialByok,
     center: snap.center,
     im: snap.im,
@@ -697,6 +701,9 @@ export async function walkInstalledBrowserWindow(session, opts = {}) {
   const blocked = [];
   if (steps.some((step) => step.snap?.officialByok === true)) {
     blocked.push("duplicate-dsh-onboarding");
+  }
+  if (steps.some((step) => step.snap?.officialInternalNotice === true)) {
+    blocked.push("duplicate-dsh-internal-notice");
   }
   if (steps.some((step) => /DeepSeek Harness/i.test(String(step.snap?.title ?? "")))) {
     blocked.push("upstream-window-title");

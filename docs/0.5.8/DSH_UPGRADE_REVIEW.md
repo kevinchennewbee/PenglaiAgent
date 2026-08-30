@@ -56,12 +56,13 @@ Official references:
 
 The comparison is a platform migration, not a routine dependency patch. The
 source verification and local source-closure gate now prove that the fixed
-commit installs, builds with the official client profile, packs 9 vendor, 241
-DSH, and one required Landlock entry tarball, and installs all 251 packages in
-an isolated consumer whose CLI reports `0.1.2-alpha.1`. Every promoted byte,
-package identity, version, size, SHA-256, license, and the official 218-client-
-artifact build record are machine checked. Penglai product integration remains
-separate work; no npm monitor or formal npm publication is required.
+commit installs, builds with the source-supported Penglai distribution client
+environment, packs 9 vendor, 241 DSH, and one required Landlock entry tarball,
+and installs all 251 packages in an isolated consumer whose CLI reports
+`0.1.2-alpha.1`. Every promoted byte, package identity, version, size, SHA-256,
+license, and the 218-client-artifact product build record are machine checked.
+The client title and DSH welcome-notice acknowledgement are source-bound product
+inputs; no npm monitor or formal npm publication is required.
 
 ## 3. Current Penglai coupling that must be retired or migrated
 

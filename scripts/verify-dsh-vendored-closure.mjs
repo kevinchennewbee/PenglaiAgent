@@ -66,6 +66,12 @@ for (const field of ["head", "tree", "archiveSha256"]) {
   if (manifest.source?.[field] !== expected) fail(`vendored source ${field} differs from the contract`);
 }
 if (
+  JSON.stringify(manifest.source?.welcomeNotice) !==
+  JSON.stringify(contract.productClientBuild.welcomeNotice)
+) {
+  fail("vendored source welcome-notice binding differs from the contract");
+}
+if (
   manifest.packedInstallReadback?.passed !== true ||
   manifest.packedInstallReadback?.package !== "@deepseek-ai/dsh" ||
   manifest.packedInstallReadback?.version !== contract.upstream.version
@@ -73,18 +79,18 @@ if (
   fail("packed-install readback is absent or inconsistent");
 }
 const expectedClientEnvironment = {
-  DSH_CLIENT_BUILD_PROFILE: contract.officialClientBuild.profile,
+  DSH_CLIENT_BUILD_PROFILE: contract.productClientBuild.profile,
   DSH_CLIENT_COMMIT_HASH: contract.upstream.commit.slice(0, 7),
-  DSH_CLIENT_TITLE: contract.officialClientBuild.title,
+  DSH_CLIENT_TITLE: contract.productClientBuild.title,
   DSH_CLIENT_VERSION: contract.upstream.version,
 };
 if (
-  JSON.stringify(manifest.officialClientBuild?.environment) !==
+  JSON.stringify(manifest.productClientBuild?.environment) !==
   JSON.stringify(expectedClientEnvironment) ||
-  !Number.isSafeInteger(manifest.officialClientBuild?.artifacts?.fileCount) ||
-  !/^[0-9a-f]{64}$/.test(String(manifest.officialClientBuild?.artifacts?.sha256 ?? ""))
+  !Number.isSafeInteger(manifest.productClientBuild?.artifacts?.fileCount) ||
+  !/^[0-9a-f]{64}$/.test(String(manifest.productClientBuild?.artifacts?.sha256 ?? ""))
 ) {
-  fail("official client build record is absent or inconsistent");
+  fail("product client build record is absent or inconsistent");
 }
 
 const expectedUnits = [...contract.build.families, ...contract.build.auxiliaryPackages];
@@ -98,6 +104,8 @@ if (JSON.stringify(readdirSync(closureRoot).sort()) !== JSON.stringify(expectedR
   fail("vendored closure root contains missing or unexpected entries");
 }
 const allNames = [];
+let layoutClient;
+let settingsModelsClient;
 for (const expectedUnit of expectedUnits) {
   const unit = manifest.families?.find((row) => row.id === expectedUnit.id);
   if (!unit || unit.packages?.length !== expectedUnit.expectedTarballs) {
@@ -147,10 +155,37 @@ for (const expectedUnit of expectedUnits) {
       fail(`${row.filename} has an unapproved license ${JSON.stringify(row.license)}`);
     }
     allNames.push(row.name);
+    if (row.name === "@deepseek-ai/dsh-client-ui-layout") {
+      layoutClient = execFileSync("tar", ["-xOf", "-", "package/lib/client.js"], {
+        input: bytes,
+        encoding: "utf8",
+      });
+    }
+    if (row.name === "@deepseek-ai/dsh-client-ui-settings-models") {
+      settingsModelsClient = execFileSync("tar", ["-xOf", "-", "package/lib/client.js"], {
+        input: bytes,
+        encoding: "utf8",
+      });
+    }
   }
 }
 if (new Set(allNames).size !== allNames.length || allNames.length !== expectedCount) {
   fail("vendored closure package identities are duplicate or incomplete");
+}
+if (
+  typeof layoutClient !== "string" ||
+  !layoutClient.includes(`productTitle: ${JSON.stringify(contract.productClientBuild.title)}`) ||
+  layoutClient.includes('productTitle: "DeepSeek Harness"')
+) {
+  fail("vendored DSH layout does not bind the Penglai product title");
+}
+const welcome = contract.productClientBuild.welcomeNotice;
+if (
+  typeof settingsModelsClient !== "string" ||
+  !settingsModelsClient.includes(`WELCOME_NOTICE_ACK_FIELD = ${JSON.stringify(welcome.ackField)}`) ||
+  !settingsModelsClient.includes(`WELCOME_NOTICE_VERSION = ${JSON.stringify(welcome.version)}`)
+) {
+  fail("vendored DSH settings-models package differs from the welcome-notice contract");
 }
 
 finish("PASS", {

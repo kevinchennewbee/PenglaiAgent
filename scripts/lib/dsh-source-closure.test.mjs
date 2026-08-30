@@ -15,7 +15,9 @@ test("fixed DSH source closure contract is internally consistent", () => {
   assert.equal(contract.transport.officialNpmRequired, false);
   assert.equal(contract.transport.publicNpmPublication, false);
   assert.equal(contract.toolchain.archivePacker, "npm@10.9.7");
-  assert.equal(contract.officialClientBuild.title, "DeepSeek Harness");
+  assert.equal(contract.productClientBuild.profile, "penglai-distribution");
+  assert.equal(contract.productClientBuild.title, "蓬莱 Penglai");
+  assert.equal(contract.productClientBuild.welcomeNotice.version, "2026-08-13.1");
   assert.equal(contract.build.canonicalHost.platform, "darwin");
   assert.equal(
     contract.build.canonicalHost.sourceRoot,
@@ -55,10 +57,13 @@ test("contract rejects npm impersonation and upstream patches", () => {
   assert.throws(() => validateDshSourceClosureContract(contract), /must remain unpatched/);
 });
 
-test("contract keeps the official DSH client profile byte-identical", () => {
+test("contract fixes the source-built Penglai client identity", () => {
   const contract = structuredClone(readDshSourceClosureContract(ROOT));
-  contract.officialClientBuild.title = "蓬莱 Penglai";
-  assert.throws(() => validateDshSourceClosureContract(contract), /must remain unmodified/);
+  contract.productClientBuild.title = "DeepSeek Harness";
+  assert.throws(() => validateDshSourceClosureContract(contract), /must remain fixed/);
+  contract.productClientBuild.title = "蓬莱 Penglai";
+  contract.productClientBuild.welcomeNotice.version = "unbound";
+  assert.throws(() => validateDshSourceClosureContract(contract), /welcome-notice/);
 });
 
 test("repository URL comparison ignores transport spelling only", () => {

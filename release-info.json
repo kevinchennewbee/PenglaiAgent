@@ -40,7 +40,7 @@
     "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
     "tag": "dsh-v0.1.2-alpha.1",
     "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
-    "closureManifestSha256": "d048d1079fe3130ac2a6129e063d07741c6b65b727e6f07ac0c9893011b875e3",
+    "closureManifestSha256": "13d5f5cd4dc356f2ffc48c02d22c4889afbff5da2b22eec74a3bf39185904f77",
     "cliTarballSha256": "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e",
     "packageCount": 251
   },

@@ -44,13 +44,16 @@
 - [x] verify the source CLI identity, Node range, exact build Node, upstream
   `pnpm@11.7.0`, and deterministic archive `npm@10.9.7`.
 
-### SC-003 — complete official build and pack
+### SC-003 — complete fixed-source product build and pack
 
 - [x] Run the upstream frozen install with Corepack-selected pnpm.
 - [x] Run the complete upstream Host, Client, CLI, and Web build with the
-  official client profile and bind its 218-artifact digest record.
+  source-supported Penglai distribution client environment and bind its
+  218-artifact digest record.
 - [x] Invoke upstream `release:pack --family vendor` and require 9 tarballs.
-- [x] Invoke upstream `release:pack --family dsh` and require 241 tarballs.
+- [x] Import upstream DSH family membership, dependency order, tarball names,
+  versions, and payload validators; pack the 241 DSH tarballs without invoking
+  the official-npm-only client-profile assertion.
 - [x] Build and pack the required Landlock entry package.
 - [x] Run upstream `release:verify-packed-install` with all three exact directories.
 - [x] Drive installed `@deepseek-ai/dsh --version` under plain Node.
