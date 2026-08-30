@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, git, gitState } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { partitionGitArchivePaths } from "./lib/git-archive-chunks.mjs";
 import { pnpmProcess } from "./lib/pnpm-process.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
 
@@ -109,30 +110,37 @@ if (wantCleanRoom) {
   rmSync(dest, { recursive: true, force: true });
   mkdirSync(dest, { recursive: true });
   const indexTree = git(["write-tree"]);
-  const archive = spawnSync("git", ["archive", "--format=tar", indexTree, "--", ...files], {
-    cwd: ROOT,
-    encoding: "buffer",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  if (archive.status !== 0) {
-    finish("FAIL", {
-      command: "prepare:public-export",
-      reason: "git archive of tracked export files failed",
-      detail: String(archive.stderr || "").slice(-800),
+  const archiveChunks = partitionGitArchivePaths(files);
+  for (const [index, chunk] of archiveChunks.entries()) {
+    const archive = spawnSync("git", ["archive", "--format=tar", indexTree, "--", ...chunk], {
+      cwd: ROOT,
+      encoding: "buffer",
+      maxBuffer: 256 * 1024 * 1024,
     });
-  }
-  const extract = spawnSync("tar", ["-xf", "-", "-C", dest], {
-    cwd: ROOT,
-    input: archive.stdout,
-    encoding: "buffer",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  if (extract.status !== 0) {
-    finish("FAIL", {
-      command: "prepare:public-export",
-      reason: "git archive extract failed",
-      detail: String(extract.stderr || "").slice(-800),
+    if (archive.status !== 0) {
+      finish("FAIL", {
+        command: "prepare:public-export",
+        reason: "git archive of tracked export files failed",
+        chunk: index + 1,
+        chunks: archiveChunks.length,
+        detail: String(archive.error || archive.stderr || "").slice(-800),
+      });
+    }
+    const extract = spawnSync("tar", ["-xf", "-", "-C", dest], {
+      cwd: ROOT,
+      input: archive.stdout,
+      encoding: "buffer",
+      maxBuffer: 256 * 1024 * 1024,
     });
+    if (extract.status !== 0) {
+      finish("FAIL", {
+        command: "prepare:public-export",
+        reason: "git archive extract failed",
+        chunk: index + 1,
+        chunks: archiveChunks.length,
+        detail: String(extract.error || extract.stderr || "").slice(-800),
+      });
+    }
   }
   const pinnedPnpm = pnpmProcess(["install", "--frozen-lockfile", "--ignore-scripts"]);
   const install = spawnSync(pinnedPnpm.command, pinnedPnpm.args, {
@@ -154,7 +162,7 @@ if (wantCleanRoom) {
   cleanRoom = {
     executed: true,
     dest: ".tmp-public-export/tree",
-    source: "git-archive-index",
+    source: "git-archive-index-chunked",
     productVersion: PRODUCT_VERSION,
     installStatus: install.status,
     typecheckStatus: typecheck?.status ?? null,
