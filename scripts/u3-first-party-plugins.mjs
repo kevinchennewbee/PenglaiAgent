@@ -152,7 +152,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       selection: { provider: "deepseek-official", model: "deepseek-chat" },
-      credentialRef: "PENGLAI_INSTALLED_UI_FIXTURE",
+      credentialRef: "DEEPSEEK_API_KEY",
       workspaceId: fixtureWorkspaceId,
       apiTest: {
         nonceDigest: fixtureNonceDigest,
@@ -176,6 +176,11 @@ const dshSourceContract = JSON.parse(
 );
 const fixtureDshHome = join(userData, "dsh-home");
 mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });
+writeFileSync(
+  join(fixtureDshHome, ".credentials.yaml"),
+  "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n",
+  { mode: 0o600 },
+);
 writeFileSync(
   join(fixtureDshHome, "settings.yaml"),
   [

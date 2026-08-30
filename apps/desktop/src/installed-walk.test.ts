@@ -260,6 +260,8 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(compat, /official\.websocket/);
   assert.match(compat, /observeOfficialSurfaces/);
   assert.match(compat, /installed-product-ui-fixture/);
+  assert.match(compat, /credentialRef: "DEEPSEEK_API_KEY"/);
+  assert.match(compat, /join\(fixtureDshHome, "\.credentials\.yaml"\)/);
   assert.match(compat, /phase\.official\.mounted/);
   assert.match(compat, /writeFileSync\(profilePatch, text, \{ mode: 0o600 \}\)/);
   assert.doesNotMatch(compat, /ftruncateSync/);
@@ -425,6 +427,8 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(soak, /bundled-default-off/);
   assert.doesNotMatch(soak, /installOptionalPlugins:\s*true/);
   assert.match(soak, /installed-soak-fixture/);
+  assert.match(soak, /credentialRef: "DEEPSEEK_API_KEY"/);
+  assert.match(soak, /join\(fixtureDshHome, "\.credentials\.yaml"\)/);
   assert.match(soak, /evaluate\(session, HTTP_JS\)/);
   assert.match(soak, /evaluate\(session, WS_JS\)/);
   assert.doesNotMatch(soak, /probeLiveHttpWs/);

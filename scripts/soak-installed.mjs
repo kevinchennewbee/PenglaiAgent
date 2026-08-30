@@ -150,7 +150,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       selection: { provider: "deepseek-official", model: "deepseek-chat" },
-      credentialRef: "PENGLAI_INSTALLED_SOAK_FIXTURE",
+      credentialRef: "DEEPSEEK_API_KEY",
       workspaceId: "installed-soak-fixture-workspace",
       apiTest: {
         nonceDigest: fixtureNonceDigest,
@@ -169,6 +169,13 @@ writeFileSync(
   { mode: 0o600 },
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
+const fixtureDshHome = join(userData, "dsh-home");
+mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });
+writeFileSync(
+  join(fixtureDshHome, ".credentials.yaml"),
+  "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n",
+  { mode: 0o600 },
+);
 const healthFile = join(userData, "soak-health.json");
 const installedNode = join(resources, expectedTarget === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const installedDsh = join(resources, "runtime/dsh/lib/bin.js");
