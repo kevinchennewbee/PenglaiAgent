@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "stage": "source-closure-bootstrap",
+  "upstream": {
+    "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+    "tag": "dsh-v0.1.2-alpha.1",
+    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "tree": "a712eec535b48badc4fefb4df5176a7002e4280b",
+    "archiveSha256": "1fe7d2380d3e53eac2f6ee92ee5c81850ddc9b735b5910bae132cf1fc12b7211",
+    "version": "0.1.2-alpha.1"
+  },
+  "toolchain": {
+    "nodeRange": "^22.19.0 || >=24.0.0",
+    "verifiedNode": "22.22.2",
+    "packageManager": "pnpm@11.7.0",
+    "archivePacker": "npm@10.9.7"
+  },
+  "officialClientBuild": {
+    "profile": "official",
+    "title": "DeepSeek Harness"
+  },
+  "build": {
+    "install": ["install", "--frozen-lockfile"],
+    "compile": ["run", "build:official"],
+    "families": [
+      {
+        "id": "vendor",
+        "expectedTarballs": 9,
+        "publishOrder": true
+      },
+      {
+        "id": "dsh",
+        "expectedTarballs": 241,
+        "publishOrder": true
+      }
+    ],
+    "auxiliaryPackages": [
+      {
+        "id": "landlock-entry",
+        "name": "@deepseek-ai/node-addon-landlock-run",
+        "directory": "native/landlock-run/packages/entry",
+        "build": ["--dir", "native/landlock-run", "run", "build:ts"],
+        "expectedTarballs": 1,
+        "publishOrder": false
+      }
+    ],
+    "packedInstallFamily": "dsh"
+  },
+  "transport": {
+    "kind": "local-tarball-closure",
+    "outputRoot": ".cache/dsh-source-closure",
+    "promotedRoot": "third_party/dsh/0.1.2-alpha.1",
+    "officialNpmRequired": false,
+    "publicNpmPublication": false,
+    "preserveOfficialPackageNames": true,
+    "upstreamPatchPolicy": "none",
+    "artifactNormalization": {
+      "packageJson": "recursive-key-sort",
+      "repack": "npm-pack-ignore-scripts",
+      "sourceDateEpoch": 499162500
+    }
+  },
+  "productIntegration": {
+    "activeDshVersion": "0.1.1-rc.2",
+    "targetDshVersion": "0.1.2-alpha.1",
+    "switchRule": "Switch manifests, lockfile, runtime closure, profile and release identity atomically only after the source tarball closure and its clean packed-install readback pass."
+  }
+}

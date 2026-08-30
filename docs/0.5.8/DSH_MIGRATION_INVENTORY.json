@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "snapshotDate": "2026-08-29",
+  "snapshotDate": "2026-08-30",
   "sourceBaseline": {
     "tag": "dsh-v0.1.2-alpha.1",
     "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
@@ -8,12 +8,14 @@
   },
   "packagePlane": {
     "activeProductPin": "0.1.1-rc.2",
-    "state": "BLOCKED_NPM",
-    "forbiddenBeforeReconciliation": [
+    "state": "READY_SOURCE_CLOSURE",
+    "forbiddenBeforeClosure": [
       "0.1.2-alpha.1 dependency specifier",
       "Git dependency",
       "path or link dependency",
-      "copied upstream build output"
+      "copied upstream build output",
+      "partial or unverified local tarball set",
+      "registry fallback"
     ]
   },
   "upstreamOwners": {

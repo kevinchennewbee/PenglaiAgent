@@ -82,7 +82,9 @@ if (inventory.sourceBaseline?.tag !== SOURCE_TAG) fail("migration inventory sour
 if (inventory.sourceBaseline?.commit !== SOURCE_COMMIT) fail("migration inventory source commit drifted");
 if (inventory.sourceBaseline?.tree !== SOURCE_TREE) fail("migration inventory source tree drifted");
 if (inventory.packagePlane?.activeProductPin !== RELEASE_DSH) fail("migration inventory product pin drifted");
-if (inventory.packagePlane?.state !== "BLOCKED_NPM") fail("migration inventory must stay BLOCKED_NPM before reconciliation");
+if (inventory.packagePlane?.state !== "READY_SOURCE_CLOSURE") {
+  fail("migration inventory must expose the authorized fixed-source closure gate");
+}
 
 const files = trackedCodeFiles();
 for (const [name, seam] of Object.entries(inventory.observedReferences ?? {})) {

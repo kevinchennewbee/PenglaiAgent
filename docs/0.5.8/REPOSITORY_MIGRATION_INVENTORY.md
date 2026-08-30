@@ -1,6 +1,6 @@
 # Penglai 0.5.8 repository migration inventory
 
-> Snapshot: 2026-08-29. This inventory classifies active source and external
+> Snapshot: 2026-08-30. This inventory classifies active source and external
 > entry points before migration or removal. A missing ordinary import is not by
 > itself proof that an asset is dead.
 
@@ -21,17 +21,17 @@
 
 | Asset or pattern | Current class | Invocation/consumer | 0.5.8 disposition | Package gate |
 | --- | --- | --- | --- | --- |
-| `apps/desktop/package.json` `@deepseek-ai/dsh` | Active product | desktop packaged closure | Keep rc.2 until official reconciliation; then exact fixed-set update | Yes |
-| `packages/dsh-bridge/src/rc2-owner-adapter.ts` `ctx.apiProxy.sessions.*` | Active rc.2 compatibility | IM/bridge Session creation and model routing before package reconciliation | Confined to version-named adapter; retire when published owner Remote adapter passes | Yes |
-| `packages/dsh-bridge/src/owner-ports.ts` and `index.ts` | Active product | inbound IM Agent and directory calls | Agent/Workspace/Session owners split; bind to generated alpha clients after npm reconciliation | Yes |
+| `apps/desktop/package.json` `@deepseek-ai/dsh` | Active product | desktop packaged closure | Keep rc.2 until the fixed-source tarball closure passes; then update the complete set atomically | Yes |
+| `packages/dsh-bridge/src/rc2-owner-adapter.ts` `ctx.apiProxy.sessions.*` | Active rc.2 compatibility | IM/bridge Session creation and model routing before source-closure integration | Confined to version-named adapter; retire when the source-built owner Remote adapter passes | Yes |
+| `packages/dsh-bridge/src/owner-ports.ts` and `index.ts` | Active product | inbound IM Agent and directory calls | Agent/Workspace/Session owners split; bind to source-built generated alpha clients after closure readback | Yes |
 | `@deepseek-ai/dsh-host-apiproxy` closure assumptions | Release gate/active closure | closure/profile scripts | Remove only with new controller packages and clean closure proof | Yes |
 | `dsh.client.inject` `@deepseek-ai/dsh-client-runtime` | Active product | ASR, Budget, Companion, IM, Memory, TTS, Office, Center | Replace per-plugin with minimum narrow official graph | Yes |
 | `packages/*/src/dsh-client.js` generated/bundled clients | Active product/generated input | plugin packaging and DSH client fibers | Regenerate from source entry and verify exact fiber activation | Yes |
 | `packages/dsh-bridge/src/capability-baseline.ts` | Release gate | versions/contracts/closure | Replace rc.2 seam list with generated fixed-set baseline | Yes |
 | `scripts/probe-dsh-contracts.mjs`, `probe-rc2.mjs` | Operator/contract verifier | manual and source gates | Retain rc.2 probe as historical rollback input; add 0.1.2 probe | Yes |
-| `scripts/embed-runtime.mjs`, closure helpers | Release gate | packaged runtime assembly | Migrate package graph only after tarball reconciliation | Yes |
+| `scripts/embed-runtime.mjs`, closure helpers | Release gate | packaged runtime assembly | Migrate the package graph only after the complete source-built tarball closure passes | Yes |
 | `scripts/verify-profile.mjs` | Release gate | profile composition and plugin state | Update for profiles/bundles and exact client fibers | Yes |
-| `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | 12 dispositions now cover all files/assets; retire official-route/non-semantic patches and retain only proven narrow gaps after npm readback | Yes |
+| `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | 12 dispositions now cover all files/assets; retire official-route/non-semantic patches and retain only proven narrow gaps after source-built package readback | Yes |
 | `scripts/verify-bundled-runtime.mjs` | Native/package verifier | packaged DSH closure | Extend for new launcher/profile/auth and exact package graph | Yes |
 | `scripts/e2e-installed*.mjs` | Native installed verifier | installed application | Preserve; update behavior only after packaged skeleton exists | Yes |
 | `packages/release-identity/src/pins.ts` | Authoritative identity source | manifests, runtime, release gates | Keep authority; the source version verifier now strictly reads it and checks workspace manifests plus release-info product/toolchain/DSH/schema/publication/three-target copies | Yes |
@@ -57,9 +57,9 @@ new caller in an already-known file cannot bypass review.
 
 | Legacy seam | Current observed surface | Fixed-source owner | Current decision |
 | --- | --- | --- | --- |
-| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 10 source, test, commentary, closure, and probe files; the active request shape is confined to one rc.2 adapter | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Penglai owner ports and rc.2 containment complete; generated alpha adapter remains npm-blocked |
-| `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; exact inject replacement remains npm-blocked |
-| `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate only with published generated clients |
+| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 10 source, test, commentary, closure, and probe files; the active request shape is confined to one rc.2 adapter | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Penglai owner ports and rc.2 containment complete; generate and integrate the alpha adapter from the verified local closure |
+| `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; replace inject with the exact source-built narrow package graph |
+| `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate with the source-built generated clients |
 | direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
 | packaged DSH process ownership/authentication | runtime, desktop, proxy, native-helper, surface, and focused fixture files | Penglai desktop/runtime policy over official DSH browser auth and platform-native ownership | Child-exit, continuous authenticated HTTP health, same-port restart, private token exchange, proxy cookie injection, structured diagnostics, exact exhaustion, and recovery-page routes fixed in source; exact alpha package and native process-tree evidence remain |
 | Memory curator lifecycle | 7 source files and 7 focused test files | Official `ctx.llm.stream` for the model call; Penglai Memory for internal scheduling/audit/commit; optional Penglai Budget for reservation and exact usage | Agent/Session creation removed; queue bounds, timeout retry, cancellation, exact scope, direct no-tools request, Budget settlement/release, redacted audit, and Jobs rejection are executable; package/installed/live proof remains |
@@ -75,7 +75,7 @@ The source checkpoint also verifies this mapping directly with
 `scripts/verify-dsh-alpha-owner-remotes.mjs` against the exact clean alpha
 commit. Local bridge tests prove Workspace-owned order plus Session-owned title
 projection and title forwarding at the creation boundary. They do not substitute
-for the unpublished generated Remote client or package/native evidence.
+for the source-built generated Remote client or package/native evidence.
 
 ## WhatsApp retirement boundary
 
@@ -119,7 +119,7 @@ Preserve as historical records:
 Local evidence for this checkpoint: frozen install, formatting, typecheck, unit,
 contract, integration, license audit, SBOM/notice generation, plugin packaging,
 and both preview/absence gates pass. Native installers, installed behavior, live
-owner accounts, public release bytes, and DSH `0.1.2-alpha.1` npm integration
+owner accounts, public release bytes, and DSH `0.1.2-alpha.1` source-closure integration
 remain deliberately unclaimed.
 
 Current README/site/architecture still describe the immutable 0.5.7 product.
@@ -131,7 +131,7 @@ disabled or future platform.
 
 | Path family | Class | Owner/invocation | Preview rule |
 | --- | --- | --- | --- |
-| `scripts/verify-*`, probes, evidence writers, native builders, installed runners | Release/native/operator verifier, per script | package, installed, live, public, aggregate, manual, or historical gate | All 59 are exhaustively classified by `VERIFIER_EVIDENCE_MAP.json`; census and invocation drift fail the preview gate |
+| `scripts/verify-*`, probes, evidence writers, native builders, installed runners | Release/native/operator verifier, per script | package, installed, live, public, aggregate, manual, or historical gate | All 60 are exhaustively classified by `VERIFIER_EVIDENCE_MAP.json`; census and invocation drift fail the preview gate |
 | `scripts/evidence-*.mjs`, schemas | Evidence writer/validator | release or operator flow | Keep privacy limits and version chain; do not mass-delete |
 | `scripts/package-*.mjs`, `assemble-release.mjs` | Release builder | authorized release workflow | No 0.5.8 package/release invocation before Gate P0 |
 | `.github/workflows/native-release-candidate.yml` | Native release gate | GitHub Actions | Protected and byte-identical in source-preparation phase |
@@ -159,9 +159,9 @@ before altering it.
 ## Open inventory work
 
 - Derive the minimum replacement for every inventoried `dsh.client.inject` row
-  after the matching published exports can be inspected.
+  from the exact source-built package exports and generated declarations.
 - Turn the inventoried Session envelope and reconnect expectations into focused
-  migration tests when the generated Remote clients are published.
+  migration tests against the source-built generated Remote clients.
 - Record the exact packaged process tree on Windows and both macOS targets.
 
 These open rows block package migration or release claims where relevant. They
@@ -190,8 +190,8 @@ without claiming that any higher evidence plane has run.
 
 ## Executable verifier evidence-plane checkpoint
 
-`VERIFIER_EVIDENCE_MAP.json` classifies the complete current 59-script census:
-18 source, 7 package, 15 native, 5 installed, 2 Owner-live, 2 public-byte,
+`VERIFIER_EVIDENCE_MAP.json` classifies the complete current 60-script census:
+18 source, 8 package, 15 native, 5 installed, 2 Owner-live, 2 public-byte,
 3 aggregate, and 7 historical scripts. Each row has one package-script,
 composed-script, workflow, internal-script, manual, or historical invocation
 owner and one preview policy.

@@ -9,6 +9,7 @@ const SOURCE_TAG = "dsh-v0.1.2-alpha.1";
 const SOURCE_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
 const SOURCE_TREE = "a712eec535b48badc4fefb4df5176a7002e4280b";
 const RELEASE_DSH = "0.1.1-rc.2";
+const SOURCE_CLOSURE_CONTRACT = "docs/0.5.8/DSH_SOURCE_CLOSURE.json";
 const RETIRED_CHANNEL_GATE = join(ROOT, "scripts/verify-retired-channel-absence.mjs");
 const MIGRATION_INVENTORY_GATE = join(ROOT, "scripts/verify-058-migration-inventory.mjs");
 const OVERLAY_MAP_GATE = join(ROOT, "scripts/verify-058-overlay-map.mjs");
@@ -85,6 +86,17 @@ if (rootManifest.packageManager !== "pnpm@10.14.0") {
   fail(`Penglai package manager changed to ${rootManifest.packageManager}`);
 }
 
+const sourceClosure = readJson(SOURCE_CLOSURE_CONTRACT);
+if (sourceClosure.stage !== "source-closure-bootstrap" && sourceClosure.stage !== "source-closure-integrated") {
+  fail(`unknown source closure stage ${String(sourceClosure.stage)}`);
+}
+if (sourceClosure.upstream?.commit !== SOURCE_COMMIT || sourceClosure.upstream?.tree !== SOURCE_TREE) {
+  fail("source closure contract drifted from the fixed DSH source identity");
+}
+if (sourceClosure.transport?.officialNpmRequired !== false || sourceClosure.transport?.publicNpmPublication !== false) {
+  fail("source closure contract must neither wait for nor impersonate official npm publication");
+}
+
 const manifestPaths = git(["ls-files", "--cached", "--others", "--exclude-standard"])
   .split("\n")
   .filter((path) => /^(?:package|apps\/[^/]+\/package|packages\/[^/]+\/package)\.json$/.test(path))
@@ -93,18 +105,21 @@ for (const path of manifestPaths) {
   const manifest = readJson(path);
   for (const [name, spec] of Object.entries(dependenciesOf(manifest))) {
     if (!name.startsWith("@deepseek-ai/dsh")) continue;
-    if (spec !== RELEASE_DSH) {
-      fail(`${path} uses unpublished or non-release DSH dependency ${name}@${spec}`);
+    if (sourceClosure.stage === "source-closure-bootstrap" && spec !== RELEASE_DSH) {
+      fail(`${path} changed ${name}@${spec} before the complete local source closure passed`);
     }
-    if (/^(?:file:|link:|git(?:\+|:)|https?:)/.test(spec)) {
-      fail(`${path} uses a forbidden source/path DSH dependency ${name}@${spec}`);
+    if (/^(?:link:|git(?:\+|:)|https?:)/.test(spec)) {
+      fail(`${path} uses a forbidden source/Git DSH dependency ${name}@${spec}`);
+    }
+    if (sourceClosure.stage === "source-closure-integrated" && spec === RELEASE_DSH) {
+      fail(`${path} retained mixed rc.2 dependency ${name}@${spec} after source-closure integration`);
     }
   }
 }
 
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
-if (lock.includes("0.1.2-alpha.1")) {
-  fail("pnpm-lock.yaml contains 0.1.2-alpha.1 before official package reconciliation");
+if (sourceClosure.stage === "source-closure-bootstrap" && lock.includes("0.1.2-alpha.1")) {
+  fail("pnpm-lock.yaml contains 0.1.2-alpha.1 before local source-closure integration");
 }
 if (/deepseek[^\n]*(?:file:|link:|git\+|github\.com\/deepseek-ai\/deepseek-harness)/i.test(lock)) {
   fail("pnpm-lock.yaml contains a source/path DSH dependency");
@@ -116,8 +131,8 @@ for (const fixed of [SOURCE_TAG, SOURCE_COMMIT, SOURCE_TREE]) {
 }
 
 const decisionLog = readFileSync(join(ROOT, "docs/decisions.md"), "utf8");
-if (!decisionLog.includes("D-063") || !decisionLog.includes(SOURCE_COMMIT)) {
-  fail("D-063 does not bind the fixed DSH source commit");
+if (!decisionLog.includes("D-064") || !decisionLog.includes(SOURCE_COMMIT)) {
+  fail("D-064 does not authorize the fixed DSH source closure");
 }
 
 try {
@@ -216,5 +231,6 @@ console.log(JSON.stringify({
   head: git(["rev-parse", "HEAD"]),
   sourceBaseline: { tag: SOURCE_TAG, commit: SOURCE_COMMIT, tree: SOURCE_TREE },
   productDshPin: RELEASE_DSH,
+  sourceClosureStage: sourceClosure.stage,
   protectedReleaseSurfaces: "unchanged",
 }, null, 2));

@@ -151,7 +151,7 @@ missing cookie exchange, non-official pages, and hanging responses fail closed.
 A real child-process fixture proves alpha-style startup and steady-state health;
 focused proxy tests prove browser-supplied cookie replacement cannot override
 the trusted inner session. This is source compatibility evidence only: the exact
-published alpha.1 process and three native packages remain untested.
+source-built alpha.1 process and three native packages remain untested.
 
 **Overlay source checkpoint, 2026-08-29**
 
@@ -394,7 +394,7 @@ closed outcome/code, attempt, and timestamp; prompt text, candidate content,
 provider messages, and raw exceptions are never stored there.
 
 This closes the source-level false-subagent, Budget, bounded-retry, and redacted
-audit work. P0-05 remains open as a packaged capability until published
+audit work. P0-05 remains open as a packaged capability until source-built
 alpha.1 declarations/runtime exports are reconciled and installed restart,
 hierarchy, live-provider, and privacy-safe Workspace-isolation evidence exists.
 
@@ -443,7 +443,8 @@ into success or extends the deadline to manufacture a pass.
 The rc.2 inventory surface has no verified subscription or separate alpha
 client-fiber/loader-error contract, so convergence still uses bounded inventory
 sampling. Exact event-driven alpha activation, generated client-fiber fields,
-and packaged Companion proof remain blocked on the official npm reconciliation.
+and packaged Companion proof proceed after the local source closure is built and
+integrated.
 
 ### P1-01: new-conversation ASR state is stale and misleading
 
@@ -497,7 +498,7 @@ product locale surface.
 The conversation microphone now consumes the typed ASR capability description
 on mount and every two seconds, so a new-conversation composer converges after
 model download, verification, load, failure, or core recovery without requiring
-a remount. This is a bounded typed-Remote refresh, not proof of the unpublished
+a remount. This is a bounded typed-Remote refresh, not proof of the source-built
 alpha.1 client event graph or an installed application.
 
 The control exposes closed `idle`, `permission`, `recording`, `transcribing`,
@@ -965,26 +966,27 @@ Allowed now:
 
 - source-level Remote, client, profile, attachment, inventory, cancellation,
   subagent, locale, and one-time-token mapping;
-- characterization tests and disposable source-built probes that never enter a
-  product package or release claim;
+- characterization tests and the complete fixed-source local tarball closure;
 - preview branch protection and evidence-class gates;
 - permanent removal of active WhatsApp source, identity, dependencies, package
   graph, tests, and current-product surfaces; and
-- Penglai-owned fixes that do not depend on the unpublished DSH package graph,
-  beginning with terminal containment of asynchronous channel callbacks.
+- Penglai-owned fixes, followed by atomic source-closure integration and the
+  complete alpha.1 migration.
 
-Not allowed now:
+Not allowed before the local closure passes:
 
 - changing DSH versions in product manifests or `pnpm-lock.yaml`;
-- consuming DSH through a Git URL, source checkout, private tarball, or vendored
-  generated artifacts;
-- rebasing built-frontend overlays before the published client packages exist;
+- consuming DSH through a Git URL, source checkout, copied output, partial
+  tarball set, or unverified registry;
+- rebasing built-frontend overlays before the packed client packages exist;
 - claiming package, native, installed, live, or public 0.1.2 integration; or
-- merging to `main`, tagging, publishing, or deploying.
+- claiming a Release before its own native/installed/public gates. The Owner has
+  authorized PR, required-check merge, three-target release, and post-readback
+  public narrative when those gates pass.
 
 #### Phase 0 dependency order from first principles
 
-Work before npm publication follows this order. A later stream may start only
+Work before source-closure integration follows this order. A later stream may start only
 when it does not assume an unproven result from an earlier stream.
 
 1. **Survival plane:** make startup, authentication, process ownership, user-data
@@ -1004,9 +1006,10 @@ when it does not assume an unproven result from an earlier stream.
 5. **Observed-defect plane:** re-run every 0.5.7 symptom against the migrated
    architecture. Keep upstream-owned fixes upstream, retain Penglai-owned class
    fixes, and reject screenshot-specific or old-route patches.
-6. **Package and native plane:** when npm appears, reconcile source and package
-   bytes, switch the dependency graph atomically, then prove clean install,
-   0.5.7 upgrade, rollback, uninstall, and the three native targets from one SHA.
+6. **Package and native plane:** build both official release families from the
+   fixed source, verify the complete local tarball set and clean packed install,
+   switch the dependency graph atomically, then prove clean install, 0.5.7
+   upgrade, rollback, uninstall, and the three native targets from one SHA.
 
 The immediate next survival-plane checkpoint is DSH-home upgrade isolation. The
 alpha process must never be allowed to make the only rc.2 home irreversible.
@@ -1044,25 +1047,27 @@ owns create/model operations. A fixed-source verifier proves that alpha.1 owns
 `list`, `create`, `rename`, `modelCatalog`, and `selectModel` under
 `remote.session`, owns
 Workspace mutation/follow under `remote.workspace`, and contains no ApiProxy
-path in its API tree. The active rc.2 adapter and package pins remain unchanged;
-the generated alpha Remote adapter is still correctly blocked on official npm
-artifacts.
+path in its API tree. The active rc.2 adapter and package pins remain unchanged
+only until the local source closure passes; the generated alpha Remote adapter
+then consumes the verified alpha tarballs rather than waiting for official npm.
 
-### Gate P0: published-package reconciliation — BLOCKED
+### Gate P0: fixed-source package closure — IN PROGRESS
 
 Exit criteria:
 
-- a complete synchronized official npm package set exists for the fixed source
-  baseline;
-- every required package version, integrity, dependency, license, and
-  publication time is recorded;
+- the fixed official source identity and frozen install are revalidated;
+- upstream full build, vendor-family pack, DSH-family pack, and clean packed
+  install all pass without source patches;
+- every required package version, digest, dependency, and license is recorded;
+- all 251 expected local tarballs are present with unique identities, including the required Landlock entry package;
 - generated Remote/client artifacts are present and match the fixed source;
-- npm dist-tags and versions are not partial, retracted, or tag-moved;
+- no Git/source path, copied `lib/`, partial tarball set, registry fallback, or
+  public npm impersonation enters the product graph;
 - a clean Penglai frozen-lock installation is reproducible; and
-- the source migration matrix is reconciled against the published tarballs.
+- the source migration matrix is reconciled against the packed tarballs.
 
-This gate is checked manually when the official packages appear. It is not an
-automated monitor.
+This gate is executable now. Future official npm publication is reconciled
+manually if it appears, but it is not monitored and does not block 0.5.8.
 
 ### Phase 1: compatibility spike (estimated 3–5 engineering days)
 
@@ -1071,7 +1076,7 @@ all plugins work.
 
 Work:
 
-- install the exact reconciled official closure on `0.5.8-preview`;
+- install the exact verified source-built closure on `0.5.8-preview`;
 - launch official DSH through the Penglai desktop shell;
 - authenticate first navigation with the new one-time token;
 - map old ApiProxy calls to owner Remotes;
@@ -1233,7 +1238,8 @@ Reject the candidate if any statement below is used as sole proof:
 - “TTS eventually made sound” therefore first-sound latency is acceptable;
 - “channel connected” therefore media permissions exist;
 - “TypeScript/build passed” therefore the client bundle reached `ACTIVE`;
-- “GitHub tag builds from source” therefore npm closure is reproducible; or
+- “GitHub tag builds from source” therefore the local package closure is
+  reproducible; or
 - “the WhatsApp card is disabled” therefore WhatsApp has been removed; or
 - “the error disappeared after restart” therefore its lifecycle cause is fixed.
 
@@ -1288,7 +1294,7 @@ Current planning range:
 For one primary engineer this is roughly 6–10 weeks of total work at the old
 starting point. Phase 0 now removes source discovery, retirement, test-design,
 and independent-fix work from the post-publication critical path. The estimate
-must be recalibrated after published-package reconciliation; native QA on
+must be recalibrated after source-closure integration; native QA on
 Windows and both Mac architectures does not reduce the evidence required.
 
 ## 9. Definition of ready, done, and released
@@ -1297,7 +1303,7 @@ Windows and both Mac architectures does not reduce the evidence required.
 approved the exact source baseline. This state is current.
 
 **Ready for DSH dependency integration** means Gate P0 is satisfied. This state
-is not current while the official npm closure is absent.
+is not current until the local tarball closure and clean packed install pass.
 
 **Done in source** means all migration and issue acceptance tests pass in a
 clean tree, with no forbidden architecture and no unassigned high-severity
