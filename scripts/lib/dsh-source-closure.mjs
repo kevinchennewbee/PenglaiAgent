@@ -37,12 +37,21 @@ export function validateDshSourceClosureContract(contract) {
   requireString(toolchain.packageManager, "toolchain.packageManager");
   requireString(toolchain.archivePacker, "toolchain.archivePacker");
 
-  const officialClientBuild = contract.officialClientBuild ?? {};
-  if (officialClientBuild.profile !== "official") {
-    throw new Error("the source closure requires the official DSH client build profile");
+  const productClientBuild = contract.productClientBuild ?? {};
+  if (productClientBuild.profile !== "penglai-distribution") {
+    throw new Error("the source closure requires the Penglai distribution client build profile");
   }
-  if (officialClientBuild.title !== "DeepSeek Harness") {
-    throw new Error("the official DSH client title must remain unmodified");
+  if (productClientBuild.title !== "蓬莱 Penglai") {
+    throw new Error("the Penglai distribution client title must remain fixed");
+  }
+  const welcomeNotice = productClientBuild.welcomeNotice ?? {};
+  if (
+    welcomeNotice.settingsNamespace !== "ui-onboarding" ||
+    welcomeNotice.ackField !== "welcomeNoticeVersion" ||
+    !/^\d{4}-\d{2}-\d{2}\.\d+$/.test(String(welcomeNotice.version ?? "")) ||
+    welcomeNotice.sourcePath !== "packages/client/ui-settings-models/src/onboarding-copy.ts"
+  ) {
+    throw new Error("the fixed DSH welcome-notice acknowledgement contract is incomplete");
   }
 
   const canonicalHost = contract.build?.canonicalHost ?? {};
@@ -106,6 +115,7 @@ export function validateDshSourceClosureContract(contract) {
   if (
     normalization.packageJson !== "recursive-key-sort" ||
     normalization.repack !== "npm-pack-ignore-scripts" ||
+    normalization.compression !== "fflate-gzip-level-9-mtime-zero" ||
     !Number.isSafeInteger(normalization.sourceDateEpoch) ||
     normalization.sourceDateEpoch < 0
   ) {

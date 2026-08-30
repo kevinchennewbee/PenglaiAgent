@@ -1,7 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -22,6 +21,7 @@ import {
   sha256,
 } from "./lib/dsh-source-closure.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { canonicalizeGzip } from "./lib/deterministic-gzip.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { readVerifiedRegularFile } from "./lib/verified-file.mjs";
 
@@ -36,9 +36,17 @@ function capture(command, args, cwd, options = {}) {
 }
 
 function run(command, args, cwd, env = {}) {
+  const childEnvironment = { ...process.env };
+  if (Object.keys(env).some((name) => name.startsWith("DSH_CLIENT_"))) {
+    for (const name of Object.keys(childEnvironment)) {
+      if (name.startsWith("DSH_CLIENT_") || name === "DSH_BUILD_CLIENT_PROFILE") {
+        delete childEnvironment[name];
+      }
+    }
+  }
   const result = spawnSync(command, args, {
     cwd,
-    env: { ...process.env, ...env },
+    env: { ...childEnvironment, ...env },
     stdio: "inherit",
   });
   if (result.status !== 0) {
@@ -117,7 +125,8 @@ function normalizeTarball(path, contract) {
     if (JSON.stringify(after) !== JSON.stringify(before)) {
       throw new Error(`${path} deterministic repack changed package payload bytes, paths or modes`);
     }
-    copyFileSync(normalized, path);
+    const { bytes: normalizedBytes } = readVerifiedRegularFile(normalized);
+    writeFileSync(path, canonicalizeGzip(normalizedBytes));
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -166,7 +175,28 @@ function verifySource(source, contract) {
   if (cli.name !== "@deepseek-ai/dsh" || cli.version !== contract.upstream.version) {
     throw new Error(`source CLI identity mismatch: ${String(cli.name)}@${String(cli.version)}`);
   }
-  return { head, tree, origin, archiveSha256 };
+  const welcome = contract.productClientBuild.welcomeNotice;
+  const welcomeSource = readFileSync(join(source, welcome.sourcePath), "utf8");
+  const expectedWelcomeLines = [
+    `export const WELCOME_NOTICE_SETTINGS_NAMESPACE = '${welcome.settingsNamespace}'`,
+    `export const WELCOME_NOTICE_ACK_FIELD = '${welcome.ackField}'`,
+    `export const WELCOME_NOTICE_VERSION = '${welcome.version}'`,
+  ];
+  if (!expectedWelcomeLines.every((line) => welcomeSource.includes(line))) {
+    throw new Error("fixed DSH source welcome-notice acknowledgement differs from the product contract");
+  }
+  return {
+    head,
+    tree,
+    origin,
+    archiveSha256,
+    welcomeNotice: {
+      settingsNamespace: welcome.settingsNamespace,
+      ackField: welcome.ackField,
+      version: welcome.version,
+      sourcePath: welcome.sourcePath,
+    },
+  };
 }
 
 function tarballIdentity(bytes, label) {
@@ -294,12 +324,32 @@ try {
       throw new Error(`source closure selected npm@${npmVersion}, expected ${contract.toolchain.archivePacker}`);
     }
     run("corepack", ["pnpm", ...contract.build.install], source);
-    run("corepack", ["pnpm", ...contract.build.compile], source);
+    run("corepack", ["pnpm", ...contract.build.compile], source, {
+      DSH_CLIENT_BUILD_PROFILE: contract.productClientBuild.profile,
+      DSH_CLIENT_TITLE: contract.productClientBuild.title,
+    });
 
     const familyOutputs = new Map();
     for (const family of contract.build.families) {
       const destination = join(output, family.id);
-      run("corepack", ["pnpm", "run", "release:pack", "--family", family.id, "--out", destination], source);
+      if (family.id === "dsh") {
+        run(
+          "corepack",
+          [
+            "pnpm",
+            "exec",
+            "tsx",
+            join(ROOT, "scripts/pack-dsh-product-family.mts"),
+            "--source",
+            source,
+            "--out",
+            destination,
+          ],
+          source,
+        );
+      } else {
+        run("corepack", ["pnpm", "run", "release:pack", "--family", family.id, "--out", destination], source);
+      }
       familyOutputs.set(family.id, destination);
     }
     for (const auxiliary of contract.build.auxiliaryPackages) {
@@ -365,9 +415,9 @@ try {
       readFileSync(join(source, ".dsh-build/client-build-environment.json"), "utf8"),
     );
     const expectedClientEnvironment = {
-      DSH_CLIENT_BUILD_PROFILE: contract.officialClientBuild.profile,
+      DSH_CLIENT_BUILD_PROFILE: contract.productClientBuild.profile,
       DSH_CLIENT_COMMIT_HASH: contract.upstream.commit.slice(0, 7),
-      DSH_CLIENT_TITLE: contract.officialClientBuild.title,
+      DSH_CLIENT_TITLE: contract.productClientBuild.title,
       DSH_CLIENT_VERSION: contract.upstream.version,
     };
     const actualClientEnvironment = clientBuildRecord.environment;
@@ -378,7 +428,7 @@ try {
       normalizedClientEnvironment(expectedClientEnvironment)
     ) {
       throw new Error(
-        `official client build record mismatch: ${JSON.stringify(actualClientEnvironment)}`,
+        `product client build record mismatch: ${JSON.stringify(actualClientEnvironment)}`,
       );
     }
     const manifest = {
@@ -398,7 +448,7 @@ try {
         package: "@deepseek-ai/dsh",
         version: contract.upstream.version,
       },
-      officialClientBuild: clientBuildRecord,
+      productClientBuild: clientBuildRecord,
       packageCount: families.reduce((sum, family) => sum + family.packages.length, 0),
       families,
     };

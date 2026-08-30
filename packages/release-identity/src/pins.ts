@@ -29,9 +29,9 @@ export const PINNED_DSH_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
 export const PINNED_DSH_TAG = "dsh-v0.1.2-alpha.1";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06";
+  "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "25b9b4cc9f62dfaa4f1c868cbde9e78b73c0e9a855fb3302c8be37f53c55aeb2";
+  "13d5f5cd4dc356f2ffc48c02d22c4889afbff5da2b22eec74a3bf39185904f77";
 export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 251;
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";

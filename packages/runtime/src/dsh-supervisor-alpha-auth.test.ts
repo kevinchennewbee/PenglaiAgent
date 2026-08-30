@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   EmbeddedDshSupervisor,
@@ -10,6 +11,20 @@ import {
   resolveUserLayout,
   runtimePluginTarget,
 } from "./index.js";
+
+function installBuiltWindowsRuntime(appRoot: string): string {
+  if (process.platform !== "win32") return process.execPath;
+  const built = fileURLToPath(new URL("../../../dist/native-win32-x86_64/penglai-windows-host.exe", import.meta.url));
+  assert.equal(existsSync(built), true, "native Windows regression gates must compile the security helper first");
+  const helperDir = join(appRoot, "runtime", "helpers");
+  mkdirSync(helperDir, { recursive: true });
+  copyFileSync(built, join(helperDir, "penglai-windows-host.exe"));
+  const nodeDir = join(appRoot, "runtime", "node");
+  const nodeBin = join(nodeDir, "node.exe");
+  mkdirSync(nodeDir, { recursive: true });
+  copyFileSync(process.execPath, nodeBin);
+  return nodeBin;
+}
 
 test("embedded supervisor privately exchanges alpha browser auth and keeps steady-state probes authenticated", async () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-alpha-auth-app-"));
@@ -68,10 +83,11 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
       size: Buffer.byteLength(fakeDsh),
     }],
   }));
+  const nodeBin = installBuiltWindowsRuntime(app);
   ensurePrivateHome(user, app);
   const supervisor = new EmbeddedDshSupervisor({
     appRoot: app,
-    nodeBin: process.execPath,
+    nodeBin,
     dshEntry,
     profileSeed: join(app, "profile-seed", "web"),
     pluginsDir: join(app, "plugins"),

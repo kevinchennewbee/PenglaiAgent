@@ -40,6 +40,12 @@ jobs:
         run: |
           pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-a
           pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-b
+      - name: Upload source closure replay evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dsh-source-closure-replay
+          path: .cache/dsh-source-closure/native-replay-a
+          if-no-files-found: error
       - name: Verify reproducible and promoted bytes
         run: |
           pnpm verify:dsh-source-replay --left .cache/dsh-source-closure/native-replay-a --right .cache/dsh-source-closure/native-replay-b
@@ -171,6 +177,11 @@ jobs:
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
         run: pnpm build
+      - name: Build native Windows security helper for regression gates
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          pnpm build:windows-host
       - name: Source and onboarding regression gates
         shell: bash
         run: |

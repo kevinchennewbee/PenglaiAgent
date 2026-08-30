@@ -44,11 +44,24 @@ Penglai.
 | Client libraries and generated Remote client | PASS |
 | DSH Web frontend | PASS |
 
-The DSH package closure uses the upstream official build profile exactly. That
-profile deliberately fixes `DSH_CLIENT_TITLE=DeepSeek Harness`, and the upstream
-release packer rejects any other client environment. Penglai therefore keeps
-those official package bytes unchanged and applies its product title only in
-the separately owned desktop shell.
+The DSH package closure uses the upstream default build route with the public
+client build inputs `DSH_CLIENT_BUILD_PROFILE=penglai-distribution` and
+`DSH_CLIENT_TITLE=蓬莱 Penglai`. The source tree is unchanged. Its build record
+binds those inputs, the fixed source commit and version, and the digest of all
+218 generated client artifacts. This lets DSH's own `DocumentTitle` component
+own initial and live session titles, so Penglai no longer injects a title
+`MutationObserver` into the page.
+
+The upstream npm release packer intentionally accepts only its own `official`
+client profile. Penglai does not weaken or patch that policy. Its local-closure
+packer imports the fixed source's DSH family membership, dependency order,
+tarball naming, version checks, and payload validators, then packs the product
+build without publishing it as an official DSH npm release.
+
+The same contract binds DSH's exact `ui-onboarding.welcomeNoticeVersion`
+acknowledgement (`2026-08-13.1`). Completing Penglai's welcome step records that
+value through the official settings API. Source, packaged-byte, unit, and real
+installed-browser gates reject drift or a duplicate DSH internal-testing notice.
 
 The upstream client CSS module compiler salts class names with the absolute
 source filename. Full closure builds therefore stage the already verified tree
@@ -57,6 +70,13 @@ at the contract-fixed Darwin path
 path-dependent byte drift without patching source or generated artifacts;
 other platforms consume the verified vendored closure rather than rebuilding a
 different client package set.
+
+The npm-compatible tar payload is also normalized independently from the host
+Node binary. `npm pack --ignore-scripts` produces the canonical raw tar, then
+the pinned pure-JavaScript `fflate@0.8.3` implementation writes gzip level 9
+with a zero timestamp. This preserves every unpacked path, mode, and byte while
+preventing host-linked zlib implementations from changing the promoted
+archive digest.
 
 The install reported expected host-platform warnings for Linux-only native
 workspaces and pre-build CLI link warnings that disappeared after the CLI was
@@ -124,10 +144,11 @@ At the evidence date:
 - npm `latest` and `next` still resolve to `0.1.1-rc.2`.
 
 Official npm publication is not a prerequisite for Penglai 0.5.8. Penglai uses
-the unmodified fixed source, its frozen lockfile, its complete build, and its
-official `release:pack` / `release:verify-packed-install` implementation to
-produce and verify a local tarball closure. It does not publish those tarballs
-into the official `@deepseek-ai` npm scope.
+the unmodified fixed source, its frozen lockfile, its complete product build,
+the upstream release-family and payload rules, and the official
+`release:verify-packed-install` implementation to produce and verify a local
+tarball closure. It does not publish those tarballs into the official
+`@deepseek-ai` npm scope.
 
 The upstream packed-install reader deliberately omits optional dependencies.
 On Darwin that makes Koffi compile its Node addon instead of selecting its

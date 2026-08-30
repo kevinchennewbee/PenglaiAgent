@@ -69,6 +69,7 @@ import {
 } from "./plugin-runtime-restart.js";
 import { loadWindowUrl } from "./navigation-retry.js";
 import { RECOVERY_DIAGNOSTIC_CHANNEL } from "./recovery-diagnostic.js";
+import { PENGLAI_DESKTOP_TITLE } from "./product-title.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -310,7 +311,7 @@ async function main(): Promise<void> {
     show: false,
     opacity: platform === "win32" ? 0 : 1,
     backgroundColor: "#f8f4ee",
-    title: "蓬莱 Penglai",
+    title: PENGLAI_DESKTOP_TITLE,
     webPreferences: {
       preload: join(here, "preload-bridge.cjs"),
       contextIsolation: true,
@@ -321,7 +322,7 @@ async function main(): Promise<void> {
   });
   win.on("page-title-updated", (event) => {
     event.preventDefault();
-    if (!win.isDestroyed()) win.setTitle("蓬莱 Penglai");
+    if (!win.isDestroyed()) win.setTitle(PENGLAI_DESKTOP_TITLE);
   });
   const allowed = new Set<number>([win.webContents.id]);
   const openOfficialConsole = (url: string): boolean => {

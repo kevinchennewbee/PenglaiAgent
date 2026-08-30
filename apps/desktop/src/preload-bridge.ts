@@ -1,12 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { PRELOAD_API } from "./preload.js";
-import { installPenglaiDocumentTitle } from "./product-title.js";
 import {
   applyRecoveryDiagnostic,
   RECOVERY_DIAGNOSTIC_CHANNEL,
 } from "./recovery-diagnostic.js";
 
-installPenglaiDocumentTitle(document, MutationObserver);
 ipcRenderer.on(RECOVERY_DIAGNOSTIC_CHANNEL, (_event, payload: unknown) => {
   applyRecoveryDiagnostic(document, payload);
 });
