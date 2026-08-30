@@ -100,6 +100,9 @@ test("installed e2e drives packaged BrowserWindow via CDP and has no in-app prob
   assert.match(walk, /\^Get started\$/);
   assert.match(walk, /welcome-dismiss/);
   assert.match(walk, /duplicate-dsh-onboarding/);
+  assert.match(walk, /document\.getElementById\("root"\)\?\.inert/);
+  assert.match(walk, /Add an API key to get started\|添加一个 API Key 开始使用/);
+  assert.doesNotMatch(walk, /officialByok: headings\.some\(\(h\) => \/API Key/);
   assert.match(walk, /upstream-window-title/);
   assert.match(walk, /target\.readyFlag \? 30_000 : target\.flag \? 15_000 : 5_000/);
   assert.match(walk, /snapshot\?\.\[target\.flag\]/);

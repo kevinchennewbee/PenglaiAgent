@@ -43,7 +43,9 @@ export const SNAPSHOT_JS = `(() => {
     wizardModelCount: document.querySelector("[data-penglai-wizard-model]") ? Array.from(document.querySelector("[data-penglai-wizard-model]").options).filter((o) => o.value).length : 0,
     welcomeTitle: headings.some((h) => /选择语言|Choose language|欢迎使用蓬莱|Welcome to Penglai/.test(h)),
     officialInternalNotice: /内测声明|Internal Testing Notice/.test(text(document.body)),
-    officialByok: headings.some((h) => /API Key|API key|API 密钥/.test(h)),
+    officialByok: Boolean(document.getElementById("root")?.inert) && headings.some((h) =>
+      /^(Add an API key to get started|添加一个 API Key 开始使用)$/.test(h)
+    ),
     center: Boolean(document.querySelector("[data-penglai-center]")),
     im: Boolean(document.querySelector("[data-penglai-im]")),
     penglaiSettings: Boolean(document.querySelector("[data-penglai-settings]")),
