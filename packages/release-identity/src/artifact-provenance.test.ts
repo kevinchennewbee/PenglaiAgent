@@ -6,8 +6,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { inspectPackagedCandidate } from "../../../scripts/lib/packaged-candidate.mjs";
+import { readReleaseIdentityPins } from "../../../scripts/lib/release-pins-source.mjs";
 
 const sourceSha = "a".repeat(40);
+const pins = readReleaseIdentityPins();
 
 function fixture(
   overrides: {
@@ -28,9 +30,9 @@ function fixture(
   writeFileSync(join(resources, "runtime/node/bin/node"), "node");
   writeFileSync(join(resources, "runtime/dsh/lib/bin.js"), "dsh");
   const manifest = {
-    release: "0.5.7",
+    release: pins.productVersion,
     target: overrides.manifestTarget ?? "darwin-aarch64",
-    dsh: "0.1.1-rc.2",
+    dsh: pins.dsh,
     files: [
       {
         path: "runtime/node/bin/node",
@@ -45,13 +47,14 @@ function fixture(
     join(resources, "release-info.json"),
     `${JSON.stringify({
       productName: "Penglai",
-      productVersion: "0.5.7",
+      productVersion: pins.productVersion,
       generationId: "penglai-dsh-v0.5",
       trustTier: "community-verified",
       sourceSha: overrides.sourceSha ?? sourceSha,
       treeDirty: false,
       targetPlatform: "darwin-arm64",
-      dsh: "0.1.1-rc.2",
+      dsh: pins.dsh,
+      dshSource: pins.dshSource,
       ...(overrides.omitPublicExportTreeSha256
         ? {}
         : { publicExportTreeSha256: "e".repeat(64) }),

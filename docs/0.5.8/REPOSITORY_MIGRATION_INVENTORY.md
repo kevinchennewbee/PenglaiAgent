@@ -21,21 +21,21 @@
 
 | Asset or pattern | Current class | Invocation/consumer | 0.5.8 disposition | Package gate |
 | --- | --- | --- | --- | --- |
-| `apps/desktop/package.json` `@deepseek-ai/dsh` | Active product | desktop packaged closure | Keep rc.2 until the fixed-source tarball closure passes; then update the complete set atomically | Yes |
-| `packages/dsh-bridge/src/rc2-owner-adapter.ts` `ctx.apiProxy.sessions.*` | Active rc.2 compatibility | IM/bridge Session creation and model routing before source-closure integration | Confined to version-named adapter; retire when the source-built owner Remote adapter passes | Yes |
-| `packages/dsh-bridge/src/owner-ports.ts` and `index.ts` | Active product | inbound IM Agent and directory calls | Agent/Workspace/Session owners split; bind to source-built generated alpha clients after closure readback | Yes |
-| `@deepseek-ai/dsh-host-apiproxy` closure assumptions | Release gate/active closure | closure/profile scripts | Remove only with new controller packages and clean closure proof | Yes |
-| `dsh.client.inject` `@deepseek-ai/dsh-client-runtime` | Active product | ASR, Budget, Companion, IM, Memory, TTS, Office, Center | Replace per-plugin with minimum narrow official graph | Yes |
+| `apps/desktop/package.json` `@deepseek-ai/dsh` | Active product | desktop packaged closure | Exact alpha version resolved through the audited local source resolver | Yes |
+| `packages/dsh-bridge/src/rc2-owner-adapter.ts` `ctx.apiProxy.sessions.*` | Historical migration compatibility | focused rollback/history tests only | Excluded from active composition; alpha adapter owns current Session operations | Yes |
+| `packages/dsh-bridge/src/owner-ports.ts`, `alpha1-owner-adapter.ts`, and `index.ts` | Active product | inbound IM Agent and directory calls | Agent/Workspace/Session owners bind to official alpha services and projections | Yes |
+| `@deepseek-ai/dsh-host-apiproxy` closure assumptions | Historical gate input | rc.2 probes only | Removed from active runtime closure requirements | Yes |
+| narrow `dsh.client.inject` packages | Active product | ASR, Budget, Companion, IM, Memory, TTS, Office, Center | Replaced all client-runtime rows with audited Remotes, settings and slot roots | Yes |
 | `packages/*/src/dsh-client.js` generated/bundled clients | Active product/generated input | plugin packaging and DSH client fibers | Regenerate from source entry and verify exact fiber activation | Yes |
 | `packages/dsh-bridge/src/capability-baseline.ts` | Release gate | versions/contracts/closure | Replace rc.2 seam list with generated fixed-set baseline | Yes |
 | `scripts/probe-dsh-contracts.mjs`, `probe-rc2.mjs` | Operator/contract verifier | manual and source gates | Retain rc.2 probe as historical rollback input; add 0.1.2 probe | Yes |
-| `scripts/embed-runtime.mjs`, closure helpers | Release gate | packaged runtime assembly | Migrate the package graph only after the complete source-built tarball closure passes | Yes |
+| `scripts/embed-runtime.mjs`, closure helpers | Release gate | packaged runtime assembly | Packages from the declared hoisted alpha root and preserves every package-local version conflict | Yes |
 | `scripts/verify-profile.mjs` | Release gate | profile composition and plugin state | Update for profiles/bundles and exact client fibers | Yes |
 | `scripts/apply-overlay.mjs` and overlay manifests | Active build input | patched official Web bytes | 12 dispositions now cover all files/assets; retire official-route/non-semantic patches and retain only proven narrow gaps after source-built package readback | Yes |
 | `scripts/verify-bundled-runtime.mjs` | Native/package verifier | packaged DSH closure | Extend for new launcher/profile/auth and exact package graph | Yes |
 | `scripts/e2e-installed*.mjs` | Native installed verifier | installed application | Preserve; update behavior only after packaged skeleton exists | Yes |
 | `packages/release-identity/src/pins.ts` | Authoritative identity source | manifests, runtime, release gates | Keep authority; the source version verifier now strictly reads it and checks workspace manifests plus release-info product/toolchain/DSH/schema/publication/three-target copies | Yes |
-| `release-contract.json` | Current release truth | formal 0.5.7 release | Protected and byte-identical during preview preparation | Later only |
+| `release-contract.json` | Preview candidate contract | 0.5.8 package/release gates | Switched coherently to 0.5.8; published 0.5.7 history remains immutable | Yes |
 
 ## Independent work inventory
 
@@ -57,8 +57,8 @@ new caller in an already-known file cannot bypass review.
 
 | Legacy seam | Current observed surface | Fixed-source owner | Current decision |
 | --- | --- | --- | --- |
-| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | 10 source, test, commentary, closure, and probe files; the active request shape is confined to one rc.2 adapter | `@deepseek-ai/dsh-api-session-controller`, `ctx.remote.session` | Penglai owner ports and rc.2 containment complete; generate and integrate the alpha adapter from the verified local closure |
-| `@deepseek-ai/dsh-client-runtime` | 8 plugin manifests plus 8 matching packager rows | split among Session/Workspace controllers, Client Store, and narrow UI/composition packages | Consumer map complete; replace inject with the exact source-built narrow package graph |
+| `apiProxy` / `@deepseek-ai/dsh-host-apiproxy` | version-named historical adapter and probes only; active composition rejects it | `@deepseek-ai/dsh-api-session-controller`, Agent owner, Workspace registry | Alpha adapter integrated; rc.2 surface retained only for migration characterization |
+| `@deepseek-ai/dsh-client-runtime` | no active manifest or packager consumers | narrow Remotes, settings and UI slots | All eight plugin injection graphs migrated and pack readback enforced |
 | `workspaceRegistry` | 29 production, test, and package-verifier files | `@deepseek-ai/dsh-api-workspace-controller`, `ctx.remote.workspace` | Direct-read map complete; migrate with the source-built generated clients |
 | direct settings provider | 1 onboarding source file with 8 reads/writes | `@deepseek-ai/dsh-api-settings-controller`, `ctx.remote.settings` | Consumer map complete; shared client mirror still package-gated |
 | packaged DSH process ownership/authentication | runtime, desktop, proxy, native-helper, surface, and focused fixture files | Penglai desktop/runtime policy over official DSH browser auth and platform-native ownership | Child-exit, continuous authenticated HTTP health, same-port restart, private token exchange, proxy cookie injection, structured diagnostics, exact exhaustion, and recovery-page routes fixed in source; exact alpha package and native process-tree evidence remain |
@@ -104,8 +104,9 @@ Preserve as historical records:
 - Removed the channel from contract/registry identities, credentials, reactions,
   guided connection, Host and Typert Remote methods, Owner risk actions, client
   sections/cards/copy, test matrices, and TypeScript/workspace graphs.
-- Regenerated `pnpm-lock.yaml` with the still-published DSH `0.1.1-rc.2` pins.
-  The retired workspace, Baileys, libsignal, and Rust bridge closure are absent.
+- Regenerated `pnpm-lock.yaml`; the retired workspace, Baileys, libsignal, and
+  Rust bridge closure are absent. A later atomic integration replaced all DSH
+  rc.2 rows with the audited alpha source closure.
 - Replaced the former non-bundle license exception with a fail-closed absence
   policy; generated notices and packaged plugin staging contain no retired
   runtime identity.
@@ -118,9 +119,10 @@ Preserve as historical records:
 
 Local evidence for this checkpoint: frozen install, formatting, typecheck, unit,
 contract, integration, license audit, SBOM/notice generation, plugin packaging,
-and both preview/absence gates pass. Native installers, installed behavior, live
-owner accounts, public release bytes, and DSH `0.1.2-alpha.1` source-closure integration
-remain deliberately unclaimed.
+and both preview/absence gates pass. The later alpha source-closure integration
+also passes package closure and fresh-profile verification. Native installers,
+installed behavior, live owner accounts, and public release bytes remain
+deliberately unclaimed.
 
 Current README/site/architecture still describe the immutable 0.5.7 product.
 They stay byte-identical during preview work; future 0.5.8 public copy is written

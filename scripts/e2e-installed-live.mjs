@@ -23,7 +23,7 @@ import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 
-const PRODUCT_VERSION = "0.5.7";
+const PRODUCT_VERSION = "0.5.8";
 const PROVIDER = "deepseek-official";
 const PREFERRED_MODEL = "deepseek-v4-flash-vision-exp";
 const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
@@ -209,13 +209,13 @@ try {
   if (workspaceStep?.step !== "workspace" || workspaceStep.error) throw new Error("official nonce Turn did not reach workspace");
 
   stage = "workspace-creation";
-  const created = await evaluate(session, rpcExpression("createWorkspace", { path: workspace, title: "Penglai 0.5.7 Live" }));
+  const created = await evaluate(session, rpcExpression("createWorkspace", { path: workspace, title: "Penglai 0.5.8 Live" }));
   if (!created?.ok) throw new Error(`official workspace creation failed: ${created?.code || "unknown"}`);
   await evaluate(session, "location.reload(); true");
   const firstStep = await waitStep(session, "firstturn", 30_000);
   if (firstStep?.step !== "firstturn") throw new Error("wizard did not reach first Turn");
   stage = "official-first-turn";
-  const firstMessage = `Penglai 0.5.7 live verification ${randomUUID().slice(0, 8)}. Reply with OK.`;
+  const firstMessage = `Penglai 0.5.8 live verification ${randomUUID().slice(0, 8)}. Reply with OK.`;
   const message = await evaluate(session, inputValue("[data-penglai-wizard-message]", firstMessage));
   if (!message?.ok) throw new Error("first message field unavailable");
   const firstReady = await waitEval(session, SNAPSHOT, (snap) => snap?.step === "firstturn" && !snap.disabled, 5_000);

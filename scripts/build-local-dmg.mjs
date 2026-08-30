@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community-verified macOS DMG for Penglai 0.5.7.
+ * Community-verified macOS DMG for Penglai 0.5.8.
  * Follows PenglaiAgent v0.4.1: complete ad-hoc app seal, codesign strict
  * verification, ordinary UDZO DMG, hdiutil verify. Not Developer ID, not notarized.
  */
@@ -20,6 +20,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+
+const releasePins = readReleaseIdentityPins();
 
 if (process.platform !== "darwin") {
   throw new Error("build-local-dmg is a macOS acceptance command");
@@ -47,7 +50,8 @@ function createDmg(args, dmgPath) {
     const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
     const retryable = diagnostic.includes("Resource busy");
     if (!retryable || attempt === attempts) {
-      const detail = result.error?.message ?? `exit ${result.status ?? "unknown"}`;
+      const detail =
+        result.error?.message ?? `exit ${result.status ?? "unknown"}`;
       throw new Error(`hdiutil create failed: ${detail}`);
     }
 
@@ -74,14 +78,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.7-arm64",
-    dmg: "dist/Penglai_0.5.7_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.7-arm64-from-dmg",
+    out: "dist/Penglai-v0.5.8-arm64",
+    dmg: "dist/Penglai_0.5.8_macos_aarch64.dmg",
+    from: "dist/Penglai-v0.5.8-arm64-from-dmg",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.7-x64",
-    dmg: "dist/Penglai_0.5.7_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.7-x64-from-dmg",
+    out: "dist/Penglai-v0.5.8-x64",
+    dmg: "dist/Penglai_0.5.8_macos_x64.dmg",
+    from: "dist/Penglai-v0.5.8-x64-from-dmg",
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -132,19 +136,22 @@ const staging = mkdtempSync(join(tmpdir(), "penglai-local-dmg-"));
 try {
   run("ditto", [appPath, join(staging, "Penglai.app")]);
   symlinkSync("/Applications", join(staging, "Applications"));
-  createDmg([
-    "create",
-    "-volname",
-    "Penglai",
-    "-srcfolder",
-    staging,
-    "-format",
-    "UDZO",
-    "-imagekey",
-    "zlib-level=9",
-    "-ov",
+  createDmg(
+    [
+      "create",
+      "-volname",
+      "Penglai",
+      "-srcfolder",
+      staging,
+      "-format",
+      "UDZO",
+      "-imagekey",
+      "zlib-level=9",
+      "-ov",
+      dmgPath,
+    ],
     dmgPath,
-  ], dmgPath);
+  );
   run("hdiutil", ["verify", dmgPath]);
 } finally {
   rmSync(staging, { recursive: true, force: true });
@@ -205,7 +212,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.7",
+  productVersion: "0.5.8",
   name: targetSpec.dmg
     .split("/")
     .pop()
@@ -224,7 +231,8 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.1-rc.2",
+  dsh: "0.1.2-alpha.1",
+  dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,
   imSchema: 4,

@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.7";
+export const PRODUCT_VERSION = "0.5.8";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -8,7 +8,7 @@ export const SIGNATURE_KIND = "adhoc";
 export const MINIMUM_MACOS = "13.0";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_NODE_VERSION_PREFIX = "v22.22.2";
-export const PINNED_PNPM = "10.14.0";
+export const PINNED_PNPM = "11.7.0";
 export const PINNED_TYPESCRIPT = "5.9.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const PINNED_ELECTRON_DARWIN_ARM64_SHA256 =
@@ -23,15 +23,16 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
   "12a6abb9c2902cf48a21120da13f87fde1ed1b71a13330712949e8db818708ba";
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
-/** Exact npm+GitHub freeze. Never follow dist-tags `latest` or `next`. */
-export const PINNED_DSH = "0.1.1-rc.2";
-export const PINNED_DSH_COMMIT = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
-export const PINNED_DSH_TAG = "dsh-v0.1.1-rc.2";
-export const PINNED_DSH_INTEGRITY =
-  "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg==";
-export const PINNED_DSH_SHASUM = "1a5112369f1c46b13a6e6f21de8af5e6afd45074";
-export const PINNED_DSH_NPM_LATEST = "0.1.1-rc.2";
-export const PINNED_DSH_NPM_NEXT = "0.1.1-rc.2";
+/** Exact official source freeze. npm publication is not part of this release identity. */
+export const PINNED_DSH = "0.1.2-alpha.1";
+export const PINNED_DSH_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
+export const PINNED_DSH_TAG = "dsh-v0.1.2-alpha.1";
+export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
+export const PINNED_DSH_TARBALL_SHA256 =
+  "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06";
+export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
+  "45568b0f3a09f36b996af1d3a358fe34f1c2e92ea124f077ee7fb43e2bd1cd6e";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 251;
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const PINNED_WEIXIN_REF = "2.4.6";
@@ -103,9 +104,9 @@ export const UPDATER_CHANNEL = "desktop-v0.5";
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.7",
-  release: "v0.5.7",
-  channel: "stable-v0.5.7",
+  tag: "v0.5.8",
+  release: "v0.5.8",
+  channel: "stable-v0.5.8",
 });
 
 export const RELEASE_TARGETS = [
@@ -113,19 +114,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.7_macos_aarch64.dmg",
+    installer: "Penglai_0.5.8_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.7_macos_x64.dmg",
+    installer: "Penglai_0.5.8_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.7_windows_x64_setup.exe",
+    installer: "Penglai_0.5.8_windows_x64_setup.exe",
   },
 ] as const;
 

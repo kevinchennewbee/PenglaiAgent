@@ -16,8 +16,13 @@ import {
 
 test("release identity copies resolve from the one authoritative pins source", () => {
   const pins = readReleaseIdentityPins();
-  assert.equal(pins.productVersion, "0.5.7");
-  assert.equal(pins.dsh, "0.1.1-rc.2");
+  assert.equal(pins.productVersion, "0.5.8");
+  assert.equal(pins.dsh, "0.1.2-alpha.1");
+  assert.equal(
+    pins.dshSource.commit,
+    "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+  );
+  assert.equal(pins.dshSource.packageCount, 251);
   assert.equal(pins.node, "22.22.2");
   assert.equal(pins.targets.length, 3);
   assert.deepEqual(
@@ -33,7 +38,7 @@ test("version verifier consumes the authority instead of declaring a second expe
   );
   assert.match(source, /readReleaseIdentityPins\(\)/);
   assert.match(source, /const EXPECT = pins\.productVersion/);
-  assert.doesNotMatch(source, /const EXPECT = "0\.5\.7"/);
+  assert.doesNotMatch(source, /const EXPECT = "0\.5\.8"/);
 });
 
 test("release pin reader fails closed when an authority is duplicated", () => {
@@ -67,6 +72,12 @@ function readFileForTest() {
     `export const PINNED_PNPM = "${pins.pnpm}";`,
     `export const PINNED_ELECTRON = "${pins.electron}";`,
     `export const PINNED_DSH = "${pins.dsh}";`,
+    `export const PINNED_DSH_REPOSITORY = "${pins.dshSource.repository}";`,
+    `export const PINNED_DSH_TAG = "${pins.dshSource.tag}";`,
+    `export const PINNED_DSH_COMMIT = "${pins.dshSource.commit}";`,
+    `export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 = "${pins.dshSource.closureManifestSha256}";`,
+    `export const PINNED_DSH_TARBALL_SHA256 = "${pins.dshSource.cliTarballSha256}";`,
+    `export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = ${pins.dshSource.packageCount};`,
     `export const PROFILE_SCHEMA = ${pins.profileSchema};`,
     `export const CATALOG_SCHEMA = ${pins.catalogSchema};`,
     `export const IM_SCHEMA = ${pins.imSchema};`,

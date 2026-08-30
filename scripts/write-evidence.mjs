@@ -24,14 +24,14 @@ const artifactSha = sums.split(/\s+/)[0] ?? "";
 writeFileSync(`${dir}/git-state.txt`, `HEAD ${sha}\ndirty ${dirty.length > 0}\nbranch main\n`);
 writeFileSync(
   `${dir}/environment.json`,
-  JSON.stringify({ node: process.version, pnpm: "10.14.0", os: process.platform, arch: process.arch, host: "redacted" }, null, 2),
+  JSON.stringify({ node: process.version, pnpm: "11.7.0", os: process.platform, arch: process.arch, host: "redacted" }, null, 2),
 );
 writeFileSync(`${dir}/commands.jsonl`, JSON.stringify({ argv: ["pnpm", "verify:r1"], cwd: ".", exitCode: 0 }) + "\n");
 writeFileSync(`${dir}/package/sha256.txt`, `${sums}\n`);
 writeFileSync(`${dir}/live-smoke/status.txt`, "BLOCKED_AWAITING_USER_SCAN R1-WX-010 R1-WX-011\n");
 writeFileSync(
   `${dir}/upstream/dsh-probe.json`,
-  JSON.stringify({ pin: "0.1.1-rc.2", commit: "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e" }, null, 2),
+  JSON.stringify({ pin: "0.1.2-alpha.1", commit: "cd5ef8148158c3a752a658978873241fdf8e2bbc" }, null, 2),
 );
 if (existsSync("evidence/generated/sbom.json")) {
   writeFileSync(`${dir}/supply-chain/sbom.json`, readFileSync("evidence/generated/sbom.json"));
@@ -112,8 +112,8 @@ const manifest = {
   host: { os: process.platform, arch: process.arch, hostnameDigest: createHash("sha256").update(hostname()).digest("hex").slice(0, 12) },
   versions: {
     node: process.version,
-    pnpm: "10.14.0",
-    dsh: "0.1.1-rc.2",
+    pnpm: "11.7.0",
+    dsh: "0.1.2-alpha.1",
     electron: "43.4.0",
     databaseSchema: 2,
   },

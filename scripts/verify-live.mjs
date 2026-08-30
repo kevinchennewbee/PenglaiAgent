@@ -17,5 +17,5 @@ try {
 const { evaluateLiveEvidence } = await import(
   pathToFileURL(join(ROOT, "packages/release-identity/src/live-evidence.ts")).href
 );
-const result = evaluateLiveEvidence(rec, "0.5.7");
+const result = evaluateLiveEvidence(rec, "0.5.8");
 finish(result.verdict, { command: "verify:live", reason: result.reason, acceptedPlatforms: result.acceptedPlatforms });

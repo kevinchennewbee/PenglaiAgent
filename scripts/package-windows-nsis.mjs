@@ -8,7 +8,7 @@ import { ROOT } from "./lib/repo.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
 
 const contract = {
-  installer: "Penglai_0.5.7_windows_x64_setup.exe",
+  installer: "Penglai_0.5.8_windows_x64_setup.exe",
   currentUser: true,
   languages: ["zh", "en"],
   refuseDowngrade: true,
@@ -76,7 +76,7 @@ if (!existsSync(out)) {
   console.error("package-windows-nsis FAIL: setup missing after makensis");
   process.exit(1);
 }
-const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.7-win32-x64");
+const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.8-win32-x64");
 const installedApp = join(installedRoot, "Penglai");
 const installedRelative = relative(resolve(ROOT, "dist"), installedRoot);
 if (!installedRelative || installedRelative === ".." || installedRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(installedRelative)) {

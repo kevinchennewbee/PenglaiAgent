@@ -8,22 +8,30 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Context } from "@deepseek-ai/cordis";
 import { LlmRuntime } from "@deepseek-ai/dsh-llm";
-import { cardsFromOfficialDirectory, wizardProviderCatalog } from "../../plugin-center/src/onboarding.js";
+import {
+  cardsFromOfficialDirectory,
+  wizardProviderCatalog,
+} from "../../plugin-center/src/onboarding.js";
 import { createPenglaiOnboardingRemoteImpl } from "../../plugin-center/src/onboarding-remote.js";
+import { PINNED_DSH } from "./index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const requireHere = createRequire(join(here, "../package.json"));
-const deepseekPkg = dirname(requireHere.resolve("@deepseek-ai/dsh-llm-deepseek/package.json"));
+const deepseekPkg = dirname(
+  requireHere.resolve("@deepseek-ai/dsh-llm-deepseek/package.json"),
+);
 const deepseekLib = readFileSync(join(deepseekPkg, "lib/index.js"), "utf8");
-const pkg = JSON.parse(readFileSync(join(deepseekPkg, "package.json"), "utf8")) as { version?: string };
+const pkg = JSON.parse(
+  readFileSync(join(deepseekPkg, "package.json"), "utf8"),
+) as { version?: string };
 const VISION_ID = "deepseek-v4-flash-vision-exp";
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
 
-test("official dsh-llm-deepseek 0.1.1-rc.2 advertises the vision model", () => {
-  assert.equal(pkg.version, "0.1.1-rc.2");
+test("official pinned dsh-llm-deepseek advertises the vision model", () => {
+  assert.equal(pkg.version, PINNED_DSH);
   assert.match(deepseekLib, /id:\s*"deepseek-v4-flash-vision-exp"/);
   assert.match(deepseekLib, /name:\s*"DeepSeek-V4-Flash-Vision-Exp"/);
   assert.match(deepseekLib, /inputModalities:\s*\[\s*"text",\s*"image"\s*\]/);
@@ -31,9 +39,15 @@ test("official dsh-llm-deepseek 0.1.1-rc.2 advertises the vision model", () => {
 });
 
 test("official adapter listModels exposes vision exact id and text,image modalities", async () => {
-  const mod = (await import(pathToFileURL(join(deepseekPkg, "lib/index.js")).href)) as {
+  const mod = (await import(
+    pathToFileURL(join(deepseekPkg, "lib/index.js")).href
+  )) as {
     DeepSeekAdapter: new (config: unknown) => {
-      listModels(provider: string): Promise<Array<{ id: string; name?: string; inputModalities?: string[] }>>;
+      listModels(
+        provider: string,
+      ): Promise<
+        Array<{ id: string; name?: string; inputModalities?: string[] }>
+      >;
     };
     resolveAdapterOptions: (config: Record<string, unknown>) => unknown;
   };
@@ -44,17 +58,24 @@ test("official adapter listModels exposes vision exact id and text,image modalit
   });
   const models = await adapter.listModels("deepseek-official");
   const vision = models.find((row) => row.id === VISION_ID);
-  assert.ok(vision, "deepseek-v4-flash-vision-exp missing from official adapter catalog");
+  assert.ok(
+    vision,
+    "deepseek-v4-flash-vision-exp missing from official adapter catalog",
+  );
   assert.equal(vision?.name, "DeepSeek-V4-Flash-Vision-Exp");
   assert.deepEqual(vision?.inputModalities, ["text", "image"]);
 });
 
 test("official DeepSeek adapter serializes image attachments as image_url data URLs", async () => {
-  const mod = (await import(pathToFileURL(join(deepseekPkg, "lib/index.js")).href)) as {
+  const mod = (await import(
+    pathToFileURL(join(deepseekPkg, "lib/index.js")).href
+  )) as {
     DeepSeekAdapter: new (config: unknown) => {
       stream(options: unknown): AsyncIterable<unknown>;
     };
-    resolveAdapterOptions: (config: Record<string, unknown>) => Record<string, unknown>;
+    resolveAdapterOptions: (
+      config: Record<string, unknown>,
+    ) => Record<string, unknown>;
   };
   const captured: { url?: string; body?: string } = {};
   const server = createServer((req, res) => {
@@ -87,6 +108,10 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
     options: () => ({ ...mod.resolveAdapterOptions({}), baseURL }),
     resolveApiKey: async () => "test-credential-penglai-vision-mock",
     resolveUserId: () => "penglai-vision-mock",
+    prepareExtensions: async () => ({
+      fields: Object.freeze(Object.create(null) as Record<string, unknown>),
+      accept: async () => undefined,
+    }),
     resolveAttachments: () => ({
       readImage: async (ref: { mediaType: string }) => ({ ref, data: PNG }),
       readImageRequest: async (ref: {
@@ -129,7 +154,9 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
       void _chunk;
     }
   } finally {
-    await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
   }
   assert.equal(captured.url, "/chat/completions");
   assert.ok(captured.body, "adapter did not POST a chat completion body");
@@ -139,13 +166,27 @@ test("official DeepSeek adapter serializes image attachments as image_url data U
   };
   assert.equal(wire.model, VISION_ID);
   const user = wire.messages.find((row) => row.role === "user");
-  assert.ok(Array.isArray(user?.content), "image request must use multipart user content");
-  const parts = user?.content as Array<{ type?: string; image_url?: { url?: string }; text?: string }>;
+  assert.ok(
+    Array.isArray(user?.content),
+    "image request must use multipart user content",
+  );
+  const parts = user?.content as Array<{
+    type?: string;
+    image_url?: { url?: string };
+    text?: string;
+  }>;
   assert.equal(
-    parts.some((part) => part.type === "image_url" && String(part.image_url?.url ?? "").startsWith("data:image/png;base64,")),
+    parts.some(
+      (part) =>
+        part.type === "image_url" &&
+        String(part.image_url?.url ?? "").startsWith("data:image/png;base64,"),
+    ),
     true,
   );
-  assert.equal(captured.body.includes("test-credential-penglai-vision-mock"), false);
+  assert.equal(
+    captured.body.includes("test-credential-penglai-vision-mock"),
+    false,
+  );
 });
 
 test("onboarding catalog surfaces deepseek-official so the vision model can be listed", () => {
@@ -164,7 +205,10 @@ test("onboarding catalog surfaces deepseek-official so the vision model can be l
     listConfigurableProviders: () => llm.listConfigurableProviders(),
   });
   const cards = cardsFromOfficialDirectory(catalog);
-  assert.equal(cards.some((card) => card.id === "deepseek-official"), true);
+  assert.equal(
+    cards.some((card) => card.id === "deepseek-official"),
+    true,
+  );
 });
 
 test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the official directory", async () => {
@@ -174,7 +218,9 @@ test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the officia
   const impl = createPenglaiOnboardingRemoteImpl({
     dir,
     userDataRoot,
-    officialCatalog: () => ({ providers: [{ id: "deepseek-official", protocol: "deepseek" }] }),
+    officialCatalog: () => ({
+      providers: [{ id: "deepseek-official", protocol: "deepseek" }],
+    }),
     officialWelcomeAck: () => true,
     agents: {
       llm: {
@@ -195,6 +241,9 @@ test("onboarding selectModel saves deepseek-v4-flash-vision-exp from the officia
   impl.advance("appearance-locale-v1", { locale: "zh", theme: "system" });
   impl.advance("privacy-v1");
   await impl.selectModel({ provider: "deepseek-official", model: VISION_ID });
-  assert.deepEqual(impl.facts().selection, { provider: "deepseek-official", model: VISION_ID });
+  assert.deepEqual(impl.facts().selection, {
+    provider: "deepseek-official",
+    model: VISION_ID,
+  });
   assert.equal(impl.status().current, "credential-v1");
 });

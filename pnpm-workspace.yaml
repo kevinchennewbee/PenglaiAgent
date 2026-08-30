@@ -1,3 +1,16 @@
 packages:
   - packages/*
   - apps/*
+autoInstallPeers: true
+resolvePeersFromWorkspaceRoot: true
+strictPeerDependencies: false
+engineStrict: true
+ignoreScripts: true
+nodeLinker: hoisted
+packageImportMethod: copy
+overrides:
+  '@liustack/pptfast>sharp': '0.35.3'
+  'exceljs>uuid': '11.1.1'
+  'exceljs>unzipper': '0.12.5'
+  'pptxgenjs>image-size': 'workspace:*'
+  'onnxruntime-node>adm-zip': '0.6.0'

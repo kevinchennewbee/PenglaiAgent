@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { buildDshLocalDependencyMap } from "./lib/dsh-local-dependency-map.mjs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
 import { resolvePackageMetadata } from "./lib/package-metadata.mjs";
 import {
@@ -49,10 +49,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.1-rc.2" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.1-rc.2" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.1-rc.2" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.1-rc.2" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.1" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.1" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.1" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.1" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -322,66 +322,79 @@ for (const [path, expected] of [
     process.exit(1);
   }
 }
-function pnpmLicenseInventory(prod) {
-  const executable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const args = ["licenses", "list", ...(prod ? ["--prod"] : []), "--json"];
-  return JSON.parse(
-    execFileSync(executable, args, {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    }),
-  );
-}
-
-function packageMetadataForInventory(item, version) {
-  for (const root of item.paths ?? []) {
-    try {
-      const metadata = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-      if (metadata.name === item.name && metadata.version === version) return metadata;
-    } catch {
-      // pnpm can report a path for an optional package not materialized on this host.
-    }
-  }
-  return {};
-}
-
-function flattenInventory(raw, { production }) {
+function installedLicenseInventory({ production }) {
   const lockRows = collectLockIntegrities(lock);
-  const rows = [];
-  for (const [declaredLicense, items] of Object.entries(raw)) {
-    for (const item of items) {
-      for (const version of item.versions ?? []) {
-        const metadata = packageMetadataForInventory(item, version);
-        const integrity = integrityForPackage(lockRows, item.name, version);
-        const decision = production
-          ? classifyLicense(item.name, declaredLicense)
-          : {
-              effectiveLicense: declaredLicense || "NOASSERTION",
-              disposition: "development-or-optional-lock-closure",
-              rationale: "not part of the audited production dependency closure",
-            };
-        if (production && !integrity) {
-          throw new Error(`production dependency integrity missing from lockfile: ${item.name}@${version}`);
-        }
-        rows.push({
-          name: item.name,
-          version,
-          declaredLicense,
-          effectiveLicense: decision.effectiveLicense,
-          disposition: decision.disposition,
-          rationale: decision.rationale,
-          source: normalizeRepository(metadata.repository, metadata.homepage ?? item.homepage),
-          integrity: integrity ?? "NOASSERTION",
-        });
+  const sourceRows = new Map(
+    buildDshLocalDependencyMap(process.cwd()).packages.map((row) => [`${row.name}@${row.version}`, row]),
+  );
+  const queue = [];
+  for (const parent of ["apps", "packages"]) {
+    for (const name of readdirSync(parent)) {
+      const fromDir = join(process.cwd(), parent, name);
+      const manifestPath = join(fromDir, "package.json");
+      if (!existsSync(manifestPath)) continue;
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      const fields = production
+        ? ["dependencies", "optionalDependencies", "peerDependencies"]
+        : ["dependencies", "optionalDependencies", "peerDependencies", "devDependencies"];
+      const resolver = createRequire(manifestPath);
+      for (const field of fields) {
+        for (const dependency of Object.keys(manifest[field] ?? {})) queue.push({ dependency, resolver, fromDir });
       }
     }
   }
-  return rows.sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
+  const rows = new Map();
+  const visitedRoots = new Set();
+  for (let next = queue.shift(); next; next = queue.shift()) {
+    let found;
+    try {
+      found = resolvePackageMetadata(next.dependency, next.resolver, next.fromDir, process.cwd());
+    } catch {
+      continue;
+    }
+    if (visitedRoots.has(found.root)) continue;
+    visitedRoots.add(found.root);
+    const metadata = found.metadata;
+    const manifestPath = join(found.root, "package.json");
+    const resolver = createRequire(manifestPath);
+    for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+      for (const dependency of Object.keys(metadata[field] ?? {})) {
+        queue.push({ dependency, resolver, fromDir: found.root });
+      }
+    }
+    const isWorkspace = found.root.startsWith(join(process.cwd(), "packages")) || found.root.startsWith(join(process.cwd(), "apps"));
+    if (isWorkspace) continue;
+    const name = String(metadata.name ?? next.dependency);
+    const version = String(metadata.version ?? "");
+    const declaredLicense = typeof metadata.license === "string" ? metadata.license : "NOASSERTION";
+    const sourceRow = sourceRows.get(`${name}@${version}`);
+    const integrity = sourceRow ? `sha256-${sourceRow.sha256}` : integrityForPackage(lockRows, name, version);
+    const decision = production
+      ? classifyLicense(name, declaredLicense)
+      : {
+          effectiveLicense: declaredLicense,
+          disposition: "development-or-optional-installed-closure",
+          rationale: "not part of the audited production dependency closure",
+        };
+    if (production && !integrity) {
+      throw new Error(`production dependency integrity missing from lock/source closure: ${name}@${version}`);
+    }
+    rows.set(`${name}@${version}`, {
+      name,
+      version,
+      declaredLicense,
+      effectiveLicense: decision.effectiveLicense,
+      disposition: decision.disposition,
+      rationale: decision.rationale,
+      source: normalizeRepository(metadata.repository, metadata.homepage),
+      integrity: integrity ?? "NOASSERTION",
+    });
+  }
+  return [...rows.values()].sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
 }
 
-const productionInventory = flattenInventory(pnpmLicenseInventory(true), { production: true });
-const completeInstalledInventory = flattenInventory(pnpmLicenseInventory(false), { production: false });
+const productionInventory = installedLicenseInventory({ production: true });
+const completeInstalledInventory = installedLicenseInventory({ production: false });
 const packScript = readFileSync("scripts/pack-plugins.mjs", "utf8");
 const retiredRuntimePackages = new Set([
   "@penglai/channel-whatsapp",
@@ -410,7 +423,7 @@ if (
 
 const result = {
   schema: 2,
-  command: "pnpm licenses list --prod --json",
+  command: "audited installed manifest graph plus pinned DSH source closure",
   productionComponentCount: productionInventory.length,
   production: productionInventory,
   completeInstalled: completeInstalledInventory,

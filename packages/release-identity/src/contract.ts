@@ -3,6 +3,12 @@ import {
   CANDIDATE_KIND,
   GENERATION_ID,
   PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+  PINNED_DSH_COMMIT,
+  PINNED_DSH_REPOSITORY,
+  PINNED_DSH_TAG,
+  PINNED_DSH_TARBALL_SHA256,
   PINNED_ELECTRON,
   PINNED_NODE,
   PRODUCT_NAME,
@@ -49,6 +55,14 @@ export interface ReleaseContract {
   electronVersion: string;
   nodeVersion: string;
   dshVersion: string;
+  dshSource: {
+    repository: string;
+    tag: string;
+    commit: string;
+    closureManifestSha256: string;
+    cliTarballSha256: string;
+    packageCount: number;
+  };
   updaterChannel: string;
   updaterPublicKeyId: string;
   updaterPublicKeyHex: string;
@@ -131,6 +145,19 @@ export function assertReleaseContract(raw: unknown): ReleaseContract {
   if (raw.electronVersion !== PINNED_ELECTRON) throw new PenglaiError("INVALID_INPUT", "electronVersion");
   if (raw.nodeVersion !== PINNED_NODE) throw new PenglaiError("INVALID_INPUT", "nodeVersion");
   if (raw.dshVersion !== PINNED_DSH) throw new PenglaiError("INVALID_INPUT", "dshVersion");
+  const dshSource = raw.dshSource;
+  if (!isRecord(dshSource)) throw new PenglaiError("INVALID_INPUT", "dshSource");
+  const expectedDshSource = {
+    repository: PINNED_DSH_REPOSITORY,
+    tag: PINNED_DSH_TAG,
+    commit: PINNED_DSH_COMMIT,
+    closureManifestSha256: PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+    cliTarballSha256: PINNED_DSH_TARBALL_SHA256,
+    packageCount: PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+  };
+  for (const [key, expected] of Object.entries(expectedDshSource)) {
+    if (dshSource[key] !== expected) throw new PenglaiError("INVALID_INPUT", `dshSource.${key}`);
+  }
   if (raw.updaterChannel !== UPDATER_CHANNEL) throw new PenglaiError("INVALID_INPUT", "updaterChannel");
   if (typeof raw.updaterPublicKeyId !== "string" || raw.updaterPublicKeyId.length < 8) {
     throw new PenglaiError("INVALID_INPUT", "updaterPublicKeyId");

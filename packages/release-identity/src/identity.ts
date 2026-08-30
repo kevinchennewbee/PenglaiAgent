@@ -8,6 +8,12 @@ import {
   IDENTITY_PHASE_UNFROZEN,
   IM_SCHEMA,
   PINNED_DSH,
+  PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+  PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+  PINNED_DSH_COMMIT,
+  PINNED_DSH_REPOSITORY,
+  PINNED_DSH_TAG,
+  PINNED_DSH_TARBALL_SHA256,
   PINNED_ELECTRON,
   PINNED_NODE,
   PRODUCT_NAME,
@@ -56,6 +62,14 @@ export interface ReleaseIdentity {
   node?: string;
   embeddedNode: string;
   dsh: string;
+  dshSource: {
+    repository: string;
+    tag: string;
+    commit: string;
+    closureManifestSha256: string;
+    cliTarballSha256: string;
+    packageCount: number;
+  };
   profileSchema: number;
   catalogSchema: number;
   imSchema: number;
@@ -97,6 +111,14 @@ export function emptyIdentity(sourceSha: string, dirty: boolean): ReleaseIdentit
     node: PINNED_NODE,
     embeddedNode: PINNED_NODE,
     dsh: PINNED_DSH,
+    dshSource: {
+      repository: PINNED_DSH_REPOSITORY,
+      tag: PINNED_DSH_TAG,
+      commit: PINNED_DSH_COMMIT,
+      closureManifestSha256: PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+      cliTarballSha256: PINNED_DSH_TARBALL_SHA256,
+      packageCount: PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+    },
     profileSchema: PROFILE_SCHEMA,
     catalogSchema: CATALOG_SCHEMA,
     imSchema: IM_SCHEMA,
@@ -126,7 +148,7 @@ function publicationOk(raw: unknown): PublicationBoundary {
 
 function assertTargets(raw: unknown): ReleaseTarget[] {
   if (!Array.isArray(raw) || raw.length !== RELEASE_TARGETS.length) {
-    throw new PenglaiError("INVALID_INPUT", "identity must declare the exact 0.5.7 release targets");
+    throw new PenglaiError("INVALID_INPUT", `identity must declare the exact ${PRODUCT_VERSION} release targets`);
   }
   const got = raw as ReleaseTarget[];
   for (let i = 0; i < RELEASE_TARGETS.length; i += 1) {
@@ -279,6 +301,18 @@ export function assertReleaseIdentity(raw: unknown): ReleaseIdentity {
   if (o.embeddedNode !== PINNED_NODE) throw new PenglaiError("INVALID_INPUT", "node pin");
   if (o.node != null && o.node !== PINNED_NODE) throw new PenglaiError("INVALID_INPUT", "node pin");
   if (o.dsh !== PINNED_DSH) throw new PenglaiError("INVALID_INPUT", "dsh pin");
+  const dshSource = o.dshSource as Record<string, unknown> | undefined;
+  if (
+    !dshSource ||
+    dshSource.repository !== PINNED_DSH_REPOSITORY ||
+    dshSource.tag !== PINNED_DSH_TAG ||
+    dshSource.commit !== PINNED_DSH_COMMIT ||
+    dshSource.closureManifestSha256 !== PINNED_DSH_CLOSURE_MANIFEST_SHA256 ||
+    dshSource.cliTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
+    dshSource.packageCount !== PINNED_DSH_CLOSURE_PACKAGE_COUNT
+  ) {
+    throw new PenglaiError("INVALID_INPUT", "dsh source closure pin");
+  }
   if (o.signed === true || o.developerIdSigned === true) {
     throw new PenglaiError("SECURITY_POLICY", "community-verified cannot claim Developer ID signed=true");
   }
@@ -312,6 +346,14 @@ export function assertReleaseIdentity(raw: unknown): ReleaseIdentity {
     node: PINNED_NODE,
     embeddedNode: PINNED_NODE,
     dsh: PINNED_DSH,
+    dshSource: {
+      repository: PINNED_DSH_REPOSITORY,
+      tag: PINNED_DSH_TAG,
+      commit: PINNED_DSH_COMMIT,
+      closureManifestSha256: PINNED_DSH_CLOSURE_MANIFEST_SHA256,
+      cliTarballSha256: PINNED_DSH_TARBALL_SHA256,
+      packageCount: PINNED_DSH_CLOSURE_PACKAGE_COUNT,
+    },
     profileSchema: Number(o.profileSchema),
     catalogSchema: Number(o.catalogSchema),
     imSchema: Number(o.imSchema),

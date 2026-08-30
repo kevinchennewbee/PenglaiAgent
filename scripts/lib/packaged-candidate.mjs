@@ -1,24 +1,28 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { CLOSURE_CREDENTIAL_SCHEMA } from "./closure-credential.mjs";
+import { readReleaseIdentityPins } from "./release-pins-source.mjs";
+
+const RELEASE_PINS = readReleaseIdentityPins();
 
 export const PACKAGED_TARGETS = Object.freeze({
   "darwin-aarch64": Object.freeze({
     buildTarget: "darwin-arm64",
-    appRelative: "dist/Penglai-v0.5.7-arm64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.7_macos_aarch64.dmg",
+    appRelative: "dist/Penglai-v0.5.8-arm64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.8_macos_aarch64.dmg",
   }),
   "darwin-x86_64": Object.freeze({
     buildTarget: "darwin-x64",
-    appRelative: "dist/Penglai-v0.5.7-x64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.7_macos_x64.dmg",
+    appRelative: "dist/Penglai-v0.5.8-x64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.8_macos_x64.dmg",
   }),
   "win32-x86_64": Object.freeze({
     buildTarget: "win32-x64",
-    appRelative: "dist/Penglai-v0.5.7-win32-x64/Penglai",
-    dmgRelative: "dist/Penglai_0.5.7_windows_x64_setup.exe",
+    appRelative: "dist/Penglai-v0.5.8-win32-x64/Penglai",
+    dmgRelative: "dist/Penglai_0.5.8_windows_x64_setup.exe",
   }),
 });
 
@@ -64,12 +68,16 @@ export function inspectPackagedCandidate({
   if (!appPresent) {
     return {
       verdict: "INCOMPLETE",
-      reason: windows ? "exact Windows Penglai.exe payload missing" : "exact from-DMG Penglai.app missing",
+      reason: windows
+        ? "exact Windows Penglai.exe payload missing"
+        : "exact from-DMG Penglai.app missing",
       app,
     };
   }
 
-  const resources = windows ? join(app, "resources") : join(app, "Contents/Resources");
+  const resources = windows
+    ? join(app, "resources")
+    : join(app, "Contents/Resources");
   const releasePath = join(resources, "release-info.json");
   const manifestPath = join(resources, "runtime-manifest.json");
   const credentialPath = join(resources, "closure-credential.json");
@@ -107,7 +115,7 @@ export function inspectPackagedCandidate({
   }
   if (
     release.productName !== "Penglai" ||
-    release.productVersion !== "0.5.7" ||
+    release.productVersion !== "0.5.8" ||
     release.generationId !== "penglai-dsh-v0.5" ||
     release.trustTier !== "community-verified" ||
     release.targetPlatform !== spec.buildTarget
@@ -115,6 +123,16 @@ export function inspectPackagedCandidate({
     return {
       verdict: "FAIL",
       reason: "embedded release identity mismatch",
+      app,
+    };
+  }
+  if (
+    release.dsh !== RELEASE_PINS.dsh ||
+    !isDeepStrictEqual(release.dshSource, RELEASE_PINS.dshSource)
+  ) {
+    return {
+      verdict: "FAIL",
+      reason: "embedded DSH source closure identity mismatch",
       app,
     };
   }
@@ -137,7 +155,7 @@ export function inspectPackagedCandidate({
     };
   }
   if (
-    manifest.release !== "0.5.7" ||
+    manifest.release !== "0.5.8" ||
     manifest.target !== expectedTarget ||
     manifest.dsh !== release.dsh ||
     !Array.isArray(manifest.files) ||
@@ -240,7 +258,8 @@ export function inspectInstallerEvidence({ root, packaged, evidencePath }) {
   const actualSha256 = sha256File(installerPath);
   const windows = packaged.expectedTarget === "win32-x86_64";
   const signatureOk = windows
-    ? evidence.signatureKind === "unsigned" || evidence.signatureKind === "unsigned-nsis"
+    ? evidence.signatureKind === "unsigned" ||
+      evidence.signatureKind === "unsigned-nsis"
     : evidence.signatureKind === "adhoc";
   if (
     evidence.sourceSha !== packaged.release.sourceSha ||
@@ -252,12 +271,19 @@ export function inspectInstallerEvidence({ root, packaged, evidencePath }) {
   ) {
     return {
       verdict: "STALE",
-      reason: "installer evidence does not bind exact source, target, and bytes",
+      reason:
+        "installer evidence does not bind exact source, target, and bytes",
       dmgPath: installerPath,
       installerPath,
     };
   }
-  return { verdict: "PASS", dmgPath: installerPath, installerPath, actualSha256, evidence };
+  return {
+    verdict: "PASS",
+    dmgPath: installerPath,
+    installerPath,
+    actualSha256,
+    evidence,
+  };
 }
 
 export function inspectDmgEvidence(opts) {

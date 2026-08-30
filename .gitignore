@@ -18,6 +18,7 @@ evidence/
 .tmp-installed-*/
 .tmp-u3-welcome/
 .tmp-probe-dsh-home-rc1/
+.tmp-probe-dsh-home-alpha1/
 coverage/
 *.log
 *.pem

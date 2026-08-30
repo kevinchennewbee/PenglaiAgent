@@ -8,7 +8,7 @@ const INVENTORY_PATH = "docs/0.5.8/DSH_MIGRATION_INVENTORY.json";
 const SOURCE_TAG = "dsh-v0.1.2-alpha.1";
 const SOURCE_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
 const SOURCE_TREE = "a712eec535b48badc4fefb4df5176a7002e4280b";
-const RELEASE_DSH = "0.1.1-rc.2";
+const RELEASE_DSH = "0.1.2-alpha.1";
 
 const failures = [];
 
@@ -82,33 +82,31 @@ if (inventory.sourceBaseline?.tag !== SOURCE_TAG) fail("migration inventory sour
 if (inventory.sourceBaseline?.commit !== SOURCE_COMMIT) fail("migration inventory source commit drifted");
 if (inventory.sourceBaseline?.tree !== SOURCE_TREE) fail("migration inventory source tree drifted");
 if (inventory.packagePlane?.activeProductPin !== RELEASE_DSH) fail("migration inventory product pin drifted");
-if (inventory.packagePlane?.state !== "READY_SOURCE_CLOSURE") {
-  fail("migration inventory must expose the authorized fixed-source closure gate");
+if (inventory.packagePlane?.state !== "SOURCE_CLOSURE_INTEGRATED") {
+  fail("migration inventory must expose the integrated fixed-source closure gate");
 }
 
 const files = trackedCodeFiles();
-for (const [name, seam] of Object.entries(inventory.observedReferences ?? {})) {
-  if (!Array.isArray(seam.tokens) || seam.tokens.length === 0) {
-    fail(`${name} has no scan tokens`);
-    continue;
-  }
-  compareReferenceSet(name, seam.files ?? {}, observedFiles(files, seam.tokens));
-}
-
 const legacyRuntime = "@deepseek-ai/dsh-client-runtime";
 const manifestConsumers = files
   .filter((path) => path.endsWith("/package.json"))
   .filter((path) => read(path).includes(legacyRuntime))
   .sort();
-const expectedManifestConsumers = [...(inventory.clientRuntimePluginManifests ?? [])].sort();
-if (JSON.stringify(manifestConsumers) !== JSON.stringify(expectedManifestConsumers)) {
+const expectedManifestConsumers = [];
+if (manifestConsumers.length !== 0) {
   fail(`client-runtime manifest set drifted: ${manifestConsumers.join(", ") || "none"}`);
 }
-for (const path of expectedManifestConsumers) {
+for (const path of inventory.clientRuntimeMigratedPluginManifests ?? []) {
   const manifest = readJson(path);
   const inject = manifest.dsh?.client?.inject;
-  if (!Array.isArray(inject) || !inject.includes(legacyRuntime)) {
-    fail(`${path} no longer declares the inventoried legacy client runtime`);
+  const expected = [
+    "@deepseek-ai/dsh-api-remotes",
+    "@deepseek-ai/dsh-client-ui-slots",
+    "@deepseek-ai/dsh-client-ui-settings",
+    ...(manifest.name === "@penglai/plugin-center" ? ["@deepseek-ai/dsh-client-ui-settings-general"] : []),
+  ];
+  if (!Array.isArray(inject) || JSON.stringify(inject) !== JSON.stringify(expected)) {
+    fail(`${path} does not declare the fixed alpha client injection graph`);
   }
 }
 
@@ -124,6 +122,11 @@ const bridgePlugin = read("packages/dsh-bridge/src/plugin.ts");
 if (bridgePlugin.includes("apiProxy?:") || bridgePlugin.includes("sessions?.create")) {
   fail("composition plugin reabsorbed the historical rc.2 ApiProxy contract");
 }
+const alphaAdapter = read("packages/dsh-bridge/src/alpha1-owner-adapter.ts");
+for (const operation of ["controller.list", "controller.create", "controller.rename", "controller.modelCatalog", ".selectModel"]) {
+  if (!alphaAdapter.includes(operation)) fail(`alpha owner adapter lost official operation ${operation}`);
+}
+if (alphaAdapter.includes("ctx.apiProxy")) fail("alpha owner adapter reintroduced removed ApiProxy");
 for (const path of [
   ...(inventory.desktopSupervisor?.sourceFiles ?? []),
   ...(inventory.desktopSupervisor?.testFiles ?? []),
@@ -225,7 +228,7 @@ for (const forbidden of ["agents.create", 'origin: "subagent"', "penglai-memory-
   if (memoryIndex.includes(forbidden)) fail(`memory curator reintroduced user-visible lifecycle: ${forbidden}`);
 }
 if (memoryManifest.dependencies?.["@deepseek-ai/dsh-llm"] !== RELEASE_DSH) {
-  fail("memory official LLM dependency must stay on the active rc.2 package pin before reconciliation");
+  fail("memory official LLM dependency is not on the fixed alpha source package");
 }
 if (!read("packages/dsh-bridge/src/r56-memory-curator-spike.ts").includes('alphaJobsDecision: "REJECT_USER_VISIBLE"')) {
   fail("memory curator spike no longer records why alpha.1 Jobs are rejected");
@@ -247,8 +250,8 @@ console.log(JSON.stringify({
   result: "PASS",
   sourceBaseline: inventory.sourceBaseline,
   productDshPin: inventory.packagePlane.activeProductPin,
-  referenceFiles: Object.fromEntries(
-    Object.entries(inventory.observedReferences).map(([name, seam]) => [name, Object.keys(seam.files).length]),
+  preMigrationReferenceFiles: Object.fromEntries(
+    Object.entries(inventory.preMigrationObservedReferences ?? {}).map(([name, seam]) => [name, Object.keys(seam.files).length]),
   ),
   clientRuntimePluginManifests: expectedManifestConsumers.length,
   supervisorEvidence: inventory.desktopSupervisor.state,

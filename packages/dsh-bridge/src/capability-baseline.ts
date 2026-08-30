@@ -2,8 +2,8 @@ import { createRequire } from "node:module";
 import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
-export const PINNED_DSH_INTEGRITY =
-  "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg==";
+export const PINNED_DSH_SOURCE_TARBALL_SHA256 =
+  "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",
@@ -13,6 +13,8 @@ export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh-client-ui-primitives",
   "@deepseek-ai/dsh-host-plugin-inventory",
   "@deepseek-ai/dsh-credentials-local",
+  "@deepseek-ai/dsh-api-session-controller",
+  "@deepseek-ai/dsh-client-ui-slots",
 ] as const;
 
 export const OFFICIAL_THEME_PREFERENCES = ["light", "dark", "system"] as const;
@@ -21,7 +23,7 @@ export const OFFICIAL_LOCALES = ["zh", "en"] as const;
 export interface CapabilityBaseline {
   dsh: string;
   commit: string;
-  integrity: string;
+  sourceTarballSha256: string;
   modules: Record<string, string>;
   seams: {
     typertRemoteService: boolean;
@@ -35,7 +37,8 @@ export interface CapabilityBaseline {
     pluginInventory: boolean;
   };
   overlay: {
-    sidebarWordmarkHasNameProp: false;
+    applied: false;
+    officialSlots: true;
     reason: string;
   };
 }
@@ -77,7 +80,7 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
   return {
     dsh: PINNED_DSH,
     commit: PINNED_DSH_COMMIT,
-    integrity: PINNED_DSH_INTEGRITY,
+    sourceTarballSha256: PINNED_DSH_SOURCE_TARBALL_SHA256,
     modules,
     seams: {
       typertRemoteService: typeof proto.TypertRemoteService === "function",
@@ -91,8 +94,9 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
       pluginInventory: Boolean(modules["@deepseek-ai/dsh-host-plugin-inventory"]),
     },
     overlay: {
-      sidebarWordmarkHasNameProp: false,
-      reason: `${primitives.name ?? "dsh-client-ui-primitives"} BrandWordmark only accepts size/className; sidebar hard-wires BrandWordmark with no product-name seam`,
+      applied: false,
+      officialSlots: true,
+      reason: `${primitives.name ?? "dsh-client-ui-primitives"} is composed through the official alpha client slot graph without patching DSH bytes`,
     },
   };
 }
@@ -100,7 +104,9 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
 export function assertCapabilityBaseline(baseline: CapabilityBaseline): void {
   if (baseline.dsh !== PINNED_DSH) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh pin");
   if (baseline.commit !== PINNED_DSH_COMMIT) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh commit");
-  if (baseline.integrity !== PINNED_DSH_INTEGRITY) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh integrity");
+  if (baseline.sourceTarballSha256 !== PINNED_DSH_SOURCE_TARBALL_SHA256) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh source tarball");
+  }
   if (!baseline.seams.typertRemoteService || !baseline.seams.remoteDecorator) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "Typert Remote seam missing");
   }
@@ -113,7 +119,7 @@ export function assertCapabilityBaseline(baseline: CapabilityBaseline): void {
   if (!baseline.seams.credentialsLocal || !baseline.seams.pluginInventory) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "credentials/inventory seam");
   }
-  if (baseline.overlay.sidebarWordmarkHasNameProp !== false) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "unexpected wordmark seam; update overlay ADR");
+  if (baseline.overlay.applied !== false || baseline.overlay.officialSlots !== true) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "alpha client slot composition seam");
   }
 }

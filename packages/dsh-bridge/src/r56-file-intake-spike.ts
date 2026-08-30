@@ -1,13 +1,17 @@
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH } from "./index.js";
 
 export const FILE_INTAKE_SPIKE_ID = "R56-FILE-016";
 export const FILE_INTAKE_BLOCK_CODE = "DSH_NO_GENERIC_FILE_TURN_API" as const;
-export const OFFICIAL_IMAGE_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+export const OFFICIAL_IMAGE_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+] as const;
 export const OFFICIAL_CONVERSATION_INPUT_SLOTS = [
   "conversation.input.left",
   "conversation.input.right",
@@ -32,16 +36,21 @@ export interface FileIntakeSpikeReport {
   notes: string[];
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(here, "../../..");
 const req = createRequire(import.meta.url);
 
 function packageRoot(specifier: string, resolver = req): string {
   return dirname(resolver.resolve(`${specifier}/package.json`));
 }
 
-function readOfficial(specifier: string, relativePath: string, resolver = req): string {
-  return readFileSync(join(packageRoot(specifier, resolver), relativePath), "utf8");
+function readOfficial(
+  specifier: string,
+  relativePath: string,
+  resolver = req,
+): string {
+  return readFileSync(
+    join(packageRoot(specifier, resolver), relativePath),
+    "utf8",
+  );
 }
 
 function captureGroup(source: string, pattern: RegExp, label: string): string {
@@ -52,24 +61,42 @@ function captureGroup(source: string, pattern: RegExp, label: string): string {
 }
 
 function quotedStrings(source: string): string[] {
-  return [...source.matchAll(/'([^']+)'/g)].map((row) => row[1]).filter((value): value is string => Boolean(value));
+  return [...source.matchAll(/'([^']+)'/g)]
+    .map((row) => row[1])
+    .filter((value): value is string => Boolean(value));
 }
 
 /**
- * Inspect pinned DSH rc.2 attachment, prompt, and composer contracts.
+ * Inspect pinned DSH alpha.1 attachment, prompt, and composer contracts.
  * This is an interface probe, not a product file composer.
  */
 export function probeOfficialFileIntake(): FileIntakeSpikeReport {
-  const llmReq = createRequire(req.resolve("@deepseek-ai/dsh-llm/package.json"));
-  const dshReq = createRequire(req.resolve("@deepseek-ai/dsh/package.json"));
-  const attachmentTypes = readOfficial("@deepseek-ai/dsh-attachment", "lib/types/types.d.ts", llmReq);
-  const attachmentIndex = readOfficial("@deepseek-ai/dsh-attachment", "lib/types/index.d.ts", llmReq);
-  const attachmentReadme = readOfficial("@deepseek-ai/dsh-attachment", "README.md", llmReq);
+  const llmReq = createRequire(
+    req.resolve("@deepseek-ai/dsh-llm/package.json"),
+  );
+  const attachmentTypes = readOfficial(
+    "@deepseek-ai/dsh-attachment",
+    "lib/types/types.d.ts",
+    llmReq,
+  );
+  const attachmentIndex = readOfficial(
+    "@deepseek-ai/dsh-attachment",
+    "lib/types/index.d.ts",
+    llmReq,
+  );
+  const attachmentReadme = readOfficial(
+    "@deepseek-ai/dsh-attachment",
+    "README.md",
+    llmReq,
+  );
   const llmTypes = readOfficial("@deepseek-ai/dsh-llm", "lib/types/types.d.ts");
-  const sessionApi = readOfficial("@deepseek-ai/dsh-host-apiproxy", "lib/types/api/sessions.d.ts", dshReq);
-  const overlay = readFileSync(
-    join(repoRoot, "overlays/dsh-0.1.1-rc.2/upstream/dsh-client-ui-conversation.client.js"),
-    "utf8",
+  const sessionApi = readOfficial(
+    "@deepseek-ai/dsh-api-session-controller",
+    "lib/types/types.d.ts",
+  );
+  const conversationClient = readOfficial(
+    "@deepseek-ai/dsh-client-ui-conversation",
+    "lib/client.js",
   );
 
   const imageMediaTypeUnion = captureGroup(
@@ -78,16 +105,38 @@ export function probeOfficialFileIntake(): FileIntakeSpikeReport {
     "ImageMediaType",
   );
   const officialImageMediaTypes = quotedStrings(imageMediaTypeUnion);
-  const contentBlockMap = captureGroup(llmTypes, /export interface ContentBlockMap \{([\s\S]*?)\n\}/, "ContentBlockMap");
-  const contentBlockTypes = [...contentBlockMap.matchAll(/'([^']+)':/g)].map((row) => row[1]).filter((value): value is string => Boolean(value));
+  const contentBlockMap = captureGroup(
+    llmTypes,
+    /export interface ContentBlockMap \{([\s\S]*?)\n\}/,
+    "ContentBlockMap",
+  );
+  const contentBlockTypes = [...contentBlockMap.matchAll(/'([^']+)':/g)]
+    .map((row) => row[1])
+    .filter((value): value is string => Boolean(value));
   const promptStart = sessionApi.indexOf("export type PromptContentPart =");
-  const promptEnd = sessionApi.indexOf("export interface ModelSelection", promptStart);
-  if (promptStart < 0 || promptEnd < 0) throw new PenglaiError("DSH_CONTRACT_DRIFT", "missing PromptContentPart");
+  const promptEnd = sessionApi.indexOf(
+    "export interface ModelSelection",
+    promptStart,
+  );
+  if (promptStart < 0 || promptEnd < 0)
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "missing PromptContentPart");
   const promptUnion = sessionApi.slice(promptStart, promptEnd);
-  const promptPartTypes = [...promptUnion.matchAll(/type: '([^']+)'/g)].map((row) => row[1]).filter((value): value is string => Boolean(value));
-  const conversationInputSlots = OFFICIAL_CONVERSATION_INPUT_SLOTS.filter((slot) => overlay.includes(`"${slot}"`));
-  const composerDraftFields = ["draft", "imageIds"].filter((field) => overlay.includes(field));
-  const officialContracts = [attachmentTypes, attachmentIndex, llmTypes, sessionApi, overlay].join("\n");
+  const promptPartTypes = [...promptUnion.matchAll(/type: '([^']+)'/g)]
+    .map((row) => row[1])
+    .filter((value): value is string => Boolean(value));
+  const conversationInputSlots = OFFICIAL_CONVERSATION_INPUT_SLOTS.filter(
+    (slot) => conversationClient.includes(`"${slot}"`),
+  );
+  const composerDraftFields = ["draft", "imageIds"].filter((field) =>
+    conversationClient.includes(field),
+  );
+  const officialContracts = [
+    attachmentTypes,
+    attachmentIndex,
+    llmTypes,
+    sessionApi,
+    conversationClient,
+  ].join("\n");
   const genericFileApis = [
     "FileMediaType",
     "FileAttachmentRef",
@@ -97,18 +146,24 @@ export function probeOfficialFileIntake(): FileIntakeSpikeReport {
   ].filter((name) => officialContracts.includes(name));
 
   const imageOnly =
-    officialImageMediaTypes.join(",") === OFFICIAL_IMAGE_MEDIA_TYPES.join(",") &&
+    officialImageMediaTypes.join(",") ===
+      OFFICIAL_IMAGE_MEDIA_TYPES.join(",") &&
     contentBlockTypes.includes("image") &&
     !contentBlockTypes.includes("file") &&
     promptPartTypes.join(",") === "text,image" &&
     genericFileApis.length === 0 &&
-    overlay.includes("createDraftImages") &&
-    overlay.includes('case "image/png"') &&
-    overlay.includes("UnsupportedImageMediaTypeError") &&
-    /Generic files, audio, video/i.test(attachmentReadme);
+    conversationClient.includes("createDraftImages") &&
+    conversationClient.includes('case "image/png"') &&
+    conversationClient.includes("UnsupportedImageMediaTypeError") &&
+    /generic files, audio, and video are not supported yet/i.test(
+      attachmentReadme,
+    );
 
   if (!imageOnly) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "DSH attachment/prompt contract changed; re-review R56-FILE-016");
+    throw new PenglaiError(
+      "DSH_CONTRACT_DRIFT",
+      "DSH attachment/prompt contract changed; re-review R56-FILE-016",
+    );
   }
 
   return {

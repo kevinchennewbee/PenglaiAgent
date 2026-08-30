@@ -14,20 +14,23 @@ import {
   stagingForTarget,
 } from "./lib/closure-credential.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
+
+const releasePins = readReleaseIdentityPins();
 
 const targetArg = process.argv.includes("--target")
   ? process.argv[process.argv.indexOf("--target") + 1]
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.7-arm64",
-    zip: "dist/Penglai-v0.5.7-arm64.zip",
+    out: "dist/Penglai-v0.5.8-arm64",
+    zip: "dist/Penglai-v0.5.8-arm64.zip",
     triple: "darwin-arm64",
     runtimeTarget: "darwin-aarch64",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.7-x64",
-    zip: "dist/Penglai-v0.5.7-x64.zip",
+    out: "dist/Penglai-v0.5.8-x64",
+    zip: "dist/Penglai-v0.5.8-x64.zip",
     triple: "darwin-x64",
     runtimeTarget: "darwin-x86_64",
   },
@@ -99,9 +102,13 @@ if (closure.verdict !== "PASS") {
   );
   process.exit(1);
 }
-const ensure = spawnSync(process.execPath, ["scripts/ensure-electron.mjs", "--target", targetArg], {
-  encoding: "utf8",
-});
+const ensure = spawnSync(
+  process.execPath,
+  ["scripts/ensure-electron.mjs", "--target", targetArg],
+  {
+    encoding: "utf8",
+  },
+);
 if (ensure.status !== 0) {
   process.stderr.write(
     ensure.stderr || ensure.stdout || "ensure-electron failed\n",
@@ -183,7 +190,10 @@ execFileSync("ditto", [
   join(resources, "plugins"),
 ]);
 if (existsSync(join(runtimeStaging, "mnemon"))) {
-  execFileSync("ditto", [join(runtimeStaging, "mnemon"), join(resources, "mnemon")]);
+  execFileSync("ditto", [
+    join(runtimeStaging, "mnemon"),
+    join(resources, "mnemon"),
+  ]);
 }
 execFileSync("ditto", [
   join(runtimeStaging, "runtime-manifest.json"),
@@ -207,12 +217,12 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.7 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
+  "Penglai 0.5.8 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.7",
+  productVersion: "0.5.8",
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
@@ -227,7 +237,8 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.1-rc.2",
+  dsh: "0.1.2-alpha.1",
+  dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,
   imSchema: 4,
@@ -246,11 +257,17 @@ writeFileSync(
   join(resources, "release-info.json"),
   JSON.stringify(info, null, 2),
 );
-const native = spawnSync(process.execPath, ["scripts/verify-native-arch.mjs", appDir, targetSpec.runtimeTarget], {
-  encoding: "utf8",
-});
+const native = spawnSync(
+  process.execPath,
+  ["scripts/verify-native-arch.mjs", appDir, targetSpec.runtimeTarget],
+  {
+    encoding: "utf8",
+  },
+);
 if (native.status !== 0) {
-  process.stderr.write(native.stderr || native.stdout || "verify-native-arch failed\n");
+  process.stderr.write(
+    native.stderr || native.stdout || "verify-native-arch failed\n",
+  );
   process.exit(native.status ?? 1);
 }
 const zip = targetSpec.zip;

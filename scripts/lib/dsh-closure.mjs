@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REQUIRED_DSH_RUNTIME_PACKAGES = [
@@ -12,8 +12,21 @@ export const REQUIRED_DSH_RUNTIME_PACKAGES = [
   "node-addon-native-custom-loader",
   "@deepseek-ai/dsh-web-frontend",
   "@deepseek-ai/dsh-workspace",
-  "@deepseek-ai/dsh-host-apiproxy",
+  "@deepseek-ai/dsh-api-session-controller",
+  "@deepseek-ai/dsh-api-settings-controller",
+  "@deepseek-ai/dsh-api-workspace-controller",
+  "@deepseek-ai/dsh-api-remotes",
   "@deepseek-ai/dsh-client-connection",
+  "@deepseek-ai/dsh-client-ui-settings",
+  "@deepseek-ai/dsh-client-ui-settings-general",
+  "@deepseek-ai/dsh-client-ui-slots",
+];
+
+export const DSH_RUNTIME_INTEGRATION_ROOTS = [
+  "@deepseek-ai/dsh-api-remotes",
+  "@deepseek-ai/dsh-client-ui-settings",
+  "@deepseek-ai/dsh-client-ui-settings-general",
+  "@deepseek-ai/dsh-client-ui-slots",
 ];
 
 export const REQUIRE_BUILTIN_NATIVE_BY_TARGET = {
@@ -74,13 +87,24 @@ export function packageDirFromAnchor(anchor, packageName) {
   return undefined;
 }
 
-export function collectDshClosure(installAnchor) {
+export function collectDshClosure(installAnchor, integrationRoots = DSH_RUNTIME_INTEGRATION_ROOTS) {
   const appManifest = JSON.parse(readFileSync(installAnchor, "utf8"));
   const links = new Map();
   if (typeof appManifest.name === "string" && appManifest.name) {
     links.set(appManifest.name, dirname(installAnchor));
   }
   const queue = [{ anchor: installAnchor, manifest: appManifest }];
+  for (const name of integrationRoots) {
+    if (links.has(name)) continue;
+    const dir = packageDirFromAnchor(installAnchor, name);
+    if (!dir) throw new Error(`embedded DSH integration root missing ${name}`);
+    links.set(name, dir);
+    const manifestPath = join(dir, "package.json");
+    queue.push({
+      anchor: manifestPath,
+      manifest: JSON.parse(readFileSync(manifestPath, "utf8")),
+    });
+  }
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
     for (const dep of [
       ...Object.keys(next.manifest.dependencies ?? {}),
@@ -115,8 +139,68 @@ export function assertDshClosure(links) {
 function copyFlatPackage(dir, dest) {
   mkdirSync(dirname(dest), { recursive: true });
   rmSync(dest, { recursive: true, force: true });
-  cpSync(dir, dest, { recursive: true, dereference: true });
-  rmSync(join(dest, "node_modules"), { recursive: true, force: true });
+  const nestedModules = join(dir, "node_modules");
+  cpSync(dir, dest, {
+    recursive: true,
+    dereference: true,
+    filter(source) {
+      return source !== nestedModules && !source.startsWith(`${nestedModules}${sep}`);
+    },
+  });
+}
+
+function packageVersion(dir) {
+  try {
+    return JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+
+export function materializeNestedVersionConflicts(links, modulesDir) {
+  const copied = new Set();
+  function preserve(sourceDir, destinationDir) {
+    const manifestPath = join(sourceDir, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    for (const dependency of [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ]) {
+      const actual = packageDirFromAnchor(manifestPath, dependency);
+      if (!actual) continue;
+      const flattened = links.get(dependency);
+      if (flattened && packageVersion(flattened) === packageVersion(actual)) continue;
+      const nestedDestination = join(destinationDir, "node_modules", dependency);
+      const key = `${actual}\0${nestedDestination}`;
+      if (copied.has(key)) continue;
+      copied.add(key);
+      copyFlatPackage(actual, nestedDestination);
+      preserve(actual, nestedDestination);
+    }
+  }
+  for (const [name, sourceDir] of links) {
+    preserve(sourceDir, join(modulesDir, name));
+  }
+  return { nestedConflictCount: copied.size };
+}
+
+export function assertNestedVersionConflicts(links, modulesDir) {
+  for (const [name, sourceDir] of links) {
+    const manifestPath = join(sourceDir, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    for (const dependency of [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ]) {
+      const actual = packageDirFromAnchor(manifestPath, dependency);
+      const flattened = links.get(dependency);
+      if (!actual || !flattened || packageVersion(flattened) === packageVersion(actual)) continue;
+      const nested = join(modulesDir, name, "node_modules", dependency);
+      if (packageVersion(nested) !== packageVersion(actual)) {
+        throw new Error(`embedded DSH closure lost nested ${dependency}@${packageVersion(actual)} required by ${name}`);
+      }
+    }
+  }
 }
 
 export function pruneNodePtyNativePayloads(modulesDir, target) {
@@ -185,6 +269,8 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
     if (name === appName) continue;
     copyFlatPackage(dir, join(modulesDir, name));
   }
+  const nestedConflicts = materializeNestedVersionConflicts(links, modulesDir);
+  assertNestedVersionConflicts(links, modulesDir);
   const nodePty = pruneNodePtyNativePayloads(modulesDir, target);
   const native = resolveRequireBuiltinNative(installAnchor, target);
   if (!native.dir || !existsSync(join(native.dir, "package.json"))) {
@@ -205,5 +291,6 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
     packages: [...flattened.keys()],
     native: native.name,
     nodePty,
+    nestedConflicts,
   };
 }

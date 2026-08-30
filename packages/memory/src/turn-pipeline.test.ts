@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { CallId } from "@deepseek-ai/dsh-llm";
+import { ToolCallId } from "@deepseek-ai/dsh-llm";
 import { MemoryV2Store } from "./v2/candidates.js";
 import {
   curatorUsageTokens,
@@ -165,7 +165,7 @@ test("memory curator rejects late tool blocks and an already-aborted request", a
             yield {
               type: "block-end" as const,
               index: 0,
-              block: { type: "tool-call" as const, id: CallId("call-1"), name: "bash", arguments: "{}" },
+              block: { type: "tool-call" as const, id: ToolCallId("call-1"), name: "bash", arguments: "{}" },
             };
             yield { type: "finish" as const, reason: { kind: "stop" as const } };
           })();
