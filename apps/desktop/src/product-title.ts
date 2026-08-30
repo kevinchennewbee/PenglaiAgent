@@ -1,5 +1,60 @@
 export const PENGLAI_DESKTOP_TITLE = "蓬莱 Penglai";
 
+/**
+ * Context isolation gives the preload and DSH page separate JavaScript worlds.
+ * Keep this static bootstrap self-contained so it can be installed in the page
+ * world without granting that world any Electron capability.
+ */
+export const PENGLAI_MAIN_WORLD_TITLE_GUARD = `(() => {
+  const productTitle = ${JSON.stringify(PENGLAI_DESKTOP_TITLE)};
+  const rewrite = (value) => {
+    const current = String(value ?? "");
+    return current.trim()
+      ? current.replace(/DeepSeek Harness/gi, productTitle)
+      : productTitle;
+  };
+  if (Object.prototype.hasOwnProperty.call(document, "__penglaiTitleGuard")) {
+    document.title = rewrite(document.title);
+    return;
+  }
+  let owner = document;
+  let descriptor;
+  while (owner && !descriptor) {
+    descriptor = Object.getOwnPropertyDescriptor(owner, "title");
+    owner = Object.getPrototypeOf(owner);
+  }
+  let fallback = document.title;
+  const readRaw = descriptor && descriptor.get
+    ? () => String(descriptor.get.call(document) ?? "")
+    : () => fallback;
+  const writeRaw = descriptor && descriptor.set
+    ? (value) => descriptor.set.call(document, value)
+    : (value) => { fallback = value; };
+  const sync = () => {
+    const current = readRaw();
+    const branded = rewrite(current);
+    if (branded !== current) writeRaw(branded);
+  };
+  Object.defineProperty(document, "title", {
+    configurable: false,
+    enumerable: descriptor ? descriptor.enumerable : true,
+    get: () => rewrite(readRaw()),
+    set: (value) => writeRaw(rewrite(value)),
+  });
+  Object.defineProperty(document, "__penglaiTitleGuard", {
+    configurable: false,
+    enumerable: false,
+    value: true,
+    writable: false,
+  });
+  sync();
+  new MutationObserver(sync).observe(document.head || document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+})()`;
+
 export function penglaiDocumentTitle(current: string): string {
   if (!current.trim()) return PENGLAI_DESKTOP_TITLE;
   return current.replace(/DeepSeek Harness/gi, PENGLAI_DESKTOP_TITLE);
@@ -51,13 +106,18 @@ function installSynchronousTitleGuard(
     : (value: string) => {
         fallback = value;
       };
-  const sync = (): void => writeRaw(penglaiDocumentTitle(readRaw()));
+  const sync = (): void => {
+    const current = readRaw();
+    const branded = penglaiDocumentTitle(current);
+    if (branded !== current) writeRaw(branded);
+  };
   try {
     Object.defineProperty(documentPort, "title", {
       configurable: true,
       enumerable: own?.enumerable ?? descriptor?.enumerable ?? true,
       get: () => penglaiDocumentTitle(readRaw()),
-      set: (value: unknown) => writeRaw(penglaiDocumentTitle(String(value ?? ""))),
+      set: (value: unknown) =>
+        writeRaw(penglaiDocumentTitle(String(value ?? ""))),
     });
   } catch {
     return {
