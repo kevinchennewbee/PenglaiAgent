@@ -18,6 +18,10 @@
     "repack": "npm-pack-ignore-scripts",
     "sourceDateEpoch": 499162500
   },
+  "buildHost": {
+    "platform": "darwin",
+    "sourceRoot": "/private/tmp/penglai-dsh-source-closure-cd5ef8148158/source"
+  },
   "packedInstallReadback": {
     "passed": true,
     "package": "@deepseek-ai/dsh",
@@ -33,7 +37,7 @@
     },
     "artifacts": {
       "fileCount": 218,
-      "sha256": "0c5586605c9f4d3135f8a3d30babd5bb93fb2473d4376432459c5ce5d767cc6a"
+      "sha256": "efff50405215c6ae93d81a6a74853bdc976cbcc7359267439564578c6b651a57"
     }
   },
   "packageCount": 251,
@@ -542,8 +546,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 29548,
-          "sha256": "ae3b34a1f87befabd74fc361eccc8743367ec90f19b213a1bb04e3a441878c59"
+          "size": 29563,
+          "sha256": "45dcb6153b842e2a84b20cc7e01de91303babba31c285db037b5e38d9fbe5322"
         },
         {
           "filename": "deepseek-ai-dsh-client-modules-0.1.2-alpha.1.tgz",
@@ -594,8 +598,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 36262,
-          "sha256": "fd092f688fc9df2ccbfe32e7b72ad14007b99ed77d53a5be764250a24eb8fa57"
+          "size": 36266,
+          "sha256": "491798ae7d8c501fd590787eef59cc4e30509b32fd6f809dff4d86f984fe04fa"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-approval-0.1.2-alpha.1.tgz",
@@ -607,8 +611,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 8525,
-          "sha256": "6b34319a1be52cc8bf85f90c2c43206a0a3e26fc8ddf0382e75855e31727cfaf"
+          "size": 8535,
+          "sha256": "a52ba89499ad5b7f4502a746021fa66b8306b2ead13be7cb0bb7ee0e28254ef8"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-attachment-0.1.2-alpha.1.tgz",
@@ -620,8 +624,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 19510,
-          "sha256": "15547e731324e8890f97f2e7d7ab9ea2f788236da0279017397b90fef4be4869"
+          "size": 19519,
+          "sha256": "dc826312e44e1d20f192929f2ce0008a638dd1c84640daf79c8de63cd464dd6c"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-brand-official-0.1.2-alpha.1.tgz",
@@ -646,8 +650,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 107638,
-          "sha256": "b0091bb05bdf8c65996e9f4714e192851f297fef3259534908f43feaf08efaf9"
+          "size": 107663,
+          "sha256": "e816fea42d600574e205074be52d22df76f197b1c13688c7951be28f13b01df3"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-commands-0.1.2-alpha.1.tgz",
@@ -659,8 +663,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 27749,
-          "sha256": "28716f36d6cfe402cc70891576804e749f30df53af3d523fdb79e91f97a556ec"
+          "size": 27764,
+          "sha256": "0de8dd1c4217856bbff8f5e3662be2325a7c50037660c58f03c67df7247f7b0d"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-conversation-0.1.2-alpha.1.tgz",
@@ -672,8 +676,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 206334,
-          "sha256": "890c1b4ff517379d8eafaf514b76444c889d5f02acfcc172cd28b27312fa4065"
+          "size": 206355,
+          "sha256": "e8f09a85394e8d705d396ae9663b6301cd11c7602b70826847538080c09e7d6c"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-cordis-0.1.2-alpha.1.tgz",
@@ -685,8 +689,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 31073,
-          "sha256": "6c684fa38b5d982d07a6e70110d724c91f5efc05553267c868c0f57763d4a293"
+          "size": 31063,
+          "sha256": "9596c694c2a6be80903b8e49880dcbc57385c26b841a95a0e3245cb379e79ab4"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-deliverables-0.1.2-alpha.1.tgz",
@@ -698,8 +702,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 16034,
-          "sha256": "c85542bae7c0d48f0b7d05f2c7b7787cfc126598cb5cff160b44b12c2236e728"
+          "size": 16047,
+          "sha256": "9d28f12be8f018e6fa07f3358c8b98bfed683b379c4ae29dda5513dd15240fcb"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-directory-picker-browse-0.1.2-alpha.1.tgz",
@@ -711,8 +715,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 20526,
-          "sha256": "3ced04a8acf740af11e50a214b88037c8081a3145935d4172a681efbdca342cf"
+          "size": 20531,
+          "sha256": "01f7109fd5f5db5274c099ca125466751e1129f642159de1bf9460e5889302b0"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-directory-picker-native-0.1.2-alpha.1.tgz",
@@ -737,8 +741,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 13343,
-          "sha256": "71ef0ceda49ea098291e6d20e84cbed29191454a01787dd59a1b5f1e46c4aa84"
+          "size": 13351,
+          "sha256": "35631cc99b43d37644a7dd5249343e650e0ab469e51091ef967480b047b799d1"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-input-trigger-0.1.2-alpha.1.tgz",
@@ -750,8 +754,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 31658,
-          "sha256": "ddf85364beaff3dd30878df659ad7f1b06d180f5721a150d74f62dfb3f767ecd"
+          "size": 31666,
+          "sha256": "ce5a4836e0809c474685b81452417d79feafb78db4dfdcdf9ae41f7f4819c6c2"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-jobs-0.1.2-alpha.1.tgz",
@@ -763,8 +767,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 11471,
-          "sha256": "8e4728f8f6be23744613bc9996f315288659e9cd2458e209a62258f9227bf6d9"
+          "size": 11483,
+          "sha256": "11c60997eb001c896db1a607c919d72dffebe70f7c577ba68c4b736e4fe305f6"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-layout-0.1.2-alpha.1.tgz",
@@ -776,8 +780,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 17875,
-          "sha256": "de11114906eed53a3093cb9cd89f785e28fe2e94f5566aecfa9a53fd22610e0b"
+          "size": 17888,
+          "sha256": "01142d24cc57662ff58fc50cd67155203fef0082c6faa68fa0f631ac5578543c"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-message-feedback-0.1.2-alpha.1.tgz",
@@ -789,8 +793,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 17638,
-          "sha256": "5e0bf7501b9308fc78845ff846db4971a30681a87c9222f534fc833fdb15219f"
+          "size": 17649,
+          "sha256": "354d80859925cfe5170ab1c9654225e22008d40c186a0ccd15585847ab558beb"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-model-selection-0.1.2-alpha.1.tgz",
@@ -802,8 +806,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 20748,
-          "sha256": "022d7c36fff6e924529875748c7f9d83e3b96ebedf8c9039077d93bd5dd086ac"
+          "size": 20762,
+          "sha256": "d519d9c09c2454a427e3c9a6eb4c416f5886df1644d6fdc01e80b3b0a2501e54"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-permission-presets-0.1.2-alpha.1.tgz",
@@ -815,8 +819,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 14636,
-          "sha256": "4f4aa12087c51465696759f1dcb94f00ad61cff84b86a584b5aeb9aeb9946ebe"
+          "size": 14649,
+          "sha256": "174160ffb95c1c6ddaa7fdf162ee42e50838fb3b2d8a5b0fa3fa6d601c5ee64a"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-plan-0.1.2-alpha.1.tgz",
@@ -828,8 +832,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 9425,
-          "sha256": "c09a5e6b2ae96679dcc1118c4e79d8c9552306902fd5d13fb60ce5aa1c8812eb"
+          "size": 9436,
+          "sha256": "d5fe3a19f5ed71390880d7a387487bf0b9b3c92221d24784057b22f6eb991606"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.1.tgz",
@@ -906,8 +910,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 17175,
-          "sha256": "6a78138f1faf03b2b3ee1a333275658fe2ba6c0116ac3b66cb98ea57fb1efc0e"
+          "size": 17196,
+          "sha256": "256d45c85ff3a4ea2279b10a65b07108ce82bac990eca77ae29323c49c5fe6fd"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-settings-models-0.1.2-alpha.1.tgz",
@@ -919,8 +923,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 56721,
-          "sha256": "1c3e1d7600bd1ff60ae58e6dddb7f3006b6a8008c9c85c94a4670d9a2beaffb5"
+          "size": 56739,
+          "sha256": "854f3ab3fc7bfde6ee5d803ea52421661e1eda7b0b529c3a6212138b20a7c43d"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-settings-plugin-inventory-0.1.2-alpha.1.tgz",
@@ -932,8 +936,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 11092,
-          "sha256": "c2055b88a945bbe0b5a4055334d246fa84723cf2ffe94f92bb3d8da272394ba4"
+          "size": 11102,
+          "sha256": "4855e2969d6b11b3edc8da2c464a079f73321799591fd3e7e204215ad0ea5bbe"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-settings-plugins-0.1.2-alpha.1.tgz",
@@ -945,8 +949,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 37116,
-          "sha256": "4f6fcc0391ae280219aa71c01ec4541439fc92644686cab41009e3a122065fcb"
+          "size": 37119,
+          "sha256": "0c5e4ec42671ae763693688eaad0680c616712a259c362f6bf909694e571ab24"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-sidebar-0.1.2-alpha.1.tgz",
@@ -958,8 +962,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 14088,
-          "sha256": "6cb46f7486beb38f19a12a2887f2d2e4c887f3a612cede976efdf1c22fcfb958"
+          "size": 14091,
+          "sha256": "36e62ac42b7b4a587017d383f6dd066d2667ea2252843ec6bbd941acc780af28"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-skill-0.1.2-alpha.1.tgz",
@@ -971,8 +975,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 14452,
-          "sha256": "37ea847733996538bd9545ca589c2c78dc69014972a0384bd5e3920315c8c8cf"
+          "size": 14455,
+          "sha256": "802b1bd02dfba92b69b8f9a7635f5460c3693b5a503b85d188a478c27412af41"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.1.tgz",
@@ -997,8 +1001,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 20460,
-          "sha256": "eeecedf6c468f36c8e6314f3b559f284869e8220d66874a9e1169521dc5a08a4"
+          "size": 20472,
+          "sha256": "0978ecfeb1f73f92d485d1f7ab7c4d5d271279a40c4ee0529ddefc469a3976a7"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-theme-0.1.2-alpha.1.tgz",
@@ -1010,8 +1014,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 35024,
-          "sha256": "dc92f61151ed7eb3f6c472f87f51367448292df085b65cad65866508b931db74"
+          "size": 35041,
+          "sha256": "7a13166205bc10715a20db2fab15f5b93083e6cdd879ddca64b02d21872fd5ea"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-tool-0.1.2-alpha.1.tgz",
@@ -1023,8 +1027,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 37558,
-          "sha256": "f5980dc3870bcaefd86270438d8265d03dd3387b683a067bd749f2164d05085d"
+          "size": 37565,
+          "sha256": "8af632bd719c12cf14254f58a1986bf9a7ef05ad3d99fb6074230806621184a0"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-trajectory-0.1.2-alpha.1.tgz",
@@ -1036,8 +1040,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 99200,
-          "sha256": "9920becccfa1facd32ef39f6e5aa4ab2b5eb7af73a836fbb77556c69c1bd6ca9"
+          "size": 99227,
+          "sha256": "2dc78667517165be7871a75ac76dfa4e4f8441428486bf0ac02e9668563e6a2e"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-user-questions-0.1.2-alpha.1.tgz",
@@ -1049,8 +1053,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 22319,
-          "sha256": "081fe68a3eb16301d6fd8e06f57a13c87156c30d121caddc9dd7efa139086f63"
+          "size": 22334,
+          "sha256": "07bbd6856eb26999efacb1441037525e021cd446aea3c9274a1ccec984fbd588"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-workflow-run-0.1.2-alpha.1.tgz",
@@ -1062,8 +1066,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 14870,
-          "sha256": "68de3e16bffa388d4e49f53d1b67e34f53a2e2a1454b7c6bd93841810f26c4f2"
+          "size": 14876,
+          "sha256": "b054d1ff4c1ade5cc32e550185748a4713e2ce22f9c437c7f1e9fa3af1e14507"
         },
         {
           "filename": "deepseek-ai-dsh-client-ui-workspace-0.1.2-alpha.1.tgz",
@@ -1075,8 +1079,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 47339,
-          "sha256": "01a0ab08cdb7372b0426f8bc32cb42848cd2f9c8d748c6ba81fefea786fdca95"
+          "size": 47351,
+          "sha256": "589ae508df0e94a5760ea11f88401eb4f88f994a02592978c136e8058946a722"
         },
         {
           "filename": "deepseek-ai-dsh-client-web-0.1.2-alpha.1.tgz",
@@ -2089,8 +2093,8 @@
             "type": "git",
             "url": "git+https://github.com/deepseek-ai/deepseek-harness.git"
           },
-          "size": 21356,
-          "sha256": "611d987c7e7af9a672ce701d953271d7a4b935e5dbf5c38e994d5960acb8a73e"
+          "size": 21370,
+          "sha256": "af7f370cba663dd60f10fd77cda9f7dd8b6ef9007bb0f85a5eb1d24e78a3423e"
         },
         {
           "filename": "deepseek-ai-dsh-session-persistence-0.1.2-alpha.1.tgz",

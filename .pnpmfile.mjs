@@ -27,7 +27,10 @@ export const penglaiDshSourceResolver = {
   resolve(wantedDependency) {
     const entry = packages.get(wantedDependency.alias);
     return {
-      id: `penglai-dsh-source:${wantedDependency.alias}@${entry.version}`,
+      // Source builds may legitimately reseal same-version tarballs when the
+      // reproducible build contract changes. Bind the package id to its bytes
+      // so pnpm refreshes the lock instead of reusing a stale resolution.
+      id: `penglai-dsh-source:${wantedDependency.alias}@${entry.version}+sha256.${entry.sha256.slice(0, 16)}`,
       resolution: {
         type: "custom:penglai-dsh-source",
         name: wantedDependency.alias,

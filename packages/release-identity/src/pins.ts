@@ -31,7 +31,7 @@ export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Ha
 export const PINNED_DSH_TARBALL_SHA256 =
   "c98951891ae5acac0c578cae8f8f52e1e017a9ad4b57a81b63dd24a264d82d06";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "45568b0f3a09f36b996af1d3a358fe34f1c2e92ea124f077ee7fb43e2bd1cd6e";
+  "25b9b4cc9f62dfaa4f1c868cbde9e78b73c0e9a855fb3302c8be37f53c55aeb2";
 export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 251;
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";

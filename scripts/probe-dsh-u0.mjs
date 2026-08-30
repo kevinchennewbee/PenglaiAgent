@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// U0 reconnaissance: npm dist-tags, installed rc.6 API surfaces, in-process
+// Historical U0 reconnaissance only. This 0.1.0-rc.7 compatibility probe is
+// intentionally not an active 0.5.8 package script; current alpha.1 verification
+// is owned by the source-closure, bridge-contract, runner-live and native gates.
+// Original scope: npm dist-tags, installed rc.6 API surfaces, in-process
 // official credentials/llm, wire-format inspection, and live embedded DSH
 // /api + events.host. Writes evidence/generated/dsh-u0-runtime.json.
 // The committed archive is docs/compatibility/DSH_010_RC7_U0.md.

@@ -20,6 +20,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source-closure-replay:
+    name: Reproduce fixed DSH source closure
+    if: ${{ inputs.mode == 'native' }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Select the source package manager
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+      - name: Build the fixed official source closure twice
+        run: |
+          pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-a
+          pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-b
+      - name: Verify reproducible and promoted bytes
+        run: |
+          pnpm verify:dsh-source-replay --left .cache/dsh-source-closure/native-replay-a --right .cache/dsh-source-closure/native-replay-b
+          pnpm verify:dsh-source-replay --left .cache/dsh-source-closure/native-replay-a --right third_party/dsh/0.1.2-alpha.1
+
   plugin-distribution:
     name: Signed Plugin Center distribution
     if: ${{ inputs.mode == 'catalog' }}
@@ -47,6 +72,7 @@ jobs:
   macos:
     name: macOS ${{ matrix.target }}
     if: ${{ inputs.mode == 'native' }}
+    needs: source-closure-replay
     strategy:
       fail-fast: false
       matrix:
@@ -121,6 +147,7 @@ jobs:
   windows:
     name: Windows win32-x86_64
     if: ${{ inputs.mode == 'native' }}
+    needs: source-closure-replay
     runs-on: windows-2022
     timeout-minutes: 90
     steps:

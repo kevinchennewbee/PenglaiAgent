@@ -133,7 +133,7 @@ disabled or future platform.
 
 | Path family | Class | Owner/invocation | Preview rule |
 | --- | --- | --- | --- |
-| `scripts/verify-*`, probes, evidence writers, native builders, installed runners | Release/native/operator verifier, per script | package, installed, live, public, aggregate, manual, or historical gate | All 60 are exhaustively classified by `VERIFIER_EVIDENCE_MAP.json`; census and invocation drift fail the preview gate |
+| `scripts/verify-*`, probes, evidence writers, native builders, installed runners | Release/native/operator verifier, per script | package, installed, live, public, aggregate, manual, or historical gate | All 61 are exhaustively classified by `VERIFIER_EVIDENCE_MAP.json`; census and invocation drift fail the preview gate |
 | `scripts/evidence-*.mjs`, schemas | Evidence writer/validator | release or operator flow | Keep privacy limits and version chain; do not mass-delete |
 | `scripts/package-*.mjs`, `assemble-release.mjs` | Release builder | authorized release workflow | No 0.5.8 package/release invocation before Gate P0 |
 | `.github/workflows/native-release-candidate.yml` | Native release gate | GitHub Actions | Protected and byte-identical in source-preparation phase |
@@ -192,7 +192,7 @@ without claiming that any higher evidence plane has run.
 
 ## Executable verifier evidence-plane checkpoint
 
-`VERIFIER_EVIDENCE_MAP.json` classifies the complete current 60-script census:
+`VERIFIER_EVIDENCE_MAP.json` classifies the complete current 61-script census:
 18 source, 8 package, 15 native, 5 installed, 2 Owner-live, 2 public-byte,
 3 aggregate, and 7 historical scripts. Each row has one package-script,
 composed-script, workflow, internal-script, manual, or historical invocation

@@ -181,7 +181,7 @@ Allowed work now includes:
   of declaring another expected version, then checks workspace manifests and
   the complete high-risk `release-info` product/toolchain/DSH/schema/publication
   and three-target copies. This is source consistency, not artifact evidence.
-- The complete 60-script verifier/operator census is now executable and split
+- The complete 61-script verifier/operator census is now executable and split
   across source, package, native, installed, Owner-live, public-byte, aggregate,
   and historical evidence planes. New or stale scripts, broken invocation
   ownership, and promotion of higher evidence into source PASS fail the preview

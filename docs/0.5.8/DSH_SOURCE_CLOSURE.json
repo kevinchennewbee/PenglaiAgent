@@ -20,6 +20,10 @@
     "title": "DeepSeek Harness"
   },
   "build": {
+    "canonicalHost": {
+      "platform": "darwin",
+      "sourceRoot": "/private/tmp/penglai-dsh-source-closure-cd5ef8148158/source"
+    },
     "install": ["install", "--frozen-lockfile"],
     "compile": ["run", "build:official"],
     "families": [
@@ -44,7 +48,12 @@
         "publishOrder": false
       }
     ],
-    "packedInstallFamily": "dsh"
+    "packedInstallFamily": "dsh",
+    "packedInstallEnvironment": {
+      "darwin": {
+        "LDFLAGS": "-undefined dynamic_lookup"
+      }
+    }
   },
   "transport": {
     "kind": "local-tarball-closure",

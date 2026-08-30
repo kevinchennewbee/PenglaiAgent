@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   normalizeRepositoryUrl,
@@ -34,10 +34,10 @@ function capture(command, args, cwd, options = {}) {
   }).trim();
 }
 
-function run(command, args, cwd) {
+function run(command, args, cwd, env = {}) {
   const result = spawnSync(command, args, {
     cwd,
-    env: { ...process.env },
+    env: { ...process.env, ...env },
     stdio: "inherit",
   });
   if (result.status !== 0) {
@@ -245,6 +245,7 @@ if (values["contract-only"]) {
   });
 }
 let temporaryRoot;
+let canonicalRoot;
 let source;
 let result;
 try {
@@ -260,6 +261,19 @@ try {
   if (values["identity-only"]) {
     result = { verdict: "PASS", command: "prepare-dsh-source-closure", mode: "identity-only", identity };
   } else {
+    if (process.platform !== contract.build.canonicalHost.platform) {
+      throw new Error(`full source closure requires ${contract.build.canonicalHost.platform}, received ${process.platform}`);
+    }
+    const inputSource = source;
+    source = resolve(contract.build.canonicalHost.sourceRoot);
+    canonicalRoot = dirname(source);
+    rmSync(canonicalRoot, { recursive: true, force: true });
+    mkdirSync(canonicalRoot, { recursive: true });
+    run("git", ["clone", "--no-hardlinks", "--no-checkout", inputSource, source], ROOT);
+    run("git", ["checkout", "--detach", contract.upstream.commit], source);
+    run("git", ["remote", "set-url", "origin", contract.upstream.repository], source);
+    verifySource(source, contract);
+
     const output = resolveClosureOutput(ROOT, values.out, contract);
     rmSync(output, { recursive: true, force: true });
     mkdirSync(output, { recursive: true });
@@ -313,6 +327,7 @@ try {
         familyOutputs.get("landlock-entry"),
       ],
       source,
+      contract.build.packedInstallEnvironment[process.platform] ?? {},
     );
 
     const families = [...contract.build.families, ...contract.build.auxiliaryPackages].map((family) => ({
@@ -374,6 +389,7 @@ try {
       publicNpmPublication: false,
       patched: false,
       artifactNormalization: contract.transport.artifactNormalization,
+      buildHost: contract.build.canonicalHost,
       packedInstallReadback: {
         passed: true,
         package: "@deepseek-ai/dsh",
@@ -396,6 +412,7 @@ try {
 } catch (error) {
   result = { verdict: "FAIL", command: "prepare-dsh-source-closure", reason: String(error) };
 } finally {
+  if (canonicalRoot) rmSync(canonicalRoot, { recursive: true, force: true });
   if (temporaryRoot) rmSync(temporaryRoot, { recursive: true, force: true });
 }
 finish(result.verdict, Object.fromEntries(Object.entries(result).filter(([key]) => key !== "verdict")));

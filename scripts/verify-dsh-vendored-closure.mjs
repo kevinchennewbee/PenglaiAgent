@@ -51,6 +51,7 @@ if (
   manifest.officialNpmRequired !== false ||
   manifest.publicNpmPublication !== false ||
   manifest.patched !== false ||
+  JSON.stringify(manifest.buildHost) !== JSON.stringify(contract.build.canonicalHost) ||
   JSON.stringify(manifest.artifactNormalization) !==
     JSON.stringify(contract.transport.artifactNormalization) ||
   manifest.packageCount !== expectedCount

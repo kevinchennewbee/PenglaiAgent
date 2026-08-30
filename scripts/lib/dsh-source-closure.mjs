@@ -45,6 +45,15 @@ export function validateDshSourceClosureContract(contract) {
     throw new Error("the official DSH client title must remain unmodified");
   }
 
+  const canonicalHost = contract.build?.canonicalHost ?? {};
+  if (
+    canonicalHost.platform !== "darwin" ||
+    canonicalHost.sourceRoot !==
+      `/private/tmp/penglai-dsh-source-closure-${upstream.commit.slice(0, 12)}/source`
+  ) {
+    throw new Error("the DSH client build must use the fixed canonical Darwin source root");
+  }
+
   const families = contract.build?.families;
   if (!Array.isArray(families) || families.length !== 2) {
     throw new Error("build.families must contain the vendor and dsh release families");
@@ -77,6 +86,14 @@ export function validateDshSourceClosureContract(contract) {
   }
   if (contract.build?.packedInstallFamily !== "dsh") {
     throw new Error("the installed readback must drive the dsh release family");
+  }
+  const darwinPackedInstallEnvironment = contract.build?.packedInstallEnvironment?.darwin;
+  if (
+    !darwinPackedInstallEnvironment ||
+    Object.keys(darwinPackedInstallEnvironment).length !== 1 ||
+    darwinPackedInstallEnvironment.LDFLAGS !== "-undefined dynamic_lookup"
+  ) {
+    throw new Error("the Darwin packed-install readback must bind the Node addon dynamic lookup linker flag");
   }
 
   const transport = contract.transport ?? {};
