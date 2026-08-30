@@ -91,7 +91,7 @@ export const HTTP_JS = `fetch(location.origin + "/", { credentials: "same-origin
 })`;
 
 export const WS_JS = `new Promise((resolve) => {
-  const url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/api/events.host";
+  const url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/api/remote.mux";
   let settled = false;
   const done = (opened, readyState) => {
     if (settled) return;

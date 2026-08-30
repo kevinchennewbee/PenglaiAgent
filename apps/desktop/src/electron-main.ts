@@ -243,7 +243,7 @@ async function observeOfficialDom(win: BrowserWindow, timeoutMs: number): Promis
 
 async function observeOfficialWebsocket(win: BrowserWindow): Promise<{ opened: boolean; url: string; readyState: number }> {
   return (await win.webContents.executeJavaScript(`new Promise((resolve) => {
-    const url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/api/events.host";
+    const url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/api/remote.mux";
     let settled = false;
     const done = (opened, readyState) => {
       if (settled) return;
