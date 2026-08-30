@@ -57,6 +57,7 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/PUBLICATION_MANIFEST_0.5.7.md",
   "docs/RELEASE_NOTES_0.5.7.md",
   "docs/0.5.7",
+  "docs/0.5.8",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -141,6 +142,8 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/RELEASE_NOTES_0.5.7.md",
   "docs/0.5.7/RELEASE_RUNBOOK.md",
   "docs/0.5.7/ACCEPTANCE_DELTA.md",
+  "docs/0.5.8/RELEASE_RUNBOOK.md",
+  "docs/0.5.8/ACCEPTANCE_DELTA.md",
 ] as const;
 
 export interface ExportFile {
@@ -153,8 +156,11 @@ export interface ExportFile {
 
 export function pathAllowed(rel: string): boolean {
   const norm = rel.replaceAll("\\", "/");
-  if (PUBLIC_EXPORT_DENY.some((d) => norm === d || norm.startsWith(`${d}/`))) return false;
-  return PUBLIC_EXPORT_ALLOW.some((a) => norm === a || norm.startsWith(`${a}/`));
+  if (PUBLIC_EXPORT_DENY.some((d) => norm === d || norm.startsWith(`${d}/`)))
+    return false;
+  return PUBLIC_EXPORT_ALLOW.some(
+    (a) => norm === a || norm.startsWith(`${a}/`),
+  );
 }
 
 export function classifyLicense(rel: string): string {
@@ -175,24 +181,38 @@ export function publicExportTreeSha256(files: readonly ExportFile[]): string {
 export function assertRequiredPublicDocs(paths: readonly string[]): void {
   const set = new Set(paths);
   const missing = REQUIRED_PUBLIC_DOCS.filter((p) => !set.has(p));
-  if (missing.length) throw new PenglaiError("INVALID_INPUT", `public-export missing ${missing.join(",")}`);
+  if (missing.length)
+    throw new PenglaiError(
+      "INVALID_INPUT",
+      `public-export missing ${missing.join(",")}`,
+    );
 }
 
-export function assertExportHasSourceNotOnlyBinary(paths: readonly string[]): void {
+export function assertExportHasSourceNotOnlyBinary(
+  paths: readonly string[],
+): void {
   const hasTs = paths.some((p) => p.endsWith(".ts") || p.endsWith(".mjs"));
   const hasOverlay = paths.some((p) => p.startsWith("overlays/"));
   const hasLock = paths.includes("pnpm-lock.yaml");
   const hasContract = paths.includes("release-contract.json");
   if (!hasTs || !hasLock || !hasContract) {
-    throw new PenglaiError("INVALID_INPUT", "public-export must include source, lock, and provenance");
+    throw new PenglaiError(
+      "INVALID_INPUT",
+      "public-export must include source, lock, and provenance",
+    );
   }
   void hasOverlay;
 }
 
-export function assertPublicationTarget(publication: Record<string, unknown>): void {
+export function assertPublicationTarget(
+  publication: Record<string, unknown>,
+): void {
   for (const key of ["repo", "tag", "release", "channel"] as const) {
     if (publication[key] !== PUBLICATION_TARGET[key]) {
-      throw new PenglaiError("SECURITY_POLICY", `publication.${key} does not match authorized target`);
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        `publication.${key} does not match authorized target`,
+      );
     }
   }
 }
@@ -204,19 +224,34 @@ const REAL_SECRET = [
   /App Secret\s*[:=]\s*[A-Za-z0-9]{12,}/i,
 ];
 
-const OWNER_PATH = [/\/Volumes\/[^/\s]+\//, /\/Users\/[A-Za-z0-9._-]{2,}\//, /C:\\Users\\[A-Za-z0-9._-]+/i];
+const OWNER_PATH = [
+  /\/Volumes\/[^/\s]+\//,
+  /\/Users\/[A-Za-z0-9._-]{2,}\//,
+  /C:\\Users\\[A-Za-z0-9._-]+/i,
+];
 
 export function scanExportText(rel: string, text: string): void {
   const testFile = /\.test\.(ts|mjs|js)$/.test(rel);
   if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text)) {
-    throw new PenglaiError("SECURITY_POLICY", `export:${rel} contains forbidden secret or owner path`);
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      `export:${rel} contains forbidden secret or owner path`,
+    );
   }
   if (testFile) return;
   for (const re of REAL_SECRET) {
-    if (re.test(text)) throw new PenglaiError("SECURITY_POLICY", `export:${rel} contains forbidden secret or owner path`);
+    if (re.test(text))
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        `export:${rel} contains forbidden secret or owner path`,
+      );
   }
   for (const re of OWNER_PATH) {
-    if (re.test(text)) throw new PenglaiError("SECURITY_POLICY", `export:${rel} contains forbidden secret or owner path`);
+    if (re.test(text))
+      throw new PenglaiError(
+        "SECURITY_POLICY",
+        `export:${rel} contains forbidden secret or owner path`,
+      );
   }
 }
 
@@ -260,8 +295,17 @@ export function buildPublicationDraft(input: {
   };
 }
 
-export function futurePublicAssetIdentityGate(acceptedSha256: string, publishedSha256: string): void {
-  if (!/^[0-9a-f]{64}$/.test(acceptedSha256) || acceptedSha256 !== publishedSha256) {
-    throw new PenglaiError("SECURITY_POLICY", "future public Release assets must be exact accepted bytes");
+export function futurePublicAssetIdentityGate(
+  acceptedSha256: string,
+  publishedSha256: string,
+): void {
+  if (
+    !/^[0-9a-f]{64}$/.test(acceptedSha256) ||
+    acceptedSha256 !== publishedSha256
+  ) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "future public Release assets must be exact accepted bytes",
+    );
   }
 }
