@@ -11,6 +11,7 @@ import {
   installFromExactInstaller,
   launchInstalledHarness,
   launchPackaged,
+  requestBrowserClose,
   waitChildExit,
   leftoversByCommand,
   ownedProcessTree,
@@ -249,11 +250,14 @@ const sawGateway = await waitForFile(gatewayFile, 90_000);
 
 let walk = null;
 let attachErr = "";
+let walkSession = null;
 try {
   const { session } = await attachPage(debugPort, 90_000);
+  walkSession = session;
   walk = await walkInstalledBrowserWindow(session, { shotDir, userData });
-  session.close();
 } catch (err) {
+  walkSession?.close();
+  walkSession = null;
   attachErr = err instanceof Error ? err.message : String(err);
 }
 
@@ -293,33 +297,72 @@ if (walk?.wizardKeyless?.ok) {
   stage("installed-ui-resume");
   const ledgerPath = join(userData, "onboarding", "onboarding.json");
   const ledgerBefore = existsSync(ledgerPath) ? JSON.parse(readFileSync(ledgerPath, "utf8")) : null;
-  await stopChild(launched.child);
-  const debugPort2 = await freePort();
-  const launched2 = launchInstalledHarness(harnessApp, resources, userData, [
-    `--remote-debugging-port=${debugPort2}`,
-    "--remote-allow-origins=*",
-  ]);
-  try {
-    await waitForFile(gatewayFile, 90_000);
-    const attached = await attachPage(debugPort2, 90_000);
-    const snap = await waitEval(attached.session, SNAPSHOT_JS, wizardResumeReady, 45_000);
-    attached.session.close();
-    resume = {
-      attempted: true,
-      ok: wizardResumeReady(snap),
-      step: snap?.wizardStep ?? "",
-      current: ledgerBefore?.current ?? "",
-    };
-  } catch (err) {
+  const closeRequested = await requestBrowserClose(walkSession, 10_000);
+  walkSession = null;
+  const firstStopped = await stopChild(launched.child, 20_000);
+  const shutdownDeadline = Date.now() + 15_000;
+  let shutdownLeftovers = leftoversByCommand(processTree.dshEntry).filter(
+    (line) => line.includes(processTree.nodeBin) || line.includes(userData),
+  );
+  while (shutdownLeftovers.length && Date.now() < shutdownDeadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 300));
+    shutdownLeftovers = leftoversByCommand(processTree.dshEntry).filter(
+      (line) => line.includes(processTree.nodeBin) || line.includes(userData),
+    );
+  }
+  if (shutdownLeftovers.length) {
     resume = {
       attempted: true,
       ok: false,
       step: "",
       current: ledgerBefore?.current ?? "",
-      error: err instanceof Error ? err.message : String(err),
+      closeRequested,
+      firstStopped,
+      error: "owned DSH process remained after graceful pre-resume shutdown",
     };
+  } else {
+    rmSync(gatewayFile, { force: true });
+    const debugPort2 = await freePort();
+    const launched2 = launchInstalledHarness(harnessApp, resources, userData, [
+      `--remote-debugging-port=${debugPort2}`,
+      "--remote-allow-origins=*",
+    ]);
+    let resumeSession = null;
+    try {
+      const freshGateway = await waitForFile(gatewayFile, 90_000);
+      const attached = await attachPage(debugPort2, 90_000);
+      resumeSession = attached.session;
+      const snap = await waitEval(resumeSession, SNAPSHOT_JS, wizardResumeReady, 45_000);
+      resume = {
+        attempted: true,
+        ok: Boolean(freshGateway && wizardResumeReady(snap)),
+        step: snap?.wizardStep ?? "",
+        current: ledgerBefore?.current ?? "",
+        closeRequested,
+        firstStopped,
+        freshGateway,
+      };
+    } catch (err) {
+      resume = {
+        attempted: true,
+        ok: false,
+        step: "",
+        current: ledgerBefore?.current ?? "",
+        closeRequested,
+        firstStopped,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      if (resumeSession) await requestBrowserClose(resumeSession, 10_000);
+      await stopChild(launched2.child, 20_000);
+      if (!resume.ok) resume.output = launched2.output().slice(-2000);
+    }
   }
-  await stopChild(launched2.child);
+}
+
+if (walkSession) {
+  await requestBrowserClose(walkSession, 10_000);
+  walkSession = null;
 }
 
 const [code, signal] = await stopChild(launched.child);
