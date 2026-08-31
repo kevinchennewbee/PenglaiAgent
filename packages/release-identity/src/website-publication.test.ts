@@ -135,7 +135,7 @@ test("SHA256SUMS parser rejects duplicate or malformed entries", () => {
 test("website workflow grants write only to the main-gated deployment job", () => {
   const workflow = readFileSync(join(root, ".github/workflows/deploy-website.yml"), "utf8");
   assert.equal(workflow.match(/contents: write/g)?.length, 1);
-  assert.match(workflow, /permissions:\n  contents: read/);
+  assert.match(workflow, /permissions:\r?\n  contents: read/);
   assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
   assert.match(workflow, /pnpm readback:release "\$\{\{ inputs\.tag \}\}"/);
