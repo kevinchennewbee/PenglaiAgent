@@ -198,13 +198,13 @@ rmSync(nativeUserData, { recursive: true, force: true });
 cpSync(userData, nativeUserData, { recursive: true });
 const nativeHealthFile = join(nativeUserData, "soak-health.json");
 const nativeGatewayFile = join(nativeUserData, "gateway.port");
-const nativeLaunch = launchPackaged(exe, resources, nativeUserData, [], { PENGLAI_SOAK: "1" });
-const expectedNativeIdentity = readProcessIdentity(nativeLaunch.child.pid);
-const nativeGatewaySeen = await waitForFile(nativeGatewayFile, 180_000);
-const firstNative = await waitJson(nativeHealthFile, 180_000);
-const nativePort = nativeGatewaySeen ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
-const firstNativeLive = liveFromHealthRecord(firstNative);
-const initialNativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
+let nativeLaunch = launchPackaged(exe, resources, nativeUserData, [], { PENGLAI_SOAK: "1" });
+let expectedNativeIdentity = readProcessIdentity(nativeLaunch.child.pid);
+let nativeGatewaySeen = await waitForFile(nativeGatewayFile, 180_000);
+let firstNative = await waitJson(nativeHealthFile, 180_000);
+let nativePort = nativeGatewaySeen ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
+let firstNativeLive = liveFromHealthRecord(firstNative);
+let initialNativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
 if (
   !expectedNativeIdentity ||
   !firstNative?.dshPid ||
@@ -224,6 +224,10 @@ if (
     output: nativeLaunch.output().slice(-2000),
   });
 }
+// Electron's single-instance lifecycle can suppress a second Penglai window
+// even when the evidence profiles differ. Keep UI observation and the exact
+// installed two-hour subject strictly serial.
+await stopChild(nativeLaunch.child);
 
 const debugPort = await freePort();
 const launched = launchInstalledHarness(
@@ -360,6 +364,40 @@ try {
   });
 } catch (err) {
   sampleLog.push({ name: "cdp-walk", ok: false, error: err instanceof Error ? err.message : String(err) });
+}
+
+if (session) {
+  session.close();
+  session = null;
+}
+await stopChild(launched.child);
+rmSync(nativeHealthFile, { force: true });
+rmSync(nativeGatewayFile, { force: true });
+nativeLaunch = launchPackaged(exe, resources, nativeUserData, [], { PENGLAI_SOAK: "1" });
+expectedNativeIdentity = readProcessIdentity(nativeLaunch.child.pid);
+nativeGatewaySeen = await waitForFile(nativeGatewayFile, 180_000);
+firstNative = await waitJson(nativeHealthFile, 180_000);
+nativePort = nativeGatewaySeen ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
+firstNativeLive = liveFromHealthRecord(firstNative);
+initialNativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
+if (
+  !expectedNativeIdentity ||
+  !firstNative?.dshPid ||
+  !initialNativeTree.ownedAbsolute ||
+  initialNativeTree.dshPid <= 0 ||
+  firstNativeLive.httpOfficial !== true ||
+  firstNativeLive.wsOpened !== true
+) {
+  await stopChild(nativeLaunch.child);
+  finish("FAIL", {
+    command: "test:soak:installed",
+    reason: "exact installed Penglai executable did not restart as the isolated two-hour subject",
+    nativeGatewaySeen,
+    firstNative,
+    firstNativeLive,
+    initialNativeTree,
+    output: nativeLaunch.output().slice(-2000),
+  });
 }
 
 async function sampleOffline() {
