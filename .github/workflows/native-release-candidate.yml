@@ -114,6 +114,10 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+      - name: Verify clean public export
+        run: pnpm prepare:public-export -- --clean-room
+      - name: Build source from the clean checkout
+        run: pnpm build
       - name: Audit target-specific supply chain
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
@@ -122,10 +126,6 @@ jobs:
           cp evidence/generated/licenses.json evidence/generated/licenses-${{ matrix.target }}.json
           cp evidence/generated/sbom.json evidence/generated/sbom-${{ matrix.target }}.json
           cp evidence/generated/THIRD_PARTY_NOTICES.txt evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
-      - name: Verify clean public export
-        run: pnpm prepare:public-export -- --clean-room
-      - name: Build source from the clean checkout
-        run: pnpm build
       - name: Source and onboarding regression gates
         shell: bash
         run: |
@@ -237,6 +237,10 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+      - name: Verify clean public export
+        run: pnpm prepare:public-export -- --clean-room
+      - name: Build source from the clean checkout
+        run: pnpm build
       - name: Audit target-specific supply chain
         shell: pwsh
         env:
@@ -259,10 +263,6 @@ jobs:
           $compiler = Get-ChildItem -LiteralPath $root -Filter makensis.exe -Recurse -File | Select-Object -First 1
           if (-not $compiler) { throw "Pinned NSIS compiler missing" }
           $compiler.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Verify clean public export
-        run: pnpm prepare:public-export -- --clean-room
-      - name: Build source from the clean checkout
-        run: pnpm build
       - name: Build native Windows security helper for regression gates
         shell: cmd
         run: |
