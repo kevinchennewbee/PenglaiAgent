@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Windows current-user NSIS Setup. Native PASS is only legal on win32/x64.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
@@ -84,6 +84,8 @@ if (!existsSync(out)) {
 }
 const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.9-win32-x64");
 const installedApp = join(installedRoot, "Penglai");
+const fixtureRoot = resolve(ROOT, ".tmp-windows-installer-fixture");
+const fixtureApp = join(fixtureRoot, "Penglai");
 const installedRelative = relative(resolve(ROOT, "dist"), installedRoot);
 if (!installedRelative || installedRelative === ".." || installedRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(installedRelative)) {
   console.error("package-windows-nsis FAIL: from-installer target escaped dist");
@@ -95,21 +97,35 @@ if (!staleFixtureCleanup.ok) {
   process.exit(1);
 }
 rmSync(installedRoot, { recursive: true, force: true });
-mkdirSync(installedApp, { recursive: true });
-const applied = spawnSync(out, ["/S", `/D=${installedApp}`], { cwd: ROOT, encoding: "utf8", windowsHide: true });
-if (applied.status !== 0 || !existsSync(join(installedApp, "Penglai.exe"))) {
-  console.error("package-windows-nsis FAIL: exact Setup did not reinstall into the verification tree");
-  process.exit(1);
+rmSync(fixtureRoot, { recursive: true, force: true });
+mkdirSync(fixtureApp, { recursive: true });
+const applied = spawnSync(out, ["/S", `/D=${fixtureApp}`], { cwd: ROOT, encoding: "utf8", windowsHide: true });
+let verificationFailure = "";
+let releaseInfo;
+if (applied.status !== 0 || !existsSync(join(fixtureApp, "Penglai.exe"))) {
+  verificationFailure = "exact Setup did not install into the controlled fixture";
+} else {
+  const releaseInfoPath = join(fixtureApp, "resources", "release-info.json");
+  if (!existsSync(releaseInfoPath)) {
+    verificationFailure = "installed payload is missing release-info.json";
+  } else {
+    try {
+      releaseInfo = JSON.parse(readFileSync(releaseInfoPath, "utf8"));
+      mkdirSync(installedRoot, { recursive: true });
+      cpSync(fixtureApp, installedApp, { recursive: true, dereference: false, errorOnExist: true });
+    } catch {
+      verificationFailure = "exact Setup payload could not be preserved for native byte verification";
+    }
+  }
 }
-const releaseInfoPath = join(installedApp, "resources", "release-info.json");
-if (!existsSync(releaseInfoPath)) {
-  console.error("package-windows-nsis FAIL: installed payload is missing release-info.json");
-  process.exit(1);
-}
-const releaseInfo = JSON.parse(readFileSync(releaseInfoPath, "utf8"));
 const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
-if (!fixtureCleanup.ok || !fixtureCleanup.cleaned) {
+rmSync(fixtureRoot, { recursive: true, force: true });
+if (!fixtureCleanup.ok || (applied.status === 0 && !fixtureCleanup.cleaned)) {
   console.error(`package-windows-nsis FAIL: ${fixtureCleanup.reason ?? "exact Setup fixture did not uninstall"}`);
+  process.exit(1);
+}
+if (verificationFailure || !releaseInfo) {
+  console.error(`package-windows-nsis FAIL: ${verificationFailure || "installed release identity missing"}`);
   process.exit(1);
 }
 const sha256 = createHash("sha256").update(readFileSync(out)).digest("hex");
