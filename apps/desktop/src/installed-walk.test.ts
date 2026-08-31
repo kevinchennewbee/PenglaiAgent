@@ -46,6 +46,8 @@ test("wizard resume ignores the HTML shell until a ledger step is painted", () =
   assert.equal(wizardResumeReady({ wizard: true, wizardStep: "credential" }), true);
   const e2e = readFileSync(join(root, "scripts/e2e-installed.mjs"), "utf8");
   assert.match(e2e, /wizardResumeReady/);
+  assert.match(e2e, /requestBrowserClose\(walkSession/);
+  assert.match(e2e, /rmSync\(gatewayFile, \{ force: true \}\)/);
   assert.doesNotMatch(e2e, /waitEval\(attached\.session, SNAPSHOT_JS, \(s\) => Boolean\(s && s\.wizard\),/);
 });
 
