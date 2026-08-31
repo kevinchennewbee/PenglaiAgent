@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
+import type { Context } from "@deepseek-ai/cordis";
 import {
+  isPenglaiRemoteContext,
   PenglaiError,
   ObjectStore,
   type ImageAdmission,
@@ -359,8 +360,8 @@ export function apply(ctx: Alpha2CordisLike): ReturnType<typeof createRuntime> &
     host.releaseAll();
     artifacts.close();
   });
-  if (ctx instanceof Context) {
-    new PenglaiImRemote(ctx, host);
+  if (isPenglaiRemoteContext(ctx)) {
+    new PenglaiImRemote(ctx as Context, host);
   }
   const provide = (ctx as { provide?: (name: string, value: unknown) => void }).provide;
   if (typeof provide !== "function") {

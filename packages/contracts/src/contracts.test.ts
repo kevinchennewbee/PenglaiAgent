@@ -5,7 +5,7 @@ import TypertGatewayService from "@deepseek-ai/dsh-api-gateway";
 import TypertRegistry from "@deepseek-ai/dsh-typert-registry";
 import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import { remoteErrorOf, remoteMethods } from "@deepseek-ai/dsh-typert-protocol";
-import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, isErrorClass, PenglaiError, PenglaiRemote, PENGLAI_I18N, redactedDiagnosticReference, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
+import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, isErrorClass, isPenglaiRemoteContext, PenglaiError, PenglaiRemote, PENGLAI_I18N, redactedDiagnosticReference, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
 
 test("refuses non-loopback listen hosts", () => {
   assert.throws(() => assertSafeListenHost("0.0.0.0"), PenglaiError);
@@ -169,6 +169,30 @@ test("alpha.2 Gateway invocation redacts unexpected host exceptions", async () =
     await gateway.dispose();
     await registry.dispose();
   }
+});
+
+test("alpha.2 Remote registration accepts a structurally valid foreign Cordis bundle", () => {
+  const registrations: Array<{ name: string; service: unknown }> = [];
+  const foreignContext = {
+    reflect: {
+      provide(name: string, service: unknown) {
+        registrations.push({ name, service });
+      },
+    },
+  };
+  assert.equal(foreignContext instanceof Context, false);
+  assert.equal(isPenglaiRemoteContext(foreignContext), true);
+
+  class StructuralRemote extends TypertRemoteService {
+    constructor(ctx: Context) {
+      super(ctx, "penglaiStructuralFixture");
+    }
+  }
+  const remote = new StructuralRemote(foreignContext as unknown as Context);
+  assert.equal(registrations.length, 1);
+  assert.equal(registrations[0]?.name, "penglaiStructuralFixture");
+  assert.equal(registrations[0]?.service, remote);
+  assert.equal(isPenglaiRemoteContext({ provide() {} }), false);
 });
 
 test("evidence redaction covers key url base64 and unicode shreds", () => {

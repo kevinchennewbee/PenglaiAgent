@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import type { Context } from "@deepseek-ai/cordis";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 import { CompanionStore, type CompanionDispatchRow } from "./scheduler.js";
@@ -1105,7 +1105,7 @@ export function apply(ctx: CordisContextLike) {
     });
     const service = new ProductionCompanionService(ctx, store, Date.now, owner);
     ctx.provide("penglaiCompanion", service);
-    if (ctx instanceof Context) new PenglaiCompanionRemote(ctx, service);
+    if (isPenglaiRemoteContext(ctx)) new PenglaiCompanionRemote(ctx as Context, service);
     ctx.effect(() => () => service.close());
     return service;
   } catch (error) {

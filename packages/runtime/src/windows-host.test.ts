@@ -332,7 +332,9 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(packager, /local-installer-win32-x86_64\.json/);
   assert.match(packager, /\/DPENGLAI_ICON=/);
   assert.match(script, /!define MUI_ICON "\$\{PENGLAI_ICON\}"/);
-  assert.match(packager, /exact Setup did not reinstall/);
+  assert.match(packager, /exact Setup did not install into the controlled fixture/);
+  assert.match(packager, /cpSync\(fixtureApp, installedApp, \{ recursive: true, dereference: false, errorOnExist: true \}\)/);
+  assert.match(packager, /exact Setup fixture did not uninstall/);
 });
 
 test("Windows inventory helper is not implied by a darwin inspect", () => {

@@ -1,7 +1,7 @@
-import { Context } from "@deepseek-ai/cordis";
+import type { Context } from "@deepseek-ai/cordis";
 import { join } from "node:path";
 import { ArtifactService } from "@penglai/artifacts";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 import { createOfficeService, type OfficeOutbound } from "./service.js";
@@ -56,7 +56,7 @@ export function apply(ctx: OfficeContext): ReturnType<typeof createOfficeService
   ctx.effect?.(() => () => {
     artifacts.close();
   });
-  if (ctx instanceof Context) new PenglaiOfficeRemote(ctx as Context, svc);
+  if (isPenglaiRemoteContext(ctx)) new PenglaiOfficeRemote(ctx as Context, svc);
   return svc;
 }
 

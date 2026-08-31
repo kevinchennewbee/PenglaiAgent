@@ -10,9 +10,9 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Context } from "@deepseek-ai/cordis";
+import type { Context } from "@deepseek-ai/cordis";
 import type { LlmRuntime } from "@deepseek-ai/dsh-llm";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
 import { applyEmbeddedMemorySources, createContextSettingsApi } from "@penglai/memory-sources";
 import { assertReadable, createMemoryService, modelCannotWriteGlobal, type MemoryWrite } from "./service.js";
 import { MemoryStore } from "./store.js";
@@ -792,8 +792,8 @@ export function apply(ctx: CordisContextLike) {
     );
     registerMemoryTools(ctx, activeService);
     ctx.provide("penglaiMemory", activeService);
-    if (ctx instanceof Context) {
-      new PenglaiMemoryRemote(ctx, createMemorySettingsApi(activeService, workspaceRegistry, sourcesApi));
+    if (isPenglaiRemoteContext(ctx)) {
+      new PenglaiMemoryRemote(ctx as Context, createMemorySettingsApi(activeService, workspaceRegistry, sourcesApi));
     }
     ctx.effect?.(() => () => activeService.close?.());
   } catch (error) {
