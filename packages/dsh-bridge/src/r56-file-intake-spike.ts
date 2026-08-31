@@ -67,7 +67,7 @@ function quotedStrings(source: string): string[] {
 }
 
 /**
- * Inspect pinned DSH alpha.1 attachment, prompt, and composer contracts.
+ * Inspect pinned DSH alpha.2 attachment, prompt, and composer contracts.
  * This is an interface probe, not a product file composer.
  */
 export function probeOfficialFileIntake(): FileIntakeSpikeReport {

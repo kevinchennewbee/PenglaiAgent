@@ -66,7 +66,7 @@ try {
     (row) => row.id === retiredPlugin,
   );
 
-  const profileDir = join(userDataRoot, "dsh-home", "profiles", "web");
+  const profileDir = join(userDataRoot, "dsh-homes", "dsh-v0.1.2-alpha.2", "profiles", "web");
   const packageDir = join(
     profileDir,
     "node_modules",

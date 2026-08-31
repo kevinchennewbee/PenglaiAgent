@@ -74,6 +74,44 @@ test("Center list marks degraded when reconcile is swallowed", () => {
   assert.deepEqual(snapshot.catalog, []);
 });
 
+test("Center list never relays damaged preset errors or local paths", () => {
+  const remote = createCenterRemote({
+    host: {
+      reconcile: () => [],
+      desired: () => ({}),
+      setDesired: () => undefined,
+      entries: () => TEST_CATALOG,
+    },
+    inventory: {
+      list: () => ({
+        entries: [
+          {
+            moduleName: "@penglai/im",
+            version: "0.5.9",
+            enabled: true,
+            fiberPhase: "failed",
+            health: "failed",
+            error: "C:\\Users\\private\\broken-preset.yml",
+            stack: "/Users/private/broken-preset.yml:12",
+          },
+        ],
+      }),
+    },
+    catalog: TEST_CATALOG,
+    lifecycle: { apply: async () => undefined },
+    resourceProbe: () => undefined,
+    profileDir: "/tmp/penglai-center-redaction/profile",
+    txDir: "/tmp/penglai-center-redaction/transactions",
+    pluginsDir: "/tmp/penglai-center-redaction/plugins",
+    userDataRoot: "/tmp/penglai-center-redaction",
+  });
+  const snapshot = remote.list();
+  const serialized = JSON.stringify(snapshot.inventory);
+  assert.match(serialized, /@penglai\/im/);
+  assert.match(serialized, /failed/);
+  assert.doesNotMatch(serialized, /Users|private|broken-preset|stack|error/);
+});
+
 test("DSH Center remote cannot open installers or plan filesystem deletion", async () => {
   const trusted = "/tmp/penglai-center-lifecycle-boundary";
   const remote = remoteFor(trusted);

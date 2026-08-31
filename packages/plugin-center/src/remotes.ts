@@ -185,14 +185,18 @@ export function inventoryActivationObservation(
   const rawPhase = String(row.fiberPhase ?? "").toLowerCase();
   const phase = enabled
     ? "active"
-    : row.disabled === true || row.enabled === false
-      ? "disabled"
-      : ["pending", "loading", "starting", "setup", "created"].includes(rawPhase)
-        ? "pending"
-        : ["failed", "error", "disposed", "dead"].includes(rawPhase) ||
-            row.health === "failed"
-          ? "failed"
-          : "unknown";
+    : ["unloading", "disposing", "stopping", "teardown"].includes(rawPhase)
+      ? "unloading"
+      : rawPhase === "loading"
+        ? "loading"
+        : ["pending", "starting", "setup", "created"].includes(rawPhase)
+          ? "pending"
+          : ["failed", "error", "disposed", "dead"].includes(rawPhase) ||
+              row.health === "failed"
+            ? "failed"
+            : row.disabled === true || row.enabled === false
+              ? "disabled"
+              : "unknown";
   return {
     source: "official-inventory",
     at,
@@ -214,12 +218,23 @@ export async function waitForInventory(
   while (Date.now() <= deadline) {
     const observation = inventoryActivationObservation(inventory, id);
     observe(observation);
-    if (
-      !present
-        ? !observation.present
-        : observation.present && observation.enabled === enabled
-    ) {
+    const converged = !present
+      ? !observation.present
+      : enabled
+        ? observation.present &&
+          observation.enabled &&
+          observation.phase === "active"
+        : observation.present &&
+          !observation.enabled &&
+          observation.phase === "disabled";
+    if (converged) {
       return;
+    }
+    if (observation.phase === "failed") {
+      throw new PenglaiError(
+        "DSH_UNAVAILABLE",
+        "PLUGIN_RUNTIME_UNAVAILABLE",
+      );
     }
     if (Date.now() >= deadline) break;
     await new Promise<void>((resolveWait) => setTimeout(resolveWait, 50));
@@ -228,6 +243,64 @@ export async function waitForInventory(
     "DSH_UNAVAILABLE",
     "PLUGIN_ACTIVATION_TIMEOUT",
   );
+}
+
+const PUBLIC_INVENTORY_PHASES = new Set([
+  "missing",
+  "pending",
+  "loading",
+  "active",
+  "unloading",
+  "disabled",
+  "failed",
+  "unknown",
+]);
+const PUBLIC_INVENTORY_HEALTH = new Set(["ready", "degraded", "failed"]);
+
+function publicPluginIdentity(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length > 160) return undefined;
+  return /^(@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)$/i.test(
+    value,
+  )
+    ? value
+    : undefined;
+}
+
+function publicPluginVersion(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length > 64) return undefined;
+  return /^[0-9A-Za-z][0-9A-Za-z.+_-]*$/.test(value) ? value : undefined;
+}
+
+function publicInventory(rows: ReturnType<typeof normalizeInventory>): {
+  entries: Array<Record<string, unknown>>;
+} {
+  return {
+    entries: rows.map((row) => {
+      const id =
+        publicPluginIdentity(row.id) ??
+        publicPluginIdentity(row.moduleName) ??
+        publicPluginIdentity(row.name);
+      const observation = id
+        ? inventoryActivationObservation({ list: () => [row] }, id)
+        : undefined;
+      const phase = observation?.phase ?? "unknown";
+      const health = PUBLIC_INVENTORY_HEALTH.has(String(row.health))
+        ? String(row.health)
+        : undefined;
+      return {
+        ...(id ? { id, moduleName: id } : {}),
+        ...(publicPluginVersion(row.version)
+          ? { version: publicPluginVersion(row.version) }
+          : {}),
+        enabled: observation?.enabled === true,
+        disabled: observation?.phase === "disabled",
+        loaded: observation?.phase === "active",
+        fiberPhase: PUBLIC_INVENTORY_PHASES.has(phase) ? phase : "unknown",
+        ...(health ? { health } : {}),
+        ...(typeof row.healthy === "boolean" ? { healthy: row.healthy } : {}),
+      };
+    }),
+  };
 }
 
 function previousStateFromJournal(
@@ -521,7 +594,7 @@ export function createCenterRemote(opts: {
         ...(opts.registry?.cards() ?? []).map((entry) => String(entry.id)),
       ];
       return {
-        inventory: raw,
+        inventory: publicInventory(rows),
         catalog,
         remote,
         ...(snap

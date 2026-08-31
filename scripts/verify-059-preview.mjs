@@ -54,6 +54,50 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
+const packagedBytes = readJson("docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json");
+if (
+  packagedBytes.schema !== 2 ||
+  packagedBytes.dsh !== pins.dsh ||
+  packagedBytes.mode !== "official-npm-cohort-no-source-patch" ||
+  packagedBytes.source?.tag !== pins.dshSource.tag ||
+  packagedBytes.source?.commit !== pins.dshSource.commit ||
+  packagedBytes.source?.tree !== "64ccbfa8e0caa4711cd4a75717ef9e022657961b" ||
+  packagedBytes.source?.cohortManifest !== "docs/0.5.9/DSH_NPM_COHORT.json"
+) {
+  fail("DSH packaged-byte policy identity is not the fixed alpha.2 source and npm cohort");
+}
+const cohortByName = new Map(snapshot.packages.map((entry) => [entry.name, entry]));
+for (const row of packagedBytes.officialBytes ?? []) {
+  const separator = String(row.sourcePackage ?? "").lastIndexOf("@");
+  const packageName = String(row.sourcePackage ?? "").slice(0, separator);
+  const packageVersion = String(row.sourcePackage ?? "").slice(separator + 1);
+  const cohortRow = cohortByName.get(packageName);
+  if (
+    !cohortRow ||
+    packageVersion !== snapshot.version ||
+    cohortRow.integrity !== row.integrity
+  ) {
+    fail(`packaged byte ${row.id} is not backed by the exact npm cohort integrity`);
+    continue;
+  }
+  const target = join(ROOT, row.relative);
+  if (!existsSync(target)) {
+    fail(`packaged byte ${row.id} is missing from the installed alpha.2 graph`);
+    continue;
+  }
+  const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
+  if (actual !== row.sha256) fail(`packaged byte ${row.id} digest drifted: ${actual}`);
+}
+for (const asset of packagedBytes.brandAssets ?? []) {
+  const target = join(ROOT, asset.source);
+  if (!existsSync(target)) {
+    fail(`brand asset ${asset.name} is missing`);
+    continue;
+  }
+  const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
+  if (actual !== asset.sha256) fail(`brand asset ${asset.name} digest drifted: ${actual}`);
+}
+
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
 for (const forbidden of ["0.1.2-alpha.1", "penglai-dsh-source", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/cordis@4.0.1"]) {
   if (lock.includes(forbidden)) fail(`active lock contains forbidden ${forbidden}`);
@@ -106,6 +150,6 @@ console.log(JSON.stringify({
   productVersion: pins.productVersion,
   dsh: pins.dsh,
   cohortPackages: snapshot.packages.length,
+  officialPackagedBytes: packagedBytes.officialBytes?.length ?? 0,
   minimumReleaseAgeExcludes: ageExcludes.length,
 }));
-

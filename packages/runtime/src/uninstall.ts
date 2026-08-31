@@ -36,6 +36,7 @@ export interface ManagedDataLayout {
   userData: string;
   cacheRoot: string;
   logsRoot?: string;
+  dshHome?: string;
 }
 
 export interface DeletionPlan {
@@ -127,7 +128,13 @@ export function categoryPaths(
     throw new PenglaiError("SECURITY_POLICY", "managed data layout userData mismatch");
   }
   const root = resolve(userData);
-  const dshHome = resolve(root, "dsh-home");
+  const dshHomes = [...new Set([
+    resolve(root, "dsh-home"),
+    ...(layout.dshHome ? [resolve(layout.dshHome)] : []),
+  ])];
+  if (dshHomes.some((home) => !pathInsideOrEqual(home, root))) {
+    throw new PenglaiError("SECURITY_POLICY", "managed DSH home escaped userData");
+  }
   switch (category) {
     case "cache":
       return [...new Set([
@@ -136,8 +143,10 @@ export function categoryPaths(
       ])];
     case "settings":
       return [
-        resolve(dshHome, "settings.yaml"),
-        resolve(dshHome, "cordis.patch.yml"),
+        ...dshHomes.flatMap((dshHome) => [
+          resolve(dshHome, "settings.yaml"),
+          resolve(dshHome, "cordis.patch.yml"),
+        ]),
         resolve(root, "onboarding"),
         resolve(root, "plugins", "desired.json"),
         resolve(root, "Preferences"),
@@ -145,15 +154,19 @@ export function categoryPaths(
       ];
     case "dsh":
       return [
-        resolve(dshHome, "storages"),
-        resolve(dshHome, "attachments"),
+        ...dshHomes.flatMap((dshHome) => [
+          resolve(dshHome, "storages"),
+          resolve(dshHome, "attachments"),
+        ]),
         resolve(root, "profiles"),
         resolve(root, "plugins", "inventory-snapshot.json"),
         resolve(root, "plugins", "workspace-protection.json"),
         resolve(root, "schema.json"),
       ];
     case "memory":
-      return [resolve(root, "memory"), resolve(dshHome, "skills")];
+      return [resolve(root, "memory"), ...dshHomes.map((dshHome) => resolve(dshHome, "skills"))];
+    case "credentials":
+      return dshHomes.map((dshHome) => resolve(dshHome, ".credentials.yaml"));
     default:
       return [categoryPath(root, category)];
   }

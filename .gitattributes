@@ -20,3 +20,4 @@ third_party/dsh/**/closure-manifest.json text eol=lf
 
 # The 0.5.9 official npm cohort snapshot is itself a release identity input.
 docs/0.5.9/DSH_NPM_COHORT.json text eol=lf
+docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json text eol=lf

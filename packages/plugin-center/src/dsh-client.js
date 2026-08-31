@@ -357,7 +357,9 @@ window.__ModuleLoader__.load({
         const phases = {
           missing: t.centerPhaseMissing,
           pending: t.centerPhasePending,
+          loading: t.centerPhaseLoading,
           active: t.centerPhaseActive,
+          unloading: t.centerPhaseUnloading,
           disabled: t.centerPhaseDisabled,
           failed: t.centerPhaseFailed,
           unknown: t.centerPhaseUnknown,
@@ -368,7 +370,17 @@ window.__ModuleLoader__.load({
       const cards = cardIds.map((id) => {
         const entry = live.get(id) ?? {};
         const meta = firstParty.get(id);
-        const loaded = Boolean(entry.loaded ?? entry.fiberPhase === "active");
+        const runtimePhase = [
+          "pending",
+          "loading",
+          "active",
+          "unloading",
+          "disabled",
+          "failed",
+        ].includes(String(entry.fiberPhase))
+          ? String(entry.fiberPhase)
+          : "unknown";
+        const loaded = Boolean(entry.loaded ?? runtimePhase === "active");
         const desired = String(
           entry.desired ?? (entry.enabled === false ? "disabled" : "enabled"),
         );
@@ -394,13 +406,21 @@ window.__ModuleLoader__.load({
         };
         const transaction =
           state.latestTransaction?.id === id ? state.latestTransaction : null;
+        const runtimeStatus = {
+          pending: t.centerStatusPending,
+          loading: t.centerStatusLoading,
+          unloading: t.centerStatusUnloading,
+          failed: t.centerStatusFailed,
+        }[runtimePhase];
         const statusCopy = incompatible
           ? t.centerStatusIncompatible
           : revoked
           ? t.centerStatusRevoked
           : notInstalled
             ? t.centerStatusNotInstalled
-            : healthy
+            : runtimeStatus
+              ? runtimeStatus
+              : healthy
               ? t.centerStatusHealthy
               : loaded
                 ? t.centerStatusAttention
@@ -411,6 +431,7 @@ window.__ModuleLoader__.load({
             "data-penglai-plugin-card": id,
             "data-penglai-plugin-installed": installed,
             "data-penglai-plugin-loaded": String(loaded),
+            "data-penglai-plugin-phase": runtimePhase,
             "data-penglai-plugin-source": String(entry.source ?? "bundled-first-party"),
             "data-penglai-plugin-version": String(entry.version ?? ""),
             "data-penglai-plugin-revoked": String(revoked),
@@ -921,6 +942,10 @@ window.__ModuleLoader__.load({
         centerStatusAttention: "需要关注",
         centerStatusInactive: "未启用",
         centerStatusNotInstalled: "未安装",
+        centerStatusPending: "等待激活",
+        centerStatusLoading: "正在加载",
+        centerStatusUnloading: "正在停用",
+        centerStatusFailed: "运行失败",
         centerActionWorking: "正在执行并核对插件状态…",
         centerActionEnabled: "启用成功。",
         centerActionInstalledEnabled: "安装并启用成功。",
@@ -947,7 +972,9 @@ window.__ModuleLoader__.load({
         centerTxFailed: "核对失败",
         centerPhaseMissing: "未出现",
         centerPhasePending: "等待激活",
+        centerPhaseLoading: "正在加载",
         centerPhaseActive: "运行中",
+        centerPhaseUnloading: "正在停用",
         centerPhaseDisabled: "已停用",
         centerPhaseFailed: "激活失败",
         centerPhaseUnknown: "阶段不可核对",
@@ -1119,6 +1146,10 @@ window.__ModuleLoader__.load({
         centerStatusAttention: "Needs attention",
         centerStatusInactive: "Inactive",
         centerStatusNotInstalled: "Not installed",
+        centerStatusPending: "Pending activation",
+        centerStatusLoading: "Loading",
+        centerStatusUnloading: "Unloading",
+        centerStatusFailed: "Runtime failed",
         centerActionWorking: "Applying the change and checking plugin status…",
         centerActionEnabled: "Enabled.",
         centerActionInstalledEnabled: "Installed and enabled.",
@@ -1145,7 +1176,9 @@ window.__ModuleLoader__.load({
         centerTxFailed: "check failed",
         centerPhaseMissing: "missing",
         centerPhasePending: "awaiting activation",
+        centerPhaseLoading: "loading",
         centerPhaseActive: "active",
+        centerPhaseUnloading: "unloading",
         centerPhaseDisabled: "disabled",
         centerPhaseFailed: "activation failed",
         centerPhaseUnknown: "phase unavailable",

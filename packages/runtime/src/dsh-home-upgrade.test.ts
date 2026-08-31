@@ -15,7 +15,9 @@ import test from "node:test";
 import {
   DSH_HOME_SOURCE_VERSION,
   DSH_HOME_TARGET_VERSION,
+  activateDshHomeBootPlan,
   activateDshHomeUpgrade,
+  prepareDshHomeForBoot,
   prepareDshHomeUpgrade,
   readActiveDshHome,
   rejectPreparedDshHomeUpgrade,
@@ -63,7 +65,7 @@ function validProof() {
   };
 }
 
-test("P058-DATA-001 prepares an isolated exact working home and leaves 0.5.7 bytes untouched", () => {
+test("P059-DATA-001 prepares an isolated alpha.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const originalCredential = readFileSync(
@@ -122,7 +124,7 @@ test("P058-DATA-001 prepares an isolated exact working home and leaves 0.5.7 byt
   );
 });
 
-test("P058-DATA-002 disk preflight fails before creating target or operation state", () => {
+test("P059-DATA-002 disk preflight fails before creating target or operation state", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   assert.throws(
@@ -139,7 +141,7 @@ test("P058-DATA-002 disk preflight fails before creating target or operation sta
   assert.equal(existsSync(join(paths.operationsRoot, "upgrade02.json")), false);
 });
 
-test("P058-DATA-003 symlink state and concurrent writers fail closed", (context) => {
+test("P059-DATA-003 symlink state and concurrent writers fail closed", (context) => {
   if (process.platform === "win32") {
     context.skip("ordinary Windows users cannot create this symlink fixture");
     return;
@@ -186,7 +188,7 @@ test("P058-DATA-003 symlink state and concurrent writers fail closed", (context)
   rmSync(lockedPaths.lock, { recursive: true });
 });
 
-test("P058-DATA-004 activation commits only after exact health and required-plugin proof", () => {
+test("P059-DATA-004 activation commits only after exact health and required-plugin proof", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -232,7 +234,7 @@ test("P058-DATA-004 activation commits only after exact health and required-plug
   );
 });
 
-test("P058-DATA-005 source mutation during validation blocks activation", () => {
+test("P059-DATA-005 source mutation during validation blocks activation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -253,12 +255,12 @@ test("P058-DATA-005 source mutation during validation blocks activation", () => 
         operationId: "upgrade06",
         validation: validProof(),
       }),
-    /0.5.7 DSH home changed/,
+    /0.5.8 alpha.1 DSH home changed/,
   );
   assert.equal(readActiveDshHome(root), undefined);
 });
 
-test("P058-DATA-006 rollback atomically selects the untouched 0.5.7 home", () => {
+test("P059-DATA-006 rollback atomically selects the untouched 0.5.8 alpha.1 home", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -303,7 +305,7 @@ test("P058-DATA-006 rollback atomically selects the untouched 0.5.7 home", () =>
   );
 });
 
-test("P058-DATA-007 abandoned staging cleanup is bounded to recognized private directories", () => {
+test("P059-DATA-007 abandoned staging cleanup is bounded to recognized private directories", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   mkdirSync(paths.homesRoot, { recursive: true, mode: 0o700 });
@@ -321,7 +323,7 @@ test("P058-DATA-007 abandoned staging cleanup is bounded to recognized private d
   assert.equal(existsSync(unrelated), true);
 });
 
-test("P058-DATA-008 an invalid active pointer never becomes runtime fallback", () => {
+test("P059-DATA-008 an invalid active pointer never becomes runtime fallback", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   writeFileSync(
@@ -337,7 +339,7 @@ test("P058-DATA-008 an invalid active pointer never becomes runtime fallback", (
   assert.throws(() => readActiveDshHome(root), /invalid identity/);
 });
 
-test("P058-DATA-009 failed validation removes only the disposable alpha working home", () => {
+test("P059-DATA-009 failed validation removes only the disposable alpha working home", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -362,7 +364,7 @@ test("P058-DATA-009 failed validation removes only the disposable alpha working 
   assert.equal(existsSync(join(paths.operationsRoot, "upgrade09.json")), true);
 });
 
-test("P058-DATA-010 a forged alpha pointer without activation evidence is refused", () => {
+test("P059-DATA-010 a forged alpha pointer without activation evidence is refused", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -384,7 +386,7 @@ test("P058-DATA-010 a forged alpha pointer without activation evidence is refuse
   assert.throws(() => readActiveDshHome(root), /lacks activation evidence/);
 });
 
-test("P058-DATA-011 rollback refuses a source Home changed after alpha activation", () => {
+test("P059-DATA-011 rollback refuses a source Home changed after alpha activation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   prepareDshHomeUpgrade({
@@ -413,7 +415,7 @@ test("P058-DATA-011 rollback refuses a source Home changed after alpha activatio
   assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
 });
 
-test("P058-DATA-012 a verified dead writer lock is recovered without weakening live-writer exclusion", () => {
+test("P059-DATA-012 a verified dead writer lock is recovered without weakening live-writer exclusion", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   mkdirSync(paths.lock, { recursive: true, mode: 0o700 });
@@ -435,4 +437,50 @@ test("P058-DATA-012 a verified dead writer lock is recovered without weakening l
   });
   assert.equal(journal.state, "prepared");
   assert.equal(existsSync(paths.lock), false);
+});
+
+test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 generation", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
+  const paths = resolveDshHomeUpgradePaths(root);
+  const prepared = prepareDshHomeForBoot({
+    userRoot: root,
+    now: new Date("2026-08-31T00:00:00.000Z"),
+  });
+  assert.equal(prepared.kind, "fresh-prepared");
+  assert.equal(prepared.dshHome, paths.targetHome);
+  assert.equal(existsSync(paths.sourceHome), false);
+  writeFileSync(join(paths.targetHome, "settings.yaml"), "locale:\n  preference: zh\n", { mode: 0o600 });
+
+  const active = activateDshHomeBootPlan({
+    userRoot: root,
+    plan: prepared,
+    validation: validProof(),
+    now: new Date("2026-08-31T00:01:00.000Z"),
+  });
+  assert.equal(active.activeVersion, DSH_HOME_TARGET_VERSION);
+  assert.equal(active.activationKind, "fresh");
+  assert.equal(readActiveDshHome(root)?.activationKind, "fresh");
+  assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), {
+    kind: "active",
+    dshHome: paths.targetHome,
+  });
+});
+
+test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated alpha.2 generation", () => {
+  const root = fixtureRoot();
+  const paths = resolveDshHomeUpgradePaths(root);
+  const prepared = prepareDshHomeForBoot({
+    userRoot: root,
+    availableBytes: 1024 * 1024 * 1024,
+    reserveBytes: 0,
+  });
+  assert.equal(prepared.kind, "migration-prepared");
+  assert.equal(prepared.dshHome, paths.targetHome);
+  assert.match(prepared.operationId ?? "", /^upgrade_[0-9a-f]{32}$/);
+  const resumed = prepareDshHomeForBoot({ userRoot: root });
+  assert.deepEqual(resumed, prepared);
+  assert.equal(
+    readFileSync(join(paths.sourceHome, "storages", "sessions", "session.jsonl"), "utf8"),
+    '{"version":0,"id":"fixture"}\n',
+  );
 });

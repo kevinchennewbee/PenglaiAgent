@@ -146,12 +146,17 @@ export function resolveRuntimeLayout(appRoot: string, platform: "darwin" | "win3
   };
 }
 
-export function resolveUserLayout(userData: string): UserLayout {
+export function resolveUserLayout(userData: string, dshHome?: string): UserLayout {
   const root = resolve(userData);
+  const home = resolve(dshHome ?? join(root, "dsh-home"));
+  const rel = relative(root, home);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new PenglaiError("SECURITY_POLICY", "DSH home must remain inside Penglai user data");
+  }
   return {
     root,
-    dshHome: join(root, "dsh-home"),
-    profileWeb: join(root, "dsh-home", "profiles", "web"),
+    dshHome: home,
+    profileWeb: join(home, "profiles", "web"),
     transactions: join(root, "profiles", "transactions"),
     snapshots: join(root, "profiles", "snapshots"),
     imDb: join(root, "im", "penglai-im.sqlite"),

@@ -74,6 +74,15 @@ test("R56-SEC-003 boot home converges and does not follow a credentials symlink"
   assert.equal(existsSync(outside), true);
 });
 
+test("P059-DATA-015 private-mode convergence follows the selected alpha.2 Home", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-mode-alpha2-"));
+  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-alpha.2");
+  const user = resolveUserLayout(root, alpha2Home);
+  convergePrivatePosixModes(user, process.platform);
+  assert.equal(existsSync(alpha2Home), true);
+  assert.equal(existsSync(join(root, "dsh-home")), false);
+});
+
 test("R56-SEC-003 a broken symlink still fails closed", { skip: !posix }, () => {
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-mode-broken-")));
   mkdirSync(user.root, { recursive: true });

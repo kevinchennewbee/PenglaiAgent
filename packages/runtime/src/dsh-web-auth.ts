@@ -167,7 +167,7 @@ function delay(ms: number): Promise<void> {
 
 /**
  * Establish the Web session without exposing the alpha launch token to the
- * renderer. rc.2 succeeds through its open root; alpha.1 exchanges the exact
+ * renderer. rc.2 succeeds through its open root; alpha.2 exchanges the exact
  * stdout URL for an authority-bound cookie and proves that cookie on `/`.
  */
 export async function establishDshWebSession(input: {

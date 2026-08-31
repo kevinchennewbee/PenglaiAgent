@@ -11,7 +11,7 @@ import {
   refuseUnofficialFileTurnBinding,
 } from "./r56-file-intake-spike.js";
 
-test("R56-FILE-016 official DSH alpha.1 file intake spike is BLOCKED", () => {
+test("R56-FILE-016 official DSH alpha.2 file intake spike is BLOCKED", () => {
   const report = probeOfficialFileIntake();
   assert.equal(report.requirement, FILE_INTAKE_SPIKE_ID);
   assert.equal(report.dsh, PINNED_DSH);

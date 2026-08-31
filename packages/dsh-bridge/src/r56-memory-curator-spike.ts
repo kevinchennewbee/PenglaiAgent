@@ -182,7 +182,7 @@ export function probeOfficialMemoryCurator(): MemoryCuratorSpikeReport {
       "Use one hand-built ctx.llm.stream request; do not create an Agent or Session.",
       "Pass an empty tools list and a bounded AbortSignal; no model tool can execute.",
       "GenerateOptions has no responseFormat/json_schema. Host parseCuratorOutput is the schema gate.",
-      "The alpha.1 Jobs service is owner-visible background work and is not an internal Memory queue.",
+      "The alpha.2 Jobs service is owner-visible background work and is not an internal Memory queue.",
       "Do not call another model SDK or endpoint. Fail Open on parse/provider errors.",
     ],
   };

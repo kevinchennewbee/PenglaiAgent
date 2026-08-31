@@ -8,16 +8,22 @@ import { createSchemaBackup } from "./update-backup.js";
 test("R50-UPD-007 schema backup is app-private bounded and excludes credentials/workspaces/voice audio", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-schema-backup-"));
   mkdirSync(join(root, "dsh-home", "storages"), { recursive: true });
+  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-alpha.2");
+  mkdirSync(join(alpha2Home, "storages"), { recursive: true });
   mkdirSync(join(root, "im"), { recursive: true });
   mkdirSync(join(root, "voice", "local-voices"), { recursive: true });
   writeFileSync(join(root, "dsh-home", "settings.yaml"), "locale: zh\n");
   writeFileSync(join(root, "dsh-home", "storages", "workspace.json"), "{}\n");
   writeFileSync(join(root, "dsh-home", ".credentials.yaml"), "API_KEY: secret\n");
+  writeFileSync(join(alpha2Home, "settings.yaml"), "locale: en\n");
+  writeFileSync(join(alpha2Home, "storages", "workspace.json"), "{}\n");
+  writeFileSync(join(alpha2Home, ".credentials.yaml"), "API_KEY: alpha2-secret\n"); // penglai-test-fixture
   writeFileSync(join(root, "im", "penglai-im.sqlite"), "fixture-state");
   writeFileSync(join(root, "voice", "local-voices", "reference.wav"), "sensitive-audio");
   const result = createSchemaBackup({
     userData: root,
     backupRoot: join(root, "update-backups"),
+    dshHome: alpha2Home,
     operationId: "update-backup-1",
     fromVersion: "0.5.0",
     toVersion: "0.5.1",
@@ -30,6 +36,9 @@ test("R50-UPD-007 schema backup is app-private bounded and excludes credentials/
   assert.equal(result.manifest.files.some((file) => file.path.includes("storages")), false, "workspace storage must not be backed up");
   assert.equal(existsSync(join(result.path, "dsh-home", ".credentials.yaml")), false);
   assert.equal(existsSync(join(result.path, "dsh-home", "storages", "workspace.json")), false);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", "settings.yaml")), true);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", ".credentials.yaml")), false);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", "storages", "workspace.json")), false);
   assert.equal(existsSync(join(result.path, "im", "penglai-im.sqlite")), true);
 });
 
