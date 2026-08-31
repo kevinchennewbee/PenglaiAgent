@@ -313,6 +313,8 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(uiProof, /strict-utf8-nsis-source-plus-native-screenshot/);
   assert.match(uiProof, /windows-installer-components-zh\.png/);
   assert.match(uiProof, /UIAutomationClient/);
+  assert.match(uiProof, /PrintWindow/);
+  assert.doesNotMatch(uiProof, /CopyFromScreen/);
   assert.match(payload, /public-export\.json/);
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);

@@ -33,6 +33,9 @@ public static class PenglaiInstallerNative {
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+
 }
 '@
 
@@ -91,13 +94,28 @@ function Save-PenglaiWindow([IntPtr]$Handle, [string]$Path) {
   Start-Sleep -Milliseconds 500
   $bitmap = New-Object System.Drawing.Bitmap($width, $height)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+  $dc = $graphics.GetHdc()
   try {
-    $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size)
+    if (-not [PenglaiInstallerNative]::PrintWindow($Handle, $dc, 2)) {
+      throw "PrintWindow failed"
+    }
+  } finally {
+    $graphics.ReleaseHdc($dc)
+    $graphics.Dispose()
+  }
+  try {
+    $colors = New-Object 'System.Collections.Generic.HashSet[int]'
+    for ($x = 0; $x -lt $width; $x += 12) {
+      for ($y = 0; $y -lt $height; $y += 12) {
+        [void]$colors.Add($bitmap.GetPixel($x, $y).ToArgb())
+      }
+    }
+    if ($colors.Count -lt 16) { throw "installer screenshot is blank or low-detail" }
     $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
   } finally {
-    $graphics.Dispose()
     $bitmap.Dispose()
   }
+  return @{ width = $width; height = $height; sampledColors = $colors.Count }
 }
 
 $installerPath = [System.IO.Path]::GetFullPath($Installer)
@@ -137,7 +155,7 @@ try {
   $componentNames = Wait-PenglaiUiText $handle '组件|安装'
   $joined = $componentNames -join "`n"
   if ($joined -match ([char]0xFFFD)) { throw "Unicode replacement character rendered in installer" }
-  Save-PenglaiWindow $handle $screenshot
+  $capture = Save-PenglaiWindow $handle $screenshot
   if (-not (Test-Path -LiteralPath $screenshot -PathType Leaf)) {
     throw "Chinese Components page screenshot missing"
   }
@@ -152,7 +170,10 @@ try {
     requiredAppExposedByUiAutomation = ($joined -match '(?m)^Penglai$')
     desktopNameExposedByUiAutomation = ($joined -match '桌面快捷方式')
     screenshot = 'windows-installer-components-zh.png'
-    windowWidth = $process.MainWindowHandle -ne [IntPtr]::Zero
+    captureMethod = 'PrintWindow(PW_RENDERFULLCONTENT)'
+    windowWidth = $capture.width
+    windowHeight = $capture.height
+    sampledColors = $capture.sampledColors
     observedNames = @($componentNames)
   }
   $record | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $recordPath -Encoding UTF8
