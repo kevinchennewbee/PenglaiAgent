@@ -516,7 +516,7 @@ interface CenterLoader {
 
 export function createPluginLifecycle(
   loader: CenterLoader,
-  inventory: { list(): unknown },
+  inventory: { list(): unknown; refresh?(): Promise<void> },
 ) {
   return {
     async apply(input: {
@@ -525,6 +525,7 @@ export function createPluginLifecycle(
       forceReload: boolean;
       present: boolean;
     }) {
+      await inventory.refresh?.();
       const row = normalizeInventory(inventory.list()).find((entry) =>
         rowMatches(entry, input.id),
       );
@@ -532,6 +533,7 @@ export function createPluginLifecycle(
         if (row?.entryId) {
           await loader.remove(row.entryId);
           await loader.await();
+          await inventory.refresh?.();
         }
         return;
       }
@@ -542,6 +544,7 @@ export function createPluginLifecycle(
           disabled: !input.enabled,
         });
         await loader.await();
+        await inventory.refresh?.();
         return;
       }
       const entry = loader.resolve(row.entryId);
@@ -550,6 +553,7 @@ export function createPluginLifecycle(
       }
       await entry.update({ disabled: !input.enabled }, false, true);
       await loader.await();
+      await inventory.refresh?.();
     },
   };
 }
@@ -584,8 +588,11 @@ export async function apply(ctx: {
   const dir = join(userData, "plugins");
   let cachedInventory: unknown = { entries: [] };
   let refreshInFlight: Promise<void> | undefined;
-  const refreshInventory = (): Promise<void> => {
-    if (refreshInFlight) return refreshInFlight;
+  const refreshInventory = async (force = false): Promise<void> => {
+    if (refreshInFlight) {
+      await refreshInFlight;
+      if (!force) return;
+    }
     refreshInFlight = Promise.resolve(ctx.pluginInventory.list())
       .then((snapshot) => {
         cachedInventory = snapshot;
@@ -593,10 +600,10 @@ export async function apply(ctx: {
       .finally(() => {
         refreshInFlight = undefined;
       });
-    return refreshInFlight;
+    await refreshInFlight;
   };
   await refreshInventory();
-  const inventory = { list: () => cachedInventory };
+  const inventory = { list: () => cachedInventory, refresh: () => refreshInventory(true) };
   const dshHome = process.env.DSH_HOME;
   const relativeHome = dshHome
     ? relative(resolve(userData), resolve(dshHome))
@@ -657,7 +664,17 @@ export async function apply(ctx: {
   }
   const writeSnap = async (): Promise<void> => {
     await refreshInventory();
-    const document = inventorySnapshotDocument(normalizeInventory(inventory.list()));
+    const rows = normalizeInventory(inventory.list()).map((row) => {
+      const id = row.id ?? row.moduleName ?? row.name;
+      if (typeof id !== "string") return row;
+      const health = pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id);
+      return { ...row, healthy: health.healthy, health: health.healthy ? "ready" : "failed" };
+    });
+    const document = {
+      ...inventorySnapshotDocument(rows),
+      launchNonce: process.env.PENGLAI_DSH_LAUNCH_NONCE ?? "",
+      dshPid: process.pid,
+    };
     writeFileSync(
       join(dir, "inventory-snapshot.json"),
       JSON.stringify(document, null, 2),
@@ -690,6 +707,7 @@ export async function apply(ctx: {
     catalog: catalog.entries,
     registry,
     lifecycle: createPluginLifecycle(ctx.loader, inventory),
+    health: (id) => pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id),
     resourceProbe: (id) =>
       resourceProbeFrom(
         ctx as typeof ctx & Record<string, unknown>,

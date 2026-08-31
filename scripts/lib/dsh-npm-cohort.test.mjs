@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +7,7 @@ import test from "node:test";
 import {
   discoverAlpha2SourcePackages,
   DSH_ALPHA2,
+  verifyRegistrySignatures,
   verifyCohortLock,
 } from "./dsh-npm-cohort.mjs";
 
@@ -51,5 +53,42 @@ test("npm cohort lock verification binds version and integrity", () => {
   assert.throws(
     () => verifyCohortLock(snapshot, `${exact}\n# 0.1.2-alpha.1\n`),
     /alpha\.1/,
+  );
+});
+
+test("npm cohort verifies the registry ECDSA signature over exact name version and integrity", () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const der = publicKey.export({ format: "der", type: "spki" });
+  // npm treats keyid as the registry key selector. It is not the SHA-256 of
+  // the DER/SPKI byte string returned in `key` (the public npm key endpoint
+  // currently demonstrates that distinction).
+  const keyid = `SHA256:${createHash("sha256").update("registry-key-selector").digest("base64").replace(/=+$/, "")}`;
+  const entry = {
+    name: "@deepseek-ai/dsh",
+    version: DSH_ALPHA2.version,
+    integrity: DSH_ALPHA2.rootIntegrity,
+    signatures: [{
+      keyid,
+      sig: sign(
+        "sha256",
+        Buffer.from(`@deepseek-ai/dsh@${DSH_ALPHA2.version}:${DSH_ALPHA2.rootIntegrity}`),
+        privateKey,
+      ).toString("base64"),
+    }],
+  };
+  const keys = [{
+    keyid,
+    keytype: "ecdsa-sha2-nistp256",
+    scheme: "ecdsa-sha2-nistp256",
+    key: der.toString("base64"),
+  }];
+  assert.equal(verifyRegistrySignatures(entry, keys), true);
+  assert.throws(
+    () => verifyRegistrySignatures(entry, [{ ...keys[0], keyid: `${keyid}-wrong` }]),
+    /signature verification failed/,
+  );
+  assert.throws(
+    () => verifyRegistrySignatures({ ...entry, integrity: `${entry.integrity}tampered` }, keys),
+    /signature verification failed/,
   );
 });

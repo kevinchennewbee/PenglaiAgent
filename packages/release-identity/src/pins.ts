@@ -207,25 +207,24 @@ export const HARD_SUBGATES = [
   { name: "verify:identity", kind: "contract", mode: "run" },
   { name: "verify:contracts", kind: "contract", mode: "run" },
   { name: "verify:dependencies", kind: "contract", mode: "run" },
-  { name: "verify:closure", kind: "closure", mode: "run" },
-  { name: "verify:profile", kind: "profile", mode: "run" },
-  { name: "verify:artifact", kind: "artifact", mode: "run" },
-  { name: "verify:fuses", kind: "fuses", mode: "run" },
-  { name: "verify:signing", kind: "signing", mode: "run" },
+  { name: "verify:closure", kind: "closure", mode: "evidence" },
+  { name: "verify:profile", kind: "profile", mode: "evidence" },
+  { name: "verify:artifact", kind: "artifact", mode: "evidence" },
+  { name: "verify:fuses", kind: "fuses", mode: "evidence" },
+  { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
+  { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
+  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
+  { name: "verify:live", kind: "live", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// These checks need Owner accounts, long-running installed use, or a complete
-// cross-run evidence collection. They are reported next to the release result,
-// but absence must not masquerade as PASS or make the automated/native release
-// aggregate impossible to satisfy.
-export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
-  { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
-] as const;
+// 0.5.9 has no publication-optional acceptance evidence. Owner live accounts,
+// two-hour installed use, and the complete cross-run evidence collection are
+// hard gates above; an absent result remains INCOMPLETE.
+export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [] as const;
 
 export const REQUIRED_SUBGATE_KINDS = [
   "format",
@@ -242,6 +241,10 @@ export const REQUIRED_SUBGATE_KINDS = [
   "fuses",
   "signing",
   "installed",
+  "installed-lifecycle",
+  "installed-soak",
+  "live",
+  "evidence",
   "public-export",
   "secret",
 ] as const;

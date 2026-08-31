@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { foldAlpha2ModelSelection, hostFromAlpha2Cordis } from "./alpha2-owner-adapter.js";
+import { foldAlpha2ModelSelection, foldAlpha2Title, hostFromAlpha2Cordis } from "./alpha2-owner-adapter.js";
 
 test("alpha.2 adapter uses the official sessionController for list, create, rename, and model operations", async () => {
   const calls: string[] = [];
@@ -16,7 +16,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
           projections: { values: {
             title: "Official title",
             modelSelection: { next: { provider: "deepseek", model: "deepseek-reasoner" } },
-          } },
+          }, asOfSeq: 0 },
         }] };
       },
       async create(request: { workspaceId?: string }) {
@@ -27,7 +27,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
         calls.push(`rename:${request.sessionId}:${request.title}`);
         return { title: request.title, seq: 1 };
       },
-      async inspect() { throw new Error("projected selection must avoid a cold inspection"); },
+      async inspect() { return { events: [{ type: "model/selection", seq: 0, time: 1, data: { provider: "deepseek", model: "deepseek-reasoner" } }] }; },
       async modelCatalog() {
         calls.push("catalog");
         return {
@@ -78,6 +78,83 @@ test("alpha.2 model-selection fallback folds official durable events exactly", (
     { type: "model/selection", data: { provider: "p", model: "same" } },
     { type: "request/header", data: { header: { config: { provider: "p", model: "same" } } } },
   ]), { provider: "p", model: "same" });
+  assert.deepEqual(foldAlpha2ModelSelection([
+    { type: "extension/future", seq: 1, time: 1, data: {}, ignorable: true },
+    { type: "model/selection", seq: 2, time: 2, data: { provider: "p", model: "safe" } },
+  ]), { provider: "p", model: "safe" });
+  assert.throws(
+    () => foldAlpha2ModelSelection([{ type: "extension/required", seq: 1, time: 1, data: {} }]),
+    /required alpha\.2 Session event is unknown/,
+  );
+});
+
+test("alpha.2 title fallback rejects stale projections and folds the durable rename", async () => {
+  assert.equal(foldAlpha2Title([
+    { type: "session/title", seq: 1, time: 1, data: { title: "Old" } },
+    { type: "session/title", seq: 2, time: 2, data: { title: "Current" } },
+  ]), "Current");
+  const ctx = {
+    on() {},
+    agents: { get() { return undefined; } },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() {
+        return { items: [{ sessionId: "session-1", projections: { asOfSeq: 1, values: { title: "Old" } } }] };
+      },
+      async inspect() {
+        return { events: [
+          { type: "session/title", seq: 1, time: 1, data: { title: "Old" } },
+          { type: "session/title", seq: 2, time: 2, data: { title: "Current" } },
+        ] };
+      },
+      async create() { return { sessionId: "unused" }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 2 }; },
+      async modelCatalog() { return { default: { provider: "p", model: "m" }, routableProviders: [], groups: [] }; },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
+  assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Current" }]);
+});
+
+test("alpha.2 adapter rejects a stale model projection and folds the current log", async () => {
+  const ctx = {
+    on() {},
+    agents: { get() { return undefined; } },
+    workspaceRegistry: { list: () => [] },
+    sessionController: {
+      async list() {
+        return { items: [{
+          sessionId: "session-1",
+          projections: {
+            asOfSeq: 4,
+            values: { modelSelection: { next: { provider: "deepseek", model: "stale" } } },
+          },
+        }] };
+      },
+      async create() { return { sessionId: "unused" }; },
+      async inspect() {
+        return { events: [
+          { type: "model/selection", seq: 4, time: 1, data: { provider: "deepseek", model: "stale" } },
+          { type: "model/selection", seq: 5, time: 2, data: { provider: "deepseek", model: "current" } },
+        ] };
+      },
+      async modelCatalog() {
+        return {
+          default: { provider: "deepseek", model: "default" },
+          routableProviders: ["deepseek"],
+          groups: [{ id: "deepseek", name: "DeepSeek", models: [{ id: "current", name: "Current" }] }],
+        };
+      },
+      async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
+      async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
+    },
+  };
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
+  assert.deepEqual((await host.describeSessionModels?.("session-1"))?.current, {
+    provider: "deepseek",
+    model: "current",
+  });
 });
 
 test("alpha.2 adapter has no apiProxy access path", () => {

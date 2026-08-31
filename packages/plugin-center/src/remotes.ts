@@ -14,9 +14,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, t } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote, t } from "@penglai/contracts";
 import {
   PluginDistributionClient,
   selectCatalogArtifact,
@@ -207,7 +207,7 @@ export function inventoryActivationObservation(
 }
 
 export async function waitForInventory(
-  inventory: { list(): unknown },
+  inventory: { list(): unknown; refresh?(): Promise<void> },
   id: string,
   enabled: boolean,
   present = true,
@@ -216,6 +216,7 @@ export async function waitForInventory(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() <= deadline) {
+    await inventory.refresh?.();
     const observation = inventoryActivationObservation(inventory, id);
     observe(observation);
     const converged = !present
@@ -243,6 +244,16 @@ export async function waitForInventory(
     "DSH_UNAVAILABLE",
     "PLUGIN_ACTIVATION_TIMEOUT",
   );
+}
+
+export function assertPluginServiceHealthy(
+  health: ((id: string) => { healthy: boolean; error?: string }) | undefined,
+  id: string,
+): void {
+  const result = health?.(id);
+  if (result && !result.healthy) {
+    throw new PenglaiError("DSH_UNAVAILABLE", "PLUGIN_SERVICE_UNHEALTHY");
+  }
 }
 
 const PUBLIC_INVENTORY_PHASES = new Set([
@@ -443,10 +454,11 @@ export function stageRegistryPackage(input: {
 
 export function createCenterRemote(opts: {
   host: CenterHostLike;
-  inventory: { list(): unknown };
+  inventory: { list(): unknown; refresh?(): Promise<void> };
   catalog: readonly PluginCatalogEntry[];
   lifecycle: PluginLifecycle;
   resourceProbe: (id: string) => ResourceProbe | undefined;
+  health?: (id: string) => { healthy: boolean; error?: string };
   profileDir: string;
   txDir: string;
   /** Read-only packages shipped inside the application. */
@@ -534,15 +546,17 @@ export function createCenterRemote(opts: {
         previousEnabled,
         previousPresent,
         applyLive: (input) => opts.lifecycle.apply(input),
-        verifyActual: (input, observe) =>
-          waitForInventory(
+        verifyActual: async (input, observe) => {
+          await waitForInventory(
             opts.inventory,
             input.id,
             input.enabled,
             input.present,
             8_000,
             observe,
-          ),
+          );
+          if (input.enabled) assertPluginServiceHealthy(opts.health, input.id);
+        },
         ...(probe ? { readResources: () => probe.snapshot() } : {}),
         commitDesired: (enabled) => opts.host.setDesired(id, enabled),
         rollbackDesired: (enabled) => opts.host.setDesired(id, enabled),
@@ -783,47 +797,47 @@ export class PenglaiCenterRemote extends TypertRemoteService {
     super(ctx, "penglaiCenter");
   }
 
-  @Remote
+  @PenglaiRemote
   list() {
     return this.impl.list();
   }
 
-  @Remote
+  @PenglaiRemote
   enable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.enable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   installEnable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.installEnable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   disable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.disable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   update(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.update(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   rollback(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.rollback(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   refreshRegistry() {
     return this.impl.refreshRegistry();
   }
 
-  @Remote
+  @PenglaiRemote
   download(input: { id: string }) {
     return this.impl.download(input.id);
   }
 
-  @Remote
+  @PenglaiRemote
   installDisabled(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.installDisabled(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }

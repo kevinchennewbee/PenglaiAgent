@@ -268,6 +268,12 @@ if (!existsSync(lgplSourceOffer)) {
   process.exit(1);
 }
 cpSync(lgplSourceOffer, join(staging, "LGPL_SOURCE_OFFER.txt"));
+const sharpLegalSource = join(ROOT, "third_party", "sharp");
+if (!existsSync(sharpLegalSource)) {
+  console.error("sharp/libvips legal materials are missing");
+  process.exit(1);
+}
+cpSync(sharpLegalSource, join(staging, "licenses", "sharp"), { recursive: true });
 
 // A native Windows build must carry its ACL/job/uninstall helper inside the
 // hashed runtime manifest. Cross-staging may omit it and remains structurally
@@ -285,6 +291,7 @@ const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))
   .concat(existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [])
   .concat(existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [])
+  .concat(existsSync(join(staging, "licenses")) ? walk(join(staging, "licenses")) : [])
   .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
   .map((abs) => ({
     path: abs.slice(staging.length + 1),

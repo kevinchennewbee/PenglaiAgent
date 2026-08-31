@@ -72,6 +72,7 @@ function installedEvidenceRecord(rec) {
       identity: gate(first.identity?.ok === true || identityJudged.ok === true),
       officialHttp: gate(first.http?.official === true),
       officialWebSocket: gate(first.websocket?.opened === true),
+      exactExecutableBoot: gate(first.nativeBoot?.ok === true),
       productDom: gate(first.dom?.hasDshBoot === true),
       ownedProcessTree: gate(first.processTree?.ownedAbsolute === true && first.processTree?.dshPid > 0),
       requiredInventory: gate(first.inventory?.ok === true),
@@ -180,6 +181,49 @@ if (!exe) {
   finish("FAIL", { command: "test:e2e:installed", reason: "installed Penglai executable missing", target: expectedTarget });
 }
 const resources = resourcesInside(app, expectedTarget);
+const nativeUserData = join(ROOT, ".tmp-installed-e2e-native");
+rmSync(nativeUserData, { recursive: true, force: true });
+mkdirSync(nativeUserData, { recursive: true });
+const nativeLaunch = launchPackaged(exe, resources, nativeUserData);
+const nativeGatewayFile = join(nativeUserData, "gateway.port");
+const nativeInventoryFile = join(nativeUserData, "plugins", "inventory-snapshot.json");
+const nativeGateway = await waitForFile(nativeGatewayFile, 90_000);
+const nativeInventory = await waitForFile(nativeInventoryFile, 30_000);
+const nativeProcessTree = ownedProcessTree(app, resources, nativeLaunch.child.pid);
+const nativePort = nativeGateway ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
+const nativeLive = nativePort
+  ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
+  : { httpOfficial: false, wsOpened: false };
+const nativeExit = await stopChild(nativeLaunch.child);
+const nativeLeftovers = leftoversByCommand(nativeProcessTree.dshEntry).filter(
+  (line) => line.includes(nativeProcessTree.nodeBin) || line.includes(nativeUserData),
+);
+const nativeBoot = {
+  exactExecutable: exe,
+  pid: nativeLaunch.child.pid,
+  gateway: nativeGateway,
+  inventory: nativeInventory,
+  processTree: nativeProcessTree,
+  live: nativeLive,
+  exit: nativeExit,
+  leftovers: nativeLeftovers,
+  ok: Boolean(
+    nativeGateway &&
+    nativeInventory &&
+    nativeProcessTree.ownedAbsolute &&
+    nativeProcessTree.dshPid > 0 &&
+    nativeLive.httpOfficial &&
+    nativeLive.wsOpened &&
+    nativeLeftovers.length === 0
+  ),
+};
+if (!nativeBoot.ok) {
+  finish("FAIL", {
+    command: "test:e2e:installed",
+    reason: "exact installed Penglai executable did not complete a normal official boot",
+    nativeBoot,
+  });
+}
 const userData = join(ROOT, ".tmp-installed-e2e");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
@@ -354,6 +398,7 @@ const first = {
     ackPaths: welcomeAckPaths,
   },
   settingsWalk: { walked: walk?.settingsWalked ?? [] },
+  nativeBoot,
 };
 
 const fail = (reason, extra = {}) => {
@@ -393,6 +438,7 @@ const walked = first.onboarding.walked;
 const settingsWalked = first.settingsWalk.walked;
 const keylessOk = Boolean(walk?.wizardKeyless?.ok && resume.ok);
 const canPass =
+  first.nativeBoot?.ok === true &&
   first.http?.official === true &&
   first.websocket?.opened === true &&
   first.dom?.hasDshBoot === true &&

@@ -10,6 +10,15 @@ const argv = process.argv.slice(2);
 const dryRun = argv.includes("--dry-run");
 const injectIdx = argv.indexOf("--inject-fail");
 const injectFail = injectIdx >= 0 ? argv[injectIdx + 1] : null;
+const nativeSetGates = new Set([
+  "verify:artifact",
+  "verify:closure",
+  "verify:fuses",
+  "verify:installed",
+  "verify:profile",
+  "verify:signing",
+  "verify:upgrade-uninstall",
+]);
 
 const {
   HARD_SUBGATES,
@@ -35,6 +44,28 @@ function readGateJson(name) {
 
 function runGate(name) {
   if (injectFail === name) return { name, exit: 1, verdict: "FAIL", jsonVerdict: null };
+  if (nativeSetGates.has(name)) {
+    const child = pnpmProcess(["run", "verify:native-set", "--", "--command", name]);
+    const r = spawnSync(child.command, child.args, { cwd: ROOT, encoding: "utf8" });
+    const processExit = r.status ?? 1;
+    const verdict = processExit === 0 ? "PASS" : processExit === 2 ? "INCOMPLETE" : processExit === 3 ? "STALE" : processExit === 4 ? "BLOCKED" : "FAIL";
+    if (processExit !== 0) {
+      process.stderr.write(r.stdout || "");
+      process.stderr.write(r.stderr || "");
+    }
+    return { name, exit: processExit, verdict, jsonVerdict: null };
+  }
+  if (name === "verify:soak") {
+    const child = pnpmProcess(["run", "verify:soak", "--", "--aggregate"]);
+    const r = spawnSync(child.command, child.args, { cwd: ROOT, encoding: "utf8" });
+    const processExit = r.status ?? 1;
+    const verdict = processExit === 0 ? "PASS" : processExit === 2 ? "INCOMPLETE" : processExit === 3 ? "STALE" : processExit === 4 ? "BLOCKED" : "FAIL";
+    if (processExit !== 0) {
+      process.stderr.write(r.stdout || "");
+      process.stderr.write(r.stderr || "");
+    }
+    return { name, exit: processExit, verdict, jsonVerdict: null };
+  }
   if (dryRun) {
     const json = readGateJson(name);
     const gate = HARD_SUBGATES.find((g) => g.name === name);
@@ -121,6 +152,10 @@ const out = {
   overallVerdict: agg.verdict,
   exitCode: release.exitCode,
   candidateKind: info.candidateKind,
+  sourceSha: (() => {
+    const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" });
+    return result.status === 0 ? String(result.stdout).trim() : "";
+  })(),
   listedKinds: agg.listedKinds,
   missingGates: agg.missingGates,
   failReasons: agg.failReasons,

@@ -42,6 +42,19 @@ test("R1-UP-002/003 legacy IM source is normalized to an official visible user s
   assert.equal(fact && "kind" in fact.source && fact.source.kind === "user" && fact.source.inboundId, "i");
 });
 
+test("every shipped IM adapter preserves official claimed-turn correlation", () => {
+  for (const adapter of ["mock", "weixin", "feishu", "dingtalk", "wecom", "qq", "slack", "telegram", "discord"] as const) {
+    const fact = claimedFromOfficial({
+      message: { id: `message-${adapter}`, source: { kind: "user", schema: 1, routeId: "route", inboundId: "inbound", adapter } },
+      turn: 1,
+      sessionId: "session",
+    });
+    assert.equal(fact?.source.adapter, adapter);
+    assert.equal(fact?.source.routeId, "route");
+    assert.equal(fact?.source.inboundId, "inbound");
+  }
+});
+
 test("voice source metadata is strict and enters only the model pre-step view", () => {
   const source = {
     kind: "penglai-im",

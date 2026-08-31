@@ -1,6 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import type { createOfficeService, OfficeFormat, OfficeOperation } from "./service.js";
 
 const FORMATS = new Set<OfficeFormat>(["docx", "xlsx", "pptx", "pdf"]);
@@ -83,42 +83,42 @@ export class PenglaiOfficeRemote extends TypertRemoteService {
     super(ctx, "penglaiOfficeSettings");
   }
 
-  @Remote
+  @PenglaiRemote
   health() {
     return createOfficeRemoteApi(this.impl).health();
   }
 
-  @Remote
+  @PenglaiRemote
   templates() {
     return createOfficeRemoteApi(this.impl).templates();
   }
 
-  @Remote
+  @PenglaiRemote
   inspect(input: { bytesBase64: string }) {
     return createOfficeRemoteApi(this.impl).inspect(input);
   }
 
-  @Remote
+  @PenglaiRemote
   create(input: { format: OfficeFormat; text: string }) {
     return createOfficeRemoteApi(this.impl).create(input);
   }
 
-  @Remote
+  @PenglaiRemote
   edit(input: { bytesBase64: string; operation?: OfficeOperation; replacement?: string; format?: OfficeFormat }) {
     return createOfficeRemoteApi(this.impl).edit(input);
   }
 
-  @Remote
+  @PenglaiRemote
   preview(input: { jobId: string }) {
     return createOfficeRemoteApi(this.impl).preview(input);
   }
 
-  @Remote
+  @PenglaiRemote
   approve(input: { jobId: string }) {
     return createOfficeRemoteApi(this.impl).approve(input);
   }
 
-  @Remote
+  @PenglaiRemote
   commit(input: { jobId: string; receipt: string }) {
     return createOfficeRemoteApi(this.impl).commit(input);
   }

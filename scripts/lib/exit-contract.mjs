@@ -18,7 +18,15 @@ export function finish(verdict, payload = {}) {
   const rec = { verdict, ...payload };
   if (typeof rec.command === "string" && rec.command.startsWith("verify:")) {
     mkdirSync("evidence/generated", { recursive: true });
-    writeFileSync(join("evidence/generated", `${rec.command.replaceAll(":", "-")}.json`), `${JSON.stringify(rec, null, 2)}\n`);
+    const bytes = `${JSON.stringify(rec, null, 2)}\n`;
+    const basename = rec.command.replaceAll(":", "-");
+    writeFileSync(join("evidence/generated", `${basename}.json`), bytes);
+    if (
+      typeof rec.target === "string" &&
+      ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"].includes(rec.target)
+    ) {
+      writeFileSync(join("evidence/generated", `${basename}-${rec.target}.json`), bytes);
+    }
   }
   const line = JSON.stringify(rec);
   if (verdict === "PASS") console.log(line);

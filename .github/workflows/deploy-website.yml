@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Immutable Release tag that must already exist (example v0.5.9)
+        description: Immutable Release tag that must already exist (exactly v0.5.9)
         required: true
+        default: v0.5.9
         type: string
       deploy_site:
         description: Push the verified website to the gh-pages branch
@@ -14,21 +15,41 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: deploy-website-v0.5.9
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Readback then deploy gh-pages
+  verify:
+    name: Verify public release and website bytes
     runs-on: macos-15
+    timeout-minutes: 30
+    outputs:
+      release_sha: ${{ steps.publication.outputs.release_sha }}
     steps:
+      - name: Refuse non-main or non-v0.5.9 dispatch
+        shell: bash
+        run: |
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "${{ inputs.tag }}" = "v0.5.9"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Require the exact current main commit
+        shell: bash
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.22.2
-      - name: Require the requested tag
-        run: |
-          test "${{ inputs.tag }}" = "v0.5.9"
-      - name: Public readback
+      - name: Public immutable readback
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -37,10 +58,13 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
           pnpm readback:release "${{ inputs.tag }}"
-      - name: Deploy verified website
-        if: ${{ inputs.deploy_site }}
+      - name: Verify release-linked README and website content
+        id: publication
         env:
-          DEPLOY_TAG: ${{ inputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node --import tsx scripts/verify-website-release.mjs --tag "${{ inputs.tag }}"
+      - name: Verify the complete static website tree
+        shell: bash
         run: |
           test -s website/favicon.svg
           test -s website/shots/banner-v1.png
@@ -50,17 +74,75 @@ jobs:
           test -s website/shots/0.5.5/mobile-messaging.png
           test -s website/shots/0.5.5/welcome.png
           test "$(find website -type f | wc -l | tr -d ' ')" -ge 25
-          site_dir="${RUNNER_TEMP}/penglai-gh-pages"
-          git fetch origin gh-pages
-          git worktree add --detach "$site_dir" origin/gh-pages
-          rsync -a --delete --exclude .git website/ "$site_dir/"
-          touch "$site_dir/.nojekyll"
-          git -C "$site_dir" config user.name "github-actions[bot]"
-          git -C "$site_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C "$site_dir" add -A
-          if git -C "$site_dir" diff --cached --quiet; then
-            echo "Website is already current for ${DEPLOY_TAG}."
+          test -z "$(find website -type l -print -quit)"
+      - name: Seal the verified website for the write-only deployment job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-website-v0.5.9-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 1
+          path: website/
+
+  deploy:
+    name: Deploy verified bytes to gh-pages
+    needs: verify
+    if: ${{ needs.verify.result == 'success' && inputs.deploy_site && github.ref == 'refs/heads/main' }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the deployment branch only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          path: site
+          ref: gh-pages
+      - name: Download the website sealed by the read-only job
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-website-v0.5.9-${{ github.sha }}
+          path: verified-site
+      - name: Deploy the verified website
+        env:
+          DEPLOY_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ needs.verify.outputs.release_sha }}
+        shell: bash
+        run: |
+          test -n "$RELEASE_SHA"
+          test -s verified-site/index.html
+          test -s verified-site/en/index.html
+          test -z "$(find verified-site -type l -print -quit)"
+          grep -F "$RELEASE_SHA" verified-site/index.html
+          grep -F "$RELEASE_SHA" verified-site/en/index.html
+          test "$(git -C site ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          rsync -a --delete --exclude .git verified-site/ site/
+          touch site/.nojekyll
+          git -C site config user.name "github-actions[bot]"
+          git -C site config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C site add -A
+          if git -C site diff --cached --quiet; then
+            echo "Website is already current for ${DEPLOY_TAG} at ${RELEASE_SHA}."
           else
-            git -C "$site_dir" commit -m "website: deploy ${DEPLOY_TAG} from ${GITHUB_SHA}"
-            git -C "$site_dir" push origin HEAD:gh-pages
+            git -C site commit -m "website: deploy ${DEPLOY_TAG} (${RELEASE_SHA})"
+            git -C site push origin HEAD:gh-pages
           fi
+      - name: Read back the public GitHub Pages deployment
+        env:
+          RELEASE_SHA: ${{ needs.verify.outputs.release_sha }}
+        shell: bash
+        run: |
+          for attempt in $(seq 1 20); do
+            root="$(curl --fail --silent --show-error --location --max-time 20 https://kevinchennewbee.github.io/PenglaiAgent/ || true)"
+            english="$(curl --fail --silent --show-error --location --max-time 20 https://kevinchennewbee.github.io/PenglaiAgent/en/ || true)"
+            if printf '%s' "$root" | grep -Fq "Penglai 0.5.9" \
+              && printf '%s' "$root" | grep -Fq "$RELEASE_SHA" \
+              && printf '%s' "$english" | grep -Fq "Penglai 0.5.9" \
+              && printf '%s' "$english" | grep -Fq "$RELEASE_SHA"; then
+              echo "Public website readback matches v0.5.9 at ${RELEASE_SHA}."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Public website did not converge to the verified v0.5.9 bytes." >&2
+          exit 1

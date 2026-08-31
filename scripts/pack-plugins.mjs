@@ -139,6 +139,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
@@ -154,6 +155,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
@@ -169,6 +171,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
@@ -184,6 +187,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],

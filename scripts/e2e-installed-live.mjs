@@ -2,7 +2,7 @@ import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
@@ -10,7 +10,9 @@ import { attachPage, captureShot, delay, evaluate, freePort, waitEval } from "./
 import { walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
   assertInstalledPenglaiIdentity,
+  exeInside,
   installFromExactInstaller,
+  launchPackaged,
   launchInstalledHarness,
   leftoversByCommand,
   ownedProcessTree,
@@ -22,12 +24,16 @@ import {
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
+import { probeLiveHttpWs } from "./lib/runner-live.mjs";
 
 const PRODUCT_VERSION = "0.5.9";
 const PROVIDER = "deepseek-official";
 const PREFERRED_MODEL = "deepseek-v4-flash-vision-exp";
 const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 const SAFE_WIZARD_STEPS = new Set(["language", "privacy", "models", "keytest", "workspace", "firstturn", "done"]);
+const runId = randomUUID();
+const startedAt = new Date().toISOString();
+const sha256 = (value) => createHash("sha256").update(String(value)).digest("hex");
 
 function readSecretLine() {
   if (process.stdin.isTTY) process.stderr.write("DeepSeek API key (input is not recorded): ");
@@ -151,6 +157,48 @@ if (!identity.ok) finish("FAIL", { command: "test:e2e:installed:live", reason: `
 const packaged = inspectPackagedCandidate({ app: installed.app, candidateSha: expectedSource, expectedTarget: target });
 if (packaged.verdict !== "PASS") finish(packaged.verdict, { command: "test:e2e:installed:live", reason: packaged.reason });
 
+const resources = resourcesInside(installed.app, target);
+const exe = exeInside(installed.app, target);
+if (!exe) finish("FAIL", { command: "test:e2e:installed:live", reason: "installed Penglai executable missing" });
+const nativeUserData = join(ROOT, ".tmp-installed-live-native");
+rmSync(nativeUserData, { recursive: true, force: true });
+mkdirSync(nativeUserData, { recursive: true, mode: 0o700 });
+const nativeLaunch = launchPackaged(exe, resources, nativeUserData);
+const nativeGatewayFile = join(nativeUserData, "gateway.port");
+const nativeInventoryFile = join(nativeUserData, "plugins", "inventory-snapshot.json");
+const nativeGateway = await waitForFile(nativeGatewayFile, 90_000);
+const nativeInventory = await waitForFile(nativeInventoryFile, 30_000);
+const nativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
+const nativePort = nativeGateway ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
+const nativeLive = nativePort
+  ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
+  : { httpOfficial: false, wsOpened: false };
+await stopChild(nativeLaunch.child);
+const nativeLeftovers = leftoversByCommand(nativeTree.dshEntry).filter(
+  (line) => line.includes(nativeTree.nodeBin) || line.includes(nativeUserData),
+);
+rmSync(nativeUserData, { recursive: true, force: true });
+const nativeExecutableBoot = Boolean(
+  nativeGateway &&
+    nativeInventory &&
+    nativeTree.ownedAbsolute &&
+    nativeTree.dshPid > 0 &&
+    nativeLive.httpOfficial &&
+    nativeLive.wsOpened &&
+    nativeLeftovers.length === 0,
+);
+if (!nativeExecutableBoot) {
+  finish("FAIL", {
+    command: "test:e2e:installed:live",
+    reason: "exact installed executable did not complete a normal official boot before live onboarding",
+    nativeGateway,
+    nativeInventory,
+    nativeTree,
+    nativeLive,
+    nativeLeftovers,
+  });
+}
+
 const harness = resolveInstalledUiHarness();
 if (!harness) finish("INCOMPLETE", { command: "test:e2e:installed:live", reason: "installed UI harness missing" });
 const secret = await readSecretLine();
@@ -167,7 +215,6 @@ if (capturePublicShots) rmSync(publicShotDir, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true, mode: 0o700 });
 mkdirSync(workspace, { recursive: true, mode: 0o700 });
 if (capturePublicShots) mkdirSync(publicShotDir, { recursive: true, mode: 0o700 });
-const resources = resourcesInside(installed.app, target);
 const port = await freePort();
 const launched = launchInstalledHarness(harness, resources, userData, [
   `--remote-debugging-port=${port}`,
@@ -243,12 +290,23 @@ try {
   const facts = existsSync(factsPath) ? JSON.parse(readFileSync(factsPath, "utf8")) : {};
   const apiDigest = String(facts.apiTest?.finalDigest ?? "");
   const firstDigest = String(facts.firstConversation?.finalDigest ?? "");
-  const completed = ledger.current === "COMPLETE" && /^[0-9a-f]{64}$/.test(apiDigest) && /^[0-9a-f]{64}$/.test(firstDigest);
+  const nonceDigest = String(facts.apiTest?.nonceDigest ?? "");
+  const firstMessageDigest = String(facts.firstConversation?.messageDigest ?? "");
+  const officialSessionDigest = sha256(`${facts.apiTest?.sessionId ?? ""}\n${facts.firstConversation?.sessionId ?? ""}`);
+  const completed =
+    ledger.current === "COMPLETE" &&
+    [nonceDigest, apiDigest, firstMessageDigest, firstDigest, officialSessionDigest].every((value) =>
+      /^[0-9a-f]{64}$/.test(value),
+    );
   if (!completed) throw new Error("onboarding completion evidence missing");
   const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
   rec = {
     command: "test:e2e:installed:live",
     verdict: "PASS",
+    runnerVersion: "installed-live-v1",
+    runId,
+    startedAt,
+    completedAt: new Date().toISOString(),
     productVersion: PRODUCT_VERSION,
     target,
     sourceSha: packaged.release.sourceSha,
@@ -259,10 +317,15 @@ try {
     modelSelection: model === PREFERRED_MODEL ? "preferred" : "official-directory-fallback",
     officialNonceTurn: true,
     officialFirstTurn: true,
+    credentialNoEcho: true,
     onboardingComplete: true,
-    apiTestFinalDigestRecorded: true,
-    firstTurnFinalDigestRecorded: true,
+    nonceDigest,
+    apiTestFinalDigest: apiDigest,
+    firstMessageDigest,
+    firstTurnFinalDigest: firstDigest,
+    officialSessionDigest,
     processOwned: tree.ownedAbsolute,
+    nativeExecutableBoot,
     publicScreenshots: capturePublicShots,
   };
   verdict = "PASS";

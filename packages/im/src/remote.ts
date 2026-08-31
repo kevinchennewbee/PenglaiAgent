@@ -1,5 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
+import { PenglaiRemote } from "@penglai/contracts";
 import type { PenglaiImHost } from "./host.js";
 
 export class PenglaiImRemote extends TypertRemoteService {
@@ -10,212 +11,212 @@ export class PenglaiImRemote extends TypertRemoteService {
     super(ctx, "penglaiIm");
   }
 
-  @Remote
+  @PenglaiRemote
   getOverview() {
     return this.host.getOverview();
   }
 
-  @Remote
+  @PenglaiRemote
   getOnboardingReadiness() {
     return this.host.getOnboardingReadiness();
   }
 
-  @Remote
+  @PenglaiRemote
   listWorkspacesAndSessions() {
     return this.host.listWorkspacesAndSessions();
   }
 
-  @Remote
+  @PenglaiRemote
   proposeBinding(input: Parameters<PenglaiImHost["proposeBinding"]>[0]) {
     return this.host.proposeBinding(input);
   }
 
-  @Remote
+  @PenglaiRemote
   createBinding(input: Parameters<PenglaiImHost["createBinding"]>[0]) {
     return this.host.createBinding(input);
   }
 
-  @Remote
+  @PenglaiRemote
   enableGroup(input: Parameters<PenglaiImHost["enableGroup"]>[0]) {
     return this.host.enableGroup(input);
   }
 
-  @Remote
+  @PenglaiRemote
   deleteBinding(input: Parameters<PenglaiImHost["deleteBinding"]>[0]) {
     return this.host.deleteBinding(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listBindings() {
     return this.host.listBindings();
   }
 
-  @Remote
+  @PenglaiRemote
   getVoiceOptions() {
     return this.host.getVoiceOptions();
   }
 
-  @Remote
+  @PenglaiRemote
   probeWeixinText(input: Parameters<PenglaiImHost["probeWeixinText"]>[0]) {
     return this.host.probeWeixinText(input);
   }
 
-  @Remote
+  @PenglaiRemote
   updateBindingVoicePolicy(input: Parameters<PenglaiImHost["updateBindingVoicePolicy"]>[0]) {
     return this.host.updateBindingVoicePolicy(input);
   }
 
-  @Remote
+  @PenglaiRemote
   probeWeixinNativeVoice(input: Parameters<PenglaiImHost["probeWeixinNativeVoice"]>[0]) {
     return this.host.probeWeixinNativeVoice(input);
   }
 
-  @Remote
+  @PenglaiRemote
   confirmWeixinNativeVoice(input: Parameters<PenglaiImHost["confirmWeixinNativeVoice"]>[0]) {
     return this.host.confirmWeixinNativeVoice(input);
   }
 
-  @Remote
+  @PenglaiRemote
   disableWeixinNativeVoice(input: Parameters<PenglaiImHost["disableWeixinNativeVoice"]>[0]) {
     return this.host.disableWeixinNativeVoice(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listBindableRoutes() {
     return this.host.listBindableRoutes();
   }
 
-  @Remote
+  @PenglaiRemote
   beginWeixinQr() {
     return this.host.beginWeixinQr();
   }
 
-  @Remote
+  @PenglaiRemote
   pollWeixinQr(input: { challengeId: string }) {
     return this.host.pollWeixinQr(input);
   }
 
-  @Remote
+  @PenglaiRemote
   submitWeixinVerification(input: { challengeId: string; code: string }) {
     return this.host.submitWeixinVerification(input);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelWeixinQr() {
     return this.host.cancelWeixinQr();
   }
 
-  @Remote
+  @PenglaiRemote
   beginFeishuQr() {
     return this.host.beginFeishuQr();
   }
 
-  @Remote
+  @PenglaiRemote
   pollFeishuQr(input: { challengeId: string }) {
     return this.host.pollFeishuQr(input);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelFeishuQr() {
     return this.host.cancelFeishuQr();
   }
 
-  @Remote
+  @PenglaiRemote
   reconnectWeixin() {
     return this.host.reconnectWeixin();
   }
 
-  @Remote
+  @PenglaiRemote
   logoutWeixin() {
     return this.host.logoutWeixin();
   }
 
-  @Remote
+  @PenglaiRemote
   configureFeishu(input: { appId: string; secret?: string; ownerOpenId?: string }) {
     return this.host.configureFeishu(input);
   }
 
-  @Remote
+  @PenglaiRemote
   setFeishuOwner(input: { openId: string }) {
     return this.host.setFeishuOwner(input);
   }
 
-  @Remote
+  @PenglaiRemote
   verifyAndConnectFeishu() {
     return this.host.verifyAndConnectFeishu();
   }
 
-  @Remote
+  @PenglaiRemote
   disconnectFeishu() {
     return this.host.disconnectFeishu();
   }
 
-  @Remote
+  @PenglaiRemote
   logoutFeishu() {
     return this.host.logoutFeishu();
   }
 
-  @Remote
+  @PenglaiRemote
   getDiagnostics() {
     return this.host.getDiagnostics();
   }
 
-  @Remote
+  @PenglaiRemote
   listChannelManifests() {
     return this.host.listChannelManifests();
   }
 
-  @Remote
+  @PenglaiRemote
   beginGuidedConnection(input: Parameters<PenglaiImHost["beginGuidedConnection"]>[0]) {
     return this.host.beginGuidedConnection(input);
   }
 
-  @Remote
+  @PenglaiRemote
   createBot(input: Parameters<PenglaiImHost["createBot"]>[0]) {
     return this.host.createBot(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listBots(input: Parameters<PenglaiImHost["listBots"]>[0]) {
     return this.host.listBots(input);
   }
 
-  @Remote
+  @PenglaiRemote
   removeBot(input: Parameters<PenglaiImHost["removeBot"]>[0]) {
     return this.host.removeBot(input);
   }
 
-  @Remote
+  @PenglaiRemote
   storeChannelSecret(input: Parameters<PenglaiImHost["storeChannelSecret"]>[0]) {
     return this.host.storeChannelSecret(input);
   }
 
-  @Remote
+  @PenglaiRemote
   beginChannelConnection(input: Parameters<PenglaiImHost["beginChannelConnection"]>[0]) {
     return this.host.beginChannelConnection(input);
   }
 
-  @Remote
+  @PenglaiRemote
   pollChannelConnection(input: Parameters<PenglaiImHost["pollChannelConnection"]>[0]) {
     return this.host.pollChannelConnection(input);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelChannelConnection(input: Parameters<PenglaiImHost["cancelChannelConnection"]>[0]) {
     return this.host.cancelChannelConnection(input);
   }
 
-  @Remote
+  @PenglaiRemote
   peekChannelQr(input: Parameters<PenglaiImHost["peekChannelQr"]>[0]) {
     return this.host.peekChannelQr(input);
   }
 
-  @Remote
+  @PenglaiRemote
   disconnectChannel(input: Parameters<PenglaiImHost["disconnectChannel"]>[0]) {
     return this.host.disconnectChannel(input);
   }
 
-  @Remote
+  @PenglaiRemote
   logoutChannel(input: Parameters<PenglaiImHost["logoutChannel"]>[0]) {
     return this.host.logoutChannel(input);
   }

@@ -27,6 +27,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check out immutable official DSH alpha.2 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: deepseek-ai/DeepSeek-Harness
+          ref: 0a53fb55bea101816fa226bb964ae2bed71c343b
+          path: upstream-dsh
+          fetch-depth: 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.22.2
@@ -36,6 +43,8 @@ jobs:
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
       - name: Verify the immutable alpha.2 registry cohort
+        env:
+          PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm verify:dsh-npm-cohort
           pnpm verify:dsh-npm-cohort:live
@@ -77,12 +86,14 @@ jobs:
             target: darwin-aarch64
             package: package:dmg:arm
             installer: Penglai_0.5.9_macos_aarch64.dmg
+            previous: Penglai_0.5.8_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
             installer: Penglai_0.5.9_macos_x64.dmg
+            previous: Penglai_0.5.8_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -91,12 +102,24 @@ jobs:
         with:
           node-version: 22.22.2
       - name: Prepare clean main
-        run: git switch -C main "$GITHUB_SHA"
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$GITHUB_SHA" = "$(git rev-parse refs/remotes/origin/main)"
+          git switch -C main "$GITHUB_SHA"
       - name: Install pinned dependencies
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+      - name: Audit target-specific supply chain
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+        run: |
+          pnpm audit:supply-chain
+          cp evidence/generated/licenses.json evidence/generated/licenses-${{ matrix.target }}.json
+          cp evidence/generated/sbom.json evidence/generated/sbom-${{ matrix.target }}.json
+          cp evidence/generated/THIRD_PARTY_NOTICES.txt evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
@@ -112,10 +135,25 @@ jobs:
         run: pnpm fetch:mnemon-assets
       - name: Build exact native installer
         run: pnpm ${{ matrix.package }}
-      - name: Verify packaged Electron fuses
+      - name: Verify native closure, artifact, fuses, and signing contract
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
-        run: pnpm verify:fuses
+        run: |
+          pnpm verify:closure
+          pnpm verify:artifact
+          pnpm verify:fuses
+          pnpm verify:signing
+      - name: Verify full first-party profile matrix
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+        run: pnpm verify:profile:voice-matrix
+      - name: Full installed product and onboarding suite
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+        run: |
+          pnpm test:e2e:installed
+          pnpm verify:installed
       - name: Installed welcome and process smoke
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
@@ -126,8 +164,27 @@ jobs:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
         run: pnpm test:u3:plugins
+      - name: Two-hour exact installed stability suite
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+          PENGLAI_SOAK_ALLOW_LONG: "1"
+          PENGLAI_SOAK_HOURS: "2"
+        run: pnpm test:soak:installed
+      - name: Download immutable 0.5.8 upgrade source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .previous
+          gh release download v0.5.8 --repo kevinchennewbee/PenglaiAgent --pattern SHA256SUMS --pattern '${{ matrix.previous }}' --dir .previous
+      - name: Prove real 0.5.8 upgrade and default uninstall
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+          PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
+          PENGLAI_PREVIOUS_INSTALLER: ${{ github.workspace }}/.previous/${{ matrix.previous }}
+          PENGLAI_PREVIOUS_SHA256SUMS: ${{ github.workspace }}/.previous/SHA256SUMS
+        run: pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
-        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: penglai-0.5.9-${{ matrix.target }}
@@ -136,16 +193,28 @@ jobs:
           path: |
             dist/${{ matrix.installer }}
             evidence/generated/local-installer-${{ matrix.target }}.json
+            evidence/generated/verify-closure-${{ matrix.target }}.json
+            evidence/generated/verify-artifact-${{ matrix.target }}.json
+            evidence/generated/verify-fuses-${{ matrix.target }}.json
+            evidence/generated/verify-signing-${{ matrix.target }}.json
+            evidence/generated/verify-profile-${{ matrix.target }}.json
+            evidence/generated/installed-e2e-${{ matrix.target }}.json
+            evidence/generated/verify-installed-${{ matrix.target }}.json
+            evidence/generated/soak-${{ matrix.target }}.json
+            evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/public-export.json
+            evidence/generated/licenses-${{ matrix.target }}.json
+            evidence/generated/sbom-${{ matrix.target }}.json
+            evidence/generated/THIRD_PARTY_NOTICES-${{ matrix.target }}.txt
 
   windows:
     name: Windows win32-x86_64
     if: ${{ inputs.mode == 'native' }}
     needs: npm-cohort
     runs-on: windows-2022
-    timeout-minutes: 90
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -155,14 +224,39 @@ jobs:
           node-version: 22.22.2
       - name: Prepare clean main
         shell: bash
-        run: git switch -C main "$GITHUB_SHA"
-      - name: Install pinned dependencies and NSIS
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$GITHUB_SHA" = "$(git rev-parse refs/remotes/origin/main)"
+          git switch -C main "$GITHUB_SHA"
+      - name: Install pinned dependencies
         shell: pwsh
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
-          choco install nsis --no-progress -y
+      - name: Audit target-specific supply chain
+        shell: pwsh
+        env:
+          PENGLAI_TARGET: win32-x86_64
+        run: |
+          pnpm audit:supply-chain
+          Copy-Item evidence/generated/licenses.json evidence/generated/licenses-win32-x86_64.json
+          Copy-Item evidence/generated/sbom.json evidence/generated/sbom-win32-x86_64.json
+          Copy-Item evidence/generated/THIRD_PARTY_NOTICES.txt evidence/generated/THIRD_PARTY_NOTICES-win32-x86_64.txt
+      - name: Install integrity-pinned NSIS 3.12
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'nsis-3.12.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'nsis-3.12'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip' -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          $expected = '56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f'
+          if ($actual -ne $expected) { throw "NSIS archive digest mismatch" }
+          Expand-Archive -LiteralPath $archive -DestinationPath $root
+          $compiler = Get-ChildItem -LiteralPath $root -Filter makensis.exe -Recurse -File | Select-Object -First 1
+          if (-not $compiler) { throw "Pinned NSIS compiler missing" }
+          $compiler.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify clean public export
         run: pnpm prepare:public-export -- --clean-room
       - name: Build source from the clean checkout
@@ -186,16 +280,32 @@ jobs:
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           pnpm package:windows
-      - name: Verify packaged Electron fuses
+      - name: Verify native closure, artifact, fuses, and signing contract
         env:
           PENGLAI_TARGET: win32-x86_64
-        run: pnpm verify:fuses
+        run: |
+          pnpm verify:closure
+          pnpm verify:artifact
+          pnpm verify:fuses
+          pnpm verify:signing
+      - name: Verify full first-party profile matrix
+        env:
+          PENGLAI_TARGET: win32-x86_64
+        run: pnpm verify:profile:voice-matrix
       - name: Prove Simplified Chinese installer UI on the native host
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
           -Installer ./dist/Penglai_0.5.9_windows_x64_setup.exe
           -OutDir ./evidence/generated
+      - name: Full installed product and onboarding suite
+        shell: pwsh
+        env:
+          PENGLAI_TARGET: win32-x86_64
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
+        run: |
+          pnpm test:e2e:installed
+          pnpm verify:installed
       - name: Installed welcome and process smoke
         shell: pwsh
         env:
@@ -208,8 +318,30 @@ jobs:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: pnpm test:u3:plugins
+      - name: Two-hour exact installed stability suite
+        shell: pwsh
+        env:
+          PENGLAI_TARGET: win32-x86_64
+          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
+          PENGLAI_SOAK_ALLOW_LONG: "1"
+          PENGLAI_SOAK_HOURS: "2"
+        run: pnpm test:soak:installed
+      - name: Download immutable 0.5.8 upgrade source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force .previous | Out-Null
+          gh release download v0.5.8 --repo kevinchennewbee/PenglaiAgent --pattern SHA256SUMS --pattern 'Penglai_0.5.8_windows_x64_setup.exe' --dir .previous
+      - name: Prove real 0.5.8 upgrade and default uninstall
+        shell: pwsh
+        env:
+          PENGLAI_TARGET: win32-x86_64
+          PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
+          PENGLAI_PREVIOUS_INSTALLER: ${{ github.workspace }}\.previous\Penglai_0.5.8_windows_x64_setup.exe
+          PENGLAI_PREVIOUS_SHA256SUMS: ${{ github.workspace }}\.previous\SHA256SUMS
+        run: pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
-        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: penglai-0.5.9-win32-x86_64
@@ -218,8 +350,82 @@ jobs:
           path: |
             dist/Penglai_0.5.9_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
+            evidence/generated/verify-closure-win32-x86_64.json
+            evidence/generated/verify-artifact-win32-x86_64.json
+            evidence/generated/verify-fuses-win32-x86_64.json
+            evidence/generated/verify-signing-win32-x86_64.json
+            evidence/generated/verify-profile-win32-x86_64.json
+            evidence/generated/installed-e2e-win32-x86_64.json
+            evidence/generated/verify-installed-win32-x86_64.json
+            evidence/generated/soak-win32-x86_64.json
+            evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
             evidence/generated/windows-installer-ui.json
             evidence/generated/windows-installer-components-zh.png
             evidence/generated/public-export.json
+            evidence/generated/licenses-win32-x86_64.json
+            evidence/generated/sbom-win32-x86_64.json
+            evidence/generated/THIRD_PARTY_NOTICES-win32-x86_64.txt
+
+  aggregate:
+    name: Exact three-target evidence aggregate
+    if: ${{ inputs.mode == 'native' }}
+    needs: [macos, windows]
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Require exact origin main
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$GITHUB_SHA" = "$(git rev-parse refs/remotes/origin/main)"
+          git switch -C main "$GITHUB_SHA"
+      - name: Install pinned dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: penglai-0.5.9-darwin-aarch64
+          path: .native/darwin-aarch64
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: penglai-0.5.9-darwin-x86_64
+          path: .native/darwin-x86_64
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: penglai-0.5.9-win32-x86_64
+          path: .native/win32-x86_64
+      - name: Collect only target-bound evidence
+        shell: bash
+        run: |
+          mkdir -p evidence/generated
+          find .native -type f \( -name '*-darwin-aarch64.json' -o -name '*-darwin-x86_64.json' -o -name '*-win32-x86_64.json' \) -exec cp {} evidence/generated/ \;
+      - name: Verify complete native evidence set
+        run: |
+          pnpm verify:native-set -- --command verify:closure
+          pnpm verify:native-set -- --command verify:artifact
+          pnpm verify:native-set -- --command verify:fuses
+          pnpm verify:native-set -- --command verify:signing
+          pnpm verify:native-set -- --command verify:profile
+          pnpm verify:installed -- --aggregate
+          pnpm verify:soak -- --aggregate
+          pnpm verify:native-set -- --command verify:upgrade-uninstall
+          pnpm aggregate:supply-chain
+      - name: Upload consolidated native evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: penglai-0.5.9-native-evidence-set
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            evidence/generated/*.json
+            evidence/generated/THIRD_PARTY_NOTICES.txt

@@ -20,9 +20,16 @@ test("assemble-release refuses a signing key that does not match the embedded up
       "Penglai_0.5.9_macos_x64.dmg",
       "Penglai_0.5.9_windows_x64_setup.exe",
     ];
+    const nativeEvidence = join(temp, "native-evidence");
+    mkdirSync(nativeEvidence);
     const assets = names.map((name, index) => {
       const bytes = Buffer.from(`native-fixture-${index}`);
       writeFileSync(join(staging, name), bytes);
+      const target = ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"][index];
+      writeFileSync(
+        join(nativeEvidence, `local-installer-${target}.json`),
+        JSON.stringify({ target, sourceSha, installer: name, sha256: sha256(bytes), treeDirty: false }),
+      );
       return { id: 1000 + index, name, size: bytes.length, digest: `sha256:${sha256(bytes)}` };
     });
     const publicExport = join(temp, "public-export-manifest.json");
@@ -40,12 +47,26 @@ test("assemble-release refuses a signing key that does not match the embedded up
     );
     const sbom = join(temp, "sbom.json");
     const notices = join(temp, "notices.txt");
-    writeFileSync(sbom, "{}\n");
-    writeFileSync(notices, "fixture notices\n");
+    writeFileSync(
+      sbom,
+      `${JSON.stringify({
+        bomFormat: "CycloneDX",
+        release: "0.5.9",
+        sourceSha,
+        target: "release-set",
+        lockfileSha256: sha256(readFileSync(join(ROOT, "pnpm-lock.yaml"))),
+        componentCount: 1,
+        components: [{ type: "application", name: "fixture", version: "0.5.9" }],
+      })}\n`,
+    );
+    writeFileSync(
+      notices,
+      `Penglai 0.5.9 Third-Party Notices\nSource SHA: ${sourceSha}\nAudited target: release-set\nlicenses/sharp/\n`,
+    );
     const releaseJson = join(temp, "release.json");
     writeFileSync(
       releaseJson,
-      JSON.stringify({ id: 77, tag_name: "v0.5.9", draft: true, prerelease: false, immutable: false, assets }),
+      JSON.stringify({ id: 77, tag_name: "v0.5.9", target_commitish: sourceSha, draft: true, prerelease: false, immutable: false, assets }),
     );
     const keyFile = join(temp, "private.pem");
     writeFileSync(
@@ -64,6 +85,8 @@ test("assemble-release refuses a signing key that does not match the embedded up
         sourceSha,
         "--release-json",
         releaseJson,
+        "--native-evidence-dir",
+        nativeEvidence,
         "--public-export",
         publicExport,
         "--public-export-evidence",

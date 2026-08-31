@@ -1,20 +1,15 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { attachPage, delay, evaluate, freePort } from "./lib/cdp.mjs";
-import {
-  HTTP_JS,
-  SNAPSHOT_JS,
-  WS_JS,
-  bundledOptionalPluginDefaultOffSample,
-  walkInstalledBrowserWindow,
-} from "./lib/browser-window-walk.mjs";
+import { bundledOptionalPluginDefaultOffSample, walkInstalledBrowserWindow } from "./lib/browser-window-walk.mjs";
 import {
   exeInside,
   installFromExactInstaller,
+  launchPackaged,
   launchInstalledHarness,
   leftoversByCommand,
   ownedProcessTree,
@@ -34,6 +29,7 @@ import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import {
   FAIL_CLOSED_DEADLINE_MS,
   evaluateLiveSample,
+  probeLiveHttpWs,
   readProcessIdentity,
 } from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
@@ -180,6 +176,57 @@ const healthFile = join(userData, "soak-health.json");
 const installedNode = join(resources, expectedTarget === "win32-x86_64" ? "runtime/node/node.exe" : "runtime/node/bin/node");
 const installedDsh = join(resources, "runtime/dsh/lib/bin.js");
 
+const waitJson = async (path, timeoutMs) => {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (existsSync(path)) {
+      try {
+        return JSON.parse(readFileSync(path, "utf8"));
+      } catch {
+        /* writer may be replacing the file */
+      }
+    }
+    await delay(500);
+  }
+  return null;
+};
+
+// The exact installed executable is the two-hour stability subject. A separate
+// Electron harness remains only for authenticated renderer/UI observations.
+const nativeUserData = join(ROOT, ".tmp-installed-soak-native");
+rmSync(nativeUserData, { recursive: true, force: true });
+cpSync(userData, nativeUserData, { recursive: true });
+const nativeHealthFile = join(nativeUserData, "soak-health.json");
+const nativeGatewayFile = join(nativeUserData, "gateway.port");
+const nativeLaunch = launchPackaged(exe, resources, nativeUserData, [], { PENGLAI_SOAK: "1" });
+const expectedNativeIdentity = readProcessIdentity(nativeLaunch.child.pid);
+const nativeGatewaySeen = await waitForFile(nativeGatewayFile, 180_000);
+const firstNative = await waitJson(nativeHealthFile, 180_000);
+const nativePort = nativeGatewaySeen ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
+const firstNativeLive = nativePort
+  ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
+  : { httpOfficial: false, httpStatus: 0, wsOpened: false };
+const initialNativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
+if (
+  !expectedNativeIdentity ||
+  !firstNative?.dshPid ||
+  !initialNativeTree.ownedAbsolute ||
+  initialNativeTree.dshPid <= 0 ||
+  firstNativeLive.httpOfficial !== true ||
+  firstNativeLive.wsOpened !== true
+) {
+  await stopChild(nativeLaunch.child);
+  finish("FAIL", {
+    command: "test:soak:installed",
+    reason: "exact installed Penglai executable did not complete the soak boot",
+    nativeGatewaySeen,
+    firstNative,
+    firstNativeLive,
+    initialNativeTree,
+    output: nativeLaunch.output().slice(-2000),
+  });
+}
+
 const debugPort = await freePort();
 const launched = launchInstalledHarness(
   harnessApp,
@@ -188,20 +235,14 @@ const launched = launchInstalledHarness(
   [`--remote-debugging-port=${debugPort}`, "--remote-allow-origins=*"],
   { PENGLAI_SOAK: "1" },
 );
-const expectedIdentity = readProcessIdentity(launched.child.pid);
 
-const waitHealth = async (timeoutMs) => {
-  const end = Date.now() + timeoutMs;
-  while (Date.now() < end) {
-    if (existsSync(healthFile)) return JSON.parse(readFileSync(healthFile, "utf8"));
-    await delay(500);
-  }
-  return null;
-};
+const waitHealth = async (timeoutMs) => waitJson(healthFile, timeoutMs);
+const waitNativeHealth = async (timeoutMs) => waitJson(nativeHealthFile, timeoutMs);
 
 const first = await waitHealth(180_000);
 if (!first || !first.dshPid || first.http?.official !== true || first.websocket?.opened !== true) {
   await stopChild(launched.child);
+  await stopChild(nativeLaunch.child);
   finish("FAIL", {
     command: "test:soak:installed",
     reason: "soak did not observe official DSH HTTP/WS/process tree from exact DMG",
@@ -212,6 +253,7 @@ if (!first || !first.dshPid || first.http?.official !== true || first.websocket?
 
 const failClosed = async (reason, extra = {}) => {
   await stopChild(launched.child);
+  await stopChild(nativeLaunch.child);
   finish("FAIL", {
     command: "test:soak:installed",
     reason,
@@ -226,32 +268,19 @@ const failClosed = async (reason, extra = {}) => {
 let session = null;
 const liveSample = async () => {
   const sampleStarted = Date.now();
-  if (launched.child.exitCode !== null && launched.child.exitCode !== undefined) {
+  if (nativeLaunch.child.exitCode !== null && nativeLaunch.child.exitCode !== undefined) {
     return { ok: false, reason: "kill-target", reasons: ["kill-target"] };
   }
-  const health = existsSync(healthFile) ? JSON.parse(readFileSync(healthFile, "utf8")) : null;
-  const observed = readProcessIdentity(launched.child.pid);
-  let live = { httpOfficial: false, httpStatus: 0, wsOpened: false };
-  if (session) {
-    try {
-      const [http, websocket] = await Promise.all([
-        evaluate(session, HTTP_JS),
-        evaluate(session, WS_JS),
-      ]);
-      live = {
-        httpOfficial: http?.official === true,
-        httpStatus: Number(http?.status ?? 0),
-        wsOpened: websocket?.opened === true,
-      };
-    } catch {
-      live = { httpOfficial: false, httpStatus: 0, wsOpened: false };
-    }
-  }
+  const health = existsSync(nativeHealthFile) ? JSON.parse(readFileSync(nativeHealthFile, "utf8")) : null;
+  const observed = readProcessIdentity(nativeLaunch.child.pid);
+  const live = nativePort
+    ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
+    : { httpOfficial: false, httpStatus: 0, wsOpened: false };
   const judged = evaluateLiveSample({
     now: Date.now(),
     health,
     observed,
-    expectedIdentity,
+    expectedIdentity: expectedNativeIdentity,
     expected: {
       sourceSha: candidateSourceSha,
       artifactSha: installed.installerSha256,
@@ -316,55 +345,30 @@ try {
     uiActive: Boolean(walk.last?.im),
     qrBegin: Boolean(walk.last?.qrBegin),
   });
-  if (walk.settingsWalked.includes("ui-update") || walk.last?.update) {
-    const confirm = await evaluate(session, `(() => {
-      const btn = document.querySelector("[data-penglai-update-confirm]");
-      if (!btn) return { ok: false, reason: "missing" };
-      btn.click();
-      return { ok: true, rpc: String(window.__PENGLAI_UPDATE_RPC || "clicked") };
-    })()`);
-    mark("update", { ok: true, ui: true, confirm, failClosed: /missing|clicked/.test(String(confirm?.rpc ?? "clicked")) });
-  } else {
-    mark("update", { ok: Boolean(walk.last?.update), ui: Boolean(walk.last?.update), walked: walk.settingsWalked });
-  }
-  if (walk.settingsWalked.includes("ui-uninstall") || walk.last?.uninstall) {
-    const confirm = await evaluate(session, `(() => {
-      const btn = document.querySelector("[data-penglai-uninstall-confirm]");
-      if (!btn) return { ok: false, reason: "missing" };
-      btn.click();
-      return { ok: true, rpc: String(window.__PENGLAI_UNINSTALL_RPC || "clicked") };
-    })()`);
-    mark("uninstall", { ok: true, ui: true, confirm });
-  } else {
-    mark("uninstall", { ok: Boolean(walk.last?.uninstall), ui: Boolean(walk.last?.uninstall), walked: walk.settingsWalked });
-  }
+  sampleLog.push({
+    name: "lifecycle-ui-only",
+    at: new Date().toISOString(),
+    updateVisible: Boolean(walk.settingsWalked.includes("ui-update") || walk.last?.update),
+    uninstallVisible: Boolean(walk.settingsWalked.includes("ui-uninstall") || walk.last?.uninstall),
+    proofClass: "navigation-only-not-upgrade-or-uninstall-evidence",
+  });
 } catch (err) {
   sampleLog.push({ name: "cdp-walk", ok: false, error: err instanceof Error ? err.message : String(err) });
 }
 
 async function sampleOffline() {
-  const tree = ownedProcessTree(installed.app, resources, launched.child.pid);
-  const dshPid = first.dshPid || tree.dshPid;
-  if (!dshPid || !session) return mark("offline", { ok: false, reason: "no dsh pid/authenticated renderer" });
-  const before = await evaluate(session, HTTP_JS);
+  const tree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
+  const dshPid = firstNative.dshPid || tree.dshPid;
+  if (!dshPid || !nativePort) return mark("offline", { ok: false, reason: "no exact-executable dsh pid/gateway" });
+  const before = await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000);
   const stopped = signalPid(dshPid, "SIGSTOP", windowsHelper);
   await delay(1_500);
-  let during = { status: 0, ok: false, official: false };
-  try {
-    during = await evaluate(
-      session,
-      `fetch(location.origin + "/", { credentials: "same-origin", signal: AbortSignal.timeout(2500) })
-        .then(async (res) => ({ status: res.status, ok: res.ok, official: (await res.text()).includes('id="root"') }))
-        .catch(() => ({ status: 0, ok: false, official: false }))`,
-    );
-  } catch {
-    during = { status: 0, ok: false, official: false };
-  }
+  const during = await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 2_500);
   const continued = signalPid(dshPid, "SIGCONT", windowsHelper);
-  const recovered = await waitHealth(60_000);
+  const recovered = await waitNativeHealth(60_000);
   const live = await liveSample();
   mark("offline", {
-    ok: Boolean(before?.official && stopped && !during?.official && continued && recovered?.dshPid && live.ok),
+    ok: Boolean(before?.httpOfficial && stopped && !during?.httpOfficial && continued && recovered?.dshPid && live.ok),
     before,
     stopped,
     during,
@@ -375,23 +379,15 @@ async function sampleOffline() {
 }
 
 async function sampleSleep() {
-  const electronPid = launched.child.pid;
+  const electronPid = nativeLaunch.child.pid;
   const stopped = signalPid(electronPid, "SIGSTOP", windowsHelper);
   await delay(4_000);
   const continued = signalPid(electronPid, "SIGCONT", windowsHelper);
-  const recovered = await waitHealth(60_000);
-  let pageOk = false;
-  if (session) {
-    try {
-      const http = await evaluate(session, HTTP_JS);
-      const snap = await evaluate(session, SNAPSHOT_JS);
-      pageOk = Boolean(http?.official && snap?.hasDshBoot);
-    } catch {
-      pageOk = Boolean(recovered?.http?.official);
-    }
-  } else {
-    pageOk = Boolean(recovered?.http?.official);
-  }
+  const recovered = await waitNativeHealth(60_000);
+  const recoveredLive = nativePort
+    ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
+    : { httpOfficial: false, wsOpened: false };
+  const pageOk = Boolean(recoveredLive.httpOfficial && recoveredLive.wsOpened);
   const live = await liveSample();
   mark("sleep", {
     ok: Boolean(stopped && continued && recovered?.dshPid && pageOk && live.ok),
@@ -410,7 +406,7 @@ const started = Date.now();
 const deadline = started + ms;
 let samples = 0;
 let healthy = 0;
-let lastHealth = first;
+let lastHealth = firstNative;
 let lastLive = null;
 while (Date.now() < deadline) {
   samples += 1;
@@ -425,8 +421,8 @@ while (Date.now() < deadline) {
         : null,
     });
   }
-  if (existsSync(healthFile)) lastHealth = JSON.parse(readFileSync(healthFile, "utf8"));
-  if (lastLive.ok && leftoversByCommand(installedDsh).some((line) => line.includes(installedNode))) healthy += 1;
+  if (existsSync(nativeHealthFile)) lastHealth = JSON.parse(readFileSync(nativeHealthFile, "utf8"));
+  if (lastLive.ok && readProcessIdentity(nativeLaunch.child.pid)) healthy += 1;
   const elapsed = Date.now() - started;
   if (elapsed > 20 * 60_000 && elapsed % (20 * 60_000) < 16_000) {
     if (!samplesCovered.includes("offline") || samples % 80 === 0) await sampleOffline();
@@ -443,14 +439,19 @@ if (session) {
   }
 }
 await stopChild(launched.child);
+await stopChild(nativeLaunch.child);
 await delay(2000);
 const goneDeadline = Date.now() + 8_000;
 while (Date.now() < goneDeadline) {
-  const left = leftoversByCommand(installedDsh).filter((line) => line.includes(installedNode) || line.includes(userData));
+  const left = leftoversByCommand(installedDsh).filter(
+    (line) => line.includes(installedNode) && (line.includes(userData) || line.includes(nativeUserData)),
+  );
   if (!left.length) break;
   await delay(200);
 }
-const leftover = leftoversByCommand(installedDsh).filter((line) => line.includes(installedNode) || line.includes(userData));
+const leftover = leftoversByCommand(installedDsh).filter(
+  (line) => line.includes(installedNode) && (line.includes(userData) || line.includes(nativeUserData)),
+);
 const elapsedHours = (Date.now() - started) / 3600_000;
 const rec = {
   command: "test:soak:installed",
@@ -462,6 +463,15 @@ const rec = {
   orphans: leftover.length,
   leftovers: leftover.length,
   fromExactDmg: true,
+  exactExecutableSoak: {
+    executable: exe,
+    pid: nativeLaunch.child.pid,
+    initialProcessTree: initialNativeTree,
+    initialLive: firstNativeLive,
+    requestedHours: hoursWanted,
+    elapsedHours,
+    healthySamples: healthy,
+  },
   installer: expectedInstaller,
   installerSha256: installed.installerSha256,
   sourceSha: candidateSourceSha,
@@ -482,8 +492,8 @@ if (elapsedHours < 2) {
   finish("INCOMPLETE", { ...rec, reason: "exact 0.5 two-hour soak not present" });
 }
 if (healthy < 1) finish("FAIL", rec);
-const required = ["im", "offline", "sleep", "update", "uninstall"];
+const required = ["im", "offline", "sleep"];
 if (!required.every((name) => samplesCovered.includes(name))) {
-  finish("INCOMPLETE", { ...rec, reason: "soak sample set missing IM/offline/sleep/update/uninstall" });
+  finish("INCOMPLETE", { ...rec, reason: "soak sample set missing IM/offline/sleep" });
 }
 finish("PASS", rec);

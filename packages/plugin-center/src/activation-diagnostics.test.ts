@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 import {
+  assertPluginServiceHealthy,
   inventoryActivationObservation,
   waitForInventory,
 } from "./remotes.js";
@@ -113,6 +114,37 @@ test("disable convergence waits through unloading for disabled readback", async 
     (observation) => observations.push(observation.phase),
   );
   assert.deepEqual(observations, ["unloading", "disabled"]);
+});
+
+test("activation refresh discards a stale failed snapshot before convergence", async () => {
+  let phase = "failed";
+  let refreshes = 0;
+  const observations: string[] = [];
+  await waitForInventory(
+    {
+      list: () => [{ moduleName: "@penglai/companion", enabled: true, fiberPhase: phase }],
+      async refresh() {
+        refreshes += 1;
+        phase = refreshes === 1 ? "loading" : "active";
+      },
+    },
+    "@penglai/companion",
+    true,
+    true,
+    200,
+    (observation) => observations.push(observation.phase),
+  );
+  assert.deepEqual(observations, ["loading", "active"]);
+});
+
+test("an active inventory row cannot pass when the plugin service is unhealthy", () => {
+  assert.throws(
+    () => assertPluginServiceHealthy(() => ({ healthy: false, error: "private local path" }), "@penglai/office"),
+    (error: unknown) =>
+      error instanceof PenglaiError &&
+      error.message === "PLUGIN_SERVICE_UNHEALTHY" &&
+      !error.message.includes("private local path"),
+  );
 });
 
 test("activation timeout and transaction failures expose only closed codes", async () => {

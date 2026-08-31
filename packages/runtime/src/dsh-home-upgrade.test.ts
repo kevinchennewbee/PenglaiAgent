@@ -439,6 +439,30 @@ test("P059-DATA-012 a verified dead writer lock is recovered without weakening l
   assert.equal(existsSync(paths.lock), false);
 });
 
+test("P059-DATA-004A migration activation recovers a crash before the active pointer write", () => {
+  const root = fixtureRoot();
+  const paths = resolveDshHomeUpgradePaths(root);
+  prepareDshHomeUpgrade({
+    userRoot: root,
+    operationId: "upgrade05a",
+    availableBytes: 1024 * 1024 * 1024,
+    reserveBytes: 0,
+  });
+  const activated = activateDshHomeUpgrade({
+    userRoot: root,
+    operationId: "upgrade05a",
+    validation: validProof(),
+    now: new Date("2026-08-29T00:02:00.000Z"),
+  });
+  rmSync(paths.activeManifest);
+
+  assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), {
+    kind: "active",
+    dshHome: paths.targetHome,
+  });
+  assert.deepEqual(readActiveDshHome(root), activated);
+});
+
 test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 generation", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
   const paths = resolveDshHomeUpgradePaths(root);
@@ -475,10 +499,12 @@ test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 gene
   assert.equal(active.activeVersion, DSH_HOME_TARGET_VERSION);
   assert.equal(active.activationKind, "fresh");
   assert.equal(readActiveDshHome(root)?.activationKind, "fresh");
+  rmSync(paths.activeManifest);
   assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), {
     kind: "active",
     dshHome: paths.targetHome,
   });
+  assert.equal(readActiveDshHome(root)?.activationKind, "fresh");
 });
 
 test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated alpha.2 generation", () => {

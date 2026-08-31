@@ -130,10 +130,12 @@ const sourceIdentity = createHash("sha256")
   .update(String(releaseManifest.privateCandidateSourceSha ?? ""))
   .digest("hex");
 if (
+  release.target_commitish !== releaseManifest.privateCandidateSourceSha ||
   update.version !== PRODUCT_VERSION ||
   update.releaseTag !== tag ||
   update.signingKeyId !== EMBEDDED_UPDATER_PUBLIC_KEY.keyId ||
   update.publicExportTreeSha256 !== releaseManifest.publicExportTreeSha256 ||
+  update.releaseManifestSha256 !== createHash("sha256").update(releaseManifestBytes).digest("hex") ||
   update.candidateSourceSha !== sourceIdentity
 ) {
   finish("FAIL", { command: "readback-release", reason: "update and release identity mismatch" });

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { accessSync, constants, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import {
   assertCredentialValueShape,
   assertWorkspacePathAllowed,
@@ -486,47 +486,47 @@ export class PenglaiOnboardingRemote extends TypertRemoteService {
     super(ctx, "penglaiOnboarding");
   }
 
-  @Remote
+  @PenglaiRemote
   status() {
     return this.impl.status();
   }
 
-  @Remote
+  @PenglaiRemote
   completeWelcome() {
     return this.impl.completeWelcome();
   }
 
-  @Remote
+  @PenglaiRemote
   enterCredential(input: { provider: string; value: string }) {
     return this.impl.enterCredential(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listModels(input: { provider: string }) {
     return this.impl.listModels(input);
   }
 
-  @Remote
+  @PenglaiRemote
   createWorkspace(input: { path: string; title: string }) {
     return this.impl.createWorkspace(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listProviders() {
     return this.impl.status().providers;
   }
 
-  @Remote
+  @PenglaiRemote
   completePrivacy() {
     return this.impl.advance("privacy-v1");
   }
 
-  @Remote
+  @PenglaiRemote
   rewindOnboarding(input: { step: ReconfigurableOnboardingStep }) {
     return this.impl.rewindOnboarding(input);
   }
 
-  @Remote
+  @PenglaiRemote
   completeAppearance(input: {
     locale: "zh" | "en";
     theme: "light" | "dark" | "system";
@@ -534,43 +534,43 @@ export class PenglaiOnboardingRemote extends TypertRemoteService {
     return this.impl.completeAppearance(input);
   }
 
-  @Remote
+  @PenglaiRemote
   selectModel(input: { provider: string; model: string }) {
     return this.impl.selectModel(input);
   }
 
-  @Remote
+  @PenglaiRemote
   verifyCredential(input: { ref: string }) {
     return this.impl.verifyCredential(input);
   }
 
-  @Remote
+  @PenglaiRemote
   testSelectedModel(input: { nonce: string }) {
     return this.impl.testSelectedModel(input);
   }
 
-  @Remote
+  @PenglaiRemote
   listWorkspaces() {
     return this.impl.listWorkspaces();
   }
 
-  @Remote
+  @PenglaiRemote
   recordWorkspace(input: { workspaceId: string }) {
     return this.impl.recordWorkspace(input);
   }
 
-  @Remote
+  @PenglaiRemote
   runFirstConversation(input: { message: string }) {
     return this.impl.runFirstConversation(input);
   }
 
-  @Remote
+  @PenglaiRemote
   offerIm(input: { choice: "weixin" | "feishu" | "later" }) {
     void input;
     throw new PenglaiError("INVALID_INPUT", "im offer is not part of first-run wizard");
   }
 
-  @Remote
+  @PenglaiRemote
   offerExtension(input: {
     id: "voice-offer-v1" | "memory-offer-v1";
     choice: "later" | "configured";

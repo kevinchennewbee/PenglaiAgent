@@ -1,6 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import type { BudgetPolicy, BudgetScope } from "./ledger.js";
 import { consumeBudgetOwnerProof, type BudgetOwnerBrokerPort } from "./owner.js";
 
@@ -79,9 +79,9 @@ export function createBudgetSettingsApi(service: BudgetSettingsHost, ctx: Budget
 
 export class PenglaiBudgetRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createBudgetSettingsApi>) { super(ctx, "penglaiBudgetSettings"); }
-  @Remote status() { return this.api.status(); }
-  @Remote proposePolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }) { return this.api.proposePolicy(input); }
-  @Remote setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }) { return this.api.setPolicy(input); }
+  @PenglaiRemote status() { return this.api.status(); }
+  @PenglaiRemote proposePolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number }) { return this.api.proposePolicy(input); }
+  @PenglaiRemote setPolicy(input: { scope: BudgetScope; key: string; hardTokens: number | null; warnRatio?: number; ownerConfirmed: boolean; actionId?: string; receipt?: string }) { return this.api.setPolicy(input); }
 }
 
 export const TYPERT_REMOTE = { package: "@penglai/budget", descriptors: ["status", "proposePolicy", "setPolicy"] };

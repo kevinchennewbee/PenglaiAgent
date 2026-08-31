@@ -196,6 +196,10 @@ if (existsSync(join(runtimeStaging, "mnemon"))) {
   ]);
 }
 execFileSync("ditto", [
+  join(runtimeStaging, "licenses"),
+  join(resources, "licenses"),
+]);
+execFileSync("ditto", [
   join(runtimeStaging, "runtime-manifest.json"),
   join(resources, "runtime-manifest.json"),
 ]);

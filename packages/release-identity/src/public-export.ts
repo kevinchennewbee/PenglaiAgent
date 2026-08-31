@@ -58,6 +58,7 @@ export const PUBLIC_EXPORT_ALLOW = [
   "docs/RELEASE_NOTES_0.5.7.md",
   "docs/0.5.7",
   "docs/0.5.8",
+  "docs/0.5.9",
   "docs/ACCEPTANCE.md",
   "docs/RELEASE_RUNBOOK.md",
   "docs/decisions.md",
@@ -144,6 +145,10 @@ export const REQUIRED_PUBLIC_DOCS = [
   "docs/0.5.7/ACCEPTANCE_DELTA.md",
   "docs/0.5.8/RELEASE_RUNBOOK.md",
   "docs/0.5.8/ACCEPTANCE_DELTA.md",
+  "docs/0.5.9/LGPL_SOURCE_OFFER.md",
+  "docs/0.5.9/RELEASE_RUNBOOK.md",
+  "docs/0.5.9/ACCEPTANCE_DELTA.md",
+  "docs/0.5.9/RELEASE_TODO.md",
 ] as const;
 
 export interface ExportFile {

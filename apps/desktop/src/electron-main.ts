@@ -34,11 +34,10 @@ import {
   runtimePluginTarget,
   selectCatalogArtifact,
   readInventorySnapshot,
+  resetManagedDshModuleFallback,
   recoverProfile,
   resolveUserLayout,
   deletionInspectionOptionsForPlatform,
-  writeWindowsDeletionCapability,
-  clearWindowsDeletionCapability,
   type DeletionPreview,
   type DshHomeBootPlan,
   type PluginOwnerAction,
@@ -597,6 +596,7 @@ async function main(): Promise<void> {
     };
     desktopData.managedData.dshHome = user.dshHome;
     ensurePrivateHome(user, layout.appRoot);
+    resetManagedDshModuleFallback(user);
     migrateRc8UserData(user.root);
     quarantineRevokedPlugins({ userDataRoot: user.root, profileDir: user.profileWeb });
     recoverProfile(user);
@@ -813,14 +813,6 @@ async function main(): Promise<void> {
               });
               const preview = authorizer.prepare(plan);
               pendingDeletion = { authorizer, preview };
-              if (platform === "win32") {
-                writeWindowsDeletionCapability({
-                  journalDir: desktopData.uninstall,
-                  operationId: preview.operationId,
-                  root: user.root,
-                  paths: preview.targets.map((target) => target.path),
-                });
-              }
               return {
                 preview,
                 ...(platform === "darwin"
@@ -848,7 +840,6 @@ async function main(): Promise<void> {
             }
             pendingDeletion.authorizer.cancel(input.operationId);
             pendingDeletion = undefined;
-            if (platform === "win32") clearWindowsDeletionCapability(desktopData.uninstall);
             await restartOwnedServices();
             return { cancelled: true, operationId: input.operationId };
           });
@@ -878,7 +869,6 @@ async function main(): Promise<void> {
             pendingDeletion = undefined;
             try {
               const result = current.authorizer.execute(input.operationId);
-              if (platform === "win32") clearWindowsDeletionCapability(desktopData.uninstall);
               const timer = setTimeout(() => app.quit(), 250);
               timer.unref?.();
               return { ...result, operationId: input.operationId, appWillQuit: true };
@@ -1052,7 +1042,7 @@ async function main(): Promise<void> {
             platform: "win32",
             steps: [
               "Close Penglai and use the current-user Penglai uninstaller.",
-              "Keep app data by default; delete only a separately confirmed capability plan.",
+              "Keep app data by default; selected data is deleted only inside Penglai after separate confirmation.",
             ],
             preservesWorkspace: true,
           };

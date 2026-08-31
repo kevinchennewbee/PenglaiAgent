@@ -49,6 +49,15 @@ if (write) {
   console.log(JSON.stringify({ verdict: "PASS", command: "prepare:dsh-npm-cohort", ...summary, snapshot: SNAPSHOT }));
 } else {
   const snapshot = JSON.parse(readFileSync(SNAPSHOT, "utf8"));
-  const summary = live ? await verifySnapshotAgainstRegistry(snapshot) : validateCohortSnapshot(snapshot);
+  if (live && !upstreamRoot) throw new Error("--live requires --upstream <path> or PENGLAI_DSH_UPSTREAM");
+  if (live) {
+    const commit = execFileSync("git", ["-C", upstreamRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    if (commit !== DSH_ALPHA2.commit) throw new Error(`upstream HEAD ${commit}, expected ${DSH_ALPHA2.commit}`);
+    const dirty = execFileSync("git", ["-C", upstreamRoot, "status", "--porcelain"], { encoding: "utf8" }).trim();
+    if (dirty) throw new Error("upstream checkout must be clean for live cohort verification");
+  }
+  const summary = live
+    ? await verifySnapshotAgainstRegistry(snapshot, { sourceRoot: upstreamRoot })
+    : validateCohortSnapshot(snapshot);
   console.log(JSON.stringify({ verdict: "PASS", command: live ? "verify:dsh-npm-cohort:live" : "verify:dsh-npm-cohort", ...summary }));
 }

@@ -7,6 +7,14 @@ import { CLOSURE_CREDENTIAL_SCHEMA } from "./closure-credential.mjs";
 import { readReleaseIdentityPins } from "./release-pins-source.mjs";
 
 const RELEASE_PINS = readReleaseIdentityPins();
+const REQUIRED_LEGAL_FILES = Object.freeze({
+  "licenses/sharp/libvips-LGPL-2.1.txt":
+    "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+  "licenses/sharp/sharp-libvips-Apache-2.0.txt":
+    "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+  "licenses/sharp/sharp-libvips-THIRD-PARTY-NOTICES.md":
+    "25ffcfa69e28b1913ced27ec778b90f24911a1bb3021253577e8b0af55db0d49",
+});
 
 export const PACKAGED_TARGETS = Object.freeze({
   "darwin-aarch64": Object.freeze({
@@ -212,6 +220,15 @@ export function inspectPackagedCandidate({
       return {
         verdict: "STALE",
         reason: `embedded closure file bytes mismatch: ${row.path}`,
+        app,
+      };
+    }
+  }
+  for (const [relativePath, expectedSha256] of Object.entries(REQUIRED_LEGAL_FILES)) {
+    if (!seen.has(relativePath) || sha256File(join(resources, relativePath)) !== expectedSha256) {
+      return {
+        verdict: "FAIL",
+        reason: `required packaged legal material missing or changed: ${relativePath}`,
         app,
       };
     }

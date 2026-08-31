@@ -934,8 +934,26 @@ export function prepareDshHomeForBoot(input: {
     const marker = readTargetGenerationManifest(paths);
     if (marker.kind === "fresh") {
       const fresh = readFreshDshHomeManifest(paths);
+      if (fresh.state === "active") {
+        const current = snapshotTree(paths.targetHome, {
+          maxEntries: DEFAULT_MAX_ENTRIES,
+          maxBytes: DEFAULT_MAX_BYTES,
+        });
+        if (!fresh.activatedAt || !fresh.targetDigest || current.digest !== fresh.targetDigest) {
+          throw new PenglaiError("STORE_CORRUPT", "committed fresh DSH home changed before pointer recovery");
+        }
+        writeJson(paths.activeManifest, {
+          schema: 1,
+          activeVersion: DSH_HOME_TARGET_VERSION,
+          homeRelative: `dsh-homes/dsh-v${DSH_HOME_TARGET_VERSION}`,
+          activatedAt: fresh.activatedAt,
+          targetDigest: fresh.targetDigest,
+          activationKind: "fresh",
+        } satisfies ActiveDshHomeManifest);
+        return { kind: "active", dshHome: paths.targetHome };
+      }
       if (fresh.state !== "prepared") {
-        throw new PenglaiError("STORE_CORRUPT", "fresh DSH home is active without an active pointer");
+        throw new PenglaiError("STORE_CORRUPT", "fresh DSH home marker state is invalid");
       }
       return { kind: "fresh-prepared", dshHome: paths.targetHome };
     }
@@ -943,8 +961,27 @@ export function prepareDshHomeForBoot(input: {
       throw new PenglaiError("STORE_CORRUPT", "prepared DSH home lacks migration identity");
     }
     const journal = readJournal(paths, marker.operationId);
+    if (journal.state === "active") {
+      const current = snapshotTree(paths.targetHome, {
+        maxEntries: DEFAULT_MAX_ENTRIES,
+        maxBytes: DEFAULT_MAX_BYTES,
+      });
+      if (!journal.activatedAt || !journal.activeSnapshot || current.digest !== journal.activeSnapshot.digest) {
+        throw new PenglaiError("STORE_CORRUPT", "committed migrated DSH home changed before pointer recovery");
+      }
+      writeJson(paths.activeManifest, {
+        schema: 1,
+        activeVersion: DSH_HOME_TARGET_VERSION,
+        homeRelative: journal.targetRelative,
+        operationId: journal.operationId,
+        activatedAt: journal.activatedAt,
+        targetDigest: journal.activeSnapshot.digest,
+        activationKind: "migration",
+      } satisfies ActiveDshHomeManifest);
+      return { kind: "active", dshHome: paths.targetHome };
+    }
     if (journal.state !== "prepared") {
-      throw new PenglaiError("STORE_CORRUPT", "DSH home journal is committed without an active pointer");
+      throw new PenglaiError("STORE_CORRUPT", "DSH home journal state is invalid without an active pointer");
     }
     return {
       kind: "migration-prepared",

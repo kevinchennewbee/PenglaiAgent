@@ -1,6 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 
 interface AsrSettingsHost {
   describeCapability(): {
@@ -117,42 +117,42 @@ export class PenglaiAsrRemote extends TypertRemoteService {
     super(ctx, "penglaiAsrSettings");
   }
 
-  @Remote
+  @PenglaiRemote
   describe() {
     return this.api.describe();
   }
 
-  @Remote
+  @PenglaiRemote
   describeModels() {
     return this.api.describeModels();
   }
 
-  @Remote
+  @PenglaiRemote
   prepareModel(input: { operationId: string }) {
     return this.api.prepareModel(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   pauseDownload(input: { operationId: string }) {
     return this.api.pauseDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   resumeDownload(input: { operationId: string }) {
     return this.api.resumeDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelDownload(input: { operationId: string }) {
     return this.api.cancelDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   getOperation(input: { operationId: string }) {
     return this.api.getOperation(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   testTranscribe(input: { wavBase64: string; operationId: string }) {
     return this.api.testTranscribe(input);
   }

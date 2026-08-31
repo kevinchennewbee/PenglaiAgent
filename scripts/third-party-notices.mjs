@@ -30,6 +30,9 @@ const dependency = (manifest, name) => {
 const text = `Penglai ${rootPackage.version} Third-Party Notices
 ${"=".repeat(`Penglai ${rootPackage.version} Third-Party Notices`.length)}
 
+Source SHA: ${licenseEvidence.sourceSha}
+Audited target: ${licenseEvidence.target}
+
 This distribution contains or interoperates with software, fonts, and model
 artifacts from third parties. This notice records the exact versions, immutable
 source pins, licenses, and distribution mode audited for the three-platform
@@ -46,10 +49,11 @@ Core runtime
   application resources: https://github.com/electron/electron
 - Node.js ${release.nodeVersion} - licenses and notices remain inside the
   embedded runtime: https://github.com/nodejs/node
-- sharp 0.35.4 and its separately packaged libvips 8.18.6 shared libraries
+- sharp 0.35.4 and its dynamically linked libvips 8.18.6 shared libraries
   are used by official DSH attachment support. The sharp addon is Apache-2.0;
-  libvips and listed shared-library components are LGPL-3.0-or-later. Package
-  license texts remain beside the runtime, and the exact source identities and
+  libvips is LGPL-2.1-or-later, while sharp-libvips uses the LGPLv3 option for
+  the LGPL components listed in its third-party notice. Exact upstream legal
+  texts are packaged under licenses/sharp/, and the source identities and
   replacement rights are recorded in LGPL_SOURCE_OFFER.txt.
 - TypeScript - Apache-2.0: https://github.com/microsoft/TypeScript
 - tsx - MIT: https://github.com/privatenumber/tsx

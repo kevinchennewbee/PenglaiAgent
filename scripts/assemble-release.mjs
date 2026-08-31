@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   realpathSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -16,6 +19,7 @@ import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 
 function fail(message) {
   console.error(`assemble-release FAIL: ${message}`);
@@ -57,7 +61,29 @@ const sourceSha = option("--source-sha");
 if (!/^[0-9a-f]{40}$/.test(sourceSha)) fail("--source-sha must be a full commit SHA");
 const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
 if (head !== sourceSha) fail(`source SHA ${sourceSha} does not match HEAD ${head}`);
+const nodeTest = Boolean(process.env.NODE_TEST_CONTEXT);
+const candidate = requireCleanCandidateSource();
+if (!nodeTest && (!candidate.ok || !candidate.frozen || candidate.git.head !== sourceSha)) {
+  fail("release assembly requires a clean main checkout at exact origin/main");
+}
 if (tag !== `v${version}` || version !== PRODUCT_VERSION) fail("release contract version/tag mismatch");
+
+const releaseGatePath = join(ROOT, "evidence", "generated", "verify-release.json");
+if (!nodeTest) {
+  if (!existsSync(releaseGatePath)) fail("complete verify:release evidence is missing");
+  const releaseGate = readJson(releaseGatePath, "verify:release evidence");
+  if (
+    releaseGate.command !== "verify:release" ||
+    releaseGate.verdict !== "PASS" ||
+    releaseGate.exitCode !== 0 ||
+    releaseGate.dryRun !== false ||
+    releaseGate.sourceSha !== sourceSha ||
+    !Array.isArray(releaseGate.records) ||
+    releaseGate.records.some((record) => record.verdict !== "PASS" || record.exit !== 0)
+  ) {
+    fail("verify:release is not an exact non-dry-run PASS for this source");
+  }
+}
 
 const installers = Array.isArray(contract.targets)
   ? contract.targets.map((row) => ({ target: String(row.key), name: String(row.installer) }))
@@ -68,6 +94,7 @@ const startingFiles = readdirSync(staging).sort();
 if (JSON.stringify(startingFiles) !== JSON.stringify(installerNames)) {
   fail(`staging must initially contain only the three installers: ${JSON.stringify(startingFiles)}`);
 }
+const nativeEvidenceDir = resolve(option("--native-evidence-dir", join(ROOT, "evidence/generated")));
 
 const publicExportPath = resolve(option("--public-export", join(ROOT, "evidence/generated/public-export-manifest.json")));
 const publicExportEvidencePath = resolve(
@@ -87,6 +114,9 @@ for (const [path, label] of [
 }
 const publicExport = readJson(publicExportPath, "public export manifest");
 const publicExportEvidence = readJson(publicExportEvidencePath, "public export evidence");
+const sbom = readJson(sbomPath, "SBOM");
+const lockfileSha256 = sha256(readFileSync(join(ROOT, "pnpm-lock.yaml")));
+const notices = readFileSync(noticesPath, "utf8");
 if (
   !/^[0-9a-f]{64}$/.test(String(publicExport.publicExportTreeSha256 ?? "")) ||
   publicExport.publicExportTreeSha256 !== publicExportEvidence.publicExportTreeSha256 ||
@@ -96,10 +126,32 @@ if (
 ) {
   fail("public export is not a clean-room result bound to the source SHA");
 }
+if (
+  sbom.bomFormat !== "CycloneDX" ||
+  sbom.release !== version ||
+  sbom.sourceSha !== sourceSha ||
+  sbom.target !== "release-set" ||
+  sbom.lockfileSha256 !== lockfileSha256 ||
+  !Number.isSafeInteger(sbom.componentCount) ||
+  sbom.componentCount < 1 ||
+  !Array.isArray(sbom.components) ||
+  sbom.components.length !== sbom.componentCount
+) {
+  fail("SBOM is not the three-target aggregate bound to this source and lockfile");
+}
+if (
+  !notices.includes(`Penglai ${version} Third-Party Notices`) ||
+  !notices.includes(`Source SHA: ${sourceSha}`) ||
+  !notices.includes("Audited target: release-set") ||
+  !notices.includes("licenses/sharp/")
+) {
+  fail("third-party notices are not the source-bound three-target aggregate");
+}
 
 let release;
 const releaseJsonPath = option("--release-json");
 if (releaseJsonPath) {
+  if (!nodeTest) fail("--release-json is available only inside the Node test runner");
   release = readJson(resolve(releaseJsonPath), "GitHub release JSON");
 } else {
   try {
@@ -114,8 +166,14 @@ if (releaseJsonPath) {
     fail(`could not read the draft GitHub Release: ${String(error)}`);
   }
 }
-if (release.tag_name !== tag || release.draft !== true || release.prerelease === true || release.immutable === true) {
-  fail("GitHub release must be the matching mutable draft");
+if (
+  release.tag_name !== tag ||
+  release.target_commitish !== sourceSha ||
+  release.draft !== true ||
+  release.prerelease === true ||
+  release.immutable === true
+) {
+  fail("GitHub release must be the matching exact-source mutable draft");
 }
 const releaseAssets = Array.isArray(release.assets) ? release.assets : [];
 const installerAssets = new Map(releaseAssets.map((asset) => [String(asset.name), asset]));
@@ -131,14 +189,48 @@ const installerRows = installers.map(({ target, name }) => {
   const bytes = readFileSync(path);
   const asset = installerAssets.get(name);
   const digest = sha256(bytes);
+  if (!asset || !Number.isSafeInteger(asset.id) || asset.id <= 0) {
+    fail(`draft GitHub asset identity is missing for ${name}`);
+  }
+  if (!nodeTest) {
+    const downloaded = join(staging, `.draft-asset-${asset.id}`);
+    const output = openSync(downloaded, "wx", 0o600);
+    let fetched;
+    try {
+      fetched = spawnSync(
+        "gh",
+        ["api", "-H", "Accept: application/octet-stream", `repos/${contract.publication.repo}/releases/assets/${asset.id}`],
+        { cwd: ROOT, stdio: ["ignore", output, "pipe"], encoding: "utf8" },
+      );
+    } finally {
+      closeSync(output);
+    }
+    if (fetched.status !== 0) {
+      unlinkSync(downloaded);
+      fail(`could not download draft asset ${name}: ${String(fetched.stderr ?? "")}`);
+    }
+    const remoteBytes = readFileSync(downloaded);
+    unlinkSync(downloaded);
+    if (remoteBytes.length !== bytes.length || sha256(remoteBytes) !== digest) {
+      fail(`draft GitHub asset bytes differ from staging for ${name}`);
+    }
+  }
+  const evidencePath = join(nativeEvidenceDir, `local-installer-${target}.json`);
+  if (!existsSync(evidencePath)) fail(`native installer evidence missing for ${target}`);
+  const evidence = readJson(evidencePath, `native installer evidence for ${target}`);
   if (
     !asset ||
     !Number.isSafeInteger(asset.id) ||
     asset.id <= 0 ||
     Number(asset.size) !== bytes.length ||
-    (asset.digest && String(asset.digest).replace(/^sha256:/, "") !== digest)
+    (asset.digest && String(asset.digest).replace(/^sha256:/, "") !== digest) ||
+    evidence.target !== target ||
+    evidence.sourceSha !== sourceSha ||
+    evidence.installer !== name ||
+    evidence.sha256 !== digest ||
+    evidence.treeDirty !== false
   ) {
-    fail(`GitHub asset identity mismatch for ${name}`);
+    fail(`GitHub asset or native evidence identity mismatch for ${name}`);
   }
   return { target, name, path, bytes, size: bytes.length, sha256: digest, assetId: asset.id };
 });

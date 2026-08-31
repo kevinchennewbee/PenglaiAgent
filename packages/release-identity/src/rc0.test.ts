@@ -105,12 +105,13 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.ok(listedSubgateNames().includes("verify:fuses"));
   assert.ok(listedSubgateNames().includes("verify:installed"));
   assert.ok(listedSubgateNames().includes("audit:secrets"));
-  assert.equal(listedSubgateNames().includes("verify:live"), false);
-  assert.equal(listedSubgateNames().includes("verify:soak"), false);
-  assert.equal(listedSubgateNames().includes("verify:evidence"), false);
+  assert.equal(listedSubgateNames().includes("verify:live"), true);
+  assert.equal(listedSubgateNames().includes("verify:soak"), true);
+  assert.equal(listedSubgateNames().includes("verify:evidence"), true);
+  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), true);
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
-    ["verify:live", "verify:soak", "verify:evidence"],
+    [],
   );
   assert.equal(HARD_SUBGATES.length >= 18, true);
 

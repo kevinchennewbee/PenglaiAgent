@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, isErrorClass, PenglaiError, PENGLAI_I18N, redactedDiagnosticReference, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
+import { Context } from "@deepseek-ai/cordis";
+import TypertGatewayService from "@deepseek-ai/dsh-api-gateway";
+import TypertRegistry from "@deepseek-ai/dsh-typert-registry";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { remoteErrorOf, remoteMethods } from "@deepseek-ai/dsh-typert-protocol";
+import { assertCatalogComplete, assertHonestTrustCopy, assertSafeListenHost, backoffMs, classifyTransportError, isErrorClass, PenglaiError, PenglaiRemote, PENGLAI_I18N, redactedDiagnosticReference, redactEvidenceText, splitFragments, t, utf8Bytes } from "./index.js";
 
 test("refuses non-loopback listen hosts", () => {
   assert.throws(() => assertSafeListenHost("0.0.0.0"), PenglaiError);
@@ -73,6 +78,97 @@ test("transport errors classify and auth does not retry", () => {
   const high = backoffMs(1, "rate", 1);
   assert.ok(low < high);
   assert.ok(high <= 60_000);
+});
+
+test("alpha.2 Remote boundary preserves Penglai failures as namespaced RemoteError", async () => {
+  class RemoteFixture {
+    @PenglaiRemote
+    reject(): never {
+      throw new PenglaiError("INVALID_INPUT", "private local diagnostic");
+    }
+  }
+  const service = new RemoteFixture();
+  assert.deepEqual(remoteMethods(service).map((entry) => entry.method), ["reject"]);
+  await assert.rejects(
+    async () => service.reject(),
+    (error: unknown) => {
+      const remote = remoteErrorOf(error);
+      assert.equal(remote?.code, "penglai/invalid-input");
+      assert.deepEqual(remote?.details, {});
+      assert.equal(remote?.message.includes("private local diagnostic"), false);
+      return true;
+    },
+  );
+});
+
+test("alpha.2 Gateway invocation preserves Penglai RemoteError code and redaction", async () => {
+  class GatewayFixture extends TypertRemoteService {
+    constructor(ctx: Context) {
+      super(ctx, "penglaiGatewayFixture");
+    }
+
+    @PenglaiRemote
+    reject(): never {
+      throw new PenglaiError("SECURITY_POLICY", "private owner and local path detail");
+    }
+  }
+
+  const ctx = new Context();
+  const registry = await ctx.plugin(TypertRegistry);
+  const gateway = await ctx.plugin(TypertGatewayService, {});
+  new GatewayFixture(ctx);
+  try {
+    await assert.rejects(
+      async () =>
+        ctx.typertGateway.invoke({
+          namespace: "penglaiGatewayFixture",
+          method: "reject",
+          args: {},
+        }),
+      (error: unknown) => {
+        const remote = remoteErrorOf(error);
+        assert.equal(remote?.code, "penglai/security-policy");
+        assert.equal(remote?.message.includes("private owner"), false);
+        return true;
+      },
+    );
+  } finally {
+    await gateway.dispose();
+    await registry.dispose();
+  }
+});
+
+test("alpha.2 Gateway invocation redacts unexpected host exceptions", async () => {
+  class GatewayFixture extends TypertRemoteService {
+    constructor(ctx: Context) {
+      super(ctx, "penglaiUnexpectedFixture");
+    }
+
+    @PenglaiRemote
+    reject(): never {
+      throw new Error("ENOENT C:\\Users\\owner\\private\\credential.json");
+    }
+  }
+
+  const ctx = new Context();
+  const registry = await ctx.plugin(TypertRegistry);
+  const gateway = await ctx.plugin(TypertGatewayService, {});
+  new GatewayFixture(ctx);
+  try {
+    await assert.rejects(
+      async () => ctx.typertGateway.invoke({ namespace: "penglaiUnexpectedFixture", method: "reject", args: {} }),
+      (error: unknown) => {
+        const remote = remoteErrorOf(error);
+        assert.equal(remote?.code, "penglai/internal");
+        assert.equal(remote?.message.includes("ENOENT"), false);
+        assert.equal(remote?.message.includes("owner"), false);
+        return true;
+      },
+    );
+  } finally {
+    await gateway.dispose();
+    await registry.dispose();
+  }
 });
 
 test("evidence redaction covers key url base64 and unicode shreds", () => {

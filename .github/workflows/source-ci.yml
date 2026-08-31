@@ -29,6 +29,13 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Check out immutable official DSH alpha.2 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: deepseek-ai/DeepSeek-Harness
+          ref: 0a53fb55bea101816fa226bb964ae2bed71c343b
+          path: upstream-dsh
+          fetch-depth: 1
       - name: Prepare authoritative main identity
         run: |
           git fetch --no-tags origin main:refs/remotes/origin/main
@@ -45,12 +52,16 @@ jobs:
         if: github.ref == 'refs/heads/0.5.9-preview' || github.head_ref == '0.5.9-preview'
         run: pnpm verify:059-preview
       - name: Verify fixed DSH npm cohort
+        env:
+          PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm verify:dsh-npm-cohort
           pnpm verify:dsh-npm-cohort:live
       - name: Fetch and verify the pinned native Mnemon binary
         run: pnpm fetch:mnemon-assets
       - name: Source, contract, and evidence-class gates
+        env:
+          PENGLAI_DSH_ALPHA_SOURCE: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm format:check
           pnpm typecheck
@@ -62,13 +73,17 @@ jobs:
           pnpm test:chaos
           pnpm test:failure-baseline
           pnpm audit:secrets
-          pnpm audit:dependencies
-          pnpm audit:licenses
+          pnpm audit:supply-chain
           pnpm verify:versions
           pnpm verify:identity
           pnpm verify:contracts
           pnpm verify:dependencies
           pnpm verify:059-manifests
+          pnpm verify:dsh-alpha-owner-remotes
           pnpm build
           pnpm pack:plugins
+          pnpm verify:office-real
+          pnpm verify:memory-real
+          pnpm verify:asr-real
+          pnpm verify:moss-real
           pnpm verify:clean-clone

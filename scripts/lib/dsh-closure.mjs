@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -106,16 +106,20 @@ export function collectDshClosure(installAnchor, integrationRoots = DSH_RUNTIME_
     });
   }
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
-    for (const dep of [
+    const required = new Set([
       ...Object.keys(next.manifest.dependencies ?? {}),
-      // Native addons (koffi/sharp platform binaries) are declared as
-      // optionalDependencies; skipping them leaves the embedded DSH unable to boot.
-      ...Object.keys(next.manifest.optionalDependencies ?? {}),
-      ...Object.keys(next.manifest.peerDependencies ?? {}),
-    ]) {
+      ...Object.keys(next.manifest.peerDependencies ?? {}).filter(
+        (name) => next.manifest.peerDependenciesMeta?.[name]?.optional !== true,
+      ),
+    ]);
+    const dependencies = new Set([...required, ...Object.keys(next.manifest.optionalDependencies ?? {})]);
+    for (const dep of dependencies) {
       if (links.has(dep)) continue;
       const dir = packageDirFromAnchor(next.anchor, dep);
-      if (!dir) continue;
+      if (!dir) {
+        if (required.has(dep)) throw new Error(`embedded DSH closure cannot resolve required dependency ${dep} from ${next.manifest.name ?? next.anchor}`);
+        continue;
+      }
       links.set(dep, dir);
       const manifestPath = join(dir, "package.json");
       queue.push({
@@ -162,13 +166,22 @@ export function materializeNestedVersionConflicts(links, modulesDir) {
   function preserve(sourceDir, destinationDir) {
     const manifestPath = join(sourceDir, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-    for (const dependency of [
+    const required = new Set([
       ...Object.keys(manifest.dependencies ?? {}),
-      ...Object.keys(manifest.optionalDependencies ?? {}),
-    ]) {
+      ...Object.keys(manifest.peerDependencies ?? {}).filter(
+        (name) => manifest.peerDependenciesMeta?.[name]?.optional !== true,
+      ),
+    ]);
+    for (const dependency of [...required, ...Object.keys(manifest.optionalDependencies ?? {})]) {
       const actual = packageDirFromAnchor(manifestPath, dependency);
-      if (!actual) continue;
+      if (!actual) {
+        if (required.has(dependency)) throw new Error(`embedded DSH closure cannot preserve required dependency ${dependency} from ${manifest.name}`);
+        continue;
+      }
       const flattened = links.get(dependency);
+      if (!flattened && required.has(dependency)) {
+        throw new Error(`embedded DSH closure omitted required dependency ${dependency} from ${manifest.name}`);
+      }
       if (flattened && packageVersion(flattened) === packageVersion(actual)) continue;
       const nestedDestination = join(destinationDir, "node_modules", dependency);
       const key = `${actual}\0${nestedDestination}`;
@@ -188,12 +201,22 @@ export function assertNestedVersionConflicts(links, modulesDir) {
   for (const [name, sourceDir] of links) {
     const manifestPath = join(sourceDir, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-    for (const dependency of [
+    const required = new Set([
       ...Object.keys(manifest.dependencies ?? {}),
-      ...Object.keys(manifest.optionalDependencies ?? {}),
-    ]) {
+      ...Object.keys(manifest.peerDependencies ?? {}).filter(
+        (name) => manifest.peerDependenciesMeta?.[name]?.optional !== true,
+      ),
+    ]);
+    for (const dependency of [...required, ...Object.keys(manifest.optionalDependencies ?? {})]) {
       const actual = packageDirFromAnchor(manifestPath, dependency);
       const flattened = links.get(dependency);
+      if (!actual) {
+        if (required.has(dependency)) throw new Error(`embedded DSH closure cannot resolve required dependency ${dependency} from ${name}`);
+        continue;
+      }
+      if (!flattened && required.has(dependency)) {
+        throw new Error(`embedded DSH closure omitted required dependency ${dependency} from ${name}`);
+      }
       if (!actual || !flattened || packageVersion(flattened) === packageVersion(actual)) continue;
       const nested = join(modulesDir, name, "node_modules", dependency);
       if (packageVersion(nested) !== packageVersion(actual)) {
@@ -223,6 +246,17 @@ export function pruneNodePtyNativePayloads(modulesDir, target) {
   if (!existsSync(binding)) {
     throw new Error(`embedded DSH closure missing node-pty binding ${target}`);
   }
+  let spawnHelper;
+  if (target.startsWith("darwin-")) {
+    spawnHelper = join(expectedPrebuild, "spawn-helper");
+    if (!existsSync(spawnHelper)) throw new Error(`embedded DSH closure missing node-pty spawn-helper ${target}`);
+    // npm tar extraction may strip the executable bit while lifecycle scripts
+    // are globally disabled. Restore only this integrity-covered known helper.
+    chmodSync(spawnHelper, 0o755);
+    if (process.platform !== "win32" && (statSync(spawnHelper).mode & 0o111) === 0) {
+      throw new Error(`embedded DSH closure node-pty spawn-helper is not executable for ${target}`);
+    }
+  }
   const conpty = join(nodePty, "third_party", "conpty");
   if (target !== "win32-x86_64") {
     rmSync(conpty, { recursive: true, force: true });
@@ -240,7 +274,7 @@ export function pruneNodePtyNativePayloads(modulesDir, target) {
       }
     }
   }
-  return { present: true, target: expected, binding };
+  return { present: true, target: expected, binding, ...(spawnHelper ? { spawnHelper } : {}) };
 }
 
 export function resolveRequireBuiltinNative(installAnchor, target) {

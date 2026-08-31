@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 export const DSH_ALPHA2 = Object.freeze({
   version: "0.1.2-alpha.2",
@@ -156,6 +156,21 @@ async function fetchJson(url, fetchImpl, attempts = 3) {
   throw new Error(`registry request failed for ${url}: ${lastError?.message ?? lastError}`);
 }
 
+async function fetchBytes(url, fetchImpl, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetchImpl(url);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((resolveDelay) => setTimeout(resolveDelay, attempt * 250));
+    }
+  }
+  throw new Error(`request failed for ${url}: ${lastError?.message ?? lastError}`);
+}
+
 async function mapLimit(items, limit, worker) {
   const output = new Array(items.length);
   let cursor = 0;
@@ -198,6 +213,38 @@ export async function readRootDistTags({ fetchImpl = fetch } = {}) {
     distTags: stableObject(packument["dist-tags"] ?? {}),
     publishedAt: packument.time?.[DSH_ALPHA2.version] ?? null,
   };
+}
+
+export async function readRegistrySigningKeys({ fetchImpl = fetch } = {}) {
+  const response = await fetchJson("https://registry.npmjs.org/-/npm/v1/keys", fetchImpl);
+  const keys = Array.isArray(response.keys) ? response.keys : [];
+  invariant(keys.length > 0, "npm registry returned no signing keys");
+  return keys;
+}
+
+export function verifyRegistrySignatures(entry, keys) {
+  const signatures = Array.isArray(entry.signatures) ? entry.signatures : [];
+  invariant(signatures.length > 0, `${entry.name} is missing npm registry signatures`);
+  const payload = Buffer.from(`${entry.name}@${entry.version}:${entry.integrity}`, "utf8");
+  const verified = signatures.some((signature) => {
+    const key = keys.find((candidate) => candidate.keyid === signature.keyid);
+    if (
+      !key ||
+      key.keytype !== "ecdsa-sha2-nistp256" ||
+      key.scheme !== "ecdsa-sha2-nistp256" ||
+      typeof key.key !== "string" ||
+      typeof signature.sig !== "string"
+    ) return false;
+    try {
+      const der = Buffer.from(key.key, "base64");
+      const publicKey = createPublicKey({ key: der, format: "der", type: "spki" });
+      return verifySignature("sha256", payload, publicKey, Buffer.from(signature.sig, "base64"));
+    } catch {
+      return false;
+    }
+  });
+  invariant(verified, `${entry.name} npm registry signature verification failed`);
+  return true;
 }
 
 export async function readTarballSha256(url, { fetchImpl = fetch } = {}) {
@@ -284,8 +331,40 @@ export async function verifySnapshotAgainstRegistry(snapshot, options = {}) {
     invariant(JSON.stringify(liveEntries[index]) === JSON.stringify(stableObject(snapshot.packages[index])), `${liveEntries[index].name} registry metadata drift`);
   }
   const liveRoot = await readRootDistTags(options);
-  invariant(JSON.stringify(liveRoot.distTags) === JSON.stringify(stableObject(snapshot.distTags)), "@deepseek-ai/dsh dist-tag drift");
-  const root = liveEntries.find((entry) => entry.name === "@deepseek-ai/dsh");
-  invariant(await readTarballSha256(root.tarball, options) === snapshot.rootTarballSha256, "@deepseek-ai/dsh live tarball SHA-256 drift");
+  invariant(typeof liveRoot.publishedAt === "string" && liveRoot.publishedAt.length > 0, "@deepseek-ai/dsh alpha.2 publication time missing");
+  options.observeDistTags?.(liveRoot.distTags);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const signingKeys = await readRegistrySigningKeys(options);
+  for (const entry of liveEntries) verifyRegistrySignatures(entry, signingKeys);
+  await mapLimit(liveEntries, options.tarballConcurrency ?? 6, async (entry) => {
+    const bytes = await fetchBytes(entry.tarball, fetchImpl);
+    const shasum = createHash("sha1").update(bytes).digest("hex");
+    const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
+    invariant(shasum === entry.shasum, `${entry.name} live tarball shasum drift`);
+    invariant(integrity === entry.integrity, `${entry.name} live tarball integrity drift`);
+    if (entry.name === "@deepseek-ai/dsh") {
+      invariant(sha256(bytes) === snapshot.rootTarballSha256, "@deepseek-ai/dsh live tarball SHA-256 drift");
+    }
+  });
+  await mapLimit(snapshot.packages, options.sourceConcurrency ?? 12, async (entry) => {
+    let bytes;
+    if (options.sourceRoot) {
+      const sourceRoot = resolve(options.sourceRoot);
+      const sourcePath = resolve(sourceRoot, entry.sourcePath);
+      const relativePath = relative(sourceRoot, sourcePath);
+      invariant(
+        relativePath && !isAbsolute(relativePath) && relativePath !== ".." && !relativePath.startsWith("../") && !relativePath.startsWith("..\\"),
+        `${entry.name} source path escapes the fixed checkout`,
+      );
+      invariant(existsSync(sourcePath), `${entry.name} source manifest is missing from the fixed checkout`);
+      bytes = readFileSync(sourcePath);
+    } else {
+      const url = `https://raw.githubusercontent.com/deepseek-ai/DeepSeek-Harness/${snapshot.source.commit}/${entry.sourcePath}`;
+      bytes = await fetchBytes(url, fetchImpl);
+    }
+    invariant(sha256(bytes) === entry.sourceManifestSha256, `${entry.name} source manifest drift`);
+    const manifest = JSON.parse(bytes.toString("utf8"));
+    invariant(manifest.name === entry.name && manifest.version === entry.version, `${entry.name} source identity drift`);
+  });
   return validateCohortSnapshot(snapshot);
 }

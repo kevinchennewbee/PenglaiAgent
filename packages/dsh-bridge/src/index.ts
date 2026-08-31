@@ -1,7 +1,9 @@
 import { createRequire } from "node:module";
 import { BudgetGate } from "@penglai/budget";
 import {
+  ADAPTER_NAMES,
   PenglaiError,
+  type AdapterName,
   type ClaimedFact,
   type ModelInput,
   type PenglaiAsrEmotion,
@@ -26,6 +28,7 @@ const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([
   "DISGUSTED",
   "SURPRISED",
 ]);
+const ADAPTER_NAME_SET = new Set<string>(ADAPTER_NAMES);
 const LOCAL_ASR_CONTEXT_PREFIX = "[PENGLAI LOCAL ASR METADATA - NOT USER-AUTHORED]";
 
 function readPkgVersion(name: string): string | undefined {
@@ -90,7 +93,7 @@ export function extractPenglaiSource(source: unknown): PenglaiImSource | undefin
   if (s.kind !== "user" && s.kind !== "penglai-im") return undefined;
   if (s.schema !== 1) return undefined;
   if (typeof s.routeId !== "string" || typeof s.inboundId !== "string") return undefined;
-  if (s.adapter !== "mock" && s.adapter !== "weixin" && s.adapter !== "feishu") return undefined;
+  if (typeof s.adapter !== "string" || !ADAPTER_NAME_SET.has(s.adapter)) return undefined;
   const voice = s.voice;
   if (voice !== undefined) {
     if (!voice || typeof voice !== "object") return undefined;
@@ -107,7 +110,7 @@ export function extractPenglaiSource(source: unknown): PenglaiImSource | undefin
     schema: 1,
     routeId: s.routeId,
     inboundId: s.inboundId,
-    adapter: s.adapter,
+    adapter: s.adapter as AdapterName,
     ...(voice
       ? {
           voice: {

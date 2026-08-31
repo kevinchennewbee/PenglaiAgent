@@ -137,11 +137,8 @@ export function assertWindowsNsisScript(script: string): void {
   if (/RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\0\.5"/i.test(script) || /RMDir\s+\/r\s+"\$PROFILE\\AppData\\Local\\Penglai\\0\.5"/i.test(script)) {
     throw new Error("NSIS uninstaller must not recursively delete userData by default");
   }
-  if (!/deletion-capability\.json/.test(script) || !/penglai-windows-host\.exe/.test(script)) {
-    throw new Error("NSIS uninstaller must hand off complete-delete to the native capability helper");
-  }
-  if (!/IfFileExists/.test(script) || !/skip_data/.test(script)) {
-    throw new Error("NSIS uninstaller must only delete data when a capability file exists");
+  if (/deletion-capability\.json|delete-plan|\$\{USERDATA\}/.test(script)) {
+    throw new Error("NSIS uninstaller must never receive or execute a user-data deletion plan");
   }
 }
 

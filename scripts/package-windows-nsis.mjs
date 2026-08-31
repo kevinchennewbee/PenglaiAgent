@@ -50,6 +50,11 @@ if (makensis.status !== 0) {
   console.error("package-windows-nsis BLOCKED: makensis missing on Windows x64 runner");
   process.exit(4);
 }
+const makensisVersion = String(makensis.stdout || "").trim();
+if (makensisVersion !== "v3.12") {
+  console.error(`package-windows-nsis BLOCKED: expected makensis v3.12, received ${makensisVersion || "unknown"}`);
+  process.exit(2);
+}
 if (!existsSync(payload) || !existsSync(nsi) || !existsSync(license) || !existsSync(icon)) {
   console.error("package-windows-nsis BLOCKED: payload, license, icon, or NSIS script missing");
   process.exit(4);
@@ -124,6 +129,6 @@ console.log(
     installer: out,
     sha256,
     installedApp,
-    makensis: String(makensis.stdout || "").trim(),
+    makensis: makensisVersion,
   }),
 );

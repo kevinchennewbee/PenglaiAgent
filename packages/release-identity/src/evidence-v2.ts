@@ -32,7 +32,9 @@ export const PLATFORM_SCOPED_RUNNER_CLASSES = new Set([
 
 export const UNIT_OR_CONTRACT_CLASSES = new Set(["unit", "contract"]);
 
-export const SOAK_REQUIRED_SAMPLES = ["im", "offline", "sleep", "update", "uninstall"] as const;
+// Upgrade and uninstall are destructive lifecycle gates with their own native
+// verifier. The two-hour soak owns only sustained IM/offline/sleep recovery.
+export const SOAK_REQUIRED_SAMPLES = ["im", "offline", "sleep"] as const;
 
 export type CollectionClass = "unit-suite" | "contract-suite" | "installed-runner" | "soak-runner" | "live-runner" | "export-runner" | "artifact-runner";
 

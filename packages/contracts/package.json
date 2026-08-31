@@ -8,5 +8,13 @@
       "types": "./src/index.ts",
       "default": "./dist/index.js"
     }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "0.1.2-alpha.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-api-gateway": "0.1.2-alpha.2",
+    "@deepseek-ai/dsh-typert-registry": "0.1.2-alpha.2"
   }
 }

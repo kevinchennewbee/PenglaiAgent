@@ -71,7 +71,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.namedSecurityInfo, true);
   assert.equal(facts.reparseAttribute, true);
   assert.equal(facts.jobSupervise, true);
-  assert.equal(facts.deletePlan, true);
+  assert.equal(facts.deletePlan, false);
   assert.equal(facts.processSuspendResume, true);
   assert.equal(facts.processReapSupervisors, true);
   assert.equal(facts.pathBatchProbe, true);
@@ -277,15 +277,14 @@ test("Windows CreateProcess arguments preserve quotes and trailing backslashes",
   assert.equal(quoteWindowsCommandArg(""), '""');
 });
 
-test("NSIS script default-preserves user data and only deletes via capability handoff", () => {
+test("NSIS script always preserves user data after in-app exact deletion", () => {
   const script = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
   assertWindowsNsisScript(script);
   assert.match(script, /RequestExecutionLevel\s+user/);
   assert.match(script, /SimpChinese/);
   assert.match(script, /English/);
   assert.match(script, new RegExp(WINDOWS_NSIS_CONTRACT.upgradeCode));
-  assert.match(script, /penglai-windows-host\.exe/);
-  assert.match(script, /deletion-capability\.json/);
+  assert.doesNotMatch(script, /delete-plan|deletion-capability\.json|USERDATA/);
   assert.doesNotMatch(script, /RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\0\.5"/);
   assert.match(script, /SectionUninstall/);
   // Numeric downgrade comparison (not lexicographic) and an explicitly

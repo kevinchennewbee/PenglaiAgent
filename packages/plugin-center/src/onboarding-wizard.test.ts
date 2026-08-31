@@ -699,9 +699,9 @@ test("status returns selection and workspaceId without secrets", async () => {
 
 test("wizard remotes exist without a generic advance", async () => {
   const remote = readFileSync(new URL("./onboarding-remote.ts", import.meta.url), "utf8");
-  assert.match(remote, /@Remote\s+completeWelcome/);
-  assert.match(remote, /@Remote\s+enterCredential/);
-  assert.match(remote, /@Remote\s+listModels/);
-  assert.match(remote, /@Remote\s+createWorkspace/);
+  assert.match(remote, /@PenglaiRemote\s+completeWelcome/);
+  assert.match(remote, /@PenglaiRemote\s+enterCredential/);
+  assert.match(remote, /@PenglaiRemote\s+listModels/);
+  assert.match(remote, /@PenglaiRemote\s+createWorkspace/);
   assert.doesNotMatch(remote, /@Remote\s+advance\b/);
 });

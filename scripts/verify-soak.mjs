@@ -3,9 +3,38 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, gitState, isDocsOnlyRange } from "./lib/repo.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import { evidenceName, RELEASE_TARGETS } from "./lib/release-targets.mjs";
 
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
 const git = gitState();
+if (process.argv.includes("--aggregate")) {
+  const records = [];
+  for (const target of RELEASE_TARGETS) {
+    const soakPath = join(ROOT, "evidence/generated", evidenceName("soak", target));
+    const installerPath = join(ROOT, "evidence/generated", evidenceName("local-installer", target));
+    if (!existsSync(soakPath) || !existsSync(installerPath)) {
+      finish("INCOMPLETE", { command: "verify:soak", reason: `missing exact soak or installer evidence for ${target}`, target });
+    }
+    const soak = JSON.parse(readFileSync(soakPath, "utf8"));
+    const installer = JSON.parse(readFileSync(installerPath, "utf8"));
+    const samples = soak.samplesCovered ?? soak.sampleSet ?? [];
+    const required = ["im", "offline", "sleep"];
+    if (
+      soak.productVersion !== "0.5.9" ||
+      soak.target !== target ||
+      soak.hours < 2 ||
+      soak.sourceSha !== git.head ||
+      installer.sourceSha !== git.head ||
+      installer.target !== target ||
+      soak.installerSha256 !== installer.sha256 ||
+      !required.every((sample) => samples.includes(sample))
+    ) {
+      finish("STALE", { command: "verify:soak", reason: `soak is not an exact complete PASS for ${target}`, target });
+    }
+    records.push({ target, installerSha256: soak.installerSha256, hours: soak.hours });
+  }
+  finish("PASS", { command: "verify:soak", sourceSha: git.head, targets: records });
+}
 const path = join(ROOT, "evidence/generated/soak.json");
 const dmgPath = join(ROOT, "evidence/generated/local-dmg.json");
 if (!existsSync(path)) {

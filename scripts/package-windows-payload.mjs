@@ -219,6 +219,9 @@ if (existsSync(join(staging, "mnemon"))) {
     recursive: true,
   });
 }
+cpSync(join(staging, "licenses"), join(resources, "licenses"), {
+  recursive: true,
+});
 for (const name of [
   "runtime-manifest.json",
   "release-contract.json",

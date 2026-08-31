@@ -75,18 +75,24 @@ function createPenglaiMemorySourcesClient(require) {
       return Promise.resolve(api.pickContextFolder());
     };
 
-    function ContextTab({ remote, embedded = false }) {
+    function ContextTab({ remote, connectionGeneration, embedded = false }) {
       const t = copy();
       const memory = remote?.penglaiMemorySettings;
-      const api = memory
-        ? {
-            status: memory.sourcesStatus,
-            ingestCapability: memory.sourcesIngestCapability,
-            reindex: memory.sourcesReindex,
-            revoke: memory.sourcesRevoke,
-            search: memory.sourcesSearch,
-          }
-        : undefined;
+      const api = React.useMemo(
+        () =>
+          memory
+            ? {
+                status: memory.sourcesStatus,
+                ingestCapability: memory.sourcesIngestCapability,
+                reindex: memory.sourcesReindex,
+                revoke: memory.sourcesRevoke,
+                search: memory.sourcesSearch,
+              }
+            : undefined,
+        [memory],
+      );
+      const generationRef = React.useRef(connectionGeneration);
+      generationRef.current = connectionGeneration;
       const [view, setView] = React.useState({
         phase: "loading",
         snapshot: { grants: [], workspaces: [] },
@@ -100,12 +106,14 @@ function createPenglaiMemorySourcesClient(require) {
         notice: "",
       });
       const refresh = React.useCallback(() => {
-        if (!api?.status) {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined || !api?.status) {
           setView((current) => ({ ...current, phase: "unavailable" }));
           return;
         }
         Promise.resolve(api.status({}))
           .then((value) => {
+            if (generationRef.current !== expectedGeneration) return;
             const snapshot = unwrap(value) || { grants: [], workspaces: [] };
             setView((current) => ({
               ...current,
@@ -120,17 +128,18 @@ function createPenglaiMemorySourcesClient(require) {
                 "",
             }));
           })
-          .catch(() =>
+          .catch(() => {
+            if (generationRef.current !== expectedGeneration) return;
             setView((current) => ({
               ...current,
               phase: "unavailable",
               error: "",
-            })),
-          );
+            }));
+          });
       }, [api]);
       React.useEffect(() => {
         refresh();
-      }, [refresh]);
+      }, [refresh, connectionGeneration]);
       const run = (method, input, notice = "") => {
         if (!api?.[method]) return Promise.resolve();
         setView((current) => ({
