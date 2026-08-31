@@ -33,9 +33,9 @@ import {
   installerForTarget,
   nativeBlocked,
   parseTargetArg,
-  walkedCoreOnboarding,
 } from "./lib/release-targets.mjs";
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
+import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./lib/installed-boundary.mjs";
 
 const certFault = String(process.env.PENGLAI_RUNNER_FAULT ?? "").trim();
 if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
@@ -48,10 +48,6 @@ if (certFault || process.env.PENGLAI_RUNNER_CERT === "1") {
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 
-function gate(value) {
-  return value ? "PASS" : "FAIL";
-}
-
 function digestOrInvalid(value, length) {
   const text = String(value ?? "");
   return new RegExp(`^[0-9a-f]{${length}}$`).test(text) ? text : "invalid";
@@ -60,40 +56,19 @@ function digestOrInvalid(value, length) {
 function installedEvidenceRecord(rec) {
   const verdict = ["PASS", "FAIL", "INCOMPLETE"].includes(rec?.verdict) ? rec.verdict : "FAIL";
   const first = rec?.first ?? {};
-  const walked = Array.isArray(first.onboarding?.walked) ? first.onboarding.walked : [];
-  const settings = Array.isArray(rec?.walk?.settingsWalked) ? rec.walk.settingsWalked : [];
   return {
     schema: 2,
     command: "test:e2e:installed",
     verdict,
     productVersion: "0.5.9",
+    fromExactDmg: rec?.fromExactDmg === true,
+    sourceRead: false,
     target: expectedTarget,
     installer: expectedInstaller,
     installerSha256: digestOrInvalid(rec?.installerSha256 ?? installed.installerSha256, 64),
     sourceSha: digestOrInvalid(rec?.sourceSha ?? candidateSourceSha, 40),
     host: { platform: process.platform, arch: process.arch },
-    checks: {
-      exactInstaller: gate(rec?.fromExactDmg === true),
-      identity: gate(first.identity?.ok === true || identityJudged.ok === true),
-      officialHttp: gate(first.http?.official === true),
-      officialWebSocket: gate(first.websocket?.opened === true),
-      exactExecutableBoot: gate(first.nativeBoot?.ok === true),
-      productDom: gate(first.dom?.hasDshBoot === true),
-      ownedProcessTree: gate(first.processTree?.ownedAbsolute === true && first.processTree?.dshPid > 0),
-      requiredInventory: gate(first.inventory?.ok === true),
-      optionalImDefaultOff: gate(first.inventory?.im === false),
-      welcomePersisted: gate(first.welcome?.clicked === true && first.welcome?.persisted === true),
-      onboardingCore: gate(walked.includes("privacy") && walked.includes("models") && walkedCoreOnboarding(walked)),
-      requiredSettings: gate(
-        ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) =>
-          settings.includes(id),
-        ),
-      ),
-      optionalSettingsHidden: gate(
-        ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every((id) => !settings.includes(id)),
-      ),
-      resume: gate(first.resume?.ok === true || rec?.resume?.ok === true || rec?.resume?.attempted === false),
-    },
+    checks: credentialFreeInstalledChecks({ rec, first, identityOk: identityJudged.ok === true }),
     reason:
       verdict === "PASS"
         ? "exact installer passed the installed acceptance record"
@@ -440,27 +415,13 @@ if (walk?.wizardKeyless && walk.wizardKeyless.ok === false && walk.wizardKeyless
 }
 if (resume.attempted && resume.ok === false) fail("wizard did not resume from ledger after kill/restart", { resume });
 
-const walked = first.onboarding.walked;
-const settingsWalked = first.settingsWalk.walked;
 const keylessOk = Boolean(walk?.wizardKeyless?.ok && resume.ok);
-const canPass =
-  first.nativeBoot?.ok === true &&
-  first.http?.official === true &&
-  first.websocket?.opened === true &&
-  first.dom?.hasDshBoot === true &&
-  first.processTree?.ownedAbsolute === true &&
-  first.processTree?.dshPid > 0 &&
-  first.inventory?.ok === true &&
-  first.inventory?.im === false &&
-  first.welcome?.clicked &&
-  first.welcome?.persisted &&
-  walked.includes("privacy") &&
-  walked.includes("models") &&
-  walkedCoreOnboarding(walked) &&
-  ["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id)) &&
-  ["ui-im", "ui-asr", "ui-tts", "ui-companion"].every(
-    (id) => !settingsWalked.includes(id),
-  );
+const candidateRecord = {
+  fromExactDmg: true,
+  walk: walk ? { wizardKeyless: walk.wizardKeyless } : null,
+  resume,
+};
+const canPass = credentialFreeInstalledPass({ rec: candidateRecord, first, identityOk: identityJudged.ok === true });
 
 const rec = {
   command: "test:e2e:installed",
@@ -491,9 +452,9 @@ const rec = {
   wizardKeyless: walk?.wizardKeyless ?? null,
   resume,
   reason: canPass
-    ? "exact DMG BrowserWindow walk observed official onboarding Center IM update uninstall"
+    ? "exact installer passed the credential-free installed boundary; the independent Owner live gate must prove nonce and first Turns"
     : keylessOk
-      ? "W5a keyless wizard walk reached API key and stopped without a nonce Turn; full installed Hard remains INCOMPLETE"
+      ? "credential-free installed boundary is missing a required native or onboarding observation"
       : `BrowserWindow walk on exact DMG did not close every installed Hard surface: ${(walk?.blocked ?? [attachErr || "no-walk"]).join(", ")}`,
 };
 writeRec(rec);

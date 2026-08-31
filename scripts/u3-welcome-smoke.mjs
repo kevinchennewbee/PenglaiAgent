@@ -17,7 +17,7 @@ import {
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
-import { installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
+import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 
 const WELCOME_JS = `(() => {
   const text = (document.body && document.body.innerText ? document.body.innerText : "").replace(/\\s+/g, " ");
@@ -60,6 +60,8 @@ const CLICK_CONTINUE_JS = `(() => {
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 const recPath = join(outDir, "u3-welcome-smoke.json");
+const expectedTarget = parseTargetArg();
+const targetRecPath = join(outDir, evidenceName("u3-welcome-smoke", expectedTarget));
 const source = requireCleanCandidateSource();
 if (!source.ok) {
   finish("STALE", { command: "u3-welcome-smoke", reason: source.reason, ...source.git });
@@ -67,10 +69,11 @@ if (!source.ok) {
 const git = source.git;
 
 function writeRec(rec) {
-  writeFileSync(recPath, `${JSON.stringify(rec, null, 2)}\n`);
+  const text = `${JSON.stringify(rec, null, 2)}\n`;
+  writeFileSync(recPath, text);
+  writeFileSync(targetRecPath, text);
 }
 
-const expectedTarget = parseTargetArg();
 const blocked = nativeBlocked("u3-welcome-smoke", expectedTarget);
 if (blocked) finish("BLOCKED", { command: "u3-welcome-smoke", ...blocked });
 const expectedInstaller = installerForTarget(expectedTarget);
