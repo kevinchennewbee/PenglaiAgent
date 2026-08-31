@@ -59,16 +59,34 @@ test("target closure excludes optional native packages for other operating syste
   assert.equal(packageSupportsTarget({ os: ["!win32"] }, "win32-x86_64"), false);
   assert.equal(packageSupportsTarget({ cpu: ["!arm64"] }, "win32-x86_64"), true);
 
-  const links = collectDshClosure(
-    resolve("node_modules/@deepseek-ai/dsh/package.json"),
-    DSH_RUNTIME_INTEGRATION_ROOTS,
-    "win32-x86_64",
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-target-"));
+  const app = join(root, "app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(
+    join(app, "package.json"),
+    JSON.stringify({
+      name: "target-fixture",
+      optionalDependencies: {
+        "native-win": "1.0.0",
+        "native-mac-arm": "1.0.0",
+        "native-mac-x64": "1.0.0",
+      },
+    }),
   );
-  assert.equal(links.has("@img/sharp-win32-x64"), true);
-  assert.equal(links.has("@img/sharp-darwin-arm64"), false);
-  assert.equal(links.has("@img/sharp-darwin-x64"), false);
-  assert.equal(links.has("@koromix/koffi-win32-x64"), true);
-  assert.equal(links.has("@koromix/koffi-darwin-arm64"), false);
+  for (const [name, manifest] of [
+    ["native-win", { name: "native-win", version: "1.0.0", os: ["win32"], cpu: ["x64"] }],
+    ["native-mac-arm", { name: "native-mac-arm", version: "1.0.0", os: ["darwin"], cpu: ["arm64"] }],
+    ["native-mac-x64", { name: "native-mac-x64", version: "1.0.0", os: ["darwin"], cpu: ["x64"] }],
+  ]) {
+    const packageDir = join(root, "node_modules", name);
+    mkdirSync(packageDir, { recursive: true });
+    writeFileSync(join(packageDir, "package.json"), JSON.stringify(manifest));
+  }
+
+  const links = collectDshClosure(join(app, "package.json"), [], "win32-x86_64");
+  assert.equal(links.has("native-win"), true);
+  assert.equal(links.has("native-mac-arm"), false);
+  assert.equal(links.has("native-mac-x64"), false);
 });
 
 test("flattening preserves a package-local dependency when its version differs", () => {
