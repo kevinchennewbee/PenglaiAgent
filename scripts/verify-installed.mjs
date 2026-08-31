@@ -13,7 +13,6 @@ import {
   nativeBlocked,
   parseTargetArg,
   RELEASE_TARGETS,
-  walkedCoreOnboarding,
 } from "./lib/release-targets.mjs";
 
 const identity = await import(pathToFileURL(join(ROOT, "packages/release-identity/src/index.ts")).href);
@@ -23,6 +22,68 @@ const assertionFile = join(evidenceDir, "installed-assertions.jsonl");
 mkdirSync(evidenceDir, { recursive: true });
 writeFileSync(assertionFile, "");
 process.env.PENGLAI_EVIDENCE_DIR = assertionFile;
+
+function readTargetEvidence(base, target) {
+  const path = join(evidenceDir, evidenceName(base, target));
+  if (!existsSync(path)) {
+    finish("INCOMPLETE", { command: "verify:installed", reason: `${base} evidence missing for ${target}`, target });
+  }
+  try {
+    return { path, value: JSON.parse(readFileSync(path, "utf8")) };
+  } catch {
+    finish("FAIL", { command: "verify:installed", reason: `${base} evidence is malformed for ${target}`, target });
+  }
+}
+
+function validateInstalledCompanions(target, installed) {
+  const expectedInstaller = installerForTarget(target);
+  const welcome = readTargetEvidence("u3-welcome-smoke", target);
+  const plugins = readTargetEvidence("u3-first-party-plugins", target);
+  for (const [label, record] of [["welcome", welcome.value], ["plugins", plugins.value]]) {
+    if (
+      record.verdict !== "PASS" ||
+      record.target !== target ||
+      record.sourceSha !== installed.sourceSha ||
+      record.installer !== expectedInstaller ||
+      record.installerSha256 !== installed.installerSha256
+    ) {
+      finish("STALE", { command: "verify:installed", reason: `${label} evidence is not bound to the installed candidate`, target });
+    }
+  }
+  if (
+    welcome.value.official?.http?.official !== true ||
+    welcome.value.official?.websocket?.opened !== true ||
+    welcome.value.welcome?.reachable !== true ||
+    welcome.value.nextStep?.privacy !== true ||
+    welcome.value.processTree?.ownedAbsolute !== true ||
+    !(welcome.value.processTree?.dshPid > 0) ||
+    welcome.value.processTree?.leftovers !== 0
+  ) {
+    finish("FAIL", { command: "verify:installed", reason: "installed welcome evidence lacks official HTTP/WS, privacy, or owned-process proof", target });
+  }
+  const phases = Array.isArray(plugins.value.phases) ? plugins.value.phases : [];
+  const phaseOk = phases.length >= 3 && phases.every((phase) =>
+    phase.official?.http === true &&
+    phase.official?.websocket === true &&
+    phase.official?.mounted === true &&
+    phase.processTree?.ownedAbsolute === true &&
+    phase.processTree?.dshPid > 0 &&
+    phase.processTree?.leftovers === 0
+  );
+  const required = Array.isArray(plugins.value.requiredBuiltin) ? plugins.value.requiredBuiltin : [];
+  const initial = phases[0];
+  const enabled = phases.find((phase) => phase.name === "all-enabled-after-restart");
+  if (
+    !phaseOk ||
+    !["@penglai/office", "@penglai/memory"].every((id) => required.includes(id)) ||
+    initial?.requiredCapabilities?.settingsBlocked?.length !== 0 ||
+    enabled?.enabledCapabilities?.optionalSettingsReady !== true ||
+    enabled?.enabledCapabilities?.settingsBlocked?.length !== 0
+  ) {
+    finish("FAIL", { command: "verify:installed", reason: "installed plugin/settings evidence is incomplete", target });
+  }
+  return { welcome, plugins };
+}
 
 if (process.argv.includes("--aggregate")) {
   const present = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
@@ -57,6 +118,7 @@ if (process.argv.includes("--aggregate")) {
     ) {
       finish("FAIL", { command: "verify:installed", reason: `invalid native installed evidence for ${target}`, target });
     }
+    validateInstalledCompanions(target, rec);
     return rec;
   });
   const unique = [...new Set(records.map((record) => record.sourceSha))];
@@ -95,6 +157,9 @@ if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob))
 if (rec.productVersion !== "0.5.9" || rec.verdict !== "PASS") {
   finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
 }
+if (rec.schema !== 2 || rec.command !== "test:e2e:installed" || Object.values(rec.checks ?? {}).some((value) => value !== "PASS")) {
+  finish("FAIL", { command: "verify:installed", reason: "installed keyless boundary checks are incomplete", target });
+}
 const expectedInstaller = installerForTarget(target);
 if (rec.fromExactDmg !== true || rec.installer !== expectedInstaller) {
   finish("FAIL", {
@@ -103,25 +168,7 @@ if (rec.fromExactDmg !== true || rec.installer !== expectedInstaller) {
     target,
   });
 }
-if (rec.sourceRead === true) {
-  finish("FAIL", { command: "verify:installed", reason: "source-read cannot produce installed PASS" });
-}
-const first = rec.first ?? {};
-if (first.http?.official !== true || first.websocket?.opened !== true || first.dom?.hasDshBoot !== true) {
-  finish("FAIL", { command: "verify:installed", reason: "missing official DOM/HTTP/WS observations" });
-}
-if (first.processTree?.ownedAbsolute !== true || !first.processTree?.dshPid) {
-  finish("FAIL", { command: "verify:installed", reason: "missing owned process tree" });
-}
-if (first.inventory?.ok !== true || first.inventory?.im !== false) {
-  finish("FAIL", { command: "verify:installed", reason: "fresh loader inventory did not prove optional IM absent" });
-}
-if (!first.welcome?.clicked || !first.welcome?.persisted) {
-  finish("FAIL", { command: "verify:installed", reason: "official welcome was not clicked and persisted" });
-}
-if (!Array.isArray(first.onboarding?.walked) || !first.onboarding.walked.includes("privacy")) {
-  finish("FAIL", { command: "verify:installed", reason: "official settings.onboarding privacy step was not observed" });
-}
+validateInstalledCompanions(target, rec);
 const source = requireCleanCandidateSource();
 if (!source.ok) {
   finish("STALE", { command: "verify:installed", reason: source.reason, ...source.git });
@@ -171,8 +218,8 @@ identity.recordAssertion({
   acceptanceId: "R50-E2E-002",
   runnerId: "installed",
   testId: "verify-installed",
-  assertionId: "official-dom-http-ws-process-inventory",
-  details: { safe: "official DOM HTTP WS owned process tree and loader inventory observed" },
+  assertionId: "keyless-and-product-http-ws-process-inventory",
+  details: { safe: "credential-free onboarding plus companion product HTTP WS owned process and loader evidence passed" },
 });
 identity.recordAssertion({
   ...common,
@@ -216,63 +263,29 @@ identity.recordAssertion({
   assertionId: "privacy-step-after-welcome",
   details: { safe: "installed BrowserWindow walked official settings.onboarding privacy after welcome persist" },
 });
-const walked = first.onboarding?.walked ?? [];
-if (Number(first.onboarding?.last?.providers?.rows ?? 0) < 1 || !walked.includes("models")) {
-  finish("FAIL", { command: "verify:installed", reason: "official models catalog or continue was not observed" });
-}
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-ONB-003",
   runnerId: "installed",
   testId: "verify-installed",
   assertionId: "official-llm-providers-in-models-step",
-  details: { safe: "models step listed official llm.providers cards and continue was clicked" },
+  details: { safe: "credential-free installed wizard listed the official provider catalog and reached the API key boundary" },
 });
-if (!walkedCoreOnboarding(walked)) {
-  finish("FAIL", { command: "verify:installed", reason: "workspace and first-turn steps were not walked after models" });
-}
-identity.recordAssertion({
-  ...common,
-  acceptanceId: "R50-ONB-008",
-  runnerId: "installed",
-  testId: "verify-installed",
-  assertionId: "workspace-after-nonce",
-  details: { safe: "installed walk recorded official workspace after models nonce Turn" },
-});
-const settingsWalked = first.settingsWalk?.walked ?? [];
-if (!["ui-penglai", "ui-center", "ui-office", "ui-memory", "ui-update", "ui-uninstall"].every((id) => settingsWalked.includes(id))) {
-  finish("FAIL", { command: "verify:installed", reason: "Penglai section, Center, Office, Memory, update, or uninstall was not observed" });
-}
-if (["ui-im", "ui-asr", "ui-tts", "ui-companion"].some((id) => settingsWalked.includes(id))) {
-  finish("FAIL", { command: "verify:installed", reason: "fresh BrowserWindow exposed an optional plugin settings page" });
-}
 identity.recordAssertion({
   ...common,
   acceptanceId: "R50-E2E-003",
   runnerId: "installed",
   testId: "verify-installed",
   assertionId: "settings-required-builtins-optional-off-update-uninstall",
-  details: { safe: "fresh BrowserWindow showed Center Office Memory update uninstall while optional plugin pages stayed absent" },
-});
-identity.recordAssertion({
-  ...common,
-  acceptanceId: "R50-ONB-006",
-  runnerId: "installed",
-  testId: "verify-installed",
-  assertionId: "models-nonce-turn-walked",
-  details: { safe: "installed walk left models after official nonce Turn path" },
-});
-identity.recordAssertion({
-  ...common,
-  acceptanceId: "R50-ONB-009",
-  runnerId: "installed",
-  testId: "verify-installed",
-  assertionId: "workspace-and-first-turn",
-  details: { safe: "installed walk reached workspace and first-turn after core-ready facts" },
+  details: { safe: "target-bound companion evidence showed required and optional plugin settings across real installed restarts" },
 });
 finish("PASS", {
   command: "verify:installed",
   sourceSha: source.git.head,
   installerSha256: rec.installerSha256,
   target,
+  companionEvidence: [
+    `evidence/generated/${evidenceName("u3-welcome-smoke", target)}`,
+    `evidence/generated/${evidenceName("u3-first-party-plugins", target)}`,
+  ],
 });

@@ -153,9 +153,7 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
-        run: |
-          pnpm test:e2e:installed
-          pnpm verify:installed
+        run: pnpm test:e2e:installed
       - name: Installed welcome and process smoke
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
@@ -166,6 +164,10 @@ jobs:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
         run: pnpm test:u3:plugins
+      - name: Verify bound installed evidence bundle
+        env:
+          PENGLAI_TARGET: ${{ matrix.target }}
+        run: pnpm verify:installed
       - name: Two-hour exact installed stability suite
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
@@ -206,6 +208,8 @@ jobs:
             evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
+            evidence/generated/u3-welcome-smoke-${{ matrix.target }}.json
+            evidence/generated/u3-first-party-plugins-${{ matrix.target }}.json
             evidence/generated/public-export.json
             evidence/generated/licenses-${{ matrix.target }}.json
             evidence/generated/sbom-${{ matrix.target }}.json
@@ -320,9 +324,7 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
-        run: |
-          pnpm test:e2e:installed
-          pnpm verify:installed
+        run: pnpm test:e2e:installed
       - name: Installed welcome and process smoke
         shell: pwsh
         env:
@@ -335,6 +337,11 @@ jobs:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
         run: pnpm test:u3:plugins
+      - name: Verify bound installed evidence bundle
+        shell: pwsh
+        env:
+          PENGLAI_TARGET: win32-x86_64
+        run: pnpm verify:installed
       - name: Two-hour exact installed stability suite
         shell: pwsh
         env:
@@ -378,6 +385,8 @@ jobs:
             evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
+            evidence/generated/u3-welcome-smoke-win32-x86_64.json
+            evidence/generated/u3-first-party-plugins-win32-x86_64.json
             evidence/generated/windows-installer-ui.json
             evidence/generated/windows-installer-components-zh.png
             evidence/generated/public-export.json

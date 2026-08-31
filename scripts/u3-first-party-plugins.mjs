@@ -21,7 +21,9 @@ import {
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 import {
+  evidenceName,
   installerForTarget,
   nativeBlocked,
   parseTargetArg,
@@ -48,7 +50,6 @@ const capturePublicShots = process.env.PENGLAI_CAPTURE_PUBLIC_SHOTS === "1";
 const outDir = join(ROOT, "evidence/generated");
 mkdirSync(outDir, { recursive: true });
 const recPath = join(outDir, "u3-first-party-plugins.json");
-const writeRec = (value) => writeFileSync(recPath, `${JSON.stringify(value, null, 2)}\n`);
 
 const source = requireCleanCandidateSource();
 if (!source.ok) {
@@ -61,6 +62,11 @@ if (!source.ok) {
 const git = source.git;
 
 const target = parseTargetArg();
+const targetRecPath = join(outDir, evidenceName("u3-first-party-plugins", target));
+const writeRec = (value) => {
+  writeEvidenceJson(recPath, value);
+  writeEvidenceJson(targetRecPath, value);
+};
 const blocked = nativeBlocked("u3-first-party-plugins", target);
 if (blocked) finish("BLOCKED", { command: "u3-first-party-plugins", ...blocked });
 const installer = installerForTarget(target);
