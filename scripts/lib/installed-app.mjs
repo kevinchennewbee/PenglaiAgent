@@ -54,6 +54,18 @@ function queryWindowsRegistryValue(key, name) {
   return row?.replace(new RegExp(`^\\s*${name}\\s+REG_(?:SZ|EXPAND_SZ)\\s+`, "iu"), "").trim() ?? "";
 }
 
+function waitForWindowsProductRegistryClear(timeoutMs) {
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const installDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+    const uninstallCommand = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
+    if (!installDir && !uninstallCommand) return true;
+    Atomics.wait(sleeper, 0, 0, 250);
+  } while (Date.now() < deadline);
+  return false;
+}
+
 export function isControlledWindowsInstallerFixture(installDir, root = ROOT) {
   const candidate = win32Path.resolve(String(installDir ?? ""));
   const workspace = win32Path.resolve(String(root ?? ""));
@@ -86,7 +98,11 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (!existsSync(uninstaller)) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstaller is missing" };
   }
-  const removed = spawnSync(uninstaller, ["/S"], {
+  // NSIS normally relaunches an uninstaller from a temporary child, allowing
+  // the first process to return before registry cleanup is durable. `_?=` is
+  // the documented final argument that keeps this exact fixture uninstall in
+  // place; the bounded readback below still proves convergence independently.
+  const removed = spawnSync(uninstaller, ["/S", `_?=${installDir}`], {
     encoding: "utf8",
     windowsHide: true,
     timeout: 120_000,
@@ -94,9 +110,7 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (removed.status !== 0 || removed.error) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall failed" };
   }
-  const remainingInstall = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
-  const remainingUninstall = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
-  if (remainingInstall || remainingUninstall) {
+  if (!waitForWindowsProductRegistryClear(30_000)) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall left product registry state" };
   }
   return { ok: true, cleaned: true, installDir };
