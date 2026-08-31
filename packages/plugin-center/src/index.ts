@@ -7,7 +7,7 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
@@ -554,9 +554,9 @@ export function createPluginLifecycle(
   };
 }
 
-export function apply(ctx: {
+export async function apply(ctx: {
   loader: CenterLoader;
-  pluginInventory: { list(): unknown };
+  pluginInventory: { list(): unknown | Promise<unknown> };
   llm?: OfficialLlm;
   get?: (name: string) => unknown;
   on?: (...args: unknown[]) => unknown;
@@ -574,7 +574,7 @@ export function apply(ctx: {
       ) => void;
     }) => void;
   };
-}): PluginCenterHost {
+}): Promise<void> {
   const userData = process.env.PENGLAI_USER_DATA;
   if (!userData)
     throw new PenglaiError(
@@ -582,8 +582,37 @@ export function apply(ctx: {
       "PENGLAI_USER_DATA is required for app-private plugin state",
     );
   const dir = join(userData, "plugins");
-  const inventory = ctx.pluginInventory;
-  const profileDir = join(userData, "dsh-home", "profiles", "web");
+  let cachedInventory: unknown = { entries: [] };
+  let refreshInFlight: Promise<void> | undefined;
+  const refreshInventory = (): Promise<void> => {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = Promise.resolve(ctx.pluginInventory.list())
+      .then((snapshot) => {
+        cachedInventory = snapshot;
+      })
+      .finally(() => {
+        refreshInFlight = undefined;
+      });
+    return refreshInFlight;
+  };
+  await refreshInventory();
+  const inventory = { list: () => cachedInventory };
+  const dshHome = process.env.DSH_HOME;
+  const relativeHome = dshHome
+    ? relative(resolve(userData), resolve(dshHome))
+    : "..";
+  if (
+    !dshHome ||
+    !isAbsolute(dshHome) ||
+    relativeHome.startsWith("..") ||
+    isAbsolute(relativeHome)
+  ) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "DSH_HOME must be an app-private generation",
+    );
+  }
+  const profileDir = join(dshHome, "profiles", "web");
   const registryPackagesDir = join(userData, "plugins", "packages");
   const pluginsDir = process.env.PENGLAI_PLUGINS_DIR;
   if (!pluginsDir) {
@@ -626,7 +655,8 @@ export function apply(ctx: {
   ) {
     host.setDesired(recovered.id, recovered.previousEnabled);
   }
-  const writeSnap = (): void => {
+  const writeSnap = async (): Promise<void> => {
+    await refreshInventory();
     const document = inventorySnapshotDocument(normalizeInventory(inventory.list()));
     writeFileSync(
       join(dir, "inventory-snapshot.json"),
@@ -647,8 +677,10 @@ export function apply(ctx: {
         };
     atomicJson(join(dir, "workspace-protection.json"), protection);
   };
-  writeSnap();
-  const timer = setInterval(writeSnap, 1_000);
+  await writeSnap();
+  const timer = setInterval(() => {
+    void writeSnap().catch(() => undefined);
+  }, 1_000);
   timer.unref?.();
   ctx.effect?.(() => () => clearInterval(timer));
   const txDir = join(userData, "profiles", "center-tx");
@@ -672,7 +704,7 @@ export function apply(ctx: {
   });
   const welcomeAck = (): boolean => {
     try {
-      const settings = join(userData, "dsh-home", "settings.yaml");
+      const settings = join(dshHome, "settings.yaml");
       return (
         existsSync(settings) &&
         readFileSync(settings, "utf8").includes("welcomeNoticeVersion")
@@ -700,7 +732,6 @@ export function apply(ctx: {
     official.workspaceRegistry,
     join(userData, "onboarding"),
   ).catch(() => undefined);
-  return host;
 }
 
 Object.assign(apply, { inject });

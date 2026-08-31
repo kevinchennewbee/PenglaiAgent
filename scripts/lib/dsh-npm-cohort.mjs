@@ -251,6 +251,30 @@ export function validateCohortSnapshot(snapshot) {
   return { dsh: dsh.length, vendor: vendor.length, landlock: landlock.length, total: entries.length };
 }
 
+export function verifyCohortLock(snapshot, lockText) {
+  const expected = new Map(
+    (snapshot.packages ?? []).map((entry) => [
+      `${entry.name}@${entry.version}`,
+      entry.integrity,
+    ]),
+  );
+  const installed = new Map();
+  const packageBlock =
+    /^  ['"]?(@deepseek-ai\/[^@'"\r\n]+)@([^:'"\r\n]+)['"]?:\r?\n    resolution: \{integrity: ([^,}\r\n]+)/gm;
+  for (const match of lockText.matchAll(packageBlock)) {
+    const spec = `${match[1]}@${match[2]}`;
+    invariant(expected.has(spec), `pnpm lock contains an out-of-cohort package ${spec}`);
+    invariant(expected.get(spec) === match[3], `pnpm lock integrity drift for ${spec}`);
+    installed.set(match[1], match[2]);
+  }
+  for (const required of ["@deepseek-ai/dsh", ...ALPHA2_ADDED_PACKAGES]) {
+    invariant(installed.get(required) === DSH_ALPHA2.version, `pnpm lock is missing required ${required}@${DSH_ALPHA2.version}`);
+  }
+  invariant(!lockText.includes("0.1.2-alpha.1"), "pnpm lock still contains alpha.1");
+  invariant(!lockText.includes("@deepseek-ai/dsh-client-runtime"), "pnpm lock contains removed dsh-client-runtime");
+  return { packages: installed.size };
+}
+
 export async function verifySnapshotAgainstRegistry(snapshot, options = {}) {
   const sourcePackages = snapshot.packages.map(({ name, version, category, sourcePath, sourceManifestSha256 }) => ({
     name, version, category, sourcePath, sourceManifestSha256,

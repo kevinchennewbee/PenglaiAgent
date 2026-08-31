@@ -60,7 +60,7 @@ if (nativeName && !existsSync(join(staging, "runtime/dsh/node_modules", nativeNa
 const nativeAddonPackages = {
   "darwin-aarch64": ["@koromix/koffi-darwin-arm64", "@img/sharp-darwin-arm64", "@img/sharp-libvips-darwin-arm64"],
   "darwin-x86_64": ["@koromix/koffi-darwin-x64", "@img/sharp-darwin-x64", "@img/sharp-libvips-darwin-x64"],
-  // sharp 0.35.3 folds the Windows libvips DLLs into sharp-win32-x64;
+  // DSH alpha.2 sharp 0.35.4 folds the Windows libvips DLLs into sharp-win32-x64;
   // unlike the Darwin packages there is no separate sharp-libvips-win32-x64.
   "win32-x86_64": ["@koromix/koffi-win32-x64", "@img/sharp-win32-x64"],
 }[target] ?? [];
@@ -73,9 +73,9 @@ if (missingAddons.length) {
 if (target === "win32-x86_64") {
   const sharpLib = join(staging, "runtime/dsh/node_modules/@img/sharp-win32-x64/lib");
   const sharpFiles = [
-    "sharp-win32-x64-0.35.3.node",
+    "sharp-win32-x64-0.35.4.node",
     "libvips-42.dll",
-    "libvips-cpp-8.18.3.dll",
+    "libvips-cpp-8.18.6.dll",
   ];
   const missingSharpFiles = sharpFiles.filter((name) => !existsSync(join(sharpLib, name)));
   if (missingSharpFiles.length) {

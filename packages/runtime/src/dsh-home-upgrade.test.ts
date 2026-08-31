@@ -450,6 +450,21 @@ test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 gene
   assert.equal(prepared.dshHome, paths.targetHome);
   assert.equal(existsSync(paths.sourceHome), false);
   writeFileSync(join(paths.targetHome, "settings.yaml"), "locale:\n  preference: zh\n", { mode: 0o600 });
+  const officialRuntime = mkdtempSync(join(tmpdir(), "penglai-official-runtime-"));
+  const profileModules = join(paths.targetHome, "profiles", "web", "node_modules");
+  mkdirSync(profileModules, { recursive: true });
+  symlinkSync(
+    officialRuntime,
+    join(profileModules, "@deepseek-ai"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const profileRuntimeMirror = join(paths.targetHome, "profiles", "node_modules");
+  mkdirSync(profileRuntimeMirror, { recursive: true });
+  symlinkSync(
+    officialRuntime,
+    join(profileRuntimeMirror, "react"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
 
   const active = activateDshHomeBootPlan({
     userRoot: root,

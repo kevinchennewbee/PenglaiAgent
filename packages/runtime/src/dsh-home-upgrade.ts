@@ -266,6 +266,13 @@ function safeRelative(path: string): void {
   }
 }
 
+function isManagedOfficialRuntimeLink(path: string): boolean {
+  return (
+    path === "profiles/node_modules" ||
+    /^profiles\/[^/]+\/node_modules\/@deepseek-ai$/.test(path)
+  );
+}
+
 function walkTree(
   root: string,
   options: { maxEntries: number; maxBytes: number },
@@ -284,6 +291,14 @@ function walkTree(
         "DSH home walk escaped its generation",
       );
     }
+    const currentRelative =
+      current === canonicalRoot
+        ? ""
+        : relative(canonicalRoot, current).replaceAll("\\", "/");
+    // Profile activation recreates the alpha.2 root dependency mirror and the
+    // profile's @deepseek-ai link from the immutable embedded runtime on every
+    // boot. They are not user state; every other symlink remains forbidden.
+    if (isManagedOfficialRuntimeLink(currentRelative)) continue;
     const stat = lstatSync(current);
     if (stat.isSymbolicLink()) {
       throw new PenglaiError(
@@ -298,7 +313,7 @@ function walkTree(
       );
     }
     if (current !== canonicalRoot) {
-      const rel = relative(canonicalRoot, current).replaceAll("\\", "/");
+      const rel = currentRelative;
       safeRelative(rel);
       if (rel === MANIFEST_NAME) continue;
       if (stat.isDirectory()) {

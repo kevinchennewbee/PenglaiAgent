@@ -3,7 +3,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { discoverAlpha2SourcePackages, DSH_ALPHA2 } from "./dsh-npm-cohort.mjs";
+import {
+  discoverAlpha2SourcePackages,
+  DSH_ALPHA2,
+  verifyCohortLock,
+} from "./dsh-npm-cohort.mjs";
 
 test("discovers public alpha.2, vendor, and Landlock source packages", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-npm-cohort-"));
@@ -29,3 +33,23 @@ test("discovers public alpha.2, vendor, and Landlock source packages", () => {
   ]);
 });
 
+test("npm cohort lock verification binds version and integrity", () => {
+  const required = ["@deepseek-ai/dsh", "@deepseek-ai/dsh-client-ui-schedule", "@deepseek-ai/dsh-deque", "@deepseek-ai/dsh-util-time", "@deepseek-ai/dsh-util-values"];
+  const snapshot = {
+    packages: required.map((name) => ({
+        name,
+        version: DSH_ALPHA2.version,
+        integrity: DSH_ALPHA2.rootIntegrity,
+      })),
+  };
+  const exact = `packages:\n\n${required.map((name) => `  '${name}@${DSH_ALPHA2.version}':\n    resolution: {integrity: ${DSH_ALPHA2.rootIntegrity}}`).join("\n")}\n`;
+  assert.deepEqual(verifyCohortLock(snapshot, exact), { packages: 5 });
+  assert.throws(
+    () => verifyCohortLock(snapshot, exact.replace("sha512-", "sha512-wrong")),
+    /integrity drift/,
+  );
+  assert.throws(
+    () => verifyCohortLock(snapshot, `${exact}\n# 0.1.2-alpha.1\n`),
+    /alpha\.1/,
+  );
+});
