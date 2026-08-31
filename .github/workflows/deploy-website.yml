@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Immutable Release tag that must already exist (example v0.5.8)
+        description: Immutable Release tag that must already exist (example v0.5.9)
         required: true
         type: string
       deploy_site:
@@ -27,7 +27,7 @@ jobs:
           node-version: 22.22.2
       - name: Require the requested tag
         run: |
-          test "${{ inputs.tag }}" = "v0.5.8"
+          test "${{ inputs.tag }}" = "v0.5.9"
       - name: Public readback
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

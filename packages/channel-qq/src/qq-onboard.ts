@@ -72,7 +72,7 @@ async function postPortal(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "PenglaiAgent/0.5.8 QQBotOnboard",
+        "User-Agent": "PenglaiAgent/0.5.9 QQBotOnboard",
       },
       body: JSON.stringify(body),
       redirect: "follow",

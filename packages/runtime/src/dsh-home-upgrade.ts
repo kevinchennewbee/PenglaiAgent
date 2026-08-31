@@ -19,8 +19,8 @@ import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { writeFileAtomic } from "./permissions.js";
 
 export const DSH_HOME_SOURCE_VERSION = "0.1.1-rc.2";
-export const DSH_HOME_TARGET_VERSION = "0.1.2-alpha.1";
-export const DSH_HOME_UPGRADE_ID = "dsh-home-0.1.1-rc.2-to-0.1.2-alpha.1";
+export const DSH_HOME_TARGET_VERSION = "0.1.2-alpha.2";
+export const DSH_HOME_UPGRADE_ID = "dsh-home-0.1.1-rc.2-to-0.1.2-alpha.2";
 
 const MANIFEST_NAME = ".penglai-dsh-home.json";
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;

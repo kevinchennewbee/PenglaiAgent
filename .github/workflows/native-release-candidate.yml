@@ -1,4 +1,4 @@
-name: Native 0.5.8 release candidate
+name: Native 0.5.9 release candidate
 
 on:
   workflow_dispatch:
@@ -16,40 +16,30 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.8-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.5.9-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  source-closure-replay:
-    name: Reproduce fixed DSH source closure
+  npm-cohort:
+    name: Verify fixed DSH npm cohort
     if: ${{ inputs.mode == 'native' }}
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.22.2
-      - name: Select the source package manager
+      - name: Install pinned dependencies
         run: |
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
-      - name: Build the fixed official source closure twice
+          pnpm install --frozen-lockfile
+      - name: Verify the immutable alpha.2 registry cohort
         run: |
-          pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-a
-          pnpm prepare:dsh-source-closure --out .cache/dsh-source-closure/native-replay-b
-      - name: Upload source closure replay evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: dsh-source-closure-replay
-          path: .cache/dsh-source-closure/native-replay-a
-          if-no-files-found: error
-      - name: Verify reproducible and promoted bytes
-        run: |
-          pnpm verify:dsh-source-replay --left .cache/dsh-source-closure/native-replay-a --right .cache/dsh-source-closure/native-replay-b
-          pnpm verify:dsh-source-replay --left .cache/dsh-source-closure/native-replay-a --right third_party/dsh/0.1.2-alpha.1
+          pnpm verify:dsh-npm-cohort
+          pnpm verify:dsh-npm-cohort:live
+          pnpm verify:059-preview
 
   plugin-distribution:
     name: Signed Plugin Center distribution
@@ -78,7 +68,7 @@ jobs:
   macos:
     name: macOS ${{ matrix.target }}
     if: ${{ inputs.mode == 'native' }}
-    needs: source-closure-replay
+    needs: npm-cohort
     strategy:
       fail-fast: false
       matrix:
@@ -86,11 +76,11 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.8_macos_aarch64.dmg
+            installer: Penglai_0.5.9_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.8_macos_x64.dmg
+            installer: Penglai_0.5.9_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -140,7 +130,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.8-${{ matrix.target }}
+          name: penglai-0.5.9-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -153,7 +143,7 @@ jobs:
   windows:
     name: Windows win32-x86_64
     if: ${{ inputs.mode == 'native' }}
-    needs: source-closure-replay
+    needs: npm-cohort
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -204,7 +194,7 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.5.8_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.5.9_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Installed welcome and process smoke
         shell: pwsh
@@ -222,11 +212,11 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.8-win32-x86_64
+          name: penglai-0.5.9-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.8_windows_x64_setup.exe
+            dist/Penglai_0.5.9_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json

@@ -9,6 +9,13 @@ export const DSH_ALPHA2 = Object.freeze({
   packageCount: 245,
   rootIntegrity: "sha512-4TvTC5kRKlgtSU2UTBv+cID9a2Z+6+m6mpvjXWJfVzuTkflCff6s4MsQpFJTCmwFh/k7zNWe7qFXcLYMV/5VvA==",
   rootShasum: "2652fc9a1bafae85c69da581178b4060a065a40a",
+  rootTarballSha256: "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47",
+  welcomeNotice: Object.freeze({
+    settingsNamespace: "ui-onboarding",
+    ackField: "welcomeNoticeVersion",
+    version: "2026-08-13.1",
+    sourcePath: "packages/client/ui-settings-models/src/onboarding-copy.ts",
+  }),
 });
 
 export const ALPHA2_ADDED_PACKAGES = Object.freeze([
@@ -193,12 +200,20 @@ export async function readRootDistTags({ fetchImpl = fetch } = {}) {
   };
 }
 
+export async function readTarballSha256(url, { fetchImpl = fetch } = {}) {
+  const response = await fetchImpl(url);
+  if (!response.ok) throw new Error(`tarball request failed for ${url}: ${response.status} ${response.statusText}`);
+  return sha256(Buffer.from(await response.arrayBuffer()));
+}
+
 export function validateCohortSnapshot(snapshot) {
   invariant(snapshot?.schemaVersion === 1, "DSH npm cohort schemaVersion must be 1");
   invariant(snapshot.source?.repository === "https://github.com/deepseek-ai/DeepSeek-Harness.git", "unexpected DSH source repository");
   invariant(snapshot.source?.tag === DSH_ALPHA2.tag, `unexpected DSH tag: ${snapshot.source?.tag}`);
   invariant(snapshot.source?.commit === DSH_ALPHA2.commit, `unexpected DSH commit: ${snapshot.source?.commit}`);
   invariant(snapshot.version === DSH_ALPHA2.version, `unexpected DSH version: ${snapshot.version}`);
+  invariant(snapshot.rootTarballSha256 === DSH_ALPHA2.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
+  invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_ALPHA2.welcomeNotice), "DSH welcome notice identity mismatch");
   invariant(snapshot.distTags?.alpha === DSH_ALPHA2.version, "npm alpha dist-tag does not select alpha.2 in snapshot");
   invariant(snapshot.distTags?.latest === "0.1.1-rc.2", "npm latest must remain 0.1.1-rc.2 in snapshot");
   invariant(snapshot.distTags?.next === "0.1.1-rc.2", "npm next must remain 0.1.1-rc.2 in snapshot");
@@ -246,5 +261,7 @@ export async function verifySnapshotAgainstRegistry(snapshot, options = {}) {
   }
   const liveRoot = await readRootDistTags(options);
   invariant(JSON.stringify(liveRoot.distTags) === JSON.stringify(stableObject(snapshot.distTags)), "@deepseek-ai/dsh dist-tag drift");
+  const root = liveEntries.find((entry) => entry.name === "@deepseek-ai/dsh");
+  invariant(await readTarballSha256(root.tarball, options) === snapshot.rootTarballSha256, "@deepseek-ai/dsh live tarball SHA-256 drift");
   return validateCohortSnapshot(snapshot);
 }

@@ -17,25 +17,25 @@ function requiredRows(overrides: Record<string, object> = {}) {
       moduleName: "@deepseek-ai/dsh-credentials-local",
       enabled: true,
       fiberPhase: "active",
-      version: "0.1.2-alpha.1",
+      version: "0.1.2-alpha.2",
     },
     "@penglai/plugin-center": {
       moduleName: "@penglai/plugin-center",
       enabled: true,
       fiberPhase: "active",
-      version: "0.5.8",
+      version: "0.5.9",
     },
     "@penglai/office": {
       moduleName: "@penglai/office",
       enabled: true,
       fiberPhase: "active",
-      version: "0.5.8",
+      version: "0.5.9",
     },
     "@penglai/memory": {
       moduleName: "@penglai/memory",
       enabled: true,
       fiberPhase: "active",
-      version: "0.5.8",
+      version: "0.5.9",
     },
   };
   return REQUIRED_INVENTORY_IDS.map((id) => ({ ...defaults[id], ...(overrides[id] ?? {}) }));
@@ -64,7 +64,7 @@ test("R56-CORE-003 optional IM does not become required when it is loaded", () =
   const proof = evaluateInventory({
     entries: [
       ...requiredRows(),
-      { moduleName: "@penglai/im", enabled: true, fiberPhase: "active", version: "0.5.8" },
+      { moduleName: "@penglai/im", enabled: true, fiberPhase: "active", version: "0.5.9" },
     ],
   });
   assert.equal(proof.ok, true);
@@ -127,7 +127,7 @@ test("R56-CORE-004 snapshot requiredProofs cannot upgrade a missing exact row", 
     requiredProofs: [
       {
         id: "@penglai/office",
-        version: "0.5.8",
+        version: "0.5.9",
         source: "builtin",
         enabled: true,
         active: true,
@@ -150,10 +150,10 @@ test("R56-CORE-003 exact required ids can take version from the pinned catalog",
     ],
   });
   assert.equal(proof.ok, true);
-  assert.equal(proof.required.find((row) => row.id === "@penglai/office")?.version, "0.5.8");
+  assert.equal(proof.required.find((row) => row.id === "@penglai/office")?.version, "0.5.9");
   assert.equal(
     proof.required.find((row) => row.id === "@deepseek-ai/dsh-credentials-local")?.version,
-    "0.1.2-alpha.1",
+    "0.1.2-alpha.2",
   );
 });
 

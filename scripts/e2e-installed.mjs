@@ -61,7 +61,7 @@ function installedEvidenceRecord(rec) {
     schema: 2,
     command: "test:e2e:installed",
     verdict,
-    productVersion: "0.5.8",
+    productVersion: "0.5.9",
     target: expectedTarget,
     installer: expectedInstaller,
     installerSha256: digestOrInvalid(rec?.installerSha256 ?? installed.installerSha256, 64),
@@ -204,7 +204,7 @@ if (!harnessApp) {
     reason: "exact DMG refused debug flags; UI walk requires a separate harness build",
     refuseCode,
     installer: expectedInstaller,
-    productVersion: "0.5.8",
+    productVersion: "0.5.9",
   });
 }
 const debugPort = await freePort();
@@ -299,7 +299,7 @@ const official = walk?.official ?? {};
 const http = official.http ?? { status: 0, ok: false, official: false };
 if (http.status === 401) http.officialProxy = true;
 const first = {
-  productVersion: "0.5.8",
+  productVersion: "0.5.9",
   pid: launched.child.pid,
   recovery: Boolean(walk?.last?.recovery),
   sourceRead: false,
@@ -360,7 +360,7 @@ const fail = (reason, extra = {}) => {
   const rec = {
     command: "test:e2e:installed",
     verdict: "FAIL",
-    productVersion: "0.5.8",
+    productVersion: "0.5.9",
     fromExactDmg: true,
     installer: expectedInstaller,
     installerSha256: installed.installerSha256,
@@ -413,7 +413,7 @@ const canPass =
 const rec = {
   command: "test:e2e:installed",
   verdict: canPass ? "PASS" : "INCOMPLETE",
-  productVersion: "0.5.8",
+  productVersion: "0.5.9",
   fromExactDmg: true,
   installer: expectedInstaller,
   installerSha256: installed.installerSha256,

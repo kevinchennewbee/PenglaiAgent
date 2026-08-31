@@ -262,6 +262,12 @@ if (mnemonAsset.executable) {
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
+const lgplSourceOffer = join(ROOT, "docs", "0.5.9", "LGPL_SOURCE_OFFER.md");
+if (!existsSync(lgplSourceOffer)) {
+  console.error("0.5.9 LGPL corresponding-source offer is missing");
+  process.exit(1);
+}
+cpSync(lgplSourceOffer, join(staging, "LGPL_SOURCE_OFFER.txt"));
 
 // A native Windows build must carry its ACL/job/uninstall helper inside the
 // hashed runtime manifest. Cross-staging may omit it and remains structurally
@@ -279,7 +285,7 @@ const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))
   .concat(existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [])
   .concat(existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [])
-  .concat([join(staging, "release-contract.json")])
+  .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
   .map((abs) => ({
     path: abs.slice(staging.length + 1),
     sha256: sha256File(abs),

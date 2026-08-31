@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { foldAlpha1ModelSelection, hostFromAlpha1Cordis } from "./alpha1-owner-adapter.js";
+import { foldAlpha2ModelSelection, hostFromAlpha2Cordis } from "./alpha2-owner-adapter.js";
 
-test("alpha.1 adapter uses the official sessionController for list, create, rename, and model operations", async () => {
+test("alpha.2 adapter uses the official sessionController for list, create, rename, and model operations", async () => {
   const calls: string[] = [];
   const ctx = {
     on() {},
@@ -49,7 +49,7 @@ test("alpha.1 adapter uses the official sessionController for list, create, rena
       },
     },
   };
-  const host = hostFromAlpha1Cordis(ctx, "0.1.2-alpha.1");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Official title" }]);
   assert.deepEqual(await host.createSession?.("workspace-1", "Penglai"), { id: "session-2" });
   const directory = await host.describeSessionModels?.("session-1");
@@ -69,18 +69,18 @@ test("alpha.1 adapter uses the official sessionController for list, create, rena
   ]);
 });
 
-test("alpha.1 model-selection fallback folds official durable events exactly", () => {
-  assert.deepEqual(foldAlpha1ModelSelection([
+test("alpha.2 model-selection fallback folds official durable events exactly", () => {
+  assert.deepEqual(foldAlpha2ModelSelection([
     { type: "model/selection", data: { provider: "p", model: "pending" } },
     { type: "request/header", data: { header: { config: { provider: "p", model: "used" } } } },
   ]), { provider: "p", model: "pending" });
-  assert.deepEqual(foldAlpha1ModelSelection([
+  assert.deepEqual(foldAlpha2ModelSelection([
     { type: "model/selection", data: { provider: "p", model: "same" } },
     { type: "request/header", data: { header: { config: { provider: "p", model: "same" } } } },
   ]), { provider: "p", model: "same" });
 });
 
-test("alpha.1 adapter has no apiProxy access path", () => {
+test("alpha.2 adapter has no apiProxy access path", () => {
   const ctx = new Proxy(
     { on() {}, agents: { get() { return undefined; } }, workspaceRegistry: { list: () => [] } },
     { get(target, property, receiver) {
@@ -88,5 +88,5 @@ test("alpha.1 adapter has no apiProxy access path", () => {
       return Reflect.get(target, property, receiver);
     } },
   );
-  assert.doesNotThrow(() => hostFromAlpha1Cordis(ctx, "0.1.2-alpha.1"));
+  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2"));
 });

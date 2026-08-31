@@ -17,3 +17,6 @@ overlays/dsh-0.1.1-rc.2/**/*.json text eol=lf
 # must never be line-ending filtered or diffed as text.
 third_party/dsh/**/*.tgz binary
 third_party/dsh/**/closure-manifest.json text eol=lf
+
+# The 0.5.9 official npm cohort snapshot is itself a release identity input.
+docs/0.5.9/DSH_NPM_COHORT.json text eol=lf

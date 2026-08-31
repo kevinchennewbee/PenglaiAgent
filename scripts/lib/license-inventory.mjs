@@ -22,7 +22,7 @@ export function normalizeRepository(value, homepage = "") {
     .replace(/\.git$/, "");
 }
 
-export function classifyLicense(name, declaredLicense) {
+export function classifyLicense(name, declaredLicense, version = "") {
   const license = String(declaredLicense || "").trim();
   if (!license || /unknown|unlicensed|see license/i.test(license)) {
     throw new Error(`production dependency has unknown license: ${name} (${license || "missing"})`);
@@ -34,11 +34,22 @@ export function classifyLicense(name, declaredLicense) {
       rationale: "Penglai selects jszip's MIT option",
     };
   }
-  if (/^@img\/sharp-libvips-/.test(name) && /^LGPL-/.test(license)) {
+  if (
+    ((/^@img\/sharp-libvips-/.test(name) && version === "1.3.3") ||
+      (name === "@img/sharp-win32-x64" && version === "0.35.4")) &&
+    /LGPL-/.test(license)
+  ) {
+    return {
+      effectiveLicense: license,
+      disposition: "lgpl-runtime-source-offer-required",
+      rationale: "Official DSH attachment support redistributes the separately replaceable sharp/libvips runtime with license and corresponding-source offer",
+    };
+  }
+  if (/^@img\/sharp-libvips-/.test(name) && version === "1.3.2" && /^LGPL-/.test(license)) {
     return {
       effectiveLicense: license,
       disposition: "excluded-from-release",
-      rationale: "Penglai Office disables PPT image probing and does not package sharp or libvips",
+      rationale: "Penglai Office disables PPT image probing and does not package its sharp 0.35.3/libvips 1.3.2 closure",
     };
   }
   if (/\b(?:AGPL|GPL|LGPL)-/i.test(license)) {

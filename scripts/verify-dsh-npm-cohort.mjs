@@ -5,6 +5,7 @@ import {
   discoverAlpha2SourcePackages,
   DSH_ALPHA2,
   readRootDistTags,
+  readTarballSha256,
   resolveRegistryEntries,
   validateCohortSnapshot,
   verifySnapshotAgainstRegistry,
@@ -25,6 +26,8 @@ if (write) {
   const sourcePackages = discoverAlpha2SourcePackages(upstreamRoot);
   const packages = await resolveRegistryEntries(sourcePackages);
   const rootRegistry = await readRootDistTags();
+  const rootPackage = packages.find((entry) => entry.name === "@deepseek-ai/dsh");
+  const rootTarballSha256 = await readTarballSha256(rootPackage.tarball);
   const snapshot = {
     schemaVersion: 1,
     source: {
@@ -33,6 +36,10 @@ if (write) {
       commit: DSH_ALPHA2.commit,
     },
     version: DSH_ALPHA2.version,
+    rootTarballSha256,
+    upstreamFacts: {
+      welcomeNotice: DSH_ALPHA2.welcomeNotice,
+    },
     distTags: rootRegistry.distTags,
     publishedAt: rootRegistry.publishedAt,
     packages,

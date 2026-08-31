@@ -185,7 +185,12 @@ window.__ModuleLoader__.load({
       ];
     const unwrap = (v) => {
       if (v && typeof v === "object" && "ok" in v) {
-        if (v.ok === false) throw new Error(v.error?.message || "remote");
+        if (v.ok === false) {
+          const failure = v.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error(failure?.message || "remote");
+        }
         return v.value;
       }
       return v;

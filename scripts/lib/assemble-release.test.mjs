@@ -16,9 +16,9 @@ test("assemble-release refuses a signing key that does not match the embedded up
     mkdirSync(staging);
     const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
     const names = [
-      "Penglai_0.5.8_macos_aarch64.dmg",
-      "Penglai_0.5.8_macos_x64.dmg",
-      "Penglai_0.5.8_windows_x64_setup.exe",
+      "Penglai_0.5.9_macos_aarch64.dmg",
+      "Penglai_0.5.9_macos_x64.dmg",
+      "Penglai_0.5.9_windows_x64_setup.exe",
     ];
     const assets = names.map((name, index) => {
       const bytes = Buffer.from(`native-fixture-${index}`);
@@ -45,7 +45,7 @@ test("assemble-release refuses a signing key that does not match the embedded up
     const releaseJson = join(temp, "release.json");
     writeFileSync(
       releaseJson,
-      JSON.stringify({ id: 77, tag_name: "v0.5.8", draft: true, prerelease: false, immutable: false, assets }),
+      JSON.stringify({ id: 77, tag_name: "v0.5.9", draft: true, prerelease: false, immutable: false, assets }),
     );
     const keyFile = join(temp, "private.pem");
     writeFileSync(
@@ -86,7 +86,7 @@ test("assemble-release refuses a signing key that does not match the embedded up
     assert.equal(statSync(join(staging, "update-manifest-v1.json.sig")).size, 64);
     const update = JSON.parse(readFileSync(join(staging, "update-manifest-v1.json"), "utf8"));
     assert.equal(update.sequence, 5);
-    assert.equal(update.version, "0.5.8");
+    assert.equal(update.version, "0.5.9");
     assert.equal(update.releaseManifestSha256, sha256(readFileSync(join(staging, "release-manifest.json"))));
     assert.notEqual(update.releaseManifestSha256, sha256(readFileSync(join(staging, "update-manifest-v1.json"))));
     assert.equal(readdirSync(staging).includes("SHA256SUMS"), false);

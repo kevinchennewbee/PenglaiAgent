@@ -24,8 +24,8 @@ interface AlphaSessionController {
   rename(request: { sessionId: string; title: string }): Promise<{ title: string; seq: number }>;
 }
 
-/** Exact alpha.1 Host services used by Penglai. No rc.2 apiProxy compatibility face is admitted. */
-export interface Alpha1CordisLike {
+/** Exact alpha.2 Host services used by Penglai. No rc.2 apiProxy compatibility face is admitted. */
+export interface Alpha2CordisLike {
   on(event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>): void | (() => unknown);
   agents?: {
     get(id: string): unknown;
@@ -48,8 +48,8 @@ function modelSelection(value: unknown): DshModelSelection | undefined {
   };
 }
 
-/** Fold the official alpha.1 model-selection events when a cold list projection is unavailable. */
-export function foldAlpha1ModelSelection(events: readonly AlphaSessionEvent[]): DshModelSelection | undefined {
+/** Fold the official alpha.2 model-selection events when a cold list projection is unavailable. */
+export function foldAlpha2ModelSelection(events: readonly AlphaSessionEvent[]): DshModelSelection | undefined {
   let lastUsed: DshModelSelection | undefined;
   let pending: DshModelSelection | undefined;
   for (const event of events) {
@@ -72,14 +72,14 @@ export function foldAlpha1ModelSelection(events: readonly AlphaSessionEvent[]): 
   return pending ?? lastUsed;
 }
 
-function requiredController(ctx: Alpha1CordisLike): AlphaSessionController {
+function requiredController(ctx: Alpha2CordisLike): AlphaSessionController {
   if (!ctx.sessionController) {
-    throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.1 sessionController is required");
+    throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.2 sessionController is required");
   }
   return ctx.sessionController;
 }
 
-export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): DshHost {
+export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): DshHost {
   const handles = new Map<string, { agent?: DshAgentLike; dispose?: () => Promise<void> }>();
   return {
     version,
@@ -88,7 +88,7 @@ export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): Ds
       return live ?? handles.get(sessionId)?.agent;
     },
     async resumeAgent(sessionId: string) {
-      if (!ctx.agents?.resume) throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.1 agents.resume is required");
+      if (!ctx.agents?.resume) throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.2 agents.resume is required");
       const { unwrapAgent, isAgentHandle } = await import("./contracts.js");
       const raw = await ctx.agents.resume({ resumeSessionId: sessionId });
       if (isAgentHandle(raw)) handles.set(sessionId, raw);
@@ -128,7 +128,7 @@ export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): Ds
         ? modelSelection((projection as Record<string, unknown>).next)
         : undefined;
       const inspected = projected ? undefined : await controller.inspect(sessionId);
-      const current = projected ?? foldAlpha1ModelSelection(inspected?.events ?? []) ?? catalog.default;
+      const current = projected ?? foldAlpha2ModelSelection(inspected?.events ?? []) ?? catalog.default;
       const groups = catalog.groups.map((group) => ({
         id: group.id,
         name: group.name,

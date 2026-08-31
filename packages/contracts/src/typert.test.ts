@@ -18,6 +18,16 @@ test("unwrapTypertResult accepts envelopes and envelope-less success", () => {
   assert.equal(unwrapTypertResult({ ok: true, value: 7 }), 7);
   assert.deepEqual(unwrapTypertResult({ catalog: [] }), { catalog: [] });
   assert.throws(() => unwrapTypertResult({ ok: false, error: { message: "nope" } }), /nope/);
+  const remote = Object.assign(new Error("missing"), {
+    name: "RemoteError",
+    isDSHRemoteError: true as const,
+    code: "session/not-found",
+    details: { sessionId: "opaque" },
+  });
+  assert.throws(
+    () => unwrapTypertResult({ ok: false, error: remote }),
+    (error) => error === remote && error.code === "session/not-found",
+  );
 });
 
 test("wizard classifier stays in lockstep with classifyApiTestError", () => {
@@ -47,10 +57,24 @@ test("first-party dsh-client unwrapRemote matches unwrapTypertResult", () => {
     "packages/plugin-center/src/dsh-client.js",
     "packages/asr/src/dsh-client.js",
     "packages/moss-tts/src/dsh-client.js",
+    "packages/office/src/dsh-client.js",
+    "packages/context/src/dsh-client.js",
+    "packages/memory/src/dsh-client.js",
+    "packages/budget/src/dsh-client.js",
+    "packages/companion/src/dsh-client.js",
   ];
   const samples = [
     { ok: true, value: { id: "x" } },
     { ok: false, error: { message: "denied" } },
+    {
+      ok: false,
+      error: Object.assign(new Error("missing"), {
+        name: "RemoteError",
+        isDSHRemoteError: true,
+        code: "session/not-found",
+        details: { sessionId: "opaque" },
+      }),
+    },
     { inventory: [] },
     0,
   ];
@@ -58,9 +82,12 @@ test("first-party dsh-client unwrapRemote matches unwrapTypertResult", () => {
     const src = readFileSync(join(root, rel), "utf8");
     const match =
       src.match(/function unwrapRemote\(result\) \{[\s\S]*?\n    \}/) ??
-      src.match(/const unwrapRemote = \(result\) => \{[\s\S]*?\n      \};/);
+      src.match(/const unwrapRemote = \(result\) => \{[\s\S]*?\n      \};/) ??
+      src.match(/const unwrap = \((?:value|v)\) => \{[\s\S]*?\n    \};/);
     assert.ok(match, rel);
-    const unwrap = Function(`${match[0]}; return unwrapRemote;`)() as (result: unknown) => unknown;
+    const unwrap = Function(
+      `${match[0]}; return typeof unwrapRemote === "function" ? unwrapRemote : unwrap;`,
+    )() as (result: unknown) => unknown;
     for (const sample of samples) {
       let left: unknown;
       let right: unknown;

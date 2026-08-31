@@ -15,6 +15,14 @@ test("verified file reads bind bytes and metadata to one regular-file handle", (
   assert.equal(result.stat.isFile(), true);
 
   const link = join(root, "payload-link.bin");
-  symlinkSync(file, link);
+  try {
+    symlinkSync(file, link);
+  } catch (error) {
+    if (process.platform === "win32" && error?.code === "EPERM") {
+      t.skip("Windows account cannot create symlinks without Developer Mode or elevated privilege");
+      return;
+    }
+    throw error;
+  }
   assert.throws(() => readVerifiedRegularFile(link));
 });

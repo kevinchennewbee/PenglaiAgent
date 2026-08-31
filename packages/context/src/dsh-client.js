@@ -57,8 +57,12 @@ function createPenglaiMemorySourcesClient(require) {
       ];
     const unwrap = (value) => {
       if (value && typeof value === "object" && "ok" in value) {
-        if (value.ok === false)
-          throw new Error((value.error && value.error.message) || "remote");
+        if (value.ok === false) {
+          const failure = value.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error((failure && failure.message) || "remote");
+        }
         return value.value;
       }
       return value;

@@ -1,6 +1,6 @@
 {
   "productName": "Penglai",
-  "productVersion": "0.5.8",
+  "productVersion": "0.5.9",
   "buildNumber": 0,
   "candidateOrdinal": 0,
   "candidateKind": "public-community-release",
@@ -17,32 +17,32 @@
       "key": "darwin-aarch64",
       "platform": "darwin",
       "arch": "arm64",
-      "installer": "Penglai_0.5.8_macos_aarch64.dmg"
+      "installer": "Penglai_0.5.9_macos_aarch64.dmg"
     },
     {
       "key": "darwin-x86_64",
       "platform": "darwin",
       "arch": "x64",
-      "installer": "Penglai_0.5.8_macos_x64.dmg"
+      "installer": "Penglai_0.5.9_macos_x64.dmg"
     },
     {
       "key": "win32-x86_64",
       "platform": "win32",
       "arch": "x64",
-      "installer": "Penglai_0.5.8_windows_x64_setup.exe"
+      "installer": "Penglai_0.5.9_windows_x64_setup.exe"
     }
   ],
   "electron": "43.4.0",
   "node": "22.22.2",
   "embeddedNode": "22.22.2",
-  "dsh": "0.1.2-alpha.1",
+  "dsh": "0.1.2-alpha.2",
   "dshSource": {
     "repository": "https://github.com/deepseek-ai/DeepSeek-Harness.git",
-    "tag": "dsh-v0.1.2-alpha.1",
-    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
-    "closureManifestSha256": "13d5f5cd4dc356f2ffc48c02d22c4889afbff5da2b22eec74a3bf39185904f77",
-    "cliTarballSha256": "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e",
-    "packageCount": 251
+    "tag": "dsh-v0.1.2-alpha.2",
+    "commit": "0a53fb55bea101816fa226bb964ae2bed71c343b",
+    "closureManifestSha256": "1ae818ae30a963dcf9b0063e1cfdf3fdc77b481b66478d1911988919b6f4eff1",
+    "cliTarballSha256": "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47",
+    "packageCount": 257
   },
   "profileSchema": 3,
   "catalogSchema": 3,
@@ -52,9 +52,9 @@
   "authenticode": false,
   "publication": {
     "repo": "kevinchennewbee/PenglaiAgent",
-    "tag": "v0.5.8",
-    "release": "v0.5.8",
-    "channel": "stable-v0.5.8"
+    "tag": "v0.5.9",
+    "release": "v0.5.9",
+    "channel": "stable-v0.5.9"
   },
   "pnpm": "11.7.0"
 }

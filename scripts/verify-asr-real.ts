@@ -34,7 +34,7 @@ async function fetchFixture(): Promise<Buffer> {
   for (let hop = 0; hop <= 5; hop += 1) {
     const response = await fetch(url, {
       redirect: "manual",
-      headers: { "User-Agent": "Penglai/0.5.8 ASR real verifier" },
+      headers: { "User-Agent": "Penglai/0.5.9 ASR real verifier" },
       signal: AbortSignal.timeout(60_000),
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {

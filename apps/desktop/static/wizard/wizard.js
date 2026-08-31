@@ -209,7 +209,15 @@
   function unwrapOfficialResult(payload) {
     const result = payload && typeof payload === "object" ? payload.result : undefined;
     if (!result || typeof result !== "object" || !("ok" in result)) throw new Error("rpc");
-    if (result.ok === false) throw new Error((result.error && result.error.message) || "rpc");
+    if (result.ok === false) {
+      const failure = result.error;
+      if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+      if (failure instanceof Error) throw failure;
+      const error = new Error((failure && failure.message) || "rpc");
+      if (failure && typeof failure.code === "string") error.code = failure.code;
+      if (failure && "details" in failure) error.details = failure.details;
+      throw error;
+    }
     return result.value;
   }
 

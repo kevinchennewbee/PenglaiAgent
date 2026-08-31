@@ -6,6 +6,15 @@
     "commit": "0a53fb55bea101816fa226bb964ae2bed71c343b"
   },
   "version": "0.1.2-alpha.2",
+  "rootTarballSha256": "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47",
+  "upstreamFacts": {
+    "welcomeNotice": {
+      "settingsNamespace": "ui-onboarding",
+      "ackField": "welcomeNoticeVersion",
+      "version": "2026-08-13.1",
+      "sourcePath": "packages/client/ui-settings-models/src/onboarding-copy.ts"
+    }
+  },
   "distTags": {
     "alpha": "0.1.2-alpha.2",
     "latest": "0.1.1-rc.2",

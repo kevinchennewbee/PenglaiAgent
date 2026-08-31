@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
-const EXPECTED_ALPHA_SHA = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
+const EXPECTED_ALPHA_SHA = "0a53fb55bea101816fa226bb964ae2bed71c343b";
 const RC2_TAG = "dsh-v0.1.1-rc.2";
 
 function fail(message) {

@@ -1,6 +1,6 @@
 {
   "name": "penglaiagent",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -51,6 +51,9 @@
     "verify:dependencies": "node scripts/verify-dependencies.mjs",
     "verify:058-migration-inventory": "node scripts/verify-058-migration-inventory.mjs",
     "verify:058-overlay-map": "node scripts/verify-058-overlay-map.mjs",
+    "migrate:059-manifests": "node scripts/migrate-059-manifests.mjs --write",
+    "verify:059-manifests": "node scripts/migrate-059-manifests.mjs",
+    "verify:059-preview": "node scripts/verify-059-preview.mjs",
     "verify:dsh-source-contract": "node scripts/prepare-dsh-source-closure.mjs --contract-only",
     "prepare:dsh-source-closure": "node scripts/prepare-dsh-source-closure.mjs",
     "promote:dsh-source-closure": "node scripts/promote-dsh-source-closure.mjs",
@@ -105,13 +108,15 @@
     "ensure:electron": "node scripts/ensure-electron.mjs"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-api-remotes": "0.1.2-alpha.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.2-alpha.1",
-    "@deepseek-ai/dsh-client-ui-settings-general": "0.1.2-alpha.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.2-alpha.1",
+    "@deepseek-ai/dsh-api-remotes": "0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-settings-general": "0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.2-alpha.2",
     "@types/node": "22.16.5",
     "esbuild": "0.25.9",
     "fflate": "0.8.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "resedit": "3.0.2",
     "tsx": "4.20.3",
     "typescript": "5.9.2"

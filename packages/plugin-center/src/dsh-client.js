@@ -542,7 +542,7 @@ window.__ModuleLoader__.load({
                                 children: [
                                   jsx.jsx("dt", { children: t.centerDsh }),
                                   jsx.jsx("dd", {
-                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.2-alpha.1"),
+                                    children: String(entry.dshExact ?? entry.dsh?.exact ?? "0.1.2-alpha.2"),
                                   }),
                                 ],
                               }),
@@ -1294,8 +1294,12 @@ window.__ModuleLoader__.load({
       installPenglaiStyles(ctx);
       const unwrapRemote = (result) => {
         if (result && typeof result === "object" && "ok" in result) {
-          if (result.ok === false)
-            throw new Error((result.error && result.error.message) || "remote");
+          if (result.ok === false) {
+            const failure = result.error;
+            if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+            if (failure instanceof Error) throw failure;
+            throw new Error((failure && failure.message) || "remote");
+          }
           return result.value;
         }
         return result;

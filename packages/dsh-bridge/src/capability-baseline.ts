@@ -2,8 +2,8 @@ import { createRequire } from "node:module";
 import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
-export const PINNED_DSH_SOURCE_TARBALL_SHA256 =
-  "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e";
+export const PINNED_DSH_NPM_TARBALL_SHA256 =
+  "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",
@@ -23,7 +23,7 @@ export const OFFICIAL_LOCALES = ["zh", "en"] as const;
 export interface CapabilityBaseline {
   dsh: string;
   commit: string;
-  sourceTarballSha256: string;
+  npmTarballSha256: string;
   modules: Record<string, string>;
   seams: {
     typertRemoteService: boolean;
@@ -80,7 +80,7 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
   return {
     dsh: PINNED_DSH,
     commit: PINNED_DSH_COMMIT,
-    sourceTarballSha256: PINNED_DSH_SOURCE_TARBALL_SHA256,
+    npmTarballSha256: PINNED_DSH_NPM_TARBALL_SHA256,
     modules,
     seams: {
       typertRemoteService: typeof proto.TypertRemoteService === "function",
@@ -104,8 +104,8 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
 export function assertCapabilityBaseline(baseline: CapabilityBaseline): void {
   if (baseline.dsh !== PINNED_DSH) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh pin");
   if (baseline.commit !== PINNED_DSH_COMMIT) throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh commit");
-  if (baseline.sourceTarballSha256 !== PINNED_DSH_SOURCE_TARBALL_SHA256) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh source tarball");
+  if (baseline.npmTarballSha256 !== PINNED_DSH_NPM_TARBALL_SHA256) {
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "dsh npm tarball");
   }
   if (!baseline.seams.typertRemoteService || !baseline.seams.remoteDecorator) {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "Typert Remote seam missing");

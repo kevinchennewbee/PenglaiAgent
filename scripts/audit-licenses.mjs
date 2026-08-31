@@ -49,10 +49,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.1" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.2" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -370,7 +370,7 @@ function installedLicenseInventory({ production }) {
     const sourceRow = sourceRows.get(`${name}@${version}`);
     const integrity = sourceRow ? `sha256-${sourceRow.sha256}` : integrityForPackage(lockRows, name, version);
     const decision = production
-      ? classifyLicense(name, declaredLicense)
+      ? classifyLicense(name, declaredLicense, version)
       : {
           effectiveLicense: declaredLicense,
           disposition: "development-or-optional-installed-closure",
@@ -410,15 +410,27 @@ if (
 ) {
   throw new Error("retired channel runtime absence boundary drift");
 }
-const sharpRows = productionInventory.filter((row) => /^@img\/sharp-libvips-/.test(row.name));
+const officeSharpRows = productionInventory.filter(
+  (row) => /^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.2",
+);
+const dshSharpRows = productionInventory.filter(
+  (row) =>
+    (/^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.3") ||
+    (row.name === "@img/sharp-win32-x64" && row.version === "0.35.4"),
+);
+const lgplOffer = readFileSync("docs/0.5.9/LGPL_SOURCE_OFFER.md", "utf8");
 if (
-  sharpRows.length === 0 ||
-  sharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  officeSharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  dshSharpRows.length === 0 ||
+  dshSharpRows.some((row) => row.disposition !== "lgpl-runtime-source-offer-required") ||
   !packScript.includes("penglai-office-disabled-image") ||
   !packScript.includes('runtime.includes(\'require("sharp")\')') ||
-  !packScript.includes("penglai-office-disabled-cloud-zip")
+  !packScript.includes("penglai-office-disabled-cloud-zip") ||
+  !lgplOffer.includes("7f1a0a22cc285fe180766f4935d50b55af6e8432") ||
+  !lgplOffer.includes("6e5971d333377743163edc3ad9e5d0b897abcbc9") ||
+  !lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553")
 ) {
-  throw new Error("sharp/libvips exclusion boundary drift");
+  throw new Error("sharp/libvips distribution boundary drift");
 }
 
 const result = {
@@ -429,11 +441,18 @@ const result = {
   completeInstalled: completeInstalledInventory,
   policyDecisions: [
     {
-      component: "sharp@0.35.3 and platform libvips packages",
+      component: "sharp@0.35.3 and platform libvips 1.3.2 packages",
       source: "https://github.com/lovell/sharp",
       license: "Apache-2.0 and LGPL-3.0-or-later",
       integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
       use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin",
+    },
+    {
+      component: "sharp@0.35.4 and platform libvips 1.3.3 packages",
+      source: "https://github.com/lovell/sharp and https://github.com/lovell/sharp-libvips",
+      license: "Apache-2.0 and LGPL-3.0-or-later",
+      integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
+      use: "Official DSH attachment runtime; distributed with package license texts and the 0.5.9 corresponding-source offer",
     },
     {
       component: "dsh-im@3.0.5",

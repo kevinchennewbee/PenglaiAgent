@@ -12,8 +12,16 @@ test("license policy rejects unknown and copyleft production dependencies", () =
   assert.throws(() => classifyLicense("libsignal", "GPL-3.0"), /unapproved copyleft/);
   assert.equal(classifyLicense("jszip", "(MIT OR GPL-3.0-or-later)").effectiveLicense, "MIT");
   assert.equal(
-    classifyLicense("@img/sharp-libvips-darwin-arm64", "LGPL-3.0-or-later").disposition,
+    classifyLicense("@img/sharp-libvips-darwin-arm64", "LGPL-3.0-or-later", "1.3.2").disposition,
     "excluded-from-release",
+  );
+  assert.equal(
+    classifyLicense("@img/sharp-libvips-darwin-arm64", "LGPL-3.0-or-later", "1.3.3").disposition,
+    "lgpl-runtime-source-offer-required",
+  );
+  assert.equal(
+    classifyLicense("@img/sharp-win32-x64", "Apache-2.0 AND LGPL-3.0-or-later", "0.35.4").disposition,
+    "lgpl-runtime-source-offer-required",
   );
 });
 

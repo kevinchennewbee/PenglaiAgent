@@ -22,6 +22,7 @@ its alpha.1 source closure remain immutable historical release evidence.
 | Vendor packages | 9 at their exact upstream versions |
 | Landlock packages | 3 at exact `0.1.1` |
 | Root npm integrity | `sha512-4TvTC5kRKlgtSU2UTBv+cID9a2Z+6+m6mpvjXWJfVzuTkflCff6s4MsQpFJTCmwFh/k7zNWe7qFXcLYMV/5VvA==` |
+| Root tarball SHA-256 | `5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47` |
 
 Compared with the alpha.1 DSH family, alpha.2 adds
 `dsh-client-ui-schedule`, `dsh-deque`, `dsh-util-time`, and
@@ -71,4 +72,3 @@ node scripts/verify-dsh-npm-cohort.mjs --live
 The lockfile migration must stop on a missing package, registry metadata drift,
 mixed alpha.1/alpha.2 graph, more than one Cordis instance, unexpected install
 lifecycle script, or an unreconciled source/registry identity.
-

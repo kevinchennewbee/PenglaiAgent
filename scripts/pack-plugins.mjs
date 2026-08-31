@@ -67,6 +67,8 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-general",
@@ -83,6 +85,7 @@ const packs = [
     dshClient: {
       inject: [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-settings",
       ],
@@ -455,7 +458,7 @@ async function vendorPptfast(stage) {
         namespace: "penglai-office-disabled-image",
       }));
       context.onLoad({ filter: /.*/, namespace: "penglai-office-disabled-image" }, () => ({
-        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.8 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
+        contents: `export default function disabledImageDependency() { throw new Error("Penglai Office 0.5.9 accepts text-only PPTX creation"); }\nexport const imageSize = disabledImageDependency;`,
         loader: "js",
       }));
     },
@@ -1214,7 +1217,7 @@ for (const p of packs) {
         filename: "packed-office-smoke.pptx",
         theme: { id: "consulting" },
         slides: [
-          { type: "cover", heading: "Penglai Office", subheading: "0.5.8" },
+          { type: "cover", heading: "Penglai Office", subheading: "0.5.9" },
           { type: "ending", heading: "Packed runtime" },
         ],
       }),

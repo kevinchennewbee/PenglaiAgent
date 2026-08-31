@@ -34,8 +34,24 @@ export function classifyApiTestError(err: unknown): { class: ApiTestErrorClass; 
 
 export function unwrapTypertResult<T = unknown>(result: unknown): T {
   if (result && typeof result === "object" && "ok" in result) {
-    const rec = result as { ok?: unknown; value?: T; error?: { message?: string } };
-    if (rec.ok === false) throw new Error(rec.error?.message || "remote");
+    const rec = result as { ok?: unknown; value?: T; error?: unknown };
+    if (rec.ok === false) {
+      const failure = rec.error;
+      if (
+        failure &&
+        typeof failure === "object" &&
+        (failure as { isDSHRemoteError?: unknown }).isDSHRemoteError === true &&
+        typeof (failure as { code?: unknown }).code === "string"
+      ) {
+        throw failure;
+      }
+      if (failure instanceof Error) throw failure;
+      const message =
+        failure && typeof failure === "object" && typeof (failure as { message?: unknown }).message === "string"
+          ? String((failure as { message: string }).message)
+          : "remote";
+      throw new Error(message);
+    }
     return rec.value as T;
   }
   return result as T;

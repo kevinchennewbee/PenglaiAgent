@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -23,15 +24,15 @@ if (desktop.dependencies["@deepseek-ai/dsh"] !== PINNED_DSH) {
   console.error("desktop DSH pin drift");
   process.exit(1);
 }
-const freeze = readFileSync(join(ROOT, "docs/0.5.8/DSH_SOURCE_BASELINE.md"), "utf8");
-const sourceMap = readFileSync(join(ROOT, "docs/0.5.8/DSH_LOCAL_DEPENDENCY_MAP.json"), "utf8");
+const cohortBytes = readFileSync(join(ROOT, "docs/0.5.9/DSH_NPM_COHORT.json"));
+const cohort = JSON.parse(cohortBytes.toString("utf8"));
 if (
-  !freeze.includes(PINNED_DSH) ||
-  !freeze.includes(PINNED_DSH_COMMIT) ||
-  !sourceMap.includes(PINNED_DSH_TARBALL_SHA256) ||
-  !sourceMap.includes(PINNED_DSH_CLOSURE_MANIFEST_SHA256)
+  cohort.version !== PINNED_DSH ||
+  cohort.source?.commit !== PINNED_DSH_COMMIT ||
+  cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
+  createHash("sha256").update(cohortBytes).digest("hex") !== PINNED_DSH_CLOSURE_MANIFEST_SHA256
 ) {
-  console.error("0.5.8 DSH source baseline/map is missing current pin or digest");
+  console.error("0.5.9 DSH npm cohort is missing the current source or registry identity");
   process.exit(1);
 }
 const historicalAdr = readFileSync(join(ROOT, "docs/adr/0033-dsh-011-rc1-three-targets.md"), "utf8");
