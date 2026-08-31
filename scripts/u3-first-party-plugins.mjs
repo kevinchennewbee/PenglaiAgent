@@ -73,7 +73,7 @@ const installer = installerForTarget(target);
 const installedRoot = join(ROOT, ".tmp", "u3-plugin-app");
 const userData = join(ROOT, ".tmp", "u3-plugin-profile");
 const publicShotDir = join(ROOT, "evidence", "generated", "readme-shots");
-const installed = installFromExactInstaller(
+const installed = await installFromExactInstaller(
   join(ROOT, "dist", installer),
   installedRoot,
   target,

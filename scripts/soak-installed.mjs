@@ -69,7 +69,7 @@ if (process.env.PENGLAI_SOAK_ALLOW_LONG !== "1") {
   });
 }
 
-const installed = installFromExactInstaller(
+const installed = await installFromExactInstaller(
   process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", expectedInstaller),
   join(ROOT, ".tmp-installed-soak-app"),
   expectedTarget,

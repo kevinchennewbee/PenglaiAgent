@@ -58,7 +58,49 @@ export function installFromExactDmg(dmgPath, destRoot, installerName = ARM64_INS
   }
 }
 
-export function installFromExactInstaller(installerPath, destRoot, target) {
+export async function waitForBoundedChild(child, timeoutMs) {
+  return new Promise((resolveExit) => {
+    let settled = false;
+    let timedOut = false;
+    let treeKilled = false;
+    let closeTimer;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(closeTimer);
+      resolveExit(value);
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (process.platform === "win32" && Number.isSafeInteger(child.pid) && child.pid > 0) {
+        const killed = spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 15_000,
+        });
+        treeKilled = killed.status === 0;
+      } else {
+        try {
+          treeKilled = child.kill("SIGKILL");
+        } catch {
+          treeKilled = false;
+        }
+      }
+      closeTimer = setTimeout(() => {
+        finish({ code: null, signal: null, timedOut: true, treeKilled, closeObserved: false });
+      }, 10_000);
+    }, timeoutMs);
+    child.once("error", (error) => {
+      finish({ code: null, signal: null, timedOut, treeKilled, closeObserved: false, errorCode: error?.code ?? "SPAWN_ERROR" });
+    });
+    child.once("close", (code, signal) => {
+      finish({ code, signal, timedOut, treeKilled, closeObserved: true });
+    });
+  });
+}
+
+export async function installFromExactInstaller(installerPath, destRoot, target) {
   const installer = installerForTarget(target);
   if (!existsSync(installerPath)) return { ok: false, reason: `${installer} missing` };
   if (target.startsWith("darwin-")) {
@@ -73,14 +115,21 @@ export function installFromExactInstaller(installerPath, destRoot, target) {
   const sha = sha256File(installerPath);
   rmSync(destRoot, { recursive: true, force: true });
   mkdirSync(destRoot, { recursive: true });
-  const packed = spawnSync(installerPath, ["/S", `/D=${destRoot}`], { encoding: "utf8" });
+  const packed = spawn(installerPath, ["/S", `/D=${destRoot}`], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  const installExit = await waitForBoundedChild(packed, 20 * 60_000);
   const app = existsSync(join(destRoot, "Penglai.exe")) ? destRoot : join(destRoot, "Penglai");
-  if (packed.status !== 0 || !existsSync(join(app, "Penglai.exe"))) {
+  if (installExit.timedOut || installExit.errorCode || installExit.code !== 0 || !existsSync(join(app, "Penglai.exe"))) {
     return {
       ok: false,
-      reason: "NSIS silent install did not produce Penglai.exe",
+      reason: installExit.timedOut
+        ? "NSIS silent install exceeded the bounded release timeout"
+        : "NSIS silent install did not produce Penglai.exe",
       installerSha256: sha,
       installer,
+      installExit,
     };
   }
   return { ok: true, app, installerSha256: sha, installer };

@@ -95,7 +95,9 @@ if (blocked) finish("BLOCKED", { command: "test:e2e:installed", ...blocked });
 const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
 const expectedInstaller = installerForTarget(expectedTarget);
 const artifactPath = process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", expectedInstaller);
-const installed = installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-e2e-app"), expectedTarget);
+const stage = (name) => console.log(JSON.stringify({ command: "test:e2e:installed", event: "stage", stage: name, target: expectedTarget }));
+stage("install-exact-installer");
+const installed = await installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-e2e-app"), expectedTarget);
 if (!installed.ok) {
   finish(installed.blocked ? "BLOCKED" : "INCOMPLETE", {
     command: "test:e2e:installed",
@@ -103,6 +105,7 @@ if (!installed.ok) {
     target: expectedTarget,
   });
 }
+stage("verify-installed-identity");
 const identity = assertInstalledPenglaiIdentity(installed.app, expectedTarget);
 if (!identity.ok) {
   finish("FAIL", { command: "test:e2e:installed", reason: `installed app identity ${identity.reason}` });
@@ -165,6 +168,7 @@ const nativeUserData = join(ROOT, ".tmp-installed-e2e-native");
 rmSync(nativeUserData, { recursive: true, force: true });
 mkdirSync(nativeUserData, { recursive: true });
 const nativeLaunch = launchPackaged(exe, resources, nativeUserData);
+stage("native-executable-boot");
 const nativeGatewayFile = join(nativeUserData, "gateway.port");
 const nativeInventoryFile = join(nativeUserData, "plugins", "inventory-snapshot.json");
 const nativeGateway = await waitForFile(nativeGatewayFile, 90_000);
@@ -215,6 +219,7 @@ const refuseUser = join(ROOT, ".tmp-installed-e2e-refuse");
 rmSync(refuseUser, { recursive: true, force: true });
 mkdirSync(refuseUser, { recursive: true });
 const refuse = launchPackaged(exe, resources, refuseUser, ["--remote-debugging-port=9"]);
+stage("native-debug-refusal");
 const refuseCode = await waitChildExit(refuse.child, 12_000);
 if (refuseCode === 0) {
   finish("FAIL", {
@@ -237,6 +242,7 @@ const launched = launchInstalledHarness(harnessApp, resources, userData, [
   `--remote-debugging-port=${debugPort}`,
   "--remote-allow-origins=*",
 ]);
+stage("installed-ui-walk");
 const expectedIdentity = readProcessIdentity(launched.child.pid);
 const gatewayFile = join(userData, "gateway.port");
 const sawGateway = await waitForFile(gatewayFile, 90_000);
@@ -284,6 +290,7 @@ const live = proxyPort ? await probeLiveHttpWs(`http://127.0.0.1:${proxyPort}`, 
 
 let resume = { attempted: false, ok: false, step: "", current: "" };
 if (walk?.wizardKeyless?.ok) {
+  stage("installed-ui-resume");
   const ledgerPath = join(userData, "onboarding", "onboarding.json");
   const ledgerBefore = existsSync(ledgerPath) ? JSON.parse(readFileSync(ledgerPath, "utf8")) : null;
   await stopChild(launched.child);
@@ -458,4 +465,5 @@ const rec = {
       : `BrowserWindow walk on exact DMG did not close every installed Hard surface: ${(walk?.blocked ?? [attachErr || "no-walk"]).join(", ")}`,
 };
 writeRec(rec);
+stage("complete");
 finish(rec.verdict, rec);
