@@ -6,12 +6,10 @@ import {
   WINDOWS_AUTHENTICODE_COMMAND,
 } from "./signing-contract.mjs";
 
-test("Windows Authenticode probe explicitly loads the system security module", () => {
-  assert.match(
-    WINDOWS_AUTHENTICODE_COMMAND,
-    /Import-Module Microsoft\.PowerShell\.Security -ErrorAction Stop/,
-  );
+test("Windows Authenticode probe uses the native command without re-importing core type data", () => {
   assert.match(WINDOWS_AUTHENTICODE_COMMAND, /Get-AuthenticodeSignature/);
+  assert.match(WINDOWS_AUTHENTICODE_COMMAND, /-ErrorAction Stop/);
+  assert.doesNotMatch(WINDOWS_AUTHENTICODE_COMMAND, /Import-Module/);
 });
 
 test("Windows community signing contract accepts exact unsigned app and installer", () => {

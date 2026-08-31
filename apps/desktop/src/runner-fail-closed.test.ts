@@ -9,7 +9,9 @@ import {
   evaluateLiveSample,
   heartbeatAgeMs,
   identityMatches,
+  liveFromHealthRecord,
   parseProcessIdentityLine,
+  proxyAuthBoundaryHealthy,
 } from "../../../scripts/lib/runner-live.mjs";
 import { gitState } from "../../../scripts/lib/repo.mjs";
 
@@ -169,6 +171,28 @@ test("shipped evaluateLiveSample fails closed on injected faults and ignores sta
   });
   assert.equal(wrongTarget.ok, false);
   assert.ok(wrongTarget.reasons.includes("wrong-target"));
+});
+
+test("native boot accepts only the explicit unauthenticated proxy boundary", () => {
+  assert.equal(
+    proxyAuthBoundaryHealthy({ httpOfficial: false, httpStatus: 401, wsOpened: false }),
+    true,
+  );
+  assert.equal(
+    proxyAuthBoundaryHealthy({ httpOfficial: true, httpStatus: 200, wsOpened: true }),
+    false,
+  );
+  assert.equal(
+    proxyAuthBoundaryHealthy({ httpOfficial: false, httpStatus: 502, wsOpened: false }),
+    false,
+  );
+  assert.deepEqual(
+    liveFromHealthRecord({
+      http: { status: 200, official: true },
+      websocket: { opened: true },
+    }),
+    { httpOfficial: true, httpStatus: 200, wsOpened: true },
+  );
 });
 
 for (const script of [soak, e2e]) {

@@ -104,6 +104,12 @@ test("embed-runtime is target-aware and reads the release contract", () => {
   assert.match(closure, /node-addon-require-builtin-darwin-arm64/);
 });
 
+test("Windows signing inspection stays in the PowerShell 7 host module graph", () => {
+  const verifier = readFileSync(new URL("../../../scripts/verify-signing.mjs", import.meta.url), "utf8");
+  assert.match(verifier, /"pwsh\.exe"/);
+  assert.doesNotMatch(verifier, /spawnSync\(\s*"powershell\.exe"/);
+});
+
 test("profile verifier proves fresh optional-off and explicit composition modes", () => {
   const src = readFileSync(new URL("../../../scripts/verify-profile.mjs", import.meta.url), "utf8");
   assert.match(src, /PENGLAI_PLUGINS_DIR:\s*layout\.pluginsDir/);

@@ -678,7 +678,10 @@ async function main(): Promise<void> {
       }
       const websocket = await observeOfficialWebsocket(win);
       if (!websocket.opened) throw new Error("official DSH WebSocket did not open");
-      const res = await fetch(officialUrl, { headers: { cookie: `penglai_proxy=${token}` } });
+      const res = await fetch(officialUrl, {
+        headers: { cookie: `penglai_proxy=${token}` },
+        signal: AbortSignal.timeout(5_000),
+      });
       const body = await res.text();
       const http = {
         status: res.status,
@@ -1111,23 +1114,50 @@ async function main(): Promise<void> {
     await revealWindow();
     if (soakMode) {
       const healthFile = join(user.root, "soak-health.json");
-      const writeHealth = (): void => {
-        writeFileSync(
-          healthFile,
-          JSON.stringify({
-            at: new Date().toISOString(),
-            pid: process.pid,
-            dshPid: live.childPid ?? 0,
-            url: allowedOrigin,
-            http,
-            websocket,
-            inventoryOk: inventory.ok,
-          }),
-          { mode: 0o600 },
-        );
+      let healthWritePending = false;
+      const writeHealth = async (
+        known?: {
+          http: { status: number; ok: boolean; official: boolean };
+          websocket: { opened: boolean; url: string; readyState: number };
+        },
+      ): Promise<void> => {
+        if (healthWritePending) return;
+        healthWritePending = true;
+        try {
+          let current = known;
+          if (!current && !wizardPending) {
+            try {
+              current = await verifyOfficialSurfaces(allowedOrigin);
+            } catch {
+              current = {
+                http: { status: 0, ok: false, official: false },
+                websocket: {
+                  opened: false,
+                  url: allowedOrigin.replace(/^http/i, "ws"),
+                  readyState: 3,
+                },
+              };
+            }
+          }
+          writeFileSync(
+            healthFile,
+            JSON.stringify({
+              at: new Date().toISOString(),
+              pid: process.pid,
+              dshPid: live.childPid ?? 0,
+              url: allowedOrigin,
+              http: current?.http ?? { status: 0, ok: false, official: false },
+              websocket: current?.websocket ?? { opened: false, url: "", readyState: 3 },
+              inventoryOk: inventory.ok,
+            }),
+            { mode: 0o600 },
+          );
+        } finally {
+          healthWritePending = false;
+        }
       };
-      writeHealth();
-      const timer = setInterval(writeHealth, 15_000);
+      await writeHealth({ http, websocket });
+      const timer = setInterval(() => void writeHealth(), 15_000);
       timer.unref?.();
     }
   } catch (err) {

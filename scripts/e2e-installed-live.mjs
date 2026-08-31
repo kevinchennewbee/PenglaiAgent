@@ -24,7 +24,7 @@ import {
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 import { writeEvidenceJson } from "./lib/evidence-json.mjs";
-import { probeLiveHttpWs } from "./lib/runner-live.mjs";
+import { probeLiveHttpWs, proxyAuthBoundaryHealthy } from "./lib/runner-live.mjs";
 
 const PRODUCT_VERSION = "0.5.9";
 const PROVIDER = "deepseek-official";
@@ -173,6 +173,7 @@ const nativePort = nativeGateway ? Number(readFileSync(nativeGatewayFile, "utf8"
 const nativeLive = nativePort
   ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
   : { httpOfficial: false, wsOpened: false };
+const nativeAuthBoundary = proxyAuthBoundaryHealthy(nativeLive);
 await stopChild(nativeLaunch.child);
 const nativeLeftovers = leftoversByCommand(nativeTree.dshEntry).filter(
   (line) => line.includes(nativeTree.nodeBin) || line.includes(nativeUserData),
@@ -183,8 +184,7 @@ const nativeExecutableBoot = Boolean(
     nativeInventory &&
     nativeTree.ownedAbsolute &&
     nativeTree.dshPid > 0 &&
-    nativeLive.httpOfficial &&
-    nativeLive.wsOpened &&
+    nativeAuthBoundary &&
     nativeLeftovers.length === 0,
 );
 if (!nativeExecutableBoot) {
@@ -195,6 +195,7 @@ if (!nativeExecutableBoot) {
     nativeInventory,
     nativeTree,
     nativeLive,
+    nativeAuthBoundary,
     nativeLeftovers,
   });
 }

@@ -29,7 +29,7 @@ import { runFailClosedCertification } from "./lib/runner-cert.mjs";
 import {
   FAIL_CLOSED_DEADLINE_MS,
   evaluateLiveSample,
-  probeLiveHttpWs,
+  liveFromHealthRecord,
   readProcessIdentity,
 } from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
@@ -203,9 +203,7 @@ const expectedNativeIdentity = readProcessIdentity(nativeLaunch.child.pid);
 const nativeGatewaySeen = await waitForFile(nativeGatewayFile, 180_000);
 const firstNative = await waitJson(nativeHealthFile, 180_000);
 const nativePort = nativeGatewaySeen ? Number(readFileSync(nativeGatewayFile, "utf8").trim()) : 0;
-const firstNativeLive = nativePort
-  ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
-  : { httpOfficial: false, httpStatus: 0, wsOpened: false };
+const firstNativeLive = liveFromHealthRecord(firstNative);
 const initialNativeTree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
 if (
   !expectedNativeIdentity ||
@@ -238,6 +236,16 @@ const launched = launchInstalledHarness(
 
 const waitHealth = async (timeoutMs) => waitJson(healthFile, timeoutMs);
 const waitNativeHealth = async (timeoutMs) => waitJson(nativeHealthFile, timeoutMs);
+const waitNativeTransition = async (after, predicate, timeoutMs = 60_000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const sample = await waitJson(nativeHealthFile, 1_000);
+    const at = Date.parse(String(sample?.at ?? ""));
+    if (Number.isFinite(at) && at > after && predicate(sample)) return sample;
+    await delay(500);
+  }
+  return null;
+};
 
 const first = await waitHealth(180_000);
 if (!first || !first.dshPid || first.http?.official !== true || first.websocket?.opened !== true) {
@@ -273,9 +281,7 @@ const liveSample = async () => {
   }
   const health = existsSync(nativeHealthFile) ? JSON.parse(readFileSync(nativeHealthFile, "utf8")) : null;
   const observed = readProcessIdentity(nativeLaunch.child.pid);
-  const live = nativePort
-    ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
-    : { httpOfficial: false, httpStatus: 0, wsOpened: false };
+  const live = liveFromHealthRecord(health);
   const judged = evaluateLiveSample({
     now: Date.now(),
     health,
@@ -360,15 +366,43 @@ async function sampleOffline() {
   const tree = ownedProcessTree(installed.app, resources, nativeLaunch.child.pid);
   const dshPid = firstNative.dshPid || tree.dshPid;
   if (!dshPid || !nativePort) return mark("offline", { ok: false, reason: "no exact-executable dsh pid/gateway" });
-  const before = await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000);
+  const beforeHealth = await waitNativeHealth(5_000);
+  const before = liveFromHealthRecord(beforeHealth);
+  const beforeAt = Date.parse(String(beforeHealth?.at ?? ""));
   const stopped = signalPid(dshPid, "SIGSTOP", windowsHelper);
-  await delay(1_500);
-  const during = await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 2_500);
+  const duringHealth = stopped
+    ? await waitNativeTransition(
+        beforeAt,
+        (sample) => {
+          const current = liveFromHealthRecord(sample);
+          return !current.httpOfficial || !current.wsOpened;
+        },
+      )
+    : null;
+  const during = liveFromHealthRecord(duringHealth);
   const continued = signalPid(dshPid, "SIGCONT", windowsHelper);
-  const recovered = await waitNativeHealth(60_000);
+  const duringAtRaw = Date.parse(String(duringHealth?.at ?? ""));
+  const duringAt = Number.isFinite(duringAtRaw) ? duringAtRaw : beforeAt;
+  const recovered = continued
+    ? await waitNativeTransition(
+        duringAt,
+        (sample) => {
+          const current = liveFromHealthRecord(sample);
+          return current.httpOfficial && current.wsOpened;
+        },
+      )
+    : null;
   const live = await liveSample();
   mark("offline", {
-    ok: Boolean(before?.httpOfficial && stopped && !during?.httpOfficial && continued && recovered?.dshPid && live.ok),
+    ok: Boolean(
+      before.httpOfficial &&
+        before.wsOpened &&
+        stopped &&
+        (!during.httpOfficial || !during.wsOpened) &&
+        continued &&
+        recovered?.dshPid &&
+        live.ok,
+    ),
     before,
     stopped,
     during,
@@ -380,13 +414,21 @@ async function sampleOffline() {
 
 async function sampleSleep() {
   const electronPid = nativeLaunch.child.pid;
+  const before = await waitNativeHealth(5_000);
+  const beforeAt = Date.parse(String(before?.at ?? ""));
   const stopped = signalPid(electronPid, "SIGSTOP", windowsHelper);
   await delay(4_000);
   const continued = signalPid(electronPid, "SIGCONT", windowsHelper);
-  const recovered = await waitNativeHealth(60_000);
-  const recoveredLive = nativePort
-    ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
-    : { httpOfficial: false, wsOpened: false };
+  const recovered = continued
+    ? await waitNativeTransition(
+        beforeAt,
+        (sample) => {
+          const current = liveFromHealthRecord(sample);
+          return current.httpOfficial && current.wsOpened;
+        },
+      )
+    : null;
+  const recoveredLive = liveFromHealthRecord(recovered);
   const pageOk = Boolean(recoveredLive.httpOfficial && recoveredLive.wsOpened);
   const live = await liveSample();
   mark("sleep", {
