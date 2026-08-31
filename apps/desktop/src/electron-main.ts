@@ -185,9 +185,14 @@ function describePluginForOwner(userRoot: string, id: string): {
 
 function resourcesRoot(): string {
   const packaged = app.isPackaged;
+  const authoritativeRoot = packaged
+    ? process.resourcesPath
+    : process.env.PENGLAI_RESOURCES;
   return findResourcesRoot({
-    ...(!packaged && process.env.PENGLAI_RESOURCES ? { envRoot: process.env.PENGLAI_RESOURCES } : {}),
-    ...(typeof process.resourcesPath === "string" && process.resourcesPath ? { resourcesPath: process.resourcesPath } : {}),
+    ...(authoritativeRoot ? { authoritativeRoot } : {}),
+    ...(!authoritativeRoot && typeof process.resourcesPath === "string" && process.resourcesPath
+      ? { resourcesPath: process.resourcesPath }
+      : {}),
     moduleDir: here,
   });
 }

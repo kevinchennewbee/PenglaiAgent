@@ -11,6 +11,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -31,6 +32,7 @@ import {
   assertPluginJsClosure,
   isOfficialDshHtml,
   isPenglaiProductTitle,
+  linkOfficialDeepseek,
   mergeLegacyContextIntoMemory,
   probeOfficialDsh,
   recoverProfile,
@@ -298,6 +300,34 @@ test("R2-DIST-011 seed activates private profile once", () => {
   activatePrivateProfile(layout, user);
   assert.equal(existsSync(join(user.profileWeb, "package.json")), true);
   assert.match(readFileSync(join(user.profileWeb, "package.json"), "utf8"), /web/);
+});
+
+test("Windows-style DSH junction is reusable and a dangling prior-install link is replaced", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-link-"));
+  const profile = join(root, "profile");
+  const first = join(root, "first", "@deepseek-ai");
+  const second = join(root, "second", "@deepseek-ai");
+  mkdirSync(first, { recursive: true });
+  mkdirSync(second, { recursive: true });
+  const layout = (officialDeepseek: string) => ({
+    appRoot: root,
+    nodeBin: process.execPath,
+    dshEntry: join(root, "bin.js"),
+    profileSeed: join(root, "seed"),
+    pluginsDir: join(root, "plugins"),
+    manifestPath: join(root, "runtime-manifest.json"),
+    officialDeepseek,
+  });
+
+  linkOfficialDeepseek(layout(first), profile);
+  const dest = join(profile, "node_modules", "@deepseek-ai");
+  assert.equal(resolve(readlinkSync(dest)), resolve(first));
+  linkOfficialDeepseek(layout(first), profile);
+  assert.equal(resolve(readlinkSync(dest)), resolve(first));
+
+  rmSync(first, { recursive: true, force: true });
+  linkOfficialDeepseek(layout(second), profile);
+  assert.equal(resolve(readlinkSync(dest)), resolve(second));
 });
 
 test("plugin tarball root without package/ prefix is accepted", () => {

@@ -133,6 +133,11 @@ test("findResourcesRoot prefers a real runtime over isPackaged guesses", async (
     moduleDir: appDir,
   });
   assert.equal(found, resources);
+  assert.throws(() => findResourcesRoot({
+    authoritativeRoot: join(tmpdir(), "missing-authoritative-resources"),
+    resourcesPath: resources,
+    moduleDir: appDir,
+  }));
 });
 
 test("owned runtime path matches both POSIX and Windows node layouts", async () => {

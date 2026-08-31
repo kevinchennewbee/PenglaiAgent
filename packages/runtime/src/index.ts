@@ -10,6 +10,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
   readdirSync,
 } from "node:fs";
@@ -285,10 +286,19 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   const destParent = join(profileDir, "node_modules");
   mkdirSync(destParent, { recursive: true, mode: 0o700 });
   const dest = join(destParent, "@deepseek-ai");
-  if (existsSync(dest) || isSymlink(dest)) {
-    const current = isSymlink(dest) ? readlinkSync(dest) : "";
-    if (current && resolve(current) === resolve(layout.officialDeepseek)) return;
-    rmSync(dest, { recursive: true, force: true });
+  const linked = isSymlink(dest);
+  if (existsSync(dest) || linked) {
+    const current = linked ? readlinkSync(dest) : "";
+    const currentTarget = current
+      ? resolve(isAbsolute(current) ? current : join(destParent, current))
+      : "";
+    if (currentTarget && currentTarget === resolve(layout.officialDeepseek)) return;
+    // A Windows junction whose old installation target has disappeared makes
+    // existsSync() false. rmSync({ recursive: true, force: true }) may leave
+    // that dangling reparse point in place, so unlink links explicitly before
+    // creating the current installation link.
+    if (linked) unlinkSync(dest);
+    else rmSync(dest, { recursive: true, force: true });
   }
   // Windows directory junctions work for ordinary installed-app users without
   // Developer Mode or elevated symlink privileges. POSIX keeps a normal dir link.
