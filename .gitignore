@@ -7,6 +7,7 @@
 .cache/
 .uploads/
 node_modules/
+upstream-dsh/
 third_party/mnemon/bin/
 third_party/mnemon/cache/
 dist/
