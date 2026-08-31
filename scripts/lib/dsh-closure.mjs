@@ -41,6 +41,12 @@ export const NODE_PTY_PREBUILD_BY_TARGET = {
   "win32-x86_64": "win32-x64",
 };
 
+const PACKAGE_TARGET_BY_RELEASE_TARGET = {
+  "darwin-aarch64": { os: "darwin", cpu: "arm64" },
+  "darwin-x86_64": { os: "darwin", cpu: "x64" },
+  "win32-x86_64": { os: "win32", cpu: "x64" },
+};
+
 const ROOT_CANDIDATE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
@@ -87,7 +93,25 @@ export function packageDirFromAnchor(anchor, packageName) {
   return undefined;
 }
 
-export function collectDshClosure(installAnchor, integrationRoots = DSH_RUNTIME_INTEGRATION_ROOTS) {
+function packageConstraintAllows(values, actual) {
+  if (!Array.isArray(values) || values.length === 0) return true;
+  if (values.includes(`!${actual}`)) return false;
+  const positive = values.filter((value) => typeof value === "string" && !value.startsWith("!"));
+  return positive.length === 0 || positive.includes(actual);
+}
+
+export function packageSupportsTarget(manifest, target) {
+  if (!target) return true;
+  const expected = PACKAGE_TARGET_BY_RELEASE_TARGET[target];
+  if (!expected) throw new Error(`unsupported DSH closure target ${target}`);
+  return packageConstraintAllows(manifest.os, expected.os) && packageConstraintAllows(manifest.cpu, expected.cpu);
+}
+
+export function collectDshClosure(
+  installAnchor,
+  integrationRoots = DSH_RUNTIME_INTEGRATION_ROOTS,
+  target,
+) {
   const appManifest = JSON.parse(readFileSync(installAnchor, "utf8"));
   const links = new Map();
   if (typeof appManifest.name === "string" && appManifest.name) {
@@ -120,11 +144,18 @@ export function collectDshClosure(installAnchor, integrationRoots = DSH_RUNTIME_
         if (required.has(dep)) throw new Error(`embedded DSH closure cannot resolve required dependency ${dep} from ${next.manifest.name ?? next.anchor}`);
         continue;
       }
-      links.set(dep, dir);
       const manifestPath = join(dir, "package.json");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      if (!packageSupportsTarget(manifest, target)) {
+        if (required.has(dep)) {
+          throw new Error(`embedded DSH required dependency ${dep} is incompatible with ${target}`);
+        }
+        continue;
+      }
+      links.set(dep, dir);
       queue.push({
         anchor: manifestPath,
-        manifest: JSON.parse(readFileSync(manifestPath, "utf8")),
+        manifest,
       });
     }
   }
@@ -161,7 +192,7 @@ function packageVersion(dir) {
   }
 }
 
-export function materializeNestedVersionConflicts(links, modulesDir) {
+export function materializeNestedVersionConflicts(links, modulesDir, target) {
   const copied = new Set();
   function preserve(sourceDir, destinationDir) {
     const manifestPath = join(sourceDir, "package.json");
@@ -176,6 +207,13 @@ export function materializeNestedVersionConflicts(links, modulesDir) {
       const actual = packageDirFromAnchor(manifestPath, dependency);
       if (!actual) {
         if (required.has(dependency)) throw new Error(`embedded DSH closure cannot preserve required dependency ${dependency} from ${manifest.name}`);
+        continue;
+      }
+      const actualManifest = JSON.parse(readFileSync(join(actual, "package.json"), "utf8"));
+      if (!packageSupportsTarget(actualManifest, target)) {
+        if (required.has(dependency)) {
+          throw new Error(`embedded DSH required dependency ${dependency} is incompatible with ${target}`);
+        }
         continue;
       }
       const flattened = links.get(dependency);
@@ -197,7 +235,7 @@ export function materializeNestedVersionConflicts(links, modulesDir) {
   return { nestedConflictCount: copied.size };
 }
 
-export function assertNestedVersionConflicts(links, modulesDir) {
+export function assertNestedVersionConflicts(links, modulesDir, target) {
   for (const [name, sourceDir] of links) {
     const manifestPath = join(sourceDir, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -212,6 +250,13 @@ export function assertNestedVersionConflicts(links, modulesDir) {
       const flattened = links.get(dependency);
       if (!actual) {
         if (required.has(dependency)) throw new Error(`embedded DSH closure cannot resolve required dependency ${dependency} from ${name}`);
+        continue;
+      }
+      const actualManifest = JSON.parse(readFileSync(join(actual, "package.json"), "utf8"));
+      if (!packageSupportsTarget(actualManifest, target)) {
+        if (required.has(dependency)) {
+          throw new Error(`embedded DSH required dependency ${dependency} is incompatible with ${target}`);
+        }
         continue;
       }
       if (!flattened && required.has(dependency)) {
@@ -293,7 +338,7 @@ export function resolveRequireBuiltinNative(installAnchor, target) {
 }
 
 export function materializeDshClosure(installAnchor, destRoot, target) {
-  const links = collectDshClosure(installAnchor);
+  const links = collectDshClosure(installAnchor, DSH_RUNTIME_INTEGRATION_ROOTS, target);
   assertDshClosure(links);
   const modulesDir = join(destRoot, "node_modules");
   rmSync(modulesDir, { recursive: true, force: true });
@@ -303,8 +348,8 @@ export function materializeDshClosure(installAnchor, destRoot, target) {
     if (name === appName) continue;
     copyFlatPackage(dir, join(modulesDir, name));
   }
-  const nestedConflicts = materializeNestedVersionConflicts(links, modulesDir);
-  assertNestedVersionConflicts(links, modulesDir);
+  const nestedConflicts = materializeNestedVersionConflicts(links, modulesDir, target);
+  assertNestedVersionConflicts(links, modulesDir, target);
   const nodePty = pruneNodePtyNativePayloads(modulesDir, target);
   const native = resolveRequireBuiltinNative(installAnchor, target);
   if (!native.dir || !existsSync(join(native.dir, "package.json"))) {

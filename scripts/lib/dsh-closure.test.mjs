@@ -9,6 +9,7 @@ import {
   DSH_RUNTIME_INTEGRATION_ROOTS,
   locateWorkspaceDsh,
   materializeNestedVersionConflicts,
+  packageSupportsTarget,
   REQUIRED_DSH_RUNTIME_PACKAGES,
 } from "./dsh-closure.mjs";
 
@@ -50,6 +51,24 @@ test("alpha runtime closure includes every Penglai client injection root", () =>
   for (const name of DSH_RUNTIME_INTEGRATION_ROOTS) assert.equal(links.has(name), true, name);
   for (const name of REQUIRED_DSH_RUNTIME_PACKAGES) assert.equal(links.has(name), true, name);
   assert.equal(links.has("@deepseek-ai/dsh-host-apiproxy"), false);
+});
+
+test("target closure excludes optional native packages for other operating systems and CPUs", () => {
+  assert.equal(packageSupportsTarget({ os: ["darwin"], cpu: ["arm64"] }, "win32-x86_64"), false);
+  assert.equal(packageSupportsTarget({ os: ["win32"], cpu: ["x64"] }, "win32-x86_64"), true);
+  assert.equal(packageSupportsTarget({ os: ["!win32"] }, "win32-x86_64"), false);
+  assert.equal(packageSupportsTarget({ cpu: ["!arm64"] }, "win32-x86_64"), true);
+
+  const links = collectDshClosure(
+    resolve("node_modules/@deepseek-ai/dsh/package.json"),
+    DSH_RUNTIME_INTEGRATION_ROOTS,
+    "win32-x86_64",
+  );
+  assert.equal(links.has("@img/sharp-win32-x64"), true);
+  assert.equal(links.has("@img/sharp-darwin-arm64"), false);
+  assert.equal(links.has("@img/sharp-darwin-x64"), false);
+  assert.equal(links.has("@koromix/koffi-win32-x64"), true);
+  assert.equal(links.has("@koromix/koffi-darwin-arm64"), false);
 });
 
 test("flattening preserves a package-local dependency when its version differs", () => {
