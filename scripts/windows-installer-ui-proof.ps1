@@ -118,6 +118,37 @@ function Save-PenglaiWindow([IntPtr]$Handle, [string]$Path) {
   return @{ width = $width; height = $height; sampledColors = $colors.Count }
 }
 
+function Get-PenglaiInstallerProcessIds([int]$RootProcessId, [string]$InstallerPath, [string]$InstallTarget) {
+  $rows = @(Get-CimInstance Win32_Process)
+  $ids = [System.Collections.Generic.HashSet[int]]::new()
+  [void]$ids.Add($RootProcessId)
+  do {
+    $changed = $false
+    foreach ($row in $rows) {
+      $commandLine = [string]$row.CommandLine
+      $isBoundInstaller = (-not [string]::IsNullOrWhiteSpace($commandLine)) -and
+        ($commandLine.IndexOf($InstallerPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+         $commandLine.IndexOf($InstallTarget, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+      if (($ids.Contains([int]$row.ParentProcessId) -or $isBoundInstaller) -and $ids.Add([int]$row.ProcessId)) {
+        $changed = $true
+      }
+    }
+  } while ($changed)
+  return @($ids)
+}
+
+function Stop-PenglaiInstallerProcessTree([int]$RootProcessId, [string]$InstallerPath, [string]$InstallTarget) {
+  $ids = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Sort-Object -Descending)
+  foreach ($processId in $ids) {
+    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Milliseconds 800
+  $leftovers = @(Get-PenglaiInstallerProcessIds $RootProcessId $InstallerPath $InstallTarget | Where-Object {
+    Get-Process -Id $_ -ErrorAction SilentlyContinue
+  })
+  if ($leftovers.Count -gt 0) { throw "installer UI proof left a bound process tree running" }
+}
+
 $installerPath = [System.IO.Path]::GetFullPath($Installer)
 $evidenceDir = [System.IO.Path]::GetFullPath($OutDir)
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) { throw "installer missing" }
@@ -135,6 +166,7 @@ $screenshot = Join-Path $evidenceDir "windows-installer-components-zh.png"
 $recordPath = Join-Path $evidenceDir "windows-installer-ui.json"
 
 $process = Start-Process -FilePath $installerPath -ArgumentList @('/LANG=2052', "/D=$installTarget") -PassThru
+$rootProcessId = $process.Id
 try {
   $handle = Get-PenglaiWindow $process
   [void](Wait-PenglaiUiText $handle '欢迎|Penglai')
@@ -183,4 +215,5 @@ try {
     [void][PenglaiInstallerNative]::PostMessage($process.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
     if (-not $process.WaitForExit(5000)) { $process.Kill() }
   }
+  Stop-PenglaiInstallerProcessTree $rootProcessId $installerPath $installTarget
 }

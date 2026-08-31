@@ -77,7 +77,7 @@ function writeRec(rec) {
 const blocked = nativeBlocked("u3-welcome-smoke", expectedTarget);
 if (blocked) finish("BLOCKED", { command: "u3-welcome-smoke", ...blocked });
 const expectedInstaller = installerForTarget(expectedTarget);
-const installed = installFromExactInstaller(
+const installed = await installFromExactInstaller(
   join(ROOT, "dist", expectedInstaller),
   join(ROOT, ".tmp", "u3-welcome-app"),
   expectedTarget,

@@ -150,7 +150,7 @@ if (blocked) finish("BLOCKED", { command: "test:e2e:installed:live", ...blocked 
 const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? source.git.head;
 const installer = installerForTarget(target);
 const artifactPath = process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", installer);
-const installed = installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-live-app"), target);
+const installed = await installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-live-app"), target);
 if (!installed.ok) finish(installed.blocked ? "BLOCKED" : "INCOMPLETE", { command: "test:e2e:installed:live", reason: installed.reason, target });
 const identity = assertInstalledPenglaiIdentity(installed.app, target);
 if (!identity.ok) finish("FAIL", { command: "test:e2e:installed:live", reason: `installed identity ${identity.reason}` });

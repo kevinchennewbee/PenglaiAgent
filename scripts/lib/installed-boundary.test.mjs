@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import test from "node:test";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
+import { waitForBoundedChild } from "./installed-app.mjs";
 
 function sample() {
   return {
@@ -45,4 +47,12 @@ test("credential-free evidence never claims a nonce or first Turn", () => {
   const checks = credentialFreeInstalledChecks(sample());
   assert.equal(Object.hasOwn(checks, "officialNonceTurn"), false);
   assert.equal(Object.hasOwn(checks, "officialFirstTurn"), false);
+});
+
+test("bounded child wait times out and terminates the release subprocess", async () => {
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  const result = await waitForBoundedChild(child, 100);
+  assert.equal(result.timedOut, true);
+  assert.equal(result.treeKilled, true);
+  assert.equal(result.closeObserved, true);
 });
