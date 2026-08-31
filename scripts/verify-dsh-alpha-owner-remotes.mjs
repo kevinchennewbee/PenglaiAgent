@@ -84,7 +84,7 @@ requireTokens("Workspace wire types", workspaceTypes, [
 const workspaceClient = source(checkout, "packages/api/workspace-controller/src/client/index.ts");
 requireTokens("Workspace client graph", workspaceClient, [
   "'remote.workspace'",
-  "new ClientWorkspaceModel(remote.workspace)",
+  "new ClientWorkspaceModel(ctx.remote.workspace)",
   "remote.workspace.follow(signal)",
 ]);
 

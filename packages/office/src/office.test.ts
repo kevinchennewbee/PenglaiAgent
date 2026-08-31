@@ -9,6 +9,14 @@ import type { OfficeFormat, OfficeOperation } from "./service.js";
 
 const ooxml = ["docx", "xlsx", "pptx"] as const;
 
+test("real Office verification reads exact OOXML parts on every platform", () => {
+  const verifier = readFileSync(new URL("../../../scripts/verify-office-real.mjs", import.meta.url), "utf8");
+  assert.match(verifier, /markerEntry: "word\/document\.xml"/);
+  assert.match(verifier, /markerEntry: "xl\/sharedStrings\.xml"/);
+  assert.match(verifier, /markerEntry: "ppt\/slides\/slide1\.xml"/);
+  assert.doesNotMatch(verifier, /"\*\.xml"/);
+});
+
 function opFor(format: OfficeFormat, text: string): OfficeOperation {
   if (format === "docx") return { kind: "docx.replaceParagraph", paragraphIndex: 0, text };
   if (format === "xlsx") return { kind: "xlsx.setCell", cell: "B1", value: text };
