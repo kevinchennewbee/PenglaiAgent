@@ -58,20 +58,14 @@ export function windowsFixtureRemovalObserved({ installDirExists, registeredInst
   return !installDirExists && !registeredInstallDir && !uninstallCommand;
 }
 
-function waitForWindowsFixtureRemoval(installDir, timeoutMs) {
+function waitForWindowsProductRegistryClear(timeoutMs) {
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   const deadline = Date.now() + timeoutMs;
   let stableSince = 0;
   do {
     const registeredInstallDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
     const uninstallCommand = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
-    if (
-      windowsFixtureRemovalObserved({
-        installDirExists: existsSync(installDir),
-        registeredInstallDir,
-        uninstallCommand,
-      })
-    ) {
+    if (!registeredInstallDir && !uninstallCommand) {
       stableSince ||= Date.now();
       if (Date.now() - stableSince >= 1_000) return true;
     } else {
@@ -114,10 +108,11 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (!existsSync(uninstaller)) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstaller is missing" };
   }
-  // Let NSIS copy itself to its temporary child so it can delete Uninstall.exe
-  // and the fixture directory. The original process may return before that
-  // child is finished, so registry removal alone is not sufficient proof.
-  const removed = spawnSync(uninstaller, ["/S"], {
+  // Keep the uninstaller in this exact controlled fixture so spawnSync waits
+  // for the real process rather than an asynchronous temporary child. Product
+  // policy intentionally preserves custom install directories; after registry
+  // cleanup, remove this separately validated test fixture ourselves.
+  const removed = spawnSync(uninstaller, ["/S", `_?=${installDir}`], {
     encoding: "utf8",
     windowsHide: true,
     timeout: 120_000,
@@ -125,12 +120,21 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (removed.status !== 0 || removed.error) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall failed" };
   }
-  if (!waitForWindowsFixtureRemoval(installDir, 120_000)) {
+  if (!waitForWindowsProductRegistryClear(30_000)) {
     return {
       ok: false,
       cleaned: false,
-      reason: "registered Penglai fixture uninstall did not remove both registry and install directory",
+      reason: "registered Penglai fixture uninstall left product registry state",
     };
+  }
+  rmSync(installDir, { recursive: true, force: true });
+  const fullyRemoved = windowsFixtureRemovalObserved({
+    installDirExists: existsSync(installDir),
+    registeredInstallDir: queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir"),
+    uninstallCommand: queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString"),
+  });
+  if (!fullyRemoved) {
+    return { ok: false, cleaned: false, reason: "registered Penglai fixture cleanup left install state" };
   }
   return { ok: true, cleaned: true, installDir };
 }
