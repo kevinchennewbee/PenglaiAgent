@@ -1,5 +1,8 @@
 const WINDOWS_UNSIGNED_STATUS = "NotSigned";
 
+export const WINDOWS_AUTHENTICODE_COMMAND =
+  "Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; [Console]::Out.Write((Get-AuthenticodeSignature -LiteralPath $env:PENGLAI_SIGNATURE_TARGET).Status.ToString())";
+
 export function evaluateWindowsAuthenticode(records) {
   if (!Array.isArray(records) || records.length === 0) {
     return { verdict: "FAIL", reason: "no Windows Authenticode records" };
@@ -24,4 +27,3 @@ export function evaluateWindowsAuthenticode(records) {
   }
   return { verdict: "PASS" };
 }
-

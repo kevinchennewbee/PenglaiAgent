@@ -9,7 +9,10 @@ import {
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
-import { evaluateWindowsAuthenticode } from "./lib/signing-contract.mjs";
+import {
+  evaluateWindowsAuthenticode,
+  WINDOWS_AUTHENTICODE_COMMAND,
+} from "./lib/signing-contract.mjs";
 
 function runCodesign(args) {
   const r = spawnSync("codesign", args, { encoding: "utf8" });
@@ -74,7 +77,7 @@ if (expectedTarget === "win32-x86_64") {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        "[Console]::Out.Write((Get-AuthenticodeSignature -LiteralPath $env:PENGLAI_SIGNATURE_TARGET).Status.ToString())",
+        WINDOWS_AUTHENTICODE_COMMAND,
       ],
       {
         encoding: "utf8",
