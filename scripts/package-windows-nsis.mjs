@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Windows current-user NSIS Setup. Native PASS is only legal on win32/x64.
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
-import { cleanupRegisteredWindowsInstallerFixture } from "./lib/installed-app.mjs";
+import { cleanupRegisteredWindowsInstallerFixture, removeTreeNoFollow } from "./lib/installed-app.mjs";
 
 const contract = {
   installer: "Penglai_0.5.9_windows_x64_setup.exe",
@@ -84,7 +85,7 @@ if (!existsSync(out)) {
 }
 const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.9-win32-x64");
 const installedApp = join(installedRoot, "Penglai");
-const fixtureRoot = resolve(ROOT, ".tmp-windows-installer-fixture");
+const fixtureRoot = mkdtempSync(join(tmpdir(), "penglai-windows-installer-fixture-"));
 const fixtureApp = join(fixtureRoot, "Penglai");
 const installedRelative = relative(resolve(ROOT, "dist"), installedRoot);
 if (!installedRelative || installedRelative === ".." || installedRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(installedRelative)) {
@@ -96,8 +97,7 @@ if (!staleFixtureCleanup.ok) {
   console.error(`package-windows-nsis FAIL: ${staleFixtureCleanup.reason}`);
   process.exit(1);
 }
-rmSync(installedRoot, { recursive: true, force: true });
-rmSync(fixtureRoot, { recursive: true, force: true });
+removeTreeNoFollow(installedRoot);
 mkdirSync(fixtureApp, { recursive: true });
 const applied = spawnSync(out, ["/S", `/D=${fixtureApp}`], { cwd: ROOT, encoding: "utf8", windowsHide: true });
 let verificationFailure = "";
@@ -119,7 +119,7 @@ if (applied.status !== 0 || !existsSync(join(fixtureApp, "Penglai.exe"))) {
   }
 }
 const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
-rmSync(fixtureRoot, { recursive: true, force: true });
+removeTreeNoFollow(fixtureRoot);
 if (!fixtureCleanup.ok || (applied.status === 0 && !fixtureCleanup.cleaned)) {
   console.error(`package-windows-nsis FAIL: ${fixtureCleanup.reason ?? "exact Setup fixture did not uninstall"}`);
   process.exit(1);

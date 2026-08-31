@@ -48,20 +48,35 @@ export function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-export function removeTreeNoFollow(path) {
-  let stat;
-  try {
-    stat = lstatSync(path);
-  } catch (error) {
-    if (error?.code === "ENOENT") return;
-    throw error;
+function retryTransientWindowsFs(operation) {
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (error?.code === "ENOENT") return;
+      if (
+        attempt >= 119 ||
+        !new Set(["EACCES", "EBUSY", "ENOTEMPTY", "EPERM"]).has(error?.code)
+      ) {
+        throw error;
+      }
+      Atomics.wait(sleeper, 0, 0, Math.min(50 + attempt * 10, 250));
+    }
   }
+}
+
+export function removeTreeNoFollow(path) {
+  const stat = retryTransientWindowsFs(() => lstatSync(path));
+  if (!stat) return;
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    unlinkSync(path);
+    retryTransientWindowsFs(() => unlinkSync(path));
     return;
   }
-  for (const name of readdirSync(path)) removeTreeNoFollow(join(path, name));
-  rmdirSync(path);
+  for (const name of retryTransientWindowsFs(() => readdirSync(path)) ?? []) {
+    removeTreeNoFollow(join(path, name));
+  }
+  retryTransientWindowsFs(() => rmdirSync(path));
 }
 
 const WINDOWS_PRODUCT_KEY = "HKCU\\Software\\Penglai\\0.5";
@@ -103,14 +118,26 @@ function waitForWindowsProductRegistryClear(timeoutMs) {
   return false;
 }
 
-export function isControlledWindowsInstallerFixture(installDir, root = ROOT) {
+export function isControlledWindowsInstallerFixture(installDir, root = ROOT, temporaryRoot = tmpdir()) {
   const candidate = win32Path.resolve(String(installDir ?? ""));
   const workspace = win32Path.resolve(String(root ?? ""));
   const rel = win32Path.relative(workspace, candidate);
-  if (!rel || rel === ".." || rel.startsWith("..\\") || win32Path.isAbsolute(rel)) return false;
-  const segments = rel.split("\\");
-  if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
-  return rel.toLowerCase() === "dist\\penglai-v0.5.9-win32-x64\\penglai";
+  if (rel && rel !== ".." && !rel.startsWith("..\\") && !win32Path.isAbsolute(rel)) {
+    const segments = rel.split("\\");
+    if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
+    if (rel.toLowerCase() === "dist\\penglai-v0.5.9-win32-x64\\penglai") return true;
+  }
+  const temporary = win32Path.resolve(String(temporaryRoot ?? ""));
+  const temporaryRel = win32Path.relative(temporary, candidate);
+  if (!temporaryRel || temporaryRel === ".." || temporaryRel.startsWith("..\\") || win32Path.isAbsolute(temporaryRel)) {
+    return false;
+  }
+  const temporarySegments = temporaryRel.split("\\");
+  return (
+    temporarySegments.length === 2 &&
+    temporarySegments[0].startsWith("penglai-windows-installer-fixture-") &&
+    temporarySegments[1].toLowerCase() === "penglai"
+  );
 }
 
 export function cleanupRegisteredWindowsInstallerFixture() {
@@ -154,7 +181,7 @@ export function cleanupRegisteredWindowsInstallerFixture() {
       reason: "registered Penglai fixture uninstall left product registry state",
     };
   }
-  rmSync(installDir, { recursive: true, force: true });
+  removeTreeNoFollow(installDir);
   const fullyRemoved = windowsFixtureRemovalObserved({
     installDirExists: existsSync(installDir),
     registeredInstallDir: queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir"),
