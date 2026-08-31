@@ -107,6 +107,10 @@ if (contract.version !== "0.5.9" || contract.publication?.tag !== tag || contrac
 
 const release = await fetchJson(`https://api.github.com/repos/${REPO}/releases/tags/${tag}`, "Release");
 const peeledSourceSha = await peeledTagCommit(tag);
+const localPeeledSourceSha = git(["rev-parse", `${tag}^{commit}`]);
+if (localPeeledSourceSha !== peeledSourceSha || !/^[0-9a-f]{40}$/.test(localPeeledSourceSha)) {
+  fail("local immutable tag does not match the public peeled tag commit");
+}
 const currentMain = await fetchJson(`https://api.github.com/repos/${REPO}/git/ref/heads/main`, "main ref");
 if (release.tag_name !== tag) fail("Release tag_name does not match v0.5.9");
 if (currentMain.object?.type !== "commit" || currentMain.object.sha !== head) {
@@ -155,7 +159,7 @@ assertWebsitePublication({
   },
 });
 
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `release_sha=${peeledSourceSha}\n`);
+if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `release_sha=${localPeeledSourceSha}\n`);
 console.log(JSON.stringify({
   verdict: "PASS",
   command: "verify-website-release",

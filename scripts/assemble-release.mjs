@@ -5,8 +5,10 @@ import {
   copyFileSync,
   closeSync,
   existsSync,
+  fstatSync,
   mkdirSync,
   openSync,
+  readSync,
   readFileSync,
   readdirSync,
   realpathSync,
@@ -196,21 +198,30 @@ const installerRows = installers.map(({ target, name }) => {
     const downloaded = join(staging, `.draft-asset-${asset.id}`);
     const output = openSync(downloaded, "wx", 0o600);
     let fetched;
+    let remoteBytes = Buffer.alloc(0);
     try {
       fetched = spawnSync(
         "gh",
         ["api", "-H", "Accept: application/octet-stream", `repos/${contract.publication.repo}/releases/assets/${asset.id}`],
         { cwd: ROOT, stdio: ["ignore", output, "pipe"], encoding: "utf8" },
       );
+      if (fetched.status === 0) {
+        const stat = fstatSync(output);
+        remoteBytes = Buffer.alloc(stat.size);
+        let offset = 0;
+        while (offset < remoteBytes.length) {
+          const count = readSync(output, remoteBytes, offset, remoteBytes.length - offset, offset);
+          if (count <= 0) fail(`short read from draft asset ${name}`);
+          offset += count;
+        }
+      }
     } finally {
       closeSync(output);
+      unlinkSync(downloaded);
     }
     if (fetched.status !== 0) {
-      unlinkSync(downloaded);
       fail(`could not download draft asset ${name}: ${String(fetched.stderr ?? "")}`);
     }
-    const remoteBytes = readFileSync(downloaded);
-    unlinkSync(downloaded);
     if (remoteBytes.length !== bytes.length || sha256(remoteBytes) !== digest) {
       fail(`draft GitHub asset bytes differ from staging for ${name}`);
     }
