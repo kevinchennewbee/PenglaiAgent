@@ -8,7 +8,7 @@ import { CredentialsServiceVault } from "../../im/src/credentials-vault.js";
 test("beginWeixinQr returns qrImageRef and production pack scripts require --target", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.2-alpha.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    host: { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   });
   const weixin = {
     startQr: async () => ({ qrRef: "qr-1", qrImageRef: "data:image/png;base64,abc" }),
@@ -24,7 +24,7 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
     { status: "idle", stop() {}, appId: "" } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.2-alpha.1", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
+    { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s"] }] },
   );
   const begun = await host.beginWeixinQr();
   assert.ok(begun.qrImageRef);
@@ -36,6 +36,7 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   assert.match(dmg, /--target/);
   assert.match(pack, /darwin-x64/);
   assert.match(pack, /community release/);
+  assert.match(pack, /LGPL_SOURCE_OFFER\.txt/);
   assert.doesNotMatch(pack, /This is not a public release/);
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /run\("checkForUpdate"\)/);

@@ -68,9 +68,9 @@ if (unzip.status !== 0) {
 
 const unzipBin = unzip.stdout.trim().split(/\r?\n/)[0];
 const ooxmlChecks = [
-  { kind: "docx", path: paths.docx, required: ["[Content_Types].xml", "_rels/.rels", "word/document.xml"], marker: "typed-paragraph" },
-  { kind: "xlsx", path: paths.xlsx, required: ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/worksheets/sheet1.xml"], marker: "typed-cell" },
-  { kind: "pptx", path: paths.pptx, required: ["[Content_Types].xml", "_rels/.rels", "ppt/presentation.xml", "ppt/slides/slide1.xml"], marker: "typed-slide" },
+  { kind: "docx", path: paths.docx, required: ["[Content_Types].xml", "_rels/.rels", "word/document.xml"], markerEntry: "word/document.xml", marker: "typed-paragraph" },
+  { kind: "xlsx", path: paths.xlsx, required: ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/sharedStrings.xml"], markerEntry: "xl/sharedStrings.xml", marker: "typed-cell" },
+  { kind: "pptx", path: paths.pptx, required: ["[Content_Types].xml", "_rels/.rels", "ppt/presentation.xml", "ppt/slides/slide1.xml"], markerEntry: "ppt/slides/slide1.xml", marker: "typed-slide" },
 ];
 for (const check of ooxmlChecks) {
   const tested = spawnSync(unzipBin, ["-t", check.path], { encoding: "utf8", timeout: 120000 });
@@ -78,8 +78,8 @@ for (const check of ooxmlChecks) {
   const listed = spawnSync(unzipBin, ["-Z1", check.path], { encoding: "utf8", timeout: 120000 });
   recordCommand(run, { argv: [unzipBin, "-Z1", check.path], exitCode: listed.status, stdout: listed.stdout, stderr: listed.stderr });
   const entries = new Set(String(listed.stdout).split(/\r?\n/).filter(Boolean));
-  const xml = spawnSync(unzipBin, ["-p", check.path, "*.xml"], { encoding: "utf8", timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
-  recordCommand(run, { argv: [unzipBin, "-p", check.path, "*.xml"], exitCode: xml.status, stdout: "", stderr: xml.stderr });
+  const xml = spawnSync(unzipBin, ["-p", check.path, check.markerEntry], { encoding: "utf8", timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
+  recordCommand(run, { argv: [unzipBin, "-p", check.path, check.markerEntry], exitCode: xml.status, stdout: "", stderr: xml.stderr });
   if (
     tested.status !== 0 ||
     listed.status !== 0 ||

@@ -7,7 +7,7 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { isRecord, PenglaiError, RELEASE } from "@penglai/contracts";
 import {
   FIRST_PARTY_PLUGIN_METADATA,
@@ -516,7 +516,7 @@ interface CenterLoader {
 
 export function createPluginLifecycle(
   loader: CenterLoader,
-  inventory: { list(): unknown },
+  inventory: { list(): unknown; refresh?(): Promise<void> },
 ) {
   return {
     async apply(input: {
@@ -525,6 +525,7 @@ export function createPluginLifecycle(
       forceReload: boolean;
       present: boolean;
     }) {
+      await inventory.refresh?.();
       const row = normalizeInventory(inventory.list()).find((entry) =>
         rowMatches(entry, input.id),
       );
@@ -532,6 +533,7 @@ export function createPluginLifecycle(
         if (row?.entryId) {
           await loader.remove(row.entryId);
           await loader.await();
+          await inventory.refresh?.();
         }
         return;
       }
@@ -542,6 +544,7 @@ export function createPluginLifecycle(
           disabled: !input.enabled,
         });
         await loader.await();
+        await inventory.refresh?.();
         return;
       }
       const entry = loader.resolve(row.entryId);
@@ -550,13 +553,14 @@ export function createPluginLifecycle(
       }
       await entry.update({ disabled: !input.enabled }, false, true);
       await loader.await();
+      await inventory.refresh?.();
     },
   };
 }
 
-export function apply(ctx: {
+export async function apply(ctx: {
   loader: CenterLoader;
-  pluginInventory: { list(): unknown };
+  pluginInventory: { list(): unknown | Promise<unknown> };
   llm?: OfficialLlm;
   get?: (name: string) => unknown;
   on?: (...args: unknown[]) => unknown;
@@ -574,7 +578,7 @@ export function apply(ctx: {
       ) => void;
     }) => void;
   };
-}): PluginCenterHost {
+}): Promise<void> {
   const userData = process.env.PENGLAI_USER_DATA;
   if (!userData)
     throw new PenglaiError(
@@ -582,8 +586,40 @@ export function apply(ctx: {
       "PENGLAI_USER_DATA is required for app-private plugin state",
     );
   const dir = join(userData, "plugins");
-  const inventory = ctx.pluginInventory;
-  const profileDir = join(userData, "dsh-home", "profiles", "web");
+  let cachedInventory: unknown = { entries: [] };
+  let refreshInFlight: Promise<void> | undefined;
+  const refreshInventory = async (force = false): Promise<void> => {
+    if (refreshInFlight) {
+      await refreshInFlight;
+      if (!force) return;
+    }
+    refreshInFlight = Promise.resolve(ctx.pluginInventory.list())
+      .then((snapshot) => {
+        cachedInventory = snapshot;
+      })
+      .finally(() => {
+        refreshInFlight = undefined;
+      });
+    await refreshInFlight;
+  };
+  await refreshInventory();
+  const inventory = { list: () => cachedInventory, refresh: () => refreshInventory(true) };
+  const dshHome = process.env.DSH_HOME;
+  const relativeHome = dshHome
+    ? relative(resolve(userData), resolve(dshHome))
+    : "..";
+  if (
+    !dshHome ||
+    !isAbsolute(dshHome) ||
+    relativeHome.startsWith("..") ||
+    isAbsolute(relativeHome)
+  ) {
+    throw new PenglaiError(
+      "SECURITY_POLICY",
+      "DSH_HOME must be an app-private generation",
+    );
+  }
+  const profileDir = join(dshHome, "profiles", "web");
   const registryPackagesDir = join(userData, "plugins", "packages");
   const pluginsDir = process.env.PENGLAI_PLUGINS_DIR;
   if (!pluginsDir) {
@@ -626,8 +662,19 @@ export function apply(ctx: {
   ) {
     host.setDesired(recovered.id, recovered.previousEnabled);
   }
-  const writeSnap = (): void => {
-    const document = inventorySnapshotDocument(normalizeInventory(inventory.list()));
+  const writeSnap = async (): Promise<void> => {
+    await refreshInventory();
+    const rows = normalizeInventory(inventory.list()).map((row) => {
+      const id = row.id ?? row.moduleName ?? row.name;
+      if (typeof id !== "string") return row;
+      const health = pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id);
+      return { ...row, healthy: health.healthy, health: health.healthy ? "ready" : "failed" };
+    });
+    const document = {
+      ...inventorySnapshotDocument(rows),
+      launchNonce: process.env.PENGLAI_DSH_LAUNCH_NONCE ?? "",
+      dshPid: process.pid,
+    };
     writeFileSync(
       join(dir, "inventory-snapshot.json"),
       JSON.stringify(document, null, 2),
@@ -647,8 +694,10 @@ export function apply(ctx: {
         };
     atomicJson(join(dir, "workspace-protection.json"), protection);
   };
-  writeSnap();
-  const timer = setInterval(writeSnap, 1_000);
+  await writeSnap();
+  const timer = setInterval(() => {
+    void writeSnap().catch(() => undefined);
+  }, 1_000);
   timer.unref?.();
   ctx.effect?.(() => () => clearInterval(timer));
   const txDir = join(userData, "profiles", "center-tx");
@@ -658,6 +707,7 @@ export function apply(ctx: {
     catalog: catalog.entries,
     registry,
     lifecycle: createPluginLifecycle(ctx.loader, inventory),
+    health: (id) => pluginHealthFrom(ctx as typeof ctx & Record<string, unknown>, id),
     resourceProbe: (id) =>
       resourceProbeFrom(
         ctx as typeof ctx & Record<string, unknown>,
@@ -672,7 +722,7 @@ export function apply(ctx: {
   });
   const welcomeAck = (): boolean => {
     try {
-      const settings = join(userData, "dsh-home", "settings.yaml");
+      const settings = join(dshHome, "settings.yaml");
       return (
         existsSync(settings) &&
         readFileSync(settings, "utf8").includes("welcomeNoticeVersion")
@@ -700,7 +750,6 @@ export function apply(ctx: {
     official.workspaceRegistry,
     join(userData, "onboarding"),
   ).catch(() => undefined);
-  return host;
 }
 
 Object.assign(apply, { inject });

@@ -390,6 +390,12 @@
 - 决定：0.5.8 不等待官方 npm。Penglai 对 D-063 固定的官方 `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc` 使用上游冻结 lockfile、完整 build、官方 `release:pack` 和 `release:verify-packed-install` 建立未经修改、保留官方包名但不公开发布到 `@deepseek-ai` scope 的本地 tarball 闭包。只有 commit、tree、archive、工具链、完整包数、每包摘要、许可、生成产物和外部 clean install 都通过后，Penglai 才把 manifest、lockfile、runtime、profile 与 release identity 原子迁移到 alpha.1。未来官方 npm 只做人工差异核对，不阻塞开发或发布。
 - 后果：Owner 授权在 `0.5.8-preview` 持续开发、提交和推送，完成后创建 PR、通过必需 CI、合并 `main`，从同一最终 main SHA 构建 Apple Silicon、Intel Mac 与 Windows x64 客户端，组装并发布精确 0.5.8 资产且执行公网字节回读。0.5.7 tag、附件和历史叙事不得改写。根 README、双语 `website/`、Release Notes 与仓库元数据只能在 0.5.8 Release readback PASS 后写入观测到的真实 SHA、大小、摘要和下载链接，再部署并回读 `gh-pages`。
 
+### D-065 — 0.5.9 整体迁移到 DSH alpha.2 官方 npm cohort
+
+- 状态：ACCEPTED（Owner 2026-08-31 明确决定；D-063/D-064 继续作为 0.5.8 不可变历史）
+- 决定：Penglai 0.5.9 使用官方 npm `alpha` dist-tag 的精确 DSH `0.1.2-alpha.2`，对应 tag `dsh-v0.1.2-alpha.2` 与 commit `0a53fb55bea101816fa226bb964ae2bed71c343b`。发行输入必须是固定并带 registry integrity 的完整 257 包 DSH/vendor/Landlock cohort，不得混装 alpha.1，不得用源码路径、Git 依赖或本地重打包替代。依赖图、lockfile、runtime closure、profile、release identity、全部第一方插件与插件中心必须原子迁移；RemoteError、会话 projection、独立 DSH Home generation、连接生命周期、插件 inventory/事务/回滚及用户可见错误脱敏都须重新取证。alpha.2 是完整可消费的官方预发布版，不得宣称为 stable。
+- 后果：Owner 授权删除旧预览分支后在 `0.5.9-preview` 分批开发与推送；全部适用的源代码、合同、集成、安全、供应链、clean closure、installed/live/soak 与三端原生门禁通过后，创建 PR、合并 `main`，从同一干净 main SHA 构建并发布 v0.5.9。0.5.8 tag、附件、README/官网公开事实保持不可变；0.5.9 的 README、双语官网、Release Notes、摘要、大小与下载链接只能在不可变 GitHub Release 公网字节回读通过后写入并部署。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

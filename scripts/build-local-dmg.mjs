@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community-verified macOS DMG for Penglai 0.5.8.
+ * Community-verified macOS DMG for Penglai 0.5.9.
  * Follows PenglaiAgent v0.4.1: complete ad-hoc app seal, codesign strict
  * verification, ordinary UDZO DMG, hdiutil verify. Not Developer ID, not notarized.
  */
@@ -78,14 +78,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.8-arm64",
-    dmg: "dist/Penglai_0.5.8_macos_aarch64.dmg",
-    from: "dist/Penglai-v0.5.8-arm64-from-dmg",
+    out: "dist/Penglai-v0.5.9-arm64",
+    dmg: "dist/Penglai_0.5.9_macos_aarch64.dmg",
+    from: "dist/Penglai-v0.5.9-arm64-from-dmg",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.8-x64",
-    dmg: "dist/Penglai_0.5.8_macos_x64.dmg",
-    from: "dist/Penglai-v0.5.8-x64-from-dmg",
+    out: "dist/Penglai-v0.5.9-x64",
+    dmg: "dist/Penglai_0.5.9_macos_x64.dmg",
+    from: "dist/Penglai-v0.5.9-x64-from-dmg",
   },
 };
 if (!targetArg || !TARGETS[targetArg]) {
@@ -212,7 +212,7 @@ const dirty =
 const hash = sha256(dmgPath);
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.8",
+  productVersion: "0.5.9",
   name: targetSpec.dmg
     .split("/")
     .pop()
@@ -231,7 +231,7 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.2-alpha.1",
+  dsh: "0.1.2-alpha.2",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,

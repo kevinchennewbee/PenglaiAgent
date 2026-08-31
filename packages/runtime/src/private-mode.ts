@@ -125,20 +125,28 @@ function walkSecretTree(root: string, id: PrivateTreeId, posix: boolean): number
   return seen;
 }
 
-export function privateModeTrees(userRoot: string): Array<PrivateModeTree & { path: string }> {
+export function privateModeTrees(userRoot: string, dshHome?: string): Array<PrivateModeTree & { path: string }> {
   const root = resolve(userRoot);
+  const home = resolve(dshHome ?? join(root, "dsh-home"));
   return PRIVATE_MODE_TREES.map((tree) => ({
     ...tree,
-    path: tree.relative === "." ? root : resolve(root, tree.relative),
+    path:
+      tree.id === "dsh-home"
+        ? home
+        : tree.id === "vault"
+          ? join(home, ".credentials.yaml")
+          : tree.relative === "."
+            ? root
+            : resolve(root, tree.relative),
   }));
 }
 
 export function convergePrivatePosixModes(
-  user: { root: string },
+  user: { root: string; dshHome?: string },
   platform: NodeJS.Platform = process.platform,
 ): PrivateModeReport {
   const posix = platform !== "win32";
-  const trees = privateModeTrees(user.root);
+  const trees = privateModeTrees(user.root, user.dshHome);
   const report: PrivateModeReport = {
     platform,
     posixModesApplied: posix,

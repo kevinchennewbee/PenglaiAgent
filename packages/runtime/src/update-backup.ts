@@ -121,6 +121,7 @@ function copyTree(
 export function createSchemaBackup(input: {
   userData: string;
   backupRoot: string;
+  dshHome?: string;
   operationId: string;
   fromVersion: string;
   toVersion: string;
@@ -141,6 +142,21 @@ export function createSchemaBackup(input: {
     throw new PenglaiError("SECURITY_POLICY", "update backup root must not be a symlink");
   }
   mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
+  const activeDshRelative = input.dshHome
+    ? relative(userData, resolve(input.dshHome)).replaceAll("\\", "/")
+    : "dsh-home";
+  assertSafeRelative(activeDshRelative);
+  if (!inside(userData, resolve(userData, activeDshRelative))) {
+    throw new PenglaiError("SECURITY_POLICY", "update backup DSH home escaped userData");
+  }
+  const sources: string[] = [...BACKUP_SOURCES];
+  if (activeDshRelative !== "dsh-home") {
+    for (const rel of BACKUP_SOURCES) {
+      if (rel.startsWith("dsh-home/")) {
+        sources.push(`${activeDshRelative}/${rel.slice("dsh-home/".length)}`);
+      }
+    }
+  }
   const destination = join(backupRoot, input.operationId);
   const staging = join(backupRoot, `.${input.operationId}.${randomBytes(8).toString("hex")}.staging`);
   if (existsSync(destination) || existsSync(staging)) {
@@ -150,7 +166,7 @@ export function createSchemaBackup(input: {
   try {
     const files: SchemaBackupManifest["files"] = [];
     const byteBudget = { remaining: input.maxBytes ?? 2 * 1024 * 1024 * 1024 };
-    for (const rel of BACKUP_SOURCES) {
+    for (const rel of sources) {
       assertSafeRelative(rel);
       const source = join(userData, rel);
       if (existsSync(source)) copyTree(userData, source, staging, files, byteBudget);

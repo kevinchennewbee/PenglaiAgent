@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { MNEMON_ASSETS, MNEMON_UPSTREAM } from "../packages/release-identity/src/mnemon-assets.js";
@@ -158,10 +159,14 @@ const sbom = {
   specVersion: "1.5",
   version: 1,
   metadata: {
-    component: { type: "application", name: "Penglai", version: "0.5.8" },
-    tools: [{ name: "penglai-sbom", version: "0.5.8" }],
+    component: { type: "application", name: "Penglai", version: "0.5.9" },
+    tools: [{ name: "penglai-sbom", version: "0.5.9" }],
   },
-  release: "0.5.8",
+  release: "0.5.9",
+  sourceSha:
+    licenseEvidence.sourceSha ||
+    execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  target: licenseEvidence.target || `${process.platform}-${process.arch}`,
   lockfileSha256: createHash("sha256").update(lock).digest("hex"),
   componentCount: components.length,
   components,

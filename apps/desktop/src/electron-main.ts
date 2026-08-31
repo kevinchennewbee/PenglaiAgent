@@ -7,6 +7,7 @@ import { PenglaiError, assertSafeHttpsUrl } from "@penglai/contracts";
 import { startDshProxy, type LocalProxy } from "@penglai/local-control";
 import {
   AssistedUpdateCoordinator,
+  activateDshHomeBootPlan,
   DeletionAuthorizer,
   PINNED_DSH,
   PENGLAI_VERSION,
@@ -29,15 +30,16 @@ import {
   migrateRc8UserData,
   pluginPermissionDigest,
   quarantineRevokedPlugins,
+  prepareDshHomeForBoot,
   runtimePluginTarget,
   selectCatalogArtifact,
   readInventorySnapshot,
+  resetManagedDshModuleFallback,
   recoverProfile,
   resolveUserLayout,
   deletionInspectionOptionsForPlatform,
-  writeWindowsDeletionCapability,
-  clearWindowsDeletionCapability,
   type DeletionPreview,
+  type DshHomeBootPlan,
   type PluginOwnerAction,
   type RedactedSupervisorDiagnostic,
   type SupervisorRecoverySnapshot,
@@ -353,9 +355,10 @@ async function main(): Promise<void> {
     cb(decision.allow);
   });
   session.defaultSession.on("will-download", (event) => event.preventDefault());
-  const user = { ...resolveUserLayout(desktopData.userData), logs: desktopData.logs };
+  let user = { ...resolveUserLayout(desktopData.userData), logs: desktopData.logs };
   ownerBrokerForWindow(user.root, win);
   const live = new DshSupervisor();
+  let dshHomeBootPlan: DshHomeBootPlan | undefined;
   let proxy: LocalProxy | undefined;
   let allowedOrigin = "http://127.0.0.1:1/";
   const recoveryPage = join(here, "static", "index.html");
@@ -586,7 +589,14 @@ async function main(): Promise<void> {
     }
     const resources = resourcesRoot();
     const layout = layoutFromResources(resources);
+    dshHomeBootPlan = prepareDshHomeForBoot({ userRoot: user.root });
+    user = {
+      ...resolveUserLayout(desktopData.userData, dshHomeBootPlan.dshHome),
+      logs: desktopData.logs,
+    };
+    desktopData.managedData.dshHome = user.dshHome;
     ensurePrivateHome(user, layout.appRoot);
+    resetManagedDshModuleFallback(user);
     migrateRc8UserData(user.root);
     quarantineRevokedPlugins({ userDataRoot: user.root, profileDir: user.profileWeb });
     recoverProfile(user);
@@ -747,6 +757,7 @@ async function main(): Promise<void> {
                   createSchemaBackup({
                     userData: user.root,
                     backupRoot: desktopData.updateBackups,
+                    dshHome: user.dshHome,
                     operationId,
                     fromVersion,
                     toVersion,
@@ -802,14 +813,6 @@ async function main(): Promise<void> {
               });
               const preview = authorizer.prepare(plan);
               pendingDeletion = { authorizer, preview };
-              if (platform === "win32") {
-                writeWindowsDeletionCapability({
-                  journalDir: desktopData.uninstall,
-                  operationId: preview.operationId,
-                  root: user.root,
-                  paths: preview.targets.map((target) => target.path),
-                });
-              }
               return {
                 preview,
                 ...(platform === "darwin"
@@ -837,7 +840,6 @@ async function main(): Promise<void> {
             }
             pendingDeletion.authorizer.cancel(input.operationId);
             pendingDeletion = undefined;
-            if (platform === "win32") clearWindowsDeletionCapability(desktopData.uninstall);
             await restartOwnedServices();
             return { cancelled: true, operationId: input.operationId };
           });
@@ -867,7 +869,6 @@ async function main(): Promise<void> {
             pendingDeletion = undefined;
             try {
               const result = current.authorizer.execute(input.operationId);
-              if (platform === "win32") clearWindowsDeletionCapability(desktopData.uninstall);
               const timer = setTimeout(() => app.quit(), 250);
               timer.unref?.();
               return { ...result, operationId: input.operationId, appWillQuit: true };
@@ -1041,7 +1042,7 @@ async function main(): Promise<void> {
             platform: "win32",
             steps: [
               "Close Penglai and use the current-user Penglai uninstaller.",
-              "Keep app data by default; delete only a separately confirmed capability plan.",
+              "Keep app data by default; selected data is deleted only inside Penglai after separate confirmation.",
             ],
             preservesWorkspace: true,
           };
@@ -1074,6 +1075,27 @@ async function main(): Promise<void> {
     };
     if (!processTree.dshPid || !processTree.nodeExists || !processTree.ownedAbsolute) {
       throw new Error("owned embedded DSH process tree not observed");
+    }
+    if (dshHomeBootPlan && dshHomeBootPlan.kind !== "active") {
+      if (live.state !== "healthy" || live.health?.http !== 200 || !report.profile.exists) {
+        throw new PenglaiError("DSH_UNAVAILABLE", "alpha.2 DSH Home validation is incomplete");
+      }
+      const requiredPluginsActive = inventory.required
+        .filter((row) => row.enabled && row.active && row.health === "ready")
+        .map((row) => row.id);
+      activateDshHomeBootPlan({
+        userRoot: user.root,
+        plan: dshHomeBootPlan,
+        validation: {
+          dshVersion: PINNED_DSH,
+          officialDocument: true,
+          dshHealthy: true,
+          profileReady: true,
+          requiredPluginsActive,
+          validatedAt: new Date().toISOString(),
+        },
+      });
+      dshHomeBootPlan = { kind: "active", dshHome: user.dshHome };
     }
     const pendingUpdate = updater.status();
     if (pendingUpdate.state === "RESTART_PENDING" || pendingUpdate.state === "POST_UPDATE_VERIFY") {

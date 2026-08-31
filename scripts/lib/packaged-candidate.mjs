@@ -7,22 +7,30 @@ import { CLOSURE_CREDENTIAL_SCHEMA } from "./closure-credential.mjs";
 import { readReleaseIdentityPins } from "./release-pins-source.mjs";
 
 const RELEASE_PINS = readReleaseIdentityPins();
+const REQUIRED_LEGAL_FILES = Object.freeze({
+  "licenses/sharp/libvips-LGPL-2.1.txt":
+    "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+  "licenses/sharp/sharp-libvips-Apache-2.0.txt":
+    "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+  "licenses/sharp/sharp-libvips-THIRD-PARTY-NOTICES.md":
+    "25ffcfa69e28b1913ced27ec778b90f24911a1bb3021253577e8b0af55db0d49",
+});
 
 export const PACKAGED_TARGETS = Object.freeze({
   "darwin-aarch64": Object.freeze({
     buildTarget: "darwin-arm64",
-    appRelative: "dist/Penglai-v0.5.8-arm64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.8_macos_aarch64.dmg",
+    appRelative: "dist/Penglai-v0.5.9-arm64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.9_macos_aarch64.dmg",
   }),
   "darwin-x86_64": Object.freeze({
     buildTarget: "darwin-x64",
-    appRelative: "dist/Penglai-v0.5.8-x64-from-dmg/Penglai.app",
-    dmgRelative: "dist/Penglai_0.5.8_macos_x64.dmg",
+    appRelative: "dist/Penglai-v0.5.9-x64-from-dmg/Penglai.app",
+    dmgRelative: "dist/Penglai_0.5.9_macos_x64.dmg",
   }),
   "win32-x86_64": Object.freeze({
     buildTarget: "win32-x64",
-    appRelative: "dist/Penglai-v0.5.8-win32-x64/Penglai",
-    dmgRelative: "dist/Penglai_0.5.8_windows_x64_setup.exe",
+    appRelative: "dist/Penglai-v0.5.9-win32-x64/Penglai",
+    dmgRelative: "dist/Penglai_0.5.9_windows_x64_setup.exe",
   }),
 });
 
@@ -115,7 +123,7 @@ export function inspectPackagedCandidate({
   }
   if (
     release.productName !== "Penglai" ||
-    release.productVersion !== "0.5.8" ||
+    release.productVersion !== RELEASE_PINS.productVersion ||
     release.generationId !== "penglai-dsh-v0.5" ||
     release.trustTier !== "community-verified" ||
     release.targetPlatform !== spec.buildTarget
@@ -155,7 +163,7 @@ export function inspectPackagedCandidate({
     };
   }
   if (
-    manifest.release !== "0.5.8" ||
+    manifest.release !== RELEASE_PINS.productVersion ||
     manifest.target !== expectedTarget ||
     manifest.dsh !== release.dsh ||
     !Array.isArray(manifest.files) ||
@@ -212,6 +220,15 @@ export function inspectPackagedCandidate({
       return {
         verdict: "STALE",
         reason: `embedded closure file bytes mismatch: ${row.path}`,
+        app,
+      };
+    }
+  }
+  for (const [relativePath, expectedSha256] of Object.entries(REQUIRED_LEGAL_FILES)) {
+    if (!seen.has(relativePath) || sha256File(join(resources, relativePath)) !== expectedSha256) {
+      return {
+        verdict: "FAIL",
+        reason: `required packaged legal material missing or changed: ${relativePath}`,
         app,
       };
     }

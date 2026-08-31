@@ -76,7 +76,7 @@ export const OFFICIAL_THEME_SETTINGS_NS = "ui-theme" as const;
 export const OFFICIAL_SETTINGS_PREFERENCE_FIELD = "preference" as const;
 export const OFFICIAL_WELCOME_SETTINGS_NS = "ui-onboarding" as const;
 export const OFFICIAL_WELCOME_ACK_FIELD = "welcomeNoticeVersion" as const;
-/** Exact acknowledgement version exported by the fixed DSH 0.1.2-alpha.1 source. */
+/** Exact acknowledgement version exported by the fixed DSH 0.1.2-alpha.2 source. */
 export const DSH_WELCOME_NOTICE_VERSION = "2026-08-13.1" as const;
 
 export const ONBOARDING_STEPS = [

@@ -1,6 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import { digestFinal, type PenglaiMossTtsService } from "./service.js";
 
 const OPERATION_ID = /^[A-Za-z0-9_-]{8,128}$/;
@@ -128,57 +128,57 @@ export class PenglaiMossTtsRemote extends TypertRemoteService {
     super(ctx, "penglaiMossTtsSettings");
   }
 
-  @Remote
+  @PenglaiRemote
   describe() {
     return this.api.describe();
   }
 
-  @Remote
+  @PenglaiRemote
   describeModels() {
     return this.api.describeModels();
   }
 
-  @Remote
+  @PenglaiRemote
   listVoices() {
     return this.api.listVoices();
   }
 
-  @Remote
+  @PenglaiRemote
   prepareModel(input: { operationId: string }) {
     return this.api.prepareModel(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   pauseDownload(input: { operationId: string }) {
     return this.api.pauseDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   resumeDownload(input: { operationId: string }) {
     return this.api.resumeDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelDownload(input: { operationId: string }) {
     return this.api.cancelDownload(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   getOperation(input: { operationId: string }) {
     return this.api.getOperation(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   cancelSynthesis(input: { operationId: string }) {
     return this.api.cancelSynthesis(input.operationId);
   }
 
-  @Remote
+  @PenglaiRemote
   previewVoice(input: { voiceId: string; locale: "zh" | "en" | "ja"; operationId: string }) {
     return this.api.previewVoice(input);
   }
 
-  @Remote
+  @PenglaiRemote
   readAloud(input: {
     text: string;
     voiceId?: string;

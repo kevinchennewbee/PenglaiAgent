@@ -41,6 +41,7 @@ import {
   FIRST_PARTY_PLUGIN_METADATA,
   profilePluginEnabled,
   runtimePluginTarget,
+  verifyRuntimeManifest,
   windowsOwnedProcessEnvironment,
 } from "./index.js";
 import { writeTestTarGz } from "../../../scripts/lib/test-tar-fixture.mjs";
@@ -57,6 +58,11 @@ function installBuiltWindowsRuntime(appRoot: string): string {
   mkdirSync(nodeDir, { recursive: true });
   copyFileSync(process.execPath, nodeBin);
   return nodeBin;
+}
+
+function runtimeManifestEntry(appRoot: string, path: string) {
+  const bytes = readFileSync(join(appRoot, ...path.split("/")));
+  return { path, sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.byteLength };
 }
 
 test("embedded DSH Web never opens the operating-system browser", () => {
@@ -233,6 +239,27 @@ test("doctor fails closed on a missing runtime manifest even when binaries exist
   assert.equal(doctorExitCode(report), 2);
 });
 
+test("runtime manifest rejects an unlisted file in a managed packaged tree", () => {
+  const app = mkdtempSync(join(tmpdir(), "penglai-runtime-manifest-extra-"));
+  const dshEntry = join(app, "runtime", "dsh", "lib", "bin.js");
+  const manifestPath = join(app, "runtime-manifest.json");
+  mkdirSync(join(app, "runtime", "dsh", "lib"), { recursive: true });
+  writeFileSync(dshEntry, "export {};\n");
+  writeFileSync(manifestPath, JSON.stringify({ files: [runtimeManifestEntry(app, "runtime/dsh/lib/bin.js")] }));
+  const layout = {
+    appRoot: app,
+    nodeBin: process.execPath,
+    dshEntry,
+    profileSeed: join(app, "profile-seed", "web"),
+    pluginsDir: join(app, "plugins"),
+    manifestPath,
+    officialDeepseek: join(app, "runtime", "dsh", "node_modules", "@deepseek-ai"),
+  };
+  assert.deepEqual(verifyRuntimeManifest(layout), { ok: true });
+  writeFileSync(join(app, "runtime", "dsh", "unexpected.js"), "unexpected\n");
+  assert.throws(() => verifyRuntimeManifest(layout), /unexpected runtime files/);
+});
+
 test("existing profile is refreshed from newer first-party plugin tarballs", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
@@ -352,12 +379,15 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     'const root = process.env.PENGLAI_USER_DATA;',
     'const plugins = join(root, "plugins");',
     'mkdirSync(plugins, { recursive: true });',
-    'writeFileSync(join(plugins, "inventory-snapshot.json"), JSON.stringify({ entries: [',
-    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.1-rc.2" },',
-    '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.7" },',
-    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.7" },',
-    '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.7" }',
-    '] }));',
+    'const inventory = { entries: [',
+    '  { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-alpha.2" },',
+    '  { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.9" },',
+    '  { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.9" },',
+    '  { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.9" }',
+    '] };',
+    'inventory.launchNonce = process.env.PENGLAI_DSH_LAUNCH_NONCE;',
+    'inventory.dshPid = process.pid;',
+    'writeFileSync(join(plugins, "inventory-snapshot.json"), JSON.stringify(inventory));',
     'const modePath = join(root, "health-mode.txt");',
     'const server = createServer((_req, res) => {',
     '  const mode = existsSync(modePath) ? readFileSync(modePath, "utf8").trim() : "healthy";',
@@ -373,12 +403,16 @@ test("embedded supervisor restarts a live process whose official HTTP route hang
     '});',
   ].join("\n");
   writeFileSync(dshEntry, fakeDsh, { mode: 0o700 });
-  const digest = createHash("sha256").update(fakeDsh).digest("hex");
+  const nodeBin = installBuiltWindowsRuntime(app);
+  const files = [runtimeManifestEntry(app, "runtime/dsh/lib/bin.js")];
+  if (process.platform === "win32") {
+    files.push(runtimeManifestEntry(app, "runtime/node/node.exe"));
+    files.push(runtimeManifestEntry(app, "runtime/helpers/penglai-windows-host.exe"));
+  }
   writeFileSync(manifestPath, JSON.stringify({
-    files: [{ path: "runtime/dsh/lib/bin.js", sha256: digest, size: Buffer.byteLength(fakeDsh) }],
+    files,
   }));
   writeFileSync(modePath, "healthy\n");
-  const nodeBin = installBuiltWindowsRuntime(app);
   ensurePrivateHome(user, app);
   const recoveryStates: string[] = [];
   const supervisor = new EmbeddedDshSupervisor({

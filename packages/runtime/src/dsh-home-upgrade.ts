@@ -18,9 +18,9 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { PenglaiError, readExactRegularFile } from "@penglai/contracts";
 import { writeFileAtomic } from "./permissions.js";
 
-export const DSH_HOME_SOURCE_VERSION = "0.1.1-rc.2";
-export const DSH_HOME_TARGET_VERSION = "0.1.2-alpha.1";
-export const DSH_HOME_UPGRADE_ID = "dsh-home-0.1.1-rc.2-to-0.1.2-alpha.1";
+export const DSH_HOME_SOURCE_VERSION = "0.1.2-alpha.1";
+export const DSH_HOME_TARGET_VERSION = "0.1.2-alpha.2";
+export const DSH_HOME_UPGRADE_ID = "dsh-home-0.1.2-alpha.1-to-0.1.2-alpha.2";
 
 const MANIFEST_NAME = ".penglai-dsh-home.json";
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
@@ -86,6 +86,23 @@ export interface ActiveDshHomeManifest {
   activatedAt: string;
   targetDigest?: string;
   rollbackReason?: string;
+  activationKind?: "migration" | "fresh";
+}
+
+interface FreshDshHomeManifest {
+  schema: 1;
+  kind: "fresh";
+  dshVersion: typeof DSH_HOME_TARGET_VERSION;
+  state: "prepared" | "active";
+  preparedAt: string;
+  activatedAt?: string;
+  targetDigest?: string;
+}
+
+export interface DshHomeBootPlan {
+  kind: "active" | "migration-prepared" | "fresh-prepared";
+  dshHome: string;
+  operationId?: string;
 }
 
 interface TreeEntry {
@@ -249,6 +266,13 @@ function safeRelative(path: string): void {
   }
 }
 
+function isManagedOfficialRuntimeLink(path: string): boolean {
+  return (
+    path === "profiles/node_modules" ||
+    /^profiles\/[^/]+\/node_modules\/@deepseek-ai$/.test(path)
+  );
+}
+
 function walkTree(
   root: string,
   options: { maxEntries: number; maxBytes: number },
@@ -267,6 +291,14 @@ function walkTree(
         "DSH home walk escaped its generation",
       );
     }
+    const currentRelative =
+      current === canonicalRoot
+        ? ""
+        : relative(canonicalRoot, current).replaceAll("\\", "/");
+    // Profile activation recreates the alpha.2 root dependency mirror and the
+    // profile's @deepseek-ai link from the immutable embedded runtime on every
+    // boot. They are not user state; every other symlink remains forbidden.
+    if (isManagedOfficialRuntimeLink(currentRelative)) continue;
     const stat = lstatSync(current);
     if (stat.isSymbolicLink()) {
       throw new PenglaiError(
@@ -281,7 +313,7 @@ function walkTree(
       );
     }
     if (current !== canonicalRoot) {
-      const rel = relative(canonicalRoot, current).replaceAll("\\", "/");
+      const rel = currentRelative;
       safeRelative(rel);
       if (rel === MANIFEST_NAME) continue;
       if (stat.isDirectory()) {
@@ -443,6 +475,41 @@ function readJournal(
   return value as DshHomeUpgradeJournal;
 }
 
+function readTargetGenerationManifest(paths: DshHomeUpgradePaths): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      readExactRegularFile(join(paths.targetHome, MANIFEST_NAME), MAX_MANIFEST_BYTES).toString("utf8"),
+    );
+  } catch {
+    throw new PenglaiError("STORE_CORRUPT", "target DSH home generation marker is unreadable");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new PenglaiError("STORE_CORRUPT", "target DSH home generation marker is invalid");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function readFreshDshHomeManifest(paths: DshHomeUpgradePaths): FreshDshHomeManifest {
+  const value = readTargetGenerationManifest(paths) as Partial<FreshDshHomeManifest>;
+  if (
+    value.schema !== 1 ||
+    value.kind !== "fresh" ||
+    value.dshVersion !== DSH_HOME_TARGET_VERSION ||
+    (value.state !== "prepared" && value.state !== "active") ||
+    typeof value.preparedAt !== "string" ||
+    !Number.isFinite(Date.parse(value.preparedAt)) ||
+    (value.state === "active" &&
+      (typeof value.activatedAt !== "string" ||
+        !Number.isFinite(Date.parse(value.activatedAt)) ||
+        typeof value.targetDigest !== "string" ||
+        !/^[0-9a-f]{64}$/.test(value.targetDigest)))
+  ) {
+    throw new PenglaiError("STORE_CORRUPT", "fresh DSH home generation marker has invalid identity");
+  }
+  return value as FreshDshHomeManifest;
+}
+
 function availableBytes(path: string): number {
   const stats = statfsSync(path, { bigint: true });
   const value = stats.bavail * stats.bsize;
@@ -481,7 +548,7 @@ export function prepareDshHomeUpgrade(input: {
   mkdirSync(paths.userRoot, { recursive: true, mode: 0o700 });
   assertRealDirectory(paths.userRoot, "Penglai user root");
   return withWriterLock(paths, () => {
-    assertRealDirectory(paths.sourceHome, "0.5.7 DSH home");
+    assertRealDirectory(paths.sourceHome, "0.5.8 alpha.1 DSH home");
     mkdirSync(paths.homesRoot, { recursive: true, mode: 0o700 });
     assertRealDirectory(paths.homesRoot, "DSH home generations root");
     if (
@@ -603,13 +670,13 @@ export function activateDshHomeUpgrade(input: {
         "DSH home generation is not prepared for activation",
       );
     }
-    assertRealDirectory(paths.sourceHome, "0.5.7 DSH home");
+    assertRealDirectory(paths.sourceHome, "0.5.8 alpha.1 DSH home");
     assertRealDirectory(paths.targetHome, "alpha DSH home");
     const sourceNow = snapshotTree(paths.sourceHome, { maxEntries, maxBytes });
     if (sourceNow.digest !== journal.sourceSnapshot.digest) {
       throw new PenglaiError(
         "STORE_CORRUPT",
-        "0.5.7 DSH home changed during alpha validation",
+        "0.5.8 alpha.1 DSH home changed during alpha.2 validation",
       );
     }
     const activeSnapshot = snapshotTree(paths.targetHome, {
@@ -624,6 +691,7 @@ export function activateDshHomeUpgrade(input: {
       operationId: input.operationId,
       activatedAt,
       targetDigest: activeSnapshot.digest,
+      activationKind: "migration",
     };
     const next: DshHomeUpgradeJournal = {
       ...journal,
@@ -663,7 +731,7 @@ export function rollbackDshHomeUpgrade(input: {
         "only an active DSH home generation can roll back",
       );
     }
-    assertRealDirectory(paths.sourceHome, "0.5.7 DSH home");
+    assertRealDirectory(paths.sourceHome, "0.5.8 alpha.1 DSH home");
     const sourceNow = snapshotTree(paths.sourceHome, {
       maxEntries: DEFAULT_MAX_ENTRIES,
       maxBytes: DEFAULT_MAX_BYTES,
@@ -671,7 +739,7 @@ export function rollbackDshHomeUpgrade(input: {
     if (sourceNow.digest !== journal.sourceSnapshot.digest) {
       throw new PenglaiError(
         "STORE_CORRUPT",
-        "0.5.7 DSH home changed before rollback",
+        "0.5.8 alpha.1 DSH home changed before rollback",
       );
     }
     const rolledBackAt = (input.now ?? new Date()).toISOString();
@@ -762,7 +830,10 @@ export function readActiveDshHome(
     isAbsolute(value.homeRelative) ||
     value.homeRelative.split(/[\\/]/).includes("..") ||
     typeof value.activatedAt !== "string" ||
-    !Number.isFinite(Date.parse(value.activatedAt))
+    !Number.isFinite(Date.parse(value.activatedAt)) ||
+    (value.activationKind !== undefined &&
+      value.activationKind !== "migration" &&
+      value.activationKind !== "fresh")
   ) {
     throw new PenglaiError(
       "STORE_CORRUPT",
@@ -797,30 +868,218 @@ export function readActiveDshHome(
     );
   }
   if (value.activeVersion === DSH_HOME_TARGET_VERSION) {
-    if (
-      typeof value.operationId !== "string" ||
-      !/^[A-Za-z0-9_-]{8,128}$/.test(value.operationId) ||
-      typeof value.targetDigest !== "string" ||
-      !/^[0-9a-f]{64}$/.test(value.targetDigest)
-    ) {
+    if (typeof value.targetDigest !== "string" || !/^[0-9a-f]{64}$/.test(value.targetDigest)) {
       throw new PenglaiError(
         "STORE_CORRUPT",
         "active alpha DSH home lacks activation evidence",
       );
     }
-    const journal = readJournal(paths, value.operationId);
-    if (
-      journal.state !== "active" ||
-      journal.activeSnapshot?.digest !== value.targetDigest ||
-      journal.activatedAt !== value.activatedAt
-    ) {
-      throw new PenglaiError(
-        "STORE_CORRUPT",
-        "active alpha DSH home disagrees with its journal",
-      );
+    if (value.activationKind === "fresh") {
+      const fresh = readFreshDshHomeManifest(paths);
+      if (
+        fresh.state !== "active" ||
+        fresh.activatedAt !== value.activatedAt ||
+        fresh.targetDigest !== value.targetDigest
+      ) {
+        throw new PenglaiError("STORE_CORRUPT", "active fresh DSH home disagrees with its marker");
+      }
+    } else {
+      if (typeof value.operationId !== "string" || !/^[A-Za-z0-9_-]{8,128}$/.test(value.operationId)) {
+        throw new PenglaiError("STORE_CORRUPT", "active alpha DSH home lacks migration identity");
+      }
+      const journal = readJournal(paths, value.operationId);
+      if (
+        journal.state !== "active" ||
+        journal.activeSnapshot?.digest !== value.targetDigest ||
+        journal.activatedAt !== value.activatedAt
+      ) {
+        throw new PenglaiError(
+          "STORE_CORRUPT",
+          "active alpha DSH home disagrees with its journal",
+        );
+      }
     }
   }
   return value as ActiveDshHomeManifest;
+}
+
+/**
+ * Select the alpha.2 DSH Home used by 0.5.9 without ever starting alpha.2
+ * against the mutable alpha.1 directory. A prepared generation is resumable:
+ * the active pointer is written only after the embedded Host and required
+ * first-party plugins have been observed healthy.
+ */
+export function prepareDshHomeForBoot(input: {
+  userRoot: string;
+  now?: Date;
+  availableBytes?: number;
+  reserveBytes?: number;
+}): DshHomeBootPlan {
+  const paths = resolveDshHomeUpgradePaths(input.userRoot);
+  mkdirSync(paths.userRoot, { recursive: true, mode: 0o700 });
+  assertRealDirectory(paths.userRoot, "Penglai user root");
+  if (existsSync(paths.activeManifest)) {
+    const active = readActiveDshHome(input.userRoot);
+    if (active?.activeVersion !== DSH_HOME_TARGET_VERSION) {
+      throw new PenglaiError(
+        "DSH_UNAVAILABLE",
+        "alpha.2 cannot start after a Home rollback; restore the previous Penglai version",
+      );
+    }
+    return { kind: "active", dshHome: paths.targetHome };
+  }
+
+  if (existsSync(paths.targetHome)) {
+    assertRealDirectory(paths.targetHome, "prepared alpha.2 DSH home");
+    const marker = readTargetGenerationManifest(paths);
+    if (marker.kind === "fresh") {
+      const fresh = readFreshDshHomeManifest(paths);
+      if (fresh.state === "active") {
+        const current = snapshotTree(paths.targetHome, {
+          maxEntries: DEFAULT_MAX_ENTRIES,
+          maxBytes: DEFAULT_MAX_BYTES,
+        });
+        if (!fresh.activatedAt || !fresh.targetDigest || current.digest !== fresh.targetDigest) {
+          throw new PenglaiError("STORE_CORRUPT", "committed fresh DSH home changed before pointer recovery");
+        }
+        writeJson(paths.activeManifest, {
+          schema: 1,
+          activeVersion: DSH_HOME_TARGET_VERSION,
+          homeRelative: `dsh-homes/dsh-v${DSH_HOME_TARGET_VERSION}`,
+          activatedAt: fresh.activatedAt,
+          targetDigest: fresh.targetDigest,
+          activationKind: "fresh",
+        } satisfies ActiveDshHomeManifest);
+        return { kind: "active", dshHome: paths.targetHome };
+      }
+      if (fresh.state !== "prepared") {
+        throw new PenglaiError("STORE_CORRUPT", "fresh DSH home marker state is invalid");
+      }
+      return { kind: "fresh-prepared", dshHome: paths.targetHome };
+    }
+    if (typeof marker.operationId !== "string") {
+      throw new PenglaiError("STORE_CORRUPT", "prepared DSH home lacks migration identity");
+    }
+    const journal = readJournal(paths, marker.operationId);
+    if (journal.state === "active") {
+      const current = snapshotTree(paths.targetHome, {
+        maxEntries: DEFAULT_MAX_ENTRIES,
+        maxBytes: DEFAULT_MAX_BYTES,
+      });
+      if (!journal.activatedAt || !journal.activeSnapshot || current.digest !== journal.activeSnapshot.digest) {
+        throw new PenglaiError("STORE_CORRUPT", "committed migrated DSH home changed before pointer recovery");
+      }
+      writeJson(paths.activeManifest, {
+        schema: 1,
+        activeVersion: DSH_HOME_TARGET_VERSION,
+        homeRelative: journal.targetRelative,
+        operationId: journal.operationId,
+        activatedAt: journal.activatedAt,
+        targetDigest: journal.activeSnapshot.digest,
+        activationKind: "migration",
+      } satisfies ActiveDshHomeManifest);
+      return { kind: "active", dshHome: paths.targetHome };
+    }
+    if (journal.state !== "prepared") {
+      throw new PenglaiError("STORE_CORRUPT", "DSH home journal state is invalid without an active pointer");
+    }
+    return {
+      kind: "migration-prepared",
+      dshHome: paths.targetHome,
+      operationId: journal.operationId,
+    };
+  }
+
+  if (existsSync(paths.sourceHome)) {
+    const operationId = `upgrade_${randomBytes(16).toString("hex")}`;
+    prepareDshHomeUpgrade({
+      userRoot: input.userRoot,
+      operationId,
+      ...(input.now ? { now: input.now } : {}),
+      ...(input.availableBytes === undefined ? {} : { availableBytes: input.availableBytes }),
+      ...(input.reserveBytes === undefined ? {} : { reserveBytes: input.reserveBytes }),
+    });
+    return { kind: "migration-prepared", dshHome: paths.targetHome, operationId };
+  }
+
+  return withWriterLock(paths, () => {
+    mkdirSync(paths.homesRoot, { recursive: true, mode: 0o700 });
+    assertRealDirectory(paths.homesRoot, "DSH home generations root");
+    if (existsSync(paths.targetHome)) {
+      throw new PenglaiError("SECURITY_POLICY", "fresh DSH home appeared during preparation");
+    }
+    mkdirSync(paths.targetHome, { mode: 0o700 });
+    const fresh: FreshDshHomeManifest = {
+      schema: 1,
+      kind: "fresh",
+      dshVersion: DSH_HOME_TARGET_VERSION,
+      state: "prepared",
+      preparedAt: (input.now ?? new Date()).toISOString(),
+    };
+    writeJson(join(paths.targetHome, MANIFEST_NAME), fresh);
+    return { kind: "fresh-prepared", dshHome: paths.targetHome };
+  });
+}
+
+export function activateDshHomeBootPlan(input: {
+  userRoot: string;
+  plan: DshHomeBootPlan;
+  validation: DshHomeValidation;
+  now?: Date;
+}): ActiveDshHomeManifest {
+  assertValidation(input.validation);
+  const paths = resolveDshHomeUpgradePaths(input.userRoot);
+  if (resolve(input.plan.dshHome) !== resolve(paths.targetHome)) {
+    throw new PenglaiError("SECURITY_POLICY", "DSH Home boot plan does not select the alpha.2 generation");
+  }
+  if (input.plan.kind === "active") {
+    const active = readActiveDshHome(input.userRoot);
+    if (active?.activeVersion !== DSH_HOME_TARGET_VERSION) {
+      throw new PenglaiError("STORE_CORRUPT", "active DSH Home disappeared during boot");
+    }
+    return active;
+  }
+  if (input.plan.kind === "migration-prepared") {
+    if (!input.plan.operationId) {
+      throw new PenglaiError("STORE_CORRUPT", "migration boot plan lacks an operation id");
+    }
+    return activateDshHomeUpgrade({
+      userRoot: input.userRoot,
+      operationId: input.plan.operationId,
+      validation: input.validation,
+      ...(input.now ? { now: input.now } : {}),
+    });
+  }
+
+  return withWriterLock(paths, () => {
+    assertRealDirectory(paths.targetHome, "fresh alpha.2 DSH home");
+    const fresh = readFreshDshHomeManifest(paths);
+    if (fresh.state !== "prepared") {
+      throw new PenglaiError("INVALID_INPUT", "fresh DSH Home is not prepared for activation");
+    }
+    const activeSnapshot = snapshotTree(paths.targetHome, {
+      maxEntries: DEFAULT_MAX_ENTRIES,
+      maxBytes: DEFAULT_MAX_BYTES,
+    });
+    const activatedAt = (input.now ?? new Date()).toISOString();
+    const active: ActiveDshHomeManifest = {
+      schema: 1,
+      activeVersion: DSH_HOME_TARGET_VERSION,
+      homeRelative: `dsh-homes/dsh-v${DSH_HOME_TARGET_VERSION}`,
+      activatedAt,
+      targetDigest: activeSnapshot.digest,
+      activationKind: "fresh",
+    };
+    const committed: FreshDshHomeManifest = {
+      ...fresh,
+      state: "active",
+      activatedAt,
+      targetDigest: activeSnapshot.digest,
+    };
+    writeJson(join(paths.targetHome, MANIFEST_NAME), committed);
+    writeJson(paths.activeManifest, active);
+    return active;
+  });
 }
 
 export function resolveDshHomeForVersion(
@@ -830,7 +1089,7 @@ export function resolveDshHomeForVersion(
   assertVersion(version);
   const paths = resolveDshHomeUpgradePaths(userRoot);
   if (version === DSH_HOME_SOURCE_VERSION) {
-    assertRealDirectory(paths.sourceHome, "0.5.7 DSH home");
+    assertRealDirectory(paths.sourceHome, "0.5.8 alpha.1 DSH home");
     return paths.sourceHome;
   }
   const active = readActiveDshHome(userRoot);

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -33,6 +34,15 @@ const SILK_INTEGRITY = "sha512-mXPwLRtZxrYV3TZx41jMAeKc80wvmyrcXIcs8HctFxK15Ahz2
 const LIBOPUS_INTEGRITY = "sha512-x/2Gu1/C6L3IICY09zyfp984AWiOYjn53u4WfdY3yh+3KTzMN8Xkm77q3lenWMVIk5SnSzjGEkQT+VQMFHLBHQ==";
 const NOTO_CJK_SHA256 = "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964";
 const NOTO_OFL_SHA256 = "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2";
+const SHARP_LEGAL_FILES = Object.freeze([
+  ["third_party/sharp/libvips-LGPL-2.1.txt", "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"],
+  ["third_party/sharp/sharp-libvips-Apache-2.0.txt", "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"],
+  ["third_party/sharp/sharp-libvips-THIRD-PARTY-NOTICES.md", "25ffcfa69e28b1913ced27ec778b90f24911a1bb3021253577e8b0af55db0d49"],
+]);
+
+function sha256File(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
 
 function packageInfoFor(
   packageName,
@@ -49,10 +59,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.1" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.1" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.2" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -370,7 +380,7 @@ function installedLicenseInventory({ production }) {
     const sourceRow = sourceRows.get(`${name}@${version}`);
     const integrity = sourceRow ? `sha256-${sourceRow.sha256}` : integrityForPackage(lockRows, name, version);
     const decision = production
-      ? classifyLicense(name, declaredLicense)
+      ? classifyLicense(name, declaredLicense, version)
       : {
           effectiveLicense: declaredLicense,
           disposition: "development-or-optional-installed-closure",
@@ -410,30 +420,57 @@ if (
 ) {
   throw new Error("retired channel runtime absence boundary drift");
 }
-const sharpRows = productionInventory.filter((row) => /^@img\/sharp-libvips-/.test(row.name));
+const officeSharpRows = productionInventory.filter(
+  (row) => /^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.2",
+);
+const dshSharpRows = productionInventory.filter(
+  (row) =>
+    (/^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.3") ||
+    (row.name === "@img/sharp-win32-x64" && row.version === "0.35.4"),
+);
+const lgplOffer = readFileSync("docs/0.5.9/LGPL_SOURCE_OFFER.md", "utf8");
+for (const [path, expectedSha256] of SHARP_LEGAL_FILES) {
+  if (!existsSync(path) || sha256File(path) !== expectedSha256) {
+    throw new Error(`sharp/libvips legal material missing or changed: ${path}`);
+  }
+}
 if (
-  sharpRows.length === 0 ||
-  sharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  officeSharpRows.some((row) => row.disposition !== "excluded-from-release") ||
+  dshSharpRows.length === 0 ||
+  dshSharpRows.some((row) => row.disposition !== "lgpl-runtime-source-offer-required") ||
   !packScript.includes("penglai-office-disabled-image") ||
   !packScript.includes('runtime.includes(\'require("sharp")\')') ||
-  !packScript.includes("penglai-office-disabled-cloud-zip")
+  !packScript.includes("penglai-office-disabled-cloud-zip") ||
+  !lgplOffer.includes("7f1a0a22cc285fe180766f4935d50b55af6e8432") ||
+  !lgplOffer.includes("6e5971d333377743163edc3ad9e5d0b897abcbc9") ||
+  !lgplOffer.includes("426af3f44246fce9cfa8dd51a353aa4dfd48c553")
+  || !lgplOffer.includes("licenses/sharp/")
 ) {
-  throw new Error("sharp/libvips exclusion boundary drift");
+  throw new Error("sharp/libvips distribution boundary drift");
 }
 
 const result = {
   schema: 2,
+  sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  target: process.env.PENGLAI_TARGET || `${process.platform}-${process.arch}`,
   command: "audited installed manifest graph plus pinned DSH source closure",
   productionComponentCount: productionInventory.length,
   production: productionInventory,
   completeInstalled: completeInstalledInventory,
   policyDecisions: [
     {
-      component: "sharp@0.35.3 and platform libvips packages",
+      component: "sharp@0.35.3 and platform libvips 1.3.2 packages",
       source: "https://github.com/lovell/sharp",
       license: "Apache-2.0 and LGPL-3.0-or-later",
       integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
       use: "PPT image path disabled; neither sharp nor libvips is packaged in the Office plugin",
+    },
+    {
+      component: "sharp@0.35.4 and platform libvips 1.3.3 packages",
+      source: "https://github.com/lovell/sharp and https://github.com/lovell/sharp-libvips",
+      license: "Apache-2.0 and LGPL-3.0-or-later",
+      integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
+      use: "Official DSH attachment runtime; distributed with exact upstream license/notices under licenses/sharp and the 0.5.9 corresponding-source offer",
     },
     {
       component: "dsh-im@3.0.5",

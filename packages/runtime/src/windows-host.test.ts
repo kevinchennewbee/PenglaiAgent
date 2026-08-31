@@ -71,7 +71,7 @@ test("native Windows host source encodes Job Object, ACL, and reparse facts", ()
   assert.equal(facts.namedSecurityInfo, true);
   assert.equal(facts.reparseAttribute, true);
   assert.equal(facts.jobSupervise, true);
-  assert.equal(facts.deletePlan, true);
+  assert.equal(facts.deletePlan, false);
   assert.equal(facts.processSuspendResume, true);
   assert.equal(facts.processReapSupervisors, true);
   assert.equal(facts.pathBatchProbe, true);
@@ -277,15 +277,14 @@ test("Windows CreateProcess arguments preserve quotes and trailing backslashes",
   assert.equal(quoteWindowsCommandArg(""), '""');
 });
 
-test("NSIS script default-preserves user data and only deletes via capability handoff", () => {
+test("NSIS script always preserves user data after in-app exact deletion", () => {
   const script = readFileSync(new URL("../../../scripts/nsis/Penglai.nsi", import.meta.url), "utf8");
   assertWindowsNsisScript(script);
   assert.match(script, /RequestExecutionLevel\s+user/);
   assert.match(script, /SimpChinese/);
   assert.match(script, /English/);
   assert.match(script, new RegExp(WINDOWS_NSIS_CONTRACT.upgradeCode));
-  assert.match(script, /penglai-windows-host\.exe/);
-  assert.match(script, /deletion-capability\.json/);
+  assert.doesNotMatch(script, /delete-plan|deletion-capability\.json|USERDATA/);
   assert.doesNotMatch(script, /RMDir\s+\/r\s+"\$LOCALAPPDATA\\Penglai\\0\.5"/);
   assert.match(script, /SectionUninstall/);
   // Numeric downgrade comparison (not lexicographic) and an explicitly
@@ -304,6 +303,7 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
   const packager = readFileSync(new URL("../../../scripts/package-windows-nsis.mjs", import.meta.url), "utf8");
   const workflow = readFileSync(new URL("../../../.github/workflows/native-release-candidate.yml", import.meta.url), "utf8");
+  const cleanClone = readFileSync(new URL("../../../scripts/verify-clean-clone.mjs", import.meta.url), "utf8");
   const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"));
   const uiProof = readFileSync(new URL("../../../scripts/windows-installer-ui-proof.ps1", import.meta.url), "utf8");
   assert.match(packager, /"\/INPUTCHARSET",\s*\n\s*"UTF8"/);
@@ -313,15 +313,19 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(uiProof, /strict-utf8-nsis-source-plus-native-screenshot/);
   assert.match(uiProof, /windows-installer-components-zh\.png/);
   assert.match(uiProof, /UIAutomationClient/);
+  assert.match(uiProof, /PrintWindow/);
+  assert.doesNotMatch(uiProof, /CopyFromScreen/);
   assert.match(payload, /public-export\.json/);
   assert.match(payload, /release-info\.json/);
   assert.match(payload, /stamp-windows-exe\.mjs/);
   assert.match(payload, /writeRequiredFuses\(penglaiExe\)/);
   assert.match(payload, /cpSync\(join\(staging, "mnemon"\), join\(resources, "mnemon"\)/);
   assert.match(payload, /payload is missing the pinned Mnemon binary or license/);
+  assert.match(payload, /"LGPL_SOURCE_OFFER\.txt"/);
   assert.match(windowsWorkflow, /- name: Source and onboarding regression gates\s+shell: bash\s+run: \|/);
   assert.match(payload, /Penglai\.ico/);
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
+  assert.match(cleanClone, /process\.platform === "win32"[\s\S]*build:windows-host/);
   assert.match(packager, /stagingForTarget\(ROOT, "win32-x86_64"\)/);
   assert.doesNotMatch(payload, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);
   assert.doesNotMatch(packager, /const staging = join\(ROOT, "dist", "runtime-staging-win32-x86_64"\)/);

@@ -4,6 +4,13 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import * as ResEdit from "resedit";
 
+const productVersion = JSON.parse(readFileSync(resolve("package.json"), "utf8")).version;
+const numericVersion = String(productVersion).split(".").map((part) => Number(part));
+if (numericVersion.length !== 3 || numericVersion.some((part) => !Number.isInteger(part) || part < 0)) {
+  throw new Error("invalid Penglai product version");
+}
+const [versionMajor, versionMinor, versionPatch] = numericVersion;
+
 const exePath = resolve(process.argv[2] ?? "");
 const pngPath = resolve(process.argv[3] ?? "");
 const icoPath = process.argv[4] ? resolve(process.argv[4]) : null;
@@ -61,18 +68,18 @@ if (!versions.length) throw new Error("Electron executable has no version resour
 for (const version of versions) {
   const languages = version.getAllLanguagesForStringValues();
   const targets = languages.length ? languages : [{ lang: 1033, codepage: 1200 }];
-  version.setFileVersion(0, 5, 1, 0, 1033);
-  version.setProductVersion(0, 5, 1, 0, 1033);
+  version.setFileVersion(versionMajor, versionMinor, versionPatch, 0, 1033);
+  version.setProductVersion(versionMajor, versionMinor, versionPatch, 0, 1033);
   for (const language of targets) {
     version.setStringValues(language, {
       CompanyName: "Penglai",
       FileDescription: "Penglai",
-      FileVersion: "0.5.8.0",
+      FileVersion: `${productVersion}.0`,
       InternalName: "Penglai",
       LegalCopyright: "Penglai contributors",
       OriginalFilename: "Penglai.exe",
       ProductName: "Penglai",
-      ProductVersion: "0.5.8.0",
+      ProductVersion: `${productVersion}.0`,
     });
   }
   version.outputToResourceEntries(resources.entries);

@@ -50,4 +50,10 @@ test("Plugin Center copy agrees with the eight-channel registry", () => {
   assert.match(source, /centerReferenceId: "诊断参考号"/);
   assert.match(source, /centerReferenceId: "Diagnostic reference"/);
   assert.doesNotMatch(source, /transaction\.operationId/);
+  assert.match(source, /data-penglai-plugin-phase/);
+  assert.match(
+    source,
+    /entry\.error[\s\S]*?children: \[t\.centerErrorLabel, ": ", t\.centerActionFailed\]/,
+  );
+  assert.doesNotMatch(source, /children:\s*entry\.(error|stack|message)/);
 });

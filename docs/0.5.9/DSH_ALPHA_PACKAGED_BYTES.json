@@ -1,0 +1,53 @@
+{
+  "schema": 2,
+  "dsh": "0.1.2-alpha.2",
+  "source": {
+    "tag": "dsh-v0.1.2-alpha.2",
+    "commit": "0a53fb55bea101816fa226bb964ae2bed71c343b",
+    "tree": "64ccbfa8e0caa4711cd4a75717ef9e022657961b",
+    "cohortManifest": "docs/0.5.9/DSH_NPM_COHORT.json"
+  },
+  "mode": "official-npm-cohort-no-source-patch",
+  "officialBytes": [
+    {
+      "id": "web-frontend-index",
+      "relative": "node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html",
+      "sourcePackage": "@deepseek-ai/dsh-web-frontend@0.1.2-alpha.2",
+      "integrity": "sha512-HsHg63ktzsQq63OFw8GvNUpwySz+pCp8nShJG7PyMIAbwPL5L7pEIQYc+xTKFjxxGiGSRv2dLPut+hWlrKg16w==",
+      "sha256": "d666c73f848b9c4a72501750750194231fa97bdb507f17b8b3bf692fac1eaab9"
+    },
+    {
+      "id": "settings-models-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-models@0.1.2-alpha.2",
+      "integrity": "sha512-gqAM5N9zoCNWqEEhNY9/EvS9oJ3QIqN/hDNDojmnru1jnwkPCmdVpadlELJjsxEdJOr7pS3dILJ2FdnNswXZ0Q==",
+      "sha256": "70de8c4ce48d9c133005b1f95f8e9e9fe114f3bb2d08a9206c2283469831d74d"
+    },
+    {
+      "id": "conversation-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-conversation@0.1.2-alpha.2",
+      "integrity": "sha512-iCNkro90sUYopvtAWe3pE635ZpKfdUQdvejTboEVmmwBvU6n+2yKQDOcDMntZO7OqDOD4LfoJlMnnG3OGrXxtw==",
+      "sha256": "49185108a396bc5991ed15399fb622d8a00efe634135cc28da08ef429fccd9a5"
+    },
+    {
+      "id": "settings-general-client",
+      "relative": "node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+      "sourcePackage": "@deepseek-ai/dsh-client-ui-settings-general@0.1.2-alpha.2",
+      "integrity": "sha512-uGk1ogimIU8bMGEkIo/4PyDXicm7WLCrdnfrC/FMhzmb0boszT7c36b2VlauoX/Fc8XL3Wk4BhNGsMJc6gX6Kg==",
+      "sha256": "8a8d9e09a9defb614bf8af0ffbf6cb73996481aa3d02e30f818eb1d5d6628037"
+    }
+  ],
+  "brandAssets": [
+    {
+      "name": "logo-64.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-64.png",
+      "sha256": "aed9e69c65bc9bba802064f06851cb157283fef587b492223bc0e3b289fd5985"
+    },
+    {
+      "name": "logo-256.png",
+      "source": "overlays/dsh-0.1.1-rc.2/brand/logo-256.png",
+      "sha256": "c40f14d9409428248aa06733453e05d3c91c7f84efd95fa2a5c882d2092deda2"
+    }
+  ]
+}

@@ -3,10 +3,10 @@ import { claimedFromOfficial, textFromAssistantMessage } from "./index.js";
 import type { CordisLike } from "./rc2-owner-adapter.js";
 
 export {
-  foldAlpha1ModelSelection,
-  hostFromAlpha1Cordis,
-  type Alpha1CordisLike,
-} from "./alpha1-owner-adapter.js";
+  foldAlpha2ModelSelection,
+  hostFromAlpha2Cordis,
+  type Alpha2CordisLike,
+} from "./alpha2-owner-adapter.js";
 
 export {
   hostFromRc2Cordis,

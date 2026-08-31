@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PenglaiError } from "@penglai/contracts";
 import {
+  assertPluginServiceHealthy,
   inventoryActivationObservation,
   waitForInventory,
 } from "./remotes.js";
@@ -48,6 +49,20 @@ test("activation diagnostics retain only closed official inventory phases", () =
   );
   assert.equal(unknown.phase, "unknown");
   assert.doesNotMatch(JSON.stringify(unknown), /Users|stack detail/);
+  const unloading = inventoryActivationObservation(
+    {
+      list: () => [
+        {
+          moduleName: "@penglai/companion",
+          enabled: false,
+          disabled: true,
+          fiberPhase: "unloading",
+        },
+      ],
+    },
+    "@penglai/companion",
+  );
+  assert.equal(unloading.phase, "unloading");
 });
 
 test("activation convergence records pending to active and stops on actual state", async () => {
@@ -73,6 +88,63 @@ test("activation convergence records pending to active and stops on actual state
     (observation) => observations.push(observation.phase),
   );
   assert.deepEqual(observations, ["pending", "active"]);
+});
+
+test("disable convergence waits through unloading for disabled readback", async () => {
+  let calls = 0;
+  const observations: string[] = [];
+  await waitForInventory(
+    {
+      list: () => {
+        calls += 1;
+        return [
+          {
+            moduleName: "@penglai/companion",
+            enabled: false,
+            disabled: true,
+            fiberPhase: calls === 1 ? "unloading" : "disabled",
+          },
+        ];
+      },
+    },
+    "@penglai/companion",
+    false,
+    true,
+    200,
+    (observation) => observations.push(observation.phase),
+  );
+  assert.deepEqual(observations, ["unloading", "disabled"]);
+});
+
+test("activation refresh discards a stale failed snapshot before convergence", async () => {
+  let phase = "failed";
+  let refreshes = 0;
+  const observations: string[] = [];
+  await waitForInventory(
+    {
+      list: () => [{ moduleName: "@penglai/companion", enabled: true, fiberPhase: phase }],
+      async refresh() {
+        refreshes += 1;
+        phase = refreshes === 1 ? "loading" : "active";
+      },
+    },
+    "@penglai/companion",
+    true,
+    true,
+    200,
+    (observation) => observations.push(observation.phase),
+  );
+  assert.deepEqual(observations, ["loading", "active"]);
+});
+
+test("an active inventory row cannot pass when the plugin service is unhealthy", () => {
+  assert.throws(
+    () => assertPluginServiceHealthy(() => ({ healthy: false, error: "private local path" }), "@penglai/office"),
+    (error: unknown) =>
+      error instanceof PenglaiError &&
+      error.message === "PLUGIN_SERVICE_UNHEALTHY" &&
+      !error.message.includes("private local path"),
+  );
 });
 
 test("activation timeout and transaction failures expose only closed codes", async () => {

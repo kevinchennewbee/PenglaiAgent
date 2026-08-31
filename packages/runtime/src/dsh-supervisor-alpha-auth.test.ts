@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,11 @@ function installBuiltWindowsRuntime(appRoot: string): string {
   return nodeBin;
 }
 
+function runtimeManifestEntry(appRoot: string, path: string) {
+  const bytes = readFileSync(join(appRoot, ...path.split("/")));
+  return { path, sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.byteLength };
+}
+
 test("embedded supervisor privately exchanges alpha browser auth and keeps steady-state probes authenticated", async () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-alpha-auth-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-alpha-auth-user-")));
@@ -44,15 +49,18 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
     'const root = process.env.PENGLAI_USER_DATA;',
     'const plugins = join(root, "plugins");',
     'mkdirSync(plugins, { recursive: true });',
-    `writeFileSync(join(plugins, "inventory-snapshot.json"), ${JSON.stringify(JSON.stringify({
+    `const inventory = ${JSON.stringify({
       entries: [
-        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-alpha.1" },
-        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.7" },
-        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.7" },
-        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.7" },
+        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-alpha.2" },
+        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.9" },
+        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.9" },
+        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.9" },
       ],
       target: runtimePluginTarget(),
-    }))});`,
+    })};`,
+    'inventory.launchNonce = process.env.PENGLAI_DSH_LAUNCH_NONCE;',
+    'inventory.dshPid = process.pid;',
+    'writeFileSync(join(plugins, "inventory-snapshot.json"), JSON.stringify(inventory));',
     `const token = ${JSON.stringify(token)};`,
     `const cookie = ${JSON.stringify(cookie)};`,
     'const html = "<!doctype html><div id=\\"root\\"></div><script src=\\"/assets/index.js\\"></script>";',
@@ -76,14 +84,15 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
     '});',
   ].join("\n");
   writeFileSync(dshEntry, fakeDsh, { mode: 0o700 });
-  writeFileSync(manifestPath, JSON.stringify({
-    files: [{
-      path: "runtime/dsh/lib/bin.js",
-      sha256: createHash("sha256").update(fakeDsh).digest("hex"),
-      size: Buffer.byteLength(fakeDsh),
-    }],
-  }));
   const nodeBin = installBuiltWindowsRuntime(app);
+  const files = [runtimeManifestEntry(app, "runtime/dsh/lib/bin.js")];
+  if (process.platform === "win32") {
+    files.push(runtimeManifestEntry(app, "runtime/node/node.exe"));
+    files.push(runtimeManifestEntry(app, "runtime/helpers/penglai-windows-host.exe"));
+  }
+  writeFileSync(manifestPath, JSON.stringify({
+    files,
+  }));
   ensurePrivateHome(user, app);
   const supervisor = new EmbeddedDshSupervisor({
     appRoot: app,

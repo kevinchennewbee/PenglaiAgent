@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const inject = ["remote"];
+    const inject = ["remote", "connection"];
 
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
@@ -116,24 +116,37 @@ window.__ModuleLoader__.load({
     }
     function unwrapRemote(result) {
       if (result && typeof result === "object" && "ok" in result) {
-        if (result.ok === false)
-          throw new Error((result.error && result.error.message) || "remote");
+        if (result.ok === false) {
+          const failure = result.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error((failure && failure.message) || "remote");
+        }
         return result.value;
       }
       return result;
     }
 
-    function OfficeSection({ remote }) {
+    function OfficeSection({ remote, useConnectionGeneration }) {
       const t = localeCopy();
       const api = remote?.penglaiOfficeSettings;
+      const connectionGeneration = useConnectionGeneration(
+        (generation) => generation?.id,
+      );
       const [view, setView] = React.useState({ status: "loading", templates: [], error: "", copied: "" });
       React.useEffect(() => {
-        if (!api?.health || !api?.templates) {
+        if (
+          connectionGeneration === undefined ||
+          !api?.health ||
+          !api?.templates
+        ) {
           setView({ status: "error", templates: [], error: t.unavailable, copied: "" });
           return;
         }
+        let current = true;
         Promise.all([api.health(), api.templates()])
           .then(([health, templates]) => {
+            if (!current) return;
             const seen = unwrapRemote(health) || {};
             const rows = unwrapRemote(templates);
             setView({
@@ -143,13 +156,19 @@ window.__ModuleLoader__.load({
               copied: "",
             });
           })
-          .catch(() => setView({
-            status: "error",
-            templates: [],
-            error: t.unavailable,
-            copied: "",
-          }));
-      }, [api]);
+          .catch(() => {
+            if (!current) return;
+            setView({
+              status: "error",
+              templates: [],
+              error: t.unavailable,
+              copied: "",
+            });
+          });
+        return () => {
+          current = false;
+        };
+      }, [api, connectionGeneration]);
       const examples = String(document.documentElement.lang || "zh").startsWith("en")
         ? [
             "Create a project report in Word with a summary, progress, risks, and action table.",
@@ -225,7 +244,7 @@ window.__ModuleLoader__.load({
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiOfficeSettings"],
+        ["slots", "connection", "remote.penglaiOfficeSettings"],
         (viewCtx) => {
           const pageRemote = { penglaiOfficeSettings: viewCtx.remote.penglaiOfficeSettings };
           viewCtx.slots.inject("settings.section", () =>
@@ -235,7 +254,12 @@ window.__ModuleLoader__.load({
                 id: "penglai-office",
                 order: 18.1,
                 label: () => localeCopy().title,
-                inject: () => ({ remote: pageRemote }),
+                inject: () => ({
+                  remote: pageRemote,
+                  hooks: {
+                    connectionGeneration: viewCtx.connection.generation,
+                  },
+                }),
               },
               OfficeSection,
             ),

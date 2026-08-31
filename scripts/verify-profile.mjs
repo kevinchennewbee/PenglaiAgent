@@ -6,11 +6,13 @@ import { finish } from "./lib/exit-contract.mjs";
 import { hostTarget, inspectClosureCredential, stagingForTarget } from "./lib/closure-credential.mjs";
 import {
   EmbeddedDshSupervisor,
+  activateDshHomeBootPlan,
   activatePrivateProfile,
   ensurePrivateHome,
   installFirstPartyPlugins,
   exactPluginId,
   processesMatching,
+  prepareDshHomeForBoot,
   resolveRuntimeLayout,
   resolveUserLayout,
   rowIsLoaded,
@@ -84,7 +86,8 @@ const modeRecords = [];
 let failure;
 for (const mode of modes) {
   const userRoot = mkdtempSync(join(tmpdir(), `penglai-verify-profile-${mode}-`));
-  const user = resolveUserLayout(userRoot);
+  const homePlan = prepareDshHomeForBoot({ userRoot });
+  const user = resolveUserLayout(userRoot, homePlan.dshHome);
   const supervisor = new EmbeddedDshSupervisor(layout);
   try {
     ensurePrivateHome(user, layout.appRoot);
@@ -110,6 +113,18 @@ for (const mode of modes) {
     if (im !== expectedIm || asr !== expectedAsr || tts !== expectedTts || !office || !memory) {
       throw new Error(`plugin inventory mismatch mode=${mode} im=${im} asr=${asr} tts=${tts} office=${office} memory=${memory}`);
     }
+    activateDshHomeBootPlan({
+      userRoot,
+      plan: homePlan,
+      validation: {
+        dshVersion: "0.1.2-alpha.2",
+        officialDocument: true,
+        dshHealthy: true,
+        profileReady: true,
+        requiredPluginsActive: ["@penglai/office", "@penglai/memory"],
+        validatedAt: new Date().toISOString(),
+      },
+    });
     await supervisor.stop();
     const leftover = processesMatching(user.dshHome);
     if (leftover.length) throw new Error(`leftover processes ${JSON.stringify(leftover)}`);

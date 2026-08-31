@@ -5,7 +5,8 @@ window.__ModuleLoader__.load({
     const React = require("react");
     const jsx = require("react/jsx-runtime");
     const MemorySourcesModule = createPenglaiMemorySourcesClient(require);
-    const inject = ["remote"];
+    const inject = ["remote", "connection"];
+
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
         value === null ||
@@ -185,15 +186,22 @@ window.__ModuleLoader__.load({
       ];
     const unwrap = (v) => {
       if (v && typeof v === "object" && "ok" in v) {
-        if (v.ok === false) throw new Error(v.error?.message || "remote");
+        if (v.ok === false) {
+          const failure = v.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error(failure?.message || "remote");
+        }
         return v.value;
       }
       return v;
     };
     const message = (e) => String(e?.message || e);
-    function MemoryTab({ remote }) {
+    function MemoryTab({ remote, connectionGeneration }) {
       const t = copy();
       const api = remote?.penglaiMemorySettings;
+      const generationRef = React.useRef(connectionGeneration);
+      generationRef.current = connectionGeneration;
       const [v, set] = React.useState({
         phase: "loading",
         scope: "global",
@@ -219,7 +227,8 @@ window.__ModuleLoader__.load({
         skillConfirmed: false,
       });
       const refresh = React.useCallback(() => {
-        if (!api?.status) {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined || !api?.status) {
           set((x) => ({ ...x, phase: "unavailable" }));
           return;
         }
@@ -230,6 +239,7 @@ window.__ModuleLoader__.load({
           }),
         )
           .then((raw) => {
+            if (generationRef.current !== expectedGeneration) return;
             const x = unwrap(raw) || {};
             set((s) => ({
               ...s,
@@ -241,13 +251,14 @@ window.__ModuleLoader__.load({
               error: "",
             }));
           })
-          .catch((e) =>
-            set((x) => ({ ...x, phase: "unavailable", error: message(e) })),
-          );
+          .catch((e) => {
+            if (generationRef.current !== expectedGeneration) return;
+            set((x) => ({ ...x, phase: "unavailable", error: message(e) }));
+          });
       }, [api, v.scope, v.workspaceId]);
       React.useEffect(() => {
         refresh();
-      }, [refresh]);
+      }, [refresh, connectionGeneration]);
       const run = (method, input, done) => {
         set((x) => ({ ...x, busy: true, error: "", notice: "" }));
         return Promise.resolve(api[method](input))
@@ -816,13 +827,17 @@ window.__ModuleLoader__.load({
         ],
       });
     }
-    function MemorySettingsSection(props) {
+    function MemorySettingsSection({ useConnectionGeneration, ...props }) {
+      const connectionGeneration = useConnectionGeneration(
+        (generation) => generation?.id,
+      );
+      const connectedProps = { ...props, connectionGeneration };
       return jsx.jsx("div", {
         className: "penglai-settings-page",
         "data-penglai-settings": "memory",
         children: jsx.jsxs(React.Fragment, {
           children: [
-            jsx.jsx(MemoryTab, props),
+            jsx.jsx(MemoryTab, connectedProps),
             MemorySourcesModule?.ContextTab
               ? jsx.jsxs("details", {
                   "data-penglai-memory-sources": "1",
@@ -835,7 +850,7 @@ window.__ModuleLoader__.load({
                       ],
                     }),
                     jsx.jsx(MemorySourcesModule.ContextTab, {
-                      ...props,
+                      ...connectedProps,
                       embedded: true,
                     }),
                   ],
@@ -848,7 +863,7 @@ window.__ModuleLoader__.load({
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiMemorySettings"],
+        ["slots", "connection", "remote.penglaiMemorySettings"],
         (viewCtx) => {
           const pageRemote = {
             penglaiMemorySettings: viewCtx.remote.penglaiMemorySettings,
@@ -860,7 +875,12 @@ window.__ModuleLoader__.load({
                 id: "penglai-memory",
                 order: 18.5,
                 label: () => copy().title,
-                inject: () => ({ remote: pageRemote }),
+                inject: () => ({
+                  remote: pageRemote,
+                  hooks: {
+                    connectionGeneration: viewCtx.connection.generation,
+                  },
+                }),
               },
               MemorySettingsSection,
             ),

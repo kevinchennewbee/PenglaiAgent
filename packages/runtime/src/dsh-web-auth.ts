@@ -31,7 +31,7 @@ export function redactDshLaunchTokens(value: string): string {
 }
 
 /**
- * Accept only the exact loopback launch URL shape emitted by DSH 0.1.2-alpha.1.
+ * Accept only the exact loopback launch URL shape emitted by DSH 0.1.2-alpha.2.
  * The optional LAN URL on the same line is deliberately ignored.
  */
 export function parseDshWebLaunchUrl(line: string, expectedPort: number): string | undefined {
@@ -167,7 +167,7 @@ function delay(ms: number): Promise<void> {
 
 /**
  * Establish the Web session without exposing the alpha launch token to the
- * renderer. rc.2 succeeds through its open root; alpha.1 exchanges the exact
+ * renderer. rc.2 succeeds through its open root; alpha.2 exchanges the exact
  * stdout URL for an authority-bound cookie and proves that cookie on `/`.
  */
 export async function establishDshWebSession(input: {

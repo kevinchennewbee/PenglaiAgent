@@ -116,6 +116,15 @@ test("wizard unwraps official server-response and refuses a top-level args envel
       }),
     /invalid client-request message/,
   );
+  const remote = Object.assign(new Error("service unavailable"), {
+    isDSHRemoteError: true,
+    code: "gateway/service-unavailable",
+    details: { service: "penglaiOnboarding" },
+  });
+  assert.throws(
+    () => unwrap({ type: "server-response", result: { ok: false, error: remote } }),
+    (error) => error === remote,
+  );
   assert.throws(() => unwrap({ type: "client-request", method: "penglaiOnboarding/status", args: {} }), /rpc/);
   assert.match(js, /if \(!state\.current\) return false;/);
 });

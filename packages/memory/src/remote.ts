@@ -1,6 +1,6 @@
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote } from "@penglai/contracts";
 import type { MemoryScope, MemoryWrite } from "./service.js";
 import type { SopPromotion, SopReceipt } from "./index.js";
 
@@ -185,26 +185,26 @@ export function createMemorySettingsApi(
 
 export class PenglaiMemoryRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly api: ReturnType<typeof createMemorySettingsApi>) { super(ctx, "penglaiMemorySettings"); }
-  @Remote status(input: { scope: MemoryScope; workspaceId?: string }) { return this.api.status(input); }
-  @Remote setMode(input: { mode: string }) { return this.api.setMode(input); }
-  @Remote proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) { return this.api.proposeAction(input); }
-  @Remote acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) { return this.api.acceptCandidate(input); }
-  @Remote rejectCandidate(input: { candidateId: string }) { return this.api.rejectCandidate(input); }
-  @Remote write(input: MemoryWrite & { actionId?: string; receipt?: string }) { return this.api.write(input); }
-  @Remote deleteScope(input: { scope: MemoryScope; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.deleteScope(input); }
-  @Remote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
-  @Remote why(input: { id: string; workspaceId?: string }) { return this.api.why(input); }
-  @Remote correct(input: { id: string; text: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.correct(input); }
-  @Remote forget(input: { id: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.forget(input); }
-  @Remote graph(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.graph(input); }
-  @Remote export(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.export(input); }
-  @Remote importPreview() { return this.api.importPreview(); }
-  @Remote importConfirm(input: { actionId?: string; receipt?: string }) { return this.api.importConfirm(input); }
-  @Remote sourcesStatus() { return this.api.sourcesStatus(); }
-  @Remote sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) { return this.api.sourcesIngestCapability(input); }
-  @Remote sourcesReindex(input: { root: string }) { return this.api.sourcesReindex(input); }
-  @Remote sourcesRevoke(input: { root: string; actionId?: string; receipt?: string }) { return this.api.sourcesRevoke(input); }
-  @Remote sourcesSearch(input: { query: string; workspaceId?: string }) { return this.api.sourcesSearch(input); }
+  @PenglaiRemote status(input: { scope: MemoryScope; workspaceId?: string }) { return this.api.status(input); }
+  @PenglaiRemote setMode(input: { mode: string }) { return this.api.setMode(input); }
+  @PenglaiRemote proposeAction(input: { action: string; objectId: string; workspaceId?: string; sessionId?: string; sourceText?: string }) { return this.api.proposeAction(input); }
+  @PenglaiRemote acceptCandidate(input: { candidateId: string; actionId: string; receipt: string; personal?: boolean }) { return this.api.acceptCandidate(input); }
+  @PenglaiRemote rejectCandidate(input: { candidateId: string }) { return this.api.rejectCandidate(input); }
+  @PenglaiRemote write(input: MemoryWrite & { actionId?: string; receipt?: string }) { return this.api.write(input); }
+  @PenglaiRemote deleteScope(input: { scope: MemoryScope; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.deleteScope(input); }
+  @PenglaiRemote promoteSop(input: SopPromotion) { return this.api.promoteSop(input); }
+  @PenglaiRemote why(input: { id: string; workspaceId?: string }) { return this.api.why(input); }
+  @PenglaiRemote correct(input: { id: string; text: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.correct(input); }
+  @PenglaiRemote forget(input: { id: string; workspaceId?: string; actionId?: string; receipt?: string }) { return this.api.forget(input); }
+  @PenglaiRemote graph(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.graph(input); }
+  @PenglaiRemote export(input: { workspaceId?: string; includePersonal?: boolean }) { return this.api.export(input); }
+  @PenglaiRemote importPreview() { return this.api.importPreview(); }
+  @PenglaiRemote importConfirm(input: { actionId?: string; receipt?: string }) { return this.api.importConfirm(input); }
+  @PenglaiRemote sourcesStatus() { return this.api.sourcesStatus(); }
+  @PenglaiRemote sourcesIngestCapability(input: { capabilityRef: string; scope: "global" | "workspace"; workspaceId?: string }) { return this.api.sourcesIngestCapability(input); }
+  @PenglaiRemote sourcesReindex(input: { root: string }) { return this.api.sourcesReindex(input); }
+  @PenglaiRemote sourcesRevoke(input: { root: string; actionId?: string; receipt?: string }) { return this.api.sourcesRevoke(input); }
+  @PenglaiRemote sourcesSearch(input: { query: string; workspaceId?: string }) { return this.api.sourcesSearch(input); }
 }
 
 export const TYPERT_REMOTE = {

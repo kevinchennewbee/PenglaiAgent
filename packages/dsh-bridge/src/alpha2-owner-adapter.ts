@@ -1,14 +1,18 @@
 import { PenglaiError } from "@penglai/contracts";
+import { KNOWN_SESSION_EVENT_TYPES } from "@deepseek-ai/dsh-session";
 import type { DshAgentLike, DshHost, DshModelSelection } from "./owner-ports.js";
 
 interface AlphaSessionSummary {
   sessionId: string;
-  projections?: { values?: Record<string, unknown> };
+  projections?: { asOfSeq: number; values?: Record<string, unknown> };
 }
 
 interface AlphaSessionEvent {
   type?: string;
+  seq?: number;
+  time?: number;
   data?: unknown;
+  ignorable?: true;
 }
 
 interface AlphaSessionController {
@@ -24,8 +28,8 @@ interface AlphaSessionController {
   rename(request: { sessionId: string; title: string }): Promise<{ title: string; seq: number }>;
 }
 
-/** Exact alpha.1 Host services used by Penglai. No rc.2 apiProxy compatibility face is admitted. */
-export interface Alpha1CordisLike {
+/** Exact alpha.2 Host services used by Penglai. No rc.2 apiProxy compatibility face is admitted. */
+export interface Alpha2CordisLike {
   on(event: string, listener: (...args: unknown[]) => unknown, options?: Record<string, unknown>): void | (() => unknown);
   agents?: {
     get(id: string): unknown;
@@ -48,11 +52,15 @@ function modelSelection(value: unknown): DshModelSelection | undefined {
   };
 }
 
-/** Fold the official alpha.1 model-selection events when a cold list projection is unavailable. */
-export function foldAlpha1ModelSelection(events: readonly AlphaSessionEvent[]): DshModelSelection | undefined {
+/** Fold the official alpha.2 model-selection events when a cold list projection is unavailable. */
+export function foldAlpha2ModelSelection(events: readonly AlphaSessionEvent[]): DshModelSelection | undefined {
   let lastUsed: DshModelSelection | undefined;
   let pending: DshModelSelection | undefined;
   for (const event of events) {
+    if (typeof event.type !== "string" || !KNOWN_SESSION_EVENT_TYPES.has(event.type)) {
+      if (event.ignorable === true) continue;
+      throw new PenglaiError("DSH_CONTRACT_DRIFT", "required alpha.2 Session event is unknown");
+    }
     const data = event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : undefined;
     if (event.type === "model/selection") {
       pending = modelSelection(data);
@@ -72,14 +80,32 @@ export function foldAlpha1ModelSelection(events: readonly AlphaSessionEvent[]): 
   return pending ?? lastUsed;
 }
 
-function requiredController(ctx: Alpha1CordisLike): AlphaSessionController {
+/** Fold the durable official title event when the list projection is stale. */
+export function foldAlpha2Title(events: readonly AlphaSessionEvent[]): string | undefined {
+  let title: string | undefined;
+  for (const event of events) {
+    if (typeof event.type !== "string" || !KNOWN_SESSION_EVENT_TYPES.has(event.type)) {
+      if (event.ignorable === true) continue;
+      throw new PenglaiError("DSH_CONTRACT_DRIFT", "required alpha.2 Session event is unknown");
+    }
+    if (event.type !== "session/title") continue;
+    const data = event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : undefined;
+    if (typeof data?.title !== "string") {
+      throw new PenglaiError("DSH_CONTRACT_DRIFT", "official alpha.2 Session title event is malformed");
+    }
+    title = data.title;
+  }
+  return title;
+}
+
+function requiredController(ctx: Alpha2CordisLike): AlphaSessionController {
   if (!ctx.sessionController) {
-    throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.1 sessionController is required");
+    throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.2 sessionController is required");
   }
   return ctx.sessionController;
 }
 
-export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): DshHost {
+export function hostFromAlpha2Cordis(ctx: Alpha2CordisLike, version: string): DshHost {
   const handles = new Map<string, { agent?: DshAgentLike; dispose?: () => Promise<void> }>();
   return {
     version,
@@ -88,7 +114,7 @@ export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): Ds
       return live ?? handles.get(sessionId)?.agent;
     },
     async resumeAgent(sessionId: string) {
-      if (!ctx.agents?.resume) throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.1 agents.resume is required");
+      if (!ctx.agents?.resume) throw new PenglaiError("DSH_UNAVAILABLE", "official alpha.2 agents.resume is required");
       const { unwrapAgent, isAgentHandle } = await import("./contracts.js");
       const raw = await ctx.agents.resume({ resumeSessionId: sessionId });
       if (isAgentHandle(raw)) handles.set(sessionId, raw);
@@ -105,10 +131,19 @@ export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): Ds
     async listSessions() {
       const controller = requiredController(ctx);
       const result = await controller.list({}, new AbortController().signal);
-      return result.items.map((item) => {
-        const title = item.projections?.values?.title;
+      return Promise.all(result.items.map(async (item) => {
+        const inspected = await controller.inspect(item.sessionId);
+        const events = inspected?.events ?? [];
+        const lastSeq = events.reduce(
+          (highest, event) => typeof event.seq === "number" ? Math.max(highest, event.seq) : highest,
+          -1,
+        );
+        const projected = item.projections?.values?.title;
+        const title = item.projections?.asOfSeq === lastSeq && typeof projected === "string"
+          ? projected
+          : foldAlpha2Title(events);
         return { id: item.sessionId, ...(typeof title === "string" ? { title } : {}) };
-      });
+      }));
     },
     async createSession(workspaceIdentity: string, title?: string) {
       const controller = requiredController(ctx);
@@ -127,8 +162,11 @@ export function hostFromAlpha1Cordis(ctx: Alpha1CordisLike, version: string): Ds
       const projected = projection && typeof projection === "object"
         ? modelSelection((projection as Record<string, unknown>).next)
         : undefined;
-      const inspected = projected ? undefined : await controller.inspect(sessionId);
-      const current = projected ?? foldAlpha1ModelSelection(inspected?.events ?? []) ?? catalog.default;
+      const inspected = await controller.inspect(sessionId);
+      const events = inspected?.events ?? [];
+      const lastSeq = events.length ? events[events.length - 1]?.seq : -1;
+      const projectionCurrent = projected && summary?.projections?.asOfSeq === lastSeq;
+      const current = (projectionCurrent ? projected : foldAlpha2ModelSelection(events)) ?? catalog.default;
       const groups = catalog.groups.map((group) => ({
         id: group.id,
         name: group.name,

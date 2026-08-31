@@ -1,6 +1,6 @@
 {
   "name": "@penglai/desktop",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "private": true,
   "type": "module",
   "main": "dist/electron-main.js",
@@ -11,7 +11,7 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.2-alpha.1",
+    "@deepseek-ai/dsh": "0.1.2-alpha.2",
     "@penglai/channel-weixin": "workspace:*",
     "@penglai/contracts": "workspace:*",
     "@penglai/dsh-bridge": "workspace:*",

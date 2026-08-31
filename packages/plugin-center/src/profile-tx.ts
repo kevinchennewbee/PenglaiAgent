@@ -58,7 +58,9 @@ export interface ResourceCounts {
 export type PluginActivationPhase =
   | "missing"
   | "pending"
+  | "loading"
   | "active"
+  | "unloading"
   | "disabled"
   | "failed"
   | "unknown";
@@ -130,7 +132,9 @@ export function pluginActionFailureCode(
 const ACTIVATION_PHASES = new Set<PluginActivationPhase>([
   "missing",
   "pending",
+  "loading",
   "active",
+  "unloading",
   "disabled",
   "failed",
   "unknown",

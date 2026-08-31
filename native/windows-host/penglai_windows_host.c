@@ -684,92 +684,6 @@ static int cmd_process_suspend_resume(DWORD pid, int suspend) {
   return 0;
 }
 
-static int delete_one(const wchar_t *root, const char *path_utf8, const char *expected_owner) {
-  wchar_t *path = utf8_to_wide(path_utf8);
-  if (!path) fail("utf16");
-  if (!path_under(root, path)) fail("path-escape");
-  if (has_reparse(path) == 1) fail("reparse");
-  char *owner = owner_sid_for_path(path);
-  if (owner && expected_owner && strcmp(owner, expected_owner) != 0) fail("owner-mismatch");
-  DWORD attrs = GetFileAttributesW(path);
-  BOOL ok = TRUE;
-  if (attrs == INVALID_FILE_ATTRIBUTES) {
-    DWORD err = GetLastError();
-    if (err != ERROR_FILE_NOT_FOUND && err != ERROR_PATH_NOT_FOUND) win_fail("GetFileAttributesW");
-  } else if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-    ok = RemoveDirectoryW(path);
-    if (!ok) {
-      /* Capability targets are exact leaves or already-empty dirs. Recursion is
-       * performed by Node after each child is verified; helper never walks. */
-      win_fail("RemoveDirectoryW");
-    }
-  } else {
-    ok = DeleteFileW(path);
-    if (!ok) win_fail("DeleteFileW");
-  }
-  free(owner);
-  free(path);
-  return 0;
-}
-
-static char *read_file_utf8(const char *path_utf8) {
-  FILE *f = fopen(path_utf8, "rb");
-  if (!f) return NULL;
-  if (fseek(f, 0, SEEK_END) != 0) {
-    fclose(f);
-    return NULL;
-  }
-  long n = ftell(f);
-  if (n < 0 || n > 1 << 20) {
-    fclose(f);
-    return NULL;
-  }
-  rewind(f);
-  char *buf = (char *)calloc((size_t)n + 1, 1);
-  if (!buf) {
-    fclose(f);
-    return NULL;
-  }
-  if (fread(buf, 1, (size_t)n, f) != (size_t)n) {
-    free(buf);
-    fclose(f);
-    return NULL;
-  }
-  fclose(f);
-  return buf;
-}
-
-static int cmd_delete_plan(const char *file_utf8, const char *token, const char *root_utf8) {
-  char *body = read_file_utf8(file_utf8);
-  if (!body) fail("plan-unreadable");
-  if (!strstr(body, "penglai-deletion-v1")) fail("plan-schema");
-  if (!token || !token[0] || !strstr(body, token)) fail("token");
-  wchar_t *root = utf8_to_wide(root_utf8);
-  if (!root) fail("utf16");
-  char *owner = current_sid_string();
-  char *cursor = body;
-  int deleted = 0;
-  while (cursor && *cursor) {
-    char *line = cursor;
-    char *nl = strchr(cursor, '\n');
-    if (nl) {
-      *nl = 0;
-      cursor = nl + 1;
-    } else {
-      cursor = NULL;
-    }
-    if (strncmp(line, "path=", 5) == 0) {
-      delete_one(root, line + 5, owner);
-      deleted++;
-    }
-  }
-  printf("{\"ok\":true,\"command\":\"delete-plan\",\"deleted\":%d}\n", deleted);
-  free(owner);
-  free(root);
-  free(body);
-  return 0;
-}
-
 static const char *opt(int argc, char **argv, const char *name) {
   size_t n = strlen(name);
   for (int i = 1; i < argc; i++) {
@@ -823,13 +737,6 @@ int main(int argc, char **argv) {
     const char *pid = opt(argc, argv, "--pid");
     if (!pid) fail("pid");
     return cmd_process_suspend_resume((DWORD)strtoul(pid, NULL, 10), strcmp(cmd, "process-suspend") == 0);
-  }
-  if (strcmp(cmd, "delete-plan") == 0) {
-    const char *file = opt(argc, argv, "--file");
-    const char *token = opt(argc, argv, "--token");
-    const char *root = opt(argc, argv, "--root");
-    if (!file || !token || !root) fail("delete-plan-args");
-    return cmd_delete_plan(file, token, root);
   }
   fail("unknown-command");
 }

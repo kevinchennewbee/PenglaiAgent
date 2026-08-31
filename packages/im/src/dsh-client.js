@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const inject = ["remote"];
+    const inject = ["remote", "connection"];
 
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
@@ -509,8 +509,12 @@ window.__ModuleLoader__.load({
 
     function unwrapRemote(result) {
       if (result && typeof result === "object" && "ok" in result) {
-        if (result.ok === false)
-          throw new Error((result.error && result.error.message) || "remote");
+        if (result.ok === false) {
+          const failure = result.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error((failure && failure.message) || "remote");
+        }
         return result.value;
       }
       return result;
@@ -553,8 +557,10 @@ window.__ModuleLoader__.load({
       });
     }
 
-    function BindingsPane({ remote, connection }) {
+    function BindingsPane({ remote, connection, connectionGeneration }) {
       const t = localeCopy();
+      const generationRef = React.useRef(connectionGeneration);
+      generationRef.current = connectionGeneration;
       const [rows, setRows] = React.useState([]);
       const [routes, setRoutes] = React.useState([]);
       const [workspaces, setWorkspaces] = React.useState([]);
@@ -565,6 +571,15 @@ window.__ModuleLoader__.load({
       const [textProbeStatus, setTextProbeStatus] = React.useState("");
       const [voiceOptions, setVoiceOptions] = React.useState({ asr: "unavailable", tts: "unavailable", voices: [], weixinNative: { enabled: false } });
       const refresh = React.useCallback(() => {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined) {
+          setRows([]);
+          setRoutes([]);
+          setWorkspaces([]);
+          setVoiceOptions({ asr: "unavailable", tts: "unavailable", voices: [], weixinNative: { enabled: false } });
+          setActionError(t.loadError);
+          return;
+        }
         Promise.all([
           imCall(remote, connection, "listBindings").catch(() => []),
           imCall(remote, connection, "listBindableRoutes").catch(() => []),
@@ -573,11 +588,13 @@ window.__ModuleLoader__.load({
           })),
           imCall(remote, connection, "getVoiceOptions").catch(() => ({ asr: "unavailable", tts: "unavailable", voices: [], weixinNative: { enabled: false } })),
         ]).then(([bindings, bindable, listed, voice]) => {
+          if (generationRef.current !== expectedGeneration) return;
           setRows(Array.isArray(bindings) ? bindings : []);
           setRoutes(Array.isArray(bindable) ? bindable : []);
           const next = listed && listed.workspaces ? listed.workspaces : [];
           setWorkspaces(next);
           setVoiceOptions(voice || { asr: "unavailable", tts: "unavailable", voices: [], weixinNative: { enabled: false } });
+          setActionError("");
           if (!workspaceId && next[0]) {
             setWorkspaceId(next[0].id);
             const firstSession = next[0].sessions && next[0].sessions[0];
@@ -589,10 +606,10 @@ window.__ModuleLoader__.load({
               );
           }
         });
-      }, [remote, connection, workspaceId]);
+      }, [remote, connection, t.loadError, workspaceId]);
       React.useEffect(() => {
         refresh();
-      }, [refresh]);
+      }, [refresh, connectionGeneration]);
       const selected =
         workspaces.find((ws) => ws.id === workspaceId) || workspaces[0];
       const sessions = selected && selected.sessions ? selected.sessions : [];
@@ -1812,8 +1829,10 @@ window.__ModuleLoader__.load({
       });
     }
 
-    function ImTab({ remote, connection }) {
+    function ImTab({ remote, connection, connectionGeneration }) {
       const t = localeCopy();
+      const generationRef = React.useRef(connectionGeneration);
+      generationRef.current = connectionGeneration;
       const [selected, setSelected] = React.useState("");
       const [weixinKick, setWeixinKick] = React.useState(0);
       const [feishuKick, setFeishuKick] = React.useState(0);
@@ -1823,15 +1842,24 @@ window.__ModuleLoader__.load({
         error: "",
       });
       const load = React.useCallback(() => {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined) {
+          setSnap({ status: "error", overview: null, error: t.loadError });
+          return;
+        }
         Promise.resolve(imCall(remote, connection, "getOverview"))
-          .then((overview) => setSnap({ status: "ready", overview, error: "" }))
-          .catch(() =>
-            setSnap({ status: "error", overview: null, error: t.loadError }),
-          );
-      }, [remote, connection]);
+          .then((overview) => {
+            if (generationRef.current !== expectedGeneration) return;
+            setSnap({ status: "ready", overview, error: "" });
+          })
+          .catch(() => {
+            if (generationRef.current !== expectedGeneration) return;
+            setSnap({ status: "error", overview: null, error: t.loadError });
+          });
+      }, [remote, connection, t.loadError]);
       React.useEffect(() => {
         load();
-      }, [load]);
+      }, [load, connectionGeneration]);
       const channels = snap.overview?.channels ?? [];
       const openChannel = (id) => {
         setSelected(id);
@@ -1858,9 +1886,9 @@ window.__ModuleLoader__.load({
             children: [
               t.pageTitle,
               jsx.jsx("span", {
-                "data-penglai-im-version": "0.5.8",
+                "data-penglai-im-version": "0.5.9",
                 style: { marginInlineStart: "8px", fontSize: "0.78em", opacity: 0.72 },
-                children: "Penglai IM 0.5.8",
+                children: "Penglai IM 0.5.9",
               }),
             ],
           }),
@@ -2047,7 +2075,11 @@ window.__ModuleLoader__.load({
             "data-penglai-im-advanced": "1",
             children: [
               jsx.jsx("summary", { children: t.advanced }),
-              jsx.jsx(BindingsPane, { remote, connection }),
+              jsx.jsx(BindingsPane, {
+                remote,
+                connection,
+                connectionGeneration,
+              }),
               jsx.jsx("p", { children: t.commandsHint }),
               jsx.jsx("p", { children: t.diagnosticsHint }),
               channels.some((channel) => safeTransportObservation(channel.error))
@@ -2086,11 +2118,14 @@ window.__ModuleLoader__.load({
       });
     }
 
-    function ImSettingsSection(props) {
+    function ImSettingsSection({ useConnectionGeneration, ...props }) {
+      const connectionGeneration = useConnectionGeneration(
+        (generation) => generation?.id,
+      );
       return jsx.jsx("div", {
         className: "penglai-settings-page",
         "data-penglai-settings": "im",
-        children: jsx.jsx(ImTab, props),
+        children: jsx.jsx(ImTab, { ...props, connectionGeneration }),
       });
     }
 
@@ -2113,6 +2148,9 @@ window.__ModuleLoader__.load({
                 inject: () => ({
                   remote: pageRemote,
                   connection: viewCtx.connection,
+                  hooks: {
+                    connectionGeneration: viewCtx.connection.generation,
+                  },
                 }),
               },
               ImSettingsSection,

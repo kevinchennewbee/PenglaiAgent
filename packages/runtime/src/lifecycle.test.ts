@@ -260,7 +260,8 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   const root = mkdtempSync(join(tmpdir(), "penglai-layout-user-"));
   const cacheRoot = mkdtempSync(join(tmpdir(), "penglai-layout-cache-"));
   const logsRoot = mkdtempSync(join(tmpdir(), "penglai-layout-logs-"));
-  const dataLayout = { userData: root, cacheRoot, logsRoot };
+  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-alpha.2");
+  const dataLayout = { userData: root, cacheRoot, logsRoot, dshHome: alpha2Home };
   const plan = buildDeletionPlan({
     operationId: "managed-layout",
     categories: ["cache", "settings", "dsh", "credentials", "memory"],
@@ -275,6 +276,9 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   assert.equal(plan.paths.includes(join(root, "dsh-home", ".credentials.yaml")), true);
   assert.equal(plan.paths.includes(join(root, "dsh-home", "storages")), true);
   assert.equal(plan.paths.includes(join(root, "dsh-home", "skills")), true);
+  assert.equal(plan.paths.includes(join(alpha2Home, ".credentials.yaml")), true);
+  assert.equal(plan.paths.includes(join(alpha2Home, "storages")), true);
+  assert.equal(plan.paths.includes(join(alpha2Home, "skills")), true);
   assert.equal(plan.paths.includes(cacheRoot), true);
   assert.equal(plan.paths.includes(logsRoot), true);
   const preview = previewDeletionPlan(plan, root, [], [], { ...POSIX_INSPECTION, dataLayout });
@@ -284,7 +288,7 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   assert.equal(inventory.categories.length, 13);
   assert.equal(inventory.categories.every((category) => category.deletable), true);
 
-  const workspaceInsideDsh = join(root, "dsh-home", "storages", "workspace-source");
+  const workspaceInsideDsh = join(alpha2Home, "storages", "workspace-source");
   assert.throws(
     () => previewDeletionPlan(plan, root, [workspaceInsideDsh], [], { ...POSIX_INSPECTION, dataLayout }),
     /workspace never deleted/,

@@ -1,10 +1,18 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { inspectPackagedCandidate, packagedAppForTarget } from "./lib/packaged-candidate.mjs";
+import {
+  inspectPackagedCandidate,
+  packagedAppForTarget,
+  PACKAGED_TARGETS,
+} from "./lib/packaged-candidate.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
+import {
+  evaluateWindowsAuthenticode,
+  WINDOWS_AUTHENTICODE_COMMAND,
+} from "./lib/signing-contract.mjs";
 
 function runCodesign(args) {
   const r = spawnSync("codesign", args, { encoding: "utf8" });
@@ -40,6 +48,100 @@ if (packaged.verdict !== "PASS") {
   });
 }
 
+if (expectedTarget === "win32-x86_64") {
+  if (process.platform !== "win32") {
+    finish("BLOCKED", {
+      command: "verify:signing",
+      reason: "Windows Authenticode state requires a native Windows verifier",
+      app,
+      sourceSha: git.head,
+      expectedTarget,
+    });
+  }
+  const installer = join(ROOT, PACKAGED_TARGETS[expectedTarget].dmgRelative);
+  const binaries = [join(app, "Penglai.exe"), installer];
+  if (binaries.some((path) => !existsSync(path))) {
+    finish("INCOMPLETE", {
+      command: "verify:signing",
+      reason: "exact Windows app or installer is missing",
+      binaries,
+      sourceSha: git.head,
+      expectedTarget,
+    });
+  }
+  const records = binaries.map((path) => {
+    const result = spawnSync(
+      "powershell.exe",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        WINDOWS_AUTHENTICODE_COMMAND,
+      ],
+      {
+        encoding: "utf8",
+        env: { ...process.env, PENGLAI_SIGNATURE_TARGET: path },
+      },
+    );
+    return {
+      path,
+      status: String(result.stdout ?? "").trim(),
+      processStatus: result.status ?? 1,
+      error: String(result.stderr ?? "").trim(),
+    };
+  });
+  const invocationFailure = records.find(
+    (record) => record.processStatus !== 0 || record.status.length === 0,
+  );
+  if (invocationFailure) {
+    finish("FAIL", {
+      command: "verify:signing",
+      reason: "native Authenticode inspection failed",
+      records,
+      sourceSha: git.head,
+      target: expectedTarget,
+    });
+  }
+  const contract = evaluateWindowsAuthenticode(records);
+  if (contract.verdict !== "PASS") {
+    finish("FAIL", {
+      command: "verify:signing",
+      reason: contract.reason,
+      records,
+      sourceSha: git.head,
+      target: expectedTarget,
+    });
+  }
+  const summary = [
+    "Penglai 0.5.9 community-verified Windows unsigned contract",
+    `app=${app}`,
+    `installer=${installer}`,
+    `sourceSha=${packaged.release.sourceSha}`,
+    `target=${expectedTarget}`,
+    ...records.map((record) => `${record.path}=Authenticode ${record.status}`),
+    "authenticode=false",
+    "notarized=false",
+  ].join("\n");
+  mkdirSync(join(ROOT, "dist"), { recursive: true });
+  writeFileSync(
+    join(ROOT, "dist/authenticode-verification.txt"),
+    `${summary}\n`,
+  );
+  finish("PASS", {
+    command: "verify:signing",
+    signatureKind: "unsigned-nsis",
+    developerIdSigned: false,
+    notarized: false,
+    authenticode: false,
+    records: records.map(({ path, status }) => ({ path, status })),
+    app,
+    installer,
+    sourceSha: packaged.release.sourceSha,
+    target: expectedTarget,
+  });
+}
+
 const verified = runCodesign(["--verify", "--deep", "--strict", "--verbose=2", app]);
 if (verified.status !== 0) {
   console.error("codesign --verify --deep --strict failed");
@@ -59,7 +161,7 @@ if (!adhoc) {
   process.exit(1);
 }
 
-const summary = ["Penglai 0.5.8 community-verified ad-hoc contract", `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
+const summary = ["Penglai 0.5.9 community-verified ad-hoc contract", `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
 mkdirSync(join(ROOT, "dist"), { recursive: true });
 writeFileSync(join(ROOT, "dist/codesign-verification.txt"), `${summary}\n`);
 finish("PASS", {

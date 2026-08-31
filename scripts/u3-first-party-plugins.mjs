@@ -108,9 +108,10 @@ if (!harness) {
 }
 
 const resources = resourcesInside(installed.app, target);
-const profilePatch = join(userData, "dsh-home", "profiles", "web", "cordis.patch.yml");
+const alpha2Home = join(userData, "dsh-homes", "dsh-v0.1.2-alpha.2");
+const profilePatch = join(alpha2Home, "profiles", "web", "cordis.patch.yml");
 const inventoryPath = join(userData, "plugins", "inventory-snapshot.json");
-const packageRoot = join(userData, "dsh-home", "profiles", "web", "node_modules", "@penglai");
+const packageRoot = join(alpha2Home, "profiles", "web", "node_modules", "@penglai");
 const dshNeedle = resolve(join(resources, "runtime/dsh/lib/bin.js"));
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
@@ -171,8 +172,8 @@ writeFileSync(
   { mode: 0o600 },
 );
 writeFileSync(join(onboardingDir, "current-nonce.digest"), `${fixtureNonceDigest}\n`, { mode: 0o600 });
-const dshSourceContract = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.5.8/DSH_SOURCE_CLOSURE.json"), "utf8"),
+const dshCohort = JSON.parse(
+  readFileSync(join(ROOT, "docs/0.5.9/DSH_NPM_COHORT.json"), "utf8"),
 );
 const fixtureDshHome = join(userData, "dsh-home");
 mkdirSync(fixtureDshHome, { recursive: true, mode: 0o700 });
@@ -189,7 +190,7 @@ writeFileSync(
     "ui-theme:",
     "  preference: system",
     "ui-onboarding:",
-    `  welcomeNoticeVersion: ${dshSourceContract.productClientBuild.welcomeNotice.version}`,
+    `  welcomeNoticeVersion: ${dshCohort.upstreamFacts.welcomeNotice.version}`,
     "",
   ].join("\n"),
   { mode: 0o600 },
@@ -286,7 +287,7 @@ function installedPackages() {
 function requiredPackagesOk(packages) {
   return REQUIRED_BUILTIN.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.8";
+    return pkg?.present && pkg.version === "0.5.9";
   });
 }
 
@@ -294,7 +295,7 @@ function optionalPackagesOk(packages, enabled) {
   if (!enabled) return true;
   return OPTIONAL_PLUGINS.every((id) => {
     const pkg = packages.find((row) => row.id === id);
-    return pkg?.present && pkg.version === "0.5.8";
+    return pkg?.present && pkg.version === "0.5.9";
   });
 }
 

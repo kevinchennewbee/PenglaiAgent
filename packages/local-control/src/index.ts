@@ -64,7 +64,7 @@ export async function startControlServer(
         return;
       }
       if (req.url === "/health") {
-        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, release: "0.5.8" }));
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, release: "0.5.9" }));
         return;
       }
       const hdr = String(req.headers["x-penglai-token"] ?? "");

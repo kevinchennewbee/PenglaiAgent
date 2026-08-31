@@ -76,3 +76,17 @@ test("flattening preserves a package-local dependency when its version differs",
   const nested = JSON.parse(readFileSync(join(modules, "package-a", "node_modules", "package-x", "package.json"), "utf8"));
   assert.equal(nested.version, "1.0.0");
 });
+
+test("closure fails closed when a required peer cannot be resolved", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-dsh-required-peer-"));
+  const manifest = join(root, "package.json");
+  writeFileSync(manifest, JSON.stringify({
+    name: "fixture-root",
+    version: "1.0.0",
+    peerDependencies: { "penglai-required-peer-that-does-not-exist": "1.0.0" },
+  }));
+  assert.throws(
+    () => collectDshClosure(manifest, []),
+    /cannot resolve required dependency penglai-required-peer-that-does-not-exist/,
+  );
+});

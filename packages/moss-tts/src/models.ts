@@ -552,7 +552,7 @@ export class TtsModelManager {
         throw new PenglaiError("SECURITY_POLICY", "MOSS partial file unsafe");
       }
       let existing = opened.size;
-      const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.8 model-manager" };
+      const headers: Record<string, string> = { "User-Agent": "Penglai/0.5.9 model-manager" };
       const validator = op.validators?.[file.path];
       if (existing) {
         headers.Range = `bytes=${existing}-`;

@@ -27,11 +27,6 @@ process.env.PENGLAI_EVIDENCE_DIR = assertionFile;
 if (process.argv.includes("--aggregate")) {
   const present = RELEASE_TARGETS.filter((target) => existsSync(join(evidenceDir, evidenceName("installed-e2e", target))));
   const missing = missingReleaseTargets(present);
-  const sourceShas = present.map((target) => {
-    const rec = JSON.parse(readFileSync(join(evidenceDir, evidenceName("installed-e2e", target)), "utf8"));
-    return rec.sourceSha;
-  });
-  const unique = [...new Set(sourceShas.filter(Boolean))];
   if (missing.length) {
     finish("INCOMPLETE", {
       command: "verify:installed",
@@ -40,14 +35,44 @@ if (process.argv.includes("--aggregate")) {
       missing,
     });
   }
-  if (unique.length !== 1) {
-    finish("FAIL", {
+  const records = present.map((target) => {
+    const rec = JSON.parse(readFileSync(join(evidenceDir, evidenceName("installed-e2e", target)), "utf8"));
+    const expectedInstaller = installerForTarget(target);
+    const hostMatches = target === "darwin-aarch64"
+      ? rec.host?.platform === "darwin" && rec.host?.arch === "arm64"
+      : target === "darwin-x86_64"
+        ? rec.host?.platform === "darwin" && rec.host?.arch === "x64"
+        : rec.host?.platform === "win32" && rec.host?.arch === "x64";
+    if (
+      rec.schema !== 2 ||
+      rec.command !== "test:e2e:installed" ||
+      rec.verdict !== "PASS" ||
+      rec.productVersion !== "0.5.9" ||
+      rec.target !== target ||
+      rec.installer !== expectedInstaller ||
+      !/^[0-9a-f]{64}$/.test(String(rec.installerSha256 ?? "")) ||
+      !/^[0-9a-f]{40}$/.test(String(rec.sourceSha ?? "")) ||
+      !hostMatches ||
+      Object.values(rec.checks ?? {}).some((value) => value !== "PASS")
+    ) {
+      finish("FAIL", { command: "verify:installed", reason: `invalid native installed evidence for ${target}`, target });
+    }
+    return rec;
+  });
+  const unique = [...new Set(records.map((record) => record.sourceSha))];
+  const source = requireCleanCandidateSource();
+  if (!source.ok || unique.length !== 1 || unique[0] !== source.git.head) {
+    finish("STALE", {
       command: "verify:installed",
-      reason: "installed evidence source SHA is not identical across targets",
+      reason: "installed evidence is not bound to the exact clean source SHA",
       unique,
     });
   }
-  finish("PASS", { command: "verify:installed", targets: present, sourceSha: unique[0] });
+  finish("PASS", {
+    command: "verify:installed",
+    sourceSha: unique[0],
+    targets: records.map((record) => ({ target: record.target, installerSha256: record.installerSha256 })),
+  });
 }
 
 const target = parseTargetArg();
@@ -60,14 +85,14 @@ const path = existsSync(join(evidenceDir, evidenceName("installed-e2e", target))
     ? join(evidenceDir, "installed-e2e.json")
     : join(evidenceDir, evidenceName("installed-e2e", target));
 if (!existsSync(path)) {
-  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.8 installed evidence for ${target}`, target });
+  finish("INCOMPLETE", { command: "verify:installed", reason: `no 0.5.9 installed evidence for ${target}`, target });
 }
 const rec = JSON.parse(readFileSync(path, "utf8"));
 const blob = JSON.stringify(rec);
 if (/0\.2\.0-alpha|usable-fixture|sourceRead":true|Penglai-v0\.2\.0/.test(blob)) {
   finish("STALE", { command: "verify:installed", reason: "installed evidence is stale alpha or test-endpoint based" });
 }
-if (rec.productVersion !== "0.5.8" || rec.verdict !== "PASS") {
+if (rec.productVersion !== "0.5.9" || rec.verdict !== "PASS") {
   finish("INCOMPLETE", { command: "verify:installed", reason: "0.5 installed suite not PASS", target });
 }
 const expectedInstaller = installerForTarget(target);
@@ -245,4 +270,9 @@ identity.recordAssertion({
   assertionId: "workspace-and-first-turn",
   details: { safe: "installed walk reached workspace and first-turn after core-ready facts" },
 });
-finish("PASS", { command: "verify:installed", installerSha256: rec.installerSha256, target });
+finish("PASS", {
+  command: "verify:installed",
+  sourceSha: source.git.head,
+  installerSha256: rec.installerSha256,
+  target,
+});

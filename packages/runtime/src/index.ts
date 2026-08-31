@@ -77,8 +77,8 @@ export * from "./packaging.js";
 export * from "./fuses.js";
 export * from "./dsh-web-auth.js";
 
-export const PENGLAI_VERSION = "0.5.8";
-export const PINNED_DSH = "0.1.2-alpha.1";
+export const PENGLAI_VERSION = "0.5.9";
+export const PINNED_DSH = "0.1.2-alpha.2";
 export const PINNED_NODE = "22.22.2";
 export const PINNED_ELECTRON = "43.4.0";
 export const NODE_TARBALL_SHA256 = "db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000";
@@ -146,12 +146,17 @@ export function resolveRuntimeLayout(appRoot: string, platform: "darwin" | "win3
   };
 }
 
-export function resolveUserLayout(userData: string): UserLayout {
+export function resolveUserLayout(userData: string, dshHome?: string): UserLayout {
   const root = resolve(userData);
+  const home = resolve(dshHome ?? join(root, "dsh-home"));
+  const rel = relative(root, home);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new PenglaiError("SECURITY_POLICY", "DSH home must remain inside Penglai user data");
+  }
   return {
     root,
-    dshHome: join(root, "dsh-home"),
-    profileWeb: join(root, "dsh-home", "profiles", "web"),
+    dshHome: home,
+    profileWeb: join(home, "profiles", "web"),
     transactions: join(root, "profiles", "transactions"),
     snapshots: join(root, "profiles", "snapshots"),
     imDb: join(root, "im", "penglai-im.sqlite"),
@@ -184,13 +189,53 @@ export function verifyRuntimeManifest(layout: RuntimeLayout): { ok: true } {
   assertAbsoluteExecutable(layout.dshEntry, "embedded dsh");
   if (!existsSync(layout.manifestPath)) throw new PenglaiError("STORE_CORRUPT", "runtime-manifest missing");
   const man = JSON.parse(readFileSync(layout.manifestPath, "utf8")) as { files: ManifestEntry[] };
+  if (!Array.isArray(man.files)) throw new PenglaiError("STORE_CORRUPT", "runtime-manifest files invalid");
+  const expected = new Set<string>();
   for (const f of man.files) {
-    const abs = join(layout.appRoot, f.path);
-    if (!existsSync(abs)) throw new PenglaiError("STORE_CORRUPT", `missing ${f.path}`);
+    const normalized = String(f.path ?? "").replaceAll("\\", "/");
+    const abs = resolve(layout.appRoot, normalized);
+    const rel = relative(layout.appRoot, abs).replaceAll("\\", "/");
+    if (!normalized || normalized !== rel || rel.startsWith("../") || isAbsolute(rel) || expected.has(rel)) {
+      throw new PenglaiError("STORE_CORRUPT", `unsafe or duplicate runtime path ${normalized}`);
+    }
+    expected.add(rel);
+    if (!existsSync(abs) || !lstatSync(abs).isFile()) throw new PenglaiError("STORE_CORRUPT", `missing ${rel}`);
     const got = sha256File(abs);
-    if (got !== f.sha256) throw new PenglaiError("STORE_CORRUPT", `hash mismatch ${f.path}`);
+    if (got !== f.sha256 || statSync(abs).size !== f.size) throw new PenglaiError("STORE_CORRUPT", `hash or size mismatch ${rel}`);
+  }
+  const actual = new Set<string>();
+  const walkManaged = (path: string): void => {
+    if (!existsSync(path)) return;
+    for (const name of readdirSync(path)) {
+      const child = join(path, name);
+      const stat = lstatSync(child);
+      if (stat.isSymbolicLink()) throw new PenglaiError("STORE_CORRUPT", `unexpected runtime symlink ${relative(layout.appRoot, child)}`);
+      if (stat.isDirectory()) walkManaged(child);
+      else if (stat.isFile()) actual.add(relative(layout.appRoot, child).replaceAll("\\", "/"));
+      else throw new PenglaiError("STORE_CORRUPT", `unexpected runtime entry ${relative(layout.appRoot, child)}`);
+    }
+  };
+  for (const root of ["runtime", "profile-seed", "plugins", "mnemon", "licenses"]) walkManaged(join(layout.appRoot, root));
+  for (const top of ["release-contract.json", "LGPL_SOURCE_OFFER.txt"]) {
+    if (existsSync(join(layout.appRoot, top))) actual.add(top);
+  }
+  const extras = [...actual].filter((path) => !expected.has(path));
+  if (extras.length) {
+    throw new PenglaiError("STORE_CORRUPT", `unexpected runtime files ${extras.slice(0, 5).join(",")}`);
   }
   return { ok: true };
+}
+
+/** Remove DSH's derived module-fallback cache before every Host generation. */
+export function resetManagedDshModuleFallback(user: UserLayout): void {
+  const fallback = resolve(user.dshHome, "profiles", "node_modules");
+  const rel = relative(resolve(user.dshHome), fallback);
+  if (rel.startsWith("..") || isAbsolute(rel) || resolve(fallback) === resolve(user.dshHome)) {
+    throw new PenglaiError("SECURITY_POLICY", "managed DSH module fallback escaped its home");
+  }
+  if (!existsSync(fallback)) return;
+  const stat = lstatSync(fallback);
+  rmSync(fallback, { recursive: !stat.isSymbolicLink(), force: false, maxRetries: 0 });
 }
 
 export function seedWebProfile(seedDir: string, destDir: string): void {
@@ -905,21 +950,30 @@ export function inventorySnapshotPath(user: UserLayout): string {
   return join(user.root, "plugins", "inventory-snapshot.json");
 }
 
-export function readInventorySnapshot(user: UserLayout): InventoryProof | undefined {
+export function readInventorySnapshot(
+  user: UserLayout,
+  expected?: { launchNonce: string; dshPid: number },
+): InventoryProof | undefined {
   const p = inventorySnapshotPath(user);
   if (!existsSync(p)) return undefined;
   try {
-    return evaluateInventory(JSON.parse(readFileSync(p, "utf8")));
+    const raw = JSON.parse(readFileSync(p, "utf8")) as { launchNonce?: unknown; dshPid?: unknown };
+    if (expected && (raw.launchNonce !== expected.launchNonce || raw.dshPid !== expected.dshPid)) return undefined;
+    return evaluateInventory(raw);
   } catch {
     return undefined;
   }
 }
 
-export async function waitInventory(user: UserLayout, timeoutMs: number): Promise<InventoryProof> {
+export async function waitInventory(
+  user: UserLayout,
+  timeoutMs: number,
+  expected?: { launchNonce: string; dshPid: number },
+): Promise<InventoryProof> {
   const start = Date.now();
   let last: InventoryProof | undefined;
   while (Date.now() - start < timeoutMs) {
-    last = readInventorySnapshot(user);
+    last = readInventorySnapshot(user, expected);
     if (last?.ok) return last;
     await delay(200);
   }
@@ -1354,7 +1408,9 @@ export class EmbeddedDshSupervisor {
     this.health = undefined;
     this.identity = undefined;
     this.lastHealthyInventory = undefined;
+    rmSync(inventorySnapshotPath(user), { force: true });
     this.port = reusableSupervisorPort(preferredPort) ?? await freePort();
+    const launchNonce = randomUUID();
     const previousWebCookie = this.#webSession?.cookie;
     const stdoutCapture = new DshWebOutputCapture(this.port);
     const stderrCapture = new DshWebOutputCapture(this.port);
@@ -1372,6 +1428,7 @@ export class EmbeddedDshSupervisor {
       DSH_HOME: user.dshHome,
       PENGLAI_USER_DATA: user.root,
       PENGLAI_DSH_PIN: PINNED_DSH,
+      PENGLAI_DSH_LAUNCH_NONCE: launchNonce,
       // Penglai does not operate a telemetry backend. Apply DSH's hard-disable
       // switch after every profile patch so a local profile cannot activate the
       // bundled OTel exporter or its dormant vendor endpoint.
@@ -1467,7 +1524,11 @@ export class EmbeddedDshSupervisor {
           launchUrl: () => stdoutCapture.launchUrl,
           ...(previousWebCookie ? { existingCookie: previousWebCookie } : {}),
         }),
-        waitInventory(user, this.boundedOption(this.options.inventoryTimeoutMs, 30_000)),
+        waitInventory(
+          user,
+          this.boundedOption(this.options.inventoryTimeoutMs, 30_000),
+          { launchNonce, dshPid: this.identity?.pid ?? 0 },
+        ),
       ]);
       stdoutCapture.clearLaunchUrl();
       this.#webSession = webSession;

@@ -414,7 +414,7 @@ test("installed UI harness executes only the exact installed resources/app", asy
   assert.ok(existsSync(windowsEnv.TEMP));
 });
 
-test("soak runner samples IM offline sleep update uninstall on the exact DMG", () => {
+test("soak runner samples IM offline sleep without faking lifecycle proof", () => {
   const soak = readFileSync(join(root, "scripts/soak-installed.mjs"), "utf8");
   assert.match(soak, /PENGLAI_SOAK/);
   assert.match(soak, /fromExactDmg/);
@@ -429,12 +429,15 @@ test("soak runner samples IM offline sleep update uninstall on the exact DMG", (
   assert.match(soak, /installed-soak-fixture/);
   assert.match(soak, /credentialRef: "DEEPSEEK_API_KEY"/);
   assert.match(soak, /join\(fixtureDshHome, "\.credentials\.yaml"\)/);
-  assert.match(soak, /evaluate\(session, HTTP_JS\)/);
-  assert.match(soak, /evaluate\(session, WS_JS\)/);
-  assert.doesNotMatch(soak, /probeLiveHttpWs/);
-  for (const sample of ["im", "offline", "sleep", "update", "uninstall"]) {
+  assert.match(soak, /launchPackaged\(exe, resources, nativeUserData/);
+  assert.match(soak, /probeLiveHttpWs/);
+  assert.match(soak, /exactExecutableSoak/);
+  assert.match(soak, /expectedNativeIdentity/);
+  for (const sample of ["im", "offline", "sleep"]) {
     assert.match(soak, new RegExp(`"${sample}"`));
   }
+  assert.match(soak, /navigation-only-not-upgrade-or-uninstall-evidence/);
+  assert.doesNotMatch(soak, /mark\("update"|mark\("uninstall"/);
   assert.match(soak, /SIGSTOP/);
   assert.match(soak, /penglai-windows-host\.exe/);
   const installedHelper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");

@@ -4,7 +4,8 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     const React = require("react");
     const jsx = require("react/jsx-runtime");
-    const inject = ["remote"];
+    const inject = ["remote", "connection"];
+
     function strictJson(value, depth = 0, seen = new Set()) {
       if (
         value === null ||
@@ -131,14 +132,21 @@ window.__ModuleLoader__.load({
       ];
     const unwrap = (v) => {
       if (v && typeof v === "object" && "ok" in v) {
-        if (!v.ok) throw new Error(v.error?.message || "remote");
+        if (v.ok === false) {
+          const failure = v.error;
+          if (failure?.isDSHRemoteError === true && typeof failure.code === "string") throw failure;
+          if (failure instanceof Error) throw failure;
+          throw new Error(failure?.message || "remote");
+        }
         return v.value;
       }
       return v;
     };
-    function BudgetTab({ remote }) {
+    function BudgetTab({ remote, connectionGeneration }) {
       const t = copy();
       const api = remote?.penglaiBudgetSettings;
+      const generationRef = React.useRef(connectionGeneration);
+      generationRef.current = connectionGeneration;
       const [v, set] = React.useState({
         phase: "loading",
         status: null,
@@ -153,13 +161,15 @@ window.__ModuleLoader__.load({
         notice: "",
       });
       const refresh = React.useCallback(() => {
-        if (!api?.status) {
+        const expectedGeneration = generationRef.current;
+        if (expectedGeneration === undefined || !api?.status) {
           set((x) => ({ ...x, phase: "unavailable" }));
           return;
         }
         Promise.resolve(api.status())
           .then(unwrap)
-          .then((status) =>
+          .then((status) => {
+            if (generationRef.current !== expectedGeneration) return;
             set((x) => ({
               ...x,
               phase: "ready",
@@ -169,19 +179,20 @@ window.__ModuleLoader__.load({
                 x.scope === "global"
                   ? "*"
                   : x.key || optionKeys(status, x.scope)[0] || "",
-            })),
-          )
-          .catch((e) =>
+            }));
+          })
+          .catch((e) => {
+            if (generationRef.current !== expectedGeneration) return;
             set((x) => ({
               ...x,
               phase: "unavailable",
               error: String(e?.message || e),
-            })),
-          );
+            }));
+          });
       }, [api]);
       React.useEffect(() => {
         refresh();
-      }, [refresh]);
+      }, [refresh, connectionGeneration]);
       const optionKeys = (status, scope) =>
         scope === "workspace"
           ? (status?.options?.workspaces || []).map((x) => x.id)
@@ -395,17 +406,20 @@ window.__ModuleLoader__.load({
         ],
       });
     }
-    function BudgetSettingsSection(props) {
+    function BudgetSettingsSection({ useConnectionGeneration, ...props }) {
+      const connectionGeneration = useConnectionGeneration(
+        (generation) => generation?.id,
+      );
       return jsx.jsx("div", {
         className: "penglai-settings-page",
         "data-penglai-settings": "budget",
-        children: jsx.jsx(BudgetTab, props),
+        children: jsx.jsx(BudgetTab, { ...props, connectionGeneration }),
       });
     }
     async function apply(ctx) {
       const disposeRemote = await ctx.remote.$mount(REMOTE);
       const viewFiber = ctx.inject(
-        ["slots", "remote.penglaiBudgetSettings"],
+        ["slots", "connection", "remote.penglaiBudgetSettings"],
         (viewCtx) => {
           const pageRemote = {
             penglaiBudgetSettings: viewCtx.remote.penglaiBudgetSettings,
@@ -417,7 +431,12 @@ window.__ModuleLoader__.load({
                 id: "penglai-budget",
                 order: 18.6,
                 label: () => copy().title,
-                inject: () => ({ remote: pageRemote }),
+                inject: () => ({
+                  remote: pageRemote,
+                  hooks: {
+                    connectionGeneration: viewCtx.connection.generation,
+                  },
+                }),
               },
               BudgetSettingsSection,
             ),

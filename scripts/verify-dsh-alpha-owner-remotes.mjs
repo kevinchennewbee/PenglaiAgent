@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
-const EXPECTED_ALPHA_SHA = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
+const EXPECTED_ALPHA_SHA = "0a53fb55bea101816fa226bb964ae2bed71c343b";
 
 function fail(message) {
   process.stderr.write(`DSH_ALPHA_OWNER_REMOTES_FAIL ${message}\n`);
@@ -84,7 +84,7 @@ requireTokens("Workspace wire types", workspaceTypes, [
 const workspaceClient = source(checkout, "packages/api/workspace-controller/src/client/index.ts");
 requireTokens("Workspace client graph", workspaceClient, [
   "'remote.workspace'",
-  "new ClientWorkspaceModel(remote.workspace)",
+  "new ClientWorkspaceModel(ctx.remote.workspace)",
   "remote.workspace.follow(signal)",
 ]);
 

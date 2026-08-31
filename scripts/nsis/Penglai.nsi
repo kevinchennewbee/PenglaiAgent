@@ -1,13 +1,14 @@
-; Penglai 0.5.8 current-user NSIS Setup.
+; Penglai 0.5.9 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
-; for install identity, bilingual UI, default-preserve userData, and
-; capability-bound complete delete. Native PASS is reserved for win-x64.
+; for install identity, bilingual UI, and unconditional userData preservation.
+; Exact data deletion is completed inside Penglai before the uninstaller runs.
+; Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.8"
+  !define PENGLAI_VERSION "0.5.9"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.8_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.9_windows_x64_setup.exe"
 !endif
 
 Unicode true
@@ -22,10 +23,7 @@ InstallDirRegKey HKCU "Software\Penglai\0.5" "InstallDir"
 !define APP_ID "Penglai.DSH.0.5"
 !define UPGRADE_CODE "8F3C1A62-0B77-4D2E-9C41-6A1F2E7B9D50"
 !define PRODUCT_PUBLISHER "Penglai"
-!define USERDATA "$LOCALAPPDATA\Penglai\0.5"
 !define UPDATE_CACHE "$LOCALAPPDATA\Penglai\0.5\cache\updates"
-!define HELPER "$INSTDIR\resources\runtime\helpers\penglai-windows-host.exe"
-!define CAPABILITY "${USERDATA}\uninstall\deletion-capability.json"
 
 !ifdef PENGLAI_ICON
   !define MUI_ICON "${PENGLAI_ICON}"
@@ -86,10 +84,21 @@ Function .onInit
       MessageBox MB_ICONSTOP "Penglai refuses downgrade from $0 to ${PENGLAI_VERSION}."
       Abort
     ${EndIf}
+    StrCpy $R1 "upgrade"
   ${EndIf}
 FunctionEnd
 
 Section "Penglai" SecApp
+  ${If} $R1 == "upgrade"
+    ${If} $INSTDIR != "$LOCALAPPDATA\Penglai\app\0.5"
+      MessageBox MB_ICONSTOP "Penglai cannot safely upgrade a custom legacy install directory. Uninstall the old version first."
+      Abort
+    ${EndIf}
+    ; The product data lives outside this fixed app directory. Remove the old
+    ; immutable payload before copying so alpha.1-only packages cannot survive
+    ; an alpha.2 upgrade.
+    RMDir /r "$LOCALAPPDATA\Penglai\app\0.5"
+  ${EndIf}
   SetOutPath "$INSTDIR"
 !ifndef PENGLAI_PAYLOAD
   !define PENGLAI_PAYLOAD "..\..\dist\runtime-staging-win32-x86_64\payload"
@@ -119,18 +128,14 @@ SectionEnd
 
 Section "un.Penglai" SectionUninstall
   ; Default uninstall: app, shortcuts, uninstall registry, update cache.
-  ; UserData is preserved unless a one-shot capability file exists.
+  ; UserData is always preserved. Penglai's in-app one-shot authorizer performs
+  ; any separately confirmed exact category deletion before this uninstaller.
   Delete "$SMPROGRAMS\Penglai\Penglai.lnk"
   Delete "$DESKTOP\Penglai.lnk"
   RMDir "$SMPROGRAMS\Penglai"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
   DeleteRegKey HKCU "Software\Penglai\0.5"
   RMDir /r "${UPDATE_CACHE}"
-  IfFileExists "${CAPABILITY}" 0 skip_data
-    IfFileExists "${HELPER}" 0 skip_data
-      nsExec::ExecToLog '"${HELPER}" delete-plan --file "${CAPABILITY}" --token capability --root "${USERDATA}"'
-      Delete "${CAPABILITY}"
-  skip_data:
   ; Only recursively remove the app tree when it is the exact default install
   ; location. A custom install directory must not be blindly RMDir /r'd.
   StrCpy $R0 "$INSTDIR"

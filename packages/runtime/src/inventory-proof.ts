@@ -36,6 +36,8 @@ export interface InventoryEntry {
 
 export interface InventorySnapshot {
   at?: string;
+  launchNonce?: string;
+  dshPid?: number;
   entries: InventoryEntry[];
   requiredProofs?: RequiredPluginProof[];
 }

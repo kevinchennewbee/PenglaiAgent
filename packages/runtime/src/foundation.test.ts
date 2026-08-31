@@ -141,6 +141,7 @@ test("DSH closure keeps only the node-pty payload for the declared release targe
       const dir = join(nodePty, "prebuilds", platform);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, platform.startsWith("win32") ? "conpty.node" : "pty.node"), platform);
+      if (platform.startsWith("darwin")) writeFileSync(join(dir, "spawn-helper"), platform);
     }
     for (const platform of ["win10-arm64", "win10-x64"]) {
       const dir = join(nodePty, "third_party", "conpty", "1.25.260303002", platform);

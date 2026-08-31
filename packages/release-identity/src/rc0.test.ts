@@ -105,12 +105,13 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.ok(listedSubgateNames().includes("verify:fuses"));
   assert.ok(listedSubgateNames().includes("verify:installed"));
   assert.ok(listedSubgateNames().includes("audit:secrets"));
-  assert.equal(listedSubgateNames().includes("verify:live"), false);
-  assert.equal(listedSubgateNames().includes("verify:soak"), false);
-  assert.equal(listedSubgateNames().includes("verify:evidence"), false);
+  assert.equal(listedSubgateNames().includes("verify:live"), true);
+  assert.equal(listedSubgateNames().includes("verify:soak"), true);
+  assert.equal(listedSubgateNames().includes("verify:evidence"), true);
+  assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), true);
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
-    ["verify:live", "verify:soak", "verify:evidence"],
+    [],
   );
   assert.equal(HARD_SUBGATES.length >= 18, true);
 
@@ -256,12 +257,12 @@ test("build inputs reject dirty named SHA and HEAD drift", () => {
   );
 });
 
-test("GitHub Actions is AVAILABLE for the 0.5.8 source candidate", () => {
+test("GitHub Actions is AVAILABLE for the 0.5.9 source candidate", () => {
   assert.equal(GITHUB_ACTIONS_STATUS, "AVAILABLE");
 });
 
-test("product version is 0.5.8 and registry count matches the document", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.8");
+test("product version is 0.5.9 and registry count matches the document", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.9");
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const ids = parseAcceptanceIds(md);
   const entries = assertRegistryConsistent(md);

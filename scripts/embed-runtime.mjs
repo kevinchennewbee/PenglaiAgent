@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
+import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
 import {
   PINNED_DSH,
   PINNED_DSH_CLOSURE_MANIFEST_SHA256,
@@ -14,10 +15,6 @@ import {
   PINNED_NODE,
   PRODUCT_VERSION,
 } from "./lib/product.mjs";
-import {
-  buildDshLocalDependencyMap,
-  verifyDshLocalDependencyLock,
-} from "./lib/dsh-local-dependency-map.mjs";
 import { MNEMON_UPSTREAM, mnemonAssetForTarget } from "../packages/release-identity/src/mnemon-assets.js";
 
 function argValue(name, fallback) {
@@ -140,24 +137,27 @@ rmSync(extractDir, { recursive: true, force: true });
 // preserve package-local version conflicts when copied into a standalone app.
 const workspaceDsh = join(ROOT, "node_modules", "@deepseek-ai", "dsh");
 const dshVersion = JSON.parse(readFileSync(join(workspaceDsh, "package.json"), "utf8")).version;
-  if (dshVersion !== PINNED_DSH) {
-    console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
-    process.exit(1);
-  }
-const sourceMap = buildDshLocalDependencyMap(ROOT);
-if (
-  sourceMap.source.version !== PINNED_DSH ||
-  sourceMap.source.closureManifestSha256 !== PINNED_DSH_CLOSURE_MANIFEST_SHA256 ||
-  sourceMap.packageCount !== PINNED_DSH_CLOSURE_PACKAGE_COUNT ||
-  sourceMap.packages.find((row) => row.name === "@deepseek-ai/dsh")?.sha256 !== PINNED_DSH_TARBALL_SHA256
-) {
-  console.error("vendored DSH source closure differs from release identity");
+if (dshVersion !== PINNED_DSH) {
+  console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
   process.exit(1);
 }
+const cohortPath = join(ROOT, "docs", "0.5.9", "DSH_NPM_COHORT.json");
+const cohortBytes = readFileSync(cohortPath);
+const cohort = JSON.parse(cohortBytes.toString("utf8"));
 try {
-  verifyDshLocalDependencyLock(readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"), sourceMap);
+  const summary = validateCohortSnapshot(cohort);
+  const cohortSha256 = createHash("sha256").update(cohortBytes).digest("hex");
+  if (
+    cohort.version !== PINNED_DSH ||
+    cohort.rootTarballSha256 !== PINNED_DSH_TARBALL_SHA256 ||
+    cohortSha256 !== PINNED_DSH_CLOSURE_MANIFEST_SHA256 ||
+    summary.total !== PINNED_DSH_CLOSURE_PACKAGE_COUNT
+  ) {
+    throw new Error("npm cohort differs from release identity");
+  }
+  verifyCohortLock(cohort, readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8"));
 } catch (error) {
-  console.error("pnpm lock is not bound to the vendored DSH source closure", error);
+  console.error("pnpm lock is not bound to the official DSH npm cohort", error);
   process.exit(1);
 }
 const locatedDsh = locateWorkspaceDsh({
@@ -207,7 +207,7 @@ if (existsSync(nodeBin) && target !== "win32-x86_64") {
   dshVersionProbe = String(versionProbe.stdout).trim();
 }
 
-// The 0.5.7 rc.2 overlay remains historical evidence only. Alpha.1 exposes
+// The 0.5.7 rc.2 overlay remains historical evidence only. Alpha.2 exposes
 // official client slots, so Penglai branding and settings are composed by
 // signed first-party plugins without modifying official DSH bytes.
 console.log(JSON.stringify({ dsh: PINNED_DSH, overlay: "official-slots-no-source-patch" }));
@@ -262,6 +262,18 @@ if (mnemonAsset.executable) {
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
+const lgplSourceOffer = join(ROOT, "docs", "0.5.9", "LGPL_SOURCE_OFFER.md");
+if (!existsSync(lgplSourceOffer)) {
+  console.error("0.5.9 LGPL corresponding-source offer is missing");
+  process.exit(1);
+}
+cpSync(lgplSourceOffer, join(staging, "LGPL_SOURCE_OFFER.txt"));
+const sharpLegalSource = join(ROOT, "third_party", "sharp");
+if (!existsSync(sharpLegalSource)) {
+  console.error("sharp/libvips legal materials are missing");
+  process.exit(1);
+}
+cpSync(sharpLegalSource, join(staging, "licenses", "sharp"), { recursive: true });
 
 // A native Windows build must carry its ACL/job/uninstall helper inside the
 // hashed runtime manifest. Cross-staging may omit it and remains structurally
@@ -279,7 +291,8 @@ const files = walk(join(staging, "runtime"))
   .concat(walk(join(staging, "profile-seed")))
   .concat(existsSync(join(staging, "plugins")) ? walk(join(staging, "plugins")) : [])
   .concat(existsSync(join(staging, "mnemon")) ? walk(join(staging, "mnemon")) : [])
-  .concat([join(staging, "release-contract.json")])
+  .concat(existsSync(join(staging, "licenses")) ? walk(join(staging, "licenses")) : [])
+  .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
   .map((abs) => ({
     path: abs.slice(staging.length + 1),
     sha256: sha256File(abs),

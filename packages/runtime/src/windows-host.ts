@@ -1,12 +1,11 @@
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PenglaiError } from "@penglai/contracts";
 import {
   assertWindowsAclHonest,
   windowsCredentialAcl,
-  writeFileAtomic,
   type WindowsAclSubject,
 } from "./permissions.js";
 import type { DeletionInspectionOptions } from "./uninstall.js";
@@ -489,66 +488,6 @@ export function spawnOwnedDshProcess(request: OwnedSpawnRequest): OwnedSpawnResu
       startedAt: new Date().toISOString(),
     },
   };
-}
-
-export const WINDOWS_DELETION_CAPABILITY_TOKEN = "capability";
-export const WINDOWS_DELETION_CAPABILITY_NAME = "deletion-capability.json";
-
-export function windowsDeletionCapabilityPath(journalDir: string): string {
-  return resolve(journalDir, WINDOWS_DELETION_CAPABILITY_NAME);
-}
-
-export function collectCapabilityPaths(paths: string[]): string[] {
-  const out: string[] = [];
-  const walk = (current: string): void => {
-    const resolved = resolve(current);
-    let stat;
-    try {
-      stat = lstatSync(resolved);
-    } catch {
-      out.push(resolved);
-      return;
-    }
-    if (stat.isSymbolicLink()) {
-      throw new PenglaiError("SECURITY_POLICY", "symlink/junction/reparse point refused");
-    }
-    if (stat.isDirectory()) {
-      for (const name of readdirSync(resolved).sort()) walk(join(resolved, name));
-      out.push(resolved);
-      return;
-    }
-    if (!stat.isFile()) {
-      throw new PenglaiError("SECURITY_POLICY", "special filesystem object refused");
-    }
-    out.push(resolved);
-  };
-  for (const path of paths) walk(path);
-  return out;
-}
-
-export function writeWindowsDeletionCapability(input: {
-  journalDir: string;
-  operationId: string;
-  token?: string;
-  root: string;
-  paths: string[];
-}): string {
-  mkdirSync(input.journalDir, { recursive: true, mode: 0o700 });
-  const dest = windowsDeletionCapabilityPath(input.journalDir);
-  const token = input.token ?? WINDOWS_DELETION_CAPABILITY_TOKEN;
-  const lines = [
-    "penglai-deletion-v1",
-    `operation=${input.operationId}`,
-    `token=${token}`,
-    `root=${resolve(input.root)}`,
-    ...collectCapabilityPaths(input.paths).map((path) => `path=${path}`),
-  ];
-  writeFileAtomic(dest, `${lines.join("\n")}\n`, 0o600);
-  return dest;
-}
-
-export function clearWindowsDeletionCapability(journalDir: string): void {
-  rmSync(windowsDeletionCapabilityPath(journalDir), { force: true });
 }
 
 export function windowsHelperRelativePath(): string {

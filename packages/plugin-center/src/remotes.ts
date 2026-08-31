@@ -14,9 +14,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { Remote, TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
+import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol";
 import type { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, t } from "@penglai/contracts";
+import { PenglaiError, PenglaiRemote, t } from "@penglai/contracts";
 import {
   PluginDistributionClient,
   selectCatalogArtifact,
@@ -185,14 +185,18 @@ export function inventoryActivationObservation(
   const rawPhase = String(row.fiberPhase ?? "").toLowerCase();
   const phase = enabled
     ? "active"
-    : row.disabled === true || row.enabled === false
-      ? "disabled"
-      : ["pending", "loading", "starting", "setup", "created"].includes(rawPhase)
-        ? "pending"
-        : ["failed", "error", "disposed", "dead"].includes(rawPhase) ||
-            row.health === "failed"
-          ? "failed"
-          : "unknown";
+    : ["unloading", "disposing", "stopping", "teardown"].includes(rawPhase)
+      ? "unloading"
+      : rawPhase === "loading"
+        ? "loading"
+        : ["pending", "starting", "setup", "created"].includes(rawPhase)
+          ? "pending"
+          : ["failed", "error", "disposed", "dead"].includes(rawPhase) ||
+              row.health === "failed"
+            ? "failed"
+            : row.disabled === true || row.enabled === false
+              ? "disabled"
+              : "unknown";
   return {
     source: "official-inventory",
     at,
@@ -203,7 +207,7 @@ export function inventoryActivationObservation(
 }
 
 export async function waitForInventory(
-  inventory: { list(): unknown },
+  inventory: { list(): unknown; refresh?(): Promise<void> },
   id: string,
   enabled: boolean,
   present = true,
@@ -212,14 +216,26 @@ export async function waitForInventory(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() <= deadline) {
+    await inventory.refresh?.();
     const observation = inventoryActivationObservation(inventory, id);
     observe(observation);
-    if (
-      !present
-        ? !observation.present
-        : observation.present && observation.enabled === enabled
-    ) {
+    const converged = !present
+      ? !observation.present
+      : enabled
+        ? observation.present &&
+          observation.enabled &&
+          observation.phase === "active"
+        : observation.present &&
+          !observation.enabled &&
+          observation.phase === "disabled";
+    if (converged) {
       return;
+    }
+    if (observation.phase === "failed") {
+      throw new PenglaiError(
+        "DSH_UNAVAILABLE",
+        "PLUGIN_RUNTIME_UNAVAILABLE",
+      );
     }
     if (Date.now() >= deadline) break;
     await new Promise<void>((resolveWait) => setTimeout(resolveWait, 50));
@@ -228,6 +244,74 @@ export async function waitForInventory(
     "DSH_UNAVAILABLE",
     "PLUGIN_ACTIVATION_TIMEOUT",
   );
+}
+
+export function assertPluginServiceHealthy(
+  health: ((id: string) => { healthy: boolean; error?: string }) | undefined,
+  id: string,
+): void {
+  const result = health?.(id);
+  if (result && !result.healthy) {
+    throw new PenglaiError("DSH_UNAVAILABLE", "PLUGIN_SERVICE_UNHEALTHY");
+  }
+}
+
+const PUBLIC_INVENTORY_PHASES = new Set([
+  "missing",
+  "pending",
+  "loading",
+  "active",
+  "unloading",
+  "disabled",
+  "failed",
+  "unknown",
+]);
+const PUBLIC_INVENTORY_HEALTH = new Set(["ready", "degraded", "failed"]);
+
+function publicPluginIdentity(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length > 160) return undefined;
+  return /^(@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)$/i.test(
+    value,
+  )
+    ? value
+    : undefined;
+}
+
+function publicPluginVersion(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length > 64) return undefined;
+  return /^[0-9A-Za-z][0-9A-Za-z.+_-]*$/.test(value) ? value : undefined;
+}
+
+function publicInventory(rows: ReturnType<typeof normalizeInventory>): {
+  entries: Array<Record<string, unknown>>;
+} {
+  return {
+    entries: rows.map((row) => {
+      const id =
+        publicPluginIdentity(row.id) ??
+        publicPluginIdentity(row.moduleName) ??
+        publicPluginIdentity(row.name);
+      const observation = id
+        ? inventoryActivationObservation({ list: () => [row] }, id)
+        : undefined;
+      const phase = observation?.phase ?? "unknown";
+      const health = PUBLIC_INVENTORY_HEALTH.has(String(row.health))
+        ? String(row.health)
+        : undefined;
+      return {
+        ...(id ? { id, moduleName: id } : {}),
+        ...(publicPluginVersion(row.version)
+          ? { version: publicPluginVersion(row.version) }
+          : {}),
+        enabled: observation?.enabled === true,
+        disabled: observation?.phase === "disabled",
+        loaded: observation?.phase === "active",
+        fiberPhase: PUBLIC_INVENTORY_PHASES.has(phase) ? phase : "unknown",
+        ...(health ? { health } : {}),
+        ...(typeof row.healthy === "boolean" ? { healthy: row.healthy } : {}),
+      };
+    }),
+  };
 }
 
 function previousStateFromJournal(
@@ -370,10 +454,11 @@ export function stageRegistryPackage(input: {
 
 export function createCenterRemote(opts: {
   host: CenterHostLike;
-  inventory: { list(): unknown };
+  inventory: { list(): unknown; refresh?(): Promise<void> };
   catalog: readonly PluginCatalogEntry[];
   lifecycle: PluginLifecycle;
   resourceProbe: (id: string) => ResourceProbe | undefined;
+  health?: (id: string) => { healthy: boolean; error?: string };
   profileDir: string;
   txDir: string;
   /** Read-only packages shipped inside the application. */
@@ -461,15 +546,17 @@ export function createCenterRemote(opts: {
         previousEnabled,
         previousPresent,
         applyLive: (input) => opts.lifecycle.apply(input),
-        verifyActual: (input, observe) =>
-          waitForInventory(
+        verifyActual: async (input, observe) => {
+          await waitForInventory(
             opts.inventory,
             input.id,
             input.enabled,
             input.present,
             8_000,
             observe,
-          ),
+          );
+          if (input.enabled) assertPluginServiceHealthy(opts.health, input.id);
+        },
         ...(probe ? { readResources: () => probe.snapshot() } : {}),
         commitDesired: (enabled) => opts.host.setDesired(id, enabled),
         rollbackDesired: (enabled) => opts.host.setDesired(id, enabled),
@@ -521,7 +608,7 @@ export function createCenterRemote(opts: {
         ...(opts.registry?.cards() ?? []).map((entry) => String(entry.id)),
       ];
       return {
-        inventory: raw,
+        inventory: publicInventory(rows),
         catalog,
         remote,
         ...(snap
@@ -710,47 +797,47 @@ export class PenglaiCenterRemote extends TypertRemoteService {
     super(ctx, "penglaiCenter");
   }
 
-  @Remote
+  @PenglaiRemote
   list() {
     return this.impl.list();
   }
 
-  @Remote
+  @PenglaiRemote
   enable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.enable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   installEnable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.installEnable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   disable(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.disable(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   update(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.update(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   rollback(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.rollback(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }
 
-  @Remote
+  @PenglaiRemote
   refreshRegistry() {
     return this.impl.refreshRegistry();
   }
 
-  @Remote
+  @PenglaiRemote
   download(input: { id: string }) {
     return this.impl.download(input.id);
   }
 
-  @Remote
+  @PenglaiRemote
   installDisabled(input: { id: string; actionId?: string; receipt?: string; capabilityId?: string }) {
     return this.impl.installDisabled(input.id, input.actionId && input.receipt ? { actionId: input.actionId, receipt: input.receipt } : input.capabilityId);
   }

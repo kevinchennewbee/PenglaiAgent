@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT, gitState } from "./lib/repo.mjs";
@@ -60,7 +61,7 @@ if (nativeName && !existsSync(join(staging, "runtime/dsh/node_modules", nativeNa
 const nativeAddonPackages = {
   "darwin-aarch64": ["@koromix/koffi-darwin-arm64", "@img/sharp-darwin-arm64", "@img/sharp-libvips-darwin-arm64"],
   "darwin-x86_64": ["@koromix/koffi-darwin-x64", "@img/sharp-darwin-x64", "@img/sharp-libvips-darwin-x64"],
-  // sharp 0.35.3 folds the Windows libvips DLLs into sharp-win32-x64;
+  // DSH alpha.2 sharp 0.35.4 folds the Windows libvips DLLs into sharp-win32-x64;
   // unlike the Darwin packages there is no separate sharp-libvips-win32-x64.
   "win32-x86_64": ["@koromix/koffi-win32-x64", "@img/sharp-win32-x64"],
 }[target] ?? [];
@@ -73,9 +74,9 @@ if (missingAddons.length) {
 if (target === "win32-x86_64") {
   const sharpLib = join(staging, "runtime/dsh/node_modules/@img/sharp-win32-x64/lib");
   const sharpFiles = [
-    "sharp-win32-x64-0.35.3.node",
+    "sharp-win32-x64-0.35.4.node",
     "libvips-42.dll",
-    "libvips-cpp-8.18.3.dll",
+    "libvips-cpp-8.18.6.dll",
   ];
   const missingSharpFiles = sharpFiles.filter((name) => !existsSync(join(sharpLib, name)));
   if (missingSharpFiles.length) {
@@ -84,6 +85,24 @@ if (target === "win32-x86_64") {
       target,
       reason: `flattened DSH closure missing sharp Windows payload ${missingSharpFiles.join(",")}`,
     });
+  }
+}
+if (target.startsWith("darwin-")) {
+  const helper = join(staging, "runtime/dsh/node_modules/node-pty/prebuilds", target === "darwin-aarch64" ? "darwin-arm64" : "darwin-x64", "spawn-helper");
+  if (!existsSync(helper) || (statSync(helper).mode & 0o111) === 0) {
+    finish("FAIL", { command: "verify:closure", target, reason: "node-pty spawn-helper missing or not executable" });
+  }
+}
+const nodePtyModule = join(staging, "runtime/dsh/node_modules/node-pty");
+if (existsSync(join(nodePtyModule, "package.json"))) {
+  const shell = target === "win32-x86_64" ? process.env.ComSpec ?? "cmd.exe" : "/bin/sh";
+  const shellArgs = target === "win32-x86_64" ? ["/d", "/c", "echo|set /p=PENGLAI_PTY_OK"] : ["-lc", "printf PENGLAI_PTY_OK"];
+  const ptyProbe = spawnSync(nodeBin, [
+    "-e",
+    `const p=require(${JSON.stringify(nodePtyModule)});let out="";const t=p.spawn(${JSON.stringify(shell)},${JSON.stringify(shellArgs)},{cols:80,rows:24,cwd:process.cwd(),env:process.env});t.onData(d=>out+=d);t.onExit(()=>process.exit(out.includes("PENGLAI_PTY_OK")?0:2));setTimeout(()=>process.exit(3),8000).unref();`,
+  ], { cwd: staging, encoding: "utf8", timeout: 10_000 });
+  if (ptyProbe.status !== 0) {
+    finish("FAIL", { command: "verify:closure", target, reason: "embedded node-pty native smoke failed" });
   }
 }
 finish("PASS", {

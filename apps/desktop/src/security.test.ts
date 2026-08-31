@@ -64,7 +64,8 @@ test("renderer lifecycle surface has no arbitrary installer URL path or delete p
   assert.match(main, /issuePluginOwnerGrant/);
   assert.match(main, /buildDeletionPlan\(\{/);
   assert.match(main, /operationId: `del_/);
-  assert.match(main, /writeWindowsDeletionCapability/);
+  assert.doesNotMatch(main, /writeWindowsDeletionCapability|deletion-capability\.json/);
+  assert.match(main, /current\.authorizer\.execute\(input\.operationId\)/);
   assert.match(main, /deletionInspectionOptionsForPlatform/);
   assert.match(main, /ensurePrivateHome\(user, layout\.appRoot\)/);
   const failProbe = main.slice(main.indexOf("const failProbe"), main.indexOf("live.onRecoveryStateChange"));

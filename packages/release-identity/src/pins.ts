@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.8";
+export const PRODUCT_VERSION = "0.5.9";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -23,16 +23,19 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
   "12a6abb9c2902cf48a21120da13f87fde1ed1b71a13330712949e8db818708ba";
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
-/** Exact official source freeze. npm publication is not part of this release identity. */
-export const PINNED_DSH = "0.1.2-alpha.1";
-export const PINNED_DSH_COMMIT = "cd5ef8148158c3a752a658978873241fdf8e2bbc";
-export const PINNED_DSH_TAG = "dsh-v0.1.2-alpha.1";
+/** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
+export const PINNED_DSH = "0.1.2-alpha.2";
+export const PINNED_DSH_COMMIT = "0a53fb55bea101816fa226bb964ae2bed71c343b";
+export const PINNED_DSH_TAG = "dsh-v0.1.2-alpha.2";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
+export const PINNED_DSH_NPM_INTEGRITY =
+  "sha512-4TvTC5kRKlgtSU2UTBv+cID9a2Z+6+m6mpvjXWJfVzuTkflCff6s4MsQpFJTCmwFh/k7zNWe7qFXcLYMV/5VvA==";
+export const PINNED_DSH_NPM_SHASUM = "2652fc9a1bafae85c69da581178b4060a065a40a";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "96595c6403ddfcedb694111c85f451348ac4ffc1ca1a6e73dfd71fca772a718e";
+  "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "13d5f5cd4dc356f2ffc48c02d22c4889afbff5da2b22eec74a3bf39185904f77";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 251;
+  "1ae818ae30a963dcf9b0063e1cfdf3fdc77b481b66478d1911988919b6f4eff1";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 257;
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const PINNED_WEIXIN_REF = "2.4.6";
@@ -104,9 +107,9 @@ export const UPDATER_CHANNEL = "desktop-v0.5";
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.8",
-  release: "v0.5.8",
-  channel: "stable-v0.5.8",
+  tag: "v0.5.9",
+  release: "v0.5.9",
+  channel: "stable-v0.5.9",
 });
 
 export const RELEASE_TARGETS = [
@@ -114,19 +117,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.8_macos_aarch64.dmg",
+    installer: "Penglai_0.5.9_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.8_macos_x64.dmg",
+    installer: "Penglai_0.5.9_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.8_windows_x64_setup.exe",
+    installer: "Penglai_0.5.9_windows_x64_setup.exe",
   },
 ] as const;
 
@@ -204,25 +207,24 @@ export const HARD_SUBGATES = [
   { name: "verify:identity", kind: "contract", mode: "run" },
   { name: "verify:contracts", kind: "contract", mode: "run" },
   { name: "verify:dependencies", kind: "contract", mode: "run" },
-  { name: "verify:closure", kind: "closure", mode: "run" },
-  { name: "verify:profile", kind: "profile", mode: "run" },
-  { name: "verify:artifact", kind: "artifact", mode: "run" },
-  { name: "verify:fuses", kind: "fuses", mode: "run" },
-  { name: "verify:signing", kind: "signing", mode: "run" },
+  { name: "verify:closure", kind: "closure", mode: "evidence" },
+  { name: "verify:profile", kind: "profile", mode: "evidence" },
+  { name: "verify:artifact", kind: "artifact", mode: "evidence" },
+  { name: "verify:fuses", kind: "fuses", mode: "evidence" },
+  { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
+  { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
+  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
+  { name: "verify:live", kind: "live", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// These checks need Owner accounts, long-running installed use, or a complete
-// cross-run evidence collection. They are reported next to the release result,
-// but absence must not masquerade as PASS or make the automated/native release
-// aggregate impossible to satisfy.
-export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
-  { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
-] as const;
+// 0.5.9 has no publication-optional acceptance evidence. Owner live accounts,
+// two-hour installed use, and the complete cross-run evidence collection are
+// hard gates above; an absent result remains INCOMPLETE.
+export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [] as const;
 
 export const REQUIRED_SUBGATE_KINDS = [
   "format",
@@ -239,6 +241,10 @@ export const REQUIRED_SUBGATE_KINDS = [
   "fuses",
   "signing",
   "installed",
+  "installed-lifecycle",
+  "installed-soak",
+  "live",
+  "evidence",
   "public-export",
   "secret",
 ] as const;

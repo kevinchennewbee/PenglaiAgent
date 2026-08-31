@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -29,6 +29,20 @@ function fixture(
   writeFileSync(join(app, "Contents/Info.plist"), "plist");
   writeFileSync(join(resources, "runtime/node/bin/node"), "node");
   writeFileSync(join(resources, "runtime/dsh/lib/bin.js"), "dsh");
+  const legalFiles = [
+    "libvips-LGPL-2.1.txt",
+    "sharp-libvips-Apache-2.0.txt",
+    "sharp-libvips-THIRD-PARTY-NOTICES.md",
+  ].map((name) => {
+    const bytes = readFileSync(join(process.cwd(), "third_party", "sharp", name));
+    mkdirSync(join(resources, "licenses", "sharp"), { recursive: true });
+    writeFileSync(join(resources, "licenses", "sharp", name), bytes);
+    return {
+      path: `licenses/sharp/${name}`,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      size: bytes.length,
+    };
+  });
   const manifest = {
     release: pins.productVersion,
     target: overrides.manifestTarget ?? "darwin-aarch64",
@@ -39,6 +53,7 @@ function fixture(
         sha256: createHash("sha256").update("node").digest("hex"),
         size: 4,
       },
+      ...legalFiles,
     ],
   };
   const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
