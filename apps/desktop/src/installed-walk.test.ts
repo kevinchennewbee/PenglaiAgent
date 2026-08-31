@@ -460,7 +460,8 @@ test("soak runner samples IM offline sleep without faking lifecycle proof", () =
   assert.match(soak, /credentialRef: "DEEPSEEK_API_KEY"/);
   assert.match(soak, /join\(fixtureDshHome, "\.credentials\.yaml"\)/);
   assert.match(soak, /launchPackaged\(exe, resources, nativeUserData/);
-  assert.match(soak, /probeLiveHttpWs/);
+  assert.match(soak, /liveFromHealthRecord/);
+  assert.match(soak, /waitNativeTransition/);
   assert.match(soak, /exactExecutableSoak/);
   assert.match(soak, /expectedNativeIdentity/);
   for (const sample of ["im", "offline", "sleep"]) {
@@ -470,6 +471,9 @@ test("soak runner samples IM offline sleep without faking lifecycle proof", () =
   assert.doesNotMatch(soak, /mark\("update"|mark\("uninstall"/);
   assert.match(soak, /SIGSTOP/);
   assert.match(soak, /penglai-windows-host\.exe/);
+  const desktopMain = readFileSync(join(root, "apps/desktop/src/electron-main.ts"), "utf8");
+  assert.match(desktopMain, /setInterval\(\(\) => void writeHealth\(\), 15_000\)/);
+  assert.match(desktopMain, /await verifyOfficialSurfaces\(allowedOrigin\)/);
   const installedHelper = readFileSync(join(root, "scripts/lib/installed-app.mjs"), "utf8");
   assert.match(installedHelper, /process-suspend/);
   assert.match(installedHelper, /process-resume/);

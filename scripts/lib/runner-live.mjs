@@ -134,6 +134,23 @@ export async function probeLiveHttpWs(origin, timeoutMs = 2_500) {
   return { httpOfficial, httpStatus, wsOpened };
 }
 
+export function proxyAuthBoundaryHealthy(live) {
+  return Boolean(
+    live &&
+      live.httpOfficial === false &&
+      live.httpStatus === 401 &&
+      live.wsOpened === false,
+  );
+}
+
+export function liveFromHealthRecord(health) {
+  return {
+    httpOfficial: health?.http?.official === true,
+    httpStatus: Number(health?.http?.status ?? 0),
+    wsOpened: health?.websocket?.opened === true,
+  };
+}
+
 export function evaluateLiveSample(input = {}) {
   const now = Number(input.now ?? Date.now());
   const health = input.health && typeof input.health === "object" ? input.health : null;

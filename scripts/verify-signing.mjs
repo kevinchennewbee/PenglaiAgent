@@ -71,7 +71,7 @@ if (expectedTarget === "win32-x86_64") {
   }
   const records = binaries.map((path) => {
     const result = spawnSync(
-      "powershell.exe",
+      "pwsh.exe",
       [
         "-NoLogo",
         "-NoProfile",

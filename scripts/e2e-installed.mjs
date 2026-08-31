@@ -21,7 +21,12 @@ import {
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
-import { evaluateLiveSample, probeLiveHttpWs, readProcessIdentity } from "./lib/runner-live.mjs";
+import {
+  evaluateLiveSample,
+  probeLiveHttpWs,
+  proxyAuthBoundaryHealthy,
+  readProcessIdentity,
+} from "./lib/runner-live.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
 import {
   evidenceName,
@@ -194,6 +199,7 @@ const nativePort = nativeGateway ? Number(readFileSync(nativeGatewayFile, "utf8"
 const nativeLive = nativePort
   ? await probeLiveHttpWs(`http://127.0.0.1:${nativePort}`, 3_000)
   : { httpOfficial: false, wsOpened: false };
+const nativeAuthBoundary = proxyAuthBoundaryHealthy(nativeLive);
 const nativeExit = await stopChild(nativeLaunch.child);
 const nativeLeftovers = leftoversByCommand(nativeProcessTree.dshEntry).filter(
   (line) => line.includes(nativeProcessTree.nodeBin) || line.includes(nativeUserData),
@@ -205,6 +211,7 @@ const nativeBoot = {
   inventory: nativeInventory,
   processTree: nativeProcessTree,
   live: nativeLive,
+  authenticationBoundary: nativeAuthBoundary,
   exit: nativeExit,
   leftovers: nativeLeftovers,
   ok: Boolean(
@@ -212,8 +219,7 @@ const nativeBoot = {
     nativeInventory &&
     nativeProcessTree.ownedAbsolute &&
     nativeProcessTree.dshPid > 0 &&
-    nativeLive.httpOfficial &&
-    nativeLive.wsOpened &&
+    nativeAuthBoundary &&
     nativeLeftovers.length === 0
   ),
 };
