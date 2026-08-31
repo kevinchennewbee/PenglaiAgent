@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Windows current-user NSIS Setup. Native PASS is only legal on win32/x64.
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -85,11 +85,28 @@ if (!existsSync(out)) {
 }
 const installedRoot = resolve(ROOT, "dist", "Penglai-v0.5.9-win32-x64");
 const installedApp = join(installedRoot, "Penglai");
-const fixtureRoot = mkdtempSync(join(tmpdir(), "penglai-windows-installer-fixture-"));
+const fixtureRoot = mkdtempSync(join(tmpdir(), "pgl-w-"));
 const fixtureApp = join(fixtureRoot, "Penglai");
 const installedRelative = relative(resolve(ROOT, "dist"), installedRoot);
 if (!installedRelative || installedRelative === ".." || installedRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(installedRelative)) {
   console.error("package-windows-nsis FAIL: from-installer target escaped dist");
+  process.exit(1);
+}
+function longestPayloadRelativePath(dir, prefix = "") {
+  let longest = "";
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const next = join(prefix, entry.name);
+    if (next.length > longest.length) longest = next;
+    if (entry.isDirectory()) {
+      const nested = longestPayloadRelativePath(join(dir, entry.name), next);
+      if (nested.length > longest.length) longest = nested;
+    }
+  }
+  return longest;
+}
+const longestInstalledPath = join(fixtureApp, longestPayloadRelativePath(payload));
+if (longestInstalledPath.length > 259) {
+  console.error(`package-windows-nsis FAIL: controlled fixture exceeds Windows installer path budget (${longestInstalledPath.length})`);
   process.exit(1);
 }
 const staleFixtureCleanup = cleanupRegisteredWindowsInstallerFixture();

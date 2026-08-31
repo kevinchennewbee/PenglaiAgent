@@ -135,7 +135,7 @@ export function isControlledWindowsInstallerFixture(installDir, root = ROOT, tem
   const temporarySegments = temporaryRel.split("\\");
   return (
     temporarySegments.length === 2 &&
-    temporarySegments[0].startsWith("penglai-windows-installer-fixture-") &&
+    temporarySegments[0].startsWith("pgl-w-") &&
     temporarySegments[1].toLowerCase() === "penglai"
   );
 }
