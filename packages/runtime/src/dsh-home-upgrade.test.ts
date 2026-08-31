@@ -507,6 +507,29 @@ test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 gene
   assert.equal(readActiveDshHome(root)?.activationKind, "fresh");
 });
 
+test("fresh activation digest excludes regenerated first-party profile runtime trees", () => {
+  const now = new Date("2026-08-31T00:00:00.000Z");
+  const roots = [
+    mkdtempSync(join(tmpdir(), "penglai-dsh-home-runtime-a-")),
+    mkdtempSync(join(tmpdir(), "penglai-dsh-home-runtime-b-")),
+  ];
+  const plans = roots.map((userRoot) => prepareDshHomeForBoot({ userRoot, now }));
+  for (const plan of plans) {
+    mkdirSync(join(plan.dshHome, "profiles", "web", "node_modules"), { recursive: true });
+  }
+  const regenerated = join(plans[0].dshHome, "profiles", "web", "node_modules", "@penglai", "office");
+  mkdirSync(regenerated, { recursive: true });
+  writeFileSync(join(regenerated, "large-runtime.js"), "x".repeat(4 * 1024 * 1024));
+
+  const activated = plans.map((plan, index) => activateDshHomeBootPlan({
+    userRoot: roots[index],
+    plan,
+    validation: validProof(),
+    now: new Date("2026-08-31T00:01:00.000Z"),
+  }));
+  assert.equal(activated[0].targetDigest, activated[1].targetDigest);
+});
+
 test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated alpha.2 generation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);

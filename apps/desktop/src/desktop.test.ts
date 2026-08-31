@@ -199,6 +199,11 @@ test("startup failure can load the recovery page instead of a blank window", asy
   assert.doesNotMatch(main, /p\.dataset\.penglaiError|p\.textContent/);
   assert.match(main, /splash\.html/);
   assert.match(main, /extraFileUrls/);
+  const gatewayPublish = main.lastIndexOf("publishGateway();");
+  const homeActivation = main.lastIndexOf("activateDshHomeBootPlan({");
+  assert.ok(homeActivation > 0);
+  assert.ok(gatewayPublish > homeActivation);
+  assert.match(main, /rmSync\(join\(user\.root, "gateway\.port"\), \{ force: true \}\)/);
 });
 
 test("startup failure tears down owned services before rendering recovery", () => {

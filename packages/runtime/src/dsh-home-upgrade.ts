@@ -266,10 +266,10 @@ function safeRelative(path: string): void {
   }
 }
 
-function isManagedOfficialRuntimeLink(path: string): boolean {
+function isManagedProfileRuntimeTree(path: string): boolean {
   return (
     path === "profiles/node_modules" ||
-    /^profiles\/[^/]+\/node_modules\/@deepseek-ai$/.test(path)
+    /^profiles\/[^/]+\/node_modules\/(?:@deepseek-ai|@penglai)$/.test(path)
   );
 }
 
@@ -295,10 +295,13 @@ function walkTree(
       current === canonicalRoot
         ? ""
         : relative(canonicalRoot, current).replaceAll("\\", "/");
-    // Profile activation recreates the alpha.2 root dependency mirror and the
-    // profile's @deepseek-ai link from the immutable embedded runtime on every
-    // boot. They are not user state; every other symlink remains forbidden.
-    if (isManagedOfficialRuntimeLink(currentRelative)) continue;
+    // Profile activation recreates the alpha.2 root dependency mirror,
+    // official @deepseek-ai link, and signed @penglai package trees from the
+    // immutable embedded runtime on every boot. They are not user state and
+    // can contain tens of thousands of files; hashing them would block the
+    // desktop main loop after DSH is already healthy. Every other symlink and
+    // profile path remains part of the bounded migration snapshot.
+    if (isManagedProfileRuntimeTree(currentRelative)) continue;
     const stat = lstatSync(current);
     if (stat.isSymbolicLink()) {
       throw new PenglaiError(
