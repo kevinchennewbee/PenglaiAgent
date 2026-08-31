@@ -145,6 +145,15 @@ test("website workflow grants write only to the main-gated deployment job", () =
   assert.match(workflow, /actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
   assert.match(workflow, /actions\/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093/);
   assert.match(workflow, /Read back the public GitHub Pages deployment/);
-  assert.equal(workflow.includes("https://kevinchennewbee.github.io/PenglaiAgent/en/"), true);
+  assert.equal(
+    workflow
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          line.trim() ===
+          'english="$(curl --fail --silent --show-error --location --max-time 20 https://kevinchennewbee.github.io/PenglaiAgent/en/ || true)"',
+      ),
+    true,
+  );
   assert.match(workflow, /grep -Fq "\$RELEASE_SHA"/);
 });
