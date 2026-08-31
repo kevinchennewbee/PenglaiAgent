@@ -48,6 +48,8 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
+      - name: Install independent Office verification tools
+        run: brew install poppler
       - name: Verify 0.5.9 preview boundaries
         if: github.ref == 'refs/heads/0.5.9-preview' || github.head_ref == '0.5.9-preview'
         run: pnpm verify:059-preview
