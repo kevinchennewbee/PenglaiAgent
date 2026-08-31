@@ -21,6 +21,7 @@ import {
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 import {
   evidenceName,
   installerForTarget,
@@ -63,9 +64,8 @@ const git = source.git;
 const target = parseTargetArg();
 const targetRecPath = join(outDir, evidenceName("u3-first-party-plugins", target));
 const writeRec = (value) => {
-  const text = `${JSON.stringify(value, null, 2)}\n`;
-  writeFileSync(recPath, text);
-  writeFileSync(targetRecPath, text);
+  writeEvidenceJson(recPath, value);
+  writeEvidenceJson(targetRecPath, value);
 };
 const blocked = nativeBlocked("u3-first-party-plugins", target);
 if (blocked) finish("BLOCKED", { command: "u3-first-party-plugins", ...blocked });

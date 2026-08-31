@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
@@ -17,6 +17,7 @@ import {
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { writeEvidenceJson } from "./lib/evidence-json.mjs";
 import { evidenceName, installerForTarget, nativeBlocked, parseTargetArg } from "./lib/release-targets.mjs";
 
 const WELCOME_JS = `(() => {
@@ -69,9 +70,8 @@ if (!source.ok) {
 const git = source.git;
 
 function writeRec(rec) {
-  const text = `${JSON.stringify(rec, null, 2)}\n`;
-  writeFileSync(recPath, text);
-  writeFileSync(targetRecPath, text);
+  writeEvidenceJson(recPath, rec);
+  writeEvidenceJson(targetRecPath, rec);
 }
 
 const blocked = nativeBlocked("u3-welcome-smoke", expectedTarget);
