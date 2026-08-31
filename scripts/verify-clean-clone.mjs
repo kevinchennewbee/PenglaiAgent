@@ -96,6 +96,10 @@ const typecheck = pnpmProcess(["typecheck"]);
 if (steps.at(-1).status === 0) steps.push(run(typecheck.command, typecheck.args, "typecheck"));
 const build = pnpmProcess(["build"]);
 if (steps.at(-1).status === 0) steps.push(run(build.command, build.args, "build"));
+if (process.platform === "win32" && steps.at(-1).status === 0) {
+  const windowsHost = pnpmProcess(["build:windows-host"]);
+  steps.push(run(windowsHost.command, windowsHost.args, "build:windows-host"));
+}
 if (steps.at(-1).status === 0) steps.push(run("git", ["status", "--porcelain"], "post-build-status"));
 if (steps.at(-1).status === 0 && String(steps.at(-1).tail).trim()) {
   rmSync(dest, { recursive: true, force: true });
