@@ -6,6 +6,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ROOT } from "./lib/repo.mjs";
 import { stagingForTarget } from "./lib/closure-credential.mjs";
+import { cleanupRegisteredWindowsInstallerFixture } from "./lib/installed-app.mjs";
 
 const contract = {
   installer: "Penglai_0.5.9_windows_x64_setup.exe",
@@ -88,6 +89,11 @@ if (!installedRelative || installedRelative === ".." || installedRelative.starts
   console.error("package-windows-nsis FAIL: from-installer target escaped dist");
   process.exit(1);
 }
+const staleFixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
+if (!staleFixtureCleanup.ok) {
+  console.error(`package-windows-nsis FAIL: ${staleFixtureCleanup.reason}`);
+  process.exit(1);
+}
 rmSync(installedRoot, { recursive: true, force: true });
 mkdirSync(installedApp, { recursive: true });
 const applied = spawnSync(out, ["/S", `/D=${installedApp}`], { cwd: ROOT, encoding: "utf8", windowsHide: true });
@@ -101,6 +107,11 @@ if (!existsSync(releaseInfoPath)) {
   process.exit(1);
 }
 const releaseInfo = JSON.parse(readFileSync(releaseInfoPath, "utf8"));
+const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
+if (!fixtureCleanup.ok || !fixtureCleanup.cleaned) {
+  console.error(`package-windows-nsis FAIL: ${fixtureCleanup.reason ?? "exact Setup fixture did not uninstall"}`);
+  process.exit(1);
+}
 const sha256 = createHash("sha256").update(readFileSync(out)).digest("hex");
 mkdirSync(join(ROOT, "evidence", "generated"), { recursive: true });
 writeFileSync(

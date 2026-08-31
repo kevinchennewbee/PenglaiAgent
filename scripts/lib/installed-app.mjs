@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, mkdtempSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, win32 as win32Path } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
@@ -35,6 +35,71 @@ export function leftoversByCommand(needle) {
 
 export function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+const WINDOWS_PRODUCT_KEY = "HKCU\\Software\\Penglai\\0.5";
+const WINDOWS_UNINSTALL_KEY =
+  "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Penglai.DSH.0.5";
+
+function queryWindowsRegistryValue(key, name) {
+  const queried = spawnSync("reg.exe", ["query", key, "/v", name], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 15_000,
+  });
+  if (queried.status !== 0) return "";
+  const row = String(queried.stdout ?? "")
+    .split(/\r?\n/u)
+    .find((line) => new RegExp(`^\\s*${name}\\s+REG_(?:SZ|EXPAND_SZ)\\s+`, "iu").test(line));
+  return row?.replace(new RegExp(`^\\s*${name}\\s+REG_(?:SZ|EXPAND_SZ)\\s+`, "iu"), "").trim() ?? "";
+}
+
+export function isControlledWindowsInstallerFixture(installDir, root = ROOT) {
+  const candidate = win32Path.resolve(String(installDir ?? ""));
+  const workspace = win32Path.resolve(String(root ?? ""));
+  const rel = win32Path.relative(workspace, candidate);
+  if (!rel || rel === ".." || rel.startsWith("..\\") || win32Path.isAbsolute(rel)) return false;
+  const segments = rel.split("\\");
+  if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
+  return rel.toLowerCase() === "dist\\penglai-v0.5.9-win32-x64\\penglai";
+}
+
+export function cleanupRegisteredWindowsInstallerFixture() {
+  if (process.platform !== "win32") return { ok: true, cleaned: false };
+  const installDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+  const uninstallCommand = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
+  if (!installDir && !uninstallCommand) return { ok: true, cleaned: false };
+  if (!installDir || !uninstallCommand) {
+    return { ok: false, cleaned: false, reason: "incomplete Penglai installer registry identity" };
+  }
+  if (!isControlledWindowsInstallerFixture(installDir)) {
+    return {
+      ok: false,
+      cleaned: false,
+      reason: "refusing to alter a Penglai install outside a dedicated release-test fixture",
+    };
+  }
+  const uninstaller = uninstallCommand.replace(/^"|"$/gu, "");
+  if (win32Path.resolve(uninstaller).toLowerCase() !== win32Path.resolve(installDir, "Uninstall.exe").toLowerCase()) {
+    return { ok: false, cleaned: false, reason: "registered Penglai uninstaller does not match its fixture" };
+  }
+  if (!existsSync(uninstaller)) {
+    return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstaller is missing" };
+  }
+  const removed = spawnSync(uninstaller, ["/S"], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 120_000,
+  });
+  if (removed.status !== 0 || removed.error) {
+    return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall failed" };
+  }
+  const remainingInstall = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+  const remainingUninstall = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
+  if (remainingInstall || remainingUninstall) {
+    return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall left product registry state" };
+  }
+  return { ok: true, cleaned: true, installDir };
 }
 
 export function installFromExactDmg(dmgPath, destRoot, installerName = ARM64_INSTALLER) {
@@ -112,6 +177,10 @@ export async function installFromExactInstaller(installerPath, destRoot, target)
   if (process.platform !== "win32" || process.arch !== "x64") {
     return { ok: false, blocked: true, reason: "Windows installer can only be applied on win32-x64" };
   }
+  const staleFixture = cleanupRegisteredWindowsInstallerFixture();
+  if (!staleFixture.ok) {
+    return { ok: false, reason: staleFixture.reason };
+  }
   const sha = sha256File(installerPath);
   rmSync(destRoot, { recursive: true, force: true });
   mkdirSync(destRoot, { recursive: true });
@@ -132,6 +201,9 @@ export async function installFromExactInstaller(installerPath, destRoot, target)
       installExit,
     };
   }
+  process.once("exit", () => {
+    cleanupRegisteredWindowsInstallerFixture();
+  });
   return { ok: true, app, installerSha256: sha, installer };
 }
 
