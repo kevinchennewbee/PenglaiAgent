@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, cpSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync, cpSync, rmSync, unlinkSync } from "node:fs";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { ROOT, readJson } from "./lib/repo.mjs";
 import { sha256File as closureSha256File, writeClosureCredential } from "./lib/closure-credential.mjs";
 import { locateWorkspaceDsh, materializeDshClosure } from "./lib/dsh-closure.mjs";
@@ -125,10 +125,39 @@ const extractedRoot = readdirSync(extractDir)
   .map((n) => join(extractDir, n))
   .find((p) => statSync(p).isDirectory()) ?? extractDir;
 mkdirSync(join(staging, "runtime"), { recursive: true });
-// Runtime manifests contain only regular files. Node's POSIX archives include
-// convenience links such as bin/corepack; materialize their target bytes so
-// the installed verifier never has to trust a package-time symlink.
-cpSync(extractedRoot, join(staging, "runtime", "node"), { recursive: true, dereference: true });
+const nodeDest = join(staging, "runtime", "node");
+if (process.platform === "darwin") {
+  // Preserve the official macOS archive's bundle-safe metadata with ditto.
+  // Node ships convenience links (npm, npx, corepack); replace only those
+  // links with their verified in-tree target bytes so the installed runtime
+  // remains symlink-free without mechanically recopying the whole archive.
+  execFileSync("ditto", [extractedRoot, nodeDest]);
+  const nodeDestReal = realpathSync(nodeDest);
+  const materializeLinks = (path) => {
+    for (const name of readdirSync(path)) {
+      const child = join(path, name);
+      const childStat = lstatSync(child);
+      if (childStat.isDirectory()) {
+        materializeLinks(child);
+        continue;
+      }
+      if (!childStat.isSymbolicLink()) continue;
+      const targetPath = realpathSync(child);
+      const targetRelative = relative(nodeDestReal, targetPath);
+      if (!targetRelative || targetRelative.startsWith("..") || isAbsolute(targetRelative)) {
+        throw new Error(`unsafe Node runtime symlink ${child}`);
+      }
+      const targetStat = statSync(targetPath);
+      if (!targetStat.isFile()) throw new Error(`unsupported Node runtime symlink target ${child}`);
+      unlinkSync(child);
+      copyFileSync(targetPath, child);
+      chmodSync(child, targetStat.mode);
+    }
+  };
+  materializeLinks(nodeDest);
+} else {
+  cpSync(extractedRoot, nodeDest, { recursive: true, dereference: true });
+}
 rmSync(extractDir, { recursive: true, force: true });
 
 // Package from the declared hoisted workspace root. Resolving from a child
@@ -293,7 +322,10 @@ const files = walk(join(staging, "runtime"))
   .concat(existsSync(join(staging, "licenses")) ? walk(join(staging, "licenses")) : [])
   .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
   .map((abs) => ({
-    path: abs.slice(staging.length + 1),
+    // The signed manifest is platform-neutral. Backslashes produced on the
+    // Windows packager would otherwise fail the exact legal-material and
+    // installed-runtime checks after NSIS extraction.
+    path: abs.slice(staging.length + 1).replaceAll("\\", "/"),
     sha256: sha256File(abs),
     size: statSync(abs).size,
   }));
