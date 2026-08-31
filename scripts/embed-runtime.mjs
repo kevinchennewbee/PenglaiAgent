@@ -322,7 +322,10 @@ const files = walk(join(staging, "runtime"))
   .concat(existsSync(join(staging, "licenses")) ? walk(join(staging, "licenses")) : [])
   .concat([join(staging, "release-contract.json"), join(staging, "LGPL_SOURCE_OFFER.txt")])
   .map((abs) => ({
-    path: abs.slice(staging.length + 1),
+    // The signed manifest is platform-neutral. Backslashes produced on the
+    // Windows packager would otherwise fail the exact legal-material and
+    // installed-runtime checks after NSIS extraction.
+    path: abs.slice(staging.length + 1).replaceAll("\\", "/"),
     sha256: sha256File(abs),
     size: statSync(abs).size,
   }));
