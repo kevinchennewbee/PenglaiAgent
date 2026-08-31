@@ -252,6 +252,16 @@ test("native release workflow proves bundled optional plugins across restart", (
     workflow,
     /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH alpha\.2 source/,
   );
+  const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
+  const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  aggregate:"));
+  for (const nativeWorkflow of [macosWorkflow, windowsWorkflow]) {
+    assert.ok(nativeWorkflow.indexOf("Build source from the clean checkout") >= 0);
+    assert.ok(nativeWorkflow.indexOf("Audit target-specific supply chain") >= 0);
+    assert.ok(
+      nativeWorkflow.indexOf("Build source from the clean checkout") <
+        nativeWorkflow.indexOf("Audit target-specific supply chain"),
+    );
+  }
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);
