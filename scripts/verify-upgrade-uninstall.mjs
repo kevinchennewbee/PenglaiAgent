@@ -13,6 +13,7 @@ import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import {
   exeInside,
+  cleanupRegisteredWindowsInstallerFixture,
   installFromExactDmg,
   launchPackaged,
   readInstalledAppIdentity,
@@ -166,6 +167,8 @@ writeFileSync(sentinel, "Penglai upgrade/uninstall preservation sentinel\n");
 
 let app;
 if (target === "win32-x86_64") {
+  const fixtureCleanup = cleanupRegisteredWindowsInstallerFixture();
+  if (!fixtureCleanup.ok) fail(`Windows release-test fixture cleanup failed: ${fixtureCleanup.reason}`);
   const localAppData = resolve(String(process.env.LOCALAPPDATA ?? ""));
   const expectedApp = join(localAppData, "Penglai", "app", "0.5");
   if (existsSync(expectedApp)) {
