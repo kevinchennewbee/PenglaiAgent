@@ -1,6 +1,17 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, mkdtempSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  mkdtempSync,
+} from "node:fs";
 import { join, resolve, win32 as win32Path } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -35,6 +46,17 @@ export function leftoversByCommand(needle) {
 
 export function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+export function removeTreeNoFollow(path) {
+  if (!existsSync(path)) return;
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    unlinkSync(path);
+    return;
+  }
+  for (const name of readdirSync(path)) removeTreeNoFollow(join(path, name));
+  rmdirSync(path);
 }
 
 const WINDOWS_PRODUCT_KEY = "HKCU\\Software\\Penglai\\0.5";

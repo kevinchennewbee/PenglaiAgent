@@ -8,6 +8,7 @@ import {
   readlinkSync,
   renameSync,
   rmSync,
+  rmdirSync,
   statSync,
   symlinkSync,
   unlinkSync,
@@ -235,8 +236,21 @@ export function resetManagedDshModuleFallback(user: UserLayout): void {
     throw new PenglaiError("SECURITY_POLICY", "managed DSH module fallback escaped its home");
   }
   if (!existsSync(fallback)) return;
-  const stat = lstatSync(fallback);
-  rmSync(fallback, { recursive: !stat.isSymbolicLink(), force: false, maxRetries: 0 });
+  removeTreeNoFollow(fallback);
+}
+
+function removeTreeNoFollow(path: string): void {
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink()) {
+    unlinkSync(path);
+    return;
+  }
+  if (!stat.isDirectory()) {
+    unlinkSync(path);
+    return;
+  }
+  for (const name of readdirSync(path)) removeTreeNoFollow(join(path, name));
+  rmdirSync(path);
 }
 
 export function seedWebProfile(seedDir: string, destDir: string): void {

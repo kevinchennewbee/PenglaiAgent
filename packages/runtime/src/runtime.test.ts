@@ -36,6 +36,7 @@ import {
   mergeLegacyContextIntoMemory,
   probeOfficialDsh,
   recoverProfile,
+  resetManagedDshModuleFallback,
   resolveRuntimeLayout,
   resolveUserLayout,
   seedFreshSettings,
@@ -300,6 +301,21 @@ test("R2-DIST-011 seed activates private profile once", () => {
   activatePrivateProfile(layout, user);
   assert.equal(existsSync(join(user.profileWeb, "package.json")), true);
   assert.match(readFileSync(join(user.profileWeb, "package.json"), "utf8"), /web/);
+});
+
+test("DSH module fallback cleanup unlinks package junctions without deleting their runtime targets", () => {
+  const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-fallback-clean-")));
+  const runtimePackage = join(user.root, "embedded-runtime", "dsh-acp");
+  const fallback = join(user.dshHome, "profiles", "node_modules");
+  mkdirSync(runtimePackage, { recursive: true });
+  mkdirSync(fallback, { recursive: true });
+  writeFileSync(join(runtimePackage, "index.js"), "export {};\n");
+  symlinkSync(runtimePackage, join(fallback, "dsh-acp"), process.platform === "win32" ? "junction" : "dir");
+
+  resetManagedDshModuleFallback(user);
+
+  assert.equal(existsSync(fallback), false);
+  assert.equal(readFileSync(join(runtimePackage, "index.js"), "utf8"), "export {};\n");
 });
 
 test("official DSH profile dependency is repairable without exposing immutable Windows resources", () => {

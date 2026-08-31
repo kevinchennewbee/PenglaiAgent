@@ -19,6 +19,8 @@ import {
   stopChild,
   waitForFile,
   assertInstalledPenglaiIdentity,
+  cleanupRegisteredWindowsInstallerFixture,
+  removeTreeNoFollow,
   resolveInstalledUiHarness,
 } from "./lib/installed-app.mjs";
 import { runFailClosedCertification } from "./lib/runner-cert.mjs";
@@ -97,6 +99,14 @@ const expectedSource = process.env.PENGLAI_EXPECTED_SOURCE_SHA ?? git.head;
 const expectedInstaller = installerForTarget(expectedTarget);
 const artifactPath = process.env.PENGLAI_ARTIFACT || join(ROOT, "dist", expectedInstaller);
 const stage = (name) => console.log(JSON.stringify({ command: "test:e2e:installed", event: "stage", stage: name, target: expectedTarget }));
+const nativeUserData = join(ROOT, ".tmp-installed-e2e-native");
+const userData = join(ROOT, ".tmp-installed-e2e");
+const refuseUser = join(ROOT, ".tmp-installed-e2e-refuse");
+const staleFixture = cleanupRegisteredWindowsInstallerFixture();
+if (!staleFixture.ok) {
+  finish("FAIL", { command: "test:e2e:installed", reason: staleFixture.reason });
+}
+for (const root of [nativeUserData, userData, refuseUser]) removeTreeNoFollow(root);
 stage("install-exact-installer");
 const installed = await installFromExactInstaller(artifactPath, join(ROOT, ".tmp-installed-e2e-app"), expectedTarget);
 if (!installed.ok) {
@@ -165,8 +175,6 @@ if (!exe) {
   finish("FAIL", { command: "test:e2e:installed", reason: "installed Penglai executable missing", target: expectedTarget });
 }
 const resources = resourcesInside(app, expectedTarget);
-const nativeUserData = join(ROOT, ".tmp-installed-e2e-native");
-rmSync(nativeUserData, { recursive: true, force: true });
 mkdirSync(nativeUserData, { recursive: true });
 const nativeLaunch = launchPackaged(exe, resources, nativeUserData);
 stage("native-executable-boot");
@@ -210,14 +218,10 @@ if (!nativeBoot.ok) {
     nativeBoot,
   });
 }
-const userData = join(ROOT, ".tmp-installed-e2e");
-rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 const shotDir = join(userData, "shots");
 mkdirSync(shotDir, { recursive: true });
 
-const refuseUser = join(ROOT, ".tmp-installed-e2e-refuse");
-rmSync(refuseUser, { recursive: true, force: true });
 mkdirSync(refuseUser, { recursive: true });
 const refuse = launchPackaged(exe, resources, refuseUser, ["--remote-debugging-port=9"]);
 stage("native-debug-refusal");
