@@ -125,11 +125,10 @@ const extractedRoot = readdirSync(extractDir)
   .map((n) => join(extractDir, n))
   .find((p) => statSync(p).isDirectory()) ?? extractDir;
 mkdirSync(join(staging, "runtime"), { recursive: true });
-if (process.platform === "darwin") {
-  execFileSync("ditto", [extractedRoot, join(staging, "runtime", "node")]);
-} else {
-  cpSync(extractedRoot, join(staging, "runtime", "node"), { recursive: true });
-}
+// Runtime manifests contain only regular files. Node's POSIX archives include
+// convenience links such as bin/corepack; materialize their target bytes so
+// the installed verifier never has to trust a package-time symlink.
+cpSync(extractedRoot, join(staging, "runtime", "node"), { recursive: true, dereference: true });
 rmSync(extractDir, { recursive: true, force: true });
 
 // Package from the declared hoisted workspace root. Resolving from a child

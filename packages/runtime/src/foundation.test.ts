@@ -95,6 +95,11 @@ test("embed-runtime is target-aware and reads the release contract", () => {
   assert.match(src, /darwin-x86_64/);
   assert.match(src, /materializeDshClosure/);
   assert.match(src, /rmSync\(staging, \{ recursive: true, force: true, maxRetries: 5, retryDelay: 100 \}\)/);
+  assert.match(
+    src,
+    /cpSync\(extractedRoot, join\(staging, "runtime", "node"\), \{ recursive: true, dereference: true \}\)/,
+  );
+  assert.doesNotMatch(src, /execFileSync\("ditto", \[extractedRoot/);
   const closure = readFileSync(new URL("../../../scripts/lib/dsh-closure.mjs", import.meta.url), "utf8");
   assert.match(closure, /REQUIRE_BUILTIN_NATIVE_BY_TARGET/);
   assert.match(closure, /node-addon-require-builtin-darwin-arm64/);

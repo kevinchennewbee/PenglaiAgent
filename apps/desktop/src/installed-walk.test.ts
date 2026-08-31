@@ -262,6 +262,22 @@ test("native release workflow proves bundled optional plugins across restart", (
         nativeWorkflow.indexOf("Audit target-specific supply chain"),
     );
   }
+  assert.match(windowsWorkflow, /expectedSize = 2362938/);
+  assert.match(windowsWorkflow, /56581f90db321581c5381193d796fffcf2d24b2f8fed2160a6c6a3baa67f2c4f/);
+  const windowsWorkflowLines = windowsWorkflow.split(/\r?\n/).map((line) => line.trim());
+  assert.equal(
+    windowsWorkflowLines.some(
+      (line) => line === "'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip',",
+    ),
+    true,
+  );
+  assert.equal(
+    windowsWorkflowLines.some(
+      (line) => line === "'https://mirrors.mit.edu/macports/distfiles/nsis/nsis-3.12.zip'",
+    ),
+    true,
+  );
+  assert.match(windowsWorkflow, /actualSize -eq \$expectedSize -and \$actual -eq \$expected/);
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);
