@@ -54,13 +54,29 @@ function queryWindowsRegistryValue(key, name) {
   return row?.replace(new RegExp(`^\\s*${name}\\s+REG_(?:SZ|EXPAND_SZ)\\s+`, "iu"), "").trim() ?? "";
 }
 
-function waitForWindowsProductRegistryClear(timeoutMs) {
+export function windowsFixtureRemovalObserved({ installDirExists, registeredInstallDir, uninstallCommand }) {
+  return !installDirExists && !registeredInstallDir && !uninstallCommand;
+}
+
+function waitForWindowsFixtureRemoval(installDir, timeoutMs) {
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   const deadline = Date.now() + timeoutMs;
+  let stableSince = 0;
   do {
-    const installDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+    const registeredInstallDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
     const uninstallCommand = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
-    if (!installDir && !uninstallCommand) return true;
+    if (
+      windowsFixtureRemovalObserved({
+        installDirExists: existsSync(installDir),
+        registeredInstallDir,
+        uninstallCommand,
+      })
+    ) {
+      stableSince ||= Date.now();
+      if (Date.now() - stableSince >= 1_000) return true;
+    } else {
+      stableSince = 0;
+    }
     Atomics.wait(sleeper, 0, 0, 250);
   } while (Date.now() < deadline);
   return false;
@@ -98,11 +114,10 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (!existsSync(uninstaller)) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstaller is missing" };
   }
-  // NSIS normally relaunches an uninstaller from a temporary child, allowing
-  // the first process to return before registry cleanup is durable. `_?=` is
-  // the documented final argument that keeps this exact fixture uninstall in
-  // place; the bounded readback below still proves convergence independently.
-  const removed = spawnSync(uninstaller, ["/S", `_?=${installDir}`], {
+  // Let NSIS copy itself to its temporary child so it can delete Uninstall.exe
+  // and the fixture directory. The original process may return before that
+  // child is finished, so registry removal alone is not sufficient proof.
+  const removed = spawnSync(uninstaller, ["/S"], {
     encoding: "utf8",
     windowsHide: true,
     timeout: 120_000,
@@ -110,8 +125,12 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (removed.status !== 0 || removed.error) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall failed" };
   }
-  if (!waitForWindowsProductRegistryClear(30_000)) {
-    return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall left product registry state" };
+  if (!waitForWindowsFixtureRemoval(installDir, 120_000)) {
+    return {
+      ok: false,
+      cleaned: false,
+      reason: "registered Penglai fixture uninstall did not remove both registry and install directory",
+    };
   }
   return { ok: true, cleaned: true, installDir };
 }

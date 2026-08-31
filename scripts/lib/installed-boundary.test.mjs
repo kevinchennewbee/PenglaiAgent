@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import test from "node:test";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
-import { isControlledWindowsInstallerFixture, waitForBoundedChild } from "./installed-app.mjs";
+import {
+  isControlledWindowsInstallerFixture,
+  waitForBoundedChild,
+  windowsFixtureRemovalObserved,
+} from "./installed-app.mjs";
 
 function sample() {
   return {
@@ -68,4 +72,27 @@ test("Windows fixture cleanup is limited to dedicated workspace install roots", 
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);
   assert.equal(isControlledWindowsInstallerFixture("C:\\Users\\owner\\AppData\\Local\\Penglai\\app\\0.5", root), false);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\other\\.tmp-installed-e2e-app", root), false);
+});
+
+test("Windows fixture cleanup waits for both registry and install directory removal", () => {
+  assert.equal(
+    windowsFixtureRemovalObserved({ installDirExists: false, registeredInstallDir: "", uninstallCommand: "" }),
+    true,
+  );
+  assert.equal(
+    windowsFixtureRemovalObserved({
+      installDirExists: true,
+      registeredInstallDir: "",
+      uninstallCommand: "",
+    }),
+    false,
+  );
+  assert.equal(
+    windowsFixtureRemovalObserved({
+      installDirExists: false,
+      registeredInstallDir: "D:\\fixture",
+      uninstallCommand: "",
+    }),
+    false,
+  );
 });
