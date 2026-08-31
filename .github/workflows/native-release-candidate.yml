@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - name: Check out immutable official DSH alpha.2 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
