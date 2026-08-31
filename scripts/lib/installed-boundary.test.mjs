@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -114,4 +114,18 @@ test("installed test cleanup never follows a package junction into an installer"
 
   assert.equal(existsSync(user), false);
   assert.equal(readFileSync(join(source, "index.js"), "utf8"), "export {};\n");
+});
+
+test("installed test cleanup unlinks a dangling package junction", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-installed-dangling-clean-"));
+  const source = join(root, "installer", "package");
+  const user = join(root, "user");
+  mkdirSync(source, { recursive: true });
+  mkdirSync(user, { recursive: true });
+  symlinkSync(source, join(user, "package"), process.platform === "win32" ? "junction" : "dir");
+  rmSync(join(root, "installer"), { recursive: true, force: true });
+
+  removeTreeNoFollow(user);
+
+  assert.equal(existsSync(user), false);
 });

@@ -49,8 +49,13 @@ export function sha256File(path) {
 }
 
 export function removeTreeNoFollow(path) {
-  if (!existsSync(path)) return;
-  const stat = lstatSync(path);
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
     unlinkSync(path);
     return;
