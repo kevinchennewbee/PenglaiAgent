@@ -319,6 +319,7 @@ test("NSIS script default-preserves user data and only deletes via capability ha
   assert.match(payload, /writeRequiredFuses\(penglaiExe\)/);
   assert.match(payload, /cpSync\(join\(staging, "mnemon"\), join\(resources, "mnemon"\)/);
   assert.match(payload, /payload is missing the pinned Mnemon binary or license/);
+  assert.match(payload, /"LGPL_SOURCE_OFFER\.txt"/);
   assert.match(windowsWorkflow, /- name: Source and onboarding regression gates\s+shell: bash\s+run: \|/);
   assert.match(payload, /Penglai\.ico/);
   assert.match(payload, /stagingForTarget\(ROOT, "win32-x86_64"\)/);

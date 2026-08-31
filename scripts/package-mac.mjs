@@ -204,6 +204,10 @@ execFileSync("ditto", [
   join(resources, "release-contract.json"),
 ]);
 execFileSync("ditto", [
+  join(runtimeStaging, "LGPL_SOURCE_OFFER.txt"),
+  join(resources, "LGPL_SOURCE_OFFER.txt"),
+]);
+execFileSync("ditto", [
   join(runtimeStaging, ".closure-complete"),
   join(resources, "closure-credential.json"),
 ]);

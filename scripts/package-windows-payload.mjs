@@ -222,6 +222,7 @@ if (existsSync(join(staging, "mnemon"))) {
 for (const name of [
   "runtime-manifest.json",
   "release-contract.json",
+  "LGPL_SOURCE_OFFER.txt",
   ".closure-complete",
 ]) {
   const src = join(staging, name);

@@ -36,6 +36,7 @@ test("beginWeixinQr returns qrImageRef and production pack scripts require --tar
   assert.match(dmg, /--target/);
   assert.match(pack, /darwin-x64/);
   assert.match(pack, /community release/);
+  assert.match(pack, /LGPL_SOURCE_OFFER\.txt/);
   assert.doesNotMatch(pack, /This is not a public release/);
   const client = readFileSync(new URL("./dsh-client.js", import.meta.url), "utf8");
   assert.match(client, /run\("checkForUpdate"\)/);
