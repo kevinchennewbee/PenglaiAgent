@@ -302,13 +302,15 @@ test("R2-DIST-011 seed activates private profile once", () => {
   assert.match(readFileSync(join(user.profileWeb, "package.json"), "utf8"), /web/);
 });
 
-test("Windows-style DSH junction is reusable and a dangling prior-install link is replaced", () => {
+test("official DSH profile dependency is repairable without exposing immutable Windows resources", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-link-"));
   const profile = join(root, "profile");
   const first = join(root, "first", "@deepseek-ai");
   const second = join(root, "second", "@deepseek-ai");
   mkdirSync(first, { recursive: true });
   mkdirSync(second, { recursive: true });
+  writeFileSync(join(first, "identity.txt"), "first\n");
+  writeFileSync(join(second, "identity.txt"), "second\n");
   const layout = (officialDeepseek: string) => ({
     appRoot: root,
     nodeBin: process.execPath,
@@ -321,13 +323,23 @@ test("Windows-style DSH junction is reusable and a dangling prior-install link i
 
   linkOfficialDeepseek(layout(first), profile);
   const dest = join(profile, "node_modules", "@deepseek-ai");
-  assert.equal(resolve(readlinkSync(dest)), resolve(first));
-  linkOfficialDeepseek(layout(first), profile);
-  assert.equal(resolve(readlinkSync(dest)), resolve(first));
-
-  rmSync(first, { recursive: true, force: true });
-  linkOfficialDeepseek(layout(second), profile);
-  assert.equal(resolve(readlinkSync(dest)), resolve(second));
+  if (process.platform === "win32") {
+    assert.equal(lstatSync(dest).isSymbolicLink(), false);
+    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
+    rmSync(join(dest, "identity.txt"), { force: true });
+    linkOfficialDeepseek(layout(first), profile);
+    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "first\n");
+    assert.equal(readFileSync(join(first, "identity.txt"), "utf8"), "first\n");
+    linkOfficialDeepseek(layout(second), profile);
+    assert.equal(readFileSync(join(dest, "identity.txt"), "utf8"), "second\n");
+  } else {
+    assert.equal(resolve(readlinkSync(dest)), resolve(first));
+    linkOfficialDeepseek(layout(first), profile);
+    assert.equal(resolve(readlinkSync(dest)), resolve(first));
+    rmSync(first, { recursive: true, force: true });
+    linkOfficialDeepseek(layout(second), profile);
+    assert.equal(resolve(readlinkSync(dest)), resolve(second));
+  }
 });
 
 test("plugin tarball root without package/ prefix is accepted", () => {
@@ -581,7 +593,7 @@ test("R2I-DIST-007 refuses to install historical keychain tarball into profile",
   assert.throws(() => activatePrivateProfile(layout, user), /unlisted bundled plugin archive|catalog set mismatch/);
 });
 
-test("fresh profile installs Center plus required builtins and links official @deepseek-ai", () => {
+test("fresh profile installs Center plus required builtins and exposes official @deepseek-ai safely", () => {
   const app = mkdtempSync(join(tmpdir(), "penglai-app-"));
   const user = resolveUserLayout(mkdtempSync(join(tmpdir(), "penglai-user-")));
   mkdirSync(join(app, "profile-seed", "web"), { recursive: true });
@@ -616,8 +628,13 @@ test("fresh profile installs Center plus required builtins and links official @d
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "context")), false);
   assert.equal(existsSync(join(user.profileWeb, "node_modules", "@penglai", "im", "dist", "index.js")), false);
   const linked = join(user.profileWeb, "node_modules", "@deepseek-ai");
-  assert.equal(lstatSync(linked).isSymbolicLink(), true);
-  assert.equal(resolve(readlinkSync(linked)), resolve(layout.officialDeepseek));
+  if (process.platform === "win32") {
+    assert.equal(lstatSync(linked).isSymbolicLink(), false);
+    assert.equal(existsSync(join(linked, "dsh-credentials", "package.json")), true);
+  } else {
+    assert.equal(lstatSync(linked).isSymbolicLink(), true);
+    assert.equal(resolve(readlinkSync(linked)), resolve(layout.officialDeepseek));
+  }
 });
 
 test("fresh catalog and profile keep every optional Penglai plugin disabled", () => {

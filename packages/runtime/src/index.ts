@@ -287,6 +287,41 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
   mkdirSync(destParent, { recursive: true, mode: 0o700 });
   const dest = join(destParent, "@deepseek-ai");
   const linked = isSymlink(dest);
+
+  // A Windows directory junction is not an isolation boundary. DSH's profile
+  // package manager may recurse through it and mutate the immutable package
+  // cohort in the installed application. Materialize an exact private copy
+  // instead and repair it transactionally whenever the profile changed it.
+  if (process.platform === "win32") {
+    if (linked) unlinkSync(dest);
+    const expected = officialDeepseekManifest(layout);
+    if (existsSync(dest) && officialDeepseekCopyMatches(dest, expected)) return;
+    const operation = randomUUID();
+    const staging = join(destParent, `.penglai-deepseek-${operation}.staging`);
+    const backup = join(destParent, `.penglai-deepseek-${operation}.backup`);
+    rmSync(staging, { recursive: true, force: true });
+    rmSync(backup, { recursive: true, force: true });
+    let movedCurrent = false;
+    try {
+      copyDir(layout.officialDeepseek, staging);
+      if (!officialDeepseekCopyMatches(staging, expected)) {
+        throw new PenglaiError("STORE_CORRUPT", "materialized official @deepseek-ai failed integrity verification");
+      }
+      if (existsSync(dest)) {
+        renameSync(dest, backup);
+        movedCurrent = true;
+      }
+      renameSync(staging, dest);
+      if (movedCurrent) rmSync(backup, { recursive: true, force: true });
+    } catch (error) {
+      rmSync(staging, { recursive: true, force: true });
+      if (!existsSync(dest) && movedCurrent && existsSync(backup)) renameSync(backup, dest);
+      else rmSync(backup, { recursive: true, force: true });
+      throw error;
+    }
+    return;
+  }
+
   if (existsSync(dest) || linked) {
     const current = linked ? readlinkSync(dest) : "";
     const currentTarget = current
@@ -300,9 +335,68 @@ export function linkOfficialDeepseek(layout: RuntimeLayout, profileDir: string):
     if (linked) unlinkSync(dest);
     else rmSync(dest, { recursive: true, force: true });
   }
-  // Windows directory junctions work for ordinary installed-app users without
-  // Developer Mode or elevated symlink privileges. POSIX keeps a normal dir link.
-  symlinkSync(layout.officialDeepseek, dest, process.platform === "win32" ? "junction" : "dir");
+  symlinkSync(layout.officialDeepseek, dest, "dir");
+}
+
+interface OfficialDeepseekFile {
+  path: string;
+  sha256: string;
+  size: number;
+}
+
+function officialDeepseekManifest(layout: RuntimeLayout): OfficialDeepseekFile[] {
+  const prefix = "runtime/dsh/node_modules/@deepseek-ai/";
+  if (existsSync(layout.manifestPath)) {
+    const raw = JSON.parse(readFileSync(layout.manifestPath, "utf8")) as { files?: ManifestEntry[] };
+    if (!Array.isArray(raw.files)) throw new PenglaiError("STORE_CORRUPT", "runtime-manifest files invalid");
+    const rows = raw.files
+      .map((entry) => ({ ...entry, path: String(entry.path ?? "").replaceAll("\\", "/") }))
+      .filter((entry) => entry.path.startsWith(prefix))
+      .map((entry) => ({ path: entry.path.slice(prefix.length), sha256: entry.sha256, size: entry.size }));
+    if (!rows.length) throw new PenglaiError("STORE_CORRUPT", "runtime-manifest omits official @deepseek-ai");
+    return rows;
+  }
+  // Small unit-test layouts do not carry a release manifest. Production
+  // layouts are rejected by doctor() if that manifest is absent.
+  return snapshotOfficialDeepseek(layout.officialDeepseek);
+}
+
+function snapshotOfficialDeepseek(root: string): OfficialDeepseekFile[] {
+  const rows: OfficialDeepseekFile[] = [];
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir).sort()) {
+      const path = join(dir, name);
+      const stat = lstatSync(path);
+      if (stat.isSymbolicLink()) throw new PenglaiError("STORE_CORRUPT", "official @deepseek-ai contains a symlink");
+      if (stat.isDirectory()) walk(path);
+      else if (stat.isFile()) {
+        rows.push({
+          path: relative(root, path).replaceAll("\\", "/"),
+          sha256: sha256File(path),
+          size: stat.size,
+        });
+      } else {
+        throw new PenglaiError("STORE_CORRUPT", "official @deepseek-ai contains an unsupported entry");
+      }
+    }
+  };
+  walk(root);
+  return rows;
+}
+
+function officialDeepseekCopyMatches(root: string, expected: OfficialDeepseekFile[]): boolean {
+  try {
+    if (!lstatSync(root).isDirectory() || isSymlink(root)) return false;
+    const actual = snapshotOfficialDeepseek(root);
+    if (actual.length !== expected.length) return false;
+    const expectedByPath = new Map(expected.map((entry) => [entry.path, entry]));
+    return actual.every((entry) => {
+      const row = expectedByPath.get(entry.path);
+      return row?.size === entry.size && row.sha256 === entry.sha256;
+    });
+  } catch {
+    return false;
+  }
 }
 
 function isSymlink(path: string): boolean {
