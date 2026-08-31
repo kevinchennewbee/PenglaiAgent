@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from "electron";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { PenglaiError, assertSafeHttpsUrl } from "@penglai/contracts";
@@ -185,9 +185,14 @@ function describePluginForOwner(userRoot: string, id: string): {
 
 function resourcesRoot(): string {
   const packaged = app.isPackaged;
+  const authoritativeRoot = packaged
+    ? process.resourcesPath
+    : process.env.PENGLAI_RESOURCES;
   return findResourcesRoot({
-    ...(!packaged && process.env.PENGLAI_RESOURCES ? { envRoot: process.env.PENGLAI_RESOURCES } : {}),
-    ...(typeof process.resourcesPath === "string" && process.resourcesPath ? { resourcesPath: process.resourcesPath } : {}),
+    ...(authoritativeRoot ? { authoritativeRoot } : {}),
+    ...(!authoritativeRoot && typeof process.resourcesPath === "string" && process.resourcesPath
+      ? { resourcesPath: process.resourcesPath }
+      : {}),
     moduleDir: here,
   });
 }
@@ -594,6 +599,7 @@ async function main(): Promise<void> {
       ...resolveUserLayout(desktopData.userData, dshHomeBootPlan.dshHome),
       logs: desktopData.logs,
     };
+    rmSync(join(user.root, "gateway.port"), { force: true });
     desktopData.managedData.dshHome = user.dshHome;
     ensurePrivateHome(user, layout.appRoot);
     resetManagedDshModuleFallback(user);
@@ -658,7 +664,6 @@ async function main(): Promise<void> {
         httpOnly: true,
         sameSite: "strict",
       });
-      writeFileSync(join(user.root, "gateway.port"), String(proxy.port), { mode: 0o600 });
       if (loadRenderer && !win.isDestroyed()) {
         const target = onboardingLedgerComplete(user.root) ? url : wizardUrlForOrigin(url);
         await loadWindowUrl(win, target, () => stopping);
@@ -666,9 +671,15 @@ async function main(): Promise<void> {
       return url;
     };
 
+    const publishGateway = (): void => {
+      if (!proxy) throw new PenglaiError("DSH_UNAVAILABLE", "authenticated proxy missing");
+      writeFileSync(join(user.root, "gateway.port"), String(proxy.port), { mode: 0o600 });
+    };
+
     const restartOwnedServices = async (): Promise<void> => {
       if (stopping || win.isDestroyed()) return;
       await connectGateway(true);
+      publishGateway();
     };
 
     const verifyOfficialSurfaces = async (officialUrl: string) => {
@@ -1111,6 +1122,7 @@ async function main(): Promise<void> {
         installerCancelled: pendingUpdate.version !== releaseContract.version,
       });
     }
+    publishGateway();
     await revealWindow();
     if (soakMode) {
       const healthFile = join(user.root, "soak-health.json");

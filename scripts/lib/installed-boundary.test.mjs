@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
-import { isControlledWindowsInstallerFixture, waitForBoundedChild } from "./installed-app.mjs";
+import {
+  isControlledWindowsInstallerFixture,
+  removeTreeNoFollow,
+  waitForBoundedChild,
+  windowsFixtureRemovalObserved,
+} from "./installed-app.mjs";
 
 function sample() {
   return {
@@ -68,4 +76,56 @@ test("Windows fixture cleanup is limited to dedicated workspace install roots", 
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);
   assert.equal(isControlledWindowsInstallerFixture("C:\\Users\\owner\\AppData\\Local\\Penglai\\app\\0.5", root), false);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\other\\.tmp-installed-e2e-app", root), false);
+});
+
+test("Windows fixture cleanup waits for both registry and install directory removal", () => {
+  assert.equal(
+    windowsFixtureRemovalObserved({ installDirExists: false, registeredInstallDir: "", uninstallCommand: "" }),
+    true,
+  );
+  assert.equal(
+    windowsFixtureRemovalObserved({
+      installDirExists: true,
+      registeredInstallDir: "",
+      uninstallCommand: "",
+    }),
+    false,
+  );
+  assert.equal(
+    windowsFixtureRemovalObserved({
+      installDirExists: false,
+      registeredInstallDir: "D:\\fixture",
+      uninstallCommand: "",
+    }),
+    false,
+  );
+});
+
+test("installed test cleanup never follows a package junction into an installer", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-installed-clean-"));
+  const source = join(root, "installer", "package");
+  const user = join(root, "user");
+  mkdirSync(source, { recursive: true });
+  mkdirSync(user, { recursive: true });
+  writeFileSync(join(source, "index.js"), "export {};\n");
+  symlinkSync(source, join(user, "package"), process.platform === "win32" ? "junction" : "dir");
+
+  removeTreeNoFollow(user);
+
+  assert.equal(existsSync(user), false);
+  assert.equal(readFileSync(join(source, "index.js"), "utf8"), "export {};\n");
+});
+
+test("installed test cleanup unlinks a dangling package junction", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-installed-dangling-clean-"));
+  const source = join(root, "installer", "package");
+  const user = join(root, "user");
+  mkdirSync(source, { recursive: true });
+  mkdirSync(user, { recursive: true });
+  symlinkSync(source, join(user, "package"), process.platform === "win32" ? "junction" : "dir");
+  rmSync(join(root, "installer"), { recursive: true, force: true });
+
+  removeTreeNoFollow(user);
+
+  assert.equal(existsSync(user), false);
 });

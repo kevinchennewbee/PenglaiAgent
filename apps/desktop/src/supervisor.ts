@@ -132,7 +132,17 @@ export function isOwnedRuntimePath(appRoot: string, candidate: string): boolean 
   return cand.slice(root.length + 1).split("/")[0] === "runtime";
 }
 
-export function findResourcesRoot(opts: { envRoot?: string; resourcesPath?: string; moduleDir: string }): string {
+export function findResourcesRoot(opts: {
+  authoritativeRoot?: string;
+  envRoot?: string;
+  resourcesPath?: string;
+  moduleDir: string;
+}): string {
+  if (opts.authoritativeRoot) {
+    const root = resolve(opts.authoritativeRoot);
+    layoutFromResources(root);
+    return root;
+  }
   const candidates: string[] = [];
   if (opts.envRoot) candidates.push(opts.envRoot);
   if (opts.resourcesPath) candidates.push(opts.resourcesPath);

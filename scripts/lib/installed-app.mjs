@@ -1,6 +1,17 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, mkdtempSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  mkdtempSync,
+} from "node:fs";
 import { join, resolve, win32 as win32Path } from "node:path";
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -37,6 +48,22 @@ export function sha256File(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+export function removeTreeNoFollow(path) {
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    unlinkSync(path);
+    return;
+  }
+  for (const name of readdirSync(path)) removeTreeNoFollow(join(path, name));
+  rmdirSync(path);
+}
+
 const WINDOWS_PRODUCT_KEY = "HKCU\\Software\\Penglai\\0.5";
 const WINDOWS_UNINSTALL_KEY =
   "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Penglai.DSH.0.5";
@@ -54,13 +81,23 @@ function queryWindowsRegistryValue(key, name) {
   return row?.replace(new RegExp(`^\\s*${name}\\s+REG_(?:SZ|EXPAND_SZ)\\s+`, "iu"), "").trim() ?? "";
 }
 
+export function windowsFixtureRemovalObserved({ installDirExists, registeredInstallDir, uninstallCommand }) {
+  return !installDirExists && !registeredInstallDir && !uninstallCommand;
+}
+
 function waitForWindowsProductRegistryClear(timeoutMs) {
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   const deadline = Date.now() + timeoutMs;
+  let stableSince = 0;
   do {
-    const installDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
+    const registeredInstallDir = queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir");
     const uninstallCommand = queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString");
-    if (!installDir && !uninstallCommand) return true;
+    if (!registeredInstallDir && !uninstallCommand) {
+      stableSince ||= Date.now();
+      if (Date.now() - stableSince >= 1_000) return true;
+    } else {
+      stableSince = 0;
+    }
     Atomics.wait(sleeper, 0, 0, 250);
   } while (Date.now() < deadline);
   return false;
@@ -98,10 +135,10 @@ export function cleanupRegisteredWindowsInstallerFixture() {
   if (!existsSync(uninstaller)) {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstaller is missing" };
   }
-  // NSIS normally relaunches an uninstaller from a temporary child, allowing
-  // the first process to return before registry cleanup is durable. `_?=` is
-  // the documented final argument that keeps this exact fixture uninstall in
-  // place; the bounded readback below still proves convergence independently.
+  // Keep the uninstaller in this exact controlled fixture so spawnSync waits
+  // for the real process rather than an asynchronous temporary child. Product
+  // policy intentionally preserves custom install directories; after registry
+  // cleanup, remove this separately validated test fixture ourselves.
   const removed = spawnSync(uninstaller, ["/S", `_?=${installDir}`], {
     encoding: "utf8",
     windowsHide: true,
@@ -111,7 +148,20 @@ export function cleanupRegisteredWindowsInstallerFixture() {
     return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall failed" };
   }
   if (!waitForWindowsProductRegistryClear(30_000)) {
-    return { ok: false, cleaned: false, reason: "registered Penglai fixture uninstall left product registry state" };
+    return {
+      ok: false,
+      cleaned: false,
+      reason: "registered Penglai fixture uninstall left product registry state",
+    };
+  }
+  rmSync(installDir, { recursive: true, force: true });
+  const fullyRemoved = windowsFixtureRemovalObserved({
+    installDirExists: existsSync(installDir),
+    registeredInstallDir: queryWindowsRegistryValue(WINDOWS_PRODUCT_KEY, "InstallDir"),
+    uninstallCommand: queryWindowsRegistryValue(WINDOWS_UNINSTALL_KEY, "UninstallString"),
+  });
+  if (!fullyRemoved) {
+    return { ok: false, cleaned: false, reason: "registered Penglai fixture cleanup left install state" };
   }
   return { ok: true, cleaned: true, installDir };
 }
