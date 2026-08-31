@@ -248,6 +248,10 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(workflow, /default: native/);
   assert.match(workflow, /inputs\.mode == 'native'/g);
   assert.match(workflow, /inputs\.mode == 'catalog'/);
+  assert.match(
+    workflow,
+    /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH alpha\.2 source/,
+  );
   assert.match(workflow, /pnpm test:u3:plugins/g);
   assert.match(workflow, /u3-first-party-plugins\.json/g);
   assert.match(compat, /installFromExactInstaller/);
