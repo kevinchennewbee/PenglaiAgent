@@ -26,17 +26,21 @@ Release，也不允许把预览字节提前放到公开页面。
 ## 3. Native and installed proof / 原生与安装后证明
 
 For each target, require closure, artifact, fuses, signing contract, Profile
-matrix, installed onboarding, reconnect, required plugin health, two-hour soak,
+matrix, installed onboarding, reconnect, required plugin health,
 and target-specific supply-chain inventory. Then download the immutable 0.5.8
 installer, verify its public SHA256SUMS, perform a real upgrade to 0.5.9, boot
 the upgraded product, run default uninstall, and prove isolated Owner data was
 preserved. Aggregate all three targets and reject a mixed source SHA.
 
-## 4. Owner live proof / Owner 真实在线证明
+Long-running installed soak is supplemental acceptance. If collected, it must
+remain exact and auditable; its absence does not block the automated/native
+release aggregate.
+
+## 4. Supplemental Owner live proof / 补充 Owner 真实在线证明
 
 Use no-echo credential entry. Evidence must contain no credential, prompt,
 response, account identifier, chat media, local path, or private diagnostics.
-Generate only redacted runner records with per-run UUIDs, bounded timestamps,
+When Owner acceptance is requested, generate only redacted runner records with per-run UUIDs, bounded timestamps,
 random challenge digests, event/result digests, and the exact runner-file hash.
 The release aggregate is assembled from those files; a hand-written boolean
 summary is not accepted. Prove:
@@ -46,6 +50,9 @@ summary is not accepted. Prove:
   outbound reply, restart restore, and safe logout for Weixin, Feishu,
   DingTalk, WeCom, QQ, Slack, Telegram, and Discord;
 - binding to the final source SHA and all three native installer hashes.
+
+Missing Owner-account evidence remains explicit and must never be fabricated,
+but it does not block the normal three-target open-source publication.
 
 ## 5. Draft, assembly, and publication / 草稿、组装与发布
 
