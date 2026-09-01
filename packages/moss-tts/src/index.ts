@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import type { Context } from "@deepseek-ai/cordis";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
 import { createMossTtsService } from "./service.js";
 import { createMossTtsSettingsApi, PenglaiMossTtsRemote } from "./remote.js";
 
@@ -58,8 +58,8 @@ export function apply(ctx: CordisContextLike) {
   });
   ctx.provide("penglaiMossTts", service);
   ctx.effect(() => () => service.dispose());
-  if (ctx instanceof Context) {
-    new PenglaiMossTtsRemote(ctx, createMossTtsSettingsApi(service));
+  if (isPenglaiRemoteContext(ctx)) {
+    new PenglaiMossTtsRemote(ctx as Context, createMossTtsSettingsApi(service));
   }
   return service;
 }

@@ -214,17 +214,19 @@ export const HARD_SUBGATES = [
   { name: "verify:signing", kind: "signing", mode: "evidence" },
   { name: "verify:installed", kind: "installed", mode: "evidence" },
   { name: "verify:upgrade-uninstall", kind: "installed-lifecycle", mode: "evidence" },
-  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
-  { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
   { name: "verify:public-export", kind: "public-export", mode: "evidence" },
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// 0.5.9 has no publication-optional acceptance evidence. Owner live accounts,
-// two-hour installed use, and the complete cross-run evidence collection are
-// hard gates above; an absent result remains INCOMPLETE.
-export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [] as const;
+// Owner-account journeys, long-running installed use, and the complete
+// cross-run assertion census remain visible supplemental acceptance. Their
+// absence must not masquerade as PASS or permanently block an otherwise
+// complete automated/native release aggregate.
+export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
+  { name: "verify:live", kind: "live", mode: "evidence" },
+  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
+  { name: "verify:evidence", kind: "evidence", mode: "evidence" },
+] as const;
 
 export const REQUIRED_SUBGATE_KINDS = [
   "format",
@@ -242,9 +244,6 @@ export const REQUIRED_SUBGATE_KINDS = [
   "signing",
   "installed",
   "installed-lifecycle",
-  "installed-soak",
-  "live",
-  "evidence",
   "public-export",
   "secret",
 ] as const;

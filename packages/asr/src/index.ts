@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
+import type { Context } from "@deepseek-ai/cordis";
 import {
+  isPenglaiRemoteContext,
   PENGLAI_RESOURCE_JOB_BUDGETS,
   PenglaiAsrError,
   PenglaiError,
@@ -591,8 +592,8 @@ export function apply(ctx: CordisContextLike): PenglaiAsrService {
   });
   ctx.provide("penglaiAsr", service);
   ctx.effect(() => () => service.dispose());
-  if (ctx instanceof Context) {
-    new PenglaiAsrRemote(ctx, createAsrSettingsApi(service));
+  if (isPenglaiRemoteContext(ctx)) {
+    new PenglaiAsrRemote(ctx as Context, createAsrSettingsApi(service));
   }
   return service;
 }

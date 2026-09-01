@@ -65,7 +65,7 @@ test("bounded child wait times out and terminates the release subprocess", async
   assert.equal(result.closeObserved, true);
 });
 
-test("Windows fixture cleanup is limited to dedicated workspace install roots", () => {
+test("Windows fixture cleanup is limited to dedicated release-test roots", () => {
   const root = "D:\\work\\PenglaiAgent";
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp-installed-e2e-app", root), true);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp\\u3-welcome-app", root), true);
@@ -76,6 +76,26 @@ test("Windows fixture cleanup is limited to dedicated workspace install roots", 
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);
   assert.equal(isControlledWindowsInstallerFixture("C:\\Users\\owner\\AppData\\Local\\Penglai\\app\\0.5", root), false);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\other\\.tmp-installed-e2e-app", root), false);
+  assert.equal(
+    isControlledWindowsInstallerFixture(
+      "C:\\temp\\pgl-w-abc123\\Penglai",
+      root,
+      "C:\\temp",
+    ),
+    true,
+  );
+  assert.equal(
+    isControlledWindowsInstallerFixture(
+      "C:\\temp\\pgl-w-abc123\\Penglai\\nested",
+      root,
+      "C:\\temp",
+    ),
+    false,
+  );
+  assert.equal(
+    isControlledWindowsInstallerFixture("C:\\temp\\unrelated-fixture\\Penglai", root, "C:\\temp"),
+    false,
+  );
 });
 
 test("Windows fixture cleanup waits for both registry and install directory removal", () => {
@@ -129,3 +149,43 @@ test("installed test cleanup unlinks a dangling package junction", () => {
 
   assert.equal(existsSync(user), false);
 });
+
+test(
+  "Windows installed cleanup retries a transient exclusive file handle",
+  { skip: process.platform !== "win32" },
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), "penglai-installed-busy-clean-"));
+    const user = join(root, "user");
+    const target = join(user, "locked.bin");
+    const ready = join(root, "ready");
+    mkdirSync(user, { recursive: true });
+    writeFileSync(target, "locked\n");
+    const child = spawn(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "$s=[IO.File]::Open($env:PENGLAI_LOCK_TARGET,'Open','ReadWrite','None'); [IO.File]::WriteAllText($env:PENGLAI_LOCK_READY,'1'); Start-Sleep -Milliseconds 750; $s.Dispose()",
+      ],
+      {
+        env: {
+          ...process.env,
+          PENGLAI_LOCK_TARGET: target,
+          PENGLAI_LOCK_READY: ready,
+        },
+        stdio: "ignore",
+      },
+    );
+    const deadline = Date.now() + 5_000;
+    while (!existsSync(ready) && child.exitCode === null && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(existsSync(ready), true, "exclusive handle fixture did not become ready");
+
+    removeTreeNoFollow(user);
+
+    assert.equal(existsSync(user), false);
+    if (child.exitCode === null) await new Promise((resolve) => child.once("exit", resolve));
+  },
+);

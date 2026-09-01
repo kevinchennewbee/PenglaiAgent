@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { Context } from "@deepseek-ai/cordis";
-import { PenglaiError, RELEASE } from "@penglai/contracts";
+import type { Context } from "@deepseek-ai/cordis";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
 import { BudgetLedger, type BudgetIdentity, type BudgetScope } from "./ledger.js";
 import { BudgetGate, type BudgetLimit, type TokenMeterFact } from "./service.js";
 import { createBudgetSettingsApi, PenglaiBudgetRemote } from "./remote.js";
@@ -288,7 +288,9 @@ export function apply(ctx: CordisContextLike) {
     const service = createProductionBudgetService(ctx, ledger);
     service.attachOwner(new OwnerApprovalBroker(userData, { dialog: createHostOwnerDialog(userData) }));
     ctx.provide("penglaiBudget", service);
-    if (ctx instanceof Context) new PenglaiBudgetRemote(ctx, createBudgetSettingsApi(service, ctx));
+    if (isPenglaiRemoteContext(ctx)) {
+      new PenglaiBudgetRemote(ctx as Context, createBudgetSettingsApi(service, ctx));
+    }
     ctx.effect(() => () => service.close());
     return service;
   } catch (error) {

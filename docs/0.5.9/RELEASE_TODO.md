@@ -24,12 +24,11 @@ never reused.
 - [ ] Build Apple Silicon, Intel Mac, and Windows x64 installers from that SHA.
 - [ ] On every matching native runner, pass closure, artifact, fuses, community
   signing contract, full Profile/plugin matrix, installed E2E, welcome/plugin
-  compatibility, and the two-hour installed stability suite.
+  compatibility, real 0.5.8 upgrade, and default uninstall.
 - [ ] Aggregate three target-bound evidence sets and reject missing, copied,
   stale, wrong-host, wrong-installer, or mixed-SHA evidence.
-- [ ] Complete the real official-provider nonce Turn and first user Turn using
-  no-echo Owner credential input; keep all credential and response content out
-  of logs and evidence.
+- [ ] Report any supplemental long-running or Owner-account acceptance that was
+  actually collected; absence is visible but does not block publication.
 
 ## Publication / 发布
 

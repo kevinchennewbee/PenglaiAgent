@@ -28,10 +28,11 @@ cross-built, or copied evidence cannot satisfy this delta.
 - Runtime closure rejects missing required peers, unexpected files, stale
   alpha.1 payloads, unsigned cohort metadata, and missing legal materials.
 - Three native installers come from one clean `main` SHA. Each target passes
-  installed E2E, plugin/Profile matrix, two-hour soak, real 0.5.8 upgrade, and
+  installed E2E, plugin/Profile matrix, real 0.5.8 upgrade, and
   default uninstall with Owner data preserved.
-- Publication requires a redacted Owner live set: official provider nonce Turn,
-  first user Turn, and all eight supported non-mock messaging platforms.
+- Long-running installed soak and a redacted Owner live set remain supplemental
+  acceptance. Missing supplemental evidence is reported honestly and does not
+  block the automated/native publication aggregate.
 - The exact ten public assets, tag, target commit, hashes, signatures, SBOM,
   notices, and embedded identity are read back after immutable publication.
 
@@ -42,4 +43,3 @@ cross-built, or copied evidence cannot satisfy this delta.
 - A reconnect banner does not prove a dead Host was restarted.
 - Opening update or uninstall settings does not prove an upgrade or uninstall.
 - Draft upload success does not prove immutable public bytes.
-

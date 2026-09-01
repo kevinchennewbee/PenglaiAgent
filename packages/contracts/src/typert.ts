@@ -1,4 +1,5 @@
 import { Remote, RemoteError, remoteErrorOf } from "@deepseek-ai/dsh-typert-protocol";
+import type { Context } from "@deepseek-ai/cordis";
 import { PenglaiError, type ErrorClass } from "./errors.js";
 
 declare module "@deepseek-ai/dsh-typert-protocol" {
@@ -39,6 +40,22 @@ function throwRemoteBoundary(error: unknown): never {
   // Unexpected exceptions must never let Gateway serialize filesystem paths,
   // OS error strings, provider responses, or other host-private diagnostics.
   throw new RemoteError("penglai/internal", "Penglai request failed", {});
+}
+
+/**
+ * Cordis may be installed in more than one alpha.2 bundle. Runtime identity
+ * checks such as `ctx instanceof Context` therefore reject a valid foreign
+ * Context and silently skip Remote registration. The Typert Service boundary
+ * only requires Cordis' structural reflection registrar.
+ */
+export function isPenglaiRemoteContext(ctx: unknown): ctx is Context {
+  if (!ctx || (typeof ctx !== "object" && typeof ctx !== "function")) return false;
+  try {
+    const reflect = Reflect.get(ctx, "reflect") as { provide?: unknown } | undefined;
+    return typeof reflect?.provide === "function";
+  } catch {
+    return false;
+  }
 }
 
 /** Mark one Typert method and preserve Penglai's expected failures on alpha.2's wire. */

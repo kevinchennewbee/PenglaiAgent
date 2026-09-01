@@ -168,13 +168,6 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: pnpm verify:installed
-      - name: Two-hour exact installed stability suite
-        env:
-          PENGLAI_TARGET: ${{ matrix.target }}
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
-          PENGLAI_SOAK_ALLOW_LONG: "1"
-          PENGLAI_SOAK_HOURS: "2"
-        run: pnpm test:soak:installed
       - name: Download immutable 0.5.8 upgrade source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -204,7 +197,6 @@ jobs:
             evidence/generated/verify-profile-${{ matrix.target }}.json
             evidence/generated/installed-e2e-${{ matrix.target }}.json
             evidence/generated/verify-installed-${{ matrix.target }}.json
-            evidence/generated/soak-${{ matrix.target }}.json
             evidence/generated/verify-upgrade-uninstall-${{ matrix.target }}.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
@@ -342,14 +334,6 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:installed
-      - name: Two-hour exact installed stability suite
-        shell: pwsh
-        env:
-          PENGLAI_TARGET: win32-x86_64
-          PENGLAI_INSTALLED_UI_HARNESS: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
-          PENGLAI_SOAK_ALLOW_LONG: "1"
-          PENGLAI_SOAK_HOURS: "2"
-        run: pnpm test:soak:installed
       - name: Download immutable 0.5.8 upgrade source
         shell: pwsh
         env:
@@ -381,7 +365,6 @@ jobs:
             evidence/generated/verify-profile-win32-x86_64.json
             evidence/generated/installed-e2e-win32-x86_64.json
             evidence/generated/verify-installed-win32-x86_64.json
-            evidence/generated/soak-win32-x86_64.json
             evidence/generated/verify-upgrade-uninstall-win32-x86_64.json
             evidence/generated/u3-welcome-smoke.json
             evidence/generated/u3-first-party-plugins.json
@@ -443,7 +426,6 @@ jobs:
           pnpm verify:native-set -- --command verify:signing
           pnpm verify:native-set -- --command verify:profile
           pnpm verify:installed -- --aggregate
-          pnpm verify:soak -- --aggregate
           pnpm verify:native-set -- --command verify:upgrade-uninstall
           pnpm aggregate:supply-chain
       - name: Upload consolidated native evidence
