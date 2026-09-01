@@ -14,6 +14,7 @@ dist/
 evidence/
 .tmp/
 .tmp-public-export/
+.previous/
 .tmp-installed-from-dmg/
 .tmp-installed-e2e/
 .tmp-installed-*/
