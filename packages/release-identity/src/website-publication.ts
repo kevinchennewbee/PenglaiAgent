@@ -57,6 +57,7 @@ function installerUrls(content: string, repo: string): string[] {
 function publicationPath(path: string): boolean {
   return (
     path === "README.md" ||
+    path === "SECURITY.md" ||
     path === "docs/PUBLICATION_0.5.10.md" ||
     path === "docs/PUBLICATION_MANIFEST_0.5.10.md" ||
     path === "docs/RELEASE_NOTES_0.5.10.md" ||

@@ -252,7 +252,7 @@ test("native release workflow proves bundled optional plugins across restart", (
   assert.match(workflow, /inputs\.mode == 'catalog'/);
   assert.match(
     workflow,
-    /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH alpha\.2 source/,
+    /npm-cohort:[\s\S]*?steps:[\s\S]*?fetch-depth: 0[\s\S]*?Check out immutable official DSH rc\.1 source/,
   );
   const macosWorkflow = workflow.slice(workflow.indexOf("\n  macos:"), workflow.indexOf("\n  windows:"));
   const windowsWorkflow = workflow.slice(workflow.indexOf("\n  windows:"), workflow.indexOf("\n  aggregate:"));
