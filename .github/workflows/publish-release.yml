@@ -7,6 +7,15 @@ on:
         description: Successful native workflow run for this exact main commit
         required: true
         type: string
+      release_id:
+        description: Numeric ID of the mutable draft, resolved with gh release view
+        required: true
+        type: string
+      probe_only:
+        description: Only verify read access to this draft and one actual asset; never publish
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -17,10 +26,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  probe:
+    name: Check draft API and byte read access
+    if: ${{ inputs.probe_only }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    # GitHub requires Contents write to read an unpublished draft (read gives 403).
+    # This job only performs GET requests and never publishes.
+    permissions:
+      contents: write
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Read exact draft metadata and verify one uploaded asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
+          PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        run: node scripts/probe-draft-read-access.mjs
+
   verify:
     name: Verify complete signed draft
+    if: ${{ !inputs.probe_only }}
     runs-on: macos-15
     timeout-minutes: 30
+    # Draft visibility requires Contents write; mutation is isolated in publish.
+    permissions:
+      contents: write
+      actions: read
+      checks: read
     outputs:
       release_id: ${{ steps.identity.outputs.release_id }}
       source_sha: ${{ steps.identity.outputs.source_sha }}
@@ -54,11 +94,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+          PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
         run: node --import tsx scripts/verify-publication-input.mjs
       - name: Read back all ten draft assets and verify signatures
         id: draft
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
         run: pnpm readback:release-draft
 
   publish:

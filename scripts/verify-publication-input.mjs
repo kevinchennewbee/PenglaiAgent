@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { PRODUCT_VERSION, PUBLICATION_TARGET } from "./lib/product.mjs";
+import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 
 const source = requireCleanCandidateSource();
 if (!source.ok || !source.frozen) throw new Error("publication requires clean exact origin/main");
@@ -35,7 +36,8 @@ const gate = JSON.parse(readFileSync(join(ROOT, "evidence/generated/verify-relea
 if (gate.command !== "verify:release" || gate.verdict !== "PASS" || gate.exitCode !== 0 || gate.dryRun !== false || gate.sourceSha !== source.git.head || !gate.records?.length || gate.records.some((row) => row.verdict !== "PASS" || row.exit !== 0)) {
   throw new Error("downloaded complete release aggregate does not match this source");
 }
-const release = api(`releases/tags/${PUBLICATION_TARGET.tag}`);
+const releasePath = githubReleaseEndpoint(repo, { draft: true, tag: PUBLICATION_TARGET.tag, releaseId: process.env.PENGLAI_RELEASE_ID });
+const release = api(releasePath.slice(`repos/${repo}/`.length));
 if (release.draft !== true || release.prerelease !== false || release.immutable === true || release.target_commitish !== source.git.head || release.tag_name !== PUBLICATION_TARGET.tag) {
   throw new Error("publication target must be the exact-source mutable draft");
 }
