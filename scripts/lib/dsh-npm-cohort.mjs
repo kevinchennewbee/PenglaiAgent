@@ -2,14 +2,14 @@ import { createHash, createPublicKey, verify as verifySignature } from "node:cry
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
-export const DSH_ALPHA2 = Object.freeze({
-  version: "0.1.2-alpha.2",
-  tag: "dsh-v0.1.2-alpha.2",
-  commit: "0a53fb55bea101816fa226bb964ae2bed71c343b",
-  packageCount: 245,
-  rootIntegrity: "sha512-4TvTC5kRKlgtSU2UTBv+cID9a2Z+6+m6mpvjXWJfVzuTkflCff6s4MsQpFJTCmwFh/k7zNWe7qFXcLYMV/5VvA==",
-  rootShasum: "2652fc9a1bafae85c69da581178b4060a065a40a",
-  rootTarballSha256: "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47",
+export const DSH_UPSTREAM = Object.freeze({
+  version: "0.1.2-rc.1",
+  tag: "dsh-v0.1.2-rc.1",
+  commit: "a66e4702047846cdaa10c66c9d3df3951f5ea70d",
+  packageCount: 242,
+  rootIntegrity: "sha512-RPq48TzxvwpdT9/7W1tbhZDBMmeK+bxDrX9cqQC27Wx/LqtgJF8PSa3b3xriU8oxtvhwYmk21w2cej3uMQrnVA==",
+  rootShasum: "fef213043313affc36ca2226d2637ad483b5e3f6",
+  rootTarballSha256: "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530",
   welcomeNotice: Object.freeze({
     settingsNamespace: "ui-onboarding",
     ackField: "welcomeNoticeVersion",
@@ -18,14 +18,15 @@ export const DSH_ALPHA2 = Object.freeze({
   }),
 });
 
-export const ALPHA2_ADDED_PACKAGES = Object.freeze([
+export const DSH_REQUIRED_PACKAGES = Object.freeze([
+  "@deepseek-ai/dsh-session-turn-outline",
   "@deepseek-ai/dsh-client-ui-schedule",
   "@deepseek-ai/dsh-deque",
   "@deepseek-ai/dsh-util-time",
   "@deepseek-ai/dsh-util-values",
 ]);
 
-export const ALPHA2_VENDOR_VERSIONS = Object.freeze({
+export const DSH_VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/cordis": "4.0.2",
   "@deepseek-ai/cordis-plugin-group": "1.0.2",
   "@deepseek-ai/cordis-plugin-hmr": "1.0.17",
@@ -37,7 +38,7 @@ export const ALPHA2_VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/schemastery": "3.18.2",
 });
 
-export const ALPHA2_LANDLOCK_VERSIONS = Object.freeze({
+export const DSH_LANDLOCK_VERSIONS = Object.freeze({
   "@deepseek-ai/node-addon-landlock-run": "0.1.1",
   "@deepseek-ai/node-addon-landlock-run-linux-arm64": "0.1.1",
   "@deepseek-ai/node-addon-landlock-run-linux-x64": "0.1.1",
@@ -98,18 +99,18 @@ function walkPackageJsonFiles(directory, output = []) {
 }
 
 function expectedCategoryAndVersion(manifest, sourcePath) {
-  if (manifest.version === DSH_ALPHA2.version && manifest.name?.startsWith("@deepseek-ai/dsh")) {
-    return { category: "dsh", version: DSH_ALPHA2.version };
+  if (manifest.version === DSH_UPSTREAM.version && manifest.name?.startsWith("@deepseek-ai/dsh")) {
+    return { category: "dsh", version: DSH_UPSTREAM.version };
   }
   if (sourcePath.startsWith("vendor/")) {
-    const version = ALPHA2_VENDOR_VERSIONS[manifest.name];
+    const version = DSH_VENDOR_VERSIONS[manifest.name];
     return version ? { category: "vendor", version } : null;
   }
-  const landlockVersion = ALPHA2_LANDLOCK_VERSIONS[manifest.name];
+  const landlockVersion = DSH_LANDLOCK_VERSIONS[manifest.name];
   return landlockVersion ? { category: "landlock", version: landlockVersion } : null;
 }
 
-export function discoverAlpha2SourcePackages(upstreamRoot) {
+export function discoverSourcePackages(upstreamRoot) {
   const root = resolve(upstreamRoot);
   invariant(existsSync(resolve(root, "package.json")), `missing upstream package.json: ${root}`);
   const searchRoots = ["apps", "native", "packages", "vendor"].map((name) => resolve(root, name));
@@ -211,7 +212,7 @@ export async function readRootDistTags({ fetchImpl = fetch } = {}) {
   const packument = await fetchJson("https://registry.npmjs.org/%40deepseek-ai%2Fdsh", fetchImpl);
   return {
     distTags: stableObject(packument["dist-tags"] ?? {}),
-    publishedAt: packument.time?.[DSH_ALPHA2.version] ?? null,
+    publishedAt: packument.time?.[DSH_UPSTREAM.version] ?? null,
   };
 }
 
@@ -256,24 +257,23 @@ export async function readTarballSha256(url, { fetchImpl = fetch } = {}) {
 export function validateCohortSnapshot(snapshot) {
   invariant(snapshot?.schemaVersion === 1, "DSH npm cohort schemaVersion must be 1");
   invariant(snapshot.source?.repository === "https://github.com/deepseek-ai/DeepSeek-Harness.git", "unexpected DSH source repository");
-  invariant(snapshot.source?.tag === DSH_ALPHA2.tag, `unexpected DSH tag: ${snapshot.source?.tag}`);
-  invariant(snapshot.source?.commit === DSH_ALPHA2.commit, `unexpected DSH commit: ${snapshot.source?.commit}`);
-  invariant(snapshot.version === DSH_ALPHA2.version, `unexpected DSH version: ${snapshot.version}`);
-  invariant(snapshot.rootTarballSha256 === DSH_ALPHA2.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
-  invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_ALPHA2.welcomeNotice), "DSH welcome notice identity mismatch");
-  invariant(snapshot.distTags?.alpha === DSH_ALPHA2.version, "npm alpha dist-tag does not select alpha.2 in snapshot");
+  invariant(snapshot.source?.tag === DSH_UPSTREAM.tag, `unexpected DSH tag: ${snapshot.source?.tag}`);
+  invariant(snapshot.source?.commit === DSH_UPSTREAM.commit, `unexpected DSH commit: ${snapshot.source?.commit}`);
+  invariant(snapshot.version === DSH_UPSTREAM.version, `unexpected DSH version: ${snapshot.version}`);
+  invariant(snapshot.rootTarballSha256 === DSH_UPSTREAM.rootTarballSha256, "@deepseek-ai/dsh tarball SHA-256 mismatch");
+  invariant(JSON.stringify(snapshot.upstreamFacts?.welcomeNotice) === JSON.stringify(DSH_UPSTREAM.welcomeNotice), "DSH welcome notice identity mismatch");
+  invariant(snapshot.distTags?.next === DSH_UPSTREAM.version, "snapshot npm next tag must select the fixed rc.1 cohort");
   invariant(snapshot.distTags?.latest === "0.1.1-rc.2", "npm latest must remain 0.1.1-rc.2 in snapshot");
-  invariant(snapshot.distTags?.next === "0.1.1-rc.2", "npm next must remain 0.1.1-rc.2 in snapshot");
   const entries = Array.isArray(snapshot.packages) ? snapshot.packages : [];
   invariant(new Set(entries.map((entry) => entry.name)).size === entries.length, "duplicate package in DSH npm cohort");
   const dsh = entries.filter((entry) => entry.category === "dsh");
   const vendor = entries.filter((entry) => entry.category === "vendor");
   const landlock = entries.filter((entry) => entry.category === "landlock");
-  invariant(dsh.length === DSH_ALPHA2.packageCount, `DSH package count ${dsh.length}, expected ${DSH_ALPHA2.packageCount}`);
-  invariant(vendor.length === Object.keys(ALPHA2_VENDOR_VERSIONS).length, `vendor package count ${vendor.length}, expected 9`);
-  invariant(landlock.length === Object.keys(ALPHA2_LANDLOCK_VERSIONS).length, `Landlock package count ${landlock.length}, expected 3`);
+  invariant(dsh.length === DSH_UPSTREAM.packageCount, `DSH package count ${dsh.length}, expected ${DSH_UPSTREAM.packageCount}`);
+  invariant(vendor.length === Object.keys(DSH_VENDOR_VERSIONS).length, `vendor package count ${vendor.length}, expected 9`);
+  invariant(landlock.length === Object.keys(DSH_LANDLOCK_VERSIONS).length, `Landlock package count ${landlock.length}, expected 3`);
   for (const entry of entries) {
-    invariant(entry.version === (entry.category === "dsh" ? DSH_ALPHA2.version : (ALPHA2_VENDOR_VERSIONS[entry.name] ?? ALPHA2_LANDLOCK_VERSIONS[entry.name])), `${entry.name} has unexpected version ${entry.version}`);
+    invariant(entry.version === (entry.category === "dsh" ? DSH_UPSTREAM.version : (DSH_VENDOR_VERSIONS[entry.name] ?? DSH_LANDLOCK_VERSIONS[entry.name])), `${entry.name} has unexpected version ${entry.version}`);
     invariant(entry.license === "MIT" || entry.license === "BSD-3-Clause", `${entry.name} has unexpected license ${entry.license}`);
     invariant(/^sha512-/.test(entry.integrity ?? ""), `${entry.name} is missing sha512 integrity`);
     invariant(/^[a-f0-9]{40}$/.test(entry.shasum ?? ""), `${entry.name} has invalid npm shasum`);
@@ -287,11 +287,11 @@ export function validateCohortSnapshot(snapshot) {
     invariant(officialRepository || legacyLandlockRepository, `${entry.name} has unexpected repository ${entry.repositoryUrl}`);
   }
   const names = new Set(entries.map((entry) => entry.name));
-  for (const name of ALPHA2_ADDED_PACKAGES) invariant(names.has(name), `alpha.2 added package missing: ${name}`);
+  for (const name of DSH_REQUIRED_PACKAGES) invariant(names.has(name), `required cohort package missing: ${name}`);
   invariant(!names.has("@deepseek-ai/dsh-client-runtime"), "removed dsh-client-runtime must not enter the cohort");
   const root = entries.find((entry) => entry.name === "@deepseek-ai/dsh");
-  invariant(root?.integrity === DSH_ALPHA2.rootIntegrity, "@deepseek-ai/dsh integrity mismatch");
-  invariant(root?.shasum === DSH_ALPHA2.rootShasum, "@deepseek-ai/dsh shasum mismatch");
+  invariant(root?.integrity === DSH_UPSTREAM.rootIntegrity, "@deepseek-ai/dsh integrity mismatch");
+  invariant(root?.shasum === DSH_UPSTREAM.rootShasum, "@deepseek-ai/dsh shasum mismatch");
   const withLifecycle = entries.filter((entry) => Object.keys(entry.installLifecycleScripts ?? {}).length > 0);
   invariant(withLifecycle.length === 1, `unexpected install lifecycle scripts in ${withLifecycle.map((entry) => entry.name).join(", ") || "none"}`);
   invariant(JSON.stringify(withLifecycle[0]?.installLifecycleScripts) === JSON.stringify(EXPECTED_INSTALL_LIFECYCLE[withLifecycle[0]?.name]), "unexpected DSH install lifecycle command");
@@ -314,8 +314,8 @@ export function verifyCohortLock(snapshot, lockText) {
     invariant(expected.get(spec) === match[3], `pnpm lock integrity drift for ${spec}`);
     installed.set(match[1], match[2]);
   }
-  for (const required of ["@deepseek-ai/dsh", ...ALPHA2_ADDED_PACKAGES]) {
-    invariant(installed.get(required) === DSH_ALPHA2.version, `pnpm lock is missing required ${required}@${DSH_ALPHA2.version}`);
+  for (const required of ["@deepseek-ai/dsh", ...DSH_REQUIRED_PACKAGES]) {
+    invariant(installed.get(required) === DSH_UPSTREAM.version, `pnpm lock is missing required ${required}@${DSH_UPSTREAM.version}`);
   }
   invariant(!lockText.includes("0.1.2-alpha.1"), "pnpm lock still contains alpha.1");
   invariant(!lockText.includes("@deepseek-ai/dsh-client-runtime"), "pnpm lock contains removed dsh-client-runtime");
@@ -331,7 +331,7 @@ export async function verifySnapshotAgainstRegistry(snapshot, options = {}) {
     invariant(JSON.stringify(liveEntries[index]) === JSON.stringify(stableObject(snapshot.packages[index])), `${liveEntries[index].name} registry metadata drift`);
   }
   const liveRoot = await readRootDistTags(options);
-  invariant(typeof liveRoot.publishedAt === "string" && liveRoot.publishedAt.length > 0, "@deepseek-ai/dsh alpha.2 publication time missing");
+  invariant(typeof liveRoot.publishedAt === "string" && liveRoot.publishedAt.length > 0, "@deepseek-ai/dsh rc.1 publication time missing");
   options.observeDistTags?.(liveRoot.distTags);
   const fetchImpl = options.fetchImpl ?? fetch;
   const signingKeys = await readRegistrySigningKeys(options);

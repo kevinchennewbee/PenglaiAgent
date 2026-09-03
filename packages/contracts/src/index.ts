@@ -19,9 +19,10 @@ export * from "./errors.js";
 export * from "./bounded-http.js";
 export * from "./closed-enum.js";
 export * from "./safe-https.js";
+export * from "./session-snapshot.js";
 
 export const SCHEMA_VERSION = 12;
-export const RELEASE = "0.5.9";
+export const RELEASE = "0.5.10";
 
 export const CONFIG = Object.freeze({
   pairingTtlMs: 5 * 60_000,

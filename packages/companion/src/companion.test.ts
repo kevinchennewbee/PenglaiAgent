@@ -152,7 +152,7 @@ function fakeRuntime() {
     const agent = {
       id: sessionId,
       options: options.agentOptions,
-      session: { id: sessionId, events },
+      session: { id: sessionId, snapshotEvents: () => events.slice() },
       ctx: agentCtx,
       modelToolDenied(name: string) {
         return guard?.({ name });
@@ -171,7 +171,7 @@ function fakeRuntime() {
   const source = {
     id: "source-session",
     options: { provider: "deepseek", model: "chat" },
-    session: { id: "source-session", events: [] },
+    session: { id: "source-session", snapshotEvents: () => [] },
     ctx: {},
   };
   live.set(source.id, source);

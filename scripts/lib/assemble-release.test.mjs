@@ -16,9 +16,9 @@ test("assemble-release refuses a signing key that does not match the embedded up
     mkdirSync(staging);
     const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
     const names = [
-      "Penglai_0.5.9_macos_aarch64.dmg",
-      "Penglai_0.5.9_macos_x64.dmg",
-      "Penglai_0.5.9_windows_x64_setup.exe",
+      "Penglai_0.5.10_macos_aarch64.dmg",
+      "Penglai_0.5.10_macos_x64.dmg",
+      "Penglai_0.5.10_windows_x64_setup.exe",
     ];
     const nativeEvidence = join(temp, "native-evidence");
     mkdirSync(nativeEvidence);
@@ -51,22 +51,22 @@ test("assemble-release refuses a signing key that does not match the embedded up
       sbom,
       `${JSON.stringify({
         bomFormat: "CycloneDX",
-        release: "0.5.9",
+        release: "0.5.10",
         sourceSha,
         target: "release-set",
         lockfileSha256: sha256(readFileSync(join(ROOT, "pnpm-lock.yaml"))),
         componentCount: 1,
-        components: [{ type: "application", name: "fixture", version: "0.5.9" }],
+        components: [{ type: "application", name: "fixture", version: "0.5.10" }],
       })}\n`,
     );
     writeFileSync(
       notices,
-      `Penglai 0.5.9 Third-Party Notices\nSource SHA: ${sourceSha}\nAudited target: release-set\nlicenses/sharp/\n`,
+      `Penglai 0.5.10 Third-Party Notices\nSource SHA: ${sourceSha}\nAudited target: release-set\nlicenses/sharp/\n`,
     );
     const releaseJson = join(temp, "release.json");
     writeFileSync(
       releaseJson,
-      JSON.stringify({ id: 77, tag_name: "v0.5.9", target_commitish: sourceSha, draft: true, prerelease: false, immutable: false, assets }),
+      JSON.stringify({ id: 77, tag_name: "v0.5.10", target_commitish: sourceSha, draft: true, prerelease: false, immutable: false, assets }),
     );
     const keyFile = join(temp, "private.pem");
     writeFileSync(
@@ -108,8 +108,8 @@ test("assemble-release refuses a signing key that does not match the embedded up
     assert.match(result.stderr, /ed25519 signature mismatch/);
     assert.equal(statSync(join(staging, "update-manifest-v1.json.sig")).size, 64);
     const update = JSON.parse(readFileSync(join(staging, "update-manifest-v1.json"), "utf8"));
-    assert.equal(update.sequence, 5);
-    assert.equal(update.version, "0.5.9");
+    assert.equal(update.sequence, 6);
+    assert.equal(update.version, "0.5.10");
     assert.equal(update.releaseManifestSha256, sha256(readFileSync(join(staging, "release-manifest.json"))));
     assert.notEqual(update.releaseManifestSha256, sha256(readFileSync(join(staging, "update-manifest-v1.json"))));
     assert.equal(readdirSync(staging).includes("SHA256SUMS"), false);

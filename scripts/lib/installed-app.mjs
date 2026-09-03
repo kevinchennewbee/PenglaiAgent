@@ -18,8 +18,8 @@ import { tmpdir } from "node:os";
 import { ROOT } from "./repo.mjs";
 import { installerForTarget } from "./release-targets.mjs";
 
-export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.9_macos_aarch64.dmg");
-export const ARM64_INSTALLER = "Penglai_0.5.9_macos_aarch64.dmg";
+export const ARM64_DMG = join(ROOT, "dist/Penglai_0.5.10_macos_aarch64.dmg");
+export const ARM64_INSTALLER = "Penglai_0.5.10_macos_aarch64.dmg";
 
 export function leftoversByCommand(needle) {
   if (process.platform === "win32") {
@@ -125,7 +125,7 @@ export function isControlledWindowsInstallerFixture(installDir, root = ROOT, tem
   if (rel && rel !== ".." && !rel.startsWith("..\\") && !win32Path.isAbsolute(rel)) {
     const segments = rel.split("\\");
     if (segments[0] === ".tmp" || segments[0].startsWith(".tmp-")) return true;
-    if (rel.toLowerCase() === "dist\\penglai-v0.5.9-win32-x64\\penglai") return true;
+    if (rel.toLowerCase() === "dist\\penglai-v0.5.10-win32-x64\\penglai") return true;
   }
   const temporary = win32Path.resolve(String(temporaryRoot ?? ""));
   const temporaryRel = win32Path.relative(temporary, candidate);
@@ -342,7 +342,7 @@ export function readInstalledAppIdentity(app, target) {
 export function assertInstalledPenglaiIdentity(app, target) {
   const facts = readInstalledAppIdentity(app, target);
   if (facts.executable !== "Penglai") return { ok: false, reason: `executable ${facts.executable || "<empty>"}` };
-  if (facts.shortVersion !== "0.5.9" || facts.version !== "0.5.9") {
+  if (facts.shortVersion !== "0.5.10" || facts.version !== "0.5.10") {
     return { ok: false, reason: `version ${facts.shortVersion}/${facts.version}` };
   }
   if (facts.bundleId !== "com.penglai.dsh") return { ok: false, reason: `bundle ${facts.bundleId || "<empty>"}` };

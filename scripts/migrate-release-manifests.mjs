@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/repo.mjs";
 
-const PRODUCT_VERSION = "0.5.9";
-const DSH_VERSION = "0.1.2-alpha.2";
+const PRODUCT_VERSION = "0.5.10";
+const DSH_VERSION = "0.1.2-rc.1";
 const VENDOR_VERSIONS = Object.freeze({
   "@deepseek-ai/cordis": "4.0.2",
   "@deepseek-ai/cordis-plugin-group": "1.0.2",
@@ -64,11 +64,11 @@ for (const path of manifestPaths) {
 }
 
 if (failures.length > 0) {
-  throw new Error(`0.5.9 manifest migration required:\n${failures.join("\n")}`);
+  throw new Error(`0.5.10 manifest migration required:\n${failures.join("\n")}`);
 }
 console.log(JSON.stringify({
   verdict: "PASS",
-  command: WRITE ? "migrate:059-manifests" : "verify:059-manifests",
+  command: WRITE ? "migrate:release-manifests" : "verify:release-manifests",
   productVersion: PRODUCT_VERSION,
   dshVersion: DSH_VERSION,
   changed: changedPaths.length,

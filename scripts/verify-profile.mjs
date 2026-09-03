@@ -117,7 +117,7 @@ for (const mode of modes) {
       userRoot,
       plan: homePlan,
       validation: {
-        dshVersion: "0.1.2-alpha.2",
+        dshVersion: "0.1.2-rc.1",
         officialDocument: true,
         dshHealthy: true,
         profileReady: true,

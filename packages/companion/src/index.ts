@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Context } from "@deepseek-ai/cordis";
-import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE, snapshotOfficialSession } from "@penglai/contracts";
 import { OwnerApprovalBroker } from "@penglai/runtime/owner-broker";
 import { createHostOwnerDialog } from "@penglai/runtime/owner-dialog";
 import { CompanionStore, type CompanionDispatchRow } from "./scheduler.js";
@@ -52,7 +52,7 @@ interface AgentContextLike {
 interface AgentLike {
   id: string;
   options: { provider?: string; model?: string; maxTokens?: number };
-  session: { id?: string; events?: readonly unknown[] };
+  session: { id?: string; snapshotEvents(): readonly unknown[] };
   ctx: AgentContextLike;
 }
 
@@ -586,7 +586,7 @@ export class ProductionCompanionService {
   private async replay(agent: AgentLike): Promise<void> {
     let turn: number | undefined;
     const finals = new Map<number, string>();
-    for (const value of agent.session.events ?? []) {
+    for (const value of snapshotOfficialSession(agent.session)) {
       const event = asRecord(value);
       const data = asRecord(event?.data);
       if (event?.type === "turn/start" && typeof data?.turn === "number")

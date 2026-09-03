@@ -161,7 +161,7 @@ if ($nsisSource -notmatch 'Unicode true' -or
   throw "strict UTF-8 NSIS source does not contain the required app and Unicode Chinese component contract"
 }
 New-Item -ItemType Directory -Path $evidenceDir -Force | Out-Null
-$installTarget = Join-Path $env:TEMP "Penglai-0.5.9-ui-proof"
+$installTarget = Join-Path $env:TEMP "Penglai-0.5.10-ui-proof"
 $screenshot = Join-Path $evidenceDir "windows-installer-components-zh.png"
 $recordPath = Join-Path $evidenceDir "windows-installer-ui.json"
 

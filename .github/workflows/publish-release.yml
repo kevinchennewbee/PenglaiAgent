@@ -1,0 +1,111 @@
+name: Publish complete release
+
+on:
+  workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: Successful native workflow run for this exact main commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-penglai-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify complete signed draft
+    runs-on: macos-15
+    timeout-minutes: 30
+    outputs:
+      release_id: ${{ steps.identity.outputs.release_id }}
+      source_sha: ${{ steps.identity.outputs.source_sha }}
+      asset_set_sha256: ${{ steps.draft.outputs.asset_set_sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Require exact main and install frozen dependencies
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)"
+          git switch -C main "$GITHUB_SHA"
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: penglai-0.5.10-native-evidence-set
+          run-id: ${{ inputs.native_run_id }}
+          github-token: ${{ github.token }}
+          path: evidence/generated
+      - name: Bind native workflow, source CI and draft to the same main SHA
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        run: node --import tsx scripts/verify-publication-input.mjs
+      - name: Read back all ten draft assets and verify signatures
+        id: draft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm readback:release-draft
+
+  publish:
+    name: Publish the verified complete draft once
+    needs: verify
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Publish only the draft verified above
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.verify.outputs.release_id }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          VERIFIED_ASSET_SET: ${{ needs.verify.outputs.asset_set_sha256 }}
+        run: node scripts/publish-verified-draft.mjs
+
+
+  readback:
+    name: Verify immutable public bytes
+    needs: publish
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Read back the published release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm build
+          mkdir -p evidence/generated
+          node --import tsx scripts/readback-release.mjs > evidence/generated/public-release-readback.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: penglai-0.5.10-public-readback
+          path: evidence/generated/public-release-readback.json
+          if-no-files-found: error
+          retention-days: 90

@@ -45,7 +45,7 @@ const model = modelRecord.value;
 if (
   model.command !== "test:e2e:installed:live" ||
   model.verdict !== "PASS" ||
-  model.productVersion !== "0.5.9" ||
+  model.productVersion !== "0.5.10" ||
   model.sourceSha !== source.git.head ||
   model.target !== modelCandidates[0].target ||
   model.installerSha256 !== nativeInstallers.find((row) => row.target === model.target)?.installerSha256
@@ -81,7 +81,7 @@ const cases = LIVE_CHANNELS.map((platform) => {
     value.scope !== "im-owner-live-case" ||
     value.command !== "test:e2e:im:live" ||
     value.verdict !== "PASS" ||
-    value.productVersion !== "0.5.9" ||
+    value.productVersion !== "0.5.10" ||
     value.sourceSha !== source.git.head ||
     value.platform !== platform ||
     value.redacted !== true
@@ -110,14 +110,14 @@ const cases = LIVE_CHANNELS.map((platform) => {
 const liveSet = {
   schemaVersion: 3,
   scope: "release-native-live-set",
-  productVersion: "0.5.9",
+  productVersion: "0.5.10",
   sourceSha: source.git.head,
   nativeInstallers,
   officialModel,
   redacted: true,
   cases,
 };
-const evaluated = evaluateLiveEvidence(liveSet, "0.5.9", {
+const evaluated = evaluateLiveEvidence(liveSet, "0.5.10", {
   sourceSha: source.git.head,
   nativeInstallers: Object.fromEntries(nativeInstallers.map((row) => [row.target, row.installerSha256])),
 });

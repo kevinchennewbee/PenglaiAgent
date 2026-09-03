@@ -3,7 +3,7 @@ import { PenglaiError } from "@penglai/contracts";
 import { PINNED_DSH, PINNED_DSH_COMMIT } from "./index.js";
 
 export const PINNED_DSH_NPM_TARBALL_SHA256 =
-  "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47";
+  "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530";
 
 export const REQUIRED_OFFICIAL_MODULES = [
   "@deepseek-ai/dsh",
@@ -96,7 +96,7 @@ export function captureCapabilityBaseline(): CapabilityBaseline {
     overlay: {
       applied: false,
       officialSlots: true,
-      reason: `${primitives.name ?? "dsh-client-ui-primitives"} is composed through the official alpha client slot graph without patching DSH bytes`,
+      reason: `${primitives.name ?? "dsh-client-ui-primitives"} is composed through the official client slot graph without patching DSH bytes`,
     },
   };
 }
@@ -120,6 +120,6 @@ export function assertCapabilityBaseline(baseline: CapabilityBaseline): void {
     throw new PenglaiError("DSH_CONTRACT_DRIFT", "credentials/inventory seam");
   }
   if (baseline.overlay.applied !== false || baseline.overlay.officialSlots !== true) {
-    throw new PenglaiError("DSH_CONTRACT_DRIFT", "alpha client slot composition seam");
+    throw new PenglaiError("DSH_CONTRACT_DRIFT", "official client slot composition seam");
   }
 }

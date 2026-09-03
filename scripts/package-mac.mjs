@@ -23,14 +23,14 @@ const targetArg = process.argv.includes("--target")
   : process.env.PENGLAI_PACK_TARGET;
 const TARGETS = {
   "darwin-arm64": {
-    out: "dist/Penglai-v0.5.9-arm64",
-    zip: "dist/Penglai-v0.5.9-arm64.zip",
+    out: "dist/Penglai-v0.5.10-arm64",
+    zip: "dist/Penglai-v0.5.10-arm64.zip",
     triple: "darwin-arm64",
     runtimeTarget: "darwin-aarch64",
   },
   "darwin-x64": {
-    out: "dist/Penglai-v0.5.9-x64",
-    zip: "dist/Penglai-v0.5.9-x64.zip",
+    out: "dist/Penglai-v0.5.10-x64",
+    zip: "dist/Penglai-v0.5.10-x64.zip",
     triple: "darwin-x64",
     runtimeTarget: "darwin-x86_64",
   },
@@ -225,12 +225,12 @@ if (existsSync(framework)) {
 }
 writeFileSync(
   join(outRoot, "README-UNSIGNED.txt"),
-  "Penglai 0.5.9 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
+  "Penglai 0.5.10 community release. trustTier=community-verified. Ad-hoc signed, not notarized. Gatekeeper may warn; do not disable system security.\n",
 );
 
 const info = {
   productName: "Penglai",
-  productVersion: "0.5.9",
+  productVersion: "0.5.10",
   name: targetSpec.out.split("/").pop(),
   buildNumber: 0,
   candidateOrdinal: 0,
@@ -245,7 +245,7 @@ const info = {
   electron: "43.4.0",
   node: "22.22.2",
   embeddedNode: "22.22.2",
-  dsh: "0.1.2-alpha.2",
+  dsh: "0.1.2-rc.1",
   dshSource: releasePins.dshSource,
   profileSchema: 3,
   catalogSchema: 3,

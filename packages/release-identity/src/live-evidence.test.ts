@@ -15,7 +15,7 @@ function validEvidence() {
   return {
     schemaVersion: 3,
     scope: "release-native-live-set",
-    productVersion: "0.5.9",
+    productVersion: "0.5.10",
     sourceSha: "a".repeat(40),
     nativeInstallers,
     officialModel: {
@@ -59,7 +59,7 @@ function validEvidence() {
 }
 
 test("owner live evidence passes only with complete redacted declared cases", () => {
-  assert.deepEqual(evaluateLiveEvidence(validEvidence(), "0.5.9"), {
+  assert.deepEqual(evaluateLiveEvidence(validEvidence(), "0.5.10"), {
     verdict: "PASS",
     reason: "accepted 8 redacted owner live runner record(s)",
     acceptedPlatforms: ["weixin", "feishu", "dingtalk", "wecom", "qq", "slack", "telegram", "discord"],
@@ -69,18 +69,18 @@ test("owner live evidence passes only with complete redacted declared cases", ()
 test("missing or repeated runner transcript digests cannot become PASS", () => {
   const evidence = validEvidence();
   evidence.cases[0]!.logoutDigest = evidence.cases[0]!.restartDigest;
-  assert.equal(evaluateLiveEvidence(evidence, "0.5.9").verdict, "FAIL");
+  assert.equal(evaluateLiveEvidence(evidence, "0.5.10").verdict, "FAIL");
 });
 
 test("stale, duplicate, unknown, or sensitive live evidence is rejected", () => {
-  assert.equal(evaluateLiveEvidence({ ...validEvidence(), productVersion: "0.5.8" }, "0.5.9").verdict, "STALE");
-  assert.equal(evaluateLiveEvidence({ ...validEvidence(), accessToken: "must-not-appear" }, "0.5.9").verdict, "FAIL");
+  assert.equal(evaluateLiveEvidence({ ...validEvidence(), productVersion: "0.5.8" }, "0.5.10").verdict, "STALE");
+  assert.equal(evaluateLiveEvidence({ ...validEvidence(), accessToken: "must-not-appear" }, "0.5.10").verdict, "FAIL");
   const duplicate = validEvidence();
   duplicate.cases.push({ ...duplicate.cases[0]! });
-  assert.equal(evaluateLiveEvidence(duplicate, "0.5.9").verdict, "FAIL");
+  assert.equal(evaluateLiveEvidence(duplicate, "0.5.10").verdict, "FAIL");
   const unknown = validEvidence();
   unknown.cases[0]!.platform = "unknown-platform";
-  assert.equal(evaluateLiveEvidence(unknown, "0.5.9").verdict, "FAIL");
+  assert.equal(evaluateLiveEvidence(unknown, "0.5.10").verdict, "FAIL");
 });
 
 test("live evidence is bound to exact source and all three installer hashes", () => {
@@ -91,14 +91,14 @@ test("live evidence is bound to exact source and all three installer hashes", ()
       evidence.nativeInstallers.map((row) => [row.target, row.installerSha256]),
     ),
   };
-  assert.equal(evaluateLiveEvidence(evidence, "0.5.9", expected).verdict, "PASS");
+  assert.equal(evaluateLiveEvidence(evidence, "0.5.10", expected).verdict, "PASS");
   assert.equal(
-    evaluateLiveEvidence(evidence, "0.5.9", { ...expected, sourceSha: "f".repeat(40) }).verdict,
+    evaluateLiveEvidence(evidence, "0.5.10", { ...expected, sourceSha: "f".repeat(40) }).verdict,
     "STALE",
   );
   const staleInstallers = { ...expected.nativeInstallers, "win32-x86_64": "f".repeat(64) };
   assert.equal(
-    evaluateLiveEvidence(evidence, "0.5.9", { ...expected, nativeInstallers: staleInstallers }).verdict,
+    evaluateLiveEvidence(evidence, "0.5.10", { ...expected, nativeInstallers: staleInstallers }).verdict,
     "STALE",
   );
 });

@@ -16,13 +16,13 @@ import {
 
 test("release identity copies resolve from the one authoritative pins source", () => {
   const pins = readReleaseIdentityPins();
-  assert.equal(pins.productVersion, "0.5.9");
-  assert.equal(pins.dsh, "0.1.2-alpha.2");
+  assert.equal(pins.productVersion, "0.5.10");
+  assert.equal(pins.dsh, "0.1.2-rc.1");
   assert.equal(
     pins.dshSource.commit,
-    "0a53fb55bea101816fa226bb964ae2bed71c343b",
+    "a66e4702047846cdaa10c66c9d3df3951f5ea70d",
   );
-  assert.equal(pins.dshSource.packageCount, 257);
+  assert.equal(pins.dshSource.packageCount, 254);
   assert.equal(pins.node, "22.22.2");
   assert.equal(pins.targets.length, 3);
   assert.deepEqual(

@@ -8,7 +8,7 @@ import { createSchemaBackup } from "./update-backup.js";
 test("R50-UPD-007 schema backup is app-private bounded and excludes credentials/workspaces/voice audio", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-schema-backup-"));
   mkdirSync(join(root, "dsh-home", "storages"), { recursive: true });
-  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-alpha.2");
+  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-rc.1");
   mkdirSync(join(alpha2Home, "storages"), { recursive: true });
   mkdirSync(join(root, "im"), { recursive: true });
   mkdirSync(join(root, "voice", "local-voices"), { recursive: true });
@@ -36,9 +36,9 @@ test("R50-UPD-007 schema backup is app-private bounded and excludes credentials/
   assert.equal(result.manifest.files.some((file) => file.path.includes("storages")), false, "workspace storage must not be backed up");
   assert.equal(existsSync(join(result.path, "dsh-home", ".credentials.yaml")), false);
   assert.equal(existsSync(join(result.path, "dsh-home", "storages", "workspace.json")), false);
-  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", "settings.yaml")), true);
-  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", ".credentials.yaml")), false);
-  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-alpha.2", "storages", "workspace.json")), false);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-rc.1", "settings.yaml")), true);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-rc.1", ".credentials.yaml")), false);
+  assert.equal(existsSync(join(result.path, "dsh-homes", "dsh-v0.1.2-rc.1", "storages", "workspace.json")), false);
   assert.equal(existsSync(join(result.path, "im", "penglai-im.sqlite")), true);
 });
 

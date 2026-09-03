@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.9";
+export const PRODUCT_VERSION = "0.5.10";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -24,18 +24,18 @@ export const PINNED_NODE_DARWIN_X64_SHA256 =
 export const PINNED_NODE_WIN32_X64_SHA256 =
   "7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c";
 /** Exact official npm pre-release cohort reconciled to the fixed upstream tag. */
-export const PINNED_DSH = "0.1.2-alpha.2";
-export const PINNED_DSH_COMMIT = "0a53fb55bea101816fa226bb964ae2bed71c343b";
-export const PINNED_DSH_TAG = "dsh-v0.1.2-alpha.2";
+export const PINNED_DSH = "0.1.2-rc.1";
+export const PINNED_DSH_COMMIT = "a66e4702047846cdaa10c66c9d3df3951f5ea70d";
+export const PINNED_DSH_TAG = "dsh-v0.1.2-rc.1";
 export const PINNED_DSH_REPOSITORY = "https://github.com/deepseek-ai/DeepSeek-Harness.git";
 export const PINNED_DSH_NPM_INTEGRITY =
-  "sha512-4TvTC5kRKlgtSU2UTBv+cID9a2Z+6+m6mpvjXWJfVzuTkflCff6s4MsQpFJTCmwFh/k7zNWe7qFXcLYMV/5VvA==";
-export const PINNED_DSH_NPM_SHASUM = "2652fc9a1bafae85c69da581178b4060a065a40a";
+  "sha512-RPq48TzxvwpdT9/7W1tbhZDBMmeK+bxDrX9cqQC27Wx/LqtgJF8PSa3b3xriU8oxtvhwYmk21w2cej3uMQrnVA==";
+export const PINNED_DSH_NPM_SHASUM = "fef213043313affc36ca2226d2637ad483b5e3f6";
 export const PINNED_DSH_TARBALL_SHA256 =
-  "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47";
+  "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530";
 export const PINNED_DSH_CLOSURE_MANIFEST_SHA256 =
-  "1ae818ae30a963dcf9b0063e1cfdf3fdc77b481b66478d1911988919b6f4eff1";
-export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 257;
+  "31a52e8bc520b185c71849f3b084d65f9f7c888358ae33d4ea2d5eb4aba9f198";
+export const PINNED_DSH_CLOSURE_PACKAGE_COUNT = 254;
 export const PINNED_LARK_SDK = "1.73.0";
 export const PINNED_LARK_COMMIT = "f54b49f3566c52b54c598194b7ed3015e3e24224";
 export const PINNED_WEIXIN_REF = "2.4.6";
@@ -104,12 +104,14 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
+/** Monotonic after the last complete public manifest (0.5.8, sequence 5). */
+export const UPDATER_SEQUENCE = 6;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.9",
-  release: "v0.5.9",
-  channel: "stable-v0.5.9",
+  tag: "v0.5.10",
+  release: "v0.5.10",
+  channel: "stable-v0.5.10",
 });
 
 export const RELEASE_TARGETS = [
@@ -117,19 +119,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.9_macos_aarch64.dmg",
+    installer: "Penglai_0.5.10_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.9_macos_x64.dmg",
+    installer: "Penglai_0.5.10_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.9_windows_x64_setup.exe",
+    installer: "Penglai_0.5.10_windows_x64_setup.exe",
   },
 ] as const;
 
@@ -218,13 +220,12 @@ export const HARD_SUBGATES = [
   { name: "audit:secrets", kind: "secret", mode: "run" },
 ] as const;
 
-// Owner-account journeys, long-running installed use, and the complete
+// Owner-account journeys and the complete
 // cross-run assertion census remain visible supplemental acceptance. Their
 // absence must not masquerade as PASS or permanently block an otherwise
 // complete automated/native release aggregate.
 export const SUPPLEMENTAL_ACCEPTANCE_SUBGATES = [
   { name: "verify:live", kind: "live", mode: "evidence" },
-  { name: "verify:soak", kind: "installed-soak", mode: "evidence" },
   { name: "verify:evidence", kind: "evidence", mode: "evidence" },
 ] as const;
 

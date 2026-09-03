@@ -14,6 +14,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   DSH_HOME_SOURCE_VERSION,
+  DSH_HOME_PREVIOUS_VERSION,
   DSH_HOME_TARGET_VERSION,
   activateDshHomeBootPlan,
   activateDshHomeUpgrade,
@@ -29,6 +30,45 @@ import {
 
 const FIXTURE_CREDENTIAL =
   "DEEPSEEK_API_KEY: penglai-test-fixture-key-not-real\n";
+
+test("0.5.9 active generation upgrades to rc.1 and restores its exact pointer on rollback", () => {
+  const root = fixtureRoot();
+  const previousHome = join(root, "dsh-homes", `dsh-v${DSH_HOME_PREVIOUS_VERSION}`);
+  mkdirSync(previousHome, { recursive: true, mode: 0o700 });
+  writeFileSync(join(previousHome, "settings.yaml"), "locale:\n  preference: en\n");
+  const previous = {
+    schema: 1,
+    activeVersion: DSH_HOME_PREVIOUS_VERSION,
+    homeRelative: `dsh-homes/dsh-v${DSH_HOME_PREVIOUS_VERSION}`,
+    activationKind: "fresh",
+    activatedAt: "2026-09-01T00:00:00.000Z",
+    targetDigest: "a".repeat(64),
+  };
+  writeFileSync(join(previousHome, ".penglai-dsh-home.json"), JSON.stringify({
+    schema: 1,
+    kind: "fresh",
+    dshVersion: DSH_HOME_PREVIOUS_VERSION,
+    state: "active",
+    preparedAt: previous.activatedAt,
+    activatedAt: previous.activatedAt,
+    targetDigest: previous.targetDigest,
+  }));
+  const pointer = join(root, "dsh-home-active.json");
+  writeFileSync(pointer, JSON.stringify(previous));
+  const plan = prepareDshHomeForBoot({ userRoot: root, reserveBytes: 0 });
+  assert.equal(plan.kind, "migration-prepared");
+  assert.equal(readFileSync(join(plan.dshHome, "settings.yaml"), "utf8"), "locale:\n  preference: en\n");
+  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), previous);
+  assert.deepEqual(prepareDshHomeForBoot({ userRoot: root }), plan, "prepared migration must resume with old pointer still active");
+  activateDshHomeBootPlan({ userRoot: root, plan, validation: validProof() });
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_TARGET_VERSION);
+  writeFileSync(join(plan.dshHome, "new-generation-only"), "rc.1 state");
+  rollbackDshHomeUpgrade({ userRoot: root, operationId: plan.operationId!, reason: "restore previous version" });
+  assert.deepEqual(JSON.parse(readFileSync(pointer, "utf8")), previous);
+  assert.equal(readActiveDshHome(root)?.activeVersion, DSH_HOME_PREVIOUS_VERSION);
+  assert.equal(existsSync(join(previousHome, "new-generation-only")), false);
+  assert.equal(readFileSync(join(root, "dsh-home", "settings.yaml"), "utf8"), "locale:\n  preference: zh\n");
+});
 
 function fixtureRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-upgrade-"));
@@ -65,7 +105,7 @@ function validProof() {
   };
 }
 
-test("P059-DATA-001 prepares an isolated alpha.2 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
+test("P059-DATA-001 prepares an isolated rc.1 working home and leaves 0.5.8 alpha.1 bytes untouched", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const originalCredential = readFileSync(
@@ -463,7 +503,7 @@ test("P059-DATA-004A migration activation recovers a crash before the active poi
   assert.deepEqual(readActiveDshHome(root), activated);
 });
 
-test("P059-DATA-013 fresh 0.5.9 installs boot and activate only the alpha.2 generation", () => {
+test("P059-DATA-013 fresh 0.5.10 installs boot and activate only the rc.1 generation", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-home-fresh-"));
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({
@@ -530,7 +570,7 @@ test("fresh activation digest excludes regenerated first-party profile runtime t
   assert.equal(activated[0].targetDigest, activated[1].targetDigest);
 });
 
-test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated alpha.2 generation", () => {
+test("P059-DATA-014 0.5.8 alpha.1 upgrades boot a resumable isolated rc.1 generation", () => {
   const root = fixtureRoot();
   const paths = resolveDshHomeUpgradePaths(root);
   const prepared = prepareDshHomeForBoot({

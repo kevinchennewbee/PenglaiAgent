@@ -4,7 +4,7 @@ import type { OfficialImageRef, PenglaiImSource } from "@penglai/contracts";
 export interface DshAgentLike {
   id: string;
   session?: {
-    events?: ReadonlyArray<{
+    snapshotEvents(): ReadonlyArray<{
       type?: string;
       data?: { inserted?: ReadonlyArray<{ id?: string }> };
     }>;

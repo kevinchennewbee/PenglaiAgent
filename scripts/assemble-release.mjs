@@ -20,7 +20,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
-import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 
 function fail(message) {
@@ -196,7 +196,7 @@ const installerRows = installers.map(({ target, name }) => {
   }
   if (!nodeTest) {
     const downloaded = join(staging, `.draft-asset-${asset.id}`);
-    const output = openSync(downloaded, "wx", 0o600);
+    const output = openSync(downloaded, "wx+", 0o600);
     let fetched;
     let remoteBytes = Buffer.alloc(0);
     try {
@@ -281,7 +281,7 @@ if (!Number.isFinite(issuedMs)) fail("--issued-at must be an ISO timestamp");
 const expiresAt = new Date(issuedMs + 5 * 365 * 24 * 60 * 60 * 1000).toISOString();
 const updateManifest = {
   schema: "penglai.app-update.v1",
-  sequence: 5,
+  sequence: UPDATER_SEQUENCE,
   version,
   channel: "stable",
   releaseTag: tag,

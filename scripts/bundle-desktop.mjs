@@ -39,7 +39,7 @@ await build({
 const staticSrc = join(ROOT, "apps/desktop/static");
 if (existsSync(staticSrc)) cpSync(staticSrc, join(outDir, "static"), { recursive: true });
 const packagedBytes = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json"), "utf8"),
+  readFileSync(join(ROOT, "docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json"), "utf8"),
 );
 const brandDest = join(outDir, "static", "penglai-brand");
 mkdirSync(brandDest, { recursive: true });
@@ -52,6 +52,6 @@ for (const asset of packagedBytes.brandAssets ?? []) {
 }
 writeFileSync(
   join(outDir, "package.json"),
-  JSON.stringify({ name: "penglai", version: "0.5.9", type: "module", main: "electron-main.js" }, null, 2),
+  JSON.stringify({ name: "penglai", version: "0.5.10", type: "module", main: "electron-main.js" }, null, 2),
 );
 console.log("bundle-desktop", outDir);

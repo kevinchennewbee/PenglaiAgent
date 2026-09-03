@@ -101,7 +101,7 @@ test("source and packed plugin manifests load Connection before reconnect-aware 
       dependencies?: Record<string, string>;
     };
     assert.ok(manifest.dsh?.client?.inject?.includes(connectionPackage), id);
-    assert.equal(manifest.dependencies?.[connectionPackage], "0.1.2-alpha.2", id);
+    assert.equal(manifest.dependencies?.[connectionPackage], "0.1.2-rc.1", id);
   }
 
   const packer = source("scripts/pack-plugins.mjs");

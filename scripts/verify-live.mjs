@@ -50,7 +50,7 @@ for (const target of RELEASE_TARGETS) {
   }
   nativeInstallers[target] = installer.sha256;
 }
-const result = evaluateLiveEvidence(rec, "0.5.9", {
+const result = evaluateLiveEvidence(rec, "0.5.10", {
   sourceSha: source.git.head,
   nativeInstallers,
 });
@@ -88,7 +88,7 @@ delete expectedOfficialFields.evidenceSha256;
 if (
   official.value.command !== "test:e2e:installed:live" ||
   official.value.verdict !== "PASS" ||
-  official.value.productVersion !== "0.5.9" ||
+  official.value.productVersion !== "0.5.10" ||
   official.value.sourceSha !== source.git.head ||
   official.value.officialNonceTurn !== true ||
   official.value.officialFirstTurn !== true ||
@@ -115,7 +115,7 @@ for (const platform of LIVE_CHANNELS) {
     detail.value.scope !== "im-owner-live-case" ||
     detail.value.command !== "test:e2e:im:live" ||
     detail.value.verdict !== "PASS" ||
-    detail.value.productVersion !== "0.5.9" ||
+    detail.value.productVersion !== "0.5.10" ||
     detail.value.sourceSha !== source.git.head ||
     detail.value.redacted !== true ||
     Object.entries(summaryFields).some(([key, value]) => detailFields[key] !== value)

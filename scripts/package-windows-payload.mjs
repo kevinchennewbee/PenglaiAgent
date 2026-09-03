@@ -244,7 +244,7 @@ if (native) {
     `${JSON.stringify(
       {
         productName: "Penglai",
-        productVersion: "0.5.9",
+        productVersion: "0.5.10",
         buildNumber: 0,
         candidateOrdinal: 0,
         candidateKind: "public-community-release",
@@ -257,7 +257,7 @@ if (native) {
         electron: "43.4.0",
         node: "22.22.2",
         embeddedNode: "22.22.2",
-        dsh: "0.1.2-alpha.2",
+        dsh: "0.1.2-rc.1",
         dshSource: releasePins.dshSource,
         profileSchema: 3,
         catalogSchema: 3,

@@ -49,9 +49,9 @@ test("same-version DSH tarballs reseal lock identities without resolving unrelat
   assert.match(resealed, /unrelated: js-yaml@4\.3\.1/);
 });
 
-test("0.5.9 retires the active source resolver without deleting 0.5.8 history", () => {
+test("0.5.10 retires the active source resolver without deleting 0.5.8 history", () => {
   assert.equal(existsSync(`${ROOT}/.pnpmfile.mjs`), false);
   const lock = readFileSync(`${ROOT}/pnpm-lock.yaml`, "utf8");
   assert.doesNotMatch(lock, /penglai-dsh-source|0\.1\.2-alpha\.1/);
-  assert.match(lock, /@deepseek-ai\/dsh@0\.1\.2-alpha\.2/);
+  assert.match(lock, /@deepseek-ai\/dsh@0\.1\.2-rc\.1/);
 });

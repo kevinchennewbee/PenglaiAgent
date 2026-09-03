@@ -12,9 +12,9 @@
   `release-contract.json`, and the current source are the release truth. Reports
   from another model are leads, not evidence. Do not cite files that do not
   exist.
-- On `0.5.9-preview`, `docs/0.5.9/` and the current preview source additionally
+- On `codex/0.5.10-release`, `docs/0.5.10/` and the current preview source additionally
   govern development work. They are not public-release truth and must not modify
-  or weaken the immutable published 0.5.8 contract.
+  or weaken the immutable published 0.5.8 or 0.5.9 history.
 
 ## Product boundary
 
@@ -25,12 +25,12 @@
   optional and default off.
 - 0.5.8 is immutable public history built from official DSH
   `dsh-v0.1.2-alpha.1` / `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
-- For 0.5.9 preview development, the Owner-fixed upstream baseline is the
-  official npm `alpha` cohort at exact version `0.1.2-alpha.2`, tag
-  `dsh-v0.1.2-alpha.2`, commit
-  `0a53fb55bea101816fa226bb964ae2bed71c343b`. Penglai consumes the complete
-  pinned 257-package DSH/vendor/Landlock cohort with exact registry integrity;
-  it must not mix alpha.1 and alpha.2 or substitute source paths, Git
+- For 0.5.10 development, the Owner-fixed upstream baseline is the
+  official npm `next` cohort at exact version `0.1.2-rc.1`, tag
+  `dsh-v0.1.2-rc.1`, commit
+  `a66e4702047846cdaa10c66c9d3df3951f5ea70d`. Penglai consumes the complete
+  pinned 254-package DSH/vendor/Landlock cohort with exact registry integrity;
+  it must not mix different DSH generations or substitute source paths, Git
   dependencies, or locally repacked packages. The dependency graph, lockfile,
   runtime closure, profile, plugins, and release identity move atomically.
   RemoteError, session projections, DSH Home generation, connection lifecycle,
@@ -55,12 +55,15 @@
   commit/version, digest, license, patch, and reproducible fetch/build procedure.
 - Do not claim installed, native, live, Windows, Intel, notarized, Authenticode,
   or public-release evidence from source tests or cross-build output.
-- Preview work may be committed and pushed only to `0.5.9-preview`. The Owner has
-  authorized eventual PR, `main` merge, three-target native build, and v0.5.9
+- Preview work may be committed and pushed only to `codex/0.5.10-release`. The Owner has
+  authorized eventual PR, `main` merge, three-target native build, and v0.5.10
   publication only after the applicable gates pass. Do not change an existing
   release tag/asset, publish preview bytes, or deploy a public surface early.
 
 ## Verification and release
+
+- Owner explicitly excludes a two-hour installed soak. Run normal deterministic,
+  functional, native, lifecycle and release checks; do not add a timed wait gate.
 
 - Start with `pnpm install --frozen-lockfile`, then inspect the scripts in
   `package.json`. Run formatting, typecheck, unit, contract, integration, E2E,
@@ -88,8 +91,8 @@
 - 产品宪法、产品与架构文档、验收清单、0.5.7 发布手册、发布契约和当前源码
   才是发布事实；不要引用不存在的状态或计划文件。其他模型的报告只能作为线索，
   不能作为证据。
-- 在 `0.5.9-preview` 上，`docs/0.5.9/` 与当前预览源码同时约束开发；它们不是
-  公开发布事实，也不得修改或削弱已经不可变发布的 0.5.8 合同。
+- 在 `codex/0.5.10-release` 上，`docs/0.5.10/` 与当前预览源码同时约束开发；它们不是
+  公开发布事实，也不得修改或削弱已经不可变发布的 0.5.8 或 0.5.9 历史。
 
 ## 产品边界
 
@@ -99,11 +102,10 @@
   插件；手机消息、语音识别、语音生成、主动陪伴为内置可选插件，默认关闭。
 - 0.5.8 是基于官方 DSH `dsh-v0.1.2-alpha.1` /
   `cd5ef8148158c3a752a658978873241fdf8e2bbc` 的不可变公开历史。
-- 0.5.9 预览开发的 Owner 固定上游基线为官方 npm `alpha` 通道的精确
-  `0.1.2-alpha.2`，tag `dsh-v0.1.2-alpha.2`、commit
-  `0a53fb55bea101816fa226bb964ae2bed71c343b`。Penglai 必须消费完整固定且带
-  registry integrity 的 257 包 DSH/vendor/Landlock cohort；不得混装 alpha.1 与
-  alpha.2，也不得用源码路径、Git 依赖或本地重打包替代。依赖图、lockfile、runtime
+- 0.5.10 开发的 Owner 固定上游基线为官方 npm `next` 通道的精确
+  `0.1.2-rc.1`，tag `dsh-v0.1.2-rc.1`、commit
+  `a66e4702047846cdaa10c66c9d3df3951f5ea70d`。Penglai 必须消费完整固定且带
+  registry integrity 的 254 包 DSH/vendor/Landlock cohort；不得混装不同 DSH 代际，也不得用源码路径、Git 依赖或本地重打包替代。依赖图、lockfile、runtime
   closure、profile、插件和 release identity 必须原子迁移；RemoteError、会话投影、
   DSH Home generation、连接生命周期、全部第一方插件与插件中心都须重新取证。
 - 插件中心只接受签名目录中身份、摘要、权限、DSH 兼容性与回滚均通过的包。
@@ -113,12 +115,15 @@
 
 ## 安全开发与验证
 
+- Owner 明确排除两小时测试。执行正常确定性测试、功能、原生、生命周期与发布验证，
+  不增加计时等待门禁。
+
 - 保留用户和其他人的未提交工作，禁止用 reset、clean、stash 或覆盖来制造绿灯。
 - 修能力类别，不写输入特判，不伪造 PASS，不用 mock 冒充生产，不用超时当成功。
 - 禁止提交 API Key、Token、私钥、个人路径、聊天媒体、本地配置或含隐私截图。
 - 源码测试不等于已安装、原生、在线、Windows、Intel、公证或公开发布证据。
-- 预览工作只能提交并推送到 `0.5.9-preview`。Owner 已授权在适用门禁全部通过后
-  创建 PR、合并 `main`、完成三端原生构建并发布 v0.5.9；不得提前改写既有发布
+- 预览工作只能提交并推送到 `codex/0.5.10-release`。Owner 已授权在适用门禁全部通过后
+  创建 PR、合并 `main`、完成三端原生构建并发布 v0.5.10；不得提前改写既有发布
   tag/附件、发布预览字节或部署公开页面。
 - 三端安装引导必须完整验证全新安装、重启续跑、返回/重试、非法目录、凭据失败
   恢复、首条官方消息、升级和卸载；三个安装包必须来自同一个干净 main SHA。

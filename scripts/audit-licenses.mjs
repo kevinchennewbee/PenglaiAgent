@@ -59,10 +59,10 @@ function packageJsonFor(packageName, resolver = mossReq, fromDir) {
 
 const licenses = [
   { name: "penglaiagent", license: "MIT" },
-  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-alpha.2" },
-  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-alpha.2" },
-  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-alpha.2" },
-  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-alpha.2" },
+  { name: "@deepseek-ai/dsh", license: "MIT", pin: "0.1.2-rc.1" },
+  { name: "@deepseek-ai/dsh-agent", license: "MIT", pin: "0.1.2-rc.1" },
+  { name: "@deepseek-ai/dsh-llm", license: "MIT", pin: "0.1.2-rc.1" },
+  { name: "@deepseek-ai/dsh-workspace", license: "MIT", pin: "0.1.2-rc.1" },
   { name: "Tencent openclaw-weixin protocol reference", license: "MIT", commit: "cef0bfc390393f716903e16d50408118047f87e0" },
   { name: "typescript", license: "Apache-2.0" },
   { name: "tsx", license: "MIT" },
@@ -428,7 +428,7 @@ const dshSharpRows = productionInventory.filter(
     (/^@img\/sharp-libvips-/.test(row.name) && row.version === "1.3.3") ||
     (row.name === "@img/sharp-win32-x64" && row.version === "0.35.4"),
 );
-const lgplOffer = readFileSync("docs/0.5.9/LGPL_SOURCE_OFFER.md", "utf8");
+const lgplOffer = readFileSync("docs/0.5.10/LGPL_SOURCE_OFFER.md", "utf8");
 for (const [path, expectedSha256] of SHARP_LEGAL_FILES) {
   if (!existsSync(path) || sha256File(path) !== expectedSha256) {
     throw new Error(`sharp/libvips legal material missing or changed: ${path}`);
@@ -470,7 +470,7 @@ const result = {
       source: "https://github.com/lovell/sharp and https://github.com/lovell/sharp-libvips",
       license: "Apache-2.0 and LGPL-3.0-or-later",
       integrity: "lockfile-pinned; exact platform integrity appears in the production inventory",
-      use: "Official DSH attachment runtime; distributed with exact upstream license/notices under licenses/sharp and the 0.5.9 corresponding-source offer",
+      use: "Official DSH attachment runtime; distributed with exact upstream license/notices under licenses/sharp and the 0.5.10 corresponding-source offer",
     },
     {
       component: "dsh-im@3.0.5",

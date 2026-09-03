@@ -260,7 +260,7 @@ test("managed layout keeps settings DSH credentials memory and cache as disjoint
   const root = mkdtempSync(join(tmpdir(), "penglai-layout-user-"));
   const cacheRoot = mkdtempSync(join(tmpdir(), "penglai-layout-cache-"));
   const logsRoot = mkdtempSync(join(tmpdir(), "penglai-layout-logs-"));
-  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-alpha.2");
+  const alpha2Home = join(root, "dsh-homes", "dsh-v0.1.2-rc.1");
   const dataLayout = { userData: root, cacheRoot, logsRoot, dshHome: alpha2Home };
   const plan = buildDeletionPlan({
     operationId: "managed-layout",

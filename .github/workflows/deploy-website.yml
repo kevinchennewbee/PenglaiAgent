@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Immutable Release tag that must already exist (exactly v0.5.9)
+        description: Immutable Release tag that must already exist (exactly v0.5.10)
         required: true
-        default: v0.5.9
+        default: v0.5.10
         type: string
       deploy_site:
         description: Push the verified website to the gh-pages branch
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-website-v0.5.9
+  group: deploy-website-v0.5.10
   cancel-in-progress: false
 
 jobs:
@@ -29,12 +29,12 @@ jobs:
     outputs:
       release_sha: ${{ steps.publication.outputs.release_sha }}
     steps:
-      - name: Refuse non-main or non-v0.5.9 dispatch
+      - name: Refuse non-main or non-v0.5.10 dispatch
         shell: bash
         run: |
           test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
           test "$GITHUB_REF" = "refs/heads/main"
-          test "${{ inputs.tag }}" = "v0.5.9"
+          test "${{ inputs.tag }}" = "v0.5.10"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
       - name: Seal the verified website for the write-only deployment job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: verified-website-v0.5.9-${{ github.sha }}
+          name: verified-website-v0.5.10-${{ github.sha }}
           if-no-files-found: error
           retention-days: 1
           path: website/
@@ -101,7 +101,7 @@ jobs:
       - name: Download the website sealed by the read-only job
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: verified-website-v0.5.9-${{ github.sha }}
+          name: verified-website-v0.5.10-${{ github.sha }}
           path: verified-site
       - name: Deploy the verified website
         env:
@@ -127,22 +127,37 @@ jobs:
             git -C site commit -m "website: deploy ${DEPLOY_TAG} (${RELEASE_SHA})"
             git -C site push origin HEAD:gh-pages
           fi
-      - name: Read back the public GitHub Pages deployment
+
+  readback:
+    name: Verify both public website origins
+    needs: [verify, deploy]
+    if: ${{ needs.deploy.result == 'success' }}
+    runs-on: macos-15
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+      - name: Download the sealed public website
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-website-v0.5.10-${{ github.sha }}
+          path: verified-site
+      - name: Compare Cloudflare and GitHub Pages with every sealed file
         env:
           RELEASE_SHA: ${{ needs.verify.outputs.release_sha }}
-        shell: bash
-        run: |
-          for attempt in $(seq 1 20); do
-            root="$(curl --fail --silent --show-error --location --max-time 20 https://kevinchennewbee.github.io/PenglaiAgent/ || true)"
-            english="$(curl --fail --silent --show-error --location --max-time 20 https://kevinchennewbee.github.io/PenglaiAgent/en/ || true)"
-            if printf '%s' "$root" | grep -Fq "Penglai 0.5.9" \
-              && printf '%s' "$root" | grep -Fq "$RELEASE_SHA" \
-              && printf '%s' "$english" | grep -Fq "Penglai 0.5.9" \
-              && printf '%s' "$english" | grep -Fq "$RELEASE_SHA"; then
-              echo "Public website readback matches v0.5.9 at ${RELEASE_SHA}."
-              exit 0
-            fi
-            sleep 15
-          done
-          echo "Public website did not converge to the verified v0.5.9 bytes." >&2
-          exit 1
+        run: node scripts/readback-website.mjs --directory verified-site
+      - name: Preserve public website readback
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: website-public-readback-v0.5.10-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: evidence/generated/website-public-readback.json
