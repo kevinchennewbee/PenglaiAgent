@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Penglai 0.5.8 | DeepSeek Harness, ready for a personal computer</title>
-  <meta name="description" content="Penglai 0.5.8 uses fixed official DeepSeek Harness 0.1.2-alpha.1 source, with plugin reconciliation, desktop lifecycle fixes, and three native releases.">
-  <meta property="og:title" content="Penglai 0.5.8">
+  <title>Penglai 0.5.10 | DeepSeek Harness, ready for a personal computer</title>
+  <meta name="description" content="Penglai 0.5.10 uses official DeepSeek Harness 0.1.2-rc.1 packages, adapted plugins, safe upgrades from 0.5.8 and 0.5.9, and three native installers.">
+  <meta property="og:title" content="Penglai 0.5.10">
   <meta property="og:description" content="DeepSeek Harness, ready to install. Office, Memory, mobile messaging, and local voice in one desktop distribution.">
   <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/0.5.5/plugin-center.png">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -16,7 +16,7 @@
   <header class="topbar">
     <a class="brand" href="#top"><span class="seal">蓬</span><span>Penglai <small>蓬莱</small></span></a>
     <nav aria-label="Main navigation">
-      <a href="#new">0.5.8</a>
+      <a href="#new">0.5.10</a>
       <a href="#inside">What ships</a>
       <a href="#story">Story</a>
       <a href="#download">Download</a>
@@ -30,11 +30,11 @@
       <img class="hero-art" src="../shots/banner-v1.png" alt="The island of Penglai rising above a sea of clouds">
       <div class="hero-shade"></div>
       <div class="hero-copy">
-        <p class="eyebrow">Penglai 0.5.8 · DeepSeek Harness 0.1.2-alpha.1</p>
+        <p class="eyebrow">Penglai 0.5.10 · DeepSeek Harness 0.1.2-rc.1</p>
         <h1>Not another agent.<br>The good open-source one, made installable.</h1>
         <p class="lead">Penglai puts official DeepSeek Harness, Node, Electron, first-run setup, updates, uninstall, and a practical set of DSH plugins into one desktop app. You do not need to learn a terminal first, or move your daily work into another cloud account.</p>
         <div class="actions">
-          <a class="button primary" href="#download">Download 0.5.8</a>
+          <a class="button primary" href="#download">Download 0.5.10</a>
           <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent">Read the source</a>
         </div>
         <p class="quiet">MIT licensed · Local first · Apple Silicon / Intel Mac / Windows x64</p>
@@ -46,12 +46,12 @@
         <p class="eyebrow">What actually changed</p>
         <h2>DSH is still the only core. Penglai makes it a complete desktop product.</h2>
       </div>
-      <p>Official DSH owns models, tools, Workspace, Session, Turn, and the conversation interface. Version 0.5.8 fixes official source tag <code>dsh-v0.1.2-alpha.1</code> without waiting for or publishing an unofficial npm package. Penglai reconciles every first-party plugin, process exit and restart, Windows child authentication forwarding, product title, and first-run ownership. All three installed-product gates explicitly check that the DSH internal-test notice and a second credentials onboarding flow do not appear.</p>
+      <p>Official DSH owns models, tools, Workspace, Session, Turn, and the conversation interface. Version 0.5.10 consumes the exact official <code>0.1.2-rc.1</code> npm packages. Message recovery, budget reconciliation and Companion replay use its Session snapshot API. Upgrades from 0.5.8 and 0.5.9 prepare a separate data generation and preserve the previous one for rollback. Three native installers verify startup, credential-free onboarding, bundled plugins, upgrade and uninstall.</p>
     </section>
 
     <figure class="feature-shot wide-shot">
       <img src="../shots/0.5.5/plugin-center.png" alt="The real Penglai 0.5.5 Plugin Center running in installed DSH">
-      <figcaption>An installed 0.5.5 screen retained as a UI reference. Native installation and public-byte evidence for 0.5.8 is recorded in its publication manifest.</figcaption>
+      <figcaption>An installed 0.5.5 screen retained as a UI reference. Native installation and public-byte evidence for 0.5.10 is recorded in its publication manifest.</figcaption>
     </figure>
 
     <section class="section" id="inside">
@@ -60,10 +60,10 @@
       <div class="cards">
         <article><span class="state on">On by default</span><h3>Penglai Office</h3><p>Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF. Writes have a plan and confirmation. PDF output includes a Chinese font. LibreOffice is not a user dependency.</p></article>
         <article><span class="state on">On by default</span><h3>Penglai Memory</h3><p>Safe project facts can be organized automatically inside the current Workspace. Candidate curation calls your selected model provider; storage and recall stay local. Personal facts still require an explicit save, and recall never crosses Workspaces.</p></article>
-        <article><span class="state">Opt in</span><h3>Messaging</h3><p>Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, and Discord enter one <code>@penglai/im</code> control plane, using each platform's QR, device-registration, or official-token flow. WhatsApp is not displayed, supported, or bundled in 0.5.8.</p></article>
+        <article><span class="state">Opt in</span><h3>Messaging</h3><p>Weixin, Feishu, DingTalk, WeCom, QQ, Slack, Telegram, and Discord enter one <code>@penglai/im</code> control plane, using each platform's QR, device-registration, or official-token flow. WhatsApp is not displayed, supported, or bundled in 0.5.10.</p></article>
         <article><span class="state">Opt in</span><h3>Local voice</h3><p>SenseVoice handles speech recognition; MOSS-TTS handles voice generation. Conversation Read speaks the original reply rather than translating it; both preview and Read stop on a second click. Plugin code ships in the app. The large model weights explain themselves before downloading.</p></article>
         <article><span class="state">Opt in</span><h3>Companion</h3><p>It contacts you only after you turn it on, and stays within quiet hours, a daily cap, and one chosen messaging route. Fresh installations keep it off.</p></article>
-        <article><span class="state">Independent updates</span><h3>Signed Plugin Center</h3><p>The catalog comes from immutable GitHub Releases. A reviewed DSH 0.1.2-alpha.1-compatible plugin can join later without shipping a new desktop version merely to change a list.</p></article>
+        <article><span class="state">Independent updates</span><h3>Signed Plugin Center</h3><p>The catalog comes from immutable GitHub Releases. A reviewed DSH 0.1.2-rc.1-compatible plugin can join later without shipping a new desktop version merely to change a list.</p></article>
       </div>
     </section>
 
@@ -98,21 +98,21 @@
         <p><strong>No Penglai account or Penglai-operated telemetry backend.</strong> Official DSH bundles a session-telemetry adapter and a dormant DeepSeek OTLP endpoint. Penglai hard-disables that row after profile patches, so the owned DSH process constructs no SDK provider or upload pipeline. There is no cloud memory sync. Model calls still send the context needed for that task to the provider you selected.</p>
         <p><strong>macOS is not notarized.</strong> The DMGs are ad-hoc signed; Windows has no Authenticode. Gatekeeper or SmartScreen may warn.</p>
         <p><strong>Plugins are not a sandbox.</strong> Signatures, hashes, permissions, and rollback protect distribution, but DSH plugins still share the local DSH process.</p>
-        <p><strong>Evidence stays separated.</strong> Source, packaged, native-installed, and public-byte gates are verified independently. Owner-account connector journeys and a two-hour installed soak remain supplemental <code>LIVE_NOT_RUN</code> evidence and are not claimed by this release.</p>
+        <p><strong>Evidence stays separated.</strong> Source, packaged, native-installed, and public-byte gates are verified independently. Credential-free checks do not prove an external model reply or account message delivery. Those journeys are reported only when actually run. </p>
       </div>
     </section>
 
     <section class="download section" id="download">
-      <p class="eyebrow">Penglai 0.5.8</p>
+      <p class="eyebrow">Penglai 0.5.10</p>
       <h2>Choose your computer.</h2>
       <div class="download-grid">
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_macos_aarch64.dmg"><strong>macOS · Apple Silicon</strong><span>GitHub · 448.3 MiB · M1 / M2 / M3 / M4 / M5</span><code>cc08a1820f92be4fe5a851a4cfd33f02ab48035c8e98f72feacb2fd074a9b992</code></a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 393.6 MiB · x86_64 Mac</span><code>14d0c4edf572c134d9d71e6dea69a4bcf53b46cf31ed267fe8472c2f1a4c1b00</code></a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 343.2 MiB · 64-bit installer</span><code>0a238bec35ea5117619a5112566ba6985f2194873eb60ef7110d1ca21bc1bec5</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg"><strong>macOS · Apple Silicon</strong><span>GitHub · 449.6 MiB · M1 / M2 / M3 / M4 / M5</span><code>0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 388.2 MiB · x86_64 Mac</span><code>6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 341.0 MiB · 64-bit installer</span><code>46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484</code></a>
       </div>
-      <p class="quiet">The immutable GitHub Release is the sole authoritative public download source for 0.5.8; the Beijing mirror has not published 0.5.8. All three installers come from source <code>80c8ee81de7a683a1d366bdba0f354826df0a914</code>. Full SHA256SUMS, the 778-component SBOM, third-party notices, and signed update metadata are available on the same page. Updates are never silent.</p>
+      <p class="quiet">The immutable GitHub Release is the sole authoritative public download source for 0.5.10; the Beijing mirror has not published 0.5.10. All three installers come from source <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>. Full SHA256SUMS, the 1253-component SBOM, third-party notices, and signed update metadata are available on the same page. Updates are never silent.</p>
       <div class="actions centered">
-        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.8">Bilingual release notes</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">Bilingual release notes</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">Security notes</a>
       </div>
     </section>
