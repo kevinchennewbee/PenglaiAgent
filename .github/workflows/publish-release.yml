@@ -35,6 +35,8 @@ jobs:
     # This job only performs GET requests and never publishes.
     permissions:
       contents: write
+      actions: read
+      checks: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -46,6 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PENGLAI_RELEASE_ID: ${{ inputs.release_id }}
+          PENGLAI_NATIVE_RUN_ID: ${{ inputs.native_run_id }}
         run: node scripts/probe-draft-read-access.mjs
 
   verify:
@@ -57,6 +60,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      checks: read
     outputs:
       release_id: ${{ steps.identity.outputs.release_id }}
       source_sha: ${{ steps.identity.outputs.source_sha }}
