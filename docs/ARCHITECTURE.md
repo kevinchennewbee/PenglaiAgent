@@ -1,4 +1,4 @@
-# Penglai 0.5.7 architecture
+# Penglai 0.5.10 architecture
 
 ## English
 
@@ -17,7 +17,7 @@ Penglai.app / Penglai.exe
       ├─ plugin-center
       ├─ office ───────────────┐
       ├─ memory + Mnemon       ├─ scoped Artifact Service / Owner Broker
-      ├─ im ─ Weixin / Feishu ┘
+      ├─ im ─ eight adapters ┘
       ├─ asr / moss-tts
       └─ companion / hidden budget control / hidden conformance fixture
 ```
@@ -74,7 +74,9 @@ paths rather than a hard-coded home directory.
 ```text
 <Penglai 0.5 user data>/
 ├─ release/             updater ledger, journals, current identity
-├─ dsh-home/            official settings, profile, credentials, plugins
+├─ dsh-home/            preserved alpha.1 settings and data
+├─ dsh-homes/           isolated alpha.2 and rc.1 generations
+├─ dsh-home-active.json verified active generation pointer
 ├─ owner/               approval broker state and completed-action ledger
 ├─ artifacts/           scoped CAS, bindings, staging, retention index
 ├─ im/                  SQLite, adapter state, inbox/outbox, bindings
@@ -120,9 +122,16 @@ after a real official DSH reply and a successful switch to official DSH Web.
 
 ### 5. Profile composition
 
+The complete official npm cohort contains 254 verified packages pinned to
+`dsh-v0.1.2-rc.1` at `a66e4702047846cdaa10c66c9d3df3951f5ea70d`.
+Official DSH bytes are unmodified; Penglai composes official client slots.
+Session recovery consumers use `snapshotEvents()` and fail on missing capability.
+Both previous Home generations are copied into rc.1 before a health-verified
+activation; rollback restores the previous pointer and preserves its data.
+
 Fresh profile invariants:
 
-- official DSH `0.1.1-rc.2` is pinned with exact npm integrity and source tag;
+- official DSH `0.1.2-rc.1` is pinned with exact npm integrity and source tag;
 - Plugin Center, Office, and Memory are installed and active;
 - IM, ASR, MOSS-TTS, and Companion are present in the installer but disabled;
 - the reference fixture and budget control are internal/hidden; and
@@ -169,7 +178,7 @@ return, and undo use the Owner broker. Destination becomes immutable after the
 first commit. Backup identity includes operation, revision, and source digest.
 The approval is completed after the output mutation or IM return, never before.
 
-Official DSH rc.2 has text/image prompt parts only. Generic composer files are
+Official DSH 0.1.2-rc.1 has text/image prompt parts only. Generic composer files are
 therefore an explicit upstream boundary. Penglai uses official image storage for
 images and the Artifact Service for Office/IM consumers without adding a second
 Turn representation.
@@ -207,9 +216,9 @@ deterministic commands, correlation, causal routing, recovery, and diagnostics.
 `LIVE_CHANNEL_IDS` is evidence-gated. Weixin and Feishu retain their distributed
 adapter and migration paths from 0.5.6; that source/runtime continuity is not a
 substitute for evidence bound to a later installed release.
-The other six distributed platforms receive adapters in 0.5.7 and join
-`LIVE_CHANNEL_IDS` only after acceptance. The user-facing surface exposes eight
-connection actions plus a disabled WhatsApp compatibility card.
+All eight platforms expose real adapters. Entry availability does not prove an
+account connection or delivery; those require the corresponding live evidence.
+WhatsApp has no card, connection action, runtime or planned support.
 
 Inbound sequence:
 
@@ -276,13 +285,13 @@ readback downloads and verifies the immutable bytes again.
 
 ## 中文摘要
 
-0.5.7 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
+0.5.10 仍以 official DSH 为唯一 Agent/模型/工具/审批/Workspace/Session/Turn/UI
 核心。Electron Main 负责进程、Owner Broker、OS 权限、升级和卸载；renderer 只能用
 窄 preload 与 typed Remote，不能读文件、密钥或任意 IPC。
 
 办公、IM 文件与持久附件统一使用绑定 scope 的 `artifact:<uuid>`；确认与具体动作、
 对象、Workspace/Session、摘要、目标和 revision 绑定，真实写入/发送/事务成功后才完成。
-official DSH rc.2 没有通用 file Turn，0.5.7 不做 DOM hack 或第二会话表示。
+official DSH 0.1.2-rc.1 没有通用 file Turn，0.5.10 不做 DOM hack 或第二会话表示。
 
 记忆在 official `turn/end` 运行禁用工具的 official curator Agent，Host 做封闭格式和
 本地风险校验；安全项目事实只自动写当前 Workspace。`agent/pre-step` 只召回当前
@@ -290,8 +299,7 @@ Workspace 与明确个人记忆，绝不跨 Workspace。资料撤销删派生索
 
 IM 始终只有一个 `@penglai/im` 控制平面。微信、飞书、钉钉、企业微信和 QQ 只在
 供应商协议真实提供时显示 QR/device-link；Slack、Telegram、Discord 使用官方
-Manifest/Token，不伪造二维码。WhatsApp runtime 不随 0.5.7 分发，说明卡没有连接
-动作。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
+Manifest/Token，不伪造二维码。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。ASR 麦克风需要当前手势并只申请 audio；TTS 试听和 Read 共用一个可观测播放
 状态机，Read 朗读原文。
 
 三端安装包必须来自同一干净 SHA 和 public-export tree，在对应原生 runner 验收。

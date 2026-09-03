@@ -396,6 +396,14 @@
 - 决定：Penglai 0.5.9 使用官方 npm `alpha` dist-tag 的精确 DSH `0.1.2-alpha.2`，对应 tag `dsh-v0.1.2-alpha.2` 与 commit `0a53fb55bea101816fa226bb964ae2bed71c343b`。发行输入必须是固定并带 registry integrity 的完整 257 包 DSH/vendor/Landlock cohort，不得混装 alpha.1，不得用源码路径、Git 依赖或本地重打包替代。依赖图、lockfile、runtime closure、profile、release identity、全部第一方插件与插件中心必须原子迁移；RemoteError、会话 projection、独立 DSH Home generation、连接生命周期、插件 inventory/事务/回滚及用户可见错误脱敏都须重新取证。alpha.2 是完整可消费的官方预发布版，不得宣称为 stable。
 - 后果：Owner 授权删除旧预览分支后在 `0.5.9-preview` 分批开发与推送；全部适用的源代码、合同、集成、安全、供应链、clean closure、installed/live/soak 与三端原生门禁通过后，创建 PR、合并 `main`，从同一干净 main SHA 构建并发布 v0.5.9。0.5.8 tag、附件、README/官网公开事实保持不可变；0.5.9 的 README、双语官网、Release Notes、摘要、大小与下载链接只能在不可变 GitHub Release 公网字节回读通过后写入并部署。
 
+### D-066 — 0.5.10 固定 rc.1 官方包、正常测试与完整发布
+
+- 日期：2026-09-03。
+- 决定：固定官方 DSH `0.1.2-rc.1`，tag `dsh-v0.1.2-rc.1`，commit `a66e4702047846cdaa10c66c9d3df3951f5ea70d`。完整 254 包 npm cohort、原始 tarball、registry 签名、固定源码 manifest 与可选间接依赖原子核对。
+- 适配：Session 快照用于消息恢复、预算和陪伴；0.5.8 / 0.5.9 的 Home 保留并复制到独立 rc.1 代际，健康检查后切换，回滚恢复旧指针。
+- 发布：Owner 已授权正常测试、推送、PR 合并、同一干净 main SHA 的三端原生构建与安装验证、十项完整签名附件、不可变公开回读、README 和双语官网收尾。两小时测试不执行，也不是待补证据。真实账号通信仅按实际执行结果声明。
+- 文档：开发期不能拿历史 0.5.8 文档断言充当当前发布 PASS；发布后的当前 README、SECURITY、站点与发布清单必须独立校验。本地操作 SOP 不公开。历史版本决议继续作为历史记录保留。
+
 ## Superseded
 
 已从执行面移出的决议正文：`D-014`、`D-020`、`D-021`、`D-025`、`D-030`。它们仍保留编号以便审计，但不得再当当前产品合同。

@@ -20,9 +20,11 @@ import {
   resourcesInside,
   sha256File,
   stopChild,
-  waitForFile,
 } from "./lib/installed-app.mjs";
 import { ROOT } from "./lib/repo.mjs";
+import { observeFreshInstalledBoot } from "./lib/installed-readiness.mjs";
+import { inspectPackagedCandidate } from "./lib/packaged-candidate.mjs";
+import { sanitizeEvidenceText } from "./lib/evidence-json.mjs";
 import {
   hostMatchesTarget,
   installerForTarget,
@@ -71,22 +73,21 @@ async function boot(app, userData, label) {
   const resources = resourcesInside(app, target);
   const executable = exeInside(app, target);
   if (!executable) fail(`${label} installed Penglai executable missing`);
-  const launched = launchPackaged(executable, resources, userData);
-  const gateway = await waitForFile(join(userData, "gateway.port"), 90_000);
-  const inventory = await waitForFile(
-    join(userData, "plugins", "inventory-snapshot.json"),
-    30_000,
+  const { launched, gateway, inventory, freshReadiness } = await observeFreshInstalledBoot(
+    userData, () => launchPackaged(executable, resources, userData),
   );
   const [code, signal] = await stopChild(launched.child);
-  if (!gateway || !inventory || (code !== 0 && signal === null)) {
+  if (!freshReadiness || !gateway || !inventory || (code !== 0 && signal === null)) {
     fail(`${label} did not boot and exit through the installed runtime`, {
       gateway,
       inventory,
+      freshReadiness,
       code,
       signal,
+      outputTail: sanitizeEvidenceText(launched.output(), 2_000),
     });
   }
-  return { gateway, inventory, exitCode: code, signal };
+  return { gateway, inventory, freshReadiness, exitCode: code, signal };
 }
 
 function installWindows(installer, label) {
@@ -164,8 +165,8 @@ if (pinnedAsset.sha256 !== previousSha256) fail("previous installer differs from
 const currentInstaller = join(ROOT, "dist", installerForTarget(target));
 if (!existsSync(currentInstaller)) fail("current exact installer is missing");
 const currentSha256 = sha256File(currentInstaller);
-const appRoot = requireExactChild(join(ROOT, ".tmp-upgrade-uninstall-app"), ROOT, "app test root");
-const userData = requireExactChild(join(ROOT, ".tmp-upgrade-uninstall-user"), ROOT, "user-data test root");
+const appRoot = requireExactChild(join(ROOT, ".tmp", "upgrade-uninstall", "app"), ROOT, "app test root");
+const userData = requireExactChild(join(ROOT, ".tmp", "upgrade-uninstall", "user"), ROOT, "user-data test root");
 rmSync(userData, { recursive: true, force: true });
 mkdirSync(userData, { recursive: true });
 const sentinel = join(userData, "owner-data-preserved.txt");
@@ -204,6 +205,8 @@ if (target === "win32-x86_64") {
   app = current.app;
 }
 const currentIdentity = assertVersion(app, "0.5.10", "upgraded install");
+const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.head, expectedTarget: target });
+if (currentPackage.verdict !== "PASS") fail("upgraded installer source identity mismatch", { currentPackage });
 const currentBoot = await boot(app, userData, "upgraded install");
 if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
 

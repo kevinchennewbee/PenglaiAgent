@@ -70,7 +70,7 @@ for (const target of RELEASE_TARGETS) {
   }
   if (command === "verify:upgrade-uninstall") {
     const versions = [...(record.previousVersions ?? [])].sort();
-    if (JSON.stringify(versions) !== JSON.stringify(["0.5.8", "0.5.9"]) || record.upgradePaths?.length !== 2 || record.upgradePaths.some((row) => row.verdict !== "PASS" || row.sourceSha !== source.git.head || row.current?.installerSha256 !== installerEvidence.sha256 || !row.upgradePreservedOwnerData || !row.uninstallPreservedOwnerData || !row.uninstallRemovedApp)) {
+    if (JSON.stringify(versions) !== JSON.stringify(["0.5.8", "0.5.9"]) || record.upgradePaths?.length !== 2 || record.upgradePaths.some((row) => row.verdict !== "PASS" || row.previous?.boot?.freshReadiness !== true || row.current?.boot?.freshReadiness !== true || row.sourceSha !== source.git.head || row.current?.installerSha256 !== installerEvidence.sha256 || !row.upgradePreservedOwnerData || !row.uninstallPreservedOwnerData || !row.uninstallRemovedApp)) {
       finish("INCOMPLETE", { command: "verify:native-set", gate: command, reason: "both native upgrade paths must pass on these installer bytes", target });
     }
   }
