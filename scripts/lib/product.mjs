@@ -21,6 +21,7 @@ export const CANDIDATE_KIND = pins.CANDIDATE_KIND;
 export const RELEASE_TARGETS = pins.RELEASE_TARGETS;
 export const RUNTIME_INPUTS = pins.RUNTIME_INPUTS;
 export const PUBLICATION_TARGET = pins.PUBLICATION_TARGET;
+export const UPDATER_SEQUENCE = pins.UPDATER_SEQUENCE;
 export const releaseTargetFromHost = pins.releaseTargetFromHost;
 
 export function macosAarch64DmgName(version = PRODUCT_VERSION) {

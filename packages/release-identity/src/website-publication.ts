@@ -57,9 +57,9 @@ function installerUrls(content: string, repo: string): string[] {
 function publicationPath(path: string): boolean {
   return (
     path === "README.md" ||
-    path === "docs/PUBLICATION_0.5.9.md" ||
-    path === "docs/PUBLICATION_MANIFEST_0.5.9.md" ||
-    path === "docs/RELEASE_NOTES_0.5.9.md" ||
+    path === "docs/PUBLICATION_0.5.10.md" ||
+    path === "docs/PUBLICATION_MANIFEST_0.5.10.md" ||
+    path === "docs/RELEASE_NOTES_0.5.10.md" ||
     path.startsWith("website/")
   );
 }
@@ -70,9 +70,9 @@ export function assertPublicationOnlyChanges(paths: string[]): void {
   invariant(forbidden.length === 0, `post-tag website deployment contains non-publication changes: ${forbidden.join(", ")}`);
   for (const required of [
     "README.md",
-    "docs/PUBLICATION_0.5.9.md",
-    "docs/PUBLICATION_MANIFEST_0.5.9.md",
-    "docs/RELEASE_NOTES_0.5.9.md",
+    "docs/PUBLICATION_0.5.10.md",
+    "docs/PUBLICATION_MANIFEST_0.5.10.md",
+    "docs/RELEASE_NOTES_0.5.10.md",
     "website/index.html",
     "website/en/index.html",
   ]) {
@@ -95,7 +95,7 @@ export function parseSha256Sums(text: string): Record<string, string> {
 
 export function assertWebsitePublication(input: WebsitePublicationInput): void {
   const expectedTag = `v${input.version}`;
-  invariant(input.version === "0.5.9" && input.tag === expectedTag, "website publication is not exact v0.5.9");
+  invariant(input.version === "0.5.10" && input.tag === expectedTag, "website publication is not exact v0.5.10");
   invariant(HEX_40.test(input.peeledSourceSha), "peeled release source SHA is invalid");
   invariant(input.targetCommitish === input.peeledSourceSha, "Release target_commitish is not the exact peeled tag commit");
   invariant(input.releaseManifestSourceSha === input.peeledSourceSha, "release manifest source is not the peeled tag commit");

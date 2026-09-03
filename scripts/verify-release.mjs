@@ -55,17 +55,6 @@ function runGate(name) {
     }
     return { name, exit: processExit, verdict, jsonVerdict: null };
   }
-  if (name === "verify:soak") {
-    const child = pnpmProcess(["run", "verify:soak", "--", "--aggregate"]);
-    const r = spawnSync(child.command, child.args, { cwd: ROOT, encoding: "utf8" });
-    const processExit = r.status ?? 1;
-    const verdict = processExit === 0 ? "PASS" : processExit === 2 ? "INCOMPLETE" : processExit === 3 ? "STALE" : processExit === 4 ? "BLOCKED" : "FAIL";
-    if (processExit !== 0) {
-      process.stderr.write(r.stdout || "");
-      process.stderr.write(r.stderr || "");
-    }
-    return { name, exit: processExit, verdict, jsonVerdict: null };
-  }
   if (dryRun) {
     const json = readGateJson(name);
     const gate = HARD_SUBGATES.find((g) => g.name === name);

@@ -1,4 +1,4 @@
-name: Native 0.5.9 release candidate
+name: Native 0.5.10 release candidate
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-0.5.9-${{ inputs.mode }}-${{ github.ref }}
+  group: native-0.5.10-${{ inputs.mode }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -29,11 +29,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - name: Check out immutable official DSH alpha.2 source
+      - name: Check out immutable official DSH rc.1 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 0a53fb55bea101816fa226bb964ae2bed71c343b
+          ref: a66e4702047846cdaa10c66c9d3df3951f5ea70d
           path: upstream-dsh
           fetch-depth: 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -44,13 +44,13 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.7.0 --activate
           pnpm install --frozen-lockfile
-      - name: Verify the immutable alpha.2 registry cohort
+      - name: Verify the immutable rc.1 registry cohort
         env:
           PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
         run: |
           pnpm verify:dsh-npm-cohort
           pnpm verify:dsh-npm-cohort:live
-          pnpm verify:059-preview
+          pnpm verify:release-adaptation
 
   plugin-distribution:
     name: Signed Plugin Center distribution
@@ -87,12 +87,12 @@ jobs:
           - runner: macos-15
             target: darwin-aarch64
             package: package:dmg:arm
-            installer: Penglai_0.5.9_macos_aarch64.dmg
+            installer: Penglai_0.5.10_macos_aarch64.dmg
             previous: Penglai_0.5.8_macos_aarch64.dmg
           - runner: macos-15-intel
             target: darwin-x86_64
             package: package:dmg:intel
-            installer: Penglai_0.5.9_macos_x64.dmg
+            installer: Penglai_0.5.10_macos_x64.dmg
             previous: Penglai_0.5.8_macos_x64.dmg
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
@@ -168,23 +168,20 @@ jobs:
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
         run: pnpm verify:installed
-      - name: Download immutable 0.5.8 upgrade source
+      - name: Download verified immutable 0.5.8 and 0.5.9 upgrade sources
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p .previous
-          gh release download v0.5.8 --repo kevinchennewbee/PenglaiAgent --pattern SHA256SUMS --pattern '${{ matrix.previous }}' --dir .previous
-      - name: Prove real 0.5.8 upgrade and default uninstall
+          node scripts/fetch-upgrade-sources.mjs --target "${{ matrix.target }}"
+      - name: Prove both native upgrade paths and default uninstall
         env:
           PENGLAI_TARGET: ${{ matrix.target }}
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-          PENGLAI_PREVIOUS_INSTALLER: ${{ github.workspace }}/.previous/${{ matrix.previous }}
-          PENGLAI_PREVIOUS_SHA256SUMS: ${{ github.workspace }}/.previous/SHA256SUMS
         run: pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.9-${{ matrix.target }}
+          name: penglai-0.5.10-${{ matrix.target }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -309,7 +306,7 @@ jobs:
         shell: pwsh
         run: >-
           ./scripts/windows-installer-ui-proof.ps1
-          -Installer ./dist/Penglai_0.5.9_windows_x64_setup.exe
+          -Installer ./dist/Penglai_0.5.10_windows_x64_setup.exe
           -OutDir ./evidence/generated
       - name: Full installed product and onboarding suite
         shell: pwsh
@@ -334,29 +331,26 @@ jobs:
         env:
           PENGLAI_TARGET: win32-x86_64
         run: pnpm verify:installed
-      - name: Download immutable 0.5.8 upgrade source
+      - name: Download verified immutable 0.5.8 and 0.5.9 upgrade sources
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force .previous | Out-Null
-          gh release download v0.5.8 --repo kevinchennewbee/PenglaiAgent --pattern SHA256SUMS --pattern 'Penglai_0.5.8_windows_x64_setup.exe' --dir .previous
-      - name: Prove real 0.5.8 upgrade and default uninstall
+          node scripts/fetch-upgrade-sources.mjs --target win32-x86_64
+      - name: Prove both native upgrade paths and default uninstall
         shell: pwsh
         env:
           PENGLAI_TARGET: win32-x86_64
           PENGLAI_LIFECYCLE_ALLOW_NATIVE: "1"
-          PENGLAI_PREVIOUS_INSTALLER: ${{ github.workspace }}\.previous\Penglai_0.5.8_windows_x64_setup.exe
-          PENGLAI_PREVIOUS_SHA256SUMS: ${{ github.workspace }}\.previous\SHA256SUMS
         run: pnpm verify:upgrade-uninstall
       - name: Upload installer and target evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.9-win32-x86_64
+          name: penglai-0.5.10-win32-x86_64
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/Penglai_0.5.9_windows_x64_setup.exe
+            dist/Penglai_0.5.10_windows_x64_setup.exe
             evidence/generated/local-installer-win32-x86_64.json
             evidence/generated/verify-closure-win32-x86_64.json
             evidence/generated/verify-artifact-win32-x86_64.json
@@ -404,15 +398,15 @@ jobs:
           pnpm build
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.9-darwin-aarch64
+          name: penglai-0.5.10-darwin-aarch64
           path: .native/darwin-aarch64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.9-darwin-x86_64
+          name: penglai-0.5.10-darwin-x86_64
           path: .native/darwin-x86_64
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: penglai-0.5.9-win32-x86_64
+          name: penglai-0.5.10-win32-x86_64
           path: .native/win32-x86_64
       - name: Collect only target-bound evidence
         shell: bash
@@ -429,10 +423,15 @@ jobs:
           pnpm verify:installed -- --aggregate
           pnpm verify:native-set -- --command verify:upgrade-uninstall
           pnpm aggregate:supply-chain
+      - name: Verify source export and complete release aggregate
+        run: |
+          pnpm fetch:mnemon-assets
+          pnpm prepare:public-export -- --clean-room
+          pnpm verify:release
       - name: Upload consolidated native evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: penglai-0.5.9-native-evidence-set
+          name: penglai-0.5.10-native-evidence-set
           if-no-files-found: error
           retention-days: 14
           path: |

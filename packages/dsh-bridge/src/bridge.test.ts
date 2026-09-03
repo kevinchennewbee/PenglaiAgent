@@ -19,12 +19,12 @@ test("R1-UP-001 rejects other versions", () => {
   assert.throws(() => assertDshVersion("9.9.9"), PenglaiError);
 });
 
-test("R1-UP-001 pinned official packages are 0.1.2-alpha.2", () => {
+test("R1-UP-001 pinned official packages are 0.1.2-rc.1", () => {
   const pinned = probePinnedPackages();
-  assert.equal(pinned.dsh, "0.1.2-alpha.2");
-  assert.equal(pinned.agent, "0.1.2-alpha.2");
-  assert.equal(pinned.llm, "0.1.2-alpha.2");
-  assert.equal(pinned.workspace, "0.1.2-alpha.2");
+  assert.equal(pinned.dsh, "0.1.2-rc.1");
+  assert.equal(pinned.agent, "0.1.2-rc.1");
+  assert.equal(pinned.llm, "0.1.2-rc.1");
+  assert.equal(pinned.workspace, "0.1.2-rc.1");
 });
 
 test("R1-UP-002/003 legacy IM source is normalized to an official visible user source", () => {
@@ -99,7 +99,7 @@ test("voice source metadata is strict and enters only the model pre-step view", 
 test("bridge followup uses host agent only", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent: (id) => ({
       id,
       followup(m) { calls.push(m.source.inboundId); },
@@ -131,7 +131,7 @@ test("bridge followup uses host agent only", async () => {
 test("bridge followup submits official DSH image blocks instead of media captions", async () => {
   const sent: Array<{ type: string; text?: string; attachment?: { attachmentId: string } }> = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent: (id) => ({
       id,
       followup(m) {
@@ -173,7 +173,7 @@ test("bridge followup submits official DSH image blocks instead of media caption
 test("bridge supplies the session-bound opaque office handle to the official DSH turn", async () => {
   const sent: Array<{ type: string; text?: string }> = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent: (id) => ({
       id,
       followup(message) { sent.push(...message.content); },
@@ -203,7 +203,7 @@ test("bridge supplies the session-bound opaque office handle to the official DSH
 test("bridge fails closed before waking an IM turn when the official model route is unavailable", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent: (id) => ({
       id,
       followup() { calls.push("followup"); },
@@ -237,11 +237,11 @@ test("bridge fails closed before waking an IM turn when the official model route
 test("bridge treats a durable DSH inbox message id as an idempotent replay", async () => {
   const calls: string[] = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent: (id) => ({
       id,
       session: {
-        events: [{
+        snapshotEvents: () => [{
           type: "agent/inbox/spliced",
           data: { inserted: [{ id: "already-durable" }] },
         }],
@@ -269,7 +269,7 @@ test("bridge treats a durable DSH inbox message id as an idempotent replay", asy
 
 test("bridge joins official Workspace membership to Session-owner titles", async () => {
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent() { return undefined; },
     listWorkspaces: () => [
       { id: "workspace-1", title: "One", sessionIds: ["session-2", "session-1"] },
@@ -297,7 +297,7 @@ test("session projection refreshes rename, deletion, Unicode, duplicates, and la
     { id: "session-c", title: "研究 🩷 漢字" },
   ];
   const owner = {
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent() { return undefined; },
     listWorkspaces: () => [
       { id: "workspace-1", title: "One", sessionIds: workspaceSessionIds },
@@ -328,7 +328,7 @@ test("session projection refreshes rename, deletion, Unicode, duplicates, and la
 test("bridge forwards a new-session title only to the Session owner", async () => {
   const calls: Array<{ workspaceIdentity: string; title?: string }> = [];
   const bridge = new DshBridge({
-    version: "0.1.2-alpha.2",
+    version: "0.1.2-rc.1",
     getAgent() { return undefined; },
     listWorkspaces: () => [],
     async createSession(workspaceIdentity, title) {
@@ -449,7 +449,7 @@ test("budget hard limit blocks official followup before the agent", async () => 
   gate.reserve({ tokens: 1, priceTrusted: false });
   const bridge = new DshBridge(
     {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: (id) => ({
         id,
         followup(m) {

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, "0.5.7", "0.5.9-preview"]
+    branches: [main, "0.5.7", "codex/0.5.10-release"]
 
 permissions:
   contents: read
@@ -29,11 +29,11 @@ jobs:
           # Pull-request jobs otherwise test GitHub's synthetic merge commit,
           # which cannot serve as the immutable release candidate identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Check out immutable official DSH alpha.2 source
+      - name: Check out immutable official DSH rc.1 source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: deepseek-ai/DeepSeek-Harness
-          ref: 0a53fb55bea101816fa226bb964ae2bed71c343b
+          ref: a66e4702047846cdaa10c66c9d3df3951f5ea70d
           path: upstream-dsh
           fetch-depth: 1
       - name: Prepare authoritative main identity
@@ -50,9 +50,8 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Install independent Office verification tools
         run: brew install poppler
-      - name: Verify 0.5.9 preview boundaries
-        if: github.ref == 'refs/heads/0.5.9-preview' || github.head_ref == '0.5.9-preview'
-        run: pnpm verify:059-preview
+      - name: Verify release adaptation and historical boundaries
+        run: pnpm verify:release-adaptation
       - name: Verify fixed DSH npm cohort
         env:
           PENGLAI_DSH_UPSTREAM: ${{ github.workspace }}/upstream-dsh
@@ -80,7 +79,7 @@ jobs:
           pnpm verify:identity
           pnpm verify:contracts
           pnpm verify:dependencies
-          pnpm verify:059-manifests
+          pnpm verify:release-manifests
           pnpm verify:dsh-alpha-owner-remotes
           pnpm build
           pnpm pack:plugins

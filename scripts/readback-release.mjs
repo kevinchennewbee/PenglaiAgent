@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
+import { appendFileSync } from "node:fs";
+import { publicationAssetSeal } from "./lib/publication-seal.mjs";
 import { ROOT } from "./lib/repo.mjs";
-import { PRODUCT_VERSION } from "./lib/product.mjs";
+import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
+import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
 import { finish } from "./lib/exit-contract.mjs";
 import { EXACT_RELEASE_ASSETS } from "../packages/release-identity/src/contract.ts";
 import {
@@ -10,9 +13,15 @@ import {
 } from "../packages/plugin-registry/src/index.ts";
 
 const repo = "kevinchennewbee/PenglaiAgent";
-const tag = process.argv[2] || `v${PRODUCT_VERSION}`;
+const draft = process.argv.includes("--draft");
+const command = draft ? "readback-release-draft" : "readback-release";
+const tag = process.argv.slice(2).find((arg) => !arg.startsWith("--")) || `v${PRODUCT_VERSION}`;
+const candidate = draft ? requireCleanCandidateSource() : undefined;
+if (draft && (!candidate?.ok || !candidate.frozen)) {
+  finish("FAIL", { command, reason: "draft readback requires clean exact origin/main" });
+}
 const api = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
-const githubToken = process.env.GITHUB_TOKEN?.trim();
+const githubToken = (process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN)?.trim();
 const githubHeaders = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2026-03-10",
@@ -23,7 +32,7 @@ const response = await fetch(api, {
   headers: githubHeaders,
 });
 if (response.status !== 200) {
-  finish("INCOMPLETE", { command: "readback-release", reason: `GitHub ${response.status}`, tag });
+  finish("INCOMPLETE", { command, reason: `GitHub ${response.status}`, tag });
 }
 const release = await response.json();
 const assets = Array.isArray(release.assets) ? release.assets : [];
@@ -31,13 +40,13 @@ const expected = [...EXACT_RELEASE_ASSETS].sort();
 const names = assets.map((asset) => String(asset.name)).sort();
 if (
   release.tag_name !== tag ||
-  release.draft !== false ||
+  release.draft !== draft ||
   release.prerelease !== false ||
-  release.immutable !== true ||
+  (draft ? release.immutable === true : release.immutable !== true) ||
   JSON.stringify(names) !== JSON.stringify(expected)
 ) {
   finish("FAIL", {
-    command: "readback-release",
+    command,
     reason: "release is mutable, unpublished, prerelease, or has the wrong exact asset set",
     tag,
     immutable: release.immutable === true,
@@ -60,37 +69,42 @@ async function downloadAsset(url, name) {
   for (let hop = 0; hop <= 4; hop += 1) {
     const parsed = new URL(current);
     if (parsed.protocol !== "https:" || !allowedDownloadHosts.has(parsed.hostname)) {
-      finish("FAIL", { command: "readback-release", reason: `asset ${name} redirect host refused`, url: current });
+      finish("FAIL", { command, reason: `asset ${name} redirect host refused`, url: current });
     }
-    const body = await fetch(current, { redirect: "manual" });
+    const body = await fetch(current, {
+      redirect: "manual",
+      ...(draft && parsed.hostname === "api.github.com"
+        ? { headers: { ...githubHeaders, Accept: "application/octet-stream" } } : {}),
+    });
     if (body.status === 200) return Buffer.from(await body.arrayBuffer());
     if (body.status < 300 || body.status >= 400 || hop === 4) {
-      finish("FAIL", { command: "readback-release", reason: `asset ${name} ${body.status}` });
+      finish("FAIL", { command, reason: `asset ${name} ${body.status}` });
     }
     const location = body.headers.get("location");
     await body.body?.cancel?.();
     if (!location) {
-      finish("FAIL", { command: "readback-release", reason: `asset ${name} redirect missing location` });
+      finish("FAIL", { command, reason: `asset ${name} redirect missing location` });
     }
     current = new URL(location, current).href;
   }
-  finish("FAIL", { command: "readback-release", reason: `asset ${name} redirect limit` });
+  finish("FAIL", { command, reason: `asset ${name} redirect limit` });
 }
 
 const rows = [];
 const bytesByName = new Map();
 for (const asset of assets) {
-  const bytes = await downloadAsset(asset.browser_download_url, asset.name);
+  const bytes = await downloadAsset(draft ? `https://api.github.com/repos/${repo}/releases/assets/${asset.id}` : asset.browser_download_url, asset.name);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const githubDigest = typeof asset.digest === "string" ? asset.digest.replace(/^sha256:/, "") : "";
   if (bytes.length !== asset.size || (githubDigest && githubDigest !== sha256)) {
     finish("FAIL", {
-      command: "readback-release",
+      command,
       reason: `asset ${asset.name} size or GitHub digest mismatch`,
     });
   }
   bytesByName.set(asset.name, bytes);
   rows.push({
+    id: asset.id,
     name: asset.name,
     size: bytes.length,
     declared: asset.size,
@@ -102,17 +116,17 @@ const sums = bytesByName.get("SHA256SUMS")?.toString("utf8").trim().split(/\r?\n
 const declaredSums = new Map(
   sums.map((line) => {
     const match = /^([0-9a-f]{64})  ([^/\\]+)$/.exec(line);
-    if (!match) finish("FAIL", { command: "readback-release", reason: "SHA256SUMS line invalid", line });
+    if (!match) finish("FAIL", { command, reason: "SHA256SUMS line invalid", line });
     return [match[2], match[1]];
   }),
 );
 const sumNames = names.filter((name) => name !== "SHA256SUMS").sort();
 if (JSON.stringify([...declaredSums.keys()].sort()) !== JSON.stringify(sumNames)) {
-  finish("FAIL", { command: "readback-release", reason: "SHA256SUMS exact set mismatch" });
+  finish("FAIL", { command, reason: "SHA256SUMS exact set mismatch" });
 }
 for (const row of rows.filter((asset) => asset.name !== "SHA256SUMS")) {
   if (declaredSums.get(row.name) !== row.sha256) {
-    finish("FAIL", { command: "readback-release", reason: `SHA256SUMS mismatch for ${row.name}` });
+    finish("FAIL", { command, reason: `SHA256SUMS mismatch for ${row.name}` });
   }
 }
 
@@ -120,7 +134,7 @@ const updateBytes = bytesByName.get("update-manifest-v1.json");
 const updateSignature = bytesByName.get("update-manifest-v1.json.sig");
 const releaseManifestBytes = bytesByName.get("release-manifest.json");
 if (!updateBytes || !updateSignature || !releaseManifestBytes) {
-  finish("FAIL", { command: "readback-release", reason: "signed release metadata missing" });
+  finish("FAIL", { command, reason: "signed release metadata missing" });
 }
 verifyBytes(updateBytes, updateSignature, EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 const update = parseAppUpdateManifest(JSON.parse(updateBytes.toString("utf8")));
@@ -132,29 +146,34 @@ const sourceIdentity = createHash("sha256")
 if (
   release.target_commitish !== releaseManifest.privateCandidateSourceSha ||
   update.version !== PRODUCT_VERSION ||
+  update.sequence !== UPDATER_SEQUENCE ||
+  (draft && releaseManifest.privateCandidateSourceSha !== candidate.git.head) ||
   update.releaseTag !== tag ||
   update.signingKeyId !== EMBEDDED_UPDATER_PUBLIC_KEY.keyId ||
   update.publicExportTreeSha256 !== releaseManifest.publicExportTreeSha256 ||
   update.releaseManifestSha256 !== createHash("sha256").update(releaseManifestBytes).digest("hex") ||
   update.candidateSourceSha !== sourceIdentity
 ) {
-  finish("FAIL", { command: "readback-release", reason: "update and release identity mismatch" });
+  finish("FAIL", { command, reason: "update and release identity mismatch" });
 }
 
+let tagObject = draft ? { type: "commit", sha: candidate.git.head } : undefined;
+if (!draft) {
 let tagObjectResponse = await fetch(`https://api.github.com/repos/${repo}/git/ref/tags/${tag}`, {
   redirect: "manual",
   headers: githubHeaders,
 });
 if (tagObjectResponse.status !== 200) {
-  finish("FAIL", { command: "readback-release", reason: `tag ref ${tagObjectResponse.status}` });
+  finish("FAIL", { command, reason: `tag ref ${tagObjectResponse.status}` });
 }
-let tagObject = (await tagObjectResponse.json()).object;
+tagObject = (await tagObjectResponse.json()).object;
 for (let depth = 0; tagObject?.type === "tag" && depth < 3; depth += 1) {
   tagObjectResponse = await fetch(tagObject.url, { redirect: "manual", headers: githubHeaders });
   if (tagObjectResponse.status !== 200) {
-    finish("FAIL", { command: "readback-release", reason: `annotated tag ${tagObjectResponse.status}` });
+    finish("FAIL", { command, reason: `annotated tag ${tagObjectResponse.status}` });
   }
   tagObject = (await tagObjectResponse.json()).object;
+}
 }
 if (
   tagObject?.type !== "commit" ||
@@ -163,13 +182,13 @@ if (
   releaseManifest.version !== PRODUCT_VERSION ||
   releaseManifest.publicExportTreeSha256 !== publicExportManifest.publicExportTreeSha256
 ) {
-  finish("FAIL", { command: "readback-release", reason: "tag, release manifest, or public export identity mismatch" });
+  finish("FAIL", { command, reason: "tag, release manifest, or public export identity mismatch" });
 }
 
 const releaseArtifacts = Array.isArray(releaseManifest.artifacts) ? releaseManifest.artifacts : [];
 const installerNames = expected.filter((name) => name.endsWith(".dmg") || name.endsWith(".exe")).sort();
 if (JSON.stringify(releaseArtifacts.map((row) => row.name).sort()) !== JSON.stringify(installerNames)) {
-  finish("FAIL", { command: "readback-release", reason: "release manifest installer set mismatch" });
+  finish("FAIL", { command, reason: "release manifest installer set mismatch" });
 }
 for (const declared of releaseArtifacts) {
   const installer = bytesByName.get(declared.name);
@@ -178,7 +197,7 @@ for (const declared of releaseArtifacts) {
     declared.bytes !== installer.length ||
     declared.sha256 !== createHash("sha256").update(installer).digest("hex")
   ) {
-    finish("FAIL", { command: "readback-release", reason: `release manifest mismatch for ${declared.name}` });
+    finish("FAIL", { command, reason: `release manifest mismatch for ${declared.name}` });
   }
 }
 
@@ -201,20 +220,25 @@ for (const [target, platform] of Object.entries(update.platforms)) {
     platform.size !== installer.length ||
     platform.sha256 !== createHash("sha256").update(installer).digest("hex")
   ) {
-    finish("FAIL", { command: "readback-release", reason: `update platform identity mismatch for ${target}` });
+    finish("FAIL", { command, reason: `update platform identity mismatch for ${target}` });
   }
   verifyBytes(installer, Buffer.from(platform.signature, "base64"), EMBEDDED_UPDATER_PUBLIC_KEY.publicKeyHex);
 }
 
 if (Object.keys(update.platforms).sort().join(",") !== "darwin-aarch64,darwin-x86_64,win32-x86_64") {
-  finish("FAIL", { command: "readback-release", reason: "update manifest does not cover exactly three targets" });
+  finish("FAIL", { command, reason: "update manifest does not cover exactly three targets" });
 }
 
+const assetSetSha256 = publicationAssetSeal(rows);
+if (draft && process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `asset_set_sha256=${assetSetSha256}\n`);
 finish("PASS", {
-  command: "readback-release",
+  command,
+  assetSetSha256,
   cwd: ROOT,
   tag,
-  immutable: true,
+  immutable: !draft,
+  draft,
+  sourceSha: releaseManifest.privateCandidateSourceSha,
   updateSignature: true,
   installerSignatures: true,
   assets: rows,

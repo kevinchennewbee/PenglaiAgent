@@ -53,7 +53,7 @@ test("IM host registers guided adapters and refuses unavailable outbound text", 
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -70,7 +70,7 @@ test("IM host registers guided adapters and refuses unavailable outbound text", 
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -98,7 +98,7 @@ test("IM connection waits until real sidecar adapters finish bootstrap", async (
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -115,7 +115,7 @@ test("IM connection waits until real sidecar adapters finish bootstrap", async (
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -150,7 +150,7 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },
@@ -167,7 +167,7 @@ test("restore applies persisted Telegram offset before reconnect", async () => {
       stop: () => undefined,
     } as never,
     {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [],
     },

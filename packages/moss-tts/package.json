@@ -1,6 +1,6 @@
 {
   "name": "@penglai/moss-tts",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "private": true,
   "type": "module",
   "exports": {
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-typert-protocol": "0.1.2-alpha.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.2-rc.1",
     "@penglai/contracts": "workspace:*",
     "onnxruntime-node": "1.23.2",
     "sentencepiece-js": "1.1.0"

@@ -169,7 +169,7 @@ if (dshVersion !== PINNED_DSH) {
   console.error(`workspace DSH closure must be pinned to ${PINNED_DSH}, got ${dshVersion || "missing"}`);
   process.exit(1);
 }
-const cohortPath = join(ROOT, "docs", "0.5.9", "DSH_NPM_COHORT.json");
+const cohortPath = join(ROOT, "docs", "0.5.10", "DSH_NPM_COHORT.json");
 const cohortBytes = readFileSync(cohortPath);
 const cohort = JSON.parse(cohortBytes.toString("utf8"));
 try {
@@ -290,9 +290,9 @@ if (mnemonAsset.executable) {
 }
 cpSync(join(ROOT, "profile-seed"), join(staging, "profile-seed"), { recursive: true });
 cpSync(join(ROOT, "release-contract.json"), join(staging, "release-contract.json"));
-const lgplSourceOffer = join(ROOT, "docs", "0.5.9", "LGPL_SOURCE_OFFER.md");
+const lgplSourceOffer = join(ROOT, "docs", "0.5.10", "LGPL_SOURCE_OFFER.md");
 if (!existsSync(lgplSourceOffer)) {
-  console.error("0.5.9 LGPL corresponding-source offer is missing");
+  console.error("0.5.10 LGPL corresponding-source offer is missing");
   process.exit(1);
 }
 cpSync(lgplSourceOffer, join(staging, "LGPL_SOURCE_OFFER.txt"));

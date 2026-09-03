@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "repository": "kevinchennewbee/PenglaiAgent",
+  "sources": [
+    {
+      "version": "0.5.8",
+      "tag": "v0.5.8",
+      "releaseId": 379282721,
+      "sourceSha": "80c8ee81de7a683a1d366bdba0f354826df0a914",
+      "immutable": true,
+      "digestAuthority": "immutable GitHub asset digest",
+      "assets": [
+        {
+          "name": "Penglai_0.5.8_macos_aarch64.dmg",
+          "id": 536619248,
+          "size": 470071594,
+          "sha256": "cc08a1820f92be4fe5a851a4cfd33f02ab48035c8e98f72feacb2fd074a9b992"
+        },
+        {
+          "name": "Penglai_0.5.8_macos_x64.dmg",
+          "id": 536619246,
+          "size": 412716622,
+          "sha256": "14d0c4edf572c134d9d71e6dea69a4bcf53b46cf31ed267fe8472c2f1a4c1b00"
+        },
+        {
+          "name": "Penglai_0.5.8_windows_x64_setup.exe",
+          "id": 536619250,
+          "size": 359890576,
+          "sha256": "0a238bec35ea5117619a5112566ba6985f2194873eb60ef7110d1ca21bc1bec5"
+        }
+      ]
+    },
+    {
+      "version": "0.5.9",
+      "tag": "v0.5.9",
+      "releaseId": 380229417,
+      "sourceSha": "a4c0bec50cb0df26281207e1a19b444b50317604",
+      "immutable": true,
+      "digestAuthority": "immutable GitHub asset digest",
+      "assets": [
+        {
+          "name": "Penglai_0.5.9_macos_aarch64.dmg",
+          "id": 539040461,
+          "size": 466289082,
+          "sha256": "f592fc85292ae3a7e238be5cb2ff6a41ebd5c0337406ac34e69c963d64ec319b"
+        },
+        {
+          "name": "Penglai_0.5.9_macos_x64.dmg",
+          "id": 539040462,
+          "size": 408295625,
+          "sha256": "959d7546495d11fd3f938a7fa9854518a0f6cbcf92951238bbf0589a4d469907"
+        },
+        {
+          "name": "Penglai_0.5.9_windows_x64_setup.exe",
+          "id": 539040460,
+          "size": 357561673,
+          "sha256": "a26e31b3d27c8ed55e76264ea516779313895f080079f5d64ff4134ef5e48679"
+        }
+      ]
+    }
+  ]
+}

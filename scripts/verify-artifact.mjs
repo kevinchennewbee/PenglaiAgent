@@ -54,7 +54,7 @@ if (blocked) {
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const packagedBytes = JSON.parse(
-  readFileSync(join(ROOT, "docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json"), "utf8"),
+  readFileSync(join(ROOT, "docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json"), "utf8"),
 );
 if (packagedBytes.dsh !== packaged.release.dsh || packagedBytes.mode !== "official-npm-cohort-no-source-patch") {
   finish("FAIL", { command: "verify:artifact", reason: "DSH alpha packaged-byte policy identity drift" });

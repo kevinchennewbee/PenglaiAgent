@@ -30,11 +30,10 @@ import {
   parseTargetArg,
 } from "./lib/release-targets.mjs";
 
-const PREVIOUS_INSTALLERS = Object.freeze({
-  "darwin-aarch64": "Penglai_0.5.8_macos_aarch64.dmg",
-  "darwin-x86_64": "Penglai_0.5.8_macos_x64.dmg",
-  "win32-x86_64": "Penglai_0.5.8_windows_x64_setup.exe",
-});
+const versionIndex = process.argv.indexOf("--previous-version");
+const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
+const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.10/UPGRADE_SOURCES.json"), "utf8"));
+const sourcePin = upgradeSources.sources.find((row) => row.version === previousVersion);
 
 function fail(reason, details = {}) {
   finish("FAIL", {
@@ -132,28 +131,35 @@ if (process.env.PENGLAI_LIFECYCLE_ALLOW_NATIVE !== "1") {
   });
 }
 
-const previousInstaller = resolve(String(process.env.PENGLAI_PREVIOUS_INSTALLER ?? ""));
-const sumsPath = resolve(String(process.env.PENGLAI_PREVIOUS_SHA256SUMS ?? ""));
-const expectedPreviousName = PREVIOUS_INSTALLERS[target];
-if (
-  !previousInstaller ||
-  !existsSync(previousInstaller) ||
-  !sumsPath ||
-  !existsSync(sumsPath) ||
-  previousInstaller.split(/[\\/]/).at(-1) !== expectedPreviousName
-) {
-  fail("exact previous 0.5.8 installer and SHA256SUMS are required");
-}
-const previousSha256 = sha256File(previousInstaller);
-const expectedPreviousSha = readFileSync(sumsPath, "utf8")
-  .split(/\r?\n/u)
-  .map((line) => line.trim().split(/\s+/u))
-  .find((parts) => parts.at(-1)?.replace(/^\*/, "") === expectedPreviousName)?.[0];
-if (expectedPreviousSha !== previousSha256) {
-  fail("previous installer does not match immutable public SHA256SUMS", {
-    previousSha256,
+if (!previousVersion) {
+  const upgradePaths = [];
+  for (const prior of upgradeSources.sources) {
+    const child = spawnSync(process.execPath, [import.meta.filename, "--previous-version", prior.version, "--target", target], {
+      cwd: ROOT, env: process.env, stdio: "inherit",
+    });
+    if (child.status !== 0) fail(`native upgrade from ${prior.version} failed`, { upgradePaths });
+    const record = JSON.parse(readFileSync(join(ROOT, "evidence/generated", `verify-upgrade-uninstall-${target}.json`), "utf8"));
+    if (record.verdict !== "PASS" || record.previous?.version !== prior.version || record.sourceSha !== source.git.head) {
+      fail(`native upgrade evidence mismatch for ${prior.version}`);
+    }
+    upgradePaths.push(record);
+  }
+  finish("PASS", {
+    command: "verify:upgrade-uninstall", target, sourceSha: source.git.head,
+    host: { platform: process.platform, arch: process.arch },
+    previousVersions: upgradePaths.map((record) => record.previous.version),
+    current: upgradePaths.at(-1).current, upgradePaths,
+    upgradePreservedOwnerData: true, uninstallRemovedApp: true, uninstallPreservedOwnerData: true,
   });
 }
+if (!sourcePin) fail("unsupported previous version");
+const suffix = { "darwin-aarch64": "macos_aarch64.dmg", "darwin-x86_64": "macos_x64.dmg", "win32-x86_64": "windows_x64_setup.exe" }[target];
+const expectedPreviousName = `Penglai_${previousVersion}_${suffix}`;
+const pinnedAsset = sourcePin.assets.find((row) => row.name === expectedPreviousName);
+const previousInstaller = join(ROOT, ".previous", previousVersion, expectedPreviousName);
+if (!pinnedAsset || !existsSync(previousInstaller)) fail("exact verified previous installer is required");
+const previousSha256 = sha256File(previousInstaller);
+if (pinnedAsset.sha256 !== previousSha256) fail("previous installer differs from pinned immutable public bytes");
 
 const currentInstaller = join(ROOT, "dist", installerForTarget(target));
 if (!existsSync(currentInstaller)) fail("current exact installer is missing");
@@ -176,28 +182,28 @@ if (target === "win32-x86_64") {
       expectedApp,
     });
   }
-  app = installWindows(previousInstaller, "0.5.8");
+  app = installWindows(previousInstaller, previousVersion);
 } else {
   const previous = installFromExactDmg(previousInstaller, appRoot, expectedPreviousName);
-  if (!previous.ok) fail(`0.5.8 DMG install failed: ${previous.reason}`);
+  if (!previous.ok) fail(`${previousVersion} DMG install failed: ${previous.reason}`);
   app = previous.app;
 }
 
-const previousIdentity = assertVersion(app, "0.5.8", "previous install");
+const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
 
 if (target === "win32-x86_64") {
-  app = installWindows(currentInstaller, "0.5.9 upgrade");
+  app = installWindows(currentInstaller, "0.5.10 upgrade");
 } else {
   const current = installFromExactDmg(
     currentInstaller,
     appRoot,
     installerForTarget(target),
   );
-  if (!current.ok) fail(`0.5.9 DMG upgrade failed: ${current.reason}`);
+  if (!current.ok) fail(`0.5.10 DMG upgrade failed: ${current.reason}`);
   app = current.app;
 }
-const currentIdentity = assertVersion(app, "0.5.9", "upgraded install");
+const currentIdentity = assertVersion(app, "0.5.10", "upgraded install");
 const currentBoot = await boot(app, userData, "upgraded install");
 if (!existsSync(sentinel)) fail("upgrade did not preserve isolated Owner data");
 

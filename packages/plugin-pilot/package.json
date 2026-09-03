@@ -1,6 +1,6 @@
 {
   "name": "@penglai/plugin-pilot",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "private": true,
   "type": "module",
   "exports": {
@@ -16,7 +16,7 @@
     "schema": 2,
     "id": "@penglai/plugin-pilot",
     "version": "1.0.0",
-    "dshExact": "0.1.2-alpha.2",
+    "dshExact": "0.1.2-rc.1",
     "centerProtocol": 1,
     "entry": "dist/index.js",
     "targets": [

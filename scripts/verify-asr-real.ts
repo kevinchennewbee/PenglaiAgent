@@ -34,7 +34,7 @@ async function fetchFixture(): Promise<Buffer> {
   for (let hop = 0; hop <= 5; hop += 1) {
     const response = await fetch(url, {
       redirect: "manual",
-      headers: { "User-Agent": "Penglai/0.5.9 ASR real verifier" },
+      headers: { "User-Agent": "Penglai/0.5.10 ASR real verifier" },
       signal: AbortSignal.timeout(60_000),
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -134,14 +134,14 @@ try {
   };
   const manifest = finishEvidenceRun(run, "PASS", "real SenseVoice transcribed the licensed fixture", { evidence });
   console.log(JSON.stringify({ verdict: manifest.verdict, command: "verify:asr-real", dir: run.dir }));
-  if (manifest.verdict !== "PASS") process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
+  if (manifest.verdict !== "PASS") process.exitCode = EXIT_BY_VERDICT[manifest.verdict] ?? 1;
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   const incomplete = /ENOTFOUND|fetch|network|not installed|model|timeout|ECONN|certificate/i.test(reason);
   const safeReason = incomplete ? "ASR runtime or pinned model asset unavailable" : "real ASR verification failed";
   const manifest = finishEvidenceRun(run, incomplete ? "INCOMPLETE" : "FAIL", safeReason);
   console.error(JSON.stringify({ verdict: manifest.verdict, command: "verify:asr-real", reason: safeReason, dir: run.dir }));
-  process.exit(EXIT_BY_VERDICT[manifest.verdict] ?? 1);
+  process.exitCode = EXIT_BY_VERDICT[manifest.verdict] ?? 1;
 } finally {
   await engine?.dispose();
   await manager.dispose();

@@ -21,7 +21,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 test("R50-DIST-001 committed release-contract pins three targets and hashed downloads", () => {
   const raw = JSON.parse(readFileSync(join(root, "release-contract.json"), "utf8"));
   const contract = assertReleaseContract(raw);
-  assert.equal(contract.dshVersion, "0.1.2-alpha.2");
+  assert.equal(contract.dshVersion, "0.1.2-rc.1");
   assert.deepEqual(
     contract.targets.map((row) => row.key),
     ["darwin-aarch64", "darwin-x86_64", "win32-x86_64"],

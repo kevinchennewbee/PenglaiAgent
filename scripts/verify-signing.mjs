@@ -114,7 +114,7 @@ if (expectedTarget === "win32-x86_64") {
     });
   }
   const summary = [
-    "Penglai 0.5.9 community-verified Windows unsigned contract",
+    "Penglai 0.5.10 community-verified Windows unsigned contract",
     `app=${app}`,
     `installer=${installer}`,
     `sourceSha=${packaged.release.sourceSha}`,
@@ -161,7 +161,7 @@ if (!adhoc) {
   process.exit(1);
 }
 
-const summary = ["Penglai 0.5.9 community-verified ad-hoc contract", `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
+const summary = ["Penglai 0.5.10 community-verified ad-hoc contract", `app=${app}`, `sourceSha=${packaged.release.sourceSha}`, `target=${expectedTarget}`, "codesign --verify --deep --strict --verbose=2: PASS", "signatureKind=adhoc", "developerIdSigned=false", "notarized=false", "authenticode=false", display.text.trim()].join("\n");
 mkdirSync(join(ROOT, "dist"), { recursive: true });
 writeFileSync(join(ROOT, "dist/codesign-verification.txt"), `${summary}\n`);
 finish("PASS", {

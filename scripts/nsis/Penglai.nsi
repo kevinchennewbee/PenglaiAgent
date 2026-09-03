@@ -1,14 +1,14 @@
-; Penglai 0.5.9 current-user NSIS Setup.
+; Penglai 0.5.10 current-user NSIS Setup.
 ; Cross-compiled / compiled only on Windows x64. This source is the contract
 ; for install identity, bilingual UI, and unconditional userData preservation.
 ; Exact data deletion is completed inside Penglai before the uninstaller runs.
 ; Native PASS is reserved for win-x64.
 
 !ifndef PENGLAI_VERSION
-  !define PENGLAI_VERSION "0.5.9"
+  !define PENGLAI_VERSION "0.5.10"
 !endif
 !ifndef PENGLAI_OUTFILE
-  !define PENGLAI_OUTFILE "Penglai_0.5.9_windows_x64_setup.exe"
+  !define PENGLAI_OUTFILE "Penglai_0.5.10_windows_x64_setup.exe"
 !endif
 
 Unicode true

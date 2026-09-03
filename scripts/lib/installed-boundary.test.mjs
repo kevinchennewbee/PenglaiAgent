@@ -70,7 +70,7 @@ test("Windows fixture cleanup is limited to dedicated release-test roots", () =>
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp-installed-e2e-app", root), true);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp\\u3-welcome-app", root), true);
   assert.equal(
-    isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\dist\\Penglai-v0.5.9-win32-x64\\Penglai", root),
+    isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\dist\\Penglai-v0.5.10-win32-x64\\Penglai", root),
     true,
   );
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);

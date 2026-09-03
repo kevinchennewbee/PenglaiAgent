@@ -20,6 +20,8 @@ overlays/dsh-0.1.1-rc.2/**/*.json text eol=lf
 third_party/dsh/**/*.tgz binary
 third_party/dsh/**/closure-manifest.json text eol=lf
 
-# The 0.5.9 official npm cohort snapshot is itself a release identity input.
-docs/0.5.9/DSH_NPM_COHORT.json text eol=lf
-docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json text eol=lf
+# Official npm cohort snapshots and locks are cross-target release identity inputs.
+docs/*/DSH_NPM_COHORT.json text eol=lf
+docs/*/DSH_ALPHA_PACKAGED_BYTES.json text eol=lf
+pnpm-lock.yaml text eol=lf
+pnpm-workspace.yaml text eol=lf

@@ -49,7 +49,7 @@ test("alpha.2 adapter uses the official sessionController for list, create, rena
       },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Official title" }]);
   assert.deepEqual(await host.createSession?.("workspace-1", "Penglai"), { id: "session-2" });
   const directory = await host.describeSessionModels?.("session-1");
@@ -113,7 +113,7 @@ test("alpha.2 title fallback rejects stale projections and folds the durable ren
       async selectModel(request: { provider: string; model: string }) { return { selected: request }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
   assert.deepEqual(await host.listSessions?.(), [{ id: "session-1", title: "Current" }]);
 });
 
@@ -150,7 +150,7 @@ test("alpha.2 adapter rejects a stale model projection and folds the current log
       async rename(request: { title: string }) { return { title: request.title, seq: 1 }; },
     },
   };
-  const host = hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2");
+  const host = hostFromAlpha2Cordis(ctx, "0.1.2-rc.1");
   assert.deepEqual((await host.describeSessionModels?.("session-1"))?.current, {
     provider: "deepseek",
     model: "current",
@@ -165,5 +165,5 @@ test("alpha.2 adapter has no apiProxy access path", () => {
       return Reflect.get(target, property, receiver);
     } },
   );
-  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.2-alpha.2"));
+  assert.doesNotThrow(() => hostFromAlpha2Cordis(ctx, "0.1.2-rc.1"));
 });

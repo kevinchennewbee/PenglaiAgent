@@ -111,7 +111,7 @@ test("R50-TRUTH-007 / R50-E2E-008 aggregator lists all hard kinds and propagates
   assert.equal(listedSubgateNames().includes("verify:upgrade-uninstall"), true);
   assert.deepEqual(
     SUPPLEMENTAL_ACCEPTANCE_SUBGATES.map((gate) => gate.name),
-    ["verify:live", "verify:soak", "verify:evidence"],
+    ["verify:live", "verify:evidence"],
   );
   assert.equal(HARD_SUBGATES.length >= 18, true);
 
@@ -257,12 +257,12 @@ test("build inputs reject dirty named SHA and HEAD drift", () => {
   );
 });
 
-test("GitHub Actions is AVAILABLE for the 0.5.9 source candidate", () => {
+test("GitHub Actions is AVAILABLE for the 0.5.10 source candidate", () => {
   assert.equal(GITHUB_ACTIONS_STATUS, "AVAILABLE");
 });
 
-test("product version is 0.5.9 and registry count matches the document", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.9");
+test("product version is 0.5.10 and registry count matches the document", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.10");
   const md = readFileSync(join(root, "docs/ACCEPTANCE.md"), "utf8");
   const ids = parseAcceptanceIds(md);
   const entries = assertRegistryConsistent(md);

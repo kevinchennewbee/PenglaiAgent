@@ -87,7 +87,7 @@ async function peeledTagCommit(tag) {
 }
 
 const tag = option("--tag");
-if (tag !== "v0.5.9") fail("tag must be exactly v0.5.9");
+if (tag !== "v0.5.10") fail("tag must be exactly v0.5.10");
 if (process.env.GITHUB_ACTIONS === "true") {
   if (process.env.GITHUB_EVENT_NAME !== "workflow_dispatch" || process.env.GITHUB_REF !== "refs/heads/main") {
     fail("GitHub deployment must be dispatched from refs/heads/main");
@@ -101,8 +101,8 @@ if (head !== originMain || (process.env.GITHUB_SHA && process.env.GITHUB_SHA !==
 }
 
 const contract = JSON.parse(readFileSync(join(ROOT, "release-contract.json"), "utf8"));
-if (contract.version !== "0.5.9" || contract.publication?.tag !== tag || contract.publication?.repo !== REPO) {
-  fail("release contract is not exact v0.5.9");
+if (contract.version !== "0.5.10" || contract.publication?.tag !== tag || contract.publication?.repo !== REPO) {
+  fail("release contract is not exact v0.5.10");
 }
 
 const release = await fetchJson(`https://api.github.com/repos/${REPO}/releases/tags/${tag}`, "Release");
@@ -112,12 +112,12 @@ if (localPeeledSourceSha !== peeledSourceSha || !/^[0-9a-f]{40}$/.test(localPeel
   fail("local immutable tag does not match the public peeled tag commit");
 }
 const currentMain = await fetchJson(`https://api.github.com/repos/${REPO}/git/ref/heads/main`, "main ref");
-if (release.tag_name !== tag) fail("Release tag_name does not match v0.5.9");
+if (release.tag_name !== tag) fail("Release tag_name does not match v0.5.10");
 if (currentMain.object?.type !== "commit" || currentMain.object.sha !== head) {
   fail("website source is no longer the exact current main commit");
 }
 if (!gitSucceeds(["merge-base", "--is-ancestor", peeledSourceSha, head])) {
-  fail("peeled v0.5.9 commit is not an ancestor of the website source");
+  fail("peeled v0.5.10 commit is not an ancestor of the website source");
 }
 const assets = Array.isArray(release.assets) ? release.assets : [];
 const asset = (name) => assets.find((entry) => entry.name === name);

@@ -113,7 +113,7 @@ export function editPptx(bytes: Buffer, op: { slideIndex: number; runIndex?: num
     const runs = xml.match(/<a:t(?:\s[^>]*)?>[\s\S]*?<\/a:t>/g) ?? [];
     const runIndex = op.runIndex ?? 0;
     if (!runs[runIndex]) {
-      throw new PenglaiError("INVALID_INPUT", "pptx slide has no text run; complex edit is not supported in 0.5.9");
+      throw new PenglaiError("INVALID_INPUT", "pptx slide has no text run; complex edit is not supported in 0.5.10");
     }
     patched = true;
     let index = 0;

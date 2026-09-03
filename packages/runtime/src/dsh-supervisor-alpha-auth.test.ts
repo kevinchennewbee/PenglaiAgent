@@ -51,10 +51,10 @@ test("embedded supervisor privately exchanges alpha browser auth and keeps stead
     'mkdirSync(plugins, { recursive: true });',
     `const inventory = ${JSON.stringify({
       entries: [
-        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-alpha.2" },
-        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.9" },
-        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.9" },
-        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.9" },
+        { moduleName: "@deepseek-ai/dsh-credentials-local", enabled: true, fiberPhase: "active", version: "0.1.2-rc.1" },
+        { moduleName: "@penglai/plugin-center", enabled: true, fiberPhase: "active", version: "0.5.10" },
+        { moduleName: "@penglai/office", enabled: true, fiberPhase: "active", version: "0.5.10" },
+        { moduleName: "@penglai/memory", enabled: true, fiberPhase: "active", version: "0.5.10" },
       ],
       target: runtimePluginTarget(),
     })};`,

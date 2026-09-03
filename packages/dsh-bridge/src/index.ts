@@ -3,6 +3,7 @@ import { BudgetGate } from "@penglai/budget";
 import {
   ADAPTER_NAMES,
   PenglaiError,
+  snapshotOfficialSession,
   type AdapterName,
   type ClaimedFact,
   type ModelInput,
@@ -15,8 +16,8 @@ import type { AgentCallOptions, AgentPort, DirectoryPort } from "@penglai/routin
 import { BridgeOperationGate, type BridgeCallOptions } from "./operations.js";
 import type { DshAgentLike, DshHost } from "./owner-ports.js";
 
-export const PINNED_DSH = "0.1.2-alpha.2";
-export const PINNED_DSH_COMMIT = "0a53fb55bea101816fa226bb964ae2bed71c343b";
+export const PINNED_DSH = "0.1.2-rc.1";
+export const PINNED_DSH_COMMIT = "a66e4702047846cdaa10c66c9d3df3951f5ea70d";
 
 const ASR_LANGUAGES = new Set<PenglaiAsrLanguage>(["zh", "en", "ja", "ko", "yue", "auto"]);
 const ASR_EMOTIONS = new Set<PenglaiAsrEmotion>([
@@ -75,7 +76,7 @@ export type {
 } from "./owner-ports.js";
 
 function hasDurableMessage(agent: DshAgentLike, messageId: string): boolean {
-  return (agent.session?.events ?? []).some((event) =>
+  return snapshotOfficialSession(agent.session).some((event) =>
     event.type === "agent/inbox/spliced" &&
     (event.data?.inserted ?? []).some((message) => message.id === messageId),
   );

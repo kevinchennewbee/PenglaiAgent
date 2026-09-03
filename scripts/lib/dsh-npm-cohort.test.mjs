@@ -5,20 +5,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
-  discoverAlpha2SourcePackages,
-  DSH_ALPHA2,
+  discoverSourcePackages,
+  DSH_UPSTREAM,
   verifyRegistrySignatures,
   verifyCohortLock,
 } from "./dsh-npm-cohort.mjs";
 
-test("discovers public alpha.2, vendor, and Landlock source packages", () => {
+test("discovers public fixed DSH, vendor, and Landlock source packages", () => {
   const root = mkdtempSync(join(tmpdir(), "penglai-dsh-npm-cohort-"));
   const fixtures = [
-    ["apps/cli", { name: "@deepseek-ai/dsh", version: DSH_ALPHA2.version, license: "MIT" }],
-    ["packages/util/deque", { name: "@deepseek-ai/dsh-deque", version: DSH_ALPHA2.version, license: "MIT" }],
+    ["apps/cli", { name: "@deepseek-ai/dsh", version: DSH_UPSTREAM.version, license: "MIT" }],
+    ["packages/util/deque", { name: "@deepseek-ai/dsh-deque", version: DSH_UPSTREAM.version, license: "MIT" }],
     ["vendor/cordis", { name: "@deepseek-ai/cordis", version: "4.0.2", license: "MIT" }],
     ["native/landlock-run/packages/entry", { name: "@deepseek-ai/node-addon-landlock-run", version: "0.1.1", license: "BSD-3-Clause" }],
-    ["packages/private/fixture", { name: "@deepseek-ai/dsh-private", version: DSH_ALPHA2.version, private: true }],
+    ["packages/private/fixture", { name: "@deepseek-ai/dsh-private", version: DSH_UPSTREAM.version, private: true }],
   ];
   writeFileSync(join(root, "package.json"), JSON.stringify({ name: "root", private: true }));
   for (const [directory, manifest] of fixtures) {
@@ -26,7 +26,7 @@ test("discovers public alpha.2, vendor, and Landlock source packages", () => {
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, "package.json"), JSON.stringify(manifest));
   }
-  const found = discoverAlpha2SourcePackages(root);
+  const found = discoverSourcePackages(root);
   assert.deepEqual(found.map(({ name, category }) => ({ name, category })), [
     { name: "@deepseek-ai/cordis", category: "vendor" },
     { name: "@deepseek-ai/dsh", category: "dsh" },
@@ -36,16 +36,16 @@ test("discovers public alpha.2, vendor, and Landlock source packages", () => {
 });
 
 test("npm cohort lock verification binds version and integrity", () => {
-  const required = ["@deepseek-ai/dsh", "@deepseek-ai/dsh-client-ui-schedule", "@deepseek-ai/dsh-deque", "@deepseek-ai/dsh-util-time", "@deepseek-ai/dsh-util-values"];
+  const required = ["@deepseek-ai/dsh-session-turn-outline", "@deepseek-ai/dsh", "@deepseek-ai/dsh-client-ui-schedule", "@deepseek-ai/dsh-deque", "@deepseek-ai/dsh-util-time", "@deepseek-ai/dsh-util-values"];
   const snapshot = {
     packages: required.map((name) => ({
         name,
-        version: DSH_ALPHA2.version,
-        integrity: DSH_ALPHA2.rootIntegrity,
+        version: DSH_UPSTREAM.version,
+        integrity: DSH_UPSTREAM.rootIntegrity,
       })),
   };
-  const exact = `packages:\n\n${required.map((name) => `  '${name}@${DSH_ALPHA2.version}':\n    resolution: {integrity: ${DSH_ALPHA2.rootIntegrity}}`).join("\n")}\n`;
-  assert.deepEqual(verifyCohortLock(snapshot, exact), { packages: 5 });
+  const exact = `packages:\n\n${required.map((name) => `  '${name}@${DSH_UPSTREAM.version}':\n    resolution: {integrity: ${DSH_UPSTREAM.rootIntegrity}}`).join("\n")}\n`;
+  assert.deepEqual(verifyCohortLock(snapshot, exact), { packages: 6 });
   assert.throws(
     () => verifyCohortLock(snapshot, exact.replace("sha512-", "sha512-wrong")),
     /integrity drift/,
@@ -65,13 +65,13 @@ test("npm cohort verifies the registry ECDSA signature over exact name version a
   const keyid = `SHA256:${createHash("sha256").update("registry-key-selector").digest("base64").replace(/=+$/, "")}`;
   const entry = {
     name: "@deepseek-ai/dsh",
-    version: DSH_ALPHA2.version,
-    integrity: DSH_ALPHA2.rootIntegrity,
+    version: DSH_UPSTREAM.version,
+    integrity: DSH_UPSTREAM.rootIntegrity,
     signatures: [{
       keyid,
       sig: sign(
         "sha256",
-        Buffer.from(`@deepseek-ai/dsh@${DSH_ALPHA2.version}:${DSH_ALPHA2.rootIntegrity}`),
+        Buffer.from(`@deepseek-ai/dsh@${DSH_UPSTREAM.version}:${DSH_UPSTREAM.rootIntegrity}`),
         privateKey,
       ).toString("base64"),
     }],

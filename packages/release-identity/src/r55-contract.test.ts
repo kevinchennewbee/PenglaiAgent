@@ -18,15 +18,15 @@ import { FIRST_PARTY_PLUGIN_METADATA } from "../../runtime/src/plugin-catalog.js
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 
-test("release truth pins Penglai 0.5.9", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.9");
+test("release truth pins Penglai 0.5.10", () => {
+  assert.equal(PRODUCT_VERSION, "0.5.10");
 });
 
 test("DSH alpha source commit and closure digests are exact", () => {
-  assert.equal(PINNED_DSH, "0.1.2-alpha.2");
-  assert.equal(PINNED_DSH_COMMIT, "0a53fb55bea101816fa226bb964ae2bed71c343b");
-  assert.equal(PINNED_DSH_TARBALL_SHA256, "5bf062a26a490853ffb9294fe3c9fb2047f029be3545612dea45718a81920a47");
-  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "1ae818ae30a963dcf9b0063e1cfdf3fdc77b481b66478d1911988919b6f4eff1");
+  assert.equal(PINNED_DSH, "0.1.2-rc.1");
+  assert.equal(PINNED_DSH_COMMIT, "a66e4702047846cdaa10c66c9d3df3951f5ea70d");
+  assert.equal(PINNED_DSH_TARBALL_SHA256, "ca370668053ad6d0ac325e919ef5f65de53de00b7bad78008e6fb422dfce3530");
+  assert.equal(PINNED_DSH_CLOSURE_MANIFEST_SHA256, "31a52e8bc520b185c71849f3b084d65f9f7c888358ae33d4ea2d5eb4aba9f198");
 });
 
 test("R55-TRUTH-003 only three exact target installers", () => {
@@ -37,7 +37,7 @@ test("R55-TRUTH-003 only three exact target installers", () => {
 });
 
 test("release version has no older tag drift", () => {
-  assert.equal(PRODUCT_VERSION, "0.5.9");
+  assert.equal(PRODUCT_VERSION, "0.5.10");
   assert.equal(PRODUCT_VERSION.includes("0.5.6") || PRODUCT_VERSION.includes("0.5.7"), false);
 });
 
@@ -55,7 +55,7 @@ test("bundled Mnemon uses its actual Apache-2.0 license", () => {
 });
 
 test("official Web/Agent/Session/Workspace stay on the one fixed DSH core", () => {
-  assert.equal(PINNED_DSH, "0.1.2-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.2-rc.1");
 });
 
 test("R55-DSH-002 official attachment/settings/slot seams used", () => {
@@ -142,7 +142,7 @@ test("R55-BUILTIN-011 no orphan resource after lifecycle operations", () => {
 });
 
 test("R55-BUILTIN-012 DSH core remains usable in every state", () => {
-  assert.equal(PINNED_DSH, "0.1.2-alpha.2");
+  assert.equal(PINNED_DSH, "0.1.2-rc.1");
 });
 
 test("R55-COMM-001 exact provenance lock", () => {

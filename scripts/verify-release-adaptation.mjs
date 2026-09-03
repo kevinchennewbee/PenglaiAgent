@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { validateCohortSnapshot } from "./lib/dsh-npm-cohort.mjs";
+import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.mjs";
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
-const BASE = "2be3728920408792b103668284cff84e9a6d7cf8";
+const BASE = "8f50d0e998f00b9f4b52e08a36738fbd27760e24";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -25,23 +25,24 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.5.9 preview must descend from ${BASE}`);
+  fail(`0.5.10 preview must descend from ${BASE}`);
 }
 
 const protectedPaths = [
   "docs/0.5.8",
+  "docs/0.5.9",
   "docs/PUBLICATION_MANIFEST_0.5.8.md",
   "docs/RELEASE_NOTES_0.5.8.md",
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
-if (protectedChanges.length > 0) fail(`0.5.9 development rewrote immutable 0.5.8 history: ${protectedChanges.join(", ")}`);
+if (protectedChanges.length > 0) fail(`0.5.10 development rewrote immutable 0.5.8 history: ${protectedChanges.join(", ")}`);
 
-if (pins.productVersion !== "0.5.9" || pins.dsh !== "0.1.2-alpha.2") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.9/0.1.2-alpha.2`);
+if (pins.productVersion !== "0.5.10" || pins.dsh !== "0.1.2-rc.1") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.10/0.1.2-rc.1`);
 }
-if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.9 must not activate the historical alpha.1 source resolver");
+if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.10 must not activate the historical alpha.1 source resolver");
 
-const snapshotPath = join(ROOT, "docs/0.5.9/DSH_NPM_COHORT.json");
+const snapshotPath = join(ROOT, "docs/0.5.10/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
 const snapshot = JSON.parse(snapshotBytes.toString("utf8"));
 try {
@@ -54,17 +55,17 @@ if (snapshotSha256 !== pins.dshSource.closureManifestSha256) {
   fail(`DSH npm cohort digest ${snapshotSha256} != release pin ${pins.dshSource.closureManifestSha256}`);
 }
 
-const packagedBytes = readJson("docs/0.5.9/DSH_ALPHA_PACKAGED_BYTES.json");
+const packagedBytes = readJson("docs/0.5.10/DSH_ALPHA_PACKAGED_BYTES.json");
 if (
   packagedBytes.schema !== 2 ||
   packagedBytes.dsh !== pins.dsh ||
   packagedBytes.mode !== "official-npm-cohort-no-source-patch" ||
   packagedBytes.source?.tag !== pins.dshSource.tag ||
   packagedBytes.source?.commit !== pins.dshSource.commit ||
-  packagedBytes.source?.tree !== "64ccbfa8e0caa4711cd4a75717ef9e022657961b" ||
-  packagedBytes.source?.cohortManifest !== "docs/0.5.9/DSH_NPM_COHORT.json"
+  packagedBytes.source?.tree !== "27ab636bb3d77e698f5637e518db44ae1f61e262" ||
+  packagedBytes.source?.cohortManifest !== "docs/0.5.10/DSH_NPM_COHORT.json"
 ) {
-  fail("DSH packaged-byte policy identity is not the fixed alpha.2 source and npm cohort");
+  fail("DSH packaged-byte policy identity is not the fixed rc.1 source and npm cohort");
 }
 const cohortByName = new Map(snapshot.packages.map((entry) => [entry.name, entry]));
 for (const row of packagedBytes.officialBytes ?? []) {
@@ -82,7 +83,7 @@ for (const row of packagedBytes.officialBytes ?? []) {
   }
   const target = join(ROOT, row.relative);
   if (!existsSync(target)) {
-    fail(`packaged byte ${row.id} is missing from the installed alpha.2 graph`);
+    fail(`packaged byte ${row.id} is missing from the installed rc.1 graph`);
     continue;
   }
   const actual = createHash("sha256").update(readFileSync(target)).digest("hex");
@@ -99,15 +100,16 @@ for (const asset of packagedBytes.brandAssets ?? []) {
 }
 
 const lock = readFileSync(join(ROOT, "pnpm-lock.yaml"), "utf8");
+try { verifyCohortLock(snapshot, lock); } catch (error) { fail(error.message); }
 for (const forbidden of ["0.1.2-alpha.1", "penglai-dsh-source", "@deepseek-ai/dsh-client-runtime", "@deepseek-ai/cordis@4.0.1"]) {
   if (lock.includes(forbidden)) fail(`active lock contains forbidden ${forbidden}`);
 }
 for (const required of [
-  "@deepseek-ai/dsh@0.1.2-alpha.2",
-  "@deepseek-ai/dsh-client-ui-schedule@0.1.2-alpha.2",
-  "@deepseek-ai/dsh-deque@0.1.2-alpha.2",
-  "@deepseek-ai/dsh-util-time@0.1.2-alpha.2",
-  "@deepseek-ai/dsh-util-values@0.1.2-alpha.2",
+  "@deepseek-ai/dsh@0.1.2-rc.1",
+  "@deepseek-ai/dsh-client-ui-schedule@0.1.2-rc.1",
+  "@deepseek-ai/dsh-deque@0.1.2-rc.1",
+  "@deepseek-ai/dsh-util-time@0.1.2-rc.1",
+  "@deepseek-ai/dsh-util-values@0.1.2-rc.1",
 ]) {
   if (!lock.includes(required)) fail(`active lock is missing ${required}`);
 }
@@ -124,11 +126,11 @@ for (const spec of ageExcludes) {
   if (!cohort.has(spec)) fail(`minimum release age exclusion is outside the verified cohort: ${spec}`);
 }
 
-const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-059-manifests.mjs")], {
+const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-release-manifests.mjs")], {
   cwd: ROOT,
   encoding: "utf8",
 });
-if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.9 manifest gate failed");
+if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.10 manifest gate failed");
 
 for (const relative of [
   "packages/dsh-bridge/src/index.ts",
@@ -137,16 +139,16 @@ for (const relative of [
   "packages/plugin-registry/src/catalog-schema.ts",
 ]) {
   const source = readFileSync(join(ROOT, relative), "utf8");
-  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.2-alpha.2")) fail(`${relative} is not on alpha.2`);
+  if (source.includes("0.1.2-alpha.1") || !source.includes("0.1.2-rc.1")) fail(`${relative} is not on rc.1`);
 }
 
 if (failures.length > 0) {
-  console.error(JSON.stringify({ verdict: "FAIL", command: "verify:059-preview", failures }, null, 2));
+  console.error(JSON.stringify({ verdict: "FAIL", command: "verify:release-adaptation", failures }, null, 2));
   process.exit(1);
 }
 console.log(JSON.stringify({
   verdict: "PASS",
-  command: "verify:059-preview",
+  command: "verify:release-adaptation",
   productVersion: pins.productVersion,
   dsh: pins.dsh,
   cohortPackages: snapshot.packages.length,

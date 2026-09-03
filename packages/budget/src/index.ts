@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { Context } from "@deepseek-ai/cordis";
-import { isPenglaiRemoteContext, PenglaiError, RELEASE } from "@penglai/contracts";
+import { isPenglaiRemoteContext, PenglaiError, RELEASE, snapshotOfficialSession } from "@penglai/contracts";
 import { BudgetLedger, type BudgetIdentity, type BudgetScope } from "./ledger.js";
 import { BudgetGate, type BudgetLimit, type TokenMeterFact } from "./service.js";
 import { createBudgetSettingsApi, PenglaiBudgetRemote } from "./remote.js";
@@ -24,7 +24,7 @@ export function createBudgetService(
 
 interface AgentLike {
   id: string;
-  session: { events?: readonly unknown[] };
+  session: { snapshotEvents?: () => readonly unknown[] };
   options?: { provider?: string; model?: string; maxTokens?: number };
 }
 
@@ -164,7 +164,7 @@ export function createProductionBudgetService(ctx: CordisContextLike, ledger: Bu
   });
 
   const reconcileClosedTurns = (agent: AgentLike) => {
-    for (const value of agent.session.events ?? []) {
+    for (const value of snapshotOfficialSession(agent.session)) {
       const event = asRecord(value);
       const data = asRecord(event?.data);
       if (event?.type === "turn/end" && typeof data?.turn === "number") ledger.releaseTurn(agent.id, data.turn);

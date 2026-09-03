@@ -48,7 +48,7 @@ test("R58-IM-001 registry lists exactly eight supported connectors", () => {
 test("unsupported legacy bot rows stay stored but cannot re-enter the active registry", () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [] },
+    host: { version: "0.1.2-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   });
   const bots = new ImBotStore(rt.store.db);
   rt.store.db
@@ -76,7 +76,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
   const rt = createRuntime({
     dbPath: join(dir, "im.sqlite"),
     host: {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -103,7 +103,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
     { status: "idle", setupRequired: true } as never,
     vault,
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.2-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   const slackCreds: Record<string, { botToken: string; appToken?: string }> = {};
   host.attachSecretHydrator((id, serialized) => {
@@ -142,7 +142,7 @@ test("R57-IM-002 host begins a real Slack token connection without QR", async ()
 test("sidecar credential writes require an owner receipt when the broker is attached", async () => {
   const rt = createRuntime({
     dbPath: ":memory:",
-    host: { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [] },
+    host: { version: "0.1.2-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   });
   const host = new PenglaiImHost(
     rt.store,
@@ -151,7 +151,7 @@ test("sidecar credential writes require an owner receipt when the broker is atta
     { status: "idle", setupRequired: true } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.2-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   const root = mkdtempSync(join(tmpdir(), "penglai-im-secret-owner-"));
   host.attachOwner(new OwnerApprovalBroker(root, { dialog: async () => "approved" }));
@@ -167,7 +167,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
   const rt = createRuntime({
     dbPath: ":memory:",
     host: {
-      version: "0.1.2-alpha.2",
+      version: "0.1.2-rc.1",
       getAgent: () => undefined,
       listWorkspaces: () => [{ id: "w", title: "W", sessionIds: ["s1"] }],
     },
@@ -179,7 +179,7 @@ test("R56-IM-007 sidecar bots do not bump the v11 IM schema or get misread as We
     { status: "idle", setupRequired: true } as never,
     new CredentialsServiceVault(undefined),
     { running: false, start: async () => undefined, stop: () => undefined } as never,
-    { version: "0.1.2-alpha.2", getAgent: () => undefined, listWorkspaces: () => [] },
+    { version: "0.1.2-rc.1", getAgent: () => undefined, listWorkspaces: () => [] },
   );
   host.createBot({ channelId: "slack", displayName: "docs" });
   const overview = await host.getOverview();
