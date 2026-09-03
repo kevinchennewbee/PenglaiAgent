@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { observeFreshInstalledBoot } from "./installed-readiness.mjs";
 import { credentialFreeInstalledChecks, credentialFreeInstalledPass } from "./installed-boundary.mjs";
 import {
   isControlledWindowsInstallerFixture,
@@ -189,3 +190,49 @@ test(
     if (child.exitCode === null) await new Promise((resolve) => child.once("exit", resolve));
   },
 );
+
+
+test("an exited upgrade process cannot reuse the previous application's readiness", async () => {
+  const profile = mkdtempSync(join(tmpdir(), "penglai-upgrade-readiness-"));
+  mkdirSync(join(profile, "plugins"));
+  writeFileSync(join(profile, "gateway.port"), "1234");
+  writeFileSync(join(profile, "plugins", "inventory-snapshot.json"), "{}");
+  writeFileSync(join(profile, "owner.txt"), "preserved");
+  try {
+    const result = await observeFreshInstalledBoot(profile, () => ({
+      child: spawn(process.execPath, ["-e", "process.exit(1)"], { stdio: "ignore" }),
+    }), 2_000);
+    assert.equal(result.freshReadiness, false);
+    assert.equal(result.gateway, false);
+    assert.equal(result.inventory, false);
+    assert.equal(readFileSync(join(profile, "owner.txt"), "utf8"), "preserved");
+  } finally { rmSync(profile, { recursive: true, force: true }); }
+});
+
+test("upgrade readiness requires new publications from the running process", async () => {
+  const profile = mkdtempSync(join(tmpdir(), "penglai-upgrade-ready-"));
+  mkdirSync(join(profile, "plugins"));
+  let child;
+  try {
+    const result = await observeFreshInstalledBoot(profile, () => {
+      child = spawn(process.execPath, ["-e", `
+        const fs = require('node:fs'); const path = require('node:path');
+        const root = process.argv[1];
+        setTimeout(() => {
+          fs.writeFileSync(path.join(root, 'gateway.port'), '1234');
+          fs.writeFileSync(path.join(root, 'plugins/inventory-snapshot.json'), '{}');
+        }, 100);
+        setInterval(() => {}, 1000);
+      `, profile], { stdio: "ignore" });
+      return { child };
+    }, 3_000);
+    assert.equal(result.freshReadiness, true);
+    assert.equal(child.exitCode, null);
+  } finally {
+    if (child && child.exitCode === null) {
+      const closed = new Promise((resolve) => child.once("close", resolve));
+      child.kill(); await closed;
+    }
+    rmSync(profile, { recursive: true, force: true });
+  }
+});

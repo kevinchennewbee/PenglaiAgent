@@ -1,4 +1,4 @@
-# Penglai 0.5.7 product contract
+# Penglai 0.5.10 product contract
 
 ## English
 
@@ -11,8 +11,8 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.7 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
-`0.1.1-rc.2`. A fresh user brings a provider credential, selects an official
+Version 0.5.10 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+`0.1.2-rc.1`. A fresh user brings a provider credential, selects an official
 model and Workspace, receives a real first DSH reply, and then uses the official
 DSH Web interface.
 
@@ -20,9 +20,9 @@ DSH Web interface.
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.7_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.7_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.7_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.10_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.10_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.10_windows_x64_setup.exe` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
@@ -36,7 +36,7 @@ and installed test on the matching native platform.
 | Plugin Center | Active | Shows real DSH loader state and signed catalog transactions |
 | Penglai Office | Active | Inspect, create, plan edits, preview, commit, export/return, and undo DOCX/XLSX/PPTX/PDF |
 | Penglai Memory | Active | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and graph views |
-| Mobile Messaging | Disabled | Live Weixin and Feishu adapters only |
+| Mobile Messaging | Disabled | Eight adapters; account connectivity is reported only with actual evidence |
 | Speech Recognition | Disabled | Local SenseVoice transcription after explicit model installation and microphone action |
 | Voice Generation | Disabled | Local MOSS-TTS preview, conversation Read, and supported channel audio |
 | Companion | Disabled | Opt-in scheduled contact with quiet hours, budget, and an exact IM route |
@@ -91,7 +91,7 @@ Write, export, return, and undo approval binds the exact job, source/result
 digest, destination, Workspace, Session, and revision. Approval completes only
 after the mutation or delivery succeeds.
 
-Official DSH rc.2 conversation Turns support text and images, not generic file
+Official DSH 0.1.2-rc.1 conversation Turns support text and images, not generic file
 blocks. Penglai therefore does not claim ordinary composer DOCX/XLSX/PPTX/PDF
 attachments. Official images continue through the official image store. Files
 received through live IM or selected through Office use the scoped artifact
@@ -103,10 +103,8 @@ service without DOM injection or a second conversation engine.
 commands, causal routing, persistence, recovery, outbox, and adapter lifecycle.
 Adapters cannot call a parallel agent or guess the current Workspace/Session.
 
-Eight platforms have connection entry points in 0.5.7. Slack, Telegram, and
-Discord use official token/manifest flows and must not fake QR. The WhatsApp
-community runtime and its GPL transitive dependency are not distributed in
-0.5.7; its compatibility card has no connection action. Binding, rebinding,
+Eight platforms have connection entry points in 0.5.10. Slack, Telegram, and
+Discord use official token/manifest flows and must not fake QR. WhatsApp is not displayed, supported, planned, or bundled in 0.5.10. Binding, rebinding,
 and removal require an Owner approval bound to the exact channel, account,
 peer, Workspace, and Session.
 
@@ -165,10 +163,13 @@ macOS is ad-hoc signed and not notarized. Windows has no Authenticode.
 Gatekeeper or SmartScreen may warn. Penglai Ed25519 signatures protect updater
 and plugin bytes but do not provide Apple or Microsoft publisher identity.
 
-0.5.7 succeeds only when one clean source SHA produces all three native
+0.5.10 succeeds only when one clean source SHA produces all three native
 installers, source/security/privacy gates pass, installed evidence exists on
-each matching runner, the Apple Silicon provider path receives a real first
-Turn, and the immutable ten-asset Release passes public byte-for-byte readback.
+each matching runner, and the immutable ten-asset Release passes public
+byte-for-byte readback. Credential-free gates do not establish an external model
+reply or account delivery. Account-based results are recorded only when executed.
+Normal functional tests apply; a two-hour installed soak is not required or pending.
+See [the current acceptance delta](0.5.10/ACCEPTANCE_DELTA.md).
 
 ## 中文
 
@@ -179,7 +180,7 @@ Agent、模型、工具、审批、Workspace、Session、Turn 和会话 UI。蓬
 首次引导、进程监管、本地数据边界、辅助升级、卸载和经过审核的 DSH 插件，不另造
 Agent、模型网关、Session 存储或聊天页。
 
-0.5.7 固定 DSH `0.1.1-rc.2`，支持 Apple 芯片、Intel Mac 和 Windows x64。
+0.5.10 固定 DSH `0.1.2-rc.1`，支持 Apple 芯片、Intel Mac 和 Windows x64。
 用户自备模型密钥，选择 official 模型和 Workspace，收到第一条真实 DSH 回复后进入
 official DSH Web。
 
@@ -211,15 +212,14 @@ official Agent 沿用当前供应商和模型，输出由 Host 封闭校验。�
 symlink/device/directory、加密/宏、可执行文件、嵌套压缩和 scope 都由 Host 校验。
 
 写入、导出、回传、撤销确认会绑定 job、摘要、目标、Workspace、Session 和 revision，
-只有真实动作成功后才完成。official DSH rc.2 会话 Turn 只支持文字和图片，因此 0.5.7
+只有真实动作成功后才完成。official DSH 0.1.2-rc.1 会话 Turn 只支持文字和图片，因此 0.5.10
 不宣称输入框能直接发普通 DOCX/XLSX/PPTX/PDF。official 图片不变；IM 收到的文件或
 蓬莱办公选择的 Workspace 文件走 artifact service，不做 DOM hack 或第二会话引擎。
 
 ### 5. IM 与语音
 
-`@penglai/im` 是唯一消息插件。0.5.7 提供八个平台连接入口。Slack、Telegram、
-Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 社区协议 runtime 及其 GPL
-传递依赖不随 0.5.7 分发；兼容性说明卡没有连接动作。
+`@penglai/im` 是唯一消息插件。0.5.10 提供八个平台连接入口。Slack、Telegram、
+Discord 走官方 Token/Manifest，禁止伪装扫码。WhatsApp 不展示、不支持、不列为规划，也不捆绑运行时。
 
 ASR/TTS 代码随包，大模型权重只在用户明确操作后下载。麦克风必须由当前用户手势触发，
 只申请 audio；相机、视频、蓝牙和无关 capture 权限不进入产品声明。设置页试听与会话
@@ -244,6 +244,7 @@ patch 之后硬性禁用该行，因此 owned DSH 进程不会创建 SDK provide
 0.5.0 仍需手动覆盖。默认卸载保留用户数据，完整删除必须按精确类别确认，不能删除
 Workspace、授权源、home/root、旧代数据或越界链接。
 
-macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.7 只有在同一干净
-源码 SHA 的三端原生包、三端安装证据、真实模型 Turn、隐私门禁和不可变十资产公网
-回读全部成立时，才算发布完成。
+macOS 为 ad-hoc 签名且未公证；Windows 没有 Authenticode。0.5.10 只有在同一干净
+源码 SHA 的三端原生包、三端安装证据、隐私门禁和不可变十资产公网回读全部成立，
+且当前 README 与双语官网同步后，才算完成正常发布。无凭据测试不能证明真实模型
+Turn 或账号消息送达；账号验证只记录实际执行结果。两小时测试不运行，也不是待办。
