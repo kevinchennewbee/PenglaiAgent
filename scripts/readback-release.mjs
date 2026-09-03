@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { publicationAssetSeal } from "./lib/publication-seal.mjs";
+import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
@@ -20,7 +21,7 @@ const candidate = draft ? requireCleanCandidateSource() : undefined;
 if (draft && (!candidate?.ok || !candidate.frozen)) {
   finish("FAIL", { command, reason: "draft readback requires clean exact origin/main" });
 }
-const api = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
+const api = `https://api.github.com/${githubReleaseEndpoint(repo, { draft, tag, releaseId: process.env.PENGLAI_RELEASE_ID })}`;
 const githubToken = (process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN)?.trim();
 const githubHeaders = {
   Accept: "application/vnd.github+json",

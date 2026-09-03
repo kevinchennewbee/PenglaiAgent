@@ -22,6 +22,7 @@ import { pathToFileURL } from "node:url";
 import { ROOT } from "./lib/repo.mjs";
 import { PRODUCT_VERSION, UPDATER_SEQUENCE } from "./lib/product.mjs";
 import { requireCleanCandidateSource } from "./lib/candidate-source.mjs";
+import { githubReleaseEndpoint } from "./lib/github-release.mjs";
 
 function fail(message) {
   console.error(`assemble-release FAIL: ${message}`);
@@ -158,7 +159,7 @@ if (releaseJsonPath) {
 } else {
   try {
     release = JSON.parse(
-      execFileSync("gh", ["api", `repos/${contract.publication.repo}/releases/tags/${tag}`], {
+      execFileSync("gh", ["api", githubReleaseEndpoint(contract.publication.repo, { draft: true, tag, releaseId: process.env.PENGLAI_RELEASE_ID })], {
         cwd: ROOT,
         encoding: "utf8",
         maxBuffer: 8 * 1024 * 1024,
