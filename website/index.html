@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>蓬莱 0.5.8 | 把 DeepSeek Harness 装进你的电脑</title>
-  <meta name="description" content="蓬莱 0.5.8 基于固定的 DeepSeek Harness 0.1.2-alpha.1 官方源码，完成插件适配、桌面生命周期修复与三端原生发行。">
-  <meta property="og:title" content="蓬莱 0.5.8">
+  <title>蓬莱 0.5.10 | 把 DeepSeek Harness 装进你的电脑</title>
+  <meta name="description" content="蓬莱 0.5.10 基于固定的 DeepSeek Harness 0.1.2-rc.1 官方源码，完成插件适配、桌面生命周期修复与三端原生发行。">
+  <meta property="og:title" content="蓬莱 0.5.10">
   <meta property="og:description" content="DeepSeek Harness，装好就能用。办公、记忆、手机消息和本地语音都在一个桌面发行版里。">
   <meta property="og:image" content="https://kevinchennewbee.github.io/PenglaiAgent/shots/0.5.5/plugin-center.png">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
@@ -16,7 +16,7 @@
   <header class="topbar">
     <a class="brand" href="#top"><span class="seal">蓬</span><span>蓬莱 <small>PENGLAI</small></span></a>
     <nav aria-label="主导航">
-      <a href="#new">0.5.8</a>
+      <a href="#new">0.5.10</a>
       <a href="#inside">内置能力</a>
       <a href="#story">缘起</a>
       <a href="#download">下载</a>
@@ -30,11 +30,11 @@
       <img class="hero-art" src="./shots/banner-v1.png" alt="云海中的蓬莱仙山">
       <div class="hero-shade"></div>
       <div class="hero-copy">
-        <p class="eyebrow">Penglai 0.5.8 · DeepSeek Harness 0.1.2-alpha.1</p>
+        <p class="eyebrow">Penglai 0.5.10 · DeepSeek Harness 0.1.2-rc.1</p>
         <h1>不是另一个 Agent。<br>是把好用的开源 Agent，真正装进电脑。</h1>
         <p class="lead">蓬莱把官方 DeepSeek Harness、Node、Electron、首次引导、更新、卸载和一组实用 DSH 插件放进一个桌面客户端。你不用先学终端，也不用把日常交给一个新的云账号。</p>
         <div class="actions">
-          <a class="button primary" href="#download">下载 0.5.8</a>
+          <a class="button primary" href="#download">下载 0.5.10</a>
           <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent">查看源代码</a>
         </div>
         <p class="quiet">MIT 开源 · 本地优先 · Apple Silicon / Intel Mac / Windows x64</p>
@@ -46,12 +46,12 @@
         <p class="eyebrow">这次真正变了什么</p>
         <h2>DSH 还是唯一核心，蓬莱把它变成了一个完整产品。</h2>
       </div>
-      <p>模型、工具、Workspace、Session、Turn 和会话界面都归官方 DSH。0.5.8 固定到官方源码标签 <code>dsh-v0.1.2-alpha.1</code>，无需等待或发布非官方 npm 包。蓬莱完成全部第一方插件适配，修复进程退出与重启、Windows 子进程认证转发、产品标题和首次引导归属；三端安装验证还明确检查不显示 DSH 内测通知，也不出现第二套密钥引导。</p>
+      <p>模型、工具、Workspace、Session、Turn 和会话界面都归官方 DSH。0.5.10 使用精确固定的官方 <code>0.1.2-rc.1</code> npm 包；消息恢复、预算结算和主动陪伴回放适配官方 Session 快照接口。从 0.5.8 和 0.5.9 升级时准备独立数据代际，保留旧版用于回退。三端原生安装包验证启动、无凭据引导、内置插件、升级和卸载。</p>
     </section>
 
     <figure class="feature-shot wide-shot">
       <img src="./shots/0.5.5/plugin-center.png" alt="真实安装的蓬莱 0.5.5 插件中心">
-      <figcaption>0.5.5 安装版截图作为界面参考；0.5.8 的原生安装与公开字节证据记录在发布清单中。</figcaption>
+      <figcaption>0.5.5 安装版截图作为界面参考；0.5.10 的原生安装与公开字节证据记录在发布清单中。</figcaption>
     </figure>
 
     <section class="section" id="inside">
@@ -60,7 +60,7 @@
       <div class="cards">
         <article><span class="state on">默认启用</span><h3>蓬莱办公</h3><p>读取、创建、修改、预览和保存 DOCX、XLSX、PPTX 与 PDF。写入前有计划和确认，PDF 自带中文字体，不要求用户安装 LibreOffice。</p></article>
         <article><span class="state on">默认启用</span><h3>蓬莱记忆</h3><p>安全的项目事实会自动整理到当前 Workspace；整理候选会调用你选择的模型供应商，记录与召回留在本机。个人事实仍需明确保存，记忆绝不会跨 Workspace 召回。</p></article>
-        <article><span class="state">按需启用</span><h3>蓬莱消息连接</h3><p>微信、飞书、钉钉、企业微信、QQ、Slack、Telegram 与 Discord 统一进入 <code>@penglai/im</code>，按平台使用扫码、设备注册或官方 Token。WhatsApp 在 0.5.8 中不展示、不支持，也不捆绑运行时。</p></article>
+        <article><span class="state">按需启用</span><h3>蓬莱消息连接</h3><p>微信、飞书、钉钉、企业微信、QQ、Slack、Telegram 与 Discord 统一进入 <code>@penglai/im</code>，按平台使用扫码、设备注册或官方 Token。WhatsApp 在 0.5.10 中不展示、不支持，也不捆绑运行时。</p></article>
         <article><span class="state">按需启用</span><h3>本地语音</h3><p>SenseVoice 负责语音识别，MOSS-TTS 负责语音生成。会话 Read 朗读原文，不负责翻译；试听与 Read 都可再次点击停止。插件代码随包，较大的模型权重会在启用时说明后再下载。</p></article>
         <article><span class="state">按需启用</span><h3>主动陪伴</h3><p>只有你主动开启后才会定时联系，并受安静时间、每日次数和指定消息渠道约束。默认不会擅自运行。</p></article>
         <article><span class="state">持续更新</span><h3>签名插件中心</h3><p>插件列表来自不可变 GitHub Release。兼容的新插件可以通过签名目录加入，不必只为更新一张列表重发桌面版本。</p></article>
@@ -98,21 +98,21 @@
         <p><strong>没有蓬莱账号或蓬莱运营的遥测后端。</strong>official DSH 自带 session-telemetry adapter 和一个休眠的 DeepSeek OTLP 地址。蓬莱会在所有 profile patch 之后硬性禁用该行，因此 owned DSH 不会创建 SDK provider 或上传管线。没有云端记忆同步；模型调用仍会把本次任务需要的内容发给你选择的模型供应商。</p>
         <p><strong>macOS 未公证。</strong>安装包是 ad-hoc 签名；Windows 没有 Authenticode。Gatekeeper 或 SmartScreen 可能提醒。</p>
         <p><strong>插件不是沙箱。</strong>签名、哈希、权限清单和回滚保护的是分发链路，但 DSH 插件仍与本地 DSH 共享进程权限。</p>
-        <p><strong>证据分层。</strong>源码、打包、原生安装和公开字节分别验证。真实 Owner 外部账号连接与两小时安装版稳定运行仍标记为补充性的 <code>LIVE_NOT_RUN</code>，本次发布不把它们说成已经完成。</p>
+        <p><strong>证据分层。</strong>源码、打包、原生安装和公开字节分别验证。无凭据检查不能证明真实模型回复或账号消息送达；这些旅程仅记录实际执行的结果。</p>
       </div>
     </section>
 
     <section class="download section" id="download">
-      <p class="eyebrow">Penglai 0.5.8</p>
+      <p class="eyebrow">Penglai 0.5.10</p>
       <h2>选择你的电脑。</h2>
       <div class="download-grid">
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_macos_aarch64.dmg"><strong>macOS · Apple 芯片</strong><span>GitHub · 448.3 MiB · M1 / M2 / M3 / M4 / M5</span><code>cc08a1820f92be4fe5a851a4cfd33f02ab48035c8e98f72feacb2fd074a9b992</code></a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 393.6 MiB · x86_64 Mac</span><code>14d0c4edf572c134d9d71e6dea69a4bcf53b46cf31ed267fe8472c2f1a4c1b00</code></a>
-        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.8/Penglai_0.5.8_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 343.2 MiB · 64 位安装器</span><code>0a238bec35ea5117619a5112566ba6985f2194873eb60ef7110d1ca21bc1bec5</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg"><strong>macOS · Apple 芯片</strong><span>GitHub · 449.6 MiB · M1 / M2 / M3 / M4 / M5</span><code>0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg"><strong>macOS · Intel</strong><span>GitHub · 388.2 MiB · x86_64 Mac</span><code>6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea</code></a>
+        <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe"><strong>Windows · x64</strong><span>GitHub · 341.0 MiB · 64 位安装器</span><code>46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484</code></a>
       </div>
-      <p class="quiet">0.5.8 当前只以不可变 GitHub Release 为权威公开下载源；北京镜像尚未发布 0.5.8。三个安装包来自源码 <code>80c8ee81de7a683a1d366bdba0f354826df0a914</code>。完整 SHA256SUMS、778 组件 SBOM、第三方声明与签名元数据同页提供；更新不会静默执行。</p>
+      <p class="quiet">0.5.10 当前只以不可变 GitHub Release 为权威公开下载源；北京镜像尚未发布 0.5.10。三个安装包来自源码 <code>c5c0bcb022c5ae47cca242deb27fe1d30444c41d</code>。完整 SHA256SUMS、1253 组件 SBOM、第三方声明与签名元数据同页提供；更新不会静默执行。</p>
       <div class="actions centered">
-        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.8">中英文发布说明</a>
+        <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">中英文发布说明</a>
         <a class="button ghost" href="https://github.com/kevinchennewbee/PenglaiAgent/blob/main/SECURITY.md">安全说明</a>
       </div>
     </section>
