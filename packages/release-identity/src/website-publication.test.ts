@@ -147,8 +147,7 @@ test("website workflow grants write only to the main-gated deployment job", () =
   assert.match(workflow, /needs: \[verify, deploy\]/);
   assert.match(workflow, /node scripts\/readback-website\.mjs --directory verified-site/);
   const readback = readFileSync(join(root, "scripts/readback-website.mjs"), "utf8");
-  assert.match(readback, /https:\/\/penglai\.pages\.dev\//);
-  assert.match(readback, /https:\/\/kevinchennewbee\.github\.io\/PenglaiAgent\//);
+  assert.ok(readback.includes('const origins = ["https://penglai.pages.dev/", "https://kevinchennewbee.github.io/PenglaiAgent/"];'));
   assert.match(readback, /digest\(bytes\) !== file\.sha256/);
   assert.match(readback, /html\.includes\(releaseSha\)/);
 });
