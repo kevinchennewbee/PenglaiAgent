@@ -9,8 +9,8 @@
 <p align="center"><strong>DeepSeek Harness, ready to live on a personal computer.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.9"><img src="https://img.shields.io/badge/release-0.5.9-0f766e?style=flat-square" alt="Penglai 0.5.9 release"></a>
-  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.2--alpha.2-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.2-alpha.2"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10"><img src="https://img.shields.io/badge/release-0.5.10-0f766e?style=flat-square" alt="Penglai 0.5.10 release"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.2--rc.1-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.2-rc.1"></a>
   <img src="https://img.shields.io/badge/targets-Apple%20Silicon%20%7C%20Intel%20Mac%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Apple Silicon, Intel Mac, and Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
@@ -19,24 +19,26 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.9">Download 0.5.9</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.9">0.5.9 notes</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">Download 0.5.10</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">0.5.10 notes</a> ·
   <a href="AGENTS.md">For AI contributors</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> Penglai 0.5.9 is an immutable public Release built from
-> `a4c0bec50cb0df26281207e1a19b444b50317604`. It uses official DSH source tag
-> `dsh-v0.1.2-alpha.2` at `0a53fb55bea101816fa226bb964ae2bed71c343b`, rebuilt as
-> a reproducible local package closure. No unofficial npm publication is used.
-> Native install, upgrade, uninstall, public byte, and SHA-256 checks passed. macOS remains
-> ad-hoc signed and not notarized; Windows has no Authenticode.
+> Penglai 0.5.10 is an immutable public release built from
+> `c5c0bcb022c5ae47cca242deb27fe1d30444c41d`. It consumes official DSH `0.1.2-rc.1` npm packages,
+> reconciled to tag `dsh-v0.1.2-rc.1` at
+> `a66e4702047846cdaa10c66c9d3df3951f5ea70d`. All 254 package archives,
+> registry signatures and pinned source manifests were verified.
+> The release includes three native installers and all seven integrity and license files.
+> macOS is ad-hoc signed and not notarized; Windows has no Authenticode.
+> [Release notes](docs/RELEASE_NOTES_0.5.10.md) · [Verified publication](docs/PUBLICATION_MANIFEST_0.5.10.md)
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
   <img src=".github/assets/0.5.5/memory.png" width="49%" alt="Penglai Memory in the installed DSH settings">
 </p>
-<p align="center"><sub>Installed 0.5.5 screenshots are retained only as UI references. The 0.5.9 native-install evidence is recorded in its successful native run; these older images are not presented as 0.5.9 screenshots.</sub></p>
+<p align="center"><sub>Installed 0.5.5 screenshots are retained only as UI references. The 0.5.10 native-install evidence is recorded in its successful native run; these older images are not presented as 0.5.10 screenshots.</sub></p>
 
 <a id="english"></a>
 
@@ -57,19 +59,19 @@ actually usable: packaging, process supervision, onboarding, local paths,
 upgrades, uninstall, product identity, and plugin distribution. There is no
 second Penglai agent hiding beside DSH and no replacement chat page.
 
-Version 0.5.9 moves the distribution to the fixed official DSH
-`0.1.2-alpha.2` source and completes the related plugin, remote-error, session,
-settings-generation, installed-runtime, and Windows compatibility work. The
-installed product is checked on all three native targets, including the first
-official message, upgrade from 0.5.8, and default uninstall.
+Version 0.5.10 adapts message recovery, budget reconciliation and Companion
+replay to the official Session snapshot API. Upgrades from 0.5.8 and 0.5.9 use
+an isolated rc.1 DSH Home and preserve the previous generation for rollback.
+All three native installers pass credential-free onboarding and plugin checks,
+both upgrade paths, and default uninstall with user data preserved.
 
-## What ships in 0.5.9
+## What ships in 0.5.10
 
 | Product surface | Fresh install | What it does |
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF |
 | Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
-| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.9 |
+| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.10 |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
@@ -159,7 +161,7 @@ image store. Office files and audio use scoped opaque `artifact:<uuid>`
 references. A mocked webhook is never live evidence.
 
 Slack, Telegram, and Discord use official token or manifest flows and do not
-fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is not a 0.5.9
+fake QR. QQ is official Bot QR, not personal QQ login. WhatsApp is not a 0.5.10
 product surface: it is not displayed, supported, planned, or bundled. Historical
 0.5.7 release bytes and documentation remain immutable.
 
@@ -178,8 +180,8 @@ It verifies the catalog signature, archive identity, SHA-256, DSH compatibility,
 platform, and declared permissions before staging a package. Activation is a
 separate step and failed activation rolls back.
 
-This is the reason a good DSH `0.1.2-alpha.2`-compatible plugin can be reviewed and added later
-without publishing Penglai 0.5.9 merely to change a list. The catalog is still
+This is the reason a good DSH `0.1.2-rc.1`-compatible plugin can be reviewed and added later
+without publishing Penglai 0.5.10 merely to change a list. The catalog is still
 fail-closed: arbitrary npm names, Git repositories, and download URLs are not
 accepted. A DSH plugin shares the local DSH process permissions; the permission
 list explains review and consent, but it is not an operating-system sandbox.
@@ -196,16 +198,17 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The immutable [0.5.9 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.9)
-contains exactly three native installers. All were built from the same source SHA
-and passed [native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33470301766)
+The immutable [0.5.10 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10)
+contains exactly ten files: three native installers and seven integrity and license
+files. All installers were built from the same source SHA
+and passed [native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33775824578)
 and public download readback:
 
 | Platform | Release asset | Bytes | SHA-256 |
 | --- | --- | ---: | --- |
-| Apple Silicon, macOS 13+ | [`Penglai_0.5.9_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_macos_aarch64.dmg) | 466,289,082 | `f592fc85292ae3a7e238be5cb2ff6a41ebd5c0337406ac34e69c963d64ec319b` |
-| Intel Mac | [`Penglai_0.5.9_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_macos_x64.dmg) | 408,295,625 | `959d7546495d11fd3f938a7fa9854518a0f6cbcf92951238bbf0589a4d469907` |
-| Windows x64 | [`Penglai_0.5.9_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_windows_x64_setup.exe) | 357,561,673 | `a26e31b3d27c8ed55e76264ea516779313895f080079f5d64ff4134ef5e48679` |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.10_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg) | 471,410,669 | `0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5` |
+| Intel Mac | [`Penglai_0.5.10_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg) | 407,030,741 | `6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea` |
+| Windows x64 | [`Penglai_0.5.10_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe) | 357,546,167 | `46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484` |
 
 Use the same-platform installer as a manual overlay when upgrading. There is no
 silent update. External Workspaces and the `Penglai/0.5` data generation are
@@ -228,9 +231,9 @@ preserved.
   catalog entries and read their permissions.
 - Source tests, packaged tests, native installed tests, and live external-account
   tests are reported separately. One never substitutes for another.
-- Owner-account connector journeys and a two-hour installed soak remain
-  supplemental `LIVE_NOT_RUN` evidence. They are not claimed by this release
-  and do not replace the completed source, native-install, or public-byte gates.
+- External model calls and Owner-account messaging journeys are recorded only
+  when actually run. Credential-free installed checks do not establish a real
+  provider reply or message delivery.
 
 See [Security](SECURITY.md), [Product and data contract](docs/PRODUCT.md),
 [Architecture](docs/ARCHITECTURE.md), and [Plugin Center](docs/PLUGIN_CENTER.md)
@@ -327,17 +330,18 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 事情：打包、进程监管、安装引导、本地目录、升级、卸载、产品身份和插件分发。这里
 没有藏着第二套蓬莱 Agent，也没有另做一张聊天页替代 DSH。
 
-0.5.9 把发行版升级到固定的官方 DSH `0.1.2-alpha.2` 源码，并完成相关插件、
-远端错误、会话、设置生成、安装后运行环境与 Windows 兼容工作。三端安装版均已验证
-首条官方消息、从 0.5.8 升级和默认卸载。
+0.5.10 使用未经修改的官方 DSH `0.1.2-rc.1` npm 包，并让消息恢复、预算结算和
+主动陪伴回放适配官方 Session 快照接口。从 0.5.8 和 0.5.9 升级时使用独立的
+rc.1 数据目录，保留旧代际用于回退。三端安装包均通过无需真实账号的引导和插件
+检查、两条升级路径，以及默认保留用户数据的卸载验证。
 
-## 0.5.9 带来了什么
+## 0.5.10 带来了什么
 
 | 产品功能 | 全新安装 | 能做什么 |
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览和保存 DOCX、XLSX、PPTX、PDF |
 | 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
-| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.9 不展示或支持 WhatsApp |
+| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.10 不展示或支持 WhatsApp |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
@@ -414,7 +418,7 @@ QQ、Slack、Telegram、Discord。文字和受支持的图片、文件、语音�
 图片走 official 图片存储；文件和音频走 `artifact:<uuid>`。
 
 Slack、Telegram、Discord 走官方 Token/Manifest，禁止伪装扫码。QQ 只做官方
-Bot 扫码，不模拟个人号。WhatsApp 不是 0.5.9 的产品能力：不展示、不支持、不列为
+Bot 扫码，不模拟个人号。WhatsApp 不是 0.5.10 的产品能力：不展示、不支持、不列为
 规划，也不捆绑运行时。0.5.7 的历史发布字节与文档保持不可变。
 
 SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识别启用并下载模型后，
@@ -428,8 +432,8 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 读取带版本、不可变的 GitHub Release。安装前会校验目录签名、包身份、SHA-256、DSH
 兼容版本、平台和声明权限。下载与启用是两个阶段，启用失败会回滚。
 
-因此以后审核出一个优秀的 DSH `0.1.2-alpha.2` 兼容插件，可以只发布新一代签名目录，不必为了列表变化
-再打一个 0.5.9 客户端。它仍然是 fail-closed：任意 npm 包名、Git 仓库或下载地址都
+因此以后审核出一个优秀的 DSH `0.1.2-rc.1` 兼容插件，可以只发布新一代签名目录，不必为了列表变化
+再打一个 0.5.10 客户端。它仍然是 fail-closed：任意 npm 包名、Git 仓库或下载地址都
 不会被接受。DSH 插件与本地 DSH 进程共享权限，权限列表用于审核和确认，不是操作
 系统沙箱。
 
@@ -442,16 +446,17 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-不可变的 [0.5.9 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.9)
-固定三个原生安装包。它们来自同一源码提交，并已通过
-[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33470301766)
+不可变的 [0.5.10 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10)
+固定十项附件：三个原生安装包和七项完整性、签名与许可证材料。
+三个安装包来自同一源码提交，并已通过
+[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33775824578)
 和公网下载回读：
 
 | 平台 | 正式文件 | 字节数 | SHA-256 |
 | --- | --- | ---: | --- |
-| Apple Silicon，macOS 13+ | [`Penglai_0.5.9_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_macos_aarch64.dmg) | 466,289,082 | `f592fc85292ae3a7e238be5cb2ff6a41ebd5c0337406ac34e69c963d64ec319b` |
-| Intel Mac | [`Penglai_0.5.9_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_macos_x64.dmg) | 408,295,625 | `959d7546495d11fd3f938a7fa9854518a0f6cbcf92951238bbf0589a4d469907` |
-| Windows x64 | [`Penglai_0.5.9_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.9/Penglai_0.5.9_windows_x64_setup.exe) | 357,561,673 | `a26e31b3d27c8ed55e76264ea516779313895f080079f5d64ff4134ef5e48679` |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.10_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg) | 471,410,669 | `0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5` |
+| Intel Mac | [`Penglai_0.5.10_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg) | 407,030,741 | `6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea` |
+| Windows x64 | [`Penglai_0.5.10_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe) | 357,546,167 | `46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484` |
 
 升级时使用同平台安装包手动覆盖即可。它不会静默升级；外部 Workspace 与
 `Penglai/0.5` 数据代际会保留。
@@ -469,8 +474,8 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 - 蓬莱 Ed25519 签名保护升级和插件字节，但不能代替 Apple 或 Microsoft 发布者身份。
 - 插件和 DSH 在同一本地进程中运行，只应安装经过审核的目录条目并阅读权限。
 - 源码测试、打包测试、原生安装测试、真实外部账号测试分别记录，不能互相冒充。
-- Owner 真实账号连接旅程和两小时安装版稳定运行仍是补充性的 `LIVE_NOT_RUN`
-  证据，本次发布不宣称完成，也不拿它们替代已经通过的源码、原生安装和公开字节门禁。
+- 真实模型调用与 Owner 账号消息旅程仅记录实际执行结果；无凭据安装检查不能证明
+  真实模型回复或消息送达。
 
 完整边界见 [安全说明](SECURITY.md)、[产品与数据契约](docs/PRODUCT.md)、
 [架构](docs/ARCHITECTURE.md) 和 [插件中心](docs/PLUGIN_CENTER.md)。
