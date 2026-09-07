@@ -390,7 +390,9 @@ test("Windows child shutdown kills the process tree so NSIS upgrade is not block
   assert.match(upgrade, /`_\?=\$\{app\}`/);
   const nsis = readFileSync(join(root, "scripts/nsis/Penglai.nsi"), "utf8");
   assert.match(nsis, /\/SD IDOK/);
-  assert.doesNotMatch(nsis, /MessageBox(?![^\n]*\/SD IDOK)/);
+  for (const line of nsis.split(/\r?\n/)) {
+    if (line.includes("MessageBox")) assert.match(line, /\/SD IDOK/);
+  }
 });
 
 test("installed harness shutdown returns only after the child is gone", async (context) => {
