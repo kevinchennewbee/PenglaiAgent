@@ -94,14 +94,46 @@ export function assertNoSpecialFiles(root) {
   }
 }
 
-export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 40 * 1024 * 1024 } = {}) {
+const TRANSIENT_DOWNLOAD_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function delay(ms, sleepImpl) {
+  return sleepImpl(ms);
+}
+
+export function isTransientMnemonDownloadStatus(status) {
+  return TRANSIENT_DOWNLOAD_STATUS.has(Number(status));
+}
+
+export async function downloadHttps(
+  url,
+  dest,
+  {
+    fetchImpl = fetch,
+    maxBytes = 40 * 1024 * 1024,
+    maxAttempts = 5,
+    sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  } = {},
+) {
   let current = url;
+  let attempt = 1;
   for (let hop = 0; hop <= 5; hop += 1) {
     const parsed = new URL(current);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || !HOST_ALLOW.has(parsed.hostname)) {
       throw new Error(`mnemon download host rejected ${parsed.hostname}`);
     }
-    const response = await fetchImpl(current, { redirect: "manual", headers: { "User-Agent": "Penglai/0.5.11 mnemon-fetch" } });
+    let response;
+    try {
+      response = await fetchImpl(current, {
+        redirect: "manual",
+        headers: { "User-Agent": "Penglai/0.5.11 mnemon-fetch" },
+      });
+    } catch (error) {
+      if (attempt >= maxAttempts) throw error;
+      await delay(Math.min(1000 * 2 ** (attempt - 1), 8_000), sleepImpl);
+      attempt += 1;
+      hop -= 1;
+      continue;
+    }
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
       await response.body?.cancel?.().catch(() => undefined);
@@ -109,7 +141,16 @@ export async function downloadHttps(url, dest, { fetchImpl = fetch, maxBytes = 4
       current = new URL(location, current).toString();
       continue;
     }
-    if (!response.ok || !response.body) throw new Error(`download failed ${response.status}`);
+    if (!response.ok || !response.body) {
+      await response.body?.cancel?.().catch(() => undefined);
+      if (!isTransientMnemonDownloadStatus(response.status) || attempt >= maxAttempts) {
+        throw new Error(`download failed ${response.status}`);
+      }
+      await delay(Math.min(1000 * 2 ** (attempt - 1), 8_000), sleepImpl);
+      attempt += 1;
+      hop -= 1;
+      continue;
+    }
     const tmp = `${dest}.${randomBytes(6).toString("hex")}.part`;
     await pipeline(Readable.fromWeb(response.body), createWriteStream(tmp, { mode: 0o600, flags: "wx" }));
     const size = statSync(tmp).size;
