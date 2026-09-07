@@ -13,20 +13,14 @@ Checked on 2026-09-07 against GitHub releases and this worktree.
 | Runner check | `packages/memory/src/engine/runner.ts` requires stdout to include `0.2.4` |
 | Assets | `third_party/sources.lock.json` darwin-aarch64 / darwin-x86_64 / win32-x86_64 |
 
-## Local CLI evidence (not official PASS)
+## Local CLI evidence
 
-On Darwin arm64 this session ran the pinned binary:
+On Darwin arm64 the pinned binary prints `mnemon version 0.2.4`.
 
-```text
-third_party/mnemon/bin/darwin-aarch64/mnemon --version
-mnemon version 0.2.4
-```
-
-`pnpm verify:memory-real` executed remember / search / recall / related / viz /
-forget / status against temporary data dirs, plus a 100k search fixture. The
-gate then finished **INCOMPLETE** with `working tree dirty; official PASS
-forbidden`. That is a functional probe, not Memory-real PASS, and not Windows
-evidence.
+On clean SHA `d7f20c7eeadf6722ab832f5cc3374cb7c5e6f77a`, `pnpm verify:memory-real`
+is official PASS: remember/search/recall/forget, workspace isolation, and the
+exact 100k corpus query. That is darwin-aarch64 Memory-real, not Windows
+special-character paths, old-database copies, or rollback.
 
 ## Successor survey (2026-09-07)
 

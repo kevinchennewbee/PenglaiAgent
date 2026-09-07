@@ -63,14 +63,13 @@ Public `SECURITY.md` and `docs/RELEASE_NOTES_0.5.10.md` stay on 0.5.10.
 
 ## Remaining publication blockers
 
-- Dirty worktree (111 paths). Official Office/Memory PASS, `package:mac` and
-  `verify:clean-clone` refuse this state. Owner `AGENTS.md` /
-  `docs/0.5.7/RELEASE_RUNBOOK.md` must stay out of implementation commits.
-- Packaged closure source `d5f76361…` ≠ this HEAD `10ef5df4…`.
-- No Apple Silicon / Intel Mac / Windows x64 0.5.11 installers from one clean
-  `main` SHA.
+- In-scope source is committed as `d7f20c7eeadf6722ab832f5cc3374cb7c5e6f77a`.
+  Owner `AGENTS.md` / `docs/0.5.7/RELEASE_RUNBOOK.md` stay uncommitted.
+- Darwin-aarch64 local candidate DMG exists for that SHA (ad-hoc, not
+  notarized). Intel Mac and Windows x64 matching-native builds do not.
+- Installed fresh/restart/Back/retry/upgrade/uninstall evidence is unrun.
 - No live model/IM credentials in this session.
-- No commit/push/PR or GitHub Release authorization for 0.5.11.
+- No push/PR or GitHub Release authorization for 0.5.11.
 
 ## 中文
 

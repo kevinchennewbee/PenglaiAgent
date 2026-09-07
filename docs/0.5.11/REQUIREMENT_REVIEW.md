@@ -106,7 +106,7 @@ A source PASS never closes a native, live, or public row.
 | V05 | Structural preview asserts document text | source | — |
 | V06 | format/typecheck/unit/contract/integration/E2E/security/chaos/soak | source | Last captured: unit 905/1 skip |
 | V07 | versions/identity/contracts/deps/licenses/secrets/SBOM/notices/cohort | mixed | closure/profile STALE vs HEAD; clean-clone FAIL on dirty tree |
-| V08 | **Open.** Office/Memory probes ran; official PASS forbidden | functional-probe | Dirty tree; profile STALE; packaging refused; Intel/Windows missing |
+| V08 | Closed on clean SHA `d7f20c7e` (darwin-aarch64) | functional + packaged | Intel Mac and Windows still V09/V10 |
 | V09 | **Open.** No 0.5.11 native builds | — | Needs one clean main SHA on three hosts |
 | V10 | **Open.** No matching-native install lifecycle | — | Depends on V09 |
 | V11 | **Open.** No live credentials in this session | — | Leave unrun, never fixture PASS |

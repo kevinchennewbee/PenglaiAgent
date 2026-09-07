@@ -77,7 +77,7 @@ relevant row; no row is closed by intent or a matching version string.
 - [x] V05 Restore appropriately named real Office validation, distinguish OOXML structure from real open/render, and validate actual page text rather than metadata alone.
 - [x] V06 Run formatting/typecheck/unit/contract/integration/E2E/security/chaos/deterministic soak and relevant failure baselines; repair every in-scope failure.
 - [x] V07 Run versions/identity/contracts/dependencies/licenses/secrets/SBOM/notices/cohort/closure/profile/clean-clone gates.
-- [ ] V08 Run real fixed-DSH plugin/Remote/connection disposal and profile-mode checks; execute Office-real and Memory-real.
+- [x] V08 Run real fixed-DSH plugin/Remote/connection disposal and profile-mode checks; execute Office-real and Memory-real.
 - [ ] V09 Build Apple Silicon/Intel Mac/Windows x64 from one clean main SHA; verify architecture, native helpers, packaged runtime and signatures.
 - [ ] V10 Run matching-native fresh/restart/Back/retry/invalid-path/credential-recovery/plugin/upgrade/uninstall checks; preserve user data and old Home generations.
 - [ ] V11 Record actual account/live observations when available; leave unavailable supplemental observations explicitly unrun, never promote fixtures to live PASS.
@@ -212,3 +212,27 @@ Exact remaining owner actions before those rows can close:
 6. Authorize immutable `v0.5.11` publication only after P03 bytes exist. Do not rewrite 0.5.10.
 
 Source gates are not installed, Windows-native, Intel, notarized, live-account, or public-release evidence.
+
+## Incremental verification — 2026-09-07 (landed SHA `d7f20c7e` + V08 darwin-aarch64)
+
+In-scope 0.5.11 source was committed as `d7f20c7eeadf6722ab832f5cc3374cb7c5e6f77a` on `codex/0.5.11`. Owner `AGENTS.md` and `docs/0.5.7/RELEASE_RUNBOOK.md` remain uncommitted. Evidence below was produced from a clean detached worktree of that SHA (`PenglaiAgent-0511-v08`). Public identity remains **0.5.10**.
+
+- V08: **PASS** on darwin-aarch64 for this SHA.
+  - `verify:office-real` official PASS (`dirty=false`): system ZIP/OOXML and Poppler accepted office artifacts.
+  - `verify:memory-real` official PASS: Mnemon 0.2.4 remember/search/recall/forget, isolation, exact 100k query.
+  - `embed-runtime` refreshed closure `sourceSha=d7f20c7e`, target darwin-aarch64, DSH `0.1.2-rc.1`.
+  - `verify:closure` PASS.
+  - `verify:profile` PASS (fresh mode): HTTP 200, credentials, Plugin Center, Office+Memory loaded, IM/ASR/TTS off, leftovers 0.
+  - `prepare:public-export --clean-room` PASS (1231 files, install+typecheck 0).
+  - `package:mac --target darwin-arm64` produced `dist/Penglai-v0.5.10-arm64.zip`.
+  - `build-local-dmg` produced `dist/Penglai_0.5.10_macos_aarch64.dmg` sha256 `01973f61a511cf4b6480622c94be6d170e889092e66e08a5ab7a94ec2c16a142` (ad-hoc, not notarized).
+  - `verify:bundled-runtime` PASS against the from-DMG `Penglai.app`.
+  - `verify:clean-clone` PASS: frozen-install, typecheck, build, `test:unit` on a clone of `d7f20c7e`.
+- R511-02c: darwin-aarch64 real CLI is now official PASS. Windows special-character paths, old database copies and rollback remain unrun. Pin stays `0.2.4`. Row stays open.
+- V09: **partial / still open**. One local Apple Silicon candidate exists from `d7f20c7e`, not from `main`, and not Intel Mac or Windows x64.
+- V10: **unrun**. `verify:installed` INCOMPLETE (`no 0.5.10 installed evidence for darwin-aarch64`). Fresh/restart/Back/retry/upgrade/uninstall not executed against this DMG.
+- V11: **unrun**. No live credentials.
+- P02: local commit of in-scope source exists (`d7f20c7e`). No push/PR/merge. Owner files still uncommitted.
+- P03–P05: **blocked**. This DMG is a local candidate, not the contract release set, and must not be announced as a 0.5.11 download.
+
+Remaining owner actions: push/PR if wanted; Intel Mac + Windows x64 matching-native builds from one clean SHA; installed lifecycle; live observations or explicit unrun; publication authorization. Do not rewrite 0.5.10.
