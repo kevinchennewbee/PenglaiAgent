@@ -240,10 +240,11 @@ Remaining owner actions after this pass: merge PR 133 if wanted; Intel Mac + Win
 ## Incremental verification — 2026-09-07 (PR 133)
 
 - P02 (partial): `codex/0.5.11` pushed to `origin`. PR: https://github.com/kevinchennewbee/PenglaiAgent/pull/133
-  Head `26246484` includes `d7f20c7e` (source), `e37d2a2d` (V08 docs), and the PDF/secret-scan linear scanners.
+  Head `d8ad31c7` includes `d7f20c7e` (source), V08 docs, PDF/secret-scan linear scanners, Memory candidate CAS test, and this ledger.
   Owner `AGENTS.md` and `docs/0.5.7/RELEASE_RUNBOOK.md` are not in the PR.
-  Source CI PASS: https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34099447387
-  PR checks PASS: Full source gates, CodeQL, Analyze (actions/c-cpp/javascript-typescript), Cloudflare Pages. Mergeable CLEAN.
+  Source CI PASS on `d8ad31c7`: https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34100553442
+  Earlier Source CI PASS on `26246484`: https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34099447387
+  PR checks PASS on `d8ad31c7`: Full source gates, CodeQL, Analyze (actions/c-cpp/javascript-typescript), Cloudflare Pages. Mergeable CLEAN.
   Merge to `main` is not done. Native Intel/Windows workflow (`native-release-candidate.yml`) requires clean `main` and was not dispatched.
 - Local extras on darwin-aarch64: `verify:asr-real` PASS, `verify:moss-real` PASS (worktree of the docs SHA; not three-target native evidence).
 - V09/V10/V11/P03–P05 unchanged: this host is Darwin arm64 only; no live credentials; no publication.
@@ -256,7 +257,7 @@ Remaining owner actions after this pass: merge PR 133 if wanted; Intel Mac + Win
 | V09 | open | Local ad-hoc Apple Silicon DMG from `d7f20c7e` only. Need Intel Mac + Windows x64 matching-native builds from one clean SHA. `native-release-candidate.yml` requires `main` and was not dispatched. |
 | V10 | open | `verify:installed` INCOMPLETE for this SHA. Fresh/restart/Back/retry/invalid-path/credential-recovery/upgrade/uninstall unrun. |
 | V11 | unrun | No live model/IM credentials. Fixtures are not live PASS. |
-| P02 | partial | Commits + push + PR 133. Merge to `main` not done. Owner `AGENTS.md` / `docs/0.5.7/RELEASE_RUNBOOK.md` stay local-only. |
+| P02 | partial | Commits + push + PR 133. Source CI PASS on `d8ad31c7` (run 34100553442). Merge to `main` not done. Owner `AGENTS.md` / `docs/0.5.7/RELEASE_RUNBOOK.md` stay local-only. |
 | P03–P05 | blocked | No 0.5.11 contract assets, no publication authorization, no public-byte readback. Do not rewrite 0.5.10. Do not announce 0.5.11 downloads. |
 
 Owner actions to close those rows: merge PR 133 if that is the intended development landing; run the three-target native workflow from a clean `main` SHA on matching hosts; collect installed lifecycle evidence; optionally supply live credentials or leave V11 unrun; then authorize `v0.5.11` publication.
