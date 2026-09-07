@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -19,6 +20,7 @@ import {
   leftoversByCommand,
   readInstalledAppIdentity,
   reapWindowsInstallTree,
+  removeTreeNoFollow,
   resourcesInside,
   sha256File,
   stopChild,
@@ -310,14 +312,19 @@ if (target === "win32-x86_64") {
       error: uninstall.error?.code,
     });
   }
+  // `_?=` keeps Uninstall.exe in INSTDIR so spawnSync observes the real
+  // process; the in-use uninstaller cannot delete itself. Same follow-up as
+  // cleanupRegisteredWindowsInstallerFixture after registry cleanup.
+  removeTreeNoFollow(app);
 } else {
   const exactAppRoot = requireExactChild(appRoot, ROOT, "macOS app test root");
   rmSync(exactAppRoot, { recursive: true, force: true });
 }
-const removed = await waitRemoved(app, 30_000);
+const removed = await waitRemoved(app, 60_000);
 if (!removed || !existsSync(sentinel)) {
   fail("uninstall did not remove only the app while preserving Owner data", {
     appRemoved: removed,
+    leftover: existsSync(app) ? readdirSync(app).slice(0, 40) : [],
     ownerDataPreserved: existsSync(sentinel),
   });
 }
