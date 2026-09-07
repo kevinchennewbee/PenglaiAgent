@@ -78,8 +78,8 @@ relevant row; no row is closed by intent or a matching version string.
 - [x] V06 Run formatting/typecheck/unit/contract/integration/E2E/security/chaos/deterministic soak and relevant failure baselines; repair every in-scope failure.
 - [x] V07 Run versions/identity/contracts/dependencies/licenses/secrets/SBOM/notices/cohort/closure/profile/clean-clone gates.
 - [x] V08 Run real fixed-DSH plugin/Remote/connection disposal and profile-mode checks; execute Office-real and Memory-real.
-- [ ] V09 Build Apple Silicon/Intel Mac/Windows x64 from one clean main SHA; verify architecture, native helpers, packaged runtime and signatures.
-- [ ] V10 Run matching-native fresh/restart/Back/retry/invalid-path/credential-recovery/plugin/upgrade/uninstall checks; preserve user data and old Home generations.
+- [x] V09 Build Apple Silicon/Intel Mac/Windows x64 from one clean main SHA; verify architecture, native helpers, packaged runtime and signatures.
+- [x] V10 Run matching-native fresh/restart/Back/retry/invalid-path/credential-recovery/plugin/upgrade/uninstall checks; preserve user data and old Home generations.
 - [ ] V11 Record actual account/live observations when available; leave unavailable supplemental observations explicitly unrun, never promote fixtures to live PASS.
 - [x] V12 Confirm the two-hour installed soak is absent from the required execution path while deterministic `test:soak` remains required.
 
@@ -90,10 +90,10 @@ relevant row; no row is closed by intent or a matching version string.
 - [x] W03 Redesign existing English/Chinese website with responsive layout, accessible controls and professional typography; preserve official publication architecture and URLs.
 - [x] W04 Validate desktop/mobile layouts, keyboard/language navigation, downloads and source-vs-installer claims; show the resulting preview.
 - [x] P01 Complete 0.5.11 acceptance delta/release notes/security/upgrade documentation and final requirement-by-requirement review.
-- [ ] P02 Complete normal source review, commits, push/PR/merge workflow without including unrelated Owner changes.
-- [ ] P03 Assemble the exact contract asset set from the accepted native builds; validate draft download hashes, signatures and source identity.
-- [ ] P04 Complete the applicable immutable release/publication workflow and exact public-byte readback; keep 0.5.10 untouched.
-- [ ] P05 Publish README/website release claims only after public artifacts exist, verify live links/pages, and close this ledger with authoritative evidence.
+- [x] P02 Complete normal source review, commits, push/PR/merge workflow without including unrelated Owner changes.
+- [x] P03 Assemble the exact contract asset set from the accepted native builds; validate draft download hashes, signatures and source identity.
+- [x] P04 Complete the applicable immutable release/publication workflow and exact public-byte readback; keep 0.5.10 untouched.
+- [x] P05 Publish README/website release claims only after public artifacts exist, verify live links/pages, and close this ledger with authoritative evidence.
 
 ## 中文说明
 
@@ -271,3 +271,14 @@ F05 identity is now retitled on `release/0.5.11` from `origin/main` `24b7aa09`. 
 - Source gates on this dirty tree: `format:check` ok; `typecheck` ok; `test:unit` 908 pass / 2 skip; `test:contract` 134; `test:security` 15; `verify:versions` PASS 0.5.11; `verify:identity` PASS dirty=true UNFROZEN; `verify:contracts` ok 0.5.11.
 - Intel native u3 on 0.5.10-named run `34104666669` failed `sawGateway` after the last restart; this tree waits 180s for `gateway.port` and drains leftover DSH processes before the next phase. That run cannot publish as 0.5.11.
 - V09/V10/P03–P05 still require a new three-target native run from a clean main SHA after this identity lands. Do not publish 0.5.10-named artifacts as 0.5.11.
+
+## Incremental verification — 2026-09-08 (public v0.5.11)
+
+Public identity is **0.5.11**. Immutable release [`v0.5.11`](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11). Source SHA `77e7105773b4d43abb7315ea6e83abe17e646cb4`. Published v0.5.10 was not rewritten.
+
+- V09/V10: three-target native [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34151469696) including 0.5.8/0.5.9/0.5.10 upgrade and default uninstall.
+- P03: ten-file draft assembled; hashes match `SHA256SUMS`.
+- P04: publication and public-byte readback [PASS](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34155522316).
+- P05: README, `website/`, and SECURITY.md download tables updated to the public bytes in `docs/PUBLICATION_MANIFEST_0.5.11.md`.
+- V11: still unrun. No live model/IM credentials. Fixtures are not live PASS.
+- R511-02c: Mnemon remains `0.2.4`. Windows special-character paths / old database copies still unrun as a dedicated native Mnemon row.

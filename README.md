@@ -9,7 +9,7 @@
 <p align="center"><strong>DeepSeek Harness, ready to live on a personal computer.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10"><img src="https://img.shields.io/badge/release-0.5.10-0f766e?style=flat-square" alt="Penglai 0.5.10 release"></a>
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11"><img src="https://img.shields.io/badge/release-0.5.11-0f766e?style=flat-square" alt="Penglai 0.5.11 release"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH-0.1.2--rc.1-7c3aed?style=flat-square" alt="DeepSeek Harness 0.1.2-rc.1"></a>
   <img src="https://img.shields.io/badge/targets-Apple%20Silicon%20%7C%20Intel%20Mac%20%7C%20Windows%20x64-0f766e?style=flat-square" alt="Apple Silicon, Intel Mac, and Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
@@ -19,29 +19,28 @@
   <a href="#english">English</a> ·
   <a href="#中文">中文</a> ·
   <a href="https://penglai.pages.dev">Website</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">Download 0.5.10</a> ·
-  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10">0.5.10 notes</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11">Download 0.5.11</a> ·
+  <a href="https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11">0.5.11 notes</a> ·
   <a href="AGENTS.md">For AI contributors</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
 
-> The current public product is Penglai 0.5.10, an immutable release built from
-> `c5c0bcb022c5ae47cca242deb27fe1d30444c41d`. It consumes official DSH `0.1.2-rc.1` npm packages,
+> The current public product is Penglai 0.5.11, an immutable release built from
+> `77e7105773b4d43abb7315ea6e83abe17e646cb4`. It consumes official DSH `0.1.2-rc.1` npm packages,
 > reconciled to tag `dsh-v0.1.2-rc.1` at
 > `a66e4702047846cdaa10c66c9d3df3951f5ea70d`. All 254 package archives,
 > registry signatures and pinned source manifests were verified.
 > The release includes three native installers and all seven integrity and license files.
 > macOS is ad-hoc signed and not notarized; Windows has no Authenticode.
-> [Release notes](docs/RELEASE_NOTES_0.5.10.md) · [Verified publication](docs/PUBLICATION_MANIFEST_0.5.10.md)
+> [Release notes](docs/RELEASE_NOTES_0.5.11.md) · [Verified publication](docs/PUBLICATION_MANIFEST_0.5.11.md)
 >
-> 0.5.11 is in development on this branch. It is not a published installer set.
-> Do not treat source tests as native, live-account or public-release evidence.
+> Published v0.5.10 tags and assets remain immutable. Source tests are not live-account evidence.
 
 <p align="center">
   <img src=".github/assets/0.5.5/plugin-center.png" width="49%" alt="Penglai 0.5.5 Plugin Center in the installed DSH settings">
   <img src=".github/assets/0.5.5/memory.png" width="49%" alt="Penglai Memory in the installed DSH settings">
 </p>
-<p align="center"><sub>Installed 0.5.5 screenshots are retained only as UI references. The 0.5.10 native-install evidence is recorded in its successful native run; these older images are not presented as 0.5.10 screenshots.</sub></p>
+<p align="center"><sub>Installed 0.5.5 screenshots are retained only as UI references. The 0.5.11 native-install evidence is recorded in its successful native run; these older images are not presented as 0.5.11 screenshots.</sub></p>
 
 <a id="english"></a>
 
@@ -62,23 +61,21 @@ actually usable: packaging, process supervision, onboarding, local paths,
 upgrades, uninstall, product identity, and plugin distribution. There is no
 second Penglai agent hiding beside DSH and no replacement chat page.
 
-Version 0.5.10 adapts message recovery, budget reconciliation and Companion
-replay to the official Session snapshot API. Upgrades from 0.5.8 and 0.5.9 use
-an isolated rc.1 DSH Home and preserve the previous generation for rollback.
-All three native installers pass credential-free onboarding and plugin checks,
-both upgrade paths, and default uninstall with user data preserved.
+Version 0.5.11 keeps that official Session snapshot path and adds isolation,
+recovery, Memory library, official IM question/approval identity, bounded PDF
+inspect, and redacted Plugin Center diagnostics. Upgrades from 0.5.8, 0.5.9
+and 0.5.10 use an isolated rc.1 DSH Home and preserve the previous generation
+for rollback. All three native installers pass credential-free onboarding and
+plugin checks, the three pinned upgrade paths, and default uninstall with user
+data preserved.
 
-The public download is still 0.5.10. 0.5.11 is in development on this branch
-and has no published installers. Source tests are not native, live-account or
-public-release evidence.
-
-## What ships in 0.5.10
+## What ships in 0.5.11
 
 | Product surface | Fresh install | What it does |
 | --- | --- | --- |
 | Penglai Office | On | Inspect, create, edit, preview, and save DOCX, XLSX, PPTX, and PDF |
 | Penglai Memory | On | Automatic current-Workspace memory, explicit personal memory, authorised sources, provenance, and a knowledge graph |
-| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.10 |
+| Mobile Messaging | Off | Eight platform connectors under one IM control plane; WhatsApp is not exposed or supported in 0.5.11 |
 | Speech Recognition | Off | Local SenseVoice transcription; enabling it adds the conversation microphone entry |
 | Voice Generation | Off | Local MOSS-TTS-Nano preview, desktop playback, and supported channel audio |
 | Companion | Off | Opt-in scheduled contact with quiet hours, daily limits, and a bound IM route |
@@ -205,17 +202,17 @@ go Back, retry a failed credential, resume after restart, and reject the app's
 own data or installation directory as a Workspace. Finishing the wizard means a
 real model reply was received, not merely that a health endpoint answered.
 
-The immutable [0.5.10 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10)
+The immutable [0.5.11 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11)
 contains exactly ten files: three native installers and seven integrity and license
 files. All installers were built from the same source SHA
-and passed [native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33775824578)
+and passed [native installed-product gates](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34151469696)
 and public download readback:
 
 | Platform | Release asset | Bytes | SHA-256 |
 | --- | --- | ---: | --- |
-| Apple Silicon, macOS 13+ | [`Penglai_0.5.10_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg) | 471,410,669 | `0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5` |
-| Intel Mac | [`Penglai_0.5.10_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg) | 407,030,741 | `6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea` |
-| Windows x64 | [`Penglai_0.5.10_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe) | 357,546,167 | `46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484` |
+| Apple Silicon, macOS 13+ | [`Penglai_0.5.11_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_aarch64.dmg) | 467,172,406 | `7a59833e32ae7cdcfc6dae6b1c2d744f251cb929cf251d758479c25fca41c536` |
+| Intel Mac | [`Penglai_0.5.11_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_x64.dmg) | 408,749,431 | `783fcf5c042998d1a550d7c48fe30879d78f996d5602f002dea411826e210798` |
+| Windows x64 | [`Penglai_0.5.11_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_windows_x64_setup.exe) | 357,628,547 | `5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929` |
 
 Use the same-platform installer as a manual overlay when upgrading. There is no
 silent update. External Workspaces and the `Penglai/0.5` data generation are
@@ -337,21 +334,19 @@ Turn 和会话界面都归 DSH。蓬莱负责那些不太耀眼、却决定桌�
 事情：打包、进程监管、安装引导、本地目录、升级、卸载、产品身份和插件分发。这里
 没有藏着第二套蓬莱 Agent，也没有另做一张聊天页替代 DSH。
 
-0.5.10 使用未经修改的官方 DSH `0.1.2-rc.1` npm 包，并让消息恢复、预算结算和
-主动陪伴回放适配官方 Session 快照接口。从 0.5.8 和 0.5.9 升级时使用独立的
-rc.1 数据目录，保留旧代际用于回退。三端安装包均通过无需真实账号的引导和插件
-检查、两条升级路径，以及默认保留用户数据的卸载验证。
+0.5.11 继续使用未经修改的官方 DSH `0.1.2-rc.1` npm 包，并补上隔离、恢复、
+记忆库、官方 IM 提问/审批身份、有界 PDF 检查和脱敏插件诊断。从 0.5.8、0.5.9
+和 0.5.10 升级时使用独立的 rc.1 数据目录，保留旧代际用于回退。三端安装包均
+通过无需真实账号的引导和插件检查、三条升级路径，以及默认保留用户数据的卸载
+验证。
 
-当前公开下载仍是 0.5.10。0.5.11 还在开发，没有安装包，也没有公开发布附件。
-源码测试不能当作原生安装、真实账号或公开发布证据。
-
-## 0.5.10 带来了什么
+## 0.5.11 带来了什么
 
 | 产品功能 | 全新安装 | 能做什么 |
 | --- | --- | --- |
 | 蓬莱办公 | 默认启用 | 检查、创建、编辑、预览和保存 DOCX、XLSX、PPTX、PDF |
 | 蓬莱记忆 | 默认启用 | 当前 Workspace 自动记忆、明确个人记忆、授权资料、来源追溯和知识图谱 |
-| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.10 不展示或支持 WhatsApp |
+| 消息连接 | 默认关闭 | 八个平台共用一个 IM 控制平面；0.5.11 不展示或支持 WhatsApp |
 | 蓬莱语音识别 | 默认关闭 | 本地 SenseVoice 转写；启用后为电脑会话提供麦克风入口 |
 | 蓬莱语音生成 | 默认关闭 | 本地 MOSS-TTS-Nano 试听、电脑播放和支持渠道的语音输出 |
 | 蓬莱主动陪伴 | 默认关闭 | 安静时段、每日上限、指定 IM 路由下的主动联系 |
@@ -456,17 +451,17 @@ SenseVoice 和 MOSS-TTS 默认关闭，是因为模型文件较大。语音识�
 真实 DSH Turn。它支持返回、密钥失败后重试、重启后续接，也会拒绝把应用数据目录
 或安装目录选作 Workspace。只有模型真的回复了，才算完成，不会拿健康接口冒充。
 
-不可变的 [0.5.10 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.10)
+不可变的 [0.5.11 Release](https://github.com/kevinchennewbee/PenglaiAgent/releases/tag/v0.5.11)
 固定十项附件：三个原生安装包和七项完整性、签名与许可证材料。
 三个安装包来自同一源码提交，并已通过
-[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/33775824578)
+[三端原生安装门禁](https://github.com/kevinchennewbee/PenglaiAgent/actions/runs/34151469696)
 和公网下载回读：
 
 | 平台 | 正式文件 | 字节数 | SHA-256 |
 | --- | --- | ---: | --- |
-| Apple Silicon，macOS 13+ | [`Penglai_0.5.10_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_aarch64.dmg) | 471,410,669 | `0fdca1a2d64c536088b53ddd4910851e9876abed4ee114aecd7a1437ff9417e5` |
-| Intel Mac | [`Penglai_0.5.10_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_macos_x64.dmg) | 407,030,741 | `6771901b5bf3b7e9e0c192125a866bf2e6c1c605655a8d07339ea37dc64ee9ea` |
-| Windows x64 | [`Penglai_0.5.10_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.10/Penglai_0.5.10_windows_x64_setup.exe) | 357,546,167 | `46b45bbb6a18859c7be03413b7983ad90dacc7710233130b2c81cb5a537bd484` |
+| Apple Silicon，macOS 13+ | [`Penglai_0.5.11_macos_aarch64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_aarch64.dmg) | 467,172,406 | `7a59833e32ae7cdcfc6dae6b1c2d744f251cb929cf251d758479c25fca41c536` |
+| Intel Mac | [`Penglai_0.5.11_macos_x64.dmg`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_macos_x64.dmg) | 408,749,431 | `783fcf5c042998d1a550d7c48fe30879d78f996d5602f002dea411826e210798` |
+| Windows x64 | [`Penglai_0.5.11_windows_x64_setup.exe`](https://github.com/kevinchennewbee/PenglaiAgent/releases/download/v0.5.11/Penglai_0.5.11_windows_x64_setup.exe) | 357,628,547 | `5862cf0df14daf12ef223d5a825cad501ea56f78a40cdb54bef4fa8b7779c929` |
 
 升级时使用同平台安装包手动覆盖即可。它不会静默升级；外部 Workspace 与
 `Penglai/0.5` 数据代际会保留。

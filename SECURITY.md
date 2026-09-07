@@ -1,17 +1,18 @@
 # Security Policy
 
-Penglai 0.5.10 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
+Penglai 0.5.11 is a **community-verified** desktop distribution of official DeepSeek Harness (DSH). This file is the public security entry. The full product contract lives in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Supported versions
 
 | Version | Status |
 | --- | --- |
-| 0.5.10 | Current immutable public release |
-| 0.5.8 and 0.5.9 | Historical releases; native upgrades to 0.5.10 verified on all three targets |
+| 0.5.11 | Current immutable public release |
+| 0.5.10 | Historical immutable release; native upgrades to 0.5.11 verified on all three targets |
+| 0.5.8 and 0.5.9 | Historical releases; native upgrades to 0.5.11 verified on all three targets |
 | Earlier 0.5.x | Historical releases; use the documented migration path |
 | 0.4.1 and earlier | Unsupported; 0.5 does not silently import or delete old secrets or databases |
 
-The 0.5.10 release contains all ten files in its release contract, including
+The 0.5.11 release contains all ten files in its release contract, including
 signed update metadata, SHA256SUMS, the three-target SBOM and third-party notices.
 The immutable 0.5.9 release contains only its three installers; its missing
 metadata is a historical publication defect. Do not infer signed updater
@@ -48,7 +49,7 @@ Adapters cannot call a parallel Agent. `docs/0.5.7/LIVE_IM_MATRIX.md` preserves
 historical account-test requirements; it does not establish current-version live
 results. Current account journeys are claimed only with current evidence. Slack,
 Telegram, and Discord do not fake QR.
-WhatsApp is not displayed, supported, planned, or bundled in 0.5.10.
+WhatsApp is not displayed, supported, planned, or bundled in 0.5.11.
 
 - Weixin: real QR login. The scanner is the only allowed identity unless the user expands the allowlist.
 - Feishu: the official application-registration QR flow is used where available, with manual App ID/Secret setup as a fallback. Penglai does not host the application or invent a login QR.
@@ -79,11 +80,11 @@ Penglai will not claim notarization, Authenticode, App Store trust, silent auto-
 
 ## 中文
 
-当前正式版本为 0.5.10，使用固定的官方 DSH `0.1.2-rc.1` npm 包。
-Apple Silicon、Intel Mac 和 Windows x64 均验证从 0.5.8、0.5.9 升级并在默认
+当前正式版本为 0.5.11，使用固定的官方 DSH `0.1.2-rc.1` npm 包。
+Apple Silicon、Intel Mac 和 Windows x64 均验证从 0.5.8、0.5.9、0.5.10 升级并在默认
 卸载后保留用户数据。旧版 DSH Home 保留，rc.1 在独立目录通过健康检查后启用。
 
-0.5.10 的正式发布包含十项完整附件，包括签名更新清单、校验和、三端 SBOM 与
+0.5.11 的正式发布包含十项完整附件，包括签名更新清单、校验和、三端 SBOM 与
 第三方声明。0.5.9 历史发布只有三个安装包，缺少元数据属于当时的发布缺陷；
 不能据此声称该版签名更新链路完整。原有不可变附件未被修改。
 
