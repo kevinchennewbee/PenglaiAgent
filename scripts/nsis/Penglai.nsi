@@ -117,7 +117,7 @@ Section "Penglai" SecApp
       Rename "$INSTDIR" "$INSTDIR.previous"
       IfErrors 0 upgrade_rename_pending
       IntOp $R3 $R3 + 1
-      IntCmp $R3 90 upgrade_activate_failed upgrade_rename_live upgrade_activate_failed
+      IntCmp $R3 90 upgrade_rename_fallback upgrade_rename_live upgrade_rename_fallback
     upgrade_rename_pending:
       StrCpy $R3 "0"
     upgrade_rename_pending_retry:
@@ -131,6 +131,20 @@ Section "Penglai" SecApp
       IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
       RMDir /r "$INSTDIR.previous"
       Goto upgrade_done
+    upgrade_rename_fallback:
+      ; Directory MoveFile can stay blocked (Defender/Search) after Penglai.exe
+      ; has exited. Copy the staged payload over the live tree instead of
+      ; deleting INSTDIR, and only then drop the pending staging directory.
+      CreateDirectory "$INSTDIR.previous"
+      CopyFiles /SILENT "$INSTDIR\*.*" "$INSTDIR.previous"
+      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
+      IntCmp $R4 8 upgrade_activate_failed 0 upgrade_activate_failed
+      IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
+      RMDir /r "$R2"
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=activate-copy-fallback r3=$R3 robocopy=$R4$\r$\n"
+      FileClose $R8
+      Goto upgrade_done
     upgrade_copy_failed:
       RMDir /r "$R2"
       FileOpen $R8 "$TEMP\penglai-setup.log" w
@@ -142,9 +156,13 @@ Section "Penglai" SecApp
       FileOpen $R8 "$TEMP\penglai-setup.log" w
       FileWrite $R8 "phase=activate-failed r3=$R3$\r$\n"
       FileClose $R8
+      IfFileExists "$INSTDIR.previous\Penglai.exe" 0 upgrade_abort_keep_live
       RMDir /r "$INSTDIR"
       Rename "$INSTDIR.previous" "$INSTDIR"
       MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version and restored the previous install." /SD IDOK
+      Abort
+    upgrade_abort_keep_live:
+      MessageBox MB_ICONSTOP|MB_SETFOREGROUND "Penglai could not activate the new version. The previous install was left in place." /SD IDOK
       Abort
     upgrade_done:
   ${Else}

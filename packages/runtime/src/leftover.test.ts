@@ -237,6 +237,9 @@ test("Windows upgrade refuses the old live-tree delete-then-copy pattern", async
   assert.match(live, /taskkill\.exe/);
   assert.match(live, /\/IM Penglai\.exe/);
   assert.match(live, /penglai-setup\.log/);
+  assert.match(live, /upgrade_rename_fallback/);
+  assert.match(live, /robocopy\.exe/);
+  assert.match(live, /upgrade_abort_keep_live/);
   const noRetry = `
     StrCpy $R2 "$INSTDIR.pending"
     SetOutPath "$R2"

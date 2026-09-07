@@ -303,6 +303,9 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(script, /upgrade_rename_live/);
   assert.match(script, /taskkill\.exe/);
   assert.match(script, /penglai-setup\.log/);
+  assert.match(script, /upgrade_rename_fallback/);
+  assert.match(script, /robocopy\.exe/);
+  assert.match(script, /upgrade_abort_keep_live/);
   const contract = windowsNativeHostContract();
   assert.equal(contract.posixModeImpersonation, false);
   const payload = readFileSync(new URL("../../../scripts/package-windows-payload.mjs", import.meta.url), "utf8");
