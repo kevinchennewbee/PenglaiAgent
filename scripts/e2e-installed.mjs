@@ -387,32 +387,35 @@ const first = {
   http,
   websocket: official.websocket ?? { opened: false },
   live,
-  identity: evaluateLiveSample({
-    now: Date.now(),
-    health: {
-      at: new Date().toISOString(),
-      pid: launched.child.pid,
-      dshPid: processTree.dshPid,
-      sourceSha: candidateSourceSha,
-      installerSha256: installed.installerSha256,
-      target: declaredTarget,
-    },
-    observed,
-    expectedIdentity,
-    expected: {
-      sourceSha: candidateSourceSha,
-      artifactSha: installed.installerSha256,
-      target: declaredTarget,
-    },
-    liveHttpWs: {
-      httpOfficial: Boolean(live.httpOfficial || http.official),
-      wsOpened: Boolean(live.wsOpened || official.websocket?.opened),
-    },
-    requireOfficialLive: !walk?.wizardKeyless?.ok,
-    declaredSourceSha: candidateSourceSha,
-    declaredArtifactSha: installed.installerSha256,
-    declaredTarget,
-  }),
+  identity: {
+    ...evaluateLiveSample({
+      now: Date.now(),
+      health: {
+        at: new Date().toISOString(),
+        pid: launched.child.pid,
+        dshPid: processTree.dshPid,
+        sourceSha: candidateSourceSha,
+        installerSha256: installed.installerSha256,
+        target: declaredTarget,
+      },
+      observed,
+      expectedIdentity,
+      expected: {
+        sourceSha: candidateSourceSha,
+        artifactSha: installed.installerSha256,
+        target: declaredTarget,
+      },
+      liveHttpWs: {
+        httpOfficial: Boolean(live.httpOfficial || http.official),
+        wsOpened: Boolean(live.wsOpened || official.websocket?.opened),
+      },
+      requireOfficialLive: !walk?.wizardKeyless?.ok,
+      declaredSourceSha: candidateSourceSha,
+      declaredArtifactSha: installed.installerSha256,
+      declaredTarget,
+    }),
+    version: identity.facts.version,
+  },
   dom: {
     hasRoot: Boolean(walk?.last?.hasRoot || official.snap?.hasRoot),
     hasDshBoot: Boolean(walk?.last?.hasDshBoot || official.snap?.hasDshBoot),
@@ -472,6 +475,7 @@ if (resume.attempted && resume.ok === false) fail("wizard did not resume from le
 const keylessOk = Boolean(walk?.wizardKeyless?.ok && resume.ok);
 const candidateRecord = {
   fromExactDmg: true,
+  version: identity.facts.version,
   walk: walk ? { wizardKeyless: walk.wizardKeyless } : null,
   resume,
 };

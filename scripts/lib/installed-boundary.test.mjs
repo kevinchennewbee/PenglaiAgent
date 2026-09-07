@@ -63,6 +63,18 @@ test("credential-free installed checks fail a missing or legacy version instead 
   assert.equal(credentialFreeInstalledPass(legacy), false);
 });
 
+test("currentVersion accepts installed facts.version on a live-sample identity object", () => {
+  const input = sample();
+  delete input.first.identity.version;
+  input.first.identity = { ok: true, verdict: "PASS", reasons: [], reason: "", version: "0.5.10" };
+  assert.equal(credentialFreeInstalledChecks(input).currentVersion, "PASS");
+  assert.equal(credentialFreeInstalledPass(input), true);
+  const viaRec = sample();
+  delete viaRec.first.identity.version;
+  viaRec.rec.version = "0.5.10";
+  assert.equal(credentialFreeInstalledChecks(viaRec).currentVersion, "PASS");
+});
+
 test("credential-free evidence never claims a nonce or first Turn", () => {
   const checks = credentialFreeInstalledChecks(sample());
   assert.equal(Object.hasOwn(checks, "officialNonceTurn"), false);
