@@ -180,6 +180,9 @@ export function assertWindowsUpgradeStaging(script: string): void {
   if (script.indexOf("upgrade_rename_fallback") < 0 || script.indexOf("robocopy.exe") < 0) {
     throw new Error("Windows upgrade must copy the staged payload over a live tree that cannot be renamed");
   }
+  if (script.indexOf("upgrade_pending_fallback") < 0 || script.indexOf("pending-copy-fallback") < 0) {
+    throw new Error("Windows upgrade must copy the staged payload when INSTDIR.pending cannot be renamed");
+  }
   if (script.indexOf("upgrade_abort_keep_live") < 0) {
     throw new Error("Windows upgrade must not delete INSTDIR when INSTDIR.previous was never created");
   }

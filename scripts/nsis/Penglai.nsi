@@ -126,7 +126,17 @@ Section "Penglai" SecApp
       IfErrors 0 upgrade_rename_ok
       Sleep 1000
       IntOp $R3 $R3 + 1
-      IntCmp $R3 90 upgrade_activate_failed upgrade_rename_pending_retry upgrade_activate_failed
+      IntCmp $R3 90 upgrade_pending_fallback upgrade_rename_pending_retry upgrade_pending_fallback
+    upgrade_pending_fallback:
+      CreateDirectory "$INSTDIR"
+      ExecWait '"$SYSDIR\robocopy.exe" "$R2" "$INSTDIR" /E /IS /IT /R:5 /W:2 /NFL /NDL /NJH /NJS' $R4
+      IntCmp $R4 8 upgrade_activate_failed 0 upgrade_activate_failed
+      IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
+      RMDir /r "$R2"
+      FileOpen $R8 "$TEMP\penglai-setup.log" w
+      FileWrite $R8 "phase=pending-copy-fallback r3=$R3 robocopy=$R4$\r$\n"
+      FileClose $R8
+      Goto upgrade_done
     upgrade_rename_ok:
       IfFileExists "$INSTDIR\Penglai.exe" 0 upgrade_activate_failed
       RMDir /r "$INSTDIR.previous"

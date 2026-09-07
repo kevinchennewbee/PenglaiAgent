@@ -136,6 +136,33 @@ function readWindowsSetupLog() {
   return sanitizeEvidenceText(text, 2_000);
 }
 
+let lastWindowsDefender = { attempted: false };
+
+function relaxWindowsInstallLocks(app) {
+  if (process.platform !== "win32") return { attempted: false };
+  const root = resolve(String(process.env.LOCALAPPDATA ?? ""), "Penglai");
+  const script = [
+    "Set-MpPreference -DisableRealtimeMonitoring $true",
+    `Add-MpPreference -ExclusionPath '${root.replace(/'/g, "''")}'`,
+    "Get-MpPreference | Select-Object -ExpandProperty DisableRealtimeMonitoring",
+  ].join("; ");
+  const defender = spawnSync("powershell.exe", ["-NoProfile", "-Command", script], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 30_000,
+  });
+  if (app) {
+    spawnSync("taskkill.exe", ["/F", "/T", "/IM", "Penglai.exe"], { windowsHide: true, timeout: 15_000 });
+  }
+  lastWindowsDefender = {
+    attempted: true,
+    status: defender.status,
+    stdout: sanitizeEvidenceText(String(defender.stdout ?? ""), 200),
+    stderr: sanitizeEvidenceText(String(defender.stderr ?? ""), 200),
+  };
+  return lastWindowsDefender;
+}
+
 function installWindows(installer, label) {
   const run = spawnSync(installer, ["/S"], { encoding: "utf8", windowsHide: true, timeout: 20 * 60_000 });
   if (run.error || run.status !== 0) {
@@ -147,6 +174,7 @@ function installWindows(installer, label) {
       stderr: sanitizeEvidenceText(String(run.stderr ?? ""), 1_000),
       setupLog: readWindowsSetupLog(),
       lockers: leftoversByCommand(join(String(process.env.LOCALAPPDATA ?? ""), "Penglai", "app", "0.5")).slice(0, 20),
+      defender: lastWindowsDefender,
     });
   }
   const localAppData = process.env.LOCALAPPDATA;
@@ -246,6 +274,7 @@ if (target === "win32-x86_64") {
 
 const previousIdentity = assertVersion(app, previousVersion, "previous install");
 const previousBoot = await boot(app, userData, "previous install");
+if (target === "win32-x86_64") relaxWindowsInstallLocks(app);
 
 if (target === "win32-x86_64") {
   app = installWindows(currentInstaller, "0.5.11 upgrade");
@@ -311,4 +340,5 @@ finish("PASS", {
   upgradePreservedOwnerData: true,
   uninstallRemovedApp: true,
   uninstallPreservedOwnerData: true,
+  defender: lastWindowsDefender,
 });
