@@ -271,6 +271,31 @@ test("auto-workspace uses local risk policy and ignores model confidence", () =>
   v2.close();
 });
 
+test("pending candidate CAS rejects a second decide from another store handle", () => {
+  const root = mkdtempSync(join(tmpdir(), "penglai-mem-cas-"));
+  const path = join(root, "v2.sqlite3");
+  const first = new MemoryV2Store(path);
+  const row = first.enqueue({
+    workspaceId: "ws-a",
+    sessionId: "s1",
+    turnId: "t-cas",
+    kind: "project_fact",
+    text: "Office writes still need Owner confirmation",
+    rationale: "fact",
+    confidence: 0.9,
+    sourceDigest: digest,
+  });
+  assert.equal("candidateId" in row, true);
+  if (!("candidateId" in row)) throw new Error("expected candidate");
+  first.decide(row.candidateId, "accepted");
+  assert.throws(() => first.decide(row.candidateId, "rejected"), /MEMORY_CANDIDATE_STATE/);
+  const second = new MemoryV2Store(path);
+  assert.throws(() => second.decide(row.candidateId, "rejected"), /MEMORY_CANDIDATE_STATE/);
+  assert.equal(second.getCandidate(row.candidateId)?.status, "accepted");
+  first.close();
+  second.close();
+});
+
 test("R56-MEM-012 recall set stays within 20 items and 2048 tokens", () => {
   const v2 = store();
   const confirmed = Array.from({ length: 40 }, (_, i) => ({

@@ -45,7 +45,7 @@ A source PASS never closes a native, live, or public row.
 | A03 | Office job ops require Workspace/Session | source | — |
 | A04 | Ancestor/canonical deletion tests | source | — |
 | A05 | Darwin data-root process cleanup; Windows executable-wide reap removed | source | Windows native helper unrun |
-| A06 | Candidate policy before materialization | source | Concurrent crash-window still limited |
+| A06 | Candidate policy before materialization; pending `decide` CAS across store handles | source | — |
 | A07 | PDF/OOXML expansion budgets | source | — |
 | A08 | Secret scanner URL/detector exemptions fixed | source | — |
 | A09 | Digest bindings stay session-scoped | source | — |

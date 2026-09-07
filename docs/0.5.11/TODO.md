@@ -247,3 +247,16 @@ Remaining owner actions after this pass: merge PR 133 if wanted; Intel Mac + Win
   Merge to `main` is not done. Native Intel/Windows workflow (`native-release-candidate.yml`) requires clean `main` and was not dispatched.
 - Local extras on darwin-aarch64: `verify:asr-real` PASS, `verify:moss-real` PASS (worktree of the docs SHA; not three-target native evidence).
 - V09/V10/V11/P03–P05 unchanged: this host is Darwin arm64 only; no live credentials; no publication.
+
+## Remaining gaps that this session cannot close
+
+| Row | Status | Exact gap |
+| --- | --- | --- |
+| R511-02c | open | Retain Mnemon `0.2.4`. Darwin-aarch64 CLI official PASS. Windows special-character paths, old `mnemon.db` copies, and rollback unrun. Successor `0.2.7`/`0.2.8` not pinned. |
+| V09 | open | Local ad-hoc Apple Silicon DMG from `d7f20c7e` only. Need Intel Mac + Windows x64 matching-native builds from one clean SHA. `native-release-candidate.yml` requires `main` and was not dispatched. |
+| V10 | open | `verify:installed` INCOMPLETE for this SHA. Fresh/restart/Back/retry/invalid-path/credential-recovery/upgrade/uninstall unrun. |
+| V11 | unrun | No live model/IM credentials. Fixtures are not live PASS. |
+| P02 | partial | Commits + push + PR 133. Merge to `main` not done. Owner `AGENTS.md` / `docs/0.5.7/RELEASE_RUNBOOK.md` stay local-only. |
+| P03–P05 | blocked | No 0.5.11 contract assets, no publication authorization, no public-byte readback. Do not rewrite 0.5.10. Do not announce 0.5.11 downloads. |
+
+Owner actions to close those rows: merge PR 133 if that is the intended development landing; run the three-target native workflow from a clean `main` SHA on matching hosts; collect installed lifecycle evidence; optionally supply live credentials or leave V11 unrun; then authorize `v0.5.11` publication.
