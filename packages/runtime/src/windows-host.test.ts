@@ -297,7 +297,9 @@ test("NSIS script always preserves user data after in-app exact deletion", () =>
   assert.match(script, /CreateShortCut\s+"\$DESKTOP\\Penglai\.lnk"/);
   assert.match(script, /Delete\s+"\$DESKTOP\\Penglai\.lnk"/);
   // The recursive app-tree delete must be guarded to the default install dir.
-  assert.match(script, /RMDir\s+\/r\s+"\$INSTDIR"\s*\n\s*\$\{Else\}/);
+  assert.match(script, /\$R0 S== \$R1/);
+  assert.match(script, /uninstall_rmdir_retry/);
+  assert.match(script, /Keeping custom install directory/);
   assert.match(script, /\$INSTDIR\.pending/);
   assert.match(script, /previous install was left in place/);
   assert.match(script, /upgrade_rename_live/);
