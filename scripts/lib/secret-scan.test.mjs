@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatSecretHits, FIXTURE_MARKER, scanText } from "./secret-scan.mjs";
+import { formatSecretHits, FIXTURE_MARKER, lineLooksLikeDetector, scanText } from "./secret-scan.mjs";
 
 const SAMPLE_KEY = `sk-${"abcdefghijklmnopqrstuvwxyz012345"}`;
 
@@ -40,6 +40,14 @@ test("R56-SEC-007 detector regex lines without a concrete key are not hits", () 
     "if (/BEGIN OPENSSH PRIVATE KEY|minisign sk/.test(source)) {", // penglai-test-fixture
   );
   assert.deepEqual(hits, []);
+});
+
+test("detector-line classification stays linear on backslash-dot noise", () => {
+  const noise = "\\.".repeat(20_000);
+  const started = Date.now();
+  assert.equal(lineLooksLikeDetector(`if (/${noise}/.test(source)) {`), true);
+  assert.equal(lineLooksLikeDetector("const live = true;"), false);
+  assert.ok(Date.now() - started < 250);
 });
 
 test("URLs and unrelated detector calls cannot suppress concrete credentials", () => {

@@ -84,10 +84,25 @@ export async function inspectPdf(bytes: Buffer): Promise<{
   };
 }
 
+function collectBetween(source: string, open: string, close: string, limit = 4_000): string[] {
+  const out: string[] = [];
+  let from = 0;
+  while (out.length < limit) {
+    const start = source.indexOf(open, from);
+    if (start < 0) break;
+    const body = start + open.length;
+    const end = source.indexOf(close, body);
+    if (end < 0) break;
+    out.push(source.slice(body, end));
+    from = end + close.length;
+  }
+  return out;
+}
+
 function extractPdfPageTexts(latin1: string, pageCount: number): string[] {
   const decoded = inflatePdfStreams(latin1);
   const cmap = parseToUnicode(decoded);
-  const blocks = [...decoded.matchAll(/BT([\s\S]*?)ET/g)].map((match) => decodePdfOperators(match[1] ?? "", cmap));
+  const blocks = collectBetween(decoded, "BT", "ET").map((block) => decodePdfOperators(block, cmap));
   if (blocks.length === 0) {
     const loose = decodePdfOperators(decoded, cmap);
     return Array.from({ length: Math.max(1, pageCount) }, (_, index) => (index === 0 ? loose : ""));
@@ -114,34 +129,68 @@ function parseToUnicode(decoded: string): Map<string, string> {
 
 function inflatePdfStreams(latin1: string): string {
   let out = latin1;
-  const re = /stream\r?\n([\s\S]*?)endstream/g;
-  for (const match of latin1.matchAll(re)) {
-    const raw = match[1] ?? "";
+  let from = 0;
+  while (from < latin1.length) {
+    const start = latin1.indexOf("stream", from);
+    if (start < 0) break;
+    let body = start + 6;
+    if (latin1.charCodeAt(body) === 13) body += 1;
+    if (latin1.charCodeAt(body) !== 10) {
+      from = start + 6;
+      continue;
+    }
+    body += 1;
+    const end = latin1.indexOf("endstream", body);
+    if (end < 0) break;
+    const raw = latin1.slice(body, end);
     try {
       const inflated = inflateSync(Buffer.from(raw, "latin1"));
       out += `\n${inflated.toString("latin1")}`;
     } catch {
       try {
-        const inflated = inflateSync(Buffer.from(raw.replace(/^\r?\n/, "").replace(/\r?\n$/, ""), "latin1"));
+        const trimmed = raw.startsWith("\n") || raw.startsWith("\r")
+          ? raw.replace(/^\r?\n/, "").replace(/\r?\n$/, "")
+          : raw;
+        const inflated = inflateSync(Buffer.from(trimmed, "latin1"));
         out += `\n${inflated.toString("latin1")}`;
       } catch {
         /* keep the original compressed payload */
       }
     }
+    from = end + 9;
   }
   return out;
 }
 
-function decodePdfOperators(operators: string, cmap: Map<string, string> = new Map()): string {
+function extractPdfLiteralStrings(operators: string): string[] {
   const parts: string[] = [];
-  for (const match of operators.matchAll(/\((?:\\.|[^\\)])*\)/g)) {
-    parts.push((match[0] ?? "").slice(1, -1).replace(/\\([()\\nrt])/g, (_, ch: string) => {
-      if (ch === "n") return "\n";
-      if (ch === "r") return "\r";
-      if (ch === "t") return "\t";
-      return ch;
-    }));
+  for (let i = 0; i < operators.length; i += 1) {
+    if (operators.charCodeAt(i) !== 40) continue;
+    let text = "";
+    let j = i + 1;
+    while (j < operators.length) {
+      const code = operators.charCodeAt(j);
+      if (code === 92 && j + 1 < operators.length) {
+        const next = operators[j + 1] ?? "";
+        if (next === "n") text += "\n";
+        else if (next === "r") text += "\r";
+        else if (next === "t") text += "\t";
+        else text += next;
+        j += 2;
+        continue;
+      }
+      if (code === 41) break;
+      text += operators[j] ?? "";
+      j += 1;
+    }
+    parts.push(text);
+    i = j;
   }
+  return parts;
+}
+
+function decodePdfOperators(operators: string, cmap: Map<string, string> = new Map()): string {
+  const parts: string[] = extractPdfLiteralStrings(operators);
   for (const match of operators.matchAll(/<([0-9A-Fa-f]+)>/g)) {
     const hex = (match[1] ?? "").toLowerCase();
     if (!hex) continue;

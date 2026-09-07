@@ -4,6 +4,14 @@ import { createHash } from "node:crypto";
 import { createPdf, inspectPdf } from "./adapters/pdf.js";
 import { artifactDigest, previewPdfPages } from "./pdf-preview.js";
 
+test("PDF inspect stays linear on BT-repeat noise inside a real created document", async () => {
+  const bytes = await createPdf(`BT-noise ${"BTa".repeat(8_000)} visible-marker`);
+  const started = Date.now();
+  const seen = await inspectPdf(bytes);
+  assert.match(seen.text, /visible-marker/);
+  assert.ok(Date.now() - started < 2_000);
+});
+
 test("PDF inspect keeps full created body and does not treat title metadata as the page", async () => {
   const body = "alpha-line\n".repeat(40);
   const bytes = await createPdf(body);
