@@ -1,10 +1,11 @@
 # Penglai 0.5.11 acceptance delta
 
-This delta is for the `codex/0.5.11` development branch. It does not authorize
-publication and does not replace `docs/0.5.10/ACCEPTANCE_DELTA.md`.
+This delta is for Penglai **0.5.11**. It does not replace
+`docs/0.5.10/ACCEPTANCE_DELTA.md`. Published **v0.5.10** tags and assets stay
+immutable.
 
-Public downloads, three-target native installers, signatures and live-account
-proof remain those of **0.5.10** until a later immutable 0.5.11 publication.
+Public README/website download tables remain **0.5.10** until immutable
+`v0.5.11` GitHub Release bytes exist and are read back.
 
 ## In scope for this development tree
 
@@ -36,9 +37,9 @@ Exact identities are in `COHORT_FREEZE.json` and must match
   `a66e4702047846cdaa10c66c9d3df3951f5ea70d`, 254-package cohort.
 - `dsh-v0.1.3-alpha.1` is rejected as a successor until a complete npm cohort
   exists. Mixed DSH generations are forbidden.
-- Public product identity remains **0.5.10** (`v0.5.10`). This tree must not
-  retitle package/lock/profile/release-contract identity to 0.5.11 without
-  publication authorization.
+- Product identity, package versions, `release-contract.json` and installer
+  names are **0.5.11**. Published **v0.5.10** remains immutable. README and
+  website download claims stay on 0.5.10 until public 0.5.11 bytes exist.
 - Migration/rollback: preserve the previous DSH Home generation and switch the
   pointer only after health checks; Plugin Center restores last-good profile;
   Windows upgrade stages `$INSTDIR.pending` and restores `$INSTDIR.previous`.

@@ -1,4 +1,4 @@
-import { PenglaiError } from "@penglai/contracts";
+import { PenglaiError, RELEASE } from "@penglai/contracts";
 import type { MemoryStore } from "./store.js";
 
 export type MemoryScope = "global" | "workspace" | "candidate";
@@ -71,7 +71,7 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
     const rows = new Map<number, MemoryWrite & { id: number }>();
     return {
       name: "@penglai/memory",
-      version: "0.5.10",
+      version: RELEASE,
       assertReadable,
       modelCannotWriteGlobal,
       write(input) {
@@ -153,7 +153,7 @@ export function createMemoryService(store?: MemoryStore): MemoryService {
   }
   const service: MemoryService = {
     name: "@penglai/memory",
-    version: "0.5.10",
+    version: RELEASE,
     assertReadable,
     modelCannotWriteGlobal,
     write(input, receipt = "manual") {

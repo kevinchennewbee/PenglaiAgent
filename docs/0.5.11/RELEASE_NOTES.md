@@ -1,11 +1,9 @@
 # Penglai 0.5.11 development notes
 
-**This is not a public release.** There is no `v0.5.11` GitHub Release, no
-0.5.11 installer set, and no authorized retitle of `package.json`. Current
-public downloads remain [Penglai 0.5.10](../RELEASE_NOTES_0.5.10.md).
-
-These notes describe the `codex/0.5.11` development tree at HEAD
-`10ef5df4fc0fbccd2d119dfeecbc8436ccccff01`.
+**This is not a public release.** Product identity, package versions and
+installer names are **0.5.11**. There is no immutable `v0.5.11` GitHub Release
+yet, so public download tables remain [Penglai 0.5.10](../RELEASE_NOTES_0.5.10.md).
+Published **v0.5.10** tags and assets stay immutable.
 
 ## What this tree changes (source)
 

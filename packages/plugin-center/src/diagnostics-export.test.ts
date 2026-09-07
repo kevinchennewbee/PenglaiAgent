@@ -5,8 +5,8 @@ import { exportRedactedCenterDiagnostics } from "./diagnostics-export.js";
 test("redacted Center diagnostics omit credentials, chat, QR and private paths", () => {
   const seen = exportRedactedCenterDiagnostics({
     catalog: [
-      { id: "@penglai/im", desired: "0.5.10", installed: "0.5.10", loaded: true, healthy: true, actual: "active" },
-      { id: "@penglai/office", desired: "0.5.10", installed: "0.5.10", loaded: false, healthy: false, actual: "failed" },
+      { id: "@penglai/im", desired: "0.5.11", installed: "0.5.11", loaded: true, healthy: true, actual: "active" },
+      { id: "@penglai/office", desired: "0.5.11", installed: "0.5.11", loaded: false, healthy: false, actual: "failed" },
     ],
     now: () => Date.parse("2026-09-07T00:00:00Z"),
   });

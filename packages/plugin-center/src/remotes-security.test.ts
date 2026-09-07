@@ -87,7 +87,7 @@ test("Center list never relays damaged preset errors or local paths", () => {
         entries: [
           {
             moduleName: "@penglai/im",
-            version: "0.5.10",
+            version: "0.5.11",
             enabled: true,
             fiberPhase: "failed",
             health: "failed",

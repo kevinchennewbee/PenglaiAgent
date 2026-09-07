@@ -34,7 +34,7 @@ import {
 
 const versionIndex = process.argv.indexOf("--previous-version");
 const previousVersion = versionIndex < 0 ? undefined : process.argv[versionIndex + 1];
-const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.10/UPGRADE_SOURCES.json"), "utf8"));
+const upgradeSources = JSON.parse(readFileSync(join(ROOT, "docs/0.5.11/UPGRADE_SOURCES.json"), "utf8"));
 const sourcePin = upgradeSources.sources.find((row) => row.version === previousVersion);
 
 function fail(reason, details = {}) {
@@ -194,17 +194,17 @@ const previousIdentity = assertVersion(app, previousVersion, "previous install")
 const previousBoot = await boot(app, userData, "previous install");
 
 if (target === "win32-x86_64") {
-  app = installWindows(currentInstaller, "0.5.10 upgrade");
+  app = installWindows(currentInstaller, "0.5.11 upgrade");
 } else {
   const current = installFromExactDmg(
     currentInstaller,
     appRoot,
     installerForTarget(target),
   );
-  if (!current.ok) fail(`0.5.10 DMG upgrade failed: ${current.reason}`);
+  if (!current.ok) fail(`0.5.11 DMG upgrade failed: ${current.reason}`);
   app = current.app;
 }
-const currentIdentity = assertVersion(app, "0.5.10", "upgraded install");
+const currentIdentity = assertVersion(app, "0.5.11", "upgraded install");
 const currentPackage = inspectPackagedCandidate({ app, candidateSha: source.git.head, expectedTarget: target });
 if (currentPackage.verdict !== "PASS") fail("upgraded installer source identity mismatch", { currentPackage });
 const currentBoot = await boot(app, userData, "upgraded install");

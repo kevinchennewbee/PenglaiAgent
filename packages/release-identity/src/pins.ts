@@ -1,5 +1,5 @@
 export const PRODUCT_NAME = "Penglai";
-export const PRODUCT_VERSION = "0.5.10";
+export const PRODUCT_VERSION = "0.5.11";
 export const CANDIDATE_KIND = "public-community-release";
 export const TRUST_TIER = "community-verified";
 export const GENERATION_ID = "penglai-dsh-v0.5";
@@ -104,14 +104,14 @@ export const REQUIRED_HARD_FAMILIES = [
 export const GITHUB_ACTIONS_STATUS = "AVAILABLE";
 export const CANDIDATE_SOURCE_SHA_NONE = "NONE";
 export const UPDATER_CHANNEL = "desktop-v0.5";
-/** Monotonic after the last complete public manifest (0.5.8, sequence 5). */
-export const UPDATER_SEQUENCE = 6;
+/** Monotonic after the last complete public manifest (0.5.10, sequence 6). */
+export const UPDATER_SEQUENCE = 7;
 
 export const PUBLICATION_TARGET = Object.freeze({
   repo: "kevinchennewbee/PenglaiAgent",
-  tag: "v0.5.10",
-  release: "v0.5.10",
-  channel: "stable-v0.5.10",
+  tag: "v0.5.11",
+  release: "v0.5.11",
+  channel: "stable-v0.5.11",
 });
 
 export const RELEASE_TARGETS = [
@@ -119,19 +119,19 @@ export const RELEASE_TARGETS = [
     key: "darwin-aarch64",
     platform: "darwin",
     arch: "arm64",
-    installer: "Penglai_0.5.10_macos_aarch64.dmg",
+    installer: "Penglai_0.5.11_macos_aarch64.dmg",
   },
   {
     key: "darwin-x86_64",
     platform: "darwin",
     arch: "x64",
-    installer: "Penglai_0.5.10_macos_x64.dmg",
+    installer: "Penglai_0.5.11_macos_x64.dmg",
   },
   {
     key: "win32-x86_64",
     platform: "win32",
     arch: "x64",
-    installer: "Penglai_0.5.10_windows_x64_setup.exe",
+    installer: "Penglai_0.5.11_windows_x64_setup.exe",
   },
 ] as const;
 

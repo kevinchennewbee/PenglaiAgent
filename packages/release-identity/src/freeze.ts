@@ -158,12 +158,13 @@ export const REJECTED_DSH_SUCCESSOR_TAG = "dsh-v0.1.3-alpha.1" as const;
 export interface CohortFreezeRecord {
   schema: 1;
   kind: typeof COHORT_FREEZE_KIND;
-  status: "development-frozen";
+  status: "development-frozen" | "publication-authorized";
   publicRelease: { productVersion: string; tag: string; immutable: true };
+  previousPublicRelease?: { productVersion: string; tag: string; immutable: true };
   development: {
     versionLabel: "0.5.11";
-    publicationAuthorized: false;
-    identityRetitled: false;
+    publicationAuthorized: boolean;
+    identityRetitled: boolean;
   };
   dsh: {
     version: string;
@@ -194,11 +195,29 @@ export function assertCohortFreeze(input: {
 }): void {
   const { freeze, productVersion, releaseContract } = input;
   const pins = freezePins();
-  if (freeze.schema !== 1 || freeze.kind !== COHORT_FREEZE_KIND || freeze.status !== "development-frozen") {
+  if (freeze.schema !== 1 || freeze.kind !== COHORT_FREEZE_KIND) {
+    throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");
+  }
+  if (freeze.status === "publication-authorized") {
+    if (freeze.development.publicationAuthorized !== true || freeze.development.identityRetitled !== true) {
+      throw new PenglaiError("SECURITY_POLICY", "publication-authorized freeze must retitle 0.5.11");
+    }
+    if (
+      freeze.previousPublicRelease?.productVersion !== "0.5.10" ||
+      freeze.previousPublicRelease.tag !== "v0.5.10" ||
+      freeze.previousPublicRelease.immutable !== true
+    ) {
+      throw new PenglaiError("SECURITY_POLICY", "published 0.5.10 identity must stay immutable");
+    }
+  } else if (freeze.status === "development-frozen") {
+    if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== false) {
+      throw new PenglaiError("SECURITY_POLICY", "0.5.11 identity retitle requires publication authorization");
+    }
+  } else {
     throw new PenglaiError("INVALID_INPUT", "cohort freeze identity");
   }
   if (freeze.publicRelease.immutable !== true) {
-    throw new PenglaiError("SECURITY_POLICY", "published 0.5.10 identity must stay immutable");
+    throw new PenglaiError("SECURITY_POLICY", "current public identity must stay immutable once tagged");
   }
   if (
     freeze.publicRelease.productVersion !== PRODUCT_VERSION ||
@@ -206,10 +225,7 @@ export function assertCohortFreeze(input: {
     freeze.publicRelease.productVersion !== releaseContract.version ||
     freeze.publicRelease.tag !== `v${PRODUCT_VERSION}`
   ) {
-    throw new PenglaiError("SECURITY_POLICY", "public release identity drifted from 0.5.10 freeze");
-  }
-  if (freeze.development.publicationAuthorized !== false || freeze.development.identityRetitled !== false) {
-    throw new PenglaiError("SECURITY_POLICY", "0.5.11 identity retitle requires publication authorization");
+    throw new PenglaiError("SECURITY_POLICY", "public release identity drifted from product freeze");
   }
   if (
     freeze.dsh.version !== pins.dsh ||

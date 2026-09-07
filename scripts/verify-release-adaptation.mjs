@@ -6,7 +6,7 @@ import { validateCohortSnapshot, verifyCohortLock } from "./lib/dsh-npm-cohort.m
 import { readReleaseIdentityPins } from "./lib/release-pins-source.mjs";
 import { ROOT } from "./lib/repo.mjs";
 
-const BASE = "8f50d0e998f00b9f4b52e08a36738fbd27760e24";
+const BASE = "10ef5df4fc0fbccd2d119dfeecbc8436ccccff01";
 const pins = readReleaseIdentityPins();
 const failures = [];
 
@@ -25,22 +25,27 @@ function readJson(relative) {
 try {
   execFileSync("git", ["merge-base", "--is-ancestor", BASE, "HEAD"], { cwd: ROOT, stdio: "ignore" });
 } catch {
-  fail(`0.5.10 preview must descend from ${BASE}`);
+  fail(`0.5.11 must descend from published 0.5.10 ${BASE}`);
 }
 
 const protectedPaths = [
   "docs/0.5.8",
   "docs/0.5.9",
+  "docs/0.5.10",
   "docs/PUBLICATION_MANIFEST_0.5.8.md",
   "docs/RELEASE_NOTES_0.5.8.md",
+  "docs/PUBLICATION_MANIFEST_0.5.10.md",
+  "docs/RELEASE_NOTES_0.5.10.md",
 ];
 const protectedChanges = git(["diff", "--name-only", BASE, "--", ...protectedPaths]).split("\n").filter(Boolean);
-if (protectedChanges.length > 0) fail(`0.5.10 development rewrote immutable 0.5.8 history: ${protectedChanges.join(", ")}`);
-
-if (pins.productVersion !== "0.5.10" || pins.dsh !== "0.1.2-rc.1") {
-  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.10/0.1.2-rc.1`);
+if (protectedChanges.length > 0) {
+  fail(`0.5.11 rewrote immutable published history: ${protectedChanges.join(", ")}`);
 }
-if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.10 must not activate the historical alpha.1 source resolver");
+
+if (pins.productVersion !== "0.5.11" || pins.dsh !== "0.1.2-rc.1") {
+  fail(`release pins are ${pins.productVersion}/${pins.dsh}, expected 0.5.11/0.1.2-rc.1`);
+}
+if (existsSync(join(ROOT, ".pnpmfile.mjs"))) fail("0.5.11 must not activate the historical alpha.1 source resolver");
 
 const snapshotPath = join(ROOT, "docs/0.5.10/DSH_NPM_COHORT.json");
 const snapshotBytes = readFileSync(snapshotPath);
@@ -130,7 +135,7 @@ const manifestGate = spawnSync(process.execPath, [join(ROOT, "scripts/migrate-re
   cwd: ROOT,
   encoding: "utf8",
 });
-if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.10 manifest gate failed");
+if (manifestGate.status !== 0) fail(manifestGate.stderr || manifestGate.stdout || "0.5.11 manifest gate failed");
 
 for (const relative of [
   "packages/dsh-bridge/src/index.ts",

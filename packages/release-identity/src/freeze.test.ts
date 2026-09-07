@@ -27,22 +27,25 @@ function loadContract() {
   };
 }
 
-test("0.5.11 development freeze retains the rc.1 cohort and does not retitle 0.5.10", () => {
+test("0.5.11 publication-authorized freeze retitles identity and keeps 0.5.10 immutable", () => {
   const freeze = loadFreeze();
   const releaseContract = loadContract();
   const productVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version as string;
   assertCohortFreeze({ freeze, productVersion, releaseContract });
   assert.equal(freeze.kind, COHORT_FREEZE_KIND);
+  assert.equal(freeze.status, "publication-authorized");
   assert.equal(freeze.dsh.rejectedSuccessor.tag, REJECTED_DSH_SUCCESSOR_TAG);
+  assert.equal(productVersion, "0.5.11");
   assert.equal(productVersion, PRODUCT_VERSION);
-  assert.equal(releaseContract.publication.tag, "v0.5.10");
-  assert.equal(readFileSync(join(root, "packages/contracts/src/index.ts"), "utf8").includes('export const RELEASE = "0.5.10"'), true);
+  assert.equal(releaseContract.publication.tag, "v0.5.11");
+  assert.equal(freeze.previousPublicRelease?.tag, "v0.5.10");
+  assert.equal(readFileSync(join(root, "packages/contracts/src/index.ts"), "utf8").includes('export const RELEASE = "0.5.11"'), true);
 });
 
-test("cohort freeze rejects mixed DSH generations and a silent 0.5.11 identity retitle", () => {
+test("cohort freeze rejects mixed DSH generations and rewriting v0.5.10", () => {
   const freeze = loadFreeze();
   const releaseContract = loadContract();
-  const productVersion = "0.5.10";
+  const productVersion = PRODUCT_VERSION;
   assert.throws(
     () =>
       assertCohortFreeze({
@@ -60,19 +63,19 @@ test("cohort freeze rejects mixed DSH generations and a silent 0.5.11 identity r
       assertCohortFreeze({
         freeze: {
           ...freeze,
-          development: { ...freeze.development, identityRetitled: true as never },
+          previousPublicRelease: { productVersion: "0.5.10", tag: "v0.5.10", immutable: false as never },
         },
         productVersion,
         releaseContract,
       }),
-    /identity retitle requires publication authorization/,
+    /published 0.5.10 identity must stay immutable/,
   );
   assert.throws(
     () =>
       assertCohortFreeze({
         freeze: {
           ...freeze,
-          publicRelease: { ...freeze.publicRelease, productVersion: "0.5.11" },
+          publicRelease: { ...freeze.publicRelease, productVersion: "0.5.10" },
         },
         productVersion,
         releaseContract,

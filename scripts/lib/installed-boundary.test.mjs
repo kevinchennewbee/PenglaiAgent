@@ -22,7 +22,7 @@ function sample() {
       resume: { attempted: true, ok: true },
     },
     first: {
-      identity: { ok: true, version: "0.5.10" },
+      identity: { ok: true, version: "0.5.11" },
       nativeBoot: { ok: true, authenticationBoundary: true },
       processTree: { ownedAbsolute: true, dshPid: 42 },
       inventory: { ok: true, im: false },
@@ -66,12 +66,12 @@ test("credential-free installed checks fail a missing or legacy version instead 
 test("currentVersion accepts installed facts.version on a live-sample identity object", () => {
   const input = sample();
   delete input.first.identity.version;
-  input.first.identity = { ok: true, verdict: "PASS", reasons: [], reason: "", version: "0.5.10" };
+  input.first.identity = { ok: true, verdict: "PASS", reasons: [], reason: "", version: "0.5.11" };
   assert.equal(credentialFreeInstalledChecks(input).currentVersion, "PASS");
   assert.equal(credentialFreeInstalledPass(input), true);
   const viaRec = sample();
   delete viaRec.first.identity.version;
-  viaRec.rec.version = "0.5.10";
+  viaRec.rec.version = "0.5.11";
   assert.equal(credentialFreeInstalledChecks(viaRec).currentVersion, "PASS");
 });
 
@@ -94,7 +94,7 @@ test("Windows fixture cleanup is limited to dedicated release-test roots", () =>
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp-installed-e2e-app", root), true);
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\.tmp\\u3-welcome-app", root), true);
   assert.equal(
-    isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\dist\\Penglai-v0.5.10-win32-x64\\Penglai", root),
+    isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent\\dist\\Penglai-v0.5.11-win32-x64\\Penglai", root),
     true,
   );
   assert.equal(isControlledWindowsInstallerFixture("D:\\work\\PenglaiAgent", root), false);

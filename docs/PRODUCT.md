@@ -1,4 +1,4 @@
-# Penglai 0.5.10 product contract
+# Penglai 0.5.11 product contract
 
 ## English
 
@@ -11,18 +11,18 @@ first run, process supervision, local data boundaries, assisted updates,
 uninstall, and a reviewed set of DSH plugins. It does not ship a second agent,
 provider gateway, session store, or chat page.
 
-Version 0.5.10 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
+Version 0.5.11 targets Apple Silicon, Intel Mac, and Windows x64 with official DSH
 `0.1.2-rc.1`. A fresh user brings a provider credential, selects an official
 model and Workspace, receives a real first DSH reply, and then uses the official
-DSH Web interface.
+DSH Web interface. Published 0.5.10 remains immutable.
 
 ### 2. Supported platforms
 
 | Device | Exact installer |
 | --- | --- |
-| Apple Silicon, macOS 13+ | `Penglai_0.5.10_macos_aarch64.dmg` |
-| Intel Mac, macOS 13+ | `Penglai_0.5.10_macos_x64.dmg` |
-| Windows 10+ x64 | `Penglai_0.5.10_windows_x64_setup.exe` |
+| Apple Silicon, macOS 13+ | `Penglai_0.5.11_macos_aarch64.dmg` |
+| Intel Mac, macOS 13+ | `Penglai_0.5.11_macos_x64.dmg` |
+| Windows 10+ x64 | `Penglai_0.5.11_windows_x64_setup.exe` |
 
 The app contains its target Electron, Node, DSH closure, profile seed, bundled
 plugins, licenses, and integrity metadata. It never falls back to a system Node,
